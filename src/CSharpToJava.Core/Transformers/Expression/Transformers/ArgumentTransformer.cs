@@ -670,7 +670,12 @@ public class ArgumentTransformer
             if (analysis == null || !analysis.Succeeded)
                 return true;
 
-            return analysis.AlwaysAssigned.Any(symbol => SymbolEqualityComparer.Default.Equals(symbol, local));
+            // Use DefinitelyAssignedOnExit instead of AlwaysAssigned: AlwaysAssigned
+            // considers ALL exit points (including early returns via if-return), so a
+            // variable assigned after an if-return is not "always assigned" on the
+            // return path. But for ref semantics, we only care about paths that actually
+            // reach the ref call site — DefinitelyAssignedOnExit captures that.
+            return analysis.DefinitelyAssignedOnExit.Any(symbol => SymbolEqualityComparer.Default.Equals(symbol, local));
         }
         catch (ArgumentException)
         {

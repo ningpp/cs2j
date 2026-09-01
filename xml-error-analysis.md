@@ -167,4 +167,23 @@
 - **根因分类**: Transformer 逻辑缺陷
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs` — `TransformByteArrayAsBase64` 方法
 - **分析**: 当 byte 数组初始化器元素数 ≥ 512 时，转换器将其转为 `Base64.getDecoder().decode(...)` 并添加 `import java.util.Base64`。但如果生成的 Java 文件同时 import 了 `io.github.ningpp.compat.*`（其中也有 `Base64` 类），则 `Base64` 引用变得不明确。修复方案：使用完全限定名 `java.util.Base64.getDecoder().decode(...)` 并不再添加 `import java.util.Base64`。
-- **状态**: 🔧 修复中
+- **状态**: ✅ Fixed
+
+## Iteration 3 — ref holder 未用变量当前值初始化（NPE）
+
+- **Java 文件**: `system-private-xml/src/main/java/MS/Internal/Xml/Cache/XPathDocumentNavigator.java`
+- **行号**: 109-110
+- **错误信息**: `java.lang.NullPointerException: Cannot load from object array because "page" is null` at `XPathNodeHelper.getNonDescendant(XPathNodeHelper.java:723)`
+- **代码片段**:
+  ```java
+  // line 107-110 (修复前)
+  page = pageEnd = _pageCurrent;
+  idx = idxEnd = _idxCurrent;
+  io.github.ningpp.compat.ObjectHolder<XPathNode[]> _pageEndRef = new io.github.ningpp.compat.ObjectHolder<>();  // ← 空 holder!
+  io.github.ningpp.compat.IntHolder _idxEndRef = new io.github.ningpp.compat.IntHolder();  // ← 空 holder!
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Cache\XPathDocumentNavigator.cs`
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs` — `ShouldSeedRefHolderFromCurrentValue` 方法
+- **分析**: `ShouldSeedRefHolderFromCurrentValue` 使用 Roslyn 的 `AnalyzeDataFlow(...).AlwaysAssigned` 来判断 ref 参数的变量是否在调用前已赋值。但 `AlwaysAssigned` 考虑所有退出路径（包括中间的 `if (cond) return;` 提前返回路径）。在 C# 代码中，`pageEnd` 在声明后经过多条语句（包括 if-return）才被赋值 `page = pageEnd = _pageCurrent;`，然后传给 `ref`。由于 if-return 路径上 `pageEnd` 未被赋值，`AlwaysAssigned` 不包含它，导致 holder 被创建为空值。修复：改用 `DefinitelyAssignedOnExit`，它只考虑能到达分析区域末尾的路径（即实际能执行到 ref 调用的路径）。
+- **状态**: ✅ Fixed
