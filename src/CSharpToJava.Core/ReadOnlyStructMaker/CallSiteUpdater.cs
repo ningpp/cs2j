@@ -363,6 +363,13 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
         MemberAccessExpressionSyntax memberAccess,
         ExpressionSyntax receiver)
     {
+        // When the receiver is an array element access (e.g. _page[0].Create(args)),
+        // the array may have just been allocated with default(null) elements (Java)
+        // whereas C# struct arrays are zero-initialized. Replace the right-hand
+        // side receiver with new TypeName() so the method is called on a valid
+        // default instance rather than null.
+        var rhsReceiver = TryReplaceArrayElementWithNewInstance(receiver, invocation) ?? receiver;
+
         var sideEffecting = FindTopMostSideEffecting(receiver);
         if (sideEffecting.Count == 0)
         {
@@ -371,12 +378,26 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
                 receiver.WithoutTrivia(),
                 invocation.WithoutTrivia())
                 .WithTriviaFrom(node.Expression);
+            // If we replaced the RHS receiver, rebuild the invocation with the new receiver
+            if (rhsReceiver != receiver)
+            {
+                var newInvocation = invocation.WithExpression(
+                    memberAccess.WithExpression(rhsReceiver.WithoutTrivia()));
+                simple = SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    receiver.WithoutTrivia(),
+                    newInvocation.WithoutTrivia())
+                    .WithTriviaFrom(node.Expression);
+            }
             return node.WithExpression(simple);
         }
 
         var prelude = new List<StatementSyntax>();
         var pureReceiver = (ExpressionSyntax)new SideEffectHoister(sideEffecting, prelude, this).Visit(receiver)!;
-        var pureInvocation = invocation.WithExpression(memberAccess.WithExpression(pureReceiver.WithoutTrivia()));
+        var effectiveRhsReceiver = rhsReceiver != receiver
+            ? (ExpressionSyntax)new SideEffectHoister(sideEffecting, prelude, this).Visit(rhsReceiver)!
+            : pureReceiver;
+        var pureInvocation = invocation.WithExpression(memberAccess.WithExpression(effectiveRhsReceiver.WithoutTrivia()));
         var assignment = SyntaxFactory.AssignmentExpression(
             SyntaxKind.SimpleAssignmentExpression,
             pureReceiver.WithoutTrivia(),
@@ -385,6 +406,44 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
         return SyntaxFactory.Block(
                 prelude.Concat(new[] { SyntaxFactory.ExpressionStatement(assignment) }))
             .WithTriviaFrom(node);
+    }
+
+    /// <summary>
+    /// When the receiver is an array element access whose element type is a
+    /// struct being converted to a Java class (e.g. XPathNode[]), the array
+    /// elements default to null in Java (unlike C# struct arrays which are
+    /// zero-initialized). Return a new TypeName() expression to use on the
+    /// right-hand side so the method is called on a valid default instance.
+    /// </summary>
+    private ExpressionSyntax? TryReplaceArrayElementWithNewInstance(
+        ExpressionSyntax receiver, InvocationExpressionSyntax invocation)
+    {
+        if (receiver is not ElementAccessExpressionSyntax elementAccess)
+            return null;
+
+        try
+        {
+            var receiverType = _model.GetTypeInfo(elementAccess).Type;
+            if (receiverType == null)
+            {
+                // Fallback: look at the array type
+                var arrayType = _model.GetTypeInfo(elementAccess.Expression).Type;
+                if (arrayType is IArrayTypeSymbol arraySym)
+                    receiverType = arraySym.ElementType;
+            }
+            if (receiverType is INamedTypeSymbol namedType && namedType.TypeKind == TypeKind.Struct)
+            {
+                var typeName = namedType.Name;
+                return SyntaxFactory.ObjectCreationExpression(
+                    SyntaxFactory.ParseTypeName(typeName),
+                    SyntaxFactory.ArgumentList(),
+                    null);
+            }
+        }
+        catch (ArgumentException)
+        {
+        }
+        return null;
     }
 
     private int _sideEffectCounter;
