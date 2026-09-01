@@ -1,4 +1,4 @@
-﻿using CSharpToJava.Core.ReadOnlyStructMaker;
+﻿﻿using CSharpToJava.Core.ReadOnlyStructMaker;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -1452,6 +1452,10 @@ internal static class ProjectReadOnlyStructPreprocessor
             return;
         }
 
+        // Track every directory where a shim was written so we can later patch
+        // ancestor csproj files to exclude child-directory shims.
+        var shimDirectories = new List<string>();
+
         foreach (var project in projectGraph.ProjectsInTopologicalOrder)
         {
             if (project.Kind != ProjectKind.Test)
@@ -1495,9 +1499,70 @@ internal static class ProjectReadOnlyStructPreprocessor
             var shimSource = TestUiCultureShimSource.Replace(TestUiCultureShimAssemblyPlaceholder, assemblyName);
             var shimPath = Path.Combine(intermediateProjectDirectory, TestUiCultureShimFileName);
             File.WriteAllText(shimPath, shimSource, new System.Text.UTF8Encoding(false));
+            shimDirectories.Add(intermediateProjectDirectory);
             if (verbose)
             {
                 Console.WriteLine($"[make-readonly] Injected test UI-culture shim: {shimPath}");
+            }
+        }
+
+        // SDK-style csproj files glob-include all .cs files recursively. When a
+        // test project directory contains a child test project (e.g. Tests\XPath\
+        // has XPath.Tests.csproj and sub-dirs XmlDocument\ and XPathDocument\ with
+        // their own csproj), the parent csproj would also compile the child's shim,
+        // causing duplicate-definition errors (CS0101). For each csproj in the tree,
+        // add <Compile Remove> entries for every shim that lives in a descendant
+        // directory that belongs to a DIFFERENT project.
+        ExcludeDescendantShimsFromAncestorCsprojs(intermediateRoot, shimDirectories, verbose);
+    }
+
+    /// <summary>
+    /// For each .csproj in the intermediate tree, adds &lt;Compile Remove&gt; entries
+    /// for shim files that live in descendant directories belonging to other projects,
+    /// preventing SDK-style glob inclusion from pulling in duplicate shims.
+    /// </summary>
+    private static void ExcludeDescendantShimsFromAncestorCsprojs(
+        string intermediateRoot,
+        List<string> shimDirectories,
+        bool verbose)
+    {
+        var sep = Path.DirectorySeparatorChar;
+        foreach (var csproj in Directory.EnumerateFiles(intermediateRoot, "*.csproj", SearchOption.AllDirectories))
+        {
+            var csprojDir = Path.GetDirectoryName(csproj)!;
+            // Collect relative paths of descendant shim files (not the csproj's own shim).
+            var descendantShimRels = new List<string>();
+            foreach (var shimDir in shimDirectories)
+            {
+                if (string.Equals(shimDir, csprojDir, StringComparison.OrdinalIgnoreCase))
+                    continue; // own shim — should be included
+                if (!shimDir.StartsWith(csprojDir + sep, StringComparison.OrdinalIgnoreCase))
+                    continue; // not a descendant
+                var rel = Path.GetRelativePath(csprojDir, Path.Combine(shimDir, TestUiCultureShimFileName));
+                descendantShimRels.Add(rel.Replace('\\', '/'));
+            }
+
+            if (descendantShimRels.Count == 0)
+                continue;
+
+            var content = File.ReadAllText(csproj);
+            var removeLines = string.Join("\n    ",
+                descendantShimRels.Select(rel => $"<Compile Remove=\"{rel}\" />"));
+
+            // Skip if already present
+            if (content.Contains(removeLines, StringComparison.Ordinal))
+                continue;
+
+            // Insert a new ItemGroup before </Project>
+            var itemGroup = $"\n  <ItemGroup>\n    {removeLines}\n  </ItemGroup>\n";
+            var closeProjectIdx = content.LastIndexOf("</Project>", StringComparison.OrdinalIgnoreCase);
+            if (closeProjectIdx < 0)
+                continue;
+            var patched = content.Insert(closeProjectIdx, itemGroup);
+            File.WriteAllText(csproj, patched, new System.Text.UTF8Encoding(false));
+            if (verbose)
+            {
+                Console.WriteLine($"[make-readonly] Excluded {descendantShimRels.Count} descendant shim(s) from: {csproj}");
             }
         }
     }

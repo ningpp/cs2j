@@ -365,10 +365,14 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
     {
         // When the receiver is an array element access (e.g. _page[0].Create(args)),
         // the array may have just been allocated with default(null) elements (Java)
-        // whereas C# struct arrays are zero-initialized. Replace the right-hand
-        // side receiver with new TypeName() so the method is called on a valid
-        // default instance rather than null.
-        var rhsReceiver = TryReplaceArrayElementWithNewInstance(receiver, invocation) ?? receiver;
+        // whereas C# struct arrays are zero-initialized. However, replacing the RHS
+        // receiver with new TypeName() is WRONG when multiple method calls are
+        // chained on the same element (e.g. page[i].Create(...); page[i].SetValue(...);)
+        // because each call would start from a fresh default instance, discarding
+        // the state set by the previous call. The array element null issue is
+        // already handled by Arrays.setAll initialization in StatementTransformer.
+        // Therefore, always use the original receiver on both sides.
+        var rhsReceiver = receiver;
 
         var sideEffecting = FindTopMostSideEffecting(receiver);
         if (sideEffecting.Count == 0)
@@ -378,26 +382,12 @@ public sealed class CallSiteUpdater : CSharpSyntaxRewriter
                 receiver.WithoutTrivia(),
                 invocation.WithoutTrivia())
                 .WithTriviaFrom(node.Expression);
-            // If we replaced the RHS receiver, rebuild the invocation with the new receiver
-            if (rhsReceiver != receiver)
-            {
-                var newInvocation = invocation.WithExpression(
-                    memberAccess.WithExpression(rhsReceiver.WithoutTrivia()));
-                simple = SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.SimpleAssignmentExpression,
-                    receiver.WithoutTrivia(),
-                    newInvocation.WithoutTrivia())
-                    .WithTriviaFrom(node.Expression);
-            }
             return node.WithExpression(simple);
         }
 
         var prelude = new List<StatementSyntax>();
         var pureReceiver = (ExpressionSyntax)new SideEffectHoister(sideEffecting, prelude, this).Visit(receiver)!;
-        var effectiveRhsReceiver = rhsReceiver != receiver
-            ? (ExpressionSyntax)new SideEffectHoister(sideEffecting, prelude, this).Visit(rhsReceiver)!
-            : pureReceiver;
-        var pureInvocation = invocation.WithExpression(memberAccess.WithExpression(effectiveRhsReceiver.WithoutTrivia()));
+        var pureInvocation = invocation.WithExpression(memberAccess.WithExpression(pureReceiver.WithoutTrivia()));
         var assignment = SyntaxFactory.AssignmentExpression(
             SyntaxKind.SimpleAssignmentExpression,
             pureReceiver.WithoutTrivia(),
