@@ -1623,7 +1623,7 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             // Use the field name to look up the declared type from _fieldTypes,
             // because 'access' and 'originalOperand' are synthetic nodes not
             // in the original syntax tree, so SemanticModel cannot resolve them.
-            return TryWrapWithCastIfNeeded(access.Name.Identifier.Text, binary);
+            return TryWrapWithCastIfNeeded(access.Name.Identifier.Text, binary, access);
         }
 
         /// <summary>
@@ -1631,27 +1631,63 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
         /// ushort), wrapping the binary expression in a cast prevents CS1503
         /// errors because the arithmetic promotes to int.
         /// </summary>
-        private ExpressionSyntax TryWrapWithCastIfNeeded(string fieldName, ExpressionSyntax expr)
+        private ExpressionSyntax TryWrapWithCastIfNeeded(string fieldName, ExpressionSyntax expr,
+            MemberAccessExpressionSyntax? contextNode = null)
         {
-            if (!_fieldTypes.TryGetValue(fieldName, out var fieldTypeSyntax))
-                return expr;
-
-            var typeName = fieldTypeSyntax.ToString();
-            var castType = typeName switch
-            {
-                "byte" => "byte",
-                "sbyte" => "sbyte",
-                "short" => "short",
-                "ushort" => "ushort",
-                _ => null
-            };
-
+            var castType = LookupCastType(fieldName, contextNode);
             if (castType == null)
                 return expr;
 
             return SyntaxFactory.CastExpression(
                 SyntaxFactory.ParseTypeName(castType),
                 SyntaxFactory.ParenthesizedExpression(expr));
+        }
+
+        private string? LookupCastType(string fieldName, MemberAccessExpressionSyntax? contextNode)
+        {
+            // 1. Check _fieldTypes dictionary (from ApplyMethodMigrate)
+            if (_fieldTypes.TryGetValue(fieldName, out var fieldTypeSyntax))
+            {
+                return fieldTypeSyntax.ToString() switch
+                {
+                    "byte" => "byte",
+                    "sbyte" => "sbyte",
+                    "short" => "short",
+                    "ushort" => "ushort",
+                    _ => null
+                };
+            }
+
+            // 2. Fallback: find the enclosing StructDeclarationSyntax and
+            //    inspect its FieldDeclarationSyntax members directly.
+            if (contextNode != null)
+            {
+                var structDecl = contextNode.FirstAncestorOrSelf<StructDeclarationSyntax>();
+                if (structDecl != null)
+                {
+                    foreach (var f in structDecl.Members.OfType<FieldDeclarationSyntax>())
+                    {
+                        if (f.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword) || m.IsKind(SyntaxKind.ConstKeyword)))
+                            continue;
+                        foreach (var v in f.Declaration.Variables)
+                        {
+                            if (v.Identifier.Text == fieldName)
+                            {
+                                return f.Declaration.Type.ToString() switch
+                                {
+                                    "byte" => "byte",
+                                    "sbyte" => "sbyte",
+                                    "short" => "short",
+                                    "ushort" => "ushort",
+                                    _ => null
+                                };
+                            }
+                        }
+                    }
+                }
+            }
+
+            return null;
         }
 
         private static ExpressionSyntax BuildWithCall(MemberAccessExpressionSyntax access, ExpressionSyntax value)
