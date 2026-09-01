@@ -1648,18 +1648,12 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
             // 1. Check _fieldTypes dictionary (from ApplyMethodMigrate)
             if (_fieldTypes.TryGetValue(fieldName, out var fieldTypeSyntax))
             {
-                return fieldTypeSyntax.ToString() switch
-                {
-                    "byte" => "byte",
-                    "sbyte" => "sbyte",
-                    "short" => "short",
-                    "ushort" => "ushort",
-                    _ => null
-                };
+                return NormalizeCastType(fieldTypeSyntax.ToString());
             }
 
             // 2. Fallback: find the enclosing StructDeclarationSyntax and
-            //    inspect its FieldDeclarationSyntax members directly.
+            //    inspect its FieldDeclarationSyntax and PropertyDeclarationSyntax
+            //    members directly (fields may have been converted to properties).
             if (contextNode != null)
             {
                 var structDecl = contextNode.FirstAncestorOrSelf<StructDeclarationSyntax>();
@@ -1672,23 +1666,29 @@ internal sealed class ReadOnlyStructRewriter : CSharpSyntaxRewriter
                         foreach (var v in f.Declaration.Variables)
                         {
                             if (v.Identifier.Text == fieldName)
-                            {
-                                return f.Declaration.Type.ToString() switch
-                                {
-                                    "byte" => "byte",
-                                    "sbyte" => "sbyte",
-                                    "short" => "short",
-                                    "ushort" => "ushort",
-                                    _ => null
-                                };
-                            }
+                                return NormalizeCastType(f.Declaration.Type.ToString());
                         }
+                    }
+                    // Check properties (fields converted to get-only properties)
+                    foreach (var p in structDecl.Members.OfType<PropertyDeclarationSyntax>())
+                    {
+                        if (p.Identifier.Text == fieldName)
+                            return NormalizeCastType(p.Type.ToString());
                     }
                 }
             }
 
             return null;
         }
+
+        private static string? NormalizeCastType(string typeName) => typeName switch
+        {
+            "byte" or "System.Byte" => "byte",
+            "sbyte" or "System.SByte" => "sbyte",
+            "short" or "System.Int16" => "short",
+            "ushort" or "System.UInt16" => "ushort",
+            _ => null
+        };
 
         private static ExpressionSyntax BuildWithCall(MemberAccessExpressionSyntax access, ExpressionSyntax value)
         {

@@ -1028,22 +1028,28 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 foreach (var v in f.Declaration.Variables)
                 {
                     if (v.Identifier.Text == fieldName)
-                    {
-                        return f.Declaration.Type.ToString() switch
-                        {
-                            "byte" => "byte",
-                            "sbyte" => "sbyte",
-                            "short" => "short",
-                            "ushort" => "ushort",
-                            _ => null
-                        };
-                    }
+                        return NormalizeCastType(f.Declaration.Type.ToString());
                 }
+            }
+            // Check properties (fields converted to get-only properties)
+            foreach (var p in structDecl.Members.OfType<PropertyDeclarationSyntax>())
+            {
+                if (p.Identifier.Text == fieldName)
+                    return NormalizeCastType(p.Type.ToString());
             }
         }
 
         return null;
     }
+
+    private static string? NormalizeCastType(string typeName) => typeName switch
+    {
+        "byte" or "System.Byte" => "byte",
+        "sbyte" or "System.SByte" => "sbyte",
+        "short" or "System.Int16" => "short",
+        "ushort" or "System.UInt16" => "ushort",
+        _ => null
+    };
 
     public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
     {
