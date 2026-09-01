@@ -2900,7 +2900,8 @@ public class MethodTransformer : IMemberTransformer
                     && !stmtText.StartsWith("throw;", StringComparison.Ordinal)
                     && !stmtText.Contains("else { throw ", StringComparison.Ordinal)
                     && !stmtText.Contains("else { throw;", StringComparison.Ordinal)
-                    && !stmtText.Contains("else { return ", StringComparison.Ordinal))
+                    && !stmtText.Contains("else { return ", StringComparison.Ordinal)
+                    && !IsIfElseAlwaysTerminating(stmtText))
                 {
                     return true;
                 }
@@ -2908,6 +2909,27 @@ public class MethodTransformer : IMemberTransformer
             }
         }
         return false;
+    }
+
+    /// <summary>
+    /// Checks whether an if-else statement text has both branches ending
+    /// with a terminating statement (throw/return), meaning it cannot
+    /// fall through.
+    /// </summary>
+    private static bool IsIfElseAlwaysTerminating(string stmtText)
+    {
+        if (!stmtText.StartsWith("if", StringComparison.Ordinal))
+            return false;
+        if (!stmtText.Contains("else", StringComparison.Ordinal))
+            return false;
+
+        // Heuristic: if the if-else contains throw/return in both
+        // branches and ends with a closing brace, consider it terminating.
+        return stmtText.TrimEnd().EndsWith("}")
+            && (stmtText.Contains("throw ", StringComparison.Ordinal)
+                || stmtText.Contains("throw;", StringComparison.Ordinal)
+                || stmtText.Contains("return ", StringComparison.Ordinal)
+                || stmtText.Contains("return;", StringComparison.Ordinal));
     }
 
     /// <summary>
