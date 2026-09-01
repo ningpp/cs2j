@@ -2595,6 +2595,44 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var values = new List<string>();
         bool isByteArray = javaElementType == "byte";
 
+        // Fallback: when javaElementType is null (e.g. merged partial class files
+        // where the node is not in the semantic model), try to infer byte[] from
+        // the parent field/variable declaration type.
+        if (javaElementType == null)
+        {
+            var parentField = node.Parent;
+            while (parentField != null && parentField is not Microsoft.CodeAnalysis.CSharp.Syntax.FieldDeclarationSyntax
+                   && parentField is not Microsoft.CodeAnalysis.CSharp.Syntax.LocalDeclarationStatementSyntax)
+            {
+                parentField = parentField.Parent;
+            }
+            if (parentField is Microsoft.CodeAnalysis.CSharp.Syntax.FieldDeclarationSyntax fieldDecl)
+            {
+                var fieldText = fieldDecl.ToString();
+                if (fieldText.Contains("byte[]") || fieldText.Contains("Byte[]")
+                    || fieldText.Contains("System.Byte[]"))
+                {
+                    isByteArray = true;
+                    javaElementType = "byte";
+                }
+            }
+            else if (parentField is Microsoft.CodeAnalysis.CSharp.Syntax.LocalDeclarationStatementSyntax localDecl)
+            {
+                var localText = localDecl.ToString();
+                if (localText.Contains("byte[]") || localText.Contains("Byte[]"))
+                {
+                    isByteArray = true;
+                    javaElementType = "byte";
+                }
+            }
+        }
+
+        // DEBUG: Log byte array initializer detection
+        if (node.Expressions.Count > 100)
+        {
+            System.Console.WriteLine($"[DEBUG] TransformArrayInitializer: elementType={javaElementType}, isByteArray={isByteArray}, count={node.Expressions.Count}, isBare={isBareInitializer}");
+        }
+
         // Large byte[] initializers (e.g. embedded test data files) exceed Java's
         // 65535-byte method limit and constant pool entry limit when each byte
         // is emitted as "(byte)0xNN". Convert such arrays to Base64-encoded
@@ -2602,6 +2640,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         const int Base64Threshold = 512;
         if (isByteArray && node.Expressions.Count >= Base64Threshold)
         {
+            System.Console.WriteLine($"[DEBUG] TransformByteArrayAsBase64: TRIGGERED count={node.Expressions.Count}, isBare={isBareInitializer}");
             return TransformByteArrayAsBase64(node, context, isBareInitializer);
         }
 
@@ -2697,7 +2736,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
 
         var base64 = System.Convert.ToBase64String(bytes);
-        context.AddImport("java.util.Base64");
+        // Use fully-qualified name to avoid ambiguity with
+        // io.github.ningpp.compat.Base64 when that is also imported.
 
         // Java string constants are limited to 65535 UTF-8 bytes. Base64 is
         // pure ASCII (1 byte/char), so 45000 chars is safely under the limit.
@@ -2705,7 +2745,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // creating a single oversized constant.
         const int ChunkSize = 45000;
         var sb = new StringBuilder();
-        sb.Append("Base64.getDecoder().decode(");
+        sb.Append("java.util.Base64.getDecoder().decode(");
 
         if (base64.Length <= ChunkSize)
         {

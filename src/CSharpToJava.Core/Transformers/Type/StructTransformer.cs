@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -1648,6 +1648,9 @@ public class StructTransformer : ITypeTransformer
     {
         if (!context.HasPendingPreStatements)
             return;
+
+        // DEBUG: Log when DrainFieldPreStatements moves initializer to static block
+        System.Console.WriteLine($"[DEBUG] DrainFieldPreStatements: field={javaField.Name}, hasPreStmts={context.HasPendingPreStatements}, initializer={javaField.Initializer?.Substring(0, System.Math.Min(50, javaField.Initializer?.Length ?? 0))}");
 
         var preStatements = context.DrainPreStatements();
         if (preStatements.Count == 0)

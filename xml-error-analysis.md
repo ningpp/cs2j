@@ -148,3 +148,23 @@
 - **对应 C# 文件**: 转换器生成的辅助类（无直接 C# 源文件）
 - **根因分类**: 类型映射缺失 / import 缺失
 - **分析**: `BinaryExpression`、`MemberExpression`、`ParameterExpression` 等 `System.Linq.Expressions` 类型缺少 import 或类型映射。
+
+## Iteration 2 — Base64 引用不明确
+
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/HtmlTernaryTree.java`
+- **行号**: 39, 40
+- **错误信息**: 对Base64的引用不明确 — `io.github.ningpp.compat.Base64` 和 `java.util.Base64` 都匹配
+- **代码片段**:
+  ```java
+  import java.util.*;
+  import io.github.ningpp.compat.*;
+  // ...
+  public static byte[] htmlElements = Base64.getDecoder().decode("...");
+  public static byte[] htmlAttributes = Base64.getDecoder().decode("...");
+  ```
+
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\HtmlTernaryTree.cs`
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs` — `TransformByteArrayAsBase64` 方法
+- **分析**: 当 byte 数组初始化器元素数 ≥ 512 时，转换器将其转为 `Base64.getDecoder().decode(...)` 并添加 `import java.util.Base64`。但如果生成的 Java 文件同时 import 了 `io.github.ningpp.compat.*`（其中也有 `Base64` 类），则 `Base64` 引用变得不明确。修复方案：使用完全限定名 `java.util.Base64.getDecoder().decode(...)` 并不再添加 `import java.util.Base64`。
+- **状态**: 🔧 修复中

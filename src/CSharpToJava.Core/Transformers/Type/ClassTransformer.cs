@@ -603,13 +603,19 @@ public class ClassTransformer : ITypeTransformer
     /// (a dictionary initializer drained into a static block). Move such initializers
     /// into the trailing static block so they run after their dependencies.
     /// </summary>
-    internal static void LiftFieldInitializerStatements(JavaClassDeclaration javaClass)
-    {
-        var pending = javaClass.Fields
-            .Where(f => f.InitializerStatements is { Count: > 0 })
-            .ToList();
-        if (pending.Count == 0)
-            return;
+internal static void LiftFieldInitializerStatements(JavaClassDeclaration javaClass)
+{
+var pending = javaClass.Fields
+.Where(f => f.InitializerStatements is { Count: > 0 })
+.ToList();
+if (pending.Count == 0)
+return;
+
+// DEBUG: Log when LiftFieldInitializerStatements lifts initializers
+foreach (var f in pending)
+{
+System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name}, initializerStatements={f.InitializerStatements?.Count}, initializer={f.Initializer?.Substring(0, System.Math.Min(50, f.Initializer?.Length ?? 0))}");
+}
 
         foreach (var field in pending)
         {
