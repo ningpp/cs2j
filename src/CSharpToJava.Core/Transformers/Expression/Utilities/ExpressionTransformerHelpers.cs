@@ -1057,6 +1057,24 @@ public static class ExpressionTransformerHelpers
             return false;
         }
 
+        // C# integer -0 is just 0 (there is no negative zero in integer types).
+        // When implicitly converted to double/float, the result is positive zero (0.0).
+        // We must NOT produce "-0.0" or "-0.0f" which is a negative-zero floating-point
+        // literal in Java — it would change runtime semantics (e.g. XmlConvert.ToString
+        // returns "0" for +0.0 but "-0" for -0.0).
+        if (signedLiteral == "-0")
+        {
+            rewrittenLiteral = targetSpecialType switch
+            {
+                SpecialType.System_Int64 or SpecialType.System_UInt64 => "0L",
+                SpecialType.System_Single => "0.0f",
+                SpecialType.System_Double => "0.0",
+                SpecialType.System_Decimal => "Decimal.parse(\"0\")",
+                _ => string.Empty
+            };
+            return !string.IsNullOrEmpty(rewrittenLiteral);
+        }
+
         rewrittenLiteral = targetSpecialType switch
         {
             SpecialType.System_Int64 or SpecialType.System_UInt64 => signedLiteral + "L",

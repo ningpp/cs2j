@@ -291,3 +291,23 @@
 - **分析**: C# Props 枚举没有 [Flags] 属性但使用位运算。_UNMAPPED 单例的状态被后续 fromValue 调用覆盖，导致 propsCond.getValue() 返回错误值。
 - **修复**: 在 IsFlagsEnum 中添加 IsBitFlagsPatternEnum 启发式检测
 - **状态**: Fixed
+
+## Iteration 7 — 整数 -0 隐式转换为 double 时产生负零 -0.0
+
+- **Java 文件**: `xmlconvert-tests/src/test/java/dotnet/xml/Tests/MiscellaneousTests.java`
+- **行号**: 42-43
+- **错误信息**: `ToString2 failed — Expected: 0, Actual: -0`
+- **代码片段**:
+  ```java
+  // C# source: Double d2 = -0;  (integer -0, which is just 0)
+  // Generated Java: double d2 = -0.0;  (double negative zero!)
+  double d1 = -0e0;        // d1 = -0e0 → -0.0 (correct, C# double negative zero literal)
+  double d2 = -0.0;        // BUG: should be 0.0 (C# int -0 → double 0.0 positive zero)
+  CError.compare(dotnet.xml.XmlConvert.toString(d2), "0", "ToString2 failed");
+  ```
+
+- **对应 C# 文件**: `d:\csharpxml\tests\XmlConvert\MiscellaneousTests.cs` (line 25: `Double d2 = -0;`)
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Utilities/ExpressionTransformerHelpers.cs` — `TryRewriteNumericLiteral` + `TryGetSignedDecimalIntegralLiteral`
+- **分析**: C# 的 `Double d2 = -0;` 中，`-0` 是一元负号应用于整数字面量 `0`，结果为 int 类型的 `0`。隐式转换为 double 时产生正零 `0.0`。但 `TryRewriteNumericLiteral` 将 `-0` 整体重写为 `"-0.0"`（在 Java 中是 double 负零），改变了语义。根因是 `TryGetSignedDecimalIntegralLiteral` 递归匹配 `PrefixUnaryExpression(-) → NumericLiteral(0)` 得到 `"-0"`，然后 `TryRewriteNumericLiteral` 对 `System_Double` 目标类型返回 `"-0" + ".0"` = `"-0.0"`。
+- **状态**: In Progress

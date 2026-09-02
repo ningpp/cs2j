@@ -108,6 +108,46 @@ class Sample
         Assert.Contains("put(3L, 4L);", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConversionPipeline_NegativeZeroInt_ToDouble_ProducesPositiveZero()
+    {
+        // C# integer -0 is just 0; when assigned to double it becomes 0.0 (positive zero).
+        // The converter must NOT produce -0.0 (double negative zero) because
+        // XmlConvert.ToString(-0.0) returns "-0" in C# semantics.
+        var result = Convert(@"
+class Sample
+{
+    double Test()
+    {
+        double d = -0;
+        return d;
+    }
+}");
+
+        Assert.True(result.Success);
+        // Should be 0.0, not -0.0
+        Assert.Contains("double d = 0.0", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("-0.0", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConversionPipeline_NegativeZeroInt_ToFloat_ProducesPositiveZero()
+    {
+        var result = Convert(@"
+class Sample
+{
+    float Test()
+    {
+        float f = -0;
+        return f;
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("float f = 0.0f", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("-0.0f", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
