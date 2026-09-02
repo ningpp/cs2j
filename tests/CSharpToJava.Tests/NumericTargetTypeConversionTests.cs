@@ -148,6 +148,54 @@ class Sample
         Assert.DoesNotContain("-0.0f", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConversionPipeline_DoubleIsPositiveInfinity_RewritesToComparison()
+    {
+        var result = Convert(@"
+class Sample
+{
+    bool IsPosInf(double d)
+    {
+        return double.IsPositiveInfinity(d);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("POSITIVE_INFINITY", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConversionPipeline_DoubleIsNegativeInfinity_RewritesToComparison()
+    {
+        var result = Convert(@"
+class Sample
+{
+    bool IsNegInf(double d)
+    {
+        return double.IsNegativeInfinity(d);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("(d == Double.NEGATIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConversionPipeline_FloatIsPositiveInfinity_RewritesToComparison()
+    {
+        var result = Convert(@"
+class Sample
+{
+    bool IsPosInf(float f)
+    {
+        return float.IsPositiveInfinity(f);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("(f == Float.POSITIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

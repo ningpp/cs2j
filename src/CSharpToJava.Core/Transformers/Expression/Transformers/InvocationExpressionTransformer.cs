@@ -84,6 +84,38 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             };
         }
 
+        // Double.IsPositiveInfinity(x) → (x == Double.POSITIVE_INFINITY)
+        // Double.IsNegativeInfinity(x) → (x == Double.NEGATIVE_INFINITY)
+        // Java's Double/Float only has isInfinite() which can't distinguish positive/negative.
+        if (invocation.Expression is MemberAccessExpressionSyntax ma
+            && invocation.ArgumentList.Arguments.Count == 1
+            && context.SemanticModel != null)
+        {
+            var sym = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (sym != null
+                && sym.IsStatic
+                && sym.Parameters.Length == 1
+                && TryGetPrimitiveKeyword(sym.ContainingType, out var infPrimKeyword)
+                && (infPrimKeyword is "double" or "Double" or "float" or "Float"
+                    or "Single" or "single"))
+            {
+                var methodName = ma.Name.Identifier.Text;
+                if (methodName is "IsPositiveInfinity" or "IsNegativeInfinity")
+                {
+                    var javaType = infPrimKeyword is "float" or "Float" or "single" or "Single"
+                        ? "Float" : "Double";
+                    var constant = methodName == "IsPositiveInfinity"
+                        ? "POSITIVE_INFINITY" : "NEGATIVE_INFINITY";
+                    var argExpr = facade.Transform(
+                        invocation.ArgumentList.Arguments[0].Expression, context);
+                    argExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
+                        invocation.ArgumentList.Arguments[0].Expression, argExpr,
+                        sym.Parameters[0].Type, context);
+                    return new JavaRawExpression($"({argExpr} == {javaType}.{constant})");
+                }
+            }
+        }
+
         // Static Equals(a, b) → Objects.equals(a, b)
         if (invocation.Expression is IdentifierNameSyntax { Identifier.Text: "Equals" }
             && invocation.ArgumentList.Arguments.Count == 2
