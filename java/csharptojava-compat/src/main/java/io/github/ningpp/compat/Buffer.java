@@ -247,6 +247,113 @@ public class Buffer {
             return;
         }
 
+        // Fast path: same array with overlapping regions
+        // When src and dst are the same array object, byte-by-byte copying via
+        // getByte/setByte can corrupt data if the source and destination regions
+        // overlap (because writes are immediately visible to subsequent reads).
+        // Use System.arraycopy instead, which handles overlapping correctly.
+        // This requires byte offsets to be aligned to element boundaries.
+        if (src == dst) {
+            if (src instanceof char[]) {
+                int elemSize = 2;
+                if (srcOffset % elemSize != 0 || dstOffset % elemSize != 0 || count % elemSize != 0) {
+                    // Unaligned – fall through to byte-by-byte path
+                } else {
+                    char[] a = (char[]) src;
+                    int srcElem = srcOffset / elemSize;
+                    int dstElem = dstOffset / elemSize;
+                    int elemCount = count / elemSize;
+                    if (srcElem + elemCount > a.length || dstElem + elemCount > a.length) {
+                        throw new IndexOutOfBoundsException();
+                    }
+                    System.arraycopy(a, srcElem, a, dstElem, elemCount);
+                    return;
+                }
+            } else if (src instanceof short[]) {
+                int elemSize = 2;
+                if (srcOffset % elemSize != 0 || dstOffset % elemSize != 0 || count % elemSize != 0) {
+                    // Unaligned – fall through to byte-by-byte path
+                } else {
+                    short[] a = (short[]) src;
+                    int srcElem = srcOffset / elemSize;
+                    int dstElem = dstOffset / elemSize;
+                    int elemCount = count / elemSize;
+                    if (srcElem + elemCount > a.length || dstElem + elemCount > a.length) {
+                        throw new IndexOutOfBoundsException();
+                    }
+                    System.arraycopy(a, srcElem, a, dstElem, elemCount);
+                    return;
+                }
+            } else if (src instanceof int[]) {
+                int elemSize = 4;
+                if (srcOffset % elemSize != 0 || dstOffset % elemSize != 0 || count % elemSize != 0) {
+                    // Unaligned – fall through to byte-by-byte path
+                } else {
+                    int[] a = (int[]) src;
+                    int srcElem = srcOffset / elemSize;
+                    int dstElem = dstOffset / elemSize;
+                    int elemCount = count / elemSize;
+                    if (srcElem + elemCount > a.length || dstElem + elemCount > a.length) {
+                        throw new IndexOutOfBoundsException();
+                    }
+                    System.arraycopy(a, srcElem, a, dstElem, elemCount);
+                    return;
+                }
+            } else if (src instanceof long[]) {
+                int elemSize = 8;
+                if (srcOffset % elemSize != 0 || dstOffset % elemSize != 0 || count % elemSize != 0) {
+                    // Unaligned – fall through to byte-by-byte path
+                } else {
+                    long[] a = (long[]) src;
+                    int srcElem = srcOffset / elemSize;
+                    int dstElem = dstOffset / elemSize;
+                    int elemCount = count / elemSize;
+                    if (srcElem + elemCount > a.length || dstElem + elemCount > a.length) {
+                        throw new IndexOutOfBoundsException();
+                    }
+                    System.arraycopy(a, srcElem, a, dstElem, elemCount);
+                    return;
+                }
+            } else if (src instanceof float[]) {
+                int elemSize = 4;
+                if (srcOffset % elemSize != 0 || dstOffset % elemSize != 0 || count % elemSize != 0) {
+                    // Unaligned – fall through to byte-by-byte path
+                } else {
+                    float[] a = (float[]) src;
+                    int srcElem = srcOffset / elemSize;
+                    int dstElem = dstOffset / elemSize;
+                    int elemCount = count / elemSize;
+                    if (srcElem + elemCount > a.length || dstElem + elemCount > a.length) {
+                        throw new IndexOutOfBoundsException();
+                    }
+                    System.arraycopy(a, srcElem, a, dstElem, elemCount);
+                    return;
+                }
+            } else if (src instanceof double[]) {
+                int elemSize = 8;
+                if (srcOffset % elemSize != 0 || dstOffset % elemSize != 0 || count % elemSize != 0) {
+                    // Unaligned – fall through to byte-by-byte path
+                } else {
+                    double[] a = (double[]) src;
+                    int srcElem = srcOffset / elemSize;
+                    int dstElem = dstOffset / elemSize;
+                    int elemCount = count / elemSize;
+                    if (srcElem + elemCount > a.length || dstElem + elemCount > a.length) {
+                        throw new IndexOutOfBoundsException();
+                    }
+                    System.arraycopy(a, srcElem, a, dstElem, elemCount);
+                    return;
+                }
+            } else if (src instanceof boolean[]) {
+                boolean[] a = (boolean[]) src;
+                if (srcOffset + count > a.length || dstOffset + count > a.length) {
+                    throw new IndexOutOfBoundsException();
+                }
+                System.arraycopy(a, srcOffset, a, dstOffset, count);
+                return;
+            }
+        }
+
         // General path: copy byte-by-byte using getByte/setByte
         if (srcOffset + count > byteLength(src)) {
             throw new IndexOutOfBoundsException("src");
@@ -255,7 +362,7 @@ public class Buffer {
             throw new IndexOutOfBoundsException("dst");
         }
 
-        for (int i = 0; i < count; i++) {
+        for (int i =  0; i < count; i++) {
             byte b = getByte(src, srcOffset + i);
             setByte(dst, dstOffset + i, b);
         }
