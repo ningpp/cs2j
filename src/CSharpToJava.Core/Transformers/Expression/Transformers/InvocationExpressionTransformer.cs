@@ -4208,9 +4208,11 @@ if (node.Expression is GenericNameSyntax genericMethodName)
 
             if (argCount == 1)
             {
-                // Math.Round(value) → (double)Math.round(value)
+                // Math.Round(value) → Double.isNaN(value) ? value : (double)Math.round(value)
+                // Java's Math.round(double) returns long and returns 0 for NaN,
+                // but C#'s Math.Round(double) returns double and preserves NaN.
                 var valArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
-                return $"(double)Math.round({valArg})";
+                return $"(Double.isNaN({valArg}) ? {valArg} : (double)Math.round({valArg}))";
             }
         }
 
