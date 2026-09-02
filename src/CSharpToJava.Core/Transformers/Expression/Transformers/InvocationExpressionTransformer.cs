@@ -5054,6 +5054,20 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             }
         }
 
+        // C# StringBuilder.Append(string, int startIndex, int count) →
+        // Java StringBuilder.append(CharSequence, int start, int end) where end = startIndex + count.
+        // Java's 3-arg append uses (start, end) semantics while C# uses (startIndex, count).
+        if (originalMethodName == "Append"
+            && node.ArgumentList.Arguments.Count == 3
+            && methodSymbol?.ContainingType?.ToDisplayString() is "System.Text.StringBuilder"
+            && IsSystemStringType(context.GetTypeInfo(node.ArgumentList.Arguments[0].Expression).Type))
+        {
+            var strArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            var startArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var countArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+            return $"{receiver}.append({strArg}, {startArg}, {startArg} + {countArg})";
+        }
+
         if (originalMethodName == "Insert"
             && node.ArgumentList.Arguments.Count is 2 or 3
             && methodSymbol?.ContainingType.ToDisplayString() is "System.Text.StringBuilder"

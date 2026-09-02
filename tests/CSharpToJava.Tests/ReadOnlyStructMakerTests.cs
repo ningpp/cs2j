@@ -937,6 +937,41 @@ public partial class ReadOnlyStructMakerTests
         Assert.DoesNotContain("int x = _tables = _tables", result.OutputCode);
         Assert.DoesNotContain("int x = (_tables", result.OutputCode);
         // Should contain separate assignment and declaration
-        Assert.Contains("WithsymCount(42)", result.OutputCode);
+        // The With-ified assignment uses a temp variable, so check for WithsymCount
+        Assert.Contains("WithsymCount", result.OutputCode);
+    }
+
+    [Fact]
+    public void ChainedAssignmentInLocalDeclaration_ReferenceTypeRHS_NotDuplicated()
+    {
+        // Reproduces: List<string> strList = _strList = new List<string>(capacity);
+        // When the RHS is a reference type (e.g. new List<string>()), the expansion
+        // must NOT create two separate objects — strList and result._strList must
+        // reference the SAME object. The fix introduces a temp variable:
+        //   var __temp = new List<string>(capacity);
+        //   result = result.With_strList(__temp);
+        //   List<string> strList = __temp;
+        var src = """
+        using System.Collections.Generic;
+        class Container {
+            SymbolTables _tables;
+            void Update() {
+                List<string> strList = _tables.strList = new List<string>(8);
+                strList.Add("a");
+            }
+        }
+        struct SymbolTables {
+            public List<string> strList;
+            public int symCount;
+        }
+        """;
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        // The RHS "new List<string>(8)" must appear exactly ONCE in the output.
+        // Count occurrences of "new List" in the output (excluding the field declaration).
+        var outputLines = result.OutputCode.Split('\n');
+        var newListCount = outputLines.Count(l => l.Contains("new List"));
+        Assert.True(newListCount <= 1,
+            $"Expected at most 1 'new List' in output, but found {newListCount}.\nOutput:\n{result.OutputCode}");
     }
 }

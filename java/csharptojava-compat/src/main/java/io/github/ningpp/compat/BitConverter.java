@@ -50,6 +50,14 @@ public final class BitConverter {
     }
 
     /**
+     * Converts two bytes at the specified position in a byte array to a char.
+     * Uses the platform's native byte order, matching .NET's BitConverter behavior.
+     */
+    public static char toChar(byte[] value, int startIndex) {
+        return ByteBuffer.wrap(value, startIndex, 2).order(ByteOrder.nativeOrder()).getChar();
+    }
+
+    /**
      * Converts the specified double-precision floating-point number to a 64-bit
      * signed integer, preserving the exact IEEE 754 bit pattern (including
      * negative zero and NaN payloads).

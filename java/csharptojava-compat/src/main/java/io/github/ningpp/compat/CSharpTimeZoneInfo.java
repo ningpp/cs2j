@@ -59,4 +59,10 @@ public final class CSharpTimeZoneInfo {
     public ZoneId getZoneId() {
         return zoneId;
     }
+
+    public boolean isDaylightSavingTime(CSharpDateTime dateTime) {
+        LocalDateTime ldt = dateTime.ticksToLdtPublic();
+        ZonedDateTime zdt = ldt.atZone(zoneId);
+        return zoneId.getRules().isDaylightSavings(zdt.toInstant());
+    }
 }

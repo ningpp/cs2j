@@ -1339,6 +1339,66 @@ public class MethodTransformer : IMemberTransformer
             }
         }
 
+        // Handle [XmlTests(nameof(Create))] custom data attribute.
+        // XmlTests is a custom xUnit DataAttribute (OLEDB.Test.ModuleCore.XmlTestsAttribute)
+        // that calls the named factory method (e.g. Create()) to get a CTestModule,
+        // then enumerates module.TestCases() to produce XunitTestCase rows.
+        // We generate a synthetic static adapter method that mimics this and
+        // annotate the test with @MethodSource pointing at it.
+        var xmlTestsAttrs = allAttributes
+            .Where(a => NormalizeAttributeName(a.Name.ToString()).Equals("XmlTests", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (xmlTestsAttrs.Count > 0 && javaMethod.Annotations.Any(a => a.Name.StartsWith("ParameterizedTest", StringComparison.Ordinal)))
+        {
+            context.AddImport("org.junit.jupiter.params.provider.MethodSource");
+            var firstXmlAttr = xmlTestsAttrs[0];
+            if (firstXmlAttr.ArgumentList?.Arguments.Count > 0)
+            {
+                var xmlArg = firstXmlAttr.ArgumentList.Arguments[0].Expression;
+                string xmlMethodName;
+                if (xmlArg is InvocationExpressionSyntax xmlInvoc && xmlInvoc.ArgumentList.Arguments.Count > 0)
+                {
+                    // nameof(XxxData) → extract the argument
+                    var innerArg = xmlInvoc.ArgumentList.Arguments[0].Expression;
+                    xmlMethodName = innerArg is IdentifierNameSyntax idn
+                        ? idn.Identifier.Text
+                        : innerArg.ToString().Trim('"');
+                }
+                else if (xmlArg is IdentifierNameSyntax xmlIdn)
+                {
+                    xmlMethodName = xmlIdn.Identifier.Text;
+                }
+                else
+                {
+                    xmlMethodName = xmlArg.ToString().Trim('"');
+                }
+                // Convert to camelCase (methods use camelCase)
+                string javaFactoryName = char.ToLowerInvariant(xmlMethodName[0]) + xmlMethodName.Substring(1);
+
+                // Build adapter method name
+                string adapterName = context.GenerateSyntheticName(javaFactoryName + "_xmltests");
+                context.AddImport("io.github.ningpp.compat.CSharpList");
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+
+                var xmlBody = new System.Text.StringBuilder();
+                xmlBody.AppendLine("CSharpList<Object[]> _yieldResult = new CSharpList<Object[]>();");
+                xmlBody.AppendLine($"for (var tc : {javaFactoryName}().testCases()) {{");
+                xmlBody.AppendLine("    _yieldResult.add(new Object[] { tc });");
+                xmlBody.AppendLine("}");
+                xmlBody.Append("return _yieldResult;");
+
+                var xmlAdapter = new JavaMethodDeclaration
+                {
+                    Name = adapterName,
+                    Modifiers = JavaModifiers.Public | JavaModifiers.Static,
+                    ReturnType = "CSharpGenericIterable<Object[]>",
+                    Body = xmlBody.ToString()
+                };
+                memberDataAdapters.Add(xmlAdapter);
+                javaMethod.Annotations.Add(new JavaAnnotation($"MethodSource(\"{adapterName}\")"));
+            }
+        }
+
         // xUnit [Ignore] and [OuterLoop] tests must not run in the Java/JUnit
         // suite: [OuterLoop] tests (e.g. writing 125 MB of base64) are huge and
         // can hang the surefire fork for minutes.

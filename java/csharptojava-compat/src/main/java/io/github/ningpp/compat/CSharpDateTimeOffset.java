@@ -127,6 +127,10 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         return dateTime.addSeconds(localOffsetSeconds - offsetSeconds);
     }
 
+    public CSharpDateTime toLocalTime() {
+        return getLocalDateTime();
+    }
+
     public CSharpDateTime getUtcDateTime() {
         return dateTime.subtract(offset);
     }

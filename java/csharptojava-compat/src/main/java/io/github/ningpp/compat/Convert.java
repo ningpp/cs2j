@@ -79,10 +79,15 @@ public class Convert {
         return Boolean.parseBoolean(value);
     }
 
-    /** Mirrors C# Convert.ToDecimal(Object, IFormatProvider) */
-    public static Decimal toDecimal(Object value, NumberFormatInfo info) {
-        return toDecimal(value);
-    }
+/** Mirrors C# Convert.ToDecimal(Object, IFormatProvider) */
+public static Decimal toDecimal(Object value, NumberFormatInfo info) {
+return toDecimal(value);
+}
+
+/** Mirrors C# Convert.ToDecimal(Object, IFormatProvider) with CultureInfo */
+public static Decimal toDecimal(Object value, CultureInfo info) {
+return toDecimal(value);
+}
 
     /** Mirrors C# Convert.ToDecimal(Object) */
     public static Decimal toDecimal(Object value) {

@@ -266,7 +266,10 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
         // `Type x = obj.field = value;` — C# assigns value to obj.field AND to x.
         // After With-ification `obj = obj.Withfield(value)` returns the struct,
         // not the field value. Expand to:
-        //   { obj.field = value; Type x = value; }
+        //   { var __temp = value; obj.field = __temp; Type x = __temp; }
+        // The temp variable is critical for reference-type RHS (e.g. new List<string>()):
+        // without it, the value expression would be duplicated, creating two distinct
+        // objects — one stored in the struct field, another in the local variable.
         if (node.Declaration.Variables.Count == 1 &&
             node.Declaration.Variables[0].Initializer?.Value is AssignmentExpressionSyntax initAssign &&
             initAssign.IsKind(SyntaxKind.SimpleAssignmentExpression) &&
@@ -277,16 +280,37 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
             // If it was rewritten (changed from original), expand into block
             if (!SyntaxFactory.AreEquivalent(initAssign, visitedAssign))
             {
-                var assignStatement = SyntaxFactory.ExpressionStatement(visitedAssign)
+                // Visit the RHS to get the properly converted expression
+                var visitedRhs = (ExpressionSyntax)Visit(initAssign.Right)!;
+                // Generate a unique temp variable name
+                var tempName = "__cs2j_temp_" + Guid.NewGuid().ToString("N").Substring(0, 8);
+                // Declare temp variable: var __temp = visitedRhs;
+                var tempDecl = SyntaxFactory.LocalDeclarationStatement(
+                    SyntaxFactory.VariableDeclaration(
+                        SyntaxFactory.IdentifierName("var"))
+                    .WithVariables(SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(
+                            SyntaxFactory.Identifier(tempName))
+                            .WithInitializer(SyntaxFactory.EqualsValueClause(visitedRhs)))))
                     .WithLeadingTrivia(node.GetLeadingTrivia());
-                // Declare the variable with the RHS value (not the assignment result)
+                // Create the assignment with the temp variable replacing the RHS
+                var tempRef = SyntaxFactory.IdentifierName(tempName);
+                var tempAssign = SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    initAssign.Left,
+                    tempRef);
+                var visitedTempAssign = (ExpressionSyntax)VisitAssignmentExpression(tempAssign)!;
+                var assignStatement = SyntaxFactory.ExpressionStatement(visitedTempAssign)
+                    .WithLeadingTrivia(SyntaxFactory.Whitespace("            "));
+                // Declare the variable with the temp reference (not the original RHS)
                 var newDecl = SyntaxFactory.LocalDeclarationStatement(
                     SyntaxFactory.VariableDeclaration(node.Declaration.Type)
                     .WithVariables(SyntaxFactory.SingletonSeparatedList(
                         SyntaxFactory.VariableDeclarator(node.Declaration.Variables[0].Identifier)
-                            .WithInitializer(SyntaxFactory.EqualsValueClause(initAssign.Right)))))
+                            .WithInitializer(SyntaxFactory.EqualsValueClause(
+                                SyntaxFactory.IdentifierName(tempName))))))
                     .WithLeadingTrivia(SyntaxFactory.Whitespace("            "));
-                return SyntaxFactory.Block(assignStatement, newDecl)
+                return SyntaxFactory.Block(tempDecl, assignStatement, newDecl)
                     .WithTriviaFrom(node);
             }
         }

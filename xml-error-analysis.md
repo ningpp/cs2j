@@ -259,3 +259,28 @@
 - **涉及组件**: `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs`
 - **分析**: C# 的 `CompareInfo.IndexOf(string, string, CompareOptions)` 在 Java compat 库中没有对应方法。`CompareOptions` 被映射为 `int` 类型，导致 `indexOf(s1, s2, CompareOptions.Ordinal)` 错误匹配了 `indexOf(String, String, int startIndex)` 重载，将 options 值（0x40000000）作为 startIndex 使用。修复：在 `InvocationExpressionTransformer` 中添加对 `CompareInfo.IndexOf/Compare/IsPrefix/IsSuffix` 带 `CompareOptions` 参数的特殊处理，将其路由到 `String.indexOf`/`StringHelper.compareOrdinal`/`String.startsWith`/`String.endsWith`。
 - **状态**: ✅ Fixed
+
+## Iteration 5 — StringConcat 链式赋值中引用类型被重复创建
+
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/StringConcat.java`
+- **行号**: 211-213
+- **错误信息**: XPath 测试失败 — `axesCombinationsTest2176` 中 `Expected: "It was a dark and stormy night."` 但 `Actual: "It was a darIt was a dar"`（字符串被截断/重复）
+- **代码片段**:
+  ```java
+  // C# 原始代码:
+  // List<string> strList = _strList = new List<string>(capacity);
+  // strList.Add(_s1); strList.Add(_s2); ... // strList 和 _strList 引用同一个列表
+
+  // Java 转换后 (buggy):
+  result = result.with_strList(new CSharpList<String>(capacity));  // 列表 A
+  CSharpList<String> strList = new CSharpList<String>(capacity);   // 列表 B (不同对象!)
+  strList.add(result._s1);
+  strList.add(result._s2);
+  strList.add(result._s3);
+  strList.add(result._s4);
+  // case 7: result._strList.add(s);  // 添加到列表 A (空列表)，而不是列表 B
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\StringConcat.cs`
+- **根因分类**: Transformer 逻辑缺陷 (struct 变异赋值)
+- **涉及组件**: `src/CSharpToJava.Core/ReadOnlyStructMaker/AssignmentRewriter.cs` — `VisitLocalDeclarationStatement`
+- **分析**: C# `List<string> strList = _strList = new List<string>(capacity);` 是一个链式赋值——`strList` 和 `_strList` 引用同一个 List 对象。转换器 `VisitLocalDeclarationStatement` 将其展开为 `{ result = result.with_strList(value); Type x = value; }`，但 `value`（`new List<string>(capacity)`）在展开时被生成了两次，创建了两个不同的列表对象。`strList` 上的 `Add` 操作不会影响 `result._strList` 中的列表，导致数据丢失。修复：引入临时变量 `var __temp = value;`，然后 `{ result = result.with_strList(__temp); Type x = __temp; }`，确保引用一致性。

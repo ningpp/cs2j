@@ -580,12 +580,65 @@ public class MathHelper {
         if (format == null || format.isEmpty()) {
             return String.valueOf(value);
         }
+        // C# "R" (round-trip) format for double/float: produces the shortest
+        // string that can round-trip back to the same value. C# drops
+        // trailing zeros and the decimal point for integer-valued doubles
+        // (e.g. 1.0 → "1"), unlike Java's %.17g which yields "1.0000000000000000".
+        if (format.length() == 1 && (format.charAt(0) == 'R' || format.charAt(0) == 'r')) {
+            return formatRoundTrip(value);
+        }
         if (isCustomNumericFormat(format)) {
             return formatCustomNumeric(format, value);
         }
         Object formatArgument = toJavaFormatterArgument(value);
         String javaFormat = translateFormat(format, formatArgument);
         return String.format(Locale.ROOT, javaFormat, formatArgument);
+    }
+
+    /**
+     * Mirrors C# {@code double.ToString("R")} / {@code float.ToString("R")}:
+     * uses the shortest representation that round-trips, and strips trailing
+     * zeros and the decimal point for integer-valued numbers (1.0 → "1").
+     */
+    private static String formatRoundTrip(Object value) {
+        if (value instanceof Float f) {
+            return formatRoundTripDouble(f.doubleValue(), 9);
+        }
+        if (value instanceof Double d) {
+            return formatRoundTripDouble(d, 17);
+        }
+        if (value instanceof Number n) {
+            return formatRoundTripDouble(n.doubleValue(), 17);
+        }
+        return String.valueOf(value);
+    }
+
+    private static String formatRoundTripDouble(double value, int maxSigDigits) {
+        if (Double.isNaN(value)) return "NaN";
+        if (value == Double.POSITIVE_INFINITY) return "Infinity";
+        if (value == Double.NEGATIVE_INFINITY) return "-Infinity";
+        // Try to find the shortest representation that round-trips
+        for (int sig = 1; sig <= maxSigDigits; sig++) {
+            String candidate = String.format(Locale.ROOT, "%." + sig + "g", value);
+            try {
+                if (Double.parseDouble(candidate) == value) {
+                    return stripTrailingZeros(candidate);
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return stripTrailingZeros(String.format(Locale.ROOT, "%." + maxSigDigits + "g", value));
+    }
+
+    private static String stripTrailingZeros(String s) {
+        if (s.indexOf('.') < 0 || s.indexOf('e') >= 0 || s.indexOf('E') >= 0) {
+            return s;
+        }
+        // Remove trailing zeros after decimal point
+        s = s.replaceAll("0+$", "");
+        // Remove trailing decimal point if no digits remain after it
+        s = s.replaceAll("\\.$", "");
+        return s;
     }
 
     private static boolean isCustomNumericFormat(String format) {

@@ -69,8 +69,9 @@ public final class CSharpTimeSpan implements Comparable<CSharpTimeSpan> {
 
     // --- Static operator methods (C# operator overloads are static) ---
 
-    public static CSharpTimeSpan add(CSharpTimeSpan left, CSharpTimeSpan right) { return left.add(right); }
+        public static CSharpTimeSpan add(CSharpTimeSpan left, CSharpTimeSpan right) { return left.add(right); }
     public static CSharpTimeSpan subtract(CSharpTimeSpan left, CSharpTimeSpan right) { return left.subtract(right); }
+    public static CSharpTimeSpan negate(CSharpTimeSpan value) { return value.negate(); }
     public static CSharpTimeSpan multiply(CSharpTimeSpan value, double factor) {
         if (Double.isNaN(factor)) {
             throw new IllegalArgumentException("TimeSpan factor cannot be NaN.");
