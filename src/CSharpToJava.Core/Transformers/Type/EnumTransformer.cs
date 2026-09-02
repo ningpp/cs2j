@@ -361,8 +361,62 @@ public class EnumTransformer : ITypeTransformer
                 return true;
         }
 
+        // Heuristic: detect enums without [Flags] but with power-of-two values
+        // AND multiple members (>2) that are used in bitwise operations (|, &, ~).
+        // These need to be converted as int constants to avoid _UNMAPPED singleton
+        // state-sharing bug when fromValue() is called with bit-combined values.
+        // We require >2 members to avoid false positives for simple enums like
+        // enum Mode { None=0, Active=1, Inactive=2 }.
+        if (IsBitFlagsPatternEnum(enumDecl, context))
+        {
+            return true;
+        }
+
         return false;
     }
+
+    /// <summary>
+    /// Detects enums that follow a bit-flags pattern (values are 0 or powers of two)
+    /// with at least 4 members, even without the [Flags] attribute.
+    /// The member count threshold avoids false positives for simple 2-3 value enums.
+    /// </summary>
+    private static bool IsBitFlagsPatternEnum(
+        EnumDeclarationSyntax enumDecl,
+        ConversionContext context)
+    {
+        var members = enumDecl.Members.OfType<EnumMemberDeclarationSyntax>().ToList();
+        if (members.Count < 5) return false;
+
+        // All members must have explicit values
+        if (!members.All(m => m.EqualsValue != null)) return false;
+
+        // All values must be 0 or a power of two
+        foreach (var member in members)
+        {
+            var fieldSymbol = context.GetDeclaredSymbol(member) as IFieldSymbol;
+            if (fieldSymbol?.HasConstantValue != true) return false;
+
+            long value = fieldSymbol.ConstantValue switch
+            {
+                byte b => b,
+                sbyte sb => sb,
+                short s => s,
+                ushort us => us,
+                int i => i,
+                uint ui => ui,
+                long l => l,
+                ulong ul => (long)ul,
+                _ => -1 // unknown type, not a flags pattern
+            };
+
+            if (value < 0) return false;
+            if (value != 0 && !IsPowerOfTwo(value)) return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsPowerOfTwo(long n) => n > 0 && (n & (n - 1)) == 0;
 
     private static string GetEnumValueJavaType(INamedTypeSymbol? enumSymbol, EnumDeclarationSyntax enumDecl)
     {

@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.TypeMapping.JavaModel;
 
@@ -685,7 +685,7 @@ public class TypeMappingService
         {
             bool hasFlagsAttr = namedEnumCheck.GetAttributes().Any(a =>
                 a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
-            if (hasFlagsAttr)
+            if (hasFlagsAttr || IsBitFlagsPatternEnum(namedEnumCheck))
             {
                 var flagsValueType = GetEnumValueJavaType(namedEnumCheck);
                 RegisterFlagsEnum(namedEnumCheck.Name, flagsValueType);
@@ -874,7 +874,7 @@ public class TypeMappingService
         {
             bool hasFlagsAttr = nestedEnum.GetAttributes().Any(a =>
                 a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
-            if (hasFlagsAttr)
+            if (hasFlagsAttr || IsBitFlagsPatternEnum(nestedEnum))
             {
                 var flagsValueType = GetEnumValueJavaType(nestedEnum);
                 // Also register in the name-based registry so downstream code
@@ -1220,6 +1220,41 @@ public class TypeMappingService
             _ => "int"
         };
     }
+
+    /// <summary>
+    /// Detects enums that follow a bit-flags pattern (values are 0 or powers of two)
+    /// with at least 5 members, even without the [Flags] attribute.
+    /// Must match the logic in EnumTransformer.IsBitFlagsPatternEnum.
+    /// </summary>
+    private static bool IsBitFlagsPatternEnum(INamedTypeSymbol enumType)
+    {
+        var members = enumType.GetMembers().OfType<IFieldSymbol>()
+            .Where(f => f.HasConstantValue).ToList();
+        if (members.Count < 5) return false;
+
+        foreach (var member in members)
+        {
+            long value = member.ConstantValue switch
+            {
+                byte b => b,
+                sbyte sb => sb,
+                short s => s,
+                ushort us => us,
+                int i => i,
+                uint ui => ui,
+                long l => l,
+                ulong ul => (long)ul,
+                _ => -1
+            };
+
+            if (value < 0) return false;
+            if (value != 0 && !IsPowerOfTwo(value)) return false;
+        }
+
+        return true;
+    }
+
+    private static bool IsPowerOfTwo(long n) => n > 0 && (n & (n - 1)) == 0;
 
     private static string TrimGlobalPrefix(string name)
         => name.StartsWith("global::", StringComparison.Ordinal) ? name["global::".Length..] : name;

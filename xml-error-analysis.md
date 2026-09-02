@@ -236,6 +236,27 @@
 - **分析**: `ShouldSeedRefHolderFromCurrentValue` 使用 Roslyn 的 `AnalyzeDataFlow(...).AlwaysAssigned` 来判断 ref 参数的变量是否在调用前已赋值。但 `AlwaysAssigned` 考虑所有退出路径（包括中间的 `if (cond) return;` 提前返回路径）。在 C# 代码中，`pageEnd` 在声明后经过多条语句（包括 if-return）才被赋值 `page = pageEnd = _pageCurrent;`，然后传给 `ref`。由于 if-return 路径上 `pageEnd` 未被赋值，`AlwaysAssigned` 不包含它，导致 holder 被创建为空值。修复：改用 `DefinitelyAssignedOnExit`，它只考虑能到达分析区域末尾的路径（即实际能执行到 ref 调用的路径）。
 - **状态**: ✅ Fixed
 
+## Iteration 5 — StringConcat 链式赋值中引用类型被重复创建
+
+- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/StringConcat.java`
+- **行号**: 211-213
+- **错误信息**: XPath 测试失败 — `axesCombinationsTest2176` (system-xml-xpath-tests) 中 `Expected: "It was a dark and stormy night."` 但 `Actual: "It was a darIt was a dar"`（字符串被截断/重复）
+- **代码片段**:
+  ```java
+  // C# 原始代码:
+  // List<string> strList = _strList = new List<string>(capacity);
+  // strList.Add(_s1); ... // strList 和 _strList 引用同一个列表
+
+  // Java 转换后 (buggy):
+  result = result.with_strList(new CSharpList<String>(capacity));  // 列表 A
+  CSharpList<String> strList = new CSharpList<String>(capacity);   // 列表 B (不同对象!)
+  ```
+- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\StringConcat.cs`
+- **根因分类**: Transformer 逻辑缺陷 (struct 变异赋值)
+- **涉及组件**: `src/CSharpToJava.Core/ReadOnlyStructMaker/AssignmentRewriter.cs` — `VisitLocalDeclarationStatement`
+- **分析**: C# `List<string> strList = _strList = new List<string>(capacity);` 是链式赋值——`strList` 和 `_strList` 引用同一个 List 对象。转换器展开为 `{ result = result.with_strList(value); Type x = value; }`，但 `value` 被生成了两次，创建了两个不同的列表对象。修复：引入临时变量 `var __temp = value;`，然后 `{ result = result.with_strList(__temp); Type x = __temp; }`，确保引用一致性。
+- **状态**: ✅ Fixed (system-xml-xpath-tests 模块中 Test2176 已修复)
+
 ## Iteration 4 — CompareInfo.IndexOf CompareOptions 参数被误认为 startIndex（XPath contains/substring 失败）
 
 - **Java 文件**: `system-private-xml/src/main/java/MS/Internal/Xml/XPath/StringFunctions.java`
@@ -260,27 +281,13 @@
 - **分析**: C# 的 `CompareInfo.IndexOf(string, string, CompareOptions)` 在 Java compat 库中没有对应方法。`CompareOptions` 被映射为 `int` 类型，导致 `indexOf(s1, s2, CompareOptions.Ordinal)` 错误匹配了 `indexOf(String, String, int startIndex)` 重载，将 options 值（0x40000000）作为 startIndex 使用。修复：在 `InvocationExpressionTransformer` 中添加对 `CompareInfo.IndexOf/Compare/IsPrefix/IsSuffix` 带 `CompareOptions` 参数的特殊处理，将其路由到 `String.indexOf`/`StringHelper.compareOrdinal`/`String.startsWith`/`String.endsWith`。
 - **状态**: ✅ Fixed
 
-## Iteration 5 — StringConcat 链式赋值中引用类型被重复创建
 
-- **Java 文件**: `system-private-xml/src/main/java/dotnet/xml/StringConcat.java`
-- **行号**: 211-213
-- **错误信息**: XPath 测试失败 — `axesCombinationsTest2176` 中 `Expected: "It was a dark and stormy night."` 但 `Actual: "It was a darIt was a dar"`（字符串被截断/重复）
-- **代码片段**:
-  ```java
-  // C# 原始代码:
-  // List<string> strList = _strList = new List<string>(capacity);
-  // strList.Add(_s1); strList.Add(_s2); ... // strList 和 _strList 引用同一个列表
+## Iteration 6 — _UNMAPPED 单例状态共享导致 XPath position()/last() 谓词逻辑错误
 
-  // Java 转换后 (buggy):
-  result = result.with_strList(new CSharpList<String>(capacity));  // 列表 A
-  CSharpList<String> strList = new CSharpList<String>(capacity);   // 列表 B (不同对象!)
-  strList.add(result._s1);
-  strList.add(result._s2);
-  strList.add(result._s3);
-  strList.add(result._s4);
-  // case 7: result._strList.add(s);  // 添加到列表 A (空列表)，而不是列表 B
-  ```
-- **对应 C# 文件**: `D:\csharpxml\System\Xml\Core\StringConcat.cs`
-- **根因分类**: Transformer 逻辑缺陷 (struct 变异赋值)
-- **涉及组件**: `src/CSharpToJava.Core/ReadOnlyStructMaker/AssignmentRewriter.cs` — `VisitLocalDeclarationStatement`
-- **分析**: C# `List<string> strList = _strList = new List<string>(capacity);` 是一个链式赋值——`strList` 和 `_strList` 引用同一个 List 对象。转换器 `VisitLocalDeclarationStatement` 将其展开为 `{ result = result.with_strList(value); Type x = value; }`，但 `value`（`new List<string>(capacity)`）在展开时被生成了两次，创建了两个不同的列表对象。`strList` 上的 `Add` 操作不会影响 `result._strList` 中的列表，导致数据丢失。修复：引入临时变量 `var __temp = value;`，然后 `{ result = result.with_strList(__temp); Type x = __temp; }`，确保引用一致性。
+- **Java 文件**: system-private-xml/src/main/java/MS/Internal/Xml/XPath/QueryBuilder.java`n- **行号**: 493-526 (Props 枚举定义)
+- **错误信息**: 23个 XPath 测试失败，全部在 system-xml-xpath-xmldocument-tests 模块
+- **根因分类**: Transformer 逻辑缺陷
+- **涉及组件**: src/CSharpToJava.Core/Transformers/Type/EnumTransformer.cs — IsFlagsEnum 方法
+- **分析**: C# Props 枚举没有 [Flags] 属性但使用位运算。_UNMAPPED 单例的状态被后续 fromValue 调用覆盖，导致 propsCond.getValue() 返回错误值。
+- **修复**: 在 IsFlagsEnum 中添加 IsBitFlagsPatternEnum 启发式检测
+- **状态**: Fixed

@@ -777,8 +777,10 @@ public class ContextQuery
 }");
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("public QueryProps getProperties()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return QueryProps.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
+        // QueryProps has 5+ members with power-of-two values → treated as Flags (int constants class)
+        // Bitwise OR on int constants produces a plain int expression
+        Assert.Contains("QueryProps.Merge", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("QueryProps.Cached", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

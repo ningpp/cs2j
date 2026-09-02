@@ -111,6 +111,38 @@ namespace Foo {
         Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics.Select(d => d.Message))}");
         Assert.Contains("Direction.toString(d)", result.GeneratedCode);
     }
+    [Fact]
+    public void NonFlagsEnum_WithBitFlagsPattern_TreatedAsFlagsEnum()
+    {
+        // C# enum without [Flags] attribute but with power-of-two values
+        // and bitwise operations should be converted to int constants class
+        // to avoid _UNMAPPED singleton state-sharing bug.
+        var result = Convert(@"
+namespace Foo {
+    public enum Props {
+        None = 0x00,
+        PosFilter = 0x01,
+        HasPosition = 0x02,
+        HasLast = 0x04,
+        NonFlat = 0x08
+    }
+    public class Use {
+        public Props Combine(Props a, Props b) {
+            return a | b;
+        }
+        public bool Has(Props v, Props flag) {
+            return (v & flag) != 0;
+        }
+    }
+}");
+        Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics.Select(d => d.Message))}");
+        // Should NOT generate a Java enum with _UNMAPPED (which has state-sharing bug)
+        Assert.DoesNotContain("_UNMAPPED", result.GeneratedCode);
+        // Should generate int constants class instead
+        Assert.Contains("public static final int None", result.GeneratedCode);
+        Assert.Contains("public static final int PosFilter", result.GeneratedCode);
+    }
+
     private static (int ExitCode, string Output) RunProcess(string fileName, string arguments)
     {
         var psi = new ProcessStartInfo(fileName, arguments)
