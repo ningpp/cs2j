@@ -265,16 +265,48 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
             return toString();
         }
 
+        long offsetSeconds = offset.getTicks() / CSharpTimeSpan.TICKS_PER_SECOND;
+        ZoneOffset zoneOffset = ZoneOffset.ofTotalSeconds((int) offsetSeconds);
+
         if ("o".equals(format) || "O".equals(format)) {
-            long offsetTicks = offset.getTicks();
-            long offsetSeconds = offsetTicks / CSharpTimeSpan.TICKS_PER_SECOND;
-            ZoneOffset zoneOffset = ZoneOffset.ofTotalSeconds((int) offsetSeconds);
             LocalDateTime ldt = ticksToLocalDateTime(dateTime.getTicks());
             OffsetDateTime odt = OffsetDateTime.of(ldt, zoneOffset);
             return odt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSXXX"));
         }
 
-String javaPattern = format;
+        String javaPattern = toJavaDateTimePattern(format, zoneOffset);
+        // If the pattern still contains C# 'z'/'K' offset tokens that were
+        // replaced with a literal, LocalDateTime won't be able to resolve
+        // them; fall back to OffsetDateTime whenever the pattern carries
+        // offset information (xxx / Z / XXX etc.).
+        boolean needsOffset = javaPattern.contains("xxx")
+            || javaPattern.contains("XXX")
+            || javaPattern.contains("'Z'");
+        if (needsOffset) {
+            OffsetDateTime odt = OffsetDateTime.of(ticksToLocalDateTime(dateTime.getTicks()), zoneOffset);
+            return odt.format(DateTimeFormatter.ofPattern(javaPattern));
+        }
+        return ticksToLocalDateTime(dateTime.getTicks()).format(DateTimeFormatter.ofPattern(javaPattern));
+    }
+
+    /**
+     * Translate a C# custom date/time format string into the equivalent Java
+     * {@link DateTimeFormatter} pattern.
+     *
+     * <p>The main differences handled here:
+     * <ul>
+     *   <li>C# {@code z}..{@code zzzzzz} emit the UTC offset (e.g. {@code +08:00});
+     *       Java {@code z} is a zone name and rejects more than 3 letters.
+     *       We map any run of {@code z} (length >= 3) to Java {@code xxx}
+     *       ({@code +HH:mm}), {@code zz} to {@code xx}, {@code z} to {@code x}.</li>
+     *   <li>C# {@code K} for DateTimeOffset emits the offset; we substitute the
+     *       literal offset string.</li>
+     *   <li>C# treats a standalone uppercase {@code T} as a literal separator;
+     *       Java treats it as a pattern letter, so we quote it.</li>
+     * </ul>
+     */
+    private String toJavaDateTimePattern(String format, ZoneOffset zoneOffset) {
+        String javaPattern = format;
         // C# custom formats treat uppercase 'T' as a literal separator; Java treats
         // 'T' as a pattern letter (time), so quote it unless already quoted.
         if (javaPattern.indexOf('T') >= 0 && !javaPattern.contains("'T'")) {
@@ -283,10 +315,92 @@ String javaPattern = format;
         // C# 'K' for DateTimeOffset always emits the offset (e.g. +08:00); Java's
         // 'K' means clock-hour-of-am-pm, so emit the literal offset instead.
         if (javaPattern.indexOf('K') >= 0) {
-            ZoneOffset zoneOffset = ZoneOffset.ofTotalSeconds((int) (offset.getTicks() / CSharpTimeSpan.TICKS_PER_SECOND));
             javaPattern = javaPattern.replace("K", "'" + zoneOffset + "'");
         }
-        return ticksToLocalDateTime(dateTime.getTicks()).format(DateTimeFormatter.ofPattern(javaPattern));
+        // C# 'Z' literal (uppercase, outside quotes) in custom format means
+        // a literal 'Z' character; Java's 'Z' is an offset pattern. Replace
+        // bare 'Z' (not inside quotes) with the literal 'Z'.
+        // This is handled below together with 'z' runs.
+        javaPattern = convertCSharpOffsetPatterns(javaPattern, zoneOffset);
+        return javaPattern;
+    }
+
+    /**
+     * Convert C# custom date/time pattern letters that differ from Java's
+     * {@link DateTimeFormatter} into their Java equivalents.
+     *
+     * <p>Currently handles:
+     * <ul>
+     *   <li>{@code z}/{@code zz}/{@code zzz+} → Java offset patterns
+     *       {@code x}/{@code xx}/{@code xxx}</li>
+     *   <li>{@code Z} (bare, outside quotes) → literal {@code 'Z'}</li>
+     *   <li>{@code F}/{@code FF}/.../{@code FFFFFFF} (fraction-of-second,
+     *       up to 7 digits, no trailing zeros) → Java {@code S} with the
+     *       same digit count. Java's {@code F} is week-of-month and rejects
+     *       more than one letter, so we must translate it.</li>
+     * </ul>
+     */
+    private String convertCSharpOffsetPatterns(String pattern, ZoneOffset zoneOffset) {
+        // We process the pattern character-by-character to respect quoted
+        // regions (single quotes in Java DateTimeFormatter patterns).
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        int len = pattern.length();
+        boolean inQuote = false;
+        while (i < len) {
+            char c = pattern.charAt(i);
+            if (c == '\'') {
+                if (!inQuote && i + 1 < len && pattern.charAt(i + 1) == '\'') {
+                    // escaped single quote
+                    sb.append("''");
+                    i += 2;
+                    continue;
+                }
+                inQuote = !inQuote;
+                sb.append(c);
+                i++;
+                continue;
+            }
+            if (inQuote) {
+                sb.append(c);
+                i++;
+                continue;
+            }
+            // Outside quotes: collect runs of identical pattern letters.
+            if (c == 'z' || c == 'Z' || c == 'F') {
+                int start = i;
+                while (i < len && pattern.charAt(i) == c) {
+                    i++;
+                }
+                int count = i - start;
+                if (c == 'Z') {
+                    // C# uppercase 'Z' in custom format is a literal 'Z' char.
+                    sb.append("'Z'");
+                } else if (c == 'F') {
+                    // C# 'F'..'FFFFFFF' = fraction of second (1-7 digits,
+                    // no trailing zeros). Java's 'F' is week-of-month and
+                    // rejects more than one letter; translate to 'S' with
+                    // the same digit count (fraction-of-second).
+                    sb.append("S".repeat(Math.min(count, 7)));
+                } else {
+                    // C# lowercase 'z' = UTC offset.
+                    // z   -> +H      (Java 'x')
+                    // zz  -> +HH     (Java 'xx')
+                    // zzz+ -> +HH:mm (Java 'xxx')
+                    if (count >= 3) {
+                        sb.append("xxx");
+                    } else if (count == 2) {
+                        sb.append("xx");
+                    } else {
+                        sb.append("x");
+                    }
+                }
+                continue;
+            }
+            sb.append(c);
+            i++;
+        }
+        return sb.toString();
     }
 
     public String toString(String format, IFormatProvider provider) {
@@ -297,7 +411,7 @@ String javaPattern = format;
         try {
             return parse(s);
         } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s, e);
+            throw new FormatException("Invalid DateTimeOffset format: " + s, e);
         }
     }
 
@@ -308,7 +422,7 @@ String javaPattern = format;
             } catch (Exception ignored) {
             }
         }
-        throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s);
+        throw new FormatException("Invalid DateTimeOffset format: " + s);
     }
 
     public static CSharpDateTimeOffset parseExact(String s, String format, IFormatProvider provider) {
@@ -316,21 +430,27 @@ String javaPattern = format;
     }
 
     public static CSharpDateTimeOffset parseExact(String s, String format, IFormatProvider provider, int style) {
+        if (format == null) {
+            throw new ArgumentNullException("format");
+        }
         try {
             return parse(s);
         } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s, e);
+            throw new FormatException("Invalid DateTimeOffset format: " + s, e);
         }
     }
 
     public static CSharpDateTimeOffset parseExact(String s, String[] formats, IFormatProvider provider, int style) {
+        if (formats == null) {
+            throw new ArgumentNullException("formats");
+        }
         for (String fmt : formats) {
             try {
                 return parseExact(s, fmt, provider, style);
             } catch (Exception ignored) {
             }
         }
-        throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s);
+        throw new FormatException("Invalid DateTimeOffset format: " + s);
     }
 
     private static LocalDateTime ticksToLocalDateTime(long ticks) {
