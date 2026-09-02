@@ -308,4 +308,47 @@ class RegexTest {
     void unescape_unrecognizedWordEscape_throws() {
         assertThrows(ArgumentException.class, () -> Regex.unescape("\\m"));
     }
+
+    // ---- matches() with multiple results: index preservation ----
+
+    @Test
+    void matches_multipleMatchIndices_preservedAfterIteration() {
+        // When Regex.matches returns multiple Match objects, each Match.getIndex()
+        // must return the correct position of that specific match, not the position
+        // of the last match (which happens if all Match objects share the same
+        // Matcher reference).
+        Regex re = new Regex("\\d+");
+        MatchCollection mc = re.matches("a12b34c56");
+
+        assertEquals(3, mc.getCount());
+
+        // Collect all indices — they must be 1, 4, 7 (not all 7)
+        int[] expected = {1, 4, 7};
+        for (int i = 0; i < mc.getCount(); i++) {
+            Match m = mc.get(i);
+            assertEquals(expected[i], m.getIndex(), "Match " + i + " index");
+        }
+    }
+
+    @Test
+    void matches_lookbehindPattern_correctIndex() {
+        // This mirrors the XmlConvert.encodeName pattern: (?<=_)[Xx]([0-9a-fA-F]{4})_
+        // The match starts at [Xx], but matchPos = index - 1 points to the underscore.
+        // The index must be the position of 'x', not affected by later matches.
+        Regex re = new Regex("(?<=_)[Xx]([0-9a-fA-F]{4})_");
+        MatchCollection mc = re.matches("Order_x0020__x0030_", 5);
+
+        assertEquals(2, mc.getCount());
+
+        // First match: "x0020_" starting at index 6 (after _ at index 5)
+        Match m0 = mc.get(0);
+        assertEquals(6, m0.getIndex());
+
+        // Second match: "x0030_" starting at index 13 (after _ at index 12)
+        Match m1 = mc.get(1);
+        assertEquals(13, m1.getIndex());
+
+        // Critical: after iterating, m0.getIndex() must still be 6 (not 13)
+        assertEquals(6, m0.getIndex(), "First match index changed after iteration!");
+    }
 }
