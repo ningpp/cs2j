@@ -2594,6 +2594,56 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             }
         }
 
+        // System.Globalization.CompareInfo methods with CompareOptions parameter:
+        // Java's compat CompareInfo has indexOf(String, String, int startIndex) which
+        // would be incorrectly matched by indexOf(s1, s2, CompareOptions.Ordinal) since
+        // CompareOptions is mapped to int. Route Ordinal calls to plain String methods.
+        if (earlyMethodSymbol?.ContainingType?.ToDisplayString() == "System.Globalization.CompareInfo")
+        {
+            if (originalMethodName == "IndexOf" && node.ArgumentList.Arguments.Count == 3)
+            {
+                var sourceArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var valueArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                var optionsExpr = node.ArgumentList.Arguments[2].Expression;
+                var optionsType = context.GetTypeInfo(optionsExpr).Type;
+                // Only intercept when the third arg is a CompareOptions enum (not int startIndex)
+                if (optionsType?.ToDisplayString() == "System.Globalization.CompareOptions")
+                {
+                    return $"{sourceArg}.indexOf({valueArg})";
+                }
+            }
+            if (originalMethodName == "LastIndexOf" && node.ArgumentList.Arguments.Count == 3)
+            {
+                var sourceArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var valueArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                var optionsExpr = node.ArgumentList.Arguments[2].Expression;
+                var optionsType = context.GetTypeInfo(optionsExpr).Type;
+                if (optionsType?.ToDisplayString() == "System.Globalization.CompareOptions")
+                {
+                    return $"{sourceArg}.lastIndexOf({valueArg})";
+                }
+            }
+            if (originalMethodName == "Compare" && node.ArgumentList.Arguments.Count == 3)
+            {
+                var s1Arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var s2Arg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                context.AddImport("io.github.ningpp.compat.StringHelper");
+                return $"StringHelper.compareOrdinal({s1Arg}, {s2Arg})";
+            }
+            if (originalMethodName == "IsPrefix" && node.ArgumentList.Arguments.Count == 3)
+            {
+                var sourceArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var prefixArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"{sourceArg}.startsWith({prefixArg})";
+            }
+            if (originalMethodName == "IsSuffix" && node.ArgumentList.Arguments.Count == 3)
+            {
+                var sourceArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                var suffixArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"{sourceArg}.endsWith({suffixArg})";
+            }
+        }
+
         // System.Tuple.Create(...) mapping.
         // Avoid emitting Tuple.create(...) which may bind to an unrelated user type named Tuple.
         if (originalMethodName == "Create" && node.ArgumentList.Arguments.Count >= 2)

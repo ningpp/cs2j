@@ -210,7 +210,8 @@ internal class CompareOptionsUsage {
 
         var result = Assert.Single(results, r => r.FileName == "CompareOptionsUsage.java");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("import io.github.ningpp.compat.CompareOptions;", result.GeneratedCode, StringComparison.Ordinal);
+        // CompareInfo.IndexOf(s1, s2, CompareOptions.Ordinal) is now routed to
+        // s1.indexOf(s2), so the CompareOptions import is no longer needed.
         Assert.DoesNotContain("System.Globalization.CompareOptions", result.GeneratedCode, StringComparison.Ordinal);
     }
 }
