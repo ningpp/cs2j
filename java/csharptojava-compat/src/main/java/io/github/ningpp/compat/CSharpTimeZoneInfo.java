@@ -38,7 +38,13 @@ public final class CSharpTimeZoneInfo {
         LocalDateTime ldt = dateTime.ticksToLdtPublic();
         ZonedDateTime zdt = ldt.atZone(zoneId);
         ZoneOffset offset = zdt.getOffset();
-        return new CSharpTimeSpan((long) offset.getTotalSeconds() * CSharpTimeSpan.TICKS_PER_SECOND);
+        // C# TimeZoneInfo always uses whole-minute offsets, but Java's IANA
+        // database may report sub-minute historical LMT offsets (e.g.
+        // Asia/Shanghai LMT is +08:05:43). Round to the nearest whole minute
+        // to match C# behavior and avoid DateTimeOffset validation failures.
+        long totalSeconds = offset.getTotalSeconds();
+        long roundedSeconds = Math.round(totalSeconds / 60.0) * 60;
+        return new CSharpTimeSpan(roundedSeconds * CSharpTimeSpan.TICKS_PER_SECOND);
     }
 
     public static CSharpDateTime convertTime(CSharpDateTime dateTime, CSharpTimeZoneInfo destinationTimeZone) {

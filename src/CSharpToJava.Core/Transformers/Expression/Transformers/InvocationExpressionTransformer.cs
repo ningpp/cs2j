@@ -2508,6 +2508,26 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"({receiver} == {arg})";
         }
 
+        // C# object.Equals(object): when the receiver is typed as System.Object,
+        // route through ObjectHelper.objectEquals to match C# semantics where
+        // 0.0 == -0.0 for Double/Float (Java's Double.equals uses bit-pattern
+        // comparison and returns false for +0.0 vs -0.0).
+        // Also applies when the receiver type cannot be resolved (semantic model
+        // unavailable after ReadOnlyStructMaker rewrites) but the method symbol
+        // confirms it is object.Equals(object).
+        if (originalMethodName == "Equals"
+            && node.ArgumentList.Arguments.Count == 1
+            && (earlyMethodSymbol?.ContainingType?.SpecialType == SpecialType.System_Object
+                || stringEqualsReceiverType?.SpecialType == SpecialType.System_Object
+                || (stringEqualsReceiverType == null
+                    && earlyMethodSymbol != null
+                    && earlyMethodSymbol.ContainingType?.SpecialType == SpecialType.System_Object)))
+        {
+            var arg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            context.AddImport("io.github.ningpp.compat.ObjectHelper");
+            return $"ObjectHelper.objectEquals({receiver}, {arg})";
+        }
+
         if (IsSystemStringType(stringEqualsReceiverType)
             && originalMethodName == "Equals"
             && node.ArgumentList.Arguments.Count == 2

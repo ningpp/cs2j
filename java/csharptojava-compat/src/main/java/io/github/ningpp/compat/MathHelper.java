@@ -618,41 +618,50 @@ public class MathHelper {
      * back to the same float (using Float.parseFloat, not Double.parseDouble).
      * C# uses up to 9 significant digits for Single round-trip.
      */
-    private static String formatRoundTripFloat(float value) {
-        if (Float.isNaN(value)) return "NaN";
-        if (value == Float.POSITIVE_INFINITY) return "Infinity";
-        if (value == Float.NEGATIVE_INFINITY) return "-Infinity";
-        double d = (double) value;
-        for (int sig = 1; sig <= 9; sig++) {
-            String candidate = String.format(Locale.ROOT, "%." + sig + "g", d);
-            try {
-                if (Float.parseFloat(candidate) == value) {
-                    return stripTrailingZeros(candidate);
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return stripTrailingZeros(String.format(Locale.ROOT, "%.9g", d));
-    }
+private static String formatRoundTripFloat(float value) {
+if (Float.isNaN(value)) return "NaN";
+if (value == Float.POSITIVE_INFINITY) return "Infinity";
+if (value == Float.NEGATIVE_INFINITY) return "-Infinity";
+double d = (double) value;
+for (int sig = 1; sig <= 9; sig++) {
+String candidate = String.format(Locale.ROOT, "%." + sig + "g", d);
+try {
+if (Float.parseFloat(candidate) == value) {
+return uppercaseExponent(stripTrailingZeros(candidate));
+}
+} catch (NumberFormatException ignored) {
+}
+}
+return uppercaseExponent(stripTrailingZeros(String.format(Locale.ROOT, "%.9g", d)));
+}
 
-    private static String formatRoundTripDouble(double value, int maxSigDigits) {
-        if (Double.isNaN(value)) return "NaN";
-        if (value == Double.POSITIVE_INFINITY) return "Infinity";
-        if (value == Double.NEGATIVE_INFINITY) return "-Infinity";
-        // Try to find the shortest representation that round-trips
-        for (int sig = 1; sig <= maxSigDigits; sig++) {
-            String candidate = String.format(Locale.ROOT, "%." + sig + "g", value);
-            try {
-                if (Double.parseDouble(candidate) == value) {
-                    return stripTrailingZeros(candidate);
-                }
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return stripTrailingZeros(String.format(Locale.ROOT, "%." + maxSigDigits + "g", value));
-    }
+private static String formatRoundTripDouble(double value, int maxSigDigits) {
+if (Double.isNaN(value)) return "NaN";
+if (value == Double.POSITIVE_INFINITY) return "Infinity";
+if (value == Double.NEGATIVE_INFINITY) return "-Infinity";
+// Try to find the shortest representation that round-trips
+for (int sig = 1; sig <= maxSigDigits; sig++) {
+String candidate = String.format(Locale.ROOT, "%." + sig + "g", value);
+try {
+if (Double.parseDouble(candidate) == value) {
+return uppercaseExponent(stripTrailingZeros(candidate));
+}
+} catch (NumberFormatException ignored) {
+}
+}
+return uppercaseExponent(stripTrailingZeros(String.format(Locale.ROOT, "%." + maxSigDigits + "g", value)));
+}
 
-    private static String stripTrailingZeros(String s) {
+    /**
+* C# double.ToString("R") / float.ToString("R") use uppercase 'E' for the
+* exponent, while Java's String.format("%g", ...) uses lowercase 'e'.
+* Replace lowercase 'e' with 'E' to match C# behavior.
+*/
+private static String uppercaseExponent(String s) {
+return s.indexOf('e') >= 0 ? s.replace('e', 'E') : s;
+}
+
+private static String stripTrailingZeros(String s) {
         if (s.indexOf('.') < 0 || s.indexOf('e') >= 0 || s.indexOf('E') >= 0) {
             return s;
         }
