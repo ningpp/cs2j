@@ -1035,7 +1035,16 @@ private static bool IsArrayAccessSegment(string segment)
             {
                 // Capture the return value in a temp variable, emit post-stmts, then return it.
                 var postStmts = context.DrainPostStatements();
-                sb.Append($"var _ret = {expr};\n");
+                // Use the method's return type instead of "var" so that generic methods
+                // (e.g. TValue) produce the correct Java type instead of Object inference.
+                // "var _ret = readCore(...)" in a <TValue> TValue method would make
+                // Java infer Object, causing "Object cannot be converted to TValue".
+                var retType = (returnTargetType != null && context.SemanticModel != null)
+                    ? context.MapType(returnTargetType)
+                    : "var";
+                if (string.IsNullOrWhiteSpace(retType) || retType == "Object")
+                    retType = "var";
+                sb.Append($"{retType} _ret = {expr};\n");
                 sb.Append(string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";")));
                 var asyncRet = context.IsInAsyncContext
                     ? "CompletableFuture.completedFuture(_ret)"
