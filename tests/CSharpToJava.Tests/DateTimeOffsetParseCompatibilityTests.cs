@@ -51,7 +51,9 @@ class Sample {
               "IFormatProvider.java",
               "ObjectHolder.java",
               "ArgumentException.java",
+              "ArgumentNullException.java",
               "ArgumentOutOfRangeException.java",
+              "FormatException.java",
           }.Select(name => Path.Combine(compatDir, name)).ToArray();
 
         foreach (var source in compatSources)

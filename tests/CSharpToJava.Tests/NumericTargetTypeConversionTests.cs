@@ -196,6 +196,54 @@ class Sample
         Assert.Contains("(f == Float.POSITIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ConversionPipeline_SingleIsNegativeInfinity_RewritesToComparison()
+    {
+        var result = Convert(@"
+class Sample
+{
+    bool IsNegInf(float f)
+    {
+        return Single.IsNegativeInfinity(f);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("(f == Float.NEGATIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConversionPipeline_SingleIsPositiveInfinity_RewritesToComparison()
+    {
+        var result = Convert(@"
+class Sample
+{
+    bool IsPosInf(float f)
+    {
+        return Single.IsPositiveInfinity(f);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("(f == Float.POSITIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConversionPipeline_DoubleTypeNameIsNegativeInfinity_RewritesToComparison()
+    {
+        var result = Convert(@"
+class Sample
+{
+    bool IsNegInf(double d)
+    {
+        return Double.IsNegativeInfinity(d);
+    }
+}");
+
+        Assert.True(result.Success);
+        Assert.Contains("(d == Double.NEGATIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -3284,8 +3284,9 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
             (_, "NaN")               => "NaN",
             // Static methods used as non-invocation members — pass through
             (_, "IsInfinity")        => "isInfinite",
-            (_, "IsPositiveInfinity")=> "isInfinite",
-            (_, "IsNegativeInfinity")=> "isInfinite",
+            // IsPositiveInfinity/IsNegativeInfinity are handled at the invocation level
+            // (see InvocationExpressionTransformer) because they require == constant comparison
+            // rather than a simple method name mapping.
             (_, "IsNaN")             => "isNaN",
             _                        => string.Empty
         };

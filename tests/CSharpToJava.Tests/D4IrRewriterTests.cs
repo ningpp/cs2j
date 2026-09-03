@@ -1249,24 +1249,27 @@ public class D4IrRewriterTests
     }
 
     [Fact]
-    public void ExceptionApi_NewArgumentNullException_BecomesNullPointerException()
-    {
-        var rewriter = new ExceptionApiRewriter();
-
-        var newExpr = new JavaNewExpression
+    public void ExceptionApi_NewArgumentNullException_StaysAsArgumentNullException()
         {
-            Type = "ArgumentNullException",
-            Arguments = { new JavaLiteralExpression("\"param\"") },
-        };
+            // ArgumentNullException is NOT rewritten to NullPointerException because
+            // the compat library provides io.github.ningpp.compat.ArgumentNullException
+            // which is needed by translated catch blocks that explicitly catch ArgumentNullException.
+            var rewriter = new ExceptionApiRewriter();
 
-        rewriter.VisitNewExpression(newExpr);
+            var newExpr = new JavaNewExpression
+            {
+                Type = "ArgumentNullException",
+                Arguments = { new JavaLiteralExpression("\"param\"") },
+            };
 
-        Assert.Equal("NullPointerException", newExpr.Type);
-        Assert.Equal(1, rewriter.RewriteCount);
-    }
+            rewriter.VisitNewExpression(newExpr);
 
-    [Fact]
-    public void ExceptionApi_CatchClause_ExceptionTypeReplaced()
+            Assert.Equal("ArgumentNullException", newExpr.Type);
+            Assert.Equal(0, rewriter.RewriteCount);
+        }
+
+        [Fact]
+        public void ExceptionApi_CatchClause_ExceptionTypeReplaced()
     {
         var rewriter = new ExceptionApiRewriter();
 

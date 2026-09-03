@@ -34,8 +34,11 @@ public sealed class ExceptionApiRewriter : JavaSyntaxRewriter
         ["Exception"] = "RuntimeException",
         ["ApplicationException"] = "RuntimeException",
         ["InvalidOperationException"] = "IllegalStateException",
-        ["ArgumentNullException"] = "NullPointerException",
-        ["ArgumentException"] = "IllegalArgumentException",
+// ArgumentNullException is NOT mapped to NullPointerException — the compat library
+// provides io.github.ningpp.compat.ArgumentNullException (extends ArgumentException),
+// which is needed by translated catch blocks that explicitly catch ArgumentNullException.
+// ["ArgumentNullException"] = "NullPointerException",
+["ArgumentException"] = "IllegalArgumentException",
         ["NotImplementedException"] = "UnsupportedOperationException",
         ["NotSupportedException"] = "UnsupportedOperationException",
         ["ObjectDisposedException"] = "IllegalStateException",
@@ -76,6 +79,11 @@ public sealed class ExceptionApiRewriter : JavaSyntaxRewriter
         ["PSInvalidCastException"] = "ClassCastException",
         // Compat exceptions that extend NullPointerException (Java standard)
         ["PSArgumentNullException"] = "NullPointerException",
+        // Compat exceptions that extend IllegalArgumentException (Java standard)
+        // ArgumentNullException extends ArgumentException extends IllegalArgumentException
+        ["ArgumentNullException"] = "IllegalArgumentException",
+        // ArgumentOutOfRangeException extends ArgumentException extends IllegalArgumentException
+        ["ArgumentOutOfRangeException"] = "IllegalArgumentException",
         // Compat exceptions that extend UnsupportedOperationException (Java standard)
         ["PlatformNotSupportedException"] = "UnsupportedOperationException",
         ["PSNotImplementedException"] = "UnsupportedOperationException",

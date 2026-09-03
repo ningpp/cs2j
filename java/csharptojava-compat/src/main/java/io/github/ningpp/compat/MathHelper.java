@@ -602,7 +602,7 @@ public class MathHelper {
      */
     private static String formatRoundTrip(Object value) {
         if (value instanceof Float f) {
-            return formatRoundTripDouble(f.doubleValue(), 9);
+            return formatRoundTripFloat(f);
         }
         if (value instanceof Double d) {
             return formatRoundTripDouble(d, 17);
@@ -611,6 +611,28 @@ public class MathHelper {
             return formatRoundTripDouble(n.doubleValue(), 17);
         }
         return String.valueOf(value);
+    }
+
+    /**
+     * For C# float.ToString("R"): finds the shortest string that round-trips
+     * back to the same float (using Float.parseFloat, not Double.parseDouble).
+     * C# uses up to 9 significant digits for Single round-trip.
+     */
+    private static String formatRoundTripFloat(float value) {
+        if (Float.isNaN(value)) return "NaN";
+        if (value == Float.POSITIVE_INFINITY) return "Infinity";
+        if (value == Float.NEGATIVE_INFINITY) return "-Infinity";
+        double d = (double) value;
+        for (int sig = 1; sig <= 9; sig++) {
+            String candidate = String.format(Locale.ROOT, "%." + sig + "g", d);
+            try {
+                if (Float.parseFloat(candidate) == value) {
+                    return stripTrailingZeros(candidate);
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return stripTrailingZeros(String.format(Locale.ROOT, "%.9g", d));
     }
 
     private static String formatRoundTripDouble(double value, int maxSigDigits) {

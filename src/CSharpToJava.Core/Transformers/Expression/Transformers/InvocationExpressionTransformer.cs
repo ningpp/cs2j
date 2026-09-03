@@ -86,7 +86,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         // Double.IsPositiveInfinity(x) → (x == Double.POSITIVE_INFINITY)
         // Double.IsNegativeInfinity(x) → (x == Double.NEGATIVE_INFINITY)
+        // Single.IsPositiveInfinity(x) → (x == Float.POSITIVE_INFINITY)
+        // Single.IsNegativeInfinity(x) → (x == Float.NEGATIVE_INFINITY)
         // Java's Double/Float only has isInfinite() which can't distinguish positive/negative.
+        // This handles both PredefinedTypeSyntax (double/float keywords) and IdentifierNameSyntax
+        // (Double/Single type names) receivers via the semantic model.
         if (invocation.Expression is MemberAccessExpressionSyntax ma
             && invocation.ArgumentList.Arguments.Count == 1
             && context.SemanticModel != null)
@@ -96,14 +100,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 && sym.IsStatic
                 && sym.Parameters.Length == 1
                 && TryGetPrimitiveKeyword(sym.ContainingType, out var infPrimKeyword)
-                && (infPrimKeyword is "double" or "Double" or "float" or "Float"
-                    or "Single" or "single"))
+                && (infPrimKeyword is "double" or "float"))
             {
                 var methodName = ma.Name.Identifier.Text;
                 if (methodName is "IsPositiveInfinity" or "IsNegativeInfinity")
                 {
-                    var javaType = infPrimKeyword is "float" or "Float" or "single" or "Single"
-                        ? "Float" : "Double";
+                    var javaType = infPrimKeyword == "float" ? "Float" : "Double";
                     var constant = methodName == "IsPositiveInfinity"
                         ? "POSITIVE_INFINITY" : "NEGATIVE_INFINITY";
                     var argExpr = facade.Transform(
@@ -2979,6 +2981,23 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 }
             }
 
+            // Double.IsPositiveInfinity(x) → (x == Double.POSITIVE_INFINITY)
+            // Double.IsNegativeInfinity(x) → (x == Double.NEGATIVE_INFINITY)
+            // Float.IsPositiveInfinity(x) → (x == Float.POSITIVE_INFINITY)
+            // Float.IsNegativeInfinity(x) → (x == Float.NEGATIVE_INFINITY)
+            // Java's isInfinite() can't distinguish positive/negative, so use == constant.
+            if (originalMethodName is "IsPositiveInfinity" or "IsNegativeInfinity"
+                && node.ArgumentList.Arguments.Count == 1
+                && primTypeSyntax.Keyword.Text is "double" or "float" or "Single" or "Double")
+            {
+                var javaType = primTypeSyntax.Keyword.Text is "float" or "Single"
+                    ? "Float" : "Double";
+                var constant = originalMethodName == "IsPositiveInfinity"
+                    ? "POSITIVE_INFINITY" : "NEGATIVE_INFINITY";
+                var argExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"({argExpr} == {javaType}.{constant})";
+            }
+
             // byte maps to Java int, but the Parse method lives on Byte (Byte.parseByte),
             // not Integer. C# byte.Parse ? Byte.parseByte.
             var boxedReceiver = primTypeSyntax.Keyword.Text == "byte" && originalMethodName == "Parse"
@@ -5228,6 +5247,22 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         // hand-crafted renames (e.g. Add → add) are never double-processed.
         if (methodName == originalMethodName)
         {
+            // IsPositiveInfinity/IsNegativeInfinity: Java Float/Double have no such methods.
+            // Rewrite to comparison with the appropriate constant.
+            // This handles both keyword (float/double) and type-name (Single/Double) receivers
+            // via the semantic model's ContainingType.
+            if (methodSymbol is { IsStatic: true, Parameters.Length: 1 }
+                && TryGetPrimitiveKeyword(methodSymbol.ContainingType, out var infPrimKeyword2)
+                && infPrimKeyword2 is "float" or "double"
+                && originalMethodName is "IsPositiveInfinity" or "IsNegativeInfinity")
+            {
+                var javaType = infPrimKeyword2 == "float" ? "Float" : "Double";
+                var constant = originalMethodName == "IsPositiveInfinity"
+                    ? "POSITIVE_INFINITY" : "NEGATIVE_INFINITY";
+                var infArgExpr = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+                return $"({infArgExpr} == {javaType}.{constant})";
+            }
+
             // Primitive type static method mapping: when the method belongs to a C# primitive type
             // (e.g. char.IsLower), use the specialized mapper that knows Java wrapper class differences.
             if (methodSymbol is { IsStatic: true }
@@ -9931,7 +9966,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             ("char", "ConvertToUtf32")   => "toCodePoint",
             ("char", "Parse")            => "valueOf",
             // generic mappings shared across all primitive types
-            (_, "IsInfinity" or "IsPositiveInfinity" or "IsNegativeInfinity") => "isInfinite",
+            (_, "IsInfinity") => "isInfinite",
             (_, "IsNaN")    => "isNaN",
             (_, "IsFinite") => "isFinite",
             (_, "Parse")    => primitiveKeyword switch
@@ -10176,17 +10211,34 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         // For unsigned C# types that map to signed Java types, apply bitmask so that
         // hex formatting (X/x) produces the correct unsigned representation.
         // C# byte (0-255) → Java int, but value may have originated from signed Java byte.
-        // C# sbyte → Java byte, hex formatting should show unsigned representation.
+        // C# sbyte → Java byte (signed). For hex formats (X/x), C# treats sbyte as unsigned
+        // (e.g. -58 → "C6"), so mask with 0xFF. For non-hex formats, sbyte displays as-is.
         // C# ushort (0-65535) → Java short/int, needs & 0xFFFF for unsigned hex.
+        // C# uint/ulong → Java int/long (signed), needs unsigned string conversion when
+        // format is null (general format), but bitmask for hex formats.
+        bool isHexFormat = formatExpr.Contains("\"X", StringComparison.OrdinalIgnoreCase)
+            || formatExpr.Contains("\"x", StringComparison.OrdinalIgnoreCase);
         string valueExpr = receiverSymbol?.SpecialType switch
         {
             SpecialType.System_Byte  => $"({receiver} & 0xFF)",
-            SpecialType.System_SByte => $"({receiver} & 0xFF)",
+            SpecialType.System_SByte => isHexFormat ? $"({receiver} & 0xFF)" : receiver,
             SpecialType.System_UInt16 => $"({receiver} & 0xFFFF)",
             _ => receiver
         };
 
         context.AddImport("io.github.ningpp.compat.MathHelper");
+        // For UInt32/UInt64 with null format (general), use Java's unsigned string methods
+        // to match C# behavior (e.g. ulong.MaxValue → "18446744073709551615", not "-1").
+        if (formatExpr == "null")
+        {
+            switch (receiverSymbol?.SpecialType)
+            {
+                case SpecialType.System_UInt32:
+                    return $"Integer.toUnsignedString({receiver})";
+                case SpecialType.System_UInt64:
+                    return $"Long.toUnsignedString({receiver})";
+            }
+        }
         return $"MathHelper.formatNumeric({formatExpr}, {valueExpr})";
     }
 

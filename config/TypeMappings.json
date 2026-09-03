@@ -8931,16 +8931,6 @@
         },
         {
             "type": "System.Double",
-            "method": "IsPositiveInfinity",
-            "javaMethod": "isInfinite"
-        },
-        {
-            "type": "System.Double",
-            "method": "IsNegativeInfinity",
-            "javaMethod": "isInfinite"
-        },
-        {
-            "type": "System.Double",
             "method": "IsNaN",
             "javaMethod": "isNaN"
         },

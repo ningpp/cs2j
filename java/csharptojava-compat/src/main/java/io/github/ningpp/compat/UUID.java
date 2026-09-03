@@ -53,7 +53,18 @@ public final class UUID implements Comparable<UUID> {
     }
 
     public static UUID fromString(String name) {
-        return new UUID(java.util.UUID.fromString(name));
+        if (name == null) {
+            throw new ArgumentNullException("name");
+        }
+        String trimmed = name.trim();
+        try {
+            return new UUID(java.util.UUID.fromString(trimmed));
+        } catch (IllegalArgumentException e) {
+            // C# Guid constructor throws FormatException for invalid strings;
+            // Java UUID.fromString throws IllegalArgumentException.
+            // Wrap to match C# behavior so translated catch blocks work correctly.
+            throw new FormatException(e.getMessage(), e);
+        }
     }
 
     /** C# Guid.TryParseExact(input, format, out result) — "D"/"N" formats. */
