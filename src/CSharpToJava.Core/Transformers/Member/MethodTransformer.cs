@@ -403,11 +403,27 @@ public class MethodTransformer : IMemberTransformer
             else
             {
                 var exprBody = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(methodDecl.ExpressionBody.Expression, context);
+                #if DEBUG
+                System.Diagnostics.Debug.WriteLine($"[DEBUG] MethodTransformer: method={methodDecl.Identifier.Text}, isVoid={IsVoidMethod(methodDecl, context)}, exprBody={exprBody.Substring(0, System.Math.Min(80, exprBody.Length))}");
+                #endif
+                // For void expression-bodied methods that contain a ternary used as
+                // statement (e.g. C#'s `=> Event?.Invoke(args)`), Java cannot represent
+                // `cond ? a : b;` as a statement. Convert to if-else form.
+                if (IsVoidMethod(methodDecl, context) && TryConvertTernaryToIfElse(exprBody, out var ifElseBody))
+                {
+                    #if DEBUG
+                    System.Diagnostics.Debug.WriteLine($"[DEBUG]   -> Converted to if-else");
+                    #endif
+                    exprBody = ifElseBody;
+                }
+                #if DEBUG
+                else if (IsVoidMethod(methodDecl, context))
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DEBUG]   -> NOT converted");
+                }
+                #endif
 
-                // Strip redundant outer parens from conditional (ternary) expressions
-                // and convert ternary-as-statement to if-else for void methods.
-                // Java does not allow `cond ? a : b;` as a statement when branches
-                // produce values (non-void).
+                // Strip redundant outer parens from conditional (ternary) expressions.
                 exprBody = StripRedundantTernaryParens(exprBody);
 
                 // Expression-bodied methods skip TransformReturnStatement, so Stream/Array wrapping
@@ -522,6 +538,10 @@ public class MethodTransformer : IMemberTransformer
         // with try-catch instead of adding throws declarations.
         AddPendingRuntimeClassParameters(javaMethod, context);
 
+        // 注册方法声明映射，便于 override 处理时查找 base/abstract 方法
+        // 必须在 LeaveMethod 之前调用，因为 RegisterMethodDeclarations 使用 context.CurrentMethod
+        RegisterMethodDeclarations(javaMethod, context);
+
         if (pointerParams.Count > 0)
             context.PopFixedScope();
 
@@ -607,8 +627,7 @@ public class MethodTransformer : IMemberTransformer
         // the expected exception is not thrown (try/catch + flag, mirroring Assert.throwsException).
         WrapExpectedExceptionBody(javaMethod, context);
 
-        // 注册方法声明映射，便于 override 处理时查找 base/abstract 方法
-        RegisterMethodDeclarations(javaMethod, context);
+        // Note: RegisterMethodDeclarations was already called before LeaveMethod above.
 
         return allDeclarations.Count > 1
             ? new JavaMemberCollection(allDeclarations)
@@ -2727,7 +2746,16 @@ public class MethodTransformer : IMemberTransformer
         // signatures get _cs2j_T in lockstep.
         if (ConversionContext.IsOverrideOrImplementation(sym))
         {
-            context.DrainClassTypeParamsForMethod(sym);
+            // Drain pending requirements (if any) and check the RuntimeClassParameterRegistry
+            // for requirements registered by the body scan (typeof(T), JsonSerializer.Deserialize<T>, etc.).
+            // When the override body needs Class<T> / TypeReference<T> tokens, both the override and
+            // its base/abstract declaration must be patched in lockstep so call sites that pass
+            // explicit type arguments find matching parameter slots.
+            var overridePending = GetOverridePendingTypeParams(sym, context);
+            if (overridePending.Count > 0)
+            {
+                EnsurePendingParamsInBaseAndImpl(javaMethod, sym, overridePending, context);
+            }
             return;
         }
 
@@ -2826,7 +2854,22 @@ public class MethodTransformer : IMemberTransformer
         if (localPending != null)
             result.AddRange(localPending);
 
-        // 来源二：共享 RuntimeClassParameters 注册表
+        // 来源二：主动扫描 override 方法体，触发 RuntimeClassParameterRegistry 注册。
+        // GetRequiredTypeParameters 扫描 typeof(T)、default(T)、JsonSerializer.Deserialize<T> 等模式
+        // 并将结果注册到 RuntimeClassParameterRegistry。
+        var scannedRequirements = RuntimeClassParameterHelper.GetRequiredTypeParameters(
+            overrideSym, context);
+        foreach (var req in scannedRequirements)
+        {
+            if (req.DeclaringMethod != null
+                && SymbolEqualityComparer.Default.Equals(req.DeclaringMethod, overrideSym.OriginalDefinition)
+                && !result.Contains(req.Name))
+            {
+                result.Add(req.Name);
+            }
+        }
+
+        // 来源三：共享 RuntimeClassParameters 注册表（可能已被来源二填充，也可能在之前已填充）
         if (context.Options.RuntimeClassParameters.TryGetMethodRequirements(
                 overrideSym.OriginalDefinition, out var registryReqs))
         {
@@ -2855,9 +2898,11 @@ public class MethodTransformer : IMemberTransformer
 
         // 2. 注入到 base/abstract 方法签名（如果有）
         var baseSym = overrideSym.OverriddenMethod;
+        System.Console.WriteLine($"[DEBUG] EnsurePendingParamsInBaseAndImpl: overrideSym={overrideSym.ToDisplayString()}, baseSym={baseSym?.ToDisplayString()}");
         if (baseSym != null)
         {
             var baseDecl = context.FindMethodDeclaration(baseSym);
+            System.Console.WriteLine($"[DEBUG] EnsurePendingParamsInBaseAndImpl: baseDecl={baseDecl?.Name ?? "null"}");
             if (baseDecl != null)
             {
                 InjectLeadingClassTokens(baseDecl, baseSym, pending, context);
@@ -3497,5 +3542,94 @@ public class MethodTransformer : IMemberTransformer
             expr = inner;
         }
         return expr;
+    }
+
+    /// <summary>
+    /// Tries to convert a bare ternary expression (statement context) to an
+    /// if-else block. e.g. `cond ? a : b` becomes
+    /// `if (cond) {\n    a;\n} else {\n    b;\n}`.
+    /// Only matches when the ENTIRE expression is a ternary (no surrounding assignment).
+    /// </summary>
+    internal static bool TryConvertTernaryToIfElse(string expr, out string ifElse)
+    {
+        ifElse = string.Empty;
+        if (string.IsNullOrEmpty(expr) || !expr.Contains('?') || !expr.Contains(':'))
+            return false;
+
+        var s = expr.Trim();
+
+        // Strip surrounding parens from C#'s conditional access desugaring
+        while (s.Length > 2 && s.StartsWith('(') && s.EndsWith(')'))
+        {
+            int depth = 0;
+            bool matching = true;
+            for (int i = 0; i < s.Length - 1; i++)
+            {
+                if (s[i] == '(') depth++;
+                else if (s[i] == ')')
+                {
+                    depth--;
+                    if (depth == 0 && i < s.Length - 1) { matching = false; break; }
+                }
+            }
+            if (!matching || depth != 1)
+                break;
+            s = s[1..^1].Trim();
+        }
+
+        // Must not contain top-level assignment
+        int zd = 0;
+        for (int i = 0; i < s.Length; i++)
+        {
+            if (s[i] == '(') zd++;
+            else if (s[i] == ')') zd--;
+            else if (zd == 0 && s[i] == '=')
+                return false;
+        }
+
+        // Find top-level '?' (not ?. or ??)
+        int qPos = -1;
+        int depthT = 0;
+        for (int i = 0; i < s.Length; i++)
+        {
+            if (s[i] == '(') depthT++;
+            else if (s[i] == ')') depthT--;
+            else if (s[i] == '?' && depthT == 0 && i + 1 < s.Length && s[i + 1] != '.' && s[i + 1] != '?')
+            {
+                qPos = i;
+                break;
+            }
+        }
+        if (qPos <= 0)
+            return false;
+
+        // Find top-level ':'
+        int cPos = -1;
+        for (int i = qPos + 1; i < s.Length; i++)
+        {
+            if (s[i] == '(') depthT++;
+            else if (s[i] == ')') depthT--;
+            else if (s[i] == ':' && depthT == 0)
+            {
+                cPos = i;
+                break;
+            }
+        }
+        if (cPos <= qPos)
+            return false;
+
+        var cond = s[..qPos].Trim();
+        var whenTrue = s[(qPos + 1)..cPos].Trim();
+        var whenFalse = s[(cPos + 1)..].Trim();
+
+        ifElse = $"if ({cond}) {{\n{whenTrue};\n}} else {{\n{whenFalse};\n}}";
+        return true;
+    }
+
+    private static bool IsVoidMethod(MethodDeclarationSyntax methodDecl, ConversionContext context)
+    {
+        var returnType = context.GetTypeInfo(methodDecl.ReturnType).Type;
+        return returnType?.SpecialType == SpecialType.System_Void
+            || (methodDecl.ReturnType is PredefinedTypeSyntax pt && pt.Keyword.IsKind(SyntaxKind.VoidKeyword));
     }
 }

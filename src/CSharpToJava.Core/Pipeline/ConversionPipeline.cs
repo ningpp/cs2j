@@ -236,6 +236,7 @@ public class ConversionPipeline
             if (passState.EmitSucceeded)
             {
                 var code = StripGlobalAlias(passState.GeneratedCode);
+                code = StripRedundantConditionalParens(code);
                 var result = CreateSuccessResult(code, context, request.FileName, passMetrics);
                 result.Compilation = passState.JavaCompilation;   // 保留 IR，供 TS 发射器直接发射（Task 10 绿测试）与后置 pass 使用
                 result.LinqStatistics = passState.LinqStatistics;
@@ -480,8 +481,97 @@ public class ConversionPipeline
     /// Some auto-generated sources (e.g. XSD.exe output) use global:: to fully qualify
     /// type names. The qualifier has no meaning in Java and must be removed.
     /// </summary>
-    private static string StripGlobalAlias(string code) =>
+    internal static string StripGlobalAlias(string code) =>
         code.Replace("global::", "", StringComparison.Ordinal);
+
+    internal static string StripRedundantConditionalParens(string code)
+    {
+        // Handle lines where a bare ternary is used as a void statement body
+        // Pattern: `Type method(params) { cond ? whenTrue : whenFalse; }`
+        // Convert to: `Type method(params) {\n    if (cond) {\n        whenTrue;\n    }\n}`
+        var lines = code.Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            lines[i] = ConvertBareTernaryToIfElse(lines[i]);
+        }
+        var result = string.Join("\n", lines);
+        // Fix Java-incompatible float literals like 1E11.0 → 1E11
+        result = System.Text.RegularExpressions.Regex.Replace(result,
+            @"(\d+(?:\.\d+)?[Ee][+-]?\d+)\.0(?![\d\.])",
+            "$1");
+        return result;
+    }
+
+    private static string ConvertBareTernaryToIfElse(string line)
+    {
+        var t = line.TrimEnd();
+        if (!t.EndsWith(";}") && !t.EndsWith("; }")) return line;
+
+        int closeBrace = line.LastIndexOf('}');
+        if (closeBrace <= 0) return line;
+
+        int depth = 0, openBrace = -1;
+        for (int i = closeBrace; i >= 0; i--)
+        {
+            if (line[i] == '}') depth++;
+            else if (line[i] == '{') { depth--; if (depth == 0) { openBrace = i; break; } }
+        }
+        if (openBrace <= 0) return line;
+
+        var prefix = line.Substring(0, openBrace);
+        var inside = line.Substring(openBrace + 1, closeBrace - openBrace - 1).Trim();
+        if (!inside.EndsWith(";")) return line;
+        var expr = inside.Substring(0, inside.Length - 1).Trim();
+
+        var pt = prefix.Trim();
+        if (!pt.Contains('(')) return line;
+        // Skip if prefixes/keywords indicate this is NOT a simple void ternary
+        if (pt.StartsWith("return ") || pt.StartsWith("var ") || pt.StartsWith("int ")
+            || pt.StartsWith("long ") || pt.StartsWith("double ") || pt.StartsWith("float ")
+            || pt.StartsWith("if ") || pt.StartsWith("while ") || pt.StartsWith("for ")
+            || pt.StartsWith("throw "))
+            return line;
+        if (expr.Contains("return ") || expr.Contains("throw")) return line;
+
+        int d = 0, qPos = -1;
+        for (int i = 0; i < expr.Length; i++)
+        {
+            char c = expr[i];
+            if (c == '(') d++;
+            else if (c == ')') d--;
+            else if (c == '?' && d == 0 && i + 1 < expr.Length && expr[i + 1] != '.' && expr[i + 1] != '?')
+            { qPos = i; break; }
+        }
+        if (qPos <= 0) return line;
+
+        int cPos = -1;
+        for (int i = qPos + 1; i < expr.Length; i++)
+        {
+            char c = expr[i];
+            if (c == '(') d++;
+            else if (c == ')') d--;
+            else if (c == ':' && d == 0) { cPos = i; break; }
+        }
+        if (cPos <= qPos) return line;
+
+        var cond = expr.Substring(0, qPos).Trim();
+        var whenTrue = expr.Substring(qPos + 1, cPos - qPos - 1).Trim();
+        var whenFalse = expr.Substring(cPos + 1).Trim();
+
+        if (string.IsNullOrEmpty(whenTrue) || string.IsNullOrEmpty(whenFalse)) return line;
+
+        int indent = 0;
+        while (indent < line.Length && char.IsWhiteSpace(line[indent])) indent++;
+        var ind1 = new string(' ', Math.Max(indent, 4));
+        var ind2 = new string(' ', Math.Max(indent, 4) + 4);
+
+        var outerIndent = new string(' ', indent);
+
+        if (whenFalse == "null")
+            return prefix + "{\n" + ind1 + "if (" + cond + ") {\n" + ind2 + whenTrue + ";\n" + ind1 + "}" + outerIndent + "}\n";
+
+        return prefix + "{\n" + ind1 + "if (" + cond + ") {\n" + ind2 + whenTrue + ";\n" + ind1 + "} else {\n" + ind2 + whenFalse + ";\n" + ind1 + "}" + outerIndent + "}\n";
+    }
 
     /// <summary>
     /// Returns supplemental framework references (System.Runtime.dll and related) from the

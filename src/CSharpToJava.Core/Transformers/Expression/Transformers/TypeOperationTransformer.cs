@@ -891,7 +891,10 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                     return $"new {javaTargetType}({expression})";
                 }
 
-                var javaMethodName = "to" + char.ToUpper(javaTargetType[0]) + javaTargetType[1..];
+                // Array types (e.g. byte[]) must not embed "[]" in the method name.
+                // Use the same naming as OperatorTransformer: byte[] → toByteArray.
+                var namingType = javaTargetType.Replace("[]", "Array");
+                var javaMethodName = "to" + char.ToUpper(namingType[0]) + namingType[1..];
                 return $"{javaContainingType}.{javaMethodName}({expression})";
             }
         }

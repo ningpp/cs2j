@@ -328,10 +328,12 @@ public static class TypeGroupResolver
                             rewriter.VisitCompilationUnit(javaCompilation);
                     }
 
+                    var rawCode = javaCompilation.ToString("");
                     return new ConversionResult
                     {
                         Success = true,
-                        GeneratedCode = javaCompilation.ToString(""),
+                        GeneratedCode = ConversionPipeline.StripRedundantConditionalParens(
+                            ConversionPipeline.StripGlobalAlias(rawCode)),
                         Compilation = javaCompilation,
                         Diagnostics = new List<Context.DiagnosticMessage>(),
                         FileName = $"{javaType.Name}.java",
@@ -617,10 +619,12 @@ public static class TypeGroupResolver
                             rewriter.VisitCompilationUnit(javaCompilation);
                     }
 
+                    var rawCode = javaCompilation.ToString("");
                     return new ConversionResult
                     {
                         Success = true,
-                        GeneratedCode = javaCompilation.ToString(""),
+                        GeneratedCode = ConversionPipeline.StripRedundantConditionalParens(
+                            ConversionPipeline.StripGlobalAlias(rawCode)),
                         Compilation = javaCompilation,
                         FileName = $"{typeGroup.TypeSymbol.Name}.java",
                         Package = pkg,
@@ -696,10 +700,12 @@ public static class TypeGroupResolver
                             rewriter.VisitCompilationUnit(javaCompilation);
                     }
 
+                    var rawCode = javaCompilation.ToString("");
                     return new ConversionResult
                     {
                         Success = true,
-                        GeneratedCode = javaCompilation.ToString(""),
+                        GeneratedCode = ConversionPipeline.StripRedundantConditionalParens(
+                            ConversionPipeline.StripGlobalAlias(rawCode)),
                         Compilation = javaCompilation,
                         FileName = $"{javaInterface.Name}.java",
                         Package = pkg,
@@ -798,10 +804,13 @@ public static class TypeGroupResolver
             // Get source file path for diagnostics
             string? sourceFilePath = syntaxTree.FilePath;
 
+            var rawCode = javaCompilation.ToString("");
+
             return new ConversionResult
             {
                 Success = true,
-                GeneratedCode = javaCompilation.ToString(""),
+                GeneratedCode = ConversionPipeline.StripRedundantConditionalParens(
+                    ConversionPipeline.StripGlobalAlias(rawCode)),
                 Compilation = javaCompilation,
                 Diagnostics = new List<Context.DiagnosticMessage>(),
                 FileName = $"{typeGroup.TypeSymbol.Name}.java",

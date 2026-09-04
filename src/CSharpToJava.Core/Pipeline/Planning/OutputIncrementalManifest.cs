@@ -141,6 +141,9 @@ public sealed class OutputIncrementalWriteSession
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
         ArgumentNullException.ThrowIfNull(content);
 
+        // Post-processing: strip C# global:: alias and redundant ternary parens
+        content = ConversionPipeline.StripRedundantConditionalParens(
+            ConversionPipeline.StripGlobalAlias(content));
         var normalizedOutputPath = NormalizeOutputPath(outputPath);
         var contentHash = ComputeHash(Utf8WithoutBom.GetBytes(content));
 

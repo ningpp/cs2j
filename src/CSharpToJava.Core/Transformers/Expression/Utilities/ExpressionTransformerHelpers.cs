@@ -420,7 +420,10 @@ public static class ExpressionTransformerHelpers
                     {
                         return $"new {javaTargetType}({transformedExpression})";
                     }
-                    var javaMethodName = "to" + char.ToUpperInvariant(javaTargetType[0]) + javaTargetType[1..];
+                    // Array types (e.g. byte[]) must not embed "[]" in the method name.
+                    // Use the same naming as OperatorTransformer: byte[] → toByteArray.
+                    var namingType = javaTargetType.Replace("[]", "Array");
+                    var javaMethodName = "to" + char.ToUpperInvariant(namingType[0]) + namingType[1..];
                     return $"{javaContainingType}.{javaMethodName}({transformedExpression})";
                 }
             }
