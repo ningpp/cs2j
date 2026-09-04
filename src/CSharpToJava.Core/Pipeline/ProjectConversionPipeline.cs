@@ -320,6 +320,10 @@ public class ProjectConversionPipeline
         ConversionContext context,
         ISet<string>? emitFilePaths)
     {
+        // Strip C# `global::` namespace alias qualifier from all syntax trees.
+        // Some auto-generated sources (e.g. XSD.exe output) use global:: to fully
+        // qualify type names. The qualifier has no meaning in Java.
+        compilation = StripGlobalAliasQualifier(compilation);
         // Phase 1: In multi-project mode, RewriteExtensionMethods (instance promotion)
         // is incompatible — it would require back-patching already-emitted projects.
         // Force-disable and emit a warning so callers get a clear signal.
@@ -392,6 +396,35 @@ public class ProjectConversionPipeline
             AttachPassMetrics(passState.Results, passMetrics);
             return passState.Results;
         }
+    }
+
+    /// <summary>
+    /// Strips the C# `global::` namespace alias qualifier from all syntax trees in a
+    /// compilation. Some auto-generated sources (e.g. XSD.exe output) use global:: to
+    /// fully qualify type names. The qualifier has no semantic meaning beyond the
+    /// global namespace (which is the C# default), and must be removed before Java
+    /// code generation to avoid invalid Java output like `global::System.Xml.XmlReader`.
+    /// </summary>
+    internal static CSharpCompilation StripGlobalAliasQualifier(CSharpCompilation compilation)
+    {
+        bool changed = false;
+        var newTrees = new List<Microsoft.CodeAnalysis.SyntaxTree>();
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var text = tree.GetText().ToString();
+            if (!text.Contains("global::", StringComparison.Ordinal))
+            {
+                newTrees.Add(tree);
+                continue;
+            }
+            var stripped = text.Replace("global::", "", StringComparison.Ordinal);
+            changed = true;
+            newTrees.Add(CSharpSyntaxTree.ParseText(
+                stripped,
+                tree.Options is CSharpParseOptions opts ? opts : CSharpParseOptions.Default,
+                tree.FilePath));
+        }
+        return changed ? compilation.RemoveAllSyntaxTrees().AddSyntaxTrees(newTrees.ToArray()) : compilation;
     }
 }
 

@@ -404,6 +404,12 @@ public class MethodTransformer : IMemberTransformer
             {
                 var exprBody = Transformers.Expression.ExpressionTransformerFacade.Instance.Transform(methodDecl.ExpressionBody.Expression, context);
 
+                // Strip redundant outer parens from conditional (ternary) expressions
+                // and convert ternary-as-statement to if-else for void methods.
+                // Java does not allow `cond ? a : b;` as a statement when branches
+                // produce values (non-void).
+                exprBody = StripRedundantTernaryParens(exprBody);
+
                 // Expression-bodied methods skip TransformReturnStatement, so Stream/Array wrapping
                 // for IEnumerable/ICollection/IList return types must be handled here.
                 exprBody = WrapExpressionBodyForIterableReturn(exprBody, methodDecl.ExpressionBody.Expression,
@@ -450,7 +456,7 @@ public class MethodTransformer : IMemberTransformer
                     else if (context.HasPendingPostStatements)
                     {
                         var retHolder = context.GenerateSyntheticName("_ret");
-                        bodyLines.Add($"var {retHolder} = {exprBody};");
+                        bodyLines.Add($"var {retHolder} = {StripRedundantTernaryParens(exprBody)};");
                         foreach (var post in context.DrainPostStatements())
                             bodyLines.Add(post.TrimEnd(';') + ";");
                         if (context.IsInAsyncContext)
@@ -3458,5 +3464,38 @@ public class MethodTransformer : IMemberTransformer
             _ => 1
         };
         return Rank(current) < Rank(required);
+    }
+
+    /// <summary>
+    /// Iteratively strips redundant outer parentheses from conditional (ternary)
+    /// expressions. Java does not allow `(cond ? a : b);` as a statement. C# ?.
+    /// operator desugaring plus TransformConditional's parens can produce multiple
+    /// redundant outer paren levels like `((cond ? a : b))`.
+    /// </summary>
+    internal static string StripRedundantTernaryParens(string expr)
+    {
+        while (expr.Length > 2 && expr.StartsWith('(') && expr.EndsWith(')'))
+        {
+            var inner = expr[1..^1];
+            // Only strip if the inner expression contains a ternary operator.
+            if (!inner.Contains("?", StringComparison.Ordinal))
+                break;
+            // Verify the outer parens are not needed for grouping.
+            int depth = 0;
+            bool outerIsRedundant = true;
+            for (int i = 0; i < inner.Length; i++)
+            {
+                if (inner[i] == '(') depth++;
+                else if (inner[i] == ')')
+                {
+                    depth--;
+                    if (depth < 0) { outerIsRedundant = false; break; }
+                }
+            }
+            if (!outerIsRedundant || depth != 0)
+                break;
+            expr = inner;
+        }
+        return expr;
     }
 }

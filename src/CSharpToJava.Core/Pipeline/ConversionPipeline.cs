@@ -235,7 +235,8 @@ public class ConversionPipeline
 
             if (passState.EmitSucceeded)
             {
-                var result = CreateSuccessResult(passState.GeneratedCode, context, request.FileName, passMetrics);
+                var code = StripGlobalAlias(passState.GeneratedCode);
+                var result = CreateSuccessResult(code, context, request.FileName, passMetrics);
                 result.Compilation = passState.JavaCompilation;   // 保留 IR，供 TS 发射器直接发射（Task 10 绿测试）与后置 pass 使用
                 result.LinqStatistics = passState.LinqStatistics;
                 return result;
@@ -473,6 +474,14 @@ public class ConversionPipeline
             FileName = fileName
         };
     }
+
+    /// <summary>
+    /// Strips the C# "global::" namespace alias qualifier from generated Java code.
+    /// Some auto-generated sources (e.g. XSD.exe output) use global:: to fully qualify
+    /// type names. The qualifier has no meaning in Java and must be removed.
+    /// </summary>
+    private static string StripGlobalAlias(string code) =>
+        code.Replace("global::", "", StringComparison.Ordinal);
 
     /// <summary>
     /// Returns supplemental framework references (System.Runtime.dll and related) from the

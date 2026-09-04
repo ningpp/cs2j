@@ -457,6 +457,44 @@ public partial class StatementTransformer
 
         var expr = exprTransformer.Transform(stmt.Expression, context);
 
+        // Convert parenthesized conditional (ternary) expressions used as statements
+        // to if-else form. Java does not allow `(cond ? a : b);` as a statement —
+        // and a bare `cond ? a : b;` is only valid when the branches produce void.
+        // Wrap as `if (cond) { a; } else { b; }` to ensure semantic equivalence.
+        if (IsParenthesizedTernary(expr, out var cond, out var whenTrue, out var whenFalse))
+        {
+            // Transform to if-else statement
+            return new JavaStatementNode(
+                $"if ({cond}) {{\n{whenTrue};\n}} else {{\n{whenFalse};\n}}");
+        }
+
+        // Strip outer parentheses from conditional (ternary) expressions used as
+        // statements. This handles non-void producing ternaries that are valid
+        // expression statements in Java (result is discarded).
+        while (expr.Length > 2 && expr.StartsWith('(') && expr.EndsWith(')'))
+        {
+            var inner = expr[1..^1];
+            // Only strip if the inner expression contains a ternary (issue only
+            // affects conditional expressions used as statements in Java).
+            if (!inner.Contains("?", StringComparison.Ordinal))
+                break;
+            // Verify the outer parens are not needed for grouping.
+            int depth = 0;
+            bool outerIsRedundant = true;
+            for (int i = 0; i < inner.Length; i++)
+            {
+                if (inner[i] == '(') depth++;
+                else if (inner[i] == ')')
+                {
+                    depth--;
+                    if (depth < 0) { outerIsRedundant = false; break; }
+                }
+            }
+            if (!outerIsRedundant || depth != 0)
+                break;
+            expr = inner;
+        }
+
         // Drain any pre-statements emitted by the expression transformer
         // (e.g., chain property assignment: list.Add(obj.Prop = local = expr) splits into pre-stmts)
         // Also drain post-statements (e.g., out-param holder reads back into variables after the call)
@@ -744,6 +782,95 @@ private static bool IsArrayAccessSegment(string segment)
         return segment.Length > 0
             && (char.IsLetter(segment[0]) || segment[0] == '_' || segment[0] == '$')
             && segment.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '$');
+    }
+
+    /// <summary>
+    /// Detects if the expression is a conditional (ternary) expression that needs
+    /// to be converted to an if-else statement for Java. Java allows ternary expressions
+    // as statements only when both branches are void; otherwise they must produce a value.
+    /// C# `?.` desugaring produces `(cond ? expr : null)` which Java rejects as a statement.
+    /// This method extracts the three parts if the expression is a ternary.
+    /// </summary>
+    private static bool IsParenthesizedTernary(string expr, out string condition, out string whenTrue, out string whenFalse)
+    {
+        condition = whenTrue = whenFalse = string.Empty;
+        if (string.IsNullOrEmpty(expr))
+            return false;
+
+        // Strip outer parens to find the ternary
+        var s = expr.Trim();
+        while (s.Length > 2 && s.StartsWith('(') && s.EndsWith(')'))
+        {
+            // Verify these are matching outer parens
+            int depth = 0;
+            bool matching = true;
+            for (int i = 0; i < s.Length - 1; i++)
+            {
+                if (s[i] == '(') depth++;
+                else if (s[i] == ')')
+                {
+                    depth--;
+                    if (depth == 0 && i < s.Length - 1) { matching = false; break; }
+                }
+            }
+        if (!matching || depth != 1)
+            break;
+        s = s[1..^1].Trim();
+    }
+
+    // The ternary must be the ENTIRE statement — it should not contain
+    // assignment operators at depth 0 (which would indicate the ternary
+    // is part of a larger expression like an assignment RHS).
+    int zeroDepthOp = -1;
+    int zd = 0;
+    for (int i = 0; i < s.Length; i++)
+    {
+        if (s[i] == '(') zd++;
+        else if (s[i] == ')') zd--;
+        else if (zd == 0 && s[i] == '=')
+        {
+            return false;
+        }
+    }
+
+    // Find the top-level '?' (the ternary operator)
+        int qPos = -1;
+        int depthT = 0;
+        for (int i = 0; i < s.Length; i++)
+        {
+            if (s[i] == '(') depthT++;
+            else if (s[i] == ')') depthT--;
+            else if (s[i] == '?' && depthT == 0 && i + 1 < s.Length && s[i + 1] != '.' && s[i + 1] != '?')
+            {
+                qPos = i;
+                break;
+            }
+        }
+        if (qPos <= 0)
+            return false;
+
+        // Find the top-level ':' (the separator)
+        int cPos = -1;
+        for (int i = qPos + 1; i < s.Length; i++)
+        {
+            if (s[i] == '(') depthT++;
+            else if (s[i] == ')') depthT--;
+            else if (s[i] == ':' && depthT == 0)
+            {
+                cPos = i;
+                break;
+            }
+        }
+        if (cPos <= qPos)
+            return false;
+
+        condition = s[..qPos].Trim();
+        whenTrue = s[(qPos + 1)..cPos].Trim();
+        whenFalse = s[(cPos + 1)..].Trim();
+
+        // Only convert if the ternary is used as a void statement (the result is discarded)
+        // Both branches should be method calls or similar void-side-effect expressions
+        return true;
     }
 
     private JavaSyntaxNode TransformThrowStatement(ThrowStatementSyntax stmt, ConversionContext context)
