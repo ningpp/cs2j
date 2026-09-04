@@ -1681,16 +1681,10 @@ public class StructTransformer : ITypeTransformer
         }
         else
         {
-            // For instance fields, the simplest approach is to build the full initialization inline.
-            // We concatenate pre-statements and the final value into a comment-documented block.
-            // Since Java doesn't support multi-statement field initializers, we note this as a TODO.
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine("/* Object initializer — consider moving to constructor. */");
-            foreach (var stmt in preStatements)
-                sb.AppendLine(stmt.TrimEnd());
-            if (!string.IsNullOrWhiteSpace(javaField.Initializer))
-                sb.Append(javaField.Initializer);
-            javaField.Initializer = sb.ToString().Trim();
+            // For instance fields, move pre-statements into constructors.
+            // Java does not support multi-statement field initializers, so the
+            // statements must be placed in each non-delegating constructor.
+            ClassTransformer.LiftInitializerStatementsIntoConstructors(javaClass, preStatements);
         }
     }
 

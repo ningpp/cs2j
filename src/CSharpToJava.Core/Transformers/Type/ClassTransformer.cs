@@ -741,6 +741,55 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
         }
     }
 
+    /// <summary>
+    /// Helper for struct transformers: lifts field initializer pre-statements into
+    /// all non-delegating constructors. If no constructor exists, a new public/protected
+    /// one is created. This avoids placing multi-statement initializer blocks into a
+    /// field declaration, which would produce invalid Java syntax.
+    /// </summary>
+    internal static void LiftInitializerStatementsIntoConstructors(
+        JavaClassDeclaration javaClass,
+        IReadOnlyList<string> preStatements)
+    {
+        if (preStatements == null || preStatements.Count == 0)
+            return;
+
+        if (javaClass.Constructors.Count == 0)
+        {
+            var ctor = new JavaConstructorDeclaration
+            {
+                ClassName = javaClass.Name,
+                Modifiers = javaClass.Modifiers.HasFlag(JavaModifiers.Abstract)
+                    ? JavaModifiers.Protected
+                    : JavaModifiers.Public,
+                StructuredBody = new JavaMethodBody()
+            };
+            foreach (var stmt in preStatements)
+                ctor.StructuredBody.Statements.Add(new JavaRawStatement(stmt.TrimEnd(';') + ";"));
+            javaClass.Constructors.Add(ctor);
+            return;
+        }
+
+        foreach (var ctor in javaClass.Constructors)
+        {
+            // this(...) delegating constructors forward to another constructor,
+            // which receives the field initialization statements.
+            if (!string.IsNullOrWhiteSpace(ctor.Initializer)
+                && ctor.Initializer.TrimStart().StartsWith("this(", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            EnsureStructuredBody(ctor);
+            for (var i = preStatements.Count - 1; i >= 0; i--)
+            {
+                var stmt = preStatements[i].TrimEnd(';') + ";";
+                if (!ConstructorBodyContains(ctor, stmt))
+                    ctor.StructuredBody!.Statements.Insert(0, new JavaRawStatement(stmt));
+            }
+        }
+    }
+
     internal static void ReorderStaticFieldInitializers(JavaClassDeclaration javaClass)
     {
         var staticBlockNames = new HashSet<string>(StringComparer.Ordinal);
