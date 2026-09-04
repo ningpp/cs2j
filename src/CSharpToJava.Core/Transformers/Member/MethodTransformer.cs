@@ -2820,7 +2820,11 @@ public class MethodTransformer : IMemberTransformer
             context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
             // The injected Class<T> parameter references the type parameter ? make sure
             // the method declares it (stripped when the body never used it before).
-            if (!javaMethod.TypeParameters.Any(tp => tp.Name == typeParameterName))
+            // A CLASS-level type parameter must NOT be re-declared at the method level:
+            // the method-level <T> would shadow the class T and break overrides
+            // (e.g. NullableConverter.Read became <T> T read(...) instead of T read(...)).
+            var isClassLevelTypeParam = sym?.ContainingType?.TypeParameters.Any(tp => tp.Name == typeParameterName) == true;
+            if (!isClassLevelTypeParam && !javaMethod.TypeParameters.Any(tp => tp.Name == typeParameterName))
                 javaMethod.TypeParameters.Add(new Java.JavaTypeParameter(typeParameterName));
         }
 
