@@ -499,7 +499,84 @@ public class ConversionPipeline
         result = System.Text.RegularExpressions.Regex.Replace(result,
             @"(\d+(?:\.\d+)?[Ee][+-]?\d+)\.0(?![\d\.])",
             "$1");
+        // Fix unbalanced parens in if-conditions from C# null-conditional + NOT
+        result = BalanceIfConditionParens(result);
         return result;
+    }
+
+    /// <summary>
+    /// Fixes unbalanced parentheses in `if (CONDITION) {` and similar patterns.
+    /// C#'s `!` + null-conditional `?.` + null-coalescing `??` creates extra wraps
+    /// that can leave the Java condition unbalanced. This function detects and corrects
+    /// such imbalances by adjusting outer parens.
+    /// </summary>
+    private static string BalanceIfConditionParens(string code)
+    {
+        var lines = code.Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            lines[i] = BalanceIfLineParens(lines[i]);
+        }
+        return string.Join("\n", lines);
+    }
+
+    private static string BalanceIfLineParens(string line)
+    {
+        var trimmed = line.TrimEnd();
+        if (!trimmed.Contains("if (") && !trimmed.Contains("for (") && !trimmed.Contains("while ("))
+            return line;
+
+        // Find first `(` for the if/while/for condition
+        int outerOpen = -1;
+        for (int i = 0; i < trimmed.Length; i++)
+        {
+            if (trimmed[i] == '(' && (i == 0 || trimmed[i - 1] != '='))
+            { outerOpen = i; break; }
+        }
+        if (outerOpen < 0) return line;
+
+        // Find `{`
+        int braceStart = trimmed.IndexOf('{', outerOpen);
+        if (braceStart <= outerOpen + 1) return line;
+
+        // Find the closing `)` for the condition (last `)` before ` {`)
+        int outerClose = -1;
+        for (int i = braceStart - 1; i > outerOpen; i--)
+        {
+            if (trimmed[i] == ')') { outerClose = i; break; }
+            else if (!char.IsWhiteSpace(trimmed[i]) && trimmed[i] != '(')
+                break; // Not a clean `) {` pattern
+        }
+        if (outerClose <= outerOpen) return line;
+
+        // Compute depth within the outer ( )
+        var condition = trimmed.Substring(outerOpen + 1, outerClose - outerOpen - 1);
+        int depth = 0;
+        foreach (char c in condition)
+        {
+            if (c == '(') depth++;
+            else if (c == ')') depth--;
+        }
+
+        if (depth == 0) return line; // Balanced
+
+        if (depth > 0)
+        {
+            // More `(` than `)` — add `)` after outerClose, before ` {`
+            return trimmed.Substring(0, outerClose + 1) + new string(')', depth) + trimmed.Substring(outerClose + 1);
+        }
+        else
+        {
+            // More `)` than `(` — remove extra `(` from beginning of condition
+            int toRemove = -depth;
+            int skipStart = outerOpen + 1;
+            while (toRemove > 0 && skipStart < outerClose && trimmed[skipStart] == '(')
+            {
+                skipStart++;
+                toRemove--;
+            }
+            return trimmed.Substring(0, outerOpen + 1) + trimmed.Substring(skipStart);
+        }
     }
 
     private static string ConvertBareTernaryToIfElse(string line)

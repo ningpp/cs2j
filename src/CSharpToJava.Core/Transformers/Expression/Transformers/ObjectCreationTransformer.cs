@@ -2641,6 +2641,9 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (isByteArray && node.Expressions.Count >= Base64Threshold)
         {
             System.Console.WriteLine($"[DEBUG] TransformByteArrayAsBase64: TRIGGERED count={node.Expressions.Count}, isBare={isBareInitializer}");
+            // Large byte[] initializer: return just the Base64 decode call.
+            // Caller must NOT wrap with "new byte[] { ... }" — the decode call
+            // already produces a byte[] value.
             return TransformByteArrayAsBase64(node, context, isBareInitializer);
         }
 
@@ -2770,7 +2773,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
 
         sb.Append(')');
         var result = sb.ToString();
-        return isBareInitializer ? result : " " + result;
+        // For bare initializer context (caller wraps with "new Type[]{...}"),
+        // return just the decode call. For non-bare context (caller appended "new Type[]"
+        // and expects "{...}"), wrap with braces.
+        return isBareInitializer ? result : "{" + result + "}";
     }
 
     private static string? ResolveBareArrayInitializerElementType(InitializerExpressionSyntax node, ConversionContext context, out int rankCount)
