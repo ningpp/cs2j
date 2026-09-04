@@ -482,7 +482,7 @@ public class ClassTransformer : ITypeTransformer
         UpgradeNonGenericEnumeratorClass(javaClass, context);
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass, mergedType.TypeSymbol);
-        AddCollectionInterfaceBridgeMethods(javaClass, mergedType.TypeSymbol);
+        AddCollectionInterfaceBridgeMethods(javaClass, mergedType.TypeSymbol, context);
         AddJavaCollectionBaseConstructors(javaClass);
         RemoveNonGenericClashingMembers(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
@@ -491,6 +491,7 @@ public class ClassTransformer : ITypeTransformer
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
         FixCollectionAddReturnType(javaClass);
+        FixNonGenericIListAddReturnType(javaClass);
         ResolveReadOnlyDictListConflict(javaClass, context);
         InjectMSTestExtensionIfNeeded(javaClass, context);
         ReorderStaticFieldsByDependency(javaClass);
@@ -548,6 +549,73 @@ public class ClassTransformer : ITypeTransformer
             {
                 method.Body = "return true;";
             }
+        }
+    }
+
+    /// <summary>
+    /// C# non-generic IList.Add(object) returns int (insertion index), but the
+    /// Java compat CSharpGenericIList.add() and CSharpList.add() return boolean.
+    /// When a class implements CSharpIList and the generated int add(Object)
+    /// method body directly returns a boolean-producing .add() call, rewrite the
+    /// body to capture the pre-add count and return it as the insertion index,
+    /// mirroring the CSharpIList.from() adapter pattern:
+    ///   int count = X.getCount(); X.add(value); return count;
+    /// or for CSharpList: int count = X.size(); X.add(value); return count - 1;
+    /// </summary>
+    private static void FixNonGenericIListAddReturnType(JavaClassDeclaration javaClass)
+    {
+        bool implementsCSharpIList = javaClass.ImplementedTypes.Any(t => t == "CSharpIList");
+        if (!implementsCSharpIList)
+            return;
+
+        foreach (var method in javaClass.Methods)
+        {
+            if (method.Name != "add" || method.ReturnType != "int" || method.Parameters.Count != 1)
+                continue;
+
+            // Flatten structured body to string for inspection/rewrite
+            if (method.StructuredBody != null)
+            {
+                method.Body = method.StructuredBody.ToBodyString();
+                method.StructuredBody = null;
+            }
+
+            var body = method.Body ?? "";
+            // Match: return <expr>.add(<arg>);
+            // where <expr> is the delegate collection (cast or wrapped).
+            var bareReturnPattern = new System.Text.RegularExpressions.Regex(
+                @"^\s*return\s+(.+?)\.add\(([^)]*)\)\s*;\s*$",
+                System.Text.RegularExpressions.RegexOptions.Singleline);
+            var match = bareReturnPattern.Match(body.Trim());
+            if (!match.Success)
+                continue;
+
+            var receiverExpr = match.Groups[1].Value.Trim();
+            var argExpr = match.Groups[2].Value.Trim();
+
+            // Determine which "size/count" accessor to use.
+            // CSharpGenericIList has getCount(), CSharpList has size().
+            // Use getCount() for CSharpGenericIList casts, size() for CSharpList.
+            string countAccessor;
+            if (receiverExpr.Contains("CSharpGenericIList") || receiverExpr.Contains("CSharpIList"))
+                countAccessor = $"{receiverExpr}.getCount()";
+            else
+                countAccessor = $"{receiverExpr}.size()";
+
+            // Rewrite: capture count before add, call add, return count (insertion index).
+            // For CSharpList which uses size(), the insertion index is size()-1 after add.
+            // For CSharpGenericIList which uses getCount(), getCount() before add is the index.
+            if (receiverExpr.Contains("CSharpList") && !receiverExpr.Contains("CSharpGenericIList"))
+            {
+                // CSharpList: size() after add = old_size + 1, so index = size() - 1
+                method.Body = $"{receiverExpr}.add({argExpr});\n        return {receiverExpr}.size() - 1;";
+            }
+            else
+            {
+                // CSharpGenericIList: getCount() before add = insertion index
+                method.Body = $"int __count = {countAccessor};\n        {receiverExpr}.add({argExpr});\n        return __count;";
+            }
+            method.IsBodyExpression = false;
         }
     }
 
@@ -1042,7 +1110,7 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
         RemoveCloneBridgeConflicts(javaClass);
         AddIteratorBridgeMethods(javaClass);
         AddIterableBridgeFromIteratorMethod(javaClass, classSymbol);
-        AddCollectionInterfaceBridgeMethods(javaClass, classSymbol);
+        AddCollectionInterfaceBridgeMethods(javaClass, classSymbol, context);
         AddJavaCollectionBaseConstructors(javaClass);
         RemoveNonGenericClashingMembers(javaClass);
         AddIterableSizeBridgeMethods(javaClass);
@@ -1051,6 +1119,7 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
         AddListInterfaceBridgeMethods(javaClass);
         AddIRectangleBridgeMethods(javaClass);
         FixCollectionAddReturnType(javaClass);
+        FixNonGenericIListAddReturnType(javaClass);
         ResolveReadOnlyDictListConflict(javaClass, context);
 
         // static class → private no-arg constructor to prevent instantiation (Java has no static class keyword)
@@ -3067,7 +3136,7 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
         }
         else if (classSymbol != null)
         {
-            var ienumElem = ExtractIEnumerableElementType(classSymbol);
+            var ienumElem = ExtractIEnumerableElementType(classSymbol, context);
             if (ienumElem != null)
             {
                 elementType = ienumElem;
@@ -3472,7 +3541,7 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
     /// Converts "implements Collection&lt;T&gt;" into "extends AbstractCollection&lt;T&gt;" when possible,
     /// and fixes key method signatures to Java-compatible forms.
     /// </summary>
-    private static void AddCollectionInterfaceBridgeMethods(JavaClassDeclaration javaClass, INamedTypeSymbol? classSymbol)
+    private static void AddCollectionInterfaceBridgeMethods(JavaClassDeclaration javaClass, INamedTypeSymbol? classSymbol, ConversionContext? context = null)
     {
         // A C# class that inherits CollectionBase (mapped to CSharpCollectionBase) already carries the
         // non-generic IEnumerable/ICollection contract. If it also explicitly implements IEnumerable<T>,
@@ -3544,7 +3613,7 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
             if (csharpIterableType != null && csharpIterableType.StartsWith("CSharpGenericIterable<") && csharpIterableType.EndsWith(">"))
                 elemType = csharpIterableType.Substring(22, csharpIterableType.Length - 23);
             else if (classSymbol != null)
-                elemType = ExtractIEnumerableElementType(classSymbol) ?? "Object";
+                elemType = ExtractIEnumerableElementType(classSymbol, context) ?? "Object";
 
             // Only fix if not already handled by CSharpICollection or Collection logic
             var existingCSharpCollType = javaClass.ImplementedTypes.FirstOrDefault(t => t.StartsWith("CSharpICollection<"));
@@ -3866,7 +3935,7 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
         return false;
     }
 
-    private static string? ExtractIEnumerableElementType(INamedTypeSymbol type)
+    private static string? ExtractIEnumerableElementType(INamedTypeSymbol type, ConversionContext? context = null)
     {
         // Check the type itself and all ancestors for IEnumerable<T>
         var current = type;
@@ -3876,8 +3945,13 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
                 i.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>");
             if (ienum != null && ienum.TypeArguments.Length == 1)
             {
-                // Map the C# element type to Java type
-                // For now, return the type argument name as-is; the caller will use it for matching
+                // Map the C# element type to the correct Java type via the type
+                // mapping pipeline. Using .Name alone produces bare short names
+                // (e.g. "KeyValuePair") which are not valid when a mapping exists
+                // (e.g. CSharpKeyValuePair). When context is available, MapType
+                // resolves the full Java type name including generic arguments.
+                if (context != null)
+                    return context.MapType(ienum.TypeArguments[0]);
                 return ienum.TypeArguments[0].Name;
             }
             current = current.BaseType;

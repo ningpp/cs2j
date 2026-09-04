@@ -1433,6 +1433,118 @@ public class GenericPreprocessTests(ITestOutputHelper output)
         AssertNoSyntaxErrors(result.OutputCode);
     }
 
+    // ===================================================================
+    // 前向类型参数（forwarded-only type param）插入 typeof 声明
+    // ===================================================================
+
+    /// <summary>
+    /// 当方法体中某个类型参数仅作为前向类型参数出现在泛型转发调用中
+    /// （没有被 default(T)/typeof(T)/new T()/is T 等模式使用时），预处理器
+    /// 应在方法体前部插入 ``var __cs2j_typeof_<T> = typeof(<T>);`` 以
+    /// 触发转换器的类型参数识别。
+    /// </summary>
+    [Fact]
+    public void Preprocess_ForwardedOnlyTypeParam_InsertsTypeOfStatement()
+    {
+        var src = @"
+public abstract class Wrapper{
+    public abstract T Deserialize<T>(string json);
+}
+
+public class Impl : Wrapper{
+    public override T Deserialize<T>(string json){
+        return Helper.Async<T>(json);
+    }
+}
+
+public static class Helper{
+    public static T Async<T>(string json){
+        return default(T);
+    }
+}
+";
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        // Impl.Deserialize 的 override 体中 T 仅出现在 Helper.Async<T> 中，
+        // 没有被 default(T)/typeof(T)/new T() 使用，因此应插入 __cs2j_typeof_T
+        Assert.Contains("__cs2j_typeof_T", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 当类型参数已被"已跟踪模式"使用时，不重复插入 typeof 声明。
+    /// </summary>
+    [Fact]
+    public void Preprocess_TypeParamAlreadyTracked_DoesNotInsertTypeOf()
+    {
+        var src = @"
+public class Container{
+    public T Convert<T>(){
+        var _ = typeof(T);
+        return Helper.Forward<T>();
+    }
+}
+
+public static class Helper{
+    public static T Forward<T>(){
+        return default(T);
+    }
+}
+";
+        var result = Preprocess(src);
+        // typeof(T) 已经显式出现，不需要再插入 __cs2j_typeof_T
+        Assert.DoesNotContain("__cs2j_typeof_T", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 插入的 typeof 声明必须严格在方法体前部、位于其他语句之前。
+    /// </summary>
+    [Fact]
+    public void Preprocess_ForwardedOnlyTypeParam_TypeOfInsertedAtTop()
+    {
+        var src = @"
+public abstract class Base{
+    public abstract T Process<T>(string input);
+}
+
+public class Derived : Base{
+    public override T Process<T>(string input){
+        var result = Converter.Convert<T>(input);
+        return result;
+    }
+}
+
+public static class Converter{
+    public static T Convert<T>(string input){
+        return default(T);
+    }
+}
+";
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("__cs2j_typeof_T", result.OutputCode, StringComparison.Ordinal);
+        // 验证插入位置：在派生类的 override 方法体中
+        var lines = result.OutputCode.Split('\n');
+        var inDerivedMethod = false;
+        var foundTypeOf = false;
+        foreach (var line in lines)
+        {
+            if (line.Contains("public override T Process"))
+                inDerivedMethod = true;
+            if (inDerivedMethod && line.Contains("__cs2j_typeof_T"))
+            {
+                foundTypeOf = true;
+                break;
+            }
+            // Override 方法内遇到除首部注释/声明之外的其它语句则应已过了 typeof
+            if (inDerivedMethod && line.Contains("var result"))
+                break;
+        }
+        Assert.True(foundTypeOf, "typeof 声明应插入到 override 方法体的前部");
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
     [Fact]
     public void Preprocess_GenericClassStaticFieldsWithTypeParam()
     {

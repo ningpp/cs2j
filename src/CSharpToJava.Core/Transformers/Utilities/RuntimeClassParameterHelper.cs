@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
@@ -232,7 +233,19 @@ internal static class RuntimeClassParameterHelper
                 .ToList();
             context.CacheRuntimeClassRequiredTypeParameters(originalMethod, result);
             if (result.Count > 0)
+            {
                 context.Options.RuntimeClassParameters.RegisterMethodRequirements(originalMethod, result);
+
+                // Propagate override's requirements to the abstract/base method so the
+                // base signature gets the same _cs2j_T parameters. This ensures the
+                // override signature matches its base slot (for cross-file project mode
+                // where the base is in a different syntax tree).
+                if (originalMethod.OverriddenMethod != null)
+                {
+                    context.Options.RuntimeClassParameters.RegisterMethodRequirements(
+                        originalMethod.OverriddenMethod, result);
+                }
+            }
             return result;
         }
         finally
@@ -404,6 +417,9 @@ internal static class RuntimeClassParameterHelper
                 // Marker only: the type parameter must NOT join the trailing Class<?>
                 // clazz-parameter list.
                 context.Options.RuntimeClassParameters.RegisterMethodTypeReference(originalMethod, typeParam.Name);
+                // Also propagate to the base/abstract method for override scenarios
+                if (originalMethod.OverriddenMethod != null)
+                    context.Options.RuntimeClassParameters.RegisterMethodTypeReference(originalMethod.OverriddenMethod, typeParam.Name);
                 continue;
             }
 
@@ -489,6 +505,37 @@ internal static class RuntimeClassParameterHelper
             {
                 AddUnique(required, typeParameter);
             }
+        }
+    }
+
+    /// <summary>
+    /// 检测泛型预处理器注入的 ``var __cs2j_typeof_&lt;T&gt; = typeof(T);`` 语句，
+    /// 并为对应的方法级类型参数注册运行时 Class&lt;T&gt; 需求。
+    /// 仅在包含预处理器特定哨兵变量名（__cs2j_typeof_ 前缀）时才触发，
+    /// 避免误检测代码中本来就有的 typeof(T) 用法。
+    /// </summary>
+    private static void AddPreprocessorInjectedTypeOfRequirements(
+        MethodDeclarationSyntax declaration,
+        SemanticModel semanticModel,
+        IMethodSymbol originalMethod,
+        List<ITypeParameterSymbol> required)
+    {
+        foreach (var localDecl in declaration.DescendantNodes().OfType<LocalDeclarationStatementSyntax>())
+        {
+            if (localDecl.Declaration?.Variables.Count != 1)
+                continue;
+            var declarator = localDecl.Declaration.Variables[0];
+            var varName = declarator.Identifier.Text;
+            if (!varName.StartsWith("__cs2j_typeof_", StringComparison.Ordinal))
+                continue;
+            var initializer = declarator.Initializer?.Value;
+            if (initializer is not TypeOfExpressionSyntax typeOfExpr)
+                continue;
+            if (semanticModel.GetTypeInfo(typeOfExpr.Type).Type is not ITypeParameterSymbol typeParameter)
+                continue;
+            if (!SymbolEqualityComparer.Default.Equals(typeParameter.DeclaringMethod, originalMethod))
+                continue;
+            AddUnique(required, typeParameter);
         }
     }
 

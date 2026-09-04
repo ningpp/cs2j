@@ -21,6 +21,14 @@ public sealed class GenericPreprocessOptions
     /// <summary>是否统计 is T / as T 用法（不做改写）。</summary>
     public bool TrackIsAsTypeParam { get; init; } = true;
 
+    /// <summary>
+    /// 是否对「仅作为泛型转发类型参数使用的类型参数」在方法体前部插入
+    /// var __cs2j_typeof_&lt;T&gt; = typeof(T); 语句，以触发转换器的
+    /// AddTypeOfDefaultRequirements 识别，让 Java 方法签名正确添加 _cs2j_T
+    /// 前导参数。默认 true。
+    /// </summary>
+    public bool InsertTypeOfForForwardedTypeParams { get; init; } = true;
+
     /// <summary>是否输出 Info 级诊断</summary>
     public bool ReportInfo { get; init; } = false;
 

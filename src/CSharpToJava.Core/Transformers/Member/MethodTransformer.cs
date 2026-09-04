@@ -601,9 +601,31 @@ public class MethodTransformer : IMemberTransformer
         // the expected exception is not thrown (try/catch + flag, mirroring Assert.throwsException).
         WrapExpectedExceptionBody(javaMethod, context);
 
+        // 注册方法声明映射，便于 override 处理时查找 base/abstract 方法
+        RegisterMethodDeclarations(javaMethod, context);
+
         return allDeclarations.Count > 1
             ? new JavaMemberCollection(allDeclarations)
             : javaMethod;
+    }
+
+    /// <summary>
+    /// 注册方法声明映射：将当前方法及其所有 overload 注册到 context 的映射表中，
+    /// 便于后续 override 处理时查找 base/abstract 方法声明并注入 _cs2j_T 参数。
+    /// </summary>
+    private static void RegisterMethodDeclarations(JavaSyntaxNode topNode, ConversionContext context)
+    {
+        var javaMethod = topNode as Java.JavaMethodDeclaration;
+        if (javaMethod == null)
+        {
+            if (topNode is Java.JavaMemberCollection coll)
+            {
+                foreach (var m in coll.Members.OfType<Java.JavaMethodDeclaration>())
+                    context.RegisterMethodDeclaration(context.CurrentMethod, m);
+            }
+            return;
+        }
+        context.RegisterMethodDeclaration(context.CurrentMethod, javaMethod);
     }
 
     internal static JavaMethodDeclaration TransformLocalFunction(LocalFunctionStatementSyntax localFn, ConversionContext context)
@@ -2694,9 +2716,9 @@ public class MethodTransformer : IMemberTransformer
         // Overrides and interface implementations must keep the base slot's erasure
         // signature: adding leading Class<T> _cs2j_ parameters would break the Java
         // override check (the abstract base declares the plain erasure form). The
-        // body's typeof(T) for method-level type parameters degrades to null in that
-        // case (see ConversionContext.GetClassLiteral). Class-level type parameters
-        // are unaffected — they map to the tClass instance field.
+        // base's requirements are instead promoted to the abstract declaration via
+        // RuntimeClassParameterHelper (AddOverrideForwardedRequirements) so both
+        // signatures get _cs2j_T in lockstep.
         if (ConversionContext.IsOverrideOrImplementation(sym))
         {
             context.DrainClassTypeParamsForMethod(sym);
@@ -2779,6 +2801,115 @@ public class MethodTransformer : IMemberTransformer
             context.SetMethodClassTypeParamNames(sym, orderedNames);
             context.SetMethodTypeRefTypeParamNames(sym, orderedNames);
         }
+    }
+
+    /// <summary>
+    /// 获取 override 方法需要运行时 Class&lt;T&gt; 参数的类型参数名列表。
+    /// 对于 override，局部 pending 累加器通常为空（GetClassLiteral 对 override 返回 "null" 但不注册），
+    /// 因此同时检查 RuntimeClassParameterRegistry 中已注册的需求（由
+    /// RuntimeClassParameterHelper.GetRequiredTypeParameters 扫描 typeof(T) 等模式时添加）。
+    /// </summary>
+    private static List<string> GetOverridePendingTypeParams(
+        IMethodSymbol overrideSym,
+        ConversionContext context)
+    {
+        var result = new List<string>();
+
+        // 来源一：局部 pending 累加器（non override 路径沿用）
+        var localPending = (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(overrideSym);
+        if (localPending != null)
+            result.AddRange(localPending);
+
+        // 来源二：共享 RuntimeClassParameters 注册表
+        if (context.Options.RuntimeClassParameters.TryGetMethodRequirements(
+                overrideSym.OriginalDefinition, out var registryReqs))
+        {
+            foreach (var req in registryReqs)
+            {
+                if (!result.Contains(req.Name))
+                    result.Add(req.Name);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 当 override 方法体需要运行时 Class&lt;T&gt; 参数时，向 override 自身和 base/abstract
+    /// 方法签名同时注入 leading _cs2j_ 参数，确保签名形状匹配、调用方 token 能正确传递。
+    /// </summary>
+    private static void EnsurePendingParamsInBaseAndImpl(
+        Java.JavaMethodDeclaration overrideJavaMethod,
+        IMethodSymbol overrideSym,
+        System.Collections.Generic.IReadOnlyCollection<string> pending,
+        ConversionContext context)
+    {
+        // 1. 注入到 override 自身
+        InjectLeadingClassTokens(overrideJavaMethod, overrideSym, pending, context);
+
+        // 2. 注入到 base/abstract 方法签名（如果有）
+        var baseSym = overrideSym.OverriddenMethod;
+        if (baseSym != null)
+        {
+            var baseDecl = context.FindMethodDeclaration(baseSym);
+            if (baseDecl != null)
+            {
+                InjectLeadingClassTokens(baseDecl, baseSym, pending, context);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 给定方法声明，向其签名插入前导 Class&lt;T&gt; / TypeReference&lt;T&gt; _cs2j_ 参数。
+    /// 跳过已注入的参数，避免重复。
+    /// </summary>
+    private static void InjectLeadingClassTokens(
+        Java.JavaMethodDeclaration javaMethod,
+        IMethodSymbol methodSymbol,
+        System.Collections.Generic.IReadOnlyCollection<string> pending,
+        ConversionContext context)
+    {
+        var trailingCoveredTypeParameters = RuntimeClassParameterHelper
+            .GetRequiredTypeParameters(methodSymbol, context)
+            .Where(tp => SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, methodSymbol.OriginalDefinition))
+            .Select(tp => tp.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        var filtered = pending
+            .Where(name => !trailingCoveredTypeParameters.Contains(name))
+            .ToList();
+        if (filtered.Count == 0)
+            return;
+
+        var typeParameterIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < methodSymbol.TypeParameters.Length; i++)
+            typeParameterIndex[methodSymbol.TypeParameters[i].Name] = i;
+        var ordered = filtered
+            .OrderBy(name => typeParameterIndex.TryGetValue(name, out var idx) ? idx : int.MaxValue)
+            .ToList();
+
+        for (var i = ordered.Count - 1; i >= 0; i--)
+        {
+            var typeParamName = ordered.ElementAt(i);
+            var paramName = $"_cs2j_{typeParamName}";
+            if (javaMethod.Parameters.Any(p => p.Name == paramName))
+                continue;
+
+            var tokenType = (context.IsTypeRefTypeParam(methodSymbol, typeParamName)
+                    || CalleeJsonDeserializesTypeParameter(methodSymbol, typeParamName, context.SemanticModel))
+                ? $"com.fasterxml.jackson.core.type.TypeReference<{typeParamName}>"
+                : $"Class<{typeParamName}>";
+            javaMethod.Parameters.Insert(0, new Java.JavaParameter(tokenType, paramName));
+            context.RegisterRuntimeClassParameter(typeParamName, paramName);
+            if (!javaMethod.TypeParameters.Any(tp => tp.Name == typeParamName))
+                javaMethod.TypeParameters.Add(new Java.JavaTypeParameter(typeParamName));
+        }
+
+        var orderedNames = javaMethod.Parameters
+            .Where(p => p.Name.StartsWith("_cs2j_", StringComparison.Ordinal))
+            .Select(p => p.Name.Substring("_cs2j_".Length))
+            .ToList();
+        context.SetMethodClassTypeParamNames(methodSymbol, orderedNames);
+        context.SetMethodTypeRefTypeParamNames(methodSymbol, orderedNames);
     }
 
     /// <summary>

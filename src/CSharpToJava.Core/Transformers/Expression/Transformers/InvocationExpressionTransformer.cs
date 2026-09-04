@@ -429,7 +429,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 }
             }
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym);
-            args = PrependClassTypeTokens(args, classTokens);
+            // Determine whether the method's Class<?> params are trailing (appended by
+            // AddRuntimeClassParametersForTypeParameterArrays). If so, append tokens
+            // to the end instead of prepending them at the front.
+            var shouldAppend = classTokens != null
+                && bareMethodSym != null
+                && MethodHasTrailingClassParams(bareMethodSym, context, classTokens);
+            args = ApplyClassTypeTokens(args, classTokens, append: shouldAppend);
             return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym, context);
         }
 
@@ -820,7 +826,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 }
             }
             var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
-            args = PrependClassTypeTokens(args, classTokens);
+            var shouldAppend2 = classTokens != null
+                && bareMethodSym2 != null
+                && MethodHasTrailingClassParams(bareMethodSym2, context, classTokens);
+            args = ApplyClassTypeTokens(args, classTokens, append: shouldAppend2);
             var bareCall = CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym2, context);
             // Task 27（TS 专属）：TS 无 Java 的隐式 this —— 类内裸实例方法调用
             // m(...) → this.m(...)（tsc TS2663）。局部函数（ContainingSymbol 为方法）
@@ -931,7 +940,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         var fallbackMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
         var classTokenList = fallbackMethodSym != null ? GetClassTypeTokensForCall(fallbackMethodSym, context, node) : null;
         var args2 = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: fallbackMethodSym);
-        args2 = PrependClassTypeTokens(args2, classTokenList);
+        var shouldAppend3 = classTokenList != null
+            && fallbackMethodSym != null
+            && MethodHasTrailingClassParams(fallbackMethodSym, context, classTokenList);
+        args2 = ApplyClassTypeTokens(args2, classTokenList, append: shouldAppend3);
         return $"{target}({args2})";
     }
 
@@ -5593,7 +5605,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                         var refReaderTpJava = context.MapType(refReaderTypeParam);
                         refReaderClassLiteral = $"((Class<{refReaderTpJava}>) (Class<?>) {refReaderClassLiteral})";
                     }
-                    return $"{receiver}.{methodName}({refReaderClassLiteral}, {refReaderHolder}, {refReaderOptions})";
+                    // The converted JsonSerializer has trailing Class<?> params:
+                    // deserialize(ObjectHolder<Utf8JsonReader>, JsonSerializerOptions, Class<?>)
+                    // so the Class token goes at the END, not the beginning.
+                    return $"{receiver}.{methodName}({refReaderHolder}, {refReaderOptions}, {refReaderClassLiteral})";
                 }
 
                 var jsonArg = facade.Transform(node.ArgumentList.Arguments[argStartIndex].Expression, context);
@@ -5727,7 +5742,34 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     var deserializeTpJava = context.MapType(deserializeTypeParam);
                     deserializeClassLiteral = $"((Class<{deserializeTpJava}>) (Class<?>) {deserializeClassLiteral})";
                 }
-                var deserializeCall = $"{receiver}.{methodName}({deserializeClassLiteral}, {jsonArg}{optionsSuffix})";
+                // Determine whether the method has trailing Class<?> params (added
+                // by AddRuntimeClassParametersForTypeParameterArrays). If so, the
+                // Class token must go at the END; otherwise it leads.
+                var deserializeMethodSym = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
+                bool deserializeHasTrailing = deserializeMethodSym != null
+                    && MethodHasTrailingClassParams(deserializeMethodSym, context,
+                        new List<string> { deserializeClassLiteral });
+                // Fallback: if MethodHasTrailingClassParams returned false but the
+                // method body contains typeof(T) for a method-level type parameter,
+                // the method SHOULD have a trailing Class<?> param (the detection
+                // may miss it in single-file mode). Check the declaration directly.
+                if (!deserializeHasTrailing && deserializeMethodSym != null)
+                {
+                    deserializeHasTrailing = MethodBodyHasMethodLevelTypeOf(
+                        deserializeMethodSym, context);
+                }
+                // When the method has trailing Class<?> params, the call must be
+                // deserialize(json, options, class). If the C# call omitted options
+                // (Deserialize<T>(json) with no options arg), pass null explicitly so
+                // the 3-arg overload matches.
+                string deserializeCall;
+                if (deserializeHasTrailing)
+                {
+                    var trailingOptions = optionsSuffix ?? ", null";
+                    deserializeCall = $"{receiver}.{methodName}({jsonArg}{trailingOptions}, {deserializeClassLiteral})";
+                }
+                else
+                    deserializeCall = $"{receiver}.{methodName}({deserializeClassLiteral}, {jsonArg}{optionsSuffix})";
                 // Java cannot infer the return type from a Class literal, so every call
                 // resolves to Object. Cast to the mapped target type so `var` declarations
                 // and direct uses keep the generic element type (e.g. foreach over
@@ -8055,7 +8097,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             // Additional fallback: when the semantic model can't resolve the
             // type argument (e.g. cross-assembly reference producing
             // IErrorTypeSymbol), derive the class literal from the syntax node.
-            if (memberClassTokens == null)
+            // Skip this fallback when the method has trailing Class<?> params
+            // (the tokens are appended by TransformArgumentList instead).
+            if (memberClassTokens == null
+                && !MethodHasTrailingClassParams(methodSymbol, context, new List<string> { "placeholder" }))
             {
                 memberClassTokens = GetClassTokensFromSyntaxFallback(
                     memberGenericName, context);
@@ -8096,7 +8141,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 }
             }
         }
-        args = PrependClassTypeTokens(args, memberClassTokens);
+        // Determine whether the method's Class<?> params are trailing (appended by
+        // AddRuntimeClassParametersForTypeParameterArrays). If so, append tokens
+        // to the end instead of prepending them at the front.
+        var memberShouldAppend = memberClassTokens != null
+            && methodSymbol != null
+            && MethodHasTrailingClassParams(methodSymbol, context, memberClassTokens);
+        args = ApplyClassTypeTokens(args, memberClassTokens, append: memberShouldAppend);
 
         if ((originalMethodName == "Parse" || originalMethodName == "TryParse")
             && methodName.StartsWith("MathHelper.", StringComparison.Ordinal))
@@ -12441,20 +12492,27 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 .Where(l => l.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.DefaultLiteralExpression));
             foreach (var defLit in defaultLiterals)
             {
-                // Try semantic model first for precise type resolution
+                // Try semantic model first for precise type resolution.
+                // Guard: GetSemanticModelForTree may return a model for a different
+                // syntax tree (cross-file partial class), causing GetTypeInfo to
+                // throw "Syntax node is not within syntax tree". Only call GetTypeInfo
+                // when the model's tree matches the node's tree.
                 if (context.SemanticModel != null)
                 {
                     var litModel = context.GetSemanticModelForTree(defLit.SyntaxTree) ?? context.SemanticModel;
-                    var typeInfo = litModel.GetTypeInfo(defLit);
-                    var targetType = typeInfo.ConvertedType ?? typeInfo.Type;
-                    if (targetType is ITypeParameterSymbol litTp)
+                    if (litModel.SyntaxTree == defLit.SyntaxTree)
                     {
-                        foreach (var tp in typeParams)
+                        var typeInfo = litModel.GetTypeInfo(defLit);
+                        var targetType = typeInfo.ConvertedType ?? typeInfo.Type;
+                        if (targetType is ITypeParameterSymbol litTp)
                         {
-                            if (tp.Name == litTp.Name)
-                                AddTypeParamName(tp, ref result);
+                            foreach (var tp in typeParams)
+                            {
+                                if (tp.Name == litTp.Name)
+                                    AddTypeParamName(tp, ref result);
+                            }
+                            continue;
                         }
-                        continue;
                     }
                 }
 
@@ -12685,6 +12743,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     /// target method requires them. Returns the combined argument string.
     /// </summary>
     private static string PrependClassTypeTokens(string args, List<string>? classTypeTokens)
+        => ApplyClassTypeTokens(args, classTypeTokens, append: false);
+
+    /// <summary>
+    /// Inserts Class type tokens into the argument list. When append is false,
+    /// tokens are prepended (for leading Class&lt;T&gt; _cs2j_ parameters). When
+    /// append is true, tokens are appended (for trailing Class&lt;?&gt; parameters
+    /// added by AddRuntimeClassParametersForTypeParameterArrays).
+    /// </summary>
+    private static string ApplyClassTypeTokens(string args, List<string>? classTypeTokens, bool append)
     {
         if (classTypeTokens == null || classTypeTokens.Count == 0)
             return args;
@@ -12703,17 +12770,119 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                         ? $"((Class<Object>) (Class<?>) {t})"
                         : t)
             .ToList();
-        var prefix = string.Join(", ", normalized);
+        var joined = string.Join(", ", normalized);
+        if (append)
+        {
+            // Guard against double-append: some conversion paths transform the same
+            // call node twice, which would duplicate every token.
+            if (!string.IsNullOrEmpty(args)
+                && (args == joined || args.EndsWith(", " + joined, StringComparison.Ordinal)))
+            {
+                return args;
+            }
+            return string.IsNullOrEmpty(args) ? joined : $"{args}, {joined}";
+        }
         // Guard against double-prepend: some conversion paths transform the same
         // call node twice, which would duplicate every token. Only match when the
         // args START with the token list — substrings inside other arguments
         // (e.g. TypeHelper.toWrapperType(_cs2j_TValue)) must not suppress the prepend.
         if (!string.IsNullOrEmpty(args)
-            && (args == prefix || args.StartsWith(prefix + ", ", StringComparison.Ordinal)))
+            && (args == joined || args.StartsWith(joined + ", ", StringComparison.Ordinal)))
         {
             return args;
         }
-        return string.IsNullOrEmpty(args) ? prefix : $"{prefix}, {args}";
+        return string.IsNullOrEmpty(args) ? joined : $"{joined}, {args}";
+    }
+
+    /// <summary>
+    /// True when the method's Java signature has trailing Class<?> parameters
+    /// (added by AddRuntimeClassParametersForTypeParameterArrays) and NO leading
+    /// Class&lt;T&gt; _cs2j_ parameters. In that case, call sites must APPEND
+    /// the Class tokens to the end of the argument list, not prepend them.
+    /// </summary>
+    private static bool MethodHasTrailingClassParams(
+        IMethodSymbol? methodSymbol,
+        ConversionContext context,
+        List<string>? classTypeTokens)
+    {
+        if (methodSymbol == null || classTypeTokens == null || classTypeTokens.Count == 0)
+            return false;
+        var originalDef = methodSymbol.OriginalDefinition;
+        // If the method has registered leading Class<T> params, tokens should be
+        // prepended (even if trailing params also exist — the leading slots come first).
+        if (context.MethodHasClassParams(originalDef))
+        {
+            var leadingNames = context.GetMethodClassTypeParamNames(originalDef);
+            if (leadingNames != null && leadingNames.Count > 0)
+                return false; // has leading params — prepend
+        }
+        // Check if the method has trailing Class<?> params covering method-level
+        // type parameters (added by AddRuntimeClassParametersForTypeParameterArrays).
+        var trailingCovered = RuntimeClassParameterHelper
+            .GetRequiredTypeParameters(methodSymbol, context)
+            .Where(tp => SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, originalDef))
+            .Select(tp => tp.Name)
+            .ToHashSet(StringComparer.Ordinal);
+        // Also check the cross-project registry.
+        if (trailingCovered.Count == 0
+            && context.Options.RuntimeClassParameters.TryGetMethodRequirements(
+                originalDef, out var trailingReqs))
+        {
+            foreach (var req in trailingReqs)
+            {
+                if (req.Kind == RuntimeClassTypeParameterRequirementKind.Method)
+                    trailingCovered.Add(req.Name);
+            }
+        }
+        // If there are trailing-covered type parameters and no leading params,
+        // the tokens should be appended.
+        if (trailingCovered.Count > 0)
+            return true;
+
+        // Fallback: if GetRequiredTypeParameters missed method-level typeof(T)
+        // (common in single-file mode), scan the method declaration directly.
+        return MethodBodyHasMethodLevelTypeOf(methodSymbol, context);
+    }
+
+    /// <summary>
+    /// Checks whether the method body contains typeof(T) where T is a
+    /// method-level type parameter. This is a fallback for cases where
+    /// RuntimeClassParameterHelper.GetRequiredTypeParameters misses
+    /// method-level typeof(T) usage (e.g. in single-file conversion mode).
+    /// </summary>
+    private static bool MethodBodyHasMethodLevelTypeOf(
+        IMethodSymbol methodSymbol,
+        ConversionContext context)
+    {
+        var originalDef = methodSymbol.OriginalDefinition;
+        // If the method has registered leading Class<T> params, it uses
+        // leading (not trailing) Class tokens.
+        if (context.MethodHasClassParams(originalDef))
+        {
+            var leadingNames = context.GetMethodClassTypeParamNames(originalDef);
+            if (leadingNames != null && leadingNames.Count > 0)
+                return false;
+        }
+        // Scan the method declaration for typeof(T) where T is method-level.
+        var declaration = originalDef.DeclaringSyntaxReferences
+            .Select(r => r.GetSyntax())
+            .FirstOrDefault();
+        if (declaration is not Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax methodDecl)
+            return false;
+        var semanticModel = context.GetSemanticModelForTree(declaration.SyntaxTree);
+        if (semanticModel == null || semanticModel.SyntaxTree != declaration.SyntaxTree)
+            return false;
+        foreach (var typeOf in methodDecl.DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.TypeOfExpressionSyntax>())
+        {
+            if (semanticModel.GetTypeInfo(typeOf.Type).Type is ITypeParameterSymbol tp
+                && tp.DeclaringMethod != null
+                && SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, originalDef))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// <summary>
@@ -13083,6 +13252,21 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 var name = id.Identifier.Text;
                 if (name.Length <= 2 && char.IsUpper(name[0]))
                 {
+                    // Override methods drain their pending class-type params to keep
+                    // the base slot's erasure signature. Without a matching _cs2j_
+                    // parameter, passing the reference would generate an undeclared
+                    // variable. Fall back to a typed null instead.
+                    if (context.CurrentMethod != null
+                        && ConversionContext.IsOverrideOrImplementation(context.CurrentMethod)
+                        && !context.TryGetRuntimeClassParameter(name, out _))
+                    {
+                        var mappedTp = context.MapTypeFromSyntax(typeArgSyntax);
+                        var nullToken = !string.IsNullOrWhiteSpace(mappedTp)
+                            ? $"(Class<{mappedTp}>) (Class<?>) null"
+                            : "null";
+                        tokens.Add(nullToken);
+                        continue;
+                    }
                     tokens.Add($"_cs2j_{name}");
                     continue;
                 }

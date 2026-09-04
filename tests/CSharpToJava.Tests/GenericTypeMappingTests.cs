@@ -336,6 +336,43 @@ class Test {
         Assert.DoesNotContain("io.github.ningpp.compat.ValueListBuilder", code);
     }
 
+    [Fact]
+    public void IDictionaryImplementation_KeyValuePairMappedToCSharpKeyValuePair()
+    {
+        // C# IDictionary<TKey, TValue> inherits IEnumerable<KeyValuePair<TKey, TValue>>.
+        // The KeyValuePair type argument must be mapped to CSharpKeyValuePair in the
+        // generated implements clause and iterator() return type, not left as the
+        // bare short name "KeyValuePair" which has no import.
+        var result = Convert(@"
+using System.Collections.Generic;
+class MyDictWrapper<TKey, TValue> : IDictionary<TKey, TValue> {
+    public TValue this[TKey key] { get => default(TValue); set { } }
+    public ICollection<TKey> Keys => null;
+    public ICollection<TValue> Values => null;
+    public int Count => 0;
+    public bool IsReadOnly => false;
+    public void Add(TKey key, TValue value) { }
+    public void Add(KeyValuePair<TKey, TValue> item) { }
+    public void Clear() { }
+    public bool Contains(KeyValuePair<TKey, TValue> item) => false;
+    public bool ContainsKey(TKey key) => false;
+    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) { }
+    public bool Remove(TKey key) => false;
+    public bool Remove(KeyValuePair<TKey, TValue> item) => false;
+    public bool TryGetValue(TKey key, out TValue value) { value = default; return false; }
+    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => null;
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => null;
+}");
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
+        var code = result.GeneratedCode!;
+        // The implements clause must use CSharpKeyValuePair, not bare KeyValuePair
+        Assert.DoesNotMatch(new Regex(@"\bKeyValuePair\b(?!<)"), code); // no bare "KeyValuePair" without generic bracket
+        Assert.Contains("CSharpKeyValuePair", code);
+        // Must not contain the unqualified short name in any generic position
+        Assert.DoesNotContain("Iterable<KeyValuePair>", code);
+        Assert.DoesNotContain("CSharpGenericEnumerator<KeyValuePair>", code);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

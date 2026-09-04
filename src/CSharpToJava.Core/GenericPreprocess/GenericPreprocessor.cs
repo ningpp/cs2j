@@ -299,6 +299,148 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     // -----------------------------------------------------------------------
+    // 前向类型参数（forwarded-only type param）识别与插入：
+    // 如果方法体中某个类型参数仅作为显式类型参数出现在泛型转发调用中
+    // （SomeMethod<T>(arg)），而没有被 default(T)/typeof(T)/new T()/is T 等
+    // 已跟踪模式使用，则转换器不会在 Java 方法签名中添加 _cs2j_T 前导参数，
+    // 导致 override 体中对该类型参数的引用成为未声明符号。
+    //
+    // 为此在方法体前部插入 ``var __cs2j_typeof_<T> = typeof(<T>);`` 以触发
+    // 转换器的 AddTypeOfDefaultRequirements 识别。
+    // -----------------------------------------------------------------------
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        if (!_options.InsertTypeOfForForwardedTypeParams)
+            return base.VisitMethodDeclaration(node);
+
+        // 只处理方法（抽头方法无 body，不处理）
+        if (node.Body == null && node.ExpressionBody == null)
+            return base.VisitMethodDeclaration(node);
+
+        if (node.TypeParameterList == null || node.TypeParameterList.Parameters.Count == 0)
+            return base.VisitMethodDeclaration(node);
+
+        // 递归访问子节点（这会触发其它 Visit* 改写）
+        var visited = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node);
+
+        // 收集方法体中已被「跟踪模式」使用的类型参数
+        var trackedParamNames = new HashSet<string>(StringComparer.Ordinal);
+        CollectTrackedTypeParamNames(visited.Body ?? (SyntaxNode?)visited.ExpressionBody, trackedParamNames);
+
+        // 收集方法体中作为「前向类型参数」出现的类型参数
+        var forwardedParamNames = new HashSet<string>(StringComparer.Ordinal);
+        CollectForwardedTypeParamNames(visited.Body ?? (SyntaxNode?)visited.ExpressionBody,
+            node.TypeParameterList.Parameters, forwardedParamNames);
+
+        // 找出「仅作为前向类型参数」出现的类型参数
+        var onlyForwarded = new List<string>();
+        foreach (var tp in node.TypeParameterList.Parameters)
+        {
+            var name = tp.Identifier.Text;
+            if (forwardedParamNames.Contains(name) && !trackedParamNames.Contains(name))
+                onlyForwarded.Add(name);
+        }
+
+        if (onlyForwarded.Count == 0)
+            return visited;
+
+        // 为每个仅前向的类型参数插入 ``var __cs2j_typeof_<T> = typeof(<T>);``
+        if (visited.Body == null)
+            return visited;
+
+        var newStatements = visited.Body.Statements;
+        foreach (var tpName in onlyForwarded)
+        {
+            var typeofStatement = CreateTypeOfStatement(tpName);
+            newStatements = newStatements.Insert(0, typeofStatement);
+            _stats.ForwardedTypeParamsInserted++;
+            Changed = true;
+        }
+
+        return visited.WithBody(visited.Body.WithStatements(newStatements));
+    }
+
+    private static LocalDeclarationStatementSyntax CreateTypeOfStatement(string typeParamName)
+    {
+        var typeofExpr = SyntaxFactory.TypeOfExpression(
+            SyntaxFactory.IdentifierName(typeParamName));
+        var variable = SyntaxFactory.VariableDeclarator($"__cs2j_typeof_{typeParamName}")
+            .WithInitializer(SyntaxFactory.EqualsValueClause(typeofExpr));
+        var declaration = SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.IdentifierName("var"))
+                .WithVariables(SyntaxFactory.SingletonSeparatedList(variable)));
+        // 注意：注释必须另起一行，不能和声明语句放在同一行，
+        // 否则 Java 转换器会把整行当作注释。
+        return declaration
+            .WithLeadingTrivia(
+                SyntaxFactory.Comment($"// __cs2j: forward-type-param 识别声明 ({typeParamName})"),
+                SyntaxFactory.ElasticCarriageReturnLineFeed)
+            .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
+    }
+
+    /// <summary>
+    /// 收集方法体中被跟踪模式（default(T)/typeof(T)/new T()/new T[n]/is T/as T）
+    /// 使用的类型参数名。
+    /// </summary>
+    private void CollectTrackedTypeParamNames(SyntaxNode? root, HashSet<string> trackedNames)
+    {
+        if (root == null) return;
+        foreach (var node in root.DescendantNodesAndSelf())
+        {
+            switch (node)
+            {
+                case DefaultExpressionSyntax d when IsTypeParameterType(d.Type):
+                    trackedNames.Add(d.Type.GetText().ToString().Trim());
+                    break;
+                case TypeOfExpressionSyntax t when IsTypeParameterType(t.Type):
+                    trackedNames.Add(t.Type.GetText().ToString().Trim());
+                    break;
+                case ObjectCreationExpressionSyntax o when IsTypeParameterType(o.Type):
+                    trackedNames.Add(o.Type.GetText().ToString().Trim());
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 收集方法体中作为「前向类型参数」出现的类型参数：
+    /// 即仅出现在显式类型参数列表中、调用了其他泛型方法的类型参数。
+    /// </summary>
+    private static void CollectForwardedTypeParamNames(
+        SyntaxNode? root,
+        Microsoft.CodeAnalysis.SeparatedSyntaxList<TypeParameterSyntax> methodTypeParameters,
+        HashSet<string> forwardedNames)
+    {
+        if (root == null) return;
+        var tpNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tp in methodTypeParameters)
+            tpNames.Add(tp.Identifier.Text);
+
+        foreach (var node in root.DescendantNodesAndSelf())
+        {
+            if (node is GenericNameSyntax genericName)
+            {
+                foreach (var typeArg in genericName.TypeArgumentList.Arguments)
+                {
+                    var name = typeArg.GetText().ToString().Trim();
+                    // 只把方法自身定义的类型参数算作「前向」候选
+                    if (tpNames.Contains(name) && IsForwardedTypeArg(typeArg))
+                    {
+                        forwardedNames.Add(name);
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool IsForwardedTypeArg(TypeSyntax typeArg)
+    {
+        // 裸标识符类型参数（如 T、TValue）视为前向候选
+        return typeArg is IdentifierNameSyntax;
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers: determine whether a TypeSyntax denotes a type parameter.
     // Uses the SemanticModel when available; falls back to a conservative
     // syntactic heuristic (single-identifier, not a known BCL type).

@@ -20,6 +20,30 @@ public class ConversionContext
     private readonly Stack<IMethodSymbol?> _methodStack = new();
     private readonly Stack<Dictionary<string, string>> _runtimeClassFieldsStack = new();
     private readonly Stack<List<FixedPointerInfo>> _fixedScopeStack = new();
+
+    // 映射 IMethodSymbol.OriginalDefinition → JavaMethodDeclaration，
+    // 用于 override 处理时向 base/abstract 方法签名注入 leading _cs2j_T 参数。
+    private readonly Dictionary<IMethodSymbol, Java.JavaMethodDeclaration> _methodDeclMap = new(SymbolEqualityComparer.Default);
+
+    /// <summary>
+    /// 注册方法符号到 Java 方法声明的映射，用于 override 处理时查找 base/abstract 方法。
+    /// </summary>
+    public void RegisterMethodDeclaration(IMethodSymbol methodSymbol, Java.JavaMethodDeclaration javaMethod)
+    {
+        if (methodSymbol != null)
+            _methodDeclMap[methodSymbol.OriginalDefinition] = javaMethod;
+    }
+
+    /// <summary>
+    /// 根据 override/abstract 方法符号查找已注册的 Java 方法声明。
+    /// </summary>
+    public Java.JavaMethodDeclaration? FindMethodDeclaration(IMethodSymbol methodSymbol)
+    {
+        if (methodSymbol == null)
+            return null;
+        _methodDeclMap.TryGetValue(methodSymbol.OriginalDefinition, out var decl);
+        return decl;
+    }
     private readonly Dictionary<string, string> _addressOfScratchSegments = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FixedPointerInfo> _addressOfScratchPointerInfos = new(StringComparer.Ordinal);
     // Maps "ptrName-stepCount" to the pre-increment variable name for pointer backtracking
@@ -601,6 +625,9 @@ _pendingClassTypeParams ??= new();
         var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
         return MethodHasClassParams(typeName, methodKey);
     }
+
+    public bool IsOverrideMethod(IMethodSymbol method)
+        => ConversionContext.IsOverrideOrImplementation(method);
 
     /// <summary>
     /// Tracks fields marked with [ThreadStatic] so that reads/writes can be
