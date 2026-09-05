@@ -167,7 +167,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     }
                     if (typeArg is ITypeParameterSymbol tpArg)
                     {
-                        irTokens.Add($"_cs2j_{tpArg.Name}");
+                        // Use GetClassLiteral (not raw _cs2j_ string) so the current method
+                        // registers a Class<T> requirement — otherwise a local-function type
+                        // param used as a forwarding type arg leaves _cs2j_T undeclared.
+                        irTokens.Add(ConversionContext.GetClassLiteral(tpArg, context));
                         continue;
                     }
                     irTokens.Add(ConversionContext.GetClassLiteral(typeArg, context));

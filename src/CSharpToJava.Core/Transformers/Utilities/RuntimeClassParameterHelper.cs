@@ -506,6 +506,31 @@ internal static class RuntimeClassParameterHelper
                 AddUnique(required, typeParameter);
             }
         }
+
+        // Scan 'x is T' expressions and 'T' type patterns where T is a class-level
+        // type parameter. These also require a runtime Class token.
+        foreach (var isExpr in declaration.DescendantNodes().OfType<BinaryExpressionSyntax>())
+        {
+            if (isExpr.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.IsExpression))
+            {
+                if (isExpr.Right is TypeSyntax isType
+                    && semanticModel.GetTypeInfo(isType).Type is ITypeParameterSymbol typeParameter
+                    && typeParameter.DeclaringMethod == null
+                    && IsOwnedByMethodOrType(typeParameter, originalMethod))
+                {
+                    AddUnique(required, typeParameter);
+                }
+            }
+        }
+        foreach (var pattern in declaration.DescendantNodes().OfType<TypePatternSyntax>())
+        {
+            if (semanticModel.GetTypeInfo(pattern.Type).Type is ITypeParameterSymbol typeParameter
+                && typeParameter.DeclaringMethod == null
+                && IsOwnedByMethodOrType(typeParameter, originalMethod))
+            {
+                AddUnique(required, typeParameter);
+            }
+        }
     }
 
     /// <summary>
@@ -746,61 +771,6 @@ internal static class RuntimeClassParameterHelper
             }
         }
     }
-
-    /// <summary>
-    /// Registers type parameters used in typeof(T) / default(T) / `x is T` positions
-    /// inside method bodies. These require a runtime Class token, which for CLASS-level
-    /// type parameters must come from the class's runtime Class field (tClass) — the
-    /// method-level Class&lt;T&gt; parameter machinery would shadow the class type
-    /// parameter and break overrides (e.g. NullableConverter.Read: typeof(T) must not
-    /// turn the override into a method-generic method).
-    /// </summary>
-    private static void AddTypeOfDefaultRequirements(
-        SyntaxNode declaration,
-        SemanticModel semanticModel,
-        IMethodSymbol originalMethod,
-        List<ITypeParameterSymbol> required)
-    {
-        foreach (var typeOf in declaration.DescendantNodes().OfType<TypeOfExpressionSyntax>())
-        {
-            AddIfClassLevelTypeParameter(typeOf.Type, semanticModel, originalMethod, required);
-        }
-        foreach (var defaultExpr in declaration.DescendantNodes().OfType<DefaultExpressionSyntax>())
-        {
-            AddIfClassLevelTypeParameter(defaultExpr.Type, semanticModel, originalMethod, required);
-        }
-        foreach (var isExpr in declaration.DescendantNodes().OfType<BinaryExpressionSyntax>())
-        {
-            if (isExpr.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.IsExpression))
-                AddIfClassLevelTypeParameter(isExpr.Right as TypeSyntax, semanticModel, originalMethod, required);
-        }
-        foreach (var pattern in declaration.DescendantNodes().OfType<TypePatternSyntax>())
-        {
-            AddIfClassLevelTypeParameter(pattern.Type, semanticModel, originalMethod, required);
-        }
-    }
-
-    private static void AddIfClassLevelTypeParameter(
-        TypeSyntax? typeSyntax,
-        SemanticModel semanticModel,
-        IMethodSymbol originalMethod,
-        List<ITypeParameterSymbol> required)
-    {
-        if (typeSyntax is not IdentifierNameSyntax)
-            return;
-        var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
-        if (typeInfo.Type is not ITypeParameterSymbol typeParameter)
-            return;
-        // Only class-level type parameters need the class runtime Class field.
-        // Method-owned parameters go through the method Class<T> parameter path.
-        if (typeParameter.DeclaringMethod != null)
-            return;
-        if (SymbolEqualityComparer.Default.Equals(typeParameter.DeclaringType, originalMethod.ContainingType?.OriginalDefinition))
-        {
-            AddUnique(required, typeParameter);
-        }
-    }
-
     private static void AddForwardedInvocationRequirements(
         MethodDeclarationSyntax declaration,
         SemanticModel semanticModel,
