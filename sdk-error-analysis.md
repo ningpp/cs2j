@@ -1,117 +1,75 @@
-﻿﻿# SDK Error Analysis
+﻿﻿# SDK 编译错误分析
 
-## Iteration 1 — 泛型方法调用参数不匹配 (cannot find suitable method / 找不到合适的方法)
+## Iteration 1 — MemberAccessor 方法签名不匹配
 
-### 错误概述
-- **错误总数**: 2344 个编译错误
-- **主要错误类型**:
-  - `找不到合适的方法` (448 个) — `deserializeWrapper`/`serializeWrapper` 方法参数不匹配
-  - `无法推断类型变量 T` (338 个) — 泛型类型推断失败
-  - `实际参数列表和形式参数列表长度不同` (293 个) — 参数数量不匹配
-  - `找不到符号` (8 个) — 未定义的变量 `_cs2j_T`
+### 错误列表
 
-### 第一个错误
-- **Java 文件**: `system-text-json-tests/src/test/java/dotnet/text/json/Serialization/Tests/ConstructorTests.java`
-- **行号**: 92
-- **错误信息**: 找不到符号 (`_cs2j_T`)
-- **代码片段**:
-  ```java
-  UnsupportedOperationException ex = ((UnsupportedOperationException) Assert.throwsAsync(UnsupportedOperationException.class, () -> getSerializer().deserializeWrapper(_cs2j_T, "{}")).join());
-  ```
+1. **JsonPropertyInfo1.java:[78,51]** — `createPropertyGetter` 参数数量不匹配（需要 `Class<TProperty>, PropertyInfo`，实际只传 `PropertyInfo`）
+2. **JsonPropertyInfo1.java:[83,51]** — `createPropertySetter` 同上
+3. **JsonPropertyInfo1.java:[91,51]** — `createFieldGetter` 同上
+4. **JsonPropertyInfo1.java:[94,51]** — `createFieldSetter` 同上
+5. **ReflectionEmitMemberAccessor.java:[37,14]** — 未实现 `createParameterizedConstructor(Class<T>, Class<TArg0>, Class<TArg1>, Class<TArg2>, Class<TArg3>, ConstructorInfo)`（缺少 `Class<T>` 参数）
+6. **ReflectionEmitMemberAccessor.java:[111,129]** — `BiConsumer<TCollection, Object>` 与 `DynamicMethod` 类型不兼容
+7. **ReflectionMemberAccessor.java:[39,14]** — 未实现 `createFieldSetter(Class<TProperty>, FieldInfo)`（缺少 `Class<TProperty>` 参数）
+8. **ImmutableDictionaryOfTKeyTValueConverter.java:[64,99]** — 泛型类型推断等式约束不兼容
 
 ### 根因分析
-- **对应 C# 文件**: `d:\csharp-sdk\json\tests\Serialization\DeserializationWrapper.cs`
+
+- **对应 C# 文件**:
+  - `d:\csharp-sdk\json\src\System\Text\Json\Serialization\MemberAccessor.cs`（抽象基类）
+  - `d:\csharp-sdk\json\src\System\Text\Json\Serialization\ReflectionMemberAccessor.cs`（override 实现）
+  - `d:\csharp-sdk\json\src\System\Text\Json\Serialization\ReflectionEmitMemberAccessor.cs`（override 实现，在 `#if NETFRAMEWORK || NETCOREAPP` 内）
+  - `d:\csharp-sdk\json\src\System\Text\Json\Serialization\JsonPropertyInfoOfT.cs`（调用方）
+
 - **根因分类**: Transformer 逻辑缺陷
-- **涉及组件**:
-  - `src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs` — `AddPendingRuntimeClassParameters` 方法
-  - `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs` — `GetClassTokensFromExplicitTypeArguments` 方法
-- **分析**:
-  1. C# 泛型方法 `DeserializeWrapper<T>(string json, JsonSerializerOptions options = null)` 被 abstract 声明，override 实现中调用 `JsonSerializer.Deserialize<T>(json, options)`
-  2. 调用端 `Serializer.DeserializeWrapper<T>(json)` 通过 `GetClassTokensFromExplicitTypeArguments` 正确地生成了 `T.class` token 并 prepend 到参数列表
-  3. 但 `GetClassTokensFromExplicitTypeArguments` 没有调用 `context.RequireClassTypeParam()` 注册 pending requirement
-  4. 方法声明端的 `AddPendingRuntimeClassParameters` 通过 `DrainClassTypeParamsForMethod()` 检查 pending requirements，但为空
-  5. `GetOverridePendingTypeParams` 和 `EnsurePendingParamsInBaseAndImpl` 方法已定义但**从未被调用**
-  6. 结果：调用端传了 `Class<T>` 参数，但方法签名没有对应的 `_cs2j_T` 参数
 
----
+- **涉及组件**: `d:\code\cs2j\src\CSharpToJava.Core\Transformers\Member\MethodTransformer.cs` — `AddPendingRuntimeClassParameters` 方法
 
-## Iteration 2 — override 方法被注入类级类型参数的 Class token，方法级 `<T>` 遮蔽类级 T (`不兼容的类型: T无法转换为T`)
+- **分析**: 
+  转换器在处理泛型方法的 override 时，使用 `RuntimeClassParameterHelper` 扫描方法体中 `typeof(T)` 等模式来决定是否需要注入 `Class<T> _cs2j_T` 参数。当 override A（如 `ReflectionEmitMemberAccessor`）的方法体使用了 `typeof(T)` 时，会触发 `EnsurePendingParamsInBaseAndImpl` 向 override A 自身和 base 抽象方法注入 `_cs2j_T` 参数。但 override B（如 `ReflectionMemberAccessor`）的方法体可能不使用 `typeof(T)`，因此 `GetOverridePendingTypeParams` 返回空列表，不会注入参数。这导致 base 方法签名有 `_cs2j_T` 参数但 override B 没有，造成 Java 编译错误。
 
-### 错误概述
-- **错误总数**: 256 条 `[ERROR]` 行（javac 默认上限 100 个文件级错误，实际更多）
-- **按消息分类（Top）**:
-  - `不兼容的类型: T无法转换为T` (30)
-  - `无法将类 JsonConverter1<T> 中的方法 write 应用到给定类型` (18)
-  - `不兼容的类型: 无法推断类型变量 T` (18)
-  - `不兼容的类型: TCollection无法转换为TCollection` (16)
-  - `writeWithQuotes / read 应用到给定类型` (各 16)
-  - `不兼容的类型: ObjectHolder<T>无法转换为ObjectHolder<T>` (8)
-  - `无法将类 JsonConverter 中的方法 canConvert 应用到给定类型` (8)
-- **按文件分类（Top）**: `JsonPropertyInfo1.java` (36)、`DictionaryDefaultConverter.java` (20)、
-  `JsonConverter1.java` (20)、`ObjectDefaultConverter.java` (20)、`IEnumerableDefaultConverter.java` (18)
+  此外，`ReflectionEmitMemberAccessor` 在 `#if NETFRAMEWORK || NETCOREAPP` 条件编译内，目标框架是 `net10.0`，条件不满足，但转换器仍然处理了它。而 `ReflectionMemberAccessor` 的 `createParameterizedConstructor` 方法体使用了 `typeof(T)` 但没有使用 `typeof(TArg0)` 等，所以 `T` 被注入但 `TArg0`-`TArg3` 没有，而 base 方法签名（由 `ReflectionEmitMemberAccessor` 触发）可能有 `TArg0`-`TArg3`。
 
-### 第一个错误
-- **Java 文件**: `system-text-json/src/main/java/dotnet/text/json/JsonPropertyInfo1.java`
-- **行号**: 126
-- **错误信息**: `不兼容的类型: T无法转换为T`
-- **代码片段**:
-  ```java
-  public <T> boolean getMemberAndWriteJson(Class<T> _cs2j_T, Object obj, io.github.ningpp.compat.ObjectHolder<WriteStack> state, Utf8JsonWriter writer) {
-      T value = getGet().apply(obj);          // getGet() 返回 Function<Object, T>（类级 T）
-      if (getIgnoreDefaultValuesOnWrite() && ((_cs2jDefault_T() == null ? value == null : CSharpDefaultEqualityComparerGeneric.getDefault().equals(_cs2jDefault_T(), value)))) {
-      ...
-  ```
-  类声明：`public final class JsonPropertyInfo1<T> extends JsonPropertyInfo { private Class<?> tClass; ... }`
+  核心修复方向：当处理 override 方法时，即使当前 override 的方法体不需要 Class token，也必须检查 base 方法签名是否已有 `_cs2j_T` 参数，如果有则同步注入。
+
+✅ Fixed（通过预处理器 abstract→virtual 改写 + override typeof(T) 同步）
+
+## Iteration 2 — Class<X>无法转换为Class<Y> 类型不兼容
+
+### 错误列表
+
+1. **JsonPropertyInfo.java:[83,125]** — `Class<CSharpSByte>` 无法转换为 `Class<Byte>`
+2. **ByteConverter.java:[33,49]** — `Class<CSharpByte>` 无法转换为 `Class<Integer>`
+3. **IEnumerableConverterFactory.java:[49,173]** — `Class<CSharpGenericIterable>` 无法转换为 `Class<CSharpGenericIterable<?>>`
+4. **IEnumerableConverterFactory.java:[50,156]** — `Class<CSharpGenericIList>` 无法转换为 `Class<CSharpGenericIList<Object>>`
+5. **KeyValuePairConverter.java:[50,33]** — `Class<CSharpKeyValuePair>` 无法转换为 `Class<CSharpKeyValuePair<TKey,TValue>>`
+6. **SByteConverter.java:[33,50]** — `Class<CSharpSByte>` 无法转换为 `Class<Byte>`
+7. **UInt16Converter.java:[33,51]** — `Class<CSharpUInt16>` 无法转换为 `Class<Integer>`
+8. **UInt32Converter.java:[34,51]** — `Class<CSharpUInt32>` 无法转换为 `Class<Integer>`
+9. **UInt64Converter.java:[33,51]** — `Class<CSharpUInt64>` 无法转换为 `Class<Long>`
+10. **ReflectionEmitMemberAccessor.java:[112,129]** — `BiConsumer<TCollection, Object>` 与 `DynamicMethod` 不一致
 
 ### 根因分析
-- **对应 C# 文件**: `d:\csharp-sdk\json\src\System\Text\Json\Serialization\JsonPropertyInfoOfT.cs`
-  ```csharp
-  public override bool GetMemberAndWriteJson(object obj, ref WriteStack state, Utf8JsonWriter writer)
-  {
-      T value = Get!(obj);                 // T = 类级类型参数
-      if (IgnoreDefaultValuesOnWrite && (
-          default(T) == null ? value == null : EqualityComparer<T>.Default.Equals(default, value)))
-      ...
-  ```
-  基类 `GetMemberAndWriteJson` 声明于 `JsonPropertyInfo.cs`（另一个文件，非泛型类）。
+
+- **对应 C# 文件**:
+  - `D:\csharp-sdk\json\src\System\Text\Json\Serialization\Converters\Value\SByteConverter.cs`（`SByteConverter : JsonConverter<sbyte>`）
+  - `D:\csharp-sdk\json\src\System\Text\Json\Serialization\Converters\Value\ByteConverter.cs`（`ByteConverter : JsonConverter<byte>`）
+  - `D:\csharp-sdk\json\src\System\Text\Json\Serialization\Converters\Value\UInt16Converter.cs` 等
+  - `D:\csharp-sdk\json\src\System\Text\Json\Serialization\Converters\Value\KeyValuePairConverter.cs`
+  - `D:\csharp-sdk\json\src\System\Text\Json\Serialization\Converters\Collections\IEnumerableConverterFactory.cs`
+  - `D:\csharp-sdk\json\src\System\Text\Json\Serialization\JsonConverterOfT.cs`（`JsonConverter<T>` 基类）
+
 - **根因分类**: Transformer 逻辑缺陷
+
 - **涉及组件**:
-  - `src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs`
-    — `GetOverridePendingTypeParams`（来源三：共享 `RuntimeClassParameters` 注册表）
-    — `EnsurePendingParamsInBaseAndImpl` / `InjectLeadingClassTokens`
-  - `src/CSharpToJava.Core/Transformers/Utilities/RuntimeClassParameterHelper.cs`
-    — `AddTypeOfDefaultRequirements`（扫描 `typeof(T)` / `default(T)` / 裸 `default`）
-    — `GetRequiredTypeParameters(IMethodSymbol)` 末尾的 `RegisterMethodRequirements`
-  - `src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs` — `AddRuntimeClassFields` / `AddDefaultFactoryMethods`
+  - `d:\code\cs2j\src\CSharpToJava.Core\Transformers\Utilities\RuntimeClassParameterHelper.cs` — `GetClassLiteral` 方法（将 `typeof(sbyte)` 映射为 `CSharpSByte.class`）
+  - `d:\code\cs2j\src\CSharpToJava.Core\Transformers\Expression\Transformers\IdentifierExpressionTransformer.cs` — 类型映射（`sbyte` → `Byte`, `byte` → `Integer`）
+
 - **分析**:
-  1. 类级类型参数 `T` 的运行时信息由 `AddRuntimeClassFields` 在声明类上生成的 `private Class<?> tClass` 字段提供，
-     `AddDefaultFactoryMethods` 也据此生成 `protected T _cs2jDefault_T() { return (T) DefaultValue.ofClass(tClass); }`。
-     生成的 `JsonPropertyInfo1` 里二者都已存在 —— 说明类级 `T` **已经**有可用的运行时 token。
-  2. 但 `RuntimeClassParameterHelper.GetRequiredTypeParameters(IMethodSymbol)` 扫描方法体时，
-     `AddTypeOfDefaultRequirements` 对 `default(T)` / 裸 `default` 命中的**类级**类型参数也调用 `AddUnique`，
-     并在末尾 `RegisterMethodRequirements(originalMethod, result)` 把类级 `T` 写进了方法级注册表。
-     （该注册表同时服务于构造器的后置 `Class<?> clazz` 参数，所以不能直接在这里剔除。）
-  3. `GetOverridePendingTypeParams` 的「来源二」有 `req.DeclaringMethod != null` 过滤，能挡住类级参数；
-     但「来源三」直接读取 `RuntimeClassParameters.TryGetMethodRequirements(...)`，**没有做类级过滤**，于是 `T` 进入 pending。
-  4. `EnsurePendingParamsInBaseAndImpl` → `InjectLeadingClassTokens` 向 override 与 base 声明同时插入前导
-     `Class<T> _cs2j_T` 参数，并且**无条件** `javaMethod.TypeParameters.Add(new JavaTypeParameter("T"))`
-     （非 override 分支 `AddPendingRuntimeClassParameters` 里已有的 `isClassLevelTypeParam` 守卫在这里缺失）。
-  5. 结果：方法级 `<T>` 遮蔽了类级 `T` —— 方法体里 `T value = getGet().apply(obj);` 用的是方法级 `T`，
-     而 `getGet()` 返回 `Function<Object, T>`（类级 `T`），二者在 javac 看来是两个不同的类型变量，
-     报 `不兼容的类型: T无法转换为T`。同时 override 签名不再匹配基类槽位，产生 `不是抽象的, 并且未覆盖...` 与
-     `无法将类 ... 中的方法 ... 应用到给定类型` 的连带错误。
+  C# 的无符号/特殊数值类型（sbyte, byte, ushort, uint, ulong）在 Java 中有两种映射：
+  1. **泛型类型参数** 映射为 Java 包装类型（Byte, Integer, Long 等）
+  2. **typeof()** 映射为 CSharpXxx.class（CSharpSByte, CSharpByte 等）
 
-### 修复
-- `GetOverridePendingTypeParams` 来源三新增过滤：跳过符号所在类型（含所有外层类型）声明的类型参数名。
-- `InjectLeadingClassTokens` 补充 `classLevelNames` 守卫：类级类型参数不再被重新声明为方法级类型参数。
-- 新增 `GetEnclosingTypeParameterNames(ISymbol)` 辅助方法。
-- 顺带移除 `EnsurePendingParamsInBaseAndImpl` 里残留的 `[DEBUG]` `Console.WriteLine`（严重污染转换日志）。
+  `JsonConverter<T>` 的 C# 构造函数是无参的，但转换器在 Java 版（`JsonConverter1<T>`）中添加了 `Class<T> tClass` 参数。当派生类（如 `SByteConverter : JsonConverter<sbyte>`）调用基类构造函数时，C# `sbyte` 映射为 Java `Byte`（泛型参数 T=Byte），但 `typeof(sbyte)` 映射为 `CSharpSByte.class`（Class<CSharpSByte>），导致 `Class<CSharpSByte>` 无法传给 `Class<Byte>` 参数。
 
-### 测试（红 → 绿）
-- `tests/CSharpToJava.Tests/ClassLevelRuntimeClassFieldTests.cs`
-  - `TypeOfOnClassTypeParameter_UsesClassField_NotMethodTypeParam`（既有，改动前即失败）
-  - `OverrideInGenericClass_DefaultTForClassTypeParam_DoesNotInjectClassToken`（新增，镜像 `JsonPropertyInfo<T>` 场景）
-- 状态: ✅ Fixed（2 个测试均通过；全量测试无新增回归，
-  既有的 `OverrideGenericMethodClassTokenTests` 与 `CSharpXmlCompileRegressionTests.MissingMethodException_...` 两条失败均与本次改动无关，改动前即失败）
-
----
+  对于 `IEnumerableConverterFactory` 和 `KeyValuePairConverter`，问题是泛型类型参数的 Class 字面量缺少泛型参数信息（raw type vs parameterized type）。

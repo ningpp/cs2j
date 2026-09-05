@@ -29,6 +29,20 @@ public sealed class GenericPreprocessOptions
     /// </summary>
     public bool InsertTypeOfForForwardedTypeParams { get; init; } = true;
 
+    /// <summary>
+    /// 是否在泛型 override 方法间同步 typeof(T) 哨兵语句。
+    /// 当一个 override 方法体中使用了 typeof(TProperty) 等运行时类型参数模式时，
+    /// 转换器会为该 override 和 base/abstract 方法签名注入 _cs2j_T 前导参数。
+    /// 但兄弟 override 方法（方法体中不使用 typeof(TProperty)）不会获得相同参数，
+    /// 导致 Java override 签名不匹配。
+    ///
+    /// 启用此选项后，预处理器会在全局扫描阶段识别所有兄弟 override 方法中的
+    /// typeof(T) 使用，并为缺少这些使用的 override 方法体开头注入哨兵语句
+    /// var __cs2j_typeof_&lt;T&gt; = typeof(&lt;T&gt;); 以确保转换器统一注入参数。
+    /// 默认 true。
+    /// </summary>
+    public bool SyncTypeOfForOverrideSiblings { get; init; } = true;
+
     /// <summary>是否输出 Info 级诊断</summary>
     public bool ReportInfo { get; init; } = false;
 

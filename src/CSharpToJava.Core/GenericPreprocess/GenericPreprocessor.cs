@@ -16,9 +16,21 @@ namespace CSharpToJava.Core.GenericPreprocess;
 ///   - new T[n]                → (T[])Array.CreateInstance(typeof(T), n)
 ///
 /// typeof(T) / is T / as T 暂不降级（仅统计），避免破坏签名/控制流。
+///
+/// 此外，泛型 override 方法间的 typeof(T) 使用会被同步：
+/// 如果 override A 的方法体使用了 typeof(TProperty)，而兄弟 override B 没有，
+/// 会在 B 的方法体开头注入 var __cs2j_typeof_TProperty = typeof(TProperty);
+/// 以确保转换器统一为所有 override 和 base 方法注入 _cs2j_T 参数。
 /// </summary>
 public sealed class GenericPreprocessor
 {
+    /// <summary>
+    /// 全局 override 类型参数映射：base 方法符号 → 所有兄弟 override 方法体中
+    /// 被使用的 typeof(T) 类型参数名集合。在预扫描阶段构建，用于在处理单个
+    /// override 方法时判断是否需要注入哨兵语句。
+    /// </summary>
+    private HashSet<string>? _overrideSyncTypeParams;
+
     public GenericPreprocessResult Preprocess(
         string sourceCode,
         SemanticModel? semanticModel = null,
@@ -31,7 +43,7 @@ public sealed class GenericPreprocessor
         var tree = CSharpSyntaxTree.ParseText(sourceCode);
         var root = (CompilationUnitSyntax)tree.GetRoot();
 
-        var rewriter = new GenericSyntaxRewriter(semanticModel, options, stats);
+        var rewriter = new GenericSyntaxRewriter(semanticModel, options, stats, _overrideSyncTypeParams);
         var rewritten = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
         if (!rewriter.Changed)
@@ -53,6 +65,105 @@ public sealed class GenericPreprocessor
     /// <summary>不依赖语义模型的重载（保守：只做不包含类型参数解析的安全改写）。</summary>
     public GenericPreprocessResult Preprocess(string sourceCode, GenericPreprocessOptions? options = null)
         => Preprocess(sourceCode, semanticModel: null, options);
+
+    /// <summary>
+    /// 预扫描整个编译，构建全局 override 类型参数映射。
+    /// 在逐文件处理之前调用，用于识别所有泛型 override 方法及其兄弟方法中的
+    /// typeof(T) 使用，以便在后续处理时为缺少 typeof(T) 的 override 注入哨兵语句。
+    /// </summary>
+    public void PrescanOverrideSiblings(Compilation compilation)
+    {
+        var syncTypeParams = new HashSet<string>(StringComparer.Ordinal);
+
+        // 遍历所有命名空间和类型，收集所有泛型 override 方法
+        var overrideGroups = new Dictionary<IMethodSymbol, List<IMethodSymbol>>(
+            SymbolEqualityComparer.Default);
+
+        CollectOverrideGroups(compilation.GlobalNamespace, overrideGroups);
+
+        // 对于每组兄弟 override 方法，收集所有 typeof(T) 使用的类型参数名
+        foreach (var kvp in overrideGroups)
+        {
+            var baseMethod = kvp.Key;
+            var overrides = kvp.Value;
+            if (overrides.Count < 1)
+                continue;
+
+            // 收集所有 override 方法体中使用的 typeof(T) 类型参数名
+            var allTypeOfParams = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var overrideMethod in overrides)
+            {
+                foreach (var syntaxRef in overrideMethod.DeclaringSyntaxReferences)
+                {
+                    var node = syntaxRef.GetSyntax();
+                    if (node is not MethodDeclarationSyntax methodDecl)
+                        continue;
+                    var bodyRoot = (SyntaxNode?)methodDecl.Body ?? methodDecl.ExpressionBody;
+                    if (bodyRoot == null)
+                        continue;
+                    foreach (var typeOf in bodyRoot.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+                    {
+                        if (typeOf.Type is IdentifierNameSyntax id)
+                        {
+                            // 检查是否是方法级类型参数
+                            if (overrideMethod.TypeParameters.Any(tp => tp.Name == id.Identifier.Text))
+                                allTypeOfParams.Add(id.Identifier.Text);
+                        }
+                    }
+                }
+            }
+
+            // 将收集到的类型参数名添加到全局集合
+            foreach (var name in allTypeOfParams)
+                syncTypeParams.Add(name);
+        }
+
+        _overrideSyncTypeParams = syncTypeParams;
+    }
+
+    private static void CollectOverrideGroups(
+        INamespaceSymbol ns,
+        Dictionary<IMethodSymbol, List<IMethodSymbol>> overrideGroups)
+    {
+        foreach (var member in ns.GetMembers())
+        {
+            if (member is INamedTypeSymbol type)
+                CollectOverrideGroups(type, overrideGroups);
+            else if (member is INamespaceSymbol subNs)
+                CollectOverrideGroups(subNs, overrideGroups);
+        }
+    }
+
+    private static void CollectOverrideGroups(
+        INamedTypeSymbol type,
+        Dictionary<IMethodSymbol, List<IMethodSymbol>> overrideGroups)
+    {
+        foreach (var member in type.GetMembers())
+        {
+            if (member is IMethodSymbol method
+                && method.IsOverride
+                && method.OriginalDefinition.IsGenericMethod)
+            {
+                var baseMethod = method.OverriddenMethod;
+                while (baseMethod?.OverriddenMethod != null)
+                    baseMethod = baseMethod.OverriddenMethod;
+
+                if (baseMethod != null)
+                {
+                    var baseKey = baseMethod.OriginalDefinition;
+                    if (!overrideGroups.TryGetValue(baseKey, out var list))
+                    {
+                        list = new List<IMethodSymbol>();
+                        overrideGroups[baseKey] = list;
+                    }
+                    list.Add(method.OriginalDefinition);
+                }
+            }
+
+            if (member is INamedTypeSymbol nestedType)
+                CollectOverrideGroups(nestedType, overrideGroups);
+        }
+    }
 }
 
 internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
@@ -61,6 +172,7 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
     private readonly GenericPreprocessOptions _options;
     private readonly GenericPreprocessStatistics _stats;
     private readonly List<GenericPreprocessDiagnostic> _diagnostics = new();
+    private readonly HashSet<string>? _overrideSyncTypeParams;
 
     public bool Changed { get; private set; }
     public IReadOnlyList<GenericPreprocessDiagnostic> Diagnostics => _diagnostics;
@@ -68,11 +180,13 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
     public GenericSyntaxRewriter(
         SemanticModel? model,
         GenericPreprocessOptions options,
-        GenericPreprocessStatistics stats)
+        GenericPreprocessStatistics stats,
+        HashSet<string>? overrideSyncTypeParams = null)
     {
         _model = model;
         _options = options;
         _stats = stats;
+        _overrideSyncTypeParams = overrideSyncTypeParams;
     }
 
     // -----------------------------------------------------------------------
@@ -310,10 +424,75 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
     // -----------------------------------------------------------------------
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        if (!_options.InsertTypeOfForForwardedTypeParams)
+        var shouldProcessForwarded = _options.InsertTypeOfForForwardedTypeParams;
+        var shouldProcessOverrideSync = _options.SyncTypeOfForOverrideSiblings
+            && _overrideSyncTypeParams != null
+            && _overrideSyncTypeParams.Count > 0;
+
+        if (!shouldProcessForwarded && !shouldProcessOverrideSync)
             return base.VisitMethodDeclaration(node);
 
-        // 只处理方法（抽头方法无 body，不处理）
+        // Handle abstract generic methods: if override methods use typeof(T),
+        // convert abstract → virtual and add a default body with typeof(T) so
+        // the converter can detect the Class<T> requirement from the base
+        // method itself (not just from overrides). This fixes call sites that
+        // resolve to the base method before overrides are processed.
+        if (shouldProcessOverrideSync
+            && node.Modifiers.Any(SyntaxKind.AbstractKeyword)
+            && node.TypeParameterList != null
+            && node.TypeParameterList.Parameters.Count > 0)
+        {
+            var abstractTypeParams = new List<string>();
+            foreach (var tp in node.TypeParameterList.Parameters)
+            {
+                if (_overrideSyncTypeParams!.Contains(tp.Identifier.Text))
+                    abstractTypeParams.Add(tp.Identifier.Text);
+            }
+
+            if (abstractTypeParams.Count > 0)
+            {
+                // Build a default body: typeof(T) statements + throw new NotImplementedException()
+                var statements = new List<StatementSyntax>();
+                foreach (var tpName in abstractTypeParams)
+                {
+                    statements.Add(CreateTypeOfStatement(tpName));
+                    _stats.ForwardedTypeParamsInserted++;
+                }
+                // Add a throw to make the body valid (virtual methods need a body)
+                statements.Add(SyntaxFactory.ThrowStatement(
+                    SyntaxFactory.ObjectCreationExpression(
+                        SyntaxFactory.ParseTypeName("System.NotImplementedException"),
+                        SyntaxFactory.ArgumentList(),
+                        null)));
+
+                var body = SyntaxFactory.Block(statements);
+                // Replace abstract with virtual: find the actual abstract token
+                // in the modifier list (not a factory-created token) and replace it.
+                var newModifiers = node.Modifiers;
+                var abstractToken = newModifiers.FirstOrDefault(t => t.IsKind(SyntaxKind.AbstractKeyword));
+                if (!abstractToken.IsKind(SyntaxKind.None))
+                {
+                    newModifiers = newModifiers.Replace(abstractToken,
+                        SyntaxFactory.Token(SyntaxKind.VirtualKeyword)
+                            .WithTriviaFrom(abstractToken));
+                }
+                else
+                {
+                    // No abstract keyword found (shouldn't happen since we checked
+                    // node.Modifiers.Any(AbstractKeyword) above, but be safe)
+                    newModifiers = newModifiers.Add(SyntaxFactory.Token(SyntaxKind.VirtualKeyword));
+                }
+                var newNode = node
+                    .WithModifiers(newModifiers)
+                    .WithBody(body)
+                    .WithExpressionBody(null)
+                    .WithSemicolonToken(default);
+                Changed = true;
+                return base.VisitMethodDeclaration(newNode);
+            }
+        }
+
+        // 只处理有 body 的方法（抽象方法无 body，不处理）
         if (node.Body == null && node.ExpressionBody == null)
             return base.VisitMethodDeclaration(node);
 
@@ -327,29 +506,51 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
         var trackedParamNames = new HashSet<string>(StringComparer.Ordinal);
         CollectTrackedTypeParamNames(visited.Body ?? (SyntaxNode?)visited.ExpressionBody, trackedParamNames);
 
-        // 收集方法体中作为「前向类型参数」出现的类型参数
-        var forwardedParamNames = new HashSet<string>(StringComparer.Ordinal);
-        CollectForwardedTypeParamNames(visited.Body ?? (SyntaxNode?)visited.ExpressionBody,
-            node.TypeParameterList.Parameters, forwardedParamNames);
+        // 收集需要注入 typeof 哨兵语句的类型参数名
+        var paramsToInsert = new List<string>();
 
-        // 找出「仅作为前向类型参数」出现的类型参数
-        var onlyForwarded = new List<string>();
-        foreach (var tp in node.TypeParameterList.Parameters)
+        if (shouldProcessForwarded)
         {
-            var name = tp.Identifier.Text;
-            if (forwardedParamNames.Contains(name) && !trackedParamNames.Contains(name))
-                onlyForwarded.Add(name);
+            // 收集方法体中作为「前向类型参数」出现的类型参数
+            var forwardedParamNames = new HashSet<string>(StringComparer.Ordinal);
+            CollectForwardedTypeParamNames(visited.Body ?? (SyntaxNode?)visited.ExpressionBody,
+                node.TypeParameterList.Parameters, forwardedParamNames);
+
+            // 找出「仅作为前向类型参数」出现的类型参数
+            foreach (var tp in node.TypeParameterList.Parameters)
+            {
+                var name = tp.Identifier.Text;
+                if (forwardedParamNames.Contains(name) && !trackedParamNames.Contains(name))
+                    paramsToInsert.Add(name);
+            }
         }
 
-        if (onlyForwarded.Count == 0)
+        if (shouldProcessOverrideSync)
+        {
+            // 对于 override 方法：检查全局 override 同步集合中是否有当前方法体
+            // 中未被 typeof 使用的类型参数。这些参数在其他兄弟 override 中被 typeof 使用，
+            // 需要在当前方法体中注入哨兵语句以确保转换器统一注入 _cs2j_T 参数。
+            foreach (var tp in node.TypeParameterList.Parameters)
+            {
+                var name = tp.Identifier.Text;
+                if (_overrideSyncTypeParams!.Contains(name)
+                    && !trackedParamNames.Contains(name)
+                    && !paramsToInsert.Contains(name))
+                {
+                    paramsToInsert.Add(name);
+                }
+            }
+        }
+
+        if (paramsToInsert.Count == 0)
             return visited;
 
-        // 为每个仅前向的类型参数插入 ``var __cs2j_typeof_<T> = typeof(<T>);``
+        // 为每个需要注入的类型参数插入 ``var __cs2j_typeof_<T> = typeof(<T>);``
         if (visited.Body == null)
             return visited;
 
         var newStatements = visited.Body.Statements;
-        foreach (var tpName in onlyForwarded)
+        foreach (var tpName in paramsToInsert)
         {
             var typeofStatement = CreateTypeOfStatement(tpName);
             newStatements = newStatements.Insert(0, typeofStatement);

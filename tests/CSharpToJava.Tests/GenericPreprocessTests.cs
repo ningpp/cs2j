@@ -2230,6 +2230,261 @@ public static class Converter{
     }
 
     // ===================================================================
+    // Abstract → Virtual 改写 + Override typeof(T) 同步
+    // ===================================================================
+
+    /// <summary>
+    /// 当 abstract 泛型方法的 override 使用了 typeof(T) 时，
+    /// 预处理器应将 abstract 改为 virtual 并添加 typeof(T) 哨兵语句
+    /// 和 throw new NotImplementedException() 方法体。
+    /// </summary>
+    [Fact]
+    public void Preprocess_AbstractGenericMethod_OverrideUsesTypeOf_ConvertedToVirtual()
+    {
+        var src = """
+        using System;
+
+        public abstract class MemberAccessor
+        {
+            public abstract Func<T> CreateGetter<T>(string name);
+        }
+
+        public class ReflectionAccessor : MemberAccessor
+        {
+            public override Func<T> CreateGetter<T>(string name)
+            {
+                var t = typeof(T);
+                return null;
+            }
+        }
+        """;
+        var result = PreprocessWithPrescan(src);
+        Assert.True(result.Changed);
+
+        // abstract 方法应被改为 virtual（但类声明仍保持 abstract）
+        Assert.Contains("virtual Func<T> CreateGetter", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("abstract Func<T> CreateGetter", result.OutputCode, StringComparison.Ordinal);
+
+        // base 方法体应包含 typeof(T) 哨兵语句
+        Assert.Contains("__cs2j_typeof_T", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("typeof(T)", result.OutputCode, StringComparison.Ordinal);
+
+        // 应包含 throw new NotImplementedException()
+        Assert.Contains("NotImplementedException", result.OutputCode, StringComparison.Ordinal);
+
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 当 override 方法体不使用 typeof(T) 时，abstract 方法不应被改写。
+    /// </summary>
+    [Fact]
+    public void Preprocess_AbstractGenericMethod_NoOverrideTypeOf_NotChanged()
+    {
+        var src = """
+        public abstract class Base
+        {
+            public abstract T GetValue<T>(int id);
+        }
+
+        public class Derived : Base
+        {
+            public override T GetValue<T>(int id) => default;
+        }
+        """;
+        var result = PreprocessWithPrescan(src);
+        // default(T) in GetValue override is rewritten, but abstract is not
+        // changed to virtual because no typeof(T) is used in any override.
+        Assert.Contains("abstract", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("__cs2j_typeof_T", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("NotImplementedException", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 非泛型 abstract 方法不应被改写为 virtual。
+    /// </summary>
+    [Fact]
+    public void Preprocess_AbstractNonGenericMethod_NotChanged()
+    {
+        var src = """
+        public abstract class Base
+        {
+            public abstract int GetValue(int id);
+        }
+
+        public class Derived : Base
+        {
+            public override int GetValue(int id) => 0;
+        }
+        """;
+        var result = PreprocessWithPrescan(src);
+        Assert.False(result.Changed);
+        Assert.Contains("abstract", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("NotImplementedException", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 多个 override 方法中只有一个使用 typeof(T) 时，
+    /// 另一个不使用 typeof(T) 的 override 应被注入哨兵语句。
+    /// 同时 base abstract 方法也应被改为 virtual。
+    /// </summary>
+    [Fact]
+    public void Preprocess_MultipleOverrides_OneUsesTypeOf_Synced()
+    {
+        var src = """
+        using System;
+
+        public abstract class MemberAccessor
+        {
+            public abstract Func<T> CreateGetter<T>(string name);
+        }
+
+        public class ReflectionAccessor : MemberAccessor
+        {
+            public override Func<T> CreateGetter<T>(string name)
+            {
+                var t = typeof(T);
+                return null;
+            }
+        }
+
+        public class EmitAccessor : MemberAccessor
+        {
+            public override Func<T> CreateGetter<T>(string name)
+            {
+                return null;
+            }
+        }
+        """;
+        var result = PreprocessWithPrescan(src);
+        Assert.True(result.Changed);
+
+        // abstract method should be changed to virtual (class stays abstract)
+        Assert.Contains("virtual Func<T> CreateGetter", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("abstract Func<T> CreateGetter", result.OutputCode, StringComparison.Ordinal);
+
+        // The EmitAccessor override should have __cs2j_typeof_T injected
+        // (it doesn't use typeof(T) but a sibling override does)
+        // Count occurrences of __cs2j_typeof_T:
+        // 1 in base method body, 1 in EmitAccessor override body
+        var typeofCount = System.Text.RegularExpressions.Regex.Count(
+            result.OutputCode, "__cs2j_typeof_T");
+        Assert.True(typeofCount >= 2,
+            $"Expected at least 2 __cs2j_typeof_T injections, found {typeofCount}\n{result.OutputCode}");
+
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 当 override 方法体中已有 typeof(T) 时，不应重复注入哨兵语句。
+    /// </summary>
+    [Fact]
+    public void Preprocess_OverrideAlreadyHasTypeOf_NoDuplicateInjection()
+    {
+        var src = """
+        using System;
+
+        public abstract class MemberAccessor
+        {
+            public abstract Func<T> CreateGetter<T>(string name);
+        }
+
+        public class ReflectionAccessor : MemberAccessor
+        {
+            public override Func<T> CreateGetter<T>(string name)
+            {
+                var t = typeof(T);
+                return null;
+            }
+        }
+        """;
+        var result = PreprocessWithPrescan(src);
+        Assert.True(result.Changed);
+
+        // The override method should NOT have a duplicate __cs2j_typeof_T
+        // (it already has typeof(T) explicitly)
+        var lines = result.OutputCode.Split('\n');
+        var inOverride = false;
+        var typeOfCountInOverride = 0;
+        foreach (var line in lines)
+        {
+            if (line.Contains("override") && line.Contains("CreateGetter"))
+                inOverride = true;
+            else if (line.Contains("virtual") && line.Contains("CreateGetter"))
+                inOverride = false; // base method, not override
+
+            if (inOverride && line.Contains("__cs2j_typeof_T"))
+                typeOfCountInOverride++;
+        }
+        Assert.True(typeOfCountInOverride == 0,
+            $"Override already has typeof(T), should not have __cs2j_typeof_T injection. Found {typeOfCountInOverride}");
+
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    /// <summary>
+    /// 贴近 SDK 真实场景：MemberAccessor + JsonPropertyInfo&lt;T&gt;
+    /// 验证 abstract CreatePropertyGetter&lt;T&gt; 被改为 virtual，
+    /// 且调用点能检测到 typeof(T) 用法。
+    /// </summary>
+    [Fact]
+    public void Preprocess_SdkLikeMemberAccessor_AbstractToVirtual()
+    {
+        var src = """
+        using System;
+        using System.Reflection;
+
+        public abstract class MemberAccessor
+        {
+            public abstract Func<T> CreatePropertyGetter<T>(PropertyInfo prop);
+            public abstract Action<T> CreatePropertySetter<T>(PropertyInfo prop);
+        }
+
+        public class ReflectionEmitMemberAccessor : MemberAccessor
+        {
+            public override Func<T> CreatePropertyGetter<T>(PropertyInfo prop)
+            {
+                var tClass = typeof(T);
+                return null;
+            }
+
+            public override Action<T> CreatePropertySetter<T>(PropertyInfo prop)
+            {
+                var tClass = typeof(T);
+                return null;
+            }
+        }
+
+        public class JsonPropertyInfo<T>
+        {
+            public void Initialize(MemberAccessor accessor, PropertyInfo prop)
+            {
+                var getter = accessor.CreatePropertyGetter<T>(prop);
+                var setter = accessor.CreatePropertySetter<T>(prop);
+            }
+        }
+        """;
+        var result = PreprocessWithPrescan(src);
+        Assert.True(result.Changed);
+
+        // Both abstract methods should be changed to virtual (class stays abstract)
+        Assert.DoesNotContain("abstract Func<T> CreatePropertyGetter", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("abstract Action<T> CreatePropertySetter", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("virtual Func<T> CreatePropertyGetter", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("virtual Action<T> CreatePropertySetter", result.OutputCode, StringComparison.Ordinal);
+
+        // Both base methods should have __cs2j_typeof_T
+        var typeofCount = System.Text.RegularExpressions.Regex.Count(
+            result.OutputCode, "__cs2j_typeof_T");
+        Assert.True(typeofCount >= 2,
+            $"Expected at least 2 __cs2j_typeof_T in base methods, found {typeofCount}\n{result.OutputCode}");
+
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
+
+    // ===================================================================
     // Helpers
     // ===================================================================
 
@@ -2245,6 +2500,28 @@ public static class Converter{
             },
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var preprocessor = new GenericPreprocessor();
+        return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree));
+    }
+
+    /// <summary>
+    /// 完整编译级预处理：先调用 PrescanOverrideSiblings 构建全局 override 同步映射，
+    /// 再逐文件预处理。模拟 ProjectGenericPreprocessor 的实际工作流程。
+    /// </summary>
+    private static GenericPreprocessResult PreprocessWithPrescan(string source)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("generic-prescan-test",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(List<>).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        var preprocessor = new GenericPreprocessor();
+        // 模拟 ProjectGenericPreprocessor 的工作流程：先预扫描，再逐文件处理
+        preprocessor.PrescanOverrideSiblings(compilation);
         return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree));
     }
 

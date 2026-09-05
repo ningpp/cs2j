@@ -128,6 +128,15 @@ internal static class ProjectGenericPreprocessor
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
                 allowUnsafe: true));
 
+        // 预扫描整个编译，构建全局 override 类型参数映射。
+        // 这使得预处理器能在处理每个 override 方法时，检查兄弟 override 方法体中
+        // 的 typeof(T) 使用，为缺少 typeof(T) 使用的 override 注入哨兵语句，
+        // 确保转换器统一为所有 override 和 base 方法注入 _cs2j_T 参数。
+        if (request.Options.SyncTypeOfForOverrideSiblings)
+        {
+            preprocessor.PrescanOverrideSiblings(compilation);
+        }
+
         // Process each .cs file
         foreach (var sourceFile in sourceFiles)
         {
