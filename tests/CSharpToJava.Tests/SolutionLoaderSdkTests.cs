@@ -128,6 +128,89 @@ public class SolutionLoaderSdkTests
         Assert.Equal(Path.Combine("TestData", "sample.xml"), resources[0].RelativePath);
     }
 
+    /// <summary>
+    /// Directory sources whose .csproj files live in immediate subdirectories
+    /// (e.g. &lt;root&gt;\src\Lib.csproj + &lt;root&gt;\tests\App.csproj) must resolve to the
+    /// REFERENCING root project so MSBuildWorkspace loads the whole closure.
+    /// </summary>
+    [Fact]
+    public void TryResolveNestedProjectEntry_PrefersReferencingRootProject()
+    {
+        using var temp = new TempDir();
+        var root = temp.Path;
+        WriteProject(Path.Combine(root, "src", "Lib.csproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        WriteProject(Path.Combine(root, "tests", "App.csproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup>
+                <ProjectReference Include="..\src\Lib.csproj" />
+              </ItemGroup>
+            </Project>
+            """);
+
+        Assert.True(SolutionLoader.TryResolveNestedProjectEntry(root, out var entry));
+        Assert.Equal(
+            Path.GetFullPath(Path.Combine(root, "tests", "App.csproj")),
+            Path.GetFullPath(entry));
+    }
+
+    [Fact]
+    public void TryResolveNestedProjectEntry_SingleNestedProject_ReturnsIt()
+    {
+        using var temp = new TempDir();
+        var root = temp.Path;
+        var lib = Path.Combine(root, "src", "Lib.csproj");
+        WriteProject(lib, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+
+        Assert.True(SolutionLoader.TryResolveNestedProjectEntry(root, out var entry));
+        Assert.Equal(Path.GetFullPath(lib), Path.GetFullPath(entry));
+    }
+
+    [Fact]
+    public void TryResolveNestedProjectEntry_NoNestedProjects_ReturnsFalse()
+    {
+        using var temp = new TempDir();
+        Directory.CreateDirectory(Path.Combine(temp.Path, "src"));
+        Directory.CreateDirectory(Path.Combine(temp.Path, "docs"));
+
+        Assert.False(SolutionLoader.TryResolveNestedProjectEntry(temp.Path, out _));
+    }
+
+    [Fact]
+    public void TryResolveNestedProjectEntry_DisconnectedRoots_ReturnsFalse()
+    {
+        using var temp = new TempDir();
+        var root = temp.Path;
+        WriteProject(Path.Combine(root, "src", "Lib.csproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        WriteProject(Path.Combine(root, "tools", "Tool.csproj"), """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+
+        // Two unrelated entry candidates: opening one would silently drop the
+        // other module, so discovery must decline and let the caller fall back.
+        Assert.False(SolutionLoader.TryResolveNestedProjectEntry(root, out _));
+    }
+
+    private static void WriteProject(string projectPath, string content)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(projectPath)!);
+        File.WriteAllText(projectPath, content);
+    }
+
     private sealed class TempDir : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cs2j_" + Guid.NewGuid().ToString("N"));

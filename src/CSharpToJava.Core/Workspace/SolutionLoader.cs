@@ -187,9 +187,114 @@ public sealed class SolutionLoader : IDisposable
                 Path.GetFileNameWithoutExtension(p).Equals(dirName, StringComparison.OrdinalIgnoreCase));
             if (match != null)
                 return await OpenProjectAsync(match, progress, ct);
+
+            // Projects nested in immediate subdirectories (e.g. <root>\src\Lib.csproj
+            // plus <root>\tests\App.csproj referencing it). Open the referencing root
+            // project so MSBuildWorkspace loads the full dependency closure and the
+            // conversion produces one Maven module per C# project instead of falling
+            // back to the flat single-module directory scan.
+            if (TryResolveNestedProjectEntry(path, out var nestedEntry))
+                return await OpenProjectAsync(nestedEntry, progress, ct);
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Resolves the entry project for a directory whose .csproj files live in
+    /// immediate subdirectories (the common <c>src/</c> + <c>tests/</c> layout).
+    /// The entry is the candidate that is NOT referenced by any other candidate
+    /// (the root of the ProjectReference graph); opening it loads the whole
+    /// closure. Ambiguous layouts (no projects, several unrelated roots, or a
+    /// reference cycle) return false so the caller can fall back.
+    /// </summary>
+    internal static bool TryResolveNestedProjectEntry(string directory, out string entryProjectPath)
+    {
+        entryProjectPath = string.Empty;
+        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+            return false;
+
+        var candidates = new List<string>();
+        foreach (var subDirectory in Directory.EnumerateDirectories(directory))
+        {
+            try
+            {
+                candidates.AddRange(Directory.EnumerateFiles(subDirectory, "*.csproj", SearchOption.TopDirectoryOnly));
+            }
+            catch (IOException)
+            {
+                // Unreadable subdirectory — skip it.
+            }
+        }
+        if (candidates.Count == 0)
+            return false;
+
+        var candidateSet = new HashSet<string>(
+            candidates.Select(Path.GetFullPath), StringComparer.OrdinalIgnoreCase);
+
+        var referenced = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in candidateSet)
+        {
+            foreach (var referencePath in EnumerateProjectReferences(candidate))
+            {
+                referenced.Add(referencePath);
+            }
+        }
+
+        var roots = candidateSet.Where(c => !referenced.Contains(c)).ToList();
+        if (roots.Count != 1)
+            return false;
+
+        entryProjectPath = roots[0];
+        return true;
+    }
+
+    /// <summary>
+    /// Enumerates the fully-qualified target paths of a project's
+    /// <c>&lt;ProjectReference Include="..." /&gt;</c> items (plain relative paths only;
+    /// wildcard or MSBuild-property includes are ignored, matching the lightweight
+    /// discovery used by ProjectDiscovery).
+    /// </summary>
+    private static IEnumerable<string> EnumerateProjectReferences(string projectPath)
+    {
+        XDocument document;
+        try
+        {
+            document = XDocument.Load(projectPath);
+        }
+        catch (Exception ex) when (ex is IOException or System.Xml.XmlException or UnauthorizedAccessException)
+        {
+            yield break;
+        }
+
+        if (document.Root == null)
+            yield break;
+
+        var baseDirectory = Path.GetDirectoryName(Path.GetFullPath(projectPath));
+        if (string.IsNullOrEmpty(baseDirectory))
+            yield break;
+
+        foreach (var projectReference in document.Root.Descendants("ProjectReference"))
+        {
+            var include = projectReference.Attribute("Include")?.Value;
+            if (string.IsNullOrWhiteSpace(include))
+                continue;
+            // Skip MSBuild-property / wildcard includes — they cannot be resolved
+            // without a full MSBuild evaluation.
+            if (include.Contains('$') || include.Contains('*') || include.Contains('?'))
+                continue;
+
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(Path.Combine(baseDirectory, include));
+            }
+            catch (ArgumentException)
+            {
+                continue;
+            }
+            yield return fullPath;
+        }
     }
 
     private static async Task<IReadOnlyList<WorkspaceProject>> LoadProjectsFromSolution(

@@ -2877,14 +2877,38 @@ public class MethodTransformer : IMemberTransformer
         if (context.Options.RuntimeClassParameters.TryGetMethodRequirements(
                 overrideSym.OriginalDefinition, out var registryReqs))
         {
+            // 类级类型参数由 AddRuntimeClassFields 在声明类型上生成的运行时 Class<?> 字段
+            // （以及 _cs2jDefault_T() 工厂）满足，绝不能再提升为前导 Class<T> _cs2j_T 参数：
+            // 那会额外声明方法级 <T>，遮蔽类级 T，导致 override 槽位失效且方法体内所有
+            // 类级 T 引用报错（javac: "T 无法转换为 T"）。
+            var classLevelNames = GetEnclosingTypeParameterNames(overrideSym);
             foreach (var req in registryReqs)
             {
+                if (classLevelNames.Contains(req.Name))
+                    continue;
                 if (!result.Contains(req.Name))
                     result.Add(req.Name);
             }
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// 收集符号所在类型（及其所有外层类型）声明的类型参数名。
+    /// 这些类级类型参数由声明类型上的运行时 Class 字段满足，不应被提升为方法级 Class&lt;T&gt; 参数。
+    /// </summary>
+    private static System.Collections.Generic.HashSet<string> GetEnclosingTypeParameterNames(ISymbol symbol)
+    {
+        var names = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        var type = symbol.ContainingType;
+        while (type != null)
+        {
+            foreach (var tp in type.TypeParameters)
+                names.Add(tp.Name);
+            type = type.ContainingType;
+        }
+        return names;
     }
 
     /// <summary>
@@ -2902,11 +2926,9 @@ public class MethodTransformer : IMemberTransformer
 
         // 2. 注入到 base/abstract 方法签名（如果有）
         var baseSym = overrideSym.OverriddenMethod;
-        System.Console.WriteLine($"[DEBUG] EnsurePendingParamsInBaseAndImpl: overrideSym={overrideSym.ToDisplayString()}, baseSym={baseSym?.ToDisplayString()}");
         if (baseSym != null)
         {
             var baseDecl = context.FindMethodDeclaration(baseSym);
-            System.Console.WriteLine($"[DEBUG] EnsurePendingParamsInBaseAndImpl: baseDecl={baseDecl?.Name ?? "null"}");
             if (baseDecl != null)
             {
                 InjectLeadingClassTokens(baseDecl, baseSym, pending, context);
@@ -2942,6 +2964,10 @@ public class MethodTransformer : IMemberTransformer
             .OrderBy(name => typeParameterIndex.TryGetValue(name, out var idx) ? idx : int.MaxValue)
             .ToList();
 
+        // 类级类型参数绝不能被重新声明为方法级类型参数：方法级 <T> 会遮蔽类级 T，
+        // 破坏 override 槽位并使方法体内所有类级 T 引用变成不兼容的类型。
+        var classLevelNames = GetEnclosingTypeParameterNames(methodSymbol);
+
         for (var i = ordered.Count - 1; i >= 0; i--)
         {
             var typeParamName = ordered.ElementAt(i);
@@ -2955,7 +2981,8 @@ public class MethodTransformer : IMemberTransformer
                 : $"Class<{typeParamName}>";
             javaMethod.Parameters.Insert(0, new Java.JavaParameter(tokenType, paramName));
             context.RegisterRuntimeClassParameter(typeParamName, paramName);
-            if (!javaMethod.TypeParameters.Any(tp => tp.Name == typeParamName))
+            if (!classLevelNames.Contains(typeParamName)
+                && !javaMethod.TypeParameters.Any(tp => tp.Name == typeParamName))
                 javaMethod.TypeParameters.Add(new Java.JavaTypeParameter(typeParamName));
         }
 
