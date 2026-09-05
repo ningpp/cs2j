@@ -53,7 +53,9 @@ public class Test
         var code = result.GeneratedCode ?? "";
 
         // The call site must pass Test.class as the first argument
-        var callLine = GetLineContaining(code, "deserializeWrapper(");
+        // 精确匹配调用行：同时包含 deserializeWrapper( 和 Test.class，避免匹配到方法声明行
+        var callLine = code.Split('\n')
+            .FirstOrDefault(l => l.Contains("deserializeWrapper(") && l.Contains("Test.class"));
         Assert.NotNull(callLine);
         Assert.Contains("Test.class", callLine);
 
