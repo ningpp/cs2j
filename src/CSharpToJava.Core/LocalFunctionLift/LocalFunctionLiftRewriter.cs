@@ -128,33 +128,78 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitBlock(BlockSyntax node)
     {
+        // Before visiting, record which statement indices in the original
+        // block are non-skipped local functions that should be removed.
+        // We must use the original (pre-visit) statements because after
+        // base.VisitBlock returns, child nodes may have been rewritten
+        // (e.g. call sites renamed), causing SpanStart to become 0 for
+        // newly constructed nodes. Using the original node reference
+        // for identity comparison is the most reliable approach.
+        var nonSkippedNodes = new HashSet<SyntaxNode>(
+            _plans.Where(p => !p.Skipped)
+                  .Select(p => (SyntaxNode)p.Node));
+
+        // Also build a set of SpanStart values from the original block's
+        // local function statements as a fallback for nodes that survive
+        // without rewriting (same reference).
+        var indicesToRemove = new HashSet<int>();
+        for (var i = 0; i < node.Statements.Count; i++)
+        {
+            if (node.Statements[i] is LocalFunctionStatementSyntax localFn
+                && nonSkippedNodes.Contains(localFn))
+            {
+                indicesToRemove.Add(i);
+            }
+        }
+
         // First, visit children (call sites get rewritten inside this block).
-        // We need to track which local functions to remove by name, because
-        // base.VisitBlock may rebuild LocalFunctionStatementSyntax nodes,
-        // breaking reference equality with plan.Node.
         var visited = (BlockSyntax?)base.VisitBlock(node);
         if (visited == null)
             return null;
 
-        var skipNames = new HashSet<string>(
-            _plans.Where(p => !p.Skipped).Select(p => p.Node.Identifier.Text),
-            StringComparer.Ordinal);
+        if (indicesToRemove.Count == 0)
+            return visited;
 
-        var newStatements = new List<StatementSyntax>();
-        foreach (var statement in visited.Statements)
+        // If no statements were removed/added by visiting (count is same),
+        // we can safely use the original indices.
+        if (visited.Statements.Count == node.Statements.Count)
         {
-            if (statement is LocalFunctionStatementSyntax localFn
-                && skipNames.Contains(localFn.Identifier.Text))
+            var newStatements = new List<StatementSyntax>();
+            for (var i = 0; i < visited.Statements.Count; i++)
             {
-                Changed = true;
-                continue;
+                if (indicesToRemove.Contains(i))
+                {
+                    Changed = true;
+                    continue;
+                }
+                newStatements.Add(visited.Statements[i]);
             }
-            newStatements.Add(statement);
+            return visited.WithStatements(SyntaxFactory.List(newStatements));
         }
 
-        if (newStatements.Count != visited.Statements.Count)
+        // Fallback: match by SpanStart (works when nodes were not rewritten)
+        var nonSkippedKeys = new HashSet<(int start, int length)>(
+            _plans.Where(p => !p.Skipped)
+                  .Select(p => (p.Node.SpanStart, p.Node.Span.Length)));
+
+        var fallbackStatements = new List<StatementSyntax>();
+        foreach (var statement in visited.Statements)
         {
-            visited = visited.WithStatements(SyntaxFactory.List(newStatements));
+            if (statement is LocalFunctionStatementSyntax localFn)
+            {
+                var key = (localFn.SpanStart, localFn.Span.Length);
+                if (nonSkippedKeys.Contains(key))
+                {
+                    Changed = true;
+                    continue;
+                }
+            }
+            fallbackStatements.Add(statement);
+        }
+
+        if (fallbackStatements.Count != visited.Statements.Count)
+        {
+            visited = visited.WithStatements(SyntaxFactory.List(fallbackStatements));
         }
 
         return visited;
@@ -175,9 +220,15 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             {
                 plan = p;
             }
-            else if (_nameToPlan.TryGetValue(id.Identifier.Text, out var p2))
+            else if (symbol is IMethodSymbol method
+                     && !method.Equals(method.OriginalDefinition, SymbolEqualityComparer.Default)
+                     && _symbolToPlan.TryGetValue(method.OriginalDefinition, out var p2))
             {
                 plan = p2;
+            }
+            else if (symbol == null && _nameToPlan.TryGetValue(id.Identifier.Text, out var p3))
+            {
+                plan = p3;
             }
         }
         else if (visited.Expression is GenericNameSyntax gn)
@@ -187,9 +238,15 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             {
                 plan = p;
             }
-            else if (_nameToPlan.TryGetValue(gn.Identifier.Text, out var p2))
+            else if (symbol is IMethodSymbol method
+                     && !method.Equals(method.OriginalDefinition, SymbolEqualityComparer.Default)
+                     && _symbolToPlan.TryGetValue(method.OriginalDefinition, out var p2))
             {
                 plan = p2;
+            }
+            else if (symbol == null && _nameToPlan.TryGetValue(gn.Identifier.Text, out var p3))
+            {
+                plan = p3;
             }
         }
 
@@ -197,6 +254,21 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             return visited;
 
         var newExpression = RewriteCallExpression(visited.Expression, plan);
+
+        // If the hoisted method needs explicit type arguments (because it uses
+        // enclosing method type parameters), and the call expression is a
+        // simple IdentifierName (not already a GenericName), convert it to a
+        // GenericName with the enclosing type parameters as type arguments.
+        if (plan.NeedsExplicitTypeArguments && newExpression is IdentifierNameSyntax)
+        {
+            var typeArgs = SyntaxFactory.SeparatedList(
+                plan.EnclosingTypeParams.Select(tp =>
+                    SyntaxFactory.ParseTypeName(tp)));
+            newExpression = SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(plan.NewName),
+                SyntaxFactory.TypeArgumentList(typeArgs));
+        }
+
         var newArgs = RewriteCallArguments(visited.ArgumentList, plan);
 
         Changed = true;
@@ -251,22 +323,53 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
     {
-        if (IsInsideNameOf(node))
+        // Try to resolve the symbol for this identifier
+        var symbol = _model.GetSymbolInfo(node).Symbol;
+        LiftPlan? plan = null;
+
+        if (symbol != null && _symbolToPlan.TryGetValue(symbol, out var p1))
         {
-            var symbol = _model.GetSymbolInfo(node).Symbol;
-            if (symbol != null && _symbolToPlan.TryGetValue(symbol, out var plan))
-            {
-                Changed = true;
-                return SyntaxFactory.IdentifierName(plan.NewName).WithTriviaFrom(node);
-            }
-            if (_nameToPlan.TryGetValue(node.Identifier.Text, out var plan2))
-            {
-                Changed = true;
-                return SyntaxFactory.IdentifierName(plan2.NewName).WithTriviaFrom(node);
-            }
+            plan = p1;
+        }
+        else if (symbol is IMethodSymbol method
+                 && !method.Equals(method.OriginalDefinition, SymbolEqualityComparer.Default)
+                 && _symbolToPlan.TryGetValue(method.OriginalDefinition, out var p2))
+        {
+            plan = p2;
+        }
+        else if (symbol == null && _nameToPlan.TryGetValue(node.Identifier.Text, out var p3))
+        {
+            plan = p3;
         }
 
-        return base.VisitIdentifierName(node);
+        if (plan == null)
+            return base.VisitIdentifierName(node);
+
+        // Skip if this is a member access expression on the left
+        // (e.g. this.x or obj.x where x matches a hoisted name)
+        if (node.Parent is MemberAccessExpressionSyntax mae && mae.Name == node)
+            return base.VisitIdentifierName(node);
+
+        // Skip if inside a NameColon (named argument)
+        if (node.Parent is NameColonSyntax)
+            return base.VisitIdentifierName(node);
+
+        // Determine if this is an invocation call site or a method group reference.
+        // If the parent is an InvocationExpression and this node is the expression
+        // being invoked, it's a call site — handled by VisitInvocationExpression.
+        if (node.Parent is InvocationExpressionSyntax invocation
+            && invocation.Expression == node)
+            return base.VisitIdentifierName(node);
+
+        // If the parent is a GenericName, it's handled by VisitInvocationExpression
+        // through the GenericName path.
+        if (node.Parent is GenericNameSyntax)
+            return base.VisitIdentifierName(node);
+
+        // Otherwise, this is a method group / delegate conversion reference.
+        // Rename it to the hoisted method name.
+        Changed = true;
+        return SyntaxFactory.IdentifierName(plan.NewName).WithTriviaFrom(node);
     }
 
     private static bool IsInsideNameOf(SyntaxNode node)
@@ -367,10 +470,21 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         }
 
         var enclosingMethodParams = GetEnclosingMethodTypeParameters(localFn);
-        foreach (var tpName in enclosingMethodParams)
+        if (enclosingMethodParams.Count > 0)
         {
-            if (!typeParams.Any(tp => tp.Identifier.Text == tpName))
+            // Only add enclosing method type parameters that are actually
+            // used in the local function's body, parameter types, or return
+            // type. Adding unused type parameters would break type inference
+            // at call sites.
+            var usedTypeParams = GetTypeParametersUsedInLocalFunction(localFn);
+
+            foreach (var tpName in enclosingMethodParams)
             {
+                if (typeParams.Any(tp => tp.Identifier.Text == tpName))
+                    continue;
+                if (!usedTypeParams.Contains(tpName))
+                    continue;
+
                 typeParams.Add(SyntaxFactory.TypeParameter(
                     SyntaxFactory.List<AttributeListSyntax>(),
                     default,
@@ -382,6 +496,60 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             return null;
 
         return SyntaxFactory.TypeParameterList(SyntaxFactory.SeparatedList(typeParams));
+    }
+
+    /// <summary>
+    /// Collects the set of type parameter names used in the local function's
+    /// body, parameter types, and return type. This is used to determine
+    /// which enclosing method type parameters need to be added to the hoisted
+    /// method's type parameter list.
+    /// </summary>
+    private static HashSet<string> GetTypeParametersUsedInLocalFunction(
+        LocalFunctionStatementSyntax localFn)
+    {
+        var used = new HashSet<string>(StringComparer.Ordinal);
+
+        // Collect from parameter types (including the type node itself,
+        // since DescendantNodes does not include the node itself)
+        if (localFn.ParameterList != null)
+        {
+            foreach (var param in localFn.ParameterList.Parameters)
+            {
+                CollectIdentifierNamesFromType(param.Type, used);
+            }
+        }
+
+        // Collect from return type
+        CollectIdentifierNamesFromType(localFn.ReturnType, used);
+
+        // Collect from body
+        var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
+        if (body != null)
+        {
+            foreach (var id in body.DescendantNodes()
+                .OfType<IdentifierNameSyntax>())
+            {
+                used.Add(id.Identifier.Text);
+            }
+        }
+
+        return used;
+    }
+
+    /// <summary>
+    /// Collects all IdentifierName text from a type syntax node, including
+    /// the node itself if it is an IdentifierNameSyntax. This is needed
+    /// because DescendantNodes() does not include the node itself.
+    /// </summary>
+    private static void CollectIdentifierNamesFromType(
+        TypeSyntax? type, HashSet<string> names)
+    {
+        if (type == null)
+            return;
+        if (type is IdentifierNameSyntax id)
+            names.Add(id.Identifier.Text);
+        foreach (var descendant in type.DescendantNodes().OfType<IdentifierNameSyntax>())
+            names.Add(descendant.Identifier.Text);
     }
 
     private ParameterListSyntax BuildParameterList(LiftPlan plan)
@@ -478,7 +646,7 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         if (plan.Captures.Count == 0)
             return body;
 
-        var renamer = new CaptureRenamer(_model, plan.Captures);
+        var renamer = new CaptureRenamer(plan.Captures);
         return (BlockSyntax)renamer.Visit(body)!;
     }
 
@@ -487,21 +655,25 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
         if (plan.Captures.Count == 0)
             return expr;
 
-        var renamer = new CaptureRenamer(_model, plan.Captures);
+        var renamer = new CaptureRenamer(plan.Captures);
         return (ExpressionSyntax)renamer.Visit(expr)!;
     }
 
+    /// <summary>
+    /// Renames captured variable references inside hoisted method bodies.
+    /// Uses name-based matching instead of SemanticModel because the body
+    /// may have already been rewritten by Visit(), producing nodes that are
+    /// not part of the original syntax tree.
+    /// </summary>
     private sealed class CaptureRenamer : CSharpSyntaxRewriter
     {
-        private readonly SemanticModel _model;
-        private readonly Dictionary<ISymbol, string> _renameMap;
+        private readonly Dictionary<string, string> _renameMap;
 
-        public CaptureRenamer(SemanticModel model, List<CapturePlan> captures)
+        public CaptureRenamer(List<CapturePlan> captures)
         {
-            _model = model;
-            _renameMap = new Dictionary<ISymbol, string>(SymbolEqualityComparer.Default);
+            _renameMap = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var cap in captures)
-                _renameMap[cap.Symbol] = cap.ParameterName;
+                _renameMap[cap.OriginalName] = cap.ParameterName;
         }
 
         public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
@@ -509,9 +681,15 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             if (node.Parent is NameColonSyntax)
                 return node;
 
-            var symbol = _model.GetSymbolInfo(node).Symbol;
-            if (symbol != null && _renameMap.TryGetValue(symbol, out var newName))
+            var name = node.Identifier.Text;
+            if (_renameMap.TryGetValue(name, out var newName))
             {
+                // Skip if this identifier is a member access on the left
+                // (e.g. this.x or obj.x where x happens to match a capture name).
+                if (node.Parent is MemberAccessExpressionSyntax mae
+                    && mae.Name == node)
+                    return base.VisitIdentifierName(node);
+
                 return SyntaxFactory.IdentifierName(newName).WithTriviaFrom(node);
             }
             return base.VisitIdentifierName(node);

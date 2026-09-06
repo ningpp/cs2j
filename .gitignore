@@ -92,3 +92,4 @@ repro/
 probe-out/
 .cs2j-generic-src/
 .cs2j-strip-default-src/
+.cs2j-test-output/

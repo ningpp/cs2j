@@ -7,6 +7,7 @@ using CSharpToJava.Core.Pipeline.Planning;
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.LocalFunctionLift;
+using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Core.TypeScript;
 using CSharpToJava.Core.Workspace;
@@ -25,7 +26,7 @@ public class Program
 
     internal static async Task<int> MainImpl(string[] args)
     {
-        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions>(args)
+        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
@@ -35,6 +36,7 @@ public class Program
                 (UnsignedTypeOptions opts) => UnsignedType(opts),
                 (GenericPreprocessOptions opts) => GenericPreprocess(opts),
                 (StripDefaultOptions opts) => StripDefault(opts),
+                (LocalFunctionLiftOptions opts) => LocalFunctionLiftAsync(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -1941,6 +1943,91 @@ public class Program
         }
 
         return result.ToList();
+    }
+
+    private static async Task<int> LocalFunctionLiftAsync(LocalFunctionLiftOptions opts)
+    {
+        var liftOpts = new CoreLocalFunctionLiftOptions(
+            CapturesAtEnd: opts.CapturesAtEnd,
+            AllowRefInAsyncCallers: opts.AllowRefInAsync,
+            AllowInterfaceHost: opts.AllowInterfaceHost,
+            Verbose: opts.Verbose);
+        var preprocessor = new LocalFunctionLiftPreprocessor();
+
+        // Single-file mode
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var result = preprocessor.Preprocess(sourceCode, model: null, liftOpts);
+
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+                if (opts.Verbose)
+                    Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+            }
+            else
+            {
+                Console.Write(result.OutputCode);
+            }
+
+            foreach (var d in result.Diagnostics)
+                Console.Error.WriteLine($"[{d.Severity}] {d.Message}");
+
+            if (result.Statistics.LocalFunctionsResidual > 0 && opts.Strict)
+                return 1;
+            return result.Diagnostics.Any(d => d.Severity == LocalFunctionLiftSeverity.Error) ? 1 : 0;
+        }
+
+        // Project / directory mode
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectLocalFunctionLiftPreprocessor.PreprocessAsync(
+            new ProjectLocalFunctionLiftRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = true,
+                Verbose = opts.Verbose,
+                Options = liftOpts,
+                FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                VerifyBuild = opts.VerifyBuild,
+                VerifyTests = opts.VerifyTests,
+                Strict = opts.Strict,
+            });
+
+        Console.WriteLine(
+            $"local-function-lift: {preprocessResult.Statistics.FilesTransformed} transformed, " +
+            $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
+            $"{preprocessResult.Statistics.LocalFunctionsLifted} lifted, " +
+            $"{preprocessResult.Statistics.LocalFunctionsSkipped} skipped, " +
+            $"{preprocessResult.Statistics.LocalFunctionsResidual} residual");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            var prefix = diagnostic.FilePath != null ? $"{diagnostic.FilePath}: " : "";
+            Console.Error.WriteLine($"[{diagnostic.Severity}] {prefix}{diagnostic.Message}");
+        }
+
+        Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+        if (opts.Strict && preprocessResult.Diagnostics.Any(d => d.Severity == LocalFunctionLiftSeverity.Warning))
+            return 1;
+        return preprocessResult.Success ? 0 : 1;
     }
 
     private static async Task<int> AnalyzeProject(AnalyzeOptions opts)
@@ -3974,10 +4061,12 @@ class StripDefaultOptions
     public string? Destination { get; set; }
     [Option('v', "verbose", Default = false)]
     public bool Verbose { get; set; }
-    [Option("strict", Default = false, HelpText = "Treat skipped declarations as fatal")]
-    public bool Strict { get; set; }
+    [Option("no-strict", Default = false, HelpText = "Treat skipped declarations as non-fatal (default: fatal)")]
+    public bool NoStrict { get; set; }
     [Option("no-overloads", Default = false, HelpText = "Strip defaults but don't generate overloads")]
     public bool NoOverloads { get; set; }
+
+    public bool Strict => !NoStrict;
 
     [Option("no-filter-projects", Default = false,
         HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
@@ -4194,6 +4283,44 @@ class ConvertProjectOptions
     internal string? FingerprintSourcePath { get; set; }
     internal string? FingerprintInputRoot { get; set; }
     internal bool UsingGotoPreprocessedSource { get; set; }
+}
+
+[Verb("local-function-lift", HelpText = "Lift local functions to member methods (single-file or project mode)")]
+class LocalFunctionLiftOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("no-strict", Default = false, HelpText = "Treat unconvertible local functions as warnings instead of fatal")]
+    public bool NoStrict { get; set; }
+    [Option("captures-at-end", Default = false, HelpText = "Place capture parameters after original parameters")]
+    public bool CapturesAtEnd { get; set; }
+    [Option("allow-ref-in-async", Default = false, HelpText = "Relax gate #8 for async/iterator call sites")]
+    public bool AllowRefInAsync { get; set; }
+    [Option("allow-interface-host", Default = false, HelpText = "Relax gate #4 for interface host types")]
+    public bool AllowInterfaceHost { get; set; }
+
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+
+    [Option("no-verify-build", Default = false, HelpText = "Skip 'dotnet build' verification after local function lift")]
+    public bool NoVerifyBuild { get; set; }
+
+    [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after local function lift")]
+    public bool NoVerifyTests { get; set; }
+
+    public bool Strict => !NoStrict;
+    public bool FilterUnsupportedProjects => !NoFilterProjects;
+    public bool VerifyBuild => !NoVerifyBuild;
+    public bool VerifyTests => !NoVerifyTests;
 }
 
 [Verb("analyze", HelpText = "Analyze a C# project and generate type mapping report")]

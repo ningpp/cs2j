@@ -8,6 +8,7 @@ internal static class LocalFunctionLiftNaming
 {
     /// <summary>
     /// Base name = first character lowercased, preserving _ prefix and @ escape.
+    /// If the result is a C# keyword, a suffix is appended to avoid conflicts.
     /// </summary>
     internal static string GetBaseName(string identifier)
     {
@@ -27,7 +28,38 @@ internal static class LocalFunctionLiftNaming
                 return identifier;
             return "_" + char.ToLowerInvariant(identifier[1]) + identifier[2..];
         }
-        return char.ToLowerInvariant(identifier[0]) + identifier[1..];
+        var baseName = char.ToLowerInvariant(identifier[0]) + identifier[1..];
+        // Avoid C# reserved keywords
+        if (IsCSharpKeyword(baseName))
+            baseName += "Local";
+        return baseName;
+    }
+
+    /// <summary>
+    /// Checks if a string is a C# reserved keyword.
+    /// </summary>
+    private static bool IsCSharpKeyword(string s)
+    {
+        return s switch
+        {
+            "abstract" or "as" or "base" or "bool" or "break" or "byte" or "case" or "catch"
+            or "char" or "checked" or "class" or "const" or "continue" or "decimal" or "default"
+            or "delegate" or "do" or "double" or "else" or "enum" or "event" or "explicit"
+            or "extern" or "false" or "finally" or "fixed" or "float" or "for" or "foreach"
+            or "goto" or "if" or "implicit" or "in" or "int" or "interface" or "internal"
+            or "is" or "lock" or "long" or "namespace" or "new" or "null" or "object"
+            or "operator" or "out" or "override" or "params" or "private" or "protected"
+            or "public" or "readonly" or "ref" or "return" or "sbyte" or "sealed" or "short"
+            or "sizeof" or "stackalloc" or "static" or "string" or "struct" or "switch"
+            or "this" or "throw" or "true" or "try" or "typeof" or "uint" or "ulong"
+            or "unchecked" or "unsafe" or "ushort" or "using" or "virtual" or "void"
+            or "volatile" or "while" or "yield" or "var" or "value" or "get" or "set"
+            or "add" or "remove" or "alias" or "async" or "await" or "dynamic" or "global"
+            or "nameof" or "partial" or "when" or "where" or "select" or "group" or "by"
+            or "ascending" or "descending" or "equals" or "from" or "in" or "into" or "join"
+            or "let" or "on" or "orderby" or "select" => true,
+            _ => false,
+        };
     }
 
     /// <summary>

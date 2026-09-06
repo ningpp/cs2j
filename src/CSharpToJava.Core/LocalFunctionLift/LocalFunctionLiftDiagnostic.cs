@@ -7,7 +7,7 @@ public enum LocalFunctionSkipReason
     None, Iterator, NoBody, NoHostType, InterfaceHost, MethodGroupConversion,
     CheckedContext, UnsupportedCaptureType, RefCaptureUnavailable,
     EnclosingTypeParameterConflict, ParamsOrOptionalConflict,
-    NamedArgumentCallSite, InternalError,
+    NamedArgumentCallSite, ReferencesSkippedLocalFunction, InternalError,
 }
 
 public sealed record LocalFunctionLiftDiagnostic(

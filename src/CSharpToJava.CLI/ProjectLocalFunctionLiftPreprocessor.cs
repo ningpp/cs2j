@@ -1,4 +1,5 @@
 using CSharpToJava.Core.LocalFunctionLift;
+using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -11,7 +12,7 @@ internal sealed class ProjectLocalFunctionLiftRequest
     public required string DestinationRoot { get; init; }
     public bool Force { get; init; } = true;
     public bool Verbose { get; init; }
-    public LocalFunctionLiftOptions Options { get; init; } = new();
+    public CoreLocalFunctionLiftOptions Options { get; init; } = new();
     public bool FilterUnsupportedProjects { get; init; } = true;
     public IReadOnlyCollection<string>? CompatNamespacePrefixes { get; init; }
     public bool VerifyBuild { get; init; } = true;

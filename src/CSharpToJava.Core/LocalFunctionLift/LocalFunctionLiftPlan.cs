@@ -17,6 +17,8 @@ internal sealed class LiftPlan
     public List<CapturePlan> Captures = new();    // ordered
     public bool Skipped;
     public LocalFunctionSkipReason SkipReason = LocalFunctionSkipReason.None;
+    public List<string> EnclosingTypeParams = new();  // type params from enclosing method
+    public bool NeedsExplicitTypeArguments;  // true if hoisted method is generic and call sites need <TArgs>
 }
 
 /// <summary>
