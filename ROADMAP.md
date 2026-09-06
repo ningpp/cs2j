@@ -7,3 +7,4 @@
 6. [ThreadStatic]
 7. attribute(json)
 8. method parameter default value
+9. local function
