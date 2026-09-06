@@ -530,13 +530,27 @@ public static class ExpressionTransformerHelpers
             // (e.g. (T) x.join()); otherwise it is the mapped target type.
             var awaitCastType = sourceType is ITypeParameterSymbol ? sourceJavaType : targetJavaType;
             if (!string.IsNullOrWhiteSpace(awaitCastType)
-                && awaitCastType != "Object"
-                && !IsJavaPrimitiveType(awaitCastType))
+                && awaitCastType != "Object")
             {
+                // For Java primitive types (int, long, etc.) the cast must
+                // use the boxed wrapper so (Integer) obj compiles, then
+                // auto-unboxing converts to the primitive target.
+                var castType = awaitCastType switch
+                {
+                    "int" => "Integer",
+                    "long" => "Long",
+                    "double" => "Double",
+                    "float" => "Float",
+                    "short" => "Short",
+                    "byte" => "Byte",
+                    "boolean" => "Boolean",
+                    "char" => "Character",
+                    _ => awaitCastType
+                };
                 context.AddImportsForTypePublic(targetType.ToDisplayString());
                 // Parenthesize so postfix operations (array index, member access) bind
                 // to the cast result, not the await call.
-                return $"(({awaitCastType}) {transformedExpression})";
+                return $"(({castType}) {transformedExpression})";
             }
         }
 

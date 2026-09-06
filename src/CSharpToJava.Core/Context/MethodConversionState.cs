@@ -294,6 +294,38 @@ public class MethodConversionState
     public bool TryGetRuntimeClassParameter(string typeParameterName, out string parameterName)
         => _runtimeClassParametersByTypeParameter.TryGetValue(typeParameterName, out parameterName!);
 
+    /// <summary>
+    /// Clears all runtime class parameter registrations. Used when entering a
+    /// nested method context (e.g. hoisted local function body) so GetClassLiteral
+    /// does not find stale registrations from the enclosing method.
+    /// </summary>
+    public void ClearRuntimeClassParameters()
+    {
+        _runtimeClassParametersByTypeParameter.Clear();
+    }
+
+    /// <summary>
+    /// Takes a snapshot of the current runtime class parameter registrations.
+    /// Used by EnterNestedMethodContext to save the enclosing method's state
+    /// before clearing it for the local function body.
+    /// </summary>
+    public Dictionary<string, string> SnapshotRuntimeClassParameters()
+    {
+        return new Dictionary<string, string>(_runtimeClassParametersByTypeParameter, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Restores runtime class parameter registrations from a snapshot.
+    /// Used by LeaveNestedMethodContext to restore the enclosing method's state
+    /// after the local function body has been converted.
+    /// </summary>
+    public void RestoreRuntimeClassParameters(Dictionary<string, string> snapshot)
+    {
+        _runtimeClassParametersByTypeParameter.Clear();
+        foreach (var kvp in snapshot)
+            _runtimeClassParametersByTypeParameter[kvp.Key] = kvp.Value;
+    }
+
     // ─── Lambda Capture Registry ────────────────────────────────────
 
     /// <summary>

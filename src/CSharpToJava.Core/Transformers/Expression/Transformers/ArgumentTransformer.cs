@@ -122,7 +122,39 @@ public class ArgumentTransformer
 
         if (!skipRuntimeClassArguments)
         {
-            transformed.AddRange(GetRuntimeClassArguments(methodSymbol, context));
+            // When the method has trailing Class<?> parameters, the call site must
+            // match the full-signature Java overload (which includes a slot for every
+            // C# parameter plus the trailing Class<?> token). Omitted optional C#
+            // parameters (e.g. CancellationToken cancellationToken = default) must be
+            // padded with their default values so the total argument count is correct.
+            var runtimeClassArgs = GetRuntimeClassArguments(methodSymbol, context);
+            if (runtimeClassArgs.Count > 0
+                && methodSymbol != null
+                && parameters.HasValue)
+            {
+                int providedCount = transformed.Count;
+                int csharpParamCount = parameters.Value.Length;
+                // Pad each omitted optional parameter with its default value.
+                for (int i = providedCount; i < csharpParamCount; i++)
+                {
+                    var param = parameters.Value[i];
+                    if (param.HasExplicitDefaultValue)
+                    {
+                        transformed.Add(ConvertOptionalDefaultValue(param));
+                    }
+                    else if (param.IsOptional)
+                    {
+                        // Optional without explicit default (e.g. CancellationToken = default)
+                        transformed.Add("null");
+                    }
+                    else
+                    {
+                        // Not optional — stop padding to avoid inserting wrong values.
+                        break;
+                    }
+                }
+            }
+            transformed.AddRange(runtimeClassArgs);
         }
         return string.Join(", ", transformed);
     }
@@ -1825,5 +1857,35 @@ public class ArgumentTransformer
             return $"CSharpGenericIterable.from({collectExpr})";
         }
         return collectExpr;
+    }
+
+    /// <summary>
+    /// Converts a C# optional parameter's explicit default value into a Java literal
+    /// string. Used to pad omitted optional arguments at call sites where the target
+    /// method has trailing Class<?> parameters (requiring the full-signature overload).
+    /// </summary>
+    private static string ConvertOptionalDefaultValue(IParameterSymbol parameter)
+    {
+        if (!parameter.HasExplicitDefaultValue)
+            return "null";
+
+        var value = parameter.ExplicitDefaultValue;
+        return value switch
+        {
+            null => "null",
+            string s => "\"" + CSharpToJava.Core.Utilities.StringEscapeHelper.EscapeJavaString(s) + "\"",
+            char c => "'" + (c == '\'' ? "\\'" : c == '\\' ? "\\\\" : c.ToString()) + "'",
+            bool b => b ? "true" : "false",
+            long l => l + "L",
+            int i => i.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            short sh => sh.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            byte by => by.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            uint ui => (ui > int.MaxValue
+                ? ui + "L"
+                : ui.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            double d => d.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+            float f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "f",
+            _ => value.ToString() ?? "null"
+        };
     }
 }

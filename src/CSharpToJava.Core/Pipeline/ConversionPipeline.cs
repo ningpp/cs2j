@@ -610,7 +610,31 @@ public class ConversionPipeline
             return line;
         if (expr.Contains("return ") || expr.Contains("throw")) return line;
 
-        int d = 0, qPos = -1;
+        // Skip if the expression contains a top-level assignment (e.g.
+        // `_field = cond ? a : b`). The ternary is the RHS of an assignment,
+        // not a standalone void ternary statement. Converting it to if-else
+        // would produce invalid Java (bare expressions as statements).
+        int d = 0;
+        for (int i = 0; i < expr.Length; i++)
+        {
+            char c = expr[i];
+            if (c == '(') d++;
+            else if (c == ')') d--;
+            else if (d == 0 && c == '=')
+            {
+                // Skip compound operators (==, !=, >=, <=, +=, -=, *=, /=, %=, &=, |=, ^=)
+                char prev = i > 0 ? expr[i - 1] : '\0';
+                char next = i + 1 < expr.Length ? expr[i + 1] : '\0';
+                if (prev is '=' or '!' or '>' or '<' or '+' or '-' or '*' or '/' or '%' or '&' or '|' or '^')
+                    continue;
+                if (next is '=')
+                    continue;
+                return line; // standalone assignment at depth 0
+            }
+        }
+
+        int qPos = -1;
+        d = 0;
         for (int i = 0; i < expr.Length; i++)
         {
             char c = expr[i];

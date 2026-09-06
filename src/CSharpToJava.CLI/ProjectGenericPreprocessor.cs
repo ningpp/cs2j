@@ -110,11 +110,13 @@ internal static class ProjectGenericPreprocessor
             .ToList();
 
         // Parse all C# files into syntax trees
+        var parseOptions = new CSharpParseOptions(
+            preprocessorSymbols: new[] { "NETCOREAPP" });
         var syntaxTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
         foreach (var csFile in csFiles)
         {
             var sourceCode = await File.ReadAllTextAsync(csFile);
-            var tree = CSharpSyntaxTree.ParseText(sourceCode, path: csFile);
+            var tree = CSharpSyntaxTree.ParseText(sourceCode, parseOptions, path: csFile);
             syntaxTrees[csFile] = tree;
         }
 

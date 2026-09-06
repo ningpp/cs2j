@@ -177,7 +177,55 @@ public static class JavaNaming
         {
             if (SymbolEqualityComparer.Default.Equals(sibling, method)) continue;
             if (sibling.Name != method.Name) continue;
-            if (sibling.Parameters.Length != method.Parameters.Length) continue;
+
+            // When parameter counts differ, the generic overload may still
+            // collide after the converter injects leading Class<T> _cs2j_
+            // parameters (one per method-level type parameter that requires
+            // a runtime Class token, e.g. typeof(T) in the body). Check if
+            // the adjusted parameter counts would match.
+            if (sibling.Parameters.Length != method.Parameters.Length)
+            {
+                // Only consider cross-arity conflicts when one method is
+                // generic and the other is not (DifferentTypeParamCount).
+                if (method.TypeParameters.Length == sibling.TypeParameters.Length)
+                    continue;
+
+                // The generic method gains one leading Class<T> parameter
+                // per method-level type parameter that needs a runtime token.
+                // Use the simple heuristic: a generic method with 0 C# params
+                // and 1+ type params will have 1+ Java params (at least the
+                // typeof(T) sentinel guarantees this via EnsurePendingParamsInBaseAndImpl).
+                var genericMethod = method.TypeParameters.Length > sibling.TypeParameters.Length
+                    ? method : sibling;
+                var nonGenericMethod = method.TypeParameters.Length > sibling.TypeParameters.Length
+                    ? sibling : method;
+
+                // Heuristic: a generic method with N C# params and M type params
+                // will have N + (0 or M) Java params. The simplest case is
+                // 0 C# params → 0 or M Java params. If the non-generic has the
+                // same number of params as the generic's type params, they
+                // would collide when the generic gets Class<T> params injected.
+                // This is a conservative check — false positives would just
+                // add an unnecessary suffix that the call site must also match.
+                var adjustedGenericParamCount = genericMethod.Parameters.Length + genericMethod.TypeParameters.Length;
+                if (adjustedGenericParamCount != nonGenericMethod.Parameters.Length)
+                    continue;
+
+                // Check erased parameters of the non-generic method against
+                // what the generic's Java params would look like: the injected
+                // Class<T> params all erase to Class, and the original C# params
+                // erase normally. Only verify that the non-generic's first
+                // param erases to something Class-compatible (i.e. it's a Type
+                // or Class parameter — both erase to Class in Java).
+                if (!IsClassErasedParameter(nonGenericMethod.Parameters[0]))
+                    continue;
+
+            // Only the method with FEWER type parameters gets renamed
+            // (mirrors the same-count path: first one in source order wins).
+            if (method.TypeParameters.Length < sibling.TypeParameters.Length)
+                return (true, ErasureConflictKind.DifferentTypeParamCount);
+            continue;
+            }
             if (!HaveSameErasedParameters(method, sibling)) continue;
 
             var kind = sibling.TypeParameters.Length == method.TypeParameters.Length
@@ -205,6 +253,17 @@ public static class JavaNaming
         }
 
         return (false, ErasureConflictKind.None);
+    }
+
+    /// <summary>
+    /// Returns true if the parameter's type would erase to Class in Java
+    /// (System.Type, System.Reflection.FieldInfo, etc. all map to Class or
+    /// compatible reflection types that erase to Class).
+    /// </summary>
+    private static bool IsClassErasedParameter(IParameterSymbol param)
+    {
+        var typeName = param.Type.ToDisplayString();
+        return typeName == "System.Type" || typeName == "Type";
     }
 
     /// <summary>

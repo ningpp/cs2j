@@ -431,7 +431,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     classTokens = null;
                 }
             }
-            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym);
+            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym, skipRuntimeClassArguments: classTokens != null);
             // Determine whether the method's Class<?> params are trailing (appended by
             // AddRuntimeClassParametersForTypeParameterArrays). If so, append tokens
             // to the end instead of prepending them at the front.
@@ -828,7 +828,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     classTokens = null;
                 }
             }
-            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2);
+            var args = ArgumentTransformer.TransformArgumentList(node.ArgumentList, context, facade, methodSymbol: bareMethodSym2, skipRuntimeClassArguments: classTokens != null);
             var shouldAppend2 = classTokens != null
                 && bareMethodSym2 != null
                 && MethodHasTrailingClassParams(bareMethodSym2, context, classTokens);
@@ -5387,7 +5387,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         // _0tp suffix (mirroring deserialize_0tp) on both declarations and call sites.
         if (methodSymbol is { IsGenericMethod: false } jsonNgSym
             && jsonNgSym.ContainingType.ToDisplayString() is "System.Text.Json.JsonSerializer" or "dotnet.text.json.JsonSerializer"
-            && originalMethodName is "DeserializeAsync" or "SerializeAsync" or "SerializeToUtf8Bytes"
+            && originalMethodName is "Deserialize" or "DeserializeAsync" or "Serialize" or "SerializeAsync" or "SerializeToUtf8Bytes"
             && jsonNgSym.Parameters.Any(p => p.Type.ToDisplayString() == "System.Type"))
         {
             methodName += "_0tp";
@@ -8047,12 +8047,61 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             return $"{methodName}({valueArg}, {styleArg})";
         }
 
+        // Pre-compute class tokens so we can skip runtime class arguments
+        // in TransformArgumentList when ApplyClassTypeTokens will handle them.
+        var preMemberClassTokens = methodSymbol != null
+            ? GetClassTypeTokensForCall(methodSymbol, context, node)
+            : null;
+        // Fallback for member-access generic method calls with explicit type
+        // arguments: derive tokens from explicit type arguments when the method
+        // is not yet registered. This must run before TransformArgumentList so
+        // skipRuntimeClassArguments is set correctly.
+        if (preMemberClassTokens == null
+            && methodSymbol is { IsGenericMethod: true }
+            && memberAccess.Name is GenericNameSyntax preMemberGenericName
+            && preMemberGenericName.TypeArgumentList.Arguments.Count > 0)
+        {
+            preMemberClassTokens = GetClassTokensFromExplicitTypeArguments(
+                preMemberGenericName, context, methodSymbol);
+            if (preMemberClassTokens == null
+                && !MethodHasTrailingClassParams(methodSymbol, context, new List<string> { "placeholder" }))
+            {
+                preMemberClassTokens = GetClassTokensFromSyntaxFallback(
+                    preMemberGenericName, context);
+            }
+            // Guard: drop tokens when the Java signature has no slots for them.
+            if (preMemberClassTokens != null)
+            {
+                var preCsharpParamCount = methodSymbol.Parameters.Length;
+                bool preIsVarargs = methodSymbol.Parameters.Length > 0
+                    && methodSymbol.Parameters[^1].IsParams;
+                int preRegisteredClassParams = 0;
+                if (context.MethodHasClassParams(methodSymbol.OriginalDefinition))
+                {
+                    preRegisteredClassParams = context.GetMethodClassTypeParamNames(methodSymbol.OriginalDefinition)?.Count
+                        ?? preMemberClassTokens.Count;
+                }
+                else if (preIsVarargs && methodSymbol.TypeParameters.Length > 0)
+                {
+                    preRegisteredClassParams = preMemberClassTokens.Count;
+                }
+                if (!preIsVarargs
+                    && node.ArgumentList.Arguments.Count + preMemberClassTokens.Count
+                    > preCsharpParamCount + preRegisteredClassParams)
+                {
+                    preMemberClassTokens = null;
+                }
+            }
+        }
+
         var args = parseStripCount > 0
             ? ArgumentTransformer.TransformArgumentList(
                 node.ArgumentList, context, facade, argStartIndex, methodSymbol,
-                maxArgCount: node.ArgumentList.Arguments.Count - parseStripCount)
+                maxArgCount: node.ArgumentList.Arguments.Count - parseStripCount,
+                skipRuntimeClassArguments: preMemberClassTokens != null)
             : ArgumentTransformer.TransformArgumentList(
-                node.ArgumentList, context, facade, argStartIndex, methodSymbol);
+                node.ArgumentList, context, facade, argStartIndex, methodSymbol,
+                skipRuntimeClassArguments: preMemberClassTokens != null);
 
         args = CoerceAddRangeArrayArgument(node, args, argStartIndex, originalMethodName, methodName, context);
         args = CoerceXmlFactoryReaderWriterArgument(node, args, argStartIndex, receiver, methodName, context);
@@ -8074,9 +8123,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             }
         }
 
-        var memberClassTokens = methodSymbol != null
-            ? GetClassTypeTokensForCall(methodSymbol, context, node)
-            : null;
+        var memberClassTokens = preMemberClassTokens;
         // Fallback for member-access generic method calls with explicit type
         // arguments (e.g. RoutingTestSupport.LoadJson<BugsReference>(...)).
         // GetClassTypeTokensForCall only returns tokens when the method is
@@ -8090,6 +8137,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         // Also fall back when the method IS registered but GetClassTypeTokensForCall
         // returned null (e.g. all type params were classified as runtime-array params
         // and filtered out, yet the Java signature still has Class<T> parameters).
+        // NOTE: Most fallback logic has been moved before TransformArgumentList
+        // (preMemberClassTokens) so skipRuntimeClassArguments is set correctly.
+        // This block handles any remaining cases (e.g. when GetClassTypeTokensForCall
+        // returned non-null but was later nulled by the guard above).
         if (memberClassTokens == null
             && methodSymbol is { IsGenericMethod: true }
             && memberAccess.Name is GenericNameSyntax memberGenericName
@@ -12765,12 +12816,12 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         // Class<TValue> either; widen it through Class<?> the same way.
         var normalized = classTypeTokens
             .Select(t => t == "null"
-                    ? "(Class<Object>) null"
+                    ? "(Class) null"
                     : (!t.Contains('.')
                         && !t.EndsWith(".class", StringComparison.Ordinal)
                         && !t.EndsWith(")", StringComparison.Ordinal)
                         && !t.StartsWith("_cs2j_", StringComparison.Ordinal))
-                        ? $"((Class<Object>) (Class<?>) {t})"
+                        ? $"((Class) (Class<?>) {t})"
                         : t)
             .ToList();
         var joined = string.Join(", ", normalized);

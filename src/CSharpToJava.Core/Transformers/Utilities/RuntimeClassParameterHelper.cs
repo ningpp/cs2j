@@ -1127,6 +1127,9 @@ internal static class RuntimeClassParameterHelper
         // Unsigned/signed scalar values that map to the same Java type must
         // keep distinct reflection/type-token identity (e.g. ByteConverter vs
         // Int32Converter in JsonSerializerOptions' Dictionary<Type, JsonConverter>).
+        // The CSharpXxx wrapper types are NOT assignment-compatible with the
+        // Java wrapper types (e.g. Class<CSharpSByte> vs Class<Byte>), so we
+        // widen through (Class<?>) to allow unchecked conversion at call sites.
         switch (runtimeType.SpecialType)
         {
             case SpecialType.System_Byte:
@@ -1147,10 +1150,17 @@ internal static class RuntimeClassParameterHelper
             {
                 return runtimeClassParameter;
             }
-            // No runtime Class token available (e.g. the type parameter only feeds a
-            // base constructor) — widen through null so super(...) still compiles.
-            // T.class is illegal Java.
-            return $"((Class<{typeParameter.Name}>) (Class<?>) null)";
+            // No runtime Class token registered yet (e.g. the type parameter belongs
+            // to a hoisted local function whose Class<T> parameter hasn't been
+            // registered — the registration happens after the body is converted).
+            // Delegate to GetClassLiteral so a pending Class<T> requirement is
+            // registered and the _cs2j_{typeParam} name is returned — it will be
+            // declared by AddPendingRuntimeClassParameters when the method
+            // signature is finalized. This prevents emitting a null Class token
+            // where the actual _cs2j_T parameter is available.
+            // GetClassLiteral also handles override methods (returns "null") and
+            // class-level type parameters (returns the runtime Class field name).
+            return ConversionContext.GetClassLiteral(typeParameter, context);
         }
 
         if (preferPrimitiveClassLiteral)

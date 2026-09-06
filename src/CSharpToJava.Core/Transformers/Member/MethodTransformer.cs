@@ -104,7 +104,10 @@ public class MethodTransformer : IMemberTransformer
 
         // Type-erasure conflict: rename overload so it survives Java type erasure.
         // Different type param counts get _Ntp suffix; same counts get _erasure_N.
-        if (methodInfo != null)
+        // Skip when the name already ends with _0tp (added by GetJavaMethodName
+        // for JsonSerializer/SerializationWrapper non-generic Type overloads),
+        // otherwise the suffix is applied twice (e.g. deserialize_0tp_0tp).
+        if (methodInfo != null && !javaMethod.Name.EndsWith("_0tp"))
         {
             javaMethod.Name += ConversionContext.GetErasureConflictSuffix(methodInfo);
         }
@@ -805,6 +808,9 @@ public class MethodTransformer : IMemberTransformer
         var pendingClassTypeParams = localFnSymbol != null
             ? (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(localFnSymbol)
             : context.DrainClassTypeParams();
+        #if DEBUG
+        System.Console.WriteLine($"[DEBUG] TransformLocalFunction: name={localFn.Identifier.Text}, hasLocalFnSymbol={localFnSymbol != null}, pendingCount={(pendingClassTypeParams?.Count ?? 0)}, pending=[{(pendingClassTypeParams != null ? string.Join(",", pendingClassTypeParams) : "")}], methodHasClassParams={localFnSymbol != null && context.MethodHasClassParams(localFnSymbol)}");
+        #endif
         if (pendingClassTypeParams != null && pendingClassTypeParams.Count > 0)
         {
             var ownTypeParamNames = (localFn.TypeParameterList?.Parameters
@@ -2245,13 +2251,42 @@ public class MethodTransformer : IMemberTransformer
         // generic Class<T>-leading overloads (mirrors deserialize_0tp).
         if (methodInfo is { IsGenericMethod: false } jsonNg
             && jsonNg.ContainingType.ToDisplayString() is "System.Text.Json.JsonSerializer" or "dotnet.text.json.JsonSerializer"
-            && name is "DeserializeAsync" or "SerializeAsync" or "SerializeToUtf8Bytes"
+            && name is "Deserialize" or "DeserializeAsync" or "Serialize" or "SerializeAsync" or "SerializeToUtf8Bytes"
             && jsonNg.Parameters.Any(p => p.Type.ToDisplayString() == "System.Type"))
+        {
+            return camelName + "_0tp";
+        }
+        // Non-generic SerializationWrapper.SerializeWrapper(object, Type) is renamed
+        // with the _0tp suffix so bare-null call sites are not ambiguous against the
+        // generic Class<T>-leading overload. Also applies to overrides in subclasses.
+        if (methodInfo is { IsGenericMethod: false } serWrapperNg
+            && name == "SerializeWrapper"
+            && serWrapperNg.Parameters.Any(p => p.Type.ToDisplayString() == "System.Type")
+            && IsInSerializationWrapperHierarchy(methodInfo))
         {
             return camelName + "_0tp";
         }
         // Escape Java keywords (e.g. Assert → assert → assertValue)
         return ConversionContext.EscapeJavaKeyword(camelName);
+    }
+
+    /// <summary>
+    /// True when the method's containing type or any of its base types
+    /// is SerializationWrapper (the test helper class whose non-generic
+    /// SerializeWrapper(object, Type) overload needs the _0tp suffix to
+    /// avoid ambiguity with the generic overload).
+    /// </summary>
+    private static bool IsInSerializationWrapperHierarchy(IMethodSymbol? methodInfo)
+    {
+        if (methodInfo == null) return false;
+        var type = methodInfo.ContainingType;
+        while (type != null)
+        {
+            if (type.ToDisplayString() == "dotnet.text.json.Serialization.Tests.SerializationWrapper")
+                return true;
+            type = type.BaseType;
+        }
+        return false;
     }
 
     private static bool MethodSignatureMatchesInterface(IMethodSymbol method, INamedTypeSymbol iface, string methodName)
@@ -2812,12 +2847,37 @@ public class MethodTransformer : IMemberTransformer
             // body calls Deserialize<T> but whose TypeRef registration happens after
             // this signature patch (call sites of the method appear LATER in the
             // file, so the fallback registration at those call sites never ran).
-            var tokenParameterType = (context.IsTypeRefTypeParam(sym, typeParameterName)
-                    || CalleeJsonDeserializesTypeParameter(sym, typeParameterName, context.SemanticModel))
+            var isTypeRefToken = context.IsTypeRefTypeParam(sym, typeParameterName)
+                    || CalleeJsonDeserializesTypeParameter(sym, typeParameterName, context.SemanticModel)
+                    || context.Options.RuntimeClassParameters.IsMethodTypeReference(sym, typeParameterName);
+            var tokenParameterType = isTypeRefToken
                 ? $"com.fasterxml.jackson.core.type.TypeReference<{typeParameterName}>"
                 : $"Class<{typeParameterName}>";
             javaMethod.Parameters.Insert(0, new JavaParameter(tokenParameterType, parameterName));
             context.RegisterRuntimeClassParameter(typeParameterName, parameterName);
+            // When the token is a TypeReference<T> (not Class<T>), the method body
+            // (already converted) may contain TypeHelper.toWrapperType(_cs2j_T)
+            // calls generated by typeof(T). TypeHelper.toWrapperType expects Class<?>,
+            // not TypeReference<T>, so patch the body to use TypeHelper.toRawClass(
+            // _cs2j_T.getType()) instead.
+            if (isTypeRefToken)
+            {
+                var paramName = $"_cs2j_{typeParameterName}";
+                var oldPattern = $"TypeHelper.toWrapperType({paramName})";
+                var newPattern = $"TypeHelper.toRawClass({paramName}.getType())";
+                if (javaMethod.Body != null && javaMethod.Body.Contains(oldPattern, StringComparison.Ordinal))
+                    javaMethod.Body = javaMethod.Body.Replace(oldPattern, newPattern);
+                if (javaMethod.StructuredBody != null)
+                {
+                    var bodyText = javaMethod.StructuredBody.ToString("");
+                    if (bodyText.Contains(oldPattern, StringComparison.Ordinal))
+                    {
+                        var newBodyText = bodyText.Replace(oldPattern, newPattern);
+                        javaMethod.Body = newBodyText;
+                        javaMethod.StructuredBody = null;
+                    }
+                }
+            }
             // The injected Class<T> parameter references the type parameter ? make sure
             // the method declares it (stripped when the body never used it before).
             // A CLASS-level type parameter must NOT be re-declared at the method level:
@@ -2889,6 +2949,23 @@ public class MethodTransformer : IMemberTransformer
                 if (!result.Contains(req.Name))
                     result.Add(req.Name);
             }
+        }
+
+        // 来源四：AddJsonDeserializeRequirements 对 JsonSerializer.Deserialize<T> 调用
+        // 只注册 TypeReference（不添加到 required 列表），导致来源二和三都不会返回 T。
+        // 但方法体转换时 ToClassArgument/GetClassLiteral 会注册 pending 需求——此时签名
+        // 已经构建完成。主动检查每个方法级类型参数是否被 Deserialize<T>/DeserializeAsync<T>
+        // 调用使用，如果是，注入前导 Class<T>/TypeReference<T> 参数。
+        var classLevelNames2 = GetEnclosingTypeParameterNames(overrideSym);
+        foreach (var tp in overrideSym.OriginalDefinition.TypeParameters)
+        {
+            if (classLevelNames2.Contains(tp.Name))
+                continue;
+            if (result.Contains(tp.Name))
+                continue;
+            if (CalleeJsonDeserializesTypeParameter(overrideSym, tp.Name, context.SemanticModel)
+                || CalleeJsonDeserializeAsyncTypeParameter(overrideSym, tp.Name, context.SemanticModel))
+                result.Add(tp.Name);
         }
 
         return result;
@@ -2975,12 +3052,36 @@ public class MethodTransformer : IMemberTransformer
             if (javaMethod.Parameters.Any(p => p.Name == paramName))
                 continue;
 
-            var tokenType = (context.IsTypeRefTypeParam(methodSymbol, typeParamName)
-                    || CalleeJsonDeserializesTypeParameter(methodSymbol, typeParamName, context.SemanticModel))
+            var isTypeRefToken = context.IsTypeRefTypeParam(methodSymbol, typeParamName)
+                    || CalleeJsonDeserializesTypeParameter(methodSymbol, typeParamName, context.SemanticModel)
+                    || context.Options.RuntimeClassParameters.IsMethodTypeReference(methodSymbol, typeParamName);
+            var tokenType = isTypeRefToken
                 ? $"com.fasterxml.jackson.core.type.TypeReference<{typeParamName}>"
                 : $"Class<{typeParamName}>";
             javaMethod.Parameters.Insert(0, new Java.JavaParameter(tokenType, paramName));
             context.RegisterRuntimeClassParameter(typeParamName, paramName);
+            // When the token is a TypeReference<T> (not Class<T>), the method body
+            // (already converted) may contain TypeHelper.toWrapperType(_cs2j_T)
+            // calls generated by typeof(T). TypeHelper.toWrapperType expects Class<?>,
+            // not TypeReference<T>, so patch the body to use TypeHelper.toRawClass(
+            // _cs2j_T.getType()) instead.
+            if (isTypeRefToken)
+            {
+                var oldPattern = $"TypeHelper.toWrapperType({paramName})";
+                var newPattern = $"TypeHelper.toRawClass({paramName}.getType())";
+                if (javaMethod.Body != null && javaMethod.Body.Contains(oldPattern, StringComparison.Ordinal))
+                    javaMethod.Body = javaMethod.Body.Replace(oldPattern, newPattern);
+                if (javaMethod.StructuredBody != null)
+                {
+                    var bodyText = javaMethod.StructuredBody.ToString("");
+                    if (bodyText.Contains(oldPattern, StringComparison.Ordinal))
+                    {
+                        var newBodyText = bodyText.Replace(oldPattern, newPattern);
+                        javaMethod.Body = newBodyText;
+                        javaMethod.StructuredBody = null;
+                    }
+                }
+            }
             if (!classLevelNames.Contains(typeParamName)
                 && !javaMethod.TypeParameters.Any(tp => tp.Name == typeParamName))
                 javaMethod.TypeParameters.Add(new Java.JavaTypeParameter(typeParamName));
@@ -3027,6 +3128,50 @@ public class MethodTransformer : IMemberTransformer
                         // The memberAccess lives in the TARGET method's syntax tree,
                         // which may differ from the caller's tree — resolve through
                         // the compilation so cross-file methods confirm correctly.
+                        var targetModel = semanticModel.Compilation.GetSemanticModel(memberAccess.SyntaxTree);
+                        var targetSym = targetModel.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
+                        if (targetSym?.ContainingType.ToDisplayString()
+                            is "System.Text.Json.JsonSerializer" or "dotnet.text.json.JsonSerializer")
+                        {
+                            return true;
+                        }
+                        continue;
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Like CalleeJsonDeserializesTypeParameter but checks for
+    /// JsonSerializer.DeserializeAsync<T> calls. DeserializeAsync uses
+    /// Class<?> (not TypeReference) in its Java signature, so this
+    /// method must NOT be used in token-type selection — only in
+    /// pending-requirement detection for override methods.
+    /// </summary>
+    private static bool CalleeJsonDeserializeAsyncTypeParameter(IMethodSymbol methodSymbol, string typeParamName, SemanticModel? semanticModel = null)
+    {
+        var originalDef = methodSymbol.OriginalDefinition;
+        foreach (var syntaxRef in originalDef.DeclaringSyntaxReferences)
+        {
+            var node = syntaxRef.GetSyntax();
+            foreach (var memberAccess in node.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax>())
+            {
+                if (memberAccess.Name is not Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax genericName)
+                    continue;
+                if (genericName.Identifier.Text != "DeserializeAsync")
+                    continue;
+                if (genericName.TypeArgumentList.Arguments.Count != 1)
+                    continue;
+                if (genericName.TypeArgumentList.Arguments[0] is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax id
+                    && id.Identifier.Text == typeParamName
+                    && memberAccess.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax receiver
+                    && receiver.Identifier.Text == "JsonSerializer")
+                {
+                    if (semanticModel?.Compilation != null)
+                    {
                         var targetModel = semanticModel.Compilation.GetSemanticModel(memberAccess.SyntaxTree);
                         var targetSym = targetModel.GetSymbolInfo(memberAccess).Symbol as IMethodSymbol;
                         if (targetSym?.ContainingType.ToDisplayString()

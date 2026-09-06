@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -1786,7 +1786,52 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             // the wrapper class literal (Integer.class). Normalize via TypeHelper.
             context.AddImport("io.github.ningpp.compat.TypeHelper");
             if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
+            {
+                // When the runtime class parameter is a TypeReference<T> (not Class<T>),
+                // TypeHelper.toWrapperType(Class<?>) cannot accept it. Use
+                // TypeHelper.toRawClass(typeRef.getType()) to extract the raw Class.
+                // Check both the per-context set and the global registry:
+                // the global registry is populated by the body pre-scan (AddJsonDeserializeRequirements)
+                // which may run before the per-context set is synced.
+                var currentMethod = context.CurrentMethod;
+                var isTypeRef = currentMethod != null
+                    && (context.IsTypeRefTypeParam(currentMethod.OriginalDefinition, typeParam.Name)
+                        || context.Options.RuntimeClassParameters.IsMethodTypeReference(
+                            currentMethod.OriginalDefinition, typeParam.Name));
+                if (isTypeRef)
+                {
+                    return $"TypeHelper.toRawClass({runtimeClassParam}.getType())";
+                }
                 return $"TypeHelper.toWrapperType({runtimeClassParam})";
+            }
+            // Override methods whose bodies use typeof(T) will have _cs2j_T parameters
+            // injected by EnsurePendingParamsInBaseAndImpl (which patches both the base
+            // and override signatures in lockstep). Use _cs2j_T directly instead of
+            // degrading to null — the parameter WILL exist in the final signature.
+            // BUT: only do this when the method actually has registered Class<T> params.
+            // Some override methods (e.g. SerializationWrapper.SerializeWrapper<T> calling
+            // JsonSerializer.SerializeToUtf8Bytes<T>) have forward-type-param typeof(T)
+            // injected by GenericPreprocessor, but GetOverridePendingTypeParams may not
+            // detect the requirement (the typeof(T) is synthetic, not in the original body).
+            // In that case, _cs2j_T would be undeclared — fall through to GetClassLiteral
+            // which handles override methods by returning "null".
+            var currentMethod2 = context.CurrentMethod;
+            if (currentMethod2 != null
+                && ConversionContext.IsOverrideOrImplementation(currentMethod2)
+                && currentMethod2.OriginalDefinition.TypeParameters
+                    .Any(tp => tp.Name == typeParam.Name)
+                && context.MethodHasClassParams(currentMethod2.OriginalDefinition))
+            {
+                // When the override's _cs2j_T parameter is a TypeReference<T> (not Class<T>),
+                // use toRawClass instead of toWrapperType to avoid type mismatch.
+                if (context.IsTypeRefTypeParam(currentMethod2.OriginalDefinition, typeParam.Name)
+                    || context.Options.RuntimeClassParameters.IsMethodTypeReference(
+                        currentMethod2.OriginalDefinition, typeParam.Name))
+                {
+                    return $"TypeHelper.toRawClass(_cs2j_{typeParam.Name}.getType())";
+                }
+                return $"TypeHelper.toWrapperType(_cs2j_{typeParam.Name})";
+            }
             return $"TypeHelper.toWrapperType({ConversionContext.GetClassLiteral(typeParam, context)})";
         }
 
@@ -1824,6 +1869,9 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             return false;
 
         context.AddImport($"io.github.ningpp.compat.{markerType}");
+        // The CSharpXxx wrapper types are NOT assignment-compatible with the
+        // Java wrapper types (e.g. Class<CSharpSByte> vs Class<Byte>), so we
+        // widen through (Class<?>) to allow unchecked conversion at call sites.
         classLiteral = $"{markerType}.class";
         return true;
     }

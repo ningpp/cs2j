@@ -1400,6 +1400,19 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
                     new JavaRawStatement($"this.{item.FieldName} = {item.ParameterName};"));
             }
 
+            // Base-class runtime class arguments that are pending parameter names
+            // (e.g. _cs2j_T from GetClassLiteral) must also be declared as parameters
+            // on this constructor — they are referenced in super(...) but not yet
+            // declared as local parameters or class fields.
+            foreach (var baseArg in baseRuntimeArgs)
+            {
+                if (baseArg.StartsWith("_cs2j_", StringComparison.Ordinal)
+                    && !ctor.Parameters.Any(p => p.Name == baseArg))
+                {
+                    ctor.Parameters.Add(new JavaParameter("Class<?>", baseArg));
+                }
+            }
+
             foreach (var initializer in liftedFieldInitializers)
                 ctor.StructuredBody.Statements.Add(new JavaRawStatement(initializer));
 
@@ -1430,6 +1443,19 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
             }
 
             EnsureBaseRuntimeClassInitializer(ctor, baseRuntimeArgs);
+
+            // Base-class runtime class arguments that are pending parameter names
+            // (e.g. _cs2j_T from GetClassLiteral) must also be declared as parameters
+            // on this constructor — they are referenced in super(...) but not yet
+            // declared as local parameters or class fields.
+            foreach (var baseArg in baseRuntimeArgs)
+            {
+                if (baseArg.StartsWith("_cs2j_", StringComparison.Ordinal)
+                    && !ctor.Parameters.Any(p => p.Name == baseArg))
+                {
+                    ctor.Parameters.Add(new JavaParameter("Class<?>", baseArg));
+                }
+            }
 
             EnsureStructuredBody(ctor);
             for (var i = liftedFieldInitializers.Count - 1; i >= 0; i--)

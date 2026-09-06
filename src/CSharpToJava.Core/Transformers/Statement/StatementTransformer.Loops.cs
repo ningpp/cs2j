@@ -545,6 +545,23 @@ public partial class StatementTransformer
             catch { /* SemanticModel may fail for some edge cases — skip silently */ }
         }
 
+        // When a generic method call's Class<?> runtime parameter is cast to raw
+        // Class by ApplyClassTypeTokens, the method's generic return type is erased
+        // to raw (e.g. CSharpGenericIterable instead of CSharpGenericIterable<Tuple2<...>>).
+        // In a for-each, this makes the iterator yield Object instead of the
+        // element type. Add a double-cast to restore the parameterized type.
+        if (!isStream && !isNonGenericEnumerableCast && !isStringCharArray
+            && javaType != "var" && javaType != "Object"
+            && expression.Contains("((Class) (Class<?>) ", StringComparison.Ordinal)
+            && exprTypeInfo is INamedTypeSymbol genericEnum
+            && genericEnum.IsGenericType
+            && (genericEnum.Name == "IEnumerable" || genericEnum.AllInterfaces.Any(i => i.Name == "IEnumerable")))
+        {
+            var iterTypeArg = BoxJavaType(javaType);
+            expression = $"(Iterable<{iterTypeArg}>)(Iterable<?>)({expression})";
+            isNonGenericEnumerableCast = true;
+        }
+
         var loopPrefix = hasPostLoopBreakLabel ? $"{postLoopBreakLabel}: " : "";
         return new JavaStatementNode($"{loopPrefix}for ({javaType} {identifier} : {expression}) {body}");
     }

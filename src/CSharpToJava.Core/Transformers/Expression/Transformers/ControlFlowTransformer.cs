@@ -392,6 +392,40 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var expr = facade.Transform(node.Expression, context);
         // Map C# await → CompletableFuture.join()
+        // CompletableFuture.join() returns Object; cast to the expected type
+        // so that assignments like `int i = await DeserializeAsync<int>(...)`
+        // produce `int i = (int) ...join()` instead of an incompatible Object.
+        // Skip the cast when await is used as a standalone statement (void context)
+        // — casting a statement expression produces "not a statement" errors.
+        if (node.Parent is ExpressionStatementSyntax)
+            return $"{expr}.join()";
+        var awaitType = context.GetTypeInfo(node).Type;
+        if (awaitType != null)
+        {
+            var javaType = context.MapType(awaitType);
+            // Only cast when the Java type is a primitive or a concrete reference
+            // type — casting to Object or TypeReference is not useful and may
+            // break call chains.  Skip void (async methods used as statements).
+            if (javaType is not ("Object" or "void" or "Void")
+                && !string.IsNullOrEmpty(javaType))
+            {
+                // For boxed primitives (Integer, Long, etc.), the cast must
+                // use the primitive type so unboxing works.
+                var castType = javaType switch
+                {
+                    "Integer" => "int",
+                    "Long" => "long",
+                    "Double" => "double",
+                    "Float" => "float",
+                    "Short" => "short",
+                    "Byte" => "byte",
+                    "Boolean" => "boolean",
+                    "Character" => "char",
+                    _ => javaType
+                };
+                return $"({castType}) ({expr}.join())";
+            }
+        }
         return $"{expr}.join()";
     }
 

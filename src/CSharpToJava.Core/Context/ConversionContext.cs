@@ -20,6 +20,9 @@ public class ConversionContext
     private readonly Stack<IMethodSymbol?> _methodStack = new();
     private readonly Stack<Dictionary<string, string>> _runtimeClassFieldsStack = new();
     private readonly Stack<List<FixedPointerInfo>> _fixedScopeStack = new();
+    // Snapshot of runtime class parameters saved during EnterNestedMethodContext,
+    // restored in LeaveNestedMethodContext.
+    private Dictionary<string, string>? _nestedMethodClassParamSnapshot;
 
     // 映射 IMethodSymbol.OriginalDefinition → JavaMethodDeclaration，
     // 用于 override 处理时向 base/abstract 方法签名注入 leading _cs2j_T 参数。
@@ -689,8 +692,15 @@ _pendingClassTypeParams ??= new();
         if (original.MethodKind == MethodKind.LocalFunction
             && TryGetHoistedLocalFunctionName(original, out var hoistedName))
         {
+            #if DEBUG
+            System.Console.WriteLine($"[DEBUG] GetMethodClassParamsKeyParts: localFn={original.Name}, hoistedName={hoistedName}, typeName={typeName}, key=local:{hoistedName}");
+            #endif
             return (typeName, $"local:{hoistedName}");
         }
+        #if DEBUG
+        if (original.MethodKind == MethodKind.LocalFunction)
+            System.Console.WriteLine($"[DEBUG] GetMethodClassParamsKeyParts: localFn={original.Name}, NO hoistedName, typeName={typeName}, key={original.ToDisplayString()}");
+        #endif
         return (typeName, original.ToDisplayString());
     }
 
@@ -725,21 +735,24 @@ _pendingClassTypeParams ??= new();
                 // for runtime-class-parameter-covered type parameters).
                 return runtimeClassParam;
             }
-            // Register a Class<T> parameter requirement for the current method so that
-            // ApplyPendingClassTypeParams adds the parameter to the method signature.
-            var currentMethod = context.CurrentMethod;
-            if (currentMethod != null)
+        // Register a Class<T> parameter requirement for the current method so that
+        // ApplyPendingClassTypeParams adds the parameter to the method signature.
+        var currentMethod = context.CurrentMethod;
+        if (currentMethod != null)
+        {
+            if (IsOverrideOrImplementation(currentMethod))
             {
-                if (IsOverrideOrImplementation(currentMethod))
-                {
-                    // Override/interface-implementation slots must keep the base's
-                    // erasure signature — no leading Class<T> parameter can be added.
-                    // The body's typeof(T) degrades to null (reflection-emit stubs
-                    // accept it; the token is unavailable at runtime in this shape).
-                    return "null";
-                }
-                context.RequireClassTypeParam(currentMethod, typeParam.Name);
+                // Override/interface-implementation slots must keep the base's
+                // erasure signature — no leading Class<T> parameter can be added.
+                // The body's typeof(T) degrades to null (reflection-emit stubs
+                // accept it; the token is unavailable at runtime in this shape).
+                return "null";
             }
+            #if DEBUG
+            System.Console.WriteLine($"[DEBUG] GetClassLiteral: registering typeParam={typeParam.Name}, currentMethod={currentMethod.Name}, methodKind={currentMethod.MethodKind}");
+            #endif
+            context.RequireClassTypeParam(currentMethod, typeParam.Name);
+        }
             // The parameter naming convention is _cs2j_{typeParamName}.
             return $"_cs2j_{typeParam.Name}";
         }
@@ -1005,6 +1018,15 @@ _pendingClassTypeParams ??= new();
     public void EnterNestedMethodContext(IMethodSymbol? method)
     {
         _methodStack.Push(method);
+        // Snapshot runtime class parameter registrations from the enclosing method's
+        // MethodState and clear them so GetClassLiteral does not find stale entries
+        // (e.g. _cs2j_T from an override method processed before the local function)
+        // and skip registering a Class<T> requirement for the local function.
+        // The snapshot is restored in LeaveNestedMethodContext so the enclosing
+        // method's own registrations remain intact after the local function body
+        // has been converted.
+        _nestedMethodClassParamSnapshot = MethodState.SnapshotRuntimeClassParameters();
+        MethodState.ClearRuntimeClassParameters();
     }
 
     /// <summary>
@@ -1014,6 +1036,13 @@ _pendingClassTypeParams ??= new();
     {
         if (_methodStack.Count > 0)
             _methodStack.Pop();
+        // Restore the enclosing method's runtime class parameter registrations
+        // that were saved in EnterNestedMethodContext.
+        if (_nestedMethodClassParamSnapshot != null)
+        {
+            MethodState.RestoreRuntimeClassParameters(_nestedMethodClassParamSnapshot);
+            _nestedMethodClassParamSnapshot = null;
+        }
     }
 
     public string GenerateSyntheticName(string prefix)

@@ -368,6 +368,14 @@ public partial class StatementTransformer
             thenBlock = $"{{\n        {readBacks}{bodyStr}\n    }}";
         }
 
+        // C# allows assignment expressions in if conditions (e.g. if (x = y)),
+        // but Java requires the assignment to be parenthesized: if ((x = y)).
+        if (stmt.Condition is AssignmentExpressionSyntax
+            && !effectiveCondition.StartsWith("("))
+        {
+            effectiveCondition = $"({effectiveCondition})";
+        }
+
         var result = new System.Text.StringBuilder();
         result.Append($"{condPreamble}if ({effectiveCondition}) {thenBlock}");
 

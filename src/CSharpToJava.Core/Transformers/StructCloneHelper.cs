@@ -422,11 +422,12 @@ internal static class StructCloneHelper
         if (transformedExpr.TrimEnd().EndsWith(".clone()"))
             return transformedExpr;
 
-        // Await results (x.join()) lose their generic type in Java and surface as
+        // Await/Result results (x.join()) lose their generic type in Java and surface as
         // Object — cast back to the struct type BEFORE calling clone(), otherwise
         // Object.clone() (protected) fails to compile.
-        if (exprNode is AwaitExpressionSyntax awaitNode
-            && transformedExpr.Trim().EndsWith(".join()", StringComparison.Ordinal))
+        // This handles both `await X` (AwaitExpressionSyntax) and `X.Result`
+        // (MemberAccessExpression mapped to .join()).
+        if (transformedExpr.Trim().EndsWith(".join()", StringComparison.Ordinal))
         {
             var mappedStruct = context.MapType(exprType);
             if (!string.IsNullOrWhiteSpace(mappedStruct) && mappedStruct != "Object")

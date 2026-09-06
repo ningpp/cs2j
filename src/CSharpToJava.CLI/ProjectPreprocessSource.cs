@@ -153,9 +153,7 @@ internal static class ProjectPreprocessSource
                 continue;
             }
 
-            var relativePath = projectFile.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
-                ? Path.GetFileName(projectFile)
-                : Path.GetRelativePath(sourceRoot, projectFile);
+            var relativePath = Path.GetRelativePath(sourceRoot, projectFile);
             var destinationFile = Path.Combine(intermediateRoot, relativePath);
             Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
 
