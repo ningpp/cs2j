@@ -6,6 +6,7 @@ using CSharpToJava.Core.Pipeline.Compatibility;
 using CSharpToJava.Core.Pipeline.Planning;
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using CSharpToJava.Core.DefaultParameterStripper;
+using CSharpToJava.Core.LocalFunctionLift;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Core.TypeScript;
 using CSharpToJava.Core.Workspace;
@@ -185,6 +186,40 @@ public class Program
                     UseValueClass = opts.UseValueClass,
                 };
                 return await ConvertProjectToTypeScriptAsync(opts, tsOptions);
+            }
+
+            if (opts.LocalFunctionLift)
+            {
+                var liftResult = await ProjectLocalFunctionLiftPreprocessor.PreprocessAsync(
+                    new ProjectLocalFunctionLiftRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                        VerifyBuild = opts.VerifyBuild,
+                        VerifyTests = opts.VerifyTests,
+                        Strict = opts.LocalFunctionStrict,
+                    });
+
+                Console.WriteLine(
+                    $"local-function-lift: {liftResult.Statistics.FilesTransformed} transformed, " +
+                    $"{liftResult.Statistics.FilesSkippedClean} clean, " +
+                    $"{liftResult.Statistics.LocalFunctionsLifted} lifted, " +
+                    $"{liftResult.Statistics.LocalFunctionsSkipped} skipped, " +
+                    $"{liftResult.Statistics.LocalFunctionsResidual} residual");
+
+                foreach (var d in liftResult.Diagnostics)
+                    Console.Error.WriteLine($"[{d.Severity}] {d.FilePath}:{d.Line}: {d.Message}");
+
+                if (!liftResult.Success)
+                    return 1;
+
+                opts.Source = liftResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= liftResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= liftResult.SourceRoot;
             }
 
             if (opts.StripDefault)
@@ -1869,6 +1904,10 @@ public class Program
         {
             preserved.Add(ProjectDefaultParameterStripper.IntermediateDirectoryName);
         }
+        if (opts.LocalFunctionLift)
+        {
+            preserved.Add(ProjectLocalFunctionLiftPreprocessor.IntermediateDirectoryName);
+        }
         return preserved.Count > 0 ? preserved : null;
     }
 
@@ -2611,6 +2650,7 @@ public class Program
             $"unsigned-type={opts.UnsignedType}",
             $"generic-preprocess={opts.GenericPreprocess}",
             $"strip-default={opts.StripDefault}",
+            $"local-function-lift={opts.LocalFunctionLift}",
             $"extra-deps={GetNormalizedExtraDependencyToken(opts)}",
         };
     }
@@ -4108,6 +4148,14 @@ class ConvertProjectOptions
         HelpText = "Disable the default strip-default-parameter preprocessing step")]
     public bool NoStripDefault { get; set; }
 
+    [Option("local-function-lift", Default = false,
+        HelpText = "Hoist C# local functions to class-level private methods before conversion")]
+    public bool LocalFunctionLift { get; set; }
+
+    [Option("no-local-function-strict", Default = false,
+        HelpText = "Report residual local functions as warnings instead of failing the conversion")]
+    public bool NoLocalFunctionStrict { get; set; }
+
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
     public string? ExtraDependencies { get; set; }
 
@@ -4134,6 +4182,7 @@ class ConvertProjectOptions
     public bool UnsignedType => !NoUnsignedType;
     public bool MakeReadOnly => !NoMakeReadOnly;
     public bool StripDefault => !NoStripDefault;
+    public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
     public bool VerifyTests => !NoVerifyTests;

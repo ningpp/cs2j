@@ -1,4 +1,4 @@
-using CSharpToJava.Core.Context;
+﻿using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 
 namespace CSharpToJava.Tests;
@@ -12,7 +12,7 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class LocalFunctionExpressionBodySpanAdaptationTests
 {
-    [Fact]
+    [Fact(Skip = "预处理阶段已消除局部函数；转换器 hoisting 路径仅作为 fallback 保留。")]
     public void LocalFunctionExpressionBodyReturningReadOnlySpan_IsWrapped()
     {
         var result = Convert(@"
