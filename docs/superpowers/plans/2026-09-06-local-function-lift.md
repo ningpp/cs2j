@@ -2213,8 +2213,8 @@ git commit -m "feat: add ProjectLocalFunctionLiftPreprocessor with residual dete
 In `Program.cs`, inside the `ConvertProjectOptions` class (after the `NoStripDefault` option around line 4109), add:
 
 ```csharp
-[Option("local-function-lift", Default = false,
-    HelpText = "Hoist C# local functions to class-level private methods before conversion")]
+[Option("local-function-lift", Default = true,
+    HelpText = "Hoist C# local functions to class-level private methods before conversion (set false to disable)")]
 public bool LocalFunctionLift { get; set; }
 
 [Option("no-local-function-strict", Default = false,

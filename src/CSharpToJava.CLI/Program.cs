@@ -4264,8 +4264,8 @@ class ConvertProjectOptions
         HelpText = "Disable the default strip-default-parameter preprocessing step")]
     public bool NoStripDefault { get; set; }
 
-    [Option("local-function-lift", Default = false,
-        HelpText = "Hoist C# local functions to class-level private methods before conversion")]
+    [Option("local-function-lift", Default = true,
+        HelpText = "Hoist C# local functions to class-level private methods before conversion (set false to disable)")]
     public bool LocalFunctionLift { get; set; }
 
     [Option("no-local-function-strict", Default = false,

@@ -3,7 +3,7 @@
 - 日期：2026-09-06
 - 状态：已批准，待实现
 - 中间目录：`.cs2j-local-fn-src`
-- CLI 选项：`--local-function-lift`（bool，默认 off）、`--no-local-function-strict`（bool，默认 off）
+- CLI 选项：`--local-function-lift`（bool，默认 on）、`--no-local-function-strict`（bool，默认 off）
 
 ---
 
@@ -336,8 +336,8 @@ if (opts.LocalFunctionLift)
 ### 5.4 CLI 选项
 
 ```csharp
-[Option("local-function-lift", Default = false,
-    HelpText = "Hoist C# local functions to class-level private methods before conversion")]
+[Option("local-function-lift", Default = true,
+    HelpText = "Hoist C# local functions to class-level private methods before conversion (set false to disable)")]
 public bool LocalFunctionLift { get; set; }
 
 [Option("no-local-function-strict", Default = false,
@@ -458,7 +458,7 @@ cs2j convert-project -s D:\csharp-sdk -d D:\out --local-function-lift -f -v
   - `GenericLocalFunctionRenamedCallSiteTests.cs`
 
   `Skip` 文案统一为：`"预处理阶段已消除局部函数；转换器 hoisting 路径仅作为 fallback 保留。"`
-- 未启用 `--local-function-lift` 时，既有转换行为不得变化
+- 默认启用 `--local-function-lift`；设置 `--local-function-lift false` 时，既有转换行为不得变化
 
 ---
 
