@@ -5,42 +5,108 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.DefaultParameterStripper;
 
 /// <summary>
-/// Constructs overload declarations from a stripped original.
-/// For each cut point (a parameter with a default value, excluding params),
-/// generates a method/constructor with fewer parameters that forwards to
-/// the original using the verbatim default value expressions.
+/// Constructs forwarding overloads from a stripped original.
+///
+/// For every parameter position that owns a default value, an overload is
+/// emitted that keeps parameters [0..cutAt) and forwards the remaining ones with
+/// their verbatim default expression.
+///
+/// Example: <c>Add(int a = 1, int b = 2, int c = 3)</c> yields
+/// <code>
+///   Add()             => Add(1, 2, 3)
+///   Add(int a)        => Add(a, 2, 3)
+///   Add(int a, int b) => Add(a, b, 3)
+/// </code>
+/// while the original keeps all three parameters with the defaults removed.
+///
+/// Overload generation deliberately does NOT try to guess whether two same-arity
+/// overloads "look ambiguous": different parameter types are perfectly legal C#
+/// and rejecting them silently breaks call sites. Only an exact duplicate of an
+/// existing signature is rejected.
 /// </summary>
 internal static class DefaultParameterOverloadBuilder
 {
     public static List<MethodDeclarationSyntax> BuildOverloads(
         MethodDeclarationSyntax method, SemanticModel model,
-        DefaultParameterStripperStatistics stats)
-        => BuildOverloadsCore(method, method.ParameterList.Parameters,
-            method.Modifiers, method.ReturnType, method.Identifier,
-            method.TypeParameterList, method.ConstraintClauses,
-            stats, isMethod: true);
+        DefaultParameterStripperStatistics stats,
+        DefaultParameterCatalog? catalog = null)
+    {
+        var result = new List<MethodDeclarationSyntax>();
+        var parameters = method.ParameterList.Parameters;
+        var cutPoints = CollectCutPoints(parameters);
+        if (cutPoints.Count == 0) return result;
+
+        var isVoid = IsVoidType(method.ReturnType);
+        var filteredModifiers = FilterModifiers(method.Modifiers);
+        var containingSymbol = model.GetDeclaredSymbol(method)?.ContainingType;
+
+        foreach (var cutAt in cutPoints)
+        {
+            if (catalog != null && containingSymbol != null
+                && HasConflictingSignature(catalog, model, containingSymbol, method.Identifier.Text, parameters, cutAt))
+            {
+                stats.SkippedConflict++;
+                continue;
+            }
+
+            var retained = BuildRetainedParams(parameters, cutAt);
+            var args = BuildForwardingArgs(parameters, cutAt);
+
+            var overload = SyntaxFactory.MethodDeclaration(method.ReturnType, method.Identifier)
+                .WithModifiers(filteredModifiers)
+                .WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(retained)))
+                .WithTypeParameterList(method.TypeParameterList)
+                .WithConstraintClauses(method.ConstraintClauses)
+                .WithBody(SyntaxFactory.Block(
+                    BuildForwardingStatement(BuildInvocationTarget(method), args, isVoid)));
+
+            result.Add(overload);
+            stats.OverloadsGenerated++;
+        }
+
+        return result;
+    }
 
     public static List<ConstructorDeclarationSyntax> BuildOverloads(
         ConstructorDeclarationSyntax ctor, SemanticModel model,
-        DefaultParameterStripperStatistics stats)
+        DefaultParameterStripperStatistics stats,
+        bool isStruct = false, DefaultParameterCatalog? catalog = null)
     {
         var result = new List<ConstructorDeclarationSyntax>();
-        var indices = CollectDefaultIndices(ctor.ParameterList.Parameters);
-        if (indices.Count == 0) return result;
-        if (!ValidateOptionalTail(ctor.ParameterList.Parameters, indices[0]))
+        var parameters = ctor.ParameterList.Parameters;
+        var cutPoints = CollectCutPoints(parameters);
+        if (cutPoints.Count == 0) return result;
+
+        var containingSymbol = model.GetDeclaredSymbol(ctor)?.ContainingType;
+
+        foreach (var cutAt in cutPoints)
         {
-            stats.SkippedUnsupported++;
-            return result;
-        }
-        foreach (var cutAt in indices.Where(i => i >= indices[0]))
-        {
-            var overload = BuildCtorOverload(ctor, ctor.ParameterList.Parameters, cutAt);
+            // Never synthesise a parameterless constructor. The original type had
+            // none (a constructor whose parameters are all optional still takes
+            // those parameters), and adding one changes how reflection-driven
+            // consumers — serializers, activators, DI containers — discover and
+            // use the type. Call sites are completed explicitly instead.
+            if (cutAt == 0)
+            {
+                stats.SkippedUnsupported++;
+                continue;
+            }
+
+            if (catalog != null && containingSymbol != null
+                && HasConflictingSignature(catalog, model, containingSymbol, ".ctor", parameters, cutAt))
+            {
+                stats.SkippedConflict++;
+                continue;
+            }
+
+            var overload = BuildCtorOverload(ctor, parameters, cutAt, isStruct);
             if (overload != null)
             {
                 result.Add(overload);
                 stats.OverloadsGenerated++;
             }
         }
+
         return result;
     }
 
@@ -49,187 +115,289 @@ internal static class DefaultParameterOverloadBuilder
         DefaultParameterStripperStatistics stats)
     {
         var result = new List<LocalFunctionStatementSyntax>();
-        var indices = CollectDefaultIndices(localFunc.ParameterList.Parameters);
-        if (indices.Count == 0) return result;
-        if (!ValidateOptionalTail(localFunc.ParameterList.Parameters, indices[0]))
+        var parameters = localFunc.ParameterList.Parameters;
+        var cutPoints = CollectCutPoints(parameters);
+        if (cutPoints.Count == 0) return result;
+
+        var isVoid = IsVoidType(localFunc.ReturnType);
+        foreach (var cutAt in cutPoints)
         {
-            stats.SkippedUnsupported++;
-            return result;
-        }
-        foreach (var cutAt in indices.Where(i => i >= indices[0]))
-        {
-            var overload = BuildLocalFuncOverload(localFunc, localFunc.ParameterList.Parameters, cutAt);
+            var overload = BuildLocalFuncOverload(localFunc, parameters, cutAt, isVoid);
             if (overload != null)
             {
                 result.Add(overload);
                 stats.OverloadsGenerated++;
             }
         }
+
         return result;
     }
 
-    // --- core helpers ---
-
-    private static List<MethodDeclarationSyntax> BuildOverloadsCore(
-        MethodDeclarationSyntax method,
-        SeparatedSyntaxList<ParameterSyntax> parameters,
-        SyntaxTokenList modifiers,
-        TypeSyntax returnType,
-        SyntaxToken identifier,
-        TypeParameterListSyntax? typeParamList,
-        SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses,
-        DefaultParameterStripperStatistics stats,
-        bool isMethod)
+    /// <summary>
+    /// Builds forwarding constructors for a record / class / struct primary
+    /// constructor whose default values were stripped.
+    /// </summary>
+    public static List<ConstructorDeclarationSyntax> BuildPrimaryConstructorOverloads(
+        TypeDeclarationSyntax type, SemanticModel model,
+        DefaultParameterStripperStatistics stats, bool isStruct)
     {
-        var result = new List<MethodDeclarationSyntax>();
-        var indices = CollectDefaultIndices(parameters);
-        if (indices.Count == 0) return result;
-        if (!ValidateOptionalTail(parameters, indices[0]))
+        var result = new List<ConstructorDeclarationSyntax>();
+        var parameterList = type.ParameterList;
+        if (parameterList == null) return result;
+
+        var parameters = parameterList.Parameters;
+        var cutPoints = CollectCutPoints(parameters);
+        if (cutPoints.Count == 0) return result;
+
+        var identifier = SyntaxFactory.Identifier(type.Identifier.Text);
+        foreach (var cutAt in cutPoints)
         {
-            stats.SkippedUnsupported++;
-            return result;
-        }
+            // See BuildOverloads(ConstructorDeclarationSyntax): never add a
+            // parameterless constructor.
+            if (cutAt == 0)
+            {
+                stats.SkippedUnsupported++;
+                continue;
+            }
 
-        var isVoid = returnType is PredefinedTypeSyntax pt
-            && pt.Keyword.IsKind(SyntaxKind.VoidKeyword);
-        var filteredModifiers = FilterModifiers(modifiers);
-
-        foreach (var cutAt in indices.Where(i => i >= indices[0]))
-        {
-            var retainedParams = new List<ParameterSyntax>();
-            for (var i = 0; i < cutAt; i++)
-                retainedParams.Add(parameters[i].WithDefault(null));
-
+            var retained = BuildRetainedParams(parameters, cutAt);
             var args = BuildForwardingArgs(parameters, cutAt);
-
-            // Build invocation with explicit type args for generic methods
-            ExpressionSyntax target;
-            if (typeParamList != null && typeParamList.Parameters.Count > 0)
-            {
-                var typeArgs = string.Join(", ", typeParamList.Parameters.Select(p => p.Identifier.Text));
-                target = SyntaxFactory.IdentifierName(
-                    SyntaxFactory.Identifier(identifier.Text + "<" + typeArgs + ">"));
-            }
-            else
-            {
-                target = SyntaxFactory.IdentifierName(identifier);
-            }
-
-            var invocation = SyntaxFactory.InvocationExpression(target,
+            var initializer = SyntaxFactory.ConstructorInitializer(
+                SyntaxKind.ThisConstructorInitializer,
                 SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args)));
 
-            StatementSyntax bodyStmt = isVoid
-                ? SyntaxFactory.ExpressionStatement(invocation)
-                : SyntaxFactory.ReturnStatement(invocation);
-
-            var overload = SyntaxFactory.MethodDeclaration(returnType, identifier)
-                .WithModifiers(filteredModifiers)
-                .WithParameterList(SyntaxFactory.ParameterList(
-                    SyntaxFactory.SeparatedList(retainedParams)))
-                .WithTypeParameterList(typeParamList)
-                .WithConstraintClauses(constraintClauses)
-                .WithBody(SyntaxFactory.Block(bodyStmt));
+            var overload = SyntaxFactory.ConstructorDeclaration(identifier)
+                .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
+                .WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(retained)))
+                .WithInitializer(initializer)
+                .WithBody(SyntaxFactory.Block());
 
             result.Add(overload);
             stats.OverloadsGenerated++;
         }
+
         return result;
+    }
+
+    // --- core helpers -----------------------------------------------------
+
+    private static bool HasConflictingSignature(
+        DefaultParameterCatalog catalog,
+        SemanticModel model,
+        ISymbol containingSymbol,
+        string memberName,
+        SeparatedSyntaxList<ParameterSyntax> parameters,
+        int cutAt)
+    {
+        var semanticTypes = DefaultParameterCatalog.BuildParamTypeString(model, parameters, cutAt);
+        if (catalog.HasExistingSignature(containingSymbol, memberName, semanticTypes)
+            || catalog.HasPendingOverload(containingSymbol, memberName, semanticTypes))
+        {
+            return true;
+        }
+
+        // Syntax-level duplicate detection, which keeps working when the semantic
+        // model cannot resolve the parameter types (missing package references).
+        var syntaxTypes = DefaultParameterCatalog.BuildParamTypeStringSyntax(parameters, cutAt);
+        if (catalog.HasExistingSignature(containingSymbol, memberName, syntaxTypes)
+            || catalog.HasPendingOverload(containingSymbol, memberName, syntaxTypes))
+        {
+            return true;
+        }
+
+        // Reject an overload that would be ambiguous with an ORIGINAL member of
+        // the same arity but different parameter types. Only declarations seen in
+        // pass 1 count: two generated overloads may legitimately share an arity
+        // (Utf8JsonWriter(Stream) / Utf8JsonWriter(IBufferWriter<byte>)) and
+        // rejecting them would break every call site.
+        if (catalog.WouldCreateAmbiguityForType(containingSymbol, memberName, cutAt, semanticTypes)
+            || catalog.WouldCreateAmbiguityForType(containingSymbol, memberName, cutAt, syntaxTypes))
+        {
+            return true;
+        }
+
+        catalog.RegisterPendingOverload(containingSymbol, memberName, semanticTypes);
+        catalog.RegisterPendingOverload(containingSymbol, memberName, syntaxTypes);
+        return false;
     }
 
     private static ConstructorDeclarationSyntax? BuildCtorOverload(
         ConstructorDeclarationSyntax original,
-        SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt)
+        SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt,
+        bool isStruct)
     {
-        var retainedParams = new List<ParameterSyntax>();
-        for (var i = 0; i < cutAt; i++)
-            retainedParams.Add(parameters[i].WithDefault(null));
-
+        var retained = BuildRetainedParams(parameters, cutAt);
         var args = BuildForwardingArgs(parameters, cutAt);
         var initializer = SyntaxFactory.ConstructorInitializer(
             SyntaxKind.ThisConstructorInitializer,
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args)));
 
+        // A struct parameterless constructor must be public (CS8958).
+        var modifiers = retained.Count == 0 && isStruct
+            ? SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword))
+            : FilterModifiers(original.Modifiers);
+
         return SyntaxFactory.ConstructorDeclaration(original.Identifier)
-            .WithModifiers(FilterModifiers(original.Modifiers))
-            .WithParameterList(SyntaxFactory.ParameterList(
-                SyntaxFactory.SeparatedList(retainedParams)))
+            .WithModifiers(modifiers)
+            .WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(retained)))
             .WithInitializer(initializer)
             .WithBody(SyntaxFactory.Block());
     }
 
     private static LocalFunctionStatementSyntax? BuildLocalFuncOverload(
         LocalFunctionStatementSyntax original,
-        SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt)
+        SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt, bool isVoid)
     {
-        var retainedParams = new List<ParameterSyntax>();
-        for (var i = 0; i < cutAt; i++)
-            retainedParams.Add(parameters[i].WithDefault(null));
-
+        var retained = BuildRetainedParams(parameters, cutAt);
         var args = BuildForwardingArgs(parameters, cutAt);
         var invocation = SyntaxFactory.InvocationExpression(
             SyntaxFactory.IdentifierName(original.Identifier),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args)));
 
-        var isVoid = original.ReturnType is PredefinedTypeSyntax pt
-            && pt.Keyword.IsKind(SyntaxKind.VoidKeyword);
-        StatementSyntax bodyStmt = isVoid
+        return SyntaxFactory.LocalFunctionStatement(original.ReturnType, original.Identifier)
+            .WithModifiers(original.Modifiers)
+            .WithParameterList(SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(retained)))
+            .WithTypeParameterList(original.TypeParameterList)
+            .WithConstraintClauses(original.ConstraintClauses)
+            .WithBody(SyntaxFactory.Block(BuildForwardingStatement(invocation, isVoid)));
+    }
+
+    private static StatementSyntax BuildForwardingStatement(
+        ExpressionSyntax invocation, bool isVoid)
+        => isVoid
             ? SyntaxFactory.ExpressionStatement(invocation)
             : SyntaxFactory.ReturnStatement(invocation);
 
-        return SyntaxFactory.LocalFunctionStatement(original.ReturnType, original.Identifier)
-            .WithModifiers(original.Modifiers)
-            .WithParameterList(SyntaxFactory.ParameterList(
-                SyntaxFactory.SeparatedList(retainedParams)))
-            .WithTypeParameterList(original.TypeParameterList)
-            .WithBody(SyntaxFactory.Block(bodyStmt));
+    private static StatementSyntax BuildForwardingStatement(
+        ExpressionSyntax target, List<ArgumentSyntax> args, bool isVoid)
+        => BuildForwardingStatement(
+            SyntaxFactory.InvocationExpression(target,
+                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args))),
+            isVoid);
+
+    /// <summary>
+    /// Builds the invocation target, adding explicit type arguments for generic
+    /// methods so the forwarding call binds to the same method.
+    /// </summary>
+    private static ExpressionSyntax BuildInvocationTarget(MethodDeclarationSyntax method)
+    {
+        if (method.TypeParameterList is { Parameters.Count: > 0 } typeParameters)
+        {
+            var typeArguments = SyntaxFactory.TypeArgumentList(
+                SyntaxFactory.SeparatedList(
+                    typeParameters.Parameters.Select(p => (TypeSyntax)SyntaxFactory.IdentifierName(p.Identifier))));
+            return SyntaxFactory.GenericName(method.Identifier, typeArguments);
+        }
+
+        return SyntaxFactory.IdentifierName(method.Identifier);
     }
 
-    private static List<int> CollectDefaultIndices(SeparatedSyntaxList<ParameterSyntax> parameters)
+    /// <summary>
+    /// Collects every parameter index that owns a default value and can safely
+    /// start an overload: all parameters from that index on must be optional
+    /// (have a default or be <c>params</c>), otherwise C# requires the caller to
+    /// supply them and no shorter overload can exist.
+    /// </summary>
+    private static List<int> CollectCutPoints(SeparatedSyntaxList<ParameterSyntax> parameters)
     {
-        var indices = new List<int>();
+        var cutPoints = new List<int>();
         for (var i = 0; i < parameters.Count; i++)
-            if (parameters[i].Default != null && !IsParams(parameters[i]))
-                indices.Add(i);
-        return indices;
+        {
+            if (parameters[i].Default == null || IsParams(parameters[i]))
+            {
+                continue;
+            }
+
+            var tailIsOptional = true;
+            for (var j = i; j < parameters.Count; j++)
+            {
+                if (parameters[j].Default == null && !IsParams(parameters[j]))
+                {
+                    tailIsOptional = false;
+                    break;
+                }
+            }
+
+            if (tailIsOptional)
+            {
+                cutPoints.Add(i);
+            }
+        }
+        return cutPoints;
     }
 
-    private static bool ValidateOptionalTail(
-        SeparatedSyntaxList<ParameterSyntax> parameters, int firstDefaultIdx)
+    private static List<ParameterSyntax> BuildRetainedParams(
+        SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt)
     {
-        for (var i = firstDefaultIdx; i < parameters.Count; i++)
-            if (parameters[i].Default == null && !IsParams(parameters[i]))
-                return false; // CS1737
-        return true;
+        var retained = new List<ParameterSyntax>(cutAt);
+        for (var i = 0; i < cutAt && i < parameters.Count; i++)
+        {
+            retained.Add(parameters[i].WithDefault(null));
+        }
+        return retained;
     }
 
     private static List<ArgumentSyntax> BuildForwardingArgs(
         SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt)
     {
-        var args = new List<ArgumentSyntax>();
+        var args = new List<ArgumentSyntax>(parameters.Count);
         for (var i = 0; i < parameters.Count; i++)
         {
-            args.Add(i < cutAt
-                ? SyntaxFactory.Argument(SyntaxFactory.IdentifierName(parameters[i].Identifier))
-                : SyntaxFactory.Argument(parameters[i].Default!.Value));
+            if (i < cutAt)
+            {
+                var parameter = parameters[i];
+                var expression = SyntaxFactory.IdentifierName(parameter.Identifier);
+                var modifier = parameter.Modifiers.FirstOrDefault(m =>
+                    m.IsKind(SyntaxKind.RefKeyword)
+                    || m.IsKind(SyntaxKind.OutKeyword)
+                    || m.IsKind(SyntaxKind.InKeyword));
+
+                args.Add(modifier.IsKind(SyntaxKind.None)
+                    ? SyntaxFactory.Argument(expression)
+                    : SyntaxFactory.Argument(default, modifier, expression));
+            }
+            else if (parameters[i].Default != null)
+            {
+                args.Add(SyntaxFactory.Argument(parameters[i].Default!.Value));
+            }
+            else if (IsParams(parameters[i]) && parameters[i].Type is ArrayTypeSyntax arrayType)
+            {
+                // params parameter with no declared default: forward an empty array.
+                args.Add(SyntaxFactory.Argument(
+                    SyntaxFactory.ArrayCreationExpression(arrayType.WithRankSpecifiers(
+                            SyntaxFactory.SingletonList(SyntaxFactory.ArrayRankSpecifier(
+                                SyntaxFactory.SingletonSeparatedList<ExpressionSyntax>(
+                                    SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression,
+                                        SyntaxFactory.Literal(0)))))),
+                        null)));
+            }
         }
         return args;
     }
 
+    private static bool IsVoidType(TypeSyntax type)
+        => type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword };
+
     private static SyntaxTokenList FilterModifiers(SyntaxTokenList original)
     {
         var kept = new List<SyntaxToken>();
-        foreach (var mod in original)
+        foreach (var modifier in original)
         {
-            if (mod.IsKind(SyntaxKind.AbstractKeyword) || mod.IsKind(SyntaxKind.ExternKeyword)
-                || mod.IsKind(SyntaxKind.PartialKeyword) || mod.IsKind(SyntaxKind.VirtualKeyword)
-                || mod.IsKind(SyntaxKind.OverrideKeyword) || mod.IsKind(SyntaxKind.AsyncKeyword)
-                || mod.IsKind(SyntaxKind.SealedKeyword))
+            if (modifier.IsKind(SyntaxKind.AbstractKeyword)
+                || modifier.IsKind(SyntaxKind.ExternKeyword)
+                || modifier.IsKind(SyntaxKind.PartialKeyword)
+                || modifier.IsKind(SyntaxKind.VirtualKeyword)
+                || modifier.IsKind(SyntaxKind.OverrideKeyword)
+                || modifier.IsKind(SyntaxKind.AsyncKeyword)
+                || modifier.IsKind(SyntaxKind.SealedKeyword))
+            {
                 continue;
-            kept.Add(mod);
+            }
+            kept.Add(modifier);
         }
         return SyntaxFactory.TokenList(kept);
     }
 
-    private static bool IsParams(ParameterSyntax param)
-        => param.Modifiers.Any(m => m.IsKind(SyntaxKind.ParamsKeyword));
+    private static bool IsParams(ParameterSyntax parameter)
+        => parameter.Modifiers.Any(m => m.IsKind(SyntaxKind.ParamsKeyword));
 }

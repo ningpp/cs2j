@@ -23,11 +23,12 @@ public class DefaultParameterVerifierTests
     }
 
     [Fact]
-    public void Verify_DelegateDefault_Ignored()
+    public void Verify_DelegateDefault_ReturnsError()
     {
         var code = "delegate void D(int a = 1);";
         var errors = DefaultParameterVerifier.Verify(code);
-        Assert.Empty(errors);
+        Assert.Single(errors);
+        Assert.Equal(DefaultParameterStripSeverity.Error, errors[0].Severity);
     }
 
     [Fact]

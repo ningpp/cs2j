@@ -28,15 +28,14 @@ public sealed class DefaultParameterStripper
             : CSharpSyntaxTree.ParseText(sourceCode);
         var root = (CompilationUnitSyntax)tree.GetRoot();
 
-        // Dirty check: any ParameterSyntax with Default in managed context
-        if (!IsDirty(root))
-        {
-            stats.FilesSkippedClean = 1;
-            return new DefaultParameterStripperResult(sourceCode, false, diagnostics, stats);
-        }
+        // Always run the rewriter — it handles both declaration stripping
+        // and call-site rewriting (fixing named arguments that skip default
+        // parameters). The IsDirty check only skips files with no defaults,
+        // but call sites in such files may still need rewriting.
+        var hasDefaults = IsDirty(root);
 
         var rewriter = new DefaultParameterDeclarationRewriter(
-            model, options, stats, diagnostics, _catalog);
+            model, options, stats, diagnostics, _catalog, hasDefaults);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
         if (!rewriter.Changed)
@@ -54,32 +53,32 @@ public sealed class DefaultParameterStripper
     }
 
     /// <summary>
-    /// Dirty check: any Method/Constructor/LocalFunction/Delegate with a
-    /// parameter that has Default != null. Delegates are included so the
-    /// rewriter can count them as SkippedUnsupported. Excludes indexer/operator.
+    /// Dirty check: any callable declaration with a parameter that has
+    /// <c>Default != null</c>. Covers methods, constructors, local functions,
+    /// delegates and record/class/struct primary constructors. Indexers and
+    /// operators are excluded — they can never declare defaults.
     /// </summary>
     private static bool IsDirty(CompilationUnitSyntax root)
     {
-        foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+        foreach (var node in root.DescendantNodes())
         {
-            if (method.ParameterList.Parameters.Any(p => p.Default != null))
-                return true;
-        }
-        foreach (var ctor in root.DescendantNodes().OfType<ConstructorDeclarationSyntax>())
-        {
-            if (ctor.ParameterList.Parameters.Any(p => p.Default != null))
-                return true;
-        }
-        foreach (var local in root.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
-        {
-            if (local.ParameterList != null && local.ParameterList.Parameters.Any(p => p.Default != null))
-                return true;
-        }
-        foreach (var del in root.DescendantNodes().OfType<DelegateDeclarationSyntax>())
-        {
-            if (del.ParameterList != null && del.ParameterList.Parameters.Any(p => p.Default != null))
-                return true;
+            switch (node)
+            {
+                case MethodDeclarationSyntax method when HasDefault(method.ParameterList):
+                    return true;
+                case ConstructorDeclarationSyntax ctor when HasDefault(ctor.ParameterList):
+                    return true;
+                case LocalFunctionStatementSyntax local when local.ParameterList != null && HasDefault(local.ParameterList):
+                    return true;
+                case DelegateDeclarationSyntax @delegate when @delegate.ParameterList != null && HasDefault(@delegate.ParameterList):
+                    return true;
+                case TypeDeclarationSyntax type when type.ParameterList != null && HasDefault(type.ParameterList):
+                    return true;
+            }
         }
         return false;
     }
+
+    private static bool HasDefault(ParameterListSyntax parameterList)
+        => parameterList.Parameters.Any(p => p.Default != null);
 }

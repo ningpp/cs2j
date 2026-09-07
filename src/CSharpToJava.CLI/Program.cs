@@ -3794,9 +3794,17 @@ public class Program
         var rewriterOptions = new DefaultParameterStripperOptions(
             Verbose: opts.Verbose,
             Strict: opts.Strict,
-            GenerateOverloads: !opts.NoOverloads);
+            GenerateOverloads: !opts.NoOverloads,
+            PreserveDefaultMetadata: !opts.NoDefaultMetadata);
 
-        if (opts.Input != null)
+        // A solution / project file (or a directory) passed to --input must be
+        // routed to project mode instead of being parsed as a single C# file.
+        if (opts.Input != null && IsProjectOrSolutionInput(opts.Input))
+        {
+            opts.Source ??= opts.Input;
+            opts.Destination ??= opts.Output;
+        }
+        else if (opts.Input != null)
         {
             if (!File.Exists(opts.Input))
             {
@@ -3863,6 +3871,21 @@ public class Program
         Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
 
         return preprocessResult.Success ? 0 : 1;
+    }
+
+    /// <summary>
+    /// True when an --input value actually denotes a solution, a project or a
+    /// directory rather than a single C# source file.
+    /// </summary>
+    private static bool IsProjectOrSolutionInput(string input)
+    {
+        if (Directory.Exists(input)) return true;
+        var extension = Path.GetExtension(input);
+        return extension.Equals(".sln", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".slnx", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".csproj", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".vbproj", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".fsproj", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<int> MakeReadonly(MakeReadOnlyOptions opts)
@@ -4065,6 +4088,10 @@ class StripDefaultOptions
     public bool NoStrict { get; set; }
     [Option("no-overloads", Default = false, HelpText = "Strip defaults but don't generate overloads")]
     public bool NoOverloads { get; set; }
+
+    [Option("no-default-metadata", Default = false,
+        HelpText = "Don't emit [DefaultParameterValue] on stripped parameters (loses reflection-visible defaults)")]
+    public bool NoDefaultMetadata { get; set; }
 
     public bool Strict => !NoStrict;
 

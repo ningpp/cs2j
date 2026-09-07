@@ -76,18 +76,21 @@ public class DefaultParameterStripperTests
     }
 
     [Fact]
-    public void Strip_DelegateDeclaration_Unchanged()
+    public void Strip_DelegateDeclaration_StripsDefaults()
     {
         var result = Strip("delegate void D(int a = 1);");
-        Assert.False(result.Changed);
-        Assert.Equal(1, result.Statistics.SkippedUnsupported);
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.DeclarationsStripped);
+        Assert.Equal(1, result.Statistics.ParametersStripped);
+        Assert.DoesNotContain("= 1", result.OutputCode);
     }
 
     [Fact]
-    public void Strip_PartialMethod_Unchanged()
+    public void Strip_PartialMethod_StripsDefaults()
     {
         var result = Strip("partial class C { partial void M(int a = 1); }");
-        Assert.False(result.Changed);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("= 1", result.OutputCode);
     }
 
     [Fact]
@@ -128,6 +131,219 @@ public class DefaultParameterStripperTests
             "Output should be valid C#. Errors:\n" + string.Join("\n", errors));
     }
 
+    // ------------------------------------------------------------------
+    // Multiple default parameters — caller completion + overload generation
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Strip_MultipleDefaults_CompletesCallersAndGeneratesOverloads()
+    {
+        var src = """
+            class C
+            {
+                public int Add(int a, int b = 1, int c = 2) => a + b + c;
+                public int One() => Add(10);
+                public int Two() => Add(10, 20);
+                public int All() => Add(10, 20, 30);
+            }
+            """;
+        var result = Strip(src);
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.DeclarationsStripped);
+        Assert.Equal(2, result.Statistics.ParametersStripped);
+
+        // Declaration stripped
+        Assert.DoesNotContain("= 1", result.OutputCode);
+        Assert.DoesNotContain("= 2", result.OutputCode);
+
+        // Callers completed with the declared defaults as named arguments
+        Assert.Contains("Add(10, b: 1, c: 2)", result.OutputCode);
+        Assert.Contains("Add(10, 20, c: 2)", result.OutputCode);
+        Assert.Contains("Add(10, 20, 30)", result.OutputCode);
+
+        // Forwarding overloads for every default position
+        Assert.Contains("public int Add(int a)", result.OutputCode);
+        Assert.Contains("return Add(a, 1, 2)", result.OutputCode);
+        Assert.Contains("public int Add(int a, int b)", result.OutputCode);
+        Assert.Contains("return Add(a, b, 2)", result.OutputCode);
+
+        AssertCompileClean(result.OutputCode);
+    }
+
+    [Fact]
+    public void Strip_MultipleDefaults_NamedArgumentSkippingMiddle_CompletesMissingDefaults()
+    {
+        var src = """
+            class C
+            {
+                public int Add(int a, int b = 1, int c = 2, int d = 3) => a + b + c + d;
+                public int SkipMiddle() => Add(10, c: 30);
+                public int SkipTail() => Add(10, d: 40);
+            }
+            """;
+        var result = Strip(src);
+        Assert.True(result.Changed);
+        Assert.Contains("Add(10, b: 1, c: 30, d: 3)", result.OutputCode);
+        Assert.Contains("Add(10, b: 1, c: 2, d: 40)", result.OutputCode);
+        AssertCompileClean(result.OutputCode);
+    }
+
+    /// <summary>
+    /// A method may mix defaulted parameters with parameters that have no
+    /// syntactic default: required parameters before the defaults, an
+    /// <c>[Optional]</c>-attributed parameter (optional without a default
+    /// expression) between them, and a trailing <c>params</c> array.
+    /// </summary>
+    [Fact]
+    public void Strip_MultipleDefaults_WithNonDefaultParametersMixedIn()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                public int Combine(int required, int b = 1, [Optional] object token, int d = 3) => required + b + d;
+                public int Positional() => Combine(9, 8, 6);
+                public int SkipOptional() => Combine(9, 8, d: 6);
+            }
+            """;
+        var result = Strip(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("= 1", result.OutputCode);
+        Assert.DoesNotContain("= 3", result.OutputCode);
+
+        // Positional arguments bind in order; only the trailing default is filled.
+        Assert.Contains("Combine(9, 8, 6, d: 3)", result.OutputCode);
+        // An [Optional] parameter skipped by a named argument is completed
+        // with `default`, so every argument of the stripped signature is supplied.
+        Assert.Contains("Combine(9, 8, token: default, d: 6)", result.OutputCode);
+        AssertCompileClean(result.OutputCode);
+    }
+
+    [Fact]
+    public void Strip_MultipleDefaults_ParamsArrayTail_CompletesCallers()
+    {
+        var src = """
+            class C
+            {
+                public void Log(string message, int level = 0, params object[] args) { }
+                public void None() => Log("x");
+                public void LevelOnly() => Log("x", 3);
+                public void Full() => Log("x", 3, new object(), 4);
+            }
+            """;
+        var result = Strip(src);
+        Assert.True(result.Changed);
+        // The params parameter may stay omitted; the defaulted one is completed.
+        Assert.Contains("Log(\"x\", level: 0)", result.OutputCode);
+        Assert.Contains("Log(\"x\", 3)", result.OutputCode);
+        Assert.Contains("Log(\"x\", 3, new object(), 4)", result.OutputCode);
+        AssertCompileClean(result.OutputCode);
+    }
+
+    // ------------------------------------------------------------------
+    // [DefaultParameterValue] metadata attribute rendering (CS1908 guards)
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Strip_MetadataAttribute_NullableEnumNullDefault_DropsAttribute()
+    {
+        var src = """
+            enum E { A, B }
+            class C { public void M(E? e = null) { } }
+            """;
+        var result = Strip(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("= null", result.OutputCode);
+        // [DefaultParameterValue(null)] on a nullable value type is rejected
+        // with CS1908 and (E?)null with CS0182 — no legal spelling exists.
+        Assert.DoesNotContain("DefaultParameterValue", result.OutputCode);
+        AssertCompileClean(result.OutputCode);
+    }
+
+    [Fact]
+    public void Strip_MetadataAttribute_ByteDefault_RendersExactTypeCast()
+    {
+        var result = Strip("class C { public void M(byte b = default) { } }");
+        Assert.True(result.Changed);
+        // An unsuffixed `0` is an int and is rejected for a byte parameter
+        // (CS1908); the exact-type cast is required.
+        Assert.Contains("DefaultParameterValue((byte)0)", result.OutputCode);
+        AssertCompileClean(result.OutputCode);
+    }
+
+    [Fact]
+    public void Strip_MetadataAttribute_IntegralLiteralDefaults_RenderExactTypeCasts()
+    {
+        var src = """
+            class C
+            {
+                public void M(
+                    byte b = 5,
+                    sbyte sb = -1,
+                    short sh = -3,
+                    ushort us = 7,
+                    uint ui = 9,
+                    ulong ul = 11,
+                    long l = 5,
+                    int i = 6) { }
+            }
+            """;
+        var result = Strip(src);
+        Assert.True(result.Changed);
+        Assert.Contains("DefaultParameterValue((byte)5)", result.OutputCode);
+        Assert.Contains("DefaultParameterValue((sbyte)-1)", result.OutputCode);
+        Assert.Contains("DefaultParameterValue((short)-3)", result.OutputCode);
+        Assert.Contains("DefaultParameterValue((ushort)7)", result.OutputCode);
+        Assert.Contains("DefaultParameterValue((uint)9)", result.OutputCode);
+        Assert.Contains("DefaultParameterValue((ulong)11)", result.OutputCode);
+        // int and long accept int literals through standard implicit conversions
+        Assert.Contains("DefaultParameterValue(5)", result.OutputCode);
+        Assert.Contains("DefaultParameterValue(6)", result.OutputCode);
+        AssertCompileClean(result.OutputCode);
+    }
+
+    /// <summary>
+    /// Regression test for the csharp-sdk build failure: nullable-enum null
+    /// defaults and byte defaults used to render attribute arguments the
+    /// compiler rejects (CS1908).
+    /// </summary>
+    [Fact]
+    public void Strip_Output_Compiles_NullableEnumAndByteDefaults()
+    {
+        var src = """
+            enum JsonNumberHandling { Strict = 0, Allow = 1 }
+            enum JsonIgnoreCondition { Never = 0, Always = 1 }
+            class C
+            {
+                public static int CreateProperty(
+                    System.Type declaredPropertyType,
+                    JsonNumberHandling? parentTypeNumberHandling = null,
+                    JsonIgnoreCondition? ignoreCondition = null,
+                    byte nextByte = default)
+                    => 0;
+                public int Call() => CreateProperty(typeof(int));
+            }
+            """;
+        var result = Strip(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("DefaultParameterValue(null)", result.OutputCode);
+        AssertCompileClean(result.OutputCode);
+    }
+
+    private static void AssertCompileClean(string source)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("strip-output-test",
+            new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(errors.Count == 0,
+            "Output should compile. Errors:\n" + string.Join("\n", errors));
+    }
+
     private static DefaultParameterStripperResult Strip(string src)
     {
         var tree = CSharpSyntaxTree.ParseText(src);
@@ -135,7 +351,10 @@ public class DefaultParameterStripperTests
             new[] { tree },
             new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
         var stripper = new DefaultParameterStripper();
-        return stripper.Strip(src, compilation.GetSemanticModel(tree));
+        // Pass 1 registers declarations so call sites can be completed.
+        stripper.Collect(tree, model);
+        return stripper.Strip(src, model);
     }
 }

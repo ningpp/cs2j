@@ -108,9 +108,15 @@ internal static class ProjectDefaultParameterStripper
             .Where(f => f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
+        // Collect preprocessor symbols from all .csproj files so that
+        // #if blocks are correctly parsed. Without this, call sites inside
+        // #if FEATURE_XYZ blocks would be invisible to the rewriter.
+        var preprocessorSymbols = CollectPreprocessorSymbols(layout, exclusionInfo);
+        preprocessorSymbols.Add("NETCOREAPP");
+
         // Parse all C# files into syntax trees
         var parseOptions = new CSharpParseOptions(
-            preprocessorSymbols: new[] { "NETCOREAPP" });
+            preprocessorSymbols: preprocessorSymbols.ToArray());
         var syntaxTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
         foreach (var csFile in csFiles)
         {
@@ -368,9 +374,60 @@ internal static class ProjectDefaultParameterStripper
         target.DeclarationsStripped += source.DeclarationsStripped;
         target.ParametersStripped += source.ParametersStripped;
         target.OverloadsGenerated += source.OverloadsGenerated;
+        target.CallSitesRewritten += source.CallSitesRewritten;
         target.SkippedNoBody += source.SkippedNoBody;
         target.SkippedConflict += source.SkippedConflict;
         target.SkippedHidesAbstract += source.SkippedHidesAbstract;
         target.SkippedUnsupported += source.SkippedUnsupported;
+    }
+
+    /// <summary>
+    /// Collects all preprocessor symbols (DefineConstants) from all .csproj
+    /// files in the project graph. This ensures that #if blocks are correctly
+    /// parsed so call sites inside conditional blocks are visible to the rewriter.
+    /// </summary>
+    private static HashSet<string> CollectPreprocessorSymbols(
+        ProjectPreprocessSourceLayout layout,
+        SupportedProjectFiltering.ExclusionInfo exclusionInfo)
+    {
+        var symbols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var projectFile in layout.ProjectFiles)
+        {
+            if (!projectFile.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (SupportedProjectFiltering.IsUnderExcludedProject(projectFile, exclusionInfo))
+                continue;
+
+            try
+            {
+                var content = File.ReadAllText(projectFile);
+                var doc = System.Xml.Linq.XDocument.Load(new StringReader(content));
+                if (doc.Root == null) continue;
+
+                foreach (var elem in doc.Root.Descendants())
+                {
+                    if (!string.Equals(elem.Name.LocalName, "DefineConstants", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var value = elem.Value;
+                    if (string.IsNullOrWhiteSpace(value)) continue;
+
+                    // DefineConstants values look like: $(DefineConstants);FEATURE_FOO;FEATURE_BAR
+                    foreach (var part in value.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var trimmed = part.Trim();
+                        if (trimmed.StartsWith("$(")) continue; // Skip MSBuild variables
+                        symbols.Add(trimmed);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // Ignore errors reading project files
+            }
+        }
+
+        return symbols;
     }
 }

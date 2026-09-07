@@ -8,6 +8,7 @@ public sealed class DefaultParameterStripperStatistics
     public int DeclarationsStripped;
     public int ParametersStripped;
     public int OverloadsGenerated;
+    public int CallSitesRewritten;
     public int SkippedNoBody;
     public int SkippedConflict;
     public int SkippedHidesAbstract;
