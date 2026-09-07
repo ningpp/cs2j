@@ -45,6 +45,11 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
     private HashSet<string> _typeSignatures = new(StringComparer.Ordinal);
     private HashSet<string> _localFunctionSignatures = new(StringComparer.Ordinal);
 
+    // Tracks whether the current type already has a [JsonConstructor]-attributed
+    // constructor so that at most one is emitted after strip-default.
+    private bool _typeHasJsonConstructor;
+    private bool _typeAddedJsonConstructor;
+
     public bool Changed { get; private set; }
 
     public DefaultParameterDeclarationRewriter(
@@ -110,8 +115,12 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
     {
         var savedTypeSignatures = _typeSignatures;
         var savedLocalSignatures = _localFunctionSignatures;
+        var savedHasJsonConstructor = _typeHasJsonConstructor;
+        var savedAddedJsonConstructor = _typeAddedJsonConstructor;
         _typeSignatures = new HashSet<string>(StringComparer.Ordinal);
         _localFunctionSignatures = new HashSet<string>(StringComparer.Ordinal);
+        _typeHasJsonConstructor = TypeHasJsonConstructor(node.Members);
+        _typeAddedJsonConstructor = false;
 
         foreach (var member in node.Members)
         {
@@ -157,6 +166,8 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
 
         _typeSignatures = savedTypeSignatures;
         _localFunctionSignatures = savedLocalSignatures;
+        _typeHasJsonConstructor = savedHasJsonConstructor;
+        _typeAddedJsonConstructor = savedAddedJsonConstructor;
         return result;
     }
 
@@ -296,7 +307,30 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         _stats.DeclarationsStripped++;
         CountStrippedParameters(ctor.ParameterList.Parameters);
 
-        output.Add(visited.WithParameterList(StripDefaults(ctor.ParameterList)));
+        var strippedCtor = visited.WithParameterList(StripDefaults(ctor.ParameterList));
+
+        if (_options.GenerateOverloads && _model != null
+            && !_typeHasJsonConstructor && !_typeAddedJsonConstructor
+            && !HasJsonConstructorAttribute(strippedCtor))
+        {
+            // When the original constructor had a default value and overload
+            // generation will create additional constructors, the type ends up
+            // with multiple parameterized constructors. System.Text.Json selects
+            // the constructor to use for deserialization by looking for a unique
+            // parameterized constructor (or [JsonConstructor]). Without the
+            // attribute, it throws NotSupportedException. Annotate the stripped
+            // original — which accepts all parameters — so deserialization
+            // keeps binding every JSON property to a constructor argument, the
+            // same behaviour as before the default was removed.
+            var annotatedCtor = AddJsonConstructorAttribute(strippedCtor);
+            if (annotatedCtor != strippedCtor)
+            {
+                strippedCtor = annotatedCtor;
+                _typeAddedJsonConstructor = true;
+            }
+        }
+
+        output.Add(strippedCtor);
 
         if (!_options.GenerateOverloads || _model == null)
         {
@@ -946,6 +980,242 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         }
         return $"{function.Identifier.Text}({string.Join(",", types)})";
     }
+
+    // -----------------------------------------------------------------------
+    // JsonConstructor helpers
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// True when any constructor of the type is already annotated with
+    /// <c>[JsonConstructor]</c>. At most one constructor per type may carry
+    /// the attribute, so strip-default must never add a second one.
+    /// </summary>
+    private static bool TypeHasJsonConstructor(SyntaxList<MemberDeclarationSyntax> members)
+    {
+        foreach (var member in members)
+        {
+            if (member is ConstructorDeclarationSyntax ctor
+                && HasJsonConstructorAttribute(ctor))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool HasJsonConstructorAttribute(ConstructorDeclarationSyntax ctor)
+    {
+        foreach (var list in ctor.AttributeLists)
+        {
+            foreach (var attribute in list.Attributes)
+            {
+                var name = attribute.Name.ToString();
+                if (name.EndsWith("JsonConstructor", StringComparison.Ordinal)
+                    || name.EndsWith("JsonConstructorAttribute", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Adds <c>[JsonConstructor]</c> to a constructor so that
+    /// System.Text.Json keeps using it for deserialization after
+    /// strip-default has generated forwarding overloads.
+    ///
+    /// Returns the constructor unchanged when the attribute name
+    /// cannot be resolved (see <see cref="ResolveJsonConstructorAttributeName"/>).
+    /// </summary>
+    private ConstructorDeclarationSyntax AddJsonConstructorAttribute(
+        ConstructorDeclarationSyntax ctor)
+    {
+        var name = ResolveJsonConstructorAttributeName();
+        if (name == null)
+        {
+            // Cannot resolve JsonConstructor in this file — skip.
+            return ctor;
+        }
+
+        var attribute = SyntaxFactory.Attribute(SyntaxFactory.ParseName(name));
+        var attributeList = SyntaxFactory.AttributeList(
+            SyntaxFactory.SingletonSeparatedList(attribute));
+        return ctor.WithAttributeLists(ctor.AttributeLists.Add(attributeList));
+    }
+
+    /// <summary>
+    /// Returns the attribute name to emit for <c>JsonConstructor</c>, or
+    /// <c>null</c> when no attribute should be added.
+    ///
+    /// The attribute is only emitted when the current file already
+    /// references a <c>System.Text.Json.Serialization</c> attribute (such
+    /// as <c>[JsonConstructor]</c>, <c>[JsonIgnore]</c>,
+    /// <c>[JsonPropertyName]</c>, etc.) — this is a reliable signal that
+    /// the file participates in System.Text.Json (de)serialisation and
+    /// therefore the project references the correct assembly.
+    ///
+    /// When emitted, the bare name <c>JsonConstructor</c> is used so it
+    /// resolves to the same attribute type the project's own serialiser
+    /// checks for (critical for renamed copies of System.Text.Json).
+    /// </summary>
+    private string? ResolveJsonConstructorAttributeName()
+    {
+        if (_model == null)
+            return null;
+
+        try
+        {
+            // Check whether the current file already uses any
+            // System.Text.Json.Serialization attribute. This is the
+            // signal that the file's project references the correct
+            // assembly and the bare name will resolve.
+            if (!FileUsesJsonAttributes(_model.SyntaxTree))
+                return null;
+
+            // Determine the namespace of JsonConstructorAttribute.
+            // Prefer a source-defined type (renamed copy), then fall back
+            // to the inbox System.Text.Json.
+            foreach (var ns in s_candidateNamespaces)
+            {
+                var typeSymbol = _model.Compilation.GetTypeByMetadataName(
+                    $"{ns}.JsonConstructorAttribute");
+                if (typeSymbol != null && IsDefinedInCompilationAssembly(typeSymbol))
+                {
+                    // Source-defined — use bare name so it binds to the
+                    // project's own type. The file already has the right
+                    // usings (verified above).
+                    return "JsonConstructor";
+                }
+            }
+
+            // No source-defined attribute; check if the file has a using
+            // directive for the namespace. If so, use the bare name — it
+            // resolves via the using and is shorter. Otherwise use the
+            // fully-qualified name.
+            foreach (var ns in s_candidateNamespaces)
+            {
+                var typeSymbol = _model.Compilation.GetTypeByMetadataName(
+                    $"{ns}.JsonConstructorAttribute");
+                if (typeSymbol != null)
+                {
+                    if (FileHasUsingDirective(ns))
+                        return "JsonConstructor";
+                    return $"{ns}.JsonConstructor";
+                }
+            }
+
+            // The file uses JSON attributes (verified above) so it already
+            // has the correct using directives. Use the bare name — it
+            // will resolve via the existing using. This handles the case
+            // where the compilation references System.Text.Json but the
+            // semantic model cannot resolve the type by metadata name
+            // (e.g. when the reference is a facade or the assembly is
+            // loaded via AssemblyLoadContext).
+            return "JsonConstructor";
+        }
+        catch (Exception)
+        {
+            // Fall through
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// True when the syntax tree has a <c>using &lt;namespace&gt;;</c>
+    /// directive (non-global) for the specified namespace.
+    /// </summary>
+    private bool FileHasUsingDirective(string namespaceName)
+    {
+        if (_model == null)
+            return false;
+
+        var root = _model.SyntaxTree.GetRoot() as CompilationUnitSyntax;
+        if (root == null)
+            return false;
+
+        foreach (var use in root.Usings)
+        {
+            // Skip global usings (C# 10): they have a "global" keyword prefix.
+            var nameStr = use.Name?.ToString();
+            if (nameStr != null
+                && string.Equals(nameStr, namespaceName, StringComparison.Ordinal))
+            {
+                // Check that this is not a global using by looking at the
+                // raw text — global usings start with "global ".
+                var fullText = use.ToString();
+                if (!fullText.StartsWith("global ", StringComparison.Ordinal))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// True when the syntax tree contains any attribute whose name ends
+    /// with a known System.Text.Json.Serialization attribute name
+    /// (JsonConstructor, JsonIgnore, JsonPropertyName, JsonConverter,
+    /// JsonExtensionData, JsonInclude, JsonNumberHandling).
+    /// </summary>
+    private static bool FileUsesJsonAttributes(SyntaxTree tree)
+    {
+        var root = tree.GetRoot();
+        foreach (var node in root.DescendantNodes())
+        {
+            if (node is not AttributeSyntax attribute)
+                continue;
+
+            var name = attribute.Name.ToString();
+            foreach (var suffix in s_jsonAttributeSuffixes)
+            {
+                if (name.EndsWith(suffix, StringComparison.Ordinal))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private static readonly string[] s_jsonAttributeSuffixes =
+    [
+        "JsonConstructor",
+        "JsonConstructorAttribute",
+        "JsonIgnore",
+        "JsonIgnoreAttribute",
+        "JsonPropertyName",
+        "JsonPropertyNameAttribute",
+        "JsonConverter",
+        "JsonConverterAttribute",
+        "JsonExtensionData",
+        "JsonExtensionDataAttribute",
+        "JsonInclude",
+        "JsonIncludeAttribute",
+        "JsonNumberHandling",
+        "JsonNumberHandlingAttribute",
+    ];
+
+    /// <summary>
+    /// True when the symbol's containing assembly is also one of the
+    /// compilation's own syntax trees (i.e. the type is source-defined,
+    /// not merely referenced).
+    /// </summary>
+    private bool IsDefinedInCompilationAssembly(ITypeSymbol typeSymbol)
+    {
+        var assembly = typeSymbol.ContainingAssembly;
+        if (assembly == null)
+            return false;
+
+        return string.Equals(
+            assembly.Name,
+            _model?.Compilation.AssemblyName,
+            StringComparison.Ordinal);
+    }
+
+    private static readonly string[] s_candidateNamespaces =
+    [
+        "dotnet.text.json.Serialization",
+        "System.Text.Json.Serialization",
+    ];
 
     // -----------------------------------------------------------------------
     // Helpers

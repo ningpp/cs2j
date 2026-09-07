@@ -1,3 +1,7 @@
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using CSharpToJava.Core.DefaultParameterStripper;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -330,12 +334,143 @@ public class DefaultParameterStripperTests
         AssertCompileClean(result.OutputCode);
     }
 
+    // ------------------------------------------------------------------
+    // JsonConstructor attribute — ensures System.Text.Json can still
+    // select the right constructor for deserialization after strip-default
+    // generates forwarding overloads.
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// When a class has a single parameterized constructor with a default
+    /// value and the file already uses JSON attributes (e.g. [JsonIgnore]),
+    /// strip-default must annotate the stripped original constructor with
+    /// [JsonConstructor] so that System.Text.Json does not throw
+    /// NotSupportedException ("no singular parameterized constructor").
+    /// </summary>
+    [Fact]
+    public void Strip_ConstructorWithDefault_AddsJsonConstructor_WhenFileUsesJsonAttributes()
+    {
+        var src = """
+            using System.Text.Json.Serialization;
+            class C
+            {
+                [JsonIgnore]
+                public int X { get; }
+                public C(int x, int y = 5) => X = x;
+            }
+            """;
+        var result = Strip(src);
+        _output.WriteLine("Output:\n" + result.OutputCode);
+        Assert.True(result.Changed);
+        // The stripped original constructor (with all params) gets [JsonConstructor]
+        Assert.Contains("[JsonConstructor]", result.OutputCode);
+        // The generated overload must NOT carry the attribute
+        var lines = result.OutputCode.Split('\n');
+        var overloadLines = lines.Where(l => l.Contains("public C(int x)") && !l.Contains("int y"));
+        Assert.All(overloadLines, l => Assert.DoesNotContain("JsonConstructor", l));
+        AssertCompileClean(result.OutputCode);
+    }
+
+    /// <summary>
+    /// When the file does not use any System.Text.Json attributes,
+    /// strip-default must NOT add [JsonConstructor] — the attribute may
+    /// reference an assembly the project does not have.
+    /// </summary>
+    [Fact]
+    public void Strip_ConstructorWithDefault_NoJsonConstructor_WhenFileHasNoJsonAttributes()
+    {
+        var src = "class C { public C(int x, int y = 5) { } }";
+        var result = Strip(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("JsonConstructor", result.OutputCode);
+        AssertCompileClean(result.OutputCode);
+    }
+
+    /// <summary>
+    /// When the type already has a [JsonConstructor]-attributed constructor,
+    /// strip-default must not add a second one.
+    /// </summary>
+    [Fact]
+    public void Strip_ConstructorWithDefault_DoesNotAddSecond_WhenJsonConstructorAlreadyPresent()
+    {
+        var src = """
+            using System.Text.Json.Serialization;
+            class C
+            {
+                public int X { get; }
+                [JsonConstructor]
+                public C(int x, int y = 5) => X = x;
+            }
+            """;
+        var result = Strip(src);
+        Assert.True(result.Changed);
+        // Count occurrences of [JsonConstructor] — should be exactly 1
+        var count = result.OutputCode.Split("JsonConstructor").Length - 1;
+        Assert.Equal(1, count);
+        AssertCompileClean(result.OutputCode);
+    }
+
+    /// <summary>
+    /// When multiple constructors have default values, only the first one
+    /// processed gets [JsonConstructor] (at most one per type).
+    /// </summary>
+    [Fact]
+    public void Strip_MultipleConstructorsWithDefaults_AddsAtMostOneJsonConstructor()
+    {
+        var src = """
+            using System.Text.Json.Serialization;
+            class C
+            {
+                [JsonIgnore]
+                public int X { get; }
+                public C(int x, int y = 5) => X = x;
+                public C(int x, int y, int z = 7) => X = x;
+            }
+            """;
+        var result = Strip(src);
+        Assert.True(result.Changed);
+        var count = result.OutputCode.Split("JsonConstructor").Length - 1;
+        Assert.True(count <= 1, $"Expected at most 1 JsonConstructor, found {count}");
+        AssertCompileClean(result.OutputCode);
+    }
+
+    /// <summary>
+    /// When GenerateOverloads is disabled, no overload is generated, so
+    /// no [JsonConstructor] should be added (the type still has a single
+    /// parameterized constructor).
+    /// </summary>
+    [Fact]
+    public void Strip_NoOverloads_NoJsonConstructor()
+    {
+        var src = """
+            using System.Text.Json.Serialization;
+            class C
+            {
+                [JsonIgnore]
+                public int X { get; }
+                public C(int x, int y = 5) => X = x;
+            }
+            """;
+        var tree = CSharpSyntaxTree.ParseText(src);
+        var compilation = CSharpCompilation.Create("strip-test-no-overload",
+            new[] { tree },
+            BuildMetadataReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+        var stripper = new DefaultParameterStripper();
+        stripper.Collect(tree, model);
+        var result = stripper.Strip(src, model, new DefaultParameterStripperOptions(GenerateOverloads: false));
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("JsonConstructor", result.OutputCode);
+        AssertCompileClean(result.OutputCode);
+    }
+
     private static void AssertCompileClean(string source)
     {
         var tree = CSharpSyntaxTree.ParseText(source);
         var compilation = CSharpCompilation.Create("strip-output-test",
             new[] { tree },
-            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            BuildMetadataReferences(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var errors = compilation.GetDiagnostics()
             .Where(d => d.Severity == DiagnosticSeverity.Error)
@@ -349,12 +484,69 @@ public class DefaultParameterStripperTests
         var tree = CSharpSyntaxTree.ParseText(src);
         var compilation = CSharpCompilation.Create("strip-test",
             new[] { tree },
-            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            BuildMetadataReferences(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var model = compilation.GetSemanticModel(tree);
         var stripper = new DefaultParameterStripper();
         // Pass 1 registers declarations so call sites can be completed.
         stripper.Collect(tree, model);
         return stripper.Strip(src, model);
+    }
+
+    /// <summary>
+    /// Builds the set of metadata references needed for test compilations.
+    /// Includes System.Text.Json (and its transitive dependencies like
+    /// System.Runtime) so that [JsonConstructor] / [JsonIgnore] attributes
+    /// in test source can compile and be resolved by the rewriter's
+    /// semantic model.
+    /// </summary>
+    private static IEnumerable<MetadataReference> BuildMetadataReferences()
+    {
+        var result = new List<MetadataReference>
+        {
+            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+        };
+
+        // Names of assemblies that should be referenced for JSON attribute
+        // compilation. We try to load them explicitly because they may not
+        // be present in the test host's AppDomain.
+        var requiredAssemblies = new[]
+        {
+            "System.Runtime",
+            "System.Text.Json",
+            "System.Text.Encodings.Web",
+            "System.Buffers",
+            "System.Memory",
+            "System.Numerics.Vectors",
+            "System.Threading.Tasks.Extensions",
+            "System.Runtime.CompilerServices.Unsafe",
+            "System.Collections.Immutable",
+        };
+
+        foreach (var name in requiredAssemblies)
+        {
+            try
+            {
+                var asm = AppDomain.CurrentDomain.GetAssemblies()
+                    .FirstOrDefault(a => string.Equals(
+                        a.GetName().Name, name, StringComparison.OrdinalIgnoreCase));
+                if (asm == null)
+                {
+                    // Try to load it from the .NET runtime directory.
+                    var rtDir = RuntimeEnvironment.GetRuntimeDirectory();
+                    var path = Path.Combine(rtDir, name + ".dll");
+                    if (File.Exists(path))
+                        asm = Assembly.LoadFrom(path);
+                }
+                if (asm != null && !asm.IsDynamic
+                    && !string.IsNullOrEmpty(asm.Location))
+                {
+                    result.Add(MetadataReference.CreateFromFile(asm.Location));
+                }
+            }
+            catch { /* skip unavailable assembly */ }
+        }
+
+        return result;
     }
 }
