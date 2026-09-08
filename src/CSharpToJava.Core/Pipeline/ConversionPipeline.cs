@@ -526,34 +526,46 @@ public class ConversionPipeline
         if (!trimmed.Contains("if (") && !trimmed.Contains("for (") && !trimmed.Contains("while ("))
             return line;
 
-        // Find first `(` for the if/while/for condition
+        // Build a mask of literal regions (char literals 'x', string literals "x")
+        // so that parentheses inside literals are not counted as structural parens.
+        var literalMask = BuildLiteralMask(trimmed);
+
+        // Find first `(` for the if/while/for condition (skip parens inside literals)
         int outerOpen = -1;
         for (int i = 0; i < trimmed.Length; i++)
         {
+            if (literalMask[i]) continue;
             if (trimmed[i] == '(' && (i == 0 || trimmed[i - 1] != '='))
             { outerOpen = i; break; }
         }
         if (outerOpen < 0) return line;
 
-        // Find `{`
-        int braceStart = trimmed.IndexOf('{', outerOpen);
+        // Find `{` (skip braces inside literals)
+        int braceStart = -1;
+        for (int i = outerOpen; i < trimmed.Length; i++)
+        {
+            if (literalMask[i]) continue;
+            if (trimmed[i] == '{') { braceStart = i; break; }
+        }
         if (braceStart <= outerOpen + 1) return line;
 
-        // Find the closing `)` for the condition (last `)` before ` {`)
+        // Find the closing `)` for the condition (last `)` before ` {`, skip literals)
         int outerClose = -1;
         for (int i = braceStart - 1; i > outerOpen; i--)
         {
+            if (literalMask[i]) continue;
             if (trimmed[i] == ')') { outerClose = i; break; }
             else if (!char.IsWhiteSpace(trimmed[i]) && trimmed[i] != '(')
                 break; // Not a clean `) {` pattern
         }
         if (outerClose <= outerOpen) return line;
 
-        // Compute depth within the outer ( )
-        var condition = trimmed.Substring(outerOpen + 1, outerClose - outerOpen - 1);
+        // Compute depth within the outer ( ), skipping literals
         int depth = 0;
-        foreach (char c in condition)
+        for (int i = outerOpen + 1; i < outerClose; i++)
         {
+            if (literalMask[i]) continue;
+            char c = trimmed[i];
             if (c == '(') depth++;
             else if (c == ')') depth--;
         }
@@ -570,13 +582,64 @@ public class ConversionPipeline
             // More `)` than `(` — remove extra `(` from beginning of condition
             int toRemove = -depth;
             int skipStart = outerOpen + 1;
-            while (toRemove > 0 && skipStart < outerClose && trimmed[skipStart] == '(')
+            while (toRemove > 0 && skipStart < outerClose)
             {
+                // Skip literal regions when looking for leading `(`
+                if (literalMask[skipStart]) { skipStart++; continue; }
+                if (trimmed[skipStart] != '(') break;
                 skipStart++;
                 toRemove--;
             }
             return trimmed.Substring(0, outerOpen + 1) + trimmed.Substring(skipStart);
         }
+    }
+
+    /// <summary>
+    /// Builds a boolean mask indicating which character positions are inside
+    /// char literals ('x') or string literals ("x"). Positions inside literals
+    /// should be ignored when counting structural parentheses, because a
+    /// char literal like '(' or ')' contains paren characters that are not
+    /// code-level parens.
+    /// </summary>
+    private static bool[] BuildLiteralMask(string line)
+    {
+        var mask = new bool[line.Length];
+        bool inChar = false;
+        bool inString = false;
+        bool escaped = false;
+
+        for (int i = 0; i < line.Length; i++)
+        {
+            char c = line[i];
+
+            if (escaped)
+            {
+                escaped = false;
+                continue;
+            }
+
+            if (inChar)
+            {
+                mask[i] = true;
+                if (c == '\\') { escaped = true; continue; }
+                if (c == '\'') { inChar = false; }
+                continue;
+            }
+
+            if (inString)
+            {
+                mask[i] = true;
+                if (c == '\\') { escaped = true; continue; }
+                if (c == '"') { inString = false; }
+                continue;
+            }
+
+            // Not inside any literal — check for literal starts
+            if (c == '\'') { inChar = true; mask[i] = true; continue; }
+            if (c == '"') { inString = true; mask[i] = true; continue; }
+        }
+
+        return mask;
     }
 
     private static string ConvertBareTernaryToIfElse(string line)
