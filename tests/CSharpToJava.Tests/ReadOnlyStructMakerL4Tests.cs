@@ -744,4 +744,46 @@ class User {
         // ...while real converted-struct writes are still rewritten.
         Assert.Contains("w=w.WithValue(3)", output);
     }
+
+    [Fact]
+    public void SwitchCase_OriginalScopeBlocks_NotFlattened()
+    {
+        // Regression: AssignmentRewriter.VisitSwitchSection used to flatten ALL
+        // nested blocks in switch cases (not just generated ones), which removed
+        // the independent variable scoping that original C# blocks provide.
+        // Two cases declaring `int mark` in separate `{ }` blocks must NOT be
+        // merged into a single scope (CS0128).
+        var src = @"
+struct Point {
+    public int X;
+    public Point(int x) { X = x; }
+}
+class User {
+    void M(int mode) {
+        Point p = new Point(0);
+        switch (mode) {
+            case 1:
+                p.X = 1;
+                {
+                    int mark = 1;
+                    p.X = mark;
+                }
+                break;
+            case 2:
+                {
+                    int mark = 2;
+                    p.X = mark;
+                }
+                break;
+        }
+    }
+}";
+        var result = RunMaker(src);
+        Assert.True(result.Changed);
+        var output = result.OutputCode!;
+
+        // Both `int mark` declarations must survive (original blocks preserved).
+        Assert.Contains("int mark = 1;", output);
+        Assert.Contains("int mark = 2;", output);
+    }
 }

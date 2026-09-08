@@ -40,6 +40,16 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     // parameter names (in order).
     private readonly Dictionary<string, (HashSet<string> Props, List<string> CtorParams)> _l3Structs = new();
 
+    /// <summary>
+    /// Annotation attached to <c>BlockSyntax</c> nodes created by this rewriter
+    /// (from <see cref="VisitExpressionStatement"/>, <see cref="VisitReturnStatement"/>,
+    /// <see cref="VisitLocalDeclarationStatement"/>). <see cref="VisitSwitchSection"/>
+    /// flattens only these blocks so local variables stay visible to subsequent
+    /// statements in the case — but never flattens original source-code blocks,
+    /// which provide independent variable scoping (e.g. `case X: { int v = ...; }`).
+    /// </summary>
+    private static readonly SyntaxAnnotation _generatedBlockAnnotation = new("cs2j-generated-block");
+
     public AssignmentRewriter(
         Dictionary<string, HashSet<string>> structFields,
         SemanticModel? semanticModel,
@@ -193,7 +203,8 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                     statements.Add(SyntaxFactory.ExpressionStatement(rewritten));
                 }
             }
-            return SyntaxFactory.Block(statements).WithTriviaFrom(node);
+            return SyntaxFactory.Block(statements).WithTriviaFrom(node)
+                .WithAdditionalAnnotations(_generatedBlockAnnotation);
         }
 
         // Chained struct field assignment: a.x = a.y = value
@@ -229,7 +240,8 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 statements.AddRange(outerBlock.Statements);
             else
                 statements.Add(visitedOuter);
-            return SyntaxFactory.Block(statements).WithTriviaFrom(node);
+            return SyntaxFactory.Block(statements).WithTriviaFrom(node)
+                .WithAdditionalAnnotations(_generatedBlockAnnotation);
         }
 
         return base.VisitExpressionStatement(node);
@@ -255,7 +267,8 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                 var returnStatement = SyntaxFactory.ReturnStatement(returnAssign.Right)
                     .WithLeadingTrivia(SyntaxFactory.Whitespace("            "));
                 return SyntaxFactory.Block(assignStatement, returnStatement)
-                    .WithTriviaFrom(node);
+                    .WithTriviaFrom(node)
+                    .WithAdditionalAnnotations(_generatedBlockAnnotation);
             }
         }
         return base.VisitReturnStatement(node);
@@ -311,7 +324,8 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
                                 SyntaxFactory.IdentifierName(tempName))))))
                     .WithLeadingTrivia(SyntaxFactory.Whitespace("            "));
                 return SyntaxFactory.Block(tempDecl, assignStatement, newDecl)
-                    .WithTriviaFrom(node);
+                    .WithTriviaFrom(node)
+                    .WithAdditionalAnnotations(_generatedBlockAnnotation);
             }
         }
         return base.VisitLocalDeclarationStatement(node);
@@ -649,22 +663,20 @@ public sealed class AssignmentRewriter : CSharpSyntaxRewriter
     {
         node = (SwitchSectionSyntax)base.VisitSwitchSection(node)!;
 
-        // Flatten nested blocks produced by VisitLocalDeclarationStatement /
-        // VisitExpressionStatement / VisitReturnStatement in switch cases,
-        // so local variables stay visible to subsequent statements in the case.
-        // BUT: do NOT flatten a single top-level BlockSyntax that wraps the
-        // entire case body — that block provides variable scoping in C# and
-        // removing it would cause duplicate variable declarations across
-        // sibling cases that declare the same local names (e.g. 'type').
+        // Flatten nested blocks PRODUCED by this rewriter (annotated blocks
+        // from VisitLocalDeclarationStatement / VisitExpressionStatement /
+        // VisitReturnStatement) so local variables stay visible to subsequent
+        // statements in the case.
+        // BUT: do NOT flatten original source-code blocks — those provide
+        // independent variable scoping in C# and removing them would cause
+        // duplicate variable declarations across sibling cases that declare
+        // the same local names (e.g. `case A: { int v = 1; } case B: { int v = 2; }`).
         var newStatements = new List<StatementSyntax>();
         var changed = false;
-        // Skip flattening when the section has exactly one statement that is
-        // a BlockSyntax — this is the original C# case body block.
-        var isSingleBlockCase = node.Statements.Count == 1
-            && node.Statements[0] is BlockSyntax;
         foreach (var statement in node.Statements)
         {
-            if (!isSingleBlockCase && statement is BlockSyntax innerBlock)
+            if (statement is BlockSyntax innerBlock &&
+                innerBlock.GetAnnotations(_generatedBlockAnnotation.Kind).Any())
             {
                 newStatements.AddRange(innerBlock.Statements);
                 changed = true;
