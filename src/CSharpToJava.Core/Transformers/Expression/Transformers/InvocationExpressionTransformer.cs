@@ -12893,14 +12893,7 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         if (methodSymbol == null || classTypeTokens == null || classTypeTokens.Count == 0)
             return false;
         var originalDef = methodSymbol.OriginalDefinition;
-        // If the method has registered leading Class<T> params, tokens should be
-        // prepended (even if trailing params also exist — the leading slots come first).
-        if (context.MethodHasClassParams(originalDef))
-        {
-            var leadingNames = context.GetMethodClassTypeParamNames(originalDef);
-            if (leadingNames != null && leadingNames.Count > 0)
-                return false; // has leading params — prepend
-        }
+
         // Check if the method has trailing Class<?> params covering method-level
         // type parameters (added by AddRuntimeClassParametersForTypeParameterArrays).
         var trailingCovered = RuntimeClassParameterHelper
@@ -12919,8 +12912,28 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     trailingCovered.Add(req.Name);
             }
         }
-        // If there are trailing-covered type parameters and no leading params,
-        // the tokens should be appended.
+
+        // If the method has registered leading Class<T> params, tokens should be
+        // prepended (even if trailing params also exist — the leading slots come first).
+        // However, when ALL leading-registered params are also trailing-covered,
+        // the method uses trailing-only Class<?> parameters (the leading registration
+        // was a false positive from GetClassTypeTokensForCall's RequireClassTypeParam
+        // call, which fires before the declaration site has a chance to clear it).
+        // In that case, trailing takes precedence and tokens must be appended.
+        if (context.MethodHasClassParams(originalDef))
+        {
+            var leadingNames = context.GetMethodClassTypeParamNames(originalDef);
+            if (leadingNames != null && leadingNames.Count > 0)
+            {
+                // If all leading-registered names are also trailing-covered,
+                // the method actually uses trailing Class<?> params — append.
+                bool allTrailingCovered = leadingNames.All(n => trailingCovered.Contains(n));
+                if (!allTrailingCovered)
+                    return false; // has genuine leading params — prepend
+            }
+        }
+
+        // If there are trailing-covered type parameters, the tokens should be appended.
         if (trailingCovered.Count > 0)
             return true;
 
