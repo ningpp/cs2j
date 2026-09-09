@@ -341,6 +341,64 @@ public static class JavaNaming
     public static string GetErasureRenamedSuffix(int typeParameterCount)
         => $"_{typeParameterCount}tp";
 
+    /// <summary>
+    /// Returns "_0tp" when the method is a non-generic overload of
+    /// System.Text.Json.JsonSerializer (or dotnet.text.json.JsonSerializer)
+    /// that takes a System.Type parameter — e.g. DeserializeAsync(Stream,
+    /// Type, ...), SerializeAsync(Stream, Object, Type, ...). The generic
+    /// overloads lead with a Class&lt;T&gt; token in Java, making bare-null
+    /// call sites ambiguous; the _0tp suffix disambiguates the non-generic
+    /// overload on both declarations and call sites.
+    ///
+    /// Also covers SerializationWrapper.SerializeWrapper(object, Type) and
+    /// overrides in subclasses of that test helper.
+    ///
+    /// Returns an empty string when the suffix does not apply.
+    /// </summary>
+    public static string GetJsonTypeOverloadSuffix(IMethodSymbol? method, string methodName)
+    {
+        if (method is null) return "";
+        // Non-generic JsonSerializer overloads taking System.Type
+        if (method is { IsGenericMethod: false } jsonNg
+            && jsonNg.ContainingType.ToDisplayString()
+                is "System.Text.Json.JsonSerializer" or "dotnet.text.json.JsonSerializer"
+            && methodName is "Deserialize" or "DeserializeAsync"
+                or "Serialize" or "SerializeAsync" or "SerializeToUtf8Bytes"
+            && jsonNg.Parameters.Any(p => p.Type.ToDisplayString() == "System.Type"))
+        {
+            return "_0tp";
+        }
+
+        // Non-generic SerializationWrapper.SerializeWrapper(object, Type)
+        if (method is { IsGenericMethod: false } serWrapperNg
+            && methodName == "SerializeWrapper"
+            && serWrapperNg.Parameters.Any(p => p.Type.ToDisplayString() == "System.Type")
+            && IsInSerializationWrapperHierarchy(method))
+        {
+            return "_0tp";
+        }
+
+        return "";
+    }
+
+    /// <summary>
+    /// True when the method's containing type or any of its base types
+    /// is SerializationWrapper (the test helper class whose non-generic
+    /// SerializeWrapper(object, Type) overload needs the _0tp suffix to
+    /// avoid ambiguity with the generic overload).
+    /// </summary>
+    private static bool IsInSerializationWrapperHierarchy(IMethodSymbol method)
+    {
+        var type = method.ContainingType;
+        while (type != null)
+        {
+            if (type.ToDisplayString() == "dotnet.text.json.Serialization.Tests.SerializationWrapper")
+                return true;
+            type = type.BaseType;
+        }
+        return false;
+    }
+
     private static bool HaveSameErasedParameters(IMethodSymbol a, IMethodSymbol b)
     {
         for (int i = 0; i < a.Parameters.Length; i++)

@@ -144,7 +144,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 ? GetLocalFunctionCallSiteName(genericMethodName.Identifier.Text, bareMethodSym, context)
                 : ApplyCamelCaseAndMappings(genericMethodName.Identifier.Text, invocation, context);
             if (bareMethodSym != null && !isLocalFunctionCall)
+            {
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
+                methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym, genericMethodName.Identifier.Text);
+            }
             var call = new JavaMethodCallExpression { MethodName = methodName };
             AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
             // Class<T> tokens for registered generic methods (e.g. hoisted local
@@ -228,7 +231,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 ? GetLocalFunctionCallSiteName(bareIdent.Identifier.Text, bareMethodSym2, context)
                 : ApplyCamelCaseAndMappings(bareIdent.Identifier.Text, invocation, context);
             if (bareMethodSym2 != null && !isLocalFunctionCall)
+            {
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
+                // Non-generic JsonSerializer/SerializationWrapper Type overloads
+                // need _0tp suffix on forwarding calls too (e.g. default-param
+                // overload body calling the full method), not just on declarations.
+                methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym2, bareIdent.Identifier.Text);
+            }
             var call = new JavaMethodCallExpression { MethodName = methodName };
             AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
             return call;
@@ -343,7 +352,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             }
 
             if (bareMethodSym != null && !isLocalFunctionCall)
+            {
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
+                // Non-generic JsonSerializer/SerializationWrapper Type overloads
+                // need _0tp suffix when overload disambiguation switched to the
+                // non-generic version (keepGenericBinding == false path).
+                methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym, genericMethodName.Identifier.Text);
+            }
 
             // JsonSerializer.Deserialize<TValue>(string json, Type, options) call
             // sites: prefer the (String, Class, options) overload — the span overload
@@ -627,7 +642,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             }
 
             if (bareMethodSym2 != null && !isLocalFunctionCall)
+            {
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
+                // Non-generic JsonSerializer/SerializationWrapper Type overloads
+                // need _0tp suffix on forwarding calls too (e.g. default-param
+                // overload body calling the full method), not just on declarations.
+                methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym2, bareIdent.Identifier.Text);
+            }
 
             // Calls to capturing local functions are hoisted with the captured variables
             // passed as trailing arguments (declaration and call site share the capture

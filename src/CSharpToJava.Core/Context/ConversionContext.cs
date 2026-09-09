@@ -1,4 +1,4 @@
-﻿﻿﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Analysis;
@@ -1730,4 +1730,5 @@ _pendingClassTypeParams ??= new();
     public static bool IsJavaKeyword(string word) => JavaNaming.IsJavaKeyword(word);
     public static string EscapeJavaKeyword(string word) => JavaNaming.EscapeJavaKeyword(word);
     public static string GetErasureConflictSuffix(IMethodSymbol method) => JavaNaming.GetErasureConflictSuffix(method);
+    public static string GetJsonTypeOverloadSuffix(IMethodSymbol? method, string methodName) => JavaNaming.GetJsonTypeOverloadSuffix(method, methodName);
 }
