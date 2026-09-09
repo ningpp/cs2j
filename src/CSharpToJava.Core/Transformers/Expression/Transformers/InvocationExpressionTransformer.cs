@@ -5421,6 +5421,13 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             methodName += "_0tp";
         }
 
+        // Non-generic SerializationWrapper.SerializeWrapper(object, Type) is renamed
+        // with the _0tp suffix on the declaration side. Apply the same suffix at
+        // call sites so the non-generic overload resolves correctly (the generic
+        // overload has a leading Class<T> parameter that makes bare calls ambiguous).
+        if (!methodName.EndsWith("_0tp", StringComparison.Ordinal))
+            methodName += ConversionContext.GetJsonTypeOverloadSuffix(methodSymbol, originalMethodName);
+
         // System.Buffers.Text.Utf8Parser.TryParse(span, out T value, out int bytesConsumed[, char]):
         // the compat helper names are typed by the out argument. Bare tryParse only accepts
         // the primitive holders (int/long/short/byte/sbyte/bool/float/double/uint/ulong);
