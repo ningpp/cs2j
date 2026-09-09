@@ -839,10 +839,21 @@ public class MethodTransformer : IMemberTransformer
                 // Local functions whose body calls JsonSerializer.Deserialize<T>
                 // need a TypeReference<T> token (like regular methods) so closed
                 // generic element types survive; plain typeof(T) uses Class<T>.
-                var localTokenType = (localFnSymbol != null
-                        && (context.IsTypeRefTypeParam(localFnSymbol, typeParameterName)
-                            || context.Options.RuntimeClassParameters.IsMethodTypeReference(localFnSymbol, typeParameterName)
-                            || CalleeJsonDeserializesTypeParameter(localFnSymbol, typeParameterName, context.SemanticModel)))
+                // Also check the ENCLOSING method: if it uses TypeReference<T> for
+                // the same type parameter, the hoisted local function must use the
+                // same token type so the call site (which forwards the enclosing
+                // method's token) type-matches.
+                var enclosingMethod = context.CurrentMethod;
+                bool localNeedsTypeRef =
+                    (localFnSymbol != null &&
+                        (context.IsTypeRefTypeParam(localFnSymbol, typeParameterName)
+                         || context.Options.RuntimeClassParameters.IsMethodTypeReference(localFnSymbol, typeParameterName)
+                         || CalleeJsonDeserializesTypeParameter(localFnSymbol, typeParameterName, context.SemanticModel)))
+                    || (enclosingMethod != null &&
+                        (context.IsTypeRefTypeParam(enclosingMethod, typeParameterName)
+                         || context.Options.RuntimeClassParameters.IsMethodTypeReference(enclosingMethod, typeParameterName)
+                         || CalleeJsonDeserializesTypeParameter(enclosingMethod, typeParameterName, context.SemanticModel)));
+                var localTokenType = localNeedsTypeRef
                     ? $"com.fasterxml.jackson.core.type.TypeReference<{typeParameterName}>"
                     : $"Class<{typeParameterName}>";
                 classTypeParams.Add(new JavaParameter(localTokenType, parameterName));
@@ -2850,6 +2861,27 @@ public class MethodTransformer : IMemberTransformer
             var isTypeRefToken = context.IsTypeRefTypeParam(sym, typeParameterName)
                     || CalleeJsonDeserializesTypeParameter(sym, typeParameterName, context.SemanticModel)
                     || context.Options.RuntimeClassParameters.IsMethodTypeReference(sym, typeParameterName);
+            // When the method body does NOT directly use typeof(T) (i.e. the pending
+            // requirement came from forwarding the token to a called method, not from
+            // the method's own typeof(T)), the token type must match the calling method's
+            // token type. If the caller uses TypeReference<T> (e.g. it calls Deserialize<T>),
+            // the callee must also use TypeReference<T> so the forwarded token type-matches.
+            if (!isTypeRefToken
+                && !MethodBodyHasTypeOfForParam(sym, typeParameterName, context))
+            {
+                // Check if any method in the same containing type that calls this method
+                // has a TypeReference registration for the same type parameter name.
+                // If so, use TypeReference to match the caller's token type.
+                isTypeRefToken = CallerHasTypeRefRegistration(sym, typeParameterName, context);
+                // Propagate the TypeReference status to the current method so that
+                // methods called by this one (which forward the same token) can
+                // detect the TypeReference requirement transitively.
+                if (isTypeRefToken)
+                {
+                    context.Options.RuntimeClassParameters.RegisterMethodTypeReference(
+                        sym.OriginalDefinition, typeParameterName);
+                }
+            }
             var tokenParameterType = isTypeRefToken
                 ? $"com.fasterxml.jackson.core.type.TypeReference<{typeParameterName}>"
                 : $"Class<{typeParameterName}>";
@@ -3807,5 +3839,161 @@ public class MethodTransformer : IMemberTransformer
         var returnType = context.GetTypeInfo(methodDecl.ReturnType).Type;
         return returnType?.SpecialType == SpecialType.System_Void
             || (methodDecl.ReturnType is PredefinedTypeSyntax pt && pt.Keyword.IsKind(SyntaxKind.VoidKeyword));
+    }
+
+    /// <summary>
+    /// Checks whether the method body directly uses typeof(typeParamName)
+    /// (as opposed to receiving the token via a forwarded call from a caller).
+    /// </summary>
+    private static bool MethodBodyHasTypeOfForParam(
+        IMethodSymbol methodSymbol,
+        string typeParamName,
+        ConversionContext context)
+    {
+        var originalDef = methodSymbol.OriginalDefinition;
+        foreach (var syntaxRef in originalDef.DeclaringSyntaxReferences)
+        {
+            var node = syntaxRef.GetSyntax() as MethodDeclarationSyntax;
+            if (node?.Body == null)
+                continue;
+
+            foreach (var typeOf in node.Body.DescendantNodes().OfType<TypeOfExpressionSyntax>())
+            {
+                if (typeOf.Type is IdentifierNameSyntax id
+                    && id.Identifier.Text == typeParamName)
+                {
+                    // Skip typeof(T) injected by the GenericPreprocessor as
+                    // var __cs2j_typeof_T = typeof(T); — these are forward-type-param
+                    // sentinels, not real typeof(T) usage. The pending requirement
+                    // from these sentinels comes from forwarding, not from the method's
+                    // own typeof(T) usage, so the token type should match the caller's.
+                    var parentDecl = typeOf.FirstAncestorOrSelf<LocalDeclarationStatementSyntax>();
+                    if (parentDecl != null)
+                    {
+                        foreach (var varDecl in parentDecl.Declaration.Variables)
+                        {
+                            if (varDecl.Identifier.Text.StartsWith("__cs2j_typeof_", StringComparison.Ordinal))
+                                goto skipThisTypeOf;
+                        }
+                    }
+                    return true;
+                skipThisTypeOf:
+                    ;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Checks whether any method in the same containing type that **actually calls**
+    /// <paramref name="targetMethod"/> has a TypeReference registration
+    /// for the same type parameter name. This is used to determine whether
+    /// a hoisted local function (which doesn't call Deserialize<T> itself)
+    /// should use TypeReference<T> instead of Class<T> to match the caller's
+    /// token type.
+    /// </summary>
+    private static bool CallerHasTypeRefRegistration(
+        IMethodSymbol targetMethod,
+        string typeParamName,
+        ConversionContext context)
+    {
+        return CallerHasTypeRefRegistrationRecursive(targetMethod, typeParamName, context, new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default));
+    }
+
+    private static bool CallerHasTypeRefRegistrationRecursive(
+        IMethodSymbol targetMethod,
+        string typeParamName,
+        ConversionContext context,
+        HashSet<IMethodSymbol> visited)
+    {
+        if (targetMethod.ContainingType == null)
+            return false;
+        if (!visited.Add(targetMethod))
+            return false; // Already checked — avoid infinite recursion
+
+        var originalDef = targetMethod.OriginalDefinition;
+
+        // Check all methods in the containing type that CALL targetMethod
+        foreach (var member in targetMethod.ContainingType.GetMembers())
+        {
+            if (member is not IMethodSymbol method)
+                continue;
+            if (SymbolEqualityComparer.Default.Equals(method, targetMethod))
+                continue;
+
+            // First check: does this method's body actually call targetMethod?
+            if (!MethodBodyCallsTarget(method.OriginalDefinition, originalDef, typeParamName, context))
+                continue;
+
+            // Second check: does this method have a TypeReference registration?
+            if (context.Options.RuntimeClassParameters.IsMethodTypeReference(
+                    method.OriginalDefinition, typeParamName))
+                return true;
+
+            // Also check CalleeJsonDeserializesTypeParameter
+            if (CalleeJsonDeserializesTypeParameter(method.OriginalDefinition, typeParamName, context.SemanticModel))
+                return true;
+
+            // Also check DeserializeAsync<T> calls
+            if (CalleeJsonDeserializeAsyncTypeParameter(method.OriginalDefinition, typeParamName, context.SemanticModel))
+                return true;
+
+            // Recursively check if the calling method itself needs TypeRef
+            // (transitive propagation through the call chain)
+            if (CallerHasTypeRefRegistrationRecursive(method, typeParamName, context, visited))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Checks whether <paramref name="callerMethod"/> body contains a call to
+    /// <paramref name="targetMethod"/> that forwards the type parameter
+    /// <paramref name="typeParamName"/> as an explicit type argument.
+    /// </summary>
+    private static bool MethodBodyCallsTarget(
+        IMethodSymbol callerMethod,
+        IMethodSymbol targetMethod,
+        string typeParamName,
+        ConversionContext context)
+    {
+        foreach (var syntaxRef in callerMethod.DeclaringSyntaxReferences)
+        {
+            var node = syntaxRef.GetSyntax();
+            foreach (var invocation in node.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax>())
+            {
+                // Check if this invocation calls targetMethod by name
+                var name = invocation.Expression switch
+                {
+                    Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax id => id.Identifier.Text,
+                    Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax gn => gn.Identifier.Text,
+                    Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax ma when ma.Name is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax id2 => id2.Identifier.Text,
+                    Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax ma2 when ma2.Name is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax gn2 => gn2.Identifier.Text,
+                    _ => null,
+                };
+                if (name == null)
+                    continue;
+                // Match by name (case-insensitive for hoisted local functions)
+                var targetName = targetMethod.Name;
+                if (!string.Equals(name, targetName, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(name, targetMethod.Name, StringComparison.Ordinal))
+                    continue;
+                // Check if the call has explicit type arguments matching typeParamName
+                if (invocation.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax gn3)
+                {
+                    foreach (var arg in gn3.TypeArgumentList.Arguments)
+                    {
+                        if (arg is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax id3
+                            && id3.Identifier.Text == typeParamName)
+                            return true;
+                    }
+                }
+                // Also check calls without explicit type arguments (inferred)
+                // — the token is still forwarded via the _cs2j_ parameter
+                return true;
+            }
+        }
+        return false;
     }
 }
