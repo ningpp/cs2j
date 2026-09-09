@@ -146,7 +146,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (bareMethodSym != null && !isLocalFunctionCall)
             {
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
-                methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym, genericMethodName.Identifier.Text);
+                // Skip _0tp when GetErasureConflictSuffix already returned it
+                // (private generic overload with same param count causes
+                // GetErasureConflictSuffix to return _0tp too).
+                if (!methodName.EndsWith("_0tp"))
+                    methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym, genericMethodName.Identifier.Text);
             }
             var call = new JavaMethodCallExpression { MethodName = methodName };
             AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
@@ -233,10 +237,11 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             if (bareMethodSym2 != null && !isLocalFunctionCall)
             {
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
-                // Non-generic JsonSerializer/SerializationWrapper Type overloads
-                // need _0tp suffix on forwarding calls too (e.g. default-param
-                // overload body calling the full method), not just on declarations.
-                methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym2, bareIdent.Identifier.Text);
+                // Skip _0tp when GetErasureConflictSuffix already returned it
+                // (private generic overload with same param count causes
+                // GetErasureConflictSuffix to return _0tp too).
+                if (!methodName.EndsWith("_0tp"))
+                    methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym2, bareIdent.Identifier.Text);
             }
             var call = new JavaMethodCallExpression { MethodName = methodName };
             AddArgumentsAsIR(call, invocation.ArgumentList, context, facade);
@@ -354,10 +359,11 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             if (bareMethodSym != null && !isLocalFunctionCall)
             {
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym);
-                // Non-generic JsonSerializer/SerializationWrapper Type overloads
-                // need _0tp suffix when overload disambiguation switched to the
-                // non-generic version (keepGenericBinding == false path).
-                methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym, genericMethodName.Identifier.Text);
+                // Skip _0tp when GetErasureConflictSuffix already returned it
+                // (private generic overload with same param count causes
+                // GetErasureConflictSuffix to return _0tp too).
+                if (!methodName.EndsWith("_0tp"))
+                    methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym, genericMethodName.Identifier.Text);
             }
 
             // JsonSerializer.Deserialize<TValue>(string json, Type, options) call
@@ -644,10 +650,11 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             if (bareMethodSym2 != null && !isLocalFunctionCall)
             {
                 methodName += ConversionContext.GetErasureConflictSuffix(bareMethodSym2);
-                // Non-generic JsonSerializer/SerializationWrapper Type overloads
-                // need _0tp suffix on forwarding calls too (e.g. default-param
-                // overload body calling the full method), not just on declarations.
-                methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym2, bareIdent.Identifier.Text);
+                // Skip _0tp when GetErasureConflictSuffix already returned it
+                // (private generic overload with same param count causes
+                // GetErasureConflictSuffix to return _0tp too).
+                if (!methodName.EndsWith("_0tp"))
+                    methodName += ConversionContext.GetJsonTypeOverloadSuffix(bareMethodSym2, bareIdent.Identifier.Text);
             }
 
             // Calls to capturing local functions are hoisted with the captured variables
@@ -5458,7 +5465,10 @@ if (node.Expression is GenericNameSyntax genericMethodName)
 
         // Type-erasure rename: when the resolved overload is the one with fewer type parameters,
         // append the same suffix that MethodTransformer uses at the declaration site.
-        if (methodSymbol != null)
+        // Skip when the name already ends with _0tp (added by the hardcoded
+        // JsonSerializer/SerializationWrapper non-generic Type overload logic above),
+        // otherwise the suffix is applied twice (e.g. serialize_0tp_0tp).
+        if (methodSymbol != null && !methodName.EndsWith("_0tp"))
             methodName += ConversionContext.GetErasureConflictSuffix(methodSymbol);
 
         // Issue 5: when promoting to static-call form, start at index 1 to skip the receiver
