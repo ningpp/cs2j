@@ -8551,6 +8551,31 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             receiver = "io.github.ningpp.compat.Activator";
         }
 
+        // ImmutableDictionary.createRange(CSharpDictionary<String, TElement>) is
+        // ambiguous when TElement is a generic type parameter: CSharpDictionary
+        // implements both CSharpGenericIterable and CSharpGenericIDictionary,
+        // matching two createRange overloads. Cast the argument to a fully-parameterized
+        // CSharpGenericIDictionary<String, TElement> to break the ambiguity — the
+        // CSharpGenericIterable overload won't match because CSharpGenericIDictionary
+        // does NOT inherit CSharpGenericIterable.
+        // Only apply to generic CreateRange calls — non-generic calls (concrete type
+        // args like String, String) don't have this ambiguity.
+        // Use earlyMethodSymbol as fallback (methodSymbol may be null in single-file mode).
+        if (originalMethodName == "CreateRange"
+            && receiver.Contains("ImmutableDictionary", StringComparison.Ordinal)
+            && node.ArgumentList.Arguments.Count - argStartIndex == 1
+            && !args.Contains("CSharpGenericIDictionary", StringComparison.Ordinal))
+        {
+            var sym = methodSymbol ?? earlyMethodSymbol;
+            if (sym is { IsGenericMethod: true, TypeArguments.Length: >= 2 })
+            {
+                var kType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(context.MapType(sym.TypeArguments[0]));
+                var vType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(context.MapType(sym.TypeArguments[1]));
+                var idictFqn = "io.github.ningpp.compat.CSharpGenericIDictionary";
+                args = $"({idictFqn}<{kType}, {vType}>) ({args})";
+            }
+        }
+
         return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{receiver}.{methodName}({args})", methodSymbol, context);
     }
 
