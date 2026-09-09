@@ -1,4 +1,4 @@
-﻿﻿using CSharpToJava.Core.Context;
+﻿using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;

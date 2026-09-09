@@ -808,9 +808,6 @@ public class MethodTransformer : IMemberTransformer
         var pendingClassTypeParams = localFnSymbol != null
             ? (System.Collections.Generic.IReadOnlyCollection<string>)context.DrainClassTypeParamsForMethod(localFnSymbol)
             : context.DrainClassTypeParams();
-        #if DEBUG
-        System.Console.WriteLine($"[DEBUG] TransformLocalFunction: name={localFn.Identifier.Text}, hasLocalFnSymbol={localFnSymbol != null}, pendingCount={(pendingClassTypeParams?.Count ?? 0)}, pending=[{(pendingClassTypeParams != null ? string.Join(",", pendingClassTypeParams) : "")}], methodHasClassParams={localFnSymbol != null && context.MethodHasClassParams(localFnSymbol)}");
-        #endif
         if (pendingClassTypeParams != null && pendingClassTypeParams.Count > 0)
         {
             var ownTypeParamNames = (localFn.TypeParameterList?.Parameters

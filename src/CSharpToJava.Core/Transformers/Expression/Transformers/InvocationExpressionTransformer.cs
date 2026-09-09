@@ -412,6 +412,16 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 return deserializeCall;
             }
             var classTokens = bareMethodSym != null ? GetClassTypeTokensForCall(bareMethodSym, context, node) : null;
+            // When classTokens is null but the method has trailing Class<?> params
+            // (all type params are trailing-covered), generate trailing tokens now
+            // so skipRuntimeClassArguments is set correctly (avoids double-append
+            // from both GetRuntimeClassArguments in TransformArgumentList and here).
+            if (classTokens == null && bareMethodSym != null && bareMethodSym.IsGenericMethod)
+            {
+                var preTrailingTokens = GetTrailingClassTokensForCall(bareMethodSym, context);
+                if (preTrailingTokens != null && preTrailingTokens.Count > 0)
+                    classTokens = preTrailingTokens;
+            }
             // Second fallback: forward-referenced generic methods (declaration converted
             // after this call site). Concrete reference-type arguments still need their
             // token — e.g. ReadCore<TValue>(...) / VerifyIgnore<T>(...) called before the
@@ -459,6 +469,18 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             var shouldAppend = classTokens != null
                 && bareMethodSym != null
                 && MethodHasTrailingClassParams(bareMethodSym, context, classTokens);
+            // When classTokens is null but the method has trailing Class<?> params
+            // (e.g. Repeat<T>() where T is covered by a trailing Class<?> clazz parameter),
+            // generate trailing Class literal tokens from the call's type arguments.
+            if (classTokens == null && bareMethodSym != null && bareMethodSym.IsGenericMethod)
+            {
+                var trailingTokens = GetTrailingClassTokensForCall(bareMethodSym, context);
+                if (trailingTokens != null && trailingTokens.Count > 0)
+                {
+                    classTokens = trailingTokens;
+                    shouldAppend = true;
+                }
+            }
             args = ApplyClassTypeTokens(args, classTokens, append: shouldAppend);
             return CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym, context);
         }
@@ -769,6 +791,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             }
 
             var classTokens = bareMethodSym2 != null ? GetClassTypeTokensForCall(bareMethodSym2, context, node) : null;
+            // When classTokens is null but the method has trailing Class<?> params
+            // (all type params are trailing-covered), generate trailing tokens now
+            // so skipRuntimeClassArguments is set correctly (avoids double-append).
+            if (classTokens == null && bareMethodSym2 != null && bareMethodSym2.IsGenericMethod)
+            {
+                var preTrailingTokens2 = GetTrailingClassTokensForCall(bareMethodSym2, context);
+                if (preTrailingTokens2 != null && preTrailingTokens2.Count > 0)
+                    classTokens = preTrailingTokens2;
+            }
             // Fallback for local-function/forward-referenced generic calls: derive the
             // tokens from the resolved method symbol's type arguments (concrete
             // reference types, primitives, or registered runtime type-parameter names).
@@ -860,6 +891,18 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             var shouldAppend2 = classTokens != null
                 && bareMethodSym2 != null
                 && MethodHasTrailingClassParams(bareMethodSym2, context, classTokens);
+            // When classTokens is null but the method has trailing Class<?> params
+            // (e.g. Ok<T>() where T is covered by a trailing Class<?> clazz parameter),
+            // generate trailing Class literal tokens from the call's type arguments.
+            if (classTokens == null && bareMethodSym2 != null && bareMethodSym2.IsGenericMethod)
+            {
+                var trailingTokens = GetTrailingClassTokensForCall(bareMethodSym2, context);
+                if (trailingTokens != null && trailingTokens.Count > 0)
+                {
+                    classTokens = trailingTokens;
+                    shouldAppend2 = true;
+                }
+            }
             args = ApplyClassTypeTokens(args, classTokens, append: shouldAppend2);
             var bareCall = CastRuntimeTypeParameterArrayInvocationIfNeeded($"{methodName}({args})", bareMethodSym2, context);
             // Task 27（TS 专属）：TS 无 Java 的隐式 this —— 类内裸实例方法调用
@@ -8090,6 +8133,16 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         var preMemberClassTokens = methodSymbol != null
             ? GetClassTypeTokensForCall(methodSymbol, context, node)
             : null;
+        // When preMemberClassTokens is null but the method has trailing Class<?> params
+        // (all type params are trailing-covered), generate trailing tokens now so
+        // skipRuntimeClassArguments is set correctly (avoids double-append from both
+        // GetRuntimeClassArguments in TransformArgumentList and ApplyClassTypeTokens).
+        if (preMemberClassTokens == null && methodSymbol != null && methodSymbol.IsGenericMethod)
+        {
+            var preMemberTrailingTokens = GetTrailingClassTokensForCall(methodSymbol, context);
+            if (preMemberTrailingTokens != null && preMemberTrailingTokens.Count > 0)
+                preMemberClassTokens = preMemberTrailingTokens;
+        }
         // Fallback for member-access generic method calls with explicit type
         // arguments: derive tokens from explicit type arguments when the method
         // is not yet registered. This must run before TransformArgumentList so
@@ -8162,6 +8215,11 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         }
 
         var memberClassTokens = preMemberClassTokens;
+        // When preMemberClassTokens is an empty list (all type params were
+        // trailing-covered and skipped by GetClassTokensFromExplicitTypeArguments),
+        // treat it as null so the trailing-token fallback below can fire.
+        if (memberClassTokens != null && memberClassTokens.Count == 0)
+            memberClassTokens = null;
         // Fallback for member-access generic method calls with explicit type
         // arguments (e.g. RoutingTestSupport.LoadJson<BugsReference>(...)).
         // GetClassTypeTokensForCall only returns tokens when the method is
@@ -8232,6 +8290,11 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                     memberClassTokens = null;
                 }
             }
+            // When memberClassTokens is an empty list (all type params were
+            // trailing-covered and skipped by GetClassTokensFromExplicitTypeArguments),
+            // treat it as null so the trailing-token fallback below can fire.
+            if (memberClassTokens != null && memberClassTokens.Count == 0)
+                memberClassTokens = null;
         }
         // Determine whether the method's Class<?> params are trailing (appended by
         // AddRuntimeClassParametersForTypeParameterArrays). If so, append tokens
@@ -8239,6 +8302,18 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         var memberShouldAppend = memberClassTokens != null
             && methodSymbol != null
             && MethodHasTrailingClassParams(methodSymbol, context, memberClassTokens);
+        // When memberClassTokens is null but the method has trailing Class<?> params
+        // (e.g. Repeat<T>() where T is covered by a trailing Class<?> clazz parameter),
+        // generate trailing Class literal tokens from the call's type arguments.
+        if (memberClassTokens == null && methodSymbol != null && methodSymbol.IsGenericMethod)
+        {
+            var memberTrailingTokens = GetTrailingClassTokensForCall(methodSymbol, context);
+            if (memberTrailingTokens != null && memberTrailingTokens.Count > 0)
+            {
+                memberClassTokens = memberTrailingTokens;
+                memberShouldAppend = true;
+            }
+        }
         args = ApplyClassTypeTokens(args, memberClassTokens, append: memberShouldAppend);
 
         if ((originalMethodName == "Parse" || originalMethodName == "TryParse")
@@ -12450,7 +12525,97 @@ if (node.Expression is GenericNameSyntax genericMethodName)
     }
 
     /// <summary>
-    /// True when the callee's body syntactically contains
+    /// Generates trailing Class literal tokens for a generic method call
+    /// when GetClassTypeTokensForCall returned null (all type parameters
+    /// are covered by trailing Class&lt;?&gt; params). This produces the
+    /// concrete Class literals (e.g. String.class, Integer.class) that
+    /// must be appended to the call's argument list.
+    /// </summary>
+    private static List<string>? GetTrailingClassTokensForCall(
+        IMethodSymbol methodSymbol,
+        ConversionContext context)
+    {
+        var originalDef = methodSymbol.OriginalDefinition;
+
+        // Get the trailing-covered type parameters (those handled by
+        // trailing Class<?> clazz parameters, not leading Class<T> tokens).
+        var trailingCovered = RuntimeClassParameterHelper
+            .GetRequiredTypeParameters(methodSymbol, context)
+            .Where(tp => SymbolEqualityComparer.Default.Equals(tp.DeclaringMethod, originalDef))
+            .Select(tp => tp.Name)
+            .ToHashSet(StringComparer.Ordinal);
+
+        // Also check the cross-project registry.
+        if (trailingCovered.Count == 0
+            && context.Options.RuntimeClassParameters.TryGetMethodRequirements(
+                originalDef, out var trailingReqs))
+        {
+            foreach (var req in trailingReqs)
+            {
+                if (req.Kind == RuntimeClassTypeParameterRequirementKind.Method)
+                    trailingCovered.Add(req.Name);
+            }
+        }
+
+        if (trailingCovered.Count == 0)
+            return null;
+
+        // Check if method has leading Class<T> params that are NOT trailing-covered.
+        // If so, those are handled by GetClassTypeTokensForCall (which returned non-null).
+        // Since we're here, GetClassTypeTokensForCall returned null, meaning all
+        // registered type params are trailing-covered (or none are registered).
+        // But double-check: if there are leading params not covered by trailing,
+        // we should not generate trailing tokens (the call site would get them
+        // from the leading path instead).
+        if (context.MethodHasClassParams(originalDef))
+        {
+            var leadingNames = context.GetMethodClassTypeParamNames(originalDef);
+            if (leadingNames != null && leadingNames.Count > 0)
+            {
+                bool allTrailingCovered = leadingNames.All(n => trailingCovered.Contains(n));
+                if (!allTrailingCovered)
+                    return null; // has genuine leading params — not our case
+            }
+        }
+
+        // Build tokens from type arguments in declaration order.
+        var typeParamMap = new Dictionary<string, int>();
+        for (int i = 0; i < originalDef.TypeParameters.Length; i++)
+            typeParamMap[originalDef.TypeParameters[i].Name] = i;
+
+        var typeArgs = methodSymbol.TypeArguments;
+        var tokens = new List<string>();
+        var orderedNames = trailingCovered
+            .OrderBy(name => typeParamMap.TryGetValue(name, out var index) ? index : int.MaxValue)
+            .ToList();
+        foreach (var tpName in orderedNames)
+        {
+            if (typeParamMap.TryGetValue(tpName, out var index) && index < typeArgs.Length)
+            {
+                var concreteType = typeArgs[index];
+                // Skip array type parameters — they use a different mechanism.
+                if (concreteType is IArrayTypeSymbol)
+                    continue;
+
+                string token;
+                if (context.IsTypeRefTypeParam(originalDef, tpName)
+                    || context.Options.RuntimeClassParameters.IsMethodTypeReference(originalDef, tpName)
+                    || CalleeJsonDeserializesTypeParameter(originalDef, tpName, context.SemanticModel))
+                {
+                    var mappedTokenType = context.MapType(concreteType);
+                    mappedTokenType = BoxJavaPrimitiveForTypeRef(mappedTokenType);
+                    token = $"new com.fasterxml.jackson.core.type.TypeReference<{mappedTokenType}>() {{}}";
+                }
+                else
+                {
+                    token = ConversionContext.GetClassLiteral(concreteType, context);
+                }
+                tokens.Add(token);
+            }
+        }
+
+        return tokens.Count > 0 ? tokens : null;
+    }
     /// JsonSerializer.Deserialize<T>(...) for the given method type parameter.
     /// Used at call sites converted before the definition registered its
     /// TypeReference-token requirement (signature prepass order): the token must
@@ -12852,15 +13017,20 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         // generic inference — cast it so the call compiles with an Object witness.
         // A bare type-parameter reference (e.g. a cached Class<?> field) cannot bind
         // Class<TValue> either; widen it through Class<?> the same way.
+        // When appending (trailing Class<?> params), the token is already the
+        // correct parameter name (e.g. clazz) and must not be cast — casting it
+        // would produce ((Class) (Class<?>) clazz) which breaks type inference.
         var normalized = classTypeTokens
             .Select(t => t == "null"
                     ? "(Class) null"
-                    : (!t.Contains('.')
-                        && !t.EndsWith(".class", StringComparison.Ordinal)
-                        && !t.EndsWith(")", StringComparison.Ordinal)
-                        && !t.StartsWith("_cs2j_", StringComparison.Ordinal))
-                        ? $"((Class) (Class<?>) {t})"
-                        : t)
+                    : (append
+                        ? t
+                        : (!t.Contains('.')
+                            && !t.EndsWith(".class", StringComparison.Ordinal)
+                            && !t.EndsWith(")", StringComparison.Ordinal)
+                            && !t.StartsWith("_cs2j_", StringComparison.Ordinal))
+                            ? $"((Class) (Class<?>) {t})"
+                            : t))
             .ToList();
         var joined = string.Join(", ", normalized);
         if (append)
@@ -12897,8 +13067,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         ConversionContext context,
         List<string>? classTypeTokens)
     {
-        if (methodSymbol == null || classTypeTokens == null || classTypeTokens.Count == 0)
+        // When classTypeTokens is null/empty, we still need to check whether
+        // the method has trailing Class<?> params that require trailing tokens
+        // at the call site (e.g. Ok<T>() → ok(Class<?> clazz) — GetClassTypeTokensForCall
+        // returns null because T is trailing-covered, but the call site still
+        // needs to append String.class etc.).
+        if (methodSymbol == null)
             return false;
+        // If classTypeTokens is non-null and non-empty, use the original logic.
+        // If null/empty, still check trailing-covered type parameters below.
         var originalDef = methodSymbol.OriginalDefinition;
 
         // Check if the method has trailing Class<?> params covering method-level

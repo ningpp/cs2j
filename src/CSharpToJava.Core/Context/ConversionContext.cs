@@ -748,9 +748,6 @@ _pendingClassTypeParams ??= new();
                 // accept it; the token is unavailable at runtime in this shape).
                 return "null";
             }
-            #if DEBUG
-            System.Console.WriteLine($"[DEBUG] GetClassLiteral: registering typeParam={typeParam.Name}, currentMethod={currentMethod.Name}, methodKind={currentMethod.MethodKind}");
-            #endif
             context.RequireClassTypeParam(currentMethod, typeParam.Name);
         }
             // The parameter naming convention is _cs2j_{typeParamName}.
