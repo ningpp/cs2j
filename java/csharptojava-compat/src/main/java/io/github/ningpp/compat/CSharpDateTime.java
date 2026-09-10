@@ -179,26 +179,32 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
 
     public CSharpDateTime toLocalTime() {
         if (kind == DateTimeKind.Local) return this;
+        // Both Utc and Unspecified are converted with the local zone's
+        // whole-minute offset, so this stays consistent with
+        // TimeZoneInfo.Local.GetUtcOffset and DateTimeOffset.LocalDateTime.
         LocalDateTime ldt = ticksToLdt();
-        if (kind == DateTimeKind.Utc) {
-            ZonedDateTime zdt = ldt.atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.systemDefault());
-            return new CSharpDateTime(ldtToTicks(zdt.toLocalDateTime()), DateTimeKind.Local);
-        }
-        // Unspecified: treat as UTC for conversion
-        ZonedDateTime zdt2 = ldt.atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.systemDefault());
-        return new CSharpDateTime(ldtToTicks(zdt2.toLocalDateTime()), DateTimeKind.Local);
+        return new CSharpDateTime(
+            ldtToTicks(ldt.plusSeconds(localOffsetSecondsAt(ldt))), DateTimeKind.Local);
     }
 
     public CSharpDateTime toUniversalTime() {
         if (kind == DateTimeKind.Utc) return this;
         LocalDateTime ldt = ticksToLdt();
-        if (kind == DateTimeKind.Local) {
-            ZonedDateTime zdt = ldt.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneOffset.UTC);
-            return new CSharpDateTime(ldtToTicks(zdt.toLocalDateTime()), DateTimeKind.Utc);
-        }
-        // Unspecified: treat as Local for conversion
-        ZonedDateTime zdt2 = ldt.atZone(ZoneId.systemDefault()).withZoneSameInstant(ZoneOffset.UTC);
-        return new CSharpDateTime(ldtToTicks(zdt2.toLocalDateTime()), DateTimeKind.Utc);
+        return new CSharpDateTime(
+            ldtToTicks(ldt.minusSeconds(localOffsetSecondsAt(ldt))), DateTimeKind.Utc);
+    }
+
+    /**
+     * Whole-minute UTC offset of the process default zone for the given local
+     * wall-clock time. Java's IANA rules report sub-minute "local mean time"
+     * offsets for historical dates (Asia/Shanghai 1900 is +08:05:43); .NET
+     * always rounds such offsets to the nearest minute, and so do we, so that
+     * ToLocalTime/ToUniversalTime agree with {@code TimeZoneInfo.GetUtcOffset}.
+     */
+    private static long localOffsetSecondsAt(LocalDateTime ldt) {
+        ZoneId zoneId = CSharpTimeZoneInfo.localZoneId();
+        return CSharpTimeZoneInfo.roundToWholeMinutes(
+            ldt.atZone(zoneId).getOffset().getTotalSeconds());
     }
 
     // --- Static Methods ---
@@ -240,7 +246,14 @@ public final class CSharpDateTime implements Comparable<CSharpDateTime> {
                 // contain a single '-' (date separator) and fall through below.
                 try {
                     OffsetDateTime odt = OffsetDateTime.parse(trimmed);
-                    ldt = odt.atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
+                    // DateTime.Parse converts offset forms to local time with the
+                    // same whole-minute offsets TimeZoneInfo uses, so the result
+                    // agrees with ToLocalTime/GetUtcOffset.
+                    CSharpDateTime atOffset = fromLocalDateTime(odt.toLocalDateTime(), DateTimeKind.Local);
+                    CSharpDateTime converted = CSharpTimeZoneInfo.convertWallTime(
+                        atOffset, odt.getOffset().getTotalSeconds(), CSharpTimeZoneInfo.localZoneId(),
+                        DateTimeKind.Local);
+                    ldt = converted.ticksToLdtPublic();
                     kind = DateTimeKind.Local;
                 } catch (Exception ignored) {
                     ldt = trimmed.contains("T")

@@ -72,8 +72,18 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
             return CSharpTimeSpan.ZERO;
         }
         // Local and Unspecified both use the local timezone offset, matching .NET behavior
-        int offsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
-        return CSharpTimeSpan.fromSeconds(offsetSeconds);
+        return CSharpTimeSpan.fromSeconds(localOffsetSeconds());
+    }
+
+    /**
+     * Current whole-minute offset of the process default zone, matching the
+     * offsets .NET's {@code TimeZoneInfo} exposes (see
+     * {@link CSharpTimeZoneInfo#roundToWholeMinutes}).
+     */
+    private static long localOffsetSeconds() {
+        ZoneId zoneId = CSharpTimeZoneInfo.localZoneId();
+        return CSharpTimeZoneInfo.roundToWholeMinutes(
+            zoneId.getRules().getOffset(Instant.now()).getTotalSeconds());
     }
 
     private static void validateOffset(CSharpDateTime dateTime, CSharpTimeSpan offset) {
@@ -122,7 +132,7 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         // .NET DateTimeOffset.LocalDateTime converts the instant to the local
         // time zone; returning the stored wall time made Utf8JsonReader
         // GetDateTime() disagree with DateTime.Parse on offset strings.
-        long localOffsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
+        long localOffsetSeconds = localOffsetSeconds();
         long offsetSeconds = offset.getTicks() / CSharpTimeSpan.TICKS_PER_SECOND;
         return dateTime.addSeconds(localOffsetSeconds - offsetSeconds);
     }
@@ -231,7 +241,7 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
                 // System.Text.Json reader on non-UTC machines. Use the current
                 // zone offset (minute-aligned), which is what the reader's
                 // local-time conversion path uses too.
-                ZoneOffset localOffset = OffsetDateTime.now().getOffset();
+                ZoneOffset localOffset = ZoneOffset.ofTotalSeconds((int) localOffsetSeconds());
                 odt = OffsetDateTime.of(ldt, localOffset);
             }
 

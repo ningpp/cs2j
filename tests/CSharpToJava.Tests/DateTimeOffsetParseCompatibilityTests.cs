@@ -45,6 +45,9 @@ class Sample {
           {
               "CSharpDateTimeOffset.java",
               "CSharpDateTime.java",
+              // CSharpDateTime/CSharpDateTimeOffset resolve local zone offsets through
+              // CSharpTimeZoneInfo, so the compat runtime must compile as a set.
+              "CSharpTimeZoneInfo.java",
               "CSharpTimeSpan.java",
               "DateTimeKind.java",
               "DayOfWeek.java",

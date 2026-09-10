@@ -189,4 +189,37 @@ class CSharpDateTimeTest {
         CSharpDateTime dt = new CSharpDateTime(2024, 6, 15, 10, 30, 45, 123);
         assertEquals("2024-06-15T10:30:45.1230000", dt.toString("o"));
     }
+
+    // --- ToLocalTime/ToUniversalTime must use .NET's whole-minute offsets ---
+
+    @Test
+    void toLocalTime_appliesWholeMinuteOffset_ofLocalZone() {
+        // C#: TimeZoneInfo.Local.GetUtcOffset(dt) rounds the IANA historical
+        // sub-minute offset (Asia/Shanghai 1900 is +08:05:43) to +08:06:00.
+        // ToLocalTime must use the same rounded offset, otherwise the wall time
+        // disagrees with the offset .NET reports.
+        CSharpDateTime utc = new CSharpDateTime(1900, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
+        CSharpDateTime local = utc.toLocalTime();
+        CSharpDateTime expected = utc.add(CSharpTimeZoneInfo.getLocal().getUtcOffset(utc));
+        assertEquals(expected.toString(), local.toString());
+        assertEquals(DateTimeKind.Local, local.getKind());
+    }
+
+    @Test
+    void toUniversalTime_appliesWholeMinuteOffset_ofLocalZone() {
+        CSharpDateTime local = new CSharpDateTime(1900, 1, 1, 8, 0, 0, 0, DateTimeKind.Local);
+        CSharpDateTime utc = local.toUniversalTime();
+        CSharpDateTime expected = local.subtract(CSharpTimeZoneInfo.getLocal().getUtcOffset(local));
+        assertEquals(expected.toString(), utc.toString());
+        assertEquals(DateTimeKind.Utc, utc.getKind());
+    }
+
+    @Test
+    void toLocalTime_thenToUniversalTime_roundTripsLocalWallTime() {
+        // DateTime stores wall time only, so a Local -> Utc -> Local round trip
+        // must return the original ticks; using a different offset in each
+        // direction (raw vs. rounded) made the round trip drift.
+        CSharpDateTime original = new CSharpDateTime(1, 1, 1, 12, 0, 0, 0, DateTimeKind.Local);
+        assertEquals(original.getTicks(), original.toUniversalTime().toLocalTime().getTicks());
+    }
 }
