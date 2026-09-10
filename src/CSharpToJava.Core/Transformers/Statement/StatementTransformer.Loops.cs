@@ -939,13 +939,36 @@ public partial class StatementTransformer
         }
 
         // Condition is evaluated at end of each iteration. Any Holder declarations it produces
-        // must live outside the loop; value read-backs are injected into the body tail.
-        // Strategy: transform body first so its own pre/post stmts are already drained,
-        // then transform condition and hoist its pre-stmts before the do.
+        // must live outside the loop; value read-backs must happen AFTER the condition updates
+        // the holders and BEFORE the next iteration's body uses those values.
+        //
+        // A C# do-while has the semantics:
+        //   do { body; } while (condition);
+        // where condition (e.g. !ParseText(out startPos, out endPos, ref orChars)) updates
+        // the out/ref variables. In Java, these become IntHolder objects. The post-statements
+        // (holder.value → local variable read-backs) must run:
+        //   1. After the condition evaluates (so they read the latest holder values)
+        //   2. Before the next iteration's body (so the body sees updated values)
+        //   3. After the loop exits (so code after the loop sees the final values)
+        //
+        // The standard Java do-while can't insert code between while(condition) and the next
+        // body. So we rewrite as:
+        //   preStmts;                          // holder declarations
+        //   while (true) {
+        //       body;                          // uses local variables
+        //       if (!(condition)) break;       // updates holders; exits if done
+        //       postStmts;                     // read back from holders for next iteration
+        //   }
+        //   postStmts;                         // final read-back after loop exits
+        //
+        // For 'out' parameters where holders aren't seeded (new IntHolder()), postStmts at
+        // body START would overwrite correct local variables with default 0 on the first
+        // iteration, so this while(true)+break pattern is the only correct approach.
         var condition = exprTransformer.Transform(stmt.Condition, context);
 
         string doPreamble = "";
         string doBodyTail = "";
+        string doAfterLoop = "";
         if (context.HasPendingPreStatements)
         {
             var pre = context.DrainPreStatements();
@@ -953,15 +976,25 @@ public partial class StatementTransformer
         }
         if (context.HasPendingPostStatements)
         {
-            // Post-stmts after the condition would only run when the condition is false;
-            // inject at the end of the body so they run every iteration before re-checking.
             var post = context.DrainPostStatements();
-            doBodyTail = "\n        " + string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";"));
+            var postStmts = post.Select(s => s.TrimEnd(';') + ";").ToList();
+            doBodyTail = "\n        " + string.Join("\n        ", postStmts);
+            doAfterLoop = "\n" + string.Join("\n", postStmts);
         }
 
-        var body = $"{{\n        {bodyBlock}{doBodyTail}\n    }}";
         var loopPrefix = hasPostLoopBreakLabel ? $"{postLoopBreakLabel}: " : "";
-        return new JavaStatementNode($"{doPreamble}{loopPrefix}do {body} while ({condition});");
+        // When there are no post-statements (no ref/out in condition), use the original
+        // do-while structure to avoid breaking Java's reachability analysis (e.g. when
+        // condition is a constant like 'true', while(true)+if(!true)break confuses javac
+        // into requiring a return after the loop).
+        // When there ARE post-statements, rewrite as while(true)+break to correctly
+        // position post-statements between the condition evaluation and the next body.
+        if (string.IsNullOrEmpty(doBodyTail) && string.IsNullOrEmpty(doAfterLoop))
+        {
+            return new JavaStatementNode($"{doPreamble}{loopPrefix}do {{\n        {bodyBlock}\n    }} while ({condition});");
+        }
+        var body = $"{{\n        {bodyBlock}\n        if (!({condition})) break;{doBodyTail}\n    }}";
+        return new JavaStatementNode($"{doPreamble}{loopPrefix}while (true) {body}{doAfterLoop}");
     }
 
     private static bool IsNonGenericEnumerableOrCollection(INamedTypeSymbol type)
