@@ -137,8 +137,11 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         return dateTime.addSeconds(localOffsetSeconds - offsetSeconds);
     }
 
-    public CSharpDateTime toLocalTime() {
-        return getLocalDateTime();
+    public CSharpDateTimeOffset toLocalTime() {
+        long localOffsetSeconds = localOffsetSeconds();
+        long offsetSeconds = offset.getTicks() / CSharpTimeSpan.TICKS_PER_SECOND;
+        CSharpDateTime localDt = dateTime.addSeconds(localOffsetSeconds - offsetSeconds);
+        return new CSharpDateTimeOffset(localDt, CSharpTimeSpan.fromSeconds(localOffsetSeconds));
     }
 
     public CSharpDateTime getUtcDateTime() {
@@ -226,25 +229,67 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
     public static CSharpDateTimeOffset parse(String s) {
         String trimmed = s.trim();
         try {
-            OffsetDateTime odt;
+            // First try OffsetDateTime.parse which handles full ISO-8601
+            // date-time strings with offset (e.g. 2002-01-09T04:02:08Z,
+            // 2002-01-09T04:02:08+08:00).
             try {
-                odt = OffsetDateTime.parse(trimmed);
+                OffsetDateTime odt = OffsetDateTime.parse(trimmed);
+                CSharpDateTime dt = CSharpDateTime.fromLocalDateTime(odt.toLocalDateTime(), DateTimeKind.Unspecified);
+                return new CSharpDateTimeOffset(dt, CSharpTimeSpan.fromSeconds(odt.getOffset().getTotalSeconds()));
             } catch (Exception ignored) {
-                LocalDateTime ldt = trimmed.contains("T")
-                    ? LocalDateTime.parse(trimmed)
-                    : trimmed.contains(":")
-                        ? LocalDateTime.parse(trimmed, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                        : LocalDate.parse(trimmed).atStartOfDay();
-                // .NET DateTimeOffset.Parse applies the local time zone's offset
-                // when the string carries no offset; using UTC here made
-                // date-only ISO strings (e.g. "1997-07-16") disagree with the
-                // System.Text.Json reader on non-UTC machines. Use the current
-                // zone offset (minute-aligned), which is what the reader's
-                // local-time conversion path uses too.
-                ZoneOffset localOffset = ZoneOffset.ofTotalSeconds((int) localOffsetSeconds());
-                odt = OffsetDateTime.of(ldt, localOffset);
             }
 
+            // Strip a trailing 'Z' and treat as UTC. Covers date-only+Z ("2002-01-09Z")
+            // and year-only+Z ("9999Z").
+            String core = trimmed;
+            boolean utcSuffix = false;
+            if (core.endsWith("Z") || core.endsWith("z")) {
+                core = core.substring(0, core.length() - 1);
+                utcSuffix = true;
+            }
+
+            LocalDateTime ldt;
+            if (core.contains("T")) {
+                ldt = LocalDateTime.parse(core);
+            } else if (core.contains(":")) {
+                // Time-only string like "23:15:55" — C# uses today's date.
+                if (core.contains("-")) {
+                    ldt = LocalDateTime.parse(core, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+                } else {
+                    // Time-only string like "23:15:55" — C# uses today's date.
+                    // Require at least HH:mm:ss (two colons); reject "04:08"
+                    // which is not a valid DateTimeOffset format.
+                    long colonCount = core.chars().filter(c -> c == ':').count();
+                    if (colonCount < 2) {
+                        throw new IllegalArgumentException(
+                            "Time-only string must include seconds: " + s);
+                    }
+                    java.time.LocalTime lt = java.time.LocalTime.parse(core);
+                    java.time.LocalDate today = java.time.LocalDate.now();
+                    ldt = LocalDateTime.of(today, lt);
+                }
+            } else if (core.contains("-")) {
+                // Date string like "2002-01-09" or "2002-02"
+                if (core.length() >= 10) {
+                    ldt = LocalDate.parse(core).atStartOfDay();
+                } else {
+                    // Year-month like "2002-02" — parse as YearMonth
+                    java.time.YearMonth ym = java.time.YearMonth.parse(core);
+                    ldt = ym.atDay(1).atStartOfDay();
+                }
+            } else {
+                // Year-only like "9999" or "0002"
+                int year = Integer.parseInt(core);
+                ldt = LocalDate.of(year, 1, 1).atStartOfDay();
+            }
+
+            ZoneOffset offset;
+            if (utcSuffix) {
+                offset = ZoneOffset.UTC;
+            } else {
+                offset = ZoneOffset.ofTotalSeconds((int) localOffsetSeconds());
+            }
+            OffsetDateTime odt = OffsetDateTime.of(ldt, offset);
             CSharpDateTime dt = CSharpDateTime.fromLocalDateTime(odt.toLocalDateTime(), DateTimeKind.Unspecified);
             return new CSharpDateTimeOffset(dt, CSharpTimeSpan.fromSeconds(odt.getOffset().getTotalSeconds()));
         } catch (Exception e) {
@@ -287,6 +332,11 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
             return odt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSXXX"));
         }
 
+        // Detect C# 'F' fraction-of-second tokens (no trailing zeros).
+        // Java's 'S' always pads to the requested width, so we format with
+        // 'S' and then strip trailing zeros from the fractional part.
+        boolean hasFractionNoTrailingZeros = format.indexOf('F') >= 0;
+
         String javaPattern = toJavaDateTimePattern(format, zoneOffset);
         // If the pattern still contains C# 'z'/'K' offset tokens that were
         // replaced with a literal, LocalDateTime won't be able to resolve
@@ -295,11 +345,50 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         boolean needsOffset = javaPattern.contains("xxx")
             || javaPattern.contains("XXX")
             || javaPattern.contains("'Z'");
+        String result;
         if (needsOffset) {
             OffsetDateTime odt = OffsetDateTime.of(ticksToLocalDateTime(dateTime.getTicks()), zoneOffset);
-            return odt.format(DateTimeFormatter.ofPattern(javaPattern));
+            result = odt.format(DateTimeFormatter.ofPattern(javaPattern));
+        } else {
+            result = ticksToLocalDateTime(dateTime.getTicks()).format(DateTimeFormatter.ofPattern(javaPattern));
         }
-        return ticksToLocalDateTime(dateTime.getTicks()).format(DateTimeFormatter.ofPattern(javaPattern));
+        if (hasFractionNoTrailingZeros) {
+            result = stripFractionTrailingZeros(result);
+        }
+        return result;
+    }
+
+    /**
+     * Remove trailing zeros from the fractional-seconds portion of a
+     * formatted date/time string. If the fraction becomes empty (i.e. the
+     * value had only zeros), the leading dot is also removed.
+     */
+    private static String stripFractionTrailingZeros(String s) {
+        int dotPos = s.indexOf('.');
+        if (dotPos < 0) {
+            return s;
+        }
+        // Find the end of the fractional digit run (digits only).
+        int end = dotPos + 1;
+        while (end < s.length() && Character.isDigit(s.charAt(end))) {
+            end++;
+        }
+        if (end == dotPos + 1) {
+            return s; // no digits after dot
+        }
+        String fraction = s.substring(dotPos + 1, end);
+        // Strip trailing zeros
+        int lastNonZero = fraction.length() - 1;
+        while (lastNonZero >= 0 && fraction.charAt(lastNonZero) == '0') {
+            lastNonZero--;
+        }
+        String prefix = s.substring(0, dotPos);
+        String suffix = s.substring(end);
+        if (lastNonZero < 0) {
+            // All zeros: remove the dot entirely
+            return prefix + suffix;
+        }
+        return prefix + "." + fraction.substring(0, lastNonZero + 1) + suffix;
     }
 
     /**

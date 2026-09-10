@@ -751,12 +751,14 @@ assertEquals("06/15/2024 10:30:45 +08:00", dto.toString());
 
     // --- toLocalTime ---
 
-    @Test
-    void toLocalTime_sameAsGetLocalDateTime() {
-        CSharpTimeSpan offset = CSharpTimeSpan.fromHours(8);
-        CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, offset);
-        assertEquals(dto.getLocalDateTime(), dto.toLocalTime());
-    }
+@Test
+void toLocalTime_sameAsGetLocalDateTime() {
+CSharpTimeSpan offset = CSharpTimeSpan.fromHours(8);
+CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, offset);
+// toLocalTime() returns CSharpDateTimeOffset (matching C# DateTimeOffset.ToLocalTime())
+CSharpDateTimeOffset localDto = dto.toLocalTime();
+assertEquals(dto.getLocalDateTime(), localDto.getDateTime());
+}
 
     // --- parse with time-only string ---
 
@@ -775,16 +777,15 @@ assertEquals("06/15/2024 10:30:45 +08:00", dto.toString());
 
     // --- format with FFFFFFF (up to 7 digits) ---
 
-    @Test
-    void toString_customPattern_FFFFFFF_sevenDigits() {
-        CSharpTimeSpan offset = CSharpTimeSpan.fromHours(8);
-        // 123ms = 1230000 ticks fraction = 0.1230000
-        // Java's S pattern always shows all digits (unlike C#'s F which suppresses trailing zeros),
-        // so FFFFFFF maps to SSSSSSS which produces all 7 digits.
-        CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, 123, offset);
-        String result = dto.toString("ss.FFFFFFF");
-        assertEquals("45.1230000", result, "got: " + result);
-    }
+@Test
+void toString_customPattern_FFFFFFF_sevenDigits() {
+CSharpTimeSpan offset = CSharpTimeSpan.fromHours(8);
+// 123ms = 1230000 ticks fraction = 0.1230000
+// C#'s F format suppresses trailing zeros, so FFFFFFF produces "123" not "1230000"
+CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, 123, offset);
+String result = dto.toString("ss.FFFFFFF");
+assertEquals("45.123", result, "got: " + result);
+}
 
     // --- subtract preserves offset ---
 
