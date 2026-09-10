@@ -87,6 +87,16 @@ public static class UnsignedMathFileContent
                 public static float ToSingleUInt64(long v) => (float)(ulong)v;
                 public static decimal ToDecimalUInt32(int v) => (decimal)(v & 0xFFFFFFFFL);
                 public static decimal ToDecimalUInt64(long v) => (decimal)(ulong)v;
+
+                // ---- ToString (unsigned) ----
+                public static string ToStringUInt32(int v) => (v & 0xFFFFFFFFL).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                public static string ToStringUInt32(int v, string? format) => ToStringUInt32(v, format, null);
+                public static string ToStringUInt32(int v, System.IFormatProvider? provider) => ToStringUInt32(v);
+                public static string ToStringUInt32(int v, string? format, System.IFormatProvider? provider) => format == null || format.Length == 0 ? ToStringUInt32(v) : (v & 0xFFFFFFFFL).ToString(format, provider ?? System.Globalization.CultureInfo.InvariantCulture);
+                public static string ToStringUInt64(long v) => ((ulong)v).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                public static string ToStringUInt64(long v, string? format) => ToStringUInt64(v, format, null);
+                public static string ToStringUInt64(long v, System.IFormatProvider? provider) => ToStringUInt64(v);
+                public static string ToStringUInt64(long v, string? format, System.IFormatProvider? provider) => format == null || format.Length == 0 ? ToStringUInt64(v) : ((ulong)v).ToString(format, provider ?? System.Globalization.CultureInfo.InvariantCulture);
             }
         }
         """;

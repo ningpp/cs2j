@@ -29,19 +29,22 @@ public final class ObjectHelper {
         if (a instanceof Double && b instanceof Double) {
             double da = (Double) a;
             double db = (Double) b;
-            // C# treats +0.0 and -0.0 as equal; Java's Double.equals does not.
-            if (da == 0.0 && db == 0.0) {
+            // C# double.Equals(object) returns true when (a == b) || (IsNaN(a) && IsNaN(b)).
+            // This means: +0.0 Equals -0.0 is true (like Java ==),
+            //              NaN Equals NaN is true (unlike Java ==).
+            if (da == db) {
                 return true;
             }
-            return da == db;
+            return Double.isNaN(da) && Double.isNaN(db);
         }
         if (a instanceof Float && b instanceof Float) {
             float fa = (Float) a;
             float fb = (Float) b;
-            if (fa == 0.0f && fb == 0.0f) {
+            // Same as Double: float.Equals returns true for NaN == NaN.
+            if (fa == fb) {
                 return true;
             }
-            return fa == fb;
+            return Float.isNaN(fa) && Float.isNaN(fb);
         }
         return a.equals(b);
     }

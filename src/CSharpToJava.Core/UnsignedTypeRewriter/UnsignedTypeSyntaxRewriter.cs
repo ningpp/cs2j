@@ -826,4 +826,62 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
         return null;
     }
+
+    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        if (_semanticModel != null && _options.EnableOperatorRewrite
+            && !IsInCheckedContext(node)
+            && !IsInConstantExpressionContext(node))
+        {
+            // Detect static XmlConvert.ToString(uint/ulong value) calls.
+            // After erasure, XmlConvert.ToString(Int64) and ToString(UInt64) merge into
+            // the same toString(long) which uses signed formatting. Rewrite the UInt64/UInt32
+            // call sites to UnsignedMath helpers so they produce unsigned strings.
+            if (node.Expression is MemberAccessExpressionSyntax staticMae
+                && staticMae.Name.Identifier.ValueText == "ToString"
+                && node.ArgumentList.Arguments.Count == 1)
+            {
+                var argType = GetNaturalSpecial(node.ArgumentList.Arguments[0].Expression);
+                if (argType is SpecialType.System_UInt32 or SpecialType.System_UInt64)
+                {
+                    var domain = argType == SpecialType.System_UInt64
+                        ? UnsignedDomain.UInt64 : UnsignedDomain.UInt32;
+                    var visitedArg = (ExpressionSyntax)Visit(node.ArgumentList.Arguments[0].Expression)!;
+                    var normalizedArg = UnsignedMathSyntax.Normalize(
+                        visitedArg, domain, argType.Value);
+                    var method = "ToString" + UnsignedMathSyntax.Suffix(domain);
+                    UsedExtensions = true;
+                    _stats.OperatorsRewritten++;
+                    return UnsignedMathSyntax.StaticCall(method, normalizedArg);
+                }
+            }
+
+            // Detect uint/ulong.ToString() instance calls and rewrite to UnsignedMath helpers.
+            // C# uint.ToString() / ulong.ToString() produce unsigned representations
+            // (e.g. (-1u).ToString() == "4294967295"), but after erasure to Java
+            // int/long, String.valueOf produces "-1". Rewrite to UnsignedMath helpers.
+            if (node.Expression is MemberAccessExpressionSyntax mae
+                && mae.Name.Identifier.ValueText == "ToString")
+            {
+                var receiverType = GetNaturalSpecial(mae.Expression);
+                if (receiverType is SpecialType.System_UInt32 or SpecialType.System_UInt64)
+                {
+                    var domain = receiverType == SpecialType.System_UInt64
+                        ? UnsignedDomain.UInt64 : UnsignedDomain.UInt32;
+                    var visitedReceiver = (ExpressionSyntax)Visit(mae.Expression)!;
+                    var normalizedReceiver = UnsignedMathSyntax.Normalize(
+                        visitedReceiver, domain, receiverType.Value);
+                    var method = "ToString" + UnsignedMathSyntax.Suffix(domain);
+                    var visitedArgs = node.ArgumentList.Arguments
+                        .Select(a => (ExpressionSyntax)Visit(a.Expression)!);
+                    var allArgs = new[] { normalizedReceiver }.Concat(visitedArgs).ToArray();
+                    UsedExtensions = true;
+                    _stats.OperatorsRewritten++;
+                    return UnsignedMathSyntax.StaticCall(method, allArgs);
+                }
+            }
+        }
+
+        return base.VisitInvocationExpression(node);
+    }
 }

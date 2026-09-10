@@ -253,21 +253,24 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
     }
 
     // --- toString ---
-    // C# format: "M/d/yyyy h:mm:ss +HH:mm:ss"
+    // C# DateTimeOffset.ToString() with InvariantCulture uses "G" format:
+    // "MM/dd/yyyy HH:mm:ss zzz" (zero-padded, 24-hour, offset without seconds)
     @Override
     public String toString() {
-        String dtStr = dateTime.toString();
+        LocalDateTime ldt = ticksToLocalDateTime(dateTime.getTicks());
+        String dtStr = String.format("%02d/%02d/%04d %02d:%02d:%02d",
+            ldt.getMonthValue(), ldt.getDayOfMonth(), ldt.getYear(),
+            ldt.getHour(), ldt.getMinute(), ldt.getSecond());
         long offsetTicks = offset.getTicks();
         if (offsetTicks == 0) {
-            return dtStr + " +00:00:00";
+            return dtStr + " +00:00";
         }
         boolean negative = offsetTicks < 0;
         long absTicks = Math.abs(offsetTicks);
         int h = (int) (absTicks / CSharpTimeSpan.TICKS_PER_HOUR);
         long rem = absTicks % CSharpTimeSpan.TICKS_PER_HOUR;
         int m = (int) (rem / CSharpTimeSpan.TICKS_PER_MINUTE);
-        int s = (int) (rem % CSharpTimeSpan.TICKS_PER_MINUTE / CSharpTimeSpan.TICKS_PER_SECOND);
-        return dtStr + " " + (negative ? "-" : "+") + String.format("%02d:%02d:%02d", h, m, s);
+        return dtStr + " " + (negative ? "-" : "+") + String.format("%02d:%02d", h, m);
     }
 
     public String toString(String format) {

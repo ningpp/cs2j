@@ -114,10 +114,10 @@ class CSharpDateTimeOffsetTest {
 
     @Test
     void toString_format() {
-        // C#: dto1.ToString() = 2024/6/15 10:30:45 +08:00:00
-        CSharpTimeSpan offset = CSharpTimeSpan.fromHours(8);
-        CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, offset);
-        assertEquals("6/15/2024 10:30:45 +08:00:00", dto.toString());
+// C#: dto1.ToString() = 06/15/2024 10:30:45 +08:00
+CSharpTimeSpan offset = CSharpTimeSpan.fromHours(8);
+CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, offset);
+assertEquals("06/15/2024 10:30:45 +08:00", dto.toString());
     }
 
     @Test
@@ -813,7 +813,7 @@ class CSharpDateTimeOffsetTest {
     @Test
     void toString_zeroOffset() {
         CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, CSharpTimeSpan.ZERO);
-        assertEquals("6/15/2024 10:30:45 +00:00:00", dto.toString());
+        assertEquals("06/15/2024 10:30:45 +00:00", dto.toString());
     }
 
     // --- toString with negative offset ---
@@ -822,7 +822,7 @@ class CSharpDateTimeOffsetTest {
     void toString_negativeOffset() {
         CSharpTimeSpan offset = CSharpTimeSpan.fromHours(-5);
         CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, offset);
-        assertEquals("6/15/2024 10:30:45 -05:00:00", dto.toString());
+        assertEquals("06/15/2024 10:30:45 -05:00", dto.toString());
     }
 
     // --- compareTo with CSharpDateTimeOffset from static method ---
