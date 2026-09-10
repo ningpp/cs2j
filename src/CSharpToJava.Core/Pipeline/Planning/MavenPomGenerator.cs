@@ -206,7 +206,7 @@ public sealed class MavenPomGenerator : IBuildFileGenerator
                     <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true{previewArg}</argLine>
                     <forkedProcessTimeoutInSeconds>120</forkedProcessTimeoutInSeconds>
                     <forkedProcessExitTimeoutInSeconds>120</forkedProcessExitTimeoutInSeconds>
-                    <testFailureIgnore>true</testFailureIgnore>
+                    <testFailureIgnore>false</testFailureIgnore>
                 </configuration>
             </plugin>";
     }
