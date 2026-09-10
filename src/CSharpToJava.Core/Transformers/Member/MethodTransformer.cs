@@ -3971,7 +3971,21 @@ public class MethodTransformer : IMemberTransformer
                 };
                 if (name == null)
                     continue;
-                // Match by name (case-insensitive for hoisted local functions)
+                // Match by name (case-insensitive for hoisted local functions).
+                // But exclude member-access calls on well-known system types
+                // (e.g. JsonSerializer.DeserializeAsync<T>) — those are NOT calls
+                // to the user-defined targetMethod even if the method name matches
+                // case-insensitively.
+                if (invocation.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax maExpr)
+                {
+                    var receiverText = maExpr.Expression switch
+                    {
+                        Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax idRecv => idRecv.Identifier.Text,
+                        _ => null,
+                    };
+                    if (receiverText is "JsonSerializer" or "JsonConvert")
+                        continue;
+                }
                 var targetName = targetMethod.Name;
                 if (!string.Equals(name, targetName, StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(name, targetMethod.Name, StringComparison.Ordinal))
