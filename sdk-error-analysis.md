@@ -118,3 +118,33 @@
 
 ✅ Fixed（流水线恢复为 MSBuild 多模块；后续迭代针对多模块产物的编译错误继续）
 
+### 本轮循环状态（Step 1 → Step 2 结果）
+
+- **Step 1（转换）**: `Conversion complete (MSBuild): 618 succeeded, 0 failed, 3 resources copied, modules=4`，退出码 **0**（耗时 276s）。
+  - 产物模块：`system-private-uri`、`system-text-json`、`system-text-json-tests`（+ 根 parent pom）。
+- **Step 2（`mvn clean install -e`，完整日志 `d:\cs-json-0911-sdk\mvn-build.log`）**:
+  - **编译阶段：0 个 javac 错误**（`system-private-uri`、`system-text-json` 138 文件、`system-text-json-tests` 447 文件全部编译通过）→ "零错误编译"目标达成。
+  - **测试阶段：`Tests run: 7904, Failures: 499, Errors: 543, Skipped: 16` → BUILD FAILURE**（`SurefirePlugin` 生成 `testFailureIgnore=false`，故测试失败即构建失败）。
+  - 说明：`mvn clean install -e` 的完整执行（含 7904 个测试）耗时约 441s，超出单命令 300s 预算，故该项以更长超时在后台运行一次以取得完整日志；日志已保存在目标目录。
+
+### 下一轮迭代的测试失败分类（供 Step 3 使用）
+
+按异常类型（合计 1042 失败）：
+
+| 异常 | 数量 | 典型信息 |
+|------|------|----------|
+| `java.lang.AssertionError` | 498 | 455 条无消息（`Assert.True` 断言失败） |
+| `java.lang.ClassCastException` | 171 | `JsonElement cannot be cast to ...`（86+）、`int[] cannot be cast to Object[]`（35） |
+| `java.lang.UnsupportedOperationException` | 140 | `The type 'class java.lang.Object' is not a supported Dictionary key type`（62）、`The type 'class [[I' is not supported`（49） |
+| `dotnet.text.json.JsonException` | 84 | 反序列化失败 |
+| `java.lang.NullPointerException` | 60 | `MethodInfo.makeGenericMethod`（16）、`CSharpDictionary.getChecked`（15） |
+| 其他 | 89 | `ArrayIndexOutOfBoundsException`(23)、`RuntimeException`（`No matching constructor found` 21）等 |
+
+失败最集中的测试类：`CollectionTests`(157)、`CustomConverterTests`(92)、`ReferenceHandlerTests`(85)、`ObjectTests`(80)、`PropertyVisibilityTests`(78)、`SpanTests`(65)、`Utf8JsonWriterTests`(61)、`ArrayTests`(54)、`ExtensionDataTests`(51)、`DictionaryTests`(45)。
+
+已定位的首个高杠杆线索（下一轮从它开始）：
+- `Dictionary<object, T>` 键反序列化：`dotnet/text/json/Serialization/Converters/ObjectConverter.java:48` `readWithQuotes()` 抛 `SR.getDictionaryKeyTypeNotSupported()`；C# 同路径见 `ObjectConverter.cs:23/38`。需确认是转换器产出的 `getTypeToConvert()`/字典键转换器查找（`JsonSerializerOptions.getDictionaryKeyConverter`）语义偏差，还是 ObjectConverter 的运行时转换器查找链在 Java 下走错分支。
+
+另外，`d:\code\cs2j` 全量单元测试当前有 3 项**既有失败**（与本轮修改无关，已在 HEAD 9f2db495 复现）：`LocalFunctionLiftTests.StaticLocalFunction_LiftedAsPrivateStatic`、`LocalFunctionLiftTests.Skip_Iterator`、`StripDefaultProjectTests.CrossProject_CallSiteUnchanged_AndBuildSucceeds`（后者为 strip-default 跨工程调用点未重写：`SampleStripDefaultApp/Program.cs` 仍以旧实参调用已删默认值的方法，`error CS7036`）。
+
+
