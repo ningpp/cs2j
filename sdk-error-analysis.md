@@ -518,6 +518,23 @@
 - **意义**: 这条修复本身对当前 SDK 仍是 no-op（无会话注册），但它与 Round 13 一起把**"生成端发布类型实参"所需的 compat 语义完全打通并逐条验证**：发布先于任何查找 + 按层区分转换器 ⇒ 读入路径（`JsonElement → Integer`）与嵌套写出路径（`[[1,2],[3,4]]`，即 `writeListOfIList`/`writeListOfList` 家族）同时成立。
 - **官方 Step 2（Round 14）**: `Failures: 440, Errors: 499` = **939**，与 Round 12/13 逐项相同（同一原因：无会话注册 ⇒ 修复不可达）。四次连续官方运行（r12、r12b、r13、r14）计数与用例集合完全一致，全量结果可复现已是稳定事实。
 
+## Iteration 22 — 静态扫描"假覆写"（`MemberAccessor` 同类缺陷）：7 个类 / 12 处，其中一处已解释 35 项失败
+
+- **工具**: `probe/OverrideScan.java`（反射扫描生成产物的 1707 个类）：对每个类与其所有父类/接口（同源生成树）比较方法签名；若子类方法名相同、参数表恰好相差一个**被注入的 `Class<?>` 令牌**（基类有/子类无，或反之），即判为"假覆写"。
+- **结果（7 个类，12 处）**:
+
+| 类 | 方法 | 现状 |
+|----|------|------|
+| `Serialization.ReflectionMemberAccessor` | `createFieldGetter` / `createFieldSetter` | 基类 `(Class<TProperty>, FieldInfo)`，覆写只有 `(FieldInfo)` ⇒ 不构成覆写，虚派发落到基类的抛异常体（`UnsupportedOperationException`）。**当前失败集中有 35 项栈内出现 `MemberAccessor.createField*`** |
+| `Serialization.ReflectionEmitMemberAccessor` | `createParameterizedConstructor` / `createParameterizedConstructor_1tp` | 同类缺陷（5 参 vs 6 参、1 参 vs 2 参）；当前失败集中 0 命中（潜伏） |
+| `Tests.SerializationWrapper$*SerializerWrapper`（5 个子类） | `serializeWrapper` | 基类 `(Class, Object, JsonSerializerOptions)`，覆写只有 `(Object, JsonSerializerOptions)`；0 命中（潜伏，但会静默绕过子类特化实现） |
+
+- **发射机制定位**: 令牌注入是**按方法体**决定的 —— `ClassTransformer.cs:1495-1519`（`AddPendingClassTypeParams`，取 `context.DrainClassTypeParams()` 把 `Class<T>` 追加到"刚转换完的那个方法"）与 `MethodTransformer.cs:832/2847/2894/3080` 的多处同名逻辑；基类声明（抽象/接口映射）拿到了令牌，而具体覆写在**方法体没有引用 `typeof(T)`** 时不会拿到 ⇒ 两侧签名不一致。
+- **精确修法（供批准后一次落地）**:
+  1. 覆写/接口实现的方法，其注入令牌集合必须**与基类签名对齐**（把"按方法体"改为"按签名/覆写关系"，可从 C# 符号的 `IsOverride`/接口实现关系解析出基类方法已发射的参数表）；
+  2. 同时为这类成员发射 `@Override` —— javac 会在**编译期**直接拦下任何残余签名不一致（本轮 12 处若早有此注解就会在 Step 2 的编译阶段暴露，而不是变成 35 项运行期失败）。
+- **影响面小结（对批准决策）**: 单独修这一项即可直接消掉 35 项（`MemberAccessor.createField*`），并顺手消除 2 处潜伏缺陷；对比 (a) 调用点发布实参（数百项量级但改动面大）、(b) JSON 特性落地（20+ 项），(c) 是**纯 bug 修、风险最低、收益确定**的一项。
+
 
 
 
