@@ -6,10 +6,17 @@ import java.lang.reflect.Parameter;
 
 public final class MethodInfo implements MemberInfo {
     private final Method method;
+    /** Runtime type arguments recorded by {@link #makeGenericMethod(Class[])}. */
+    private final Class<?>[] genericTypeArguments;
 
     public MethodInfo(Method method) {
+        this(method, null);
+    }
+
+    private MethodInfo(Method method, Class<?>[] genericTypeArguments) {
         this.method = method;
         this.method.setAccessible(true);
+        this.genericTypeArguments = genericTypeArguments;
     }
 
     public Method getMethod() {
@@ -88,20 +95,84 @@ public final class MethodInfo implements MemberInfo {
     }
 
     public Object invoke(Object target, Object... args) {
+        Object[] effectiveArgs = withRuntimeClassArguments(args);
         try {
-            return method.invoke(target, adaptArgs(args));
+            return method.invoke(target, adaptArgs(effectiveArgs));
         } catch (IllegalArgumentException ex) {
             Class<?>[] pts = method.getParameterTypes();
             StringBuilder sb = new StringBuilder();
             sb.append(method).append(" target=").append(target == null ? "null" : target.getClass().getName());
-            for (int i = 0; i < args.length; i++) {
+            int argCount = effectiveArgs == null ? 0 : effectiveArgs.length;
+            for (int i = 0; i < argCount; i++) {
                 sb.append(" arg").append(i).append('[').append(i < pts.length ? pts[i].getName() : "?").append("]=")
-                  .append(args[i] == null ? "null" : args[i].getClass().getName());
+                  .append(effectiveArgs[i] == null ? "null" : effectiveArgs[i].getClass().getName());
             }
             throw new IllegalArgumentException(sb.toString(), ex);
         } catch (ReflectiveOperationException ex) {
             throw new TargetInvocationException("Method invocation failed", ex);
         }
+    }
+
+    /**
+     * Supplies the runtime {@code Class} tokens that the converter appends to generic
+     * methods whose C# signature has none (the port carries {@code T} at runtime as an
+     * extra {@code Class} parameter named {@code t<T>Class} / {@code _cs2j_<T>}).
+     *
+     * <p>C# call sites reach such a method through
+     * {@code GetMethod(name, ...).MakeGenericMethod(t1, t2).Invoke(target, args)}, so the
+     * recorded type arguments are matched to the appended parameters by name; parameters
+     * the caller already supplied are left untouched, and when no parameter name matches
+     * a type parameter the arguments are passed through unchanged (so a mismatch fails
+     * loudly instead of silently binding the wrong type).</p>
+     */
+    private Object[] withRuntimeClassArguments(Object[] args) {
+        if (genericTypeArguments == null || genericTypeArguments.length == 0) {
+            return args;
+        }
+        Parameter[] parameters = method.getParameters();
+        int supplied = args == null ? 0 : args.length;
+        if (supplied >= parameters.length) {
+            return args;
+        }
+        Object[] effective = java.util.Arrays.copyOf(args == null ? new Object[0] : args, parameters.length);
+        boolean filled = false;
+        for (int i = supplied; i < parameters.length; i++) {
+            if (parameters[i].getType() != Class.class) {
+                continue;
+            }
+            int typeArgumentIndex = typeArgumentIndexOf(parameters[i].getName());
+            if (typeArgumentIndex >= 0 && typeArgumentIndex < genericTypeArguments.length) {
+                effective[i] = genericTypeArguments[typeArgumentIndex];
+                filled = true;
+            }
+        }
+        return filled ? effective : args;
+    }
+
+    /** Maps an appended runtime-class parameter name to its type-parameter position. */
+    private int typeArgumentIndexOf(String parameterName) {
+        if (parameterName == null) {
+            return -1;
+        }
+        String typeParameterName = null;
+        if (parameterName.startsWith("t") && parameterName.endsWith("Class") && parameterName.length() > 7) {
+            typeParameterName = parameterName.substring(1, parameterName.length() - 5);
+        } else if (parameterName.startsWith("_cs2j_")) {
+            typeParameterName = parameterName.substring("_cs2j_".length());
+        }
+        if (typeParameterName == null || typeParameterName.isEmpty()) {
+            return -1;
+        }
+        java.lang.reflect.TypeVariable<Method>[] typeParameters = method.getTypeParameters();
+        for (int i = 0; i < typeParameters.length; i++) {
+            String declared = typeParameters[i].getName();
+            if (declared.equals(typeParameterName)
+                || declared.equals("T" + typeParameterName)
+                || declared.equalsIgnoreCase(typeParameterName)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -227,11 +298,15 @@ public final class MethodInfo implements MemberInfo {
      * Bridges C# MethodInfo.MakeGenericMethod(Type[]).
      * <p>
      * Java reflection has no direct equivalent because generic type information
-     * is erased at runtime. The type arguments are accepted for API compatibility
-     * and the same MethodInfo is returned so that generated code can chain calls.
+     * is erased at runtime. The type arguments are recorded on the returned
+     * MethodInfo so that a following {@link #invoke(Object, Object...)} can supply
+     * the runtime {@code Class} tokens the converter appends to such methods.
      */
     public MethodInfo makeGenericMethod(Class<?>... typeArguments) {
-        return this;
+        if (typeArguments == null || typeArguments.length == 0) {
+            return this;
+        }
+        return new MethodInfo(method, typeArguments.clone());
     }
 
     public static final class ReturnParameter {

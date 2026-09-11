@@ -225,6 +225,32 @@
   3. 说明：转换器把 `MemoryMarshal.Cast<byte,int>` 与 `Span<Integer>` 都擦除成同一签名，故只能按"byte→int"实现；当前全仓库仅此一处 Cast 调用点（`CopySegment`），已在注释中记录该限制。
 - **验证**: `length=-` 的 `IndexOutOfBoundsException` 由 20 行降到 **0**；探针输出 `first.true = true`，类内断言可继续推进；全量失败数 988 → **977**。
 
+## Iteration 9 — 反射 `MakeGenericMethod(...).Invoke(null, null)` 未提供转换器追加的 `Class` 令牌
+
+- **Java 文件**: `system-text-json-tests/src/test/java/dotnet/text/json/Serialization/Tests/ExtensionDataTests.java:286`
+- **错误信息**: `java.lang.NullPointerException: Cannot read the array length because "args" is null`（`io.github.ningpp.compat.MethodInfo.invoke(MethodInfo.java:97)`，16 行堆栈）
+- **代码片段**:
+  ```java
+  TypeHelper.getMethod(ExtensionDataTests.class, "ExtensionProperty_...Internal",
+      BindingFlags.Static | BindingFlags.NonPublic)
+      .makeGenericMethod(overflowType, converterType).invoke(null, (Object[]) null);
+  ```
+  对应的生成方法签名（注意追加的 Class 令牌）：
+  ```java
+  private static <TDictionary, TConverter extends JsonConverter> void
+      extensionProperty_SupportsWritingToCustomSerializerWithOptionsInternal(
+          Class<?> tConverterClass, Class<?> tDictionaryClass) { ... }
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\json\tests\Serialization\ExtensionDataTests.cs` — `GetMethod(nameof(...), ...).MakeGenericMethod(overflowType, converterType).Invoke(null, null)`（C# 方法无参数）
+- **根因分类**: 语义模型信息丢失（泛型实参未随反射调用传递）+ compat 错误处理 NPE
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/MethodInfo.java`
+- **分析**: 转换器把泛型方法的运行时类型令牌作为**追加参数**（命名形如 `t<T>Class` / `_cs2j_<T>`）注入到 C# 原签名之后；C# 侧通过 `MakeGenericMethod(t1, t2).Invoke(null, null)` 调用时既不传这些令牌，`makeGenericMethod` 旧实现又是空操作（直接 `return this`），于是参数数量不匹配 → `IllegalArgumentException` → 错误信息拼接时又对 `args`（显式传入的 `null`）取 `length` → 真正的失败被 NPE 掩盖。
+- **修复**:
+  1. `makeGenericMethod` 记录类型实参并返回带记录的 `MethodInfo`；
+  2. `invoke` 在实参少于形参时，按**形参名到类型形参名**的映射（`t<T>Class` → `T<T>`、`_cs2j_<T>` → `<T>`）补齐转换器追加的 `Class` 令牌——按名字匹配而不是按位置猜测，避免顺序假设出错；名字无法匹配时不做补齐，宁可响亮失败；
+  3. 错误信息拼接对 `args == null` 做保护。
+- **验证**: `mvn -o test -Dtest=ExtensionDataTests` 中 `because "args" is null` 由 16 行降到 **0**；该类的失败原因由 NPE 变为 `TargetInvocationException` 包裹的**真实内部错误**（字典键类型擦除），说明反射调用已能正确进入被调方法；全量 977 → 976（这类测试随后被类型擦除问题挡住）。
+
 ## 已定位但**尚未修复**的深层根因（下一轮起点）
 
 **泛型实参在成员读取处被擦除 + 转换器缓存按原始类共享**（两者叠加才是真正的瓶颈）：
@@ -234,8 +260,20 @@
 2. 尝试在 `PropertyInfo`/`FieldInfo` 里发布声明泛型实参（`TypeHelper.registerMemberType`，按 raw 类保留"外层优先"链并在查询时消费）后：`dictionary key type` 日志行 262→26、`JsonElement cannot be cast` 211→72 **明显改善**，但 `Integer cannot be cast to String`（写入路径）与 `could not be converted to ...CSharpList` 反而上升，失败总数 `1006 → 1081`，因此**已回退**（该实现见本轮迭代记录，可复现）。
 3. 原因是生成的 `JsonSerializerOptions._converters` 是 `ConcurrentHashMap<Class, JsonConverter>`——**只按原始 Class 缓存**，`CSharpList<String>` 与 `CSharpList<CSharpInteger>` 共用同一个转换器实例。把实参发布正确后，缓存里第一个转换器变成"具体但可能属于别的成员"的类型；此前所有转换器都是 `Object` 型（宽松但错误表现为 JsonElement）。要真正修好，需要让转换器缓存按**闭合泛型**（raw + 实参）区分，例如在生成代码的 `getConverter` 缓存键上引入 compat 的复合键，或在转换器侧改写 `GetConverter` 缓存访问。
 
-其他仍然存在的主要失败簇（最新一轮全量：`Tests run: 7904, Failures: 496, Errors: 511`）：
-`java.lang.AssertionError`（453，绝大多数是"元素类型变成 JsonElement 导致断言值不等"）、`JsonElement cannot be cast to SimpleTestClass/String/Integer`（33+26+24 行）、`not a supported Dictionary key type`（85 行）、`could not be converted to ...CSharpList`（38 行）、`CSharpDictionary.getChecked` 等 NPE（22 行）。
+其他仍然存在的主要失败簇（最新一轮全量：`Tests run: 7904, Failures: 481, Errors: 495`，即 976 项）：
+`java.lang.AssertionError`（439，绝大多数是"元素类型变成 JsonElement 导致断言值不等"）、`JsonElement cannot be cast to ...`（105 行）、`not a supported Dictionary key type`（85 行）、`could not be converted to ...CSharpList`（38 行）、`ImmutableDictionary cannot be cast to CSharpReadOnlyDict`（26 行）、`No matching constructor found`（21 行）、`CSharpDictionary.getChecked` / `CSharpGenericIDictionary` NPE（33 行）。
+
+### 下一轮的具体计划：让转换器缓存按"闭合泛型"区分（这是解锁 ~600 项失败的关键）
+
+已实测的两半拼图：
+- **A（已实现并被测量）**：`PropertyInfo.getPropertyType()` / `FieldInfo.getFieldType()` 发布声明泛型实参（`TypeHelper.registerMemberType`）→ 字典键/元素类型不再退化成 `Object`，`dictionary key type` 262→26 行、`JsonElement cannot be cast` 211→72 行。
+- **B（尚未实现）**：生成的 `JsonSerializerOptions._converters` 只按原始 `Class` 建键，`CSharpList<String>` 与 `CSharpList<Integer>` 共用同一实例；A 单独上线会把"共享但宽松（Object）"变成"共享但具体（偶发类型不符）"，总数反而 1006→1081，因此 A 已回退。
+
+计划（A+B 同时上线）：
+1. compat 新增 `TypeHelper.cacheKey(Class<?> raw)`：该 raw 类当前有已发布的泛型实参时返回复合键（raw+实参，具备 `equals`/`hashCode`），否则原样返回 `raw`（对非泛型类型保持现有行为，零开销）。
+2. 转换器侧把 `JsonSerializerOptions._converters` 的**读写键**都换成该复合键（字段类型放宽为 `ConcurrentHashMap<Object, JsonConverter>`）；这是唯一需要改生成形态的地方，且局限在 `JsonSerializerOptions` 这一个类型内。
+3. 重新转换 + 全量测试，对比 `Tests run: 7904` 的失败数是否显著下降（预期 A 的收益不再被缓存共享抵消）。
+
 
 **另一个已定位但未修复的簇（`ImmutableDictionary cannot be cast to CSharpReadOnlyDict`，27 行）**：
 `ImmutableDictionaryOfTKeyTValueConverter.onWriteResume` 的调用点会对值做 `checkcast CSharpReadOnlyDict`（`TCollection` 的擦除上界，来自 C# `where TCollection : IReadOnlyDictionary<TKey,TValue>`），而 compat 的 `ImmutableDictionary<K,V>` 只实现 `IImmutableDictionary`。
