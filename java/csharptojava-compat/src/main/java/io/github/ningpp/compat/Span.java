@@ -10,30 +10,40 @@ public final class Span<T> {
     private final Object array;
     private final int offset;
     private final int length;
+    /**
+     * True when this span is a 4-byte little-endian int view over a byte[] backing
+     * (C# {@code MemoryMarshal.Cast<byte, int>}). Element {@code i} then covers bytes
+     * {@code 4i..4i+3} instead of the single byte the byte-backed span addresses.
+     */
+    private final boolean int32View;
 
     /** Default (empty) span — mirrors default(Span&lt;T&gt;). */
     public Span() {
         this.array = null;
         this.offset = 0;
         this.length = 0;
+        this.int32View = false;
     }
 
     public Span(T[] array) {
         this.array = array;
         this.offset = 0;
         this.length = array.length;
+        this.int32View = false;
     }
 
     public Span(byte[] array) {
         this.array = array;
         this.offset = 0;
         this.length = array.length;
+        this.int32View = false;
     }
 
     public Span(char[] array) {
         this.array = array;
         this.offset = 0;
         this.length = array.length;
+        this.int32View = false;
     }
 
     /** Copy constructor — allows wrapping an existing ReadOnlySpan without type inference issues */
@@ -41,6 +51,34 @@ public final class Span<T> {
         this.array = other.getArray() != null ? other.getArray() : other.toArray();
         this.offset = other.getArray() != null ? other.getOffset() : 0;
         this.length = other.getLength();
+        this.int32View = false;
+    }
+
+    /** Internal view constructor used by {@link #castToInt32(Span)}. */
+    private Span(Object array, int offset, int elementCount, boolean int32View) {
+        this.array = array;
+        this.offset = offset;
+        this.length = elementCount;
+        this.int32View = int32View;
+    }
+
+    /**
+     * Mirrors C# {@code MemoryMarshal.Cast<byte, int>(Span<byte>)}: a 4-byte
+     * little-endian int view over the same backing bytes. Writes through the view
+     * reach the original array, which is what callers such as
+     * {@code JsonDocument.MetadataDb.CopySegment} rely on when they nudge the row
+     * location fields. A span that is not byte-backed is already element-typed and
+     * is returned unchanged.
+     */
+    public static Span<Integer> castToInt32(Span<Integer> span) {
+        if (span == null) {
+            return new Span<>();
+        }
+        Object backing = span.array;
+        if (backing instanceof byte[] bytes) {
+            return new Span<Integer>(bytes, span.offset, span.length / 4, true);
+        }
+        return span;
     }
 
     /** Mirrors C# Span&lt;T&gt; → ReadOnlySpan&lt;T&gt; implicit conversion. */
@@ -56,6 +94,7 @@ public final class Span<T> {
         this.array = array;
         this.offset = offset;
         this.length = length;
+        this.int32View = false;
     }
 
     public Span(byte[] array, int offset, int length) {
@@ -66,6 +105,7 @@ public final class Span<T> {
         this.array = array;
         this.offset = offset;
         this.length = length;
+        this.int32View = false;
     }
 
     public Span(char[] array, int offset, int length) {
@@ -76,6 +116,7 @@ public final class Span<T> {
         this.array = array;
         this.offset = offset;
         this.length = length;
+        this.int32View = false;
     }
 
     public int length() {
@@ -131,6 +172,11 @@ public final class Span<T> {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);
         }
         if (array instanceof byte[] bytes) {
+            if (int32View) {
+                @SuppressWarnings("unchecked")
+                T value = (T) java.lang.Integer.valueOf(readInt32(bytes, offset + index * 4));
+                return value;
+            }
             @SuppressWarnings("unchecked")
             T value = (T) java.lang.Integer.valueOf(bytes[offset + index] & 0xFF);
             return value;
@@ -150,6 +196,10 @@ public final class Span<T> {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);
         }
         if (array instanceof byte[] bytes) {
+            if (int32View) {
+                writeInt32(bytes, offset + index * 4, ((Number) value).intValue());
+                return;
+            }
             bytes[offset + index] = (byte)(((Number) value).intValue() & 0xFF);
             return;
         }
@@ -158,6 +208,22 @@ public final class Span<T> {
             return;
         }
         ((T[]) array)[offset + index] = value;
+    }
+
+    /** Little-endian 4-byte read used by the int view. */
+    private static int readInt32(byte[] bytes, int base) {
+        return (bytes[base] & 0xFF)
+            | ((bytes[base + 1] & 0xFF) << 8)
+            | ((bytes[base + 2] & 0xFF) << 16)
+            | ((bytes[base + 3] & 0xFF) << 24);
+    }
+
+    /** Little-endian 4-byte write used by the int view. */
+    private static void writeInt32(byte[] bytes, int base, int value) {
+        bytes[base] = (byte)(value & 0xFF);
+        bytes[base + 1] = (byte)((value >>> 8) & 0xFF);
+        bytes[base + 2] = (byte)((value >>> 16) & 0xFF);
+        bytes[base + 3] = (byte)((value >>> 24) & 0xFF);
     }
 
     /**

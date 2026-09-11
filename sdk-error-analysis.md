@@ -208,6 +208,23 @@
 - **分析**: `asMemory()` 的 byte 分支执行 `T[] copy = (T[]) (Object) Arrays.copyOfRange(byteArray, ...)`；`T` 擦除为 `Object` 时该强转即 `(Object[])`，对 `byte[]` 必然抛 CCE。`ReadOnlyMemory` 已有 `(byte[], start, length)` 构造器（保持 byte[] 视图，与 C# `ArraySegment<byte>.AsMemory()` 语义一致），改用该构造器即可。
 - **验证**: `mvn -o test -Dtest=JsonDocumentTests` 中 `[B cannot be cast` 由 20 行降到 **0**；全量失败数 1006 → **988**。
 
+## Iteration 8 — `MemoryMarshal.Cast<byte,int>` 被实现为空操作，`CopySegment` 写坏行数据
+
+- **Java 文件**: `system-text-json/src/main/java/dotnet/text/json/JsonDocument.java:1913`（`MetadataDb.copySegment`）
+- **错误信息**: `java.lang.IndexOutOfBoundsException: offset=780624, length=-780264, arrayLength=360`（`JsonDocumentTests.readNestedObject` 等 20 行堆栈，且**单测隔离运行同样复现**，非测试顺序污染）
+- **调用链**: `JsonElement.getProperty` → `JsonElement.tryGetProperty` → `JsonDocument.tryGetNamedPropertyValue` → `MetadataDb.get` → `ReadOnlySpan.<init>`
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Document\JsonDocument.MetadataDb.cs:344` — `Span<int> newDbInts = MemoryMarshal.Cast<byte, int>(newDatabase.AsSpan());`
+- **根因分类**: compat 库语义缺失（类型重解释被当成空操作）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/MemoryMarshal.java` — `cast`；`.../Span.java` — `get`/`set`
+- **分析**: 该端口用 `Span<Integer>` 同时表示 byte 序列（逐字节寻址）与 int 序列。`MemoryMarshal.cast` 原实现直接 `return span;`（注释写"element reinterpretation is a no-op"），于是 C# 里按 **int** 下标的 `newDbInts[i] -= locationOffset` 变成**按字节**写入单字节：`-9` 被截断成 `0xF7` 写进行数据的第 0/3/6/9 字节，导致克隆文档 `copySegment` 第一行变成 `rows=63235` 之类的垃圾行；随后 `tryGetNamedPropertyValue` 用它算出天文数字的下标 → `IndexOutOfBoundsException`。
+  证据（探针 `probe/MdProbe.java`，直接 dump `MetadataDb._data` 与 `MemoryMarshal.read` 结果）：
+  原始库 7 行全部正确；修复前克隆库第 0 行为 `location=-150994944 sizeOrLength=16187395 rowsAndType=0x1000F703`，且第 1~3 行 location 未被减去偏移；修复后变为 `location=0/2/8/12`（正确）。
+- **修复**:
+  1. `Span` 增加"4 字节小端 int 视图"模式（`castToInt32`），`get`/`set` 在该模式下按 4 字节读写、`length` 按元素数计；视图与原始 `byte[]` 共享后备数组，写入可见。
+  2. `MemoryMarshal.cast(Span<Integer>)` 委托给该视图；非 byte 后备的 span 原样返回。
+  3. 说明：转换器把 `MemoryMarshal.Cast<byte,int>` 与 `Span<Integer>` 都擦除成同一签名，故只能按"byte→int"实现；当前全仓库仅此一处 Cast 调用点（`CopySegment`），已在注释中记录该限制。
+- **验证**: `length=-` 的 `IndexOutOfBoundsException` 由 20 行降到 **0**；探针输出 `first.true = true`，类内断言可继续推进；全量失败数 988 → **977**。
+
 ## 已定位但**尚未修复**的深层根因（下一轮起点）
 
 **泛型实参在成员读取处被擦除 + 转换器缓存按原始类共享**（两者叠加才是真正的瓶颈）：

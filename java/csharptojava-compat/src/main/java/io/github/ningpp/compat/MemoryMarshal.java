@@ -546,9 +546,16 @@ public class MemoryMarshal {
         return value;
     }
 
-    /** Mirrors MemoryMarshal.Cast&lt;TFrom, TTo&gt;(Span&lt;TFrom&gt;) — element reinterpretation is a no-op. */
+    /**
+     * Mirrors {@code MemoryMarshal.Cast<byte, int>(Span<byte>)} — the port reuses
+     * {@code Span<Integer>} for both byte- and int-backed spans, so a byte-backed
+     * span must be reinterpreted as 4-byte little-endian elements; without that,
+     * writes such as {@code newDbInts[i] -= locationOffset} in
+     * {@code JsonDocument.MetadataDb.CopySegment} only touch single bytes and corrupt
+     * the copied rows. Spans that are not byte-backed are already element-typed.
+     */
     public static Span<Integer> cast(Span<Integer> span) {
-        return span;
+        return Span.castToInt32(span);
     }
 
     /** Mirrors MemoryMarshal.Write&lt;T&gt;(Span&lt;byte&gt;, ref T) — writes the value as little-endian bytes. */
