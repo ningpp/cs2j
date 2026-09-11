@@ -251,6 +251,37 @@
   3. 错误信息拼接对 `args == null` 做保护。
 - **验证**: `mvn -o test -Dtest=ExtensionDataTests` 中 `because "args" is null` 由 16 行降到 **0**；该类的失败原因由 NPE 变为 `TargetInvocationException` 包裹的**真实内部错误**（字典键类型擦除），说明反射调用已能正确进入被调方法；全量 977 → 976（这类测试随后被类型擦除问题挡住）。
 
+## Iteration 10 — A+B 落地：发布成员泛型实参 + 转换器缓存按闭合泛型区分
+
+- **涉及组件**:
+  - `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java` — 新增 `registerMemberType`（发布声明泛型实参）、`converterCacheKey`（闭合泛型键）
+  - `.../PropertyInfo.java`、`.../FieldInfo.java` — 读取成员类型时发布实参
+  - `.../ConcurrentHashMapHelper.java` — `tryAdd` 走 `converterCacheKey`
+- **背景**: 见上一节"深层根因"——单独发布实参会被"按原始 Class 缓存"抵消（实测 1006→1081 后回退）。本轮把两半一起上线，且**无需重新转换**：生成代码只调用 `PropertyInfo.getPropertyType()` 与 `ConcurrentHashMapHelper.tryAdd(_converters, ...)`，两者行为都在 compat 内。
+- **实现要点**:
+  1. `registerMemberType(type)`：按 raw 类记录"外层优先"的层链（替换语义，重复读取同一成员幂等），并快照该成员实参供缓存键使用；
+  2. `converterCacheKey(key)`：非 Class 键或**无类型参数**的类原样返回（如 `String`、`JsonElement`，缓存行为与之前完全一致）；泛型类则返回闭合泛型键（raw + 实参），**没有已发布实参时也使用空实参键**——因为生成代码的读取是 `_converters.containsKey(原始Class)`，这样写入的条目永远不会被读到，等于"泛型类型不复用缓存、按当前已发布实参重新创建转换器"，从而不会把某个成员的转换器发给另一个实参不同的成员；
+  3. `tryAdd` 只改键的映射，`EnumConverter._nameCache`（String/enum 键）与 `_classes`（走 `getOrAdd`）行为不变。
+- **测量**（`system-text-json-tests`，7904 项）:
+  | 模式 | Round4 基线 | 仅 A+B | A+B+泛型不复用 |
+  |---|---|---|---|
+  | `dictionary key type` | 262 | 44 | **35** |
+  | `JsonElement cannot be cast` | 211 | 85 | 115 |
+  | `could not be converted to ...CSharpList` | 18 | 72 | **36** |
+  | `Integer cannot be cast to String` | 0 | 58 | **30** |
+  | `ImmutableDictionary cannot be cast` | 53 | 1 | **0** |
+  | `No matching constructor found` | 43 | 29 | 41 |
+  | 失败测试总数 | 976 | 972 | **964** |
+- **结论**: 类型擦除症状大幅下降（字典键 -87%、跨类型转换错误 -98%），但会以"另一些成员拿不到实参"的形式转移，因此总收益有限（-12）。当前采用 A+B+泛型不复用 的组合（964，最优），并保留该方向的后续优化空间（真正的收敛仍取决于让 `_classes`/`_converters` 也按闭合泛型建键，属生成形态改动）。
+
+## Iteration 11 — compat 自测中 1 项既有红灯：`getElementType` 期望值与端口语义相反
+
+- **涉及组件**: `java/csharptojava-compat/src/test/java/io/github/ningpp/compat/TypeHelperTest.java`
+- **现象**: `mvn -o test`（compat 模块，1608 项）中 `getElementType_returnsWrapperClassForPrimitiveArrays` 失败：`expected: <java.lang.Integer> but was: <int>`。
+- **分析**: 该断言与实现相反，且实现是**端口需要**的语义：`IEnumerableConverterFactory` 用 `getElementType(typeToConvert)` 作为数组的元素类，`ArrayConverter.convertCollection` 再把它交给 `TypeHelper.listToArray(list, elementClass)`；只有元素类仍是**基元类**时才会得到 `int[]`，C# `int[]` 成员的 setter 才接受（这与 Iteration 4 修的 `[I cannot be cast` 是同一语义链）。历史提交 `21b56ac0` 已把实现固定为"保留基元类"，但未同步该测试。已用 `git diff HEAD` 确认该实现与本轮改动无关（既有失败）。
+- **修复**: 更新测试为 `int.class/long.class/boolean.class`（重命名为 `getElementType_returnsPrimitiveClassForPrimitiveArrays`），并加注释说明基元/包装的边界（需要包装形式时走 `toWrapperType`/`newArrayInstance`）。
+- **验证**: compat 模块 `Tests run: 1608, Failures: 0, Errors: 0` → **BUILD SUCCESS**。
+
 ## 已定位但**尚未修复**的深层根因（下一轮起点）
 
 **泛型实参在成员读取处被擦除 + 转换器缓存按原始类共享**（两者叠加才是真正的瓶颈）：

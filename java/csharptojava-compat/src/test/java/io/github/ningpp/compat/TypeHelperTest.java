@@ -32,11 +32,19 @@ class TypeHelperTest {
     private static class AnnotatedSample {
     }
 
+    /**
+     * Mirrors .NET {@code typeof(int[]).GetElementType()} → {@code typeof(int)}: the
+     * element type stays a primitive class. The converter depends on this when it builds
+     * a runtime array ({@code ArrayConverter} → {@code TypeHelper.listToArray(list,
+     * elementClass)}), where a primitive element class is what yields the {@code int[]}
+     * that a C# {@code int[]} member expects; callers needing the boxed form go through
+     * {@link TypeHelper#toWrapperType(Class)} or {@code newArrayInstance}.
+     */
     @Test
-    void getElementType_returnsWrapperClassForPrimitiveArrays() {
-        assertEquals(Integer.class, TypeHelper.getElementType(int[].class));
-        assertEquals(Long.class, TypeHelper.getElementType(long[].class));
-        assertEquals(Boolean.class, TypeHelper.getElementType(boolean[].class));
+    void getElementType_returnsPrimitiveClassForPrimitiveArrays() {
+        assertEquals(int.class, TypeHelper.getElementType(int[].class));
+        assertEquals(long.class, TypeHelper.getElementType(long[].class));
+        assertEquals(boolean.class, TypeHelper.getElementType(boolean[].class));
     }
 
     @Test

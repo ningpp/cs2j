@@ -26,6 +26,11 @@ public final class FieldInfo implements MemberInfo {
     }
 
     public Class<?> getFieldType() {
+        // Declared member types carry the generic arguments written in the converted
+        // source (e.g. CSharpDictionary<String, String>); the erased class alone makes
+        // converter factories fall back to type-parameter bounds (Object key/element
+        // types). Publish them before handing back the raw class.
+        TypeHelper.registerMemberType(field.getGenericType());
         return TypeHelper.toWrapperType(field.getType());
     }
 

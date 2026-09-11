@@ -158,6 +158,13 @@ public final class TypeHelper {
     private static final ThreadLocal<java.util.Map<Class<?>, java.lang.reflect.Type[]>>
         CONSUMED_ARGUMENTS = ThreadLocal.withInitial(java.util.HashMap::new);
 
+    // Declared type arguments of the member currently being processed, keyed by raw
+    // class. Fed by registerMemberType and read by converterCacheKey, which keeps the
+    // converter cache from reusing a converter built for a different member's
+    // arguments (the generated cache is keyed by the erased raw class).
+    private static final ThreadLocal<java.util.Map<Class<?>, java.lang.reflect.Type[]>>
+        MEMBER_ARGUMENTS = ThreadLocal.withInitial(java.util.HashMap::new);
+
     // Nesting guard: a deserialize call inside a converter (nested
     // JsonSerializerCompat.deserialize) registers the same raw classes again;
     // the registry is only cleared when the outermost registration finishes.
@@ -215,6 +222,112 @@ public final class TypeHelper {
             for (java.lang.reflect.Type arg : pt.getActualTypeArguments()) {
                 registerParameterizedType(arg);
             }
+        }
+    }
+
+    /**
+     * Publishes the declared generic type of a member whose runtime type was just
+     * read (PropertyInfo.getPropertyType / FieldInfo.getFieldType). Java erases the
+     * type arguments of a member, so the converter factories — which only receive
+     * the raw {@link Class} — would otherwise fall back to the type-parameter
+     * bounds (CSharpDictionary&lt;K,V&gt; → key/element {@code Object}).
+     *
+     * <p>Each raw class keeps the layer chain of the most recently read member
+     * (outer layer first, replacing any previous chain) so that repeated reads of
+     * the same member stay idempotent and a member whose converter is already cached
+     * cannot leak stale arguments into the next member. Session registrations from
+     * {@link #registerParameterizedType} are consumed before member type lookup
+     * happens, so they keep priority.</p>
+     */
+    public static void registerMemberType(java.lang.reflect.Type type) {
+        if (!(type instanceof java.lang.reflect.ParameterizedType)) {
+            return;
+        }
+        java.util.Map<Class<?>, java.util.ArrayDeque<java.lang.reflect.Type[]>> chains =
+            new java.util.LinkedHashMap<>();
+        collectMemberLayers(type, chains);
+        for (java.util.Map.Entry<Class<?>, java.util.ArrayDeque<java.lang.reflect.Type[]>> entry
+                : chains.entrySet()) {
+            TYPE_ARGUMENTS.get().put(entry.getKey(), entry.getValue());
+            CONSUMED_ARGUMENTS.get().remove(entry.getKey());
+            // Snapshot for converterCacheKey: the converter created for this member must
+            // be cached under the closed generic type, not the erased raw class.
+            MEMBER_ARGUMENTS.get().put(entry.getKey(), entry.getValue().peekFirst());
+        }
+    }
+
+    private static void collectMemberLayers(
+        java.lang.reflect.Type type,
+        java.util.Map<Class<?>, java.util.ArrayDeque<java.lang.reflect.Type[]>> chains) {
+        if (!(type instanceof java.lang.reflect.ParameterizedType pt)) {
+            return;
+        }
+        Class<?> raw = (Class<?>) pt.getRawType();
+        java.lang.reflect.Type[] args = pt.getActualTypeArguments();
+        if (args.length > 0) {
+            chains.computeIfAbsent(raw, k -> new java.util.ArrayDeque<>()).addLast(args);
+        }
+        for (java.lang.reflect.Type arg : args) {
+            collectMemberLayers(arg, chains);
+        }
+    }
+
+    /**
+     * Key used by the generated converter cache ({@code JsonSerializerOptions._converters}).
+     * Returns the key unchanged for anything that is not a raw class with published
+     * member type arguments; otherwise it returns a closed-generic key so that two
+     * members sharing a raw class but not its type arguments (CSharpList&lt;String&gt;
+     * vs CSharpList&lt;Integer&gt;) do not share one converter instance. The generated
+     * cache only looks up by the raw class, so such entries are effectively
+     * "create fresh per member", which is what makes the published member arguments
+     * take effect instead of being masked by an earlier member's converter.
+     */
+    public static Object converterCacheKey(Object key) {
+        if (!(key instanceof Class<?> raw)) {
+            return key;
+        }
+        java.lang.reflect.Type[] args = MEMBER_ARGUMENTS.get().get(raw);
+        if (args == null) {
+            if (raw.getTypeParameters().length == 0) {
+                return key;
+            }
+            // Generic raw class without published arguments: key it apart from the raw
+            // class as well. Such a converter was built from erased type-parameter bounds
+            // (element/key types Object); letting the generated raw-class lookup find it
+            // would hand it to a member that does publish real arguments and undo the
+            // published arguments entirely.
+            args = new java.lang.reflect.Type[0];
+        }
+        return new ClosedGenericKey(raw, args);
+    }
+
+    /** Closed-generic cache key: raw class plus the type arguments in effect. */
+    private static final class ClosedGenericKey {
+        private final Class<?> raw;
+        private final java.lang.reflect.Type[] args;
+        private final int hash;
+
+        ClosedGenericKey(Class<?> raw, java.lang.reflect.Type[] args) {
+            this.raw = raw;
+            this.args = args.clone();
+            this.hash = 31 * raw.hashCode() + java.util.Arrays.hashCode(this.args);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof ClosedGenericKey key
+                && raw == key.raw
+                && java.util.Arrays.equals(args, key.args);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        @Override
+        public String toString() {
+            return raw.getName() + java.util.Arrays.toString(args);
         }
     }
 

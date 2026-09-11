@@ -169,9 +169,15 @@ public final class PropertyInfo implements MemberInfo {
 
     public Class<?> getPropertyType() {
         if (getter != null) {
+            // Declared member types carry the generic arguments written in the
+            // converted source (e.g. CSharpDictionary<String, String>); returning the
+            // erased class alone makes converter factories fall back to type-parameter
+            // bounds (Object key/element types). Publish them first.
+            TypeHelper.registerMemberType(getter.getGenericReturnType());
             return TypeHelper.toWrapperType(getter.getReturnType());
         }
         if (setter != null && setter.getParameterCount() > 0) {
+            TypeHelper.registerMemberType(setter.getGenericParameterTypes()[0]);
             return TypeHelper.toWrapperType(setter.getParameterTypes()[0]);
         }
         return null;

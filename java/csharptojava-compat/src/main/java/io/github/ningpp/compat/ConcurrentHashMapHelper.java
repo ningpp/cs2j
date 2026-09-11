@@ -8,7 +8,14 @@ public class ConcurrentHashMapHelper {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static boolean tryAdd(ConcurrentHashMap map, Object key, Object value) {
-        return map.putIfAbsent(key, value) == null;
+        // Route the key through TypeHelper.converterCacheKey: for a raw class with
+        // published member type arguments (JsonSerializerOptions._converters) the entry
+        // is stored under the closed generic type instead of the erased class, so the
+        // generated raw-class lookup cannot hand a converter built for one member's type
+        // arguments to a different member. Non-class keys and classes without published
+        // arguments are unaffected.
+        Object effectiveKey = TypeHelper.converterCacheKey(key);
+        return map.putIfAbsent(effectiveKey, value) == null;
     }
 
     /** Mirrors ConcurrentDictionary.GetOrAdd(key, valueFactory) — existing value or the new one. */
