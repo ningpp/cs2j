@@ -474,6 +474,31 @@
   - **保留该改动的理由**: 它把"闭合泛型共用缓存"这一真实缺陷改正（与 A+B 设计方向一致），9 项回归与 22 项收益同源，都会在 19.1 的调用点类型实参发布落地后一起转为通过。
 - **官方 Step 2（Round 12）**: `Failures: 440, Errors: 499` = **939**（Round 11: 947 → Round 10: 955 → Round 9: 965）。
 
+## Iteration 20 — 用探针证明"调用点发布类型实参"的收益与边界；修掉会话注册被缓存键忽略的缺陷
+
+### 20.1 探针实验（`probe/SessionTypeArgProbe.java`，每次用例独立 JVM，避免缓存掩盖效果）
+
+| 模式 | 结果 | 含义 |
+|------|------|------|
+| `write-plain` | `[1,2]` ✓ | 写出路径靠运行时类型分发，本身已正确 |
+| `write-reg` | `[1,2]` ✓ | 发布实参对写出无副作用 |
+| `read-plain` | `[1, 2] elements=[JsonElement JsonElement]` ✗ | **读入路径**元素类型退化为 JsonElement（当前失败大簇的机制） |
+| `read-reg`（先发布再反序列化） | `[1, 2] elements=[Integer Integer]` ✓✓ | **发布实参可修复读入路径**（22 项 `JsonElement cannot be cast ...` 家族的机制被证实） |
+| `read-reg-after-lookup`（先查一次再发布） | `[1,2] elements=[JsonElement ...]` ✗ | 根类型的 LRU（`getOrAddClassForRootType` 的 `get_lastClass`）只比较 raw class，预热过的 JsonClassInfo 会绕过新实参 ⇒ 发布必须发生在**该类型任何查找之前** |
+| `nested-write-reg`（注册 `List<List<int>>` 链） | **抛** `Integer cannot be cast to CSharpList` ✗ | 与全量日志中 `writeListOfList`/`writeIListOfIList` 的报错逐字一致：**嵌套同 raw 类的分层实参尚未被正确区分** |
+| `peek-nested` | `getGenericArguments` 依次返回 `[CSharpList] → [Integer] → [Integer]` | 注册表本身的分层消费顺序是对的（外层优先 + 重复查询语义） |
+
+结论：**调用点发布实参是有实证收益的**（读入路径：JsonElement → Integer），但落地时必须解决两件事：①发布要发生在任何查找之前（避免 LRU/缓存预热绕过）；②嵌套同 raw 类（`List<List<int>>`）的分层实参要能区分每一层的转换器——这正是 20.2 修掉的缺陷。这两点是给用户批准"生成端发布"提案时必须一并说明的边界。
+
+### 20.2 本轮修复（compat-only）：缓存键必须反映"会话注册"的当前层
+
+- **缺陷**：`TypeHelper.converterCacheKey` 只看 `MEMBER_ARGUMENTS`（成员发布），完全忽略会话注册（`registerParameterizedType`/`closedGeneric`）⇒ 嵌套类型的两层转换器拿到**同一个键**。红灯证据（compat 单测）：`expected: not equal but was: <io.github.ningpp.compat.CSharpList[]>`（两层都是空实参键）。
+- **修复**：新增 `TypeHelper.peekGenericArguments(raw)`（**不消费**：优先返回待处理的队首层，其次返回已消费层，保证同一层的重复查询键稳定），`converterCacheKey` 在成员发布缺失时改用它。
+- **红→绿**: `TypeHelperLayeredCacheKeyTest` 红（键相同）→ 绿 3/3；compat 全量 **1633/1633**。
+- **对当前 SDK 是 no-op（已核对）**: `grep 'TypeHelper\.(closedGeneric|registerTypeArguments|beginTypeRegistration)'` 在生成产物中 **0 命中**，即当前 SDK 运行时根本不存在会话注册 ⇒ 该修复只有在"生成端发布实参"落地后才会生效（也正是为它铺路）。
+- **尚未解决**: `nested-write-reg` 仍抛错 —— 排查显示嵌套场景下外层转换器创建期间对该 raw class 的 `getGenericArguments` 调用次数大于 1，导致在**内层**转换器查找时待处理队列已空、peek 回退到"已消费的外层"，两层键再次相同。修法需要在发布/消费链上引入"层序号"而不是仅靠队列消费顺序（下一轮 compat 侧继续），或由生成端直接传递带层信息的闭合泛型令牌。
+- **官方 Step 2（Round 13）**: `Failures: 440, Errors: 499` = **939**，与 Round 12 **逐项相同**（预期如此：当前 SDK 不产生会话注册，该修复对现状是 no-op）——同时再次印证 Round 11 之后全量结果可复现。
+
 
 
 

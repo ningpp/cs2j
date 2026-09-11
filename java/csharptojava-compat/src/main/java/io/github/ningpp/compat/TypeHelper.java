@@ -284,6 +284,19 @@ public final class TypeHelper {
     }
 
     /**
+     * The type arguments that the next {@link #getGenericArguments} call would report for
+     * {@code raw}, without consuming them: the pending (outermost) session layer, else the
+     * layer already consumed (repeat queries report it again).
+     */
+    static java.lang.reflect.Type[] peekGenericArguments(Class<?> raw) {
+        java.util.ArrayDeque<java.lang.reflect.Type[]> deque = TYPE_ARGUMENTS.get().get(raw);
+        if (deque != null && !deque.isEmpty()) {
+            return deque.peekFirst();
+        }
+        return CONSUMED_ARGUMENTS.get().get(raw);
+    }
+
+    /**
      * Key used by the generated converter cache ({@code JsonSerializerOptions._converters}).
      * Returns the key unchanged for anything that is not a raw class with published
      * member type arguments; otherwise it returns a closed-generic key so that two
@@ -298,6 +311,14 @@ public final class TypeHelper {
             return key;
         }
         java.lang.reflect.Type[] args = MEMBER_ARGUMENTS.get().get(raw);
+        if (args == null) {
+            // Session registrations (typeof(ClosedGeneric), deserialize(TypeReference)) publish
+            // layered arguments per raw class; converter creation consumes one layer at a time,
+            // so two lookups for the same raw class - outer list, then its element list - must
+            // not share one cache entry. Peeking (not consuming) keeps the key stable for repeat
+            // queries of the layer already in effect.
+            args = peekGenericArguments(raw);
+        }
         if (args == null) {
             if (raw.getTypeParameters().length == 0) {
                 return key;
