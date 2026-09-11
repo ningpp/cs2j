@@ -370,6 +370,34 @@
 尝试让 `ImmutableDictionary`/`ImmutableSortedDictionary` 实现 `CSharpReadOnlyDict<K,V>` 会编译失败：compat 的 `CSharpGenericIterable` 继承 `java.util.Collection`，于是要求 `void clear()` 与 `tryGetValue(K)` 等，而不可变字典的 `clear()` 返回新实例（C# 语义）→ 签名冲突。
 真正的修法是让 `IReadOnlyDictionary<TKey,TValue>` 在 compat 里映射到一个**只读**接口（不含 `Collection` 的可变方法），但该接口被全部生成代码使用，属于跨项目改动，本轮未做（改动与失败原因已记录，避免重复尝试）。
 
+## Iteration 16 — `DayOfWeek` 补齐 `_UNMAPPED` 语义；并量化"全量数字的运行间噪声"（方法学修正）
+
+- **Java 文件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/DayOfWeek.java`（compat-only，无生成产物改动、无需重新转换）
+- **错误信息（红）**: `java.lang.ArrayIndexOutOfBoundsException: Index -1 out of bounds for length 7` at `DayOfWeek.fromValue(DayOfWeek.java:20)`，由 `Serialization.Tests.EnumConverterTests.convertDayOfWeek`（C# `EnumConverterTests.cs:42` `JsonSerializer.Serialize((DayOfWeek)(-1), options)`）触发。
+- **根因分类**: compat 库语义不足 —— `DayOfWeek` 是 compat 中**唯一**没有采用"`_UNMAPPED` 哨兵"约定的枚举；HEAD 实现 `fromValue(v) => values()[v % 7]` 对负数直接数组越界，对 `v >= 7` 则静默别名到错误的星期。
+- **修复**: 与 `EnumTransformer` 生成形态对齐（见 `system-private-uri/.../UriKind.java`）：新增 `_UNMAPPED(0)` 哨兵 + 可变 `unmappedValue`，`getValue()` 对哨兵返回原值，`fromValue()` 线性查名后回退到哨兵并保存原值。
+  - 新增红灯单测 `DayOfWeekTest`（compat）：`fromValue(-1)` 不得抛异常且 `getValue()==-1`、哨兵不得出现在 `EnumHelper.getNames/getValuesArray`。
+  - 该单测额外抓出一个**真实映射错误**：`fromJava` 直接透传 `dow.getValue()` 是错的——JDK `java.time.DayOfWeek` 用 ISO-8601 编号（Monday=1 … Sunday=7），C# 用 Sunday=0 … Saturday=6，必须 `% 7`（原实现恰好靠 `% 7` 掩盖了这一点）。红：`expected: <Sunday> but was: <_UNMAPPED>` → 绿：`mvn -o install` 1615/1615 通过。
+- **验证（同命令、同上下文的定向 A/B）**:
+
+| 测试类 | 基线（HEAD jar） | 修复后 |
+|--------|------------------|--------|
+| `Serialization.Tests.EnumConverterTests` | 3F + 3E = 6 | 4F + 2E = 6（**AIOOBE 崩溃消失**） |
+| `Tests.EnumConverterTests` | 4F ~ 6F（两次运行不同） | **1F** |
+
+  ⇒ 定向证据为净改进，**保留**该改动。
+- **官方 Step 2（`mvn clean install -e`，`d:\cs-json-0911-sdk\mvn-build.log`）**: `Tests run: 7904, Failures: 462, Errors: 503, Skipped: 16` = **965**（Round 8 官方 965：457F + 508E）⇒ 全量数字持平。
+- **方法学修正（取代 Iteration 14 的"全量为唯一裁判"规则）**: 本套件存在**运行间不确定性**，实测：
+  - 两次**完全相同**的定向命令（`-Dtest=EnumConverterTests,CollectionTests`）：`366 项 → 70F+88E` vs `72F+88E`，差集恰为 `serializeNegativeEnum` / `serializeNegativeFlagsEnum` —— 而这两项在本轮 A/B 中被记为"新失败"，属**误判**。
+  - 两次同配置全量运行的差集约 **35 项**，且集中在与改动无因果链的集合转换错误（`ListOfTConverter.onWriteResume:35` 把 `java.lang.Integer` / `CSharpDictionary` / `BasicJsonAddress` 当作 `CSharpList` 强转）——同一批用例在基线运行通过、在修复运行失败。
+  - 结论：**单个全量失败数的噪声下限约 ±35~40**，不足以判定 <40 的单项收益。keep/revert 判定改用"同命令 + 同上下文 + 类级计数"的 A/B，全量数字仅作记录；当一个判定确实依赖全量数字时，至少跑两次取交集。
+- **本轮定位、尚未修复（下一轮起点）**:
+  1. **枚举未定义值的写出语义**：`EnumConverter.write` 用 `String original = value.toString()` 复刻 C# `Enum.ToString()`；但生成的枚举与 compat 手工枚举都**没有覆写 `toString()`**，未定义值因此写出 `"_UNMAPPED"` / `"_unmapped"`，而 C# 期望数值（`convertDayOfWeek` 期望 `-1`、`enumWithNoValues` 期望 `-1` / `1`）。修法 = `EnumTransformer` 为枚举补 `toString()` 覆写（`_UNMAPPED` → 数值字符串；其余返回 `name()`，与 Java 默认 `toString()` 完全等价 ⇒ 纯增量、无回归面）。**属"生成产物形态改动"，按用户要求先通知、待批准后再实施**（需重新转换 ~280s）。
+  2. **compat 反射读私有枚举**（compat-only，下一轮首选）：`EnumConverterTests.enumWithConverterAttribute` → `TargetInvocationException` ← `ClassCastException: Cannot cast ...EnumConverterTests$MyCustomEnum to a numeric value` ← `EnumHelper.toInt64` 的 `getMethod("getValue").invoke()`。C# 侧该枚举声明为 `private enum MyCustomEnum`，Java 生成 `private static enum`（正确）；公开方法落在非公开类上，反射 `invoke` 抛 `IllegalAccessException`。修法：`canAccess`/`setAccessible(true)`，并在无 `getValue()` 时回退 `ordinal()`；红灯单测 = compat 内一个 private 嵌套枚举。
+  3. `convertFileAttributes`：`The JSON value could not be converted to class java.lang.Integer`（枚举与其底层 `Int32` 的转换器选择，疑与 `_converters` 只按原始 `Class` 建键同源）。
+  4. `convertEnumUsingAttributes`：需按 C# 成员命名属性/命名策略输出名字、未命名成员输出数值（`EnumHelper` 目前只看常量名）。
+  5. `deserializeEnumClass`：`Nullable<enum>` 期望 `null` 实得 `0`（既有 nullable 值类型阻塞项）。
+
 
 
 
