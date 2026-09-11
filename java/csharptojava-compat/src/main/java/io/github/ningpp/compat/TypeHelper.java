@@ -273,6 +273,17 @@ public final class TypeHelper {
     }
 
     /**
+     * Forgets the current thread's type-argument registrations. Callers that drive
+     * conversion member-by-member (and tests) use this to avoid leaking a registration
+     * into unrelated lookups on the same thread.
+     */
+    static void clearThreadRegistrations() {
+        TYPE_ARGUMENTS.get().clear();
+        CONSUMED_ARGUMENTS.get().clear();
+        MEMBER_ARGUMENTS.get().clear();
+    }
+
+    /**
      * Key used by the generated converter cache ({@code JsonSerializerOptions._converters}).
      * Returns the key unchanged for anything that is not a raw class with published
      * member type arguments; otherwise it returns a closed-generic key so that two

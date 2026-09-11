@@ -19,13 +19,24 @@ public class ConcurrentHashMapHelper {
     }
 
     /** Mirrors ConcurrentDictionary.GetOrAdd(key, valueFactory) — existing value or the new one. */
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public static <K, V> V getOrAdd(ConcurrentHashMap<K, V> map, K key, V value) {
-        return map.computeIfAbsent(key, k -> value);
+        // Same reasoning as tryAdd: the generated JsonClassInfo cache
+        // (JsonSerializerOptions._classes) is keyed by the erased class, so
+        // CSharpList<String> and CSharpList<Integer> would share one JsonClassInfo —
+        // and therefore one element/key type — whenever both are cached. Routing the
+        // key through converterCacheKey keeps them apart when member type arguments
+        // are published; classes without published arguments keep sharing one entry.
+        Object effectiveKey = TypeHelper.converterCacheKey(key);
+        return (V) map.computeIfAbsent((K) effectiveKey, k -> value);
     }
 
     /** Mirrors ConcurrentDictionary.GetOrAdd(key, Func) — existing value or factory result. */
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public static <K, V> V getOrAdd(ConcurrentHashMap<K, V> map, K key, java.util.function.Function<K, V> valueFactory) {
-        return map.computeIfAbsent(key, valueFactory);
+        Object effectiveKey = TypeHelper.converterCacheKey(key);
+        // The factory still receives the caller's key, not the closed-generic cache key.
+        return (V) map.computeIfAbsent((K) effectiveKey, k -> valueFactory.apply(key));
     }
 
     /** Mirrors ConcurrentDictionary(IDictionary<K,V>) — copies entries into a new map. */

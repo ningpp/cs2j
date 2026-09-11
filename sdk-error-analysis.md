@@ -436,6 +436,44 @@
   3. 枚举未定义值写出 `"_UNMAPPED"` 而非数值（`convertDayOfWeek`/`enumWithNoValues`）——**属生成产物形态改动，仍待用户批准**。
   4. `convertFileAttributes` 的枚举↔底层 `Int32` 转换器选择。
 
+## Iteration 19 — 集合簇根因定位（类型实参在调用点被擦除）+ `JsonClassInfo` 按闭合泛型区分 + 全量结果已可复现
+
+### 19.1 根因（最大杠杆）：参数化静态类型在调用点退化成裸 `.class`，元素/键类型无从恢复
+
+- **证据（生成产物）** `system-text-json-tests/.../CollectionTests.java:1083-1086`：
+  ```java
+  public void writePrimitiveList() {
+      var input = new CSharpList<Integer>(ArrayHelper.toList(new Integer[] { 1, 2 }));
+      String json = dotnet.text.json.JsonSerializer.serialize(((Class<CSharpList<Integer>>) (Class<?>) CSharpList.class), input, null);
+  ```
+  Java 无法表达 `CSharpList<Integer>.class`，转换器只能发出**裸 raw class**（并配一个"说谎"的泛型强转），C# 侧的 `List<int>` 类型实参在调用点全部丢失。
+- **下游链条**：`JsonSerializer` → `JsonSerializerOptions.getConverter/getOrAddClass` → `IEnumerableConverterFactory` 用 `TypeHelper.getGenericArguments(typeToConvert)` 取元素类型；compat 的 `getGenericArguments(rawClass)` 只有三个来源：
+  1. 成员声明发布（`PropertyInfo`/`FieldInfo` → `registerMemberType`）——**只覆盖对象成员**；
+  2. 会话发布（`registerParameterizedType`）——**转换器从未发出任何调用**（`grep registerParameterizedType` 在生成产物中 0 命中，属"死 API"；compat 注释明确写了它就是为 `TypeReference` 这类调用点准备的）；
+  3. 都取不到时退回类型参数上界 → `Object` → 元素转换器退化为 `ObjectConverter`/JsonElement ✗。
+- **失败表现（隔离运行 `CollectionTests`，342 项 142 失败）**：`JsonElement cannot be cast to Integer`(22)、`JsonException: The JSON value could not be converted to ...`(32)、`JsonElement cannot be cast to CSharp*`(7)、`Integer cannot be cast to String`(全量上下文中 29) —— 全是"元素/键类型错误"的同一根因。
+- **结论**：集合簇要在 Java 侧真正修好，必须在**调用点把静态类型的类型实参发布出去**（即让转换器发出 `registerParameterizedType`）。compat 侧机制已就绪，缺的只是生成端 —— **属生成产物形态改动，已向用户提出待批准**（预计解锁集合簇 ~150 项及其它模块中的同类失败）。
+
+### 19.2 本轮已落地的 compat 修复：`JsonClassInfo` 缓存按闭合泛型区分
+
+- **问题**：`JsonSerializerOptions._classes`（`ConcurrentHashMap<Class, JsonClassInfo>`）经 `ConcurrentHashMapHelper.getOrAdd` 写入，键是**擦除后的裸 class** → `CSharpList<String>` 与 `CSharpList<Integer>` 共用一个 `JsonClassInfo`（连带共用一个元素类型）→ 后读的成员用前一个成员的元素转换器（`Integer cannot be cast to String`）。
+- **修复（compat-only，仅 1 个调用点）**：`getOrAdd` 的两个重载都把键过一遍 `TypeHelper.converterCacheKey`（与 `tryAdd` 已有的 A+B 处理一致）；`Function` 重载仍把**调用方的原始键**传给工厂。
+- **红→绿**: 新增 `ConcurrentHashMapHelperClosedGenericTest`：红——`expected: <integer-element> but was: <string-element>`（回到 HEAD 版 helper 复现）；绿——3/3 通过，compat 全量 **1630/1630**。
+- **风险核对**: `JsonClassInfo.validateType` 的 `options.typeIsCached(type)` 对新键会返回 false，但 `isInvalidForSerialization` = `getIsPointer || isByRefLike || getContainsGenericParameters`，而 compat 的 `getContainsGenericParameters` 恒为 false（raw class 视为闭合运行时类型）→ 不会误抛 `CannotSerializeInvalidType` ✓。
+- **隔离运行**：`CollectionTests` 342 项仍 142 失败（**预期**：隔离上下文没有成员发布，所有 `CSharpList` 都退化为"无实参"键 → 行为不变）。
+
+### 19.3 方法学里程碑：全量结果**已可复现**（Round 11 排序修复的连带收益）
+
+- 同一棵代码树、同一个 compat jar，连续两次官方 `mvn clean install -e`：
+  - 计数完全相同：`Tests run: 7904, Failures: 440, Errors: 499, Skipped: 16`（两次均 939）；
+  - 失败**用例集合完全相同**（697 项唯一名，`Compare-Object` 差集 = 0）。
+- 结论：Round 11 的"按类文件声明顺序排序"不仅修了顺序断言，还**根除了运行间不确定性**——此前 r8/r9/r10/r11 之间观察到的 ±35 波动主要来自反射顺序，而非真正的抖动。**从现在起，同命令两次运行的差集是精确的**，keep/revert 判定不再需要重复运行。
+- 因此 Round 12 的判定是**真实**的：相对 Round 11，**新修好 22 项、新弄坏 9 项**（净 −8 失败）：
+  - 修好：`CollectionTests.read/writeSimpleClassWithImmutableArray`、`DictionaryTests.ignoreDictionaryProperty[1..7]`、`ObjectTests.classWithMixingSkippedTypes`、`ReferenceHandlerTests.dictionaryReferenceLoop` 等；
+  - 弄坏（同一病根的另一种表现：元素/成员转换器错配）：`ArrayTests.readClassWithGenericICollection`、`ArrayTests.readClassWithGenericIListT`、`ArrayTests.readClassWithGenericIReadOnlyListT`、`ArrayTests.writeClassWithGenericIListT`、`ArrayTests.writeClassWithGenericIReadOnlyListT`、`CustomConverterTests.valueConverterForNullableWithoutJsonConverterAttribute`、`DictionaryKeyPolicyTests.customNameSerialize`、`DictionaryTests.dictionaryWith_ObjectWithNoParameterlessCtor_Serialize_Works`、`DictionaryTests.nullDictionaryValuesShouldDeserializeAsNull`；典型栈为 `JsonPropertyInfo1.getMemberAndWriteJson` 里 `MethodInfo.invoke` 的 `target=java.lang.String`（成员访问器拿到了别的类型的对象）。
+  - **保留该改动的理由**: 它把"闭合泛型共用缓存"这一真实缺陷改正（与 A+B 设计方向一致），9 项回归与 22 项收益同源，都会在 19.1 的调用点类型实参发布落地后一起转为通过。
+- **官方 Step 2（Round 12）**: `Failures: 440, Errors: 499` = **939**（Round 11: 947 → Round 10: 955 → Round 9: 965）。
+
 
 
 
