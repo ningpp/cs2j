@@ -308,6 +308,27 @@
 
 同轮还发现：重新转换（含 Iteration 12 的命名修复）后全量测试为 `434 F + 545 E = 979`，而命名修复前的同一 compat 状态为 `964`（净 +15）。逐测试比对显示 **37 项新失败 / 22 项新通过**：新失败集中在 `CollectionTests` 的嵌套集合写入（`writeListOfList`、`writeIListOfIList`、`writeImmutableStackTOfImmutableStackT`…），新通过集中在 `ArrayTests` 的泛型集合读写。这类测试共享静态状态（同一 JVM 内的转换器缓存/注册表），失败集合本身会改变后续测试的执行路径，因此该 ±15 的差异包含级联成分，不能简单归因于命名本身；命名修复保留了（它修正了一个真实的 C# 语义问题：上下文关键字被误当保留字），后续若要进一步区分，需要在单测隔离下逐项复现。
 
+## Iteration 14 — 定位两个真实缺陷（`sbyte[]`/`byte[]` 冲突、`IEnumerableConverter.RuntimeType` 无条件返回 CSharpList），但修法未落地
+
+### 14a. C# `sbyte[]` 与 `byte[]` 在 Java 侧都是 `byte[]`，但 JSON 形态不同
+
+- **现象**: `dotnet.text.json.JsonException: The JSON value could not be converted to class [B. Path: $.MyData[0].MySByteArray`（88 行），内层 `IllegalStateException: Cannot get the value of a token type 'StartArray' as a string`（`ByteArrayConverter.read` → `Utf8JsonReader.getBytesFromBase64`）。
+- **对应 C# 文件**: `json\tests\Serialization\TestClasses\TestClasses.SimpleTestClass.cs:51` `public sbyte[] MySByteArray { get; set; }`，测试 JSON 为 `"MySByteArray" : [8]`（**数字数组**）；`MyByteArray` 则是 Base64 字符串。
+- **根因**: 映射表 `config/TypeMappings.json` 里 `System.SByte → byte`、`System.Byte → int`，而**无符号预处理**把 `byte[]` 处理成 Java `byte[]`（Base64 语义）；于是 `sbyte[]` 与 `byte[]` 在 Java 里都是 `byte[]`，端口按 `s_defaultSimpleConverters[byte[].class]` 一律选 `ByteArrayConverter`（Base64）→ `sbyte[]` 成员读到 `[` 就抛错。
+- **为何现在才暴露**: A+B 之后这些类不再卡在更早的属性上（`to [B` 计数：Round3 6 行 → Round4 10 行 → **A+B 后 96 行**），属"前一个阻塞被修好后暴露的下一个缺陷"，不是 A+B 引入的回归。
+- **可行修法（未落地，需要更大改动）**: ①让 `sbyte[]` 在 Java 侧有独立表示（例如 `CSharpSByte[]`），代价是 `sbyte` 标量也要一致化并补齐运算符重写；②让 `byte[]` 的读取同时接受 Base64 字符串与数字数组——但 `ByteArrayConverter.read`/`Utf8JsonReader.getBytesFromBase64` 都是**生成代码**，需要转换器侧针对该调用点做 lowering。
+
+### 14b. `IEnumerableConverter.getRuntimeType()` 无条件返回 `CSharpList`
+
+- **现象**: `UnsupportedOperationException: The collection type 'class io.github.ningpp.compat.CSharpArrayList' is abstract, an interface, or is read only, and could not be instantiated and populated.`（`CollectionTests.readArrayOfArrayList` 等）。
+- **分析**: 生成代码里各集合转换器对 `RuntimeType` 的处理不一致——`IListConverter`/`IListOfTConverter`/`ICollectionOfTConverter`/`IDictionaryConverter`/`IDictionaryOfTKeyTValueConverter` 都是"**仅当**声明类型是抽象/接口时才返回 CSharpList/CSharpDictionary"，而 `IEnumerableConverter`（`IEnumerableConverter.java:81`）与 `IEnumerableOfTConverter`（`:84`）**无条件**返回 `CSharpList.class`。C# 侧 `IEnumerableConverter<TCollection>.CreateCollection` 的检查是 `TypeToConvert.IsAssignableFrom(RuntimeType)`，对具体类型（`ArrayList`）必须成立；端口里 `getRuntimeType()` 恒为 CSharpList → 检查失败 → 抛错；同时 `JsonClassInfo.getConverter` 的运行时类型选择也会把 `ArrayList` 成员判成 CSharpList。
+- **尝试过的修法（已回退）**: 在 compat 的 `TypeHelper.isAssignableFrom` 里加桥接（`CSharpIterable` 的具体实现 ← `CSharpList`）。效果：`is abstract, an interface` 错误 **降为 0**，**定向**运行 `CollectionTests` 由 183 → 151 失败；但**全量**运行反而变差：`979 → 1011`（`CollectionTests` 在全量上下文里 183 → 211）。原因是这些测试共享 JVM 内的转换器缓存/类型注册表，改变转换器选择会级联影响后续测试。遂回退，保持 Round 6 的较优状态（全量 979~980）。
+- **结论/下一步**: 正确修法应让 `IEnumerableConverter`/`IEnumerableOfTConverter` 的 `RuntimeType` 与同类保持一致（抽象/接口才返回 CSharpList）——即需要转换器在生成这两个类时采用与其它集合转换器相同的规则；由于该 `getRuntimeType()` 覆写来自参考程序集元数据而非仓库源码，需要先定位转换器解析 `RuntimeType` 的具体路径。
+
+### 本轮方法学结论（重要）
+
+本代码库的失败数**强依赖同一 JVM 内的共享静态状态**（转换器缓存、`TypeHelper` 注册表、`MultiDim` 标记）：同一改动在"定向单测"与"全量运行"下可以给出相反结论（14b 就是实例）。因此后续所有修复都必须以**全量 `mvn -o test -pl system-text-json-tests`（7904 项）**为准，定向运行只用于快速定位。
+
 ## 已定位但**尚未修复**的深层根因（下一轮起点）
 
 **泛型实参在成员读取处被擦除 + 转换器缓存按原始类共享**（两者叠加才是真正的瓶颈）：
