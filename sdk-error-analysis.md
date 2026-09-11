@@ -124,8 +124,8 @@
   - 产物模块：`system-private-uri`、`system-text-json`、`system-text-json-tests`（+ 根 parent pom）。
 - **Step 2（`mvn clean install -e`，完整日志 `d:\cs-json-0911-sdk\mvn-build.log`）**:
   - **编译阶段：始终 0 个 javac 错误**（`system-private-uri`、`system-text-json` 138 文件、`system-text-json-tests` 447 文件）→ "零错误编译"目标保持达成。
-  - **测试阶段**：最近一次 `Tests run: 7904, Failures: 484, Errors: 505, Skipped: 16` → **BUILD FAILURE**（生成 pom 的 `testFailureIgnore=false`）。
-  - 失败数演进（每轮修复后全量重跑）：Round1 基线 `1042` → Round2（`toArrayAs` + 多维数组标记）`1006` → Round3（反射按名 + `ArraySegment<byte>`）`988~989`。
+  - **测试阶段**：最近一次 `Tests run: 7904, Failures: 483, Errors: 495, Skipped: 16` → **BUILD FAILURE**（生成 pom 的 `testFailureIgnore=false`）。
+  - 失败数演进（每轮修复后全量重跑）：Round1 基线 `1042` → Round2（`toArrayAs` + 多维数组标记）`1006` → Round3（反射按名 + `ArraySegment<byte>`）`988` → Round4（`MemoryMarshal.Cast<byte,int>` + `MakeGenericMethod` 令牌）`976~978`。
   - 说明：`mvn clean install -e` 的完整执行（含 7904 个测试）约 5.5 分钟，超出单命令 300s 预算，故该项以更长超时在后台运行以取得完整日志；日志已保存在目标目录。
 
 ### 下一轮迭代的测试失败分类（供 Step 3 使用）
