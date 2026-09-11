@@ -562,7 +562,23 @@ public final class TypeHelper {
                 result.add(new MethodInfo(method));
             }
         }
+        result.sort(methodComparator(type));
         return result.toArray(new MethodInfo[0]);
+    }
+
+    /**
+     * Deterministic, C#-compatible member order: declared members before inherited ones,
+     * then declaration order taken from the class file. Callers that take the first match
+     * (reflection-based converter/member discovery) would otherwise depend on
+     * {@code Class#getMethods()} order, which changes between JVM runs.
+     */
+    private static java.util.Comparator<MethodInfo> methodComparator(Class<?> type) {
+        return java.util.Comparator
+            .comparingInt((MethodInfo m) -> DeclarationOrder.hierarchyDepth(type, m.getDeclaringType()))
+            .thenComparingInt(m -> DeclarationOrder.methodIndex(m.getDeclaringType(), m.getMethod()))
+            .thenComparing(m -> m.getDeclaringType() == null ? "" : m.getDeclaringType().getName())
+            .thenComparing(MethodInfo::getName)
+            .thenComparing(m -> m.getMethod().toGenericString());
     }
 
     public static MethodInfo[] getMethods(Class<?> type) {
@@ -580,6 +596,13 @@ public final class TypeHelper {
                 result.add(new FieldInfo(field));
             }
         }
+        // Class#getFields() order is unspecified (it varies between JVM runs); C# returns
+        // metadata declaration order, which the class file preserves (see DeclarationOrder).
+        result.sort(java.util.Comparator
+            .comparingInt((FieldInfo f) -> DeclarationOrder.hierarchyDepth(type, f.getDeclaringType()))
+            .thenComparingInt(f -> DeclarationOrder.fieldIndex(f.getDeclaringType(), f.getName()))
+            .thenComparing(f -> f.getDeclaringType() == null ? "" : f.getDeclaringType().getName())
+            .thenComparing(FieldInfo::getName));
         return result.toArray(new FieldInfo[0]);
     }
 
@@ -605,6 +628,12 @@ public final class TypeHelper {
                 result.add(new ConstructorInfo(ctor));
             }
         }
+        // Same reasoning as getMethods: callers pick the first constructor that matches
+        // (object converter factories), so the order must not depend on JVM reflection order.
+        result.sort(java.util.Comparator
+            .comparingInt((ConstructorInfo c) -> DeclarationOrder.constructorIndex(
+                c.getDeclaringType(), c.getConstructor().getParameterTypes()))
+            .thenComparing(c -> c.getConstructor().toGenericString()));
         return result.toArray(new ConstructorInfo[0]);
     }
 

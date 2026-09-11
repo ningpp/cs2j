@@ -238,7 +238,28 @@ public final class PropertyInfo implements MemberInfo {
                 props.add(new PropertyInfo(m, findSetter(clazz, methodName.substring(2), m)));
             }
         }
+        // Class#getMethods() order is unspecified and varies between JVM runs; C# returns
+        // metadata declaration order, which the class file preserves (see DeclarationOrder).
+        props.sort(java.util.Comparator
+            .comparingInt((PropertyInfo p) -> DeclarationOrder.hierarchyDepth(clazz, getterClass(p)))
+            .thenComparingInt(p -> DeclarationOrder.methodIndex(getterClass(p), getterName(p)))
+            .thenComparing(p -> {
+                Class<?> type = getterClass(p);
+                return type == null ? "" : type.getName();
+            })
+            .thenComparing(PropertyInfo::getName));
         return props.toArray(new PropertyInfo[0]);
+    }
+
+    private static Class<?> getterClass(PropertyInfo property) {
+        return property.getter == null ? null : property.getter.getDeclaringClass();
+    }
+
+    private static String getterName(PropertyInfo property) {
+        if (property.getter != null) {
+            return property.getter.getName();
+        }
+        return property.setter == null ? null : property.setter.getName();
     }
 
     /**

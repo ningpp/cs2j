@@ -415,6 +415,27 @@
   3. `convertFileAttributes`：`JsonException: The JSON value could not be converted to class java.lang.Integer`（`Path: $.Attributes`）——枚举与其底层 `Int32` 之间的转换器选择错误。
 - **策略提示（供用户决策）**: 定向统计显示集合簇（`CollectionTests` 隔离运行 148 项失败：63 `AssertionError` + 42 `JsonElement cannot be cast to ...` + 32 `could not be converted to ...`）是**元素类型擦除 + 转换器选择**同一根因，属最大杠杆；而枚举簇合计约 10 项。是否投入"闭合泛型转换器缓存/元素类型"结构性改造（可能触及生成产物形态），已在汇报中提请用户确认。
 
+## Iteration 18 — 反射成员顺序逐次运行变化（运行间噪声的真正根因）：改按类文件声明顺序
+
+- **错误信息（红，SDK）**: `dotnet.text.json.Tests.EnumConverterTests.serializeNegativeEnum` 期望 `{"Value1":-1,"Value2":-2147483648}`，实得 `{"Value2":-2147483648,"Value1":-1}` —— **内容完全相同，只有成员顺序不同**；该用例在 Iteration 16/17 中两次相同命令下结论相反，正是全量噪声的主要来源之一。
+- **根因分类**: compat 反射顺序不确定（JDK 未定义顺序，HotSpot 实际逐次运行变化）
+- **决定性验证（新增探针 `probe/PropOrderProbe.java`）**: 同一个 class 文件、同一台机器、连续 3 次 JVM 运行：
+  - run1/run2：`getMethods=[getValue1,getValue2,getClass]` → compat 顺序 `[Value1,Value2]`（用例通过）
+  - run3：`getMethods=[getValue2,getValue1,getClass]` → compat 顺序 `[Value2,Value1]`（用例失败）
+  即 `Class#getMethods()`（`getDeclaredMethods()`、`getDeclaredConstructors()` 同理）的顺序**逐次运行都会变**。`javap -p` 证明类文件成员表稳定且等于源码声明顺序（`getValue1,setValue1,getValue2,setValue2`）。
+- **影响面（为何值得优先修）**: ①`JsonClassInfo`（`JsonClassInfo.java:114`）按 `PropertyInfo.getProperties(...)` 的顺序写入 `CSharpDictionary`（`LinkedHashMap`）→ 对象 JSON 成员顺序 = 反射顺序 → 顺序断言类用例随机失败；②`TypeHelper.getMethods/getConstructors` 的顺序决定"首个匹配者获胜"的转换器/构造器选择 → 集合簇的 ClassCast/转换失败也随之随机。修掉它同时**压低全量噪声**，使后续 A/B 更可信。
+- **修复（compat-only，无生成产物改动）**: 新增 `io.github.ningpp.compat.DeclarationOrder`：读取自身 class 文件（常量池 + fields/methods 表，`ClassValue` 缓存；读不到时退回空表并靠确定性 tie-break），提供 `methodIndex(name/descriptor)`、`constructorIndex`、`fieldIndex`、`hierarchyDepth`（派生成員先于继承成员，接口成员最后）。以下 4 处改为按 (声明层级, 类文件索引, 声明类名, 名称, 描述符) 排序：`PropertyInfo.getProperties`、`TypeHelper.getFields`、`TypeHelper.getMethods`、`TypeHelper.getConstructors`。
+- **红→绿**: 新增 `PropertyOrderTest`（8 个乱序属性 + 继承 + 字段 + 重载方法 + 多构造器）。红：3/4 失败，实得 hash 顺序（如 `expected [Delta, Alpha, Zulu, ...] but was [Zulu, Bravo, Yankee, Xray, ...]`）；绿：修复后 6/6，compat 全量 **1627/1627**。
+- **SDK 验证（同命令定向）**: 修复后**两次相同命令结果完全一致**（修复前同样两次差 2 项）：`Serialization.Tests.EnumConverterTests` 5F+1E、`Tests.EnumConverterTests` 1F；`serializeNegativeEnum`/`serializeNegativeFlagsEnum` 两次均通过；探针 5 次运行顺序稳定 `[Value1, Value2]`。
+- **官方 Step 2**: `Tests run: 7904, Failures: 443, Errors: 504, Skipped: 16` = **947**（Round 10 为 955，Round 9 为 965）。
+- **集合级证据（比总数更可靠）**: 与 Round 8 官方运行（**同一条命令**）比较失败用例集合：**新增失败 0 项、新增通过 18 项**（唯一失败数 723 → 705）。18 项中包含多个顺序敏感用例：`DictionaryTests.dictionaryWithNullShouldPreserveOrder_Serialize`、`CollectionTests.writeImmutableListTOfImmutableListT`、`CollectionTests.writeKeyValuePairOfKeyValuePair`、`ObjectTests.readSimpleClassWithObject`、`DateTimeConverterTests.nullableSerializeUTC` 等。
+- **Round 11 失败族分布（官方日志）**: `AssertionError` 336、`ClassCastException` 141（`JsonElement cannot be cast ...` 为主）、`JsonException` 108、`NullPointerException` 40、`UnsupportedOperationException` 36、`IllegalArgumentException` 13、`KeyNotFoundException` 8、`ArrayIndexOutOfBoundsException` 7。
+- **下一轮候选（延续优先级）**:
+  1. 元素类型擦除 + 转换器选择（最大杠杆，集合簇）。
+  2. `[JsonConverter]` 类型级属性未认读（`enumWithConverterAttribute`）。
+  3. 枚举未定义值写出 `"_UNMAPPED"` 而非数值（`convertDayOfWeek`/`enumWithNoValues`）——**属生成产物形态改动，仍待用户批准**。
+  4. `convertFileAttributes` 的枚举↔底层 `Int32` 转换器选择。
+
 
 
 
