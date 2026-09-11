@@ -100,6 +100,61 @@ class Sample
             StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// ObjectConverterFactory assigns the same <c>converterType</c> local in several
+    /// branches: a scalar <c>MakeGenericType(typeToConvert)</c> for the 1-parameter
+    /// converters and <c>MakeGenericType(typeArguments)</c> — a runtime-built array — for
+    /// <c>SmallObjectWithParameterizedConstructorConverter&lt;,,,,&gt;</c>. The array lives
+    /// in a nested scope, so the call site can only forward the scalar group; the compat
+    /// helper then pads the remaining injected Class parameters with Object.class (they are
+    /// placeholders the generated converter never reads, while the first token — the
+    /// converted type — must stay exact). Regression: "No matching constructor found for
+    /// ...SmallObjectWithParameterizedConstructorConverter".
+    /// </summary>
+    [Fact]
+    public void CreateInstanceWithMixedScalarAndArrayBranches_ForwardsScalarGroupForPadding()
+    {
+        var result = Convert(@"
+using System;
+using System.Reflection;
+
+class SmallConverter<T, TArg0, TArg1> { }
+class LargeConverter<T> { }
+
+class Sample
+{
+    object M(Type typeToConvert, Type[] constructorParameterTypes, int parameterCount)
+    {
+        Type converterType;
+        if (parameterCount == 0)
+        {
+            converterType = typeof(LargeConverter<>).MakeGenericType(typeToConvert);
+        }
+        else
+        {
+            Type[] typeArguments = new Type[3];
+            typeArguments[0] = typeToConvert;
+            for (int i = 0; i < 2; i++)
+            {
+                typeArguments[i + 1] = i < constructorParameterTypes.Length ? constructorParameterTypes[i] : typeof(object);
+            }
+
+            converterType = typeof(SmallConverter<,,>).MakeGenericType(typeArguments);
+        }
+
+        return Activator.CreateInstance(converterType, BindingFlags.Instance | BindingFlags.Public, null, null, null);
+    }
+}");
+
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
+        var code = result.GeneratedCode ?? "";
+
+        Assert.Contains(
+            "Activator.createInstanceForGenericType(converterType, BindingFlags.Instance | BindingFlags.Public, null, new Class<?>[] { typeToConvert })",
+            code,
+            StringComparison.Ordinal);
+    }
+
     [Fact]
     public void CreateInstanceWithExistingArgs_AppendsConstructedGenericTypeArgument()
     {

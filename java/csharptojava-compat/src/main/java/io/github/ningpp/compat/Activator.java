@@ -59,9 +59,11 @@ public final class Activator {
                 }
             }
             Constructor<?> chosen = null;
+            Constructor<?> onlyAllClassCtor = null;
+            int allClassCtorCount = 0;
             for (Constructor<?> ctor : ctors) {
                 Class<?>[] params = ctor.getParameterTypes();
-                if (params.length == 0 || params.length > genericTypeArguments.length) {
+                if (params.length == 0) {
                     continue;
                 }
                 boolean allClassParams = true;
@@ -74,15 +76,34 @@ public final class Activator {
                 if (!allClassParams) {
                     continue;
                 }
-                if (chosen == null || params.length > chosen.getParameterTypes().length) {
+                allClassCtorCount++;
+                onlyAllClassCtor = ctor;
+                // Prefer the longest constructor whose Class parameters are all covered by
+                // the forwarded type arguments.
+                if (params.length <= genericTypeArguments.length
+                    && (chosen == null || params.length > chosen.getParameterTypes().length)) {
                     chosen = ctor;
                 }
+            }
+            if (chosen == null && allClassCtorCount == 1) {
+                // The converter injects one Class<?> parameter per C# generic parameter, but
+                // a call site only forwards the type arguments it knows: ObjectConverterFactory
+                // passes MakeGenericType(typeToConvert) while
+                // SmallObjectWithParameterizedConstructorConverter<,,,,> declares five Class
+                // parameters whose extra tokens are placeholders the generated code never
+                // reads. When the class has exactly one Class-parameter constructor there is
+                // no ambiguity, so pad the remaining parameters with Object.class instead of
+                // failing to match. Classes with several such constructors keep the old
+                // "no matching constructor" behaviour.
+                chosen = onlyAllClassCtor;
             }
             if (chosen == null) {
                 throw new RuntimeException("No matching constructor found for " + type.getName(), new NoSuchMethodException());
             }
             Object[] args = new Object[chosen.getParameterTypes().length];
-            System.arraycopy(genericTypeArguments, 0, args, 0, args.length);
+            for (int i = 0; i < args.length; i++) {
+                args[i] = i < genericTypeArguments.length ? genericTypeArguments[i] : Object.class;
+            }
             chosen.setAccessible(true);
             return chosen.newInstance(args);
         } catch (InstantiationException | IllegalAccessException e) {

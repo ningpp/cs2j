@@ -329,6 +329,18 @@
 
 本代码库的失败数**强依赖同一 JVM 内的共享静态状态**（转换器缓存、`TypeHelper` 注册表、`MultiDim` 标记）：同一改动在"定向单测"与"全量运行"下可以给出相反结论（14b 就是实例）。因此后续所有修复都必须以**全量 `mvn -o test -pl system-text-json-tests`（7904 项）**为准，定向运行只用于快速定位。
 
+## Iteration 15 — `Activator.CreateInstance` 转发实参数少于注入的 Class 令牌 → "No matching constructor found"
+
+- **Java 文件**: `system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/ObjectConverterFactory.java:76`
+- **错误信息**: `java.lang.RuntimeException: No matching constructor found for dotnet.text.json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`（`Caused by: NoSuchMethodException`；`CustomConverterTests.complexReferenceTypeConverter_NoOverride` 等 21~41 行）
+- **对应 C# 文件**: `.../Serialization/Converters/Collection/ObjectConverterFactory.cs:43-76`（`Type[] typeArguments = new Type[UnboxedParameterCountThreshold + 1]` 逐项填充后 `typeof(SmallObjectWithParameterizedConstructorConverter<,,,,>).MakeGenericType(typeArguments)`，再 `Activator.CreateInstance(converterType, ..., args: null, ...)`）
+- **根因分类**: compat 库（反射构造）语义不足
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Activator.java` — `createInstanceForGenericType`
+- **分析**: 生成代码里 `typeArguments` 数组是在 `if/else` 分支内声明的（作用域不覆盖调用点），转换器只能把**标量组** `new Class<?>[]{ typeToConvert }` 转发给 compat；而 `SmallObjectWithParameterizedConstructorConverter` 的构造器需要 **5 个** `Class` 参数（转换器为每个 C# 泛型参数注入一个令牌），compat 的匹配条件 `params.length <= genericTypeArguments.length` 因此全部落空 → 抛 "No matching constructor found"。
+  我先尝试改转换器让数组形式优先（并写了单测），但生成代码无法编译（`typeArguments` 不在作用域内，`找不到符号`）→ 回退转换器改动，改在 compat 侧处理。
+- **修复**: `createInstanceForGenericType` 在**没有任何构造器参数数量被满足**、且该类**只有一个全 Class 参数的构造器**时，用 `Object.class` 补齐多出的令牌（这些令牌是占位符：`SmallObjectWithParameterizedConstructorConverter` 只把 `tClass` 用于 `getTypeToConvert()`，`tArg0..tArg3Class` 字段在生成代码中从未被读取）。多构造器的类型保持原有 "no matching constructor" 行为，避免歧义。
+- **验证（全量为准）**: `No matching constructor found` 21~41 行 → **0**；新增/保留相关单测（compat 2 项 + 转换器 1 项）全绿；失败测试集合：**10 项新通过**（含目标用例 `CustomConverterTests.complexReferenceTypeConverter_NoOverride`、`CollectionTests.writeImmutableStackT*`、`NumberHandlingTests.number_AsObjectWithParameterizedCtor_RoundTrip`）、**9 项新失败**（`writeImmutableListT*`、`EnumConverterTests.serializeEnumClass*` 等共享静态状态的级联）；全量 979~980 → **978**。
+
 ## 已定位但**尚未修复**的深层根因（下一轮起点）
 
 **泛型实参在成员读取处被擦除 + 转换器缓存按原始类共享**（两者叠加才是真正的瓶颈）：
