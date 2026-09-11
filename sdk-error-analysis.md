@@ -196,6 +196,17 @@
 - **修复**: 精确匹配失败后，按 C#→Java 成员名规则（首字母小写）再查一次；两个 `getMethod` 重载都补上。保留精确匹配优先，不改变既有命中行为。
 - **验证**: `mvn -o test -Dtest=ExtensionDataTests` 中 `TypeHelper.getMethod ... is null` 由 32 行降到 **0 行**；全量 `Tests run: 7904` 中该类 NPE 不再出现（失败总数仍在 ~1006 量级，因为这些测试随后被更深的类型擦除问题挡住）。
 
+## Iteration 7 — `ArraySegment<byte>.AsMemory()` 用 `(T[])` 强转 `byte[]`
+
+- **Java 文件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ArraySegment.java:80`
+- **错误信息**: `Caused by: java.lang.ClassCastException: class [B cannot be cast to class [Ljava.lang.Object;`（`JsonDocumentTests.parseJson_UnseekableStream_BadBOM` 等，20 行堆栈）
+- **调用链**: `dotnet.text.json.JsonDocument.parse` → `MemoryExtensions.asMemory` → `ArraySegment.asMemory`
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Document\JsonDocument.cs`（`ReadOnlyMemory<byte>`/`ArraySegment<byte>.AsMemory()` 路径）
+- **根因分类**: compat 库类型擦除误用
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ArraySegment.java`
+- **分析**: `asMemory()` 的 byte 分支执行 `T[] copy = (T[]) (Object) Arrays.copyOfRange(byteArray, ...)`；`T` 擦除为 `Object` 时该强转即 `(Object[])`，对 `byte[]` 必然抛 CCE。`ReadOnlyMemory` 已有 `(byte[], start, length)` 构造器（保持 byte[] 视图，与 C# `ArraySegment<byte>.AsMemory()` 语义一致），改用该构造器即可。
+- **验证**: `mvn -o test -Dtest=JsonDocumentTests` 中 `[B cannot be cast` 由 20 行降到 **0**；全量失败数 1006 → **988**。
+
 ## 已定位但**尚未修复**的深层根因（下一轮起点）
 
 **泛型实参在成员读取处被擦除 + 转换器缓存按原始类共享**（两者叠加才是真正的瓶颈）：

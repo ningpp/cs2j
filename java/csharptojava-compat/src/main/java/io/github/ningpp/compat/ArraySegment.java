@@ -76,9 +76,10 @@ public final class ArraySegment<T> {
     /** Mirrors ArraySegment&lt;T&gt;.AsMemory() — slice of the underlying array. */
     public ReadOnlyMemory<T> asMemory() {
         if (byteArray != null) {
-            @SuppressWarnings("unchecked")
-            T[] copy = (T[]) (Object) Arrays.copyOfRange(byteArray, offset, offset + count);
-            return new ReadOnlyMemory<>(copy);
+            // Byte-backed segments use the byte[] view constructor: T erases to Object
+            // here, so copying into a T[] would emit a (Object[]) cast that rejects the
+            // byte[] result of Arrays.copyOfRange(byte[], ...).
+            return new ReadOnlyMemory<>(byteArray, offset, count);
         }
         if (array == null) {
             return new ReadOnlyMemory<>();
