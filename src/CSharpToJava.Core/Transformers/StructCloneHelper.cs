@@ -221,12 +221,16 @@ internal static class StructCloneHelper
         if (!visited.Add(parameter))
             return false; // cycle → conservative
 
+        // Fix: 方法没有可分析的语法体时（JDK / framework 继承方法），保守返回 false，
+        // 不要假设 ref 参数只读。
+        bool foundAnyBody = false;
+
         foreach (var syntaxRef in method.DeclaringSyntaxReferences)
         {
             var syntax = syntaxRef.GetSyntax();
             SyntaxNode? body = GetMethodBody(syntax);
-            if (body == null)
-                return false;
+            if (body == null) continue;
+            foundAnyBody = true;
 
             var paramName = parameter.Name;
             foreach (var node in body.DescendantNodes())
@@ -256,7 +260,8 @@ internal static class StructCloneHelper
                     return false;
             }
         }
-        return true;
+        // 没有任何可分析的 body（JDK / framework 继承方法）时保守返回 false：不跳过 clone。
+        return foundAnyBody;
     }
 
     private static bool IsValueParamReadOnlyCore(IParameterSymbol parameter,
@@ -266,11 +271,20 @@ internal static class StructCloneHelper
         if (method == null) return false;
         if (!visited.Add(parameter)) return false;
 
+        // Fix: 方法没有可分析的语法体（如 JDK / framework 方法通过继承暴露）
+        // 时，不能假设只读 —— ArrayList.Add 这类方法虽然编译器看不到 body，但
+        // 会修改集合本身；如果跳过 clone 会导致后续对 Current.reset() 修改
+        // 被已存入 _previous 的同一引用观察到（struct 本应值拷贝），
+        // 最终破坏 WriteStack 的 push/pop 状态机导致 verifyWrite 报错
+        // "wrote too much or not enough"。保守起见返回 false（不跳过 clone）。
+        bool foundAnyBody = false;
+
         foreach (var syntaxRef in method.DeclaringSyntaxReferences)
         {
             var syntax = syntaxRef.GetSyntax();
             SyntaxNode? body = GetMethodBody(syntax);
-            if (body == null) return false;
+            if (body == null) continue;
+            foundAnyBody = true;
 
             var paramName = parameter.Name;
             foreach (var node in body.DescendantNodes())
@@ -309,7 +323,8 @@ internal static class StructCloneHelper
                     return false;
             }
         }
-        return true;
+        // 没有任何可分析的 body（JDK / framework 继承方法）时保守返回 false：不跳过 clone。
+        return foundAnyBody;
     }
 
     private static SyntaxNode? GetMethodBody(SyntaxNode syntax) => syntax switch

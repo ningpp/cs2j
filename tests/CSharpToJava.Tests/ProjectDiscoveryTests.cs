@@ -31,6 +31,35 @@ public class ProjectDiscoveryTests
         }
     }
 
+    /// <summary>
+    /// Preprocessed source trees keep the entry solution where it lived in the
+    /// original repository (&lt;stage&gt;\json\System.Text.Json.sln) instead of at the
+    /// stage root. Directory discovery must still resolve that nested solution —
+    /// otherwise every later preprocessing stage drops the .sln and the conversion
+    /// degrades to the flat single-module directory scan.
+    /// </summary>
+    [Fact]
+    public void TryResolveProjectEntry_ResolvesNestedSolution_WhenNoTopLevelEntry()
+    {
+        var root = CreateTempDirectory();
+        try
+        {
+            var slnPath = Path.Combine(root, "json", "System.Text.Json.sln");
+            Directory.CreateDirectory(Path.GetDirectoryName(slnPath)!);
+            File.WriteAllText(slnPath, string.Empty);
+            Directory.CreateDirectory(Path.Combine(root, "uri", "src"));
+
+            var resolved = ProjectDiscovery.TryResolveProjectEntry(root, out var entryPath);
+
+            Assert.True(resolved);
+            Assert.Equal(Path.GetFullPath(slnPath), Path.GetFullPath(entryPath));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public void LoadProjectGraph_LoadsProjectsFromSolutionAndReferences()
     {

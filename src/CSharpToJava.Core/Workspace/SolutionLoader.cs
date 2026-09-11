@@ -188,6 +188,13 @@ public sealed class SolutionLoader : IDisposable
             if (match != null)
                 return await OpenProjectAsync(match, progress, ct);
 
+            // Preprocessed source trees keep the entry solution at its original
+            // repository-relative location (e.g. <stage>\json\System.Text.Json.sln)
+            // rather than at the stage root. Resolving it keeps the conversion on the
+            // MSBuild multi-module pipeline instead of the flat directory scan.
+            if (TryResolveNestedSolutionEntry(path, out var nestedSolution))
+                return await OpenSolutionAsync(nestedSolution, progress, ct);
+
             // Projects nested in immediate subdirectories (e.g. <root>\src\Lib.csproj
             // plus <root>\tests\App.csproj referencing it). Open the referencing root
             // project so MSBuildWorkspace loads the full dependency closure and the
@@ -198,6 +205,49 @@ public sealed class SolutionLoader : IDisposable
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Resolves the solution of a directory source whose <c>.sln</c> lives one level
+    /// below the directory itself — the layout produced by the preprocessing stages,
+    /// which preserve the entry solution at its original repository-relative path
+    /// (e.g. <c>&lt;stage&gt;\json\System.Text.Json.sln</c>). A top-level solution always
+    /// wins; a single nested solution is unambiguous, while several unrelated
+    /// solutions decline so the caller can fall back.
+    /// </summary>
+    public static bool TryResolveNestedSolutionEntry(string directory, out string solutionPath)
+    {
+        solutionPath = string.Empty;
+        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+            return false;
+
+        var topLevel = Directory.GetFiles(directory, "*.sln", SearchOption.TopDirectoryOnly);
+        if (topLevel.Length > 1)
+            return false;
+        if (topLevel.Length == 1)
+        {
+            solutionPath = Path.GetFullPath(topLevel[0]);
+            return true;
+        }
+
+        var nested = new List<string>();
+        foreach (var subDirectory in Directory.EnumerateDirectories(directory))
+        {
+            try
+            {
+                nested.AddRange(Directory.EnumerateFiles(subDirectory, "*.sln", SearchOption.TopDirectoryOnly));
+            }
+            catch (IOException)
+            {
+                // Unreadable subdirectory — skip it.
+            }
+        }
+
+        if (nested.Count != 1)
+            return false;
+
+        solutionPath = Path.GetFullPath(nested[0]);
+        return true;
     }
 
     /// <summary>

@@ -700,6 +700,14 @@ public class AssignmentTransformer : IIRExpressionTransformer
                 ITypeSymbol? keyType = indexerSymbol?.Parameters.FirstOrDefault()?.Type;
                 ITypeSymbol? valueType = indexerSymbol?.Type;
 
+                // Struct semantics: C# value-type indexer assignment copies the value,
+                // but Java class references would alias. Clone the RHS struct so that
+                // subsequent Current.reset() / mutation cannot corrupt stored entries.
+                if (valueType != null)
+                {
+                    right = StructCloneHelper.CloneStructValueIfNeeded(rightNode, right, valueType, context);
+                }
+
                 if (argList.Count == 1)
                 {
                     var argExpr = argList[0].Expression;

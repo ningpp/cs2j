@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
+using CSharpToJava.Core.Workspace;
 
 namespace CSharpToJava.CLI;
 
@@ -83,6 +84,17 @@ internal static class ProjectDiscovery
         if (!string.IsNullOrEmpty(preferred))
         {
             projectFilePath = Path.GetFullPath(preferred);
+            return true;
+        }
+
+        // Preprocessed trees keep the entry solution at its original
+        // repository-relative path (<stage>\json\System.Text.Json.sln) instead of the
+        // stage root. Resolving it here keeps every later preprocessing stage copying
+        // the solution forward, which is what lets SolutionLoader keep using the
+        // MSBuild multi-module pipeline.
+        if (SolutionLoader.TryResolveNestedSolutionEntry(source, out var nestedSolution))
+        {
+            projectFilePath = nestedSolution;
             return true;
         }
 

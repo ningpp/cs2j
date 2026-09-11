@@ -1,3 +1,5 @@
+using CSharpToJava.Core.Workspace;
+
 namespace CSharpToJava.CLI;
 
 internal sealed record ProjectPreprocessSourceLayout(
@@ -304,12 +306,18 @@ internal static class ProjectPreprocessSource
 
         if (File.Exists(layout.EntryPath))
         {
-            if (layout.EntryPath.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+            // Project files are copied with their path relative to the source root
+            // (see CopyProjectFilesAsync), so an entry solution that lives below the
+            // root — e.g. <root>\json\System.Text.Json.sln — lands at the same
+            // relative location inside the intermediate tree.
+            var relativePath = Path.GetRelativePath(layout.SourceRoot, layout.EntryPath);
+            if (!relativePath.StartsWith("..", StringComparison.Ordinal)
+                && !Path.IsPathRooted(relativePath))
             {
-                return Path.Combine(intermediateRoot, Path.GetFileName(layout.EntryPath));
+                return Path.Combine(intermediateRoot, relativePath);
             }
 
-            return Path.Combine(intermediateRoot, Path.GetRelativePath(layout.SourceRoot, layout.EntryPath));
+            return Path.Combine(intermediateRoot, Path.GetFileName(layout.EntryPath));
         }
 
         if (string.Equals(layout.SourceRoot, layout.EntryPath, StringComparison.OrdinalIgnoreCase))
@@ -339,6 +347,14 @@ internal static class ProjectPreprocessSource
 
             var csproj = Directory.GetFiles(preprocessedPath, "*.csproj", SearchOption.TopDirectoryOnly).FirstOrDefault();
             if (csproj != null) return csproj;
+
+            // Preprocessed trees keep the entry solution at its original
+            // repository-relative location instead of the stage root; restoring it is
+            // what gives MSBuildWorkspace a usable metadata reference set.
+            if (SolutionLoader.TryResolveNestedSolutionEntry(preprocessedPath, out var nestedSolution))
+            {
+                return nestedSolution;
+            }
         }
 
         return null;

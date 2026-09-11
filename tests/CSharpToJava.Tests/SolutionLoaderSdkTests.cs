@@ -205,6 +205,65 @@ public class SolutionLoaderSdkTests
         Assert.False(SolutionLoader.TryResolveNestedProjectEntry(root, out _));
     }
 
+    /// <summary>
+    /// Preprocessed source trees copy the entry solution to the location it had in
+    /// the original repository (e.g. &lt;stage&gt;\json\System.Text.Json.sln), so the
+    /// solution is nested one level below the stage root. A single nested solution
+    /// is unambiguous and must be picked up instead of falling back to the flat
+    /// single-module directory scan.
+    /// </summary>
+    [Fact]
+    public void TryResolveNestedSolutionEntry_SingleNestedSolution_ReturnsIt()
+    {
+        using var temp = new TempDir();
+        var root = temp.Path;
+        var sln = Path.Combine(root, "json", "System.Text.Json.sln");
+        Directory.CreateDirectory(Path.GetDirectoryName(sln)!);
+        File.WriteAllText(sln, string.Empty);
+        Directory.CreateDirectory(Path.Combine(root, "uri"));
+
+        Assert.True(SolutionLoader.TryResolveNestedSolutionEntry(root, out var entry));
+        Assert.Equal(Path.GetFullPath(sln), Path.GetFullPath(entry));
+    }
+
+    [Fact]
+    public void TryResolveNestedSolutionEntry_MultipleNestedSolutions_ReturnsFalse()
+    {
+        using var temp = new TempDir();
+        var root = temp.Path;
+        Directory.CreateDirectory(Path.Combine(root, "json"));
+        Directory.CreateDirectory(Path.Combine(root, "xml"));
+        File.WriteAllText(Path.Combine(root, "json", "System.Text.Json.sln"), string.Empty);
+        File.WriteAllText(Path.Combine(root, "xml", "csharpxml.sln"), string.Empty);
+
+        // Two unrelated entry candidates: opening one would silently drop the other
+        // module, so discovery must decline and let the caller fall back.
+        Assert.False(SolutionLoader.TryResolveNestedSolutionEntry(root, out _));
+    }
+
+    [Fact]
+    public void TryResolveNestedSolutionEntry_NoNestedSolution_ReturnsFalse()
+    {
+        using var temp = new TempDir();
+        Directory.CreateDirectory(Path.Combine(temp.Path, "json", "src"));
+
+        Assert.False(SolutionLoader.TryResolveNestedSolutionEntry(temp.Path, out _));
+    }
+
+    [Fact]
+    public void TryResolveNestedSolutionEntry_PrefersTopLevelSolution()
+    {
+        using var temp = new TempDir();
+        var root = temp.Path;
+        var topLevel = Path.Combine(root, "csharp-sdk.sln");
+        File.WriteAllText(topLevel, string.Empty);
+        Directory.CreateDirectory(Path.Combine(root, "json"));
+        File.WriteAllText(Path.Combine(root, "json", "System.Text.Json.sln"), string.Empty);
+
+        Assert.True(SolutionLoader.TryResolveNestedSolutionEntry(root, out var entry));
+        Assert.Equal(Path.GetFullPath(topLevel), Path.GetFullPath(entry));
+    }
+
     private static void WriteProject(string projectPath, string content)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(projectPath)!);

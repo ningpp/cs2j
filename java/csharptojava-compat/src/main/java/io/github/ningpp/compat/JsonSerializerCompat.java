@@ -103,28 +103,72 @@ public final class JsonSerializerCompat {
     }
 
     private static Object invokeGeneratedDeserialize(Class<?> raw, Object jsonOrSpan, Object options) {
+        // The generated JsonSerializer.deserialize methods use TRAILING Class<?>
+        // params (e.g. deserialize(String json, JsonSerializerOptions options,
+        // Class<?> tValueClass)) because AddRuntimeClassParametersForTypeParameterArrays
+        // appends them after the declared C# parameters. Try the trailing order first,
+        // then fall back to leading order (forward compatibility if the converter
+        // changes the convention later).
         try {
             Class<?> serializer = Class.forName("dotnet.text.json.JsonSerializer");
             Class<?> optionsType = options != null ? options.getClass() : null;
+
+            // Build candidate (paramTypes, args) pairs: trailing first, then leading.
+            java.util.List<java.lang.reflect.Method> candidates = new java.util.ArrayList<>();
+            java.util.List<Object[]> candidateArgs = new java.util.ArrayList<>();
+
             if (jsonOrSpan instanceof String s) {
                 if (options != null) {
-                    // optionsType is dotnet.text.json.JsonSerializerOptions
-                    java.lang.reflect.Method m = serializer.getMethod("deserialize", Class.class, String.class, optionsType);
-                    return m.invoke(null, raw, s, options);
+                    addCandidate(candidates, candidateArgs, serializer,
+                        new Class<?>[]{String.class, optionsType, Class.class},
+                        new Object[]{s, options, raw});
+                } else {
+                    addCandidate(candidates, candidateArgs, serializer,
+                        new Class<?>[]{String.class, Class.class},
+                        new Object[]{s, raw});
                 }
-                java.lang.reflect.Method m = serializer.getMethod("deserialize", Class.class, String.class);
-                return m.invoke(null, raw, s);
+            } else {
+                if (options != null) {
+                    addCandidate(candidates, candidateArgs, serializer,
+                        new Class<?>[]{ReadOnlySpan.class, optionsType, Class.class},
+                        new Object[]{jsonOrSpan, options, raw});
+                } else {
+                    addCandidate(candidates, candidateArgs, serializer,
+                        new Class<?>[]{ReadOnlySpan.class, Class.class},
+                        new Object[]{jsonOrSpan, raw});
+                }
             }
-            if (options != null) {
-                java.lang.reflect.Method m = serializer.getMethod(
-                    "deserialize", Class.class, ReadOnlySpan.class, optionsType);
-                return m.invoke(null, raw, jsonOrSpan, options);
+
+            // Leading order (Class first) as fallback.
+            if (jsonOrSpan instanceof String s) {
+                if (options != null) {
+                    addCandidate(candidates, candidateArgs, serializer,
+                        new Class<?>[]{Class.class, String.class, optionsType},
+                        new Object[]{raw, s, options});
+                } else {
+                    addCandidate(candidates, candidateArgs, serializer,
+                        new Class<?>[]{Class.class, String.class},
+                        new Object[]{raw, s});
+                }
+            } else {
+                if (options != null) {
+                    addCandidate(candidates, candidateArgs, serializer,
+                        new Class<?>[]{Class.class, ReadOnlySpan.class, optionsType},
+                        new Object[]{raw, jsonOrSpan, options});
+                } else {
+                    addCandidate(candidates, candidateArgs, serializer,
+                        new Class<?>[]{Class.class, ReadOnlySpan.class},
+                        new Object[]{raw, jsonOrSpan});
+                }
             }
-            java.lang.reflect.Method m = serializer.getMethod("deserialize", Class.class, ReadOnlySpan.class);
-            return m.invoke(null, raw, jsonOrSpan);
+
+            for (int i = 0; i < candidates.size(); i++) {
+                java.lang.reflect.Method m = candidates.get(i);
+                if (m == null) continue;
+                return m.invoke(null, candidateArgs.get(i));
+            }
+            throw new RuntimeException("JsonSerializerCompat: failed to find a matching deserialize overload");
         } catch (java.lang.reflect.InvocationTargetException ex) {
-            // The delegated JsonSerializer threw: propagate its cause so callers
-            // see JsonException etc. instead of a wrapped RuntimeException.
             Throwable cause = ex.getCause();
             if (cause instanceof RuntimeException re) {
                 throw re;
@@ -132,6 +176,22 @@ public final class JsonSerializerCompat {
             throw new RuntimeException(cause);
         } catch (ReflectiveOperationException ex) {
             throw new RuntimeException("JsonSerializerCompat: failed to delegate to JsonSerializer", ex);
+        }
+    }
+
+    private static void addCandidate(
+        java.util.List<java.lang.reflect.Method> candidates,
+        java.util.List<Object[]> candidateArgs,
+        Class<?> declaringClass,
+        Class<?>[] paramTypes,
+        Object[] args)
+    {
+        try {
+            candidates.add(declaringClass.getMethod("deserialize", paramTypes));
+            candidateArgs.add(args);
+        } catch (NoSuchMethodException e) {
+            candidates.add(null);
+            candidateArgs.add(null);
         }
     }
 }
