@@ -301,6 +301,13 @@
   - strip-default 测试改为 `CrossProject_CallSitesFilledAndBuildSucceeds`：断言调用点被补全为命名实参（`new Service(name: "unnamed")`、`s.Process(1, b: "default", c: true)`、`s.Calculate(5, y: 10, z: 20)`、`Service.Greet(name: "world")`）、已完整的调用点保持不变，并断言**不**合成 `public Service()`。
 - **验证**: `dotnet test -c Release` → **`CSharpToJava.Tests` 3171 项 + `CSharpToJava.ProjectTests` 58 项，失败 0、错误 0**；加上 compat 模块 1608 项全绿，`d:\code\cs2j` 的单元测试首次全绿（成功标准之一达成）。
 
+## 转换确定性验证（Round 6 附加结论）
+
+连续两次相同命令转换到不同目录后逐文件 SHA256 比对：
+`d:\cs-json-0911-sdk` 与 `d:\cs-json-determinism` 各 618 个 `.java`，**differing=0 / onlyA=0 / onlyB=0** → 转换器输出**逐字节可复现**，因此"同一 compat 下跨转换的测量差异"可归因于转换器改动本身，而不是随机性。
+
+同轮还发现：重新转换（含 Iteration 12 的命名修复）后全量测试为 `434 F + 545 E = 979`，而命名修复前的同一 compat 状态为 `964`（净 +15）。逐测试比对显示 **37 项新失败 / 22 项新通过**：新失败集中在 `CollectionTests` 的嵌套集合写入（`writeListOfList`、`writeIListOfIList`、`writeImmutableStackTOfImmutableStackT`…），新通过集中在 `ArrayTests` 的泛型集合读写。这类测试共享静态状态（同一 JVM 内的转换器缓存/注册表），失败集合本身会改变后续测试的执行路径，因此该 ±15 的差异包含级联成分，不能简单归因于命名本身；命名修复保留了（它修正了一个真实的 C# 语义问题：上下文关键字被误当保留字），后续若要进一步区分，需要在单测隔离下逐项复现。
+
 ## 已定位但**尚未修复**的深层根因（下一轮起点）
 
 **泛型实参在成员读取处被擦除 + 转换器缓存按原始类共享**（两者叠加才是真正的瓶颈）：
