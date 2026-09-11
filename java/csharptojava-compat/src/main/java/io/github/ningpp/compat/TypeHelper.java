@@ -987,17 +987,43 @@ public final class TypeHelper {
         try {
             return new MethodInfo(type.getMethod(name, parameterTypes));
         } catch (NoSuchMethodException e) {
+            // See the BindingFlags overload: the call site carries the C# member name.
+            String mappedName = toJavaMemberName(name);
+            if (!mappedName.equals(name)) {
+                try {
+                    return new MethodInfo(type.getMethod(mappedName, parameterTypes));
+                } catch (NoSuchMethodException ignored) {
+                    // Fall through to "not found".
+                }
+            }
             return null;
         }
     }
 
     /**
      * Bridges C# {@code Type.GetMethod(name, BindingFlags)} semantics.
+     *
+     * <p>Converted members are renamed to Java conventions (PascalCase → camelCase),
+     * while reflection-by-name call sites keep the C# name they were written with
+     * (typically {@code nameof(...)}). The exact-name pass therefore falls back to
+     * the C#→Java member name before reporting "not found".</p>
      */
     public static MethodInfo getMethod(Class<?> type, String name, int bindingFlags) {
         if (type == null || name == null) {
             return null;
         }
+        MethodInfo found = findMethodByName(type, name, bindingFlags);
+        if (found != null) {
+            return found;
+        }
+        String mappedName = toJavaMemberName(name);
+        if (!mappedName.equals(name)) {
+            return findMethodByName(type, mappedName, bindingFlags);
+        }
+        return null;
+    }
+
+    private static MethodInfo findMethodByName(Class<?> type, String name, int bindingFlags) {
         for (Method method : type.getMethods()) {
             if (method.getName().equals(name) && matchesBindingFlags(method.getModifiers(), bindingFlags)) {
                 return new MethodInfo(method);
@@ -1009,6 +1035,17 @@ public final class TypeHelper {
             }
         }
         return null;
+    }
+
+    /**
+     * C# member name → converted Java member name (PascalCase → camelCase). Names
+     * that are already camelCase are returned unchanged.
+     */
+    private static String toJavaMemberName(String name) {
+        if (name.isEmpty() || Character.isLowerCase(name.charAt(0))) {
+            return name;
+        }
+        return Character.toLowerCase(name.charAt(0)) + name.substring(1);
     }
 
     public static Object[] getCustomAttributes(Class<?> type, boolean inherit) {

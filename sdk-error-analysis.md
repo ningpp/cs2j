@@ -178,6 +178,24 @@
 - **修复**: `getArrayRank` 改为一次性消费标记（`MULTI_DIM_ARRAY_RANKS.remove(type)`），保留"显式声明多维数组不受支持"的意图语义，同时不再污染后续交错数组转换。
 - **验证**: `class [[I' is not supported` 日志行 123 → 7；失败总数 1013 → **1006**。
 
+## Iteration 6 — 反射按名查找使用 C# 名（PascalCase），找不到转换后的 Java 方法
+
+- **Java 文件**: 生成测试中的反射调用点，例如 `system-text-json-tests/src/test/java/dotnet/text/json/Serialization/Tests/ExtensionDataTests.java:286`
+- **错误信息**: `java.lang.NullPointerException: Cannot invoke "io.github.ningpp.compat.MethodInfo.makeGenericMethod(java.lang.Class[])" because the return value of "io.github.ningpp.compat.TypeHelper.getMethod(java.lang.Class, String, int)" is null`（32 处调用点 / 16 个测试）
+- **代码片段**:
+  ```java
+  TypeHelper.getMethod(ExtensionDataTests.class,
+      "ExtensionProperty_SupportsWritingToCustomSerializerWithOptionsInternal",
+      BindingFlags.Static | BindingFlags.NonPublic)
+      .makeGenericMethod(overflowType, converterType).invoke(null, (Object[]) null);
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\json\tests\Serialization\ExtensionDataTests.cs` — `.GetMethod(nameof(ExtensionProperty_SupportsWritingToCustomSerializerWithOptionsInternal), BindingFlags.Static | BindingFlags.NonPublic)`
+- **根因分类**: 语义模型信息丢失（符号名字符串未随成员改名映射）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java` — `getMethod(Class, String, int)` / `getMethod(Class, String, Class...)`
+- **分析**: C# 成员名是 PascalCase，转换后的 Java 成员名是 camelCase（`ExtensionProperty_...` → `extensionProperty_...`）；`nameof(...)` 生成的字符串字面量仍是 C# 名，而 `TypeHelper.getMethod` 只做精确匹配 → 返回 null → 调用方 NPE。
+- **修复**: 精确匹配失败后，按 C#→Java 成员名规则（首字母小写）再查一次；两个 `getMethod` 重载都补上。保留精确匹配优先，不改变既有命中行为。
+- **验证**: `mvn -o test -Dtest=ExtensionDataTests` 中 `TypeHelper.getMethod ... is null` 由 32 行降到 **0 行**；全量 `Tests run: 7904` 中该类 NPE 不再出现（失败总数仍在 ~1006 量级，因为这些测试随后被更深的类型擦除问题挡住）。
+
 ## 已定位但**尚未修复**的深层根因（下一轮起点）
 
 **泛型实参在成员读取处被擦除 + 转换器缓存按原始类共享**（两者叠加才是真正的瓶颈）：
@@ -187,8 +205,14 @@
 2. 尝试在 `PropertyInfo`/`FieldInfo` 里发布声明泛型实参（`TypeHelper.registerMemberType`，按 raw 类保留"外层优先"链并在查询时消费）后：`dictionary key type` 日志行 262→26、`JsonElement cannot be cast` 211→72 **明显改善**，但 `Integer cannot be cast to String`（写入路径）与 `could not be converted to ...CSharpList` 反而上升，失败总数 `1006 → 1081`，因此**已回退**（该实现见本轮迭代记录，可复现）。
 3. 原因是生成的 `JsonSerializerOptions._converters` 是 `ConcurrentHashMap<Class, JsonConverter>`——**只按原始 Class 缓存**，`CSharpList<String>` 与 `CSharpList<CSharpInteger>` 共用同一个转换器实例。把实参发布正确后，缓存里第一个转换器变成"具体但可能属于别的成员"的类型；此前所有转换器都是 `Object` 型（宽松但错误表现为 JsonElement）。要真正修好，需要让转换器缓存按**闭合泛型**（raw + 实参）区分，例如在生成代码的 `getConverter` 缓存键上引入 compat 的复合键，或在转换器侧改写 `GetConverter` 缓存访问。
 
-其他仍然存在的主要失败簇（`Tests run: 7904, Failures: 499, Errors: 507`）：
-`not a supported Dictionary key type`（262 行）、`JsonElement cannot be cast`（211 行）、`could not be converted to ...CSharpList`、`MethodInfo.makeGenericMethod` / `CSharpDictionary.getChecked` NPE、`The type 'class [[I' is not supported`（7 行）。
+其他仍然存在的主要失败簇（最新一轮全量：`Tests run: 7904, Failures: 496, Errors: 511`）：
+`java.lang.AssertionError`（453，绝大多数是"元素类型变成 JsonElement 导致断言值不等"）、`JsonElement cannot be cast to SimpleTestClass/String/Integer`（33+26+24 行）、`not a supported Dictionary key type`（85 行）、`could not be converted to ...CSharpList`（38 行）、`CSharpDictionary.getChecked` 等 NPE（22 行）。
+
+**另一个已定位但未修复的簇（`ImmutableDictionary cannot be cast to CSharpReadOnlyDict`，27 行）**：
+`ImmutableDictionaryOfTKeyTValueConverter.onWriteResume` 的调用点会对值做 `checkcast CSharpReadOnlyDict`（`TCollection` 的擦除上界，来自 C# `where TCollection : IReadOnlyDictionary<TKey,TValue>`），而 compat 的 `ImmutableDictionary<K,V>` 只实现 `IImmutableDictionary`。
+尝试让 `ImmutableDictionary`/`ImmutableSortedDictionary` 实现 `CSharpReadOnlyDict<K,V>` 会编译失败：compat 的 `CSharpGenericIterable` 继承 `java.util.Collection`，于是要求 `void clear()` 与 `tryGetValue(K)` 等，而不可变字典的 `clear()` 返回新实例（C# 语义）→ 签名冲突。
+真正的修法是让 `IReadOnlyDictionary<TKey,TValue>` 在 compat 里映射到一个**只读**接口（不含 `Collection` 的可变方法），但该接口被全部生成代码使用，属于跨项目改动，本轮未做（改动与失败原因已记录，避免重复尝试）。
+
 
 
 
