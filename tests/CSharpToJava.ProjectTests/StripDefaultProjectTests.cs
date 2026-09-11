@@ -9,7 +9,7 @@ public class StripDefaultProjectTests
         Path.Combine(AppContext.BaseDirectory, "SampleStripDefaultSolution");
 
     [Fact]
-    public async Task CrossProject_CallSiteUnchanged_AndBuildSucceeds()
+    public async Task CrossProject_CallSitesFilledAndBuildSucceeds()
     {
         var slnPath = Path.Combine(FixtureDir, "SampleStripDefaultSolution.sln");
         Assert.True(File.Exists(slnPath), $"Solution not found: {slnPath}");
@@ -29,13 +29,25 @@ public class StripDefaultProjectTests
             Assert.True(result.Statistics.FilesTransformed > 0);
             Assert.True(result.Statistics.OverloadsGenerated > 0);
 
-            // D1: App call sites must be byte-for-byte identical to original
+            // Cross-project call sites get the stripped defaults filled in as named
+            // arguments whenever the default expression is usable at the call site
+            // (DefaultParameterDeclarationRewriter), so the app no longer depends on the
+            // removed defaults; declarations whose defaults only resolve inside the
+            // declaring type are covered by the generated forwarding overloads instead.
             var originalAppPath = Path.Combine(FixtureDir, "SampleStripDefaultApp", "Program.cs");
             var preprocessedAppPath = Path.Combine(
                 result.IntermediateRoot, "SampleStripDefaultApp", "Program.cs");
             var originalContent = await File.ReadAllTextAsync(originalAppPath);
             var preprocessedContent = await File.ReadAllTextAsync(preprocessedAppPath);
-            Assert.Equal(originalContent, preprocessedContent);
+            Assert.NotEqual(originalContent, preprocessedContent);
+            Assert.Contains("new Service(name: \"unnamed\")", preprocessedContent);
+            Assert.Contains("s.Process(1, b: \"default\", c: true)", preprocessedContent);
+            Assert.Contains("s.Process(1, \"hi\", c: true)", preprocessedContent);
+            Assert.Contains("s.Calculate(5, y: 10, z: 20)", preprocessedContent);
+            Assert.Contains("Service.Greet(name: \"world\")", preprocessedContent);
+            // Calls that already passed every argument are left untouched.
+            Assert.Contains("s.Process(1, \"hi\", false)", preprocessedContent);
+            Assert.Contains("new Service(\"my-service\")", preprocessedContent);
 
             // Lib: defaults stripped
             var libPath = Path.Combine(result.IntermediateRoot, "SampleStripDefaultLib", "Defaults.cs");
@@ -52,8 +64,12 @@ public class StripDefaultProjectTests
             Assert.Contains("void Process(int a, string b)", libContent);
             Assert.Contains("int Calculate(int x)", libContent);
             Assert.Contains("int Calculate(int x, int y)", libContent);
-            Assert.Contains("Service()", libContent);
             Assert.Contains("static string Greet()", libContent);
+            // A parameterless constructor is deliberately NOT synthesised: reflection
+            // driven consumers (serializers, activators, DI) would start seeing a default
+            // constructor the C# type never had. Call sites are completed explicitly
+            // instead (asserted above).
+            Assert.DoesNotContain("public Service()", libContent);
         }
         finally
         {

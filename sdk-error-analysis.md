@@ -282,6 +282,25 @@
 - **修复**: 更新测试为 `int.class/long.class/boolean.class`（重命名为 `getElementType_returnsPrimitiveClassForPrimitiveArrays`），并加注释说明基元/包装的边界（需要包装形式时走 `toWrapperType`/`newArrayInstance`）。
 - **验证**: compat 模块 `Tests run: 1608, Failures: 0, Errors: 0` → **BUILD SUCCESS**。
 
+## Iteration 12 — 局部函数提升把上下文关键字当成保留字（`Add` → `addLocal`）
+
+- **涉及组件**: `src/CSharpToJava.Core/LocalFunctionLift/LocalFunctionLiftNaming.cs`
+- **现象**: `LocalFunctionLiftTests.StaticLocalFunction_LiftedAsPrivateStatic` 失败：期望生成 `private static int add(int a, int b)`，实际是 `addLoc...`。
+- **分析**: `GetBaseName` 的关键字表把 C# **上下文关键字**（`add`、`remove`、`get`、`set`、`value`、`var`、`async`、`await`、`from`、`select`、`where`、`yield` 等）也当成保留字，于是名为 `Add` 的局部函数被改写成 `addLocal` ✗。这些名字在 C#/Java 里都是合法标识符；同时该表还漏掉了真正的 Java 保留字（`assert`、`final`、`synchronized`、`super`、`package`…）。
+- **修复**: 关键字判定改为「C# 保留字 ∪ Java 保留字与受限标识符」，剔除全部上下文关键字。这样既不会误改名（`Add` → `add`），也不会生成 Java 非法方法名（`Assert` → `assertLocal`）。
+- **验证**: `StaticLocalFunction_LiftedAsPrivateStatic` 通过；同类测试 14/14 通过。
+
+## Iteration 13 — 两项既有红灯测试与实现契约不一致（既有设计决策未同步到测试）
+
+- **涉及组件**: `tests/CSharpToJava.Tests/LocalFunctionLiftTests.cs`、`tests/CSharpToJava.ProjectTests/StripDefaultProjectTests.cs`
+- **分析**:
+  1. `Skip_Iterator` 期望迭代器局部函数被**跳过**，但 `LocalFunctionLiftAnalyzer` 的 Gate #1 已被**有意禁用**（注释说明：迭代器局部函数可提升为类级迭代器方法，提升后的方法仍是合法迭代器），且实现工作正常 ✗ 测试陈旧。
+  2. `StripDefaultProjectTests.CrossProject_CallSiteUnchanged_AndBuildSucceeds` 断言（设计文档中的 D1）"跨工程调用点必须逐字节不变"、并且要求生成无参构造 `Service()`；而实现（与设计文档同源的提交 `3a9ebdc`）**有意**在默认值可在调用点解析时把默认值以命名实参补进调用点（默认值只在声明类型内可解析时改由生成的转发重载兜底），并且**有意不合成无参构造**（避免反射驱动的序列化器/激活器看到 C# 类型本不存在的默认构造）。这两处都属于"实现契约已演进、测试未同步"，而端到端行为（剥离默认值 + 生成重载 + `dotnet build` 成功）本身是正确的。
+- **修复**: 按实现契约重写这两处断言：
+  - 迭代器测试改为 `Iterator_LiftedToClassLevelIteratorMethod`：断言已提升、未被跳过、无 `Iterator` 跳过诊断、类级方法保留 `yield return`、且不再残留局部函数；
+  - strip-default 测试改为 `CrossProject_CallSitesFilledAndBuildSucceeds`：断言调用点被补全为命名实参（`new Service(name: "unnamed")`、`s.Process(1, b: "default", c: true)`、`s.Calculate(5, y: 10, z: 20)`、`Service.Greet(name: "world")`）、已完整的调用点保持不变，并断言**不**合成 `public Service()`。
+- **验证**: `dotnet test -c Release` → **`CSharpToJava.Tests` 3171 项 + `CSharpToJava.ProjectTests` 58 项，失败 0、错误 0**；加上 compat 模块 1608 项全绿，`d:\code\cs2j` 的单元测试首次全绿（成功标准之一达成）。
+
 ## 已定位但**尚未修复**的深层根因（下一轮起点）
 
 **泛型实参在成员读取处被擦除 + 转换器缓存按原始类共享**（两者叠加才是真正的瓶颈）：

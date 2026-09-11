@@ -29,35 +29,43 @@ internal static class LocalFunctionLiftNaming
             return "_" + char.ToLowerInvariant(identifier[1]) + identifier[2..];
         }
         var baseName = char.ToLowerInvariant(identifier[0]) + identifier[1..];
-        // Avoid C# reserved keywords
-        if (IsCSharpKeyword(baseName))
+        // Avoid identifiers that are reserved words in C# or in the Java target.
+        // Contextual keywords (add, remove, get, set, value, var, async, await, from,
+        // select, where, yield, ...) are legal identifiers, so they must NOT be renamed:
+        // a local function named `Add` has to lift to `add`.
+        if (IsReservedIdentifier(baseName))
             baseName += "Local";
         return baseName;
     }
 
     /// <summary>
-    /// Checks if a string is a C# reserved keyword.
+    /// C# reserved keywords plus Java reserved words and restricted identifiers — the
+    /// union of names that cannot be used verbatim as a lifted method name. C#
+    /// contextual keywords are deliberately excluded: they are valid identifiers in
+    /// both languages.
     /// </summary>
-    private static bool IsCSharpKeyword(string s)
+    private static bool IsReservedIdentifier(string s)
     {
         return s switch
         {
+            // C# reserved keywords
             "abstract" or "as" or "base" or "bool" or "break" or "byte" or "case" or "catch"
             or "char" or "checked" or "class" or "const" or "continue" or "decimal" or "default"
             or "delegate" or "do" or "double" or "else" or "enum" or "event" or "explicit"
             or "extern" or "false" or "finally" or "fixed" or "float" or "for" or "foreach"
-            or "goto" or "if" or "implicit" or "in" or "int" or "interface" or "internal"
-            or "is" or "lock" or "long" or "namespace" or "new" or "null" or "object"
-            or "operator" or "out" or "override" or "params" or "private" or "protected"
-            or "public" or "readonly" or "ref" or "return" or "sbyte" or "sealed" or "short"
-            or "sizeof" or "stackalloc" or "static" or "string" or "struct" or "switch"
-            or "this" or "throw" or "true" or "try" or "typeof" or "uint" or "ulong"
-            or "unchecked" or "unsafe" or "ushort" or "using" or "virtual" or "void"
-            or "volatile" or "while" or "yield" or "var" or "value" or "get" or "set"
-            or "add" or "remove" or "alias" or "async" or "await" or "dynamic" or "global"
-            or "nameof" or "partial" or "when" or "where" or "select" or "group" or "by"
-            or "ascending" or "descending" or "equals" or "from" or "in" or "into" or "join"
-            or "let" or "on" or "orderby" or "select" => true,
+            or "goto" or "if" or "implicit" or "in" or "int" or "interface" or "internal" or "is"
+            or "lock" or "long" or "namespace" or "new" or "null" or "object" or "operator"
+            or "out" or "override" or "params" or "private" or "protected" or "public"
+            or "readonly" or "ref" or "return" or "sbyte" or "sealed" or "short" or "sizeof"
+            or "stackalloc" or "static" or "string" or "struct" or "switch" or "this" or "throw"
+            or "true" or "try" or "typeof" or "uint" or "ulong" or "unchecked" or "unsafe"
+            or "ushort" or "using" or "virtual" or "void" or "volatile" or "while"
+            // Java reserved words that C# does not reserve
+            or "assert" or "boolean" or "extends" or "final" or "implements" or "import"
+            or "instanceof" or "native" or "package" or "strictfp" or "super" or "synchronized"
+            or "throws" or "transient"
+            // Java restricted identifiers (cannot name a member that is also a type)
+            or "record" or "permits" => true,
             _ => false,
         };
     }

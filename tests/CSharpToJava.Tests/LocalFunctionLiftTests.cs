@@ -219,8 +219,13 @@ public class LocalFunctionLiftTests
         AssertNoLocalFunctions(result.OutputCode);
     }
 
+    /// <summary>
+    /// Iterator local functions are lifted, not skipped: the hoisted method keeps the
+    /// yield statements and is a valid iterator method at class level (see the
+    /// deliberately disabled iterator gate in LocalFunctionLiftAnalyzer).
+    /// </summary>
     [Fact]
-    public void Skip_Iterator()
+    public void Iterator_LiftedToClassLevelIteratorMethod()
     {
         var src = """
         class C {
@@ -233,8 +238,15 @@ public class LocalFunctionLiftTests
         }
         """;
         var result = Preprocess(src);
-        Assert.Equal(1, result.Statistics.LocalFunctionsSkipped);
-        Assert.Contains(result.Diagnostics, d => d.Reason == LocalFunctionSkipReason.Iterator);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.LocalFunctionsLifted);
+        Assert.Equal(0, result.Statistics.LocalFunctionsSkipped);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Reason == LocalFunctionSkipReason.Iterator);
+        // The hoisted method is declared at class level and keeps the yield statement.
+        Assert.Contains("private System.Collections.Generic.IEnumerable<int> getSeq()", result.OutputCode);
+        Assert.Contains("yield return 1;", result.OutputCode);
+        AssertNoLocalFunctions(result.OutputCode);
     }
 
     [Fact]
