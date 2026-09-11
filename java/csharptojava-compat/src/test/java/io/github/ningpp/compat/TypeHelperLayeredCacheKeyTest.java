@@ -47,16 +47,19 @@ class TypeHelperLayeredCacheKeyTest {
         TypeHelper.registerParameterizedType(
             closed(CSharpList.class, closed(CSharpList.class, Integer.class)));
 
-        // Outer list: the layer in effect is the inner list.
-        Object outerKey = TypeHelper.converterCacheKey(CSharpList.class);
+        // Converter factories resolve their element/key types first (this consumes the outer
+        // layer), and only then is the converter cache key computed.
         assertArrayEquals(new Class<?>[] { CSharpList.class }, TypeHelper.getGenericArguments(CSharpList.class));
+        Object outerKey = TypeHelper.converterCacheKey(CSharpList.class);
 
-        // Converter creation consumed the outer layer; the inner list sees the next one.
+        // Creating the outer converter consumes the next layer for its element's converter.
+        assertArrayEquals(new Class<?>[] { Integer.class }, TypeHelper.getGenericArguments(CSharpList.class));
         Object innerKey = TypeHelper.converterCacheKey(CSharpList.class);
 
         assertNotEquals(outerKey, innerKey,
             "the inner list must not reuse the outer list's converter cache entry");
-        assertArrayEquals(new Class<?>[] { Integer.class }, TypeHelper.getGenericArguments(CSharpList.class));
+        assertTrue(outerKey.toString().contains("CSharpList"), "outer key: " + outerKey);
+        assertTrue(innerKey.toString().contains("Integer"), "inner key: " + innerKey);
     }
 
     @Test

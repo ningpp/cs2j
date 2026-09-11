@@ -284,16 +284,31 @@ public final class TypeHelper {
     }
 
     /**
-     * The type arguments that the next {@link #getGenericArguments} call would report for
-     * {@code raw}, without consuming them: the pending (outermost) session layer, else the
-     * layer already consumed (repeat queries report it again).
+     * The type-argument layer currently in effect for {@code raw}, without consuming anything.
+     *
+     * <p>Converter factories resolve their element/key types through
+     * {@link #getGenericArguments} <em>before</em> the converter cache key is computed, so the
+     * layer that was just consumed identifies the converter being created; a pending layer only
+     * applies while nothing has been consumed yet. Getting this order wrong makes consecutive
+     * layers of {@code List<List<int>>} collide on one cache entry
+     * ({@code Integer cannot be cast to CSharpList}).</p>
      */
-    static java.lang.reflect.Type[] peekGenericArguments(Class<?> raw) {
-        java.util.ArrayDeque<java.lang.reflect.Type[]> deque = TYPE_ARGUMENTS.get().get(raw);
-        if (deque != null && !deque.isEmpty()) {
-            return deque.peekFirst();
+    static java.lang.reflect.Type[] currentGenericArgumentsLayer(Class<?> raw) {
+        java.lang.reflect.Type[] consumed = CONSUMED_ARGUMENTS.get().get(raw);
+        if (consumed != null) {
+            return consumed;
         }
-        return CONSUMED_ARGUMENTS.get().get(raw);
+        java.util.ArrayDeque<java.lang.reflect.Type[]> deque = TYPE_ARGUMENTS.get().get(raw);
+        return deque == null || deque.isEmpty() ? null : deque.peekFirst();
+    }
+
+    /** Opt-in diagnostics: {@code -Dcs2j.trace.typeargs=true} traces type-argument resolution. */
+    private static final boolean TRACE_TYPE_ARGS = Boolean.getBoolean("cs2j.trace.typeargs");
+
+    static void trace(String message) {
+        if (TRACE_TYPE_ARGS) {
+            System.err.println("[cs2j.typeargs] " + message);
+        }
     }
 
     /**
@@ -315,9 +330,9 @@ public final class TypeHelper {
             // Session registrations (typeof(ClosedGeneric), deserialize(TypeReference)) publish
             // layered arguments per raw class; converter creation consumes one layer at a time,
             // so two lookups for the same raw class - outer list, then its element list - must
-            // not share one cache entry. Peeking (not consuming) keeps the key stable for repeat
-            // queries of the layer already in effect.
-            args = peekGenericArguments(raw);
+            // not share one cache entry. The consumed layer wins because factories resolve their
+            // element/key types before the cache key is computed.
+            args = currentGenericArgumentsLayer(raw);
         }
         if (args == null) {
             if (raw.getTypeParameters().length == 0) {
@@ -330,7 +345,10 @@ public final class TypeHelper {
             // published arguments entirely.
             args = new java.lang.reflect.Type[0];
         }
-        return new ClosedGenericKey(raw, args);
+        ClosedGenericKey closedKey = new ClosedGenericKey(raw, args);
+        trace("converterCacheKey(" + raw.getSimpleName() + ") = " + closedKey
+            + (MEMBER_ARGUMENTS.get().get(raw) != null ? " [member layer]" : " [session layer]"));
+        return closedKey;
     }
 
     /** Closed-generic cache key: raw class plus the type arguments in effect. */
@@ -395,6 +413,8 @@ public final class TypeHelper {
                 for (int i = 0; i < registered.length; i++) {
                     result[i] = toRawClass(registered[i]);
                 }
+                trace("getGenericArguments(" + type.getSimpleName() + ") = " + java.util.Arrays.toString(result)
+                    + " [pending layer, " + deque.size() + " left behind]");
                 return result;
             }
         }
@@ -406,6 +426,8 @@ public final class TypeHelper {
             for (int i = 0; i < consumed.length; i++) {
                 result[i] = toRawClass(consumed[i]);
             }
+            trace("getGenericArguments(" + type.getSimpleName() + ") = " + java.util.Arrays.toString(result)
+                + " [repeat of consumed layer]");
             return result;
         }
         java.lang.reflect.TypeVariable<?>[] params = type.getTypeParameters();

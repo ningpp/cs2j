@@ -499,6 +499,25 @@
 - **尚未解决**: `nested-write-reg` 仍抛错 —— 排查显示嵌套场景下外层转换器创建期间对该 raw class 的 `getGenericArguments` 调用次数大于 1，导致在**内层**转换器查找时待处理队列已空、peek 回退到"已消费的外层"，两层键再次相同。修法需要在发布/消费链上引入"层序号"而不是仅靠队列消费顺序（下一轮 compat 侧继续），或由生成端直接传递带层信息的闭合泛型令牌。
 - **官方 Step 2（Round 13）**: `Failures: 440, Errors: 499` = **939**，与 Round 12 **逐项相同**（预期如此：当前 SDK 不产生会话注册，该修复对现状是 no-op）——同时再次印证 Round 11 之后全量结果可复现。
 
+## Iteration 21 — 分层实参的"层序"对齐：嵌套 `List<List<int>>` 探针从抛错转为 `[[1,2],[3,4]]`
+
+- **诊断手段**: 给 compat 增加**可选**诊断开关 `-Dcs2j.trace.typeargs=true`（`TypeHelper.trace`，打印 `getGenericArguments`/`converterCacheKey` 的解析结果与来源），据此得到嵌套场景的真实调用序列：
+  ```
+  getGenericArguments(CSharpList) = [CSharpList]   [pending layer, 1 left behind]   ← 先解析"元素类型"，消费外层
+  converterCacheKey(CSharpList)   = CSharpList[Integer] [session layer]            ← 键却取到了"下一层"
+  getGenericArguments(CSharpList) = [Integer]      [pending layer, 0 left behind]
+  converterCacheKey(CSharpList)   = CSharpList[Integer] [session layer]            ← 与外层同键 → 冲突
+  ```
+  **根因（Round 13 遗留）**: 转换器工厂是"**先**解析元素/键类型（消费一层）**再**计算缓存键"，而 Round 13 的 `peekGenericArguments` 优先取"待处理队首"⇒ 键比实际使用层**滞后一层**，外层与内层因此同键、复用同一个转换器 ⇒ `Integer cannot be cast to CSharpList`。
+- **修复（compat-only）**: 改为 `currentGenericArgumentsLayer(raw)`——**已消费层优先，其次才是待处理队首**（都没消费时才用队首）：
+  - 外层转换器：先消费外层 → 键 = `CSharpList[CSharpList[Integer]]` ✓
+  - 内层转换器：再消费内层 → 键 = `CSharpList[Integer]` ✓ 两层不再冲突。
+- **验证**:
+  - compat 单测 `TypeHelperLayeredCacheKeyTest` 改为**忠实复刻真实序列**（先 `getGenericArguments` 再 `converterCacheKey`，两次）→ 断言两键不同且分别含 `CSharpList` / `Integer` ✓；compat 全量 **1633/1633**。
+  - 探针（每个用例独立 JVM）: `nested-write-reg` 由**抛错**转为 **`[[1,2],[3,4]]`** ✓✓；`write-plain`/`write-reg` `[1,2]` ✓；`read-reg` 元素为 `Integer` ✓；`read-plain`/`read-reg-after-lookup` 仍为 `JsonElement`（后者为已知边界：查找先于发布时，根类型 LRU 只比较 raw class）。
+- **意义**: 这条修复本身对当前 SDK 仍是 no-op（无会话注册），但它与 Round 13 一起把**"生成端发布类型实参"所需的 compat 语义完全打通并逐条验证**：发布先于任何查找 + 按层区分转换器 ⇒ 读入路径（`JsonElement → Integer`）与嵌套写出路径（`[[1,2],[3,4]]`，即 `writeListOfIList`/`writeListOfList` 家族）同时成立。
+- **官方 Step 2（Round 14）**: `Failures: 440, Errors: 499` = **939**，与 Round 12/13 逐项相同（同一原因：无会话注册 ⇒ 修复不可达）。四次连续官方运行（r12、r12b、r13、r14）计数与用例集合完全一致，全量结果可复现已是稳定事实。
+
 
 
 
