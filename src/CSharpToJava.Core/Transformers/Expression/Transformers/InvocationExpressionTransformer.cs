@@ -9457,8 +9457,9 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         var javaType = context.MapType(elementType);
         // Guard against LINQ type parameter names (TSource, TKey, etc.) leaking
         // from unresolved generic methods into the generated Java.
-        if (javaType is "TSource" or "TResult" or "TKey" or "TElement"
-            or "TFirst" or "TSecond" or "TAccumulate")
+        var erasedToObjectTypeParameter = javaType is "TSource" or "TResult" or "TKey"
+            or "TElement" or "TFirst" or "TSecond" or "TAccumulate";
+        if (erasedToObjectTypeParameter)
             javaType = "Object";
         if (elementType.TypeKind == TypeKind.TypeParameter)
         {
@@ -9467,9 +9468,17 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // List<T>.ToArray() must produce a runtime T[]. When T erases to a
                 // primitive wrapper (C# List<int>) the .NET result is int[], which
                 // cannot be expressed through Java generics — build it reflectively.
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                if (erasedToObjectTypeParameter)
+                {
+                    // An unbounded/erased parameter already erases to Object, so a
+                    // (Object[]) cast adds no type information and would reject the
+                    // primitive arrays a primitive T legitimately produces. Type the
+                    // result from the call site instead.
+                    return $"TypeHelper.toArrayAs({receiver}, {runtimeClassParameter})";
+                }
                 // listToArray returns Object (erasure limitation), so cast to the
                 // element type array to satisfy conditional/assignment contexts.
-                context.AddImport("io.github.ningpp.compat.TypeHelper");
                 return $"({javaType}[]) (Object) TypeHelper.listToArray({receiver}, {runtimeClassParameter})";
             }
             if (TryBuildTypeParameterArrayGenerator(elementType, javaType, context, out var generator))
@@ -9519,13 +9528,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             {
                 // See the comment at the other List<T>.ToArray() branch: the array
                 // must be built reflectively so primitive T yields a primitive array.
-                // listToArray returns Object (erasure limitation), so cast to the
-                // element type array to satisfy conditional/assignment contexts.
                 context.AddImport("io.github.ningpp.compat.TypeHelper");
                 var javaTypeForCast = context.MapType(elementType);
                 if (javaTypeForCast is "TSource" or "TResult" or "TKey" or "TElement"
                     or "TFirst" or "TSecond" or "TAccumulate")
-                    javaTypeForCast = "Object";
+                {
+                    // Erased to Object: an (Object[]) cast adds no type information and
+                    // would reject the primitive arrays a primitive T produces.
+                    return $"TypeHelper.toArrayAs({receiver}, {runtimeClassParameter})";
+                }
                 return $"({javaTypeForCast}[]) (Object) TypeHelper.listToArray({receiver}, {runtimeClassParameter})";
             }
             var javaTypeParam = context.MapType(elementType);

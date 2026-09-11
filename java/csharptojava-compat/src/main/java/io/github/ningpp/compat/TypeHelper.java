@@ -429,7 +429,12 @@ public final class TypeHelper {
         // (int[,] => rank 2). Java arrays are always rank 1; the converter maps
         // C# multidimensional types to jagged arrays and registers the original
         // rank here via getMultiDimArrayClass.
-        Integer rank = MULTI_DIM_ARRAY_RANKS.get(type);
+        //
+        // The registration is consumed by this query: java.lang.Class is canonical,
+        // so a C# int[,] and a C# int[][] are the SAME runtime class and a durable
+        // marker would make every later jagged int[][] conversion look
+        // multidimensional ("The type 'class [[I' is not supported").
+        Integer rank = MULTI_DIM_ARRAY_RANKS.remove(type);
         return rank != null ? rank : 1;
     }
 
@@ -807,6 +812,27 @@ public final class TypeHelper {
             return array;
         }
         return stream.toArray(size -> (Object[]) java.lang.reflect.Array.newInstance(elementClass, size));
+    }
+
+    /**
+     * Target-typed {@code List<T>.ToArray()} / {@code IEnumerable<T>.ToArray()}
+     * result. {@link #listToArray(java.util.Collection, Class)} returns an
+     * {@code Object} because the runtime array may be a primitive array
+     * ({@code int[]} for C# {@code List<int>}), which a {@code (Object[])} cast at
+     * the call site would reject with a {@link ClassCastException}. Typing the
+     * result by the call site's target keeps Object contexts (assigning to
+     * {@code state.Current.ReturnValue}) working while preserving the primitive
+     * array that later member setters expect.
+     */
+    @SuppressWarnings("unchecked")
+    public static <A> A toArrayAs(java.util.Collection<?> collection, Class<?> elementClass) {
+        return (A) listToArray(collection, elementClass);
+    }
+
+    /** Stream counterpart of {@link #toArrayAs(java.util.Collection, Class)}. */
+    @SuppressWarnings("unchecked")
+    public static <A> A toArrayAs(java.util.stream.Stream<?> stream, Class<?> elementClass) {
+        return (A) listToArray(stream, elementClass);
     }
 
     /**

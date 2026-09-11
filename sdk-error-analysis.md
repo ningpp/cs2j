@@ -147,4 +147,48 @@
 
 另外，`d:\code\cs2j` 全量单元测试当前有 3 项**既有失败**（与本轮修改无关，已在 HEAD 9f2db495 复现）：`LocalFunctionLiftTests.StaticLocalFunction_LiftedAsPrivateStatic`、`LocalFunctionLiftTests.Skip_Iterator`、`StripDefaultProjectTests.CrossProject_CallSiteUnchanged_AndBuildSucceeds`（后者为 strip-default 跨工程调用点未重写：`SampleStripDefaultApp/Program.cs` 仍以旧实参调用已删默认值的方法，`error CS7036`）。
 
+## Iteration 4 — `List<T>.ToArray()` 的 `(Object[])` 强转拒绝基元数组
+
+- **Java 文件**: `system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/ArrayConverter.java:54`
+- **错误信息**: `java.lang.ClassCastException: class [I cannot be cast to class [Ljava.lang.Object;`（`ArrayTests.readObjectArray`、`readNull*` 等）
+- **代码片段**:
+  ```java
+  // 修复前
+  state.value.Current = state.value.Current.withReturnValue((Object[]) (Object) TypeHelper.listToArray(list, tElementClass));
+  // 修复后
+  state.value.Current = state.value.Current.withReturnValue(TypeHelper.toArrayAs(list, tElementClass));
+  ```
+- **对应 C# 文件**: `D:\csharp-sdk\json\src\System\Text\Json\Serialization\Converters\Collection\ArrayConverter.cs` — `state.Current.ReturnValue = list.ToArray();`
+- **根因分类**: Transformer 逻辑缺陷（表达式生成）
+- **涉及组件**:
+  - `src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs` — 两处 `List<T>.ToArray()` / `IEnumerable<T>.ToArray()` 生成分支（`TransformInstanceCollectionToArray` 与 LINQ stream 分支）
+  - `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java` — 新增 `toArrayAs`
+- **分析**: C# `List<T>.ToArray()` 在 T 为基元类型时结果是 `int[]`/`byte[]` 等**基元数组**；`TypeHelper.listToArray` 正确地按运行时 `Class` 反射构造基元数组，但调用点被包了一层 `(javaType[]) (Object)`；当类型参数名被"泄漏防护"映射成 `Object`（如 `TElement`）时该强转即 `(Object[])`，Java 对 `int[]` 做 `checkcast [Ljava/lang/Object;` 必然抛 CCE。修复方式：新增按调用点定型（target-typed）的 `TypeHelper.toArrayAs(collection/stream, elementClass)`，在"擦除为 Object"的分支不再插入会失败的窄化强转；保留 `(T[]) (Object) TypeHelper.listToArray(...)` 分支（条件表达式场景仍需要，见 `ListToArrayConditionalExpressionTests` 与 `GenericArrayTypeParameterTests` 共 32 项断言）。
+- **红→绿验证**: 定向测试 `dotnet test --filter "FullyQualifiedName~GenericArrayTypeParameter|FullyQualifiedName~ListToArrayConditionalExpression"` → 32/32 通过。
+- **端到端验证**: `system-text-json-tests` 全量 → 失败数 `499 F + 543 E = 1042`（基线）降到 `500 F + 513 E = 1013`；`class [I cannot be cast` 日志行 72 → 1。
+
+## Iteration 5 — 多维数组静态标记污染，交错数组 `int[][]` 被判为"不支持"
+
+- **Java 文件**: `system-text-json/src/main/java/dotnet/text/json/Serialization/Converters/IEnumerableConverterFactory.java:64`
+- **错误信息**: `java.lang.UnsupportedOperationException: The type 'class [[I' is not supported.`（`ObjectTests.write(ITestClass)[3]`、`PropertyNameTests.ignoreCase`、`CacheTests.propertyCacheWithMinInputs*` 等 **26 个**测试）
+- **对应 C# 文件**: `.../Serialization/Converters/Collection/IEnumerableConverterFactory.cs`（`if (typeToConvert.GetArrayRank() > 1) ThrowHelper...`）
+- **根因分类**: compat 库静态状态污染（非单文件语义问题）
+- **涉及组件**: `java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java` — `MULTI_DIM_ARRAY_RANKS` / `getArrayRank` / `getMultiDimArrayClass`
+- **分析**: C# `int[,]`（多维）与 `int[][]`（交错）在 Java 里是**同一个类** `int[][].class`。生成的测试用 `TypeHelper.getMultiDimArrayClass(int.class, 2)` 表达 `typeof(int[,])`，该方法把 `int[][].class → rank 2` **永久**写入静态 WeakHashMap；于是此后任何*交错* `int[][]`（如 `SimpleTestClass.MyInt16TwoDimensionArray`）在转换器工厂里都被判成 rank 2 并抛"不支持"。证据：单测隔离运行时这些测试通过（`mvn -o test -Dtest=PropertyNameTests#jsonOutputNotAffectedByCasingPolicy+ignoreCase+camelCaseDeserializeMatch` → 仅 `ignoreCase` 断言失败，无 `[[I` 错误），只有全量运行（同一 JVM 内先执行过 `getMultiDimArrayClass`）才报错。
+- **修复**: `getArrayRank` 改为一次性消费标记（`MULTI_DIM_ARRAY_RANKS.remove(type)`），保留"显式声明多维数组不受支持"的意图语义，同时不再污染后续交错数组转换。
+- **验证**: `class [[I' is not supported` 日志行 123 → 7；失败总数 1013 → **1006**。
+
+## 已定位但**尚未修复**的深层根因（下一轮起点）
+
+**泛型实参在成员读取处被擦除 + 转换器缓存按原始类共享**（两者叠加才是真正的瓶颈）：
+
+1. `PropertyInfo.getPropertyType()` / `FieldInfo.getFieldType()` 返回擦除后的 `Class`（`CSharpDictionary.class`），转换器工厂只能拿 `TypeHelper.getGenericArguments(raw)`，在无会话注册时退化为类型参数上界 → 键/元素类型变成 `Object`。实测探针（`D:\code\cs2j\probe\TypeArgProbe.java`）：
+   `MyStringToStringGenericDict` declared=`CSharpDictionary<String,String>` recovered=`[Object, Object]`。
+2. 尝试在 `PropertyInfo`/`FieldInfo` 里发布声明泛型实参（`TypeHelper.registerMemberType`，按 raw 类保留"外层优先"链并在查询时消费）后：`dictionary key type` 日志行 262→26、`JsonElement cannot be cast` 211→72 **明显改善**，但 `Integer cannot be cast to String`（写入路径）与 `could not be converted to ...CSharpList` 反而上升，失败总数 `1006 → 1081`，因此**已回退**（该实现见本轮迭代记录，可复现）。
+3. 原因是生成的 `JsonSerializerOptions._converters` 是 `ConcurrentHashMap<Class, JsonConverter>`——**只按原始 Class 缓存**，`CSharpList<String>` 与 `CSharpList<CSharpInteger>` 共用同一个转换器实例。把实参发布正确后，缓存里第一个转换器变成"具体但可能属于别的成员"的类型；此前所有转换器都是 `Object` 型（宽松但错误表现为 JsonElement）。要真正修好，需要让转换器缓存按**闭合泛型**（raw + 实参）区分，例如在生成代码的 `getConverter` 缓存键上引入 compat 的复合键，或在转换器侧改写 `GetConverter` 缓存访问。
+
+其他仍然存在的主要失败簇（`Tests run: 7904, Failures: 499, Errors: 507`）：
+`not a supported Dictionary key type`（262 行）、`JsonElement cannot be cast`（211 行）、`could not be converted to ...CSharpList`、`MethodInfo.makeGenericMethod` / `CSharpDictionary.getChecked` NPE、`The type 'class [[I' is not supported`（7 行）。
+
+
 
