@@ -34,7 +34,7 @@ public class EnumHelper {
             for (Object constant : enumType.getEnumConstants()) {
                 if (isSyntheticUnmapped(constant)) continue;
                 try {
-                    Object raw = constant.getClass().getMethod("getValue").invoke(constant);
+                    Object raw = readEnumValue((Enum<?>) constant);
                     if (raw instanceof Number num && num.longValue() == val) {
                         return true;
                     }
@@ -144,6 +144,40 @@ public class EnumHelper {
     }
 
     /**
+     * Invokes a converter-generated enum member ({@code getValue()}, {@code fromValue()})
+     * reflectively, opening the accessor first when the enum class itself is not public.
+     *
+     * <p>A C# {@code private enum} nested in a class is emitted as a Java
+     * {@code private static enum}, and Java's access check for a public method looks at the
+     * accessibility of the <em>declaring class</em> too: reflection into it from this
+     * package throws {@link IllegalAccessException}, which used to surface as
+     * {@code ClassCastException: Cannot cast ... to a numeric value} while an enum
+     * converter warmed up its name cache (e.g. the SDK test
+     * {@code EnumConverterTests.MyCustomEnum}).</p>
+     */
+    static Object invokeOpened(java.lang.reflect.Method method, Object target, Object... args)
+            throws ReflectiveOperationException {
+        Object receiver = java.lang.reflect.Modifier.isStatic(method.getModifiers()) ? null : target;
+        if (!method.canAccess(receiver)) {
+            try {
+                method.setAccessible(true);
+            } catch (RuntimeException e) {
+                // Strongly encapsulated declaring class: keep going, the plain invoke
+                // below reports the real failure.
+            }
+        }
+        return method.invoke(target, args);
+    }
+
+    /**
+     * Reads a converter-generated enum constant's underlying value, tolerating enum
+     * classes that are not public (see {@link #invokeOpened}).
+     */
+    static Object readEnumValue(Enum<?> constant) throws ReflectiveOperationException {
+        return invokeOpened(constant.getClass().getMethod("getValue"), constant);
+    }
+
+    /**
      * Unboxes an Object to an int, handling both plain boxed Numbers and
      * converter-generated enum constants (which expose their underlying value
      * through getValue()).
@@ -163,7 +197,7 @@ public class EnumHelper {
         }
         if (value instanceof Enum<?> enumValue) {
             try {
-                Object raw = enumValue.getClass().getMethod("getValue").invoke(enumValue);
+                Object raw = invokeOpened(enumValue.getClass().getMethod("getValue"), enumValue);
                 if (raw instanceof Number number) {
                     return number.longValue();
                 }
@@ -185,7 +219,7 @@ public class EnumHelper {
         long truncated = truncateToEnumWidth(enumType, value);
         try {
             java.lang.reflect.Method fromValue = enumType.getMethod("fromValue", int.class);
-            return fromValue.invoke(null, (int) truncated);
+            return invokeOpened(fromValue, null, (int) truncated);
         } catch (NoSuchMethodException e) {
             // Try the long overload for 64-bit backed enums.
         } catch (ReflectiveOperationException e) {
@@ -193,7 +227,7 @@ public class EnumHelper {
         }
         try {
             java.lang.reflect.Method fromValue = enumType.getMethod("fromValue", long.class);
-            return fromValue.invoke(null, truncated);
+            return invokeOpened(fromValue, null, truncated);
         } catch (NoSuchMethodException e) {
             // Fall back to ordinal matching for hand-written enums.
         } catch (ReflectiveOperationException e) {
@@ -247,7 +281,7 @@ public class EnumHelper {
                 continue;
             }
             try {
-                Object raw = c.getClass().getMethod("getValue").invoke(c);
+                Object raw = readEnumValue((Enum<?>) c);
                 hasGetValue = true;
                 if (raw instanceof Number number) {
                     long v = number.longValue();

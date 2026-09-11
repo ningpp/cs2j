@@ -28,14 +28,13 @@ public interface IConvertible {
         if (value instanceof Enum<?>) {
             Enum<?> enumValue = (Enum<?>) value;
             try {
-                Method getValue = enumValue.getDeclaringClass().getMethod("getValue");
-                Object result = getValue.invoke(enumValue);
+                Object result = EnumHelper.readEnumValue(enumValue);
                 if (result instanceof Number) {
                     return ((Number) result).longValue();
                 }
             } catch (NoSuchMethodException e) {
                 // Fall back to ordinal below.
-            } catch (IllegalAccessException | InvocationTargetException e) {
+            } catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }
             return enumValue.ordinal();

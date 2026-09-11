@@ -398,6 +398,23 @@
   4. `convertEnumUsingAttributes`：需按 C# 成员命名属性/命名策略输出名字、未命名成员输出数值（`EnumHelper` 目前只看常量名）。
   5. `deserializeEnumClass`：`Nullable<enum>` 期望 `null` 实得 `0`（既有 nullable 值类型阻塞项）。
 
+## Iteration 17 — compat 反射读"非 public 枚举类"抛 `IllegalAccessException`（枚举转换器暖机崩溃）
+
+- **错误信息（红，SDK）**: `dotnet.text.json.Serialization.Tests.EnumConverterTests.enumWithConverterAttribute` → `io.github.ningpp.compat.TargetInvocationException` ← `java.lang.ClassCastException: Cannot cast dotnet.text.json.Serialization.Tests.EnumConverterTests$MyCustomEnum to a numeric value`（`EnumHelper.toInt64`），抛出点在 `EnumConverter` 构造器的名字缓存暖机循环（`EnumConverter.java:80`）。
+- **根因分类**: compat 库反射语义不足
+- **分析**: C# 侧 `private enum MyCustomEnum`（`EnumConverterTests.cs:186`）转换为 Java `private static enum`（形态正确）；但 Java 的成员访问检查会同时看**声明类**的可访问性——public 方法声明在 private 嵌套类上时，从**其它包**反射调用会抛 `IllegalAccessException`（compat 包与测试包不同），而 `EnumHelper.toInt64` 把它统一折叠成 `ClassCastException("... to a numeric value")`，于是整个枚举转换器无法构造。
+  同类缺陷共 **5 处**（同一 GitHub 风格的 `getMethod("getValue").invoke(...)` 写法）：`EnumHelper.toInt64`、`EnumHelper.isDefined`、`EnumHelper.scanEnumWidth`、`EnumHelper.toObject`（`fromValue` 静态查找）、`Unsafe.as`、`MemoryMarshal`（枚举选项扫描）、`IConvertible.toInt64`。
+  其中 `Unsafe.as` 是**写出**路径的第二个崩溃点：`EnumConverter.write` 生成 `(int) Unsafe.as(value)`，反射失败时 `Unsafe.as` 静默 `return (T) value`（返回枚举本身）→ `ClassCastException: ...MyCustomEnum cannot be cast to ...Integer`（`EnumConverter.java:214`）。
+- **修复（compat-only）**: 新增 `EnumHelper.invokeOpened(Method, target, args...)`：先 `canAccess`，需要时 `setAccessible(true)`（捕获强封装场景的 `RuntimeException` 后继续，让真实异常浮出）；再新增 `EnumHelper.readEnumValue(Enum<?>)` 便捷封装。上述 5 处调用点全部改走该入口。
+- **红→绿**: 新增 compat 单测 `EnumHelperNonPublicEnumTest` + 跨包夹具 `io.github.ningpp.compat.fixtures.PrivateEnumFixture`（private 嵌套枚举，模拟转换产物）。红：3 项报 `ClassCastException: Cannot cast ...PrivateEnumFixture$PrivateValueEnum to a numeric value`（与 SDK 报错逐字一致）；绿：修复后 6/6 通过，compat 全量 **1621/1621**。
+- **SDK 效果（同命令定向）**: `enumWithConverterAttribute` **ERROR → FAILURE**（崩溃消除，剩下语义差异：期望 `"Second"` 实得 `2`）；`Serialization.Tests.EnumConverterTests` 4F+2E=6 → 5F+1E=6（错误数 −1）。
+- **官方 Step 2**: `Tests run: 7904, Failures: 455, Errors: 500, Skipped: 16` = **955**（Round 9 为 965）。改善 10 项，仍在噪声带内，故以定向证据为准。
+- **本轮新定位的三个根因（下一轮优先级）**:
+  1. **`[JsonConverter]` 类型级属性未被运行时认读**（`enumWithConverterAttribute` 残留）：`JsonSerializerOptions.determineConverter` 的 Priority 3 走 `getAttributeThatCanHaveMultiple(typeToConvert, JsonConverterAttribute.class)` → `TypeHelper.getCustomAttributes`；`MyCustomEnum` 上确实有 `[JsonConverter(typeof(JsonStringEnumConverter))]`，但 Java 侧最终用了 `EnumConverterFactory`（`AllowNumbers` 无 `AllowStrings`）→ 写出 `2` 而非 `"Second"`。需确认元数据（MetadataDb）是否为 private 嵌套类型记录了该 attribute。
+  2. **成员/属性顺序不确定 ⇒ 运行间噪声的直接来源**：`serializeNegativeEnum` 的失败是**纯顺序差异**（期望 `{"Value1":-1,"Value2":-2147483648}`，实得 `Value2` 在前；内容完全一致），而该用例正是前面两次相同命令下结论相反的那一个。链条：`JsonClassInfo`（`JsonClassInfo.java:114`）用 `PropertyInfo.getProperties(currentType, 54)`.iterator 顺序建 `cache`/`PropertyCacheArray`，而 compat 的 `PropertyInfo.getProperties` 直接返回 `clazz.getMethods()` —— JDK 明确不保证顺序，实测随 JVM 运行变化。C# 契约是**元数据声明顺序**，因此修法是让 compat 按声明顺序（`getDeclaredMethods()` 的类文件顺序，逐层上溯）产出并给出确定性 tie-break。**这条同时能压低全量噪声，使后续 A/B 更可信**。
+  3. `convertFileAttributes`：`JsonException: The JSON value could not be converted to class java.lang.Integer`（`Path: $.Attributes`）——枚举与其底层 `Int32` 之间的转换器选择错误。
+- **策略提示（供用户决策）**: 定向统计显示集合簇（`CollectionTests` 隔离运行 148 项失败：63 `AssertionError` + 42 `JsonElement cannot be cast to ...` + 32 `could not be converted to ...`）是**元素类型擦除 + 转换器选择**同一根因，属最大杠杆；而枚举簇合计约 10 项。是否投入"闭合泛型转换器缓存/元素类型"结构性改造（可能触及生成产物形态），已在汇报中提请用户确认。
+
 
 
 

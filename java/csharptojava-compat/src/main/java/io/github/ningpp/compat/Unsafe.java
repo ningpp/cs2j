@@ -67,10 +67,8 @@ public class Unsafe {
     public static <T> T as(Object value) {
         if (value instanceof Enum<?> e) {
             try {
-                var gm = e.getClass().getMethod("getValue");
-                Object numVal = gm.invoke(e);
-                return (T) numVal;
-            } catch (Exception ignored) {
+                return (T) EnumHelper.readEnumValue(e);
+            } catch (ReflectiveOperationException ignored) {
             }
         }
         return (T) value;

@@ -370,8 +370,7 @@ public class MemoryMarshal {
                             for (Object c : constants) {
                                 if (c instanceof Enum<?> e) {
                                     try {
-                                        var gm = e.getClass().getMethod("getValue");
-                                        int ev = (int) gm.invoke(e);
+                                        int ev = (int) EnumHelper.readEnumValue(e);
                                         if (ev == extracted && !options.contains(e)) {
                                             options.add(e);
                                         }
