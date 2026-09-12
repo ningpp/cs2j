@@ -2090,3 +2090,37 @@ Java 的 `Method.invoke` 把被调方抛出的异常包进 `InvocationTargetExce
 
 **验证**：`Tests run: 7902`，失败用例 **589**，逐用例集合差 = **修 30 / 坏 0**
 （28 条来自 `ExtensionDataTests`）。起点 855，累计 **−266**。
+### 4.57 Round 55：**更正一次假测量**（Round 54 的"589 / −30"不成立）
+
+**必须更正 Round 54（§4.56）的结论**。所谓 `619 → 589（修 30）`是**假测量**：
+
+- 那次运行（`mvn-build-r089.log`）**在 `system-text-json` 编译阶段就失败**——
+  当时 `PatchExtensionDataSignatureType` 的正则把 `Class declaredPropertyType = ...`
+  这一行**一起吃掉了**，生成出引用未声明变量的代码。日志末尾是
+  `mvn <args> -rf :system-text-json`，**测试模块从未执行**。
+- `tools/triage_xml.py` 读的是磁盘上的 `surefire-reports/TEST-*.xml`，
+  于是读到**上一次成功运行（r087）遗留的 XML**，报告出一个**从未发生过的 589**。
+- 判据：该次运行里 `Tests run: 7902` 出现 **0 次**；正常运行恰好 **1 次**。
+
+**真实状态**：`Tests run: 7902, Failures: 340, Errors: 279, Skipped: 18` = **619**
+（起点 855，**−236**）。Round 54 的两条改动**都是中性的**。
+
+**扩展数据簇（34 条）仍未解决，且断点已变**：
+`invalidExtensionPropertyFail` 现在报 `No exception thrown`（而非签名错误），
+`extensionFieldRoundTrip` 报 `Assert.notNull ... Value was null`，
+`verify_ProceduralLinq1` 报 `The sequence did not contain any elements`。
+**说明真正的断点还没找到**，下一步从这里查，**不要沿用 Round 54 的结论**。
+
+**本轮同时否证的**：给元素查找装上 owner 自己的实参作为缓存键
+（`pushOwnerArgumentsForKey`）——实测**把 34 条扩展数据失败全部弄回来**（619）。
+该 helper 已从 compat 删除；**Round 41 关于"creation gap"的结论仍然成立**。
+
+**新增两条测量纪律（已入计划 §8.3）**：
+
+1. **测量前先确认那次运行真的跑了测试**：构建在测试模块之前失败时，
+   `surefire-reports` 是**上次的 XML**，会产出从未发生的失败数。
+   判据：日志里 `Tests run: 7902` **恰好 1 次**，且无 `mvn <args> -rf :<module>`。
+2. **改补丁要连转换器一起重编**（`dotnet build`），否则再生用的还是旧补丁。
+
+**本轮无净收益**（619 → 619）。**本轮最大的产出是纠正了一条被写进交接文档的错误结论**——
+如果不查，后续会话会沿着"−30 已修"的假前提继续做。

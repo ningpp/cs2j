@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902`，失败用例 **589**（起点 855，**−266**）。
-- 本会话累计 **14 条 KEEP**（均"逐用例集合差 +0 回归"）：
+- **基线**：`Tests run: 7902, Failures: 340, Errors: 279, Skipped: 18` = **619**（起点 855，**−236**）。
+- 本会话累计 **13 条 KEEP**（均"逐用例集合差 +0 回归"）：
 
 | 提交 | 内容 | 收益 |
 |---|---|---|
@@ -328,7 +328,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `9d25d891` | BCL 兼容类按 C# 名渲染（`System.Collections.Generic.*`） | 627 → 626（修 1） |
 | `06c47712` | `[JsonConverter(null)]` 哨兵 + 装箱基元按 C# 名渲染 | 626 → 625（修 1） |
 | `7ca010f2` | 异常消息的 null 安全（C# 保证非 null，Java 返回 null） | 625 → 619（修 6） |
-| `99151aa6` | 传播被调方异常（不再包成 `TargetInvocationException`）+ 泛型扩展数据按运行时类型判定 | 619 → 589（修 30） |
+| `99151aa6` | 传播被调方异常（不再包成 `TargetInvocationException`） | 619 → 619（**实测中性**；扩展数据部分见 §8.2.11 更正） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -600,23 +600,45 @@ Java 的 `Throwable.getMessage()` 返回 **null**，于是直译的
 **必须重跑该用例并读新栈**——本轮第一次测量是 625 → 625（看似无效），
 但栈已经从 `JsonConverter1:142` 换到 `ThrowHelper:749`，第二处才因此暴露。
 
-### 8.2.10 Round 54 已修：异常传播 + 泛型扩展数据（−30，本会话单轮最大）
+### 8.2.10 Round 54：异常传播已修；**"−30" 是假测量（Round 55 更正）**
 
-提交 `99151aa6`。**第一步单独测是中性（619 → 619，集合完全相同），
-是"重读新栈"这条纪律把这 30 条救回来的。**
+提交 `99151aa6`。**只有第 1 条是真实且已验证的修复**；第 2 条的"−30"结论
+**已于 Round 55 被推翻**，详见 §8.2.11。
 
-1. **`MethodInfo.invoke` 吞掉被调方异常**：`InvocationTargetException` 本身是
-   `ReflectiveOperationException` 的子类，被既有的通用 catch 吞掉；
-   C# 的 `MethodInfo.Invoke` 原样传播。修法是加一个**排在前面**的
-   `InvocationTargetException` catch，把 cause 原样 rethrow。
-2. **声明的类型是类型参数时用错类型**：`[JsonExtensionData] public T Overflow`
-   擦除为 `Object`，签名检查因此拒掉一个在构造类型上确实是
-   `Dictionary<string, object>` 的属性。修法：声明类型不是字典时改用
-   `getRuntimePropertyType()`。
+1. **`MethodInfo.invoke` 吞掉被调方异常（真修复，但仍为中性）**：
+   `InvocationTargetException` 本身是 `ReflectiveOperationException` 的子类，
+   被既有的通用 catch 吞掉；C# 的 `MethodInfo.Invoke` 原样传播。
+   修法是加一个**排在前面**的 `InvocationTargetException` catch，把 cause 原样 rethrow。
+   **实测逐用例集合完全不变（619 → 619）**——它没有独立收益，但**栈变了**，
+   这本身是有价值的诊断信息，故保留（它是"C# 语义"的正确实现）。
+2. ~~声明的类型是类型参数时用错类型~~ —— 该修复**已实现且生成物正确**
+   （`JsonClassInfo.determineExtensionDataProperty` 现在会在声明类型不是字典时
+   改用 `getRuntimePropertyType()`），但**它并没有带来 30 条收益**：
+   §8.2.11 证明那 30 条来自一次**编译失败后被误读的陈旧 XML**。
 
-**这两步的因果值得记住**：第 1 步本身不加分，但**它让第 2 步的问题浮出水面**——
-被 `TargetInvocationException` 掩盖时，`ExtensionDataTests` 报的是反射失败，
-修掉之后才暴露出真正被拒的签名检查。**"中性改动"必须先确认栈有没有变，再决定是否回滚。**
+### 8.2.11 Round 55 更正：一次**假测量**，以及新的测量纪律
+
+**Round 54 记录的 "619 → 589（修 30）" 是错的。** 真相：
+
+- 那次"589"的运行（`mvn-build-r089.log`）**在 `system-text-json` 编译阶段就失败了**
+  （我当时的 `PatchExtensionDataSignatureType` 正则吃掉了变量声明行，
+  生成出引用未声明变量的代码），日志末尾是
+  `mvn <args> -rf :system-text-json`，**测试模块根本没执行**。
+- `tools/triage_xml.py` 读的是磁盘上的 `surefire-reports/TEST-*.xml`，
+  于是它读到了**上一次成功运行（r087）遗留的 XML**，报告出"589"这个从未发生过的数字。
+- 该次运行的汇总行根本不存在：`Tests run: 7902` 出现 **0 次**（正常运行恰好 1 次）。
+
+**新增纪律（已加入 §8.3）**：
+
+| 纪律 | 原因 |
+|---|---|
+| **测量前先确认那次运行真的跑了测试** | 构建在测试模块之前失败时，`surefire-reports` 里是**上次的 XML**，`triage_xml.py` 会把它当成本次结果，产出**从未发生过的失败数**。判据：日志里 `Tests run: 7902` 必须**恰好出现 1 次**，且没有 `mvn <args> -rf :<module>`。 |
+| **改补丁后必须先编译转换器再再生** | 只改 `ProjectPasses.cs` 而不 `dotnet build`，再生用的还是旧补丁；反过来，生成了新代码却没重编转换器，会让"我改了"和"生成物变了"脱节。 |
+
+**真实基线**：`Tests run: 7902, Failures: 340, Errors: 279, Skipped: 18` = **619**。
+扩展数据簇**仍有 34 条失败**，且 `invalidExtensionPropertyFail` 现在报的是
+`No exception thrown`（而不是签名错误）——说明该簇的真实断点**还没找到**，
+下一步应从这里查，**不要再相信 Round 54 的结论**。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
@@ -633,6 +655,8 @@ Java 的 `Throwable.getMessage()` 返回 **null**，于是直译的
 | **compat 改完必须强制重建** | `mvn -q install` 会因时间戳判定"无需重编"，`-q` 又吞掉输出，于是**测的是旧 jar**。Round 41 因此白测两轮。改用 `mvn -o clean install -DskipTests` 并**核对 jar 时间戳** |
 | **探针要放在会真正执行的路径上** | comapt 的 `TypeHelper.trace` 是可用的，但它只在真被调用时才有输出；先确认目标方法在跑（`Count` 一下），再解读分支 |
 | PowerShell 传 `-D` 要给整个开关**加引号** | `-Dcs2j.trace.typeargs=true` 被解析成别的东西，java 报"找不到主类"，看日志像"探针无输出" |
+| **确认那次运行真的跑了测试，再读失败数** | Round 55 踩过：构建在测试模块之前失败时 `surefire-reports` 里是**上次的 XML**，`triage_xml.py` 把它当成本次结果，产出**从未发生过的失败数**（一个假的"−30"）。判据：日志里 `Tests run: 7902` 必须**恰好 1 次**，且无 `mvn <args> -rf :<module>` |
+| **改补丁要连转换器一起重编** | 只改 `ProjectPasses.cs` 不 `dotnet build`，再生仍用旧补丁；反之生成物变了但转换器没重编，会让"我改了"与"生成物变了"脱节 |
 
 ### 8.4 已否证方向清单
 
