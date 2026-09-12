@@ -1459,3 +1459,37 @@ WrapperForIEnumerablePrivateConstructor    WrapperForICollectionPrivateConstruct
 而不是在读取时打补丁。具体落点应转向
 "预热期遍历成员时为每个成员按其成员实参建条目"，
 并且**同样要单类验证**（预期比读路径方案更稳，因为它不改读取时的语义）。
+
+### 4.40 Round 34：**预热期实参槽位已修正**（探针证实），**但实测中性**，已回退
+
+按 §4.39 的方向实施：compat 新增
+`beginMemberArgumentScope(member, rawType)` / `endMemberArgumentScope(token)`，
+并让 `JsonClassInfo.cacheMember` 在调用 `addProperty` 期间**把该成员的实参占住
+`MEMBER_ARGUMENTS` 槽位**，使"该成员的转换器与类信息"在**正确实参**下建立。
+
+**设计目的达成（探针证据）**：
+
+```
+beginMemberArgumentScope(MyInt16TwoDimensionList)CSharpList = [CSharpList<Integer>]
+beginMemberArgumentScope(MyInt16ThreeDimensionList)CSharpList = [[Integer]]
+beginMemberArgumentScope(MyStringList)CSharpList = [class java.lang.String]
+```
+
+即**二维成员终于在自己的实参下建条目**（此前该槽位已被更早的 `List<string>` 成员覆盖）。
+
+**但实测中性**：`ArrayTests` 34、`ObjectTests` 66、**全量 723**——与基线**逐位相同**。
+→ **"预热期实参槽位错误"本身并不是这些失败的原因**。已回退，保持基线最小；
+复核 = **723（430+293）**、`git status` 干净。
+
+**本轮的价值（重要的否定结果）**：
+§4.31→§4.33→§4.39 一路指向的**"预热期顺序"方向现在也被排除**：
+槽位已确证正确，失败数**一点没动**。
+至此**两条主路都被机制级否定**：
+- **读路径急切建条目**（Round 12 变体 B、Round 33）：两次都更差；
+- **预热期修正实参槽位**（本轮）：正确但中性。
+
+**下一轮方向（必须换方法，不要再猜机制）**：
+把本轮改动**保留在树上**、重跑 §4.31 的探针，
+**实测"槽位正确之后，二维属性在读取时到底解析到了哪一格"**，
+再据此决定下一步；而不是继续假设下一种机制。
+（本轮已把该改动回退，若要复用需重新落一遍——代码与探针输出都已留档。）
