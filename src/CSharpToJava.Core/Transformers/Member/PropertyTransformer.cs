@@ -374,6 +374,19 @@ public class PropertyTransformer : IMemberTransformer
                     getter.Annotations.Add(new JavaAnnotation("CompatNonPublicProperty"));
                     context.AddImport("io.github.ningpp.compat.CompatNonPublicProperty");
                 }
+                // The MIXED case: .NET keeps a property only when a PUBLIC accessor exists
+                // (GetMethod?.IsPublic || SetMethod?.IsPublic), so a property with one non-public
+                // accessor must be invisible on that side. The converted Java accessor is a public
+                // method either way, so the fact has to be carried per accessor; without it
+                // PropertyVisibilityTests.nonPublicMembersAreNotIncluded writes
+                // {"MyInt":0,"MyString":null,...} where .NET writes {}.
+                if (propSymbol is IPropertySymbol accessorProp
+                    && !HasJsonInclude(accessorProp)
+                    && !IsPublicAccessor(accessorProp.GetMethod))
+                {
+                    getter.Annotations.Add(new JavaAnnotation("CompatNonPublicAccessor"));
+                    context.AddImport("io.github.ningpp.compat.CompatNonPublicAccessor");
+                }
             }
 
             // Expression-bodied property getters skip TransformReturnStatement, so
@@ -575,6 +588,22 @@ public class PropertyTransformer : IMemberTransformer
             {
                 setter.Annotations.Add(new JavaAnnotation($"CompatPropertyName(\"{propertySymbol.Name}\")"));
                 context.AddImport("io.github.ningpp.compat.CompatPropertyName");
+            }
+            // The MIXED-visibility case: .NET keeps a property only when a PUBLIC accessor exists
+            // (GetMethod?.IsPublic || SetMethod?.IsPublic), so a non-public setter must be
+            // invisible to that side. The converted Java accessor is a public method either way,
+            // so the fact has to be carried per accessor; without it
+            // PropertyVisibilityTests.nonPublicMembersAreNotIncluded writes
+            // {"MyInt":0,"MyString":null,...} where .NET writes {}.
+            // [JsonInclude] OPTS the non-public accessor back in — that is exactly what the
+            // attribute is for (PointWith_JsonSerializableProperties.X is
+            // [JsonInclude] public int X { get; internal set; } and must round-trip).
+            if (propertySymbol is IPropertySymbol setterProp
+                && !HasJsonInclude(setterProp)
+                && !IsPublicAccessor(setterProp.SetMethod))
+            {
+                setter.Annotations.Add(new JavaAnnotation("CompatNonPublicAccessor"));
+                context.AddImport("io.github.ningpp.compat.CompatNonPublicAccessor");
             }
 
             // 处理显式 setter 主体
@@ -995,5 +1024,12 @@ public class PropertyTransformer : IMemberTransformer
     /// </summary>
     private static bool IsPublicAccessor(IMethodSymbol? accessor)
         => accessor != null && accessor.DeclaredAccessibility == Accessibility.Public;
+
+    /// <summary>
+    /// Whether the property carries C# <c>[JsonInclude]</c>, which opts a non-public accessor back
+    /// into (de)serialization.
+    /// </summary>
+    private static bool HasJsonInclude(IPropertySymbol property)
+        => property.GetAttributes().Any(a => a.AttributeClass?.Name == "JsonIncludeAttribute");
 }
 

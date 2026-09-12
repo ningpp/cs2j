@@ -145,8 +145,20 @@ public final class PropertyInfo implements MemberInfo {
         return new java.lang.reflect.Parameter[0];
     }
 
+    /**
+     * C# {@code PropertyInfo.GetGetMethod()} — the PUBLIC getter, or null when the getter is
+     * non-public, which is what .NET's member cache tests before it keeps a property.
+     *
+     * <p>The converted Java accessor is a public method even when the C# getter was not, so
+     * {@link CompatNonPublicAccessor} carries the fact. Without it a C# {@code internal string P
+     * { get; private set; }} is treated as readable and gets serialized
+     * (PropertyVisibilityTests.nonPublicMembersAreNotIncluded expects {@code {}}).</p>
+     */
     public MethodInfo getGetMethod() {
-        return getter == null ? null : new MethodInfo(getter);
+        if (getter == null || getter.isAnnotationPresent(CompatNonPublicAccessor.class)) {
+            return null;
+        }
+        return new MethodInfo(getter);
     }
 
     public MethodInfo getGetMethod(boolean nonPublic) {
@@ -176,6 +188,9 @@ public final class PropertyInfo implements MemberInfo {
             return null;
         }
         if (getter != null && getter.isAnnotationPresent(CompatNonPublicProperty.class)) {
+            return null;
+        }
+        if (setter.isAnnotationPresent(CompatNonPublicAccessor.class)) {
             return null;
         }
         return new MethodInfo(setter);
