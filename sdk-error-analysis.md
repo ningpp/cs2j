@@ -788,3 +788,10 @@ if (propertySymbol.GetAttributes().Any(a =>
 - OptionsTests.extensionDataUsesReaderOptions（扩展数据未遵循 reader options）
 
 ⇒ 修复方向：扩展数据的**读写实现**（对象默认转换器的 getMemberAndWriteJsonExtensionData / 读入时把未知属性并入扩展数据字典、以及 reader options 的传递），而不是继续在特性标注上加码。80 处 @CompatJsonExtensionData 的能力（发射点已修好：context.GetDeclaredSymbol(propDecl) + AttributeClass?.Name 匹配）与 compat 翻译层都可在通路补齐后**直接复用**（本轮回退只撤了发射，未撤 compat）。
+## Iteration 40 — (b) 发射 + NPE 守卫联合测量：−4 → **−2**（仍为负，回退发射；守卫保留）
+
+- **做法**: 重新打开 (b) 发射（context.GetDeclaredSymbol(propDecl) + AttributeClass?.Name 匹配），叠加 Round 47 的 isAssignableFrom 空值守卫，跑标准闭环。
+- **结果**: 构建 ok ✓；Step 1 618/0 ✓；Step 2 **编译零错误** ✓；**官方 931（429F + 502E）** vs 929 ⇒ **新增失败 4 / 新增通过 2**（净 −2）。
+- **对比**: Round 44（仅发射）为 **新增失败 4 / 新增通过 0**（净 −4）⇒ **空值守卫确实把其中 2 项从崩溃转为通过** ✓，但仍有 4 项新失败 ⇒ 扩展数据的读写通路仍未实现到足以承载这些用例。
+- **处置**: 回退发射（工作区回 929）；**保留** compat 侧的全部改动（空值守卫 + 注解 + 翻译层，1642/1642 绿、当前状态下中性）。
+- **结论**: (b) 的"识别"环节已经完全可用（发射 80 处、翻译层生效、崩溃守卫生效），收益受阻的唯一原因是**扩展数据读写实现本身**；下一步应直接实现该通路（对象默认转换器的扩展数据写出 + 读入合并 + reader options 传递），而不是再调整发射。
