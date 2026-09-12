@@ -519,3 +519,35 @@ converterCacheKey(CSharpList)  = CSharpList[class java.lang.String] [member laye
 
 **本轮收口**：所有 trace 与实验代码已回退，`git checkout -- java/` 后重装 compat、
 重跑全量复核 = **794（431+363）**，与 Round 6 收口一致，零未验证残留。
+
+### 4.15 Round 10：命中路径探针落地（已 KEEP，net +4，零回归）
+
+**提交 `2b6bab6c` — 全量 794 → 790**
+
+按 §4.14 的设计实现，并**严格遵守"命中路径只读、不写"**：
+
+1. compat：`registerMemberType` 增加 member 重载，把每个成员的实参**按成员**
+   记进 `MEMBER_DECLARED_ARGUMENTS`（`PropertyInfo`/`FieldInfo` 传 `this`）；
+2. compat：新增 `cachedClassInfoForMember(member, options, rawType)`——
+   用成员自己的实参算出 `ClosedGenericKey`，**只做一次 `_classes` 反射读**，
+   命中就返回，未命中返回 null；
+3. 生成代码：`JsonPropertyInfo.getRuntimeClassInfo()` 先问这个探针，
+   未命中才回落原来的 `getOptions().getOrAddClass(...)`；
+4. 转换器补丁：`ProjectPasses.PatchMemberClassInfoLookup`（可再生产）。
+   `PropertyInfo`/`FieldInfo` 属 compat 源码，其改动本身就是持久的，无需补丁通道。
+
+**关键设计约束（已验证有效）**：探针**只读缓存、不进入 `getOrAddClass`**。
+Round 8 的持久作用域之所以 10 修 8 回，就是因为它在
+`new JsonClassInfo(...)` 构造期间仍然生效，使**元素查找**拿外层实参命中外层自身。
+"只读命中"从结构上杜绝了这条路径。
+
+**限定为"单类型参数成员"**：对多参数成员（`Dictionary<K,V>` 等）应用同一个键会回归 3 项
+`NullTests` 可空字典用例（实测 790 → 791 但 3 回归）。限定后回归归零。
+
+**再生链路第四次验证**：重跑转换器后 `JsonPropertyInfo:373` 自动落上，
+重新全量得到**完全相同**的 790 / 零回归。
+
+**为什么只拿到 4 项**：本探针只在"正确键的条目**已存在**"时生效。
+剩余 `MyInt16TwoDimensionList` 族（`ArrayTests` 仍 34）说明**正确键的条目在预热期就没被建出来**——
+即外层二维列表的 `JsonClassInfo` 从未以 `CSharpList[[Integer]]` 注册成功。
+**下一轮方向**：查预热期为什么没有建出该条目（而不是继续在查询侧加探针）。
