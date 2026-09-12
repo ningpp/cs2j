@@ -661,6 +661,22 @@ Java 的 `Throwable.getMessage()` 返回 **null**，于是直译的
 并确认 `JsonClassInfo.getProperty`（第 441 行 `determineConverter` 通路）是否被走到。
 **不要再改判据。**
 
+### 8.2.13 Round 57：`T` 实参**全链路被擦除**，唯一可得的量是 owner 的实参
+
+**按 §8.2.12 处方测量，结论决定性**：`ClassWithExtensionData<T>.Overflow` 的运行时类型
+链路**每一环都是 `Object`**（`memberType` / `runtimeType` / 转换器的 `TypeToConvert` 与
+`RuntimeType` 全部为 `Object`，转换器是 `ObjectConverter`）。
+**故"改用运行时类型"对这 12 条无效**，Round 56 的"不要再改判据"判断正确。
+
+**但线索收窄到一个已知可得的量**：owner 的实参**存在** ——
+`getGenericArguments(ClassWithExtensionData)` 返回 **1 个**。问题只在**时机**：
+`__cs2jOwnerTypeArguments` 在 `JsonClassInfo` **构造时**捕获，那一刻注册表里还没有它。
+
+**下一步（先探针，别先改代码）**：测出**属性创建那一刻**
+`getGenericArguments(owner)` 是否已返回实参。
+- 若**已返回** → 在属性创建路径上当"声明类型是 `Object` 且 owner 恰有 1 个实参"时用该实参，改动可控。
+- 若**尚未返回** → compat 侧无解，只能走**转换器侧**显式把 `T` 的实参传到成员级（大改动，需单独立项）。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |

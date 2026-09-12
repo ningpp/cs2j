@@ -2151,3 +2151,38 @@ Java 的 `Method.invoke` 把被调方抛出的异常包进 `InvocationTargetExce
 
 **验证**：本轮运行已按 §8.3 新纪律确认完整（`Tests run: 7902` 恰好出现 1 次）；
 逐用例集合差 = 修 0 / 坏 0。**该改动保留**，因为它是 C# 的忠实语义。
+### 4.59 Round 57：`T` 形参被全链路擦除（619 → 619，把线索收窄到"一个已知可得的实参"）
+
+**按 §8.2.12 的处方测量，得到决定性结论**：`ClassWithExtensionData<T>.Overflow`
+的运行时类型链路**每一环都是 `Object`**，下游无一处能恢复：
+
+```
+[cs2j.r] addProperty Overflow memberType=class java.lang.Object
+         parent=...ClassWithExtensionData runtimeType=class java.lang.Object
+         converter=ObjectConverter convTypeToConvert=class java.lang.Object
+         convRuntimeType=class java.lang.Object
+```
+
+- `getRuntimePropertyType()` 是 `Object` → §8.2.12 里"改用运行时类型"的思路**对这 12 条无效**。
+- 转换器是 `ObjectConverter`，`TypeToConvert` / `RuntimeType` 也都是 `Object`。
+**所以这是纯粹的泛型形参擦除，不是判断错误** —— Round 56 的判断"不要再改判据"是对的。
+
+**但线索收窄到一个已知可得的量**：owner 的实参**是存在的**——
+
+```
+getGenericArguments(ClassWithExtensionData) length = 1
+```
+
+问题只在**时机**：`__cs2jOwnerTypeArguments` 在 `JsonClassInfo` **构造时**捕获，
+而那一刻注册表里还没有这个实参（所以是空的），属性随后才被创建。
+
+**下一步（有依据，但要先探针确认时机）**：
+在属性创建路径上，当成员的声明类型是 `Object`、且 owner 类信息能提供恰好 1 个实参时，
+用该实参作为运行时类型。**动手前必须先测出**：
+属性创建的那一刻，`currentGenericArgumentsLayer(owner)` / `getGenericArguments(owner)`
+是否真的返回实参（上面那次调用是在反序列化之后，可能已经晚于属性创建）。
+**若属性创建时确实拿不到，这条在 compat 侧就无解**，只能走转换器侧
+（把 `T` 的实参在成员级显式传下去）——那是一个大得多的改动。
+
+**验证**：本轮运行已确认完整（`Tests run: 7902` 恰好 1 次）；
+`r094 → r095` 逐用例集合**完全相同**（619）；本轮无代码改动（插桩已按"重新生成"清除）。
