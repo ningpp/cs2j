@@ -1342,3 +1342,35 @@ WrapperForIEnumerablePrivateConstructor    WrapperForICollectionPrivateConstruct
 可选的正确做法只有两条：
 (a) 在**生成侧**把这类裸 token 调用改成带实参的 `TypeReference`（需要调用点能拿到实参）；
 (b) 接受这 5 项为**已知限制**并记录，把预算投到别的簇。
+
+### 4.36 Round 30：重定优先级，并收窄最大残余簇（`JsonConvert CSharpList` 65）
+
+**当前最大单簇**（723 中）：`JsonConvert CSharpList` **65 条**，
+分布 `SpanTests` 23、`ArrayTests` 19、`ObjectTests` 11、`ReferenceHandlerTests` 9。
+抽查每一条的路径形状**都是** `$.MyInt16TwoDimensionList[0]`——即
+`List<List<short>>` 这一族（与 §4.11/§4.14 同一族）。
+
+**本轮用探针拿到的两个新事实**：
+
+1. `MyInt16TwoDimensionList` **确实**在读取阶段被走到：
+   ```
+   [cs2j.pi] enter MyInt16TwoDimensionList cached=false
+   ```
+   所以它不是"已被缓存的错误 `_runtimeClassInfo`"（那正是 §4.11 的旧解释）。
+2. 但 `cachedClassInfoForMember` **对它一次都没打印**，
+   而同族的 `MyStringList` / `MyStringIEnumerableT` / `MyStringIListT` … **全部打印 HIT**
+   （键为 `CSharpList[class java.lang.String]`）。
+
+**即：Round 10 引入的成员键探针，恰好在它本要修的那个成员上不生效**——
+它是唯一"元素本身还是闭合泛型"的成员。
+
+**下一轮的具体动作（很窄，几行）**：
+在 `cachedClassInfoForMember` 的**三个出口**各打一行
+（`args == null`、`args.length != 1`、以及"查不到"的非 HIT 分支），
+跑 `ArrayTests` 单类即可确定它走的是哪一条；
+再据此修正（若是 `args.length != 1`，说明该成员的"单实参"判定需要放宽到
+"元素为闭合泛型"的情形）。**先单类验证 `ArrayTests`，再全量。**
+
+**本轮收口**：诊断代码全部移除，复核 = **723（430+293）**、`git status` 干净；
+并已用 `javap` 确认 compat jar 与已提交源码一致
+（`clearRegistrations` / `cachedClassInfoForMember` / `registerConcreteType` 在位）。
