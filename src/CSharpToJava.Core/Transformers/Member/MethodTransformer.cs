@@ -1056,6 +1056,23 @@ public class MethodTransformer : IMemberTransformer
             context.AddImport("org.junit.jupiter.api.Disabled");
         }
 
+        // xUnit [Ignore] and [OuterLoop] tests must not run in the Java/JUnit
+        // suite: [OuterLoop] tests (e.g. writing 125 MB of base64) are huge and
+        // can hang the surefire fork for minutes.
+        //
+        // This MUST be applied before the [InlineData] handling below: that block
+        // returns early once it switches the test to @MethodSource (any non-literal
+        // InlineData argument such as `[InlineData(MaxInt)]`, a Type, or an enum
+        // member). When the disable decision lived after that return, a [Theory] /
+        // [ConditionalTheory] carrying [OuterLoop] silently kept running — e.g.
+        // ValueTests.VeryLongInputString allocated and compared 1 GB strings on
+        // every suite run (Value.ReadTests.cs).
+        if (attributeNames.Contains("Ignore") || attributeNames.Contains("OuterLoop"))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("Disabled"));
+            context.AddImport("org.junit.jupiter.api.Disabled");
+        }
+
         // Handle [InlineData] attributes → @CsvSource annotation
         var inlineDataAttrs = allAttributes
             .Where(a => NormalizeAttributeName(a.Name.ToString()) is "InlineData" or "DataRow")
@@ -1458,15 +1475,6 @@ public class MethodTransformer : IMemberTransformer
                 memberDataAdapters.Add(xmlAdapter);
                 javaMethod.Annotations.Add(new JavaAnnotation($"MethodSource(\"{adapterName}\")"));
             }
-        }
-
-        // xUnit [Ignore] and [OuterLoop] tests must not run in the Java/JUnit
-        // suite: [OuterLoop] tests (e.g. writing 125 MB of base64) are huge and
-        // can hang the surefire fork for minutes.
-        if (attributeNames.Contains("Ignore") || attributeNames.Contains("OuterLoop"))
-        {
-            javaMethod.Annotations.Add(new JavaAnnotation("Disabled"));
-            context.AddImport("org.junit.jupiter.api.Disabled");
         }
 
         if (attributeNames.Contains("TestInitialize"))

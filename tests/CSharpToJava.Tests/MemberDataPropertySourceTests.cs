@@ -228,6 +228,102 @@ public class MyTests {
         Assert.Contains("@Disabled", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void OuterLoop_WithNonLiteralInlineData_GeneratesDisabled()
+    {
+        // Regression test: a [Theory]/[ConditionalTheory] whose [InlineData] carries a
+        // non-literal constant (here the `MaxInt` const) is switched to @MethodSource,
+        // and that branch used to `return` before the [OuterLoop] -> @Disabled mapping
+        // ran. The result was that ValueTests.VeryLongInputString — [ConditionalTheory]
+        // + [OuterLoop] + [InlineData(MaxInt)] — stayed enabled and allocated/compared
+        // 1 GB strings on every JUnit run, dominating the whole suite's wall time.
+        var result = Convert(@"
+using Xunit;
+
+public class MyTests {
+    private const int MaxInt = 715827882;
+    private const int MaximumPossibleStringLength = 1073741791;
+
+    [ConditionalTheory(nameof(IsX64))]
+    [OuterLoop]
+    [InlineData(MaxInt)]
+    [InlineData(MaximumPossibleStringLength)]
+    public void VeryLongInputString(int length) {
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        // Still generated as a parameterized @MethodSource test — but disabled.
+        Assert.Contains("org.junit.jupiter.params.ParameterizedTest", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("MethodSource(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("org.junit.jupiter.api.Disabled", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("@Disabled", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Ignore_WithNonLiteralInlineData_GeneratesDisabled()
+    {
+        // Same early-return hazard as [OuterLoop]: [Ignore] must also survive the
+        // @MethodSource switch.
+        var result = Convert(@"
+using Xunit;
+
+public class MyTests {
+    private const int Limit = 1024;
+
+    [Theory]
+    [Ignore]
+    [InlineData(Limit)]
+    public void BigTest(int size) {
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("MethodSource(", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("@Disabled", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OuterLoop_WithLiteralInlineData_GeneratesDisabled()
+    {
+        // The literal-InlineData path emits @CsvSource and never returned early, so it
+        // already produced @Disabled; this guards against the hoisted check regressing it.
+        var result = Convert(@"
+using Xunit;
+
+public class MyTests {
+    [Theory]
+    [OuterLoop]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void BigTest(int size) {
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("@Disabled", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OuterLoop_OnConditionalFactWithInlineData_GeneratesDisabled()
+    {
+        // [ConditionalFact] + [OuterLoop] (JsonEncodedTextTests.InvalidLargeEncode shape)
+        // must keep working — that path had no early return and is the case the
+        // original fix was written for.
+        var result = Convert(@"
+using Xunit;
+
+public class MyTests {
+    [ConditionalFact]
+    [OuterLoop]
+    public void InvalidLargeEncode() {
+    }
+}
+");
+        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
+        Assert.Contains("@Disabled", result.GeneratedCode, StringComparison.Ordinal);
+    }
+
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
