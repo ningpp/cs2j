@@ -1106,14 +1106,19 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchElementArgumentScope(result);
                 }
+                // NOTE: "JsonPropertyInfo.java".EndsWith("PropertyInfo.java") is TRUE, so the more
+                // specific suffix must be tested FIRST. With the order reversed the PropertyInfo
+                // branch swallowed JsonPropertyInfo, and PatchMemberClassInfoLookup silently never
+                // ran on a freshly generated file - the patch only ever appeared on a tree that had
+                // already been patched by hand.
+                else if (result.FileName.EndsWith("JsonPropertyInfo.java", StringComparison.Ordinal))
+                {
+                    PatchMemberClassInfoLookup(result);
+                }
                 else if (result.FileName.EndsWith("PropertyInfo.java", StringComparison.Ordinal)
                     || result.FileName.EndsWith("FieldInfo.java", StringComparison.Ordinal))
                 {
                     PatchMemberArgumentCapture(result);
-                }
-                else if (result.FileName.EndsWith("JsonPropertyInfo.java", StringComparison.Ordinal))
-                {
-                    PatchMemberClassInfoLookup(result);
                 }
             }
         }
@@ -1414,8 +1419,17 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
             return;
 
         if (!MemberClassInfoLookupRegex.IsMatch(result.GeneratedCode))
+        {
+            // Loud rather than silent: this exact no-match shipped once behind a suffix-shadowed
+            // dispatch branch, and the patch quietly stopped being applied on freshly generated
+            // files - it only ever appeared on an already hand-patched tree. A warning here would
+            // have caught it on the first regeneration.
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchMemberClassInfoLookup did not match JsonPropertyInfo.java - "
+                + "the generated getRuntimeClassInfo body changed; the member-keyed class-info "
+                + "lookup is NOT applied.");
             return;
-
+        }
         result.GeneratedCode = MemberClassInfoLookupRegex.Replace(
             result.GeneratedCode, MemberClassInfoLookupReplacement.Replace("$", "$$"), count: 1);
         EnsureTypeHelperImport(result);
