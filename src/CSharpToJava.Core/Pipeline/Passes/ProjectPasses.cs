@@ -1293,7 +1293,8 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
             return;
         }
         result.GeneratedCode = ExtensionDataSignatureRegex.Replace(code,
-            "        Class signatureType = declaredPropertyType;\n"
+            "        Class declaredPropertyType = jsonPropertyInfo.getDeclaredPropertyType();\n"
+            + "        Class signatureType = declaredPropertyType;\n"
             + "        Class runtimePropertyType = jsonPropertyInfo.getRuntimePropertyType();\n"
             + "        if (!TypeHelper.isAssignableFrom(CSharpGenericIDictionary.class, declaredPropertyType)\n"
             + "            && runtimePropertyType != null\n"
