@@ -1232,6 +1232,78 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **本轮性质**: 唯一一次在最大簇上取得**正向定向收益**的尝试（+6），但未达净胜标准，按纪律回退；机制与两个变体的数据已留档。
 - **下一轮建议**: 沿变体 A 重做，并针对 `DictionaryOfTKeyTValueConverter` / 扩展数据写出路径补齐实参发布；目标是把 12 项回归降到 0（届时净 +6）。
 
+## Iteration 76 — 定位 `MyInt16TwoDimensionList`（嵌套泛型列表）的真正根因，并证明它不是"枚举"问题
+
+### 起因
+`mvn-build-r136.log` 把一批失败报成
+`The JSON value could not be converted to class ...SampleEnum. Path: $.MyEnum | BytePositionInLine: 129`，
+看上去像枚举反序列化坏了。**这是误导**：把 `SimpleTestClass.s_json` 单独跑一遍，真正的第一处失败是
+
+```
+JsonException: The JSON value could not be converted to class io.github.ningpp.compat.CSharpList.
+  Path: $.MyInt16TwoDimensionList[0]
+  Caused by: IllegalStateException: Cannot get the value of a token type 'StartArray' as a string.
+    at StringConverter.read(StringConverter.java:39)
+    at IEnumerableDefaultConverter.onTryRead(IEnumerableDefaultConverter.java:88)
+```
+
+即 C# `List<List<short>>` 的内层列表被**用 `StringConverter` 读取**。`BytePositionInLine: 129` 只是嵌套对象内部的偏移，`Path` 里的 `MyEnum` 是路径串被截断后的产物，与枚举无关。
+
+### 观测链（全部由探针取得，探针 `probe/EnumTokenProbe.java`）
+1. `JsonSerializer.deserialize("{\"MyEnum\":2}", null, SimpleTestClass.class)` → **OK**；`deserialize(SimpleTestClass.s_json, ...)` → 失败。枚举本身没问题。
+2. 在 `JsonPropertyInfo.getRuntimeClassInfo()` 打印属性名 / `runtimePropertyType` / 命中的 `JsonClassInfo`：
+
+```
+[cs2j.pi] MyInt16Array             runtime=class [S                        info=... element=class java.lang.Short
+[cs2j.pi] MyInt16TwoDimensionArray runtime=class [[I                       info=... element=class [I
+[cs2j.pi] MyInt16TwoDimensionList  runtime=class io.github.ningpp.compat.CSharpList info=1675763772 element=class java.lang.String
+```
+
+`MyInt16TwoDimensionList` 的属性运行时类型是**裸 `CSharpList.class`**，命中的 `JsonClassInfo` 元素类型是 **`String`** —— 也就是 `MyStringList`（`List<string>`）那一份。
+3. 该 `JsonClassInfo` 的 `getElementClassInfo()` 于是返回 `String` 的 class info，读取 `[10,11]` 时调用 `StringConverter.read` → 上面那句异常。
+4. 全量 trace 显示整个反序列化过程中 `getOrAddClass` 对 `CSharpList` **只被调用过一次**，key 就是 `CSharpList[java.lang.String]`（`[cs2j.get]`/`[cs2j.ci]` 各一条）。二维列表从来没有得到过自己的 class info。
+
+### 根因（两层，第二层才是关键）
+- **第一层（已知）**：`JsonSerializerOptions._classes` 是 `ConcurrentHashMap<Class, JsonClassInfo>`，按擦除后的裸类缓存，`CSharpList<String>` 与 `CSharpList<List<short>>` 共用一格。
+- **第二层（本轮新发现，且是第一层的成因）**：`JsonClassInfo.getConverter(...)` 决定 `runtimeType` 时用的是**裸类**：
+
+```java
+Class converterRuntimeType = converter.getRuntimeType();      // == CSharpList.class（tClass 被擦除）
+if (TypeHelper.isSameType(type, converterRuntimeType)) runtimeType.value = type;   // CSharpList == CSharpList
+```
+
+  于是 `MyInt16TwoDimensionList` 的 `runtimePropertyType` 退化成 `CSharpList.class`，
+  `getRuntimeClassInfo()` 里的 `getOptions().getOrAddClass(getRuntimePropertyType())` 只能按裸类查询，
+  必然取回先建好的 `CSharpList[String]` 那一格。
+  **泛型实参在这一步被丢掉，`_classes` 之后无论怎么改都救不回来。**
+
+### 本轮已试并已回退的修法（含数据）
+1. **`_classes` 改为实参感知 key**（`TypeHelper.classInfoCacheKey` + `_classes` 键类型放宽为 `Object` + `typeIsCached` 同步）：
+   能让 `CSharpList<List<Integer>>` 与 `CSharpList<String>` 各占一格（trace 可见两个不同 key），
+   但**不改变上面第二层**：`getOrAddClass` 收到的是裸类，key 仍是 `[String]`，探针结果不变。
+   单文件实验后已完整还原。
+2. **转换器缓存改成"写读同一 key"**（`TypeHelper.converterCacheHas/Get` 供生成代码使用，并去掉 `ConcurrentHashMapHelper.tryAdd/getOrAdd` 里破坏性的 `map.remove(key)`）：
+   机制上正确（写侧 `tryAdd` 早就用 `converterCacheKey`，读侧却用裸类，永远读不到自己写的那一格），
+   但**全量变差**：`Tests run: 7902, Failures: 412, Errors: 532`（= 944，基线 855）。
+   原因是 `_haveTypesBeenCreated` 为 false 的预热阶段根本不写缓存，读侧的裸类兜底反而把已被实参键屏蔽掉的
+   串味转换器重新放了出来。**已回退。**
+
+### 结论与建议（下一轮的正解方向）
+真正要改的是 **`runtimePropertyType` 的求值**：让 `cacheMember`/`getRuntimeClassInfo` 在查询 `_classes` 时
+带上该成员的闭合泛型实参（`JsonClassInfo.getConverter` 已经能通过 `getGenericArguments` 拿到，
+`PropertyInfo.getPropertyType()` 也已经把实参发布到 `TypeHelper.MEMBER_ARGUMENTS`），
+使 `MyInt16TwoDimensionList` 建出 `CSharpList<CSharpList<Short>>` 这一格，而不是退化到裸 `CSharpList`。
+落点建议：`ProjectPasses` 的生成物补丁通道新增对 `JsonPropertyInfo.java` 的改写，
+把 `getRuntimeClassInfo()` 的
+`getOptions().getOrAddClass(getRuntimePropertyType())`
+换成带上成员实参的 compat 入口（新增 `TypeHelper.classInfoForMember(options, memberType, rawType)` 之类）。
+仅动 `_classes` 或仅动 `_converters` 都已证明无效。
+
+### 本轮收口状态
+- **官方全量已复核回到基线**: `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（`mvn-build-r140.log`）。
+- compat 工作区已 `git checkout` 还原，SDK 生成物已还原，探针 `probe/EnumTokenProbe.java` 保留备查。
+- 本轮未产生可提交的收益（唯一改动全部回退），但把最大失败簇之一（嵌套泛型集合，`readSimpleClass` 等 6 项枚举"假象" + 24 项 `CSharpList` 转换失败）的根因钉到了具体代码行。
+
 
 
 
