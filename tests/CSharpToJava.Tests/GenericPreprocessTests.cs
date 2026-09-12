@@ -2533,4 +2533,81 @@ public static class Converter{
             "Output should be valid C#. Errors:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
     }
+
+    /// <summary>
+    /// override 同步必须按"方法组"作用域：只有**同一基类方法**的 override 组里出现过
+    /// typeof(T)，才允许给该组的基类声明/override 注入哨兵。用类型参数**名字**做全局
+    /// 作用域会让无关方法组的同名类型参数也拿到 Class&lt;T&gt; 令牌，导致基类声明与
+    /// override 的生成签名不一致（override 实际不构成覆写，虚派发落到基类方法体；
+    /// 实测 35 项 SDK 失败）。
+    /// </summary>
+    [Fact]
+    public void OverrideSync_IsScopedToTheOverriddenMethodGroup()
+    {
+        const string source = """
+            using System;
+            using System.Reflection;
+
+            public abstract class Accessor
+            {
+                // 本组的 override 不使用 typeof(TProperty)：基类声明与 override
+                // 都不应被注入哨兵。
+                public abstract Func<object, TProperty> CreateFieldGetter<TProperty>(FieldInfo fieldInfo);
+
+                // 本组的 override 使用 typeof(TProperty)：基类声明与 override 都要注入。
+                public abstract Func<object, TProperty> CreatePropertyGetter<TProperty>(PropertyInfo propertyInfo);
+            }
+
+            public sealed class ReflectionAccessor : Accessor
+            {
+                public override Func<object, TProperty> CreateFieldGetter<TProperty>(FieldInfo fieldInfo)
+                    => (obj) => (TProperty)fieldInfo.GetValue(obj);
+
+                public override Func<object, TProperty> CreatePropertyGetter<TProperty>(PropertyInfo propertyInfo)
+                {
+                    // 本组使用 typeof(TProperty) ⇒ 基类声明与本 override 都要注入哨兵。
+                    Type token = typeof(TProperty);
+                    return (obj) => (TProperty)propertyInfo.GetValue(obj);
+                }
+            }
+            """;
+
+        var result = PreprocessWithPrescan(source);
+
+        // FieldInfo 组：本组没有任何 typeof(TProperty) 使用 ⇒ 基类声明保持 abstract，
+        // 也不注入哨兵。
+        Assert.Contains("abstract Func<object, TProperty> CreateFieldGetter", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("virtual Func<object, TProperty> CreateFieldGetter", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("__cs2j_typeof_TProperty = typeof(TProperty)", FieldGetterBodies(result.OutputCode),
+            StringComparison.Ordinal);
+
+        // PropertyInfo 组：本组使用了 typeof(TProperty) ⇒ 基类声明被改写为 virtual 并注入哨兵
+        // （这样基类与 override 的生成签名一致），override 自身保留其 typeof(TProperty)。
+        Assert.Contains("virtual Func<object, TProperty> CreatePropertyGetter", result.OutputCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("abstract Func<object, TProperty> CreatePropertyGetter", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("__cs2j_typeof_TProperty = typeof(TProperty)", PropertyGetterBodies(result.OutputCode),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>Joins the bodies of the methods whose declaration contains the given name.</summary>
+    private static string BodiesOf(string code, string methodName)
+        => string.Join("\n", Bodies(code, methodName));
+
+    private static string FieldGetterBodies(string code) => BodiesOf(code, "CreateFieldGetter");
+
+    private static string PropertyGetterBodies(string code) => BodiesOf(code, "CreatePropertyGetter");
+
+    private static List<string> Bodies(string code, string methodName)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code);
+        var bodies = new List<string>();
+        foreach (var method in tree.GetRoot().DescendantNodes()
+                     .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>())
+        {
+            if (!method.Identifier.Text.Contains(methodName, StringComparison.Ordinal))
+                continue;
+            bodies.Add(method.Body?.ToFullString() ?? method.ExpressionBody?.ToFullString() ?? string.Empty);
+        }
+        return bodies;
+    }
 }

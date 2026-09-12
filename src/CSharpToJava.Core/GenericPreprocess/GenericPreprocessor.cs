@@ -25,11 +25,29 @@ namespace CSharpToJava.Core.GenericPreprocess;
 public sealed class GenericPreprocessor
 {
     /// <summary>
-    /// 全局 override 类型参数映射：base 方法符号 → 所有兄弟 override 方法体中
-    /// 被使用的 typeof(T) 类型参数名集合。在预扫描阶段构建，用于在处理单个
-    /// override 方法时判断是否需要注入哨兵语句。
+    /// base 方法符号 → 该组 override 方法体中使用的 typeof(T) 类型参数名集合。
+    /// 在预扫描阶段构建，用于在处理单个 override/base 方法时判断是否需要注入哨兵语句。
+    ///
+    /// <para>按"方法组"而不是"类型参数名"作用域收集是必须的：若用全局名字集合，
+    /// 某个方法组里出现的 TProperty 会波及所有同名类型参数的其它方法，导致基类声明
+    /// 拿到 <c>Class&lt;T&gt;</c> 令牌而其 override 没有（或反之），生成的两个方法签名
+    /// 不一致 ⇒ override 实际不构成覆写，调用落到基类方法体（本轮实测 35 项失败）。</para>
     /// </summary>
+    private Dictionary<IMethodSymbol, HashSet<string>>? _overrideSyncParamsByBase;
+
+    /// <summary>
+    /// 同组方法的语法键（方法名/参数个数/类型参数名）→ 需要同步哨兵的类型参数名集合。
+    /// 重写阶段拿到的方法节点可能是上层重写器重建过的副本（不在原始语法树中，取不到
+    /// 符号），因此按语法键查表；override 与其基类方法的名称/参数个数/类型参数必然一致。
+    /// </summary>
+    private Dictionary<string, HashSet<string>>? _overrideSyncParamsByKey;
+
+    /// <summary>无语义模型时的退化集合（无法按方法组归属时的保守回退）。</summary>
     private HashSet<string>? _overrideSyncTypeParams;
+
+    internal static string SyncKey(IMethodSymbol method)
+        => method.Name + "/" + method.Parameters.Length + "/"
+           + string.Join(",", method.TypeParameters.Select(t => t.Name));
 
     public GenericPreprocessResult Preprocess(
         string sourceCode,
@@ -43,7 +61,9 @@ public sealed class GenericPreprocessor
         var tree = CSharpSyntaxTree.ParseText(sourceCode);
         var root = (CompilationUnitSyntax)tree.GetRoot();
 
-        var rewriter = new GenericSyntaxRewriter(semanticModel, options, stats, _overrideSyncTypeParams);
+        var rewriter = new GenericSyntaxRewriter(
+            semanticModel, options, stats, _overrideSyncTypeParams,
+            _overrideSyncParamsByBase, _overrideSyncParamsByKey);
         var rewritten = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
         if (!rewriter.Changed)
@@ -74,6 +94,9 @@ public sealed class GenericPreprocessor
     public void PrescanOverrideSiblings(Compilation compilation)
     {
         var syncTypeParams = new HashSet<string>(StringComparer.Ordinal);
+        var syncParamsByBase = new Dictionary<IMethodSymbol, HashSet<string>>(
+            SymbolEqualityComparer.Default);
+        var syncByKey = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
 
         // 遍历所有命名空间和类型，收集所有泛型 override 方法
         var overrideGroups = new Dictionary<IMethodSymbol, List<IMethodSymbol>>(
@@ -113,11 +136,22 @@ public sealed class GenericPreprocessor
                 }
             }
 
-            // 将收集到的类型参数名添加到全局集合
+            // 将收集到的类型参数名按"方法组"记录，同时保留全局集合作为
+            // 无语义模型场景的保守回退。
+            if (allTypeOfParams.Count > 0)
+            {
+                var names = new HashSet<string>(allTypeOfParams, StringComparer.Ordinal);
+                syncParamsByBase[baseMethod] = names;
+                syncByKey[SyncKey(baseMethod)] = names;
+                foreach (var overrideMethod in overrides)
+                    syncByKey[SyncKey(overrideMethod)] = names;
+            }
             foreach (var name in allTypeOfParams)
                 syncTypeParams.Add(name);
         }
 
+        _overrideSyncParamsByBase = syncParamsByBase;
+        _overrideSyncParamsByKey = syncByKey;
         _overrideSyncTypeParams = syncTypeParams;
     }
 
@@ -173,6 +207,8 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
     private readonly GenericPreprocessStatistics _stats;
     private readonly List<GenericPreprocessDiagnostic> _diagnostics = new();
     private readonly HashSet<string>? _overrideSyncTypeParams;
+    private readonly Dictionary<IMethodSymbol, HashSet<string>>? _overrideSyncParamsByBase;
+    private readonly Dictionary<string, HashSet<string>>? _overrideSyncParamsByKey;
 
     public bool Changed { get; private set; }
     public IReadOnlyList<GenericPreprocessDiagnostic> Diagnostics => _diagnostics;
@@ -181,12 +217,36 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
         SemanticModel? model,
         GenericPreprocessOptions options,
         GenericPreprocessStatistics stats,
-        HashSet<string>? overrideSyncTypeParams = null)
+        HashSet<string>? overrideSyncTypeParams = null,
+        Dictionary<IMethodSymbol, HashSet<string>>? overrideSyncParamsByBase = null,
+        Dictionary<string, HashSet<string>>? overrideSyncParamsByKey = null)
     {
         _model = model;
         _options = options;
         _stats = stats;
         _overrideSyncTypeParams = overrideSyncTypeParams;
+        _overrideSyncParamsByBase = overrideSyncParamsByBase;
+        _overrideSyncParamsByKey = overrideSyncParamsByKey;
+    }
+
+    /// <summary>
+    /// 与当前方法"同组"、需要同步 typeof(T) 哨兵的类型参数名：
+    /// 作为基类声明时取本方法组的集合；作为 override 时取其所覆写方法的集合。
+    /// 语义模型不可用时退化为全局名字集合（保守回退）。
+    /// </summary>
+    private HashSet<string>? SyncTypeParamsFor(MethodDeclarationSyntax node)
+    {
+        if (_overrideSyncParamsByKey is { Count: > 0 })
+        {
+            // 同组 = 名称/参数个数/类型参数名一致的方法（override 与基类必然一致）。
+            // 查不到即表示该组没有任何 typeof(T) 使用 ⇒ 不注入（这正是此前的缺陷：
+            // 全局名字集合会把无关方法组的 TProperty 也算进来）。
+            var key = node.Identifier.Text + "/" + node.ParameterList.Parameters.Count + "/"
+                + string.Join(",", node.TypeParameterList?.Parameters.Select(p => p.Identifier.Text)
+                    ?? Enumerable.Empty<string>());
+            return _overrideSyncParamsByKey.TryGetValue(key, out var names) ? names : null;
+        }
+        return _overrideSyncTypeParams;
     }
 
     // -----------------------------------------------------------------------
@@ -425,9 +485,10 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
         var shouldProcessForwarded = _options.InsertTypeOfForForwardedTypeParams;
+        var syncTypeParams = SyncTypeParamsFor(node);
         var shouldProcessOverrideSync = _options.SyncTypeOfForOverrideSiblings
-            && _overrideSyncTypeParams != null
-            && _overrideSyncTypeParams.Count > 0;
+            && syncTypeParams != null
+            && syncTypeParams.Count > 0;
 
         if (!shouldProcessForwarded && !shouldProcessOverrideSync)
             return base.VisitMethodDeclaration(node);
@@ -445,7 +506,7 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
             var abstractTypeParams = new List<string>();
             foreach (var tp in node.TypeParameterList.Parameters)
             {
-                if (_overrideSyncTypeParams!.Contains(tp.Identifier.Text))
+                if (syncTypeParams!.Contains(tp.Identifier.Text))
                     abstractTypeParams.Add(tp.Identifier.Text);
             }
 
@@ -527,13 +588,12 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
 
         if (shouldProcessOverrideSync)
         {
-            // 对于 override 方法：检查全局 override 同步集合中是否有当前方法体
-            // 中未被 typeof 使用的类型参数。这些参数在其他兄弟 override 中被 typeof 使用，
-            // 需要在当前方法体中注入哨兵语句以确保转换器统一注入 _cs2j_T 参数。
+            // 对于 override 方法：把"同组"（同一基类方法）中其它 override 用到的
+            // typeof(T) 参数补进本方法体，确保本方法与基类声明的 _cs2j_T 令牌一致。
             foreach (var tp in node.TypeParameterList.Parameters)
             {
                 var name = tp.Identifier.Text;
-                if (_overrideSyncTypeParams!.Contains(name)
+                if (syncTypeParams!.Contains(name)
                     && !trackedParamNames.Contains(name)
                     && !paramsToInsert.Contains(name))
                 {
