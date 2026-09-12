@@ -308,25 +308,52 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 - 5 条经"全量 + 逐用例集合差 + 完整再生"三重验证的 KEEP 提交（见 §6.1）；
   另有 1 条工程性修复（补丁分派的后缀遮蔽，`ef568d4f`）。
 
-### 8.2 立刻可做的下一步（唯一未闭合的开放问题）
+### 8.2 已闭合的开放问题（Round 41：创建层测量做完了）
 
-**Round 39 已把该簇的诊断做完**：那一刻 `_classes` 里**只有**
-`CSharpList[class java.lang.String]` 一个键，**正确键 `CSharpList[CSharpList<Integer>]`
-根本不存在**。故问题不是"查找选错格子"，而是**正确条目从未被创建**——
-这解释了为何改实参（R34）、改查表键（R10）、改时机（R12/R33）**全都无效**：
-**没有东西可命中**。
+**Round 39 的结论经 Round 41 的探针证实并补全**。三个探针（全部插在生成物里、测完即撤）
+给出了完整因果链：
 
-**因此下一步是"创建层"的测量，不是查找层**：
+1. `getOrAddClass(CSharpList)` 在整个探测过程中**只被进入一次**，键是
+   `CSharpList[class java.lang.String]`——即 `List<string>` 成员的键。二维键
+   `CSharpList[CSharpList<Integer>]` **从未被创建**（确认了 Round 39）。
+2. 二维属性的属性信息本身是**对的**：`addProperty MyInt16TwoDimensionList … converter=ListOfTConverter`，
+   且 `PropertyInfo.getPropertyType()` 在反射时已发布**正确的实参**
+   `CSharpList<CSharpList<Integer>>`（`registerMemberType` 也把它记到了成员上）。
+3. **断点在读时的实参上下文**：`getElementClassInfo` 打印出
+   `owner=CSharpList ownerArgs=[] elem=java.lang.Object`——类信息创建时用的那层实参
+   在**读取时已经不存在**（被后一个成员覆盖），所以元素退化成 `Object`，
+   嵌套列表用错转换器读，报
+   `Cannot get the value of a token type 'StartArray' as a string`。
+   追加探针证实：读时 `currentGenericArgumentsLayer(CSharpList)` 返回
+   `[class java.lang.String]`——**`List<string>` 成员的实参**。
 
-> 在 `JsonSerializerOptions.getOrAddClass` 里每次打印 `type` 与算出的 `cacheKey`，
-> 跑 `probe/NestedListProbe.java`，观察二维成员**是否曾经走到创建**。
+**结论**：这不是"查找选错格子"，也不只是"条目没被创建"，而是
+**创建与消费之间隔着一个会被后续成员覆盖的、每线程单槽的实参注册表**。
+问题已闭合；下面两条已实现并实测，**净负，已回滚**（见 §8.2.1）。
 
-- **从未走到** → 上游（属性/成员解析）就跳过了它 → 查那一层；
-- **走到但键是别的** → 该次算 key 的输入仍不对 → 回到 §4.15 的成员实参通路。
+### 8.2.1 已实测并回滚（Round 41，勿重复）
 
-这**只差一个探针**；**不要**再在读路径或参数槽位上尝试（两者均已实测无效）。
+以**同一棵再生树的干净基线**为参照（这一点很关键，见 §8.3 的"基线必须同源"）：
 
-### 8.2.1 已排除的"读侧"尝试（勿重复）
+| 尝试 | 干净基线 | 结果 | 判定 |
+|---|---|---|---|
+| 成员键**创建**类信息 + 按自身实参推导元素类型 | 737 | 756（修 20 / 坏 39） | **回滚** |
+| 仅成员键创建（`getOrAddClass` 委托） | 737 | 766（坏 44） | **回滚** |
+| 仅元素类型按实参推导 | 737 | 757（修 3 / 坏 37） | **回滚** |
+
+失败集中在 `SpanTests#read(Class,byte[])[1][2][24][28..32]`、
+`ReferenceHandlerTests#readTestClassesWithExtensionOption(...)` 同索引、
+`ObjectTests#write(ITestClass)[9..32]`、`DictionaryTests#hashtable`、
+`CollectionTests#readSimpleClassWithImmutableArray`、
+`ExtensionDataTests#nestedClassWithJsonElementExtensionDataProperty`。
+**其中 `readGenericIEnumerableOfIEnumerable`、`readGenericIReadOnlyListOfGenericIReadOnlyList`
+等在隔离运行下也失败，是真回归**（不是顺序噪声）；`hashtable` 隔离下通过。
+
+机理：成员键创建会**多出一个 `_classes` 条目**，而按实参推导元素类型会把
+字典/接口/抽象集合的元素位换成键或接口类型（`ImmutableDictionary` 的元素从
+`String` 变成 `Object`；`IReadOnlyList<IReadOnlyList<int>>` 的元素被换成接口，读取即失败）。
+
+### 8.2.2 已排除的"读侧"尝试（勿重复）
 
 | 尝试 | 轮次 | 结果 |
 |---|---|---|
@@ -334,6 +361,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | 预热期修正成员实参槽位 | R34 | **正确但中性**（探针证实槽位已对，失败数不动） |
 | 只改读侧缓存键读写一致 | R1 | 855 → 934 |
 | 元素类信息按实参作用域查找 | R1 | 855 → 934 |
+| 成员键创建 + 自身实参元素类型 | R41 | **737 → 756**（本节） |
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
@@ -346,6 +374,10 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | 新增补丁分派时**具体后缀在前** | `"JsonPropertyInfo.java".endsWith("PropertyInfo.java")` 为真，会把补丁静默吞掉 |
 | compat 不能用生成类型，用**反射** | 形成环状依赖 |
 | 转换需作为**后台任务**运行 | 超过 240s |
+| **基线必须与当前生成树同源** | Round 41 踩过：拿 Round 40 存下的失败集去比对一棵**重新生成过**的树，得出"坏 39"里有假项。正确做法是把本轮改动用开关关掉、**在同一天同一棵树上测一遍**得到干净基线，再开关对比 |
+| **compat 改完必须强制重建** | `mvn -q install` 会因时间戳判定"无需重编"，`-q` 又吞掉输出，于是**测的是旧 jar**。Round 41 因此白测两轮。改用 `mvn -o clean install -DskipTests` 并**核对 jar 时间戳** |
+| **探针要放在会真正执行的路径上** | comapt 的 `TypeHelper.trace` 是可用的，但它只在真被调用时才有输出；先确认目标方法在跑（`Count` 一下），再解读分支 |
+| PowerShell 传 `-D` 要给整个开关**加引号** | `-Dcs2j.trace.typeargs=true` 被解析成别的东西，java 报"找不到主类"，看日志像"探针无输出" |
 
 ### 8.4 已否证方向清单
 

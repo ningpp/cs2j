@@ -1355,6 +1355,18 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
     /// <c>ImmutableCollectionsTests.serializeList/serializeStack</c> invoke getters on the wrong
     /// receiver in full-suite order.
     /// </para>
+    /// <para>
+    /// The element type itself is also derived from the erased class (<c>getElementType()</c>
+    /// answers <c>Object</c> for <c>List&lt;List&lt;short&gt;&gt;</c>), so the element class info is
+    /// looked up for <c>Object</c> and the nested list is read with the wrong converter — measured:
+    /// <c>getElementClassInfo owner=CSharpList ownerArgs=[] elem=java.lang.Object</c> for the very
+    /// class info that had just been created under <c>CSharpList[CSharpList&lt;Integer&gt;]</c>,
+    /// failing with "Cannot get the value of a token type 'StartArray' as a string". The override is
+    /// deliberately one-argument-only and only fires when the erased answer is <c>Object</c>: for a
+    /// dictionary the first argument is the KEY, and applying it there moved
+    /// <c>ImmutableDictionary</c>'s element from <c>String</c> to <c>Object</c> (measured,
+    /// regressed).
+    /// </para>
     /// </summary>
     private static void PatchElementArgumentScope(ConversionResult result)
     {
@@ -1447,15 +1459,30 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
     };
 
     /// <summary>
-    /// Answers <c>getRuntimeClassInfo()</c> from the class info cached under the key the OWNING
-    /// member's arguments imply, before falling back to the generated lookup.
+    /// Answers <c>getRuntimeClassInfo()</c> with the class info that the OWNING member's declared
+    /// type arguments imply, instead of the erased runtime type's.
     /// <para>
-    /// The generated lookup goes through the erased runtime type and <c>converterCacheKey</c>, which
-    /// reads the shared <c>MEMBER_ARGUMENTS</c> slot — by read time another member has overwritten it,
-    /// so a <c>List&lt;List&lt;short&gt;&gt;</c> property asks for <c>CSharpList[String]</c>. This is a
-    /// pure HIT-PATH probe: it only READS the cache. On a miss it returns null and the generated
-    /// behaviour runs unchanged, so <c>getOrAddClass</c> and the element lookup inside it are never
-    /// entered with the outer arguments — which is what made the round-8 persistent scope regress.
+    /// The generated lookup asks <c>getOrAddClass</c> for the erased runtime type, so every member
+    /// whose declared type erases to the same raw class shares one class info: for a property
+    /// declared <c>List&lt;List&lt;short&gt;&gt;</c> the lookup returns the <c>List&lt;string&gt;</c>
+    /// entry, whose element converter is the String converter, and the read then fails with
+    /// "The JSON value could not be converted to class io.github.ningpp.compat.CSharpList"
+    /// (measured: the 2-D property's owner class info was constructed with
+    /// <c>ownerArgs=[class java.lang.String]</c>).
+    /// </para>
+    /// <para>
+    /// The member's own arguments ARE published while it is reflected
+    /// (<c>PropertyInfo.getPropertyType()</c> calls <c>registerMemberType</c>, observed as
+    /// <c>CSharpList&lt;CSharpList&lt;Integer&gt;&gt;</c>) and <c>registerMemberType</c> records
+    /// them against the member, so <c>TypeHelper.classInfoForMember</c> can install that layer,
+    /// delegate to the generated <c>getOrAddClass</c> — creating the entry under
+    /// <c>CSharpList[CSharpList&lt;Integer&gt;]</c> — and restore the previous registry state in a
+    /// <c>finally</c> block.
+    /// </para>
+    /// <para>
+    /// Reads must restore the shared registries: leaving a member's layer installed is the
+    /// test-order dependence this project spent several rounds chasing. A member that published no
+    /// arguments returns null and the generated erased lookup runs unchanged.
     /// </para>
     /// </summary>
     private static void PatchMemberClassInfoLookup(ConversionResult result)

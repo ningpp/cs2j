@@ -678,6 +678,19 @@ public final class TypeHelper {
     /**
      * The class info already cached under the key the OWNING member's arguments imply, or null.
      *
+     * <p><b>Known insufficient (round 41).</b> This is a pure HIT-PATH probe, and it cannot fix the
+     * nested-collection cluster because the entry it looks for is never created:
+     * {@code getOrAddClass} keys by the ERASED class, so
+     * {@code CSharpList[CSharpList&lt;Integer&gt;]} does not exist to be hit. Measured with probes in
+     * the generated tree: {@code getOrAddClass(CSharpList)} is entered once, under
+     * {@code CSharpList[class java.lang.String]} — the {@code List&lt;string&gt;} member's key.</p>
+     *
+     * <p>Creating the entry instead was implemented and measured (round 41): it moves the failure
+     * rather than removing it — the 2-D property then gets {@code ListOfTConverter} but its inner
+     * element is still read with the wrong converter, and the change costs 39 other tests
+     * (net 737 → 756 on the same regenerated tree). See {@code systematic-fix-plan.md} §8.2/§8.2.1
+     * before attempting it again.</p>
+     *
      * <p>{@code JsonPropertyInfo.getRuntimeClassInfo()} looks its class info up by the ERASED runtime
      * type, and the generated cache funnels that through {@link #converterCacheKey}, which reads
      * {@code MEMBER_ARGUMENTS} — a single slot per raw class. By read time a later member
@@ -732,6 +745,7 @@ public final class TypeHelper {
             System.err.println("[cs2j.typeargs] " + message);
         }
     }
+
 
     /**
      * Key used by the generated converter cache ({@code JsonSerializerOptions._converters}).

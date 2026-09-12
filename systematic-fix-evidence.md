@@ -1598,3 +1598,93 @@ beginMemberArgumentScope(MyStringList)CSharpList = [class java.lang.String]
 - 若走到但键是别的 → 该次算 key 的输入仍不对，回到 §4.15 的成员实参通路。
 
 **收口**：探针按规则用"删文件 + 重新生成"清除；复核 = **723（430+293）**、`git status` 干净。
+
+### 4.44 Round 41：创建层测量做完 —— 断点在**读时的实参上下文**，两条实现均**净负已回滚**
+
+§4.43 要求的那一个探针做完了，而且比预期多拿到两段信息。
+
+**探针 1（`getOrAddClass` 打 `type` + 算出的 `cacheKey`）**
+
+```
+[cs2j.mk] getOrAddClass CSharpList -> key=io.github.ningpp.compat.CSharpList[class java.lang.String]
+```
+
+整个探测过程中 `getOrAddClass(CSharpList)` **只被进入一次**，键是 `String` 那一格。
+`CSharpList[CSharpList<Integer>]` **从未被创建** —— 确认 §4.43。
+
+**探针 2（`JsonClassInfo.getProperty` 打成员名 + 缓存里的属性信息）**
+
+```
+[cs2j.mk] this=SimpleTestClass pn=MyInt16TwoDimensionList inCache=true cachedInfo=class io.github.ningpp.compat.CSharpList
+```
+
+属性**在缓存里**，但 `cachedInfo` 的运行时类型是**擦除后**的 `CSharpList`。
+
+**探针 3（`JsonClassInfo.addProperty` 打成员实参）—— 关键**
+
+```
+[cs2j.mk] addProperty MyInt16TwoDimensionList memberType=class ...CSharpList runtimeType=class ...CSharpList
+          converter=ListOfTConverter typeToConvert=class ...CSharpList classType=8
+[cs2j.mk] getPropertyType MyInt16TwoDimensionList
+          generic=io.github.ningpp.compat.CSharpList<io.github.ningpp.compat.CSharpList<java.lang.Integer>>
+          CSharpListLayer=[io.github.ningpp.compat.CSharpList<java.lang.Integer>] memberArgs=[...Integer>]
+```
+
+**创建时一切都对**：转换器是 `ListOfTConverter`，`PropertyInfo.getPropertyType()` 发布的实参
+是 `CSharpList<CSharpList<Integer>>`，`registerMemberType` 也把它记到了成员上。
+
+**探针 4（`getElementClassInfo`）—— 断点在这里**
+
+```
+[cs2j.mk] getElementClassInfo owner=class CSharpList elem=class java.lang.Object ownerArgs=[] elemArgs=[] scope=false
+```
+
+元素被解析成 `java.lang.Object`：**类信息创建时用的那层实参在读取时已经不在了**。
+追加探针确认读时 `currentGenericArgumentsLayer(CSharpList)` = `[class java.lang.String]`，
+即 `List<string>` 成员的实参。
+
+**结论**：不是"查找选错格子"（§4.42），也不只是"条目没创建"（§4.43），而是
+**创建与消费之间隔着一个每线程单槽、会被后续成员覆盖的实参注册表**；到读取时
+元素类型只能退化成 `Object`，嵌套列表于是用错转换器读。
+
+**两条实现（都做了，都实测净负，都已回滚）**
+
+以**同一棵再生树的干净基线**为参照（把本轮改动用开关关掉、当天同一棵树测一遍，
+得 `737`；这一步是必须的，见下方纪律）：
+
+| 实现 | 基线 | 结果 | 判定 |
+|---|---|---|---|
+| 成员键**创建**类信息（直接 `putIfAbsent` 闭键，不动擦除键） | 737 | 766 → **756** | 回滚 |
+| 元素类型按类信息**自身**的实参推导（`__cs2jOwnerTypeArguments`） | 737 | 757 | 回滚 |
+| 两者同时 | 737 | 756（修 20 / 坏 39） | 回滚 |
+
+失败集中在 `SpanTests#read(Class,byte[])[1][2][24][28..32]`、
+`ReferenceHandlerTests#readTestClassesWithExtensionOption(...)` 同索引、
+`ObjectTests#write(ITestClass)[9..32]`、`DictionaryTests#hashtable`、
+`CollectionTests#readSimpleClassWithImmutableArray`、
+`ExtensionDataTests#nestedClassWithJsonElementExtensionDataProperty`。
+**隔离运行判定**：`readGenericIEnumerableOfIEnumerable`、
+`readGenericIReadOnlyListOfGenericIReadOnlyList` **隔离下也失败 → 真回归**；
+`DictionaryTests#hashtable` **隔离下通过 → 顺序噪声**。这条"隔离运行"判据本轮第一次用，
+建议保留。
+
+机理：成员键创建会**多出一个 `_classes` 条目**；按实参推导元素类型会把
+字典/接口/抽象集合的元素位换成键或接口类型 —— 实测 `ImmutableDictionary` 的元素从
+`String` 变成 `Object`（因为实参是 `[K, V]`，第一位是键），
+`IReadOnlyList<IReadOnlyList<int>>` 的元素被换成接口，读取即失败。
+
+**回滚后复核**：`Tests run: 7902, Failures: 430, Errors: 293, Skipped: 18` = **723**，
+与 §4.43 收口时**逐用例集合完全一致**（fixed 0 / regressed 0）；`git status` 仅剩
+文档与注释改动。
+
+**本轮新增的三条纪律（都已写进计划 §8.3）**
+
+1. **基线必须与当前生成树同源**：拿 Round 40 存的失败集去比一棵**重新生成过**的树，
+   把 39 项里的一批假项当成"本轮弄坏的"。正确做法是把本轮改动开关关掉、在**同一棵树**上
+   测一遍得到干净基线（本次 737），再开关对比。
+2. **compat 改完必须强制重建**：`mvn -q install` 会因时间戳判定"无需重编"，`-q` 又吞掉输出，
+   于是连着两轮测的是**旧 jar**（时间戳没变才发现）。改用
+   `mvn -o clean install -DskipTests` 并**核对 jar 时间戳**。
+3. **PowerShell 传 `-D` 要给整个开关加引号**：`-Dcs2j.trace.typeargs=true` 会被 PowerShell
+   解析坏，java 报"找不到主类 `.trace.typeargs=true`"，日志看起来像"探针没有输出"，
+   白白多花一轮。
