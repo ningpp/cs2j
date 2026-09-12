@@ -535,15 +535,6 @@
   2. 同时为这类成员发射 `@Override` —— javac 会在**编译期**直接拦下任何残余签名不一致（本轮 12 处若早有此注解就会在 Step 2 的编译阶段暴露，而不是变成 35 项运行期失败）。
 - **影响面小结（对批准决策）**: 单独修这一项即可直接消掉 35 项（`MemberAccessor.createField*`），并顺手消除 2 处潜伏缺陷；对比 (a) 调用点发布实参（数百项量级但改动面大）、(b) JSON 特性落地（20+ 项），(c) 是**纯 bug 修、风险最低、收益确定**的一项。
 
-## Iteration 23 — (c) 落地：override 同步改为**方法组作用域**（用户已批准生成端改动）
-
-- **用户批准**: (a) 调用点发布类型实参、(b) JSON 特性落地为注解、(c) 修假覆写并发射 `@Override` —— 三项全部批准。
-- **改动**: `GenericPreprocessor.PrescanOverrideSiblings` 原先把所有方法组的 `typeof(T)` 类型参数名收集进**一个全局 `HashSet<string>`**，于是 `MemberAccessor.CreateFieldGetter<TProperty>` 因为**别的**方法组里出现过 `TProperty` 而被改写为 `virtual` + 注入哨兵（拿到 `Class<TProperty>` 令牌），而它的 override（体内没有 `typeof`）没有令牌 ⇒ 两侧签名不一致、覆写失效。
-  现改为按 **base 方法符号 → 该组类型参数名集合** 记录，并额外构建**语法键**（`方法名/参数个数/类型参数名`）索引（重写阶段拿到的方法节点可能是被上层重建的副本，取不到符号，故用语法键查表；override 与基类的名称/参数个数/类型参数必然一致）。基类声明只在**自己这一组**用到 `typeof(T)` 时才被同步，override 也只同步**同组**的参数。
-- **红→绿**: 新增 `GenericPreprocessTests.OverrideSync_IsScopedToTheOverriddenMethodGroup`（同名前缀的两个方法组，一组用 `typeof`、一组不用）：断言未使用组保持 `abstract` 且无哨兵、使用组被改写为 `virtual` 并带哨兵。`GenericPreprocessTests` **97/97** 通过（含 4 个既有的 override-sync 行为测试 ✓ 未被破坏）。
-- **回归**: 全量 `dotnet test -c Release` → `CSharpToJava.Tests` **3154/3154 通过**（19 skipped）、`CSharpToJava.ProjectTests` **58/58 通过**，0 失败。
-- **待办（下一轮）**: 重新转换（Step 1，约 280s）+ 官方 Step 2（约 450s）验证本项在 SDK 上的实际收益（预期消掉 35 项 `MemberAccessor.createField*`），并用 `probe/OverrideScan.java` 复扫确认 12 处假覆写全部消失；(a)、(b) 依次实施。
-
 
 
 
