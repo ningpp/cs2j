@@ -1040,3 +1040,53 @@ private static Class makeClosedCollectionType(Class openCollectionType, Class el
 
 **规模**：当前 `not a supported Dictionary key type` 共 **7 行**（5 测试），
 `DictionaryKeyPolicyTests` 2、`DictionaryTests` 2、其余各 1。
+
+### 4.29 Round 23：实施方案时又**纠正了一次**——抛出点不在读循环里
+
+准备实施 §4.28 的"延迟校验"时，先核对了两个位置，结果**推翻了 §4.28 的定位**：
+
+**事实 1**：`DictionaryDefaultConverter.readDictionaryKey` **本来就是惰性的**：
+
+```java
+// DictionaryDefaultConverter.java:91-99
+if (IsStringKey) {
+    unescapedPropertyNameAsString = reader.value.getString();
+    key = (TKey)((Object)(unescapedPropertyNameAsString));
+} else {
+    if (_keyConverter == null) _keyConverter = getKeyConverter(KeyType, _cs2j_cap_options);  // ← 已经在这里才解析
+    ...
+}
+```
+即"读到键时才解析键转换器"**早就成立**，`_keyConverter` 也是那一刻才赋值。
+所以 §4.28 说的"把它从进入循环前移到读到第一个键时"**没有可改的东西**。
+
+**事实 2**：`JsonConverter1.readCore` 里那两行**不是抛出点**，而是**包装点**：
+
+```java
+// JsonConverter1.java:138-143
+} catch (UnsupportedOperationException ex) {
+    if (ex.getMessage().contains(" Path: ")) { throw ex; }
+    ThrowHelper.throwNotSupportedException(state.value.clone(), reader.value.clone(), ex);  // ← 在这里补 Path 后重抛
+    return _cs2jDefault_T();
+}
+```
+栈顶显示 `readCore:142`，只是因为**重抛**发生在那儿，真实抛出点在更早的调用链上。
+
+**由此得到的新定位**：抛出发生在**类信息构造期**，而不是读循环里。
+最可能的路径是构造 `CSharpDictionary` 的 `JsonClassInfo` 时，
+其 `createPropertyInfoForClassInfo` 触发了 `DictionaryDefaultConverter` 的
+**键类型校验**（`IsStringKey=false` 且键转换器解析失败）。
+
+**下一轮的具体动作**（比 §4.28 更准）：
+1. 用 `probe/DictArgProbe.java` 的变体，在**构造 `JsonSerializerOptions` 之后、
+   `deserialize` 之前**就对目标类型调用 `options.getOrAddClass(t)`，
+   确认异常是否**在构造期**就抛出（若是，方案即确认）；
+2. 若是，找出构造期触发键校验的具体语句（给
+   `DictionaryDefaultConverter` 的构造/`createJsonPropertyInfo` 打 trace）；
+3. 通过在构造期**不解析键转换器**、把它彻底留到 `readDictionaryKey` 里，
+   即可同时满足：空对象不抛、`object` 键读到才抛、裸 `CSharpDictionary<string,int>`
+   因实际键是字符串而不再误抛。
+
+**本轮收口**：未改任何代码，复核 = **723（430+293）**、`git status` 干净。
+（本轮的价值在于**两次阻止了错误的实施方案**：§4.28 的"移动代码"无处可移，
+而真正要动的是构造期的键校验。）
