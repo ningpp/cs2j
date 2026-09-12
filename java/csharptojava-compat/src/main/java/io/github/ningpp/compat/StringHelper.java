@@ -350,8 +350,37 @@ public class StringHelper {
         return s.endsWith(suffix);
     }
     /** Mirrors C# String.Contains(value, StringComparison) */
-    public static boolean contains(String s, String value, boolean ignoreCase) {
-        return indexOf(s, value, ignoreCase) >= 0;
+    public static boolean contains(String s, String value, boolean ignoreCase) {        return indexOf(s, value, ignoreCase) >= 0;
+    }
+
+    /**
+     * C# {@code s.Contains(value)} where {@code s} may be null.
+     *
+     * <p>C# never throws here for the callers this serves: {@code Exception.Message} is documented
+     * never to return null (it is {@code ""} for a message-less exception), so
+     * {@code ex.Message.Contains(" Path: ")} is a safe check. Java's
+     * {@code Throwable.getMessage()} DOES return null for an exception constructed without a
+     * message, so the literal translation NPEs. Measured: JsonConverter1.readCore's
+     * {@code if (ex.getMessage().contains(" Path: "))} threw NullPointerException for every
+     * message-less exception, which is exactly what CustomConverterTests.FailConverter throws —
+     * so tests expecting their own exception type got an NPE instead.</p>
+     *
+     * <p>A null receiver is treated as {@code ""}, matching .NET's Message semantics rather than
+     * guessing; a null {@code value} cannot match anything.</p>
+     */
+    public static boolean containsOrEmpty(String s, String value) {
+        return s != null && value != null && s.contains(value);
+    }
+
+    /**
+     * C#'s {@code Exception.Message} is never null (it is {@code ""} for a message-less exception);
+     * Java's {@code Throwable.getMessage()} returns null. Code that accumulates a message starting
+     * from the exception's must normalise it first, or the very next call on it throws —
+     * measured in ThrowHelper.throwNotSupportedException, which calls {@code message.contains(...)}
+     * and {@code message.length()} immediately after reading it.
+     */
+    public static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
     /** Mirrors C# String.Contains(value, StringComparison) */
     public static boolean contains(String s, String value, int comparison) {

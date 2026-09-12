@@ -1130,6 +1130,11 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 else if (result.FileName.EndsWith("ThrowHelper.java", StringComparison.Ordinal))
                 {
                     PatchAttributeLocationFormatting(result);
+                    PatchExceptionMessageNullSafety(result);
+                }
+                else if (result.FileName.EndsWith("JsonConverter1.java", StringComparison.Ordinal))
+                {
+                    PatchExceptionMessageContains(result);
                 }
             }
         }
@@ -1195,6 +1200,71 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex AttributeNotCompatibleTypeRegex = new(
         @"SR\.getSerializationConverterOnAttributeNotCompatible\(\), location, typeToConvert",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Makes the reader's "already has a path" check null-safe.
+    /// <para>
+    /// C# writes <c>if (ex.Message.Contains(" Path: "))</c>, which is safe because
+    /// <c>Exception.Message</c> is documented never to be null. Java's
+    /// <c>Throwable.getMessage()</c> returns NULL for an exception constructed without a message,
+    /// so the literal translation throws NullPointerException. Measured: every message-less
+    /// exception reached <c>JsonConverter1.readCore</c>'s catch and crashed there — which is exactly
+    /// what <c>CustomConverterTests.FailConverter</c> throws, so tests expecting their own exception
+    /// type received an NPE instead ("Wrong exception type ... Actual: NullPointerException").
+    /// </para>
+    /// </summary>
+    private static void PatchExceptionMessageContains(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (!ExceptionMessageContainsRegex.IsMatch(code))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchExceptionMessageContains did not match JsonConverter1.java - "
+                + "the null-safe exception-message check is NOT applied.");
+            return;
+        }
+        result.GeneratedCode = ExceptionMessageContainsRegex.Replace(code,
+            "if (io.github.ningpp.compat.StringHelper.containsOrEmpty(ex.getMessage(), \" Path: \")) {");
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ExceptionMessageContainsRegex = new(
+        @"if \(ex\.getMessage\(\)\.contains\([^\r\n]*\)\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// The same null-safety fix for the copy of the check that lives in ThrowHelper rather than in
+    /// the converters.
+    /// <para>
+    /// <c>throwNotSupportedException</c> starts from <c>String message = ex.getMessage()</c> and then
+    /// calls <c>message.contains(...)</c>, <c>message.length()</c> and string concatenation. In C#
+    /// that is safe because <c>Exception.Message</c> is never null; in Java a message-less exception
+    /// gives null and the first call throws. Measured: after the converter copy was fixed the very
+    /// same test still failed with a NullPointerException raised here instead.
+    /// </para>
+    /// </summary>
+    private static void PatchExceptionMessageNullSafety(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (!ThrowHelperMessageDeclRegex.IsMatch(code))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchExceptionMessageNullSafety did not match ThrowHelper.java - "
+                + "the null-safe exception message is NOT applied.");
+            return;
+        }
+        result.GeneratedCode = ThrowHelperMessageDeclRegex.Replace(code,
+            "        String message = io.github.ningpp.compat.StringHelper.nullToEmpty(ex.getMessage());");
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ThrowHelperMessageDeclRegex = new(
+        @"        String message = ex\.getMessage\(\);",
         System.Text.RegularExpressions.RegexOptions.None);
 
     private static readonly System.Text.RegularExpressions.Regex AttributeLocationRegex = new(
