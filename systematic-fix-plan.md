@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 383, Errors: 295, Skipped: 18` = **678**（起点 855，**−177**）。
-- Round 41 的诊断之外，本会话累计 **5 条 KEEP**（均"逐用例集合差 +0 回归"）：
+- **基线**：`Tests run: 7902, Failures: 369, Errors: 295, Skipped: 18` = **664**（起点 855，**−191**）。
+- 本会话累计 **6 条 KEEP**（均"逐用例集合差 +0 回归"）：
 
 | 提交 | 内容 | 收益 |
 |---|---|---|
@@ -318,16 +318,26 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `5540ec46` | 非公开访问器可见性（`CompatNonPublicAccessor` + `[JsonInclude]` 例外） | 709 → 702（修 7） |
 | `bdf54f07` | 孤立代理项（lone surrogate）转义为 U+FFFD | 702 → 692（修 10） |
 | `01a85535` | 数字按 .NET 格式写（`DoubleHelper` + 新 `FloatHelper`） | 692 → 678（修 14） |
+| `b38263ff` | U+FFFD 在所有编码器下都转义 | 678 → 674（修 4） |
+| `2dce1154` | C# `internal` 构造函数在可访问性查询里被遵守 | 674 → 664（修 10） |
 
 - 工作树干净；所有改动已提交。
+
 - **本轮新增的两条可复用"桥"模式**：C# 特性在生成物里是**类**而不是注解，所以
   `CustomAttributeExtensions.getCustomAttribute` 看不到它 —— 转换器发一个
   `@CompatXxx` 标记，compat 再从标记**物化**出那个特性类。
   已有：`CompatJsonIgnore`、`CompatJsonInclude`、`CompatJsonExtensionData`、
   `CompatJsonNumberHandling`、`CompatPropertyName`、`CompatSByteArray`、
   `CompatNonPublicProperty`；**新增** `CompatJsonPropertyName`（带值）、
-  `CompatNonPublicAccessor`（按访问器）。
+  `CompatNonPublicAccessor`（按访问器）、`CompatInternalCtor`（按构造函数）。
   **凡是"C# 语义没生效"的簇，优先查这个通道缺了哪个标记。**
+
+- **同一模式的第二条通道：C# 可访问性 ≠ Java 修饰符。**
+  Java 没有 `internal`，转换器统一发成 `public`（跨包可达），
+  于是**所有"这个成员/构造函数公开吗"的运行时问题都会答错**。
+  已修两处：`CompatNonPublicAccessor`（属性访问器）、`CompatInternalCtor`（构造函数）。
+  **下一个同类目标**：字段/方法/类型的可访问性查询（目前未发现对应失败簇，
+  但 `TypeHelper` 里其他 `Modifier.isPublic` 判断值得在新增失败簇出现时优先检查）。
 
 - **一条被推翻的旧结论**：§6.4 曾建议把 `Utf8JsonWriterTests` 61 条"作为测试预言机问题接受"。
   **这是错的**——Round 42 从中拿到 24 条真修复（代理项转义 10 + 数字格式 14），
@@ -409,33 +419,24 @@ Round 43 试了一条看起来最像"属性桥"缺口的线索，实测**逐用�
 
 **下一步若要碰这一簇**：先确认 `determineConverter` 的调用点，而不是再加标记。
 
-### 8.2.4 下一个**有依据**的目标：无公开构造函数的集合（Round 43 定位，未实施）
+### 8.2.4 已闭合：C# `internal` 构造函数未被遵守（Round 44，已修，−10）
 
-**症状**：`Assert.throws() failure: No exception thrown | Expected: java.lang.UnsupportedOperationException`，
-共 **10 条**（`CollectionTests.read_Generic_NoPublicConstructor_Throws` 6 条、
-`read_ConcurrentCollection_NoPublicConstructor_Throws` 2 条，另 2 条同类）。
+§8.2.4 定位的线索**已实施并验证**：`674 → 664（修 10 / 坏 0）`，提交 `2dce1154`。
 
-**C# 语义**：`JsonSerializer.Deserialize(json, type)` 对
-`GenericQueueWrapperPrivateConstructor<T>` / `...InternalConstructor<T>` 这类
-**没有公开无参构造函数**的集合类型必须抛 `NotSupportedException`，且消息含类型名。
+- 症状：`read_Generic_NoPublicConstructor_Throws` **只有 `*InternalConstructor` 参数用例失败**，
+  而 `*PrivateConstructor` 全部通过 —— 这个"一半通过"的切分就是定位依据
+  （私有构造函数被如实发成 `private`，既有的守卫已经覆盖；`internal` 被发成 `public`）。
+- 做法：新增 compat 标记 `CompatInternalCtor`，由 `ConstructorTransformer` 对
+  "internal 且非 public" 的构造函数发出；`TypeHelper.getConstructorInfo` 遵守它。
+- **本轮最有价值的坑**：只改 `getDeclaredConstructors` 回退循环**不够**——
+  `type.getConstructor(...)` 的**快路径**在循环之前就 return 了，
+  所以第一版实测**完全中性**。两处都要挡。用 `[cs2j.i] ENTER ... publicCtor=1`
+  这一行才看清（`publicCtor=1` 说明 `getConstructor()` 拿到了构造函数）。
 
-**已定位的注入点**（不是猜的）：
-
-- `ListOfTConverter.createCollection` 已经会抛异常，但条件是
-  `getJsonClassInfo().getCreateObject() == null`——而**现在它不是 null**，
-  所以异常不发。
-- `createObject` 由 `getMemberAccessorStrategy().createConstructor(type)` 建立
-  （见 `JsonClassInfo` 构造里的 `setCreateObject(...)`）。
-- **compat 已有正确的判据**：`TypeHelper.getConstructorInfo(Public|Instance)` 对
-  公开类的私有/内部构造函数**正确返回 null**（Round 14 已证），
-  所以"有没有公开无参构造"在 Java 侧**是可知的**，不是信息缺失。
-- 因此路线是：给 `createConstructor` 补一条"无公开无参构造 → 返回 null"
-  （或让 `createObject` 为 null），让既有的抛异常分支自然生效；
-  **不要去改 createCollection 的抛异常逻辑**。
-
-**风险**：`createObject` 被多处使用，收紧后可能影响抽象/接口集合的既有报错路径
-（本仓库已有 `AbstractCollection` 簇）。**必须**用逐用例集合差验证，并先用
-`mvn -o surefire:test -f system-text-json-tests/pom.xml "-Dtest=CollectionTests#read_Generic_NoPublicConstructor_Throws"` 隔离验证。
+**残留**：同族还剩 8 条 `UnsupportedOperationException`（`ArrayTests.readPrimitiveArrayFail`、
+`ExceptionTests.classWithUnsupportedArray*`、`NullTests.invalidRootOn*`、
+`DictionaryTests.dictionaryWith_ObjectWithNoParameterlessCtor_AsValue_Throws`），
+但**分散在 5 个类、形状各异**，不是同一个根因；勿当作一个簇处理。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

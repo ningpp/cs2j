@@ -1732,3 +1732,30 @@ beginMemberArgumentScope(MyStringList)CSharpList = [class java.lang.String]
 
 **回滚/最终复核**：`Tests run: 7902, Failures: 379, Errors: 295, Skipped: 18` = **674**（起点 855，**−181**）；
 `git status` 干净。
+### 4.46 Round 44：**`internal` 构造函数未被遵守**（674 → 664，修 10 / 坏 0）
+
+§8.2.4 定位的线索实施完毕，提交 `2dce1154`。
+
+**定位依据**：`CollectionTests.read_Generic_NoPublicConstructor_Throws` 的 20 个参数用例里
+**只有 `*InternalConstructor` 那 6 个失败**，`*PrivateConstructor` 全部通过。
+这个"一半通过"的切分直接指出：私有构造函数被如实发成 `private`（既有守卫已覆盖），
+而 `internal` 被转换器统一发成 `public`（为了跨包可达），于是
+`TypeHelper.getConstructorInfo(type, Public|Instance)` 答"找到了"，
+.NET 该抛的 `NotSupportedException` 没有抛。
+
+**做法**：新增 compat 标记 `CompatInternalCtor`，`ConstructorTransformer` 对
+"internal 且非 public" 的构造函数发出；`TypeHelper.getConstructorInfo` 遵守它。
+
+**本轮最贵的坑（值得记住）**：第一版只改了 `getDeclaredConstructors` 回退循环，
+实测**完全中性（674 → 674，集合相同）**。原因是
+`type.getConstructor(...)` 的**快路径在循环之前就 return 了**，
+循环里的 `continue` 根本没机会执行。是 `[cs2j.i] ENTER ... publicCtor=1`
+这一行探针（`publicCtor=1` 表示 `getConstructor()` 拿到了构造函数）暴露的。
+**教训：修"查找"逻辑时，先确认有几个返回点，不要只改最后那个。**
+
+**验证**：`Tests run: 7902, Failures: 369, Errors: 295, Skipped: 18` = **664**
+（起点 855，**−191**）；逐用例集合差 = 修 10 / 坏 0。
+
+**残留**：同族另有 8 条 `UnsupportedOperationException`，但分散在 5 个类
+（`ArrayTests`、`ExceptionTests`×3、`NullTests`×2、`DictionaryTests`），形状各异，
+**不是同一根因**，不要当簇处理。
