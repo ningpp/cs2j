@@ -1493,3 +1493,35 @@ beginMemberArgumentScope(MyStringList)CSharpList = [class java.lang.String]
 **实测"槽位正确之后，二维属性在读取时到底解析到了哪一格"**，
 再据此决定下一步；而不是继续假设下一种机制。
 （本轮已把该改动回退，若要复用需重新落一遍——代码与探针输出都已留档。）
+
+### 4.41 Round 36：按 §4.40 的要求**先观察**——实参在读取时已正确，问题收窄到"查到了什么"
+
+重新落上 §4.40 的预热期作用域，并在属性上加观察点，得到干净的横幅：
+
+```
+[cs2j.obs] before lookup: cached=false
+                          rawType=class io.github.ningpp.compat.CSharpList
+                          memberArgs=[io.github.ningpp.compat.CSharpList<java.lang.Integer>]
+```
+
+**这是实质进展**：加上预热期修正后，二维成员在**读取时刻的成员实参是正确的**
+（`[CSharpList<Integer>]`，既非 null 也非 `[String]`）——
+而 Round 31 时同一位置拿到的是错误的环境实参。
+
+**但这一族仍然失败**，于是开放问题被收窄成**单一问题**：
+既然
+- `_runtimeClassInfo == null`（要查）、
+- `rawType = CSharpList`、
+- `memberArgs` 正确，
+
+那么 **`getOrAddClass` 对它返回了什么？返回的那个 class info 的 `elementType`
+是内层列表还是 `String`？** 这**只差一个探针**，就是下一轮的确切测量动作。
+
+**⚠ 本轮的清理教训（必须记住）**：我试图用**按行过滤**去掉生成代码里的插桩，
+结果把两行横幅的续行一起删掉，**破坏了 `JsonPropertyInfo.java`**
+（出现"语句不应在方法和初始化程序外部"）。恢复办法是
+**删除 `JsonPropertyInfo.java` 与 `JsonClassInfo.java` 两个文件并用转换器重新生成**，
+补丁通道干净地重建了它们。
+→ **规则：移除生成代码里的插桩必须用针对确切块的 edit，绝不能用按行过滤。**
+
+**收口**：重新生成后复核 = **723（430+293）**、`git status` 干净。
