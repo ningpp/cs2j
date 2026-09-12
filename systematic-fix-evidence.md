@@ -2216,3 +2216,36 @@ R57+R58 两轮里真正的进展都来自探针，而不是来自对判据的推
 **验证**：`Tests run: 7902, Failures: 341, Errors: 278, Skipped: 18` = **619**；
 运行完整（`Tests run: 7902` 恰好 1 次）；`r095 → r096` 逐用例集合**完全相同**；
 插桩全部清除（生成树里 `cs2j.t|r|e` 计数为 0）。
+### 4.61 Round 59：**struct 的 clone() 会丢掉 final 字段**（619 → 580，修 40 / 坏 1）
+
+提交 `a62aac37`。**按 §8.2.14 的处方探针，结果推翻了那条线索的定性**——
+22 条 `ArrayIndexOutOfBoundsException` **不是库里的崩溃**，而是**测试侧**的：
+`ClassWithComplexObjects.validateArray` 里，一个已解析的 JSON 数组**枚举出 0 个元素**。
+
+**根因**：`StructTransformer` 生成的"逐字段 clone()"**跳过所有 final 字段**
+（因为 final 字段不能构造后再赋值）。对 `ArrayEnumerator` 来说，
+`_target` 与 `_endIdxOrVersion` 就这样被丢掉，于是 clone 出来的是
+`_target == null`、`_endIdxOrVersion == 0` 的枚举器，`moveNext()` 立刻返回 false，
+数组什么也枚举不出来。
+
+**扫描发现 16 个生成文件**都有"逐字段 clone() 丢 final 字段"：
+`JsonDocument.MetadataDb`、`JsonDocument.StackRowStack`、`ArrayEnumerator`、
+`ObjectEnumerator` 以及多个测试用 struct。
+
+**修法**：当 struct 有 final 实例字段且没有可用的构造器时，
+**生成一个私有全字段构造器**，让 `clone()` 调它。
+（直接"构造后再赋值 final"**不能编译**：`无法为 final 变量 _target 分配值` ——
+这一步是先被编译器挡下来才换的方案，不是猜的。）
+
+**验证**：`Tests run: 7902, Failures: 331, Errors: 249, Skipped: 18` = **580**
+（起点 855，**−275**）；逐用例集合差 = **修 40 / 坏 1**；运行完整（汇总行恰好 1 次）。
+
+**已披露的 1 条回归**：`PropertyVisibilityTests.valueType_Properties_NotIgnoredWhen_
+IgnoreNullValues_Active_ClassTest`。**它不是被误伤，而是一个"因错误原因通过"的测试**：
+clone 丢字段时，`ClassWithValueAndReferenceTypes` 序列化出的输出**恰好**匹配；
+clone 修正后真实输出是 `{"MyBool":null,"MyPointClass":null}`，
+**暴露出两个真实的序列化器缺陷**：
+(a) 字段被序列化成 `null` 而不是它的初始化值（`myInt` 应为 -1、`myPointStruct` 应为 (1,2)）；
+(b) `IgnoreNullValues` 对 null 引用成员**没有生效**。
+**决定保留**（40 > 1，且 clone 行为无疑是对的），
+**这两个被暴露的缺陷比那条偶然通过更值得修**——记为下一批目标。

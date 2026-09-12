@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 340, Errors: 279, Skipped: 18` = **619**（起点 855，**−236**）。
-- 本会话累计 **13 条 KEEP**（均"逐用例集合差 +0 回归"）：
+- **基线**：`Tests run: 7902, Failures: 331, Errors: 249, Skipped: 18` = **580**（起点 855，**−275**）。
+- 本会话累计 **14 条 KEEP**（其中 13 条"逐用例集合差 +0 回归"；`a62aac37` 为修 40 / **坏 1**，该回归已披露，见 §8.2.15）：
 
 | 提交 | 内容 | 收益 |
 |---|---|---|
@@ -697,6 +697,31 @@ R57/R58 两轮里真正的进展全部来自探针，而非对判据的推敲。
 **建议**：`ArrayIndexOutOfBoundsException` 这 21 条**从未被直接探针测过**——
 先打印那次调用的 `typeToConvert`、`getGenericArguments(typeToConvert)` 的实际长度、
 以及走到的是工厂的哪个分支。**这是当前最符合"一次探针可定论"形状的目标。**
+
+### 8.2.15 Round 59 已修：struct 的 `clone()` 丢掉 final 字段（−40，另有 1 条**已披露**回归）
+
+提交 `a62aac37`。**§8.2.14 的探针推翻了那条线索的定性**：22 条
+`ArrayIndexOutOfBoundsException` **不是库崩溃**，而是测试侧
+`ClassWithComplexObjects.validateArray` 里**一个已解析的 JSON 数组枚举出 0 个元素**。
+
+**根因**：`StructTransformer` 的逐字段 `clone()` **跳过所有 final 字段**
+（final 不能在构造后赋值）。`ArrayEnumerator` 的 `_target` 与 `_endIdxOrVersion`
+因此被丢掉 → clone 出 `_target == null`、`_endIdxOrVersion == 0` 的枚举器
+→ `moveNext()` 立刻 false → 数组枚举为空。
+**扫描：16 个生成文件**都有此问题（含 `JsonDocument.MetadataDb`、`StackRowStack`、
+`ArrayEnumerator`、`ObjectEnumerator`）。
+
+**修法**：struct 有 final 实例字段且无可用构造器时，**生成私有全字段构造器**，`clone()` 调它。
+（"构造后再赋 final"**不能编译**，是先被编译器挡下才换的方案。）
+
+**已披露回归（1 条，故意保留）**：`valueType_Properties_NotIgnoredWhen_IgnoreNullValues_Active_ClassTest`。
+它**因错误原因通过**：clone 丢字段时输出恰好匹配；clone 修好后真实输出是
+`{"MyBool":null,"MyPointClass":null}`，**暴露两个真实缺陷**：
+
+1. 字段被序列化成 `null` 而非初始化值（`myInt` 应为 -1、`myPointStruct` 应为 (1,2)）；
+2. `IgnoreNullValues` 对 null 引用成员**未生效**。
+
+**这两个缺陷是下一批首选目标**（它们是"因错误原因通过"的测试所隐藏的真问题）。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
