@@ -207,6 +207,24 @@ public final class TypeHelper {
         WRAPPER_LAYER_TAKEN = ThreadLocal.withInitial(java.util.HashMap::new);
 
     /** Marks the start of a top-level registerParameterizedType session. */
+    /**
+     * Drops every per-thread type-argument registration.
+     *
+     * <p>These ThreadLocals outlive a single (de)serialization, so a member read by an earlier
+     * operation can still be answering lookups in a later one. That showed up as test-order
+     * dependence: ~28 nested-collection WRITE tests fail in full-suite order but pass when their
+     * class runs alone. The generated entry points call this before publishing their own
+     * registrations so each operation starts from a clean slate.</p>
+     */
+    public static void clearRegistrations() {
+        TYPE_ARGUMENTS.remove();
+        CONSUMED_ARGUMENTS.remove();
+        MEMBER_ARGUMENTS.remove();
+        CALLSITE_ARGUMENTS.remove();
+        WRAPPER_LAYER_TAKEN.remove();
+        CONCRETE_SUBTYPES.remove();
+    }
+
     public static void beginTypeRegistration() {
         int[] depth = REGISTRATION_DEPTH.get();
         if (depth[0] == 0) {
