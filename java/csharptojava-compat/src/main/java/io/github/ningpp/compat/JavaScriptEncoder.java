@@ -54,6 +54,14 @@ public class JavaScriptEncoder {
         if (unicodeScalar < 0x20 || unicodeScalar == '"' || unicodeScalar == '\\') {
             return true;
         }
+        // U+FFFD is escaped by EVERY encoder, including UnsafeRelaxedJsonEscaping — it is the
+        // character the transcoder substitutes for undecodable input, and .NET keeps it
+        // distinguishable in the output. Measured: Utf8JsonWriterTests.writeStringInvalidCharacter
+        // with UnsafeRelaxedJsonEscaping expects the "\\" marker at the position of the invalid
+        // byte; without this the replacement character was written raw and the marker was absent.
+        if (unicodeScalar == 0xFFFD) {
+            return true;
+        }
         if (unicodeScalar < 0x7F) {
             // HTML-sensitive ASCII characters are always escaped by the default
             // and Create(...) encoders; UnsafeRelaxedJsonEscaping allows them.
@@ -422,6 +430,10 @@ public class JavaScriptEncoder {
 
     private boolean needsEscapingUtf16(int ch) {
         if (ch < 0x20 || ch == '"' || ch == '\\') {
+            return true;
+        }
+        // See willEncode(int): U+FFFD is escaped by every encoder.
+        if (ch == 0xFFFD) {
             return true;
         }
         if (ch < 0x80) {
