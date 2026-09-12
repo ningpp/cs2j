@@ -1,6 +1,9 @@
 package io.github.ningpp.compat;
 
 public final class CustomAttributeExtensions {
+    /** C# attribute the @CompatJsonExtensionData annotation stands for. */
+    private static final String JsonExtensionDataAttributeName = "JsonExtensionDataAttribute";
+
     private CustomAttributeExtensions() {
     }
 
@@ -32,6 +35,12 @@ public final class CustomAttributeExtensions {
     @SuppressWarnings("unchecked")
     private static <T> T materializeFromCompatAnnotation(Class<T> attributeType, MemberInfo member) {
         if (attributeType == null || member == null) {
+            return null;
+        }
+        // Only the attribute the annotation actually stands for may be materialized. Without
+        // this gate a member carrying @CompatJsonExtensionData would report EVERY queried
+        // attribute (JsonIgnore, JsonInclude, JsonConverter, ...) as present.
+        if (!JsonExtensionDataAttributeName.equals(attributeType.getSimpleName())) {
             return null;
         }
         boolean present = false;
