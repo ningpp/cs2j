@@ -693,3 +693,11 @@ Round 23 已确认：命中点是 `InvocationExpressionTransformer.cs:12554`，�
 4. **转换器（唯一一处）**: 12554 处把 `closedGenericType` 换成 `closedCallSiteGenericType`（其余包裹形态照 Round 23 已验证的样子）。
 5. **预期**: 成员路径（deque/CONSUMED 存在）完全不受影响 ⇒ 消除 Round 23 的 12 项回归；无成员上下文的调用点（`Serialize(List<int>)`、嵌套 `List<List<int>>`）拿到调用点实参 ⇒ 保住 6 项收益并扩大（探针 `read-reg` 已证明 `JsonElement → Integer`）。
 6. **验证顺序**: compat `mvn -o clean install`（期望 1636+ 全绿，新增 `ClosedCallSiteRegistrationTest` 覆盖"有成员层时不覆盖 / 无成员层时生效 / 嵌套逐层"）→ `dotnet build -c Release` → `dotnet test -c Release`（3154+58）→ Step 1（618/0）→ 生成产物复查 `CollectionTests.java` 出现 `closedCallSiteGenericType` → Step 2 官方（编译零错误；与 `mvn-build-r17.log` 集合差要求新增失败 0）。
+## Iteration 32 — (a) 低优先级版本仍为净负，**按测量否决**（转换器改动已回退；compat API 保留但无调用方）
+
+- **做法**: compat 侧加上最低优先级的 `CALLSITE_ARGUMENTS`（per-raw 链、成员/会话层优先）后，转换器仍在 12554 处包裹 `closedCallSiteGenericType(parameterized(...))`（一行）。
+- **验证**: 构建 ok；Step 1 `618 succeeded, 0 failed` ✓；Step 2 **编译零错误** ✓；**官方 939（441F + 498E）**，相对 929：**新增失败 12 / 新增通过 2** ✗。
+- **与 Round 23 对比**: 会话优先级版本是 12/6，低优先级版本是 12/2 ⇒ 优先级调整**没有消除那 12 项回归**，说明问题不在优先级，而在"**在调用点按静态类型发布实参**"这件事本身在这套代码里是有害的：静态类型是接口/基类的场景（如 `List<IList>` 这类异构集合）本来靠运行时类型分发才正确，发布静态实参反而把元素转换器钉死成静态类型 ⇒ 12 项回归。
+- **结论（对已批准的 (a)）**: 以"调用点发布类型实参"为手段的 (a) 在**本代码库被测量否决**（两次独立实现、两种优先级、均为净负：12/6 与 12/2）。除非改为**只在元素类型确实无法从成员/运行时分发获得时**才发布（例如只对 `Deserialize` 且无成员上下文、且静态类型为泛型 *值类型集合* 的窄集合），否则不应再尝试。已回退转换器改动，工作区回到官方 929。
+- **保留物**: compat 的 `registerCallSiteType` / `closedCallSiteGenericType` / `CALLSITE_ARGUMENTS`（有 4 项单测、无调用方、对 SDK 无副作用），供未来窄化方案复用；`ClosedGenericEmissionApiTest` 同。
+- **下一步优先级**: (b) JSON 特性落地为注解（扩展数据簇 20+ 项，机制独立于类型实参，风险与 (a) 无关）；以及复核 Round 23/26 两次回归名单里的 12 项是否共享另一根因（可能本身就是可独立修复的缺陷）。
