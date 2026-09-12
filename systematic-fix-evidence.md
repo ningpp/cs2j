@@ -138,6 +138,7 @@
 | 转换器缓存"读写同 key"（`converterCacheHas/Get` + 去掉 `tryAdd` 的 `map.remove`） | 855 → **934/935**（两次复现） | REVERT |
 | 元素类信息按实参作用域查找（`beginElementLookup`/`classInfoCacheKey`） | 855 → **934** | REVERT |
 | `IDictionaryConverter.createCollection` 接口分支改用 `newNonGenericDictionary` | 局部 2 绿 4 红；全量 843 → 842 | REVERT 调用点（保留 compat） |
+| `JsonClassInfo.getElementClassInfo` 改用"活转换器"的元素类型（P4） | 测试级 **5 修复 / 1 真回归**，总数 842 → 842 | REVERT（见 §4.5） |
 
 ### 4.2 已 KEEP 的修复
 
@@ -190,3 +191,22 @@ writeNumberValueDecimal:
 
 → 这一类不能靠改 writer 修好；要修的是 `JsonTextWriter` / `getEscapedExpectedString` 的移植
 代码。它们在 test 源里、由转换器生成，因此修复入口仍是转换器。
+
+### 4.5 P4 实测细节（已回退，但值得记录）
+
+把 `JsonClassInfo.getElementClassInfo` 的元素类型从**构造时快照**
+（`converter.getElementType()` 存入 `elementType` 字段）改为**每次向
+`options.getConverter(getType())` 重新取活转换器的元素类型**：
+
+- 修复 5 个测试：`CollectionTests.readGenericICollectionOfICollection`、
+  `readGenericIEnumerableOfIEnumerable`、`readGenericIListOfIList`、
+  `ReferenceHandlerTests.arrayPreserveDuplicateObjects`、`dictionaryKeyLengthZero`
+- **真回归 1 个**：`ReferenceHandlerTests.arrayWithMetadataWithinArray_UsingPreserve:792`
+  → `Properties that start with '$' are not allowed on preserve mode`，即
+  `List<List<Employee>>` 的元素被换成了错误类型，preserve 元数据不再被识别
+- 总数 842 → 842（净 0）
+
+机制说明：`options.getConverter(CSharpList.class)` 在运行时会被
+`converterCacheKey` 解析成**当时环境**的实参键，因此"活转换器"未必是该 classInfo 自己的那个
+——这正是 Iteration 74/76 的擦除问题在反向咬人。要拿到这 5 个修复，必须同时解决
+"classInfo 与 converter 的实参一致性"，不能单点取巧。
