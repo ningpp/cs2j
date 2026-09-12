@@ -1525,3 +1525,39 @@ beginMemberArgumentScope(MyStringList)CSharpList = [class java.lang.String]
 → **规则：移除生成代码里的插桩必须用针对确切块的 edit，绝不能用按行过滤。**
 
 **收口**：重新生成后复核 = **723（430+293）**、`git status` 干净。
+
+### 4.42 Round 38：**开放问题已答**——`getOrAddClass` 在实参正确的情况下**仍返回 `String` 那一格**
+
+按 §8.2 执行那个"只差一个探针"的测量（**同时保留 Round 34 的预热期作用域**，
+以保证成员实参在读取时确实正确）：
+
+```
+[cs2j.q] rawType=class io.github.ningpp.compat.CSharpList cached=false
+[cs2j.q] after lookup: info.elementType=class java.lang.String
+                       info.type=class io.github.ningpp.compat.CSharpList
+```
+
+**结论**：属性带着**正确的成员实参**去查 `CSharpList`，
+`getOrAddClass` **仍然交回 `CSharpList[String]` 那一格**（其 `elementType = String`）。
+
+**这把 §4.31 的问题彻底闭合，并排除了最后一个"读侧"解释**：
+错误的槽位**不是**由"属性处实参缺失/错误"造成的——
+实参已确证正确，是**查找本身**产出的就是这个错格子。
+
+**三条事实合起来只剩一种可能**：
+- §4.31：正确键（`CSharpList[CSharpList<Integer>]`）的条目**在该次查找时不存在**；
+- §4.34：把预热期实参槽位改对，**对结果无影响**；
+- §4.38（本轮）：实参正确，查找仍返回错误格子。
+
+→ 剩下的可能是：**该键的条目在这条路径上从未被创建**，
+因此 `getOrAddClass` 每次都落到"环境实参算出的键"上。
+
+**下一次测量（仍是"一个探针"，不猜机制）**：
+在 `getRuntimeClassInfo` 那一刻把 `_classes` 里**所有含 `CSharpList` 的键**打印出来。
+- 若 `CSharpList[CSharpList<Integer>]` **不存在** → 问题转为
+  "预热期到底是谁创建类信息、为什么跳过这个成员"；
+- 若**存在** → 说明 `getOrAddClass` 内部算出的键与探针读到的键**不一致**，
+  那就是一行对比的事。
+
+**探针清理方式**：按 §4.41 的规则，**删除生成的 `JsonPropertyInfo.java` 并用转换器重新生成**
+（未使用按行过滤）。复核 = **723（430+293）**、`git status` 干净。
