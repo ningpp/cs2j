@@ -1879,3 +1879,40 @@ Round 43 曾记录"成员级 `[JsonConverter]` 的通路根本没被走到"，
 
 **验证**：`Tests run: 7902, Failures: 353, Errors: 285, Skipped: 18` = **638**
 （起点 855，**−217**）；插桩移除后复核逐用例集合与 r071 **完全相同**；`git status` 干净。
+### 4.50 Round 48：成员级 `[JsonConverter]` 打通（638 → 631），并纠正 Round 43
+
+**收益**：`638 → 631（修 7 / 坏 0）`，提交 `316989da`；另有一条推进性修复 `2ecd893b`。
+
+**三个缺口必须一起补，单独补任何一个都实测中性**：
+
+1. 转换器发 `@CompatJsonConverter`，并**沿 C# 特性继承链**解析转换器类型。
+   派生特性把类型放在基类构造调用里：
+   `class InvalidConverterAttribute : JsonConverterAttribute { ... : base(typeof(int)) }`，
+   所以特性自身的实参是空的，必须读**构造函数初始化器**
+   （`PropertyTransformer.TryGetConverterTypeFromConstructorInitializer`）。
+2. `PropertyInfo` 从标记物化出生成的 `JsonConverterAttribute`。
+3. **`PropertyInfo` 覆写 `getCustomAttributes(Class, boolean)`**。
+   此前只实现了不带类型参数的版本，于是**每一次带类型的查找都落到
+   `ICustomAttributeProvider` 的默认实现并返回空数组**——特性被构造出来后又被丢弃。
+   **这正是 Round 43 误判为"成员通路没被走到"的真实原因**：通路走到了，
+   只是两参重载没被覆写。新的覆写还按请求类型过滤（与 .NET 一致），
+   避免查一种特性时把成员的其他特性也报出来而触发重复特性检查。
+
+**Round 43 的结论已正式推翻**：那不是"通路没走到"，而是"重载没覆写"。
+当时的打点选在了下游函数上，看到"没进 `materializeFromCompatAnnotation`"就下了结论；
+正确做法是**打印查找的返回值**。
+
+**推进性修复 `2ecd893b`（本轮失败数不变，但测试前进了一步）**：
+`ThrowHelper` 用 `Class.toString()` 拼位置，得到
+`class ...CustomConverterTests$PocoWithInvalidConverter.MyInt`，
+而 SDK 断言的是 `...CustomConverterTests+PocoWithInvalidConverter.MyInt`
+（.NET 用 `+`、Java 用 `$`）。校验**本身已经正确触发**，只是拼写不对。
+新增 `TypeHelper.getMemberLocation`（取 C# 全名 + `.` + 成员名，并把 `$` 规范成 `+`）
+与 `ProjectPasses.PatchAttributeLocationFormatting`（改写生成语句，并删除紧随其后的
+`location += ...`，否则成员名会被追加两次）。
+实测该用例的失败**从 `Sub-string not found` 变成 `No exception thrown`** ——
+消息已匹配、测试推进到后面的断言。
+
+**本轮又踩一次的坑（已写进纪律）**：改 compat 源码后必须
+`mvn -o clean install`（不能用 `-q install`）再测量。
+本轮有**两次测量**跑在旧 jar 上，输出与改动前逐字相同，极易误读为"补丁没生效"。
