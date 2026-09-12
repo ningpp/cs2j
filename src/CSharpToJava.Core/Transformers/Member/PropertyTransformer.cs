@@ -323,8 +323,7 @@ public class PropertyTransformer : IMemberTransformer
                     getter.Annotations.Add(new JavaAnnotation(
                         $"CompatJsonNumberHandling({numberHandlingAttr.ConstructorArguments[0].Value})"));
                     context.AddImport("io.github.ningpp.compat.CompatJsonNumberHandling");
-                }
-                // C# sbyte[] and byte[] are both byte[] in Java but serialize differently
+                }                // C# sbyte[] and byte[] are both byte[] in Java but serialize differently
                 // (JSON array of numbers vs. Base64 string); mark the member so the compat
                 // member lookup reports the integer element type.
                 if (typeInfo.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_SByte })
@@ -349,6 +348,20 @@ public class PropertyTransformer : IMemberTransformer
                 {
                     getter.Annotations.Add(new JavaAnnotation("CompatJsonInclude"));
                     context.AddImport("io.github.ningpp.compat.CompatJsonInclude");
+                }
+                // C# [JsonPropertyName("...")] -> compat annotation carrying the name. The
+                // generated JsonPropertyNameAttribute is a class, not an annotation, so compat
+                // materializes it from this marker; without the name the C# JSON property name
+                // never reaches the runtime, no name collision is detected, and every test that
+                // asserts InvalidOperationException on a collision fails ("No exception thrown").
+                var propertyNameAttr = propSymbol?.GetAttributes()
+                    .FirstOrDefault(a => a.AttributeClass?.Name == "JsonPropertyNameAttribute");
+                if (propertyNameAttr?.ConstructorArguments.Length > 0
+                    && propertyNameAttr.ConstructorArguments[0].Value is string jsonPropertyName)
+                {
+                    getter.Annotations.Add(new JavaAnnotation(
+                        $"CompatJsonPropertyName(\"{jsonPropertyName}\")"));
+                    context.AddImport("io.github.ningpp.compat.CompatJsonPropertyName");
                 }
                 // A property whose C# accessors are all non-public is invisible to .NET's member
                 // cache, but the converted class still exposes the accessors as Java methods, so

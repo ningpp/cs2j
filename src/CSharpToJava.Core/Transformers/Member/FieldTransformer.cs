@@ -205,6 +205,19 @@ public class FieldTransformer : IMemberTransformer
                 javaField.Annotations.Add(new JavaAnnotation("CompatJsonInclude"));
                 context.AddImport("io.github.ningpp.compat.CompatJsonInclude");
             }
+            // C# [JsonPropertyName("...")] on a FIELD -> compat annotation carrying the name.
+            // Without it the C# JSON name never reaches the runtime, so a field whose name
+            // collides with a property's JSON name is not detected and the serialize call that
+            // must throw InvalidOperationException silently succeeds.
+            var fieldNameAttr = fieldSymbol?.GetAttributes()
+                .FirstOrDefault(a => a.AttributeClass?.Name == "JsonPropertyNameAttribute");
+            if (fieldNameAttr?.ConstructorArguments.Length > 0
+                && fieldNameAttr.ConstructorArguments[0].Value is string jsonFieldName)
+            {
+                javaField.Annotations.Add(new JavaAnnotation(
+                    $"CompatJsonPropertyName(\"{jsonFieldName}\")"));
+                context.AddImport("io.github.ningpp.compat.CompatJsonPropertyName");
+            }
 
             // C# structs are value types that can never be null — initialize fields
             // with default instances so Java code doesn't encounter null struct references.

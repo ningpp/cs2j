@@ -7,6 +7,8 @@ public final class CustomAttributeExtensions {
     private static final String JsonIgnoreAttributeName = "JsonIgnoreAttribute";
     /** C# attribute the @CompatJsonInclude annotation stands for. */
     private static final String JsonIncludeAttributeName = "JsonIncludeAttribute";
+    /** C# attribute the @CompatJsonPropertyName annotation stands for. */
+    private static final String JsonPropertyNameAttributeName = "JsonPropertyNameAttribute";
 
     private CustomAttributeExtensions() {
     }
@@ -45,6 +47,12 @@ public final class CustomAttributeExtensions {
         // this gate a member carrying @CompatJsonExtensionData would report EVERY queried
         // attribute (JsonIgnore, JsonInclude, JsonConverter, ...) as present.
         String attributeName = attributeType.getSimpleName();
+        // [JsonPropertyName] is the one marker with a VALUE, so it is built from the annotation's
+        // name rather than from a no-argument constructor.
+        if (JsonPropertyNameAttributeName.equals(attributeName)) {
+            String name = compatJsonPropertyName(member);
+            return name == null ? null : newAttribute(attributeType, String.class, name);
+        }
         Class<? extends java.lang.annotation.Annotation> marker;
         if (JsonExtensionDataAttributeName.equals(attributeName)) {
             marker = CompatJsonExtensionData.class;
@@ -72,6 +80,43 @@ public final class CustomAttributeExtensions {
             java.lang.reflect.Constructor<T> ctor = attributeType.getDeclaredConstructor();
             ctor.setAccessible(true);
             return ctor.newInstance();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * The JSON name the member carried in C# {@code [JsonPropertyName("...")]}, or null.
+     *
+     * <p>Read from the getter first, then the setter, then the backing field — the converter emits
+     * the marker on the accessor (see {@code PropertyTransformer}), and a field-only declaration
+     * (like {@code ClassWithPropertyFieldNamingConflictWhichThrows.ConflictingString}) carries it on
+     * the field.</p>
+     */
+    private static String compatJsonPropertyName(MemberInfo member) {
+        if (member instanceof PropertyInfo property) {
+            java.lang.reflect.Method getter = property.getGetter();
+            if (getter != null && getter.isAnnotationPresent(CompatJsonPropertyName.class)) {
+                return getter.getAnnotation(CompatJsonPropertyName.class).value();
+            }
+            MethodInfo setterInfo = property.getSetMethod();
+            java.lang.reflect.Method setter = setterInfo == null ? null : setterInfo.getMethod();
+            if (setter != null && setter.isAnnotationPresent(CompatJsonPropertyName.class)) {
+                return setter.getAnnotation(CompatJsonPropertyName.class).value();
+            }
+        } else if (member instanceof FieldInfo fieldInfo
+                && fieldInfo.getField().isAnnotationPresent(CompatJsonPropertyName.class)) {
+            return fieldInfo.getField().getAnnotation(CompatJsonPropertyName.class).value();
+        }
+        return null;
+    }
+
+    /** Builds {@code attributeType} through its single-argument constructor, or null. */
+    private static <T> T newAttribute(Class<T> attributeType, Class<?> parameterType, Object argument) {
+        try {
+            java.lang.reflect.Constructor<T> ctor = attributeType.getDeclaredConstructor(parameterType);
+            ctor.setAccessible(true);
+            return ctor.newInstance(argument);
         } catch (ReflectiveOperationException | RuntimeException e) {
             return null;
         }
