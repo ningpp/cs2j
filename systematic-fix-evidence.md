@@ -589,3 +589,33 @@ Round 8 的持久作用域之所以 10 修 8 回，就是因为它在
 
 **本轮收口**：全部实验代码已回退（含手工改动过的 `JsonPropertyInfo`/`JsonClassInfo`），
 重跑全量复核 = **790（431+359）**、零回归、`git status` 干净。
+
+### 4.17 Round 12：候选 A/B 都试了（无效），并查出补丁通道的一个真实缺口
+
+**候选 B（miss 不缓存、下次重试）——实测无效**：
+- 只加"单类型参数成员 miss 时不写 `_runtimeClassInfo`、直接 return" → `ArrayTests` 34、`ObjectTests` 66，**无变化**；
+- 再叠加"写入路径的 `LOOKUP_ARGUMENTS` 作用域"（让 `getOrAddClass` 按成员实参建条目）
+  → `ArrayTests` 反而 **34 → 35**，`ObjectTests` 不变。
+
+**原因分析**：重试的前提是"第二次读取时正确条目已存在"。但
+`getRuntimeClassInfo()` 的结果一旦被 `PropertyInfo` 持有就不会再查，
+且这一族成员的读取路径**只经过一次**该入口，所以"下次重试"实际上从不发生。
+这解释了为什么 B 无效。**候选 A/B 均可标记为已否证，勿重试。**
+
+**⚠ 本轮查出的真实缺口（重要，属于工程债）**：
+`ProjectPasses.PatchMemberClassInfoLookup` 的正则
+（`_runtimeClassInfo = getOptions().getOrAddClass(getRuntimePropertyType());`）
+在**全新生成的 `JsonPropertyInfo.java`** 上**不会命中**。验证方法：
+删除该文件 → 重跑转换器 → 生成结果**不含** `cachedClassInfoForMember` 补丁。
+即 Round 10 的"再生验证"实际是在**已手工打过补丁**的文件上重跑转换器得到的，
+掩盖了这个缺口。
+
+**当前处置**：为把树保持在已验证的 790，`JsonPropertyInfo.getRuntimeClassInfo()` 的
+Round-10 形式是**手工写回**的（与 `build-r184.log` 复核一致）。
+**下一轮必须先修这个补丁锚点**（把正则改成能匹配纯净生成物，
+例如匹配 `public JsonClassInfo getRuntimeClassInfo() {` 之后的整段，
+或在 `PatchMemberClassInfoLookup` 里对未命中做显式报错而不是静默跳过），
+否则该补丁会在任何一次真正的全量重新生成后**静默丢失**。
+
+> 同理应审计其余补丁的锚点是否同样"只在手工改过的树上命中"——
+> 这是本轮暴露出的**系统性**风险，不只是这一处。
