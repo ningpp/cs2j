@@ -1,4 +1,4 @@
-﻿﻿﻿﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -913,17 +913,25 @@ public class StructTransformer : ITypeTransformer
             }
             else
             {
-                var sb = new System.Text.StringBuilder();
-                sb.AppendLine($"{typeName} copy = {newExpr};");
+                // A final field cannot be assigned after construction ("cannot assign a value to
+                // final variable"), so a field-wise copy has to go through a constructor that takes
+                // every field. Emitting one keeps clone() faithful instead of silently dropping the
+                // final fields it cannot write — measured: ArrayEnumerator.clone() copied only
+                // _curIdx, so the copy had _target == null and _endIdxOrVersion == 0, moveNext()
+                // returned false at once, and iterating a parsed JSON array yielded no elements.
+                var ctor = new JavaConstructorDeclaration
+                {
+                    ClassName = javaClass.Name,
+                    Modifiers = JavaModifiers.Private,
+                    Body = string.Join("\n", instanceFields.Select(f => $"this.{f.Name} = {f.Name};"))
+                };
                 foreach (var field in instanceFields)
                 {
-                    if ((field.Modifiers & JavaModifiers.Final) == 0)
-                    {
-                        sb.AppendLine(BuildFieldCopyLine(field, structFieldNames));
-                    }
+                    ctor.Parameters.Add(new JavaParameter(field.Type, field.Name));
                 }
-                sb.Append("return copy;");
-                cloneBody = sb.ToString();
+                javaClass.Constructors.Add(ctor);
+
+                cloneBody = $"return new {typeName}({string.Join(", ", instanceFields.Select(f => $"this.{f.Name}"))});";
             }
         }
         else
