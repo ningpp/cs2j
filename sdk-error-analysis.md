@@ -907,5 +907,32 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **提交**: a065cec8 + 层声明补充提交。
 - **下一轮**: 转换器缓存按裸类共享（`JsonSerializerOptions._converters`）导致的跨测试污染——同裸类不同实参的转换器互相复用；这是集合簇剩余项与 `readListOfArray`"单独跑过、全量跑挂"的直接原因。
 
+## Iteration 50 — `IEnumerable<T> : IEnumerable` 桥接（官方 879 → 869，零回归）
+
+- **现象**: `CollectionTests.writePrimitiveQueue` 期望 `[1,2]`，实得 `{"Count":2,"SyncRoot":{},"IsSynchronized":false,"Empty":false}`——非泛型队列/栈被**当成 POCO 序列化**。
+- **根因分析（探针链，逐步排除）**:
+  1. `ObjQueueProbe`：`TypeHelper.isAssignableFrom(CSharpGenericIterable.class, CSharpObjQueue.class) == false`；`options.getConverter(CSharpObjQueue.class)` 返回 `ObjectDefaultConverter`。
+  2. `ObjQueueProbe2`：`IEnumerableConverterFactory.canConvert(CSharpObjQueue) == false`，而 `ObjectConverterFactory.canConvert == true` ⇒ 集合工厂根本没接手（不是工厂顺序问题）。
+  3. 对照：`isAssignableFrom(CSharpIterable, CSharpObjQueue) == true`——类型只实现了**非泛型** compat 树。
+- **修复**: `isAssignableFrom(CSharpGenericIterable, type)` 增加整棵非泛型树的桥接（`CSharpIterable.isAssignableFrom(type)`）。这正是 .NET `IEnumerable<T> : IEnumerable` 的语义；原有桥接只覆盖了若干接口名与具体类名，漏掉"实现了非泛型树的转换产物"。
+- **Red/Green 验证**: 新增 `TypeHelperNonGenericIterableAssignabilityTest`；把桥接短路为 `if (false)` 后 `nonGenericCollection_IsAssignableToGenericIterable` **红**（`expected: <true> but was: <false>`），恢复后**绿**。端到端：修复前 `serialized = {"Count":2,...}`，修复后 `serialized = [1,2]` ✓。
+- **官方验证（有效测量）**: 编译零错误；全量 `Tests run: 7902, Failures: 431, Errors: 438, Skipped: 18` = **869**（上一有效值 879）；集合差 **新增通过 11 / 新增失败 0**；按类 `CollectionTests` 166→159、`DictionaryTests` 33→31、`ExtensionDataTests` 35→34。compat 全量 1717/1717 ✓。
+- **提交**: 0b07ffe8。
+
+## Iteration 51 — 两条系统性假设被测量否决（本轮负结果，已回退，供后续避免重复投入）
+
+1. **多维数组守卫（rank 标记被转换器缓存吃掉）**：`readPrimitiveArrayFail` 的第三条断言要求 `int[,]` 令牌抛 `UnsupportedOperationException`。
+   - 单测：**新 JVM 里通过**；`ArrayTests` 整类跑**仍失败**（第 221 行）。
+   - 探针 `MultiDimGuardProbe` 复现了"冷缓存抛异常 / 热缓存（先转换过 `int[][]`，两者在 Java 里是同一个 `int[].class`）不抛"的差异；
+   - 于是让 `TypeHelper.getMultiDimArrayClass` 在注册 rank 标记时**顺带从 `JsonSerializerOptions.s_defaultOptions._converters` 反射删掉该 class 的缓存项**。
+   - 结果：整类跑仍失败，**官方全量 869 → 869（中性）** ⇒ 机制判断错误（该断言失败与转换器缓存无关，或 `_converters` 不是该路径的缓存）。**已整体回退**（含临时测试），避免留下未经测量的改动。
+2. **转换器缓存查找点改写（`_converters.containsKey/get` → `ConcurrentHashMapHelper`）**：想修"同裸类不同实参的转换器互相复用"。
+   - 在 `InvocationExpressionTransformer` 用 `originalMethodName is "ContainsKey" or "TryGetValue"` + `_converters` 接收者做钩子，重新转换后**产物未变**（`JsonSerializerOptions.getConverter` 里仍是 `_converters.containsKey/get`）⇒ 该语法路径不经过此分支，钩子位置错误。**已回退**。
+
+**由此确立的两条事实（后续请直接使用）**:
+- `JsonSerializerOptions._converters` / `_classes` 的**读取点**在生成产物里是 `_converters.containsKey(x)` 与 `_converters.get(x)`；写入点走 `ConcurrentHashMapHelper.tryAdd/getOrAdd`（已在 compat 内按 `converterCacheKey` 变成"闭合泛型键"），**读写不一致**是缓存复用的结构性原因。改读取点需要先确认它由哪个 transformer 产生（`InvocationExpressionTransformer` 的 ContainsKey/TryGetValue 分支**不是**它）。
+- 生成产物里**没有任何** `TypeHelper.registerParameterizedType / registerCallSiteType / registerMemberType / closedGenericType` 调用（全仓 0 命中）⇒ 类型实参**只**由 `JsonSerializerCompat`（`TypeReference`）与 `TypeHelper.getMultiGenericArguments` 之外的路径发布；成员的声明类型实参从未被发布，`CSharpQueue<SimpleTestClass>` 这类成员因此拿到 `elementType=Object`。
+
+
 
 
