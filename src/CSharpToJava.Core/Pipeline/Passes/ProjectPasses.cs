@@ -1098,6 +1098,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchWriteElementPropertyInfo(result);
                 }
+                else if (result.FileName.EndsWith("JsonClassInfo.java", StringComparison.Ordinal))
+                {
+                    PatchElementArgumentScope(result);
+                }
             }
         }
     }
@@ -1266,6 +1270,72 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex DictionaryCreateCollectionRegex = new(
         @"state\.value\.Current = state\.value\.Current\.withReturnValue\(new CSharpDictionary<String, Object>\(\)\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Scopes the argument context to a collection's ELEMENT around the element class-info lookup.
+    /// <para>
+    /// <c>getElementClassInfo()</c> resolves the element with
+    /// <c>getOptions().getOrAddClass(getElementType())</c>, and that reaches
+    /// <c>TypeHelper.converterCacheKey</c>, which prefers <c>MEMBER_ARGUMENTS</c> — the arguments of
+    /// whichever member was read last on this thread. The element's class info is therefore keyed by
+    /// an unrelated member's arguments: for <c>CSharpGenericIList&lt;Object&gt;[]</c> the element got
+    /// a <c>CSharpGenericIList&lt;String&gt;</c> converter, and the write path then called
+    /// <c>StringConverter.write</c> on <c>Integer</c> elements ("class java.lang.Integer cannot be
+    /// cast to class java.lang.String"). Every nested collection member (<c>List&lt;List&lt;T&gt;&gt;</c>
+    /// and the whole <c>*Of*</c> family) failed the same way.
+    /// </para>
+    /// <para>
+    /// The class info records its owner's declared arguments at construction, and the element lookup
+    /// re-enters them for the duration of the call. The scope is deliberately limited to same-raw-class
+    /// nesting inside compat: applying it unconditionally made
+    /// <c>ImmutableCollectionsTests.serializeList/serializeStack</c> invoke getters on the wrong
+    /// receiver in full-suite order.
+    /// </para>
+    /// </summary>
+    private static void PatchElementArgumentScope(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (!ElementArgumentScopeCaptureRegex.IsMatch(code))
+            return;
+
+        code = ElementArgumentScopeCaptureRegex.Replace(code,
+            "        setOptions(options);\n        __cs2jOwnerTypeArguments = TypeHelper.captureDeclaredTypeArguments(type);",
+            count: 1);
+        code = ElementArgumentScopeFieldRegex.Replace(code,
+            "    private java.lang.reflect.Type[] __cs2jOwnerTypeArguments = new java.lang.reflect.Type[0];\n    public Class getElementType() {",
+            count: 1);
+        code = ElementArgumentScopeLookupRegex.Replace(code, ElementArgumentScopeLookupReplacement, count: 1);
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private const string ElementArgumentScopeLookupReplacement =
+        "        Class __cs2jElement = getElementType();\n"
+        + "        Object __cs2jCtx = TypeHelper.pushArgumentContext(getType(), __cs2jElement, __cs2jOwnerTypeArguments);\n"
+        + "        Object __cs2jScope = TypeHelper.beginElementArgumentsScope(getType(), __cs2jElement, "
+        + "TypeHelper.elementArgumentsOfOwner(__cs2jOwnerTypeArguments));\n"
+        + "        try {\n"
+        + "        _elementClassInfo = getOptions().getOrAddClass(__cs2jElement);\n"
+        + "        } finally {\n"
+        + "        TypeHelper.endElementArgumentsScope(__cs2jScope);\n"
+        + "        TypeHelper.popArgumentContext(__cs2jCtx);\n"
+        + "        }";
+
+    private static readonly System.Text.RegularExpressions.Regex ElementArgumentScopeCaptureRegex = new(
+        @"(?<indent>[ \t]*)setOptions\(options\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private static readonly System.Text.RegularExpressions.Regex ElementArgumentScopeFieldRegex = new(
+        @"(?<indent>[ \t]*)public Class getElementType\(\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private static readonly System.Text.RegularExpressions.Regex ElementArgumentScopeLookupRegex = new(
+        @"(?<indent>[ \t]*)_elementClassInfo = getOptions\(\)\.getOrAddClass\(getElementType\(\)\);",
         System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>

@@ -489,6 +489,137 @@ public final class TypeHelper {
             return fallback;
         }
     }
+    /**
+     * Narrows the "current member" argument context to a collection's ELEMENT for the duration of
+     * an element class-info lookup.
+     *
+     * <p>{@code JsonClassInfo.getElementClassInfo()} resolves the element with
+     * {@code getOptions().getOrAddClass(getElementType())}, and that call reaches
+     * {@link #converterCacheKey}, which <em>prefers {@code MEMBER_ARGUMENTS}</em> — the arguments of
+     * whichever member was read last on this thread. Building the element's class info therefore
+     * keys off an unrelated member's arguments: for {@code CSharpGenericIList<Object>[]} the element
+     * gets a {@code CSharpGenericIList<String>} converter and the write path then calls
+     * {@code StringConverter.write} on {@code Integer} elements
+     * ("class java.lang.Integer cannot be cast to class java.lang.String").</p>
+     *
+     * <p>While the element's own declared arguments are known they are installed as the member
+     * arguments, so the element's converter is built and cached for the type it actually is. The
+     * previous context is restored by {@link #endElementArgumentsScope(Object)}; a null token means
+     * nothing was changed.</p>
+     */
+    public static Object beginElementArgumentsScope(Class<?> ownerType, Class<?> elementType, java.lang.reflect.Type[] declaredArgs) {
+        if (elementType == null || declaredArgs == null || declaredArgs.length == 0) {
+            return null;
+        }
+        // Only a SAME-RAW-CLASS nesting (List<List<short>>, Queue<Queue<int>>) needs the element's
+        // own arguments here. For every other element the ambient context is what the element's
+        // converter was built with, and overriding it perturbs unrelated members: with the scope
+        // applied unconditionally, ImmutableCollectionsTests.serializeList/serializeStack started
+        // invoking SimpleTestClass getters on a String receiver once the suite ran in its normal
+        // order (they passed in isolation). Keeping the scope to same-raw-class nesting captures the
+        // whole nested-collection cluster without touching the rest.
+        if (ownerType == null || ownerType != elementType) {
+            return null;
+        }
+        java.lang.reflect.Type[] savedMember = MEMBER_ARGUMENTS.get().put(elementType, declaredArgs);
+        java.lang.reflect.Type[] savedConsumed = CONSUMED_ARGUMENTS.get().remove(elementType);
+        trace("beginElementArgumentsScope(" + elementType.getSimpleName() + ") = " + java.util.Arrays.toString(declaredArgs));
+        return new Object[] { elementType, savedMember, savedConsumed };
+    }
+
+    /**
+     * The type arguments of the element a collection's owner arguments describe.
+     *
+     * <p>{@code List<List<short>>} is described by {@code [List<short>]}: the owner's first argument
+     * IS the element, and its own arguments ({@code [short]}) are what an element lookup must key
+     * off. For {@code ImmutableList<SimpleTestClass>} the first argument is a bare class, so the
+     * element has no arguments and the scope must stay empty — applying the OWNER's arguments there
+     * would claim {@code SimpleTestClass} is itself parameterized, and the element frame then gets a
+     * property info belonging to some other type (observed as
+     * "public short SimpleTestClass.getMyInt16() target=java.lang.String").</p>
+     *
+     * @return the element's arguments, or an empty array when it has none.
+     */
+    public static java.lang.reflect.Type[] elementArgumentsOfOwner(java.lang.reflect.Type[] ownerArgs) {
+        if (ownerArgs == null || ownerArgs.length == 0 || ownerArgs[0] == null) {
+            return new java.lang.reflect.Type[0];
+        }
+        java.lang.reflect.Type first = ownerArgs[0];
+        if (first instanceof java.lang.reflect.ParameterizedType pt) {
+            java.lang.reflect.Type[] args = pt.getActualTypeArguments();
+            if (args.length > 0) {
+                return args;
+            }
+        }
+        if (first instanceof java.lang.reflect.GenericArrayType gat
+            && gat.getGenericComponentType() instanceof java.lang.reflect.ParameterizedType cpt) {
+            return cpt.getActualTypeArguments();
+        }
+        return new java.lang.reflect.Type[0];
+    }
+
+    /**
+     * Reinstates the argument context of a class info's OWNER inside an element lookup scope.
+     *
+     * <p>{@code JsonClassInfo} stores the owner's declared arguments at construction (see
+     * {@link #captureDeclaredTypeArguments}) and re-enters them here, so the nested lookups the
+     * element lookup performs still see the collection's arguments rather than whatever member the
+     * thread happened to touch last.</p>
+     */
+    public static Object pushArgumentContext(Class<?> ownerType, Class<?> elementType, java.lang.reflect.Type[] ownerArgs) {
+        if (ownerType == null || ownerType != elementType || ownerArgs == null || ownerArgs.length == 0) {
+            return null;
+        }
+        java.util.Map<Class<?>, java.lang.reflect.Type[]> savedMember = new java.util.HashMap<>(MEMBER_ARGUMENTS.get());
+        java.util.Map<Class<?>, java.lang.reflect.Type[]> savedConsumed = new java.util.HashMap<>(CONSUMED_ARGUMENTS.get());
+        MEMBER_ARGUMENTS.get().clear();
+        CONSUMED_ARGUMENTS.get().clear();
+        return new Object[] { savedMember, savedConsumed };
+    }
+
+    /** Undoes {@link #pushArgumentContext(java.lang.reflect.Type[])}. */
+    public static void popArgumentContext(Object token) {
+        if (!(token instanceof Object[] entry) || entry.length != 2) {
+            return;
+        }
+        @SuppressWarnings("unchecked")
+        java.util.Map<Class<?>, java.lang.reflect.Type[]> savedMember = (java.util.Map<Class<?>, java.lang.reflect.Type[]>) entry[0];
+        @SuppressWarnings("unchecked")
+        java.util.Map<Class<?>, java.lang.reflect.Type[]> savedConsumed = (java.util.Map<Class<?>, java.lang.reflect.Type[]>) entry[1];
+        MEMBER_ARGUMENTS.get().clear();
+        MEMBER_ARGUMENTS.get().putAll(savedMember);
+        CONSUMED_ARGUMENTS.get().clear();
+        CONSUMED_ARGUMENTS.get().putAll(savedConsumed);
+    }
+
+    /**
+     * The declared type arguments resolution would use for {@code type} right now, without consuming
+     * anything. {@code JsonClassInfo} stores this at construction so an element lookup performed much
+     * later (after other members have overwritten the context) can still key off this class info's
+     * own arguments.
+     */
+    public static java.lang.reflect.Type[] captureDeclaredTypeArguments(Class<?> type) {
+        java.lang.reflect.Type[] args = currentGenericArgumentsLayer(type);
+        return args == null ? new java.lang.reflect.Type[0] : args.clone();
+    }
+
+
+    /** Undoes {@link #beginElementArgumentsScope(Class, java.lang.reflect.Type[])}. */
+    public static void endElementArgumentsScope(Object token) {
+        if (!(token instanceof Object[] entry) || entry.length != 3) {
+            return;
+        }
+        Class<?> elementType = (Class<?>) entry[0];
+        if (entry[1] == null) {
+            MEMBER_ARGUMENTS.get().remove(elementType);
+        } else {
+            MEMBER_ARGUMENTS.get().put(elementType, (java.lang.reflect.Type[]) entry[1]);
+        }
+        if (entry[2] != null) {
+            CONSUMED_ARGUMENTS.get().put(elementType, (java.lang.reflect.Type[]) entry[2]);
+        }
+    }
+
     /** Opt-in diagnostics: {@code -Dcs2j.trace.typeargs=true} traces type-argument resolution. */
     private static final boolean TRACE_TYPE_ARGS = Boolean.getBoolean("cs2j.trace.typeargs");
 
