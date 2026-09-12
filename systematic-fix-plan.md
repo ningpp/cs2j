@@ -389,6 +389,54 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | 元素类信息按实参作用域查找 | R1 | 855 → 934 |
 | 成员键创建 + 自身实参元素类型 | R41 | **737 → 756**（本节） |
 
+### 8.2.3 Round 43 已实测**中性**（勿重复）
+
+Round 43 试了一条看起来最像"属性桥"缺口的线索，实测**逐用例集合完全不变**，已回滚：
+
+| 尝试 | 结果 | 原因（已查明） |
+|---|---|---|
+| 把 `[JsonConverter]`（含 `typeof(X)`）物化成 `@CompatJsonConverter` + compat 物化 | **674 → 674，集合完全相同** | **成员级 `[JsonConverter]` 的通路根本没被走到** |
+
+**为什么中性（这是本轮最有价值的发现）**：实测在
+`CustomAttributeExtensions.getCustomAttributes` 上打点，`PocoWithInvalidConverter.MyInt`
+**确实**被查了属性，但 `JsonConverterAttribute` 的查询**从未进入**
+`materializeFromCompatAnnotation`。也就是说
+`JsonSerializerOptions.determineConverter(memberInfo)`（第 273 行，成员级
+`[JsonConverter]` 的唯一入口）在这条序列化路径上没有被调用；走的是
+`getConverter(runtimePropertyType)`（第 279 行）→ 第 328 行的**类型级**查询。
+所以 21 条 `CustomConverterTests` 的 "No exception thrown" **不是缺标记**，
+而是**成员级转换器属性通路缺失**。
+
+**下一步若要碰这一簇**：先确认 `determineConverter` 的调用点，而不是再加标记。
+
+### 8.2.4 下一个**有依据**的目标：无公开构造函数的集合（Round 43 定位，未实施）
+
+**症状**：`Assert.throws() failure: No exception thrown | Expected: java.lang.UnsupportedOperationException`，
+共 **10 条**（`CollectionTests.read_Generic_NoPublicConstructor_Throws` 6 条、
+`read_ConcurrentCollection_NoPublicConstructor_Throws` 2 条，另 2 条同类）。
+
+**C# 语义**：`JsonSerializer.Deserialize(json, type)` 对
+`GenericQueueWrapperPrivateConstructor<T>` / `...InternalConstructor<T>` 这类
+**没有公开无参构造函数**的集合类型必须抛 `NotSupportedException`，且消息含类型名。
+
+**已定位的注入点**（不是猜的）：
+
+- `ListOfTConverter.createCollection` 已经会抛异常，但条件是
+  `getJsonClassInfo().getCreateObject() == null`——而**现在它不是 null**，
+  所以异常不发。
+- `createObject` 由 `getMemberAccessorStrategy().createConstructor(type)` 建立
+  （见 `JsonClassInfo` 构造里的 `setCreateObject(...)`）。
+- **compat 已有正确的判据**：`TypeHelper.getConstructorInfo(Public|Instance)` 对
+  公开类的私有/内部构造函数**正确返回 null**（Round 14 已证），
+  所以"有没有公开无参构造"在 Java 侧**是可知的**，不是信息缺失。
+- 因此路线是：给 `createConstructor` 补一条"无公开无参构造 → 返回 null"
+  （或让 `createObject` 为 null），让既有的抛异常分支自然生效；
+  **不要去改 createCollection 的抛异常逻辑**。
+
+**风险**：`createObject` 被多处使用，收紧后可能影响抽象/接口集合的既有报错路径
+（本仓库已有 `AbstractCollection` 簇）。**必须**用逐用例集合差验证，并先用
+`mvn -o surefire:test -f system-text-json-tests/pom.xml "-Dtest=CollectionTests#read_Generic_NoPublicConstructor_Throws"` 隔离验证。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
