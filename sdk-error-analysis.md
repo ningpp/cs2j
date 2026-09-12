@@ -773,3 +773,9 @@ if (propertySymbol.GetAttributes().Any(a =>
 3. 仍按两步法验证：`dotnet build` + Step 1 ⇒ `Select-String 'CompatJsonExtensionData'` 命中数必须 > 0，才进入 dotnet 全量与官方 Step 2。
 
 - **(b) 字段侧无阻碍（实测）**: `JavaFieldDeclaration`（`src/CSharpToJava.Core/Java/JavaMemberDeclaration.cs:20`）已有 `public List<JavaAnnotation> Annotations { get; } = new();` ⇒ 字段发射 `@CompatJsonExtensionData` 与属性侧同构，可直接实现（无需改用 FieldInfo 回退方案）。下一轮两处编辑：①手写属性分支（照抄同文件 `AttributeClass?.Name == "JsonExtensionDataAttribute"` 写法）；②字段产出点加同一注解。
+## Iteration 39 — (b) 首个发射生效但净负（−4），已回退：注解已到 80 处，扩展数据通路本身仍不完整
+
+- **发射成功**: 把符号解析改为 context.GetDeclaredSymbol(propDecl)（与相邻 DebuggerBrowsable 块一致），并改按 AttributeClass?.Name == "'"JsonExtensionDataAttribute"'" 匹配后，生成产物出现 **80 处** @CompatJsonExtensionData ✓ ⇒ 上一轮 0 命中的原因正是该分支的 propertySymbol 参数为 null。
+- **验证**: dotnet 3154+58 全绿 ✓；Step 1 618/0 ✓；Step 2 **编译零错误** ✓；**官方 933（431F + 502E）** vs 929 ⇒ **新增失败 4 / 新增通过 0** ✗（失败数 442→431 下降，但错误数 487→502 上升）。
+- **判读**: 注解与翻译层都已工作（属性现在被识别为扩展数据），但扩展数据在 Java 侧的**读写通路本身不完整**（对象默认转换器 / JsonClassInfo 对 extension data 的处理），于是识别成功反而把 4 个用例推进了未实现的路径 ⇒ 单靠特性标注不足以拿到 16+ 项收益，需要连同扩展数据的读写实现一起补齐。
+- **已回退**该发射（工作区回到 929）；compat 侧翻译层保留（1640/1640、无副作用），可在补齐通路后复用。
