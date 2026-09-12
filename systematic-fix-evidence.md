@@ -473,3 +473,49 @@ Round 3 试过"元素类信息取自活转换器"→ 5 修复 / 1 回归、总�
 即 `getRuntimeClassInfo()` 用成员实参建外层，而**元素查找必须切换到
 `elementArgumentsOfOwner(成员实参)`**（这正是 Round 5 已有、且已验证正确的推导），
 两者不能共用同一个作用域。下一轮应把这两级显式分开，再单类验证后再全量。
+
+### 4.14 Round 9：用 trace 把"实参在什么时候被覆盖"钉死了
+
+给 `registerMemberType` 加 trace（`-Dcs2j.trace.typeargs=true`，跑 `NestedListProbe`），
+得到**按时间顺序**的完整发布序列：
+
+```
+registerMemberType(CSharpList) <- [CSharpList<Integer>]              <- 可能是 IList<int> 之类
+converterCacheKey(CSharpList)  = CSharpList[CSharpList<Integer>]     [member layer]
+registerMemberType(CSharpList) <- [CSharpList<CSharpList<Integer>>]  <- 二维成员，正确发布
+converterCacheKey(CSharpList)  = CSharpList[CSharpList<CSharpList<Integer>>] [member layer]
+registerMemberType(CSharpList) <- [class java.lang.String]           <- 单层 List<string> 成员
+converterCacheKey(CSharpList)  = CSharpList[class java.lang.String] [member layer]
+... 之后全部是 [class java.lang.String] ...
+```
+
+**结论（本轮的核心事实）**：二维成员的实参**发布是对的**（第 2 行），
+但 `MEMBER_ARGUMENTS` 是"每裸类一个槽"，**后反射到的 `List<string>` 成员把它覆盖成 `[String]`**。
+到读取阶段 `getRuntimeClassInfo()` 才去查，此时槽位里已经是 `[String]`——
+所以 Round 7 探针看到"第一次算 key 就是 `[String]`"完全解释得通：
+**不是查询时被覆盖，而是查询发生得太晚，槽位早就被后来的成员改掉了。**
+
+**为什么 Round 8 的"显式作用域"会自我拆台（补充机理）**：
+`getOrAddClass(type)` 内部用 `new JsonClassInfo(type, this)` 建实例，而构造函数里
+**元素查找也在同一个作用域内**（§4.13 已述）。若外层作用域持久生效，
+元素查找就会拿外层实参（`[[Short]]`）去查，命中外层自己，`_elementClassInfo` 指向父级——
+这正好解释了 Round 8 的 10 修复 / 8 回归。
+
+**下一轮的正确做法（设计已定，尚未实现）**：
+
+1. `registerMemberType(type, member)` 增加 member 参数（`PropertyInfo`/`FieldInfo` 传 `this`），
+   把每个成员的实参**按成员**记进 `MEMBER_DECLARED_ARGUMENTS`；
+2. 新增 `TypeHelper.classInfoKeyForMember(member, rawType)`，用**成员自己的实参**算出
+   `ClosedGenericKey`；
+3. `JsonPropertyInfo.getRuntimeClassInfo()` 改成：
+   **先算一次 key（用成员实参）→ `_classes.get(key)` 命中就直接返回 → 未命中才回落
+   `getOptions().getOrAddClass(runtimePropertyType)`**。
+   即：**只把 key 算对，不去改 `getOrAddClass` 内部的作用域**，从而完全避开
+   "外层/元素共用作用域"的自拆台问题；
+4. 未命中时的建实例路径仍走原有逻辑（元素查找由 Round 5 的 same-raw-class 作用域负责）。
+
+关键点：**命中路径必须只做一次 `get`**，不能落进 `getOrAddClass`，
+否则又会在建实例时触发元素查找。实现时要把这条写进补丁与注释。
+
+**本轮收口**：所有 trace 与实验代码已回退，`git checkout -- java/` 后重装 compat、
+重跑全量复核 = **794（431+363）**，与 Round 6 收口一致，零未验证残留。
