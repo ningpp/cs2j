@@ -1561,3 +1561,40 @@ beginMemberArgumentScope(MyStringList)CSharpList = [class java.lang.String]
 
 **探针清理方式**：按 §4.41 的规则，**删除生成的 `JsonPropertyInfo.java` 并用转换器重新生成**
 （未使用按行过滤）。复核 = **723（430+293）**、`git status` 干净。
+
+### 4.43 Round 39：**诊断完成**——正确键的条目**从未被创建**
+
+按 §4.42 的下一步，在 `getRuntimeClassInfo` 处 dump `_classes` 中所有含 `CSharpList` 的键：
+
+```
+[cs2j.keys] [io.github.ningpp.compat.CSharpList[class java.lang.String]]
+```
+
+**只剩 `CSharpList[String]` 一个键**。`CSharpList[CSharpList<Integer>]` **根本不存在**。
+
+**至此这一族的诊断完全闭合，四个事实互相印证**：
+
+| 轮次 | 事实 |
+|---|---|
+| §4.31 | 正确键（`CSharpList[CSharpList<Integer>]`）在该次查找时 `found=false` |
+| §4.34 | 把预热期实参槽位改对 → **对失败数无影响** |
+| §4.38 | 实参已确证正确，`getOrAddClass` **仍返回 `String` 那一格** |
+| **§4.43（本轮）** | 那一刻 `_classes` 里**只有 `String` 那一格** |
+
+**结论**：`getOrAddClass` 不是"选错了格子"，而是**唯一存在的那一格就是错的**——
+**该成员的正确条目从未被创建过**。所以后续一切查找都只能落到 `String` 上，
+这也解释了为什么改实参、改查表键、改时机**都无效**：**没有东西可命中**。
+
+**因此问题的正确形态是**：
+> **预热期到底由谁创建类信息，为什么跳过了 `List<List<short>>` 这个成员？**
+
+这是与前面所有尝试**不同层级**的问题（"创建缺失"而非"查找错误"），
+且**不能**在读路径或参数槽位上解决——两者都已实测无效。
+
+**下一轮的测量动作**：
+在 `JsonSerializerOptions.getOrAddClass` 里打印 `type` 与算出的 `cacheKey`
+（每次创建时一行），跑 `NestedListProbe`，观察二维成员**是否曾经走到创建**：
+- 若从未走到 → 上游（属性/成员解析）就把它跳过了，去查那一层；
+- 若走到但键是别的 → 该次算 key 的输入仍不对，回到 §4.15 的成员实参通路。
+
+**收口**：探针按规则用"删文件 + 重新生成"清除；复核 = **723（430+293）**、`git status` 干净。
