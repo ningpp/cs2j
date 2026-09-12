@@ -619,3 +619,33 @@ Round-10 形式是**手工写回**的（与 `build-r184.log` 复核一致）。
 
 > 同理应审计其余补丁的锚点是否同样"只在手工改过的树上命中"——
 > 这是本轮暴露出的**系统性**风险，不只是这一处。
+
+### 4.18 Round 13：缺口的真正原因是**后缀遮蔽**（已修复，并已审计全部补丁）
+
+**根因（比 Round 12 的判断更准确）**：不是正则写错，而是**分派顺序**——
+
+```java
+result.FileName.EndsWith("JsonPropertyInfo.java")   // 例如 .../JsonPropertyInfo.java
+result.FileName.EndsWith("PropertyInfo.java")       // ← 上面那个串也以它结尾！
+```
+
+`"JsonPropertyInfo.java".endsWith("PropertyInfo.java") == true`，
+所以 `PropertyInfo`/`FieldInfo` 那条分支**先命中并吞掉了** `JsonPropertyInfo`，
+`PatchMemberClassInfoLookup` **从未在纯净生成物上运行过**。
+这精确解释了 Round 12 观察到的现象：补丁只存在于**已经手工改过**的树上。
+
+**修复与验证**：
+1. 把**更具体**的后缀判断放到**前面**（并加注释说明顺序为何重要）；
+2. **删除**生成的 `JsonPropertyInfo.java` → 重跑转换器 →
+   现在**补丁出现在纯净生成物上**（第 373 行 `cachedClassInfoForMember`）；
+3. **审计全部 14 处 `EndsWith` 分派**，用脚本枚举"后缀互为前后缀"的配对：
+   只有这一对，且修复后顺序正确（`ok (tested first)`）；
+4. `PatchMemberClassInfoLookup` 锚点失配时**改为大声报错**（`Console.Error`）
+   而不是静默 `return`——这类"静默失效"正是能潜伏很多轮的缺陷。
+
+**收口复核**：真正的全量重新生成后重跑全量 = **790（431+359）**、零回归。
+其余补丁（`JsonClassInfo:246` 元素作用域、3 处写路径、`IEnumerableConverterFactoryHelpers`、
+`IDictionaryConverter`）在同一轮里一并确认仍在位。
+
+> **工程结论**：补丁通道本身是可靠的，但"用文件名后缀分派"天然有前后缀遮蔽风险。
+> 本次已把该风险显式化（顺序 + 注释 + 审计脚本 + 失配报错），后续新增补丁必须沿用同一约定。
