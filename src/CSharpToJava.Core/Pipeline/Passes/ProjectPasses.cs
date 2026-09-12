@@ -1127,9 +1127,63 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchSerializeRegistryReset(result);
                 }
+                else if (result.FileName.EndsWith("ThrowHelper.java", StringComparison.Ordinal))
+                {
+                    PatchAttributeLocationFormatting(result);
+                }
             }
         }
     }
+
+    /// <summary>
+    /// Builds the SDK's "Type.Member" attribute-validation location from the C# type name.
+    /// <para>
+    /// The generated code used <c>classType.toString()</c>, which renders a Java <c>class</c> prefix
+    /// and a <c>$</c> for a nested type, so the message read
+    /// <c>class ...CustomConverterTests$PocoWithInvalidConverter.MyInt</c> where the SDK asserts
+    /// <c>...CustomConverterTests+PocoWithInvalidConverter.MyInt</c>. The validation itself fired
+    /// correctly, so only the spelling was wrong — but the assertion is an
+    /// <c>Assert.Contains</c> on that exact substring, so the whole test failed.
+    /// </para>
+    /// </summary>
+    private static void PatchAttributeLocationFormatting(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (!AttributeLocationRegex.IsMatch(code))
+            return;
+        // Both methods in ThrowHelper share this first statement, and each needs its own argument
+        // name, so replace one occurrence at a time. The helper already appends the member name,
+        // so the follow-up "location += ..." that the generated code performs is removed as well —
+        // leaving it appended the member twice (measured: "...PocoWithInvalidConverter.MyInt.MyInt").
+        var replaced = 0;
+        code = AttributeLocationRegex.Replace(code, match =>
+        {
+            replaced++;
+            return "        String location = io.github.ningpp.compat.TypeHelper.getMemberLocation("
+                + match.Groups["type"].Value + ", memberInfo);";
+        });
+        if (replaced == 0)
+            return;
+
+        code = AttributeLocationAppendRegex.Replace(code, string.Empty);
+
+        result.GeneratedCode = code;
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex AttributeLocationRegex = new(
+        @"        String location = (?<type>[A-Za-z_][A-Za-z0-9_]*)\.toString\(\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Removes the generated <c>if (memberInfo != null) { location += "." + memberInfo.getName(); }</c>
+    /// that follows the replaced statement, because the compat helper already appends the member.
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex AttributeLocationAppendRegex = new(
+        @"        if \(memberInfo != null\) \{\r?\n        location \+= [^\r\n]*;\r?\n        \}\r?\n",
+        System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>
     /// Clears the per-thread type-argument registries at the <c>serialize(Class, value, options)</c>

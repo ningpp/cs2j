@@ -1778,6 +1778,29 @@ public final class TypeHelper {
     }
 
     /**
+     * The C#-style "Type.Member" location the SDK embeds in attribute-validation messages:
+     * {@code dotnet.text.json.Serialization.Tests.CustomConverterTests+PocoWithInvalidConverter.MyInt}.
+     *
+     * <p>{@code Class.toString()} renders a Java {@code class} prefix and a {@code $} for a nested
+     * type, so a message built from it reads
+     * {@code class ...CustomConverterTests$PocoWithInvalidConverter.MyInt} — close enough to look
+     * right but not the string the tests assert. {@link #getFullName} already carries the C# name,
+     * including nested-type spelling, so the location is assembled from that instead.</p>
+     */
+    public static String getMemberLocation(Class<?> type, MemberInfo memberInfo) {
+        String location = getFullName(type);
+        if (location != null) {
+            // C# spells a nested type with '+'; Java's Class.getName() uses '$'. The SDK asserts
+            // the C# spelling, so both spellings of the separator have to be normalised.
+            location = location.replace('$', '+');
+        }
+        if (memberInfo != null && memberInfo.getName() != null) {
+            location += "." + memberInfo.getName();
+        }
+        return location;
+    }
+
+    /**
      * Mirrors C# {@code Type.Assembly}, {@code MemberInfo.Assembly}, and
      * {@code Module.Assembly} — returns the declaring assembly as an
      * {@link AssemblyCompat} instead of {@link java.lang.Package}.
