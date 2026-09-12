@@ -311,46 +311,54 @@ public class JavaScriptEncoder {
         int consumed = 0;
         while (consumed < source.length()) {
             int ch = source.get(consumed);
-            if (needsEscapingUtf16(ch)) {
-                String shortEsc = (ch < 0x80) ? asciiEscape(ch) : null;
-                int escapeLen = shortEsc != null ? shortEsc.length() : 6;
-                if (written + escapeLen > destination.length()) {
+            int scalar;
+            int consumedNext;
+            if (Character.isHighSurrogate((char) ch)
+                    && consumed + 1 < source.length()
+                    && Character.isLowSurrogate((char) (int) source.get(consumed + 1))) {
+                // A valid pair is ONE scalar; .NET escapes supplementary scalars as the two
+                // backslash-u units of the pair and never as a raw 4-byte sequence.
+                scalar = Character.toCodePoint((char) ch, (char) (int) source.get(consumed + 1));
+                consumedNext = consumed + 2;
+            } else if (Character.isSurrogate((char) ch)) {
+                // A LONE surrogate is invalid UTF-16, so .NET's encoder replaces it with U+FFFD —
+                // it never emits the surrogate itself. Measured before this fix: writing the
+                // property name {0xD801,'a'} produced "\ud801a" where .NET produces "\uFFFDa".
+                scalar = 0xFFFD;
+                consumedNext = consumed + 1;
+            } else {
+                scalar = ch;
+                consumedNext = consumed + 1;
+            }
+            if (willEncode(scalar)) {
+                String esc = escapeScalarText(scalar, charBacked);
+                if (written + esc.length() > destination.length()) {
                     return OperationStatus.DestinationTooSmall;
                 }
-                if (shortEsc != null) {
+                for (int k = 0; k < esc.length(); k++) {
+                    // Separate branches: a ternary mixing char and int degrades to the
+                    // set(int, Object) overload and blows up with ArrayStoreException on a
+                    // char-backed destination span.
                     if (charBacked) {
-                        for (int k = 0; k < shortEsc.length(); k++) {
-                            destination.set(written++, shortEsc.charAt(k));
-                        }
+                        destination.set(written++, esc.charAt(k));
                     } else {
-                        byte[] escBytes = shortEsc.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-                        for (byte e : escBytes) {
-                            destination.set(written++, e & 0xFF);
-                        }
-                    }
-                } else if (charBacked) {
-                    destination.set(written++, '\\');
-                    destination.set(written++, 'u');
-                    destination.set(written++, Character.forDigit((ch >> 12) & 0xF, 16));
-                    destination.set(written++, Character.forDigit((ch >> 8) & 0xF, 16));
-                    destination.set(written++, Character.forDigit((ch >> 4) & 0xF, 16));
-                    destination.set(written++, Character.forDigit(ch & 0xF, 16));
-                } else {
-                    byte[] escaped = ("\\u" + String.format("%04X", ch)).getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-                    for (byte e : escaped) {
-                        destination.set(written++, e & 0xFF);
+                        destination.set(written++, (int) (esc.charAt(k) & 0xFF));
                     }
                 }
-                consumed++;
+                consumed = consumedNext;
                 continue;
             }
             if (charBacked) {
-                if (written >= destination.length()) {
+                if (written + (consumedNext - consumed) > destination.length()) {
                     return OperationStatus.DestinationTooSmall;
                 }
                 destination.set(written++, (char) ch);
+                if (consumedNext - consumed == 2) {
+                    destination.set(written++, (char) (int) source.get(consumed + 1));
+                }
             } else {
-                byte[] utf8 = new String(Character.toChars(ch)).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                byte[] utf8 = new String(Character.toChars(scalar))
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
                 if (written + utf8.length > destination.length()) {
                     return OperationStatus.DestinationTooSmall;
                 }
@@ -358,11 +366,30 @@ public class JavaScriptEncoder {
                     destination.set(written++, e & 0xFF);
                 }
             }
-            consumed++;
+            consumed = consumedNext;
         }
         charsConsumed.value = consumed;
         bytesWritten.value = written;
         return OperationStatus.Done;
+    }
+
+    /**
+     * The escaped text for one Unicode scalar: a short form for ASCII, otherwise a
+     * {@code backslash-u} escape — two units for a supplementary scalar, one for everything else.
+     */
+    private String escapeScalarText(int scalar, boolean charBacked) {
+        if (scalar < 0x80) {
+            String shortEsc = asciiEscape(scalar);
+            if (shortEsc != null) {
+                return shortEsc;
+            }
+        }
+        if (scalar > 0xFFFF) {
+            char[] pair = Character.toChars(scalar);
+            return "\\u" + String.format("%04X", (int) pair[0])
+                + "\\u" + String.format("%04X", (int) pair[1]);
+        }
+        return "\\u" + String.format("%04X", scalar);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
