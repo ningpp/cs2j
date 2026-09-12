@@ -908,3 +908,34 @@ state.value.Current.DeclaredJsonPropertyInfo =
 **下一轮方向**：修那 5 项——字典类的转换器需要在**入口清空之后**、
 按**当前操作的成员实参**重建（与 §4.15 的成员键思路合流），
 而不是复用按类型参数边界建的实例。
+
+### 4.26 Round 20：试了"反方向"（在 deserialize 入口也清空）——**无效，已回退**
+
+假设：那 5 项回归是因为它们的上下文在**反序列化**入口被清掉了，
+所以"在 deserialize 入口也补一次 clearRegistrations"应当能补回。
+
+**实测（在共享私有入口 `deserialize(String, Class, Options, Class)` 加清空）**：
+
+| 测试类 | 基线（r202，723 状态） | 加 deserialize 侧清空 |
+|---|---:|---:|
+| `DictionaryTests` | 41 | **43（更差）** |
+| `ArrayTests` | 35 | 35 |
+| `ReferenceHandlerTests` | 77 | 77 |
+
+→ **无效且使字典类更差，已回退**；复核 = **723（430+293）**、`git status` 干净。
+
+**因此可以确定**：5 项回归**不是**"清空时机覆盖不全"，
+而是**清空之后、那些字典转换器确实被按擦除边界重建了**。
+即它们依赖**进入本次操作之前就已发布的成员/具体类型上下文**——
+这正是 §4.25 记录的"按当前操作成员实参重建"要解决的问题。
+
+**下一轮的具体动作（收窄后）**：
+1. 对 `DictionaryTests.nestedDictionariesRoundtrip` 打开 trace，打印
+   `getGenericArguments(CSharpDictionary)` 在**转换器创建时刻**返回什么：
+   是 `[String, Integer]` 还是 `[Object, Object]`；
+2. 如果是后者，定位它的 keyType/elementType 是从哪里取的——
+   若是 `MEMBER_ARGUMENTS`（已被清空），则应改为从**当前操作已注册的类型**
+   （`TYPE_ARGUMENTS`/`CALLSITE_ARGUMENTS`）或**具体类型的声明签名**
+   （compat 已有 `registerConcreteType` / `findDeclaredArgumentsFor`）取得；
+3. 修好后应能同时消除 5 项回归，并可能再带走一批
+   `JsonConvert CSharpDictionary` / `DictKeyNotSupported` 的失败。
