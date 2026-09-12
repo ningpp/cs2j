@@ -454,6 +454,41 @@ public final class TypeHelper {
         return null;
     }
 
+    /**
+     * The JsonPropertyInfo the WRITE path should install for a collection's element frame.
+     *
+     * <p>The generated write path takes it from {@code JsonClassInfo.getElementClassInfo()}, built
+     * during warm-up from the erased element {@code Class}. When several members share a raw element
+     * class with different arguments that class info can belong to another member, so the element
+     * frame receives a property of the wrong type and reflection then invokes a getter with the
+     * wrong receiver ("IllegalArgumentException: public ... getChild2IList() target=..."). The
+     * converter knows its own element type, so prefer the class info of that type.</p>
+     *
+     * <p>Reflection-only: compat cannot reference the generated SDK types. Returns the fallback when
+     * the converter does not report an element type, or when the lookup fails.</p>
+     */
+    public static Object writeElementPropertyInfo(Object converter, Object options, Object fallback) {
+        if (converter == null || options == null) {
+            return fallback;
+        }
+        try {
+            java.lang.reflect.Method getElementType = converter.getClass().getMethod("getElementType");
+            Object elementType = getElementType.invoke(converter);
+            if (!(elementType instanceof Class<?> elementClass)) {
+                return fallback;
+            }
+            java.lang.reflect.Method getOrAddClass = options.getClass().getMethod("getOrAddClass", Class.class);
+            Object elementInfo = getOrAddClass.invoke(options, toWrapperType(elementClass));
+            if (elementInfo == null) {
+                return fallback;
+            }
+            java.lang.reflect.Method getPropertyInfo = elementInfo.getClass().getMethod("getPropertyInfoForClassInfo");
+            Object propertyInfo = getPropertyInfo.invoke(elementInfo);
+            return propertyInfo != null ? propertyInfo : fallback;
+        } catch (ReflectiveOperationException ignored) {
+            return fallback;
+        }
+    }
     /** Opt-in diagnostics: {@code -Dcs2j.trace.typeargs=true} traces type-argument resolution. */
     private static final boolean TRACE_TYPE_ARGS = Boolean.getBoolean("cs2j.trace.typeargs");
 

@@ -1089,6 +1089,15 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchTransitiveInterfaceWalk(result);
                 }
+                else if (result.FileName.EndsWith("IDictionaryConverter.java", StringComparison.Ordinal))
+                {
+                    PatchDictionaryCreateCollection(result);
+                }
+                else if (result.FileName.EndsWith("DictionaryDefaultConverter.java", StringComparison.Ordinal)
+                    || result.FileName.EndsWith("IEnumerableDefaultConverter.java", StringComparison.Ordinal))
+                {
+                    PatchWriteElementPropertyInfo(result);
+                }
             }
         }
     }
@@ -1258,6 +1267,58 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
     private static readonly System.Text.RegularExpressions.Regex DictionaryCreateCollectionRegex = new(
         @"state\.value\.Current = state\.value\.Current\.withReturnValue\(new CSharpDictionary<String, Object>\(\)\);",
         System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// The generated WRITE path installs the element frame's property info from
+    /// <c>JsonClassInfo.getElementClassInfo()</c>, which warm-up built from the erased element
+    /// <c>Class</c>. When several members share a raw element class with different type arguments
+    /// that class info can belong to another member, so the element frame gets a property of the
+    /// wrong type and reflection then invokes a getter with the wrong receiver
+    /// ("IllegalArgumentException: public ... getChild2IList() target=..."). Prefer the class info of
+    /// the type the converter itself reports; compat falls back to the generated expression whenever
+    /// the converter does not know its element type.
+    /// </summary>
+    private static void PatchWriteElementPropertyInfo(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        var replaced = false;
+        foreach (var (regex, replacement) in WriteElementPropertyInfoPatches)
+        {
+            if (!regex.IsMatch(code))
+                continue;
+            code = regex.Replace(code, replacement.Replace("$", "$$"), count: 1);
+            replaced = true;
+        }
+
+        if (!replaced)
+            return;
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly (System.Text.RegularExpressions.Regex Regex, string Replacement)[] WriteElementPropertyInfoPatches =
+    {
+        // state.value.Current.DeclaredJsonPropertyInfo = state.value.Current.JsonClassInfo.getElementClassInfo().getPropertyInfoForClassInfo();
+        (new System.Text.RegularExpressions.Regex(
+            @"state\.value\.Current\.DeclaredJsonPropertyInfo = state\.value\.Current\.JsonClassInfo\.getElementClassInfo\(\)\.getPropertyInfoForClassInfo\(\);",
+            System.Text.RegularExpressions.RegexOptions.None),
+         "state.value.Current.DeclaredJsonPropertyInfo = (dotnet.text.json.JsonPropertyInfo)"
+         + "(TypeHelper.writeElementPropertyInfo(this, options, state.value.Current.JsonClassInfo."
+         + "getElementClassInfo().getPropertyInfoForClassInfo()));"),
+
+        // state.value.Current = state.value.Current.withJsonPropertyInfo(state.value.Current.getJsonClassInfo().getElementClassInfo().getPropertyInfoForClassInfo());
+        (new System.Text.RegularExpressions.Regex(
+            @"state\.value\.Current = state\.value\.Current\.withJsonPropertyInfo\("
+            + @"state\.value\.Current\.getJsonClassInfo\(\)\.getElementClassInfo\(\)\.getPropertyInfoForClassInfo\(\)\);",
+            System.Text.RegularExpressions.RegexOptions.None),
+         "state.value.Current = state.value.Current.withJsonPropertyInfo("
+         + "(dotnet.text.json.JsonPropertyInfo)(TypeHelper.writeElementPropertyInfo(this, options, "
+         + "state.value.Current.getJsonClassInfo().getElementClassInfo().getPropertyInfoForClassInfo())));"),
+    };
 
     /// <summary>Makes sure a patched file can resolve <c>TypeHelper</c>.</summary>
     private static void EnsureTypeHelperImport(ConversionResult result)
