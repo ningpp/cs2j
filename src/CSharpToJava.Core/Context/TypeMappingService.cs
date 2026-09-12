@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.TypeMapping.JavaModel;
 
@@ -498,6 +498,14 @@ public class TypeMappingService
             // C# byte[] stays Java byte[] for API compatibility
             if (arrayType.ElementType.SpecialType == SpecialType.System_Byte)
                 elementType = "byte";
+            // C# sbyte[] must NOT become byte[]: System.Text.Json writes byte[] as a Base64
+            // string and sbyte[] as a JSON array of numbers, so a byte[] member makes the
+            // serializer demand a Base64 string for JSON that is an array
+            // ("Cannot get the value of a token type 'StartArray' as a string"). int[] holds
+            // the same values and selects the integer element converter; the member is also
+            // marked with @CompatSByteArray so the compat member lookup reports int[].
+            else if (arrayType.ElementType.SpecialType == SpecialType.System_SByte)
+                elementType = "int";
             var brackets = string.Concat(Enumerable.Repeat("[]", arrayType.Rank));
             return elementType + brackets;
         }

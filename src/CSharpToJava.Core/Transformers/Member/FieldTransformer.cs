@@ -188,6 +188,14 @@ public class FieldTransformer : IMemberTransformer
                     $"CompatJsonNumberHandling({fieldNumberHandlingAttr.ConstructorArguments[0].Value})"));
                 context.AddImport("io.github.ningpp.compat.CompatJsonNumberHandling");
             }
+            // C# sbyte[] and byte[] are both byte[] in Java but serialize differently (JSON
+            // array of numbers vs. Base64 string); mark the field so the compat member lookup
+            // reports the integer element type.
+            if (fieldSymbol?.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_SByte })
+            {
+                javaField.Annotations.Add(new JavaAnnotation("CompatSByteArray"));
+                context.AddImport("io.github.ningpp.compat.CompatSByteArray");
+            }
 
             // C# structs are value types that can never be null — initialize fields
             // with default instances so Java code doesn't encounter null struct references.

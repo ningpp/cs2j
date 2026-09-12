@@ -15,6 +15,19 @@ public class ConcurrentHashMapHelper {
         // arguments to a different member. Non-class keys and classes without published
         // arguments are unaffected.
         Object effectiveKey = TypeHelper.converterCacheKey(key);
+        if (effectiveKey != key) {
+            // The generated lookup reads the ERASED class
+            // (JsonSerializerOptions.getConverter does _converters.containsKey(typeToConvert)
+            // then .get(typeToConvert)), and it cannot see the closed-generic entry. An entry
+            // that was cached for the erased class BEFORE this call's type arguments were
+            // published is therefore still readable and would answer every later lookup with
+            // the converter it was built for - e.g. a CSharpQueue<String> converter answering
+            // for a CSharpQueue<SimpleTestClass> member, which then reads the member's JSON
+            // with the String element converter ("Cannot get the value of a token type
+            // 'StartObject' as a string"). Drop it so the next lookup rebuilds with the
+            // arguments in effect.
+            map.remove(key);
+        }
         return map.putIfAbsent(effectiveKey, value) == null;
     }
 
@@ -28,13 +41,21 @@ public class ConcurrentHashMapHelper {
         // key through converterCacheKey keeps them apart when member type arguments
         // are published; classes without published arguments keep sharing one entry.
         Object effectiveKey = TypeHelper.converterCacheKey(key);
+        if (effectiveKey != key) {
+            // Mirror tryAdd: an entry readable under the erased class predates this call's
+            // type arguments, and the generated lookup can only see the erased class.
+            map.remove(key);
+        }
         return (V) map.computeIfAbsent((K) effectiveKey, k -> value);
     }
 
-    /** Mirrors ConcurrentDictionary.GetOrAdd(key, Func) — existing value or factory result. */
+    /** Mirrors ConcurrentDictionary.GetOrAdd(key, Func) — existing value or the factory result. */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static <K, V> V getOrAdd(ConcurrentHashMap<K, V> map, K key, java.util.function.Function<K, V> valueFactory) {
         Object effectiveKey = TypeHelper.converterCacheKey(key);
+        if (effectiveKey != key) {
+            map.remove(key);
+        }
         // The factory still receives the caller's key, not the closed-generic cache key.
         return (V) map.computeIfAbsent((K) effectiveKey, k -> valueFactory.apply(key));
     }

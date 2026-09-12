@@ -31,6 +31,11 @@ public final class FieldInfo implements MemberInfo {
         // converter factories fall back to type-parameter bounds (Object key/element
         // types). Publish them before handing back the raw class.
         TypeHelper.registerMemberType(field.getGenericType());
+        // C# sbyte[] and byte[] are both byte[] in Java but serialize differently (JSON array
+        // of numbers vs. Base64 string), so a marked field answers int[].class.
+        if (field.isAnnotationPresent(CompatSByteArray.class)) {
+            return int[].class;
+        }
         return TypeHelper.toWrapperType(field.getType());
     }
 

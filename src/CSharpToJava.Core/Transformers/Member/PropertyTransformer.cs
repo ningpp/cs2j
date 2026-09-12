@@ -323,6 +323,14 @@ public class PropertyTransformer : IMemberTransformer
                         $"CompatJsonNumberHandling({numberHandlingAttr.ConstructorArguments[0].Value})"));
                     context.AddImport("io.github.ningpp.compat.CompatJsonNumberHandling");
                 }
+                // C# sbyte[] and byte[] are both byte[] in Java but serialize differently
+                // (JSON array of numbers vs. Base64 string); mark the member so the compat
+                // member lookup reports the integer element type.
+                if (typeInfo.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_SByte })
+                {
+                    getter.Annotations.Add(new JavaAnnotation("CompatSByteArray"));
+                    context.AddImport("io.github.ningpp.compat.CompatSByteArray");
+                }
                 var browsableAttr = propSymbol?.GetAttributes()
                     .FirstOrDefault(a => a.AttributeClass?.Name == "DebuggerBrowsableAttribute");
                 if (browsableAttr?.ConstructorArguments.Length > 0

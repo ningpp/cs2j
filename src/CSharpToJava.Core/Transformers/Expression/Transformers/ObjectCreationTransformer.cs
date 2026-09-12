@@ -2237,6 +2237,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // C# byte[] stays Java byte[] — override element type for new byte[N]
         if (elemSemType?.SpecialType == SpecialType.System_Byte)
             elementType = "byte";
+        // C# sbyte[] maps to int[] (a byte[] member would pick the Base64 string converter
+        // and serialize the array as a string), so new sbyte[N] must allocate an int[].
+        else if (elemSemType?.SpecialType == SpecialType.System_SByte)
+            elementType = "int";
 
         // Get dimensions
         var sizes = new List<string>();

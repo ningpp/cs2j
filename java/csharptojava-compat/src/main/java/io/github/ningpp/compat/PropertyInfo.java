@@ -188,13 +188,27 @@ public final class PropertyInfo implements MemberInfo {
             // erased class alone makes converter factories fall back to type-parameter
             // bounds (Object key/element types). Publish them first.
             TypeHelper.registerMemberType(getter.getGenericReturnType());
-            return TypeHelper.toWrapperType(getter.getReturnType());
+            Class<?> sbyteArray = sbyteArrayType();
+            return sbyteArray != null ? sbyteArray : TypeHelper.toWrapperType(getter.getReturnType());
         }
         if (setter != null && setter.getParameterCount() > 0) {
             TypeHelper.registerMemberType(setter.getGenericParameterTypes()[0]);
-            return TypeHelper.toWrapperType(setter.getParameterTypes()[0]);
+            Class<?> sbyteArray = sbyteArrayType();
+            return sbyteArray != null ? sbyteArray : TypeHelper.toWrapperType(setter.getParameterTypes()[0]);
         }
         return null;
+    }
+
+    /**
+     * C# {@code sbyte[]} and {@code byte[]} are both {@code byte[]} in Java, but System.Text.Json
+     * writes the first as a JSON array of numbers and the second as a Base64 string. The converter
+     * marks the member, and the member lookup answers {@code int[].class} so the array converter
+     * uses the integer element converter (a byte-array converter would demand a Base64 string).
+     */
+    private Class<?> sbyteArrayType() {
+        boolean marked = getter != null && getter.isAnnotationPresent(CompatSByteArray.class)
+            || setter != null && setter.isAnnotationPresent(CompatSByteArray.class);
+        return marked ? int[].class : null;
     }
 
     public void setValue(Object obj, Object value) {
@@ -202,10 +216,26 @@ public final class PropertyInfo implements MemberInfo {
             throw new UnsupportedOperationException("Property has no setter");
         }
         try {
-            setter.invoke(obj, value);
+            setter.invoke(obj, adaptSByteArray(value, setter.getParameterTypes()[0]));
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * The member lookup reports {@code int[].class} for a marked {@code sbyte[]} member (see
+     * {@link #sbyteArrayType()}), so the value handed back here is an {@code int[]} while the
+     * generated field and setter are {@code byte[]}. Narrow it back on the way in.
+     */
+    private static Object adaptSByteArray(Object value, Class<?> parameterType) {
+        if (value instanceof int[] ints && parameterType == byte[].class) {
+            byte[] bytes = new byte[ints.length];
+            for (int i = 0; i < ints.length; i++) {
+                bytes[i] = (byte) ints[i];
+            }
+            return bytes;
+        }
+        return value;
     }
 
     public void setValue(Object obj, Object value, Object[] index) {
@@ -219,7 +249,7 @@ public final class PropertyInfo implements MemberInfo {
         try {
             Object[] args = new Object[index.length + 1];
             System.arraycopy(index, 0, args, 0, index.length);
-            args[index.length] = value;
+            args[index.length] = adaptSByteArray(value, setter.getParameterTypes()[index.length]);
             setter.invoke(obj, args);
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
