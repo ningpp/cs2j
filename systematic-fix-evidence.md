@@ -2186,3 +2186,33 @@ getGenericArguments(ClassWithExtensionData) length = 1
 
 **验证**：本轮运行已确认完整（`Tests run: 7902` 恰好 1 次）；
 `r094 → r095` 逐用例集合**完全相同**（619）；本轮无代码改动（插桩已按"重新生成"清除）。
+### 4.60 Round 58：§8.2.13 的探针**否证了 compat 侧修复**（616 → 619，无代码改动）
+
+**探针输出（属性创建那一刻）**：
+
+```
+[cs2j.t] AT-PROPERTY-CREATION Overflow owner=...ClassWithExtensionData
+         ownerLayer=null  ownerGenericArgs=[class java.lang.Object]  memberType=class java.lang.Object
+```
+
+**结论：构造后的实参在属性创建时并不存在**，而不是"存在但没被用上"。
+owner 的实参层是 `null`，`getGenericArguments(owner)` 只给出擦除后的 `Object`。
+
+**因此这 12 条在 compat 侧无解**（§8.2.13 预设的两个分支里落到了第二个）。
+唯一出路是**转换器侧**把 `T` 的实参显式传到成员级——那是一个大改动，
+**按 §8.2.13 的约定就此收手，不再在扩展数据簇投入**。
+
+**该簇三轮（R56–R58）的净收支**：
+- 收益：0 条；
+- 产出的可用知识：判断错误 vs 信息缺失被区分开（R56）、
+  运行时类型链路全擦除（R57）、构造实参在属性创建时不存在（R58）；
+- 已做的忠实语义修复：`isExtensionDataDictionaryType`（保留，中性但正确）。
+
+**教训**：一条"看起来只是时机问题"的线索，**用一次探针就能定论**——
+R57+R58 两轮里真正的进展都来自探针，而不是来自对判据的推敲。
+**下一次遇到"信息应该存在"的假设，先写探针，并且把探针打在正确的时刻上**
+（本轮的关键是打在**属性创建**而不是**反序列化之后**）。
+
+**验证**：`Tests run: 7902, Failures: 341, Errors: 278, Skipped: 18` = **619**；
+运行完整（`Tests run: 7902` 恰好 1 次）；`r095 → r096` 逐用例集合**完全相同**；
+插桩全部清除（生成树里 `cs2j.t|r|e` 计数为 0）。
