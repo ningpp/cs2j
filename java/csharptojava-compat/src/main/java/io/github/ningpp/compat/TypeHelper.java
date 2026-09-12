@@ -448,10 +448,17 @@ public final class TypeHelper {
         if (typeToConvert == null || !assignableFromRuntime) {
             return null;
         }
-        if (typeToConvert.isAssignableFrom(CSharpDictionary.class)) {
-            return CSharpIDictionary.from(new CSharpDictionary<String, Object>());
+        // CSharpDictionary implements the GENERIC dictionary interface only, so a Java
+        // isAssignableFrom(CSharpDictionary.class) check is necessarily false and cannot guard this:
+        // the assignability that matters is the C# one, which the caller already evaluated and passed
+        // in as `assignableFromRuntime` (computed through compat's isAssignableFrom bridge). Requiring
+        // the Java relation made this method always return null, and IDictionaryConverter.add then
+        // failed with "Cannot invoke CSharpIDictionary.put(Object,Object) because the return value of
+        // getReturnValue() is null" for every non-generic IDictionary member.
+        if (!CSharpIDictionary.class.isAssignableFrom(typeToConvert)) {
+            return null;
         }
-        return null;
+        return CSharpIDictionary.from(new CSharpDictionary<String, Object>());
     }
 
     /**

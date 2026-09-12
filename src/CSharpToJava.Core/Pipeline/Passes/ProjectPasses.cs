@@ -1093,6 +1093,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchDictionaryCreateCollection(result);
                 }
+                else if (result.FileName.EndsWith("IDictionaryConverter.java", StringComparison.Ordinal))
+                {
+                    PatchDictionaryCreateCollection(result);
+                }
                 else if (result.FileName.EndsWith("DictionaryDefaultConverter.java", StringComparison.Ordinal)
                     || result.FileName.EndsWith("IEnumerableDefaultConverter.java", StringComparison.Ordinal))
                 {
