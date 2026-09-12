@@ -204,6 +204,17 @@ public class ConstructorTransformer : IMemberTransformer
             }
         }
 
+        // A C# 'internal' constructor is emitted as Java 'public' so cross-package callers stay
+        // reachable, but the runtime's accessibility questions must still see the C# answer:
+        // .NET's collection converter rejects a type whose parameterless constructor is not
+        // public. The marker carries that fact so TypeHelper.getConstructorInfo can honour it.
+        if (ctorDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.InternalKeyword))
+            && !ctorDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.PublicKeyword)))
+        {
+            javaCtor.Annotations.Add(new Java.JavaAnnotation("CompatInternalCtor"));
+            context.AddImport("io.github.ningpp.compat.CompatInternalCtor");
+        }
+
         // Generate overloads for C# default parameters
         var allCtorParams = ctorDecl.ParameterList?.Parameters.ToList() ?? new List<ParameterSyntax>();
         var ctorOverloads = Utilities.DefaultParameterHelper.GenerateConstructorOverloads(

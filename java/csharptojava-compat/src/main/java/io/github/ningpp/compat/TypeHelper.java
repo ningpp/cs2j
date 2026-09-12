@@ -1566,7 +1566,13 @@ public final class TypeHelper {
         // First try the public-only lookup for compatibility.
         try {
             Constructor<?> ctor = type.getConstructor(parameterTypes);
-            if (matchesBindingFlags(ctor.getModifiers(), bindingFlags)) {
+            // A C# 'internal' constructor is emitted as Java 'public' so other packages stay
+            // reachable, but for an accessibility question it is NOT public. This fast path runs
+            // before the declared-constructor fallback below, so the marker has to be honoured
+            // HERE too — without this the skip further down is never reached (measured: the
+            // internal-constructor wrappers still answered "found").
+            if (!ctor.isAnnotationPresent(CompatInternalCtor.class)
+                    && matchesBindingFlags(ctor.getModifiers(), bindingFlags)) {
                 return new ConstructorInfo(ctor);
             }
         } catch (NoSuchMethodException ignored) {
@@ -1576,6 +1582,13 @@ public final class TypeHelper {
         // nested class in C# gets a public default constructor, but in Java
         // the implicit default constructor is private.
         for (Constructor<?> ctor : type.getDeclaredConstructors()) {
+            // A C# 'internal' constructor is emitted as Java 'public' so other packages stay
+            // reachable, but for THIS question it is not public: .NET's collection converter
+            // rejects a type whose parameterless constructor is not public. The marker restores
+            // the C# answer without changing the emitted modifier.
+            if (ctor.isAnnotationPresent(CompatInternalCtor.class)) {
+                continue;
+            }
             if (matchesParameterTypes(ctor.getParameterTypes(), parameterTypes)
                     && (matchesBindingFlags(ctor.getModifiers(), bindingFlags)
                             || matchesConstructorBindingFlags(ctor, type, bindingFlags))) {
