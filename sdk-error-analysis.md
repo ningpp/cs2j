@@ -806,3 +806,9 @@ if (propertySymbol.GetAttributes().Any(a =>
 2. `JsonPropertyInfo.getMemberAndWriteJsonExtensionData(...)`（把字典写出为同级属性）与 **reader options 传递**（`OptionsTests.extensionDataUsesReaderOptions`）。
 
 **下一轮动作**: 定位这两个方法（`JsonPropertyInfo1` 生成类或 compat），补齐字典合并/写出与 options 传递；验收标准就是 Round 45 记录的那 4 个用例（在打开 (b) 发射的前提下，集合差要求新增失败 0、且这 4 项转为通过）。
+## Iteration 42 — JVM 优先快路径未改变结果（931，4/2），发射再次回退
+
+- **实验**: 在 isAssignableFrom 最前面加入纯 JVM 判定（baseType.isAssignableFrom(type)），再打开发射跑完整闭环。
+- **结果**: dotnet 3154+58 全绿 ✓；Step 1 618/0 ✓；Step 2 编译零错误 ✓；**官方 931（429F + 502E）** vs 929 ⇒ **新增失败 4 / 新增通过 2** —— **与 Round 49 完全一致** ⇒ "接口判定被 ThreadLocal 注册表翻转"的假设**不成立**（该快路径未改变任何相关判定）。
+- **处置**: 回退发射；**保留** compat 全部改动（空值守卫、JVM 优先快路径、注解、翻译层——均为稳健性改进且对现状中性）。
+- **教训（写入方法学）**: 扩展数据这 4 项的真实原因仍未定位；三次假设（实现缺失 → 字典签名判定 → 判定时序 → 注册表影响）均被测量或读取推翻。下一步不要再猜，必须**在发射开启状态下打印抛错瞬间的 jsonPropertyInfo 状态**（getMemberInfo/getDeclaredPropertyType/getPropertyType 对照），即 probe/ExtDataProbe.java 的 try/catch 版。
