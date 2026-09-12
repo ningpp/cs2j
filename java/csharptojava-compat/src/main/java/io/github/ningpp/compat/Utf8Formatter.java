@@ -127,12 +127,18 @@ public final class Utf8Formatter {
 
     /** Mirrors Utf8Formatter.TryFormat(double, Span&lt;byte&gt;, out int). */
     public static boolean tryFormat(double value, Span<Integer> destination, IntHolder bytesWritten) {
-        return writeBytes(Double.toString(value).getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
+        // DoubleHelper, NOT Double.toString: Java always emits a decimal point for an integral
+        // double, so 1.0 became "1.0" where .NET's default 'G' format writes "1". Measured:
+        // Utf8JsonWriterTests.writeNumber_JsonEncodedText_Default expected {"":1 and got {"":1.0.
+        return writeBytes(DoubleHelper.toString(value).getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
     }
 
     /** Mirrors Utf8Formatter.TryFormat(float, Span&lt;byte&gt;, out int). */
     public static boolean tryFormat(float value, Span<Integer> destination, IntHolder bytesWritten) {
-        return writeBytes(Float.toString(value).getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
+        // Same reasoning as the double overload, plus one of its own: Float.toString already gives
+        // the float's shortest round-trip digits, and widening to double first would print the
+        // float's exact binary value instead (0.1f -> 0.10000000149011612).
+        return writeBytes(FloatHelper.toString(value).getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
     }
 
     /** Mirrors Utf8Formatter.TryFormat(bool, Span&lt;byte&gt;, out int). */
