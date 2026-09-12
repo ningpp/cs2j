@@ -782,3 +782,61 @@ r190: Tests run: 7902, Failures: 447, Errors: 359  = 806   ← 同一配置重�
    `JsonSerializerCompat` 的入口/出口做**成对清理**（它已经有 `beginTypeRegistration`/`endTypeRegistration`，
    可审计是否有路径漏配对）；
 3. 共享状态收敛后，本守卫（代码已在 §4.22 记录、可低成本重建）应能同时改善单类与全量。
+
+### 4.23 Round 17：共享状态污染**找到了**，并且它直接来自我们自己的写路径补丁
+
+用 `tools/orderdiff.py` 对比 `CollectionTests` 在**全量顺序**与**单独跑**下的失败**站点集合**：
+
+```
+CollectionTests: full-suite 58 sites, single-class 30 sites
+
+ONLY in full-suite ordering (35):        ← 单独跑时全部通过
+  writeListOfList:1063, writeListOfArray:1072, writeArrayOfList:1080,
+  writeGenericIListOfGenericIList:1121, writeISetTOfISetT:1255,
+  writeQueueTOfQueueT:1382, writeHashSetTOfHashSetT:1411, ...
+ONLY when run alone (7):                 ← 极少数
+```
+
+**清一色是 `write*`（序列化方向），且全部是嵌套集合形状**（`List<List<T>>`、`ISet<ISet<T>>`、
+`Queue<Queue<T>>`、`List<KeyValuePair<..>>` 等）。单类 30 站点 vs 全量 58 站点，
+**多出的 28 个站点全是写路径**。
+
+**机理（已定位到具体行）**：全量顺序下 `writeListOfList` 的栈是
+
+```
+ClassCastException: CSharpList cannot be cast to String
+  at StringConverter.write(StringConverter.java:33)
+  at ListOfTConverter.onWriteResume(ListOfTConverter.java:62)     ← elementConverter.write(...)
+  at IEnumerableDefaultConverter.onTryWrite(IEnumerableDefaultConverter.java:216)
+```
+
+即**内层列表用了 `StringConverter`**。`getElementConverter(state)` 取的是
+`state.value.Current.DeclaredJsonPropertyInfo.getConverterBase()`，而这个
+`DeclaredJsonPropertyInfo` 是**写在共享的 `JsonClassInfo` 上**的：
+
+```java
+// IEnumerableDefaultConverter.java:214（Round 3 的写路径补丁改过这一行）
+state.value.Current.DeclaredJsonPropertyInfo =
+    (JsonPropertyInfo)(TypeHelper.writeElementPropertyInfo(this, options,
+        state.value.Current.JsonClassInfo.getElementClassInfo().getPropertyInfoForClassInfo()));
+```
+
+`JsonClassInfo` 是**跨用例长期存活**的对象（缓存在 `_classes` 里），
+于是"某次写操作安装的元素属性"会**残留**给之后的用例；
+后续用例读到的是**上一个用例/类型**的元素转换器 → `StringConverter` → ClassCastException。
+**单独跑时没有前置用例，所以不触发**——这精确解释了"单类过、全量挂"。
+
+**这也可能与 Round 16 的回归同源**：守卫让更多用例走到/避开这些被污染的分支，
+`CollectionTests` 全量从 106 涨到 122（+16），而多出的正是这一族写用例。
+
+**修复方向（下一轮）**：
+1. **优先**：让写路径**不再改写共享的 `JsonClassInfo`**——
+   `IEnumerableDefaultConverter` / `DictionaryDefaultConverter` 的
+   `state.Current.DeclaredJsonPropertyInfo = ...` 写入的是 `WriteStackFrame`（本应是 per-write 状态），
+   但赋的**值**取自共享 class info；需要把"元素属性"改为**随帧保存**（例如存入 `WriteStackFrame`
+   自己的字段、或由 converter 自己持有），而不是每次回写共享对象；
+2. 或在**每次 `serialize` 入口**成对清理（与 `JsonSerializerCompat` 的
+   `beginTypeRegistration`/`endTypeRegistration` 同构），把被写脏的 class info 复原；
+3. 修好后**重做 §4.22 的守卫**（预期单类与全量同时改善）。
+
+**本轮收口**：未改任何代码，复核 = **790（431+359）**、`git status` 干净。
