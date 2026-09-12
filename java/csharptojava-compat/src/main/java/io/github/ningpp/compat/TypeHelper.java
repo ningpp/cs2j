@@ -621,6 +621,13 @@ public final class TypeHelper {
      * CSharpGenericIterable.
      */
     public static boolean isAssignableFrom(Class<?> baseType, Class<?> type) {
+        // Pure JVM answer first: it cannot be affected by the thread-local type-argument
+        // registries below, and the extension-data check
+        // (isAssignableFrom(CSharpGenericIDictionary.class, CSharpDictionary.class)) must not
+        // depend on whatever member happened to publish arguments last.
+        if (baseType != null && type != null && baseType.isAssignableFrom(type)) {
+            return true;
+        }
         if (baseType == CSharpGenericIterable.class && type != null && type.isArray()) {
             return true;
         }
