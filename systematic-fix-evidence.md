@@ -1374,3 +1374,38 @@ WrapperForIEnumerablePrivateConstructor    WrapperForICollectionPrivateConstruct
 **本轮收口**：诊断代码全部移除，复核 = **723（430+293）**、`git status` 干净；
 并已用 `javap` 确认 compat jar 与已提交源码一致
 （`clearRegistrations` / `cachedClassInfoForMember` / `registerConcreteType` 在位）。
+
+### 4.37 Round 31：**精确定位**——键算对了，但条目**此刻还不存在**
+
+在 `cachedClassInfoForMember` 的两个出口加探针后，得到决定性输出：
+
+```
+[cs2j.probe] MyInt16TwoDimensionList LOOKUP key=CSharpList[CSharpList<Integer>] found=false mapSize=37
+[cs2j.probe] MyStringToStringKeyValuePair EARLY-ARGS args=[String, String]      ← 多实参，走早退
+[cs2j.probe] MyInt16Array EARLY-ARGS args=null                                   ← 非泛型，走早退
+```
+
+**三点结论**：
+
+1. **键完全正确**：`CSharpList[CSharpList<Integer>]` —— 正是该成员应有的闭合泛型键；
+2. **没有走早退**：`args` 既非 null、长度也是 1，Round 30 怀疑的
+   `args.length != 1` **不成立**；
+3. **真正原因**：`found=false` —— **该键的条目在这一次查找时还不存在**（`_classes` 里此刻有 37 项）。
+   随后 `getRuntimeClassInfo()` 回落到 `getOrAddClass(裸类)`，
+   而后者按 `MEMBER_ARGUMENTS`（此刻是 `[String]`）建出**错误的一格**；
+   由于 `_runtimeClassInfo` **只算一次**，此后**永不重试**。
+
+即 **§4.11/§4.14 的"时序"结论再次成立**，只是这次被**精确到"键对、条目缺失"**。
+
+**修法（明确、可单轮实施）**：在**查不到时也要按正确的键把条目建出来**，
+而不是回落到"按环境实参建"。具体是在 `cachedClassInfoForMember` 的 miss 分支里
+用 **computed key + `JsonClassInfo`** 写入 `_classes`（`putIfAbsent`，幂等），
+再返回该实例。这会让：
+- 该成员的 `_runtimeClassInfo` 直接是**正确的一格**；
+- 其 `_elementClassInfo` 的内层列表也因此拿到**正确的元素类型**（Round 5 的
+  同裸类元素作用域已就位）。
+
+**⚠ 已知风险（必须单类验证）**：Round 12 曾试过"miss 后重试"（变体 B）而**无效**，
+原因是当时**写侧没有按正确键建条目**；本轮方案补上了写侧，与此前不同。
+但仍须**先单类验证 `ArrayTests` + `ObjectTests`**，再全量——因为
+`putIfAbsent` 到 `_classes` 会影响所有后续查找。
