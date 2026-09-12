@@ -254,17 +254,36 @@ public final class ReadOnlySequence<T> implements Iterable<ReadOnlyMemory<T>> {
     /**
      * Maps a byte offset to the segment that contains it. Empty segments have no
      * byte range and are skipped; an offset at/past the end maps to segments.length.
+     *
+     * <p>{@code runningIndex} is non-decreasing, so the containing segment is found by
+     * binary search. This lookup must not be a linear scan: consumers such as
+     * Utf8JsonReader.getNextSpan call tryGet once per segment advance, so a scan makes
+     * a full traversal of an N-segment sequence O(N^2). With the one-byte-per-segment
+     * shape produced by JsonTestHelper.GetSequence(data, 1) that turned a ~0.1s read of
+     * the 400KB resource into 94s.
      */
     private int findSegment(int offset) {
         if (offset < 0) {
             return 0;
         }
-        for (int i = 0; i < segments.length; i++) {
-            if (offset >= runningIndex[i] && offset < runningIndex[i + 1]) {
-                return i;
+        int low = 0;
+        int high = segments.length - 1;
+        int candidate = -1;
+        while (low <= high) {
+            int mid = (low + high) >>> 1;
+            if (runningIndex[mid] <= offset) {
+                candidate = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
             }
         }
-        return segments.length;
+        // candidate is now the last segment starting at or before the offset; it
+        // contains the offset only if the offset does not reach the next segment.
+        if (candidate < 0 || offset >= runningIndex[candidate + 1]) {
+            return segments.length;
+        }
+        return candidate;
     }
 
     /** Iterates the single segment — mirrors C# foreach over a ReadOnlySequence. */
