@@ -1100,7 +1100,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 else if (result.FileName.EndsWith("DictionaryDefaultConverter.java", StringComparison.Ordinal)
                     || result.FileName.EndsWith("IEnumerableDefaultConverter.java", StringComparison.Ordinal))
                 {
-                    PatchWriteElementPropertyInfo(result);
+                    // Round-18 experiment switch: this patch is the prime suspect for the cross-test
+                    // contamination that makes ~28 write tests fail only in full-suite order.
+                    if (WriteElementPropertyInfoEnabled)
+                        PatchWriteElementPropertyInfo(result);
                 }
                 else if (result.FileName.EndsWith("JsonClassInfo.java", StringComparison.Ordinal))
                 {
@@ -1434,6 +1437,13 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
             result.GeneratedCode, MemberClassInfoLookupReplacement.Replace("$", "$$"), count: 1);
         EnsureTypeHelperImport(result);
     }
+
+    /// <summary>
+    /// Round-18 experiment switch. Set to false to regenerate without the write-path element
+    /// property patch, which is the prime suspect for the cross-test contamination that makes ~28
+    /// write tests fail only in full-suite order.
+    /// </summary>
+    private const bool WriteElementPropertyInfoEnabled = true;
 
     private const string MemberClassInfoLookupReplacement =
         "        Object __cs2jMemberInfo = TypeHelper.cachedClassInfoForMember("

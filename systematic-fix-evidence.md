@@ -840,3 +840,32 @@ state.value.Current.DeclaredJsonPropertyInfo =
 3. 修好后**重做 §4.22 的守卫**（预期单类与全量同时改善）。
 
 **本轮收口**：未改任何代码，复核 = **790（431+359）**、`git status` 干净。
+
+### 4.24 Round 18：**否证 §4.23 的结论**——写路径补丁不是污染源（它其实在**减轻**污染）
+
+在转换器里加了一个实验开关 `ProjectPasses.WriteElementPropertyInfoEnabled`，
+把它设为 `false` 重新生成（确认生成物里 `writeElementPropertyInfo` 站点 **3 → 0**），再跑全量：
+
+| 配置 | 全量 failures+errors | `CollectionTests` 全量站点 | 仅在全量顺序出现的站点 |
+|---|---:|---:|---:|
+| 开（Round 3 补丁生效） | **790** | 58 | **35** |
+| 关（补丁不生成） | **800** | 67 | **44** |
+
+**结论**：关掉写路径补丁后，**顺序依赖反而更严重**（35 → 44 个"仅全量失败"的站点），
+全量总数也更差（790 → 800）。
+→ **§4.23 把污染源归给 Round 3 的写路径补丁是错的，现予更正。**
+该补丁实际上**在减轻**这个问题（它让元素属性至少按成员推导，而不是完全靠共享 class info），
+**不能删**。开关已重新置 `true`，重生成后复核 = **790（431+359）**、写路径站点恢复 3 处。
+
+**这对下一轮的意义（重要）**：污染源在**别处**，且**不是**写路径的元素属性安装逻辑。
+结合 §4.23 已确认的事实——`WriteStackFrame` 本身是**每次 write 独立**的
+（`WriteStack.Current = new WriteStackFrame()`，`push()` 时克隆）——
+污染更可能来自**跨用例存活且被写入的 compat ThreadLocal 注册表**：
+`TYPE_ARGUMENTS` / `CONSUMED_ARGUMENTS` / `MEMBER_ARGUMENTS` / `CALLSITE_ARGUMENTS` /
+`WRAPPER_LAYER_TAKEN` / `CONCRETE_SUBTYPES`（全部是 ThreadLocal，且
+`registerMemberType` 会**持续覆盖** `MEMBER_ARGUMENTS`）。
+
+**下一轮的具体动作**：在 `CollectionTests` 全量顺序下，
+把上述注册表在"某用例开始/结束"时的内容打出来，找出**未被清理**的那个；
+重点审计 `JsonSerializerCompat` 的 `beginTypeRegistration`/`endTypeRegistration`
+是否在所有路径上成对（含异常路径），以及 `registerMemberType` 的成员槽位是否在用例间被跨类型复用。
