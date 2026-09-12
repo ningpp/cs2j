@@ -939,3 +939,55 @@ state.value.Current.DeclaredJsonPropertyInfo =
    （compat 已有 `registerConcreteType` / `findDeclaredArgumentsFor`）取得；
 3. 修好后应能同时消除 5 项回归，并可能再带走一批
    `JsonConvert CSharpDictionary` / `DictKeyNotSupported` 的失败。
+
+### 4.27 Round 21：把 5 项回归的**根因**测出来了
+
+用 `probe/DictArgProbe.java` 复现测试的调用形状（**裸 Class token** + 全新 options）：
+
+```
+=== target CSharpGenericIDictionary
+  deserialize FAIL UnsupportedOperationException:
+      The type 'class java.lang.Object' is not a supported Dictionary key type.
+      ... located on type 'class io.github.ningpp.compat.CSharpDictionary'
+  after  getGenericArguments(CSharpGenericIDictionary) = [Object, Object]
+  serialize -> "{\u0022Key\u0022:1}"          ← 写方向反而是好的
+
+=== target CSharpDictionary
+  deserialize FAIL （同上）
+  after  getGenericArguments(CSharpDictionary) = [Object, Object]
+
+=== target java.util.concurrent.ConcurrentHashMap
+  deserialize OK -> java.util.concurrent.ConcurrentHashMap
+```
+
+**结论（根因，非推测）**：入口清空注册表之后，
+`getGenericArguments(CSharpDictionary)` 返回 **`[Object, Object]`**，
+于是 `DictionaryDefaultConverter` 的 `KeyType = Object`、`IsStringKey = false`，
+读字典键时走到"不支持的键类型"分支并抛异常。
+
+**为什么清空前是对的**：测试传的是**裸 Class token**
+（`CSharpGenericIDictionary.class` / `CSharpDictionary.class`，
+见 `nestedDictionaryTypeData()` 的 `genericDictTypes`），
+它**本身不携带任何类型参数**；端口此前是**借用**上一次操作遗留的
+`MEMBER_ARGUMENTS`/`CONCRETE_SUBTYPES` 才凑出 `[String, Integer]`。
+清空把这个"借用"去掉了，于是暴露出**真正的缺口**：
+**裸 token 的实参必须由具体类型自身的声明签名推导**，
+而不是靠跨操作残留。
+
+**这正是本计划一直在追的同一个缺陷的另一面**：
+`compat` 已经有 `registerConcreteType` / `findDeclaredArgumentsFor`
+（"具体类型的声明签名"通路），但**没有在裸 token 路径上被触发**。
+
+**下一轮的具体动作**：
+1. 在**反序列化**入口（`deserialize(String, Class, Options)` 或
+   `deserialize_0tp`）对目标类型调用 `TypeHelper.registerConcreteType(returnType)`
+   —— 与 `JsonSerializerCompat.deserializeInternal` 里已有的那一步对齐
+   （注意 §4.26 已证明"再清一次"无用，本步是**补发布**，不是再清空）；
+2. 对 `CSharpGenericIDictionary` / `CSharpDictionary` / `CSharpHashtable` 等
+   无声明签名的类型，让 `getGenericArguments` 回落到
+   **"字符串键"语义**（`DictionaryDefaultConverter` 已有 `IsStringKey` 分支，
+   非泛型字典在 C# 里键就是 `object`，但读入时应按字符串键处理）；
+3. 单类验证 `DictionaryTests` + `ArrayTests` + `ReferenceHandlerTests`，
+   再全量；预期同时消除这 5 项回归，并带走 `DictKeyNotSupported` 一簇。
+
+**本轮收口**：未改任何代码，复核 = **723（430+293）**、`git status` 干净。
