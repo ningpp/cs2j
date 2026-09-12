@@ -310,15 +310,30 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.2 立刻可做的下一步（唯一未闭合的开放问题）
 
-§4.41 已把最大残余簇收窄为**单一问题**：
+**Round 39 已把该簇的诊断做完**：那一刻 `_classes` 里**只有**
+`CSharpList[class java.lang.String]` 一个键，**正确键 `CSharpList[CSharpList<Integer>]`
+根本不存在**。故问题不是"查找选错格子"，而是**正确条目从未被创建**——
+这解释了为何改实参（R34）、改查表键（R10）、改时机（R12/R33）**全都无效**：
+**没有东西可命中**。
 
-> 二维成员在读取时刻 `_runtimeClassInfo == null`、`rawType = CSharpList`、
-> `memberArgs = [CSharpList<Integer>]`（**均正确**）；
-> 那么 **`getOrAddClass` 返回的 class info 的 `elementType` 是内层列表还是 `String`？**
+**因此下一步是"创建层"的测量，不是查找层**：
 
-**动作**：在 `JsonPropertyInfo.getRuntimeClassInfo()` 的查找后打印
-`_runtimeClassInfo.getElementType()`，跑 `probe/NestedListProbe.java` 即可回答。
-这**只差一个探针**，不要去猜下一种机制。
+> 在 `JsonSerializerOptions.getOrAddClass` 里每次打印 `type` 与算出的 `cacheKey`，
+> 跑 `probe/NestedListProbe.java`，观察二维成员**是否曾经走到创建**。
+
+- **从未走到** → 上游（属性/成员解析）就跳过了它 → 查那一层；
+- **走到但键是别的** → 该次算 key 的输入仍不对 → 回到 §4.15 的成员实参通路。
+
+这**只差一个探针**；**不要**再在读路径或参数槽位上尝试（两者均已实测无效）。
+
+### 8.2.1 已排除的"读侧"尝试（勿重复）
+
+| 尝试 | 轮次 | 结果 |
+|---|---|---|
+| 读路径 miss 时急切建条目 | R12（无写侧）、R33（有写侧） | **两次更差** |
+| 预热期修正成员实参槽位 | R34 | **正确但中性**（探针证实槽位已对，失败数不动） |
+| 只改读侧缓存键读写一致 | R1 | 855 → 934 |
+| 元素类信息按实参作用域查找 | R1 | 855 → 934 |
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
