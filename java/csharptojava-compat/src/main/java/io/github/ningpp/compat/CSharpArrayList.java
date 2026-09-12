@@ -8,6 +8,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * C# {@code System.Collections.ArrayList} — a NON-generic list.
+ *
+ * <p>{@link #asGenericList()} exposes it as {@link CSharpGenericIList}&lt;Object&gt;, the shape a
+ * converted {@code IList<T>} consumer expects. The class cannot implement that interface directly:
+ * C# {@code IList.Add} returns {@code int} while {@code ICollection<T>.Add} returns {@code boolean},
+ * a conflict Java resolves by requiring one signature, and the converted class needs the
+ * {@code int} form.</p>
+ */
 public class CSharpArrayList implements CSharpIList, Cloneable {
     private final ArrayList<Object> list;
     private final Object syncRoot = new Object();
@@ -43,6 +52,41 @@ public class CSharpArrayList implements CSharpIList, Cloneable {
     @Override public Object getSyncRoot() { return syncRoot; }
     @Override public CSharpGenericEnumerator<Object> iterator() {
         return CSharpGenericEnumerator.<Object>from(list.iterator());
+    }
+
+    /**
+     * A LIVE view of this list as {@link CSharpGenericIList}&lt;Object&gt;: every mutation reaches
+     * the same backing list, so a converted consumer (for example the generated
+     * {@code IListOfTConverter}) can populate a {@code CSharpArrayList} through the generic
+     * interface and the caller still sees a {@code CSharpArrayList} instance afterwards.
+     *
+     * <p>The view is needed because the class cannot implement the generic interface itself:
+     * C# {@code IList.Add} returns {@code int} and {@code ICollection<T>.Add} returns
+     * {@code boolean}, and Java requires a single signature for both.</p>
+     */
+    public CSharpGenericIList<Object> asGenericList() {
+        return new CSharpGenericIList<Object>() {
+            @Override public CSharpGenericEnumerator<Object> iterator() {
+                return CSharpArrayList.this.iterator();
+            }
+            @Override public int getCount() { return list.size(); }
+            @Override public boolean getIsReadOnly() { return false; }
+            @Override public boolean getIsFixedSize() { return false; }
+            @Override public void copyTo(Object[] array, int arrayIndex) {
+                for (int i = 0; i < list.size(); i++) {
+                    array[arrayIndex + i] = list.get(i);
+                }
+            }
+            @Override public boolean add(Object item) { list.add(item); return true; }
+            @Override public void clear() { list.clear(); }
+            @Override public boolean contains(Object item) { return list.contains(item); }
+            @Override public int indexOf(Object item) { return list.indexOf(item); }
+            @Override public void insert(int index, Object item) { list.add(index, item); }
+            @Override public boolean remove(Object item) { return list.remove(item); }
+            @Override public void removeAt(int index) { list.remove(index); }
+            @Override public Object get(int index) { return list.get(index); }
+            @Override public Object set(int index, Object value) { return list.set(index, value); }
+        };
     }
 
     public int getCapacity() { return -1; } // ArrayList doesn't expose capacity

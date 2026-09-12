@@ -1080,7 +1080,11 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchIEnumerableConverterCreateCollection(result);
                 }
-            }
+                else if (result.FileName.EndsWith("IListOfTConverter.java", StringComparison.Ordinal)
+                    || result.FileName.EndsWith("ICollectionOfTConverter.java", StringComparison.Ordinal))
+                {
+                    PatchListConverterAdd(result);
+                }            }
         }
     }
 
@@ -1115,24 +1119,7 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
         result.GeneratedCode = IEnumerableCreateCollectionRegex.Replace(
             result.GeneratedCode, patched.Replace("$", "$$"), count: 1);
-
-        // The patch adds a TypeHelper reference; make sure the file can resolve it.
-        const string typeHelperImport = "import io.github.ningpp.compat.TypeHelper;";
-        if (!result.GeneratedCode.Contains(typeHelperImport, StringComparison.Ordinal))
-        {
-            var generatedMarker = "// Licensed to the .NET Foundation under one or more agreements.";
-            var insertAt = result.GeneratedCode.IndexOf("package ", StringComparison.Ordinal);
-            if (insertAt >= 0)
-            {
-                var lineEnd = result.GeneratedCode.IndexOf('\n', insertAt);
-                if (lineEnd >= 0)
-                {
-                    result.GeneratedCode = result.GeneratedCode.Insert(
-                        lineEnd + 1, "\n" + typeHelperImport + "\n");
-                }
-            }
-            _ = generatedMarker;
-        }
+        EnsureTypeHelperImport(result);
     }
 
     private static readonly System.Text.RegularExpressions.Regex IEnumerableCreateCollectionRegex = new(
@@ -1141,6 +1128,52 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
         + @"[ \t]*\}\r?\n"
         + @"[ \t]*state\.value\.Current = state\.value\.Current\.withReturnValue\(new CSharpList<Object>\(\)\);",
         System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// The generated list converters add through a direct cast of the return value to the generic
+    /// list interface: <c>((TCollection)(state.value.Current.getReturnValue())).add(value)</c>. A
+    /// converted non-generic list (CSharpArrayList) is a legitimate <c>IList&lt;T&gt;</c> in C# terms
+    /// but cannot implement that interface in Java (C# <c>IList.Add</c> returns int, the generic
+    /// <c>ICollection&lt;T&gt;.Add</c> returns boolean), so the cast throws ClassCastException. Route
+    /// the add through a compat helper that hands back a live generic view of the same list.
+    /// </summary>
+    private static void PatchListConverterAdd(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var match = ListConverterAddRegex.Match(result.GeneratedCode);
+        if (!match.Success)
+            return;
+
+        var indent = match.Groups["indent"].Value;
+        var patched = indent + "TypeHelper.listToAddInto(state.value.Current.getReturnValue()).add(value);";
+        result.GeneratedCode = ListConverterAddRegex.Replace(
+            result.GeneratedCode, patched.Replace("$", "$$"), count: 1);
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ListConverterAddRegex = new(
+        @"(?<indent>[ \t]*)\(\(TCollection\)\(state\.value\.Current\.getReturnValue\(\)\)\)\.add\(value\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>Makes sure a patched file can resolve <c>TypeHelper</c>.</summary>
+    private static void EnsureTypeHelperImport(ConversionResult result)
+    {
+        const string typeHelperImport = "import io.github.ningpp.compat.TypeHelper;";
+        if (result.GeneratedCode.Contains(typeHelperImport, StringComparison.Ordinal))
+            return;
+
+        var insertAt = result.GeneratedCode.IndexOf("package ", StringComparison.Ordinal);
+        if (insertAt < 0)
+            return;
+
+        var lineEnd = result.GeneratedCode.IndexOf('\n', insertAt);
+        if (lineEnd >= 0)
+        {
+            result.GeneratedCode = result.GeneratedCode.Insert(lineEnd + 1, "\n" + typeHelperImport + "\n");
+        }
+    }
 
     private static void PatchPushdownPrefixState(ConversionResult result)
     {        var code = result.GeneratedCode;

@@ -527,6 +527,29 @@ public final class TypeHelper {
         }
     }
 
+    /**
+     * The collection to ADD into for a converted list converter: the return value itself when it
+     * already is a {@link CSharpGenericIList}, otherwise a live generic view of it.
+     *
+     * <p>A converted non-generic list (CSharpArrayList) is a legitimate {@code IList<T>} in C# terms
+     * but cannot implement {@link CSharpGenericIList} directly, because C# {@code IList.Add} returns
+     * {@code int} while {@code ICollection<T>.Add} returns {@code boolean} and Java allows one
+     * signature. The generated {@code IListOfTConverter.add} casts the return value to the generic
+     * interface and would throw ClassCastException; this hands it a view onto the same backing list
+     * instead.</p>
+     */
+    public static CSharpGenericIList<Object> listToAddInto(Object returnValue) {
+        if (returnValue instanceof CSharpGenericIList) {
+            @SuppressWarnings("unchecked")
+            CSharpGenericIList<Object> generic = (CSharpGenericIList<Object>) returnValue;
+            return generic;
+        }
+        if (returnValue instanceof CSharpArrayList arrayList) {
+            return arrayList.asGenericList();
+        }
+        throw new ClassCastException("Cannot add into " + (returnValue == null ? "null" : returnValue.getClass().getName()));
+    }
+
     /** Recursively converts a closed generic Type to its erased Class (used by converters). */
     public static Class<?> toErasedClass(java.lang.reflect.Type type) {
         return toRawClass(type);

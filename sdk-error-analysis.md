@@ -1119,6 +1119,36 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **可复用资产**: 产物级补丁通道（可对任意生成文件做一次正则改写 + 自动补 import）已用通一次；
   这是绕过"找不到产出 pass"的通用手段——Round 7/8 卡住的 `getConverter` 读侧同样可以用它改写（把裸类读取改为 `TypeHelper.cachedConverter(_converters, typeToConvert)`）。
 
+## Iteration 68 — `CSharpArrayList` 路线：语法级冲突 + 工厂分支仍未走到 `IListOfTConverter`（中性，零回归）
+
+本轮按上一轮钉的"一行改动"推进，结果是中性（855 → 855、编译零错误、无新增失败），但把阻塞点从"类声明"推进到了"工厂分支选择"。
+
+1. **直接 `implements CSharpGenericIList<Object>` 被 Java 语法否决**（编译错误实测）：
+   - `CSharpArrayList.add(Object)` 返回 `int`（C# `IList.Add` 语义，且转换产物依赖它），而 `CSharpICollection<T>.add(T)` 返回 `boolean`——
+     Java 要求同一签名只能有一个返回类型，二者**不可共存**；
+   - 同理 `remove(Object)`：`java.util.Collection` 要求 `boolean`，`CSharpIList.remove(Object)` 是 `void`。
+   ⇒ 该类**不可能**在保留现有签名（被生成代码依赖）的同时实现通用接口。
+2. **改为"活视图"**：新增 `CSharpArrayList.asGenericList()`（匿名实现，所有方法直连同一份 `list`，因此写入对调用方可见）；
+   配套 compat `TypeHelper.listToAddInto(returnValue)`：返回值本身是通用接口就直接用，是 `CSharpArrayList` 就取视图，否则抛 `ClassCastException`。
+   产物侧新增补丁 `PatchListConverterAdd`：把 `IListOfTConverter.add` 里的
+   `((TCollection)(state.value.Current.getReturnValue())).add(value);` 改写为 `TypeHelper.listToAddInto(...).add(value);`（产物校验命中 ✓）。
+3. **仍未走通的一步（已定位）**：即使把 `isAssignableFrom(CSharpGenericIList, CSharpArrayList)` 桥接为 true，
+   工厂最终选到的仍是**非泛型的 `IListConverter`**（实测栈：`IListConverter.createCollection:61` 里 `(CSharpGenericIList) value` 抛 `ClassCastException`），
+   即 `getCompatibleGenericInterface(typeToConvert, CSharpGenericIList.class)` 这一支没有命中。该桥接因此**净负且已回退**；
+   视图 + `listToAddInto` 补丁保留（单独测量为中性）。
+   - 探针实测：`isAssignableFrom(CSharpIList, CSharpArrayList)=true`、`(CSharpGenericIList, CSharpArrayList)=false`（基线）、`(CSharpArrayList, CSharpArrayList)=true`。
+- **下一步（比上一轮更窄）**: 用同样存在的产物级补丁直接改写 `IEnumerableConverterFactory.createConverter`——
+  在 `typeToConvert` 属于非泛型 `CSharpIList` 树时直接选择 `IListOfTConverter` 分支（并把 `elementType` 设为 `Object`），
+  而不是去猜为什么 `getCompatibleGenericInterface` 没命中。这条改写有明确的产物锚点（`IEnumerableConverterFactory.java` 里的分支链）。
+
+## Iteration 69 — 本轮（Round 10）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（编译零错误）。累计（Round 1→10）: 895 → 855。
+- **compat**: 1717/1717 ✓（下一步补测）；工作区干净。
+- **本轮保留的资产**: `CSharpArrayList.asGenericList()` 活视图、`TypeHelper.listToAddInto`、产物补丁 `PatchListConverterAdd` + 共用 `EnsureTypeHelperImport`。
+- **本轮新增的硬结论**: 一条 Java 语法级结论（`int add` vs `boolean add` 不可共存）——这类"语言层面不可能"的判断应尽早用编译验证，可省掉整轮试错。
+
+
 
 
 
