@@ -2063,3 +2063,30 @@ Java 的 `Throwable.getMessage()` 返回 **null**，直译过来的代码在第�
 
 **验证**：`Tests run: 7902, Failures: 336, Errors: 283, Skipped: 18` = **619**
 （起点 855，**−236**）；逐用例集合差 = 修 6 / 坏 0。
+### 4.56 Round 54：异常传播 + 泛型扩展数据（619 → 589，修 30 / 坏 0）
+
+提交 `99151aa6`。**本会话单轮最大收益**，而且**第一步单独测是中性**——
+正是 Round 53 刚写下的纪律救了这一轮。
+
+**1. `MethodInfo.invoke` 吞掉了被调方自己的异常**
+Java 的 `Method.invoke` 把被调方抛出的异常包进 `InvocationTargetException`，
+而 `InvocationTargetException` **本身就是 `ReflectiveOperationException` 的子类**，
+于是既有的 `catch (ReflectiveOperationException) → "Method invocation failed"`
+把它整个吞掉。C# 的 `MethodInfo.Invoke` 是**原样传播被调方异常**。
+修法：为 `InvocationTargetException` 加一个**排在前面**的 catch，
+把 cause（`RuntimeException` / `Error`）原样 rethrow。
+
+**单独测这一处：619 → 619，逐用例集合完全相同**——看起来是无效改动。
+**但栈已经换了**：按 Round 53 的纪律去读新栈，发现 `ExtensionDataTests`
+已经不再死在反射里，而是死在
+`ThrowHelper.throwInvalidOperationException_SerializationDataExtensionPropertyInvalid`。
+**如果没有重读栈，这一轮就会把真正的问题连同 30 条收益一起丢掉。**
+
+**2. 声明的类型是类型参数时，扩展数据签名检查用错类型**
+`[JsonExtensionData] public T Overflow` 在 Java 侧擦除为 `Object`，
+于是 `isAssignableFrom(CSharpGenericIDictionary, declaredPropertyType)` 为假，
+一个在构造类型上**确实是** `Dictionary<string, object>` 的属性被拒。
+修法：声明类型不是字典时，改用**运行时属性类型**（`getRuntimePropertyType()`）。
+
+**验证**：`Tests run: 7902`，失败用例 **589**，逐用例集合差 = **修 30 / 坏 0**
+（28 条来自 `ExtensionDataTests`）。起点 855，累计 **−266**。
