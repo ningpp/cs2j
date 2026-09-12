@@ -647,3 +647,17 @@
   且全文件 `closedGenericType` 出现次数 = **0** ⇒ 该处发射点**根本没有被这条调用路径命中**。
 - **结论**: 该强转形态由**另一条路径**产生（显式泛型实参令牌不是它的来源）；候选回到 `ConversionContext.GetClassLiteral`（`ConversionContext.cs:773` 的 `((Class<{MapType(typeSymbol)}>) (Class<?>) {helperCall})`）与 `HIRExpressionGenerator.cs:249`。
 - **下一轮定位法（更可靠）**: 直接以生成产物为准做**反向定位** —— 在转换器里给 `GetClassLiteral` 的返回处临时加"是否参数化"的诊断计数/日志，跑一次最小样例转换（`Serialize(List<int>)` 那类），看哪一处发射产生了带 `Class<X<Y>>` 强转的字面量；不要再用"读代码猜路径"的方式（本轮已证明会猜空）。
+## Iteration 30 — (a) 命中点已找到（`InvocationExpressionTransformer.cs:12554`），但当前语义下**净负收益**，已回退
+
+- **命中确认**: 在 12554（泛型方法调用的令牌发射，条件为"推断出的类型实参与某个实参静态类型一致"）处把裸令牌换成
+  `TypeHelper.closedGenericType(TypeHelper.parameterized(X.class, <实参类字面量...>))` 后，生成产物随即变为
+  `JsonSerializer.serialize(((Class<CSharpList<Integer>>) (Class<?>) TypeHelper.closedGenericType(TypeHelper.parameterized(CSharpList.class, int.class))), input, null)`
+  且 `CollectionTests.java` 中 `closedGenericType` 出现 **74 次** ⇒ 这里就是产生该令牌的真实路径（Round 22 的证伪成立）。
+- **验证**: `dotnet test -c Release` 3154+58 全绿 ✓；Step 1 `618 succeeded, 0 failed` ✓；Step 2 **编译零错误** ✓；
+  **官方 935（438F + 497E）**，相对 r17 的 929：**新增失败 12 / 新增通过 6** ⇒ 净 −6 ✗。
+- **失败原因（关键机制）**: compat 的会话注册在 `getGenericArguments` 中**优先于成员发布**（注释明确："Session registrations ... are consumed before member type lookup, so they keep priority"）。因此在**每个**调用点无条件注册会把**成员声明推导出的正确实参顶掉**：原本靠 `PropertyInfo/FieldInfo` 发布得到正确元素类型的成员路径，被调用点注册的（可能更粗或错层的）实参覆盖 ⇒ 12 项回归、6 项收益。
+- **结论与下一轮方向**: (a) 不能"无条件在每个调用点注册"，必须是**非覆盖式**：
+  1. 仅在**当前没有成员层可用**时注册（compat 侧可加"低优先级注册"入口，如 `registerCallSiteType`：填充但不覆盖已有成员/会话层）；
+  2. 或让调用点注册**只对本层生效**并保留成员层优先级；
+  3. 落地后仍需满足"发布先于任何查找"（否则根类型 LRU 会绕过）。
+  compat 侧改动很小（新增低优先级注册 + 分层键沿用 Round 13/14 的实现），转换器侧仍是 12554 那一处包裹。
