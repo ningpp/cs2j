@@ -2533,4 +2533,42 @@ public static class Converter{
             "Output should be valid C#. Errors:\n" +
             string.Join("\n", errors.Select(e => e.ToString())));
     }
+
+    /// <summary>
+    /// 表达式体 override 也必须拿到哨兵：否则它没有 Class&lt;T&gt; 令牌，而基类声明（抽象方法，
+    /// 因同一同步集合被改写为 virtual 并注入哨兵）有令牌 ⇒ 覆写实际不成立、虚派发落到基类
+    /// 抛异常体（SDK 实测 35 项失败，栈内均含 MemberAccessor.createField*）。
+    /// </summary>
+    [Fact]
+    public void OverrideSync_InjectsSentinelIntoExpressionBodiedOverride()
+    {
+        const string source = """
+            using System;
+            using System.Reflection;
+
+            public abstract class Accessor
+            {
+                public abstract Func<object, TProperty> CreateFieldGetter<TProperty>(FieldInfo fieldInfo);
+                public abstract Func<object, TProperty> CreatePropertyGetter<TProperty>(PropertyInfo propertyInfo);
+            }
+
+            public sealed class ReflectionAccessor : Accessor
+            {
+                // 表达式体且体内没有 typeof ⇒ 旧实现在这里直接返回，永不注入哨兵。
+                public override Func<object, TProperty> CreateFieldGetter<TProperty>(FieldInfo fieldInfo)
+                    => (obj) => (TProperty)fieldInfo.GetValue(obj);
+
+                // 同名类型参数出现在 typeof(TProperty) 中 ⇒ 进入同步集合。
+                public override Func<object, TProperty> CreatePropertyGetter<TProperty>(PropertyInfo propertyInfo)
+                    => (obj) => typeof(TProperty) == null ? default : (TProperty)propertyInfo.GetValue(obj);
+            }
+            """;
+
+        var result = PreprocessWithPrescan(source);
+        const string sentinel = "__cs2j_typeof_TProperty = typeof(TProperty)";
+        var count = result.OutputCode.Split(sentinel).Length - 1;
+        Assert.True(count >= 3,
+            $"表达式体 override 也应被注入哨兵（期望 >=3 处，实际 {count} 处）。\n{result.OutputCode}");
+        AssertNoSyntaxErrors(result.OutputCode);
+    }
 }

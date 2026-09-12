@@ -546,10 +546,22 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
             return visited;
 
         // 为每个需要注入的类型参数插入 ``var __cs2j_typeof_<T> = typeof(<T>);``
-        if (visited.Body == null)
-            return visited;
+        //
+        // 表达式体方法（`=> (obj) => ...`）原先在这里直接返回，导致这类 override 永远
+        // 拿不到哨兵 ⇒ 永远没有 Class<T> 令牌，而它的基类声明（抽象方法，走同一集合被
+        // 改写为 virtual）却拿到了令牌 ⇒ 两侧签名不一致、override 实际不构成覆写、
+        // 虚派发落到基类方法体（SDK 实测 35 项失败，栈内均含 MemberAccessor.createField*）。
+        // 这里把表达式体包装为块体后再注入，保持"只加不减"。
+        var injectionBody = visited.Body;
+        if (injectionBody == null)
+        {
+            if (visited.ExpressionBody == null)
+                return visited;
+            injectionBody = SyntaxFactory.Block(
+                SyntaxFactory.ReturnStatement(visited.ExpressionBody.Expression));
+        }
 
-        var newStatements = visited.Body.Statements;
+        var newStatements = injectionBody.Statements;
         foreach (var tpName in paramsToInsert)
         {
             var typeofStatement = CreateTypeOfStatement(tpName);
@@ -558,7 +570,10 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
             Changed = true;
         }
 
-        return visited.WithBody(visited.Body.WithStatements(newStatements));
+        var rewrittenMethod = visited.WithBody(injectionBody.WithStatements(newStatements));
+        return visited.ExpressionBody == null
+            ? rewrittenMethod
+            : rewrittenMethod.WithExpressionBody(null).WithSemicolonToken(default);
     }
 
     private static LocalDeclarationStatementSyntax CreateTypeOfStatement(string typeParamName)

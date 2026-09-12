@@ -552,6 +552,20 @@
   3. 注入范围用 Iteration 23 的**按组集合**，但只用于"给 override 补齐"，不再用于"收窄基类"；
   4. 重新转换后 `probe/OverrideScan.java` 复扫：目标 12 处假覆写 → 0，且编译零错误。
 
+## Iteration 25 — (c) 落地成功（加法版）：表达式体 override 也注入哨兵 → `MemberAccessor.createField*` 35 项归零
+
+- **修法（最小面、只加不减）**: 保留原有"全局类型参数名集合"行为（**声明端与调用点都不动**），只把注入路径的退出口去掉 —— 当方法没有块体但有**表达式体**时，先把表达式体包装为 `{ return <expr>; }` 再注入 `var __cs2j_typeof_<T> = typeof(<T>);`，并清除 `ExpressionBody`/分号（`GenericPreprocessor.cs` 注入尾部）。这正是 Iteration 24 定位到的"最后一环"。
+- **红→绿**: 新增 `GenericPreprocessTests.OverrideSync_InjectsSentinelIntoExpressionBodiedOverride`（抽象基类 + 两个 override，其中一个为**表达式体且体内无 typeof**）：
+  - 红（HEAD 退出口）: `表达式体 override 也应被注入哨兵（期望 >=3 处，实际 2 处）`；
+  - 绿: 1/1 通过。
+  - `GenericPreprocessTests` **96/96**；全量 `dotnet test -c Release` → **3154/3154 + 58/58**，0 失败。
+- **Step 1**: `Conversion complete (MSBuild): 618 succeeded, 0 failed, 3 resources copied, modules=4`（276s，300s 预算内）。
+- **Step 2（官方）**: 编译**零错误** ✓，`Tests run: 7904, Failures: 442, Errors: 487, Skipped: 16` = **929**（上一稳定值 939）。
+- **集合级验证（决定性）**:
+  - 失败栈中含 `MemberAccessor.createField*` 的用例：**35 → 0** ✓（机制完全按预期消除）；
+  - 与 939 基线（Round 12/13/14 三次逐项一致）比较：**新增失败 0 项、新增通过 10 项**（唯一失败数 697 → 687）⇒ 纯收益、零回归。
+- **说明**: 本轮收益（−10）小于预测的 35，因为 35 项中含 `MemberAccessor.createField*` 的那些原本还可能因**其它**根因失败（例如元素类型擦除），修复只解除了其中一层。剩余项仍在 929 中，随 (a)/(b) 落地继续收敛。
+
 
 
 
