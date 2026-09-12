@@ -299,6 +299,47 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 `Utf8JsonWriterTests` 61 条：根因在**测试预言机**（`JsonTextWriter` 移植）而非 writer 输出。
 
+## 八、交接摘要（Round 37，供后续会话直接接手）
+
+- **基线**：`Tests run: 7902, Failures: 430, Errors: 293, Skipped: 18` = **723**（起点 855，**−132**）。
+- 工作树干净；所有改动已提交（本会话 51 个提交）。
+- 5 条经"全量 + 逐用例集合差 + 完整再生"三重验证的 KEEP 提交（见 §6.1）；
+  另有 1 条工程性修复（补丁分派的后缀遮蔽，`ef568d4f`）。
+
+### 8.2 立刻可做的下一步（唯一未闭合的开放问题）
+
+§4.41 已把最大残余簇收窄为**单一问题**：
+
+> 二维成员在读取时刻 `_runtimeClassInfo == null`、`rawType = CSharpList`、
+> `memberArgs = [CSharpList<Integer>]`（**均正确**）；
+> 那么 **`getOrAddClass` 返回的 class info 的 `elementType` 是内层列表还是 `String`？**
+
+**动作**：在 `JsonPropertyInfo.getRuntimeClassInfo()` 的查找后打印
+`_runtimeClassInfo.getElementType()`，跑 `probe/NestedListProbe.java` 即可回答。
+这**只差一个探针**，不要去猜下一种机制。
+
+### 8.3 必须遵守的操作纪律（都是踩过的坑）
+
+| 纪律 | 原因 |
+|---|---|
+| 判定用**逐用例集合差**，不看总数 | 同源码两次全量会有 16–43 的漂移；站点级差异常是同一失败的断言行位移（假回归） |
+| 计数以 `mvn -e` 的聚合清单为准 | 本仓库 surefire XML **不完整**（部分类只落 1 个 testcase） |
+| 每次改完**先全量重新生成再测** | 手工改过的生成物**不是干净基线**；Round 10 曾因此得到假的"再生验证通过" |
+| 移除生成代码插桩要用**针对块的 edit** | 按行过滤会删掉续行并破坏文件（Round 36 踩过），恢复办法是删文件后重新生成 |
+| 新增补丁分派时**具体后缀在前** | `"JsonPropertyInfo.java".endsWith("PropertyInfo.java")` 为真，会把补丁静默吞掉 |
+| compat 不能用生成类型，用**反射** | 形成环状依赖 |
+| 转换需作为**后台任务**运行 | 超过 240s |
+
+### 8.4 已否证方向清单
+
+见 §6.2（8 条，含各自的实测数据）与 §4.34/§4.35 的两个"封案"结论。
+**不要在未读 §6.2 的情况下重试这些方向。**
+
+### 8.5 已建议接受的限制
+
+- 裸 token 字典簇（5 项 + `DictKeyNotSupported` 小簇）：信息在 Java 侧不存在，运行时无法推导。
+- `Utf8JsonWriterTests` 61 条：根因在测试预言机（`JsonTextWriter` 移植），不在 writer 输出。
+
 ## 七、待并入（并行子代理分析）
 
 | 子代理 | 负责簇 | 状态 |
