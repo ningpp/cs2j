@@ -869,3 +869,42 @@ state.value.Current.DeclaredJsonPropertyInfo =
 把上述注册表在"某用例开始/结束"时的内容打出来，找出**未被清理**的那个；
 重点审计 `JsonSerializerCompat` 的 `beginTypeRegistration`/`endTypeRegistration`
 是否在所有路径上成对（含异常路径），以及 `registerMemberType` 的成员槽位是否在用例间被跨类型复用。
+
+### 4.25 Round 19：**找到了**——在 `serialize` 入口清空 per-thread 注册表（+67，本计划最大单项收益）
+
+**提交 `e8a29f38` + `60a56e0a` — 全量 790 → 723（net +67，57 项转绿，跑两次逐位一致）**
+
+**关键事实**：失败的 `writeListOfList` 用的是
+`JsonSerializer.serialize(CSharpList.class, input, null)`——**根本不走 compat 的
+`JsonSerializerCompat`**，所以污染源不是它的 `begin/endTypeRegistration` 配对，
+而是 **compat 的 ThreadLocal 注册表本身跨操作存活**：
+`TYPE_ARGUMENTS` / `CONSUMED_ARGUMENTS` / `MEMBER_ARGUMENTS` / `CALLSITE_ARGUMENTS` /
+`WRAPPER_LAYER_TAKEN` / `CONCRETE_SUBTYPES`。
+**上一次（或上几次）操作反射到的成员/调用点，仍然会在下一次操作的查找里作答。**
+
+**修复**：compat 新增 `TypeHelper.clearRegistrations()`（清空上述六个 ThreadLocal），
+并在生成代码 `JsonSerializer.serialize(Class, TValue, Options)` 的入口调用它——
+每个操作从干净状态开始。
+`ProjectPasses.PatchSerializeRegistryReset` 已把它做成**可再生产**的补丁
+（删除生成的 `JsonSerializer.java` 后重跑转换器，补丁自动落回第 1367 行；再生后全量仍为 723）。
+
+**这就是 Round 18 线索的正确落点**：Round 18 已证明"写路径补丁不是污染源（反而在减轻）"，
+本轮证明污染源是**注册表本身**。
+
+**遗留的 5 项回归（已记录，未隐藏）**：
+`ArrayTests.readClassWithGenericISetT`、`DictionaryTests.nestedDictionariesRoundtrip`、
+`ReferenceHandlerTests.extensionDataDictionaryHandlesPreserveReferences`、
+`objectDictionaryLoop`、`objectPreserveDuplicateDictionaries`。
+字典那几项现在的错误是
+`The type 'class java.lang.Object' is not a supported Dictionary key type`——
+即清空成员上下文后，某个字典转换器是**按擦除后的类型参数边界**建出来的。
+
+**同时否定了一个显而易见的缓解**：把 `MEMBER_ARGUMENTS` 保留不清 → 全量 **776**（比 723 差），
+所以"缩小清理范围"不是正解。
+
+**这也回溯解释了 Round 8**：它那次"持久作用域"实质上就是在清 `MEMBER_ARGUMENTS`，
+所以必然回归——当时并不知道清空**起始时机**才是关键。
+
+**下一轮方向**：修那 5 项——字典类的转换器需要在**入口清空之后**、
+按**当前操作的成员实参**重建（与 §4.15 的成员键思路合流），
+而不是复用按类型参数边界建的实例。
