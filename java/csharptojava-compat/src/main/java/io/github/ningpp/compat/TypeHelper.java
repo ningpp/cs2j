@@ -424,6 +424,28 @@ public final class TypeHelper {
         return callSite == null || callSite.isEmpty() ? null : callSite.peekFirst();
     }
 
+    /**
+     * Builds the instance the generated dictionary converters populate for an interface-typed
+     * target (C# <c>IDictionary</c> → CSharpIDictionary), or null when the target truly cannot be
+     * populated.
+     *
+     * <p>The generated <c>IDictionaryConverter.createCollection</c> interface branch created a bare
+     * <c>new CSharpDictionary&lt;String,Object&gt;()</c> while its own <c>TCollection</c> is
+     * <c>CSharpIDictionary</c>, so the instance failed the boundary cast at the test's
+     * <c>(CSharpIDictionary) JsonSerializer.deserialize(...)</c>. CSharpDictionary cannot implement
+     * CSharpIDictionary directly (reflection-visible conflict on <c>remove</c>: boolean vs void), so
+     * the bridge mirroring C#'s implicit Dictionary → IDictionary conversion is used instead.</p>
+     */
+    public static Object newNonGenericDictionary(Class<?> typeToConvert, boolean assignableFromRuntime) {
+        if (typeToConvert == null || !assignableFromRuntime) {
+            return null;
+        }
+        if (typeToConvert.isAssignableFrom(CSharpDictionary.class)) {
+            return CSharpIDictionary.from(new CSharpDictionary<String, Object>());
+        }
+        return null;
+    }
+
     /** Opt-in diagnostics: {@code -Dcs2j.trace.typeargs=true} traces type-argument resolution. */
     private static final boolean TRACE_TYPE_ARGS = Boolean.getBoolean("cs2j.trace.typeargs");
 

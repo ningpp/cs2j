@@ -1085,9 +1085,9 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchListConverterAdd(result);
                 }
-                else if (result.FileName.EndsWith("JsonSerializerOptions.java", StringComparison.Ordinal))
+                else if (result.FileName.EndsWith("IEnumerableConverterFactoryHelpers.java", StringComparison.Ordinal))
                 {
-                    PatchConverterCacheLookup(result);
+                    PatchTransitiveInterfaceWalk(result);
                 }
             }
         }
@@ -1200,6 +1200,63 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
     private static readonly System.Text.RegularExpressions.Regex ConverterCacheLookupRegex = new(
         @"(?<indent>[ \t]*)if \(_converters\.containsKey\(typeToConvert\)\) \{\r?\n"
         + @"[ \t]*converter = _converters\.get\(typeToConvert\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// .NET's <c>Type.GetInterfaces()</c> returns the transitive interface closure; Java's
+    /// <c>Class.getInterfaces()</c> returns direct interfaces only. The generated
+    /// <c>getCompatibleGenericInterface</c> walks <c>type.getInterfaces()</c>, so a type that
+    /// inherits its interface through a superclass - or through a parent interface - never matches
+    /// and the caller falls back to the generic IEnumerable converter, whose <c>createCollection</c>
+    /// rejects the type ("The collection type '...' is abstract, an interface, or is read only").
+    /// Route the walk through a compat helper that reproduces the .NET semantics.
+    /// </summary>
+    private static void PatchTransitiveInterfaceWalk(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        if (!TransitiveInterfaceWalkRegex.IsMatch(result.GeneratedCode))
+            return;
+
+        result.GeneratedCode = TransitiveInterfaceWalkRegex.Replace(
+            result.GeneratedCode, "for (Class typeToCheck : TypeHelper.getAllInterfaces(type)) {", count: 1);
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex TransitiveInterfaceWalkRegex = new(
+        @"for \(Class typeToCheck : type\.getInterfaces\(\)\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// The generated <c>IDictionaryConverter.createCollection</c> interface branch populates a bare
+    /// <c>new CSharpDictionary&lt;String,Object&gt;()</c> while its own <c>TCollection</c> is
+    /// <c>CSharpIDictionary</c>, so the instance fails the boundary cast the caller performs (the
+    /// test's <c>(CSharpIDictionary) JsonSerializer.deserialize(json, null,
+    /// CSharpIDictionary.class)</c>). CSharpDictionary cannot implement CSharpIDictionary directly -
+    /// the non-generic <c>IDictionary.remove</c> returns void while <c>IDictionary&lt;K,V&gt;.remove</c>
+    /// returns boolean, a reflection-visible conflict - so compat supplies the bridge that mirrors
+    /// C#'s implicit Dictionary to IDictionary conversion.
+    /// </summary>
+    private static void PatchDictionaryCreateCollection(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        if (!DictionaryCreateCollectionRegex.IsMatch(result.GeneratedCode))
+            return;
+
+        var patched =
+            "state.value.Current = state.value.Current.withReturnValue("
+            + "TypeHelper.newNonGenericDictionary(getTypeToConvert(), "
+            + "TypeHelper.isAssignableFrom(getTypeToConvert(), getRuntimeType())));";
+        result.GeneratedCode = DictionaryCreateCollectionRegex.Replace(
+            result.GeneratedCode, patched.Replace("$", "$$"), count: 1);
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex DictionaryCreateCollectionRegex = new(
+        @"state\.value\.Current = state\.value\.Current\.withReturnValue\(new CSharpDictionary<String, Object>\(\)\);",
         System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>Makes sure a patched file can resolve <c>TypeHelper</c>.</summary>
