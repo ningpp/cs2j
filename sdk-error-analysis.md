@@ -833,3 +833,11 @@ if (propertySymbol.GetAttributes().Any(a =>
 4. **验证**：`Select-String 'CompatJsonExtensionData'` 先确认命中数 > 0（省一次 12 分钟闭环），再 `dotnet test`（3154+58）→ Step 1（618/0）→ Step 2 官方 → 集合差**要求新增失败 0**；为负即只回退发射，compat 保留。
 
 **下一批可用同一配方的特性（按预期收益排序）**: `[JsonIgnore]`（`DefaultIgnoreCondition`/忽略语义，影响面大）、`[JsonInclude]`（字段参与序列化）、类型级 `[JsonConverter]`（`enumWithConverterAttribute` 等）、`[JsonPropertyName]`（若仍有缺失路径）。每加一个都按上面四步独立闭环，保持"一次一处发射 + 集合差判定"的纪律。
+## Iteration 44 — 第二个特性 [JsonIgnore] 落地（官方 902 → 895；集合差 +9 / −2）
+
+- **实现**: 复用 Round 72 的四步配方——compat 注解 `CompatJsonIgnore` + 翻译层门禁泛化（按被查询特性名映射到对应标记注解，两个特性可共存且互不误报）+ 转换器发射（`PropertyTransformer.cs` 在 `[JsonExtensionData]` 块之后，匹配 `AttributeClass?.Name == "JsonIgnoreAttribute"`）。
+- **产物校验**: 生成产物 `CompatJsonIgnore` 命中 **73 处** ✓（发射生效）。
+- **官方验证（有效测量）**: `Tests run: 7904, Failures: 435, Errors: 460, Skipped: 16` = **895**，编译零错误；与 902 基线集合差 **新增失败 2 / 新增通过 9**（净 **+7**）✓。
+- **新增失败名单**: dotnet.text.json.Serialization.Tests.PropertyVisibilityTests.jsonIgnoreConditionNever(Class)[1]; dotnet.text.json.Serialization.Tests.PropertyVisibilityTests.jsonIgnoreConditionNever(Class)[2]
+- **教训（方法学）**: 首次运行的日志被中断（停在 `ValueTests`、无汇总行），却曾给出"78 通过"的**假阳性**——若据此保留就会把未验证改动当成已验证。**校验运行完整性（是否有 `Tests run: 7904` 汇总行与 BUILD 行）必须成为判定前的固定步骤**；本轮据此重跑并改用有效数据。
+- **提交**: dca0be33（发射）+ 本条记录。
