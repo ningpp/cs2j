@@ -771,3 +771,5 @@ if (propertySymbol.GetAttributes().Any(a =>
 1. `PropertyTransformer`：把发射条件改为照抄同文件既有模式 `a.AttributeClass?.Name == "JsonExtensionDataAttribute"`（旁边的 `DebuggerBrowsableAttribute` 就是这么写的），并放在**手写属性**分支；
 2. `FieldTransformer`：对带 `[JsonExtensionData]` 的字段同样加 `@CompatJsonExtensionData`（需确认 `JavaFieldDeclaration` 是否支持 `Annotations`；若不支持，则在 compat 侧改为按字段名/`MemberInfo` 的 `getCustomAttributes` 路径识别——`FieldInfo` 也实现了 `MemberInfo` ✓，翻译层可同样读取注解）。
 3. 仍按两步法验证：`dotnet build` + Step 1 ⇒ `Select-String 'CompatJsonExtensionData'` 命中数必须 > 0，才进入 dotnet 全量与官方 Step 2。
+
+- **(b) 字段侧无阻碍（实测）**: `JavaFieldDeclaration`（`src/CSharpToJava.Core/Java/JavaMemberDeclaration.cs:20`）已有 `public List<JavaAnnotation> Annotations { get; } = new();` ⇒ 字段发射 `@CompatJsonExtensionData` 与属性侧同构，可直接实现（无需改用 FieldInfo 回退方案）。下一轮两处编辑：①手写属性分支（照抄同文件 `AttributeClass?.Name == "JsonExtensionDataAttribute"` 写法）；②字段产出点加同一注解。
