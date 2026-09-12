@@ -438,3 +438,38 @@ Round 3 试过"元素类信息取自活转换器"→ 5 修复 / 1 回归、总�
 
 两者都要动 `JsonPropertyInfo` + compat 的实参发布方式，**属于结构性改动**，
 必须先做"单类验证（`ArrayTests`+`ObjectTests`）→ 再全量"，不可直接铺开。
+
+### 4.13 Round 8：把"成员实参绑定"方案做出来了，实测是 wash（已回退，含关键机理）
+
+完整实现了 §4.12 的方案 A：
+
+- compat：`PropertyInfo.getPropertyType()` / `FieldInfo.getFieldType()` 在反射到成员类型时
+  调 `bindMemberArguments(this, 该成员的泛型式)`，把**成员自己的实参**记进
+  `MEMBER_DECLARED_ARGUMENTS`（按成员键，不再是按裸类的单槽）；
+- compat：新增 `LOOKUP_ARGUMENTS` 显式作用域，`converterCacheKey` **优先**读它；
+- 生成代码：`JsonPropertyInfo.getRuntimeClassInfo()` 用
+  `beginLookupArgumentsScope(getMemberInfo(), getRuntimePropertyType())` 包住查找。
+
+**实测结果**：
+
+| 阶段 | 结果 |
+|---|---|
+| 单类验证 | `ArrayTests` 38 → **35**（−3）；`ObjectTests` 66 → 66（**不变**） |
+| 全量 | 794 → **792**（净 +2），但**同时 10 项修复 / 8 项回归** → 判为 wash |
+
+**回退后的关键对照**：只把 `converterCacheKey` 里"优先读 `LOOKUP_ARGUMENTS`"那两行去掉
+（保留 `bindMemberArguments`），全量立刻回到 **794、零回归**。
+→ 说明那 10/8 的交换**完全由"显式实参作用域"这一步引入**，`bindMemberArguments` 本身无害。
+
+**为什么方案 A 在这里会自我拆台**（机理，留给下一轮）：
+
+`runtimePropertyType` 已经是**裸 `CSharpList.class`**，它**无法表达"我是第几层"**。
+属性按自己的实参键成 `[[Short]]` 建出 `JsonClassInfo` 后，该 class info 的
+**元素查找**（`getElementClassInfo()`）还在同一个显式作用域里，于是元素也用 `[[Short]]` 去查——
+而 `[[Short]]` 正是**外层**的键，元素于是命中**外层自己**，`_elementClassInfo` 指向父级，
+内层数组继续被 `StringConverter` 读（`ArrayTests` 剩下那 35 条仍是 `MyInt16TwoDimensionList[0]`）。
+
+**正解必须在同一次查找里区分"外层实参"与"元素实参"**：
+即 `getRuntimeClassInfo()` 用成员实参建外层，而**元素查找必须切换到
+`elementArgumentsOfOwner(成员实参)`**（这正是 Round 5 已有、且已验证正确的推导），
+两者不能共用同一个作用域。下一轮应把这两级显式分开，再单类验证后再全量。
