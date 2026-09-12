@@ -1075,6 +1075,30 @@ public final class TypeHelper {
     }
 
     /**
+     * Whether a member's type is one the SDK accepts for {@code [JsonExtensionData]}.
+     *
+     * <p>C# accepts an {@code IDictionary<string, T>} and — since .NET 5 — a
+     * {@code IReadOnlyDictionary<string, T>}, which is what an immutable dictionary implements. The
+     * generated check tested only {@code CSharpGenericIDictionary}, so a member declared as an
+     * immutable dictionary was rejected even though the SDK documents and tests that form. Measured:
+     * {@code ExtensionDataTests.ClassWithExtensionPropertyAsImmutable.MyOverflow} is an
+     * {@code ImmutableDictionary<string, object>}, {@code isImmutableDictionaryType} answers true for
+     * it, and {@code isAssignableFrom(CSharpGenericIDictionary, ...)} answers false — so the property
+     * was refused with "does not match the required signature".</p>
+     *
+     * <p>{@code null} answers false: the caller tests the declared type and then the runtime type,
+     * which may be null.</p>
+     */
+    public static boolean isExtensionDataDictionaryType(Class<?> type) {
+        if (type == null) {
+            return false;
+        }
+        return isAssignableFrom(CSharpGenericIDictionary.class, type)
+            || isAssignableFrom(CSharpReadOnlyDict.class, type)
+            || isAssignableFrom(IImmutableDictionary.class, type);
+    }
+
+    /**
      * Arguments a concrete subtype declares for {@code target}. Java erases them from
      * the class literal, but a class that implements {@code IList<String>} keeps the
      * argument in its bytecode signature; converter factories ask the interface for

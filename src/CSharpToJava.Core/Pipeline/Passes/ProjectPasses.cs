@@ -1269,14 +1269,18 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
         System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>
-    /// Makes the extension-data signature check use the resolved type when the DECLARED type is a
-    /// type parameter.
+    /// Accepts every dictionary form the SDK allows for extension data, including the read-only and
+    /// immutable dictionaries, by routing the check through the compat helper.
     /// <para>
-    /// <c>[JsonExtensionData] public T Overflow</c> erases to <c>Object</c> in Java, so
-    /// <c>isAssignableFrom(CSharpGenericIDictionary, declaredPropertyType)</c> answers false and a
-    /// property that IS a <c>Dictionary&lt;string, object&gt;</c> at the constructed type is
-    /// rejected. Measured: 16 ExtensionDataTests failures, all reaching
-    /// <c>ThrowHelper.throwInvalidOperationException_SerializationDataExtensionPropertyInvalid</c>.
+    /// C# accepts an <c>IDictionary&lt;string, T&gt;</c> and — since .NET 5 — an
+    /// <c>IReadOnlyDictionary&lt;string, T&gt;</c>. The generated code tested only
+    /// <c>CSharpGenericIDictionary</c>, so <c>ClassWithExtensionPropertyAsImmutable.MyOverflow</c>
+    /// (an <c>ImmutableDictionary&lt;string, object&gt;</c>, which the SDK explicitly tests) was
+    /// refused with "does not match the required signature" — 44 measured failures.
+    /// </para>
+    /// <para>
+    /// The runtime type is consulted as well because a member can declare a type PARAMETER
+    /// (<c>[JsonExtensionData] public T Overflow</c>), which erases to <c>Object</c>.
     /// </para>
     /// </summary>
     private static void PatchExtensionDataSignatureType(ConversionResult result)
@@ -1294,18 +1298,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
         }
         result.GeneratedCode = ExtensionDataSignatureRegex.Replace(code,
             "        Class declaredPropertyType = jsonPropertyInfo.getDeclaredPropertyType();\n"
-            + "        Class signatureType = declaredPropertyType;\n"
-            + "        Class runtimePropertyType = jsonPropertyInfo.getRuntimePropertyType();\n"
-            + "        if (!TypeHelper.isAssignableFrom(CSharpGenericIDictionary.class, declaredPropertyType)\n"
-            + "            && runtimePropertyType != null\n"
-            + "            && TypeHelper.isAssignableFrom(CSharpGenericIDictionary.class, runtimePropertyType))\n"
-            + "        {\n"
-            + "        signatureType = runtimePropertyType;\n"
-            + "        }\n"
-            + "        if (TypeHelper.isAssignableFrom(CSharpGenericIDictionary.class, signatureType) "
-            + "|| TypeHelper.isAssignableFrom(CSharpGenericIDictionary.class, signatureType)) {\n"
+            + "        if (io.github.ningpp.compat.TypeHelper.isExtensionDataDictionaryType(declaredPropertyType)\n"
+            + "            || io.github.ningpp.compat.TypeHelper.isExtensionDataDictionaryType(jsonPropertyInfo.getRuntimePropertyType())) {\n"
             + "        dotnet.text.json.Serialization.JsonConverter converter = "
-            + "getOptions().getConverter(signatureType);",
+            + "getOptions().getConverter(declaredPropertyType);",
             count: 1);
     }
 
