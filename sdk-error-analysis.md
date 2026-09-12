@@ -1174,6 +1174,32 @@ if (propertySymbol.GetAttributes().Any(a =>
   ⇒ 下一步必须**一次性**让 `createCollection` + `onTryRead` + `add` 三处都走视图（或等价地：让该分支直接使用 `newNonGenericCollection` + 视图），单独改任一处都不够。
 - **本轮保留**: Round 10 的资产（`asGenericList` 视图、`listToAddInto`、`PatchListConverterAdd`、`EnsureTypeHelperImport`）与本轮的产物补丁经验（花括号平衡 + 链首插入）。
 
+## Iteration 72 — `CSharpArrayList` 簇：端到端补丁仍为净负，且失败点被精确定位到"实例创建"（855 → 861，已回退）
+
+本轮按上一轮结论做了"三处一起改"，技术上全部生效，但测量仍为净负。
+
+- **三处补丁全部落地并验证**: ① 工厂分支置顶（`isNonGenericListType` → `IListOfTConverter`，含花括号平衡）；② `createCollection` 的只读判定改为 `TypeHelper.isReadOnlyList((Object) returnValue)`；
+  ③ `add` 走 `listToAddInto`。产物命中数各为 1 ✓，编译零错误 ✓。
+- **失败点最终定位（比上一轮更准确）**: `ClassCastException` 发生在
+  `IListOfTConverter.createCollection` 的 **`TCollection returnValue = (TCollection)(classInfo.getCreateObject().get());`**（第 66 行）——
+  即"取实例"这一步，而**不是**随后的 `getIsReadOnly()`（上一轮的判断）。因此 `(Object)` 擦除只读判定并不能解决问题。
+  - 补充排除：`ReflectionMemberAccessor.createConstructor(type)` 本身是 `Activator.createInstance(type)`（会造目标类型），
+    所以问题在 **`state.Current.getJsonClassInfo()` 对应的 classInfo 与 TCollection 不一致**（数组/嵌套路径下尤其明显），
+    这已超出"打补丁"能覆盖的范围。
+- **测量与处置**: 全量 855 → **861**（新增失败 4 项同样是 `write*ArrayList*`）⇒ **整体回退**；重装 compat 后复核基线 **855** ✓。
+- **三轮合计的结论（CSharpArrayList 簇，Round 9→12）**: 该簇需要的不是补丁，而是**让工厂为该类型生成一个真正的"通用列表填充器"**——
+  即 `IListOfTConverter` 对非泛型集合应走"实例来自 `newNonGenericCollection` + 视图填充 + 数组转换"的一条独立通路，
+  而不是复用泛型路径再逐点绕开其强制转换。继续加补丁的边际收益已被四轮测量证明为 ≤ 0。
+
+## Iteration 73 — 本轮（Round 12）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（已重装 compat、重新转换、重新全量复核）。累计（Round 1→12）: 895 → 855。
+- **compat**: 1717/1717 ✓（下一步复测）；工作区干净。
+- **净变化为零的四轮（Round 9→12）**: `CSharpArrayList` 簇的每一种"打补丁"路线都被测量否决并回退；**唯一保留的是中性基础设施**（产物补丁通道 + `listToAddInto`/`asGenericList`）。
+- **建议下一轮换簇**: 该簇需要架构级改动（新增填充器通路），而剩余的其他大簇（"应抛异常未抛"、"JSON value could not be converted" 的元素类型复用）门槛更低；
+  继续投入该簇前应先确认愿意承担一次架构级改动。
+
+
 
 
 
