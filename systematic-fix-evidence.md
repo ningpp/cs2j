@@ -1688,3 +1688,47 @@ beginMemberArgumentScope(MyStringList)CSharpList = [class java.lang.String]
 3. **PowerShell 传 `-D` 要给整个开关加引号**：`-Dcs2j.trace.typeargs=true` 会被 PowerShell
    解析坏，java 报"找不到主类 `.trace.typeargs=true`"，日志看起来像"探针没有输出"，
    白白多花一轮。
+### 4.45 Round 42：**推翻"预言机"结论**——从 writer 簇拿到 4 条真修复（702 → 674）
+
+§6.4 曾把 `Utf8JsonWriterTests` 61 条建议"作为测试预言机问题接受"。**这是错的**。
+本轮从同一簇里拿到 **49 条真修复**，根因全部在 compat 的两个类里。
+
+| 提交 | 内容 | 收益 |
+|---|---|---|
+| `e777d254` | C# `[JsonPropertyName]` 送进运行时 | 723 → 709（修 14 / 坏 0） |
+| `5540ec46` | 非公开访问器可见性 + `[JsonInclude]` 例外 | 709 → 702（修 7 / 坏 0） |
+| `bdf54f07` | **孤立代理项转义为 U+FFFD** | 702 → 692（修 10 / 坏 0） |
+| `01a85535` | **数字按 .NET 格式写** | 692 → 678（修 14 / 坏 0） |
+| `b38263ff` | **U+FFFD 在所有编码器下都转义** | 678 → 674（修 4 / 坏 0） |
+
+**三条根因（都在 compat，都不在断言里）**
+
+1. `JavaScriptEncoder.encode(char-span)` 把每个 UTF-16 **码元**独立处理，
+   于是孤立代理项被原样写成它自己的转义。实测：属性名 `{0xD801,'a'}` 输出
+   `{"\ud801a":"\ud801\udc37"}`，而 .NET 输出 `{"\uFFFDa":"\uD801\uDC37"}`。
+   正确做法是**按标量**处理：合法代理对是一个标量（转义成配对的两个单元），
+   孤立代理项是非法 UTF-16（替换为 U+FFFD）。
+2. `Utf8Formatter.tryFormat(double/float)` 用了 Java 的 `Double.toString`/`Float.toString`，
+   整数值必带小数点：写 `1.0` 得到 `"1.0"`，.NET 的默认 `G` 写 `"1"`。
+   double 改用已有的 `DoubleHelper`；float 新建 `FloatHelper`——
+   **不能先加宽到 double**：float 的精确二进制值的最短 double 表示长得多，
+   `0.1f` 会变成 `0.10000000149011612`。
+3. `willEncode` / `needsEscapingUtf16` 让 U+FFFD 走了"非 ASCII 不管"的分支，
+   但 U+FFFD 是**所有**编码器都转义的字符（包括 `UnsafeRelaxedJsonEscaping`）。
+
+**本轮踩到并记入纪律的两个坑**
+
+- **javac 在注释里也会处理 `\u` 转义**：注释里写 `\uXXXX` 占位符会报
+  "非法的 Unicode 转义"（`\uD801` 更是直接变成控制字符）。注释里只能写
+  "backslash-u"，不能写真的反斜杠加 u。
+- **`destination.set(written++, cond ? charExpr : intExpr)` 会退化到
+  `set(int, Object)` 重载**，在 char 后备的 Span 上抛 `ArrayStoreException`；
+  两个分支必须分开写。
+
+**一次被实测否掉的小实验（勿重复）**：放宽 `willEncode` 让
+`UnsafeRelaxedJsonEscaping` 不转义增补平面标量 —— **中性（674→674，集合完全相同）**，已回滚。
+原因已查明并写进代码注释：`UnicodeRanges.getUnsafeRelaxedRanges()` 只到 U+FFFD，
+因为 `UnicodeRange.create` 收的是 `char`，所以那条分支在现有数据结构下**永远不可能为假**。
+
+**回滚/最终复核**：`Tests run: 7902, Failures: 379, Errors: 295, Skipped: 18` = **674**（起点 855，**−181**）；
+`git status` 干净。
