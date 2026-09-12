@@ -631,6 +631,16 @@ public final class TypeHelper {
         if (baseType == CSharpGenericIterable.class && type != null && type.isArray()) {
             return true;
         }
+        // A C# type that merely IMPLEMENTS IDictionary<K,V> (the SDK test suite declares
+        // extension-data wrappers like GenericIDictionaryWrapperPrivateConstructor<string, object>)
+        // can be ported as a class implementing only the non-generic compat dictionary interface.
+        // The extension-data check asks isAssignableFrom(CSharpGenericIDictionary.class, wrapper)
+        // and C# would accept it, so bridge the two dictionary trees here (same idea as the
+        // CSharpIList -> CSharpList bridge below).
+        if (baseType == CSharpGenericIDictionary.class && type != null
+                && CSharpIDictionary.class.isAssignableFrom(type)) {
+            return true;
+        }
         // .NET's non-generic collection interfaces (IDictionary, IList,
         // ICollection, IEnumerable) all derive from IEnumerable.  In the
         // compat library these are modeled as separate interface trees
