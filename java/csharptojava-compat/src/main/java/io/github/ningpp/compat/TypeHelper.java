@@ -657,7 +657,7 @@ public final class TypeHelper {
         if (baseType == CSharpIList.class && type == CSharpList.class) {
             return true;
         }
-        if (baseType != null && baseType.isAssignableFrom(type)) {
+        if (baseType != null && type != null && baseType.isAssignableFrom(type)) {
             return true;
         }
         // Bridge C# type-token classes (CSharpByte, CSharpSByte, etc.) and
