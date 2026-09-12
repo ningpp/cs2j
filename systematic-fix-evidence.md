@@ -1409,3 +1409,23 @@ WrapperForIEnumerablePrivateConstructor    WrapperForICollectionPrivateConstruct
 原因是当时**写侧没有按正确键建条目**；本轮方案补上了写侧，与此前不同。
 但仍须**先单类验证 `ArrayTests` + `ObjectTests`**，再全量——因为
 `putIfAbsent` 到 `_classes` 会影响所有后续查找。
+
+### 4.38 Round 32：开始实施 miss 建条目，因补丁锚点不齐导致编译失败，已干净回退
+
+按 §4.37 动手实施"miss 时按 computed key 建条目"。**两个字符串替换不一致**：
+第二个锚点命中、第一个未命中，于是新加的 helper 引用了
+`endLookupArgumentsScope` 而**用到它的 miss 分支并没有插进去**，模块编译失败：
+`找不到符号: 方法 endLookupArgumentsScope(java.lang.Object)`。
+
+**已 `git checkout -- java/` 回退并重装 compat，全量复核 = 723（430+293）**、
+`git status` 干净，**没有留下半成品改动**。
+
+**下一轮实施要点（避免重复本轮的错误）**：
+1. 必须**整体 read-then-edit** `cachedClassInfoForMember`，因为 miss 分支与 helper
+   必须**成对插入**，不能用两次互不相关的字符串替换；
+2. 已提交的 compat 里**可用的作用域 API 只有**
+   `beginElementArgumentsScope(owner, element, args)` / `endElementArgumentsScope(token)`；
+   **没有** `endLookupArgumentsScope`（那个名字只存在于更早的一次未提交实验里，
+   本轮误用了它——这是编译失败的直接原因）；
+3. 建 `JsonClassInfo` 时必须让**成员实参处于作用域内**，
+   这样它内部的元素查找才会解析出**元素自己的实参**。
