@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -283,6 +283,19 @@ public class PropertyTransformer : IMemberTransformer
             {
                 getter.Annotations.Add(new JavaAnnotation($"CompatPropertyName(\"{propertySymbol.Name}\")"));
                 context.AddImport("io.github.ningpp.compat.CompatPropertyName");
+            }
+
+            // C# [JsonExtensionData] -> compat annotation; the symbol must be resolved from the
+            // declaration because the propertySymbol parameter is null on this path.
+            if (context.SemanticModel != null)
+            {
+                var extDataSymbol = context.GetDeclaredSymbol(propDecl);
+                if (extDataSymbol?.GetAttributes().Any(a =>
+                        a.AttributeClass?.Name == "JsonExtensionDataAttribute") == true)
+                {
+                    getter.Annotations.Add(new JavaAnnotation("CompatJsonExtensionData"));
+                    context.AddImport("io.github.ningpp.compat.CompatJsonExtensionData");
+                }
             }
 
             // C# [DebuggerBrowsable(state)] on the property → runtime annotation on the
