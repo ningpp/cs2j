@@ -795,3 +795,14 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **对比**: Round 44（仅发射）为 **新增失败 4 / 新增通过 0**（净 −4）⇒ **空值守卫确实把其中 2 项从崩溃转为通过** ✓，但仍有 4 项新失败 ⇒ 扩展数据的读写通路仍未实现到足以承载这些用例。
 - **处置**: 回退发射（工作区回 929）；**保留** compat 侧的全部改动（空值守卫 + 注解 + 翻译层，1642/1642 绿、当前状态下中性）。
 - **结论**: (b) 的"识别"环节已经完全可用（发射 80 处、翻译层生效、崩溃守卫生效），收益受阻的唯一原因是**扩展数据读写实现本身**；下一步应直接实现该通路（对象默认转换器的扩展数据写出 + 读入合并 + reader options 传递），而不是再调整发射。
+## Iteration 41 — 扩展数据读写通路的落点已缩小到两个方法
+
+生成产物 `ObjectDefaultConverter.java` 中扩展数据的**控制流已经存在**：
+- 读入：`lookupProperty(obj, name, state, useExtensionPropertyHolder, true)`（76-79、139-142）→ `state.Current.withUseExtensionProperty(...)`（142）→ `if (useExtensionProperty) jsonPropertyInfo.readJsonAndAddExtensionProperty(obj, state, reader)`（166-173、285-288）
+- 写出：`JsonPropertyInfo dataExtensionProperty = state.Current.JsonClassInfo.getDataExtensionProperty()`（203、241）→ `if (jsonPropertyInfo == dataExtensionProperty) getMemberAndWriteJsonExtensionData(objectValue, state, writer)`（215-216、252-253）
+
+⇒ 因此 (b) 剩余的缺口不在转换器的控制流，而在**下游两个方法**：
+1. `JsonPropertyInfo.readJsonAndAddExtensionProperty(...)`（把未知属性并入扩展数据字典）——本轮 4 项回归中 `extensionPropertyObjectValue_RoundTrip`、`nestedClassWithObjectExtensionDataProperty`、`extensionPropertyInvalidJsonFail`（期望 JsonException 实得 NPE）应由此解释；
+2. `JsonPropertyInfo.getMemberAndWriteJsonExtensionData(...)`（把字典写出为同级属性）与 **reader options 传递**（`OptionsTests.extensionDataUsesReaderOptions`）。
+
+**下一轮动作**: 定位这两个方法（`JsonPropertyInfo1` 生成类或 compat），补齐字典合并/写出与 options 传递；验收标准就是 Round 45 记录的那 4 个用例（在打开 (b) 发射的前提下，集合差要求新增失败 0、且这 4 项转为通过）。
