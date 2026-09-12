@@ -78,7 +78,10 @@ public class JavaScriptEncoder {
         }
         // .NET's global block list always escapes supplementary (non-BMP)
         // characters, regardless of the encoder's allowed ranges — no built-in
-        // encoder writes surrogate pairs unescaped.
+        // encoder writes surrogate pairs unescaped. (Checked in round 42: the
+        // UnsafeRelaxed ranges stop at U+FFFD because UnicodeRange.create takes chars,
+        // so there is no allowed-range path that could make this false; an experiment
+        // that tried was measurably neutral.)
         if (unicodeScalar >= 0x10000) {
             return true;
         }
