@@ -701,3 +701,37 @@ public class GenericIEnumerableWrapperPrivateConstructor<T> extends GenericIEnum
 `PropertyVisibilityTests` 三个类做单类验证，再全量。
 
 **本轮收口**：实验代码全部回退，复核 = **790（431+359）**、零回归、`git status` 干净。
+
+### 4.21 Round 15：**否证** §4.20 的定位——compat 的构造函数桥接是无辜的
+
+用 `probe/CtorProbe.java` 直接问 compat（`GenericIEnumerableWrapperPrivateConstructor`）：
+
+```
+isPublic(type)  = true
+ctors           = [private ...GenericIEnumerableWrapperPrivateConstructor()]
+getConstructorInfo(Public|Instance) = null      ← 正确返回 null！
+isAbstract      = false
+```
+
+**结论**：`TypeHelper.getConstructorInfo` 对"public 类 + 显式 private 构造函数"**正确地返回 null**，
+`matchesConstructorBindingFlags` 也**没有**错误放行。
+§4.20 把矛头指向 compat 构造函数桥接是**错的**，现予更正——
+因此**不要**去收窄那个桥接（那会造成无谓的大范围回归风险）。
+
+**真正的缺口（已定位到层级）**：目标类型是 `IEnumerable<T>` 接口时，
+`IEnumerableConverterFactory` 走的**不是**"实例化该类型"的分支，
+而是"造一个 `CSharpList` 之类的具体集合来承载"，
+于是 `createCollection` 里那句 `getCreateObject() == null → throw` **永远不会触发**。
+.NET 在这里会查真实类型（`GenericIEnumerableWrapperPrivateConstructor`）的**公开无参构造函数**，
+没有就抛 `NotSupportedException`。
+
+**修复方向（下一轮，落点在转换器/工厂而非 compat）**：
+在 `IEnumerableConverterFactory.createConverter` 的接口分支里，
+对"具体目标类型"补一次公开无参构造函数校验，缺失即抛
+`ThrowHelper.throwNotSupportedException_DeserializationNoConstructor`（映射为
+`UnsupportedOperationException`），并让消息包含类型名（测试断言
+`Assert.contains(type.toString(), ex.getMessage())`）。
+补丁通道已可用（`ProjectPasses`），注意**后缀分派顺序**约定（§4.18）。
+
+**风险**：该分支覆盖所有接口型可枚举目标，必须先在
+`CollectionTests` + `CustomConverterTests` + `PropertyVisibilityTests` 三个类上验证，再全量。
