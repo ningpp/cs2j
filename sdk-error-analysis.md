@@ -637,3 +637,13 @@
 
 
 
+## Iteration 29 — (a) 第一次发射尝试被证伪：`InvocationExpressionTransformer.cs:860-865` 不是命中点（已回退）
+
+- **改动（已回退）**: 把该处的泛型类型实参令牌从裸 `X.class` 换成
+  `TypeHelper.closedGenericType(TypeHelper.parameterized(X.class, <实参类字面量...>))`（结果仍是 `Class`，不改签名）。
+- **验证**: `dotnet test -c Release` 3154+58 全绿 ✓；Step 1 转换 `618 succeeded, 0 failed` ✓；官方 Step 2 **编译零错误** ✓，但 `Failures: 442, Errors: 487` = **929 与改变前逐项相同**，且失败用例集合差 **0**。
+- **证伪证据（决定性）**: 生成产物 `CollectionTests.java:1085` 仍是
+  `JsonSerializer.serialize(((Class<CSharpList<Integer>>) (Class<?>) CSharpList.class), input, null)`，
+  且全文件 `closedGenericType` 出现次数 = **0** ⇒ 该处发射点**根本没有被这条调用路径命中**。
+- **结论**: 该强转形态由**另一条路径**产生（显式泛型实参令牌不是它的来源）；候选回到 `ConversionContext.GetClassLiteral`（`ConversionContext.cs:773` 的 `((Class<{MapType(typeSymbol)}>) (Class<?>) {helperCall})`）与 `HIRExpressionGenerator.cs:249`。
+- **下一轮定位法（更可靠）**: 直接以生成产物为准做**反向定位** —— 在转换器里给 `GetClassLiteral` 的返回处临时加"是否参数化"的诊断计数/日志，跑一次最小样例转换（`Serialize(List<int>)` 那类），看哪一处发射产生了带 `Class<X<Y>>` 强转的字面量；不要再用"读代码猜路径"的方式（本轮已证明会猜空）。
