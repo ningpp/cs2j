@@ -812,3 +812,24 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **结果**: dotnet 3154+58 全绿 ✓；Step 1 618/0 ✓；Step 2 编译零错误 ✓；**官方 931（429F + 502E）** vs 929 ⇒ **新增失败 4 / 新增通过 2** —— **与 Round 49 完全一致** ⇒ "接口判定被 ThreadLocal 注册表翻转"的假设**不成立**（该快路径未改变任何相关判定）。
 - **处置**: 回退发射；**保留** compat 全部改动（空值守卫、JVM 优先快路径、注解、翻译层——均为稳健性改进且对现状中性）。
 - **教训（写入方法学）**: 扩展数据这 4 项的真实原因仍未定位；三次假设（实现缺失 → 字典签名判定 → 判定时序 → 注册表影响）均被测量或读取推翻。下一步不要再猜，必须**在发射开启状态下打印抛错瞬间的 jsonPropertyInfo 状态**（getMemberInfo/getDeclaredPropertyType/getPropertyType 对照），即 probe/ExtDataProbe.java 的 try/catch 版。
+## Iteration 43 — (b) 落地成功：+27 项、零回归（官方 929 → 902）；提炼出可复用配方
+
+**本轮结果**: 官方 `Tests run: 7904, Failures: 435, Errors: 467, Skipped: 16` = **902**；与 r27 基线集合差 **新增失败 0 / 新增通过 27** ✓✓；提交 a9eac567（自动判定 KEEP）。
+
+**同一实验的四次尝试（对照表，说明根因确在翻译层）**:
+
+| 配置 | 集合差 |
+|---|---|
+| 仅发射 | 4 失败 / 0 通过 |
+| + isAssignableFrom 空值守卫 | 4 / 2 |
+| + JVM 优先快路径 | 4 / 2 |
+| + 字典接口桥接 | 4 / 2 |
+| **+ 特性名门禁（修复翻译层过度匹配）** | **0 / 27** ✓ |
+
+**可复用配方（把 C# 特性接到 Java 运行时，四步；本轮已完整验证一遍）**:
+1. **compat 注解**：新增 `@Compat<Feature>`（RUNTIME 保留、METHOD/FIELD 目标），参照 `CompatJsonExtensionData`；
+2. **compat 翻译**：在 `CustomAttributeExtensions.materializeFromCompatAnnotation` 中加**特性名门禁**（`attributeType.getSimpleName().equals("<C#特性类名>")`），再按注解存在与否**反射构造**目标特性类实例（无参构造 / 用注解携带的 Class 值）。**门禁不可省**——省了就会让带注解的成员对所有被查询的特性都报"存在"（本轮 4 项回归即由此而来）；
+3. **转换器发射**：在 `PropertyTransformer.cs:282-286` 的 `CompatPropertyName` 注入点同风格追加——**符号必须用 `context.GetDeclaredSymbol(propDecl)` 解析**（该分支的 `propertySymbol` 参数为 null，早先因此 0 命中）；
+4. **验证**：`Select-String 'CompatJsonExtensionData'` 先确认命中数 > 0（省一次 12 分钟闭环），再 `dotnet test`（3154+58）→ Step 1（618/0）→ Step 2 官方 → 集合差**要求新增失败 0**；为负即只回退发射，compat 保留。
+
+**下一批可用同一配方的特性（按预期收益排序）**: `[JsonIgnore]`（`DefaultIgnoreCondition`/忽略语义，影响面大）、`[JsonInclude]`（字段参与序列化）、类型级 `[JsonConverter]`（`enumWithConverterAttribute` 等）、`[JsonPropertyName]`（若仍有缺失路径）。每加一个都按上面四步独立闭环，保持"一次一处发射 + 集合差判定"的纪律。
