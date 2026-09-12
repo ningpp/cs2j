@@ -1947,3 +1947,26 @@ Round 48 只打通了**成员级** `[JsonConverter]`；**类型级**仍然到不
 
 **验证**：`Tests run: 7902, Failures: 345, Errors: 283, Skipped: 18` = **628**
 （起点 855，**−227**）；逐用例集合差 = 修 3 / 坏 0。
+### 4.52 Round 50：C# 风格类型名渲染（628 → 626）
+
+提交 `d18e4827`（泛型名）+ `9d25d891`（BCL 名）。
+
+**症状**：`attributeOnClassFail` / `attributeOnPropertyFail` 的消息里，
+被转换的类型用 Java 名渲染：
+`io.github.ningpp.compat.CSharpICollection`1[...]`，
+而 SDK 断言的是 `System.Collections.Generic.ICollection`1[...+InvalidTypeConverterEnum]`。
+
+**做法**：`TypeHelper.getCsTypeName`：
+- C# 全名 + 嵌套 `+`，再拼 `` `arity[arg,...] ``；
+- **类型实参从转换器注册表取**——Java 把实参从 `Class` 上擦掉了，
+  但构造这条消息时工厂**刚刚消费**完描述该类型的那一层（`CONSUMED_ARGUMENTS`），
+  所以那一层正是该显示的实参；实参递归处理 `ParameterizedType` / `GenericArrayType`；
+- **BCL 兼容类不注册进 `CompatTypeIdentity`**：那个注册表同时喂给
+  `isImmutableCollection`，把 BCL 接口注册进去会让不可变集合工厂误判，
+  因此改用 `TypeHelper` 内的局部映射。
+
+**验证**：`Tests run: 7902, Failures: 343, Errors: 283, Skipped: 18` = **626**
+（起点 855，**−229**）；两轮逐用例集合差均为 **修 1 / 坏 0**。
+
+**残留**：`attributeCreateConverterFail` 仍为 `No exception thrown`——
+它的第二次 serialize/deserialize 未触发校验，与拼写无关，需单独查。
