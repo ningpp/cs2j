@@ -1090,3 +1090,57 @@ if (IsStringKey) {
 **本轮收口**：未改任何代码，复核 = **723（430+293）**、`git status` 干净。
 （本轮的价值在于**两次阻止了错误的实施方案**：§4.28 的"移动代码"无处可移，
 而真正要动的是构造期的键校验。）
+
+### 4.30 Round 24：**根因终于钉死在两行代码上**（`ObjectConverter` 的读写不对称）
+
+顺藤摸到真正的抛出点：
+
+```java
+// ObjectConverter.java
+public Object readWithQuotes(ObjectHolder<Utf8JsonReader> reader) {
+    ThrowHelper.throwNotSupportedException_DictionaryKeyTypeNotSupported(getTypeToConvert());  // ← 无条件抛！
+    return null;
+}
+public void writeWithQuotes(...) {
+    JsonConverter runtimeConverter = getRuntimeConverter(value.getClass(), options);   // ← 写侧按运行时类型解析
+    runtimeConverter.writeWithQuotesAsObject(writer, value, options, state);
+}
+private JsonConverter getRuntimeConverter(Class runtimeType, JsonSerializerOptions options) {
+    JsonConverter runtimeConverter = options.getDictionaryKeyConverter(runtimeType);
+    if (runtimeConverter == this) {
+        ThrowHelper.throwNotSupportedException_DictionaryKeyTypeNotSupported(runtimeType);   // ← 只在**真的**解析不出来时才抛
+    }
+    return runtimeConverter;
+}
+```
+
+**读写两侧的核心不对称**：
+- **写**：`getRuntimeConverter(值的实际类型)` —— 先看运行时的真实类型，
+  **只有在确实没有可用转换器时**才抛。
+- **读**：`readWithQuotes` **直接抛**，**完全不看** JSON token / 也不尝试解析。
+
+于是"字典的键类型是 `Object`"这**一个条件**就足以在读侧立刻炸，
+无论后面到底有没有键、键实际是什么。这正是
+`empty object 不应抛` / `读到键才应抛` 两条测试期望同时被违反的原因。
+
+**这同时解释了两簇看似无关的失败**：
+- §4.25 的 5 项回归（`CSharpDictionary` 裸 token，值为 `Object`）；
+- `JsonConvert CSharpDictionary` 一簇里
+  `DictionaryDefaultConverter.onTryRead:162 → readDictionaryKey:97 → ObjectConverter.readWithQuotes:48`
+  的那些（键类型 `Object`）。
+当前全量里 `is not a supported Dictionary key type` 出现 **21 次**（约 7–10 个测试）。
+
+**要实施的修法（方向明确，尚未实施）**：给读侧补上与写侧对称的**解析后才抛**：
+`readWithQuotes` 应先尝试取得可用的键转换器（JSON 属性名是字符串，
+落到字符串语义），**只有在真的解析不出**时才
+`throwNotSupportedException_DictionaryKeyTypeNotSupported`。
+这样三条语义同时成立：
+1. `{}` 不抛（从不调用该转换器）；
+2. `{"foo":1}` + 真正不支持的键类型**读到键时照抛**（供
+   `throwUnsupported_Deserialize` 使用）；
+3. 裸 `CSharpDictionary<string,int>`（实际键是字符串）**不再误抛**，修掉 5 项回归。
+
+**⚠ 实施前必须确认**：`readWithQuotes` 是 `JsonConverter` 的通用入口，
+不只服务于字典键；改动会影响所有 `writeWithQuotes/readWithQuotes` 的使用者，
+因此**必须先单类验证** `DictionaryTests` + `DictionaryKeyPolicyTests` +
+`ReferenceHandlerTests`，再全量。
