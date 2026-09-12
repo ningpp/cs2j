@@ -309,3 +309,28 @@ StringConverter.write(StringConverter.java:33)
 
 > 注意：Round 1 试过的"只改读侧缓存键"（`converterCacheHas/Get`）在**预热路径**上会让情况变差
 > （855 → 934），已回退；本条不同，它改的是**实参来源**而不是缓存键的读写一致性，不要混为一谈。
+
+### 4.9 Round 5 结果：元素参数作用域（已 KEEP，net +15，零回归）
+
+**提交 `27bebf39` — 全量 811 → 796**
+
+按 §4.8 的方向实施：`JsonClassInfo` 在构造时记录**属主自己的已声明实参**
+（`captureDeclaredTypeArguments`），元素查找时
+① `pushArgumentContext` 清空并恢复上下文、
+② `beginElementArgumentsScope` 把**元素自身的实参**（由属主第一个实参派生，
+`elementArgumentsOfOwner`）设为 `MEMBER_ARGUMENTS`，查完 `finally` 里还原。
+
+**一次性解决了整个嵌套集合家族**（`readListOfList`、`readIListTOfIListT`、
+`readHashSetTOfHashSetT`、`readImmutableArrayOfImmutableArray`、
+`readIImmutableQueueTOfIImmutableQueueT` … 共 24 项转绿），
+因为它们的失败机制完全相同：元素类信息被别的成员的实参注册。
+
+**限定的必要性**：第一版**无条件**套作用域 → 24 修复但 2 回归
+（`ImmutableCollectionsTests.serializeList/serializeStack` 在**全量顺序**下对 `String`
+调用 `SimpleTestClass` 的 getter，单独跑却是过的）。把作用域**限定为"属主与元素同裸类"**
+（即真正的 `List<List<T>>` 型嵌套）后，回归归零、收益保留 15 项。
+`beginElementArgumentsScope` / `pushArgumentContext` 因此都接收 owner 与 element 两个类型，
+不同裸类直接返回 null。
+
+**再生链路第三次验证**：重跑转换器后 4 个补丁点全部从 C# 源自动落上，
+重新全量得到**完全相同**的 796 / 零回归。
