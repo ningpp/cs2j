@@ -6309,6 +6309,30 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         {
             context.AddImport("io.github.ningpp.compat.Unsafe");
             var asArg = facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+            // C# names the source type explicitly (Unsafe.As<TFrom, TTo>), but the transformed
+            // argument does not always still have it: the C# compiler widened a byte/short local
+            // to int before the call, so the Java argument is an int and Unsafe.as resolves to its
+            // generic Object overload, which boxes an Integer.
+            //
+            // That matters because Unsafe.as's runtime type decides which cast can follow, and NO
+            // cast converts Integer to Byte or Short. Measured (probe, round 47):
+            //   Unsafe.as(intVar)   -> java.lang.Integer   (Byte)(...) / (Byte)((byte)(...)) both CCE
+            //   Unsafe.as(byteVar)  -> java.lang.Byte      (Byte)(...) fine, (byte)(...) CCEs
+            //   Unsafe.as(shortVar) -> java.lang.Short     same shape
+            // Restoring the declared source type on the ARGUMENT makes every branch agree: the
+            // value is narrowed to the C# type first, Unsafe.as then boxes that exact type, and the
+            // single (Wrapper) cast is an identity. Fixing it on the result side instead cannot
+            // work, because the same emitted shape must serve both an int argument (needs a
+            // narrowing step) and an already-narrow one (a narrowing step on a Byte CCEs).
+            if (methodSymbol.TypeArguments.Length == 2)
+            {
+                asArg = methodSymbol.TypeArguments[0].SpecialType switch
+                {
+                    SpecialType.System_Byte or SpecialType.System_SByte => $"((byte)({asArg}))",
+                    SpecialType.System_Int16 or SpecialType.System_UInt16 => $"((short)({asArg}))",
+                    _ => asArg
+                };
+            }
             var innerExpr = $"Unsafe.as({asArg})";
 
             if (methodSymbol.TypeArguments.Length == 1)
@@ -6358,10 +6382,9 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 return $"({toJavaType2}) {innerExpr}";
             }
 
-            // Build the boxing chain: (T)(Object)(Wrapper)([(narrowCast)(]Unsafe.as(arg)[)])
-            var boxedExpr = string.IsNullOrEmpty(narrowCast)
-                ? $"({wrapper})({innerExpr})"
-                : $"({wrapper})(({narrowCast}({innerExpr})))";
+            // The declared source type is restored on the ARGUMENT above, so Unsafe.as already
+            // boxes exactly that type and the wrapper cast is an identity.
+            var boxedExpr = $"({wrapper})({innerExpr})";
 
             if (toType is ITypeParameterSymbol toTypeParam)
             {
