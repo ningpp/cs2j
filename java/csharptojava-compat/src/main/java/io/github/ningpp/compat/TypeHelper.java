@@ -679,12 +679,12 @@ public final class TypeHelper {
         if (concrete == null || concrete == Object.class) {
             return null;
         }
-        java.lang.reflect.Type[] found = declaredArgumentsIn(concrete.getGenericSuperclass(), target);
+        java.lang.reflect.Type[] found = declaredArgumentsIn(concrete, concrete.getGenericSuperclass(), target);
         if (found != null) {
             return found;
         }
         for (java.lang.reflect.Type iface : concrete.getGenericInterfaces()) {
-            found = declaredArgumentsIn(iface, target);
+            found = declaredArgumentsIn(concrete, iface, target);
             if (found != null) {
                 return found;
             }
@@ -701,15 +701,75 @@ public final class TypeHelper {
         return declaredArgumentsFor(concrete.getSuperclass(), target);
     }
 
-    /** Arguments {@code supertype} itself declares for {@code target}, or null. */
-    private static java.lang.reflect.Type[] declaredArgumentsIn(java.lang.reflect.Type supertype, Class<?> target) {
+    /**
+     * Arguments {@code supertype} declares for {@code target}, or null.
+     *
+     * <p>A wrapper class that is itself generic declares the parameter, not the argument
+     * ({@code class Wrapper<T> implements IList<T>}), so a type variable is resolved through
+     * the arguments the CONCRETE class was converted with; without published arguments it
+     * keeps C# erasure semantics and falls back to the bound.</p>
+     */
+    private static java.lang.reflect.Type[] declaredArgumentsIn(
+            Class<?> concrete, java.lang.reflect.Type supertype, Class<?> target) {
         if (!(supertype instanceof java.lang.reflect.ParameterizedType pt)
                 || !(pt.getRawType() instanceof Class<?> raw)
                 || !target.isAssignableFrom(raw)) {
             return null;
         }
         java.lang.reflect.Type[] args = pt.getActualTypeArguments();
-        return args.length > 0 ? args : null;
+        if (args.length == 0) {
+            return null;
+        }
+        Class<?>[] concreteArguments = ownTypeArguments(concrete);
+        if (concreteArguments == null) {
+            // No published arguments: a type variable can only mean its bound (Object).
+            for (java.lang.reflect.Type arg : args) {
+                if (arg instanceof java.lang.reflect.TypeVariable<?>) {
+                    return null;
+                }
+            }
+            return args;
+        }
+        java.lang.reflect.TypeVariable<?>[] parameters = concrete.getTypeParameters();
+        java.lang.reflect.Type[] resolved = new java.lang.reflect.Type[args.length];
+        for (int i = 0; i < args.length; i++) {
+            resolved[i] = args[i];
+            if (args[i] instanceof java.lang.reflect.TypeVariable<?> tv) {
+                for (int p = 0; p < parameters.length && p < concreteArguments.length; p++) {
+                    if (parameters[p].getName().equals(tv.getName())) {
+                        resolved[i] = concreteArguments[p];
+                        break;
+                    }
+                }
+            }
+        }
+        return resolved;
+    }
+
+    /**
+     * The type arguments {@code raw} is currently being converted with, without consuming the
+     * layer: a generic wrapper needs its own arguments to resolve the variables it declares.
+     */
+    private static Class<?>[] ownTypeArguments(Class<?> raw) {
+        java.lang.reflect.Type[] layer;
+        java.util.ArrayDeque<java.lang.reflect.Type[]> pending = TYPE_ARGUMENTS.get().get(raw);
+        if (pending != null && !pending.isEmpty()) {
+            layer = pending.peekFirst();
+        } else {
+            layer = CONSUMED_ARGUMENTS.get().get(raw);
+            if (layer == null) {
+                java.util.ArrayDeque<java.lang.reflect.Type[]> callSite = CALLSITE_ARGUMENTS.get().get(raw);
+                layer = callSite == null || callSite.isEmpty() ? null : callSite.peekFirst();
+            }
+        }
+        if (layer == null || layer.length == 0) {
+            return null;
+        }
+        Class<?>[] result = new Class<?>[layer.length];
+        for (int i = 0; i < layer.length; i++) {
+            result[i] = toRawClass(layer[i]);
+        }
+        return result;
     }
 
     // Concrete types whose declared generic supertypes the current query may consult.
@@ -743,6 +803,14 @@ public final class TypeHelper {
 
     /** Keeps a recovered layer available to the repeat queries one converter creation makes. */
     private static void rememberConsumedArguments(Class<?> raw, java.lang.reflect.Type[] args) {
+        // Only an actual argument layer may be remembered. A resolved-but-still-variable
+        // answer belongs to one concrete conversion and must not answer the next query for
+        // the same raw class (wrapper<T> would otherwise hand the previous T to everyone).
+        for (java.lang.reflect.Type arg : args) {
+            if (arg instanceof java.lang.reflect.TypeVariable<?>) {
+                return;
+            }
+        }
         // Without an active registration session the recovered layer would outlive its
         // concrete type and answer later, unrelated queries for the same raw class.
         if (REGISTRATION_DEPTH.get()[0] > 0) {
