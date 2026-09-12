@@ -1212,3 +1212,42 @@ ONLY in full-suite ordering (0):        ← Round 17 时这里是 35
 再逐个对照 .NET 语义（重点怀疑：抽象/接口之外还有
 **只有非公开构造函数但 C# 侧是隐式默认**的类型，以及
 **数组/原始包装**等边界）。
+
+### 4.33 Round 27：守卫**功能是对的**，损害来自"**校验位置错了**"
+
+按 §4.32 的方向加了"拒绝即打印"的诊断，跑 `CollectionTests` 单类，收集被拒类型清单：
+
+```
+GenericStackWrapperPrivateConstructor      GenericIEnumerableWrapperPrivateConstructor
+StringToGenericDictionaryWrapperPrivateConstructor   GenericICollectionWrapperPrivateConstructor
+GenericListWrapperPrivateConstructor       GenericConcurrentQueuePrivateConstructor
+GenericQueueWrapperPrivateConstructor      GenericConcurrentStackPrivateConstructor
+WrapperForIListPrivateConstructor          WrapperForIDictionaryPrivateConstructor
+WrapperForIEnumerablePrivateConstructor    WrapperForICollectionPrivateConstructor
+```
+
+**关键事实 1（守卫是**对的**）**：这 12 个正是
+`read_Generic_NoPublicConstructor_Throws` 数据源里的类型，
+而加上守卫后 **该测试确实转为通过**（`mvn-build-r206.log` 里已搜不到它的失败）。
+即 `hasPublicParameterlessConstructor` 的判定**完全正确**，不是过度拒绝。
+→ §4.32 的"过度拒绝"猜测**也被否证**。
+
+**关键事实 2（损害来自"位置"）**：`CollectionTests` 同期 **72 → 88（+16）**。
+把这 12 个类型的用法查清后得到解释：
+它们**只在** `read_Generic_NoPublicConstructor_Throws_data1` 里作为**数据**出现
+（`CollectionTests.java:841-858`），但**别的测试类里它们可能作为"成员类型"出现**——
+而 `IEnumerableConverterFactory.createConverter` 是**按类型**调用的，
+**分不清"这是本次反序列化的目标类型"还是"这只是某个成员的类型"**。
+一旦某处把这类类型当成员解析，守卫就会**在本来正常的地方抛异常** → 新增失败。
+
+**结论与下一轮方向**：构造函数校验必须放在**反序列化的根入口**
+（`JsonSerializer.deserialize` 的目标类型），而**不是**转换器工厂里。
+工厂按类型工作、没有"是否根目标"的上下文；
+放到根入口即可同时做到：目标类型缺少公开无参构造函数时照抛（满足
+`read_Generic_NoPublicConstructor_Throws`），而它作为**成员类型**时不受影响
+（消除那 16 项新增失败）。
+
+**本轮收口**：诊断代码已全部回退（`git checkout -- java/` + 手工移除生成侧 reporter），
+复核 = **723（430+293）**、`git status` 干净。
+（工具新增：`tools/entrydiff.py`，用于按"测试名+异常种类"比较两次日志的**条目计数**；
+本轮发现**聚合清单本身可能被截断**，无法仅靠它点名，故下一轮需要逐用例捕获。）
