@@ -1144,3 +1144,33 @@ private JsonConverter getRuntimeConverter(Class runtimeType, JsonSerializerOptio
 不只服务于字典键；改动会影响所有 `writeWithQuotes/readWithQuotes` 的使用者，
 因此**必须先单类验证** `DictionaryTests` + `DictionaryKeyPolicyTests` +
 `ReferenceHandlerTests`，再全量。
+
+### 4.31 Round 25：按 §4.30 实施**并单类验证**——**净效果为零，已回退**
+
+**实施**：把 `ObjectConverter.readWithQuotes` 从"无条件抛"改成"返回
+`reader.value.getString()`"（JSON 属性名本就是字符串，即"先解析、解析不出才抛"的读侧形态）。
+
+**单类验证（按要求先做，未直接全量）**：
+
+| 测试类 | 基线（r203） | 改动后 | 变化 |
+|---|---|---|---|
+| `DictionaryTests` | 11F+13E = 24 | 14F+10E = 24 | **总数不变** |
+| `DictionaryKeyPolicyTests` | 4F+2E = 6 | 6F+0E = 6 | **总数不变** |
+| `ReferenceHandlerTests` | 31F+31E = 62 | 32F+30E = 62 | **总数不变** |
+
+**结论**：三个类的**失败总数一字不差**，只是 **Error 变成了 Failure**——
+即"该抛的异常不再抛了"，但**测试依然不通过**，只是失败方式从"抛异常"变成"断言不符"。
+→ **净效果为零，按纪律回退**；复核 = **723（430+293）**、`git status` 干净。
+
+**这说明了什么（对下一轮很重要）**：
+`ObjectConverter.readWithQuotes` 的"无条件抛"**不是**这 5 项回归的**唯一**原因。
+把这一处放宽之后，失败**原封不动地转移到断言阶段**，
+说明**至少还有一个独立的缺口**在同一批用例上生效
+（最可能是：键被读成字符串之后，**值的转换/写回**仍然用了错误的元素类型——
+与 §4.15/§4.25 记录的元素实参问题同源）。
+
+**下一轮方向**：不要再改 `readWithQuotes`。改为在**放宽读侧的同时**
+把**元素（值）转换器**也一并按当前操作的实参解析，
+即把 §4.15 的"成员实参键 + 命中路径"思路**同时**用在键与值上；
+或者先精确列出那 5 个用例**放宽后**的具体断言差异（现在它们会给出可读的
+Expected/Actual），**从断言差异反推**缺的是哪一侧的转换器。
