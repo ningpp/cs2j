@@ -234,7 +234,8 @@ public class PropertyTransformer : IMemberTransformer
         }
 
         // 创建 getter
-        if ((!isHidingBaseMember || isPureBaseDelegation) && (hasGetter || propDecl.AccessorList == null))  // 默认有 getter
+        if (ShouldEmitHidingAccessors(isHidingBaseMember, isPureBaseDelegation, propDecl, needsBackingField)
+            && (hasGetter || propDecl.AccessorList == null))  // 默认有 getter
         {
             var getterModifiers = modifiers;
             // 如果属性本身没有访问修饰符，默认为 public
@@ -339,6 +340,27 @@ public class PropertyTransformer : IMemberTransformer
                     getter.Annotations.Add(new JavaAnnotation($"DebuggerBrowsable({browsableState})"));
                     context.AddImport("io.github.ningpp.compat.DebuggerBrowsable");
                 }
+                // C# [JsonInclude] -> compat annotation. The generated JsonIncludeAttribute is a
+                // class, not an annotation, so the member lookup materializes it from this marker;
+                // the SDK keys the "non-public member with [JsonInclude] is invalid" validation on
+                // the attribute's presence.
+                if (propSymbol?.GetAttributes().Any(a =>
+                        a.AttributeClass?.Name == "JsonIncludeAttribute") == true)
+                {
+                    getter.Annotations.Add(new JavaAnnotation("CompatJsonInclude"));
+                    context.AddImport("io.github.ningpp.compat.CompatJsonInclude");
+                }
+                // A property whose C# accessors are all non-public is invisible to .NET's member
+                // cache, but the converted class still exposes the accessors as Java methods, so
+                // the generated serializability test would accept it. Mark it so compat answers
+                // with the C# semantics (PropertyVisibilityTests.privateSetter).
+                if (propSymbol is IPropertySymbol declaredProp
+                    && !IsPublicAccessor(declaredProp.GetMethod)
+                    && !IsPublicAccessor(declaredProp.SetMethod))
+                {
+                    getter.Annotations.Add(new JavaAnnotation("CompatNonPublicProperty"));
+                    context.AddImport("io.github.ningpp.compat.CompatNonPublicProperty");
+                }
             }
 
             // Expression-bodied property getters skip TransformReturnStatement, so
@@ -437,7 +459,7 @@ public class PropertyTransformer : IMemberTransformer
         }
 
         // 创建 setter
-        if ((!isHidingBaseMember || isPureBaseDelegation) && hasSetter)
+        if (ShouldEmitHidingAccessors(isHidingBaseMember, isPureBaseDelegation, propDecl, needsBackingField) && hasSetter)
         {
             var setterModifiers = modifiers;
             // 如果属性本身没有访问修饰符，默认为 public
@@ -679,6 +701,54 @@ public class PropertyTransformer : IMemberTransformer
     }
 
     /// <summary>
+    /// Whether a hiding property still gets its accessors generated.
+    ///
+    /// <p>The general rule is to skip them: C# hiding is non-virtual, so a base-typed reference
+    /// must reach the base member, while Java methods are virtual
+    /// ({@see IsHidingBaseMember}). Two cases keep their accessors:</p>
+    /// <ul>
+    ///   <li>a property that only delegates to {@code base.X} - its accessors explicitly call
+    ///       {@code super} and therefore widen accessibility without changing dispatch;</li>
+    ///   <li>an AUTO-property, whose body is just its own backing field. Skipping its accessors
+    ///       leaves the field unreachable and the member missing altogether: for
+    ///       <code>class ChildClass : BaseClass { public new bool IsTransient { get; set; } }</code>
+    ///       the generated ChildClass had only {@code private boolean isTransient;} and the
+    ///       inherited internal accessor was the sole member, so a member .NET serializes
+    ///       disappeared (JsonSerializerTests.newProperty). Reading/writing the field cannot
+    ///       introduce a dispatch difference, because the generated accessor touches no other
+    ///       member.</li>
+    /// </ul>
+    /// </summary>
+    private static bool ShouldEmitHidingAccessors(
+        bool isHidingBaseMember,
+        bool isPureBaseDelegation,
+        PropertyDeclarationSyntax propDecl,
+        bool needsBackingField)
+    {
+        if (!isHidingBaseMember)
+        {
+            return true;
+        }
+        return isPureBaseDelegation || (needsBackingField && IsAutoProperty(propDecl));
+    }
+
+    private static bool IsAutoProperty(PropertyDeclarationSyntax propDecl)
+    {
+        if (propDecl.AccessorList == null)
+        {
+            return false;
+        }
+        foreach (var accessor in propDecl.AccessorList.Accessors)
+        {
+            if (accessor.Body != null || accessor.ExpressionBody != null)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// <summary>
     /// Detects whether a hiding property's accessor bodies purely delegate to the base
     /// property (e.g. <c>public new T X { get => base.X; set => base.X = value; }</c>).
     /// Such properties exist solely to widen accessibility (e.g. protected -> public);
@@ -904,5 +974,13 @@ public class PropertyTransformer : IMemberTransformer
         }
         return null;
     }
+
+    /// <summary>
+    /// C# accessor visibility: an accessor counts as public only when declared public.
+    /// .NET caches a property only when {@code GetMethod?.IsPublic || SetMethod?.IsPublic}, so a
+    /// property whose accessors are all non-public is invisible to the serializer.
+    /// </summary>
+    private static bool IsPublicAccessor(IMethodSymbol? accessor)
+        => accessor != null && accessor.DeclaredAccessibility == Accessibility.Public;
 }
 

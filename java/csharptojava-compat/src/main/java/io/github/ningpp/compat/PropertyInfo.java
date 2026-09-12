@@ -159,8 +159,26 @@ public final class PropertyInfo implements MemberInfo {
         return new MethodInfo(getter);
     }
 
+    /**
+     * C# {@code PropertyInfo.SetMethod} — the accessor, whatever its visibility, EXCEPT when the
+     * property is marked {@link CompatNonPublicProperty}.
+     *
+     * <p>The generated serializability test is
+     * {@code getGetMethod() != null && getGetMethod().getIsPublic()} OR the same on
+     * {@code getSetMethod()}; for a C# {@code private string P { get; set; }} the converted Java
+     * accessors exist, so the test would accept a property .NET never caches
+     * (PropertyVisibilityTests.privateSetter). Answering null here makes the test agree with .NET.
+     * It does not disturb the "non-public member with [JsonInclude] is invalid" validation, which
+     * is decided before the accessor choice matters.</p>
+     */
     public MethodInfo getSetMethod() {
-        return setter == null ? null : new MethodInfo(setter);
+        if (setter == null) {
+            return null;
+        }
+        if (getter != null && getter.isAnnotationPresent(CompatNonPublicProperty.class)) {
+            return null;
+        }
+        return new MethodInfo(setter);
     }
 
     public MethodInfo getSetMethod(boolean nonPublic) {
@@ -336,8 +354,46 @@ public final class PropertyInfo implements MemberInfo {
             && (boxedParam == boxedGetter || boxedParam.isAssignableFrom(boxedGetter));
     }
 
+    /**
+     * C# {@code Type.GetProperties(BindingFlags)}. The generated serializer asks for
+     * {@code Instance | Static | Public | NonPublic} so that it can SEE non-public accessors and
+     * reject a member annotated with {@code [JsonInclude]} (an InvalidOperationException in .NET).
+     * Enumerating only public methods made that loop empty, so the invalid member was skipped
+     * silently instead of failing.
+     */
     public static PropertyInfo[] getProperties(Class<?> clazz, int bindingFlags) {
-        return getProperties(clazz);
+        boolean includeNonPublic = (bindingFlags & BindingFlags.NonPublic) != 0;
+        boolean includePublic = (bindingFlags & BindingFlags.Public) != 0;
+        if (!includeNonPublic) {
+            return getProperties(clazz);
+        }
+        List<PropertyInfo> props = new ArrayList<>();
+        for (Class<?> current = clazz; current != null && current != Object.class; current = current.getSuperclass()) {
+            for (Method m : current.getDeclaredMethods()) {
+                if (Modifier.isStatic(m.getModifiers())) continue;
+                if (m.getParameterCount() != 0) continue;
+                if (m.getReturnType() == void.class) continue;
+                if (m.isSynthetic() || m.isBridge()) continue;
+                if (!includePublic && Modifier.isPublic(m.getModifiers())) continue;
+                if (EXCLUDED_METHODS.contains(m.getName())) continue;
+                String methodName = m.getName();
+                if (methodName.startsWith("get") && methodName.length() > 3) {
+                    props.add(new PropertyInfo(m, findSetter(clazz, methodName.substring(3), m)));
+                } else if (methodName.startsWith("is") && methodName.length() > 2
+                           && (m.getReturnType() == boolean.class || m.getReturnType() == Boolean.class)) {
+                    props.add(new PropertyInfo(m, findSetter(clazz, methodName.substring(2), m)));
+                }
+            }
+        }
+        props.sort(java.util.Comparator
+            .comparingInt((PropertyInfo p) -> DeclarationOrder.hierarchyDepth(clazz, getterClass(p)))
+            .thenComparingInt(p -> DeclarationOrder.methodIndex(getterClass(p), getterName(p)))
+            .thenComparing(p -> {
+                Class<?> type = getterClass(p);
+                return type == null ? "" : type.getName();
+            })
+            .thenComparing(PropertyInfo::getName));
+        return props.toArray(new PropertyInfo[0]);
     }
 
     /**
