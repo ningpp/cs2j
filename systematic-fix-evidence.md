@@ -273,3 +273,39 @@ property，反射随后用**错误的 receiver** 调 getter：
 这也解释了它为何与 Round 1 的"共用方法"版本表现不同：**改动面更小**，不是机制更强。
 后续若要真正修掉元素类型问题，需要给 `IEnumerableDefaultConverter` 补一个能报告
 `tElementClass` 的入口，而不是依赖 `getElementType()`。
+
+### 4.8 `ClassCast Integer -> String`（34 条）的根因已钉到具体调用点
+
+代表栈（`CollectionTests.writeArrayOfIList`、`writeClassWithObjectIEnumerableConstructibleTypes`）：
+
+```
+StringConverter.write(StringConverter.java:33)
+  ListOfTConverter.onWriteResume(ListOfTConverter.java:62)   <- elementConverter.write(...)
+  IEnumerableDefaultConverter.onTryWrite(IEnumerableDefaultConverter.java:216)
+```
+
+调用点是 `ListOfTConverter.onWriteResume:58` 的
+`JsonConverter1<TElement> elementConverter = getElementConverter(state);`，
+它取的是
+`IEnumerableDefaultConverter.getElementConverter(ObjectHolder<WriteStack>)` →
+`state.value.Current.DeclaredJsonPropertyInfo.getConverterBase()`，
+即**元素类信息里的那个 PropertyInfo 的转换器**。
+
+**为什么它会是 `StringConverter`**：`JsonClassInfo.getElementClassInfo()` 用
+`getOptions().getOrAddClass(getElementType())` 建元素类信息，而
+`getOrAddClass` 内部的 `ConcurrentHashMapHelper.getOrAdd` 会走
+`TypeHelper.converterCacheKey(key)`；该键**优先读 `MEMBER_ARGUMENTS`**——
+也就是"当前线程上最后一个被读取的成员"的实参。因此元素类信息常常是**按别的成员的实参**注册的。
+`writeArrayOfIList` 里 `CSharpGenericIList<Object>[]` 的元素应当是 `Object`，
+却命中了一个 `CSharpGenericIList<String>` 的转换器 → 对 `Integer` 元素调用
+`StringConverter.write` → ClassCastException。
+
+**修复方向（下一轮）**：进入元素类信息查找时，把 `MEMBER_ARGUMENTS`/`CONSUMED_ARGUMENTS`
+临时切换成**元素自身的已声明实参**，查完恢复。compat 里加
+`beginElementArgumentsScope(elementType, elementArgs)` / `endElementArgumentsScope(token)`
+（save/restore 这三个 ThreadLocal 中该 raw 类的条目），生成代码在
+`JsonClassInfo.getElementClassInfo()` 的两侧调用它。
+预期能同时覆盖本簇与 `JsonElement -> Integer` 那一簇——两者都是同一个"实参来源错位"。
+
+> 注意：Round 1 试过的"只改读侧缓存键"（`converterCacheHas/Get`）在**预热路径**上会让情况变差
+> （855 → 934），已回退；本条不同，它改的是**实参来源**而不是缓存键的读写一致性，不要混为一谈。
