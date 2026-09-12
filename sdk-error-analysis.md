@@ -1199,6 +1199,40 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **建议下一轮换簇**: 该簇需要架构级改动（新增填充器通路），而剩余的其他大簇（"应抛异常未抛"、"JSON value could not be converted" 的元素类型复用）门槛更低；
   继续投入该簇前应先确认愿意承担一次架构级改动。
 
+## Iteration 74 — 转换器缓存改为"实参感知读取"：机制生效（+6 项），但同变体引入 12 项回归，净 −6，已回退
+
+本轮换到"元素类型复用"簇，并第一次把该机制**在闭集上做成**（而非继续在写入侧兜圈子）。
+
+- **先钉死缺陷（探针）**: `ConverterSlotProbe` / `ObjectCollectionProbe` 证明同一份 payload 在**干净 JVM** 下成功，而在全量运行中失败 ⇒ 是 JVM 内共享状态；
+  结合此前定位的"`_converters` 以裸类为键 ⇒ 每个裸类只能有一个转换器"，缺陷表述为：
+  **哪个成员先转换某裸类，就把该裸类的元素类型固化给后面所有成员。**
+- **实现（两处，均在既有产物补丁通道内）**:
+  1. **读取侧**（新增 `PatchConverterCacheLookup`）：把 `JsonSerializerOptions.getConverter` 的
+     `if (_converters.containsKey(typeToConvert)) { converter = _converters.get(typeToConvert); ... return converter; }`
+     改写为 `if (TypeHelper.converterCacheHas(_converters, typeToConvert)) { converter = (JsonConverter) TypeHelper.converterCacheGet(_converters, typeToConvert); ... return converter; }`；
+     `converterCacheGet` 先按"**裸类 + 当前生效实参**"的复合键查，再回退裸类键。
+  2. **写入侧**：`ConcurrentHashMapHelper.tryAdd` 在按实参键写入的同时，也把闭集键写进同一张表（`converterCachePutArguments`），使读取侧能命中。
+     - 注意 `_converters` 的静态类型是 `ConcurrentHashMap<Class, JsonConverter>`，辅助方法参数用 `Map<?,?>` + 内部强转才可编译。
+- **测量（两个变体，各自一次全量）**:
+  | 变体 | 全量 | 新增通过 | 新增失败 | 净 |
+  |---|---|---|---|---|
+  | A：按实参键写入 + **删除**裸类键（保留原有行为） | 861 | **6**（`writeArrayOfQueueT`/`writeGenericQueueOfQueue`/`writePrimitiveQueueT`/`writeQueueTOfArray`/`writeQueueTOfQueueT`/`deserializeDictionaryWithDuplicateProperties`） | 12 | −6 |
+  | B：按实参键写入 + **覆盖**裸类键为最近值 | 710 | 4 | 96 | −92 |
+  ⇒ **变体 A 明显更优**（B 把回退项变成"最近一次"，大面积污染集合元素的转换器选择）。
+- **回归样例（供下一轮消除）**: `DictionaryTests.dictionaryOfArray`（`[I cannot be cast to String`，`DictionaryOfTKeyTValueConverter` 用了 `StringConverter` 写值）、
+  `ExtensionDataTests.extensionPropertyObjectValue`（`{"test1":{}}` 应为 `{"test1":1}`）、`CollectionTests.iReadOnlyDictionary_NotSupportedKey`。
+  特征一致：**读取侧的"回退裸类键"仍在返回为别的实参构建的转换器**，说明还需要让"无实参"的上下文也带上正确的实参（或让这些路径发布实参）。
+- **处置**: 变体 A 虽 +6 但净 −6，**整体回退**（含 compat 的 `converterCacheGet/Has/PutArguments` 与产物补丁）；重装 compat 后复核基线 **855** ✓。
+- **本轮结论（重要，供下一轮直接用）**: "实参感知读取"这条路**已被证明可行且能得分**（+6 项是本簇首次正向收益），
+  只差消除"无实参上下文回退到错误裸类条目"这一类回归；下一轮应沿变体 A 继续，并把注意力放在**这些上下文为什么没有实参**上。
+
+## Iteration 75 — 本轮（Round 13）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（已重装 compat、重新转换、重新全量复核）。累计（Round 1→13）: 895 → 855。
+- **本轮性质**: 唯一一次在最大簇上取得**正向定向收益**的尝试（+6），但未达净胜标准，按纪律回退；机制与两个变体的数据已留档。
+- **下一轮建议**: 沿变体 A 重做，并针对 `DictionaryOfTKeyTValueConverter` / 扩展数据写出路径补齐实参发布；目标是把 12 项回归降到 0（届时净 +6）。
+
+
 
 
 
