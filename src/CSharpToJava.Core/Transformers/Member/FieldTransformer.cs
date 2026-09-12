@@ -196,6 +196,15 @@ public class FieldTransformer : IMemberTransformer
                 javaField.Annotations.Add(new JavaAnnotation("CompatSByteArray"));
                 context.AddImport("io.github.ningpp.compat.CompatSByteArray");
             }
+            // C# [JsonInclude] -> compat annotation; the generated JsonIncludeAttribute is a
+            // class, so compat materializes it from this marker. The SDK uses its presence to
+            // reject a non-public annotated field.
+            if (fieldSymbol?.GetAttributes().Any(a =>
+                    a.AttributeClass?.Name == "JsonIncludeAttribute") == true)
+            {
+                javaField.Annotations.Add(new JavaAnnotation("CompatJsonInclude"));
+                context.AddImport("io.github.ningpp.compat.CompatJsonInclude");
+            }
 
             // C# structs are value types that can never be null — initialize fields
             // with default instances so Java code doesn't encounter null struct references.

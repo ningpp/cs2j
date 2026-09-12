@@ -5,6 +5,8 @@ public final class CustomAttributeExtensions {
     private static final String JsonExtensionDataAttributeName = "JsonExtensionDataAttribute";
     /** C# attribute the @CompatJsonIgnore annotation stands for. */
     private static final String JsonIgnoreAttributeName = "JsonIgnoreAttribute";
+    /** C# attribute the @CompatJsonInclude annotation stands for. */
+    private static final String JsonIncludeAttributeName = "JsonIncludeAttribute";
 
     private CustomAttributeExtensions() {
     }
@@ -48,6 +50,8 @@ public final class CustomAttributeExtensions {
             marker = CompatJsonExtensionData.class;
         } else if (JsonIgnoreAttributeName.equals(attributeName)) {
             marker = CompatJsonIgnore.class;
+        } else if (JsonIncludeAttributeName.equals(attributeName)) {
+            marker = CompatJsonInclude.class;
         } else {
             return null;
         }
@@ -58,6 +62,8 @@ public final class CustomAttributeExtensions {
             java.lang.reflect.Method setter = setterInfo == null ? null : setterInfo.getMethod();
             present = (getter != null && getter.isAnnotationPresent(marker))
                 || (setter != null && setter.isAnnotationPresent(marker));
+        } else if (member instanceof FieldInfo fieldInfo) {
+            present = fieldInfo.getField().isAnnotationPresent(marker);
         }
         if (!present) {
             return null;
@@ -75,9 +81,14 @@ public final class CustomAttributeExtensions {
     public static <T> T getCustomAttribute(Class<T> attributeType, PropertyInfo member) {
         Iterable<Object> attrs = getCustomAttributes(member);
         for (Object attr : attrs) {
-            return attributeType.cast(attr);
+            if (attributeType.isInstance(attr)) {
+                return attributeType.cast(attr);
+            }
         }
-        return null;
+        // A converted System.Text.Json attribute is a class, not an annotation, so it is
+        // materialized from the compat marker the converter emits. Without this the member
+        // lookup answered null for every compat-marked attribute.
+        return materializeFromCompatAnnotation(attributeType, member);
     }
 
     /** C# MemberInfo.GetCustomAttribute&lt;T&gt;(MemberInfo, bool inherit). */
