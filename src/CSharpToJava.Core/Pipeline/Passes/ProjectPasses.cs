@@ -1108,6 +1108,7 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 else if (result.FileName.EndsWith("JsonClassInfo.java", StringComparison.Ordinal))
                 {
                     PatchElementArgumentScope(result);
+                    PatchExtensionDataSignatureType(result);
                 }
                 // NOTE: "JsonPropertyInfo.java".EndsWith("PropertyInfo.java") is TRUE, so the more
                 // specific suffix must be tested FIRST. With the order reversed the PropertyInfo
@@ -1265,6 +1266,54 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex ThrowHelperMessageDeclRegex = new(
         @"        String message = ex\.getMessage\(\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Makes the extension-data signature check use the resolved type when the DECLARED type is a
+    /// type parameter.
+    /// <para>
+    /// <c>[JsonExtensionData] public T Overflow</c> erases to <c>Object</c> in Java, so
+    /// <c>isAssignableFrom(CSharpGenericIDictionary, declaredPropertyType)</c> answers false and a
+    /// property that IS a <c>Dictionary&lt;string, object&gt;</c> at the constructed type is
+    /// rejected. Measured: 16 ExtensionDataTests failures, all reaching
+    /// <c>ThrowHelper.throwInvalidOperationException_SerializationDataExtensionPropertyInvalid</c>.
+    /// </para>
+    /// </summary>
+    private static void PatchExtensionDataSignatureType(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (!ExtensionDataSignatureRegex.IsMatch(code))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchExtensionDataSignatureType did not match JsonClassInfo.java - "
+                + "the extension-data signature type is NOT resolved from the runtime type.");
+            return;
+        }
+        result.GeneratedCode = ExtensionDataSignatureRegex.Replace(code,
+            "        Class signatureType = declaredPropertyType;\n"
+            + "        Class runtimePropertyType = jsonPropertyInfo.getRuntimePropertyType();\n"
+            + "        if (!TypeHelper.isAssignableFrom(CSharpGenericIDictionary.class, declaredPropertyType)\n"
+            + "            && runtimePropertyType != null\n"
+            + "            && TypeHelper.isAssignableFrom(CSharpGenericIDictionary.class, runtimePropertyType))\n"
+            + "        {\n"
+            + "        signatureType = runtimePropertyType;\n"
+            + "        }\n"
+            + "        if (TypeHelper.isAssignableFrom(CSharpGenericIDictionary.class, signatureType) "
+            + "|| TypeHelper.isAssignableFrom(CSharpGenericIDictionary.class, signatureType)) {\n"
+            + "        dotnet.text.json.Serialization.JsonConverter converter = "
+            + "getOptions().getConverter(signatureType);",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ExtensionDataSignatureRegex = new(
+        @"        Class declaredPropertyType = jsonPropertyInfo\.getDeclaredPropertyType\(\);\r?\n"
+        + @"        if \(TypeHelper\.isAssignableFrom\(CSharpGenericIDictionary\.class, declaredPropertyType\) "
+        + @"\|\| TypeHelper\.isAssignableFrom\(CSharpGenericIDictionary\.class, declaredPropertyType\)\) \{\r?\n"
+        + @"        dotnet\.text\.json\.Serialization\.JsonConverter converter = "
+        + @"getOptions\(\)\.getConverter\(declaredPropertyType\);",
         System.Text.RegularExpressions.RegexOptions.None);
 
     private static readonly System.Text.RegularExpressions.Regex AttributeLocationRegex = new(

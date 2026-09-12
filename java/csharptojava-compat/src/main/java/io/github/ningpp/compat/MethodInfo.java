@@ -98,6 +98,23 @@ public final class MethodInfo implements MemberInfo {
         Object[] effectiveArgs = withRuntimeClassArguments(args);
         try {
             return method.invoke(target, adaptArgs(effectiveArgs));
+        } catch (java.lang.reflect.InvocationTargetException ex) {
+            // C#'s MethodInfo.Invoke propagates the callee's own exception; Java's
+            // Method.invoke wraps it in InvocationTargetException. This catch MUST come before the
+            // ReflectiveOperationException one below, because InvocationTargetException is a
+            // subclass of it - so the target's exception used to be reported as
+            // "Method invocation failed" instead of as itself. Measured: 21 failures across five
+            // classes, 16 of them ExtensionDataTests reaching this through
+            // ThrowHelper.throwInvalidOperationException_SerializationDataExtensionPropertyInvalid,
+            // where the test expects the InvalidOperationException the invoked method raised.
+            Throwable cause = ex.getCause();
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new TargetInvocationException("Method invocation failed", ex);
         } catch (IllegalArgumentException ex) {
             Class<?>[] pts = method.getParameterTypes();
             StringBuilder sb = new StringBuilder();
