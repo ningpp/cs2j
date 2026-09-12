@@ -867,3 +867,31 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **下一步**: 转换器缓存按裸类共享（`JsonSerializerOptions._converters` 以 `Class` 为键）——同一接口/具体类的不同实参无法共存；需要让缓存键带上类型实参，或让工厂在"具体类"维度而不是"接口"维度取转换器。
 - **提交**: compat 修复 + 本条记录。
 
+## Iteration 47 — 第三个特性 `[JsonNumberHandling]` 落地（官方 897 → 890：NumberHandlingTests 24 → 17，其余零变化）
+
+- **现象**: `NumberHandlingTests` 24 项失败（14F + 10E），其中 `typeAttributeAppliesTo_CustomCollectionElements*` 报
+  `Cannot get the value of a token type 'String' as a number`（`MyCustomList : List<int>` 上有 `[JsonNumberHandling(AllowReadingFromString|WriteAsString)]`，元素却按严格处理读）。
+- **根因分类**: 语义模型信息丢失（C# 特性没有 Java 表示）+ compat 查询早退
+- **涉及组件**: `ClassTransformer.cs` / `PropertyTransformer.cs` / `FieldTransformer.cs`（发射）、`TypeHelper.getCustomAttributes` / `PropertyInfo` / `FieldInfo`（compat 物化）
+- **分析（探针定位，两次纠正假设）**:
+  1. 直接断言只证明"注解没出现"，不能证明"发射失败"。用**探针注解**（把每个属性名写进生成产物）定位到真相：
+     **嵌套类型走的是 `ClassTransformer.ProcessMember` 里的 `case ClassDeclarationSyntax` 分支**，而不是 `TransformMerged`——`AddDebuggerAnnotations`/`AddJsonNumberHandlingAnnotation` 只挂在顶层路径上，所以嵌套类（测试套件里绝大多数被标注的集合子类）永远拿不到类型级注解。修复=在嵌套分支同样调用两者。
+  2. 注解到位后仍不生效：`TypeHelper.getCustomAttributes` 开头有 `!attributeType.isAnnotation() → return empty`，而生成产物 `JsonNumberHandlingAttribute` 是**类不是注解** ⇒ 物化逻辑被这道门直接跳过。修复=只在"被查询类型确实是注解"时才走注解通道，类属性走物化通道。
+  3. 成员级 `[JsonNumberHandling]` 覆盖类型级：`JsonPropertyInfo.initialize` 通过 `memberInfo.getCustomAttributes(attributeType, false)` 查询，而 compat 的 `PropertyInfo`/`FieldInfo` 只物化 `DebuggerBrowsable` ⇒ 成员级注解不可见。修复=两处都物化 `JsonNumberHandlingAttribute`（属性类在转换后的模块里，compat 不能编译期引用，故按名字反射解析）。
+- **Red/Green 验证**: 新增 `JsonNumberHandlingAnnotationProjectTests`（必须走**项目**管线：单文件管线不经过 `ClassTransformer.TransformMerged`）；把嵌套分支的发射禁用后测试**红**（`Assert.Contains("@CompatJsonNumberHandling(3)")` 失败），恢复后**绿**。
+- **官方验证（有效测量）**: 编译零错误；全量 `Tests run: 7902, Failures: 437, Errors: 453, Skipped: 18` = **890**（上一有效值 897）。
+  按类集合差：**只有 `NumberHandlingTests` 变化 24 → 17（−7）**，其余类零变化 ✓（无回归）。定向明细：新增通过 8 / 新增失败 1（`memberAttributeAppliesToCollection_SimpleElements`，属"成员级覆盖仍未完全实现"的下一个缺口）。
+- **产物校验**: `CompatJsonNumberHandling` 命中 **20 处**（与 C# 侧 `[JsonNumberHandling]` 出现次数一致）✓。
+- **提交**: ce51b73d。
+- **下一轮**: `memberAttributeAppliesToCollection_SimpleElements`——成员级处理需要传递到集合元素的转换器（`JsonPropertyInfo.initialize` 的 `parentTypeNumberHandling` 与元素帧的 `NumberHandling` 传递）。
+
+## Iteration 48 — 本轮（Round 1）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 437, Errors: 453, Skipped: 18` = **890**（编译零错误；起点 895）。
+- **本会话已落地并验证的转换器/compat 改动**:
+  1. `717f7578` compat：从"正在转换的具体类"回收被擦除接口的类型实参（修 `JsonElement` 元素簇的读入路径）。
+  2. `ce51b73d` converter+compat：`[JsonNumberHandling]` 类型级 + 成员级发射与物化（−7）。
+- **dotnet 全量**: `已通过! 失败: 0，通过: 3158，已跳过: 19` ✓。
+- **下一批待办（按实测收益排序）**: 集合簇剩余项（转换器缓存按裸类共享导致不同实参互相污染）、成员级数字处理传递、`PropertyVisibilityTests`(73)、`CustomConverterTests`(68)、`ReferenceHandlerTests`(50)。
+
+
