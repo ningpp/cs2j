@@ -1,6 +1,7 @@
 package io.github.ningpp.compat;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -142,5 +143,87 @@ class DecimalTest {
         assertEquals("42.500", Decimal.valueOf(new BigDecimal("42.500")).toString());
         assertThrows(NumberFormatException.class, () -> Decimal.valueOf(Double.NaN));
         assertThrows(NumberFormatException.class, () -> Decimal.valueOf(Double.POSITIVE_INFINITY));
+    }
+
+    /**
+     * C# decimal is a 96-bit mantissa with a scale of at most 28, so the BCL parser
+     * rejects an exponent that cannot fit by comparing integers
+     * (Number.TryNumberToDecimal: "if (e &gt; DecimalPrecision) return false;", with
+     * DecimalPrecision = 29) instead of scaling the value. Decimal.parseExponent is
+     * the entry point Utf8Parser uses for JSON numbers, and it has to report the same
+     * accept/reject decision; the expectations below are the ones .NET 10 produces for
+     * the identical inputs.
+     */
+    @Test
+    void parseExponent_boundariesMatchCSharpDecimalRange() {
+        assertEquals("10000000000000000000000000000", Decimal.parseExponent("1e+28").toString());
+        assertThrows(ArithmeticException.class, () -> Decimal.parseExponent("1e+29"));
+        assertThrows(ArithmeticException.class, () -> Decimal.parseExponent("1e+30"));
+        assertEquals("79228162514264337593543950335",
+            Decimal.parseExponent("7.9228162514264337593543950335e+28").toString());
+        assertThrows(ArithmeticException.class,
+            () -> Decimal.parseExponent("7.9228162514264337593543950336e+28"));
+        assertThrows(ArithmeticException.class, () -> Decimal.parseExponent("-1e+100000002"));
+        assertThrows(ArithmeticException.class,
+            () -> Decimal.valueOf(new BigDecimal("1e+100000002")));
+    }
+
+    /**
+     * A value below 10^-29 is less than half of the last representable place, so
+     * rounding it to 28 decimals is zero — no matter how large the exponent is.
+     * 5e-29 is an exact tie and rounds half-even to zero, 6e-29 rounds up.
+     */
+    @Test
+    void parseExponent_hugeNegativeExponentUnderflowsToZero() {
+        assertEquals("0.0000000000000000000000000000", Decimal.parseExponent("1e-100000002").toString());
+        assertEquals("0.0000000000000000000000000000", Decimal.parseExponent("-1e-100000002").toString());
+        assertEquals("0.0000000000000000000000000000", Decimal.parseExponent("1e-29").toString());
+        assertEquals("0.0000000000000000000000000000", Decimal.parseExponent("5e-29").toString());
+        assertEquals("0.0000000000000000000000000001", Decimal.parseExponent("6e-29").toString());
+    }
+
+    /**
+     * Zero is representable at any scale, so an extreme exponent must not be
+     * reported as an overflow. .NET returns 0 for "0e+100000002" and 0E-28 for
+     * "0e-100000002"; the overflow pre-check must not turn the first into a throw.
+     */
+    @Test
+    void parseExponent_zeroWithExtremeExponentStaysZero() {
+        assertEquals("0", Decimal.parseExponent("0e+100000002").toString());
+        assertEquals("0", Decimal.parseExponent("0e+29").toString());
+        assertEquals("0", Decimal.valueOf(new BigDecimal("0E+100000002")).toString());
+        assertEquals("0.0000000000000000000000000000",
+            Decimal.parseExponent("0e-100000002").toString());
+    }
+
+    /**
+     * Regression guard for the O(10^|exponent|) blow-up: canonicalize() used to call
+     * BigDecimal.setScale(), which materializes 10^(-scale) as a BigInteger. For
+     * "1e+100000002" that is a 100_000_002 digit number (~40 MB, ~40s on a cold JVM)
+     * that validateRange() then rejected, and the mirror case "1e-100000002" built
+     * 10^99_999_974 only to round it to zero. Both are O(1) now, so the whole battery
+     * below must finish in well under a second; the timeout is a generous guard
+     * against a silent reintroduction (the old behaviour would need minutes).
+     */
+    @Test
+    void parseExponent_hugeExponentsResolveInConstantTime() {
+        assertTimeout(Duration.ofSeconds(5), () -> {
+            String[] inputs = {
+                "1e+100000002", "-1e+100000002", "1e-100000002", "-1e-100000002",
+                "1e+2000000000", "1e-2000000000", "0e+2000000000", "0e-2000000000",
+                "9".repeat(1000),
+            };
+            for (String input : inputs) {
+                try {
+                    if (input.indexOf('e') >= 0) {
+                        Decimal.parseExponent(input);
+                    } else {
+                        Decimal.valueOf(new BigDecimal(input));
+                    }
+                } catch (ArithmeticException expectedOverflow) {
+                    // the positive exponents above cannot be represented
+                }
+            }
+        });
     }
 }

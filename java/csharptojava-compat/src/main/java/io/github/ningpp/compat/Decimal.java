@@ -14,6 +14,12 @@ public final class Decimal implements Comparable<Decimal> {
     private static final BigDecimal MAX_BIG_DECIMAL = new BigDecimal(MAX_MANTISSA);
     private static final BigDecimal MIN_BIG_DECIMAL = MAX_BIG_DECIMAL.negate();
 
+    /**
+     * decimal.MaxValue has 29 integer digits; any value with more integer digits
+     * than that necessarily overflows, whatever its scale is.
+     */
+    private static final int MAX_INTEGER_DIGITS = 29;
+
     public static final Decimal ZERO = new Decimal(BigDecimal.ZERO, false);
     public static final Decimal ONE = new Decimal(BigDecimal.ONE, false);
     public static final Decimal MINUS_ONE = new Decimal(BigDecimal.ONE.negate(), false);
@@ -76,6 +82,10 @@ public final class Decimal implements Comparable<Decimal> {
     private Decimal(BigDecimal value, boolean validate) {
         if (value == null) {
             throw new NullPointerException("value");
+        }
+
+        if (validate) {
+            checkIntegerDigits(value);
         }
 
         BigDecimal normalized = canonicalize(value);
@@ -515,13 +525,51 @@ public final class Decimal implements Comparable<Decimal> {
         return value.substring(0, i + 1);
     }
 
+    /**
+     * O(1) overflow pre-check performed before normalization.
+     *
+     * C# decimal is a 96-bit mantissa plus a scale byte, so the runtime parser
+     * rejects an out-of-range exponent arithmetically (Number.TryNumberToDecimal:
+     * "if (e &gt; DecimalPrecision) return false;", DecimalPrecision = 29) without
+     * ever building the scaled value. The BigDecimal model has to normalize
+     * first, and for a negative scale that means materializing 10^(-scale):
+     * a JSON number such as "1e+100000002" (see JsonDocumentTests.readTooPreciseDouble)
+     * would allocate a 100_000_002 digit BigInteger and burn ~40s only for
+     * validateRange() to reject the result afterwards. Anything with more than
+     * MAX_INTEGER_DIGITS integer digits overflows regardless of its scale, so it
+     * can be rejected up front with the exact exception validateRange() throws.
+     */
+    private static void checkIntegerDigits(BigDecimal value) {
+        if (value.signum() == 0) {
+            // Zero never overflows whatever its scale is (C# TryNumberToDecimal
+            // returns 0 for an empty digit buffer before looking at the scale),
+            // and BigDecimal.setScale() resolves zero without a power of ten.
+            return;
+        }
+        long integerDigits = (long) value.precision() - value.scale();
+        if (integerDigits > MAX_INTEGER_DIGITS) {
+            throw new ArithmeticException("Decimal overflow.");
+        }
+    }
+
     private static BigDecimal canonicalize(BigDecimal value) {
         BigDecimal normalized = value;
         if (normalized.scale() > MAX_SCALE) {
+            // |value| < 10^-(MAX_SCALE + 1) is below half of the last
+            // representable place, so rounding it to 28 decimals is zero.
+            // Taking the long route would build 10^(scale - 28) first:
+            // "1e-100000002" needs a 100_000_000 digit power of ten for a
+            // result that is known to be zero.
+            long integerDigits = (long) normalized.precision() - normalized.scale();
+            if (integerDigits <= -(MAX_SCALE + 1)) {
+                return new BigDecimal(BigInteger.ZERO, MAX_SCALE);
+            }
             normalized = normalized.setScale(MAX_SCALE, RoundingMode.HALF_EVEN);
         }
 
         if (normalized.scale() < 0) {
+            // checkIntegerDigits() guarantees at most MAX_INTEGER_DIGITS integer
+            // digits here, so this expansion multiplies by at most 10^28.
             normalized = normalized.setScale(0);
         }
         if (normalized.scale() > MAX_SCALE) {
