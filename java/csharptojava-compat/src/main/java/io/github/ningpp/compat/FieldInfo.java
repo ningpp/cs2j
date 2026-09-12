@@ -68,12 +68,30 @@ public final class FieldInfo implements MemberInfo {
 
     @Override
     public Object[] getCustomAttributes(boolean inherit) {
-        return field.getAnnotations();
+        Object[] annotations = field.getAnnotations();
+        // A field-level [JsonNumberHandling] overrides the type's; the generated attribute is
+        // a class, so it is materialized from the compat marker instead of being an annotation.
+        Object numberHandlingAttribute = TypeHelper.materializeMemberNumberHandlingAttribute(
+            field.getAnnotation(CompatJsonNumberHandling.class));
+        if (numberHandlingAttribute == null) {
+            return annotations;
+        }
+        Object[] combined = java.util.Arrays.copyOf(annotations, annotations.length + 1);
+        combined[annotations.length] = numberHandlingAttribute;
+        return combined;
     }
 
     @Override
     public Object[] getCustomAttributes(Class<?> attributeType, boolean inherit) {
-        if (attributeType == null || !attributeType.isAnnotation()) {
+        if (attributeType == null) {
+            return new Object[0];
+        }
+        if ("JsonNumberHandlingAttribute".equals(attributeType.getSimpleName())) {
+            Object materialized = TypeHelper.materializeMemberNumberHandlingAttribute(
+                field.getAnnotation(CompatJsonNumberHandling.class));
+            return materialized == null ? new Object[0] : new Object[] { materialized };
+        }
+        if (!attributeType.isAnnotation()) {
             // Converted C# attributes (e.g. JsonConverterAttribute) are plain Java
             // classes, not annotations. Java's getAnnotationsByType rejects
             // non-annotation types with ClassCastException, so return empty instead.

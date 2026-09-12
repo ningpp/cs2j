@@ -79,11 +79,25 @@ public final class PropertyInfo implements MemberInfo {
         if (getter == null) {
             return new Object[0];
         }
+        // A member-level [JsonNumberHandling] overrides the type's, so it must be visible
+        // through the member lookup JsonPropertyInfo.initialize performs.
+        CompatJsonNumberHandling numberHandling = getter.getAnnotation(CompatJsonNumberHandling.class);
+        if (numberHandling == null && setter != null) {
+            numberHandling = setter.getAnnotation(CompatJsonNumberHandling.class);
+        }
+        Object numberHandlingAttribute = TypeHelper.materializeMemberNumberHandlingAttribute(numberHandling);
         DebuggerBrowsable browsable = getter.getAnnotation(DebuggerBrowsable.class);
-        if (browsable == null) {
+        if (numberHandlingAttribute == null && browsable == null) {
             return new Object[0];
         }
-        return new Object[] { new DebuggerBrowsableAttribute(browsable.value()) };
+        List<Object> attributes = new ArrayList<>(2);
+        if (numberHandlingAttribute != null) {
+            attributes.add(numberHandlingAttribute);
+        }
+        if (browsable != null) {
+            attributes.add(new DebuggerBrowsableAttribute(browsable.value()));
+        }
+        return attributes.toArray();
     }
 
     /**

@@ -311,6 +311,18 @@ public class PropertyTransformer : IMemberTransformer
             if (context.SemanticModel != null)
             {
                 var propSymbol = context.GetDeclaredSymbol(propDecl);
+                // C# [JsonNumberHandling(flags)] on a member overrides the type's handling;
+                // compat materializes the generated attribute class from this marker on the
+                // member lookup (JsonNumberHandlingAttribute is a class, not an annotation).
+                var numberHandlingAttr = propSymbol?.GetAttributes()
+                    .FirstOrDefault(a => a.AttributeClass?.Name == "JsonNumberHandlingAttribute");
+                if (numberHandlingAttr?.ConstructorArguments.Length > 0
+                    && numberHandlingAttr.ConstructorArguments[0].Value != null)
+                {
+                    getter.Annotations.Add(new JavaAnnotation(
+                        $"CompatJsonNumberHandling({numberHandlingAttr.ConstructorArguments[0].Value})"));
+                    context.AddImport("io.github.ningpp.compat.CompatJsonNumberHandling");
+                }
                 var browsableAttr = propSymbol?.GetAttributes()
                     .FirstOrDefault(a => a.AttributeClass?.Name == "DebuggerBrowsableAttribute");
                 if (browsableAttr?.ConstructorArguments.Length > 0

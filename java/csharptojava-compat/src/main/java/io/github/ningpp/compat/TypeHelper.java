@@ -1569,10 +1569,57 @@ public final class TypeHelper {
     }
 
     public static Object[] getCustomAttributes(Class<?> type, Class<?> attributeType, boolean inherit) {
-        if (type == null || attributeType == null || !attributeType.isAnnotation()) {
+        if (type == null || attributeType == null) {
             return new Object[0];
         }
-        return type.getAnnotationsByType((Class) attributeType);
+        // A converted System.Text.Json attribute is a CLASS, not an annotation, so the
+        // annotation lookup only applies when the queried type really is one; a class-typed
+        // attribute is materialized from the compat marker the converter emits.
+        if (attributeType.isAnnotation()) {
+            Object[] seen = type.getAnnotationsByType((Class) attributeType);
+            if (seen.length > 0) {
+                return seen;
+            }
+        }
+        Object materialized = materializeTypeAttributeFromCompatAnnotation(type, attributeType);
+        return materialized == null ? new Object[0] : new Object[] { materialized };
+    }
+
+    /**
+     * Materializes a C# attribute class from the compat annotation the converter emits on a
+     * TYPE. The generated System.Text.Json attributes are classes, not annotations, so a
+     * type-level lookup ({@code JsonClassInfo.GetNumberHandlingForType}) finds nothing without
+     * this: the attribute exists in the C# source but has no Java representation to read.
+     */
+    private static Object materializeTypeAttributeFromCompatAnnotation(Class<?> type, Class<?> attributeType) {
+        if (type == null || attributeType == null
+                || !"JsonNumberHandlingAttribute".equals(attributeType.getSimpleName())) {
+            return null;
+        }
+        CompatJsonNumberHandling marker = type.getAnnotation(CompatJsonNumberHandling.class);
+        return materializeMemberNumberHandlingAttribute(marker);
+    }
+
+    /**
+     * Builds the generated {@code JsonNumberHandlingAttribute} for a member annotation, or null
+     * when the member does not carry one. Member attributes override the type's, so this is the
+     * only place a member-level {@code [JsonNumberHandling]} can be observed.
+     *
+     * <p>The attribute class lives in the converted module, which compat cannot compile
+     * against, so it is resolved by name and built through its int constructor.</p>
+     */
+    public static Object materializeMemberNumberHandlingAttribute(CompatJsonNumberHandling marker) {
+        if (marker == null) {
+            return null;
+        }
+        try {
+            Class<?> attributeType = Class.forName("dotnet.text.json.Serialization.JsonNumberHandlingAttribute");
+            java.lang.reflect.Constructor<?> ctor = attributeType.getDeclaredConstructor(int.class);
+            ctor.setAccessible(true);
+            return ctor.newInstance(marker.value());
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
     }
 
     /**

@@ -176,6 +176,19 @@ public class FieldTransformer : IMemberTransformer
             }
             declaredNames.Add(variable.Identifier.Text);
 
+            // C# [JsonNumberHandling(flags)] on a field overrides the declaring type's
+            // handling; compat materializes the generated attribute class from this marker
+            // on the member lookup (JsonNumberHandlingAttribute is a class, not an annotation).
+            var fieldNumberHandlingAttr = fieldSymbol?.GetAttributes()
+                .FirstOrDefault(a => a.AttributeClass?.Name == "JsonNumberHandlingAttribute");
+            if (fieldNumberHandlingAttr?.ConstructorArguments.Length > 0
+                && fieldNumberHandlingAttr.ConstructorArguments[0].Value != null)
+            {
+                javaField.Annotations.Add(new JavaAnnotation(
+                    $"CompatJsonNumberHandling({fieldNumberHandlingAttr.ConstructorArguments[0].Value})"));
+                context.AddImport("io.github.ningpp.compat.CompatJsonNumberHandling");
+            }
+
             // C# structs are value types that can never be null — initialize fields
             // with default instances so Java code doesn't encounter null struct references.
             // C# enum fields without initializers default to the member with value 0,

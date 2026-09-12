@@ -497,6 +497,7 @@ public class ClassTransformer : ITypeTransformer
         ReorderStaticFieldsByDependency(javaClass);
         ReorderStaticFieldInitializers(javaClass);
         AddDebuggerAnnotations(javaClass, mergedType.TypeSymbol, context);
+        AddJsonNumberHandlingAnnotation(javaClass, mergedType.TypeSymbol, context);
         AddHashCodeIfMissingForClass(javaClass, context);
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
@@ -660,6 +661,37 @@ public class ClassTransformer : ITypeTransformer
                 javaClass.Annotations.Add(new JavaAnnotation($"DebuggerTypeProxy({mapped}.class)"));
                 context.AddImport("io.github.ningpp.compat.DebuggerTypeProxy");
             }
+        }
+    }
+
+    /// <summary>
+    /// Mirrors a C# type-level [JsonNumberHandling(...)] as a compat annotation carrying the
+    /// flags value. The generated JsonNumberHandlingAttribute is a class, not an annotation, so
+    /// compat materializes it from this marker; without it getNumberHandlingForType() answers
+    /// null and the type's elements are read with strict number handling (e.g. "1" from a
+    /// string fails for a List&lt;int&gt; subclass that allows reading from strings).
+    /// </summary>
+    private static void AddJsonNumberHandlingAnnotation(
+        JavaClassDeclaration javaClass,
+        INamedTypeSymbol typeSymbol,
+        ConversionContext context)
+    {
+        foreach (var attr in typeSymbol.GetAttributes())
+        {
+            if (attr.AttributeClass?.Name != "JsonNumberHandlingAttribute")
+            {
+                continue;
+            }
+            var handling = attr.ConstructorArguments.Length > 0
+                ? attr.ConstructorArguments[0].Value
+                : null;
+            if (handling == null)
+            {
+                return;
+            }
+            javaClass.Annotations.Add(new JavaAnnotation($"CompatJsonNumberHandling({handling})"));
+            context.AddImport("io.github.ningpp.compat.CompatJsonNumberHandling");
+            return;
         }
     }
 
@@ -4660,6 +4692,15 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
                 var nestedResult = nestedTransformer.Transform(nestedClass, context);
                 if (nestedResult is JavaClassDeclaration jc)
                 {
+                    // Nested types are transformed through their own path, so the type-level
+                    // annotations the top-level path attaches must be attached here as well:
+                    // most annotated collection subclasses in the test suite are nested.
+                    var nestedSymbol = context.SemanticModel?.GetDeclaredSymbol(nestedClass) as INamedTypeSymbol;
+                    if (nestedSymbol != null)
+                    {
+                        AddDebuggerAnnotations(jc, nestedSymbol, context);
+                        AddJsonNumberHandlingAnnotation(jc, nestedSymbol, context);
+                    }
                     if (NestedTypeHelper.ShouldBeStaticInJava(nestedClass, context))
                     {
                         jc.Modifiers |= JavaModifiers.Static;
