@@ -537,8 +537,52 @@ compat 的不可变类型没建模成 `Iterable`/`Map`：
 
 **该簇已全部收口**：`attributeCreateConverterFail`、`attributeOnClassFail`、
 `attributeOnPropertyFail`、`converterWithoutDefaultCtor` 均通过。
-**下一个目标**：见 §8.2.7 的结构性线索（不可变集合未建模成 `Iterable`/`Map`，
-同时解释 14 条 cast 失败与 21 条 `ArrayIndexOutOfBoundsException`）。
+
+### 8.2.7 Round 52 实测：不可变集合线索**一半被否证**
+
+§8.2.7 曾提出"compat 的不可变类型没建模成 `Iterable`/`Map`，同时解释 cast 失败与
+`ArrayIndexOutOfBoundsException`"。**探针（`probe/w42/ImmIfaceProbe.java`）实测结果**：
+
+| 类型 | `Iterable` | `Map` | `CSharpReadOnlyDict` | 自身泛型参数 | `getGenericArguments` 长度 |
+|---|---|---|---|---|---|
+| `ImmutableList` / `ImmutableHashSet` / `ImmutableSortedSet` / `ImmutableStack` / `ImmutableQueue` / `ImmutableArray` | **true** | false | false | 1 | **1** |
+| `ImmutableDictionary` / `ImmutableSortedDictionary` | false | false | **false** | 2 | 2 |
+
+**结论：**
+- **列表侧被否证**：它们**已经是 `Iterable`**，`getGenericArguments` 也**正常返回 1 个**实参
+  （因为 `IImmutableList` 等接口**确实** `extends Iterable<T>`）。
+  所以 `ArrayIndexOutOfBoundsException` **不是**这条线索造成的，别从这里查。
+- **字典侧被证实**：两个字典的 `CSharpReadOnlyDict=false`，
+  转换器工厂因此落到 `ImmutableEnumerableOfTConverter`，写路径再 cast 到
+  `CSharpReadOnlyDict` 就抛 —— **与 14 条 cast 失败吻合**。
+
+**但这条修复有既存阻碍（实测）**：给两个字典加 `implements CSharpReadOnlyDict` 后编译失败：
+
+```
+ImmutableDictionary 不是抽象的, 并且未覆盖 java.util.Collection 中的抽象方法 clear()
+ImmutableDictionary 中的 clear() 无法实现 CSharpGenericIterable 中的 clear()   // 返回类型冲突
+ImmutableSortedDictionary 未覆盖 CSharpReadOnlyDict 中的抽象方法 tryGetValue(K)
+```
+
+原因是 `CSharpReadOnlyDict` → `CSharpReadOnlyCollection` → `CSharpGenericIterable` →
+**`java.util.Collection`**，于是接口强制要求 `add/remove/clear` 等**可变**方法，
+而 `ImmutableDictionary.clear()` 返回 `ImmutableDictionary`（协变），与
+`Collection.clear()` 的 `void` 冲突。**这正是 `IImmutableDictionary` 上那条
+"故意不做成 Iterable"注释所指的同一类冲突。**
+
+**因此该方向的正确做法是设计工作，不是补丁**（本轮已回滚，未提交）：
+要么让 `CSharpReadOnlyDict` 不再继承 `Collection`（影响面大），
+要么给字典加一层只读适配器/桥接。**动手前先确认这条改动不会波及
+`isImmutableCollection` 与不可变集合工厂的判定。**
+
+### 8.2.8 Round 52 实测：`Assert.null() ... Actual: 0`（29 条中约 11 条）不是可修缺陷
+
+`Nullable<T>` 在 Java 侧映射为**装箱类型**（`int?` → `Integer`），
+于是"C# 可空值类型的 null"与"装箱的 0"**在运行时不可区分**：
+`Assert.null() ... Actual: 0` 这类失败（`nullableValueTypeConverter_OptOut`、
+`defaultIgnoreNullValuesOnRead`、`nullableConverterIsNotPassedNull` 等）
+是**转换模型的固有代价**，不是逻辑 bug。
+**除非引入独立的 Nullable 包装类型（架构级改动），否则不要在这 11 条上投入。**
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

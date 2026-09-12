@@ -1993,3 +1993,41 @@ Character`）与 `String`/`Object`。
 **至此 §8.2.6 的 `[JsonConverter]` 簇（成员级 + 类型级 + 派生特性 + null 哨兵 + 消息拼写）
 全部收口**：`attributeCreateConverterFail`、`attributeOnClassFail`、`attributeOnPropertyFail`、
 `converterWithoutDefaultCtor` 均已通过。
+### 4.54 Round 52：不可变集合线索**一半被否证**；`Assert.null Actual: 0` 判为固有代价
+
+本轮**无净收益**（625 → 625，回滚后复核逐用例集合完全相同）。
+
+**探针 `probe/w42/ImmIfaceProbe.java` 实测的接口矩阵**：
+
+| 类型 | `Iterable` | `CSharpReadOnlyDict` | `getGenericArguments` 长度 |
+|---|---|---|---|
+| `ImmutableList`/`HashSet`/`SortedSet`/`Stack`/`Queue`/`Array` | **true** | false | **1** |
+| `ImmutableDictionary`/`ImmutableSortedDictionary` | false | **false** | 2 |
+
+- **列表侧否证**：它们已经是 `Iterable`，实参也正常返回，**21 条
+  `ArrayIndexOutOfBoundsException` 不来自这条线索**。
+- **字典侧证实**：两个字典 `CSharpReadOnlyDict=false` → 工厂落到
+  `ImmutableEnumerableOfTConverter` → 写路径 cast 失败，**与 14 条 cast 失败吻合**。
+
+**但修复有既存阻碍**（加 `implements CSharpReadOnlyDict` 后**编译失败**）：
+
+```
+ImmutableDictionary 未覆盖 java.util.Collection 的抽象方法 clear()
+ImmutableDictionary 的 clear() 无法实现 CSharpGenericIterable 的 clear()   // 返回类型冲突
+ImmutableSortedDictionary 未覆盖 CSharpReadOnlyDict 的抽象方法 tryGetValue(K)
+```
+
+`CSharpReadOnlyDict` → `CSharpReadOnlyCollection` → `CSharpGenericIterable` →
+**`java.util.Collection`**，接口因此强制要求 `add/remove/clear` 等**可变**方法，
+而 `ImmutableDictionary.clear()` 返回 `ImmutableDictionary`，与 `Collection.clear()` 的
+`void` 冲突。**这与 `IImmutableDictionary` 上那条"故意不做成 Iterable"的注释是同一类冲突。**
+→ 该方向需要**设计**（让 `CSharpReadOnlyDict` 不再继承 `Collection`，或加只读适配层），
+不是补丁。**本轮已回滚，未提交。**
+
+**第二条判为"固有代价、不建议投入"**：`Assert.null() ... Actual: 0`（29 条中约 11 条，
+如 `nullableValueTypeConverter_OptOut`、`defaultIgnoreNullValuesOnRead`）。
+`Nullable<T>` 在 Java 侧映射为装箱类型，**"可空值类型的 null"与"装箱的 0"运行时不可区分**，
+除非引入独立的 Nullable 包装类型（架构级改动）。
+
+**验证**：`Tests run: 7902, Failures: 342, Errors: 283, Skipped: 18` = **625**，
+与 r084 逐用例集合**完全相同**；`git status` 干净。
