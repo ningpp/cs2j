@@ -701,3 +701,12 @@ Round 23 已确认：命中点是 `InvocationExpressionTransformer.cs:12554`，�
 - **结论（对已批准的 (a)）**: 以"调用点发布类型实参"为手段的 (a) 在**本代码库被测量否决**（两次独立实现、两种优先级、均为净负：12/6 与 12/2）。除非改为**只在元素类型确实无法从成员/运行时分发获得时**才发布（例如只对 `Deserialize` 且无成员上下文、且静态类型为泛型 *值类型集合* 的窄集合），否则不应再尝试。已回退转换器改动，工作区回到官方 929。
 - **保留物**: compat 的 `registerCallSiteType` / `closedCallSiteGenericType` / `CALLSITE_ARGUMENTS`（有 4 项单测、无调用方、对 SDK 无副作用），供未来窄化方案复用；`ClosedGenericEmissionApiTest` 同。
 - **下一步优先级**: (b) JSON 特性落地为注解（扩展数据簇 20+ 项，机制独立于类型实参，风险与 (a) 无关）；以及复核 Round 23/26 两次回归名单里的 12 项是否共享另一根因（可能本身就是可独立修复的缺陷）。
+## Iteration 33 — (c) 的产物级复核：假覆写 7 → 6 类（`ReflectionMemberAccessor` 两处已消除）
+
+`probe/OverrideScan.java` 在 (c) 修复后的生成产物上复扫（1707 个类）:
+- **已消除**: `ReflectionMemberAccessor.createFieldGetter` / `createFieldSetter`（原为 35 项失败的直接机制，前几轮统计已 35 → 0）；
+- **仍存在但当前 0 影响（潜伏）**:
+  - `ReflectionEmitMemberAccessor.createParameterizedConstructor`（基类 6 参 = 5 个 Class 令牌 + ConstructorInfo，覆写 5 参）与 `createParameterizedConstructor_1tp`（基类 2 参，覆写 1 参）；
+  - `Tests.SerializationWrapper$*SerializerWrapper.serializeWrapper`（5 个子类；基类 `(Class, Object, JsonSerializerOptions)`，覆写 `(Object, JsonSerializerOptions)`）。
+- **判定**: 这 6 处当前在失败栈中出现次数为 **0**（Round 22 统计），属潜伏缺陷；`ReflectionEmit*` 两处与 `MemberAccessor` 同源（令牌注入按方法体/表达式体决定），可在同一机制下顺手修复；`SerializationWrapper` 的 5 处是测试夹具特化被静默绕过，修法需先确认基类实现语义等价。
+- **优先级**: 低于 (b)（扩展数据簇 20+ 项，机制独立），高于其它潜伏项。
