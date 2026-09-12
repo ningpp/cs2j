@@ -296,6 +296,15 @@ public class PropertyTransformer : IMemberTransformer
                     getter.Annotations.Add(new JavaAnnotation("CompatJsonExtensionData"));
                     context.AddImport("io.github.ningpp.compat.CompatJsonExtensionData");
                 }
+                // C# [JsonIgnore] -> compat annotation (same route: the generated attribute class
+                // is materialized by compat from this marker; ConditionalIgnoreWhen/other ctor
+                // arguments are not modelled yet).
+                if (extDataSymbol?.GetAttributes().Any(a =>
+                        a.AttributeClass?.Name == "JsonIgnoreAttribute") == true)
+                {
+                    getter.Annotations.Add(new JavaAnnotation("CompatJsonIgnore"));
+                    context.AddImport("io.github.ningpp.compat.CompatJsonIgnore");
+                }
             }
 
             // C# [DebuggerBrowsable(state)] on the property → runtime annotation on the
