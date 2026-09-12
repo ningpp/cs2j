@@ -1297,3 +1297,48 @@ WrapperForIEnumerablePrivateConstructor    WrapperForICollectionPrivateConstruct
 或 C# 侧的 `[JsonConstructor]`/构造函数可见性元数据在本移植中丢失了），
 属于**新课题**，应从"这两类装饰类型在 C# 源码上的差异"入手，
 而不是在运行时猜。
+
+### 4.35 Round 29：字典回归的最后一层——`registerConcreteType` 在官方路径上**从未被调用**
+
+**推断**：`findDeclaredArgumentsFor` 是**唯一**能给出"具体类型的声明签名"的通路，
+而它只读 `CONCRETE_SUBTYPES`、该表只由 `registerConcreteType` 填充——
+**而 `registerConcreteType` 只在 compat 的
+`JsonSerializerCompat.deserializeInternal` 里被调用**，
+**官方路径 `JsonSerializer.deserialize` 从不调用它**。
+所以 §4.25 清空注册表后，官方路径再也拿不到声明签名 → `[Object,Object]` → 抛"不支持的键类型"。
+
+**实施**：在共享私有入口
+`JsonSerializer.deserialize(String, Class, Options, Class)`（clearRegistrations 所在处）
+补一行 `TypeHelper.registerConcreteType(returnType)`。
+
+**实测（单类）**：
+
+| 测试类 | 基线 | 加 registerConcreteType |
+|---|---:|---:|
+| `DictionaryTests` | 24 | **24（无变化）** |
+| `ArrayTests` | 34 | 34 |
+| `ReferenceHandlerTests` | 62 | 62 |
+
+**无效，已回退**；复核 = **723（430+293）**、`git status` 干净。
+
+**为什么无效（用 `probe/DictArgProbe.java` 直接验证）**：
+即使注册了 `CSharpDictionary.class`，`getGenericArguments(CSharpDictionary)` **仍是 `[Object,Object]`**。
+原因是 `findDeclaredArgumentsFor` 需要**具体类型在 Java 端真的声明了带实参的接口**
+（`class X implements IDictionary<String,Integer>`），
+而 `CSharpDictionary` 声明的是
+`implements CSharpGenericIDictionary<K, V>, CSharpReadOnlyDict<K, V>`
+（**用自己的类型变量**，不是具体实参），
+所以 `declaredArgumentsFor` 走不出 `[Object,Object]`。
+
+**这解释了整个字典簇的最终形态**：
+裸 token `CSharpDictionary.class` **在 Java 端不携带任何具体实参**，
+而端口过去是**借用上一次操作残留的注册**才凑出 `[String,Integer]`。
+§4.25 把借用去掉后暴露了这个事实——
+**除非测试改传 TypeReference，或端口为裸 token 引入"字符串键"缺省语义**（后者被 §4.28 证否），
+否则这一簇**无法在运行时正确推导**。
+
+**建议（与 §4.34 一致的结论）**：这 5 项（及 `DictKeyNotSupported` 小簇）
+属于**"测试传了信息不足的 token"**这一类，**不应继续在运行时猜**。
+可选的正确做法只有两条：
+(a) 在**生成侧**把这类裸 token 调用改成带实参的 `TypeReference`（需要调用点能拿到实参）；
+(b) 接受这 5 项为**已知限制**并记录，把预算投到别的簇。
