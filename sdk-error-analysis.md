@@ -933,6 +933,37 @@ if (propertySymbol.GetAttributes().Any(a =>
 - `JsonSerializerOptions._converters` / `_classes` 的**读取点**在生成产物里是 `_converters.containsKey(x)` 与 `_converters.get(x)`；写入点走 `ConcurrentHashMapHelper.tryAdd/getOrAdd`（已在 compat 内按 `converterCacheKey` 变成"闭合泛型键"），**读写不一致**是缓存复用的结构性原因。改读取点需要先确认它由哪个 transformer 产生（`InvocationExpressionTransformer` 的 ContainsKey/TryGetValue 分支**不是**它）。
 - 生成产物里**没有任何** `TypeHelper.registerParameterizedType / registerCallSiteType / registerMemberType / closedGenericType` 调用（全仓 0 命中）⇒ 类型实参**只**由 `JsonSerializerCompat`（`TypeReference`）与 `TypeHelper.getMultiGenericArguments` 之外的路径发布；成员的声明类型实参从未被发布，`CSharpQueue<SimpleTestClass>` 这类成员因此拿到 `elementType=Object`。
 
+## Iteration 52 — `sbyte[]` 不能映射成 `byte[]`（官方 869 → 863，零回归）
+
+- **现象**: `SimpleTestClass` 反序列化失败 `Cannot get the value of a token type 'StartArray' as a string`，路径 `$.MySByteArray`。
+- **根因分析（探针）**: `SByteMemberProbe` 证明**单独**反序列化 `SimpleTestClass` 就失败（与集合无关）。对照 C# 源
+  `TestClasses.SimpleTestClass.cs`：`public sbyte[] MySByteArray` 与 `public byte[] MyByteArray` 是两个不同语义的成员——
+  System.Text.Json 把 `byte[]` 写成 **Base64 字符串**（`s_json` 里 `"MyByteArray":"Bw=="`），把 `sbyte[]` 写成**数字数组**（`"MySByteArray":[8]`）。
+  但 `System.SByte → byte` 的映射让两者在 Java 里都是 `byte[]`，于是 `sbyte[]` 成员被 `ByteArrayConverter` 接管，读数组时报"要字符串"。
+- **修复（转换器 + compat 两侧）**:
+  1. `TypeMappingService`：`sbyte[]` 的元素类型映射为 `int`（值域等价，且选中整数元素转换器）。
+  2. `ObjectCreationTransformer`：`new sbyte[N]` 同样分配 `int[]`（否则初始化器 `new byte[]{8}` 赋值给 `int[]` 成员，出现 4 处 `byte[]无法转换为int[]` 编译错误——已由本轮修掉）。
+  3. compat `@CompatSByteArray` 标记成员 + 成员查询（`PropertyInfo.getPropertyType` / `FieldInfo.getFieldType`）对被标记成员返回 `int[]`；setter 把 `int[]` 收回 `byte[]` 字段。
+- **验证**: 端到端 `SimpleTestClass` 往返成功（`"MySByteArray":[8]`、`"MyByteArray":"Bw=="`）✓；编译零错误 ✓；
+  官方全量 `Tests run: 7902, Failures: 433, Errors: 430, Skipped: 18` = **863**（上一有效值 869），按类 `SpanTests` 51→47、`ReferenceHandlerTests` 75→73，**无新增失败**；compat 1717/1717 ✓。
+- **提交**: ed6774c3。
+
+## Iteration 53 — `_converters` 读取点的定位结论（本轮负结果，已回退）
+
+- **目标**: 修 "缓存写入走 `converterCacheKey`（闭合泛型键）、读取按裸类" 的读写不一致——这是剩余最大簇（`writeIListOfIList` 的 `Integer→String`、`readClassWithObjectIEnumerableT` 的 `JsonElement/无法转换到 CSharpList`）的结构性原因。
+- **尝试 A（写入侧）**: `ConcurrentHashMapHelper.tryAdd/getOrAdd` 在键被改写时**顺带删除裸类键**，使后续按裸类的读取落空并重建。
+  结果：官方 **863 → 863（中性）**。语义上更正确，但未改变结果，**已回退**以不留未测量改动。
+- **尝试 B（读取侧）**: 在 `InvocationExpressionTransformer` 的 `ContainsKey/TryGetValue` 分支加钩子 + 临时 trace（写临时文件）。
+  trace 文件**完全没有生成** ⇒ `JsonSerializerOptions.getConverter` 里的 `_converters.containsKey/get` **不是**由这条字符串转换路径产生的（该调用很可能走 IR/`JavaMethodCallExpression` 主路径，或该方法体由另一条 pass 生成）。**已回退**。
+- **下一步建议**: 先定位 `getConverter` 方法体的实际生成 pass（在 `TransformInvocation` 的 IR 入口 `Transform`→`JavaRawExpression` 路径或 `MethodTransformer` 的方法体装配处加同样的 trace），再在读取点做与 `converterCacheKey` 对称的解析。
+
+## Iteration 54 — 本轮（Round 3）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 433, Errors: 430, Skipped: 18` = **863**（编译零错误；本轮起点 869）。
+- **dotnet**: 3158 + 59 全绿 ✓；**compat**: 1717/1717 ✓。
+- **剩余最大簇（r91 统计）**: `AssertionError` 302（其中"应抛异常未抛"58、"异常类型不对"33）、"JSON value could not be converted" 85、`Integer→String` 36、`JsonElement→X` 24。
+
+
 
 
 
