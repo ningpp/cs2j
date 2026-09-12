@@ -576,6 +576,144 @@ public class MathHelper {
         return true;
     }
 
+    // ---- Direct integer formatting (fast path) ----
+
+    private static final char[] HEX_DIGITS_UPPER = "0123456789ABCDEF".toCharArray();
+    private static final char[] HEX_DIGITS_LOWER = "0123456789abcdef".toCharArray();
+
+    /**
+     * Writes an integer using only the format specifiers the generated JSON writer's escaping
+     * loop uses: "X4" for the JSON backslash-u escapes, plus "D"/"D4"/empty for decimal
+     * output. Anything else returns false so the caller falls back to
+     * {@link #formatValue(String, Object)}, which stays the reference implementation.
+     *
+     * <p>The escaping loop calls TryFormat once per escaped character (1.35M calls for one
+     * writeNumbers row), and the reference path pays String.format + varargs + String and
+     * byte[] allocation on every one of them.
+     */
+    private static boolean tryFormatIntFast(int value, Span<Character> dest, IntHolder charsWritten, String format) {
+        if (format == null || format.isEmpty()) {
+            return writeDecimalInt(value, dest, charsWritten, 0);
+        }
+        char specChar = format.charAt(0);
+        char spec = Character.toUpperCase(specChar);
+        if (spec != 'X' && spec != 'D') {
+            return false;
+        }
+        int width = 0;
+        for (int i = 1; i < format.length(); i++) {
+            char ch = format.charAt(i);
+            if (ch < '0' || ch > '9') {
+                return false; // exotic specifier: let the reference implementation handle it
+            }
+            width = width * 10 + (ch - '0');
+            if (width > 1024) {
+                return false;
+            }
+        }
+        return spec == 'X'
+                ? writeHexInt(value, dest, charsWritten, specChar == 'X', width)
+                : writeDecimalInt(value, dest, charsWritten, width);
+    }
+
+    /** Span based twin of {@link #tryFormatIntFast(int, Span, IntHolder, String)}. */
+    private static boolean tryFormatIntFast(int value, Span<Character> dest, IntHolder charsWritten, ReadOnlySpan<Character> format) {
+        int length = format.getLength();
+        if (length == 0) {
+            return writeDecimalInt(value, dest, charsWritten, 0);
+        }
+        char specChar = nonNullChar(format.get(0));
+        char spec = Character.toUpperCase(specChar);
+        if (spec != 'X' && spec != 'D') {
+            return false;
+        }
+        int width = 0;
+        for (int i = 1; i < length; i++) {
+            char ch = nonNullChar(format.get(i));
+            if (ch < '0' || ch > '9') {
+                return false;
+            }
+            width = width * 10 + (ch - '0');
+            if (width > 1024) {
+                return false;
+            }
+        }
+        return spec == 'X'
+                ? writeHexInt(value, dest, charsWritten, specChar == 'X', width)
+                : writeDecimalInt(value, dest, charsWritten, width);
+    }
+
+    /** Boxed span elements may be null after clear()/fill — treat as '\0' like the fallback path. */
+    private static char nonNullChar(Character value) {
+        return value == null ? '\0' : value;
+    }
+
+    /**
+     * Matches {@code String.format("%<width>X", value)}: two's complement hex for negative
+     * values, zero padded on the left to {@code width}, never truncated.
+     */
+    private static boolean writeHexInt(int value, Span<Character> dest, IntHolder charsWritten, boolean upperCase, int width) {
+        char[] table = upperCase ? HEX_DIGITS_UPPER : HEX_DIGITS_LOWER;
+        char[] digits = new char[8];
+        int count = 0;
+        boolean started = false;
+        for (int shift = 28; shift >= 0; shift -= 4) {
+            int nibble = (value >>> shift) & 0xF;
+            if (nibble != 0) {
+                started = true;
+            }
+            if (started || shift == 0) {
+                digits[count++] = table[nibble];
+            }
+        }
+        int padding = Math.max(width - count, 0);
+        if (padding + count > dest.length()) {
+            return false;
+        }
+        for (int i = 0; i < padding; i++) {
+            dest.set(i, '0');
+        }
+        for (int i = 0; i < count; i++) {
+            dest.set(padding + i, digits[i]);
+        }
+        charsWritten.value = padding + count;
+        return true;
+    }
+
+    /**
+     * Matches {@code String.format("%<width>d", value)}: decimal with the sign counted inside
+     * the padded width (for example -1 with width 4 gives "-001").
+     */
+    private static boolean writeDecimalInt(int value, Span<Character> dest, IntHolder charsWritten, int width) {
+        boolean negative = value < 0;
+        long magnitude = Math.abs((long) value);
+        char[] digits = new char[10];
+        int count = 0;
+        do {
+            digits[count++] = (char) ('0' + (int) (magnitude % 10));
+            magnitude /= 10;
+        } while (magnitude != 0);
+
+        int signLength = negative ? 1 : 0;
+        int padding = Math.max(width - count - signLength, 0);
+        int total = signLength + padding + count;
+        if (total > dest.length()) {
+            return false;
+        }
+        int position = 0;
+        if (negative) {
+            dest.set(position++, '-');
+        }
+        for (int i = 0; i < padding; i++) {
+            dest.set(position++, '0');
+        }
+        for (int i = count - 1; i >= 0; i--) {
+            dest.set(position++, digits[i]);
+        }
+        charsWritten.value = total;
+        return true;
+    }
+
     private static String formatValue(String format, Object value) {
         if (format == null || format.isEmpty()) {
             return String.valueOf(value);
@@ -795,10 +933,16 @@ private static String stripTrailingZeros(String s) {
     }
 
     public static boolean tryFormatInt(int value, Span<Character> dest, IntHolder charsWritten, String format) {
+        if (tryFormatIntFast(value, dest, charsWritten, format)) {
+            return true;
+        }
         return writeFormattedToSpan(formatValue(format, value), dest, charsWritten);
     }
 
     public static boolean tryFormatInt(int value, Span<Character> dest, IntHolder charsWritten, ReadOnlySpan<Character> format) {
+        if (tryFormatIntFast(value, dest, charsWritten, format)) {
+            return true;
+        }
         Character[] boxed = format.toArray();
         char[] str = new char[boxed.length];
         for (int i = 0; i < boxed.length; i++) {

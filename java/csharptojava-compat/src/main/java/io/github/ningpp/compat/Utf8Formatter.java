@@ -10,6 +10,9 @@ public final class Utf8Formatter {
     private Utf8Formatter() {
     }
 
+    private static final char[] HEX_DIGITS_UPPER = "0123456789ABCDEF".toCharArray();
+    private static final char[] HEX_DIGITS_LOWER = "0123456789abcdef".toCharArray();
+
     private static boolean writeBytes(byte[] bytes, Span<Integer> destination, IntHolder bytesWritten) {
         if (bytes.length > destination.length()) {
             bytesWritten.value = 0;
@@ -24,40 +27,97 @@ public final class Utf8Formatter {
 
     /** Mirrors Utf8Formatter.TryFormat(int, Span&lt;byte&gt;, out int). */
     public static boolean tryFormat(int value, Span<Integer> destination, IntHolder bytesWritten) {
-        return writeBytes(Integer.toString(value).getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
+        return writeIntAscii(value, destination, bytesWritten, 0);
     }
 
     /** Mirrors Utf8Formatter.TryFormat(int, Span&lt;byte&gt;, out int, StandardFormat). */
     public static boolean tryFormat(int value, Span<Integer> destination, IntHolder bytesWritten, StandardFormat format) {
         char symbol = format.getSymbol();
-        String text;
         if (symbol == 'X' || symbol == 'x') {
             int precision = format.getPrecision() & 0xFF;
-            String hex = Integer.toHexString(value);
-            if (precision != 0xFF && precision > hex.length()) {
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < precision - hex.length(); i++) sb.append('0');
-                sb.append(hex);
-                text = sb.toString();
-            } else {
-                text = hex;
-            }
-            if (symbol == 'X') text = text.toUpperCase();
-        } else if (symbol == 'D' || symbol == 'd') {
-            int precision = format.getPrecision() & 0xFF;
-            String digits = Integer.toString(value);
-            if (precision != 0xFF && precision > digits.length()) {
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < precision - digits.length(); i++) sb.append('0');
-                sb.append(digits);
-                text = sb.toString();
-            } else {
-                text = digits;
-            }
-        } else {
-            text = Integer.toString(value);
+            return writeIntHexAscii(value, destination, bytesWritten, symbol == 'X',
+                    precision == 0xFF ? 0 : precision);
         }
-        return writeBytes(text.getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
+        if (symbol == 'D' || symbol == 'd') {
+            int precision = format.getPrecision() & 0xFF;
+            return writeIntAscii(value, destination, bytesWritten, precision == 0xFF ? 0 : precision);
+        }
+        return writeIntAscii(value, destination, bytesWritten, 0);
+    }
+
+    /**
+     * Writes decimal ASCII digits directly, replacing
+     * {@code Integer.toString(value).getBytes(US_ASCII)} plus a per-byte copy loop.
+     *
+     * <p>Padding is placed to the LEFT of the sign, which is what the previous
+     * StringBuilder implementation did ({@code -1} with width 4 gives {@code "00-1"}, not
+     * {@code "-001"}). This differs from {@code String.format("%04d")} on purpose: behaviour
+     * must not change here.
+     */
+    private static boolean writeIntAscii(int value, Span<Integer> destination, IntHolder bytesWritten, int minWidth) {
+        boolean negative = value < 0;
+        long magnitude = Math.abs((long) value);
+        char[] reversed = new char[10];
+        int digits = 0;
+        do {
+            reversed[digits++] = (char) ('0' + (int) (magnitude % 10));
+            magnitude /= 10;
+        } while (magnitude != 0);
+
+        int digitsLength = digits + (negative ? 1 : 0);
+        int padding = Math.max(minWidth - digitsLength, 0);
+        int total = padding + digitsLength;
+        if (total > destination.length()) {
+            bytesWritten.value = 0;
+            return false;
+        }
+        int position = 0;
+        for (int i = 0; i < padding; i++) {
+            destination.set(position++, (int) '0');
+        }
+        if (negative) {
+            destination.set(position++, (int) '-');
+        }
+        for (int i = digits - 1; i >= 0; i--) {
+            destination.set(position++, (int) reversed[i]);
+        }
+        bytesWritten.value = total;
+        return true;
+    }
+
+    /**
+     * Writes {@code Integer.toHexString(value)} (two's complement for negative values) zero
+     * padded on the left to {@code minWidth}, replacing {@code toHexString} + StringBuilder
+     * padding + {@code toUpperCase()} + {@code getBytes(US_ASCII)}.
+     */
+    private static boolean writeIntHexAscii(int value, Span<Integer> destination, IntHolder bytesWritten, boolean upperCase, int minWidth) {
+        char[] table = upperCase ? HEX_DIGITS_UPPER : HEX_DIGITS_LOWER;
+        char[] digits = new char[8];
+        int count = 0;
+        boolean started = false;
+        for (int shift = 28; shift >= 0; shift -= 4) {
+            int nibble = (value >>> shift) & 0xF;
+            if (nibble != 0) {
+                started = true;
+            }
+            if (started || shift == 0) {
+                digits[count++] = table[nibble];
+            }
+        }
+        int padding = Math.max(minWidth - count, 0);
+        int total = padding + count;
+        if (total > destination.length()) {
+            bytesWritten.value = 0;
+            return false;
+        }
+        for (int i = 0; i < padding; i++) {
+            destination.set(i, (int) '0');
+        }
+        for (int i = 0; i < count; i++) {
+            destination.set(padding + i, (int) digits[i]);
+        }
+        bytesWritten.value = total;
+        return true;
     }
 
     /** Mirrors Utf8Formatter.TryFormat(long, Span&lt;byte&gt;, out int). */
