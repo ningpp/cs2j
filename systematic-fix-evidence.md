@@ -991,3 +991,52 @@ state.value.Current.DeclaredJsonPropertyInfo =
    再全量；预期同时消除这 5 项回归，并带走 `DictKeyNotSupported` 一簇。
 
 **本轮收口**：未改任何代码，复核 = **723（430+293）**、`git status` 干净。
+
+### 4.28 Round 22：找到**准确的**区分点——"拒绝"必须**延迟到真正读键时**
+
+读测试源码后，把 §4.27 的修法**收紧为可安全实施的形式**：
+
+**关键发现 1（测试为什么传裸 token）**：`DictionaryTests.makeClosedCollectionType`：
+
+```java
+private static Class makeClosedCollectionType(Class openCollectionType, Class elementType) {
+    if (TypeHelper.isSameType(openCollectionType, CSharpDictionary.class)) {
+        return CSharpDictionary.class;          // ← 注意：字典直接返回裸类，不 makeGenericType
+    }
+    return TypeHelper.makeGenericType(openCollectionType, elementType);
+}
+```
+
+即**测试自己**就把字典目标退化成了裸 `CSharpDictionary.class`（因为没有类型参数可传）。
+所以"裸 token"是这个测试**有意**的形状，端口必须能处理它。
+
+**关键发现 2（"该抛"与"不该抛"的精确边界）**——`DictionaryUnsupportedKeyTestsBase`：
+
+| 测试 | 输入 | 期望 |
+|---|---|---|
+| `throwUnsupported_Deserialize` | `deserialize(TypeReference<CSharpDictionary<TKey,TValue>>, "{\"foo\":1}")` | **抛** `UnsupportedOperationException` |
+| `doesNotThrowIfEmpty_Deserialize` | 同上，但 `"{}"` | **不抛** |
+
+同一个类型引用、同样的 `TKey=object`，**唯一差别是 JSON 里有没有键**。
+→ **C# 的语义是"惰性"的：键类型不受支持，只在真正遇到键时才报错**；
+空对象合法通过。
+
+**关键发现 3（端口当前的错误形态）**：端口把"键类型不受支持"检查放在了
+**读取字典元素的早期**（`JsonConverter1.readCore:142` 里就能看到它被抛），
+所以裸 `CSharpDictionary.class` + 非空对象 `{"Key":1}`
+（`nestedDictionariesRoundtrip` 的形状）会在**还没读到键**时就抛。
+
+**因此修法应当是**（本轮只定方案，未实施）：
+把 `DictionaryDefaultConverter` 的键转换器解析**从"进入读循环前"移到"读到第一个键时"**，
+即首次调用 `readDictionaryKey` 时才解析键转换器；
+这样：空对象不抛（符合 `doesNotThrowIfEmpty_Deserialize`）、
+`object` 键**读到**时照抛（符合 `throwUnsupported_Deserialize`）、
+而 `CSharpDictionary<string,int>` 的裸 token 因为实际键是字符串、会走
+`IsStringKey` 分支而**不再误抛**（修掉 §4.25 的 5 项回归）。
+
+**同时纠正 §4.27 里"回落到字符串键语义"的提法**：那会让
+`throwUnsupported_Deserialize` **不再抛**（回归），所以**不能用**；
+正解是**延迟校验**，不是放宽校验。
+
+**规模**：当前 `not a supported Dictionary key type` 共 **7 行**（5 测试），
+`DictionaryKeyPolicyTests` 2、`DictionaryTests` 2、其余各 1。
