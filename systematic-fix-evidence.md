@@ -1916,3 +1916,34 @@ Round 43 曾记录"成员级 `[JsonConverter]` 的通路根本没被走到"，
 **本轮又踩一次的坑（已写进纪律）**：改 compat 源码后必须
 `mvn -o clean install`（不能用 `-q install`）再测量。
 本轮有**两次测量**跑在旧 jar 上，输出与改动前逐字相同，极易误读为"补丁没生效"。
+### 4.51 Round 49：类型级 `[JsonConverter]`（631 → 628）；两个用例的失败点继续前移
+
+**收益**：`631 → 628（修 3 / 坏 0）`，提交 `4c0be592`。
+
+Round 48 只打通了**成员级** `[JsonConverter]`；**类型级**仍然到不了运行时，
+于是 `getAttributeThatCanHaveMultiple(typeToConvert, ...)` 找不到特性，
+"转换器没有公开无参构造"不会被拒 —— `converterWithoutDefaultCtor` 断言的正是这个抛出。
+
+- `ClassTransformer` 现在对类型级 `[JsonConverter]` 也发 `@CompatJsonConverter`，
+  复用 `PropertyTransformer` 已有的**继承链解析器**（改为 internal），
+  因此派生特性同样解析到基类构造函数里写的转换器类型。
+- `TypeHelper.materializeTypeAttributeFromCompatAnnotation` 增加
+  `JsonConverterAttribute` 分支（与原有的 `JsonNumberHandlingAttribute` 并列）。
+
+**两个用例的失败点继续前移**（本轮未修完，但方向已明确）：
+
+- `attributeOnPropertyFail`：从"子串找不到"变成**另一个更靠后的子串**找不到 ——
+  现在缺的是 `System.Collections.Generic.ICollection`1[dotnet...CustomConverterTests+InvalidTypeConverterEnum]`
+  这种 **C# 泛型类型名**（含反引号元数 `\`1` 与方括号实参、`+` 嵌套分隔符）。
+  与 Round 48 修的 `getMemberLocation` 是**同一类"拼写"问题**，只是发生在
+  泛型类型参数的渲染上。
+- `attributeCreateConverterFail`：仍然是 `No exception thrown`，
+  说明它的第二次 serialize/deserialize 路径还没有触发校验。
+
+**建议下一步**：做 `compatTypeName`（C# 风格类型名渲染：泛型元数 `\`N`、
+实参用 `[...]`、嵌套用 `+`）并让 `ThrowHelper` 的
+`SerializationConverterOnAttributeNotCompatible`/`SerializationConverterNotCompatible`
+使用它。**注意**：这类渲染会被多个断言依赖，务必逐用例验证。
+
+**验证**：`Tests run: 7902, Failures: 345, Errors: 283, Skipped: 18` = **628**
+（起点 855，**−227**）；逐用例集合差 = 修 3 / 坏 0。

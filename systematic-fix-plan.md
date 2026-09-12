@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 348, Errors: 283, Skipped: 18` = **631**（起点 855，**−224**）。
-- 本会话累计 **8 条 KEEP**（均"逐用例集合差 +0 回归"）：
+- **基线**：`Tests run: 7902, Failures: 345, Errors: 283, Skipped: 18` = **628**（起点 855，**−227**）。
+- 本会话累计 **9 条 KEEP**（均"逐用例集合差 +0 回归"）：
 
 | 提交 | 内容 | 收益 |
 |---|---|---|
@@ -323,6 +323,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `15828ffc` | `csFormat` 里 double 按 .NET 不变文化格式渲染 | 664 → 648（修 16） |
 | `9317fc8a` | `Unsafe.as` 实参还原声明的源类型 | 648 → 638（修 10） |
 | `316989da` | 成员级 `[JsonConverter]` 送达运行时（含派生特性） | 638 → 631（修 7） |
+| `4c0be592` | 类型级 `[JsonConverter]` 送达运行时 | 631 → 628（修 3） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -506,11 +507,12 @@ compat 的不可变类型没建模成 `Iterable`/`Map`：
 **把实参还原成声明的 `TFrom`**（`(byte)` / `(short)` 包裹），
 每个分支就都自洽了：先窄化 → `Unsafe.as` 装箱的正是那个类型 → 单个 `(Wrapper)` 是恒等转换。
 
-### 8.2.6 已修：成员级 `[JsonConverter]`（Round 48，−7）
+### 8.2.6 已修：`[JsonConverter]` 送达运行时（成员级 Round 48 −7，类型级 Round 49 −3）
 
-提交 `316989da`。**Round 43 的结论已推翻**：那不是"成员通路没被走到"。
+提交 `316989da`（成员级）与 `4c0be592`（类型级）。**Round 43 的结论已推翻**：
+那不是"成员通路没被走到"。
 
-**三个缺口必须一起补**（单独补任何一个都实测中性）：
+**成员级三个缺口必须一起补**（单独补任何一个都实测中性）：
 
 1. 转换器发 `@CompatJsonConverter`，并**沿 C# 特性继承链**解析转换器类型
    （派生特性把类型放在基类构造调用里：`... : base(typeof(int))`，
@@ -519,11 +521,21 @@ compat 的不可变类型没建模成 `Iterable`/`Map`：
 3. **`PropertyInfo` 覆写 `getCustomAttributes(Class, boolean)`** ——
    此前只实现了不带类型参数的版本，于是**每次带类型的查找都落到接口默认实现并返回空数组**，
    特性被构造出来后又被丢弃。**这就是 Round 43 误判的真实原因**。
-   新覆写还按请求类型过滤（与 .NET 一致），避免查一种特性时报出成员的其他特性。
 
-**残留**：`attributeCreateConverterFail` 的失败已从
-`Sub-string not found` 推进为 `No exception thrown`（消息已匹配，测试走到后面的断言），
-见 `2ecd893b` 与 §4.50；下一次要查的是第二次 serialize/deserialize 为何不抛。
+**类型级**（Round 49）：`ClassTransformer` 对类型级 `[JsonConverter]` 也发标记，
+`TypeHelper.materializeTypeAttributeFromCompatAnnotation` 增加对应分支，
+复用同一个继承链解析器（`PropertyTransformer.TryGetJsonConverterType`，已改 internal）。
+
+**残留（失败点已前移，方向明确）**：
+
+- `attributeOnPropertyFail` 现在缺的是 **C# 泛型类型名**的渲染：
+  `System.Collections.Generic.ICollection`1[dotnet...CustomConverterTests+InvalidTypeConverterEnum]`
+  （元数反引号 `` `1 ``、实参方括号、嵌套用 `+`）。
+  与 Round 48 的 `getMemberLocation` 属**同一类"拼写"问题**。
+  **下一步**：做 `compatTypeName` 并让 `ThrowHelper` 的两个 `...NotCompatible`
+  消息使用它；这类渲染被多个断言依赖，**必须逐用例验证**。
+- `attributeCreateConverterFail` 仍是 `No exception thrown`，
+  第二次 serialize/deserialize 路径未触发校验，需单独查。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
