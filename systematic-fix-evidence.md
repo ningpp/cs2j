@@ -649,3 +649,55 @@ result.FileName.EndsWith("PropertyInfo.java")       // ← 上面那个串也以
 
 > **工程结论**：补丁通道本身是可靠的，但"用文件名后缀分派"天然有前后缀遮蔽风险。
 > 本次已把该风险显式化（顺序 + 注释 + 审计脚本 + 失配报错），后续新增补丁必须沿用同一约定。
+
+### 4.19 Round 14：复测 Round 12 的 B 变体（确认无效），并开挖 `Assert.throws`（70 条）
+
+**复测 B 变体**：Round 12 测"成员作用域包住 miss"时，`PatchMemberClassInfoLookup` **并没有真正生效**
+（§4.18 的后缀遮蔽），所以那次结论**证据不足**。本轮在补丁已可持久生成的前提下**重测**：
+`ArrayTests` 34 → **35**、`ObjectTests` 66 → 66，仍然无效，错误依旧是
+`Cannot get the value of a token type 'StartArray' as a string`。
+→ **B 变体现在是**有充分证据地**被否证，可不再考虑。
+
+### 4.20 `Assert.throws` 最大子模式：非公开构造函数被放行
+
+70 条里占比最大的子模式（`CollectionTests` 16、`CustomConverterTests` 17、
+`PropertyVisibilityTests` 10 等）：
+
+```
+Assert.throws() failure: No exception thrown
+Expected: java.lang.UnsupportedOperationException
+```
+
+对应测试 `CollectionTests.read_Generic_NoPublicConstructor_Throws(Class, String)`：
+.NET 对"非公开且非隐式默认构造函数"的集合包装类型会抛 `NotSupportedException`
+（映射为 Java `UnsupportedOperationException`），而端口**把它们构造出来了**。
+
+**出处在 compat**：`TypeHelper.getConstructorInfo` 的兜底分支
+```java
+for (Constructor<?> ctor : type.getDeclaredConstructors()) {
+    if (matchesParameterTypes(...) && (matchesBindingFlags(...) || matchesConstructorBindingFlags(ctor, type, bindingFlags))) {
+        ctor.setAccessible(true);
+        return new ConstructorInfo(ctor);
+    }
+}
+```
+以及 `matchesConstructorBindingFlags` 的桥接语义：
+"构造函数非 public 但**类本身也非 public** → 视为 public（C# 语义）"。
+
+**测试类型实测**（`GenericIEnumerableWrapperPrivateConstructor`，**public 类 + 显式 private 构造函数**）：
+```java
+public class GenericIEnumerableWrapperPrivateConstructor<T> extends GenericIEnumerableWrapper<T> {
+    private GenericIEnumerableWrapperPrivateConstructor() {
+    }
+}
+```
+按 `matchesConstructorBindingFlags` 的字面逻辑，public 类应当返回 false（不放行），
+但实际未抛异常，说明**放行来自该函数之外**（`matchesBindingFlags` 或 `createConstructor` 的其它分支），
+需要再定位一层。
+
+**修复方向（有风险，需先单类验证）**：收窄这个为"私有嵌套类隐式默认构造函数"设计的桥接，
+使**显式声明的非公开构造函数**不被当作 public。但该桥接是为真实转换场景加的，
+改动可能引起**大范围回归**，必须先跑 `CollectionTests` + `CustomConverterTests` +
+`PropertyVisibilityTests` 三个类做单类验证，再全量。
+
+**本轮收口**：实验代码全部回退，复核 = **790（431+359）**、零回归、`git status` 干净。
