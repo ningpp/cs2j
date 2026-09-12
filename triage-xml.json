@@ -1,5 +1,5 @@
 {
- "total": 625,
+ "total": 619,
  "byBucket": [
   [
    "JsonConvert CSharpList",
@@ -68,10 +68,6 @@
   [
    "AssertionError: Expected InvalidOperationException when trying to get string value for",
    7
-  ],
-  [
-   "Throws UnsupportedOperationException -> NullPointerException",
-   6
   ],
   [
    "JsonConvert Integer",
@@ -146,7 +142,7 @@
    3
   ],
   [
-   "Throws IllegalStateException -> NullPointerException",
+   "Throws IllegalStateException -> UnsupportedOperationException",
    3
   ],
   [
@@ -650,7 +646,7 @@
    1
   ],
   [
-   "Expect \"[io.github.ningpp.compat.CSharpDictionary@270d506 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1",
+   "Expect \"[io.github.ningpp.compat.CSharpDictionary@147e073 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1",
    1
   ],
   [
@@ -674,7 +670,7 @@
    1
   ],
   [
-   "Expect \"io.github.ningpp.compat.CSharpDictionary@37a67cf\" -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma",
+   "Expect \"io.github.ningpp.compat.CSharpDictionary@2ff498b0 -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma",
    1
   ],
   [
@@ -714,7 +710,7 @@
    1
   ],
   [
-   "Expect \"io.github.ningpp.compat.CSharpDictionary@4efb13f1 -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",",
+   "Expect \"io.github.ningpp.compat.CSharpDictionary@66298fe9 -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",",
    1
   ],
   [
@@ -821,7 +817,7 @@
   ],
   [
    "dotnet.text.json.Serialization.Tests.CollectionTests",
-   62
+   61
   ],
   [
    "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
@@ -829,7 +825,7 @@
   ],
   [
    "dotnet.text.json.Serialization.Tests.CustomConverterTests",
-   56
+   54
   ],
   [
    "dotnet.text.json.Serialization.Tests.PropertyVisibilityTests",
@@ -853,7 +849,7 @@
   ],
   [
    "dotnet.text.json.Serialization.Tests.DictionaryTests",
-   24
+   22
   ],
   [
    "dotnet.text.json.Tests.JsonDocumentTests",
@@ -880,12 +876,12 @@
    10
   ],
   [
-   "dotnet.text.json.Serialization.Tests.NumberHandlingTests",
+   "dotnet.text.json.Serialization.Tests.PropertyNameTests",
    9
   ],
   [
-   "dotnet.text.json.Serialization.Tests.PropertyNameTests",
-   9
+   "dotnet.text.json.Serialization.Tests.NumberHandlingTests",
+   8
   ],
   [
    "dotnet.text.json.Serialization.Tests.ValueTests",
@@ -979,7 +975,7 @@
  "byKind": [
   [
    "java.lang.AssertionError",
-   341
+   335
   ],
   [
    "dotnet.text.json.JsonException",
@@ -2312,26 +2308,6 @@
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.CollectionTests",
-   "method": "readSimpleTestClass_NonGenericWrappers_NoAddMethod_Throws(Class, String, Class)[2]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.UnsupportedOperationException\nActual: java.lang.NullPointerException",
-   "frames": [
-    "csharp.xunit.Assert.throws_:1001",
-    "csharp.xunit.Assert.throws_:1008",
-    "dotnet.text.json.Serialization.Tests.CollectionTests.readSimpleTestClass_NonGenericWrappers_NoAddMethod_Throws:2670",
-    "dotnet.text.json.Serialization.JsonConverter1.readCore:142",
-    "dotnet.text.json.JsonSerializer.readCore:445",
-    "dotnet.text.json.JsonSerializer.readCore:435",
-    "dotnet.text.json.JsonSerializer.deserialize:817",
-    "dotnet.text.json.JsonSerializer.deserialize_0tp:798",
-    "dotnet.text.json.Serialization.Tests.CollectionTests.lambda$readSimpleTestClass_NonGenericWrappers_NoAddMethod_Throws$0:2670",
-    "csharp.xunit.Assert.throws_:989"
-   ],
-   "bucket": "Throws UnsupportedOperationException -> NullPointerException"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.CollectionTests",
    "method": "jsonPathIsAccurate(String, String)[1]",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
@@ -3290,27 +3266,6 @@
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.CustomConverterTests",
-   "method": "converterExceptionsNotRethrownFail",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.UnsupportedOperationException\nActual: java.lang.NullPointerException",
-   "frames": [
-    "csharp.xunit.Assert.throws_:1001",
-    "csharp.xunit.Assert.throws_:1008",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests.converterFailNoRethrow:767",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests.converterExceptionsNotRethrownFail:784",
-    "dotnet.text.json.Serialization.JsonConverter1.readCore:142",
-    "dotnet.text.json.JsonSerializer.readCore:445",
-    "dotnet.text.json.JsonSerializer.readCore:435",
-    "dotnet.text.json.JsonSerializer.deserialize:817",
-    "dotnet.text.json.JsonSerializer.deserialize:750",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests.lambda$converterFailNoRethrow$0:767",
-    "csharp.xunit.Assert.throws_:989"
-   ],
-   "bucket": "Throws UnsupportedOperationException -> NullPointerException"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.CustomConverterTests",
    "method": "objectAsCollectionElement",
    "outcome": "ERROR",
    "kind": "java.lang.ClassCastException",
@@ -3809,26 +3764,6 @@
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.CustomConverterTests",
-   "method": "nullableCustomValueTypeChoosesAttributeOverOptions",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.UnsupportedOperationException\nActual: java.lang.NullPointerException",
-   "frames": [
-    "csharp.xunit.Assert.throws_:1001",
-    "csharp.xunit.Assert.throws_:1008",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests.nullableCustomValueTypeChoosesAttributeOverOptions:1247",
-    "dotnet.text.json.Serialization.JsonConverter1.readCore:142",
-    "dotnet.text.json.JsonSerializer.readCore:445",
-    "dotnet.text.json.JsonSerializer.readCore:435",
-    "dotnet.text.json.JsonSerializer.deserialize:817",
-    "dotnet.text.json.JsonSerializer.deserialize:750",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests.lambda$nullableCustomValueTypeChoosesAttributeOverOptions$0:1247",
-    "csharp.xunit.Assert.throws_:989"
-   ],
-   "bucket": "Throws UnsupportedOperationException -> NullPointerException"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.CustomConverterTests",
    "method": "nullableCustomEnumConverter",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
@@ -3856,7 +3791,7 @@
    "method": "nonNullableConverter_ReturnedByJsonConverterFactory_CanBeUsedAsFallback_ForNullableProperty",
    "outcome": "ERROR",
    "kind": "java.lang.IllegalStateException",
-   "msg": "Each parameter in constructor 'io.github.ningpp.compat.ConstructorInfo@48a663e9' on type 'class io.vavr.Tuple2' must bind to an object property or field on deserialization. Each parameter name must match with a property or field on the object. The match can be case-insensitive.",
+   "msg": "Each parameter in constructor 'io.github.ningpp.compat.ConstructorInfo@3d0cac1f' on type 'class io.vavr.Tuple2' must bind to an object property or field on deserialization. Each parameter name must match with a property or field on the object. The match can be case-insensitive.",
    "frames": [
     "dotnet.text.json.ThrowHelper.throwInvalidOperationException_ConstructorParameterIncompleteBinding:636",
     "dotnet.text.json.Serialization.Converters.ObjectWithParameterizedConstructorConverter.beginRead:333",
@@ -3932,20 +3867,25 @@
    "method": "structConverter_SaysCanConvertNullableStruct_StructAsRootType_ConverterOnOptions",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.IllegalStateException\nActual: java.lang.NullPointerException",
+   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.IllegalStateException\nActual: java.lang.UnsupportedOperationException",
    "frames": [
     "csharp.xunit.Assert.throws_:1001",
     "csharp.xunit.Assert.throws_:1008",
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.structConverter_SaysCanConvertNullableStruct_StructAsRootType_ConverterOnOptions:1396",
-    "dotnet.text.json.Serialization.JsonConverter1.writeCore:171",
+    "dotnet.text.json.ThrowHelper.throwNotSupportedException:777",
+    "dotnet.text.json.Serialization.JsonConverter1.writeCore:174",
     "dotnet.text.json.JsonSerializer.writeCore:1212",
     "dotnet.text.json.JsonSerializer.writeCore:1198",
     "dotnet.text.json.JsonSerializer.serialize:1422",
     "dotnet.text.json.JsonSerializer.serialize:1369",
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.lambda$structConverter_SaysCanConvertNullableStruct_StructAsRootType_ConverterOnOptions$0:1396",
-    "csharp.xunit.Assert.throws_:989"
+    "csharp.xunit.Assert.throws_:989",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4636",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4626",
+    "dotnet.text.json.Serialization.JsonConverter1.tryWrite:424",
+    "dotnet.text.json.Serialization.JsonConverter1.writeCore:162"
    ],
-   "bucket": "Throws IllegalStateException -> NullPointerException"
+   "bucket": "Throws IllegalStateException -> UnsupportedOperationException"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.CustomConverterTests",
@@ -4146,20 +4086,28 @@
    "method": "structConverter_SaysCanConvertNullableStruct_ConverterOnOptions",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.IllegalStateException\nActual: java.lang.NullPointerException",
+   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.IllegalStateException\nActual: java.lang.UnsupportedOperationException",
    "frames": [
     "csharp.xunit.Assert.throws_:1001",
     "csharp.xunit.Assert.throws_:1008",
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.structConverter_SaysCanConvertNullableStruct_ConverterOnOptions:1368",
-    "dotnet.text.json.Serialization.JsonConverter1.writeCore:171",
+    "dotnet.text.json.ThrowHelper.throwNotSupportedException:777",
+    "dotnet.text.json.Serialization.JsonConverter1.writeCore:174",
     "dotnet.text.json.JsonSerializer.writeCore:1212",
     "dotnet.text.json.JsonSerializer.writeCore:1198",
     "dotnet.text.json.JsonSerializer.serialize:1422",
     "dotnet.text.json.JsonSerializer.serialize:1369",
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.lambda$structConverter_SaysCanConvertNullableStruct_ConverterOnOptions$0:1371",
-    "csharp.xunit.Assert.throws_:989"
+    "csharp.xunit.Assert.throws_:989",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4636",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4626",
+    "dotnet.text.json.Serialization.JsonConverter1.tryWrite:424",
+    "dotnet.text.json.JsonPropertyInfo1.getMemberAndWriteJson:162",
+    "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
+    "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
+    "dotnet.text.json.Serialization.JsonConverter1.writeCore:162"
    ],
-   "bucket": "Throws IllegalStateException -> NullPointerException"
+   "bucket": "Throws IllegalStateException -> UnsupportedOperationException"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.CustomConverterTests",
@@ -4179,20 +4127,28 @@
    "method": "structConverter_SaysCanConvertNullableStruct_ConverterOnProperty",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.IllegalStateException\nActual: java.lang.NullPointerException",
+   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.IllegalStateException\nActual: java.lang.UnsupportedOperationException",
    "frames": [
     "csharp.xunit.Assert.throws_:1001",
     "csharp.xunit.Assert.throws_:1008",
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.structConverter_SaysCanConvertNullableStruct_ConverterOnProperty:1334",
-    "dotnet.text.json.Serialization.JsonConverter1.writeCore:171",
+    "dotnet.text.json.ThrowHelper.throwNotSupportedException:777",
+    "dotnet.text.json.Serialization.JsonConverter1.writeCore:174",
     "dotnet.text.json.JsonSerializer.writeCore:1212",
     "dotnet.text.json.JsonSerializer.writeCore:1198",
     "dotnet.text.json.JsonSerializer.serialize:1422",
     "dotnet.text.json.JsonSerializer.serialize:1369",
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.lambda$structConverter_SaysCanConvertNullableStruct_ConverterOnProperty$0:1337",
-    "csharp.xunit.Assert.throws_:989"
+    "csharp.xunit.Assert.throws_:989",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4636",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4626",
+    "dotnet.text.json.Serialization.JsonConverter1.tryWrite:424",
+    "dotnet.text.json.JsonPropertyInfo1.getMemberAndWriteJson:162",
+    "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
+    "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
+    "dotnet.text.json.Serialization.JsonConverter1.writeCore:162"
    ],
-   "bucket": "Throws IllegalStateException -> NullPointerException"
+   "bucket": "Throws IllegalStateException -> UnsupportedOperationException"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.CustomConverterTests",
@@ -4212,7 +4168,7 @@
    "method": "deepTypeCycleWithRoundTrip",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.CyclicTests$TestClassWithCycle@2ffb3aec",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.CyclicTests$TestClassWithCycle@1e692555",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.CyclicTests.deepTypeCycleWithRoundTrip:103"
@@ -4454,7 +4410,7 @@
    "method": "nullDictionaryValuesShouldDeserializeAsNull",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.DictionaryTests$SimpleClassWithDictionaries@158ae284",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.DictionaryTests$SimpleClassWithDictionaries@64942607",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.nullDictionaryValuesShouldDeserializeAsNull:1284"
@@ -4622,26 +4578,6 @@
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.DictionaryTests",
-   "method": "verifyDictionaryThatHasIncomatibleEnumeratorWithInt",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.UnsupportedOperationException\nActual: java.lang.NullPointerException",
-   "frames": [
-    "csharp.xunit.Assert.throws_:1001",
-    "csharp.xunit.Assert.throws_:1008",
-    "dotnet.text.json.Serialization.Tests.DictionaryTests.verifyDictionaryThatHasIncomatibleEnumeratorWithInt:1328",
-    "dotnet.text.json.Serialization.JsonConverter1.writeCore:171",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
-    "dotnet.text.json.Serialization.Tests.DictionaryTests.lambda$verifyDictionaryThatHasIncomatibleEnumeratorWithInt$0:1328",
-    "csharp.xunit.Assert.throws_:989"
-   ],
-   "bucket": "Throws UnsupportedOperationException -> NullPointerException"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.DictionaryTests",
    "method": "invalidJsonForTypeShouldFail",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
@@ -4669,7 +4605,7 @@
    "method": "dictionaryWithNullShouldPreserveOrder_Deserialize",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@2d0b05",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@4ed9f7b1",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.dictionaryWithNullShouldPreserveOrder_Deserialize:1244"
@@ -4695,7 +4631,7 @@
    "method": "shouldHandleNullInDictionaries_Deserialize",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@1ec22831",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@4087c7fc",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.shouldHandleNullInDictionaries_Deserialize:1196"
@@ -4748,26 +4684,6 @@
     "dotnet.text.json.Serialization.Tests.DictionaryTests.shouldHandleNullInDictionaries_Serialize_IgnoreNullValues:1211"
    ],
    "bucket": "Expect {\"Test\":\"value1\",\"Child\":{}} -> {\"Test\":\"value1\",\"Dict\":null,\"Child\":{\"Dict\":null}"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.DictionaryTests",
-   "method": "verifyDictionaryThatHasIncomatibleEnumeratorWithPoco",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.UnsupportedOperationException\nActual: java.lang.NullPointerException",
-   "frames": [
-    "csharp.xunit.Assert.throws_:1001",
-    "csharp.xunit.Assert.throws_:1008",
-    "dotnet.text.json.Serialization.Tests.DictionaryTests.verifyDictionaryThatHasIncomatibleEnumeratorWithPoco:1338",
-    "dotnet.text.json.Serialization.JsonConverter1.writeCore:171",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
-    "dotnet.text.json.Serialization.Tests.DictionaryTests.lambda$verifyDictionaryThatHasIncomatibleEnumeratorWithPoco$0:1338",
-    "csharp.xunit.Assert.throws_:989"
-   ],
-   "bucket": "Throws UnsupportedOperationException -> NullPointerException"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.EnumConverterTests",
@@ -4989,7 +4905,7 @@
    "method": "nestedClass(String)[1]",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@27e2287c",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@75cf0de5",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.verify3:92",
@@ -5002,7 +4918,7 @@
    "method": "nestedClass(String)[2]",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@2cd388f5",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@468173fa",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.verify3:92",
@@ -5015,7 +4931,7 @@
    "method": "nestedClass(String)[3]",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@70d77826",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@6f5bd362",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.verify3:92",
@@ -5758,7 +5674,7 @@
    "method": "deserializeDictionaryWithNullValues",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@79476a4e",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@60f21960",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.NullTests.deserializeDictionaryWithNullValues:221"
@@ -5806,7 +5722,7 @@
    "method": "rootObjectIsNull",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@6ddee60f",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@76d7881e",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.NullTests.rootObjectIsNull:64"
@@ -5818,7 +5734,7 @@
    "method": "nullAcceptsLeadingAndTrailingTrivia",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@4aa2877c",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@7945b206",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.NullTests.nullAcceptsLeadingAndTrailingTrivia:159"
@@ -5915,26 +5831,6 @@
     "dotnet.text.json.Serialization.Tests.NumberHandlingTests.number_RoundtripNull:661"
    ],
    "bucket": "Assert.throws"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.NumberHandlingTests",
-   "method": "customConverterOverridesBuiltInLogic",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.throws() failure: Wrong exception type\nExpected: java.lang.UnsupportedOperationException\nActual: java.lang.NullPointerException",
-   "frames": [
-    "csharp.xunit.Assert.throws_:1001",
-    "csharp.xunit.Assert.throws_:1008",
-    "dotnet.text.json.Serialization.Tests.NumberHandlingTests.customConverterOverridesBuiltInLogic:938",
-    "dotnet.text.json.Serialization.JsonConverter1.writeCore:171",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
-    "dotnet.text.json.Serialization.Tests.NumberHandlingTests.lambda$customConverterOverridesBuiltInLogic$0:938",
-    "csharp.xunit.Assert.throws_:989"
-   ],
-   "bucket": "Throws UnsupportedOperationException -> NullPointerException"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.NumberHandlingTests",
@@ -7496,7 +7392,7 @@
    "method": "defaultSerializerOptions_General",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@34c76167\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@30b3d899",
+   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@561f9d92\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@1c84d80a",
    "frames": [
     "csharp.xunit.Assert.same:861",
     "dotnet.text.json.Serialization.Tests.OptionsTests.verifyOptionsEqual:653",
@@ -7562,7 +7458,7 @@
    "method": "copyConstructor_IgnoreNullValuesCopied",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@6238d5e0\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@336f49a1",
+   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@70c29356\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@5122e4bf",
    "frames": [
     "csharp.xunit.Assert.same:861",
     "dotnet.text.json.Serialization.Tests.OptionsTests.verifyOptionsEqual:653",
@@ -7985,7 +7881,7 @@
    "method": "classWithComplexObjectUsingIgnoreNeverAttribute",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@24e5389c",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@2e362407",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.PropertyVisibilityTests.classWithComplexObjectUsingIgnoreNeverAttribute:1022"
@@ -8695,12 +8591,12 @@
    "method": "arrayDictionaryLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@270d5060]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1\"}}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@147e0734]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1\"}}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayDictionaryLoop:472"
    ],
-   "bucket": "Expect \"[io.github.ningpp.compat.CSharpDictionary@270d506 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1"
+   "bucket": "Expect \"[io.github.ningpp.compat.CSharpDictionary@147e073 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
@@ -9375,7 +9271,7 @@
    "method": "objectArrayLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@5d3f99d7\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@14874a5d\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectArrayLoop:119"
@@ -9411,7 +9307,7 @@
    "method": "objectPreserveDuplicateArrays",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@52ca0ad4\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$id\":\"3\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"4\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"5\",\"Bob\":\"555-5555\"}}]},\"Subordinates2\":{\"$ref\":\"2\"},\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$ref\":\"4\"},\"ContactsString\":{\"$id\":\"6\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@667797f\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$id\":\"3\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"4\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"5\",\"Bob\":\"555-5555\"}}]},\"Subordinates2\":{\"$ref\":\"2\"},\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$ref\":\"4\"},\"ContactsString\":{\"$id\":\"6\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectPreserveDuplicateArrays:175"
@@ -9505,19 +9401,19 @@
    "method": "dictionaryObjectLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@37a67cf\"\nActual: {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":{\"$ref\":\"1\"},\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@2ff498b0\"\nActual: {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":{\"$ref\":\"1\"},\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryObjectLoop:296"
    ],
-   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@37a67cf\" -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma"
+   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@2ff498b0 -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
    "method": "arrayObjectLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@2a6fb62f]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$ref\":\"1\"},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@547aaa32]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$ref\":\"1\"},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayObjectLoop:448"
@@ -9529,7 +9425,7 @@
    "method": "dictionaryPreserveDuplicateArrays",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@98637a2\"\nActual: {\"$id\":\"1\",\"Array1\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Array2\":{\"$ref\":\"2\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@5908e6d6\"\nActual: {\"$id\":\"1\",\"Array1\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Array2\":{\"$ref\":\"2\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryPreserveDuplicateArrays:317"
@@ -9541,7 +9437,7 @@
    "method": "objectPreserveDuplicateObjects",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@141aba65\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$id\":\"2\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Manager2\":{\"$ref\":\"2\"},\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$ref\":\"3\"},\"ContactsString\":{\"$id\":\"5\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@2a6fb62f\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$id\":\"2\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Manager2\":{\"$ref\":\"2\"},\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$ref\":\"3\"},\"ContactsString\":{\"$id\":\"5\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectPreserveDuplicateObjects:145"
@@ -9565,7 +9461,7 @@
    "method": "dictionaryPreserveDuplicateDictionaries",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@51af8049\"\nActual: {\"$id\":\"1\",\"Self1\":{\"$ref\":\"1\"},\"Self2\":{\"$ref\":\"1\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@605c7a9e\"\nActual: {\"$id\":\"1\",\"Self1\":{\"$ref\":\"1\"},\"Self2\":{\"$ref\":\"1\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryPreserveDuplicateDictionaries:282"
@@ -9726,7 +9622,7 @@
    "method": "preserveReferenceOfTypeObject",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$ClassWithObjectProperty@66298fe9\nActual: {\"$ref\":\"2\"}",
+   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$ClassWithObjectProperty@56c42964\nActual: {\"$ref\":\"2\"}",
    "frames": [
     "csharp.xunit.Assert.same:861",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.preserveReferenceOfTypeObject:543"
@@ -9738,19 +9634,19 @@
    "method": "dictionaryPreserveDuplicateObjects",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@4efb13f1\"\nActual: {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Employee2\":{\"$ref\":\"2\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@66298fe9\"\nActual: {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Employee2\":{\"$ref\":\"2\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryPreserveDuplicateObjects:332"
    ],
-   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@4efb13f1 -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\","
+   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@66298fe9 -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\","
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
    "method": "preserveReferenceOfTypeOfObjectOnCollection",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$ClassWithListOfObjectProperty@1570cad0\nActual: {\"$ref\":\"2\"}",
+   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$ClassWithListOfObjectProperty@2b7774d5\nActual: {\"$ref\":\"2\"}",
    "frames": [
     "csharp.xunit.Assert.same:861",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.preserveReferenceOfTypeOfObjectOnCollection:567"
@@ -9762,7 +9658,7 @@
    "method": "objectLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@d62472f\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$ref\":\"1\"},\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"2\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"3\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@44bbb7c6\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$ref\":\"1\"},\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"2\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"3\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectLoop:108"
@@ -9774,7 +9670,7 @@
    "method": "arrayPreserveDuplicateDictionaries",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@69ba3f4e, io.github.ningpp.compat.CSharpDictionary@69ba3f4e]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\"},{\"$ref\":\"2\"}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@3ed7dd70, io.github.ningpp.compat.CSharpDictionary@3ed7dd70]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\"},{\"$ref\":\"2\"}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayPreserveDuplicateDictionaries:482"
@@ -9810,7 +9706,7 @@
    "method": "arrayPreserveDuplicateObjects",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@300bb303, dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@300bb303]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},{\"$ref\":\"2\"}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@368424db, dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@368424db]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},{\"$ref\":\"2\"}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayPreserveDuplicateObjects:460"
@@ -9848,7 +9744,7 @@
    "method": "dictionaryLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@38f502fc\"\nActual: {\"$id\":\"1\",\"Self\":{\"$ref\":\"1\"},\"Other\":{\"$id\":\"2\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@15d65fcf\"\nActual: {\"$id\":\"1\",\"Self\":{\"$ref\":\"1\"},\"Other\":{\"$id\":\"2\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryLoop:271"
@@ -9884,7 +9780,7 @@
    "method": "dictionaryArrayLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@16e195cf\"\nActual: {\"$id\":\"1\",\"ArrayWithSelf\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@67afe909\"\nActual: {\"$id\":\"1\",\"ArrayWithSelf\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryArrayLoop:306"

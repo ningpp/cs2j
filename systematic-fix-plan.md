@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 342, Errors: 283, Skipped: 18` = **625**（起点 855，**−230**）。
-- 本会话累计 **12 条 KEEP**（均"逐用例集合差 +0 回归"）：
+- **基线**：`Tests run: 7902, Failures: 336, Errors: 283, Skipped: 18` = **619**（起点 855，**−236**）。
+- 本会话累计 **13 条 KEEP**（均"逐用例集合差 +0 回归"）：
 
 | 提交 | 内容 | 收益 |
 |---|---|---|
@@ -327,6 +327,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `d18e4827` | `ThrowHelper` 消息渲染 C# 泛型类型名 | 628 → 627（修 1） |
 | `9d25d891` | BCL 兼容类按 C# 名渲染（`System.Collections.Generic.*`） | 627 → 626（修 1） |
 | `06c47712` | `[JsonConverter(null)]` 哨兵 + 装箱基元按 C# 名渲染 | 626 → 625（修 1） |
+| `7ca010f2` | 异常消息的 null 安全（C# 保证非 null，Java 返回 null） | 625 → 619（修 6） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -583,6 +584,20 @@ ImmutableSortedDictionary 未覆盖 CSharpReadOnlyDict 中的抽象方法 tryGet
 `defaultIgnoreNullValuesOnRead`、`nullableConverterIsNotPassedNull` 等）
 是**转换模型的固有代价**，不是逻辑 bug。
 **除非引入独立的 Nullable 包装类型（架构级改动），否则不要在这 11 条上投入。**
+
+### 8.2.9 Round 53 已修：C# 保证非 null 而 Java 返回 null（−6）
+
+提交 `7ca010f2`。**C# 的 `Exception.Message` 保证非 null**（无消息时为 `""`），
+Java 的 `Throwable.getMessage()` 返回 **null**，于是直译的
+`ex.Message.Contains(...)` / `String message = ex.Message;` 第一次触碰就抛 NPE。
+
+两处站点（各自独立确认）：`JsonConverter1.readCore`/`writeCore` 的 "has a path" 检查
+（→ `StringHelper.containsOrEmpty`），以及 `ThrowHelper.throwNotSupportedException`
+（→ `StringHelper.nullToEmpty`）。
+
+**教训**：同一语义缺陷常在同族文件里出现多次。修完第一处后
+**必须重跑该用例并读新栈**——本轮第一次测量是 625 → 625（看似无效），
+但栈已经从 `JsonConverter1:142` 换到 `ThrowHelper:749`，第二处才因此暴露。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

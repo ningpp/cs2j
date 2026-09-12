@@ -2031,3 +2031,35 @@ ImmutableSortedDictionary 未覆盖 CSharpReadOnlyDict 的抽象方法 tryGetVal
 
 **验证**：`Tests run: 7902, Failures: 342, Errors: 283, Skipped: 18` = **625**，
 与 r084 逐用例集合**完全相同**；`git status` 干净。
+### 4.55 Round 53：C# 保证非 null 而 Java 返回 null 的异常消息（625 → 619，修 6 / 坏 0）
+
+提交 `7ca010f2`。
+
+**先探针、后改动**（上一轮刚确立的纪律）：`probe/w42/NpeProbe.java` 一次性证明
+`FormatException` / `ArgumentException` / `RuntimeException` / `IllegalStateException` /
+`IndexOutOfBoundsException` / `UnsupportedOperationException` **无参构造后
+`getMessage()` 全部为 null**，而 `msg.contains(" Path: ")` 随即抛 NPE。
+
+**语义差异**：C# 的 `Exception.Message` **保证非 null**（无消息时是 `""`），
+所以 `ex.Message.Contains(...)` 与 `String message = ex.Message;` 都是安全的；
+Java 的 `Throwable.getMessage()` 返回 **null**，直译过来的代码在第一次触碰消息时就崩。
+
+**这正好解释了 `CustomConverterTests.FailConverter`**：
+它 `throw Activator.createInstance(tExceptionClass)` 抛的是**无消息**的异常，
+于是断言"应抛我自己的异常类型"的用例拿到的是
+`Wrong exception type ... Actual: NullPointerException`。
+
+**两个站点（各自都有独立的失败运行确认）**：
+
+1. `JsonConverter1.readCore`（及 `writeCore`）的 "already has a path" 检查
+   → `StringHelper.containsOrEmpty`。修完这一处**测试仍失败**，
+   栈变成 `ThrowHelper.throwNotSupportedException:749`，这才暴露第二处。
+2. `ThrowHelper.throwNotSupportedException`（生成物里有 3 份）
+   把消息读进局部变量后立刻 `contains` / `length` → `StringHelper.nullToEmpty`。
+
+**教训（值得复用）**：同一语义缺陷常在同一文件族里出现多次，
+修完第一处后**必须重跑该用例并读新的栈**，不要因为"失败数没变"就判定无效——
+本轮第一次测量就是 625 → 625，但栈已经换了位置。
+
+**验证**：`Tests run: 7902, Failures: 336, Errors: 283, Skipped: 18` = **619**
+（起点 855，**−236**）；逐用例集合差 = 修 6 / 坏 0。
