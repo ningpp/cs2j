@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 353, Errors: 295, Skipped: 18` = **648**（起点 855，**−207**）。
-- 本会话累计 **7 条 KEEP**（均"逐用例集合差 +0 回归"）：
+- **基线**：`Tests run: 7902, Failures: 348, Errors: 283, Skipped: 18` = **631**（起点 855，**−224**）。
+- 本会话累计 **8 条 KEEP**（均"逐用例集合差 +0 回归"）：
 
 | 提交 | 内容 | 收益 |
 |---|---|---|
@@ -321,6 +321,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `b38263ff` | U+FFFD 在所有编码器下都转义 | 678 → 674（修 4） |
 | `2dce1154` | C# `internal` 构造函数在可访问性查询里被遵守 | 674 → 664（修 10） |
 | `15828ffc` | `csFormat` 里 double 按 .NET 不变文化格式渲染 | 664 → 648（修 16） |
+| `9317fc8a` | `Unsafe.as` 实参还原声明的源类型 | 648 → 638（修 10） |
+| `316989da` | 成员级 `[JsonConverter]` 送达运行时（含派生特性） | 638 → 631（修 7） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -504,34 +506,24 @@ compat 的不可变类型没建模成 `Iterable`/`Map`：
 **把实参还原成声明的 `TFrom`**（`(byte)` / `(short)` 包裹），
 每个分支就都自洽了：先窄化 → `Unsafe.as` 装箱的正是那个类型 → 单个 `(Wrapper)` 是恒等转换。
 
-### 8.2.6 已定位未修：成员级 `[JsonConverter]` 查的是**基类**，而测试用的是**派生特性**
+### 8.2.6 已修：成员级 `[JsonConverter]`（Round 48，−7）
 
-Round 43 曾判定"成员级 `[JsonConverter]` 通路根本没被走到"，**该判定是错的**。
-Round 47 用探针纠正：
+提交 `316989da`。**Round 43 的结论已推翻**：那不是"成员通路没被走到"。
 
-```
-[cs2j.dc] determineConverter-with-member parent=PocoWithInvalidConverter runtime=Integer member=PropertyInfo:MyInt
-[cs2j.dc] member-attr lookup -> null
-```
+**三个缺口必须一起补**（单独补任何一个都实测中性）：
 
-`determineConverter` **确实被调用、且拿到了 member**（`JsonClassInfo:441` 是调用点），
-但 `getAttributeThatCanHaveMultiple(..., JsonConverterAttribute.class, memberInfo)`
-返回 **null**。原因是这些测试用的是**派生特性**：
+1. 转换器发 `@CompatJsonConverter`，并**沿 C# 特性继承链**解析转换器类型
+   （派生特性把类型放在基类构造调用里：`... : base(typeof(int))`，
+   必须读构造函数初始化器，特性自身实参是空的）。
+2. `PropertyInfo` 从标记物化出生成的 `JsonConverterAttribute`。
+3. **`PropertyInfo` 覆写 `getCustomAttributes(Class, boolean)`** ——
+   此前只实现了不带类型参数的版本，于是**每次带类型的查找都落到接口默认实现并返回空数组**，
+   特性被构造出来后又被丢弃。**这就是 Round 43 误判的真实原因**。
+   新覆写还按请求类型过滤（与 .NET 一致），避免查一种特性时报出成员的其他特性。
 
-```csharp
-class InvalidConverterAttribute : JsonConverterAttribute { public InvalidConverterAttribute() : base(typeof(int)) { } }
-class PocoWithInvalidConverter { [InvalidConverter] public int MyInt { get; set; } }
-```
-
-成员上挂的是 `InvalidConverterAttribute`，而查询问的是 `JsonConverterAttribute`；
-.NET 的 `GetCustomAttribute<T>()` 会匹配派生类型，当前的 compat 查找**不匹配子类**。
-
-**因此下一步（有依据）**：让查找能返回派生特性，并把基类构造函数里的
-转换器类型解析出来。Round 43 写的 `CompatJsonConverter` 桥（转换器侧沿 Roslyn
-特性继承链解析 `typeof(X)`、兼容侧物化）**方向是对的，当时回滚是因为
-"通路没走到"这个错误判断**——现在证明通路是走到了的，只是查找返回 null，
-所以那座桥应当**重新引入并配合"查找返回派生特性"一起做**。
-注意 21 条 `CustomConverterTests` 负向测试都依赖这条路径。
+**残留**：`attributeCreateConverterFail` 的失败已从
+`Sub-string not found` 推进为 `No exception thrown`（消息已匹配，测试走到后面的断言），
+见 `2ecd893b` 与 §4.50；下一次要查的是第二次 serialize/deserialize 为何不抛。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
