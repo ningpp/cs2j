@@ -167,6 +167,15 @@ public final class Span<T> {
         return array;
     }
 
+    /**
+     * Package-private: true when this span is an {@code int} view over a {@code byte[]}
+     * (see {@link #castToInt32}). Callers that compare raw backing bytes must not treat
+     * such a span as a plain byte span — element i spans four bytes, not one.
+     */
+    boolean isInt32View() {
+        return int32View;
+    }
+
     public T get(int index) {
         if (index < 0 || index >= length) {
             throw new IndexOutOfBoundsException("index=" + index + ", length=" + length);

@@ -995,15 +995,20 @@ public class StringHelper {
      * Mirrors C# string.Create&lt;TState&gt;(int length, TState state, SpanAction&lt;char, TState&gt; action).
      * Creates a new string of the given length, then calls the action to fill a Span&lt;Character&gt; buffer.
      * Generic over TState so any state type (boxed primitives, builder structs) can flow through.
+     *
+     * <p>The buffer is a primitive {@code char[]} handed to the action through the
+     * {@code char[]}-backed {@link Span} branch, mirroring C#'s {@code Span<char>} over the
+     * string's own storage. An earlier revision allocated a boxed {@code Character[]}
+     * first and then copied it twice (unbox loop + {@code new String(char[])}), which cost
+     * 4x the memory and 3 passes over the buffer: for the 1,073,741,791-character input in
+     * ValueTests.VeryLongInputString the intermediate reference array alone was ~8.6 GB,
+     * nearly the whole default 12 GB heap, so the call degenerated into GC thrashing
+     * (27 s where C#'s string.Create + Span.Fill takes 0.42 s).
      */
     public static <TState> String createString(int length, TState state, java.util.function.BiConsumer<Span<Character>, TState> action) {
-        Character[] buf = new Character[length];
-        Span<Character> span = new Span<>(buf);
-        action.accept(span, state);
         char[] chars = new char[length];
-        for (int i = 0; i < length; i++) {
-            chars[i] = buf[i];
-        }
+        Span<Character> span = new Span<>(chars);
+        action.accept(span, state);
         return new String(chars);
     }
 

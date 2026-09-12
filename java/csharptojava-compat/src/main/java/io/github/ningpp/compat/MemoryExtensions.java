@@ -105,11 +105,48 @@ public class MemoryExtensions {
         return asMemory(data, start, data.length - start);
     }
 
-    /** C# MemoryExtensions.SequenceEqual(Span&lt;T&gt;, ReadOnlySpan&lt;T&gt;). */
+    /**
+     * C# MemoryExtensions.SequenceEqual(Span&lt;T&gt;, ReadOnlySpan&lt;T&gt;).
+     *
+     * <p>Element-typed fast paths compare the underlying {@code char[]}/{@code byte[]}
+     * (or the shared {@link String}) directly. The generic loop routes every element
+     * through {@code get(int)}, which boxes a {@link Character}/{@link Integer} per
+     * element and re-tests the backing kind on each access — for the 1 GB span in
+     * ValueTests.VeryLongInputString that alone was seconds of pure boxing overhead.
+     */
     public static <T> boolean sequenceEqual(Span<T> left, ReadOnlySpan<T> right) {
         if (left == null || right == null || left.length() != right.length()) return false;
-        for (int i = 0; i < left.length(); i++) {
+        int n = left.length();
+        Object la = left.getBackingArray();
+        Object ra = right.getArray();
+        int lo = left.getOffset();
+        int ro = right.getOffset();
+        String rs = right.getStringBacking();
+
+        if (!left.isInt32View() && rs == null && la instanceof char[] lc && ra instanceof char[] rc) {
+            return Arrays.equals(lc, lo, lo + n, rc, ro, ro + n);
+        }
+        if (!left.isInt32View() && rs == null && la instanceof byte[] lb && ra instanceof byte[] rb) {
+            return Arrays.equals(lb, lo, lo + n, rb, ro, ro + n);
+        }
+        if (la instanceof char[] && (rs != null || ra instanceof char[])) {
+            return charRegionsEqual(null, la, lo, rs, ra, ro, n);
+        }
+        for (int i = 0; i < n; i++) {
             if (!java.util.Objects.equals(left.get(i), right.get(i))) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Element-typed comparison of two char-ish sources without boxing. Either side may
+     * be a {@link String} view ({@code stringBacking}) or a {@code char[]} view.
+     */
+    private static boolean charRegionsEqual(String ls, Object la, int lo, String rs, Object ra, int ro, int n) {
+        for (int i = 0; i < n; i++) {
+            char a = ls != null ? ls.charAt(lo + i) : ((char[]) la)[lo + i];
+            char b = rs != null ? rs.charAt(ro + i) : ((char[]) ra)[ro + i];
+            if (a != b) return false;
         }
         return true;
     }
@@ -241,10 +278,44 @@ public class MemoryExtensions {
     }
 
     /** C# ReadOnlySpan<T>.SequenceEqual(ReadOnlySpan<T>) — element-wise equality. */
+    /**
+     * C# MemoryExtensions.SequenceEqual(ReadOnlySpan&lt;T&gt;, ReadOnlySpan&lt;T&gt;).
+     *
+     * <p>Fast paths compare the backing {@link String}/{@code char[]}/{@code byte[]}
+     * directly, which also lets the JDK use its vectorized kernels
+     * ({@link String#regionMatches}, {@link Arrays#equals(char[], int, int, char[], int, int)}).
+     * The generic loop below is the fallback for object-element spans (e.g.
+     * {@code ReadOnlySpan<Integer>} over a boxed array); it calls {@code get(int)},
+     * which boxes one wrapper per element.
+     */
     public static <T> boolean sequenceEqual(ReadOnlySpan<T> left, ReadOnlySpan<T> right) {
         if (left == null || right == null) return left == right;
-        if (left.length() != right.length()) return false;
-        for (int i = 0; i < left.length(); i++) {
+        int n = left.length();
+        if (n != right.length()) return false;
+
+        String ls = left.getStringBacking();
+        String rs = right.getStringBacking();
+        Object la = left.getArray();
+        Object ra = right.getArray();
+        int lo = left.getOffset();
+        int ro = right.getOffset();
+
+        if (ls != null && rs != null) {
+            return ls.regionMatches(lo, rs, ro, n);
+        }
+        if (ls == null && rs == null && la instanceof char[] lc && ra instanceof char[] rc) {
+            return Arrays.equals(lc, lo, lo + n, rc, ro, ro + n);
+        }
+        if (ls == null && rs == null && la instanceof byte[] lb && ra instanceof byte[] rb) {
+            // get(int) exposes bytes masked to 0..255, so a raw byte[] comparison agrees.
+            return Arrays.equals(lb, lo, lo + n, rb, ro, ro + n);
+        }
+        if ((ls != null || la instanceof char[]) && (rs != null || ra instanceof char[])) {
+            // Mixed String / char[] views (and String views that were converted from a
+            // char[] buffer by StringHelper.createString).
+            return charRegionsEqual(ls, la, lo, rs, ra, ro, n);
+        }
+        for (int i = 0; i < n; i++) {
             if (!java.util.Objects.equals(left.get(i), right.get(i))) return false;
         }
         return true;

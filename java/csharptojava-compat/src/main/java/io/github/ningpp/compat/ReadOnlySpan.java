@@ -253,6 +253,15 @@ public final class ReadOnlySpan<T> {
         return array;
     }
 
+    /**
+     * Package-private: the {@link String} this span views, or {@code null} when it is
+     * array-backed. Lets {@link MemoryExtensions} compare in place instead of going
+     * through {@link #get(int)}, which boxes one {@link Character} per element.
+     */
+    String getStringBacking() {
+        return stringBacking;
+    }
+
     int getOffset() {
         return offset;
     }
