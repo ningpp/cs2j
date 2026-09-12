@@ -602,6 +602,38 @@
   `TypeHelper.closedGenericType(TypeHelper.parameterized(X.class, <递归的实参 Type>))`。
 - **风险控制**: 上一轮 (c) 的教训是"改动面越大越容易在调用点失配"；(a) 同样只应改**实际命中**的发射点，改完立即用 Step 1 + Step 2 验证（编译零错误 + 集合差 0 回归），再考虑是否推广到其余同类点。
 
+## Iteration 28 — (a) 命中点确认：`InvocationExpressionTransformer.cs:860-865`（附可直接落地的补丁设计）
+
+- **确认依据**：该处正是"**显式泛型调用的类型实参** → 类字面量令牌"的发射点：
+  ```csharp
+  argLiteral = ConversionContext.GetClassLiteral(typeArg, context);      // → X.class
+  if (typeArg is INamedTypeSymbol namedArg2 && namedArg2.IsGenericType)
+  {
+      var javaArgType2 = context.MapType(typeArg);
+      argLiteral = $"((Class<{javaArgType2}>) (Class<?>) {argLiteral})";  // ← 生成物里的"说谎强转"
+  }
+  ```
+  与失败样例 `JsonSerializer.serialize(((Class<CSharpList<Integer>>) (Class<?>) CSharpList.class), input, null)` 完全对应（`CSharpList<Integer>` 即 `List<int>` 的映射）。
+- **补丁设计（只改这一处 + 一个递归小工具；仍返回 `Class`，故不改任何签名/调用点）**:
+  ```csharp
+  // 新增：把闭合泛型（含嵌套层）表达成 compat 可发布的 Type
+  private static string EmitClosedGenericType(INamedTypeSymbol type, ConversionContext context)
+  {
+      var args = type.TypeArguments;
+      if (args.Length == 0) return ConversionContext.GetClassLiteral(type, context);
+      var parts = args.Select(a => a is INamedTypeSymbol n && n.IsGenericType
+          ? EmitClosedGenericType(n, context)
+          : ConversionContext.GetClassLiteral(a, context));
+      return "io.github.ningpp.compat.TypeHelper.closedGenericType("
+           + "io.github.ningpp.compat.TypeHelper.parameterized("
+           + ConversionContext.GetClassLiteral(type, context) + ", " + string.Join(", ", parts) + "))";
+  }
+  // 864 处改为：
+  argLiteral = $"((Class<{javaArgType2}>) (Class<?>) {EmitClosedGenericType(namedArg2, context)})";
+  ```
+- **为何这条路径安全**（对比 Round 16 的失败）：发射结果仍是 `Class`（外面那层 `(Class<X<Y>>) (Class<?>)` 强转保持不变）⇒ **不动任何方法签名**，只在求值时**多一次注册**；调用点、声明端、覆写关系都不受影响。
+- **验证顺序（下一轮）**: `dotnet build -c Release` → `dotnet test -c Release`（应保持 3154+58 全绿）→ Step 1 转换（期望 `618 succeeded, 0 failed`）→ Step 2 官方（编译零错误是硬门槛）→ 与 `fails-r17-official.txt` 做集合差，要求**新增失败 0**；随后用 `probe/SessionTypeArgProbe.java` 的 `read-reg` 语义在真实用例上抽查（`JsonElement → Integer`、嵌套 `[[1,2],[3,4]]`）。
+
 
 
 
