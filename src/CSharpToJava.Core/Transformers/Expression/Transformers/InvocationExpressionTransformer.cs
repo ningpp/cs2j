@@ -5749,9 +5749,15 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 // deserialize(CSharpList.class, json) makes elements JsonElement, breaking
                 // foreach casts. Emit a Jackson TypeReference so elements keep their
                 // concrete type — for BOTH string and ReadOnlySpan/byte[] JSON payloads.
+                // An ARRAY of a closed generic (Dictionary<string,int>[]) erases the same way: the
+                // emitted X[].class carries no element arguments, so elements come back as
+                // JsonElement and the caller's cast fails ("JsonElement cannot be cast to
+                // Integer"). Such targets take the TypeReference path too.
                 // Unbounded type parameters stay on the Class-token path below.
                 if (isSystemTextJsonDeserialize
-                    && deserializeTargetType is INamedTypeSymbol { IsGenericType: true } genericDeserTarget)
+                    && (deserializeTargetType is INamedTypeSymbol { IsGenericType: true }
+                        || deserializeTargetType is IArrayTypeSymbol { ElementType: INamedTypeSymbol { IsGenericType: true } })
+                    && deserializeTargetType is ITypeSymbol genericDeserTarget)
                 {
                     var mappedGenericTarget = context.MapType(genericDeserTarget);
                     if (!string.IsNullOrWhiteSpace(mappedGenericTarget) && mappedGenericTarget.Contains('<'))

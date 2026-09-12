@@ -336,6 +336,14 @@ public final class TypeHelper {
             for (java.lang.reflect.Type arg : pt.getActualTypeArguments()) {
                 registerParameterizedType(arg);
             }
+            return;
+        }
+        // An array of a closed generic ("Dictionary<string,int>[]") is a GenericArrayType, not a
+        // ParameterizedType. Its element layer still has to be registered or the converter for the
+        // array resolves its elements to Object/JsonElement while the caller's generic expects the
+        // concrete element type ("JsonElement cannot be cast to Integer").
+        if (type instanceof java.lang.reflect.GenericArrayType gat) {
+            registerParameterizedType(gat.getGenericComponentType());
         }
     }
 
@@ -532,6 +540,13 @@ public final class TypeHelper {
         }
         if (type instanceof java.lang.reflect.ParameterizedType pt) {
             return (Class<?>) pt.getRawType();
+        }
+        // An array of a closed generic reaches the converters as a GenericArrayType. Returning
+        // Object.class here made every such target convert to a bare Object; the array class of the
+        // erased component is what the array converter needs.
+        if (type instanceof java.lang.reflect.GenericArrayType gat) {
+            Class<?> component = toRawClass(gat.getGenericComponentType());
+            return java.lang.reflect.Array.newInstance(component, 0).getClass();
         }
         return Object.class;
     }
