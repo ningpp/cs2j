@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 369, Errors: 295, Skipped: 18` = **664**（起点 855，**−191**）。
-- 本会话累计 **6 条 KEEP**（均"逐用例集合差 +0 回归"）：
+- **基线**：`Tests run: 7902, Failures: 353, Errors: 295, Skipped: 18` = **648**（起点 855，**−207**）。
+- 本会话累计 **7 条 KEEP**（均"逐用例集合差 +0 回归"）：
 
 | 提交 | 内容 | 收益 |
 |---|---|---|
@@ -320,6 +320,17 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `01a85535` | 数字按 .NET 格式写（`DoubleHelper` + 新 `FloatHelper`） | 692 → 678（修 14） |
 | `b38263ff` | U+FFFD 在所有编码器下都转义 | 678 → 674（修 4） |
 | `2dce1154` | C# `internal` 构造函数在可访问性查询里被遵守 | 674 → 664（修 10） |
+| `15828ffc` | `csFormat` 里 double 按 .NET 不变文化格式渲染 | 664 → 648（修 16） |
+
+- **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
+  C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
+  `30.0` 在 .NET 是 `"30"`、Java 是 `"30.0"`。凡是"整段文本只差一个 `.0`"的失败，
+  都先查 compat 的格式化入口（`StringHelper.csFormat`、`Utf8Formatter`、
+  `DoubleHelper`/`FloatHelper`）。已修 `csFormat`（17 个调用点，代价可控）。
+  **已知未修**：超出 double 精确表示的整数（`9223372036854775807`）在 .NET 的最短
+  往返 double 格式下仍是原整数文本，Java 给 `9.223372036854776E18` ——
+  这正是 `testJsonReaderUtf8` 残留 2 例的原因，属**独立且有深度**的问题，
+  不要顺手改 `DoubleHelper`（会波及所有数字输出）。
 
 - 工作树干净；所有改动已提交。
 

@@ -1759,3 +1759,35 @@ beginMemberArgumentScope(MyStringList)CSharpList = [class java.lang.String]
 **残留**：同族另有 8 条 `UnsupportedOperationException`，但分散在 5 个类
 （`ArrayTests`、`ExceptionTests`×3、`NullTests`×2、`DictionaryTests`），形状各异，
 **不是同一根因**，不要当簇处理。
+### 4.47 Round 45：`csFormat` 的 double 渲染（664 → 648，修 16 / 坏 0）
+
+提交 `15828ffc`。
+
+**定位方式（本轮最有效的一步）**：不是从失败清单猜，而是**写一个探针把测试自己的
+往返路径完整重放一遍，并打印第一个不同的下标**。结果一次就给出：
+`testJsonReaderUtf8` 在 offset 7 处 `expected "age, 30,"` vs `actual "age, 30.0,"`。
+
+**根因**：C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，`30.0` 渲染成 `"30"`
+（.NET 不变文化会去掉末尾 `.0`）；Java 的 `%s` 调 `Double.toString`，永远保留 → `"30.0"`。
+`JsonTestHelper.dictionaryToString` 用 `StringHelper.csFormat("%1$s, %2$s, ", key, value)`，
+于是**JSON 里每个整数在往返后都变成 `30.0`**。测试拿这个往返结果与 Json.NET 原文逐字符
+比较，第一个不同的字符就判整例失败 —— 所以**一个字符的差异会带走一整组参数用例**。
+
+**做法**：`StringHelper.csFormat` 在已有的 Boolean→"True"/"False" 转换旁边，
+把 `Double` 交给 `DoubleHelper`、`Float` 交给 `FloatHelper` 渲染。
+
+**代价评估**：先生成树里 `StringHelper.csFormat(` 只有 **17 个调用点**（5 个文件），
+所以改动面足够小，可以一次全量测完 —— 这个"先数调用点再改公共 API"的习惯值得保持。
+
+**已建立的第三条通道（写进 §8.1）**：`%s` / `string.Format` 的默认渲染。
+凡是"整段文本只差一个 `.0` / 一处数字格式"的失败，先查 compat 的格式化入口。
+
+**已知未修的独立问题**：超出 double 精确表示的整数（`9223372036854775807`）。
+.NET 的最短往返 double 格式仍然输出原整数文本，Java 输出 `9.223372036854776E18`。
+这是 `testJsonReaderUtf8` 残留 2 例的原因；**不要顺手改 `DoubleHelper`**，
+它会波及所有数字输出。探针 `DblProbe` 已确认 `DoubleHelper` 在
+`1e7`、`1e18`、`1e22`、`4.9e-324`、`1.7976931348623157e308` 上均与 .NET 一致，
+只在"超出精确整数"这一点上无法弥合。
+
+**验证**：`Tests run: 7902, Failures: 353, Errors: 295, Skipped: 18` = **648**
+（起点 855，**−207**）；逐用例集合差 = 修 16 / 坏 0。
