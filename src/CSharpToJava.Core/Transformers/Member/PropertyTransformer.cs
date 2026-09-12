@@ -1050,7 +1050,7 @@ public class PropertyTransformer : IMemberTransformer
     /// is what makes both the validation tests and the plain <c>[JsonConverter(typeof(X))]</c> cases
     /// resolve to the same runtime-visible value.
     /// </remarks>
-    private static bool TryGetJsonConverterType(ISymbol? member, out string converterTypeName)
+    internal static bool TryGetJsonConverterType(ISymbol? member, out string converterTypeName)
     {
         converterTypeName = string.Empty;
         if (member == null)

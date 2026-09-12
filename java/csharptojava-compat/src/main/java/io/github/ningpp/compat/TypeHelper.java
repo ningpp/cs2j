@@ -2175,8 +2175,31 @@ public final class TypeHelper {
      * this: the attribute exists in the C# source but has no Java representation to read.
      */
     private static Object materializeTypeAttributeFromCompatAnnotation(Class<?> type, Class<?> attributeType) {
-        if (type == null || attributeType == null
-                || !"JsonNumberHandlingAttribute".equals(attributeType.getSimpleName())) {
+        if (type == null || attributeType == null) {
+            return null;
+        }
+        String attributeName = attributeType.getSimpleName();
+        if ("JsonConverterAttribute".equals(attributeName)) {
+            // A TYPE-level [JsonConverter]. JsonSerializerOptions looks this up through
+            // getAttributeThatCanHaveMultiple(typeToConvert, ...), so without it a converter that
+            // has no public parameterless constructor is accepted instead of throwing
+            // (CustomConverterTests.converterWithoutDefaultCtor asserts the throw).
+            CompatJsonConverter marker = type.getAnnotation(CompatJsonConverter.class);
+            if (marker == null) {
+                return null;
+            }
+            Class<?> generated = CompatAttributeTypes.jsonConverterAttribute();
+            if (generated == null || !generated.equals(attributeType)) {
+                return null;
+            }
+            try {
+                java.lang.reflect.Constructor<?> ctor = generated.getConstructor(Class.class);
+                return ctor.newInstance(marker.value());
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                return null;
+            }
+        }
+        if (!"JsonNumberHandlingAttribute".equals(attributeName)) {
             return null;
         }
         CompatJsonNumberHandling marker = type.getAnnotation(CompatJsonNumberHandling.class);

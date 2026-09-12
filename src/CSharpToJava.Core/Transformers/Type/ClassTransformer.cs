@@ -498,6 +498,7 @@ public class ClassTransformer : ITypeTransformer
         ReorderStaticFieldInitializers(javaClass);
         AddDebuggerAnnotations(javaClass, mergedType.TypeSymbol, context);
         AddJsonNumberHandlingAnnotation(javaClass, mergedType.TypeSymbol, context);
+        AddJsonConverterAnnotation(javaClass, mergedType.TypeSymbol, context);
         AddHashCodeIfMissingForClass(javaClass, context);
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         context.LeaveType();
@@ -662,6 +663,27 @@ public class ClassTransformer : ITypeTransformer
                 context.AddImport("io.github.ningpp.compat.DebuggerTypeProxy");
             }
         }
+    }
+
+    /// <summary>
+    /// Mirrors a C# TYPE-level [JsonConverter(typeof(X))] as a compat annotation carrying the
+    /// converter type. The generated JsonConverterAttribute is a class, not an annotation, so compat
+    /// materializes it from this marker; without it a type-level attribute never reaches the
+    /// runtime, so getConverterFromAttribute never validates it and a converter with no public
+    /// parameterless constructor is accepted instead of throwing
+    /// (CustomConverterTests.converterWithoutDefaultCtor asserts exactly that).
+    /// </summary>
+    private static void AddJsonConverterAnnotation(
+        JavaClassDeclaration javaClass,
+        INamedTypeSymbol typeSymbol,
+        ConversionContext context)
+    {
+        if (!Transformers.Member.PropertyTransformer.TryGetJsonConverterType(typeSymbol, out var converterTypeName))
+        {
+            return;
+        }
+        javaClass.Annotations.Add(new JavaAnnotation($"CompatJsonConverter({converterTypeName}.class)"));
+        context.AddImport("io.github.ningpp.compat.CompatJsonConverter");
     }
 
     /// <summary>
@@ -4700,6 +4722,7 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
                     {
                         AddDebuggerAnnotations(jc, nestedSymbol, context);
                         AddJsonNumberHandlingAnnotation(jc, nestedSymbol, context);
+            AddJsonConverterAnnotation(jc, nestedSymbol, context);
                     }
                     if (NestedTypeHelper.ShouldBeStaticInJava(nestedClass, context))
                     {
