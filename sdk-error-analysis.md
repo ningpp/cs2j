@@ -779,3 +779,12 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **验证**: dotnet 3154+58 全绿 ✓；Step 1 618/0 ✓；Step 2 **编译零错误** ✓；**官方 933（431F + 502E）** vs 929 ⇒ **新增失败 4 / 新增通过 0** ✗（失败数 442→431 下降，但错误数 487→502 上升）。
 - **判读**: 注解与翻译层都已工作（属性现在被识别为扩展数据），但扩展数据在 Java 侧的**读写通路本身不完整**（对象默认转换器 / JsonClassInfo 对 extension data 的处理），于是识别成功反而把 4 个用例推进了未实现的路径 ⇒ 单靠特性标注不足以拿到 16+ 项收益，需要连同扩展数据的读写实现一起补齐。
 - **已回退**该发射（工作区回到 929）；compat 侧翻译层保留（1640/1640、无副作用），可在补齐通路后复用。
+### 下一轮线索（来自 (b) 发射开启后的 4 项新增失败，已回退但名单保留）
+
+4 项全部是**扩展数据**用例，正好印证"识别成功后被推入未实现通路"的判读：
+- ExtensionDataTests.extensionPropertyInvalidJsonFail —— 期望 JsonException，实得 **NullPointerException**（扩展数据读入路径缺空值/异常处理）
+- ExtensionDataTests.extensionPropertyObjectValue_RoundTrip
+- ExtensionDataTests.nestedClassWithObjectExtensionDataProperty
+- OptionsTests.extensionDataUsesReaderOptions（扩展数据未遵循 reader options）
+
+⇒ 修复方向：扩展数据的**读写实现**（对象默认转换器的 getMemberAndWriteJsonExtensionData / 读入时把未知属性并入扩展数据字典、以及 reader options 的传递），而不是继续在特性标注上加码。80 处 @CompatJsonExtensionData 的能力（发射点已修好：context.GetDeclaredSymbol(propDecl) + AttributeClass?.Name 匹配）与 compat 翻译层都可在通路补齐后**直接复用**（本轮回退只撤了发射，未撤 compat）。
