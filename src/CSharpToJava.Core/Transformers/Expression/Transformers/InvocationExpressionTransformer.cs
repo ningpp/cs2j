@@ -1888,6 +1888,21 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         var originalMethodName = memberAccess.Name.Identifier.Text;
         var earlyMethodSymbol = context.GetSymbolInfo(node).Symbol as IMethodSymbol;
 
+        // C# `SingleValueReadWithReadAhead(ClassType, ref reader, ref state)` passes the CALLING
+        // converter's own ClassType (JsonConverterOfT.ReadCore.cs:27), while the converted call
+        // hardcoded ClassType.Value. With Value the helper takes the read-ahead path for a value
+        // converter and performs its own Read() past the current token before TryRead inspects it.
+        // Emitting the receiver's own class type restores the C# behaviour and lets TryRead see the
+        // current token (NullTests invalidRootOnRead / invalidRootOnWrite).
+        if (originalMethodName == "singleValueReadWithReadAhead"
+            && node.ArgumentList.Arguments.Count == 3
+            && node.ArgumentList.Arguments[0].Expression.ToString().EndsWith("Value", StringComparison.Ordinal))
+        {
+            var readerArg = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+            var stateArg = facade.Transform(node.ArgumentList.Arguments[2].Expression, context);
+            return $"{receiver}.singleValueReadWithReadAhead({receiver}.getClassType(), {readerArg}, {stateArg})";
+        }
+
         // System.Reflection.MethodBase.Invoke(object, object[]): the compat MethodInfo
         // declares invoke(Object, Object...) AND invoke(Object, List<?>) — a bare null
         // args argument is ambiguous. C# binds Invoke(obj, null) to the object[] overload;
