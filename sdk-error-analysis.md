@@ -1060,6 +1060,41 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **给下一轮的最短路径**: 先定位产出 `IEnumerableConverterFactoryHelpers.getCompatibleGenericInterface(...)` 与 `_converters.containsKey(...)` 的那个 pass（两处都已确认不在 `InvocationExpressionTransformer` 的字符串分支上），
   这是当前最大两簇（85 项 "cannot be converted" + 36 项 `Integer→String` + 24 项 `JsonElement→X`）的共同瓶颈。
 
+## Iteration 64 — 两个主线簇的根因已用探针钉死（本轮无净胜，全部回退）
+
+本轮没有再改语义，而是把"为什么改不动"变成可执行结论。
+
+### A. 转换器缓存复用：第一个转换决定后续所有同裸类的元素类型
+- **可复现的最小链路**（`QueueElemProbe` / `TwoDimListProbe` / `NestedListTypeProbe`）：
+  `JsonSerializer.deserialize(SimpleTestClass.s_json, null, SimpleTestClass.class)` 在**同一 JVM** 内失败：
+  `Path: $.MyInt16TwoDimensionList[0]` → "could not be converted to class CSharpList"。
+  逐项收窄：`{"MyInt16TwoDimensionList":[[10,11],[20,21]]}` **单独跑也失败**，而 `{"MyStringList":["Hello"]}`、`{"MyInt32Array":[2]}` 通过；
+  用 `JsonSerializerCompat.deserialize(TypeReference<CSharpList<CSharpList<Short>>>)` 走**同一构造成立**（`[[10,11],[20,21]]`）。
+  ⇒ 差异只在"成员驱动"路径：`SimpleTestClass` 的某个**更早**成员先给 `CSharpList` 建了带别的实参的转换器并被缓存进共享的 `s_defaultOptions`，后续成员复用它。
+- **因此**：`s_defaultOptions._converters` 以**裸类**为键 ⇒ 每个裸类只能有一个转换器 ⇒ 元素类型由**第一个**转换它的成员决定，之后的成员全部错。
+  这与 Round 4/6/7 三次"写入侧"尝试（丢弃裸类键、拒绝无实参缓存、层声明）都在全量上中性的观察一致：**读侧不可拦截，写入侧的修补无法让读侧看到正确条目**。
+- **可复用结论**：要真正修这一簇，必须让生成产物的 `getConverter` 读侧变成"实参感知"，而这需要先找到产出 `_converters.containsKey` 的 pass（已两次证明不在 `InvocationExpressionTransformer` 的字符串分支上）。
+
+### B. `CSharpArrayList` 无法被填充：不是 assignability，而是 converter 造错了对象
+- 症状：`readArrayOfArrayList` → `UnsupportedOperationException: The collection type 'CSharpArrayList' is abstract, an interface, or is read only`；
+  栈顶是 `IEnumerableConverter.createCollection`，判据为 `!TypeHelper.isAssignableFrom(getTypeToConvert(), getRuntimeType())`。
+- 本轮先补了两条 list 树桥接（`isAssignableFrom(CSharpList, CSharpIList 实现类)` 及其镜像）：
+  - 定向效果：`writeArrayOfArrayList`/`writeArrayListOfArrayList`/`writePrimitiveArrayList`/`writeNonGenericCollectionWrappers` **转绿**；
+  - 但 `readArrayOfArrayList` 只把异常换成了 **`ArrayStoreException`**：`TypeHelper.listToArray` 用 `elementClass=CSharpArrayList` 造数组，而集合里装的是 `CSharpList`；
+  - 全量 **净负**（855 → 862，新增失败 2 项写侧用例）⇒ **已回退**。
+- **根因结论**：`IEnumerableConverter.createCollection` 对非泛型集合恒造 `new CSharpList<Object>()`（产物 `IEnumerableConverter.java:52`），
+  它既不是目标类型（`CSharpArrayList`），也与 `getRuntimeType()` 的返回值不一致。要让这类集合可填充，必须让该 converter 造出**目标集合类型**（或在 `convertCollection` 处做转换），
+  仅靠 `isAssignableFrom` 桥接只会把失败点后移。**下一步应改这里，而不是 assignability。**
+
+## Iteration 65 — 本轮（Round 8）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（与 Round 6/7 相同，无净变化）。
+- **compat**: 1717/1717 ✓；工作区干净（仅新增探针文件）。
+- **累计（Round 1→8）**: 895 → 855（−40）。
+- **两轮累计被否决的尝试已达 6 项**（Round 6：缓存不入；Round 7：接口实参回收×2、IList 树桥接、多维守卫；Round 8：list 树桥接×2），全部记有探针数据，
+  且两条主线簇的下一步都已收敛到**具体代码位置**（生成产物的 `getConverter` 读侧；`IEnumerableConverter.createCollection`）。
+
+
 
 
 
