@@ -661,3 +661,35 @@
   2. 或让调用点注册**只对本层生效**并保留成员层优先级；
   3. 落地后仍需满足"发布先于任何查找"（否则根类型 LRU 会绕过）。
   compat 侧改动很小（新增低优先级注册 + 分层键沿用 Round 13/14 的实现），转换器侧仍是 12554 那一处包裹。
+## Iteration 31 — (a) 非覆盖式注册：可直接落地的设计（本轮不改代码）
+
+Round 23 已确认：命中点是 `InvocationExpressionTransformer.cs:12554`，但**无条件会话注册**会顶掉成员层实参（官方 929 → 935，净 −6）。修法是**低优先级注册**，compat 侧改动很小：
+
+1. **compat 新增两张语义（约 20 行）**
+   ```java
+   private static ThreadLocal<Map<Class<?>, java.lang.reflect.Type[]>> CALLSITE_ARGUMENTS;
+   /** 低优先级注册：只在"没有任何成员层/会话层生效"时被采用，绝不覆盖既有层。 */
+   public static void registerCallSiteType(java.lang.reflect.Type type) {
+       if (type instanceof java.lang.reflect.ParameterizedType pt) {
+           Class<?> raw = (Class<?>) pt.getRawType();
+           var args = pt.getActualTypeArguments();
+           if (args.length > 0) CALLSITE_ARGUMENTS.get().put(raw, args);
+           for (var a : args) registerCallSiteType(a);       // 嵌套逐层
+       }
+   }
+   /** 发射形态：注册低优先级实参并返回擦除后的 raw class（保持既有强转可编译）。 */
+   public static Class<?> closedCallSiteGenericType(java.lang.reflect.Type closed) {
+       registerCallSiteType(closed);
+       return toRawClass(closed);
+   }
+   ```
+2. **`getGenericArguments` 的兜底位置插入**（必须在"类型参数上界/Object"之前、`CONSUMED`/`TYPE_ARGUMENTS` 之后）：
+   ```java
+   var callSite = CALLSITE_ARGUMENTS.get().get(type);
+   if (callSite != null && callSite.length > 0) return eraseToClasses(callSite);
+   ```
+   `currentGenericArgumentsLayer`（缓存键用）同样把 call-site 作为**最低**回退，保证键与实参一致。
+3. **生命周期**: `clearThreadRegistrations()` / `beginTypeRegistration()` / `endTypeRegistration()` 一并清理 `CALLSITE_ARGUMENTS`，避免跨调用残留。
+4. **转换器（唯一一处）**: 12554 处把 `closedGenericType` 换成 `closedCallSiteGenericType`（其余包裹形态照 Round 23 已验证的样子）。
+5. **预期**: 成员路径（deque/CONSUMED 存在）完全不受影响 ⇒ 消除 Round 23 的 12 项回归；无成员上下文的调用点（`Serialize(List<int>)`、嵌套 `List<List<int>>`）拿到调用点实参 ⇒ 保住 6 项收益并扩大（探针 `read-reg` 已证明 `JsonElement → Integer`）。
+6. **验证顺序**: compat `mvn -o clean install`（期望 1636+ 全绿，新增 `ClosedCallSiteRegistrationTest` 覆盖"有成员层时不覆盖 / 无成员层时生效 / 嵌套逐层"）→ `dotnet build -c Release` → `dotnet test -c Release`（3154+58）→ Step 1（618/0）→ 生成产物复查 `CollectionTests.java` 出现 `closedCallSiteGenericType` → Step 2 官方（编译零错误；与 `mvn-build-r17.log` 集合差要求新增失败 0）。
