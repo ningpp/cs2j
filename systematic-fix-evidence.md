@@ -170,11 +170,35 @@
 
 | 优先级 | 项 | 依据 |
 |---|---|---|
-| P1 | 数组目标类型走 TypeReference 路径 + compat 支持 `GenericArrayType`（**必须同批落地**） | 子代理实测覆盖 15 条 `JsonElement -> X`；单独落地会回归全部 15 条 |
-| P2 | 元素类信息取自转换器元素类型（`options.getOrAddClass(toWrapperType(getElementType()))`） | 子代理实测 5 个 `IllegalArgumentException` → 3，2 测试转绿 |
-| P3 | "该抛未抛" 68 条：逐条定性（产品缺陷 vs 测试期望）后补校验点 | 最大断言簇 |
-| P4 | 引用保留 `$id/$ref/$values`（`ReferenceHandlerTests` 71，含 2 条 `StackOverflowError`） | 见 §2 |
-| P5 | `Utf8JsonWriterTests` 61 条：**根因在测试预言机**，不是 writer 输出 | 见 §4.4 |
+| P1 | 写路径元素类信息取自转换器元素类型（4 个 converter 文件的 `DeclaredJsonPropertyInfo` 赋值点） | 子代理实测 5 个 `IllegalArgumentException` → 3，2 测试转绿。**注意**：Round 2 试过"通用版"（改 `JsonClassInfo.getElementClassInfo` 统一取活转换器元素类型）→ 测试级 5 修复 / 1 真回归、总数持平，已回退（§4.5）。需按写路径定点改，不要改读路径共用的那个方法 |
+| P2 | `ClassCast Integer -> String`（34 条，`StringConverter.write:33`）：写侧元素转换器串味 | 与 Iteration 74/76 同源 |
+| P3 | "该抛未抛" 70 条：逐条定性（产品缺陷 vs 测试期望）后补校验点 | 最大断言簇 |
+| P4 | 引用保留 `$id/$ref/$values`（`ReferenceHandlerTests` ~70） | 含 `StackOverflowError` |
+| P5 | `Utf8JsonWriterTests` 61 条：**根因在测试预言机** `JsonTextWriter`，不是 writer 输出 | 见 §4.4 |
+
+### 4.6 Round 2 结果：数组目标 TypeReference（P3，已 KEEP）
+
+**提交 `ff7e08dc` — 全量 842 → 822（net +20，8 测试转绿）**
+
+C# `Deserialize<Dictionary<string,int>[]>(json)` 被发射成
+`deserialize(json, opts, CSharpDictionary[].class)`：数组类字面量不携带元素实参，
+Jackson 产出 `JsonElement` 元素，调用方强转即 `JsonElement cannot be cast to Integer`。
+
+TypeReference 通道本就存在，但守卫要求 `INamedTypeSymbol { IsGenericType: true }`，
+`IArrayTypeSymbol` 永远不匹配。修复：
+1. 发射器守卫额外接受"元素为闭合泛型的数组"，并映射为 `TypeReference<X<...>[]>`；
+2. compat `registerParameterizedType` 递归 `GenericArrayType`（注册元素层）；
+3. compat `toRawClass` 把 `GenericArrayType` 映射为其擦除分量的数组类（原来返回 `Object.class`）。
+
+**端到端验证了再生链路**：重跑转换器（618 文件，后台任务，>240s）后，
+SDK 被重新生成，`ProjectPasses` 的 `IEnumerableConverterFactoryHelpers` 补丁**自动重新落上**
+（line 94 `TypeHelper.getAllInterfaces`），compat jar 提供 `getAllInterfaces` /
+`newNonGenericDictionary`，P5 的调用点改写按设计**未**被应用（它仍是禁用状态）。
+
+**两个"回归"假象**：`DictionaryTests.arrayOfDictionary` 与
+`dictionaryOfArrayOfDictionary` 在站点级看是新增失败，实际是**同一个测试的失败阶段后移**
+（r152 在读阶段就失败；r154 已经读完，改为在写阶段失败——`MethodInfo.invoke` 的 receiver 类型
+不匹配，即 P1 那个缺陷）。测试始终是失败的，不构成回归。
 
 ### 4.4 `Utf8JsonWriterTests` 61 条的真实根因（重要修正）
 
