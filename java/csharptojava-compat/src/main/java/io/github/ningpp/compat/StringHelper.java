@@ -1043,6 +1043,16 @@ public class StringHelper {
         for (int i = 0; i < converted.length; i++) {
             if (converted[i] instanceof Boolean b) {
                 converted[i] = b ? "True" : "False";
+            } else if (converted[i] instanceof Double d) {
+                // C#'s string.Format("{0}", 30.0) renders the value with .NET's invariant
+                // Double.ToString, which trims the trailing ".0" (30.0 -> "30"). Java's %s calls
+                // Double.toString, which always keeps it, so a round-trip through
+                // string.Format turned every integer in a JSON document into "30.0". Measured on
+                // Utf8JsonReaderTests.testJsonReaderUtf8: expected "age, 30," and got "age, 30.0,".
+                converted[i] = DoubleHelper.toString(d);
+            } else if (converted[i] instanceof Float f) {
+                // Same reasoning; Float.toString(1f) is "1.0" where .NET writes "1".
+                converted[i] = FloatHelper.toString(f);
             }
         }
         return String.format(l, javaFormat, converted);
