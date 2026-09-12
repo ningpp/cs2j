@@ -566,6 +566,20 @@
   - 与 939 基线（Round 12/13/14 三次逐项一致）比较：**新增失败 0 项、新增通过 10 项**（唯一失败数 697 → 687）⇒ 纯收益、零回归。
 - **说明**: 本轮收益（−10）小于预测的 35，因为 35 项中含 `MemberAccessor.createField*` 的那些原本还可能因**其它**根因失败（例如元素类型擦除），修复只解除了其中一层。剩余项仍在 929 中，随 (a)/(b) 落地继续收敛。
 
+## Iteration 26 — 为 (a) 准备 compat 发射 API（本轮不改变生成产物，对现状 no-op）
+
+- **新增 compat API**: `TypeHelper.parameterized(Class<?> raw, Type... args)`（构造可嵌套的 `ParameterizedType`，可表达 `List<List<int>>`）+ `TypeHelper.closedGenericType(Type closed)`（发布**每一层**并返回擦除后的 raw class，保持生成代码里既有强转可编译）。
+- **拟用的发射形态（下一轮改转换器，一处 typeof 发射点）**:
+  ```java
+  JsonSerializer.serialize(
+      (Class<CSharpList<CSharpList<Integer>>>) (Class<?>)
+          TypeHelper.closedGenericType(TypeHelper.parameterized(
+              CSharpList.class, TypeHelper.parameterized(CSharpList.class, Integer.class))),
+      value, null);
+  ```
+  要点：注册发生在**任何查找之前**（探针已证明查找先于发布会因根类型 LRU 而失效），且每层都注册（Round 14 已证明按层区分才能让外层/内层转换器各就各位）。
+- **验证**: 新增 `ClosedGenericEmissionApiTest`（3 项：多层外层优先、单层、非泛型直通）→ 绿；compat 全量 **1636/1636**。该 API 目前**无调用方**，因此对 SDK 现状是 no-op（官方指标仍为 929），纯粹是把 (a) 的落地成本压缩成"一处发射改动 + 一次重新转换"。
+
 
 
 

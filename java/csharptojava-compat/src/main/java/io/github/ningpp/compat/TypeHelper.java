@@ -202,6 +202,48 @@ public final class TypeHelper {
         return raw;
     }
 
+    /**
+     * Builds a {@link java.lang.reflect.ParameterizedType} for a closed generic, so nested
+     * layers survive: {@code parameterized(List.class, parameterized(List.class, Integer.class))}
+     * represents {@code List<List<int>>}. Together with {@link #closedGenericType} this is what
+     * the converter emits at a call site where C# had {@code typeof(List<List<int>>)} and a Java
+     * class literal would erase every layer.
+     */
+    public static java.lang.reflect.Type parameterized(Class<?> raw, java.lang.reflect.Type... typeArguments) {
+        var args = typeArguments.clone();
+        return new java.lang.reflect.ParameterizedType() {
+            @Override
+            public java.lang.reflect.Type[] getActualTypeArguments() {
+                return args.clone();
+            }
+
+            @Override
+            public java.lang.reflect.Type getRawType() {
+                return raw;
+            }
+
+            @Override
+            public java.lang.reflect.Type getOwnerType() {
+                return null;
+            }
+
+            @Override
+            public String toString() {
+                return raw.getSimpleName() + java.util.Arrays.toString(args);
+            }
+        };
+    }
+
+    /**
+     * Runtime equivalent of {@code typeof(Closed<...>)} for an already-built closed generic
+     * (see {@link #parameterized}): publishes every layer to the converter factories and
+     * returns the erased raw class, so the emitted cast still compiles.
+     */
+    public static Class<?> closedGenericType(java.lang.reflect.Type closed) {
+        registerParameterizedType(closed);
+        return toRawClass(closed);
+    }
+
     /** Clears the registry when the outermost registration session finishes. */
     public static void endTypeRegistration() {
         int[] depth = REGISTRATION_DEPTH.get();
