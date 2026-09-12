@@ -297,26 +297,42 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 裸 token 字典簇（5 项 + `DictKeyNotSupported` 小簇）：信息在 Java 侧**本就不存在**，
 运行时无法推导；正确出路只有生成侧改传 `TypeReference`。
 
-`Utf8JsonWriterTests` 61 条：根因在**测试预言机**（`JsonTextWriter` 移植）而非 writer 输出。
+~~`Utf8JsonWriterTests` 61 条：根因在**测试预言机**（`JsonTextWriter` 移植）而非 writer 输出。~~
+
+**该结论已于 Round 42 被实测推翻**：其中 24 条是真 bug，根因在 compat 的
+`JavaScriptEncoder`（孤立代理项未转义为 U+FFFD）与 `Utf8Formatter`（用 Java 的
+`Double.toString`/`Float.toString`，把 `1.0` 写成 `"1.0"` 而 .NET 写 `"1"`）。
+教训见 §8.1 末条：**大面积同形断言差异先怀疑 compat 的格式化/编码实现**，
+"归因于预言机"是本项目代价最高的一次误判。
 
 ## 八、交接摘要（Round 37，供后续会话直接接手）
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 407, Errors: 295, Skipped: 18` = **702**（起点 855，**−153**）。
-- 本轮（Round 41）在诊断之外**新增两条 KEEP**（均"逐用例集合差 +0 回归"）：
-  - `e777d254` 把 C# `[JsonPropertyName]` 送进运行时 → **723 → 709（修 14 / 坏 0）**；
-  - `5540ec46` 非公开访问器可见性（`CompatNonPublicAccessor` + `[JsonInclude]` 例外）
-    → **709 → 702（修 7 / 坏 0）**。
+- **基线**：`Tests run: 7902, Failures: 383, Errors: 295, Skipped: 18` = **678**（起点 855，**−177**）。
+- Round 41 的诊断之外，本会话累计 **5 条 KEEP**（均"逐用例集合差 +0 回归"）：
+
+| 提交 | 内容 | 收益 |
+|---|---|---|
+| `e777d254` | 把 C# `[JsonPropertyName]` 送进运行时 | 723 → 709（修 14） |
+| `5540ec46` | 非公开访问器可见性（`CompatNonPublicAccessor` + `[JsonInclude]` 例外） | 709 → 702（修 7） |
+| `bdf54f07` | 孤立代理项（lone surrogate）转义为 U+FFFD | 702 → 692（修 10） |
+| `01a85535` | 数字按 .NET 格式写（`DoubleHelper` + 新 `FloatHelper`） | 692 → 678（修 14） |
+
 - 工作树干净；所有改动已提交。
 - **本轮新增的两条可复用"桥"模式**：C# 特性在生成物里是**类**而不是注解，所以
   `CustomAttributeExtensions.getCustomAttribute` 看不到它 —— 转换器发一个
   `@CompatXxx` 标记，compat 再从标记**物化**出那个特性类。
   已有：`CompatJsonIgnore`、`CompatJsonInclude`、`CompatJsonExtensionData`、
   `CompatJsonNumberHandling`、`CompatPropertyName`、`CompatSByteArray`、
-  `CompatNonPublicProperty`；**本轮新增** `CompatJsonPropertyName`（带值）、
+  `CompatNonPublicProperty`；**新增** `CompatJsonPropertyName`（带值）、
   `CompatNonPublicAccessor`（按访问器）。
   **凡是"C# 语义没生效"的簇，优先查这个通道缺了哪个标记。**
+
+- **一条被推翻的旧结论**：§6.4 曾建议把 `Utf8JsonWriterTests` 61 条"作为测试预言机问题接受"。
+  **这是错的**——Round 42 从中拿到 24 条真修复（代理项转义 10 + 数字格式 14），
+  根因都在 `JavaScriptEncoder` / `Utf8Formatter` 这两个 compat 类里。
+  **凡是"大面积同形断言差异"，先怀疑 compat 的格式化/编码实现，不要先归因于断言或预言机。**
 
 ### 8.2 已闭合的开放问题（Round 41：创建层测量做完了）
 
