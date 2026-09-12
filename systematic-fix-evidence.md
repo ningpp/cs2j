@@ -360,3 +360,41 @@ NullPointerException: Cannot invoke "CSharpIDictionary.put(Object, Object)"
 真实原因是它在给一个**坏掉的**适配器接线。先修被依赖的底层，再评估上层；否则会把
 "底层缺陷导致的上层负收益"误记成"上层方案不行"。这正是本轮把 `PatchDictionaryCreateCollection`
 重新打开的依据。
+
+### 4.11 `JsonConvert CSharpList`（72 条）为什么没被 Round 5 修掉——路径根本没执行
+
+Round 5 的元素参数作用域**只覆盖"属主与元素同裸类且元素类信息在查找时才创建"**的情形。
+失败样例（`ArrayTests.readObjectArray`、`readClassWithObjectList`、
+`readNull(...)`、`SpanTests` 23 项、`ReferenceHandlerTests` 14 项）路径全是
+`...MyInt16TwoDimensionList[0]`，即 `SimpleTestClass.MyInt16TwoDimensionList : List<List<short>>`。
+
+用 `probe/NestedListProbe.java` 打开 `-Dcs2j.trace.typeargs=true` 跑，得到**决定性证据**：
+
+```
+scope traces: 0            <- beginElementArgumentsScope / pushArgumentContext 一次都没被调用
+classInfoCacheKey traces: 0   <- classInfoCacheKey 也没被调用（那个补丁从未提交）
+converterCacheKey(CSharpList) = ... [member layer]   <- 只有转换器缓存键在跑
+```
+
+**原因**：外层列表的 `JsonClassInfo` 在**预热期**就被建好了，`_elementClassInfo` 那时已经填充，
+所以反序列化时 `JsonClassInfo.getElementClassInfo()` 直接返回缓存值，**整个补丁块被短路**。
+而预热期填充进去的正是**错误的那一格**（`CSharpList` 的按裸类/别的成员实参建的那个）——
+这与 Round 14 / Iteration 76 记录的现象完全一致。
+
+**因此**：Round 5 的作用域只对"元素类信息在查找时才建"的嵌套集合有效（这就解释了它为何能修
+`readListOfList` 等 24 项），而"元素类信息在预热期已被错误填充"的这一族**必须**从
+`JsonPropertyInfo.getRuntimeClassInfo()` 一侧解决——即让属性一开始就拿到**正确的**
+`JsonClassInfo`，而不是在元素查找时打补丁。
+
+**下一步（明确方向）**：修 `runtimePropertyType`。Round 14 已确认它在
+`JsonClassInfo.getConverter` 里被退化成裸类：
+```java
+Class converterRuntimeType = converter.getRuntimeType();   // == CSharpList.class（tClass 被擦除）
+if (TypeHelper.isSameType(type, converterRuntimeType)) runtimeType.value = type;   // CSharpList == CSharpList
+```
+再加上 `_classes` 按裸类缓存，属性必然取回别人的那一格。
+Round 1 试过"只把 `_classes` 的键改成实参感知"→ 无效（进来的就是裸类）；
+Round 3 试过"元素类信息取自活转换器"→ 5 修复 / 1 回归、总数持平，已回退。
+**可行方向**：在**建 `JsonClassInfo` 时**就把该 class info 自己的实参固化下来
+（而不是每次靠环境推断），并让 `getRuntimeClassInfo()` 用这个固化实参去查 `_classes`。
+这需要 `JsonPropertyInfo` 记住它属于哪个闭合泛型，属于结构性改动，应单独立项、单独测量。
