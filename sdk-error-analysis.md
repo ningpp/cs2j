@@ -992,6 +992,29 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **compat**: 1717/1717 ✓。
 - **本轮累计（Round 1→4）**: 895 → 860（−35），全部为"新增通过"、无回归：泛型集合元素类型、`[JsonNumberHandling]`、`IEnumerable<T>:IEnumerable` 桥接、`sbyte[]→int[]`、`[JsonInclude]` 物化。
 
+## Iteration 58 — 隐藏自动属性丢访问器 + 序列化器看不见非公开成员（官方 860 → 855，零回归）
+
+上一轮定位的"前置缺陷"（派生类 `new` 隐藏成员的访问器被吞掉）本轮修好，随后把上轮被迫回退的两项一并落地。
+
+1. **隐藏自动属性必须保留访问器**（`PropertyTransformer`）：`propDecl.Modifiers` 含 `new` 且与基类同名同型时，原逻辑"只发字段、跳过访问器"以保 C# 非虚隐藏语义，结果字段**无人可达**：
+   `ChildClass.java` 原先只有 `private boolean isTransient;`，成员实际落在基类的 internal 访问器上 ⇒ .NET 会序列化的成员消失。
+   自动属性的访问器只读写自己的字段，不涉及跨成员派发，因此保留它不会引入该跳过逻辑要防的派发差异（纯 `base.X` 委托属性照旧保留）。
+   产物校验：`ChildClass` 现在有 `public boolean getIsTransient()/setIsTransient(boolean)` ✓。
+2. **序列化器重新看得见非公开成员**（compat + 转换器）：`PropertyInfo.getProperties(clazz, bindingFlags)` 此前**忽略 flags**（只返回公开方法），
+   于是 `JsonClassInfo` 的非公开分支从不执行、`JsonIncludeOnNonPublicInvalid` 校验无法触发。现按 `Public/NonPublic` 过滤；
+   并把"访问器全非公开"的属性标 `@CompatNonPublicProperty`，使生成的"可序列化"判定与 .NET 一致（该成员不被缓存），
+   同时访问器仍可达 ⇒ 校验能触发（这一对约束正是上一轮冲突的根源，本轮因第 1 项修复而不再冲突）。
+- **验证**: 官方全量 `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（上一有效值 860），集合差 **+5 / −0**：
+  `nonPublicProperty_WithJsonInclude_Invalid(Class)[1,3,7,9]`、`public_And_NonPublicPropertyAccessors_PropertyAttributes`；compat 1717/1717 ✓。
+- **提交**: 3904562a。
+
+## Iteration 59 — 本轮（Round 5）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（编译零错误）。
+- **累计（Round 1→5）**: 895 → 855（−40），每一步都是"新增通过 / 新增失败 0"的集合差判定。
+- **剩余最大簇**: "应抛异常未抛"（校验缺失）、"JSON value could not be converted"、`Integer→String` 转换器复用、`JsonElement→X`。
+
+
 
 
 
