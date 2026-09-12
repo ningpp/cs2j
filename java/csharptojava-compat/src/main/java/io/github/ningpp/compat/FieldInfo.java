@@ -30,7 +30,7 @@ public final class FieldInfo implements MemberInfo {
         // source (e.g. CSharpDictionary<String, String>); the erased class alone makes
         // converter factories fall back to type-parameter bounds (Object key/element
         // types). Publish them before handing back the raw class.
-        TypeHelper.registerMemberType(field.getGenericType());
+        TypeHelper.registerMemberType(field.getGenericType(), this);
         // C# sbyte[] and byte[] are both byte[] in Java but serialize differently (JSON array
         // of numbers vs. Base64 string), so a marked field answers int[].class.
         if (field.isAnnotationPresent(CompatSByteArray.class)) {

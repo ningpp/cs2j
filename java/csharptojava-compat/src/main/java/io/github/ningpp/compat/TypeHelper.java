@@ -362,6 +362,11 @@ public final class TypeHelper {
      * happens, so they keep priority.</p>
      */
     public static void registerMemberType(java.lang.reflect.Type type) {
+        registerMemberType(type, null);
+    }
+
+    /** @see #registerMemberType(java.lang.reflect.Type) */
+    public static void registerMemberType(java.lang.reflect.Type type, MemberInfo member) {
         if (!(type instanceof java.lang.reflect.ParameterizedType)) {
             return;
         }
@@ -375,6 +380,9 @@ public final class TypeHelper {
             // Snapshot for converterCacheKey: the converter created for this member must
             // be cached under the closed generic type, not the erased raw class.
             MEMBER_ARGUMENTS.get().put(entry.getKey(), entry.getValue().peekFirst());
+            if (member != null) {
+                rememberMemberArguments(member, entry.getValue().peekFirst());
+            }
         }
     }
 
@@ -624,6 +632,77 @@ public final class TypeHelper {
         }
         if (entry[2] != null) {
             CONSUMED_ARGUMENTS.get().put(elementType, (java.lang.reflect.Type[]) entry[2]);
+        }
+    }
+
+    // Member -> the arguments its OWN declared type has, captured while the member was reflected.
+    //
+    // MEMBER_ARGUMENTS is one slot per RAW CLASS, so when two members share a raw class with
+    // different arguments (List<string> and List<List<short>>) whichever member is reflected last
+    // owns the slot and every other member's lookup then reads ITS arguments - the 2-D list property
+    // received List<string>'s class info and a String element converter. Keying by the member gives
+    // each member its own copy.
+    private static final java.util.Map<MemberInfo, java.lang.reflect.Type[]> MEMBER_DECLARED_ARGUMENTS =
+        java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /** Remembers the arguments the member's own declared type has. */
+    public static void rememberMemberArguments(MemberInfo member, java.lang.reflect.Type[] args) {
+        if (member != null && args != null && args.length > 0) {
+            MEMBER_DECLARED_ARGUMENTS.put(member, args.clone());
+        }
+    }
+
+    /** The arguments remembered for {@code member}, or null. */
+    public static java.lang.reflect.Type[] memberArguments(MemberInfo member) {
+        return member == null ? null : MEMBER_DECLARED_ARGUMENTS.get(member);
+    }
+
+    /**
+     * The class info already cached under the key the OWNING member's arguments imply, or null.
+     *
+     * <p>{@code JsonPropertyInfo.getRuntimeClassInfo()} looks its class info up by the ERASED runtime
+     * type, and the generated cache funnels that through {@link #converterCacheKey}, which reads
+     * {@code MEMBER_ARGUMENTS} — a single slot per raw class. By read time a later member
+     * ({@code List<string>}) has overwritten that slot, so a {@code List<List<short>>} property asks
+     * for {@code CSharpList[String]} and receives the wrong class info; its element then gets a String
+     * converter and reads {@code [10,11]} as a string.</p>
+     *
+     * <p>This is a pure HIT-PATH probe: it only READS the cache, under the key computed from the
+     * member's own recorded arguments. A hit answers the lookup correctly and nothing else runs. A
+     * miss returns null and the caller keeps the generated behaviour, so no other path changes shape
+     * — in particular {@code getOrAddClass} and the element lookup inside it are never entered with
+     * the wrong arguments, which is what made the round-8 explicit scope regress.</p>
+     *
+     * <p>Reflection-only: compat cannot reference the generated options/class-info types.</p>
+     */
+    public static Object cachedClassInfoForMember(MemberInfo member, Object options, Class<?> rawType) {
+        if (member == null || options == null || rawType == null) {
+            return null;
+        }
+        java.lang.reflect.Type[] args = memberArguments(member);
+        // Only the single-type-argument shape is targeted: List<string> and List<List<short>> share the
+        // raw CSharpList and pollute each other's one slot. Multi-argument members (Dictionary<K,V>,
+        // ValueTuple, ...) keep the generated path, because their arguments can legitimately differ
+        // from what warm-up cached - applying the key to the nullable-dictionary members of NullTests
+        // regressed them (measured).
+        if (args == null || args.length != 1) {
+            return null;
+        }
+        try {
+            java.lang.reflect.Field classes = options.getClass().getDeclaredField("_classes");
+            classes.setAccessible(true);
+            Object table = classes.get(options);
+            if (!(table instanceof java.util.Map<?, ?> map)) {
+                return null;
+            }
+            Object key = new ClosedGenericKey(rawType, args);
+            Object found = map.get(key);
+            if (found != null) {
+                trace("cachedClassInfoForMember(" + member.getName() + ") HIT " + key);
+            }
+            return found;
+        } catch (ReflectiveOperationException ignored) {
+            return null;
         }
     }
 

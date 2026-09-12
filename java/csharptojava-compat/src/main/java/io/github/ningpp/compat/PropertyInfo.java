@@ -205,12 +205,12 @@ public final class PropertyInfo implements MemberInfo {
             // converted source (e.g. CSharpDictionary<String, String>); returning the
             // erased class alone makes converter factories fall back to type-parameter
             // bounds (Object key/element types). Publish them first.
-            TypeHelper.registerMemberType(getter.getGenericReturnType());
+            TypeHelper.registerMemberType(getter.getGenericReturnType(), this);
             Class<?> sbyteArray = sbyteArrayType();
             return sbyteArray != null ? sbyteArray : TypeHelper.toWrapperType(getter.getReturnType());
         }
         if (setter != null && setter.getParameterCount() > 0) {
-            TypeHelper.registerMemberType(setter.getGenericParameterTypes()[0]);
+            TypeHelper.registerMemberType(setter.getGenericParameterTypes()[0], this);
             Class<?> sbyteArray = sbyteArrayType();
             return sbyteArray != null ? sbyteArray : TypeHelper.toWrapperType(setter.getParameterTypes()[0]);
         }

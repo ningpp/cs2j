@@ -1106,6 +1106,15 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchElementArgumentScope(result);
                 }
+                else if (result.FileName.EndsWith("PropertyInfo.java", StringComparison.Ordinal)
+                    || result.FileName.EndsWith("FieldInfo.java", StringComparison.Ordinal))
+                {
+                    PatchMemberArgumentCapture(result);
+                }
+                else if (result.FileName.EndsWith("JsonPropertyInfo.java", StringComparison.Ordinal))
+                {
+                    PatchMemberClassInfoLookup(result);
+                }
             }
         }
     }
@@ -1340,6 +1349,89 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex ElementArgumentScopeLookupRegex = new(
         @"(?<indent>[ \t]*)_elementClassInfo = getOptions\(\)\.getOrAddClass\(getElementType\(\)\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Makes the reflected member remember its OWN declared type arguments.
+    /// <para>
+    /// <c>TypeHelper.MEMBER_ARGUMENTS</c> is one slot per raw class, so when two members share a raw
+    /// class with different arguments — <c>List&lt;string&gt;</c> and <c>List&lt;List&lt;short&gt;&gt;</c>
+    /// both erase to CSharpList — whichever member is reflected last owns the slot and every other
+    /// member's lookup then reads ITS arguments. The 2-D list property therefore received
+    /// <c>List&lt;string&gt;</c>'s JsonClassInfo, and with it a String element converter that read
+    /// <c>[10,11]</c> as a string. Recording the arguments against the member gives each member its
+    /// own copy.
+    /// </para>
+    /// </summary>
+    private static void PatchMemberArgumentCapture(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        var replaced = false;
+        foreach (var regex in MemberArgumentCaptureRegexes)
+        {
+            if (!regex.IsMatch(code))
+                continue;
+            code = regex.Replace(code, match =>
+                match.Value.Substring(0, match.Value.Length - 2) + ", this);");
+            replaced = true;
+        }
+
+        if (!replaced)
+            return;
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex[] MemberArgumentCaptureRegexes =
+    {
+        new(@"TypeHelper\.registerMemberType\(getter\.getGenericReturnType\(\)\);",
+            System.Text.RegularExpressions.RegexOptions.None),
+        new(@"TypeHelper\.registerMemberType\(setter\.getGenericParameterTypes\(\)\[0\]\);",
+            System.Text.RegularExpressions.RegexOptions.None),
+        new(@"TypeHelper\.registerMemberType\(field\.getGenericType\(\)\);",
+            System.Text.RegularExpressions.RegexOptions.None),
+    };
+
+    /// <summary>
+    /// Answers <c>getRuntimeClassInfo()</c> from the class info cached under the key the OWNING
+    /// member's arguments imply, before falling back to the generated lookup.
+    /// <para>
+    /// The generated lookup goes through the erased runtime type and <c>converterCacheKey</c>, which
+    /// reads the shared <c>MEMBER_ARGUMENTS</c> slot — by read time another member has overwritten it,
+    /// so a <c>List&lt;List&lt;short&gt;&gt;</c> property asks for <c>CSharpList[String]</c>. This is a
+    /// pure HIT-PATH probe: it only READS the cache. On a miss it returns null and the generated
+    /// behaviour runs unchanged, so <c>getOrAddClass</c> and the element lookup inside it are never
+    /// entered with the outer arguments — which is what made the round-8 persistent scope regress.
+    /// </para>
+    /// </summary>
+    private static void PatchMemberClassInfoLookup(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        if (!MemberClassInfoLookupRegex.IsMatch(result.GeneratedCode))
+            return;
+
+        result.GeneratedCode = MemberClassInfoLookupRegex.Replace(
+            result.GeneratedCode, MemberClassInfoLookupReplacement.Replace("$", "$$"), count: 1);
+        EnsureTypeHelperImport(result);
+    }
+
+    private const string MemberClassInfoLookupReplacement =
+        "        Object __cs2jMemberInfo = TypeHelper.cachedClassInfoForMember("
+        + "(io.github.ningpp.compat.MemberInfo)(Object)getMemberInfo(), getOptions(), getRuntimePropertyType());\n"
+        + "        if (__cs2jMemberInfo instanceof dotnet.text.json.JsonClassInfo) {\n"
+        + "        _runtimeClassInfo = (dotnet.text.json.JsonClassInfo)__cs2jMemberInfo;\n"
+        + "        } else {\n"
+        + "        _runtimeClassInfo = getOptions().getOrAddClass(getRuntimePropertyType());\n"
+        + "        }";
+
+    private static readonly System.Text.RegularExpressions.Regex MemberClassInfoLookupRegex = new(
+        @"(?<indent>[ \t]*)_runtimeClassInfo = getOptions\(\)\.getOrAddClass\(getRuntimePropertyType\(\)\);",
         System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>
