@@ -244,10 +244,60 @@ compat 侧的 `TypeHelper.newNonGenericCollection` 覆盖不全。
 
 ## 六、下一步（本轮之后的第一个动作）
 
-1. 独占重跑全量 → `python tools/passfail.py snapshot baseline`（建立唯一可信基线）。
-2. 从 **P0-2** 开工：先取 `escapeCharacters` 的 `\u0080` 转义差异（~20 条，改动局限在
-   compat 的 `JavaScriptEncoder`），单类验证 → 全量 KEEP。
-3. 同时把 4 个并行子代理的分析结论并入本计划（见下节"待并入"）。
+> **本节已按 Round 1–34 的实测结果重写。** 原"先做 P0-2、再做 P0-1"的排序已被数据推翻：
+> 最大收益来自**跨用例注册表污染**（Round 19，−67），而不是最先预估的写出格式群。
+
+### 6.1 当前基线（已验证）
+
+`Tests run: 7902, Failures: 430, Errors: 293, Skipped: 18` = **723**（起点 855，累计 **−132**）。
+
+已 KEEP 的验证性提交（每一条都经过"全量 + 逐用例集合差 + 完整再生"验证）：
+
+| 提交 | 内容 | 收益 |
+|---|---|---:|
+| `0665a07b` | `getType` 解析 C# 程序集限定名 + 接口传递性遍历 | −13 |
+| `ff7e08dc` | 闭合泛型数组目标走 TypeReference + compat 支持 `GenericArrayType` | −20 |
+| `c5bb7de0` | 写路径元素属性取自成员（3 个调用点） | −11 |
+| `2b6bab6c` | 类信息查找按**成员实参**命中（只读探针） | −4 |
+| `e8a29f38`+`60a56e0a` | **`serialize` 入口清空 per-thread 注册表** | **−67** |
+
+并修掉一个**工程性缺陷**：`ef568d4f` —— 补丁分派用文件名后缀，
+`"JsonPropertyInfo.java".endsWith("PropertyInfo.java")` 为真导致补丁被吞、
+**只在手工改过的树上生效**；已修顺序 + 加"失配即报错"。
+
+### 6.2 已**机制级否定**的方向（勿再投入）
+
+| 方向 | 否定依据 |
+|---|---|
+| 转换器缓存"读写同 key" | 855 → 934（两次复现） |
+| 元素类信息按实参作用域查找 | 855 → 934 |
+| `DateTimeOffset` 往返格式 `XXX`→`xxx` | 1 修复 / **9 回归** |
+| 读路径急切建类信息条目 | Round 12、Round 33 **两次更差** |
+| 预热期修正成员实参槽位 | Round 34**正确但中性**（探针证实槽位已对，失败数不动） |
+| 构造函数守卫（4 个变体） | 守卫本身 +16；"顺序依赖""过度拒绝""位置错误"三种归因**逐一被否证** |
+| 字典裸 token 的实参推导 | 裸 `CSharpDictionary.class` **不携带实参**，`registerConcreteType` 无效 |
+| `ObjectConverter.readWithQuotes` 放宽 | 三测试类失败总数**一字不差**，只是 Error→Failure |
+
+### 6.3 剩余最大簇与**观察优先**的下一步
+
+`JsonConvert CSharpList` **65 条**（`SpanTests` 23、`ArrayTests` 19、`ObjectTests` 11、
+`ReferenceHandlerTests` 9），路径形状全部是 `$.MyInt16TwoDimensionList[0]`。
+
+**下一步不是再猜机制，而是先观察**（Round 34 已明确要求）：
+把 Round 34 的预热期槽位修正**保留在树上**，再跑 Round 31 的探针，
+**实测"槽位正确之后，二维属性在读取时解析到了哪一格"**——
+即打印 `_runtimeClassInfo` 的实际 `elementType` 与 `_classes` 中的键集合，
+用观测结果决定下一步，而不是从机制反推。
+
+Round 31 已确证的事实（可直接复用）：该成员的 **computed key 完全正确**
+（`CSharpList[CSharpList<Integer>]`），但 `found=false` —— **条目在该次查找时不存在**。
+
+### 6.4 已知限制（建议接受并转投他处）
+
+裸 token 字典簇（5 项 + `DictKeyNotSupported` 小簇）：信息在 Java 侧**本就不存在**，
+运行时无法推导；正确出路只有生成侧改传 `TypeReference`。
+
+`Utf8JsonWriterTests` 61 条：根因在**测试预言机**（`JsonTextWriter` 移植）而非 writer 输出。
 
 ## 七、待并入（并行子代理分析）
 
