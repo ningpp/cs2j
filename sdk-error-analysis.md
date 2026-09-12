@@ -963,6 +963,36 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **dotnet**: 3158 + 59 全绿 ✓；**compat**: 1717/1717 ✓。
 - **剩余最大簇（r91 统计）**: `AssertionError` 302（其中"应抛异常未抛"58、"异常类型不对"33）、"JSON value could not be converted" 85、`Integer→String` 36、`JsonElement→X` 24。
 
+## Iteration 55 — `[JsonInclude]` 成员查询从未生效（官方 863 → 860，零回归）
+
+- **现象**: 13 项 `Assert.throws` 期望 `IllegalStateException` 实得 `JsonException`，集中在 `PropertyVisibilityTests.nonPublicProperty_WithJsonInclude_Invalid[1..9]` 与 `jsonIgnoreCondition_WhenWritingNull_OnValueType_Fail[1..2]`。
+- **根因分析（探针链）**:
+  1. `DupAttrProbe` 证明**单独**反序列化那个"非公开属性 + `[JsonInclude]`"的类也不报错（反序列化报的是空 JSON 的 `JsonReaderException`，序列化更是**完全不抛**）。
+  2. C# 侧 `JsonClassInfo.CacheMembers` 的判定是 `if (JsonPropertyInfo.GetAttribute<JsonIncludeAttribute>(propertyInfo) != null) ThrowInvalidOperationException_JsonIncludeOnNonPublicInvalid(...)`；生成产物把这段**完整保留**了（`JsonClassInfo.java:126`）⇒ 失效点在 `GetAttribute`。
+  3. 逐个排查：`CustomAttributeExtensions.getCustomAttribute(Class, MemberInfo)` 只物化 `JsonExtensionData`/`JsonIgnore`（无 `JsonInclude` 分支）；而 **`getCustomAttribute(Class, PropertyInfo)` 这个重载根本不物化**，扫完注解直接 `return null` —— 而 `JsonPropertyInfo.getAttribute` 走的正是它。
+- **修复**: compat 侧补 `JsonInclude` 门禁 + `FieldInfo` 分支，并让 `PropertyInfo` 重载也走物化；转换器侧在 `PropertyTransformer`/`FieldTransformer` 发射 `@CompatJsonInclude`（命中 50 处）。
+- **验证**: 官方全量 `Tests run: 7902, Failures: 430, Errors: 430, Skipped: 18` = **860**（上一有效值 863），集合差 **+3 / −0**；compat 1717/1717 ✓。
+- **提交**: 79602ac7。
+
+## Iteration 56 — `JsonInclude` 校验的完整通路遇到一个真实冲突（本轮负结果，已回退）
+
+要让上一条的校验真正**触发**，还必须让序列化器**枚举到非公开访问器**——.NET 用
+`GetProperties(Instance|Public|NonPublic|DeclaredOnly)`，而 compat 的 `getProperties(clazz, bindingFlags)` 直接忽略了 flags（只返回公开方法），所以那个校验循环是空的。
+
+- **实现尝试**: 让 `getProperties` 尊重 `NonPublic`（自派生向基类遍历 `getDeclaredMethods`），并加 `CompatNonPublicProperty` 标记 + `getIsPublicAccessor()`/`getSetMethod()` 门禁，使"访问器全非公开"的属性既能让校验触发、又不被缓存。
+- **结果**: `PropertyVisibilityTests` 77 → 69（−8，`privateGetter`/`privateSetter`/`honorNamingPolicy`/… 转绿），但 **`JsonSerializerTests.newProperty`/`newPropertyVirtual` 转红**（+2）。
+- **冲突根因（已定位到产物级）**: C# `class ChildClass : BaseClass { public new bool IsTransient { get; set; } }`，基类同名为 `internal`。
+  转换产物 `ChildClass.java` **只有字段、没有访问器**（`public class ChildClass extends BaseClass { private boolean isTransient; }`）——派生声明在转换时被基类"吸收"了，于是运行时只有 `BaseClass` 的访问器，而它被标成非公开 ⇒ 一个 .NET 会序列化的成员被屏蔽。这是"隐藏成员（`new`）未建模"的既有缺陷，与本轮改动正交。
+- **处置**: 该标记无法在不修复成员隐藏的前提下既修好 `privateSetter` 又不误伤 `ChildClass`，故**整体回退**（含 `getProperties` flags 支持与标记），只保留已测量为净胜的 `[JsonInclude]` 物化部分。净结果 860、零回归。
+- **下一步建议**: 先修"派生类 `new` 隐藏成员"的发射（派生类应发出自己的访问器），再启用 `NonPublic` 枚举 + 该标记，届时 `PropertyVisibilityTests` 的那 8 项与校验项可一并拿下。
+
+## Iteration 57 — 本轮（Round 4）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 430, Errors: 430, Skipped: 18` = **860**（编译零错误；本轮起点 863）。
+- **compat**: 1717/1717 ✓。
+- **本轮累计（Round 1→4）**: 895 → 860（−35），全部为"新增通过"、无回归：泛型集合元素类型、`[JsonNumberHandling]`、`IEnumerable<T>:IEnumerable` 桥接、`sbyte[]→int[]`、`[JsonInclude]` 物化。
+
+
 
 
 
