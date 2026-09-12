@@ -1170,8 +1170,32 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
         code = AttributeLocationAppendRegex.Replace(code, string.Empty);
 
+        // The "@NotCompatible" message names the type the converter was asked for, and C# spells a
+        // generic as `Name`arity[args] while Java erases it to the raw interface. Measured: the
+        // assertion expects
+        //   System.Collections.Generic.ICollection`1[...CustomConverterTests+InvalidTypeConverterEnum]
+        // and the generated code passed the raw Class.
+        if (AttributeNotCompatibleTypeRegex.IsMatch(code))
+        {
+            code = AttributeNotCompatibleTypeRegex.Replace(code,
+                "SR.getSerializationConverterOnAttributeNotCompatible(), location, "
+                + "io.github.ningpp.compat.TypeHelper.getCsTypeName(typeToConvert)",
+                count: 1);
+        }
+        else
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchAttributeLocationFormatting did not match the "
+                + "@NotCompatible message in ThrowHelper.java - the C# type-name rendering is "
+                + "NOT applied.");
+        }
+
         result.GeneratedCode = code;
     }
+
+    private static readonly System.Text.RegularExpressions.Regex AttributeNotCompatibleTypeRegex = new(
+        @"SR\.getSerializationConverterOnAttributeNotCompatible\(\), location, typeToConvert",
+        System.Text.RegularExpressions.RegexOptions.None);
 
     private static readonly System.Text.RegularExpressions.Regex AttributeLocationRegex = new(
         @"        String location = (?<type>[A-Za-z_][A-Za-z0-9_]*)\.toString\(\);",

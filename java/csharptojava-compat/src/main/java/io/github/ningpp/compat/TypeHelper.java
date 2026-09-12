@@ -1801,6 +1801,64 @@ public final class TypeHelper {
     }
 
     /**
+     * The C#-style name of a type, for messages the SDK asserts on: a generic renders as
+     * {@code System.Collections.Generic.ICollection`1[Arg]}, a nested type uses {@code +}, and a
+     * plain type is just its full name.
+     *
+     * <p>Java erases type arguments from a {@code Class}, so a generic target collapses to its raw
+     * interface — {@code CSharpICollection} — which is not the string any assertion expects. The
+     * arguments are recovered from the converters' registries: by the time a converter-compatibility
+     * message is built, the factory has just consumed the layer describing this very type
+     * ({@code CONSUMED_ARGUMENTS}), so that layer is what the name should show.</p>
+     */
+    public static String getCsTypeName(Class<?> type) {
+        if (type == null) {
+            return "";
+        }
+        java.lang.reflect.Type[] args = currentGenericArgumentsLayer(type);
+        String base = getFullName(type).replace('$', '+');
+        if (args == null || args.length == 0) {
+            return base;
+        }
+        // C# spells arity as `N immediately after the name, before the argument list.
+        StringBuilder sb = new StringBuilder(base).append('`').append(args.length).append('[');
+        for (int i = 0; i < args.length; i++) {
+            if (i > 0) {
+                sb.append(',');
+            }
+            sb.append(csArgumentName(args[i]));
+        }
+        return sb.append(']').toString();
+    }
+
+    /** One type argument of {@link #getCsTypeName}, recursively. */
+    private static String csArgumentName(java.lang.reflect.Type arg) {
+        if (arg instanceof Class<?> cls) {
+            return getCsTypeName(cls);
+        }
+        if (arg instanceof java.lang.reflect.ParameterizedType pt
+                && pt.getRawType() instanceof Class<?> raw) {
+            String base = getFullName(raw).replace('$', '+');
+            java.lang.reflect.Type[] args = pt.getActualTypeArguments();
+            if (args.length == 0) {
+                return base;
+            }
+            StringBuilder sb = new StringBuilder(base).append('`').append(args.length).append('[');
+            for (int i = 0; i < args.length; i++) {
+                if (i > 0) {
+                    sb.append(',');
+                }
+                sb.append(csArgumentName(args[i]));
+            }
+            return sb.append(']').toString();
+        }
+        if (arg instanceof java.lang.reflect.GenericArrayType gat) {
+            return csArgumentName(gat.getGenericComponentType()) + "[]";
+        }
+        return String.valueOf(arg);
+    }
+
+    /**
      * Mirrors C# {@code Type.Assembly}, {@code MemberInfo.Assembly}, and
      * {@code Module.Assembly} — returns the declaring assembly as an
      * {@link AssemblyCompat} instead of {@link java.lang.Package}.
