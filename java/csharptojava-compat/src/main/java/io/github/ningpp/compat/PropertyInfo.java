@@ -74,6 +74,35 @@ public final class PropertyInfo implements MemberInfo {
         return method == null ? null : method.getDeclaringClass();
     }
 
+    /**
+     * C# {@code MemberInfo.GetCustomAttributes(Type, bool)} — the overload the generated
+     * {@code JsonSerializerOptions.getAttributeThatCanHaveMultiple} actually calls.
+     *
+     * <p>Only the no-argument-typed overload used to be implemented, so every typed lookup fell
+     * through to the {@link ICustomAttributeProvider} default and answered an EMPTY array — the
+     * materialized attribute was built and then discarded. Measured: a member-level
+     * {@code [JsonConverter]} materialized correctly yet the caller still saw null, so
+     * {@code determineConverter} skipped it and the invalid-converter validation never ran.</p>
+     *
+     * <p>The requested type filters the result, matching .NET: a derived attribute class counts as
+     * an instance of its base, and asking for one attribute type must not report the member's other
+     * attributes (which would also trip the duplicate-attribute check).</p>
+     */
+    @Override
+    public Object[] getCustomAttributes(Class<?> attributeType, boolean inherit) {
+        Object[] all = getCustomAttributes(inherit);
+        if (all.length == 0 || attributeType == null) {
+            return new Object[0];
+        }
+        List<Object> matching = new ArrayList<>(all.length);
+        for (Object attribute : all) {
+            if (attributeType.isInstance(attribute)) {
+                matching.add(attribute);
+            }
+        }
+        return matching.toArray();
+    }
+
     @Override
     public Object[] getCustomAttributes(boolean inherit) {
         if (getter == null) {
@@ -87,17 +116,54 @@ public final class PropertyInfo implements MemberInfo {
         }
         Object numberHandlingAttribute = TypeHelper.materializeMemberNumberHandlingAttribute(numberHandling);
         DebuggerBrowsable browsable = getter.getAnnotation(DebuggerBrowsable.class);
-        if (numberHandlingAttribute == null && browsable == null) {
+        // A member-level [JsonConverter] must be visible through this lookup, because it is the
+        // only route JsonSerializerOptions.determineConverter has to it. The source may have used a
+        // DERIVED attribute class (class InvalidConverterAttribute : JsonConverterAttribute), so the
+        // converter resolves the class to the converter type the base constructor names; .NET's
+        // GetCustomAttribute<T>() matches derived attributes, and answering with the base-typed
+        // attribute here is what makes that match work in Java.
+        Object converterAttribute = materializeMemberJsonConverterAttribute();
+        if (numberHandlingAttribute == null && browsable == null && converterAttribute == null) {
             return new Object[0];
         }
-        List<Object> attributes = new ArrayList<>(2);
+        List<Object> attributes = new ArrayList<>(3);
         if (numberHandlingAttribute != null) {
             attributes.add(numberHandlingAttribute);
+        }
+        if (converterAttribute != null) {
+            attributes.add(converterAttribute);
         }
         if (browsable != null) {
             attributes.add(new DebuggerBrowsableAttribute(browsable.value()));
         }
         return attributes.toArray();
+    }
+
+    /**
+     * Builds the generated {@code JsonConverterAttribute} for this member's
+     * {@code @CompatJsonConverter}, or null when the member carries none.
+     *
+     * <p>The attribute class lives in the converted module, which compat cannot compile against, so
+     * it is resolved by name and built through its {@code Class} constructor.</p>
+     */
+    private Object materializeMemberJsonConverterAttribute() {
+        CompatJsonConverter marker = getter == null ? null : getter.getAnnotation(CompatJsonConverter.class);
+        if (marker == null && setter != null) {
+            marker = setter.getAnnotation(CompatJsonConverter.class);
+        }
+        if (marker == null) {
+            return null;
+        }
+        Class<?> attributeType = CompatAttributeTypes.jsonConverterAttribute();
+        if (attributeType == null) {
+            return null;
+        }
+        try {
+            java.lang.reflect.Constructor<?> ctor = attributeType.getConstructor(Class.class);
+            return ctor.newInstance(marker.value());
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
     }
 
     /**

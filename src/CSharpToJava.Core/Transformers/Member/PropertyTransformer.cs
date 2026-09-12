@@ -363,6 +363,18 @@ public class PropertyTransformer : IMemberTransformer
                         $"CompatJsonPropertyName(\"{jsonPropertyName}\")"));
                     context.AddImport("io.github.ningpp.compat.CompatJsonPropertyName");
                 }
+                // C# [JsonConverter(typeof(X))] -> compat annotation carrying the converter type.
+                // The generated JsonConverterAttribute is a class, not an annotation, so compat
+                // materializes it from this marker. Without it the attribute never reaches the
+                // runtime and getConverterFromAttribute never runs, so the "does not derive from
+                // JsonConverter / have a public parameterless constructor" and "is not compatible
+                // with the type" validations are skipped entirely.
+                if (TryGetJsonConverterType(propSymbol, out var converterTypeName))
+                {
+                    getter.Annotations.Add(new JavaAnnotation(
+                        $"CompatJsonConverter({converterTypeName}.class)"));
+                    context.AddImport("io.github.ningpp.compat.CompatJsonConverter");
+                }
                 // A property whose C# accessors are all non-public is invisible to .NET's member
                 // cache, but the converted class still exposes the accessors as Java methods, so
                 // the generated serializability test would accept it. Mark it so compat answers
@@ -1024,6 +1036,93 @@ public class PropertyTransformer : IMemberTransformer
     /// </summary>
     private static bool IsPublicAccessor(IMethodSymbol? accessor)
         => accessor != null && accessor.DeclaredAccessibility == Accessibility.Public;
+
+    /// <summary>
+    /// Resolves the converter type a C# <c>[JsonConverter]</c> names, following a DERIVED attribute
+    /// class to the base that actually holds it.
+    /// </summary>
+    /// <remarks>
+    /// C# lets a test or library declare its own attribute:
+    /// <code>class InvalidConverterAttribute : JsonConverterAttribute { public
+    /// InvalidConverterAttribute() : base(typeof(int)) { } }</code> and then write
+    /// <c>[InvalidConverter]</c>. The converter type is a constructor argument of the BASE class, so
+    /// reading only the attribute the source wrote finds nothing. Walking up the inheritance chain
+    /// is what makes both the validation tests and the plain <c>[JsonConverter(typeof(X))]</c> cases
+    /// resolve to the same runtime-visible value.
+    /// </remarks>
+    private static bool TryGetJsonConverterType(ISymbol? member, out string converterTypeName)
+    {
+        converterTypeName = string.Empty;
+        if (member == null)
+            return false;
+        foreach (var attribute in member.GetAttributes())
+        {
+            for (var attributeClass = attribute.AttributeClass;
+                 attributeClass != null;
+                 attributeClass = attributeClass.BaseType)
+            {
+                if (attributeClass.Name != "JsonConverterAttribute")
+                    continue;
+                // (a) Written directly: [JsonConverter(typeof(X))] puts the type in the attribute's
+                // own construction.
+                foreach (var argument in attribute.ConstructorArguments)
+                {
+                    if (argument.Value is INamedTypeSymbol named)
+                    {
+                        converterTypeName = named.Name;
+                        return true;
+                    }
+                }
+                // (b) Written through a DERIVED attribute:
+                //     class InvalidConverterAttribute : JsonConverterAttribute
+                //     { public InvalidConverterAttribute() : base(typeof(int)) { } }
+                // The type lives in the derived class's constructor initializer, so the attribute's
+                // own arguments are empty and the declaration has to be read.
+                if (TryGetConverterTypeFromConstructorInitializer(attribute.AttributeClass, out converterTypeName))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Reads {@code base(typeof(X))} out of a derived attribute class's constructor.
+    /// </summary>
+    private static bool TryGetConverterTypeFromConstructorInitializer(
+        INamedTypeSymbol? attributeClass, out string converterTypeName)
+    {
+        converterTypeName = string.Empty;
+        if (attributeClass == null)
+            return false;
+        foreach (var syntaxReference in attributeClass.DeclaringSyntaxReferences)
+        {
+            if (syntaxReference.GetSyntax() is not TypeDeclarationSyntax typeDeclaration)
+                continue;
+            foreach (var constructor in typeDeclaration.Members.OfType<ConstructorDeclarationSyntax>())
+            {
+                var initializer = constructor.Initializer;
+                if (initializer == null
+                    || !initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword))
+                {
+                    continue;
+                }
+                foreach (var argument in initializer.ArgumentList.Arguments)
+                {
+                    if (argument.Expression is TypeOfExpressionSyntax typeOf)
+                    {
+                        converterTypeName = typeOf.Type.ToString();
+                        // Strip any namespace qualification: the annotation names the Java class,
+                        // which the generated file imports.
+                        var lastDot = converterTypeName.LastIndexOf('.');
+                        if (lastDot >= 0)
+                            converterTypeName = converterTypeName[(lastDot + 1)..];
+                        return converterTypeName.Length > 0;
+                    }
+                }
+            }
+        }
+        return false;
+    }
 
     /// <summary>
     /// Whether the property carries C# <c>[JsonInclude]</c>, which opts a non-public accessor back
