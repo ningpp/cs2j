@@ -3,6 +3,8 @@ package io.github.ningpp.compat;
 public final class CustomAttributeExtensions {
     /** C# attribute the @CompatJsonExtensionData annotation stands for. */
     private static final String JsonExtensionDataAttributeName = "JsonExtensionDataAttribute";
+    /** C# attribute the @CompatJsonIgnore annotation stands for. */
+    private static final String JsonIgnoreAttributeName = "JsonIgnoreAttribute";
 
     private CustomAttributeExtensions() {
     }
@@ -40,7 +42,13 @@ public final class CustomAttributeExtensions {
         // Only the attribute the annotation actually stands for may be materialized. Without
         // this gate a member carrying @CompatJsonExtensionData would report EVERY queried
         // attribute (JsonIgnore, JsonInclude, JsonConverter, ...) as present.
-        if (!JsonExtensionDataAttributeName.equals(attributeType.getSimpleName())) {
+        String attributeName = attributeType.getSimpleName();
+        Class<? extends java.lang.annotation.Annotation> marker;
+        if (JsonExtensionDataAttributeName.equals(attributeName)) {
+            marker = CompatJsonExtensionData.class;
+        } else if (JsonIgnoreAttributeName.equals(attributeName)) {
+            marker = CompatJsonIgnore.class;
+        } else {
             return null;
         }
         boolean present = false;
@@ -48,8 +56,8 @@ public final class CustomAttributeExtensions {
             java.lang.reflect.Method getter = property.getGetter();
             MethodInfo setterInfo = property.getSetMethod();
             java.lang.reflect.Method setter = setterInfo == null ? null : setterInfo.getMethod();
-            present = (getter != null && getter.isAnnotationPresent(CompatJsonExtensionData.class))
-                || (setter != null && setter.isAnnotationPresent(CompatJsonExtensionData.class));
+            present = (getter != null && getter.isAnnotationPresent(marker))
+                || (setter != null && setter.isAnnotationPresent(marker));
         }
         if (!present) {
             return null;
