@@ -244,6 +244,46 @@ public final class TypeHelper {
         return toRawClass(closed);
     }
 
+    /**
+     * Lowest-priority type arguments, published at a call site whose static type was a closed
+     * generic. They are consulted only after the pending/consumed session layers and before the
+     * type-parameter bounds, so a member that published its own arguments through
+     * {@code PropertyInfo}/{@code FieldInfo} keeps them: registering unconditionally at every
+     * call site used to override the member layers and cost more tests than it fixed.
+     */
+    private static final ThreadLocal<java.util.Map<Class<?>, java.util.ArrayDeque<java.lang.reflect.Type[]>>> CALLSITE_ARGUMENTS =
+        ThreadLocal.withInitial(java.util.HashMap::new);
+
+    /** Publishes a call site's closed generic (all layers) at the lowest priority. */
+    public static void registerCallSiteType(java.lang.reflect.Type type) {
+        // A fresh call site replaces whatever the previous one published, then every layer of
+        // this type is appended outer-first (nested generics repeat the raw class, so the layers
+        // must live in one per-raw chain exactly like the session registry).
+        CALLSITE_ARGUMENTS.get().clear();
+        appendCallSiteLayers(type);
+    }
+
+    private static void appendCallSiteLayers(java.lang.reflect.Type type) {
+        if (type instanceof java.lang.reflect.ParameterizedType pt) {
+            Class<?> raw = (Class<?>) pt.getRawType();
+            java.lang.reflect.Type[] args = pt.getActualTypeArguments();
+            if (args.length > 0) {
+                CALLSITE_ARGUMENTS.get()
+                    .computeIfAbsent(raw, k -> new java.util.ArrayDeque<>())
+                    .addLast(args);
+            }
+            for (java.lang.reflect.Type arg : args) {
+                appendCallSiteLayers(arg);
+            }
+        }
+    }
+
+    /** Emission form: publishes the call site's closed generic and returns the erased raw class. */
+    public static Class<?> closedCallSiteGenericType(java.lang.reflect.Type closed) {
+        registerCallSiteType(closed);
+        return toRawClass(closed);
+    }
+
     /** Clears the registry when the outermost registration session finishes. */
     public static void endTypeRegistration() {
         int[] depth = REGISTRATION_DEPTH.get();
@@ -323,6 +363,7 @@ public final class TypeHelper {
         TYPE_ARGUMENTS.get().clear();
         CONSUMED_ARGUMENTS.get().clear();
         MEMBER_ARGUMENTS.get().clear();
+        CALLSITE_ARGUMENTS.get().clear();
     }
 
     /**
@@ -341,7 +382,12 @@ public final class TypeHelper {
             return consumed;
         }
         java.util.ArrayDeque<java.lang.reflect.Type[]> deque = TYPE_ARGUMENTS.get().get(raw);
-        return deque == null || deque.isEmpty() ? null : deque.peekFirst();
+        if (deque != null && !deque.isEmpty()) {
+            return deque.peekFirst();
+        }
+        // Lowest priority, matching getGenericArguments.
+        java.util.ArrayDeque<java.lang.reflect.Type[]> callSite = CALLSITE_ARGUMENTS.get().get(raw);
+        return callSite == null || callSite.isEmpty() ? null : callSite.peekFirst();
     }
 
     /** Opt-in diagnostics: {@code -Dcs2j.trace.typeargs=true} traces type-argument resolution. */
@@ -470,6 +516,18 @@ public final class TypeHelper {
             }
             trace("getGenericArguments(" + type.getSimpleName() + ") = " + java.util.Arrays.toString(result)
                 + " [repeat of consumed layer]");
+            return result;
+        }
+        // Lowest priority: the call site's own closed generic (a class literal erased it).
+        java.util.ArrayDeque<java.lang.reflect.Type[]> callSiteDeque = CALLSITE_ARGUMENTS.get().get(type);
+        if (callSiteDeque != null && !callSiteDeque.isEmpty()) {
+            java.lang.reflect.Type[] callSite = callSiteDeque.pollFirst();
+            Class<?>[] result = new Class<?>[callSite.length];
+            for (int i = 0; i < callSite.length; i++) {
+                result[i] = toRawClass(callSite[i]);
+            }
+            trace("getGenericArguments(" + type.getSimpleName() + ") = " + java.util.Arrays.toString(result)
+                + " [call-site layer]");
             return result;
         }
         java.lang.reflect.TypeVariable<?>[] params = type.getTypeParameters();
