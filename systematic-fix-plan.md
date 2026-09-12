@@ -303,10 +303,20 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 430, Errors: 293, Skipped: 18` = **723**（起点 855，**−132**）。
-- 工作树干净；所有改动已提交（本会话 51 个提交）。
-- 5 条经"全量 + 逐用例集合差 + 完整再生"三重验证的 KEEP 提交（见 §6.1）；
-  另有 1 条工程性修复（补丁分派的后缀遮蔽，`ef568d4f`）。
+- **基线**：`Tests run: 7902, Failures: 407, Errors: 295, Skipped: 18` = **702**（起点 855，**−153**）。
+- 本轮（Round 41）在诊断之外**新增两条 KEEP**（均"逐用例集合差 +0 回归"）：
+  - `e777d254` 把 C# `[JsonPropertyName]` 送进运行时 → **723 → 709（修 14 / 坏 0）**；
+  - `5540ec46` 非公开访问器可见性（`CompatNonPublicAccessor` + `[JsonInclude]` 例外）
+    → **709 → 702（修 7 / 坏 0）**。
+- 工作树干净；所有改动已提交。
+- **本轮新增的两条可复用"桥"模式**：C# 特性在生成物里是**类**而不是注解，所以
+  `CustomAttributeExtensions.getCustomAttribute` 看不到它 —— 转换器发一个
+  `@CompatXxx` 标记，compat 再从标记**物化**出那个特性类。
+  已有：`CompatJsonIgnore`、`CompatJsonInclude`、`CompatJsonExtensionData`、
+  `CompatJsonNumberHandling`、`CompatPropertyName`、`CompatSByteArray`、
+  `CompatNonPublicProperty`；**本轮新增** `CompatJsonPropertyName`（带值）、
+  `CompatNonPublicAccessor`（按访问器）。
+  **凡是"C# 语义没生效"的簇，优先查这个通道缺了哪个标记。**
 
 ### 8.2 已闭合的开放问题（Round 41：创建层测量做完了）
 
