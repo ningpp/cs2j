@@ -1123,9 +1123,51 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchMemberArgumentCapture(result);
                 }
+                else if (result.FileName.EndsWith("JsonSerializer.java", StringComparison.Ordinal))
+                {
+                    PatchSerializeRegistryReset(result);
+                }
             }
         }
     }
+
+    /// <summary>
+    /// Clears the per-thread type-argument registries at the <c>serialize(Class, value, options)</c>
+    /// entry.
+    /// <para>
+    /// Compat's registries (<c>TYPE_ARGUMENTS</c>, <c>CONSUMED_ARGUMENTS</c>,
+    /// <c>MEMBER_ARGUMENTS</c>, <c>CALLSITE_ARGUMENTS</c>, <c>WRAPPER_LAYER_TAKEN</c>,
+    /// <c>CONCRETE_SUBTYPES</c>) are ThreadLocals that outlive one operation, so a member or call site
+    /// read by an earlier (de)serialization could still answer lookups in a later one. That is what
+    /// made ~28 nested-collection WRITE tests fail in full-suite order while passing when their class
+    /// ran alone; clearing at the entry measured 790 to 723.
+    /// </para>
+    /// </summary>
+    private static void PatchSerializeRegistryReset(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        if (!SerializeRegistryResetRegex.IsMatch(result.GeneratedCode))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchSerializeRegistryReset did not match JsonSerializer.java - the "
+                + "generated serialize(Class, TValue, JsonSerializerOptions) entry changed; the "
+                + "per-thread registry reset is NOT applied.");
+            return;
+        }
+
+        result.GeneratedCode = SerializeRegistryResetRegex.Replace(
+            result.GeneratedCode,
+            "public static <TValue> String serialize(Class<TValue> _cs2j_TValue, TValue value, JsonSerializerOptions options) {\n"
+            + "        TypeHelper.clearRegistrations();",
+            count: 1);
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex SerializeRegistryResetRegex = new(
+        @"public static <TValue> String serialize\(Class<TValue> _cs2j_TValue, TValue value, JsonSerializerOptions options\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>
     /// The generated <c>IEnumerableConverter.createCollection</c> builds <c>new CSharpList&lt;Object&gt;()</c>
