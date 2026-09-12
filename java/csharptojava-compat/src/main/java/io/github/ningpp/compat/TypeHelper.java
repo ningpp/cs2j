@@ -492,6 +492,41 @@ public final class TypeHelper {
         return Object.class;
     }
 
+    /**
+     * Creates the collection a non-generic enumerable converter should populate.
+     *
+     * <p>The generated {@code IEnumerableConverter.createCollection} always built
+     * {@code new CSharpList<Object>()} for the interface-typed branch (the conversion of C#
+     * {@code new List<TElement>()}). For a converted non-generic collection that is neither the
+     * target type nor the type {@code getRuntimeType()} reports, the generated guard
+     * {@code isAssignableFrom(getTypeToConvert(), getRuntimeType())} rejects the collection outright,
+     * and once it is satisfied the populated list holds {@code CSharpList} elements, so converting to
+     * the target's array type dies with an ArrayStoreException.</p>
+     *
+     * <p>Instantiating the TARGET type satisfies both: {@code GetRuntimeType()} is the target or a
+     * supertype, and {@code ConvertCollection} then produces the right element type.</p>
+     *
+     * @param assignableFromRuntime the generated guard's verdict, computed by the caller.
+     * @return the collection to populate, or null when the target really cannot be populated.
+     */
+    public static Object newNonGenericCollection(Class<?> typeToConvert, boolean assignableFromRuntime) {
+        if (typeToConvert == null || typeToConvert.isInterface()
+                || java.lang.reflect.Modifier.isAbstract(typeToConvert.getModifiers())) {
+            return new CSharpList<Object>();
+        }
+        if (!assignableFromRuntime) {
+            // Keep the generated guard's rejection for a target that cannot be populated.
+            return null;
+        }
+        try {
+            java.lang.reflect.Constructor<?> ctor = typeToConvert.getDeclaredConstructor();
+            ctor.setAccessible(true);
+            return ctor.newInstance();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return new CSharpList<Object>();
+        }
+    }
+
     /** Recursively converts a closed generic Type to its erased Class (used by converters). */
     public static Class<?> toErasedClass(java.lang.reflect.Type type) {
         return toRawClass(type);

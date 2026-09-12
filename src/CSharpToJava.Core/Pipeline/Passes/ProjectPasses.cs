@@ -1076,13 +1076,74 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchAttributeValuePair(result);
                 }
+                else if (result.FileName.EndsWith("IEnumerableConverter.java", StringComparison.Ordinal))
+                {
+                    PatchIEnumerableConverterCreateCollection(result);
+                }
             }
         }
     }
 
-    private static void PatchPushdownPrefixState(ConversionResult result)
+    /// <summary>
+    /// The generated <c>IEnumerableConverter.createCollection</c> builds <c>new CSharpList&lt;Object&gt;()</c>
+    /// for the interface-typed branch (the conversion of C# <c>new List&lt;TElement&gt;()</c>). For a
+    /// converted non-generic collection (CSharpArrayList) that is neither the target type nor the
+    /// type <c>getRuntimeType()</c> reports, so the guard rejects the collection outright and — once
+    /// the guard is satisfied — the populated list holds CSharpList elements, breaking the
+    /// conversion to <c>CSharpArrayList[]</c> with an ArrayStoreException. Populate an instance of the
+    /// target type instead; compat keeps the rejection for a target that truly cannot be populated.
+    /// </summary>
+    private static void PatchIEnumerableConverterCreateCollection(ConversionResult result)
     {
-        var code = result.GeneratedCode;
+        if (result.GeneratedCode == null)
+            return;
+
+        // Replace the guard together with the creation, so the patch does not depend on the two
+        // statements staying adjacent.
+        var match = IEnumerableCreateCollectionRegex.Match(result.GeneratedCode);
+        if (!match.Success)
+            return;
+
+        var indent = match.Groups["indent"].Value;
+        var patched =
+            indent + "Object __cs2jCollection = TypeHelper.newNonGenericCollection(getTypeToConvert(), "
+            + "TypeHelper.isAssignableFrom(getTypeToConvert(), getRuntimeType()));\n"
+            + indent + "if (__cs2jCollection == null) {\n"
+            + indent + "ThrowHelper.throwNotSupportedException_CannotPopulateCollection(getTypeToConvert(), reader.value, state.value);\n"
+            + indent + "}\n"
+            + indent + "state.value.Current = state.value.Current.withReturnValue(__cs2jCollection);";
+
+        result.GeneratedCode = IEnumerableCreateCollectionRegex.Replace(
+            result.GeneratedCode, patched.Replace("$", "$$"), count: 1);
+
+        // The patch adds a TypeHelper reference; make sure the file can resolve it.
+        const string typeHelperImport = "import io.github.ningpp.compat.TypeHelper;";
+        if (!result.GeneratedCode.Contains(typeHelperImport, StringComparison.Ordinal))
+        {
+            var generatedMarker = "// Licensed to the .NET Foundation under one or more agreements.";
+            var insertAt = result.GeneratedCode.IndexOf("package ", StringComparison.Ordinal);
+            if (insertAt >= 0)
+            {
+                var lineEnd = result.GeneratedCode.IndexOf('\n', insertAt);
+                if (lineEnd >= 0)
+                {
+                    result.GeneratedCode = result.GeneratedCode.Insert(
+                        lineEnd + 1, "\n" + typeHelperImport + "\n");
+                }
+            }
+            _ = generatedMarker;
+        }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex IEnumerableCreateCollectionRegex = new(
+        @"(?<indent>[ \t]*)if \(!TypeHelper\.isAssignableFrom\(getTypeToConvert\(\), getRuntimeType\(\)\)\) \{\r?\n"
+        + @"[ \t]*ThrowHelper\.throwNotSupportedException_CannotPopulateCollection\(getTypeToConvert\(\), reader\.value, state\.value\);\r?\n"
+        + @"[ \t]*\}\r?\n"
+        + @"[ \t]*state\.value\.Current = state\.value\.Current\.withReturnValue\(new CSharpList<Object>\(\)\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private static void PatchPushdownPrefixState(ConversionResult result)
+    {        var code = result.GeneratedCode;
         var match = PushLineRegex.Match(code);
         if (!match.Success)
             return;

@@ -1094,6 +1094,32 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **两轮累计被否决的尝试已达 6 项**（Round 6：缓存不入；Round 7：接口实参回收×2、IList 树桥接、多维守卫；Round 8：list 树桥接×2），全部记有探针数据，
   且两条主线簇的下一步都已收敛到**具体代码位置**（生成产物的 `getConverter` 读侧；`IEnumerableConverter.createCollection`）。
 
+## Iteration 66 — 落地"产物级补丁"基础设施（中性，零回归），并把 `CSharpArrayList` 的下一步钉到类声明
+
+- **新增能力（本轮唯一代码改动，全量 855 → 855 中性、零回归）**:
+  `ProjectPasses.PatchIEnumerableConverterCreateCollection` —— 在既有产物级补丁通道（`PatchPushdownPrefixState`/`PatchAttributeValuePair` 同处）里，
+  用一条**同时匹配守卫+创建语句**的正则替换 `IEnumerableConverter.createCollection` 的函数体，并自动补 `import io.github.ningpp.compat.TypeHelper;`。
+  产物校验：`createCollection` 变为
+  `Object __cs2jCollection = TypeHelper.newNonGenericCollection(getTypeToConvert(), isAssignableFrom(getTypeToConvert(), getRuntimeType()));` + null 守卫 ⇒ 编译零错误。
+  配套 compat `TypeHelper.newNonGenericCollection(typeToConvert, assignableFromRuntime)`：接口/抽象类型仍造 `CSharpList`；具体类型造**目标类型的实例**（这正是 .NET 语义），无法构造时回退。
+- **为什么本轮仍无功能收益（已定位）**:
+  `readArrayOfArrayList` 用的 `CSharpArrayList` 在工厂里**匹配不到任何分支**——它只实现非泛型 `CSharpIList`，而
+  `isAssignableFrom(CSharpGenericIList, CSharpArrayList) == false`（探针实测）⇒ 落到默认 `IEnumerableConverter` 分支。
+  补桥接后失败点**继续后移**（`IListConverter.createCollection` 里 `(CSharpGenericIList) value` 抛 `ClassCastException`；ArrayConverter 路径则是 `ArrayStoreException`），
+  因为 Java 的 `isAssignableFrom` 能撒谎、**强制转换不能**。
+- **下一步（明确到一行改动）**: 让 `CSharpArrayList` 真的 `implements CSharpIList, CSharpGenericIList<Object>`（它已有 `add/clear/contains/indexOf/insert/remove/removeAt/get/set/size/getCount/iterator`，
+  缺 `copyTo(T[],int)`、`getIsReadOnly()` 等在通用接口上的形态）。一旦 JVM 层面为真，工厂会走 IList 分支、`newNonGenericCollection` 会造出 `CSharpArrayList`，三条失败点同时消失。
+- **方法学教训（本轮实际踩到）**: `git checkout -- <file>` 会**连带撤销**同一文件里更早的改动——本轮 compat 辅助方法因此被一并回退，
+  导致产物引用不存在的方法、编译失败（`IEnumerableConverter.java:[51,45] 找不到符号`）。跨多个文件改动时，回退必须按"改动"而非按"文件"进行。
+
+## Iteration 67 — 本轮（Round 9）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（编译零错误）。累计（Round 1→9）: 895 → 855。
+- **compat**: 1717/1717 ✓；**dotnet**: 3158 + 59 ✓；工作区干净。
+- **可复用资产**: 产物级补丁通道（可对任意生成文件做一次正则改写 + 自动补 import）已用通一次；
+  这是绕过"找不到产出 pass"的通用手段——Round 7/8 卡住的 `getConverter` 读侧同样可以用它改写（把裸类读取改为 `TypeHelper.cachedConverter(_converters, typeToConvert)`）。
+
+
 
 
 
