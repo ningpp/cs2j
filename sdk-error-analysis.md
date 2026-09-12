@@ -724,3 +724,12 @@ Round 23 已确认：命中点是 `InvocationExpressionTransformer.cs:12554`，�
 2. **转换器**: 对 `[JsonExtensionData]`/`[JsonIgnore]`/`[JsonInclude]`/类型级 `[JsonConverter]` 发射对应注解（复用 `CompatPropertyName` 的发射点，逐个特性最小化）。
 3. **验证**: compat 单测（注解→属性可见性）→ `dotnet build/test`（3154+58）→ Step 1（618/0）→ Step 2 官方（编译零错误 + 与 `mvn-build-r27.log` 集合差要求新增失败 0）→ 预期 `ExtensionDataTests` 16+ 与 `enumWithConverterAttribute` 转绿。
 4. **回退纪律**: 每一步只动一处发射点；出现编译错误或集合差为负立即回退（这是 (a) 两轮否决与 (c) 一次失败换来的教训）。
+## Iteration 35 — (b) 接口未知项已解决：翻译层可完全落在 compat 内
+
+- **实测**: 生成代码 `JsonPropertyInfo.java:229-231` 的属性查询是
+  `CustomAttributeExtensions.getCustomAttribute(memberInfo, TypeHelper.toWrapperType(attrClass), false)`；
+  而 `io.github.ningpp.compat.CustomAttributeExtensions` **是 compat 类**（9 个重载：`getCustomAttribute(Class<T>, MemberInfo|PropertyInfo)`、`(MemberInfo, Class<T>, boolean)`、`(MemberInfo, Class<?>)` 等）。
+- **推论（取代 Iteration 34 的复杂方案）**: **不需要**"compat 无法引用生成模块特性类 ⇒ 回调注册表 / 改由生成端读取"的迂回方案。只需：
+  1. 转换器发射 **compat 注解**（复用已跑通的 `@CompatPropertyName` 发射点）；
+  2. 在 `CustomAttributeExtensions.getCustomAttribute(attributeType, member)` 中**按 `attributeType` 翻译**注解 → 目标特性类实例；实例用**反射无参/带参构造**（`attributeType.getDeclaredConstructor(...).newInstance(...)`）生成，`JsonConverterAttribute(Type)` 这类用注解里携带的 `Class` 值 ✓ —— 全过程在 compat 内闭环。
+- **下一轮第一步（不触碰生成产物、可独立验证）**: 新增 compat 注解（`CompatJsonExtensionData` 等）+ `CustomAttributeExtensions` 的翻译实现 + compat 单测（用假目标特性类断言翻译结果）→ `mvn -o clean install`（应 1640+ 全绿）。此步验证通过后再做转换器发射与 12 分钟闭环（Step 1 + Step 2 + 集合差要求新增失败 0）。
