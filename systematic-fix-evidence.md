@@ -398,3 +398,43 @@ Round 3 试过"元素类信息取自活转换器"→ 5 修复 / 1 回归、总�
 **可行方向**：在**建 `JsonClassInfo` 时**就把该 class info 自己的实参固化下来
 （而不是每次靠环境推断），并让 `getRuntimeClassInfo()` 用这个固化实参去查 `_classes`。
 这需要 `JsonPropertyInfo` 记住它属于哪个闭合泛型，属于结构性改动，应单独立项、单独测量。
+
+### 4.12 Round 7：把 72 条那一簇的"最后一厘米"测出来了
+
+在 `JsonPropertyInfo.getRuntimeClassInfo()` 上装探针（跑 `probe/NestedListProbe.java`）：
+
+```
+[cs2j.pi] runtimePropertyType=class io.github.ningpp.compat.CSharpList
+          key=io.github.ningpp.compat.CSharpList[class java.lang.String]
+          info.elementType=class java.lang.String
+```
+
+**关键点**：`key` 在 `getRuntimeClassInfo()` 里**第一次计算时就已经是 `[String]`**，
+说明此刻 `MEMBER_ARGUMENTS[CSharpList]` 已经是 `[String]` —— 也就是二维列表成员的实参**已经丢失**，
+而不是"查询时被覆盖"。它本该是 `[[Integer]]`。
+
+**于是本簇的完整因果链**（比 Iteration 76 更精确）：
+
+1. `JsonClassInfo.getConverter` 把 `runtimeType` 退化成裸 `CSharpList.class`（实参被擦除）；
+2. `getRuntimeClassInfo()` 拿裸类去查，`converterCacheKey` 返回
+   `CSharpList[MEMBER_ARGUMENTS[CSharpList]]`，而此时该槽位是**别的成员**留下的 `[String]`；
+3. `getOrAddClass` 于是命中 `CSharpList<String>` 那一格，属性的 `JsonClassInfo` 变成 `List<string>`；
+4. 其 `_elementClassInfo` 在**预热期**就指向 `String`，于是 Round 5 的元素查找补丁
+   **整块被短路**（§4.11 的 0 次 trace），内层 `[10,11]` 被 `StringConverter` 读。
+
+**为什么"查一次键"治不了**：我实测把 `getOrAddClass` 改成"只算一次 key、`get` 与 `putIfAbsent` 共用"
+并把 `_classes` 键类型放宽为 `Object` → `ArrayTests`(38) 与 `ObjectTests`(66) **计数完全不变**。
+因为问题出在**那次计算的输入**（`MEMBER_ARGUMENTS` 已错），不是计算的次数。
+
+**结论（下一轮的结构性任务）**：`MEMBER_ARGUMENTS` 是**按裸类单槽**的
+（`Map<Class, Type[]>`，后读的成员覆盖先读的）。只要两个成员的成员类型是同一个裸类
+（`List<string>` 与 `List<List<short>>`），先者的实参就会污染后者。正解是让**成员实参与成员绑定**，
+而不是与裸类绑定：
+
+- 方案 A：`PropertyInfo`/`FieldInfo` 在 `getPropertyType()` 时把自己的实参**记在实例上**
+  （而不是推进全局槽位），`JsonPropertyInfo` 在 `initialize` 时取走并保存；
+  `getRuntimeClassInfo()` 用保存的实参去查 `_classes`。
+- 方案 B：给 `_classes` 的键从"闭合泛型键"改为"成员身份 + 裸类"，使每个成员各有独立 class info。
+
+两者都要动 `JsonPropertyInfo` + compat 的实参发布方式，**属于结构性改动**，
+必须先做"单类验证（`ArrayTests`+`ObjectTests`）→ 再全量"，不可直接铺开。
