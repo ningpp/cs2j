@@ -580,6 +580,28 @@
   要点：注册发生在**任何查找之前**（探针已证明查找先于发布会因根类型 LRU 而失效），且每层都注册（Round 14 已证明按层区分才能让外层/内层转换器各就各位）。
 - **验证**: 新增 `ClosedGenericEmissionApiTest`（3 项：多层外层优先、单层、非泛型直通）→ 绿；compat 全量 **1636/1636**。该 API 目前**无调用方**，因此对 SDK 现状是 no-op（官方指标仍为 929），纯粹是把 (a) 的落地成本压缩成"一处发射改动 + 一次重新转换"。
 
+## Iteration 27 — (a) 发射点普查（为下一轮精确定位；本轮不改代码）
+
+`grep '\) \(Class<\?>\) '` 在转换器中命中 **12 处**"说谎强转"发射点（生成代码里 `((Class<X<Y>>) (Class<?>) X.class)` 这一形态的来源）：
+
+| 文件 | 行 | 形态 |
+|------|----|------|
+| `ConversionContext.cs` | 773 | `((Class<{MapType(typeSymbol)}>) (Class<?>) {helperCall})` |
+| `HIR/HIRExpressionGenerator.cs` | 249 | 类型实参令牌包裹 |
+| `InvocationExpressionTransformer.cs` | 864 | 泛型调用的**实参**类字面量包裹 |
+| 同上 | 5690 / 5827 | `RefCountedReader<T>` / `Deserialize<T>` 的类字面量 |
+| 同上 | 10663 | `((Class<Throwable>) (Class<?>) ...)`（异常路径，与本次无关） |
+| 同上 | 12554 | `token = ((Class<{MapType(concreteType)}>) (Class<?>) {token})` |
+| 同上 | 13068 | `((Class) (Class<?>) {t})`（注释说明为避免类型推断失败） |
+| 同上 | 13538 / 13583 | 令牌注入（`literal` / null 令牌） |
+| `StatementTransformer.Loops.cs` | 555 | 仅字符串匹配判断，非发射点 |
+
+- **下一轮定位方法**: 目标生成形态是
+  `JsonSerializer.serialize(((Class<CSharpList<Integer>>) (Class<?>) CSharpList.class), input, null)`
+  —— 即"**参数化静态类型**被 `MapType` 映射成 `Class<X<Y>>` 后与裸 `X.class` 组合"。应先用一个最小样例（`WritePrimitiveList` 那类 `JsonSerializer.Serialize(List<int>)`）确定它由 864（泛型实参包裹）还是 12554/13538（令牌注入）产生，**只改命中的那一处**，把 `X.class` 换成
+  `TypeHelper.closedGenericType(TypeHelper.parameterized(X.class, <递归的实参 Type>))`。
+- **风险控制**: 上一轮 (c) 的教训是"改动面越大越容易在调用点失配"；(a) 同样只应改**实际命中**的发射点，改完立即用 Step 1 + Step 2 验证（编译零错误 + 集合差 0 回归），再考虑是否推广到其余同类点。
+
 
 
 
