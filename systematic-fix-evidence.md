@@ -1970,3 +1970,26 @@ Round 48 只打通了**成员级** `[JsonConverter]`；**类型级**仍然到不
 
 **残留**：`attributeCreateConverterFail` 仍为 `No exception thrown`——
 它的第二次 serialize/deserialize 未触发校验，与拼写无关，需单独查。
+### 4.53 Round 51：`[JsonConverter(null)]` 与装箱基元类型名（626 → 625，`attributeCreateConverterFail` 全绿）
+
+提交 `06c47712`。该用例本轮**连续推进两次**（227 → 230 → 通过），两步都是真实修复：
+
+**1. C# `[JsonConverter(null)]` 需要哨兵**
+`[NullConverter]`（`class NullConverterAttribute : JsonConverterAttribute { ... : base(null) }`）
+是一个**存在但不指定转换器类型**的特性，它通过覆写 `createConverter` 接管创建。
+此前它**完全不发标记**（转换器类型是 null，注解存不下 null），
+于是"特性存在但无类型"与"没有特性"无法区分，该抛的序列化没有抛。
+`CompatJsonConverter.value()` 改为默认 `Void.class` 作哨兵，两处物化点把它映射回 `null`
+（即 `JsonConverterAttribute.getConverterType() == null` 的语义）。
+
+**2. 装箱基元要按 C# 拼写**
+消息里被转换的类型写成 `java.lang.Integer`，断言要 `System.Int32`。
+`getCsTypeName` 的名字映射表补上装箱基元（`Integer/Long/Short/Byte/Boolean/Double/Float/
+Character`）与 `String`/`Object`。
+
+**验证**：`Tests run: 7902, Failures: 342, Errors: 283, Skipped: 18` = **625**
+（起点 855，**−230**）；逐用例集合差 = 修 1 / 坏 0。
+
+**至此 §8.2.6 的 `[JsonConverter]` 簇（成员级 + 类型级 + 派生特性 + null 哨兵 + 消息拼写）
+全部收口**：`attributeCreateConverterFail`、`attributeOnClassFail`、`attributeOnPropertyFail`、
+`converterWithoutDefaultCtor` 均已通过。

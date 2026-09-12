@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 343, Errors: 283, Skipped: 18` = **626**（起点 855，**−229**）。
-- 本会话累计 **11 条 KEEP**（均"逐用例集合差 +0 回归"）：
+- **基线**：`Tests run: 7902, Failures: 342, Errors: 283, Skipped: 18` = **625**（起点 855，**−230**）。
+- 本会话累计 **12 条 KEEP**（均"逐用例集合差 +0 回归"）：
 
 | 提交 | 内容 | 收益 |
 |---|---|---|
@@ -326,6 +326,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `4c0be592` | 类型级 `[JsonConverter]` 送达运行时 | 631 → 628（修 3） |
 | `d18e4827` | `ThrowHelper` 消息渲染 C# 泛型类型名 | 628 → 627（修 1） |
 | `9d25d891` | BCL 兼容类按 C# 名渲染（`System.Collections.Generic.*`） | 627 → 626（修 1） |
+| `06c47712` | `[JsonConverter(null)]` 哨兵 + 装箱基元按 C# 名渲染 | 626 → 625（修 1） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -530,14 +531,14 @@ compat 的不可变类型没建模成 `Iterable`/`Map`：
 
 **残留（失败点已前移，方向明确）**：
 
-- `attributeOnPropertyFail` 现在缺的是 **C# 泛型类型名**的渲染：
-  `System.Collections.Generic.ICollection`1[dotnet...CustomConverterTests+InvalidTypeConverterEnum]`
-  （元数反引号 `` `1 ``、实参方括号、嵌套用 `+`）。
-  与 Round 48 的 `getMemberLocation` 属**同一类"拼写"问题**。
-  **下一步**：做 `compatTypeName` 并让 `ThrowHelper` 的两个 `...NotCompatible`
-  消息使用它；这类渲染被多个断言依赖，**必须逐用例验证**。
-- `attributeCreateConverterFail` 仍是 `No exception thrown`，
-  第二次 serialize/deserialize 路径未触发校验，需单独查。
+- ~~`attributeOnPropertyFail` 需要 C# 泛型类型名~~ —— **Round 50 已修**（`d18e4827` + `9d25d891`）。
+- ~~`attributeCreateConverterFail` 仍是 `No exception thrown`~~ —— **Round 51 已修**
+  （`06c47712`：`[JsonConverter(null)]` 哨兵 + 装箱基元 C# 名）。
+
+**该簇已全部收口**：`attributeCreateConverterFail`、`attributeOnClassFail`、
+`attributeOnPropertyFail`、`converterWithoutDefaultCtor` 均通过。
+**下一个目标**：见 §8.2.7 的结构性线索（不可变集合未建模成 `Iterable`/`Map`，
+同时解释 14 条 cast 失败与 21 条 `ArrayIndexOutOfBoundsException`）。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
