@@ -104,11 +104,33 @@ public final class TypeHelper {
         try {
             return Class.forName(name);
         } catch (ClassNotFoundException e) {
+            Class<?> mapped = mapAssemblyQualifiedName(name);
+            if (mapped != null) {
+                return mapped;
+            }
             if (throwOnError) {
                 throw new RuntimeException(e);
             }
             return null;
         }
+    }
+
+    // C# type names reaching Type.GetType carry an assembly qualification
+    // ("System.Collections.Stack, System.Collections.NonGeneric"). Class.forName cannot load one, so
+    // ports of helpers such as IEnumerableConverterFactoryHelpers.isNonGenericStackOrQueue always saw
+    // null and their branch was dead: a Stack/Queue member fell through to the generic IEnumerable
+    // converter, whose createCollection cannot populate the type and threw "The collection type
+    // '...CSharpObjQueue' is abstract, an interface, or is read only". The framework collections that
+    // reach here this way are exactly the ones compat models by hand.
+    private static Class<?> mapAssemblyQualifiedName(String name) {
+        int comma = name.indexOf(',');
+        String typeName = (comma < 0 ? name : name.substring(0, comma)).trim();
+        return switch (typeName) {
+            case "System.Collections.Stack" -> CSharpObjStack.class;
+            case "System.Collections.Queue" -> CSharpObjQueue.class;
+            case "System.Collections.ArrayList" -> CSharpArrayList.class;
+            default -> null;
+        };
     }
 
     public static Class<?> getDeclaringType(Class<?> type) {        return type == null ? null : type.getDeclaringClass();
@@ -925,6 +947,34 @@ public final class TypeHelper {
             return getGenericTypeDefinition(type.getComponentType());
         }
         return type;
+    }
+
+    /**
+     * Mirrors {@code Type.GetInterfaces()} for the purpose of matching a generic interface.
+     *
+     * <p>.NET's {@code Type.GetInterfaces()} returns the <em>transitive closure</em> of the
+     * interface hierarchy; Java's {@code Class.getInterfaces()} returns direct interfaces only. A
+     * ported helper that walks {@code getInterfaces()} therefore never sees an interface inherited
+     * through a superclass or a parent interface: a {@code StringHashSetWrapper} exposing no direct
+     * interfaces produced {@code null} from
+     * {@code IEnumerableConverterFactoryHelpers.getCompatibleGenericInterface}, so it fell to the
+     * generic IEnumerable converter and its {@code createCollection} rejected the type
+     * ("... is abstract, an interface, or is read only"). This walks interfaces and superclasses.</p>
+     */
+    public static java.util.List<Class<?>> getAllInterfaces(Class<?> type) {
+        java.util.LinkedHashSet<Class<?>> found = new java.util.LinkedHashSet<>();
+        collectInterfaces(type, found);
+        return new java.util.ArrayList<>(found);
+    }
+
+    private static void collectInterfaces(Class<?> type, java.util.Set<Class<?>> found) {
+        for (Class<?> current = type; current != null && current != Object.class; current = current.getSuperclass()) {
+            for (Class<?> iface : current.getInterfaces()) {
+                if (found.add(iface)) {
+                    collectInterfaces(iface, found);
+                }
+            }
+        }
     }
 
     public static boolean getIsAbstract(Class<?> type) {

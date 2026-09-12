@@ -1085,6 +1085,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchListConverterAdd(result);
                 }
+                else if (result.FileName.EndsWith("JsonSerializerOptions.java", StringComparison.Ordinal))
+                {
+                    PatchConverterCacheLookup(result);
+                }
             }
         }
     }
@@ -1156,6 +1160,46 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex ListConverterAddRegex = new(
         @"(?<indent>[ \t]*)\(\(TCollection\)\(state\.value\.Current\.getReturnValue\(\)\)\)\.add\(value\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Makes the generated converter cache read the key its writer used.
+    /// <para>
+    /// The write side goes through <c>ConcurrentHashMapHelper.tryAdd</c>, which stores a converter
+    /// under <c>TypeHelper.converterCacheKey(typeToConvert)</c> — a closed-generic key whenever the
+    /// member's type arguments are published. The generated read is a plain
+    /// <c>_converters.containsKey(typeToConvert)</c> / <c>_converters.get(typeToConvert)</c> on the
+    /// erased class, so it never finds the entry it just wrote and falls through to rebuilding the
+    /// converter from whatever arguments are ambient. For a nested generic that is another member's
+    /// arguments: <c>List&lt;List&lt;short&gt;&gt;</c> ends up served by <c>List&lt;string&gt;</c>'s
+    /// <c>ListOfTConverter&lt;String&gt;</c> and reads <c>[10,11]</c> with the String element
+    /// converter ("Cannot get the value of a token type 'StartArray' as a string"). Routing the read
+    /// through the compat helpers keeps both sides on one key while still honouring the raw-class
+    /// entries the converter list and warm-up maintain.
+    /// </para>
+    /// </summary>
+    private static void PatchConverterCacheLookup(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var match = ConverterCacheLookupRegex.Match(result.GeneratedCode);
+        if (!match.Success)
+            return;
+
+        var indent = match.Groups["indent"].Value;
+        var patched =
+            indent + "if (TypeHelper.converterCacheHas(_converters, typeToConvert)) {\n"
+            + indent + "converter = TypeHelper.converterCacheGet(_converters, typeToConvert, dotnet.text.json.Serialization.JsonConverter.class);";
+
+        result.GeneratedCode = ConverterCacheLookupRegex.Replace(
+            result.GeneratedCode, patched.Replace("$", "$$"), count: 1);
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ConverterCacheLookupRegex = new(
+        @"(?<indent>[ \t]*)if \(_converters\.containsKey\(typeToConvert\)\) \{\r?\n"
+        + @"[ \t]*converter = _converters\.get\(typeToConvert\);",
         System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>Makes sure a patched file can resolve <c>TypeHelper</c>.</summary>
