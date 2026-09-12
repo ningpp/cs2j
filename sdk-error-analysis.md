@@ -733,3 +733,22 @@ Round 23 已确认：命中点是 `InvocationExpressionTransformer.cs:12554`，�
   1. 转换器发射 **compat 注解**（复用已跑通的 `@CompatPropertyName` 发射点）；
   2. 在 `CustomAttributeExtensions.getCustomAttribute(attributeType, member)` 中**按 `attributeType` 翻译**注解 → 目标特性类实例；实例用**反射无参/带参构造**（`attributeType.getDeclaredConstructor(...).newInstance(...)`）生成，`JsonConverterAttribute(Type)` 这类用注解里携带的 `Class` 值 ✓ —— 全过程在 compat 内闭环。
 - **下一轮第一步（不触碰生成产物、可独立验证）**: 新增 compat 注解（`CompatJsonExtensionData` 等）+ `CustomAttributeExtensions` 的翻译实现 + compat 单测（用假目标特性类断言翻译结果）→ `mvn -o clean install`（应 1640+ 全绿）。此步验证通过后再做转换器发射与 12 分钟闭环（Step 1 + Step 2 + 集合差要求新增失败 0）。
+## Iteration 36 — (b) 发射点已定位：`PropertyTransformer.cs` 的三处 `@CompatPropertyName` 注入
+
+`grep CompatPropertyName` 在转换器中命中 3 处**成员注解注入**（`JavaAnnotation` 机制 ✓），即 (b) 要复用的同一发射点：
+- `src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs:284-285`（getter）
+- 同上 `:470-471`（setter2，默认参数重载路径）
+- 同上 `:499-500`（setter）
+
+**下一轮唯一实现**（照抄现有形态，最小面）:
+```csharp
+if (propertySymbol.GetAttributes().Any(a =>
+        a.AttributeClass?.ToDisplayString() == "System.Text.Json.Serialization.JsonExtensionDataAttribute"))
+{
+    getter.Annotations.Add(new JavaAnnotation("CompatJsonExtensionData"));
+    context.AddImport("io.github.ningpp.compat.CompatJsonExtensionData");
+}
+```
+（三处都要加，或抽一个小的 `AddCompatAttributeAnnotations(member, symbol, context)` 辅助方法统一处理，便于以后给 `[JsonIgnore]`/`[JsonInclude]`/`[JsonConverter]` 扩展。）
+
+**随后固定闭环**：`dotnet build -c Release` → `dotnet test -c Release`（3154+58）→ Step 1（618/0，≤300s）→ 复查生成产物出现 `@CompatJsonExtensionData` → Step 2 官方（编译零错误为硬门槛）→ 与 `mvn-build-r27.log` 集合差**要求新增失败 0**；为负则只回退该发射。
