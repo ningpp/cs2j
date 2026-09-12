@@ -551,3 +551,41 @@ Round 8 的持久作用域之所以 10 修 8 回，就是因为它在
 剩余 `MyInt16TwoDimensionList` 族（`ArrayTests` 仍 34）说明**正确键的条目在预热期就没被建出来**——
 即外层二维列表的 `JsonClassInfo` 从未以 `CSharpList[[Integer]]` 注册成功。
 **下一轮方向**：查预热期为什么没有建出该条目（而不是继续在查询侧加探针）。
+
+### 4.16 Round 11：条目其实**存在**，是**时序**问题（关键结论）
+
+在探针里把 `_classes` 的所有 `CSharpList` 键打出来，按**读取顺序**看到真相：
+
+```
+[cs2j.hit] member=MyInt16TwoDimensionList key=CSharpList[CSharpList<Integer>] hit=false listKeys=
+[cs2j.hit] member=MyStringList              key=CSharpList[String]            hit=false listKeys=[CSharpList[CSharpList<Integer>]]
+[cs2j.hit] member=MyStringIEnumerableT      key=CSharpList[String]            hit=true  listKeys=[CSharpList[[Integer]]][CSharpList[String]]
+```
+
+**纠正 §4.15 的推断**：`CSharpList[[Integer]]` 这个条目**并非从未建立**——它是在
+**第一个成员（`MyInt16TwoDimensionList`）自己那次读取过程中被惰性创建的**，
+所以它自己的探针运行时还不存在（`listKeys` 为空），而排在它后面的成员就能看到了。
+
+**因果链的最后一环**：`getRuntimeClassInfo()` 把结果缓存在 `_runtimeClassInfo`，
+**只算一次**。二维列表成员是**第一个**被读到的，此刻正确条目尚未存在 →
+探针 miss → 回落 `getOrAddClass(裸类)` → 建/取到 `CSharpList[String]` 那一格 →
+**此后永不重试**，即使正确条目马上就被建出来了。
+
+**试过并否证的修法（勿重试）**：
+1. 在 `getRuntimeClassInfo()` 的 miss 分支包 `beginMemberScope` → 无效：
+   miss 发生在**读取阶段**，此时转换器与 class info 早已定型。
+2. 在预热期 `JsonClassInfo.cacheMember` 外再包一层 `beginMemberScope`（手工改生成码验证）→
+   二维成员的探针**仍然 miss**。说明该条目不是由 `cacheMember` 这条路径建出来的，
+   或建立时机仍晚于第一次读取。
+
+**由此得出的下一轮方向（明确且可执行）**：
+不要继续在"查询侧"加探针，而要**让正确条目在第一次读取之前就存在**。三条候选：
+- **A**：在 `JsonClassInfo` 构造完成后，对"成员实参键"做一次**预热建条目**
+  （遍历每个成员，按 `memberArguments` 显式建 class info，使后续读取必然命中）；
+- **B**：`getRuntimeClassInfo()` 在**miss 且该成员只有一个类型参数**时，**不缓存**结果，
+  每次重试探针（代价是重复查找，但能自愈掉这个时序差）；
+- **C**：定位真正建立该条目的代码路径（用断点/trace 打 `_classes.put` 的调用栈），
+  把成员实参在该路径上就位。
+
+**本轮收口**：全部实验代码已回退（含手工改动过的 `JsonPropertyInfo`/`JsonClassInfo`），
+重跑全量复核 = **790（431+359）**、零回归、`git status` 干净。
