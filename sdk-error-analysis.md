@@ -1035,6 +1035,32 @@ if (propertySymbol.GetAttributes().Any(a =>
   (b) 前述 read-ahead 修复的第一次尝试因只做定向单测就被误判为中性而回退，**随后用集合差复核才发现定向 -2**⇒
   方法学补充：**回退决定也必须以集合差（而非单次汇总数字）为依据**。
 
+## Iteration 62 — 本轮三项尝试均被测量否决（全量维持 855）
+
+本轮没有净胜改动；三项尝试都按纪律回退，并把"为什么不行"记录到可复用的程度。
+
+1. **让集合工厂的"擦除接口"查询自动回收实参**（target: 当前最大簇 "JSON value could not be converted to CSharpList" 24 项 + 相关簇）
+   - 做法：把 `GetCompatibleGenericInterface` 调用点改写成 compat 版 `TypeHelper.getCompatibleGenericInterface(type, iface)`，由它沿**具体类**的已声明泛型超类型回收实参后再返回。
+   - 结果：**产物未变**——两次尝试都未能让钩子命中（先按接收者类型判断：实际接收者是 `typeToConvert` 实例而非 helper 类；再按 `typeof(...)` 实参判断：C# 源里该实参不是 `typeof` 形式）。
+   - 结论（可复用）：`InvocationExpressionTransformer` 的字符串路径**不是** `IEnumerableConverterFactoryHelpers.getCompatibleGenericInterface(...)` 的产出点（与 Round 4 对 `_converters.containsKey` 的结论一致，见 Iteration 51）。要改这两个调用点，必须先定位真正产出它们的 pass。
+2. **`IList` 家族跨树桥接**（target: `readArrayOfArrayList` 等 11 项 "The collection type 'CSharpArrayList' is abstract, an interface, or is read only"）
+   - 做法：把 `isAssignableFrom(CSharpIList, type == CSharpList)` 泛化为整棵非泛型 list 树，并补 `isAssignableFrom(CSharpGenericIList, CSharpIList 实现类)`。
+   - 结果：**净负**（全量 855 → 862）：新增失败 4 项（`writeArrayListOfArrayList`/`writeArrayOfArrayList`/`writeNonGenericCollectionWrappers`/`writePrimitiveArrayList`），`CollectionTests` 159 → 165。**已回退**。
+   - 探针记录（`ArrayListBridgeProbe`，回退后的基线）：`isAssignableFrom(CSharpGenericIterable, CSharpArrayList)=true`、`(CSharpIList, CSharpArrayList)=true`、**(CSharpGenericIList, CSharpArrayList)=false**、`factory.canConvert(CSharpArrayList)=true`。
+     即 `canConvert` 本来就为真，改动改变的是 `createConverter` 内部**分支选择**（前四个 Array/List/Dictionary/Immutable 分支的判定顺序），因此写路径被换到了另一个 converter ⇒ 这就是净负的来源。
+   - 下一步建议：不要动 `isAssignableFrom` 的全局语义；改为让 `IEnumerableConverter.createCollection` 在"待填充类型实现了非泛型 list 树"时接受，或在 `IEnumerableConverterFactoryHelpers` 内部（而非调用点）做定向处理。
+3. **多维数组守卫**：复核确认 `getMultiDimArrayClass` + 丢弃缓存**在干净 JVM 下确实抛 `UnsupportedOperationException`**（`MultiDimOrderProbe fresh`），
+   而整类运行时 `readPrimitiveArrayFail` 仍失败 ⇒ 该断言依赖同 JVM 内的既有状态（rank 标记是一次性令牌、`int[].class` 同时代表 `int[,]` 与 `int[][]`）。本轮未再投入。
+
+## Iteration 63 — 本轮（Round 7）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（与 Round 6 相同，无净变化）。
+- **compat**: 1717/1717 ✓；工作区干净（仅新增探针文件）。
+- **累计（Round 1→7）**: 895 → 855（−40）；Round 6/7 两轮合计 −0（全量），但 Round 6 定向 −2。
+- **给下一轮的最短路径**: 先定位产出 `IEnumerableConverterFactoryHelpers.getCompatibleGenericInterface(...)` 与 `_converters.containsKey(...)` 的那个 pass（两处都已确认不在 `InvocationExpressionTransformer` 的字符串分支上），
+  这是当前最大两簇（85 项 "cannot be converted" + 36 项 `Integer→String` + 24 项 `JsonElement→X`）的共同瓶颈。
+
+
 
 
 
