@@ -640,6 +640,27 @@ Java 的 `Throwable.getMessage()` 返回 **null**，于是直译的
 `No exception thrown`（而不是签名错误）——说明该簇的真实断点**还没找到**，
 下一步应从这里查，**不要再相信 Round 54 的结论**。
 
+### 8.2.12 Round 56：扩展数据签名检查**问错了问题**（一半已修，619 中性）
+
+**探针 `probe/w42/ExtSigProbe.java` 的两个精确事实**：
+
+| 成员 | 声明类型 | `isAssignableFrom(CSharpGenericIDictionary, …)` |
+|---|---|---|
+| `ClassWithExtensionPropertyAsImmutable.MyOverflow` | `ImmutableDictionary<String,Object>` | **false**（但 `isImmutableDictionaryType` 为 **true**） |
+| `ClassWithExtensionData<T>.Overflow` | `Object`（`T` 擦除） | false |
+
+**已修**：C# 从 .NET 5 起接受 `IReadOnlyDictionary<string,T>`（不可变字典正是实现它的），
+而生成的检查只问了 `CSharpGenericIDictionary` → 新增
+`TypeHelper.isExtensionDataDictionaryType`。签名拒绝 **14 → 12**，但**失败数不变**（619）。
+
+**未修**：残留 12 条全是 `ClassWithExtensionData<T>.Overflow`，其
+**声明类型是 `Object`，而 `getRuntimePropertyType()` 也没提供构造后的字典类型** ——
+检查两边都是 false。**这是"运行时类型从哪来"的测量问题，不是判据问题。**
+
+**下一步（有依据）**：打印 `JsonPropertyInfo.initialize` 收到的 `runtimePropertyType` 实参，
+并确认 `JsonClassInfo.getProperty`（第 441 行 `determineConverter` 通路）是否被走到。
+**不要再改判据。**
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |

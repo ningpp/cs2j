@@ -2124,3 +2124,30 @@ Java 的 `Method.invoke` 把被调方抛出的异常包进 `InvocationTargetExce
 
 **本轮无净收益**（619 → 619）。**本轮最大的产出是纠正了一条被写进交接文档的错误结论**——
 如果不查，后续会话会沿着"−30 已修"的假前提继续做。
+### 4.58 Round 56：扩展数据签名检查问错了问题（619 → 619，语义修复）
+
+**真实基线确认**：`Tests run: 7902, Failures: 341, Errors: 278, Skipped: 18` = **619**
+（起点 855，**−236**）。本轮**无净收益**，但把该簇的断点收窄了一半。
+
+**探针（`probe/w42/ExtSigProbe.java`）给出两个精确事实**：
+
+| 成员 | 声明类型（`getDeclaredPropertyType`） | `isAssignableFrom(CSharpGenericIDictionary, …)` |
+|---|---|---|
+| `ClassWithExtensionPropertyAsImmutable.MyOverflow` | `ImmutableDictionary<String,Object>` | **false**（但 `isImmutableDictionaryType` 为 **true**） |
+| `ClassWithExtensionData<T>.Overflow` | `Object`（`T` 被擦除） | false |
+
+**已修的一半**：C# 从 .NET 5 起接受 `IReadOnlyDictionary<string,T>`，
+而不可变字典正是实现它的 —— 生成的检查只问了 `CSharpGenericIDictionary`，
+于是把一个 SDK **明确文档并测试**的形式拒了。新增
+`TypeHelper.isExtensionDataDictionaryType`（`IDictionary` / `IReadOnlyDictionary` /
+`IImmutableDictionary` 任一即可），签名拒绝从 **14 条降到 12 条**。
+
+**仍未修的一半**：残留 12 条全是 `ClassWithExtensionData<T>.Overflow`。
+探针显示**声明类型是 `Object`，而 `getRuntimePropertyType()` 也没能提供构造后的字典类型**，
+所以检查的两边都是 false。**这是一个"运行时类型从哪来"的测量问题，不是判断问题**——
+下一步应当打印 `JsonPropertyInfo.initialize` 收到的 `runtimePropertyType` 实参，
+以及 `JsonClassInfo.getProperty`（第 441 行那条 `determineConverter` 通路）是否被走到，
+而不是继续改判据。
+
+**验证**：本轮运行已按 §8.3 新纪律确认完整（`Tests run: 7902` 恰好出现 1 次）；
+逐用例集合差 = 修 0 / 坏 0。**该改动保留**，因为它是 C# 的忠实语义。
