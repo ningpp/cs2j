@@ -334,3 +334,29 @@ StringConverter.write(StringConverter.java:33)
 
 **再生链路第三次验证**：重跑转换器后 4 个补丁点全部从 C# 源自动落上，
 重新全量得到**完全相同**的 796 / 零回归。
+
+### 4.10 Round 6 结果：非泛型字典适配器的守卫写错（已 KEEP，net +2，零回归）
+
+**提交 `21d8c849` — 全量 796 → 794，5 项转绿**
+
+Round 1 引入的 `TypeHelper.newNonGenericDictionary` 用了
+`typeToConvert.isAssignableFrom(CSharpDictionary.class)` 做守卫。
+但 **`CSharpDictionary` 只实现泛型字典接口**（`implements CSharpGenericIDictionary<K,V>, ...`），
+与 `CSharpIDictionary` 没有 Java 类型关系，所以该判断**恒为 false**，
+方法**永远返回 null** → `IDictionaryConverter.createCollection` 把 null 放进 returnValue →
+`add()` 里 `fromAny(null)` 返回 null → 每个非泛型 `IDictionary` 成员都炸：
+
+```
+NullPointerException: Cannot invoke "CSharpIDictionary.put(Object, Object)"
+  because the return value of "...getReturnValue()" is null
+```
+共 **50 条**（`ArrayTests`、`ObjectTests`、`SpanTests`、`ReferenceHandlerTests` 等）。
+
+真正该用的一致性判断是 **C# 侧的**——调用方已经通过 compat 的 `isAssignableFrom` 桥算好并作为
+`assignableFromRuntime` 传进来了。改成守卫桥接口 `CSharpIDictionary.isAssignableFrom(typeToConvert)`，
+并**重新启用** Round 1 因"守卫是坏的"而被判定为负收益、当时禁用的调用点补丁。
+
+**方法论要点**：Round 1 测出该调用点补丁"2 绿 4 红"就禁用了它，但**没有查为什么**——
+真实原因是它在给一个**坏掉的**适配器接线。先修被依赖的底层，再评估上层；否则会把
+"底层缺陷导致的上层负收益"误记成"上层方案不行"。这正是本轮把 `PatchDictionaryCreateCollection`
+重新打开的依据。
