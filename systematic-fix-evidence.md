@@ -1837,3 +1837,45 @@ beginMemberArgumentScope(MyStringList)CSharpList = [class java.lang.String]
 
 **验证**：本轮回滚后复核 `Tests run: 7902, Failures: 353, Errors: 295, Skipped: 18` = **648**，
 与 r067（本轮起点）**逐用例集合完全相同**；`git status` 干净。
+### 4.49 Round 47：**先探运行时类型**，一次修掉 10 条（648 → 638）；并纠正 Round 43 的错误结论
+
+**收益**：`648 → 638（修 10 / 坏 0）`，提交 `9317fc8a`。
+
+**方法正确性的直接对比**：Round 46 靠**猜表达式形状**改了两次，分别得到 10/10 与 0/0；
+本轮听自己上一轮写下的建议，**先打印实际类型**，一次命中：
+
+| 生成的实参 | `Unsafe.as(x)` 实际返回 | 后续转换 |
+|---|---|---|
+| `int` 变量 | `java.lang.Integer` | `(Byte)(…)` 与 `(Byte)((byte)(…))` **都 CCE** |
+| `byte` 变量 | `java.lang.Byte` | `(Byte)(…)` 可以，`(byte)(…)` **CCE** |
+| `short` 变量 | `java.lang.Short` | 同上形状 |
+
+**为什么结果侧无解**：Java 里没有任何转换能把 `Integer` 变成 `Byte`/`Short`，
+而同一个生成形状必须同时服务 int 实参（需窄化）与已窄化实参（再窄化即 CCE）。
+
+**修正点**：C# 写了 `Unsafe.As<TFrom,TTo>`，但编译器调用前已把 `byte`/`short`
+局部变量提升为 int，Java 实参因此是 int，`Unsafe.as` 走泛型 `Object` 重载装箱成 `Integer`。
+**把实参还原成声明的 `TFrom`** 后，各分支自洽。
+
+**纠正 Round 43 的错误结论**（重要）：
+Round 43 曾记录"成员级 `[JsonConverter]` 的通路根本没被走到"，
+并据此把 `CompatJsonConverter` 桥整条回滚。**该判断是错的**。Round 47 探针：
+
+```
+[cs2j.dc] determineConverter-with-member parent=PocoWithInvalidConverter runtime=Integer member=PropertyInfo:MyInt
+[cs2j.dc] member-attr lookup -> null
+```
+
+`determineConverter`（`JsonClassInfo:441` 调用）**确实被调用且拿到了 member**——
+只是 `getAttributeThatCanHaveMultiple(..., JsonConverterAttribute.class, memberInfo)` 返回 null。
+原因是测试用的是**派生特性**（`class InvalidConverterAttribute : JsonConverterAttribute`），
+成员上挂的是派生类，查询问的是基类，而当前 compat 查找**不匹配子类**
+（.NET 的 `GetCustomAttribute<T>()` 会匹配派生类型）。
+
+**教训**：Round 43 是在 `getCustomAttributes` 上打点、看到"没有进入
+`materializeFromCompatAnnotation`"就推断"通路没走到"。**打点位置选错了**——
+真正该看的是**查询的返回值**，而不是某个下游函数有没有被调用。
+记录于此以免再次误判。
+
+**验证**：`Tests run: 7902, Failures: 353, Errors: 285, Skipped: 18` = **638**
+（起点 855，**−217**）；插桩移除后复核逐用例集合与 r071 **完全相同**；`git status` 干净。

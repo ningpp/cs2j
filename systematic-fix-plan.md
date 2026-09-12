@@ -449,7 +449,7 @@ Round 43 试了一条看起来最像"属性桥"缺口的线索，实测**逐用�
 `DictionaryTests.dictionaryWith_ObjectWithNoParameterlessCtor_AsValue_Throws`），
 但**分散在 5 个类、形状各异**，不是同一个根因；勿当作一个簇处理。
 
-### 8.2.5 Round 46 两次**中性** + 一条**结构性**线索（勿重复那两个尝试）
+### 8.2.7 Round 46 两次**中性**（勿重复那两个尝试）
 
 **中性尝试（已回滚，勿重复）**——详见 §4.48：
 
@@ -458,9 +458,8 @@ Round 43 试了一条看起来最像"属性桥"缺口的线索，实测**逐用�
 | `Unsafe.as` 装箱链里把窄化转换移到拆箱之后 | 修 10 / 坏 10，**净 0** |
 | 去掉窄化转换，只留 `(Byte)(Unsafe.as(x))` | 修 0 / 坏 0，**集合完全相同** |
 
-结论：`EnumConverter.read` 的转换异常**不在这个表达式的构造上**。
-再碰这一簇时，先打印 `Unsafe.as(x)` 的**实际返回类型**与
-`EnumHelper.toObject` 的**实参类型**，不要再猜表达式形状。
+**Round 47 已查明这两次为何都不成立**（见 §8.2.5）：结果侧无解，
+断点在实参。此处保留记录仅为防止有人重复"改结果侧"这条路。
 
 **结构性线索（未实施，建议单独立项）**：
 `ImmutableDictionary`/`ImmutableSortedDictionary` 的 cast 失败（14 条）与
@@ -480,6 +479,59 @@ compat 的不可变类型没建模成 `Iterable`/`Map`：
 **动手前先读 `IImmutableDictionary` 上那条"故意不做成 Iterable"的既有注释**
 （转换器生成的包装类实现 `Iterable<CSharpKeyValuePair<K,V>>` 可能与 `Map.Entry` 迭代冲突），
 确认该冲突是否仍然存在。这是接口层大改，**必须逐用例验证**。
+
+### 8.2.5 已修：`Unsafe.as` 参数未还原声明的源类型（Round 47，−10）
+
+提交 `9317fc8a`。**这是"先探运行时类型"的直接收益**——Round 46 靠猜表达式形状，
+两次都中性；本轮先打印类型，一次命中。
+
+探针输出（`probe/w42/UnsafeTypeProbe.java`）：
+
+| 生成的实参 | `Unsafe.as(x)` 的实际返回 | 后续转换 |
+|---|---|---|
+| `int` 变量 | `java.lang.Integer` | `(Byte)(…)` 与 `(Byte)((byte)(…))` **都 CCE** |
+| `byte` 变量 | `java.lang.Byte` | `(Byte)(…)` 可以，`(byte)(…)` **CCE** |
+| `short` 变量 | `java.lang.Short` | 同上形状 |
+
+**关键推理**：Java 里**没有**任何转换能把 `Integer` 变成 `Byte`/`Short`；
+而**同一个生成形状**必须同时服务"int 实参（需要窄化）"和"已经窄化过的实参
+（再窄化会 CCE）"——所以**结果侧无论怎么改都不可能同时成立**。
+这正是 Round 46 两次尝试分别得到 10/10 与 0/0 的原因。
+
+**真正的断点在实参**：C# 显式写了 `Unsafe.As<TFrom,TTo>`，但编译器在调用前
+已把 `byte`/`short` 局部变量**提升为 int**，于是 Java 实参是 int、
+`Unsafe.as` 走了泛型 `Object` 重载并装箱成 `Integer`。
+**把实参还原成声明的 `TFrom`**（`(byte)` / `(short)` 包裹），
+每个分支就都自洽了：先窄化 → `Unsafe.as` 装箱的正是那个类型 → 单个 `(Wrapper)` 是恒等转换。
+
+### 8.2.6 已定位未修：成员级 `[JsonConverter]` 查的是**基类**，而测试用的是**派生特性**
+
+Round 43 曾判定"成员级 `[JsonConverter]` 通路根本没被走到"，**该判定是错的**。
+Round 47 用探针纠正：
+
+```
+[cs2j.dc] determineConverter-with-member parent=PocoWithInvalidConverter runtime=Integer member=PropertyInfo:MyInt
+[cs2j.dc] member-attr lookup -> null
+```
+
+`determineConverter` **确实被调用、且拿到了 member**（`JsonClassInfo:441` 是调用点），
+但 `getAttributeThatCanHaveMultiple(..., JsonConverterAttribute.class, memberInfo)`
+返回 **null**。原因是这些测试用的是**派生特性**：
+
+```csharp
+class InvalidConverterAttribute : JsonConverterAttribute { public InvalidConverterAttribute() : base(typeof(int)) { } }
+class PocoWithInvalidConverter { [InvalidConverter] public int MyInt { get; set; } }
+```
+
+成员上挂的是 `InvalidConverterAttribute`，而查询问的是 `JsonConverterAttribute`；
+.NET 的 `GetCustomAttribute<T>()` 会匹配派生类型，当前的 compat 查找**不匹配子类**。
+
+**因此下一步（有依据）**：让查找能返回派生特性，并把基类构造函数里的
+转换器类型解析出来。Round 43 写的 `CompatJsonConverter` 桥（转换器侧沿 Roslyn
+特性继承链解析 `typeof(X)`、兼容侧物化）**方向是对的，当时回滚是因为
+"通路没走到"这个错误判断**——现在证明通路是走到了的，只是查找返回 null，
+所以那座桥应当**重新引入并配合"查找返回派生特性"一起做**。
+注意 21 条 `CustomConverterTests` 负向测试都依赖这条路径。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
