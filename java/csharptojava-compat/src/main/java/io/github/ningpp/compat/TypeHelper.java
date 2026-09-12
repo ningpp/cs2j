@@ -1816,7 +1816,7 @@ public final class TypeHelper {
             return "";
         }
         java.lang.reflect.Type[] args = currentGenericArgumentsLayer(type);
-        String base = getFullName(type).replace('$', '+');
+        String base = csBaseName(type);
         if (args == null || args.length == 0) {
             return base;
         }
@@ -1831,6 +1831,30 @@ public final class TypeHelper {
         return sb.append(']').toString();
     }
 
+    /**
+     * The C# namespace-qualified name of a compat stand-in for a BCL collection interface.
+     *
+     * <p>These deliberately do NOT go through {@link CompatTypeIdentity}: that registry also feeds
+     * {@code isImmutableCollection}, so registering a BCL interface there would make the immutable
+     * collection factory treat it as one.</p>
+     */
+    private static final java.util.Map<Class<?>, String> BCL_CS_NAMES = java.util.Map.of(
+        CSharpICollection.class, "System.Collections.Generic.ICollection",
+        CSharpGenericIList.class, "System.Collections.Generic.IList",
+        CSharpGenericIDictionary.class, "System.Collections.Generic.IDictionary",
+        CSharpReadOnlyList.class, "System.Collections.Generic.IReadOnlyList",
+        CSharpReadOnlyDict.class, "System.Collections.Generic.IReadOnlyDictionary",
+        CSharpList.class, "System.Collections.Generic.List",
+        CSharpDictionary.class, "System.Collections.Generic.Dictionary",
+        CSharpISet.class, "System.Collections.Generic.ISet",
+        CSharpGenericIterable.class, "System.Collections.Generic.IEnumerable");
+
+    /** The C# full name of {@code type}, falling back to its Java name. */
+    private static String csBaseName(Class<?> type) {
+        String mapped = BCL_CS_NAMES.get(type);
+        return (mapped != null ? mapped : getFullName(type)).replace('$', '+');
+    }
+
     /** One type argument of {@link #getCsTypeName}, recursively. */
     private static String csArgumentName(java.lang.reflect.Type arg) {
         if (arg instanceof Class<?> cls) {
@@ -1838,7 +1862,7 @@ public final class TypeHelper {
         }
         if (arg instanceof java.lang.reflect.ParameterizedType pt
                 && pt.getRawType() instanceof Class<?> raw) {
-            String base = getFullName(raw).replace('$', '+');
+            String base = csBaseName(raw);
             java.lang.reflect.Type[] args = pt.getActualTypeArguments();
             if (args.length == 0) {
                 return base;
