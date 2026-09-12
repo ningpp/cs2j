@@ -177,6 +177,13 @@ public final class TypeHelper {
         }
     }
 
+    // Layered arguments already claimed to resolve a class's OWN type variables (see
+    // ownTypeArguments). Kept per raw class and per session so the layer that answered
+    // "what is this wrapper parameterised with" is not answered again as the arguments of
+    // the same raw class.
+    private static final ThreadLocal<java.util.Map<Class<?>, java.util.Set<java.lang.reflect.Type[]>>>
+        WRAPPER_LAYER_TAKEN = ThreadLocal.withInitial(java.util.HashMap::new);
+
     /** Marks the start of a top-level registerParameterizedType session. */
     public static void beginTypeRegistration() {
         int[] depth = REGISTRATION_DEPTH.get();
@@ -186,6 +193,7 @@ public final class TypeHelper {
             // factory calling closedGeneric() outside a deserialize session).
             TYPE_ARGUMENTS.remove();
             CONSUMED_ARGUMENTS.remove();
+            WRAPPER_LAYER_TAKEN.remove();
         }
         depth[0]++;
     }
@@ -292,6 +300,7 @@ public final class TypeHelper {
             if (depth[0] == 0) {
                 TYPE_ARGUMENTS.remove();
                 CONSUMED_ARGUMENTS.remove();
+                WRAPPER_LAYER_TAKEN.remove();
                 CONCRETE_SUBTYPES.remove();
             }
         }
@@ -365,6 +374,8 @@ public final class TypeHelper {
         CONSUMED_ARGUMENTS.get().clear();
         MEMBER_ARGUMENTS.get().clear();
         CALLSITE_ARGUMENTS.get().clear();
+        WRAPPER_LAYER_TAKEN.get().clear();
+        CONCRETE_SUBTYPES.get().clear();
     }
 
     /**
@@ -495,8 +506,23 @@ public final class TypeHelper {
         // creation consumes layers outer-to-inner, so poll the oldest entry.
         java.util.ArrayDeque<java.lang.reflect.Type[]> deque = TYPE_ARGUMENTS.get().get(type);
         if (deque != null && !deque.isEmpty()) {
-            java.lang.reflect.Type[] registered = deque.pollFirst();
-            if (registered.length > 0) {
+            java.util.Set<java.lang.reflect.Type[]> taken = WRAPPER_LAYER_TAKEN.get().get(type);
+            java.lang.reflect.Type[] registered = null;
+            if (taken == null) {
+                registered = deque.pollFirst();
+            } else {
+                // A layer already claimed to resolve the class's own type variables belongs to
+                // that class and must not also be answered as this query's arguments.
+                for (java.util.Iterator<java.lang.reflect.Type[]> it = deque.iterator(); it.hasNext(); ) {
+                    java.lang.reflect.Type[] candidate = it.next();
+                    if (!taken.contains(candidate)) {
+                        registered = candidate;
+                        it.remove();
+                        break;
+                    }
+                }
+            }
+            if (registered != null && registered.length > 0) {
                 CONSUMED_ARGUMENTS.get().put(type, registered);
                 Class<?>[] result = new Class<?>[registered.length];
                 for (int i = 0; i < registered.length; i++) {
@@ -749,13 +775,25 @@ public final class TypeHelper {
     /**
      * The type arguments {@code raw} is currently being converted with, without consuming the
      * layer: a generic wrapper needs its own arguments to resolve the variables it declares.
+     *
+     * <p>The layer is CLAIMED here (recorded in {@link #WRAPPER_LAYER_TAKEN}) so the later
+     * {@link #getGenericArguments} call for the same raw class does not hand the same layer to
+     * a converter as its own arguments; for a nested closed generic that double use mixed the
+     * outer layer with the inner one.</p>
      */
     private static Class<?>[] ownTypeArguments(Class<?> raw) {
-        java.lang.reflect.Type[] layer;
         java.util.ArrayDeque<java.lang.reflect.Type[]> pending = TYPE_ARGUMENTS.get().get(raw);
-        if (pending != null && !pending.isEmpty()) {
-            layer = pending.peekFirst();
-        } else {
+        java.lang.reflect.Type[] layer = null;
+        if (pending != null) {
+            java.util.Set<java.lang.reflect.Type[]> taken = WRAPPER_LAYER_TAKEN.get().get(raw);
+            for (java.lang.reflect.Type[] candidate : pending) {
+                if (taken == null || !taken.contains(candidate)) {
+                    layer = candidate;
+                    break;
+                }
+            }
+        }
+        if (layer == null) {
             layer = CONSUMED_ARGUMENTS.get().get(raw);
             if (layer == null) {
                 java.util.ArrayDeque<java.lang.reflect.Type[]> callSite = CALLSITE_ARGUMENTS.get().get(raw);
@@ -765,6 +803,9 @@ public final class TypeHelper {
         if (layer == null || layer.length == 0) {
             return null;
         }
+        WRAPPER_LAYER_TAKEN.get()
+            .computeIfAbsent(raw, k -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>()))
+            .add(layer);
         Class<?>[] result = new Class<?>[layer.length];
         for (int i = 0; i < layer.length; i++) {
             result[i] = toRawClass(layer[i]);

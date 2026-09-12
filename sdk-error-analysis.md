@@ -894,4 +894,18 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **dotnet 全量**: `已通过! 失败: 0，通过: 3158，已跳过: 19` ✓。
 - **下一批待办（按实测收益排序）**: 集合簇剩余项（转换器缓存按裸类共享导致不同实参互相污染）、成员级数字处理传递、`PropertyVisibilityTests`(73)、`CustomConverterTests`(68)、`ReferenceHandlerTests`(50)。
 
+## Iteration 49 — 泛型包装类的元素类型：用具体类自己的实参替换类型变量（官方 890 → 879，零回归）
+
+- **现象**: 首轮修复后仍有 `ClassCastException: JsonElement cannot be cast to String/…`，集中在**泛型包装类**：
+  `GenericICollectionWrapper<String>`（`class GenericICollectionWrapper<T> implements CSharpICollection<T>`）、`GenericListWrapper<String[]>`、`GenericStackWrapper<StringStackWrapper>`。
+- **根因分析（探针）**:
+  1. `WrapperArgProbe` 先排除了"数组实参被擦除"：`TypeReference<GenericListWrapper<String[]>>` 的实参确实是 `[Ljava.lang.String;`。
+  2. `GenericWrapperProbe` 显示 `getGenericArguments(CSharpICollection) = [Object]`：包装类声明的是**类型变量 T**，子类型回退原样返回 `T` ⇒ 上界 `Object` ⇒ 元素转换器又是 Object。
+- **修复**: 子类型回退在返回前用**具体类当前生效的实参**替换类型变量（`ownTypeArguments`）；并且**声明该层**（`WRAPPER_LAYER_TAKEN`，按裸类 + 会话）——否则同一次转换里 `getGenericArguments(裸类)` 会把这一层**再用一次**当作"自己的实参"，嵌套闭合泛型（`Wrapper<Wrapper<int>>`）就会把外层实参喂给内层。
+- **回归与纠正（重要）**: 只做"替换"不做"声明层"时，官方从 890 变成 879 但**新增 5 项失败**（`DictionaryTests.dictionaryOfArray` 等，`[I cannot be cast to String`——写路径把内层实参当成了字典的值类型）。加上层声明后这 5 项全部恢复，且 879 保持不变。
+- **验证**: compat 全量 1715/1715 绿 ✓；官方全量 `Tests run: 7902, Failures: 439, Errors: 440, Skipped: 18` = **879**，与上一有效值 890 的**集合差为：新增通过 9 / 新增失败 0** ✓；`CollectionTests` 177 → 166。
+- **提交**: a065cec8 + 层声明补充提交。
+- **下一轮**: 转换器缓存按裸类共享（`JsonSerializerOptions._converters`）导致的跨测试污染——同裸类不同实参的转换器互相复用；这是集合簇剩余项与 `readListOfArray`"单独跑过、全量跑挂"的直接原因。
+
+
 
