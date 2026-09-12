@@ -16,9 +16,42 @@ public final class CustomAttributeExtensions {
     public static <T> T getCustomAttribute(Class<T> attributeType, MemberInfo member) {
         Iterable<Object> attrs = getCustomAttributes(member);
         for (Object attr : attrs) {
-            return attributeType.cast(attr);
+            if (attributeType.isInstance(attr)) {
+                return attributeType.cast(attr);
+            }
         }
-        return null;
+        return materializeFromCompatAnnotation(attributeType, member);
+    }
+
+    /**
+     * Materializes a C# attribute class from the compat annotation the converter emits for it
+     * ({@code @CompatPropertyName}-style). System.Text.Json attributes are generated as classes,
+     * not annotations, so without this the lookup resolves to nothing and e.g.
+     * {@code [JsonExtensionData]} never marks a property (the extension-data cluster).
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> T materializeFromCompatAnnotation(Class<T> attributeType, MemberInfo member) {
+        if (attributeType == null || member == null) {
+            return null;
+        }
+        boolean present = false;
+        if (member instanceof PropertyInfo property) {
+            java.lang.reflect.Method getter = property.getGetter();
+            MethodInfo setterInfo = property.getSetMethod();
+            java.lang.reflect.Method setter = setterInfo == null ? null : setterInfo.getMethod();
+            present = (getter != null && getter.isAnnotationPresent(CompatJsonExtensionData.class))
+                || (setter != null && setter.isAnnotationPresent(CompatJsonExtensionData.class));
+        }
+        if (!present) {
+            return null;
+        }
+        try {
+            java.lang.reflect.Constructor<T> ctor = attributeType.getDeclaredConstructor();
+            ctor.setAccessible(true);
+            return ctor.newInstance();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
     }
 
     /** C# MemberInfo.GetCustomAttribute&lt;T&gt;() — returns the single attribute or null. */
