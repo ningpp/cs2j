@@ -535,6 +535,23 @@
   2. 同时为这类成员发射 `@Override` —— javac 会在**编译期**直接拦下任何残余签名不一致（本轮 12 处若早有此注解就会在 Step 2 的编译阶段暴露，而不是变成 35 项运行期失败）。
 - **影响面小结（对批准决策）**: 单独修这一项即可直接消掉 35 项（`MemberAccessor.createField*`），并顺手消除 2 处潜伏缺陷；对比 (a) 调用点发布实参（数百项量级但改动面大）、(b) JSON 特性落地（20+ 项），(c) 是**纯 bug 修、风险最低、收益确定**的一项。
 
+## Iteration 24 — (c) 第一次尝试失败并已回退：修假覆写只能"加法"，不能"减法"
+
+- **背景**: 用户已批准 (a)/(b)/(c) 三项生成端改动，本轮先做 (c)。
+- **尝试**: 把 `GenericPreprocessor.PrescanOverrideSiblings` 的"全局类型参数名集合"收窄为**按方法组**（base 方法符号 → 该组用到的 `typeof(T)` 名），并加语法键索引供重写阶段查表（重写节点可能已被上层重建，`GetDeclaredSymbol` 会抛"语法节点不在语法树中"）。
+  - 单测：新增按组作用域的红→绿测试；`GenericPreprocessTests` **97/97**。
+  - 全量 .NET：`CSharpToJava.Tests` 3154/3154、`ProjectTests` 58/58 ✓。
+  - Step 1 重新转换：`618 succeeded, 0 failed, modules=4` ✓（276s）。
+  - **Step 2 编译阶段失败（15s 内）**: `ConstructorTests.java:[82,187] 对于 deserializeWrapper(java.lang.String,<nulltype>), 找不到合适的方法`（多行同类）。
+- **失败原因（重要结论）**: 声明端不再注入令牌，而**调用点仍按另一条注册链路传令牌** ⇒ 生成代码无法编译。**修假覆写必须走加法（让 override 补齐与基类一致的令牌），不能走减法（拿掉基类的令牌）。**
+- **已回退**: `git revert`（提交 `fb6d81f4`），随后重新转换（`618 succeeded, 0 failed`）+ `mvn -o -q clean test-compile` 复核通过，工作区回到已知良好状态（官方指标 939）。
+- **同时定位到 35 项失败的直接机制**: 哨兵注入在 `visited.Body == null` 时直接返回（`GenericPreprocessor.cs:549-550`），而 `ReflectionMemberAccessor.CreateFieldGetter/CreateFieldSetter` 是**表达式体**（`=> (obj) => ...`）⇒ 永远拿不到哨兵 ⇒ 永远没有 `Class<TProperty>` 令牌；基类却因全局名字集合被改写成 `virtual` 并拿到令牌 ⇒ 两侧签名不一致、覆写失效、虚派发落到基类抛异常体（35 项失败栈内均含 `MemberAccessor.createField*`）。
+- **下一轮 (c) 的正确修法（加法、最小面）**:
+  1. 保留现有全局集合行为（声明端与调用点都不动）；
+  2. 对**表达式体** override：先把表达式体包装成块体（或在前面插入一条等价的 `var __cs2j_typeof_T = typeof(T);`），使 `Body == null` 不再是退出口；
+  3. 注入范围用 Iteration 23 的**按组集合**，但只用于"给 override 补齐"，不再用于"收窄基类"；
+  4. 重新转换后 `probe/OverrideScan.java` 复扫：目标 12 处假覆写 → 0，且编译零错误。
+
 
 
 
