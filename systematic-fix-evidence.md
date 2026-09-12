@@ -234,3 +234,29 @@ writeNumberValueDecimal:
 `converterCacheKey` 解析成**当时环境**的实参键，因此"活转换器"未必是该 classInfo 自己的那个
 ——这正是 Iteration 74/76 的擦除问题在反向咬人。要拿到这 5 个修复，必须同时解决
 "classInfo 与 converter 的实参一致性"，不能单点取巧。
+
+### 4.7 Round 3 结果：写路径元素类信息（已 KEEP，net +11）
+
+**提交 `c5bb7de0` — 全量 822 → 811**
+
+生成的写路径用 `JsonClassInfo.getElementClassInfo().getPropertyInfoForClassInfo()` 安装
+集合元素帧的 property info；该 class info 是预热期用**擦除后的元素 Class** 建的。
+当多个成员共用同一裸元素类但实参不同时，它可能属于别的成员，元素帧因此拿到错误类型的
+property，反射随后用**错误的 receiver** 调 getter：
+`IllegalArgumentException: public ... getChild2IList() target=...`。
+
+修复**刻意只落在 3 个写路径调用点**（`DictionaryDefaultConverter` 1 处、
+`IEnumerableDefaultConverter` 2 处）：compat 新增
+`TypeHelper.writeElementPropertyInfo(converter, options, fallback)`，用**纯反射**解析
+转换器自己的元素类型（compat 不能引用生成的 SDK 类型），查不到就原样返回生成代码的表达式。
+
+> **方法论要点**：Round 1 曾把同一个想法实施在**共用的** `JsonClassInfo.getElementClassInfo`
+> 上 → 5 修复 / 1 真回归、总数持平（§4.5）。**写路径定点改**才是对的，因为 receiver 问题只发生在写路径。
+
+**再生链路再次验证**：重跑转换器（618 文件）后，3 个调用点的补丁**全部自动重新落上**
+（`DictionaryDefaultConverter:254`、`IEnumerableDefaultConverter:137/214`）。
+
+**一个必须记住的教训**：*手工打过补丁的树*（r155）测出"15 修复 / 0 回归"，
+而**完全再生后的树**（r157）是"811，但含 7 项 `DictionaryTests` 差异"。
+两者总数相同（811），说明手工补丁树上仍残留更早实验的状态、**不能作为干净基线**。
+**此后所有结论一律以完全再生后的树为准。**
