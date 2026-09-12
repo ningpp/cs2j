@@ -1148,6 +1148,33 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **本轮保留的资产**: `CSharpArrayList.asGenericList()` 活视图、`TypeHelper.listToAddInto`、产物补丁 `PatchListConverterAdd` + 共用 `EnsureTypeHelperImport`。
 - **本轮新增的硬结论**: 一条 Java 语法级结论（`int add` vs `boolean add` 不可共存）——这类"语言层面不可能"的判断应尽早用编译验证，可省掉整轮试错。
 
+## Iteration 70 — 工厂分支改写：技术上成功，但仍是净负（855 → 861，已回退）
+
+本轮把上一轮钉的"改工厂分支"真正做通了，然后按测量回退。
+
+- **做法**: 在 `IEnumerableConverterFactory.createConverter` 的分支链**最前面**插入
+  `if (TypeHelper.isNonGenericListType(typeToConvert)) { converterType = IListOfTConverter.class; elementType = TypeHelper.getListElementType(...); } else { <原链> }`，
+  并在链条末尾补一个 `}` 保持花括号平衡（第一次尝试漏了它，产物报 `进行语法分析时已到达文件结尾`）。
+- **技术验证（通过）**: 编译零错误；产物确认新分支在最前；运行时类型实际走到了 `IListOfTConverter`（栈从 `IListConverter.createCollection` 变为 `IListOfTConverter.createCollection`）——
+  即"分支选择"这一环本轮确实修对了。
+- **但仍然失败，且失败点更靠后**: `IListOfTConverter.createCollection` 里
+  `TCollection returnValue = (TCollection)(classInfo.getCreateObject().get());` 造出的是 `CSharpArrayList`，
+  紧随其后的 `returnValue.getIsReadOnly()` 被 javac 编译成 `(CSharpGenericIList)returnValue` ⇒ 同一处 `ClassCastException`。
+  ⇒ **瓶颈不是分支选择，而是"让转换器把非泛型集合当成通用列表来填充"这件事本身**：需要让 `createCollection`/`onTryRead` 全程使用 `asGenericList()` 视图，
+  而不是只改 `add`。本轮只改 `add`（Round 10）与只改工厂（本轮）都被证明不够。
+- **测量与处置**: 全量 855 → **861**（新增失败 4 项写侧用例：`writeArrayOfArrayList`/`writeArrayListOfArrayList`/`writePrimitiveArrayList`/`writeNonGenericCollectionWrappers`）⇒ **整体回退**（含 compat 侧的 `isNonGenericListType`/`getListElementType`）。当前基线重新确认为 **855**。
+- **方法学教训（本轮真实踩到，代价约 1 次全量构建）**: 回退 compat **源码**后必须**重新 install jar 再测量**。
+  本轮先回退了 `TypeHelper.java` 却沿用旧的 compat jar 跑全量，得到"回退后仍是 861"的假象，
+  直到把 jar 重装（`19:02` → `19:38`）才回到 855。**判定回退是否生效，必须看 jar 时间戳，而不是只看源码 `git status`。**
+
+## Iteration 71 — 本轮（Round 11）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（编译零错误；已重装 compat 复核）。累计（Round 1→11）: 895 → 855。
+- **`CSharpArrayList` 簇的完整结论（三轮收敛）**: ① 类无法直接实现通用接口（Java 签名冲突，编译验证）→ ② 给 `add` 喂活视图（中性，保留）→ ③ 工厂分支修对了但失败点后移到 `createCollection` 的 `getIsReadOnly()` 强制转换。
+  ⇒ 下一步必须**一次性**让 `createCollection` + `onTryRead` + `add` 三处都走视图（或等价地：让该分支直接使用 `newNonGenericCollection` + 视图），单独改任一处都不够。
+- **本轮保留**: Round 10 的资产（`asGenericList` 视图、`listToAddInto`、`PatchListConverterAdd`、`EnsureTypeHelperImport`）与本轮的产物补丁经验（花括号平衡 + 链首插入）。
+
+
 
 
 

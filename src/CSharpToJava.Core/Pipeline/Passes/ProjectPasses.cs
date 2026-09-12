@@ -1084,7 +1084,8 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                     || result.FileName.EndsWith("ICollectionOfTConverter.java", StringComparison.Ordinal))
                 {
                     PatchListConverterAdd(result);
-                }            }
+                }
+            }
         }
     }
 
