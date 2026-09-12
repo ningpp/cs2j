@@ -1014,6 +1014,28 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **累计（Round 1→5）**: 895 → 855（−40），每一步都是"新增通过 / 新增失败 0"的集合差判定。
 - **剩余最大簇**: "应抛异常未抛"（校验缺失）、"JSON value could not be converted"、`Integer→String` 转换器复用、`JsonElement→X`。
 
+## Iteration 60 — `SingleValueReadWithReadAhead` 的参数被硬编码为 `ClassType.Value`（定向 −2，全量持平，零回归）
+
+- **现象**: `NullTests.rootObjectIsNull` 等"根级 `null` 应反序列化为 null"的用例实得**实例**。
+- **根因分析**: 逐层排除（`RootNullProbe`/`NullBranchProbe`）：转换器确实是内部转换器、`getHandleNullOnRead()==false`、`getCanBeNull()==true`，
+  但 `tryRead` 的"null 提前返回"分支始终不执行。对照 C# 源定位到差异：
+  `JsonConverterOfT.ReadCore.cs:27` 传的是**调用者自己的** `ClassType`，而转换产物把它写死成 `ClassType.Value`（同文件第 54 行的 continuation 调用才是 `ClassType.Value`）。
+  传 `Value` 会让 helper 走 read-ahead 分支、自行 `Read()` 越过当前 token，于是 `TryRead` 看到的已不是 `Null`。
+- **修复**: 在 `InvocationExpressionTransformer` 中把该方法的三参调用改为 `{receiver}.singleValueReadWithReadAhead({receiver}.getClassType(), reader, state)`；continuation 调用保持不变。
+- **验证与诚实结论**: 定向 `-Dtest=NullTests` 从 10 项失败降到 **8 项**（`invalidRootOnRead`、`invalidRootOnWrite` 转绿，无新增失败）；
+  但**全量 7902 项合计仍为 855**（`NullTests` 在全量里仍是 9F+1E）⇒ 这两项还依赖同一 JVM 内的共享状态，全量运行到达时的状态不同。
+  按"语义与 C# 一致且零回归"保留，并如实记录全量数字未变。
+- **提交**: d9e649d5。
+
+## Iteration 61 — 本轮（Round 6）收口状态
+
+- **当前官方全量**: `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18` = **855**（与 Round 5 持平；本轮定向 -2）。
+- **累计（Round 1→6）**: 895 → 855；本轮的净增量为**定向**层面的 2 项（全量持平）。
+- **本轮另有两项被测量否决并回退**: (a) "未发布类型实参的转换器不入缓存"（`tryAdd` 侧）——全量 855 → 855 中性；
+  (b) 前述 read-ahead 修复的第一次尝试因只做定向单测就被误判为中性而回退，**随后用集合差复核才发现定向 -2**⇒
+  方法学补充：**回退决定也必须以集合差（而非单次汇总数字）为依据**。
+
+
 
 
 
