@@ -160,7 +160,11 @@ public final class PropertyInfo implements MemberInfo {
         }
         try {
             java.lang.reflect.Constructor<?> ctor = attributeType.getConstructor(Class.class);
-            return ctor.newInstance(marker.value());
+            Class<?> converterType = marker.value();
+            // Void.class is the sentinel for C# [JsonConverter(null)]: the attribute is present but
+            // names no converter type, so createConverter(typeToConvert) is used instead. Passing the
+            // sentinel through would make the type look like a converter and fail the wrong check.
+            return ctor.newInstance(converterType == Void.class ? null : converterType);
         } catch (ReflectiveOperationException | RuntimeException e) {
             return null;
         }

@@ -1108,6 +1108,16 @@ public class PropertyTransformer : IMemberTransformer
                 }
                 foreach (var argument in initializer.ArgumentList.Arguments)
                 {
+                    // C# [JsonConverter(null)] — a derived attribute that takes over creation through
+                    // createConverter. The "present but names no type" state has to survive, so it is
+                    // emitted as the Void.class sentinel the compat side maps back to null; dropping
+                    // the marker entirely would make the attribute indistinguishable from an absent
+                    // one (measured: CustomConverterTests.PocoWithNullConverter.MyInt).
+                    if (argument.Expression.IsKind(SyntaxKind.NullLiteralExpression))
+                    {
+                        converterTypeName = "Void";
+                        return true;
+                    }
                     if (argument.Expression is TypeOfExpressionSyntax typeOf)
                     {
                         converterTypeName = typeOf.Type.ToString();

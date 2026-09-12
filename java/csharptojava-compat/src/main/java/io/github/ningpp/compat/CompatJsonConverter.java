@@ -26,6 +26,16 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.FIELD, ElementType.TYPE})
 public @interface CompatJsonConverter {
-    /** The C# converter type the attribute names, resolved through its inheritance chain. */
-    Class<?> value();
+    /**
+     * The C# converter type the attribute names, resolved through its inheritance chain.
+     *
+     * <p>{@code Void.class} is the sentinel for C# {@code [JsonConverter(null)]} - an attribute that
+     * is PRESENT but names no converter type, which is how a derived attribute takes over creation
+     * through {@code createConverter}. A defaulted annotation value cannot be null, and dropping the
+     * marker entirely would make the attribute indistinguishable from an absent one, so the null
+     * case needs its own spelling. Measured: CustomConverterTests.PocoWithNullConverter.MyInt
+     * carries {@code [NullConverter]} ({@code : base(null)}) and the serialize that must throw
+     * InvalidOperationException did not.</p>
+     */
+    Class<?> value() default Void.class;
 }

@@ -1838,16 +1838,30 @@ public final class TypeHelper {
      * {@code isImmutableCollection}, so registering a BCL interface there would make the immutable
      * collection factory treat it as one.</p>
      */
-    private static final java.util.Map<Class<?>, String> BCL_CS_NAMES = java.util.Map.of(
-        CSharpICollection.class, "System.Collections.Generic.ICollection",
-        CSharpGenericIList.class, "System.Collections.Generic.IList",
-        CSharpGenericIDictionary.class, "System.Collections.Generic.IDictionary",
-        CSharpReadOnlyList.class, "System.Collections.Generic.IReadOnlyList",
-        CSharpReadOnlyDict.class, "System.Collections.Generic.IReadOnlyDictionary",
-        CSharpList.class, "System.Collections.Generic.List",
-        CSharpDictionary.class, "System.Collections.Generic.Dictionary",
-        CSharpISet.class, "System.Collections.Generic.ISet",
-        CSharpGenericIterable.class, "System.Collections.Generic.IEnumerable");
+    private static final java.util.Map<Class<?>, String> BCL_CS_NAMES = java.util.Map.ofEntries(
+        // Collection interfaces and classes.
+        java.util.Map.entry(CSharpICollection.class, "System.Collections.Generic.ICollection"),
+        java.util.Map.entry(CSharpGenericIList.class, "System.Collections.Generic.IList"),
+        java.util.Map.entry(CSharpGenericIDictionary.class, "System.Collections.Generic.IDictionary"),
+        java.util.Map.entry(CSharpReadOnlyList.class, "System.Collections.Generic.IReadOnlyList"),
+        java.util.Map.entry(CSharpReadOnlyDict.class, "System.Collections.Generic.IReadOnlyDictionary"),
+        java.util.Map.entry(CSharpList.class, "System.Collections.Generic.List"),
+        java.util.Map.entry(CSharpDictionary.class, "System.Collections.Generic.Dictionary"),
+        java.util.Map.entry(CSharpISet.class, "System.Collections.Generic.ISet"),
+        java.util.Map.entry(CSharpGenericIterable.class, "System.Collections.Generic.IEnumerable"),
+        // Boxed primitives: the compat layer maps a C# primitive to its Java wrapper, so a message
+        // that names the converted type has to spell the C# one (measured: the assert wants
+        // 'System.Int32' and the message said 'java.lang.Integer').
+        java.util.Map.entry(Integer.class, "System.Int32"),
+        java.util.Map.entry(Long.class, "System.Int64"),
+        java.util.Map.entry(Short.class, "System.Int16"),
+        java.util.Map.entry(Byte.class, "System.Byte"),
+        java.util.Map.entry(Boolean.class, "System.Boolean"),
+        java.util.Map.entry(Double.class, "System.Double"),
+        java.util.Map.entry(Float.class, "System.Single"),
+        java.util.Map.entry(Character.class, "System.Char"),
+        java.util.Map.entry(String.class, "System.String"),
+        java.util.Map.entry(Object.class, "System.Object"));
 
     /** The C# full name of {@code type}, falling back to its Java name. */
     private static String csBaseName(Class<?> type) {
@@ -2276,7 +2290,9 @@ public final class TypeHelper {
             }
             try {
                 java.lang.reflect.Constructor<?> ctor = generated.getConstructor(Class.class);
-                return ctor.newInstance(marker.value());
+                // Void.class is the C# [JsonConverter(null)] sentinel; see PropertyInfo.
+                Class<?> converterType = marker.value();
+                return ctor.newInstance(converterType == Void.class ? null : converterType);
             } catch (ReflectiveOperationException | RuntimeException e) {
                 return null;
             }
