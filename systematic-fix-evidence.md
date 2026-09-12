@@ -735,3 +735,50 @@ isAbstract      = false
 
 **风险**：该分支覆盖所有接口型可枚举目标，必须先在
 `CollectionTests` + `CustomConverterTests` + `PropertyVisibilityTests` 三个类上验证，再全量。
+
+### 4.22 Round 16：按 §4.21 实现并**单类验证通过**，但**全量更差**，已回退
+
+**实现**：compat 新增 `hasPublicParameterlessConstructor(type)`
+（接口/数组/枚举/抽象类型放行；其余用 `getConstructorInfo(type, Public|Instance)` 判定），
+并在 `IEnumerableConverterFactory.createConverter` 构造转换器之前加守卫，
+缺失即 `ThrowHelper.throwNotSupportedException_DeserializeNoConstructor(...)`。
+
+**单类验证（按 §4.21 要求）**：
+
+| 测试类 | 基线（全量 r188） | 加守卫后（单类跑） | 变化 |
+|---|---:|---:|---:|
+| `CollectionTests` | 106 | **96** | **−10（变好）** |
+| `CustomConverterTests` | 68 | 68 | 0 |
+| `PropertyVisibilityTests` | 69 | 69 | 0 |
+
+看起来是干净的胜利，于是按纪律跑全量。
+
+**全量结果（跑两次，完全一致，非抖动）**：
+
+```
+r189: Tests run: 7902, Failures: 447, Errors: 359  = 806
+r190: Tests run: 7902, Failures: 447, Errors: 359  = 806   ← 同一配置重跑，逐位相同
+基线 r188                                            = 790
+```
+
+逐类对比定位到**唯一**变化：`CollectionTests` 在全量里 **106 → 122（+16）**，
+而它**单独跑**却是 106 → 96（−10）。
+
+**结论：这是一个"单类变好、全量变差"的顺序依赖型改动，按纪律回退（REVERT）。**
+判据以全量为准，已回退并复核 = **790（431+359）**、`git status` 干净。
+
+**为什么会这样（机理，留给下一轮）**：`CollectionTests` 在**全量顺序**下比**单独跑**多出
+**26 条失败**（122 vs 96）——说明该测试类的失败数本身**依赖此前其它类留下的共享状态**。
+新守卫在这些"被前置状态污染"的用例上抛出异常，反而把原本能过的路径打断了。
+这与 Round 5 遇到的是**同一现象**（当时 `ImmutableCollectionsTests.serializeList/serializeStack`
+只在全量顺序下失败）。
+
+**下一轮的方向（优先级已提升）**：先解决**测试间共享状态**这一层，再重做本守卫。
+具体建议：
+1. 找出 `CollectionTests` 在全量顺序下多出的 26 条失败分别是什么（对比单类与全量的失败集合），
+   确定污染源是哪个测试类/哪个 ThreadLocal 注册表（`TYPE_ARGUMENTS` / `CONSUMED_ARGUMENTS` /
+   `MEMBER_ARGUMENTS` / `CALLSITE_ARGUMENTS` / `CONCRETE_SUBTYPES` 都是 ThreadLocal）；
+2. 若污染源是 compat 的 ThreadLocal 注册表未在用例边界清理，考虑在
+   `JsonSerializerCompat` 的入口/出口做**成对清理**（它已经有 `beginTypeRegistration`/`endTypeRegistration`，
+   可审计是否有路径漏配对）；
+3. 共享状态收敛后，本守卫（代码已在 §4.22 记录、可低成本重建）应能同时改善单类与全量。
