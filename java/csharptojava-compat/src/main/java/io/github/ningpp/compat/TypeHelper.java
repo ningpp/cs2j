@@ -965,6 +965,15 @@ public final class TypeHelper {
                     || CSharpIList.class.isAssignableFrom(type))) {
             return true;
         }
+        // .NET's IEnumerable<T> derives from the non-generic IEnumerable, so anything that
+        // implements the non-generic compat tree is also an IEnumerable<T>. Without this a
+        // non-generic collection (CSharpObjQueue/CSharpObjStack, which implement
+        // CSharpIterable<Object>) is not claimed by IEnumerableConverterFactory.CanConvert and
+        // serializes as a POCO: {"Count":2,"SyncRoot":{},...} instead of [1,2].
+        if (baseType == CSharpGenericIterable.class && type != null
+                && CSharpIterable.class.isAssignableFrom(type)) {
+            return true;
+        }
         // .NET's concrete generic collections (Dictionary<K,V>, List<T>)
         // implement both their generic interface (IDictionary<K,V>,
         // IList<T>) and the non-generic interface (IDictionary, IList).
