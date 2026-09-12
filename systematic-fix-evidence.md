@@ -1791,3 +1791,49 @@ beginMemberArgumentScope(MyStringList)CSharpList = [class java.lang.String]
 
 **验证**：`Tests run: 7902, Failures: 353, Errors: 295, Skipped: 18` = **648**
 （起点 855，**−207**）；逐用例集合差 = 修 16 / 坏 0。
+### 4.48 Round 46：两次**中性**尝试 + 一条**结构性**发现（648 → 648）
+
+本轮没有净收益，但把两件容易被重复浪费的事记下来。
+
+**尝试 1（中性）**：`EnumTests.parse_WithinRange_Unsigned_ReturnsExpected` /
+`..._Signed_...` 共 20 条在 `EnumConverter.read` 抛
+"Integer cannot be cast to Byte" / "cannot be cast to Short"。
+推断是生成的 `(Byte)(((byte)(Unsafe.as(x))))` 里窄化转换作用在**装箱值**上，
+于是改成把窄化作用在拆箱后的 int 上：
+`(Byte)(((byte)((int)(Unsafe.as(x)))))`。
+结果 **修 10 / 坏 10，净 0** —— 无符号那 10 条好了，有符号那 10 条坏了
+（`Byte cannot be cast to Integer`）。
+
+**尝试 2（中性）**：既然两种写法各修一半坏一半，那可能是"窄化本身就不该有"。
+去掉窄化只留装箱：`(Byte)(Unsafe.as(x))`。结果 **修 0 / 坏 0，集合完全相同**。
+
+**结论**：`EnumConverter` 那个转换异常的**真实来源不在这个表达式构造里**，
+两次改动分别证明了"改错了地方"和"这里根本不是断点"。已回滚。
+**下一次要碰这一簇，先打印 `Unsafe.as(x)` 的实际返回类型和
+`EnumHelper.toObject` 的实参类型，不要再猜表达式形状。**
+
+**结构性发现（未实施，值得单独一轮）**：
+`ImmutableDictionary`（11 条）、`ImmutableSortedDictionary`（3 条）报
+"cannot be cast to `CSharpReadOnlyDict`"，与 `ArrayIndexOutOfBoundsException`
+（21 条，`IEnumerableConverterFactory.createConverter` 里
+`TypeHelper.getGenericArguments(...)[0]` 拿到**空数组**）**很可能是同一个根因**：
+
+> compat 的不可变类型没有建模成 `Iterable`/`Map`：
+> `ImmutableDictionary<K,V> implements IImmutableDictionary<K,V>`，
+> `ImmutableList<T> implements IImmutableList<T>`，而这些接口**都不继承
+> `Iterable`/`Map`**。于是
+> (a) 生成的转换器把值 cast 成 `CSharpReadOnlyDict` 时失败；
+> (b) `TypeHelper.isCollectionType(raw)` 判定失败 →
+> `findTypeArgumentsInHierarchy` 找不到实参 → `getGenericArguments` 返回**空数组** →
+> 工厂里 `[0]` 越界。
+
+**建议路线**：让 `IImmutableList<T> extends CSharpReadOnlyList<T>`、
+`IImmutableDictionary<K,V> extends CSharpReadOnlyDict<K,V>`（按 .NET 的真实层次：
+`IImmutableList<T> : IReadOnlyList<T>`、`IImmutableDictionary<K,V> : IReadOnlyDictionary<K,V>`），
+**但这是接口层的大改，必须单独立项并逐用例验证**。
+`IImmutableDictionary` 上有一条既有注释说"故意不做成 Iterable，
+因为转换器生成的包装类实现 `Iterable<CSharpKeyValuePair<K,V>>` 会与 `Map.Entry` 迭代冲突"——
+动手前**先读那条注释并确认冲突是否仍然存在**。
+
+**验证**：本轮回滚后复核 `Tests run: 7902, Failures: 353, Errors: 295, Skipped: 18` = **648**，
+与 r067（本轮起点）**逐用例集合完全相同**；`git status` 干净。

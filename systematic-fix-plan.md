@@ -449,6 +449,38 @@ Round 43 试了一条看起来最像"属性桥"缺口的线索，实测**逐用�
 `DictionaryTests.dictionaryWith_ObjectWithNoParameterlessCtor_AsValue_Throws`），
 但**分散在 5 个类、形状各异**，不是同一个根因；勿当作一个簇处理。
 
+### 8.2.5 Round 46 两次**中性** + 一条**结构性**线索（勿重复那两个尝试）
+
+**中性尝试（已回滚，勿重复）**——详见 §4.48：
+
+| 尝试 | 结果 |
+|---|---|
+| `Unsafe.as` 装箱链里把窄化转换移到拆箱之后 | 修 10 / 坏 10，**净 0** |
+| 去掉窄化转换，只留 `(Byte)(Unsafe.as(x))` | 修 0 / 坏 0，**集合完全相同** |
+
+结论：`EnumConverter.read` 的转换异常**不在这个表达式的构造上**。
+再碰这一簇时，先打印 `Unsafe.as(x)` 的**实际返回类型**与
+`EnumHelper.toObject` 的**实参类型**，不要再猜表达式形状。
+
+**结构性线索（未实施，建议单独立项）**：
+`ImmutableDictionary`/`ImmutableSortedDictionary` 的 cast 失败（14 条）与
+`ArrayIndexOutOfBoundsException`（21 条）**很可能是同一个根因**——
+compat 的不可变类型没建模成 `Iterable`/`Map`：
+
+- `ImmutableDictionary<K,V> implements IImmutableDictionary<K,V>`
+- `ImmutableList<T> implements IImmutableList<T>`
+
+这些接口都不继承 `Iterable`/`Map`，于是
+(a) 转换器 cast 成 `CSharpReadOnlyDict` 失败；
+(b) `TypeHelper.isCollectionType` 判否 → 实参恢复失败 →
+`getGenericArguments` 返回**空数组** → 工厂里 `[0]` 越界。
+
+建议路线（.NET 真实层次）：`IImmutableList<T> extends CSharpReadOnlyList<T>`、
+`IImmutableDictionary<K,V> extends CSharpReadOnlyDict<K,V>`。
+**动手前先读 `IImmutableDictionary` 上那条"故意不做成 Iterable"的既有注释**
+（转换器生成的包装类实现 `Iterable<CSharpKeyValuePair<K,V>>` 可能与 `Map.Entry` 迭代冲突），
+确认该冲突是否仍然存在。这是接口层大改，**必须逐用例验证**。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
