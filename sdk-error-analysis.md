@@ -710,3 +710,17 @@ Round 23 已确认：命中点是 `InvocationExpressionTransformer.cs:12554`，�
   - `Tests.SerializationWrapper$*SerializerWrapper.serializeWrapper`（5 个子类；基类 `(Class, Object, JsonSerializerOptions)`，覆写 `(Object, JsonSerializerOptions)`）。
 - **判定**: 这 6 处当前在失败栈中出现次数为 **0**（Round 22 统计），属潜伏缺陷；`ReflectionEmit*` 两处与 `MemberAccessor` 同源（令牌注入按方法体/表达式体决定），可在同一机制下顺手修复；`SerializationWrapper` 的 5 处是测试夹具特化被静默绕过，修法需先确认基类实现语义等价。
 - **优先级**: 低于 (b)（扩展数据簇 20+ 项，机制独立），高于其它潜伏项。
+## Iteration 34 — (b) 执行方案（基于已经跑通的 `[JsonPropertyName]` 通路）
+
+**已知事实（本会话前几轮实测）**
+- System.Text.Json 的特性在生成产物里是**类**（`JsonConverterAttribute` / `JsonExtensionDataAttribute` / `JsonIgnoreAttribute` / `JsonPropertyNameAttribute`，均 `extends JsonAttribute`），**不是 Java 注解**；
+- compat 只对少数特性提供注解映射：`CompatPropertyName` / `DebuggerBrowsable` / `FlagsAttribute` / `ObsoleteAttribute` / `Xml*`；
+- `TypeHelper.getCustomAttributes(Class, attributeType, inherit)` 与 `PropertyInfo.getCustomAttributes(Class, boolean)` 都要求 `attributeType.isAnnotation()`，因此对上述 JSON 特性类**恒返回空** ⇒ `determineConverter` 的 Priority 3（类型级 `[JsonConverter]`）、`determineExtensionDataProperty`（`[JsonExtensionData]`）、`[JsonIgnore]`/`[JsonInclude]` 全部失效。这就是扩展数据簇（16+ 项 `ExtensionDataTests`）与 `enumWithConverterAttribute` 的根因。
+- **已经跑通的同类通路**：`[JsonPropertyName]` 走的是"转换器发射 `@CompatPropertyName("...")` 注解 → compat `PropertyInfo` 构造器 `getter.getAnnotation(CompatPropertyName.class)` 读取" ✓ —— 这条链路证明了"特性→注解→compat 读取"的模式在本项目可行。
+
+**执行方案（照 (c) 的成功模式：先单测、再一处发射、再一次验证）**
+1. **compat**: 增加注解类型（与既有 `CompatPropertyName` 同风格）：`CompatJsonExtensionData`、`CompatJsonIgnore`、`CompatJsonInclude`、`CompatJsonConverter(Class<?> value)`；并在读取端（`PropertyInfo`/`FieldInfo` 的 `getCustomAttributes` 与 `TypeHelper.getCustomAttributes`）把注解**翻译**成调用方期望的对象。
+   - 关键约束：调用方期望的是**生成模块里的特性类实例**（`dotnet.text.json.Serialization.JsonExtensionDataAttribute` 等），compat 无法引用生成模块 ⇒ 需要一个**回调注册表**（生成模块静态初始化时注册"由注解构造特性实例"的工厂），或改由生成端读取（见下）。
+2. **转换器**: 对 `[JsonExtensionData]`/`[JsonIgnore]`/`[JsonInclude]`/类型级 `[JsonConverter]` 发射对应注解（复用 `CompatPropertyName` 的发射点，逐个特性最小化）。
+3. **验证**: compat 单测（注解→属性可见性）→ `dotnet build/test`（3154+58）→ Step 1（618/0）→ Step 2 官方（编译零错误 + 与 `mvn-build-r27.log` 集合差要求新增失败 0）→ 预期 `ExtensionDataTests` 16+ 与 `enumWithConverterAttribute` 转绿。
+4. **回退纪律**: 每一步只动一处发射点；出现编译错误或集合差为负立即回退（这是 (a) 两轮否决与 (c) 一次失败换来的教训）。
