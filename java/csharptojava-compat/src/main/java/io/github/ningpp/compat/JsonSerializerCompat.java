@@ -83,6 +83,9 @@ public final class JsonSerializerCompat {
         // resolve during converter creation.
         TypeHelper.beginTypeRegistration();
         TypeHelper.registerParameterizedType(type);
+        // The concrete type's own signature names the arguments an interface Type
+        // cannot report (class StrList implements IList<string>).
+        TypeHelper.registerConcreteType(raw);
         try {
             if (options == null) {
                 // Use a FRESH options instance instead of the shared default: the

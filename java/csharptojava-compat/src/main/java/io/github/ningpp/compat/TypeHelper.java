@@ -292,6 +292,7 @@ public final class TypeHelper {
             if (depth[0] == 0) {
                 TYPE_ARGUMENTS.remove();
                 CONSUMED_ARGUMENTS.remove();
+                CONCRETE_SUBTYPES.remove();
             }
         }
     }
@@ -518,6 +519,21 @@ public final class TypeHelper {
                 + " [repeat of consumed layer]");
             return result;
         }
+        // An interface has no arguments of its own, but a subclass that implements it
+        // usually names them (class StrList implements IList<string>). C# reads them
+        // off the interface Type; Java erased the class literal, so recover them from
+        // the hierarchy before losing the element type to Object.
+        java.lang.reflect.Type[] fromSubtype = findDeclaredArgumentsFor(type);
+        if (fromSubtype != null) {
+            rememberConsumedArguments(type, fromSubtype);
+            Class<?>[] result = new Class<?>[fromSubtype.length];
+            for (int i = 0; i < fromSubtype.length; i++) {
+                result[i] = toRawClass(fromSubtype[i]);
+            }
+            trace("getGenericArguments(" + type.getSimpleName() + ") = " + java.util.Arrays.toString(result)
+                + " [declared by a subtype]");
+            return result;
+        }
         // Lowest priority: the call site's own closed generic (a class literal erased it).
         java.util.ArrayDeque<java.lang.reflect.Type[]> callSiteDeque = CALLSITE_ARGUMENTS.get().get(type);
         if (callSiteDeque != null && !callSiteDeque.isEmpty()) {
@@ -540,6 +556,22 @@ public final class TypeHelper {
             if (getUnderlyingType(type) != null) {
                 return new Class<?>[] { type };
             }
+            // A concrete collection class usually gets its element type from the
+            // generic supertype it declares (class StrList implements IList<string>),
+            // not from type parameters of its own. Java erases the interface's
+            // arguments from the class literal, so recover them from the hierarchy:
+            // without this an element converter is built for the erased Object and
+            // every element comes back as a JsonElement.
+            java.lang.reflect.Type[] fromHierarchy = findTypeArgumentsInHierarchy(type);
+            if (fromHierarchy != null) {
+                Class<?>[] result = new Class<?>[fromHierarchy.length];
+                for (int i = 0; i < fromHierarchy.length; i++) {
+                    result[i] = toRawClass(fromHierarchy[i]);
+                }
+                trace("getGenericArguments(" + type.getSimpleName() + ") = " + java.util.Arrays.toString(result)
+                    + " [from declared supertype]");
+                return result;
+            }
             return new Class<?>[0];
         }
         Class<?>[] result = new Class<?>[params.length];
@@ -556,6 +588,166 @@ public final class TypeHelper {
             }
         }
         return Object.class;
+    }
+
+    /**
+     * Recovers the type arguments a class leaves in its generic supertypes.
+     * {@code class StringIListWrapper implements CSharpGenericIList<String>} has no
+     * type parameters of its own, so {@code getTypeParameters()} is empty and the
+     * element type would erase to {@code Object}. The declared supertypes still
+     * carry it in their bytecode signature, which is what this walk reads.
+     *
+     * @return the arguments of the nearest generic supertype, or null when the
+     *         class declares no generic supertype with arguments.
+     */
+    private static java.lang.reflect.Type[] findTypeArgumentsInHierarchy(Class<?> type) {
+        // Superclass first: a C# derived collection's own interface list is
+        // inherited from the base class, and the base is the more specific owner.
+        Class<?> superClass = type.getSuperclass();
+        if (superClass != null && superClass != Object.class) {
+            java.lang.reflect.Type genericSuper = type.getGenericSuperclass();
+            java.lang.reflect.Type[] found = typeArgumentsOf(genericSuper);
+            if (found != null) {
+                return found;
+            }
+        }
+        for (java.lang.reflect.Type iface : type.getGenericInterfaces()) {
+            java.lang.reflect.Type[] found = typeArgumentsOf(iface);
+            if (found != null) {
+                return found;
+            }
+        }
+        if (superClass != null && superClass != Object.class) {
+            return findTypeArgumentsInHierarchy(superClass);
+        }
+        return null;
+    }
+
+    /** Type arguments of a generic supertype, or null when it has none. */
+    private static java.lang.reflect.Type[] typeArgumentsOf(java.lang.reflect.Type supertype) {
+        if (supertype instanceof java.lang.reflect.ParameterizedType pt) {
+            // Only collection supertypes carry the element/key/value types this query
+            // exists for. A plain class can implement a generic interface for unrelated
+            // reasons (String implements Comparable<String>), and reading those
+            // arguments would answer a question nobody asked.
+            if (!(pt.getRawType() instanceof Class<?> raw) || !isCollectionType(raw)) {
+                return null;
+            }
+            java.lang.reflect.Type[] args = pt.getActualTypeArguments();
+            if (args.length > 0) {
+                return args;
+            }
+        }
+        return null;
+    }
+
+    /** A supertype whose type arguments describe elements, keys or values. */
+    private static boolean isCollectionType(Class<?> raw) {
+        return raw != null
+            && (java.util.Map.class.isAssignableFrom(raw) || java.lang.Iterable.class.isAssignableFrom(raw));
+    }
+
+    /**
+     * Arguments a concrete subtype declares for {@code target}. Java erases them from
+     * the class literal, but a class that implements {@code IList<String>} keeps the
+     * argument in its bytecode signature; converter factories ask the interface for
+     * its arguments, so this is where the element type is recoverable.
+     */
+    private static java.lang.reflect.Type[] findDeclaredArgumentsFor(Class<?> target) {
+        if (target == null || !isCollectionType(target)) {
+            return null;
+        }
+        java.util.List<Class<?>> candidates = CONCRETE_SUBTYPES.get();
+        // Most recently published first: the entry points publish the type being
+        // converted right before the lookup that needs it.
+        for (int i = candidates.size() - 1; i >= 0; i--) {
+            java.lang.reflect.Type[] found = declaredArgumentsFor(candidates.get(i), target);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Arguments {@code concrete} declares for {@code target} anywhere in its type
+     * hierarchy, or null when it declares none. Deeper declarations win over the ones
+     * inherited from the supertype, so {@code class Wrapper<String> extends Stack<T>}
+     * answers with the argument the concrete class itself wrote down.
+     */
+    private static java.lang.reflect.Type[] declaredArgumentsFor(Class<?> concrete, Class<?> target) {
+        if (concrete == null || concrete == Object.class) {
+            return null;
+        }
+        java.lang.reflect.Type[] found = declaredArgumentsIn(concrete.getGenericSuperclass(), target);
+        if (found != null) {
+            return found;
+        }
+        for (java.lang.reflect.Type iface : concrete.getGenericInterfaces()) {
+            found = declaredArgumentsIn(iface, target);
+            if (found != null) {
+                return found;
+            }
+        }
+        for (java.lang.reflect.Type iface : concrete.getGenericInterfaces()) {
+            if (iface instanceof java.lang.reflect.ParameterizedType pt
+                    && pt.getRawType() instanceof Class<?> raw) {
+                found = declaredArgumentsFor(raw, target);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return declaredArgumentsFor(concrete.getSuperclass(), target);
+    }
+
+    /** Arguments {@code supertype} itself declares for {@code target}, or null. */
+    private static java.lang.reflect.Type[] declaredArgumentsIn(java.lang.reflect.Type supertype, Class<?> target) {
+        if (!(supertype instanceof java.lang.reflect.ParameterizedType pt)
+                || !(pt.getRawType() instanceof Class<?> raw)
+                || !target.isAssignableFrom(raw)) {
+            return null;
+        }
+        java.lang.reflect.Type[] args = pt.getActualTypeArguments();
+        return args.length > 0 ? args : null;
+    }
+
+    // Concrete types whose declared generic supertypes the current query may consult.
+    // A converter factory asks the ERASED interface for its arguments
+    // (getCompatibleGenericInterface returns the raw type), so the element type is only
+    // recoverable from the concrete class that was handed to getConverter. Recency
+    // ordered and bounded, so a long test session cannot grow it without limit and the
+    // type being converted is always the first candidate.
+    private static final int CONCRETE_SUBTYPE_LIMIT = 64;
+    private static final ThreadLocal<java.util.List<Class<?>>> CONCRETE_SUBTYPES =
+        ThreadLocal.withInitial(java.util.ArrayList::new);
+
+    /** Publishes a concrete type whose declared generic supertypes may be consulted. */
+    public static void registerConcreteType(Class<?> type) {
+        if (type == null || type.isPrimitive() || type == Object.class) {
+            return;
+        }
+        java.util.List<Class<?>> candidates = CONCRETE_SUBTYPES.get();
+        // Move to the end when already known so "most recently converted" is the order.
+        for (int i = candidates.size() - 1; i >= 0; i--) {
+            if (candidates.get(i) == type) {
+                candidates.remove(i);
+                break;
+            }
+        }
+        candidates.add(type);
+        while (candidates.size() > CONCRETE_SUBTYPE_LIMIT) {
+            candidates.remove(0);
+        }
+    }
+
+    /** Keeps a recovered layer available to the repeat queries one converter creation makes. */
+    private static void rememberConsumedArguments(Class<?> raw, java.lang.reflect.Type[] args) {
+        // Without an active registration session the recovered layer would outlive its
+        // concrete type and answer later, unrelated queries for the same raw class.
+        if (REGISTRATION_DEPTH.get()[0] > 0) {
+            CONSUMED_ARGUMENTS.get().put(raw, args);
+        }
     }
 
     public static Class<?> getGenericTypeDefinition(Class<?> type) {
@@ -621,6 +813,14 @@ public final class TypeHelper {
      * CSharpGenericIterable.
      */
     public static boolean isAssignableFrom(Class<?> baseType, Class<?> type) {
+        // The converter factories ask this question about the concrete type they are
+        // about to convert (IEnumerableConverterFactory.canConvert, the immutable-type
+        // checks), and the answer is the last moment the concrete class is visible
+        // before the factory asks the ERASED interface for its element type. Record it
+        // so that lookup can recover the argument the class declared.
+        if (type != null && isCollectionType(baseType)) {
+            registerConcreteType(type);
+        }
         // Pure JVM answer first: it cannot be affected by the thread-local type-argument
         // registries below, and the extension-data check
         // (isAssignableFrom(CSharpGenericIDictionary.class, CSharpDictionary.class)) must not

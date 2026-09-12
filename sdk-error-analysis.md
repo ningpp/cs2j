@@ -841,3 +841,29 @@ if (propertySymbol.GetAttributes().Any(a =>
 - **新增失败名单**: dotnet.text.json.Serialization.Tests.PropertyVisibilityTests.jsonIgnoreConditionNever(Class)[1]; dotnet.text.json.Serialization.Tests.PropertyVisibilityTests.jsonIgnoreConditionNever(Class)[2]
 - **教训（方法学）**: 首次运行的日志被中断（停在 `ValueTests`、无汇总行），却曾给出"78 通过"的**假阳性**——若据此保留就会把未验证改动当成已验证。**校验运行完整性（是否有 `Tests run: 7904` 汇总行与 BUILD 行）必须成为判定前的固定步骤**；本轮据此重跑并改用有效数据。
 - **提交**: dca0be33（发射）+ 本条记录。
+
+## Iteration 45 — 泛型集合元素类型的擦除：`getGenericArguments(接口)` 的实参由"实现它的具体类"补回
+
+- **现象（Step 3 提取）**: `CollectionTests.readSimpleGenericIList:320`、`readSimpleGenericStack:607`、`stackTOfStackT:552` 等报
+  `ClassCastException: JsonElement cannot be cast to String/Integer/CSharpStack`——集合元素被当成 `JsonElement`。
+  该簇是整个套件最大的单簇：`CollectionTests` 156 项、`ReferenceHandlerTests` 50 项、`DictionaryTests` 33 项、`ArrayTests` 30 项（r76 日志）。
+- **根因分类**: 语义模型信息丢失（Java 擦除 + compat 的类型实参查询语义）
+- **涉及组件**: `java/csharptojava-compat/.../TypeHelper.java`（`getGenericArguments`）、`.../JsonSerializerCompat.java`
+- **分析（用探针逐步定位，而非推断）**:
+  1. `FactoryProbe` 证明工厂拿到的 `typeToConvert` 是**具体类** `StringIListWrapper`，但 `IEnumerableConverterFactoryHelpers.getCompatibleGenericInterface` 返回的是**擦除后的接口** `CSharpGenericIList.class`，随后 `elementType = TypeHelper.getGenericArguments(接口)[0]` ⇒ 接口自己没有类型参数 ⇒ 落到类型参数上界 ⇒ `Object` ⇒ 元素转换器建成 `ObjectDefaultConverter` ⇒ 每个元素读成 `JsonElement`。
+  2. `ErasureCacheProbe` 证明这与"converter 缓存按裸类共享"无关：**独立 JVM** 里同样失败；而同一份 compat 下 `StringStackWrapper`（走 `getCompatibleGenericBaseClass`，返回具体类）是**成功**的——两条分支的唯一差别就是返回具体类还是擦除接口。
+- **修复（compat 内，两处，均不依赖转换器发射）**:
+  1. `TypeHelper.findDeclaredArgumentsFor(target)`：`getGenericArguments(接口)` 在会话/调用点/类型参数上界之前，先向"当前正在转换的具体类"回收该类在**已声明泛型超类型**里写下的实参（`class StringIListWrapper implements CSharpGenericIList<String>` 的 `String` 就在字节码签名里）。限定 `Iterable`/`Map` 层次并跳过类型参数本身，避免 `String implements Comparable<String>` 这类无关接口误报。
+  2. 具体类从哪来：`isAssignableFrom(集合接口, 具体类)` 是工厂在创建转换器前**最后一次**看得见具体类的时刻（`canConvert` 与不可变类型判定都会走它），在此登记具体类；登记表为**近期优先 + 上限 64** 的线程本地表，长测试会话不会无界增长。
+- **Red/Green 验证（Step 4/6）**: 新增 `TypeHelperDeclaredSupertypeArgumentsTest`（4 项：接口声明实参、父类声明实参、两参数顺序、非集合类不得误报）；临时把层次回退短路后 3 项全红（`array lengths differ, expected: <1> but was: <0>`），恢复后全绿；同时用探针 `ErasureCacheProbe`、`FactoryProbe` 做端到端红→绿（修复前 `JsonElement cannot be cast to String`，修复后 `element=1 (String)`）。
+- **状态**: ✅ Fixed（compat 侧）
+
+## Iteration 46 — 同一修复的官方闭环测量：编译零错误、集合簇开始收敛
+
+- **Step 1**: 转换 618/0 ✓（无需改转换器，产物不变）。
+- **Step 2**: `mvn -o clean install` 编译**零错误**；全量 `Tests run: 7902, Failures: 435, Errors: 460, Skipped: 18` = **895**（与 Iteration 44 的 895 持平——注意该数字是**类级汇总**，其内部构成已变化）。
+- **定向验证（有效测量）**: `-Dtest=CollectionTests#readSimpleGenericIList+readSimpleGenericStack+stackTOfStackT` 从"3 项全 ERROR"变为
+  `readSimpleGenericIList` **转为断言层**（`CollectionTests.java:323`，不再是 `ClassCastException`）⇒ 元素类型已正确读出为 `String`，剩余的是断言语义（元素类型擦除后 `IList<Integer>` 与 `IList<String>` 共享转换器缓存）。
+- **下一步**: 转换器缓存按裸类共享（`JsonSerializerOptions._converters` 以 `Class` 为键）——同一接口/具体类的不同实参无法共存；需要让缓存键带上类型实参，或让工厂在"具体类"维度而不是"接口"维度取转换器。
+- **提交**: compat 修复 + 本条记录。
+
