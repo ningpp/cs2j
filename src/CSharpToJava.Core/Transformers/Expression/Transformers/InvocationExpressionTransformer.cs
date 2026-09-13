@@ -2267,7 +2267,12 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         }
 
         // C# Type.GetProperty(name) → TypeHelper.getProperty(class, name)
+        // C# Type.GetProperty(name, BindingFlags) → TypeHelper.getProperty(class, name, int)
         // Java Class has no getProperty; use compat helper that returns null if not found.
+        // The flags argument used to be dropped, which silently turned every
+        // "(BindingFlags.Instance | BindingFlags.NonPublic)" lookup into a public-only
+        // lookup: the SDK's private DebuggerDisplay property was invisible and the
+        // debugger tests NRE'd on the null result.
         if (originalMethodName == "GetProperty"
             && earlyMethodSymbol?.ContainingType.ToDisplayString() == "System.Type"
             && node.ArgumentList.Arguments.Count >= 1)
@@ -2276,6 +2281,17 @@ if (node.Expression is GenericNameSyntax genericMethodName)
             var propNameArg = node.ArgumentList.Arguments[0].Expression is Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax lit
                 ? $"\"{lit.Token.ValueText}\""
                 : facade.Transform(node.ArgumentList.Arguments[0].Expression, context);
+
+            bool hasPropertyBindingFlags = node.ArgumentList.Arguments.Count >= 2
+                && earlyMethodSymbol.Parameters.Length >= 2
+                && earlyMethodSymbol.Parameters[1].Type.ToDisplayString() == "System.Reflection.BindingFlags";
+
+            if (hasPropertyBindingFlags)
+            {
+                var flagsExpr = facade.Transform(node.ArgumentList.Arguments[1].Expression, context);
+                return $"TypeHelper.getProperty({receiver}, {propNameArg}, {flagsExpr})";
+            }
+
             return $"TypeHelper.getProperty({receiver}, {propNameArg})";
         }
 

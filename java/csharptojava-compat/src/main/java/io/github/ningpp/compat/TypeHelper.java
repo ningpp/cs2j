@@ -2020,6 +2020,63 @@ public final class TypeHelper {
         return new PropertyInfo(getter, setter);
     }
 
+    /**
+     * Bridges C# {@code Type.GetProperty(name, BindingFlags)} semantics.
+     *
+     * <p>Mirrors {@link #getField(Class, String, int)}: {@code Class#getMethods()} returns PUBLIC
+     * methods only, so the {@code NonPublic} flag could never be honoured and a C# private property
+     * was invisible. The SDK's own {@code DebuggerDisplay} property is exactly that shape —
+     * {@code private string DebuggerDisplay => ...} becomes a private {@code getDebuggerDisplay()}
+     * — and the runtime's debugger tests look it up with
+     * {@code BindingFlags.Instance | BindingFlags.NonPublic}, so a public-only lookup answered
+     * {@code null} and the following {@code .GetValue(value)} threw NullReferenceException.</p>
+     */
+    public static PropertyInfo getProperty(Class<?> type, String name, int bindingFlags) {
+        if (type == null || name == null || name.isEmpty()) {
+            return null;
+        }
+        boolean wantNonPublic = (bindingFlags & BindingFlags.NonPublic) != 0;
+        if (!wantNonPublic) {
+            return getProperty(type, name);
+        }
+        String capitalized = Character.toUpperCase(name.charAt(0)) + name.substring(1);
+        String getterName = "get" + capitalized;
+        String isGetterName = "is" + capitalized;
+        String setterName = "set" + capitalized;
+        boolean declaredOnly = (bindingFlags & BindingFlags.DeclaredOnly) != 0;
+
+        Method getter = null;
+        Method setter = null;
+        for (Class<?> current = type; current != null && current != Object.class; current = current.getSuperclass()) {
+            for (Method method : current.getDeclaredMethods()) {
+                if (method.isSynthetic() || method.isBridge()) {
+                    continue;
+                }
+                if (!matchesBindingFlags(method.getModifiers(), bindingFlags)) {
+                    continue;
+                }
+                String methodName = method.getName();
+                if (getter == null && method.getParameterCount() == 0 && method.getReturnType() != void.class) {
+                    if (methodName.equals(getterName)
+                        || (methodName.equals(isGetterName)
+                            && (method.getReturnType() == boolean.class || method.getReturnType() == Boolean.class))) {
+                        getter = method;
+                    }
+                }
+                if (setter == null && methodName.equals(setterName) && method.getParameterCount() == 1) {
+                    setter = method;
+                }
+            }
+            if (declaredOnly || (getter != null && setter != null)) {
+                break;
+            }
+        }
+        if (getter == null && setter == null) {
+            return getProperty(type, name);
+        }
+        return new PropertyInfo(getter, setter);
+    }
+
     public static String getFullName(Class<?> type) {
         if (type == null) {
             // C# would NPE on ((Type)null).FullName; generated switch statements on
