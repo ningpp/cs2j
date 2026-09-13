@@ -2435,3 +2435,60 @@ CAUSE: IllegalStateException: Cannot get the value of a token type 'StartArray' 
 管道上，需要独立一轮"改一次、测一次"；本轮上下文已接近上限，故只留可复现的探针与结论。
 **注意不要原样重试** `PatchConverterCacheLookup`（转换器缓存，§6.2 已否证）——
 本条是**类信息**缓存。
+
+### 4.68 Round 66：`default(JsonElement)` 的 struct 复制走了 C# `Clone()`（554 → 553）
+
+**入口**：桶 `IllegalStateException (no message)`（8 条）的栈就是全部证据：
+
+```
+JsonElement.checkValidInstance ← JsonElement.clone ← $JsonElementClass.setNull
+  ← MethodInfo.invoke ← ReflectionMemberAccessor.lambda$createPropertySetter$0
+  ← JsonPropertyInfo1.readJsonAndSetMember
+```
+
+**根因链**：
+1. C# `JsonElement` 是 struct，`obj.Null = default` 是**逐位复制**，不做校验；
+2. 转换器把 struct 复制模拟成 `.clone()`（`StructCloneHelper` / `PropertyTransformer` 等插入点）；
+3. 但 `JsonElement` **自带 `Clone()`**，其内部 `CheckValidInstance()` 对默认实例抛
+   `IllegalStateException`；`StructTransformer.AddCloneMethod` 的
+   `// Has final fields … keep original clone()` 分支（第 852 行）恰好让 `JsonElement`
+   保留了这个 C# `Clone()`，于是**复制继承了 API 的校验**；
+4. JSON 里的 `null` 让读取器造出 `default(JsonElement)`，赋值时在生成的 setter 里炸掉。
+
+**修法**：新增 `ProjectPasses.PatchJsonElementCloneOfDefaultInstance`，只改
+`public JsonElement clone()` 的开头：
+
+```java
+if (_parent == null) {
+    // default(JsonElement): C# copies the value, it does not validate it.
+    return this;
+}
+checkValidInstance();
+```
+
+其余成员一律不变，真实 API 仍然拒绝无效实例（grep 全部 C# 测试：**没有任何**
+`.Clone()` + `Throws`/`default` 的断言，所以放宽这一点不会与测试预言机冲突）。
+
+**实测**：`554 → 553`，集合差 **修 1 / 坏 0**：
+```
+FIXED JsonDocumentTests#defaultObjectEnumeratorDoesNotThrow
+```
+`Tests run: 7902` 恰好 1 次，failures 307 / errors 246。
+
+**附带的重要观察**：这个桶里另外 **6 条换了失败形状**（不是"修好"，集合差把它们
+如实算作仍失败）：
+
+| 用例 | 修前 | 修后 |
+|---|---|---|
+| `JsonElementTests#serializeJsonElement` | `IllegalStateException` | `Expect Null -> Undefined` |
+| `ObjectTests#write(ITestClass)[37]` | 同上 | 同上 |
+| `ReferenceHandlerTests#readTestClassesWithExtensionOption(Class,byte[])[37]` | 同上 | 同上 |
+| `SpanTests#read(Class,byte[])[37]` | 同上 | 同上 |
+| `SpanTests#readFromStream(Class,byte[])[37]` | 同上 | 同上 |
+| `ReadValueTests#optionsFollowToConverter` / `WriteValueTests#optionsFollowToConverter` | 同上 | 仍在 `IllegalStateException`（改成 `getArrayLength`/`writeTo` 入口） |
+
+`Expect Null -> Undefined` 的意思是：`{"Null":null}` 反序列化后
+`JsonElement.getValueKind()` 应为 `Null` 却是 `Undefined` ——
+即 null token 落到了 `_cs2jDefault_T()` 而没有让转换器去读
+（`JsonPropertyInfo1` 第 178 行：`isNullToken && !HandleNullOnRead && !IsContinuation`
+时直接 `getSet().accept(obj, _cs2jDefault_T())`）。**这是可接的下一步**（该桶 5 条）。

@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 302, Errors: 252, Skipped: 18` = **554**（起点 855，**−301**）。
-- 本会话累计 **18 条 KEEP**（16 条"逐用例集合差 +0 回归"；`a62aac37` 修 40 / 坏 1 已披露；
+- **基线**：`Tests run: 7902, Failures: 307, Errors: 246, Skipped: 18` = **553**（起点 855，**−302**）。
+- 本会话累计 **20 条 KEEP**（17 条"逐用例集合差 +0 回归"；`a62aac37` 修 40 / 坏 1 已披露；
   `387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；`18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
 | 提交 | 内容 | 收益 |
@@ -335,6 +335,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `67b4e3a2` | `default(T)` 是否为 null 改按**声明成员**判断（`int` vs `int?`、struct） | 569 → 568（修 1） |
 | `18e24418` | 把 `[JsonIgnore(Condition = …)]` 送进运行时 | 568 → 558（修 11 / 暴露 1） |
 | `fbed68d4` | `CSharpDictionary` 查表遵守构造时给的 comparer | 558 → 554（修 4，含上面那条暴露） |
+| `cd8fe08a` | `default(JsonElement)` 的 `.clone()` 走复制而非 C# `Clone()` | 554 → 553（修 1，另 6 条换成了真实断言） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -839,6 +840,41 @@ getOrAddClass(CSharpList.class) : elementType=java.lang.Integer / ListOfTConvert
 **注意**：§8.2.11/§6.2 里"转换器缓存读写键统一"那条（`PatchConverterCacheLookup`）
 是**被否证过的相邻方向**，不要再原样重试；本条是**类信息**缓存，不是转换器缓存。
 
+### 8.2.21 Round 66 已修：`default(JsonElement)` 的 struct 复制走了 C# `Clone()`（554 → 553，另 6 条换了断言）
+
+**探针证据来自失败栈本身**（无需额外探针）：
+
+```
+JsonElement.checkValidInstance ← JsonElement.clone ← $JsonElementClass.setNull
+  ← MethodInfo.invoke ← ReflectionMemberAccessor.lambda$createPropertySetter$0
+  ← JsonPropertyInfo1.readJsonAndSetMember
+```
+
+**根因**：C# 的 `JsonElement` 是 struct，给成员赋 `default` 是**逐位复制**；
+转换器用 `.clone()` 模拟这个复制，但 `JsonElement` **自带一个 `Clone()` 方法**
+（内部 `CheckValidInstance()`，对默认实例抛异常）。于是"复制"继承了 API 的校验：
+JSON 里的 `null` 让读取器造出 `default(JsonElement)`，赋值时在生成的 setter 里炸掉。
+`StructTransformer.AddCloneMethod` 里那条 `// Has final fields … keep original clone()`
+分支（第 852 行）正是"不生成复制方法、保留 C# `Clone()`"的路径 —— `JsonElement` 走的它。
+
+**修法（本轮取窄路）**：`ProjectPasses.PatchJsonElementCloneOfDefaultInstance` 只放宽
+`clone()` 里的默认实例分支（`_parent == null` 时 `return this`），
+**其他所有成员仍然走 `CheckValidInstance()`**，真实 API 依旧拒绝无效实例。
+
+**实测**：`554 → 553`，逐用例集合差 **修 1 / 坏 0**。
+另有 **6 条从 `IllegalStateException` 变成了真实断言失败**
+（`Expect Null -> Undefined`：`{"Null":null}` 反序列化后 `ValueKind` 应是 `Null` 却是 `Undefined`）
+—— 现在这个桶只剩 5 条，形状是"null token 落到了 `_cs2jDefault_T()` 而不是让转换器去读"，
+**下一步可直接从这里接**（`JsonPropertyInfo1` 第 178 行：null token 且 `!HandleNullOnRead`
+时直接赋 `_cs2jDefault_T()`）。
+
+**更根本但更大的修法（未做）**：给"值复制"另起一个方法名（如 `_cs2jCopy()`），
+让所有**编译器插入**的复制点都不再调用用户可见的 `clone()`。
+目前插入点分布在 `StructCloneHelper`、`PropertyTransformer`、`AssignmentTransformer`、
+`ArgumentTransformer`、`MemberwiseCloneRewriter` 等处，属独立一轮的工作量；
+`JsonElement` 只是第一个被踩到的类型。
+
+### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
 |---|---|
