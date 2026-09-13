@@ -2639,3 +2639,72 @@ C# 的规则：
 **与既有结论的关系**：这是"异常/格式化**文本**"通道的又一例
 （同族：§4.34 `ThrowHelper` 渲染 C# 泛型名、§8.2.16 `csFormat` 的数字格式）。
 **凡是断言消息文本的失败，先查 compat 里对应的异常/格式化类。**
+
+### 4.72 Round 70：闭键类信息的"两半一起做"仍然失败（539 → 576，−37，已回滚）
+
+**动机**：§4.67 定位到 64 条 `JsonConvert CSharpList` 的根因是**类信息缓存被污染**
+（裸 `CSharpList.class` 的 `JsonClassInfo` 是在最内层实参上下文里建出来的）。
+§8.2.20 写的下一步是"给类信息缓存补实参维度"。本轮把这一步真正做了，**并且补齐了
+round 41 缺失的第 2 半**。
+
+**实现（两半）**
+
+1. 成员侧（compat）：`cachedClassInfoForMember` 原本只是**命中查询**；改成未命中即
+   **创建** —— 反射 `new JsonClassInfo(rawType, options)`，创建期间把该成员自己的实参
+   装进 `MEMBER_ARGUMENTS`，实例存入 compat 的 per-options 旁路表（键
+   `ClosedGenericKey(raw, args)`），**不去污染**生成的 `_classes`。
+2. 元素侧（pass 改写 `JsonClassInfo.getElementClassInfo()`）：
+   `getOptions().getOrAddClass(__cs2jElement)`
+   → 先问 `TypeHelper.getOrAddElementClassInfo(getOptions(), __cs2jElement)`，
+   命中闭键就用它，否则保持原样（与 `getRuntimeClassInfo()` 里已有的钩子写法一致）。
+
+**测量 1**：`539 → 576`，**修 1 / 坏 38**；`Tests run: 7902` 恰好 1 次。
+回归样本表明"错的类型被读了进来"：
+
+```
+CustomConverterTests#customDerivedTypeConverter
+  class dotnet.text.json.JsonElement cannot be cast to class java.lang.Integer
+ExtensionDataTests#nestedClassWithJsonElementExtensionDataProperty
+  class dotnet.text.json.JsonElement cannot be cast to ...ChildClassWithJsonElement
+ArrayTests#classWithMixedSettersIsParsed[1..2]  Expected: 1 / Actual: 1（类型不同）
+ObjectTests#write[9,10,24,28,29,30,31,32] / SpanTests#read[...] / ReferenceHandlerTests#readTestClasses...
+```
+
+**判定实验（守卫）**：怀疑元素侧对"非同类嵌套"也生效 ——
+`MEMBER_ARGUMENTS` 里本来就有每个成员发布过的实参，所以"表里有这个元素类型的条目"
+**不等于**这是一次 `List<List<T>>` 嵌套。于是加 `ELEMENT_SCOPE_DEPTH`，
+只在 `beginElementArgumentsScope` 真正生效（`ownerType == elementType`）时才回答元素侧查询。
+
+**测量 2**：`539 → 576`，**修 1 / 坏 38，回归清单与测量 1 逐条一致**。
+
+**结论**：代价**全部来自成员侧创建**。也就是说 round 41 的 +19 不是"缺少第 2 半"造成的，
+而是"让同一个擦除类拥有第二份 `JsonClassInfo`"本身的代价：`getRuntimeClassInfo()` 交出去的帧
+会换成另一份 `PropertyCache` / `_elementClassInfo`，其影响面远大于收益。
+**该方向正式关闭**（两次独立测量：round 41 +19、round 70 +37）。
+
+**已回滚**：`git checkout` 两个文件 → 重新生成 → 重新全量测量得
+`539 → 539，修 0 / 坏 0`，确认基线完好（这也再次验证了"回滚也必须重新生成后再测"这条纪律）。
+
+### 4.73 Round 70：可空 struct 与不可空 struct 在运行期**完全不可区分**（探针实测）
+
+Round 68 的实验 A 只凭生成物**推断**"运行期分不出 `T` 与 `T?`"。本轮用 `DefProbe10`
+直接读运行期对象：
+
+```
+== TestClassWithValueTypedMember
+   MyValueTypedProperty declared=ValueTypedMember propertyTypeCanBeNull=true
+        converter=ObjectDefaultConverter typeToConvert=ValueTypedMember isValueType=false
+== TestClassWithNullableValueTypedMember
+   MyValueTypedProperty declared=ValueTypedMember propertyTypeCanBeNull=true
+        converter=ObjectDefaultConverter typeToConvert=ValueTypedMember isValueType=false
+ValueTypedMember.isValue() = true
+```
+
+**两行完全相同**：declared 类型、converter 类、`TypeToConvert`、`propertyTypeCanBeNull`
+全部一致，唯一差别是编译期插入的 `.clone()`（不可空成员有，可空成员没有）。
+
+**结论**：**不存在**能在 compat 侧区分它们的运行期信号，
+所以"让通用 `getIsValueType` 认得 `value class`"没有安全实现 —— 该方向**正式关闭**，
+并把"生成物里 `.clone()` 的有无"记为**编译期信息，运行期不可用**（本会话第二次踩到这条：
+第一次是 §4.64 的 `int` vs `int?`，解决方式是取**声明成员**的原始类型；
+struct 没有对应的原始类型可用）。

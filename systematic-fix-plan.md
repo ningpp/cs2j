@@ -844,6 +844,42 @@ getOrAddClass(CSharpList.class) : elementType=java.lang.Integer / ListOfTConvert
 **注意**：§8.2.11/§6.2 里"转换器缓存读写键统一"那条（`PatchConverterCacheLookup`）
 是**被否证过的相邻方向**，不要再原样重试；本条是**类信息**缓存，不是转换器缓存。
 
+**⚠️ Round 70 已实测该"下一步"并回滚，见 §8.2.25 —— 不要再按上面的写法重试。**
+
+### 8.2.25 Round 70 已实测并回滚：闭键类信息的**两半一起做**仍然失败（539 → 576，−37）
+
+**做法**（正是 §8.2.20 里写的"下一步"，两半都实现了）：
+
+1. **成员侧**（compat `cachedClassInfoForMember`）：原来只做**命中查询**（round 41 的结论是
+   "键条目从未被创建"）。本轮改成**未命中就创建** —— 用反射
+   `new JsonClassInfo(rawType, options)`，创建时把该成员自己的实参装进 `MEMBER_ARGUMENTS`
+   （转换器工厂就是读它来定元素/键类型的），实例存进 **compat 自己的 per-options 旁路表**
+   （键为 `ClosedGenericKey(raw, args)`），**不污染**生成的 `_classes`。
+2. **元素侧**（pass 改写 `JsonClassInfo.getElementClassInfo()`）：
+   `getOptions().getOrAddClass(__cs2jElement)` → 先问
+   `TypeHelper.getOrAddElementClassInfo(getOptions(), __cs2jElement)`，
+   命中闭键就用它，否则保持原样（写法与 `getRuntimeClassInfo()` 已有的那个钩子一致）。
+
+**动机**：round 41 单独做第 1 半时"失败只是搬家（内层元素仍用错转换器）+ 代价 39 条"，
+而当时**第 2 半还不存在**（`getElementClassInfo()` 仍按裸 Class 查表）。
+
+**实测：`539 → 576`，修 1 / 坏 38 —— 与 round 41 的 +19 同向且更差。**
+回归样本（错的类型被读进来）：
+`JsonElement cannot be cast to Integer`、`JsonElement cannot be cast to ChildClassWithJsonElement`、
+`Expected: 1 / Actual: 1`（类型不同的等值）。
+
+**关键判定实验**：怀疑是第 2 半对"非同类嵌套"也生效（`MEMBER_ARGUMENTS` 里本来就有每个成员
+发布过的实参，所以"表里有这个元素类型的条目"**不等于**这是一次 `List<List<T>>` 嵌套）。
+于是加了 `ELEMENT_SCOPE_DEPTH` 守卫，只在 `beginElementArgumentsScope` 真正生效
+（`ownerType == elementType`）时才回答元素侧查询。
+**结果完全相同（539 → 576，修 1 / 坏 38，回归清单逐条一致）** ——
+说明**全部代价来自第 1 半**（创建成员闭键类信息），与元素侧无关。
+
+**结论**：52 条 `JsonConvert CSharpList` 的修法**不是**"给类信息缓存补实参维度"。
+类信息一旦不是"每个擦除类一份"，`getRuntimeClassInfo()` 交出去的帧就会换成另一份
+`PropertyCache`/`_elementClassInfo`，其副作用面远大于收益（round 41 与 round 70 两次独立测量，
++19 与 +37）。**该方向正式关闭**，见 §8.4。
+
 ### 8.2.21 Round 66 已修：`default(JsonElement)` 的 struct 复制走了 C# `Clone()`（554 → 553，另 6 条换了断言）
 
 **探针证据来自失败栈本身**（无需额外探针）：
@@ -960,6 +996,23 @@ C# 的规则是：`Message = message + " (Parameter 'name')"`，且**没给 mess
 凡是 `Assert.Contains/equal` 断言**消息文本**的失败，先看 compat 里对应的异常/格式化类，
 不要先怀疑逻辑。
 
+### 8.2.26 Round 70：可空 struct 在运行期**无法**与不可空区分（§8.2.23 实验 A 的方向正式关闭）
+
+Round 68 的实验 A（把 `getIsValueType` 改成认得 `value class`）得 5 修 / 4 坏，坏的全是
+`ValueTypedMember?` 成员。当时只凭生成物（不可空成员的 getter/setter 有 `.clone()`）**推断**
+运行期分不出来。本轮用探针**直接验证**（`DefProbe10`）：
+
+| 成员 | declaredPropertyType | converter | typeToConvert | propertyTypeCanBeNull |
+|---|---|---|---|---|
+| `TestClassWithValueTypedMember.MyValueTypedProperty` | `ValueTypedMember` | `ObjectDefaultConverter` | `ValueTypedMember` | true |
+| `TestClassWithNullableValueTypedMember.MyValueTypedProperty` | `ValueTypedMember` | `ObjectDefaultConverter` | `ValueTypedMember` | true |
+
+**两行完全相同**（比较器、转换器类型、`TypeToConvert`、可空标志全部一致），
+唯一差别是编译期插入的 `.clone()`。
+→ **不存在**能在 compat 侧区分它们的运行期信号，因此
+"让通用 `getIsValueType` 认得 value class"这条方向**没有安全实现**，正式关闭。
+（`Converter.CanBeNull` 那条窄路已在 `f094d466` 取到它的 3 条收益，见 §8.2.23。）
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
@@ -986,6 +1039,14 @@ C# 的规则是：`Message = message + " (Parameter 'name')"`，且**没给 mess
 
 见 §6.2（8 条，含各自的实测数据）与 §4.34/§4.35 的两个"封案"结论。
 **不要在未读 §6.2 的情况下重试这些方向。**
+
+本会话新增的三条（都有独立测量，勿重试）：
+
+| 方向 | 实测 | 出处 |
+|---|---|---|
+| 给**类信息**缓存补实参维度（成员侧创建闭键条目 ± 元素侧闭键查询） | 539 → 576（修 1 / 坏 38），带 `ELEMENT_SCOPE_DEPTH` 守卫后**结果逐条一致** → 代价全部来自成员侧创建 | §8.2.25（round 41 的同向测量为 +19） |
+| 让通用 `TypeHelper.getIsValueType` 认得 `value class` | 548 → 547（修 5 / 坏 4）；可空 struct 在运行期**无法**与不可空区分（探针两行完全相同） | §8.2.23 / §8.2.26 |
+| `ImmutableDictionary` 直接实现 `CSharpReadOnlyDict` | 不编译（`IImmutableDictionary.clear()` 返回自身 vs `Collection.clear()` void）；转换器的泛型上界会插入隐式 checkcast，13 条 `ClassCast` 由此而来 | §8.2.7 |
 
 ### 8.5 已建议接受的限制
 
