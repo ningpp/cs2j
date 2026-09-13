@@ -1,4 +1,4 @@
-﻿# 转换后 Java 工程单测失败 — 系统性全面修复计划
+# 转换后 Java 工程单测失败 — 系统性全面修复计划
 
 > 目标：把 `d:\cs-json-0911-sdk` 的 `mvn clean install -e` 从当前
 > `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18`（855 条失败）
@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 232, Errors: 238, Skipped: 18` = **470**（起点 855，**−385**）。
-- 本会话累计 **39 条 KEEP**（33 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 232, Errors: 235, Skipped: 18` = **467**（起点 855，**−388**）。
+- 本会话累计 **40 条 KEEP**（34 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -361,6 +361,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `8c2c15ff` | 保留 C# `new InvalidOperationException()` 的**默认消息** | 493 → 490（修 3） |
 | `756d6cf6` | `default(Utf8JsonReader)` 的空缓冲区（null → 空 span） | 490 → 488（修 2） |
 | `310552db` | `default(T)`：C# 类 → **null**（只有 struct 才有零实例） | 488 → 470（修 18） |
+| `2ece1c64` | `Type.GetProperty(name, flags)` 的**标志实参**送进 compat | 470 → 467（修 3） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1559,6 +1560,37 @@ nestedClass[1..3]}`、`CyclicTests#deepTypeCycleWithRoundTrip`、`ArrayTests#rea
 
 **下一步若要修那条断言**，方向必须是"**只对用户类型收紧、对转换器工厂类保持宽松**"，
 即需要一个新的标记（类似 `@CompatInternalCtor`）来区分两者 —— 而不是改桥接规则本身。
+
+### 8.2.41 Round 81 已修：`Type.GetProperty(name, BindingFlags)` 丢了标志实参（470 → 467，修 3 / 坏 0）
+
+**入口**：`DebuggerTests#defaultJsonElement / defaultJsonProperty / defaultUtf8JsonWriter`
+（3 条，同一个辅助方法），栈是
+
+```
+DebuggerTests.getDebuggerDisplayProperty:54
+  ← io.github.ningpp.compat.TypeHelper.getProperty(Class, String) 返回 null
+  ← io.github.ningpp.compat.PropertyInfo.getValue(Object)
+```
+
+**两步定位**（都是"读原文"就能拿到的证据，不需要探针）：
+
+1. C# 原文是 `typeof(T).GetProperty("DebuggerDisplay", BindingFlags.Instance | BindingFlags.NonPublic)`
+   —— 生成物却只有 `getProperty(type, "DebuggerDisplay")`：**转换器把标志实参丢了**。
+   同一文件里 `GetField` 的特例**有**标志分支，compat 也有 `getField(Class, String, int)`，
+   只有 `GetProperty` 这条腿是残的。
+2. 该属性在 C# 里是 `private string DebuggerDisplay => ...`，生成物是
+   `@CompatNonPublicProperty @CompatNonPublicAccessor private String getDebuggerDisplay()`，
+   而 `getProperty(Class, String)` 只扫 `type.getMethods()`（**只含 public**）→ 必然 null。
+
+**修法**：① compat 加 `getProperty(Class, String, int)`：带 `NonPublic` 时沿类层次扫
+`getDeclaredMethods()`（复用 `matchesBindingFlags`、跳过 synthetic/bridge、`DeclaredOnly` 只扫本类），
+失败再回落 public-only 重载；**public-only 重载一字未改**（`PropertyVisibilityTests` 的 29 个
+`getProperty(type, name)` 站点依赖"只认 public"）。② 转换器 `GetProperty` 特例补标志分支，
+形状与 `GetField` 逐行对齐。全生成树带 3 实参的 `getProperty(` 只有本测试 **1** 处，影响面可控。
+
+**实测**：`470 → 467`，修 3 / 坏 0；`Tests run: 7902, Failures: 232, Errors: 235, Skipped: 18`。
+**纪律提示**：全文的 `GetXxx(name, flags)` 特例都要用同一个形状核对一遍 ——
+"只有一个成员的特例补了标志、另一个没补"是本轮这种静默丢实参的温床。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

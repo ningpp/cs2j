@@ -1,4 +1,4 @@
-﻿# 系统性修复计划 — 证据与分簇基线
+# 系统性修复计划 — 证据与分簇基线
 
 > 生成方式：`mvn-build-r140.log`（UTF-16LE）+ `*/target/surefire-reports/TEST-*.xml`，
 > 由 `tools/triage_xml.py` / `tools/triage_report.py` / `tools/triage_drill.py` 解析。
@@ -3468,3 +3468,58 @@ if (Modifier.isPrivate(ctorMods)) {
 
 **若仍要修那条断言**：需要"只对用户类型收紧"的新标记（与 `@CompatInternalCtor` 同族的思路），
 **不是**改桥接规则本身。
+
+### 4.90 Round 81：`Type.GetProperty(name, BindingFlags)` 的**标志实参被丢弃**（470 → 467，修 3 / 坏 0）
+
+**症状**（3 条，`DebuggerTests`）：
+
+```
+java.lang.NullPointerException: Cannot invoke "io.github.ningpp.compat.PropertyInfo.getValue(Object)"
+  because the return value of "io.github.ningpp.compat.TypeHelper.getProperty(java.lang.Class, String)" is null
+```
+
+站点 `DebuggerTests.getDebuggerDisplayProperty:54`：
+
+```java
+return (String)(TypeHelper.getProperty(TypeHelper.toWrapperType(_cs2j_T), "DebuggerDisplay").getValue(value));
+```
+
+**C# 原文**（`tests/DebuggerTests.cs:38`）：
+
+```csharp
+return (string)typeof(T).GetProperty("DebuggerDisplay", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(value);
+```
+
+**根因有两半，缺一不可**：
+
+1. **转换器丢实参**：`InvocationExpressionTransformer` 里 `System.Type.GetProperty` 的特例
+   只取第 0 个实参，直接发 `TypeHelper.getProperty(receiver, name)`，把 `BindingFlags` **静默丢掉**。
+   紧挨着的 `GetField` 特例**有**标志分支（发 `getField(receiver, name, flags)`），
+   compat 里也**有** `getField(Class, String, int)` —— 只有 `GetProperty` 这条腿缺。
+   于是一切带 `NonPublic` 的反射查询都退化成"只看 public"。
+2. **compat 没有标志感知的重载**：`TypeHelper.getProperty(Class, String)` 只走
+   `type.getMethods()`（**只含 public**）。而该属性在 C# 里是
+   `private string DebuggerDisplay => ...`，生成物为
+   `@CompatNonPublicProperty @CompatNonPublicAccessor private String getDebuggerDisplay()`
+   ——public-only 查询必然返回 `null`，随后 `.getValue(value)` NPE。
+
+**修法**（两处，形状与 `GetField` 完全对齐）：
+
+- compat 新增 `TypeHelper.getProperty(Class<?>, String, int bindingFlags)`：带 `NonPublic` 时
+  沿类层次扫描 `getDeclaredMethods()`（跳过 synthetic/bridge、复用 `matchesBindingFlags`
+  的可见性/实例性判定、`is` 前缀要求 boolean 返回、`DeclaredOnly` 只扫本类），
+  找不到再回落到 public-only 重载。**public-only 重载本身一字未动** ——
+  `PropertyVisibilityTests` 的 29 个 `getProperty(type, name)` 站点依赖"只认 public"的语义。
+- 转换器 `GetProperty` 特例补上标志分支：第 1 个形参类型为 `System.Reflection.BindingFlags`
+  时发 `TypeHelper.getProperty(receiver, name, flags)`。
+
+**影响面核对**：全生成树里带 3 个实参的 `getProperty(` **只有 1 处**（就是本测试），
+其余 49 处 C# 原文本来就是 `GetProperty(name)`（无标志）。
+
+**实测**：`470 → 467`，修 3 / 坏 0；聚合行为
+`Tests run: 7902, Failures: 232, Errors: 235, Skipped: 18`（`Tests run: 7902,` 在 `mvn -e` 日志里出现**恰好 1 次**）。
+逐用例集合差只列出 `DebuggerTests#defaultJsonElement / defaultJsonProperty / defaultUtf8JsonWriter` 三条 FIXED，
+REGRESSED 为 0。
+
+**同族**：与 §4.85（`[JsonInclude]` 非公开 setter）同属"**反射只看得见 public**"这一族；
+差别在于本条是**转换器把显式给出的可见性标志丢了**，不是 compat 判定错。
