@@ -3919,6 +3919,44 @@ case '"':
 **实测**：`432 → 428`，修 **4** / 坏 0；`Tests run: 7902, Failures: 193, Errors: 235, Skipped: 18`，
 `mvn-build-r162.log`。纯 compat 改动，无需重新生成。
 
+### 4.101 Round 90：`DefProbe27` 否证 §4.100 的假设，指向"预热即定型"（未改码）
+
+**探针** `probe/w42/DefProbe27.java`（取生成物 `JsonPropertyInfo` 通过反射的 `getMemberInfo()`）：
+
+```
+member MyInt16TwoDimensionList
+   memberInfo class         = io.github.ningpp.compat.PropertyInfo
+   memberArguments(...)     = [io.github.ningpp.compat.CSharpList<java.lang.Integer>]   ← 注册在，§4.100 假设**错**
+   cachedClassInfoForMember = null                                                      ← 闭键条目确实没有
+member MyStringList
+   memberArguments(...)     = [class java.lang.String]
+   cachedClassInfoForMember = null
+```
+
+⇒ "`memberInfo` 是另一个对象、注册丢了"**不成立**：注册与读取用的是同一个 compat `PropertyInfo`。
+
+**修正后的机制（解释 §4.94 两个变体为何修不动目标）**：生成物
+`JsonPropertyInfo.getRuntimeClassInfo()` 是**按实例缓存**的：
+
+```java
+public JsonClassInfo getRuntimeClassInfo() {
+    if (_runtimeClassInfo == null) {
+        Object __cs2jMemberInfo = TypeHelper.cachedClassInfoForMember(getMemberInfo(), getOptions(), getRuntimePropertyType());
+        _runtimeClassInfo = (__cs2jMemberInfo instanceof JsonClassInfo) ? (JsonClassInfo) __cs2jMemberInfo
+                                                                        : getOptions().getOrAddClass(getRuntimePropertyType());
+    }
+    return _runtimeClassInfo;
+}
+```
+
+`cachedClassInfoForMember` **只在首次调用时**执行。若该成员的类信息在**预热阶段**（成员缓存构建、
+`determineConverter` 期间）就已被解析为共享那份，之后**再创建闭键条目也不会被查询** ——
+两个变体"修 1 / 坏 122/173 且目标簇不动"由此得到一致解释。
+
+**下一轮验证**：在 `getOrAddClass(SimpleTestClass.class)` 之后立刻反射读该成员的 `_runtimeClassInfo`
+（非 null ⇒ 预热期即定型，机制确认），随后二选一：把闭键条目的**创建时机**提前到成员实参仍在上下文时，
+或改掉 `_runtimeClassInfo` 的"先到先得"缓存策略。
+
 ### 4.100 Round 89：帧用的类信息被 `DefProbe26` 钉死（未改码，为下一轮铺路）
 
 §4.94 结论第 3 条要求"先打印帧内的 `state.Current.JsonClassInfo`"。等价的、无需改生成物的做法是问

@@ -1945,6 +1945,32 @@ member MyInt16TwoDimensionList
 **验证手段**：`java -Dcs2j.trace.typeargs=true` 已经会打印
 `cachedClassInfoForMember(...) HIT/CREATED` 与 `cachePut(...)`，先看这两行有没有出现。
 
+### 8.2.52 Round 90：`DefProbe27` 否证了 §8.2.51 的假设，并给出**真正的原因**（未改码）
+
+`probe/w42/DefProbe27.java` 取生成物 `JsonPropertyInfo` 真正持有的 `MemberInfo`（反射调 `getMemberInfo()`）：
+
+```
+member MyInt16TwoDimensionList
+   memberInfo class         = io.github.ningpp.compat.PropertyInfo        ← 就是注册过的那个对象
+   memberArguments(...)     = [io.github.ningpp.compat.CSharpList<java.lang.Integer>]   ← 注册**在**，假设被否证
+   cachedClassInfoForMember = null                                        ← 闭键条目确实不存在（当前树未实现创建）
+member MyStringList
+   memberArguments(...)     = [class java.lang.String]
+   cachedClassInfoForMember = null
+```
+
+**修正后的解释（为什么 §8.2.45 的两个变体"创建了条目"却没修好目标）**：
+生成物的 `getRuntimeClassInfo()` 把结果缓存在**每个 JsonPropertyInfo 实例**的
+`_runtimeClassInfo` 字段里，而 `cachedClassInfoForMember` **只在 `_runtimeClassInfo == null` 时才会被调用**。
+只要该成员的类信息在**预热阶段**（成员缓存构建时）就已经解析成共享那份，之后无论怎么创建闭键条目都**永远不会再查**。
+⇒ 正确顺序必须是"**在第一次 `getRuntimeClassInfo()` 之前**就让闭键条目存在"
+（即在 `JsonPropertyInfo` 构造/`determineConverter` 那段、**成员实参仍在上下文里**时创建，
+或让 `_runtimeClassInfo` 的解析不走"先到先得"的缓存）。
+
+**下一轮的第一个动作**：探针打印 `_runtimeClassInfo` 是**何时**被填充的
+（在 `getMemberInfo()`/预热之后立刻读一次该字段：非 null ⇒ 预热期就定了，验证上述解释），
+再决定改"创建时机"还是改"缓存策略"。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
