@@ -1160,6 +1160,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchJsonElementConverterHandleNull(result);
                 }
+                else if (result.FileName.EndsWith("Utf8JsonReader.java", StringComparison.Ordinal))
+                {
+                    PatchDefaultReaderBuffer(result);
+                }
                 else if (result.FileName.EndsWith("ObjectConverterFactory.java", StringComparison.Ordinal))
                 {
                     PatchKeyValuePairGenericArguments(result);
@@ -1920,6 +1924,45 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex ReaderRestoreRegex = new(
         @"reader\.value = restore;",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Gives a DEFAULT <c>Utf8JsonReader</c> an empty buffer, the way C#'s <c>default</c> struct has one.
+    /// <para>
+    /// The generated parameterless constructor is <c>/* zero-initialized */</c>, so the Java
+    /// reference field stayed null where C# has an empty <c>ReadOnlySpan</c>. <c>hasMoreData()</c>
+    /// dereferences it (<c>_buffer.getLength()</c>), so <c>Read()</c> on a default reader threw
+    /// NullPointerException instead of returning false — measured:
+    /// <c>ReadValueTests#readDefaultReader</c> and <c>JsonDocumentTests#parseDefaultReader</c> expect
+    /// a JsonException and reported NPE at <c>Utf8JsonReader.hasMoreData</c>.
+    /// </para>
+    /// <para>
+    /// Only the buffer needs it: <c>_isNotPrimitive</c> already defaults to false, which is what makes
+    /// C#'s <c>HasMoreData()</c> skip the block that would touch <c>_readerOptions</c>.
+    /// </para>
+    /// </summary>
+    private static void PatchDefaultReaderBuffer(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        if (!DefaultReaderCtorRegex.IsMatch(result.GeneratedCode))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchDefaultReaderBuffer did not match Utf8JsonReader.java "
+                + "- a default reader still NPEs in hasMoreData().");
+            return;
+        }
+        result.GeneratedCode = DefaultReaderCtorRegex.Replace(result.GeneratedCode,
+            "public Utf8JsonReader() {\n"
+            + "        /* zero-initialized, but C#'s default struct has an EMPTY span, not a null one:\n"
+            + "           hasMoreData() dereferences it, so Read() must be able to answer false. */\n"
+            + "        _buffer = new ReadOnlySpan<Integer>();\n"
+            + "    }",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex DefaultReaderCtorRegex = new(
+        @"public Utf8JsonReader\(\) \{\r?\n[ \t]*/\* zero-initialized \*/\r?\n[ \t]*\}",
         System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>
