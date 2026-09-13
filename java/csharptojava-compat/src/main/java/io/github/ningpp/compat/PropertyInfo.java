@@ -460,6 +460,24 @@ public final class PropertyInfo implements MemberInfo {
                 fallback = m;
             }
         }
+        // C# [JsonInclude] makes a NON-public setter usable for deserialization, and the converter
+        // emits such an accessor as a protected/private Java method (C# `init` accessors especially),
+        // which Class.getMethods() cannot see. Without this the member was readable but never
+        // written: measured getSetMethod() == null and the field stayed 0 for a
+        // [JsonInclude] property with a private or protected init-only setter, while the `internal`
+        // one worked because its Java setter is public.
+        if (getter.isAnnotationPresent(CompatJsonInclude.class)) {
+            for (Class<?> current = clazz; current != null && current != Object.class; current = current.getSuperclass()) {
+                for (Method m : current.getDeclaredMethods()) {
+                    if (Modifier.isStatic(m.getModifiers())) continue;
+                    if (!m.getName().equals(setterName) || m.getParameterCount() != 1) continue;
+                    if (isBoxCompatible(m.getParameterTypes()[0], getterType)) {
+                        m.setAccessible(true);
+                        return m;
+                    }
+                }
+            }
+        }
         return fallback;
     }
 
