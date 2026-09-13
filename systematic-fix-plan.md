@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 232, Errors: 235, Skipped: 18` = **467**（起点 855，**−388**）。
-- 本会话累计 **40 条 KEEP**（34 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 228, Errors: 235, Skipped: 18` = **463**（起点 855，**−392**）。
+- 本会话累计 **41 条 KEEP**（35 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -362,6 +362,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `756d6cf6` | `default(Utf8JsonReader)` 的空缓冲区（null → 空 span） | 490 → 488（修 2） |
 | `310552db` | `default(T)`：C# 类 → **null**（只有 struct 才有零实例） | 488 → 470（修 18） |
 | `2ece1c64` | `Type.GetProperty(name, flags)` 的**标志实参**送进 compat | 470 → 467（修 3） |
+| `c2ce9417` | Newtonsoft 替身把 `Decimal` 按裸数字写（不是加引号的字符串） | 467 → 463（修 4） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1591,6 +1592,37 @@ DebuggerTests.getDebuggerDisplayProperty:54
 **实测**：`470 → 467`，修 3 / 坏 0；`Tests run: 7902, Failures: 232, Errors: 235, Skipped: 18`。
 **纪律提示**：全文的 `GetXxx(name, flags)` 特例都要用同一个形状核对一遍 ——
 "只有一个成员的特例补了标志、另一个没补"是本轮这种静默丢实参的温床。
+
+### 8.2.42 Round 82 已修：Newtonsoft 替身把 `decimal` 当字符串写（467 → 463，修 4 / 坏 0）
+
+**入口**：`Utf8JsonWriterTests#writeNumberValueDecimal(boolean, boolean)[1..4]`，
+消息形状是"期望 `["1234567.0", …]`（**带引号**）、实际 `[1234567.0, …]`（裸数字）"。
+
+**定位链**（纯读代码即可，无需探针）：
+
+1. 断言走 `JsonTestHelper.assertContents` → `assertContentsAgainstJsonNet(expected, value)` →
+   `Assert.equal(normalizeToJsonNetFormat(expected), normalizeToJsonNetFormat(value))`，
+   即**两侧**都过一遍"Newtonsoft 风格重排"。所以差异不在 Utf8JsonWriter 侧，而在**期望串的生成侧**。
+2. 期望串由 `GetNumbersExpectedString`（C# 泛型 `<T>`，此处 `T = decimal`）用
+   **`JsonTextWriter.WriteValue(value)`** 生成。
+3. compat 的 `JsonTextWriter.writeValue(Object)` 只对 `Number` / `Boolean` / `byte[]` / 日期
+   做裸写，其余一律落到末尾的"**加引号 toString**"兜底。
+   而 C# 的 `decimal` 是值类型，compat 的 `io.github.ningpp.compat.Decimal`
+   **`implements Comparable<Decimal>`，不继承 `java.lang.Number`** —— 于是 `1234567.0M`
+   被写成 `"1234567.0"`（Newtonsoft 会写裸数字）。
+
+**修法**：在 `writeValue(Object)` 的 `Number` 分支后补 `Decimal` 分支，写 `dec.toString()`
+（= `BigDecimal.toPlainString()` = `1234567.0`）。位置在 `writeBeforeValue()` **之后**，
+这样数组分隔符/缩进仍由既有流程处理。
+
+**实测**：`467 → 463`，修 4 / 坏 0（`writeNumberValueDecimal` 的 4 个 theory 行）；
+`Tests run: 7902, Failures: 228, Errors: 235, Skipped: 18`。
+
+**同族**（重要）：`Decimal` 不是 `Number` 这一点会在**所有** `instanceof Number` 判定处
+重复咬人 —— `JsonConvert.serializeObject` 的 `value instanceof Number`（顶桶 `JsonConvert *`
+的 70+ 条即此族）同样会把 `Decimal` 落到"加引号"分支。本轮只修了 writer 这一处；
+若后续要修 `JsonConvert`，**优先考虑同样的显式分支**，而不是让 `Decimal extends Number`
+（那会一次性改动所有 `instanceof Number` 判定点，代价不可控）。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

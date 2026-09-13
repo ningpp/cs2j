@@ -3523,3 +3523,47 @@ REGRESSED 为 0。
 
 **同族**：与 §4.85（`[JsonInclude]` 非公开 setter）同属"**反射只看得见 public**"这一族；
 差别在于本条是**转换器把显式给出的可见性标志丢了**，不是 compat 判定错。
+
+### 4.91 Round 82：Newtonsoft 替身把 `decimal` 写成带引号的字符串（467 → 463，修 4 / 坏 0）
+
+**症状**（4 条 = 一个 theory 的 4 行，`Utf8JsonWriterTests#writeNumberValueDecimal`）：
+
+```
+Assert.equal() failure: Values differ
+Expected: [   "1234567.0",   "1234567.0", … ]      ← 带引号
+Actual:   [   1234567.0,     1234567.0,   … ]      ← 裸数字
+```
+
+**定位链**（不需要探针，读三处代码即可闭环）：
+
+1. 断言路径是 `JsonTestHelper.assertContents(expectedStr, output)` →
+   `assertContentsAgainstJsonNet(expectedValue, value)` →
+   `Assert.equal(normalizeToJsonNetFormat(expected), normalizeToJsonNetFormat(value))`。
+   **两侧都过"Newtonsoft 风格重排"**，所以差异不在被测的 writer，而在**期望串**。
+2. 期望串来自 `GetNumbersExpectedString<T>(…)`（C# 泛型，此处 `T = decimal`），
+   内部用 **`JsonTextWriter.WriteValue(value)`** 写值。
+3. compat `JsonTextWriter.writeValue(Object)` 只对
+   `String` / 日期 / `Boolean` / **`Number`** / `byte[]` 做特殊处理，
+   其余落到末尾兜底：`writer.print('"'); writer.print(value.toString()); writer.print('"');`。
+   而 C# `decimal` 是**值类型**，compat 的 `io.github.ningpp.compat.Decimal` 声明为
+   `public final class Decimal implements Comparable<Decimal>` —— **不是 `java.lang.Number`**。
+   于是 `1234567.0M` 在期望串里变成 `"1234567.0"`；Newtonsoft 实际写的是裸 `1234567.0`。
+
+**修法**：在 `writeValue(Object)` 的 `Number` 分支之后加
+
+```java
+if (value instanceof Decimal dec) {
+    writer.print(dec.toString());   // BigDecimal.toPlainString() → 1234567.0
+    return;
+}
+```
+
+放在 `writeBeforeValue()`（第 185 行）之后，数组分隔符/缩进仍走既有流程。
+
+**实测**：`467 → 463`，修 4 / 坏 0（`[1] [2] [3] [4]` 全部 FIXED）；
+`Tests run: 7902, Failures: 228, Errors: 235, Skipped: 18`（聚合行恰好 1 次）。
+
+**同族警示**：`Decimal` 不是 `Number` 这一点会在**每个** `instanceof Number` 判定点重复发作。
+`JsonConvert.serializeObject` 里同样是 `value instanceof Number`（顶桶 `JsonConvert *` 的 70+ 条属此族）；
+本轮**只**修了 writer 一处，`JsonConvert` 留待单独一轮用同样的显式分支修，
+**不要**改成 `Decimal extends Number` —— 那会一次性改变所有 `instanceof Number` 判定点的行为。
