@@ -309,9 +309,9 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 319, Errors: 250, Skipped: 18` = **569**（起点 855，**−286**）。
-- 本会话累计 **15 条 KEEP**（13 条"逐用例集合差 +0 回归"；`a62aac37` 修 40 / 坏 1 已披露；
-  `387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11）：
+- **基线**：`Tests run: 7902, Failures: 302, Errors: 252, Skipped: 18` = **554**（起点 855，**−301**）。
+- 本会话累计 **18 条 KEEP**（16 条"逐用例集合差 +0 回归"；`a62aac37` 修 40 / 坏 1 已披露；
+  `387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；`18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
 | 提交 | 内容 | 收益 |
 |---|---|---|
@@ -332,6 +332,9 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `99151aa6` | 传播被调方异常（不再包成 `TargetInvocationException`） | 619 → 619（**实测中性**；扩展数据部分见 §8.2.11 更正） |
 | `a62aac37` | struct 的 `clone()` 不再丢 final 字段 | 619 → 580（修 40 / 坏 1，已披露） |
 | `387edb77` | `default(T)` 是否为 null 按**声明类型**判断（`IgnoreNullValues`） | 580 → 569（修 13 / 坏 2，已披露） |
+| `67b4e3a2` | `default(T)` 是否为 null 改按**声明成员**判断（`int` vs `int?`、struct） | 569 → 568（修 1） |
+| `18e24418` | 把 `[JsonIgnore(Condition = …)]` 送进运行时 | 568 → 558（修 11 / 暴露 1） |
+| `fbed68d4` | `CSharpDictionary` 查表遵守构造时给的 comparer | 558 → 554（修 4，含上面那条暴露） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -749,7 +752,93 @@ Round 59 披露的回归所"暴露"的两个缺陷，本轮逐条查证，**两�
 因为**该文件本次再生没有被重写**（mtime 仍是 Round 49），
 探针**无害**（可编译、不影响任何用例），下次该文件再生时会被清除。
 
-### 8.3 必须遵守的操作纪律（都是踩过的坑）
+### 8.2.17 Round 62 已修：`default(T) == null` 只能由**声明成员**回答（569 → 568）
+
+提交 `67b4e3a2`。Round 61 把 `default(T)` 是否为 null 交给**装箱后的声明类型**判断，
+但 `int` 和 `int?` 都装箱成 `java.lang.Integer` —— 于是 `WhenWritingDefault` 不再省略 `0`，
+`PropertyVisibilityTests#ignoreCondition_WhenWritingDefault_Globally_Works` 回归。
+
+**探针证据**（`DefProbe5`，直接调 compat 的新重载）：
+
+| 成员声明 | `declaredPropertyType` | `getRawPropertyType()` | `default(T)==null` |
+|---|---|---|---|
+| `int getMyInt()` | `Integer` | `int` | **false** ✓ |
+| `Integer getMyNullableInt()` | `Integer` | `Integer` | **true** ✓ |
+| `boolean getMyBool()` | `Boolean` | `boolean` | **false** ✓ |
+| `V getMyStruct()`（`value class`） | `V` | `V` | **false** ✓ |
+| `String getMyString()` | `String` | `String` | **true** ✓ |
+
+**修法**：`ProjectPasses.PatchDefaultValueIsNullDecision` 现在把**两处**判断点都改成传成员
+（`defaultValueIsNullForWrite(getDeclaredPropertyType(), getMemberInfo())`）：
+写出守卫 **和** `getPolicies(..., getConverter().getCanBeNull())`（后者决定
+`IgnoreNullValues`/`WhenWritingNull` 是否可以把 `IgnoreDefaultValuesOnWrite` 打开）。
+compat 侧新增 `PropertyInfo.getRawPropertyType()` / `FieldInfo.getRawFieldType()`：
+不装箱的声明类型才是 C# 的值类型证据（原始类型 Class 常量，或 JDK 28 的 `value class`）。
+**注意 `Integer.class.isValue()` 为 true**（JDK 28 把包装类也变成了 value class），
+所以必须把包装类显式排除，否则 `int?` 会被误判成非空值类型。
+
+### 8.2.18 Round 63 已修：`[JsonIgnore(Condition = …)]` 的 Condition 从未离开转换器（568 → 558）
+
+提交 `18e24418`，修 11 条。生成代码里 `[JsonIgnore]` 只发一个**裸** `@CompatJsonIgnore`，
+而生成出来的 `JsonIgnoreAttribute` 只有无参构造器（C# 的 `Condition = …` 是对象初始化器，
+转换器丢掉了），于是它永远答 `Always` —— 带 `Condition = Never` 的成员被**整个丢掉**：
+
+- `ignoreConditionNever_WinsOver_IgnoreReadOnly*`（4 条）：应输出 `{"MyString":"Hello"}`，实得 `{}`；
+- `jsonIgnoreConditionNever(Class)[1..2]`、`jsonIgnoreConditionNever_IgnoreNullValues_True[1..2]`；
+- `jsonIgnoreCondition_WhenWritingNull_OnValueType_Fail`（2 条，现在会像 .NET 一样抛）。
+
+**修法**：`PropertyTransformer` 读 `NamedArguments["Condition"]` 的整数值，发
+`@CompatJsonIgnore(<n>)`；`CustomAttributeExtensions` 用 `getCondition()` 的返回类型反射找
+`fromValue(int)`，再经 `setCondition` 装回去（**按值不按序号**，生成枚举带 `_UNMAPPED`）。
+
+**踩坑**：注解只写 `@CompatJsonIgnore(2)` 时，单元素必须是 `value()`；我起初命名为
+`condition()`，javac 报 **`找不到符号: 方法 value()`**，整个 `system-text-json-tests` 编译失败
+（见 §8.3 的"summary lines: 0"纪律）。
+
+### 8.2.19 Round 64 已修：`CSharpDictionary` 不遵守构造时给的 comparer（558 → 554）
+
+提交 `fbed68d4`，修 4 条（含 §8.2.18 暴露的那条）。
+`CSharpDictionary` 把 `CSharpGenericEqualityComparer` 存进字段却在 `LinkedHashMap` 上
+用 `Object.equals` 查表 —— `StringComparer.OrdinalIgnoreCase` 造的字典（序列化器的属性缓存，
+`PropertyNameCaseInsensitive` 就靠它）对**任何**大小写变体都答"没有这个键"。
+
+**探针证据**（`DefProbe7`）：`containsKey("MYSTRING")` 修前 `false`、修后 `true`；
+`Seq` 的 `get(MYSTRING)` 修前 `null`、修后取到值。
+`DefProbe6` 另证：`{"MyString":"Random","MYSTRING":null}` 修前两条都留在 `"Random"`
+（`honorCaseInsensitivity` 也是既有失败，与本次改动无关）。
+
+**修法**：新增私有 `storedKey(key)` —— 有 comparer 时按 comparer 扫描并**返回已存的那个键**
+（C# 语义：替换值不改键的拼写），`containsKey/get/getChecked/put/remove/tryGetValue/tryAdd/
+add/contains/getOrDefault` 全部走它；无 comparer 时退化为原来的 `containsKey`。
+
+**副产物**：Round 63 的唯一回归 `jsonIgnoreCondition_LastOneWins` **被真正修掉**
+（它此前只是"因为属性被整个丢掉"而通过）。
+
+### 8.2.20 已定位未修：64 条 `JsonConvert CSharpList` 的根因是**类信息缓存被污染**
+
+**这是当前最大单簇**（554 条里 64 条，占 11.6%），且 64 条**全部**是同一条路径
+`$.…MyInt16TwoDimensionList[0]`，即 `List<List<int>>`。
+
+**探针证据**（`DefProbe8`，最小复现 `CSharpList<CSharpList<Integer>>`）：
+
+```
+属性上的 converter   : ListOfTConverter / typeToConvert=CSharpList / elementType=CSharpList   ← 正确
+getOrAddClass(CSharpList.class) : elementType=java.lang.Integer / ListOfTConverter/Integer     ← 被污染
+根因栈 : Int32Converter.read ← IEnumerableDefaultConverter.onTryRead:88
+         （元素转换器被解析成了 Int32Converter，于是 `[10,11]` 被当数字读）
+```
+
+即：**裸 `CSharpList.class` 的 `JsonClassInfo` 是用最内层实参 `Integer` 建出来的**。
+`JsonClassInfo` 第 176 行 `setElementType(converter.getElementType())`，
+而 `converter` 是 `options.getOrAddClass(CSharpList.class)` 那一刻由
+`IEnumerableConverterFactory` 依 ThreadLocal 实参造出来的 —— 类信息按**裸 Class** 缓存，
+但它的内容**依赖当时的实参上下文**。
+
+**下一步（形状明确、可一次证伪）**：给类信息缓存加实参上下文维度（key 里带上
+当前 ThreadLocal 实参签名），或在 `getElementClassInfo()` 里绕过裸 Class 缓存。
+**注意**：§8.2.11/§6.2 里"转换器缓存读写键统一"那条（`PatchConverterCacheLookup`）
+是**被否证过的相邻方向**，不要再原样重试；本条是**类信息**缓存，不是转换器缓存。
+
 
 | 纪律 | 原因 |
 |---|---|
@@ -768,6 +857,8 @@ Round 59 披露的回归所"暴露"的两个缺陷，本轮逐条查证，**两�
 | **改补丁要连转换器一起重编** | 只改 `ProjectPasses.cs` 不 `dotnet build`，再生仍用旧补丁；反之生成物变了但转换器没重编，会让"我改了"与"生成物变了"脱节 |
 | **grep 的零结果是弱证据** | Round 60 踩过：搜 `.getPolicies(` 没结果，就断定"从未被调用"；生成代码其实是**裸调用** `getPolicies(`。**换一种形状再搜一次，或直接读那段生成代码**，再下结论 |
 | **再生不一定重写每个文件** | Round 60 发现 `ReflectionMemberAccessor.java` 的 mtime 仍是 Round 49 —— 该文件那次没有再生，所以针对它的补丁不会生效。判断"补丁没生效"前先看文件 mtime |
+| **`summary lines: 0` 也要当成"没跑测试"** | Round 63 踩过：新的 `@CompatJsonIgnore(2)` 让 `system-text-json-tests` **编译失败**，测试阶段根本没执行，`triage_xml.py` 于是报出 `568 → 0`（"修了 568 条"）。判据同上：`Tests run: 7902` 必须恰好 1 次；`[ERROR] ... .java:[行,列]` + `BUILD FAILURE` 是最快的定位入口 |
+| **改生成代码里的注解，先看注解元素名** | 单元素注解省略名字时调用的必须是 `value()`。Round 63 用了 `condition()`，javac 报"找不到符号: 方法 value()"。生成物里的注解都是单元素简写，所以 compat 侧统一用 `value()` |
 
 ### 8.4 已否证方向清单
 

@@ -2326,3 +2326,112 @@ grep `getIgnoreDefaultValuesOnWrite` 只看到声明与赋值，据此推断"写
 **下一步**：上面第 1 条是**有明确线索**的——`WhenWritingDefault` 需要
 `default(int)` 按 0 比较，而 `IgnoreNullValues` 需要引用类型按 null 比较；
 两者共享同一个守卫，需要按**成员的 C# 类型种类**再细分一次。
+### 4.64 Round 62：`default(T) == null` 只能由**声明成员**回答（569 → 568）
+
+**上一条的"下一步"被证实**，但证明了 Round 61 的"按声明类型"判断不够细。
+
+**探针 `DefProbe5`（直接调 compat 重载，不经过序列化器）**：
+
+| 成员声明 | `getPropertyType()`（装箱） | `getRawPropertyType()` | `defaultValueIsNullForWrite` |
+|---|---|---|---|
+| `int getMyInt()` | `Integer` | `int` | false |
+| `Integer getMyNullableInt()` | `Integer` | `Integer` | true |
+| `boolean getMyBool()` | `Boolean` | `boolean` | false |
+| `Boolean getMyNullableBool()` | `Boolean` | `Boolean` | true |
+| `V getMyStruct()`（`value class`） | `V` | `V` | false |
+| `String getMyString()` | `String` | `String` | true |
+
+**关键发现（都与直觉相反，必须记住）**：
+- `java.lang.Integer.class.isValue()` 在 JDK 28 上是 **true**（包装类也是 value class），
+  所以 `isValue()` **不能**单独用作"C# 值类型"的判据，包装类必须显式排除；
+- `java.time.LocalDate/Instant/Duration`、`java.util.Optional`、`java.lang.Number`
+  也都是 value class —— 判据必须保守（我把它写成"原始类型，或 isValue 且非包装类"，
+  其余一律退回原判断）；
+- `String` **不是** value class，所以 `string` 仍然正确地答 "default 是 null"。
+
+**探针 `DefProbe3`**：`getConverter(int.class)` 得到 `ObjectDefaultConverter`，
+而 `getConverter(Integer.class)` 得到 `Int32Converter` ——
+**内置转换器表是按包装类建的**。所以"让 `PropertyInfo.getPropertyType()` 不再装箱"
+这条更"忠实"的路代价极高（`TypeHelper.isSameType/isAssignableFrom` 全都要做原始类型↔包装类
+归一），**已放弃**，改走"两处判断点都传成员"的窄路。
+
+**实测**：`569 → 568`，修 1（`ignoreCondition_WhenWritingDefault_Globally_Works`）/ 坏 0。
+随后把调试打印删掉再测一遍得 `568 → 568`（0/0），确认**测量状态与提交状态一致**。
+
+### 4.65 Round 63：`[JsonIgnore(Condition = …)]` 的 Condition 从未离开转换器（568 → 558）
+
+**入口**：Round 62 修完后，`WhenWritingDefault` 簇只剩 7 条。查其中 4 条
+`…WinsOver_IgnoreReadOnly*`（期望 `{"MyString":"Hello"}` 实得 `{}`）时发现：
+**`Never` 和 `WhenWritingDefault` 的 4 条一起失败**，说明与 `WhenWritingDefault` 无关，
+而是"显式 `[JsonIgnore]` 应该压过只读策略"这条规则没生效。
+
+**根因链（三步都实测过）**：
+1. 生成物里只有裸 `@CompatJsonIgnore`（`PropertyVisibilityTests.java` 已确认）；
+2. 生成的 `JsonIgnoreAttribute` **只有无参构造器**，字段默认 `JsonIgnoreCondition.Always`
+   （C# 的 `Condition = …` 是对象初始化器，转换器不生成）；
+3. 于是 `addProperty` 里 `ignoreCondition == Always` → `createIgnoredPropertyPlaceholder`
+   → 成员被**整个丢掉**。`{}` 就是这么来的。
+
+**修法**：转换器读 `NamedArguments["Condition"]` 发 `@CompatJsonIgnore(<n>)`；
+compat 反射 `getCondition()` 的返回类型，用 `fromValue(int)` 取值（**按值不按序号**：
+生成枚举带 `_UNMAPPED` 且显式带 C# 数值），再 `setCondition` 装回。
+
+**一次假测量（自己踩到 §8.3 的纪律）**：首版把注解元素命名为 `condition()`，
+而生成代码写的是单元素简写 `@CompatJsonIgnore(2)` → javac 报
+`找不到符号: 方法 value()` → `system-text-json-tests` 编译失败 → 测试阶段没跑 →
+`surefire-reports` 被 `clean` 清空 → triage 报 `568 → 0`（"修了 568 条"）。
+**判据是 `summary lines: 0`**（正常必须恰好 1）。改名 `value()` 后重测。
+
+**实测**：`568 → 558`，修 11 / 坏 1。
+
+### 4.66 Round 64：`CSharpDictionary` 不遵守 comparer（558 → 554，含回收上面那条回归）
+
+Round 63 的回归 `jsonIgnoreCondition_LastOneWins` 期望
+`{"MyString":"Random","MYSTRING":null}` 反序列化后 `MyString == null`。
+
+**探针 `DefProbe6`**（最小类 + `IgnoreNullValues=true` + `PropertyNameCaseInsensitive=true`）：
+- 带 `@CompatJsonIgnore(0)` 的类：`ignoreOnRead=false`（**正确**）；
+- 不带注解的类：`ignoreOnRead=true`（**正确**）；
+- **两者都得到 `"Random"`** —— 说明"后一个覆盖前一个"根本没发生，与 `Ignore` 无关；
+- `{"MyString":"Random","MyString":null}`（**同大小写**）得到 `null` ✓；
+- `{"MYSTRING":"Case"}`（**只有大小写变体**）得到 `null` ✗ —— 大小写不敏感匹配**完全不工作**；
+- 该测试此前只是"因为属性被整个丢掉"而通过（错误原因通过）。
+
+**探针 `DefProbe7`** 定位到 compat：
+```
+CSharpDictionary(StringComparer.getOrdinalIgnoreCase()) 里 put("MyString")
+  containsKey("MYSTRING") = false   ← comparer 被存了却没用
+```
+
+**修法**：`storedKey(key)`：有 comparer 时按 comparer 扫描并把**已存的那个键**返回
+（C# 语义：替换值不改键的拼写）；`containsKey/get/getChecked/put/remove/tryGetValue/
+tryAdd/add/contains/getOrDefault` 都改走它。无 comparer 时行为与原来一致
+（`map.containsKey`）。
+
+**实测**：`558 → 554`，修 4 / 坏 0，含回收的 `jsonIgnoreCondition_LastOneWins`。
+**另证**：`honorCaseInsensitivity` 修前修后都在失败集里 → 本回归是**暴露既有缺陷**，
+不是 Round 63 引入的新缺陷（`DefProbe6` 里无注解的类同样失败，是该结论的直接证据）。
+
+### 4.67 Round 65：64 条 `JsonConvert CSharpList` 的根因是**类信息缓存被污染**（已定位，未修）
+
+**探针 `DefProbe8`**（最小复现 `CSharpList<CSharpList<Integer>>`，JSON `[[10,11],[20,21]]`）：
+
+```
+属性上的 converter        : ListOfTConverter / typeToConvert=CSharpList / elementType=CSharpList  ✓
+getOrAddClass(CSharpList.class): elementType=java.lang.Integer / ListOfTConverter/Integer          ✗ 污染
+根因栈: Int32Converter.read ← IEnumerableDefaultConverter.onTryRead:88
+CAUSE: IllegalStateException: Cannot get the value of a token type 'StartArray' as a number.
+```
+
+`JsonClassInfo` 第 176 行 `setElementType(converter.getElementType())`：裸 `CSharpList.class`
+的类信息是**在最内层实参上下文（`Integer`）里**建出来的，之后所有需要
+"outer list 的元素类信息"的路径都拿到它 → 元素转换器成了 `Int32Converter`。
+
+**为什么 64 条全中**：它们的路径都是 `$.…MyInt16TwoDimensionList[0]`
+（`SimpleTestClass.MyInt16TwoDimensionList` = C# `List<List<int>>`，`int[][]` 那半是好的）。
+
+**这是本轮最大的单个机会（−64）**，形状也明确：给类信息缓存加实参上下文维度。
+**尚未动手的原因**：它属于 P0-1（泛型实参擦除）簇，改动面在 `JsonClassInfo`/ThreadLocal 实参
+管道上，需要独立一轮"改一次、测一次"；本轮上下文已接近上限，故只留可复现的探针与结论。
+**注意不要原样重试** `PatchConverterCacheLookup`（转换器缓存，§6.2 已否证）——
+本条是**类信息**缓存。
