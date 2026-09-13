@@ -16,4 +16,13 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.FIELD})
 public @interface CompatJsonIgnore {
+    /**
+     * C# {@code JsonIgnoreAttribute.Condition}. The generated attribute class cannot carry it —
+     * the converter drops the object initializer, so it always answers its default of
+     * {@code Always}. A bare {@code [JsonIgnore]} is {@code Always} (= 1), the default here;
+     * without the value a {@code [JsonIgnore(Condition = Never)]} member stayed "always ignore"
+     * and was dropped from the output (four tests measured {@code {}} where
+     * {@code {"MyString":"Hello"}} was expected).
+     */
+    int value() default 1;
 }

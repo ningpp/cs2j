@@ -53,11 +53,14 @@ public final class CustomAttributeExtensions {
             String name = compatJsonPropertyName(member);
             return name == null ? null : newAttribute(attributeType, String.class, name);
         }
+        // [JsonIgnore] is the second marker with a value: the condition decides whether the member
+        // is dropped, kept, or ignored only when null/default.
+        if (JsonIgnoreAttributeName.equals(attributeName)) {
+            return (T) materializeJsonIgnore(attributeType, member);
+        }
         Class<? extends java.lang.annotation.Annotation> marker;
         if (JsonExtensionDataAttributeName.equals(attributeName)) {
             marker = CompatJsonExtensionData.class;
-        } else if (JsonIgnoreAttributeName.equals(attributeName)) {
-            marker = CompatJsonIgnore.class;
         } else if (JsonIncludeAttributeName.equals(attributeName)) {
             marker = CompatJsonInclude.class;
         } else {
@@ -117,6 +120,64 @@ public final class CustomAttributeExtensions {
             java.lang.reflect.Constructor<T> ctor = attributeType.getDeclaredConstructor(parameterType);
             ctor.setAccessible(true);
             return ctor.newInstance(argument);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Materializes {@code JsonIgnoreAttribute} together with its {@code Condition}.
+     *
+     * <p>The generated attribute class has only the parameterless constructor (C#
+     * {@code [JsonIgnore(Condition = X)]} is an object initializer, which the converter drops), so
+     * the condition is applied through the setter. The enum is located through the getter's return
+     * type and turned back into a constant by value, never by ordinal — the generated enum carries
+     * C#'s numeric values and an {@code _UNMAPPED} member.</p>
+     */
+    private static Object materializeJsonIgnore(Class<?> attributeType, MemberInfo member) {
+        Integer condition = jsonIgnoreConditionValue(member);
+        if (condition == null) {
+            return null;
+        }
+        Object attribute = newAttribute(attributeType);
+        if (attribute == null) {
+            return null;
+        }
+        try {
+            java.lang.reflect.Method getter = attributeType.getMethod("getCondition");
+            java.lang.reflect.Method setter = attributeType.getMethod("setCondition", getter.getReturnType());
+            java.lang.reflect.Method fromValue = getter.getReturnType().getMethod("fromValue", int.class);
+            setter.invoke(attribute, fromValue.invoke(null, condition));
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            // Keep the attribute; its default Condition (Always) is what C# applies to a bare
+            // [JsonIgnore], which is the pre-existing behaviour.
+        }
+        return attribute;
+    }
+
+    /** The {@code Condition} the converter recorded on the member's {@code @CompatJsonIgnore}. */
+    private static Integer jsonIgnoreConditionValue(MemberInfo member) {
+        CompatJsonIgnore marker = null;
+        if (member instanceof PropertyInfo property) {
+            java.lang.reflect.Method getter = property.getGetter();
+            MethodInfo setterInfo = property.getSetMethod();
+            java.lang.reflect.Method setter = setterInfo == null ? null : setterInfo.getMethod();
+            marker = getter == null ? null : getter.getAnnotation(CompatJsonIgnore.class);
+            if (marker == null && setter != null) {
+                marker = setter.getAnnotation(CompatJsonIgnore.class);
+            }
+        } else if (member instanceof FieldInfo fieldInfo) {
+            marker = fieldInfo.getField().getAnnotation(CompatJsonIgnore.class);
+        }
+        return marker == null ? null : marker.value();
+    }
+
+    /** Builds {@code attributeType} through its parameterless constructor, or null. */
+    private static Object newAttribute(Class<?> attributeType) {
+        try {
+            java.lang.reflect.Constructor<?> ctor = attributeType.getDeclaredConstructor();
+            ctor.setAccessible(true);
+            return ctor.newInstance();
         } catch (ReflectiveOperationException | RuntimeException e) {
             return null;
         }

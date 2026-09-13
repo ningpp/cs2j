@@ -298,12 +298,19 @@ public class PropertyTransformer : IMemberTransformer
                     context.AddImport("io.github.ningpp.compat.CompatJsonExtensionData");
                 }
                 // C# [JsonIgnore] -> compat annotation (same route: the generated attribute class
-                // is materialized by compat from this marker; ConditionalIgnoreWhen/other ctor
-                // arguments are not modelled yet).
-                if (extDataSymbol?.GetAttributes().Any(a =>
-                        a.AttributeClass?.Name == "JsonIgnoreAttribute") == true)
+                // is materialized by compat from this marker). The Condition must travel with it:
+                // the generated JsonIgnoreAttribute defaults to Always, so a bare marker turned
+                // [JsonIgnore(Condition = Never)] into "always ignore" and dropped the member
+                // (measured: {} where {"MyString":"Hello"} was expected, four tests).
+                var ignoreAttr = extDataSymbol?.GetAttributes().FirstOrDefault(a =>
+                    a.AttributeClass?.Name == "JsonIgnoreAttribute");
+                if (ignoreAttr != null)
                 {
-                    getter.Annotations.Add(new JavaAnnotation("CompatJsonIgnore"));
+                    var conditionArg = ignoreAttr.NamedArguments
+                        .FirstOrDefault(named => named.Key == "Condition").Value;
+                    getter.Annotations.Add(new JavaAnnotation(conditionArg.Value is int conditionValue
+                        ? $"CompatJsonIgnore({conditionValue})"
+                        : "CompatJsonIgnore"));
                     context.AddImport("io.github.ningpp.compat.CompatJsonIgnore");
                 }
             }
