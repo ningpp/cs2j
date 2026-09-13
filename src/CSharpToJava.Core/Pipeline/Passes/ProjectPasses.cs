@@ -1109,7 +1109,7 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchElementArgumentScope(result);
                     PatchExtensionDataSignatureType(result);
-                    PatchPropertyNameKeyForEmptyName(result);
+                    PatchPropertyNameKey(result);
                 }
                 // NOTE: "JsonPropertyInfo.java".EndsWith("PropertyInfo.java") is TRUE, so the more
                 // specific suffix must be tested FIRST. With the order reversed the PropertyInfo
@@ -1708,40 +1708,46 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
         System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>
-    /// Lets <c>JsonClassInfo.getKey</c> hash an EMPTY property name.
+    /// Replaces <c>JsonClassInfo.getKey</c> with a call to compat's real implementation.
     /// <para>
-    /// C# hashes the first 7 bytes and the length, and answers <c>0</c> for a zero-length name —
-    /// <c>{"":1}</c> is legal JSON and .NET reads it. The converter hoisted the byte reads into a
-    /// "reference plus Unsafe" form, so the method starts with
-    /// <c>int reference = MemoryMarshal.getReference(name);</c>, and compat's
-    /// <c>getReference(ReadOnlySpan)</c> answers <b>null</b> for an empty span (documented as the
-    /// safe Java equivalent of a dangling C# ref). Unboxing that null threw before the length
-    /// branches — which never read for a zero-length name — could answer 0. Measured: seven tests
-    /// over <c>PropertyNameTests#emptyPropertyName*</c> and
-    /// <c>ReferenceHandlerTests#{object,oject}*LengthZero</c> reported
-    /// <c>Cannot invoke "java.lang.Integer.intValue()" because the return value of
-    /// "io.github.ningpp.compat.MemoryMarshal.getReference(io.github.ningpp.compat.ReadOnlySpan)" is null</c>.
+    /// C#'s key is the first 7 bytes of the property name plus its length. The converter lowers the
+    /// byte reads to a "reference plus <c>Unsafe</c>" form, and in Java
+    /// <c>MemoryMarshal.getReference</c> yields the first element's VALUE while
+    /// <c>Unsafe.readUnaligned</c>/<c>Unsafe.add</c> are pass-throughs that return that same value —
+    /// so every name of the same length that starts with the same byte produced the SAME key.
+    /// <c>isPropertyRefEqual</c> accepts a name of at most 7 bytes on key equality ALONE, so
+    /// <c>"MyChar"</c> matched whichever 6-byte 'M…' property the scan reached first.
+    /// </para>
+    /// <para>
+    /// Measured: reading <c>"MyChar" : "a"</c> reached the ENUM converter and reported
+    /// "The JSON value could not be converted to SampleEnum. Path: $.MyEnum" in nine tests, at the
+    /// byte position of the <c>MyChar</c> value.
     /// </para>
     /// </summary>
-    private static void PatchPropertyNameKeyForEmptyName(ConversionResult result)
+    private static void PatchPropertyNameKey(ConversionResult result)
     {
         if (result.GeneratedCode == null)
             return;
-        if (!PropertyNameKeyRegex.IsMatch(result.GeneratedCode))
+        if (!PropertyNameKeyBodyRegex.IsMatch(result.GeneratedCode))
         {
             Console.Error.WriteLine(
-                "ProjectPasses: PatchPropertyNameKeyForEmptyName did not match JsonClassInfo.java "
-                + "- an empty JSON property name still NPEs inside getKey.");
+                "ProjectPasses: PatchPropertyNameKey did not match JsonClassInfo.java "
+                + "- property-name keys are still derived from the first byte alone.");
             return;
         }
-        result.GeneratedCode = PropertyNameKeyRegex.Replace(result.GeneratedCode,
-            "int reference = name.getLength() > 0 ? MemoryMarshal.getReference(name) : 0;",
+        result.GeneratedCode = PropertyNameKeyBodyRegex.Replace(result.GeneratedCode,
+            "public static long getKey(ReadOnlySpan<Integer> name) {\n"
+            + "        // The generated body read the bytes through MemoryMarshal.getReference and\n"
+            + "        // Unsafe, which in Java both answer the first element's value: every name of the\n"
+            + "        // same length starting with the same byte got the same key.\n"
+            + "        return io.github.ningpp.compat.TypeHelper.propertyNameKey(name);\n"
+            + "    }",
             count: 1);
     }
 
-    private static readonly System.Text.RegularExpressions.Regex PropertyNameKeyRegex = new(
-        @"int reference = MemoryMarshal\.getReference\(name\);",
-        System.Text.RegularExpressions.RegexOptions.None);
+    private static readonly System.Text.RegularExpressions.Regex PropertyNameKeyBodyRegex = new(
+        @"public static long getKey\(ReadOnlySpan<Integer> name\) \{.*?\n[ \t]*return key;\r?\n[ \t]*\}",
+        System.Text.RegularExpressions.RegexOptions.Singleline);
 
     private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullGuardRegex = new(
         @"if \(getIgnoreDefaultValuesOnWrite\(\) && \(\(_cs2jDefault_T\(\) == null \? value == null : "

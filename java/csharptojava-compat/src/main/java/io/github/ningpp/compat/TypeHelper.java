@@ -737,6 +737,63 @@ public final class TypeHelper {
         }
     }
 
+    /**
+     * Mirrors {@code JsonClassInfo.GetKey(ReadOnlySpan&lt;byte&gt;)}: the first 7 bytes plus the length.
+     *
+     * <p>The generated method lowers the byte reads to "reference + {@code Unsafe}", and in Java
+     * {@code MemoryMarshal.getReference} yields the first element's VALUE while
+     * {@code Unsafe.readUnaligned} is a pass-through returning that same value. Every name of the
+     * same length that starts with the same byte therefore produced the SAME key — the byte offsets
+     * were never read at all.</p>
+     *
+     * <p>{@code IsPropertyRefEqual} accepts a short name ({@code <= 7} bytes) on key equality ALONE,
+     * so a 6-byte name starting with 'M' matched whichever 6-byte 'M…' property the scan reached
+     * first. Measured: reading {@code "MyChar" : "a"} reached the ENUM converter and reported
+     * "The JSON value could not be converted to SampleEnum. Path: $.MyEnum" in nine tests.</p>
+     */
+    public static long propertyNameKey(ReadOnlySpan<Integer> name) {
+        int length = name.getLength();
+        long key;
+        if (length > 7) {
+            long first8 = 0;
+            for (int i = 0; i < 8; i++) {
+                first8 |= ((long) byteAt(name, i)) << (8 * i);
+            }
+            key = first8 & 0x00FFFFFFFFFFFFFFL;
+            key |= ((long) Math.min(length, 0xFF)) << 56;
+            return key;
+        }
+        if (length > 5) {
+            key = 0;
+            for (int i = 0; i < 6; i++) {
+                key |= ((long) byteAt(name, i)) << (8 * i);
+            }
+        } else if (length > 3) {
+            key = 0;
+            for (int i = 0; i < 4; i++) {
+                key |= ((long) byteAt(name, i)) << (8 * i);
+            }
+        } else if (length > 1) {
+            key = (long) byteAt(name, 0) | ((long) byteAt(name, 1) << 8);
+        } else if (length == 1) {
+            key = byteAt(name, 0);
+        } else {
+            key = 0;
+        }
+        key |= ((long) length) << 56;
+        if ((length & 1) != 0) {
+            // The last byte is not covered by the reads above.
+            int offset = length - 1;
+            key |= ((long) byteAt(name, offset)) << (offset * 8);
+        }
+        return key;
+    }
+
+    private static int byteAt(ReadOnlySpan<Integer> name, int index) {
+        Integer value = name.get(index);
+        return (value == null ? 0 : value) & 0xFF;
+    }
+
     /** Opt-in diagnostics: {@code -Dcs2j.trace.typeargs=true} traces type-argument resolution. */
     private static final boolean TRACE_TYPE_ARGS = Boolean.getBoolean("cs2j.trace.typeargs");
 
