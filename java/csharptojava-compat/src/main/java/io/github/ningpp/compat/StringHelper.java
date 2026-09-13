@@ -32,6 +32,43 @@ public class StringHelper {
         return joinArray(separator, values);
     }
 
+    /** Mirrors C# String.Join(string?, params ReadOnlySpan<char>?) — joins character spans with a separator. */
+    public static String join(String separator, ReadOnlySpan<Character>... values) {
+        if (values == null) {
+            throw new NullPointerException("values");
+        }
+
+        String actualSeparator = separator == null ? "" : separator;
+        StringBuilder builder = new StringBuilder();
+        boolean first = true;
+        for (ReadOnlySpan<Character> value : values) {
+            if (!first) {
+                builder.append(actualSeparator);
+            }
+            if (value != null) {
+                builder.append(spanToString(value));
+            }
+            first = false;
+        }
+        return builder.toString();
+    }
+
+    private static String spanToString(ReadOnlySpan<Character> span) {
+        // Use the lazy String backing if available (C# string.AsSpan() views the string in place).
+        String backing = span.getStringBacking();
+        if (backing != null) {
+            return backing.substring(span.getOffset(), span.getOffset() + span.length());
+        }
+        // Materialize to char[]. For char[]-backed spans this is a single copy;
+        // for Character[]-backed spans it unboxes each element once - both match
+        // C# ToString() on a ReadOnlySpan<char> at join time.
+        char[] chars = new char[span.length()];
+        for (int i = 0; i < span.length(); i++) {
+            chars[i] = span.get(i);
+        }
+        return new String(chars);
+    }
+
     public static String join(String separator, Object[] values) {
         return joinArray(separator, values);
     }
