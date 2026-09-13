@@ -1151,6 +1151,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchJsonElementCloneOfDefaultInstance(result);
                 }
+                else if (result.FileName.EndsWith("JsonElementConverter.java", StringComparison.Ordinal))
+                {
+                    PatchJsonElementConverterHandleNull(result);
+                }
 
                 // Universal, and LAST: no matter which file this is, a leftover probe must not
                 // survive into the tree. Applied outside the dispatch chain because probes have been
@@ -1610,6 +1614,56 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex JsonElementCloneRegex = new(
         @"public JsonElement clone\(\) \{\r?\n[ \t]*checkValidInstance\(\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Makes <c>JsonElementConverter</c> handle a null token itself instead of letting the framework
+    /// assign <c>default</c>.
+    /// <para>
+    /// {@code JsonConverter<T>} derives {@code HandleNullOnRead} from {@code CanBeNull} in
+    /// {@code HandleNull()}, and {@code CanBeNull} is
+    /// {@code !typeof(T).IsValueType || Nullable.GetUnderlyingType(...) != null}. C#'s
+    /// {@code JsonElement} IS a value type, so in .NET its converter reads the null token and
+    /// {@code JsonDocument.ParseValue} yields a root element whose kind is Null. The Java type is a
+    /// plain class, so the generated {@code CanBeNull} answered true, the framework took the
+    /// "assign default(T)" branch, and the member ended up with an Undefined element. Measured:
+    /// <c>Expected: Null / Actual: Undefined</c> in five tests.
+    /// </para>
+    /// <para>
+    /// The flag's setter is private, so the override goes through {@code getCanBeNull()} — the hook
+    /// {@code HandleNull()} reads. Nothing else consults it on this path: the branches that do are
+    /// skipped exactly because {@code HandleNullOnRead} becomes true.
+    /// </para>
+    /// </summary>
+    private static void PatchJsonElementConverterHandleNull(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        if (!JsonElementDefaultValueRegex.IsMatch(result.GeneratedCode))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchJsonElementConverterHandleNull did not match "
+                + "JsonElementConverter.java - a null JSON value for a JsonElement member is still "
+                + "assigned as an Undefined element.");
+            return;
+        }
+        result.GeneratedCode = JsonElementDefaultValueRegex.Replace(result.GeneratedCode,
+            "return new dotnet.text.json.JsonElement();\n"
+            + "    }\n"
+            + "    /**\n"
+            + "     * C# {@code JsonElement} is a value type, so {@code CanBeNull} is false and the\n"
+            + "     * converter reads null tokens itself. Answering true left the member with an\n"
+            + "     * Undefined element instead of a Null-kind one.\n"
+            + "     */\n"
+            + "    @Override\n"
+            + "    public boolean getCanBeNull() {\n"
+            + "        return false;\n"
+            + "    }",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex JsonElementDefaultValueRegex = new(
+        @"return new dotnet\.text\.json\.JsonElement\(\);\r?\n[ \t]*\}",
         System.Text.RegularExpressions.RegexOptions.None);
 
     private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullGuardRegex = new(
