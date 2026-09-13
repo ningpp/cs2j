@@ -3951,6 +3951,9 @@ member MyInt16TwoDimensionList
 
 ### 4.97 Round 87：注释在未配对代理项处应当**截断**（436 → 432，修 4 / 坏 0）
 
+> 排版说明：本节与 §4.98 的**物理位置**排在 §4.99/§4.100 之后（§4.99/§4.100 是锚点插入的结果），
+> 章节顺序以编号为准，内容互不依赖。
+
 **症状**（4 条 = `Utf8JsonWriterTests#writeCommentsInvalidTextAllowed(boolean, boolean)` 全 theory）：
 
 ```
