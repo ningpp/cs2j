@@ -1998,6 +1998,30 @@ created identity != shared && elementType=CSharpList ⇒ 创建对了，问题�
 
 有了这一行输出，才能决定下一步改哪里；**在那之前不要再动缓存键或创建时机**。
 
+### 8.2.54 Round 92：实验 v3 的设计（compat-only，无需重新生成）+ 本轮状态
+
+§8.2.53 要求"把创建分支加回去、只打印身份"。本轮先把**最小可测版本**定下来，
+它**不需要重新生成**（只动 compat，`mvn -o clean install -DskipTests` + 探针即可，约 1 分钟一轮）：
+
+1. compat `TypeHelper` 加回 `cacheKeyOrRaw/cacheHas/cacheGet/cachePut`（`git show a6b174d8^:...`
+   或从 §8.2.45 的描述重建），**但不加任何 pass** —— 生成物的 `getOrAddClass` 仍按原始类取键。
+2. `cachedClassInfoForMember` 的创建分支**用系统属性开关**
+   （`-Dcs2j.classinfo.create=true`，默认关），创建后打印
+   `created identity / elementType / converterElementType`，并与
+   `options.getOrAddClass(CSharpList.class)`（共享那份）做**身份比对**。
+3. 探针（`DefProbe29`）在 `create=true` 下跑 `MyInt16TwoDimensionList`，读三行结果。
+
+**预期的三种结果与对应结论**（写死在这里，避免下一轮再猜）：
+
+| 观察 | 结论 | 下一步 |
+|---|---|---|
+| `created == shared`（身份相同） | 没有 pass 时创建**退化为共享**（键没生效） ⇒ pass 是前提 | 恢复 **v1 全量**并把 `cachedClassInfoForMember`/`cacheKeyOrRaw` 的 trace 打开，确认 v1 里创建是否真的新建 |
+| `created != shared` 且 `elementType=CSharpList` | 创建本身正确 ⇒ v1 目标未修好必在**读路径后续**（元素链/帧缓存） | 用 `DefProbe26` 的同一脚本在 v1 树上重跑，看 `getRuntimeClassInfo()` 是否返回 created |
+| `created != shared` 但 `elementType=String` | 创建时**上下文没生效**（`registerMemberType` 的层被吃掉了） | 查 `beginMemberScope` 与转换器工厂消费层的顺序 |
+
+**本轮实际完成**：只做了探针 `DefProbe27`/`DefProbe28`（§4.101/§4.102）与本节设计；
+基线保持 `428`，未做全量测量（因此未更新 `triage-xml.json`）。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
