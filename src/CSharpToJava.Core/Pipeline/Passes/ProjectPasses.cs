@@ -1143,6 +1143,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchExceptionMessageContains(result);
                 }
+                else if (result.FileName.EndsWith("JsonPropertyInfo1.java", StringComparison.Ordinal))
+                {
+                    PatchDefaultValueIsNullDecision(result);
+                }
 
                 // Universal, and LAST: no matter which file this is, a leftover probe must not
                 // survive into the tree. Applied outside the dispatch chain because probes have been
@@ -1498,6 +1502,44 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex StrayDiagnosticRegex = new(
         @"[ \t]*System\.err\.println\(""\[cs2j\.[^\r\n]*?\);\r?\n",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Takes the "default(T) is null" decision from the DECLARED type instead of from the Java
+    /// default value.
+    /// <para>
+    /// C# writes
+    /// <c>if (IgnoreDefaultValuesOnWrite &amp;&amp; (default(T) == null ? value == null :
+    /// EqualityComparer&lt;T&gt;.Default.Equals(default, value)))</c> and passes
+    /// <c>Converter.CanBeNull</c> as the flag. The generated guard inlined
+    /// <c>_cs2jDefault_T() == null</c>, which answers FALSE for a boxed <c>Boolean</c> — so a nullable
+    /// member took the value-type branch, <c>false.equals(null)</c> was false, and a null member was
+    /// written even with IgnoreNullValues set. Measured: <c>{"B":null}</c> where
+    /// <c>{"S":"Default","I":-1}</c> was expected.
+    /// </para>
+    /// </summary>
+    private static void PatchDefaultValueIsNullDecision(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        if (!DefaultValueIsNullGuardRegex.IsMatch(result.GeneratedCode))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchDefaultValueIsNullDecision did not match JsonPropertyInfo1.java "
+                + "- the default(T)-is-null decision is still taken from the boxed default value.");
+            return;
+        }
+        result.GeneratedCode = DefaultValueIsNullGuardRegex.Replace(result.GeneratedCode,
+            "if (io.github.ningpp.compat.TypeHelper.shouldIgnoreForDefaultWrite(getIgnoreDefaultValuesOnWrite(), "
+            + "io.github.ningpp.compat.TypeHelper.defaultValueIsNullForWrite(getDeclaredPropertyType()), "
+            + "value, _cs2jDefault_T())) {\n        return true;\n        }",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullGuardRegex = new(
+        @"if \(getIgnoreDefaultValuesOnWrite\(\) && \(\(_cs2jDefault_T\(\) == null \? value == null : "
+        + @"CSharpDefaultEqualityComparerGeneric\.getDefault\(\)\.equals\(_cs2jDefault_T\(\), value\)\)\)\) \{\r?\n"
+        + @"        return true;\r?\n        \}",
         System.Text.RegularExpressions.RegexOptions.None);
 
     private static void PatchConverterCacheLookup(ConversionResult result)
