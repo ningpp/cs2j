@@ -39,6 +39,14 @@ public final class FieldInfo implements MemberInfo {
         return TypeHelper.toWrapperType(field.getType());
     }
 
+    /** The declared field type without boxing; see {@link PropertyInfo#getRawPropertyType()}. */
+    public Class<?> getRawFieldType() {
+        if (field.isAnnotationPresent(CompatSByteArray.class)) {
+            return int[].class;
+        }
+        return field.getType();
+    }
+
     public boolean getIsStatic() {
         return Modifier.isStatic(field.getModifiers());
     }

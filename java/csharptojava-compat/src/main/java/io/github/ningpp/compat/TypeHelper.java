@@ -1090,6 +1090,51 @@ public final class TypeHelper {
     }
 
     /**
+     * {@code default(T) == null} for a member, which only the DECLARATION can answer.
+     *
+     * <p>{@code declaredType} is boxed — C#'s {@code int} and {@code int?} both arrive as
+     * {@code Integer} — so it cannot tell a non-nullable value type (whose default is zero/false)
+     * from a nullable one (whose default is null). The member's raw declaration can: the converter
+     * emits a primitive Java type for {@code int} and the wrapper for {@code int?}, and a C# struct
+     * as a Java {@code value class}.</p>
+     */
+    public static boolean defaultValueIsNullForWrite(Class<?> declaredType, MemberInfo memberInfo) {
+        Class<?> raw = rawMemberType(memberInfo);
+        if (raw != null) {
+            // A primitive declaration is a C# non-nullable value type: default(int) is 0, not null.
+            if (raw.isPrimitive()) {
+                return false;
+            }
+            // A Java value class that is not a boxed wrapper is a converted C# struct (or another
+            // value type the converter mapped to one): default(T) is its zero instance, not null.
+            // JDK 28 makes the wrapper classes value classes too, and those stand for `int?`,
+            // `bool?` etc. here — their default IS null.
+            if (raw.isValue() && !isBoxedWrapperClass(raw)) {
+                return false;
+            }
+        }
+        return defaultValueIsNullForWrite(declaredType);
+    }
+
+    /** The Java wrapper classes, which stand for C# nullable/reference uses of the same width. */
+    private static boolean isBoxedWrapperClass(Class<?> type) {
+        return type == Integer.class || type == Long.class || type == Short.class
+            || type == Byte.class || type == Float.class || type == Double.class
+            || type == Boolean.class || type == Character.class;
+    }
+
+    /** The type a member was declared with, without boxing, or null when it cannot be told. */
+    private static Class<?> rawMemberType(MemberInfo memberInfo) {
+        if (memberInfo instanceof PropertyInfo propertyInfo) {
+            return propertyInfo.getRawPropertyType();
+        }
+        if (memberInfo instanceof FieldInfo fieldInfo) {
+            return fieldInfo.getRawFieldType();
+        }
+        return null;
+    }
+
+    /**
      * The whole "skip this member on write" decision, mirroring
      * {@code if (IgnoreDefaultValuesOnWrite && (default(T) == null ? value == null :
      * EqualityComparer<T>.Default.Equals(default, value)))}.
@@ -1104,12 +1149,23 @@ public final class TypeHelper {
         if (!ignoreDefaultValuesOnWrite) {
             return false;
         }
+        // C#: default(T) == null ? value == null : EqualityComparer<T>.Default.Equals(default, value)
+        //
+        // The null branch is taken from the DECLARED type (a primitive Class constant is a C# value
+        // type), never from the Java default value: a boxed value type also has a non-null Java
+        // default, so inferring from the default made "default(T) == null" false for a nullable and
+        // wrote the null out (measured: {"B":null} under IgnoreNullValues).
         if (defaultValueIsNull) {
             return value == null;
         }
         if (value == null) {
             // A value type whose boxed value is null is its default by definition.
             return true;
+        }
+        // Value-type comparison. Boxed primitives must be compared numerically, and the default may
+        // be null when the converter could not supply one — then a boxed zero is still the default.
+        if (defaultValue == null) {
+            return isBoxedZero(value);
         }
         if (value instanceof Number v && defaultValue instanceof Number d) {
             return v.doubleValue() == d.doubleValue();
@@ -1118,6 +1174,17 @@ public final class TypeHelper {
             return v.charValue() == d.charValue();
         }
         return java.util.Objects.equals(value, defaultValue);
+    }
+
+    /** Whether {@code value} is a boxed primitive equal to its zero value. */
+    private static boolean isBoxedZero(Object value) {
+        if (value instanceof Number n) {
+            return n.doubleValue() == 0.0;
+        }
+        if (value instanceof Character c) {
+            return c.charValue() == '\0';
+        }
+        return Boolean.FALSE.equals(value);
     }
 
     /**

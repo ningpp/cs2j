@@ -303,6 +303,30 @@ public final class PropertyInfo implements MemberInfo {
     }
 
     /**
+     * The type the member was DECLARED with, without boxing — {@link #getPropertyType()} boxes
+     * because every converter is registered under the wrapper class.
+     *
+     * <p>Boxing destroys the difference between a C# non-nullable value type and a nullable one:
+     * {@code int MyInt} and {@code int? MyInt} both arrive as {@code Integer}. The declaration keeps
+     * it, because the converter emits a primitive Java type for the first and the wrapper for the
+     * second. {@code C#}'s {@code default(T) == null} — {@code Converter.CanBeNull}, the flag
+     * {@code JsonPropertyInfoOfT} needs — depends on exactly that difference.</p>
+     */
+    public Class<?> getRawPropertyType() {
+        Class<?> sbyteArray = sbyteArrayType();
+        if (sbyteArray != null) {
+            return sbyteArray;
+        }
+        if (getter != null) {
+            return getter.getReturnType();
+        }
+        if (setter != null && setter.getParameterCount() > 0) {
+            return setter.getParameterTypes()[0];
+        }
+        return null;
+    }
+
+    /**
      * C# {@code sbyte[]} and {@code byte[]} are both {@code byte[]} in Java, but System.Text.Json
      * writes the first as a JSON array of numbers and the second as a Base64 string. The converter
      * marks the member, and the member lookup answers {@code int[].class} so the array converter

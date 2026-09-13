@@ -1505,8 +1505,8 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
         System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>
-    /// Takes the "default(T) is null" decision from the DECLARED type instead of from the Java
-    /// default value.
+    /// Takes the "default(T) is null" decision from the DECLARED member instead of from the boxed
+    /// Java type.
     /// <para>
     /// C# writes
     /// <c>if (IgnoreDefaultValuesOnWrite &amp;&amp; (default(T) == null ? value == null :
@@ -1516,6 +1516,14 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
     /// member took the value-type branch, <c>false.equals(null)</c> was false, and a null member was
     /// written even with IgnoreNullValues set. Measured: <c>{"B":null}</c> where
     /// <c>{"S":"Default","I":-1}</c> was expected.
+    /// </para>
+    /// <para>
+    /// The first attempt answered the flag from the boxed declared type alone, which cannot tell a
+    /// non-nullable value type from a nullable one — <c>int</c> and <c>int?</c> are both
+    /// <c>Integer</c>. Both call sites therefore hand the member over as well, and the compat side
+    /// reads the raw declaration (<c>int</c> vs <c>Integer</c>, a Java <c>value class</c> for a
+    /// C# struct). Measured: <c>WhenWritingDefault</c> stopped omitting <c>0</c> and wrote
+    /// <c>{"MyInt":0,"MyPoint":{"X":0,"Y":0}}</c> where <c>{}</c> was expected.
     /// </para>
     /// </summary>
     private static void PatchDefaultValueIsNullDecision(ConversionResult result)
@@ -1531,10 +1539,32 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
         }
         result.GeneratedCode = DefaultValueIsNullGuardRegex.Replace(result.GeneratedCode,
             "if (io.github.ningpp.compat.TypeHelper.shouldIgnoreForDefaultWrite(getIgnoreDefaultValuesOnWrite(), "
-            + "io.github.ningpp.compat.TypeHelper.defaultValueIsNullForWrite(getDeclaredPropertyType()), "
+            + "io.github.ningpp.compat.TypeHelper.defaultValueIsNullForWrite(getDeclaredPropertyType(), getMemberInfo()), "
             + "value, _cs2jDefault_T())) {\n        return true;\n        }",
             count: 1);
+
+        // The same flag decides whether IgnoreNullValues/WhenWritingNull may set
+        // IgnoreDefaultValuesOnWrite at all; the converter's CanBeNull cannot answer it because a
+        // boxed value type looks like a reference type to it.
+        if (DefaultValueIsNullPoliciesRegex.IsMatch(result.GeneratedCode))
+        {
+            result.GeneratedCode = DefaultValueIsNullPoliciesRegex.Replace(result.GeneratedCode,
+                "getPolicies(ignoreCondition, parentTypeNumberHandling, "
+                + "io.github.ningpp.compat.TypeHelper.defaultValueIsNullForWrite(getDeclaredPropertyType(), getMemberInfo()));",
+                count: 1);
+        }
+        else
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchDefaultValueIsNullDecision did not match the getPolicies call in "
+                + "JsonPropertyInfo1.java - IgnoreNullValues may still omit value-type members.");
+        }
     }
+
+    private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullPoliciesRegex = new(
+        @"getPolicies\(ignoreCondition, parentTypeNumberHandling, "
+        + @"getConverter\(\)\.getCanBeNull\(\)\);",
+        System.Text.RegularExpressions.RegexOptions.None);
 
     private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullGuardRegex = new(
         @"if \(getIgnoreDefaultValuesOnWrite\(\) && \(\(_cs2jDefault_T\(\) == null \? value == null : "
