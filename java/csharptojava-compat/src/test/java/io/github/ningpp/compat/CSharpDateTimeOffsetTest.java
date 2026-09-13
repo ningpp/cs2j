@@ -10,9 +10,11 @@ class CSharpDateTimeOffsetTest {
     @Test
     void parse_NoOffset_UsesLocalTimeZoneOffset() {
         // .NET DateTimeOffset.Parse("1997-07-16") uses the local time zone's
-        // offset when the string carries no offset.
+        // offset for that date when the string carries no offset.
         CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("1997-07-16");
-        long expectedSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
+        long expectedSeconds = CSharpTimeZoneInfo.getLocal()
+            .getUtcOffset(new CSharpDateTime(1997, 7, 16))
+            .getTicks() / CSharpTimeSpan.TICKS_PER_SECOND;
         assertEquals(expectedSeconds, dto.getOffset().getTicks() / CSharpTimeSpan.TICKS_PER_SECOND);
     }
 
@@ -185,11 +187,11 @@ assertEquals("06/15/2024 10:30:45 +08:00", dto.toString());
     void constructor_withDateTimeKind_local_offsetIsLocalTimezone() {
         // .NET: new DateTimeOffset(new DateTime(2024,6,15,10,30,45,DateTimeKind.Local)).Offset == local timezone offset
         CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, DateTimeKind.Local);
-        int expectedOffsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
-        CSharpTimeSpan expectedOffset = CSharpTimeSpan.fromSeconds(expectedOffsetSeconds);
+        CSharpTimeSpan expectedOffset = CSharpTimeZoneInfo.getLocal()
+            .getUtcOffset(new CSharpDateTime(2024, 6, 15, 10, 30, 45));
         assertEquals(expectedOffset, dto.getOffset());
         // Offset must NOT be zero (unless the system is in UTC)
-        if (expectedOffsetSeconds != 0) {
+        if (expectedOffset.getTicks() != 0) {
             assertNotEquals(CSharpTimeSpan.ZERO, dto.getOffset());
         }
     }
@@ -198,8 +200,8 @@ assertEquals("06/15/2024 10:30:45 +08:00", dto.toString());
     void constructor_withDateTimeKind_unspecified_offsetIsLocalTimezone() {
         // .NET: new DateTimeOffset(new DateTime(2024,6,15,10,30,45,DateTimeKind.Unspecified)).Offset == local timezone offset
         CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, DateTimeKind.Unspecified);
-        int expectedOffsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
-        CSharpTimeSpan expectedOffset = CSharpTimeSpan.fromSeconds(expectedOffsetSeconds);
+        CSharpTimeSpan expectedOffset = CSharpTimeZoneInfo.getLocal()
+            .getUtcOffset(new CSharpDateTime(2024, 6, 15, 10, 30, 45));
         assertEquals(expectedOffset, dto.getOffset());
     }
 
@@ -214,8 +216,8 @@ assertEquals("06/15/2024 10:30:45 +08:00", dto.toString());
     void constructor_withDateTimeKind_millisecond_local_offsetIsLocalTimezone() {
         // .NET: new DateTimeOffset(new DateTime(2024,6,15,10,30,45,123,DateTimeKind.Local)).Offset == local timezone offset
         CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, 123, DateTimeKind.Local);
-        int expectedOffsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
-        CSharpTimeSpan expectedOffset = CSharpTimeSpan.fromSeconds(expectedOffsetSeconds);
+        CSharpTimeSpan expectedOffset = CSharpTimeZoneInfo.getLocal()
+            .getUtcOffset(new CSharpDateTime(2024, 6, 15, 10, 30, 45, 123));
         assertEquals(expectedOffset, dto.getOffset());
     }
 
@@ -232,8 +234,7 @@ assertEquals("06/15/2024 10:30:45 +08:00", dto.toString());
         // .NET: new DateTimeOffset(new DateTime(2024,6,15,10,30,45,DateTimeKind.Local)).Offset == local timezone offset
         CSharpDateTime dt = new CSharpDateTime(2024, 6, 15, 10, 30, 45, 0, DateTimeKind.Local);
         CSharpDateTimeOffset dto = new CSharpDateTimeOffset(dt);
-        int expectedOffsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
-        CSharpTimeSpan expectedOffset = CSharpTimeSpan.fromSeconds(expectedOffsetSeconds);
+        CSharpTimeSpan expectedOffset = CSharpTimeZoneInfo.getLocal().getUtcOffset(dt);
         assertEquals(expectedOffset, dto.getOffset());
     }
 
@@ -242,8 +243,7 @@ assertEquals("06/15/2024 10:30:45 +08:00", dto.toString());
         // .NET: new DateTimeOffset(new DateTime(2024,6,15,10,30,45,DateTimeKind.Unspecified)).Offset == local timezone offset
         CSharpDateTime dt = new CSharpDateTime(2024, 6, 15, 10, 30, 45, 0, DateTimeKind.Unspecified);
         CSharpDateTimeOffset dto = new CSharpDateTimeOffset(dt);
-        int expectedOffsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
-        CSharpTimeSpan expectedOffset = CSharpTimeSpan.fromSeconds(expectedOffsetSeconds);
+        CSharpTimeSpan expectedOffset = CSharpTimeZoneInfo.getLocal().getUtcOffset(dt);
         assertEquals(expectedOffset, dto.getOffset());
     }
 
@@ -647,7 +647,10 @@ assertEquals("06/15/2024 10:30:45 +08:00", dto.toString());
         CSharpDateTimeOffset now = CSharpDateTimeOffset.getNow();
         int expectedOffsetSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
         long actualOffsetSeconds = now.getOffset().getTicks() / CSharpTimeSpan.TICKS_PER_SECOND;
-        assertEquals(expectedOffsetSeconds, actualOffsetSeconds);
+        // getNow() uses the current instant, so the offset should match the
+        // current offset (within a small time window).
+        assertTrue(Math.abs(expectedOffsetSeconds - actualOffsetSeconds) < 1,
+            "expected=" + expectedOffsetSeconds + " actual=" + actualOffsetSeconds);
     }
 
     @Test
@@ -765,7 +768,9 @@ assertEquals(dto.getLocalDateTime(), localDto.getDateTime());
     @Test
     void parse_timeWithColon_usesLocalOffset() {
         CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("2024-06-15T10:30:45");
-        long expectedSeconds = OffsetDateTime.now().getOffset().getTotalSeconds();
+        long expectedSeconds = CSharpTimeZoneInfo.getLocal()
+            .getUtcOffset(new CSharpDateTime(2024, 6, 15, 10, 30, 45))
+            .getTicks() / CSharpTimeSpan.TICKS_PER_SECOND;
         assertEquals(expectedSeconds, dto.getOffset().getTicks() / CSharpTimeSpan.TICKS_PER_SECOND);
     }
 
@@ -832,5 +837,178 @@ assertEquals("45.123", result, "got: " + result);
     void compareTo_reflexive() {
         CSharpDateTimeOffset dto = CSharpDateTimeOffset.getUtcNow();
         assertEquals(0, dto.compareTo(dto));
+    }
+
+    // --- Historical date offset tests ---
+    // .NET TimeZoneInfo.GetUtcOffset uses the IANA offset for the specific
+    // date, rounded to whole minutes. Zones like Asia/Shanghai have a
+    // sub-minute historical offset (+08:05:43 before 1901) that rounds to
+    // +08:06. DateTimeOffset.Parse and the DateTimeOffset constructor must
+    // use this date-specific offset, not the current instant's offset.
+
+    @Test
+    void parse_yearOnly_noOffset_usesHistoricalOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            // "0002" → year 0002-01-01; Shanghai historical offset is
+            // +08:05:43 → rounded to +08:06.
+            CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("0002");
+            CSharpTimeSpan expected = CSharpTimeZoneInfo.getLocal()
+                .getUtcOffset(new CSharpDateTime(2, 1, 1));
+            assertEquals(expected, dto.getOffset());
+            assertEquals(8, dto.getOffset().getHours());
+            assertEquals(6, dto.getOffset().getMinutes());
+        });
+    }
+
+    @Test
+    void parse_yearMonth_noOffset_usesHistoricalOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            // "0002-01" → 0002-01-01; same historical offset +08:06.
+            CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("0002-01");
+            CSharpTimeSpan expected = CSharpTimeZoneInfo.getLocal()
+                .getUtcOffset(new CSharpDateTime(2, 1, 1));
+            assertEquals(expected, dto.getOffset());
+            assertEquals(8, dto.getOffset().getHours());
+            assertEquals(6, dto.getOffset().getMinutes());
+        });
+    }
+
+    @Test
+    void parse_fullDate_noOffset_usesHistoricalOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("0002-01-01");
+            CSharpTimeSpan expected = CSharpTimeZoneInfo.getLocal()
+                .getUtcOffset(new CSharpDateTime(2, 1, 1));
+            assertEquals(expected, dto.getOffset());
+            assertEquals(8, dto.getOffset().getHours());
+            assertEquals(6, dto.getOffset().getMinutes());
+        });
+    }
+
+    @Test
+    void parse_dateTime_noOffset_usesHistoricalOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("0002-01-01T00:00:00");
+            CSharpTimeSpan expected = CSharpTimeZoneInfo.getLocal()
+                .getUtcOffset(new CSharpDateTime(2, 1, 1));
+            assertEquals(expected, dto.getOffset());
+        });
+    }
+
+    @Test
+    void parseExact_yearMonth_noOffset_usesHistoricalOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            // This was the failing path in XmlConvertTests.toType52:
+            // XmlConvert.toDateTimeOffset(s, format) calls parseExact → parse,
+            // which used localOffsetSeconds() (Instant.now()) instead of the
+            // date-specific offset.
+            CSharpDateTimeOffset dto = CSharpDateTimeOffset.parseExact("0002-01", "yyyy-MM");
+            CSharpTimeSpan expected = CSharpTimeZoneInfo.getLocal()
+                .getUtcOffset(new CSharpDateTime(2, 1, 1));
+            assertEquals(expected, dto.getOffset());
+            assertEquals(8, dto.getOffset().getHours());
+            assertEquals(6, dto.getOffset().getMinutes());
+        });
+    }
+
+    @Test
+    void parseExact_yearOnly_noOffset_usesHistoricalOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            CSharpDateTimeOffset dto = CSharpDateTimeOffset.parseExact("0002", "yyyy");
+            CSharpTimeSpan expected = CSharpTimeZoneInfo.getLocal()
+                .getUtcOffset(new CSharpDateTime(2, 1, 1));
+            assertEquals(expected, dto.getOffset());
+        });
+    }
+
+    @Test
+    void parseExact_dateTime_noOffset_usesHistoricalOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            CSharpDateTimeOffset dto = CSharpDateTimeOffset.parseExact(
+                "0002-01-01T00:00:00", "yyyy-MM-ddTHH:mm:ss");
+            CSharpTimeSpan expected = CSharpTimeZoneInfo.getLocal()
+                .getUtcOffset(new CSharpDateTime(2, 1, 1));
+            assertEquals(expected, dto.getOffset());
+        });
+    }
+
+    @Test
+    void constructor_unspecifiedKind_historicalDate_usesHistoricalOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            CSharpDateTimeOffset dto = new CSharpDateTimeOffset(
+                2, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+            CSharpTimeSpan expected = CSharpTimeZoneInfo.getLocal()
+                .getUtcOffset(new CSharpDateTime(2, 1, 1));
+            assertEquals(expected, dto.getOffset());
+            assertEquals(8, dto.getOffset().getHours());
+            assertEquals(6, dto.getOffset().getMinutes());
+        });
+    }
+
+    @Test
+    void constructor_localKind_historicalDate_usesHistoricalOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            CSharpDateTimeOffset dto = new CSharpDateTimeOffset(
+                2, 1, 1, 0, 0, 0, DateTimeKind.Local);
+            CSharpTimeSpan expected = CSharpTimeZoneInfo.getLocal()
+                .getUtcOffset(new CSharpDateTime(2, 1, 1));
+            assertEquals(expected, dto.getOffset());
+        });
+    }
+
+    @Test
+    void constructor_fromCSharpDateTime_unspecified_historicalDate_usesHistoricalOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            CSharpDateTime dt = new CSharpDateTime(2, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified);
+            CSharpDateTimeOffset dto = new CSharpDateTimeOffset(dt);
+            CSharpTimeSpan expected = CSharpTimeZoneInfo.getLocal().getUtcOffset(dt);
+            assertEquals(expected, dto.getOffset());
+        });
+    }
+
+    @Test
+    void toString_historicalDate_displaysRoundedOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("0002-01");
+            // toString() format: MM/dd/yyyy HH:mm:ss ±hh:mm
+            assertTrue(dto.toString().endsWith("+08:06"),
+                "got: " + dto.toString());
+        });
+    }
+
+    @Test
+    void parse_historicalDate_modernDate_offsetDiffers() {
+        // For Asia/Shanghai, 0002-01-01 has offset +08:06 while
+        // 2024-06-15 has offset +08:00. The two must not be equal,
+        // confirming that parse() uses the date-specific offset.
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            CSharpDateTimeOffset historical = CSharpDateTimeOffset.parse("0002-01-01");
+            CSharpDateTimeOffset modern = CSharpDateTimeOffset.parse("2024-06-15");
+            assertNotEquals(historical.getOffset(), modern.getOffset());
+            assertEquals(6, historical.getOffset().getMinutes());
+            assertEquals(0, modern.getOffset().getMinutes());
+        });
+    }
+
+    @Test
+    void parse_historicalDate_utcSuffix_usesZeroOffset() {
+        withDefaultTimeZone("Asia/Shanghai", () -> {
+            // Explicit Z suffix overrides the local offset, even for historical dates.
+            CSharpDateTimeOffset dto = CSharpDateTimeOffset.parse("0002Z");
+            assertEquals(CSharpTimeSpan.ZERO, dto.getOffset());
+        });
+    }
+
+    /**
+     * Runs {@code body} with the JVM default time zone set to {@code zoneId}.
+     */
+    private static void withDefaultTimeZone(String zoneId, Runnable body) {
+        java.util.TimeZone original = java.util.TimeZone.getDefault();
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(zoneId));
+        try {
+            body.run();
+        } finally {
+            java.util.TimeZone.setDefault(original);
+        }
     }
 }

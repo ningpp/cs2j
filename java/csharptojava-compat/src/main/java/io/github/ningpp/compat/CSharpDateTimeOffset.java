@@ -51,7 +51,7 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
 
     public CSharpDateTimeOffset(int year, int month, int day, int hour, int minute, int second, int millisecond, DateTimeKind kind) {
         this.dateTime = new CSharpDateTime(year, month, day, hour, minute, second, millisecond, kind);
-        this.offset = offsetFromKind(kind);
+        this.offset = offsetFromKind(kind, this.dateTime);
     }
 
     public CSharpDateTimeOffset(int year, int month, int day, int hour, int minute, int second, DateTimeKind kind) {
@@ -60,19 +60,23 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
 
     public CSharpDateTimeOffset(CSharpDateTime dateTime) {
         this.dateTime = dateTime;
-        this.offset = offsetFromKind(dateTime.getKind());
+        this.offset = offsetFromKind(dateTime.getKind(), dateTime);
     }
 
     public static CSharpDateTimeOffset toCSharpDateTimeOffset(CSharpDateTime dateTime) {
         return new CSharpDateTimeOffset(dateTime);
     }
 
-    private static CSharpTimeSpan offsetFromKind(DateTimeKind kind) {
+    private static CSharpTimeSpan offsetFromKind(DateTimeKind kind, CSharpDateTime dateTime) {
         if (kind == DateTimeKind.Utc) {
             return CSharpTimeSpan.ZERO;
         }
-        // Local and Unspecified both use the local timezone offset, matching .NET behavior
-        return CSharpTimeSpan.fromSeconds(localOffsetSeconds());
+        // .NET: new DateTimeOffset(dateTime) with Kind == Local or Unspecified uses
+        // TimeZoneInfo.Local.GetUtcOffset(dateTime) — the offset for that specific
+        // wall-clock date, not the offset at the current instant. This matters for
+        // zones with sub-minute historical offsets (e.g. Asia/Shanghai before
+        // 1901 is +08:05:43, rounded to +08:06).
+        return CSharpTimeZoneInfo.getLocal().getUtcOffset(dateTime);
     }
 
     /**
@@ -84,6 +88,16 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         ZoneId zoneId = CSharpTimeZoneInfo.localZoneId();
         return CSharpTimeZoneInfo.roundToWholeMinutes(
             zoneId.getRules().getOffset(Instant.now()).getTotalSeconds());
+    }
+
+    /**
+     * Whole-minute offset of the process default zone at the wall-clock
+     * instant {@code dateTime} represents, matching .NET's
+     * {@code TimeZoneInfo.Local.GetUtcOffset(DateTime)}.
+     */
+    private static long localOffsetSecondsFor(CSharpDateTime dateTime) {
+        return CSharpTimeZoneInfo.wholeMinuteOffsetSeconds(
+            CSharpTimeZoneInfo.localZoneId(), dateTime);
     }
 
     private static void validateOffset(CSharpDateTime dateTime, CSharpTimeSpan offset) {
@@ -132,16 +146,22 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         // .NET DateTimeOffset.LocalDateTime converts the instant to the local
         // time zone; returning the stored wall time made Utf8JsonReader
         // GetDateTime() disagree with DateTime.Parse on offset strings.
-        long localOffsetSeconds = localOffsetSeconds();
+        //
+        // The local offset must be re-evaluated for the converted instant so
+        // that zones with historical sub-minute offsets (e.g. Asia/Shanghai
+        // before 1901) use the correct offset for that date.
         long offsetSeconds = offset.getTicks() / CSharpTimeSpan.TICKS_PER_SECOND;
-        return dateTime.addSeconds(localOffsetSeconds - offsetSeconds);
+        CSharpDateTime utcInstant = dateTime.addSeconds(-offsetSeconds);
+        long localOffset = localOffsetSecondsFor(utcInstant);
+        return dateTime.addSeconds(localOffset - offsetSeconds);
     }
 
     public CSharpDateTimeOffset toLocalTime() {
-        long localOffsetSeconds = localOffsetSeconds();
         long offsetSeconds = offset.getTicks() / CSharpTimeSpan.TICKS_PER_SECOND;
-        CSharpDateTime localDt = dateTime.addSeconds(localOffsetSeconds - offsetSeconds);
-        return new CSharpDateTimeOffset(localDt, CSharpTimeSpan.fromSeconds(localOffsetSeconds));
+        CSharpDateTime utcInstant = dateTime.addSeconds(-offsetSeconds);
+        long localOffset = localOffsetSecondsFor(utcInstant);
+        CSharpDateTime localDt = dateTime.addSeconds(localOffset - offsetSeconds);
+        return new CSharpDateTimeOffset(localDt, CSharpTimeSpan.fromSeconds(localOffset));
     }
 
     public CSharpDateTime getUtcDateTime() {
@@ -283,15 +303,18 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
                 ldt = LocalDate.of(year, 1, 1).atStartOfDay();
             }
 
-            ZoneOffset offset;
+            CSharpDateTime dt = CSharpDateTime.fromLocalDateTime(ldt, DateTimeKind.Unspecified);
+            CSharpTimeSpan tsOffset;
             if (utcSuffix) {
-                offset = ZoneOffset.UTC;
+                tsOffset = CSharpTimeSpan.ZERO;
             } else {
-                offset = ZoneOffset.ofTotalSeconds((int) localOffsetSeconds());
+                // .NET DateTimeOffset.Parse uses TimeZoneInfo.Local.GetUtcOffset(dateTime)
+                // for the parsed wall-clock date — not the offset at the current instant.
+                // This matters for zones with historical sub-minute offsets such as
+                // Asia/Shanghai before 1901 (+08:05:43, rounded to +08:06).
+                tsOffset = CSharpTimeZoneInfo.getLocal().getUtcOffset(dt);
             }
-            OffsetDateTime odt = OffsetDateTime.of(ldt, offset);
-            CSharpDateTime dt = CSharpDateTime.fromLocalDateTime(odt.toLocalDateTime(), DateTimeKind.Unspecified);
-            return new CSharpDateTimeOffset(dt, CSharpTimeSpan.fromSeconds(odt.getOffset().getTotalSeconds()));
+            return new CSharpDateTimeOffset(dt, tsOffset);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid DateTimeOffset format: " + s, e);
         }
