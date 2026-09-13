@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -1705,6 +1705,20 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private static string ToRuntimeTypeForClassLiteral(string mappedType)
         => ExpressionTransformerHelpers.ToRuntimeTypeForClassLiteral(mappedType);
 
+    /// <summary>
+    /// Whether a <c>typeof(...)</c> expression is only RENDERED — its parent is
+    /// <c>.ToString()</c>, as in <c>Assert.Contains(typeof(int[,]).ToString(), ex.Message)</c>.
+    /// <para>
+    /// Such a use must not call the helper that publishes a multidimensional-array rank note:
+    /// Java's <c>Class</c> is canonical, so C#'s <c>int[,]</c> and <c>int[][]</c> share one runtime
+    /// class and the note leaks into every later jagged array conversion.
+    /// </para>
+    /// </summary>
+    private static bool IsRenderedOnly(SyntaxNode node)
+        => node.Parent is MemberAccessExpressionSyntax access
+            && access.Expression == node
+            && access.Name.Identifier.Text == "ToString";
+
     private string TransformTypeOf(TypeOfExpressionSyntax node, ConversionContext context)
     {
         var typeInfo = context.GetTypeInfo(node.Type);
@@ -1720,7 +1734,12 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (typeInfo.Type is IArrayTypeSymbol { Rank: > 1 } multiDimType)
         {
             context.AddImport("io.github.ningpp.compat.TypeHelper");
-            return $"TypeHelper.getMultiDimArrayClass({ConversionContext.GetClassLiteral(multiDimType.ElementType, context)}, {multiDimType.Rank})";
+            // A token used only for its NAME must not claim a rank: Class is canonical, so
+            // int[,] and int[][] are the same runtime class, and a note left behind by a
+            // message-building call made every later JAGGED int[][] conversion look
+            // multidimensional ("The type 'class [[I' is not supported", three tests).
+            var helper = IsRenderedOnly(node) ? "getMultiDimArrayClassName" : "getMultiDimArrayClass";
+            return $"TypeHelper.{helper}({ConversionContext.GetClassLiteral(multiDimType.ElementType, context)}, {multiDimType.Rank})";
         }
 
         string typeName;

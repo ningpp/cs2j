@@ -1139,6 +1139,8 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                     // NOT PatchConverterCacheLookup: that one rewrites the converter read key to the
                     // closed-generic key and measured 855 -> 934 when it was tried (round 1). It is
                     // kept dormant on purpose. Stray diagnostics are stripped universally below.
+                    PatchMultiDimArrayRankAtConverterEntry(result);
+                    PatchMultiDimArrayRankAtClassLookup(result);
                 }
                 else if (result.FileName.EndsWith("JsonConverter1.java", StringComparison.Ordinal))
                 {
@@ -1790,6 +1792,96 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
     private static readonly System.Text.RegularExpressions.Regex KeyValuePairGenericArgumentsRegex = new(
         @"Class keyType = TypeHelper\.getGenericArguments\(type\)\[0\];\r?\n[ \t]*"
         + @"Class valueType = TypeHelper\.getGenericArguments\(type\)\[1\];",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Consumes the pending multidimensional-array rank note at the EARLIEST common entry —
+    /// <c>getOrAddClass</c> — not only inside the converter factory.
+    /// <para>
+    /// <c>IEnumerableConverterFactory.createConverter</c> asks <c>getArrayRank</c>, which CONSUMES the
+    /// note <c>getMultiDimArrayClass</c> published. Once the class info and converter for the erased
+    /// class are cached, neither the factory nor <c>getConverter</c> runs again, so the note survived:
+    /// the multidim rejection never fired
+    /// (<c>ArrayTests#readPrimitiveArrayFail</c> reported "No exception thrown") AND the leftover note
+    /// made a later JAGGED <c>int[][]</c> lookup look multidimensional
+    /// (<c>CacheTests#propertyCacheWithMinInputsLast</c>, <c>ExceptionTests#caseInsensitiveFails</c>,
+    /// <c>ObjectTests#readClassWithNestedComments</c>).
+    /// </para>
+    /// <para>
+    /// <c>getOrAddClass</c> is entered by every root serialize/deserialize and by every member lookup,
+    /// cached or not, so the note is taken there — and the rejection still happens, because a note
+    /// claiming rank &gt; 1 means the caller asked for a genuine C# multidimensional type.
+    /// </para>
+    /// </summary>
+    private static void PatchMultiDimArrayRankAtClassLookup(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        if (!ClassLookupEntryRegex.IsMatch(result.GeneratedCode))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchMultiDimArrayRankAtClassLookup did not match "
+                + "JsonSerializerOptions.java - a cached class info still leaves the multidimensional "
+                + "rank note behind.");
+            return;
+        }
+        result.GeneratedCode = ClassLookupEntryRegex.Replace(result.GeneratedCode,
+            "public JsonClassInfo getOrAddClass(Class type) {\n"
+            + "        // A pending rank note must be taken even when everything is cached: neither the\n"
+            + "        // factory nor getConverter runs then. See TypeHelper.takeMultiDimArrayRank.\n"
+            + "        if (io.github.ningpp.compat.TypeHelper.takeMultiDimArrayRank(type)) {\n"
+            + "        ThrowHelper.throwNotSupportedException_SerializationNotSupported(type);\n"
+            + "        }\n"
+            + "        _haveTypesBeenCreated = true;",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ClassLookupEntryRegex = new(
+        @"public JsonClassInfo getOrAddClass\(Class type\) \{\r?\n[ \t]*_haveTypesBeenCreated = true;",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Consumes the pending multidimensional-array rank note at the converter ENTRY, not only inside
+    /// the factory.
+    /// <para>
+    /// <c>IEnumerableConverterFactory.createConverter</c> asks <c>getArrayRank</c>, which CONSUMES the
+    /// note <c>getMultiDimArrayClass</c> published. On a converter-cache HIT the factory never runs,
+    /// so the note survived and the next conversion that did create a converter for the same erased
+    /// class saw it: a JAGGED <c>int[][]</c> member was rejected with
+    /// "The type 'class [[I' is not supported" (measured: <c>CacheTests#propertyCacheWithMinInputsLast</c>,
+    /// <c>ExceptionTests#caseInsensitiveFails</c>, <c>ObjectTests#readClassWithNestedComments</c>).
+    /// </para>
+    /// <para>
+    /// <c>getConverter</c> is entered on every converter lookup, cached or not, so the note is now
+    /// taken there too — belt and braces with <see cref="PatchMultiDimArrayRankAtClassLookup"/>.
+    /// </para>
+    /// </summary>
+    private static void PatchMultiDimArrayRankAtConverterEntry(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        if (!ConverterEntryRegex.IsMatch(result.GeneratedCode))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchMultiDimArrayRankAtConverterEntry did not match "
+                + "JsonSerializerOptions.java - a cached converter still leaves the multidimensional "
+                + "rank note behind for later jagged arrays.");
+            return;
+        }
+        result.GeneratedCode = ConverterEntryRegex.Replace(result.GeneratedCode,
+            "public dotnet.text.json.Serialization.JsonConverter getConverter(Class typeToConvert) {\n"
+            + "        // A pending rank note must be taken even on a cache hit: the factory that used to\n"
+            + "        // consume it does not run then. See TypeHelper.takeMultiDimArrayRank.\n"
+            + "        if (io.github.ningpp.compat.TypeHelper.takeMultiDimArrayRank(typeToConvert)) {\n"
+            + "        ThrowHelper.throwNotSupportedException_SerializationNotSupported(typeToConvert);\n"
+            + "        }\n"
+            + "        dotnet.text.json.Serialization.JsonConverter converter = null;",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ConverterEntryRegex = new(
+        @"public dotnet\.text\.json\.Serialization\.JsonConverter getConverter\(Class typeToConvert\) \{\r?\n"
+        + @"[ \t]*dotnet\.text\.json\.Serialization\.JsonConverter converter = null;",
         System.Text.RegularExpressions.RegexOptions.None);
 
     private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullGuardRegex = new(

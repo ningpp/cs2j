@@ -2214,10 +2214,44 @@ public final class TypeHelper {
      * converter emits this for typeof(T[,]) and generic arguments of multidim types
      * because Java class literals (int[][].class) carry no rank information.
      */
+    /**
+     * Takes the pending multidimensional-array note for {@code type}, answering whether it claimed
+     * rank &gt; 1.
+     *
+     * <p>{@code getArrayRank} consumes the same note, but it is only asked by
+     * {@code IEnumerableConverterFactory.createConverter} — which does not run when the converter is
+     * already cached, so the note outlived the operation that published it and a later JAGGED
+     * {@code int[][]} lookup saw it ("The type 'class [[I' is not supported"). The generated
+     * {@code JsonSerializerOptions.getConverter} now takes it at ENTRY, on every lookup.</p>
+     */
+    public static boolean takeMultiDimArrayRank(Class<?> type) {
+        if (type == null || !type.isArray()) {
+            return false;
+        }
+        Integer rank = MULTI_DIM_ARRAY_RANKS.remove(type);
+        return rank != null && rank > 1;
+    }
+
     public static Class<?> getMultiDimArrayClass(Class<?> elementType, int rank) {
         Class<?> arrayClass = java.lang.reflect.Array.newInstance(elementType, new int[rank]).getClass();
         MULTI_DIM_ARRAY_RANKS.put(arrayClass, rank);
         return arrayClass;
+    }
+
+    /**
+     * The array class for a C# multidimensional type, WITHOUT claiming a rank.
+     *
+     * <p>{@link #getMultiDimArrayClass} publishes a rank note that the next
+     * {@code getArrayRank} consumes. {@code Class} is canonical, so a C# {@code int[,]} and a C#
+     * {@code int[][]} are the SAME runtime class: a note left behind by a call that only renders the
+     * token (the generated tests build expected message text with
+     * {@code TypeHelper.getMultiDimArrayClass(int.class, 2).toString()}) made every LATER jagged
+     * {@code int[][]} conversion look multidimensional — measured three tests reporting
+     * "The type 'class [[I' is not supported". The converter emits this variant when the token is
+     * only rendered.</p>
+     */
+    public static Class<?> getMultiDimArrayClassName(Class<?> elementType, int rank) {
+        return java.lang.reflect.Array.newInstance(elementType, new int[rank]).getClass();
     }
 
     private static final java.util.Map<Class<?>, Integer> MULTI_DIM_ARRAY_RANKS =
