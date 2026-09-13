@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 292, Errors: 247, Skipped: 18` = **539**（起点 855，**−316**）。
-- 本会话累计 **24 条 KEEP**（21 条"逐用例集合差 +0 回归"；`99151aa6` 实测中性；
+- **基线**：`Tests run: 7902, Failures: 292, Errors: 240, Skipped: 18` = **532**（起点 855，**−323**）。
+- 本会话累计 **26 条 KEEP**（23 条"逐用例集合差 +0 回归"；`99151aa6` 实测中性；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -346,6 +346,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `a516e191` | `JsonElementConverter` 自己处理 null token（`CanBeNull=false`） | 553 → 548（修 5） |
 | `f094d466` | `Converter.CanBeNull` 认得转换出来的 struct | 548 → 545（修 3） |
 | `e489db87` | 参数异常的消息里带上 C# 的参数名 | 545 → 539（修 6） |
+| `853e17ce` | 空 JSON 属性名的哈希（`getKey` 不再解包 null） | 539 → 534（修 5） |
+| `e9d89bc1` | `DateTimeOffset` 的 `"O"` 始终写带符号偏移（`+00:00`，不是 `Z`） | 534 → 532（修 2） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1069,6 +1071,42 @@ Round 68 的实验 A（把 `getIsValueType` 改成认得 `value class`）得 5 �
 "让通用 `getIsValueType` 认得 value class"这条方向**没有安全实现**，正式关闭。
 （`Converter.CanBeNull` 那条窄路已在 `f094d466` 取到它的 3 条收益，见 §8.2.23。）
 
+### 8.2.28 Round 72 已修两条（长尾机械化缺陷，539 → 532）
+
+**方法转变**：前两轮在同一簇上连撞三次，本轮改用**按消息签名分组**（`tools/sig_group.py`
++ `tools/equal_group.py`）先看全局分布，再挑"一眼机械"的条目。539 条拆出 104 个签名，
+最大的一类是 `Assert.equal() failure: Values differ`（174 条，但内部 59 种 E/A 形状，
+异质），真正有价值的是一条 **7 条的 NPE 签名**。
+
+**（1）空属性名的哈希 —— `853e17ce`，修 5 / 坏 0**
+
+签名：`Cannot invoke "java.lang.Integer.intValue()" because the return value of
+"io.github.ningpp.compat.MemoryMarshal.getReference(io.github.ningpp.compat.ReadOnlySpan)" is null`
+→ `JsonClassInfo.getKey:747`。
+
+C# 的 `GetKey` 对**零长度**名字答 `0`（`{"":1}` 是合法 JSON，.NET 能读）；
+转换器把字节读取提升成"引用 + Unsafe"形式，于是方法开头是
+`int reference = MemoryMarshal.getReference(name);`，而 compat 的 `getReference(ReadOnlySpan)`
+对空 span 返回 **null**（javadoc 写明是 C# 悬垂 ref 的安全替代）。解包 null 在
+**根本不会读**的长度分支之前就抛了。
+修法（pass）：`int reference = name.getLength() > 0 ? MemoryMarshal.getReference(name) : 0;`
+
+**（2）`DateTimeOffset` 的 `"O"` 必须写带符号偏移 —— `e9d89bc1`，修 2 / 坏 0**
+
+`CSharpDateTimeOffset.toString("O")` 用 Java 的 `XXX`，而 Java 对零偏移渲染成 `Z`；
+C# 的 `DateTimeOffset` **自带偏移**，`"O"` 永远写 `+00:00`（`Z` 只属于 `DateTimeKind.Utc` 的
+`DateTime`）。JSON writer 走的正是 `Utf8Formatter.tryFormat(value, …, 'O')` →
+`toString("O")` → `JsonWriterHelper.trimDateTimeOffset`，而**裁剪逻辑本身就按
+`±hh:mm` 布局的固定下标**取值，`Z` 会短一个字符。
+修法：`toString("O")` 末尾改成 compat 自己的 `formatOffset(ZoneOffset)`。
+**注意**：§6.2 里"`XXX`→`xxx`"那条是被否证的错方向（`x` 同样渲染 `Z`），本条是**手工拼偏移**。
+
+**顺带记录（尚未修）**：`writeNumberValueDecimal(boolean,boolean)[1..4]`（4 条）
+期望 `["1234567.0",…]`（**带引号**）、实际 `[1234567.0,…]`。期望值由**测试侧**的
+`GetNumbersExpectedString` 用 Newtonsoft 的 `JsonTextWriter.WriteValue(decimal)` 生成 ——
+即**端口化的测试预言机把 decimal 写成了字符串**，与 writer 输出无关。属测试侧移植问题，
+不在"改转换器/compat"的射程内（除非改 Newtonsoft 端口本身）。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
@@ -1090,6 +1128,8 @@ Round 68 的实验 A（把 `getIsValueType` 改成认得 `value class`）得 5 �
 | **再生不一定重写每个文件** | Round 60 发现 `ReflectionMemberAccessor.java` 的 mtime 仍是 Round 49 —— 该文件那次没有再生，所以针对它的补丁不会生效。判断"补丁没生效"前先看文件 mtime |
 | **`summary lines: 0` 也要当成"没跑测试"** | Round 63 踩过：新的 `@CompatJsonIgnore(2)` 让 `system-text-json-tests` **编译失败**，测试阶段根本没执行，`triage_xml.py` 于是报出 `568 → 0`（"修了 568 条"）。判据同上：`Tests run: 7902` 必须恰好 1 次；`[ERROR] ... .java:[行,列]` + `BUILD FAILURE` 是最快的定位入口 |
 | **改生成代码里的注解，先看注解元素名** | 单元素注解省略名字时调用的必须是 `value()`。Round 63 用了 `condition()`，javac 报"找不到符号: 方法 value()"。生成物里的注解都是单元素简写，所以 compat 侧统一用 `value()` |
+| **改完先按"消息签名"看全局，再挑条目** | Round 72 起用 `tools/sig_group.py`（首行签名）+ `tools/equal_group.py`（Expected/Actual 形状）：539 条只有 104 个签名，其中 174 条挤在"Values differ"里但内部分 59 种形状（异质），真正可动手的是一条 7 条的 NPE 签名。**先分组再挑，比按桶名猜快得多** |
+| **compat 返回 null 的"安全替代"会在生成代码里被解包** | `MemoryMarshal.getReference(ReadOnlySpan)` 对空 span 返回 null 是**有意的**（C# 悬垂 ref 的替代），但生成代码常写成 `int x = getReference(...)`，于是空输入直接 NPE，而 C# 那侧的分支**根本不读**。修法是让**调用点**先判长度，不是改 compat 的契约（别处可能靠 null 判空） |
 
 ### 8.4 已否证方向清单
 

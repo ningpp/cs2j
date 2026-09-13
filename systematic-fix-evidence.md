@@ -2773,3 +2773,69 @@ compat 侧在创建前清空 `MEMBER_ARGUMENTS`/`CONSUMED_ARGUMENTS`（仅当该
 而混用的代价已被 (a)(c) 两次量化（+37、+126）。
 
 **回滚后复核**：重新生成 + 全量测量 = `539 → 539，修 0 / 坏 0`，`triage-xml.json` 亦恢复一致。
+### 4.75 Round 72：改用"消息签名分组"后，两条长尾机械化缺陷（539 → 532）
+
+**方法转变**：§4.72/§4.74 在同一个簇上连撞三次（+37、+126，均已回滚）。本轮先用工具看全局分布：
+
+- `tools/sig_group.py <triage.json>`：按消息**首行**做归一化签名（去掉数字、引号内容、类名）。
+  结果：539 条 → **104 个签名**。最大项是
+  `Assert.equal() failure: Values differ`（174 条），但
+- `tools/equal_group.py`：再按 Expected/Actual 的**形状**分组 → 174 条分成 **59 种形状**
+  （`E[N]A[N]` 47、`E[{}]A[{}]` 28、`E[{]A[{]` 10 …），**异质**，没有单点修法。
+
+真正的收获是一条 **8 条的 NPE 签名**（`Cannot invoke … getReference(…) is null`）。
+
+#### (1) 空属性名哈希 —— 提交 `853e17ce`，**修 5 / 坏 0**（539 → 534）
+
+```
+Cannot invoke "java.lang.Integer.intValue()" because the return value of
+  "io.github.ningpp.compat.MemoryMarshal.getReference(io.github.ningpp.compat.ReadOnlySpan)" is null
+  at dotnet.text.json.JsonClassInfo.getKey:747
+  at dotnet.text.json.JsonClassInfo.getProperty:536
+  at dotnet.text.json.JsonSerializer.lookupProperty:367
+```
+
+**根因**：C# 的 `GetKey(ReadOnlySpan<byte>)` 对**零长度**名字返回 `0`
+（`{"":1}` 是合法 JSON），而转换器把字节读取提升成"引用 + Unsafe"形式，方法开头是
+`int reference = MemoryMarshal.getReference(name);`；compat 的
+`getReference(ReadOnlySpan)` 对空 span 返回 **null**，其 javadoc 明确写着这是
+"C# 返回指向后备缓冲的 ref"的安全 Java 替代。于是**解包 null 的分支在真正会读的
+长度分支之前**就抛了（长度 0/1 时后面的表达式是 `0L`，根本不读）。
+
+**修法**（pass `PatchPropertyNameKeyForEmptyName`，`JsonClassInfo.java`）：
+
+```java
+int reference = name.getLength() > 0 ? MemoryMarshal.getReference(name) : 0;
+```
+
+**为什么改调用点而不是改 compat**：`getReference` 的 null 契约是有意的，别处可能靠它判空；
+本条只需要让 `getKey` 不炸。
+
+#### (2) `DateTimeOffset` 的 `"O"` 必须写带符号偏移 —— 提交 `e9d89bc1`，**修 2 / 坏 0**（534 → 532）
+
+```
+Utf8JsonWriterTests#writeString_NullPropertyName_DateTimeOffset
+  E: {"":"0001-01-01T00:00:00+00:00", ...}   A: {"":"0001-01-01T00:00:00Z", ...}
+DateTimeConverterTests#serializeDateTimeOffset
+  E: "2000-12-15T22:11:03.055+00:00"        A: "2000-12-15T22:11:03.055Z"
+```
+
+**根因**：`CSharpDateTimeOffset.toString("O")` 用 Java 的
+`DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSXXX")`，
+Java 的 `X`/`x` 对**零偏移**渲染成 `Z`；C# 的 `DateTimeOffset` **自带偏移**，
+`"O"` 永远写 `+00:00`（`Z` 只属于 `DateTimeKind.Utc` 的 `DateTime`）。
+JSON writer 路径是 `Utf8Formatter.tryFormat(value, …, 'O')` → `toString("O")`
+→ `JsonWriterHelper.trimDateTimeOffset`，而**裁剪逻辑按 `±hh:mm` 布局的固定下标**取值
+（22–26 是 7 位小数），`Z` 会短一个字符。
+
+**修法**：新增 compat 的 `formatOffset(ZoneOffset)` 手工拼 `±HH:mm`，`toString("O")` 用它。
+**注意**：§6.2 里 "`XXX`→`xxx`" 是被否证过的方向（`x` 同样渲染 `Z`）—— 本条是手工拼装。
+
+#### 顺带记录（未修，已判定不在射程内）
+
+`writeNumberValueDecimal(boolean,boolean)[1..4]`（4 条）：期望 `["1234567.0", …]`（**带引号**）、
+实际 `[1234567.0, …]`。追到期望值的产生处是**测试侧**的 `GetNumbersExpectedString`，
+它用 Newtonsoft 的 `JsonTextWriter.WriteValue(decimal)` 生成期望串 ——
+即**端口化的测试预言机把 decimal 写成了字符串**，与 writer 输出无关。
+除非改 Newtonsoft 端口本身，否则不该动 writer 侧。
+
