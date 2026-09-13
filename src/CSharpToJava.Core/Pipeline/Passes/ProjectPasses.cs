@@ -1129,7 +1129,6 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchSerializeRegistryReset(result);
                     PatchRefReaderResetOnThrow(result);
-                    PatchReaderRestoreInPlace(result);
                 }
                 else if (result.FileName.EndsWith("ThrowHelper.java", StringComparison.Ordinal))
                 {
@@ -1170,6 +1169,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 // survive into the tree. Applied outside the dispatch chain because probes have been
                 // left in files with no dedicated branch (round 59 left one in
                 // ReflectionMemberAccessor.java, round 48 one in JsonSerializerOptions.java).
+                // The reader restore is universal for the same reason: `reader.value = restore;` models
+                // C#'s `reader = restore;` on a `ref` parameter and appears in several files
+                // (JsonSerializer, JsonDocument).
+                PatchReaderRestoreInPlace(result);
                 PatchRemoveStrayDiagnostics(result);
             }
         }
