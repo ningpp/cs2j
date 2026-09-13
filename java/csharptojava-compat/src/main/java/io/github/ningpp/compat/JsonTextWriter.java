@@ -248,10 +248,17 @@ public class JsonTextWriter implements AutoCloseable {
      */
     private String escapeJsonString(String s) {
         boolean escapeHtml = stringEscapeHandling == StringEscapeHandling.EscapeHtml;
+        // Newtonsoft's StringEscapeHandling.EscapeNonAscii writes every non-ASCII UTF-16 code unit
+        // as a backslash-u escape. It was never honoured here, so the expected string of
+        // Utf8JsonWriterTests#highSurrogateMissingGetsReplaced (built with EscapeNonAscii) came out
+        // with the raw astral characters while the writer under test - whose default encoder escapes
+        // them - produced the surrogate escapes, and the four theory rows failed.
+        boolean escapeNonAscii = stringEscapeHandling == StringEscapeHandling.EscapeNonAscii;
         boolean needsEscape = false;
         for (int i = 0; i < s.length(); i++) {
             char ch = s.charAt(i);
-            if (ch == '"' || ch == '\\' || ch < 0x20 || (escapeHtml && isHtmlSensitive(ch))) {
+            if (ch == '"' || ch == '\\' || ch < 0x20
+                || (escapeNonAscii && ch > 0x7F) || (escapeHtml && isHtmlSensitive(ch))) {
                 needsEscape = true;
                 break;
             }
@@ -285,7 +292,7 @@ public class JsonTextWriter implements AutoCloseable {
                     sb.append("\\t");
                     break;
                 default:
-                    if (ch < 0x20 || (escapeHtml && isHtmlSensitive(ch))) {
+                    if (ch < 0x20 || (escapeNonAscii && ch > 0x7F) || (escapeHtml && isHtmlSensitive(ch))) {
                         sb.append(String.format("\\u%04X", (int) ch));
                     } else {
                         sb.append(ch);
