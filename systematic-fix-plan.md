@@ -723,6 +723,29 @@ R57/R58 两轮里真正的进展全部来自探针，而非对判据的推敲。
 
 **这两个缺陷是下一批首选目标**（它们是"因错误原因通过"的测试所隐藏的真问题）。
 
+### 8.2.16 Round 60：两个假设**都被证伪**；`IgnoreNullValues` 真实断点仍未找到
+
+Round 59 披露的回归所"暴露"的两个缺陷，本轮逐条查证，**两条都不成立**：
+
+| 假设 | 查证结果 |
+|---|---|
+| 字段被序列化成 `null` 而非初始化值 | **证伪**：最小探针输出 `{"S":"Default","I":-1,"B":true}`，初始化器序列化正确 |
+| `IgnoreDefaultValuesOnWrite` 从未被检查 | **证伪**：守卫就在 `JsonPropertyInfo1.getMemberAndWriteJson` 里；`getPolicies(...)` 也在 `initialize` 末尾被调用 |
+
+**第二个假设错在 grep 模式**：我搜的是 `.getPolicies(`，而生成代码是**裸调用** `getPolicies(`。
+**教训：grep 的零结果是弱证据** —— "没搜到调用点"可能只是模式写错了。
+下判断前用**两种形状**各搜一次，或直接读生成代码那一段。
+
+**`IgnoreNullValues` 仍然未解**。已确认的事实：守卫存在、`getPolicies` 被调用、
+最小复现里 `b=null` 仍被写出。**下一步：直接打印该成员写出那一刻的
+`ignoreDefaultValuesOnWrite` 值**，不要再从代码形状推断。
+
+**本轮附带产出**：`PatchRemoveStrayDiagnostics`（`132dd454`）——
+探针残留对所有生成文件**统一清除**。
+**已知缺口**：`ReflectionMemberAccessor.java` 里仍有一条残留，
+因为**该文件本次再生没有被重写**（mtime 仍是 Round 49），
+探针**无害**（可编译、不影响任何用例），下次该文件再生时会被清除。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
@@ -740,6 +763,8 @@ R57/R58 两轮里真正的进展全部来自探针，而非对判据的推敲。
 | PowerShell 传 `-D` 要给整个开关**加引号** | `-Dcs2j.trace.typeargs=true` 被解析成别的东西，java 报"找不到主类"，看日志像"探针无输出" |
 | **确认那次运行真的跑了测试，再读失败数** | Round 55 踩过：构建在测试模块之前失败时 `surefire-reports` 里是**上次的 XML**，`triage_xml.py` 把它当成本次结果，产出**从未发生过的失败数**（一个假的"−30"）。判据：日志里 `Tests run: 7902` 必须**恰好 1 次**，且无 `mvn <args> -rf :<module>` |
 | **改补丁要连转换器一起重编** | 只改 `ProjectPasses.cs` 不 `dotnet build`，再生仍用旧补丁；反之生成物变了但转换器没重编，会让"我改了"与"生成物变了"脱节 |
+| **grep 的零结果是弱证据** | Round 60 踩过：搜 `.getPolicies(` 没结果，就断定"从未被调用"；生成代码其实是**裸调用** `getPolicies(`。**换一种形状再搜一次，或直接读那段生成代码**，再下结论 |
+| **再生不一定重写每个文件** | Round 60 发现 `ReflectionMemberAccessor.java` 的 mtime 仍是 Round 49 —— 该文件那次没有再生，所以针对它的补丁不会生效。判断"补丁没生效"前先看文件 mtime |
 
 ### 8.4 已否证方向清单
 

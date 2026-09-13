@@ -2249,3 +2249,39 @@ clone 修正后真实输出是 `{"MyBool":null,"MyPointClass":null}`，
 (b) `IgnoreNullValues` 对 null 引用成员**没有生效**。
 **决定保留**（40 > 1，且 clone 行为无疑是对的），
 **这两个被暴露的缺陷比那条偶然通过更值得修**——记为下一批目标。
+### 4.62 Round 60：两个假设**都被证伪**（580 → 580，无净收益）
+
+Round 59 从回归里暴露的两个"待修缺陷"，本轮逐条查证，**两条都不成立**：
+
+**假设 1（证伪）：字段被序列化成 `null` 而非初始化值。**
+用独立探针（`probe/w42/InitProbe.java`）测一个最小类：
+
+```
+field values before serialize: s=Default i=-1 b=true
+default options      : {"S":"Default","I":-1,"B":true}
+```
+
+**字段初始化器是正确序列化的**。之前观察到的 `myInt`/`myPointStruct` 未出现，
+不是"初始化器丢失"，而应与 `IgnoreNullValues` 或该成员的其它状态有关。
+
+**假设 2（证伪）：`IgnoreDefaultValuesOnWrite` 从未被检查。**
+grep `getIgnoreDefaultValuesOnWrite` 只看到声明与赋值，据此推断"写路径没有这个守卫"。
+**这个推断错了**：守卫就在 `JsonPropertyInfo1.getMemberAndWriteJson` 里
+（`if (getIgnoreDefaultValuesOnWrite() && …) return true;`），
+`getPolicies(...)` 也确实在 `initialize` 末尾被调用
+（我最初 grep 的是 `.getPolicies(`，而生成的是**裸调用** `getPolicies(`，所以漏了）。
+
+**教训（本轮唯一产出）**：**grep 的零结果是弱证据**——
+"没搜到调用点"可能只是**模式写错了**（`.getPolicies(` vs `getPolicies(`）。
+下判断前应当用**两种形状**各搜一次，或直接读生成代码的那一段。
+
+**本轮附带产出**：`PatchRemoveStrayDiagnostics`（提交 `132dd454`）——
+探针残留现在**对所有生成文件统一清除**，不再依赖"记得删"。
+
+**验证**：`Tests run: 7902, Failures: 331, Errors: 249, Skipped: 18` = **580**；
+运行完整（汇总行恰好 1 次）；`r098 → r099` 逐用例集合**完全相同**。
+
+**下一步**：`IgnoreNullValues` 的真实断点仍未找到。已知：
+守卫存在、`getPolicies` 被调用、最小复现里 `b=null` 仍被写出。
+应当**直接打印该成员在写出那一刻的 `ignoreDefaultValuesOnWrite` 值**，
+而不是继续从代码形状推断。
