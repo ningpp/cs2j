@@ -2995,3 +2995,76 @@ Class valueType = TypeHelper.getGenericArguments(type)[1];   // 拿到内层 Key
 `JsonSerializer.Deserialize(ref reader)`，异常抛出后 .NET 侧 `BytesConsumed` 仍是 0，
 我们已消费 1/4/6 字节。匹配它需要在异常路径回滚 reader 状态 —— 会影响依赖"reader 前进"的用例，
 属独立设计决策。
+
+### 4.79 Round 71：三条线索实测（全部回滚/未修，518 → 518 复核实测）
+
+**(1) `newNonGenericCollection` 先实例化目标类型 —— 两版都坏，已回滚**
+
+簇 `AbstractCollection CSharpArrayList`（3 条）：`IEnumerableConverter.createCollection` 抛
+"The collection type 'class io.github.ningpp.compat.CSharpArrayList' is abstract, an interface,
+or is read only, and could not be instantiated and populated."
+读代码即可定位：`newNonGenericCollection` 唯一的 null 出口是生成代码的守卫分支
+`if (!assignableFromRuntime) return null;`，而 `assignableFromRuntime` =
+`isAssignableFrom(getTypeToConvert(), getRuntimeType())` —— 对 `CSharpArrayList` 来说
+`getRuntimeType()` 是泛型 `CSharpList`，于是守卫否掉了一个**有公开无参构造器**的类型。
+
+| 版本 | 实测 |
+|---|---|
+| 先 `getDeclaredConstructor()` + `setAccessible(true)` 实例化 | `518 → 525`，修 0 / **坏 7** |
+| 收紧为只用**公开**无参构造器 `getConstructor()` | `518 → 524`，修 0 / **坏 6** |
+
+坏的都是 `CollectionTests#readPrimitiveIImmutable{List,Queue,Set,Stack}T`、
+`readReadOnlyCollections_Throws[1]`、`read_NonGeneric_NoPublicConstructor_Throws[5]/[6]`。
+**结论**：这些不可变包装类**有**公开无参构造器，实例化它们会走错路径 ——
+"能不能实例化"不是这里正确的判据。回滚后重新生成 + 全量测量 = `518 → 518，修 0 / 坏 0` ✓。
+
+**(2) `[[I`（`int[][]`）"not supported"：全局 rank 标记跨用例泄漏（3 条，未修）**
+
+失败栈：`ThrowHelper.throwNotSupportedException_SerializationNotSupported:551 ←
+IEnumerableConverterFactory.createConverter:66`，消息 `The type 'class [[I' is not supported.`。
+
+`createConverter` 里：
+```java
+if (TypeHelper.getIsArray(typeToConvert)) {
+    if (TypeHelper.getArrayRank(typeToConvert) > 1) {
+        ThrowHelper.throwNotSupportedException_SerializationNotSupported(typeToConvert);
+```
+而 `getArrayRank` 的实现在注释里就写明了机制与坑：
+
+```java
+// The registration is consumed by this query: java.lang.Class is canonical, so a C# int[,] and a
+// C# int[][] are the SAME runtime class and a durable marker would make every later jagged int[][]
+// conversion look multidimensional ("The type 'class [[I' is not supported").
+Integer rank = MULTI_DIM_ARRAY_RANKS.remove(type);
+return rank != null ? rank : 1;
+```
+
+标记由 `TypeHelper.getMultiDimArrayClass(elementType, rank)` 写入，而**生成出来的测试大量直接调用它**：
+`ExceptionTests` 8 处、`CustomConverterTests` 2 处，形如
+`Assert.contains(TypeHelper.getMultiDimArrayClass(int.class, 2).toString(), ex.getMessage())`
+—— **只为拿名字**，永远不会被 `getArrayRank` 消费 → 留下"`[[I` 是 rank 2"的全局笔记 →
+同 JVM 里**之后**任何一次真正的**交错数组** `int[][]` 转换都中招。
+
+本轮命中的 3 条（`CacheTests#propertyCacheWithMinInputsLast`、`ExceptionTests#caseInsensitiveFails`、
+`ObjectTests#readClassWithNestedComments`）都是"顺序相关"的，与此机制吻合。
+
+**修法方向（未做）**：让"只为文案"的 `typeof(int[,])` 发一个**不注册**的变体。
+compat 侧无法补救 —— 标记按 `Class` 存，而 C# 的 `int[,]` 与 `int[][]` 在 Java 里同一个 `Class`。
+
+**(3) `enum eDevice : uint` 的 flags 表示不支持字符串枚举名（6 条，未修）**
+
+`CustomConverterTests#enumValue(String)[1..2]`、`#enumArray(String)[1..2]` 等，消息
+`The JSON value could not be converted to class java.lang.Integer. Path: $ / $.Connections[0].Device`。
+
+实测生成物把 `enum eDevice : uint` 发成 **flags 静态常量类**：
+
+```java
+public static class eDevice {
+    public static final int PC = 0x2;
+    public static final int Tablet = 0x8;
+    public static int or(int a, int b) { return a | b; }
+```
+
+对应的测试是 `int obj = (int) JsonSerializer.deserialize(json, null, int.class)` ——
+**类型映射是一致的**，不是"枚举被擦成 int"的错误；缺的是这套表示上的**字符串枚举名支持**
+（JSON 为 `["PC","Tablet"]`）。属功能缺口。

@@ -1171,6 +1171,59 @@ Class valueType = TypeHelper.getGenericArguments(type)[1];   // #2 → 内层 Ke
 `Deserialize(ref reader)` 抛异常后，.NET 侧 `BytesConsumed` 仍是 **0**，我们已消费 1/4/6 字节。
 要匹配就得在异常路径上**回滚 reader 状态**，属独立设计决策（会影响"reader 前进"依赖者），本轮未做。
 
+
+### 8.2.31 Round 71：三条线索实测（全部回滚/未修，518 → 518 复核实测）
+
+本轮没有净收益，但有三个**可复用的否证/定位**：
+
+**(1) `newNonGenericCollection` 不能"先实例化目标类型"（已回滚，两版都坏）**
+
+簇：`AbstractCollection CSharpArrayList`（3 条）——`IEnumerableConverter.createCollection` 抛
+"The collection type 'CSharpArrayList' is abstract, an interface, or is read only"。
+`TypeHelper.newNonGenericCollection` 里 null 只可能来自生成代码的守卫
+`isAssignableFrom(getTypeToConvert(), getRuntimeType())`，而对 `CSharpArrayList` 来说
+`getRuntimeType()` 是泛型 `CSharpList` → 守卫为假 → 拒绝了一个**明明可以实例化**的类型。
+
+两版修法都失败：
+- 先 `getDeclaredConstructor().setAccessible(true)` 实例化 → **修 0 / 坏 7**
+  （`readPrimitiveIImmutable*T` 4 条 + `readReadOnlyCollections_Throws` + 两条 `_NoPublicConstructor_Throws`）
+- 收紧成只用**公开**无参构造器 → **修 0 / 坏 6**（同样那批 immutable 包装类）
+
+**结论**：这些不可变包装类**有**公开无参构造器，实例化它们会走错路径（C# 侧它们靠
+`ConvertCollection` 或直接拒绝）。**"能不能实例化"不是这里正确的判据**；守卫表达的是别的语义
+（目标类型与运行时类型的可赋值关系）。回滚后重新生成 + 全量测量 = `518 → 518，修 0 / 坏 0`。
+
+**(2) `[[I`（`int[][]`）"not supported"（3 条）：全局 rank 标记**跨用例泄漏**
+
+`IEnumerableConverterFactory.createConverter` 里 `getArrayRank(typeToConvert) > 1` 就抛。
+`getArrayRank` 的语义是"注册表里查一次并**消费**，否则答 1"，而注册表由
+`TypeHelper.getMultiDimArrayClass(elementType, rank)` 写入 —— **生成出来的测试大量直接调用它**，
+例如 `Assert.contains(TypeHelper.getMultiDimArrayClass(int.class, 2).toString(), ex.getMessage())`
+（`ExceptionTests` 8 处、`CustomConverterTests` 2 处）：这些调用**只为了拿名字**，
+永远不会被 `getArrayRank` 消费，于是留下一条"`[[I` 是 rank 2"的全局笔记；
+同 JVM 里**后面**任何一次真正的**交错数组** `int[][]` 转换（如 `SimpleTestClass.MyInt16TwoDimensionArray`）
+就会看到它并抛出。**根因是 Java 把 C# 的 `int[,]` 与 `int[][]` 折叠成同一个 `Class`。**
+
+**修法方向（未做）**：让"只为文案"的用法发一个**不注册**的变体
+（转换器能看出 `typeof(int[,])` 是出现在 `ToString()`/消息参数里，还是被传进 serialize/deserialize）。
+在 compat 侧无法补救：标记按 Class 存，而两类类型同 Class。
+
+**(3) `enum eDevice : uint` 的表示不支持字符串枚举名（6 条，未修）**
+
+簇：`CustomConverterTests#enumValue/enumArray`（6 条，`could not be converted to Integer`）。
+实测生成物把 `enum eDevice : uint` 发成 **flags 静态常量类**：
+
+```java
+public static class eDevice {
+    public static final int PC = 0x2;
+    public static final int Tablet = 0x8;
+    public static int or(int a, int b) { return a | b; }
+```
+
+测试因此是 `int obj = (int) JsonSerializer.deserialize(json, null, int.class)` —— 类型**一致**，
+不是转换器的类型映射错误；缺的是**这套 flags-int 表示上的字符串枚举名支持**
+（JSON 里是 `["PC","Tablet"]`）。属功能缺口，不是一行修法。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
