@@ -1,5 +1,5 @@
 {
- "total": 513,
+ "total": 503,
  "byBucket": [
   [
    "JsonConvert CSharpList",
@@ -94,10 +94,6 @@
    4
   ],
   [
-   "Expect 0 -> 1",
-   4
-  ],
-  [
    "AbstractCollection CSharpArrayList",
    3
   ],
@@ -158,10 +154,6 @@
    2
   ],
   [
-   "Expect 0 -> 4",
-   2
-  ],
-  [
    "JsonConvert CustomConverterTests$Derived",
    2
   ],
@@ -198,10 +190,6 @@
    2
   ],
   [
-   "Expect 0 -> 6",
-   2
-  ],
-  [
    "Expect Hello -> Hello",
    2
   ],
@@ -227,10 +215,6 @@
   ],
   [
    "Assert.throwsAny",
-   2
-  ],
-  [
-   "Expect 0 -> 2",
    2
   ],
   [
@@ -323,6 +307,10 @@
   ],
   [
    "Throws UnsupportedOperationException -> JsonException",
+   1
+  ],
+  [
+   "Expect 0 -> 4",
    1
   ],
   [
@@ -526,10 +514,6 @@
    1
   ],
   [
-   "Expect 0 -> 5",
-   1
-  ],
-  [
    "Expect {\"Prop\":[0]} -> {}",
    1
   ],
@@ -602,6 +586,10 @@
    1
   ],
   [
+   "Expect 0 -> 1",
+   1
+  ],
+  [
    "Expect {\"MyNumeric\":1.5} -> {\"MyNumeric\":1}",
    1
   ],
@@ -618,11 +606,7 @@
    1
   ],
   [
-   "Expect PropertyName -> EndArray",
-   1
-  ],
-  [
-   "Expect \"[io.github.ningpp.compat.CSharpDictionary@120350e -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1",
+   "Expect \"[io.github.ningpp.compat.CSharpDictionary@541d4d9 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1",
    1
   ],
   [
@@ -768,12 +752,12 @@
    55
   ],
   [
-   "dotnet.text.json.Serialization.Tests.ObjectTests",
-   48
-  ],
-  [
    "dotnet.text.json.Serialization.Tests.CustomConverterTests",
    46
+  ],
+  [
+   "dotnet.text.json.Serialization.Tests.ObjectTests",
+   42
   ],
   [
    "dotnet.text.json.Serialization.Tests.SpanTests",
@@ -812,10 +796,6 @@
    8
   ],
   [
-   "dotnet.text.json.Serialization.Tests.ReadValueTests",
-   8
-  ],
-  [
    "dotnet.text.json.Serialization.Tests.DictionaryKeyPolicyTests",
    6
   ],
@@ -837,6 +817,10 @@
   ],
   [
    "dotnet.text.json.Serialization.Tests.ExceptionTests",
+   4
+  ],
+  [
+   "dotnet.text.json.Serialization.Tests.ReadValueTests",
    4
   ],
   [
@@ -903,7 +887,7 @@
  "byKind": [
   [
    "java.lang.AssertionError",
-   273
+   263
   ],
   [
    "dotnet.text.json.JsonException",
@@ -990,10 +974,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ArrayTests.writeClassWithObjectIEnumerableConstructibleTypes:800"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -1114,10 +1098,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ArrayTests.writeClassWithObjectIListT:728"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -1139,10 +1123,10 @@
     "dotnet.text.json.Serialization.Converters.IEnumerableDefaultConverter.onTryWrite:216",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ArrayTests.writeObjectArray:529"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -1202,10 +1186,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ArrayTests.writeClassWithObjectIReadOnlyCollectionT:764"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -1502,10 +1486,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ArrayTests.writeClassWithObjectImmutableTypes:818"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -1680,10 +1664,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ArrayTests.writeClassWithObjectArray:584"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -1774,10 +1758,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ArrayTests.writeClassWithObjectIReadOnlyListT:782"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -1814,10 +1798,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ArrayTests.writeClassWithObjectIEnumerableT:710"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -1843,10 +1827,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ArrayTests.writeClassWithObjectICollectionT:746"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -1949,10 +1933,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.CacheTests.propertyCacheWithMinInputsLast:129"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -1977,10 +1961,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.CacheTests.propertyCacheWithMinInputsFirst:118"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -2441,10 +2425,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.CollectionTests.writeGenericCollectionWrappers:1513"
    ],
    "bucket": "ClassCast StringToGenericDictionaryWrapper -> String"
@@ -3116,8 +3100,8 @@
    "kind": "java.lang.ClassCastException",
    "msg": "class dotnet.text.json.JsonElement cannot be cast to class java.lang.Integer (dotnet.text.json.JsonElement is in unnamed module of loader 'app'; java.lang.Integer is in module java.base of loader 'bootstrap')",
    "frames": [
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$DictionaryInt32StringKeyValueConverter.read:3168",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$DictionaryInt32StringKeyValueConverter.read:3143",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$DictionaryInt32StringKeyValueConverter.read:3173",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$DictionaryInt32StringKeyValueConverter.read:3148",
     "dotnet.text.json.Serialization.JsonConverter1.tryRead:304",
     "dotnet.text.json.Serialization.JsonConverter1.readCore:114",
     "dotnet.text.json.JsonSerializer.readCore:446",
@@ -3337,10 +3321,10 @@
     "dotnet.text.json.Serialization.JsonConverter1.tryRead:336",
     "dotnet.text.json.Serialization.JsonConverter1.readCore:114",
     "dotnet.text.json.JsonSerializer.readCore:446",
-    "dotnet.text.json.JsonSerializer.readValueCore:1060",
-    "dotnet.text.json.JsonSerializer.deserialize:865",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$PocoWithNotSupportedChildConverter.read:2810",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$PocoWithNotSupportedChildConverter.read:2792",
+    "dotnet.text.json.JsonSerializer.readValueCore:1071",
+    "dotnet.text.json.JsonSerializer.deserialize:870",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$PocoWithNotSupportedChildConverter.read:2815",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$PocoWithNotSupportedChildConverter.read:2797",
     "dotnet.text.json.Serialization.JsonConverter1.tryRead:304",
     "dotnet.text.json.JsonPropertyInfo1.readJsonAndSetMember:205",
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.readPropertyValue:286",
@@ -3652,8 +3636,8 @@
    "kind": "dotnet.text.json.JsonException",
    "msg": "The JSON value could not be converted to class dotnet.text.json.Serialization.Tests.CustomConverterTests$Point. Path: $ | LineNumber: 0 | BytePositionInLine: 4.",
    "frames": [
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$PointConverter.read:5183",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$PointConverter.read:5169",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$PointConverter.read:5196",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$PointConverter.read:5182",
     "dotnet.text.json.Serialization.JsonConverter1.tryRead:304",
     "dotnet.text.json.Serialization.JsonConverter1.readCore:114",
     "dotnet.text.json.JsonSerializer.readCore:446",
@@ -3742,14 +3726,14 @@
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.structConverter_SaysCanConvertNullableStruct_StructAsRootType_ConverterOnOptions:1397",
     "dotnet.text.json.ThrowHelper.throwNotSupportedException:777",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:174",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.lambda$structConverter_SaysCanConvertNullableStruct_StructAsRootType_ConverterOnOptions$0:1397",
     "csharp.xunit.Assert.throws_:989",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4637",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4627",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4650",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4640",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:424",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162"
    ],
@@ -3878,8 +3862,8 @@
    "frames": [
     "io.github.ningpp.compat.CSharpDateTimeOffset.parseExact:561",
     "io.github.ningpp.compat.CSharpDateTimeOffset.parseExact:551",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonNullableDateTimeOffsetConverter.read:4322",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonNullableDateTimeOffsetConverter.read:4309",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonNullableDateTimeOffsetConverter.read:4327",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonNullableDateTimeOffsetConverter.read:4314",
     "dotnet.text.json.Serialization.JsonConverter1.tryRead:304",
     "dotnet.text.json.JsonPropertyInfo1.readJsonAndSetMember:205",
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.readPropertyValue:286",
@@ -3918,10 +3902,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.valueConverterForNullableWithoutJsonConverterAttribute:1196"
    ],
    "bucket": "NullPointerException: Cannot invoke \"io.github.ningpp.compat.CSharpDateTimeOffset.toString(S"
@@ -3938,14 +3922,14 @@
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.structConverter_SaysCanConvertNullableStruct_ConverterOnOptions:1369",
     "dotnet.text.json.ThrowHelper.throwNotSupportedException:777",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:174",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.lambda$structConverter_SaysCanConvertNullableStruct_ConverterOnOptions$0:1372",
     "csharp.xunit.Assert.throws_:989",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4637",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4627",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4650",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4640",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:424",
     "dotnet.text.json.JsonPropertyInfo1.getMemberAndWriteJson:163",
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
@@ -3966,14 +3950,14 @@
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.structConverter_SaysCanConvertNullableStruct_ConverterOnProperty:1335",
     "dotnet.text.json.ThrowHelper.throwNotSupportedException:777",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:174",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.CustomConverterTests.lambda$structConverter_SaysCanConvertNullableStruct_ConverterOnProperty$0:1338",
     "csharp.xunit.Assert.throws_:989",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4637",
-    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4627",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4650",
+    "dotnet.text.json.Serialization.Tests.CustomConverterTests$JsonTestStructValueChangingConverter.write:4640",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:424",
     "dotnet.text.json.JsonPropertyInfo1.getMemberAndWriteJson:163",
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
@@ -4032,10 +4016,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.CyclicTests.multiClassCycle:130",
     "io.github.ningpp.compat.MethodInfo.invoke:100"
    ],
@@ -4155,10 +4139,10 @@
     "dotnet.text.json.Serialization.Converters.IEnumerableDefaultConverter.onTryWrite:216",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.arrayOfDictionary:690"
    ],
    "bucket": "ClassCast ImmutableSortedDictionary -> CSharpReadOnlyDict"
@@ -4187,10 +4171,10 @@
     "dotnet.text.json.Serialization.Converters.DictionaryDefaultConverter.onTryWrite:258",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.dictionaryOfDictionary:722"
    ],
    "bucket": "ClassCast ImmutableSortedDictionary -> CSharpReadOnlyDict"
@@ -4251,10 +4235,10 @@
     "dotnet.text.json.Serialization.Converters.IEnumerableDefaultConverter.onTryWrite:216",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.listOfDictionary:658"
    ],
    "bucket": "ClassCast ImmutableSortedDictionary -> CSharpReadOnlyDict"
@@ -4334,10 +4318,10 @@
     "dotnet.text.json.Serialization.Converters.DictionaryDefaultConverter.onTryWrite:258",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.dictionaryOfList:600"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -4422,10 +4406,10 @@
     "dotnet.text.json.Serialization.Converters.DictionaryDefaultConverter.onTryWrite:258",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.dictionaryOfString:178"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -4459,7 +4443,7 @@
    "method": "dictionaryWithNullShouldPreserveOrder_Deserialize",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@3913f206",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@1280682",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.dictionaryWithNullShouldPreserveOrder_Deserialize:1244"
@@ -4485,7 +4469,7 @@
    "method": "shouldHandleNullInDictionaries_Deserialize",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@56cc9f29",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@66a53104",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.shouldHandleNullInDictionaries_Deserialize:1196"
@@ -4507,11 +4491,11 @@
     "dotnet.text.json.Serialization.Converters.DictionaryDefaultConverter.onTryWrite:258",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
-    "dotnet.text.json.JsonSerializer.serialize:1387"
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
+    "dotnet.text.json.JsonSerializer.serialize:1398"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
   },
@@ -4685,7 +4669,7 @@
    "method": "deserializeIntoMultipleDictionaries",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@1de4285e",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@5a484ce1",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.deserializeIntoMultipleDictionaries:581"
@@ -4697,7 +4681,7 @@
    "method": "nestedClass(String)[1]",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@2091833",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@1f43cab7",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.verify3:92",
@@ -4710,7 +4694,7 @@
    "method": "nestedClass(String)[2]",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@6411504a",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@2668c286",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.verify3:92",
@@ -4723,7 +4707,7 @@
    "method": "nestedClass(String)[3]",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@1f43cab7",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@7ea2412c",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.verify3:92",
@@ -4756,9 +4740,9 @@
     "dotnet.text.json.JsonSerializerOptions.getOrAddClass:699",
     "dotnet.text.json.JsonSerializerOptions.getOrAddClassForRootType:710",
     "dotnet.text.json.WriteStack.initialize:102",
-    "dotnet.text.json.JsonSerializer.writeCore:1196",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1207",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithOptionsInternal:313",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithOptions:289"
@@ -4777,9 +4761,9 @@
     "dotnet.text.json.JsonSerializerOptions.getOrAddClass:699",
     "dotnet.text.json.JsonSerializerOptions.getOrAddClassForRootType:710",
     "dotnet.text.json.WriteStack.initialize:102",
-    "dotnet.text.json.JsonSerializer.writeCore:1196",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1207",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithOptionsInternal:313",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithOptions:289"
@@ -4798,9 +4782,9 @@
     "dotnet.text.json.JsonSerializerOptions.getOrAddClass:699",
     "dotnet.text.json.JsonSerializerOptions.getOrAddClassForRootType:710",
     "dotnet.text.json.WriteStack.initialize:102",
-    "dotnet.text.json.JsonSerializer.writeCore:1196",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1207",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithOptionsInternal:313",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithOptions:289"
@@ -4819,9 +4803,9 @@
     "dotnet.text.json.JsonSerializerOptions.getOrAddClass:699",
     "dotnet.text.json.JsonSerializerOptions.getOrAddClassForRootType:710",
     "dotnet.text.json.WriteStack.initialize:102",
-    "dotnet.text.json.JsonSerializer.writeCore:1196",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1207",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithOptionsInternal:313",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithOptions:289"
@@ -4996,10 +4980,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:216",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.serializeIntoImmutableDictionaryProperty:655"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -5395,7 +5379,7 @@
    "method": "deserializeDictionaryWithNullValues",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@4f486211",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@472d0f4",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.NullTests.deserializeDictionaryWithNullValues:221"
@@ -5430,7 +5414,7 @@
    "method": "rootObjectIsNull",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@52559a69",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@1fd7a37",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.NullTests.rootObjectIsNull:64"
@@ -5442,7 +5426,7 @@
    "method": "nullAcceptsLeadingAndTrailingTrivia",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@1039bfc4",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@58a84a12",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.NullTests.nullAcceptsLeadingAndTrailingTrivia:159"
@@ -5726,10 +5710,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ObjectTests.readSimpleTestClassWithSimpleTestStruct:298"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
@@ -5800,10 +5784,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -5838,10 +5822,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "NullPointerException: Cannot invoke \"java.lang.Integer.intValue()\" because \"value\" is null"
@@ -5882,10 +5866,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -5916,10 +5900,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -5950,10 +5934,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -5986,10 +5970,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -6023,10 +6007,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -6060,10 +6044,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -6094,10 +6078,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -6129,10 +6113,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -6164,10 +6148,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -6188,10 +6172,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast SimpleTestClass -> String"
@@ -6212,10 +6196,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast SimpleTestClass -> String"
@@ -6247,10 +6231,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -6271,10 +6255,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> CSharpDateTime"
@@ -6296,10 +6280,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast SimpleTestClass -> String"
@@ -6330,85 +6314,13 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize_0tp:1411",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize_0tp:1422",
     "dotnet.text.json.Serialization.Tests.ObjectTests.write:420"
    ],
    "bucket": "ClassCast Integer -> String"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ObjectTests",
-   "method": "tooLittleJsonFails(String)[1]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: 0\nActual: 1",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ObjectTests.tooLittleJsonFails:404"
-   ],
-   "bucket": "Expect 0 -> 1"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ObjectTests",
-   "method": "tooLittleJsonFails(String)[2]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: 0\nActual: 1",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ObjectTests.tooLittleJsonFails:404"
-   ],
-   "bucket": "Expect 0 -> 1"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ObjectTests",
-   "method": "tooLittleJsonFails(String)[3]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: 0\nActual: 4",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ObjectTests.tooLittleJsonFails:404"
-   ],
-   "bucket": "Expect 0 -> 4"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ObjectTests",
-   "method": "tooLittleJsonFails(String)[4]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: 0\nActual: 5",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ObjectTests.tooLittleJsonFails:404"
-   ],
-   "bucket": "Expect 0 -> 5"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ObjectTests",
-   "method": "tooLittleJsonFails(String)[5]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: 0\nActual: 6",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ObjectTests.tooLittleJsonFails:404"
-   ],
-   "bucket": "Expect 0 -> 6"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ObjectTests",
-   "method": "tooLittleJsonFails(String)[6]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: 0\nActual: 6",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ObjectTests.tooLittleJsonFails:404"
-   ],
-   "bucket": "Expect 0 -> 6"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ObjectTests",
@@ -6838,7 +6750,7 @@
    "method": "defaultSerializerOptions_General",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@13f40d71\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@73a845cb",
+   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@1bee0085\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@16e1219f",
    "frames": [
     "csharp.xunit.Assert.same:861",
     "dotnet.text.json.Serialization.Tests.OptionsTests.verifyOptionsEqual:653",
@@ -6904,7 +6816,7 @@
    "method": "copyConstructor_IgnoreNullValuesCopied",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@53125718\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@53016b11",
+   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@16f7f59f\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@4ee8051c",
    "frames": [
     "csharp.xunit.Assert.same:861",
     "dotnet.text.json.Serialization.Tests.OptionsTests.verifyOptionsEqual:653",
@@ -7044,7 +6956,7 @@
    "method": "classWithComplexObjectUsingIgnoreNeverAttribute",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@59e7564b",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@1216eb3f",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.PropertyVisibilityTests.classWithComplexObjectUsingIgnoreNeverAttribute:1022"
@@ -7484,48 +7396,12 @@
     "dotnet.text.json.Utf8JsonReader.hasMoreData:974",
     "dotnet.text.json.Utf8JsonReader.readSingleSegment:843",
     "dotnet.text.json.Utf8JsonReader.read:402",
-    "dotnet.text.json.JsonSerializer.readValueCore:964",
-    "dotnet.text.json.JsonSerializer.deserialize_0tp:942",
+    "dotnet.text.json.JsonSerializer.readValueCore:975",
+    "dotnet.text.json.JsonSerializer.deserialize_0tp:953",
     "dotnet.text.json.Serialization.Tests.ReadValueTests.lambda$readDefaultReader$0:436",
     "csharp.xunit.Assert.throwsAny:1055"
    ],
    "bucket": "Assert.throwsAny"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ReadValueTests",
-   "method": "tooLittleJsonForIntArray(String)[1]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: 0\nActual: 1",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ReadValueTests.tooLittleJsonForIntArray:595"
-   ],
-   "bucket": "Expect 0 -> 1"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ReadValueTests",
-   "method": "tooLittleJsonForIntArray(String)[2]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: 0\nActual: 2",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ReadValueTests.tooLittleJsonForIntArray:595"
-   ],
-   "bucket": "Expect 0 -> 2"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ReadValueTests",
-   "method": "tooLittleJsonForIntArray(String)[3]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: 0\nActual: 2",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ReadValueTests.tooLittleJsonForIntArray:595"
-   ],
-   "bucket": "Expect 0 -> 2"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReadValueTests",
@@ -7537,8 +7413,8 @@
     "dotnet.text.json.ThrowHelper.reThrowWithPath:681",
     "dotnet.text.json.Serialization.JsonConverter1.readCore:133",
     "dotnet.text.json.JsonSerializer.readCore:446",
-    "dotnet.text.json.JsonSerializer.readValueCore:1060",
-    "dotnet.text.json.JsonSerializer.deserialize:865",
+    "dotnet.text.json.JsonSerializer.readValueCore:1071",
+    "dotnet.text.json.JsonSerializer.deserialize:870",
     "dotnet.text.json.Serialization.Tests.ReadValueTests.readClasses:461",
     "dotnet.text.json.ThrowHelper.getInvalidOperationException:133",
     "dotnet.text.json.ThrowHelper.getInvalidOperationException:177",
@@ -7587,28 +7463,16 @@
    "bucket": "Expect Hello -> Hello"
   },
   {
-   "cls": "dotnet.text.json.Serialization.Tests.ReadValueTests",
-   "method": "readPropertyName",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: PropertyName\nActual: EndArray",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ReadValueTests.readPropertyName:258"
-   ],
-   "bucket": "Expect PropertyName -> EndArray"
-  },
-  {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
    "method": "arrayDictionaryLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@120350eb]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1\"}}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@541d4d9f]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1\"}}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayDictionaryLoop:473"
    ],
-   "bucket": "Expect \"[io.github.ningpp.compat.CSharpDictionary@120350e -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1"
+   "bucket": "Expect \"[io.github.ningpp.compat.CSharpDictionary@541d4d9 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
@@ -7626,10 +7490,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectDictionaryLoop:131"
    ],
    "bucket": "ClassCast ReferenceHandlerTests$Employee -> String"
@@ -8220,7 +8084,7 @@
    "method": "objectArrayLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@2ff498b0\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@3ba3f40d\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectArrayLoop:120"
@@ -8243,10 +8107,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:216",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.extensionDataDictionaryHandlesPreserveReferences:1235"
    ],
    "bucket": "ClassCast Integer -> String"
@@ -8679,10 +8543,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectPreserveDuplicateDictionaries:161"
    ],
    "bucket": "ClassCast ReferenceHandlerTests$Employee -> String"
@@ -9932,9 +9796,9 @@
     "dotnet.text.json.Serialization.Converters.IEnumerableDefaultConverter.onTryWrite:216",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeAsyncCore:1342",
-    "dotnet.text.json.JsonSerializer.serializeAsync:1236",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeAsyncCore:1353",
+    "dotnet.text.json.JsonSerializer.serializeAsync:1247",
     "dotnet.text.json.Serialization.Tests.StreamTests.flushThresholdTest:1017"
    ],
    "bucket": "ClassCast String -> Integer"
@@ -10069,10 +9933,10 @@
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryWrite:220",
     "dotnet.text.json.Serialization.JsonConverter1.tryWrite:436",
     "dotnet.text.json.Serialization.JsonConverter1.writeCore:162",
-    "dotnet.text.json.JsonSerializer.writeCore:1212",
-    "dotnet.text.json.JsonSerializer.writeCore:1198",
-    "dotnet.text.json.JsonSerializer.serialize:1422",
-    "dotnet.text.json.JsonSerializer.serialize:1369",
+    "dotnet.text.json.JsonSerializer.writeCore:1223",
+    "dotnet.text.json.JsonSerializer.writeCore:1209",
+    "dotnet.text.json.JsonSerializer.serialize:1433",
+    "dotnet.text.json.JsonSerializer.serialize:1380",
     "dotnet.text.json.Serialization.Tests.WriteValueTests.optionsFollowToConverter:287"
    ],
    "bucket": "IllegalStateException (no message)"
