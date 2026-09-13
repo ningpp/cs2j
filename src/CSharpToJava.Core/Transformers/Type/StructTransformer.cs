@@ -787,6 +787,29 @@ public class StructTransformer : ITypeTransformer
         StructDeclarationSyntax structDecl, ConversionContext context,
         IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> runtimeClassFields)
     {
+        // Field-wise copy INTO an existing instance. C# restores a `ref` parameter by assigning to
+        // the parameter variable (`reader = readerCopy;`), which mutates the caller's storage; the
+        // converted code passes an ObjectHolder, and replacing `holder.value` is NOT visible to a
+        // caller that still holds the original reference. JsonSerializer.Deserialize(ref reader)
+        // needs the in-place form to honour "if an exception is thrown the reader is reset to the
+        // state it was in when the method was called" (ObjectTests#tooLittleJsonFails asserts
+        // reader.BytesConsumed == 0).
+        var assignableFields = javaClass.Fields
+            .Where(f => (f.Modifiers & JavaModifiers.Static) == 0 && (f.Modifiers & JavaModifiers.Final) == 0)
+            .ToList();
+        if (assignableFields.Count > 0)
+        {
+            javaClass.Methods.Add(new JavaMethodDeclaration
+            {
+                Name = "__cs2jCopyFrom",
+                ReturnType = "void",
+                Modifiers = JavaModifiers.Public,
+                Parameters = { new JavaParameter(javaClass.Name, "other") },
+                Body = string.Join("\n        ", assignableFields.Select(f => $"this.{f.Name} = other.{f.Name};")),
+                LeadingComment = "/** Copies every field of {@code other} into this instance (C# `ref` restore). */"
+            });
+        }
+
         // For all structs, an existing clone() converted from C# Clone() may rely on
         // a constructor with side effects (e.g. Rectangle(Point, Point) calling add()),
         // which can produce incorrect results for empty/degenerate rectangles.

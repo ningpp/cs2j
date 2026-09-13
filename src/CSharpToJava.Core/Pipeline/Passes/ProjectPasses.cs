@@ -1128,6 +1128,8 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 else if (result.FileName.EndsWith("JsonSerializer.java", StringComparison.Ordinal))
                 {
                     PatchSerializeRegistryReset(result);
+                    PatchRefReaderResetOnThrow(result);
+                    PatchReaderRestoreInPlace(result);
                 }
                 else if (result.FileName.EndsWith("ThrowHelper.java", StringComparison.Ordinal))
                 {
@@ -1838,6 +1840,83 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex ClassLookupEntryRegex = new(
         @"public JsonClassInfo getOrAddClass\(Class type\) \{\r?\n[ \t]*_haveTypesBeenCreated = true;",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Restores the caller's reader when <c>Deserialize(ref Utf8JsonReader)</c> throws.
+    /// <para>
+    /// The generated method's own doc comment states the C# contract — "If an exception is thrown the
+    /// reader is reset to the state it was in when the method was called" — but nothing implemented
+    /// it. Measured: <c>ObjectTests#tooLittleJsonFails</c> asserted
+    /// <c>Assert.Equal(0, reader.BytesConsumed)</c> and got 1, 4 or 6 depending on the truncated
+    /// input. The snapshot is taken with the reader's own field-wise <c>clone()</c>, which copies
+    /// <c>_consumed</c> and the position fields.
+    /// </para>
+    /// </summary>
+    private static void PatchRefReaderResetOnThrow(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        var match = RefReaderDeserializeRegex.Match(result.GeneratedCode);
+        if (!match.Success)
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchRefReaderResetOnThrow did not match JsonSerializer.java "
+                + "- a failed Deserialize(ref reader) still advances the caller's reader.");
+            return;
+        }
+        var body = match.Groups["body"].Value;
+        result.GeneratedCode = RefReaderDeserializeRegex.Replace(result.GeneratedCode,
+            "public static <TValue> TValue deserialize(io.github.ningpp.compat.ObjectHolder<Utf8JsonReader> reader, "
+            + "JsonSerializerOptions options, Class<?> tValueClass) {\n"
+            + "        // C#: \"If an exception is thrown the reader is reset to the state it was in when the\n"
+            + "        // method was called.\" ObjectTests#tooLittleJsonFails asserts reader.BytesConsumed == 0.\n"
+            + "        Utf8JsonReader __cs2jReaderBefore = reader.value.clone();\n"
+            + "        try {\n"
+            + body
+            + "\n        state = _stateRef.value;\n"
+            + "        return _ret;\n"
+            + "        } catch (RuntimeException __cs2jEx) {\n"
+            + "        // Restore IN PLACE: the caller may still hold a reference to this very reader, so\n"
+            + "        // replacing the holder's reference would not be visible to it.\n"
+            + "        reader.value.__cs2jCopyFrom(__cs2jReaderBefore);\n"
+            + "        throw __cs2jEx;\n"
+            + "        }\n"
+            + "    }",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex RefReaderDeserializeRegex = new(
+        @"public static <TValue> TValue deserialize\(io\.github\.ningpp\.compat\.ObjectHolder<Utf8JsonReader> reader, "
+        + @"JsonSerializerOptions options, Class<\?> tValueClass\) \{(?<body>.*?)\n"
+        + @"[ \t]*state = _stateRef\.value;\r?\n[ \t]*return _ret;\r?\n[ \t]*\}",
+        System.Text.RegularExpressions.RegexOptions.Singleline);
+
+    /// <summary>
+    /// Restores a saved reader IN PLACE instead of replacing the holder's reference.
+    /// <para>
+    /// <c>reader.value = restore;</c> models C#'s <c>reader = restore;</c> on a <c>ref</c> parameter.
+    /// In C# that assignment writes through the caller's storage; here it only repoints the holder,
+    /// so a caller that passed a reader and kept its own variable — every
+    /// <c>Deserialize(ref reader)</c> test — still saw the ADVANCED reader. Measured with a probe:
+    /// <c>before = 0 / threw JsonException / after = 6</c> where .NET leaves it at 0.
+    /// </para>
+    /// </summary>
+    private static void PatchReaderRestoreInPlace(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        if (!ReaderRestoreRegex.IsMatch(result.GeneratedCode))
+        {
+            return;
+        }
+        result.GeneratedCode = ReaderRestoreRegex.Replace(result.GeneratedCode,
+            "reader.value.__cs2jCopyFrom(restore);",
+            int.MaxValue);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ReaderRestoreRegex = new(
+        @"reader\.value = restore;",
         System.Text.RegularExpressions.RegexOptions.None);
 
     /// <summary>
