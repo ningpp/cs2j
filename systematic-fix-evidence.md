@@ -3881,3 +3881,63 @@ if (ch < 0x20 || (escapeNonAscii && ch > 0x7F) || (escapeHtml && isHtmlSensitive
 **踩坑（Java 语言层）**：在 Java 源文件的**注释**里写 `\uXXXX` 字样会直接编译失败
 （Unicode 转义在词法分析之前处理，报"非法的 Unicode 逃逸"）—— 本轮第一次编译就是这样挂的，
 注释里必须写成文字描述（"backslash-u escape"）。
+
+### 4.97 Round 87：注释在未配对代理项处应当**截断**（436 → 432，修 4 / 坏 0）
+
+**症状**（4 条 = `Utf8JsonWriterTests#writeCommentsInvalidTextAllowed(boolean, boolean)` 全 theory）：
+
+```
+Expected: /*comment is * / valid*//*comment is /* valid*//*comment is / * valid even with unpaired surrogate */
+Actual:   /*comment is * / valid*//*comment is /* valid*//*comment is / * valid even with unpaired surrogate � this part no longer visible*/
+```
+
+**第一步（决定性）：核对 C# 原文，而不是先怀疑转换器**。C# 测试里同一个语义用了**两个字面量**：
+
+- 被测 writer 收到（`:4064`）：`"comment is / * valid even with unpaired surrogate \udc00 this part no longer visible"`
+- 期望串助手（`:4099`）：`"comment is / * valid even with unpaired surrogate "` ← **短的那条**
+
+生成物与原文**逐字一致**（`Utf8JsonWriterTests.java:3176` 长、`:3202` 短），所以这不是转换器丢内容，
+而是 .NET 的**真实行为**：长文本在非法代理项处被丢掉尾巴。
+
+**SDK 源码印证**：`src/System/Text/Json/Writer/Utf8JsonWriter.WriteValues.Comment.cs:41-90` ——
+`WriteCommentValue` 只做 `JsonWriterHelper.ValidateValue(value)`（不校验代理项），
+注释写入走 `JsonWriterHelper.ToUtf8(byteSpan, output, out _, out written)`，
+而调用点**只** `Debug.Assert(status != OperationStatus.DestinationTooSmall)`：
+编码器在非法 UTF-16 处停止，`written` 只覆盖有效前缀，**其余静默丢弃**。
+
+**修法**（两半，避免动机翻的状态机）：
+
+1. compat `MemoryMarshal.truncateAtInvalidUtf16(ReadOnlySpan<Character>)`：
+   返回第一个非法 UTF-16 单元之前的前缀（高代理项后必须紧跟低代理项，孤立低代理项即停）。
+2. 转换器 pass `PatchCommentInvalidUtf16Truncation`（挂在 `Utf8JsonWriter.java` 分支）：
+   在 `writeCommentMinimized(ReadOnlySpan<Character> value)` 与
+   `writeCommentIndented(ReadOnlySpan<Character> value)` 的入口各注入一行
+   `value = io.github.ningpp.compat.MemoryMarshal.truncateAtInvalidUtf16(value);`。
+
+（顺带记下：Java 端口里的 `toUtf8` 遇到非法单元会写 U+FFFD 并继续，这正是"多出尾巴"的来源；
+**不去改那份状态机**是刻意的——它服务于所有写路径。）
+
+**实测**：`436 → 432`，修 **4** / 坏 0（theory 四行全 FIXED）；
+`Tests run: 7902, Failures: 197, Errors: 235, Skipped: 18`（聚合行恰好 1 次），`mvn-build-r159.log`。
+
+### 4.98 Round 87b：`StreamWriter` 的非法 UTF-16 替换字符（**实测中性**，保留并披露）
+
+排查 4.97 时先发现期望串助手经 compat `StreamWriter` 写出的未配对代理项变成了 `?`，
+而 .NET 的 `StreamWriter(..., new UTF8Encoding(false), ...)` 写的是 **U+FFFD**。
+根因：`StreamWriter` 用 `new OutputStreamWriter(stream, charset)`，Java 的默认替换是 `?`。
+
+**修法**：改为构造带 `CodingErrorAction.REPLACE` 且 `replaceWith(EF BF BD)` 的
+`CharsetEncoder`（抽成私有 `newWriter`，四个构造器统一走它），并让 `Encoding(…, bufferSize, leaveOpen)`
+重载委托到同一个工厂。
+
+**探针** `probe/w42/CommentProbe.java`：
+
+```
+修复前 OUT=[/*… unpaired surrogate ? this part no longer visible*/]   has fffd=false has question=true
+修复后 OUT=[/*… unpaired surrogate � this part no longer visible*/]   has fffd=true  has question=false
+```
+
+**实测 `436 → 436`：逐用例集合差 0/0。** 同名用例的消息差异只有 15 处
+`Object@<hash>`（`ConstructorInfo@16aed49f` → `@66de00f2` 这类运行期不确定性），与本改动无关。
+按"中性改动需独立理由"的规则：它把编码语义对齐 .NET，**保留并在此披露**（先例：`99151aa6`、`6a30e0ca`）。
+4.97 的截断修复本身不依赖它（截断后已无非法单元），两者是**独立**的两处 .NET 语义缺口。

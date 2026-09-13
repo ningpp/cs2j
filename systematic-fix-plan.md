@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 201, Errors: 235, Skipped: 18` = **436**（起点 855，**−419**）。
-- 本会话累计 **44 条 KEEP**（38 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 197, Errors: 235, Skipped: 18` = **432**（起点 855，**−423**）。
+- 本会话累计 **45 条 KEEP**（39 条"逐用例集合差 +0 回归"；3 条实测中性：`99151aa6`、`6a30e0ca`、`43914058`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -366,6 +366,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `9c5b4d82` | 属性桥不再把**非公开成员**当成属性（含非公开 `Get*()` 方法） | 463 → 460（修 3） |
 | `1eea495a` | Newtonsoft 替身写 `byte[]` 时**多了一次分隔符**（`writeValue(String)` 二次调用 `writeBeforeValue`） | 460 → 444（修 16） |
 | `8b64cd02` | Newtonsoft 替身支持 `StringEscapeHandling.EscapeNonAscii` | 444 → 436（修 8） |
+| `43914058` | `StreamWriter` 把非法 UTF-16 换成 **U+FFFD**（.NET 语义；本集合**实测中性**，按先例保留并披露） | 436 → 436（**中性**） |
+| `a6b174d8` | 注释在**第一个未配对代理项处停止**（复刻 .NET `ToUtf8` 的静默截断） | 436 → 432（修 4） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1847,6 +1849,37 @@ Default        = { "漢字": "漢字" }                                         
 
 **共同纪律**：这一站点的失败几乎都是"两侧都过**字符串级**归一化"，第一步永远先分清
 "坏的是期望侧生成器（compat 的 Newtonsoft 替身）还是被测 writer" —— Round 82/85/86 三条都是前者。
+
+### 8.2.49 已修（Round 87）：注释在未配对代理项处**不截断**（436 → 432，修 4 / 坏 0）
+
+**入口**：`Utf8JsonWriterTests#writeCommentsInvalidTextAllowed(boolean, boolean)[1..4]`。形状：
+
+```
+Expected: /*comment is / * valid*//*comment is /* valid*//*comment is / * valid even with unpaired surrogate */
+Actual:   /*comment is / * valid*//*comment is /* valid*//*comment is / * valid even with unpaired surrogate � this part no longer visible*/
+```
+
+**关键一步是"读原文"**：C# 测试的**期望串**用的是**短字面量**
+（`Utf8JsonWriterTests.cs:4099`：`comment = "comment is / * valid even with unpaired surrogate ";`），
+而被测 writer 收到的是**长字面量**（`:4064`，含 `\udc00 this part no longer visible`）。
+即：**.NET 侧本来就会把长文本在非法代理项处丢掉尾巴**。
+SDK 源码印证：`Utf8JsonWriter.WriteValues.Comment.cs:83-86` 调
+`JsonWriterHelper.ToUtf8(...)`，只 `Debug.Assert(status != DestinationTooSmall)` ——
+编码器在非法 UTF-16 处停下并只报告**有效前缀**的字节数，剩余内容**静默丢弃**。
+
+**修法**（两半）：compat 加 `MemoryMarshal.truncateAtInvalidUtf16(ReadOnlySpan<Character>)`
+（返回首个非法 UTF-16 单元之前的前缀），转换器新增 pass `PatchCommentInvalidUtf16Truncation`
+（只挂在 `Utf8JsonWriter.java`，在 `writeCommentMinimized`/`writeCommentIndented` 入口注入一行），
+**不去动那份机翻的 `toUtf8` 状态机**。
+
+**实测**：`436 → 432`，修 4 / 坏 0；`Tests run: 7902, Failures: 197, Errors: 235, Skipped: 18`。
+
+**同轮中性改动（保留并披露）**：`43914058` 让 compat 的 `StreamWriter`
+用 **U+FFFD** 替换非法 UTF-16（Java 的 `OutputStreamWriter` 默认写 `?`，.NET 写 U+FFFD）。
+本集合实测 `436 → 436`（逐用例集合差 0/0；同名用例的消息差异只有 `Object@hash` 这类
+运行期不确定性），但它把 `StreamWriter` 的编码语义对齐到 .NET，按既有先例保留。
+**残留**：`writeStringsWithRelaxedEscaping` 4 条与 `writeNumber_NullPropertyName_UInt32/UInt64` 2 条仍是开放项
+（见 §8.2.48 的表格，relaxed 那条的入口是"属性名写路径的引号处理"）。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
