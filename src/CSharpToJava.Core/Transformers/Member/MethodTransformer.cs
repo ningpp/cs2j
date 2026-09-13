@@ -82,6 +82,21 @@ public class MethodTransformer : IMemberTransformer
             Modifiers = ConvertModifiers(methodDecl.Modifiers),
             ReturnType = GetReturnType(methodDecl, context)
         };
+        // C# non-public methods are public Java methods, so compat's convention-based property
+        // bridge (C# Type.GetProperties(Public)) would invent a property .NET never returns:
+        // the internal JsonSerializerOptions.GetReaderOptions()/GetWriterOptions() surfaced as
+        // "ReaderOptions"/"WriterOptions" properties and OptionsTests.verifyOptionsEqual compared
+        // them with Assert.Same. Mark getter-shaped non-public methods so the bridge can skip them.
+        if (methodInfo != null
+            && methodInfo.DeclaredAccessibility != Accessibility.Public
+            && methodInfo.Parameters.Length == 0
+            && !methodInfo.ReturnsVoid
+            && methodInfo.Name.Length > 3
+            && methodInfo.Name.StartsWith("Get", StringComparison.Ordinal))
+        {
+            javaMethod.Annotations.Add(new JavaAnnotation("CompatNonPublicAccessor"));
+            context.AddImport("io.github.ningpp.compat.CompatNonPublicAccessor");
+        }
         // Java's entry point must be `public static void main(String[])`. C# often declares
         // Main without an explicit public modifier, so force Public on a static, void main.
         if (javaMethod.Name == "main"

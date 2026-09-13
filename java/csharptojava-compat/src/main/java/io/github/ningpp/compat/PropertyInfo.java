@@ -406,6 +406,12 @@ public final class PropertyInfo implements MemberInfo {
             // Skip void returns and methods with parameters
             if (m.getParameterCount() != 0) continue;
             if (m.getReturnType() == void.class) continue;
+            // Skip non-public members. A C# internal/private member is a public Java member, so
+            // the naming walk below would invent a property .NET's GetProperties() never returns:
+            // JsonSerializerOptions.MemberAccessorStrategy and .EffectiveMaxDepth showed up as
+            // properties and OptionsTests.verifyOptionsEqual compared them with Assert.Same.
+            if (m.isAnnotationPresent(CompatNonPublicProperty.class)
+                || m.isAnnotationPresent(CompatNonPublicAccessor.class)) continue;
             // Skip methods that are C# methods (not properties)
             if (EXCLUDED_METHODS.contains(m.getName())) continue;
             String methodName = m.getName();
@@ -416,6 +422,10 @@ public final class PropertyInfo implements MemberInfo {
                 props.add(new PropertyInfo(m, findSetter(clazz, methodName.substring(2), m)));
             }
         }
+        // A property whose accessors are all invisible in C# is not a public property, and
+        // GetProperties(Public) must not report it (the Java methods still exist because Java has
+        // no assembly-level visibility).
+        props.removeIf(p -> p.getGetMethod() == null && p.getSetMethod() == null);
         // Class#getMethods() order is unspecified and varies between JVM runs; C# returns
         // metadata declaration order, which the class file preserves (see DeclarationOrder).
         props.sort(java.util.Comparator
