@@ -1799,6 +1799,22 @@ compat 的 `JsonTextWriter` 生成（`json.writePropertyName(...)` + `json.write
 `writeBeforeValue()`；新增分支必须就地写值。本簇是"**期望侧**生成器坏了"而不是被测 writer 坏了 ——
 凡是"Expected 侧语法明显不对"的失败，先查 compat 的 Newtonsoft 替身，不要查 `Utf8JsonWriter`。
 
+### 8.2.47 下一轮候选（Round 86，已定位到可开工的入口）
+
+`assertContentsAgainstJsonNet` 站点（Round 85 后仍有 18 条）已按"期望/实际差在哪"分成四簇，
+**都还没动**，按性价比排序：
+
+| 簇 | 条数 | 观察 | 入口 |
+|---|---|---|---|
+| `writeStringsWithRelaxedEscaping(boolean, boolean, String, boolean)` | 4 | 期望 `\u0022`（名字里的引号被转义），实际**名字位置出现裸 `"`**（非法 JSON） | 归一化器 `WriterHelpers.normalizeToJsonNetFormat` 或 compat `JsonTextWriter.writePropertyName` 的转义；compat 的 `JavaScriptEncoder.asciiEscape` 是会转义的（`\"` / `\u0022`），所以先确认**属性名**那条写路径 |
+| `highSurrogateMissingGetsReplaced(boolean, boolean)` | 4 | 期望原样输出合法代理对（`𐀀` 等），实际写成 `\ud800\udc00…` | 默认编码器对**合法**非 BMP 标量的处理（`JavaScriptEncoder` 的 `escapeNonAscii` 判定） |
+| `writeCommentsInvalidTextAllowed(boolean, boolean)` | 4 | 期望与实际都是同形注释串，差异在**空白/位置** | `JsonTextWriter.writeComment` 的状态机（与 Round 85 同族的"分隔符写多了/少了"） |
+| `writeNumber_NullPropertyName_UInt32/UInt64` | 2 | `{"":2147483648}` vs `{"":-2147483648}`（`uint`/`ulong` 按有符号渲染） | `Utf8JsonWriter.writeNumberValue` 走 `Cs2jUnsigned` 的渲染路径 |
+| `escapeCharacters(boolean, boolean)` | 4 | 消息里 Expected/Actual 都被截断成 `?`（含换行） | 先取原始 surefire 输出（`triage_full.py`）看清差异再定 |
+
+**共同纪律**：这一站点的失败几乎都是"**两侧都过归一化**"，所以第一步永远是判断
+"坏的是期望侧生成器（compat 的 Newtonsoft 替身）还是被测 writer"，Round 82/85 的两条都是前者。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
