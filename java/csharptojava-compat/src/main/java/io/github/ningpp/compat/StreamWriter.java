@@ -20,11 +20,34 @@ public class StreamWriter extends CSharpTextWriter {
     }
 
     public StreamWriter(StreamWrapper stream, Charset charset) {
-        super(new OutputStreamWriter(stream.outputStream(), charset));
+        this(stream, charset, false);
+    }
+
+    private StreamWriter(StreamWrapper stream, Charset charset, boolean leaveOpen) {
+        super(newWriter(stream.outputStream(), charset));
         this.baseStream = stream;
         this.charset = charset;
-        this.leaveOpen = false;
-        // encoding stored for getEncoding()
+        this.leaveOpen = leaveOpen;
+    }
+
+    /**
+     * A UTF-8 (or other charset) writer that replaces malformed input with U+FFFD, like .NET's
+     * {@code Encoding.UTF8} does.
+     *
+     * <p>Java's {@code OutputStreamWriter} replaces an unpaired surrogate with {@code '?'} (0x3F),
+     * so the expected string of {@code Utf8JsonWriterTests#writeCommentsInvalidTextAllowed} - built
+     * by writing the comment through this writer - carried {@code ?} where .NET (and the writer
+     * under test, which writes U+FFFD) has U+FFFD. The tail of the comment was preserved either way;
+     * only the replacement character differed.</p>
+     */
+    private static Writer newWriter(OutputStream stream, Charset charset) {
+        java.nio.charset.CharsetEncoder encoder = charset.newEncoder()
+            .onMalformedInput(java.nio.charset.CodingErrorAction.REPLACE)
+            .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPLACE);
+        if (encoder.canEncode('\uFFFD')) {
+            encoder.replaceWith(new byte[] { (byte) 0xEF, (byte) 0xBF, (byte) 0xBD });
+        }
+        return new OutputStreamWriter(stream, encoder);
     }
 
     public StreamWriter(StreamWrapper stream, Encoding encoding) {
@@ -36,10 +59,7 @@ public class StreamWriter extends CSharpTextWriter {
     }
 
     public StreamWriter(StreamWrapper stream, Encoding encoding, int bufferSize, boolean leaveOpen) {
-        super(new OutputStreamWriter(stream.outputStream(), encoding.toCharset()));
-        this.baseStream = stream;
-        this.charset = encoding.toCharset();
-        this.leaveOpen = leaveOpen;
+        this(stream, encoding.toCharset(), leaveOpen);
     }
 
     public StreamWriter(OutputStream stream) {
