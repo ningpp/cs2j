@@ -359,7 +359,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `8070db44` | 目标类型化 `new() { … }` 也应用对象初始化器 | 499 → 499（**实测中性**，作为潜在缺陷保留） |
 | `d930d7ff` | `[JsonInclude]` 时能看见**非公开 setter** | 499 → 493（修 6） |
 | `8c2c15ff` | 保留 C# `new InvalidOperationException()` 的**默认消息** | 493 → 490（修 3） |
-| `0f3e9c1` 默认 reader 的空缓冲区 | 490 → 488（修 2） |
+| `756d6cf6` | `default(Utf8JsonReader)` 的空缓冲区（null → 空 span） | 490 → 488（修 2） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
