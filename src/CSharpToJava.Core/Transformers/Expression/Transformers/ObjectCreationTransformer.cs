@@ -294,12 +294,25 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if ((node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0)
             && createdTypeSymbol is ITypeParameterSymbol typeParameter)
         {
+            // A type parameter cannot be instantiated in Java; both fallbacks below return EARLY, so
+            // an object initializer on the same expression used to be dropped:
+            // `new TRoot { Overflow = new TDictionary() }` produced an object whose Overflow stayed
+            // null. Measured: ExtensionDataTests#extensionProperty_SupportsWritingToCustomSerializer
+            // WithExplicitConverter expected {"MyCustomOverflowWrite":"OverflowValueWrite"} and got {}.
+            var objectInitializer = node.Initializer != null
+                && node.Initializer.Kind() == SyntaxKind.ObjectInitializerExpression
+                ? node.Initializer
+                : null;
+
             if (HasCollectionConstraint(typeParameter))
             {
                 context.AddImport("io.github.ningpp.compat.CSharpList");
                 var elementType = GetCollectionElementType(typeParameter);
                 var javaElementType = elementType != null ? context.MapType(elementType) : "Object";
-                return $"({typeName}) new CSharpList<{javaElementType}>()";
+                var created = $"({typeName}) new CSharpList<{javaElementType}>()";
+                return objectInitializer != null
+                    ? ApplyInitializer(typeName, created, objectInitializer, context)
+                    : created;
             }
 
             if (typeParameter.HasConstructorConstraint)
@@ -309,7 +322,10 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
                 // create an instance of the concrete type argument.
                 if (context.TryGetRuntimeClassParameter(typeParameter.Name, out var newConstraintClassParam))
                 {
-                    return $"({typeName}) io.github.ningpp.compat.Activator.createInstance({newConstraintClassParam})";
+                    var created = $"({typeName}) io.github.ningpp.compat.Activator.createInstance({newConstraintClassParam})";
+                    return objectInitializer != null
+                        ? ApplyInitializer(typeName, created, objectInitializer, context)
+                        : created;
                 }
                 return "new Object()";
             }
@@ -1674,6 +1690,45 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         }
         result.Add(args[start..].Trim());
         return result;
+    }
+
+    /// <summary>
+    /// Applies a C# object initializer to an instance that was just created, as pre-statements.
+    ///
+    /// <para>
+    /// The type-parameter creation branches return an expression, and Java has no expression that
+    /// both constructs and assigns. The synthetic local plus one setter call per assignment is the
+    /// same shape {@code ControlFlowTransformer} uses for {@code with} expressions.
+    /// </para>
+    /// </summary>
+    private static string ApplyInitializer(
+        string declaredType,
+        string creationExpression,
+        InitializerExpressionSyntax initializer,
+        ConversionContext context)
+    {
+        var facade = ExpressionTransformerFacade.Instance;
+        var temporary = context.GenerateSyntheticName("__cs2jInit");
+        context.AddPreStatement($"{declaredType} {temporary} = {creationExpression};");
+        foreach (var expression in initializer.Expressions)
+        {
+            if (expression is not AssignmentExpressionSyntax assignment)
+            {
+                continue;
+            }
+            var value = facade.Transform(assignment.Right, context);
+            if (assignment.Left is IdentifierNameSyntax name
+                && context.GetSymbolInfo(assignment.Left).Symbol is IPropertySymbol property)
+            {
+                context.AddPreStatement(
+                    $"{temporary}.set{char.ToUpperInvariant(property.Name[0])}{property.Name.Substring(1)}({value});");
+            }
+            else if (assignment.Left is IdentifierNameSyntax fieldName)
+            {
+                context.AddPreStatement($"{temporary}.{fieldName.Identifier.Text} = {value};");
+            }
+        }
+        return temporary;
     }
 
     private string TransformObjectCreationWithInitializer(
