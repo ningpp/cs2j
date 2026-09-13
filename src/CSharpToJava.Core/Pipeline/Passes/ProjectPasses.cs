@@ -1109,6 +1109,7 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchElementArgumentScope(result);
                     PatchExtensionDataSignatureType(result);
+                    PatchPropertyNameKeyForEmptyName(result);
                 }
                 // NOTE: "JsonPropertyInfo.java".EndsWith("PropertyInfo.java") is TRUE, so the more
                 // specific suffix must be tested FIRST. With the order reversed the PropertyInfo
@@ -1704,6 +1705,42 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex ConverterCanBeNullRegex = new(
         @"this\.canBeNull = !getIsValueType\(\) \|\| TypeHelper\.getUnderlyingType\(getTypeToConvert\(\)\) != null;",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Lets <c>JsonClassInfo.getKey</c> hash an EMPTY property name.
+    /// <para>
+    /// C# hashes the first 7 bytes and the length, and answers <c>0</c> for a zero-length name —
+    /// <c>{"":1}</c> is legal JSON and .NET reads it. The converter hoisted the byte reads into a
+    /// "reference plus Unsafe" form, so the method starts with
+    /// <c>int reference = MemoryMarshal.getReference(name);</c>, and compat's
+    /// <c>getReference(ReadOnlySpan)</c> answers <b>null</b> for an empty span (documented as the
+    /// safe Java equivalent of a dangling C# ref). Unboxing that null threw before the length
+    /// branches — which never read for a zero-length name — could answer 0. Measured: seven tests
+    /// over <c>PropertyNameTests#emptyPropertyName*</c> and
+    /// <c>ReferenceHandlerTests#{object,oject}*LengthZero</c> reported
+    /// <c>Cannot invoke "java.lang.Integer.intValue()" because the return value of
+    /// "io.github.ningpp.compat.MemoryMarshal.getReference(io.github.ningpp.compat.ReadOnlySpan)" is null</c>.
+    /// </para>
+    /// </summary>
+    private static void PatchPropertyNameKeyForEmptyName(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        if (!PropertyNameKeyRegex.IsMatch(result.GeneratedCode))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchPropertyNameKeyForEmptyName did not match JsonClassInfo.java "
+                + "- an empty JSON property name still NPEs inside getKey.");
+            return;
+        }
+        result.GeneratedCode = PropertyNameKeyRegex.Replace(result.GeneratedCode,
+            "int reference = name.getLength() > 0 ? MemoryMarshal.getReference(name) : 0;",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex PropertyNameKeyRegex = new(
+        @"int reference = MemoryMarshal\.getReference\(name\);",
         System.Text.RegularExpressions.RegexOptions.None);
 
     private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullGuardRegex = new(
