@@ -1751,7 +1751,8 @@ public final class TypeHelper {
                     continue;
                 }
                 int modifiers = field.getModifiers();
-                boolean isPublic = Modifier.isPublic(modifiers);
+                boolean isPublic = Modifier.isPublic(modifiers)
+                    && !field.isAnnotationPresent(CompatNonPublicProperty.class);
                 if (isPublic ? !wantPublic : !wantNonPublic) {
                     continue;
                 }

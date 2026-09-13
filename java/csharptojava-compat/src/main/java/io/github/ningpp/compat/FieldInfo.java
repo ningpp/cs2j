@@ -52,7 +52,10 @@ public final class FieldInfo implements MemberInfo {
     }
 
     public boolean getIsPublic() {
-        return Modifier.isPublic(field.getModifiers());
+        // C#'s `internal` is emitted as Java `public` for cross-package reach, so the modifier alone
+        // cannot answer this; the converter marks the field (see CompatNonPublicProperty).
+        return Modifier.isPublic(field.getModifiers())
+            && !field.isAnnotationPresent(CompatNonPublicProperty.class);
     }
 
     public boolean getIsInitOnly() {

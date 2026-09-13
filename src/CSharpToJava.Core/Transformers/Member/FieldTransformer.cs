@@ -205,6 +205,17 @@ public class FieldTransformer : IMemberTransformer
                 javaField.Annotations.Add(new JavaAnnotation("CompatJsonInclude"));
                 context.AddImport("io.github.ningpp.compat.CompatJsonInclude");
             }
+            // C# non-public field -> compat annotation. C#'s `internal` becomes Java `public`
+            // (cross-package reach), so the modifier alone cannot answer "is this member public?";
+            // without the marker the SDK caches an internal field as a public member and its
+            // "non-public member annotated with [JsonInclude] is invalid" validation never runs
+            // (PropertyVisibilityTests.nonPublicProperty_WithJsonInclude_Invalid).
+            if (fieldSymbol != null && fieldSymbol.DeclaredAccessibility != Accessibility.Public)
+            {
+                javaField.Annotations.Add(new JavaAnnotation("CompatNonPublicProperty"));
+                context.AddImport("io.github.ningpp.compat.CompatNonPublicProperty");
+            }
+
             // C# [JsonPropertyName("...")] on a FIELD -> compat annotation carrying the name.
             // Without it the C# JSON name never reaches the runtime, so a field whose name
             // collides with a property's JSON name is not detected and the serialize call that
