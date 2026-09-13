@@ -3821,3 +3821,63 @@ if (value instanceof byte[] bytes) {
 **纪律**：`writeValue(Object)` 中"委托给另一个 `writeValue` 重载"的分支都会二次调用
 `writeBeforeValue()`。凡是"**Expected 侧** JSON 语法明显不对"的失败，先查 compat 的 Newtonsoft 替身
 （`JsonTextWriter`/`JsonConvert`），不要查被测的 `Utf8JsonWriter`。
+
+### 4.96 Round 86：Newtonsoft 替身忽略 `StringEscapeHandling.EscapeNonAscii`（444 → 436，修 8 / 坏 0）
+
+**入口**：`Utf8JsonWriterTests#highSurrogateMissingGetsReplaced(boolean, boolean)[1..4]`；
+顺带修好同站点的 `Utf8JsonWriterTests#escapeCharacters(boolean, boolean)[1..4]`。
+
+**先确认归一化器做了什么**（关键，否则会把结论搞反）：
+`JsonTestHelper.assertContentsAgainstJsonNet` → `WriterHelpers.normalizeToJsonNetFormat`，
+而它是**纯字符串变换**（生成物 33-59 行）：把 `\uXXXX` 的十六进制**转小写**、
+把 `\/` 换成 `\u002f`，**不做解析/重排**（与 §4.91 的 `Decimal` 簇当时的判断不同）。所以本站点是**原文对比**。
+
+**症状**：
+
+```
+Expected: { "a𐀀𐹭𝄞\U0010ffffa": "a𐀀𐹭𝄞\U0010ffffa" }      ← 原始星光字符
+Actual:   { "a\ud800\udc00\ud803\ude6d\ud834\udd1e\udbff\udfffa": … }  ← 转义形式
+```
+
+**C# 原文**（`Utf8JsonWriterTests.cs:4455`）：
+`string expectedStr = GetEscapedExpectedString(prettyPrint: formatted, propertyName, value, StringEscapeHandling.EscapeNonAscii);`
+—— 期望串由 compat 的 `JsonTextWriter` 生成。而 compat 的 `escapeJsonString` 只判
+`Default` 与 `EscapeHtml` 两种：
+
+```java
+boolean escapeHtml = stringEscapeHandling == StringEscapeHandling.EscapeHtml;
+if (ch == '"' || ch == '\\' || ch < 0x20 || (escapeHtml && isHtmlSensitive(ch))) { … }
+```
+
+`EscapeNonAscii` 因此**完全不生效**，非 ASCII 全部原样写出 ⇒ 期望侧永远不带转义 ✗。
+（`escapeCharacters` 那一簇用的是同一条期望侧路径，所以一起被修掉。）
+
+**修法**（compat，两处判定各加一个条件）：
+
+```java
+boolean escapeNonAscii = stringEscapeHandling == StringEscapeHandling.EscapeNonAscii;
+// 扫描阶段
+if (ch == '"' || ch == '\\' || ch < 0x20
+    || (escapeNonAscii && ch > 0x7F) || (escapeHtml && isHtmlSensitive(ch))) { … }
+// 写出阶段
+if (ch < 0x20 || (escapeNonAscii && ch > 0x7F) || (escapeHtml && isHtmlSensitive(ch))) {
+    sb.append(String.format("\\u%04X", (int) ch));
+```
+
+按 UTF-16 码元逐个转义、**大写**十六进制 —— 规范化器会转成小写，正好与被测 writer
+（默认编码器）输出的小写 `\ud800\udc00` 对齐；合法代理对因此写出两个转义而不是被合并。
+
+**探针** `probe/w42/EscNonAsciiProbe.java`：
+
+```
+修复后 EscapeNonAscii = { "a\uD800\uDC00\uD803\uDE6D\uD834\uDD1E\uDBFF\uDFFFa": "…" }
+       Default        = { "漢字": "漢字" }          ← 默认侧不变（不回归）
+```
+
+**实测**：`444 → 436`，修 **8** / 坏 0（`highSurrogateMissingGetsReplaced` 4 + `escapeCharacters` 4）；
+`Tests run: 7902, Failures: 201, Errors: 235, Skipped: 18`（聚合行恰好 1 次），`mvn-build-r157.log`。
+纯 compat 改动，无需重新生成。
+
+**踩坑（Java 语言层）**：在 Java 源文件的**注释**里写 `\uXXXX` 字样会直接编译失败
+（Unicode 转义在词法分析之前处理，报"非法的 Unicode 逃逸"）—— 本轮第一次编译就是这样挂的，
+注释里必须写成文字描述（"backslash-u escape"）。

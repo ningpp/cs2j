@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 209, Errors: 235, Skipped: 18` = **444**（起点 855，**−411**）。
-- 本会话累计 **43 条 KEEP**（37 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 201, Errors: 235, Skipped: 18` = **436**（起点 855，**−419**）。
+- 本会话累计 **44 条 KEEP**（38 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -365,6 +365,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `c2ce9417` | Newtonsoft 替身把 `Decimal` 按裸数字写（不是加引号的字符串） | 467 → 463（修 4） |
 | `9c5b4d82` | 属性桥不再把**非公开成员**当成属性（含非公开 `Get*()` 方法） | 463 → 460（修 3） |
 | `1eea495a` | Newtonsoft 替身写 `byte[]` 时**多了一次分隔符**（`writeValue(String)` 二次调用 `writeBeforeValue`） | 460 → 444（修 16） |
+| `8b64cd02` | Newtonsoft 替身支持 `StringEscapeHandling.EscapeNonAscii` | 444 → 436（修 8） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1799,21 +1800,53 @@ compat 的 `JsonTextWriter` 生成（`json.writePropertyName(...)` + `json.write
 `writeBeforeValue()`；新增分支必须就地写值。本簇是"**期望侧**生成器坏了"而不是被测 writer 坏了 ——
 凡是"Expected 侧语法明显不对"的失败，先查 compat 的 Newtonsoft 替身，不要查 `Utf8JsonWriter`。
 
-### 8.2.47 下一轮候选（Round 86，已定位到可开工的入口）
+### 8.2.47 已修（Round 86）：Newtonsoft 替身忽略 `StringEscapeHandling.EscapeNonAscii`（444 → 436，修 8 / 坏 0）
 
-`assertContentsAgainstJsonNet` 站点（Round 85 后仍有 18 条）已按"期望/实际差在哪"分成四簇，
-**都还没动**，按性价比排序：
+**入口**：`Utf8JsonWriterTests#highSurrogateMissingGetsReplaced(boolean, boolean)[1..4]`（本轮目标），
+外加**顺带修好**的 `Utf8JsonWriterTests#escapeCharacters(boolean, boolean)[1..4]`。
+
+**定位**：本站点的断言**不做解析**，`WriterHelpers.normalizeToJsonNetFormat` 只是字符串变换
+（把 `\uXXXX` 的十六进制转小写、把 `\/` 换成 `\u002f`），所以两侧是**原文对比**。
+失败形状是：
+
+```
+Expected: { "a𐀀𐹭𝄞�ffffa": "a𐀀𐹭𝄞�ffffa" }        ← 原始星光字符（期望侧）
+Actual:   { "a\ud800\udc00…a": "a\ud800\udc00…a" }   ← 转义（被测 writer 的默认编码器）
+```
+
+C# 原文 `GetEscapedExpectedString(..., StringEscapeHandling.EscapeNonAscii)`：
+期望串由 compat 的 `JsonTextWriter` 生成，而 `escapeJsonString` 只认 `Default` 与 `EscapeHtml`，
+`EscapeNonAscii` 落到"原样输出非 ASCII" ⇒ 期望侧永远不带转义。
+
+**修法**（compat，纯改一处）：`escapeJsonString` 增加 `escapeNonAscii` 判定 ——
+扫是否需要转义时加 `(escapeNonAscii && ch > 0x7F)`，写值时同样加该条件（按 UTF-16 码元逐个转义，
+大写十六进制，正好被规范化器转小写后与被测 writer 的小写输出对齐）。
+
+**探针** `probe/w42/EscNonAsciiProbe.java`：
+
+```
+EscapeNonAscii = { "a\uD800\uDC00\uD803\uDE6D\uD834\uDD1E\uDBFF\uDFFFa": "…" }   ← 修复后
+Default        = { "漢字": "漢字" }                                              ← 默认仍原样（不回归）
+```
+
+**实测**：`444 → 436`，修 **8** / 坏 0（`highSurrogateMissingGetsReplaced` 4 + `escapeCharacters` 4）；
+`Tests run: 7902, Failures: 201, Errors: 235, Skipped: 18`。纯 compat 改动，无需重新生成。
+
+**坑（Java 语言层）**：在 Java 源文件里**注释**中写 `\uXXXX` 字样会直接编译失败
+（Unicode 转义在词法分析前处理，"非法的 Unicode 逃逸"）—— 注释里要用文字描述。
+
+### 8.2.48 下一轮候选（Round 87）
+
+`assertContentsAgainstJsonNet` 站点在 Round 86 后仍有 10 条，剩三簇：
 
 | 簇 | 条数 | 观察 | 入口 |
 |---|---|---|---|
-| `writeStringsWithRelaxedEscaping(boolean, boolean, String, boolean)` | 4 | 期望 `\u0022`（名字里的引号被转义），实际**名字位置出现裸 `"`**（非法 JSON） | 归一化器 `WriterHelpers.normalizeToJsonNetFormat` 或 compat `JsonTextWriter.writePropertyName` 的转义；compat 的 `JavaScriptEncoder.asciiEscape` 是会转义的（`\"` / `\u0022`），所以先确认**属性名**那条写路径 |
-| `highSurrogateMissingGetsReplaced(boolean, boolean)` | 4 | 期望原样输出合法代理对（`𐀀` 等），实际写成 `\ud800\udc00…` | 默认编码器对**合法**非 BMP 标量的处理（`JavaScriptEncoder` 的 `escapeNonAscii` 判定） |
-| `writeCommentsInvalidTextAllowed(boolean, boolean)` | 4 | 期望与实际都是同形注释串，差异在**空白/位置** | `JsonTextWriter.writeComment` 的状态机（与 Round 85 同族的"分隔符写多了/少了"） |
-| `writeNumber_NullPropertyName_UInt32/UInt64` | 2 | `{"":2147483648}` vs `{"":-2147483648}`（`uint`/`ulong` 按有符号渲染） | `Utf8JsonWriter.writeNumberValue` 走 `Cs2jUnsigned` 的渲染路径 |
-| `escapeCharacters(boolean, boolean)` | 4 | 消息里 Expected/Actual 都被截断成 `?`（含换行） | 先取原始 surefire 输出（`triage_full.py`）看清差异再定 |
+| `writeStringsWithRelaxedEscaping(boolean, boolean, String, boolean)` | 4 | 期望名字里是 `\u0022`，实际名字位置是**裸 `"`**（归一化后仍是非法 JSON） | compat `JsonTextWriter.writePropertyName` 路径 vs `escapeJsonString`（注意本站点双方都用同一 `escapeJsonString`，先探针确认哪一侧写的名字） |
+| `writeCommentsInvalidTextAllowed(boolean, boolean)` | 4 | 期望在未配对代理项处**截断**（`surrogate */`），实际是 `surrogate � this part no longer visible*/` | `JsonTextWriter.writeComment` 对未配对代理项的处理（写入端似乎提前结束） |
+| `writeNumber_NullPropertyName_UInt32/UInt64` | 2 | `{"":2147483648}` vs `{"":-2147483648}`（`uint`/`ulong` 渲染） | 转换器把 `WriteNumber(string, uint)` 映射到 `int` 重载 ⇒ 需按 C# 重载区分（`writeNumberValue_uint` 之类）或让 `Cs2jUnsigned` 参与 |
 
-**共同纪律**：这一站点的失败几乎都是"**两侧都过归一化**"，所以第一步永远是判断
-"坏的是期望侧生成器（compat 的 Newtonsoft 替身）还是被测 writer"，Round 82/85 的两条都是前者。
+**共同纪律**：这一站点的失败几乎都是"两侧都过**字符串级**归一化"，第一步永远先分清
+"坏的是期望侧生成器（compat 的 Newtonsoft 替身）还是被测 writer" —— Round 82/85/86 三条都是前者。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
