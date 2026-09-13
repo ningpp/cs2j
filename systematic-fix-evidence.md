@@ -2955,3 +2955,43 @@ public String getMyString() { return myString; }   // ← 但 Java 修饰符是 
 **母题**：这是"C# 可访问性 ≠ Java 修饰符"的**第三个**入口。前两个是
 `CompatNonPublicAccessor`（属性访问器）与 `CompatInternalCtor`（构造函数）。
 **凡运行时问"这个成员/类型公开吗"，先查这里缺了哪个标记。**
+
+### 4.78 Round 70：`getGenericArguments` 是消费式查询（探针钉死；一处中性修复，518 → 518）
+
+**入口**：站点 `CollectionTests.readKeyValuePairOfKeyValuePair:2100`（4 条，`Expected: Key / Actual: Key`）
+与 `CustomConverterTests` 的 4 条 `CSharpDictionary.getChecked` KeyNotFound。
+
+**探针 `DefProbe14`**：注册 `CSharpKeyValuePair<String, CSharpKeyValuePair<Integer,Integer>>` 后，
+在注册作用域内连续三次调用 `TypeHelper.getGenericArguments(CSharpKeyValuePair.class)`：
+
+```
+genericArguments #1 = [class java.lang.String, class io.github.ningpp.compat.CSharpKeyValuePair]
+genericArguments #2 = [class java.lang.Integer, class java.lang.Integer]
+genericArguments #3 = [class java.lang.Integer, class java.lang.Integer]
+```
+
+**每调用一次消费一层**（这是"外层 list → 内层 list 各取各层"所依赖的机制），
+而 `ObjectConverterFactory.createKeyValuePairConverter` 把它当纯函数用了两次：
+
+```java
+Class keyType   = TypeHelper.getGenericArguments(type)[0];   // 正确
+Class valueType = TypeHelper.getGenericArguments(type)[1];   // 拿到内层 KeyValuePair 的实参
+```
+
+**修法**：pass `PatchKeyValuePairGenericArguments` 绑定成一次调用 + 两条赋值。
+
+**测量**：`518 → 518`，**修 0 / 坏 0**；对比两次 triage 的 18 条"消息变化"经逐条核对
+**全部是对象身份哈希噪声**（`@5e2a6991` → `@63917fe1`），无一条实质变化。
+
+**判定**：这些用例跑到工厂时**第一层也已被预热期消费**，所以只绑定方法内的两次调用不解决问题。
+按 §8.3"中性改动要先看栈是否变了再决定回滚"执行了该检查（结论：没变），
+但本条作为**已证伪的潜在缺陷修复**保留（先例 `99151aa6`，同为"实测中性但语义更正确"）。
+
+**与既有结论的关系**：这 8 条与 §4.74 的 79 条同源 —— 都要求**实参在预热到读取的全程可见**；
+单点绑定不够，应与 §8.2.26 的结构性方案合并设计。
+
+**另一条本轮记录但未动的线索**：`ObjectTests#tooLittleJsonFails`（6 条）失败在
+`Assert.equal(0, reader.getBytesConsumed())`：直接对 `Utf8JsonReader` 调
+`JsonSerializer.Deserialize(ref reader)`，异常抛出后 .NET 侧 `BytesConsumed` 仍是 0，
+我们已消费 1/4/6 字节。匹配它需要在异常路径回滚 reader 状态 —— 会影响依赖"reader 前进"的用例，
+属独立设计决策。

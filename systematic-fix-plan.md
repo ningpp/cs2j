@@ -316,7 +316,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 ### 8.1 状态
 
 - **基线**：`Tests run: 7902, Failures: 278, Errors: 240, Skipped: 18` = **518**（起点 855，**−337**）。
-- 本会话累计 **30 条 KEEP**（26 条"逐用例集合差 +0 回归"；`99151aa6` 实测中性；
+- 本会话累计 **31 条 KEEP**（26 条"逐用例集合差 +0 回归"；另 1 条实测中性；`99151aa6` 实测中性；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -352,6 +352,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `4ba90036` | `getKey` 按真实字节算属性名键（旧实现只看首字节 + 长度） | 524 → 523（修 1，另 6 条换了失败原因） |
 | `ac40ded2` | 字段枚举遵守 `NonPublic`；非公开属性没有公开 getter | 523 → 519（修 4） |
 | `784c5b3a` | C# 非公开字段带标记（`internal` ≠ Java `public`） | 519 → 518（修 1，闭合整条 theory） |
+| `6a30e0ca` | `KeyValuePair` 的实参只取一次 | 518 → 518（**实测中性**，作为潜在缺陷保留） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1132,6 +1133,43 @@ C# 的 `DateTimeOffset` **自带偏移**，`"O"` 永远写 `+00:00`（`Z` 只属
 
 **这是"C# 可访问性 ≠ Java 修饰符"母题的第三个入口**（前两个：`CompatNonPublicAccessor` 访问器、
 `CompatInternalCtor` 构造函数）。**下次遇到"这个成员/类型公开吗"的运行时问题，先查这里有没有标记。**
+
+
+### 8.2.30 Round 70：`getGenericArguments` 是**消费式**查询（一次探针钉死；一处中性修复）
+
+**入口**：站点榜上 `CollectionTests#readKeyValuePairOfKeyValuePair`（4 条，`Expected: Key / Actual: Key`
+—— 两侧都打印成 `Key`，实为 **`JsonElement` vs `String`** 的类型差）与
+`CustomConverterTests` 的 4 条 `CSharpDictionary.getChecked` KeyNotFound，合计 8 条。
+
+**探针 `DefProbe14`**（`KeyValuePair<String, KeyValuePair<Integer,Integer>>`，注册闭类型后连问三次）：
+
+```
+genericArguments #1 = [class java.lang.String, class io.github.ningpp.compat.CSharpKeyValuePair]
+genericArguments #2 = [class java.lang.Integer, class java.lang.Integer]
+genericArguments #3 = [class java.lang.Integer, class java.lang.Integer]
+```
+
+即 **`TypeHelper.getGenericArguments` 每调用一次就消费一层注册实参**（这正是"外层 list → 内层 list"
+能各自拿到自己那一层所依赖的机制），而生成代码把它当**纯函数**用：
+
+```java
+Class keyType   = TypeHelper.getGenericArguments(type)[0];   // #1 → String
+Class valueType = TypeHelper.getGenericArguments(type)[1];   // #2 → 内层 KeyValuePair 的实参
+```
+
+**已修（中性）**：pass `PatchKeyValuePairGenericArguments` 在 `ObjectConverterFactory` 里绑定一次。
+**实测 `518 → 518`，修 0 / 坏 0，且 18 条消息变化全是对象哈希噪声** —— 说明这些用例跑到工厂时，
+**第一层也已经被预热期消费掉了**（所以只绑定两次调用不解决问题）。
+按 §8.3 的纪律先查了"栈是否变了"（没变），但本条作为**可证伪的潜在缺陷修复**保留（先例：`99151aa6`）。
+
+**结论**：这 8 条与 §8.2.26 的 79 条同源 —— 都要求"**实参必须在整个预热/读取过程中可见**"。
+**单点绑定不够**；真正的修法是让闭类型的实参身份贯穿预热到读取（与 §8.2.26 的结构性方案是同一件事，
+可以合并成一个方案设计）。
+
+**同时记录（未动）**：`ObjectTests#tooLittleJsonFails`（6 条）失败在
+`Assert.equal(0, reader.getBytesConsumed())` —— 直接对 `Utf8JsonReader` 调
+`Deserialize(ref reader)` 抛异常后，.NET 侧 `BytesConsumed` 仍是 **0**，我们已消费 1/4/6 字节。
+要匹配就得在异常路径上**回滚 reader 状态**，属独立设计决策（会影响"reader 前进"依赖者），本轮未做。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
