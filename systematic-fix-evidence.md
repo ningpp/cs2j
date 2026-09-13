@@ -3418,3 +3418,53 @@ try { return type.getDeclaredConstructor().newInstance(); } catch (Exception e) 
 
 **同族第 6 例**（C# 默认值 ≠ Java 默认值）：§4.64 default(T)、§4.68 default(JsonElement)、
 §4.85 访问器可见性、§4.81 ref 回滚、§4.87 默认 struct、**本条**。
+
+### 4.89 Round 80：`matchesConstructorBindingFlags` 的私有构造器桥不能收紧（470 → 618，已回滚）
+
+**入口**：`ObjectTests#readObjectFail_ReferenceTypeMissingPublicParameterlessConstructor`
+（`Assert.throws` 的 `expected=UnsupportedOperationException` 组），栈：
+
+```
+ObjectTests.readObjectFail_…:238
+  ← io.github.ningpp.compat.Activator.createInstance:26
+  ← dotnet.text.json.Serialization.ReflectionMemberAccessor.lambda$createConstructor$0:51
+```
+
+**探针 `DefProbe20`** 对该测试的 5 个类型逐个查 `getConstructorInfo(Public|Instance, [])`
+与 `Activator.createInstance`：
+
+```
+== ClassWithInternalParameterlessCtor     getConstructorInfo(Public) = null        Activator -> InvocationTargetException
+== ClassWithPrivateParameterlessCtor      getConstructorInfo(Public) = ConstructorInfo@…  Activator -> InvocationTargetException
+== CollectionWithoutPublicParameterlessCtor getConstructorInfo(Public) = null       Activator -> InvocationTargetException
+== ConcreteDerivedClassWithNoPublicDefaultCtor getConstructorInfo(Public) = null    Activator -> "No parameterless constructor defined for …"
+```
+
+生成物里两个测试类的无参构造器体都是
+`Debug.fail("The JsonSerializer should not be callin non-public ctors, by default.");`
+—— 它们**故意**在被反射调用时炸掉；所以失败点是"本该返回 null 却拿到了构造器"。
+
+**根因假设**：`matchesConstructorBindingFlags` 的桥接规则
+（"非公开类的非公开构造器按 C# 语义视为 public"）把
+`ClassWithPrivateParameterlessCtor` 的**显式 private** 构造器也判成可用。
+该规则本意覆盖的是"C# 私有嵌套类的**隐式**构造器在 C# 里是 public，而 Java 的隐式默认构造器是
+包私有" —— 隐式与显式在 Java 里可以用 `Modifier.isPrivate` 区分。
+
+**尝试**：桥接规则里加
+
+```java
+if (Modifier.isPrivate(ctorMods)) {
+    return false;
+}
+```
+
+**实测 `470 → 618`：修 1 / 坏 149**（`CustomConverterTests` 的 `readAheadFrom*`、`custom*`、
+`converter*` 等几乎全部回归）。
+
+**结论（勿重试）**：这条桥是**承重**的。转换器会生成一批"工厂化"类，
+其无参构造器是**私有**的（Round 20 记录过 `tsc TS2673` 场景：
+`EmitNew` 改发 `Type.Create$N(...)`，类本身只剩私有无参构造器），
+反射必须能拿到它们。**回滚后重新生成 + 全量测量 = `470 → 470`** ✓。
+
+**若仍要修那条断言**：需要"只对用户类型收紧"的新标记（与 `@CompatInternalCtor` 同族的思路），
+**不是**改桥接规则本身。

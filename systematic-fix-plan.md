@@ -1531,6 +1531,35 @@ nestedClass[1..3]}`、`CyclicTests#deepTypeCycleWithRoundTrip`、`ArrayTests#rea
 **判据**：凡"期望 null / 期望空"的失败，先看 **C# 侧那个位置的默认值是什么**，
 再对着生成物问"Java 的默认值是不是同一个"。
 
+
+### 8.2.40 Round 80：否证 —— `matchesConstructorBindingFlags` 的"私有构造器桥"**不能收紧**（470 → 618，已回滚）
+
+**动机**：`ObjectTests#readObjectFail_ReferenceTypeMissingPublicParameterlessConstructor`
+（期望 `NotSupportedException`）失败在
+`Activator.createInstance:26 ← ReflectionMemberAccessor.lambda$createConstructor$0:51`。
+探针 `DefProbe20` 逐个查了该测试的 5 个类型：
+
+| 类型 | `getConstructorInfo(Public)` | `Activator.createInstance` |
+|---|---|---|
+| `ClassWithInternalParameterlessCtor` | **null** ✓ | 调用被 `@CompatInternalCtor` 标记的构造器 → `Debug.fail` 抛出 |
+| `ClassWithPrivateParameterlessCtor` | **非 null** ✗ | 同上（私有构造器被 `setAccessible` 后执行） |
+| `CollectionWithoutPublicParameterlessCtor` | null ✓ | — |
+| `ConcreteDerivedClassWithNoPublicDefaultCtor` | null ✓ | `No parameterless constructor defined` |
+
+失败的是**第 2 个断言**：Java 侧显式 `private X()` 被
+`matchesConstructorBindingFlags` 的"**非公开类里的非公开构造器按 C# 视为 public**"桥接规则
+判成可用（该规则本意是覆盖"C# 私有嵌套类的**隐式**构造器在 C# 里是 public，而 Java 的隐式构造器是包私有"）。
+
+**尝试**：在桥接规则里加"**显式 private 的 Java 构造器一律不算 public**"（隐式默认构造器是包私有，
+可据此区分）。**实测 `470 → 618`：修 1 / 坏 149** —— `CustomConverterTests` 几乎全灭。
+
+**结论（重要，勿重试）**：这条桥接规则是**承重**的 —— 转换器生成的一批"工厂化"类
+（Round 20 记录过：`tsc TS2673` 场景下只剩**私有无参构造器**）正是靠它被反射找到。
+任何"收紧私有构造器可见性"的改动都会把它们全部打掉。**回滚后重新生成 + 全量测量 = `470 → 470`** ✓。
+
+**下一步若要修那条断言**，方向必须是"**只对用户类型收紧、对转换器工厂类保持宽松**"，
+即需要一个新的标记（类似 `@CompatInternalCtor`）来区分两者 —— 而不是改桥接规则本身。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
