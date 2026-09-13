@@ -644,6 +644,44 @@ class StringHelperTest {
         assertEquals("100%", StringHelper.formatCs(java.util.Locale.ROOT, "{0}%", 100));
     }
 
+    // ---- formatCs with fixed-point (F) specifier and Double args ----
+    // Reproduces: java.util.IllegalFormatConversionException: f != java.lang.String
+    // when using {0:F5} with double arguments (from MSAGL ResultVerifierBase.postCheckResults)
+    @Test
+    void formatCs_fixedPointFormat_withDoubleArgs() {
+        // C# {0:F5} with doubles should produce fixed-point with 5 decimal places
+        String result = StringHelper.formatCs(java.util.Locale.ROOT,
+                "    X: MinAbs {0:F5}, MaxAbs {1:F5}, AvgAbs {2:F5};  Min% {3:F5}, Max% {4:F5} Avg% {5:F5}",
+                0.1, 0.2, 0.15, 0.01, 0.02, 0.015);
+        assertEquals("    X: MinAbs 0.10000, MaxAbs 0.20000, AvgAbs 0.15000;  Min% 0.01000, Max% 0.02000 Avg% 0.01500",
+                result);
+    }
+
+    @Test
+    void formatCs_fixedPointFormat_singleDouble() {
+        assertEquals("3.14159", StringHelper.formatCs(java.util.Locale.ROOT, "{0:F5}", 3.14159265));
+    }
+
+    @Test
+    void formatCs_fixedPointFormat_doubleNoDecimal() {
+        assertEquals("5.00", StringHelper.formatCs(java.util.Locale.ROOT, "{0:F2}", 5.0));
+    }
+
+    @Test
+    void formatCs_scientificFormat_withDoubleArgs() {
+        // {0:E} should also work with doubles
+        String result = StringHelper.formatCs(java.util.Locale.ROOT, "{0:E}", 12345.678);
+        assertNotNull(result);
+        assertTrue(result.contains("E"), () -> "Expected scientific notation but got: " + result);
+    }
+
+    @Test
+    void formatCs_mixedFormatSpecifiers() {
+        // Mix of %s (no specifier) and %f (F specifier) with double args
+        String result = StringHelper.formatCs(java.util.Locale.ROOT, "Value={0}, Formatted={1:F2}", 30.0, 3.14);
+        assertEquals("Value=30, Formatted=3.14", result);
+    }
+
     // ---- newString (C# String(char, int) constructor) ----
 
     @Test

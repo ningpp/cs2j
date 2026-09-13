@@ -1105,23 +1105,137 @@ public class StringHelper {
         if (args == null || args.length == 0) {
             return String.format(l, javaFormat);
         }
+        // Determine which format specifier (conversion char) is used for each
+        // argument index.  Only when the conversion is 's' (string) do we need to
+        // pre-convert Boolean/Double/Float to their C#-compatible string forms so
+        // that, e.g., string.Format("{0}", 30.0) renders "30" not "30.0".
+        //
+        // When the conversion is 'f', 'e', 'E', 'g', 'd', 'x' etc. the Java
+        // Formatter expects a numeric type (Double/Float/Integer/Long…), and
+        // pre-converting to String causes IllegalFormatConversionException
+        // (e.g. "f != java.lang.String").  This was observed in MSAGL's
+        // ResultVerifierBase.postCheckResults which uses {0:F5} with doubles.
+        java.util.Set<Integer> stringConversionIndices = collectStringConversionIndices(javaFormat, args.length);
+
         Object[] converted = args.clone();
         for (int i = 0; i < converted.length; i++) {
+            // 1-based for Java positional args; 0-based for the array index
+            int positionalIndex = i + 1;
+            boolean useStringConversion = stringConversionIndices.contains(positionalIndex)
+                    || stringConversionIndices.contains(-1); // -1 means unindexed (sequential) %s
             if (converted[i] instanceof Boolean b) {
-                converted[i] = b ? "True" : "False";
+                if (useStringConversion) {
+                    converted[i] = b ? "True" : "False";
+                }
             } else if (converted[i] instanceof Double d) {
-                // C#'s string.Format("{0}", 30.0) renders the value with .NET's invariant
-                // Double.ToString, which trims the trailing ".0" (30.0 -> "30"). Java's %s calls
-                // Double.toString, which always keeps it, so a round-trip through
-                // string.Format turned every integer in a JSON document into "30.0". Measured on
-                // Utf8JsonReaderTests.testJsonReaderUtf8: expected "age, 30," and got "age, 30.0,".
-                converted[i] = DoubleHelper.toString(d);
+                if (useStringConversion) {
+                    // C#'s string.Format("{0}", 30.0) renders the value with .NET's invariant
+                    // Double.ToString, which trims the trailing ".0" (30.0 -> "30"). Java's %s calls
+                    // Double.toString, which always keeps it, so a round-trip through
+                    // string.Format turned every integer in a JSON document into "30.0". Measured on
+                    // Utf8JsonReaderTests.testJsonReaderUtf8: expected "age, 30," and got "age, 30.0,".
+                    converted[i] = DoubleHelper.toString(d);
+                }
             } else if (converted[i] instanceof Float f) {
-                // Same reasoning; Float.toString(1f) is "1.0" where .NET writes "1".
-                converted[i] = FloatHelper.toString(f);
+                if (useStringConversion) {
+                    // Same reasoning; Float.toString(1f) is "1.0" where .NET writes "1".
+                    converted[i] = FloatHelper.toString(f);
+                }
             }
         }
         return String.format(l, javaFormat, converted);
+    }
+
+    /**
+     * Parses the Java format string and collects the set of 1-based positional
+     * indices (or -1 for unindexed/sequential specifiers) that use the 's'
+     * (string) conversion character.
+     *
+     * <p>Examples:
+     * <ul>
+     *   <li>"%1$s" → {1}</li>
+     *   <li>"%1$f" → {} (not string)</li>
+     *   <li>"%s" → {-1} (sequential)</li>
+     *   <li>"%1$s %2$f %1$s" → {1} (index 1 uses 's')</li>
+     *   <li>"%s %f" → {-1} (first sequential is 's')</li>
+     * </ul>
+     *
+     * <p>If a positional index uses both 's' and a non-'s' conversion (which is
+     * unusual and would likely fail in Java's Formatter anyway), we include it
+     * in the result set (treating it as 's').
+     *
+     * @param javaFormat the format string with Java-style %-specifiers
+     * @param argCount   the number of arguments
+     * @return a set of 1-based indices (and/or -1) that use the 's' conversion
+     */
+    private static java.util.Set<Integer> collectStringConversionIndices(String javaFormat, int argCount) {
+        java.util.Set<Integer> result = new java.util.HashSet<>();
+        // Regex to match Java format specifiers like %[argument_index$][flags][width][.precision][conversion]
+        // We need to capture the optional argument index and the conversion character.
+        // Pattern: % ( [digits] $ )? [flags] [width] [.precision]? [tT]? [conversion]
+        java.util.regex.Pattern p = java.util.regex.Pattern.compile(
+                "%(\\d+\\$)?([-#+ 0,(]*\\d*)(\\.\\d+)?[tT]?([a-zA-Z])");
+        java.util.regex.Matcher m = p.matcher(javaFormat);
+        // Track sequential (unindexed) position for %s / %d etc. without explicit index
+        int seqIndex = 0;
+        while (m.find()) {
+            String indexPart = m.group(1); // e.g. "1$" or null
+            char conversion = m.group(4).charAt(0);
+            int positionalIndex;
+            if (indexPart != null) {
+                // Explicit index like "1$"
+                positionalIndex = Integer.parseInt(indexPart.substring(0, indexPart.length() - 1));
+            } else {
+                // Sequential (no explicit index).  Java assigns 1, 2, 3... in order
+                // of appearance, but only for specifiers that don't have an explicit index.
+                // We use -1 as a sentinel meaning "sequential 's' applies to all args
+                // that haven't been explicitly matched" — in practice, sequential specifiers
+                // consume args in order, so we track the index.
+                seqIndex++;
+                positionalIndex = seqIndex;
+            }
+            if (conversion == 's' || conversion == 'S') {
+                result.add(positionalIndex);
+            }
+        }
+        // Also handle the case where there are NO format specifiers at all but there
+        // are args — String.format with no specifiers ignores args, so no conversion needed.
+        return result;
+    }
+
+    /**
+     * Extracts the precision portion from a C# format specifier.
+     *
+     * <p>C# specifiers like "F5", "f2", "E10" include an optional precision
+     * digit after the format character. This method extracts that digit and
+     * returns the Java equivalent (e.g. ".5" for "F5"). If no precision is
+     * given, returns the default for the format type:
+     * <ul>
+     *   <li>"F"/"f" → ".2" (C# default for fixed-point is 2 decimal places)</li>
+     *   <li>"E"/"e" → "" (Java default for scientific is 6, same as C#)</li>
+     * </ul>
+     *
+     * @param spec          the lowercased specifier (e.g. "f5", "e2", "f")
+     * @param formatChar    the format character (e.g. "f", "e")
+     * @return the Java precision string (e.g. ".5", ".2", or "")
+     */
+    private static String extractPrecision(String spec, String formatChar) {
+        // Extract digits after the format character
+        String digits = spec.substring(formatChar.length());
+        if (!digits.isEmpty()) {
+            try {
+                int precision = Integer.parseInt(digits);
+                return "." + precision;
+            } catch (NumberFormatException e) {
+                // Not a valid number, fall through to default
+            }
+        }
+        // C# "F" without precision defaults to 2 decimal places
+        if (formatChar.equals("f")) {
+            return ".2";
+        }
+        // For "e", Java default precision is 6 which matches C# default
+        return "";
     }
 
     public static String formatCs(String format, Object... args) {
@@ -1163,12 +1277,15 @@ public class StringHelper {
                     // Decimal format: {0:d} -> %1$d
                     javaFormat = "%" + index + "$d";
                 } else if (spec.startsWith("f")) {
-                    // Fixed-point format: {0:f} -> %1$f
-                    javaFormat = "%" + index + "$f";
+                    // Fixed-point format: {0:F5} -> %1$.5f, {0:F} -> %1$.2f
+                    // C# F without precision defaults to 2 decimal places.
+                    String precision = extractPrecision(spec, "f");
+                    javaFormat = "%" + index + "$" + precision + "f";
                 } else if (spec.startsWith("e")) {
-                    // Scientific format: {0:e} -> %1$e, {0:E} -> %1$E
+                    // Scientific format: {0:E2} -> %1$.2E, {0:e} -> %1$e
                     boolean upper = specifier.trim().startsWith("E");
-                    javaFormat = "%" + index + "$" + (upper ? "E" : "e");
+                    String precision = extractPrecision(spec, "e");
+                    javaFormat = "%" + index + "$" + precision + (upper ? "E" : "e");
                 } else {
                     // Unknown specifier, fall back to string format
                     javaFormat = "%" + index + "$s";
