@@ -270,8 +270,8 @@ assertEquals("06/15/2024 10:30:45 +08:00", dto.toString());
     void toString_o_utcOffset() {
         CSharpDateTimeOffset dto = new CSharpDateTimeOffset(2024, 6, 15, 10, 30, 45, CSharpTimeSpan.ZERO);
         String result = dto.toString("o");
-        // Java's XXX pattern outputs "Z" for zero offset, not "+00:00"
-        assertTrue(result.endsWith("Z"), "got: " + result);
+        // C#'s "O" for DateTimeOffset always writes a signed offset: "+00:00" for UTC
+        assertTrue(result.endsWith("+00:00"), "got: " + result);
     }
 
     @Test

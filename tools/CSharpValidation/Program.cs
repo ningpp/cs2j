@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 
 class Program
 {
@@ -80,6 +81,14 @@ class Program
         Console.WriteLine("=== DateTimeOffset ===");
         var dto1 = new DateTimeOffset(2024, 6, 15, 10, 30, 45, TimeSpan.FromHours(8));
         Console.WriteLine($"new DateTimeOffset(2024,6,15,10,30,45,+08:00).ToString() = {dto1}");
+
+        var zeroOffsetRoundTrip = new DateTimeOffset(2024, 6, 15, 10, 30, 45, TimeSpan.Zero)
+            .ToString("o", CultureInfo.InvariantCulture);
+        Console.WriteLine($"DateTimeOffset zero offset ToString(\"o\", InvariantCulture) = {zeroOffsetRoundTrip}");
+        if (zeroOffsetRoundTrip != "2024-06-15T10:30:45.0000000+00:00")
+        {
+            throw new InvalidOperationException($"Expected zero offset round-trip format to end in +00:00, got: {zeroOffsetRoundTrip}");
+        }
         Console.WriteLine($"dto1.DateTime = {dto1.DateTime}");
         Console.WriteLine($"dto1.LocalDateTime = {dto1.LocalDateTime}");
         Console.WriteLine($"dto1.UtcDateTime = {dto1.UtcDateTime}");
