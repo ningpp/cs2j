@@ -1089,6 +1089,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchTransitiveInterfaceWalk(result);
                 }
+                else if (result.FileName.EndsWith("Utf8JsonWriter.java", StringComparison.Ordinal))
+                {
+                    PatchCommentInvalidUtf16Truncation(result);
+                }
                 else if (result.FileName.EndsWith("IDictionaryConverter.java", StringComparison.Ordinal))
                 {
                     PatchDictionaryCreateCollection(result);
@@ -2037,6 +2041,47 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
         @"(?<indent>[ \t]*)if \(_converters\.containsKey\(typeToConvert\)\) \{\r?\n"
         + @"[ \t]*converter = _converters\.get\(typeToConvert\);",
         System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// .NET's comment writer stops at the first unpaired surrogate: <c>WriteCommentValue</c> skips
+    /// validation ("invalid text allowed"), but <c>JsonWriterHelper.ToUtf8</c> encodes only the valid
+    /// prefix and the rest of the comment is silently dropped - the SDK's own test builds its expected
+    /// string from the short literal for exactly that reason
+    /// (<c>Utf8JsonWriterTests.WriteCommentsInvalidTextAllowed</c>). The translated <c>ToUtf8</c>
+    /// replaces the bad unit with U+FFFD and keeps going, so the actual output kept
+    /// " this part no longer visible" and the four rows failed. Truncating the value on entry to the
+    /// two comment writers reproduces the .NET result without touching the state machine.
+    /// </summary>
+    private static void PatchCommentInvalidUtf16Truncation(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        bool patched = false;
+        foreach (var signature in CommentWriterSignatures)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(
+                result.GeneratedCode,
+                System.Text.RegularExpressions.Regex.Escape(signature) + @"\) \{\r?\n");
+            if (!match.Success)
+                continue;
+
+            var replacement = match.Value
+                + "        value = io.github.ningpp.compat.MemoryMarshal.truncateAtInvalidUtf16(value);\n";
+            result.GeneratedCode = result.GeneratedCode.Remove(match.Index, match.Length)
+                .Insert(match.Index, replacement);
+            patched = true;
+        }
+
+        if (patched)
+            EnsureTypeHelperImport(result);
+    }
+
+    private static readonly string[] CommentWriterSignatures =
+    {
+        "private void writeCommentMinimized(ReadOnlySpan<Character> value",
+        "private void writeCommentIndented(ReadOnlySpan<Character> value"
+    };
 
     /// <summary>
     /// .NET's <c>Type.GetInterfaces()</c> returns the transitive interface closure; Java's
