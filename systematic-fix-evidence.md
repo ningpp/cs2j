@@ -3919,8 +3919,35 @@ case '"':
 **实测**：`432 → 428`，修 **4** / 坏 0；`Tests run: 7902, Failures: 193, Errors: 235, Skipped: 18`，
 `mvn-build-r162.log`。纯 compat 改动，无需重新生成。
 
-**踩坑**：Java 源文件**注释**里的 `\uXXXX` 字样再次导致编译失败（本轮中途一次），
-注释中不要出现反斜杠-u 序列 —— 用文字描述（第二次踩，务必记住）。
+### 4.100 Round 89：帧用的类信息被 `DefProbe26` 钉死（未改码，为下一轮铺路）
+
+§4.94 结论第 3 条要求"先打印帧内的 `state.Current.JsonClassInfo`"。等价的、无需改生成物的做法是问
+`JsonPropertyInfo.getRuntimeClassInfo()` —— 帧在 `IEnumerableDefaultConverter.onTryRead` 里
+就是经 `state.Current.getJsonClassInfo()` → 这个属性拿到类信息的。
+
+**探针 `probe/w42/DefProbe26.java` 输出**（当前 428 基线的树）：
+
+```
+shared CSharpList in _classes: elementType=class java.lang.String  ownConverterElement=class java.lang.String  identity=1635546341
+member MyInt16TwoDimensionList
+   own converter element      = class io.github.ningpp.compat.CSharpList        ← 成员自己的转换器是对的（§4.93 已证）
+   getRuntimeClassInfo()      = CSharpList identity=1635546341 sameAsShared=true ← 帧拿到的是共享那份（同一对象）
+   its elementType            = class java.lang.String
+   its own converter element  = class java.lang.String
+   elementClassInfo           = String ownConverterElement=null                  ← 于是元素转换器是 StringConverter
+```
+
+**推论**：帧确实吃的是被首次实例化冻结的那份类信息，所以 §4.94 的"换键"设计**理论上应当有效**；
+两个变体都没修好目标簇 ⇒ 真正的问题是**闭键条目没被创建或没被命中**（而不是"换键无用"）。
+
+**可验证假设（下一轮直接做）**：读时 `TypeHelper.memberArguments(<JsonPropertyInfo 的 memberInfo>)`
+很可能是 **null** —— 该 map 由 compat `PropertyInfo/FieldInfo` 构造器里的
+`registerMemberType(type, this)` 填充，而生成物 `JsonPropertyInfo` 持有的 `MemberInfo`
+可能是 SDK 反射路径造的**另一个对象**；此时 `beginMemberScope` 返回 null、
+`cacheKeyOrRaw` 退回原始键、创建出的条目落到别的键上，共享条目被原样返回。
+**核对手段**：`java -Dcs2j.trace.typeargs=true` 会打印
+`cachedClassInfoForMember(...) HIT/CREATED`、`cachePut(...)`、`converterCacheKey(...)` 三类行，
+先确认这几行在目标用例上是否出现（不出现即假设成立）。
 
 ### 4.97 Round 87：注释在未配对代理项处应当**截断**（436 → 432，修 4 / 坏 0）
 

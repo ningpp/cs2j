@@ -1917,6 +1917,34 @@ sb.append(escapeHtml ? "\\u0022" : "\\\"");
 **纪律**：同一"期望侧生成器"的两个助手可能因为 `StringEscapeHandling` 不同而**要求不同的转义形式**；
 先用 `Utf8JsonWriterTests.cs:151-177` 那种"同一输入、两个编码器"的原文断言把两侧行为钉死，再改代码。
 
+### 8.2.51 Round 89：探针 `DefProbe26` 把"**帧用哪份类信息**"钉死（未改码）
+
+§8.2.45 结尾要求"先打印**读栈帧**用的那份类信息"。`probe/w42/DefProbe26.java` 直接问
+`JsonPropertyInfo.getRuntimeClassInfo()`（这正是帧在 `onTryRead` 里访问的那条链）：
+
+```
+shared CSharpList in _classes: elementType=class java.lang.String  ownConverterElement=class java.lang.String  identity=1635546341
+member MyInt16TwoDimensionList
+   own converter element      = class io.github.ningpp.compat.CSharpList      ← 成员转换器正确
+   getRuntimeClassInfo()      = CSharpList identity=1635546341 sameAsShared=true  ← 帧拿到的是**共享那份**
+   its elementType            = class java.lang.String
+   its own converter element  = class java.lang.String
+   elementClassInfo           = String ownConverterElement=null
+```
+
+**结论**：帧用的就是 `_classes` 里被首次实例化冻结的那一份（同一对象），
+元素类型 String ⇒ `getElementClassInfo()` 直接给出 String 类信息 ⇒ `StringConverter` ⇒ 那 70 条。
+所以"换缓存键"（§8.2.45 两个变体）**本应**有效，却一条未修 ⇒ 说明**闭键条目根本没被创建/命中**。
+
+**下一轮的第一个动作（可验证的假设）**：在**读时**检查
+`TypeHelper.memberArguments(<该 JsonPropertyInfo 的 memberInfo>)` 是否非空 ——
+`cachedClassInfoForMember` 的创建分支依赖 `MEMBER_DECLARED_TYPES`（由 compat `PropertyInfo/FieldInfo`
+构造器里的 `registerMemberType(type, this)` 填充），而生成物的 `JsonPropertyInfo` 持有的
+`MemberInfo` **可能是另一个对象**（SDK 反射路径产生的），于是 `beginMemberScope` 直接返回 null、
+创建退化为原始键、并把共享条目原样返回 —— 这与"变体 1 修 1 / 坏 122、变体 2 修 1 / 坏 173、目标簇不动"完全吻合。
+**验证手段**：`java -Dcs2j.trace.typeargs=true` 已经会打印
+`cachedClassInfoForMember(...) HIT/CREATED` 与 `cachePut(...)`，先看这两行有没有出现。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
