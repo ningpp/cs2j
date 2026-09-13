@@ -3344,3 +3344,38 @@ AssertExtensions.Throws<InvalidOperationException>(() => prop.NameEquals(text), 
 
 **异常文本通道第四例**（前三：§4.34 `ThrowHelper` 泛型名、§8.2.16 `csFormat` 数字格式、
 §4.71 参数异常 paramName）。
+
+### 4.87 Round 77：`default(Utf8JsonReader)` 的空缓冲区（490 → 488，修 2 / 坏 0）
+
+**入口**：`Assert.throws` 的 `expected=JsonException actual=NullPointerException` 分组里两条
+`readDefaultReader` / `parseDefaultReader`，栈为
+`Utf8JsonReader.hasMoreData:974 ← readSingleSegment:843 ← read:402`。
+
+**根因**：生成的默认构造器
+
+```java
+public Utf8JsonReader() {
+    /* zero-initialized */
+}
+```
+Java 的 `_buffer`（`ReadOnlySpan<Integer>`）因此为 **null**；C# 的 `default(Utf8JsonReader)`
+有一个空的 `ReadOnlySpan`。`hasMoreData()` 第一行 `_buffer.getLength()` → NPE。
+
+**修法**：pass `PatchDefaultReaderBuffer` 在默认构造器里初始化
+`_buffer = new ReadOnlySpan<Integer>();`（其余字段无需处理：`_isNotPrimitive` 的 Java 默认 false
+与 C# 一致，正是它让 `HasMoreData()` 跳过会碰 `_readerOptions` 的分支）。
+
+**踩坑**：第一版 replacement 漏了收尾的 `}`（正则把整个构造器吞掉了），生成物直接语法错误；
+补上后正常（**这正是"pass 替换整块时必须把闭合符号写回"的老坑**）。
+
+**测量**：`490 → 488`，**修 2 / 坏 0**：`ReadValueTests#readDefaultReader`、`JsonDocumentTests#parseDefaultReader`。
+
+**(附) 回滚的一条实测中性改动**：在 `JsonSerializerOptions.getConverter` 入口把 primitive
+规格化成 wrapper（`TypeHelper.toWrapperType`）。动机是 DefProbe3 的实测
+（`getConverter(int.class)` = `ObjectDefaultConverter`，而 `Integer.class` = `Int32Converter`，
+即转换器表按 wrapper 建键）。**实测 `488 → 488`，0 修 0 坏，且逐条消息零变化** ——
+`nullReadTestChar` 的 NPE 不在查找路径上（`char.class` 拿到 CharConverter 后，
+是"值类型转换器 + null token"这一已关闭的问题），故回滚。
+
+**"C# 默认值 ≠ Java 默认值"母题第 5 例**：`default(T)`（§4.64）、`default(JsonElement)`（§4.68）、
+访问器可见性（§4.85）、`ref` 回滚（§4.81）、默认 struct（本条）。

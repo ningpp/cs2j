@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 252, Errors: 238, Skipped: 18` = **490**（起点 855，**−365**）。
-- 本会话累计 **37 条 KEEP**（31 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 250, Errors: 238, Skipped: 18` = **488**（起点 855，**−367**）。
+- 本会话累计 **38 条 KEEP**（32 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -359,6 +359,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `8070db44` | 目标类型化 `new() { … }` 也应用对象初始化器 | 499 → 499（**实测中性**，作为潜在缺陷保留） |
 | `d930d7ff` | `[JsonInclude]` 时能看见**非公开 setter** | 499 → 493（修 6） |
 | `8c2c15ff` | 保留 C# `new InvalidOperationException()` 的**默认消息** | 493 → 490（修 3） |
+| `0f3e9c1` 默认 reader 的空缓冲区 | 490 → 488（修 2） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1442,6 +1443,41 @@ C# 的 `new InvalidOperationException()` 带默认消息
 
 **这是"异常文本"通道的第四例**（前三例：`ThrowHelper` 泛型名 §4.34、`csFormat` 数字格式 §8.2.16、
 参数异常的 paramName §4.71）。**凡断言消息文本的失败，先查 compat/映射里那个异常类型的默认消息。**
+
+
+### 8.2.38 Round 77 已修：`default(Utf8JsonReader)` 的缓冲区是 **null** 而不是空 span（490 → 488，修 2 / 坏 0）
+
+**形状**：`Assert.throwsAny` 期望 JsonException，实得 NPE，栈顶是
+`Utf8JsonReader.hasMoreData:974 ← readSingleSegment:843 ← read:402`（2 条：
+`ReadValueTests#readDefaultReader`、`JsonDocumentTests#parseDefaultReader`）。
+
+**根因**：生成的默认构造器是 `public Utf8JsonReader() { /* zero-initialized */ }` ——
+Java 的引用字段因此是 **null**，而 C# 的 `default(Utf8JsonReader)` 有一个**空的** `ReadOnlySpan`。
+`hasMoreData()` 第一行就 `_buffer.getLength()` → NPE。
+
+**修法**（pass `PatchDefaultReaderBuffer`）：
+
+```java
+public Utf8JsonReader() {
+    /* zero-initialized, but C#'s default struct has an EMPTY span, not a null one ... */
+    _buffer = new ReadOnlySpan<Integer>();
+}
+```
+
+**只需要 buffer**：`_isNotPrimitive` 的 Java 默认值已经是 `false`，与 C# 一致 ——
+正是它让 C# 的 `HasMoreData()` 跳过会碰 `_readerOptions` 的那个分支。
+
+**实测**：`490 → 488`，**修 2 / 坏 0**。
+
+**同族的第 5 条"C# 默认值 ≠ Java 默认值"**：
+`default(T)`（§8.2.17）、`default(JsonElement)`（§8.2.21）、访问器可见性（§8.2.29）、
+`ref` 回滚（§8.2.33）、**本条的默认 struct**。
+
+**(附) 本轮实测并回滚的一条**：`JsonSerializerOptions.getConverter` 的入口把
+primitive 规格化成 wrapper（`getConverter(char.class)` 现在答 `ObjectDefaultConverter`，
+因为转换器表按 wrapper 建键）。**实测 `488 → 488`，0 修 0 坏，逐条消息零变化** ——
+说明 `nullReadTestChar` 的 NPE 不在查找路径上，而在"值类型转换器收到 null token"
+（即 §8.2.23/§8.2.27 已关闭的 `T` vs `T?` 歧义），故回滚，保持改动面最小。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
