@@ -2100,6 +2100,24 @@ v4 **只**在 `getRuntimeClassInfo()` 这一处、**只**用现有的 `converter
 手工 `beginMemberScope` 等价物（`registerMemberType(declared, member)`）→ 再调 `getOrAddClass`，
 看返回的实例是否 `elementType=CSharpList`（`DefProbe29` 已给出**肯定**结果：identity 922151033 ≠ shared ✓）。
 
+### 8.2.56 Round 96：**v4 已实现并否证**（428 → 431，修 0 / 坏 3，已回滚）—— 帧的类信息**不是**来自 `getRuntimeClassInfo()`
+
+按 §8.2.55 的最小补丁落地（**compat-only，无需重新生成**）：`cachedClassInfoForMember` 在闭键 miss 后，
+对"同原始类嵌套"（`List<List<…>>`）**创建**类信息 —— 先 `beginMemberScope(raw, args)` 只发布**本成员**的层，
+再反射调 `getOrAddClass`，再 `endMemberScope`；不动转换器缓存键、不引入 `cacheKeyOrRaw`。
+先导探针 `DefProbe29` 已证明"发布本成员层后 `getOrAddClass` 会给出新实例、`elementType=CSharpList`"✓。
+
+**实测 `428 → 431`：修 0 / 坏 3**（`ArrayTests#classWithMixedSettersIsParsed[1][2]`、
+`CustomConverterTests#customDerivedTypeConverter`），**那 70 条一条也没修好**。已 `git checkout` 回滚并重装 compat。
+
+**这一结果本身就是关键证据**：即使 `getRuntimeClassInfo()` 现在能返回**正确**的类信息，
+目标簇仍然不动 ⇒ §4.100 的推断（"帧经 `getRuntimeClassInfo()` 拿类信息"）**不成立**。
+`DefProbe26` 观察到的 `sameAsShared=true` 只是"该属性被调用时的返回值"，并不代表**读路径**用的是它。
+
+**下一轮的正确动作**（探针级，别再猜）：给 **`ReadStackFrame`/`ObjectDefaultConverter.readPropertyValue`**
+加只读诊断，打印**帧在进入 `IEnumerableDefaultConverter.onTryRead` 前的 `JsonClassInfo` 身份**，
+以及它是从哪里被赋值的（`JsonClassInfo` 的 push 点）。**在那之前不要再改类信息缓存。**
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
