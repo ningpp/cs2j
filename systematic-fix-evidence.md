@@ -3206,3 +3206,41 @@ var root = (TRoot) io.github.ningpp.compat.Activator.createInstance(tRootClass);
 
 修法在**转换器**：支持 `new T { Prop = value }`（构造后逐属性赋值）。
 与 round 63 的 `[JsonIgnore(Condition = …)]` 同一根因（C# 对象初始化器），属通用缺口。
+
+### 4.83 Round 75：类型参数创建分支丢掉对象初始化器（503 → 499，修 4 / 坏 0）
+
+承接 §4.82(2)。对象初始化器**本来就有支持**
+（`ObjectCreationTransformer.TransformObjectCreationWithInitializer`，第 335 行附近），
+但**类型参数的两个分支在它之前提前返回**（第 294-316 行）：
+
+```csharp
+if ((node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0)
+    && createdTypeSymbol is ITypeParameterSymbol typeParameter)
+{
+    if (HasCollectionConstraint(typeParameter)) { ...; return $"({{typeName}}) new CSharpList<{{javaElementType}}>()"; }
+    if (typeParameter.HasConstructorConstraint) { ...; return $"({{typeName}}) io.github.ningpp.compat.Activator.createInstance({{p}})"; }
+}
+```
+C# 原文 `var root = new TRoot() { Overflow = new TDictionary() };` 因此只剩构造。
+
+**修法**：两个分支各自判断 `node.Initializer` 是否为 `ObjectInitializerExpression`，是则走新增的
+`ApplyInitializer(declaredType, creation, initializer, context)`：
+`context.GenerateSyntheticName("__cs2jInit")` 造合成局部 → `AddPreStatement` 构造 → 每个赋值一条
+`{tmp}.set{Prop}({value});`（`IPropertySymbol` 有 setter；字段则直接赋值）→ 返回该局部名。
+形状与 `ControlFlowTransformer` 的 `with` 表达式完全一致（那里也是 tmp + setter 的 pre-statement）。
+
+**生成物实测**：
+
+```java
+TRoot __cs2jInit1 = (TRoot) io.github.ningpp.compat.Activator.createInstance(tRootClass);
+__cs2jInit1.setOverflow(io.github.ningpp.compat.Activator.createInstance((Class<TDictionary>) tDictionaryClass));
+var root = __cs2jInit1;
+```
+
+**测量**：`503 → 499`，**修 4 / 坏 0**：
+`ExtensionDataTests#extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter(Class, Class)[1..4]`。
+
+**同一函数里其余五个特例提前返回**（`FileStream`、`ReflectionEmitMemberAccessor`、`UTF8Encoding`、
+`Decimal`、`Guid`）对应的 BCL 类型在 C# 里不配对象初始化器，未处理。
+
+**母题第二例**（第一例：§4.65 的 `[JsonIgnore(Condition = …)]` 对象初始化器）。

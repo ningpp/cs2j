@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 264, Errors: 239, Skipped: 18` = **503**（起点 855，**−352**）。
-- 本会话累计 **33 条 KEEP**（28 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 260, Errors: 239, Skipped: 18` = **499**（起点 855，**−356**）。
+- 本会话累计 **34 条 KEEP**（29 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -355,6 +355,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `6a30e0ca` | `KeyValuePair` 的实参只取一次 | 518 → 518（**实测中性**，作为潜在缺陷保留） |
 | `0d424a94` | 多维数组 rank 标记在**缓存命中**路径上也要消费 | 518 → 513（修 5） |
 | `7f1ac92a` | `Deserialize(ref reader)` 抛异常时**就地**回滚 reader | 513 → 503（修 10） |
+| `160a641b` | 类型参数创建分支也应用**对象初始化器** | 503 → 499（修 4） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1335,6 +1336,46 @@ var root = (TRoot) io.github.ningpp.compat.Activator.createInstance(tRootClass);
 **要修的是转换器**：支持 `new T { Prop = value }` 的对象初始化器（构造后逐个属性赋值）。
 这是**通用缺口**（不是本簇特有），与 round 63 的 `[JsonIgnore(Condition = …)]`
 （同样是对象初始化器被丢）同源。
+
+
+### 8.2.35 Round 75 已修：类型参数创建分支丢掉对象初始化器（503 → 499，修 4 / 坏 0）
+
+§8.2.34(2) 定位的缺口，本轮修掉。**对象初始化器的支持本来就存在**
+（`ObjectCreationTransformer.TransformObjectCreationWithInitializer`，含只读 struct 的构造器形式），
+问题出在**它之前的提前返回**：
+
+```csharp
+// new T() where T : new()  /  T : ICollection<...>
+if ((node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0)
+    && createdTypeSymbol is ITypeParameterSymbol typeParameter)
+{
+    if (HasCollectionConstraint(typeParameter)) { return $"({{typeName}}) new CSharpList<...>()"; }   // ← 提前返回
+    if (typeParameter.HasConstructorConstraint) { return $"({{typeName}}) Activator.createInstance(...)"; }  // ← 提前返回
+}
+// 下面才是对象初始化器分支（第 335 行）
+```
+于是 `new TRoot() { Overflow = new TDictionary() }` 只剩构造，`Overflow` 保持 null；
+`ExtensionDataTests#extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter[1..4]`
+期望自定义转换器写出的 `{"MyCustomOverflowWrite":"OverflowValueWrite"}`，实得 `{}`。
+
+**修法**：两个分支在返回前判断 `node.Initializer` 是否为对象初始化器，是则走新的
+`ApplyInitializer(...)` —— 生成一个合成局部变量 + 每个赋值一条 setter 调用
+（与 `ControlFlowTransformer` 的 `with` 表达式同一形状）：
+
+```java
+TRoot __cs2jInit1 = (TRoot) io.github.ningpp.compat.Activator.createInstance(tRootClass);
+__cs2jInit1.setOverflow(io.github.ningpp.compat.Activator.createInstance((Class<TDictionary>) tDictionaryClass));
+var root = __cs2jInit1;
+```
+
+**实测**：`503 → 499`，**修 4 / 坏 0**。
+
+**检查过的其他提前返回**：该函数里还有 `FileStream` / `ReflectionEmitMemberAccessor` /
+`UTF8Encoding` / `Decimal` / `Guid` 五个特例提前返回，它们对应的 BCL 类型在 C# 里不会配对象初始化器，
+本轮未一并处理（如需再补，形状与本次相同）。
+
+**这是"对象初始化器"母题的第二例**（第一例：round 63 的 `[JsonIgnore(Condition = …)]`）。
+**凡"期望的赋值为空/默认"的失败，先查 C# 侧的 `new X { … }` 有没有被转换器丢掉。**
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
