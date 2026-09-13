@@ -3759,6 +3759,65 @@ Round 83 结束时把 §4.93 的"未试过的窄形状"排成下一轮。本轮*
    实例化正确的条目，目标簇却一步没动 —— 说明真正交给 `IEnumerableDefaultConverter.onTryRead`
    的那份类信息，**未必**来自 §4.93 探针看到的那条链（探针只证明了 `_classes` 里那一份是 String 味，
    没有证明**帧里**用的是它）。
-3. **下一步的正确顺序**：先写 `DefProbe25` 打印**帧内**的 `state.Current.JsonClassInfo`
+3. **下一步的正确顺序**：先写 `DefProbe26` 打印**帧内**的 `state.Current.JsonClassInfo`
    （身份、是否 `_classes` 中的那一份、`elementType`、`PropertyInfoForClassInfo.converter`），
    把"谁把 String 味类信息交给 `onTryRead`"钉死；在此之前不要再动任何缓存键。
+
+### 4.95 Round 85：Newtonsoft 替身写 `byte[]` 多插一个分隔符（460 → 444，修 16 / 坏 0）
+
+**症状**（16 条 = `Utf8JsonWriterTests#writeBase64String(boolean, boolean, String)` 整个 theory），
+站点 `JsonTestHelper.assertContentsAgainstJsonNet:722`：
+
+```
+Expected: {"message":,"AQIDBAUG","message":,"AQIDBAUG","array":[,"AQI=","AQI="]}
+Actual:   {"message":"AQIDBAUG","message":"AQIDBAUG","array":["AQI=","AQI="]}
+```
+
+**关键判断**：断言路径 `Assert.equal(normalizeToJsonNetFormat(expected), normalizeToJsonNetFormat(actual))`
+两侧都归一化，而**期望**侧（第一个实参）语法是坏的 ⇒ 故障在"期望串生成器"，
+即 `getBase64ExpectedString`（生成物 5511-5531 行）用 compat 的 `JsonTextWriter` 写的：
+`writeStartObject` → `writePropertyName` → **`writeValue(byte[])`** → `writeStartArray` → …
+
+**根因**：`JsonTextWriter.writeValue(Object)`
+
+```java
+writeBeforeValue();                       // 第 185 行：写分隔符/缩进 —— 第一次
+if (value instanceof Boolean b) { … }
+if (value instanceof Number n) { … }
+if (value instanceof byte[] bytes) {
+    writeValue(java.util.Base64.getEncoder().encodeToString(bytes));   // ← 递归进 writeValue(String)
+    return;                                                            //    后者开头又调 writeBeforeValue()
+}
+```
+
+`writeValue(String)` 开头同样调用 `writeBeforeValue()` ⇒ **分隔符写了两次**，
+于是 `"message":` 后面先冒出一个逗号，值才出现。
+
+**探针 `DefProbe25`**（直接驱动 compat 的 writer，不经过测试框架）：
+
+```
+修复前 OUT  = {"message":,"AQIDBAUG","message":,"AQIDBAUG","array":[,"AQI="]}   ← 复现
+对照   CTRL = {"n":5}                                                          ← Number 分支（不递归）正常
+修复后 OUT  = {"message":"AQIDBAUG","message":"AQIDBAUG","array":["AQI="]}     ← 正确
+```
+
+**修法**（`JsonTextWriter.writeValue(Object)` 的 `byte[]` 分支就地写值）：
+
+```java
+if (value instanceof byte[] bytes) {
+    writer.print('"');
+    writer.print(escapeJsonString(java.util.Base64.getEncoder().encodeToString(bytes)));
+    writer.print('"');
+    return;
+}
+```
+
+与 §4.91（Round 82 给 `Decimal` 加的分支）同一形状：**在 `writeBeforeValue()` 之后直接写值，绝不递归**。
+
+**实测**：`460 → 444`，修 **16** / 坏 0；
+`Tests run: 7902, Failures: 209, Errors: 235, Skipped: 18`（聚合行恰好 1 次）。
+纯 compat 改动（无需重新生成），`mvn-build-r156.log`。
+
+**纪律**：`writeValue(Object)` 中"委托给另一个 `writeValue` 重载"的分支都会二次调用
+`writeBeforeValue()`。凡是"**Expected 侧** JSON 语法明显不对"的失败，先查 compat 的 Newtonsoft 替身
+（`JsonTextWriter`/`JsonConvert`），不要查被测的 `Utf8JsonWriter`。

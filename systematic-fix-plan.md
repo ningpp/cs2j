@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 225, Errors: 235, Skipped: 18` = **460**（起点 855，**−395**）。
-- 本会话累计 **42 条 KEEP**（36 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 209, Errors: 235, Skipped: 18` = **444**（起点 855，**−411**）。
+- 本会话累计 **43 条 KEEP**（37 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -364,6 +364,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `2ece1c64` | `Type.GetProperty(name, flags)` 的**标志实参**送进 compat | 470 → 467（修 3） |
 | `c2ce9417` | Newtonsoft 替身把 `Decimal` 按裸数字写（不是加引号的字符串） | 467 → 463（修 4） |
 | `9c5b4d82` | 属性桥不再把**非公开成员**当成属性（含非公开 `Get*()` 方法） | 463 → 460（修 3） |
+| `1eea495a` | Newtonsoft 替身写 `byte[]` 时**多了一次分隔符**（`writeValue(String)` 二次调用 `writeBeforeValue`） | 460 → 444（修 16） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1762,6 +1763,41 @@ MEMBER MyInt16TwoDimensionList  runtimePropertyType=CSharpList
 （`state.Current.JsonClassInfo` 的身份 + 它是不是 `_classes` 里的那一份 + 它的 `elementType`），
 把"谁把 String 味的类信息交给 `onTryRead`"钉死，再决定动哪里；
 **不要**在没有这一步之前再动缓存键。
+
+### 8.2.46 Round 85 已修：Newtonsoft 替身写 `byte[]` 时多插一个分隔符（460 → 444，修 16 / 坏 0）
+
+**入口**：`Utf8JsonWriterTests#writeBase64String(boolean, boolean, String)[1..16]`（整个 theory 16 行），
+站点 `JsonTestHelper.assertContentsAgainstJsonNet:722`，形状是"**期望**侧 JSON 语法坏掉、实际侧正常"：
+
+```
+Expected: {"message":,"AQIDBAUG","message":,"AQIDBAUG","array":[,"AQI=","AQI="]}
+Actual:   {"message":"AQIDBAUG","message":"AQIDBAUG","array":["AQI=","AQI="]}
+```
+
+**定位**：断言两侧都过 `normalizeToJsonNetFormat`，且**期望**串由 `getBase64ExpectedString` 用
+compat 的 `JsonTextWriter` 生成（`json.writePropertyName(...)` + `json.writeValue(byte[])`）。
+`writeValue(Object)` 的分支顺序是：先在第 185 行调用一次 `writeBeforeValue()`，
+随后 `byte[]` 分支**又递归调用 `writeValue(String)`**，而后者开头**再调用一次**
+`writeBeforeValue()` ⇒ 值前面多出一个逗号。
+
+**探针 `DefProbe25`** 直接复现（不经过测试框架）：
+
+```
+修复前 OUT={"message":,"AQIDBAUG","message":,"AQIDBAUG","array":[,"AQI="]}
+对照 CTRL={"n":5}                     ← 走 Number 分支（不递归）时正常
+修复后 OUT={"message":"AQIDBAUG","message":"AQIDBAUG","array":["AQI="]}
+```
+
+**修法**：`byte[]` 分支不再递归，改为**就地**写带引号的 Base64
+（`writer.print('"') + escapeJsonString(Base64.encode) + writer.print('"')`）——
+与 Round 82 给 `Decimal` 加的分支同一形状（都是"在 `writeBeforeValue()` 之后直接写值"）。
+
+**实测**：`460 → 444`，修 **16** / 坏 0；`Tests run: 7902, Failures: 209, Errors: 235, Skipped: 18`。
+纯 compat 改动，无需重新生成。
+
+**纪律提示**：`writeValue(Object)` 里任何"委托给另一个 `writeValue` 重载"的分支都会二次调用
+`writeBeforeValue()`；新增分支必须就地写值。本簇是"**期望侧**生成器坏了"而不是被测 writer 坏了 ——
+凡是"Expected 侧语法明显不对"的失败，先查 compat 的 Newtonsoft 替身，不要查 `Utf8JsonWriter`。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

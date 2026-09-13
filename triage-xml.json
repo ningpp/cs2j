@@ -1,17 +1,17 @@
 {
- "total": 460,
+ "total": 444,
  "byBucket": [
   [
    "JsonConvert CSharpList",
    70
   ],
   [
-   "Assert.equal",
-   33
-  ],
-  [
    "Assert.throws",
    32
+  ],
+  [
+   "Assert.equal",
+   21
   ],
   [
    "ClassCast Integer -> String",
@@ -223,14 +223,6 @@
   ],
   [
    "Expect {\"a𐀀𐹭𝄞􏿿a\":\"a𐀀𐹭𝄞􏿿a\"} -> {\"a\\ud800\\udc00\\ud803\\ude6d\\ud834\\udd1e\\udbff\\udff",
-   2
-  ],
-  [
-   "Expect {\"message\":,\"AQIDBAUG\",\"message\":,\"AQIDBAUG\",\"arra -> {\"message\":\"AQIDBAUG\",\"message\":\"AQIDBAUG\",\"array\"",
-   2
-  ],
-  [
-   "Expect {\"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e -> {\"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e",
    2
   ],
   [
@@ -566,7 +558,7 @@
    1
   ],
   [
-   "Expect \"[io.github.ningpp.compat.CSharpDictionary@6bd9253 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1",
+   "Expect \"[io.github.ningpp.compat.CSharpDictionary@2424cb9 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1",
    1
   ],
   [
@@ -590,7 +582,7 @@
    1
   ],
   [
-   "Expect \"io.github.ningpp.compat.CSharpDictionary@41e8d917 -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma",
+   "Expect \"io.github.ningpp.compat.CSharpDictionary@4c6bba7d -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma",
    1
   ],
   [
@@ -626,7 +618,7 @@
    1
   ],
   [
-   "Expect \"io.github.ningpp.compat.CSharpDictionary@a826ff8\" -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",",
+   "Expect \"io.github.ningpp.compat.CSharpDictionary@579846cc -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",",
    1
   ],
   [
@@ -724,10 +716,6 @@
    40
   ],
   [
-   "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   37
-  ],
-  [
    "dotnet.text.json.Serialization.Tests.ArrayTests",
    32
   ],
@@ -738,6 +726,10 @@
   [
    "dotnet.text.json.Serialization.Tests.ExtensionDataTests",
    24
+  ],
+  [
+   "dotnet.text.json.Tests.Utf8JsonWriterTests",
+   21
   ],
   [
    "dotnet.text.json.Serialization.Tests.DictionaryTests",
@@ -839,7 +831,7 @@
  "byKind": [
   [
    "java.lang.AssertionError",
-   224
+   208
   ],
   [
    "dotnet.text.json.JsonException",
@@ -3581,7 +3573,7 @@
    "method": "nonNullableConverter_ReturnedByJsonConverterFactory_CanBeUsedAsFallback_ForNullableProperty",
    "outcome": "ERROR",
    "kind": "java.lang.IllegalStateException",
-   "msg": "Each parameter in constructor 'io.github.ningpp.compat.ConstructorInfo@6c479fdf' on type 'class io.vavr.Tuple2' must bind to an object property or field on deserialization. Each parameter name must match with a property or field on the object. The match can be case-insensitive.",
+   "msg": "Each parameter in constructor 'io.github.ningpp.compat.ConstructorInfo@16aed49f' on type 'class io.vavr.Tuple2' must bind to an object property or field on deserialization. Each parameter name must match with a property or field on the object. The match can be case-insensitive.",
    "frames": [
     "dotnet.text.json.ThrowHelper.throwInvalidOperationException_ConstructorParameterIncompleteBinding:636",
     "dotnet.text.json.Serialization.Converters.ObjectWithParameterizedConstructorConverter.beginRead:333",
@@ -7037,12 +7029,12 @@
    "method": "arrayDictionaryLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@6bd92538]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1\"}}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@2424cb9d]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1\"}}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayDictionaryLoop:473"
    ],
-   "bucket": "Expect \"[io.github.ningpp.compat.CSharpDictionary@6bd9253 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1"
+   "bucket": "Expect \"[io.github.ningpp.compat.CSharpDictionary@2424cb9 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
@@ -7641,7 +7633,7 @@
    "method": "objectArrayLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@2ae3235e\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@4cd7d5e1\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectArrayLoop:120"
@@ -7677,7 +7669,7 @@
    "method": "objectPreserveDuplicateArrays",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@37a67cf\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$id\":\"3\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"4\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"5\",\"Bob\":\"555-5555\"}}]},\"Subordinates2\":{\"$ref\":\"2\"},\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"6\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"7\",\"Bob\"",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@472c9f88\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$id\":\"3\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"4\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"5\",\"Bob\":\"555-5555\"}}]},\"Subordinates2\":{\"$ref\":\"2\"},\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"6\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"7\",\"Bob",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectPreserveDuplicateArrays:176"
@@ -7771,19 +7763,19 @@
    "method": "dictionaryObjectLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@41e8d917\"\nActual: {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":{\"$ref\":\"1\"},\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@4c6bba7d\"\nActual: {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":{\"$ref\":\"1\"},\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryObjectLoop:297"
    ],
-   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@41e8d917 -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma"
+   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@4c6bba7d -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
    "method": "arrayObjectLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@3db1ce78]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$ref\":\"1\"},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@3a16984c]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$ref\":\"1\"},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayObjectLoop:449"
@@ -7795,7 +7787,7 @@
    "method": "dictionaryPreserveDuplicateArrays",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@57c6feea\"\nActual: {\"$id\":\"1\",\"Array1\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Array2\":{\"$ref\":\"2\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@64b73e0a\"\nActual: {\"$id\":\"1\",\"Array1\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Array2\":{\"$ref\":\"2\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryPreserveDuplicateArrays:318"
@@ -7807,7 +7799,7 @@
    "method": "objectPreserveDuplicateObjects",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@39c7fb0b\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$id\":\"2\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Manager2\":{\"$ref\":\"2\"},\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"5\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"6\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@3b57f915\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$id\":\"2\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Manager2\":{\"$ref\":\"2\"},\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"5\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"6\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectPreserveDuplicateObjects:146"
@@ -7831,7 +7823,7 @@
    "method": "dictionaryPreserveDuplicateDictionaries",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@4efb13f1\"\nActual: {\"$id\":\"1\",\"Self1\":{\"$ref\":\"1\"},\"Self2\":{\"$ref\":\"1\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@60a01cb\"\nActual: {\"$id\":\"1\",\"Self1\":{\"$ref\":\"1\"},\"Self2\":{\"$ref\":\"1\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryPreserveDuplicateDictionaries:283"
@@ -7979,19 +7971,19 @@
    "method": "dictionaryPreserveDuplicateObjects",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@a826ff8\"\nActual: {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Employee2\":{\"$ref\":\"2\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@579846cc\"\nActual: {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Employee2\":{\"$ref\":\"2\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryPreserveDuplicateObjects:333"
    ],
-   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@a826ff8\" -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\","
+   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@579846cc -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\","
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
    "method": "objectLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@3212d853\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$ref\":\"1\"},\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"2\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"3\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@16e195cf\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$ref\":\"1\"},\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"2\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"3\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectLoop:109"
@@ -8003,7 +7995,7 @@
    "method": "arrayPreserveDuplicateDictionaries",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@38c10190, io.github.ningpp.compat.CSharpDictionary@38c10190]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\"},{\"$ref\":\"2\"}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@e795a1d, io.github.ningpp.compat.CSharpDictionary@e795a1d]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\"},{\"$ref\":\"2\"}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayPreserveDuplicateDictionaries:483"
@@ -8039,7 +8031,7 @@
    "method": "arrayPreserveDuplicateObjects",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@acb5508, dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@acb5508]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},{\"$ref\":\"2\"}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@6d7b2319, dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@6d7b2319]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},{\"$ref\":\"2\"}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayPreserveDuplicateObjects:461"
@@ -8077,7 +8069,7 @@
    "method": "dictionaryLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@273dec10\"\nActual: {\"$id\":\"1\",\"Self\":{\"$ref\":\"1\"},\"Other\":{\"$id\":\"2\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@7f8c48f3\"\nActual: {\"$id\":\"1\",\"Self\":{\"$ref\":\"1\"},\"Other\":{\"$id\":\"2\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryLoop:272"
@@ -8113,7 +8105,7 @@
    "method": "dictionaryArrayLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@7c3c453b\"\nActual: {\"$id\":\"1\",\"ArrayWithSelf\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@1d944fc0\"\nActual: {\"$id\":\"1\",\"ArrayWithSelf\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryArrayLoop:307"
@@ -9980,230 +9972,6 @@
     "dotnet.text.json.Tests.Utf8JsonWriterTests.highSurrogateMissingGetsReplaced:3590"
    ],
    "bucket": "Expect {\"a𐀀𐹭𝄞􏿿a\":\"a𐀀𐹭𝄞􏿿a\"} -> {\"a\\ud800\\udc00\\ud803\\ude6d\\ud834\\udd1e\\udbff\\udff"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[1]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\n  \"message\": ,\n  \"AQIDBAUG\",\n  \"message\": ,\n  \"AQIDBAUG\",\n  \"array\": [\n    ,\n    \"AQI=\",\n    ,\n    \"AwQ=\"\n  ]\n}\nActual: {\n  \"message\": \"AQIDBAUG\",\n  \"message\": \"AQIDBAUG\",\n  \"array\": [\n    \"AQI=\",\n    \"AwQ=\"\n  ]\n}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[2]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\n  \"message\": ,\n  \"AQIDBAUG\",\n  \"message\": ,\n  \"AQIDBAUG\",\n  \"array\": [\n    ,\n    \"AQI=\",\n    ,\n    \"AwQ=\"\n  ]\n}\nActual: {\n  \"message\": \"AQIDBAUG\",\n  \"message\": \"AQIDBAUG\",\n  \"array\": [\n    \"AQI=\",\n    \"AwQ=\"\n  ]\n}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[3]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"message\":,\"AQIDBAUG\",\"message\":,\"AQIDBAUG\",\"array\":[,\"AQI=\",,\"AwQ=\"]}\nActual: {\"message\":\"AQIDBAUG\",\"message\":\"AQIDBAUG\",\"array\":[\"AQI=\",\"AwQ=\"]}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Expect {\"message\":,\"AQIDBAUG\",\"message\":,\"AQIDBAUG\",\"arra -> {\"message\":\"AQIDBAUG\",\"message\":\"AQIDBAUG\",\"array\""
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[4]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"message\":,\"AQIDBAUG\",\"message\":,\"AQIDBAUG\",\"array\":[,\"AQI=\",,\"AwQ=\"]}\nActual: {\"message\":\"AQIDBAUG\",\"message\":\"AQIDBAUG\",\"array\":[\"AQI=\",\"AwQ=\"]}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Expect {\"message\":,\"AQIDBAUG\",\"message\":,\"AQIDBAUG\",\"arra -> {\"message\":\"AQIDBAUG\",\"message\":\"AQIDBAUG\",\"array\""
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[5]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\n  \"escape mess\\u003e\\u003cage\": ,\n  \"AQIDBAUG\",\n  \"escape mess\\u003e\\u003cage\": ,\n  \"AQIDBAUG\",\n  \"array\": [\n    ,\n    \"AQI=\",\n    ,\n    \"AwQ=\"\n  ]\n}\nActual: {\n  \"escape mess\\u003e\\u003cage\": \"AQIDBAUG\",\n  \"escape mess\\u003e\\u003cage\": \"AQIDBAUG\",\n  \"array\": [\n    \"AQI=\",\n    \"AwQ=\"\n  ]\n}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[6]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\n  \"escape mess\\u003e\\u003cage\": ,\n  \"AQIDBAUG\",\n  \"escape mess\\u003e\\u003cage\": ,\n  \"AQIDBAUG\",\n  \"array\": [\n    ,\n    \"AQI=\",\n    ,\n    \"AwQ=\"\n  ]\n}\nActual: {\n  \"escape mess\\u003e\\u003cage\": \"AQIDBAUG\",\n  \"escape mess\\u003e\\u003cage\": \"AQIDBAUG\",\n  \"array\": [\n    \"AQI=\",\n    \"AwQ=\"\n  ]\n}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[7]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"escape mess\\u003e\\u003cage\":,\"AQIDBAUG\",\"escape mess\\u003e\\u003cage\":,\"AQIDBAUG\",\"array\":[,\"AQI=\",,\"AwQ=\"]}\nActual: {\"escape mess\\u003e\\u003cage\":\"AQIDBAUG\",\"escape mess\\u003e\\u003cage\":\"AQIDBAUG\",\"array\":[\"AQI=\",\"AwQ=\"]}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[8]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"escape mess\\u003e\\u003cage\":,\"AQIDBAUG\",\"escape mess\\u003e\\u003cage\":,\"AQIDBAUG\",\"array\":[,\"AQI=\",,\"AwQ=\"]}\nActual: {\"escape mess\\u003e\\u003cage\":\"AQIDBAUG\",\"escape mess\\u003e\\u003cage\":\"AQIDBAUG\",\"array\":[\"AQI=\",\"AwQ=\"]}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[9]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\n  \"\\u003cwrite base64 string when escape length bigger than given string\": ,\n  \"AQIDBAUG\",\n  \"\\u003cwrite base64 string when escape length bigger than given string\": ,\n  \"AQIDBAUG\",\n  \"array\": [\n    ,\n    \"AQI=\",\n    ,\n    \"AwQ=\"\n  ]\n}\nActual: {\n  \"\\u003cwrite base64 string when escape length bigger than given string\": \"AQIDBAUG\",\n  \"\\u003cwrite base64 string when escape length bigger than given string\": \"AQIDBAUG\",\n  \"array\": [\n    \"AQI=\",\n    \"AwQ=\"\n  ]\n}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[10]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\n  \"\\u003cwrite base64 string when escape length bigger than given string\": ,\n  \"AQIDBAUG\",\n  \"\\u003cwrite base64 string when escape length bigger than given string\": ,\n  \"AQIDBAUG\",\n  \"array\": [\n    ,\n    \"AQI=\",\n    ,\n    \"AwQ=\"\n  ]\n}\nActual: {\n  \"\\u003cwrite base64 string when escape length bigger than given string\": \"AQIDBAUG\",\n  \"\\u003cwrite base64 string when escape length bigger than given string\": \"AQIDBAUG\",\n  \"array\": [\n    \"AQI=\",\n    \"AwQ=\"\n  ]\n}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[11]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"\\u003cwrite base64 string when escape length bigger than given string\":,\"AQIDBAUG\",\"\\u003cwrite base64 string when escape length bigger than given string\":,\"AQIDBAUG\",\"array\":[,\"AQI=\",,\"AwQ=\"]}\nActual: {\"\\u003cwrite base64 string when escape length bigger than given string\":\"AQIDBAUG\",\"\\u003cwrite base64 string when escape length bigger than given string\":\"AQIDBAUG\",\"array\":[\"AQI=\",\"AwQ=\"]}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[12]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"\\u003cwrite base64 string when escape length bigger than given string\":,\"AQIDBAUG\",\"\\u003cwrite base64 string when escape length bigger than given string\":,\"AQIDBAUG\",\"array\":[,\"AQI=\",,\"AwQ=\"]}\nActual: {\"\\u003cwrite base64 string when escape length bigger than given string\":\"AQIDBAUG\",\"\\u003cwrite base64 string when escape length bigger than given string\":\"AQIDBAUG\",\"array\":[\"AQI=\",\"AwQ=\"]}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[13]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\n  \"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\": ,\n  \"AQIDBAUG\",\n  \"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u0",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[14]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\n  \"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\": ,\n  \"AQIDBAUG\",\n  \"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u0",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Assert.equal"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[15]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\":,\"AQIDBAUG\",\"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Expect {\"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e -> {\"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e"
-  },
-  {
-   "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
-   "method": "writeBase64String(boolean, boolean, String)[16]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\":,\"AQIDBAUG\",\"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.JsonTestHelper.assertContentsAgainstJsonNet:722",
-    "dotnet.text.json.JsonTestHelper.assertContents:711",
-    "dotnet.text.json.Tests.Utf8JsonWriterTests.writeBase64String:2894"
-   ],
-   "bucket": "Expect {\"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e -> {\"\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e\\u003e"
   },
   {
    "cls": "dotnet.text.json.Tests.Utf8JsonWriterTests",
