@@ -1147,6 +1147,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchDefaultValueIsNullDecision(result);
                 }
+                else if (result.FileName.EndsWith("JsonElement.java", StringComparison.Ordinal))
+                {
+                    PatchJsonElementCloneOfDefaultInstance(result);
+                }
 
                 // Universal, and LAST: no matter which file this is, a leftover probe must not
                 // survive into the tree. Applied outside the dispatch chain because probes have been
@@ -1564,6 +1568,48 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
     private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullPoliciesRegex = new(
         @"getPolicies\(ignoreCondition, parentTypeNumberHandling, "
         + @"getConverter\(\)\.getCanBeNull\(\)\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Lets <c>JsonElement.clone()</c> copy a DEFAULT instance instead of throwing.
+    /// <para>
+    /// C# {@code JsonElement} is a struct, so assigning {@code default} to a member is a plain
+    /// bit-copy. The converter emulates that copy with <c>.clone()</c>, but {@code JsonElement}
+    /// declares its own {@code Clone()} — which calls {@code CheckValidInstance()} and throws for a
+    /// default instance. So the struct-copy call inherited the API's validation and a null JSON
+    /// value for a {@code JsonElement} member blew up inside the generated setter. Measured:
+    /// <c>IllegalStateException</c> (no message) at <c>JsonElement.clone</c> ←
+    /// <c>…$JsonElementClass.setNull</c> ← <c>MethodInfo.invoke</c> ←
+    /// <c>JsonPropertyInfo1.readJsonAndSetMember</c>.
+    /// </para>
+    /// <para>
+    /// Only the default case is relaxed, and only inside {@code clone()}: every other member still
+    /// runs {@code CheckValidInstance()}, so the real API keeps rejecting an invalid instance.
+    /// </para>
+    /// </summary>
+    private static void PatchJsonElementCloneOfDefaultInstance(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        if (!JsonElementCloneRegex.IsMatch(result.GeneratedCode))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchJsonElementCloneOfDefaultInstance did not match JsonElement.java "
+                + "- cloning a default JsonElement still throws from the struct-copy call sites.");
+            return;
+        }
+        result.GeneratedCode = JsonElementCloneRegex.Replace(result.GeneratedCode,
+            "public JsonElement clone() {\n"
+            + "        if (_parent == null) {\n"
+            + "        // default(JsonElement): C# copies the value, it does not validate it.\n"
+            + "        return this;\n"
+            + "        }\n"
+            + "        checkValidInstance();",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex JsonElementCloneRegex = new(
+        @"public JsonElement clone\(\) \{\r?\n[ \t]*checkValidInstance\(\);",
         System.Text.RegularExpressions.RegexOptions.None);
 
     private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullGuardRegex = new(
