@@ -2285,3 +2285,44 @@ grep `getIgnoreDefaultValuesOnWrite` 只看到声明与赋值，据此推断"写
 守卫存在、`getPolicies` 被调用、最小复现里 `b=null` 仍被写出。
 应当**直接打印该成员在写出那一刻的 `ignoreDefaultValuesOnWrite` 值**，
 而不是继续从代码形状推断。
+### 4.63 Round 61：`IgnoreNullValues` 未生效——按**声明类型**判断 `default(T)` 是否为 null（580 → 569）
+
+提交 `387edb77`（compat）+ 持久化补丁。**这是先探针后动手的又一次直接收益**：
+按 Round 60 定下的处方打印了守卫的输入，一次就定位：
+
+```
+[cs2j.w] member=B ignoreDefOnWrite=true defaultT=false value=null handleNullOnWrite=false
+```
+
+**`IgnoreDefaultValuesOnWrite` 其实是 true**——Round 60 的"守卫没生效"猜测也不对。
+真正的断点是：守卫走了**值类型分支**，因为 `_cs2jDefault_T()` 对装箱的 `Boolean` 返回
+**`false` 而不是 null**，于是 `false.equals(null)` 为 false，null 成员照样被写出。
+
+**C# 的判据是 `Converter.CanBeNull`**（`JsonPropertyInfoOfT` 把它作为 `defaultValueIsNull` 传入），
+而生成代码是从**Java 的默认值**反推的——而 Java 默认值**无法区分"装箱的值类型"与"可空类型"**。
+
+**修法**：
+- `TypeHelper.defaultValueIsNullForWrite`：按**声明的类型**判断（primitive Class 常量 = C# 值类型），
+  等价于 `Converter.CanBeNull`；
+- `TypeHelper.shouldIgnoreForDefaultWrite`：承载整个判断，装箱数值按数值比较；
+- `DefaultValue.getDefaultByClass`：对**包装类**返回 null（转换模型里包装类代表
+  C# 的可空/引用类型），primitive Class 常量保持零值。
+
+**验证**：运行完整（汇总行恰好 1 次）；**569**；逐用例集合差 = **修 13 / 坏 2**；
+并把 Round 59 披露的那条回归**修好了**（`valueType_Properties_NotIgnoredWhen_IgnoreNullValues_Active_ClassTest` 通过），
+另收获 4 条 nullable、2 条 `DictionaryTests` 的 IgnoreNullValues、`ValueTests.readPrimitives`。**净 +11。**
+
+**已披露的 2 条回归**（都是值类型默认值，净仍为 +11）：
+
+1. `PropertyVisibilityTests.ignoreCondition_WhenWritingDefault_Globally_Works`：
+   期望 `{}`，实际 `{"MyInt":0}` —— 这条路径需要 `default(int)` **仍然按 0 比较**。
+2. `CustomConverterTests.valueTypeConverterForNullWithArray`：
+   `ArrayConverter.convertCollection` → `TypeHelper.listToArray` 抛 `IllegalArgumentException`。
+
+**一条过程记录**：中途用"去掉未用 import"的中间版本测出**完全相同的 569/13/2**，
+说明这 2 条回归**不是 helper 重构造成的**，而是本次语义改动的边界。
+保留的是更清晰的那一版。
+
+**下一步**：上面第 1 条是**有明确线索**的——`WhenWritingDefault` 需要
+`default(int)` 按 0 比较，而 `IgnoreNullValues` 需要引用类型按 null 比较；
+两者共享同一个守卫，需要按**成员的 C# 类型种类**再细分一次。
