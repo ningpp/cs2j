@@ -2708,3 +2708,68 @@ ValueTypedMember.isValue() = true
 并把"生成物里 `.clone()` 的有无"记为**编译期信息，运行期不可用**（本会话第二次踩到这条：
 第一次是 §4.64 的 `int` vs `int?`，解决方式是取**声明成员**的原始类型；
 struct 没有对应的原始类型可用）。
+
+### 4.74 Round 71：写出侧 `ClassCast Integer -> String` 与读侧 64 条是同一个簇；第三条修法被否证（539 → 665，已回滚）
+
+**新事实 1（探针 `DefProbe11`）**：写侧 15 条不是独立问题。最小复现类（同一类里同时声明
+`CSharpList<CSharpList<Integer>>` 与 `CSharpList<String>`）序列化即得到与测试完全相同的栈：
+
+```
+ClassCastException: class java.lang.Integer cannot be cast to class java.lang.String
+  at StringConverter.write(StringConverter.java:33)
+  at ListOfTConverter.onWriteResume(ListOfTConverter.java:62)
+  at ListOfTConverter.onWriteResume(ListOfTConverter.java:35)
+  at IEnumerableDefaultConverter.onTryWrite(IEnumerableDefaultConverter.java:216)
+  at JsonConverter1.tryWrite(JsonConverter1.java:436)
+```
+同一个探针里，`CSharpList<Object>`（`{"MyObjectList":[7,"x"]}`）**写得完全正确** ——
+说明只有"元素类型被擦除"的嵌套泛型才中招。
+
+**新事实 2（探针 `DefProbe12`）**：那个 2-D 成员的两条候选元素信息**都是错的**：
+
+```
+prop=MyInt16TwoDimensionList
+   converter=ListOfTConverter element=class io.github.ningpp.compat.CSharpList
+   viaConverter = ListOfTConverter/typeToConvert=CSharpList/element=class java.lang.String   ← 错
+prop=MyStringList
+   converter=ListOfTConverter element=class java.lang.String
+   viaConverter = StringConverter/typeToConvert=String/element=null                          ← 对
+bare CSharpList classInfo: elementType=class java.lang.String
+   fallback(getElementClassInfo) = StringConverter/typeToConvert=String/element=null         ← 错
+```
+
+要点：`IEnumerableDefaultConverter.onTryWrite` 第 214 行那条
+`TypeHelper.writeElementPropertyInfo(this, options, fallback)` —— **本来就是为修这个问题加的钩子** ——
+在元素类型被擦除时也无能为力，因为它走的还是同一份被污染的裸类信息
+（`getOrAddClass(CSharpList.class)` 只有一个槽，被 `List<String>` 成员占了）。
+
+**新事实 3（第三条修法，已回滚）**：既然裸类信息的内容取决于"最后反射的是哪个成员"，
+就让它与顺序无关 —— pass 改写 `JsonSerializerOptions.getOrAddClass`：
+
+```java
+result = ConcurrentHashMapHelper.getOrAdd(_classes, type, new JsonClassInfo(type, this));
+// ->
+result = (JsonClassInfo)io.github.ningpp.compat.TypeHelper.getOrAddClassInfo(_classes, type, this);
+```
+compat 侧在创建前清空 `MEMBER_ARGUMENTS`/`CONSUMED_ARGUMENTS`（仅当该类型有类型参数、
+且不在 `beginElementArgumentsScope` 作用域内），创建后恢复；`putIfAbsent` 保留原有的竞态语义。
+
+**实测：`539 → 665`，修 3 / 坏 129**（`Tests run: 7902` 恰好 1 次）。
+回归面极宽（`ArrayTests#writeClassWithGenericList`、`CollectionTests#readImmutableListTOfImmutableListT`…）：
+`List<SimpleTestClass>` 这类成员的类信息**本来就依赖成员实参**才能拿到正确元素类型，
+清空上下文等于把它们全部打回 `Object`。
+
+**三次独立尝试汇总（同一簇，全部失败）**
+
+| 尝试 | 实测 |
+|---|---|
+| (a) 给**成员**创建闭键类信息（± 元素侧闭键查询） | round 41：+19；round 70：+37（加作用域守卫后逐条一致 → 代价全在成员侧创建） |
+| (b) 只做**元素侧**闭键查询 | 无效：帧仍是裸类信息，`elementArgumentsOfOwner` 得到空数组，作用域不启动 |
+| (c) 让擦除类的类信息**与反射顺序无关** | 本轮：+126 |
+
+**结论**：读侧 64 + 写侧 15 = **79 条（14.7%）是同一个簇**，需要的是
+"**闭类型类信息身份**"贯穿 `getRuntimeClassInfo()` / `getElementClassInfo()` / 元素属性信息解析
+三处的**结构性**改动；任何单点补丁都会与"每个擦除类一份"的既有身份混用，
+而混用的代价已被 (a)(c) 两次量化（+37、+126）。
+
+**回滚后复核**：重新生成 + 全量测量 = `539 → 539，修 0 / 坏 0`，`triage-xml.json` 亦恢复一致。

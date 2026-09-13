@@ -996,7 +996,55 @@ C# 的规则是：`Message = message + " (Parameter 'name')"`，且**没给 mess
 凡是 `Assert.Contains/equal` 断言**消息文本**的失败，先看 compat 里对应的异常/格式化类，
 不要先怀疑逻辑。
 
-### 8.2.26 Round 70：可空 struct 在运行期**无法**与不可空区分（§8.2.23 实验 A 的方向正式关闭）
+### 8.2.26 Round 71：写出侧 `ClassCast Integer -> String` 与读侧 64 条是**同一个簇**；第三条修法也被否证（539 → 665，已回滚）
+
+**新事实 1（探针 `DefProbe11`）**：写侧那 15 条不是独立问题。用最小类复现（同一类里同时有
+`CSharpList<CSharpList<Integer>>` 和 `CSharpList<String>` 两个成员）即可得到完全相同的栈：
+
+```
+ClassCastException: Integer cannot be cast to String
+  at StringConverter.write:33
+  at ListOfTConverter.onWriteResume:62   ← 元素转换器被当成 String 列表
+  at IEnumerableDefaultConverter.onTryWrite:216
+  at JsonConverter1.tryWrite:436
+```
+
+**新事实 2（探针 `DefProbe12`）**：那个 2-D 成员的两条候选元素信息**都是错的**：
+
+| 候选 | 结果 |
+|---|---|
+| 转换器路线（`writeElementPropertyInfo`，读 `converter.getElementType()` 再 `getOrAddClass`） | `ListOfTConverter/CSharpList/element=String` ❌ |
+| 回退路线（`JsonClassInfo.getElementClassInfo()`） | `StringConverter` ❌ |
+| 裸 `CSharpList` classInfo 的 `elementType` | `java.lang.String`（被 `List<String>` 成员污染） |
+
+即 `writeElementPropertyInfo` 这条**专门为修这个问题写的**钩子在"元素类型被擦除"时也无能为力
+—— 它查的还是同一份被污染的裸类信息。
+
+**新事实 3（第三条修法，已回滚）**：既然裸类信息的内容取决于"最后反射的是哪个成员"，
+那就让它**与顺序无关**：新增 pass 把
+`getOrAddClass` 里的 `ConcurrentHashMapHelper.getOrAdd(_classes, type, new JsonClassInfo(type, this))`
+换成 compat 的 `getOrAddClassInfo(...)`，在**没有成员实参上下文**时创建（擦除类的合法答案就是
+`Object`，与全新 options 的首次创建一致；元素实参作用域内不动）。
+
+**实测：`539 → 665`（修 3 / 坏 129）** —— 太宽：大量 `List<SimpleTestClass>` 这类成员的类信息
+本来**依赖**成员实参才能拿到正确元素类型，清掉上下文等于把它们全打回 `Object`。
+
+**三次独立尝试的汇总（都在这个簇上，都失败）**：
+
+| 尝试 | 实测 |
+|---|---|
+| (a) 给成员创建闭键类信息（± 元素侧闭键查询） | round 41：+19；round 70：+37（带作用域守卫后逐条一致 → 代价全在成员侧创建） |
+| (b) 只做元素侧闭键查询 | 无效：帧仍是裸类信息，`elementArgumentsOfOwner` 拿到空数组，作用域根本不启动 |
+| (c) 让擦除类的类信息与顺序无关（清空实参上下文创建） | 本轮：+126 |
+
+**结论（重要）**：读侧 64 条 + 写侧 15 条 = **79 条（14.7%）同一个簇**，
+它的修法**不是**任何局部补丁，而是**结构性的**：需要"**闭类型类信息身份**"贯穿
+`getRuntimeClassInfo()` / `getElementClassInfo()` / 元素属性信息解析三处，
+且**不能**与"每个擦除类一份"的既有身份混用（(a)(c) 的代价正是混用造成的）。
+下次要动这个簇，先写出这个身份方案（谁持有、谁查、帧怎么带）再改代码，
+**不要**再逐个入口试补丁。
+
+### 8.2.27 Round 70：可空 struct 在运行期**无法**与不可空区分（§8.2.23 实验 A 的方向正式关闭）
 
 Round 68 的实验 A（把 `getIsValueType` 改成认得 `value class`）得 5 修 / 4 坏，坏的全是
 `ValueTypedMember?` 成员。当时只凭生成物（不可空成员的 getter/setter 有 `.clone()`）**推断**
@@ -1045,7 +1093,8 @@ Round 68 的实验 A（把 `getIsValueType` 改成认得 `value class`）得 5 �
 | 方向 | 实测 | 出处 |
 |---|---|---|
 | 给**类信息**缓存补实参维度（成员侧创建闭键条目 ± 元素侧闭键查询） | 539 → 576（修 1 / 坏 38），带 `ELEMENT_SCOPE_DEPTH` 守卫后**结果逐条一致** → 代价全部来自成员侧创建 | §8.2.25（round 41 的同向测量为 +19） |
-| 让通用 `TypeHelper.getIsValueType` 认得 `value class` | 548 → 547（修 5 / 坏 4）；可空 struct 在运行期**无法**与不可空区分（探针两行完全相同） | §8.2.23 / §8.2.26 |
+| 让通用 `TypeHelper.getIsValueType` 认得 `value class` | 548 → 547（修 5 / 坏 4）；可空 struct 在运行期**无法**与不可空区分（探针两行完全相同） | §8.2.23 / §8.2.27 |
+| 让擦除类的类信息**与反射顺序无关**（清空成员实参上下文创建） | 539 → 665（修 3 / 坏 129）：`List<SimpleTestClass>` 这类成员的类信息本来就依赖成员实参 | §8.2.26 |
 | `ImmutableDictionary` 直接实现 `CSharpReadOnlyDict` | 不编译（`IImmutableDictionary.clear()` 返回自身 vs `Collection.clear()` void）；转换器的泛型上界会插入隐式 checkcast，13 条 `ClassCast` 由此而来 | §8.2.7 |
 
 ### 8.5 已建议接受的限制
