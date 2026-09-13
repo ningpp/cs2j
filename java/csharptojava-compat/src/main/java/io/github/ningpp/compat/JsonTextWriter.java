@@ -191,6 +191,14 @@ public class JsonTextWriter implements AutoCloseable {
             writer.print(n.toString());
             return;
         }
+        if (value instanceof Decimal dec) {
+            // C# decimal is a value type, so the compat Decimal wrapper does not extend
+            // java.lang.Number; without this branch it fell through to the "quote anything
+            // unknown" fallback and Newtonsoft-rendered expected JSON contained
+            // ["1234567.0", ...] where Newtonsoft itself writes a bare 1234567.0.
+            writer.print(dec.toString());
+            return;
+        }
         if (value instanceof byte[] bytes) {
             // Newtonsoft writes byte[] as a Base64 string.
             writeValue(java.util.Base64.getEncoder().encodeToString(bytes));
