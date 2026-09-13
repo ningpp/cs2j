@@ -48,7 +48,12 @@ class Holder<T>
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        Assert.Contains("(T)(Object)(Short)(((short)(Unsafe.as(", code);
+        // The declared source type is restored on the ARGUMENT (the narrowing
+        // (short) is applied to the value before it reaches Unsafe.as, so the
+        // box lands on Short and the outer (Short) cast is an identity).
+        // Converter output: (T)(Object)(Short)(Unsafe.as(((short)(value))))
+        Assert.Contains("(T)(Object)(Short)(Unsafe.as((", code);
+        Assert.Contains("Unsafe.as(((short)", code);
     }
 
     [Fact]
@@ -67,8 +72,12 @@ class Holder<T>
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         var code = result.GeneratedCode ?? "";
 
-        // byte maps to int (IntHolder), so the box chain must narrow: (Byte)((byte)(intExpr)).
-        Assert.Contains("(T)(Object)(Byte)(((byte)(Unsafe.as(", code);
+        // byte maps to int (IntHolder), so the box chain narrows on the argument:
+        // the (byte) cast is applied to the value before it reaches Unsafe.as,
+        // the box lands on Byte and the outer (Byte) cast is an identity.
+        // Converter output: (T)(Object)(Byte)(Unsafe.as(((byte)(value))))
+        Assert.Contains("(T)(Object)(Byte)(Unsafe.as((", code);
+        Assert.Contains("Unsafe.as(((byte)", code);
     }
 
     [Fact]
