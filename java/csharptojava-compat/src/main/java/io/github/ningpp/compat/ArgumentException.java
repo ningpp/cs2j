@@ -44,6 +44,18 @@ public class ArgumentException extends IllegalArgumentException {
         return paramName;
     }
 
+    /**
+     * C# composes {@code Message} as {@code message + " (Parameter 'name')"} whenever a parameter
+     * name is present, and substitutes a default message when the caller passed none. The parameter
+     * name therefore has to reach the text: the tests assert on
+     * {@code ArgumentNullException.ToString()}, and with a null message Java's {@code toString()}
+     * was nothing but the class name. Measured: {@code Assert.Contains("json", ex.ToString())}
+     * reported {@code Actual string: io.github.ningpp.compat.ArgumentNullException}.
+     */
+    protected static String paramSuffix(String paramName) {
+        return paramName == null || paramName.isEmpty() ? "" : " (Parameter '" + paramName + "')";
+    }
+
     public int getHResult() { return hresult; }
     public void setHResult(int value) { this.hresult = value; }
 }

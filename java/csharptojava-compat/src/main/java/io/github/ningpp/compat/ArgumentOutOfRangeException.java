@@ -13,7 +13,9 @@ public class ArgumentOutOfRangeException extends ArgumentException {
     }
 
     public ArgumentOutOfRangeException(String paramName) {
-        super((String) null, paramName);
+        // C#: ArgumentOutOfRangeException(string paramName) uses ArgumentOutOfRange_Generic and
+        // appends the parameter name. Measured: NumberHandlingTests expects "value" in ToString().
+        super("Specified argument was out of the range of valid values." + paramSuffix(paramName), paramName);
     }
 
     public ArgumentOutOfRangeException(String message, Throwable cause) {

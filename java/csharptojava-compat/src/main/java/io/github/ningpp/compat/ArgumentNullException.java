@@ -14,16 +14,20 @@ public class ArgumentNullException extends ArgumentException {
     }
 
     public ArgumentNullException(String paramName) {
-        super((String) null, paramName);
+        // C#: ArgumentNullException(string paramName) uses ArgumentNull_Generic and appends the
+        // parameter name, so Message reads "Value cannot be null. (Parameter 'options')".
+        super("Value cannot be null." + paramSuffix(paramName), paramName);
     }
 
     /** Mirrors C# ArgumentNullException(string paramName, string? message). */
     public ArgumentNullException(String paramName, String message) {
-        super(message, paramName);
+        super(message == null ? "Value cannot be null." + paramSuffix(paramName)
+            : message + paramSuffix(paramName), paramName);
     }
 
     /** Mirrors C# ArgumentNullException(string paramName, string? message, Exception? innerException). */
     public ArgumentNullException(String paramName, String message, Throwable cause) {
-        super(message, paramName, cause);
+        super(message == null ? "Value cannot be null." + paramSuffix(paramName)
+            : message + paramSuffix(paramName), paramName, cause);
     }
 }
