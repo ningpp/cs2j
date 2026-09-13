@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 255, Errors: 238, Skipped: 18` = **493**（起点 855，**−362**）。
-- 本会话累计 **36 条 KEEP**（30 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 252, Errors: 238, Skipped: 18` = **490**（起点 855，**−365**）。
+- 本会话累计 **37 条 KEEP**（31 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -358,6 +358,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `160a641b` | 类型参数创建分支也应用**对象初始化器** | 503 → 499（修 4） |
 | `8070db44` | 目标类型化 `new() { … }` 也应用对象初始化器 | 499 → 499（**实测中性**，作为潜在缺陷保留） |
 | `d930d7ff` | `[JsonInclude]` 时能看见**非公开 setter** | 499 → 493（修 6） |
+| `8c2c15ff` | 保留 C# `new InvalidOperationException()` 的**默认消息** | 493 → 490（修 3） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1416,6 +1417,31 @@ var root = __cs2jInit1;
 都默认"只有 public" —— 这与 C# 的 `BindingFlags` 语义和"`[JsonInclude]` 破例"都不符。
 **凡是"反序列化后成员没被赋值"的失败，先查 setter 发现路径的可见性。**
 （`getFields` 的同类问题已在 §8.2.29 修过。）
+
+
+### 8.2.37 Round 76b 已修：`new InvalidOperationException()` 的默认消息（493 → 490，修 3 / 坏 0）
+
+**形状**：`Assert.contains ... Expected substring: 'null' / Actual string: 'null'`（3 条 theory 用例）。
+**"实际字符串"本身就是 `null`** —— 说明断言的**期望值**是 null。
+
+C# 原文（`JsonPropertyTests.cs:100`）：
+```csharp
+string ErrorMessage = new InvalidOperationException().Message;   // ← C# 有默认消息
+AssertExtensions.Throws<InvalidOperationException>(() => prop.NameEquals(text), ErrorMessage);
+```
+C# 的 `new InvalidOperationException()` 带默认消息
+"Operation is not valid due to the current state of the object."，
+而 Java 的 `new IllegalStateException()` 没有 → 生成物里 `ErrorMessage == null`
+→ 抛出的异常消息与 null 比较，断言失败。
+
+**修法**：对象创建转换器对**无参**的 `System.InvalidOperationException` 特例发
+`ExceptionCompat.invalidOperation()`（compat 新增，返回带默认消息的 `IllegalStateException`）。
+**类型仍是 `IllegalStateException`**，所以 `Assert.Throws<InvalidOperationException>` 照旧匹配。
+
+**实测**：`493 → 490`，**修 3 / 坏 0**（`JsonPropertyTests#nameEquals_InvalidInstance_Throws(String)[1..3]`）。
+
+**这是"异常文本"通道的第四例**（前三例：`ThrowHelper` 泛型名 §4.34、`csFormat` 数字格式 §8.2.16、
+参数异常的 paramName §4.71）。**凡断言消息文本的失败，先查 compat/映射里那个异常类型的默认消息。**
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

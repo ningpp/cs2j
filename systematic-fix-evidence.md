@@ -3315,3 +3315,32 @@ FIXED  PropertyVisibilityTests#honorCustomConverter
 
 **判据**：compat 里所有 `Class.getMethods()` / `getFields()` 式的成员发现都默认"只有 public"，
 与 C# 的 `BindingFlags` 语义和 `[JsonInclude]` 破例都不符。`getFields` 的同类问题见 §4.77。
+
+### 4.86 Round 76b：`new InvalidOperationException()` 的默认消息（493 → 490，修 3 / 坏 0）
+
+**入口**：`Assert.contains` 桶里 3 条 `JsonPropertyTests#nameEquals_InvalidInstance_Throws(String)[1..3]`，
+消息形如 `Expected substring: 'null' / Actual string: 'null'` —— **期望值本身就是 null**。
+
+**C# 原文**（`JsonPropertyTests.cs:100`）：
+
+```csharp
+string ErrorMessage = new InvalidOperationException().Message;
+AssertExtensions.Throws<InvalidOperationException>(() => prop.NameEquals(text), ErrorMessage);
+```
+.NET 的 `new InvalidOperationException()` 的默认消息是
+"Operation is not valid due to the current state of the object."；
+生成物是 Java 内建的 `new IllegalStateException()`（无消息）→ `ErrorMessage == null`。
+
+**修法**：
+1. compat 新增 `ExceptionCompat.invalidOperation()`，返回带默认消息的 `IllegalStateException`
+   （类型不变，`Assert.Throws<InvalidOperationException>` 仍匹配）；
+2. `ObjectCreationTransformer` 对**无参**的 `System.InvalidOperationException` 特例发该工厂
+   （与既有的 `UTF8Encoding`/`Decimal`/`Guid` 特例同一形状）。
+
+生成物实测：`throw ExceptionCompat.invalidOperation();` 出现在 `JsonClassInfo`、`JsonElement`、
+`JsonConverter1` 等处（库内的无参抛出也一并带上默认消息，与 C# 一致）。
+
+**测量**：`493 → 490`，**修 3 / 坏 0**。
+
+**异常文本通道第四例**（前三：§4.34 `ThrowHelper` 泛型名、§8.2.16 `csFormat` 数字格式、
+§4.71 参数异常 paramName）。
