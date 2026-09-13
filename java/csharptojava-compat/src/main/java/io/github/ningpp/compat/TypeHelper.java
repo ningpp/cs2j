@@ -1075,6 +1075,52 @@ public final class TypeHelper {
     }
 
     /**
+     * Whether {@code default(T)} is null for the type a converter is declared over — C#'s
+     * {@code Converter.CanBeNull}, the flag {@code JsonPropertyInfoOfT} passes as
+     * {@code defaultValueIsNull}.
+     *
+     * <p>It cannot be derived from a Java default value alone. C#'s value types are boxed, so
+     * {@code int} arrives as {@code Integer}: its default must still compare as ZERO, or
+     * {@code IgnoreNullValues}/{{@code WhenWritingDefault} stop omitting defaulted value members and
+     * two tests regress. {@code bool?} also arrives as {@code Boolean} but its default must be null.
+     * The declared Java type distinguishes them: a primitive Class constant is a C# value type.</p>
+     */
+    public static boolean defaultValueIsNullForWrite(Class<?> declaredType) {
+        return declaredType == null || !declaredType.isPrimitive();
+    }
+
+    /**
+     * The whole "skip this member on write" decision, mirroring
+     * {@code if (IgnoreDefaultValuesOnWrite && (default(T) == null ? value == null :
+     * EqualityComparer<T>.Default.Equals(default, value)))}.
+     *
+     * <p>Split out of the generated code because C# value types arrive boxed, so the two branches
+     * need care: a value type must compare against ZERO (otherwise {@code WhenWritingDefault} stops
+     * omitting {@code 0} and two tests regress), while a nullable must compare against null. The
+     * comparison is done numerically so a boxed {@code Integer(0)} and a primitive {@code 0} agree.</p>
+     */
+    public static boolean shouldIgnoreForDefaultWrite(
+            boolean ignoreDefaultValuesOnWrite, boolean defaultValueIsNull, Object value, Object defaultValue) {
+        if (!ignoreDefaultValuesOnWrite) {
+            return false;
+        }
+        if (defaultValueIsNull) {
+            return value == null;
+        }
+        if (value == null) {
+            // A value type whose boxed value is null is its default by definition.
+            return true;
+        }
+        if (value instanceof Number v && defaultValue instanceof Number d) {
+            return v.doubleValue() == d.doubleValue();
+        }
+        if (value instanceof Character v && defaultValue instanceof Character d) {
+            return v.charValue() == d.charValue();
+        }
+        return java.util.Objects.equals(value, defaultValue);
+    }
+
+    /**
      * Whether a member's type is one the SDK accepts for {@code [JsonExtensionData]}.
      *
      * <p>C# accepts an {@code IDictionary<string, T>} and — since .NET 5 — a

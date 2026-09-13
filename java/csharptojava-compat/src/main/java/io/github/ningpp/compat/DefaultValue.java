@@ -49,16 +49,38 @@ public final class DefaultValue {
         return getDefaultByClass(type);
     }
 
+    /**
+     * The C# {@code default(T)} for the type a converter is declared over, as an OBJECT so the
+     * caller can tell "default is null" from "default is the zero value".
+     *
+     * <p>The wrapper cases answer NULL, not their zero value. A Java wrapper class in the converted
+     * model stands for a C# REFERENCE-OR-NULLABLE type, so {@code default(bool?)} and the boxed
+     * form are null — that is the whole point of {@code JsonPropertyInfoOfT.GetMemberAndWriteJson},
+     * whose guard is
+     * <code>default(T) == null ? value == null : EqualityComparer.Default.Equals(default, value)</code>.
+     * Answering {@code false} for {@code Boolean.class} made the guard take the value-type branch,
+     * so {@code false.equals(null)} was false and a null member was written even with
+     * IgnoreNullValues set. Measured: {@code JsonPropertyInfo1} printed
+     * {@code ignoreDefOnWrite=true defaultT=false value=null} and still emitted {@code "B":null}.</p>
+     *
+     * <p>The primitive {@code Class} constants keep their zero values: {@code boolean.class} is C#'s
+     * {@code bool}, a genuine value type whose default is {@code false}.</p>
+     */
     private static Object getDefaultByClass(Class<?> type) {
-        if (type == int.class || type == Integer.class)        return 0;
-        if (type == long.class || type == Long.class)         return 0L;
-        if (type == short.class || type == Short.class)      return (short)0;
-        if (type == byte.class || type == Byte.class)         return (byte)0;
-        if (type == float.class || type == Float.class)      return 0.0f;
-        if (type == double.class || type == Double.class)     return 0.0;
-        if (type == boolean.class || type == Boolean.class)  return false;
-        if (type == char.class || type == Character.class)   return '\0';
-        // String and Object are reference types in C# — default(string) / default(object) is null
+        if (type == int.class)        return 0;
+        if (type == long.class)       return 0L;
+        if (type == short.class)      return (short)0;
+        if (type == byte.class)       return (byte)0;
+        if (type == float.class)      return 0.0f;
+        if (type == double.class)     return 0.0;
+        if (type == boolean.class)    return false;
+        if (type == char.class)       return '\0';
+        // Every reference type: a wrapper, String, Object, or a converted class.
+        if (type == Integer.class || type == Long.class || type == Short.class
+                || type == Byte.class || type == Float.class || type == Double.class
+                || type == Boolean.class || type == Character.class) {
+            return null;
+        }
         if (type == String.class || type == Object.class)    return null;
         try {
             return type.getDeclaredConstructor().newInstance();
