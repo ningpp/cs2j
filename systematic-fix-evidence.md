@@ -3068,3 +3068,50 @@ public static class eDevice {
 对应的测试是 `int obj = (int) JsonSerializer.deserialize(json, null, int.class)` ——
 **类型映射是一致的**，不是"枚举被擦成 int"的错误；缺的是这套表示上的**字符串枚举名支持**
 （JSON 为 `["PC","Tablet"]`）。属功能缺口。
+
+### 4.80 Round 72：多维数组 rank 标记的两个泄漏源（518 → 513，修 5 / 坏 0）
+
+承接 §4.79(2)。协议：`getMultiDimArrayClass(element, rank)` 发布笔记 → `getArrayRank` 消费；
+`IEnumerableConverterFactory.createConverter` 里 `getArrayRank(...) > 1` 抛 `NotSupportedException`。
+
+**泄漏源 1（文案用调用）** —— 修法：转换器为"只被渲染"的 `typeof(T[,])` 发不注册变体。
+
+```
+生成物实测：getMultiDimArrayClassName 10 处（全部形如 `....toString()`）
+            getMultiDimArrayClass      6 处（全部作为 Class 实参传进 deserialize）
+```
+实现：`TypeOperationTransformer.TransformTypeOf` 里判 `node.Parent is MemberAccessExpressionSyntax
+{ Name.Identifier.Text: "ToString" }`（新增 `IsRenderedOnly`）；compat 新增
+`getMultiDimArrayClassName`（同样的 `Array.newInstance`，不写注册表）。
+**单独这一半实测中性：518 → 518，修 0 / 坏 0。**
+
+**泄漏源 2（缓存命中无人消费）** —— 修法：把消费点提前到"缓存命中也会进入"的入口。
+
+链路：`deserialize(json, options, [[I)` → `getOrAddClassForRootType([[I)`；
+类信息与转换器**已缓存**时，`IEnumerableConverterFactory.createConverter`（原本唯一的
+`getArrayRank` 调用者）与 `getConverter` 都不会跑 → 笔记留存。两个后果都实测到了：
+
+| 后果 | 证据 |
+|---|---|
+| 该拒绝的没拒绝 | `ArrayTests#readPrimitiveArrayFail`：`Assert.throws() failure: No exception thrown / Expected: java.lang.UnsupportedOperationException` |
+| 之后的交错数组被误判 | `ExceptionTests#caseInsensitiveFails`：`The type 'class [[I' is not supported` |
+
+修法：compat 新增 `takeMultiDimArrayRank(Class)`（消费并回答是否 > 1），
+pass 在 `JsonSerializerOptions.getOrAddClass(Class)` 的**最前面**插入该检查并抛出，
+另在 `getConverter` 入口再兜一道（`PatchMultiDimArrayRankAtClassLookup` /
+`PatchMultiDimArrayRankAtMultiDimArrayRankAtConverterEntry`）。
+**测量：`518 → 513`，修 5 / 坏 0**：
+
+```
+FIXED  ArrayTests#readPrimitiveArrayFail
+FIXED  ExceptionTests#caseInsensitiveFails
+FIXED  ExceptionTests#unsupportedTypeFromRoot
+FIXED  NullTests#invalidRootOnRead
+FIXED  NullTests#invalidRootOnWrite
+```
+**全树 `[[I` 失败清零**（`tools/check_ii.py` 复核 = 0）；原先命中该机制的两条
+（`CacheTests#propertyCacheWithMinInputsLast`、`ObjectTests#readClassWithNestedComments`）
+转到真正的失败原因（擦除簇）上，集合差如实仍算失败。
+
+**方法学补充**：这是本项目里第二个被定位的"**顺序相关失败**"根因（第一个是 §4.72/§4.74 的
+类信息缓存）。**凡"单独跑过、全量跑挂"的用例，先查有没有按 `Class` 存的全局笔记/缓存。**

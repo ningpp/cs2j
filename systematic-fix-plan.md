@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 278, Errors: 240, Skipped: 18` = **518**（起点 855，**−337**）。
-- 本会话累计 **31 条 KEEP**（26 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 274, Errors: 239, Skipped: 18` = **513**（起点 855，**−342**）。
+- 本会话累计 **32 条 KEEP**（27 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -353,6 +353,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `ac40ded2` | 字段枚举遵守 `NonPublic`；非公开属性没有公开 getter | 523 → 519（修 4） |
 | `784c5b3a` | C# 非公开字段带标记（`internal` ≠ Java `public`） | 519 → 518（修 1，闭合整条 theory） |
 | `6a30e0ca` | `KeyValuePair` 的实参只取一次 | 518 → 518（**实测中性**，作为潜在缺陷保留） |
+| `0d424a94` | 多维数组 rank 标记在**缓存命中**路径上也要消费 | 518 → 513（修 5） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1223,6 +1224,41 @@ public static class eDevice {
 测试因此是 `int obj = (int) JsonSerializer.deserialize(json, null, int.class)` —— 类型**一致**，
 不是转换器的类型映射错误；缺的是**这套 flags-int 表示上的字符串枚举名支持**
 （JSON 里是 `["PC","Tablet"]`）。属功能缺口，不是一行修法。
+
+
+### 8.2.32 Round 72 已修：多维数组 rank 标记的**两个泄漏源**（518 → 513，修 5 / 坏 0）
+
+§8.2.31 记下了这个簇（"`class [[I` is not supported"）的机制，本轮把它修掉。**两个泄漏源都要堵。**
+
+**背景协议**：`TypeHelper.getMultiDimArrayClass(elementType, rank)` 发布一条"这个数组类其实是
+C# 多维数组"的笔记，`getArrayRank` **消费**它（因为 Java 的 `Class` 是规范的，C# 的 `int[,]` 与
+`int[][]` 是同一个运行时类）。`IEnumerableConverterFactory.createConverter` 里
+`getArrayRank(...) > 1` 就抛 `NotSupportedException`。
+
+**泄漏源 1：只为文案的调用**。生成出来的测试用
+`Assert.contains(TypeHelper.getMultiDimArrayClass(int.class, 2).toString(), ex.getMessage())`
+（`ExceptionTests` 8 处、`CustomConverterTests` 2 处）只为拿类型名，笔记**永远不会被消费**。
+修法：转换器识别"父节点是 `.ToString()`"的 `typeof(T[,])`，改发**不注册**的
+`TypeHelper.getMultiDimArrayClassName(...)`（新增）。生成物实测：10 处走 name-only、6 处保留注册版。
+**单独这一半实测中性**（518 → 518）—— 但它是必要的，因为另一半修好后仍有残留。
+
+**泄漏源 2：缓存命中时没人消费**。`deserialize(..., [[I)` 这种"真"用法，
+一旦该类的类信息与转换器**已被缓存**，工厂与 `getConverter` 都不会再跑 → 笔记留下 →
+**同 JVM 里之后**任何一次真正的**交错数组** `int[][]` 成员转换（如 `SimpleTestClass.MyInt16TwoDimensionArray`）
+都会看到它并抛出。同一个原因还让"多维数组应当被拒绝"的用例**不再抛**
+（`ArrayTests#readPrimitiveArrayFail`：`No exception thrown`）。
+修法：把消费点提到**最早且缓存命中也会进入**的入口 —— `JsonSerializerOptions.getOrAddClass`，
+未命中即 `takeMultiDimArrayRank(type)`，为真就抛（并从 `getConverter` 入口再兜一道）。
+
+**实测**：`518 → 513`，**修 5 / 坏 0**：
+`ArrayTests#readPrimitiveArrayFail`、`ExceptionTests#caseInsensitiveFails`、
+`ExceptionTests#unsupportedTypeFromRoot`、`NullTests#invalidRootOnRead`、`NullTests#invalidRootOnWrite`。
+**全树 `[[I` 失败清零**（两条原先命中的用例
+`CacheTests#propertyCacheWithMinInputsLast`、`ObjectTests#readClassWithNestedComments`
+转到了它们真正的失败原因上，集合差如实仍算失败）。
+
+**方法论**：这是"**顺序相关失败**"的第二个已定位根因（第一个是 §8.2.26 的类信息缓存）。
+**凡是"单独跑过、全量跑挂"的用例，先找有没有按 `Class` 存的全局笔记**。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
