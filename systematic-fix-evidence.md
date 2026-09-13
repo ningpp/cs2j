@@ -3919,7 +3919,47 @@ case '"':
 **实测**：`432 → 428`，修 **4** / 坏 0；`Tests run: 7902, Failures: 193, Errors: 235, Skipped: 18`，
 `mvn-build-r162.log`。纯 compat 改动，无需重新生成。
 
-### 4.102 Round 91：`DefProbe28` 否证"预热即定型"（未改码）
+### 4.103 Round 95：机制破解 —— 写侧早就是闭键；读侧的陈旧成员层是全部原因
+
+**探针 `DefProbe29`**（不改 compat、不改生成物：用反射取成员的 `getter` 泛型返回类型，
+再用**public** 的 `TypeHelper.registerMemberType(type, member)` 发布本成员的层）：
+
+```
+shared: elementType=class java.lang.String  identity=1635546341
+member declared type = io.github.ningpp.compat.CSharpList<io.github.ningpp.compat.CSharpList<java.lang.Integer>>
+getOrAddClass WITH the member layer published: elementType=class io.github.ningpp.compat.CSharpList
+        identity=922151033  sameAsShared=false            ← 发布本成员层后拿到的就是**正确**的那份
+```
+
+**探针 `DefProbe29b`**（看 `_classes` 的真实键与陈旧层）：
+
+```
+shared entry: elementType=java.lang.String  identity=1635546341
+converterCacheKey(CSharpList) = io.github.ningpp.compat.CSharpList[class java.lang.String]
+_classes keys before eviction = [io.github.ningpp.compat.CSharpList[class java.lang.String], SimpleTestClass]
+_classes keys after eviction  = [同前]                      ← remove(原始类) 无效：原始键下**没有**条目
+member getRuntimeClassInfo(): elementType=java.lang.String sameAsShared=true
+```
+
+**根因（两块拼图）**：
+
+1. compat `ConcurrentHashMapHelper.getOrAdd(map, key, value)` **已经**把键路由到
+   `TypeHelper.converterCacheKey(key)`（并在键变化时 `map.remove(key)` 逐出陈旧条目）
+   ⇒ **写侧就是闭键**，`_classes` 里 `CSharpList` 只有一条，键是 `CSharpList[String]`
+   （写它的时候 `MEMBER_ARGUMENTS[CSharpList]` 是**别的成员**的 `[String]`）。
+2. 生成物 `JsonPropertyInfo.getRuntimeClassInfo()` 先查 `cachedClassInfoForMember`
+   （用**本成员**的 `[CSharpList<Integer>]` ⇒ 闭键 miss），**再**退回
+   `getOptions().getOrAddClass(getRuntimePropertyType())`；这次退回调用里
+   `converterCacheKey` 用的是**陈旧层 `[String]`** ⇒ 命中 String 那份 ⇒ 帧拿到 `elementType=String`。
+
+**这解释了全部历史观测**：§4.94 两个变体动的是转换器缓存键与 `cacheKeyOrRaw`
+（无实参时给原始键、而写侧给 `raw+[]`，两侧不一致 ⇒ 条目分裂 ⇒ 122/173 回归）；
+而"发布本成员层后 `getOrAddClass` 立即可用"由 `DefProbe29` 直接证实（identity 922151033 ≠ shared）。
+
+**最小补丁 v4**（见计划 §8.2.55）：compat 加 `classInfoForMember(member, options, rawType)`
+（`beginMemberScope` → 查闭键 → 退回 `getOrAddClass` → `endMemberScope`），
+生成物 `getRuntimeClassInfo()` 改为调用它（一处 pass 替换）。
+**只碰这一处查找、只用现有 `converterCacheKey` 语义**，不动转换器缓存键、不引入 `cacheKeyOrRaw`。
 
 **探针** `probe/w42/DefProbe28.java`（`getOrAddClass(SimpleTestClass.class)` 之后立刻反射读
 `JsonPropertyInfo._runtimeClassInfo`）：

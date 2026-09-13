@@ -2045,6 +2045,61 @@ created identity != shared && elementType=CSharpList ⇒ 创建对了，问题�
 **本轮实际完成**：只做了探针 `DefProbe27`/`DefProbe28`（§4.101/§4.102）与本节设计；
 基线保持 `428`，未做全量测量（因此未更新 `triage-xml.json`）。
 
+### 8.2.55 Round 95：**机制破解** —— 写侧早就是闭键，读侧/stale 层是全部原因；给出最小补丁 v4
+
+`DefProbe29`/`DefProbe29b` 两条探针把最后一块拼图找到了：
+
+```
+shared entry: elementType=java.lang.String           identity=1635546341
+converterCacheKey(CSharpList)      = CSharpList[class java.lang.String]      ← 当时 MEMBER_ARGUMENTS 里是**别的成员**的 String
+_classes keys                      = [CSharpList[class java.lang.String], SimpleTestClass]   ← 条目**只在闭键下**
+（remove(CSharpList.class) 无效 —— 原始键下根本没有条目）
+member getRuntimeClassInfo()       = java.lang.String sameAsShared=true       ← 仍然拿到 String 那份
+```
+
+**关键发现**：`ConcurrentHashMapHelper.getOrAdd`（compat）**早就**把写键路由到
+`TypeHelper.converterCacheKey(key)`（闭键 + 逐出陈旧原始条目）。所以"闭键设计"其实**一半已经在树里**，
+而且是 428 基线的一部分。真正的断点有两处：
+
+1. **`ConcurrentHashMapHelper.getOrAdd(key, value)` 用 `converterCacheKey`，而它是按"最后注册的成员层"取键**。
+   当 `MEMBER_ARGUMENTS[CSharpList]` 是别的成员的 `[String]` 时，键就是 `CSharpList[String]`。
+2. `JsonPropertyInfo.getRuntimeClassInfo()` 的顺序是
+   **先** `cachedClassInfoForMember`（用**本成员**的 `[CSharpList<Integer>]` 查闭键 → miss）
+   **后**退回 `getOptions().getOrAddClass(getRuntimePropertyType())` —— 这次调用里
+   `converterCacheKey` 用的是**陈旧层 `[String]`** ⇒ 命中 String 那份 ⇒ 帧拿到错误类信息。
+
+**最小补丁 v4（只改一处查找 + 一个 compat 助手，不动转换器缓存键、不动 `cacheKeyOrRaw`）**：
+
+```java
+// compat：把"发布本成员层 → 先查闭键 → 再退回 getOrAddClass"合成一个入口
+public static Object classInfoForMember(MemberInfo member, Object options, Class<?> rawType) {
+    Object scope = beginMemberScope(member);            // 只发布**本成员**的层（round 84 已有实现，需加回）
+    try {
+        Object hit = cachedClassInfoForMember(member, options, rawType);
+        if (hit != null) return hit;
+        return options.getClass().getMethod("getOrAddClass", Class.class).invoke(options, rawType);
+    } catch (ReflectiveOperationException e) { return null; }
+      finally { endMemberScope(scope); }
+}
+```
+
+```java
+// 生成物 JsonPropertyInfo.getRuntimeClassInfo()（用 pass 改一行）
+_runtimeClassInfo = (JsonClassInfo) TypeHelper.classInfoForMember(getMemberInfo(), getOptions(), getRuntimePropertyType());
+```
+
+**为什么这次不会重演 §8.2.45 的 122/173 回归**：v1/v2 动了**转换器缓存键**与 `cacheKeyOrRaw`
+（后者在"无实参"时给原始键、而写侧给 `raw+[]`，两侧不一致 ⇒ 条目分裂）；
+v4 **只**在 `getRuntimeClassInfo()` 这一处、**只**用现有的 `converterCacheKey` 语义，
+并且只在"本成员上下文"内做查找。
+
+**配套**：`beginMemberScope/endMemberScope` 与 `MEMBER_DECLARED_TYPES`（Round 84 写过、当时已回滚，
+`git show` 已无记录，需按 §8.2.45 的描述重建，约 40 行）。
+
+**可行性**：compat-only 部分可先用 `DefProbe30` 验证（无需重新生成）：
+手工 `beginMemberScope` 等价物（`registerMemberType(declared, member)`）→ 再调 `getOrAddClass`，
+看返回的实例是否 `elementType=CSharpList`（`DefProbe29` 已给出**肯定**结果：identity 922151033 ≠ shared ✓）。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
