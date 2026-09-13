@@ -1,5 +1,5 @@
 {
- "total": 503,
+ "total": 499,
  "byBucket": [
   [
    "JsonConvert CSharpList",
@@ -83,10 +83,6 @@
   ],
   [
    "JsonConvert CustomConverterTests$AttributedPoint",
-   4
-  ],
-  [
-   "Expect {\"MyCustomOverflowWrite\":\"OverflowValueWrite\"} -> {}",
    4
   ],
   [
@@ -606,7 +602,7 @@
    1
   ],
   [
-   "Expect \"[io.github.ningpp.compat.CSharpDictionary@2ccc968 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1",
+   "Expect \"[io.github.ningpp.compat.CSharpDictionary@1e72158 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1",
    1
   ],
   [
@@ -630,7 +626,7 @@
    1
   ],
   [
-   "Expect \"io.github.ningpp.compat.CSharpDictionary@56835f2f -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma",
+   "Expect \"io.github.ningpp.compat.CSharpDictionary@c262f2f\" -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma",
    1
   ],
   [
@@ -666,7 +662,7 @@
    1
   ],
   [
-   "Expect \"io.github.ningpp.compat.CSharpDictionary@52a67293 -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",",
+   "Expect \"io.github.ningpp.compat.CSharpDictionary@7e0986c9 -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",",
    1
   ],
   [
@@ -777,7 +773,7 @@
   ],
   [
    "dotnet.text.json.Serialization.Tests.ExtensionDataTests",
-   32
+   28
   ],
   [
    "dotnet.text.json.Serialization.Tests.DictionaryTests",
@@ -887,7 +883,7 @@
  "byKind": [
   [
    "java.lang.AssertionError",
-   263
+   259
   ],
   [
    "dotnet.text.json.JsonException",
@@ -3653,7 +3649,7 @@
    "method": "nonNullableConverter_ReturnedByJsonConverterFactory_CanBeUsedAsFallback_ForNullableProperty",
    "outcome": "ERROR",
    "kind": "java.lang.IllegalStateException",
-   "msg": "Each parameter in constructor 'io.github.ningpp.compat.ConstructorInfo@1682c08c' on type 'class io.vavr.Tuple2' must bind to an object property or field on deserialization. Each parameter name must match with a property or field on the object. The match can be case-insensitive.",
+   "msg": "Each parameter in constructor 'io.github.ningpp.compat.ConstructorInfo@76ececd' on type 'class io.vavr.Tuple2' must bind to an object property or field on deserialization. Each parameter name must match with a property or field on the object. The match can be case-insensitive.",
    "frames": [
     "dotnet.text.json.ThrowHelper.throwInvalidOperationException_ConstructorParameterIncompleteBinding:636",
     "dotnet.text.json.Serialization.Converters.ObjectWithParameterizedConstructorConverter.beginRead:333",
@@ -3986,7 +3982,7 @@
    "method": "deepTypeCycleWithRoundTrip",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.CyclicTests$TestClassWithCycle@25f15f50",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.CyclicTests$TestClassWithCycle@7a3b7122",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.CyclicTests.deepTypeCycleWithRoundTrip:103"
@@ -4248,7 +4244,7 @@
    "method": "nullDictionaryValuesShouldDeserializeAsNull",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.DictionaryTests$SimpleClassWithDictionaries@233db8e9",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.DictionaryTests$SimpleClassWithDictionaries@59b32539",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.nullDictionaryValuesShouldDeserializeAsNull:1284"
@@ -4443,7 +4439,7 @@
    "method": "dictionaryWithNullShouldPreserveOrder_Deserialize",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@53d9826f",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@1280682",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.dictionaryWithNullShouldPreserveOrder_Deserialize:1244"
@@ -4469,7 +4465,7 @@
    "method": "shouldHandleNullInDictionaries_Deserialize",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@6f825516",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@66a53104",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.DictionaryTests.shouldHandleNullInDictionaries_Deserialize:1196"
@@ -4669,10 +4665,10 @@
    "method": "deserializeIntoMultipleDictionaries",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@2ffe243f",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@5a484ce1",
    "frames": [
     "csharp.xunit.Assert.null_:827",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.deserializeIntoMultipleDictionaries:581"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.deserializeIntoMultipleDictionaries:583"
    ],
    "bucket": "Assert.null"
   },
@@ -4681,11 +4677,11 @@
    "method": "nestedClass(String)[1]",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@2668c286",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@1f43cab7",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.verify3:92",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.nestedClass:493"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.nestedClass:495"
    ],
    "bucket": "Assert.null"
   },
@@ -4694,11 +4690,11 @@
    "method": "nestedClass(String)[2]",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@7ea2412c",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@2668c286",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.verify3:92",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.nestedClass:493"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.nestedClass:495"
    ],
    "bucket": "Assert.null"
   },
@@ -4707,11 +4703,11 @@
    "method": "nestedClass(String)[3]",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@7c0f28f8",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.SimpleTestClass@7ea2412c",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.ExtensionDataTests.verify3:92",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.nestedClass:489"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.nestedClass:491"
    ],
    "bucket": "Assert.null"
   },
@@ -4724,7 +4720,7 @@
    "frames": [
     "csharp.xunit.Assert.throws_:1004",
     "csharp.xunit.Assert.throws_:1008",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_InvalidDictionary:626"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_InvalidDictionary:628"
    ],
    "bucket": "Assert.throws"
   },
@@ -4864,9 +4860,9 @@
     "io.github.ningpp.compat.JsonSerializerCompat.invokeGeneratedDeserialize:171",
     "io.github.ningpp.compat.JsonSerializerCompat.deserializeInternal:102",
     "io.github.ningpp.compat.JsonSerializerCompat.deserialize:33",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverterInternal:390",
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverterInternal:392",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverter:373"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverter:375"
    ],
    "bucket": "ExtensionDataSignature"
   },
@@ -4888,9 +4884,9 @@
     "io.github.ningpp.compat.JsonSerializerCompat.invokeGeneratedDeserialize:171",
     "io.github.ningpp.compat.JsonSerializerCompat.deserializeInternal:102",
     "io.github.ningpp.compat.JsonSerializerCompat.deserialize:33",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverterInternal:390",
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverterInternal:392",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverter:373"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverter:375"
    ],
    "bucket": "ExtensionDataSignature"
   },
@@ -4912,9 +4908,9 @@
     "io.github.ningpp.compat.JsonSerializerCompat.invokeGeneratedDeserialize:171",
     "io.github.ningpp.compat.JsonSerializerCompat.deserializeInternal:102",
     "io.github.ningpp.compat.JsonSerializerCompat.deserialize:33",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverterInternal:390",
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverterInternal:392",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverter:373"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverter:375"
    ],
    "bucket": "ExtensionDataSignature"
   },
@@ -4936,9 +4932,9 @@
     "io.github.ningpp.compat.JsonSerializerCompat.invokeGeneratedDeserialize:171",
     "io.github.ningpp.compat.JsonSerializerCompat.deserializeInternal:102",
     "io.github.ningpp.compat.JsonSerializerCompat.deserialize:33",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverterInternal:390",
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverterInternal:392",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverter:373"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithExplicitConverter:375"
    ],
    "bucket": "ExtensionDataSignature"
   },
@@ -4963,7 +4959,7 @@
    "msg": "Assert.equal() failure: Values differ\nExpected: Undefined\nActual: String",
    "frames": [
     "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.customJsonElementConverterInExtensionProperty:700"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.customJsonElementConverterInExtensionProperty:702"
    ],
    "bucket": "Expect Undefined -> String"
   },
@@ -4984,65 +4980,9 @@
     "dotnet.text.json.JsonSerializer.writeCore:1209",
     "dotnet.text.json.JsonSerializer.serialize:1433",
     "dotnet.text.json.JsonSerializer.serialize:1380",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.serializeIntoImmutableDictionaryProperty:655"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.serializeIntoImmutableDictionaryProperty:657"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpReadOnlyDict"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ExtensionDataTests",
-   "method": "extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter(Class, Class)[1]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"MyCustomOverflowWrite\":\"OverflowValueWrite\"}\nActual: {}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverterInternal:339",
-    "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter:320"
-   ],
-   "bucket": "Expect {\"MyCustomOverflowWrite\":\"OverflowValueWrite\"} -> {}"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ExtensionDataTests",
-   "method": "extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter(Class, Class)[2]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"MyCustomOverflowWrite\":\"OverflowValueWrite\"}\nActual: {}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverterInternal:339",
-    "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter:320"
-   ],
-   "bucket": "Expect {\"MyCustomOverflowWrite\":\"OverflowValueWrite\"} -> {}"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ExtensionDataTests",
-   "method": "extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter(Class, Class)[3]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"MyCustomOverflowWrite\":\"OverflowValueWrite\"}\nActual: {}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverterInternal:339",
-    "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter:320"
-   ],
-   "bucket": "Expect {\"MyCustomOverflowWrite\":\"OverflowValueWrite\"} -> {}"
-  },
-  {
-   "cls": "dotnet.text.json.Serialization.Tests.ExtensionDataTests",
-   "method": "extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter(Class, Class)[4]",
-   "outcome": "FAILURE",
-   "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: {\"MyCustomOverflowWrite\":\"OverflowValueWrite\"}\nActual: {}",
-   "frames": [
-    "csharp.xunit.Assert.equal:334",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverterInternal:339",
-    "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter:320"
-   ],
-   "bucket": "Expect {\"MyCustomOverflowWrite\":\"OverflowValueWrite\"} -> {}"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ExtensionDataTests",
@@ -5051,7 +4991,7 @@
    "kind": "java.lang.NullPointerException",
    "msg": "Cannot invoke \"dotnet.text.json.JsonElement.getValueKind()\" because the return value of \"io.github.ningpp.compat.CSharpDictionary.getChecked(Object)\" is null",
    "frames": [
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.deserializeIntoJsonElementProperty:607"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.deserializeIntoJsonElementProperty:609"
    ],
    "bucket": "NullPointerException: Cannot invoke \"dotnet.text.json.JsonElement.getValueKind()\" because th"
   },
@@ -5096,7 +5036,7 @@
    "kind": "java.lang.NullPointerException",
    "msg": "Cannot invoke \"dotnet.text.json.Serialization.Tests.ExtensionDataTests$NestedClassWithEscapedProperty.get漢字()\" because the return value of \"dotnet.text.json.Serialization.Tests.ExtensionDataTests$ClassWithEscapedProperty.getClassValue()\" is null",
    "frames": [
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.serializerOutputRoundtripsWhenEscaping:619"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.serializerOutputRoundtripsWhenEscaping:621"
    ],
    "bucket": "NullPointerException: Cannot invoke \"dotnet.text.json.Serialization.Tests.ExtensionDataTests"
   },
@@ -5118,9 +5058,9 @@
     "io.github.ningpp.compat.JsonSerializerCompat.invokeGeneratedDeserialize:171",
     "io.github.ningpp.compat.JsonSerializerCompat.deserializeInternal:102",
     "io.github.ningpp.compat.JsonSerializerCompat.deserialize:28",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptionsInternal:366",
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptionsInternal:368",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptions:345"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptions:347"
    ],
    "bucket": "ExtensionDataSignature"
   },
@@ -5142,9 +5082,9 @@
     "io.github.ningpp.compat.JsonSerializerCompat.invokeGeneratedDeserialize:171",
     "io.github.ningpp.compat.JsonSerializerCompat.deserializeInternal:102",
     "io.github.ningpp.compat.JsonSerializerCompat.deserialize:28",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptionsInternal:366",
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptionsInternal:368",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptions:345"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptions:347"
    ],
    "bucket": "ExtensionDataSignature"
   },
@@ -5166,9 +5106,9 @@
     "io.github.ningpp.compat.JsonSerializerCompat.invokeGeneratedDeserialize:171",
     "io.github.ningpp.compat.JsonSerializerCompat.deserializeInternal:102",
     "io.github.ningpp.compat.JsonSerializerCompat.deserialize:28",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptionsInternal:366",
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptionsInternal:368",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptions:345"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptions:347"
    ],
    "bucket": "ExtensionDataSignature"
   },
@@ -5190,9 +5130,9 @@
     "io.github.ningpp.compat.JsonSerializerCompat.invokeGeneratedDeserialize:171",
     "io.github.ningpp.compat.JsonSerializerCompat.deserializeInternal:102",
     "io.github.ningpp.compat.JsonSerializerCompat.deserialize:28",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptionsInternal:366",
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptionsInternal:368",
     "io.github.ningpp.compat.MethodInfo.invoke:100",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptions:345"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.extensionProperty_IgnoresCustomSerializerWithOptions:347"
    ],
    "bucket": "ExtensionDataSignature"
   },
@@ -5203,7 +5143,7 @@
    "kind": "java.lang.NullPointerException",
    "msg": "Cannot invoke \"dotnet.text.json.JsonElement.clone()\" because the return value of \"io.github.ningpp.compat.CSharpDictionary.getChecked(Object)\" is null",
    "frames": [
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.nullAsNullObjectOrJsonValueKindNull:433"
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.nullAsNullObjectOrJsonValueKindNull:435"
    ],
    "bucket": "NullPointerException: Cannot invoke \"dotnet.text.json.JsonElement.clone()\" because the retur"
   },
@@ -5216,7 +5156,7 @@
    "frames": [
     "csharp.xunit.Assert.throws_:1001",
     "csharp.xunit.Assert.throws_:1008",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.deserializeIntoImmutableDictionaryProperty:637",
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.deserializeIntoImmutableDictionaryProperty:639",
     "dotnet.text.json.JsonPropertyInfo.readJsonAndAddExtensionProperty:334",
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.readPropertyValue:288",
     "dotnet.text.json.Serialization.Converters.ObjectDefaultConverter.onTryRead:79",
@@ -5226,7 +5166,7 @@
     "dotnet.text.json.JsonSerializer.readCore:436",
     "dotnet.text.json.JsonSerializer.deserialize:817",
     "dotnet.text.json.JsonSerializer.deserialize:751",
-    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.lambda$deserializeIntoImmutableDictionaryProperty$0:637",
+    "dotnet.text.json.Serialization.Tests.ExtensionDataTests.lambda$deserializeIntoImmutableDictionaryProperty$0:639",
     "csharp.xunit.Assert.throws_:989"
    ],
    "bucket": "ClassCast ImmutableDictionary -> CSharpGenericIDictionary"
@@ -5379,7 +5319,7 @@
    "method": "deserializeDictionaryWithNullValues",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@4d7a64ca",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@4f486211",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.NullTests.deserializeDictionaryWithNullValues:221"
@@ -5414,7 +5354,7 @@
    "method": "rootObjectIsNull",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@58a84a12",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@52559a69",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.NullTests.rootObjectIsNull:64"
@@ -5426,7 +5366,7 @@
    "method": "nullAcceptsLeadingAndTrailingTrivia",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@6436e181",
+   "msg": "Assert.null() failure: Value was not null\nActual: dotnet.text.json.Serialization.Tests.TestClassWithNull@1039bfc4",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.NullTests.nullAcceptsLeadingAndTrailingTrivia:159"
@@ -6750,7 +6690,7 @@
    "method": "defaultSerializerOptions_General",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@18a98913\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@7dbae40",
+   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@30508066\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@9408857",
    "frames": [
     "csharp.xunit.Assert.same:861",
     "dotnet.text.json.Serialization.Tests.OptionsTests.verifyOptionsEqual:653",
@@ -6816,7 +6756,7 @@
    "method": "copyConstructor_IgnoreNullValuesCopied",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@7af327e3\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@743d0d44",
+   "msg": "Assert.same() failure: References are not the same\nExpected: dotnet.text.json.Serialization.ReflectionMemberAccessor@2e0ad709\nActual: dotnet.text.json.Serialization.ReflectionMemberAccessor@1fe8f5e8",
    "frames": [
     "csharp.xunit.Assert.same:861",
     "dotnet.text.json.Serialization.Tests.OptionsTests.verifyOptionsEqual:653",
@@ -6956,7 +6896,7 @@
    "method": "classWithComplexObjectUsingIgnoreNeverAttribute",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@1510b9a2",
+   "msg": "Assert.null() failure: Value was not null\nActual: io.github.ningpp.compat.CSharpDictionary@69b3886f",
    "frames": [
     "csharp.xunit.Assert.null_:827",
     "dotnet.text.json.Serialization.Tests.PropertyVisibilityTests.classWithComplexObjectUsingIgnoreNeverAttribute:1022"
@@ -7467,12 +7407,12 @@
    "method": "arrayDictionaryLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@2ccc9681]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1\"}}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@1e721583]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1\"}}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayDictionaryLoop:473"
    ],
-   "bucket": "Expect \"[io.github.ningpp.compat.CSharpDictionary@2ccc968 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1"
+   "bucket": "Expect \"[io.github.ningpp.compat.CSharpDictionary@1e72158 -> {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Root\":{\"$ref\":\"1"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
@@ -8084,7 +8024,7 @@
    "method": "objectArrayLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@b5312df\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@2cd3fc29\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectArrayLoop:120"
@@ -8120,7 +8060,7 @@
    "method": "objectPreserveDuplicateArrays",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@6d0114c0\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$id\":\"3\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"4\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"5\",\"Bob\":\"555-5555\"}}]},\"Subordinates2\":{\"$ref\":\"2\"},\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"6\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"7\",\"Bob",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@21c75084\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$id\":\"2\",\"$values\":[{\"$id\":\"3\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"4\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"5\",\"Bob\":\"555-5555\"}}]},\"Subordinates2\":{\"$ref\":\"2\"},\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"6\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"7\",\"Bob",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectPreserveDuplicateArrays:176"
@@ -8214,19 +8154,19 @@
    "method": "dictionaryObjectLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@56835f2f\"\nActual: {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":{\"$ref\":\"1\"},\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@c262f2f\"\nActual: {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":{\"$ref\":\"1\"},\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryObjectLoop:297"
    ],
-   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@56835f2f -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma"
+   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@c262f2f\" -> {\"$id\":\"1\",\"Angela\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Ma"
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
    "method": "arrayObjectLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@58882a93]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$ref\":\"1\"},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@60a01cb]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":{\"$ref\":\"1\"},\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayObjectLoop:449"
@@ -8238,7 +8178,7 @@
    "method": "dictionaryPreserveDuplicateArrays",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@67eeb310\"\nActual: {\"$id\":\"1\",\"Array1\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Array2\":{\"$ref\":\"2\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@56835f2f\"\nActual: {\"$id\":\"1\",\"Array1\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]},\"Array2\":{\"$ref\":\"2\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryPreserveDuplicateArrays:318"
@@ -8250,7 +8190,7 @@
    "method": "objectPreserveDuplicateObjects",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@39ace1a7\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$id\":\"2\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Manager2\":{\"$ref\":\"2\"},\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"5\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"6\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@1c72189f\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$id\":\"2\",\"Name\":\"Bob\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Manager2\":{\"$ref\":\"2\"},\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"5\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"6\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectPreserveDuplicateObjects:146"
@@ -8274,7 +8214,7 @@
    "method": "dictionaryPreserveDuplicateDictionaries",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@3ef2b8e5\"\nActual: {\"$id\":\"1\",\"Self1\":{\"$ref\":\"1\"},\"Self2\":{\"$ref\":\"1\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@7845b21a\"\nActual: {\"$id\":\"1\",\"Self1\":{\"$ref\":\"1\"},\"Self2\":{\"$ref\":\"1\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryPreserveDuplicateDictionaries:283"
@@ -8422,19 +8362,19 @@
    "method": "dictionaryPreserveDuplicateObjects",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@52a67293\"\nActual: {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Employee2\":{\"$ref\":\"2\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"io.github.ningpp.compat.CSharpDictionary@7e0986c9\"\nActual: {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},\"Employee2\":{\"$ref\":\"2\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryPreserveDuplicateObjects:333"
    ],
-   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@52a67293 -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\","
+   "bucket": "Expect \"io.github.ningpp.compat.CSharpDictionary@7e0986c9 -> {\"$id\":\"1\",\"Employee1\":{\"$id\":\"2\",\"Name\":\"Angela\","
   },
   {
    "cls": "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests",
    "method": "objectLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@4abbe41c\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$ref\":\"1\"},\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"2\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"3\",\"Bob\":\"555-5555\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@687a0e40\"\nActual: {\"$id\":\"1\",\"Name\":null,\"Manager\":{\"$ref\":\"1\"},\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"2\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"3\",\"Bob\":\"555-5555\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.objectLoop:109"
@@ -8446,7 +8386,7 @@
    "method": "arrayPreserveDuplicateDictionaries",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@26ffd2c0, io.github.ningpp.compat.CSharpDictionary@26ffd2c0]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\"},{\"$ref\":\"2\"}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[io.github.ningpp.compat.CSharpDictionary@1f45db49, io.github.ningpp.compat.CSharpDictionary@1f45db49]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\"},{\"$ref\":\"2\"}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayPreserveDuplicateDictionaries:483"
@@ -8482,7 +8422,7 @@
    "method": "arrayPreserveDuplicateObjects",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@6f0c45f4, dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@6f0c45f4]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},{\"$ref\":\"2\"}]}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"[dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@2af9a5ef, dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$Employee@2af9a5ef]\"\nActual: {\"$id\":\"1\",\"$values\":[{\"$id\":\"2\",\"Name\":\"Angela\",\"Manager\":null,\"Manager2\":null,\"Subordinates\":null,\"Subordinates2\":null,\"Contacts\":null,\"Contacts2\":null,\"SubordinatesString\":{\"$id\":\"3\",\"$values\":[\"Bob\"]},\"ContactsString\":{\"$id\":\"4\",\"Bob\":\"555-5555\"}},{\"$ref\":\"2\"}]}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.arrayPreserveDuplicateObjects:461"
@@ -8520,7 +8460,7 @@
    "method": "dictionaryLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@58e03769\"\nActual: {\"$id\":\"1\",\"Self\":{\"$ref\":\"1\"},\"Other\":{\"$id\":\"2\"}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycle@6b24ddd7\"\nActual: {\"$id\":\"1\",\"Self\":{\"$ref\":\"1\"},\"Other\":{\"$id\":\"2\"}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryLoop:272"
@@ -8556,7 +8496,7 @@
    "method": "dictionaryArrayLoop",
    "outcome": "FAILURE",
    "kind": "java.lang.AssertionError",
-   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@6182ffef\"\nActual: {\"$id\":\"1\",\"ArrayWithSelf\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]}}",
+   "msg": "Assert.equal() failure: Values differ\nExpected: \"dotnet.text.json.Serialization.Tests.ReferenceHandlerTests$DictionaryWithGenericCycleWithinList@58e03769\"\nActual: {\"$id\":\"1\",\"ArrayWithSelf\":{\"$id\":\"2\",\"$values\":[{\"$ref\":\"1\"}]}}",
    "frames": [
     "csharp.xunit.Assert.equal:334",
     "dotnet.text.json.Serialization.Tests.ReferenceHandlerTests.dictionaryArrayLoop:307"
