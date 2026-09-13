@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 283, Errors: 240, Skipped: 18` = **523**（起点 855，**−332**）。
-- 本会话累计 **28 条 KEEP**（23 条"逐用例集合差 +0 回归"；`99151aa6` 实测中性；
+- **基线**：`Tests run: 7902, Failures: 278, Errors: 240, Skipped: 18` = **518**（起点 855，**−337**）。
+- 本会话累计 **29 条 KEEP**（23 条"逐用例集合差 +0 回归"；`99151aa6` 实测中性；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -350,6 +350,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `e9d89bc1` | `DateTimeOffset` 的 `"O"` 始终写带符号偏移（`+00:00`，不是 `Z`） | 534 → 532（修 2） |
 | `73b6fec7` | `Encoding.getString` 遵守 `throwOnInvalidBytes` | 532 → 524（修 8） |
 | `4ba90036` | `getKey` 按真实字节算属性名键（旧实现只看首字节 + 长度） | 524 → 523（修 1，另 6 条换了失败原因） |
+| `ac40ded2` | 字段枚举遵守 `NonPublic`；非公开属性没有公开 getter | 523 → 519（修 4） |
+| `784c5b3a` | C# 非公开字段带标记（`internal` ≠ Java `public`） | 519 → 518（修 1，闭合整条 theory） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1108,6 +1110,28 @@ C# 的 `DateTimeOffset` **自带偏移**，`"O"` 永远写 `+00:00`（`Z` 只属
 `GetNumbersExpectedString` 用 Newtonsoft 的 `JsonTextWriter.WriteValue(decimal)` 生成 ——
 即**端口化的测试预言机把 decimal 写成了字符串**，与 writer 输出无关。属测试侧移植问题，
 不在"改转换器/compat"的射程内（除非改 Newtonsoft 端口本身）。
+
+
+### 8.2.29 Round 69 已修：非公开成员的可见性判定（523 → 518，修 5 / 坏 0）
+
+**入口**：站点榜上 `PropertyVisibilityTests.nonPublicProperty_WithJsonInclude_Invalid`（5 条 theory 用例）。
+断言是 `Assert.Throws<InvalidOperationException>(() => JsonSerializer.Deserialize("", type))`
+—— .NET 在**预热期**就校验"非公开成员带 `[JsonInclude]` 是非法的"，我们却先解析空 JSON 失败，
+抛了 `JsonException`。
+
+校验代码（`JsonClassInfo` 第 118–147 行）本来就在，问题是有三类成员**根本进不到**那个分支：
+
+| 用例 | 原因 | 修法 |
+|---|---|---|
+| 私有字段 / 受保护字段 | `TypeHelper.getFields(type, flags)` 用的是 `Class.getFields()` —— **只返回 public 字段**，`NonPublic` 位永远无效 | 改为按 flags 遍历 `getDeclaredFields()`（`DeclaredOnly`/`Static`/`Instance`/`Public`/`NonPublic` 全部生效）；用 `trySetAccessible()` 跳过 JDK 内部类，避免 `InaccessibleObjectException` |
+| C# `internal` 属性 | `PropertyInfo.getGetMethod()` 只认 `CompatNonPublicAccessor`，不认 `CompatNonPublicProperty`，而 C# `internal` 的 Java accessor 是 **public** → 被判成公开成员 | 让它与 `getSetMethod()` 对称：整个属性非公开时也返回 null |
+| C# `internal` 字段 | `FieldInfo.getIsPublic()` 只看 Java 修饰符，而 `internal` 被发成 `public` | `FieldTransformer` 给**所有非公开字段**发 `CompatNonPublicProperty`，`FieldInfo.getIsPublic()` 与 `getFields` 的 flags 判定都认它 |
+
+**实测**：`523 → 519`（`ac40ded2`，修 4 / 坏 0）→ `519 → 518`（`784c5b3a`，修 1 / 坏 0）。
+**5 条 theory 用例全部通过**。
+
+**这是"C# 可访问性 ≠ Java 修饰符"母题的第三个入口**（前两个：`CompatNonPublicAccessor` 访问器、
+`CompatInternalCtor` 构造函数）。**下次遇到"这个成员/类型公开吗"的运行时问题，先查这里有没有标记。**
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

@@ -2896,3 +2896,62 @@ pass 把整个生成方法体替换成对该实现的调用（旧的"空名字"�
 **这是"0 回归"里价值最高的一条**：旧实现对"同首字节同长度"的名字**根本无法区分**，
 修好它没有让任何既有用例变差。
 
+
+### 4.77 Round 69：非公开成员的可见性判定（523 → 518，修 5 / 坏 0）
+
+**入口**：`tools/site_group.py` 的站点榜上
+`PropertyVisibilityTests.nonPublicProperty_WithJsonInclude_Invalid`（5 条 theory 用例，站点是该测试的第 221 行）。
+
+断言：
+```java
+IllegalStateException ex = Assert.throws_(IllegalStateException.class,
+    () -> dotnet.text.json.JsonSerializer.deserialize_0tp("", type, null));
+```
+即 .NET 在**预热期**对类型做校验（"非公开成员带 `[JsonInclude]` 非法"），
+而我们先把空字符串解析失败、抛了 `JsonException`（栈：`ThrowHelper.reThrowWithPath:678 ← JsonConverter1.readCore:137`）。
+
+校验代码本来就在 `JsonClassInfo` 第 118–147 行；问题是三类成员进不到那个分支。
+theory 参数（JUnit 1-based）：
+
+| # | 类型 | 修前 | 原因 |
+|---|---|---|---|
+| 1 | `ClassWithPrivateProperty_WithJsonIncludeProperty` | 通过 | getter 带 `CompatNonPublicAccessor` |
+| 2 | `ClassWithInternalProperty_WithJsonIncludeProperty` | 失败 | 见下 |
+| 3 | `ClassWithProtectedProperty_WithJsonIncludeProperty` | 通过 | 同上 |
+| 4 | `ClassWithPrivateField_WithJsonIncludeProperty` | 失败 | 见下 |
+| 5 | `ClassWithInternalField_WithJsonIncludeProperty` | 失败 | 见下 |
+| 6 | `ClassWithProtectedField_WithJsonIncludeProperty` | 失败 | 见下 |
+| 7 | `ClassWithPrivate_InitOnlyProperty_WithJsonIncludeProperty` | 通过 | |
+| 8 | `ClassWithInternal_InitOnlyProperty_WithJsonIncludeProperty` | 失败 | 同 #2 |
+| 9 | `ClassWithProtected_InitOnlyProperty_WithJsonIncludeProperty` | 通过 | |
+
+**根因 1（字段）**：`TypeHelper.getFields(type, bindingFlags)` 用的是 `Class.getFields()`，
+它**只返回 public 字段**，所以 `BindingFlags.NonPublic`（32）**永远无效**，
+私有/受保护字段对成员枚举完全不可见。修成按 flags 遍历各层
+`getDeclaredFields()`（`DeclaredOnly`/`Static`/`Instance`/`Public`/`NonPublic` 全部生效）。
+**第一次修完立刻出现 1 条回归**：`jsonIgnoreAttribute_UnsupportedCollection` 抛
+`InaccessibleObjectException` —— `FieldInfo` 构造时 `setAccessible(true)` 对 JDK 内部类
+（模块未开放）会抛。加 `trySetAccessible()` 预检即消（也顺带证明：这条修法修好了
+#4/#6 两条，回归消掉后集合差为 **修 2 / 坏 0**）。
+
+**根因 2（`internal` 属性）**：生成物实测
+
+```java
+@CompatJsonInclude
+@CompatNonPublicProperty        // ← 整个属性非公开
+public String getMyString() { return myString; }   // ← 但 Java 修饰符是 public
+```
+而 `PropertyInfo.getGetMethod()` 只检查 `CompatNonPublicAccessor`，
+**`getSetMethod()` 却检查 `CompatNonPublicProperty`** —— 两者不对称。
+`JsonClassInfo` 第 122 行的"这个成员公开吗"用的正是 `getGetMethod()/getSetMethod()`，
+于是 `getGetMethod()` 返回非 null 且 `getIsPublic()` 为真 → 成员被当成公开 → 校验被跳过。
+把 `getGetMethod()` 改成与 `getSetMethod()` 对称后 **修 2 / 坏 0**（#2、#8）。
+
+**根因 3（`internal` 字段）**：生成物是 `@CompatJsonInclude public String MyString = null;`
+—— `internal` 被发成 Java `public` 且**没有任何标记**。让 `FieldTransformer` 给所有非公开字段
+发 `CompatNonPublicProperty`，`FieldInfo.getIsPublic()` 与 `getFields` 的 flags 判定都认它 →
+**修 1 / 坏 0**（#5），整条 theory 闭合。
+
+**母题**：这是"C# 可访问性 ≠ Java 修饰符"的**第三个**入口。前两个是
+`CompatNonPublicAccessor`（属性访问器）与 `CompatInternalCtor`（构造函数）。
+**凡运行时问"这个成员/类型公开吗"，先查这里缺了哪个标记。**
