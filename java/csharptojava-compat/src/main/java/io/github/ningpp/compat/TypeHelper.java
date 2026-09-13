@@ -1439,6 +1439,34 @@ public final class TypeHelper {
         return type != null && Modifier.isAbstract(type.getModifiers()) && !type.isInterface();
     }
 
+    /**
+     * Mirrors C# {@code Type.IsValueType} for the type a CONVERTER is declared over.
+     *
+     * <p>A converted C# struct is emitted as a Java {@code value class} (JDK 28), so
+     * {@code Type.IsValueType} answers true for it — but {@link #getIsValueType(Class)} cannot say
+     * so: that predicate also decides whether a null JSON value may be ASSIGNED to a member, and a
+     * Java {@code Class} cannot tell a C# struct from its nullable form ({@code ValueTypedMember?}
+     * is emitted as the same class). Making the general predicate answer true therefore regressed
+     * four nullable-struct members with {@code DeserializeUnableToAssignNull} (measured 548 → 547
+     * with 5 fixed / 4 regressed).</p>
+     *
+     * <p>{@code CanBeNull} only needs the converter's side of it: C#'s
+     * {@code JsonConverter<T>.CanBeNull} is false for a non-nullable struct, which makes
+     * {@code HandleNullOnRead} true so the converter reads the null token itself. Keeping the
+     * question on this narrower entry point fixes the converter without touching assignment.</p>
+     */
+    public static boolean getIsValueTypeForConverter(Class<?> type) {
+        if (type == null) {
+            return false;
+        }
+        if (type.isPrimitive()) {
+            return true;
+        }
+        // The boxed wrapper classes are value classes in JDK 28 too, but here they stand for the
+        // C# nullable forms (int?, bool?), so they must not count.
+        return type.isValue() && !isBoxedWrapperClass(type);
+    }
+
     public static boolean getIsValueType(Class<?> type) {
         return type != null && type.isPrimitive();
     }

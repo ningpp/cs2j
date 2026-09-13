@@ -1142,6 +1142,7 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 else if (result.FileName.EndsWith("JsonConverter1.java", StringComparison.Ordinal))
                 {
                     PatchExceptionMessageContains(result);
+                    PatchConverterCanBeNullForStructs(result);
                 }
                 else if (result.FileName.EndsWith("JsonPropertyInfo1.java", StringComparison.Ordinal))
                 {
@@ -1664,6 +1665,45 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
 
     private static readonly System.Text.RegularExpressions.Regex JsonElementDefaultValueRegex = new(
         @"return new dotnet\.text\.json\.JsonElement\(\);\r?\n[ \t]*\}",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Answers <c>Converter.CanBeNull</c> with C#'s <c>Type.IsValueType</c>, which is true for a
+    /// converted struct.
+    /// <para>
+    /// <c>CanBeNull = !typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) != null</c>.
+    /// A converted C# struct is emitted as a Java <c>value class</c>, but
+    /// <c>TypeHelper.getIsValueType</c> answers only <c>isPrimitive()</c>, so every struct converter
+    /// reported <c>CanBeNull == true</c> and the framework assigned <c>default(T)</c> for a null
+    /// token instead of letting the converter read it. Five
+    /// <c>CustomConverterTests</c> value-type cases depend on the converter getting that token.
+    /// </para>
+    /// <para>
+    /// The general predicate is deliberately NOT changed: it also gates whether null may be
+    /// ASSIGNED to a member, and a Java <c>Class</c> cannot tell <c>ValueTypedMember</c> from
+    /// <c>ValueTypedMember?</c> — changing it measured 5 fixed but 4 new
+    /// <c>DeserializeUnableToAssignNull</c> failures on nullable-struct members.
+    /// </para>
+    /// </summary>
+    private static void PatchConverterCanBeNullForStructs(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        if (!ConverterCanBeNullRegex.IsMatch(result.GeneratedCode))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchConverterCanBeNullForStructs did not match JsonConverter1.java "
+                + "- CanBeNull is still derived from isPrimitive() alone.");
+            return;
+        }
+        result.GeneratedCode = ConverterCanBeNullRegex.Replace(result.GeneratedCode,
+            "this.canBeNull = !io.github.ningpp.compat.TypeHelper.getIsValueTypeForConverter(getTypeToConvert()) "
+            + "|| TypeHelper.getUnderlyingType(getTypeToConvert()) != null;",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ConverterCanBeNullRegex = new(
+        @"this\.canBeNull = !getIsValueType\(\) \|\| TypeHelper\.getUnderlyingType\(getTypeToConvert\(\)\) != null;",
         System.Text.RegularExpressions.RegexOptions.None);
 
     private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullGuardRegex = new(
