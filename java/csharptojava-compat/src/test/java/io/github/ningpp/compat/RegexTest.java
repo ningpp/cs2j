@@ -175,6 +175,53 @@ class RegexTest {
         assertEquals(Group.Empty.Value, g.Value);
     }
 
+    // ---- Named group support (C# (?<name>...) syntax) ----
+
+    @Test
+    void namedGroup_singleGroup_returnsMatchedValue() {
+        // C# syntax (?<name>...) is also valid Java regex syntax
+        Regex re = new Regex("^Seed\\s+(?<seed>(0x)?\\S+)");
+        Match m = re.match("Seed 12345");
+        assertTrue(m.Success);
+        Group g = m.getGroups().get("seed");
+        assertEquals("12345", g.getValue());
+        assertEquals("12345", g.toString());
+    }
+
+    @Test
+    void namedGroup_withHexPrefix_returnsFullValue() {
+        Regex re = new Regex("^Seed\\s+(?<seed>(0x)?\\S+)", RegexOptions.IgnoreCase);
+        Match m = re.match("Seed 0xFF");
+        assertTrue(m.Success);
+        Group g = m.getGroups().get("seed");
+        assertEquals("0xFF", g.getValue());
+    }
+
+    @Test
+    void namedGroup_multipleGroups() {
+        Regex re = new Regex("(?<word>\\w+)\\s+(?<num>\\d+)");
+        Match m = re.match("hello 42");
+        assertTrue(m.Success);
+        assertEquals("hello", m.getGroups().get("word").getValue());
+        assertEquals("42", m.getGroups().get("num").getValue());
+    }
+
+    @Test
+    void namedGroup_simulatesTestFileReaderParseSeed() {
+        // Reproduces the exact pattern used in TestFileStrings.ParseSeed
+        // which causes FormatException: For input string: ""
+        // because GroupCollection.get(String) returned Group.Empty instead
+        // of the actual named group value.
+        Regex re = new Regex("^Seed\\s+(?<seed>(0x)?\\S+)", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        Match m = re.match("Seed 12345");
+        assertTrue(m.Success);
+        String seedStr = m.getGroups().get("seed").toString();
+        assertEquals("12345", seedStr);
+        // This should not throw
+        int seed = Integer.parseInt(seedStr);
+        assertEquals(12345, seed);
+    }
+
     @Test
     void regexOptions_constants() {
         assertEquals(0, RegexOptions.None);
