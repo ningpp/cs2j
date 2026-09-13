@@ -200,8 +200,14 @@ public class JsonTextWriter implements AutoCloseable {
             return;
         }
         if (value instanceof byte[] bytes) {
-            // Newtonsoft writes byte[] as a Base64 string.
-            writeValue(java.util.Base64.getEncoder().encodeToString(bytes));
+            // Newtonsoft writes byte[] as a Base64 string. Write it in place: delegating to
+            // writeValue(String) would call writeBeforeValue() a SECOND time (it already ran
+            // above), which emits a stray separator and turns the object into
+            // {"message":,"AQIDBAUG"} - the expected string of every
+            // Utf8JsonWriterTests#writeBase64String theory row (12 tests).
+            writer.print('"');
+            writer.print(escapeJsonString(java.util.Base64.getEncoder().encodeToString(bytes)));
+            writer.print('"');
             return;
         }
         writer.print('"');
