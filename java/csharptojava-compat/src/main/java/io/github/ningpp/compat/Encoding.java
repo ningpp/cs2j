@@ -502,8 +502,32 @@ public class Encoding {
     }
 
 
+    /**
+     * Mirrors {@code Encoding.GetString(byte[], int, int)}.
+     *
+     * <p>{@code new String(bytes, charset)} always REPLACES malformed input, so an encoding built
+     * with {@code throwOnInvalidBytes: true} (C# {@code new UTF8Encoding(false, true)}, which is what
+     * {@code JsonReaderHelper} transcodes property names and string values with) silently produced
+     * U+FFFD instead of the {@code DecoderFallbackException} its callers catch and wrap into an
+     * {@code InvalidOperationException}. Measured: seven
+     * {@code Utf8JsonReaderTests#testingGetStringInvalidUTF8} cases reported "Expected
+     * InvalidOperationException when trying to get string value for invalid UTF-8 JSON text".</p>
+     */
     public String getString(byte[] bytes, int index, int count) {
-        return new String(bytes, index, count, charset);
+        if (!throwOnInvalidBytes) {
+            return new String(bytes, index, count, charset);
+        }
+        try {
+            return charset.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                .decode(java.nio.ByteBuffer.wrap(bytes, index, count))
+                .toString();
+        } catch (java.nio.charset.CharacterCodingException ex) {
+            // C# DecoderFallbackException.ArgumentNull_Generic-ish text is not asserted; the type and
+            // the fact that it is the INNER exception of the InvalidOperationException are.
+            throw new DecoderFallbackException("Unable to translate bytes at the given index.", ex);
+        }
     }
 
     // ---- Instance Methods: GetMaxByteCount / GetMaxCharCount ----
