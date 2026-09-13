@@ -82,6 +82,15 @@ public final class DefaultValue {
             return null;
         }
         if (type == String.class || type == Object.class)    return null;
+        // A converted C# STRUCT is emitted as a Java value class and has a zero instance;
+        // everything else the converter produced is a C# class, whose default(T) is NULL.
+        // Creating an instance for a plain class made deserializing the JSON literal null at the
+        // root return a fully constructed object instead of null — measured:
+        // NullTests#rootObjectIsNull expected null and reported
+        // "Value was not null / Actual: TestClassWithNull@…".
+        if (!type.isValue()) {
+            return null;
+        }
         try {
             return type.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
