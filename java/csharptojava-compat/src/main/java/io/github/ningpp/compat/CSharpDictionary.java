@@ -54,9 +54,39 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
 
     // CSharpGenericIDictionary / CSharpICollection methods
 
+    /**
+     * The stored key this one is EQUAL to under the dictionary's comparer, or null.
+     *
+     * <p>C# dictionaries compare keys with the comparer they were built with; the Java map
+     * underneath uses {@code Object.equals}, so a {@code StringComparer.OrdinalIgnoreCase}
+     * dictionary answered "not found" for every case variant. Measured: the serializer's property
+     * cache could not match {@code "MYSTRING"} to a property named {@code MyString}, so
+     * {@code PropertyNameCaseInsensitive} did nothing and the second of two names differing only in
+     * case was dropped ({@code jsonIgnoreCondition_LastOneWins}, {@code honorCaseInsensitivity}).</p>
+     *
+     * <p>The scan runs only when a comparer was supplied, and returns the key already stored so a
+     * later {@code put} replaces its value without changing the key's original spelling — C#
+     * behaviour.</p>
+     */
+    @SuppressWarnings("unchecked")
+    private K storedKey(Object key) {
+        if (key == null) {
+            return null;
+        }
+        if (comparer == null) {
+            return map.containsKey(key) ? (K) key : null;
+        }
+        for (K stored : map.keySet()) {
+            if (comparer.equals(stored, (K) key)) {
+                return stored;
+            }
+        }
+        return null;
+    }
+
     @Override
     public void add(K key, V value) {
-        if (map.containsKey(key)) {
+        if (storedKey(key) != null) {
             throw new ArgumentException("An element with the same key already exists: " + key);
         }
         map.put(key, value);
@@ -64,7 +94,7 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
 
     @Override
     public boolean containsKey(K key) {
-        if (map.containsKey(key)) {
+        if (storedKey(key) != null) {
             return true;
         }
         if (key instanceof Class) {
@@ -86,22 +116,25 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public boolean remove(Object o) {
         if (o instanceof Map.Entry<?, ?> entry) {
-            Object key = entry.getKey();
-            if (map.containsKey(key) && Objects.equals(map.get(key), entry.getValue())) {
+            K key = storedKey(entry.getKey());
+            if (key != null && Objects.equals(map.get(key), entry.getValue())) {
                 map.remove(key);
                 return true;
             }
             return false;
         }
-        return map.remove(o) != null;
+        K key = storedKey(o);
+        return key != null && map.remove(key) != null;
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public V get(K key) {
-        V v = map.get(key);
+        K stored = storedKey(key);
+        V v = stored == null ? null : map.get(stored);
         if (v == null && key instanceof Class) {
             // Bridge C# type-token classes (CSharpSByte, CSharpByte, etc.)
             // to their Java wrapper equivalents so that dictionary
@@ -141,14 +174,20 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
                     return map.get((K) denormalized);
                 }
             }
-            throw new KeyNotFoundException("The given key '" + key + "' was not present in the dictionary.");
+            K stored = storedKey(key);
+            if (stored == null) {
+                throw new KeyNotFoundException("The given key '" + key + "' was not present in the dictionary.");
+            }
+            return map.get(stored);
         }
         return map.get(key);
     }
 
     @Override
     public V put(K key, V value) {
-        return map.put(key, value);
+        // C# keeps the key that is already stored; only the value is replaced.
+        K stored = storedKey(key);
+        return map.put(stored == null ? key : stored, value);
     }
 
     @Override
@@ -163,7 +202,7 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
 
     @Override
     public V tryGetValue(K key) {
-        return map.get(key);
+        return get(key);
     }
 
     @Override
@@ -208,7 +247,7 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
 
     @Override
     public boolean add(CSharpKeyValuePair<K, V> item) {
-        if (map.containsKey(item.getKey())) {
+        if (storedKey(item.getKey()) != null) {
             return false;
         }
         map.put(item.getKey(), item.getValue());
@@ -223,8 +262,8 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     @Override
     public boolean contains(Object o) {
         if (o instanceof Map.Entry<?, ?> entry) {
-            Object key = entry.getKey();
-            if (!map.containsKey(key)) return false;
+            K key = storedKey(entry.getKey());
+            if (key == null) return false;
             return Objects.equals(map.get(key), entry.getValue());
         }
         return false;
@@ -241,7 +280,8 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     // Dictionary-specific methods
 
     public V getOrDefault(K key, V defaultValue) {
-        return map.getOrDefault(key, defaultValue);
+        V v = get(key);
+        return v == null ? defaultValue : v;
     }
 
     public CSharpGenericIterableSet<K> keySet() {
@@ -265,7 +305,7 @@ public class CSharpDictionary<K, V> implements CSharpGenericIDictionary<K, V>, C
     }
 
     public boolean tryAdd(K key, V value) {
-        if (map.containsKey(key)) {
+        if (storedKey(key) != null) {
             return false;
         }
         map.put(key, value);
