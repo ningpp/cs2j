@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 228, Errors: 235, Skipped: 18` = **463**（起点 855，**−392**）。
-- 本会话累计 **41 条 KEEP**（35 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 225, Errors: 235, Skipped: 18` = **460**（起点 855，**−395**）。
+- 本会话累计 **42 条 KEEP**（36 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -363,6 +363,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `310552db` | `default(T)`：C# 类 → **null**（只有 struct 才有零实例） | 488 → 470（修 18） |
 | `2ece1c64` | `Type.GetProperty(name, flags)` 的**标志实参**送进 compat | 470 → 467（修 3） |
 | `c2ce9417` | Newtonsoft 替身把 `Decimal` 按裸数字写（不是加引号的字符串） | 467 → 463（修 4） |
+| `9c5b4d82` | 属性桥不再把**非公开成员**当成属性（含非公开 `Get*()` 方法） | 463 → 460（修 3） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1623,6 +1624,103 @@ DebuggerTests.getDebuggerDisplayProperty:54
 的 70+ 条即此族）同样会把 `Decimal` 落到"加引号"分支。本轮只修了 writer 这一处；
 若后续要修 `JsonConvert`，**优先考虑同样的显式分支**，而不是让 `Decimal extends Number`
 （那会一次性改动所有 `instanceof Number` 判定点，代价不可控）。
+
+### 8.2.43 Round 83 已修：属性桥**凭空造出非公开属性**（463 → 460，修 3 / 坏 0）
+
+**入口**：`OptionsTests#defaultSerializerOptions_General / copyConstructor_OriginalLocked /
+copyConstructor_IgnoreNullValuesCopied`，都死在同一个辅助方法
+`OptionsTests.verifyOptionsEqual:653`（生成的）最后一行的 `Assert.same(...)`。
+
+**定位**（探针 `DefProbe23`，打印 `PropertyInfo.getProperties(JsonSerializerOptions.class)` 的 21 条）：
+
+```
+PROP MemberAccessorStrategy type=dotnet.text.json.MemberAccessor  getter=<no public getter>
+PROP ReaderOptions          type=dotnet.text.json.JsonReaderOptions getter=getReaderOptions
+PROP WriterOptions          type=dotnet.text.json.JsonWriterOptions getter=getWriterOptions
+PROP EffectiveMaxDepth      type=java.lang.Integer                 getter=<no public getter>
+```
+
+.NET 的 `typeof(JsonSerializerOptions).GetProperties()`（Public）**只返回 17 个**：
+`MemberAccessorStrategy`/`EffectiveMaxDepth` 是 **internal 属性**，
+`GetReaderOptions()/GetWriterOptions()` 是 **internal 方法**（根本不是属性）。
+我们的桥按"`getXxx()` + 0 参数 + 非 void ⇒ 属性"的约定把它们全算成属性，
+于是 `VerifyOptionsEqual` 对引用类型属性做 `Assert.Same` —— 两个 options 实例的
+懒建 `MemberAccessor` 当然是两个对象 ✗；`JsonReaderOptions` 是 struct 但
+`getIsValueType` 判 false，也会落到 `Assert.Same` ✗。
+
+**修法**（两半，缺一不可）：
+
+1. compat `PropertyInfo.getProperties(Class)`：跳过标了 `@CompatNonPublicProperty` /
+   `@CompatNonPublicAccessor` 的 getter，并在最后 `removeIf(getGetMethod()==null &&
+   getSetMethod()==null)`（整个属性在 C# 都不可见）。
+2. 转换器 `MethodTransformer`：**非公开**、0 参数、非 void、名字以 `Get` 开头的 C# 方法
+   打 `@CompatNonPublicAccessor`（本树 160 处）—— 这是第 1 步能认出
+   `GetReaderOptions()` 这类**方法冒充属性**的唯一线索（Java 侧看不出 internal）。
+
+**安全性核对**（`DefProbe24`）：`SimpleTestClass` 87 个属性、0 个被删（`CacheTests` 的
+`> 64` 断言不受影响）；`JsonSerializerOptions` 21 → 19。
+
+**实测**：`463 → 460`，修 3 / 坏 0；`Tests run: 7902, Failures: 225, Errors: 235, Skipped: 18`。
+
+### 8.2.44 Round 83b：**机制确认** —— 70 条 `MyInt16TwoDimensionList[0]` 的根因是"**原始类**键的类信息被首次实例化冻结"
+
+本轮顺带把最大簇（`reThrowWithPath` 106 条里的 70 条）查到了根因，**没有改代码**，
+但这是后续实现"闭键类信息"设计的直接依据，务必先读本节再动手。
+
+**症状**：70 条失败的消息都是
+`The JSON value could not be converted to class io.github.ningpp.compat.CSharpList. Path: $.MyInt16TwoDimensionList[0]`
+（`SimpleTestClass` 的 `List<List<short>>` 成员），栈顶都是
+`StringConverter.read ← IEnumerableDefaultConverter.onTryRead:88`。
+
+**探针 `DefProbe21`**（`probe/w42`）直接读最小 JSON：
+
+```
+== 2dimList THREW ... Path: $.MyInt16TwoDimensionList[0]
+   cause[1] java.lang.IllegalStateException: Cannot get the value of a token type 'StartArray' as a string.
+        at StringConverter.read(StringConverter.java:39)
+        at IEnumerableDefaultConverter.onTryRead(IEnumerableDefaultConverter.java:88)
+        at JsonConverter1.tryRead ... JsonPropertyInfo1.readJsonAndSetMember
+== 1dimList（MyStringList）OK      == 2dimArray OK      == empty OK
+```
+
+`onTryRead:88` 是快路径里的 `elementConverter.read(...)`，而 `elementConverter` 取自
+`state.Current.JsonClassInfo.ElementClassInfo.PropertyInfoForClassInfo.ConverterBase`。
+拿到的是 **StringConverter** ⇒ 说明那份类信息的元素类型是 `String`。
+
+**探针 `DefProbe22`** 打印运行期对象图（关键三行）：
+
+```
+MEMBER MyInt16TwoDimensionList  runtimePropertyType=CSharpList
+      converter=ListOfTConverter  converterElementType=class io.github.ningpp.compat.CSharpList   ← 成员自己的转换器是对的
+  CSharpList（_classes 里那一份） elementType=class java.lang.String
+      ownConverter=ListOfTConverter  converterElementType=class java.lang.String                 ← 被冻成 String
+    -> elementClassInfo type=java.lang.String ... StringConverter
+```
+
+**结论**：成员侧的转换器**本来就正确**（`element=CSharpList`），坏的是
+`JsonSerializerOptions._classes`（`ConcurrentHashMap<Class, JsonClassInfo>`，**按原始 `Class` 键**）
+里那一份 `CSharpList` 类信息：它的 `elementType`/`ownConverter` 是**第一次实例化**时定下的，
+本类里第一次是 `List<string>`（`MyStringList`/`MyListOfNullString`）⇒ 全部 `List<T>` 共用
+"元素是 String"的那一份。`IEnumerableDefaultConverter.onTryRead` 从**共享类信息**而不是从
+**当前成员的转换器**取元素类型，于是把 `[10,11]` 当字符串读 ⇒ 抛异常。
+（`_converters` 同样是按原始 `Class` 键的 `ConcurrentHashMap`，所以"临时新建一份类信息"
+也救不了：新类信息里的转换器仍会命中那份冻结的转换器。）
+
+**顺序是哈希序，不是声明序**：`myInt16TwoDimensionList` 声明在 `myStringList` **之前**
+（生成物 126 行 vs 129 行），但 `PropertyCacheArray` 由 `cache.values().toArray()` 得到
+（`JsonPropertyInfo` 字典序）⇒ "谁先冻上"取决于哈希顺序，所以这个簇看起来毫无规律。
+**推论**：同一个 options 实例里，每个泛型原始类**只有一种实例化能工作**，
+`SimpleTestClass` 这种"多成员共用 `List<>`"的类型必然失败 —— 这就是为什么它一次性吃掉 70 条。
+
+**已有的一半机制**：`TypeHelper.cachedClassInfoForMember(member, options, rawType)`
+（`JsonPropertyInfo.getRuntimeClassInfo()` 在用）已经会按 `ClosedGenericKey(raw, args)`
+**查询**闭键条目，并且注释里明确写了"只针对单实参形状，多实参（Dictionary/ValueTuple）
+保持原路径，否则 NullTests 回归（实测）"。缺的是**创建侧**：`_classes` 里从来没有闭键条目，
+所以查询永远落空。往 `_classes` 写闭键条目必须同时在**同一实参上下文**里造出对应转换器
+（`_converters` 也要闭键），否则新类信息仍旧拿到冻结的转换器 —— 这正是 §8.2.26/§8.2.30
+记录过的"两侧同时补键"的设计，也是此前 `PatchConverterCacheLookup` 全局统一键
+（855 → 934）失败的边界所在：**全局统一**会把无实参上下文的查询打散，
+**只在"有实参上下文 + 单实参泛型 + 集合/字典类"这一窄带上创建与查询闭键**才是未试过的形状。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

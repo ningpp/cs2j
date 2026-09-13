@@ -3567,3 +3567,134 @@ if (value instanceof Decimal dec) {
 `JsonConvert.serializeObject` 里同样是 `value instanceof Number`（顶桶 `JsonConvert *` 的 70+ 条属此族）；
 本轮**只**修了 writer 一处，`JsonConvert` 留待单独一轮用同样的显式分支修，
 **不要**改成 `Decimal extends Number` —— 那会一次性改变所有 `instanceof Number` 判定点的行为。
+
+### 4.92 Round 83：属性桥凭空造出**非公开属性**（463 → 460，修 3 / 坏 0）
+
+**症状**（3 条，`OptionsTests`，都死在生成辅助方法 `verifyOptionsEqual:653`）：
+
+```
+Assert.same() failure: References are not the same
+Expected: dotnet.text.json.Serialization.ReflectionMemberAccessor@18a98913
+Actual:   dotnet.text.json.Serialization.ReflectionMemberAccessor@7dbae40
+```
+
+另有一条同站点、不同值的形状：
+`Expected: JsonReaderOptions{_maxDepth=0, _commentHandling=Disallow, allowTrailingCommas=false}` /
+`Actual:  JsonReaderOptions{...}`（两个字段全同的 struct 实例）。
+
+**C# 原文**（`OptionsTests.cs:605-653`）：`foreach (PropertyInfo property in
+typeof(JsonSerializerOptions).GetProperties())`，对 bool/int/可枚举/value type 分别处理，
+最后的 `else` 是 `Assert.Same(property.GetValue(options), property.GetValue(newOptions))`。
+
+**探针 `DefProbe23`**（打印 `PropertyInfo.getProperties(JsonSerializerOptions.class)` 全部 21 条）：
+
+```
+PROP MemberAccessorStrategy type=dotnet.text.json.MemberAccessor   getter=<no public getter>
+PROP EffectiveMaxDepth      type=java.lang.Integer                 getter=<no public getter>
+PROP ReaderOptions          type=dotnet.text.json.JsonReaderOptions getter=getReaderOptions
+PROP WriterOptions          type=dotnet.text.json.JsonWriterOptions getter=getWriterOptions
+```
+
+.NET 侧 `GetProperties()`（Public）只有 **17** 条：前两条是 **internal 属性**，
+后两条来自 **internal 方法** `GetReaderOptions()/GetWriterOptions()`（C# 里根本不是属性）。
+compat 的约定桥（`getXxx()` + 0 参数 + 非 void ⇒ 属性）把它们都算成属性 ⇒
+两个 options 实例各自懒建的 `ReflectionMemberAccessor` 引用不同 ✗；
+`JsonReaderOptions` 是 struct 但 `getIsValueType` 判 false，也走 `Assert.Same` ✗。
+
+**修法（两半，缺一不可）**：
+
+1. compat `PropertyInfo.getProperties(Class)`：
+   - 跳过 getter 上带 `@CompatNonPublicProperty` / `@CompatNonPublicAccessor` 的成员；
+   - 末尾 `props.removeIf(p -> p.getGetMethod() == null && p.getSetMethod() == null)`
+     （整个属性在 C# 都不可见 ⇒ 不是 public 属性）。
+2. 转换器 `MethodTransformer`（`javaMethod` 构造之后）：C# **非 public**、0 参数、非 void、
+   名字以 `Get` 开头的方法打 `@CompatNonPublicAccessor`（本树 160 处）。
+   这是第 1 步能认出 `GetReaderOptions()` 这类"方法冒充属性"的**唯一**线索 ——
+   Java 侧看不出 C# 的 internal（转换器把 internal 方法发成 public Java 方法）。
+
+**安全性核对**（`DefProbe24`）：
+
+| 类型 | 属性数 | 两侧都不可见 | 过滤后 |
+|---|---|---|---|
+| `JsonSerializerOptions` | 21 | 2 | 19 |
+| `SimpleTestClass` | 87 | 0 | 87（`CacheTests` 的 `> 64` 断言安全） |
+| `SimpleTestStruct` | 47 | 0 | 47 |
+
+**实测**：`463 → 460`，修 3 / 坏 0（`defaultSerializerOptions_General`、
+`copyConstructor_OriginalLocked`、`copyConstructor_IgnoreNullValuesCopied`）；
+`Tests run: 7902, Failures: 225, Errors: 235, Skipped: 18`（聚合行恰好 1 次）。
+
+### 4.93 Round 83b：70 条 `MyInt16TwoDimensionList[0]` 的根因 —— 原始类键的类信息被**首次实例化冻结**（机制确认，未改码）
+
+**症状**：`reThrowWithPath` 站点 106 条里有 **70 条**消息完全相同：
+
+```
+The JSON value could not be converted to class io.github.ningpp.compat.CSharpList.
+Path: $.MyInt16TwoDimensionList[0] | LineNumber: 0 | BytePositionInLine: 1808.
+```
+
+涉及 8 个测试类（`SpanTests` 36、`ArrayTests` 20、`ReferenceHandlerTests` 19、`ObjectTests` 14…），
+但它们反序列化的是同一个 `SimpleTestClass` 载荷，所以是**同一个缺陷**。
+
+**探针 `DefProbe21`**（最小 JSON，逐个成员）：
+
+```
+== 2dimList  THREW JsonException ... Path: $.MyInt16TwoDimensionList[0]
+   cause[1] java.lang.IllegalStateException: Cannot get the value of a token type 'StartArray' as a string.
+        at dotnet.text.json.ThrowHelper.getInvalidOperationException_ExpectedString
+        at dotnet.text.json.Utf8JsonReader.getString
+        at dotnet.text.json.Serialization.Converters.StringConverter.read(StringConverter.java:39)
+        at dotnet.text.json.Serialization.Converters.StringConverter.read(StringConverter.java:33)
+        at dotnet.text.json.Serialization.Converters.IEnumerableDefaultConverter.onTryRead(IEnumerableDefaultConverter.java:88)
+        at dotnet.text.json.Serialization.JsonConverter1.tryRead
+        at dotnet.text.json.JsonPropertyInfo1.readJsonAndSetMember
+== 3dimList  THREW（同因，Path: $.MyInt16ThreeDimensionList[0]）
+== 1dimList OK   == 2dimArray OK   == empty OK
+```
+
+`onTryRead:88` 是快路径 `elementConverter.read(...)`，而
+`elementConverter = getElementConverter(state.Current.JsonClassInfo.ElementClassInfo)`。
+拿到 **StringConverter** ⇒ 那份元素类信息的元素类型是 `String`。
+
+**探针 `DefProbe22`**（打印运行期对象图）：
+
+```
+MEMBER MyInt16TwoDimensionList runtimePropertyType=CSharpList
+       converter=ListOfTConverter converterElementType=class io.github.ningpp.compat.CSharpList   ← 成员转换器正确
+  CSharpList（_classes 里那一份） elementType=class java.lang.String
+       ownConverter=ListOfTConverter converterElementType=class java.lang.String                  ← 被冻结成 String
+    -> elementClassInfo type=java.lang.String ownConverter=StringConverter
+```
+
+**结论**：
+
+- **成员侧是对的**：`JsonPropertyInfo` 持有的 `ListOfTConverter` 元素类型是 `CSharpList`（外层）✓。
+- **坏在共享类信息**：`JsonSerializerOptions._classes` 是 `ConcurrentHashMap<Class, JsonClassInfo>`，
+  **按原始 `Class` 键**。里头的 `CSharpList` 类信息只有一份，它的
+  `elementType` 与 `ownConverter` 是**第一次实例化时**定下的 —— 本类里第一次是
+  `List<string>`（`MyStringList` / `MyListOfNullString`），于是所有 `List<T>` 共用
+  "元素是 String" 的那一份。
+- **读路径用的是共享类信息**：`IEnumerableDefaultConverter.onTryRead` 取的是
+  `state.Current.JsonClassInfo.ElementClassInfo`，而不是当前成员转换器的元素类型 ⇒
+  把 `[10,11]` 按字符串读。
+- **顺序是哈希序不是声明序**：`myInt16TwoDimensionList` 声明在 `myStringList` 之前
+  （生成物 126 行 vs 129 行），但 `PropertyCacheArray` 由字典
+  `cache.values().toArray()` 得到，谁先冻结取决于哈希顺序 —— 这正是本簇看起来无规律的原因。
+- **推论（重要）**：同一个 `JsonSerializerOptions` 实例里，**每个泛型原始类只有一种实例化能工作**。
+  `SimpleTestClass` 有多个 `List<>` 成员，所以必然在读第一个非 String 元素类型的列表时炸掉；
+  这也解释了为什么"改一下成员顺序/换个测试"仍然失败。
+
+**已有的一半机制**：`TypeHelper.cachedClassInfoForMember(member, options, rawType)` 会按
+`ClosedGenericKey(raw, args)` 在 `_classes` 里**查询**闭键条目（`JsonPropertyInfo.getRuntimeClassInfo()` 在用），
+注释明确："只针对单实参形状；多实参（Dictionary/ValueTuple）保持原路径，否则 NullTests 回归（实测）"。
+缺的是**创建侧**：`_classes` 里从来没有闭键条目 ⇒ 查询永远落空
+（与 §8.2.26"元素侧闭键查询单独做是中性"的观测一致）。
+
+**为什么"临时新建一份类信息"也救不了**：`_converters` 同样是按原始 `Class` 键的
+`ConcurrentHashMap`，新类信息的 `ownConverter` 仍会命中那份冻结的转换器。
+所以创建侧必须**同时**在**同一实参上下文**里造出闭键类信息与闭键转换器。
+
+**边界（勿重试的教训与未试过的形状）**：全局统一键（`PatchConverterCacheLookup`，855 → 934）
+会把**没有实参上下文**的查询也打散；成员侧无差别创建闭键（539 → 576，修 1 / 坏 38）代价全在创建侧。
+**未试过**的窄形状：只在"**有实参上下文 + 单实参泛型 + 集合/字典类**"这一带上同时创建/查询
+闭键类信息与闭键转换器（不触碰无实参上下文的查询，不给多实参成员建闭键）。
