@@ -3404,6 +3404,24 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
 
     private static void UpgradeNestedEnumeratorToGeneric(JavaClassDeclaration nestedEnumerator, string elementType, ConversionContext context)
     {
+        // When the upgrade target is Object (i.e. the outer class is NOT iterable
+        // but has sibling nested iterable classes), do NOT downgrade an enumerator
+        // that already implements a specific CSharpGenericEnumerator<T> (T != Object).
+        // The enumerator was correctly typed from its C# IEnumerator<T> implementation
+        // and downgrading it would break the iterator() return type of the sibling
+        // IEnumerable<T> class that returns this enumerator.
+        if (elementType == "Object")
+        {
+            foreach (var type in nestedEnumerator.ImplementedTypes)
+            {
+                if (TryExtractGenericArgument(type, "CSharpGenericEnumerator", out var existingTypeArg)
+                    && existingTypeArg != "Object")
+                {
+                    return; // already has a specific generic type; skip downgrade
+                }
+            }
+        }
+
         bool changed = false;
         string expectedImplementedType = elementType == "Object"
             ? "CSharpGenericEnumerator<Object>"
