@@ -318,6 +318,20 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         return dtStr + " " + (negative ? "-" : "+") + String.format("%02d:%02d", h, m);
     }
 
+    /**
+     * C#'s signed offset text ({@code +00:00}, {@code -05:00}, {@code +05:30}).
+     *
+     * <p>Java's {@code X}/{@code x} pattern letters answer {@code Z} for a zero offset, which is
+     * only correct for a C# {@code DateTime} of kind Utc — a {@code DateTimeOffset} carries its own
+     * offset and always prints the sign.</p>
+     */
+    private static String formatOffset(ZoneOffset zoneOffset) {
+        int totalSeconds = zoneOffset.getTotalSeconds();
+        int absolute = Math.abs(totalSeconds);
+        return String.format("%c%02d:%02d", totalSeconds < 0 ? '-' : '+',
+            absolute / 3600, (absolute % 3600) / 60);
+    }
+
     public String toString(String format) {
         if (format == null || format.isEmpty()) {
             return toString();
@@ -329,7 +343,13 @@ public final class CSharpDateTimeOffset implements Comparable<CSharpDateTimeOffs
         if ("o".equals(format) || "O".equals(format)) {
             LocalDateTime ldt = ticksToLocalDateTime(dateTime.getTicks());
             OffsetDateTime odt = OffsetDateTime.of(ldt, zoneOffset);
-            return odt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSXXX"));
+            // C#'s "O" for a DateTimeOffset always writes the offset WITH a sign — "+00:00" for
+            // UTC — because the value carries its own offset; Java's "XXX" renders a zero offset as
+            // "Z". Measured: Utf8JsonWriterTests expected "0001-01-01T00:00:00+00:00" and
+            // DateTimeConverterTests expected "2000-12-15T22:11:03.055+00:00", both got "…Z".
+            // The trimmed form the JSON writer builds expects the ±hh:mm layout as well.
+            return odt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSS"))
+                + formatOffset(zoneOffset);
         }
 
         // Detect C# 'F' fraction-of-second tokens (no trailing zeros).
