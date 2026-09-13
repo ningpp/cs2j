@@ -3878,9 +3878,49 @@ if (ch < 0x20 || (escapeNonAscii && ch > 0x7F) || (escapeHtml && isHtmlSensitive
 `Tests run: 7902, Failures: 201, Errors: 235, Skipped: 18`（聚合行恰好 1 次），`mvn-build-r157.log`。
 纯 compat 改动，无需重新生成。
 
-**踩坑（Java 语言层）**：在 Java 源文件的**注释**里写 `\uXXXX` 字样会直接编译失败
-（Unicode 转义在词法分析之前处理，报"非法的 Unicode 逃逸"）—— 本轮第一次编译就是这样挂的，
-注释里必须写成文字描述（"backslash-u escape"）。
+### 4.99 Round 88：Newtonsoft 替身的引号形式随 `StringEscapeHandling` 变（432 → 428，修 4 / 坏 0）
+
+**症状**（4 条，`Utf8JsonWriterTests#writeStringsWithRelaxedEscaping[9..12]`）：
+
+```
+Expected: ">><++>>>\u0022>>\\>>&>>>漢字>>>"        ← 期望侧（compat JsonTextWriter）
+Actual:   ">><++>>>\">>\\>>&>>>漢字>>>"            ← 被测 writer（relaxed 编码器）
+```
+
+**两次否证**（都做了全量测量，记录在此以免重试）：
+
+1. 改 compat `JavaScriptEncoder.asciiEscape`（relaxed 分支不再用短形式）→ `432 → 434`，**修 4 坏 6**
+   （`ValueTests#writeStringWithRelaxedEscaper`、`JsonDocumentWriteTests/JsonElementWriteTests#writeWithRelaxedEscaper[3][4]`、
+   `Utf8JsonWriterTests#writingStringsWithCustomEscaping`）。失败消息显示这些用例的期望是 `\"`、实际变成 `\u0022`。
+2. 改 compat `JsonTextWriter`（引号一律短形式）→ `432 → 432`，**修 4 坏 4**（`escapeAsciiCharacters[1..4]`）。
+
+**决定性证据（C# 原文，同一测试内两种编码器）** `Utf8JsonWriterTests.cs:151-177`：
+
+```
+默认编码器：  writer.WriteStringValue("é\"")  →  JsonTestHelper.AssertContents("\"\\u00E9\\u0022\"", output)
+relaxed：     writer.WriteStringValue("é\"")  →  JsonTestHelper.AssertContents("\"\u00E9\\\"\"", output)
+```
+
+⇒ 两种输出（`\u0022` / `\"`）都属于 .NET 的**正确**行为；被测 writer 一直是对的，
+不一致的是**期望侧**：`getExpectedString_RelaxedEscaping`（`:7501`）不设 `StringEscapeHandling`（Default），
+`escapeAsciiCharacters`（`:4338`）传 `StringEscapeHandling.EscapeHtml`。
+
+**结论**：Newtonsoft 的引号转义**随 handling 变** —— `EscapeHtml` ⇒ unicode 转义（与默认编码器的 writer 对齐），
+`Default`/`EscapeNonAscii` ⇒ 短形式（与自定义/relaxed 编码器的 writer 对齐）。
+
+**修法**：compat `JsonTextWriter.escapeJsonString`：
+
+```java
+case '"':
+    sb.append(escapeHtml ? "\\u0022" : "\\\"");
+    break;
+```
+
+**实测**：`432 → 428`，修 **4** / 坏 0；`Tests run: 7902, Failures: 193, Errors: 235, Skipped: 18`，
+`mvn-build-r162.log`。纯 compat 改动，无需重新生成。
+
+**踩坑**：Java 源文件**注释**里的 `\uXXXX` 字样再次导致编译失败（本轮中途一次），
+注释中不要出现反斜杠-u 序列 —— 用文字描述（第二次踩，务必记住）。
 
 ### 4.97 Round 87：注释在未配对代理项处应当**截断**（436 → 432，修 4 / 坏 0）
 

@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 197, Errors: 235, Skipped: 18` = **432**（起点 855，**−423**）。
-- 本会话累计 **45 条 KEEP**（39 条"逐用例集合差 +0 回归"；3 条实测中性：`99151aa6`、`6a30e0ca`、`43914058`；
+- **基线**：`Tests run: 7902, Failures: 193, Errors: 235, Skipped: 18` = **428**（起点 855，**−427**）。
+- 本会话累计 **46 条 KEEP**（40 条"逐用例集合差 +0 回归"；3 条实测中性：`99151aa6`、`6a30e0ca`、`43914058`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -368,6 +368,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `8b64cd02` | Newtonsoft 替身支持 `StringEscapeHandling.EscapeNonAscii` | 444 → 436（修 8） |
 | `43914058` | `StreamWriter` 把非法 UTF-16 换成 **U+FFFD**（.NET 语义；本集合**实测中性**，按先例保留并披露） | 436 → 436（**中性**） |
 | `a6b174d8` | 注释在**第一个未配对代理项处停止**（复刻 .NET `ToUtf8` 的静默截断） | 436 → 432（修 4） |
+| `2bab7e62` | Newtonsoft 替身的**引号形式随 `StringEscapeHandling` 变**（`EscapeHtml`→unicode 转义，其余→短形式） | 432 → 428（修 4） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1880,6 +1881,41 @@ SDK 源码印证：`Utf8JsonWriter.WriteValues.Comment.cs:83-86` 调
 运行期不确定性），但它把 `StreamWriter` 的编码语义对齐到 .NET，按既有先例保留。
 **残留**：`writeStringsWithRelaxedEscaping` 4 条与 `writeNumber_NullPropertyName_UInt32/UInt64` 2 条仍是开放项
 （见 §8.2.48 的表格，relaxed 那条的入口是"属性名写路径的引号处理"）。
+
+### 8.2.50 已修（Round 88）：Newtonsoft 替身的**引号形式随 `StringEscapeHandling` 变**（432 → 428，修 4 / 坏 0）
+
+**入口**：`Utf8JsonWriterTests#writeStringsWithRelaxedEscaping(boolean, boolean, String, boolean)[9..12]`
+（含引号的那四行）：期望 `">><++>>>\u0022>>…"`，实际 `">><++>>>\">>…"`。
+
+**两次被否证的假设（都留了实测数据，勿重试）**：
+
+| 假设 | 做法 | 实测 |
+|---|---|---|
+| "我们的 writer 该写 `\u0022`" | 把 compat `JavaScriptEncoder.asciiEscape` 的 relaxed 短形式去掉（引号一律 unicode 转义） | `432 → 434`：**修 4 坏 6**（`ValueTests#writeStringWithRelaxedEscaper`、`JsonDocument/JsonElementWriteTests#writeWithRelaxedEscaper`、`writingStringsWithCustomEscaping`） |
+| "Newtonsoft 一律写短形式" | compat `JsonTextWriter` 的引号一律 `\"` | `432 → 432`：**修 4 坏 4**（`escapeAsciiCharacters[1..4]`） |
+
+**决定性证据在 C# 原文里，两个编码器的行为是**不同**的**（`Utf8JsonWriterTests.cs:151-177`，同一个测试）：
+
+```
+默认编码器：      WriteStringValue("é\"") → 期望 "\u00E9\u0022"
+UnsafeRelaxed：   WriteStringValue("é\"") → 期望 "\u00E9\""
+```
+
+⇒ 被测 writer 的两种输出都是**对的**；错的只能是**期望侧生成器**。
+再看两个期望助手的差异：`getExpectedString_RelaxedEscaping`（C# `:7501`）**不设** `StringEscapeHandling`，
+而 `escapeAsciiCharacters`（`:4338`）传 `StringEscapeHandling.EscapeHtml` ——
+Newtonsoft 的引号是按 handling 走的：**`EscapeHtml` ⇒ unicode 转义；`Default`/`EscapeNonAscii` ⇒ 短形式 `\"`**。
+
+**修法**（compat 一处）：`JsonTextWriter.escapeJsonString` 的引号分支改为
+
+```java
+sb.append(escapeHtml ? "\\u0022" : "\\\"");
+```
+
+**实测**：`432 → 428`，修 4 / 坏 0（relaxed 四行全 FIXED）；`Tests run: 7902, Failures: 193, Errors: 235, Skipped: 18`。
+
+**纪律**：同一"期望侧生成器"的两个助手可能因为 `StringEscapeHandling` 不同而**要求不同的转义形式**；
+先用 `Utf8JsonWriterTests.cs:151-177` 那种"同一输入、两个编码器"的原文断言把两侧行为钉死，再改代码。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
