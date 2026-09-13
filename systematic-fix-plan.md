@@ -1295,6 +1295,47 @@ C# 多维数组"的笔记，`getArrayRank` **消费**它（因为 Java 的 `Clas
 `ref` 赋值？"** —— 如果是，调用方可能仍持有原对象，必须**就地**改而不是换引用。
 （同一母题的"字段级"版本见 §8.2.29 的 C# 可访问性；这里是"引用级"版本。）
 
+
+### 8.2.34 Round 74：`ref`/`out` 模拟的**全量扫描**（0 处遗留）+ 对象初始化器缺口
+
+**(1) 全量扫描：`ObjectHolder` 的 `ref`/`out` 模拟没有遗留问题**
+
+Round 73 的判据（"`holder.value = x` 是不是在模拟 C# 的 `ref` 赋值"）本轮用两个工具做了全量核对：
+
+- `tools/holder_writes.py`：全树 **457** 处 `x.value = …` 赋值，按 holder 名分组
+  （`value` 154、`this` 62、`syntax` 26、`reader` 8 …）。`reader` 的 8 处里有 4 处在
+  `JsonDocument`（注释原文："Value copy to overwrite **the ref** on an exception and undo the
+  destructive reads"）—— 与 round 73 修的 `JsonSerializer` 两处同源。
+- `tools/holder_scan2.py`：**194** 处"把局部变量作为 `ref`/`out` 传入"的站点，
+  逐个检查调用方是否把 `holder.value` 或原变量读回 —— **0 处遗留**。
+
+因此把就地回滚的 pass 从 `JsonSerializer.java` **提升为全文件通用**
+（`PatchReaderRestoreInPlace` 现在对每个文件都跑），覆盖 `JsonDocument` 的 4 处。
+**实测中性 `503 → 503`（修 0 / 坏 0）** —— 与扫描结论一致：当前没有调用方受影响。
+保留的理由：它与 round 73 是同一个修法，且更忠实（C# 的 `reader = restore;` 本就写穿调用方）。
+
+**(2) 新缺口：`new T() { Prop = value }` 的对象初始化器被丢弃（4 条）**
+
+簇：`ExtensionDataTests#extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter[1..4]`，
+消息 `Expected: {"MyCustomOverflowWrite":"OverflowValueWrite"} / Actual: {}`。
+
+C# 原文：
+```csharp
+var root = new TRoot() { Overflow = new TDictionary() };
+string json = JsonSerializer.Serialize(root);
+Assert.Equal(@"{""MyCustomOverflowWrite"":""OverflowValueWrite""}", json);
+```
+生成物：
+```java
+var root = (TRoot) io.github.ningpp.compat.Activator.createInstance(tRootClass);   // ← 初始化器被丢掉
+```
+于是 `Overflow == null`，`getMemberAndWriteJsonExtensionData` 里 `value == null → success = true`
+（这一分支与 .NET 一致），什么都没写。
+
+**要修的是转换器**：支持 `new T { Prop = value }` 的对象初始化器（构造后逐个属性赋值）。
+这是**通用缺口**（不是本簇特有），与 round 63 的 `[JsonIgnore(Condition = …)]`
+（同样是对象初始化器被丢）同源。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |

@@ -3162,3 +3162,47 @@ FIXED  ReadValueTests#readPropertyName
 
 **可复用判据**：**凡生成代码里出现 `holder.value = x;`，先问"这是不是在模拟 C# 的 `ref` 赋值？"**
 —— 若是，调用方可能仍持有原对象，必须**就地**改而不是换引用。
+
+### 4.82 Round 74：`ref`/`out` 模拟的全量扫描（0 处遗留）+ 对象初始化器缺口（503 → 503）
+
+**(1) 全量扫描结论：没有遗留**
+
+`tools/holder_writes.py`（全树 `x.value = …`，按 holder 名分组）：
+
+```
+distinct holders assigned: 54   total assignments: 457
+  value 154 | this 62 | syntax 26 | err 19 | e 16 | utf8PropertyName 14 | consumed 11 | result 10
+  reader 8 | bytesWritten 8 | marker 8 | newHost 6 | idx 6 | runtimeType 6 | i 6 | data 6 ...
+```
+`reader` 的 8 处：`JsonDocument` 4 处（1204 行附近的注释原文 —— "Value copy to overwrite **the ref**
+on an exception and undo the destructive reads"）、`JsonSerializer` 2 处（round 73 已修）、
+`JsonConverter` 1 处与测试 3 处是**有意替换**成新 reader，不是回滚。
+
+`tools/holder_scan2.py`（"局部变量作为 ref/out 传入"的站点）：
+
+```
+holder sites: 194  suspects: 0
+```
+即每个调用方都读回了 `holder.value` 或原变量 —— round 73 的 `JsonSerializer` 是唯一"调用方自留变量"
+的站点。据此把就地回滚提升为**全文件通用 pass**（覆盖 `JsonDocument` 4 处），
+**实测 `503 → 503，修 0 / 坏 0`**，与扫描结论吻合；保留作为忠实模拟（先例 `6a30e0ca`）。
+
+**(2) 对象初始化器缺口（4 条，未修）**
+
+`ExtensionDataTests#extensionProperty_SupportsWritingToCustomSerializerWithExplicitConverter[1..4]`：
+`Expected: {"MyCustomOverflowWrite":"OverflowValueWrite"} / Actual: {}`。
+
+C# 原文（`ExtensionDataTests.cs`）：
+```csharp
+var root = new TRoot() { Overflow = new TDictionary() };
+string json = JsonSerializer.Serialize(root);
+```
+生成 Java：
+```java
+var root = (TRoot) io.github.ningpp.compat.Activator.createInstance(tRootClass);
+```
+**对象初始化器被丢弃** → `Overflow == null` → `getMemberAndWriteJsonExtensionData` 里
+`value == null → success = true`（该分支与 .NET 一致）→ 输出 `{}`。
+
+修法在**转换器**：支持 `new T { Prop = value }`（构造后逐属性赋值）。
+与 round 63 的 `[JsonIgnore(Condition = …)]` 同一根因（C# 对象初始化器），属通用缺口。
