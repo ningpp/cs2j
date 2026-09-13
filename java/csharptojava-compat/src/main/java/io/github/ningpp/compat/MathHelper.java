@@ -230,11 +230,23 @@ public class MathHelper {
     }
 
     public static byte parseByte(String s) {
-        return (byte) (int) parseNumber(() -> parseIntWithStyle(s, 0));
+        return parseByte(s, NumberStyles.AllowLeadingSign);
     }
 
     public static byte parseByte(String s, int style) {
-        return (byte) (int) parseNumber(() -> parseIntWithStyle(s, style));
+        int val = parseNumber(() -> parseIntWithStyle(s, style));
+        // When AllowLeadingSign is set, treat as signed sbyte (-128..127);
+        // otherwise treat as unsigned byte (0..255).
+        if ((style & NumberStyles.AllowLeadingSign) != 0) {
+            if (val < Byte.MIN_VALUE || val > Byte.MAX_VALUE) {
+                throw new ArithmeticException("Value out of range for sbyte: " + val);
+            }
+        } else {
+            if (val < 0 || val > 0xFF) {
+                throw new ArithmeticException("Value out of range for byte: " + val);
+            }
+        }
+        return (byte) val;
     }
 
     public static byte parseByte(String s, CultureInfo culture) {
