@@ -2492,3 +2492,53 @@ FIXED JsonDocumentTests#defaultObjectEnumeratorDoesNotThrow
 即 null token 落到了 `_cs2jDefault_T()` 而没有让转换器去读
 （`JsonPropertyInfo1` 第 178 行：`isNullToken && !HandleNullOnRead && !IsContinuation`
 时直接 `getSet().accept(obj, _cs2jDefault_T())`）。**这是可接的下一步**（该桶 5 条）。
+
+### 4.69 Round 67：`JsonElementConverter` 的 `CanBeNull` 答反了（553 → 548，修 5 / 坏 0）
+
+**入口**：§4.68 里那 6 条"换了断言"的用例，桶名 `Expect Null -> Undefined`。
+
+**根因链（全部由生成代码读出，未加插桩）**：
+1. `JsonConverter1.getHandleNull()` 第 214 行：`setHandleNullOnRead(!getCanBeNull());`
+2. `CanBeNull` 在 ctor 第 68 行：`!getIsValueType() || TypeHelper.getUnderlyingType(getTypeToConvert()) != null`，
+   而 `getIsValueType()` = `TypeHelper.getIsValueType(typeToConvert)` = **`type.isPrimitive()`**；
+3. `JsonElement.class` 不是 primitive → `getIsValueType()=false` → `canBeNull=true`
+   → `HandleNullOnRead=false`；
+4. `JsonPropertyInfo1` 第 178 行：`isNullToken && !HandleNullOnRead && !IsContinuation`
+   →（`!IgnoreDefaultValuesOnRead`）→ `getSet().accept(obj, _cs2jDefault_T())`
+   → 赋的是 `new JsonElement()`，kind = **Undefined**；
+5. C# 侧 `typeof(JsonElement).IsValueType` 是 **true** → `CanBeNull=false`
+   → `HandleNullOnRead=true` → 转换器自己读 null token →
+   `JsonDocument.ParseValue` 的根元素 kind = **Null**。
+
+**修法**：`ProjectPasses.PatchJsonElementConverterHandleNull` 在 `JsonElementConverter`
+末尾追加 `@Override public boolean getCanBeNull() { return false; }`。
+
+**为什么不用 setter**：`setHandleNullOnRead` 在生成代码里是 **private**
+（`JsonConverter1` 第 228 行），第一版补丁直接调它 → javac
+`找不到符号: 方法 setHandleNullOnRead(boolean)` → **整棵树编译失败** → 测试阶段没跑
+（`summary lines: 0`）→ triage 报出 `553 → 553 / 0 fixed`。
+**这正是 §8.3 那条纪律存在的意义**：如果只看"0 收益"就会把一次编译失败当成"方向无效"而回滚。
+改成 `getCanBeNull()` 覆写后 `summary lines: 1`，结果如下。
+
+**实测**：
+```
+553 -> 548  net 5
+FIXED 5 REGRESSED 0
+  JsonElementTests#serializeJsonElement
+  ObjectTests#write(ITestClass)[37]
+  ReferenceHandlerTests#readTestClassesWithExtensionOption(Class, byte[])[37]
+  SpanTests#read(Class, byte[])[37]
+  SpanTests#readFromStream(Class, byte[])[37]
+```
+`Tests run: 7902, Failures: 302, Errors: 246, Skipped: 18`，`Tests run: 7902` 恰好 1 次。
+
+**母题归纳（本轮最有复用价值的结论）**：**"这个 Java 类型对应的 C# 类型是值类型吗"**
+这个问题在 compat 里被答错了三次，各自造成一个独立簇：
+
+| 入口 | 现状 | 已修？ |
+|---|---|---|
+| `DefaultValue.getDefaultByClass` / `defaultValueIsNullForWrite` | `int` 与 `int?` 都装箱成 `Integer` | 已修（§4.64，需**声明成员**） |
+| `TypeHelper.getIsValueType(Class)` | 仍是 `type.isPrimitive()`，对转换出的 struct 答 false | **未修** |
+| `JsonConverter1.CanBeNull`（依赖上一条） | `JsonElement` 等 struct 答 true | 已按类型绕过（本条） |
+
+下一条要攻击时，先查这三个入口里"还没修的那个"。

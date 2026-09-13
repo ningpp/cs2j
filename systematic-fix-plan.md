@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 307, Errors: 246, Skipped: 18` = **553**（起点 855，**−302**）。
-- 本会话累计 **20 条 KEEP**（17 条"逐用例集合差 +0 回归"；`a62aac37` 修 40 / 坏 1 已披露；
+- **基线**：`Tests run: 7902, Failures: 302, Errors: 246, Skipped: 18` = **548**（起点 855，**−307**）。
+- 本会话累计 **21 条 KEEP**（18 条"逐用例集合差 +0 回归"；`a62aac37` 修 40 / 坏 1 已披露；
   `387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；`18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
 | 提交 | 内容 | 收益 |
@@ -336,6 +336,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `18e24418` | 把 `[JsonIgnore(Condition = …)]` 送进运行时 | 568 → 558（修 11 / 暴露 1） |
 | `fbed68d4` | `CSharpDictionary` 查表遵守构造时给的 comparer | 558 → 554（修 4，含上面那条暴露） |
 | `cd8fe08a` | `default(JsonElement)` 的 `.clone()` 走复制而非 C# `Clone()` | 554 → 553（修 1，另 6 条换成了真实断言） |
+| `a516e191` | `JsonElementConverter` 自己处理 null token（`CanBeNull=false`） | 553 → 548（修 5） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -873,6 +874,39 @@ JSON 里的 `null` 让读取器造出 `default(JsonElement)`，赋值时在生�
 目前插入点分布在 `StructCloneHelper`、`PropertyTransformer`、`AssignmentTransformer`、
 `ArgumentTransformer`、`MemberwiseCloneRewriter` 等处，属独立一轮的工作量；
 `JsonElement` 只是第一个被踩到的类型。
+
+### 8.2.22 Round 67 已修：`JsonElementConverter` 的 `CanBeNull` 答反了（553 → 548，修 5 / 坏 0）
+
+**入口**：§8.2.21 那 6 条"换了断言"里的 5 条，桶名 `Expect Null -> Undefined`
+（`{"Null":null}` 反序列化后 `ValueKind` 应为 `Null` 却是 `Undefined`）。
+
+**根因**：`JsonConverter<T>.HandleNull()` 里是 `setHandleNullOnRead(!getCanBeNull())`，
+而 `CanBeNull = !typeof(T).IsValueType || Nullable.GetUnderlyingType(...) != null`。
+C# 的 `JsonElement` **是值类型** → `CanBeNull=false` → `HandleNullOnRead=true`
+→ **转换器自己去读 null token**，`JsonDocument.ParseValue` 给出 kind = Null 的根元素。
+Java 侧 `JsonElement` 是普通 class，`getIsValueType()` 退化成 `isPrimitive()` → `CanBeNull=true`
+→ 框架走"直接赋 `default(T)`"分支 → `Undefined`。
+
+**修法**：`ProjectPasses.PatchJsonElementConverterHandleNull` 在
+`JsonElementConverter` 里追加
+```java
+@Override public boolean getCanBeNull() { return false; }
+```
+（`setHandleNullOnRead` 是 **private**，只能从 `getCanBeNull()` 这个钩子入手 ——
+第一版直接调 setter，javac 报 `找不到符号: 方法 setHandleNullOnRead(boolean)`，
+整棵树编译失败、`summary lines: 0`，靠纪律判据当场识破，没有当成"0 收益"。）
+
+**实测**：`553 → 548`，集合差 **修 5 / 坏 0**，正是预测的那 5 条
+（`JsonElementTests#serializeJsonElement`、`ObjectTests#write(ITestClass)[37]`、
+`ReferenceHandlerTests#readTestClassesWithExtensionOption[37]`、
+`SpanTests#read[37]`、`SpanTests#readFromStream[37]`）。
+
+**这一条与 §8.2.17 是同一个母题**：**"这个 Java 类型对应的是 C# 值类型吗"**
+在 compat 里被答错了三次（`default(T)`、`getIsValueType`、`CanBeNull`）。
+下次遇到"C# 值类型语义没生效"的簇，先查这三个入口。
+**已知缺口**：`TypeHelper.getIsValueType(Class)` 目前仍是 `type.isPrimitive()`，
+对转换出来的 struct（`Point_2D_Struct` 是 `value class`，`JsonElement` 是普通 class）
+都答 false —— 这是同一母题的下一个可攻击点。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
