@@ -1971,6 +1971,33 @@ member MyStringList
 （在 `getMemberInfo()`/预热之后立刻读一次该字段：非 null ⇒ 预热期就定了，验证上述解释），
 再决定改"创建时机"还是改"缓存策略"。
 
+### 8.2.53 Round 91：`DefProbe28` 又否证了"预热即定型"（未改码）—— 开放问题收窄到"创建时到底拿到了什么"
+
+`probe/w42/DefProbe28.java` 在 `getOrAddClass(SimpleTestClass.class)` 之后**立刻**反射读成员的
+`_runtimeClassInfo` 字段：
+
+```
+member MyInt16TwoDimensionList : _runtimeClassInfo right after warm-up = null
+member MyStringList            : _runtimeClassInfo right after warm-up = null
+```
+
+⇒ 类信息**不是**预热期解析的，而是**首次读取时惰性解析**（§8.2.52 的解释被否证）。
+于是 §8.2.45 变体 1 的创建分支**确实会**在首次读取时执行、且 `memberArguments` 非空（§4.101）、
+`_runtimeClassInfo` 也是 null（本条）—— 三个前提都成立，目标簇却不动。
+
+**剩下的唯一可能**：那次创建**拿回来的仍是共享那份**（或创建出的类信息内部元素转换器仍错），
+即 `createClassInfoForMember` 里的 `getOrAddClass(rawType)` 没有按闭键新建。
+
+**下一轮的第一个动作（探针级，不改生成物）**：临时把创建分支加回 compat，
+**只打印**它返回的实例身份与 `elementType`，与 `options.getOrAddClass(CSharpList.class)` 比对：
+
+```
+created identity == shared identity ?  ⇒ 创建退化为共享（键没生效）
+created identity != shared && elementType=CSharpList ⇒ 创建对了，问题在别处（继续查元素链）
+```
+
+有了这一行输出，才能决定下一步改哪里；**在那之前不要再动缓存键或创建时机**。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |

@@ -3919,6 +3919,34 @@ case '"':
 **实测**：`432 → 428`，修 **4** / 坏 0；`Tests run: 7902, Failures: 193, Errors: 235, Skipped: 18`，
 `mvn-build-r162.log`。纯 compat 改动，无需重新生成。
 
+### 4.102 Round 91：`DefProbe28` 否证"预热即定型"（未改码）
+
+**探针** `probe/w42/DefProbe28.java`（`getOrAddClass(SimpleTestClass.class)` 之后立刻反射读
+`JsonPropertyInfo._runtimeClassInfo`）：
+
+```
+member MyInt16TwoDimensionList : _runtimeClassInfo right after warm-up = null
+member MyStringList            : _runtimeClassInfo right after warm-up = null
+```
+
+⇒ §4.101 的"预热期就被解析成共享那份"**不成立**：该字段是**首次读取时**惰性填充的。
+
+**三个前提现在都已核实为真**：
+
+| 前提 | 证据 |
+|---|---|
+| 帧用的类信息来自 `getRuntimeClassInfo()`，且它就是共享那份（String 味） | §4.100（`DefProbe26`：`sameAsShared=true`） |
+| 成员的实参注册**在**（`memberArguments` 非空） | §4.101（`DefProbe27`：`[CSharpList<Integer>]`） |
+| 该字段**不是**预热期填充，所以创建分支**会**在首次读取时执行 | 本条（`DefProbe28`：null） |
+
+**结论**：§4.94 变体 1/2"创建了闭键条目却修不动目标"的原因**不在**创建时机，
+只能是"**那次创建拿回来的仍是共享那份**"（`getOrAddClass` 没按闭键新建）
+或"新建的类信息内部元素转换器仍错"。
+
+**下一轮动作（探针级，不改生成物）**：临时加回 compat 的创建分支，
+**只打印**返回值与 `options.getOrAddClass(CSharpList.class)` 的**身份**比对与 `elementType`：
+相同身份 ⇒ 键没生效（创建退化）；不同身份且 `elementType=CSharpList` ⇒ 创建正确、问题在元素链下游。
+
 ### 4.101 Round 90：`DefProbe27` 否证 §4.100 的假设，指向"预热即定型"（未改码）
 
 **探针** `probe/w42/DefProbe27.java`（取生成物 `JsonPropertyInfo` 通过反射的 `getMemberInfo()`）：
