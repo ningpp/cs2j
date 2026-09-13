@@ -23,6 +23,19 @@
 >
 > ---
 
+> - **一条修复的标准命令序列**（照抄，避免每轮重新推导；`<root>` = `d:\cs-json-0911-sdk`）：
+>   1) 改转换器后：`dotnet build src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -c Release`（约 10s）
+>   2) 全量重新生成（**超过 240s，必须后台任务**）：
+>      `dotnet run -c Release --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- convert-project -s D:\csharp-sdk\json -d d:\cs-json-0911-sdk --extra-deps io.github.ningpp:system-private-xml:0.0.1-SNAPSHOT --no-verify-build --no-verify-tests`
+>      （退出码 1 是正常的；末行应为 `Conversion complete (MSBuild): 618 succeeded, 0 failed`）
+>   3) 只改 compat 时：`cd java/csharptojava-compat; mvn -o clean install "-Dmaven.repo.local=D:\mvnrepo" -DskipTests`（**无需**第 2 步）
+>   4) 测量：`cd d:\cs-json-0911-sdk; mvn -o clean install "-Dmaven.repo.local=D:\mvnrepo" -e > mvn-build-rNNN.log 2>&1`
+>      → 必须核对 `Tests run: 7902,` 在日志里**恰好出现 1 次**（0 次 = 构建失败，测量无效）
+>   5) 判定：`python tools/triage_xml.py d:\cs-json-0911-sdk triage-xml.json` 然后
+>      `python tools/cmp_triage.py <旧 triage 副本> triage-xml.json` —— **只认 FIXED/REGRESSED 列表**
+>
+> ---
+
 > 目标：把 `d:\cs-json-0911-sdk` 的 `mvn clean install -e` 从当前
 > `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18`（855 条失败）
 > 推进到 **0 失败 + BUILD SUCCESS**，且 `D:\code\cs2j` 本身的 dotnet 单测全绿。
