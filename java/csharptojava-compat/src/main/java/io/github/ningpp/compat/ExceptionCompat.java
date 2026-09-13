@@ -8,6 +8,17 @@ public final class ExceptionCompat {
     }
 
     /**
+     * C#'s parameterless {@code new InvalidOperationException()}, which carries a DEFAULT message.
+     *
+     * <p>Java's {@code new IllegalStateException()} has none, so
+     * {@code new InvalidOperationException().Message} — which {@code JsonPropertyTests} uses as the
+     * expected text of {@code AssertExtensions.Throws} — came out null.</p>
+     */
+    public static IllegalStateException invalidOperation() {
+        return new IllegalStateException("Operation is not valid due to the current state of the object.");
+    }
+
+    /**
      * Returns the cause of {@code e} as a {@link RuntimeException}, or {@code null}
      * if the cause is not a {@link RuntimeException}.
      *

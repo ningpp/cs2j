@@ -274,6 +274,18 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
             return call;
         }
 
+        if (createdTypeSymbol?.ToDisplayString() == "System.InvalidOperationException"
+            && (node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0))
+        {
+            // C#'s parameterless InvalidOperationException carries a DEFAULT message
+            // ("Operation is not valid due to the current state of the object."), and Java's
+            // parameterless IllegalStateException does not. Tests use it as the expected message:
+            // JsonPropertyTests builds `string ErrorMessage = new InvalidOperationException().Message`
+            // and passes it to AssertExtensions.Throws, so a null message failed three cases.
+            context.AddImport("io.github.ningpp.compat.ExceptionCompat");
+            return "ExceptionCompat.invalidOperation()";
+        }
+
         if (createdTypeSymbol?.SpecialType == SpecialType.System_Decimal
             && (node.ArgumentList == null || node.ArgumentList.Arguments.Count == 0))
         {
