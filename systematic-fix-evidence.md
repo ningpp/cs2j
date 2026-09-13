@@ -2839,3 +2839,60 @@ JSON writer 路径是 `Utf8Formatter.tryFormat(value, …, 'O')` → `toString("
 即**端口化的测试预言机把 decimal 写成了字符串**，与 writer 输出无关。
 除非改 Newtonsoft 端口本身，否则不该动 writer 侧。
 
+
+### 4.76 Round 68：两条长尾修复（按"最深库帧"分组找到的）
+
+**方法再进一层**：`tools/site_group.py` 按**最深非测试帧**分组（消息只说"出了什么事"，
+最深库帧说"死在哪一行"）。532 条 → 249 个站点；头几名是已知的擦除簇
+（`ThrowHelper.reThrowWithPath:681` 99 条）与测试预言机
+（`JsonTestHelper.assertContentsAgainstJsonNet:720` 38 条），
+但从中浮出两个可动手的站点。
+
+#### (1) `Encoding.getString` 无视 `throwOnInvalidBytes` —— 提交 `73b6fec7`，**修 8 / 坏 0**（532 → 524）
+
+站点：`Utf8JsonReaderTests.testingGetStringInvalidUTF8:6503`（7 条）+ `JsonDocumentTests#getString_BadUtf8`（1 条）。
+断言原文：`Assert.true_(false, "Expected InvalidOperationException when trying to get string value for invalid UTF-8 JSON text.")`
+—— 即 `json.getString()` **没有抛**。
+
+**根因**：`Encoding.getString(byte[], int, int)` 就是 `new String(bytes, index, count, charset)`，
+而 `new String(...)` **永远用替换字符**处理非法输入；但 `JsonReaderHelper.s_utf8Encoding`
+是 `Encoding.getUTF8ThrowOnInvalid()`（C# `new UTF8Encoding(false, true)`），
+它的调用方 `transcodeHelper` 明确 `catch (DecoderFallbackException)` 并包成
+`InvalidOperationException` —— 这个 catch 此前**永远不可能触发**。
+`Encoding` 里其它方法（第 311/365/598 行）都已按 `throwOnInvalidBytes` 分支，只有 `getString` 漏了。
+
+**修法**：`throwOnInvalidBytes` 为真时改用
+`charset.newDecoder().onMalformedInput(REPORT).onUnmappableCharacter(REPORT)`，
+捕获 `CharacterCodingException` 后抛 `DecoderFallbackException`。
+
+#### (2) `getKey` 只看首字节与长度 —— 提交 `4ba90036`，**修 1 / 坏 0**，另 6 条换了失败原因（524 → 523）
+
+**发现路径**：`ObjectTests#readSimpleClass` 报
+`The JSON value could not be converted to SampleEnum. Path: $.MyEnum`，
+但 `BytePositionInLine: 129` —— 用 `tools/s_json_at.py` 解出该位置其实是
+`"MyChar" : "a"` 的**字符串值**。即：读到 `MyChar` 时，处理它的是 **MyEnum 的转换器**。
+
+**根因**：`JsonClassInfo.getKey` 的 C# 语义是"前 7 个字节 + 长度"，但转换器把字节读取
+降级成"引用 + `Unsafe`"形式：
+
+```java
+int reference = MemoryMarshal.getReference(name);      // Java 侧返回**首元素的取值**
+Unsafe.readUnaligned(new IntHolder(reference))          // pass-through，原样返回该值
+Unsafe.add(_referenceRef2, 4)                           // 同样原样返回
+```
+
+于是 **同一长度、同一首字节的名字得到完全相同的 key**（偏移量根本没被读）。
+而 `isPropertyRefEqual` 对**长度 ≤ 7** 的名字**只比较 key**，
+所以 `"MyChar"`（6 字节，'M' 开头）会命中扫描中第一个 6 字节 'M…' 属性
+（`MyEnum`/`MyGuid`/`MyByte`…）。这同时解释了"只在全量顺序下失败"的现象
+（扫描起点 `frame.propertyIndex` 依赖此前读过的属性）。
+
+**修法**：compat 新增 `TypeHelper.propertyNameKey(ReadOnlySpan<Integer>)`，
+**按真实字节**实现 C# 的 key（>7 用 min(len,0xFF)<<56，否则 len<<56，奇数长度再补最后一个字节）；
+pass 把整个生成方法体替换成对该实现的调用（旧的"空名字"补丁随之作废，已删除）。
+
+**测量**：`524 → 523`（集合差修 1 / 坏 0）。SampleEnum 相关失败从 **9 条降到 3 条** ——
+另外 6 条越过了 enum，落到它们真正的失败原因上（集合差如实仍算失败）。
+**这是"0 回归"里价值最高的一条**：旧实现对"同首字节同长度"的名字**根本无法区分**，
+修好它没有让任何既有用例变差。
+
