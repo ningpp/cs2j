@@ -3698,3 +3698,67 @@ MEMBER MyInt16TwoDimensionList runtimePropertyType=CSharpList
 会把**没有实参上下文**的查询也打散；成员侧无差别创建闭键（539 → 576，修 1 / 坏 38）代价全在创建侧。
 **未试过**的窄形状：只在"**有实参上下文 + 单实参泛型 + 集合/字典类**"这一带上同时创建/查询
 闭键类信息与闭键转换器（不触碰无实参上下文的查询，不给多实参成员建闭键）。
+
+### 4.94 Round 84：上面那条"窄形状"**试过了，否证**（460 → 581 / 460 → 632，均已回滚）
+
+Round 83 结束时把 §4.93 的"未试过的窄形状"排成下一轮。本轮**两个变体都实测了，都不行**，
+且**目标簇一条都没修好** —— 这条形状从此进入"勿重试"清单。
+
+**变体 1：全量上下文键**（提交未保留，改动已 `git checkout` 回滚）
+
+- compat 新增 `cacheKeyOrRaw(Class)`（有 `MEMBER_ARGUMENTS`/会话层就用 `ClosedGenericKey`，
+  否则回落原始类）、`cacheHas`/`cacheGet`/`cachePut`（`cachePut` 同时写闭键与 raw 别名）。
+- 转换器新增 pass `PatchCacheKeyedLookups`（挂在 `JsonSerializerOptions.java` 分支）：
+  改写三处生成文本 ——
+  `_converters.containsKey/get` → `TypeHelper.cacheKeyOrRaw + cacheHas/cacheGet`；
+  `ConcurrentHashMapHelper.tryAdd(_converters, …)` → `TypeHelper.cachePut(_converters, …)`；
+  `_classes.get(type)` / `getOrAdd(...)` → `TypeHelper.cacheGet/cachePut(_classes, …)`。
+  （pass 的正则先在生成文件上干跑验证过三处都命中。）
+- compat 新增 `MEMBER_DECLARED_TYPES` + `beginMemberScope/endMemberScope`（重建成员自己的层），
+  `cachedClassInfoForMember` 在 miss 时**创建**闭键类信息（限集合/字典族）。
+
+实测 `460 → 581`（`mvn-build-r153.log`，`Tests run: 7902, Failures: 224, Errors: 357`）：
+**修 1 / 坏 122**。新增失败的形状集中在"类信息/转换器串味"：
+
+```
+31  class java.lang.Integer cannot be cast to class java.lang.String
+22  public short dotnet.text.json.Serialization.Tests.SimpleTestClass.getMyInt16() target=java.lang.String
+13  class java.lang.Integer cannot be cast to class io.github.ningpp.compat.CSharpList
+12  class [I cannot be cast to class java.lang.String
+ 9  The JSON value could not be converted to class io.github.ningpp.compat.CSharpList
+ 7  class java.lang.String cannot be cast to class io.github.ningpp.compat.CSharpList
+重灾区：CollectionTests 85、DictionaryTests 9、ExtensionDataTests 7、ArrayTests 6
+```
+
+最后那条 `SimpleTestClass.getMyInt16() target=java.lang.String` 是**旧文档里记过的**"帧拿到了别的类型的
+属性信息"症状（见 `elementArgumentsOfOwner` 的注释），说明按实例化分裂类信息会泄漏到无关读取。
+**目标簇未修好**：FIXED 只有 `ReferenceHandlerTests#dictionaryReferenceLoopInList` 一条。
+
+**变体 2：收窄到"有作用域才换键"**（同样已回滚）
+
+- `cacheKeyOrRaw` 加 `CACHE_CONTEXT_DEPTH` 闸门：只有元素作用域 / 成员创建作用域期间才用闭键，
+  其余一律原始类（这正是变体 1 里"用**别的成员**残留实参给无关查询换键"的堵漏）。
+- `beginElementArgumentsScope` 额外把元素自己的层发布进 `TYPE_ARGUMENTS`（原先只发布
+  `MEMBER_ARGUMENTS`，于是类信息按元素键缓存、转换器却按残留层构建），`endElementArgumentsScope`
+  一并还原。
+- 创建侧再收窄：只在**同原始类嵌套**（`args[0]` 是 `ParameterizedType` 且 raw == 自身，
+  即 `List<List<…>>`）时创建闭键类信息。
+
+实测 `460 → 632`（`mvn-build-r154.log`，`Tests run: 7902, Failures: 215, Errors: 417`）：
+**修 1 / 坏 173**，比变体 1 更差；目标簇仍然一条未修好。
+
+**回滚验证**：`git checkout` 两个文件 → `dotnet build` → 全量重新生成 → `mvn -o clean install -e`
+（`mvn-build-r155.log`）= `Tests run: 7902, Failures: 225, Errors: 235, Skipped: 18` = **460**，
+逐用例集合差 `460 → 460`、`FIXED 0 / REGRESSED 0` ✓（基线精确复原）。
+
+**结论（勿重试）**：
+
+1. "每个原始类一份类信息/转换器"是这套移植**读路径的隐含前提**（读栈帧、属性缓存、
+   帧上的 `JsonPropertyInfo` 都按原始类取用）；按实例化分裂条目 → 173 处"帧里出现别的类型的成员信息"。
+2. 更关键的是：**换键不是充分条件**。两个变体都让 `_classes`/`_converters` 里出现了
+   实例化正确的条目，目标簇却一步没动 —— 说明真正交给 `IEnumerableDefaultConverter.onTryRead`
+   的那份类信息，**未必**来自 §4.93 探针看到的那条链（探针只证明了 `_classes` 里那一份是 String 味，
+   没有证明**帧里**用的是它）。
+3. **下一步的正确顺序**：先写 `DefProbe25` 打印**帧内**的 `state.Current.JsonClassInfo`
+   （身份、是否 `_classes` 中的那一份、`elementType`、`PropertyInfoForClassInfo.converter`），
+   把"谁把 String 味类信息交给 `onTryRead`"钉死；在此之前不要再动任何缓存键。

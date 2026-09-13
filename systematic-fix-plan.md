@@ -1722,6 +1722,47 @@ MEMBER MyInt16TwoDimensionList  runtimePropertyType=CSharpList
 （855 → 934）失败的边界所在：**全局统一**会把无实参上下文的查询打散，
 **只在"有实参上下文 + 单实参泛型 + 集合/字典类"这一窄带上创建与查询闭键**才是未试过的形状。
 
+### 8.2.45 Round 84：否证 —— "把两个缓存换成上下文键"**修不动** 70 条嵌套列表簇（两个变体分别 460 → 581 / 460 → 632，均已回滚）
+
+**动机**：§8.2.44 已用探针把 70 条簇定位到"`_classes` 里那份 `CSharpList` 类信息被首次实例化冻结"，
+而 compat 侧已有一半机制（`cachedClassInfoForMember` 的闭键**查询**）。
+本轮补上"创建侧 + 两个缓存都用闭键"，实测两遍，**均为强负收益且目标簇未修好**。
+
+**变体 1（全量上下文键）**：compat 新增 `cacheKeyOrRaw`/`cacheHas`/`cacheGet`/`cachePut`；
+转换器新增 pass `PatchCacheKeyedLookups`（`JsonSerializerOptions` 的
+`_converters` 读/写 + `_classes` 取/存**全部**改走上下文键，无实参上下文时**回落原始类**并保留 raw 别名）；
+`cachedClassInfoForMember` 在 miss 时**创建**闭键类信息（限集合/字典族）。
+
+- 实测 `460 → 581`（`mvn-build-r153.log`）：**修 1 / 坏 122**。
+- 新失败形状（都是"某个成员的类信息/转换器泄漏进无关读取"）：
+  `Integer cannot be cast to String` 31 条、`public short SimpleTestClass.getMyInt16() target=java.lang.String` 22 条、
+  `Integer cannot be cast to CSharpList` 13 条、`[I cannot be cast to String` 12 条；
+  重灾区 `CollectionTests` 85 条。
+- 目标簇**一条都没修好**（FIXED 只有 `ReferenceHandlerTests#dictionaryReferenceLoopInList`）。
+
+**变体 2（收窄到"有作用域才换键"）**：`cacheKeyOrRaw` 只有在
+`CACHE_CONTEXT_DEPTH > 0`（元素作用域 / 成员创建作用域）时才启用闭键，其余一律用原始类；
+元素作用域额外把**元素自己的层**发布进 `TYPE_ARGUMENTS`（否则类信息按元素键缓存、
+转换器却仍按线程上残留的层构建）；创建侧再收窄到**同原始类嵌套**（`List<List<…>>`，即"原始类槽位
+可证明无法服务"的唯一形状）。
+
+- 实测 `460 → 632`（`mvn-build-r154.log`）：**修 1 / 坏 173**，比变体 1 更差，目标簇仍未修好。
+- 回滚后重新生成 + 全量测量 = `460 → 460`（逐用例集合差 0/0）✓。
+
+**结论（勿再重试"换缓存键"这一形状）**：
+在这套移植里，"每个原始类一份类信息/转换器"是**读路径的隐含前提** ——
+读栈帧、属性缓存、帧上的 `JsonPropertyInfo` 都按**原始类**取用；
+按实例化分裂条目会让别的类型的属性信息出现在帧里（上面那 22 条
+`SimpleTestClass.getMyInt16() target=java.lang.String` 就是它）。同时，
+**换键不是充分条件**：两次都没让目标簇前进一步，说明真正决定读路径的那份类信息
+**根本不是** `getRuntimeClassInfo()`/`getOrAddClass` 这条链上的（§8.2.44 的探针只证明了
+`_classes` 里那一份是 String 味，还没证明**帧里**用的是它）。
+
+**下一步（若继续攻这 70 条）**：先用探针打印**读栈帧**里的 `JsonClassInfo`
+（`state.Current.JsonClassInfo` 的身份 + 它是不是 `_classes` 里的那一份 + 它的 `elementType`），
+把"谁把 String 味的类信息交给 `onTryRead`"钉死，再决定动哪里；
+**不要**在没有这一步之前再动缓存键。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
@@ -1759,6 +1800,7 @@ MEMBER MyInt16TwoDimensionList  runtimePropertyType=CSharpList
 | 让通用 `TypeHelper.getIsValueType` 认得 `value class` | 548 → 547（修 5 / 坏 4）；可空 struct 在运行期**无法**与不可空区分（探针两行完全相同） | §8.2.23 / §8.2.27 |
 | 让擦除类的类信息**与反射顺序无关**（清空成员实参上下文创建） | 539 → 665（修 3 / 坏 129）：`List<SimpleTestClass>` 这类成员的类信息本来就依赖成员实参 | §8.2.26 |
 | `ImmutableDictionary` 直接实现 `CSharpReadOnlyDict` | 不编译（`IImmutableDictionary.clear()` 返回自身 vs `Collection.clear()` void）；转换器的泛型上界会插入隐式 checkcast，13 条 `ClassCast` 由此而来 | §8.2.7 |
+| 把 `_converters`/`_classes` 换成"上下文闭键"（含成员侧创建闭键条目） | `460 → 581`（修 1 / 坏 122）；收窄到"有作用域才换键 + 同原始类嵌套才创建"后 `460 → 632`（修 1 / 坏 173），**两个变体都没修好那 70 条**。读路径依赖"每个原始类一份类信息"这一前提 | §8.2.45 |
 
 ### 8.5 已建议接受的限制
 
