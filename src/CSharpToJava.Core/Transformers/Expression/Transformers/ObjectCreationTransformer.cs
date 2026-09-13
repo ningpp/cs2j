@@ -208,7 +208,15 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         if (typeInfo.Type != null)
         {
             var typeName = context.MapType(typeInfo.Type);
-            return TransformObjectCreationWithArgs(typeName, node.ArgumentList, null, context, typeInfo.Type as INamedTypeSymbol);
+            var created = TransformObjectCreationWithArgs(typeName, node.ArgumentList, null, context, typeInfo.Type as INamedTypeSymbol);
+            // `new() { Prop = v }` reaches here with the initializer already noted by the syntax tree,
+            // and this path never inspected it — the properties were dropped entirely.
+            if (node.Initializer != null
+                && node.Initializer.Kind() == SyntaxKind.ObjectInitializerExpression)
+            {
+                return ApplyInitializer(typeName, created, node.Initializer, context);
+            }
+            return created;
         }
         return "new Object()";
     }
