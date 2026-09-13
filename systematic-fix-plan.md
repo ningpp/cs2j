@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 250, Errors: 238, Skipped: 18` = **488**（起点 855，**−367**）。
-- 本会话累计 **38 条 KEEP**（32 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 232, Errors: 238, Skipped: 18` = **470**（起点 855，**−385**）。
+- 本会话累计 **39 条 KEEP**（33 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -360,6 +360,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `d930d7ff` | `[JsonInclude]` 时能看见**非公开 setter** | 499 → 493（修 6） |
 | `8c2c15ff` | 保留 C# `new InvalidOperationException()` 的**默认消息** | 493 → 490（修 3） |
 | `756d6cf6` | `default(Utf8JsonReader)` 的空缓冲区（null → 空 span） | 490 → 488（修 2） |
+| `310552db` | `default(T)`：C# 类 → **null**（只有 struct 才有零实例） | 488 → 470（修 18） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1478,6 +1479,57 @@ primitive 规格化成 wrapper（`getConverter(char.class)` 现在答 `ObjectDef
 因为转换器表按 wrapper 建键）。**实测 `488 → 488`，0 修 0 坏，逐条消息零变化** ——
 说明 `nullReadTestChar` 的 NPE 不在查找路径上，而在"值类型转换器收到 null token"
 （即 §8.2.23/§8.2.27 已关闭的 `T` vs `T?` 歧义），故回滚，保持改动面最小。
+
+
+### 8.2.39 Round 79 已修：`default(T)` 对**C# 类**返回了新实例（488 → 470，修 18 / 坏 0）
+
+**本会话单轮最大收益（−18）。**
+
+**入口**：`Assert.null` 桶里一批"应该为 null 却是对象"的失败（4 条 `CSharpDictionary@…`、
+3 条 `ExtensionDataTests#nestedClass`、`NullTests#rootObjectIsNull` 等）。
+探针 `DefProbe17` 一行定位：
+
+```
+C.class         -> DefProbe17$C@77a567e1     ← 应为 null
+Object.class    -> null
+String.class    -> null
+C[]             -> null
+SimpleTestClass -> dotnet...SimpleTestClass@3834d63f   ← 应为 null
+```
+
+即**只有"具体类作为根类型"这一种情况答错**。
+
+**根因**：`DefaultValue.getDefaultByClass` 对"既不是原始类型、也不是包装类/String/Object"的类型
+**一律尝试无参构造器**并返回实例。对 C# 的 **class**，`default(T)` 是 **null**；
+只有 **struct** 才有零实例。而转换器把 struct 发成 Java 的 `value class` ✓ ——
+所以判据现成：`!type.isValue()` 就是"这是 C# 类"。
+
+**修法**（compat 一行判据）：
+
+```java
+if (!type.isValue()) {
+    return null;      // C# class → default(T) is null
+}
+try { return type.getDeclaredConstructor().newInstance(); } catch (Exception e) { return null; }
+```
+
+**实测**：`488 → 470`，**修 18 / 坏 0**：
+`NullTests#rootObjectIsNull`、`NullTests#deserializeDictionaryWithNullValues`、
+`DictionaryTests#{nullDictionaryValuesShouldDeserializeAsNull, dictionaryWithNullShouldPreserveOrder_Deserialize,
+shouldHandleNullInDictionaries_Deserialize}`、`ExtensionDataTests#{deserializeIntoMultipleDictionaries,
+nestedClass[1..3]}`、`CyclicTests#deepTypeCycleWithRoundTrip`、`ArrayTests#readNull[1]`、
+`NullableTests#nullableCustomStructRoundtrip`、`ObjectTests#write(ITestClass)[6]`、
+`PropertyVisibilityTests#classWithComplexObjectUsingIgnoreNeverAttribute`、
+`ReferenceHandlerTests/SpanTests …[6]`、`NullTests#nullAcceptsLeadingAndTrailingTrivia`。
+
+**为什么影响面这么大**：`DefaultValue.ofClass` 是所有 `_cs2jDefault_T()` 的落地实现，
+"读到 null 就用默认值"的路径遍布读侧；把"默认值"从"新实例"改回 null 之后，
+一整类"null 被当成对象"的假象同时消失。
+
+**同族（C# 默认值 ≠ Java 默认值）第 6 例**：`default(T)`（§8.2.17）、`default(JsonElement)`（§8.2.21）、
+访问器可见性（§8.2.29）、`ref` 回滚（§8.2.33）、默认 struct（§8.2.38）、**C# 类的 default(T)**（本条）。
+**判据**：凡"期望 null / 期望空"的失败，先看 **C# 侧那个位置的默认值是什么**，
+再对着生成物问"Java 的默认值是不是同一个"。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

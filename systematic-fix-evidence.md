@@ -3379,3 +3379,42 @@ Java 的 `_buffer`（`ReadOnlySpan<Integer>`）因此为 **null**；C# 的 `defa
 
 **"C# 默认值 ≠ Java 默认值"母题第 5 例**：`default(T)`（§4.64）、`default(JsonElement)`（§4.68）、
 访问器可见性（§4.85）、`ref` 回滚（§4.81）、默认 struct（本条）。
+
+### 4.88 Round 79：`default(T)` 对 C# 类返回了新实例（488 → 470，修 18 / 坏 0）
+
+**入口**：`Assert.null` 桶（19 条）里"应为 null 却是对象"的一批：
+`NullTests#rootObjectIsNull`、`NullTests#deserializeDictionaryWithNullValues`、
+`DictionaryTests#{nullDictionaryValuesShouldDeserializeAsNull, dictionaryWithNullShouldPreserveOrder_Deserialize,
+shouldHandleNullInDictionaries_Deserialize}`、`ExtensionDataTests#deserializeIntoMultipleDictionaries`、
+`ExtensionDataTests#nestedClass[1..3]`（`Actual: CSharpDictionary@…` / `SimpleTestClass@…`）。
+
+**探针 `DefProbe17`**：
+
+```
+C.class         -> DefProbe17$C@77a567e1
+Object.class    -> null
+String.class    -> null
+C[]             -> null
+SimpleTestClass -> dotnet.text.json.Serialization.Tests.SimpleTestClass@3834d63f
+```
+只有"具体类作为根类型"答错 —— `deserialize("null", null, C.class)` 返回实例。
+
+**根因**：`DefaultValue.getDefaultByClass` 的兜底是"试无参构造器"：
+
+```java
+if (type == String.class || type == Object.class) return null;
+try { return type.getDeclaredConstructor().newInstance(); } catch (Exception e) { return null; }
+```
+于是一切"转换出来的 C# 类"的 `default(T)` 变成了**新实例**。C# 的 `default(T)` 对 **class** 是 null；
+只有 **struct** 有零实例 —— 而转换器把 struct 发成 Java 的 `value class` ✓ 判据现成。
+
+**修法**：兜底前加 `if (!type.isValue()) return null;`。
+
+**测量**：`488 → 470`，**修 18 / 坏 0**（清单见计划 §8.2.39）。
+
+**为什么是 −18**：`DefaultValue.ofClass` 是所有 `_cs2jDefault_T()` 的落地实现，
+而"读到 null 就用默认值"遍布读侧；默认值从"新实例"改回 null 后，
+一整类"null 被当成对象"的假象同时消失。
+
+**同族第 6 例**（C# 默认值 ≠ Java 默认值）：§4.64 default(T)、§4.68 default(JsonElement)、
+§4.85 访问器可见性、§4.81 ref 回滚、§4.87 默认 struct、**本条**。
