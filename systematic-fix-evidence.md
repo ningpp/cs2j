@@ -3115,3 +3115,50 @@ FIXED  NullTests#invalidRootOnWrite
 
 **方法学补充**：这是本项目里第二个被定位的"**顺序相关失败**"根因（第一个是 §4.72/§4.74 的
 类信息缓存）。**凡"单独跑过、全量跑挂"的用例，先查有没有按 `Class` 存的全局笔记/缓存。**
+
+### 4.81 Round 73：`ref` 参数的回滚必须就地写回（513 → 503，修 10 / 坏 0）
+
+**入口**：`ObjectTests#tooLittleJsonFails`（6 条）+ `ReadValueTests#tooLittleJsonForIntArray`（3 条）
++ `ReadValueTests#readPropertyName`。
+
+**探针 `DefProbe15`**（最小复现：截断 JSON + `Deserialize(new ObjectHolder<>(reader), null, Poco.class)`）：
+
+```
+before  = 0
+threw   = JsonException: '1' is an invalid end of a number. Expected a delimiter. Path: $ ...
+after   = 6          ← .NET 侧应为 0
+```
+
+**根因**：生成代码的注释里已经写了正确契约
+（"If an exception is thrown the reader is reset to the state it was in when the method was called."），
+但实现缺失；而且**已有的**回滚写法是
+
+```java
+reader.value = restore;        // JsonSerializer.java 第 1054 行与第 1078 行
+```
+
+它模拟的是 C# 的 `reader = restore;`（`ref` 参数）—— 在 C# 里写穿调用方存储，
+在 Java 里**只换掉 ObjectHolder 的引用**，所以"自己留着 reader 变量的调用方"看到的仍是前进过的对象。
+（第一次尝试只在最外层 `catch` 里 `reader.value = 快照`，**实测中性 513 → 513** ——
+正是因为它换的是引用而不是就地写回；这条中间测量是定位第 2 个缺口的关键。）
+
+**修法**：
+
+1. `StructTransformer.AddCloneMethod` 里为每个有可赋值（非 static、非 final）实例字段的 struct
+   发 `public void __cs2jCopyFrom(T other)`（逐字段 `this.f = other.f;`）。
+   实测生成物：`Utf8JsonReader` 第 6175 行 `public void __cs2jCopyFrom(Utf8JsonReader other)`，
+   含 `_consumed` 与 `_totalConsumed`（`getBytesConsumed()` 返回两者之和）。
+2. pass `PatchReaderRestoreInPlace` 把两处 `reader.value = restore;` 改成
+   `reader.value.__cs2jCopyFrom(restore);`；`PatchRefReaderResetOnThrow` 在最外层入口加
+   `catch (RuntimeException) { reader.value.__cs2jCopyFrom(快照); throw; }` 兜底。
+
+**实测**：`513 → 503`，**修 10 / 坏 0**：
+
+```
+FIXED  ObjectTests#tooLittleJsonFails(String)[1..6]
+FIXED  ReadValueTests#tooLittleJsonForIntArray(String)[1..3]
+FIXED  ReadValueTests#readPropertyName
+```
+
+**可复用判据**：**凡生成代码里出现 `holder.value = x;`，先问"这是不是在模拟 C# 的 `ref` 赋值？"**
+—— 若是，调用方可能仍持有原对象，必须**就地**改而不是换引用。

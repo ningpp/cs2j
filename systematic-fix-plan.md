@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 274, Errors: 239, Skipped: 18` = **513**（起点 855，**−342**）。
-- 本会话累计 **32 条 KEEP**（27 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 264, Errors: 239, Skipped: 18` = **503**（起点 855，**−352**）。
+- 本会话累计 **33 条 KEEP**（28 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -354,6 +354,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `784c5b3a` | C# 非公开字段带标记（`internal` ≠ Java `public`） | 519 → 518（修 1，闭合整条 theory） |
 | `6a30e0ca` | `KeyValuePair` 的实参只取一次 | 518 → 518（**实测中性**，作为潜在缺陷保留） |
 | `0d424a94` | 多维数组 rank 标记在**缓存命中**路径上也要消费 | 518 → 513（修 5） |
+| `7f1ac92a` | `Deserialize(ref reader)` 抛异常时**就地**回滚 reader | 513 → 503（修 10） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1259,6 +1260,40 @@ C# 多维数组"的笔记，`getArrayRank` **消费**它（因为 Java 的 `Clas
 
 **方法论**：这是"**顺序相关失败**"的第二个已定位根因（第一个是 §8.2.26 的类信息缓存）。
 **凡是"单独跑过、全量跑挂"的用例，先找有没有按 `Class` 存的全局笔记**。
+
+
+### 8.2.33 Round 73 已修：`ref` 参数的回滚必须**就地**写回（513 → 503，修 10 / 坏 0）
+
+**入口**：`ObjectTests#tooLittleJsonFails`（6 条，`Assert.equal(0, reader.getBytesConsumed())` 得到 1/4/5/6）
+以及 `ReadValueTests#tooLittleJsonForIntArray`（3 条）、`ReadValueTests#readPropertyName`。
+
+**根因（两个叠加的模拟缺口）**：
+
+1. 生成代码的**注释里就写着** C# 契约：
+   "Upon completion of this method reader will be positioned at the final token in the JSON value.
+   **If an exception is thrown the reader is reset to the state it was in when the method was called.**"
+   —— 但没有任何实现。
+2. 已有的回滚写法是 `reader.value = restore;`，它模拟的是 C# 的 `reader = restore;`（`ref` 参数）。
+   在 C# 里那会**写穿调用方的存储**；在 Java 里它只是把 **ObjectHolder 的引用**换个指向，
+   于是**自己留着 reader 变量的调用方**看到的仍是**前进过**的那个对象。
+   探针实测（`DefProbe15`）：`before = 0 / threw JsonException / after = 6`，
+   而 .NET 侧应保持 0。
+
+**修法（两步，缺一不可）**：
+
+- `StructTransformer` 为每个"有可赋值实例字段"的 struct 发一个
+  `public void __cs2jCopyFrom(T other)`（逐字段 `this.f = other.f;`）——
+  Java 里没有 `ref`，就地写回只能靠"把字段拷进调用方仍持有的那个对象"。
+- pass 把两处 `reader.value = restore;` 改成 `reader.value.__cs2jCopyFrom(restore);`，
+  并在 `deserialize(ObjectHolder<Utf8JsonReader>, …)` 里加一层
+  `catch (RuntimeException) { reader.value.__cs2jCopyFrom(快照); throw; }` 兜底。
+
+**实测**：`513 → 503`，**修 10 / 坏 0**（6 条 `tooLittleJsonFails` + 3 条 `tooLittleJsonForIntArray`
++ `readPropertyName`）。
+
+**可复用的判据**：**凡生成代码里出现 `holder.value = x;`，都要问一句"这是不是在模拟 C# 的
+`ref` 赋值？"** —— 如果是，调用方可能仍持有原对象，必须**就地**改而不是换引用。
+（同一母题的"字段级"版本见 §8.2.29 的 C# 可访问性；这里是"引用级"版本。）
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
