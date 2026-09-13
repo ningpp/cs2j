@@ -1133,10 +1133,22 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                     PatchAttributeLocationFormatting(result);
                     PatchExceptionMessageNullSafety(result);
                 }
+                else if (result.FileName.EndsWith("JsonSerializerOptions.java", StringComparison.Ordinal))
+                {
+                    // NOT PatchConverterCacheLookup: that one rewrites the converter read key to the
+                    // closed-generic key and measured 855 -> 934 when it was tried (round 1). It is
+                    // kept dormant on purpose. Stray diagnostics are stripped universally below.
+                }
                 else if (result.FileName.EndsWith("JsonConverter1.java", StringComparison.Ordinal))
                 {
                     PatchExceptionMessageContains(result);
                 }
+
+                // Universal, and LAST: no matter which file this is, a leftover probe must not
+                // survive into the tree. Applied outside the dispatch chain because probes have been
+                // left in files with no dedicated branch (round 59 left one in
+                // ReflectionMemberAccessor.java, round 48 one in JsonSerializerOptions.java).
+                PatchRemoveStrayDiagnostics(result);
             }
         }
     }
@@ -1448,9 +1460,48 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
     /// entries the converter list and warm-up maintain.
     /// </para>
     /// </summary>
-    private static void PatchConverterCacheLookup(ConversionResult result)
+    /// <summary>
+    /// Strips diagnostic <c>System.err.println("[cs2j.…]")</c> lines that a probe left in the
+    /// generated file.
+    /// <para>
+    /// Round-60 housekeeping: a probe added while diagnosing the member-level <c>[JsonConverter]</c>
+    /// path was never removed, and because no pass targets <c>JsonSerializerOptions.java</c> it
+    /// survived every regeneration and printed on every converter lookup. Removing it here keeps the
+    /// tree clean automatically instead of relying on someone remembering.
+    /// </para>
+    /// </summary>
+    private static void PatchRemoveStrayDiagnostics(ConversionResult result)
     {
         if (result.GeneratedCode == null)
+            return;
+        var code = result.GeneratedCode;
+        if (StrayDiagnosticBlockRegex.IsMatch(code))
+            code = StrayDiagnosticBlockRegex.Replace(code, string.Empty);
+        if (StrayDiagnosticRegex.IsMatch(code))
+            code = StrayDiagnosticRegex.Replace(code, string.Empty);
+        result.GeneratedCode = code;
+    }
+
+    /// <summary>
+    /// Matches an <c>if (…contains("Wrapper")) { System.err.println("[cs2j.…"); }</c> diagnostic
+    /// block, whole.
+    /// <para>
+    /// Matching the statement up to its terminating <c>);</c> is unreliable: the printed expression
+    /// contains nested parentheses (a ternary with a parenthesised condition), so a lazy
+    /// <c>.*?\);</c> stops at the wrong one. Anchoring on the enclosing <c>if</c> and its closing
+    /// brace avoids having to balance parentheses at all.
+    /// </para>
+    /// </summary>
+    private static readonly System.Text.RegularExpressions.Regex StrayDiagnosticBlockRegex = new(
+        @"[ \t]*if \([^\r\n]*\) \{\r?\n[ \t]*System\.err\.println\(""\[cs2j\..*?\);[ \t]*\r?\n[ \t]*\}[ \t]*\r?\n",
+        System.Text.RegularExpressions.RegexOptions.Singleline);
+
+    private static readonly System.Text.RegularExpressions.Regex StrayDiagnosticRegex = new(
+        @"[ \t]*System\.err\.println\(""\[cs2j\.[^\r\n]*?\);\r?\n",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private static void PatchConverterCacheLookup(ConversionResult result)
+    {        if (result.GeneratedCode == null)
             return;
 
         var match = ConverterCacheLookupRegex.Match(result.GeneratedCode);
