@@ -1,4 +1,4 @@
-# 系统性修复计划 — 证据与分簇基线
+﻿# 系统性修复计划 — 证据与分簇基线
 
 > 生成方式：`mvn-build-r140.log`（UTF-16LE）+ `*/target/surefire-reports/TEST-*.xml`，
 > 由 `tools/triage_xml.py` / `tools/triage_report.py` / `tools/triage_drill.py` 解析。
@@ -3099,7 +3099,7 @@ public static class eDevice {
 修法：compat 新增 `takeMultiDimArrayRank(Class)`（消费并回答是否 > 1），
 pass 在 `JsonSerializerOptions.getOrAddClass(Class)` 的**最前面**插入该检查并抛出，
 另在 `getConverter` 入口再兜一道（`PatchMultiDimArrayRankAtClassLookup` /
-`PatchMultiDimArrayRankAtMultiDimArrayRankAtConverterEntry`）。
+`PatchMultiDimArrayRankAtConverterEntry`）。
 **测量：`518 → 513`，修 5 / 坏 0**：
 
 ```
