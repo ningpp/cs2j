@@ -3244,3 +3244,26 @@ var root = __cs2jInit1;
 `Decimal`、`Guid`）对应的 BCL 类型在 C# 里不配对象初始化器，未处理。
 
 **母题第二例**（第一例：§4.65 的 `[JsonIgnore(Condition = …)]` 对象初始化器）。
+
+### 4.84 Round 75b：目标类型化 `new() { … }` 同样丢对象初始化器（499 → 499，实测中性）
+
+`ObjectCreationTransformer.TransformNew(ImplicitObjectCreationExpressionSyntax node, …)` 原文：
+
+```csharp
+var typeName = context.MapType(typeInfo.Type);
+return TransformObjectCreationWithArgs(typeName, node.ArgumentList, null, context, typeInfo.Type as INamedTypeSymbol);
+//                                                              ↑ 第三个参数是 TypeSyntax?，不是 initializer
+```
+即该方法**从不查看 `node.Initializer`** —— C# 9 的目标类型化 `new() { Prop = v }` 的所有赋值都被丢掉。
+
+**修法**：复用 round 75 新增的 `ApplyInitializer`（同形状：合成局部 + 每个赋值一条 setter pre-statement）。
+生成物实测：全树 `__cs2jInit` 站点 **69** 处（含 round 75 的类型参数分支）。
+
+**测量**：`499 → 499`，**修 0 / 坏 0**；逐条对比消息，唯一差异是 `objectPreserveDuplicateArrays`
+的**尾部**（前缀完全相同），集合差无变化。保留理由：丢赋值本身无疑是错的，
+且与 round 75 是同一母题（对象初始化器）的第三处。
+
+**母题小结（对象初始化器）**：本项目已发现三处"对象初始化器被丢"：
+1. `[JsonIgnore(Condition = …)]`（§4.65，属性上的对象初始化器 → 由标记携带值解决）；
+2. `new T { … }` 类型参数创建分支（§4.83，修 4 条）；
+3. `new() { … }` 目标类型化创建（本条，实测中性）。
