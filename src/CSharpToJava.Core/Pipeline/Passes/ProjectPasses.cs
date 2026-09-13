@@ -1157,6 +1157,10 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchJsonElementConverterHandleNull(result);
                 }
+                else if (result.FileName.EndsWith("ObjectConverterFactory.java", StringComparison.Ordinal))
+                {
+                    PatchKeyValuePairGenericArguments(result);
+                }
 
                 // Universal, and LAST: no matter which file this is, a leftover probe must not
                 // survive into the tree. Applied outside the dispatch chain because probes have been
@@ -1748,6 +1752,45 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
     private static readonly System.Text.RegularExpressions.Regex PropertyNameKeyBodyRegex = new(
         @"public static long getKey\(ReadOnlySpan<Integer> name\) \{.*?\n[ \t]*return key;\r?\n[ \t]*\}",
         System.Text.RegularExpressions.RegexOptions.Singleline);
+
+    /// <summary>
+    /// Reads the type arguments of a <c>KeyValuePair</c> ONCE.
+    /// <para>
+    /// <c>TypeHelper.getGenericArguments</c> CONSUMES one registration layer per call, so the second
+    /// call answered the arguments of the NESTED KeyValuePair instead of the same one. Measured with
+    /// a probe on <c>KeyValuePair&lt;string, KeyValuePair&lt;int,int&gt;&gt;</c>: call #1 returned
+    /// <c>[String, CSharpKeyValuePair]</c>, calls #2 and #3 returned <c>[Integer, Integer]</c>. The
+    /// factory therefore built <c>KeyValuePairConverter(String, Integer)</c>, whose reads fell back to
+    /// <c>JsonElement</c> for both members, and four
+    /// <c>CollectionTests#readKeyValuePairOfKeyValuePair</c> cases plus four
+    /// <c>CustomConverterTests</c> dictionary cases failed with <c>Expected: Key / Actual: Key</c> or
+    /// <c>The given key '1' was not present in the dictionary</c>.
+    /// </para>
+    /// </summary>
+    private static void PatchKeyValuePairGenericArguments(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+        if (!KeyValuePairGenericArgumentsRegex.IsMatch(result.GeneratedCode))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchKeyValuePairGenericArguments did not match ObjectConverterFactory.java "
+                + "- the KeyValuePair converter is still built from a consumed argument layer.");
+            return;
+        }
+        result.GeneratedCode = KeyValuePairGenericArgumentsRegex.Replace(result.GeneratedCode,
+            "// getGenericArguments consumes a registration layer per call, so asking twice answered\n"
+            + "        // the NESTED KeyValuePair's arguments for the second one.\n"
+            + "        Class<?>[] __cs2jKeyValueArgs = TypeHelper.getGenericArguments(type);\n"
+            + "        Class keyType = __cs2jKeyValueArgs[0];\n"
+            + "        Class valueType = __cs2jKeyValueArgs[1];",
+            count: 1);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex KeyValuePairGenericArgumentsRegex = new(
+        @"Class keyType = TypeHelper\.getGenericArguments\(type\)\[0\];\r?\n[ \t]*"
+        + @"Class valueType = TypeHelper\.getGenericArguments\(type\)\[1\];",
+        System.Text.RegularExpressions.RegexOptions.None);
 
     private static readonly System.Text.RegularExpressions.Regex DefaultValueIsNullGuardRegex = new(
         @"if \(getIgnoreDefaultValuesOnWrite\(\) && \(\(_cs2jDefault_T\(\) == null \? value == null : "
