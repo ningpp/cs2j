@@ -1,5 +1,23 @@
 # 转换后 Java 工程单测失败 — 系统性全面修复计划
 
+> ## 接手入口（Round 93 更新，先读这一段）
+>
+> - **当前基线**：`Tests run: 7902, Failures: 193, Errors: 235, Skipped: 18` = **428**
+>   （起点 855，已修 **427**）；KEEP 提交 **46** 条（§8.1 有全表）；工作树干净，`triage-xml.json` 与基线同源。
+> - **最大残余簇（70 条，占 1/6）**：`reThrowWithPath` 里的 `MyInt16TwoDimensionList[0]`，
+>   机制已被三个探针钉死 —— §4.100（帧用的就是 `_classes` 里那份 String 味共享类信息）、
+>   §4.101（成员实参注册**在**）、§4.102（`_runtimeClassInfo` **不是**预热填充）。
+>   **下一步就是 §8.2.54 的 compat-only 实验 v3**（无需重新生成，1 分钟一轮）：
+>   加回 `cacheKeyOrRaw/cacheHas/cacheGet/cachePut` + 带 `-Dcs2j.classinfo.create=true` 开关的创建分支，
+>   用 `DefProbe29` 打印"创建的类信息 vs 共享那份"的身份与 `elementType`，按 §8.2.54 的判定表选路线。
+> - **勿重试清单**（都有实测）：上下文闭键全量/收窄两变体（§8.2.45，460→581 / 460→632）、
+>   全局统一转换器缓存键（855→934）、`Decimal extends Number`、`getIsValueType` 放宽、
+>   `matchesConstructorBindingFlags` 收紧（§8.4 有全表）。
+> - **已修簇的形状**（可复用）：期望侧生成器（compat 的 Newtonsoft 替身）比被测 writer 更常出错
+>   —— Round 82/85/86/88 四条都是它；判定方法是先读 C# 原文断言，再决定改哪一侧。
+>
+> ---
+
 > 目标：把 `d:\cs-json-0911-sdk` 的 `mvn clean install -e` 从当前
 > `Tests run: 7902, Failures: 425, Errors: 430, Skipped: 18`（855 条失败）
 > 推进到 **0 失败 + BUILD SUCCESS**，且 `D:\code\cs2j` 本身的 dotnet 单测全绿。
