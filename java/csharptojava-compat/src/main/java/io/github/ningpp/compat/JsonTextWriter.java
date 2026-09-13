@@ -271,7 +271,14 @@ public class JsonTextWriter implements AutoCloseable {
             char ch = s.charAt(i);
             switch (ch) {
                 case '"':
-                    sb.append("\\u0022");
+                    // The form depends on the escape handling, exactly as Newtonsoft does it:
+                    // EscapeHtml escapes every HTML-sensitive character as a unicode escape (so a
+                    // quote matches the DEFAULT-ENCODER writer that Utf8JsonWriterTests
+                    // #escapeAsciiCharacters compares against), while the other handlings use the
+                    // short backslash-quote form (matching the relaxed-encoder writer that
+                    // #writeStringsWithRelaxedEscaping compares against - see
+                    // WritingStringsWithCustomEscaping: default encoder vs relaxed encoder).
+                    sb.append(escapeHtml ? "\\u0022" : "\\\"");
                     break;
                 case '\\':
                     sb.append("\\\\");
