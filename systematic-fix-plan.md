@@ -309,8 +309,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 302, Errors: 246, Skipped: 18` = **548**（起点 855，**−307**）。
-- 本会话累计 **21 条 KEEP**（18 条"逐用例集合差 +0 回归"；`a62aac37` 修 40 / 坏 1 已披露；
+- **基线**：`Tests run: 7902, Failures: 292, Errors: 247, Skipped: 18` = **539**（起点 855，**−316**）。
+- 本会话累计 **23 条 KEEP**（20 条"逐用例集合差 +0 回归"；`a62aac37` 修 40 / 坏 1 已披露；
   `387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；`18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
 | 提交 | 内容 | 收益 |
@@ -337,6 +337,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `fbed68d4` | `CSharpDictionary` 查表遵守构造时给的 comparer | 558 → 554（修 4，含上面那条暴露） |
 | `cd8fe08a` | `default(JsonElement)` 的 `.clone()` 走复制而非 C# `Clone()` | 554 → 553（修 1，另 6 条换成了真实断言） |
 | `a516e191` | `JsonElementConverter` 自己处理 null token（`CanBeNull=false`） | 553 → 548（修 5） |
+| `f094d466` | `Converter.CanBeNull` 认得转换出来的 struct | 548 → 545（修 3） |
+| `e489db87` | 参数异常的消息里带上 C# 的参数名 | 545 → 539（修 6） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -907,6 +909,55 @@ Java 侧 `JsonElement` 是普通 class，`getIsValueType()` 退化成 `isPrimiti
 **已知缺口**：`TypeHelper.getIsValueType(Class)` 目前仍是 `type.isPrimitive()`，
 对转换出来的 struct（`Point_2D_Struct` 是 `value class`，`JsonElement` 是普通 class）
 都答 false —— 这是同一母题的下一个可攻击点。
+
+### 8.2.23 Round 68：C# 值类型母题的第三次（**一次失败实验 + 一次成功**，548 → 545）
+
+**假设**：`TypeHelper.getIsValueType(Class)` 只答 `isPrimitive()`，而转换出来的 struct 是
+Java `value class`（24 个：`JsonEncodedText`、`JsonProperty`、`JsonReaderState`、`ReadStackFrame`、
+`PropertyRef`、`ParameterRef`、`BitStack`、`Point_2D_Struct` …），
+所以 `Type.IsValueType` 对它们全答 false。
+
+**实验 A（已回滚）**：把通用谓词改成 `isPrimitive() || (isValue() && !包装类)`。
+实测 **548 → 547，修 5 / 坏 4**：
+
+| 修好 | 坏掉 |
+|---|---|
+| `complexValueTypeConverter_NoOverride/NullOptIn/OptOut` | `assignmentToNullableValueTypedMember{Interface,Object}` |
+| `assignmentToValueTypedMember{Interface,Object}` | `nullableValueTypedMemberWithNullsTo{Interface,Object}Converter` |
+
+坏掉的都是**可空 struct 成员**：`ValueTypedMember?` 与 `ValueTypedMember` 在 Java 里是**同一个类**
+（实测生成物：非空成员的 getter/setter 有 `.clone()`，可空成员没有 —— 这是编译期信息，
+运行期拿不到），于是 `JsonPropertyInfo1` 第 214 行把它当成非空值类型，
+null token 直接抛 `DeserializeUnableToAssignNull`。**净 +1 不值得引入 4 条新缺陷，已回滚。**
+
+**实验 B（KEEP，`f094d466`）**：同样的判断只放在**转换器自己的入口**上 ——
+新增 `TypeHelper.getIsValueTypeForConverter`，由 pass 改写 `JsonConverter1` 的
+`this.canBeNull = !getIsValueType() || …` 为 `!TypeHelper.getIsValueTypeForConverter(getTypeToConvert()) || …`。
+这样只影响 `CanBeNull`（→ `HandleNullOnRead`），**不碰赋值校验**。
+实测 **548 → 545，修 3 / 坏 0**（正是实验 A 里属于转换器那一半的 3 条）。
+
+**教训**：同一个事实（"这是 C# 值类型"）在不同入口上的**代价不同**。
+通用谓词同时是"能否给成员赋 null"的闸门，而 Java 的 `Class` 分不出 `T` 与 `T?`；
+只在需要它的窄入口上引入值类型判断，就能拿到收益而不触发那个歧义。
+**这与 §8.2.17 是同一手法**（`defaultValueIsNullForWrite` 也是先窄化到"声明成员"）。
+
+### 8.2.24 Round 69 已修：参数异常的消息里没有参数名（545 → 539，修 6 / 坏 0）
+
+`ArgumentException` 家族把 `paramName` 存进字段，**消息却是 null**；
+`ArgumentNullException("json")` 的 `toString()` 只有类名。
+实测失败形状：`Assert.Contains("json", ex.ToString())`
+→ `Actual string: io.github.ningpp.compat.ArgumentNullException`。
+
+C# 的规则是：`Message = message + " (Parameter 'name')"`，且**没给 message 时有默认文案**
+（`ArgumentNullException` → "Value cannot be null."，
+`ArgumentOutOfRangeException` → "Specified argument was out of the range of valid values."）。
+按这条补上后 **修 6 / 坏 0**：`ReadValueTests#nullJsonThrows`、`nullReturnTypeThrows`、
+`WriteValueTests#nullInputTypeThrows`、`nullWriterThrows`、`OptionsTests#copyConstructor_NullInput`、
+`NumberHandlingTests#jsonNumberHandling_ArgOutOfRangeFail`。
+
+**这是"异常文本"通道的又一例**（与 §4.34 的 `ThrowHelper` 泛型名、§8.2.16 的 `csFormat` 同族）：
+凡是 `Assert.Contains/equal` 断言**消息文本**的失败，先看 compat 里对应的异常/格式化类，
+不要先怀疑逻辑。
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 

@@ -2542,3 +2542,100 @@ FIXED 5 REGRESSED 0
 | `JsonConverter1.CanBeNull`（依赖上一条） | `JsonElement` 等 struct 答 true | 已按类型绕过（本条） |
 
 下一条要攻击时，先查这三个入口里"还没修的那个"。
+
+### 4.70 Round 68：C# 值类型母题的第三次（一次失败实验 + 一次成功，548 → 545）
+
+**背景**：`TypeHelper.getIsValueType(Class)` 只答 `type.isPrimitive()`，而转换出来的 C# struct
+是 Java `value class`。实测树里有 **24 个 value class**（`JsonEncodedText`、`JsonProperty`、
+`JsonReaderState`、`ReadStackFrame`、`PropertyRef`、`ParameterRef`、`BitStack`、
+`Point_2D_Struct`、`Struct_With_Ctor_With_64_Params` …）。
+
+**实验 A：改通用谓词（已回滚）**
+
+```java
+return type.isPrimitive() || (type.isValue() && !isBoxedWrapperClass(type));
+```
+（`!isBoxedWrapperClass` 是必须的：JDK 28 里 `Integer.class.isValue()` 为 **true**，
+但这里它代表 `int?`。）
+
+实测 `548 → 547`，**修 5 / 坏 4**：
+
+```
+FIXED     CustomConverterTests#complexValueTypeConverter_NoOverride / _NullOptIn / _OptOut
+FIXED     CustomConverterTests#assignmentToValueTypedMemberInterface / assignmentToValueTypedMemberObject
+REGRESSED CustomConverterTests#assignmentToNullableValueTypedMemberInterface / ...Object
+REGRESSED CustomConverterTests#nullableValueTypedMemberWithNullsToInterfaceConverter / ...ObjectConverter
+```
+
+坏掉的 4 条消息一致：
+`Unable to assign 'null' to the property or field of type 'ValueTypedMember'`
+← `ThrowHelper.throwInvalidOperationException_DeserializeUnableToAssignNull:568`
+← `JsonPropertyInfo1.readJsonAndSetMember:215`。
+
+**为什么分不出来**（实测生成物对照）：
+
+| C# 声明 | 生成 Java 成员 |
+|---|---|
+| `ValueTypedMember MyValueTypedProperty { get; set; }` | `getMyValueTypedProperty() { return myValueTypedProperty.clone(); }`，setter 也 `.clone()` |
+| `ValueTypedMember? MyValueTypedProperty { get; set; }` | `getMyValueTypedProperty() { return myValueTypedProperty; }`，setter 不 clone |
+
+两者的**字段/方法签名完全相同**（都是 `ValueTypedMember`），差别只在编译期插入的 `.clone()`，
+运行期拿不到。于是 `JsonPropertyInfo1:214`
+（C# `declaredPropertyType.IsValueType && Nullable.GetUnderlyingType(...) == null`）
+把可空 struct 也当成非空值类型，null token 直接抛异常。
+
+**净 +1 但引入 4 条新缺陷 → 回滚。**
+
+**实验 B：同样的判断只加在转换器入口（KEEP，`f094d466`）**
+
+新增 `TypeHelper.getIsValueTypeForConverter(Class)`（含 value class 判断），
+由 pass 把 `JsonConverter1` 构造器里的
+`this.canBeNull = !getIsValueType() || TypeHelper.getUnderlyingType(...) != null;`
+改成 `!io.github.ningpp.compat.TypeHelper.getIsValueTypeForConverter(getTypeToConvert()) || ...`。
+只影响 `CanBeNull`（进而 `HandleNullOnRead`），**不碰 `JsonPropertyInfo1` 的赋值校验**。
+
+实测 `548 → 545`，**修 3 / 坏 0**，正是实验 A 中属于转换器那一半的 3 条
+（`complexValueTypeConverter_NoOverride/_NullOptIn/_OptOut`）。
+
+**结论**：同一个事实在不同入口的代价不同。通用谓词同时是"能否赋 null"的闸门，
+而 Java 的 `Class` 分不出 `T` 与 `T?`；**只在需要它的窄入口上引入判断**，
+就能拿收益而不触发歧义。手法与 §4.64（`defaultValueIsNullForWrite` 先窄化到声明成员）相同。
+
+**该母题的三个入口现状**（本项目里"C# 值类型"一共答错过三次）：
+
+| 入口 | 状态 |
+|---|---|
+| `defaultValueIsNullForWrite` / `DefaultValue` | 已修（按**声明成员**，§4.64） |
+| `TypeHelper.getIsValueType(Class)` | **仍答 `isPrimitive()`** —— 实验 A 证明直接改会坏 4 条 |
+| `JsonConverter1.CanBeNull` | 已修（走 `getIsValueTypeForConverter`，本条） |
+
+### 4.71 Round 69：参数异常的消息里没有参数名（545 → 539，修 6 / 坏 0）
+
+**入口**：`Assert.contains` 桶里 6 条同形失败（实测原文）：
+
+```
+Expected substring: 'json'      Actual string: io.github.ningpp.compat.ArgumentNullException
+Expected substring: 'options'   Actual string: io.github.ningpp.compat.ArgumentNullException
+Expected substring: 'returnType' / 'inputType' / 'writer' / 'value'  （同形）
+```
+
+**根因**：`ArgumentNullException(String paramName)` 走 `super((String) null, paramName)` ——
+`paramName` 存进了字段，**消息是 null**，所以 `Throwable.toString()` 只有类名。
+生成测试断言的是 `Assert.Contains("json", ex.toString())`（C# 原文也是 `ex.ToString()`）。
+
+C# 的规则：
+- `Message = message + " (Parameter 'name')"`（有参数名时总是追加）；
+- 没给 message 时用默认文案：`ArgumentNullException` → `"Value cannot be null."`，
+  `ArgumentOutOfRangeException` → `"Specified argument was out of the range of valid values."`。
+
+**修法**：`ArgumentException` 新增 `protected static String paramSuffix(String)`，
+三个异常类的"只有 paramName"构造器补上默认文案 + 后缀。
+
+**实测** `545 → 539`，**修 6 / 坏 0**：
+`ReadValueTests#nullJsonThrows`、`ReadValueTests#nullReturnTypeThrows`、
+`WriteValueTests#nullInputTypeThrows`、`WriteValueTests#nullWriterThrows`、
+`OptionsTests#copyConstructor_NullInput`、`NumberHandlingTests#jsonNumberHandling_ArgOutOfRangeFail`。
+
+**与既有结论的关系**：这是"异常/格式化**文本**"通道的又一例
+（同族：§4.34 `ThrowHelper` 渲染 C# 泛型名、§8.2.16 `csFormat` 的数字格式）。
+**凡是断言消息文本的失败，先查 compat 里对应的异常/格式化类。**
