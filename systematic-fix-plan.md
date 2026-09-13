@@ -2118,6 +2118,36 @@ v4 **只**在 `getRuntimeClassInfo()` 这一处、**只**用现有的 `converter
 加只读诊断，打印**帧在进入 `IEnumerableDefaultConverter.onTryRead` 前的 `JsonClassInfo` 身份**，
 以及它是从哪里被赋值的（`JsonClassInfo` 的 push 点）。**在那之前不要再改类信息缓存。**
 
+### 8.2.57 Round 97：找到帧的 `JsonClassInfo` **push 点**（`ReadStack.java:171-190`），并据此收窄 v4 失败的解释
+
+```
+ReadStack.java (Push/PushProperty):
+171:  if (Current.getJsonClassInfo().getClassType() == ClassType.Object) {
+172:      if (Current.getJsonPropertyInfo() != null) {
+173:          jsonClassInfo = Current.getJsonPropertyInfo().getRuntimeClassInfo();   ← 属性帧（v4 修的正是这里）
+174:      } else { 175: jsonClassInfo = Current.getCtorArgumentState().JsonParameterInfo.getRuntimeClassInfo(); }
+177:  } else {
+178:      if ((ClassType.Value | ClassType.NewValue) & ...) { 180: ...getRuntimeClassInfo(); }
+181:      else {
+184:          jsonClassInfo = Current.getJsonClassInfo().getElementClassInfo();    ← 元素帧（走共享类信息的**元素**）
+185:      }
+186:  }
+187:  addCurrent(); 188: Current = Current.reset();
+189:  Current = Current.withJsonClassInfo(jsonClassInfo);
+190:  Current = Current.withJsonPropertyInfo(jsonClassInfo.getPropertyInfoForClassInfo());
+```
+
+**推论（v4 为何修 0）**：v4 让 `getRuntimeClassInfo()`（173/180 行的输入）在闭键 miss 时创建**正确**的类信息，
+但目标簇一条未动 ⇒ 说明进入 `IEnumerableDefaultConverter.onTryRead` 的那一帧**不是** 173 行推的，
+而是 **184 行**：它从 `Current.getJsonClassInfo()`（**外层列表**的类信息）取 `getElementClassInfo()`，
+而 `JsonClassInfo._elementClassInfo` 是**按实例缓存**的字段 —— 只要外层类信息实例本身是"较早创建、
+元素已被冻结"的那一份，得到的元素类信息就仍是 String 味。
+
+**下一轮的第一件事（只读诊断，改一次生成物即可，用 pass 或临时手改后重新生成）**：
+在 `ReadStack.java` 的 189 行后打印 `jsonClassInfo` 的**身份 + elementType + 来源分支号**，
+跑一次 `Utf8JsonWriterTests`/`ArrayTests` 里最小的失败用例，确认目标帧到底来自 173 还是 184；
+**在此之前不要再改类信息缓存或 `getRuntimeClassInfo`**。
+
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
 | 纪律 | 原因 |
