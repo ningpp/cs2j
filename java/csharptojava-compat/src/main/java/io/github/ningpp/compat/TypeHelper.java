@@ -1725,19 +1725,52 @@ public final class TypeHelper {
         return getMethods(type, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic);
     }
 
+    /**
+     * Mirrors C# {@code Type.GetFields(BindingFlags)}.
+     *
+     * <p>{@code Class.getFields()} returns PUBLIC fields only, so the {@code NonPublic} flag could
+     * never be honoured and every non-public field was invisible. Measured: the "non-public member
+     * annotated with JsonIncludeAttribute is invalid" validation in {@code JsonClassInfo} sits in the
+     * field loop and never ran for a private/internal/protected field, so
+     * {@code PropertyVisibilityTests#nonPublicProperty_WithJsonInclude_Invalid} got a JSON parse
+     * error instead of the {@code InvalidOperationException} .NET raises during warm-up.</p>
+     */
     public static FieldInfo[] getFields(Class<?> type, int bindingFlags) {
         if (type == null) {
             return new FieldInfo[0];
         }
-        Field[] fields = type.getFields();
+        boolean wantPublic = (bindingFlags & BindingFlags.Public) != 0;
+        boolean wantNonPublic = (bindingFlags & BindingFlags.NonPublic) != 0;
+        boolean wantStatic = (bindingFlags & BindingFlags.Static) != 0;
+        boolean wantInstance = (bindingFlags & BindingFlags.Instance) != 0;
+        boolean declaredOnly = (bindingFlags & BindingFlags.DeclaredOnly) != 0;
         List<FieldInfo> result = new ArrayList<>();
-        for (Field field : fields) {
-            if (matchesBindingFlags(field.getModifiers(), bindingFlags)) {
+        for (Class<?> current = type; current != null && current != Object.class; current = current.getSuperclass()) {
+            for (Field field : current.getDeclaredFields()) {
+                if (field.isSynthetic()) {
+                    continue;
+                }
+                int modifiers = field.getModifiers();
+                boolean isPublic = Modifier.isPublic(modifiers);
+                if (isPublic ? !wantPublic : !wantNonPublic) {
+                    continue;
+                }
+                if (Modifier.isStatic(modifiers) ? !wantStatic : !wantInstance) {
+                    continue;
+                }
+                // FieldInfo makes the field accessible; JDK internals are not open to that and
+                // `setAccessible` throws InaccessibleObjectException. Skipping them keeps the C#
+                // shape (which can read any field) from turning a framework type into a hard error.
+                if (!field.trySetAccessible()) {
+                    continue;
+                }
                 result.add(new FieldInfo(field));
             }
+            if (declaredOnly) {
+                break;
+            }
         }
-        // Class#getFields() order is unspecified (it varies between JVM runs); C# returns
-        // metadata declaration order, which the class file preserves (see DeclarationOrder).
+        // C# returns metadata declaration order, which the class file preserves (see DeclarationOrder).
         result.sort(java.util.Comparator
             .comparingInt((FieldInfo f) -> DeclarationOrder.hierarchyDepth(type, f.getDeclaringType()))
             .thenComparingInt(f -> DeclarationOrder.fieldIndex(f.getDeclaringType(), f.getName()))
@@ -1746,8 +1779,9 @@ public final class TypeHelper {
         return result.toArray(new FieldInfo[0]);
     }
 
+    /** Mirrors C# {@code Type.GetFields()} — PUBLIC fields only. */
     public static FieldInfo[] getFields(Class<?> type) {
-        return getFields(type, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic);
+        return getFields(type, BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance);
     }
 
     public static ConstructorInfo[] getConstructors(Class<?> type, int bindingFlags) {

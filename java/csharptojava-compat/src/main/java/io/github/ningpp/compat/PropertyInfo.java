@@ -225,7 +225,14 @@ public final class PropertyInfo implements MemberInfo {
      * (PropertyVisibilityTests.nonPublicMembersAreNotIncluded expects {@code {}}).</p>
      */
     public MethodInfo getGetMethod() {
-        if (getter == null || getter.isAnnotationPresent(CompatNonPublicAccessor.class)) {
+        // Symmetric with getSetMethod(): a property the whole of which is non-public in C#
+        // (CompatNonPublicProperty) has no PUBLIC getter either, so C# GetGetMethod() answers null.
+        // Without this the generated "is this member public?" test saw a Java-public accessor and
+        // kept the member, so the "non-public member with [JsonInclude] is invalid" validation in
+        // JsonClassInfo never ran for a C# internal property.
+        if (getter == null
+            || getter.isAnnotationPresent(CompatNonPublicProperty.class)
+            || getter.isAnnotationPresent(CompatNonPublicAccessor.class)) {
             return null;
         }
         return new MethodInfo(getter);
