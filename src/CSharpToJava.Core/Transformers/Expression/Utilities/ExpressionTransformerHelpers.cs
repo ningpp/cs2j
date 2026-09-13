@@ -844,6 +844,16 @@ public static class ExpressionTransformerHelpers
     private static bool IsAwaitResultChain(string transformedExpression)
     {
         var trimmed = transformedExpression.Trim();
+
+        // A genuine await-result chain is a single method-call expression (e.g.
+        // helper.load(...).join() or future.get()).  If the expression contains
+        // logical operators (||, &&) it is a compound boolean expression, not a
+        // single await chain — even if one branch happens to end with .get()
+        // (e.g. Supplier<Boolean>.get() from a converted C# Func<bool>).
+        // Reject these to avoid spurious (Boolean) casts on Supplier results.
+        if (trimmed.Contains("||") || trimmed.Contains("&&"))
+            return false;
+
         return trimmed.EndsWith(".join()", StringComparison.Ordinal)
             || trimmed.EndsWith(".join())", StringComparison.Ordinal)
             || trimmed.EndsWith(".get()", StringComparison.Ordinal)
