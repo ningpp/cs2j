@@ -3267,3 +3267,51 @@ return TransformObjectCreationWithArgs(typeName, node.ArgumentList, null, contex
 1. `[JsonIgnore(Condition = …)]`（§4.65，属性上的对象初始化器 → 由标记携带值解决）；
 2. `new T { … }` 类型参数创建分支（§4.83，修 4 条）；
 3. `new() { … }` 目标类型化创建（本条，实测中性）。
+
+### 4.85 Round 76：`[JsonInclude]` 成员的非公开 setter 不可见（499 → 493，修 6 / 坏 0）
+
+**入口**：`Expect N -> 0` 形状（13 条）里 `PropertyVisibilityTests` 占 6 条。
+
+**探针 `DefProbe16`**（对三个同类分别 `deserialize("{\"MyInt\":1}", null, c)` 后读私有字段）：
+
+```
+== Class_PropertyWith_PrivateInitOnlySetter_WithAttribute
+   field myInt = 0    getSetMethod() = null   canWrite = false
+== Class_PropertyWith_InternalInitOnlySetter_WithAttribute
+   field myInt = 1    getSetMethod() = null   canWrite = false
+== Class_PropertyWith_ProtectedInitOnlySetter_WithAttribute
+   field myInt = 0    getSetMethod() = null   canWrite = false
+```
+
+**生成物对比**（`PropertyVisibilityTests.java`）：
+
+```java
+// private / protected：C# init 访问器 → protected Java setter
+@CompatJsonInclude public int getMyInt() { ... }
+/** @implNote Set during construction only (C# init accessor). */
+protected void setMyInt(int value) { this.myInt = value; }
+// internal：C# internal → Java public（既有约定），因此唯独它能被找到
+```
+
+**根因**：`PropertyInfo.findSetter` 遍历 `clazz.getMethods()` —— **只含 public 方法**，
+因此 protected/private 的生成 setter 不可见，读路径拿不到 setter。
+而 C# 的 `[JsonInclude]` 语义就是"允许反序列化使用非公开访问器"。
+
+**修法**：公开方法里没有匹配时，**若 getter 带 `CompatJsonInclude`**，沿继承链用
+`getDeclaredMethods()` 找非公开 setter 并 `setAccessible(true)`。闸门用标记，
+`nonPublicMembersAreNotIncluded`（无 `[JsonInclude]`）不受影响。
+
+**测量**：`499 → 493`，**修 6 / 坏 0**：
+
+```
+FIXED  PropertyVisibilityTests#nonPublicInitOnlySetter_With_JsonInclude_Works(Class)[1]
+FIXED  PropertyVisibilityTests#nonPublicInitOnlySetter_With_JsonInclude_Works(Class)[3]
+FIXED  PropertyVisibilityTests#honor_JsonSerializablePropertyAttribute_OnProperties
+FIXED  PropertyVisibilityTests#honorJsonPropertyName
+FIXED  PropertyVisibilityTests#extensionDataCanHaveNonPublicSetter
+FIXED  PropertyVisibilityTests#honorCustomConverter
+```
+（`honorJsonPropertyName` 是上一轮在查的 struct 用例 —— 同一根因，白查了但方向对。）
+
+**判据**：compat 里所有 `Class.getMethods()` / `getFields()` 式的成员发现都默认"只有 public"，
+与 C# 的 `BindingFlags` 语义和 `[JsonInclude]` 破例都不符。`getFields` 的同类问题见 §4.77。

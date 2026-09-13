@@ -315,8 +315,8 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 
 ### 8.1 状态
 
-- **基线**：`Tests run: 7902, Failures: 260, Errors: 239, Skipped: 18` = **499**（起点 855，**−356**）。
-- 本会话累计 **35 条 KEEP**（29 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
+- **基线**：`Tests run: 7902, Failures: 255, Errors: 238, Skipped: 18` = **493**（起点 855，**−362**）。
+- 本会话累计 **36 条 KEEP**（30 条"逐用例集合差 +0 回归"；2 条实测中性：`99151aa6`、`6a30e0ca`；
   `a62aac37` 修 40 / 坏 1 已披露；`387edb77` 修 13 / 坏 2 已披露，两者净收益分别为 +39、+11；
   `18e24418` 的 1 条暴露已由 `fbed68d4` 真正修掉）：
 
@@ -357,6 +357,7 @@ Round 31 已确证的事实（可直接复用）：该成员的 **computed key �
 | `7f1ac92a` | `Deserialize(ref reader)` 抛异常时**就地**回滚 reader | 513 → 503（修 10） |
 | `160a641b` | 类型参数创建分支也应用**对象初始化器** | 503 → 499（修 4） |
 | `8070db44` | 目标类型化 `new() { … }` 也应用对象初始化器 | 499 → 499（**实测中性**，作为潜在缺陷保留） |
+| `d930d7ff` | `[JsonInclude]` 时能看见**非公开 setter** | 499 → 493（修 6） |
 
 - **第三条可复用通道（本轮确立）：`%s` / `string.Format` 的默认渲染。**
   C# 的 `string.Format("{0}", v)` 调 `v.ToString()`，其**数值格式与 Java 不同**：
@@ -1379,6 +1380,42 @@ var root = __cs2jInit1;
 
 **这是"对象初始化器"母题的第二例**（第一例：round 63 的 `[JsonIgnore(Condition = …)]`）。
 **凡"期望的赋值为空/默认"的失败，先查 C# 侧的 `new X { … }` 有没有被转换器丢掉。**
+
+
+### 8.2.36 Round 76 已修：`[JsonInclude]` 成员的非公开 setter 不可见（499 → 493，修 6 / 坏 0）
+
+**入口**：`Expect N -> 0` 这一形状里 `PropertyVisibilityTests` 占了 6 条 ——
+反序列化后成员仍是 0。用探针 `DefProbe16` 直接看三个同类：
+
+```
+== Class_PropertyWith_PrivateInitOnlySetter_WithAttribute      field myInt = 0   ← 失败
+== Class_PropertyWith_InternalInitOnlySetter_WithAttribute     field myInt = 1   ← 唯独它"对"
+== Class_PropertyWith_ProtectedInitOnlySetter_WithAttribute    field myInt = 0   ← 失败
+```
+
+生成物里三者的 setter 形态不同：`private`/`protected` 的 C# `init` 访问器被发成
+**`protected void setMyInt(int)`**（带 `/** @implNote Set during construction only (C# init accessor). */`），
+而 `internal` 被发成 **`public`**（C# `internal` → Java `public` 的既有约定）——
+所以只有它碰巧能用。
+
+**根因**：`PropertyInfo.findSetter` 用的是 `Class.getMethods()`，**只返回 public 方法**，
+于是那两个 protected setter 对 compat 完全不可见 → `getSetMethod()` 为 null → 读路径写不进去。
+而 C# 侧 `[JsonInclude]` 的语义正是"**这个非公开 setter 允许反序列化时使用**"。
+
+**修法**（compat）：`findSetter` 在公开方法里找不到时，**若 getter 带 `CompatJsonInclude` 标记**，
+再按 `getDeclaredMethods()` 沿继承链找非公开 setter 并 `setAccessible(true)`。
+用标记做闸门，保证 `nonPublicMembersAreNotIncluded`（无 `[JsonInclude]` 的非公开成员）不受影响。
+
+**实测**：`499 → 493`，**修 6 / 坏 0**：
+`nonPublicInitOnlySetter_With_JsonInclude_Works(Class)[1]/[3]`、
+`honor_JsonSerializablePropertyAttribute_OnProperties`、
+**`honorJsonPropertyName`**（原本以为要单独查的 struct 用例，同因）、
+`extensionDataCanHaveNonPublicSetter`、`honorCustomConverter`。
+
+**可复用判据**：compat 用 `Class.getMethods()`/`getFields()` 做成员发现的地方，
+都默认"只有 public" —— 这与 C# 的 `BindingFlags` 语义和"`[JsonInclude]` 破例"都不符。
+**凡是"反序列化后成员没被赋值"的失败，先查 setter 发现路径的可见性。**
+（`getFields` 的同类问题已在 §8.2.29 修过。）
 
 ### 8.3 必须遵守的操作纪律（都是踩过的坑）
 
