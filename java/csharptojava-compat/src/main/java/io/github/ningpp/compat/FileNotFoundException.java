@@ -1,8 +1,17 @@
 package io.github.ningpp.compat;
 
-/** Replacement for System.IO.FileNotFoundException with C#-compatible two-string constructor. */
-public class FileNotFoundException extends java.io.FileNotFoundException {
+/**
+ * Replacement for System.IO.FileNotFoundException.
+ * <p>
+ * Intentionally does NOT extend java.io.FileNotFoundException, because C# exceptions
+ * and Java exceptions have different hierarchy and semantics. In C#, all exceptions are
+ * unchecked; FileNotFoundException is part of the IOException family. In Java,
+ * java.io.FileNotFoundException is a checked exception and is tied to real I/O operations.
+ * A compat class for the C# type should behave as an unchecked exception.
+ */
+public class FileNotFoundException extends RuntimeException {
     private String fileName;
+    private String fusionLog;
 
     public FileNotFoundException() {
         super();
@@ -13,10 +22,7 @@ public class FileNotFoundException extends java.io.FileNotFoundException {
     }
 
     public FileNotFoundException(String message, Throwable cause) {
-        super(message);
-        if (cause != null) {
-            initCause(cause);
-        }
+        super(message, cause);
     }
 
     /** Mirrors C# FileNotFoundException(string message, string fileName). */
@@ -27,11 +33,8 @@ public class FileNotFoundException extends java.io.FileNotFoundException {
 
     /** Mirrors C# FileNotFoundException(string message, string fileName, Exception innerException). */
     public FileNotFoundException(String message, String fileName, Throwable cause) {
-        super(message != null ? message : fileName);
+        super(message != null ? message : fileName, cause);
         this.fileName = fileName;
-        if (cause != null) {
-            initCause(cause);
-        }
     }
 
     public String getFileName() {
@@ -40,5 +43,13 @@ public class FileNotFoundException extends java.io.FileNotFoundException {
 
     public void setFileName(String fileName) {
         this.fileName = fileName;
+    }
+
+    public String getFusionLog() {
+        return fusionLog;
+    }
+
+    public void setFusionLog(String fusionLog) {
+        this.fusionLog = fusionLog;
     }
 }
