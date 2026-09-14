@@ -321,6 +321,13 @@
             ]
         },
         {
+            "csharp": "System.GC",
+            "java": "GC",
+            "imports": [
+                "io.github.ningpp.compat.GC"
+            ]
+        },
+        {
             "csharp": "System.Guid",
             "java": "UUID",
             "imports": [
