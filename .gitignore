@@ -90,8 +90,12 @@ repro/
 
 .scratch-*/
 probe-out/
+.cs2j-no-goto-src/
+.cs2j-readonly-src/
+.cs2j-unsigned-src/
 .cs2j-generic-src/
 .cs2j-strip-default-src/
+.cs2j-unsigned-src/
 .cs2j-test-output/
 
 snapshots/
