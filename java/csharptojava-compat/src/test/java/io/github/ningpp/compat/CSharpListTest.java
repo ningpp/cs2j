@@ -479,6 +479,27 @@ class CSharpListTest {
         assertEquals("b", arr[2]);
     }
 
+    @Test
+    void copyTo_intArray_unboxesAndCopiesFromIndex0() {
+        CSharpList<Integer> list = new CSharpList<>();
+        list.add(10);
+        list.add(20);
+        list.add(30);
+        int[] arr = new int[3];
+        list.copyTo(arr);
+        assertArrayEquals(new int[]{10, 20, 30}, arr);
+    }
+
+    @Test
+    void copyTo_intArrayWithIndex_unboxesAndCopiesFromOffset() {
+        CSharpList<Integer> list = new CSharpList<>();
+        list.add(5);
+        list.add(6);
+        int[] arr = new int[4];
+        list.copyTo(arr, 1);
+        assertArrayEquals(new int[]{0, 5, 6, 0}, arr);
+    }
+
     // ---- Oracle data validation (List<string>) ----
 
     @Test

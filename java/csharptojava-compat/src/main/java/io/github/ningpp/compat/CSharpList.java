@@ -55,6 +55,24 @@ public class CSharpList<T> extends ArrayList<T> implements CSharpGenericIList<T>
         }
     }
 
+    /**
+     * Copies the elements of a CSharpList&lt;Integer&gt; to a primitive int[] array,
+     * performing auto-unboxing. Mirrors the C# List&lt;int&gt;.CopyTo(int[]) pattern.
+     */
+    public void copyTo(int[] array, int arrayIndex) {
+        for (int i = 0; i < size(); i++) {
+            array[arrayIndex + i] = (Integer) get(i);
+        }
+    }
+
+    /**
+     * Copies all elements of a CSharpList&lt;Integer&gt; to a primitive int[] array
+     * starting at index 0.
+     */
+    public void copyTo(int[] array) {
+        copyTo(array, 0);
+    }
+
     @Override
     public int getCount() {
         return size();
