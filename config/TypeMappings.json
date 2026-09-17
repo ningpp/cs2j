@@ -2078,13 +2078,6 @@
             ]
         },
         {
-            "csharp": "System.Text.RegularExpressions.RegexMatchTimeoutException",
-            "java": "RegexMatchTimeoutException",
-            "imports": [
-                "io.github.ningpp.compat.RegexMatchTimeoutException"
-            ]
-        },
-        {
             "csharp": "System.Management.Instrumentation.InstrumentationBaseException",
             "java": "InstrumentationBaseException",
             "imports": [
@@ -4364,41 +4357,6 @@
             ]
         },
         {
-            "csharp": "System.Text.RegularExpressions.Regex",
-            "java": "Regex",
-            "imports": [
-                "io.github.ningpp.compat.Regex"
-            ]
-        },
-        {
-            "csharp": "System.Text.RegularExpressions.Match",
-            "java": "Match",
-            "imports": [
-                "io.github.ningpp.compat.Match"
-            ]
-        },
-        {
-            "csharp": "System.Text.RegularExpressions.Group",
-            "java": "Group",
-            "imports": [
-                "io.github.ningpp.compat.Group"
-            ]
-        },
-        {
-            "csharp": "System.Text.RegularExpressions.GroupCollection",
-            "java": "GroupCollection",
-            "imports": [
-                "io.github.ningpp.compat.GroupCollection"
-            ]
-        },
-        {
-            "csharp": "System.Text.RegularExpressions.RegexOptions",
-            "java": "RegexOptions",
-            "imports": [
-                "io.github.ningpp.compat.RegexOptions"
-            ]
-        },
-        {
             "csharp": "System.Linq.IOrderedEnumerable`1",
             "java": "Stream",
             "imports": [
@@ -5162,13 +5120,6 @@
             "java": "NumberStyles",
             "imports": [
                 "io.github.ningpp.compat.NumberStyles"
-            ]
-        },
-        {
-            "csharp": "System.Text.RegularExpressions.MatchCollection",
-            "java": "MatchCollection",
-            "imports": [
-                "io.github.ningpp.compat.MatchCollection"
             ]
         },
         {
@@ -8556,16 +8507,6 @@
             "javaMethod": "getName"
         },
         {
-            "type": "System.Text.RegularExpressions.Regex",
-            "method": "Match",
-            "javaMethod": "match"
-        },
-        {
-            "type": "System.Text.RegularExpressions.Regex",
-            "method": "IsMatch",
-            "javaMethod": "isMatch"
-        },
-        {
             "type": "System.Reflection.FieldInfo",
             "method": "GetValue",
             "javaMethod": "getValue"
@@ -8594,41 +8535,6 @@
             "type": "System.Reflection.ParameterInfo",
             "method": "ParameterType",
             "javaMethod": "getType"
-        },
-        {
-            "type": "System.Text.RegularExpressions.Match",
-            "method": "Success",
-            "javaMethod": "getSuccess"
-        },
-        {
-            "type": "System.Text.RegularExpressions.Match",
-            "method": "Groups",
-            "javaMethod": "getGroups"
-        },
-        {
-            "type": "System.Text.RegularExpressions.Group",
-            "method": "Value",
-            "javaMethod": "getValue"
-        },
-        {
-            "type": "System.Text.RegularExpressions.Group",
-            "method": "Length",
-            "javaMethod": "getLength"
-        },
-        {
-            "type": "System.Text.RegularExpressions.Capture",
-            "method": "Index",
-            "javaMethod": "getIndex"
-        },
-        {
-            "type": "System.Text.RegularExpressions.Capture",
-            "method": "Length",
-            "javaMethod": "getLength"
-        },
-        {
-            "type": "System.Text.RegularExpressions.Capture",
-            "method": "Value",
-            "javaMethod": "getValue"
         },
         {
             "type": "System.Text.StringBuilder",
@@ -9935,6 +9841,10 @@
         {
             "csharp": "System.Windows.Threading",
             "java": "dotnet.wpf.swing.threading"
+        },
+        {
+            "csharp": "System.Text.RegularExpressions",
+            "java": "dotnet.text.regularexpressions"
         }
     ]
 }

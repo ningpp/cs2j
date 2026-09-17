@@ -160,34 +160,6 @@ namespace Microsoft.Msagl.UnitTests.Constraints {
     }
 
     [Fact]
-    public async Task ProjectRegexOptionsStaticMember_UsesCompatImportOnly()
-    {
-        var pipeline = new ProjectConversionPipeline(CreateProjectOptions());
-        var results = await pipeline.ConvertProjectAsync(new[]
-        {
-            new SourceFile
-            {
-                FilePath = "TestFileStrings.cs",
-                Content = @"
-using System.Text.RegularExpressions;
-
-namespace Microsoft.Msagl.UnitTests.Constraints {
-    internal struct TestFileStrings {
-        internal static Regex ParseSeed = new Regex(
-            @""^Seed\s+(?<" + "seed" + @">(0x)?\S+)"",
-            RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-    }
-}"
-            }
-        });
-
-        var result = Assert.Single(results, r => r.FileName == "TestFileStrings.java");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("import io.github.ningpp.compat.RegexOptions;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("dotnet.system.Text.RegularExpressions.RegexOptions", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task ProjectCompareOptionsStaticMember_UsesCompatImportOnly()
     {
         var pipeline = new ProjectConversionPipeline(CreateProjectOptions());
