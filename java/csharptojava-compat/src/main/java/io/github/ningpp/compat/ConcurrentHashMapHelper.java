@@ -60,6 +60,18 @@ public class ConcurrentHashMapHelper {
         return (V) map.computeIfAbsent((K) effectiveKey, k -> valueFactory.apply(key));
     }
 
+    /**
+     * putIfAbsent for the CLOSED-type chain: the caller supplies an already-computed key
+     * (TypeHelper.closedCacheKey — derived from the explicit closure, never from ThreadLocal
+     * state) and the raw-typed generated map is written without generics friction. No registry
+     * consultation, no stale-entry eviction: the closed key space is disjoint from the erased
+     * one the generated lookups read.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static Object putIfAbsentUntyped(ConcurrentHashMap<?, ?> map, Object key, Object value) {
+        return ((java.util.concurrent.ConcurrentMap) map).putIfAbsent(key, value);
+    }
+
     /** Mirrors ConcurrentDictionary(IDictionary<K,V>) — copies entries into a new map. */
     public static <K, V> ConcurrentHashMap<K, V> create(CSharpGenericIDictionary<K, V> dictionary) {
         ConcurrentHashMap<K, V> map = new ConcurrentHashMap<>();

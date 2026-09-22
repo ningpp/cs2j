@@ -13,6 +13,7 @@ A C# to Java source code converter using Roslyn for parsing and semantic analysi
 - **Goto elimination** — standalone `eliminate-goto` command transforms `goto`/`label` into switch-based state machines
 - **Partial type merging** — merges `partial class`/`partial method` across files
 - **Compatibility runtime** — `csharptojava-compat` Java library bridges C# API patterns (collections, reflection, exceptions, etc.)
+- **Closed-form generic serialization metadata** — the generated System.Text.Json port resolves member/element converters for nested generics (e.g. `List<List<short>>`, `KeyValuePair<K,V>` members) through closed `java.lang.reflect.Type` values instead of ThreadLocal registries
 - **Incremental builds** — input fingerprint caching skips re-conversion when sources are unchanged
 - **Java 28 target** — supports modern Java language features
 
@@ -174,6 +175,8 @@ tests/
 - [J2CL-informed Java-only architecture plan for large C# projects](docs/j2cl-architecture-upgrade.md)
 - [LINQ 重写引擎架构设计 / LINQ Rewrite Engine Architecture Design](docs/linq-rewrite-engine-architecture.md)
 - [Goto Eliminator 设计文档 / Goto Eliminator Design](docs/superpowers/specs/2026-06-27-goto-eliminator-design.md)
+- [闭式泛型类型元数据链设计 / Closed-Type Metadata Chain Design](docs/superpowers/specs/2026-09-22-closed-type-metadata-chain-design.md)
+- [闭式泛型类型元数据链实施记录 / Closed-Type Metadata Chain Plan & Results](docs/superpowers/plans/2026-09-22-closed-type-metadata-chain-plan.md)
 
 ## Third-Party Credits
 

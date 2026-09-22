@@ -8,3 +8,4 @@
 7. attribute(json)
 8. method parameter default value
 9. local function
+10. closed generic type metadata (json serializer, ThreadLocal-free)

@@ -95,7 +95,7 @@ probe-out/
 .cs2j-unsigned-src/
 .cs2j-generic-src/
 .cs2j-strip-default-src/
-.cs2j-unsigned-src/
+.cs2j-local-fn-src/
 .cs2j-test-output/
 
 snapshots/

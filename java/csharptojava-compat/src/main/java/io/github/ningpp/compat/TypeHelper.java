@@ -421,6 +421,38 @@ public final class TypeHelper {
     }
 
     /**
+     * Retires the pending member registration a closed-type converter creation just served.
+     *
+     * <p>Warm-up registers each member's layer chain through {@link #registerMemberType}; legacy
+     * converter creation then <em>consumed</em> that chain via {@link #getGenericArguments}, so
+     * nothing was left pending. The closed-type chain resolves the converter from the closure's
+     * layers instead and never touches the queue — leaving the chain pending, where the next
+     * unrelated Class-path lookup of the same raw class polls it as if it were its own arguments
+     * (observed as DictionaryTests.hashtable / iDictionary_Keys failing only in full-suite order
+     * after ArrayTests.readObjectArray warmed up SimpleTestClass's dictionary members).</p>
+     *
+     * <p>The member's per-raw bookkeeping is dropped entirely — pending queue, consumed replay
+     * and the MEMBER_ARGUMENTS snapshot — rather than mirroring the legacy consumed state: the
+     * closed chain never re-reads these layers (converter caches are keyed structurally), while
+     * a stale consumed/member replay is exactly what mis-keys later unrelated lookups.</p>
+     *
+     * <p>This is ThreadLocal <em>hygiene</em> for the entry/warm-up registry, not a dependency:
+     * the closed chain never reads these layers, it only cleans them up.</p>
+     */
+    public static void consumeMemberTypeArguments(java.lang.reflect.Type closed) {
+        if (!(closed instanceof java.lang.reflect.ParameterizedType)) {
+            return;
+        }
+        java.util.Map<Class<?>, java.lang.reflect.Type[]> layers = collectClosureLayers(closed);
+        for (java.util.Map.Entry<Class<?>, java.lang.reflect.Type[]> entry : layers.entrySet()) {
+            Class<?> raw = entry.getKey();
+            TYPE_ARGUMENTS.get().remove(raw);
+            CONSUMED_ARGUMENTS.get().remove(raw);
+            MEMBER_ARGUMENTS.get().remove(raw);
+        }
+    }
+
+    /**
      * Forgets the current thread's type-argument registrations. Callers that drive
      * conversion member-by-member (and tests) use this to avoid leaking a registration
      * into unrelated lookups on the same thread.
@@ -953,6 +985,257 @@ public final class TypeHelper {
     /** Recursively converts a closed generic Type to its erased Class (used by converters). */
     public static Class<?> toErasedClass(java.lang.reflect.Type type) {
         return toRawClass(type);
+    }
+
+    // =====================================================================
+    // Closed-type metadata chain (specs/2026-09-22-closed-type-metadata-chain-design.md).
+    //
+    // Member/element types flow through the generated serializer metadata as explicit
+    // java.lang.reflect.Type values carried on JsonPropertyInfo / JsonClassInfo. The
+    // helpers below resolve types from those closures WITHOUT touching any ThreadLocal
+    // registry (TYPE_ARGUMENTS/CONSUMED_ARGUMENTS/MEMBER_ARGUMENTS/CALLSITE_ARGUMENTS):
+    // resolution is a pure function of the closure plus the class hierarchy.
+    // =====================================================================
+
+    /**
+     * Flattens a closed generic Type into per-raw-class layers, outermost layer first.
+     *
+     * <p>{@code CSharpList<CSharpList<Integer>>} yields one entry (the raw class repeats per
+     * layer, the outermost wins); {@code CSharpDictionary<String, CSharpList<Integer>>} yields
+     * two. This mirrors the consumption order of the legacy session registry, but as a pure
+     * function of the closure — no state, no thread affinity.</p>
+     */
+    public static java.util.LinkedHashMap<Class<?>, java.lang.reflect.Type[]> collectClosureLayers(java.lang.reflect.Type type) {
+        java.util.LinkedHashMap<Class<?>, java.lang.reflect.Type[]> layers =
+            new java.util.LinkedHashMap<>();
+        collectClosureLayersInto(type, layers);
+        return layers;
+    }
+
+    private static void collectClosureLayersInto(
+        java.lang.reflect.Type type,
+        java.util.LinkedHashMap<Class<?>, java.lang.reflect.Type[]> layers) {
+        if (type instanceof java.lang.reflect.ParameterizedType pt) {
+            Class<?> raw = (Class<?>) pt.getRawType();
+            java.lang.reflect.Type[] args = pt.getActualTypeArguments();
+            if (args.length > 0) {
+                layers.putIfAbsent(raw, args);
+            }
+            for (java.lang.reflect.Type arg : args) {
+                collectClosureLayersInto(arg, layers);
+            }
+            return;
+        }
+        // An array of a closed generic contributes its component layer.
+        if (type instanceof java.lang.reflect.GenericArrayType gat) {
+            collectClosureLayersInto(gat.getGenericComponentType(), layers);
+        }
+    }
+
+    /**
+     * Resolves the erased type arguments of {@code raw} from explicit closure layers.
+     *
+     * <p>{@code layers == null} or empty means the caller is on the legacy Class/TypeReference
+     * path and the lookup delegates to {@link #getGenericArguments(Class)} unchanged. A non-empty
+     * closure NEVER consults the registries: an unmatched raw class falls back to the
+     * subtype-declared / hierarchy / type-parameter-bound walks only.</p>
+     */
+    public static Class<?>[] genericArgumentsInLayers(
+        java.util.Map<Class<?>, java.lang.reflect.Type[]> layers, Class<?> raw) {
+        if (raw == null) {
+            return new Class<?>[0];
+        }
+        if (layers == null || layers.isEmpty()) {
+            return getGenericArguments(raw);
+        }
+        java.lang.reflect.Type[] args = layers.get(raw);
+        if (args != null && args.length > 0) {
+            Class<?>[] result = new Class<?>[args.length];
+            for (int i = 0; i < args.length; i++) {
+                result[i] = toRawClass(args[i]);
+            }
+            trace("genericArgumentsInLayers(" + raw.getSimpleName() + ") = "
+                + java.util.Arrays.toString(result) + " [closed layer]");
+            return result;
+        }
+        return genericArgumentsWithoutRegistry(raw);
+    }
+
+    /** The non-registry fallbacks only: subtype declaration, hierarchy, then bounds. */
+    private static Class<?>[] genericArgumentsWithoutRegistry(Class<?> raw) {
+        java.lang.reflect.Type[] fromSubtype = findDeclaredArgumentsFor(raw);
+        if (fromSubtype != null) {
+            return eraseTypes(fromSubtype);
+        }
+        java.lang.reflect.TypeVariable<?>[] params = raw.getTypeParameters();
+        if (params.length == 0) {
+            java.lang.reflect.Type[] fromHierarchy = findTypeArgumentsInHierarchy(raw);
+            if (fromHierarchy != null) {
+                return eraseTypes(fromHierarchy);
+            }
+            return new Class<?>[0];
+        }
+        Class<?>[] result = new Class<?>[params.length];
+        for (int i = 0; i < params.length; i++) {
+            result[i] = resolveClassBound(params[i]);
+        }
+        return result;
+    }
+
+    private static Class<?>[] eraseTypes(java.lang.reflect.Type[] types) {
+        Class<?>[] result = new Class<?>[types.length];
+        for (int i = 0; i < types.length; i++) {
+            result[i] = toRawClass(types[i]);
+        }
+        return result;
+    }
+
+    /**
+     * The declared generic type of a reflected member, WITHOUT publishing anything.
+     *
+     * <p>This is the closed chain's source of truth: the emitted Java keeps generic member
+     * signatures, so {@code getter.getGenericReturnType()} carries the full
+     * {@code CSharpList<CSharpList<Integer>>} closure. The generated JsonPropertyInfo stamps it
+     * at initialize time. Null when the member is not generic (the erased path stays
+     * authoritative there) or the member kind is unknown.</p>
+     */
+    public static java.lang.reflect.Type declaredGenericType(MemberInfo member) {
+        if (member == null) {
+            return null;
+        }
+        if (member instanceof PropertyInfo propertyInfo) {
+            return propertyInfo.getGenericPropertyType();
+        }
+        if (member instanceof FieldInfo fieldInfo) {
+            return fieldInfo.getGenericType();
+        }
+        return null;
+    }
+
+    /**
+     * Structural cache key for a closed type: equal closures collide, distinct closures never
+     * share. Parameterized types key as raw + recursively-normalized arguments (reflection Type
+     * implementations do not implement equals, so identity would split the cache for no benefit);
+     * anything else keys as its raw Class, keeping the Class/TypeReference path unchanged.
+     */
+    public static Object closedCacheKey(java.lang.reflect.Type closed) {
+        if (closed instanceof java.lang.reflect.ParameterizedType pt) {
+            return new ClosedStructuralKey((Class<?>) pt.getRawType(), pt.getActualTypeArguments());
+        }
+        return toRawClass(closed);
+    }
+
+    /**
+     * Replaces the raw class's type parameters (K, V, ...) with the closure's actual arguments,
+     * so a member declared as {@code K} or {@code CSharpList<K>} on a generic definition resolves
+     * to its closed form. Returns null when the declaration is null or still mentions a type
+     * parameter the binding does not cover — callers must keep the erased resolution in that
+     * case. Concrete types come back unchanged (same instance), so callers can compare
+     * identities to skip redundant converter re-resolution. Pure function of its arguments; no
+     * thread state.
+     */
+    public static java.lang.reflect.Type substituteTypeVariables(
+            java.lang.reflect.Type declared, java.util.Map<String, java.lang.reflect.Type> binding) {
+        if (declared instanceof java.lang.reflect.TypeVariable<?> typeVariable) {
+            return binding.get(typeVariable.getName());
+        }
+        if (declared instanceof java.lang.reflect.ParameterizedType parameterized) {
+            java.lang.reflect.Type[] actual = parameterized.getActualTypeArguments();
+            java.lang.reflect.Type[] replaced = new java.lang.reflect.Type[actual.length];
+            boolean changed = false;
+            for (int i = 0; i < actual.length; i++) {
+                replaced[i] = substituteTypeVariables(actual[i], binding);
+                if (replaced[i] == null) {
+                    return null;
+                }
+                changed = changed || replaced[i] != actual[i];
+            }
+            if (!changed) {
+                return declared;
+            }
+            return parameterized(
+                    toRawClass(parameterized.getRawType()), replaced);
+        }
+        return declared;
+    }
+
+    /** Raw class + structurally-normalized arguments; equal closures are equal keys. */
+    private static final class ClosedStructuralKey {
+        private final Class<?> raw;
+        private final Object[] args;
+        private final int hash;
+
+        ClosedStructuralKey(Class<?> raw, java.lang.reflect.Type[] args) {
+            this.raw = raw;
+            this.args = new Object[args.length];
+            for (int i = 0; i < args.length; i++) {
+                this.args[i] = normalize(args[i]);
+            }
+            this.hash = 31 * raw.hashCode() + java.util.Arrays.hashCode(this.args);
+        }
+
+        private static Object normalize(java.lang.reflect.Type type) {
+            if (type instanceof java.lang.reflect.ParameterizedType pt) {
+                return new ClosedStructuralKey((Class<?>) pt.getRawType(), pt.getActualTypeArguments());
+            }
+            if (type instanceof java.lang.reflect.GenericArrayType gat) {
+                return new Object[] { normalize(gat.getGenericComponentType()) + "[]" };
+            }
+            if (type instanceof Class<?> c) {
+                return c;
+            }
+            return String.valueOf(type);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof ClosedStructuralKey key
+                && raw == key.raw
+                && java.util.Arrays.equals(args, key.args);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
+        @Override
+        public String toString() {
+            return raw.getName() + java.util.Arrays.toString(args);
+        }
+    }
+
+    /**
+     * Runs a converter factory for a CLOSED type: prefers the factory's closed-aware
+     * {@code createConverter(Class, Map, JsonSerializerOptions)} entry (typed as Object here —
+     * compat cannot reference the generated types), falling back to the legacy raw-class entry
+     * for factories without nested layers to resolve (Enum, Nullable).
+     */
+    public static Object createConverterForClosedType(Object factory, java.lang.reflect.Type closed, Object options) {
+        if (factory == null || closed == null || options == null) {
+            return null;
+        }
+        Class<?> raw = toRawClass(closed);
+        java.util.Map<Class<?>, java.lang.reflect.Type[]> layers = collectClosureLayers(closed);
+        try {
+            java.lang.reflect.Method closedAware = factory.getClass().getMethod(
+                "createConverter", Class.class, java.util.Map.class, options.getClass());
+            return closedAware.invoke(factory, raw, layers, options);
+        } catch (NoSuchMethodException notClosedAware) {
+            try {
+                java.lang.reflect.Method legacy = factory.getClass().getMethod(
+                    "createConverter", Class.class, options.getClass());
+                return legacy.invoke(factory, raw, options);
+            } catch (ReflectiveOperationException e) {
+                trace("createConverterForClosedType: no entry on "
+                    + factory.getClass().getSimpleName() + ": " + e);
+                return null;
+            }
+        } catch (ReflectiveOperationException e) {
+            trace("createConverterForClosedType failed on "
+                + factory.getClass().getSimpleName() + ": " + e);
+            return null;
+        }
     }
 
     public static Class<?>[] getGenericArguments(Class<?> type) {

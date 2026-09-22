@@ -125,6 +125,21 @@ public final class Utf8Formatter {
         return writeBytes(Long.toString(value).getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
     }
 
+    /**
+     * Mirrors Utf8Formatter.TryFormat(ulong, Span&lt;byte&gt;, out int) — unsigned decimal.
+     * The C# ulong overload formats the unsigned magnitude (ulong.MaxValue →
+     * "18446744073709551615"); the bare tryFormat(long) formats signed, which is wrong for
+     * wrapped ulong payloads (e.g. the EnumConverter's UInt64 write path).
+     */
+    public static boolean tryFormatUInt64(long value, Span<Integer> destination, IntHolder bytesWritten) {
+        return writeBytes(Long.toUnsignedString(value).getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
+    }
+
+    /** Mirrors Utf8Formatter.TryFormat(uint, Span&lt;byte&gt;, out int) — unsigned decimal. */
+    public static boolean tryFormatUInt32(int value, Span<Integer> destination, IntHolder bytesWritten) {
+        return writeBytes(Integer.toUnsignedString(value).getBytes(StandardCharsets.US_ASCII), destination, bytesWritten);
+    }
+
     /** Mirrors Utf8Formatter.TryFormat(double, Span&lt;byte&gt;, out int). */
     public static boolean tryFormat(double value, Span<Integer> destination, IntHolder bytesWritten) {
         // DoubleHelper, NOT Double.toString: Java always emits a decimal point for an integral

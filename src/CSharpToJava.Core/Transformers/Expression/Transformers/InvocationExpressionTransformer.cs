@@ -2550,6 +2550,25 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 : $"GCHandle.free({gcHandleReceiver})";
         }
 
+        // C# IImmutableDictionary<K,V>.Clear() returns an empty dictionary. The compat
+        // interface has no fluent clear(): its implementations also realize CSharpReadOnlyDict
+        // (the IReadOnlyDictionary port), whose Collection ancestor owns void clear() — a
+        // fluent clear() cannot coexist with it. Route to the interface's static helper.
+        var isIImmutableDictionaryClear =
+            earlyMethodSymbol is { IsStatic: false, ContainingType: INamedTypeSymbol immutableDictContainer }
+            && immutableDictContainer.Name == "IImmutableDictionary"
+            && immutableDictContainer.ContainingNamespace.ToDisplayString() == "System.Collections.Immutable";
+        // Single-file conversions carry no System.Collections.Immutable reference so the
+        // symbol is null — fall back to the receiver's cast, like the Array.Clear handler.
+        var isIImmutableDictionaryClearSyntactic =
+            earlyMethodSymbol == null
+            && memberAccess.Expression.ToString().Contains("IImmutableDictionary");
+        if (originalMethodName == "Clear" && (isIImmutableDictionaryClear || isIImmutableDictionaryClearSyntactic))
+        {
+            context.AddImport("io.github.ningpp.compat.IImmutableDictionary");
+            return $"IImmutableDictionary.clear({receiver})";
+        }
+
         if (originalMethodName == "Equals" && node.ArgumentList.Arguments.Count == 2
             && IsStaticNullSafeEqualsMethod(context.GetSymbolInfo(node).Symbol as IMethodSymbol))
         {
@@ -5507,11 +5526,17 @@ if (node.Expression is GenericNameSyntax genericMethodName)
         // the primitive holders (int/long/short/byte/sbyte/bool/float/double/uint/ulong);
         // decimal/Guid/DateTime/DateTimeOffset need their dedicated helpers
         // (tryParseDecimal / tryParseUuid / tryParseDateTime / tryParseDateTimeOffset).
+        // Routed calls target fixed hand-written compat names, so the type-erasure
+        // suffix below must not be appended to them (same-width signed/unsigned C#
+        // overloads now count as erasure conflicts, and Utf8Parser/Utf8Formatter are
+        // compat-mapped classes whose Java declarations are never emitted).
+        bool routedToCompatHelper = false;
         if (methodName == "tryParse"
             && methodSymbol is { IsStatic: true, Name: "TryParse" }
             && methodSymbol.ContainingType.ToDisplayString() == "System.Buffers.Text.Utf8Parser"
             && methodSymbol.Parameters.FirstOrDefault(p => p.RefKind == RefKind.Out) is { } utf8OutParam)
         {
+            routedToCompatHelper = true;
             var utf8OutType = utf8OutParam.Type;
             if (utf8OutType.SpecialType == SpecialType.System_Decimal)
                 methodName = "tryParseDecimal";
@@ -5542,14 +5567,38 @@ if (node.Expression is GenericNameSyntax genericMethodName)
                 methodName = "tryParseInt16";
         }
 
+        // System.Buffers.Text.Utf8Formatter.TryFormat(value, span, out int bytesWritten[, format]):
+        // the compat helper names are typed by the value argument. Bare tryFormat formats
+        // SIGNED, so uint/ulong values above the signed range (e.g. ulong.MaxValue enum
+        // backing written by EnumConverter / UInt64Converter) must route to the explicit
+        // unsigned compat overloads.
+        if (methodName == "tryFormat"
+            && methodSymbol is { IsStatic: true, Name: "TryFormat" }
+            && methodSymbol.ContainingType.ToDisplayString() == "System.Buffers.Text.Utf8Formatter"
+            && methodSymbol.Parameters.Length > 0)
+        {
+            var utf8ValueType = methodSymbol.Parameters[0].Type;
+            if (utf8ValueType.SpecialType == SpecialType.System_UInt64)
+            {
+                methodName = "tryFormatUInt64";
+                routedToCompatHelper = true;
+            }
+            else if (utf8ValueType.SpecialType == SpecialType.System_UInt32)
+            {
+                methodName = "tryFormatUInt32";
+                routedToCompatHelper = true;
+            }
+        }
+
         methodName = ConversionContext.EscapeJavaKeyword(methodName);
 
         // Type-erasure rename: when the resolved overload is the one with fewer type parameters,
         // append the same suffix that MethodTransformer uses at the declaration site.
         // Skip when the name already ends with _0tp (added by the hardcoded
         // JsonSerializer/SerializationWrapper non-generic Type overload logic above),
-        // otherwise the suffix is applied twice (e.g. serialize_0tp_0tp).
-        if (methodSymbol != null && !methodName.EndsWith("_0tp"))
+        // otherwise the suffix is applied twice (e.g. serialize_0tp_0tp). Also skip for
+        // calls routed to fixed compat helper names.
+        if (methodSymbol != null && !methodName.EndsWith("_0tp") && !routedToCompatHelper)
             methodName += ConversionContext.GetErasureConflictSuffix(methodSymbol);
 
         // Issue 5: when promoting to static-call form, start at index 1 to skip the receiver

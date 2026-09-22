@@ -47,6 +47,15 @@ public final class FieldInfo implements MemberInfo {
         return field.getType();
     }
 
+    /**
+     * The field's DECLARED closed generic type, without any side effect — the closed-type
+     * chain's counterpart of {@link #getFieldType()}, which publishes member layers to the
+     * ThreadLocal registry. See {@link PropertyInfo#getGenericPropertyType()}.
+     */
+    public java.lang.reflect.Type getGenericType() {
+        return field.getGenericType();
+    }
+
     public boolean getIsStatic() {
         return Modifier.isStatic(field.getModifiers());
     }

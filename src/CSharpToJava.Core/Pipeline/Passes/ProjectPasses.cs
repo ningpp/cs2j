@@ -1085,9 +1085,23 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 {
                     PatchListConverterAdd(result);
                 }
+                else if (result.FileName.EndsWith("ListOfTConverter.java", StringComparison.Ordinal)
+                    || result.FileName.EndsWith("IListConverter.java", StringComparison.Ordinal)
+                    || result.FileName.EndsWith("ArrayConverter.java", StringComparison.Ordinal)
+                    || string.Equals(result.FileName, "DictionaryOfTKeyTValueConverter.java", StringComparison.Ordinal))
+                {
+                    // Exact name for the dictionary converter: ImmutableDictionaryOfTKeyTValueConverter.java
+                    // would otherwise suffix-match.
+                    PatchFastPathWriteNullGuard(result);
+                }
                 else if (result.FileName.EndsWith("IEnumerableConverterFactoryHelpers.java", StringComparison.Ordinal))
                 {
                     PatchTransitiveInterfaceWalk(result);
+                }
+                else if (result.FileName.EndsWith("IEnumerableConverterFactory.java", StringComparison.Ordinal))
+                {
+                    if (ClosedTypeMetadataEnabled)
+                        PatchClosedEnumerableFactory(result);
                 }
                 else if (result.FileName.EndsWith("Utf8JsonWriter.java", StringComparison.Ordinal))
                 {
@@ -1111,7 +1125,13 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 }
                 else if (result.FileName.EndsWith("JsonClassInfo.java", StringComparison.Ordinal))
                 {
-                    PatchElementArgumentScope(result);
+                    // The closed-type chain rewrites the element lookup first; the scope patch
+                    // then only matches files whose lookup it can still recognize (specs/
+                    // 2026-09-22-closed-type-metadata-chain-design.md §4).
+                    if (ClosedTypeMetadataEnabled)
+                        PatchClosedElementClassInfo(result);
+                    if (ElementArgumentScopeEnabled)
+                        PatchElementArgumentScope(result);
                     PatchExtensionDataSignatureType(result);
                     PatchPropertyNameKey(result);
                 }
@@ -1122,16 +1142,28 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 // already been patched by hand.
                 else if (result.FileName.EndsWith("JsonPropertyInfo.java", StringComparison.Ordinal))
                 {
-                    PatchMemberClassInfoLookup(result);
+                    // Both rewrites target the same erased lookup statement in
+                    // getRuntimeClassInfo(); the closed chain supersedes the member-keyed probe.
+                    if (ClosedTypeMetadataEnabled)
+                        PatchClosedMemberType(result);
+                    else if (MemberClassInfoLookupEnabled)
+                        PatchMemberClassInfoLookup(result);
+                }
+                else if (result.FileName.EndsWith("JsonParameterInfo.java", StringComparison.Ordinal))
+                {
+                    if (ClosedTypeMetadataEnabled)
+                        PatchClosedParameterInfo(result);
                 }
                 else if (result.FileName.EndsWith("PropertyInfo.java", StringComparison.Ordinal)
                     || result.FileName.EndsWith("FieldInfo.java", StringComparison.Ordinal))
                 {
-                    PatchMemberArgumentCapture(result);
+                    if (MemberArgumentCaptureEnabled)
+                        PatchMemberArgumentCapture(result);
                 }
                 else if (result.FileName.EndsWith("JsonSerializer.java", StringComparison.Ordinal))
                 {
                     PatchSerializeRegistryReset(result);
+                    PatchDeserializeRegistryReset(result);
                     PatchRefReaderResetOnThrow(result);
                 }
                 else if (result.FileName.EndsWith("ThrowHelper.java", StringComparison.Ordinal))
@@ -1146,11 +1178,21 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                     // kept dormant on purpose. Stray diagnostics are stripped universally below.
                     PatchMultiDimArrayRankAtConverterEntry(result);
                     PatchMultiDimArrayRankAtClassLookup(result);
+                    if (ClosedTypeMetadataEnabled)
+                    {
+                        PatchClosedOptionLookups(result);
+                        PatchClosedMemberConverterResolution(result);
+                    }
                 }
                 else if (result.FileName.EndsWith("JsonConverter1.java", StringComparison.Ordinal))
                 {
                     PatchExceptionMessageContains(result);
                     PatchConverterCanBeNullForStructs(result);
+                }
+                else if (result.FileName.EndsWith("JsonConverterFactory.java", StringComparison.Ordinal))
+                {
+                    if (ClosedTypeMetadataEnabled)
+                        PatchClosedFactoryEntry(result);
                 }
                 else if (result.FileName.EndsWith("JsonPropertyInfo1.java", StringComparison.Ordinal))
                 {
@@ -1171,6 +1213,8 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
                 else if (result.FileName.EndsWith("ObjectConverterFactory.java", StringComparison.Ordinal))
                 {
                     PatchKeyValuePairGenericArguments(result);
+                    if (ClosedTypeMetadataEnabled)
+                        PatchClosedObjectFactory(result);
                 }
 
                 // Universal, and LAST: no matter which file this is, a leftover probe must not
@@ -2179,6 +2223,9 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
             return;
 
         var code = result.GeneratedCode;
+        if (code.Contains("__cs2jOwnerTypeArguments", StringComparison.Ordinal))
+            return; // the closed chain's rewrite owns the capture, the field and the scope
+
         if (!ElementArgumentScopeCaptureRegex.IsMatch(code))
             return;
 
@@ -2313,11 +2360,49 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
     }
 
     /// <summary>
-    /// Round-18 experiment switch. Set to false to regenerate without the write-path element
-    /// property patch, which is the prime suspect for the cross-test contamination that makes ~28
-    /// write tests fail only in full-suite order.
+    /// Closed-type metadata chain switch (specs/2026-09-22-closed-type-metadata-chain-design.md).
+    /// When set, member/element types flow through the serializer metadata as explicit
+    /// java.lang.reflect.Type values stamped from the reflected signatures, and converter and
+    /// class-info resolution never consults a ThreadLocal registry. The scope patches this
+    /// replaces are retired behind the switches below, one regression run per retirement.
     /// </summary>
-    private const bool WriteElementPropertyInfoEnabled = true;
+    private const bool ClosedTypeMetadataEnabled = true;
+
+    /// <summary>
+    /// Round-18 experiment switch, retired by the closed-type chain: the write-path element
+    /// property lookup prefers <c>converter.getElementType()</c> (an erased Class) over the
+    /// element class info, which would override the closed chain's correct
+    /// <c>getElementClassInfo()</c> answer with an erased-cache lookup. The two cannot coexist,
+    /// so this patch is switched off in the same regeneration that turns the closed chain on.
+    /// </summary>
+    private const bool WriteElementPropertyInfoEnabled = false;
+
+    /// <summary>
+    /// Retired together with the closed chain's landing: both rewrites target the same erased
+    /// lookup statement in JsonPropertyInfo.getRuntimeClassInfo(), so they are mutually
+    /// exclusive. The member-keyed probe was a hit-path-only mitigation; the closed chain
+    /// creates the entry it could only ever look for.
+    /// </summary>
+    private const bool MemberClassInfoLookupEnabled = false;
+
+    /// <summary>
+    /// ThreadLocal element-argument scope around the erased element class-info lookup.
+    /// Retired: the closed rewrite (PatchClosedElementClassInfo) owns the scope emission on
+    /// its erased fallback (capture + field + push/begin scope), and re-emits it wherever the
+    /// retired patch would have — the scope itself survives, the duplicate emission is gone.
+    /// </summary>
+    private const bool ElementArgumentScopeEnabled = false;
+
+    /// <summary>
+    /// Per-member bookkeeping of declared type arguments (feeds MEMBER_DECLARED_ARGUMENTS for
+    /// the retired cachedClassInfoForMember probe). Retired: the closed chain resolves member
+    /// converters through the member's declared closed Type and drains the residue via
+    /// consumeMemberTypeArguments; the ambient capture is no longer read. registerMemberType
+    /// itself stays: warm-up converter creation for straight members (KeyValuePair, Nullable,
+    /// non-nested collections) still relies on it, and that is entry/Class-path semantics, not
+    /// the member chain the closed chain replaces.
+    /// </summary>
+    private const bool MemberArgumentCaptureEnabled = false;
 
     private const string MemberClassInfoLookupReplacement =
         "        Object __cs2jMemberInfo = TypeHelper.cachedClassInfoForMember("
@@ -2383,6 +2468,704 @@ public sealed class ProjectStructClonePatchPass : ICs2jPass<ProjectPassState>
          + "(dotnet.text.json.JsonPropertyInfo)(TypeHelper.writeElementPropertyInfo(this, options, "
          + "state.value.Current.getJsonClassInfo().getElementClassInfo().getPropertyInfoForClassInfo())));"),
     };
+
+    // =====================================================================
+    // Closed-type metadata chain patches (specs/2026-09-22-closed-type-metadata-chain-design.md).
+    //
+    // Every generated JsonPropertyInfo stamps its member's declared closed
+    // java.lang.reflect.Type at initialize time; JsonClassInfo carries the closure of the type
+    // it describes; lookups route through closed-type overloads on JsonSerializerOptions; the
+    // converter factories resolve element/key/value types from the closure instead of the
+    // ThreadLocal registries. Nothing on this path reads or writes thread state.
+    // =====================================================================
+
+    /// <summary>
+    /// Stamps the member's declared closed Type onto the generated JsonPropertyInfo and routes
+    /// getRuntimeClassInfo() through it. The erased lookup survives only as the fallback for
+    /// members without a parameterized declaration (and for the class-info pseudo properties,
+    /// whose memberInfo is null).
+    /// </summary>
+    private static void PatchClosedMemberType(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (code.Contains("__cs2jDeclaredGenericType = io.github.ningpp.compat.TypeHelper.declaredGenericType(memberInfo);", StringComparison.Ordinal))
+            return; // already patched
+
+        if (!ClosedMemberTypeStampRegex.IsMatch(code))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchClosedMemberType did not match JsonPropertyInfo.initialize - "
+                + "the closed-type stamp is NOT applied.");
+            return;
+        }
+        if (!ClosedRuntimeClassInfoRegex.IsMatch(code))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchClosedMemberType did not match the erased getRuntimeClassInfo "
+                + "lookup - the closed lookup is NOT applied.");
+            return;
+        }
+
+        code = ClosedMemberTypeStampRegex.Replace(code, static match =>
+            match.Groups["indent"].Value + "setMemberInfo(memberInfo);" + match.Groups["newline"].Value
+            + match.Groups["indent"].Value + "__cs2jDeclaredGenericType = io.github.ningpp.compat.TypeHelper.declaredGenericType(memberInfo);"
+            + match.Groups["newline"].Value,
+            count: 1);
+        code = ClosedMemberTypeAccessorsRegex.Replace(code, static match =>
+            ClosedMemberTypeAccessorsInjection
+            + match.Groups["annotations"].Value
+            + match.Groups["indent"].Value
+            + "public Class getRuntimePropertyType() {", count: 1);
+        code = ClosedRuntimeClassInfoRegex.Replace(code, ClosedRuntimeClassInfoReplacement.Replace("$", "$$"), count: 1);
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedMemberTypeStampRegex = new(
+        @"^(?<indent>[ \t]*)setMemberInfo\(memberInfo\);(?<newline>\r?\n)",
+        System.Text.RegularExpressions.RegexOptions.Multiline);
+
+    private const string ClosedMemberTypeAccessorsInjection =
+        "    private java.lang.reflect.Type __cs2jDeclaredGenericType;\n"
+        + "    public java.lang.reflect.Type getDeclaredGenericType() {\n"
+        + "        return __cs2jDeclaredGenericType;\n"
+        + "    }\n"
+        + "    @io.github.ningpp.compat.CompatNonPublicAccessor\n"
+        + "    protected void setDeclaredGenericType(java.lang.reflect.Type value) {\n"
+        + "        this.__cs2jDeclaredGenericType = value;\n"
+        + "    }\n"
+        + "    void __cs2jSetRuntimeClassInfo(JsonClassInfo value) {\n"
+        + "        this._runtimeClassInfo = value;\n"
+        + "    }\n";
+
+    // The accessors must land BEFORE any annotations that decorate getRuntimePropertyType
+    // (JsonParameterInfo precedes it with @CompatNonPublicProperty/@CompatNonPublicAccessor);
+    // landing between them would retarget the annotations onto the injected field.
+    private static readonly System.Text.RegularExpressions.Regex ClosedMemberTypeAccessorsRegex = new(
+        @"(?<annotations>(?:[ \t]*@(?:CompatNonPublicProperty|CompatNonPublicAccessor)[ \t]*\r?\n)*)(?<indent>[ \t]*)public Class getRuntimePropertyType\(\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedRuntimeClassInfoRegex = new(
+        @"(?<indent>[ \t]*)_runtimeClassInfo = getOptions\(\)\.getOrAddClass\(getRuntimePropertyType\(\)\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    // The fallback deliberately renames the erased target (__cs2jErasedRuntimeType) so the
+    // retired ThreadLocal scope patches can no longer match this statement.
+    private const string ClosedRuntimeClassInfoReplacement =
+        "java.lang.reflect.Type __cs2jClosedType = __cs2jDeclaredGenericType;\n"
+        + "        if (__cs2jClosedType instanceof java.lang.reflect.ParameterizedType) {\n"
+        + "        _runtimeClassInfo = getOptions().getOrAddClass(__cs2jClosedType);\n"
+        + "        } else {\n"
+        + "        Class __cs2jErasedRuntimeType = getRuntimePropertyType();\n"
+        + "        _runtimeClassInfo = getOptions().getOrAddClass(__cs2jErasedRuntimeType);\n"
+        + "        }";
+
+    /// <summary>
+    /// Injects the closed-type constructor on JsonClassInfo (records the closure, repairs the
+    /// erased element class, overlays the closed converter onto the class-info property so
+    /// write-stack pushes that read its getRuntimeClassInfo() stay on the closed chain) and
+    /// routes getElementClassInfo() through the closure's last type argument.
+    /// </summary>
+    private static void PatchClosedElementClassInfo(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (code.Contains("public JsonClassInfo(java.lang.reflect.Type __cs2jClosedType, JsonSerializerOptions options)", StringComparison.Ordinal))
+            return; // already patched
+
+        if (!ClosedClassInfoCtorAnchorRegex.IsMatch(code) || !ClosedElementLookupRegex.IsMatch(code))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchClosedElementClassInfo did not match JsonClassInfo.java - the "
+                + "closed constructor and/or element lookup is NOT applied.");
+            return;
+        }
+
+        code = ClosedClassInfoCtorAnchorRegex.Replace(
+            code, ClosedClassInfoCtorInjection.Replace("$", "$$") + "public Class getElementType() {", count: 1);
+        code = ClosedElementLookupRegex.Replace(code, ClosedElementLookupReplacement.Replace("$", "$$"), count: 1);
+        // The closed rewrite emits the entry-path scope (ClosedElementLookupReplacement), so it
+        // also owns the captured owner arguments the scope reads — otherwise retiring
+        // PatchElementArgumentScope (Stage B) would strand the scope calls without their data.
+        code = ClosedElementScopeCaptureRegex.Replace(code,
+            "        setOptions(options);\n        __cs2jOwnerTypeArguments = TypeHelper.captureDeclaredTypeArguments(type);",
+            count: 1);
+        code = ClosedElementScopeFieldRegex.Replace(code,
+            "    private java.lang.reflect.Type[] __cs2jOwnerTypeArguments = new java.lang.reflect.Type[0];\n    public Class getElementType() {",
+            count: 1);
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedClassInfoCtorAnchorRegex = new(
+        @"(?<indent>[ \t]*)public Class getElementType\(\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private const string ClosedClassInfoCtorInjection =
+        "    public JsonClassInfo(java.lang.reflect.Type __cs2jClosedType, JsonSerializerOptions options) {\n"
+        + "        this(io.github.ningpp.compat.TypeHelper.toRawClass(__cs2jClosedType), options);\n"
+        + "        if (__cs2jClosedType instanceof java.lang.reflect.ParameterizedType) {\n"
+        + "        this.__cs2jClosedTypeField = __cs2jClosedType;\n"
+        + "        java.lang.reflect.Type[] __cs2jArgs = ((java.lang.reflect.ParameterizedType) __cs2jClosedType).getActualTypeArguments();\n"
+        + "        setElementType(io.github.ningpp.compat.TypeHelper.toRawClass(__cs2jArgs[__cs2jArgs.length - 1]));\n"
+        + "        setPropertyInfoForClassInfo(__cs2jWithClosedConverter(getPropertyInfoForClassInfo(), getOptions().getConverter(__cs2jClosedType)));\n"
+        + "        getPropertyInfoForClassInfo().__cs2jSetRuntimeClassInfo(this);\n"
+        + "        java.lang.reflect.TypeVariable<?>[] __cs2jTypeParams = getType().getTypeParameters();\n"
+        + "        if (__cs2jTypeParams.length > 0 && PropertyCacheArray != null) {\n"
+        + "        java.util.HashMap<String, java.lang.reflect.Type> __cs2jBinding = new java.util.HashMap<>();\n"
+        + "        for (int __cs2jI = 0; __cs2jI < __cs2jTypeParams.length; __cs2jI++) {\n"
+        + "        __cs2jBinding.put(__cs2jTypeParams[__cs2jI].getName(), __cs2jI < __cs2jArgs.length ? __cs2jArgs[__cs2jI] : null);\n"
+        + "        }\n"
+        + "        for (dotnet.text.json.JsonPropertyInfo __cs2jMember : PropertyCacheArray) {\n"
+        + "        java.lang.reflect.Type __cs2jDeclaredType = io.github.ningpp.compat.TypeHelper.declaredGenericType(__cs2jMember.getMemberInfo());\n"
+        + "        java.lang.reflect.Type __cs2jClosedMemberType = io.github.ningpp.compat.TypeHelper.substituteTypeVariables(__cs2jDeclaredType, __cs2jBinding);\n"
+        + "        if (__cs2jClosedMemberType == null || __cs2jClosedMemberType == __cs2jDeclaredType) {\n"
+        + "        continue;\n"
+        + "        }\n"
+        + "        Class __cs2jClosedMemberClass = io.github.ningpp.compat.TypeHelper.toRawClass(__cs2jClosedMemberType);\n"
+        + "        __cs2jMember.setRuntimePropertyType(__cs2jClosedMemberClass);\n"
+        + "        __cs2jMember.setDeclaredPropertyType(__cs2jClosedMemberClass);\n"
+        + "        __cs2jMember.setConverterBase(getOptions().getConverter(__cs2jClosedMemberType));\n"
+        + "        io.github.ningpp.compat.TypeHelper.consumeMemberTypeArguments(__cs2jClosedMemberType);\n"
+        + "        dotnet.text.json.JsonParameterInfo __cs2jBoundParam = (ParameterCache != null ? ParameterCache.get(__cs2jMember.getNameAsString()) : null);\n"
+        + "        if (__cs2jBoundParam != null) {\n"
+        + "        __cs2jBoundParam.setRuntimePropertyType(__cs2jClosedMemberClass);\n"
+        + "        __cs2jBoundParam.setConverterBase(__cs2jMember.getConverterBase());\n"
+        + "        }\n"
+        + "        }\n"
+        + "        }\n"
+        + "        }\n"
+        + "    }\n"
+        + "    private static JsonPropertyInfo __cs2jWithClosedConverter(JsonPropertyInfo propertyInfo, dotnet.text.json.Serialization.JsonConverter converter) {\n"
+        + "        propertyInfo.setConverterBase(converter);\n"
+        + "        return propertyInfo;\n"
+        + "    }\n"
+        + "    private java.lang.reflect.Type __cs2jClosedTypeField;\n"
+        + "    private java.lang.reflect.Type __cs2jClosedElementType() {\n"
+        + "        if (__cs2jClosedTypeField instanceof java.lang.reflect.ParameterizedType) {\n"
+        + "        java.lang.reflect.Type[] __cs2jArgs = ((java.lang.reflect.ParameterizedType) __cs2jClosedTypeField).getActualTypeArguments();\n"
+        + "        if (__cs2jArgs.length > 0) {\n"
+        + "        return __cs2jArgs[__cs2jArgs.length - 1];\n"
+        + "        }\n"
+        + "        }\n"
+        + "        return null;\n"
+        + "    }\n"
+        + "    ";
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedElementLookupRegex = new(
+        @"(?<indent>[ \t]*)_elementClassInfo = getOptions\(\)\.getOrAddClass\(getElementType\(\)\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    // The closed rewrite consumes the erased lookup statement, so it must also re-emit the
+    // ThreadLocal argument scope around the fallback: the Class/TypeReference ENTRY path builds
+    // class infos through the legacy constructor and its nested same-raw lookups (e.g.
+    // CSharpReadOnlyCollection<CSharpReadOnlyCollection<int>> via a TypeReference) still rely on
+    // that scope to align the layers (spec §2.4 keeps entry-path ThreadLocal semantics). The
+    // closed branch itself stays ThreadLocal-free; the scope helpers no-op unless the lookup is
+    // a same-raw-class nesting. This patch also owns the captured owner arguments (field +
+    // constructor capture below) so retiring PatchElementArgumentScope cannot strand them.
+    private const string ClosedElementLookupReplacement =
+        "java.lang.reflect.Type __cs2jClosedElement = __cs2jClosedElementType();\n"
+        + "        Class __cs2jErasedElement = getElementType();\n"
+        + "        Object __cs2jCtx = TypeHelper.pushArgumentContext(getType(), __cs2jErasedElement, __cs2jOwnerTypeArguments);\n"
+        + "        Object __cs2jScope = TypeHelper.beginElementArgumentsScope(getType(), __cs2jErasedElement, "
+        + "TypeHelper.elementArgumentsOfOwner(__cs2jOwnerTypeArguments));\n"
+        + "        try {\n"
+        + "        if (__cs2jClosedElement instanceof java.lang.reflect.ParameterizedType) {\n"
+        + "        _elementClassInfo = getOptions().getOrAddClass(__cs2jClosedElement);\n"
+        + "        } else {\n"
+        + "        _elementClassInfo = getOptions().getOrAddClass(__cs2jErasedElement);\n"
+        + "        }\n"
+        + "        } finally {\n"
+        + "        TypeHelper.endElementArgumentsScope(__cs2jScope);\n"
+        + "        TypeHelper.popArgumentContext(__cs2jCtx);\n"
+        + "        }";
+
+    /// <summary>Mirrors the scope patch's capture injection; owned here when the closed chain is on.</summary>
+    private static readonly System.Text.RegularExpressions.Regex ClosedElementScopeCaptureRegex = new(
+        @"(?<indent>[ \t]*)setOptions\(options\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>Mirrors the scope patch's field injection; owned here when the closed chain is on.</summary>
+    private static readonly System.Text.RegularExpressions.Regex ClosedElementScopeFieldRegex = new(
+        @"(?<indent>[ \t]*)public Class getElementType\(\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Restores STJ's <c>JsonConverter&lt;T&gt;.Write</c> null guard on the collection fast paths.
+    /// <para>
+    /// STJ guards null values in a sealed <c>Write</c> wrapper (<c>value == null &amp;&amp;
+    /// !HandleNullOnWrite → writer.WriteNullValue()</c>) before dispatching to the converter; the
+    /// port dissolved that wrapper into the abstract <c>write</c>, so the fast paths in
+    /// ListOfTConverter / IListConverter / ArrayConverter / DictionaryOfTKeyTValueConverter call
+    /// converters with null and crash on primitive writers (observed as
+    /// NullTests.defaultIgnoreNullValuesOnWrite NPE inside DateTimeConverter.write once the
+    /// closed-type chain resolved a dictionary VALUE converter precisely instead of the erased,
+    /// null-tolerant Object converter). The injected guard mirrors <c>JsonConverter1.tryWrite</c>'s
+    /// own null handling.
+    /// </para>
+    /// </summary>
+    private static void PatchFastPathWriteNullGuard(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (code.Contains("== null && !elementConverter.getHandleNullOnWrite()", StringComparison.Ordinal)
+            || code.Contains("== null && !valueConverter.getHandleNullOnWrite()", StringComparison.Ordinal))
+            return; // already patched
+
+        var matches = FastPathWriteNullGuardRegex.Matches(code);
+        if (matches.Count == 0)
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchFastPathWriteNullGuard found no fast-path value write in "
+                + result.FileName + " - the null guard is NOT applied.");
+            return;
+        }
+
+        code = FastPathWriteNullGuardRegex.Replace(code, static match =>
+        {
+            string indent = match.Groups["indent"].Value;
+            string conv = match.Groups["conv"].Value;
+            string expr = match.Groups["expr"].Value;
+            return indent + "if (" + expr + " == null && !" + conv + ".getHandleNullOnWrite()) {\n"
+                + indent + "writer.writeNullValue();\n"
+                + indent + "} else {\n"
+                + indent + conv + ".write(writer, " + expr + ", options);\n"
+                + indent + "}";
+        });
+
+        result.GeneratedCode = code;
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex FastPathWriteNullGuardRegex = new(
+        @"(?<indent>[ \t]*)(?<conv>elementConverter|valueConverter)\.write\(writer, (?<expr>[^;\r\n]+?), options\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Resets the per-thread type-argument registry at the deserialize entries, matching what
+    /// <c>PatchSerializeRegistryReset</c> already does for the serialize entry.
+    /// <para>
+    /// The registry outlives a single operation; the closed-type chain resolves member converters
+    /// from closure layers and never consumes the warm-up registrations legacy consumption drained,
+    /// so pending layers accumulate and poison the next shared-options resolution (observed as
+    /// DictionaryTests.hashtable / iDictionary_Keys failing only after ArrayTests.readObjectArray
+    /// in full-suite order). Only the shared-default path resets: the TypeReference flow publishes
+    /// its session registration BEFORE invoking the entry with an explicit (fresh) options
+    /// instance, and wiping that would break TypeReference element resolution.
+    /// </para>
+    /// </summary>
+    private static void PatchDeserializeRegistryReset(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (code.Contains(DeserializeResetMarker, StringComparison.Ordinal))
+            return; // already patched
+
+        var patched = DeserializeEntryResetRegex.Replace(code, static match =>
+            match.Groups["sig"].Value
+            + "        if (options == null) {\n"
+            + "        " + DeserializeResetMarker + "\n"
+            + "        TypeHelper.clearRegistrations();\n"
+            + "        }\n");
+
+        if (patched == code)
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchDeserializeRegistryReset did not match any deserialize entry - the "
+                + "per-thread registry reset is NOT applied.");
+            return;
+        }
+
+        result.GeneratedCode = patched;
+        EnsureTypeHelperImport(result);
+    }
+
+    private const string DeserializeResetMarker = "// __cs2j: reset the shared-options registry";
+
+    private static readonly System.Text.RegularExpressions.Regex DeserializeEntryResetRegex = new(
+        @"(?<sig>public static <TValue> TValue deserialize\((?:String json|ReadOnlySpan<Integer> utf8Json|io\.github\.ningpp\.compat\.ObjectHolder<Utf8JsonReader> reader), JsonSerializerOptions options, Class<\?> tValueClass\) \{\r?\n)(?!        if \(options == null\) \{\r?\n        // __cs2j: reset the shared-options registry)",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Stamps the constructor-parameter's declared closed Type from its matching property (the
+    /// parameter initializer copies the property's converter, so the property already carries
+    /// the closure) and routes getRuntimeClassInfo() through it - the constructor-argument
+    /// mirror of PatchClosedMemberType.
+    /// </summary>
+    private static void PatchClosedParameterInfo(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (code.Contains("__cs2jDeclaredGenericType = (matchingProperty != null ? matchingProperty.getDeclaredGenericType() : null);", StringComparison.Ordinal))
+            return; // already patched
+
+        if (!ClosedParameterStampRegex.IsMatch(code) || !ClosedParameterLookupRegex.IsMatch(code))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchClosedParameterInfo did not match JsonParameterInfo.java - the "
+                + "closed-type stamp and/or lookup is NOT applied.");
+            return;
+        }
+
+        code = ClosedParameterStampRegex.Replace(code, static match =>
+            match.Groups["indent"].Value + "setRuntimePropertyType(runtimePropertyType);" + match.Groups["newline"].Value
+            + match.Groups["indent"].Value + "__cs2jDeclaredGenericType = (matchingProperty != null ? matchingProperty.getDeclaredGenericType() : null);"
+            + match.Groups["newline"].Value,
+            count: 1);
+        code = ClosedParameterAccessorsRegex.Replace(code, static match =>
+            ClosedParameterAccessorsInjection
+            + match.Groups["annotations"].Value
+            + match.Groups["indent"].Value
+            + "public Class getRuntimePropertyType() {", count: 1);
+        code = ClosedParameterLookupRegex.Replace(code, ClosedRuntimeClassInfoReplacement.Replace("$", "$$"), count: 1);
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedParameterStampRegex = new(
+        @"^(?<indent>[ \t]*)setRuntimePropertyType\(runtimePropertyType\);(?<newline>\r?\n)",
+        System.Text.RegularExpressions.RegexOptions.Multiline);
+
+    private const string ClosedParameterAccessorsInjection =
+        "    private java.lang.reflect.Type __cs2jDeclaredGenericType;\n"
+        + "    public java.lang.reflect.Type getDeclaredGenericType() {\n"
+        + "        return __cs2jDeclaredGenericType;\n"
+        + "    }\n";
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedParameterAccessorsRegex = new(
+        @"(?<annotations>(?:[ \t]*@(?:CompatNonPublicProperty|CompatNonPublicAccessor)[ \t]*\r?\n)*)(?<indent>[ \t]*)public Class getRuntimePropertyType\(\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedParameterLookupRegex = new(
+        @"(?<indent>[ \t]*)_runtimeClassInfo = getOptions\(\)\.getOrAddClass\(getRuntimePropertyType\(\)\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// Injects the closed-type overloads on JsonSerializerOptions: getConverter(Type) (cache and
+    /// factories keyed by the closure) and getOrAddClass(Type) (class info keyed by the closure,
+    /// built through the closed JsonClassInfo constructor). Non-parameterized types delegate to
+    /// the existing Class paths unchanged.
+    /// </summary>
+    private static void PatchClosedOptionLookups(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (code.Contains("public JsonClassInfo getOrAddClass(java.lang.reflect.Type __cs2jClosedType)", StringComparison.Ordinal))
+            return; // already patched
+
+        if (!ClosedOptionsClassAnchorRegex.IsMatch(code) || !ClosedOptionsConverterAnchorRegex.IsMatch(code))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchClosedOptionLookups did not match JsonSerializerOptions.java - "
+                + "the closed lookups are NOT applied.");
+            return;
+        }
+
+        code = ClosedOptionsConverterAnchorRegex.Replace(
+            code, ClosedGetConverterInjection.Replace("$", "$$")
+            + "public dotnet.text.json.Serialization.JsonConverter getConverter(Class typeToConvert) {", count: 1);
+        code = ClosedOptionsClassAnchorRegex.Replace(
+            code, ClosedGetOrAddClassInjection.Replace("$", "$$")
+            + "public JsonClassInfo getOrAddClass(Class type) {", count: 1);
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedOptionsConverterAnchorRegex = new(
+        @"(?<indent>[ \t]*)public dotnet\.text\.json\.Serialization\.JsonConverter getConverter\(Class typeToConvert\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private const string ClosedGetConverterInjection =
+        "    public dotnet.text.json.Serialization.JsonConverter getConverter(java.lang.reflect.Type __cs2jClosedType) {\n"
+        + "        if (!(__cs2jClosedType instanceof java.lang.reflect.ParameterizedType)) {\n"
+        + "        return getConverter(io.github.ningpp.compat.TypeHelper.toRawClass(__cs2jClosedType));\n"
+        + "        }\n"
+        + "        Class __cs2jRawType = io.github.ningpp.compat.TypeHelper.toRawClass(__cs2jClosedType);\n"
+        + "        Object __cs2jKey = io.github.ningpp.compat.TypeHelper.closedCacheKey(__cs2jClosedType);\n"
+        + "        Object __cs2jCached = _converters.get(__cs2jKey);\n"
+        + "        if (__cs2jCached instanceof dotnet.text.json.Serialization.JsonConverter) {\n"
+        + "        return (dotnet.text.json.Serialization.JsonConverter) __cs2jCached;\n"
+        + "        }\n"
+        + "        dotnet.text.json.Serialization.JsonConverter converter = null;\n"
+        + "        for (dotnet.text.json.Serialization.JsonConverter item : getConverters()) {\n"
+        + "        if (item.canConvert(__cs2jRawType)) {\n"
+        + "        converter = item;\n"
+        + "        break;\n"
+        + "        }\n"
+        + "        }\n"
+        + "        if (converter == null && s_defaultSimpleConverters.containsKey(__cs2jRawType)) {\n"
+        + "        converter = s_defaultSimpleConverters.get(__cs2jRawType);\n"
+        + "        }\n"
+        + "        if (converter == null) {\n"
+        + "        for (dotnet.text.json.Serialization.JsonConverter item : s_defaultFactoryConverters) {\n"
+        + "        if (item.canConvert(__cs2jRawType)) {\n"
+        + "        converter = item;\n"
+        + "        break;\n"
+        + "        }\n"
+        + "        }\n"
+        + "        }\n"
+        + "        if (converter instanceof dotnet.text.json.Serialization.JsonConverterFactory) {\n"
+        + "        converter = ((dotnet.text.json.Serialization.JsonConverterFactory) converter).getConverterInternal(__cs2jClosedType, this);\n"
+        + "        }\n"
+        + "        if (_haveTypesBeenCreated) {\n"
+        + "        io.github.ningpp.compat.ConcurrentHashMapHelper.putIfAbsentUntyped(_converters, __cs2jKey, converter);\n"
+        + "        }\n"
+        + "        return converter;\n"
+        + "    }\n"
+        + "    ";
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedOptionsClassAnchorRegex = new(
+        @"(?<indent>[ \t]*)public JsonClassInfo getOrAddClass\(Class type\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private const string ClosedGetOrAddClassInjection =
+        "    public JsonClassInfo getOrAddClass(java.lang.reflect.Type __cs2jClosedType) {\n"
+        + "        if (!(__cs2jClosedType instanceof java.lang.reflect.ParameterizedType)) {\n"
+        + "        return getOrAddClass(io.github.ningpp.compat.TypeHelper.toRawClass(__cs2jClosedType));\n"
+        + "        }\n"
+        + "        _haveTypesBeenCreated = true;\n"
+        + "        Object __cs2jKey = io.github.ningpp.compat.TypeHelper.closedCacheKey(__cs2jClosedType);\n"
+        + "        Object __cs2jCached = _classes.get(__cs2jKey);\n"
+        + "        if (__cs2jCached instanceof JsonClassInfo) {\n"
+        + "        return (JsonClassInfo) __cs2jCached;\n"
+        + "        }\n"
+        + "        JsonClassInfo __cs2jCreated = new JsonClassInfo(__cs2jClosedType, this);\n"
+        + "        Object __cs2jWinner = io.github.ningpp.compat.ConcurrentHashMapHelper.putIfAbsentUntyped(_classes, __cs2jKey, __cs2jCreated);\n"
+        + "        return __cs2jWinner instanceof JsonClassInfo ? (JsonClassInfo) __cs2jWinner : __cs2jCreated;\n"
+        + "    }\n"
+        + "    ";
+
+    /// <summary>
+    /// Routes determineConverter's default member resolution through the member's declared
+    /// closed Type. The write stack bakes DeclaredJsonPropertyInfo's converter into nested
+    /// element writes (getElementConverter(WriteStack)), so an erased Class resolution here
+    /// hands List&lt;Object&gt; elements to whatever converter the ThreadLocal warm-up left
+    /// behind (observed: StringConverter writing Integers). Attribute-resolved converters keep
+    /// priority - only the fallback path is closed-aware.
+    /// </summary>
+    private static void PatchClosedMemberConverterResolution(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (code.Contains("__cs2jMemberClosedType", StringComparison.Ordinal))
+            return; // already patched
+
+        if (!ClosedMemberConverterDefaultRegex.IsMatch(code) || !ClosedMemberConverterFactoryRegex.IsMatch(code))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchClosedMemberConverterResolution did not match determineConverter "
+                + "- the closed member converter resolution is NOT applied.");
+            return;
+        }
+
+        code = ClosedMemberConverterDefaultRegex.Replace(code, ClosedMemberConverterDefaultReplacement.Replace("$", "$$"), count: 1);
+        code = ClosedMemberConverterFactoryRegex.Replace(code, ClosedMemberConverterFactoryReplacement.Replace("$", "$$"), count: 1);
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedMemberConverterDefaultRegex = new(
+        @"[ \t]*if \(converter == null\) \{\r?\n[ \t]*converter = getConverter\(runtimePropertyType\);\r?\n",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    // The declaration sits ABOVE the if so the factory unwrap below can see it. Serving the
+    // member's converter from the closure retires the pending warm-up registration
+    // (consumeMemberTypeArguments) - legacy consumption drained that queue, and leaving it
+    // pending leaks the chain into unrelated later Class-path lookups (test-order dependence).
+    private const string ClosedMemberConverterDefaultReplacement =
+        "java.lang.reflect.Type __cs2jMemberClosedType = (memberInfo != null ? io.github.ningpp.compat.TypeHelper.declaredGenericType(memberInfo) : null);\n"
+        + "        if (!(__cs2jMemberClosedType instanceof java.lang.reflect.ParameterizedType)) {\n"
+        + "        __cs2jMemberClosedType = runtimePropertyType;\n"
+        + "        }\n"
+        + "        if (converter == null) {\n"
+        + "        converter = getConverter(__cs2jMemberClosedType);\n"
+        + "        io.github.ningpp.compat.TypeHelper.consumeMemberTypeArguments(__cs2jMemberClosedType);\n";
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedMemberConverterFactoryRegex = new(
+        @"[ \t]*converter = factory\.getConverterInternal\(runtimePropertyType, this\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private const string ClosedMemberConverterFactoryReplacement =
+        "converter = factory.getConverterInternal(__cs2jMemberClosedType, this);\n"
+        + "        io.github.ningpp.compat.TypeHelper.consumeMemberTypeArguments(__cs2jMemberClosedType);";
+
+    /// <summary>
+    /// Injects the closed-type entry on JsonConverterFactory: getConverterInternal(Type, options)
+    /// delegates to compat's createConverterForClosedType, which prefers the factory's
+    /// closed-aware createConverter(Class, Map, options) overload and falls back to the legacy
+    /// raw-class entry for factories without nested layers to resolve.
+    /// </summary>
+    private static void PatchClosedFactoryEntry(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        var code = result.GeneratedCode;
+        if (code.Contains("getConverterInternal(java.lang.reflect.Type __cs2jClosedType", StringComparison.Ordinal))
+            return; // already patched
+
+        if (!ClosedFactoryEntryAnchorRegex.IsMatch(code))
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchClosedFactoryEntry did not match JsonConverterFactory.java - the "
+                + "closed entry is NOT applied.");
+            return;
+        }
+
+        code = ClosedFactoryEntryAnchorRegex.Replace(
+            code, ClosedFactoryEntryInjection.Replace("$", "$$")
+            + "public final Object readCoreAsObject(", count: 1);
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedFactoryEntryAnchorRegex = new(
+        @"(?<indent>[ \t]*)public final Object readCoreAsObject\(",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private const string ClosedFactoryEntryInjection =
+        "    public dotnet.text.json.Serialization.JsonConverter getConverterInternal(java.lang.reflect.Type __cs2jClosedType, dotnet.text.json.JsonSerializerOptions options) {\n"
+        + "        dotnet.text.json.Serialization.JsonConverter converter = (dotnet.text.json.Serialization.JsonConverter)(io.github.ningpp.compat.TypeHelper.createConverterForClosedType(this, __cs2jClosedType, options));\n"
+        + "        if (converter == null) {\n"
+        + "        ThrowHelper.throwInvalidOperationException_SerializerConverterFactoryReturnsNull(getClass());\n"
+        + "        }\n"
+        + "        return converter;\n"
+        + "    }\n"
+        + "    ";
+
+    /// <summary>
+    /// Rewires IEnumerableConverterFactory onto the closure: createConverter gains a
+    /// {@code __cs2jLayers} map parameter carrying the closed type's per-raw layers; every
+    /// getGenericArguments call resolves through it (ThreadLocal-free when the closure is
+    /// present, legacy semantics when the shim passes null for the Class/TypeReference path).
+    /// </summary>
+    private static void PatchClosedEnumerableFactory(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        if (result.GeneratedCode.Contains("__cs2jLayers", StringComparison.Ordinal))
+            return; // already patched
+
+        if (ClosedEnumerableFactorySignatureRegex.Matches(result.GeneratedCode).Count != 1)
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchClosedEnumerableFactory did not match exactly one "
+                + "createConverter signature - the closed rewire is NOT applied.");
+            return;
+        }
+
+        var code = ClosedEnumerableFactorySignatureRegex.Replace(
+            result.GeneratedCode, static match =>
+                match.Groups["indent"].Value + "public dotnet.text.json.Serialization.JsonConverter createConverter(Class typeToConvert, dotnet.text.json.JsonSerializerOptions options) {\n"
+                + match.Groups["indent"].Value + "return createConverter(typeToConvert, null, options);\n"
+                + match.Groups["indent"].Value + "}\n"
+                + match.Groups["indent"].Value + "public dotnet.text.json.Serialization.JsonConverter createConverter(Class typeToConvert, java.util.Map<Class<?>, java.lang.reflect.Type[]> __cs2jLayers, dotnet.text.json.JsonSerializerOptions options) {",
+            count: 1);
+
+        code = RewireGenericArgumentLookups(code);
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedEnumerableFactorySignatureRegex = new(
+        @"(?<indent>[ \t]*)public dotnet\.text\.json\.Serialization\.JsonConverter createConverter\(Class typeToConvert, dotnet\.text\.json\.JsonSerializerOptions options\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /// <summary>
+    /// The ObjectConverterFactory mirror of PatchClosedEnumerableFactory, covering the
+    /// KeyValuePair branch (its createConverter also serves every non-enumerable type, but only
+    /// the KeyValuePair branch resolves type arguments).
+    /// </summary>
+    private static void PatchClosedObjectFactory(ConversionResult result)
+    {
+        if (result.GeneratedCode == null)
+            return;
+
+        if (result.GeneratedCode.Contains("__cs2jLayers", StringComparison.Ordinal))
+            return; // already patched
+
+        if (ClosedEnumerableFactorySignatureRegex.Matches(result.GeneratedCode).Count != 1)
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: PatchClosedObjectFactory did not match exactly one "
+                + "createConverter signature - the closed rewire is NOT applied.");
+            return;
+        }
+
+        var code = ClosedEnumerableFactorySignatureRegex.Replace(
+            result.GeneratedCode, static match =>
+                match.Groups["indent"].Value + "public dotnet.text.json.Serialization.JsonConverter createConverter(Class typeToConvert, dotnet.text.json.JsonSerializerOptions options) {\n"
+                + match.Groups["indent"].Value + "return createConverter(typeToConvert, null, options);\n"
+                + match.Groups["indent"].Value + "}\n"
+                + match.Groups["indent"].Value + "public dotnet.text.json.Serialization.JsonConverter createConverter(Class typeToConvert, java.util.Map<Class<?>, java.lang.reflect.Type[]> __cs2jLayers, dotnet.text.json.JsonSerializerOptions options) {",
+            count: 1);
+
+        code = ClosedKeyValuePairSignatureRegex.Replace(
+            code, static match =>
+                match.Groups["indent"].Value + "private dotnet.text.json.Serialization.JsonConverter createKeyValuePairConverter(Class type, java.util.Map<Class<?>, java.lang.reflect.Type[]> __cs2jLayers, dotnet.text.json.JsonSerializerOptions options) {",
+            count: 1);
+        code = ClosedKeyValuePairCallRegex.Replace(
+            code, static match =>
+                match.Groups["indent"].Value + "return createKeyValuePairConverter(typeToConvert, __cs2jLayers, options);",
+            count: 1);
+
+        code = RewireGenericArgumentLookups(code);
+
+        result.GeneratedCode = code;
+        EnsureTypeHelperImport(result);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedKeyValuePairSignatureRegex = new(
+        @"(?<indent>[ \t]*)private dotnet\.text\.json\.Serialization\.JsonConverter createKeyValuePairConverter\(Class type, dotnet\.text\.json\.JsonSerializerOptions options\) \{",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    private static readonly System.Text.RegularExpressions.Regex ClosedKeyValuePairCallRegex = new(
+        @"(?<indent>[ \t]*)return createKeyValuePairConverter\(typeToConvert, options\);",
+        System.Text.RegularExpressions.RegexOptions.None);
+
+    /** Rewires every legacy getGenericArguments call onto the closure-aware resolver. */
+    private static string RewireGenericArgumentLookups(string code)
+    {
+        const string legacy = "TypeHelper.getGenericArguments(";
+        const string closed = "TypeHelper.genericArgumentsInLayers(__cs2jLayers, ";
+        int count = 0;
+        int index = code.IndexOf(legacy, StringComparison.Ordinal);
+        while (index >= 0)
+        {
+            count++;
+            index = code.IndexOf(legacy, index + legacy.Length, StringComparison.Ordinal);
+        }
+        if (count == 0)
+        {
+            Console.Error.WriteLine(
+                "ProjectPasses: closed factory rewire found no getGenericArguments call to rewire.");
+            return code;
+        }
+        return code.Replace(legacy, closed, StringComparison.Ordinal);
+    }
 
     /// <summary>Makes sure a patched file can resolve <c>TypeHelper</c>.</summary>
     private static void EnsureTypeHelperImport(ConversionResult result)

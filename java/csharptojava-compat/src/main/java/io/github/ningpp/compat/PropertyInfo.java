@@ -291,6 +291,25 @@ public final class PropertyInfo implements MemberInfo {
         return setter != null;
     }
 
+    /**
+     * The member's DECLARED closed generic type, without any side effect.
+     *
+     * <p>{@link #getPropertyType()} returns the erased class and publishes member layers to the
+     * ThreadLocal registry; this accessor is the closed-type chain's source of truth — it returns
+     * the full reflected signature (e.g. {@code CSharpList<CSharpList<Integer>>}) and registers
+     * nothing. The generated JsonPropertyInfo stamps it at initialize time so converter and class
+     * info resolution never depends on reflection order.</p>
+     */
+    public java.lang.reflect.Type getGenericPropertyType() {
+        if (getter != null) {
+            return getter.getGenericReturnType();
+        }
+        if (setter != null && setter.getParameterCount() > 0) {
+            return setter.getGenericParameterTypes()[0];
+        }
+        return null;
+    }
+
     public Class<?> getPropertyType() {
         if (getter != null) {
             // Declared member types carry the generic arguments written in the

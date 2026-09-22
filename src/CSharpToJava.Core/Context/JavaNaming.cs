@@ -450,9 +450,31 @@ public static class JavaNaming
     {
         ITypeParameterSymbol => "System.Object",
         IArrayTypeSymbol arr => GetErasedTypeName(arr.ElementType) + "[]",
-        INamedTypeSymbol named => named.OriginalDefinition.ContainingNamespace + "." + named.OriginalDefinition.Name,
+        INamedTypeSymbol named => GetNamedErasedTypeName(named.OriginalDefinition),
         _ => type.ToDisplayString()
     };
+
+    private static string GetNamedErasedTypeName(INamedTypeSymbol named)
+    {
+        // Unsigned primitives map onto their same-width SIGNED JAVA counterparts
+        // (ulong→long, uint→int, ushort→int, byte→int), so overloads differing only
+        // in signedness collide after erasure and must be flagged for the _erasure_N
+        // rename — otherwise the later overload is silently dropped and its callers
+        // fall back to the signed overload's formatting (ulong.MaxValue wrote "-1"
+        // instead of "18446744073709551615"). The widths are the JAVA ones: C# byte
+        // and ushort widen to Java int (masked & 0xFF / & 0xFFFF at use), sbyte stays
+        // Java byte, short stays Java short — grouping by C#-name width would merge
+        // Byte into the SByte group and UInt16 into the Int16 group, silently dropping
+        // their declarations (XmlConvertTests.toType33: ushort 4582 formatted "230").
+        switch (named.SpecialType)
+        {
+            case SpecialType.System_UInt64: return "System.Int64";
+            case SpecialType.System_UInt32: return "System.Int32";
+            case SpecialType.System_UInt16: return "System.Int32";
+            case SpecialType.System_Byte: return "System.Int32";
+        }
+        return named.ContainingNamespace + "." + named.Name;
+    }
 
     /// <summary>
     /// Checks whether a method in a derived class has a cross-inheritance type-erasure conflict.

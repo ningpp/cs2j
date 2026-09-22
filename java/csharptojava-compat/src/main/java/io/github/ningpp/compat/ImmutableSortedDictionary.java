@@ -7,8 +7,12 @@ import java.util.Set;
 
 /**
  * Compat for System.Collections.Immutable.ImmutableSortedDictionary&lt;K,V&gt;.
+ *
+ * <p>Realizes {@link CSharpReadOnlyDict} (the IReadOnlyDictionary&lt;K,V&gt; port), exactly
+ * like .NET's ImmutableSortedDictionary — the generated STJ converters' erased bridge
+ * methods cast the untyped entry to CSharpReadOnlyDict.
  */
-public class ImmutableSortedDictionary<K, V> implements IImmutableDictionary<K, V> {
+public class ImmutableSortedDictionary<K, V> implements IImmutableDictionary<K, V>, CSharpReadOnlyDict<K, V> {
     private final TreeMap<K, V> items;
 
     public ImmutableSortedDictionary() {
@@ -100,10 +104,12 @@ public class ImmutableSortedDictionary<K, V> implements IImmutableDictionary<K, 
         return new ImmutableSortedDictionary<>(copy);
     }
 
-    @Override
-    public ImmutableSortedDictionary<K, V> clear() {
-        return new ImmutableSortedDictionary<>();
+    public V tryGetValue(K key) {
+        return items.get(key);
     }
+
+    // No fluent clear(): realizes CSharpReadOnlyDict, whose CSharpGenericIterable ancestor
+    // declares void clear(); generated code never calls Clear() on an immutable dictionary.
 
     @Override
     public ImmutableSortedDictionary<K, V> removeCSharp(K key) {

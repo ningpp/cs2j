@@ -7,8 +7,14 @@ import java.util.Set;
 /**
  * Compat for System.Collections.Immutable.ImmutableDictionary&lt;K,V&gt; — minimal
  * immutable dictionary wrapper.
+ *
+ * <p>Realizes {@link CSharpReadOnlyDict} (the IReadOnlyDictionary&lt;K,V&gt; port), exactly
+ * like .NET's ImmutableDictionary. The generated STJ converters declare
+ * {@code where TCollection : IReadOnlyDictionary<TKey, TValue>}, and their erased bridge
+ * methods cast the untyped entry to CSharpReadOnlyDict — without this interface every
+ * immutable-dictionary serialization dies in the bridge with ClassCastException.
  */
-public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V> {
+public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V>, CSharpReadOnlyDict<K, V> {
     private final Map<K, V> items;
 
     /** C# ImmutableDictionary.Empty — the empty singleton. */
@@ -140,10 +146,8 @@ public class ImmutableDictionary<K, V> implements IImmutableDictionary<K, V> {
         return new ImmutableDictionary<>(copy);
     }
 
-    @Override
-    public ImmutableDictionary<K, V> clear() {
-        return new ImmutableDictionary<>();
-    }
+    // No fluent clear(): realizes CSharpReadOnlyDict, whose CSharpGenericIterable ancestor
+    // declares void clear(); generated code never calls Clear() on an immutable dictionary.
 
     @Override
     public ImmutableDictionary<K, V> removeCSharp(K key) {

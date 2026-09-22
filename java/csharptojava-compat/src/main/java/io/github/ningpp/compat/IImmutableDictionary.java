@@ -50,8 +50,17 @@ public interface IImmutableDictionary<K, V> {
         return this;
     }
 
-    default IImmutableDictionary<K, V> clear() {
-        return this;
+    // No fluent clear(): the classes realize CSharpReadOnlyDict, whose CSharpGenericIterable
+    // ancestor declares void clear() — a fluent clear() would clash on erasure. Call sites
+    // route to the static helper below instead.
+
+    /**
+     * Stand-in for C# IImmutableDictionary&lt;K,V&gt;.Clear() — an empty dictionary. A fluent
+     * instance clear() cannot live on this interface: implementations also realize
+     * CSharpReadOnlyDict, whose Collection ancestor declares void clear().
+     */
+    static <K, V> IImmutableDictionary<K, V> clear(IImmutableDictionary<K, V> dict) {
+        return new ImmutableDictionary<>();
     }
 
     default CSharpGenericEnumerator<CSharpKeyValuePair<K, V>> iterator() {
