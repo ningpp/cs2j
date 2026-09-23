@@ -367,9 +367,82 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             return base.VisitIdentifierName(node);
 
         // Otherwise, this is a method group / delegate conversion reference.
+        // 提升后的方法把捕获变量变成了 ref 参数，因此方法组不再与目标委托类型兼容
+        // （CS0123）。有捕获时改写为等价 lambda：(a, b) => name(ref cap, a, b)。
+        if (plan.Captures.Count > 0 && !plan.NeedsExplicitTypeArguments)
+        {
+            var lambda = TryBuildCaptureLambda(node, plan);
+            if (lambda != null)
+            {
+                Changed = true;
+                return lambda.WithTriviaFrom(node);
+            }
+        }
+
         // Rename it to the hoisted method name.
         Changed = true;
         return SyntaxFactory.IdentifierName(plan.NewName).WithTriviaFrom(node);
+    }
+
+    /// <summary>
+    /// 把"捕获型局部函数的方法组引用"改写为显式 lambda：目标委托类型的参数逐个透传，
+    /// 捕获变量按 ref/值前缀传入。无法确定目标委托签名时返回 null（保留原样）。
+    /// </summary>
+    private ExpressionSyntax? TryBuildCaptureLambda(IdentifierNameSyntax node, LiftPlan plan)
+    {
+        var converted = _model.GetTypeInfo(node).ConvertedType;
+        var invoke = (converted as INamedTypeSymbol) is { TypeKind: TypeKind.Delegate } delegateType
+            ? delegateType.DelegateInvokeMethod
+            : null;
+
+        // 语义不可用（例如编译单元里存在 ref/src 重复类型定义）时退回到局部函数自身的
+        // 参数表：原始方法组转换能成立，说明它的签名与目标委托兼容，直接透传即可。
+        if (invoke == null)
+        {
+            return TryBuildLambdaFromLocalFunctionSignature(node, plan);
+        }
+
+        var arguments = new List<ArgumentSyntax>();
+        foreach (var capture in plan.Captures)
+        {
+            // 调用点看到的是捕获变量的原名（参数名只存在于提升后的方法体内）。
+            var captureName = SyntaxFactory.IdentifierName(capture.OriginalName);
+            arguments.Add(capture.ByRef
+                ? SyntaxFactory.Argument(captureName).WithRefKindKeyword(
+                    SyntaxFactory.Token(SyntaxKind.RefKeyword))
+                : SyntaxFactory.Argument(captureName));
+        }
+
+        var lambdaParameters = new List<ParameterSyntax>();
+        var invokedArguments = new List<ArgumentSyntax>();
+        for (var i = 0; i < invoke.Parameters.Length; i++)
+        {
+            var parameter = invoke.Parameters[i];
+            var parameterName = $"__cs2jArg{i}";
+            lambdaParameters.Add(SyntaxFactory.Parameter(
+                    SyntaxFactory.Identifier(parameterName))
+                .WithType(SyntaxFactory.ParseTypeName(parameter.Type.ToDisplayString(
+                    SymbolDisplayFormat.FullyQualifiedFormat))));
+
+            var argument = SyntaxFactory.Argument(SyntaxFactory.IdentifierName(parameterName));
+            argument = parameter.RefKind switch
+            {
+                RefKind.Ref => argument.WithRefKindKeyword(SyntaxFactory.Token(SyntaxKind.RefKeyword)),
+                RefKind.Out => argument.WithRefKindKeyword(SyntaxFactory.Token(SyntaxKind.OutKeyword)),
+                RefKind.In => argument.WithRefKindKeyword(SyntaxFactory.Token(SyntaxKind.InKeyword)),
+                _ => argument,
+            };
+            invokedArguments.Add(argument);
+        }
+
+        var invocation = SyntaxFactory.InvocationExpression(
+            SyntaxFactory.IdentifierName(plan.NewName),
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
+                arguments.Concat(invokedArguments))));
+
+        return SyntaxFactory.ParenthesizedLambdaExpression(
+            SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(lambdaParameters)),
+            invocation);
     }
 
     private static bool IsInsideNameOf(SyntaxNode node)
@@ -384,6 +457,58 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             current = current.Parent;
         }
         return false;
+    }
+
+    /// <summary>无语义信息时：用局部函数的原参数表构造 lambda。</summary>
+    private ExpressionSyntax? TryBuildLambdaFromLocalFunctionSignature(
+        IdentifierNameSyntax node,
+        LiftPlan plan)
+    {
+        var parameters = plan.Node.ParameterList?.Parameters ?? default;
+        if (parameters.Count == 0 && plan.Node.ParameterList == null)
+        {
+            return null;
+        }
+
+        var lambdaParameters = new List<ParameterSyntax>();
+        var invokedArguments = new List<ArgumentSyntax>();
+        foreach (var parameter in parameters)
+        {
+            if (parameter.Type == null)
+            {
+                return null; // 形参无类型（不该出现）时不做猜测
+            }
+
+            lambdaParameters.Add(SyntaxFactory.Parameter(parameter.Identifier.WithoutTrivia())
+                .WithType(parameter.Type.WithoutTrivia()));
+
+            var argument = SyntaxFactory.Argument(SyntaxFactory.IdentifierName(parameter.Identifier));
+            argument = parameter.Modifiers.Any(m => m.IsKind(SyntaxKind.RefKeyword))
+                ? argument.WithRefKindKeyword(SyntaxFactory.Token(SyntaxKind.RefKeyword))
+                : parameter.Modifiers.Any(m => m.IsKind(SyntaxKind.OutKeyword))
+                    ? argument.WithRefKindKeyword(SyntaxFactory.Token(SyntaxKind.OutKeyword))
+                    : argument;
+            invokedArguments.Add(argument);
+        }
+
+        var arguments = new List<ArgumentSyntax>();
+        foreach (var capture in plan.Captures)
+        {
+            var captureName = SyntaxFactory.IdentifierName(capture.OriginalName);
+            arguments.Add(capture.ByRef
+                ? SyntaxFactory.Argument(captureName).WithRefKindKeyword(
+                    SyntaxFactory.Token(SyntaxKind.RefKeyword))
+                : SyntaxFactory.Argument(captureName));
+        }
+
+        var invocation = SyntaxFactory.InvocationExpression(
+            SyntaxFactory.IdentifierName(plan.NewName),
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
+                arguments.Concat(invokedArguments))));
+
+        return SyntaxFactory.ParenthesizedLambdaExpression(
+            SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(lambdaParameters)),
+            invocation);
     }
 
     private MethodDeclarationSyntax BuildMethodDeclaration(LiftPlan plan)
@@ -452,10 +577,48 @@ internal sealed class LocalFunctionLiftRewriter : CSharpSyntaxRewriter
             null,
             default);
 
+        // 局部函数位于 unsafe 方法/类型内部时，unsafe 上下文是隐式的；提升为类级方法后
+        // 不再继承该上下文，指针/stackalloc/fixed 等用法必须显式标注 unsafe（否则
+        // CS0214）。仅在实际需要时才加，避免 AllowUnsafeBlocks=false 的项目报 CS0227。
+        if (!modifiers.Any(m => m.IsKind(SyntaxKind.UnsafeKeyword))
+            && RequiresUnsafeContext(method))
+        {
+            var unsafeModifiers = modifiers.Add(SyntaxFactory.Token(SyntaxKind.UnsafeKeyword));
+            method = method.WithModifiers(SyntaxFactory.TokenList(unsafeModifiers));
+        }
+
         if (leadingTrivia.Count > 0)
             method = method.WithLeadingTrivia(leadingTrivia);
 
         return method;
+    }
+
+    /// <summary>
+    /// 提升后的方法是否必须处于 unsafe 上下文：签名或方法体中出现指针类型、函数指针、
+    /// <c>-&gt;</c>、stackalloc、fixed、取地址，或对非基元类型做 sizeof。
+    /// </summary>
+    private static bool RequiresUnsafeContext(MethodDeclarationSyntax method)
+    {
+        foreach (var node in method.DescendantNodesAndSelf())
+        {
+            switch (node)
+            {
+                case PointerTypeSyntax:
+                case FunctionPointerTypeSyntax:
+                case MemberAccessExpressionSyntax { OperatorToken.RawKind: (int)SyntaxKind.MinusGreaterThanToken }:
+                case StackAllocArrayCreationExpressionSyntax:
+                case ImplicitStackAllocArrayCreationExpressionSyntax:
+                case FixedStatementSyntax:
+                case PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.AddressOfExpression }:
+                    return true;
+
+                case SizeOfExpressionSyntax sizeOf
+                    when sizeOf.Type is not PredefinedTypeSyntax:
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private static TypeParameterListSyntax? BuildTypeParameterList(LiftPlan plan)
