@@ -2777,32 +2777,8 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
                         AddJsonNumberHandlingAnnotation(jc, nestedSymbol, context);
             AddJsonConverterAnnotation(jc, nestedSymbol, context);
                     }
-                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedClass, context))
-                    {
-                        jc.Modifiers |= JavaModifiers.Static;
-                        // When making a nested type static, add any enclosing type parameters
-                        // that the nested type references as its own type parameters.
-                        // Java static nested classes cannot reference the enclosing class's
-                        // type parameters, so they need their own copies.
-                        var usedEnclosingParams = NestedTypeHelper.GetEnclosingTypeParamsUsedByNested(nestedClass, context);
-                        foreach (var param in usedEnclosingParams)
-                        {
-                            // Only add if not already present (avoid duplicates)
-                            if (!jc.TypeParameters.Any(tp => tp.Name == param.Name))
-                            {
-                                var jtp = new JavaTypeParameter(param.Name);
-                                foreach (var constraintType in param.ConstraintTypes)
-                                {
-                                    var bound = context.MapType(constraintType);
-                                    if (!string.IsNullOrEmpty(bound) && bound != "Object")
-                                        jtp.Bounds.Add(bound);
-                                }
-                                jc.TypeParameters.Add(jtp);
-                            }
-                        }
-                    }
+                    AddEnclosingTypeParameters(jc, nestedClass, context);
                     javaClass.NestedTypes.Add(jc);
-
                     // When a nested class inherits from the outer class, Java's access rules
                     // prevent the nested class from accessing the outer class's private fields
                     // (even though it inherits them). C# allows this because nested classes can
@@ -2840,8 +2816,7 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
                 var nestedRecordResult = recordTransformer.Transform(nestedRecord, context);
                 if (nestedRecordResult is JavaClassDeclaration jcRecord)
                 {
-                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedRecord, context))
-                        jcRecord.Modifiers |= JavaModifiers.Static;
+                    AddEnclosingTypeParameters(jcRecord, nestedRecord, context);
                     javaClass.NestedTypes.Add(jcRecord);
                 }
                 break;
@@ -2907,11 +2882,47 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
                 var nestedStructResult = nestedStructTransformer.Transform(nestedStruct, context);
                 if (nestedStructResult is JavaClassDeclaration jcs)
                 {
-                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedStruct, context))
-                        jcs.Modifiers |= JavaModifiers.Static;
+                    AddEnclosingTypeParameters(jcs, nestedStruct, context);
                     javaClass.NestedTypes.Add(jcs);
                 }
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Marks a nested type <c>static</c> and gives it its own copies of the enclosing type's
+    /// type parameters that it references.
+    /// <para>
+    /// C# nested types implicitly capture the enclosing type's type parameters, but a Java
+    /// <c>static</c> nested type cannot reference them ("cannot reference a non-static type
+    /// variable T from a static context"). Examples: <c>HashSet&lt;T&gt;.Enumerator</c> (nested
+    /// struct) and <c>SortedSet&lt;T&gt;.Enumerator</c> (nested class).
+    /// </para>
+    /// </summary>
+    private static void AddEnclosingTypeParameters(
+        JavaClassDeclaration nested,
+        SyntaxNode nestedSyntax,
+        ConversionContext context)
+    {
+        if (!NestedTypeHelper.ShouldBeStaticInJava(nestedSyntax, context))
+            return;
+
+        nested.Modifiers |= JavaModifiers.Static;
+
+        foreach (var param in NestedTypeHelper.GetEnclosingTypeParamsUsedByNested(nestedSyntax, context))
+        {
+            // Only add if not already present (avoid duplicates)
+            if (nested.TypeParameters.Any(tp => tp.Name == param.Name))
+                continue;
+
+            var jtp = new JavaTypeParameter(param.Name);
+            foreach (var constraintType in param.ConstraintTypes)
+            {
+                var bound = context.MapType(constraintType);
+                if (!string.IsNullOrEmpty(bound) && bound != "Object")
+                    jtp.Bounds.Add(bound);
+            }
+            nested.TypeParameters.Add(jtp);
         }
     }
 

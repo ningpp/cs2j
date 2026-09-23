@@ -135,7 +135,19 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // abc.CallMethod(arg1, arg2) → abc.callMethod(arg1, arg2)
             case MemberAccessExpressionSyntax memberAccess:
             {
-                var receiver = facade.TransformToIR(memberAccess.Expression, context);
+                var originalName = memberAccess.Name.Identifier.Text;
+
+                if (TryRenderPrimitiveStaticCall(
+                        memberAccess,
+                        originalName,
+                        context,
+                        string.Join(", ", arguments.Select(a => a.ToInlineString())),
+                        out var primCall))
+                {
+                    return new JavaRawExpression(primCall);
+                }
+
+                var receiver = TransformReceiverToIR(memberAccess.Expression, context);
                 var (mappedName, isStatic) =
                     TryResolveMappedName(invocation, memberAccess.Name.Identifier.Text, context);
 
@@ -197,8 +209,14 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // abc.CallMethod(arg1, arg2) → abc.callMethod(arg1, arg2)
             case MemberAccessExpressionSyntax memberAccess:
             {
-                var receiver = facade.Transform(memberAccess.Expression, context);
                 var originalName = memberAccess.Name.Identifier.Text;
+
+                // C# primitive type qualifier — Java forbids using a primitive keyword as a
+                // type name, so double.IsNaN(x) must become Double.isNaN(x).
+                if (TryRenderPrimitiveStaticCall(memberAccess, originalName, context, arguments, out var primCall))
+                    return primCall;
+
+                var receiver = TransformReceiver(memberAccess.Expression, context);
                 var (mappedName, isStatic) = TryResolveMappedName(node, originalName, context);
 
                 if (mappedName != null)
@@ -227,6 +245,249 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 return $"{facade.Transform(node.Expression, context)}({arguments})";
         }
     }
+
+    /// <summary>
+    /// Renders an invocation receiver as Java source, erasing type arguments when the
+    /// receiver is a static type qualifier written with an explicit generic argument list.
+    /// </summary>
+    private static string TransformReceiver(ExpressionSyntax expression, ConversionContext context)
+    {
+        var receiver = ExpressionTransformerFacade.Instance.Transform(expression, context);
+        return ContainsGenericTypeQualifier(expression)
+            ? ExpressionTransformerHelpers.StripTypeArguments(receiver)
+            : receiver;
+    }
+
+    /// <summary>
+    /// IR counterpart of <see cref="TransformReceiver"/>.
+    /// </summary>
+    private static JavaExpression TransformReceiverToIR(ExpressionSyntax expression, ConversionContext context)
+    {
+        var receiver = ExpressionTransformerFacade.Instance.TransformToIR(expression, context);
+        if (!ContainsGenericTypeQualifier(expression))
+            return receiver;
+
+        return receiver switch
+        {
+            JavaRawExpression raw => new JavaRawExpression(
+                ExpressionTransformerHelpers.StripTypeArguments(raw.Code), raw.ResolvedType),
+            JavaIdentifierExpression identifier => new JavaIdentifierExpression
+            {
+                Name = ExpressionTransformerHelpers.StripTypeArguments(identifier.Name)
+            },
+            _ => receiver
+        };
+    }
+
+    /// <summary>
+    /// True when the expression contains a generic name segment (<c>Type&lt;T&gt;</c>).
+    /// <para>
+    /// C# allows an explicit generic type qualifier on a static member access
+    /// (<c>ArraySortHelper&lt;T&gt;.IntrospectiveSort(...)</c>), but Java forbids type
+    /// arguments on a static qualifier — <c>Type&lt;T&gt;.member()</c> is not valid Java and
+    /// javac reports "illegal start of type". Such a receiver must therefore be erased to its
+    /// raw type name. In an expression position a generic name can only ever denote a type, so
+    /// this only matches static qualifiers and never an instance receiver.
+    /// </para>
+    /// </summary>
+    private static bool ContainsGenericTypeQualifier(ExpressionSyntax expression) => expression switch
+    {
+        GenericNameSyntax => true,
+        QualifiedNameSyntax qualified =>
+            ContainsGenericTypeQualifier(qualified.Right) || ContainsGenericTypeQualifier(qualified.Left),
+        AliasQualifiedNameSyntax alias => ContainsGenericTypeQualifier(alias.Name),
+        MemberAccessExpressionSyntax member =>
+            ContainsGenericTypeQualifier(member.Name) || ContainsGenericTypeQualifier(member.Expression),
+        _ => false
+    };
+
+    /// <summary>
+    /// Renders a static call whose receiver is a C# primitive keyword.
+    /// <para>
+    /// A Java primitive keyword is not a type name, so <c>double.IsNaN(x)</c> is illegal and
+    /// must become <c>Double.isNaN(x)</c>. Java's wrapper classes also use different member
+    /// names than the C# primitives (<c>IsInfinity</c> → <c>isInfinite</c>, <c>IsLower</c> →
+    /// <c>isLowerCase</c>, …), and the C# <c>Parse</c>/<c>TryParse</c> overloads that take a
+    /// format provider are routed through the compat <c>MathHelper</c>.
+    /// </para>
+    /// Returns <c>false</c> when the receiver is not a non-string primitive keyword.
+    /// </summary>
+    private static bool TryRenderPrimitiveStaticCall(
+        MemberAccessExpressionSyntax memberAccess,
+        string originalMethodName,
+        ConversionContext context,
+        string arguments,
+        out string rendered)
+    {
+        rendered = string.Empty;
+
+        // `string` keeps its existing handling: System.String maps to java.lang.String and the
+        // TypeMappings table already routes the static helpers (StringHelper.*).
+        if (memberAccess.Expression is not PredefinedTypeSyntax primTypeSyntax
+            || primTypeSyntax.Keyword.Text == "string")
+        {
+            return false;
+        }
+
+        var keyword = primTypeSyntax.Keyword.Text;
+        var argumentCount = memberAccess.Parent is InvocationExpressionSyntax invocation
+            ? invocation.ArgumentList.Arguments.Count
+            : 0;
+
+        // Numeric TryParse: double.TryParse(s, out result) → MathHelper.tryParseDouble(s, holder)
+        if (originalMethodName == "TryParse" && argumentCount >= 2
+            && MapPrimitiveTryParseHelper(keyword) is { } tryParseHelper)
+        {
+            context.AddImport("io.github.ningpp.compat.MathHelper");
+            rendered = $"{tryParseHelper}({arguments})";
+            return true;
+        }
+
+        // Parse → the compat helper, except the single-argument byte/sbyte/short forms which
+        // are valid on the Java wrappers themselves (Byte.parseByte(s)).
+        if (originalMethodName == "Parse" && MapPrimitiveParseHelper(keyword) is { } parseHelper)
+        {
+            var useWrapperDirectly = keyword is "byte" or "sbyte" or "short" && argumentCount <= 1;
+            if (!useWrapperDirectly)
+            {
+                if (parseHelper.StartsWith("MathHelper.", StringComparison.Ordinal))
+                    context.AddImport("io.github.ningpp.compat.MathHelper");
+                rendered = $"{parseHelper}({arguments})";
+                return true;
+            }
+        }
+
+        // Double.IsPositiveInfinity(x) → (x == Double.POSITIVE_INFINITY)
+        // Java's isInfinite() cannot distinguish the sign, so compare against the constant.
+        if (originalMethodName is "IsPositiveInfinity" or "IsNegativeInfinity"
+            && keyword is "double" or "float"
+            && memberAccess.Parent is InvocationExpressionSyntax posInfInvocation
+            && posInfInvocation.ArgumentList.Arguments.Count == 1)
+        {
+            var javaType = keyword == "float" ? "Float" : "Double";
+            var constant = originalMethodName == "IsPositiveInfinity"
+                ? "POSITIVE_INFINITY" : "NEGATIVE_INFINITY";
+            var arg = ExpressionTransformerFacade.Instance.Transform(
+                posInfInvocation.ArgumentList.Arguments[0].Expression, context);
+            rendered = $"({arg} == {javaType}.{constant})";
+            return true;
+        }
+
+        // char.GetUnicodeCategory(ch) → CharUnicodeInfo.getUnicodeCategory(ch)
+        // java.lang.Character has no getUnicodeCategory; the compat helper returns the
+        // C# System.Globalization.UnicodeCategory values.
+        if (keyword == "char" && originalMethodName == "GetUnicodeCategory" && argumentCount >= 1)
+        {
+            context.AddImport("io.github.ningpp.compat.CharUnicodeInfo");
+            rendered = $"CharUnicodeInfo.getUnicodeCategory({arguments})";
+            return true;
+        }
+
+        // char.IsDigit(string, int) → Character.isDigit(s.charAt(index))
+        if (keyword == "char" && originalMethodName == "IsDigit" && argumentCount == 2
+            && memberAccess.Parent is InvocationExpressionSyntax isDigitInvocation)
+        {
+            var strArg = ExpressionTransformerFacade.Instance.Transform(
+                isDigitInvocation.ArgumentList.Arguments[0].Expression, context);
+            var idxArg = ExpressionTransformerFacade.Instance.Transform(
+                isDigitInvocation.ArgumentList.Arguments[1].Expression, context);
+            rendered = $"Character.isDigit({strArg}.charAt({idxArg}))";
+            return true;
+        }
+
+        // byte maps to Java int, but Parse lives on Byte (Byte.parseByte).
+        var boxedReceiver = keyword == "byte" && originalMethodName == "Parse"
+            ? "Byte"
+            : ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
+        var mappedMethod = MapPrimitiveStaticMethodName(keyword, originalMethodName);
+
+        // char.ConvertFromUtf32 returns string in C# but Character.toChars returns char[].
+        rendered = keyword == "char" && originalMethodName == "ConvertFromUtf32"
+            ? $"new String({boxedReceiver}.{mappedMethod}({arguments}))"
+            : $"{boxedReceiver}.{mappedMethod}({arguments})";
+        return true;
+    }
+
+    /// <summary>
+    /// Maps C# built-in primitive static method names to their Java equivalents.
+    /// e.g. double.IsInfinity → Double.isInfinite, int.Parse → Integer.parseInt
+    /// </summary>
+    private static string MapPrimitiveStaticMethodName(string primitiveKeyword, string methodName)
+        => (primitiveKeyword, methodName) switch
+        {
+            // char-specific mappings: the C# and Java Character classes differ.
+            ("char", "IsLower") => "isLowerCase",
+            ("char", "IsUpper") => "isUpperCase",
+            ("char", "IsWhiteSpace") => "isWhitespace",
+            ("char", "IsControl") => "isISOControl",
+            ("char", "IsSurrogate") => "isSurrogate",
+            ("char", "IsHighSurrogate") => "isHighSurrogate",
+            ("char", "IsLowSurrogate") => "isLowSurrogate",
+            ("char", "IsSurrogatePair") => "isSurrogatePair",
+            ("char", "GetNumericValue") => "getNumericValue",
+            ("char", "ToLower") => "toLowerCase",
+            ("char", "ToLowerInvariant") => "toLowerCase",
+            ("char", "ToUpper") => "toUpperCase",
+            ("char", "ToUpperInvariant") => "toUpperCase",
+            ("char", "ToString") => "toString",
+            ("char", "ConvertFromUtf32") => "toChars",
+            ("char", "ConvertToUtf32") => "toCodePoint",
+            ("char", "Parse") => "valueOf",
+            // generic mappings shared across all primitive types
+            (_, "IsInfinity") => "isInfinite",
+            (_, "IsNaN") => "isNaN",
+            (_, "IsFinite") => "isFinite",
+            (_, "Parse") => primitiveKeyword switch
+            {
+                "int" => "parseInt",
+                "long" => "parseLong",
+                "double" => "parseDouble",
+                "float" => "parseFloat",
+                "short" => "parseShort",
+                "byte" => "parseByte",
+                "sbyte" => "parseByte",
+                "uint" => "parseUnsignedInt",
+                "ulong" => "parseUnsignedLong",
+                "ushort" => "parseUnsignedInt",
+                _ => "parse" + char.ToUpperInvariant(primitiveKeyword[0]) + primitiveKeyword[1..]
+            },
+            _ when methodName.Length > 0 => char.ToLowerInvariant(methodName[0]) + methodName[1..],
+            _ => methodName
+        };
+
+    private static string? MapPrimitiveParseHelper(string primitiveKeyword)
+        => primitiveKeyword switch
+        {
+            "int" => "MathHelper.parseInt",
+            "long" => "MathHelper.parseLong",
+            "double" => "MathHelper.parseDouble",
+            "float" => "MathHelper.parseFloat",
+            "decimal" => "Decimal.parse",
+            "uint" => "MathHelper.parseUInt",
+            "ulong" => "MathHelper.parseULong",
+            "ushort" => "MathHelper.parseUShort",
+            "short" => "MathHelper.parseShort",
+            "byte" => "MathHelper.parseByte",
+            "sbyte" => "MathHelper.parseByte",
+            _ => null
+        };
+
+    private static string? MapPrimitiveTryParseHelper(string primitiveKeyword)
+        => primitiveKeyword switch
+        {
+            "double" => "MathHelper.tryParseDouble",
+            "float" => "MathHelper.tryParseFloat",
+            "int" => "MathHelper.tryParseInt",
+            "long" => "MathHelper.tryParseLong",
+            "short" => "MathHelper.tryParseShort",
+            "byte" => "MathHelper.tryParseByte",
+            "char" => "MathHelper.tryParseChar",
+            "bool" => "MathHelper.tryParseBool",
+            "uint" => "MathHelper.tryParseUInt",
+            "ulong" => "MathHelper.tryParseULong",
+            "ushort" => "MathHelper.tryParseUShort",
+            _ => null
+        };
 
     /// <summary>
     /// Applies a configured mapped method name to an IR call. Mapped names containing a dot

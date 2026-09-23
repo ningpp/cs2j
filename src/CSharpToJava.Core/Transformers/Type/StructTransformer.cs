@@ -70,6 +70,15 @@ public class StructTransformer : ITypeTransformer
             IsValueClass = context.Options.UseValueClass && isReadOnly
         };
         var structSymbol = mergedStructSymbol ?? context.GetDeclaredSymbol(structDecl) as INamedTypeSymbol;
+        if (structSymbol != null)
+        {
+            // Java has no type overloading: a top-level struct that shares its simple name with
+            // a same-namespace sibling of a different arity must use the arity-safe name
+            // (e.g. KeyValuePair<TKey, TValue> next to the non-generic KeyValuePair static
+            // class → KeyValuePair2). References already resolve through
+            // ConversionContext.GetJavaTopLevelTypeName, so the declaration must agree.
+            javaClass.Name = context.GetJavaTopLevelTypeName(structSymbol);
+        }
         var previousEnclosingRoslynType = context.CurrentEnclosingRoslynType;
         context.CurrentEnclosingRoslynType = structSymbol;
         var convertedComments = context.GetDeclarationComments(structDecl, structSymbol).ToCombinedComment();

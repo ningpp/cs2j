@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.TypeMapping.JavaModel;
 
@@ -684,6 +684,29 @@ public class TypeMappingService
                 var eventArgType = MapTypeForGeneric(namedType.TypeArguments[0], referenceContext);
                 AddImport("java.util.function.BiConsumer");
                 return $"BiConsumer<Object, {eventArgType}>";
+            }
+
+            // Same-name shadowing across namespaces. When the namespace currently being
+            // converted declares a DIFFERENT type with the same simple name — the typical
+            // case being the non-generic dotnet.System.Collections.IComparer next to the
+            // generic dotnet.System.Collections.Generic.IComparer<T> — a bare simple name
+            // is wrong in Java: a type declared in the current package beats an
+            // on-demand (wildcard) import, so `IComparer<T>` would bind to the non-generic
+            // same-package type and javac reports "type ... does not take parameters".
+            // Emit the package-qualified name so the reference is unambiguous.
+            if (!mappedFromConfig
+                && namedType.ContainingType == null
+                && !string.IsNullOrEmpty(genericTypeNamespace)
+                && !string.IsNullOrWhiteSpace(currentNamespace)
+                && !string.Equals(currentNamespace, genericTypeNamespace, StringComparison.Ordinal)
+                && !baseType.Contains('.', StringComparison.Ordinal)
+                && NamespaceContainsType(currentNamespace, baseType))
+            {
+                var shadowingPackage = NamespaceToPackage(genericTypeNamespace);
+                if (!string.IsNullOrEmpty(shadowingPackage))
+                {
+                    return $"{shadowingPackage}.{baseType}<{typeArgs}>";
+                }
             }
 
             return $"{baseType}<{typeArgs}>";

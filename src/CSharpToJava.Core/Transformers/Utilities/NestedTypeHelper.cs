@@ -71,13 +71,17 @@ internal static class NestedTypeHelper
         if (nestedSymbol == null)
             return result;
 
-        var enclosingType = nestedSymbol.ContainingType;
-        if (enclosingType == null || enclosingType.TypeParameters.IsEmpty)
-            return result;
-
-        var enclosingTypeParams = new HashSet<ITypeParameterSymbol>(
-            enclosingType.TypeParameters.Where(tp => tp.DeclaringMethod == null),
-            SymbolEqualityComparer.Default);
+        // Collect the type parameters of EVERY enclosing type, not just the immediate one.
+        // A nested type captures the type parameters of all its ancestors: in
+        // Dictionary<TKey, TValue>.KeyCollection.Enumerator the innermost type captures
+        // TKey and TValue even though KeyCollection itself declares no type parameters.
+        var enclosingTypeParams = new List<ITypeParameterSymbol>();
+        for (var enclosingType = nestedSymbol.ContainingType;
+             enclosingType != null;
+             enclosingType = enclosingType.ContainingType)
+        {
+            enclosingTypeParams.AddRange(enclosingType.TypeParameters.Where(tp => tp.DeclaringMethod == null));
+        }
 
         if (enclosingTypeParams.Count == 0)
             return result;
@@ -92,6 +96,9 @@ internal static class NestedTypeHelper
         {
             if (nestedOwnTypeParamNames.Contains(enclosingParam.Name))
                 continue; // Shadowed by the nested type's own parameter
+
+            if (result.Any(existing => SymbolEqualityComparer.Default.Equals(existing, enclosingParam)))
+                continue;
 
             if (NestedTypeReferencesTypeParam(nestedSymbol, enclosingParam))
                 result.Add(enclosingParam);
