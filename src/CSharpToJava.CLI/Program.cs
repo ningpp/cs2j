@@ -277,7 +277,8 @@ public class Program
                     $"unsigned-type: {unsignedResult.Statistics.FilesTransformed} transformed, " +
                     $"{unsignedResult.Statistics.FilesSkippedClean} clean, " +
                     $"{unsignedResult.Statistics.TypesReplaced} types replaced, " +
-                    $"{unsignedResult.Statistics.OperatorsRewritten} operators rewritten");
+                    $"{unsignedResult.Statistics.OperatorsRewritten} operators rewritten, " +
+                    $"{unsignedResult.Statistics.LiteralsRewritten} literals rewritten");
 
                 foreach (var diagnostic in unsignedResult.Diagnostics)
                 {
@@ -3456,7 +3457,8 @@ public class Program
             Verbose: opts.Verbose,
             Strict: opts.Strict,
             EnableOperatorRewrite: !opts.NoOperatorRewrite,
-            EnableCastRewrite: !opts.NoCastRewrite);
+            EnableCastRewrite: !opts.NoCastRewrite,
+            EnableLiteralRewrite: !opts.NoLiteralRewrite);
         var rewriter = new UnsignedTypeRewriter();
 
         if (opts.Input != null)
@@ -3542,7 +3544,8 @@ public class Program
             $"unsigned-type: {preprocessResult.Statistics.FilesTransformed} transformed, " +
             $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
             $"{preprocessResult.Statistics.TypesReplaced} types replaced, " +
-            $"{preprocessResult.Statistics.OperatorsRewritten} operators rewritten");
+            $"{preprocessResult.Statistics.OperatorsRewritten} operators rewritten, " +
+            $"{preprocessResult.Statistics.LiteralsRewritten} literals rewritten");
 
         foreach (var diagnostic in preprocessResult.Diagnostics)
         {
@@ -4125,6 +4128,8 @@ class UnsignedTypeOptions
     public bool NoOperatorRewrite { get; set; }
     [Option("no-cast-rewrite", Default = false, HelpText = "Disable cast rewrite")]
     public bool NoCastRewrite { get; set; }
+    [Option("no-literal-rewrite", Default = false, HelpText = "Disable numeric literal erasure-safety rewrite")]
+    public bool NoLiteralRewrite { get; set; }
     [Option('v', "verbose", Default = false)]
     public bool Verbose { get; set; }
     [Option("strict", Default = false, HelpText = "Treat unsupported diagnostics as fatal")]

@@ -303,6 +303,7 @@ internal static class ProjectUnsignedTypePreprocessor
         target.CastsRewritten += source.CastsRewritten;
         target.ArraysRewritten += source.ArraysRewritten;
         target.GenericArgsReplaced += source.GenericArgsReplaced;
+        target.LiteralsRewritten += source.LiteralsRewritten;
     }
 
     /// <summary>

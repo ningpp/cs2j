@@ -27,7 +27,7 @@ public sealed class UnsignedTypeRewriter
             ? (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot()
             : (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(sourceCode).GetRoot();
 
-        if (!UnsignedTypeSyntaxRewriter.IsDirty(root))
+        if (!UnsignedTypeSyntaxRewriter.IsDirty(root, options))
         {
             stats.FilesSkippedClean = 1;
             return new UnsignedTypeRewriterResult(sourceCode, false, diagnostics, stats);

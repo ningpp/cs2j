@@ -63,8 +63,11 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         _diagnostics = diagnostics;
     }
 
-    internal static bool IsDirty(CompilationUnitSyntax root)
-        => root.DescendantTokens().Any(t => KeywordToFullName.ContainsKey(t.Kind()));
+    internal static bool IsDirty(CompilationUnitSyntax root, UnsignedTypeRewriterOptions options)
+        => root.DescendantTokens().Any(t => KeywordToFullName.ContainsKey(t.Kind())
+            || (options.EnableLiteralRewrite
+                && t.IsKind(SyntaxKind.NumericLiteralToken)
+                && UnsignedLiteralSyntax.NeedsRewrite(t.Text)));
 
     internal static bool ContainsUnsignedKeyword(SyntaxNode node)
         => node.DescendantTokens().Any(t => KeywordToFullName.ContainsKey(t.Kind()));
@@ -388,6 +391,27 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         return base.VisitIdentifierName(node);
+    }
+
+    public override SyntaxNode? VisitLiteralExpression(LiteralExpressionSyntax node)
+    {
+        var rewritten = (LiteralExpressionSyntax)base.VisitLiteralExpression(node)!;
+        if (!_options.EnableLiteralRewrite
+            || !node.IsKind(SyntaxKind.NumericLiteralExpression)
+            || !UnsignedLiteralSyntax.TryRewrite(node.Token.Text, out var rewrite))
+        {
+            return rewritten;
+        }
+
+        // 只换 token 文本,trivia 原样保留:类型与值由后缀+值决定,与上下文无关,
+        // 因此重载决议、常量折叠、const/enum/attribute/case 等常量上下文全部不变。
+        _stats.LiteralsRewritten++;
+        var token = SyntaxFactory.Literal(
+            node.Token.LeadingTrivia,
+            rewrite.Text,
+            rewrite.Value,
+            node.Token.TrailingTrivia);
+        return UnsignedRewriteAnnotations.Mark(rewritten.WithToken(token));
     }
 
     public override SyntaxNode? VisitArrayType(ArrayTypeSyntax node)

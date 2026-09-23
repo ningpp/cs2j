@@ -10,4 +10,5 @@ public sealed class UnsignedTypeRewriterStatistics
     public int CastsRewritten;
     public int ArraysRewritten;
     public int GenericArgsReplaced;
+    public int LiteralsRewritten;
 }
