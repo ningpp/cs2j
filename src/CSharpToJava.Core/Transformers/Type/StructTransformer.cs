@@ -150,6 +150,12 @@ public class StructTransformer : ITypeTransformer
         }
         context.LeaveType();
 
+        // Explicit interface property accessors may coexist with same-name class property
+        // accessors that differ only in return type (e.g. object IFoo.Bar vs typed Bar).
+        // AddMethodIfNotDuplicateInternal keeps both; resolve the Java name clash here,
+        // exactly as ClassTransformer does for classes.
+        ClassTransformer.ResolveExplicitInterfacePropertyConflicts(javaClass);
+
         // Fix 2: readonly struct → apply final to each instance field, not to the class declaration.
         if (isReadOnly)
         {
@@ -1473,9 +1479,16 @@ public class StructTransformer : ITypeTransformer
                 break;
 
             case PropertyDeclarationSyntax propDecl:
-                // Skip explicit interface implementations - Java doesn't need them since the
-                // public member already satisfies the interface requirement
-                if (propDecl.ExplicitInterfaceSpecifier != null) break;
+                // Explicit interface property implementations MUST be emitted: unlike C#
+                // (where explicit implementations are private and reached through interface
+                // casts), Java classes implement interface contracts with public methods
+                // carrying the interface's exact accessor names. Dropping them — as the old
+                // blanket skip did — leaves the converted struct without e.g.
+                // getIsSynchronized()/getSyncRoot() and the Java class fails to implement
+                // the interface. When a public property of the same name already exists,
+                // AddMethodIfNotDuplicateInternal drops the redundant accessor (the public
+                // method already satisfies the contract), and the return-type-conflict pass
+                // after member processing handles the remaining cases (mirrors ClassTransformer).
                 var propTransformer = factory.CreatePropertyTransformer();
                 var props = propTransformer.Transform(propDecl, context);
                 if (props is JavaMemberCollection collection)
