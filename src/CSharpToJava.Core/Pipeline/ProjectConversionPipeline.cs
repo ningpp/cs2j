@@ -266,7 +266,7 @@ public class ProjectConversionPipeline
         {
             // Task 38：项目级 TS 分叉（spec §2.4）——TS 语法树层 rewriter 序列
             // （ProjectTsSyntaxRewritePass）在类型归一化之前；emit pass（ProjectTsEmitPass）
-            // 复用共享前端 + TS 二次映射发射；Java 专属 ProjectStructClonePatchPass 不进入；
+            // 复用共享前端 + TS 二次映射发射；
             // ProjectJavaModuleDependencyPass 由 ProjectNpmDependencyPass 替换；
             // NativeInterop 检查在 pass 内降级为警告；跨文件/跨包 import 由
             // ProjectTsImportEmitPass 发射（Task 40，spec §3.3，取代 Java 通配导入模型）。
@@ -281,7 +281,6 @@ public class ProjectConversionPipeline
                 new ProjectTsSyntaxRewritePass(),
                 new ProjectPartialTypeNormalizationPass(),
                 new ProjectTsEmitPass(_irRewriters),
-                new ProjectCompatibilityEmitPass(),
                 new ProjectTsImportEmitPass(),
                 new ProjectNpmDependencyPass(),
             };
@@ -298,9 +297,7 @@ public class ProjectConversionPipeline
             new ProjectJavaPatternRewritePass(),
             new ProjectPartialTypeNormalizationPass(),
             new ProjectTypeEmitPass(_irRewriters),
-            new ProjectCompatibilityEmitPass(),
             new ProjectCrossPackageImportEmitPass(),
-            new ProjectStructClonePatchPass(),
             new ProjectJavaModuleDependencyPass(),
         };
     }

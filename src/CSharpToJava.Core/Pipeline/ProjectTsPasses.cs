@@ -131,7 +131,7 @@ public sealed class ProjectTsEmitPass : ICs2jPass<ProjectPassState>
         foreach (var typeGroup in state.TypeGroups)
         {
             var candidatePaths = ProjectTypeEmitPass.CollectCandidatePaths(typeGroup);
-            if (candidatePaths.Any(path => state.BlockedFilePaths.Contains(ProjectTypeEmitPass.NormalizeFilePath(path))))
+            if (candidatePaths.Any(path => state.BlockedFilePaths.Contains(ProjectPassState.NormalizeFilePath(path))))
             {
                 continue;
             }
