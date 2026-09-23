@@ -1104,29 +1104,6 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
             {
                 AddName(tpId.Identifier.Text);
             }
-            else if (node is Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax inv
-                && inv.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.GenericNameSyntax invGeneric
-                && invGeneric.TypeArgumentList.Arguments.Count > 0)
-            {
-                // Explicit generic call forwarding a type parameter (e.g.
-                // ReadCore<TValue>(...)) — the callee likely needs the Class token,
-                // so this method's signature must carry it too.
-                // But only forward when the callee actually exposes Class<T> slots
-                // in its Java signature (consistent with DetectDefaultUsageInMethod).
-                // Without this check, LINQ-generated procedural methods like
-                // Sort_ProceduralLinq1<TEdge>(...) would cause Sort<TEdge> to gain
-                // a spurious Class<TEdge> parameter that the call site (in another
-                // project) cannot detect via DetectDefaultUsageInMethod.
-                var calleeSym = semanticModel.GetSymbolInfo(inv).Symbol as IMethodSymbol;
-                if (calleeSym == null
-                    || !InvocationExpressionTransformer.MethodLikelyNeedsClassTokens(calleeSym, context))
-                    continue;
-                foreach (var typeArg in invGeneric.TypeArgumentList.Arguments)
-                {
-                    if (typeArg is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax typeArgId)
-                        AddName(typeArgId.Identifier.Text);
-                }
-            }
         }
 
         return result;

@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
@@ -1023,19 +1023,6 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
 
             if (primTypeSyntax.Keyword.Text == "string" && rawMember == "Empty")
                 return "\"\"";
-
-            // Check if this is a method group (e.g. char.IsHighSurrogate used as a delegate value).
-            // If so, generate a Java method reference like Character::isHighSurrogate.
-            var primMemberSymbol = context.GetSymbolInfo(node).Symbol;
-            if (primMemberSymbol is IMethodSymbol primMethodGroup
-                && !(node.Parent is InvocationExpressionSyntax primInv && primInv.Expression == node))
-            {
-                var primMappedMethod = InvocationExpressionTransformer.MapPrimitiveStaticMethodName(primTypeSyntax.Keyword.Text, rawMember);
-                var primJavaMethodName = primMappedMethod ?? (rawMember.Length > 0
-                    ? char.ToLowerInvariant(rawMember[0]) + rawMember[1..]
-                    : rawMember);
-                return $"{boxedName}::{primJavaMethodName}";
-            }
 
             var mappedMember = MapPrimitiveStaticFieldName(primTypeSyntax.Keyword.Text, rawMember);
             if (primTypeSyntax.Keyword.Text == "decimal")
