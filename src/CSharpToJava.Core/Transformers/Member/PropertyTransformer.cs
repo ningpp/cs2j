@@ -26,10 +26,16 @@ public class PropertyTransformer : IMemberTransformer
         context.IsInAsyncContext = false;
 
         var results = new List<JavaSyntaxNode>();
-        var typeInfo = context.GetTypeInfo(propDecl.Type);
+        // Handle C# ref-returning properties (e.g. public ref T ValueRef => ref item;):
+        // strip the 'ref' keyword since Java does not support ref return types.
+        // This mirrors MethodTransformer.GetReturnType's handling of RefTypeSyntax.
+        var propTypeSyntax = propDecl.Type is RefTypeSyntax refTypeSyntax
+            ? refTypeSyntax.Type
+            : propDecl.Type;
+        var typeInfo = context.GetTypeInfo(propTypeSyntax);
         var propType = typeInfo.Type != null
             ? context.MapType(typeInfo.Type)
-            : context.MapTypeFromSyntax(propDecl.Type);
+            : context.MapTypeFromSyntax(propTypeSyntax);
         var propertySymbol = context.GetDeclaredSymbol(propDecl) as IPropertySymbol;
         // Prefer the semantic symbol name: source text may contain an escape
         // sequence (e.g. `\u0467`) that must NOT leak into the Java identifier —

@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
+﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Analysis;
@@ -1388,6 +1388,10 @@ _pendingClassTypeParams ??= new();
     public string MapTypeFromSyntax(TypeSyntax typeSyntax)
     {
         if (typeSyntax == null) return "Object";
+        // Strip C# ref modifier (ref T -> T) so semantic resolution targets
+        // the inner type; Roslyn returns null for RefTypeSyntax.
+        if (typeSyntax is RefTypeSyntax refType)
+            typeSyntax = refType.Type;
         // Prefer semantic resolution when available — this correctly handles
         // generic type arguments, primitive boxing, and namespace-qualified lookups.
         if (SemanticModel != null)

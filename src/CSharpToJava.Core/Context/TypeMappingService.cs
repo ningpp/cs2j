@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+﻿﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.TypeMapping.JavaModel;
 
@@ -240,6 +240,14 @@ public class TypeMappingService
     public string MapTypeFromSyntax(TypeSyntax typeSyntax)
     {
         if (typeSyntax == null) return "Object";
+
+        // Handle C# ref types (ref T): strip the 'ref' keyword since Java
+        // does not support ref return types. This is a defensive fallback —
+        // callers like PropertyTransformer and MethodTransformer already strip
+        // RefTypeSyntax before reaching here, but this ensures any other
+        // path that passes a RefTypeSyntax is handled correctly.
+        if (typeSyntax is RefTypeSyntax refType)
+            return MapTypeFromSyntax(refType.Type);
 
         // Handle C# pointer types: byte*, char*, int* → MemorySegment
         if (typeSyntax is PointerTypeSyntax)
