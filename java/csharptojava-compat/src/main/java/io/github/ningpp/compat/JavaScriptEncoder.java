@@ -85,13 +85,14 @@ public class JavaScriptEncoder {
         if (unicodeScalar >= 0x10000) {
             return true;
         }
-        if (allowedRanges != null && isInAllowedRanges(unicodeScalar)) {
-            return false;
+        if (allowedRanges != null) {
+            // Allowlist semantics: a BMP character outside the allowed ranges is
+            // escaped, even when it is printable. UnsafeRelaxedJsonEscaping allows
+            // the Zs space characters only for U+0020, so U+2000 and friends are
+            // escaped (escapingTestWhileWriting[59], writeString_NonAscii[17]).
+            return !isInAllowedRanges(unicodeScalar);
         }
-        if (escapeNonAscii) {
-            return true;
-        }
-        return false;
+        return escapeNonAscii;
     }
 
     private boolean isInAllowedRanges(int unicodeScalar) {
@@ -440,8 +441,16 @@ public class JavaScriptEncoder {
             return true;
         }
         if (ch < 0x80) {
-            if (escapeNonAscii) {
-                return isHtmlSensitiveAscii(ch);
+            if (escapeNonAscii && isHtmlSensitiveAscii(ch)) {
+                return true;
+            }
+            if (allowedRanges != null) {
+                // Create(allowedRanges) allows ONLY the listed ranges, so ASCII outside them
+                // is escaped too — the same answer willEncode gives on the UTF-8 scan path
+                // (e.g. Create(Latin-1 Supplement) escapes 'a' as \u0061). Utf8JsonWriter
+                // scans string VALUES here and property names on the UTF-8 path; diverging
+                // answers made the value fast path write raw text the name path escapes.
+                return !isInAllowedRanges(ch);
             }
             return false;
         }

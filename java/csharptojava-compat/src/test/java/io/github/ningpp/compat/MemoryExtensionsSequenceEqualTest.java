@@ -170,6 +170,18 @@ public class MemoryExtensionsSequenceEqualTest {
     }
 
     @Test
+    public void SequenceEqual_NullSpan_EqualsEmptySpan() {
+        // C# default(ReadOnlySpan&lt;T&gt;) IS the empty span (Length 0), so a null Java
+        // span must compare equal to an empty one, not only to another null.
+        // Utf8JsonReaderTests.defaultUtf8JsonReader compares a default reader's
+        // GetValueSpan() (transpiled to Java null) against the expected empty span.
+        assertTrue(MemoryExtensions.sequenceEqual((ReadOnlySpan<Character>) null, MemoryExtensions.asSpan("")));
+        assertTrue(MemoryExtensions.sequenceEqual(MemoryExtensions.asSpan(""), (ReadOnlySpan<Character>) null));
+        assertTrue(MemoryExtensions.sequenceEqual(
+                (ReadOnlySpan<Integer>) null, new ReadOnlySpan<>(new byte[0])));
+    }
+
+    @Test
     public void SequenceEqual_NullSpans_FollowExistingNullSemantics() {
         // ReadOnlySpan overload: both null -> true, exactly one null -> false.
         assertTrue(MemoryExtensions.sequenceEqual((ReadOnlySpan<Character>) null, (ReadOnlySpan<Character>) null));

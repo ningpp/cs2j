@@ -16,6 +16,15 @@ public final class Activator {
         if (type == null) {
             throw new NullPointerException("type");
         }
+        // C# Activator.CreateInstance(Type) answers default(T) for a value type, which has no
+        // parameterless constructor to reflect over. Generated reflection reaches here with
+        // such types boxed: PropertyInfo.getPropertyType() wraps primitives, so a C# `bool`
+        // property arrives as Boolean.class, and generated enums are value types whose
+        // default(T) is the 0 value (the first declared constant).
+        Object defaultValue = defaultValueOfValueType(type);
+        if (defaultValue != null) {
+            return (T) defaultValue;
+        }
         try {
             Constructor<T> ctor = type.getDeclaredConstructor();
             ctor.setAccessible(true);
@@ -25,6 +34,39 @@ public final class Activator {
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /** The boxed {@code default(T)} for primitive wrappers and enums, or null for other classes. */
+    private static Object defaultValueOfValueType(Class<?> type) {
+        if (type == Boolean.class || type == boolean.class) {
+            return Boolean.FALSE;
+        }
+        if (type == Character.class || type == char.class) {
+            return Character.valueOf('\0');
+        }
+        if (type == Byte.class || type == byte.class) {
+            return Byte.valueOf((byte) 0);
+        }
+        if (type == Short.class || type == short.class) {
+            return Short.valueOf((short) 0);
+        }
+        if (type == Integer.class || type == int.class) {
+            return Integer.valueOf(0);
+        }
+        if (type == Long.class || type == long.class) {
+            return Long.valueOf(0L);
+        }
+        if (type == Float.class || type == float.class) {
+            return Float.valueOf(0f);
+        }
+        if (type == Double.class || type == double.class) {
+            return Double.valueOf(0d);
+        }
+        if (type.isEnum()) {
+            Object[] constants = type.getEnumConstants();
+            return constants.length > 0 ? constants[0] : null;
+        }
+        return null;
     }
 
     public static Object createInstance(Class<?> type, Object... args) {

@@ -171,14 +171,16 @@ public final class TypeHelper {
     // outer-to-inner, so each factory's getGenericArguments call consumes its
     // own layer's arguments.
     private static final ThreadLocal<java.util.Map<Class<?>, java.util.ArrayDeque<java.lang.reflect.Type[]>>>
-        TYPE_ARGUMENTS = ThreadLocal.withInitial(java.util.HashMap::new);
+        TYPE_ARGUMENTS = ThreadLocal.withInitial(java.util.LinkedHashMap::new);
 
     // Consumed layers, keyed by raw class: converter factories query the same
     // raw class several times for one layer (e.g. KeyValuePair<K,V> reads
     // arguments twice), so after a layer is consumed its arguments are kept
     // here for repeat queries within the same registration session.
+    // LinkedHashMap because the session fallback for an UNRELATED raw generic
+    // (see findSessionLayerOfArity) scans the values in consumption order.
     private static final ThreadLocal<java.util.Map<Class<?>, java.lang.reflect.Type[]>>
-        CONSUMED_ARGUMENTS = ThreadLocal.withInitial(java.util.HashMap::new);
+        CONSUMED_ARGUMENTS = ThreadLocal.withInitial(java.util.LinkedHashMap::new);
 
     // Declared type arguments of the member currently being processed, keyed by raw
     // class. Fed by registerMemberType and read by converterCacheKey, which keeps the
@@ -234,6 +236,16 @@ public final class TypeHelper {
             TYPE_ARGUMENTS.remove();
             CONSUMED_ARGUMENTS.remove();
             WRAPPER_LAYER_TAKEN.remove();
+            // A new top-level session is a new operation, so layers published by
+            // the PREVIOUS operation must not decide this one's converter cache
+            // key: converterCacheKey prefers the member layer, so a stale
+            // CSharpList<Integer> member layer made a root CSharpList<Employee>
+            // read reuse the Integer converter (ReferenceHandlerTests
+            // arrayWithDuplicates / dictionaryOfArrays / unicodeDictionaryKeys
+            // failed whenever the caller passed shared JsonSerializerOptions and
+            // therefore skipped the generated entry points' clearRegistrations()).
+            MEMBER_ARGUMENTS.remove();
+            CALLSITE_ARGUMENTS.remove();
         }
         depth[0]++;
     }
@@ -343,6 +355,131 @@ public final class TypeHelper {
                 WRAPPER_LAYER_TAKEN.remove();
                 CONCRETE_SUBTYPES.remove();
             }
+        }
+    }
+
+    /**
+     * Drops the erased-class cache entries a previous raw-class (de)serialization left for
+     * the types the active session is registering. A prior serialize(rawClass) on a shared
+     * JsonSerializerOptions builds converters from erased bounds and caches them under the
+     * raw class; the generated cache lookup runs BEFORE converter factories, so without this
+     * the cache hit wins and the session's registrations are never consulted.
+     *
+     * <p>Poison keys are plain {@link Class} objects — the closed-type path uses a different
+     * cache key ({@code closedCacheKey}) — and the generated options keep exactly two such
+     * caches ({@code _converters} and {@code _classes}). Unknown objects (options types
+     * without these fields) are ignored, so the call is safe from every entry point.</p>
+     */
+    public static void dropSessionTypesFromCache(Object options) {
+        if (options == null) {
+            return;
+        }
+        java.util.Set<Class<?>> sessionTypes = new java.util.LinkedHashSet<>();
+        sessionTypes.addAll(TYPE_ARGUMENTS.get().keySet());
+        sessionTypes.addAll(CONSUMED_ARGUMENTS.get().keySet());
+        if (sessionTypes.isEmpty()) {
+            return;
+        }
+        dropTypesFromCacheMap(options, "_converters", sessionTypes);
+        dropTypesFromCacheMap(options, "_classes", sessionTypes);
+    }
+
+    // Cache entries removed by dropSessionTypesFromCache, keyed by the options instance,
+    // then the cache field name, then the raw class. dropSessionTypesFromCache keeps the
+    // FIRST value seen per key so a nested session's re-drop cannot overwrite the original
+    // pre-session entry, and restoreSessionTypesFromCache puts them back when the outermost
+    // session ends.
+    private static final ThreadLocal<java.util.Map<Object, java.util.Map<String, java.util.Map<Class<?>, Object>>>>
+        SAVED_CACHE_ENTRIES = ThreadLocal.withInitial(java.util.HashMap::new);
+
+    /**
+     * Puts back the cache entries a session's {@link #dropSessionTypesFromCache} removed, once
+     * the outermost session finishes.
+     *
+     * <p>The drop has to be temporary: later raw-class (de)serializations on the same shared
+     * options legitimately reuse the converters those entries hold — they were built for the
+     * closed types earlier sessions registered, and permanently evicting them made every later
+     * erased-root serialize rebuild its converter from erased bounds (element/key type Object),
+     * which throws in the generated ObjectConverter. Nested sessions skip the restore so the
+     * outer session keeps its clean view; the outermost restore runs after
+     * {@code endTypeRegistration} brings the depth back to zero.</p>
+     */
+    public static void restoreSessionTypesFromCache(Object options) {
+        if (options == null || REGISTRATION_DEPTH.get()[0] > 0) {
+            return;
+        }
+        java.util.Map<String, java.util.Map<Class<?>, Object>> savedForOptions =
+            SAVED_CACHE_ENTRIES.get().remove(options);
+        if (savedForOptions == null) {
+            return;
+        }
+        for (java.util.Map.Entry<String, java.util.Map<Class<?>, Object>> fieldEntry
+                : savedForOptions.entrySet()) {
+            restoreTypesFromCacheMap(options, fieldEntry.getKey(), fieldEntry.getValue());
+        }
+    }
+
+    /** Puts absent keys back into the named cache map on {@code holder}. */
+    private static void restoreTypesFromCacheMap(
+            Object holder, String fieldName, java.util.Map<Class<?>, Object> saved) {
+        for (Class<?> c = holder.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+            java.lang.reflect.Field field;
+            try {
+                field = c.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException e) {
+                return;
+            }
+            if (!java.util.Map.class.isAssignableFrom(field.getType())) {
+                return;
+            }
+            try {
+                field.trySetAccessible();
+                Object map = field.get(holder);
+                if (map instanceof java.util.Map<?, ?> cache) {
+                    @SuppressWarnings({"unchecked", "rawtypes"})
+                    java.util.Map<Object, Object> typed = (java.util.Map) cache;
+                    for (java.util.Map.Entry<Class<?>, Object> entry : saved.entrySet()) {
+                        // FORCE-put, not putIfAbsent: the session may have created an arg-less
+                        // entry under the same raw key (class info caches do this for generics),
+                        // and that entry is exactly what later erased-root lookups must not find.
+                        typed.put(entry.getKey(), entry.getValue());
+                    }
+                }
+            } catch (Throwable t) {
+                trace("restoreSessionTypesFromCache could not restore " + fieldName + ": " + t);
+            }
+            return;
+        }
+    }
+
+    /** Removes every {@code sessionTypes} key from the named cache map on {@code holder}. */
+    private static void dropTypesFromCacheMap(Object holder, String fieldName, java.util.Set<Class<?>> sessionTypes) {
+        for (Class<?> c = holder.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+            java.lang.reflect.Field field;
+            try {
+                field = c.getDeclaredField(fieldName);
+            } catch (NoSuchFieldException e) {
+                continue;
+            }
+            if (!java.util.Map.class.isAssignableFrom(field.getType())) {
+                return;
+            }
+            try {
+                field.trySetAccessible();
+                Object map = field.get(holder);
+                if (map instanceof java.util.Map<?, ?> cache) {
+                    java.util.Map<Class<?>, Object> savedForField = SAVED_CACHE_ENTRIES.get()
+                        .computeIfAbsent(holder, k -> new java.util.HashMap<>())
+                        .computeIfAbsent(fieldName, k -> new java.util.LinkedHashMap<>());
+                    for (Class<?> type : sessionTypes) {
+                        savedForField.putIfAbsent(type, cache.get(type));
+                        cache.remove(type);
+                    }
+                }
+            } catch (Throwable t) {
+                trace("dropSessionTypesFromCache could not clear " + fieldName + ": " + t);
+            }
+            return;
         }
     }
 
@@ -1274,6 +1411,30 @@ public final class TypeHelper {
                 return result;
             }
         }
+        // An interface has no arguments of its own, but a subclass that implements it
+        // usually names them (class StrList implements IList<string>). C# reads them
+        // off the interface Type; Java erased the class literal, so recover them from
+        // the hierarchy before losing the element type to Object.
+        //
+        // This outranks the consumed-layer repeat cache below: the cached layer belongs
+        // to the OUTER converter creation (e.g. GenericListWrapper<StringListWrapper>
+        // published CSharpList←[StringListWrapper]), while this query is made while
+        // converting the INNER wrapper (StringListWrapper), whose own declaration
+        // (extends CSharpList<String>) is the element type .NET would reflect. Repeating
+        // the outer layer here built the inner wrapper's converter for element type
+        // StringListWrapper and every nested wrapper read died on its first string
+        // element ("could not be converted to class ...StringListWrapper", path $[0][0]).
+        java.lang.reflect.Type[] fromSubtype = findDeclaredArgumentsFor(type);
+        if (fromSubtype != null) {
+            rememberConsumedArguments(type, fromSubtype);
+            Class<?>[] result = new Class<?>[fromSubtype.length];
+            for (int i = 0; i < fromSubtype.length; i++) {
+                result[i] = toRawClass(fromSubtype[i]);
+            }
+            trace("getGenericArguments(" + type.getSimpleName() + ") = " + java.util.Arrays.toString(result)
+                + " [declared by a subtype]");
+            return result;
+        }
         // Repeat query for the same layer (e.g. KeyValuePair<K,V> reads its two
         // type arguments from two separate getGenericArguments calls).
         java.lang.reflect.Type[] consumed = CONSUMED_ARGUMENTS.get().get(type);
@@ -1284,21 +1445,6 @@ public final class TypeHelper {
             }
             trace("getGenericArguments(" + type.getSimpleName() + ") = " + java.util.Arrays.toString(result)
                 + " [repeat of consumed layer]");
-            return result;
-        }
-        // An interface has no arguments of its own, but a subclass that implements it
-        // usually names them (class StrList implements IList<string>). C# reads them
-        // off the interface Type; Java erased the class literal, so recover them from
-        // the hierarchy before losing the element type to Object.
-        java.lang.reflect.Type[] fromSubtype = findDeclaredArgumentsFor(type);
-        if (fromSubtype != null) {
-            rememberConsumedArguments(type, fromSubtype);
-            Class<?>[] result = new Class<?>[fromSubtype.length];
-            for (int i = 0; i < fromSubtype.length; i++) {
-                result[i] = toRawClass(fromSubtype[i]);
-            }
-            trace("getGenericArguments(" + type.getSimpleName() + ") = " + java.util.Arrays.toString(result)
-                + " [declared by a subtype]");
             return result;
         }
         // Lowest priority: the call site's own closed generic (a class literal erased it).
@@ -1341,11 +1487,65 @@ public final class TypeHelper {
             }
             return new Class<?>[0];
         }
+        // Session fallback for a DIFFERENT raw generic than the one the session
+        // registered: generated converters query raw class literals that were never
+        // a TypeReference layer (DictionaryKeyValueConverter's ctor asks for
+        // options.getConverter(CSharpKeyValuePair.class) while converting a
+        // Dictionary<TKey,TValue>). Inside an active registration session the
+        // pending/consumed layers of matching arity are the only record of the
+        // session's real arguments; the type-parameter bounds below (Object) are
+        // erasure noise and built KeyValuePair converters for (Object, Object),
+        // so dictionaries stored JsonElement keys and every getChecked threw
+        // KeyNotFoundException.
+        if (REGISTRATION_DEPTH.get()[0] > 0) {
+            java.lang.reflect.Type[] sessionLayer = findSessionLayerOfArity(params.length);
+            if (sessionLayer != null) {
+                rememberConsumedArguments(type, sessionLayer);
+                Class<?>[] result = new Class<?>[sessionLayer.length];
+                for (int i = 0; i < sessionLayer.length; i++) {
+                    result[i] = toRawClass(sessionLayer[i]);
+                }
+                trace("getGenericArguments(" + type.getSimpleName() + ") = " + java.util.Arrays.toString(result)
+                    + " [session layer of matching arity]");
+                return result;
+            }
+        }
         Class<?>[] result = new Class<?>[params.length];
         for (int i = 0; i < params.length; i++) {
             result[i] = resolveClassBound(params[i]);
         }
         return result;
+    }
+
+    /**
+     * The active registration session's pending or consumed layer with exactly
+     * {@code arity} arguments, or null. Pending layers are scanned first in
+     * registration order (outermost first, matching converter creation order);
+     * layers already claimed by another class's own resolution
+     * ({@link #WRAPPER_LAYER_TAKEN}) are skipped, then the consumed layers in
+     * consumption order. Arity is the only correlation available — the layer
+     * belongs to a different raw class, which is exactly why the normal
+     * per-class lookups missed it.
+     */
+    private static java.lang.reflect.Type[] findSessionLayerOfArity(int arity) {
+        if (arity == 0) {
+            return null;
+        }
+        for (java.util.Map.Entry<Class<?>, java.util.ArrayDeque<java.lang.reflect.Type[]>> entry
+                : TYPE_ARGUMENTS.get().entrySet()) {
+            java.util.Set<java.lang.reflect.Type[]> taken = WRAPPER_LAYER_TAKEN.get().get(entry.getKey());
+            for (java.lang.reflect.Type[] layer : entry.getValue()) {
+                if (layer.length == arity && (taken == null || !taken.contains(layer))) {
+                    return layer;
+                }
+            }
+        }
+        for (java.lang.reflect.Type[] layer : CONSUMED_ARGUMENTS.get().values()) {
+            if (layer.length == arity) {
+                return layer;
+            }
+        }
+        return null;
     }
 
     private static Class<?> resolveClassBound(java.lang.reflect.TypeVariable<?> tv) {
@@ -1530,14 +1730,32 @@ public final class TypeHelper {
     /**
      * Whether a member's type is one the SDK accepts for {@code [JsonExtensionData]}.
      *
-     * <p>C# accepts an {@code IDictionary<string, T>} and — since .NET 5 — a
-     * {@code IReadOnlyDictionary<string, T>}, which is what an immutable dictionary implements. The
-     * generated check tested only {@code CSharpGenericIDictionary}, so a member declared as an
-     * immutable dictionary was rejected even though the SDK documents and tests that form. Measured:
-     * {@code ExtensionDataTests.ClassWithExtensionPropertyAsImmutable.MyOverflow} is an
-     * {@code ImmutableDictionary<string, object>}, {@code isImmutableDictionaryType} answers true for
-     * it, and {@code isAssignableFrom(CSharpGenericIDictionary, ...)} answers false — so the property
-     * was refused with "does not match the required signature".</p>
+     * <p>.NET's {@code JsonClassInfo.DetermineExtensionDataProperty} answers
+     * {@code typeof(IDictionary<string, object>).IsAssignableFrom(declared) ||
+     * typeof(IDictionary<string, JsonElement>).IsAssignableFrom(declared)} — the SHAPE
+     * <em>and</em> the closed arguments. The erased port can only ask about the class, so this
+     * check adds what reflection can still recover:</p>
+     *
+     * <ul>
+     * <li>An <b>erased type variable</b> ({@code Object.class}) is accepted. A C# generic holder
+     * ({@code ClassWithExtensionData<T>.Overflow}) erased to {@code Object}; .NET never built a
+     * class info from the open type — it closed {@code T} to a dictionary and validated that —
+     * so rejecting the erasure killed every generic-holder test at class-info construction
+     * ("does not match the required signature", 12 parameterized ExtensionDataTests).</li>
+     * <li>When the member's closed signature was recorded while it was reflected (the
+     * {@code MEMBER_ARGUMENTS} snapshot, the same source {@code converterCacheKey} reads), the
+     * arguments are validated like .NET's closed-type test: the key must be {@code string} and
+     * the value {@code object} or {@code JsonElement}. This is what makes
+     * {@code ClassWithInvalidExtensionProperty} (Dictionary&lt;string,int&gt;) throw
+     * InvalidOperationException again — the raw class alone is assignable, so the check used to
+     * answer true and invalidExtensionPropertyFail / extensionProperty_InvalidDictionary saw no
+     * exception. Unresolvable arguments (type variables) answer true, giving the same erasure
+     * charity as everywhere else.</li>
+     * <li>Immutable dictionaries stay accepted: .NET's ImmutableDictionary implements
+     * IDictionary explicitly (its mutators throw NotSupportedException), which the port realizes
+     * through {@code IImmutableDictionary}/{@code CSharpReadOnlyDict} because the two dictionary
+     * interfaces' {@code getKeys()} returns are incompatible.</li>
+     * </ul>
      *
      * <p>{@code null} answers false: the caller tests the declared type and then the runtime type,
      * which may be null.</p>
@@ -1546,9 +1764,59 @@ public final class TypeHelper {
         if (type == null) {
             return false;
         }
-        return isAssignableFrom(CSharpGenericIDictionary.class, type)
-            || isAssignableFrom(CSharpReadOnlyDict.class, type)
-            || isAssignableFrom(IImmutableDictionary.class, type);
+        // The erasure of a C# type variable. A closed `object`-typed property would land here
+        // too, but .NET rejects those as well and no generated test declares one — while every
+        // generic-holder extension property must pass this point to be reachable at all.
+        if (type == Object.class) {
+            return true;
+        }
+        if (!isAssignableFrom(CSharpGenericIDictionary.class, type)
+            && !isAssignableFrom(CSharpReadOnlyDict.class, type)
+            && !isAssignableFrom(IImmutableDictionary.class, type)) {
+            return false;
+        }
+        java.lang.reflect.Type[] args = extensionDataDictionaryArguments(type);
+        if (args == null || args.length != 2) {
+            return true;
+        }
+        return isPermissiveExtensionDataArgument(args[0], true)
+            && isPermissiveExtensionDataArgument(args[1], false);
+    }
+
+    /**
+     * The closed arguments the reflected member declared for its dictionary type, or null.
+     *
+     * <p>Read ONLY from the {@code MEMBER_ARGUMENTS} snapshot — the same side-effect-free
+     * source {@code converterCacheKey} reads. The hierarchy walk
+     * ({@code declaredArgumentsFor}) is deliberately NOT used here: {@code ownTypeArguments}
+     * CLAIMS the layer it answers in {@code WRAPPER_LAYER_TAKEN}, and a gate that runs during
+     * class-info construction would steal a layer a later converter lookup still needs
+     * (observed: the extension dictionary then serialized as a plain object, adding a level of
+     * braces). A subtype whose dictionary arguments live only in its supertype declaration
+     * ({@code CustomOverflowDictionary<object> : Dictionary<string, object>}) therefore stays
+     * unvalidated and accepted — the same erasure charity as an unresolved variable.</p>
+     */
+    private static java.lang.reflect.Type[] extensionDataDictionaryArguments(Class<?> type) {
+        return MEMBER_ARGUMENTS.get().get(type);
+    }
+
+    /**
+     * Whether one closed argument of an extension-data dictionary is one .NET would accept.
+     * Key position: only {@code string} (an unresolved variable passes). Value position:
+     * {@code object}, {@code JsonElement}, or an unresolved variable.
+     */
+    private static boolean isPermissiveExtensionDataArgument(java.lang.reflect.Type arg, boolean isKey) {
+        if (arg instanceof java.lang.reflect.TypeVariable) {
+            return true;
+        }
+        Class<?> raw = toRawClass(arg);
+        if (raw == null) {
+            return true;
+        }
+        if (isKey) {
+            return raw == String.class;
+        }
+        return raw == Object.class || "dotnet.text.json.JsonElement".equals(raw.getName());
     }
 
     /**
@@ -1632,7 +1900,13 @@ public final class TypeHelper {
                     return null;
                 }
             }
-            return args;
+            if (raw == target) {
+                return args;
+            }
+            // The matched supertype sits BETWEEN concrete and target; its own
+            // arguments stand for ITS type variables, and target's arguments must
+            // come from how raw declares target (see below).
+            return mappedDeclaredArguments(raw, args, target);
         }
         java.lang.reflect.TypeVariable<?>[] parameters = concrete.getTypeParameters();
         java.lang.reflect.Type[] resolved = new java.lang.reflect.Type[args.length];
@@ -1647,7 +1921,86 @@ public final class TypeHelper {
                 }
             }
         }
-        return resolved;
+        if (raw == target) {
+            return resolved;
+        }
+        // The hierarchy walk matched an intermediate supertype (class ClosedDict
+        // extends OpenDict<Integer>, OpenDict<T> implements
+        // CSharpGenericIDictionary<String, T>; the query was for
+        // CSharpGenericIDictionary). `resolved` are the values of RAW's type
+        // variables, NOT target's arguments — returning them answered
+        // [Integer] (length 1) where the factory needed [String, Integer] and
+        // died on genericArgs[1] (ArrayIndexOutOfBoundsException). Find target
+        // inside raw's own declaration, substituting raw's variables with the
+        // arguments the concrete side supplied.
+        return mappedDeclaredArguments(raw, resolved, target);
+    }
+
+    /**
+     * Walks {@code raw}'s own declarations (generic superclass, then interfaces,
+     * then the superclass chain) looking for {@code target}, with {@code resolved}
+     * supplying the values of raw's type variables — the arguments a supertype one
+     * level up already declared for raw. Returns target's arguments fully
+     * substituted, or null when raw's declaration does not reach target.
+     */
+    private static java.lang.reflect.Type[] mappedDeclaredArguments(
+            Class<?> raw, java.lang.reflect.Type[] resolved, Class<?> target) {
+        java.lang.reflect.Type[] found = mappedArgumentsIn(raw, raw.getGenericSuperclass(), resolved, target);
+        if (found != null) {
+            return found;
+        }
+        for (java.lang.reflect.Type iface : raw.getGenericInterfaces()) {
+            found = mappedArgumentsIn(raw, iface, resolved, target);
+            if (found != null) {
+                return found;
+            }
+        }
+        // A raw (non-parameterized) superclass deeper down may still implement
+        // target; without its own substitution context, fall back to the
+        // registry-based walk.
+        if (raw.getGenericSuperclass() instanceof Class<?> plainSuper
+                && plainSuper != Object.class
+                && target.isAssignableFrom(plainSuper)) {
+            return declaredArgumentsFor(plainSuper, target);
+        }
+        return null;
+    }
+
+    /** One step of {@link #mappedDeclaredArguments}: read one declared supertype. */
+    private static java.lang.reflect.Type[] mappedArgumentsIn(
+            Class<?> raw, java.lang.reflect.Type supertype,
+            java.lang.reflect.Type[] resolved, Class<?> target) {
+        if (!(supertype instanceof java.lang.reflect.ParameterizedType pt)
+                || !(pt.getRawType() instanceof Class<?> next)
+                || !target.isAssignableFrom(next)) {
+            return null;
+        }
+        java.lang.reflect.Type[] args = substituteArguments(
+            pt.getActualTypeArguments(), raw.getTypeParameters(), resolved);
+        if (next == target) {
+            return args;
+        }
+        return mappedDeclaredArguments(next, args, target);
+    }
+
+    /** Replaces {@code args}' type variables using the {@code params} → {@code values} mapping. */
+    private static java.lang.reflect.Type[] substituteArguments(
+            java.lang.reflect.Type[] args,
+            java.lang.reflect.TypeVariable<?>[] params,
+            java.lang.reflect.Type[] values) {
+        java.lang.reflect.Type[] out = new java.lang.reflect.Type[args.length];
+        for (int i = 0; i < args.length; i++) {
+            out[i] = args[i];
+            if (args[i] instanceof java.lang.reflect.TypeVariable<?> tv) {
+                for (int p = 0; p < params.length && p < values.length; p++) {
+                    if (params[p].getName().equals(tv.getName())) {
+                        out[i] = values[p];
+                        break;
+                    }
+                }
+            }
+        }
+        return out;
     }
 
     /**
@@ -1770,6 +2123,19 @@ public final class TypeHelper {
             for (Class<?> iface : current.getInterfaces()) {
                 if (found.add(iface)) {
                     collectInterfaces(iface, found);
+                    // .NET's IImmutableDictionary<K,V> extends IReadOnlyDictionary<K,V>, so
+                    // its closure contains the read-only dictionary interface and converter
+                    // selection lands on the IReadOnlyDictionary converter. The compat
+                    // IImmutableDictionary cannot extend CSharpReadOnlyDict (its fluent
+                    // add() clashes with the mutable tree's void add()), so mirror the
+                    // inheritance here instead: without it a wrapper implementing only
+                    // IImmutableDictionary missed every dictionary branch and fell through
+                    // to the IEnumerable converter (JsonException) where .NET answers the
+                    // dictionary question (createCollection then raises the expected
+                    // CannotPopulateCollection).
+                    if (iface == IImmutableDictionary.class && found.add(CSharpReadOnlyDict.class)) {
+                        collectInterfaces(CSharpReadOnlyDict.class, found);
+                    }
                 }
             }
         }
@@ -2082,7 +2448,14 @@ public final class TypeHelper {
         for (Constructor<?> ctor : ctors) {
             if (matchesBindingFlags(ctor.getModifiers(), bindingFlags)
                     || matchesConstructorBindingFlags(ctor, type, bindingFlags)) {
-                ctor.setAccessible(true);
+                // C# Type.GetConstructors() answers every constructor with no accessibility
+                // failure mode; JDK module boundaries make setAccessible throw
+                // InaccessibleObjectException for closed java.base members (a private
+                // java.math.BigInteger(long) — PropertyVisibilityTests.
+                // jsonIgnoreAttribute_UnsupportedBigInteger expected the serializer's
+                // unsupported-type exception, not a reflection crash). List the member
+                // either way; invoking it later fails the same way plain reflection would.
+                ctor.trySetAccessible();
                 result.add(new ConstructorInfo(ctor));
             }
         }
@@ -2132,7 +2505,9 @@ public final class TypeHelper {
             if (matchesParameterTypes(ctor.getParameterTypes(), parameterTypes)
                     && (matchesBindingFlags(ctor.getModifiers(), bindingFlags)
                             || matchesConstructorBindingFlags(ctor, type, bindingFlags))) {
-                ctor.setAccessible(true);
+                // trySetAccessible, not setAccessible: see getConstructors — closed java.base
+                // members must still be FINDABLE (GetConstructor in C# never fails this way).
+                ctor.trySetAccessible();
                 return new ConstructorInfo(ctor);
             }
         }
@@ -2283,15 +2658,20 @@ public final class TypeHelper {
         Method getter = null;
         Method setter = null;
         for (Method method : type.getMethods()) {
+            String methodName = method.getName();
+            // The setter must be matched BEFORE the zero-parameter filter below: a setter
+            // takes exactly one parameter, so filtering first made the setter branch dead
+            // code and every property built by this overload reported "Property has no
+            // setter" (PropertyVisibilityTests.jsonIgnoreConditionWhenWritingDefault_ClassProperty
+            // calls TypeHelper.getProperty(type, "MyString").setValue(obj, null)).
+            if (setter == null && methodName.equals(setterName) && method.getParameterCount() == 1) {
+                setter = method;
+            }
             if (method.getParameterCount() != 0 || method.getReturnType() == void.class) {
                 continue;
             }
-            String methodName = method.getName();
             if (getter == null && (methodName.equals(getterName) || methodName.equals(isGetterName))) {
                 getter = method;
-            }
-            if (setter == null && methodName.equals(setterName) && method.getParameterCount() == 1) {
-                setter = method;
             }
             if (getter != null && setter != null) {
                 break;

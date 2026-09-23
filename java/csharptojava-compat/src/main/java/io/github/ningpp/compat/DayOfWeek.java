@@ -30,6 +30,21 @@ public enum DayOfWeek {
         return value;
     }
 
+    /**
+     * Mirrors C# {@code Enum.ToString()}: named constants render as their name,
+     * while an undefined value (carried by the {@code _UNMAPPED} sentinel) renders
+     * as its underlying number — {@code ((DayOfWeek)(-1)).ToString() == "-1"}.
+     * The generated {@code EnumConverter.write} depends on this: it stringifies the
+     * value, writes it as a JSON string only when it looks like an identifier, and
+     * otherwise writes the numeric value, so a sentinel stringifying as its constant
+     * name would leak {@code "_UNMAPPED"} into JSON instead of the number.
+     */
+    @Override
+    public String toString() {
+        if (this == _UNMAPPED) return Integer.toString(unmappedValue);
+        return super.toString();
+    }
+
     public static DayOfWeek fromValue(int v) {
         for (DayOfWeek e : values()) {
             if (e != _UNMAPPED && e.value == v) return e;

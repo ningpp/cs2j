@@ -13,13 +13,9 @@ import org.junit.jupiter.api.Test;
  * through this buffer writer. With a fixed +4096 growth step every {@code Advance} chunk
  * re-copied the whole backing array, so writing 8 MB copied ~61 GB of {@code Object[]}
  * (measured) and the {@code Utf8JsonWriterTests.writeNumbers} rows with a 50 character
- * escaped property name took 4.7-7.0 s instead of ~50 ms. The window returned by
- * {@link ArrayBufferWriter#getMemory(int)} must stay bounded as well, because generated
- * code materializes that whole window on every write.
+ * escaped property name took 4.7-7.0 s instead of ~50 ms.
  */
 class ArrayBufferWriterGrowthTest {
-
-    private static final int DEFAULT_WINDOW = 4096;
 
     @Test
     void getMemoryReturnsAViewAtTheWrittenOffset() {
@@ -69,12 +65,14 @@ class ArrayBufferWriterGrowthTest {
     }
 
     /**
-     * The IBufferWriter contract only promises "at least sizeHint"; the writer must not hand
-     * back the entire free capacity, otherwise callers that copy the window per write
-     * (JsonWriterHelper.toUtf8) become O(total output) per write.
+     * The .NET ArrayBufferWriter&lt;T&gt;.GetMemory hands back a view over the FULL
+     * remaining capacity (buffer.AsMemory(index)); "at least sizeHint" is a lower
+     * bound, not a cap. The generated Utf8JsonWriter depends on the exact window
+     * size for its Committed/BytesPending bookkeeping
+     * (writeJsonWritesToIBWOnDemand_Dispose pins those byte counts).
      */
     @Test
-    void windowLengthIsBoundedByTheRequestOrDefault() {
+    void windowLengthIsTheFullFreeCapacity() {
         ArrayBufferWriter<Integer> writer = new ArrayBufferWriter<>(1024);
         int[] hints = { 0, 1, 2, 100, 4096, 8192 };
 
@@ -85,8 +83,9 @@ class ArrayBufferWriterGrowthTest {
 
             assertTrue(memory.getLength() >= minimum,
                     "window must satisfy sizeHint: length=" + memory.getLength() + ", sizeHint=" + hint);
-            assertTrue(memory.getLength() <= Math.max(minimum, DEFAULT_WINDOW),
-                    "window grew beyond the cap: length=" + memory.getLength() + ", sizeHint=" + hint);
+            // Measured AFTER the call: the hint may grow the buffer first.
+            assertEquals(writer.getCapacity() - writer.getWrittenCount(), memory.getLength(),
+                    "window must cover the full free capacity: sizeHint=" + hint);
 
             writer.advance(minimum);
         }
@@ -132,7 +131,7 @@ class ArrayBufferWriterGrowthTest {
      * below is deliberately loose so the test does not depend on machine speed.
      */
     @Test
-    void writingSeveralMegabytesThroughBoundedWindowsStaysFast() {
+    void writingSeveralMegabytesStaysFast() {
         ArrayBufferWriter<Integer> writer = new ArrayBufferWriter<>(1024);
         final int chunk = 4096;
         final int chunks = 2048; // 8 Mi elements
@@ -151,7 +150,8 @@ class ArrayBufferWriterGrowthTest {
         long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
 
         assertEquals((long) chunks * chunk, writer.getWrittenCount());
-        assertTrue(maxWindow <= chunk, "window must stay bounded while writing megabytes: " + maxWindow);
+        assertTrue(maxWindow <= writer.getCapacity(),
+                "window can never exceed the capacity: " + maxWindow + " vs " + writer.getCapacity());
         assertTrue(elapsedMs < 5000,
                 "writing 8 Mi elements took " + elapsedMs + " ms (fixed-step growth regression took ~10 s)");
     }
