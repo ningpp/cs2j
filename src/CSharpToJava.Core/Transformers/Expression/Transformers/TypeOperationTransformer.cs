@@ -2103,6 +2103,8 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     private string TransformSizeOf(SizeOfExpressionSyntax node, ConversionContext context)
     {
         // Map C# built-in types to their byte sizes (platform-independent for well-known types).
+        // C# byte maps to Java int in the converted code, so sizeof(byte) reports the
+        // Java-side element size (4), not the C# size (1).
         if (node.Type is PredefinedTypeSyntax predefined)
         {
             return predefined.Keyword.Text switch
@@ -2116,9 +2118,72 @@ public class TypeOperationTransformer : IIRExpressionTransformer
                 _ => $"/* sizeof({node.Type}) */"
             };
         }
+
+        // Non-keyword references (sizeof(System.Int32), sizeof(nint), enums): resolve
+        // the type symbol and fold the size from its SpecialType.
+        var typeSymbol = context.GetTypeInfo(node.Type).Type;
+        if (GetSizeFromSpecialType(typeSymbol?.SpecialType) is { } size)
+        {
+            return size;
+        }
+
+        // sizeof(enum) → size of the underlying primitive type.
+        if (typeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum, EnumUnderlyingType: { } underlying }
+            && GetSizeFromSpecialType(underlying.SpecialType) is { } enumSize)
+        {
+            return enumSize;
+        }
+
+        // No semantic model (or an unresolved/error type): recognize well-known System.*
+        // primitive names syntactically so sizeof(System.Int32) still folds to a constant.
+        if ((typeSymbol == null || typeSymbol is IErrorTypeSymbol)
+            && GetSizeFromSystemTypeName(node.Type) is { } nameSize)
+        {
+            return nameSize;
+        }
+
         // For user-defined struct types, emit a comment — Java has no sizeof operator.
         var typeName = context.MapTypeFromSyntax(node.Type);
         return $"/* sizeof({typeName}) */";
+    }
+
+    /// <summary>
+    /// Byte size of a C# SpecialType for sizeof folding. System_Byte yields 4 because
+    /// C# byte is represented as Java int in the converted code; nint/nuint/IntPtr/UIntPtr
+    /// yield 8 because pointers are modeled as long/MemorySegment.
+    /// </summary>
+    private static string? GetSizeFromSpecialType(SpecialType? specialType)
+        => specialType switch
+        {
+            SpecialType.System_Byte => "4",
+            SpecialType.System_SByte or SpecialType.System_Boolean => "1",
+            SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Char => "2",
+            SpecialType.System_Int32 or SpecialType.System_UInt32 or SpecialType.System_Single => "4",
+            SpecialType.System_Int64 or SpecialType.System_UInt64 or SpecialType.System_Double => "8",
+            SpecialType.System_Decimal => "16",
+            SpecialType.System_IntPtr or SpecialType.System_UIntPtr => "8",
+            _ => null
+        };
+
+    /// <summary>
+    /// Syntax-only fallback matching the last identifier of a (possibly qualified or
+    /// alias-qualified) type name against well-known System primitive names.
+    /// </summary>
+    private static string? GetSizeFromSystemTypeName(TypeSyntax type)
+    {
+        var text = type.ToString().Replace("global::", "");
+        var simpleName = text[(text.LastIndexOf('.') + 1)..];
+        return simpleName switch
+        {
+            "Byte" => "4",
+            "SByte" or "Boolean" => "1",
+            "Int16" or "UInt16" or "Char" => "2",
+            "Int32" or "UInt32" or "Single" => "4",
+            "Int64" or "UInt64" or "Double" => "8",
+            "Decimal" => "16",
+            "IntPtr" or "UIntPtr" or "nint" or "nuint" => "8",
+            _ => null
+        };
     }
 
     // Helper methods

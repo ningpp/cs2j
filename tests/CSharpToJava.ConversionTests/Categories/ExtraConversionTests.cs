@@ -20,6 +20,11 @@ public class ExtraConversionTests : ConversionTestBase
     [Fact] public void NameOf_ConvertsToLiteral() => AssertConversion(Convert("class C { public int X; public string N() { return nameof(X); } }"), "return \"X\";");
     [Fact] public void TypeOf_ConvertsToClassLiteral() => AssertConversion(Convert("class C { public System.Type T() { return typeof(int); } }"), "return int.class;");
     [Fact] public void SizeOf_ConvertsToConstant() => AssertConversion(Convert("class C { public int S() { return sizeof(int); } }"), "return 4;");
+    [Fact] public void SizeOfQualifiedType_FoldsToConstant() => AssertConversion(Convert("class C { public int S() { return sizeof(System.Int64); } }"), "return 8;");
+    [Fact] public void SizeOfQualifiedByte_FoldsTo4LikeKeyword() => AssertConversion(Convert("class C { public int S() { return sizeof(System.Byte); } }"), "return 4;");
+    [Fact] public void SizeOfNInt_FoldsTo8() => AssertConversion(Convert("class C { public int S() { return sizeof(nint); } }"), "return 8;");
+    [Fact] public void SizeOfEnum_FoldsToUnderlyingTypeSize() => AssertConversion(Convert("enum E : long { A } class C { public int S() { return sizeof(E); } }"), "return 8;");
+    [Fact] public void SizeOfUserStruct_EmitsComment() => AssertConversion(Convert("struct S { public int X; } class C { public int S() { return sizeof(S); } }"), "/* sizeof(");
     [Fact] public void NullCoalesceString_ConvertsToTernary() => AssertConversion(Convert("class C { public string M(string a) { return a ?? \"\"; } }"), "return a != null ? a : \"\";");
     [Fact] public void IsPattern_ConvertsToInstanceof() => AssertConversion(Convert("class C { public void M(object o) { if (o is int i) { var x = i; } } }"), "if (o instanceof Integer i) {", "var x = i;");
     [Fact] public void UsingVar_ConvertsToTryWithResources() => AssertConversion(Convert("class C { public void M() { using var s = new System.IO.MemoryStream(); } }"), "try (MemoryStream s = new MemoryStream()) {");
