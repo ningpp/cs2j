@@ -157,6 +157,52 @@ public class MyList : global::System.Collections.ICollection
         Assert.Contains("getSyncRoot", result.GeneratedCode);
     }
 
+    /// <summary>
+    /// Real-world regression from converting the dotnet/runtime collections
+    /// (System.Collections project): the project lives in namespace
+    /// <c>dotnet.System.Collections.Generic</c> AND defines its own
+    /// <c>dotnet.System.Collections.ICollection</c>. After the pipeline strips
+    /// <c>global::</c>, the specifier <c>System.Collections.ICollection</c> resolves
+    /// relatively to the PROJECT-LOCAL interface; the resulting symbol mismatch
+    /// leaves ExplicitInterfaceImplementations empty while Roslyn reports the FULLY
+    /// QUALIFIED name ("dotnet.System.Collections.ICollection.IsSynchronized") as
+    /// IPropertySymbol.Name. The emitted accessor must still be getIsSynchronized() —
+    /// a name containing dots is illegal in Java and failed javac.
+    /// </summary>
+    [Fact]
+    public void Class_LocalShadowNamespace_BindingDrift_StillUsesSyntaxAccessorName()
+    {
+        var result = Convert(@"
+namespace dotnet.System.Collections
+{
+    public interface ICollection
+    {
+        bool IsSynchronized { get; }
+        object SyncRoot { get; }
+    }
+}
+
+namespace dotnet.System.Collections.Generic
+{
+    public class MyStack
+    {
+        bool global::System.Collections.ICollection.IsSynchronized
+        {
+            get { return false; }
+        }
+
+        object global::System.Collections.ICollection.SyncRoot => this;
+    }
+}
+");
+        _output.WriteLine(result.GeneratedCode);
+
+        Assert.Contains("boolean getIsSynchronized()", result.GeneratedCode);
+        Assert.Contains("Object getSyncRoot()", result.GeneratedCode);
+        Assert.DoesNotContain("getDotnet.", result.GeneratedCode);
+        Assert.DoesNotContain("ICollection.IsSynchronized()", result.GeneratedCode);
+    }
+
     private static int CountOccurrences(string text, string needle)
     {
         int count = 0, index = 0;

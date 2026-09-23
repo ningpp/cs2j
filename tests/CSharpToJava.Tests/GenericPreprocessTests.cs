@@ -372,6 +372,77 @@ public class GenericPreprocessTests(ITestOutputHelper output)
         Assert.Equal(0, result.Statistics.NewTypeParamArrayRewritten);
     }
 
+    /// <summary>
+    /// Real-world regression (dotnet/runtime collections): the source project itself
+    /// lives in <c>dotnet.System.Collections.Generic</c>. A bare <c>System.Array</c>
+    /// / <c>System.Activator</c> name inside that namespace binds relatively to the
+    /// nonexistent <c>dotnet.System.Array</c> (CS0234: 36 of the 44 preprocessor
+    /// build errors). The injected calls MUST be <c>global::</c>-qualified and the
+    /// rewritten code must actually COMPILE inside a shadowing namespace.
+    /// </summary>
+    [Fact]
+    public void Preprocess_ShadowingNamespace_UsesGlobalAlias_OutputCompiles()
+    {
+        var src = """
+        namespace dotnet.System.Collections.Generic
+        {
+            public class C<T>
+            {
+                public T[] MakeArray(int n) => new T[n];
+                public T Make() => new T();
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        output.WriteLine(result.OutputCode);
+        Assert.Contains("global::System.Array.CreateInstance", result.OutputCode, StringComparison.Ordinal);
+        Assert.Contains("global::System.Activator.CreateInstance<T>", result.OutputCode, StringComparison.Ordinal);
+        AssertNoSyntaxErrors(result.OutputCode);
+
+        // Full semantic check against the BCL reference assemblies (using
+        // typeof(object).Assembly together with ref assemblies causes CS0433/CS0518,
+        // so only the ref-pack facades are referenced). Skip when no SDK ref pack is
+        // installed on this machine.
+        var refDir = GetLatestNetCoreRefDir();
+        if (refDir is null)
+        {
+            output.WriteLine("Skipping semantic compile: Microsoft.NETCore.App.Ref pack not found.");
+            return;
+        }
+
+        var rewrittenTree = CSharpSyntaxTree.ParseText(result.OutputCode);
+        var refs = Directory.GetFiles(refDir, "*.dll")
+            .Select(f => MetadataReference.CreateFromFile(f))
+            .ToArray();
+        var compile = CSharpCompilation.Create("shadow-ns-verify",
+            new[] { rewrittenTree }, refs,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var errors = compile.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(errors.Count == 0,
+            "Rewritten code should compile inside a namespace shadowing System. Errors:\n" +
+            string.Join("\n", errors.Select(e => e.ToString())));
+    }
+
+    private static string? GetLatestNetCoreRefDir()
+    {
+        var packs = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            "dotnet", "packs", "Microsoft.NETCore.App.Ref");
+        if (!Directory.Exists(packs))
+            return null;
+        var latestPack = Directory.GetDirectories(packs)
+            .OrderByDescending(d => Version.TryParse(Path.GetFileName(d), out var v) ? v : new Version(0, 0))
+            .FirstOrDefault();
+        if (latestPack is null || !Directory.Exists(Path.Combine(latestPack, "ref")))
+            return null;
+        return Directory.GetDirectories(Path.Combine(latestPack, "ref"))
+            .OrderByDescending(d => Version.TryParse(Path.GetFileName(d), out var v) ? v : new Version(0, 0))
+            .FirstOrDefault();
+    }
+
     // ===================================================================
     // new T[n] — 复杂场景
     // ===================================================================

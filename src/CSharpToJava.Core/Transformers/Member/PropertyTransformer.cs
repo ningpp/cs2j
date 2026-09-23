@@ -34,10 +34,17 @@ public class PropertyTransformer : IMemberTransformer
         // Prefer the semantic symbol name: source text may contain an escape
         // sequence (e.g. `\u0467`) that must NOT leak into the Java identifier —
         // getter/setter call sites are built from the symbol's real characters.
-        // Explicit interface implementations report a qualified symbol name
-        // (e.g. IEntity.Name), so their Java accessor must use the syntax name.
+        // Explicit interface implementations ALWAYS take their accessor name from
+        // the syntax identifier: `X.I.Prop { get; }` must become getProp() (the
+        // interface contract name), never getX.I.Prop(). The semantic model cannot be
+        // trusted here — after global:: stripping, `System.Collections.ICollection`
+        // inside a `dotnet.System.Collections.*` namespace binds to a project-local
+        // same-named interface; when that mismatch leaves
+        // ExplicitInterfaceImplementations empty, Roslyn reports the FULLY QUALIFIED
+        // name (e.g. dotnet.System.Collections.ICollection.IsSynchronized) as
+        // IPropertySymbol.Name, which is not a legal Java identifier.
         var propName = ConversionContext.EscapeJavaKeyword(
-            propertySymbol is { ExplicitInterfaceImplementations.Length: > 0 }
+            propDecl.ExplicitInterfaceSpecifier != null
                 ? propDecl.Identifier.Text
                 : (propertySymbol?.Name ?? propDecl.Identifier.Text));
         // Java targets disambiguate colliding auto-property backing names (e.g. explicit
@@ -51,7 +58,10 @@ public class PropertyTransformer : IMemberTransformer
         var previousStaticContext = context.IsInStaticMember;
         if (isStatic)
             context.IsInStaticMember = true;
-        var isExplicitInterfaceImplementation = propertySymbol is IPropertySymbol { ExplicitInterfaceImplementations.Length: > 0 };
+        // Syntax is the source of truth for explicitness: a degraded semantic model
+        // (see the global::-strip/local-interface binding mismatch above) may report
+        // zero ExplicitInterfaceImplementations even for a syntactically explicit member.
+        var isExplicitInterfaceImplementation = propDecl.ExplicitInterfaceSpecifier != null;
         var propertyComments = context.GetDeclarationComments(propDecl, propertySymbol).ToCombinedComment();
 
         var isEncodingPreambleProperty =

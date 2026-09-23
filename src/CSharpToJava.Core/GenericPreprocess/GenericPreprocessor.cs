@@ -316,13 +316,16 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
             // new T() with no arguments and no initializer.
             // Activator.CreateInstance<T>() invokes the parameterless constructor —
             // identical to `new T()` (both require a public parameterless ctor).
+            // global:: is mandatory: inside projects whose own namespace starts with
+            // `dotnet.System` (or any namespace shadowing a BCL prefix), a bare
+            // `System.Activator` resolves to the shadowing namespace (CS0234).
             var typeSyntax = node.Type;
             _stats.NewTypeParamRewritten++;
             Changed = true;
             var invocation = SyntaxFactory.InvocationExpression(
                 SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
-                    SyntaxFactory.IdentifierName("System.Activator"),
+                    SyntaxFactory.ParseName("global::System.Activator"),
                     SyntaxFactory.GenericName(
                         SyntaxFactory.Identifier("CreateInstance"),
                         SyntaxFactory.TypeArgumentList(
@@ -357,7 +360,10 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
                 var arrayCreate = SyntaxFactory.InvocationExpression(
                     SyntaxFactory.MemberAccessExpression(
                         SyntaxKind.SimpleMemberAccessExpression,
-                        SyntaxFactory.IdentifierName("System.Array"),
+                        // global:: keeps the lookup on the real BCL System.Array even
+                        // when the enclosing namespace shadows `System` (e.g.
+                        // dotnet.System.Collections.Generic) — see VisitObjectCreationExpression.
+                        SyntaxFactory.ParseName("global::System.Array"),
                         SyntaxFactory.IdentifierName("CreateInstance")),
                     SyntaxFactory.ArgumentList(
                         SyntaxFactory.SeparatedList(new[]
