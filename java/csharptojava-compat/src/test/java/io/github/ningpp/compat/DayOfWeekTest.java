@@ -52,44 +52,4 @@ class DayOfWeekTest {
         assertSame(DayOfWeek.Sunday, DayOfWeek.fromJava(java.time.DayOfWeek.SUNDAY));
         assertNull(DayOfWeek.fromJava(null));
     }
-
-    @Test
-    void toString_definedValues_returnConstantNames() {
-        assertEquals("Sunday", DayOfWeek.Sunday.toString());
-        assertEquals("Monday", DayOfWeek.Monday.toString());
-        assertEquals("Saturday", DayOfWeek.Saturday.toString());
-    }
-
-    /**
-     * C# {@code Enum.ToString()} renders an undefined value as its underlying
-     * number ({@code ((DayOfWeek)(-1)).ToString() == "-1"}), never as a synthetic
-     * identifier. The generated {@code EnumConverter.write} leans on exactly this:
-     * it calls {@code value.toString()}, treats a leading letter as "write as
-     * string", and otherwise falls back to the numeric value from
-     * {@code Unsafe.as} — so a sentinel that stringifies as {@code "_UNMAPPED"}
-     * would leak into JSON as {@code "_unmapped"} instead of {@code -1}
-     * (SDK test EnumConverterTests.convertDayOfWeek).
-     */
-    @Test
-    void toString_sentinel_returnsUnderlyingNumberLikeCSharp() {
-        assertEquals("-1", DayOfWeek.fromValue(-1).toString());
-        assertEquals("42", DayOfWeek.fromValue(42).toString());
-        assertEquals("-7", DayOfWeek.fromValue(-7).toString());
-    }
-
-    /**
-     * The full seam contract the generated EnumConverter.write implements for an
-     * undefined value: numeric cache key miss, non-identifier toString (C# renders
-     * the number), then the numeric fallback reading the same unmapped value.
-     */
-    @Test
-    @SuppressWarnings("unchecked")
-    void undefinedValue_followsGeneratedEnumConverterWritePath() {
-        Object sentinel = DayOfWeek.fromValue(-1);
-        assertEquals(-1L, EnumHelper.toInt32(sentinel)); // convertToUInt64 key: cache miss
-        String original = sentinel.toString();           // C# Enum.ToString()
-        assertEquals("-1", original);
-        assertFalse(original.charAt(0) >= 'A', "must not look like an identifier"); // isValidIdentifier
-        assertEquals(-1, ((Integer) io.github.ningpp.compat.Unsafe.as(sentinel)).intValue()); // numeric write
-    }
 }

@@ -54,11 +54,6 @@ public final class JsonSerializerCompat {
         Class<?> raw = TypeHelper.toRawClass(type);
         TypeHelper.beginTypeRegistration();
         TypeHelper.registerParameterizedType(type);
-        // A caller-supplied options instance may still cache converters that an
-        // earlier RAW-CLASS serialize built from erased bounds; the generated
-        // cache is checked before converter factories, so those entries would
-        // win over this session's registrations.
-        TypeHelper.dropSessionTypesFromCache(options);
         try {
             Class<?> serializer = Class.forName("dotnet.text.json.JsonSerializer");
             if (options != null) {
@@ -71,9 +66,6 @@ public final class JsonSerializerCompat {
             throw new RuntimeException("JsonSerializerCompat: failed to delegate to JsonSerializer.serialize", ex);
         } finally {
             TypeHelper.endTypeRegistration();
-            // Put back the shared options' cache entries the session-start drop removed, so
-            // later raw-class serializations keep reusing the converters earlier sessions built.
-            TypeHelper.restoreSessionTypesFromCache(options);
         }
     }
 
@@ -91,11 +83,6 @@ public final class JsonSerializerCompat {
         // resolve during converter creation.
         TypeHelper.beginTypeRegistration();
         TypeHelper.registerParameterizedType(type);
-        // A caller-supplied options instance may still cache converters or class
-        // info that an earlier RAW-CLASS serialize built from erased bounds; the
-        // generated cache is checked before converter factories, so those entries
-        // would win over this session's registrations.
-        TypeHelper.dropSessionTypesFromCache(options);
         // The concrete type's own signature names the arguments an interface Type
         // cannot report (class StrList implements IList<string>).
         TypeHelper.registerConcreteType(raw);
@@ -115,9 +102,6 @@ public final class JsonSerializerCompat {
             return invokeGeneratedDeserialize(raw, jsonOrSpan, options);
         } finally {
             TypeHelper.endTypeRegistration();
-            // Put back the shared options' cache entries the session-start drop removed, so
-            // later raw-class serializations keep reusing the converters earlier sessions built.
-            TypeHelper.restoreSessionTypesFromCache(options);
         }
     }
 

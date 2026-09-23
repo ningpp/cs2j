@@ -18,16 +18,10 @@ public class AssemblyCompat {
 
     private final ClassLoader classLoader;
     private final String location;
-    private final String fullName;
 
     private AssemblyCompat(ClassLoader classLoader, String location) {
-        this(classLoader, location, location);
-    }
-
-    private AssemblyCompat(ClassLoader classLoader, String location, String fullName) {
         this.classLoader = classLoader;
         this.location = location;
-        this.fullName = fullName;
     }
 
     /** Mirrors C# Assembly.Load(AssemblyName) */
@@ -94,7 +88,7 @@ public class AssemblyCompat {
 
     /** Mirrors C# Assembly.FullName */
     public String getFullName() {
-        return fullName;
+        return location;
     }
 
     /** Mirrors C# Assembly.Location */
@@ -137,29 +131,10 @@ public class AssemblyCompat {
         if (identityAssembly != null) {
             return s_cache.computeIfAbsent(identityAssembly, k -> new AssemblyCompat(clazz.getClassLoader(), k));
         }
-        // A C# Assembly.FullName is "Name, Version=..., Culture=neutral, PublicKeyToken=..."
-        // — an IDENTITY, never a file URL — and Location is the file the assembly was loaded
-        // from. A Java port has neither: classes load from jars/directories whose artifact
-        // names carry no assembly identity. The port's assembly name is therefore the anchor
-        // class's package (the module's root namespace — dotnet.text.json.JsonSerializer names
-        // the "dotnet.text.json" assembly), shaped as a C# FullName, and its Location is that
-        // same identity in path form. That keeps the AssemblyResolutionTests contract
-        // meaningful in port terms: the JsonSerializer "assembly" resolves under the test
-        // assembly's directory (a sub-namespace sits inside the root namespace), rather than
-        // at some foreign machine path.
-        String name = clazz.getPackageName();
         java.security.ProtectionDomain domain = clazz.getProtectionDomain();
         java.net.URL codeSource = domain == null ? null : domain.getCodeSource() == null ? null : domain.getCodeSource().getLocation();
-        if (name == null || name.isEmpty()) {
-            // Default-package class: no namespace identity, keep the code-source string.
-            name = codeSource != null ? codeSource.toString() : String.valueOf(clazz.getClassLoader());
-        }
-        String location = name.replace('.', File.separatorChar);
-        String version = clazz.getPackage() != null && clazz.getPackage().getImplementationVersion() != null
-            ? clazz.getPackage().getImplementationVersion()
-            : "0.0.0.0";
-        String fullName = name + ", Version=" + version + ", Culture=neutral, PublicKeyToken=null";
-        return s_cache.computeIfAbsent(fullName, k -> new AssemblyCompat(clazz.getClassLoader(), location, fullName));
+        String key = codeSource != null ? codeSource.toString() : String.valueOf(clazz.getClassLoader());
+        return s_cache.computeIfAbsent(key, k -> new AssemblyCompat(clazz.getClassLoader(), k));
     }
 
     /** Creates an AssemblyCompat from a class loader and location/name. */

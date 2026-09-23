@@ -1230,16 +1230,6 @@ public final class Assert {
             }
             return da == db;
         }
-        // The C# sources assert interpolated strings here (Assert.Equal($"{expected--}", str));
-        // the generated Java passes the raw number, so compare it with a deserialized numeric
-        // string the way the C# string comparison would (CollectionTests.readSimpleGenericStack
-        // and friends: Assert.equal(2, "2") had to hold).
-        if (a instanceof Number && b instanceof String) {
-            return numberEqualsString((Number) a, (String) b);
-        }
-        if (a instanceof String && b instanceof Number) {
-            return numberEqualsString((Number) b, (String) a);
-        }
         // C# Assert.Equal on arrays performs a deep comparison (element-wise).
         if (a != null && b != null && a.getClass().isArray() && b.getClass().isArray()) {
             return deepArraysEqual(a, b);
@@ -1265,22 +1255,10 @@ public final class Assert {
         return false;
     }
 
-    /** A Number equals a String when the string parses to the same value (C# $"..." comparison). */
-    private static boolean numberEqualsString(Number number, String s) {
-        if (number == null || s == null) {
-            return false;
-        }
-        try {
-            return new java.math.BigDecimal(number.toString())
-                .compareTo(new java.math.BigDecimal(s.trim())) == 0;
-        } catch (NumberFormatException e) {
-            return false;
-        }
-    }
-
     private static boolean OverridesEquals(Class<?> type) {
         try {
-            return type.getMethod("equals", Object.class).getDeclaringClass() != Object.class;        } catch (NoSuchMethodException e) {
+            return type.getMethod("equals", Object.class).getDeclaringClass() != Object.class;
+        } catch (NoSuchMethodException e) {
             return false;
         }
     }

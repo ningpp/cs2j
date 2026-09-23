@@ -289,14 +289,7 @@ public class MemoryExtensions {
      * which boxes one wrapper per element.
      */
     public static <T> boolean sequenceEqual(ReadOnlySpan<T> left, ReadOnlySpan<T> right) {
-        if (left == null || right == null) {
-            // C# default(ReadOnlySpan<T>) IS the empty span (Length 0), so a null
-            // Java span compares by length: null equals null and null equals an
-            // empty span (Utf8JsonReaderTests.defaultUtf8JsonReader relies on this).
-            int leftLength = left == null ? 0 : left.length();
-            int rightLength = right == null ? 0 : right.length();
-            return leftLength == rightLength;
-        }
+        if (left == null || right == null) return left == right;
         int n = left.length();
         if (n != right.length()) return false;
 

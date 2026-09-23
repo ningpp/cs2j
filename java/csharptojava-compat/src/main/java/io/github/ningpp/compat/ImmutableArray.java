@@ -108,30 +108,15 @@ public final class ImmutableArray<T> implements Iterable<T> {
 
     @Override
     public java.util.Iterator<T> iterator() {
-        checkInitialized();
         return items.iterator();
     }
 
     public java.util.stream.Stream<T> stream() {
-        checkInitialized();
         return items.stream();
     }
 
     public java.util.Spliterator<T> spliterator() {
-        checkInitialized();
         return items.spliterator();
-    }
-
-    /**
-     * C# ImmutableArray&lt;T&gt;.GetEnumerator throws InvalidOperationException when the array
-     * was never initialized (the default instance's backing array is null) — Json.NET fails
-     * the same way, and the serializer relies on that throw instead of writing an empty
-     * array (InvalidOperationException maps to IllegalStateException here).
-     */
-    private void checkInitialized() {
-        if (isDefault) {
-            throw ExceptionCompat.invalidOperation();
-        }
     }
 
     @Override

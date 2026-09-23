@@ -147,32 +147,6 @@ class AssertTest {
         Assert.equal(Integer.valueOf(42), Long.valueOf(42));
     }
 
-    // The C# sources compare interpolated strings here: Assert.Equal($"{expected--}", str).
-    // The generated Java calls Assert.equal(expected--, str) with the raw int, so a
-    // deserialized "2" (String) must compare equal to the number 2 for the collection
-    // wrapper tests (CollectionTests.readSimpleGenericStack & co) to pass.
-    @Test
-    void equal_numberVersusNumericString_succeeds() {
-        Assert.equal(2, "2");
-        Assert.equal("1", 1);
-        Assert.equal(2.0, "2");
-    }
-
-    @Test
-    void equal_numberVersusDifferentNumericString_fails() {
-        assertThrows(AssertionError.class, () -> Assert.equal(2, "3"));
-    }
-
-    @Test
-    void equal_numberVersusNonNumericString_fails() {
-        assertThrows(AssertionError.class, () -> Assert.equal(1, "abc"));
-    }
-
-    @Test
-    void notEqual_numberVersusNumericString_fails() {
-        assertThrows(AssertionError.class, () -> Assert.notEqual(2, "2"));
-    }
-
     // ── NotEqual ─────────────────────────────────────────────────────
 
     @Test

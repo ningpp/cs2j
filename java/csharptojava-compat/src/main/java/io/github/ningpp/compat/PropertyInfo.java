@@ -52,35 +52,15 @@ public final class PropertyInfo implements MemberInfo {
             this.name = compatName.value();
             return;
         }
-        String getterDerived = deriveAccessorName(methodName);
-        // The transpiler renames the getter of a C# property named `Class` to `getClassValue`
-        // (a bare `getClass` would collide with Object.getClass()) while the setter keeps the
-        // C# name (`setClass`), and emits no @CompatPropertyName. The C# identity lives on the
-        // setter, so when the getter-derived name is the setter-derived one plus that rename
-        // suffix, the setter's name is the property's name. Without this the serializer cached
-        // the member as "ClassValue", the incoming "Class" JSON name never matched, and
-        // PropertyVisibilityTests.classWithComplexObjectsUsingIgnoreWhenWritingDefaultAttribute
-        // deserialized null.
-        if (setter != null) {
-            String setterName = setter.getName();
-            if (setterName.startsWith("set") && setterName.length() > 3
-                && getterDerived.equals(setterName.substring(3) + "Value")) {
-                this.name = setterName.substring(3);
-                return;
-            }
-        }
-        this.name = getterDerived;
-    }
-
-    private static String deriveAccessorName(String methodName) {
         if (methodName.startsWith("get") && methodName.length() > 3) {
-            return methodName.substring(3);
+            this.name = methodName.substring(3);
         } else if (methodName.startsWith("is") && methodName.length() > 2) {
-            return methodName.substring(2);
+            this.name = methodName.substring(2);
         } else if (methodName.startsWith("set") && methodName.length() > 3) {
-            return methodName.substring(3);
+            this.name = methodName.substring(3);
+        } else {
+            this.name = methodName;
         }
-        return methodName;
     }
 
     @Override
@@ -509,20 +489,6 @@ public final class PropertyInfo implements MemberInfo {
                 fallback = m;
             }
         }
-        // The transpiler renames the getter of a C# property named `Class` to `getClassValue`
-        // (see the constructor) while the setter keeps the C# name. When no "set<GetterName>"
-        // exists, try the setter with the rename suffix stripped — but only then, so a real
-        // set<ClassValue> (property ClassValue) always wins over the fallback.
-        if (fallback == null && propertyName.length() > 5 && propertyName.endsWith("Value")) {
-            String collisionSetterName = "set" + propertyName.substring(0, propertyName.length() - "Value".length());
-            for (Method m : clazz.getMethods()) {
-                if (Modifier.isStatic(m.getModifiers())) continue;
-                if (!m.getName().equals(collisionSetterName) || m.getParameterCount() != 1) continue;
-                if (isBoxCompatible(m.getParameterTypes()[0], getterType)) {
-                    return m;
-                }
-            }
-        }
         // C# [JsonInclude] makes a NON-public setter usable for deserialization, and the converter
         // emits such an accessor as a protected/private Java method (C# `init` accessors especially),
         // which Class.getMethods() cannot see. Without this the member was readable but never
@@ -564,14 +530,6 @@ public final class PropertyInfo implements MemberInfo {
         if (!includeNonPublic) {
             return getProperties(clazz);
         }
-        // DeclaredOnly must stop the hierarchy walk: C# GetProperties(DeclaredOnly) answers
-        // only the members DECLARED on the type. The generated JsonClassInfo walks the type
-        // hierarchy itself and relies on that contract — with the inherited members repeated
-        // at every level, a hidden base property was cached under its JSON name BEFORE the
-        // derived type's own new-slot field was reached, and the first-cached member wins
-        // (PropertyVisibilityTests.serialize_NewSlotPublicField_ConflictWithBasePublicProperty
-        // serialized the base int property's 1 instead of the new-slot field's 1.5).
-        boolean declaredOnly = (bindingFlags & BindingFlags.DeclaredOnly) != 0;
         List<PropertyInfo> props = new ArrayList<>();
         for (Class<?> current = clazz; current != null && current != Object.class; current = current.getSuperclass()) {
             for (Method m : current.getDeclaredMethods()) {
@@ -588,9 +546,6 @@ public final class PropertyInfo implements MemberInfo {
                            && (m.getReturnType() == boolean.class || m.getReturnType() == Boolean.class)) {
                     props.add(new PropertyInfo(m, findSetter(clazz, methodName.substring(2), m)));
                 }
-            }
-            if (declaredOnly) {
-                break;
             }
         }
         props.sort(java.util.Comparator

@@ -61,14 +61,6 @@
             <version>5.11.4</version>
             <scope>test</scope>
         </dependency>
-        <!-- CompatTestRunner drives the JUnit launcher directly so individual tests
-             can run while concurrent work leaves the shared module uncompilable. -->
-        <dependency>
-            <groupId>org.junit.platform</groupId>
-            <artifactId>junit-platform-launcher</artifactId>
-            <version>1.11.4</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
 </project>

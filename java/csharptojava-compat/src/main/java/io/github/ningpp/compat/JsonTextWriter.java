@@ -187,14 +187,6 @@ public class JsonTextWriter implements AutoCloseable {
             writer.print(b ? "true" : "false");
             return;
         }
-        if (value instanceof Double d) {
-            // .NET renders doubles with invariant G (shortest round-trip) formatting:
-            // "1.7976931348623157E+308", "4" — the same output Utf8JsonWriter produces,
-            // so expected strings built through this writer stay comparable to the
-            // writer's own output (Utf8JsonWriterTests.writeDoubleValue compares them).
-            writer.print(DoubleHelper.toString(d));
-            return;
-        }
         if (value instanceof Number n) {
             writer.print(n.toString());
             return;

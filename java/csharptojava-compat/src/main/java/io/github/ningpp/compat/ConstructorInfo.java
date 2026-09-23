@@ -11,11 +11,7 @@ public final class ConstructorInfo implements MemberInfo {
 
     public ConstructorInfo(Constructor<?> constructor) {
         this.constructor = constructor;
-        // trySetAccessible, not setAccessible: enumerating the constructors of a JDK type
-        // whose module is not open to us (a private java.math.BigInteger(long)) must not
-        // turn C#'s infallible Type.GetConstructors() into InaccessibleObjectException.
-        // An inaccessible member still wraps fine; only invoking it can fail.
-        this.constructor.trySetAccessible();
+        this.constructor.setAccessible(true);
     }
 
     public Constructor<?> getConstructor() {
