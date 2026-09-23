@@ -1311,7 +1311,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         }
 
         var attribute = SyntaxFactory.Attribute(
-            SyntaxFactory.ParseName("System.Runtime.InteropServices.DefaultParameterValue"),
+            SyntaxFactory.ParseName("global::System.Runtime.InteropServices.DefaultParameterValue"),
             SyntaxFactory.AttributeArgumentList(
                 SyntaxFactory.SingletonSeparatedList(
                     SyntaxFactory.AttributeArgument(SyntaxFactory.ParseExpression(literal)))));
