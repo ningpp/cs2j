@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
+using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
@@ -38,30 +39,57 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             return new JavaRawExpression(Transform(node, context));
 
         var facade = ExpressionTransformerFacade.Instance;
-        var methodCall = new JavaMethodCallExpression();
+        var arguments = invocation.ArgumentList.Arguments
+            .Select(a => facade.TransformToIR(a.Expression, context))
+            .ToList();
 
         switch (invocation.Expression)
         {
             // abc.CallMethod(arg1, arg2) → abc.callMethod(arg1, arg2)
             case MemberAccessExpressionSyntax memberAccess:
-                methodCall.Target = facade.TransformToIR(memberAccess.Expression, context);
-                methodCall.MethodName = ToCamelCase(memberAccess.Name.Identifier.Text);
-                break;
+            {
+                var receiver = facade.TransformToIR(memberAccess.Expression, context);
+                var (mappedName, isStatic) =
+                    TryResolveMappedName(invocation, memberAccess.Name.Identifier.Text, context);
+
+                var call = new JavaMethodCallExpression { Target = receiver };
+
+                if (mappedName != null)
+                {
+                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedName, context);
+                    ApplyMappedName(call, mappedName, isStatic, receiver);
+                }
+                else
+                {
+                    call.MethodName = ToCamelCase(memberAccess.Name.Identifier.Text);
+                }
+
+                foreach (var argument in arguments)
+                    call.Arguments.Add(argument);
+
+                return call;
+            }
 
             // CallMethod(arg1, arg2) → callMethod(arg1, arg2)
             case IdentifierNameSyntax identifier:
-                methodCall.MethodName = ToCamelCase(identifier.Identifier.Text);
-                break;
+            {
+                var (mappedName, _) = TryResolveMappedName(invocation, identifier.Identifier.Text, context);
+                if (mappedName != null)
+                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedName, context);
+
+                var call = new JavaMethodCallExpression
+                {
+                    MethodName = mappedName ?? ToCamelCase(identifier.Identifier.Text)
+                };
+                foreach (var argument in arguments)
+                    call.Arguments.Add(argument);
+                return call;
+            }
 
             // Other invocation shapes are not part of the minimal supported set.
             default:
                 return new JavaRawExpression(Transform(invocation, context));
         }
-
-        foreach (var argument in invocation.ArgumentList.Arguments)
-            methodCall.Arguments.Add(facade.TransformToIR(argument.Expression, context));
-
-        return methodCall;
     }
 
     private string TransformInvocation(InvocationExpressionSyntax node, ConversionContext context)
@@ -76,18 +104,148 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             case MemberAccessExpressionSyntax memberAccess:
             {
                 var receiver = facade.Transform(memberAccess.Expression, context);
-                var methodName = ToCamelCase(memberAccess.Name.Identifier.Text);
-                return $"{receiver}.{methodName}({arguments})";
+                var originalName = memberAccess.Name.Identifier.Text;
+                var (mappedName, isStatic) = TryResolveMappedName(node, originalName, context);
+
+                if (mappedName != null)
+                {
+                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedName, context);
+                    return RenderMappedCall(mappedName, isStatic, receiver, arguments);
+                }
+
+                return $"{receiver}.{ToCamelCase(originalName)}({arguments})";
             }
 
             // CallMethod(arg1, arg2) → callMethod(arg1, arg2)
             case IdentifierNameSyntax identifier:
-                return $"{ToCamelCase(identifier.Identifier.Text)}({arguments})";
+            {
+                var originalName = identifier.Identifier.Text;
+                var (mappedName, _) = TryResolveMappedName(node, originalName, context);
+                if (mappedName != null)
+                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedName, context);
+
+                var methodName = mappedName ?? ToCamelCase(originalName);
+                return $"{methodName}({arguments})";
+            }
 
             // Fallback: transform the callee expression as-is and append the arguments.
             default:
                 return $"{facade.Transform(node.Expression, context)}({arguments})";
         }
+    }
+
+    /// <summary>
+    /// Applies a configured mapped method name to an IR call. Mapped names containing a dot
+    /// (e.g. "StringHelper.insert") are static compatibility helpers: for instance calls the
+    /// receiver becomes the first argument; for static calls the type receiver is dropped.
+    /// Regular call arguments are appended by the caller afterwards.
+    /// </summary>
+    private static void ApplyMappedName(
+        JavaMethodCallExpression call,
+        string mappedName,
+        bool isStatic,
+        JavaExpression receiver)
+    {
+        if (mappedName.Contains('.'))
+        {
+            // Static helper call — clear the instance target and pass the
+            // receiver as the first argument for instance invocations.
+            call.Target = null;
+            call.MethodName = mappedName;
+            if (!isStatic)
+                call.Arguments.Add(receiver);
+        }
+        else
+        {
+            call.MethodName = mappedName;
+        }
+    }
+
+    /// <summary>
+    /// Renders the Java source for a method whose name was resolved through TypeMappings.json.
+    /// </summary>
+    private static string RenderMappedCall(
+        string mappedName,
+        bool isStatic,
+        string receiver,
+        string arguments)
+    {
+        if (mappedName.Contains('.'))
+        {
+            // Static compatibility helper: instance receiver is passed as the first argument;
+            // a static type receiver (e.g. string.IsNullOrEmpty) is dropped entirely.
+            if (isStatic)
+                return $"{mappedName}({arguments})";
+            return string.IsNullOrEmpty(arguments)
+                ? $"{mappedName}({receiver})"
+                : $"{mappedName}({receiver}, {arguments})";
+        }
+
+        return $"{receiver}.{mappedName}({arguments})";
+    }
+
+    /// <summary>
+    /// Looks up the configured Java method name for the invocation via TypeMappings.json.
+    /// Checks the method's containing type (display name, then namespace+name FQN),
+    /// then every implemented interface whose member signature matches the invocation.
+    /// Returns (null, false) when the semantic model is unavailable or no mapping exists.
+    /// </summary>
+    private static (string? MappedName, bool IsStatic) TryResolveMappedName(
+        InvocationExpressionSyntax invocation,
+        string originalName,
+        ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return (null, false);
+        if (context.GetSymbolInfo(invocation).Symbol is not IMethodSymbol methodSymbol)
+            return (null, false);
+
+        var paramCount = invocation.ArgumentList.Arguments.Count;
+        var containingType = methodSymbol.ContainingType;
+
+        var mappedName = context.TypeMappings.MapMethod(containingType.ToDisplayString(), originalName, paramCount)
+            ?? context.TypeMappings.MapMethod(
+                $"{containingType.ContainingNamespace}.{containingType.Name}", originalName, paramCount);
+
+        // Implicit interface implementations (e.g. IEquatable<T>.Equals → equalsTo).
+        if (mappedName == null && containingType is INamedTypeSymbol namedType)
+        {
+            foreach (var iface in namedType.AllInterfaces)
+            {
+                if (!MethodSignatureMatchesInterface(methodSymbol, iface, originalName))
+                    continue;
+
+                mappedName = context.TypeMappings.MapMethod(
+                    iface.ConstructedFrom.ToDisplayString(), originalName, paramCount)
+                    ?? context.TypeMappings.MapMethod(
+                        $"{iface.ContainingNamespace}.{iface.Name}", originalName, paramCount);
+
+                if (mappedName != null)
+                    break;
+            }
+        }
+
+        return (mappedName, methodSymbol.IsStatic);
+    }
+
+    /// <summary>
+    /// True when the method has the same arity and parameter types as the named
+    /// interface member. Prevents Object.Equals(object) from being remapped via
+    /// an IEquatable&lt;T&gt;.Equals(T) entry.
+    /// </summary>
+    private static bool MethodSignatureMatchesInterface(IMethodSymbol method, INamedTypeSymbol iface, string methodName)
+    {
+        var interfaceMethod = iface.GetMembers(methodName).OfType<IMethodSymbol>().FirstOrDefault();
+        if (interfaceMethod == null || method.Parameters.Length != interfaceMethod.Parameters.Length)
+            return false;
+
+        for (var i = 0; i < method.Parameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(method.Parameters[i].Type, interfaceMethod.Parameters[i].Type))
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>
