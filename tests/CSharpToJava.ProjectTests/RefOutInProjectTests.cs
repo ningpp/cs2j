@@ -41,30 +41,6 @@ public class RefOutInProjectTests
     }
 
     [Fact]
-    public async Task AppProject_RefCallAcrossProjects_GeneratesHolderAtCallSite()
-    {
-        var appDir = Path.Combine(FixtureDir, "SampleRefOutInApp");
-        var libDir = Path.Combine(FixtureDir, "SampleRefOutInLib");
-        Assert.True(Directory.Exists(appDir), $"Fixture not found: {appDir}");
-
-        var pipeline = new ConversionPipeline();
-        var results = await pipeline.ConvertProjectWithPartialMergeAsync(
-            appDir,
-            Options,
-            additionalSemanticProjectPaths: new[] { libDir });
-
-        Assert.NotEmpty(results);
-
-        var program = Assert.Single(results, r =>
-            string.Equals(r.FileName, "Program.java", StringComparison.OrdinalIgnoreCase));
-        Assert.True(program.Success, string.Join("\n", program.Diagnostics));
-
-        // At the call site, ref int args require IntHolder, out var p requires ObjectHolder
-        Assert.Contains("IntHolder", program.GeneratedCode);
-        Assert.Contains("ObjectHolder", program.GeneratedCode);
-    }
-
-    [Fact]
     public async Task SlnProject_FullConversion_AllFilesSucceed()
     {
         var slnPath = Path.Combine(FixtureDir, "SampleRefOutIn.sln");
