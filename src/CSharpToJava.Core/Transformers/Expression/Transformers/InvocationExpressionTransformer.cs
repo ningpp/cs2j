@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -32,11 +33,97 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         _ => throw new NotSupportedException($"Invocation expression kind {node.Kind()} not supported.")
     };
 
+    /// <summary>
+    /// 检测 nameof(...) 调用——在 cs2j 的解析器中 nameof 被解析为普通调用
+    /// （IdentifierNameSyntax("nameof") + 单参数），而非 Roslyn 原生的 NameOfExpressionSyntax。
+    /// 模式：IdentifierNameSyntax("nameof") + 单参数。
+    /// </summary>
+    private static bool IsNameOfInvocation(InvocationExpressionSyntax invocation, out ExpressionSyntax? argument)
+    {
+        argument = null;
+        if (invocation.Expression is not IdentifierNameSyntax id)
+            return false;
+        if (!string.Equals(id.Identifier.Text, "nameof", StringComparison.Ordinal))
+            return false;
+        if (invocation.ArgumentList.Arguments.Count != 1)
+            return false;
+        argument = invocation.ArgumentList.Arguments[0].Expression;
+        return true;
+    }
+
+    /// <summary>
+    /// 从 nameof 参数中提取"名称"字符串。按 C# 规范：
+    /// - nameof(variable) → "variable"（剥离 verbatim @ 前缀）
+    /// - nameof(Type)、nameof(Type.Member) → 最后一段简单名称
+    /// - nameof(Namespace.Type) → 最后一段简单名称
+    /// </summary>
+    private static string ExtractNameOfArgument(ExpressionSyntax argument)
+    {
+        return argument switch
+        {
+            IdentifierNameSyntax id => StripVerbatimPrefix(id.Identifier.Text),
+            GenericNameSyntax generic => StripVerbatimPrefix(generic.Identifier.Text),
+            MemberAccessExpressionSyntax memberAccess => StripVerbatimPrefix(memberAccess.Name.Identifier.Text),
+            QualifiedNameSyntax qualified => ExtractNameOfRightMostName(qualified),
+            _ => argument.ToString()
+        };
+    }
+
+    /// <summary>
+    /// 处理 QualifiedNameSyntax（如 Namespace.Type 或 A.B.C）。
+    /// 取最右端的 Name 节点。
+    /// </summary>
+    private static string ExtractNameOfRightMostName(QualifiedNameSyntax qualified)
+    {
+        if (qualified.Right is GenericNameSyntax rightGeneric)
+            return StripVerbatimPrefix(rightGeneric.Identifier.Text);
+        return StripVerbatimPrefix(qualified.Right.Identifier.Text);
+    }
+
+    private static string StripVerbatimPrefix(string name)
+        => name.StartsWith("@") ? name[1..] : name;
+
+    /// <summary>
+    /// Escapes a string for use inside Java double-quoted string literals.
+    /// nameof 结果一般是普通标识符，但仍需处理 \ " \n 等字符。
+    /// </summary>
+    private static string JavaEscapeString(string text)
+    {
+        var sb = new StringBuilder(text.Length);
+        foreach (char c in text)
+        {
+            switch (c)
+            {
+                case '\\': sb.Append("\\\\"); break;
+                case '\"': sb.Append("\\\""); break;
+                case '\n': sb.Append("\\n"); break;
+                case '\r': sb.Append("\\r"); break;
+                case '\t': sb.Append("\\t"); break;
+                case '\b': sb.Append("\\b"); break;
+                case '\f': sb.Append("\\f"); break;
+                default:
+                    if (c < 0x20)
+                        sb.Append("\\u").Append(((int)c).ToString("X4"));
+                    else
+                        sb.Append(c);
+                    break;
+            }
+        }
+        return sb.ToString();
+    }
+
     /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
     {
         if (node is not InvocationExpressionSyntax invocation)
             return new JavaRawExpression(Transform(node, context));
+
+        // nameof(X) → Java string literal "argumentName"
+        if (IsNameOfInvocation(invocation, out var nameofArgument))
+        {
+            var name = ExtractNameOfArgument(nameofArgument!);
+            return new JavaLiteralExpression("\"" + JavaEscapeString(name) + "\"");
+        }
 
         var facade = ExpressionTransformerFacade.Instance;
         var arguments = invocation.ArgumentList.Arguments
@@ -94,6 +181,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
     private string TransformInvocation(InvocationExpressionSyntax node, ConversionContext context)
     {
+        // nameof(X) → "argumentName"
+        if (IsNameOfInvocation(node, out var nameofArgument))
+        {
+            var name = ExtractNameOfArgument(nameofArgument!);
+            return "\"" + JavaEscapeString(name) + "\"";
+        }
+
         var facade = ExpressionTransformerFacade.Instance;
         var arguments = string.Join(", ",
             node.ArgumentList.Arguments.Select(a => facade.Transform(a.Expression, context)));
