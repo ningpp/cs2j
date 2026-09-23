@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -396,23 +397,56 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitLiteralExpression(LiteralExpressionSyntax node)
     {
         var rewritten = (LiteralExpressionSyntax)base.VisitLiteralExpression(node)!;
-        if (!_options.EnableLiteralRewrite
-            || !node.IsKind(SyntaxKind.NumericLiteralExpression)
-            || !UnsignedLiteralSyntax.TryRewrite(node.Token.Text, out var rewrite))
+        if (!_options.EnableLiteralRewrite || !node.IsKind(SyntaxKind.NumericLiteralExpression))
         {
             return rewritten;
         }
 
-        // 只换 token 文本,trivia 原样保留:类型与值由后缀+值决定,与上下文无关,
-        // 因此重载决议、常量折叠、const/enum/attribute/case 等常量上下文全部不变。
-        _stats.LiteralsRewritten++;
-        var token = SyntaxFactory.Literal(
-            node.Token.LeadingTrivia,
-            rewrite.Text,
-            rewrite.Value,
-            node.Token.TrailingTrivia);
-        return UnsignedRewriteAnnotations.Mark(rewritten.WithToken(token));
+        ExpressionSyntax result = rewritten;
+        if (UnsignedLiteralSyntax.TryRewrite(node.Token.Text, out var rewrite))
+        {
+            // 只换 token 文本,trivia 原样保留:类型与值由后缀+值决定,与上下文无关,
+            // 因此重载决议、常量折叠、const/enum/attribute/case 等常量上下文全部不变。
+            _stats.LiteralsRewritten++;
+            var token = SyntaxFactory.Literal(
+                node.Token.LeadingTrivia,
+                rewrite.Text,
+                rewrite.Value,
+                node.Token.TrailingTrivia);
+            result = rewritten.WithToken(token);
+        }
+
+        // C# byte(无符号)≠ Java byte(有符号):byte[] 擦除后仍是 Java byte[],
+        // 元素常量 ≥ 128 必须 (byte) 收窄 javac 才接受;标量 byte 擦除为 int,
+        // 数值原样正确,不包装。
+        if (IsByteArrayInitializerElement(node)
+            && _semanticModel.GetConstantValue(node).HasValue
+            && Convert.ToUInt64(_semanticModel.GetConstantValue(node).Value!, CultureInfo.InvariantCulture) is >= 128 and <= 255
+            && result is LiteralExpressionSyntax element)
+        {
+            _stats.LiteralsRewritten++;
+            var cast = SyntaxFactory.CastExpression(
+                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ByteKeyword)),
+                element.WithoutTrivia());
+            return UnsignedRewriteAnnotations.Mark(cast.WithTriviaFrom(node));
+        }
+
+        return ReferenceEquals(result, rewritten)
+            ? rewritten
+            : UnsignedRewriteAnnotations.Mark(result);
     }
+
+    /// <summary>
+    /// 字面量是 byte 数组/集合初始化器的直接元素(含多维内层初始化器与 C# 12
+    /// 集合表达式的 ExpressionElement)。用语义模型的 ConvertedType 判定元素
+    /// 类型,标量 byte 上下文(赋值/实参/返回)的父节点不是初始化器,天然排除。
+    /// </summary>
+    private bool IsByteArrayInitializerElement(LiteralExpressionSyntax node)
+        => _semanticModel != null
+           && node.Parent is InitializerExpressionSyntax
+               or CollectionExpressionSyntax
+               or ExpressionElementSyntax
+           && _semanticModel.GetTypeInfo(node).ConvertedType?.SpecialType == SpecialType.System_Byte;
 
     public override SyntaxNode? VisitArrayType(ArrayTypeSyntax node)
     {

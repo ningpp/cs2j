@@ -39,34 +39,31 @@ public class UnsignedLiteralRewriterUnitTests
     [InlineData("18446744073709551615ul", "0xFFFFFFFFFFFFFFFFul")]
     [InlineData("18446744073709551615UL", "0xFFFFFFFFFFFFFFFFUL")]
     [InlineData("18446744073709551615Ul", "0xFFFFFFFFFFFFFFFFUl")]
-    [InlineData("18446744073709551615u", "0xFFFFFFFFFFFFFFFFu")]
+    [InlineData("18446744073709551615u", "0xFFFFFFFFFFFFFFFFuL")]
     [InlineData("9223372036854775808uL", "0x8000000000000000uL")]
     [InlineData("10000000000000000000lu", "0x8AC7230489E80000lu")]
     [InlineData("9223372036854775808L", "0x8000000000000000L")]      // Roslyn: dec+L 超 long.MaxValue 定型为 ulong
     [InlineData("18446744073709551615L", "0xFFFFFFFFFFFFFFFFL")]
-    [InlineData("9223372036854775809", "0x8000000000000001")]         // dec 无后缀高值同样按 ulong 接受
+    [InlineData("9223372036854775809", "0x8000000000000001L")]         // dec 无后缀高值同样按 ulong 接受
     public void UnsignedOutOfRangeDecimal_RewrittenToHex(string literal, string expected)
     {
         var output = Rewrite($"public class C {{ public object M() {{ return {literal}; }} }}");
         Assert.Contains($"return {expected};", output);
     }
 
-    // ---- 可表示范围 / 兼容形态:逐字保留 ----
+    // ---- 可表示形态:逐字保留 ----
 
     [Theory]
     [InlineData("42u")]            // uint,十进制在 int 范围内
     [InlineData("2147483647u")]    // uint,恰好 int.MaxValue
-    [InlineData("4294967296u")]    // u 后缀溢出为 ulong,十进制在 long 范围内
-    [InlineData("5000000000u")]    // 同上
     [InlineData("42ul")]
-    [InlineData("9223372036854775807ul")]  // ulong,恰好 long.MaxValue
+    [InlineData("9223372036854775807ul")]  // ulong,带 L
     [InlineData("42")]
-    [InlineData("5000000000")]     // 无后缀 long
-    [InlineData("9223372036854775807L")]
-    [InlineData("0xFFFFFFFFu")]    // 十六进制恒可表示
+    [InlineData("9223372036854775807L")]   // long,带 L
+    [InlineData("0xFFFFFFFFu")]    // 十六进制 uint 域:Java int 十六进制可表示
     [InlineData("0xFFFFFFFF")]     // 十六进制无后缀(uint)
+    [InlineData("0x80000000")]     // 十六进制 [2^31,2^32):uint,无需 L
     [InlineData("0xFFFFFFFFFFFFFFFFul")]
-    [InlineData("0xFFFFFFFFFFFFFFFF")]  // 十六进制无后缀(ulong)
     [InlineData("0b1010u")]
     [InlineData("0X1Fu")]
     [InlineData("0B11ul")]
@@ -80,11 +77,94 @@ public class UnsignedLiteralRewriterUnitTests
     [InlineData("4d")]
     [InlineData("007.5")]          // 实数前导零:Java 浮点无八进制问题
     [InlineData("1_000.5")]
+    [InlineData("1__0")]           // 连续下划线:两语言都允许
     public void RepresentableLiteral_KeptVerbatim(string literal)
     {
         var src = $"public class C {{ public object M() {{ return {literal}; }} }}";
         var output = Rewrite(src);
         Assert.Contains($"return {literal};", output);
+    }
+
+    // ---- 64 位类型缺 L:Java long 字面量必须带 L,补 L ----
+
+    [Theory]
+    [InlineData("5000000000", "5000000000L")]                 // dec 无后缀 → long
+    [InlineData("3000000000", "3000000000L")]                 // dec 无后缀 [2^31,2^32) → long(C# 十进制不升 uint)
+    [InlineData("5000000000u", "5000000000uL")]               // 仅 u 后缀的 ulong
+    [InlineData("4294967296u", "4294967296uL")]
+    [InlineData("0xFFFFFFFFFFFFFFFF", "0xFFFFFFFFFFFFFFFFL")] // hex 无后缀 ulong
+    [InlineData("0x100000000", "0x100000000L")]               // hex 无后缀 long
+    [InlineData("0x8000000000000000", "0x8000000000000000L")]
+    [InlineData("0xFFFFFFFFFFFFFFFFu", "0xFFFFFFFFFFFFFFFFuL")]
+    [InlineData("0b1_00000000_00000000_00000000_00000000", "0b1_00000000_00000000_00000000_00000000L")]
+    public void SixtyFourBitLiteral_GainsLSuffix(string literal, string expected)
+    {
+        var output = Rewrite($"public class C {{ public object M() {{ return {literal}; }} }}");
+        Assert.Contains($"return {expected};", output);
+    }
+
+    // ---- 进制前缀后紧贴的下划线:Java 禁止,剥离 ----
+
+    [Theory]
+    [InlineData("0x_1F", "0x1F")]
+    [InlineData("0X_1F", "0X1F")]
+    [InlineData("0b_1010", "0b1010")]
+    [InlineData("0B_1010u", "0B1010u")]
+    [InlineData("0x_1111_1111", "0x1111_1111")]
+    [InlineData("0x___FFFF", "0xFFFF")]
+    public void PrefixAdjacentUnderscore_Stripped(string literal, string expected)
+    {
+        var output = Rewrite($"public class C {{ public object M() {{ return {literal}; }} }}");
+        Assert.Contains($"return {expected};", output);
+    }
+
+    // ---- byte[] 初始化器:C# byte 无符号 ≠ Java byte 有符号,≥128 收窄 ----
+
+    [Fact]
+    public void ByteArrayInitializer_HighConstantsNarrowedToByte()
+    {
+        var src = """
+            public class C
+            {
+                public byte[] A = new byte[] { 1, 200, 0xFF };
+                public byte[] B = { 128 };
+                public byte[,] D = { { 130, 1 } };
+                public byte[] E = [1, 200];
+                public byte[] F = new byte[] { 127, 0x7F };
+            }
+            """;
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.True(result.Changed);
+        Assert.Contains("new global::System.Byte[] { 1, (byte)200, (byte)0xFF }", result.OutputCode);
+        Assert.Contains("= { (byte)128 }", result.OutputCode);
+        Assert.Contains("{ { (byte)130, 1 } }", result.OutputCode);
+        Assert.Contains("[1, (byte)200]", result.OutputCode);
+        // 低值不包装。
+        Assert.Contains("new global::System.Byte[] { 127, 0x7F }", result.OutputCode);
+    }
+
+    [Fact]
+    public void ScalarByteAndOtherElementTypes_NotNarrowed()
+    {
+        var src = """
+            public class C
+            {
+                public byte Scalar = 200;
+                public ushort[] U = new ushort[] { 40000 };
+                public int[] I = new[] { 200, 1 };
+                public byte M(byte b) { return b; }
+                public byte N() { return 255; }
+            }
+            """;
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        // 标量 byte 擦除为 Java int,数值原样正确;ushort[]/int[] 同理不包装。
+        Assert.Contains("Scalar = 200", result.OutputCode);
+        Assert.Contains("new global::System.UInt16[] { 40000 }", result.OutputCode);
+        Assert.Contains("new[] { 200, 1 }", result.OutputCode);
+        Assert.DoesNotContain("(byte)200", result.OutputCode);
+        Assert.DoesNotContain("(byte)40000", result.OutputCode);
     }
 
     // ---- 十进制整数前导零 → 去除(Java 八进制陷阱) ----
