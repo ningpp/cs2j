@@ -46,7 +46,7 @@ public class UnsignedTypeProjectTests
 
             var castsContent = await File.ReadAllTextAsync(
                 Path.Combine(intermediateDir, "UnsignedCasts.cs"));
-            Assert.Contains("(System.UInt32)", castsContent);
+            Assert.Contains("(global::System.UInt32)", castsContent);
             Assert.Contains("Cs2jUnsigned.UnsignedMath.ToInt64UInt32(unchecked((int)x))", castsContent);
             Assert.Contains("Cs2jUnsigned.UnsignedMath.ToByteInt32(x)", castsContent);
 
@@ -58,8 +58,8 @@ public class UnsignedTypeProjectTests
 
             var genericsContent = await File.ReadAllTextAsync(
                 Path.Combine(intermediateDir, "UnsignedGenerics.cs"));
-            Assert.Contains("List<System.UInt32>", genericsContent);
-            Assert.Contains("Dictionary<System.UInt32, System.UInt64>", genericsContent);
+            Assert.Contains("List<global::System.UInt32>", genericsContent);
+            Assert.Contains("Dictionary<global::System.UInt32, global::System.UInt64>", genericsContent);
 
             Assert.True(File.Exists(Path.Combine(intermediateDir, "_Cs2jUnsignedMath.cs")),
                 "Unsigned math helper file not generated");

@@ -46,6 +46,19 @@ internal static class UnsignedMathSyntax
             SyntaxKind.UncheckedExpression, cast);
     }
 
+    /// <summary>
+    /// unchecked((nuint)x)。nuint 是上下文关键字(Roslyn 无 NUIntKeyword),
+    /// 只能按类型名解析。
+    /// </summary>
+    public static CheckedExpressionSyntax UncheckedNUIntCast(ExpressionSyntax operand)
+    {
+        var cast = SyntaxFactory.CastExpression(
+            SyntaxFactory.ParseTypeName("nuint"),
+            EnsureCastOperand(operand));
+        return SyntaxFactory.CheckedExpression(
+            SyntaxKind.UncheckedExpression, cast);
+    }
+
     private static ExpressionSyntax EnsureCastOperand(ExpressionSyntax operand) => operand switch
     {
         IdentifierNameSyntax
@@ -80,6 +93,9 @@ internal static class UnsignedMathSyntax
                 UncheckedCast(SyntaxKind.LongKeyword, operand),
             UnsignedDomain.UInt64 when special == SpecialType.System_UInt32 =>
                 StaticCall("ToInt64UInt32", UncheckedCast(SyntaxKind.IntKeyword, operand)),
+            // nuint 参数即 Java long 的擦除形态,显式转 long 以通过 C# 编译。
+            UnsignedDomain.UInt64 when special == SpecialType.System_UIntPtr =>
+                UncheckedCast(SyntaxKind.LongKeyword, operand),
             _ => operand,
         };
     }
@@ -96,4 +112,37 @@ internal static class UnsignedMathSyntax
         SpecialType.System_UInt64 => UncheckedCast(SyntaxKind.ULongKeyword, value),
         _ => value,
     };
+
+    /// <summary>
+    /// uint/ulong → 浮点/decimal 的无符号转换(C# 里多为隐式,Java 擦除后直接
+    /// widening 会得到负值,必须走 helper)。
+    /// </summary>
+    public static ExpressionSyntax ToFloating(
+        SpecialType source, SpecialType target, ExpressionSyntax operand)
+    {
+        var method = (source, target) switch
+        {
+            (SpecialType.System_UInt32, SpecialType.System_Double) => "ToDoubleUInt32",
+            (SpecialType.System_UInt32, SpecialType.System_Single) => "ToSingleUInt32",
+            (SpecialType.System_UInt32, SpecialType.System_Decimal) => "ToDecimalUInt32",
+            (SpecialType.System_UInt64, SpecialType.System_Double) => "ToDoubleUInt64",
+            (SpecialType.System_UInt64, SpecialType.System_Single) => "ToSingleUInt64",
+            _ => "ToDecimalUInt64",
+        };
+        return StaticCall(method, NormalizeUnsigned(source, operand));
+    }
+
+    /// <summary>
+    /// uint → long/ulong 的隐式零扩展(C# 隐式,Java int→long 符号扩展会出错)。
+    /// </summary>
+    public static ExpressionSyntax ToWide(
+        SpecialType source, SpecialType target, ExpressionSyntax operand)
+        => target == SpecialType.System_Int64
+            ? StaticCall("ToInt64UInt32", NormalizeUnsigned(source, operand))
+            : StaticCall("ToUInt64UInt32", NormalizeUnsigned(source, operand));
+
+    private static ExpressionSyntax NormalizeUnsigned(SpecialType source, ExpressionSyntax operand)
+        => source == SpecialType.System_UInt64
+            ? UncheckedCast(SyntaxKind.LongKeyword, operand)
+            : UncheckedCast(SyntaxKind.IntKeyword, operand);
 }

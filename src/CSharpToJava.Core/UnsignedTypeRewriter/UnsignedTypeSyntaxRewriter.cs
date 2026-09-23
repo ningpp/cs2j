@@ -13,12 +13,14 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
     public bool UsedExtensions { get; private set; }
 
+    // 必须用 global:: 限定:源码若处于形如 dotnet.System.Text 的命名空间内,
+    // 裸 System.Byte 会相对解析到不存在的 dotnet.System.Byte(cs-text 回归)。
     private static readonly Dictionary<SyntaxKind, string> KeywordToFullName = new()
     {
-        { SyntaxKind.ByteKeyword,   "System.Byte"   },
-        { SyntaxKind.UShortKeyword, "System.UInt16" },
-        { SyntaxKind.UIntKeyword,   "System.UInt32" },
-        { SyntaxKind.ULongKeyword,  "System.UInt64" },
+        { SyntaxKind.ByteKeyword,   "global::System.Byte"   },
+        { SyntaxKind.UShortKeyword, "global::System.UInt16" },
+        { SyntaxKind.UIntKeyword,   "global::System.UInt32" },
+        { SyntaxKind.ULongKeyword,  "global::System.UInt64" },
     };
 
     private static readonly Dictionary<SyntaxKind, string> BinaryOpMethod = new()
@@ -214,7 +216,9 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             _ => null,
         };
 
-        return elementType == "byte" || elementType == "System.Byte";
+        return elementType is "byte"
+            or "System.Byte"
+            or "global::System.Byte";
     }
 
     private bool IsSafeAssignmentTarget(ExpressionSyntax target)
@@ -262,6 +266,17 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             return UnsignedDomain.Native;
         }
 
+        // nint/nuint 擦除为 Java long,按 64 位有/无符号域处理(nuint 是无符号)。
+        if (left == SpecialType.System_UIntPtr || right == SpecialType.System_UIntPtr)
+        {
+            return UnsignedDomain.UInt64;
+        }
+
+        if (left == SpecialType.System_IntPtr || right == SpecialType.System_IntPtr)
+        {
+            return UnsignedDomain.Int64;
+        }
+
         if (left == SpecialType.System_UInt64 || right == SpecialType.System_UInt64)
         {
             return UnsignedDomain.UInt64;
@@ -274,9 +289,12 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
         if (left == SpecialType.System_UInt32 || right == SpecialType.System_UInt32)
         {
-            if (left == SpecialType.System_Int32 || right == SpecialType.System_Int32
-                || left == SpecialType.System_Int16 || right == SpecialType.System_Int16
-                || left == SpecialType.System_SByte || right == SpecialType.System_SByte)
+            // 仅当 uint 一侧遇上带符号整型时 C# 才提升到 long;byte/ushort 一侧
+            // 仍按 int 计算(它们提升后就是 int,Java int 算术逐位一致)。
+            var other = left == SpecialType.System_UInt32 ? right.Value : left.Value;
+            if (other is SpecialType.System_Int32
+                or SpecialType.System_Int16
+                or SpecialType.System_SByte)
             {
                 return UnsignedDomain.Int64;
             }
@@ -284,6 +302,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             return UnsignedDomain.UInt32;
         }
 
+        // byte/ushort(以及与 int)的提升结果:int,与 Java int 完全一致,无需重写。
         return UnsignedDomain.Int32;
     }
 
@@ -320,6 +339,8 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         UnsignedDomain.UInt32 => contextSpecial switch
         {
             SpecialType.System_UInt32 => UnsignedMathSyntax.UncheckedCast(SyntaxKind.UIntKeyword, call),
+            // uint 结果喂给 nuint 上下文:还原成 uint(uint→nuint 隐式)。
+            SpecialType.System_UIntPtr => UnsignedMathSyntax.UncheckedCast(SyntaxKind.UIntKeyword, call),
             SpecialType.System_Int64 => UnsignedMathSyntax.StaticCall("ToInt64UInt32", call),
             SpecialType.System_Double => UnsignedMathSyntax.StaticCall("ToDoubleUInt32", call),
             SpecialType.System_Single => UnsignedMathSyntax.StaticCall("ToSingleUInt32", call),
@@ -329,6 +350,8 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         UnsignedDomain.UInt64 => contextSpecial switch
         {
             SpecialType.System_UInt64 => UnsignedMathSyntax.UncheckedCast(SyntaxKind.ULongKeyword, call),
+            // 64 位结果喂给 nuint 上下文:显式转回 nuint(long→nuint 需要强转)。
+            SpecialType.System_UIntPtr => UnsignedMathSyntax.UncheckedNUIntCast(call),
             SpecialType.System_Double => UnsignedMathSyntax.StaticCall("ToDoubleUInt64", call),
             SpecialType.System_Single => UnsignedMathSyntax.StaticCall("ToSingleUInt64", call),
             SpecialType.System_Decimal => UnsignedMathSyntax.StaticCall("ToDecimalUInt64", call),
@@ -395,26 +418,70 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         var rightNaturalSpecial = GetNaturalSpecial(node.Right) ?? SpecialType.None;
         var resultContextSpecial = GetSpecial(node, GetEffectiveType(node));
         var domain = ShouldRewriteBinary(node, isShift, leftNaturalSpecial, rightNaturalSpecial);
+        var floatingWrapSide = GetFloatingWrapSide(node, leftNaturalSpecial, rightNaturalSpecial);
 
         var rewritten = (BinaryExpressionSyntax)base.VisitBinaryExpression(node)!;
-        if (domain == UnsignedDomain.Native)
+
+        // uint/ulong 与浮点/decimal 混算:只把无符号操作数换成无符号浮点值,
+        // 运算本身保持原生(Java 的 double 算术与 C# 一致,符号扩展才是错的)。
+        if (floatingWrapSide != 0)
+        {
+            var left = WithoutLeading(rewritten.Left, out var leftLead);
+            var right = WithoutLeading(rewritten.Right, out var rightLead);
+            ExpressionSyntax result;
+            if (floatingWrapSide == 1)
+            {
+                var target = leftNaturalSpecial == SpecialType.System_UInt64
+                    ? SpecialType.System_UInt64 : SpecialType.System_UInt32;
+                result = SyntaxFactory.BinaryExpression(
+                    rewritten.Kind(),
+                    UnsignedMathSyntax.ToFloating(
+                        target, rightNaturalSpecial, left),
+                    right);
+            }
+            else
+            {
+                var target = rightNaturalSpecial == SpecialType.System_UInt64
+                    ? SpecialType.System_UInt64 : SpecialType.System_UInt32;
+                result = SyntaxFactory.BinaryExpression(
+                    rewritten.Kind(),
+                    left,
+                    UnsignedMathSyntax.ToFloating(
+                        target, leftNaturalSpecial, right));
+            }
+
+            UsedExtensions = true;
+            _stats.OperatorsRewritten++;
+            return UnsignedRewriteAnnotations.Mark(
+                WithHoistedLeading(result, leftLead, rightLead));
+        }
+
+        // Int32 域 = byte/ushort 提升算术,与 Java int 逐位一致,保持原生。
+        if (domain == UnsignedDomain.Native || domain == UnsignedDomain.Int32)
         {
             return rewritten;
         }
+
+        var rewrittenLeft = WithoutLeading(rewritten.Left, out var hoistedLeft);
+        var rewrittenRight = WithoutLeading(rewritten.Right, out var hoistedRight);
 
         UsedExtensions = true;
         _stats.OperatorsRewritten++;
 
         if (isShift)
         {
-            var method = BinaryOpMethod[rewritten.Kind()] + UnsignedMathSyntax.Suffix(domain);
-            return WrapResult(
-                UnsignedMathSyntax.StaticCall(
-                    method,
-                    UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
-                    rewritten.Right),
-                domain,
-                resultContextSpecial);
+            // 左移逐位一致直接内联;右移内联为 C# 11 的 >>>(转换器映射为 Java >>>)。
+            var shiftKind = rewritten.IsKind(SyntaxKind.LeftShiftExpression)
+                ? SyntaxKind.LeftShiftExpression
+                : SyntaxKind.UnsignedRightShiftExpression;
+            var shift = SyntaxFactory.BinaryExpression(
+                shiftKind,
+                UnsignedMathSyntax.Normalize(rewrittenLeft, domain, leftNaturalSpecial),
+                rewrittenRight);
+            return UnsignedRewriteAnnotations.Mark(
+                WithHoistedLeading(
+                    WrapResult(shift, domain, resultContextSpecial),
+                    hoistedLeft, hoistedRight));
         }
 
         if (rewritten.IsKind(SyntaxKind.EqualsExpression)
@@ -426,8 +493,8 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         {
             var compare = UnsignedMathSyntax.StaticCall(
                 "Compare" + UnsignedMathSyntax.Suffix(domain),
-                UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
-                UnsignedMathSyntax.Normalize(rewritten.Right, domain, rightNaturalSpecial));
+                UnsignedMathSyntax.Normalize(rewrittenLeft, domain, leftNaturalSpecial),
+                UnsignedMathSyntax.Normalize(rewrittenRight, domain, rightNaturalSpecial));
             var comparisonKind = rewritten.Kind() switch
             {
                 SyntaxKind.EqualsExpression => SyntaxKind.EqualsExpression,
@@ -437,19 +504,60 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                 SyntaxKind.GreaterThanExpression => SyntaxKind.GreaterThanExpression,
                 _ => SyntaxKind.GreaterThanOrEqualExpression,
             };
-            return SyntaxFactory.BinaryExpression(
-                comparisonKind, compare, LiteralZero());
+            return UnsignedRewriteAnnotations.Mark(
+                WithHoistedLeading(
+                    SyntaxFactory.BinaryExpression(comparisonKind, compare, LiteralZero()),
+                    hoistedLeft, hoistedRight));
         }
 
         var binaryMethod = BinaryOpMethod[rewritten.Kind()] + UnsignedMathSyntax.Suffix(domain);
-        return WrapResult(
-            UnsignedMathSyntax.StaticCall(
-                binaryMethod,
-                UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
-                UnsignedMathSyntax.Normalize(rewritten.Right, domain, rightNaturalSpecial)),
-            domain,
-            resultContextSpecial);
+        return UnsignedRewriteAnnotations.Mark(
+            WithHoistedLeading(
+                WrapResult(
+                    UnsignedMathSyntax.StaticCall(
+                        binaryMethod,
+                        UnsignedMathSyntax.Normalize(rewrittenLeft, domain, leftNaturalSpecial),
+                        UnsignedMathSyntax.Normalize(rewrittenRight, domain, rightNaturalSpecial)),
+                    domain,
+                    resultContextSpecial),
+                hoistedLeft, hoistedRight));
     }
+
+    /// <summary>
+    /// 一侧是浮点/decimal、另一侧是 uint/ulong 时返回需要包 helper 的一侧
+    /// (1=左侧,2=右侧),否则 0。C# 会把无符号一侧按无符号值提升到浮点,
+    /// Java 直接 widening 会按符号扩展。
+    /// </summary>
+    private int GetFloatingWrapSide(
+        BinaryExpressionSyntax node,
+        SpecialType leftNaturalSpecial,
+        SpecialType rightNaturalSpecial)
+    {
+        if (_semanticModel == null
+            || !_options.EnableOperatorRewrite
+            || !IsBinaryOperatorRewriteKind(node.Kind())
+            || node.IsKind(SyntaxKind.LeftShiftExpression)
+            || node.IsKind(SyntaxKind.RightShiftExpression)
+            || IsInCheckedContext(node)
+            || IsInConstantExpressionContext(node))
+        {
+            return 0;
+        }
+
+        bool leftIsFloat = IsFloatingSpecial(leftNaturalSpecial);
+        bool rightIsFloat = IsFloatingSpecial(rightNaturalSpecial);
+        if (leftIsFloat == rightIsFloat)
+        {
+            return 0;
+        }
+
+        var unsignedSide = leftIsFloat ? 2 : 1;
+        var unsignedSpecial = leftIsFloat ? rightNaturalSpecial : leftNaturalSpecial;
+        return IsUnsignedWideSpecial(unsignedSpecial) ? unsignedSide : 0;
+    }
+
+    private static bool IsUnsignedWideSpecial(SpecialType special)
+        => special is SpecialType.System_UInt32 or SpecialType.System_UInt64;
 
     private UnsignedDomain ShouldRewriteBinary(
         BinaryExpressionSyntax node,
@@ -480,8 +588,10 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
         if (isShift)
         {
-            // 移位只由左操作数（提升后）类型决定；int/long 左操作数不重写。
-            return GetShiftDomain(leftNaturalSpecial);
+            // 移位只由左操作数(提升后)类型决定;int/long 左操作数不重写;
+            // byte/ushort 提升为 int 后与 Java int 移位一致,同样不重写。
+            var shiftDomain = GetShiftDomain(leftNaturalSpecial);
+            return shiftDomain == UnsignedDomain.Int32 ? UnsignedDomain.Native : shiftDomain;
         }
 
         if (!IsUnsignedSpecial(leftNaturalSpecial)
@@ -497,19 +607,68 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             || node.IsKind(SyntaxKind.GreaterThanExpression)
             || node.IsKind(SyntaxKind.GreaterThanOrEqualExpression))
         {
-            // 比较的结果是 bool，按操作数自然类型的提升规则归类。
+            // 比较的结果是 bool,按操作数自然类型的提升规则归类;
+            // Int32 说明只有 byte/ushort 参与,Java int 比较一致,保持原生。
+            var compareDomain = GetBinaryDomain(leftNaturalSpecial, rightNaturalSpecial);
+            return compareDomain == UnsignedDomain.Int32 ? UnsignedDomain.Native : compareDomain;
+        }
+
+        // 算术/位运算按 C# 实际结果类型归类(结果类型已经体现常量转换与提升);
+        // Int32 结果意味着提升后是 int,Java int 算术逐位一致,保持原生。
+        var arithmeticDomain = GetResultDomain(_semanticModel.GetTypeInfo(node).Type?.SpecialType);
+        if (arithmeticDomain == UnsignedDomain.Int32)
+        {
+            return UnsignedDomain.Native;
+        }
+
+        // 结果为 nint/nuint 时(如 nuint + uint 的常量提升),GetResultDomain 归为
+        // Native;但 Java 擦除下 uint 一侧会符号扩展,必须按 64 位无符号域重写。
+        if (arithmeticDomain == UnsignedDomain.Native
+            && (IsNativeIntSpecial(leftNaturalSpecial) || IsNativeIntSpecial(rightNaturalSpecial)))
+        {
             return GetBinaryDomain(leftNaturalSpecial, rightNaturalSpecial);
         }
 
-        // 算术/位运算按 C# 实际结果类型归类（结果类型已经体现常量转换与提升）。
-        return GetResultDomain(_semanticModel.GetTypeInfo(node).Type?.SpecialType);
+        return arithmeticDomain;
     }
+
+    private static bool IsNativeIntSpecial(SpecialType special)
+        => special is SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
 
     private static bool IsUnsignedSpecial(SpecialType special)
         => special is SpecialType.System_Byte
             or SpecialType.System_UInt16
             or SpecialType.System_UInt32
             or SpecialType.System_UInt64;
+
+    private static bool IsFloatingSpecial(SpecialType special)
+        => special is SpecialType.System_Single
+            or SpecialType.System_Double
+            or SpecialType.System_Decimal;
+
+    /// <summary>拆下表达式的前导 trivia(可能包含 #if/#endif 指令与禁用文本)。</summary>
+    private static ExpressionSyntax WithoutLeading(ExpressionSyntax expression, out SyntaxTriviaList leading)
+    {
+        leading = expression.GetLeadingTrivia();
+        return leading.Count == 0 ? expression : expression.WithoutLeadingTrivia();
+    }
+
+    /// <summary>
+    /// 把拆下的前导 trivia 重新挂到替换节点的最外层。被改写的表达式若位于语句开头,
+    /// 其首 token 的前导 trivia 携带条件编译指令时,绝不能跟着内层 token 埋进
+    /// 参数列表中间,否则指令会拆散语句(Latin1Utility 的 #if DEBUG 回归)。
+    /// </summary>
+    private static ExpressionSyntax WithHoistedLeading(
+        ExpressionSyntax replacement, params SyntaxTriviaList[] leads)
+    {
+        var total = default(SyntaxTriviaList);
+        foreach (var lead in leads)
+        {
+            total = total.AddRange(lead);
+        }
+
+        return total.Count == 0 ? replacement : replacement.WithLeadingTrivia(total);
+    }
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
@@ -522,7 +681,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             || IsInConstantExpressionContext(node)
             || !IsSafeAssignmentTarget(node.Left))
         {
-            return rewritten;
+            return RewriteSimpleAssignmentConversion(node, rewritten);
         }
 
         var leftType = GetEffectiveType(node.Left);
@@ -530,36 +689,133 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             || IsNullableValueType(leftType)
             || IsEnumType(leftType))
         {
-            return rewritten;
+            return RewriteSimpleAssignmentConversion(node, rewritten);
         }
 
         var isShift = node.IsKind(SyntaxKind.LeftShiftAssignmentExpression)
                       || node.IsKind(SyntaxKind.RightShiftAssignmentExpression);
-        var leftSpecial = GetSpecial(node.Left, leftType);
+        var leftSpecial = GetSpecial(node.Left, leftType)!.Value;
         var rightEffectiveSpecial = GetSpecial(node.Right, GetEffectiveType(node.Right));
         var leftNaturalSpecial = GetNaturalSpecial(node.Left) ?? SpecialType.None;
         var rightNaturalSpecial = GetNaturalSpecial(node.Right) ?? SpecialType.None;
+
+        // 目标是 byte/ushort 时 C# 先按 int 运算再截断:运算部分内联(Java int
+        // 逐位一致),只保留截断 helper。uint/ulong 目标才走无符号 helper。
         var domain = isShift
             ? GetShiftDomain(leftSpecial)
-            : GetBinaryDomain(leftSpecial, rightEffectiveSpecial);
+            : leftSpecial is SpecialType.System_Byte or SpecialType.System_UInt16
+                ? UnsignedDomain.Int32
+                : GetBinaryDomain(leftSpecial, rightEffectiveSpecial);
         if (domain == UnsignedDomain.Native)
         {
             return rewritten;
         }
 
-        var method = CompoundAssignmentMethod[node.Kind()] + UnsignedMathSyntax.Suffix(domain);
-        var call = UnsignedMathSyntax.StaticCall(
-            method,
-            UnsignedMathSyntax.Normalize(rewritten.Left, domain, leftNaturalSpecial),
-            UnsignedMathSyntax.Normalize(rewritten.Right, domain, rightNaturalSpecial));
+        var target = WithoutLeading(rewritten.Left, out var targetLead);
+        var value = WithoutLeading(rewritten.Right, out var valueLead);
+
+        ExpressionSyntax computed;
+        if (isShift)
+        {
+            var shiftKind = node.IsKind(SyntaxKind.LeftShiftAssignmentExpression)
+                ? SyntaxKind.LeftShiftExpression
+                : SyntaxKind.UnsignedRightShiftExpression;
+            var normalizedLeft = domain == UnsignedDomain.Int32
+                ? target
+                : UnsignedMathSyntax.Normalize(target, domain, leftNaturalSpecial);
+            computed = SyntaxFactory.BinaryExpression(shiftKind, normalizedLeft, value);
+        }
+        else if (domain == UnsignedDomain.Int32)
+        {
+            computed = SyntaxFactory.BinaryExpression(
+                CompoundToBinaryKind(node.Kind()), target, value);
+        }
+        else
+        {
+            var method = CompoundAssignmentMethod[node.Kind()] + UnsignedMathSyntax.Suffix(domain);
+            computed = UnsignedMathSyntax.StaticCall(
+                method,
+                UnsignedMathSyntax.Normalize(target, domain, leftNaturalSpecial),
+                UnsignedMathSyntax.Normalize(value, domain, rightNaturalSpecial));
+        }
 
         UsedExtensions = true;
         _stats.OperatorsRewritten++;
 
-        return SyntaxFactory.AssignmentExpression(
-            SyntaxKind.SimpleAssignmentExpression,
-            rewritten.Left,
-            UnsignedMathSyntax.WrapTarget(leftType!.SpecialType, call));
+        return UnsignedRewriteAnnotations.Mark(
+            WithHoistedLeading(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    target,
+                    UnsignedMathSyntax.WrapTarget(leftSpecial, computed)),
+                targetLead, valueLead));
+    }
+
+    private static SyntaxKind CompoundToBinaryKind(SyntaxKind kind) => kind switch
+    {
+        SyntaxKind.AddAssignmentExpression => SyntaxKind.AddExpression,
+        SyntaxKind.SubtractAssignmentExpression => SyntaxKind.SubtractExpression,
+        SyntaxKind.MultiplyAssignmentExpression => SyntaxKind.MultiplyExpression,
+        SyntaxKind.DivideAssignmentExpression => SyntaxKind.DivideExpression,
+        SyntaxKind.ModuloAssignmentExpression => SyntaxKind.ModuloExpression,
+        SyntaxKind.AndAssignmentExpression => SyntaxKind.BitwiseAndExpression,
+        SyntaxKind.OrAssignmentExpression => SyntaxKind.BitwiseOrExpression,
+        SyntaxKind.ExclusiveOrAssignmentExpression => SyntaxKind.ExclusiveOrExpression,
+        _ => SyntaxKind.AddExpression,
+    };
+
+    /// <summary>
+    /// 简单赋值的隐式无符号拓宽:double d = u / long l = u / ulong ul = u。
+    /// C# 按无符号值提升,Java 擦除后的 widening 是符号扩展,必须换成 helper。
+    /// 二元/强转右侧已由各自路径按结果上下文转换,这里不再重复包装。
+    /// </summary>
+    private ExpressionSyntax? RewriteSimpleAssignmentConversion(
+        AssignmentExpressionSyntax node, AssignmentExpressionSyntax rewritten)
+    {
+        if (_semanticModel == null
+            || !_options.EnableCastRewrite
+            || !node.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            || node.Right is BinaryExpressionSyntax or CastExpressionSyntax
+            || IsInCheckedContext(node)
+            || IsInConstantExpressionContext(node))
+        {
+            return rewritten;
+        }
+
+        var valueNatural = GetNaturalSpecial(node.Right);
+        if (!IsUnsignedWideSpecial(valueNatural ?? SpecialType.None))
+        {
+            return rewritten;
+        }
+
+        var targetSpecial = GetSpecial(node.Left, GetEffectiveType(node.Left));
+        if (targetSpecial == null || targetSpecial == valueNatural)
+        {
+            return rewritten;
+        }
+
+        ExpressionSyntax converted;
+        if (IsFloatingSpecial(targetSpecial.Value))
+        {
+            converted = UnsignedMathSyntax.ToFloating(valueNatural!.Value, targetSpecial.Value, rewritten.Right);
+        }
+        else if (targetSpecial is SpecialType.System_Int64 or SpecialType.System_UInt64
+                 && valueNatural == SpecialType.System_UInt32)
+        {
+            converted = UnsignedMathSyntax.ToWide(valueNatural.Value, targetSpecial.Value, rewritten.Right);
+        }
+        else
+        {
+            return rewritten;
+        }
+
+        UsedExtensions = true;
+        _stats.CastsRewritten++;
+        return UnsignedRewriteAnnotations.Mark(
+            SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                rewritten.Left,
+                converted));
     }
 
     public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
@@ -603,22 +859,24 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
             var notSpecial = GetNaturalSpecial(node.Operand) ?? SpecialType.None;
             var domain = GetUnaryDomain(notSpecial);
-            if (domain == UnsignedDomain.Native)
+            // Int32 域 = byte/ushort 的 ~:提升为 int 后与 Java ~ 逐位一致。
+            if (domain == UnsignedDomain.Native || domain == UnsignedDomain.Int32)
             {
                 return notRewritten;
             }
 
+            var operand = WithoutLeading(notRewritten.Operand, out var operandLead);
             UsedExtensions = true;
             _stats.OperatorsRewritten++;
-            return WrapResult(
-                UnsignedMathSyntax.StaticCall(
-                    "Not" + UnsignedMathSyntax.Suffix(domain),
-                    UnsignedMathSyntax.Normalize(
-                        notRewritten.Operand,
+            return UnsignedRewriteAnnotations.Mark(
+                WithHoistedLeading(
+                    WrapResult(
+                        UnsignedMathSyntax.StaticCall(
+                            "Not" + UnsignedMathSyntax.Suffix(domain),
+                            UnsignedMathSyntax.Normalize(operand, domain, notSpecial)),
                         domain,
-                        notSpecial)),
-                domain,
-                GetSpecial(node, GetEffectiveType(node)));
+                        GetSpecial(node, GetEffectiveType(node))),
+                    operandLead));
         }
 
         var method = node.Kind() switch
@@ -649,21 +907,27 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             return rewritten;
         }
 
-        var call = UnsignedMathSyntax.StaticCall(
-            method + UnsignedMathSyntax.Suffix(prefixDomain),
-            UnsignedMathSyntax.Normalize(
-                rewritten.Operand,
-                prefixDomain,
-                operandSpecial),
-            LiteralOne());
+        var prefixOperand = WithoutLeading(rewritten.Operand, out var prefixLead);
+        ExpressionSyntax value = prefixDomain == UnsignedDomain.Int32
+            ? SyntaxFactory.BinaryExpression(
+                method == "Add" ? SyntaxKind.AddExpression : SyntaxKind.SubtractExpression,
+                prefixOperand,
+                LiteralOne())
+            : UnsignedMathSyntax.StaticCall(
+                method + UnsignedMathSyntax.Suffix(prefixDomain),
+                UnsignedMathSyntax.Normalize(prefixOperand, prefixDomain, operandSpecial),
+                LiteralOne());
 
         UsedExtensions = true;
         _stats.OperatorsRewritten++;
 
-        return SyntaxFactory.AssignmentExpression(
-            SyntaxKind.SimpleAssignmentExpression,
-            rewritten.Operand,
-            UnsignedMathSyntax.WrapTarget(operandSpecial, call));
+        return UnsignedRewriteAnnotations.Mark(
+            WithHoistedLeading(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    prefixOperand,
+                    UnsignedMathSyntax.WrapTarget(operandSpecial, value)),
+                prefixLead));
     }
 
     public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
@@ -696,10 +960,12 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         }
         if (!IsIntegralSpecial(sourceType.SpecialType))
         {
-            // object/字符串等非整型源（如拆箱 (byte)objectValue）保持原生转换。
+            // object/字符串等非整型源(如拆箱 (byte)objectValue)保持原生转换。
             return FixQualifiedCastParens(rewritten);
         }
-        var replacement = GetCastReplacement(targetType, sourceType, rewritten, isByteArrayInitializerElement);
+
+        var operand = WithoutLeading(rewritten.Expression, out var operandLead);
+        var replacement = GetCastReplacement(targetType, sourceType, operand, isByteArrayInitializerElement);
         if (replacement == null)
         {
             return FixQualifiedCastParens(rewritten);
@@ -707,7 +973,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
         UsedExtensions = true;
         _stats.CastsRewritten++;
-        return replacement;
+        return UnsignedRewriteAnnotations.Mark(WithHoistedLeading(replacement, operandLead));
     }
 
     private static ExpressionSyntax FixQualifiedCastParens(CastExpressionSyntax rewritten)
@@ -729,7 +995,7 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
     private ExpressionSyntax? GetCastReplacement(
         ITypeSymbol? targetType,
         ITypeSymbol? sourceType,
-        CastExpressionSyntax rewritten,
+        ExpressionSyntax operand,
         bool isByteArrayInitializerElement)
     {
         if (targetType == null || sourceType == null)
@@ -739,7 +1005,6 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
 
         var target = targetType.SpecialType;
         var source = sourceType.SpecialType;
-        var operand = rewritten.Expression;
 
         if (target is SpecialType.System_Byte or SpecialType.System_UInt16)
         {
@@ -772,6 +1037,15 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
             }
 
             return call;
+        }
+
+        if (target == SpecialType.System_UIntPtr && source == SpecialType.System_UInt32)
+        {
+            // Java 擦除下 uint→long 是符号扩展;先零扩展再转 nuint。
+            return UnsignedMathSyntax.UncheckedNUIntCast(
+                UnsignedMathSyntax.StaticCall(
+                    "ToUInt64UInt32",
+                    UnsignedMathSyntax.UncheckedCast(SyntaxKind.IntKeyword, operand)));
         }
 
         if (target == SpecialType.System_Int64 && source == SpecialType.System_UInt32)
@@ -827,6 +1101,87 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
         return null;
     }
 
+    /// <summary>
+    /// 局部/字段声明初始化器的隐式无符号拓宽:double d = u; long l = u;
+    /// ulong ul = u;。二元/强转初始化器已由各自路径处理,这里跳过。
+    /// </summary>
+    public override SyntaxNode? VisitVariableDeclarator(VariableDeclaratorSyntax node)
+    {
+        var rewritten = (VariableDeclaratorSyntax)base.VisitVariableDeclarator(node)!;
+        // 语义信息只能查原始树上的节点;构建结果才用 rewritten。
+        if (_semanticModel == null
+            || !_options.EnableCastRewrite
+            || node.Initializer?.Value is not ExpressionSyntax originalValue
+            || originalValue is BinaryExpressionSyntax or CastExpressionSyntax
+            || IsInCheckedContext(node)
+            || IsInConstantExpressionContext(node)
+            || IsInsideLambdaOrLocalFunction(node))
+        {
+            return rewritten;
+        }
+
+        var valueNatural = GetNaturalSpecial(originalValue);
+        if (!IsUnsignedWideSpecial(valueNatural ?? SpecialType.None))
+        {
+            return rewritten;
+        }
+
+        var declaredType = _semanticModel.GetDeclaredSymbol(node) switch
+        {
+            ILocalSymbol local => local.Type,
+            IFieldSymbol field => field.Type,
+            _ => null,
+        };
+        var declaredSpecial = declaredType?.SpecialType;
+        if (declaredSpecial == null || declaredSpecial == valueNatural)
+        {
+            return rewritten;
+        }
+
+        ExpressionSyntax converted;
+        if (IsFloatingSpecial(declaredSpecial.Value))
+        {
+            converted = UnsignedMathSyntax.ToFloating(valueNatural!.Value, declaredSpecial.Value, rewritten.Initializer!.Value);
+        }
+        else if (declaredSpecial is SpecialType.System_Int64 or SpecialType.System_UInt64
+                 && valueNatural == SpecialType.System_UInt32)
+        {
+            converted = UnsignedMathSyntax.ToWide(valueNatural.Value, declaredSpecial.Value, rewritten.Initializer!.Value);
+        }
+        else if (declaredSpecial == SpecialType.System_UIntPtr
+                 && valueNatural == SpecialType.System_UInt32)
+        {
+            // nuint x = u; Java 擦除下 int→long 符号扩展,必须零扩展。
+            converted = UnsignedMathSyntax.UncheckedNUIntCast(
+                UnsignedMathSyntax.StaticCall(
+                    "ToUInt64UInt32",
+                    UnsignedMathSyntax.UncheckedCast(SyntaxKind.IntKeyword, rewritten.Initializer!.Value)));
+        }
+        else
+        {
+            return rewritten;
+        }
+
+        UsedExtensions = true;
+        _stats.CastsRewritten++;
+        return UnsignedRewriteAnnotations.Mark(
+            rewritten.WithInitializer(
+                SyntaxFactory.EqualsValueClause(converted)));
+    }
+
+    private static bool IsInsideLambdaOrLocalFunction(SyntaxNode node)
+    {
+        for (SyntaxNode? current = node.Parent; current != null; current = current.Parent)
+        {
+            if (current is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         if (_semanticModel != null && _options.EnableOperatorRewrite
@@ -847,12 +1202,15 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                     var domain = argType == SpecialType.System_UInt64
                         ? UnsignedDomain.UInt64 : UnsignedDomain.UInt32;
                     var visitedArg = (ExpressionSyntax)Visit(node.ArgumentList.Arguments[0].Expression)!;
+                    var strippedArg = WithoutLeading(visitedArg, out var argLead);
                     var normalizedArg = UnsignedMathSyntax.Normalize(
-                        visitedArg, domain, argType.Value);
+                        strippedArg, domain, argType.Value);
                     var method = "ToString" + UnsignedMathSyntax.Suffix(domain);
                     UsedExtensions = true;
                     _stats.OperatorsRewritten++;
-                    return UnsignedMathSyntax.StaticCall(method, normalizedArg);
+                    return UnsignedRewriteAnnotations.Mark(
+                        WithHoistedLeading(
+                            UnsignedMathSyntax.StaticCall(method, normalizedArg), argLead));
                 }
             }
 
@@ -869,15 +1227,18 @@ internal sealed class UnsignedTypeSyntaxRewriter : CSharpSyntaxRewriter
                     var domain = receiverType == SpecialType.System_UInt64
                         ? UnsignedDomain.UInt64 : UnsignedDomain.UInt32;
                     var visitedReceiver = (ExpressionSyntax)Visit(mae.Expression)!;
+                    var strippedReceiver = WithoutLeading(visitedReceiver, out var receiverLead);
                     var normalizedReceiver = UnsignedMathSyntax.Normalize(
-                        visitedReceiver, domain, receiverType.Value);
+                        strippedReceiver, domain, receiverType.Value);
                     var method = "ToString" + UnsignedMathSyntax.Suffix(domain);
                     var visitedArgs = node.ArgumentList.Arguments
                         .Select(a => (ExpressionSyntax)Visit(a.Expression)!);
                     var allArgs = new[] { normalizedReceiver }.Concat(visitedArgs).ToArray();
                     UsedExtensions = true;
                     _stats.OperatorsRewritten++;
-                    return UnsignedMathSyntax.StaticCall(method, allArgs);
+                    return UnsignedRewriteAnnotations.Mark(
+                        WithHoistedLeading(
+                            UnsignedMathSyntax.StaticCall(method, allArgs), receiverLead));
                 }
             }
         }

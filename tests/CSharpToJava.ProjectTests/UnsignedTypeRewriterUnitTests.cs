@@ -63,10 +63,10 @@ public class UnsignedTypeRewriterUnitTests
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
         Assert.True(result.Changed);
-        Assert.Contains("System.UInt32 Value", result.OutputCode);
-        Assert.Contains("System.Byte B", result.OutputCode);
-        Assert.Contains("System.UInt16 S", result.OutputCode);
-        Assert.Contains("System.UInt64 L", result.OutputCode);
+        Assert.Contains("global::System.UInt32 Value", result.OutputCode);
+        Assert.Contains("global::System.Byte B", result.OutputCode);
+        Assert.Contains("global::System.UInt16 S", result.OutputCode);
+        Assert.Contains("global::System.UInt64 L", result.OutputCode);
     }
 
     [Fact]
@@ -80,21 +80,25 @@ public class UnsignedTypeRewriterUnitTests
     }
 
     [Fact]
-    public void ByteAddition_PromotesToInt32Domain()
+    public void ByteAddition_StaysNative()
     {
+        // byte+byte promotes to int in both C# and Java; no helper needed.
         var src = "public class C { public int Add(byte a, byte b) { return a + b; } }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains("Cs2jUnsigned.UnsignedMath.AddInt32(a, b)", result.OutputCode);
+        Assert.Contains("return a + b;", result.OutputCode);
+        Assert.DoesNotContain("UnsignedMath", result.OutputCode);
     }
 
     [Fact]
-    public void MixedUShortPlusInt_UsesInt32Domain()
+    public void MixedUShortPlusInt_StaysNative()
     {
+        // ushort+int promotes to int in both C# and Java; no helper needed.
         var src = "public class C { public int M(ushort s, int i) { return s + i; } }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains("Cs2jUnsigned.UnsignedMath.AddInt32(s, i)", result.OutputCode);
+        Assert.Contains("return s + i;", result.OutputCode);
+        Assert.DoesNotContain("UnsignedMath", result.OutputCode);
     }
 
     [Fact]
@@ -233,13 +237,13 @@ public class UnsignedTypeRewriterUnitTests
     }
 
     [Fact]
-    public void ByteCompoundAssignment_WrapsThroughToByte()
+    public void ByteCompoundAssignment_InlinesArithmeticKeepsTruncation()
     {
         var src = "public class C { public void M(ref byte b) { b += 5; } }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
         Assert.Contains(
-            "b = Cs2jUnsigned.UnsignedMath.ToByteInt32(Cs2jUnsigned.UnsignedMath.AddInt32(b, 5))",
+            "b = Cs2jUnsigned.UnsignedMath.ToByteInt32(b + 5)",
             result.OutputCode);
     }
 
@@ -255,34 +259,52 @@ public class UnsignedTypeRewriterUnitTests
     }
 
     [Fact]
-    public void ByteIncrement_WrapsThroughToByte()
+    public void ByteIncrement_InlinesArithmeticKeepsTruncation()
     {
         var src = "public class C { public void M(byte b) { b++; } }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
         Assert.Contains(
-            "b = Cs2jUnsigned.UnsignedMath.ToByteInt32(Cs2jUnsigned.UnsignedMath.AddInt32(b, 1))",
+            "b = Cs2jUnsigned.UnsignedMath.ToByteInt32(b + 1)",
             result.OutputCode);
     }
 
     [Fact]
-    public void ULongShift_UsesLogicalRightShift()
+    public void ULongShiftRight_InlinesUnsignedShift()
     {
         var src = "public class C { public ulong M(ulong a, int n) { return a >> n; } }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains(
-            "Cs2jUnsigned.UnsignedMath.RightShiftUInt64(unchecked((long)a), n)",
-            result.OutputCode);
+        Assert.Contains("unchecked((long)a) >>> n", result.OutputCode);
+        Assert.DoesNotContain("RightShiftUInt64", result.OutputCode);
     }
 
     [Fact]
-    public void BitwiseNotByte_UsesNotInt32()
+    public void UIntShiftRight_InlinesUnsignedShift()
+    {
+        var src = "public class C { public uint M(uint a, int n) { return a >> n; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains("unchecked((int)a) >>> n", result.OutputCode);
+    }
+
+    [Fact]
+    public void CompoundShiftAssignment_InlinesShift()
+    {
+        var src = "public class C { public void M(ref uint a, int n) { a >>= n; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains("a = unchecked((uint)(unchecked((int)a) >>> n))", result.OutputCode);
+    }
+
+    [Fact]
+    public void BitwiseNotByte_StaysNative()
     {
         var src = "public class C { public int M(byte b) { return ~b; } }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains("Cs2jUnsigned.UnsignedMath.NotInt32(b)", result.OutputCode);
+        Assert.Contains("return ~b;", result.OutputCode);
+        Assert.DoesNotContain("UnsignedMath", result.OutputCode);
     }
 
     [Fact]
@@ -343,7 +365,7 @@ public class UnsignedTypeRewriterUnitTests
         var src = "public class C { private const ulong Mask = (0x07ul | 0x06ul << 8 | 0x05ul << 16 | 0x04ul << 24 | 0x03ul << 32 | 0x02ul << 40 | 0x01ul << 48) + 1; }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains("const System.UInt64 Mask", result.OutputCode);
+        Assert.Contains("const global::System.UInt64 Mask", result.OutputCode);
         Assert.DoesNotContain(".Or(", result.OutputCode);
         Assert.DoesNotContain(".LeftShift(", result.OutputCode);
         Assert.DoesNotContain(".Add(1)", result.OutputCode);
@@ -355,7 +377,7 @@ public class UnsignedTypeRewriterUnitTests
         var src = "public class C { private const uint U = 0xFFFFFFFFu; private const int I = (int)U; }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains("const System.UInt32 U", result.OutputCode);
+        Assert.Contains("const global::System.UInt32 U", result.OutputCode);
         Assert.DoesNotContain("U.ToInt32()", result.OutputCode);
         Assert.Contains("(int)U", result.OutputCode);
     }
@@ -376,8 +398,8 @@ public class UnsignedTypeRewriterUnitTests
         var src = "public class C { private const byte Invalid = unchecked((byte)-1); }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains("unchecked((System.Byte)(-1))", result.OutputCode);
-        Assert.DoesNotContain("(System.Byte)-1", result.OutputCode);
+        Assert.Contains("unchecked((global::System.Byte)(-1))", result.OutputCode);
+        Assert.DoesNotContain("(global::System.Byte)-1", result.OutputCode);
     }
 
     [Fact]
@@ -405,7 +427,7 @@ public class UnsignedTypeRewriterUnitTests
         var src = "public enum Flag : uint { None = 0, All = 0xFFFFFFFFu }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains("enum Flag : System.UInt32", result.OutputCode);
+        Assert.Contains("enum Flag : global::System.UInt32", result.OutputCode);
     }
 
     [Fact]
@@ -414,7 +436,7 @@ public class UnsignedTypeRewriterUnitTests
         var src = "public class C { public ulong Max() { return uint.MaxValue; } }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains("System.UInt32.MaxValue", result.OutputCode);
+        Assert.Contains("global::System.UInt32.MaxValue", result.OutputCode);
     }
 
     [Fact]
@@ -423,6 +445,110 @@ public class UnsignedTypeRewriterUnitTests
         var src = "public class C { public uint? maybe; }";
         var (tree, model) = ParseWithSemantics(src);
         var result = new UnsignedTypeRewriter().Rewrite(src, model);
-        Assert.Contains("System.UInt32? maybe", result.OutputCode);
+        Assert.Contains("global::System.UInt32? maybe", result.OutputCode);
+    }
+
+    [Fact]
+    public void CompoundAssignment_AcrossIfDirective_DirectivesStayAtStatementLevel()
+    {
+        // 回归:重写 bufferLength += (nuint)pOriginalBuffer 时,语句首 token 的
+        // 前导 trivia 含未激活的 #if DEBUG 块,曾被打散进参数列表中间导致
+        // 中间 C# 无法编译(cs-text Latin1Utility)。
+        var src = """
+            public unsafe class C
+            {
+                public static void M(char* pBuffer, char* pOriginalBuffer, ref uint bufferLength)
+                {
+            #if DEBUG
+                    long numCharsRead = pBuffer - pOriginalBuffer;
+                    System.Diagnostics.Debug.Assert(numCharsRead >= 0);
+            #endif
+
+                    // Adjust remaining buffer length.
+
+                    bufferLength += (uint)(nuint)pOriginalBuffer;
+                }
+            }
+            """;
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.True(result.Changed, result.OutputCode);
+
+        // 重写后的语句必须完整,#if/#endif 仍在语句边界上。
+        var assignmentIndex = result.OutputCode.IndexOf(
+            "bufferLength = unchecked((uint)Cs2jUnsigned.UnsignedMath.AddUInt32(",
+            StringComparison.Ordinal);
+        Assert.True(assignmentIndex > 0, result.OutputCode);
+        var endifIndex = result.OutputCode.IndexOf("#endif", StringComparison.Ordinal);
+        Assert.True(endifIndex >= 0 && endifIndex < assignmentIndex, result.OutputCode);
+
+        var reparsed = CSharpSyntaxTree.ParseText(result.OutputCode);
+        Assert.Empty(reparsed.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void PostfixInsideIfStatement_NotHoisted()
+    {
+        // 回归:条件执行的语句里 i++ 不能拆出临时变量,否则条件不满足也会自增。
+        var src = "public class C { public int M(uint i, bool c) { int x = 0; if (c) { x = (int)i++; } return x; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.DoesNotContain("__cs2j_unsigned_", result.OutputCode);
+        Assert.Contains("i++", result.OutputCode);
+    }
+
+    [Fact]
+    public void ImplicitWidening_UIntToLong_UsesHelper()
+    {
+        var src = "public class C { public long M(uint u) { long l = u; return l; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains(
+            "long l = Cs2jUnsigned.UnsignedMath.ToInt64UInt32(unchecked((int)u))",
+            result.OutputCode);
+    }
+
+    [Fact]
+    public void ImplicitWidening_UIntToDoubleAssignment_UsesHelper()
+    {
+        var src = "public class C { public double M(uint u, double d) { d = u; return d; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains(
+            "d = Cs2jUnsigned.UnsignedMath.ToDoubleUInt32(unchecked((int)u))",
+            result.OutputCode);
+    }
+
+    [Fact]
+    public void MixedUIntAndDouble_Comparison_WrapsUnsignedOperand()
+    {
+        var src = "public class C { public bool M(uint u) { return u > 0.5; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        Assert.Contains(
+            "Cs2jUnsigned.UnsignedMath.ToDoubleUInt32(unchecked((int)u)) > 0.5",
+            result.OutputCode);
+    }
+
+    [Fact]
+    public void HelperFile_UsesConverterSafeUnsignedPatterns()
+    {
+        var content = UnsignedMathFileContent.Generate();
+        // (ulong) 强转算术会被 Java 转换器擦成有符号,必须换成 >>> / JDK 算法。
+        Assert.DoesNotContain("(ulong)a / (ulong)b", content);
+        Assert.DoesNotContain("(ulong)a % (ulong)b", content);
+        Assert.DoesNotContain("(ulong)a >>", content);
+        Assert.Contains("a >>> (n & 63)", content);
+        Assert.Contains("double.Parse(((ulong)v).ToString", content);
+    }
+
+    [Fact]
+    public void RewrittenOutput_AlwaysParsesCleanly()
+    {
+        var src = "public class C { public uint M(uint a, uint b) { uint r = 0; r += a; r -= b; r *= 2u; r /= 3u; r <<= 1; r >>= 1; return r++; } }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new UnsignedTypeRewriter().Rewrite(src, model);
+        var reparsed = CSharpSyntaxTree.ParseText(result.OutputCode);
+        Assert.Empty(reparsed.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
     }
 }

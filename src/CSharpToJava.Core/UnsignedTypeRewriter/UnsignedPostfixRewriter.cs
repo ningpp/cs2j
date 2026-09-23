@@ -31,11 +31,13 @@ internal sealed class UnsignedPostfixRewriter : CSharpSyntaxRewriter
             var postfixes = statement.DescendantNodes()
                 .OfType<PostfixUnaryExpressionSyntax>()
                 .Where(UnsignedPostfixAnnotations.Has)
-                .Where(p => !IsInsideNestedBlock(p, node) && !IsInsideLoopBody(p))
                 .OrderBy(p => p.SpanStart)
                 .ToList();
 
-            if (postfixes.Count == 0)
+            // 只有无条件执行的语句种类才允许把自增拆成临时变量 + 赋值;
+            // if/while/switch 等条件语句里的 i++ 一旦提前拆出,条件不满足时
+            // 也会执行自增,直接改变语义(保持原生 i++,Java 侧逐位一致)。
+            if (postfixes.Count == 0 || !IsUnconditionallyExecutedStatement(statement))
             {
                 newStatements.Add(statement);
                 continue;
@@ -59,20 +61,30 @@ internal sealed class UnsignedPostfixRewriter : CSharpSyntaxRewriter
                     continue;
                 }
 
-                var method = postfix.IsKind(SyntaxKind.PostIncrementExpression) ? "Add" : "Subtract";
-                var operand = postfix.Operand;
-                var call = UnsignedMathSyntax.StaticCall(
-                    method + UnsignedMathSyntax.Suffix(domain),
-                    UnsignedMathSyntax.Normalize(operand, domain, target),
-                    LiteralOne());
-                var assignment = SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.SimpleAssignmentExpression,
-                    operand.WithoutTrivia(),
-                    UnsignedMathSyntax.WrapTarget(target, call));
+                var isIncrement = postfix.IsKind(SyntaxKind.PostIncrementExpression);
+                var operand = postfix.Operand.WithoutTrivia();
+                // 语句开头的前导 trivia(含 #if/#endif)必须跟着首个语句走,
+                // 否则条件编译指令会丢失或失衡。
+                var statementLeading = postfix.GetLeadingTrivia();
+
+                ExpressionSyntax value = domain == UnsignedDomain.Int32
+                    ? SyntaxFactory.BinaryExpression(
+                        isIncrement ? SyntaxKind.AddExpression : SyntaxKind.SubtractExpression,
+                        operand,
+                        LiteralOne())
+                    : UnsignedMathSyntax.StaticCall(
+                        (isIncrement ? "Add" : "Subtract") + UnsignedMathSyntax.Suffix(domain),
+                        UnsignedMathSyntax.Normalize(operand, domain, target),
+                        LiteralOne());
+                var assignment = UnsignedRewriteAnnotations.Mark(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        operand,
+                        UnsignedMathSyntax.WrapTarget(target, value)));
 
                 if (IsStandaloneExpressionStatement(postfix))
                 {
-                    replacements[postfix] = assignment;
+                    replacements[postfix] = WithLeading(assignment, statementLeading);
                 }
                 else
                 {
@@ -85,10 +97,22 @@ internal sealed class UnsignedPostfixRewriter : CSharpSyntaxRewriter
                             SyntaxFactory.IdentifierName("var"),
                             SyntaxFactory.SingletonSeparatedList(
                                 SyntaxFactory.VariableDeclarator(tempName)
-                                    .WithInitializer(SyntaxFactory.EqualsValueClause(operand.WithoutTrivia())))));
+                                    .WithInitializer(SyntaxFactory.EqualsValueClause(operand)))));
 
-                    newStatements.Add(tempDeclaration);
-                    newStatements.Add(SyntaxFactory.ExpressionStatement(assignment));
+                    var indent = statementLeading.LastOrDefault(
+                        t => t.IsKind(SyntaxKind.WhitespaceTrivia));
+                    var assignmentLeading = SyntaxFactory.TriviaList(
+                        SyntaxFactory.CarriageReturnLineFeed);
+                    if (!indent.IsKind(SyntaxKind.None))
+                    {
+                        assignmentLeading = assignmentLeading.Add(indent);
+                    }
+
+                    newStatements.Add(WithLeading(
+                        UnsignedRewriteAnnotations.Mark(tempDeclaration), statementLeading));
+                    newStatements.Add(SyntaxFactory.ExpressionStatement(assignment)
+                        .WithLeadingTrivia(assignmentLeading)
+                        .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed));
                 }
 
                 UsedExtensions = true;
@@ -98,7 +122,7 @@ internal sealed class UnsignedPostfixRewriter : CSharpSyntaxRewriter
             current = current.ReplaceNodes(
                 replacements.Keys,
                 (original, _) => replacements[original]);
-            newStatements.Add(current);
+            newStatements.Add(UnsignedRewriteAnnotations.Mark(current));
         }
 
         return changed
@@ -106,56 +130,28 @@ internal sealed class UnsignedPostfixRewriter : CSharpSyntaxRewriter
             : node;
     }
 
+    private static StatementSyntax WithLeading(StatementSyntax statement, SyntaxTriviaList leading)
+        => leading.Count == 0 ? statement : statement.WithLeadingTrivia(leading);
+
+    private static ExpressionSyntax WithLeading(ExpressionSyntax expression, SyntaxTriviaList leading)
+        => leading.Count == 0 ? expression : expression.WithLeadingTrivia(leading);
+
+    /// <summary>语句到达即无条件执行(其内表达式的求值不被任何条件跳过)。</summary>
+    private static bool IsUnconditionallyExecutedStatement(StatementSyntax statement) => statement switch
+    {
+        ExpressionStatementSyntax => true,
+        LocalDeclarationStatementSyntax => true,
+        ReturnStatementSyntax => true,
+        ThrowStatementSyntax => true,
+        YieldStatementSyntax => true,
+        _ => false,
+    };
+
     private static bool IsStandaloneExpressionStatement(PostfixUnaryExpressionSyntax node)
     {
         var parent = node.Parent;
         return parent is ExpressionStatementSyntax expressionStatement
                && expressionStatement.Expression == node;
-    }
-
-    private static bool IsInsideNestedBlock(SyntaxNode node, BlockSyntax block)
-    {
-        for (SyntaxNode? current = node.Parent; current != null && current != block; current = current.Parent)
-        {
-            if (current is BlockSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsInsideLoopBody(SyntaxNode node)
-    {
-        for (SyntaxNode? current = node.Parent; current != null; current = current.Parent)
-        {
-            if (current is WhileStatementSyntax whileStatement
-                && whileStatement.Statement.Span.Contains(node.Span))
-            {
-                return true;
-            }
-
-            if (current is DoStatementSyntax doStatement
-                && doStatement.Statement.Span.Contains(node.Span))
-            {
-                return true;
-            }
-
-            if (current is ForStatementSyntax forStatement
-                && forStatement.Statement.Span.Contains(node.Span))
-            {
-                return true;
-            }
-
-            if (current is ForEachStatementSyntax forEachStatement
-                && forEachStatement.Statement.Span.Contains(node.Span))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static ExpressionSyntax LiteralOne()

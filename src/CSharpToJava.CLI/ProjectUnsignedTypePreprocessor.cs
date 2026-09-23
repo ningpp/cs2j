@@ -147,7 +147,13 @@ internal static class ProjectUnsignedTypePreprocessor
             else
             {
                 rewrittenSourceFiles.Add(sourceFile);
-                await File.WriteAllTextAsync(destinationFile, result.OutputCode, new System.Text.UTF8Encoding(false));
+                // 保留原文件的 BOM,让重写文件与原文件的 diff 只包含真实改动。
+                await File.WriteAllTextAsync(
+                    destinationFile,
+                    result.OutputCode,
+                    FileStartsWithBom(sourceFile)
+                        ? new System.Text.UTF8Encoding(true)
+                        : new System.Text.UTF8Encoding(false));
             }
 
             if (request.Verbose)
@@ -277,6 +283,14 @@ internal static class ProjectUnsignedTypePreprocessor
             {
             }
         }
+    }
+
+    private static bool FileStartsWithBom(string path)
+    {
+        using var stream = File.OpenRead(path);
+        Span<byte> prefix = stackalloc byte[3];
+        var read = stream.Read(prefix);
+        return read >= 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF;
     }
 
     private static void MergeStatistics(UnsignedTypeRewriterStatistics target, UnsignedTypeRewriterStatistics source)
