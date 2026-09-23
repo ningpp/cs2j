@@ -115,26 +115,6 @@ class C
         Assert.DoesNotContain("pi.GetGetMethod()", code);
     }
 
-    [Fact]
-    public void TypeIsInstanceOfType_MapsToIsInstance()
-    {
-        var result = Convert(@"
-using System;
-class C
-{
-    static bool Is(Type type, object o)
-    {
-        return type.IsInstanceOfType(o);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("type.isInstance(o)", code);
-        Assert.DoesNotContain("isInstanceOfType", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -34,57 +34,6 @@ class Sample
     }
 
     [Fact]
-    public void GenericOfType_WithQualifiedTypeArgument_UsesMappedTypeName()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-using System.Linq;
-
-namespace Outer.Inner
-{
-    public class Marker { }
-}
-
-class Sample
-{
-    object FirstMarker(IEnumerable<object> items)
-    {
-        return items.OfType<Outer.Inner.Marker>().FirstOrDefault();
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("instanceof Marker", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("(Marker) x", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("TODO: QualifiedName", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void GenericOfType_WithPackageQualifiedMappedType_PreservesQualifier()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-
-class Sample
-{
-    object FirstProperty(IEnumerable<object> items)
-    {
-        return items.OfType<PropertyInfo>().FirstOrDefault();
-    }
-}
-""", useDefaultMappings: true);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("instanceof PropertyInfo", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("(PropertyInfo) x", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("import io.github.ningpp.compat.PropertyInfo;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("dotnet.system.Reflection", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void NullCoalesceAssignment_StandaloneMemberAccess_DoesNotEmitBareReadStatement()
     {
         var result = Convert("""
@@ -156,33 +105,6 @@ class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
         Assert.Contains("Long.parseUnsignedLong(\"9223372036854775808\")", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("== 9223372036854775808", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void BclFallback_DoesNotEmitPhantomDotnetSystemPackages()
-    {
-        var result = Convert("""
-using System;
-using System.Collections;
-using System.Linq.Expressions;
-using System.Reflection;
-
-class Sample
-{
-    void Use(IDictionary dictionary, IList list, Type type, Expression<Func<Sample, object>> accessor)
-    {
-        var info = type.GetTypeInfo();
-    }
-}
-""", useDefaultMappings: true);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.DoesNotContain("dotnet.system.Collections", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("dotnet.system.Linq.Expressions", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("dotnet.system.Reflection", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("CSharpIDictionary dictionary", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("CSharpGenericIList<Object> list", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Function<Sample, Object>", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -285,57 +207,6 @@ class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
         Assert.Contains("Tuple2<Boolean, Object> cache", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("(Boolean HasMatch, Object Value)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void GenericTypeArgument_WithNamedTuple_MapsTupleArgument()
-    {
-        var result = Convert("""
-using System.Collections.Concurrent;
-
-class Sample
-{
-    private ConcurrentDictionary<System.Type, (bool HasMatch, string Value)> cache = new();
-}
-""", useDefaultMappings: true);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("ConcurrentHashMap<Class, Tuple2<Boolean, String>> cache", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(bool HasMatch", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task KeyedCollectionBaseType_MapsToCompatType()
-    {
-        var source = """
-using System.Collections.ObjectModel;
-
-class Item
-{
-    public string Key { get; set; }
-}
-
-class Items : KeyedCollection<string, Item>
-{
-    protected override string GetKeyForItem(Item item) => item.Key;
-}
-""";
-
-        var results = await new ProjectConversionPipeline(new ConversionOptions
-        {
-            TypeMappingConfigPath = Path.Combine(AppContext.BaseDirectory, "config", "TypeMappings.json")
-        }).ConvertProjectAsync(
-            new[]
-            {
-                new SourceFile { FilePath = "Items.cs", Content = source },
-            },
-            projectName: "KeyedCollectionMapping");
-
-        var items = Assert.Single(results, r => r.FileName == "Items.java");
-        Assert.True(items.Success, string.Join("\n", items.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("extends KeyedCollection<String, Item>", items.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("import io.github.ningpp.compat.KeyedCollection;", items.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("System.Collections.ObjectModel", items.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

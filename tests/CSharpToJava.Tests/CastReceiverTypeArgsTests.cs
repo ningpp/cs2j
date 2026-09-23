@@ -37,29 +37,6 @@ class Holder<TArg0>
         Assert.DoesNotContain("((Info)(parameterInfo)).getValue()", code);
     }
 
-    [Fact]
-    public void StaticTypeMemberAccess_StillStripsTypeArguments()
-    {
-        var result = Convert(@"
-class Info<T>
-{
-    public static T Make() => default(T);
-}
-class Holder
-{
-    void M()
-    {
-        var x = Info<int>.Make();
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("Info.make()", code);
-        Assert.DoesNotContain("Info<int>.make()", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

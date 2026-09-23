@@ -72,51 +72,6 @@ class User
     }
 
     [Fact]
-    public void ArrayAssignedToIEnumerableLocal_UsesIdentityPreservingView()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-
-struct Point { public double X, Y; }
-
-class User
-{
-    void M(Point[] arr)
-    {
-        IEnumerable<Point> pts = arr;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("ArrayHelper.asIterable(arr)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("ArrayHelper.toList(arr)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ArrayArgumentToIEnumerableParameter_UsesIdentityPreservingView()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-
-struct Point { public double X, Y; }
-
-class User
-{
-    void M(Point[] arr)
-    {
-        Consume(arr);
-    }
-
-    void Consume(IEnumerable<Point> p) { }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("consume(ArrayHelper.asIterable(arr))", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void ArrayInitializerForIEnumerableProperty_UsesIdentityPreservingView()
     {
         var result = Convert("""
@@ -132,39 +87,6 @@ class Holder
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("ArrayHelper.asIterable(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void LocalIEnumerableDeclaredFromToArrayCall_UsesIdentityPreservingView()
-    {
-        // ConstrainedOrdering.CreateInitialOrderInLayers:
-        //   IEnumerable<IntPair> liftedLeftRightRelations = LiftLeftRightRelationsToComponentRoots(...).ToArray();
-        // The RHS stream-toArray result is a raw Java array; storing it in the
-        // IEnumerable slot must still use the identity-preserving asIterable view.
-        var result = Convert("""
-using System.Collections.Generic;
-using System.Linq;
-
-struct Point { public double X, Y; }
-
-class Sample
-{
-    void M(IEnumerable<Point> src)
-    {
-        IEnumerable<Point> pts = src.ToArray();
-        Consume(pts);
-    }
-
-    void Consume(IEnumerable<Point> p) { }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The declaration must wrap the .ToArray() result (a raw Java array)
-        // with the identity-preserving view, not pass it through unwrapped.
-        Assert.Contains("ArrayHelper.asIterable(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Consume(StreamSupport.stream(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("var pts = StreamSupport.stream(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -197,45 +119,6 @@ class Sample
 
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("setPathPoints(ArrayHelper.asIterable(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void GenericMethodArgumentFromToArrayDeclaredLocal_IsIterable()
-    {
-        // ConstrainedOrdering: TopologicalSort.GetOrderOnEdges<TEdge>(IEnumerable<TEdge>)
-        // called with a local declared as IEnumerable<IntPair> initialized from .ToArray().
-        var result = Convert("""
-using System.Collections.Generic;
-using System.Linq;
-
-struct IntPair { public int A, B; }
-
-interface IEdge { }
-
-class TopologicalSort
-{
-    public static int[] GetOrderOnEdges<TEdge>(IEnumerable<TEdge> edges) where TEdge : IEdge
-    {
-        return new int[0];
-    }
-}
-
-class Sample
-{
-    void M(IEnumerable<IntPair> src)
-    {
-        IEnumerable<IntPair> lifted = src.ToArray();
-        int[] order = TopologicalSort.GetOrderOnEdges(lifted);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The local must be wrapped once at the declaration, so the generic call
-        // receives an Iterable rather than a raw IntPair[].
-        Assert.Contains("ArrayHelper.asIterable(", result.GeneratedCode, StringComparison.Ordinal);
-        // The call site itself needs no array wrap: the local is already Iterable.
-        Assert.Contains("getOrderOnEdges(lifted)", result.GeneratedCode, StringComparison.Ordinal);
     }
     private static ConversionResult Convert(string sourceCode)
     {

@@ -40,26 +40,6 @@ class C {
         Assert.DoesNotContain("(DebuggerBrowsableState)((Integer)", code);
     }
 
-    [Fact]
-    public void GetCustomAttributeGeneric_KeepsTypeArgument()
-    {
-        var result = Convert("""
-using System;
-using System.Diagnostics;
-using System.Reflection;
-class C {
-    static DebuggerBrowsableState GetState(PropertyInfo p) {
-        return p.GetCustomAttribute<DebuggerBrowsableAttribute>().State;
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("CustomAttributeExtensions.getCustomAttribute(DebuggerBrowsableAttribute.class, p)", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

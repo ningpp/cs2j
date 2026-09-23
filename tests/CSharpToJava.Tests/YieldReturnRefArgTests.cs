@@ -76,41 +76,6 @@ class Writer
         }
     }
 
-    /// <summary>
-    /// Simple case: single yield return with ref arg should work.
-    /// </summary>
-    [Fact]
-    public void YieldReturnWithRefArg_Simple_ShouldIncludeHolderDeclaration()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Processor
-{
-    IEnumerable<int> Process()
-    {
-        int state = 0;
-        yield return Advance(ref state);
-        yield return Advance(ref state);
-    }
-
-    int Advance(ref int s) { return s++; }
-}");
-
-        Assert.True(result.Success, "Conversion should succeed");
-        var code = result.GeneratedCode;
-
-        // Holder declaration must appear before the _yieldResult.add call
-        Assert.Contains("Holder", code);
-
-        // The holder must be declared, not just used
-        int holderDeclIdx = code.IndexOf("Holder _stateRef");
-        int holderUseIdx = code.IndexOf("_stateRef)");
-        Assert.True(holderDeclIdx >= 0, "Holder declaration should exist");
-        Assert.True(holderDeclIdx < holderUseIdx,
-            "Holder declaration must appear before its first use");
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

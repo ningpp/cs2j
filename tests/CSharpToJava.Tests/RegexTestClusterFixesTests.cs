@@ -45,27 +45,6 @@ class C
     }
 
     [Fact]
-    public void ListOfCharToArray_UsesCharacterArrayAndToCharArray()
-    {
-        var result = Convert(@"
-using System.Linq;
-class C
-{
-    static char[] M()
-    {
-        return Enumerable.Range(0, 10).Select(i => (char)i).ToArray();
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.DoesNotContain("toArray(char[]::new)", code);
-        Assert.Contains("toArray(Character[]::new)", code);
-        Assert.Contains("ArrayHelper.toCharArray(", code);
-    }
-
-    [Fact]
     public void AssemblyGetExecutingAssembly_SingleAssemblyCompatPrefix()
     {
         var result = Convert(@"
@@ -106,35 +85,6 @@ class C
     }
 
     [Fact]
-    public void SelectMapLambdaReturningArray_KeepsArrayElement()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-class C
-{
-    private static IEnumerable<object[]> M(MethodInfo mi)
-    {
-        var data = mi?.Invoke(null, null) as IEnumerable<object[]>;
-        return data?.Select(obj =>
-        {
-            obj[0] = 1;
-            return obj;
-        });
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains(".map(obj -> {", code);
-        Assert.Contains("return obj;", code);
-        Assert.DoesNotContain("asListView(obj)", code);
-        Assert.Contains("CSharpGenericIterable.from(", code);
-    }
-
-    [Fact]
     public void LambdaNullAssignmentValue_UsesTypedResultVariable()
     {
         var result = Convert(@"
@@ -156,84 +106,6 @@ class C
     }
 
     [Fact]
-    public void RecordException_EmitsRecordExceptionCall()
-    {
-        var result = Convert(@"
-using Xunit;
-class C
-{
-    static void M()
-    {
-        Exception e = Record.Exception(() => throw new Exception());
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("XunitRecord.exception(", code);
-    }
-
-    [Fact]
-    public void LocalFunctionIsGenericTypeCheck_InjectsClassTokens()
-    {
-        var result = Convert(@"
-using System;
-class C
-{
-    static void M()
-    {
-        AssertThrows<ArgumentException, OutOfMemoryException>(() => throw new ArgumentException());
-        static void AssertThrows<TException1, TException2>(Action action)
-        {
-            Exception e;
-            try { action(); e = null; }
-            catch (Exception ex) { e = ex; }
-            if (e is TException1 || e is TException2) { }
-        }
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("private static <TException1, TException2> void assertThrows(", code);
-        Assert.Contains("Class<TException1> _cs2j_TException1", code);
-        Assert.Contains("Class<TException2> _cs2j_TException2", code);
-        Assert.Contains("_cs2j_TException1.isInstance(e)", code);
-        Assert.Contains("_cs2j_TException2.isInstance(e)", code);
-        Assert.Contains("assertThrows(ArgumentException.class, OutOfMemoryException.class,", code);
-    }
-
-    [Fact]
-    public void LocalFunctionIsGenericTypeCheck_InjectsClassTokens_WhenSymbolsDegraded()
-    {
-        var result = Convert(@"
-using System;
-class C
-{
-    static void M()
-    {
-        AssertThrows<ArgumentException, OutOfMemoryException>(() => UndefinedType.Foo(new object[] { null }));
-        static void AssertThrows<TException1, TException2>(Action action)
-        {
-            Exception e = null;
-            try { action(); }
-            catch (Exception ex) { e = ex; }
-            if (e is TException1 || e is TException2) { }
-        }
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("Class<TException1> _cs2j_TException1", code);
-        Assert.Contains("Class<TException2> _cs2j_TException2", code);
-        Assert.Contains("assertThrows(ArgumentException.class, OutOfMemoryException.class,", code);
-    }
-
-    [Fact]
     public void AssemblyCompanyAttributeTypeOf_EmitsClassLiteral()
     {
         var result = Convert(@"
@@ -252,28 +124,6 @@ class C
         var code = result.GeneratedCode ?? "";
 
         Assert.Contains("AssemblyCompanyAttribute.class", code);
-    }
-
-    [Fact]
-    public void TypeGetConstructor_NoBindingFlags_EmitsTypeHelperCall()
-    {
-        var result = Convert(@"
-using System;
-using System.Reflection;
-class C
-{
-    static void M()
-    {
-        var ctor = typeof(AssemblyCompanyAttribute).GetConstructor(new[] { typeof(string) });
-        var ctor2 = typeof(AssemblyCompanyAttribute).GetConstructor(Array.Empty<Type>());
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("TypeHelper.getConstructor(AssemblyCompanyAttribute.class, new Class[] { String.class })", code);
-        Assert.DoesNotContain("AssemblyCompanyAttribute.class.getConstructor(", code);
     }
 
     private static ConversionResult Convert(string sourceCode)

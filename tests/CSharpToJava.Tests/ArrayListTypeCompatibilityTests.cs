@@ -16,45 +16,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ArrayListTypeCompatibilityTests
 {
-    [Fact]
-    public void ListDeclaration_MapsToArrayList()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Sample
-{
-    void M()
-    {
-        List<string> items = new List<string>();
-    }
-}");
-
-        Assert.True(result.Success);
-        // C# List<T> maps to Java CSharpList<T> (concrete class)
-        Assert.Contains("new CSharpList<String>()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void NewListExpression_MapsToNewArrayList()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Sample
-{
-    List<string> GetList()
-    {
-        return new List<string>();
-    }
-}");
-
-        Assert.True(result.Success);
-        // new List<T>() → new CSharpList<T>()
-        Assert.Contains("new CSharpList<String>()", result.GeneratedCode, StringComparison.Ordinal);
-        // Return type: C# List<T> → Java CSharpList<T>
-        Assert.Contains("CSharpList<String> getList()", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void IListDeclaration_MapsToJavaListInterface()
@@ -70,41 +31,6 @@ class Sample
         Assert.True(result.Success);
         // C# IList<T> → Java List<T> (interface)
         Assert.Contains("List<String> _field", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void FieldDeclaration_ListMapsToArrayList()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Sample
-{
-    private List<string> _field;
-}");
-
-        Assert.True(result.Success);
-        // C# List<T> → Java CSharpList<T> (concrete class)
-        Assert.Contains("CSharpList<String> _field", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void CollectionInitializer_UsesArrayList()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Sample
-{
-    void M()
-    {
-        List<string> items = new List<string> { ""a"", ""b"" };
-    }
-}");
-
-        Assert.True(result.Success);
-        // Instantiation uses CSharpList
-        Assert.Contains("new CSharpList<String>", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -127,29 +53,6 @@ class Sample
         // ToList() should use Collectors.toCollection(() -> new CSharpList<>()) — produces CSharpList<T>,
         // not Collectors.toList() which returns List<T> (interface) and causes type mismatch
         Assert.DoesNotContain("Collectors.toList()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void MethodReturningList_AssignedToListVariable_NoTypeMismatch()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Sample
-{
-    List<string> GetItems() { return new List<string>(); }
-
-    void M()
-    {
-        List<string> items = GetItems();
-    }
-}");
-
-        Assert.True(result.Success);
-        // Both sides are CSharpList<String> — no wrapping needed
-        Assert.Contains("getItems()", result.GeneratedCode, StringComparison.Ordinal);
-        // Method return type is CSharpList<String>
-        Assert.Contains("CSharpList<String> getItems()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

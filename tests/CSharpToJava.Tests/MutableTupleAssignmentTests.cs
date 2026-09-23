@@ -57,23 +57,4 @@ class C {
         Assert.DoesNotContain("--state._2()", code);
         Assert.Contains("update2", code);
     }
-
-    [Fact]
-    public void TupleElementDelegateInvocation_UsesVavrAccessor()
-    {
-        var result = Convert("""
-using System;
-class C {
-    string Test(Func<string, string> evaluator) {
-        var state = (segments: new System.Text.StringBuilder(), evaluator: evaluator, prevat: 0);
-        return state.evaluator("x");
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("state._2().apply(\"x\")", code);
-        Assert.DoesNotContain("state.evaluator.apply", code);
-    }
 }

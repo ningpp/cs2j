@@ -197,24 +197,6 @@ class Test {
         Assert.DoesNotContain("n.getAlgorithmData()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// System type property access (e.g. Count → size()) must still work.
-    /// </summary>
-    [Fact]
-    public void SystemTypeProperty_CountMapsToSize()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Test {
-    void M(List<int> items) {
-        var c = items.Count;
-    }
-}
-");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("items.size()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

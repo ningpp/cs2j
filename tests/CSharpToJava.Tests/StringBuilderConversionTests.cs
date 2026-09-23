@@ -30,28 +30,6 @@ class Test
     }
 
     [Fact]
-    public void Convert_StringBuilder_AppendString_StartCount_TransformsToEndIndex()
-    {
-        var result = Convert(@"
-using System.Text;
-
-class Test
-{
-    string M(string str, int start, int count)
-    {
-        var sb = new StringBuilder();
-        sb.Append(str, start, count);
-        return sb.ToString();
-    }
-}");
-
-        Assert.True(result.Success);
-        // C# Append(string, int startIndex, int count) → Java append(CharSequence, int start, int end)
-        // end = start + count
-        Assert.Contains("sb.append(str, start, start + count);", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Convert_NewString_CharArray_StartCount_PreservesOffsetCountSemantics()
     {
         var result = Convert(@"

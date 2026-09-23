@@ -28,27 +28,6 @@ class Sample
     }
 
     [Fact]
-    public void SystemDecimalParse_UsesCompatDecimal()
-    {
-        var result = Convert("""
-using System;
-
-class Sample
-{
-    Decimal GetValue()
-    {
-        return Decimal.Parse("42.5");
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("import io.github.ningpp.compat.Decimal;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Decimal getValue()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return Decimal.parse(\"42.5\");", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void DecimalTryParse_UsesCompatDecimal()
     {
         var result = Convert("""

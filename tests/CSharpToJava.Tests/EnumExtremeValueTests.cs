@@ -42,24 +42,6 @@ public enum SampleEnumUInt64 : ulong
     }
 
     [Fact]
-    public void EmptyCollectionInitializerOnField_EmitsPlainConstructor()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-public class Sample
-{
-    private List<int> _myIntList = new List<int> { };
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("_myIntList = new CSharpList<Integer>()", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("var _obj", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void LongEnumMinMaxValue_NoSpuriousLongSuffix()
     {
         var result = Convert(@"

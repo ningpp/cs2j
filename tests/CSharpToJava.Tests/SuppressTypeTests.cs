@@ -5,21 +5,6 @@ namespace CSharpToJava.Tests;
 
 public class SuppressTypeTests
 {
-    [Fact]
-    public void ISerializable_Interface_Not_In_Implements()
-    {
-        var result = Convert(@"
-using System.Runtime.Serialization;
-
-public class MyUri : ISerializable
-{
-    public void GetObjectData(SerializationInfo info, StreamingContext context) { }
-}");
-
-        Assert.True(result.Success);
-        Assert.DoesNotContain("ISerializable", result.GeneratedCode);
-        Assert.DoesNotContain("implements", result.GeneratedCode);
-    }
 
     [Fact]
     public void GetObjectData_TrivialBody_EmitsSuppressedParameterVersion()

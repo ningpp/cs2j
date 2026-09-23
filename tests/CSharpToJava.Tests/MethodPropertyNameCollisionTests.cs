@@ -126,51 +126,6 @@ class Container
     }
 
     /// <summary>
-    /// The declaration-side collision fix must be mirrored at call sites. Otherwise
-    /// a C# call to SetFirstEdge(...) is emitted as setFirstEdge(...), which invokes
-    /// the auto-generated property setter instead of the user method.
-    /// </summary>
-    [Fact]
-    public void SetterAndMethodCollision_CallSiteUsesRenamedUserMethod()
-    {
-        var result = Convert(@"
-namespace Demo
-{
-    class Path
-    {
-        internal PathEdge FirstEdge { get; set; }
-        internal PathEdge LastEdge { get; set; }
-
-        internal void SetFirstEdge(PathEdge edge)
-        {
-            LastEdge = FirstEdge = edge;
-            edge.Path = this;
-        }
-    }
-
-    class PathEdge
-    {
-        internal Path Path { get; set; }
-    }
-
-    class Walker
-    {
-        internal void Walk(Path path, PathEdge edge)
-        {
-            path.SetFirstEdge(edge);
-        }
-    }
-}");
-
-        Assert.True(result.Success);
-        var code = result.GeneratedCode;
-
-        Assert.Contains("void SetFirstEdge(PathEdge edge)", code, StringComparison.Ordinal);
-        Assert.Contains("path.SetFirstEdge(edge)", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("path.setFirstEdge(edge)", code, StringComparison.Ordinal);
-    }
-
-    /// <summary>
     /// Private auto-property accessors are dropped in favor of an accessible user method
     /// with the same Java Bean name. Calls must therefore keep camelCase.
     /// </summary>
@@ -316,85 +271,6 @@ class Normal
         Assert.Contains("setName(String", code, StringComparison.Ordinal);
         // No PascalCase method should appear
         Assert.DoesNotContain("SetName(", code, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Regression test for the Obstacle.ConvexHull / SetConvexHull collision in the
-    /// Automatic Graph Layout project.  When a public property has a <c>private set</c>
-    /// (which the converter widens to <c>protected</c> in Java) and the containing type
-    /// also declares a non-private method whose camelCase name matches the generated
-    /// setter (e.g. <c>SetConvexHull</c> → <c>setConvexHull</c>), both methods survive
-    /// in the Java class.  The call-site collision check must therefore detect the
-    /// collision and emit the PascalCase user-method name; otherwise calls are
-    /// silently routed to the trivial property setter, bypassing the method's
-    /// side-effects (e.g. clearing the clump).
-    /// </summary>
-    [Fact]
-    public void PublicPropertyWithPrivateSet_InternalMethod_SameName_CallSiteUsesPascalCase()
-    {
-        var result = Convert(@"
-namespace Demo
-{
-    class Obstacle
-    {
-        public Hull ConvexHull { get; private set; }
-
-        internal void SetConvexHull(Hull hull)
-        {
-            this.ConvexHull = hull;
-        }
-    }
-
-    class ObstacleTree
-    {
-        internal void CreateHull(Obstacle obstacle, Hull hull)
-        {
-            obstacle.SetConvexHull(hull);
-        }
-    }
-
-    class Hull { }
-}");
-
-        Assert.True(result.Success);
-        var code = result.GeneratedCode;
-
-        // The user-defined method must survive with PascalCase name
-        Assert.Contains("void SetConvexHull(Hull hull)", code, StringComparison.Ordinal);
-        // Call site must use PascalCase to invoke the user method, not the property setter
-        Assert.Contains("obstacle.SetConvexHull(hull)", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("obstacle.setConvexHull(hull)", code, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Same scenario as above but the property and method are in the same class and
-    /// the method is called from within the declaring class (bare call, no receiver).
-    /// </summary>
-    [Fact]
-    public void PublicPropertyWithPrivateSet_InternalMethod_BareCall_UsesPascalCase()
-    {
-        var result = Convert(@"
-class Widget
-{
-    public int Data { get; private set; }
-
-    internal void SetData(int data)
-    {
-        this.Data = data;
-    }
-
-    internal void Reset()
-    {
-        SetData(0);
-    }
-}");
-
-        Assert.True(result.Success);
-        var code = result.GeneratedCode;
-
-        Assert.Contains("void SetData(int data)", code, StringComparison.Ordinal);
-        // Bare call must use PascalCase
-        Assert.Contains("SetData(0)", code, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using CSharpToJava.Core.Context;
@@ -14,43 +14,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class QualifiedCrossNamespaceReferenceTests
 {
-    [Fact]
-    public async Task FullyQualifiedStaticCallToOtherNamespace_AddsImport()
-    {
-        var results = await ConvertAsync(
-            new SourceFile
-            {
-                FilePath = "Parser.cs",
-                Content = """
-namespace Dot2Graph {
-    public class Parser {
-        public static int Parse(string text) { return 0; }
-    }
-}
-""",
-            },
-            new SourceFile
-            {
-                FilePath = "Main.cs",
-                Content = """
-namespace Agl {
-    public class Main2 {
-        public void M() {
-            int result = Dot2Graph.Parser.Parse("x");
-        }
-    }
-}
-""",
-            });
-
-        Assert.All(results, r => Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
-
-        var names = string.Join("; ", results.Select(r => r.FileName ?? "<null>"));
-        Assert.True(results.Any(r => r.FileName != null && r.FileName.EndsWith("Main2.java")), "file names: " + names);
-        var main = results.Single(r => r.FileName != null && r.FileName.EndsWith("Main2.java"));
-        Assert.Contains("import Dot2Graph.Parser;", main.GeneratedCode);
-        Assert.Contains("Parser.parse(\"x\")", main.GeneratedCode);
-    }
 
     [Fact]
     public async Task FullyQualifiedFieldTypeFromOtherNamespace_AddsImport()

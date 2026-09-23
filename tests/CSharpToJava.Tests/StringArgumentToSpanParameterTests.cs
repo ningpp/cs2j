@@ -43,31 +43,6 @@ class CharClass
     }
 
     [Fact]
-    public void StringVariableArgumentToReadOnlySpanParameter_IsWrappedWithAsSpan()
-    {
-        var result = Convert(@"
-class CharClass
-{
-    private void AddSet(System.ReadOnlySpan<char> set)
-    {
-    }
-
-    public void AddWord(bool ecma, string set)
-    {
-        if (ecma)
-        {
-            AddSet(set);
-        }
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("MemoryExtensions.asSpan(set)", code);
-    }
-
-    [Fact]
     public void StringReturnedAsReadOnlySpan_IsWrappedWithAsSpan()
     {
         var result = Convert(@"

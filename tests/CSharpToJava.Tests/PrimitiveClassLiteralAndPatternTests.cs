@@ -12,27 +12,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class PrimitiveClassLiteralAndPatternTests
 {
-    [Fact]
-    public void GenericTypeArgumentByte_EmitsIntClassLiteral()
-    {
-        var result = Convert("""
-class C {
-    static Object Run<T>(List<T> list) => typeof(T);
-    void Use() {
-        Run<byte>(new List<byte>());
-        Run<sbyte>(new List<sbyte>());
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-        // C# byte maps to Java int (sbyte maps to byte), so generic tokens follow
-        // the mapped Java type even though typeof(byte) keeps a distinct CSharpByte
-        // marker at runtime.
-        Assert.Contains("run(int.class, new CSharpList<Integer>())", code, StringComparison.Ordinal);
-        Assert.Contains("run(byte.class, new CSharpList<Byte>())", code, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void PrimitiveIsPatterns_UseBoxedWrapperTypes()

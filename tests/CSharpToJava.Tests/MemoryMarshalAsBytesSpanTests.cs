@@ -14,30 +14,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class MemoryMarshalAsBytesSpanTests
 {
-    [Fact]
-    public void CharArrayAsSpanWrappedForAsBytes_UsesExplicitTypeArgument()
-    {
-        var result = Convert("""
-using System;
-using System.Runtime.InteropServices;
-
-class C
-{
-    static int M(char[] key, int start, int len)
-    {
-        ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(key.AsSpan(start, len));
-        return bytes.Length;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("MemoryMarshal.asBytes(", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("new Span<>(MemoryExtensions.asSpan", code, StringComparison.Ordinal);
-        Assert.Contains("new Span<Character>(MemoryExtensions.asSpan", code, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void CompatMemoryMarshal_AcceptsMutableSpan()

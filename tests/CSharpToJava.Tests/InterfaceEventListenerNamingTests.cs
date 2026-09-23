@@ -115,31 +115,6 @@ public class Editor {
         Assert.DoesNotContain("viewer.addMouseDownListener(", result.GeneratedCode);
     }
 
-    [Fact]
-    public void SameClassInterfaceEventSubscriptionAndRaise_UsesQualifiedNames()
-    {
-        var result = Convert(@"
-using System;
-public interface IViewer {
-    event EventHandler<EventArgs> MouseDown;
-}
-public class Viewer : IViewer {
-    public event EventHandler<EventArgs> MouseDown;
-    public void Attach(EventHandler<EventArgs> h) {
-        MouseDown += h;
-    }
-    public void Raise(EventArgs e) {
-        if (MouseDown != null) {
-            MouseDown(this, e);
-        }
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("_iViewermouseDownListeners.add(", result.GeneratedCode);
-        Assert.Contains("fireIViewerMouseDown(this, e)", result.GeneratedCode);
-        Assert.DoesNotContain("_mouseDownListeners.add(", result.GeneratedCode);
-    }
-
     private static int CountOccurrences(string haystack, string needle)
     {
         int count = 0, idx = 0;

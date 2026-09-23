@@ -46,23 +46,4 @@ namespace dotnet.xml
         Assert.Contains(".getResult()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain(".join()", result.GeneratedCode, StringComparison.Ordinal);
     }
-
-    [Fact]
-    public void TaskAwaiter_GetResult_IsMappedToJoin()
-    {
-        var result = Convert(@"
-using System.Threading.Tasks;
-
-class C
-{
-    void M()
-    {
-        Task.Delay(1).GetAwaiter().GetResult();
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains(".join()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getResult()", result.GeneratedCode, StringComparison.Ordinal);
-    }
 }

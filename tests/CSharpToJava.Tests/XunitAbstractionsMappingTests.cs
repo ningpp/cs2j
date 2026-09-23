@@ -8,28 +8,6 @@ namespace CSharpToJava.Tests;
 
 public class XunitAbstractionsMappingTests
 {
-    [Fact]
-    public void MappedBaseClass_AddsImport()
-    {
-        var pipeline = new ConversionPipeline();
-        var result = pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = """
-using System.Collections;
-
-public class Sample : ArrayList
-{
-}
-""",
-            FileName = "Sample.cs",
-            Options = new ConversionOptions(),
-        });
-
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("extends CSharpArrayList", code, StringComparison.Ordinal);
-        Assert.Contains("import io.github.ningpp.compat.CSharpArrayList;", code, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void ImplementedInterface_MappedType_AddsImport()

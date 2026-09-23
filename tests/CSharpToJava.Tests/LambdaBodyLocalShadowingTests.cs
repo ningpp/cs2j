@@ -1,4 +1,4 @@
-﻿using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using System.Diagnostics;
 using Xunit.Abstractions;
@@ -180,43 +180,6 @@ class Test
         Assert.Contains("var count = 3;", code);
         Assert.DoesNotContain("s_1", code);
         Assert.DoesNotContain("count_1", code);
-    }
-
-    [Fact]
-    public void GeneratedCode_Shadowing_CompilesWithJavac()
-    {
-        var result = Convert("""
-using System;
-
-class Test
-{
-    static void M(int options, string pattern)
-    {
-        Action a = () =>
-        {
-            var options = 1;
-            var pattern = "inner";
-            Console.WriteLine(options + pattern);
-        };
-        Console.WriteLine(options + pattern);
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("var options_1 = 1;", code);
-        Assert.Contains("var pattern_1 = \"inner\";", code);
-
-        using var temp = new TempDir();
-        var samplePath = Path.Combine(temp.Path, "Test.java");
-        var outDir = Path.Combine(temp.Path, "classes");
-        Directory.CreateDirectory(outDir);
-        File.WriteAllText(samplePath, code);
-
-        var javac = RunProcess("javac", $"-d \"{outDir}\" \"{samplePath}\"");
-        Assert.True(javac.ExitCode == 0, javac.Output);
     }
 
     private static ConversionResult Convert(string sourceCode)

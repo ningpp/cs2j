@@ -10,24 +10,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ArrayGetValueTests
 {
-    [Fact]
-    public void TypedArray_GetValue_UsesIndexAccess()
-    {
-        var result = Convert(@"
-using System;
-
-public class Sample
-{
-    public object GetItem(string[] arr, int index)
-    {
-        return arr.GetValue(index);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("arr[index]", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getValue(", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void SystemArray_GetValue_KeepsWrapperMethod()

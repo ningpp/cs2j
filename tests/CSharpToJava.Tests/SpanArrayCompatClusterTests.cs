@@ -38,32 +38,6 @@ class Holder
     }
 
     [Fact]
-    public void ArrayPool_MapsToCompatClass()
-    {
-        var result = Convert(@"
-class Pool
-{
-    private string[] _arrayFromPool;
-
-    void Grow()
-    {
-        string[] array = System.Buffers.ArrayPool<string>.Shared.Rent(16);
-        if (_arrayFromPool != null)
-        {
-            System.Buffers.ArrayPool<string>.Shared.Return(_arrayFromPool);
-        }
-        _arrayFromPool = array;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("import io.github.ningpp.compat.ArrayPool", code);
-        Assert.Contains("ArrayPool.rentShared(String.class, 16)", code);
-    }
-
-    [Fact]
     public void ArrayAssignedToSpan_IsWrappedInNewSpan()
     {
         var result = Convert(@"

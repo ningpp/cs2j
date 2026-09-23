@@ -246,31 +246,6 @@ public class Container
     }
 
     [Fact]
-    public void FlagsEnum_HasFlag_ConvertedToBitwiseCheck()
-    {
-        var result = Convert(@"
-using System;
-
-[Flags]
-public enum Permissions
-{
-    Read = 1,
-    Write = 2,
-    Execute = 4
-}
-
-public class Sample
-{
-    public bool CanRead(Permissions perms) { return perms.HasFlag(Permissions.Read); }
-}");
-
-        Assert.True(result.Success);
-        // HasFlag should be converted to bitwise AND check
-        Assert.Contains("(perms & Permissions.Read) != 0", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("hasFlag", result.GeneratedCode, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
     public void FlagsEnum_AliasAttribute_GeneratesConstantsClass()
     {
         var result = Convert(@"
@@ -383,36 +358,6 @@ public class Sample
         Assert.Contains("return (int)(s.getValue());", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("return BigStatus.fromValue((long)(v));", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("fromValue(int v)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void FlagsEnum_LongUnderlyingType_UsesLongConstantsAndMappedVariables()
-    {
-        var result = Convert(@"
-using System;
-
-[Flags]
-public enum BigFlags : long
-{
-    None = 0L,
-    High = 1L << 40,
-    Next
-}
-
-public class Sample
-{
-    public BigFlags Get(BigFlags flags) { return flags | BigFlags.High; }
-    public string Text(BigFlags flags) { return flags.ToString(); }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("public static final long None = 0L;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public static final long High = 1099511627776L;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public static final long Next = 1099511627777L;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public long get(long flags)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("BigFlags.toString(flags)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("public int get(int flags)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Integer.", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

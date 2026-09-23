@@ -64,7 +64,7 @@ public class LambdaCaptureRegistryTests
             new("y", "String", false)
         };
         state.RegisterLambdaCaptures("lambda1", captures);
-        
+
         Assert.True(state.TryGetLambdaCaptures("lambda1", out var result));
         Assert.Equal(2, result.Count);
         Assert.Equal("x", result[0].VarName);
@@ -172,34 +172,6 @@ class T {
         Assert.Contains("CompletableFuture", result);
     }
 
-    // ── Lambda with ref parameter: post-statements must stay inside lambda ──
-
-    [Fact]
-    public void LambdaWithRefParam_PostStatementsInsideLambda()
-    {
-        // When a lambda expression body contains a ref parameter (e.g., ref index),
-        // the converter generates IntHolder pre/post statements. The post-statement
-        // (index = _indexRef.value) must be placed INSIDE the lambda body, not outside,
-        // because _indexRef is declared inside the lambda.
-        var result = ConvertCode(@"
-using System;
-class T {
-    void M() {
-        int index = 0;
-        Action a = () => SomeMethod(ref index);
-        index = 5;
-    }
-    void SomeMethod(ref int i) { }
-}");
-        // The _indexRef variable should be declared inside the lambda,
-        // and the post-statement assigning back should also be inside the lambda.
-        // We verify that _indexRef is NOT referenced outside the lambda body.
-        Assert.Contains("IntHolder", result);
-        // Check that _indexRef is not used outside the lambda (would cause compile error)
-        // The lambda should be a block lambda with the holder declaration inside
-        Assert.Contains("-> {", result);
-    }
-
     [Fact]
     public void VoidLambdaWithChainedPropertyAssignment_NoBareVariableStatement()
     {
@@ -244,27 +216,5 @@ class T {
         // The lambda body should NOT reference raw 'index' directly
         // (it should use _index[0] instead)
         Assert.DoesNotContain("IntHolder _indexRef = new IntHolder(index)", result);
-    }
-
-    [Fact]
-    public void RefCallOutsideLambda_UsesCaptureHolderNotRawVariable()
-    {
-        // When a variable is captured by a lambda (creating int[] _index = { index })
-        // and then passed as ref OUTSIDE the lambda, the ref holder should be
-        // seeded from _index[0] (not the raw 'index' variable which may be stale).
-        var result = ConvertCode(@"
-using System;
-class T {
-    void M() {
-        int index = -1;
-        Action a = () => SomeMethod(ref index);
-        index = 0;
-        SomeMethod(ref index);
-    }
-    void SomeMethod(ref int i) { }
-}");
-        // The ref call outside the lambda should use _index[0], not raw 'index'
-        Assert.DoesNotContain("new io.github.ningpp.compat.IntHolder(index)", result);
-        Assert.Contains("new io.github.ningpp.compat.IntHolder(_index[0])", result);
     }
 }

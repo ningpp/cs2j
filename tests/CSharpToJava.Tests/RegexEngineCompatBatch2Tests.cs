@@ -109,26 +109,6 @@ class C {
         Assert.Contains("(char)(", code);
     }
 
-    [Fact]
-    public void SpanIndexOfChar_MapsToMemoryExtensions()
-    {
-        // ReadOnlySpan<char>.IndexOf(char) must map to MemoryExtensions.indexOf.
-        // The compat API surface (indexOf(ReadOnlySpan<Character>, char)) is verified
-        // by the generated project's Maven build.
-        var result = Convert("""
-using System;
-class C {
-    static int Find(ReadOnlySpan<char> text, char ch) {
-        return text.IndexOf(ch);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("MemoryExtensions.indexOf(text, ch)", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

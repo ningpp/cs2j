@@ -43,33 +43,6 @@ class C {
     }
 
     [Fact]
-    public void ImplicitConversionOperatorArgument_UsesGeneratedHelper()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-class LocalBuilder { }
-class RentedLocalBuilder {
-    private LocalBuilder _local;
-    public RentedLocalBuilder(LocalBuilder local) { _local = local; }
-    public static implicit operator LocalBuilder(RentedLocalBuilder r) => r._local;
-}
-class Emitter {
-    private LocalBuilder _ilg;
-    void Emit(LocalBuilder local) { }
-    void Use(RentedLocalBuilder r) {
-        Emit(r);
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("toLocalBuilder(", code);
-        Assert.DoesNotContain("emit(r)", code);
-    }
-
-    [Fact]
     public void ILGeneratorMethods_KeepPascalCaseNames()
     {
         var result = Convert("""

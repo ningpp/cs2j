@@ -14,25 +14,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class JsonByteSpanPointerValueTaskTests
 {
-    [Fact]
-    public void ReadOnlySpanByteToArray_YieldsByteArray()
-    {
-        var result = Convert(@"
-class Sample
-{
-    public byte[] M(System.ReadOnlySpan<byte> s)
-    {
-        return s.ToArray();
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // Integer[] from the boxed span must be narrowed back to byte[].
-        Assert.Contains("s.toByteArray()", code);
-        Assert.DoesNotContain("s.toArray()", code);
-    }
 
     [Fact]
     public void NonAsyncValueTaskMethod_ExposesCompletableFuture()

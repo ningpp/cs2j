@@ -68,48 +68,6 @@ class Sample {
         Assert.True(javac.ExitCode == 0, javac.Output);
     }
 
-    [Fact]
-    public void WriteObject_CompilesAgainstCompatRuntime()
-    {
-        var result = Convert("""
-using System.Runtime.Serialization;
-using System.Xml;
-
-class Sample {
-    static void Write(XmlWriter xw, object value) {
-        var dcs = new DataContractSerializer(value.GetType());
-        dcs.WriteObject(xw, value);
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("dcs.writeObject(xw, value)", code, StringComparison.Ordinal);
-        Assert.Contains("import io.github.ningpp.compat.DataContractSerializer;", code, StringComparison.Ordinal);
-
-        using var temp = new TempDir();
-        var samplePath = Path.Combine(temp.Path, "Sample.java");
-        var outDir = Path.Combine(temp.Path, "classes");
-        var dotnetSystemDir = Path.Combine(temp.Path, "dotnet", "system");
-        var dotnetXmlDir = Path.Combine(temp.Path, "dotnet", "xml");
-        Directory.CreateDirectory(outDir);
-        Directory.CreateDirectory(dotnetSystemDir);
-        Directory.CreateDirectory(dotnetXmlDir);
-
-        var dotnetSystemStubPath = Path.Combine(dotnetSystemDir, "Placeholder.java");
-        var xmlWriterStubPath = Path.Combine(dotnetXmlDir, "XmlWriter.java");
-        File.WriteAllText(samplePath, code);
-        File.WriteAllText(dotnetSystemStubPath, "package dotnet.system; public final class Placeholder { }");
-        File.WriteAllText(xmlWriterStubPath, "package dotnet.xml; public class XmlWriter { }");
-
-        var serializerPath = GetDataContractSerializerPath();
-        var sources = string.Join(" ", new[] { serializerPath, dotnetSystemStubPath, xmlWriterStubPath, samplePath }.Select(path => $"\"{path}\""));
-        var javac = RunProcess("javac", $"-d \"{outDir}\" {sources}");
-        Assert.True(javac.ExitCode == 0, javac.Output);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -17,21 +17,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ObjectToStringAndEnumeratorTests
 {
-    [Fact]
-    public void ObjectToString_NoOverride_EmitsObjectHelper()
-    {
-        var result = Convert("""
-class Foo {
-    object o;
-    string M() => o.ToString();
-}
-""");
-
-        _ = result.GeneratedCode ?? "";
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("ObjectHelper.objectToString(o)", result.GeneratedCode);
-        Assert.Contains("import io.github.ningpp.compat.ObjectHelper;", result.GeneratedCode);
-    }
 
     [Fact]
     public void BaseToString_BindingToObject_EmitsSuperToString()

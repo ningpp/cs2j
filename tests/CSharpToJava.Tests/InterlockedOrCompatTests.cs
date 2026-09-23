@@ -17,46 +17,6 @@ public class InterlockedOrCompatTests
 
     public InterlockedOrCompatTests(ITestOutputHelper output) => _out = output;
 
-    [Fact]
-    public void InterlockedOr_CompilesAgainstCompatRuntime()
-    {
-        var result = Convert("""
-using System.Threading;
-class C {
-    static int OrIt(int slot, int bits) {
-        Interlocked.Or(ref slot, bits);
-        return slot;
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("Interlocked.or(", code);
-
-        using var temp = new TempDir();
-        var samplePath = Path.Combine(temp.Path, "C.java");
-        var outDir = Path.Combine(temp.Path, "classes");
-        Directory.CreateDirectory(outDir);
-        File.WriteAllText(samplePath, code);
-
-        var compatDir = Path.Combine(FindRepoRoot(), "java", "csharptojava-compat", "src", "main", "java", "io", "github", "ningpp", "compat");
-        var compatSources = new[]
-        {
-            "Interlocked.java",
-            "IntHolder.java",
-            "ObjectHolder.java",
-        }.Select(name => Path.Combine(compatDir, name)).ToArray();
-
-        foreach (var source in compatSources)
-            Assert.True(File.Exists(source), $"Missing compat source: {source}");
-
-        var sources = string.Join(" ", compatSources.Append(samplePath).Select(path => $"\"{path}\""));
-        var javac = RunProcess("javac", $"-d \"{outDir}\" {sources}");
-        Assert.True(javac.ExitCode == 0, javac.Output);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

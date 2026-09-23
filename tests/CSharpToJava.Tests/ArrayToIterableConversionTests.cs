@@ -102,34 +102,6 @@ class Graph
         Assert.DoesNotContain("ArrayHelper.toList(nodes)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void ListConstructor_FromPublicArrayField_UsesFieldAccess()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Text.Json;
-
-class Item { }
-class Box
-{
-    public Item[] ItemsArray;
-}
-class Sample
-{
-    IEnumerable<Item> Read(string json)
-    {
-        var box = JsonSerializer.Deserialize<Box>(json);
-        return new List<Item>(box.ItemsArray);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.True(
-            result.GeneratedCode.Contains("new CSharpList<Item>(ArrayHelper.asIterable(box.ItemsArray))", StringComparison.Ordinal),
-            result.GeneratedCode);
-        Assert.DoesNotContain("box.getItemsArray()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

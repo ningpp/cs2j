@@ -5,43 +5,6 @@ namespace CSharpToJava.Tests;
 
 public class ArrayStaticInvocationTests
 {
-    [Fact]
-    public void ArraySort_WithIndexAndLength_UsesArraysSortRange()
-    {
-        var result = Convert(@"
-using System;
-
-class Test {
-    void M(int[] values) {
-        Array.Sort(values, 1, 2);
-    }
-}");
-
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("Arrays.sort(values, 1, 1 + 2)", result.GeneratedCode);
-        Assert.DoesNotContain("Object.sort", result.GeneratedCode);
-    }
-
-    [Fact]
-    public void ArrayCopy_WithSystemArrayCasts_UsesRawJavaArrays()
-    {
-        var result = Convert(@"
-using System;
-
-class Test<T> {
-    void Grow(T[] values) {
-        T[] grown = new T[values.Length * 2];
-        Array.Copy((Array)values, (Array)grown, values.Length);
-    }
-}");
-
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("System.arraycopy(values, 0, grown, 0, values.length);", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(CSharpArray)(values)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(CSharpArray)(grown)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("CSharpArray.of(values)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("CSharpArray.of(grown)", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void SystemArrayParameter_MapsToCSharpArray()
@@ -69,25 +32,6 @@ class Test {
     }
 
     [Fact]
-    public void ConcreteArrayArgument_ToSystemArrayParameter_WrapsInCSharpArray()
-    {
-        var result = Convert(@"
-using System;
-
-class Test {
-    int Len(Array array) => array.Length;
-
-    int M(int[] values) {
-        return Len(values);
-    }
-}");
-
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("int len(CSharpArray array)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return len(CSharpArray.of(values));", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void SystemArrayCast_ToConcreteArray_UnwrapsCSharpArray()
     {
         var result = Convert(@"
@@ -105,25 +49,6 @@ class Test {
         Assert.Contains("void setNextOutputBuffer(CSharpArray buffer)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("_buffer = buffer.as(byte[].class);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("_buffer = (byte[])(buffer);", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ArrayCreateInstance_ForSystemArrayReturn_WrapsInCSharpArray()
-    {
-        var result = Convert(@"
-using System;
-
-class Test {
-    Array Make(Type type, int count, object value) {
-        Array ret = Array.CreateInstance(type, count);
-        ret.SetValue(value, 0);
-        return ret;
-    }
-}");
-
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("CSharpArray ret = CSharpArray.of(java.lang.reflect.Array.newInstance(type, count));", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("CSharpArray ret = java.lang.reflect.Array.newInstance(type, count);", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

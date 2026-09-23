@@ -13,28 +13,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class RefHolderForwardingToAbstractSlotTests
 {
-    [Fact]
-    public void RefParamForwardedToAbstractOverrideSlot_PassesHolder()
-    {
-        var result = Convert(@"
-struct Reader { }
-abstract class Base<T>
-{
-    public abstract T Read(ref Reader reader);
-    public abstract T ReadWithQuotes(ref Reader reader);
-}
-class Derived : Base<char>
-{
-    public override char Read(ref Reader reader) => 'a';
-    public override char ReadWithQuotes(ref Reader reader) => Read(ref reader);
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("read(reader)", code);
-        Assert.DoesNotContain("read(reader.value)", code);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

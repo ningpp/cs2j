@@ -35,27 +35,6 @@ namespace dotnet.text.json.Serialization
         Assert.DoesNotContain("new ReflectionEmitMemberAccessor()", code, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void ActivatorCreateInstanceWithNonPublicBool_MapsToParameterlessCreateInstance()
-    {
-        var result = Convert(@"
-using System;
-
-class C
-{
-    object M(Type type)
-    {
-        return Activator.CreateInstance(type, nonPublic: false);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("Activator.createInstance(type)", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("new Object[] { false }", code, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

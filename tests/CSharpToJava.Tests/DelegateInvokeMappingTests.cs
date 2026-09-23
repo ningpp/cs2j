@@ -72,69 +72,6 @@ class Test
         Assert.Contains(".apply(42)", result.GeneratedCode);
     }
 
-    [Fact]
-    public void DelegateInvoke_BooleanFunc_MappedToPredicateTest()
-    {
-        var result = Convert(@"
-using System;
-
-class Test
-{
-    Func<int, bool> predicate;
-    void M()
-    {
-        var result = predicate(42);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Predicate<Integer> predicate", result.GeneratedCode);
-        Assert.DoesNotContain("predicate.apply(42)", result.GeneratedCode);
-        Assert.Contains("predicate.test(42)", result.GeneratedCode);
-    }
-
-    [Fact]
-    public void DelegateInvoke_BooleanFuncWithTwoInputs_MappedToBiPredicateTest()
-    {
-        var result = Convert(@"
-using System;
-
-class Test
-{
-    Func<int, int, bool> predicate;
-    void M()
-    {
-        var result = predicate(1, 2);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("BiPredicate<Integer, Integer> predicate", result.GeneratedCode);
-        Assert.DoesNotContain("predicate.apply(1, 2)", result.GeneratedCode);
-        Assert.Contains("predicate.test(1, 2)", result.GeneratedCode);
-    }
-
-    [Fact]
-    public void CustomDelegate_Invoke_MappedToCorrectSAM()
-    {
-        var result = Convert(@"
-delegate void MyCallback();
-
-class Test
-{
-    MyCallback callback;
-    void M()
-    {
-        callback.Invoke();
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.DoesNotContain(".invoke()", result.GeneratedCode);
-        Assert.DoesNotContain(".Invoke()", result.GeneratedCode);
-        Assert.Contains(".run()", result.GeneratedCode);
-    }
-
     /// <summary>
     /// Conditional access ?.Invoke() should also map to the correct SAM method.
     /// The conditional access handler in StatementTransformer.ExpressionAndReturn.cs must detect

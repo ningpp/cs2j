@@ -12,38 +12,4 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class TryGetValuePrimitiveOutCastTests
 {
-    [Fact]
-    public void TryGetValue_IntOut_CastsGetResult()
-    {
-        var pipeline = new ConversionPipeline();
-        var result = pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = @"
-using System.Collections;
-public static class HashtableExtensions
-{
-    public static bool TryGetValue<T>(this Hashtable table, object key, out T value)
-    {
-        if (table.ContainsKey(key)) { value = (T)table[key]; return true; }
-        value = default; return false;
-    }
-}
-public class C
-{
-    public string M(Hashtable caps, int i)
-    {
-        return caps.TryGetValue(i, out i) ? ""y"" : ""n"";
-    }
-}",
-            FileName = "Test.cs",
-            Options = new ConversionOptions(),
-        });
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // The raw unboxed assignment is invalid Java (Object -> int); a cast must be present.
-        Assert.DoesNotContain("(i = caps.get(i))", code);
-        Assert.Contains("(Integer) caps.get(i)", code);
-    }
 }

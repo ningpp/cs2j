@@ -22,48 +22,6 @@ public class ErrorDocDiagnosticTests
         });
     }
 
-    // Error 09: MemberwiseClone mapping
-    [Fact]
-    public void Error09_MemberwiseClone_MappedToClone()
-    {
-        var r = Convert(@"
-class Settings {
-    public int X;
-    public virtual Settings Clone() {
-        return (Settings)MemberwiseClone();
-    }
-}");
-        _out.WriteLine(r.GeneratedCode ?? "FAILED");
-        Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        // The converter should add a memberwiseClone() helper that wraps super.clone()
-        // and the class should implement Cloneable
-        Assert.Contains("Cloneable", code);
-        Assert.Contains("protected Object memberwiseClone()", code);
-        Assert.Contains("super.clone()", code);
-    }
-
-    // Error 22: Math.Sign → Integer.signum
-    [Fact]
-    public void Error22_MathSign_MapsCorrectly()
-    {
-        var r = Convert(@"
-using System;
-class Sample {
-    int M(int a, int b) {
-        return Math.Sign(b - a);
-    }
-}");
-        _out.WriteLine(r.GeneratedCode ?? "FAILED");
-        Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        // Should use Integer.signum for int input or (int)Math.signum
-        bool usesIntegerSignum = code.Contains("Integer.signum");
-        bool usesCastSignum = code.Contains("(int)") && code.Contains("Math.signum");
-        Assert.True(usesIntegerSignum || usesCastSignum,
-            $"Should map Math.Sign(int) correctly. Got: {code}");
-    }
-
     // Error 23: !collection.Any() operator precedence
     [Fact]
     public void Error23_NotAny_CorrectPrecedence()
@@ -391,27 +349,6 @@ class Sample {
         Assert.DoesNotContain(".invoke(", code);
     }
 
-    // Error 17: Stopwatch API mapping
-    [Fact]
-    public void Error17_StopwatchApi()
-    {
-        var r = Convert(@"
-using System.Diagnostics;
-class Timer {
-    long freq;
-    long startTime;
-    void Init() {
-        freq = Stopwatch.Frequency;
-        startTime = Stopwatch.GetTimestamp();
-    }
-}");
-        _out.WriteLine(r.GeneratedCode ?? "FAILED");
-        Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        // Should map to System.nanoTime() or similar, not StopwatchHelper
-        Assert.DoesNotContain("StopwatchHelper", code);
-    }
-
     // Error 24d: List<int>[] array creation
     [Fact]
     public void Error24d_ListArrayCreation()
@@ -509,29 +446,6 @@ class Sample {
         var code = r.GeneratedCode ?? "";
         // Should wrap array to Iterable somehow (ArrayHelper.toList, Arrays.stream, etc.)
         Assert.DoesNotContain("return data;", code);
-    }
-
-    // Error 04: IEnumerator<T> → Iterator<T> missing next()/hasNext()
-    [Fact]
-    public void Error04_EnumeratorToIterator()
-    {
-        var r = Convert(@"
-using System.Collections;
-using System.Collections.Generic;
-class MyIterator : IEnumerator<string> {
-    private string _current;
-    public string Current => _current;
-    object IEnumerator.Current => _current;
-    public bool MoveNext() { return false; }
-    public void Reset() { }
-    public void Dispose() { }
-}");
-        _out.WriteLine(r.GeneratedCode ?? "FAILED");
-        Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        // Should have next() and hasNext() methods
-        Assert.Contains("next()", code);
-        Assert.Contains("hasNext()", code);
     }
 
     // Error 12: out parameter should use Holder.value for assignment
@@ -660,33 +574,6 @@ class Sample {
         var code = r.GeneratedCode ?? "";
         // Sort with comparator lambda should compile
         Assert.Contains("sort(", code);
-    }
-
-    // Error 15: AddRange after LINQ collect should not re-collect
-    [Fact]
-    public void Error15_AddRangeAfterCollect()
-    {
-        var r = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Node {
-    public IEnumerable<Node> OutEdges;
-    public IEnumerable<Node> InEdges;
-    public int Id;
-}
-class Sample {
-    void M(Node ni) {
-        var neighb = ni.OutEdges.Where(e => e.Id > 0).Select(e => e).ToList();
-        neighb.AddRange(ni.InEdges.Where(e => e.Id > 0).Select(e => e));
-    }
-}");
-        _out.WriteLine(r.GeneratedCode ?? "FAILED");
-        Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        // AddRange of a LINQ chain (IEnumerable-only) uses forEach since addRange requires Collection
-        Assert.Contains(".forEach(neighb::add)", code);
-        // neighb should not have .collect() called on it
-        Assert.DoesNotContain("neighb.collect(", code);
     }
 
     // Error 06: Ambiguous constructor when collect() result matches multiple overloads

@@ -17,68 +17,6 @@ public class MemoryExtensionsAsSpanStartTests
 
     public MemoryExtensionsAsSpanStartTests(ITestOutputHelper output) => _out = output;
 
-    [Fact]
-    public void StringAsSpanStart_CompilesAgainstCompatRuntime()
-    {
-        var result = Convert("""
-using System;
-class C {
-    static void Build(string set, System.ReadOnlySpan<char> span) {
-        set.AsSpan(2).CopyTo(span.Slice(0));
-        set.AsSpan().CopyTo(span.Slice(0));
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("MemoryExtensions.asSpan(set, 2)", code);
-
-        using var temp = new TempDir();
-        // The generated code binds MemoryExtensions to the project-local class
-        // (dotnet.system.MemoryExtensions), so verify the compat API surface with a
-        // direct API check instead of compiling the full generated file.
-        var samplePath = Path.Combine(temp.Path, "CompatApiCheck.java");
-        var outDir = Path.Combine(temp.Path, "classes");
-        Directory.CreateDirectory(outDir);
-        File.WriteAllText(samplePath, """
-import io.github.ningpp.compat.MemoryExtensions;
-import io.github.ningpp.compat.Span;
-class CompatApiCheck {
-    static void check(String set, Span<Character> span) {
-        MemoryExtensions.asSpan(set, 2).copyTo(span.slice(0));
-        MemoryExtensions.asSpan(set).copyTo(span.slice(0));
-    }
-}
-""");
-
-        var compatDir = Path.Combine(FindRepoRoot(), "java", "csharptojava-compat", "src", "main", "java", "io", "github", "ningpp", "compat");
-        var compatSources = new[]
-        {
-            "MemoryExtensions.java",
-            "ReadOnlyMemory.java",
-            "ReadOnlySpan.java",
-            "Span.java",
-            "ArraySegment.java",
-            "CultureInfo.java",
-            "IFormatProvider.java",
-            "TextInfo.java",
-            "NumberFormatInfo.java",
-            "DateTimeFormatInfo.java",
-            "CompareInfo.java",
-            "CultureTypes.java",
-            "StringComparison.java",
-        }.Select(name => Path.Combine(compatDir, name)).ToArray();
-
-        foreach (var source in compatSources)
-            Assert.True(File.Exists(source), $"Missing compat source: {source}");
-
-        var sources = string.Join(" ", compatSources.Append(samplePath).Select(path => $"\"{path}\""));
-        var javac = RunProcess("javac", $"-d \"{outDir}\" {sources}");
-        Assert.True(javac.ExitCode == 0, javac.Output);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

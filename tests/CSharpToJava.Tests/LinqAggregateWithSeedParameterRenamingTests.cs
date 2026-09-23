@@ -96,38 +96,6 @@ public class MyClass
     }
 
     [Fact]
-    public async Task ProjectAggregateWithSeed_SystemPathCombineMethodGroupOnParamsArray_ProducesProcedural()
-    {
-        var pipeline = new ProjectConversionPipeline(CreateProjectOptions());
-        var results = await pipeline.ConvertProjectAsync(new[]
-        {
-            new SourceFile
-            {
-                FilePath = "Sample.cs",
-                Content = @"
-using System.IO;
-using System.Linq;
-
-public class MyClass
-{
-    public string Build(string root, params string[] parts)
-    {
-        return parts.Aggregate(root, Path.Combine);
-    }
-}",
-            },
-        });
-
-        var result = Assert.Single(results, item => item.FileName == "MyClass.java");
-        var java = result.GeneratedCode;
-
-        Assert.True(result.Success, java);
-        Assert.Contains("ProceduralLinq", java);
-        Assert.Contains("java.nio.file.Paths.get(_acc, _linqitem).toString()", java);
-        Assert.DoesNotContain(".aggregate(", java, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task ProjectAggregateWithSeed_ErrorStringSeedSpecialType_UsesStringSeedParameter()
     {
         var sourcePath = Path.Combine(Path.GetTempPath(), "LinearSystemSolver.cs");

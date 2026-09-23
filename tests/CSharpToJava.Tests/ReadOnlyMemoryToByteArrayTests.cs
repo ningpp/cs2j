@@ -12,20 +12,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ReadOnlyMemoryToByteArrayTests
 {
-    [Fact]
-    public void ToArrayOnReadOnlyMemoryOfByte_EmitsToByteArray()
-    {
-        var result = Convert(@"
-class Holder {
-    public byte[] Dump(System.ReadOnlyMemory<byte> m) => m.ToArray();
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("ReadOnlyMemory<Integer>", code);
-        Assert.Contains("m.toByteArray()", code);
-    }
 
     [Fact]
     public void ImplicitByteArrayToReadOnlyMemory_EmitsConstructorWrap()

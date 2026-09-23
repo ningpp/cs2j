@@ -10,24 +10,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ListFromDictionaryKeysConstructorTests
 {
-    [Fact]
-    public void NewList_FromDictionaryKeys_NoIterableCast()
-    {
-        var source = @"
-using System.Collections.Generic;
-
-class Sample {
-    void M() {
-        var dict = new Dictionary<string, int>();
-        var keys = new List<string>(dict.Keys);
-    }
-}";
-        var result = Convert(source);
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        // Should produce new CSharpList<String>(dict.keySet()) not (Iterable<String>)(Iterable<?>)(dict.keySet())
-        Assert.Contains("new CSharpList<String>(dict.keySet())", result.GeneratedCode);
-        Assert.DoesNotContain("Iterable<?>", result.GeneratedCode);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

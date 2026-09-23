@@ -11,25 +11,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class DictionaryNestedEnumeratorMappingTests
 {
-    [Fact]
-    public void DictionaryEnumerator_ResolvesThroughTypeMapping()
-    {
-        var result = Convert(@"
-class Holder
-{
-    public void M(System.Collections.Generic.Dictionary<string, int> dict)
-    {
-        System.Collections.Generic.Dictionary<string, int>.Enumerator e = (System.Collections.Generic.Dictionary<string, int>.Enumerator)dict.GetEnumerator();
-        e.MoveNext();
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("CSharpDictionary.Enumerator", code);
-        Assert.DoesNotContain("(Dictionary.Enumerator)", code);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

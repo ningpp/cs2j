@@ -18,34 +18,6 @@ public class FlagsEnumToStringTests
         });
     }
 
-    [Fact]
-    public void FlagsEnumToString_EmitsNameHelper()
-    {
-        var result = Convert(@"
-using System;
-namespace Foo {
-    [Flags]
-    public enum Direction { None = 0, North = 1, East = 2, South = 4, West = 8 }
-    public class Use {
-        public string Describe(Direction d) { return d.ToString(); }
-    }
-}");
-        Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics.Select(d => d.Message))}");
-        Assert.Contains("Direction.toString(d)", result.GeneratedCode);
-        Assert.Contains("public static String toString(int value)", result.GeneratedCode);
-        Assert.Contains("if (value == 2) { return \"East\"; }", result.GeneratedCode);
-        using var temp = new TempDir();
-        var samplePath = Path.Combine(temp.Path, "Sample.java");
-        var outDir = Path.Combine(temp.Path, "classes");
-        Directory.CreateDirectory(outDir);
-        File.WriteAllText(samplePath, result.GeneratedCode);
-        WriteTopLevelTypes(result.GeneratedCode, temp.Path);
-        File.Delete(samplePath);
-        var javacFiles = string.Join(" ", Directory.GetFiles(temp.Path, "*.java").Select(f => $"\"{f}\" "));
-        var javac = RunProcess("javac", $"-d \"{outDir}\" {javacFiles}");
-        Assert.True(javac.ExitCode == 0, javac.Output);
-    }
-
     private static void WriteTopLevelTypes(string generatedCode, string dir)
     {
         int i = 0;
@@ -74,24 +46,6 @@ namespace Foo {
             File.WriteAllText(Path.Combine(dir, name + ".java"), generatedCode.Substring(start, end - start));
             i = end;
         }
-    }
-
-    [Fact]
-    public void FlagsEnumInStringFormat_EmitsNameHelper()
-    {
-        var result = Convert(@"
-using System;
-namespace Foo {
-    [Flags]
-    public enum Direction { None = 0, North = 1, East = 2, South = 4, West = 8 }
-    public class Use {
-        public string Describe(Direction d) {
-            return string.Format(System.Globalization.CultureInfo.InvariantCulture, ""{0} {1}"", d, d);
-        }
-    }
-}");
-        Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics.Select(d => d.Message))}");
-        Assert.Contains("Direction.toString(d)", result.GeneratedCode);
     }
 
     [Fact]

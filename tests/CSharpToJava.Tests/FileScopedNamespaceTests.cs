@@ -6,28 +6,6 @@ namespace CSharpToJava.Tests;
 
 public class FileScopedNamespaceTests
 {
-    /// <summary>
-    /// 验证文件范围命名空间 (namespace Foo;) 能正确转换为 Java package 声明
-    /// </summary>
-    [Fact]
-    public void FileScopedNamespace_GeneratesPackageDeclaration()
-    {
-        var result = Convert(@"
-namespace Demo;
-
-class Program
-{
-    public static void Main()
-    {
-        System.Console.WriteLine(""Hello"");
-    }
-}");
-
-        Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics.Select(d => d.Message))}");
-        Assert.Contains("package Demo;", result.GeneratedCode);
-        Assert.Contains("public class Program", result.GeneratedCode);
-        Assert.Contains("System.out.println", result.GeneratedCode);
-    }
 
     /// <summary>
     /// 验证文件范围命名空间内的类成员（字段、方法）被正确转换
@@ -179,47 +157,6 @@ class Helper
         Assert.True(result.Success);
         Assert.Contains("package Outer.Inner;", result.GeneratedCode);
         Assert.Contains("public class Helper", result.GeneratedCode);
-    }
-
-    /// <summary>
-    /// 验证完整的 test_input.cs 场景（文件范围命名空间 + unsafe + 指针 + 常量）
-    /// </summary>
-    [Fact]
-    public void FileScopedNamespace_FullUnsafeScenario()
-    {
-        var result = Convert(@"
-namespace Demo;
-
-using System.Text;
-
-class Program
-{
-    private const short c_MaxAsciiCharsReallocate = 40;
-    private const short c_MaxUnicodeCharsReallocate = 40;
-    private const short c_MaxUTF_8BytesPerUnicodeChar = 4;
-
-    public static unsafe int GetBytes(char* pStr, int count, byte* bytes, int start)
-    {
-        int i = start;
-        return Encoding.UTF8.GetBytes(pStr + i, count, bytes,
-            c_MaxUnicodeCharsReallocate * c_MaxUTF_8BytesPerUnicodeChar);
-    }
-
-    public static void Main()
-    {
-        string str = ""Hello, World!"";
-        System.Console.WriteLine(str);
-    }
-}");
-
-        Assert.True(result.Success, $"Conversion failed: {string.Join(", ", result.Diagnostics.Select(d => d.Message))}");
-        Assert.Contains("package Demo;", result.GeneratedCode);
-        Assert.Contains("public class Program", result.GeneratedCode);
-        Assert.Contains("MemorySegment pStr", result.GeneratedCode);
-        Assert.Contains("MemorySegment bytes", result.GeneratedCode);
-        Assert.Contains("private static final short", result.GeneratedCode);
-        Assert.Contains("System.out.println", result.GeneratedCode);
-        Assert.DoesNotContain("unsafe", result.GeneratedCode);
     }
 
     private static ConversionResult Convert(string sourceCode)

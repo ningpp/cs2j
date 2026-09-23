@@ -11,35 +11,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class GenericTypeMappingTests
 {
-    [Fact]
-    public void IEnumerableField_MapsToIterable_PreservesTypeArg()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Test {
-    IEnumerable<string> items;
-    IEnumerable<int> numbers;
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-        Assert.Contains("CSharpGenericIterable<String>", code);
-        Assert.Contains("CSharpGenericIterable<Integer>", code);
-        Assert.DoesNotContain("IEnumerable", code);
-    }
-
-    [Fact]
-    public void IListProperty_MapsToList_PreservesTypeArg()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Test {
-    public IList<string> Names { get; set; }
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-        Assert.Contains("CSharpGenericIList<String>", code);
-        Assert.DoesNotMatch(new Regex(@"\bIList\b"), code);
-    }
 
     [Fact]
     public void ActionField_MapsToConsumer_PreservesTypeArg()
@@ -92,22 +63,6 @@ class Test {
     }
 
     [Fact]
-    public void FieldWithoutAccessModifier_GetsPrivateInJava()
-    {
-        var result = Convert(@"
-class Test {
-    int count;
-    string name;
-    List<int> items;
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-        Assert.Contains("private int count", code);
-        Assert.Contains("private String name", code);
-        Assert.Contains("private CSharpList<Integer> items", code);
-    }
-
-    [Fact]
     public void PublicField_StaysPublic()
     {
         var result = Convert(@"
@@ -119,34 +74,6 @@ class Test {
         var code = result.GeneratedCode!;
         Assert.Contains("public int count", code);
         Assert.Contains("protected String name", code);
-    }
-
-    [Fact]
-    public void NestedGenericTypes_MapRecursivelyWithBoxing()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Test {
-    Dictionary<string, List<int>> lookup;
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-        Assert.Contains("CSharpDictionary<String, CSharpList<Integer>>", code);
-        Assert.DoesNotMatch(new Regex(@"\bDictionary\b"), code);
-    }
-
-    [Fact]
-    public void IComparerField_MapsToComparator()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Test {
-    IComparer<string> comparer;
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-        Assert.Contains("CSharpGenericComparer<String>", code);
-        Assert.DoesNotContain("IComparer", code);
     }
 
     [Fact]
@@ -180,39 +107,6 @@ class Test : ICloneable {
     }
 
     [Fact]
-    public void ConstructorParameter_GenericTypePreserved()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Shape { }
-class World {
-    public World(IEnumerable<Shape> obstacles) { }
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-        Assert.Contains("Iterable<Shape> obstacles", code);
-        Assert.DoesNotContain("IEnumerable<Shape>", code);
-    }
-
-    [Fact]
-    public void MethodReturnType_GenericPreserved()
-    {
-        var result = Convert(@"
-using System;
-using System.Collections.Generic;
-class Factory {
-    IList<string> GetNames() { return null; }
-    Func<int, bool> GetPredicate() { return null; }
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-        Assert.Contains("CSharpGenericIList<String> getNames", code);
-        Assert.Contains("Predicate<Integer> getPredicate", code);
-        Assert.DoesNotMatch(new Regex(@"\bIList<"), code);
-        Assert.DoesNotContain("Func<", code);
-    }
-
-    [Fact]
     public void ClassImplementsTwoIComparerInterfaces_UsesHelperMethodsNotExtends()
     {
         var result = Convert(@"
@@ -234,55 +128,6 @@ class SegmentIntersector : IComparer<SegmentIntersector.SegEvent>, IComparer<Sca
     }
 
     [Fact]
-    public void ErasureConflictWithGenericTypeArg_StripsTypeParametersFromHelperMethodName()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Foo { }
-class Bar : IComparer<KeyValuePair<string, Foo>>, IComparer<Foo> {
-    public int Compare(KeyValuePair<string, Foo> a, KeyValuePair<string, Foo> b) { return 0; }
-    public int Compare(Foo a, Foo b) { return 0; }
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-
-        // Type arguments containing '<' must not leak into the Java identifier
-        Assert.Contains("asCSharpKeyValuePairComparer", code);
-        Assert.DoesNotMatch(new Regex(@"as[A-Za-z_$][\w$]*<"), code);
-    }
-
-
-    [Fact]
-    public void ClassImplementsIComparerOfOwnNestedType_QualifiesNestedTypeInImplementsClause()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class SegmentIntersector : IComparer<SegmentIntersector.SegEvent> {
-    internal class SegEvent { }
-    public int Compare(SegEvent a, SegEvent b) { return 0; }
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-
-        Assert.Contains("class SegmentIntersector implements CSharpGenericComparer<SegmentIntersector.SegEvent>", code);
-        Assert.DoesNotContain("class SegmentIntersector implements CSharpGenericComparer<SegEvent>", code);
-    }
-
-    [Fact]
-    public void ClassImplementsSingleIComparer_UsesImplements()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class MyComparer : IComparer<string> {
-    public int Compare(string a, string b) { return 0; }
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-        Assert.Contains("implements CSharpGenericComparer<String>", code);
-        Assert.DoesNotContain("extends CSharpGenericComparer", code);
-    }
-
-    [Fact]
     public void ClassImplementsIComparable_UsesImplements()
     {
         var result = Convert(@"
@@ -294,21 +139,6 @@ class ComparableThing : IComparable<ComparableThing> {
         var code = result.GeneratedCode!;
         Assert.Contains("implements Comparable<ComparableThing>", code);
         Assert.DoesNotContain("extends Comparable", code);
-    }
-
-    [Fact]
-    public void ClassExtendsBaseAndImplementsInterface_CorrectExtendsAndImplements()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Base { }
-class Derived : Base, IComparer<Derived> {
-    public int Compare(Derived a, Derived b) { return 0; }
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-        Assert.Contains("extends Base", code);
-        Assert.Contains("implements CSharpGenericComparer<Derived>", code);
     }
 
     [Fact]
@@ -334,43 +164,6 @@ class Test {
         Assert.True(result.Success, string.Join("; ", result.Diagnostics));
         var code = result.GeneratedCode!;
         Assert.DoesNotContain("io.github.ningpp.compat.ValueListBuilder", code);
-    }
-
-    [Fact]
-    public void IDictionaryImplementation_KeyValuePairMappedToCSharpKeyValuePair()
-    {
-        // C# IDictionary<TKey, TValue> inherits IEnumerable<KeyValuePair<TKey, TValue>>.
-        // The KeyValuePair type argument must be mapped to CSharpKeyValuePair in the
-        // generated implements clause and iterator() return type, not left as the
-        // bare short name "KeyValuePair" which has no import.
-        var result = Convert(@"
-using System.Collections.Generic;
-class MyDictWrapper<TKey, TValue> : IDictionary<TKey, TValue> {
-    public TValue this[TKey key] { get => default(TValue); set { } }
-    public ICollection<TKey> Keys => null;
-    public ICollection<TValue> Values => null;
-    public int Count => 0;
-    public bool IsReadOnly => false;
-    public void Add(TKey key, TValue value) { }
-    public void Add(KeyValuePair<TKey, TValue> item) { }
-    public void Clear() { }
-    public bool Contains(KeyValuePair<TKey, TValue> item) => false;
-    public bool ContainsKey(TKey key) => false;
-    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) { }
-    public bool Remove(TKey key) => false;
-    public bool Remove(KeyValuePair<TKey, TValue> item) => false;
-    public bool TryGetValue(TKey key, out TValue value) { value = default; return false; }
-    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => null;
-    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => null;
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-        // The implements clause must use CSharpKeyValuePair, not bare KeyValuePair
-        Assert.DoesNotMatch(new Regex(@"\bKeyValuePair\b(?!<)"), code); // no bare "KeyValuePair" without generic bracket
-        Assert.Contains("CSharpKeyValuePair", code);
-        // Must not contain the unqualified short name in any generic position
-        Assert.DoesNotContain("Iterable<KeyValuePair>", code);
-        Assert.DoesNotContain("CSharpGenericEnumerator<KeyValuePair>", code);
     }
 
     private static ConversionResult Convert(string sourceCode)

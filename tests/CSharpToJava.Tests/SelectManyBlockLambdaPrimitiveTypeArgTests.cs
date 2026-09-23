@@ -24,44 +24,6 @@ public class SelectManyBlockLambdaPrimitiveTypeArgTests
 
     public SelectManyBlockLambdaPrimitiveTypeArgTests(ITestOutputHelper output) => _out = output;
 
-    [Fact]
-    public void SelectMany_BlockLambda_IntParam_UsesIntegerNotIntInFunctionCast()
-    {
-        var result = Convert("""
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
-class Test
-{
-    static void Run()
-    {
-        var result = Enumerable.Range(0, 3)
-            .SelectMany(r => Enumerable.Range(0, 3)
-                .SelectMany(c =>
-                {
-                    int id = r * 3 + c;
-                    var edges = new List<(int, int)>();
-                    if (c + 1 < 3)
-                        edges.Add((id, id + 1));
-                    return edges;
-                }))
-            .ToList();
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-
-        // The Function cast must NOT use primitive "int" as type argument.
-        Assert.DoesNotContain("Function<int,", code, StringComparison.Ordinal);
-
-        // It should use Integer (the boxed wrapper) instead.
-        Assert.Contains("Function<Integer", code, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

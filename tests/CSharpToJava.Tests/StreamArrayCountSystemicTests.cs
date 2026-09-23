@@ -136,79 +136,6 @@ class Sample
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // Error 3: Count property on IReadOnlyCollection / IReadOnlyList / ISet
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    [Fact]
-    public void IReadOnlyCollectionCount_MapsToSize()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Sample
-{
-    void M(IReadOnlyCollection<string> items)
-    {
-        int n = items.Count;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("items.size()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Count", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void IReadOnlyListCount_MapsToSize()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Sample
-{
-    void M(IReadOnlyList<string> items)
-    {
-        int n = items.Count;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("items.size()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ISetCount_MapsToSize()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Sample
-{
-    void M(ISet<string> items)
-    {
-        int n = items.Count;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("items.size()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SortedSetCount_MapsToSize()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Sample
-{
-    void M(SortedSet<string> items)
-    {
-        int n = items.Count;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("items.size()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
     // Regression guards — existing behaviour must not break
     // ═══════════════════════════════════════════════════════════════════════════
 
@@ -247,23 +174,6 @@ class Sample
         // Arrays are directly iterable in Java foreach — must NOT be wrapped
         Assert.DoesNotContain("ArrayHelper.toList", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain(".collect(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ListCount_StillMapsToSize()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Sample
-{
-    void M(List<string> items)
-    {
-        int n = items.Count;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("items.size()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

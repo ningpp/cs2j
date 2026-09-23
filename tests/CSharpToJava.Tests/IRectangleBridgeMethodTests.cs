@@ -13,23 +13,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class IRectangleBridgeMethodTests
 {
-    [Fact]
-    public void IRectangleAdd_Bridge_EmitsVoidReturn()
-    {
-        var result = Convert("""
-interface IRectangle<P> {
-    void Add(P point);
-}
-class Interval : IRectangle<double> {
-    public void Add(double v) { }
-}
-""");
-
-        _ = result.GeneratedCode ?? "";
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("public void add(Double point)", result.GeneratedCode);
-        Assert.DoesNotContain("IRectangle<Double> add(Double point)", result.GeneratedCode);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

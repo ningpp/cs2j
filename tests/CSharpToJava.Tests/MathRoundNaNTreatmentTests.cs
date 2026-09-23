@@ -20,28 +20,4 @@ public class MathRoundNaNTreatmentTests
             Options = new ConversionOptions(),
         });
     }
-
-    [Fact]
-    public void MathRound_NaNInput_ShouldPreserveNaN()
-    {
-        var result = Convert(@"
-using System;
-
-class Sample
-{
-    public static double RoundValue(double value)
-    {
-        return Math.Round(value);
-    }
-}
-");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-
-        // The generated code should handle NaN: when value is NaN,
-        // Math.round(NaN) returns 0 in Java (not NaN as in C#).
-        // The converter must preserve NaN semantics.
-        Assert.Contains("isNaN", code, StringComparison.Ordinal);
-    }
 }

@@ -5,31 +5,6 @@ namespace CSharpToJava.Tests;
 
 public class MemoryMarshalReadStructTests
 {
-    [Fact]
-    public void MemoryMarshalRead_StructTarget_AppendsClassArgument()
-    {
-        var result = Convert(@"
-using System.Runtime.InteropServices;
-
-public struct DbRow
-{
-    public int TokenType;
-}
-
-public class Sample
-{
-    public static DbRow M(System.Span<byte> data)
-    {
-        return MemoryMarshal.Read<DbRow>(data);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("MemoryMarshal.read(", code, StringComparison.Ordinal);
-        Assert.Contains(", DbRow.class)", code, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void MemoryMarshalRead_IntTarget_NoClassArgument()

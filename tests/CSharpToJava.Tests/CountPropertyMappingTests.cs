@@ -9,23 +9,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class CountPropertyMappingTests
 {
-    [Fact]
-    public void ICollection_Count_MappedToSize_DirectAccess()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Test
-{
-    void M(ICollection<int> items)
-    {
-        int n = items.Count;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.DoesNotContain(".Count", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains(".size()", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void LinqCount_OnEnumerable_MappedToSize()

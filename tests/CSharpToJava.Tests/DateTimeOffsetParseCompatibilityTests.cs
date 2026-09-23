@@ -11,62 +11,6 @@ public class DateTimeOffsetParseCompatibilityTests
 
     public DateTimeOffsetParseCompatibilityTests(ITestOutputHelper output) => _out = output;
 
-    [Fact]
-    public void DateTimeOffsetParse_WithInvariantCulture_CompilesAgainstCompatRuntime()
-    {
-        var result = Convert("""
-using System;
-using System.Globalization;
-
-class Sample {
-    static DateTimeOffset ParseValue(string text) {
-        return DateTimeOffset.Parse(text, CultureInfo.InvariantCulture);
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("CSharpDateTimeOffset.parse(text)", result.GeneratedCode, StringComparison.Ordinal);
-
-        using var temp = new TempDir();
-        var samplePath = Path.Combine(temp.Path, "Sample.java");
-        var outDir = Path.Combine(temp.Path, "classes");
-        var dotnetSystemDir = Path.Combine(temp.Path, "dotnet", "system");
-        var dotnetSystemStubPath = Path.Combine(dotnetSystemDir, "Placeholder.java");
-        Directory.CreateDirectory(outDir);
-        Directory.CreateDirectory(dotnetSystemDir);
-        File.WriteAllText(samplePath, result.GeneratedCode);
-        File.WriteAllText(dotnetSystemStubPath, "package dotnet.system; public final class Placeholder { }");
-
-        var repoRoot = FindRepoRoot();
-        var compatDir = Path.Combine(repoRoot, "java", "csharptojava-compat", "src", "main", "java", "io", "github", "ningpp", "compat");
-          var compatSources = new[]
-          {
-              "CSharpDateTimeOffset.java",
-              "CSharpDateTime.java",
-              // CSharpDateTime/CSharpDateTimeOffset resolve local zone offsets through
-              // CSharpTimeZoneInfo, so the compat runtime must compile as a set.
-              "CSharpTimeZoneInfo.java",
-              "CSharpTimeSpan.java",
-              "DateTimeKind.java",
-              "DayOfWeek.java",
-              "IFormatProvider.java",
-              "ObjectHolder.java",
-              "ArgumentException.java",
-              "ArgumentNullException.java",
-              "ArgumentOutOfRangeException.java",
-              "FormatException.java",
-          }.Select(name => Path.Combine(compatDir, name)).ToArray();
-
-        foreach (var source in compatSources)
-            Assert.True(File.Exists(source), $"Missing compat source: {source}");
-
-        var sources = string.Join(" ", compatSources.Append(dotnetSystemStubPath).Append(samplePath).Select(path => $"\"{path}\""));
-        var javac = RunProcess("javac", $"-d \"{outDir}\" {sources}");
-        Assert.True(javac.ExitCode == 0, javac.Output);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

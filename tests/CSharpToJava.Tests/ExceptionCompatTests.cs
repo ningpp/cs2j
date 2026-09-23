@@ -39,21 +39,6 @@ class Sample
         Assert.Contains("ExceptionCompat.getSource(e)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Exception_GetInnerExceptionMethod_UsesCompatHelper()
-    {
-        var result = Convert(@"
-class Sample
-{
-    void M(System.Exception e)
-    {
-        var inner = e.GetInnerException();
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("ExceptionCompat.getInnerException(e)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

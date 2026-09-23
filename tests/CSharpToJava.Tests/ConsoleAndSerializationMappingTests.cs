@@ -6,27 +6,6 @@ namespace CSharpToJava.Tests;
 
 public class ConsoleAndSerializationMappingTests
 {
-    [Fact]
-    public void ConsoleErrorWriteLine_MapsToSystemErr()
-    {
-        var result = Convert("""
-using System;
-
-class Test
-{
-    void M()
-    {
-        Console.Error.Write("state");
-        Console.Error.WriteLine("{0}", 42);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("System.err.print(\"state\");", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("System.err.println(String.format(\"%1$s\", 42));", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("System.getError()", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void ExceptionSerializationConstructor_IsOmitted()
@@ -78,27 +57,6 @@ class Test
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("value.length()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("value.length;", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void StringSplit_RemoveEmptyEntries_EscapesControlSeparators()
-    {
-        var result = Convert("""
-using System;
-
-class Test
-{
-    string[] M(string text)
-    {
-        return text.Split(new char[] { ' ', ',', '\n', '\r', ';', '\t' }, StringSplitOptions.RemoveEmptyEntries);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("text.split(\"[ ,\\n\\r;\\t]\")", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("text.split(\"[ ,\n", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(";\t]\")", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

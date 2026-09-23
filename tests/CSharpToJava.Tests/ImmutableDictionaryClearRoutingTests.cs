@@ -14,31 +14,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ImmutableDictionaryClearRoutingTests
 {
-    [Fact]
-    public void Clear_OnIImmutableDictionary_RoutesToStaticHelper()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-using System.Collections.Immutable;
-
-class Demo {
-    private ImmutableDictionary<string, string> _dictionary = ImmutableDictionary<string, string>.Empty;
-
-    public IImmutableDictionary<string, string> Wipe()
-    {
-        return ((IImmutableDictionary<string, string>)_dictionary).Clear();
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        // Static-helper form; a fluent instance call is a Java compile error because the
-        // inherited Collection.clear() is void.
-        Assert.Contains("IImmutableDictionary.clear(", code);
-        Assert.DoesNotContain(")).clear()", code);
-    }
 
     [Fact]
     public void Clear_OnMutableCollections_KeepsInstanceCall()

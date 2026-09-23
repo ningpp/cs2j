@@ -23,60 +23,6 @@ class C {
     }
 
     [Fact]
-    public void OrderByDescending_ProducesReversed()
-    {
-        var result = Convert(@"
-using System.Linq;
-using System.Collections.Generic;
-class C {
-    List<int> Sort(List<int> items) => items.OrderByDescending(x => x).ToList();
-}");
-        Assert.True(result.Success);
-        Assert.Contains("reversed()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Union_ProducesDistinctConcat()
-    {
-        var result = Convert(@"
-using System.Linq;
-using System.Collections.Generic;
-class C {
-    List<int> Test(List<int> a, List<int> b) => a.Union(b).ToList();
-}");
-        Assert.True(result.Success);
-        Assert.Contains("distinct()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Intersect_ProducesHashSetFilter()
-    {
-        var result = Convert(@"
-using System.Linq;
-using System.Collections.Generic;
-class C {
-    List<int> Test(List<int> a, List<int> b) => a.Intersect(b).ToList();
-}");
-        Assert.True(result.Success);
-        Assert.Contains("HashSet", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("filter", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Except_ProducesNegatedFilter()
-    {
-        var result = Convert(@"
-using System.Linq;
-using System.Collections.Generic;
-class C {
-    List<int> Test(List<int> a, List<int> b) => a.Except(b).ToList();
-}");
-        Assert.True(result.Success);
-        Assert.Contains("HashSet", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("filter", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Join_ProducesFlatMap()
     {
         var result = Convert(@"

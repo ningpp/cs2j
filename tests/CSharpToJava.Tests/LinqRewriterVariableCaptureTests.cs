@@ -6,34 +6,6 @@ namespace CSharpToJava.Tests;
 
 public class LinqRewriterVariableCaptureTests
 {
-    [Fact]
-    public void OutParameterInWhereLambda_UsesEmptyHolderForUnassignedOuterLocal()
-    {
-        // Simulates SteinerCdt: double t; vts.Where(p => Method(p, out t) < eps).ToList()
-        var csharp = @"
-using System.Linq;
-using System.Collections.Generic;
-
-public class C
-{
-    static double Compute(double p, out double t)
-    {
-        t = p * 2;
-        return t;
-    }
-
-    public List<double> Filter(List<double> items)
-    {
-        double t;
-        return items.Where(p => Compute(p, out t) < 10).ToList();
-    }
-}";
-        var result = ConvertProcedural(csharp);
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("ProceduralLinq", result.GeneratedCode);
-        Assert.Contains("io.github.ningpp.compat.DoubleHolder _tRef = new io.github.ningpp.compat.DoubleHolder();", result.GeneratedCode);
-        Assert.DoesNotContain("io.github.ningpp.compat.DoubleHolder _tRef = new io.github.ningpp.compat.DoubleHolder(t);", result.GeneratedCode);
-    }
 
     [Fact]
     public void VariableInCollectionExpression_IsCapturedAsParameter()

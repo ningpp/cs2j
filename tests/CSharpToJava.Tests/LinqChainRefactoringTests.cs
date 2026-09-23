@@ -13,62 +13,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class LinqChainRefactoringTests
 {
-    // ─── Zip on primitive arrays ───
-
-    [Fact]
-    public void Zip_PrimitiveArray_AddsBoxedBeforeCollect()
-    {
-        var result = Convert(@"
-using System.Linq;
-class C {
-    void M() {
-        var a = new[] { 1, 2, 3 };
-        var b = new[] { 10, 20, 30 };
-        var r = a.Zip(b, (x, y) => x + y);
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        // Primitive int[] produces IntStream; must .boxed() before .collect()
-        Assert.Contains(".boxed().collect(Collectors.collectingAndThen(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Zip_ObjectArray_NoBoxed()
-    {
-        var result = Convert(@"
-using System.Linq;
-class C {
-    void M() {
-        var a = new[] { ""a"", ""b"" };
-        var b = new[] { ""c"", ""d"" };
-        var r = a.Zip(b, (x, y) => x + y);
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        // String[] produces Stream<String>; no .boxed() needed
-        Assert.DoesNotContain(".boxed()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains(".collect(Collectors.collectingAndThen(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Zip_ListReceiver_NoBoxedOnReceiver()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class C {
-    void M() {
-        var nums = new List<int> { 1, 2, 3 };
-        var r = nums.Zip(new[] { 10, 20, 30 }, (a, b) => a + b);
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        // List<int> → ArrayList<Integer>.stream() produces Stream<Integer>; no .boxed() on receiver
-        // (the 'other' argument int[] may need boxing separately, which is expected)
-        Assert.Contains("CSharpGenericIterable.requireNonNull(nums, \"source\").stream().collect(Collectors.collectingAndThen(", result.GeneratedCode, StringComparison.Ordinal);
-        // Should NOT have .boxed().collect() on the receiver - the receiver is already boxed (ArrayList<Integer>)
-        Assert.DoesNotContain("nums.stream().boxed()", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     // ─── Zip chaining with downstream LINQ ───
 

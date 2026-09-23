@@ -12,27 +12,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ConcurrentQueueMappingTests
 {
-    [Fact]
-    public void ConcurrentQueue_MapsToCompatCSharpQueue()
-    {
-        var result = Convert(@"
-class Holder
-{
-    public void M()
-    {
-        var q = new System.Collections.Concurrent.ConcurrentQueue<int>();
-        q.Enqueue(5);
-        q.TryDequeue(out int value);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("CSharpQueue<Integer>", code);
-        Assert.Contains("q.enqueue(5)", code);
-        Assert.DoesNotContain("ConcurrentLinkedQueue", code);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

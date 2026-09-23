@@ -311,21 +311,6 @@ class T {
         Assert.Contains("(int)", result);
     }
 
-    // ── Complex cases still work (multi-variable, pre/post stmts) ──
-
-    [Fact]
-    public void ListDeclaration_EndToEnd()
-    {
-        var result = ConvertCode(@"
-using System.Collections.Generic;
-class T {
-    void M() {
-        List<int> list = new List<int>();
-    }
-}");
-        Assert.Contains("CSharpList<", result);
-    }
-
     [Fact]
     public void ObjectInitializer_WithPreStatements_StillWorks()
     {

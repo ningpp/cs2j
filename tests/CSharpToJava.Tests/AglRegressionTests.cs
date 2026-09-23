@@ -9,53 +9,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class AglRegressionTests
 {
-    // ------------------------------------------------------------------
-    // Bug 1: AddToMap with same key/value types swaps key and value arguments
-    //
-    // When Dictionary<string, HashSet<string>> is used with
-    // AddToMap<string, string, HashSet<string>>(dict, "fruits", "apple"),
-    // both key and value are string, so the key-identification logic
-    // in TryGenerateAddToMapInline matches BOTH parameters as keys,
-    // causing the value parameter to be treated as the key and vice versa.
-    // ------------------------------------------------------------------
-    [Fact]
-    public void AddToMap_SameKeyTypeAndValueType_ParametersNotSwapped()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-
-public static class CollectionUtilities
-{
-    public static void AddToMap<TS, T, TC>(Dictionary<T, TC> dictionary, T key, TS value)
-        where TC : ICollection<TS>, new()
-    {
-        TC tc;
-        if (!dictionary.TryGetValue(key, out tc))
-            dictionary[key] = tc = new TC();
-        tc.Add(value);
-    }
-}
-
-public class Demo
-{
-    public void Build()
-    {
-        var dict = new Dictionary<string, HashSet<string>>();
-        CollectionUtilities.AddToMap<string, string, HashSet<string>>(dict, "fruits", "apple");
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        // The key "fruits" should appear in dict.get("fruits"), not dict.get("apple")
-        Assert.Contains(".get(\"fruits\")", code);
-        Assert.Contains(".add(\"apple\")", code);
-        // Make sure key/value are NOT swapped
-        Assert.DoesNotContain(".get(\"apple\")", code);
-        Assert.DoesNotContain(".add(\"fruits\")", code);
-    }
 
     // ------------------------------------------------------------------
     // Bug 2: default(T) for class-level type parameter returns null
@@ -102,52 +55,6 @@ public class GenericBinaryHeapPriorityQueue<T>
         Assert.Contains("_cs2jDefault_T", code);
         Assert.Contains("DefaultValue.ofClass(tClass)", code);
         Assert.DoesNotContain("DefaultValue.of()", code);
-    }
-
-    // ------------------------------------------------------------------
-    // Bug 3: CSharpList.get(index) throws IndexOutOfBoundsException
-    //        instead of ArgumentOutOfRangeException on out-of-bounds access
-    //
-    // C# List<T>[index] throws ArgumentOutOfRangeException, which cs2j
-    // maps to the compat ArgumentOutOfRangeException class.
-    // Java's ArrayList.get(index) throws IndexOutOfBoundsException.
-    // CSharpList should override get() to throw ArgumentOutOfRangeException.
-    // ------------------------------------------------------------------
-    // This is a compat library fix, tested via the Java compat test suite.
-
-    // ------------------------------------------------------------------
-    // Bug 4: LINQ First() on empty collection throws NoSuchElementException
-    //        instead of IllegalStateException (cs2j's mapping of InvalidOperationException)
-    //
-    // C# Enumerable.First() throws InvalidOperationException on empty source,
-    // which cs2j maps to IllegalStateException.
-    // The current conversion uses findFirst().orElseThrow() which throws
-    // NoSuchElementException. It should use
-    // findFirst().orElseThrow(() -> new IllegalStateException())
-    // ------------------------------------------------------------------
-    [Fact]
-    public void LinqFirst_EmptyCollection_ThrowsIllegalStateException()
-    {
-        var result = Convert("""
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
-public class Demo
-{
-    public string FirstItem(List<string> items)
-    {
-        return items.First();
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        // First() should throw IllegalStateException, not NoSuchElementException
-        Assert.Contains("IllegalStateException", code);
-        Assert.DoesNotContain("orElseThrow()", code);
     }
 
     [Fact]

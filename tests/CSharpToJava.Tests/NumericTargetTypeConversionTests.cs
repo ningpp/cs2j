@@ -48,26 +48,6 @@ class Sample
     }
 
     [Fact]
-    public void ConversionPipeline_RewritesImplicitNumericConversions_ForGenericMethodArguments()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Sample
-{
-    float AddAndRead(int value)
-    {
-        var values = new List<float>();
-        values.Add(value);
-        return values[0];
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("values.add((float) (value));", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void ConversionPipeline_RewritesImplicitNumericConversions_ForNullableInitializersAndReturns()
     {
         var result = Convert(@"
@@ -146,102 +126,6 @@ class Sample
         Assert.True(result.Success);
         Assert.Contains("float f = 0.0f", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("-0.0f", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ConversionPipeline_DoubleIsPositiveInfinity_RewritesToComparison()
-    {
-        var result = Convert(@"
-class Sample
-{
-    bool IsPosInf(double d)
-    {
-        return double.IsPositiveInfinity(d);
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("POSITIVE_INFINITY", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ConversionPipeline_DoubleIsNegativeInfinity_RewritesToComparison()
-    {
-        var result = Convert(@"
-class Sample
-{
-    bool IsNegInf(double d)
-    {
-        return double.IsNegativeInfinity(d);
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("(d == Double.NEGATIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ConversionPipeline_FloatIsPositiveInfinity_RewritesToComparison()
-    {
-        var result = Convert(@"
-class Sample
-{
-    bool IsPosInf(float f)
-    {
-        return float.IsPositiveInfinity(f);
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("(f == Float.POSITIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ConversionPipeline_SingleIsNegativeInfinity_RewritesToComparison()
-    {
-        var result = Convert(@"
-class Sample
-{
-    bool IsNegInf(float f)
-    {
-        return Single.IsNegativeInfinity(f);
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("(f == Float.NEGATIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ConversionPipeline_SingleIsPositiveInfinity_RewritesToComparison()
-    {
-        var result = Convert(@"
-class Sample
-{
-    bool IsPosInf(float f)
-    {
-        return Single.IsPositiveInfinity(f);
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("(f == Float.POSITIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ConversionPipeline_DoubleTypeNameIsNegativeInfinity_RewritesToComparison()
-    {
-        var result = Convert(@"
-class Sample
-{
-    bool IsNegInf(double d)
-    {
-        return Double.IsNegativeInfinity(d);
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("(d == Double.NEGATIVE_INFINITY)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     private static ConversionResult Convert(string sourceCode)

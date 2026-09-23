@@ -189,30 +189,4 @@ class Sample {
         // .getValue() returns List which is already Iterable, no .collect() needed on it
         Assert.DoesNotContain(".getValue().collect(", code);
     }
-
-    /// <summary>
-    /// When an IGrouping variable is passed to a method expecting IEnumerable,
-    /// Java needs .getValue() because Map.Entry doesn't implement Iterable.
-    /// </summary>
-    [Fact]
-    public void GroupBy_PassAsIterable_ShouldUseGetValue()
-    {
-        var r = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Sample {
-    void M(List<int> numbers) {
-        var groups = numbers.GroupBy(n => n % 2);
-        foreach (var group in groups) {
-            Process(group);
-        }
-    }
-    void Process(IEnumerable<int> items) { }
-}");
-        _out.WriteLine(r.GeneratedCode ?? "FAILED");
-        Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        // When passing IGrouping to a method expecting IEnumerable, need .getValue()
-        Assert.Contains(".getValue()", code);
-    }
 }

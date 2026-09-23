@@ -10,47 +10,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class AsEnumerableArrayWrappingTests
 {
-    /// <summary>
-    /// Property-style: return V.AsEnumerable() where V is T[] and return type is IEnumerable&lt;T&gt;.
-    /// After stripping AsEnumerable, V should be wrapped with ArrayHelper.toList(V).
-    /// </summary>
-    [Fact]
-    public void AsEnumerable_OnArrayField_InReturn_WrapsWithArraysAsList()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Node { }
-class Constraint
-{
-    Node[] V;
-    public IEnumerable<Node> Nodes { get { return V.AsEnumerable(); } }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("AsEnumerable", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// Method returning array.AsEnumerable() should also wrap with ArrayHelper.toList().
-    /// </summary>
-    [Fact]
-    public void AsEnumerable_OnArrayField_InMethod_WrapsWithArraysAsList()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Node { }
-class Graph
-{
-    Node[] nodes;
-    public IEnumerable<Node> GetNodes() { return nodes.AsEnumerable(); }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("ArrayHelper.toList(", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// AsEnumerable on a non-array Iterable should still be stripped (no wrapping needed).

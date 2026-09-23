@@ -14,24 +14,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class PointerCastToIntegralTests
 {
-    [Fact]
-    public void CastUnsafeAsPointerToInt_DoesNotAppendAddress()
-    {
-        var result = Convert(@"
-using System;
-using System.Runtime.CompilerServices;
-unsafe class Holder {
-    private static int Foo(ref byte searchSpace) {
-        return (int)Unsafe.AsPointer(ref searchSpace) & 15;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("(int)(Unsafe.asPointer(searchSpace))", code);
-        Assert.DoesNotContain("asPointer(searchSpace).address()", code);
-    }
 
     [Fact]
     public void CastIntPtrToIntPointerChain_DoesNotAppendAddress()

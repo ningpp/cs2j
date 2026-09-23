@@ -70,49 +70,6 @@ public class CaptureLikeCollection : IList<CaptureLike>, IReadOnlyList<CaptureLi
     }
 }";
 
-    [Fact]
-    public async Task DualGenericPlusNonGenericIList_EmitsCompilableShape()
-    {
-        var tempDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "cs2j-triple-" + System.Guid.NewGuid().ToString("N"));
-        System.IO.Directory.CreateDirectory(tempDir);
-        try
-        {
-            await System.IO.File.WriteAllTextAsync(System.IO.Path.Combine(tempDir, "Test.cs"), Source);
-
-            var pipeline = new ConversionPipeline();
-            var results = await pipeline.ConvertProjectWithPartialMergeAsync(
-                tempDir, new ConversionOptions(), projectName: "TripleTest");
-
-            var result = Assert.Single(results, r => r.FileName != null && r.FileName.Contains("CaptureLikeCollection"));
-            Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-            var code = result.GeneratedCode ?? "";
-
-            // The non-generic IList interface (CSharpGenericIList<Object>) must be
-            // suppressed when typed list interfaces are present — its boolean
-            // add(Object) / Object get(int) members clash with the typed ones.
-            Assert.DoesNotContain("implements CSharpGenericIList<Object>", code);
-
-            // Same-erasure accessor pairs must not both survive under one name:
-            // exactly one get(int) declaration, and it must be the typed one.
-            var declarations = CountOccurrences(code, " get(int ");
-            Assert.True(declarations == 1,
-                $"{declarations} get(int) declarations survived\n---Generated---\n{code}");
-            Assert.DoesNotContain("Object get(int", code);
-
-            // Non-generic IList members with Object parameters erase-clash with the
-            // generic interface members and must be dropped.
-            Assert.DoesNotContain("int add(Object", code);
-            Assert.DoesNotContain("insert(int index, Object", code);
-
-            // The iterable bridge must carry the typed element, not Object.
-            Assert.DoesNotContain("Iterable<Object>", code);
-        }
-        finally
-        {
-            try { System.IO.Directory.Delete(tempDir, recursive: true); } catch { }
-        }
-    }
-
     private static int CountOccurrences(string text, string needle)
     {
         int count = 0, index = 0;

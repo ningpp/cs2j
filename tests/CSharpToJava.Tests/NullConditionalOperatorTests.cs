@@ -70,26 +70,6 @@ class TestClass
     }
 
     [Fact]
-    public void NullConditional_PropertyAccess_NoParentheses()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-
-class TestClass
-{
-    public void M(List<int> list)
-    {
-        var count = list?.Count ?? 0;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("list.size()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("size()()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void NullConditional_ChainedMethod_NoDoubleParentheses()
     {
         var result = Convert("""

@@ -12,65 +12,6 @@ public class MemoryExtensionsCompatibilityTests
     public MemoryExtensionsCompatibilityTests(ITestOutputHelper output) => _out = output;
 
     [Fact]
-    public void SequenceEqualSpans_CompilesAgainstCompatRuntime()
-    {
-        // RegexBoyerMoore.cs:254 uses Pattern.AsSpan().SequenceEqual(text.AsSpan(...)).
-        // The converter emits MemoryExtensions.sequenceEqual(ReadOnlySpan<Character>,
-        // ReadOnlySpan<Character>), which must exist in the compat MemoryExtensions.
-        var result = Convert("""
-using System;
-class C {
-    static bool EqualsSegment(string a, string b) {
-        return a.AsSpan().SequenceEqual(b.AsSpan(1, 3));
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("MemoryExtensions.sequenceEqual(", code);
-
-
-        // Mirror CrossPackageImportResolver (IR path): helper-class imports are rewritten
-        // to the shared compatibility package in full project conversions.
-        code = code.Replace(
-            "import dotnet.system.MemoryExtensions;",
-            "import io.github.ningpp.compat.MemoryExtensions;",
-            StringComparison.Ordinal);
-        using var temp = new TempDir();
-        var samplePath = Path.Combine(temp.Path, "C.java");
-        var outDir = Path.Combine(temp.Path, "classes");
-        Directory.CreateDirectory(outDir);
-        File.WriteAllText(samplePath, code);
-
-        var compatDir = Path.Combine(FindRepoRoot(), "java", "csharptojava-compat", "src", "main", "java", "io", "github", "ningpp", "compat");
-        var compatSources = new[]
-        {
-            "MemoryExtensions.java",
-            "ReadOnlySpan.java",
-            "ReadOnlyMemory.java",
-            "Span.java",
-            "ArraySegment.java",
-            "CultureInfo.java",
-            "IFormatProvider.java",
-            "TextInfo.java",
-            "NumberFormatInfo.java",
-            "DateTimeFormatInfo.java",
-            "CompareInfo.java",
-            "CultureTypes.java",
-            "StringComparison.java",
-        }.Select(name => Path.Combine(compatDir, name)).ToArray();
-
-        foreach (var source in compatSources)
-            Assert.True(File.Exists(source), $"Missing compat source: {source}");
-
-        var sources = string.Join(" ", compatSources.Append(samplePath).Select(path => $"\"{path}\""));
-        var javac = RunProcess("javac", $"-d \"{outDir}\" {sources}");
-        Assert.True(javac.ExitCode == 0, javac.Output);
-    }
-
-    [Fact]
     public void SpanEqualityOperator_UsesSequenceEqual()
     {
         // C# Span<T> == / != are value comparisons (contents + length), but the

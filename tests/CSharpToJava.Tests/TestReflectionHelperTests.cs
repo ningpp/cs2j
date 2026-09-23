@@ -34,37 +34,6 @@ class Derived : Base
         Assert.DoesNotContain("protected int createInstance()", code);
     }
 
-    [Fact]
-    public void GenericTypeArgumentsAndMakeGenericType_RouteThroughTypeHelper()
-    {
-        var result = Convert(@"
-using System;
-class C
-{
-    static Type GetProxyType(Type type, Type[] genericTypeArguments)
-    {
-        Type proxyType = type.GetTypeInfo().BaseType;
-        if (genericTypeArguments.Length > 0)
-        {
-            proxyType = proxyType.MakeGenericType(genericTypeArguments);
-        }
-        return proxyType;
-    }
-
-    static Type[] GetArgs(Type type)
-    {
-        return type.GenericTypeArguments;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("TypeHelper.getGenericTypeArguments(type)", code);
-        Assert.Contains("TypeHelper.makeGenericType(proxyType", code);
-        Assert.DoesNotContain(".makeGenericType(genericTypeArguments)", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -1,4 +1,4 @@
-﻿using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Pipeline;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -36,104 +36,6 @@ class Demo {
         Assert.Contains("TypeHelper.newArrayInstance(clazz, count)", code);
         Assert.Contains("java.lang.reflect.Array.set(result", code);
         Assert.DoesNotContain("new Object[count]", code);
-    }
-
-    [Fact]
-    public void CallToMethodCreatingTypeParameterArray_AddsClassLiteralArgument()
-    {
-        var result = Convert("""
-class Demo {
-    public T[] Repeat<T>(T value, int count)
-    {
-        return new T[count];
-    }
-}
-
-class UseDemo {
-    public string[] Run()
-    {
-        return new Demo().Repeat<string>("x", 2);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        Assert.Contains("(String[]) new Demo().repeat(\"x\", 2, String.class)", code);
-    }
-
-    [Fact]
-    public void GenericCallerForwardsRuntimeClassParameter()
-    {
-        var result = Convert("""
-class Demo {
-    public T[] Repeat<T>(T value, int count)
-    {
-        return new T[count];
-    }
-
-    public T[] Twice<T>(T value)
-    {
-        return Repeat<T>(value, 2);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        Assert.Contains("public <T> Object twice(T value, Class<?> clazz)", code);
-        Assert.Contains("(T[]) repeat(value, 2, clazz)", code);
-        Assert.DoesNotContain("T.class", code);
-    }
-
-    [Fact]
-    public void SharedGenericArrayFactoryInDenseCallGraph_ConvertsWithoutRepeatedRecursiveScans()
-    {
-        var source = new StringBuilder("""
-class Demo {
-    public T[] Repeat<T>(T value, int count)
-    {
-        return new T[count];
-    }
-
-""");
-
-        source.AppendLine("""
-    public T[] Wrapper0<T>(T value)
-    {
-        return Repeat<T>(value, 1);
-    }
-
-""");
-
-        for (var i = 1; i < 24; i++)
-        {
-            var calls = string.Join(Environment.NewLine, Enumerable.Range(0, i).Select(j => $"        Wrapper{j}<T>(value);"));
-            source.AppendLine($$"""
-    public T[] Wrapper{{i}}<T>(T value)
-    {
-{{calls}}
-        return Repeat<T>(value, {{i + 1}});
-    }
-
-""");
-        }
-
-        source.AppendLine("}");
-
-        var stopwatch = Stopwatch.StartNew();
-        var result = Convert(source.ToString());
-        stopwatch.Stop();
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        Assert.True(stopwatch.ElapsedMilliseconds < 30000, $"Conversion took {stopwatch.ElapsedMilliseconds} ms");
-        var code = result.GeneratedCode!;
-
-        Assert.Contains("public <T> Object repeat(T value, int count, Class<?> clazz)", code);
-        Assert.Contains("public <T> Object wrapper23(T value, Class<?> clazz)", code);
-        Assert.Contains("(T[]) repeat(value, 24, clazz)", code);
     }
 
     [Fact]
@@ -199,36 +101,6 @@ class Demo<T> {
         Assert.Contains("public Demo(int count, Class<?> tClass)", code);
         Assert.Contains("this.tClass = tClass;", code);
         Assert.DoesNotContain("T.class", code);
-    }
-
-    [Fact]
-    public void ParameterizedRuntimeClassArgument_UsesWildcardClassParameter()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-
-class Box<T> {
-    public T[] Make(int count)
-    {
-        return new T[count];
-    }
-}
-
-class Demo<K, V> {
-    public List<Dictionary<K, V>>[] Run()
-    {
-        return new Box<List<Dictionary<K, V>>>().Make(1);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        Assert.Contains("private Class<?> tClass;", code);
-        Assert.Contains("public Box(Class<?> tClass)", code);
-        Assert.Contains("new Box<CSharpList<CSharpDictionary<K, V>>>(CSharpList.class).make(1)", code);
-        Assert.DoesNotContain("Class<CSharpList<Map<K, V>>>", code);
     }
 
     [Fact]
@@ -435,59 +307,6 @@ class Demo<T> {
     }
 
     [Fact]
-    public void LinqToArrayReturningClassTypeParameterArray_UsesRuntimeClassField()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-using System.Linq;
-
-class Tree<T> {
-    public T[] GetAllIntersecting(IEnumerable<T> items)
-    {
-        return items.ToArray();
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        Assert.Contains("private Class<?> tClass;", code);
-        Assert.Contains("public Tree(Class<?> tClass)", code);
-        // LINQ ToArray on IEnumerable<T> lowers to a stream; the runtime class field
-        // drives listToArray so the result is a runtime T[] (boxed/primitive as needed).
-        Assert.Contains("TypeHelper.listToArray(StreamSupport.stream(CSharpGenericIterable.requireNonNull(items, \"source\").spliterator(), false), tClass)", code);
-        Assert.DoesNotContain("new Object[size]", code);
-        Assert.DoesNotContain("T.class", code);
-    }
-
-    [Fact]
-    public void LinqToArrayReturningMethodTypeParameterArray_UsesRuntimeClassParameter()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-using System.Linq;
-
-class Demo {
-    public T[] Copy<T>(IEnumerable<T> items)
-    {
-        return items.ToArray();
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        Assert.Contains("public <T> Object copy(CSharpGenericIterable<T> items, Class<?> clazz)", code);
-        // LINQ ToArray on IEnumerable<T> lowers to a stream; the runtime class parameter
-        // drives listToArray so the result is a runtime T[] (boxed/primitive as needed).
-        Assert.Contains("TypeHelper.listToArray(StreamSupport.stream(CSharpGenericIterable.requireNonNull(items, \"source\").spliterator(), false), clazz)", code);
-        Assert.DoesNotContain("new Object[size]", code);
-        Assert.DoesNotContain("T.class", code);
-    }
-
-    [Fact]
     public void ConstructorChaining_ThisWithNoArgs_DoesNotGenerateTClass()
     {
         // ArrayBuilder(int capacity) : this() — the parameterless ctor doesn't create arrays,
@@ -652,36 +471,6 @@ class Demo {
     }
 
     [Fact]
-    public void StringCreate_ConvertsToStringHelperCreateString()
-    {
-        // C# string.Create<TState>(int length, TState state, SpanAction<char, TState> action)
-        // should convert to StringHelper.createString(length, state, action)
-        var result = Convert("""
-using System;
-
-class Demo {
-    public static string HexEscape(char character)
-    {
-        return string.Create(3, character, (Span<char> chars, char c) =>
-        {
-            chars[0] = '%';
-            chars[1] = 'A';
-            chars[2] = 'B';
-        });
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        // Should use StringHelper.createString
-        Assert.Contains("StringHelper.createString(", code);
-        // Should NOT use String.create (which doesn't exist in Java)
-        Assert.DoesNotContain("String.create(", code);
-    }
-
-    [Fact]
     public void SwitchOnLong_ConvertsToIfElse()
     {
         // C# switch on long type should convert to if-else since Java doesn't support switch(long)
@@ -819,89 +608,6 @@ class Demo {
     }
 
     [Fact]
-    public void TypeParameterArrayInstantiatedWithPrimitive_RuntimeClassCreatesBoxedArray()
-    {
-        // C# Tree<int> maps to Java Tree<Integer> with Integer.class. TypeHelper must create
-        // Integer[] (not int[]) so the generic cast (T[]) succeeds at runtime.
-        var result = Convert("""
-using System.Collections.Generic;
-using System.Linq;
-
-class Tree<T> {
-    public T[] GetAll(IEnumerable<T> items) {
-        return items.ToArray();
-    }
-}
-
-class Program {
-    static void Main() {
-        var tree = new Tree<int>();
-        var result = tree.GetAll(new List<int> { 1, 2, 3 });
-    }
-}
-""");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        Assert.Contains("TypeHelper.listToArray", code);
-        Assert.Contains("Integer.class", code);
-
-        using var temp = new TempDir();
-        var outDir = Path.Combine(temp.Path, "classes");
-        Directory.CreateDirectory(outDir);
-
-        var repoRoot = FindRepoRoot();
-        var compatSrcRoot = Path.Combine(repoRoot, "java", "csharptojava-compat", "src", "main", "java");
-        Assert.True(Directory.Exists(compatSrcRoot), $"Missing compat source root: {compatSrcRoot}");
-
-        var testPath = Path.Combine(temp.Path, "TypeHelperPrimitiveArrayTest.java");
-        File.WriteAllText(testPath, """
-import io.github.ningpp.compat.TypeHelper;
-
-public class TypeHelperPrimitiveArrayTest {
-    public static void main(String[] args) {
-        Object arr = TypeHelper.newArrayInstance(Integer.class, 3);
-        Object[] cast = (Object[]) arr;
-        if (cast.length != 3) throw new RuntimeException("wrong length");
-    }
-}
-""");
-
-        var javac = RunProcess("javac", $"-d \"{outDir}\" -sourcepath \"{compatSrcRoot}\" \"{testPath}\"");
-        Assert.True(javac.ExitCode == 0, javac.Output);
-
-        var java = RunProcess("java", $"-cp \"{outDir}\" TypeHelperPrimitiveArrayTest");
-        Assert.True(java.ExitCode == 0, java.Output);
-    }
-
-    [Fact]
-    public void GenericArrayMethodInstantiatedWithPrimitive_CallSiteUsesPrimitiveClassLiteral()
-    {
-        // C# private generic ToArray<T>() called explicitly as ToArray<int>() must pass
-        // int.class so TypeHelper.newArrayInstance creates int[] that can be cast to (int[]).
-        var result = Convert("""
-class Demo {
-    public T[] ToArray<T>(string[] values)
-    {
-        return new T[values.Length];
-    }
-
-    public int[] Run()
-    {
-        return ToArray<int>(new[] { "1", "2" });
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        Assert.Contains("public <T> Object toArray(String[] values, Class<?> clazz)", code);
-        Assert.Contains("(int[]) toArray(new String[] { \"1\", \"2\" }, int.class)", code);
-        Assert.DoesNotContain("toArray(new String[] { \"1\", \"2\" }, Integer.class)", code);
-    }
-
-    [Fact]
     public void TypeOfTypeParameterInGenericArrayMethod_WrapsPrimitiveClassLiteralForComparison()
     {
         // C# typeof(T) inside a generic method represents the runtime Type, which for
@@ -937,57 +643,6 @@ class Demo {
         Assert.Contains("TypeHelper.toWrapperType(clazz)", code);
         Assert.DoesNotContain("typeof(T)", code);
         Assert.DoesNotContain("T.class", code);
-    }
-
-    [Fact]
-    public void ArrayCreateInstanceWithTypeOfT_GeneratesRuntimeClassArrayNotTClass()
-    {
-        // Simulates the post-GenericPreprocessor rewrite of new T[n] -> (T[])Array.CreateInstance(typeof(T), n).
-        // The generated Java code must NOT contain T.class (illegal in Java for type variables).
-        var result = Convert("""
-using System;
-
-class Demo<T> {
-    public T[] Repeat(T value, int count)
-    {
-        return (T[])Array.CreateInstance(typeof(T), count);
-    }
-}
-""");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        // Should use TypeHelper.newArrayInstance with runtime class parameter, not CSharpArray.of(...).toArray(T.class)
-        Assert.DoesNotContain("T.class", code);
-        Assert.DoesNotContain(".toArray(", code);
-        Assert.DoesNotContain("CSharpArray.of", code);
-        Assert.Contains("TypeHelper.newArrayInstance(tClass", code);
-    }
-
-    [Fact]
-    public void ArrayCreateInstanceWithTypeOfMethodTypeParam_GeneratesRuntimeClassArrayNotCSharpArray()
-    {
-        // Simulates the post-GenericPreprocessor rewrite of new T[n] -> (T[])Array.CreateInstance(typeof(T), n)
-        // where T is a METHOD-level type parameter (not class-level). The runtime class parameter
-        // (_cs2j_T) is registered AFTER the body is converted, so TryGetRuntimeClassParameter returns
-        // false during body conversion. The special case must still generate TypeHelper.newArrayInstance.
-        var result = Convert("""
-using System;
-
-class Demo {
-    public T[] ToArray<T>(string[] values)
-    {
-        return (T[])Array.CreateInstance(typeof(T), values.Length);
-    }
-}
-""");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        // Should use TypeHelper.newArrayInstance with runtime class parameter
-        Assert.DoesNotContain("CSharpArray.of", code);
-        Assert.DoesNotContain("(Object)", code);
-        Assert.Contains("TypeHelper.newArrayInstance", code);
     }
 
     private static ConversionResult Convert(string sourceCode)

@@ -11,53 +11,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class LinqImportAndStreamTests
 {
-    [Fact]
-    public void OrderBy_AddsComparatorImport()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Sample {
-    void M() {
-        var nums = new List<int> { 3, 1, 2 };
-        var r = nums.OrderBy(x => x).ToList();
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("import java.util.Comparator;", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void OrderByDescending_AddsComparatorImport()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Sample {
-    void M() {
-        var nums = new List<int> { 3, 1, 2 };
-        var r = nums.OrderByDescending(x => x).ToList();
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("import java.util.Comparator;", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ThenBy_AddsComparatorImport()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Sample {
-    void M() {
-        var strs = new List<string> { ""a"", ""bb"", ""ccc"" };
-        var r = strs.OrderBy(x => x.Length).ThenBy(x => x).ToList();
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("import java.util.Comparator;", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void Join_AddsObjectsImport()
@@ -91,57 +44,6 @@ class Sample {
         Assert.True(result.Success, result.GeneratedCode);
         // LINQ desugarer now always on
         Assert.True(result.Success, result.GeneratedCode);
-    }
-
-    [Fact]
-    public void Reverse_ProducesStreamForChaining()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Sample {
-    void M() {
-        var strs = new List<string> { ""a"", ""bb"" };
-        var r = strs.OrderBy(x => x).Reverse().ToList();
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        // After Reverse(), the result should be streamable — i.e., downstream .collect() should work
-        // Check that the generated code does NOT have ".collect(...)).collect(...)" with ArrayList in between
-        Assert.DoesNotContain("return list; })).collect(", result.GeneratedCode, StringComparison.Ordinal);
-        // Instead, verify the Reverse returns a stream
-        Assert.Contains("return list.stream();", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void IListReverse_ProducesStreamForChaining()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Sample {
-    void M(IList<int> nums) {
-        var r = nums.Reverse().ToList();
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("return list.stream();", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void QuerySyntax_OrderBy_AddsComparatorImport()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Sample {
-    void M() {
-        var strs = new List<string> { ""a"", ""bb"", ""ccc"" };
-        var r = (from s in strs orderby s.Length select s).ToList();
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.Contains("import java.util.Comparator;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

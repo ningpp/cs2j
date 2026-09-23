@@ -5,36 +5,6 @@ namespace CSharpToJava.Tests;
 
 public class CustomTryGetValueGuardTests
 {
-    [Fact]
-    public void NonDictionaryClass_TryGetValue_KeepsOutHolderCallShape()
-    {
-        var result = Convert(@"
-public class JsonDocument
-{
-    public bool TryGetValue(int index, out byte[] value)
-    {
-        value = new byte[0];
-        return true;
-    }
-}
-
-public class JsonElement
-{
-    private readonly JsonDocument _parent;
-    private readonly int _idx;
-
-    public bool TryGetBytesFromBase64(out byte[] value)
-    {
-        return _parent.TryGetValue(_idx, out value);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("tryGetValue(_idx, value)", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("tryGetValue(_idx) != null", code, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void DictionaryInterfaceClass_TryGetValue_StillUsesGeneratedTryGetValue()

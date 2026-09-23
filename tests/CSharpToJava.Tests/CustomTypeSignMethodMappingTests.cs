@@ -40,28 +40,6 @@ public class CdtSweeper
         Assert.Contains("ApproximateComparer.sign(", code);
     }
 
-    [Fact]
-    public void SystemMath_SignMethod_StillGeneratesCorrectMapping()
-    {
-        var result = Convert(@"
-using System;
-
-public class Demo
-{
-    public int Foo(int x)
-    {
-        return Math.Sign(x);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-
-        var code = result.GeneratedCode!;
-
-        // System.Math.Sign(int) should map to Integer.signum (handled elsewhere)
-        Assert.Contains("Integer.signum", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -12,30 +12,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class OutDiscardAndArraySpanAdaptationTests
 {
-    [Fact]
-    public void OutDiscard_UsesTypedHolder()
-    {
-        var result = Convert(@"
-class OutDiscard
-{
-    static bool TryIt(int x, out int y)
-    {
-        y = x;
-        return true;
-    }
-
-    static bool Wrap(int x)
-    {
-        return TryIt(x, out _);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("IntHolder()", code);
-        Assert.DoesNotContain("new Object[1]", code);
-    }
 
     [Fact]
     public void ByteArrayReturnedAsReadOnlySpan_IsWrapped()

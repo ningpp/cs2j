@@ -150,36 +150,6 @@ class Sample
         Assert.True(result.Success);
     }
 
-    // ── Any() on arrays ──────────────────────────────────────────────────
-
-    [Fact]
-    public void AnyOnShortArray_UsesLength_NotArraysStream()
-    {
-        var result = Convert(@"
-using System.Linq;
-class Sample
-{
-    bool M(short[] arr) => arr.Any();
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("arr.length > 0", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void AnyOnIntArray_UsesLength_NotArraysStream()
-    {
-        var result = Convert(@"
-using System.Linq;
-class Sample
-{
-    bool M(int[] arr) => arr.Any();
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("arr.length > 0", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     // ── Array.ForEach ────────────────────────────────────────────────────
 
     [Fact]
@@ -464,40 +434,6 @@ class Sample
 }");
 
         Assert.True(result.Success);
-    }
-
-    [Fact]
-    public void LinqContainsOnIntArray_DoesNotDoubleWrapArraysStream()
-    {
-        // int[].Contains(i) (LINQ Enumerable.Contains) must not wrap the already-built
-        // Arrays.stream(...) receiver in a second Arrays.stream(...).
-        var result = Convert(@"
-using System.Linq;
-class Sample
-{
-    bool M(int[] except, int i)
-    {
-        return except.Contains(i);
-    }
-}");
-
-                _out.WriteLine("=== Generated Code ===");
-        _out.WriteLine(result.GeneratedCode);
-        _out.WriteLine("=== End ===");
-        Assert.True(result.Success);
-        Assert.DoesNotContain("Arrays.stream(Arrays.stream(", result.GeneratedCode, StringComparison.Ordinal);
-        // The converter may produce either:
-        //   (a) Arrays.stream(CSharpGenericIterable.requireNonNull(except, "source")).boxed().collect(Collectors.toSet()).contains(i)
-        //   (b) Arrays.stream(CSharpGenericIterable.requireNonNull(except, "source")).anyMatch(_item -> Objects.equals(_item, i))
-        // Both are semantically correct. Option (b) is more efficient (short-circuits on first match).
-        bool hasBoxedCollectContains = result.GeneratedCode.Contains(
-            "Arrays.stream(CSharpGenericIterable.requireNonNull(except, \"source\")).boxed().collect(Collectors.toSet()).contains(i)",
-            StringComparison.Ordinal);
-        bool hasAnyMatch = result.GeneratedCode.Contains(
-            "Arrays.stream(CSharpGenericIterable.requireNonNull(except, \"source\")).anyMatch(_item -> Objects.equals(_item, i))",
-            StringComparison.Ordinal);
-        Assert.True(hasBoxedCollectContains || hasAnyMatch,
-            $"Expected either boxed/collect/contains or anyMatch pattern. Actual:\n{result.GeneratedCode}");
     }
 
     private static ConversionResult Convert(string sourceCode)

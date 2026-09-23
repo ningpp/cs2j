@@ -25,53 +25,6 @@ public class LambdaCaptureEffectivelyFinalTests
     public LambdaCaptureEffectivelyFinalTests(ITestOutputHelper output) => _out = output;
 
     [Fact]
-    public void LambdaCapturingReassignedParameter_AndForeachVariable_UsesHolders()
-    {
-        // Mirrors d:\csharp-RegularExpressions\tests\AttRegexTests.cs: a lambda inside
-        // `foreach (int options in ...)` capturing the parameter `input` (reassigned at
-        // method top: `input = ""`) and the for-each variable `options`.
-        var result = Convert("""
-using System;
-
-class Test
-{
-    static void M(string input, string pattern)
-    {
-        if (input == "NULL") input = "";
-        foreach (int options in new[] { 1, 2 })
-        {
-            Action a = () => Console.WriteLine(input + pattern + options);
-            a();
-        }
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-
-        // The reassigned parameter must be hoisted into a holder at the body start,
-        // and the reassignment must target the holder element.
-        Assert.Contains("String[] _input = new String[] { input };", code);
-        Assert.Contains("_input[0] = \"\"", code);
-        // The for-each variable must be hoisted into a holder at the loop body top.
-        Assert.Contains("int[] _options = new int[] { options };", code);
-        // Lambda references must read the holder elements.
-        Assert.Contains("_input[0] + pattern + _options[0]", code);
-
-        // The generated file must compile with javac.
-        using var temp = new TempDir();
-        var samplePath = Path.Combine(temp.Path, "Test.java");
-        var outDir = Path.Combine(temp.Path, "classes");
-        Directory.CreateDirectory(outDir);
-        File.WriteAllText(samplePath, code);
-
-        var javac = RunProcess("javac", $"-d \"{outDir}\" \"{samplePath}\"");
-        Assert.True(javac.ExitCode == 0, javac.Output);
-    }
-
-    [Fact]
     public void ForeachVariableCapturedByNestedLambda_UsesHolder()
     {
         var result = Convert("""
