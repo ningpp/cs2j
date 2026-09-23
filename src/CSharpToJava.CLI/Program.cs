@@ -26,7 +26,7 @@ public class Program
 
     internal static async Task<int> MainImpl(string[] args)
     {
-        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions>(args)
+        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
@@ -37,6 +37,7 @@ public class Program
                 (GenericPreprocessOptions opts) => GenericPreprocess(opts),
                 (StripDefaultOptions opts) => StripDefault(opts),
                 (LocalFunctionLiftOptions opts) => LocalFunctionLiftAsync(opts),
+                (TupleToStructVerbOptions opts) => TupleToStructVerbAsync(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -222,6 +223,51 @@ public class Program
                 opts.Source = liftResult.PreprocessedSourcePath;
                 opts.FingerprintSourcePath ??= liftResult.OriginalSourcePath;
                 opts.FingerprintInputRoot ??= liftResult.SourceRoot;
+            }
+
+            if (opts.TupleToStruct)
+            {
+                // 第 2 级：消除全部 C# 值元组（元组类型/字面量/解构）为生成的 readonly
+                // struct。放在 default 参数剥离之前，使后续各级只面对无元组源码。
+                var tupleResult = await ProjectTupleToStructPreprocessor.PreprocessAsync(
+                    new ProjectTupleToStructPreprocessRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        RewriterOptions = new CSharpToJava.Core.TupleToStruct.TupleToStructOptions
+                        {
+                            NamespaceName = opts.TupleNamespace,
+                        },
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                    });
+
+                Console.WriteLine(
+                    $"tuple-to-struct: {tupleResult.Statistics.FilesTransformed} transformed, " +
+                    $"{tupleResult.Statistics.FilesSkippedClean} clean, " +
+                    $"{tupleResult.Statistics.TupleTypesReplaced} types, " +
+                    $"{tupleResult.Statistics.TupleLiteralsRewritten} literals, " +
+                    $"{tupleResult.Statistics.DeconstructionsExpanded} deconstructions, " +
+                    $"{tupleResult.Statistics.StructsGenerated} structs generated");
+
+                foreach (var diagnostic in tupleResult.Diagnostics)
+                {
+                    if (diagnostic.Severity != CSharpToJava.Core.TupleToStruct.TupleToStructSeverity.Info || opts.Verbose)
+                    {
+                        Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+                    }
+                }
+
+                if (!tupleResult.Success)
+                {
+                    return 1;
+                }
+
+                opts.Source = tupleResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= tupleResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= tupleResult.SourceRoot;
             }
 
             if (opts.StripDefault)
@@ -1891,6 +1937,10 @@ public class Program
         {
             preserved.Add(ProjectGotoPreprocessor.IntermediateDirectoryName);
         }
+        if (opts.TupleToStruct)
+        {
+            preserved.Add(ProjectTupleToStructPreprocessor.IntermediateDirectoryName);
+        }
         if (opts.UnsignedType)
         {
             preserved.Add(ProjectUnsignedTypePreprocessor.IntermediateDirectoryName);
@@ -2735,6 +2785,7 @@ public class Program
             $"maven-version={opts.MavenVersion}",
             $"include-tests={opts.IncludeTests}",
             $"eliminate-goto={opts.EliminateGoto}",
+            $"tuple-to-struct={opts.TupleToStruct}",
             $"unsigned-type={opts.UnsignedType}",
             $"generic-preprocess={opts.GenericPreprocess}",
             $"strip-default={opts.StripDefault}",
@@ -3792,6 +3843,119 @@ public class Program
         return preprocessResult.Success ? 0 : 1;
     }
 
+    /// <summary>
+    /// Standalone entry for the tuple-to-struct stage (same work the convert pipeline
+    /// performs as its second step). Useful for inspecting the intermediate C# alone.
+    /// </summary>
+    private static async Task<int> TupleToStructVerbAsync(TupleToStructVerbOptions opts)
+    {
+        var rewriterOptions = new CSharpToJava.Core.TupleToStruct.TupleToStructOptions
+        {
+            NamespaceName = opts.Namespace,
+        };
+
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+                "tuple-to-struct",
+                new[] { tree },
+                ProjectUnsignedTypePreprocessor.GetBasicReferences(),
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                    Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+            var preprocessor = new CSharpToJava.Core.TupleToStruct.TupleToStructPreprocessor(rewriterOptions);
+            var statistics = new CSharpToJava.Core.TupleToStruct.TupleToStructStatistics();
+            var diagnostics = new List<CSharpToJava.Core.TupleToStruct.TupleToStructDiagnostic>();
+            var result = preprocessor.RewriteFile(
+                sourceCode, compilation.GetSemanticModel(tree), statistics, diagnostics);
+
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+                var structContent = preprocessor.GenerateStructFile();
+                if (structContent != null)
+                {
+                    var outputDir = Path.GetDirectoryName(Path.GetFullPath(opts.Output)) ?? ".";
+                    var structPath = Path.Combine(outputDir, rewriterOptions.GeneratedFileName);
+                    await File.WriteAllTextAsync(structPath, structContent, new System.Text.UTF8Encoding(false));
+                    if (opts.Verbose)
+                    {
+                        Console.WriteLine($"Wrote tuple struct file: {structPath}");
+                    }
+                }
+
+                if (opts.Verbose)
+                {
+                    Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+                }
+            }
+            else
+            {
+                Console.Write(result.OutputCode);
+            }
+
+            foreach (var diagnostic in diagnostics)
+            {
+                Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+            }
+
+            return diagnostics.Any(d => d.Severity == CSharpToJava.Core.TupleToStruct.TupleToStructSeverity.Error)
+                ? 1
+                : 0;
+        }
+
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectTupleToStructPreprocessor.PreprocessAsync(
+            new ProjectTupleToStructPreprocessRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = true,
+                Verbose = opts.Verbose,
+                RewriterOptions = rewriterOptions,
+                FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+            });
+
+        Console.WriteLine(
+            $"tuple-to-struct: {preprocessResult.Statistics.FilesTransformed} transformed, " +
+            $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
+            $"{preprocessResult.Statistics.TupleTypesReplaced} types, " +
+            $"{preprocessResult.Statistics.TupleLiteralsRewritten} literals, " +
+            $"{preprocessResult.Statistics.DeconstructionsExpanded} deconstructions, " +
+            $"{preprocessResult.Statistics.StructsGenerated} structs generated");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+        }
+
+        Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+
+        return preprocessResult.Success ? 0 : 1;
+    }
+
     private static async Task<int> StripDefault(StripDefaultOptions opts)
     {
         var rewriterOptions = new DefaultParameterStripperOptions(
@@ -4074,6 +4238,37 @@ class GenericPreprocessOptions
     public bool VerifyTests => !NoVerifyTests;
 }
 
+[Verb("tuple-to-struct", HelpText = "Rewrite C# value tuples (types, literals, deconstructions) into generated readonly structs")]
+class TupleToStructVerbOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+
+    [Option('v', "verbose", Default = false, HelpText = "Show detailed progress")]
+    public bool Verbose { get; set; }
+
+    [Option("namespace", Default = "Cs2jTuples", HelpText = "Namespace for the generated tuple structs")]
+    public string Namespace { get; set; } = "Cs2jTuples";
+
+    [Option('m', "mapping", Required = false, HelpText = "Path to type mapping configuration file")]
+    public string? MappingConfig { get; set; }
+
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+
+    public bool FilterUnsupportedProjects => !NoFilterProjects;
+}
+
 [Verb("strip-default", HelpText = "Strip default parameter values and generate C# overloads")]
 class StripDefaultOptions
 {
@@ -4269,6 +4464,14 @@ class ConvertProjectOptions
         HelpText = "Disable the default strip-default-parameter preprocessing step")]
     public bool NoStripDefault { get; set; }
 
+    [Option("no-tuple-to-struct", Default = false,
+        HelpText = "Disable the default tuple-to-struct preprocessing step (C# value tuples to generated readonly structs)")]
+    public bool NoTupleToStruct { get; set; }
+
+    [Option("tuple-namespace", Default = "Cs2jTuples",
+        HelpText = "Namespace for the generated tuple structs")]
+    public string TupleNamespace { get; set; } = "Cs2jTuples";
+
     [Option("local-function-lift", Default = true,
         HelpText = "Hoist C# local functions to class-level private methods before conversion (set false to disable)")]
     public bool LocalFunctionLift { get; set; }
@@ -4303,6 +4506,7 @@ class ConvertProjectOptions
     public bool UnsignedType => !NoUnsignedType;
     public bool MakeReadOnly => !NoMakeReadOnly;
     public bool StripDefault => !NoStripDefault;
+    public bool TupleToStruct => !NoTupleToStruct;
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;

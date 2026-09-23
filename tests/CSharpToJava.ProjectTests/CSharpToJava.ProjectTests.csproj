@@ -80,6 +80,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Include SampleTupleSolution as content so it's available at test runtime -->
+    <Content Include="..\SampleTupleSolution\**\*.*">
+      <Link>SampleTupleSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Include SampleStripDefaultSolution as content so it's available at test runtime -->
     <Content Include="..\SampleStripDefaultSolution\**\*.*">
       <Link>SampleStripDefaultSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
