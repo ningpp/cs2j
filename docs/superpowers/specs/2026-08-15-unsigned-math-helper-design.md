@@ -128,6 +128,11 @@ namespace Cs2jUnsigned
 只通过 `TypeMappings.json` 映射调用点；本阶段不改主转换器，仅在
 文档中记录该契约（见 §9）。
 
+（2026-09-24 增补）`Cs2jUnsignedMath.csproj` 为保留项目名：unsigned
+helper 已项目化为独立 lib（见 `2026-09-24-unsigned-math-lib-project-design.md`），
+转换器按该 csproj 文件名识别支撑项目；用户解决方案中出现同名项目
+会被转换前置检测拒绝。
+
 ## 5. 辅助方法目录
 
 命名规则：**每个方法名全局唯一、参数个数固定**。这样
