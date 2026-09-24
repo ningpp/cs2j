@@ -252,6 +252,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private static string TransformReceiver(ExpressionSyntax expression, ConversionContext context)
     {
+        if (ExpressionTransformerHelpers.TryMapConfiguredQualifiedTypeReceiver(expression, context, out var mappedReceiver))
+            return mappedReceiver;
+
         var receiver = ExpressionTransformerFacade.Instance.Transform(expression, context);
         return ContainsGenericTypeQualifier(expression)
             ? ExpressionTransformerHelpers.StripTypeArguments(receiver)
@@ -263,6 +266,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private static JavaExpression TransformReceiverToIR(ExpressionSyntax expression, ConversionContext context)
     {
+        if (ExpressionTransformerHelpers.TryMapConfiguredQualifiedTypeReceiver(expression, context, out var mappedReceiver))
+            return new JavaRawExpression(mappedReceiver);
+
         var receiver = ExpressionTransformerFacade.Instance.TransformToIR(expression, context);
         if (!ContainsGenericTypeQualifier(expression))
             return receiver;

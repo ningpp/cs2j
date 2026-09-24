@@ -1646,6 +1646,41 @@ public static class ExpressionTransformerHelpers
     }
 
     /// <summary>
+    /// Maps a qualified static invocation receiver (e.g.
+    /// <c>Cs2jUnsigned.UnsignedMath.XXX(...)</c>, where the receiver denotes a
+    /// namespace-qualified type) through the explicit TypeMappings config: emits the
+    /// configured Java name and registers the entry's imports. Simple-name receivers
+    /// are deliberately excluded — the configured simple static receiver path in
+    /// IdentifierExpressionTransformer already handles those.
+    /// </summary>
+    public static bool TryMapConfiguredQualifiedTypeReceiver(
+        ExpressionSyntax expression,
+        ConversionContext context,
+        out string javaReceiver)
+    {
+        javaReceiver = string.Empty;
+
+        if (expression is IdentifierNameSyntax)
+            return false;
+
+        if (!TryGetStaticReceiverType(expression, context, out var typeSymbol))
+            return false;
+
+        if (!TryGetExplicitTypeMappingKey(typeSymbol, context, out var configKey))
+            return false;
+
+        var mappedType = StripTypeArguments(context.TypeMappings.MapType(configKey));
+        javaReceiver = mappedType.Contains('.')
+            ? mappedType[(mappedType.LastIndexOf('.') + 1)..]
+            : mappedType;
+
+        foreach (var import in context.TypeMappings.GetRequiredImports(configKey))
+            context.AddImport(import);
+
+        return !string.IsNullOrWhiteSpace(javaReceiver);
+    }
+
+    /// <summary>
     /// Maps a C# enum member name to its Java equivalent using method mappings in TypeMappings.json.
     /// This handles cases like NormalizationForm.FormC → Normalizer.Form.NFC.
     /// </summary>
