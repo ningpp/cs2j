@@ -598,6 +598,36 @@ public class TupleToStructRewriterUnitTests
     }
 
     [Fact]
+    public void ForWithoutCondition_InfiniteLoop_DoesNotThrow()
+    {
+        // for (;;) 的 Condition 为 null；同文件存在元组语法时 rewriter 必须能处理。
+        var src = """
+            class C
+            {
+                (int, int) F() => (1, 2);
+
+                int M()
+                {
+                    var t = F();
+                    int total = 0;
+                    for (;;)
+                    {
+                        total += t.Item1;
+                        if (total > 3)
+                        {
+                            break;
+                        }
+                    }
+
+                    return total;
+                }
+            }
+            """;
+        var output = RewriteAndVerifyCompiles(src);
+        AssertNoTupleSyntax(output);
+    }
+
+    [Fact]
     public void NestedTupleDeconstruction_Recursive()
     {
         var src = """

@@ -1300,7 +1300,12 @@ internal sealed class TupleSyntaxRewriter : CSharpSyntaxRewriter
                 .WithAdditionalAnnotations(s_rewriteAnnotation);
         }
 
-        WarnIfConditionDeconstruction(node.Condition, "for");
+        // for (;;) 无条件：Condition 为 null，而 while/do 的条件在语法上必有。
+        if (node.Condition != null)
+        {
+            WarnIfConditionDeconstruction(node.Condition, "for");
+        }
+
         return base.VisitForStatement(node);
     }
 
