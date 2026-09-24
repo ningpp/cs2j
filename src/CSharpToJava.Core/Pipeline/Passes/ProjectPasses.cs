@@ -4,7 +4,6 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.LinqRewrite;
 using CSharpToJava.Core.PartialType;
-using CSharpToJava.Core.Pipeline.Compatibility;
 
 namespace CSharpToJava.Core.Pipeline;
 

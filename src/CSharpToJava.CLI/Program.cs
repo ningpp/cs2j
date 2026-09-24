@@ -2,7 +2,6 @@ using CommandLine;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.GotoEliminator;
 using CSharpToJava.Core.Pipeline;
-using CSharpToJava.Core.Pipeline.Compatibility;
 using CSharpToJava.Core.Pipeline.Planning;
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using CSharpToJava.Core.DefaultParameterStripper;
@@ -1434,7 +1433,7 @@ public class Program
         var mainProjects = projects.Where(p => !p.IsTestProject).ToList();
         var testProjects = projects.Where(p => p.IsTestProject).ToList();
 
-        options.SharedCompatibilityPackage = CompatibilityRuntime.JavaPackage;
+        options.SharedCompatibilityPackage = CrossPackageImportResolver.JavaPackage;
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
@@ -1655,7 +1654,7 @@ public class Program
             return 1;
         }
 
-        options.SharedCompatibilityPackage = CompatibilityRuntime.JavaPackage;
+        options.SharedCompatibilityPackage = CrossPackageImportResolver.JavaPackage;
         var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)

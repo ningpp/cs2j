@@ -1,6 +1,5 @@
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
-using CSharpToJava.Core.Pipeline.Compatibility;
 using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Pipeline;
@@ -12,6 +11,11 @@ namespace CSharpToJava.Core.Pipeline;
 /// </summary>
 public static class CrossPackageImportResolver
 {
+    /// <summary>
+    /// Java package of the published csharptojava-compat runtime artifact.
+    /// </summary>
+    public const string JavaPackage = "io.github.ningpp.compat";
+
     internal static readonly string[] SharedCompatibilityHelperClassNames =
     {
         "IntHolder",
@@ -156,7 +160,7 @@ public static class CrossPackageImportResolver
     {
         return string.IsNullOrWhiteSpace(sharedCompatibilityPackage)
             ? null
-            : CompatibilityRuntime.JavaPackage;
+            : JavaPackage;
     }
 
     /// <summary>
