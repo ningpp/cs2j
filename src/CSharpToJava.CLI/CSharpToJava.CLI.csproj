@@ -9,6 +9,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Cs2jUnsignedMath 支撑库（唯一真源在 src/Cs2jUnsignedMath/，此处嵌入分发） -->
+    <EmbeddedResource Include="..\Cs2jUnsignedMath\UnsignedMath.cs">
+      <Link>support\Cs2jUnsignedMath\UnsignedMath.cs</Link>
+      <LogicalName>Cs2jUnsignedMath.UnsignedMath.cs</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\Cs2jUnsignedMath\Cs2jUnsignedMath.csproj">
+      <Link>support\Cs2jUnsignedMath\Cs2jUnsignedMath.csproj</Link>
+      <LogicalName>Cs2jUnsignedMath.Cs2jUnsignedMath.csproj</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="..\..\config\.gitignore">
       <Link>config\.gitignore</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
