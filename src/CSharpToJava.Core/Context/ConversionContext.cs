@@ -1524,6 +1524,41 @@ _pendingClassTypeParams ??= new();
         }
     }
 
+    /// <summary>
+    /// Evaluates a compile-time constant expression (literal, cast like
+    /// (byte)0xFF, unchecked arithmetic, ...) to its folded value. Returns
+    /// <see cref="Optional&lt;object?&gt;.None" /> when the expression has no
+    /// constant value or no semantic model is available.
+    /// </summary>
+    public Optional<object?> GetConstantValue(SyntaxNode node)
+    {
+        if (SemanticModel == null) return default;
+
+        try
+        {
+            return SemanticModel.GetConstantValue(node);
+        }
+        catch (ArgumentException)
+        {
+            return CorrectModelAndGetConstantValue(node);
+        }
+        catch (InvalidOperationException)
+        {
+            return CorrectModelAndGetConstantValue(node);
+        }
+    }
+
+    private Optional<object?> CorrectModelAndGetConstantValue(SyntaxNode node)
+    {
+        var correctedModel = GetSemanticModelForNode(node);
+        if (correctedModel != null)
+        {
+            try { return correctedModel.GetConstantValue(node); }
+            catch { return default; }
+        }
+        return default;
+    }
+
     private TypeInfo CorrectModelAndGetTypeInfo(SyntaxNode node)
     {
         var correctedModel = GetSemanticModelForNode(node);

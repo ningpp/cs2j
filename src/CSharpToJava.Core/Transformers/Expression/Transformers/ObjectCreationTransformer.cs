@@ -2788,33 +2788,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         var bytes = new byte[node.Expressions.Count];
         for (int i = 0; i < node.Expressions.Count; i++)
         {
-            var expr = node.Expressions[i];
-            // Accept hex (0x3C), decimal (60), and negative (-1) literals
-            if (expr is Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax lit)
-            {
-                var tokenText = lit.Token.ValueText;
-                if (tokenText.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-                {
-                    bytes[i] = (byte)Convert.ToInt32(tokenText, 16);
-                }
-                else
-                {
-                    bytes[i] = (byte)Convert.ToInt32(tokenText);
-                }
-            }
-            else
-            {
-                // Fallback: evaluate the expression text
-                var text = expr.ToString();
-                if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-                {
-                    bytes[i] = (byte)Convert.ToInt32(text, 16);
-                }
-                else
-                {
-                    bytes[i] = (byte)Convert.ToInt32(text);
-                }
-            }
+            bytes[i] = EvaluateByteInitializerExpression(node.Expressions[i], context);
         }
 
         var base64 = System.Convert.ToBase64String(bytes);
@@ -2856,6 +2830,47 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         // return just the decode call. For non-bare context (caller appended "new Type[]"
         // and expects "{...}"), wrap with braces.
         return isBareInitializer ? result : "{" + result + "}";
+    }
+
+    /// <summary>
+    /// Evaluates one byte[] initializer element to its byte value. Prefer Roslyn
+    /// constant folding (correctly handles cast expressions like (byte)0xFF and
+    /// unchecked arithmetic); fall back to syntax-level unwrapping of casts and
+    /// parentheses when no semantic model is available.
+    /// </summary>
+    private static byte EvaluateByteInitializerExpression(ExpressionSyntax expr, ConversionContext context)
+    {
+        var constant = context.GetConstantValue(expr);
+        if (constant.HasValue && constant.Value != null)
+        {
+            // unchecked wrap-around mirrors C# byte conversions of out-of-range
+            // constants (e.g. (byte)-1 == 255), matching the syntax fallback.
+            return unchecked((byte)System.Convert.ToInt32(
+                constant.Value, System.Globalization.CultureInfo.InvariantCulture));
+        }
+
+        var current = expr;
+        while (current is CastExpressionSyntax cast)
+        {
+            current = cast.Expression;
+        }
+
+        while (current is ParenthesizedExpressionSyntax parenthesized)
+        {
+            current = parenthesized.Expression;
+        }
+
+        // Accept hex (0x3C), decimal (60), and negative (-1) literal text.
+        var text = current is LiteralExpressionSyntax literal
+            ? literal.Token.ValueText
+            : current.ToString();
+        if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase)
+            || text.StartsWith("0X", StringComparison.Ordinal))
+        {
+            return (byte)System.Convert.ToInt32(text, 16);
+        }
+
+        return (byte)System.Convert.ToInt32(text, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static string? ResolveBareArrayInitializerElementType(InitializerExpressionSyntax node, ConversionContext context, out int rankCount)
