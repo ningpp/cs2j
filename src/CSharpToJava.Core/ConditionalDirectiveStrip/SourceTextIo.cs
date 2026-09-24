@@ -2,10 +2,6 @@ using System.Text;
 
 namespace CSharpToJava.Core.ConditionalDirectiveStrip;
 
-/// <summary>
-/// BOM 感知的源文件读写：清理器改写文件时保留原字节序标记（无 BOM 输入输出仍无 BOM），
-/// 非 ASCII 内容经 UTF-8 往返无损。编码假设与仓库其它预处理器一致：输入为 UTF-8/UTF-8-BOM。
-/// </summary>
 public static class SourceTextIo
 {
     public static readonly byte[] Utf8Bom = [0xEF, 0xBB, 0xBF];
@@ -29,5 +25,34 @@ public static class SourceTextIo
         }
 
         await File.WriteAllBytesAsync(path, payload);
+    }
+
+    public static async Task WriteAtomicallyAsync(string path, string code, bool hasBom)
+    {
+        var fullPath = Path.GetFullPath(path);
+        var directory = Path.GetDirectoryName(fullPath)
+            ?? throw new ArgumentException("Output path has no parent directory.", nameof(path));
+        Directory.CreateDirectory(directory);
+        var tempPath = Path.Combine(directory, $".{Path.GetFileName(fullPath)}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            await WriteAsync(tempPath, code, hasBom);
+            if (File.Exists(fullPath))
+            {
+                File.Replace(tempPath, fullPath, destinationBackupFileName: null);
+            }
+            else
+            {
+                File.Move(tempPath, fullPath);
+            }
+        }
+        finally
+        {
+            if (File.Exists(tempPath))
+            {
+                File.Delete(tempPath);
+            }
+        }
     }
 }
