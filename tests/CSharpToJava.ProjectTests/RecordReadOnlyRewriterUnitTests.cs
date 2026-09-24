@@ -13,7 +13,7 @@ public class RecordReadOnlyRewriterUnitTests
     public RecordReadOnlyRewriterUnitTests(ITestOutputHelper output) => _output = output;
 
     private static readonly CSharpParseOptions ParseOptions =
-        new CSharpParseOptions(LanguageVersion.Latest);
+        new CSharpParseOptions(LanguageVersion.Preview);
 
     internal static SemanticModel ParseWithSemantics(string src, params string[] extra)
     {
@@ -54,8 +54,14 @@ public class RecordReadOnlyRewriterUnitTests
     }
 
     internal static void AssertOutputCompiles(string output)
+        => AssertOutputCompiles(output, null);
+
+    internal static void AssertOutputCompiles(string output, params string[]? extraUsings)
     {
-        var tree = CSharpSyntaxTree.ParseText(output, ParseOptions);
+        var preamble = extraUsings != null && extraUsings.Length > 0
+            ? string.Join("\n", extraUsings) + "\n"
+            : "";
+        var tree = CSharpSyntaxTree.ParseText(preamble + output, ParseOptions);
         var compilation = CSharpCompilation.Create("rr-verify", new[] { tree },
             GetReferences(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
@@ -127,7 +133,6 @@ public class RecordReadOnlyRewriterUnitTests
         pp.BindCompilation(model.Compilation);
         var plan = Assert.Single(pp.Plans);
         Assert.Equal("P", plan.RecordQualifiedName);
-        // A(set)、C(字段) 需改写；_b 私有字段分类；E 事件阻断。事实在计划可行性上体现：
         Assert.Contains(plan.MemberRewrites, m => m.MemberName == "A");
         Assert.Contains(plan.MemberRewrites, m => m.MemberName == "C");
         Assert.False(plan.Feasible);
@@ -178,17 +183,191 @@ public class RecordReadOnlyRewriterUnitTests
             public partial record struct P { public int Y { get; } }
             """;
         var (output, stats, _) = Rewrite(src);
-        // readonly 必须在 partial 之前（CS1585），所以输出为 "readonly partial record struct P"。
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(output, "readonly partial record struct P").Count);
         AssertOutputCompiles(output);
     }
 
     [Fact]
-    public void MutableMembers_BeforeMemberRewriteMilestone_PlanInfeasibleRR020()
+    public void RS3_SimpleSetProperty_ConvertedToInit()
     {
         var src = "public record struct P { public int X { get; set; } }";
         var (output, stats, diags) = Rewrite(src);
-        Assert.DoesNotContain("readonly record struct", output); // 原子跳过，不部分转换
+        Assert.Contains("readonly record struct P", output);
+        Assert.Contains("init;", output);
+        Assert.DoesNotContain(" set;", output);
+        Assert.Equal(1, stats.RecordStructsConverted);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS3_AutoProperty_SetBecomesInit_AndCompiles()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Y { get; private set; }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("readonly record struct P", output);
+        Assert.Contains("public int X { get; init; }", output);
+        Assert.Contains("public int Y { get; private init; }", output);
+        Assert.DoesNotContain(" set;", output);
+        Assert.Equal(2, stats.MembersSetToInit);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS9_HandWrittenSetterBody_KeywordBecomesInit_BodyPreserved()
+    {
+        var src = """
+            public record struct P
+            {
+                private int _x;
+                public int X
+                {
+                    get => _x;
+                    set { _x = value; _x++; }
+                }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("init", output);
+        Assert.Contains("_x = value; _x++;", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS20_RequiredMember_RequiredInitPreserved()
+    {
+        var src = "public record struct P { public required int X { get; set; } }";
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("required int X { get; init; }", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS12_StaticMutableProperty_Untouched()
+    {
+        var src = """
+            public record struct P(int Id)
+            {
+                public static int Current { get; set; }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("public static int Current { get; set; }", output);
+        Assert.Equal(1, stats.RecordStructsConverted);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS13_AlreadyInitOrGetOnly_Untouched()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; init; }
+                public int Y { get; }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Equal(1, stats.RecordStructsConverted);
+        Assert.Equal(0, stats.MembersSetToInit);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS5_PublicField_BecomesInitProperty_WithInitializerAndAttribute()
+    {
+        var src = """
+            using System.ComponentModel.DataAnnotations;
+            public record struct P
+            {
+                [Required] public int X = 5;
+                public string Name = "n";
+                public P() { }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("[Required]", output);
+        Assert.Contains("public int X { get; init; } = 5;", output);
+        Assert.Contains("public string Name { get; init; } = \"n\";", output);
+        Assert.DoesNotContain("public int X =", output);
+        Assert.Equal(2, stats.FieldsToProperties);
+        AssertOutputCompiles(output,
+            "using System.ComponentModel.DataAnnotations;");
+    }
+
+    [Fact]
+    public void RS5_MultiDeclaratorFields_AllPromoted()
+    {
+        var src = "public record struct P { public int X, Y; }";
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("public int X { get; init; }", output);
+        Assert.Contains("public int Y { get; init; }", output);
+        Assert.Equal(2, stats.FieldsToProperties);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS6a_PrivateFieldCtorOnly_BecomesReadonly()
+    {
+        var src = """
+            public record struct P
+            {
+                private int _tag;
+                public P(int tag) { _tag = tag; }
+                public int Tag => _tag;
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("private readonly int _tag;", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS6b_PrivateFieldMutatedAfterCtor_InfeasibleBeforeMethodMigration()
+    {
+        var src = """
+            public record struct P
+            {
+                private int _tag;
+                public void Bump() { _tag++; }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("readonly record struct", output);
         Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR020);
+    }
+
+    [Fact]
+    public void RS12_StaticField_Untouched()
+    {
+        var src = """
+            public record struct P(int Id)
+            {
+                public static int Counter;
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("public static int Counter;", output);
+        Assert.Equal(0, stats.FieldsToProperties);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS4_SemiAutoProperty_FieldKeyword_SetBecomesInit()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set => field = value > 0 ? value : 0; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("public int X { get; init =>", output);
+        AssertOutputCompiles(output);
     }
 }
