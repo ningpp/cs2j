@@ -65,26 +65,17 @@ dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- eliminate-g
 
 ### Strip conditional compilation directives (C# -> C#)
 
-Evaluates and removes `#if/#elif/#else/#endif/#define/#undef` (optionally `#region`) from C# source,
-producing self-contained C# whose behavior matches the chosen symbol configuration.
+Evaluates and removes `#if/#elif/#else/#endif/#define/#undef` and disabled branches, optionally removes `#region/#endregion`, and preserves UTF-8 BOM and original line endings.
 
 ```bash
-# Single file (stdout by default)
-dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- strip-conditional -i Input.cs -o Output.cs
+# Single file; stdout when -o is omitted. Only --define and in-file #define/#undef supply symbols.
+dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- strip-conditional -i Input.cs -o Output.cs --define FEATURE_A --define FEATURE_B
 
-# Directory / project (non-.cs files are copied verbatim; in-place safe)
-dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- strip-conditional -s ./src -d ./clean
-
-# Release symbols from csproj DefineConstants + TFM synthesis, plus extra defines
-dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- strip-conditional -s ./src -d ./clean     --configuration Release --tfm net6.0 --define FEATURE_X --remove-regions
+# Directory/project/solution; non-.cs files are copied byte-for-byte.
+dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- strip-conditional -s ./src -d ./clean --configuration Release --tfm net8.0 --define FEATURE_A --remove-regions
 ```
 
-Symbols resolve per file as: `--define` > nearest-ancestor `.csproj` (+ `Directory.Build.props` chain)
-`<DefineConstants>` under `--configuration` (default `Release`) > SDK symbols synthesized from
-`TargetFramework(s)` (`NET6_0`, `NETSTANDARD2_0`, `_OR_GREATER` families, ...). Files with malformed
-directives (unbalanced `#endif`, `#define` after the first token, ...) are reported and passed through
-unchanged; string/comment text that merely looks like a directive is preserved; BOM and line endings
-are preserved. This is a standalone C#-to-C# step and is not wired into the Java conversion pipeline.
+Directory mode resolves symbols per file from the nearest ancestor `.csproj`, parent-to-child `Directory.Build.props`, the selected target framework, and repeated `--define` values. A bare `<DefineConstants>` replaces earlier values; a value containing `$(DefineConstants)` appends. Malformed files are reported and copied unchanged. Errors always return exit code 1; warnings return 1 only with `--strict`.
 
 ### Analyze type mapping coverage
 
@@ -152,6 +143,21 @@ dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- analyze -s 
 | `-s, --source` | Source directory path |
 | `-m, --mapping` | Type mapping configuration file |
 | `-r, --report` | Output report file path (JSON) |
+
+### `strip-conditional` — Conditional compilation cleanup
+
+| Option | Description |
+|--------|-------------|
+| `-i, --input` | Input `.cs` file; mutually exclusive with directory mode |
+| `-o, --output` | Output `.cs` file; omit for stdout |
+| `-s, --source` | Source directory, `.csproj`, or `.sln` |
+| `-d, --destination` | Destination directory; required with `--source` |
+| `--define` | Extra preprocessor symbol; repeat the option for multiple symbols |
+| `--configuration` | Configuration for lightweight project property evaluation (default: `Release`) |
+| `--tfm` | Explicit target framework override |
+| `--remove-regions` | Also remove `#region/#endregion` |
+| `--strict` | Return 1 when any warning is emitted |
+| `-v, --verbose` | Show per-file progress and single-file statistics |
 
 ## Architecture
 
