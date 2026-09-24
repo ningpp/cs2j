@@ -6,6 +6,7 @@ using CSharpToJava.Core.Pipeline.Compatibility;
 using CSharpToJava.Core.Pipeline.Planning;
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using CSharpToJava.Core.DefaultParameterStripper;
+using CSharpToJava.Core.ConditionalDirectiveStrip;
 using CSharpToJava.Core.LocalFunctionLift;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 using CSharpToJava.TypeMapping;
@@ -26,7 +27,7 @@ public class Program
 
     internal static async Task<int> MainImpl(string[] args)
     {
-        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions>(args)
+        return await Parser.Default.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
@@ -38,6 +39,7 @@ public class Program
                 (StripDefaultOptions opts) => StripDefault(opts),
                 (LocalFunctionLiftOptions opts) => LocalFunctionLiftAsync(opts),
                 (TupleToStructVerbOptions opts) => TupleToStructVerbAsync(opts),
+                (StripConditionalOptions opts) => StripConditionalAsync(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -1994,6 +1996,190 @@ public class Program
         }
 
         return result.ToList();
+    }
+
+    private static async Task<int> StripConditionalAsync(StripConditionalOptions opts)
+    {
+        var stripper = new ConditionalDirectiveStripper();
+        var extraDefines = opts.Define.Where(d => !string.IsNullOrWhiteSpace(d)).ToList();
+
+        // Single-file mode
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+
+            var source = await SourceTextIo.ReadAsync(opts.Input);
+            var symbols = ProjectSymbolResolver.ResolveForFile(
+                opts.Input, opts.Configuration, opts.Tfm, extraDefines);
+            var result = stripper.Strip(
+                source.Code,
+                new ConditionalDirectiveStripOptions { RemoveRegions = opts.RemoveRegions, Symbols = symbols.Symbols });
+
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                Console.Error.WriteLine($"[{diagnostic.Severity}] {opts.Input}:{diagnostic.Line ?? 0}: {diagnostic.Message}");
+            }
+
+            if (opts.Output != null)
+            {
+                var tmp = opts.Output + ".tmp";
+                await SourceTextIo.WriteAsync(tmp, result.OutputCode, source.HasBom);
+                if (File.Exists(opts.Output)) File.Delete(opts.Output);
+                File.Move(tmp, opts.Output);
+                if (opts.Verbose) Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+            }
+            else
+            {
+                Console.Write(result.OutputCode);
+            }
+
+            var hasErrors = result.Diagnostics.Any(d => d.Severity == ConditionalDirectiveSeverity.Error);
+            var hasWarnings = result.Diagnostics.Any(d => d.Severity == ConditionalDirectiveSeverity.Warning);
+            return hasErrors || (opts.Strict && hasWarnings) ? 1 : 0;
+        }
+
+        // Directory / project mode
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+
+        // .csproj/.sln 入口：取其所在目录为源根（符号靠最近祖先 .csproj + --define）
+        var sourceRoot = File.Exists(opts.Source)
+            ? Path.GetDirectoryName(Path.GetFullPath(opts.Source))!
+            : Path.GetFullPath(opts.Source);
+        Directory.CreateDirectory(opts.Destination);
+
+        var inPlace = string.Equals(
+            Path.GetFullPath(opts.Source.TrimEnd('\\', '/')),
+            Path.GetFullPath(opts.Destination.TrimEnd('\\', '/')),
+            StringComparison.OrdinalIgnoreCase);
+        var destinationRoot = Path.GetFullPath(opts.Destination);
+
+        var symbolCache = new Dictionary<string, ProjectSymbols>(StringComparer.OrdinalIgnoreCase);
+        ProjectSymbols SymbolsForFile(string file)
+        {
+            var key = Path.GetDirectoryName(Path.GetFullPath(file))!;
+            if (!symbolCache.TryGetValue(key, out var symbols))
+            {
+                symbols = ProjectSymbolResolver.ResolveForFile(file, opts.Configuration, opts.Tfm, extraDefines);
+                symbolCache[key] = symbols;
+            }
+
+            return symbols;
+        }
+
+        var transformed = 0;
+        var clean = 0;
+        var failed = 0;
+        var hadWarnings = false;
+        foreach (var file in EnumerateFilesSkippingRoot(sourceRoot, inPlace ? null : destinationRoot, "*.cs"))
+        {
+            var relative = Path.GetRelativePath(sourceRoot, file);
+            var destination = Path.Combine(opts.Destination, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+
+            var source = await SourceTextIo.ReadAsync(file);
+            var symbols = SymbolsForFile(file);
+            var result = stripper.Strip(
+                source.Code,
+                new ConditionalDirectiveStripOptions { RemoveRegions = opts.RemoveRegions, Symbols = symbols.Symbols });
+
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                Console.Error.WriteLine($"[{diagnostic.Severity}] {relative}:{diagnostic.Line ?? 0}: {diagnostic.Message}");
+            }
+
+            var hasErrors = result.Diagnostics.Any(d => d.Severity == ConditionalDirectiveSeverity.Error);
+            if (hasErrors)
+            {
+                failed++;
+                if (!inPlace) File.Copy(file, destination, overwrite: true);
+                continue;
+            }
+
+            if (result.Diagnostics.Any(d => d.Severity == ConditionalDirectiveSeverity.Warning))
+            {
+                hadWarnings = true;
+            }
+
+            if (!result.Changed)
+            {
+                if (!inPlace) File.Copy(file, destination, overwrite: true);
+                clean++;
+                if (opts.Verbose) Console.WriteLine($"clean (copy): {relative}");
+            }
+            else
+            {
+                var tmp = destination + ".tmp";
+                await SourceTextIo.WriteAsync(tmp, result.OutputCode, source.HasBom);
+                if (File.Exists(destination)) File.Delete(destination);
+                File.Move(tmp, destination);
+                transformed++;
+                if (opts.Verbose) Console.WriteLine($"transformed: {relative}");
+            }
+        }
+
+        if (!inPlace)
+        {
+            foreach (var file in EnumerateFilesSkippingRoot(sourceRoot, destinationRoot, "*.*")
+                         .Where(f => !f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)))            {
+                var relative = Path.GetRelativePath(sourceRoot, file);
+                var destination = Path.Combine(opts.Destination, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                File.Copy(file, destination, overwrite: true);
+            }
+        }
+
+        Console.WriteLine(
+            $"strip-conditional: {transformed} transformed, {clean} clean, {failed} failed");
+        return failed > 0 || (opts.Strict && hadWarnings) ? 1 : 0;
+    }
+
+    /// <summary>递归枚举文件；skipRoot 非空时跳过其子树（in-place 模式传 null）。</summary>
+    private static IEnumerable<string> EnumerateFilesSkippingRoot(string sourceRoot, string? skipRoot, string pattern)
+    {
+        var pending = new Stack<string>();
+        pending.Push(Path.GetFullPath(sourceRoot));
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            foreach (var file in Directory.EnumerateFiles(current, pattern))
+            {
+                yield return Path.GetFullPath(file);
+            }
+
+            foreach (var directory in Directory.EnumerateDirectories(current))
+            {
+                var full = Path.GetFullPath(directory);
+                if (skipRoot != null && IsSameOrBelow(full, skipRoot))
+                {
+                    continue;
+                }
+
+                pending.Push(full);
+            }
+        }
+    }
+
+    private static bool IsSameOrBelow(string path, string root)
+    {
+        var full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return full.Equals(fullRoot, StringComparison.OrdinalIgnoreCase)
+               || full.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+               || full.StartsWith(fullRoot + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<int> LocalFunctionLiftAsync(LocalFunctionLiftOptions opts)
@@ -4163,6 +4349,31 @@ class EliminateGotoOptions
     public bool Verbose { get; set; }
     [Option("strict", Default = false, HelpText = "Treat unsupported-method diagnostics as fatal")]
     public bool Strict { get; set; }
+}
+
+[Verb("strip-conditional", HelpText = "Evaluate and remove C# conditional compilation directives (#if/#elif/#else/#endif/#define/#undef) from C# source")]
+class StripConditionalOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory (or .csproj/.sln: its directory is used as the root)")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("strict", Default = false, HelpText = "Treat warning diagnostics as fatal")]
+    public bool Strict { get; set; }
+    [Option("define", Required = false, HelpText = "Extra preprocessor symbol (repeatable, highest precedence)")]
+    public IEnumerable<string> Define { get; set; } = Enumerable.Empty<string>();
+    [Option("configuration", Default = "Release", HelpText = "Configuration used to evaluate csproj DefineConstants conditions (default Release)")]
+    public string Configuration { get; set; } = "Release";
+    [Option("tfm", Required = false, HelpText = "Target framework override for symbol synthesis (e.g. net6.0); default: first TargetFrameworks entry")]
+    public string? Tfm { get; set; }
+    [Option("remove-regions", Default = false, HelpText = "Also remove #region/#endregion directives (inactive-branch regions are always removed)")]
+    public bool RemoveRegions { get; set; }
 }
 
 [Verb("make-readonly", HelpText = "Convert eligible structs to readonly structs")]

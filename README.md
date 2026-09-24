@@ -63,6 +63,29 @@ dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- eliminate-g
 dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- eliminate-goto -s ./src -d ./clean
 ```
 
+### Strip conditional compilation directives (C# -> C#)
+
+Evaluates and removes `#if/#elif/#else/#endif/#define/#undef` (optionally `#region`) from C# source,
+producing self-contained C# whose behavior matches the chosen symbol configuration.
+
+```bash
+# Single file (stdout by default)
+dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- strip-conditional -i Input.cs -o Output.cs
+
+# Directory / project (non-.cs files are copied verbatim; in-place safe)
+dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- strip-conditional -s ./src -d ./clean
+
+# Release symbols from csproj DefineConstants + TFM synthesis, plus extra defines
+dotnet run --project src/CSharpToJava.CLI/CSharpToJava.CLI.csproj -- strip-conditional -s ./src -d ./clean     --configuration Release --tfm net6.0 --define FEATURE_X --remove-regions
+```
+
+Symbols resolve per file as: `--define` > nearest-ancestor `.csproj` (+ `Directory.Build.props` chain)
+`<DefineConstants>` under `--configuration` (default `Release`) > SDK symbols synthesized from
+`TargetFramework(s)` (`NET6_0`, `NETSTANDARD2_0`, `_OR_GREATER` families, ...). Files with malformed
+directives (unbalanced `#endif`, `#define` after the first token, ...) are reported and passed through
+unchanged; string/comment text that merely looks like a directive is preserved; BOM and line endings
+are preserved. This is a standalone C#-to-C# step and is not wired into the Java conversion pipeline.
+
 ### Analyze type mapping coverage
 
 ```bash
