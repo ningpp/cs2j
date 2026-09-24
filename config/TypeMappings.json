@@ -332,6 +332,13 @@
             ]
         },
         {
+            "csharp": "Cs2jUnsigned.UnsignedMath",
+            "java": "UnsignedMath",
+            "imports": [
+                "io.github.ningpp.compat.UnsignedMath"
+            ]
+        },
+        {
             "csharp": "System.Text.Json.JsonSerializerOptions",
             "java": "JsonSerializerOptions",
             "imports": [

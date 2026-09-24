@@ -2,6 +2,7 @@ using CSharpToJava.CLI;
 
 namespace CSharpToJava.ProjectTests;
 
+[Collection("UnsignedTypePreprocessSerial")]
 public class UnsignedTypeProjectTests
 {
     private static string FixtureDir =>
