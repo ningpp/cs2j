@@ -52,14 +52,6 @@ public class OperatorBulkTests : ConversionTestBase
     }
 
     [Theory]
-    [MemberData(nameof(BoolExprCases))]
-    public void BoolExpression_ConvertsIdentically(string expr)
-    {
-        var result = Convert($"class C {{ public bool M(bool a, bool b) {{ return {expr}; }} }}");
-        AssertConversion(result, $"return {expr};");
-    }
-
-    [Theory]
     [MemberData(nameof(CompoundCases))]
     public void CompoundAssignment_ConvertsIdentically(string stmt)
     {

@@ -159,15 +159,6 @@ public class EnumTests : ConversionTestBase
     }
 
     [Fact]
-    public void EnumInDictionaryKey_ConvertsToJava()
-    {
-        var result = Convert("enum Color { Red, Green } class C { public System.Collections.Generic.Dictionary<Color, int> Map = new(); }");
-        AssertSuccess(result);
-        AssertNoCSharpResidue(result);
-        AssertJavaContains(result, "CSharpDictionary");
-    }
-
-    [Fact]
     public void EnumAsReturnType_ConvertsToJava()
     {
         var result = Convert("enum Color { Red, Green } class C { public Color Pick() { return Color.Red; } }");

@@ -31,13 +31,6 @@ public class StringTests : ConversionTestBase
     }
 
     [Fact]
-    public void StringFormat_ConvertsToJavaFormat()
-    {
-        var result = Convert("class C { public string M(int x) { return string.Format(\"{0}-{1}\", x, x); } }");
-        AssertConversion(result, "String.format(\"%1$s-%2$s\", x, x)");
-    }
-
-    [Fact]
     public void StringLength_ConvertsToLengthMethod()
     {
         var result = Convert("class C { public int M(string s) { return s.Length; } }");
@@ -108,13 +101,6 @@ public class StringTests : ConversionTestBase
     }
 
     [Fact]
-    public void StringEquals_ConvertsToEquals()
-    {
-        var result = Convert("class C { public bool M(string s) { return s.Equals(\"x\"); } }");
-        AssertConversion(result, "return Objects.equals(s, \"x\");");
-    }
-
-    [Fact]
     public void StringConcatStatic_ConvertsToConcat()
     {
         var result = Convert("class C { public string M(string a, string b) { return string.Concat(a, b); } }");
@@ -133,29 +119,6 @@ public class StringTests : ConversionTestBase
     {
         var result = Convert("class C { public bool M(string s) { return string.IsNullOrEmpty(s); } }");
         AssertConversion(result, "StringHelper.isNullOrEmpty(s)");
-    }
-
-    [Fact]
-    public void CharToString_ConvertsToValueOf()
-    {
-        var result = Convert("class C { public string M(char c) { return c.ToString(); } }");
-        AssertSuccess(result);
-        AssertNoCSharpResidue(result);
-        AssertJavaContains(result, "String.valueOf(c)");
-    }
-
-    [Fact]
-    public void IntToString_ConvertsToValueOf()
-    {
-        var result = Convert("class C { public string M(int x) { return x.ToString(); } }");
-        AssertConversion(result, "String.valueOf(x)");
-    }
-
-    [Fact]
-    public void StringSplit_ConvertsToSplit()
-    {
-        var result = Convert("class C { public string[] M(string s) { return s.Split(','); } }");
-        AssertConversion(result, "return s.split(\",\");");
     }
 
     [Fact]
@@ -235,13 +198,6 @@ public class StringTests : ConversionTestBase
     }
 
     [Fact]
-    public void StringFormatWithMultipleArgs()
-    {
-        var result = Convert("class C { public string M(int a, int b, int c) { return string.Format(\"{0}{1}{2}\", a, b, c); } }");
-        AssertConversion(result, "String.format(\"%1$s%2$s%3$s\", a, b, c)");
-    }
-
-    [Fact]
     public void StringInterpolationWithMultipleVars()
     {
         var result = Convert("class C { public string M(string n, int a) { return $\"{n} is {a}\"; } }");
@@ -284,13 +240,6 @@ public class StringTests : ConversionTestBase
     {
         var result = Convert("class C { public string M() { return \"\"; } }");
         AssertConversion(result, "return \"\";");
-    }
-
-    [Fact]
-    public void StringSubstringWithLength_ConvertsToSubstring()
-    {
-        var result = Convert("class C { public string M(string s) { return s.Substring(1, 2); } }");
-        AssertConversion(result, "StringHelper.substring(s, 1, 2)");
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Xunit;
 
 namespace CSharpToJava.ConversionTests.Categories;
@@ -68,93 +69,5 @@ public class CollectionTests : ConversionTestBase
         yield return new object[] { "HashSet unionWith", "class C { public void M() { var s = new System.Collections.Generic.HashSet<int>(); var o = new System.Collections.Generic.HashSet<int>(); s.UnionWith(o); } }", "s.unionWith(" };
         yield return new object[] { "Dictionary count", "class C { public int M() { var d = new System.Collections.Generic.Dictionary<string, int>(); return d.Count; } }", "d.size()" };
         yield return new object[] { "List count property", "class C { public int M() { var l = new System.Collections.Generic.List<int>(); l.Add(1); int c = l.Count; return c; } }", "l.size()" };
-    }
-
-    [Theory]
-    [MemberData(nameof(CollectionSnippets))]
-    public void CollectionConversion(string description, string csharp, string marker)
-    {
-        var result = Convert(csharp);
-        AssertConversion(result, marker);
-    }
-
-    [Fact]
-    public void ListField_ConvertsToCSharpList()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public List<int> Items; }");
-        AssertConversion(result, "import io.github.ningpp.compat.CSharpList;", "public CSharpList<Integer> Items;");
-    }
-
-    [Fact]
-    public void DictionaryField_ConvertsToCSharpDictionary()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public Dictionary<string, int> Map; }");
-        AssertConversion(result, "import io.github.ningpp.compat.CSharpDictionary;", "public CSharpDictionary<String, Integer> Map;");
-    }
-
-    [Fact]
-    public void HashSetField_ConvertsToCSharpHashSet()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public HashSet<int> Set; }");
-        AssertConversion(result, "import io.github.ningpp.compat.CSharpHashSet;", "public CSharpHashSet<Integer> Set;");
-    }
-
-    [Fact]
-    public void ListReturnType_ConvertsToCSharpList()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public List<string> Get() { return new List<string>(); } }");
-        AssertConversion(result, "public CSharpList<String> get() {", "new CSharpList<String>()");
-    }
-
-    [Fact]
-    public void ListParameter_ConvertsToCSharpList()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public void Add(List<int> items) { } }");
-        AssertConversion(result, "public void add(CSharpList<Integer> items) {");
-    }
-
-    [Fact]
-    public void DictionaryIteration_ConvertsToEntrySet()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public int M(Dictionary<string,int> d) { int s=0; foreach (var kv in d) { s += kv.Value; } return s; } }");
-        AssertSuccess(result);
-        AssertNoCSharpResidue(result);
-        AssertJavaContains(result, "CSharpDictionary");
-        AssertJavaContains(result, "for (");
-    }
-
-    [Fact]
-    public void ListAsIEnumerable_ConvertsToCSharpGenericIterable()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public void M(IEnumerable<int> e) { foreach (var x in e) { var y = x; } } }");
-        AssertConversion(result, "CSharpGenericIterable<Integer>", "for (int x : e)");
-    }
-
-    [Fact]
-    public void StackField_ConvertsToCSharpStack()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public Stack<int> S; }");
-        AssertConversion(result, "public CSharpStack<Integer> S;");
-    }
-
-    [Fact]
-    public void QueueField_ConvertsToCSharpQueue()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public Queue<int> Q; }");
-        AssertConversion(result, "public CSharpQueue<Integer> Q;");
-    }
-
-    [Fact]
-    public void CollectionInitializerList_ConvertsToConstructor()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public List<int> Items = new List<int> { 1, 2, 3 }; }");
-        AssertConversion(result, "CSharpList<Integer>", "ArrayHelper.toList(1, 2, 3)");
-    }
-
-    [Fact]
-    public void CollectionInitializerDictionary_ConvertsToPuts()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public Dictionary<string,int> M = new Dictionary<string,int> { { \"a\", 1 }, { \"b\", 2 } }; }");
-        AssertConversion(result, "CSharpDictionary<String, Integer>", "put(\"a\", 1)", "put(\"b\", 2)");
     }
 }

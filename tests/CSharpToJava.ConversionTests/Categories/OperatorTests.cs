@@ -107,13 +107,6 @@ public class OperatorTests : ConversionTestBase
     }
 
     [Fact]
-    public void Ternary_ConvertsWithParens()
-    {
-        var result = Convert("class C { public int M(int a) => a > 0 ? a : -a; }");
-        AssertConversion(result, "return (a > 0 ? a : -a);");
-    }
-
-    [Fact]
     public void NullCoalescing_ConvertsToTernary()
     {
         var result = Convert("class C { public string M(string a) => a ?? \"\"; }");

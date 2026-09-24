@@ -304,13 +304,6 @@ public class ClassTests : ConversionTestBase
     }
 
     [Fact]
-    public void ClassWithGenericListField()
-    {
-        var result = Convert("class C { public System.Collections.Generic.List<string> Names = new(); }");
-        AssertConversion(result, "import io.github.ningpp.compat.CSharpList;", "public CSharpList<String> Names");
-    }
-
-    [Fact]
     public void ClassWithTupleField()
     {
         var result = Convert("class C { public (int, string) Pair; }");

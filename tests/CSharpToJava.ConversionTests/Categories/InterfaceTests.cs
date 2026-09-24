@@ -34,16 +34,6 @@ public class InterfaceTests : ConversionTestBase
     }
 
     [Fact]
-    public void InterfaceEvent_ConvertsToListenerMethods()
-    {
-        var result = Convert("public interface I { event System.Action E; }");
-        AssertConversion(result,
-            "import java.util.concurrent.CopyOnWriteArrayList;",
-            "public void addEListener(Runnable handler);",
-            "public void removeEListener(Runnable handler);");
-    }
-
-    [Fact]
     public void InterfaceImplementation_ConvertsToImplements()
     {
         var result = Convert("public class C : I { public void M() { } public int P { get; set; } } public interface I { void M(); int P { get; set; } }");

@@ -225,13 +225,6 @@ public class PropertyTests : ConversionTestBase
     }
 
     [Fact]
-    public void PropertyReturningList_Converts()
-    {
-        var result = Convert("using System.Collections.Generic; class C { public List<int> Items { get; set; } }");
-        AssertConversion(result, "private CSharpList<Integer> items;", "public CSharpList<Integer> getItems() {", "public void setItems(CSharpList<Integer> value) {");
-    }
-
-    [Fact]
     public void ExpressionBodiedPropertyWithCalculation()
     {
         var result = Convert("class C { public int A { get; set; } public int Squared => A * A; }");

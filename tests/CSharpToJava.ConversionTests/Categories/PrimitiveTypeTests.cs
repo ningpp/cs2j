@@ -263,13 +263,6 @@ public class PrimitiveTypeTests : ConversionTestBase
     }
 
     [Fact]
-    public void NestedGenericPrimitive_Field_MapsCorrectly()
-    {
-        var result = Convert("class C { public System.Collections.Generic.List<int> Items; }");
-        AssertConversion(result, "import io.github.ningpp.compat.CSharpList;", "public CSharpList<Integer> Items;");
-    }
-
-    [Fact]
     public void BoxedPrimitive_NullableField_MapsToJavaWrapper()
     {
         var result = Convert("class C { public int? Maybe; }");

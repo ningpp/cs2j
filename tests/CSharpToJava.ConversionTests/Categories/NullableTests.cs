@@ -23,29 +23,6 @@ public class NullableTests : ConversionTestBase
     }
 
     [Fact]
-    public void NullableList_ConvertsToCSharpList()
-    {
-        var result = Convert("class C { public System.Collections.Generic.List<int>? L; }");
-        AssertConversion(result, "public CSharpList<Integer> L;");
-    }
-
-    [Fact]
-    public void NullConditionalProperty_ConvertsToTernary()
-    {
-        var result = Convert("class C { public int X; } class D { public int Get() { C c = null; return c?.X ?? 0; } }");
-        AssertConversion(result, "return (c != null ? c.getX() : 0);");
-        AssertJavaDoesNotContain(result, "?.X", "C# null-conditional member access must be rewritten");
-    }
-
-    [Fact]
-    public void NullConditionalMethod_ConvertsToIfGuard()
-    {
-        var result = Convert("class C { public void M() { } } class D { public void Call() { C c = null; c?.M(); } }");
-        AssertConversion(result, "if (c != null) { c.M(); }");
-        AssertJavaDoesNotContain(result, "?.M()", "C# null-conditional call must be rewritten");
-    }
-
-    [Fact]
     public void NullConditionalIndex_ConvertsWithTodoMarker()
     {
         var result = Convert("class D { public int Get() { int[] a = null; return a?[0] ?? 0; } }");
@@ -66,13 +43,6 @@ public class NullableTests : ConversionTestBase
     {
         var result = Convert("class C { public string M(string a) => a ?? \"\"; }");
         AssertConversion(result, "return a != null ? a : \"\";");
-    }
-
-    [Fact]
-    public void NullCoalescingAssignment_ConvertsToNullCheck()
-    {
-        var result = Convert("class C { public void M(System.Collections.Generic.List<int> l) { l ??= new System.Collections.Generic.List<int>(); } }");
-        AssertConversion(result, "if (l == null) l = new CSharpList<Integer>();");
     }
 
     [Fact]

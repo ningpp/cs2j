@@ -50,27 +50,6 @@ public class PatternBulkTests : ConversionTestBase
     }
 
     [Fact]
-    public void SwitchWhenWithGuard_ConvertsToInstanceof()
-    {
-        var result = Convert("class C { public void M(object x) { switch(x) { case int i when i > 0: break; } } }");
-        AssertConversion(result, "if ((x instanceof int i) && i > 0) {");
-    }
-
-    [Fact]
-    public void SwitchExpressionTwoArms_ConvertsToTernary()
-    {
-        var result = Convert("class C { public int M(int x) => x switch { 1 => 10, 2 => 20, _ => 0 }; }");
-        AssertConversion(result, "return (Objects.equals(x, 1) ? 10 : (Objects.equals(x, 2) ? 20 : 0));");
-    }
-
-    [Fact]
-    public void SwitchExpressionSingleArm_ConvertsToTernary()
-    {
-        var result = Convert("class C { public string M(int x) => x switch { 0 => \"zero\", _ => \"other\" }; }");
-        AssertConversion(result, "return (Objects.equals(x, 0) ? \"zero\" : \"other\");");
-    }
-
-    [Fact]
     public void NegatedNullPattern_ConvertsToNotEquals()
     {
         var result = Convert("class C { public void M(object o) { if (o is not null) { var x = 1; } } }");

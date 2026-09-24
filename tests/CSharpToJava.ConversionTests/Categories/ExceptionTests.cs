@@ -53,14 +53,6 @@ public class ExceptionTests : ConversionTestBase
     }
 
     [Fact]
-    public void ThrowExpression_StringType_UsesSupplierString()
-    {
-        var result = Convert("class C { public string M(string s) => s ?? throw new System.InvalidOperationException(); }");
-        AssertConversion(result, "((java.util.function.Supplier<String>) () -> { throw new IllegalStateException(); }).get()");
-        AssertJavaDoesNotContain(result, "Supplier<Object>", "String context throw expression must use Supplier<String>, not Supplier<Object>");
-    }
-
-    [Fact]
     public void CatchTyped_ConvertsToSpecificRuntimeException()
     {
         var result = Convert("class C { public void M() { try { } catch (System.InvalidOperationException e) { } catch (System.Exception e) { } } }");

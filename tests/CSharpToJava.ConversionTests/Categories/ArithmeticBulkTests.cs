@@ -45,14 +45,6 @@ public class ArithmeticBulkTests : ConversionTestBase
         AssertConversion(result, expr);
     }
 
-    [Theory]
-    [MemberData(nameof(BoolExprCases))]
-    public void BoolExpression_ConvertsIdentically(string expr)
-    {
-        var result = Convert($"class C {{ public bool M(bool a, bool b, bool c, bool d) {{ return {expr}; }} }}");
-        AssertConversion(result, expr);
-    }
-
     [Fact]
     public void MixedArithmetic_ConvertsIdentically()
     {

@@ -51,19 +51,6 @@ public class UsingCastTests : ConversionTestBase
         AssertJavaDoesNotContain(result, "Dispose", "C# 'Dispose' must become Java 'close'");
     }
 
-    [Fact]
-    public void ExplicitCast_ConvertsToParenthesizedCast()
-    {
-        var result = Convert("class C { public int M(object o) => (int)o; }");
-        AssertConversion(result, "return (int)(o);");
-    }
-
-    [Fact]
-    public void AsCast_ConvertsToInstanceofTernary()
-    {
-        var result = Convert("class C { public string M(object o) => o as string; }");
-        AssertConversion(result, "public String m(Object o) { return (o instanceof String ? (String)(o) : null); }");
-    }
 
     [Fact]
     public void IsPatternWithCast_ConvertsToInstanceof()

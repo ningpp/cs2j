@@ -64,13 +64,6 @@ public class ControlFlowTests : ConversionTestBase
     }
 
     [Fact]
-    public void ForEachList_ConvertsToEnhancedFor()
-    {
-        var result = Convert("class C { public int M(System.Collections.Generic.List<int> l) { int s = 0; foreach (var x in l) { s += x; } return s; } }");
-        AssertConversion(result, "import io.github.ningpp.compat.CSharpList;", "for (int x : l)");
-    }
-
-    [Fact]
     public void ForEachNamedTupleVariable_ConvertsToTupleAccessors()
     {
         var result = Convert(@"

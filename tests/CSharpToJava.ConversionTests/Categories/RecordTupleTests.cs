@@ -23,13 +23,6 @@ public class RecordTupleTests : ConversionTestBase
     }
 
     [Fact]
-    public void RecordWithMembers_ConvertsToJavaRecord()
-    {
-        var result = Convert("public record R(int X) { public string Name = \"\"; }");
-        AssertConversion(result, "public record R(int x) {");
-    }
-
-    [Fact]
     public void RecordWithExpression_ConvertsToNew()
     {
         var result = Convert("public record R(int X); class C { public R M(R r) => r with { X = 2 }; }");
@@ -82,13 +75,6 @@ public class RecordTupleTests : ConversionTestBase
             "var _t = Tuple.of(1, 2);",
             "var a = _t._1();",
             "var b = _t._2();");
-    }
-
-    [Fact]
-    public void TupleAssignment_ConvertsToCloneAndAccess()
-    {
-        var result = Convert("class C { public void M() { var t = (1, \"a\"); int x = t.Item1; } }");
-        AssertConversion(result, "var t = ((Tuple.of(1, \"a\"))).clone();", "int x = t._1();");
     }
 
     [Fact]

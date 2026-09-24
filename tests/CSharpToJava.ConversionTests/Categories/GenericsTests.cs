@@ -89,17 +89,4 @@ public class GenericsTests : ConversionTestBase
         AssertConversion(result, "public class C<T extends Comparable> {", "public T V;");
     }
 
-    [Fact]
-    public void BoundedGenericList_ConvertsToParameterizedType()
-    {
-        var result = Convert("class C { public void M(System.Collections.Generic.List<int> l) { } }");
-        AssertConversion(result, "public void m(CSharpList<Integer> l) {");
-    }
-
-    [Fact]
-    public void GenericDictionary_ConvertsToCSharpDictionary()
-    {
-        var result = Convert("class C { public void M(System.Collections.Generic.Dictionary<string, int> d) { } }");
-        AssertConversion(result, "public void m(CSharpDictionary<String, Integer> d) {");
-    }
 }

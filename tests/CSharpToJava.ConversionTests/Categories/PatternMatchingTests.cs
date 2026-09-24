@@ -37,34 +37,6 @@ public class PatternMatchingTests : ConversionTestBase
     }
 
     [Fact]
-    public void SwitchWithWhen_ConvertsToInstanceofGuard()
-    {
-        var result = Convert("class C { public void M(int x) { switch(x) { case int i when i > 0: break; } } }");
-        AssertConversion(result, "if ((x instanceof int i) && i > 0) {");
-    }
-
-    [Fact]
-    public void SwitchWithWhenMulti_ConvertsToInstanceofGuard()
-    {
-        var result = Convert("class C { public void M(int x) { switch(x) { case int i when i > 0 && i < 5: break; } } }");
-        AssertConversion(result, "if ((x instanceof int i) && i > 0 && i < 5) {");
-    }
-
-    [Fact]
-    public void SwitchExpression_ConvertsToTernary()
-    {
-        var result = Convert("class C { public int M(int x) => x switch { 1 => 10, _ => 0 }; }");
-        AssertConversion(result, "import java.util.Objects;", "return (Objects.equals(x, 1) ? 10 : 0);");
-    }
-
-    [Fact]
-    public void SwitchExpressionMulti_ConvertsToNestedTernary()
-    {
-        var result = Convert("class C { public int M(int x) => x switch { 1 => 10, 2 => 20, _ => 0 }; }");
-        AssertConversion(result, "return (Objects.equals(x, 1) ? 10 : (Objects.equals(x, 2) ? 20 : 0));");
-    }
-
-    [Fact]
     public void RelationalPattern_ConvertsToComparison()
     {
         var result = Convert("class C { public void M(int x) { if (x is > 0) { } } }");

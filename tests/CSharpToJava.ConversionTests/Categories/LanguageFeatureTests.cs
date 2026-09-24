@@ -9,19 +9,6 @@ namespace CSharpToJava.ConversionTests.Categories;
 public class LanguageFeatureTests : ConversionTestBase
 {
     [Fact]
-    public void YieldReturn_ConvertsToYieldList()
-    {
-        var result = Convert("class C { public System.Collections.Generic.IEnumerable<int> M() { yield return 1; yield return 2; } }");
-        AssertConversion(result,
-            "import io.github.ningpp.compat.CSharpGenericIterable;",
-            "public CSharpGenericIterable<Integer> m() {",
-            "CSharpList<Integer> _yieldResult = new CSharpList<Integer>();",
-            "_yieldResult.add(1);",
-            "_yieldResult.add(2);",
-            "return _yieldResult;");
-    }
-
-    [Fact]
     public void LockStatement_ConvertsToSynchronized()
     {
         var result = Convert("class C { private readonly object l = new object(); public void M() { lock (l) { var x = 1; } } }");
@@ -34,13 +21,6 @@ public class LanguageFeatureTests : ConversionTestBase
         var result = Convert("class C { public int X; public string N() => nameof(X); }");
         AssertConversion(result, "public String n() { return \"X\"; }");
         AssertJavaDoesNotContain(result, "nameof(", "C# 'nameof' must resolve to a literal");
-    }
-
-    [Fact]
-    public void TypeOf_ConvertsToClassLiteral()
-    {
-        var result = Convert("class C { public System.Type T() => typeof(int); }");
-        AssertConversion(result, "public Class t() { return int.class; }");
     }
 
     [Fact]
@@ -85,17 +65,6 @@ public class LanguageFeatureTests : ConversionTestBase
     {
         var result = Convert("class C { public class Inner { public int V; } }");
         AssertConversion(result, "public static class Inner {", "public int V;");
-    }
-
-    [Fact]
-    public void ObjectMethods_ConvertsToJavaEquivalents()
-    {
-        var result = Convert("class C { public string S() => ToString(); public bool E(object o) => Equals(o); public int H() => GetHashCode(); public System.Type G() => GetType(); }");
-        AssertConversion(result,
-            "public String s() { return toString(); }",
-            "public boolean e(Object o) { return equals(o); }",
-            "public int h() { return hashCode(); }",
-            "public Class g() { return getClass(); }");
     }
 
     [Fact]

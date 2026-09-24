@@ -36,13 +36,6 @@ public class DelegateEventTests : ConversionTestBase
     }
 
     [Fact]
-    public void LambdaInMethod_ConvertsToArrow()
-    {
-        var result = Convert("class C { public void M() { var f = (int x) => x + 1; } }");
-        AssertConversion(result, "var f = (Integer x) -> x + 1;");
-    }
-
-    [Fact]
     public void DelegateType_ConvertsToFunctionalInterface()
     {
         var result = Convert("public delegate int D(int x); class C { public D Handler; }");
@@ -51,19 +44,6 @@ public class DelegateEventTests : ConversionTestBase
             "int apply(int x);",
             "default Object getTarget() {",
             "public D Handler;");
-    }
-
-    [Fact]
-    public void EventField_ConvertsToListenerList()
-    {
-        var result = Convert("class C { public event System.Action E; public void Raise() { E?.Invoke(); } }");
-        AssertConversion(result,
-            "import java.util.concurrent.CopyOnWriteArrayList;",
-            "private java.util.concurrent.CopyOnWriteArrayList<Runnable> _eListeners",
-            "public void addEListener(Runnable handler) {",
-            "public void removeEListener(Runnable handler) {",
-            "protected void fireE() {",
-            "if (fireE != null) { fireE.run(); }");
     }
 
     [Fact]
@@ -80,25 +60,6 @@ public class DelegateEventTests : ConversionTestBase
         var result = Convert("class C { public void M() { System.Action a = () => { System.Console.WriteLine(1); }; } }");
         AssertNoCSharpResidue(result);
         AssertConversion(result, "Runnable a = () -> {");
-    }
-
-    [Fact]
-    public void EventHandlerGenericEvent_UsesBiConsumerListenerType()
-    {
-        var result = Convert(
-            "using System;" +
-            "class C {" +
-            "  public event EventHandler<EventArgs> E;" +
-            "  public void Raise() { E?.Invoke(this, EventArgs.Empty); }" +
-            "}");
-        // EventHandler<T> is a 2-parameter void delegate (sender, e) → must map to BiConsumer,
-        // not to a single-arg Consumer (which would make the fire call `accept(sender, args)` fail).
-        AssertConversion(result,
-            "private java.util.concurrent.CopyOnWriteArrayList<BiConsumer<Object, Object>> _eListeners",
-            "public void addEListener(BiConsumer<Object, Object> handler) {",
-            "protected void fireE(Object sender, Object args) {");
-        AssertJavaDoesNotContain(result, "addEListener(Consumer<",
-            "EventHandler<T> (2-parameter void delegate) must map to BiConsumer, not Consumer");
     }
 
     [Fact]

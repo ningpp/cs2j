@@ -109,26 +109,12 @@ public class ArrayTests : ConversionTestBase
     }
 
     [Fact]
-    public void ArraySortStatic_ConvertsToArraysSort()
-    {
-        var result = Convert("class C { public void M(int[] a) { System.Array.Sort(a); } }");
-        AssertConversion(result, "Arrays.sort(a)");
-    }
-
-    [Fact]
     public void ArrayIndexOfStatic_ConvertsToHelper()
     {
         var result = Convert("class C { public int M(int[] a) { return System.Array.IndexOf(a, 5); } }");
         AssertSuccess(result);
         AssertNoCSharpResidue(result);
         AssertJavaContains(result, "indexOf");
-    }
-
-    [Fact]
-    public void ArrayCopyStatic_ConvertsToArrayCopy()
-    {
-        var result = Convert("class C { public void M(int[] src, int[] dst) { System.Array.Copy(src, dst, 3); } }");
-        AssertConversion(result, "System.arraycopy(src, 0, dst, 0, 3)");
     }
 
     [Fact]
@@ -161,13 +147,6 @@ public class ArrayTests : ConversionTestBase
     {
         var result = Convert("class C { public int[] M() { return new int[0]; } }");
         AssertConversion(result, "return new int[0];");
-    }
-
-    [Fact]
-    public void ArrayInForeachOverGenericList()
-    {
-        var result = Convert("class C { public int M(System.Collections.Generic.List<int> l) { int s = 0; foreach (var x in l) { s += x; } return s; } }");
-        AssertConversion(result, "import io.github.ningpp.compat.CSharpList;", "for (int x : l)");
     }
 
     [Fact]

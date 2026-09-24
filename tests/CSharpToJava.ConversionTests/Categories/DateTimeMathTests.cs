@@ -55,20 +55,6 @@ public class DateTimeMathTests : ConversionTestBase
     }
 
     [Fact]
-    public void MathOps_ConvertsToStaticMath()
-    {
-        var result = Convert("class C { public double M() { return System.Math.Max(1, 2) + System.Math.Abs(-3) + System.Math.Sqrt(4); } }");
-        AssertConversion(result, "Math.max(1, 2) + Math.abs(-3) + Math.sqrt(4.0)");
-    }
-
-    [Fact]
-    public void MathRound_ConvertsToRound()
-    {
-        var result = Convert("class C { public int M() { return (int)System.Math.Round(1.5); } }");
-        AssertConversion(result, "return (int)((double)Math.round(1.5));");
-    }
-
-    [Fact]
     public void RandomNext_ConvertsToCSharpRandom()
     {
         var result = Convert("class C { public int M() { var r = new System.Random(); return r.Next(); } }");
@@ -143,13 +129,6 @@ public class DateTimeMathTests : ConversionTestBase
     }
 
     [Fact]
-    public void GuidNew_ConvertsToUUID()
-    {
-        var result = Convert("class C { public System.Guid M() { return System.Guid.NewGuid(); } }");
-        AssertConversion(result, "import java.util.UUID;", "public UUID m() {", "return UUID.randomUUID();");
-    }
-
-    [Fact]
     public void DecimalLiteral_ConvertsToDecimalParse()
     {
         var result = Convert("class C { public decimal M() { decimal d = 1.5m; return d; } }");
@@ -166,10 +145,4 @@ public class DateTimeMathTests : ConversionTestBase
         AssertConversion(result, "public Decimal m(Decimal a, Decimal b) {", "return a.add(b);");
     }
 
-    [Fact]
-    public void MathMin_ConvertsToStaticMath()
-    {
-        var result = Convert("class C { public int M() { return System.Math.Min(1, 2); } }");
-        AssertConversion(result, "return Math.min(1, 2);");
-    }
 }

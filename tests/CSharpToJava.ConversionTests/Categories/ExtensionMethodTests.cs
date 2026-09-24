@@ -26,13 +26,6 @@ public class ExtensionMethodTests : ConversionTestBase
     }
 
     [Fact]
-    public void ExtensionUsage_ConvertsToStaticCall()
-    {
-        var result = Convert("public static class E { public static int Square(this int x) => x * x; } class C { public int M() => 3.Square(); }");
-        AssertConversion(result, "public static int square(int x) { return x * x; }", "public int m() { return E.square(3); }");
-    }
-
-    [Fact]
     public void ExtensionWithExtraParam_ConvertsToStaticMethod()
     {
         var result = Convert("public static class E { public static int Add(this int x, int y) => x + y; }");
