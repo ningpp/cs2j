@@ -32,6 +32,7 @@ internal static class MultiModulePlanner
 
         var productionProjects = graph.ProjectsInTopologicalOrder
             .Where(p => p.Kind == ProjectKind.Production)
+            .Where(p => !Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject(p.ProjectFilePath))
             .ToList();
 
         foreach (var project in productionProjects)

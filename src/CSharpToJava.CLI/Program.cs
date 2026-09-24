@@ -504,6 +504,12 @@ public class Program
             if (workspaceProjects != null && workspaceProjects.Count > 0)
             {
                 workspaceProjects = NormalizeWorkspaceProjects(workspaceProjects, opts.Verbose);
+                // Cs2jUnsignedMath 是 unsigned-type 预处理注入的内部支撑库：
+                // 仅作符号来源，不为其规划 Maven 模块、不转换其源文件。
+                // 放在指纹快照之前——helper 文件不再进入 Java 输出，不应参与缓存键。
+                workspaceProjects = workspaceProjects
+                    .Where(p => !Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject(p.FilePath))
+                    .ToList();
                 var inputFingerprintSnapshot = BuildWorkspaceInputFingerprintSnapshot(opts, workspaceProjects);
                 if (!opts.NoCache && TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
                 {
@@ -3271,8 +3277,8 @@ public class Program
         // Step 1: Build maps:
         //  a) package -> set of module names (for wildcard imports)
         //  b) fully-qualified class name -> set of module names (for specific imports)
-        // Multiple modules can share the same package (e.g. "Cs2jUnsigned"
-        // is used by system-private-uri and system-text-json).
+        // Multiple modules can share the same package (e.g. a framework
+        // package declared by several converted modules).
         // We scan each module's .java files for `package` declarations and
         // public class names.
         var packageToModules = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
@@ -3368,8 +3374,7 @@ public class Program
                             // Only add other modules if the current module does
                             // NOT declare the package. This avoids spurious
                             // dependencies between modules that happen to share
-                            // the same package (e.g. Cs2jUnsigned is declared in
-                            // system-private-uri, system-text-json, etc.).
+                            // the same package.
                             if (!depModules.Contains(modulePlan.ModuleName))
                             {
                                 foreach (var dm in depModules)
