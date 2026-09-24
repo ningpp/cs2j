@@ -26,7 +26,7 @@ public class Program
     internal static async Task<int> MainImpl(string[] args)
     {
         using var parser = new Parser(settings => settings.AllowMultiInstance = true);
-        return await parser.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions>(args)
+        return await parser.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions, RecordReadOnlyVerbOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
@@ -39,6 +39,7 @@ public class Program
                 (LocalFunctionLiftOptions opts) => LocalFunctionLiftAsync(opts),
                 (TupleToStructVerbOptions opts) => TupleToStructVerbAsync(opts),
                 (StripConditionalOptions opts) => StripConditionalCommand.RunAsync(opts),
+                (RecordReadOnlyVerbOptions opts) => RecordReadOnlyVerbAsync(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -379,6 +380,48 @@ public class Program
                 opts.Source = genericResult.PreprocessedSourcePath;
                 opts.FingerprintSourcePath ??= genericResult.OriginalSourcePath;
                 opts.FingerprintInputRoot ??= genericResult.SourceRoot;
+            }
+
+            if (opts.RecordReadOnly)
+            {
+                var recordReadOnlyResult = await ProjectRecordReadOnlyPreprocessor.PreprocessAsync(
+                    new ProjectRecordReadOnlyPreprocessRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        Options = BuildRecordReadOnlyOptions(opts.RecordReadOnlyOverrides, strict: false),
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                    });
+
+                Console.WriteLine(
+                    $"record-readonly: {recordReadOnlyResult.Statistics.RecordStructsConverted} struct(s), " +
+                    $"{recordReadOnlyResult.Statistics.RecordClassesConverted} class(es) converted, " +
+                    $"{recordReadOnlyResult.Statistics.RecordsSkipped} skipped, " +
+                    $"{recordReadOnlyResult.Statistics.PlansRolledBack} plan(s) rolled back, " +
+                    $"{recordReadOnlyResult.Statistics.MutationSitesRewritten} site(s), " +
+                    $"{recordReadOnlyResult.Statistics.MethodsMigrated} method(s), " +
+                    $"{recordReadOnlyResult.Statistics.InterfaceRipples} interface ripple(s)");
+
+                foreach (var diagnostic in recordReadOnlyResult.Diagnostics)
+                {
+                    if (diagnostic.Severity != CSharpToJava.Core.RecordReadOnly.RecordReadOnlySeverity.Info
+                        || opts.Verbose)
+                    {
+                        Console.Error.WriteLine(diagnostic.ToMsBuildString());
+                    }
+                }
+
+                if (!recordReadOnlyResult.Success)
+                {
+                    return 1;
+                }
+
+                opts.Source = recordReadOnlyResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= recordReadOnlyResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= recordReadOnlyResult.SourceRoot;
             }
 
             if (opts.MakeReadOnly)
@@ -1952,6 +1995,10 @@ public class Program
         if (opts.MakeReadOnly)
         {
             preserved.Add(ProjectReadOnlyStructPreprocessor.IntermediateDirectoryName);
+        }
+        if (opts.RecordReadOnly)
+        {
+            preserved.Add(ProjectRecordReadOnlyPreprocessor.IntermediateDirectoryName);
         }
         if (opts.GenericPreprocess)
         {
@@ -3761,6 +3808,181 @@ public class Program
         }
     }
 
+    private sealed class RecordReadOnlyOverrideSets
+    {
+        public string[]? Force { get; set; }
+        public string[]? Skip { get; set; }
+    }
+
+    private static CSharpToJava.Core.RecordReadOnly.RecordReadOnlyOptions BuildRecordReadOnlyOptions(
+        string? explicitPath,
+        bool strict,
+        IEnumerable<string>? extraForce = null,
+        IEnumerable<string>? extraSkip = null,
+        bool convertRecordClasses = false)
+    {
+        var path = explicitPath;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            path = Path.Combine(Directory.GetCurrentDirectory(), "config", "RecordReadOnlyOverrides.json");
+            if (!File.Exists(path))
+            {
+                var dir = new DirectoryInfo(AppContext.BaseDirectory);
+                while (dir != null)
+                {
+                    var candidate = Path.Combine(dir.FullName, "config", "RecordReadOnlyOverrides.json");
+                    if (File.Exists(candidate)) { path = candidate; break; }
+                    dir = dir.Parent;
+                }
+            }
+        }
+
+        var force = new HashSet<string>(StringComparer.Ordinal);
+        var skip = new HashSet<string>(StringComparer.Ordinal);
+        if (path != null && File.Exists(path))
+        {
+            try
+            {
+                var parsed = System.Text.Json.JsonSerializer.Deserialize<RecordReadOnlyOverrideSets>(
+                    File.ReadAllText(path)) ?? new RecordReadOnlyOverrideSets();
+                if (parsed.Force != null) force.UnionWith(parsed.Force);
+                if (parsed.Skip != null) skip.UnionWith(parsed.Skip);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"[Warning] Failed to load record-readonly overrides from {path}: {ex.Message}");
+            }
+        }
+        if (extraForce != null) force.UnionWith(extraForce);
+        if (extraSkip != null) skip.UnionWith(extraSkip);
+
+        return new CSharpToJava.Core.RecordReadOnly.RecordReadOnlyOptions
+        {
+            ForceQualifiedNames = force,
+            SkipQualifiedNames = skip,
+            Strict = strict,
+            ConvertRecordClasses = convertRecordClasses,
+        };
+    }
+
+    /// <summary>
+    /// 独立 record-readonly verb：单文件 -i/-o（只允许自包含 record，RR090）或
+    /// 项目 -s/-d（整树驱动 + 计划级回退）。
+    /// </summary>
+    private static async Task<int> RecordReadOnlyVerbAsync(RecordReadOnlyVerbOptions opts)
+    {
+        var options = BuildRecordReadOnlyOptions(
+            opts.Overrides,
+            strict: opts.Strict,
+            extraForce: opts.Force,
+            extraSkip: opts.Skip,
+            convertRecordClasses: opts.ConvertRecordClasses);
+
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+                sourceCode,
+                new Microsoft.CodeAnalysis.CSharp.CSharpParseOptions(
+                    Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest),
+                path: Path.GetFullPath(opts.Input));
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+                "record-readonly-file",
+                new[] { tree },
+                ProjectUnsignedTypePreprocessor.GetBasicReferences(),
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                    Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+            var preprocessor =
+                new CSharpToJava.Core.RecordReadOnly.RecordReadOnlyPreprocessor(options);
+            preprocessor.BindCompilation(compilation);
+
+            // 单文件模式自包含闸门（§3.3）：跨文件 partial/用点/接口连带/层次均不可见，
+            // 凡计划需要这些的一律排除并报 RR090。
+            var nonSelfContained = preprocessor.Plans
+                .Where(p => p.Outcome == CSharpToJava.Core.RecordReadOnly.PlanOutcome.Converted
+                    && (p.TouchedFiles.Any(f => !string.Equals(
+                            Path.GetFullPath(f), tree.FilePath, StringComparison.OrdinalIgnoreCase))
+                        || p.Ripples.Count > 0
+                        || p.Migrations.Count > 0))
+                .Select(p => p.Id)
+                .ToList();
+            if (nonSelfContained.Count > 0)
+            {
+                preprocessor.ExcludePlans(nonSelfContained);
+            }
+
+            var statistics = new CSharpToJava.Core.RecordReadOnly.RecordReadOnlyStatistics();
+            var diagnostics = new List<CSharpToJava.Core.RecordReadOnly.RecordReadOnlyDiagnostic>();
+            var result = preprocessor.RewriteFile(
+                sourceCode, compilation.GetSemanticModel(tree), statistics, diagnostics);
+            foreach (var id in nonSelfContained)
+            {
+                var plan = preprocessor.Plans.First(p => p.Id == id);
+                diagnostics.Add(new CSharpToJava.Core.RecordReadOnly.RecordReadOnlyDiagnostic(
+                    CSharpToJava.Core.RecordReadOnly.RecordReadOnlySeverity.Warning,
+                    CSharpToJava.Core.RecordReadOnly.RecordReadOnlyDiagnosticCode.RR090,
+                    "record is not self-contained within the single input file (partial parts, " +
+                    "mutation sites, interface ripple, migrated call sites, or hierarchy members " +
+                    "live outside the file); skipped in single-file mode.",
+                    tree.FilePath, 0, 0, plan.RecordQualifiedName));
+            }
+
+            if (opts.Output != null)
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+            else
+                Console.Write(result.OutputCode);
+
+            foreach (var diagnostic in diagnostics)
+                Console.Error.WriteLine(diagnostic.ToMsBuildString());
+
+            return options.Strict && statistics.RecordsSkipped > 0 ? 1 : 0;
+        }
+
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectRecordReadOnlyPreprocessor.PreprocessAsync(
+            new ProjectRecordReadOnlyPreprocessRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = true,
+                Verbose = opts.Verbose,
+                Options = options,
+                FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+            });
+
+        Console.WriteLine(
+            $"record-readonly: {preprocessResult.Statistics.RecordStructsConverted} struct(s), " +
+            $"{preprocessResult.Statistics.RecordClassesConverted} class(es) converted, " +
+            $"{preprocessResult.Statistics.RecordsSkipped} skipped, " +
+            $"{preprocessResult.Statistics.PlansRolledBack} plan(s) rolled back");
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+            Console.Error.WriteLine(diagnostic.ToMsBuildString());
+        Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+
+        if (options.Strict && preprocessResult.Statistics.RecordsSkipped > 0) return 1;
+        return preprocessResult.Success ? 0 : 1;
+    }
+
     private static async Task<int> GenericPreprocess(GenericPreprocessOptions opts)
     {
         if (opts.Input != null)
@@ -4272,6 +4494,49 @@ class TupleToStructVerbOptions
     public bool FilterUnsupportedProjects => !NoFilterProjects;
 }
 
+[Verb("record-readonly", HelpText = "Convert non-readonly records (record struct and optionally record class) into readonly/immutable records")]
+class RecordReadOnlyVerbOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file (self-contained records only)")]
+    public string? Input { get; set; }
+
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+
+    [Option('v', "verbose", Default = false, HelpText = "Show detailed progress")]
+    public bool Verbose { get; set; }
+
+    [Option("overrides", HelpText = "Path to RecordReadOnlyOverrides.json")]
+    public string? Overrides { get; set; }
+
+    [Option("force", Separator = ',', HelpText = "Fully-qualified record names to force-convert (comma-separated)")]
+    public IEnumerable<string>? Force { get; set; }
+
+    [Option("skip", Separator = ',', HelpText = "Fully-qualified record names to exclude (comma-separated)")]
+    public IEnumerable<string>? Skip { get; set; }
+
+    [Option("strict", Default = false, HelpText = "Return non-zero exit code when any record is skipped")]
+    public bool Strict { get; set; }
+
+    [Option("convert-record-classes", Default = false, HelpText = "Also convert record class declarations (RC rules; semantic immutability)")]
+    public bool ConvertRecordClasses { get; set; }
+
+    [Option('m', "mapping", Required = false, HelpText = "Path to type mapping configuration file")]
+    public string? MappingConfig { get; set; }
+
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+
+    public bool FilterUnsupportedProjects => !NoFilterProjects;
+}
+
 [Verb("strip-default", HelpText = "Strip default parameter values and generate C# overloads")]
 class StripDefaultOptions
 {
@@ -4501,6 +4766,14 @@ class ConvertProjectOptions
     [Option("readonly-overrides", Required = false,
         HelpText = "Path to JSON config listing qualified type names to force as readonly structs (default: config/ReadOnlyStructOverrides.json)")]
     public string? ReadOnlyOverrides { get; set; }
+
+    [Option("record-readonly", Default = false,
+        HelpText = "Enable the record-to-readonly-record preprocessing step (non-readonly records to readonly records)")]
+    public bool RecordReadOnly { get; set; }
+
+    [Option("record-readonly-overrides", Required = false,
+        HelpText = "Path to RecordReadOnlyOverrides.json (default: config/RecordReadOnlyOverrides.json)")]
+    public string? RecordReadOnlyOverrides { get; set; }
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;
