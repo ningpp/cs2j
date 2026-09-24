@@ -325,4 +325,53 @@ public class UnsignedTypeProjectTests
             }
         }
     }
+
+    [Fact]
+    public async Task AlreadyReleasedLib_SecondPreprocess_IsIdempotent()
+    {
+        var firstDir = Path.Combine(FixtureDir, ".test-output-selfrelease-first");
+        var secondDir = Path.Combine(FixtureDir, ".test-output-selfrelease-second");
+
+        try
+        {
+            var first = await ProjectUnsignedTypePreprocessor.PreprocessAsync(
+                new ProjectUnsignedTypePreprocessRequest
+                {
+                    SourcePath = Path.Combine(FixtureDir, "SampleUnsignedSolution.sln"),
+                    DestinationRoot = firstDir,
+                    Verbose = false,
+                });
+            Assert.True(first.Success, string.Join("\n", first.Diagnostics));
+
+            // convert-project 的内置 unsigned 阶段会对已预处理输入再次运行预处理：
+            // 经注入的 ProjectReference 加载到早前释放的支撑库本体时必须放行，
+            // 且不改写其源码（重写会把内部实现变成对自身的递归调用）。
+            var second = await ProjectUnsignedTypePreprocessor.PreprocessAsync(
+                new ProjectUnsignedTypePreprocessRequest
+                {
+                    SourcePath = first.PreprocessedSourcePath,
+                    DestinationRoot = secondDir,
+                    Verbose = false,
+                });
+            Assert.True(second.Success, string.Join("\n", second.Diagnostics));
+
+            var releasedSource = Path.Combine(
+                second.IntermediateRoot, UnsignedMathSupportFiles.LibDirectoryName, "UnsignedMath.cs");
+            Assert.True(File.Exists(releasedSource), $"support lib source missing: {releasedSource}");
+            Assert.Equal(
+                UnsignedMathSupportFiles.GetUnsignedMathFileContent(),
+                await File.ReadAllTextAsync(releasedSource));
+        }
+        finally
+        {
+            if (Directory.Exists(firstDir))
+            {
+                Directory.Delete(firstDir, recursive: true);
+            }
+            if (Directory.Exists(secondDir))
+            {
+                Directory.Delete(secondDir, recursive: true);
+            }
+        }
+    }
 }

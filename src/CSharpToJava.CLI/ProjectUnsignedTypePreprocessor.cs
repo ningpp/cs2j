@@ -106,6 +106,7 @@ internal static class ProjectUnsignedTypePreprocessor
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
 
         var rewrittenSourceFiles = new List<string>();
+        var ownReleaseDirectories = FindOwnReleaseLibDirectories(sourceRoot);
         foreach (var sourceFile in sourceFiles)
         {
             var relativePath = Path.GetRelativePath(sourceRoot, sourceFile);
@@ -122,6 +123,18 @@ internal static class ProjectUnsignedTypePreprocessor
                 }
 
                 File.Copy(sourceFile, destinationFile, overwrite: true);
+                continue;
+            }
+
+            if (IsUnderOwnReleaseLib(sourceFile, ownReleaseDirectories))
+            {
+                // 早前释放的支撑库本体只原样复制，不参与改写——对它再跑
+                // unsigned 重写会把内部实现改写成对它自身的递归调用。
+                File.Copy(sourceFile, destinationFile, overwrite: true);
+                if (request.Verbose)
+                {
+                    Console.WriteLine($"[unsigned-type] clean (own release copy): {relativePath}");
+                }
                 continue;
             }
 
@@ -333,11 +346,16 @@ internal static class ProjectUnsignedTypePreprocessor
 
     /// <summary>
     /// 用户解决方案中已有保留名项目时立即终止，不静默误识别
-    /// （契约见 2026-08-15 设计文档 §4.3）。
+    /// （契约见 2026-08-15 设计文档 §4.3）。内容与 CLI 嵌入资源一致（行尾
+    /// 规整后比较）的保留名项目视为本 CLI 早前释放的支撑库本体，放行——
+    /// convert-project 内置的 unsigned 阶段会对已预处理输入再次运行本检查，
+    /// 后续 ReleaseAsync 会以相同内容幂等覆盖。
     /// </summary>
     private static void ThrowOnCs2jUnsignedMathNameCollision(ProjectPreprocessSourceLayout layout)
     {
-        var collision = layout.ProjectFiles.FirstOrDefault(Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject);
+        var collision = layout.ProjectFiles.FirstOrDefault(p =>
+            Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject(p) &&
+            !IsOwnReleasedUnsignedMathProjectFile(p));
         if (collision != null)
         {
             throw new InvalidOperationException(
@@ -345,6 +363,55 @@ internal static class ProjectUnsignedTypePreprocessor
                 $"'{Cs2jUnsignedMathProject.ProjectFileName}' ({collision}). That name is reserved " +
                 "for the cs2j unsigned math support library; rename the project and retry.");
         }
+    }
+
+    /// <summary>csproj 内容与嵌入的支撑库项目文件一致（行尾规整后），即本 CLI 自己释放的支撑库。</summary>
+    private static bool IsOwnReleasedUnsignedMathProjectFile(string projectFilePath)
+    {
+        try
+        {
+            var content = File.ReadAllText(projectFilePath);
+            return string.Equals(
+                NormalizeLineEndings(content),
+                NormalizeLineEndings(UnsignedMathSupportFiles.GetProjectFileContent()),
+                StringComparison.Ordinal);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // 读取失败时按“非本体”处理，让碰撞检查保持保守。
+            return false;
+        }
+    }
+
+    private static string NormalizeLineEndings(string text) =>
+        text.Replace("\r\n", "\n").Replace("\r", "\n");
+
+    /// <summary>
+    /// 扫描源树中本 CLI 早前释放的支撑库目录（任意深度——convert-project 的
+    /// 中间阶段整树镜像，其内置 unsigned 阶段的输入里支撑库位于树根下）。
+    /// </summary>
+    private static List<string> FindOwnReleaseLibDirectories(string sourceRoot)
+    {
+        var options = new EnumerationOptions
+        {
+            IgnoreInaccessible = true,
+            RecurseSubdirectories = true,
+            MatchCasing = MatchCasing.CaseInsensitive,
+        };
+        return Directory
+            .EnumerateDirectories(sourceRoot, UnsignedMathSupportFiles.LibDirectoryName, options)
+            .Where(dir => IsOwnReleasedUnsignedMathProjectFile(
+                Path.Combine(dir, Cs2jUnsignedMathProject.ProjectFileName)))
+            .Select(Path.GetFullPath)
+            .ToList();
+    }
+
+    private static bool IsUnderOwnReleaseLib(string filePath, IReadOnlyList<string> ownReleaseDirectories)
+    {
+        var fullPath = Path.GetFullPath(filePath);
+        return ownReleaseDirectories.Any(dir =>
+            fullPath.StartsWith(dir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+            fullPath.StartsWith(dir + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
