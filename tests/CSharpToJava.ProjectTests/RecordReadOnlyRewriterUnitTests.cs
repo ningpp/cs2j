@@ -95,7 +95,99 @@ public class RecordReadOnlyRewriterUnitTests
         var src = "public readonly record struct P(int X, int Y);";
         var (output, stats, diags) = Rewrite(src);
         Assert.Equal(src, output);
-        // Task 3 临时断言：桩分析器不产记录；Task 4 完成后恢复 AlreadyReadOnly=1 与 RR010。
-        Assert.Empty(diags.Where(d => d.Severity == RecordReadOnlySeverity.Error));
+        Assert.Equal(1, stats.AlreadyReadOnly);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR010);
+    }
+
+    [Fact]
+    public void AlreadyReadonlyRecordStruct_EmitsRR010()
+    {
+        var src = "public readonly record struct P(int X, int Y);";
+        var (output, stats, diags) = Rewrite(src);
+        Assert.Equal(src, output);
+        Assert.Equal(1, stats.AlreadyReadOnly);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR010);
+    }
+
+    [Fact]
+    public void Analyzer_MergesPartialParts_AndClassifiesMembers()
+    {
+        var src = """
+            public partial record struct P
+            {
+                public int A { get; set; }
+                private int _b;
+                public int C;
+                public event System.Action E;
+            }
+            public partial record struct P { public int D { get; } }
+            """;
+        var model = ParseWithSemantics(src);
+        var pp = new RecordReadOnlyPreprocessor();
+        pp.BindCompilation(model.Compilation);
+        var plan = Assert.Single(pp.Plans);
+        Assert.Equal("P", plan.RecordQualifiedName);
+        // A(set)、C(字段) 需改写；_b 私有字段分类；E 事件阻断。事实在计划可行性上体现：
+        Assert.Contains(plan.MemberRewrites, m => m.MemberName == "A");
+        Assert.Contains(plan.MemberRewrites, m => m.MemberName == "C");
+        Assert.False(plan.Feasible);
+        Assert.Equal(RecordReadOnlyDiagnosticCode.RR040, plan.FailCode);
+    }
+
+    [Fact]
+    public void Analyzer_RecordClass_IgnoredWhenClassConversionDisabled()
+    {
+        var src = "public record class P(int X);";
+        var (output, _, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = false });
+        Assert.Equal(src, output);
+    }
+
+    [Fact]
+    public void RS1_PositionalRecordStruct_AddsReadonly_AndCompiles()
+    {
+        var src = "public record struct P(int X, int Y);";
+        var (output, stats, diags) = Rewrite(src);
+        Assert.Contains("readonly record struct P", output);
+        Assert.DoesNotContain("readonly readonly", output);
+        Assert.Equal(1, stats.RecordStructsConverted);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR001);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS1_RecordStructWithGetOnlyBody_AddsReadonly()
+    {
+        var src = """
+            public record struct P(int X)
+            {
+                public int Y { get; }
+                public int Sum() => X + Y;
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("readonly record struct P", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS2_AllPartialParts_GetReadonly()
+    {
+        var src = """
+            public partial record struct P { public int X { get; } }
+            public partial record struct P { public int Y { get; } }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(output, "readonly record struct P").Count);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MutableMembers_BeforeMemberRewriteMilestone_PlanInfeasibleRR020()
+    {
+        var src = "public record struct P { public int X { get; set; } }";
+        var (output, stats, diags) = Rewrite(src);
+        Assert.DoesNotContain("readonly record struct", output); // 原子跳过，不部分转换
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR020);
     }
 }

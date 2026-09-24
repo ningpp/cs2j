@@ -108,6 +108,9 @@ internal static class RecordSyntaxFacts
         return false;
     }
 
+    public static bool IsRefReturning(IMethodSymbol method)
+        => (method.ReturnsByRef || method.ReturnsByRefReadonly) && IsVisibleOutsideType(method);
+
     /// <summary>把 set 访问器关键字替换为 init（保留 trivia）；非 set 访问器原样。</summary>
     public static AccessorDeclarationSyntax WithInitKeyword(AccessorDeclarationSyntax accessor)
     {

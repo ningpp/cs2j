@@ -93,7 +93,7 @@ public sealed partial class RecordReadOnlyPreprocessor
     {
         if (_analysis != null && _plan != null) return;
         _analysis = new RecordReadOnlyAnalyzer(_options).Analyze(model.Compilation);
-        _plan = new PlanBuilder(_options).Build(_analysis);
+        _plan = new PlanBuilder(_options, FeatureCaps.Current).Build(_analysis);
     }
 
     private static CompilationUnitSyntax ApplyRewriters(CompilationUnitSyntax root, RewriteContext context)
@@ -176,7 +176,7 @@ public sealed partial class RecordReadOnlyPreprocessor
     internal void BindCompilation(Compilation compilation)
     {
         _analysis = new RecordReadOnlyAnalyzer(_options).Analyze(compilation);
-        _plan = new PlanBuilder(_options).Build(_analysis);
+        _plan = new PlanBuilder(_options, FeatureCaps.Current).Build(_analysis);
     }
 
     /// <summary>
