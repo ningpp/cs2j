@@ -297,7 +297,6 @@ public class ProjectConversionPipeline
             new ProjectJavaPatternRewritePass(),
             new ProjectPartialTypeNormalizationPass(),
             new ProjectTypeEmitPass(_irRewriters),
-            new ProjectCrossPackageImportEmitPass(),
             new ProjectJavaModuleDependencyPass(),
         };
     }

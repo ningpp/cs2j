@@ -40,9 +40,8 @@ public class JavaCompilationUnit : JavaSyntaxNode
         }
 
         // Collect wildcard package names for standard Java packages to avoid emitting redundant explicit imports.
-        // Only dedup java.*/javax.* packages; project-specific explicit imports are preserved because
-        // CrossPackageImportResolver adds them deliberately to disambiguate against java.util.* conflicts
-        // (e.g., project Set vs java.util.Set).
+        // Only dedup java.*/javax.* packages; project-specific explicit imports are preserved to
+        // disambiguate against java.util.* conflicts (e.g., project Set vs java.util.Set).
         var jdkWildcardPackages = new HashSet<string>(
             Imports.Where(i => i.IsWildcard && !i.IsStatic
                 && (i.Name.StartsWith("java.") || i.Name.StartsWith("javax.")))

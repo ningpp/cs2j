@@ -1002,29 +1002,3 @@ public sealed class ProjectExtensionMethodCheckPass : ICs2jPass<ProjectPassState
         "System.Linq.Queryable",
     };
 }
-
-public sealed class ProjectCrossPackageImportEmitPass : ICs2jPass<ProjectPassState>
-{
-    public string Name => nameof(ProjectCrossPackageImportEmitPass);
-    public Cs2jPassStage Stage => Cs2jPassStage.Emit;
-
-    public void Execute(ProjectPassState state)
-    {
-        if (!state.Results.Any(result => !string.IsNullOrEmpty(result.GeneratedCode)))
-        {
-            return;
-        }
-
-        if (state.Context.Options.TargetLanguage == TargetLanguage.TypeScript)
-        {
-            // TS 变体（Task 38，spec §3.3）：ESM 跨包导入由发射器按类型归属生成，
-            // 无 Java 通配导入模型；workspace 包名 → package.json dependencies 由
-            // ProjectNpmDependencyPass 收集（Task 40 CLI 接线）。当前发射器为
-            // 单文件自包含（不生成相对/跨包导入），跨文件/跨包 import 接线登记为
-            // M5 限制（Task 38 注记）。
-            return;
-        }
-
-        CrossPackageImportResolver.AddCrossPackageImports(state.Results, state.Context.Options.SharedCompatibilityPackage);
-    }
-}

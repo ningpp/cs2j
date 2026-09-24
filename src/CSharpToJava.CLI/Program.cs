@@ -1433,8 +1433,6 @@ public class Program
         var mainProjects = projects.Where(p => !p.IsTestProject).ToList();
         var testProjects = projects.Where(p => p.IsTestProject).ToList();
 
-        options.SharedCompatibilityPackage = CrossPackageImportResolver.JavaPackage;
-
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
         {
             ClearDestinationForFreshConversion(opts.Destination, GetPreservedDestinationDirectories(opts));
@@ -1654,7 +1652,6 @@ public class Program
             return 1;
         }
 
-        options.SharedCompatibilityPackage = CrossPackageImportResolver.JavaPackage;
         var outputSession = OutputIncrementalWriteSession.Create(opts.Destination, opts.Source);
 
         if (opts.Force && Directory.Exists(opts.Destination) && !outputSession.HasPreviousManifest)
