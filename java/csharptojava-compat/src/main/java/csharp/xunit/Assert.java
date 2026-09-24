@@ -983,6 +983,44 @@ public final class Assert {
     //            T Throws<T>(string paramName, Action testCode)
     //            Exception Throws(Type exceptionType, Action testCode)
 
+    /**
+     * Mirrors xUnit Assert.Throws&lt;T&gt;(Action) with the exception type erased: runs the
+     * code and fails the test when it returns without throwing, returning the caught
+     * exception otherwise.
+     * <p>
+     * The Supplier overload below covers the value-returning lambdas the converter
+     * emits. A value-returning function type is more specific than a void one, so the
+     * two overloads coexist without making any of the generated call sites ambiguous:
+     * void-only lambdas (void method calls, blocks without a return) select this
+     * method, everything else selects the Supplier overload.
+     *
+     * @param <T> The type of the expected exception.
+     * @param testCode The code that is expected to throw.
+     * @return The exception thrown by testCode.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T extends RuntimeException> T throws_(Runnable testCode) {
+        try {
+            testCode.run();
+        } catch (RuntimeException t) {
+            return (T) t;
+        }
+        throw new AssertionError("Assert.throws() failure: No exception thrown");
+    }
+
+    /**
+     * Mirrors xUnit Assert.Throws&lt;T&gt;(Func&lt;object&gt;) with the exception type
+     * erased — the value-returning form of {@link #throws_(Runnable)}.
+     *
+     * @param <T> The type of the expected exception.
+     * @param testCode The code that is expected to throw.
+     * @return The exception thrown by testCode.
+     */
+    public static <T extends RuntimeException> T throws_(java.util.function.Supplier<?> testCode) {
+        Runnable action = testCode::get;
+        return throws_(action);
+    }
+
     @SuppressWarnings("unchecked")
     public static <T extends Throwable> T throws_(Class<T> exceptionType, Runnable testCode) {
         try {
@@ -1242,6 +1280,16 @@ public final class Assert {
         if (a != null && b != null && b.getClass().isArray() && a instanceof Iterable<?>) {
             return arrayAndIterableEqual(b, (Iterable<?>) a);
         }
+        // C# Assert.Equal<T>(IEnumerable<T>, IEnumerable<T>) compares element-wise, in order.
+        // A converted collection routinely overrides neither equals nor hashCode (C# collections
+        // do not either — xUnit's AssertEqualityComparer walks the sequence), so without this
+        // branch two sequences with equal contents fall through to the rendered-representation
+        // heuristic below and fail. This mirrors xunit's own comparer: same length, same elements,
+        // same order, using the default comparer for each element (recursively, so nested
+        // sequences and arrays compare structurally too).
+        if (a != null && b != null && a instanceof Iterable<?> && b instanceof Iterable<?>) {
+            return iterablesEqual((Iterable<?>) a, (Iterable<?>) b);
+        }
         // C# structs (JsonWriterOptions, JsonReaderOptions, JsonSerializerOptions,
         // ...) have VALUE equality, but the converted Java classes often rely on
         // Object.equals identity. When neither side overrides equals, fall back to
@@ -1277,6 +1325,18 @@ public final class Assert {
             i++;
         }
         return i == length;
+    }
+
+    private static boolean iterablesEqual(Iterable<?> a, Iterable<?> b) {
+        Iterator<?> ia = a.iterator();
+        Iterator<?> ib = b.iterator();
+        while (ia.hasNext() && ib.hasNext()) {
+            if (!objectsEqual(ia.next(), ib.next())) {
+                return false;
+            }
+        }
+        // xunit requires the same length: a prefix of a longer sequence is not equal.
+        return !ia.hasNext() && !ib.hasNext();
     }
 
     private static boolean deepArraysEqual(Object a, Object b) {

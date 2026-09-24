@@ -91,6 +91,32 @@ public final class FieldInfo implements MemberInfo {
         }
     }
 
+    /**
+     * C# {@code MemberInfo.CustomAttributes} — the no-ARGUMENT overload answers
+     * {@link CustomAttributeData} metadata, and the ported debugger helper reads
+     * {@code [DebuggerBrowsable]} through exactly this overload:
+     * {@code DebuggerAttributes.getDebuggerBrowsableState(MemberInfo)} calls
+     * {@code info.getCustomAttributes()} and then reads the attribute's constructor arguments.
+     *
+     * <p>Only the attribute-OBJECT overloads were implemented, so this one fell through to the
+     * {@link ICustomAttributeProvider} default and answered an EMPTY sequence: the RootHidden field
+     * could never be found and the caller got a null {@code FieldInfo} even though the field really
+     * carries {@code @DebuggerBrowsable(3)} (measured: {@code ImmutableArrayTest.debuggerAttributesValid}
+     * died with {@code "itemField" is null}). Mirrors {@link PropertyInfo#getCustomAttributes()}.</p>
+     */
+    @Override
+    public CSharpGenericIterable<CustomAttributeData> getCustomAttributes() {
+        DebuggerBrowsable browsable = field.getAnnotation(DebuggerBrowsable.class);
+        if (browsable == null) {
+            return CSharpGenericIterable.from(new java.util.ArrayList<>());
+        }
+        CSharpList<CustomAttributeTypedArgument> args = new CSharpList<>();
+        args.add(new CustomAttributeTypedArgument(Integer.class, browsable.value()));
+        CSharpList<CustomAttributeData> result = new CSharpList<>();
+        result.add(new CustomAttributeData(DebuggerBrowsableAttribute.class, args));
+        return CSharpGenericIterable.from(result);
+    }
+
     @Override
     public Object[] getCustomAttributes(boolean inherit) {
         Object[] annotations = field.getAnnotations();
@@ -98,12 +124,22 @@ public final class FieldInfo implements MemberInfo {
         // a class, so it is materialized from the compat marker instead of being an annotation.
         Object numberHandlingAttribute = TypeHelper.materializeMemberNumberHandlingAttribute(
             field.getAnnotation(CompatJsonNumberHandling.class));
-        if (numberHandlingAttribute == null) {
+        // [DebuggerBrowsable] is materialized the same way (it is a compat CLASS too), so a
+        // field-level RootHidden state is visible to an unfiltered CustomAttributes query.
+        DebuggerBrowsable browsable = field.getAnnotation(DebuggerBrowsable.class);
+        Object browsableAttribute = browsable == null ? null : new DebuggerBrowsableAttribute(browsable.value());
+        if (numberHandlingAttribute == null && browsableAttribute == null) {
             return annotations;
         }
-        Object[] combined = java.util.Arrays.copyOf(annotations, annotations.length + 1);
-        combined[annotations.length] = numberHandlingAttribute;
-        return combined;
+        java.util.List<Object> combined = new java.util.ArrayList<>(annotations.length + 2);
+        combined.addAll(java.util.Arrays.asList(annotations));
+        if (numberHandlingAttribute != null) {
+            combined.add(numberHandlingAttribute);
+        }
+        if (browsableAttribute != null) {
+            combined.add(browsableAttribute);
+        }
+        return combined.toArray();
     }
 
     @Override
@@ -115,6 +151,19 @@ public final class FieldInfo implements MemberInfo {
             Object materialized = TypeHelper.materializeMemberNumberHandlingAttribute(
                 field.getAnnotation(CompatJsonNumberHandling.class));
             return materialized == null ? new Object[0] : new Object[] { materialized };
+        }
+        if (attributeType == DebuggerBrowsableAttribute.class) {
+            // Like JsonNumberHandlingAttribute above, this attribute is a compat CLASS rather than a
+            // Java annotation, so the generic reflection path below would answer an EMPTY array for
+            // it (it returns empty for every non-annotation type). The field really carries
+            // @DebuggerBrowsable, so materialise it. Measured: without this branch
+            // `DebuggerAttributes.getDebuggerBrowsableState(fieldInfo)` always answered null, so the
+            // RootHidden field could not be found and ImmutableArrayTest.debuggerAttributesValid
+            // died with `"itemField" is null` (ImmutableHashSetTest diverged the same way).
+            DebuggerBrowsable browsable = field.getAnnotation(DebuggerBrowsable.class);
+            return browsable == null
+                ? new Object[0]
+                : new Object[] { new DebuggerBrowsableAttribute(browsable.value()) };
         }
         if (!attributeType.isAnnotation()) {
             // Converted C# attributes (e.g. JsonConverterAttribute) are plain Java

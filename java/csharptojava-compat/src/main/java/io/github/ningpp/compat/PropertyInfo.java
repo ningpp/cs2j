@@ -103,6 +103,76 @@ public final class PropertyInfo implements MemberInfo {
         return matching.toArray();
     }
 
+    /**
+     * C# {@code MemberInfo.CustomAttributes} — the no-ARGUMENT overload answers
+     * {@link CustomAttributeData} metadata, and the generated debugger helper
+     * ({@code DebuggerAttributes.getDebuggerBrowsableState}, which every ported
+     * {@code debuggerAttributesValid} test calls) reads {@code [DebuggerBrowsable]} through
+     * exactly this overload.
+     *
+     * <p>Only the attribute-OBJECT overloads used to be implemented, so this one fell
+     * through to the {@link ICustomAttributeProvider} default and answered an EMPTY
+     * sequence: the proxy-property lookup then reported "The sequence did not contain any
+     * elements" for members that really were decorated. Measured across
+     * `dotnet-system-collections-immutable-tests`: 13 failures in 12 classes, all from this
+     * one missing override. Materialised here the same way
+     * {@link TypeInfo#getCustomAttributes()} materialises the type-level attributes.</p>
+     */
+    @Override
+    public CSharpGenericIterable<CustomAttributeData> getCustomAttributes() {
+        DebuggerBrowsable browsable = findDebuggerBrowsable();
+        if (browsable == null) {
+            return CSharpGenericIterable.from(new ArrayList<>());
+        }
+        CSharpList<CustomAttributeTypedArgument> args = new CSharpList<>();
+        args.add(new CustomAttributeTypedArgument(Integer.class, browsable.value()));
+        CSharpList<CustomAttributeData> result = new CSharpList<>();
+        result.add(new CustomAttributeData(DebuggerBrowsableAttribute.class, args));
+        return CSharpGenericIterable.from(result);
+    }
+
+    /**
+     * C#'s {@code DebuggerBrowsableAttribute} may sit on the property or on the backing
+     * field; Java has no property declaration, so the converter emits it on the accessor
+     * while hand-written ports put it on the field. Both placements are consulted, the
+     * accessors first.
+     */
+    private DebuggerBrowsable findDebuggerBrowsable() {
+        if (getter != null) {
+            DebuggerBrowsable onGetter = getter.getAnnotation(DebuggerBrowsable.class);
+            if (onGetter != null) {
+                return onGetter;
+            }
+        }
+        if (setter != null) {
+            DebuggerBrowsable onSetter = setter.getAnnotation(DebuggerBrowsable.class);
+            if (onSetter != null) {
+                return onSetter;
+            }
+        }
+        Method accessor = getter != null ? getter : setter;
+        if (accessor == null) {
+            return null;
+        }
+        // getName() strips the accessor prefix but keeps a $Class suffix and the capitalised
+        // first letter ("getFoo" -> "Foo"), so try both the field-style and the bean-style name.
+        String base = name.endsWith("$Class") ? name.substring(0, name.length() - "$Class".length()) : name;
+        String fieldStyle = base.isEmpty() ? base : Character.toLowerCase(base.charAt(0)) + base.substring(1);
+        for (String candidate : new String[] {fieldStyle, base}) {
+            try {
+                java.lang.reflect.Field field = accessor.getDeclaringClass().getDeclaredField(candidate);
+                DebuggerBrowsable onField = field.getAnnotation(DebuggerBrowsable.class);
+                if (onField != null) {
+                    return onField;
+                }
+            } catch (NoSuchFieldException | RuntimeException ignored) {
+                // fall through to the next spelling; a missing backing field is normal for
+                // computed properties
+            }
+        }
+        return null;
+    }
+
     @Override
     public Object[] getCustomAttributes(boolean inherit) {
         if (getter == null) {

@@ -16,6 +16,19 @@ public final class Activator {
         if (type == null) {
             throw new NullPointerException("type");
         }
+        // C# Activator.CreateInstance(typeof(T)) answers default(T) for a VALUE type — 0 for int,
+        // false for bool, '\0' for char, the zeroed instance for a struct. The converter maps C#
+        // int/long/short/byte/bool/char/float/double onto the Java wrappers, and neither those nor
+        // the primitive Class constants have a parameterless constructor, so without this branch
+        // `new T()` over a value-type token threw
+        // "No parameterless constructor defined for java.lang.Integer" instead of answering 0
+        // (measured: ImmutableStackTest.emptyTest / pushAndCountTest, T = int).
+        Class<?> wrapper = type.isPrimitive() ? TypeHelper.toWrapperType(type) : type;
+        if (isConverterValueType(wrapper)) {
+            @SuppressWarnings("unchecked")
+            T zero = (T) zeroOf(wrapper);
+            return zero;
+        }
         try {
             Constructor<T> ctor = type.getDeclaredConstructor();
             ctor.setAccessible(true);
@@ -25,6 +38,28 @@ public final class Activator {
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * The value types the converter represents as Java wrapper classes. {@code Character} is
+     * included, and its zero is {@code '\0'}, which is why {@link #zeroOf} cannot use null as the
+     * "not a value type" answer for the caller.
+     */
+    private static boolean isConverterValueType(Class<?> type) {
+        return type == Integer.class || type == Long.class || type == Short.class || type == Byte.class
+            || type == Boolean.class || type == Character.class || type == Float.class || type == Double.class;
+    }
+
+    private static Object zeroOf(Class<?> type) {
+        if (type == Integer.class) return 0;
+        if (type == Long.class) return 0L;
+        if (type == Short.class) return (short) 0;
+        if (type == Byte.class) return (byte) 0;
+        if (type == Boolean.class) return false;
+        if (type == Character.class) return '\0';
+        if (type == Float.class) return 0.0f;
+        if (type == Double.class) return 0.0;
+        return null;
     }
 
     public static Object createInstance(Class<?> type, Object... args) {

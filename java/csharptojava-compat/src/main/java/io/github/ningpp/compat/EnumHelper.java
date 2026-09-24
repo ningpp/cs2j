@@ -129,7 +129,13 @@ public class EnumHelper {
         if (unmappedCount == 0) {
             return constants;
         }
-        Object[] filtered = new Object[constants.length - unmappedCount];
+        // Allocate the filtered array with the enum component type, not Object:
+        // C# Enum.GetValues returns an enum-typed array, so writing a value of an
+        // unrelated type through CSharpArray.setValue must still be rejected by
+        // Array.set (surfacing as ClassCastException, the analogue of
+        // InvalidCastException/ArrayTypeMismatchException). A plain Object[] would
+        // silently accept every value.
+        Object[] filtered = (Object[]) java.lang.reflect.Array.newInstance(enumType, constants.length - unmappedCount);
         int index = 0;
         for (Object constant : constants) {
             if (!isSyntheticUnmapped(constant)) {
