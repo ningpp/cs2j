@@ -5,459 +5,282 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Tests;
 
-/// <summary>
-/// Conditional directive stripper coverage driven by the design matrices in
-/// docs/superpowers/specs/2026-09-24-conditional-directive-strip-design.md (§3/§4).
-/// </summary>
 public class ConditionalDirectiveStripTests
 {
     private static ConditionalDirectiveStripResult Strip(
-        string src, string[]? symbols = null, bool removeRegions = false)
-    {
-        var options = new ConditionalDirectiveStripOptions
-        {
-            Symbols = symbols ?? Array.Empty<string>(),
-            RemoveRegions = removeRegions,
-        };
-        return new ConditionalDirectiveStripper().Strip(src, options);
-    }
-
-    private static string Out(string src, string[]? symbols = null, bool removeRegions = false)
-        => Strip(src, symbols, removeRegions).OutputCode;
-
-    /// <summary>Output must parse error-free and contain no conditional directives / disabled text.</summary>
-    private static void AssertClean(ConditionalDirectiveStripResult result, string[]? symbols = null)
-    {
-        Assert.Empty(result.Diagnostics.Where(d => d.Severity == ConditionalDirectiveSeverity.Error));
-        var tree = CSharpSyntaxTree.ParseText(
-            result.OutputCode,
-            CSharpParseOptions.Default.WithPreprocessorSymbols(symbols ?? Array.Empty<string>()));
-        Assert.Empty(tree.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
-        foreach (var token in tree.GetCompilationUnitRoot().DescendantTokens())
-        {
-            foreach (var trivia in token.LeadingTrivia.Concat(token.TrailingTrivia))
+        string source,
+        string[]? symbols = null,
+        bool removeRegions = false) =>
+        new ConditionalDirectiveStripper().Strip(
+            source,
+            new ConditionalDirectiveStripOptions
             {
-                Assert.False(trivia.IsKind(SyntaxKind.DisabledTextTrivia), $"disabled text left: {trivia}");
-                if (trivia.GetStructure() is DirectiveTriviaSyntax directive)
-                {
-                    Assert.False(
-                        ConditionalDirectiveStripper.IsRemovedDirective(directive.Kind()),
-                        $"conditional directive left: {directive}");
-                }
+                Symbols = symbols ?? Array.Empty<string>(),
+                RemoveRegions = removeRegions,
+            });
+
+    private static string Output(string source, string[]? symbols = null, bool removeRegions = false) =>
+        Strip(source, symbols, removeRegions).OutputCode;
+
+    private static void AssertSuccessful(
+        string source,
+        ConditionalDirectiveStripResult result,
+        string[]? symbols = null,
+        bool removeRegions = false)
+    {
+        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Severity == ConditionalDirectiveSeverity.Error);
+        var parseOptions = CSharpParseOptions.Default
+            .WithLanguageVersion(LanguageVersion.Latest)
+            .WithPreprocessorSymbols(symbols ?? Array.Empty<string>());
+        var inputRoot = CSharpSyntaxTree.ParseText(source, parseOptions).GetCompilationUnitRoot();
+        var outputRoot = CSharpSyntaxTree.ParseText(result.OutputCode, parseOptions).GetCompilationUnitRoot();
+        Assert.DoesNotContain(outputRoot.SyntaxTree.GetDiagnostics(), diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        foreach (var trivia in outputRoot.DescendantTrivia(descendIntoTrivia: true))
+        {
+            Assert.False(trivia.IsKind(SyntaxKind.DisabledTextTrivia), $"disabled text left: {trivia}");
+            if (trivia.GetStructure() is DirectiveTriviaSyntax directive)
+            {
+                Assert.False(
+                    ConditionalDirectiveStripper.IsRemovedDirective(directive.Kind(), removeRegions),
+                    $"target directive left: {directive}");
             }
         }
+
+        var expectedTokens = inputRoot.DescendantTokens().Select(token => (token.RawKind, token.Text));
+        var actualTokens = outputRoot.DescendantTokens().Select(token => (token.RawKind, token.Text));
+        Assert.Equal(expectedTokens, actualTokens);
     }
 
-    // -----------------------------------------------------------------------
-    // Basics
-    // -----------------------------------------------------------------------
-
     [Fact]
-    public void NoDirectives_Unchanged()
+    public void NoDirectives_IsByteForByteUnchanged()
     {
-        var src = "class C { void M() {} }";
-        var result = Strip(src);
+        const string source = "class C { void M() {} }";
+        var result = Strip(source);
         Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Equal(0, result.Statistics.DirectivesRemoved);
+        Assert.Equal(0, result.Statistics.DisabledBranchesRemoved);
     }
 
     [Fact]
-    public void IfTrue_KeepsBranch_AndRemovesDirectives()
+    public void IfElseAndElif_SelectExpectedBranches()
     {
-        var result = Strip("#if A\nX();\n#endif\n", new[] { "A" });
+        Assert.Equal("X();\n", Output("#if A\nX();\n#endif\n", ["A"]));
+        Assert.Equal(string.Empty, Output("#if A\nX();\n#endif\n"));
+        Assert.Equal("Y();\n", Output("#if A\nX();\n#else\nY();\n#endif\n"));
+        Assert.Equal("B();\n", Output("#if A\nA();\n#elif B\nB();\n#elif C\nC();\n#else\nD();\n#endif\n", ["B"]));
+        Assert.Equal("D();\n", Output("#if A\nA();\n#elif B\nB();\n#else\nD();\n#endif\n"));
+    }
+
+    [Theory]
+    [InlineData(true, true, "OUTER_TRUE();\nINNER_TRUE();\n")]
+    [InlineData(true, false, "OUTER_TRUE();\nINNER_FALSE();\n")]
+    [InlineData(false, true, "OUTER_FALSE();\nDISABLED_INNER_TRUE();\n")]
+    [InlineData(false, false, "OUTER_FALSE();\nDISABLED_INNER_FALSE();\n")]
+    public void Nested_AllTruthCombinations(bool outer, bool inner, string expected)
+    {
+        const string source = "#if OUTER\nOUTER_TRUE();\n#if INNER\nINNER_TRUE();\n#else\nINNER_FALSE();\n#endif\n#else\nOUTER_FALSE();\n#if INNER\nDISABLED_INNER_TRUE();\n#else\nDISABLED_INNER_FALSE();\n#endif\n#endif\n";
+        var symbols = new List<string>();
+        if (outer) symbols.Add("OUTER");
+        if (inner) symbols.Add("INNER");
+        var result = Strip(source, symbols.ToArray());
+        Assert.Equal(expected, result.OutputCode);
+        AssertSuccessful(source, result, symbols.ToArray());
+    }
+
+    [Fact]
+    public void ConditionalExpressionOperators_AreEvaluatedByRoslyn()
+    {
+        Assert.Equal("X();\n", Output("#if !A\nX();\n#endif\n"));
+        Assert.Equal("X();\n", Output("#if (A || B) && !C\nX();\n#endif\n", ["B"]));
+        Assert.Equal("X();\n", Output("#if A == true\nX();\n#endif\n", ["A"]));
+        Assert.Equal("X();\n", Output("#if A != true\nX();\n#endif\n"));
+        Assert.Equal("X();\n", Output("#if true\nX();\n#endif\n"));
+        Assert.Equal(string.Empty, Output("#if false\nX();\n#endif\n"));
+        Assert.Equal("X();\n", Output("#  if  A\nX();\n#  endif\n", ["A"]));
+    }
+
+    [Fact]
+    public void SymbolEquality_IsLegalRoslynSyntax()
+    {
+        const string source = "#if A == B\nX();\n#endif\n";
+        Assert.Equal("X();\n", Output(source));
+        Assert.Equal(string.Empty, Output(source, ["A"]));
+    }
+
+    [Fact]
+    public void Symbols_AreCaseSensitive()
+    {
+        Assert.Equal(string.Empty, Output("#if foo\nX();\n#endif\n", ["FOO"]));
+    }
+
+    [Fact]
+    public void DefineAndUndef_AffectOnlyFollowingConditions()
+    {
+        Assert.Equal("X();\n", Output("#define A\n#if A\nX();\n#endif\n"));
+        Assert.Equal(string.Empty, Output("#if A\nX();\n#endif\n#define A\n"));
+        Assert.Equal("Y();\n", Output("#undef A\n#if A\nX();\n#else\nY();\n#endif\n", ["A"]));
+        Assert.Equal("X();\n", Output("#define A\n#if A\nX();\n#endif\n", ["A"]));
+    }
+
+    public static TheoryData<string, string, string> PositionCases => new()
+    {
+        { "#if A\nusing Kept.Namespace;\n#else\nusing Removed.Namespace;\n#endif\nclass C {}", "Kept", "Removed" },
+        { "#if A\n[Kept]\n#else\n[Removed]\n#endif\nclass C {}", "Kept", "Removed" },
+        { "class C {\n#if A\nvoid Kept() {}\n#else\nvoid Removed() {}\n#endif\n}", "Kept", "Removed" },
+        { "class C { public\n#if A\nstatic\n#else\nvirtual\n#endif\nvoid M() {} }", "static", "virtual" },
+        { "var value = new List<\n#if A\nint\n#else\nstring\n#endif\n>();", "int", "string" },
+        { "class C { void M() {\n#if A\nKept();\n#else\nRemoved();\n#endif\n} }", "Kept", "Removed" },
+        { "F(\n#if A\nKept\n#else\nRemoved\n#endif\n);", "Kept", "Removed" },
+        { "var value = new C {\n#if A\nP = Kept\n#else\nP = Removed\n#endif\n};", "Kept", "Removed" },
+        { "var value = new[] {\n#if A\nKept\n#else\nRemoved\n#endif\n};", "Kept", "Removed" },
+        { "var value = x switch {\n#if A\n1 => Kept,\n#else\n_ => Removed,\n#endif\n};", "Kept", "Removed" },
+        { "var value = (\n#if A\nint Kept\n#else\nstring Removed\n#endif\n) => 0;", "Kept", "Removed" },
+    };
+
+    [Theory]
+    [MemberData(nameof(PositionCases))]
+    public void Directives_AreHandledAtEverySyntaxPosition(string source, string kept, string removed)
+    {
+        var result = Strip(source, ["A"]);
+        var tokens = CSharpSyntaxTree.ParseText(result.OutputCode).GetCompilationUnitRoot()
+            .DescendantTokens().Select(token => token.Text).ToArray();
+        Assert.Contains(kept, tokens);
+        Assert.DoesNotContain(removed, tokens);
+        AssertSuccessful(source, result, ["A"]);
+    }
+
+    [Fact]
+    public void EofDirectiveWithoutTrailingNewline_PreservesPrecedingNewline()
+    {
+        const string source = "class C { }\n#if A\n#endif";
+        var result = Strip(source);
+        Assert.Equal("class C { }\n", result.OutputCode);
+        AssertSuccessful(source, result);
+    }
+
+    [Fact]
+    public void EmptyAndDirectiveOnlyInputs_HaveNoResidualDirectiveLines()
+    {
+        Assert.Equal(string.Empty, Output("#define A\n"));
+        Assert.Equal(string.Empty, Output("#if A\nclass C { }\n#endif\n"));
+        Assert.Equal("A();\nB();\n", Output("A();\n    #if A\n    #endif\nB();\n"));
+    }
+
+    [Fact]
+    public void DirectiveLookalikesInStringsAndComments_AreUnchanged()
+    {
+        const string source = "var a = \"#if A\";\nvar b = @\"x\n#endif\";\n// #if B\n/* #endif */\n/// <summary>#if C</summary>\nclass C {}";
+        var result = Strip(source, ["A"]);
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+    }
+
+    [Fact]
+    public void DisabledGarbageAndNestedDirectives_AreRemoved()
+    {
+        const string source = "OK();\n#if A\n@@@ nonsense ]]]\n#if B\nX();\n#elif C\nY();\n#endif\n#endif\n";
+        var result = Strip(source);
+        Assert.Equal("OK();\n", result.OutputCode);
+        AssertSuccessful(source, result);
+    }
+
+    [Theory]
+    [InlineData("#warning hidden")]
+    [InlineData("#error hidden")]
+    [InlineData("#pragma warning disable CS0168")]
+    [InlineData("#pragma checksum \"x.cs\" \"{406EA660-64CF-4C82-B6F0-42D48172A799}\" \"001122\"")]
+    [InlineData("#line hidden")]
+    [InlineData("#nullable enable")]
+    [InlineData("#region R\n#endregion")]
+    public void InactiveNonConditionalDirectives_AreRemovedWithTheirBranch(string directive)
+    {
+        var source = $"#if A\n{directive}\n#endif\n";
+        var result = Strip(source);
         Assert.True(result.Changed);
-        Assert.Equal("X();\n", result.OutputCode);
-        AssertClean(result, new[] { "A" });
+        Assert.Equal(string.Empty, result.OutputCode);
+        AssertSuccessful(source, result);
     }
 
     [Fact]
-    public void IfFalse_RemovesBranch()
+    public void ActiveNonConditionalDirectives_ArePreservedExactly()
     {
-        var result = Strip("#if A\nX();\n#endif\n");
-        Assert.Equal("", result.OutputCode);
-        AssertClean(result);
-    }
-
-    [Fact]
-    public void Else_KeptWhenConditionFalse()
-    {
-        Assert.Equal("Y();\n", Out("#if A\nX();\n#else\nY();\n#endif\n"));
-    }
-
-    [Fact]
-    public void Else_DroppedWhenConditionTrue()
-    {
-        Assert.Equal("X();\n", Out("#if A\nX();\n#else\nY();\n#endif\n", new[] { "A" }));
-    }
-
-    [Fact]
-    public void ElifChain_SelectsFirstTrue()
-    {
-        var output = Out("#if A\nA();\n#elif B\nB();\n#elif C\nC();\n#else\nD();\n#endif\n", new[] { "B" });
-        Assert.Equal("B();\n", output);
-    }
-
-    [Fact]
-    public void ElifChain_AllFalse_SelectsElse()
-    {
-        Assert.Equal("D();\n", Out("#if A\nA();\n#elif B\nB();\n#else\nD();\n#endif\n"));
-    }
-
-    [Fact]
-    public void Nested_OuterTrueInnerTrue()
-    {
-        var src = "#if A\nOUTER();\n#if B\nINNER();\n#endif\n#endif\n";
-        Assert.Equal("OUTER();\nINNER();\n", Out(src, new[] { "A", "B" }));
-    }
-
-    [Fact]
-    public void Nested_OuterTrueInnerFalse()
-    {
-        var src = "#if A\nKEEP();\n#if B\nDROP();\n#endif\n#endif\n";
-        Assert.Equal("KEEP();\n", Out(src, new[] { "A" }));
-    }
-
-    [Fact]
-    public void Nested_OuterFalse_InnerGarbageSwallowed()
-    {
-        var result = Strip("#if A\n$$$ garbage ((\n#if B\n#endif\n#endif\n");
-        Assert.Equal("", result.OutputCode);
-        AssertClean(result);
-    }
-
-    // -----------------------------------------------------------------------
-    // Conditional expressions
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public void NotOperator()
-    {
-        Assert.Equal("X();\n", Out("#if !A\nX();\n#endif\n"));
-    }
-
-    [Fact]
-    public void AndOrParens()
-    {
-        var src = "#if (A || B) && !C\nX();\n#endif\n";
-        Assert.Equal("X();\n", Out(src, new[] { "B" }));
-        Assert.Equal("X();\n", Out(src, new[] { "A" }));
-        Assert.Equal("", Out(src, new[] { "B", "C" }));
-        Assert.Equal("", Out(src, new[] { "A", "C" }));
-        Assert.Equal("", Out(src));
-    }
-
-    [Fact]
-    public void EqualsTrue()
-    {
-        Assert.Equal("X();\n", Out("#if A == true\nX();\n#endif\n", new[] { "A" }));
-    }
-
-    [Fact]
-    public void NotEqualsTrue()
-    {
-        Assert.Equal("X();\n", Out("#if A != true\nX();\n#endif\n"));
-    }
-
-    [Fact]
-    public void TrueLiteral()
-    {
-        Assert.Equal("X();\n", Out("#if true\nX();\n#endif\n"));
-    }
-
-    [Fact]
-    public void FalseLiteral()
-    {
-        Assert.Equal("", Out("#if false\nX();\n#endif\n"));
-    }
-
-    [Fact]
-    public void WhitespaceTolerantForms()
-    {
-        Assert.Equal("X();\n", Out("#  if  A\nX();\n#  endif\n", new[] { "A" }));
-    }
-
-    [Fact]
-    public void Symbols_CaseSensitive()
-    {
-        Assert.Equal("", Out("#if foo\nX();\n#endif\n", new[] { "FOO" }));
-    }
-
-    // -----------------------------------------------------------------------
-    // #define / #undef semantics
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public void InFileDefine_ActivatesLaterBranch()
-    {
-        Assert.Equal("X();\n", Out("#define A\n#if A\nX();\n#endif\n"));
-    }
-
-    [Fact]
-    public void InFileUndef_RemovesExternalSymbol()
-    {
-        var src = "#undef A\n#if A\nX();\n#else\nY();\n#endif\n";
-        Assert.Equal("Y();\n", Out(src, new[] { "A" }));
-    }
-
-    [Fact]
-    public void UndefAfterToken_Blocked()
-    {
-        // #undef 必须先于文件中首个 token（spec），否则 CS1032 → 阻断
-        AssertBlocked("#define B\nX();\n#undef B\n");
-    }
-
-    [Fact]
-    public void RedefineExternalSymbol_Idempotent()
-    {
-        Assert.Equal("X();\n", Out("#define A\n#if A\nX();\n#endif\n", new[] { "A" }));
-    }
-
-    // -----------------------------------------------------------------------
-    // Syntactic positions
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public void DirectivesInsideMethodBody()
-    {
-        var src = "class C { void M() {\n#if A\nint x = 1;\n#endif\n} }";
-        Assert.Contains("int x = 1;", Out(src, new[] { "A" }));
-    }
-
-    [Fact]
-    public void DirectivesSplitArgumentList()
-    {
-        var src = "F(\n#if A\n1\n#else\n2\n#endif\n);";
-        Assert.Equal("F(1);", Out(src, new[] { "A" }).Replace("\n", ""));
-        Assert.Equal("F(2);", Out(src).Replace("\n", ""));
-    }
-
-    [Fact]
-    public void DirectivesBetweenModifiers()
-    {
-        var src = "class C {\npublic\n#if A\nstatic\n#endif\nvoid M() { }\n}";
-        Assert.Contains("public static void M", Out(src, new[] { "A" }).Replace("\n", " "));
-        Assert.Contains("public void M", Out(src).Replace("\n", " "));
-    }
-
-    [Fact]
-    public void DirectivesInsideTypeArgumentList()
-    {
-        var src = "var l = new List<\n#if A\nint\n#else\nstring\n#endif\n>();";
-        Assert.Contains("List<int>", Out(src, new[] { "A" }).Replace("\n", ""));
-    }
-
-    [Fact]
-    public void DirectiveAtEof_WithoutTrailingNewline()
-    {
-        Assert.Equal("class C { }\n", Out("class C { }\n#if A\n#endif"));
-    }
-
-    [Fact]
-    public void DirectiveOnlyFile_BecomesEmpty()
-    {
-        Assert.Equal("", Out("#define A\n"));
-    }
-
-    [Fact]
-    public void EntireFileDisabled_BecomesEmpty()
-    {
-        Assert.Equal("", Out("#if A\nclass C { }\n#endif\n"));
-    }
-
-    [Fact]
-    public void EmptyBranch_LeavesNoDirectiveResidue()
-    {
-        Assert.Equal("A();\nB();\n", Out("A();\n    #if A\n    #endif\nB();\n"));
-    }
-
-    [Fact]
-    public void DirectivesAroundUsingsAndAttributes()
-    {
-        var src = """
-            #if A
-            using System;
-            #endif
-            #if B
-            [Obsolete]
-            #endif
-            class C { }
-            """;
-        var output = Out(src, new[] { "A" });
-        Assert.Contains("using System;", output);
-        Assert.DoesNotContain("Obsolete", output);
-    }
-
-    // -----------------------------------------------------------------------
-    // Directive-lookalike text in strings/comments is not directives
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public void StringLiteral_LookalikeDirective_Kept()
-    {
-        var src = "var s = \"#if A\";";
-        var result = Strip(src);
+        const string source = "#pragma warning disable CS1591\n#pragma checksum \"x.cs\" \"{406EA660-64CF-4C82-B6F0-42D48172A799}\" \"001122\"\n#line hidden\n#line default\n#nullable enable\nclass C { }";
+        var result = Strip(source);
         Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(source, result.OutputCode);
     }
 
     [Fact]
-    public void VerbatimString_SpanningLines_LookalikeKept()
+    public void Regions_ArePreservedByDefaultAndOptionallyRemoved()
     {
-        var src = "var s = @\"a\n#if A\nb\";";
-        Assert.Equal(src, Out(src, new[] { "A" }));
+        const string source = "#region R\nclass C { }\n#endregion\n";
+        var kept = Strip(source);
+        Assert.False(kept.Changed);
+        Assert.Equal(source, kept.OutputCode);
+
+        var removed = Strip(source, removeRegions: true);
+        Assert.True(removed.Changed);
+        Assert.Equal("class C { }\n", removed.OutputCode);
+        AssertSuccessful(source, removed, removeRegions: true);
     }
 
     [Fact]
-    public void Comments_AndDocComments_WithLookalike_Kept()
+    public void ActiveWarning_IsPreservedAndProducesExactlyOneWarning()
     {
-        var src = "// #if A\n/* #endif */\n/// <summary>#if B</summary>\nclass C { }";
-        Assert.Equal(src, Out(src));
-    }
-
-    // -----------------------------------------------------------------------
-    // Disabled text
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public void DisabledBranch_GarbageSyntax_Removed()
-    {
-        Assert.Equal("OK();\n", Out("OK();\n#if A\n@@@ nonsense ]]]\n#endif\n"));
-    }
-
-    [Fact]
-    public void DisabledBranch_NestedDirectives_RemovedEntirely()
-    {
-        var result = Strip("#if A\n#if B\nX();\n#elif C\nY();\n#endif\n#endif\n");
-        Assert.Equal("", result.OutputCode);
-        AssertClean(result);
-    }
-
-    [Fact]
-    public void DisabledBranch_RegionInside_RemovedWithRegion()
-    {
-        var result = Strip("#if A\n#region R\nx\n#endregion\n#endif\n");
-        Assert.Equal("", result.OutputCode);
-        AssertClean(result);
-    }
-
-    // -----------------------------------------------------------------------
-    // Non-conditional directives: preserved by default, optional region removal
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public void RegionOnly_DefaultKept_Unchanged()
-    {
-        var src = "#region R\nclass C { }\n#endregion\n";
-        var result = Strip(src);
+        const string source = "#warning fixme\nclass C { }";
+        var result = Strip(source);
         Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(source, result.OutputCode);
+        var warning = Assert.Single(result.Diagnostics);
+        Assert.Equal(ConditionalDirectiveSeverity.Warning, warning.Severity);
+        Assert.Equal(1, warning.Line);
     }
 
-    [Fact]
-    public void RemoveRegions_Option_RemovesRegions()
+    public static TheoryData<string> MalformedCases => new()
     {
-        Assert.Equal("class C { }\n", Out("#region R\nclass C { }\n#endregion\n", removeRegions: true));
-    }
+        "#endif\n",
+        "#if A\nX();\n",
+        "#if A\n#else\n#elif B\n#endif\n",
+        "class C { }\n#define A\n",
+        "class C { #if A }\n",
+        "#if A + B\nX();\n#endif\n",
+        "#error nope\n",
+        "#wibble\nclass C { }\n",
+        "#r \"x.dll\"\n",
+        "#load \"x.csx\"\n",
+        "#!/usr/bin/env dotnet\nclass C { }\n",
+    };
 
-    [Fact]
-    public void PragmaLineNullablePreserved()
+    [Theory]
+    [MemberData(nameof(MalformedCases))]
+    public void MalformedOrScriptOnlyInput_IsBlocked(string source)
     {
-        var src = "#pragma warning disable CS1591\n#line 10 \"x\"\n#nullable enable\nclass C { }";
-        var result = Strip(src);
+        var result = Strip(source);
         Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Severity == ConditionalDirectiveSeverity.Error);
+        Assert.Equal(0, result.Statistics.DirectivesRemoved);
+        Assert.Equal(0, result.Statistics.DisabledBranchesRemoved);
     }
 
-    [Fact]
-    public void WarningDirective_Preserved_WithWarningDiagnostic()
+    [Theory]
+    [InlineData("#if A\nX();\n#endif\n", "X();\n")]
+    [InlineData("#if A\r\nX();\r\n#endif\r\n", "X();\r\n")]
+    [InlineData("#if A\rX();\r#endif\r", "X();\r")]
+    [InlineData("#if A\r\nX();\nY();\r#endif\r\n", "X();\nY();\r")]
+    public void LineEndings_ArePreserved(string source, string expected)
     {
-        var src = "#warning fixme\nclass C { }";
-        var result = Strip(src);
-        Assert.Equal(src, result.OutputCode);
-        Assert.Contains(result.Diagnostics, d => d.Severity == ConditionalDirectiveSeverity.Warning);
-    }
-
-    // -----------------------------------------------------------------------
-    // Malformed input must be blocked (error diagnostics, file unchanged)
-    // -----------------------------------------------------------------------
-
-    private static void AssertBlocked(string src, string[]? symbols = null)
-    {
-        var result = Strip(src, symbols);
-        Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
-        Assert.Contains(result.Diagnostics, d => d.Severity == ConditionalDirectiveSeverity.Error);
+        Assert.Equal(expected, Output(source, ["A"]));
     }
 
     [Fact]
-    public void ExtraEndIf_Blocked() => AssertBlocked("#endif\n");
-
-    [Fact]
-    public void MissingEndIf_Blocked() => AssertBlocked("#if A\nX();\n");
-
-    [Fact]
-    public void ElifAfterElse_Blocked() => AssertBlocked("#if A\nX();\n#else\nY();\n#elif B\nZ();\n#endif\n");
-
-    [Fact]
-    public void DefineAfterToken_Blocked() => AssertBlocked("class C { }\n#define A\n");
-
-    [Fact]
-    public void DirectiveNotFirstOnLine_Blocked() => AssertBlocked("class C { #if A }\n");
-
-    [Fact]
-    public void SymbolEqualityExpression_RoslynLenient()
-    {
-        // spec 只允许与 true/false 比较，但 Roslyn 宽容求值（按符号定义与否相等比较）：
-        // 两者都未定义 → 相等 → 分支保留；仅定义其一 → 不等 → 分支删除。
-        var src = "#if A == B\nX();\n#endif\n";
-        Assert.Equal("X();\n", Out(src));
-        Assert.Equal("", Out(src, new[] { "A" }));
-    }
-
-    [Fact]
-    public void ActiveErrorDirective_Blocked() => AssertBlocked("#error nope\nclass C { }");
-
-    [Fact]
-    public void BadDirective_Blocked() => AssertBlocked("#wibble\nclass C { }");
-
-    // -----------------------------------------------------------------------
-    // Line endings & statistics
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public void CrlfPreserved()
-    {
-        Assert.Equal("X();\r\n", Out("#if A\r\nX();\r\n#endif\r\n", new[] { "A" }));
-    }
-
-    [Fact]
-    public void LfPreserved()
-    {
-        Assert.Equal("X();\n", Out("#if A\nX();\n#endif\n", new[] { "A" }));
-    }
-
-    [Fact]
-    public void MixedLineEndings_PreservedVerbatim()
-    {
-        var src = "#if A\r\nX();\nY();\r\n#endif\r\n";
-        Assert.Equal("X();\nY();\r\n", Out(src, new[] { "A" }));
-    }
-
-    [Fact]
-    public void Statistics_Counted()
+    public void Statistics_CountRemovedDirectiveTriviaAndDisabledTextBlocks()
     {
         var result = Strip("#define A\n#if A\nX();\n#else\nY();\n#endif\n");
+        Assert.True(result.Changed);
         Assert.Equal(4, result.Statistics.DirectivesRemoved);
         Assert.Equal(1, result.Statistics.DisabledBranchesRemoved);
-    }
-
-    [Fact]
-    public void KeptBranch_CommentsAndDocComments_Preserved()
-    {
-        var src = "#if A\n// keep me\n/// <summary>doc</summary>\nX(); // trailing\n#endif\n";
-        var output = Out(src, new[] { "A" });
-        Assert.Contains("// keep me", output);
-        Assert.Contains("<summary>doc</summary>", output);
-        Assert.Contains("X(); // trailing", output);
     }
 }
