@@ -2,337 +2,269 @@ using CSharpToJava.Core.ConditionalDirectiveStrip;
 
 namespace CSharpToJava.Tests;
 
-/// <summary>
-/// Symbol-resolution coverage per design §5:
-/// DefineConstants scraping (Configuration conditions, append vs replace semantics,
-/// Directory.Build.props chains, macro skipping) + TFM symbol synthesis.
-/// </summary>
-public class ProjectSymbolResolverTests : IDisposable
+public sealed class ProjectSymbolResolverTests : IDisposable
 {
-    private readonly string _root = Path.Combine(Path.GetTempPath(), "cs2j-psr-" + Guid.NewGuid().ToString("N"));
-
-    private string WriteProject(string relativePath, string content)
-    {
-        var path = Path.Combine(_root, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, content);
-        return path;
-    }
-
-    private string WriteFile(string relativePath, string content = "class F { }")
-    {
-        var path = Path.Combine(_root, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, content);
-        return path;
-    }
-
-    private static bool Has(ProjectSymbols symbols, string name)
-        => symbols.Symbols.Contains(name, StringComparer.Ordinal);
-
-    // -----------------------------------------------------------------------
-    // DefineConstants scraping
-    // -----------------------------------------------------------------------
+    private readonly string _root = Path.Combine(Path.GetTempPath(), "cs2j-symbols-" + Guid.NewGuid().ToString("N"));
 
     [Fact]
-    public void SimpleDefineConstants_Scraped()
+    public void ConfigurationConditions_AndOr_AreApplied()
     {
-        WriteProject("App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-                <DefineConstants>FEATURE_A;FEATURE_B</DefineConstants>
-              </PropertyGroup>
-            </Project>
-            """);
         var file = WriteFile("App/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file, configuration: "Release");
-        Assert.True(Has(symbols, "FEATURE_A"));
-        Assert.True(Has(symbols, "FEATURE_B"));
-        Assert.True(Has(symbols, "NET"));
-        Assert.True(Has(symbols, "NET8_0"));
-        Assert.False(Has(symbols, "DEBUG"));
-        Assert.False(Has(symbols, "TRACE"));
-    }
-
-    [Fact]
-    public void ConfigurationCondition_DebugOnlyExcludedUnderRelease()
-    {
-        WriteProject("App/App.csproj", """
+        WriteFile("App/App.csproj", """
             <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-                <DefineConstants>DEBUG;TRACE</DefineConstants>
+              <PropertyGroup Condition="'$(Configuration)' == 'Debug' Or '$(Configuration)' == 'Development'">
+                <DefineConstants>DEBUG_ONLY</DefineConstants>
               </PropertyGroup>
-              <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-                <DefineConstants>TRACE</DefineConstants>
+              <PropertyGroup Condition="'$(Configuration)' != 'Debug' And '$(Configuration)' != 'Development'">
+                <DefineConstants>RELEASE_ONLY</DefineConstants>
               </PropertyGroup>
             </Project>
             """);
+
+        var debug = ProjectSymbolResolver.ResolveForFile(file, "Debug");
+        Assert.Contains("DEBUG_ONLY", debug.Symbols);
+        Assert.DoesNotContain("RELEASE_ONLY", debug.Symbols);
+
+        var release = ProjectSymbolResolver.ResolveForFile(file, "Release");
+        Assert.Contains("RELEASE_ONLY", release.Symbols);
+        Assert.DoesNotContain("DEBUG_ONLY", release.Symbols);
+    }
+
+    [Fact]
+    public void DefineConstants_AppendAndReplace_AreOrdered()
+    {
         var file = WriteFile("App/Code.cs");
-        var release = ProjectSymbolResolver.ResolveForFile(file, configuration: "Release");
-        Assert.False(Has(release, "DEBUG"));
-        Assert.True(Has(release, "TRACE"));
+        WriteFile("Directory.Build.props", """
+            <Project><PropertyGroup><DefineConstants>ROOT</DefineConstants></PropertyGroup></Project>
+            """);
+        WriteFile("App/Directory.Build.props", """
+            <Project><PropertyGroup><DefineConstants>$(DefineConstants);CHILD</DefineConstants></PropertyGroup></Project>
+            """);
+        WriteFile("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><DefineConstants>REPLACED</DefineConstants></PropertyGroup>
+              <PropertyGroup><DefineConstants>$(DefineConstants);APPENDED</DefineConstants></PropertyGroup>
+            </Project>
+            """);
 
-        var debug = ProjectSymbolResolver.ResolveForFile(file, configuration: "Debug");
-        Assert.True(Has(debug, "DEBUG"));
-        Assert.True(Has(debug, "TRACE"));
+        var result = ProjectSymbolResolver.ResolveForFile(file);
+        Assert.DoesNotContain("ROOT", result.Symbols);
+        Assert.DoesNotContain("CHILD", result.Symbols);
+        Assert.Contains("REPLACED", result.Symbols);
+        Assert.Contains("APPENDED", result.Symbols);
     }
 
     [Fact]
-    public void AppendMacro_Semantics()
+    public void DirectoryBuildProps_AreAppliedParentToChild()
     {
-        WriteProject("App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <DefineConstants>$(DefineConstants);EXTRA</DefineConstants>
-              </PropertyGroup>
-              <PropertyGroup>
-                <DefineConstants>REPLACED</DefineConstants>
-              </PropertyGroup>
-              <PropertyGroup>
-                <DefineConstants>$(DefineConstants);APPENDED</DefineConstants>
-              </PropertyGroup>
-            </Project>
-            """);
-        var file = WriteFile("App/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file);
-        Assert.True(Has(symbols, "REPLACED"));
-        Assert.True(Has(symbols, "APPENDED"));
-        Assert.False(Has(symbols, "EXTRA")); // append 先于 replace → 被替换清除
-    }
-
-    [Fact]
-    public void DirectoryBuildProps_ChainAppliedRootToLeaf()
-    {
-        WriteProject("Directory.Build.props", """
-            <Project>
-              <PropertyGroup>
-                <DefineConstants>ROOT_SYM</DefineConstants>
-              </PropertyGroup>
-            </Project>
-            """);
-        WriteProject("Sub/Directory.Build.props", """
-            <Project>
-              <PropertyGroup>
-                <DefineConstants>$(DefineConstants);SUB_SYM</DefineConstants>
-              </PropertyGroup>
-            </Project>
-            """);
-        WriteProject("Sub/App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <DefineConstants>$(DefineConstants);PROJ_SYM</DefineConstants>
-              </PropertyGroup>
-            </Project>
-            """);
         var file = WriteFile("Sub/App/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file);
-        Assert.True(Has(symbols, "ROOT_SYM"));
-        Assert.True(Has(symbols, "SUB_SYM"));
-        Assert.True(Has(symbols, "PROJ_SYM"));
+        WriteFile("Directory.Build.props", """
+            <Project><PropertyGroup><DefineConstants>ROOT</DefineConstants></PropertyGroup></Project>
+            """);
+        WriteFile("Sub/Directory.Build.props", """
+            <Project><PropertyGroup><DefineConstants>$(DefineConstants);SUB</DefineConstants></PropertyGroup></Project>
+            """);
+        WriteFile("Sub/App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><DefineConstants>$(DefineConstants);PROJECT</DefineConstants></PropertyGroup></Project>
+            """);
+
+        var result = ProjectSymbolResolver.ResolveForFile(file);
+        Assert.Equal(["ROOT", "SUB", "PROJECT"], result.Symbols);
     }
 
     [Fact]
-    public void UnknownMacros_SkippedWithWarning()
+    public void UnknownMacros_AreSkippedWithWarning()
     {
-        WriteProject("App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
+        var file = WriteFile("App/Code.cs");
+        WriteFile("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><DefineConstants>$(Other);REAL</DefineConstants></PropertyGroup></Project>
+            """);
+        var result = ProjectSymbolResolver.ResolveForFile(file);
+        Assert.Equal(["REAL"], result.Symbols);
+        Assert.Single(result.Warnings);
+        Assert.Contains("$(Other)", result.Warnings[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NearestProject_Wins()
+    {
+        WriteFile("Outer/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><DefineConstants>OUTER</DefineConstants></PropertyGroup></Project>
+            """);
+        WriteFile("Outer/Inner/Inner.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><DefineConstants>INNER</DefineConstants></PropertyGroup></Project>
+            """);
+        var file = WriteFile("Outer/Inner/Code.cs");
+        var result = ProjectSymbolResolver.ResolveForFile(file);
+        Assert.Contains("INNER", result.Symbols);
+        Assert.DoesNotContain("OUTER", result.Symbols);
+    }
+
+    [Fact]
+    public void OldStyleMsBuildXmlNamespace_IsSupported()
+    {
+        var file = WriteFile("Legacy/Code.cs");
+        WriteFile("Legacy/Legacy.csproj", """
+            <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
               <PropertyGroup>
-                <DefineConstants>$(SomethingElse);REAL</DefineConstants>
+                <TargetFramework>net48</TargetFramework>
+                <DefineConstants>LEGACY</DefineConstants>
               </PropertyGroup>
             </Project>
             """);
-        var file = WriteFile("App/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file);
-        Assert.True(Has(symbols, "REAL"));
-        Assert.DoesNotContain(symbols.Symbols, s => s.Contains("SomethingElse", StringComparison.Ordinal));
-        Assert.Contains(symbols.Warnings, w => w.Contains("SomethingElse", StringComparison.Ordinal));
+        var result = ProjectSymbolResolver.ResolveForFile(file);
+        Assert.Contains("LEGACY", result.Symbols);
+        Assert.Contains("NET48", result.Symbols);
     }
 
     [Fact]
-    public void NoCsproj_OnlyExtraDefines()
+    public void ExtraDefines_AreTrimmedMergedAndCaseSensitive()
     {
         var file = WriteFile("Loose/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file, extraDefines: new[] { "CLI_SYM" });
-        Assert.Equal(new[] { "CLI_SYM" }, symbols.Symbols);
+        var result = ProjectSymbolResolver.ResolveForFile(file, extraDefines: [" foo ", "FOO", "foo"]);
+        Assert.Equal(["foo", "FOO"], result.Symbols);
+        Assert.Empty(result.Warnings);
     }
 
     [Fact]
-    public void ExtraDefines_MergedAndCasePreserved()
+    public void Configuration_AlsoSelectsTargetFramework()
     {
-        WriteProject("App/App.csproj", """
+        var file = WriteFile("App/Code.cs");
+        WriteFile("App/App.csproj", """
             <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>netstandard2.0</TargetFramework>
-              </PropertyGroup>
+              <PropertyGroup Condition="'$(Configuration)' == 'Debug'"><TargetFramework>net6.0</TargetFramework></PropertyGroup>
+              <PropertyGroup Condition="'$(Configuration)' == 'Release'"><TargetFramework>net8.0</TargetFramework></PropertyGroup>
             </Project>
             """);
-        var file = WriteFile("App/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file, extraDefines: new[] { "foo", "FOO" });
-        Assert.Equal(2, symbols.Symbols.Count(s => s.Equals("foo", StringComparison.Ordinal) || s.Equals("FOO", StringComparison.Ordinal)));
+
+        var debug = ProjectSymbolResolver.ResolveForFile(file, "Debug");
+        Assert.Contains("NET6_0", debug.Symbols);
+        Assert.DoesNotContain("NET8_0", debug.Symbols);
     }
 
-    // -----------------------------------------------------------------------
-    // TFM synthesis
-    // -----------------------------------------------------------------------
-
     [Fact]
-    public void Tfm_net60_SynthesizesSdkSymbols()
+    public void ModernNet_SynthesizesExactCurrentLowerAndCompatibilitySymbols()
     {
-        WriteProject("App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net6.0</TargetFramework>
-              </PropertyGroup>
-            </Project>
-            """);
-        var file = WriteFile("App/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file).Symbols;
+        var symbols = Synthesize("net6.0");
         Assert.Contains("NET", symbols);
         Assert.Contains("NET6_0", symbols);
         Assert.Contains("NET6_0_OR_GREATER", symbols);
         Assert.Contains("NET5_0_OR_GREATER", symbols);
+        Assert.Contains("NETCOREAPP", symbols);
         Assert.Contains("NETCOREAPP3_1_OR_GREATER", symbols);
-        Assert.Contains("NETCOREAPP1_0_OR_GREATER", symbols);
+        Assert.DoesNotContain("NET7_0_OR_GREATER", symbols);
         Assert.DoesNotContain("NETSTANDARD2_0_OR_GREATER", symbols);
         Assert.DoesNotContain("NETFRAMEWORK", symbols);
-        Assert.DoesNotContain("NETCOREAPP", symbols); // 不带版本的 NETCOREAPP 仅属于 netcoreapp 目标
     }
 
     [Fact]
-    public void Tfm_netstandard20_SynthesizesNetStandardSymbols()
+    public void NetCoreApp_OrGreaterChainStopsAtTarget()
     {
-        WriteProject("App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>netstandard2.0</TargetFramework>
-              </PropertyGroup>
-            </Project>
-            """);
-        var file = WriteFile("App/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file).Symbols;
-        Assert.Contains("NETSTANDARD", symbols);
-        Assert.Contains("NETSTANDARD2_0", symbols);
-        Assert.Contains("NETSTANDARD2_0_OR_GREATER", symbols);
-        Assert.Contains("NETSTANDARD1_6_OR_GREATER", symbols);
-        Assert.Contains("NETSTANDARD1_0_OR_GREATER", symbols);
-        Assert.DoesNotContain("NET", symbols);
+        var symbols = Synthesize("netcoreapp2.0");
+        Assert.Contains("NETCOREAPP", symbols);
+        Assert.Contains("NETCOREAPP2_0", symbols);
+        Assert.Contains("NETCOREAPP2_0_OR_GREATER", symbols);
+        Assert.Contains("NETCOREAPP1_1_OR_GREATER", symbols);
+        Assert.DoesNotContain("NETCOREAPP2_1_OR_GREATER", symbols);
         Assert.DoesNotContain("NETCOREAPP3_1_OR_GREATER", symbols);
     }
 
     [Fact]
-    public void Tfm_net48_SynthesizesNetFrameworkSymbols()
+    public void NetStandard_OrGreaterChainStopsAtTarget()
     {
-        WriteProject("App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net48</TargetFramework>
-              </PropertyGroup>
-            </Project>
-            """);
-        var file = WriteFile("App/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file).Symbols;
+        var symbols = Synthesize("netstandard2.0");
+        Assert.Contains("NETSTANDARD", symbols);
+        Assert.Contains("NETSTANDARD2_0", symbols);
+        Assert.Contains("NETSTANDARD2_0_OR_GREATER", symbols);
+        Assert.Contains("NETSTANDARD1_0_OR_GREATER", symbols);
+        Assert.DoesNotContain("NETSTANDARD2_1_OR_GREATER", symbols);
+    }
+
+    [Fact]
+    public void NetFramework_UsesSdkSymbolSpelling()
+    {
+        var symbols = Synthesize("net48");
         Assert.Contains("NETFRAMEWORK", symbols);
         Assert.Contains("NET48", symbols);
         Assert.Contains("NET48_OR_GREATER", symbols);
         Assert.Contains("NET472_OR_GREATER", symbols);
-        Assert.Contains("NET40_OR_GREATER", symbols);
-        Assert.DoesNotContain("NET", symbols);
-        Assert.DoesNotContain("NET6_0_OR_GREATER", symbols);
+        Assert.DoesNotContain("NET481_OR_GREATER", symbols);
     }
 
     [Fact]
-    public void Tfm_net80_IncludesLowerOrGreaterChain()
+    public void PlatformTfm_SynthesizesBaseFrameworkSymbols()
     {
-        WriteProject("App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net8.0</TargetFramework>
-              </PropertyGroup>
-            </Project>
-            """);
-        var file = WriteFile("App/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file).Symbols;
+        var symbols = Synthesize("net8.0-windows10.0.19041.0");
         Assert.Contains("NET8_0", symbols);
-        Assert.Contains("NET7_0_OR_GREATER", symbols);
-        Assert.Contains("NET5_0_OR_GREATER", symbols);
-        Assert.Contains("NETCOREAPP2_1_OR_GREATER", symbols);
+        Assert.Contains("NET8_0_OR_GREATER", symbols);
     }
 
     [Fact]
-    public void MultiTarget_FirstByDefault_TfmOverrideWins()
+    public void MultiTarget_DefaultsToFirst_ExplicitTfmIsAuthoritative()
     {
-        WriteProject("App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFrameworks>netstandard2.0;net6.0</TargetFrameworks>
-              </PropertyGroup>
-            </Project>
-            """);
         var file = WriteFile("App/Code.cs");
+        WriteFile("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>netstandard2.0;net6.0</TargetFrameworks></PropertyGroup></Project>
+            """);
 
-        var first = ProjectSymbolResolver.ResolveForFile(file).Symbols;
-        Assert.Contains("NETSTANDARD2_0", first);
-        Assert.DoesNotContain("NET6_0", first);
+        var defaultResult = ProjectSymbolResolver.ResolveForFile(file);
+        Assert.Contains("NETSTANDARD2_0", defaultResult.Symbols);
+        Assert.DoesNotContain("NET6_0", defaultResult.Symbols);
 
-        var overridden = ProjectSymbolResolver.ResolveForFile(file, tfm: "net6.0").Symbols;
-        Assert.Contains("NET6_0", overridden);
-        Assert.DoesNotContain("NETSTANDARD2_0", overridden);
+        var overrideResult = ProjectSymbolResolver.ResolveForFile(file, tfm: "net8.0");
+        Assert.Contains("NET8_0", overrideResult.Symbols);
+        Assert.DoesNotContain("NETSTANDARD2_0", overrideResult.Symbols);
+        Assert.Empty(overrideResult.Warnings);
     }
 
     [Fact]
-    public void UnknownTfm_NoSymbolsWithWarning()
+    public void ExplicitTfm_WorksWithoutProject()
     {
-        WriteProject("App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>nettoothfairy</TargetFramework>
-              </PropertyGroup>
-            </Project>
-            """);
+        var file = WriteFile("Loose/Code.cs");
+        var result = ProjectSymbolResolver.ResolveForFile(file, tfm: "net8.0", extraDefines: ["EXTRA"]);
+        Assert.Contains("NET8_0", result.Symbols);
+        Assert.Contains("EXTRA", result.Symbols);
+    }
+
+    [Fact]
+    public void UnknownTfm_ProducesNoFrameworkSymbolsAndOneWarning()
+    {
         var file = WriteFile("App/Code.cs");
+        WriteFile("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>unknown</TargetFramework></PropertyGroup></Project>
+            """);
         var result = ProjectSymbolResolver.ResolveForFile(file);
         Assert.Empty(result.Symbols);
-        Assert.Contains(result.Warnings, w => w.Contains("nettoothfairy", StringComparison.Ordinal));
+        var warning = Assert.Single(result.Warnings);
+        Assert.Contains("unknown", warning, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void TargetFrameworkMacro_SkippedWithWarning()
+    public void TargetFrameworkMacro_IsSkippedWithWarning()
     {
-        WriteProject("App/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>$( computedTfm )</TargetFramework>
-              </PropertyGroup>
-            </Project>
-            """);
         var file = WriteFile("App/Code.cs");
+        WriteFile("App/App.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>$(ComputedTfm)</TargetFramework></PropertyGroup></Project>
+            """);
         var result = ProjectSymbolResolver.ResolveForFile(file);
         Assert.Empty(result.Symbols);
-        Assert.Contains(result.Warnings, w => w.Contains("computedTfm", StringComparison.Ordinal));
+        var warning = Assert.Single(result.Warnings);
+        Assert.Contains("$(ComputedTfm)", warning, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void NearestCsproj_WinsOverFarther()
+    private static IReadOnlyList<string> Synthesize(string tfm)
     {
-        WriteProject("Outer/App.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <DefineConstants>OUTER_SYM</DefineConstants>
-              </PropertyGroup>
-            </Project>
-            """);
-        WriteProject("Outer/Inner/Inner.csproj", """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <DefineConstants>INNER_SYM</DefineConstants>
-              </PropertyGroup>
-            </Project>
-            """);
-        var file = WriteFile("Outer/Inner/Code.cs");
-        var symbols = ProjectSymbolResolver.ResolveForFile(file);
-        Assert.True(Has(symbols, "INNER_SYM"));
-        Assert.False(Has(symbols, "OUTER_SYM"));
+        var symbols = new List<string>();
+        Assert.True(ProjectSymbolResolver.TrySynthesizeTfmSymbols(tfm, symbols));
+        return symbols;
+    }
+
+    private string WriteFile(string relativePath, string content = "class F {}")
+    {
+        var path = Path.Combine(_root, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content);
+        return path;
     }
 
     public void Dispose()

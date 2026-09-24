@@ -5,14 +5,6 @@ namespace CSharpToJava.Core.ConditionalDirectiveStrip;
 
 public sealed record ProjectSymbols(IReadOnlyList<string> Symbols, IReadOnlyList<string> Warnings);
 
-/// <summary>
-/// 轻量符号解析（设计 §5；不做完整 MSBuild 属性求值）：
-/// 最近祖先 .csproj + 沿途 Directory.Build.props（父→子）依次应用 <DefineConstants>——
-/// 含 $(DefineConstants) 的值为追加语义，裸值为替换语义（MSBuild 一致）；
-/// 仅求值 $(Configuration) 的 ==/!= 条件子句，其余条件保守视为包含；
-/// 由 TargetFramework(s) 合成 SDK 注入的 TFM 符号（含 _OR_GREATER 家族）；
-/// 无法解析的宏跳过并产生 Warning（--define 兜底）。
-/// </summary>
 public static class ProjectSymbolResolver
 {
     private static readonly string[] NetStandardVersions = ["1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "2.0", "2.1"];
@@ -28,6 +20,8 @@ public static class ProjectSymbolResolver
         var warnings = new List<string>();
         var symbols = new List<string>();
         var project = FindNearestProject(Path.GetDirectoryName(Path.GetFullPath(filePath)));
+        var tfms = new List<string>();
+
         if (project != null)
         {
             foreach (var props in GetAncestorDirectoryBuildProps(project).Reverse())
@@ -36,25 +30,20 @@ public static class ProjectSymbolResolver
             }
 
             ApplyDefineConstants(project, configuration, symbols, warnings);
+            tfms = ReadTfms(project, configuration, warnings);
+        }
 
-            var tfms = ReadTfms(project, warnings);
-            var chosen = PickTfm(tfms, tfm);
-            if (chosen == null)
-            {
-                if (tfms.Count > 0)
-                {
-                    warnings.Add($"no TFM selected from [{string.Join(';', tfms)}]");
-                }
-            }
-            else if (!TrySynthesizeTfmSymbols(chosen, symbols))
-            {
-                warnings.Add($"unrecognized TFM '{chosen}'");
-            }
+        var chosenTfm = PickTfm(tfms, tfm);
+        if (chosenTfm != null && !TrySynthesizeTfmSymbols(chosenTfm, symbols))
+        {
+            warnings.Add($"unrecognized TFM '{chosenTfm}'");
         }
 
         if (extraDefines != null)
         {
-            symbols.AddRange(extraDefines.Where(s => !string.IsNullOrWhiteSpace(s)));
+            symbols.AddRange(extraDefines
+                .Where(symbol => !string.IsNullOrWhiteSpace(symbol))
+                .Select(symbol => symbol.Trim()));
         }
 
         return new ProjectSymbols(Dedup(symbols), warnings);
@@ -62,22 +51,24 @@ public static class ProjectSymbolResolver
 
     internal static string? FindNearestProject(string? startDirectory)
     {
-        var dir = startDirectory;
-        while (!string.IsNullOrEmpty(dir))
+        var directory = startDirectory;
+        while (!string.IsNullOrEmpty(directory))
         {
-            var project = Directory.EnumerateFiles(dir, "*.csproj").FirstOrDefault();
+            var project = Directory.EnumerateFiles(directory, "*.csproj")
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
             if (project != null)
             {
-                return project;
+                return Path.GetFullPath(project);
             }
 
-            var parent = Path.GetDirectoryName(dir);
-            if (parent == null || string.Equals(parent, dir, StringComparison.OrdinalIgnoreCase))
+            var parent = Path.GetDirectoryName(directory);
+            if (parent == null || string.Equals(parent, directory, StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }
 
-            dir = parent;
+            directory = parent;
         }
 
         return null;
@@ -85,55 +76,47 @@ public static class ProjectSymbolResolver
 
     private static IEnumerable<string> GetAncestorDirectoryBuildProps(string projectPath)
     {
-        // 自项目目录向上收集，返回时 Reverse() 得到父→子（MSBuild 导入顺序）
-        var dir = Path.GetDirectoryName(Path.GetFullPath(projectPath))!;
-        while (!string.IsNullOrEmpty(dir))
+        var directory = Path.GetDirectoryName(Path.GetFullPath(projectPath))!;
+        while (!string.IsNullOrEmpty(directory))
         {
-            var props = Path.Combine(dir, "Directory.Build.props");
+            var props = Path.Combine(directory, "Directory.Build.props");
             if (File.Exists(props))
             {
                 yield return props;
             }
 
-            var parent = Path.GetDirectoryName(dir);
-            if (parent == null || string.Equals(parent, dir, StringComparison.OrdinalIgnoreCase))
+            var parent = Path.GetDirectoryName(directory);
+            if (parent == null || string.Equals(parent, directory, StringComparison.OrdinalIgnoreCase))
             {
                 yield break;
             }
 
-            dir = parent;
+            directory = parent;
         }
     }
 
     private static void ApplyDefineConstants(
-        string file, string configuration, List<string> symbols, List<string> warnings)
+        string file,
+        string configuration,
+        List<string> symbols,
+        List<string> warnings)
     {
-        XDocument document;
-        try
-        {
-            document = XDocument.Load(file);
-        }
-        catch (Exception ex)
-        {
-            warnings.Add($"cannot read {file}: {ex.Message}");
-            return;
-        }
-
-        if (document.Root == null)
+        var document = LoadDocument(file, warnings);
+        if (document?.Root == null)
         {
             return;
         }
 
-        foreach (var group in document.Root.Elements("PropertyGroup"))
+        foreach (var group in ChildrenNamed(document.Root, "PropertyGroup"))
         {
-            if (!EvaluateCondition(group.Attribute("Condition")?.Value, configuration))
+            if (!EvaluateCondition(AttributeNamed(group, "Condition"), configuration))
             {
                 continue;
             }
 
-            foreach (var element in group.Elements("DefineConstants"))
+            foreach (var element in ChildrenNamed(group, "DefineConstants"))
             {
-                if (!EvaluateCondition(element.Attribute("Condition")?.Value, configuration))
+                if (!EvaluateCondition(AttributeNamed(element, "Condition"), configuration))
                 {
                     continue;
                 }
@@ -160,7 +143,7 @@ public static class ProjectSymbolResolver
                         continue;
                     }
 
-                    if (part.Contains("$("))
+                    if (part.Contains("$(", StringComparison.Ordinal))
                     {
                         warnings.Add($"skipped unresolvable macro '{part}' in {file}");
                         continue;
@@ -169,23 +152,16 @@ public static class ProjectSymbolResolver
                     parts.Add(part);
                 }
 
-                if (appends)
-                {
-                    symbols.AddRange(parts);
-                }
-                else
+                if (!appends)
                 {
                     symbols.Clear();
-                    symbols.AddRange(parts);
                 }
+
+                symbols.AddRange(parts);
             }
         }
     }
 
-    /// <summary>
-    /// 仅求值 $(Configuration) 的 ==/!= 子句（MSBuild 字符串比较不区分大小写）；
-    /// And 优先于 Or；不含 $(Configuration) 的子句保守视为真。
-    /// </summary>
     internal static bool EvaluateCondition(string? condition, string configuration)
     {
         if (string.IsNullOrWhiteSpace(condition))
@@ -204,12 +180,11 @@ public static class ProjectSymbolResolver
                     RegexOptions.IgnoreCase);
                 if (!match.Success)
                 {
-                    continue; // 未知子句 → 真（保守包含）
+                    continue;
                 }
 
                 var equal = string.Equals(configuration, match.Groups[2].Value, StringComparison.OrdinalIgnoreCase);
-                var clauseValue = match.Groups[1].Value == "==" ? equal : !equal;
-                if (!clauseValue)
+                if ((match.Groups[1].Value == "==") != equal)
                 {
                     all = false;
                     break;
@@ -225,112 +200,89 @@ public static class ProjectSymbolResolver
         return false;
     }
 
-    private static List<string> ReadTfms(string projectPath, List<string> warnings)
+    private static List<string> ReadTfms(string projectPath, string configuration, List<string> warnings)
     {
         var result = new List<string>();
-        XDocument document;
-        try
-        {
-            document = XDocument.Load(projectPath);
-        }
-        catch (Exception ex)
-        {
-            warnings.Add($"cannot read {projectPath}: {ex.Message}");
-            return result;
-        }
-
-        if (document.Root == null)
+        var document = LoadDocument(projectPath, warnings);
+        if (document?.Root == null)
         {
             return result;
         }
 
-        foreach (var group in document.Root.Elements("PropertyGroup"))
+        foreach (var group in ChildrenNamed(document.Root, "PropertyGroup"))
         {
-            if (!EvaluateCondition(group.Attribute("Condition")?.Value, "Release"))
+            if (!EvaluateCondition(AttributeNamed(group, "Condition"), configuration))
             {
                 continue;
             }
 
-            foreach (var element in group.Elements())
+            foreach (var element in group.Elements().Where(element =>
+                         element.Name.LocalName.Equals("TargetFramework", StringComparison.OrdinalIgnoreCase) ||
+                         element.Name.LocalName.Equals("TargetFrameworks", StringComparison.OrdinalIgnoreCase)))
             {
-                if (!EvaluateCondition(element.Attribute("Condition")?.Value, "Release"))
+                if (!EvaluateCondition(AttributeNamed(element, "Condition"), configuration))
                 {
                     continue;
                 }
 
                 var value = element.Value.Trim();
-                if (value.Length == 0 || value.Contains("$("))
+                if (value.Length == 0)
                 {
-                    if (value.Contains("$(") && (element.Name.LocalName is "TargetFramework" or "TargetFrameworks"))
-                    {
-                        var macro = value.Trim('$', '(', ')', ' ').Trim();
-                        warnings.Add($"skipped unresolvable TFM macro '{macro}' in {projectPath}");
-                    }
-
                     continue;
                 }
 
-                if (element.Name.LocalName.Equals("TargetFrameworks", StringComparison.OrdinalIgnoreCase))
+                if (value.Contains("$(", StringComparison.Ordinal))
                 {
-                    result.Clear();
-                    result.AddRange(value.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                        .Select(t => t.Trim())
-                        .Where(t => t.Length > 0));
+                    warnings.Add($"skipped unresolvable TFM value '{value}' in {projectPath}");
+                    continue;
                 }
-                else if (element.Name.LocalName.Equals("TargetFramework", StringComparison.OrdinalIgnoreCase))
-                {
-                    result.Clear();
-                    result.Add(value);
-                }
+
+                result.Clear();
+                result.AddRange(value.Split(';', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(item => item.Trim())
+                    .Where(item => item.Length > 0));
             }
         }
 
         return result;
     }
 
-    internal static string? PickTfm(List<string> tfms, string? requested)
+    internal static string? PickTfm(IReadOnlyList<string> tfms, string? requested)
     {
-        if (requested != null)
+        if (!string.IsNullOrWhiteSpace(requested))
         {
-            var match = tfms.FirstOrDefault(t => string.Equals(t, requested, StringComparison.OrdinalIgnoreCase));
-            if (match != null)
-            {
-                return match;
-            }
+            return requested.Trim();
         }
 
         return tfms.FirstOrDefault();
     }
 
-    /// <summary>按 SDK 实际行为合成 TFM 符号；无法识别返回 false。</summary>
     internal static bool TrySynthesizeTfmSymbols(string tfm, List<string> symbols)
     {
         var value = tfm.Trim();
+        const string platformSuffix = @"(?:-[A-Za-z0-9.]+)?$";
 
-        var netStandard = Regex.Match(value, @"^netstandard(\d+)\.(\d+)$", RegexOptions.IgnoreCase);
+        var netStandard = Regex.Match(value, @"^netstandard(\d+)\.(\d+)" + platformSuffix, RegexOptions.IgnoreCase);
         if (netStandard.Success)
         {
-            var version = $"{netStandard.Groups[1].Value}_{netStandard.Groups[2].Value}";
+            var target = $"{netStandard.Groups[1].Value}.{netStandard.Groups[2].Value}";
             symbols.Add("NETSTANDARD");
-            symbols.Add($"NETSTANDARD{version}");
-            foreach (var lower in NetStandardVersions)
+            symbols.Add($"NETSTANDARD{VersionToSymbol(target)}");
+            foreach (var lower in NetStandardVersions.Where(version => CompareVersions(version, target) <= 0))
             {
-                if (CompareVersions(lower, $"{netStandard.Groups[1].Value}.{netStandard.Groups[2].Value}") <= 0)
-                {
-                    symbols.Add($"NETSTANDARD{VersionToSymbol(lower)}_OR_GREATER");
-                }
+                symbols.Add($"NETSTANDARD{VersionToSymbol(lower)}_OR_GREATER");
             }
 
             return true;
         }
 
-        var netCoreApp = Regex.Match(value, @"^netcoreapp(\d+)\.(\d+)$", RegexOptions.IgnoreCase);
+        var netCoreApp = Regex.Match(value, @"^netcoreapp(\d+)\.(\d+)" + platformSuffix, RegexOptions.IgnoreCase);
         if (netCoreApp.Success)
         {
-            var version = $"{netCoreApp.Groups[1].Value}_{netCoreApp.Groups[2].Value}";
+            var target = $"{netCoreApp.Groups[1].Value}.{netCoreApp.Groups[2].Value}";
             symbols.Add("NETCOREAPP");
-            symbols.Add($"NETCOREAPP{version}");
-            foreach (var lower in NetCoreAppVersions)
+            symbols.Add($"NETCOREAPP{VersionToSymbol(target)}");
+            foreach (var lower in NetCoreAppVersions.Where(version => CompareVersions(version, target) <= 0))
             {
                 symbols.Add($"NETCOREAPP{VersionToSymbol(lower)}_OR_GREATER");
             }
@@ -338,16 +290,18 @@ public static class ProjectSymbolResolver
             return true;
         }
 
-        var netModern = Regex.Match(value, @"^net(\d+)\.(\d+)$", RegexOptions.IgnoreCase);
+        var netModern = Regex.Match(value, @"^net(\d+)\.(\d+)" + platformSuffix, RegexOptions.IgnoreCase);
         if (netModern.Success && int.Parse(netModern.Groups[1].Value) >= 5)
         {
             var major = int.Parse(netModern.Groups[1].Value);
+            var minor = int.Parse(netModern.Groups[2].Value);
             symbols.Add("NET");
-            symbols.Add($"NET{major}_{netModern.Groups[2].Value}");
-            symbols.Add($"NET{major}_{netModern.Groups[2].Value}_OR_GREATER");
-            for (var n = 5; n < major; n++)
+            symbols.Add($"NET{major}_{minor}");
+            symbols.Add("NETCOREAPP");
+            symbols.Add($"NET{major}_{minor}_OR_GREATER");
+            for (var lowerMajor = 5; lowerMajor < major; lowerMajor++)
             {
-                symbols.Add($"NET{n}_0_OR_GREATER");
+                symbols.Add($"NET{lowerMajor}_0_OR_GREATER");
             }
 
             foreach (var lower in NetCoreAppVersions)
@@ -358,18 +312,15 @@ public static class ProjectSymbolResolver
             return true;
         }
 
-        var netFramework = Regex.Match(value, @"^net(\d{2,3})$", RegexOptions.IgnoreCase);
+        var netFramework = Regex.Match(value, @"^net(\d{2,3})" + platformSuffix, RegexOptions.IgnoreCase);
         if (netFramework.Success)
         {
             var code = netFramework.Groups[1].Value;
             symbols.Add("NETFRAMEWORK");
             symbols.Add($"NET{code}");
-            foreach (var lower in NetFxVersions)
+            foreach (var lower in NetFxVersions.Where(version => CompareNetFxVersions(version, code) <= 0))
             {
-                if (CompareNetFxVersions(lower, code) <= 0)
-                {
-                    symbols.Add($"NET{lower}_OR_GREATER");
-                }
+                symbols.Add($"NET{lower}_OR_GREATER");
             }
 
             return true;
@@ -378,15 +329,35 @@ public static class ProjectSymbolResolver
         return false;
     }
 
-    private static string VersionToSymbol(string version) => version.Replace(".", "_");
+    private static XDocument? LoadDocument(string path, List<string> warnings)
+    {
+        try
+        {
+            return XDocument.Load(path);
+        }
+        catch (Exception exception)
+        {
+            warnings.Add($"cannot read {path}: {exception.Message}");
+            return null;
+        }
+    }
+
+    private static IEnumerable<XElement> ChildrenNamed(XContainer parent, string localName) =>
+        parent.Elements().Where(element => element.Name.LocalName.Equals(localName, StringComparison.OrdinalIgnoreCase));
+
+    private static string? AttributeNamed(XElement element, string localName) =>
+        element.Attributes().FirstOrDefault(attribute => attribute.Name.LocalName.Equals(localName, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    private static string VersionToSymbol(string version) => version.Replace('.', '_');
 
     private static int CompareVersions(string left, string right)
     {
         var leftParts = left.Split('.').Select(int.Parse).ToArray();
         var rightParts = right.Split('.').Select(int.Parse).ToArray();
-        for (var i = 0; i < Math.Max(leftParts.Length, rightParts.Length); i++)
+        for (var index = 0; index < Math.Max(leftParts.Length, rightParts.Length); index++)
         {
-            var comparison = (i < leftParts.Length ? leftParts[i] : 0).CompareTo(i < rightParts.Length ? rightParts[i] : 0);
+            var comparison = (index < leftParts.Length ? leftParts[index] : 0)
+                .CompareTo(index < rightParts.Length ? rightParts[index] : 0);
             if (comparison != 0)
             {
                 return comparison;
@@ -399,9 +370,9 @@ public static class ProjectSymbolResolver
     private static int CompareNetFxVersions(string leftCode, string rightCode) =>
         (ToNetFxTuple(leftCode), ToNetFxTuple(rightCode)) switch
         {
-            var (l, r) when l.major != r.major => l.major.CompareTo(r.major),
-            var (l, r) when l.minor != r.minor => l.minor.CompareTo(r.minor),
-            var (l, r) => l.patch.CompareTo(r.patch),
+            var (left, right) when left.major != right.major => left.major.CompareTo(right.major),
+            var (left, right) when left.minor != right.minor => left.minor.CompareTo(right.minor),
+            var (left, right) => left.patch.CompareTo(right.patch),
         };
 
     private static (int major, int minor, int patch) ToNetFxTuple(string code) => code.Length switch
@@ -411,7 +382,7 @@ public static class ProjectSymbolResolver
         _ => (0, 0, 0),
     };
 
-    private static List<string> Dedup(List<string> symbols)
+    private static List<string> Dedup(IEnumerable<string> symbols)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var result = new List<string>();
