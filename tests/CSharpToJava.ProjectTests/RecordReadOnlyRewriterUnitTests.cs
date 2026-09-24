@@ -370,4 +370,144 @@ public class RecordReadOnlyRewriterUnitTests
         Assert.Contains("public int X { get; init =>", output);
         AssertOutputCompiles(output);
     }
+
+    [Fact]
+    public void RS10_InstanceEvent_BlocksWithRR040()
+    {
+        var src = """
+            public record struct P
+            {
+                public event System.Action? Changed;
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("readonly record struct", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR040);
+    }
+
+    [Fact]
+    public void RS11_VolatileField_BlocksWithRR041()
+    {
+        var src = "public record struct P { public volatile int X; }";
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("readonly record struct", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR041);
+    }
+
+    [Fact]
+    public void RS11_VisibleRefReturningMember_BlocksWithRR041()
+    {
+        var src = """
+            public record struct P
+            {
+                private int _x;
+                public ref int XRef() => ref _x;
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR041);
+    }
+
+    [Fact]
+    public void RS19_SettableIndexer_BlocksWithRR042()
+    {
+        var src = """
+            public record struct P
+            {
+                public int this[int i] { get => i; set { } }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR042);
+    }
+
+    [Fact]
+    public void RS17_ExplicitLayoutWithPromotedField_BlocksWithRR043()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            [StructLayout(LayoutKind.Explicit)]
+            public record struct P
+            {
+                [FieldOffset(0)] public int X;
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR043);
+    }
+
+    [Fact]
+    public void RS7_ConstructorAssignments_RemainLegal_AfterConversion()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; init; }
+                public P(int x) { X = x; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("readonly record struct P", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void GenericAndNestedRecords_ConvertIndependently()
+    {
+        var src = """
+            public record struct Container<T>
+            {
+                public record struct Inner(T Value);
+                public T Data { get; init; }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("readonly record struct Container<T>", output);
+        Assert.Contains("readonly record struct Inner", output);
+        Assert.Equal(2, stats.RecordStructsConverted);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RS15_ExplicitReadOnlyInterfaceImplementation_Untouched()
+    {
+        var src = """
+            public record struct P : System.IComparable<P>
+            {
+                public int X { get; init; }
+                public int CompareTo(P other) => X.CompareTo(other.X);
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("readonly record struct P", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RecordClass_NotConverted_WhenOptionOff()
+    {
+        var src = "public record P(int X);";
+        var (output, stats, diags) = Rewrite(src);
+        Assert.DoesNotContain("readonly record", output);
+        Assert.Equal(0, stats.RecordClassesConverted);
+        Assert.Equal(0, stats.RecordStructsConverted);
+    }
+
+    [Fact]
+    public void RS16_XmlDocAndAttributes_PreservedOnProperty()
+    {
+        var src = """
+            public record struct P
+            {
+                /// <summary>X doc.</summary>
+                [System.Obsolete]
+                public int X { get; set; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("/// <summary>X doc.</summary>", output);
+        Assert.Contains("[System.Obsolete]", output);
+        Assert.Contains("init;", output);
+        AssertOutputCompiles(output);
+    }
 }
