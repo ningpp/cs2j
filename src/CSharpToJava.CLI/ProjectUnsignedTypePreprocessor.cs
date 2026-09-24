@@ -320,6 +320,8 @@ internal static class ProjectUnsignedTypePreprocessor
         ProjectGraph? projectGraph,
         List<UnsignedTypeRewriterDiagnostic> diagnostics)
     {
+        ThrowOnCs2jUnsignedMathNameCollision(layout);
+
         await UnsignedMathSupportFiles.ReleaseAsync(
             Path.Combine(intermediateRoot, UnsignedMathSupportFiles.LibDirectoryName));
 
@@ -327,6 +329,108 @@ internal static class ProjectUnsignedTypePreprocessor
             layout, exclusionInfo, rewrittenFiles, projectGraph);
         EnsureExtensionProjectReferences(
             sourceRoot, intermediateRoot, layout, exclusionInfo, hostProjectDirectories, diagnostics);
+    }
+
+    /// <summary>
+    /// 用户解决方案中已有保留名项目时立即终止，不静默误识别
+    /// （契约见 2026-08-15 设计文档 §4.3）。
+    /// </summary>
+    private static void ThrowOnCs2jUnsignedMathNameCollision(ProjectPreprocessSourceLayout layout)
+    {
+        var collision = layout.ProjectFiles.FirstOrDefault(Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject);
+        if (collision != null)
+        {
+            throw new InvalidOperationException(
+                $"The source solution already contains a project named " +
+                $"'{Cs2jUnsignedMathProject.ProjectFileName}' ({collision}). That name is reserved " +
+                "for the cs2j unsigned math support library; rename the project and retry.");
+        }
+    }
+
+    /// <summary>
+    /// host TFM 低于 net10.0 时构建前告警（NU1201 会推迟到用户 dotnet build
+    /// 中间树时才暴露，这里提前给出两条出路）。
+    /// </summary>
+    private static void WarnWhenTargetFrameworkBelowNet10(
+        XElement root,
+        string projectFilePath,
+        List<UnsignedTypeRewriterDiagnostic> diagnostics)
+    {
+        var tfm = GetFirstTargetFramework(root);
+        if (IsTargetFrameworkAtLeastNet10(tfm))
+        {
+            return;
+        }
+
+        diagnostics.Add(new UnsignedTypeRewriterDiagnostic(
+            UnsignedTypeSeverity.Warning,
+            $"{projectFilePath}: target framework '{tfm ?? "(none)"}' is below net10.0; the injected " +
+            $"reference to {Cs2jUnsignedMathProject.ProjectFileName} (net10.0) will fail to restore/build " +
+            "with NU1201. Upgrade the host TargetFramework to net10.0+, or report the case so " +
+            "Cs2jUnsignedMath can multi-target."));
+    }
+
+    internal static string? GetFirstTargetFramework(XElement root)
+    {
+        var frameworks = GetPropertyValue(root, "TargetFrameworks");
+        if (!string.IsNullOrWhiteSpace(frameworks))
+        {
+            return frameworks!.Split(';', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim();
+        }
+
+        return GetPropertyValue(root, "TargetFramework")?.Trim();
+    }
+
+    internal static bool IsTargetFrameworkAtLeastNet10(string? targetFramework)
+    {
+        if (string.IsNullOrWhiteSpace(targetFramework))
+        {
+            return false;
+        }
+
+        var match = System.Text.RegularExpressions.Regex.Match(
+            targetFramework,
+            @"^net(?:coreapp)?(\d+(?:\.\d+)?)(?:-[a-z0-9.]+)?$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        var versionText = match.Groups[1].Value;
+        double version;
+        if (versionText.Contains('.', StringComparison.Ordinal))
+        {
+            if (!double.TryParse(
+                    versionText,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out version))
+            {
+                return false;
+            }
+        }
+        else if (versionText.Length > 1
+                 && versionText[0] == '4'
+                 && int.TryParse(
+                     versionText[1..],
+                     System.Globalization.NumberStyles.None,
+                     System.Globalization.CultureInfo.InvariantCulture,
+                     out var frameworkMinor))
+        {
+            // 无点式 .NET Framework 版本（net472/net48）表示 4.<xx>。
+            version = 4.0 + frameworkMinor / 100.0;
+        }
+        else if (!double.TryParse(
+                     versionText,
+                     System.Globalization.NumberStyles.Float,
+                     System.Globalization.CultureInfo.InvariantCulture,
+                     out version))
+        {
+            return false;
+        }
+
+        return version >= 10.0;
     }
 
     /// <summary>
@@ -442,6 +546,8 @@ internal static class ProjectUnsignedTypePreprocessor
             new XElement("ItemGroup",
                 new XElement("ProjectReference", new XAttribute("Include", relativeInclude))),
             new XText(Environment.NewLine));
+
+        WarnWhenTargetFrameworkBelowNet10(root, projectFilePath, diagnostics);
 
         document.Save(projectFilePath, SaveOptions.DisableFormatting);
     }

@@ -296,4 +296,32 @@ public class UnsignedTypeProjectTests
             }
         }
     }
+
+    [Fact]
+    public async Task NameCollision_FailsFastBeforeReleasing()
+    {
+        var dir = Path.Combine(FixtureDir, "SampleNameCollision");
+        Assert.True(Directory.Exists(dir), $"Fixture not found: {dir}");
+        var outputDir = Path.Combine(dir, "..", ".test-output-collision");
+
+        try
+        {
+            var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                ProjectUnsignedTypePreprocessor.PreprocessAsync(
+                    new ProjectUnsignedTypePreprocessRequest
+                    {
+                        SourcePath = dir,
+                        DestinationRoot = outputDir,
+                        Verbose = false,
+                    }));
+            Assert.Contains("Cs2jUnsignedMath.csproj", ex.Message);
+        }
+        finally
+        {
+            if (Directory.Exists(outputDir))
+            {
+                Directory.Delete(outputDir, recursive: true);
+            }
+        }
+    }
 }
