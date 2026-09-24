@@ -1178,15 +1178,17 @@
         },
         {
             "csharp": "System.Runtime.InteropServices.GCHandle",
-            "java": "Object",
+            "java": "GCHandle",
             "imports": [
                 "io.github.ningpp.compat.GCHandle"
             ]
         },
         {
             "csharp": "System.Runtime.InteropServices.GCHandleType",
-            "java": "int",
-            "imports": []
+            "java": "GCHandleType",
+            "imports": [
+                "io.github.ningpp.compat.GCHandleType"
+            ]
         },
         {
             "csharp": "System.Runtime.InteropServices.RuntimeInformation",

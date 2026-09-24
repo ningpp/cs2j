@@ -5,104 +5,146 @@ import java.lang.foreign.MemorySegment;
 /**
  * Mirrors System.Runtime.InteropServices.GCHandle for converted C# code.
  *
- * <p>.NET's {@code GCHandle} pins a managed object and provides an address
- * through {@code AddrOfPinnedObject()}.  In Java, pinned memory is represented
- * by {@link MemorySegment}, so this class provides static helper methods that
- * operate on {@code Object} references (since the C# source may declare the
- * handle variable as {@code object}).</p>
+ * <p>.NET's {@code GCHandle} is a struct that keeps a strong/pinned reference
+ * to a managed object and exposes its address through
+ * {@code AddrOfPinnedObject()}.  In Java there is no moving GC handle
+ * equivalent: a direct reference already keeps the object alive, and pinned
+ * memory is represented by {@link MemorySegment#ofArray(Object[])} wrappers,
+ * so this class simply wraps the target reference and derives the
+ * {@code MemorySegment} on demand.</p>
+ *
+ * <p>Static {@code isAllocated(Object)} / {@code addrOfPinnedObject(Object)} /
+ * {@code free(Object)} overloads are kept for converted code whose handle
+ * variable was declared {@code object} (or {@code null} from
+ * {@code default(GCHandle)}) — the converter emits
+ * {@code GCHandle.isAllocated(handle)} for those receivers.</p>
  */
 public final class GCHandle {
 
-    private GCHandle() { /* utility class */ }
+    private Object target;
+    private boolean allocated;
 
-    /**
-     * Allocates a pinned handle for the given array.
-     * Mirrors {@code GCHandle.Alloc(obj, GCHandleType.Pinned)}.
-     *
-     * @param array the array to pin (char[], byte[], int[], long[], double[], float[])
-     * @return a MemorySegment representing the pinned array
-     */
-    public static MemorySegment alloc(Object array) {
-        if (array instanceof MemorySegment ms) {
-            return ms;
-        }
-        if (array instanceof char[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (array instanceof byte[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (array instanceof int[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (array instanceof long[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (array instanceof double[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (array instanceof float[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (array instanceof short[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        throw new IllegalArgumentException("Unsupported array type for GCHandle.alloc: " + array.getClass().getName());
+    private GCHandle(Object target) {
+        this.target = target;
+        this.allocated = true;
     }
 
     /**
-     * Returns the address of a pinned object as a MemorySegment.
-     * If the handle is {@code null} (not allocated), returns {@code null}.
-     *
-     * @param handle the GCHandle variable (may be {@code null})
-     * @return the MemorySegment for the pinned object, or {@code null}
+     * Mirrors {@code GCHandle.Alloc(object)} — allocates a Normal handle.
      */
-    public static MemorySegment addrOfPinnedObject(Object handle) {
-        if (handle == null) {
-            return null;
-        }
-        if (handle instanceof MemorySegment ms) {
-            return ms;
-        }
-        if (handle instanceof char[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (handle instanceof byte[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (handle instanceof int[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (handle instanceof long[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (handle instanceof double[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        if (handle instanceof float[] arr) {
-            return MemorySegment.ofArray(arr);
-        }
-        return null;
+    public static GCHandle alloc(Object value) {
+        return alloc(value, GCHandleType.Normal);
     }
 
     /**
-     * Returns whether the GCHandle is allocated (not {@code null}).
-     *
-     * @param handle the GCHandle variable (may be {@code null})
-     * @return {@code true} if the handle is not {@code null}
+     * Mirrors {@code GCHandle.Alloc(object, GCHandleType)}.
+     */
+    public static GCHandle alloc(Object value, GCHandleType type) {
+        if (value == null) {
+            throw new ArgumentNullException("value");
+        }
+        return new GCHandle(value);
+    }
+
+    /**
+     * Mirrors the {@code IsAllocated} property.
+     */
+    public boolean isAllocated() {
+        return allocated;
+    }
+
+    /**
+     * Mirrors {@code AddrOfPinnedObject()}.  Returns the pinned array as a
+     * {@link MemorySegment}; {@code null} when the target is not a Java array
+     * (or a {@code MemorySegment} already).
+     */
+    public MemorySegment addrOfPinnedObject() {
+        return asSegment(target);
+    }
+
+    /**
+     * Mirrors the {@code Target} property getter.
+     */
+    public Object getTarget() {
+        return target;
+    }
+
+    /**
+     * Mirrors the {@code Target} property setter.
+     */
+    public void setTarget(Object value) {
+        this.target = value;
+    }
+
+    /**
+     * Mirrors {@code Free()}: releases the target reference and reports
+     * whether the handle had been allocated.
+     */
+    public boolean free() {
+        boolean wasAllocated = allocated;
+        allocated = false;
+        target = null;
+        return wasAllocated;
+    }
+
+    /**
+     * Static helper mirroring {@code IsAllocated} for {@code object}-typed or
+     * possibly-null handle variables.
      */
     public static boolean isAllocated(Object handle) {
+        if (handle instanceof GCHandle h) {
+            return h.isAllocated();
+        }
         return handle != null;
     }
 
     /**
-     * Frees the GCHandle by setting it to {@code null}.
-     * This is a no-op in Java since GCHandle pinning is handled by MemorySegment.
-     *
-     * @param handle the GCHandle variable (may be {@code null})
+     * Static helper mirroring {@code AddrOfPinnedObject()} for
+     * {@code object}-typed handle variables.
      */
-    public static void free(Object handle) {
-        // No-op: in Java, MemorySegment handles its own lifecycle.
-        // The caller should set the variable to null if needed.
+    public static MemorySegment addrOfPinnedObject(Object handle) {
+        if (handle instanceof GCHandle h) {
+            return h.addrOfPinnedObject();
+        }
+        return asSegment(handle);
+    }
+
+    /**
+     * Static helper mirroring {@code Free()} for {@code object}-typed handle
+     * variables.  Returns whether the handle was allocated.
+     */
+    public static boolean free(Object handle) {
+        if (handle instanceof GCHandle h) {
+            return h.free();
+        }
+        return handle != null;
+    }
+
+    private static MemorySegment asSegment(Object o) {
+        if (o instanceof MemorySegment ms) {
+            return ms;
+        }
+        if (o instanceof char[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (o instanceof byte[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (o instanceof int[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (o instanceof long[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (o instanceof double[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (o instanceof float[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        if (o instanceof short[] arr) {
+            return MemorySegment.ofArray(arr);
+        }
+        return null;
     }
 }
