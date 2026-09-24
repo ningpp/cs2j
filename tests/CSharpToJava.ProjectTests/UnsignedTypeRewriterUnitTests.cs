@@ -16,6 +16,10 @@ public class UnsignedTypeRewriterUnitTests
         return (tree, compilation.GetSemanticModel(tree));
     }
 
+    private static string HelperSource { get; } = File.ReadAllText(Path.GetFullPath(Path.Combine(
+        AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+        "src", "Cs2jUnsignedMath", "UnsignedMath.cs")));
+
     [Fact]
     public void CleanFile_NoUnsignedKeywords_ReturnedUnchanged()
     {
@@ -27,11 +31,12 @@ public class UnsignedTypeRewriterUnitTests
     }
 
     [Fact]
-    public void HelperFile_IsInternalUnsignedMathWithBlockNamespace()
+    public void HelperFile_IsPublicUnsignedMathWithBlockNamespace()
     {
-        var content = UnsignedMathFileContent.Generate();
+        var content = HelperSource;
         Assert.Contains("namespace Cs2jUnsigned", content);
-        Assert.Contains("internal static class UnsignedMath", content);
+        Assert.Contains("public static class UnsignedMath", content);
+        Assert.DoesNotContain("internal static class UnsignedMath", content);
         Assert.Contains("public static int AddUInt32(int a, int b)", content);
         Assert.Contains("public static long ToInt64UInt32(int v)", content);
         Assert.DoesNotContain("public static class UnsignedExtensions", content);
@@ -533,7 +538,7 @@ public class UnsignedTypeRewriterUnitTests
     [Fact]
     public void HelperFile_UsesConverterSafeUnsignedPatterns()
     {
-        var content = UnsignedMathFileContent.Generate();
+        var content = HelperSource;
         // (ulong) 强转算术会被 Java 转换器擦成有符号,必须换成 >>> / JDK 算法。
         Assert.DoesNotContain("(ulong)a / (ulong)b", content);
         Assert.DoesNotContain("(ulong)a % (ulong)b", content);

@@ -5,7 +5,7 @@
 // 单文件模式（unsigned-type -i/-o）会把本文件原样写到输出目录，用户
 // 自行编译后再走主转换，因此内容须保持"可转换 C# 子集"：
 // - 无符号右移一律写 C# 11 的 >>>（转换器映射为 Java >>>）；
-// - 不得写 (ulong)a / (ulong)b 这类强转——转换器会把 (ulong) 擦成 (long)；
+// - 不得把无符号除法/取模写成两侧 ulong 强转——转换器会把 (ulong) 擦成 (long)；
 // - ulong → 浮点/decimal 一律经 ((ulong)v).ToString() 再 Parse。
 namespace Cs2jUnsigned
 {

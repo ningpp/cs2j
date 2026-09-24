@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CSharpToJava.Core\CSharpToJava.Core.csproj" />
     <ProjectReference Include="..\..\src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" />
+    <ProjectReference Include="..\..\src\Cs2jUnsignedMath\Cs2jUnsignedMath.csproj" />
   </ItemGroup>
 
   <ItemGroup>

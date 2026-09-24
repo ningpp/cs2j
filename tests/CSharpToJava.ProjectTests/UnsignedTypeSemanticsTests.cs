@@ -43,10 +43,9 @@ public class UnsignedTypeSemanticsTests
             rewrittenSources.Add(result.OutputCode);
         }
 
-        rewrittenSources.Add(UnsignedMathFileContent.Generate());
-
+        var helperReference = MetadataReference.CreateFromFile(typeof(Cs2jUnsigned.UnsignedMath).Assembly.Location);
         var originalOutput = CompileAndRun(sources.Select(s => s.Code), references, "unsigned-semantics-original");
-        var rewrittenOutput = CompileAndRun(rewrittenSources, references, "unsigned-semantics-rewritten");
+        var rewrittenOutput = CompileAndRun(rewrittenSources, references.Append(helperReference), "unsigned-semantics-rewritten");
 
         Assert.Equal(originalOutput, rewrittenOutput);
     }

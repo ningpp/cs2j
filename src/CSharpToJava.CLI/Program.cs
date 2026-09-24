@@ -3721,8 +3721,8 @@ public class Program
                 if (result.Statistics.OperatorsRewritten > 0 || result.Statistics.CastsRewritten > 0)
                 {
                     var outputDir = Path.GetDirectoryName(Path.GetFullPath(opts.Output)) ?? ".";
-                    var extensionPath = Path.Combine(outputDir, UnsignedMathFileContent.FileName);
-                    await File.WriteAllTextAsync(extensionPath, UnsignedMathFileContent.Generate(), new System.Text.UTF8Encoding(false));
+                    var extensionPath = Path.Combine(outputDir, UnsignedMathSupportFiles.SingleFileHelperFileName);
+                    await File.WriteAllTextAsync(extensionPath, UnsignedMathSupportFiles.GetUnsignedMathFileContent(), new System.Text.UTF8Encoding(false));
                     if (opts.Verbose)
                     {
                         Console.WriteLine($"Wrote extension file: {extensionPath}");
