@@ -510,4 +510,172 @@ public class RecordReadOnlyRewriterUnitTests
         Assert.Contains("init;", output);
         AssertOutputCompiles(output);
     }
+
+    [Fact]
+    public void MS1_LocalReceiver_BecomesWithAssign()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                void M()
+                {
+                    var p = new P();
+                    p.X = 1;
+                }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("p = p with { X = 1 };", output);
+        Assert.Equal(1, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS1_ValueParameterReceiver_BecomesWithAssign()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C { public void Update(P p) { p.X = 42; } }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p with { X = 42 };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS1_FieldAndSettablePropertyReceiver_Writable()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                private P _other;
+                public P Holder { get; set; }
+                public void M() { _other.X = 1; Holder.X = 2; }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("_other = _other with { X = 1 };", output);
+        Assert.Contains("Holder = Holder with { X = 2 };", output);
+        Assert.Equal(2, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS1_ArrayElementReceiver_BecomesWithAssign()
+    {
+        var src = """
+            using System;
+            public record struct P { public int X { get; set; } }
+            public class C { public void M(P[] arr) { arr[0].X = 9; } }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("arr[0] = arr[0] with { X = 9 };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS1_TupleElementReceiver_BecomesWithAssign()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void M((P a, int b) t) { t.a.X = 3; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("t.a = t.a with { X = 3 };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS8_InsideLambda_LocalCaptured_Writable()
+    {
+        var src = """
+            using System;
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void M()
+                {
+                    var p = new P();
+                    Action a = () => { p.X = 7; };
+                    a();
+                }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p with { X = 7 };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS9_RefParameterReceiver_Writable()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void Update(ref P p) { p.X = 5; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p with { X = 5 };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS13_ForeachIterationVariable_BlocksWithRR050()
+    {
+        var src = """
+            using System.Collections.Generic;
+            public record struct P { public int X { get; set; } }
+            public class C { public void M(List<P> list) { foreach (var p in list) p.X = 1; } }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("with", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR050);
+    }
+
+    [Fact]
+    public void MS1_InParameterReceiver_BlocksWithRR050()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C { public void Update(in P p) { p.X = 1; } }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR050);
+    }
+
+    [Fact]
+    public void MS1_GetOnlyReceiver_BlocksWithRR050()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C { public P Get() => default; public void M() { Get().X = 1; } }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR050);
+    }
+
+    [Fact]
+    public void MS1_ReceiverWithSideEffect_BlocksWithRR051()
+    {
+        var src = """
+            using System;
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public P[] Items = Array.Empty<P>();
+                public int F() => 0;
+                public void M() { Items[F()].X = 1; }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR051);
+    }
 }
+

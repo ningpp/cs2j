@@ -35,18 +35,17 @@ internal sealed record PlanTouch(string File, string? TypeName, string? MemberNa
 internal sealed record FeatureCaps(
     bool ReadOnlyModifier,
     bool MemberRewrites,
-    bool Sites,
     bool MethodMigration,
     bool InterfaceRipple)
 {
-    // Task 5：仅 readonly 修饰符。后续任务把对应项改为 true。
+    // Task 6：readonly 修饰符 + 声明成员改写（set→init、字段→init属性、私有字段 readonly）。
+    // Task 11：用点分类始终执行（分类不通过即精确诊断码阻断）。
+    // 后续任务把对应项改为 true。
     public static FeatureCaps Current => new(
         ReadOnlyModifier: true,
-        MemberRewrites: false,
-        Sites: false,
+        MemberRewrites: true,
         MethodMigration: false,
-        InterfaceRipple: false);
-}
+        InterfaceRipple: false);}
 
 internal sealed class RecordPlan
 {
@@ -251,11 +250,15 @@ internal sealed class PlanBuilder
                     "required to convert.");
         }
 
-        // 用点（MS）。
-        if (info.Sites.Count > 0 && !_caps.Sites)
-            return Fail(plan, RecordReadOnlyDiagnosticCode.RR020,
-                $"record has {info.Sites.Count} mutation site(s); mutation-site rewriting (MS) " +
-                "is required to convert.");
+        // 用点（MS）：逐点分类，任一不可行即整 record 失败（FB-1），错误位置在用点。
+        foreach (var site in info.Sites.OrderBy(s => s.Location.SourceSpan.Start))
+        {
+            var failure = MutationSiteClassifier.Classify(analysis, plan, info, site);
+            if (failure != null)
+                return FailAt(plan, failure.Code, failure.Reason, failure.Location);
+            plan.Sites.Add(new SitePlan(site, SiteActionKind.WithAssign));
+            plan.TouchedFiles.Add(site.FilePath);
+        }
 
         // 接口连带（IR）。
         if (rippleRequired && !_caps.InterfaceRipple)
@@ -309,6 +312,16 @@ internal sealed class PlanBuilder
         plan.FailCode = code;
         plan.FailReason = reason;
         plan.FailLocation = plan.Symbol.Locations.FirstOrDefault(l => l.IsInSource);
+        return plan;
+    }
+
+    private static RecordPlan FailAt(RecordPlan plan, RecordReadOnlyDiagnosticCode code,
+        string reason, Location location)
+    {
+        plan.Outcome = PlanOutcome.Infeasible;
+        plan.FailCode = code;
+        plan.FailReason = reason;
+        plan.FailLocation = location;
         return plan;
     }
 

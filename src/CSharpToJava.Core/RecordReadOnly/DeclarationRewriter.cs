@@ -22,7 +22,11 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
     {
         // 在 base.Visit 之前，用原始节点构建字段符号映射（visited 节点不在语法树中，
         // SemanticModel.GetDeclaredSymbol 会抛 ArgumentException）。
-        var recordSymbol = _context.Model.GetDeclaredSymbol(node);
+        // 输入 node 可能来自 AnnotateSites 后的树，需要从原始树中查找对应节点。
+        var origTree = _context.Model.SyntaxTree;
+        var origRoot = (CompilationUnitSyntax)origTree.GetRoot();
+        var origNode = origRoot.FindNode(node.Span) as RecordDeclarationSyntax ?? node;
+        var recordSymbol = _context.Model.GetDeclaredSymbol(origNode);
         var plan = ActivePlan(recordSymbol);
 
         // 预先收集本 record 原始字段声明的符号 → MemberRewrite 映射，按声明符索引。
@@ -30,7 +34,7 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
         if (plan is { Outcome: PlanOutcome.Converted })
         {
             var fieldIndex = 0;
-            foreach (var member in node.Members)
+            foreach (var member in origNode.Members)
             {
                 if (member is FieldDeclarationSyntax field)
                 {
@@ -168,7 +172,10 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitPropertyDeclaration(PropertyDeclarationSyntax node)
     {
         var visited = (PropertyDeclarationSyntax)base.VisitPropertyDeclaration(node)!;
-        var symbol = _context.Model.GetDeclaredSymbol(node);
+        // 从原始树中查找节点以获取符号。
+        var origRoot = (CompilationUnitSyntax)_context.Model.SyntaxTree.GetRoot();
+        var origNode = origRoot.FindNode(node.Span) as PropertyDeclarationSyntax ?? node;
+        var symbol = _context.Model.GetDeclaredSymbol(origNode);
         var plan = ActivePlan(symbol?.ContainingType);
         if (plan == null || plan.Outcome != PlanOutcome.Converted) return visited;
         var rewrite = symbol == null ? null : FindRewrite(plan, symbol);
@@ -209,10 +216,12 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
     {
         var visited = (FieldDeclarationSyntax)base.VisitFieldDeclaration(node)!;
         // RS-6a：不提升属性、又非 readonly 的私有字段，加 readonly。
+        var origRoot = (CompilationUnitSyntax)_context.Model.SyntaxTree.GetRoot();
         var any = false;
         foreach (var variable in node.Declaration.Variables)
         {
-            var symbol = _context.Model.GetDeclaredSymbol(variable) as IFieldSymbol;
+            var origVar = origRoot.FindNode(variable.Span) as VariableDeclaratorSyntax ?? variable;
+            var symbol = _context.Model.GetDeclaredSymbol(origVar) as IFieldSymbol;
             var plan = ActivePlan(symbol?.ContainingType);
             var rewrite = symbol == null || plan == null ? null : FindRewrite(plan, symbol);
             if (rewrite?.Kind == MemberRewriteKind.PrivateFieldReadonly) any = true;

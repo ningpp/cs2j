@@ -144,20 +144,6 @@ internal sealed class RecordReadOnlyAnalyzer
             }
         }
 
-        // Pass 1b：确保所有 partial 部分都被收集（DeclaringSyntaxReferences 在某些
-        // Roslyn 版本中对 partial 声明可能不返回 RecordDeclarationSyntax）。
-        foreach (var tree in compilation.SyntaxTrees)
-        {
-            var model = compilation.GetSemanticModel(tree);
-            foreach (var decl in tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>())
-            {
-                if (model.GetDeclaredSymbol(decl) is not { } symbol) continue;
-                if (!_analysis.BySymbol.TryGetValue(symbol, out var info)) continue;
-                if (!info.Parts.Contains(decl))
-                    info.Parts.Add(decl);
-            }
-        }
-
         // Pass 2：成员/方法写集/接口/层次事实。
         foreach (var info in _analysis.Records.ToList())
             FillMemberFacts(info, compilation);
@@ -178,20 +164,6 @@ internal sealed class RecordReadOnlyAnalyzer
             .Select(r => r.GetSyntax())
             .OfType<RecordDeclarationSyntax>()
             .ToList();
-        // Fallback: DeclaringSyntaxReferences may not yield RecordDeclarationSyntax directly
-        // for partial declarations in some Roslyn versions. Use symbol.Locations as backup.
-        if (parts.Count == 0)
-        {
-            foreach (var loc in symbol.Locations.Where(l => l.IsInSource))
-            {
-                if (loc.SourceTree?.GetRoot() is { } root)
-                {
-                    var node = root.FindNode(loc.SourceSpan);
-                    if (node.FirstAncestorOrSelf<RecordDeclarationSyntax>() is { } recDecl)
-                        parts.Add(recDecl);
-                }
-            }
-        }
         var info = new RecordInfo
         {
             Symbol = symbol,
@@ -220,7 +192,8 @@ internal sealed class RecordReadOnlyAnalyzer
                         if (property.SetMethod is { IsInitOnly: false }) info.HasSettableIndexer = true;
                         break;
                     }
-                    if (property.SetMethod is { } set && !set.IsInitOnly)
+                    // RS-12：静态属性不在 readonly struct 约束范围内，不收集。
+                    if (!property.IsStatic && property.SetMethod is { } set && !set.IsInitOnly)
                         info.SettableProperties.Add(property);
                     if ((property.ReturnsByRef || property.ReturnsByRefReadonly)
                         && RecordSyntaxFacts.IsVisibleOutsideType(property))
@@ -522,16 +495,28 @@ internal sealed class RecordReadOnlyAnalyzer
         SyntaxNode writeNode, ExpressionSyntax left, SiteKind kind)
     {
         // 拆解成员链 a.B.C：从最内层向外收集，最外层成员的 ContainingType 即目标 record。
+        // 注意：源码可能有编译错误（如 foreach 变量赋值、属性返回值类型成员修改），
+        // 导致 GetSymbolInfo 返回 null。此时用 GetTypeInfo 推断接收者类型，
+        // 再从类型上查找成员。
         var chain = new List<ChainSegment>();
         ExpressionSyntax? cursor = left;
         ISymbol? deepestMember = null;
         ITypeSymbol? receiverType = null;
+        // record 成员的直接接收者表达式（如 t.a.X = 3 中 Receiver 应为 t.a，而非根 t）。
+        ExpressionSyntax? recordMemberReceiver = null;
         while (cursor is MemberAccessExpressionSyntax ma)
         {
             var sym = model.GetSymbolInfo(ma).Symbol;
             var recvType = model.GetTypeInfo(ma.Expression).Type;
+            // 若 symbol 查找失败（编译错误场景），尝试从接收者类型上按名字查找成员。
+            if (sym == null && recvType is INamedTypeSymbol rt)
+                sym = rt.GetMembers(ma.Name.Identifier.Text).FirstOrDefault();
             chain.Add(new ChainSegment(sym!, recvType, ma));
-            deepestMember ??= sym;
+            if (deepestMember == null)
+            {
+                deepestMember = sym;
+                recordMemberReceiver = ma.Expression;
+            }
             receiverType ??= recvType;
             cursor = ma.Expression;
         }
@@ -565,7 +550,7 @@ internal sealed class RecordReadOnlyAnalyzer
             FilePath = tree.FilePath,
             WriteNode = writeNode,
             Left = left,
-            Receiver = cursor ?? left,
+            Receiver = recordMemberReceiver ?? cursor ?? left,
             Member = deepestMember,
             ReceiverType = receiverType,
             RootReceiverType = rootReceiverType,

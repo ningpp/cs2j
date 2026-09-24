@@ -98,13 +98,14 @@ public sealed partial class RecordReadOnlyPreprocessor
 
     private static CompilationUnitSyntax ApplyRewriters(CompilationUnitSyntax root, RewriteContext context)
     {
-        // 顺序：先迁移方法（签名/体/调用点），再改声明，再接口连带，最后残余用点。
-        // 每个用点在计划阶段被唯一归类，故四个 rewriter 不会重复处理同一节点。
-        var afterMethods = (CompilationUnitSyntax)new MethodMigrator(context).Visit(root)!;
+        // 顺序：先用点（在原始树上，SpanStart 与 Analyzer 收集的一致），再迁移方法，
+        // 再改声明，再接口连带。每个用点在计划阶段被唯一归类，故四个 rewriter 不会重复处理同一节点。
+        // DeclarationRewriter 已改为通过原始树查找符号，不受 MutationSiteRewriter 克隆影响。
+        var afterSites = (CompilationUnitSyntax)new MutationSiteRewriter(context).Visit(root)!;
+        var afterMethods = (CompilationUnitSyntax)new MethodMigrator(context).Visit(afterSites)!;
         var afterDecls = (CompilationUnitSyntax)new DeclarationRewriter(context).Visit(afterMethods)!;
         var afterInterfaces = (CompilationUnitSyntax)new InterfaceRippler(context).Visit(afterDecls)!;
-        var afterSites = (CompilationUnitSyntax)new MutationSiteRewriter(context).Visit(afterInterfaces)!;
-        return afterSites;
+        return afterInterfaces;
     }
 
     internal static bool IsRecordDirty(SyntaxNode root) =>
