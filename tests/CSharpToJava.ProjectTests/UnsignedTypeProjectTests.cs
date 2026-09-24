@@ -76,6 +76,9 @@ public class UnsignedTypeProjectTests
                 "<ProjectReference Include=\"Cs2jUnsignedMath\\Cs2jUnsignedMath.csproj\" />",
                 libCsprojContent);
             Assert.DoesNotContain("_Cs2jUnsignedMath.cs", libCsprojContent);
+            Assert.Contains(
+                "<Compile Remove=\"Cs2jUnsignedMath\\**\" />",
+                libCsprojContent);
             Assert.DoesNotContain("using Cs2jUnsigned;", opsContent);
             Assert.Contains("Cs2jUnsigned.UnsignedMath", opsContent);
         }

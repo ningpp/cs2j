@@ -397,6 +397,28 @@ internal static class ProjectUnsignedTypePreprocessor
 
         var projectDirectory = Path.GetDirectoryName(projectFilePath)!;
 
+        // 根目录 host 特判：host csproj 本身位于中间树根时，Cs2jUnsignedMath/**
+        // 会落入 SDK 默认编译 glob，host 会多编一份 helper（LangVersion < 11
+        // 时直接编译失败）。显式排除，ProjectReference 照常注入。
+        var isSdkProject = root.Attribute("Sdk") != null;
+        var enableDefaultCompileItems = GetPropertyValue(root, "EnableDefaultCompileItems");
+        if (isSdkProject
+            && !string.Equals(enableDefaultCompileItems?.Trim(), "false", StringComparison.OrdinalIgnoreCase)
+            && PathsEqual(projectDirectory, intermediateRoot))
+        {
+            var removePattern = Path.Combine(UnsignedMathSupportFiles.LibDirectoryName, "**");
+            if (!root.Descendants().Any(e =>
+                    e.Name.LocalName == "Compile"
+                    && string.Equals((string?)e.Attribute("Remove"), removePattern, StringComparison.OrdinalIgnoreCase)))
+            {
+                root.Add(
+                    new XText(Environment.NewLine + "  "),
+                    new XElement("ItemGroup",
+                        new XElement("Compile", new XAttribute("Remove", removePattern))),
+                    new XText(Environment.NewLine));
+            }
+        }
+
         foreach (var referenceElement in root.Descendants()
                      .Where(e => e.Name.LocalName == "ProjectReference")
                      .ToList())
