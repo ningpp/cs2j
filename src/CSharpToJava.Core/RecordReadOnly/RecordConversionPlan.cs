@@ -151,6 +151,17 @@ internal sealed class PlanBuilder
             plan.TouchedFiles.Add(file);
             plan.Touches.Add(new PlanTouch(file, info.Symbol.Name, null));
         }
+        // Fallback: if Parts was empty (e.g. DeclaringSyntaxReferences didn't yield
+        // RecordDeclarationSyntax), use symbol.Locations to populate TouchedFiles.
+        if (plan.TouchedFiles.Count == 0)
+        {
+            foreach (var loc in info.Symbol.Locations.Where(l => l.IsInSource))
+            {
+                var f = loc.SourceTree?.FilePath ?? "";
+                plan.TouchedFiles.Add(f);
+                plan.Touches.Add(new PlanTouch(f, info.Symbol.Name, null));
+            }
+        }
 
         if (_options.SkipQualifiedNames.Contains(qn))
         {

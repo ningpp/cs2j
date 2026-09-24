@@ -144,6 +144,20 @@ internal sealed class RecordReadOnlyAnalyzer
             }
         }
 
+        // Pass 1b：确保所有 partial 部分都被收集（DeclaringSyntaxReferences 在某些
+        // Roslyn 版本中对 partial 声明可能不返回 RecordDeclarationSyntax）。
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var model = compilation.GetSemanticModel(tree);
+            foreach (var decl in tree.GetRoot().DescendantNodes().OfType<RecordDeclarationSyntax>())
+            {
+                if (model.GetDeclaredSymbol(decl) is not { } symbol) continue;
+                if (!_analysis.BySymbol.TryGetValue(symbol, out var info)) continue;
+                if (!info.Parts.Contains(decl))
+                    info.Parts.Add(decl);
+            }
+        }
+
         // Pass 2：成员/方法写集/接口/层次事实。
         foreach (var info in _analysis.Records.ToList())
             FillMemberFacts(info, compilation);
@@ -164,6 +178,20 @@ internal sealed class RecordReadOnlyAnalyzer
             .Select(r => r.GetSyntax())
             .OfType<RecordDeclarationSyntax>()
             .ToList();
+        // Fallback: DeclaringSyntaxReferences may not yield RecordDeclarationSyntax directly
+        // for partial declarations in some Roslyn versions. Use symbol.Locations as backup.
+        if (parts.Count == 0)
+        {
+            foreach (var loc in symbol.Locations.Where(l => l.IsInSource))
+            {
+                if (loc.SourceTree?.GetRoot() is { } root)
+                {
+                    var node = root.FindNode(loc.SourceSpan);
+                    if (node.FirstAncestorOrSelf<RecordDeclarationSyntax>() is { } recDecl)
+                        parts.Add(recDecl);
+                }
+            }
+        }
         var info = new RecordInfo
         {
             Symbol = symbol,

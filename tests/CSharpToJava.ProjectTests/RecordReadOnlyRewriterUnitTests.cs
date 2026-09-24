@@ -178,7 +178,8 @@ public class RecordReadOnlyRewriterUnitTests
             public partial record struct P { public int Y { get; } }
             """;
         var (output, stats, _) = Rewrite(src);
-        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(output, "readonly record struct P").Count);
+        // readonly 必须在 partial 之前（CS1585），所以输出为 "readonly partial record struct P"。
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(output, "readonly partial record struct P").Count);
         AssertOutputCompiles(output);
     }
 

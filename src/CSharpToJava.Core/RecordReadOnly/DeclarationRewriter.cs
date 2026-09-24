@@ -22,8 +22,25 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
 
         var modifier = SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)
             .WithTrailingTrivia(SyntaxFactory.Space);
+
+        // readonly 必须排在 partial 之前，否则 CS1585。
+        // 找到 partial 的位置，把 readonly 插在其前；没有 partial 则追加到末尾。
+        var mods = visited.Modifiers;
+        var partialIndex = -1;
+        for (var i = 0; i < mods.Count; i++)
+        {
+            if (mods[i].IsKind(SyntaxKind.PartialKeyword))
+            {
+                partialIndex = i;
+                break;
+            }
+        }
+        var newMods = partialIndex >= 0
+            ? mods.Insert(partialIndex, modifier)
+            : SyntaxFactory.TokenList(mods.Concat(new[] { modifier }));
+
         return visited
-            .WithModifiers(SyntaxFactory.TokenList(visited.Modifiers.Concat(new[] { modifier })))
+            .WithModifiers(newMods)
             .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
     }
 }
