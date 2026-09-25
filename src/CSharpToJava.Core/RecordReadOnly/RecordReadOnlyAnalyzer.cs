@@ -721,9 +721,48 @@ internal sealed class RecordReadOnlyAnalyzer
                 receiverType ??= model.GetTypeInfo(cursor).Type;
             }
         }
-        if (deepestMember?.ContainingType is not { IsRecord: true } targetType) return;
-        if (!_analysis.BySymbol.TryGetValue(targetType, out var target)) return;
+        if (deepestMember?.ContainingType is not { } memberOwner) return;
         if (receiverType == null) return;
+
+        // IR-4：接收者静态类型为接口（i.P = v）。成员属主是接口而非 record，
+        // 把同一用点登记到每个“在树内、以该成员为接口实现”的 record 事实上；
+        // 计划阶段只有实际生成 ripple 的转换 record 才会消费它（见 RippleForSite）。
+        if (memberOwner.TypeKind == TypeKind.Interface && memberOwner is INamedTypeSymbol ownerInterface)
+        {
+            foreach (var candidate in _analysis.Records)
+            {
+                if (!candidate.Symbol.AllInterfaces.Any(i =>
+                        SymbolEqualityComparer.Default.Equals(i, ownerInterface)))
+                    continue;
+                if (candidate.Symbol.FindImplementationForInterfaceMember(deepestMember) == null)
+                    continue;
+
+                var interfaceSite = new MutationSiteInfo
+                {
+                    Location = writeNode.GetLocation(),
+                    FilePath = tree.FilePath,
+                    WriteNode = writeNode,
+                    Left = left,
+                    Receiver = cursor ?? left,
+                    Member = deepestMember,
+                    ReceiverType = receiverType,
+                    RootReceiverType = model.GetTypeInfo(cursor ?? left).Type ?? receiverType,
+                    ReceiverInterface = ownerInterface,
+                    Kind = kind,
+                    IsStatementPosition = writeNode.FirstAncestorOrSelf<ExpressionStatementSyntax>() != null
+                        || writeNode.FirstAncestorOrSelf<GlobalStatementSyntax>() != null,
+                    EnclosingMethod = writeNode.FirstAncestorOrSelf<BaseMethodDeclarationSyntax>() is { } ifaceSiteEnclosing
+                        ? model.GetDeclaredSymbol(ifaceSiteEnclosing) : null,
+                    Chain = chain,
+                };
+                interfaceSite.TargetRecord = candidate;
+                candidate.Sites.Add(interfaceSite);
+            }
+            return;
+        }
+
+        if (memberOwner is not { IsRecord: true } targetType) return;
+        if (!_analysis.BySymbol.TryGetValue(targetType, out var target)) return;
 
         // this.F / 隐式 this 写发生在 record 自身方法/访问器（含本地函数/lambda 所在的
         // 外层成员）内时，属 MM（字段提升）或 ctor/init 访问器的合法路径，不登记为 MS 用点。

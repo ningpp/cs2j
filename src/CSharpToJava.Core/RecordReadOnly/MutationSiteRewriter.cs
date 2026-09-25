@@ -76,12 +76,36 @@ internal static class MutationSiteClassifier
         if (segmentCount > 1)
             return ClassifyNestedChain(analysis, plan, site);
 
-        var memberFailure = MemberIsInitSettable(plan, site.Member);
-        if (memberFailure != null) return new SiteFailure(memberFailure.Code,
-            memberFailure.Reason, site.Location);
+        // IR-4：命中 ripple 的成员（接口属性不在 MemberRewrites 内）跳过 init 门，
+        // 只校验接收者可写且无副作用（RR050/RR051）；改写形态为 InterfaceWithCall。
+        if (site.Kind == SiteKind.SimpleAssign
+            && RippleForSite(plan, site.Member) == null)
+        {
+            var memberFailure = MemberIsInitSettable(plan, site.Member);
+            if (memberFailure != null) return new SiteFailure(memberFailure.Code,
+                memberFailure.Reason, site.Location);
+        }
 
         var receiverFailure = ReceiverWritableAndPure(model, site.Receiver, info);
         return receiverFailure;
+    }
+
+    /// <summary>
+    /// IR-4：用点成员命中本 record 的接口连带成员时返回其映射。
+    /// record 静态类型接收者解析到 RecordMember（R.P）；接口静态类型接收者
+    /// 解析到 InterfaceMember（I.P）——两者都认。
+    /// </summary>
+    internal static RippleMember? RippleForSite(RecordPlan plan, ISymbol? member)
+    {
+        if (member == null) return null;
+        foreach (var ripple in plan.Ripples)
+        foreach (var rippleMember in ripple.Members)
+        {
+            if (SymbolEqualityComparer.Default.Equals(rippleMember.InterfaceMember, member)
+                || SymbolEqualityComparer.Default.Equals(rippleMember.RecordMember, member))
+                return rippleMember;
+        }
+        return null;
     }
 
     private static SiteFailure? ClassifyReadModifyWrite(
@@ -696,6 +720,8 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
 
     private ExpressionSyntax? RewriteSite(ExpressionSyntax writeExpression, SitePlan sitePlan)
     {
+        if (sitePlan.Action == SiteActionKind.InterfaceWithCall)
+            return RewriteInterfaceWithCall(writeExpression, sitePlan);
         return sitePlan.Site.Kind switch
         {
             SiteKind.SimpleAssign => RewriteWithAssign(writeExpression, sitePlan),
@@ -704,6 +730,49 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
             SiteKind.ConditionalAssign => RewriteConditional(writeExpression, sitePlan.Site),
             _ => null,
         };
+    }
+
+    /// <summary>
+    /// IR-4：`recv.P = rhs;`（P 命中接口连带）→ `recv = recv.WithP(rhs);`。
+    /// recv 静态类型为 record 时命中公共强类型版（返回 R）；为接口 I 时命中 I.WithP（返回 I）。
+    /// 接收者文本重新 ParseExpression 取两份新节点（同一脱离节点不能挂两个树槽）；
+    /// 右值只出现一次（调用实参），直接取其文本重解析，语义无损。
+    /// </summary>
+    private ExpressionSyntax? RewriteInterfaceWithCall(
+        ExpressionSyntax writeExpression, SitePlan sitePlan)
+    {
+        if (writeExpression is not AssignmentExpressionSyntax
+            {
+                RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+                Left: MemberAccessExpressionSyntax memberAccess,
+            } assignment)
+        {
+            return null;
+        }
+
+        var withName = WithMemberName(sitePlan);
+        if (withName == null) return null;
+
+        var receiverText = sitePlan.Site.Receiver.WithoutTrivia().ToFullString();
+        var valueText = assignment.Right.WithoutTrivia().ToFullString();
+        var call = SyntaxFactory.ParseExpression($"{receiverText}.{withName}({valueText})");
+        var writeBack = SyntaxFactory.ParseExpression(receiverText);
+        return SyntaxFactory.AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression, writeBack, call)
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+    }
+
+    private string? WithMemberName(SitePlan sitePlan)
+    {
+        foreach (var plan in _context.ActivePlans)
+        foreach (var ripple in plan.Ripples)
+        foreach (var member in ripple.Members)
+        {
+            if (SymbolEqualityComparer.Default.Equals(member.InterfaceMember, sitePlan.Site.Member)
+                || SymbolEqualityComparer.Default.Equals(member.RecordMember, sitePlan.Site.Member))
+                return member.WithName;
+        }
+        return null;
     }
 
     /// <summary>recv.M = rhs  →  recv = recv with { M = rhs }（MS-1）。</summary>

@@ -38,13 +38,14 @@ public sealed partial class RecordReadOnlyPreprocessor
         statistics.FilesScanned++;
         var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
 
-        if (!IsRecordDirty(root))
+        // IR-1 可能只改接口文件（文件内没有任何 record 声明），必须先建分析/计划再判脏。
+        EnsureBuilt(semanticModel);
+
+        if (!IsRecordDirty(root) && !FileGainsInterfaceMember(_plan!, semanticModel.SyntaxTree.FilePath))
         {
             statistics.FilesSkippedClean++;
             return new RecordReadOnlyFileResult { OutputCode = sourceCode, Changed = false };
         }
-
-        EnsureBuilt(semanticModel);
 
         var filePath = semanticModel.SyntaxTree.FilePath;
         var activePlans = _plan!.Plans
@@ -113,6 +114,12 @@ public sealed partial class RecordReadOnlyPreprocessor
 
     internal static bool IsRecordDirty(SyntaxNode root) =>
         root.DescendantNodes().OfType<RecordDeclarationSyntax>().Any();
+
+    /// <summary>该文件声明了某个已转换 record 计划要追加 With 成员的接口（IR-1）。</summary>
+    private static bool FileGainsInterfaceMember(ConversionPlan plan, string filePath) =>
+        plan.Plans.Any(p => p.Outcome == PlanOutcome.Converted
+            && p.Ripples.Any(r => r.Interface.Locations.Any(l => l.IsInSource
+                && string.Equals(l.SourceTree!.FilePath, filePath, StringComparison.OrdinalIgnoreCase))));
 
     /// <summary>仅格式化改动区间→整文件格式化→原文候选，每个候选重新解析零错误才返回。</summary>
     internal static string? FormatAndValidate(CompilationUnitSyntax root)

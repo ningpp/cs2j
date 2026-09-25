@@ -29,9 +29,22 @@ internal sealed record MethodMigrationPlan(
     MethodMigrationKind Kind,
     IReadOnlyList<ISymbol> PromotedMembers);
 
+/// <summary>
+/// 接口连带中“接口新 With 成员 ↔ record 被替代成员”的一条映射。
+/// 属性触发：InterfaceMember/RecordMember 均为 IPropertySymbol；
+/// 方法触发（Task 21）：均为 IMethodSymbol。
+/// </summary>
+internal sealed record RippleMember(
+    INamedTypeSymbol Interface,
+    ISymbol InterfaceMember,
+    ISymbol RecordMember,
+    string WithName,
+    bool IsMethod,
+    bool ReturnsVoid);
+
 internal sealed record InterfaceRipplePlan(
     INamedTypeSymbol Interface,
-    IReadOnlyList<ISymbol> TriggerMembers);
+    IReadOnlyList<RippleMember> Members);
 
 internal sealed record SitePlan(MutationSiteInfo Site, SiteActionKind Action);
 
@@ -51,7 +64,7 @@ internal sealed record FeatureCaps(
         ReadOnlyModifier: true,
         MemberRewrites: true,
         MethodMigration: true,
-        InterfaceRipple: false);}
+        InterfaceRipple: true);}
 
 internal sealed class RecordPlan
 {
@@ -181,24 +194,29 @@ internal sealed class PlanBuilder
 
         var forced = _options.ForceQualifiedNames.Contains(qn);
 
-        var rippleRequired = false;
-
-        // 属性 set→init（RS-3/4/9/20；RC-2/5 在 M5 复用同一条目）。
+        // 属性 set→init（RS-3/RS-4/RS-9/RS-20；RC-2/RC-5 在 M5 复用同一条目）。
+        // 命中接口 set（RS-14）的公共属性照常 set→init；旧接口契约改由 IR-2 显式桩满足，
+        // 触发信息收集到 rippleProperties，本方法末统一规划 IR-1/IR-2/IR-4。
         // positional record struct 的位置参数属性由 readonly 修饰符自动转 set→init，不算显式重写。
         var positionalNames = info.IsPositional
             ? new HashSet<string>(info.Parts
                 .SelectMany(p => p.ParameterList?.Parameters ?? default)
                 .Select(p => p.Identifier.Text), StringComparer.Ordinal)
             : new HashSet<string>(StringComparer.Ordinal);
+        var rippleProperties =
+            new List<(IPropertySymbol RecordProperty, INamedTypeSymbol Interface,
+                IPropertySymbol InterfaceProperty)>();
         foreach (var property in info.SettableProperties)
         {
-            if (positionalNames.Contains(property.Name))
-                continue; // readonly 修饰符自动处理位置参数的 set→init。
-            if (PropertyImplementsInterfaceSetter(info.Symbol, property))
+            var implementations = InterfaceSetterImplementations(info.Symbol, property);
+            foreach (var (iface, interfaceProperty) in implementations)
             {
-                rippleRequired = true;
-                continue; // RS-14/RC-7：显式桩 + IR 在 M4 落地。
+                rippleProperties.Add((property, iface, interfaceProperty));
             }
+            // readonly 修饰符自动处理位置参数的 set→init；但命中接口 set 的位置属性
+            // 仍需 MemberRewrite（显式桩/IR-2 路径依赖该条目）。
+            if (positionalNames.Contains(property.Name) && implementations.Count == 0)
+                continue;
             plan.MemberRewrites.Add(new MemberRewrite(
                 property.Name, MemberRewriteKind.SetToInit, property, property.IsRequired));
         }
@@ -283,31 +301,74 @@ internal sealed class PlanBuilder
             }
         }
 
+        // 接口连带（IR-1/IR-2/IR-4/IR-7；属性触发；方法触发 Task 21）。
+        // 先于用点分类：RippleForSite 需要 plan.Ripples 判定 InterfaceWithCall 动作。
+        // cap 门保留：能力被外部关闭时给 RR070（单测/未来 overrides 可构造该形态）。
+        if (rippleProperties.Count > 0 && !_caps.InterfaceRipple)
+            return Fail(plan, RecordReadOnlyDiagnosticCode.RR070,
+                "record implicitly implements a settable interface member; interface ripple (IR) " +
+                "is required to convert.");
+
+        foreach (var group in rippleProperties
+                     .GroupBy(t => t.Interface, SymbolEqualityComparer.Default))
+        {
+            var iface = (INamedTypeSymbol)group.Key!;
+
+            // IR-7：外部接口（源不在树内）无法追加成员 → FB-1（force 接受桩降级在 Task 22）。
+            if (!RecordSyntaxFacts.IsInTree(iface))
+                return Fail(plan, RecordReadOnlyDiagnosticCode.RR070,
+                    $"interface '{iface.ToDisplayString()}' declares settable member(s) implemented " +
+                    "by this record but the interface is not part of the source tree; the required " +
+                    "'With' member cannot be added to it (IR-7/FB-3).");
+
+            var members = new List<RippleMember>();
+            foreach (var (recordProperty, _, interfaceProperty) in group)
+            {
+                var withName = "With" + interfaceProperty.Name;
+
+                // IR-7：签名碰撞先 FB-1；改名 WithX__cs2j 在 Task 22。
+                if (iface.GetMembers().Any(m => m.Name == withName))
+                    return FailAt(plan, RecordReadOnlyDiagnosticCode.RR071,
+                        $"interface '{iface.ToDisplayString()}' already declares a member named " +
+                        $"'{withName}'; adding the ripple member would collide (IR-7).",
+                        interfaceProperty.Locations.FirstOrDefault(l => l.IsInSource)
+                            ?? info.Symbol.Locations.First(l => l.IsInSource));
+                if (info.Symbol.GetMembers().Any(m => m.Name == withName))
+                    return FailAt(plan, RecordReadOnlyDiagnosticCode.RR071,
+                        $"record '{info.Symbol.Name}' already declares a member named " +
+                        $"'{withName}'; the generated strongly-typed ripple member would collide " +
+                        "(IR-7).",
+                        info.Symbol.Locations.First(l => l.IsInSource));
+
+                members.Add(new RippleMember(
+                    iface, interfaceProperty, recordProperty, withName,
+                    IsMethod: false, ReturnsVoid: true));
+            }
+
+            plan.Ripples.Add(new InterfaceRipplePlan(iface, members));
+
+            // IR-1 改的是接口文件：登记触碰面供 activePlans 准入与 FB-5 计划级回退归属。
+            foreach (var loc in iface.Locations.Where(l => l.IsInSource))
+            {
+                plan.TouchedFiles.Add(loc.SourceTree!.FilePath);
+                plan.Touches.Add(new PlanTouch(loc.SourceTree!.FilePath, iface.Name, null));
+            }
+        }
+
         // 用点（MS）：逐点分类，任一不可行即整 record 失败（FB-1），错误位置在用点。
         foreach (var site in info.Sites.OrderBy(s => s.Location.SourceSpan.Start))
         {
             var failure = MutationSiteClassifier.Classify(analysis, plan, info, site);
             if (failure != null)
                 return FailAt(plan, failure.Code, failure.Reason, failure.Location);
-            plan.Sites.Add(new SitePlan(site, SiteActionKind.WithAssign));
+            // IR-4 仅接管简单赋值；复合/自增等形态在 record 接收者上继续走 with 管线，
+            // 在接口接收者上由各自 Classify* 辅助的 MemberIsInitSettable 门判 RR020。
+            var action = site.Kind == SiteKind.SimpleAssign
+                && MutationSiteClassifier.RippleForSite(plan, site.Member) != null
+                ? SiteActionKind.InterfaceWithCall
+                : SiteActionKind.WithAssign;
+            plan.Sites.Add(new SitePlan(site, action));
             plan.TouchedFiles.Add(site.FilePath);
-        }
-
-        // 接口连带（IR）。
-        if (rippleRequired && !_caps.InterfaceRipple)
-            return Fail(plan, RecordReadOnlyDiagnosticCode.RR070,
-                "record implicitly implements a settable interface member; interface ripple (IR) " +
-                "is required to convert.");
-        if (rippleRequired)
-        {
-            foreach (var group in info.SettableProperties
-                         .Where(p => PropertyImplementsInterfaceSetter(info.Symbol, p))
-                         .Select(p => InterfaceForSetter(info.Symbol, p))
-                         .Where(i => i is not null)
-                         .GroupBy(i => (ISymbol)i!, SymbolEqualityComparer.Default))
-            {
-                plan.Ripples.Add(new InterfaceRipplePlan((INamedTypeSymbol)group.Key, Array.Empty<ISymbol>()));
-            }
         }
 
         if (analysis.HasDynamicOrReflectionMutation)
@@ -365,33 +426,28 @@ internal sealed class PlanBuilder
         => info.WriteInfos.Values.Any(w => !w.IsConstructor && !w.IsPropertySetter
             && (w.WritesThis || w.WrittenMembers.Contains(field)));
 
-    private static bool PropertyImplementsInterfaceSetter(INamedTypeSymbol record, IPropertySymbol property)
+    /// <summary>
+    /// 返回 record 属性对“带可写（非 init）set 的接口属性”的全部实现映射。
+    /// 一个公共属性可同时隐式实现多个接口成员（IR-2 每接口各生成一份显式桩）。
+    /// 外部接口同样枚举——IR-7 的 in-tree 裁决在规划段做，这里不预先过滤。
+    /// </summary>
+    private static IReadOnlyList<(INamedTypeSymbol Interface, IPropertySymbol InterfaceProperty)>
+        InterfaceSetterImplementations(INamedTypeSymbol record, IPropertySymbol property)
     {
+        var result = new List<(INamedTypeSymbol, IPropertySymbol)>();
         foreach (var iface in record.AllInterfaces)
         {
-            foreach (var ip in iface.GetMembers().OfType<IPropertySymbol>())
+            foreach (var interfaceProperty in iface.GetMembers().OfType<IPropertySymbol>())
             {
-                if (ip.SetMethod is not { IsInitOnly: false }) continue;
-                var impl = record.FindImplementationForInterfaceMember(ip);
-                if (impl != null && SymbolEqualityComparer.Default.Equals(impl, property))
-                    return true;
+                if (interfaceProperty.SetMethod is not { IsInitOnly: false }) continue;
+                var impl = record.FindImplementationForInterfaceMember(interfaceProperty);
+                if (impl != null
+                    && SymbolEqualityComparer.Default.Equals(impl, property))
+                {
+                    result.Add((iface, interfaceProperty));
+                }
             }
         }
-        return false;
-    }
-
-    private static INamedTypeSymbol? InterfaceForSetter(INamedTypeSymbol record, IPropertySymbol property)
-    {
-        foreach (var iface in record.AllInterfaces)
-        {
-            foreach (var ip in iface.GetMembers().OfType<IPropertySymbol>())
-            {
-                if (ip.SetMethod is not { IsInitOnly: false }) continue;
-                var impl = record.FindImplementationForInterfaceMember(ip);
-                if (impl != null && SymbolEqualityComparer.Default.Equals(impl, property))
-                    return iface;
-            }
-        }
-        return null;
+        return result;
     }
 }

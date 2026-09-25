@@ -42,6 +42,41 @@ public class RecordReadOnlyRewriterUnitTests
         return (result.OutputCode, stats, diags);
     }
 
+    /// <summary>
+    /// 把 metadataSource 单独编成程序集引用，src 编译只引用其元数据——
+    /// 用于 IR-7“接口不在源码树内（BCL/三方形态）”场景。
+    /// </summary>
+    /// <remarks>ToMetadataReference 保留源符号位置，须 Emit 真实镜像。</remarks>
+    internal static (string Output, RecordReadOnlyStatistics Stats,
+        List<RecordReadOnlyDiagnostic> Diagnostics) RewriteWithMetadata(
+            string src, string metadataSource, RecordReadOnlyOptions? options = null)
+    {
+        var libComp = CSharpCompilation.Create(
+            "rr-external-lib.dll",
+            new[] { CSharpSyntaxTree.ParseText(metadataSource, ParseOptions) },
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        // 必须 Emit 成真实 PE 镜像：ToMetadataReference 保留源符号位置，IsInTree 会误判。
+        var peImage = new MemoryStream();
+        var emitResult = libComp.Emit(peImage);
+        Assert.True(emitResult.Success,
+            "metadata lib failed to emit: " +
+            string.Join("; ", emitResult.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
+        peImage.Position = 0;
+        var tree = CSharpSyntaxTree.ParseText(src, ParseOptions);
+        var compilation = CSharpCompilation.Create(
+            "rr-test",
+            new[] { tree },
+            GetReferences().Append(MetadataReference.CreateFromStream(peImage)),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+        var pp = new RecordReadOnlyPreprocessor(options ?? new RecordReadOnlyOptions());
+        var stats = new RecordReadOnlyStatistics();
+        var diags = new List<RecordReadOnlyDiagnostic>();
+        var result = pp.RewriteFile(src, compilation.GetSemanticModel(tree), stats, diags);
+        return (result.OutputCode, stats, diags);
+    }
+
     private static IEnumerable<MetadataReference> GetReferences()
     {
         var trusted = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES");
@@ -1916,7 +1951,138 @@ public class RecordReadOnlyRewriterUnitTests
         Assert.Equal(src, output);
         Assert.Equal(0, stats.MethodsMigrated);
     }
+    [Fact]
+    public void IR1_InterfaceGainsWithMember_RecordGetsStubsAndPublicWith()
+    {
+        var src = """
+            public interface I { int P { get; set; } }
+            public record struct R : I { public int P { get; set; } }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        // IR-1：既有成员不动，追加抽象 With 成员（int 经 UseSpecialTypes 保持关键字形态）。
+        Assert.Contains("int P { get; set; }", output);
+        Assert.Contains("global::I WithP(int value);", output);
+        // IR-2：公共属性 set→init；旧接口契约显式桩 get 转发 / set throw。
+        Assert.Contains("public int P { get; init; }", output);
+        Assert.Contains("int global::I.P", output);
+        Assert.Contains("set => throw new global::System.NotSupportedException(", output);
+        // IR-2：显式 With 委托公共强类型版；公共版 with 出口（避免装箱）。
+        Assert.Contains("global::I global::I.WithP(int value) => this.WithP(value);", output);
+        AssertContainsIgnoringWhitespace("public global::R WithP(int value) => this with { P = value };", output);
+        Assert.Equal(1, stats.InterfaceRipples);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR4_RecordTypedReceiver_RewrittenToPublicWithCall()
+    {
+        var src = """
+            public interface I { int P { get; set; } }
+            public record struct R : I { public int P { get; set; } }
+            public class C { public void M(R r) { r.P = 5; } }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("r = r.WithP(5);", output);
+        Assert.DoesNotContain("r = r with", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR4_InterfaceTypedReceiver_RewrittenToInterfaceWithCall()
+    {
+        var src = """
+            public interface I { int P { get; set; } }
+            public record struct R : I { public int P { get; set; } }
+            public class C { public void M(I i) { i.P = 5; } }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("i = i.WithP(5);", output);
+        Assert.Equal(1, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR4_InterfaceReceiverInParam_BlocksWithRR050()
+    {
+        var src = """
+            public interface I { int P { get; set; } }
+            public record struct R : I { public int P { get; set; } }
+            public class C { public void M(in I i) { i.P = 5; } }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("WithP(5)", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR050);
+    }
+
+    [Fact]
+    public void IR2_TwoInterfacesSameProperty_DedupPublicWith()
+    {
+        var src = """
+            public interface I1 { int P { get; set; } }
+            public interface I2 { int P { get; set; } }
+            public record struct R : I1, I2 { public int P { get; set; } }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        // IR-1：两个接口各加一份 WithP。
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(output,
+            @"global::I[12] WithP\(int value\);").Count);
+        // IR-2：每接口一份显式桩与显式 With。
+        Assert.Contains("int global::I1.P", output);
+        Assert.Contains("int global::I2.P", output);
+        Assert.Contains("global::I1 global::I1.WithP(int value) => this.WithP(value);", output);
+        Assert.Contains("global::I2 global::I2.WithP(int value) => this.WithP(value);", output);
+        // 公共强类型版同形状跨接口只生成一份。
+        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(output,
+            @"public global::R WithP\(int value\)").Count);
+        Assert.Equal(2, stats.InterfaceRipples);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR7_WithNameAlreadyDeclared_RR071AtomicSkip()
+    {
+        var src = """
+            public interface I { int P { get; set; } int WithP(int value); }
+            public record struct R : I
+            {
+                public int P { get; set; }
+                public int WithP(int value) => default;
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("readonly record struct", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR071);
+    }
+
+    [Fact]
+    public void IR7_ExternalInterface_RR070AtomicSkip()
+    {
+        var lib = "public interface IExt { int P { get; set; } }";
+        var src = "public record struct R : IExt { public int P { get; set; } }";
+        var (output, _, diags) = RewriteWithMetadata(src, lib);
+        Assert.DoesNotContain("readonly record struct", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR070);
+    }
+
+    [Fact]
+    public void IR1_CrossFile_RecordSideGeneratedWhenInterfaceLivesInOtherTree()
+    {
+        // CLI 逐文件驱动时接口文件会由它自己的 RewriteFile 调用补上 WithP；
+        // 此处只验证 record 文件一侧在跨树语义模型下正确产出（接口追加在 M6 工程级测试整树验证）。
+        var extra = "public interface I { int P { get; set; } }";
+        var src = """
+            public record struct R : I { public int P { get; set; } }
+            public class C { public void M(R r) { r.P = 1; } }
+            """;
+        var (output, stats, _) = Rewrite(src, null, null, extra);
+        AssertContainsIgnoringWhitespace("public global::R WithP(int value) => this with { P = value };", output);
+        Assert.Contains("r = r.WithP(1);", output);
+        Assert.Equal(0, stats.InterfaceRipples); // WithP 追加落在接口文件，不计入本文件
+        Assert.Equal(1, stats.FilesTransformed);
+    }
 }
+
+
 
 
 
