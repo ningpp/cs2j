@@ -2504,6 +2504,74 @@ public class RecordReadOnlyRewriterUnitTests
         Assert.Equal(src, output);
         Assert.Equal(0, stats.RecordClassesConverted);
     }
+
+    [Fact]
+    public void RC6_Hierarchy_AllConverted_WhenAllFeasible()
+    {
+        var src = """
+            public record class Base { public int X { get; set; } }
+            public record class Derived : Base { public int Y { get; set; } }
+            """;
+        var (output, stats, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RC-6：基类与派生类都转换（层次一致）。
+        Assert.Contains("public int X { get; init; }", output);
+        Assert.Contains("public int Y { get; init; }", output);
+        Assert.Equal(2, stats.RecordClassesConverted);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RC8_HierarchySkipped_WhenBaseInfeasible()
+    {
+        var src = """
+            public record class Base { public event System.Action? Ev; public int X { get; set; } }
+            public record class Derived : Base { public int Y { get; set; } }
+            """;
+        var (output, stats, diags) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RC-8/FB-2：Base 有实例事件（RR040）→ 整层次跳过，Derived 也跳过。
+        Assert.Equal(0, stats.RecordClassesConverted);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR040
+            && d.RecordName == "Base");
+        // RR021：层次整体跳过（Derived 因 Base 不可转换而跳过）。
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR021
+            && d.RecordName == "Derived");
+        // 输出原样保留。
+        Assert.Contains("public event System.Action? Ev;", output);
+        Assert.Contains("public int Y { get; set; }", output);
+    }
+
+    [Fact]
+    public void RC8_HierarchySkipped_WhenDerivedInfeasible()
+    {
+        var src = """
+            public record class Base { public int X { get; set; } }
+            public record class Derived : Base { public event System.Action? Ev; public int Y { get; set; } }
+            """;
+        var (output, stats, diags) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // 反向：Derived 不可转换 → Base 也跳过（层次一致）。
+        Assert.Equal(0, stats.RecordClassesConverted);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR021
+            && d.RecordName == "Base");
+    }
+
+    [Fact]
+    public void RC6_VirtualOverride_HierarchyConsistent()
+    {
+        var src = """
+            public record class Base { public virtual int X { get; set; } }
+            public record class Derived : Base { public override int X { get; set; } }
+            """;
+        var (output, stats, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RC-6：virtual/override 层次一致转 init。
+        Assert.Contains("public virtual int X { get; init; }", output);
+        Assert.Contains("public override int X { get; init; }", output);
+        Assert.Equal(2, stats.RecordClassesConverted);
+        AssertOutputCompiles(output);
+    }
 }
 
 

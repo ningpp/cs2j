@@ -160,7 +160,66 @@ internal sealed class PlanBuilder
         {
             plan.Plans.Add(BuildRecordPlan(info, analysis));
         }
+        EnforceHierarchyConsistency(plan);
         return plan;
+    }
+
+    /// <summary>
+    /// RC-8/FB-2：record class 继承层次（基类 record ↔ 派生 record）必须整层一致。
+    /// 层次中任一 record 不可转换 → 层次内所有 Converted 计划降级为 Infeasible(RR021)。
+    /// 按 BaseType 链做连通分量分组（允许中间夹非 record 类）。
+    /// </summary>
+    private static void EnforceHierarchyConsistency(ConversionPlan plan)
+    {
+        var classPlans = plan.Plans.Where(p => p.Kind == RecordKind.Class).ToList();
+        if (classPlans.Count == 0) return;
+        var bySymbol = classPlans.ToDictionary(
+            p => p.Symbol, p => p, SymbolEqualityComparer.Default);
+        var visited = new HashSet<RecordPlan>();
+
+        foreach (var root in classPlans)
+        {
+            if (visited.Contains(root)) continue;
+            var component = new HashSet<RecordPlan>();
+            var queue = new Queue<RecordPlan>();
+            queue.Enqueue(root);
+            visited.Add(root);
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+                component.Add(current);
+
+                // 基类方向：沿 BaseType 链向上找同链 record class。
+                for (var t = current.Symbol.BaseType; t != null; t = t.BaseType)
+                {
+                    if (!t.IsRecord || t.TypeKind != TypeKind.Class) continue;
+                    if (bySymbol.TryGetValue(t, out var basePlan)
+                        && visited.Add(basePlan))
+                        queue.Enqueue(basePlan);
+                }
+                // 派生方向：直接基类是本 record 的 record class。
+                foreach (var derived in classPlans)
+                {
+                    if (visited.Contains(derived)) continue;
+                    if (SymbolEqualityComparer.Default.Equals(
+                            derived.Symbol.BaseType, current.Symbol))
+                        queue.Enqueue(derived);
+                }
+            }
+
+            var anyBlocked = component.Any(p =>
+                p.Outcome is PlanOutcome.Infeasible or PlanOutcome.UserSkipped);
+            if (!anyBlocked) continue;
+            foreach (var p in component.Where(p => p.Outcome == PlanOutcome.Converted))
+            {
+                p.Outcome = PlanOutcome.Infeasible;
+                p.FailCode = RecordReadOnlyDiagnosticCode.RR021;
+                p.FailReason = "record class hierarchy is inconsistent: a base or derived " +
+                    "record in the same hierarchy was skipped; the entire hierarchy must be " +
+                    "converted together (RC-8/FB-2).";
+                p.FailLocation = p.Symbol.Locations.FirstOrDefault(l => l.IsInSource);
+            }
+        }
     }
 
     private RecordPlan BuildRecordPlan(RecordInfo info, RecordAnalysis analysis)
