@@ -21,6 +21,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Cs2jArray 支撑库（唯一真源在 src/Cs2jArray/，此处嵌入分发） -->
+    <EmbeddedResource Include="..\Cs2jArray\ArrayHelper.cs">
+      <Link>support\Cs2jArray\ArrayHelper.cs</Link>
+      <LogicalName>Cs2jArray.ArrayHelper.cs</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\Cs2jArray\Cs2jArray.csproj">
+      <Link>support\Cs2jArray\Cs2jArray.csproj</Link>
+      <LogicalName>Cs2jArray.Cs2jArray.csproj</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="..\..\config\.gitignore">
       <Link>config\.gitignore</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

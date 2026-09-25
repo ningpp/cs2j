@@ -166,4 +166,69 @@ class ArrayHelperTest {
         assertEquals(5, view.size());
         assertEquals(5, view.getCount());
     }
+
+    @Test
+    void testGetLength_multiDim() {
+        int[][] arr = {{1, 2, 3}, {4, 5}};
+        assertEquals(5, ArrayHelper.getLength((Object) arr));
+    }
+
+    @Test
+    void testClone() {
+        int[] arr = {1, 2, 3};
+        int[] copy = (int[]) ArrayHelper.clone(arr);
+        assertArrayEquals(arr, copy);
+        assertNotSame(arr, copy);
+    }
+
+    @Test
+    void testGetValue_andSetValue() {
+        int[][] arr = {{1, 2}, {3, 4}};
+        assertEquals(3, ArrayHelper.getValue(arr, 1, 0));
+        ArrayHelper.setValue(arr, 99, 1, 0);
+        assertEquals(99, ArrayHelper.getValue(arr, 1, 0));
+    }
+
+    @Test
+    void testResize_grow() {
+        String[] arr = {"a", "b"};
+        String[] result = ArrayHelper.resize(arr, 4);
+        assertArrayEquals(new String[]{"a", "b", null, null}, result);
+    }
+
+    @Test
+    void testResize_shrink() {
+        String[] arr = {"a", "b", "c"};
+        String[] result = ArrayHelper.resize(arr, 2);
+        assertArrayEquals(new String[]{"a", "b"}, result);
+    }
+
+    @Test
+    void testReverse() {
+        Integer[] arr = {1, 2, 3, 4, 5};
+        ArrayHelper.reverse(arr);
+        assertArrayEquals(new Integer[]{5, 4, 3, 2, 1}, arr);
+    }
+
+    @Test
+    void testFind_andFindAll() {
+        Integer[] arr = {1, 2, 3, 4, 5};
+        assertEquals(3, ArrayHelper.find(arr, x -> x == 3));
+        Integer[] evens = ArrayHelper.findAll(arr, x -> x % 2 == 0);
+        assertArrayEquals(new Integer[]{2, 4}, evens);
+    }
+
+    @Test
+    void testExists_andTrueForAll() {
+        Integer[] arr = {2, 4, 6};
+        assertTrue(ArrayHelper.exists(arr, x -> x == 4));
+        assertTrue(ArrayHelper.trueForAll(arr, x -> x % 2 == 0));
+    }
+
+    @Test
+    void testConvertAll() {
+        Integer[] arr = {1, 2, 3};
+        String[] result = ArrayHelper.convertAll(arr, Object::toString);
+        assertArrayEquals(new String[]{"1", "2", "3"}, result);
+    }
 }

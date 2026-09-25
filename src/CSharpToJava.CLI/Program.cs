@@ -4,6 +4,7 @@ using CSharpToJava.Core.GotoEliminator;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.Pipeline.Planning;
 using CSharpToJava.Core.UnsignedTypeRewriter;
+using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.LocalFunctionLift;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
@@ -26,7 +27,7 @@ public class Program
     internal static async Task<int> MainImpl(string[] args)
     {
         using var parser = new Parser(settings => settings.AllowMultiInstance = true);
-        return await parser.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions, RecordReadOnlyVerbOptions>(args)
+        return await parser.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions, RecordReadOnlyVerbOptions, ArrayMethodOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
@@ -40,6 +41,7 @@ public class Program
                 (TupleToStructVerbOptions opts) => TupleToStructVerbAsync(opts),
                 (StripConditionalOptions opts) => StripConditionalCommand.RunAsync(opts),
                 (RecordReadOnlyVerbOptions opts) => RecordReadOnlyVerbAsync(opts),
+                (ArrayMethodOptions opts) => ArrayMethod(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -424,6 +426,47 @@ public class Program
                 opts.FingerprintInputRoot ??= recordReadOnlyResult.SourceRoot;
             }
 
+            if (opts.EnableArrayMethod)
+            {
+                if (opts.Verbose)
+                {
+                    Console.WriteLine("[convert-project] Running array-method preprocessor...");
+                }
+
+                var arrayMethodResult = await ProjectArrayMethodPreprocessor.PreprocessAsync(
+                    new ProjectArrayMethodPreprocessRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        RewriterOptions = new ArrayMethodRewriterOptions(Verbose: opts.Verbose),
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                    });
+
+                foreach (var diagnostic in arrayMethodResult.Diagnostics)
+                {
+                    Console.Error.WriteLine($"[array-method] [{diagnostic.Severity}] {diagnostic.Message}");
+                }
+
+                if (!arrayMethodResult.Success)
+                {
+                    Console.Error.WriteLine("[convert-project] array-method preprocessing failed; aborting.");
+                    return 1;
+                }
+
+                opts.Source = arrayMethodResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= arrayMethodResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= arrayMethodResult.SourceRoot;
+
+                if (opts.Verbose)
+                {
+                    Console.WriteLine(
+                        $"[convert-project] array-method: {arrayMethodResult.Statistics.FilesTransformed} transformed, " +
+                        $"{arrayMethodResult.Statistics.FilesSkippedClean} clean");
+                }
+            }
+
             if (opts.MakeReadOnly)
             {
                 // ReadOnlyStructMaker preprocessing runs BEFORE goto elimination
@@ -552,6 +595,7 @@ public class Program
                 // 放在指纹快照之前——helper 文件不再进入 Java 输出，不应参与缓存键。
                 workspaceProjects = workspaceProjects
                     .Where(p => !Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject(p.FilePath))
+                    .Where(p => !Cs2jArrayProject.IsCs2jArrayProject(p.FilePath))
                     .ToList();
                 var inputFingerprintSnapshot = BuildWorkspaceInputFingerprintSnapshot(opts, workspaceProjects);
                 if (!opts.NoCache && TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
@@ -1999,6 +2043,10 @@ public class Program
         if (opts.RecordReadOnly)
         {
             preserved.Add(ProjectRecordReadOnlyPreprocessor.IntermediateDirectoryName);
+        }
+        if (opts.EnableArrayMethod)
+        {
+            preserved.Add(ProjectArrayMethodPreprocessor.IntermediateDirectoryName);
         }
         if (opts.GenericPreprocess)
         {
@@ -3866,6 +3914,114 @@ public class Program
         };
     }
 
+    private static async Task<int> ArrayMethod(ArrayMethodOptions opts)
+    {
+        var rewriterOptions = new ArrayMethodRewriterOptions(
+            Verbose: opts.Verbose,
+            Strict: opts.Strict);
+        var rewriter = new ArrayMethodRewriter();
+
+        // 单文件模式
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+                "array-method",
+                new[] { tree },
+                ProjectUnsignedTypePreprocessor.GetBasicReferences(),
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                    Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary,
+                    allowUnsafe: true));
+
+            var result = rewriter.Rewrite(sourceCode, compilation.GetSemanticModel(tree), rewriterOptions);
+
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+
+                if (result.Statistics.InstanceMemberRewrites > 0 || result.Statistics.StaticArrayCalls > 0
+                    || result.Statistics.ResizeStatements > 0 || result.Statistics.ForeachFlattened > 0
+                    || result.Statistics.RankInlined > 0 || result.Statistics.MultiDimLengthRewrites > 0)
+                {
+                    var outputDir = Path.GetDirectoryName(Path.GetFullPath(opts.Output)) ?? ".";
+                    var extensionPath = Path.Combine(outputDir, ArrayHelperSupportFiles.SingleFileHelperFileName);
+                    await File.WriteAllTextAsync(extensionPath, ArrayHelperSupportFiles.GetArrayHelperFileContent(), new System.Text.UTF8Encoding(false));
+                    if (opts.Verbose)
+                    {
+                        Console.WriteLine($"Wrote extension file: {extensionPath}");
+                    }
+                }
+
+                if (opts.Verbose)
+                {
+                    Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+                }
+            }
+            else
+            {
+                Console.Write(result.OutputCode);
+            }
+
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+            }
+
+            return result.Diagnostics.Any(d => d.Severity == ArrayMethodSeverity.Error) ? 1 : 0;
+        }
+
+        // 项目 / 目录模式
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectArrayMethodPreprocessor.PreprocessAsync(
+            new ProjectArrayMethodPreprocessRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = true,
+                Verbose = opts.Verbose,
+                RewriterOptions = rewriterOptions,
+                FilterUnsupportedProjects = !opts.NoFilterProjects,
+            });
+
+        Console.WriteLine(
+            $"array-method: {preprocessResult.Statistics.FilesTransformed} transformed, " +
+            $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
+            $"{preprocessResult.Statistics.InstanceMemberRewrites} instance member rewrites, " +
+            $"{preprocessResult.Statistics.StaticArrayCalls} static array calls, " +
+            $"{preprocessResult.Statistics.ResizeStatements} resize statements, " +
+            $"{preprocessResult.Statistics.ForeachFlattened} foreach flattened, " +
+            $"{preprocessResult.Statistics.RankInlined} rank inlined, " +
+            $"{preprocessResult.Statistics.MultiDimLengthRewrites} multi-dim length rewrites");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+        }
+
+        Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+        return preprocessResult.Success ? 0 : 1;
+    }
+
     /// <summary>
     /// 独立 record-readonly verb：单文件 -i/-o（只允许自包含 record，RR090）或
     /// 项目 -s/-d（整树驱动 + 计划级回退）。
@@ -4602,6 +4758,26 @@ class UnsignedTypeOptions
     public bool NoFilterProjects { get; set; }
 }
 
+[Verb("array-method", HelpText = "Rewrite array instance members and System.Array static calls to Cs2jArray.ArrayHelper")]
+class ArrayMethodOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("strict", Default = false, HelpText = "Treat unsupported diagnostics as fatal")]
+    public bool Strict { get; set; }
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+}
+
 // 命令行选项
 [Verb("convert", HelpText = "Convert a C# file to Java")]
 class ConvertOptions
@@ -4774,6 +4950,10 @@ class ConvertProjectOptions
     [Option("record-readonly-overrides", Required = false,
         HelpText = "Path to RecordReadOnlyOverrides.json (default: config/RecordReadOnlyOverrides.json)")]
     public string? RecordReadOnlyOverrides { get; set; }
+
+    [Option("enable-array-method", Default = false,
+        HelpText = "Run array-method preprocessor before conversion")]
+    public bool EnableArrayMethod { get; set; }
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;

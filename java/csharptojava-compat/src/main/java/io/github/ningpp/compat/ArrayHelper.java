@@ -3,6 +3,7 @@ package io.github.ningpp.compat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.IntFunction;
 import java.util.function.UnaryOperator;
 
@@ -353,5 +354,241 @@ public class ArrayHelper {
         double[] sk = new double[n]; T[] sv = (T[]) new Object[n];
         for (int i = 0; i < n; i++) { sk[i] = keys[indices[i]]; sv[i] = items[indices[i]]; }
         System.arraycopy(sk, 0, keys, 0, n); System.arraycopy(sv, 0, items, 0, n);
+    }
+
+    // ---- [B] 元数据 ----
+
+    public static int getLength(Object array) {
+        if (array instanceof Object[] arr && arr.length > 0 && arr[0] != null && arr[0].getClass().isArray()) {
+            int total = 0;
+            for (Object row : arr) {
+                total += java.lang.reflect.Array.getLength(row);
+            }
+            return total;
+        }
+        return java.lang.reflect.Array.getLength(array);
+    }
+
+    public static long getLongLength(Object array) {
+        return getLength(array);
+    }
+
+    public static int getLength(Object array, int dimension) {
+        if (dimension < 0) throw new IndexOutOfBoundsException();
+        Object current = array;
+        for (int d = 0; d < dimension; d++) {
+            int len = java.lang.reflect.Array.getLength(current);
+            if (len == 0) return 0;
+            current = java.lang.reflect.Array.get(current, 0);
+        }
+        return java.lang.reflect.Array.getLength(current);
+    }
+
+    public static long getLongLength(Object array, int dimension) {
+        return getLength(array, dimension);
+    }
+
+    public static int getLowerBound(Object array, int dimension) {
+        if (dimension < 0) throw new IndexOutOfBoundsException();
+        getLength(array, dimension);
+        return 0;
+    }
+
+    public static int getUpperBound(Object array, int dimension) {
+        return getLowerBound(array, dimension) + getLength(array, dimension) - 1;
+    }
+
+    // ---- [B] 实例成员收口 ----
+
+    public static Object clone(Object array) {
+        int len = java.lang.reflect.Array.getLength(array);
+        Object copy = java.lang.reflect.Array.newInstance(
+            array.getClass().getComponentType(), len);
+        for (int i = 0; i < len; i++) {
+            java.lang.reflect.Array.set(copy, i, java.lang.reflect.Array.get(array, i));
+        }
+        return copy;
+    }
+
+    public static void copyTo(Object source, Object destination, long index) {
+        int len = java.lang.reflect.Array.getLength(source);
+        for (int i = 0; i < len; i++) {
+            java.lang.reflect.Array.set(destination, (int) index + i,
+                java.lang.reflect.Array.get(source, i));
+        }
+    }
+
+    public static Object getValue(Object array, int... indices) {
+        Object current = array;
+        for (int idx : indices) {
+            current = java.lang.reflect.Array.get(current, idx);
+        }
+        return current;
+    }
+
+    public static void setValue(Object array, Object value, int... indices) {
+        Object current = array;
+        for (int i = 0; i < indices.length - 1; i++) {
+            current = java.lang.reflect.Array.get(current, indices[i]);
+        }
+        java.lang.reflect.Array.set(current, indices[indices.length - 1], value);
+    }
+
+    // ---- [B] System.Array 静态收口 ----
+
+    @SuppressWarnings("unchecked")
+    public static <T> void sort(T[] array) {
+        java.util.Arrays.sort(array);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> void sort(T[] array, java.util.Comparator<? super T> comparer) {
+        java.util.Arrays.sort(array, comparer);
+    }
+
+    public static <T> void sort(T[] array, int index, int length) {
+        java.util.Arrays.sort(array, index, index + length);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> void sort(T[] array, int index, int length, java.util.Comparator<? super T> comparer) {
+        java.util.Arrays.sort(array, index, index + length, comparer);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> int binarySearch(T[] array, T value) {
+        return java.util.Arrays.binarySearch(array, value);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> int binarySearch(T[] array, T value, java.util.Comparator<? super T> comparer) {
+        return java.util.Arrays.binarySearch(array, value, comparer);
+    }
+
+    public static <T> int binarySearch(T[] array, int index, int length, T value) {
+        return java.util.Arrays.binarySearch(array, index, index + length, value);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> int binarySearch(T[] array, int index, int length, T value, java.util.Comparator<? super T> comparer) {
+        return java.util.Arrays.binarySearch(array, index, index + length, value, comparer);
+    }
+
+    public static void clear(Object[] array, int index, int length) {
+        for (int i = index; i < index + length && i < array.length; i++) {
+            array[i] = null;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> T[] resize(T[] array, int newSize) {
+        T[] result = (T[]) java.lang.reflect.Array.newInstance(
+            array.getClass().getComponentType(), newSize);
+        int copyLen = Math.min(array.length, newSize);
+        System.arraycopy(array, 0, result, 0, copyLen);
+        return result;
+    }
+
+    public static <T> int indexOf(T[] array, Object value) {
+        for (int i = 0; i < array.length; i++) {
+            if (Objects.equals(array[i], value)) return i;
+        }
+        return -1;
+    }
+
+    public static <T> int lastIndexOf(T[] array, Object value) {
+        for (int i = array.length - 1; i >= 0; i--) {
+            if (Objects.equals(array[i], value)) return i;
+        }
+        return -1;
+    }
+
+    public static <T> void reverse(T[] array) {
+        for (int i = 0, j = array.length - 1; i < j; i++, j--) {
+            T tmp = array[i];
+            array[i] = array[j];
+            array[j] = tmp;
+        }
+    }
+
+    public static <T> T find(T[] array, java.util.function.Predicate<T> match) {
+        for (T item : array) {
+            if (match.test(item)) return item;
+        }
+        return null;
+    }
+
+    public static <T> T[] findAll(T[] array, java.util.function.Predicate<T> match) {
+        java.util.List<T> list = new java.util.ArrayList<>();
+        for (T item : array) {
+            if (match.test(item)) list.add(item);
+        }
+        @SuppressWarnings("unchecked")
+        T[] result = (T[]) java.lang.reflect.Array.newInstance(
+            array.getClass().getComponentType(), list.size());
+        return list.toArray(result);
+    }
+
+    public static <T> int findIndex(T[] array, java.util.function.Predicate<T> match) {
+        for (int i = 0; i < array.length; i++) {
+            if (match.test(array[i])) return i;
+        }
+        return -1;
+    }
+
+    public static <T> T findLast(T[] array, java.util.function.Predicate<T> match) {
+        for (int i = array.length - 1; i >= 0; i--) {
+            if (match.test(array[i])) return array[i];
+        }
+        return null;
+    }
+
+    public static <T> int findLastIndex(T[] array, java.util.function.Predicate<T> match) {
+        for (int i = array.length - 1; i >= 0; i--) {
+            if (match.test(array[i])) return i;
+        }
+        return -1;
+    }
+
+    public static <T> boolean exists(T[] array, java.util.function.Predicate<T> match) {
+        for (T item : array) {
+            if (match.test(item)) return true;
+        }
+        return false;
+    }
+
+    public static <T> boolean trueForAll(T[] array, java.util.function.Predicate<T> match) {
+        for (T item : array) {
+            if (!match.test(item)) return false;
+        }
+        return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <TInput, TOutput> TOutput[] convertAll(TInput[] array, java.util.function.Function<TInput, TOutput> converter) {
+        TOutput[] result = (TOutput[]) java.lang.reflect.Array.newInstance(
+            converter.apply(array[0]).getClass(), array.length);
+        for (int i = 0; i < array.length; i++) {
+            result[i] = converter.apply(array[i]);
+        }
+        return result;
+    }
+
+    public static <T> void forEach(T[] array, java.util.function.Consumer<T> action) {
+        for (T item : array) {
+            action.accept(item);
+        }
+    }
+
+    public static void copy(Object source, Object destination, int length) {
+        System.arraycopy(source, 0, destination, 0, length);
+    }
+
+    public static void copy(Object source, int sourceIndex, Object destination, int destinationIndex, int length) {
+        System.arraycopy(source, sourceIndex, destination, destinationIndex, length);
+    }
+
+    public static void constrainedCopy(Object source, int sourceIndex, Object destination, int destinationIndex, int length) {
+        System.arraycopy(source, sourceIndex, destination, destinationIndex, length);
     }
 }

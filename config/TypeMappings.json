@@ -339,6 +339,13 @@
             ]
         },
         {
+            "csharp": "Cs2jArray.ArrayHelper",
+            "java": "ArrayHelper",
+            "imports": [
+                "io.github.ningpp.compat.ArrayHelper"
+            ]
+        },
+        {
             "csharp": "System.Text.Json.JsonSerializerOptions",
             "java": "JsonSerializerOptions",
             "imports": [
