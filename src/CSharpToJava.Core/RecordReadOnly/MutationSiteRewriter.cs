@@ -36,8 +36,10 @@ internal static class MutationSiteClassifier
             case SiteKind.Increment:
                 return ClassifyReadModifyWrite(analysis, plan, info, site);
 
-            // 后续任务支持的形态：在落地前整 record 保持原子跳过。
             case SiteKind.ConditionalAssign:
+                return ClassifyConditional(analysis, plan, info, site);
+
+            // 后续任务支持的形态：在落地前整 record 保持原子跳过。
             case SiteKind.RefOutRecordArg:
             case SiteKind.RefOutMemberArg:
                 return new SiteFailure(RecordReadOnlyDiagnosticCode.RR020,
@@ -52,6 +54,13 @@ internal static class MutationSiteClassifier
             return new SiteFailure(RecordReadOnlyDiagnosticCode.RR053,
                 "member assignment in an expression context cannot be rewritten to a " +
                 "preceding 'with' statement (MS-16).", site.Location);
+
+        // MS-6：a.M = b.M = v 右结合链。
+        if (site.WriteNode is AssignmentExpressionSyntax { Right: AssignmentExpressionSyntax })
+        {
+            var chainFailure = ClassifyChained(site);
+            if (chainFailure != null) return chainFailure;
+        }
 
         // 仅单段链（recv.M）；多段（a.B.C）属 MS-17。
         var segmentCount = CountRecordMemberSegments(site, info);
@@ -118,6 +127,59 @@ internal static class MutationSiteClassifier
             }
         }
         return false;
+    }
+
+    private static SiteFailure? ClassifyChained(MutationSiteInfo site)
+    {
+        ExpressionSyntax? cursor = (ExpressionSyntax)site.WriteNode;
+        while (cursor is AssignmentExpressionSyntax assignment)
+        {
+            if (assignment.Kind() != SyntaxKind.SimpleAssignmentExpression)
+                return new SiteFailure(RecordReadOnlyDiagnosticCode.RR020,
+                    "chained assignments containing compound/increment forms are rewritten " +
+                    "by a later stage (MS-6).", site.Location);
+            if (assignment.Left is ConditionalAccessExpressionSyntax
+                or MemberAccessExpressionSyntax { Expression: ConditionalAccessExpressionSyntax })
+                return new SiteFailure(RecordReadOnlyDiagnosticCode.RR020,
+                    "chained null-conditional assignment is not supported (MS-5/MS-6).",
+                    site.Location);
+            cursor = assignment.Right;
+        }
+        return null;
+    }
+
+    private static SiteFailure? ClassifyConditional(
+        RecordAnalysis analysis, RecordPlan plan, RecordInfo info, MutationSiteInfo site)
+    {
+        if (!site.IsStatementPosition)
+            return new SiteFailure(RecordReadOnlyDiagnosticCode.RR053,
+                "null-conditional assignment outside a statement context cannot be rewritten " +
+                "(MS-5/MS-16).", site.Location);
+
+        if (site.Receiver is not ConditionalAccessExpressionSyntax conditional)
+            return new SiteFailure(RecordReadOnlyDiagnosticCode.RR020,
+                "unsupported null-conditional assignment shape (MS-5).", site.Location);
+
+        if (MemberIsInitSettable(plan, site.Member) is { } memberFailure)
+            return new SiteFailure(memberFailure.Code, memberFailure.Reason, site.Location);
+
+        var isCompound = site.WriteNode is AssignmentExpressionSyntax
+            and not { RawKind: (int)SyntaxKind.SimpleAssignmentExpression };
+        var isIncrement = site.WriteNode is PrefixUnaryExpressionSyntax
+            or PostfixUnaryExpressionSyntax;
+        if ((isCompound || isIncrement) && !GetterIsEffectivelyPure(site.Member))
+            return new SiteFailure(RecordReadOnlyDiagnosticCode.RR052,
+                "null-conditional compound/increment reads the getter through a non-pure " +
+                "accessor (MS-3/MS-5).", site.Location);
+
+        var model = analysis.Compilation!.GetSemanticModel(site.WriteNode.SyntaxTree)!;
+        // MS-5 重写将根接收者求值两次（switch 表达式 + 赋值目标），
+        // 有副作用的方法调用等必须先拦截。
+        if (!RecordSyntaxFacts.IsReceiverSideEffectFree(conditional.Expression))
+            return new SiteFailure(RecordReadOnlyDiagnosticCode.RR051,
+                "null-conditional receiver has side effects; evaluating it twice would change " +
+                "semantics (MS-5).", conditional.Expression.GetLocation());
+        return ReceiverWritableAndPure(model, conditional.Expression, info);
     }
 
     private static SiteFailure Pending(MutationSiteInfo site) =>
@@ -338,6 +400,20 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
         var result = new List<StatementSyntax>();
         for (var i = 0; i < statements.Count;)
         {
+            // MS-6：a.M = b.M = v 右结合链 —— 先于 TryCoalesce 处理。
+            if (statements[i] is ExpressionStatementSyntax
+                {
+                    Expression: AssignmentExpressionSyntax
+                    {
+                        Right: AssignmentExpressionSyntax,
+                    } chain
+                }
+                && FindSite(chain) != null)
+            {
+                result.AddRange(EmitChained(chain));
+                i++;
+                continue;
+            }
             if (TryCoalesce(statements, i, out var merged, out var consumed))
             {
                 result.Add(merged!);
@@ -377,7 +453,8 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
                 } stmt
                 || FindSite(stmt.Expression) is not { } plan
                 || plan.Site.Kind != SiteKind.SimpleAssign
-                || CountSegmentsForRewrite(plan.Site.Left) != 1)
+                || CountSegmentsForRewrite(plan.Site.Left) != 1
+                || assign.Right is AssignmentExpressionSyntax)
             {
                 break;
             }
@@ -485,6 +562,7 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
             SiteKind.SimpleAssign => RewriteWithAssign(writeExpression, sitePlan),
             SiteKind.CompoundAssign => RewriteCompound(writeExpression, sitePlan.Site),
             SiteKind.Increment => RewriteIncrement(writeExpression, sitePlan.Site),
+            SiteKind.ConditionalAssign => RewriteConditional(writeExpression, sitePlan.Site),
             _ => null,
         };
     }
@@ -606,4 +684,125 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
             SyntaxKind.UnsignedRightShiftExpression => SyntaxKind.GreaterThanGreaterThanGreaterThanToken,
             _ => throw new InvalidOperationException(),
         });
+
+    // ----- MS-6 chained assignment -----
+
+    private IEnumerable<StatementSyntax> EmitChained(AssignmentExpressionSyntax outer)
+    {
+        // 右结合链拍平：segments[0] 最外，末元素最内。
+        var segments = new List<AssignmentExpressionSyntax>();
+        var cursor = outer;
+        while (true)
+        {
+            segments.Add(cursor);
+            if (cursor.Right is AssignmentExpressionSyntax next) cursor = next;
+            else break;
+        }
+
+        var tempName = $"__cs2jT{outer.SpanStart}";
+        var declarator = SyntaxFactory.VariableDeclarator(
+            SyntaxFactory.Identifier(tempName))
+            .WithInitializer(SyntaxFactory.EqualsValueClause(cursor.Right));
+        yield return SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.ParseTypeName("var"),
+                SyntaxFactory.SingletonSeparatedList(declarator)))
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+
+        // 原语义先执行内层；逐段回写。
+        for (var i = segments.Count - 1; i >= 0; i--)
+        {
+            var segment = segments[i];
+            StatementSyntax statement;
+            var plan = FindSite(segment);
+            if (plan != null && segment.Left is MemberAccessExpressionSyntax memberAccess)
+            {
+                var receiverText = plan.Site.Receiver.WithoutTrivia().ToFullString();
+                var writeBack = BuildWithWriteBack(receiverText,
+                    memberAccess.Name.Identifier.Text,
+                    SyntaxFactory.IdentifierName(tempName));
+                _context.Statistics.MutationSitesRewritten++;
+                statement = SyntaxFactory.ExpressionStatement(writeBack);
+            }
+            else
+            {
+                // 该段目标 record 未转换（保持可变）或为普通左值：保留原赋值。
+                statement = SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        segment.Left, SyntaxFactory.IdentifierName(tempName)));
+            }
+            yield return statement
+                .WithLeadingTrivia(segment.GetFirstToken().LeadingTrivia)
+                .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+        }
+    }
+
+    // ----- MS-5 null-conditional -----
+
+    private ExpressionSyntax? RewriteConditional(
+        ExpressionSyntax writeExpression, MutationSiteInfo site)
+    {
+        if (site.Receiver is not ConditionalAccessExpressionSyntax conditional) return null;
+
+        // p?.X = v → left 是 ConditionalAccessExpressionSyntax，WhenNotNull 是 MemberBindingExpressionSyntax。
+        // p?.A.B = v → left 是 MemberAccessExpressionSyntax（已由上层处理）。
+        string memberName;
+        if (site.Left is ConditionalAccessExpressionSyntax cae
+            && cae.WhenNotNull is MemberBindingExpressionSyntax mbe)
+        {
+            memberName = mbe.Name.Identifier.Text;
+        }
+        else if (site.Left is MemberAccessExpressionSyntax memberAccess)
+        {
+            memberName = memberAccess.Name.Identifier.Text;
+        }
+        else
+        {
+            return null;
+        }
+
+        var rootText = conditional.Expression.WithoutTrivia().ToFullString();
+
+        ExpressionSyntax qValue;
+        switch (writeExpression)
+        {
+            case PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax:
+            {
+                var read = SyntaxFactory.ParseExpression($"q.{memberName}");
+                var one = SyntaxFactory.LiteralExpression(
+                    SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1));
+                var decrement = writeExpression.Kind()
+                    is SyntaxKind.PostDecrementExpression or SyntaxKind.PreDecrementExpression;
+                qValue = decrement
+                    ? SyntaxFactory.BinaryExpression(SyntaxKind.SubtractExpression, read,
+                        SyntaxFactory.Token(SyntaxKind.MinusToken), one)
+                    : SyntaxFactory.BinaryExpression(SyntaxKind.AddExpression, read,
+                        SyntaxFactory.Token(SyntaxKind.PlusToken), one);
+                break;
+            }
+            case AssignmentExpressionSyntax assignment
+                when assignment.Kind() != SyntaxKind.SimpleAssignmentExpression:
+            {
+                var read = SyntaxFactory.ParseExpression($"q.{memberName}");
+                qValue = assignment.Kind() == SyntaxKind.CoalesceAssignmentExpression
+                    ? SyntaxFactory.BinaryExpression(
+                        SyntaxKind.CoalesceExpression, read, assignment.Right)
+                    : SyntaxFactory.BinaryExpression(
+                        BinaryKindFor(assignment.Kind()), read,
+                        BinaryTokenFor(assignment.Kind()), assignment.Right);
+                break;
+            }
+            case AssignmentExpressionSyntax simple:
+                qValue = simple.Right;
+                break;
+            default:
+                return null;
+        }
+
+        var withExprText = $"q with {{ {memberName} = {qValue.WithoutTrivia().ToFullString()} }}";
+        var switchText = $"{rootText} switch {{ null => null, {{ }} q => {withExprText} }}";
+        var result = SyntaxFactory.ParseExpression($"{rootText} = {switchText}");
+        return result.WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+    }
 }

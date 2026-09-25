@@ -439,6 +439,12 @@ internal sealed class RecordReadOnlyAnalyzer
     {
         if (inc is not (PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax)) return;
         var operand = inc is PrefixUnaryExpressionSyntax pre ? pre.Operand : ((PostfixUnaryExpressionSyntax)inc).Operand;
+        // p?.X++ → operand 是 ConditionalAccessExpressionSyntax（MS-5 空条件自增）。
+        if (operand is ConditionalAccessExpressionSyntax)
+        {
+            AddSite(compilation, tree, model, inc, operand, SiteKind.ConditionalAssign);
+            return;
+        }
         if (operand is not MemberAccessExpressionSyntax) return;
         // 表达式位置也登记：PlanBuilder 据此判 RR053（MS-4 只允许语句位置）。
         AddSite(compilation, tree, model, inc, operand, SiteKind.Increment);
@@ -504,25 +510,53 @@ internal sealed class RecordReadOnlyAnalyzer
         ITypeSymbol? receiverType = null;
         // record 成员的直接接收者表达式（如 t.a.X = 3 中 Receiver 应为 t.a，而非根 t）。
         ExpressionSyntax? recordMemberReceiver = null;
-        while (cursor is MemberAccessExpressionSyntax ma)
+
+        // MS-5：p?.X = v → left 是 ConditionalAccessExpressionSyntax。
+        // WhenNotNull 是 MemberBindingExpressionSyntax（.X），需要从中提取成员符号。
+        // Receiver 设为整个 ConditionalAccessExpressionSyntax，以便重写器从中取根接收者。
+        if (left is ConditionalAccessExpressionSyntax cae
+            && cae.WhenNotNull is MemberBindingExpressionSyntax mbe)
         {
-            var sym = model.GetSymbolInfo(ma).Symbol;
-            var recvType = model.GetTypeInfo(ma.Expression).Type;
-            // 若 symbol 查找失败（编译错误场景），尝试从接收者类型上按名字查找成员。
-            if (sym == null && recvType is INamedTypeSymbol rt)
-                sym = rt.GetMembers(ma.Name.Identifier.Text).FirstOrDefault();
-            chain.Add(new ChainSegment(sym!, recvType, ma));
-            if (deepestMember == null)
+            var memberName = mbe.Name.Identifier.Text;
+            var recvType = model.GetTypeInfo(cae.Expression).Type;
+            if (recvType is INamedTypeSymbol rt)
             {
-                deepestMember = sym;
-                recordMemberReceiver = ma.Expression;
+                // nullable struct P? → UnderlyingType 是 P
+                var effectiveType = rt.NullableAnnotation == NullableAnnotation.Annotated
+                    && rt.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T
+                        ? rt
+                        : (rt is { IsValueType: true, OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }
+                            ? ((INamedTypeSymbol)rt).TypeArguments[0]
+                            : rt);
+                deepestMember = effectiveType.GetMembers(memberName).FirstOrDefault();
+                receiverType = effectiveType;
+                recordMemberReceiver = left; // 整个 p?.X 作为 Receiver
+                chain.Add(new ChainSegment(deepestMember!, effectiveType, left));
             }
-            receiverType ??= recvType;
-            cursor = ma.Expression;
+            cursor = cae.Expression;
         }
-        if (cursor is ElementAccessExpressionSyntax)
+        else
         {
-            receiverType ??= model.GetTypeInfo(cursor).Type;
+            while (cursor is MemberAccessExpressionSyntax ma)
+            {
+                var sym = model.GetSymbolInfo(ma).Symbol;
+                var recvType = model.GetTypeInfo(ma.Expression).Type;
+                // 若 symbol 查找失败（编译错误场景），尝试从接收者类型上按名字查找成员。
+                if (sym == null && recvType is INamedTypeSymbol rt2)
+                    sym = rt2.GetMembers(ma.Name.Identifier.Text).FirstOrDefault();
+                chain.Add(new ChainSegment(sym!, recvType, ma));
+                if (deepestMember == null)
+                {
+                    deepestMember = sym;
+                    recordMemberReceiver = ma.Expression;
+                }
+                receiverType ??= recvType;
+                cursor = ma.Expression;
+            }
+            if (cursor is ElementAccessExpressionSyntax)
+            {
+                receiverType ??= model.GetTypeInfo(cursor).Type;
+            }
         }
         if (deepestMember?.ContainingType is not { IsRecord: true } targetType) return;
         if (!_analysis.BySymbol.TryGetValue(targetType, out var target)) return;

@@ -15,10 +15,12 @@ public class RecordReadOnlyRewriterUnitTests
     private static readonly CSharpParseOptions ParseOptions =
         new CSharpParseOptions(LanguageVersion.Preview);
 
-    internal static SemanticModel ParseWithSemantics(string src, params string[] extra)
+    internal static SemanticModel ParseWithSemantics(string src,
+        LanguageVersion? version = null, params string[] extra)
     {
-        var tree = CSharpSyntaxTree.ParseText(src, ParseOptions);
-        var extraTrees = extra.Select(s => CSharpSyntaxTree.ParseText(s, ParseOptions)).ToArray();
+        var options = version is { } v ? new CSharpParseOptions(v) : ParseOptions;
+        var tree = CSharpSyntaxTree.ParseText(src, options);
+        var extraTrees = extra.Select(s => CSharpSyntaxTree.ParseText(s, options)).ToArray();
         var compilation = CSharpCompilation.Create(
             "rr-test",
             new[] { tree }.Concat(extraTrees),
@@ -29,9 +31,10 @@ public class RecordReadOnlyRewriterUnitTests
 
     internal static (string Output, RecordReadOnlyStatistics Stats,
         List<RecordReadOnlyDiagnostic> Diagnostics) Rewrite(string src,
-        RecordReadOnlyOptions? options = null, params string[] extra)
+        RecordReadOnlyOptions? options = null, LanguageVersion? version = null,
+        params string[] extra)
     {
-        var model = ParseWithSemantics(src, extra);
+        var model = ParseWithSemantics(src, version, extra);
         var pp = new RecordReadOnlyPreprocessor(options ?? new RecordReadOnlyOptions());
         var stats = new RecordReadOnlyStatistics();
         var diags = new List<RecordReadOnlyDiagnostic>();
@@ -802,6 +805,107 @@ public class RecordReadOnlyRewriterUnitTests
         Assert.Contains("p = p with { Y = p.X };", output);
         Assert.Equal(2, stats.MutationSitesRewritten);
         AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS6_ChainedAssignment_SplitsInnerToOuterWithTemp()
+    {
+        var src = """
+            public record struct A { public int M { get; set; } }
+            public record struct B { public int M { get; set; } }
+            public class C
+            {
+                public void M(A a, B b)
+                {
+                    a.M = b.M = Compute();
+                }
+                private static int Compute() => 1;
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        // 右侧有方法调用，必须只求值一次（临时变量），顺序 b → a。
+        Assert.Contains("var __cs2jT", output);
+        Assert.Contains("b = b with { M = __cs2jT", output);
+        Assert.Contains("a = a with { M = __cs2jT", output);
+        Assert.Equal(2, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS6_ChainedAssignment_InnerRecordSkipped_KeepsPlainAssignment()
+    {
+        var src = """
+            public record struct A { public int M { get; set; } }
+            public record struct B { public int N { get; set; } public int M { get; set; } }
+            public class C
+            {
+                // B 因含事件等原因无法转换时仍可变：内层保留普通赋值，外层 with 取值。
+                public void M(A a, B b, int v)
+                {
+                    a.M = b.M = v;
+                }
+            }
+            """;
+        var options = new RecordReadOnlyOptions
+        {
+            SkipQualifiedNames = new HashSet<string>(StringComparer.Ordinal) { "B" },
+        };
+        var (output, stats, _) = Rewrite(src, options);
+        Assert.Contains("b.M = __cs2jT", output);
+        Assert.Contains("a = a with { M = __cs2jT", output);
+        Assert.Equal(1, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS5_NullConditionalAssign_OnNullableStruct_BecomesSwitch()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C { public void M(P? p) { p?.X = 1; } }
+            """;
+        var (output, stats, _) = Rewrite(src, version: LanguageVersion.Preview);
+        Assert.Contains("p = p switch", output);
+        Assert.Contains("null => null", output);
+        Assert.Contains("{ } q => q with { X = 1 }", output);
+        Assert.Equal(1, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS5_NullConditionalCompoundAndIncrement_UseQ()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void M(P? p)
+                {
+                    p?.X += 2;
+                    p?.X++;
+                }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src, version: LanguageVersion.Preview);
+        Assert.Contains("{ } q => q with { X = q.X + 2 }", output);
+        Assert.Contains("{ } q => q with { X = q.X + 1 }", output);
+        Assert.Equal(2, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS5_NullConditionalReceiverWithSideEffect_BlocksWithRR051()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public P? Get() => null;
+                public void M() { Get()?.X = 1; }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src, version: LanguageVersion.Preview);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR051);
     }
 }
 
