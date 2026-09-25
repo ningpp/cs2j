@@ -41,7 +41,9 @@ public sealed partial class RecordReadOnlyPreprocessor
         // IR-1 可能只改接口文件（文件内没有任何 record 声明），必须先建分析/计划再判脏。
         EnsureBuilt(semanticModel);
 
-        if (!IsRecordDirty(root) && !FileGainsInterfaceMember(_plan!, semanticModel.SyntaxTree.FilePath))
+        if (!IsRecordDirty(root)
+            && !FileGainsInterfaceMember(_plan!, semanticModel.SyntaxTree.FilePath)
+            && !FileGetsInterfaceFill(_plan!, semanticModel.SyntaxTree.FilePath))
         {
             statistics.FilesSkippedClean++;
             return new RecordReadOnlyFileResult { OutputCode = sourceCode, Changed = false };
@@ -120,6 +122,13 @@ public sealed partial class RecordReadOnlyPreprocessor
         plan.Plans.Any(p => p.Outcome == PlanOutcome.Converted
             && p.Ripples.Any(r => r.Interface.Locations.Any(l => l.IsInSource
                 && string.Equals(l.SourceTree!.FilePath, filePath, StringComparison.OrdinalIgnoreCase))));
+
+    /// <summary>该文件声明了某个转换计划需要 IR-3 补 fluent 实现的其他接口实现者。</summary>
+    private static bool FileGetsInterfaceFill(ConversionPlan plan, string filePath) =>
+        plan.Plans.Any(p => p.Outcome == PlanOutcome.Converted
+            && p.Ripples.SelectMany(r => r.Fills).Any(f =>
+                f.Implementer.Locations.Any(l => l.IsInSource
+                    && string.Equals(l.SourceTree!.FilePath, filePath, StringComparison.OrdinalIgnoreCase))));
 
     /// <summary>仅格式化改动区间→整文件格式化→原文候选，每个候选重新解析零错误才返回。</summary>
     internal static string? FormatAndValidate(CompilationUnitSyntax root)

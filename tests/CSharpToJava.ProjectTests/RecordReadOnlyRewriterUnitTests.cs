@@ -2080,7 +2080,89 @@ public class RecordReadOnlyRewriterUnitTests
         Assert.Equal(0, stats.InterfaceRipples); // WithP 追加落在接口文件，不计入本文件
         Assert.Equal(1, stats.FilesTransformed);
     }
+    [Fact]
+    public void IR3_ClassImplementer_GetsFluentExplicitFill()
+    {
+        var src = """
+            public interface I { int P { get; set; } }
+            public record struct R : I { public int P { get; set; } }
+            public class C : I { public int P { get; set; } }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("global::I WithP(int value);", output);
+        Assert.Contains("global::R WithP(int value)", output);
+        AssertContainsIgnoringWhitespace(
+            "global::I global::I.WithP(int value) { P = value; return this; }", output);
+        // 1 个接口新增 + 1 个其他实现者 fill；record 侧显式桩不计入 InterfaceRipples。
+        Assert.Equal(2, stats.InterfaceRipples);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR3_StructImplementer_PublicProperty_GetsFluentFill()
+    {
+        var src = """
+            public interface I { int P { get; set; } }
+            public record struct R : I { public int P { get; set; } }
+            public struct S : I { public int P { get; set; } }
+            """;
+        var (output, _, _) = Rewrite(src);
+        AssertContainsIgnoringWhitespace(
+            "global::I global::I.WithP(int value) { P = value; return this; }", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR3_ClassWithExplicitProperty_CallsOldContractThroughInterfaceCast()
+    {
+        var src = """
+            public interface I { int P { get; set; } }
+            public record struct R : I { public int P { get; set; } }
+            public class E : I
+            {
+                private int _p;
+                int I.P { get => _p; set => _p = value; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("((global::I)this).P = value;", output);
+        Assert.Contains("return this;", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR3_UnconvertedRecordClass_GetsFluentFill()
+    {
+        var src = """
+            public interface I { int P { get; set; } }
+            public record struct R : I { public int P { get; set; } }
+            public record class Q : I { public int P { get; set; } }
+            """;
+        var (output, _, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = false });
+        Assert.Contains("public int P { get; set; }", output);
+        Assert.Contains("global::I global::I.WithP(int value)", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR3_StructExplicitProperty_BlocksWithRR070()
+    {
+        var src = """
+            public interface I { int P { get; set; } }
+            public record struct R : I { public int P { get; set; } }
+            public struct Bad : I
+            {
+                private int _p;
+                int I.P { get => _p; set => _p = value; }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("readonly record struct", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR070);
+    }
 }
+
 
 
 

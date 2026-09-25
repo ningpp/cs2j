@@ -10,7 +10,8 @@ namespace CSharpToJava.Core.RecordReadOnly;
 /// 成员始终加到“声明它”的接口，接口继承 IR-5 经 AllInterfaces 自然传播）。
 /// IR-2：向转换中的 record 追加——旧接口属性的显式实现桩（get 转发 / set throw）、
 /// 新 With 成员的显式接口实现（委托公共版）、公共强类型 With（同形状跨接口只生成一份）。
-/// IR-3（其他 in-tree 实现者 fluent 补齐）与方法触发在后续任务接入。
+/// IR-3：为同接口的其他 in-tree 实现者（class/struct/未转换 record）补 fluent 显式实现。
+/// 方法触发在后续任务接入。
 /// </summary>
 internal sealed class InterfaceRippler : CSharpSyntaxRewriter
 {
@@ -46,36 +47,60 @@ internal sealed class InterfaceRippler : CSharpSyntaxRewriter
             .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
     }
 
+    public override SyntaxNode? VisitClassDeclaration(ClassDeclarationSyntax node)
+    {
+        var visited = (ClassDeclarationSyntax)base.VisitClassDeclaration(node)!;
+        return AddInterfaceFills(node, visited);
+    }
+
+    public override SyntaxNode? VisitStructDeclaration(StructDeclarationSyntax node)
+    {
+        var visited = (StructDeclarationSyntax)base.VisitStructDeclaration(node)!;
+        return AddInterfaceFills(node, visited);
+    }
+
     public override SyntaxNode? VisitRecordDeclaration(RecordDeclarationSyntax node)
     {
         var visited = (RecordDeclarationSyntax)base.VisitRecordDeclaration(node)!;
         var symbol = ResolveSymbol(node);
         if (symbol == null || !IsPrimaryPart(node, symbol)) return visited;
 
+        var additions = new List<MemberDeclarationSyntax>();
+        var emittedPublicShapes = new HashSet<string>(StringComparer.Ordinal);
+
+        // IR-2 只属于本轮转换中的 owner record；未转换 record 在这里 plan == null。
         var plan = _context.ActivePlans.FirstOrDefault(p =>
             SymbolEqualityComparer.Default.Equals(p.Symbol, symbol)
             && p.Outcome == PlanOutcome.Converted);
-        if (plan == null) return visited;
-
-        var additions = new List<MemberDeclarationSyntax>();
-        var emittedPublicShapes = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var ripple in plan.Ripples)
+        if (plan != null)
         {
-            foreach (var member in ripple.Members)
+            foreach (var ripple in plan.Ripples)
             {
-                additions.Add(ExplicitPropertyStub(member)
-                    .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
-                additions.Add(ExplicitWithPropertyImplementation(member)
-                    .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
-
-                if (emittedPublicShapes.Add(PublicShapeKey(member)))
+                foreach (var member in ripple.Members)
                 {
-                    additions.Add(PublicWithPropertyMethod(symbol, member)
+                    additions.Add(ExplicitPropertyStub(member)
                         .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
+                    additions.Add(ExplicitWithPropertyImplementation(member)
+                        .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
+
+                    if (emittedPublicShapes.Add(PublicShapeKey(member)))
+                    {
+                        additions.Add(PublicWithPropertyMethod(symbol, member)
+                            .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
+                    }
                 }
             }
         }
+
+        // IR-3：未转换 record class（含 ConvertRecordClasses=false 时的 record class）/
+        // 未转换 record struct 作为其他实现者补 fluent 显式实现。owner 与其他“本轮也转换”
+        // 的 record 已在 InterfaceRippleIndex.Build 中排除（它们由自己的 IR-2 负责）。
+        var fillAdditions = BuildFillMembers(symbol);
+        additions.AddRange(fillAdditions);
+
         if (additions.Count == 0) return visited;
+        foreach (var _ in fillAdditions)
+            _context.Statistics.InterfaceRipples++;
         return visited
             .WithMembers(visited.Members.AddRange(additions))
             .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
@@ -88,6 +113,58 @@ internal sealed class InterfaceRippler : CSharpSyntaxRewriter
         var origNode = DeclarationRewriter.FindByPath(origRoot, node) ?? node;
         try { return _context.Model.GetDeclaredSymbol(origNode) as INamedTypeSymbol; }
         catch (ArgumentException) { return null; }
+    }
+
+    private SyntaxNode? AddInterfaceFills(TypeDeclarationSyntax node, TypeDeclarationSyntax visited)
+    {
+        var symbol = ResolveSymbol(node);
+        if (symbol == null || !IsPrimaryPart(node, symbol)) return visited;
+        var additions = BuildFillMembers(symbol);
+        if (additions.Count == 0) return visited;
+        // 每个实际生成的 fill 成员计一次 InterfaceRipples；接口追加在
+        // VisitInterfaceDeclaration 计数，owner 的 IR-2 显式桩不计数。
+        foreach (var _ in additions)
+            _context.Statistics.InterfaceRipples++;
+        return visited
+            .WithMembers(visited.Members.AddRange(additions))
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+    }
+
+    private List<MemberDeclarationSyntax> BuildFillMembers(INamedTypeSymbol implementer)
+    {
+        if (!_index.Fills.TryGetValue(implementer, out var members) || members.Count == 0)
+            return new();
+
+        return members
+            .Where(m => !m.IsMethod) // 方法触发在 Task 21 接入。
+            .Select(member => PropertyFillMethod(implementer, member)
+                .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed))
+            .Cast<MemberDeclarationSyntax>()
+            .ToList();
+    }
+
+    /// <summary>IR-3：`I I.WithP(T value) { P = value; return this; }`。</summary>
+    private static MethodDeclarationSyntax PropertyFillMethod(
+        INamedTypeSymbol implementer, RippleMember member)
+    {
+        var interfaceProperty = (IPropertySymbol)member.InterfaceMember;
+        var implementation = (IPropertySymbol?)implementer
+            .FindImplementationForInterfaceMember(interfaceProperty);
+        var interfaceText = member.Interface.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        var valueTypeText = interfaceProperty.Type
+            .ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+        var target = implementation != null
+            && RecordSyntaxFacts.IsExplicitInterfaceImplementation(implementation, interfaceProperty)
+            ? $"(({interfaceText})this).{interfaceProperty.Name}"
+            : implementation?.Name ?? interfaceProperty.Name;
+
+        var text =
+            $"{interfaceText} {member.WithName}({valueTypeText} value) " +
+            $"{{ {target} = value; return this; }}";
+        return ((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(text)!)
+            .WithExplicitInterfaceSpecifier(ExplicitInterface(member.Interface))
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
     }
 
     /// <summary>IR-1：接口追加 `I WithP(T value);`（抽象；DIM 默认关闭，见 IR-7 注）。</summary>
@@ -194,7 +271,7 @@ internal sealed class InterfaceRippler : CSharpSyntaxRewriter
 }
 
 /// <summary>
-/// 本文件需要落地的接口追加（IR-1）与实现者补齐（IR-3，下一个任务）索引。
+/// 本文件需要落地的接口追加（IR-1）与实现者补齐（IR-3）索引。
 /// 跨 record 计划按“同接口 + With 名 + 值参形状”去重，避免重复成员。
 /// </summary>
 internal sealed class InterfaceRippleIndex
@@ -220,10 +297,37 @@ internal sealed class InterfaceRippleIndex
                 }
             }
         }
+        var convertedImplementers = new HashSet<INamedTypeSymbol>(
+            context.Plan.Plans
+                .Where(p => p.Outcome == PlanOutcome.Converted)
+                .Select(p => p.Symbol),
+            SymbolEqualityComparer.Default);
+
+        var fills = new Dictionary<INamedTypeSymbol, List<RippleMember>>(
+            SymbolEqualityComparer.Default);
+        foreach (var plan in context.ActivePlans)
+        {
+            if (plan.Outcome != PlanOutcome.Converted) continue;
+            foreach (var ripple in plan.Ripples)
+            foreach (var fill in ripple.Fills)
+            {
+                // 另一个已转换 record 由自己的 IR-2 生成显式实现；不能再按普通实现者补一份。
+                if (convertedImplementers.Contains(fill.Implementer)) continue;
+                if (!fills.TryGetValue(fill.Implementer, out var list))
+                    fills[fill.Implementer] = list = new();
+                foreach (var member in fill.Members)
+                {
+                    if (list.Any(existing => InterfaceRippleIndex.SameShape(existing, member)))
+                        continue;
+                    list.Add(member);
+                }
+            }
+        }
+
         return new InterfaceRippleIndex
         {
             Additions = additions,
-            Fills = new(SymbolEqualityComparer.Default),
+            Fills = fills,
         };
     }
 

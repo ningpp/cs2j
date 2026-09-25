@@ -44,6 +44,15 @@ internal sealed record RippleMember(
 
 internal sealed record InterfaceRipplePlan(
     INamedTypeSymbol Interface,
+    IReadOnlyList<RippleMember> Members,
+    IReadOnlyList<InterfaceFillPlan> Fills);
+
+/// <summary>
+/// IR-3：一个非 record-owner 的 in-tree 接口实现者需要补齐的 fluent 成员。
+/// Implementer 可能是 class、struct、record class，或本轮未作为 owner 转换的 record。
+/// </summary>
+internal sealed record InterfaceFillPlan(
+    INamedTypeSymbol Implementer,
     IReadOnlyList<RippleMember> Members);
 
 internal sealed record SitePlan(MutationSiteInfo Site, SiteActionKind Action);
@@ -345,14 +354,13 @@ internal sealed class PlanBuilder
                     IsMethod: false, ReturnsVoid: true));
             }
 
-            plan.Ripples.Add(new InterfaceRipplePlan(iface, members));
+            var fills = BuildInterfaceFills(
+                analysis, info.Symbol, iface, members, out var fillBlock);
+            if (fillBlock != null)
+                return FailAt(plan, fillBlock.Code, fillBlock.Reason, fillBlock.Location);
 
-            // IR-1 改的是接口文件：登记触碰面供 activePlans 准入与 FB-5 计划级回退归属。
-            foreach (var loc in iface.Locations.Where(l => l.IsInSource))
-            {
-                plan.TouchedFiles.Add(loc.SourceTree!.FilePath);
-                plan.Touches.Add(new PlanTouch(loc.SourceTree!.FilePath, iface.Name, null));
-            }
+            plan.Ripples.Add(new InterfaceRipplePlan(iface, members, fills));
+            AddInterfaceTouches(plan, iface, fills);
         }
 
         // 用点（MS）：逐点分类，任一不可行即整 record 失败（FB-1），错误位置在用点。
@@ -449,5 +457,94 @@ internal sealed class PlanBuilder
             }
         }
         return result;
+    }
+
+    private sealed record InterfaceFillBlock(
+        RecordReadOnlyDiagnosticCode Code, string Reason, Location Location);
+
+    /// <summary>
+    /// IR-3：枚举同一 in-tree 接口的其他实现者。转换中的 owner record 由 IR-2 负责，
+    /// 因此这里跳过 owner；其他“本轮也转换”的 record 在 Rewriter 索引中再按计划状态去重。
+    /// 抽象类型只有确实声明/继承了旧成员实现时才补成员；接口类型本身永不补实现。
+    /// </summary>
+    private static List<InterfaceFillPlan> BuildInterfaceFills(
+        RecordAnalysis analysis,
+        INamedTypeSymbol owner,
+        INamedTypeSymbol iface,
+        IReadOnlyList<RippleMember> rippleMembers,
+        out InterfaceFillBlock? block)
+    {
+        block = null;
+        var result = new List<InterfaceFillPlan>();
+        if (!analysis.Interfaces.TryGetValue(iface, out var fact))
+            return result;
+
+        foreach (var implementer in fact.InTreeImplementers
+                     .OrderBy(t => t.Locations.FirstOrDefault(l => l.IsInSource)?.SourceTree?.FilePath
+                         ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(t => t.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0))
+        {
+            if (SymbolEqualityComparer.Default.Equals(implementer, owner))
+                continue;
+            if (implementer.TypeKind == TypeKind.Interface)
+                continue;
+
+            var supported = new List<RippleMember>();
+            foreach (var member in rippleMembers)
+            {
+                var implementation = implementer.FindImplementationForInterfaceMember(
+                    member.InterfaceMember);
+                if (implementation == null)
+                    continue;
+
+                // class/record class 经接口引用调用旧显式实现是同一引用；struct 会装箱成副本，
+                // 无法保持“原地修改再返回自身”，保守阻断 owner record 的接口连带。
+                if (implementer.IsReferenceType == false
+                    && RecordSyntaxFacts.IsExplicitInterfaceImplementation(
+                        implementation, member.InterfaceMember))
+                {
+                    block = new InterfaceFillBlock(
+                        RecordReadOnlyDiagnosticCode.RR070,
+                        $"in-tree value type '{implementer.ToDisplayString()}' explicitly implements " +
+                        $"'{iface.ToDisplayString()}.{member.InterfaceMember.Name}'; a fluent interface " +
+                        "fill would mutate a boxed copy instead of the original value (IR-3/IR-7).",
+                        implementation.Locations.FirstOrDefault(l => l.IsInSource)
+                            ?? implementer.Locations.First(l => l.IsInSource));
+                    return new();
+                }
+
+                supported.Add(member);
+            }
+
+            if (supported.Count > 0)
+                result.Add(new InterfaceFillPlan(implementer, supported));
+        }
+
+        return result;
+    }
+
+    private static void AddInterfaceTouches(
+        RecordPlan plan,
+        INamedTypeSymbol iface,
+        IReadOnlyList<InterfaceFillPlan> fills)
+    {
+        foreach (var loc in iface.Locations.Where(l => l.IsInSource))
+        {
+            plan.TouchedFiles.Add(loc.SourceTree!.FilePath);
+            plan.Touches.Add(new PlanTouch(loc.SourceTree!.FilePath, iface.Name, null));
+        }
+
+        foreach (var fill in fills)
+        {
+            foreach (var loc in fill.Implementer.Locations.Where(l => l.IsInSource))
+            {
+                plan.TouchedFiles.Add(loc.SourceTree!.FilePath);
+                foreach (var member in fill.Members)
+                {
+                    plan.Touches.Add(new PlanTouch(
+                        loc.SourceTree!.FilePath, fill.Implementer.Name, member.WithName));
+                }
+            }
+        }
     }
 }

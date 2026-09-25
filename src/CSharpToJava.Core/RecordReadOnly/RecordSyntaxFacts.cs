@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -90,6 +91,22 @@ internal static class RecordSyntaxFacts
 
     public static bool IsInTree(ISymbol symbol)
         => symbol.Locations.Any(l => l.IsInSource);
+
+    /// <summary>
+    /// 判断实现符号是否为某个接口成员的显式实现。属性/方法/事件都可能遇到该形态；
+    /// IR-3 对引用类型可经 ((I)this) 调旧契约，对值类型该路径会装箱，调用方需另行阻断。
+    /// </summary>
+    public static bool IsExplicitInterfaceImplementation(ISymbol implementation, ISymbol interfaceMember)
+    {
+        IEnumerable<ISymbol> explicitMembers = implementation switch
+        {
+            IMethodSymbol method => method.ExplicitInterfaceImplementations,
+            IPropertySymbol property => property.ExplicitInterfaceImplementations,
+            IEventSymbol evt => evt.ExplicitInterfaceImplementations,
+            _ => ImmutableArray<ISymbol>.Empty,
+        };
+        return explicitMembers.Any(m => SymbolEqualityComparer.Default.Equals(m, interfaceMember));
+    }
 
     /// <summary>找 record 声明上的 StructLayout 特性，返回 LayoutKind 实参文本（Explicit/Sequential/Auto）。</summary>
     public static bool HasExplicitLayout(INamedTypeSymbol symbol)
