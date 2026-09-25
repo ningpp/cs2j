@@ -907,5 +907,126 @@ public class RecordReadOnlyRewriterUnitTests
         var (output, _, diags) = Rewrite(src, version: LanguageVersion.Preview);
         Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR051);
     }
+
+    [Fact]
+    public void MS7_ListElement_Writable()
+    {
+        var src = """
+            using System.Collections.Generic;
+            public record struct P { public int X { get; set; } }
+            public class C { public void M(List<P> list) { list[2].X = 4; } }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("list[2] = list[2] with { X = 4 };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS7_SpanElement_RefIndexer_Writable()
+    {
+        var src = """
+            using System;
+            public record struct P { public int X { get; set; } }
+            public class C { public void M(Span<P> span) { span[0].X = 4; } }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("span[0] = span[0] with { X = 4 };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS7_ReadOnlyList_BlocksWithRR054()
+    {
+        var src = """
+            using System.Collections.Generic;
+            public record struct P { public int X { get; set; } }
+            public class C { public void M(IReadOnlyList<P> list) { list[0].X = 4; } }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR054);
+    }
+
+    [Fact]
+    public void MS17_NestedChain_AllRecordContainers_RecursiveWith()
+    {
+        var src = """
+            public record struct A { public B B { get; set; } }
+            public record struct B { public int C { get; set; } }
+            public class C2
+            {
+                public void M(A a) { a.B.C = 8; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src);
+        _output.WriteLine($"OUTPUT:\n{output}");
+        _output.WriteLine($"Stats: MutationSitesRewritten={stats.MutationSitesRewritten}");
+        foreach (var d in diags)
+            _output.WriteLine($"Diag: {d.Code} {d.Message}");
+        Assert.Contains("a = a with { B = a.B with { C = 8 } };", output);
+        Assert.Equal(1, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS17_NestedChain_RootPlainSettable_PlainOuterWrite()
+    {
+        var src = """
+            public record struct B { public int C { get; set; } }
+            public class Holder { public B B { get; set; } }
+            public class C2
+            {
+                public void M(Holder h) { h.B.C = 8; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("h.B = h.B with { C = 8 };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS17_GetOnlyIntermediateOnNonRecord_BlocksWithRR050()
+    {
+        var src = """
+            public record struct B { public int C { get; set; } }
+            public class Holder { public B B { get; } }
+            public class C2
+            {
+                public void M(Holder h) { h.B.C = 8; }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR050);
+    }
+
+    [Fact]
+    public void MS17_NestedChainReceiverSideEffect_BlocksWithRR051()
+    {
+        var src = """
+            public record struct A { public B B { get; set; } }
+            public record struct B { public int C { get; set; } }
+            public class C2
+            {
+                public A Get() => default;
+                public void M() { Get().B.C = 8; }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR051);
+    }
+
+    [Fact]
+    public void MS17_CompoundOnNestedChain_StaysPendingRR020()
+    {
+        var src = """
+            public record struct A { public B B { get; set; } }
+            public record struct B { public int C { get; set; } }
+            public class C2
+            {
+                public void M(A a) { a.B.C += 1; }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR020);
+    }
 }
 

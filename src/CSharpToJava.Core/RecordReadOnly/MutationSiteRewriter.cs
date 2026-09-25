@@ -62,11 +62,10 @@ internal static class MutationSiteClassifier
             if (chainFailure != null) return chainFailure;
         }
 
-        // 仅单段链（recv.M）；多段（a.B.C）属 MS-17。
+        // MS-17：多段链（a.B.C）由 ClassifyNestedChain 处理。
         var segmentCount = CountRecordMemberSegments(site, info);
-        if (segmentCount != 1)
-            return new SiteFailure(RecordReadOnlyDiagnosticCode.RR020,
-                "nested member chains (MS-17) are rewritten by a later stage.", site.Location);
+        if (segmentCount > 1)
+            return ClassifyNestedChain(analysis, plan, site);
 
         var memberFailure = MemberIsInitSettable(plan, site.Member);
         if (memberFailure != null) return new SiteFailure(memberFailure.Code,
@@ -88,9 +87,11 @@ internal static class MutationSiteClassifier
                     : "compound assignment in an expression context cannot be rewritten (MS-16).",
                 site.Location);
 
-        if (CountRecordMemberSegments(site, info) != 1)
+        // 复合/自增嵌套链本期不做（RR020 pending）。
+        if (site.Chain.Count > 1)
             return new SiteFailure(RecordReadOnlyDiagnosticCode.RR020,
-                "nested member chains (MS-17) are rewritten by a later stage.", site.Location);
+                "compound/increment on nested member chains is not rewritten yet (MS-17).",
+                site.Location);
 
         if (MemberIsInitSettable(plan, site.Member) is { } memberFailure)
             return new SiteFailure(memberFailure.Code, memberFailure.Reason, site.Location);
@@ -182,20 +183,126 @@ internal static class MutationSiteClassifier
         return ReceiverWritableAndPure(model, conditional.Expression, info);
     }
 
+    /// <summary>
+    /// MS-17：site.Chain 自内向外 [ (最内成员, 直接容器类型), ..., (根成员, 根容器类型) ]。
+    /// 最内层按本 record 的 with 处理；向外每层：容器是 record 时成员须可经 with 设置，
+    /// 容器非 record 时成员须当前可普通回写，且非 record 容器只能出现在最外层一次。
+    /// </summary>
+    private static SiteFailure? ClassifyNestedChain(
+        RecordAnalysis analysis, RecordPlan plan, MutationSiteInfo site)
+    {
+        var chain = site.Chain;
+        var model = analysis.Compilation!.GetSemanticModel(site.WriteNode.SyntaxTree)!;
+
+        // 复合/自增嵌套链本期不做（RR020 pending）。
+        if (site.WriteNode is not AssignmentExpressionSyntax
+            {
+                RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+            })
+        {
+            return new SiteFailure(RecordReadOnlyDiagnosticCode.RR020,
+                "compound/increment on nested member chains is not rewritten yet (MS-17).",
+                site.Location);
+        }
+
+        // 最内成员必须可经其直接容器 record 的 with 设置。
+        // 使用 MemberWithSettableOnConvertedRecord（与外层成员一致），
+        // 而非 MemberIsInitSettable(plan, ...)，因为最内成员在嵌套 record 容器上，
+        // 不在目标 record 的 plan 中。
+        if (chain[0].Member != null
+            && MemberWithSettableOnConvertedRecord(chain[0].Member, chain[0].Access) is { } innerFailure)
+            return innerFailure;
+
+        var seenNonRecordContainer = false;
+        for (var level = 1; level < chain.Count; level++)
+        {
+            var containerType = chain[level - 1].ContainerType as INamedTypeSymbol;
+            var member = chain[level].Member!;
+            var access = chain[level].Access;
+
+            if (containerType != null
+                && analysis.BySymbol.TryGetValue(containerType, out var containerRecord))
+            {
+                if (seenNonRecordContainer)
+                    return new SiteFailure(RecordReadOnlyDiagnosticCode.RR020,
+                        "nested chain re-enters a record through a non-record container (MS-17).",
+                        site.Location);
+                var withFailure = MemberWithSettableOnConvertedRecord(member, access);
+                if (withFailure != null) return withFailure;
+                _ = containerRecord; // 转换与否由重写器按 ActivePlans 决定；不可编译由整树回兜底。
+            }
+            else
+            {
+                seenNonRecordContainer = true;
+                if (!MemberIsPlainWritable(member))
+                    return new SiteFailure(RecordReadOnlyDiagnosticCode.RR050,
+                        $"intermediate member '{member.Name}' is read-only; the chain cannot be " +
+                        "rebuilt with 'with' (MS-17).", access.GetLocation());
+            }
+        }
+
+        // 根接收者可写且无副作用（会被多次求值）。
+        return ReceiverWritableAndPure(model, site.Receiver, analysis.BySymbol.Values
+            .First(r => SymbolEqualityComparer.Default.Equals(r.Symbol, site.TargetRecord!.Symbol)));
+    }
+
+    /// <summary>record 容器经转换后，成员是否可经 with 设置（init 属性 / 可见字段转 init 属性）。</summary>
+    private static SiteFailure? MemberWithSettableOnConvertedRecord(
+        ISymbol member, ExpressionSyntax access)
+    {
+        switch (member)
+        {
+            case IPropertySymbol property:
+                if (property.IsIndexer)
+                    return new SiteFailure(RecordReadOnlyDiagnosticCode.RR042,
+                        "an indexer cannot be set through 'with' in a nested chain (MS-18).",
+                        access.GetLocation());
+                if (property.SetMethod != null) return null; // set/init 访问器转换后均为 init
+                return new SiteFailure(RecordReadOnlyDiagnosticCode.RR050,
+                    $"property '{property.Name}' has no init/set accessor for 'with' (MS-17).",
+                    access.GetLocation());
+
+            case IFieldSymbol field:
+                if (!field.IsReadOnly
+                    && RecordSyntaxFacts.IsVisibleOutsideType(field))
+                    return null; // RS-5：可见字段转 init 属性
+                return new SiteFailure(RecordReadOnlyDiagnosticCode.RR050,
+                    $"field '{field.Name}' cannot be set through 'with' (MS-17).",
+                    access.GetLocation());
+
+            default:
+                return new SiteFailure(RecordReadOnlyDiagnosticCode.RR050,
+                    $"member '{member.Name}' cannot be set through 'with' (MS-17).",
+                    access.GetLocation());
+        }
+    }
+
+    /// <summary>非 record 容器上的成员当前必须能普通回写。</summary>
+    private static bool MemberIsPlainWritable(ISymbol? member) => member switch
+    {
+        IFieldSymbol f => !f.IsReadOnly,
+        IPropertySymbol { IsIndexer: false } p => p.SetMethod is { IsInitOnly: false },
+        IPropertySymbol { IsIndexer: true } ip =>
+            ip.SetMethod is { IsInitOnly: false }
+            || ip.GetMethod is { ReturnsByRef: true, ReturnsByRefReadonly: false },
+        _ => false,
+    };
+
     private static SiteFailure Pending(MutationSiteInfo site) =>
         new(RecordReadOnlyDiagnosticCode.RR020,
             $"mutation site kind '{site.Kind}' is rewritten by a later stage.", site.Location);
 
     private static int CountRecordMemberSegments(MutationSiteInfo site, RecordInfo info)
     {
-        // 只统计属于目标 record 类型的成员链段数。
-        // 例如 t.a.X = 3：chain 包含 X (在 P 上) 和 a (在 tuple 上)，
-        // 只有 X 属于 record P → 单段。
+        // 统计属于任何 record 类型的成员链段数（含目标 record 及嵌套 record 容器）。
+        // 例如 t.a.X = 3：chain 包含 X (在 record P 上) 和 a (在 tuple 上)，
+        // 只有 X 属于 record → 单段，不走 MS-17。
+        // 例如 a.B.C = 8：chain 包含 C (在 record B 上) 和 B (在 record A 上)，
+        // 两段都属于 record → 多段，走 MS-17 嵌套链。
         var count = 0;
         foreach (var seg in site.Chain)
         {
-            if (seg.Member != null
-                && SymbolEqualityComparer.Default.Equals(seg.Member.ContainingType, info.Symbol))
+            if (seg.Member != null && seg.Member.ContainingType is { IsRecord: true })
                 count++;
         }
         return count;
@@ -239,10 +346,12 @@ internal static class MutationSiteClassifier
                         return new SiteFailure(RecordReadOnlyDiagnosticCode.RR054,
                             "read-only/immutable collection element cannot be written (MS-7).",
                             element.GetLocation());
-                    if (indexer.SetMethod is not { IsInitOnly: false })
-                        return new SiteFailure(RecordReadOnlyDiagnosticCode.RR054,
-                            "collection element is read-only (MS-7).", element.GetLocation());
-                    return null;
+                    if (indexer.SetMethod is { IsInitOnly: false })
+                        return null; // 数组以外的 List<T> 等 set 索引器
+                    if (indexer.GetMethod is { ReturnsByRef: true, ReturnsByRefReadonly: false })
+                        return null; // Span<T> 等 ref 返回索引器
+                    return new SiteFailure(RecordReadOnlyDiagnosticCode.RR054,
+                        "collection element is read-only (MS-7).", element.GetLocation());
                 }
                 return new SiteFailure(RecordReadOnlyDiagnosticCode.RR051,
                     "element receiver could not be proven a writable indexer (MS-1/MS-7).",
@@ -453,7 +562,7 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
                 } stmt
                 || FindSite(stmt.Expression) is not { } plan
                 || plan.Site.Kind != SiteKind.SimpleAssign
-                || CountSegmentsForRewrite(plan.Site.Left) != 1
+                || CountRecordMemberSegments(plan.Site) != 1
                 || assign.Right is AssignmentExpressionSyntax)
             {
                 break;
@@ -497,6 +606,24 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
         {
             count++;
             cursor = ma.Expression;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// 与分类器的 CountRecordMemberSegments 对齐：统计属于任何 record 类型的成员链段数。
+    /// 例如 t.a.X = 3：chain 包含 X (在 record P 上) 和 a (在 tuple 上)，
+    /// 只有 X 属于 record → 单段，不走 MS-17 嵌套链路径。
+    /// 例如 a.B.C = 8：chain 包含 C (在 record B 上) 和 B (在 record A 上)，
+    /// 两段都属于 record → 多段，走 MS-17 嵌套链路径。
+    /// </summary>
+    private static int CountRecordMemberSegments(MutationSiteInfo site)
+    {
+        var count = 0;
+        foreach (var seg in site.Chain)
+        {
+            if (seg.Member != null && seg.Member.ContainingType is { IsRecord: true })
+                count++;
         }
         return count;
     }
@@ -580,6 +707,11 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
             return null;
         }
 
+        // MS-17：多段链 a.B.C = v 分流到嵌套链重写。
+        // 与分类器的 CountRecordMemberSegments 对齐：只统计属于目标 record 的成员段。
+        if (CountRecordMemberSegments(sitePlan.Site) > 1)
+            return RewriteNestedChain(assignment, sitePlan.Site);
+
         var receiverText = sitePlan.Site.Receiver.WithoutTrivia().ToFullString();
         var memberName = memberAccess.Name.Identifier.Text;
         var rhsText = assignment.Right.WithoutTrivia().ToFullString();
@@ -587,6 +719,65 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
         var exprText = $"{receiverText} = {receiverText} with {{ {memberName} = {rhsText} }}";
         var result = SyntaxFactory.ParseExpression(exprText);
         return result.WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary>
+    /// a.B.C... = v 自内向外生成 with；最外层容器非 record（或未转换）时退化为普通成员回写。
+    /// </summary>
+    private ExpressionSyntax? RewriteNestedChain(
+        AssignmentExpressionSyntax assignment, MutationSiteInfo site)
+    {
+        var chain = site.Chain;
+
+        // 最内：r0 with { 最内成员 = v }，r0 即最内层成员访问的接收者表达式原文。
+        var innermostAccess = (MemberAccessExpressionSyntax)chain[0].Access;
+        var innermostReceiverText = innermostAccess.Expression.WithoutTrivia().ToFullString();
+        var expr = BuildWithExpression(
+            innermostReceiverText, innermostAccess.Name.Identifier.Text, assignment.Right);
+
+        for (var level = 1; level < chain.Count; level++)
+        {
+            var outerAccess = (MemberAccessExpressionSyntax)chain[level].Access;
+            var outerReceiverText = outerAccess.Expression.WithoutTrivia().ToFullString();
+            var outerMember = outerAccess.Name.Identifier.Text;
+            var containerType = chain[level - 1].ContainerType as INamedTypeSymbol;
+
+            if (containerType != null
+                && _context.ActivePlans.Any(p => SymbolEqualityComparer.Default.Equals(
+                    p.Symbol, containerType)))
+            {
+                // a with { B = a.B with { ... } }
+                expr = BuildWithExpression(outerReceiverText, outerMember, expr);
+            }
+            else
+            {
+                // 非 record（或未转换）容器：h.B = h.B with { ... }；必须是最外层。
+                var target = SyntaxFactory.ParseExpression(
+                    $"{outerReceiverText}.{outerMember}");
+                return SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression, target, expr)
+                    .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+            }
+        }
+
+        // 所有容器均为 record：链的根接收者是最外层 MemberAccess 的接收者表达式
+        // （a.B.C → chain 最后一段 a.B 的 Expression 即 a）。site.Receiver 是最内层
+        // 成员的接收者（a.B），不适用于最外层回写。
+        var outermostAccess = (MemberAccessExpressionSyntax)chain[^1].Access;
+        var rootReceiver = SyntaxFactory.ParseExpression(
+            outermostAccess.Expression.WithoutTrivia().ToFullString());
+        return SyntaxFactory.AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression, rootReceiver, expr)
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+    }
+
+    private static ExpressionSyntax BuildWithExpression(
+        string receiverText, string memberName, ExpressionSyntax value)
+    {
+        var rhsText = value.WithoutTrivia().ToFullString();
+        var exprText = $"{receiverText} with {{ {memberName} = {rhsText} }}";
+        return SyntaxFactory.ParseExpression(exprText)
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
     }
 
     private ExpressionSyntax? RewriteCompound(
