@@ -892,11 +892,27 @@ internal sealed class RecordReadOnlyAnalyzer
 
             if (p.Outcome == PlanOutcome.Converted)
             {
-                if (p.Kind == RecordKind.Struct) statistics.RecordStructsConverted++;
-                else statistics.RecordClassesConverted++;
-                if (options.ReportInfo)
-                    diagnostics.Add(p.InfoDiagnostic(RecordReadOnlyDiagnosticCode.RR001,
-                        $"record {(p.Kind == RecordKind.Struct ? "struct" : "class")} converted."));
+                if (p.Kind == RecordKind.Struct)
+                {
+                    statistics.RecordStructsConverted++;
+                    if (options.ReportInfo)
+                        diagnostics.Add(p.InfoDiagnostic(RecordReadOnlyDiagnosticCode.RR001,
+                            "record struct converted."));
+                }
+                else
+                {
+                    statistics.RecordClassesConverted++;
+                    if (options.ReportInfo)
+                    {
+                        diagnostics.Add(p.InfoDiagnostic(RecordReadOnlyDiagnosticCode.RR002,
+                            "record class converted (semantic immutability)."));
+                        // RR013：别名观察语义变化提示（§4.2，Info）。
+                        diagnostics.Add(p.InfoDiagnostic(RecordReadOnlyDiagnosticCode.RR013,
+                            "alias-observed mutation behavior changed: 'b = a; a.X = 1;' " +
+                            "no longer visible through 'b' after conversion to immutable " +
+                            "record class."));
+                    }
+                }
                 continue;
             }
             if (p.Outcome == PlanOutcome.AlreadyReadOnly)

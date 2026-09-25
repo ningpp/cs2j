@@ -536,8 +536,10 @@ public class RecordReadOnlyRewriterUnitTests
     [Fact]
     public void RecordClass_NotConverted_WhenOptionOff()
     {
+        // Task 23 起 ConvertRecordClasses 默认翻为 true；显式关掉时 record class 原样保留。
         var src = "public record P(int X);";
-        var (output, stats, diags) = Rewrite(src);
+        var (output, stats, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = false });
         Assert.DoesNotContain("readonly record", output);
         Assert.Equal(0, stats.RecordClassesConverted);
         Assert.Equal(0, stats.RecordStructsConverted);
@@ -2387,6 +2389,120 @@ public class RecordReadOnlyRewriterUnitTests
         var (output, _, diags) = Rewrite(src);
         Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR070);
         Assert.DoesNotContain("With", output);
+    }
+
+    [Fact]
+    public void RC2_RecordClass_SetToInit_AndRR002()
+    {
+        var src = """
+            public record class P(int X) { public int Y { get; set; } }
+            """;
+        var (output, stats, diags) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RC-1：声明语法不变（无 readonly 语法）。
+        Assert.Contains("public record class P(int X)", output);
+        // RC-2：set → init。
+        Assert.Contains("public int Y { get; init; }", output);
+        Assert.Equal(1, stats.RecordClassesConverted);
+        Assert.Equal(0, stats.RecordStructsConverted);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR002);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RC2_RecordClass_PrivateSet_ToPrivateInit()
+    {
+        var src = """
+            public record class P { public int X { get; private set; } }
+            """;
+        var (output, _, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        Assert.Contains("private init", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RC3_RecordClass_PublicField_ToInitProperty()
+    {
+        var src = """
+            public record class P { public int X = 5; }
+            """;
+        var (output, _, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        Assert.Contains("public int X { get; init; } = 5;", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RC5_RecordClass_HandwrittenSetterBody_PreservedAsInit()
+    {
+        var src = """
+            public record class P
+            {
+                private int _x;
+                public int X { get => _x; set => _x = value; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RC-5：手写 set 体保体，关键字 set→init。
+        Assert.Contains("init => _x = value;", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RC1_RecordClass_DeclarationUnchanged()
+    {
+        var src = "public record class P(int X);";
+        var (output, _, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RC-1：无显式可变成员声明 → 声明完全不变。
+        Assert.Equal(src, output);
+    }
+
+    [Fact]
+    public void RC4_RecordClass_PrivateField_KeptMutable()
+    {
+        var src = """
+            public record class P
+            {
+                private int _cache;
+                public int X { get; set; }
+                public int Compute() { _cache = 42; return _cache; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RC-4：整体私有字段保留可变（_cache 不转 init），方法无需迁移。
+        Assert.Contains("private int _cache;", output);
+        Assert.Contains("public int X { get; init; }", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RR013_RecordClass_AliasSemanticsInfoDiagnostic()
+    {
+        var src = """
+            public record class P { public int X { get; set; } }
+            """;
+        var (output, _, diags) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RR013：别名观察语义变化提示（Info）。
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR013
+            && d.Severity == RecordReadOnlySeverity.Info);
+    }
+
+    [Fact]
+    public void RecordClass_NotConverted_WhenConvertRecordClassesFalse()
+    {
+        var src = """
+            public record class P { public int X { get; set; } }
+            """;
+        var (output, stats, _) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = false });
+        // 默认关：record class 原样不动。
+        Assert.Equal(src, output);
+        Assert.Equal(0, stats.RecordClassesConverted);
     }
 }
 

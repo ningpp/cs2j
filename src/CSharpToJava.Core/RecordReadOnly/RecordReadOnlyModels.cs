@@ -121,8 +121,8 @@ public sealed class RecordReadOnlyOptions
     /// <summary>存在跳过时退出码非零（规范 §6，CLI --strict；默认 false）。</summary>
     public bool Strict { get; init; }
 
-    /// <summary>是否转换 record class（RC 规则）。M5 任务落地前保持 false；M5 翻为 true。</summary>
-    public bool ConvertRecordClasses { get; init; } = false;
+    /// <summary>是否转换 record class（RC 规则）。M5 后默认 true（CLI 仍由 --convert-record-classes 控制）。</summary>
+    public bool ConvertRecordClasses { get; init; } = true;
 
     /// <summary>是否输出 Info 级诊断。</summary>
     public bool ReportInfo { get; init; } = true;

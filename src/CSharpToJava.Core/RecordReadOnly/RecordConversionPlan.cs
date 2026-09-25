@@ -272,6 +272,12 @@ internal sealed class PlanBuilder
                 plan.MemberRewrites.Add(new MemberRewrite(
                     field.Name, MemberRewriteKind.FieldToInitProperty, field, field.IsRequired));
             }
+            else if (info.Kind == RecordKind.Class)
+            {
+                // RC-4：record class 整体私有字段保留可变（惰性缓存等内部状态），
+                // 不加 readonly、不提升属性，方法体内的写入也无需迁移。
+                continue;
+            }
             else if (IsPrivateFieldWrittenAfterConstruction(info, field))
             {
                 if (!_caps.MethodMigration)
@@ -303,8 +309,9 @@ internal sealed class PlanBuilder
                 "indexer with a set accessor cannot be expressed via 'with' (RS-19/RC-9/MS-18).");
 
         // mutating 方法 → MM 迁移规划（影响集 / MM-6 否决 / 调用点）。
+        // RC-4：record class 写整体私有字段（保留可变的内部状态）不算 mutating。
         if (info.WriteInfos.Values.Any(w => !w.IsConstructor && !w.IsPropertySetter
-                && (w.WrittenMembers.Count > 0 || w.WritesThis)))
+                && (w.WritesThis || w.WrittenMembers.Any(m => RequiresMigrationForMember(info, m)))))
         {
             if (!_caps.MethodMigration)
                 return Fail(plan, RecordReadOnlyDiagnosticCode.RR020,
@@ -533,6 +540,18 @@ internal sealed class PlanBuilder
     private static bool IsPrivateFieldWrittenAfterConstruction(RecordInfo info, IFieldSymbol field)
         => info.WriteInfos.Values.Any(w => !w.IsConstructor && !w.IsPropertySetter
             && (w.WritesThis || w.WrittenMembers.Contains(field)));
+
+    /// <summary>
+    /// RC-4：record class 整体私有字段保留可变，方法体内的写入无需迁移；
+    /// 其余成员（属性、可见字段）转换后 init-only，写入需要 MM。
+    /// record struct 全部成员转 init，一律需要迁移。
+    /// </summary>
+    private static bool RequiresMigrationForMember(RecordInfo info, ISymbol member)
+    {
+        if (info.Kind == RecordKind.Struct) return true;
+        return member is not IFieldSymbol field
+            || RecordSyntaxFacts.IsVisibleOutsideType(field);
+    }
 
     /// <summary>
     /// 返回 record 属性对“带可写（非 init）set 的接口属性”的全部实现映射。
