@@ -67,6 +67,18 @@ public sealed partial class RecordReadOnlyPreprocessor
             semanticModel, _analysis!, _plan!, activePlans, _excludedPlanIds,
             statistics, diagnostics, filePath);
 
+        // FB-3：force 接受外部接口桩降级时补 RR012 说明（接口不加 With、旧契约 set throw）。
+        foreach (var p in activePlans)
+        {
+            if (!p.Ripples.Any(r => r.StubOnly)) continue;
+            diagnostics.Add(new RecordReadOnlyDiagnostic(
+                RecordReadOnlySeverity.Warning, RecordReadOnlyDiagnosticCode.RR012,
+                $"record '{p.RecordShortName}' was force-converted with external-interface " +
+                "stub degradation: the out-of-tree interface cannot receive the generated " +
+                "'With' member, so its old contract now throws NotSupportedException.",
+                filePath, 0, 0, p.RecordShortName));
+        }
+
         var newRoot = ApplyRewriters(root, context);
 
         var changed = !newRoot.IsEquivalentTo(root);

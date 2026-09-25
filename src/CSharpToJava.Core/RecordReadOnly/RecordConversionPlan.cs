@@ -38,14 +38,16 @@ internal sealed record RippleMember(
     INamedTypeSymbol Interface,
     ISymbol InterfaceMember,
     ISymbol RecordMember,
-    string WithName,
+    string WithName,           // 最终生成名（碰撞时含 __cs2j 后缀）
+    string OriginalWithName,   // 碰撞前的原名（WithX），用于诊断与去重
     bool IsMethod,
     bool ReturnsVoid);
 
 internal sealed record InterfaceRipplePlan(
     INamedTypeSymbol Interface,
     IReadOnlyList<RippleMember> Members,
-    IReadOnlyList<InterfaceFillPlan> Fills);
+    IReadOnlyList<InterfaceFillPlan> Fills,
+    bool StubOnly = false);
 
 /// <summary>
 /// IR-3：一个非 record-owner 的 in-tree 接口实现者需要补齐的 fluent 成员。
@@ -203,6 +205,27 @@ internal sealed class PlanBuilder
 
         var forced = _options.ForceQualifiedNames.Contains(qn);
 
+        // IR-6：泛型接口方法（方法形态）保守 RR070——With 名上的类型实参、泛型 fill、
+        // 显式泛型实现的形状未解。无论方法是否 mutating 都要阻断，否则转换后旧契约丢失。
+        foreach (var method in info.InTreeMethods)
+        {
+            if (method.MethodKind is not (MethodKind.Ordinary
+                or MethodKind.ExplicitInterfaceImplementation))
+                continue;
+            foreach (var (iface, interfaceMethod) in
+                     InterfaceMethodImplementations(info.Symbol, method))
+            {
+                if (interfaceMethod.TypeParameters.Length == 0) continue;
+                var memberLocation = interfaceMethod.Locations.FirstOrDefault(l => l.IsInSource)
+                    ?? info.Symbol.Locations.First(l => l.IsInSource);
+                return FailAt(plan, RecordReadOnlyDiagnosticCode.RR070,
+                    $"interface method '{iface.ToDisplayString()}.{interfaceMethod.Name}' " +
+                    "declares type parameters; generic interface-member ripple is not " +
+                    "supported yet (IR-6, deferred to a later task).",
+                    memberLocation);
+            }
+        }
+
         // 属性 set→init（RS-3/RS-4/RS-9/RS-20；RC-2/RC-5 在 M5 复用同一条目）。
         // 命中接口 set（RS-14）的公共属性照常 set→init；旧接口契约改由 IR-2 显式桩满足，
         // 触发信息收集到 rippleProperties，本方法末统一规划 IR-1/IR-2/IR-4。
@@ -219,6 +242,9 @@ internal sealed class PlanBuilder
         // 需要看到合并后的完整成员集）。
         var rippleMembersByInterface =
             new Dictionary<INamedTypeSymbol, List<RippleMember>>(SymbolEqualityComparer.Default);
+        // FB-3 force 桩降级的接口：物化时生成 StubOnly ripple（record 侧只保留旧契约桩）。
+        var forcedStubInterfaces =
+            new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
         foreach (var property in info.SettableProperties)
         {
             var implementations = InterfaceSetterImplementations(info.Symbol, property);
@@ -303,39 +329,42 @@ internal sealed class PlanBuilder
                     var memberLocation = interfaceMethod.Locations.FirstOrDefault(l => l.IsInSource)
                         ?? info.Symbol.Locations.First(l => l.IsInSource);
 
+                    // IR-7/FB-3：外部接口无法追加成员；force 接受桩降级。
                     if (!RecordSyntaxFacts.IsInTree(iface))
-                        return FailAt(plan, RecordReadOnlyDiagnosticCode.RR070,
-                            $"interface '{iface.ToDisplayString()}' declares method " +
-                            $"'{interfaceMethod.Name}' implemented by this record but the interface " +
-                            "is not part of the source tree; the required 'With' member cannot be " +
-                            "added to it (IR-7/FB-3).",
-                            memberLocation);
+                    {
+                        if (!forced)
+                            return FailAt(plan, RecordReadOnlyDiagnosticCode.RR070,
+                                $"interface '{iface.ToDisplayString()}' declares method " +
+                                $"'{interfaceMethod.Name}' implemented by this record but the " +
+                                "interface is not part of the source tree; the required 'With' " +
+                                "member cannot be added to it (IR-7/FB-3). Use overrides.force " +
+                                "to accept stub degradation.",
+                                memberLocation);
+                        forcedStubInterfaces.Add(iface);
+                    }
 
-                    // IR-6 延后：泛型接口方法的语法形状（With 名上的类型实参、泛型 fill、
-                    // 显式泛型实现）在本任务保守 RR070，不在重写路径抛异常。
-                    if (interfaceMethod.TypeParameters.Length > 0)
-                        return FailAt(plan, RecordReadOnlyDiagnosticCode.RR070,
-                            $"interface method '{iface.ToDisplayString()}.{interfaceMethod.Name}' " +
-                            "declares type parameters; generic interface-member ripple is not " +
-                            "supported yet (IR-6, deferred to a later task).",
-                            memberLocation);
-
-                    var withName = "With" + interfaceMethod.Name;
-                    if (iface.GetMembers().Any(m => m.Name == withName))
+                    var originalWithName = "With" + interfaceMethod.Name;
+                    var withName = originalWithName;
+                    var collisionOnInterface = iface.GetMembers().Any(m => m.Name == withName);
+                    var collisionOnRecord = info.Symbol.GetMembers().Any(m => m.Name == withName);
+                    if (collisionOnInterface || collisionOnRecord)
+                        withName = withName + "__cs2j";
+                    // 改名后仍需检测二次碰撞（极罕见）→ 此时才 RR071。
+                    if (iface.GetMembers().Any(m => m.Name == withName)
+                        || info.Symbol.GetMembers().Any(m => m.Name == withName))
                         return FailAt(plan, RecordReadOnlyDiagnosticCode.RR071,
-                            $"interface '{iface.ToDisplayString()}' already declares '{withName}' " +
-                            "(IR-7).",
+                            $"even the suffixed name '{withName}' collides with an existing " +
+                            $"member on interface '{iface.ToDisplayString()}' or record " +
+                            $"'{info.Symbol.Name}'; cannot generate a ripple member (IR-7).",
                             memberLocation);
-                    if (info.Symbol.GetMembers().Any(m => m.Name == withName))
-                        return FailAt(plan, RecordReadOnlyDiagnosticCode.RR071,
-                            $"record '{info.Symbol.Name}' already declares '{withName}'; the " +
-                            "generated interface ripple member would collide (IR-7).",
-                            info.Symbol.Locations.First(l => l.IsInSource));
 
-                    AddRippleMembers(rippleMembersByInterface, iface, new[]
+                    // IR-5：With 成员加到声明该接口成员的原始基接口，派生接口自然继承。
+                    var declaringIface = RecordSyntaxFacts.DeclaringInterfaceFor(iface, interfaceMethod);
+                    AddRippleMembers(rippleMembersByInterface, declaringIface, new[]
                     {
                         new RippleMember(
-                            iface, interfaceMethod, unit.Method, withName,
+                            declaringIface, interfaceMethod, unit.Method, withName,
+                            originalWithName,
                             IsMethod: true, ReturnsVoid: interfaceMethod.ReturnsVoid),
                     });
                 }
@@ -370,34 +399,43 @@ internal sealed class PlanBuilder
         {
             var iface = (INamedTypeSymbol)group.Key!;
 
-            // IR-7：外部接口（源不在树内）无法追加成员 → FB-1（force 接受桩降级在 Task 22）。
+            // IR-7/FB-3：外部接口（源不在树内）无法追加成员 → FB-1；
+            // force 接受桩降级（record 侧仍生成旧契约显式桩，接口不加 With 成员）。
             if (!RecordSyntaxFacts.IsInTree(iface))
-                return Fail(plan, RecordReadOnlyDiagnosticCode.RR070,
-                    $"interface '{iface.ToDisplayString()}' declares settable member(s) implemented " +
-                    "by this record but the interface is not part of the source tree; the required " +
-                    "'With' member cannot be added to it (IR-7/FB-3).");
+            {
+                if (!forced)
+                    return Fail(plan, RecordReadOnlyDiagnosticCode.RR070,
+                        $"interface '{iface.ToDisplayString()}' declares settable member(s) " +
+                        "implemented by this record but the interface is not part of the source " +
+                        "tree; the required 'With' member cannot be added to it (IR-7/FB-3). " +
+                        "Use overrides.force to accept stub degradation.");
+                forcedStubInterfaces.Add(iface);
+            }
 
             var members = new List<RippleMember>();
             foreach (var (recordProperty, _, interfaceProperty) in group)
             {
-                var withName = "With" + interfaceProperty.Name;
-
-                // IR-7：签名碰撞先 FB-1；改名 WithX__cs2j 在 Task 22。
-                if (iface.GetMembers().Any(m => m.Name == withName))
+                var originalWithName = "With" + interfaceProperty.Name;
+                var withName = originalWithName;
+                var collisionOnInterface = iface.GetMembers().Any(m => m.Name == withName);
+                var collisionOnRecord = info.Symbol.GetMembers().Any(m => m.Name == withName);
+                if (collisionOnInterface || collisionOnRecord)
+                    withName = withName + "__cs2j";
+                // 改名后仍需检测二次碰撞（极罕见：接口已有 WithX__cs2j）→ 此时才 RR071。
+                if (iface.GetMembers().Any(m => m.Name == withName)
+                    || info.Symbol.GetMembers().Any(m => m.Name == withName))
                     return FailAt(plan, RecordReadOnlyDiagnosticCode.RR071,
-                        $"interface '{iface.ToDisplayString()}' already declares a member named " +
-                        $"'{withName}'; adding the ripple member would collide (IR-7).",
+                        $"even the suffixed name '{withName}' collides with an existing " +
+                        $"member on interface '{iface.ToDisplayString()}' or record " +
+                        $"'{info.Symbol.Name}'; cannot generate a ripple member (IR-7).",
                         interfaceProperty.Locations.FirstOrDefault(l => l.IsInSource)
                             ?? info.Symbol.Locations.First(l => l.IsInSource));
-                if (info.Symbol.GetMembers().Any(m => m.Name == withName))
-                    return FailAt(plan, RecordReadOnlyDiagnosticCode.RR071,
-                        $"record '{info.Symbol.Name}' already declares a member named " +
-                        $"'{withName}'; the generated strongly-typed ripple member would collide " +
-                        "(IR-7).",
-                        info.Symbol.Locations.First(l => l.IsInSource));
 
+                // IR-5：With 成员加到声明该接口成员的原始基接口，派生接口自然继承。
+                var declaringIface = RecordSyntaxFacts.DeclaringInterfaceFor(iface, interfaceProperty);
                 members.Add(new RippleMember(
-                    iface, interfaceProperty, recordProperty, withName,
+                    declaringIface, interfaceProperty, recordProperty, withName,
+                    originalWithName,
                     IsMethod: false, ReturnsVoid: true));
             }
 
@@ -420,7 +458,8 @@ internal sealed class PlanBuilder
             if (fillBlock != null)
                 return FailAt(plan, fillBlock.Code, fillBlock.Reason, fillBlock.Location);
 
-            plan.Ripples.Add(new InterfaceRipplePlan(iface, members, fills));
+            plan.Ripples.Add(new InterfaceRipplePlan(iface, members, fills,
+                StubOnly: forcedStubInterfaces.Contains(iface)));
             AddInterfaceTouches(plan, iface, fills);
         }
 

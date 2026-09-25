@@ -83,13 +83,19 @@ internal sealed class InterfaceRippler : CSharpSyntaxRewriter
                     {
                         additions.Add(ExplicitOldMethodStub(member)
                             .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
-                        additions.Add(ExplicitWithMethodImplementation(member)
-                            .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
+                        // FB-3 桩降级：外部接口无法新增 With 契约，只保留旧契约 throw 桩。
+                        if (!ripple.StubOnly)
+                        {
+                            additions.Add(ExplicitWithMethodImplementation(member)
+                                .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
+                        }
                         continue;
                     }
 
                     additions.Add(ExplicitPropertyStub(member)
                         .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
+                    if (ripple.StubOnly) continue;
+
                     additions.Add(ExplicitWithPropertyImplementation(member)
                         .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
 
@@ -509,8 +515,13 @@ internal sealed class InterfaceRippleIndex
             if (plan.Outcome != PlanOutcome.Converted) continue;
             foreach (var ripple in plan.Ripples)
             {
-                if (!additions.TryGetValue(ripple.Interface, out var list))
-                    additions[ripple.Interface] = list = new();
+                // FB-3 桩降级：外部接口不加成员（也不在树内，Rewriter 不会访问）。
+                if (ripple.StubOnly) continue;
+                // 键取 OriginalDefinition：声明处解析到的是泛型接口定义 I<T>，
+                // 计划里的符号是构造符号 I<int>；成员文本仍用构造符号生成。
+                var additionsKey = ripple.Interface.OriginalDefinition;
+                if (!additions.TryGetValue(additionsKey, out var list))
+                    additions[additionsKey] = list = new();
                 foreach (var member in ripple.Members)
                 {
                     if (list.Any(existing => SameShape(existing, member))) continue;
@@ -558,11 +569,14 @@ internal sealed class InterfaceRippleIndex
         if (a.IsMethod != b.IsMethod || a.WithName != b.WithName) return false;
         if (a.IsMethod)
         {
-            // 索引按接口符号分组，这里只需比较接口方法本体；同一接口方法被多个
-            // record 计划引用时 OriginalDefinition 相同，去重为一份契约。
+            // 索引按接口定义分组，同一接口方法被多个 record 计划引用时
+            // OriginalDefinition 相同；泛型接口还需构造符号一致（I<int> 与 I<string>
+            // 是两份契约，成员文本各自携带 type argument）。
+            var ma = (IMethodSymbol)a.InterfaceMember;
+            var mb = (IMethodSymbol)b.InterfaceMember;
             return SymbolEqualityComparer.Default.Equals(
-                ((IMethodSymbol)a.InterfaceMember).OriginalDefinition,
-                ((IMethodSymbol)b.InterfaceMember).OriginalDefinition);
+                ma.OriginalDefinition, mb.OriginalDefinition)
+                && SymbolEqualityComparer.Default.Equals(ma.ContainingType, mb.ContainingType);
         }
         var pa = (IPropertySymbol)a.InterfaceMember;
         var pb = (IPropertySymbol)b.InterfaceMember;

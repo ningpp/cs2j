@@ -93,6 +93,26 @@ internal static class RecordSyntaxFacts
         => symbol.Locations.Any(l => l.IsInSource);
 
     /// <summary>
+    /// IR-5：返回接口成员被声明的原始基接口。若成员直接声明在 <paramref name="iface"/>
+    /// 上则返回 <paramref name="iface"/> 本身；否则沿基接口链找声明该成员的接口。
+    /// 符号模型保证 <see cref="INamedTypeSymbol.GetMembers"/> 只含直接声明的成员，
+    /// 故沿 Interfaces 链递归即可。
+    /// </summary>
+    public static INamedTypeSymbol DeclaringInterfaceFor(
+        INamedTypeSymbol iface, ISymbol member)
+    {
+        if (iface.GetMembers().Contains(member, SymbolEqualityComparer.Default))
+            return iface;
+        foreach (var baseIface in iface.Interfaces)
+        {
+            var found = DeclaringInterfaceFor(baseIface, member);
+            if (!ReferenceEquals(found, null!)) return found;
+        }
+        // 不应到达这里（成员必在某基接口声明）；保守返回 iface 本身。
+        return iface;
+    }
+
+    /// <summary>
     /// 判断实现符号是否为某个接口成员的显式实现。属性/方法/事件都可能遇到该形态；
     /// IR-3 对引用类型可经 ((I)this) 调旧契约，对值类型该路径会装箱，调用方需另行阻断。
     /// </summary>

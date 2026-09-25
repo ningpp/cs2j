@@ -2024,10 +2024,16 @@ public class RecordReadOnlyRewriterUnitTests
     }
 
     [Fact]
-    public void IR7_WithNameAlreadyDeclared_RR071AtomicSkip()
+    public void IR7_DoubleCollision_RR071StillBlocks()
     {
+        // Task 22 起，单次碰撞改名 WithP__cs2j 回退；仅当后缀名也碰撞时才 RR071。
         var src = """
-            public interface I { int P { get; set; } int WithP(int value); }
+            public interface I
+            {
+                int P { get; set; }
+                int WithP(int value);
+                int WithP__cs2j(int value);
+            }
             public record struct R : I
             {
                 public int P { get; set; }
@@ -2259,10 +2265,16 @@ public class RecordReadOnlyRewriterUnitTests
     }
 
     [Fact]
-    public void IR7_MethodWithNameCollision_BlocksWithRR071()
+    public void IR7_MethodDoubleCollision_RR071StillBlocks()
     {
+        // Task 22 起，方法触发的单次碰撞同样改名回退；后缀名也碰撞才 RR071。
         var src = """
-            public interface I { void Bump(); int WithBump(); }
+            public interface I
+            {
+                void Bump();
+                int WithBump();
+                int WithBump__cs2j();
+            }
             public record struct R : I
             {
                 public int X { get; set; }
@@ -2289,6 +2301,92 @@ public class RecordReadOnlyRewriterUnitTests
         var (output, _, diags) = RewriteWithMetadata(src, lib);
         Assert.DoesNotContain("readonly record struct", output);
         Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR070);
+    }
+
+    [Fact]
+    public void IR5_RippleMember_AddedToDeclaringBaseInterface()
+    {
+        var src = """
+            public interface IBase { int P { get; set; } }
+            public interface IDerived : IBase { }
+            public record struct R : IDerived { public int P { get; set; } }
+            """;
+        var (output, _, _) = Rewrite(src);
+        // IR-5：WithP 加到 IBase（声明基接口），IDerived 自然继承。
+        Assert.Contains("global::IBase WithP(int value);", output);
+        Assert.DoesNotContain("global::IDerived WithP", output);
+        Assert.Contains("public global::R WithP(int value) => this with { P = value };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR6_GenericInterface_WithTypeArgument()
+    {
+        var src = """
+            public interface I<T> { T P { get; set; } }
+            public record struct R : I<int> { public int P { get; set; } }
+            """;
+        var (output, _, _) = Rewrite(src);
+        // IR-6：泛型接口携带 type argument，显式实现用构造名 global::I<int>。
+        Assert.Contains("global::I<int> WithP(int value);", output);
+        Assert.Contains("global::I<int> global::I<int>.WithP(int value) => this.WithP(value);", output);
+        Assert.Contains("public global::R WithP(int value) => this with { P = value };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RR071_Collision_FallsBackToSuffixedName()
+    {
+        var src = """
+            public interface I { int P { get; set; } int WithP(int value); }
+            public record struct R : I
+            {
+                public int P { get; set; }
+                public int WithP(int value) => value;
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src);
+        // 接口已有 WithP → 改名 WithP__cs2j（不再 RR071 跳过）。
+        Assert.Contains("global::I WithP__cs2j(int value);", output);
+        Assert.Contains("global::I global::I.WithP__cs2j(int value) => this.WithP__cs2j(value);", output);
+        Assert.Contains("public global::R WithP__cs2j(int value) => this with { P = value };", output);
+        Assert.DoesNotContain(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR071);
+        Assert.Equal(1, stats.InterfaceRipples);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void FB3_Force_AcceptsExternalInterfaceStubDegradation()
+    {
+        var external = "public interface I { int P { get; set; } }";
+        var src = "public record struct R : I { public int P { get; set; } }";
+        var (output, _, diags) = RewriteWithMetadata(src, external,
+            new RecordReadOnlyOptions
+            {
+                ForceQualifiedNames = new HashSet<string>(StringComparer.Ordinal) { "R" },
+            });
+        // FB-3 force：外部接口无法加成员，但 force 接受桩降级——
+        // record 的 P 仍 set→init，旧接口契约显式桩 set throw；不生成接口 WithP（接口不在树内）。
+        Assert.Contains("public int P { get; init; }", output);
+        Assert.Contains("int global::I.P", output);
+        Assert.Contains("set => throw new global::System.NotSupportedException(", output);
+        Assert.DoesNotContain("WithP", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR012);
+        // 外部接口不在验证编译的源内，把接口定义一并编入以验证桩可编译。
+        AssertOutputCompiles(external + "\n" + output);
+    }
+
+    [Fact]
+    public void IR6_GenericMethod_OnInterface_StillRR070()
+    {
+        // 泛型接口方法（IR-6 的方法形态）仍保守 RR070——本任务只处理泛型接口的属性形态。
+        var src = """
+            public interface I<T> { void M<U>(T t, U u); }
+            public record struct R : I<int> { public void M<U>(int t, U u) { } }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR070);
+        Assert.DoesNotContain("With", output);
     }
 }
 
