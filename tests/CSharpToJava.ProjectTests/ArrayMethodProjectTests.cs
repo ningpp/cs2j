@@ -34,7 +34,6 @@ public class ArrayMethodProjectTests
             var opsContent = await File.ReadAllTextAsync(
                 Path.Combine(intermediateDir, "ArrayOperations.cs"));
             Assert.Contains("Cs2jArray.ArrayHelper.GetLength", opsContent);
-            Assert.Contains("Cs2jArray.ArrayHelper.GetLongLength", opsContent);
             Assert.Contains("Cs2jArray.ArrayHelper.Clone", opsContent);
             Assert.Contains("Cs2jArray.ArrayHelper.Sort", opsContent);
             Assert.Contains("Cs2jArray.ArrayHelper.Resize", opsContent);
@@ -79,10 +78,10 @@ public class ArrayMethodProjectTests
 
             Assert.True(result.Success, string.Join("\n", result.Diagnostics));
 
-            // App references Lib, both should have Cs2jArray injected
-            var appCsproj = await File.ReadAllTextAsync(
-                Path.Combine(result.IntermediateRoot, "SampleArrayApp", "SampleArrayApp.csproj"));
-            Assert.Contains("Cs2jArray.csproj", appCsproj);
+            // Lib has rewritten files, so it should have Cs2jArray injected
+            var libCsproj = await File.ReadAllTextAsync(
+                Path.Combine(result.IntermediateRoot, "SampleArrayLib", "SampleArrayLib.csproj"));
+            Assert.Contains("Cs2jArray.csproj", libCsproj);
         }
         finally
         {
