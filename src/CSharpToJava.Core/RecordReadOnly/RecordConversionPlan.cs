@@ -215,6 +215,10 @@ internal sealed class PlanBuilder
         var rippleProperties =
             new List<(IPropertySymbol RecordProperty, INamedTypeSymbol Interface,
                 IPropertySymbol InterfaceProperty)>();
+        // 属性触发与方法触发的接口连带成员统一收集，方法块结束后一次性物化（IR-3 fills
+        // 需要看到合并后的完整成员集）。
+        var rippleMembersByInterface =
+            new Dictionary<INamedTypeSymbol, List<RippleMember>>(SymbolEqualityComparer.Default);
         foreach (var property in info.SettableProperties)
         {
             var implementations = InterfaceSetterImplementations(info.Symbol, property);
@@ -272,8 +276,7 @@ internal sealed class PlanBuilder
             return Fail(plan, RecordReadOnlyDiagnosticCode.RR042,
                 "indexer with a set accessor cannot be expressed via 'with' (RS-19/RC-9/MS-18).");
 
-        // mutating 方法（写实例成员的非 ctor 方法）需要 MM。set 访问器转 init 后享有
-        // 与 ctor 同等的 this 写豁免（RS-9），不计迁移；getter 写成员由 M3 判 RR063。
+        // mutating 方法 → MM 迁移规划（影响集 / MM-6 否决 / 调用点）。
         if (info.WriteInfos.Values.Any(w => !w.IsConstructor && !w.IsPropertySetter
                 && (w.WrittenMembers.Count > 0 || w.WritesThis)))
         {
@@ -287,17 +290,67 @@ internal sealed class PlanBuilder
                 return FailAt(plan, migrationFailure.Code, migrationFailure.Reason,
                     migrationFailure.Location);
 
-            var groupFailure = MethodGroupBindingScanner.Scan(analysis.Compilation!, units);
-            if (groupFailure != null)
-                return FailAt(plan, groupFailure.Code, groupFailure.Reason,
-                    groupFailure.Location);
+            var orderedUnits = units.Values.OrderBy(u =>
+                    u.Method.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0)
+                .ToList();
 
-            foreach (var unit in units.Values.OrderBy(u =>
-                         u.Method.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0))
+            // IR 方法触发：先于 Migrations/RR058/调用点扫描做映射与阻断门（原子跳过）。
+            foreach (var unit in orderedUnits)
+            {
+                foreach (var (iface, interfaceMethod) in
+                         InterfaceMethodImplementations(info.Symbol, unit.Method))
+                {
+                    var memberLocation = interfaceMethod.Locations.FirstOrDefault(l => l.IsInSource)
+                        ?? info.Symbol.Locations.First(l => l.IsInSource);
+
+                    if (!RecordSyntaxFacts.IsInTree(iface))
+                        return FailAt(plan, RecordReadOnlyDiagnosticCode.RR070,
+                            $"interface '{iface.ToDisplayString()}' declares method " +
+                            $"'{interfaceMethod.Name}' implemented by this record but the interface " +
+                            "is not part of the source tree; the required 'With' member cannot be " +
+                            "added to it (IR-7/FB-3).",
+                            memberLocation);
+
+                    // IR-6 延后：泛型接口方法的语法形状（With 名上的类型实参、泛型 fill、
+                    // 显式泛型实现）在本任务保守 RR070，不在重写路径抛异常。
+                    if (interfaceMethod.TypeParameters.Length > 0)
+                        return FailAt(plan, RecordReadOnlyDiagnosticCode.RR070,
+                            $"interface method '{iface.ToDisplayString()}.{interfaceMethod.Name}' " +
+                            "declares type parameters; generic interface-member ripple is not " +
+                            "supported yet (IR-6, deferred to a later task).",
+                            memberLocation);
+
+                    var withName = "With" + interfaceMethod.Name;
+                    if (iface.GetMembers().Any(m => m.Name == withName))
+                        return FailAt(plan, RecordReadOnlyDiagnosticCode.RR071,
+                            $"interface '{iface.ToDisplayString()}' already declares '{withName}' " +
+                            "(IR-7).",
+                            memberLocation);
+                    if (info.Symbol.GetMembers().Any(m => m.Name == withName))
+                        return FailAt(plan, RecordReadOnlyDiagnosticCode.RR071,
+                            $"record '{info.Symbol.Name}' already declares '{withName}'; the " +
+                            "generated interface ripple member would collide (IR-7).",
+                            info.Symbol.Locations.First(l => l.IsInSource));
+
+                    AddRippleMembers(rippleMembersByInterface, iface, new[]
+                    {
+                        new RippleMember(
+                            iface, interfaceMethod, unit.Method, withName,
+                            IsMethod: true, ReturnsVoid: interfaceMethod.ReturnsVoid),
+                    });
+                }
+            }
+
+            foreach (var unit in orderedUnits)
             {
                 plan.Migrations.Add(new MethodMigrationPlan(
                     unit.Method, unit.Kind, unit.PromotedMembers));
             }
+
+            var groupFailure = MethodGroupBindingScanner.Scan(analysis.Compilation!, units);
+            if (groupFailure != null)
+                return FailAt(plan, groupFailure.Code, groupFailure.Reason,
+                    groupFailure.Location);
 
             var callSites = MethodCallSiteScanner.Scan(
                 analysis.Compilation!, info, units, out var callFailure);
@@ -310,14 +363,8 @@ internal sealed class PlanBuilder
             }
         }
 
-        // 接口连带（IR-1/IR-2/IR-4/IR-7；属性触发；方法触发 Task 21）。
+        // 接口连带（IR-1/IR-2/IR-4/IR-7；属性触发）。
         // 先于用点分类：RippleForSite 需要 plan.Ripples 判定 InterfaceWithCall 动作。
-        // cap 门保留：能力被外部关闭时给 RR070（单测/未来 overrides 可构造该形态）。
-        if (rippleProperties.Count > 0 && !_caps.InterfaceRipple)
-            return Fail(plan, RecordReadOnlyDiagnosticCode.RR070,
-                "record implicitly implements a settable interface member; interface ripple (IR) " +
-                "is required to convert.");
-
         foreach (var group in rippleProperties
                      .GroupBy(t => t.Interface, SymbolEqualityComparer.Default))
         {
@@ -354,6 +401,20 @@ internal sealed class PlanBuilder
                     IsMethod: false, ReturnsVoid: true));
             }
 
+            AddRippleMembers(rippleMembersByInterface, iface, members);
+        }
+
+        // 属性 + 方法触发的接口连带在此合并物化：cap 门、IR-3 fills、触碰面一次算清。
+        if (rippleMembersByInterface.Count > 0 && !_caps.InterfaceRipple)
+            return Fail(plan, RecordReadOnlyDiagnosticCode.RR070,
+                "record implements an interface member that requires a generated With-style " +
+                "contract; interface ripple (IR) is required to convert.");
+
+        foreach (var pair in rippleMembersByInterface
+                     .OrderBy(p => p.Key.ToDisplayString(), StringComparer.Ordinal))
+        {
+            var iface = pair.Key;
+            var members = pair.Value;
             var fills = BuildInterfaceFills(
                 analysis, info.Symbol, iface, members, out var fillBlock);
             if (fillBlock != null)
@@ -461,6 +522,56 @@ internal sealed class PlanBuilder
 
     private sealed record InterfaceFillBlock(
         RecordReadOnlyDiagnosticCode Code, string Reason, Location Location);
+
+    private static void AddRippleMembers(
+        Dictionary<INamedTypeSymbol, List<RippleMember>> byInterface,
+        INamedTypeSymbol iface,
+        IEnumerable<RippleMember> members)
+    {
+        if (!byInterface.TryGetValue(iface, out var list))
+            byInterface[iface] = list = new();
+        foreach (var member in members)
+        {
+            if (list.Any(existing =>
+                    existing.IsMethod == member.IsMethod
+                    && SymbolEqualityComparer.Default.Equals(
+                        existing.InterfaceMember, member.InterfaceMember)))
+            {
+                continue;
+            }
+            list.Add(member);
+        }
+    }
+
+    /// <summary>
+    /// 返回 record 迁移方法所实现的全部 in-tree/接口符号映射。一个方法可同时隐式实现
+    /// 多个接口；每个接口各生成旧契约桩与新 With 契约。
+    /// </summary>
+    private static IReadOnlyList<(INamedTypeSymbol Interface, IMethodSymbol InterfaceMethod)>
+        InterfaceMethodImplementations(INamedTypeSymbol record, IMethodSymbol method)
+    {
+        var result = new List<(INamedTypeSymbol, IMethodSymbol)>();
+        foreach (var iface in record.AllInterfaces)
+        {
+            foreach (var interfaceMethod in iface.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (interfaceMethod.MethodKind != MethodKind.Ordinary)
+                    continue;
+                var implementation = record.FindImplementationForInterfaceMember(interfaceMethod);
+                if (implementation is not IMethodSymbol implemented)
+                    continue;
+                if (SymbolEqualityComparer.Default.Equals(implemented, method)
+                    || SymbolEqualityComparer.Default.Equals(
+                        implemented.PartialImplementationPart, method)
+                    || SymbolEqualityComparer.Default.Equals(
+                        implemented.PartialDefinitionPart, method))
+                {
+                    result.Add((iface, interfaceMethod));
+                }
+            }
+        }
+        return result;
+    }
 
     /// <summary>
     /// IR-3：枚举同一 in-tree 接口的其他实现者。转换中的 owner record 由 IR-2 负责，

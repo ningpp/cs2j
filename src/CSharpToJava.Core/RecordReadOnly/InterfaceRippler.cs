@@ -34,8 +34,9 @@ internal sealed class InterfaceRippler : CSharpSyntaxRewriter
             return visited;
 
         var additions = members
-            .Select(m => SyntaxFactory.ParseMemberDeclaration(InterfaceMemberText(m))!)
-            .Cast<MemberDeclarationSyntax>()
+            .Select<RippleMember, MemberDeclarationSyntax>(m => m.IsMethod
+                ? InterfaceMethodDeclaration(m)
+                : SyntaxFactory.ParseMemberDeclaration(InterfaceMemberText(m))!)
             .Select(m => m
                 .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed)
                 .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation))
@@ -78,6 +79,15 @@ internal sealed class InterfaceRippler : CSharpSyntaxRewriter
             {
                 foreach (var member in ripple.Members)
                 {
+                    if (member.IsMethod)
+                    {
+                        additions.Add(ExplicitOldMethodStub(member)
+                            .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
+                        additions.Add(ExplicitWithMethodImplementation(member)
+                            .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
+                        continue;
+                    }
+
                     additions.Add(ExplicitPropertyStub(member)
                         .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed));
                     additions.Add(ExplicitWithPropertyImplementation(member)
@@ -135,10 +145,13 @@ internal sealed class InterfaceRippler : CSharpSyntaxRewriter
         if (!_index.Fills.TryGetValue(implementer, out var members) || members.Count == 0)
             return new();
 
+        // 属性与方法 fills 都支持。
         return members
-            .Where(m => !m.IsMethod) // 方法触发在 Task 21 接入。
-            .Select(member => PropertyFillMethod(implementer, member)
-                .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed))
+            .Select(member => member.IsMethod
+                ? MethodFillMethod(implementer, member)
+                    .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed)
+                : PropertyFillMethod(implementer, member)
+                    .WithLeadingTrivia(SyntaxFactory.CarriageReturnLineFeed))
             .Cast<MemberDeclarationSyntax>()
             .ToList();
     }
@@ -164,6 +177,72 @@ internal sealed class InterfaceRippler : CSharpSyntaxRewriter
             $"{{ {target} = value; return this; }}";
         return ((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(text)!)
             .WithExplicitInterfaceSpecifier(ExplicitInterface(member.Interface))
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary>
+    /// IR-3 方法 fill：
+    /// void M(...)    { M(...); return this; }
+    /// T M(...)       { __result = M(...); return this; }
+    /// 隐式实现直接调原方法名（精确输出 `Bump();` / `__result = Next();`）；显式实现的
+    /// class/record class 经 ((I)this) 调旧契约；显式 struct 已在 BuildInterfaceFills 的
+    /// RR070 门阻断；泛型接口方法已在 PlanBuilder 的 RR070 门阻断——故此处没有也不允许
+    /// 出现任何泛型分支或运行时异常。
+    /// </summary>
+    private static MethodDeclarationSyntax MethodFillMethod(
+        INamedTypeSymbol implementer, RippleMember member)
+    {
+        var interfaceMethod = (IMethodSymbol)member.InterfaceMember;
+        var implementation = (IMethodSymbol?)implementer
+            .FindImplementationForInterfaceMember(interfaceMethod);
+        var template = InterfaceMethodTemplate(member);
+        var (parameters, outName) = WithOptionalResultParameter(template, interfaceMethod);
+
+        var explicitCall = implementation != null
+            && RecordSyntaxFacts.IsExplicitInterfaceImplementation(
+                implementation, interfaceMethod);
+
+        var arguments = template.ParameterList.Parameters
+            .Select(p => SyntaxFactory.Argument(SyntaxFactory.IdentifierName(p.Identifier.Text))
+                .WithRefKindKeyword(ArgumentRefKindToken(p)))
+            .ToList();
+
+        var originalName = explicitCall
+            ? interfaceMethod.Name
+            : implementation?.Name ?? interfaceMethod.Name;
+        ExpressionSyntax target = explicitCall
+            ? SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.CastExpression(
+                    RecordSyntaxFacts.GlobalType(member.Interface),
+                    SyntaxFactory.ThisExpression()),
+                SyntaxFactory.IdentifierName(originalName))
+            : SyntaxFactory.IdentifierName(originalName);
+
+        var invocation = SyntaxFactory.InvocationExpression(
+            target, SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)));
+        var statements = new List<StatementSyntax>();
+        if (outName == null)
+        {
+            statements.Add(SyntaxFactory.ExpressionStatement(invocation));
+        }
+        else
+        {
+            statements.Add(SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    SyntaxFactory.IdentifierName(outName),
+                    invocation)));
+        }
+        statements.Add(SyntaxFactory.ReturnStatement(SyntaxFactory.ThisExpression()));
+
+        return SyntaxFactory.MethodDeclaration(
+                RecordSyntaxFacts.GlobalType(member.Interface),
+                SyntaxFactory.Identifier(member.WithName))
+            .WithModifiers(SyntaxFactory.TokenList())
+            .WithParameterList(parameters)
+            .WithExplicitInterfaceSpecifier(ExplicitInterface(member.Interface))
+            .WithBody(SyntaxFactory.Block(statements))
             .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
     }
 
@@ -252,6 +331,148 @@ internal sealed class InterfaceRippler : CSharpSyntaxRewriter
             + property.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) + ")";
     }
 
+    /// <summary>IR-1：接口原方法模板改返回 I、改名 WithX；非 void 末尾加 out __result。</summary>
+    private static MethodDeclarationSyntax InterfaceMethodDeclaration(RippleMember member)
+    {
+        var template = InterfaceMethodTemplate(member);
+        var interfaceMethod = (IMethodSymbol)member.InterfaceMember;
+        var (parameters, _) = WithOptionalResultParameter(template, interfaceMethod);
+        return CleanMethodTemplate(template)
+            .WithReturnType(RecordSyntaxFacts.GlobalType(member.Interface))
+            .WithIdentifier(SyntaxFactory.Identifier(member.WithName))
+            .WithParameterList(parameters)
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary>IR-2：旧方法契约保留为 throw 桩；返回类型/参数与原接口成员一致。</summary>
+    private static MethodDeclarationSyntax ExplicitOldMethodStub(RippleMember member)
+    {
+        var template = InterfaceMethodTemplate(member);
+        var method = (IMethodSymbol)member.InterfaceMember;
+        var message =
+            $"interface method '{member.Interface.ToDisplayString()}.{method.Name}' is not " +
+            "supported after the record became readonly; use the generated 'With' member " +
+            "instead (IR-2).";
+        var throwExpression = SyntaxFactory.ParseExpression(
+            "throw new global::System.NotSupportedException(\"" + message + "\")");
+
+        return CleanMethodTemplate(template)
+            .WithReturnType(template.ReturnType)
+            .WithIdentifier(SyntaxFactory.Identifier(method.Name))
+            .WithExplicitInterfaceSpecifier(ExplicitInterface(member.Interface))
+            .WithExpressionBody(SyntaxFactory.ArrowExpressionClause(throwExpression))
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary>IR-2：`I I.WithX(...) => ImplName(...[, out __result]);`。</summary>
+    private static MethodDeclarationSyntax ExplicitWithMethodImplementation(RippleMember member)
+    {
+        var template = InterfaceMethodTemplate(member);
+        var interfaceMethod = (IMethodSymbol)member.InterfaceMember;
+        var (_, outName) = WithOptionalResultParameter(template, interfaceMethod);
+        var invocation = InvokeOriginalMethod(member, template, outName);
+        return InterfaceMethodDeclaration(member)
+            .WithExplicitInterfaceSpecifier(ExplicitInterface(member.Interface))
+            .WithExpressionBody(SyntaxFactory.ArrowExpressionClause(invocation))
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary>
+    /// 取接口方法的源码声明模板。Step 7 的 RR070 已保证接口在编译树内，方法必然存在
+    /// in-source 的 DeclaringSyntaxReference；接口即使分部件声明，取第一个即可（模板只
+    /// 借用返回类型/参数/特性清洗，与部件位置无关）。
+    /// </summary>
+    private static MethodDeclarationSyntax InterfaceMethodTemplate(RippleMember member) =>
+        (MethodDeclarationSyntax)((IMethodSymbol)member.InterfaceMember)
+            .DeclaringSyntaxReferences
+            .First(r => r.SyntaxTree != null)
+            .GetSyntax();
+
+    private static MethodDeclarationSyntax CleanMethodTemplate(MethodDeclarationSyntax template) =>
+        template
+            .WithAttributeLists(default)
+            .WithModifiers(SyntaxFactory.TokenList())
+            .WithExplicitInterfaceSpecifier(null)
+            .WithBody(null)
+            .WithExpressionBody(null)
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+
+    /// <summary>
+    /// 非 void 接口方法在参数表末尾追加独立的 `out T __result`（名与原参数去重）；
+    /// void 原样返回。symbol 由调用方显式传入，不依赖 template 的语义父节点。
+    /// </summary>
+    private static (ParameterListSyntax Parameters, string? OutName) WithOptionalResultParameter(
+        MethodDeclarationSyntax template, IMethodSymbol method)
+    {
+        if (method.ReturnsVoid)
+            return (template.ParameterList, null);
+
+        var outName = UniqueOutParameterName(template);
+        var parameter = SyntaxFactory.Parameter(SyntaxFactory.Identifier(outName))
+            .WithModifiers(SyntaxFactory.TokenList(
+                SyntaxFactory.Token(SyntaxKind.OutKeyword)
+                    .WithTrailingTrivia(SyntaxFactory.Space)))
+            .WithType(RecordSyntaxFacts.GlobalType(method.ReturnType));
+        return (SyntaxFactory.ParameterList(template.ParameterList.Parameters.Add(parameter)),
+            outName);
+    }
+
+    private static string UniqueOutParameterName(MethodDeclarationSyntax template)
+    {
+        var taken = template.ParameterList.Parameters
+            .Select(p => p.Identifier.Text)
+            .ToHashSet(StringComparer.Ordinal);
+        var name = "__result";
+        var suffix = 0;
+        while (taken.Contains(name))
+            name = $"__result_{++suffix}";
+        return name;
+    }
+
+    /// <summary>
+    /// owner record 内的转发调用：`ImplName(args)`；非 void 末尾追加 `out __result`。
+    /// 名字必须取**实现方法**名（`member.RecordMember`，即 MM 单元方法）：隐式实现允许
+    /// 与接口方法不同名（`public int Fetch()` 实现 `int Next()`），而显式实现符号的
+    /// Name 同样不带接口前缀（"Bump"），提升后 public 名就是它。刻意不带 `this.` 前缀
+    /// ——输出以精确子串守护（`=> Bump();`、`=> Next(out __result);`）。
+    /// </summary>
+    private static InvocationExpressionSyntax InvokeOriginalMethod(
+        RippleMember member, MethodDeclarationSyntax template, string? outName)
+    {
+        var arguments = template.ParameterList.Parameters
+            .Select(p => SyntaxFactory.Argument(SyntaxFactory.IdentifierName(p.Identifier.Text))
+                .WithRefKindKeyword(ArgumentRefKindToken(p)))
+            .ToList();
+        if (outName != null)
+        {
+            arguments.Add(SyntaxFactory.Argument(SyntaxFactory.IdentifierName(outName))
+                .WithRefKindKeyword(SyntaxFactory.Token(SyntaxKind.OutKeyword)
+                    .WithTrailingTrivia(SyntaxFactory.Space)));
+        }
+
+        // 显式接口实现符号的 Name 带接口限定（"I.Bump"），取末段得到提升后的 public 名。
+        var recordMemberName = ((IMethodSymbol)member.RecordMember).Name;
+        var implementationName = recordMemberName.Contains('.')
+            ? recordMemberName[(recordMemberName.LastIndexOf('.') + 1)..]
+            : recordMemberName;
+        return SyntaxFactory.InvocationExpression(
+            SyntaxFactory.IdentifierName(implementationName),
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)));
+    }
+
+    private static SyntaxToken ArgumentRefKindToken(ParameterSyntax parameter)
+    {
+        if (parameter.Modifiers.Any(SyntaxKind.InKeyword))
+            return SyntaxFactory.Token(SyntaxKind.InKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        if (parameter.Modifiers.Any(SyntaxKind.RefKeyword))
+            return SyntaxFactory.Token(SyntaxKind.RefKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        if (parameter.Modifiers.Any(SyntaxKind.OutKeyword))
+            return SyntaxFactory.Token(SyntaxKind.OutKeyword).WithTrailingTrivia(SyntaxFactory.Space);
+        return SyntaxFactory.Token(SyntaxKind.None);
+    }
+
     /// <summary>
     /// partial 类型只向确定性选定的主部件（文件路径序、再跨度序最小）追加成员，
     /// 避免每个部件各加一份造成重复定义。
@@ -331,11 +552,18 @@ internal sealed class InterfaceRippleIndex
         };
     }
 
-    /// <summary>同接口内 With 名相同且值参类型相同即视为同一份契约（方法形状 Task 21 补全）。</summary>
+    /// <summary>同接口内 With 名相同且值参类型相同即视为同一份契约。</summary>
     internal static bool SameShape(RippleMember a, RippleMember b)
     {
         if (a.IsMethod != b.IsMethod || a.WithName != b.WithName) return false;
-        if (a.IsMethod) return false;
+        if (a.IsMethod)
+        {
+            // 索引按接口符号分组，这里只需比较接口方法本体；同一接口方法被多个
+            // record 计划引用时 OriginalDefinition 相同，去重为一份契约。
+            return SymbolEqualityComparer.Default.Equals(
+                ((IMethodSymbol)a.InterfaceMember).OriginalDefinition,
+                ((IMethodSymbol)b.InterfaceMember).OriginalDefinition);
+        }
         var pa = (IPropertySymbol)a.InterfaceMember;
         var pb = (IPropertySymbol)b.InterfaceMember;
         return SymbolEqualityComparer.Default.Equals(pa.Type, pb.Type);

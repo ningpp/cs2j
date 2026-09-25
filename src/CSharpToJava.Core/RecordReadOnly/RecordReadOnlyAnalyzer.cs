@@ -253,7 +253,7 @@ internal sealed class RecordReadOnlyAnalyzer
             if (member.DeclaringSyntaxReferences.Length == 0) continue;
             if (member.MethodKind is not (MethodKind.Ordinary or MethodKind.Constructor
                 or MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.EventAdd
-                or MethodKind.EventRemove))
+                or MethodKind.EventRemove or MethodKind.ExplicitInterfaceImplementation))
                 continue;
             info.InTreeMethods.Add(member);
             var wi = BuildWriteInfo(member, info, compilation);

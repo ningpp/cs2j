@@ -110,12 +110,19 @@ internal static class MethodMigrationPlanner
                 return (new(), new MigrationFailure(RecordReadOnlyDiagnosticCode.RR061,
                     "partial method signatures are bound across declarations and cannot be " +
                     "changed (MM-6).", location));
-            // 隐式接口实现不标记 virtual，两个判定必须并列、接口在前（MM-6/IR）。
-            if (ImplementsInterfaceMethod(w.Method))
-                return (new(), new MigrationFailure(RecordReadOnlyDiagnosticCode.RR020,
-                    "interface-implementation methods are handled by interface ripple (IR) " +
-                    "in a later stage.", location));
-            if (w.IsOverrideExplicitOrVirtual)
+            var implementsInterface = ImplementsInterfaceMethod(w.Method);
+            if (implementsInterface
+                && w.Method.IsVirtual
+                && w.Method.ExplicitInterfaceImplementations.Length == 0)
+            {
+                // virtual 接口实现可能有未一起迁移的 override；显式接口实现不可标记 virtual，
+                // 普通隐式接口实现的 IsVirtual 为 false，可经 IR 新旧双契约迁移。
+                return (new(), new MigrationFailure(RecordReadOnlyDiagnosticCode.RR065,
+                    "a virtual interface implementation has an override contract that cannot be " +
+                    "changed until every in-tree override is migrated together (MM-6).",
+                    location));
+            }
+            if (!implementsInterface && w.IsOverrideExplicitOrVirtual)
                 return (new(), new MigrationFailure(RecordReadOnlyDiagnosticCode.RR065,
                     "a virtual/override/object-contract method cannot change its signature; " +
                     "only interface-implementation methods can be rerouted via IR (MM-6).",
@@ -269,8 +276,27 @@ internal static class MethodCallSiteScanner
                 if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol rawCallee) continue;
                 // reduced 扩展调用（r.M()）归一回原始静态方法后再查迁移单元。
                 var callee = rawCallee.ReducedFrom ?? rawCallee;
-                if (!unitsByOriginal.TryGetValue(callee.OriginalDefinition, out var migrated))
+
+                IMethodSymbol? migrated;
+                var interfaceCall = false;
+                INamedTypeSymbol? receiverInterface = null;
+                if (callee.ContainingType.TypeKind == TypeKind.Interface)
+                {
+                    // 接口静态类型接收者：先映射回本 record 的实现方法再查迁移单元。
+                    if (owner.Symbol.FindImplementationForInterfaceMember(callee)
+                        is not IMethodSymbol implementation
+                        || !unitsByOriginal.TryGetValue(
+                            implementation.OriginalDefinition, out migrated!))
+                    {
+                        continue;
+                    }
+                    interfaceCall = true;
+                    receiverInterface = (INamedTypeSymbol)callee.ContainingType;
+                }
+                else if (!unitsByOriginal.TryGetValue(callee.OriginalDefinition, out migrated))
+                {
                     continue;
+                }
 
                 var enclosing = EnclosingMember(model, invocation);
                 var nested = IsInNestedFunction(invocation);
@@ -308,7 +334,9 @@ internal static class MethodCallSiteScanner
                             return result;
                         }
                         result.Add((MakeSite(tree, invocation,
-                            SyntaxFactory.ThisExpression(), owner, migrated), WritebackThis: true));
+                            SyntaxFactory.ThisExpression(), owner, callee,
+                            SiteActionKind.MethodMigrateCall, owner.Symbol, null),
+                            WritebackThis: true));
                         continue;
                     }
                     failure = new SiteFailure(RecordReadOnlyDiagnosticCode.RR050,
@@ -348,7 +376,12 @@ internal static class MethodCallSiteScanner
                     failure = receiverFailure;
                     return result;
                 }
-                result.Add((MakeSite(tree, invocation, self, owner, migrated),
+                result.Add((MakeSite(
+                        tree, invocation, self, owner, callee,
+                        interfaceCall ? SiteActionKind.InterfaceWithCall
+                            : SiteActionKind.MethodMigrateCall,
+                        model.GetTypeInfo(self).Type ?? owner.Symbol,
+                        receiverInterface),
                     WritebackThis: false));
             }
         }
@@ -395,8 +428,15 @@ internal static class MethodCallSiteScanner
                 model.GetSymbolInfo(id).Symbol, enclosing.Parameters[0]);
     }
 
-    private static SitePlan MakeSite(SyntaxTree tree, InvocationExpressionSyntax invocation,
-        ExpressionSyntax receiver, RecordInfo owner, IMethodSymbol callee)
+    private static SitePlan MakeSite(
+        SyntaxTree tree,
+        InvocationExpressionSyntax invocation,
+        ExpressionSyntax receiver,
+        RecordInfo owner,
+        IMethodSymbol callee,
+        SiteActionKind action,
+        ITypeSymbol receiverType,
+        INamedTypeSymbol? receiverInterface)
     {
         var site = new MutationSiteInfo
         {
@@ -405,14 +445,15 @@ internal static class MethodCallSiteScanner
             WriteNode = invocation,
             Left = invocation,
             Receiver = receiver,
-            ReceiverType = owner.Symbol,
+            ReceiverType = receiverType,
+            ReceiverInterface = receiverInterface,
             Kind = SiteKind.MethodCall,
             IsStatementPosition =
                 invocation.FirstAncestorOrSelf<ExpressionStatementSyntax>() != null,
             MethodCallee = callee,
         };
         site.TargetRecord = owner;
-        return new SitePlan(site, SiteActionKind.MethodMigrateCall);
+        return new SitePlan(site, action);
     }
 
     /// <summary>
@@ -756,6 +797,23 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
         return RewriteMarkedCall(visited, data, callee);
     }
 
+    /// <summary>
+    /// `i.M()` 命中接口方法 ripple 时改为 `i.WithM(...)`（改名在加 out 实参之前完成，
+    /// 非 void 由既有 WithOutArgument 管线补 `out var x`）。record 强类型接收者解析到
+    /// R.M，callee.ContainingType 不是接口，因此不会改名，仍走 MM 的 `r = r.M(...)`。
+    /// </summary>
+    private static InvocationExpressionSyntax PrepareInterfaceRippleCall(
+        InvocationExpressionSyntax invocation, IMethodSymbol callee)
+    {
+        if (callee.ContainingType.TypeKind != TypeKind.Interface)
+            return invocation;
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+            return invocation;
+
+        return invocation.WithExpression(memberAccess.WithName(
+            SyntaxFactory.IdentifierName("With" + callee.Name)));
+    }
+
     private ExpressionSyntax RewriteMarkedCall(
         InvocationExpressionSyntax visited, string data, IMethodSymbol callee)
     {
@@ -789,7 +847,8 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
             outName = NextSyntheticName(visited, "__o", ref _outCounter);
         }
 
-        var call = nonVoid ? WithOutArgument(visited, outName!) : visited;
+        var prepared = PrepareInterfaceRippleCall(visited, callee);
+        var call = nonVoid ? WithOutArgument(prepared, outName!) : prepared;
 
         if (absorb)
         {
@@ -1163,10 +1222,20 @@ internal sealed class MethodMigrator : MethodCallSyntaxRewriter
     private static IReadOnlySet<IMethodSymbol> BuildMigratedSet(RewriteContext context)
     {
         // 跨文件/跨 record 的调用也必须识别：集合取所有 active 计划的全部迁移方法。
+        // ripple 接口方法也必须进识别集合，`i.Bump()` 才会被标注为迁移调用；去重交给
+        // HashSet——两个 record 触发同一接口方法时 `OriginalDefinition` 相同。
         var set = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
         foreach (var plan in context.ActivePlans)
+        {
             foreach (var migration in plan.Migrations)
                 set.Add(migration.Method.OriginalDefinition);
+            foreach (var ripple in plan.Ripples)
+            foreach (var member in ripple.Members)
+            {
+                if (member.IsMethod)
+                    set.Add(((IMethodSymbol)member.InterfaceMember).OriginalDefinition);
+            }
+        }
         return set;
     }
 
@@ -1182,6 +1251,9 @@ internal sealed class MethodMigrator : MethodCallSyntaxRewriter
                         StringComparison.OrdinalIgnoreCase))
                     continue;
                 if (sitePlan.Action == SiteActionKind.MethodMigrateCall) continue;
+                // 方法形态的接口 ripple 用点（Invocation）由 MethodCallSyntaxRewriter
+                // 改名 + out 提升 + 回写一条管线处理，不进 MutationSiteRewriter。
+                if (sitePlan.Site.Kind == SiteKind.MethodCall) continue;
                 var key = (sitePlan.Site.WriteNode.SpanStart, sitePlan.Site.WriteNode.RawKind);
                 map[key] = MutationSiteRewriter.SiteAnnotationFor(plan, sitePlan);
             }
@@ -1268,6 +1340,10 @@ internal sealed class MethodMigrator : MethodCallSyntaxRewriter
         }
 
         _context.Statistics.MethodsMigrated++;
+        // IR-2：显式接口方法先提升为 public 强类型方法，旧契约由 InterfaceRippler 补 throw 桩。
+        // 必须在体改写之后执行：With* 会克隆节点使其脱离语义模型，提前提升会让体内
+        // 成员引用无法解析符号、漏做提升替换。
+        node = PromoteExplicitInterfaceMethod(node);
         return node.WithReturnType(recordTypeSyntax)
             .WithParameterList(SyntaxFactory.ParameterList(parameters))
             .WithBody(finalBody)
@@ -1285,6 +1361,29 @@ internal sealed class MethodMigrator : MethodCallSyntaxRewriter
         var name = "result";
         while (taken.Contains(name)) name += "_";
         return name;
+    }
+
+    /// <summary>
+    /// 显式接口方法（如 `void I.Bump() {}`）迁移后要成为强类型 public `R Bump()`；
+    /// 旧 I.Bump 契约由 InterfaceRippler 另生成 throw 桩。普通隐式实现原样保留修饰符。
+    /// </summary>
+    private static MethodDeclarationSyntax PromoteExplicitInterfaceMethod(
+        MethodDeclarationSyntax node)
+    {
+        if (node.ExplicitInterfaceSpecifier == null) return node;
+
+        var keptModifiers = node.Modifiers
+            .Where(t => t.Kind() is not (SyntaxKind.PublicKeyword
+                or SyntaxKind.ProtectedKeyword
+                or SyntaxKind.InternalKeyword
+                or SyntaxKind.PrivateKeyword))
+            .ToList();
+        keptModifiers.Insert(0, SyntaxFactory.Token(SyntaxKind.PublicKeyword)
+            .WithTrailingTrivia(SyntaxFactory.Space));
+
+        return node
+            .WithExplicitInterfaceSpecifier(null)
+            .WithModifiers(SyntaxFactory.TokenList(keptModifiers));
     }
 }
 

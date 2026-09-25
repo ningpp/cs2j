@@ -1692,21 +1692,6 @@ public class RecordReadOnlyRewriterUnitTests
     }
 
     [Fact]
-    public void MM6_InterfaceImplementationMutating_StaysPendingRR020()
-    {
-        var src = """
-            public interface I { void Bump(); }
-            public record struct P : I
-            {
-                public int X { get; set; }
-                public void Bump() { X = 1; }
-            }
-            """;
-        var (_, _, diags) = Rewrite(src);
-        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR020);
-    }
-
-    [Fact]
     public void MM7_VoidExtension_ReturnsRecordAndPromotesReceiver()
     {
         var src = """
@@ -2158,6 +2143,150 @@ public class RecordReadOnlyRewriterUnitTests
             }
             """;
         var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("readonly record struct", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR070);
+    }
+
+    [Fact]
+    public void IR1_VoidInterfaceMethod_AddsWithAndMigratesRecordMethod()
+    {
+        var src = """
+            public interface I { void Bump(); }
+            public record struct R : I
+            {
+                public int X { get; set; }
+                public void Bump() { X++; }
+            }
+            public class C { public void Use(I i, R r) { i.Bump(); r.Bump(); } }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("global::I WithBump();", output);
+        Assert.Contains("public R Bump()", output);
+        Assert.Contains("void global::I.Bump()", output);
+        Assert.Contains("global::I global::I.WithBump() => Bump();", output);
+        Assert.Contains("i = i.WithBump();", output);
+        Assert.Contains("r = r.Bump();", output);
+        Assert.Equal(1, stats.MethodsMigrated);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR1_NonVoidInterfaceMethod_UsesOutResultShape()
+    {
+        var src = """
+            public interface I { int Next(); }
+            public record struct R : I
+            {
+                public int X { get; set; }
+                public int Next() => ++X;
+            }
+            public class C
+            {
+                public void Use(I i, R r)
+                {
+                    var a = i.Next();
+                    var b = r.Next();
+                }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("global::I WithNext(out int __result);", output);
+        Assert.Contains("public R Next(out int result)", output);
+        Assert.Contains("int global::I.Next()", output);
+        Assert.Contains("global::I global::I.WithNext(out int __result) => Next(out __result);", output);
+        Assert.Contains("i = i.WithNext(out var a);", output);
+        Assert.Contains("r = r.Next(out var b);", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR2_ExplicitInterfaceMethod_PromotedToPublicStrongMethod()
+    {
+        var src = """
+            public interface I { void Bump(); }
+            public record struct R : I
+            {
+                public int X { get; set; }
+                void I.Bump() { X++; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("public R Bump()", output);
+        Assert.DoesNotContain("void global::I.Bump() {", output);
+        Assert.Contains("void global::I.Bump() => throw new global::System.NotSupportedException(", output);
+        Assert.Contains("global::I global::I.WithBump() => Bump();", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR3_OtherClassImplementer_GetsVoidAndNonVoidMethodFills()
+    {
+        var src = """
+            public interface I { void Bump(); int Next(); }
+            public record struct R : I
+            {
+                public int X { get; set; }
+                public void Bump() { X++; }
+                public int Next() => ++X;
+            }
+            public class C : I
+            {
+                public int X { get; set; }
+                public void Bump() { X++; }
+                public int Next() => ++X;
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        AssertContainsIgnoringWhitespace(
+            "global::I global::I.WithBump() { Bump(); return this; }", output);
+        AssertContainsIgnoringWhitespace(
+            "global::I global::I.WithNext(out int __result) { __result = Next(); return this; }",
+            output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void IR4_InterfaceMethodReceiverInParam_BlocksWithRR050()
+    {
+        var src = """
+            public interface I { void Bump(); }
+            public record struct R : I { public int X { get; set; } public void Bump() { X++; } }
+            public class C { public void Use(in I i) { i.Bump(); } }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("WithBump()", output.Replace("void global::I.Bump", string.Empty));
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR050);
+    }
+
+    [Fact]
+    public void IR7_MethodWithNameCollision_BlocksWithRR071()
+    {
+        var src = """
+            public interface I { void Bump(); int WithBump(); }
+            public record struct R : I
+            {
+                public int X { get; set; }
+                public void Bump() { X++; }
+                public int WithBump() => 0;
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("readonly record struct", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR071);
+    }
+
+    [Fact]
+    public void IR7_ExternalInterfaceMethod_BlocksWithRR070()
+    {
+        var lib = "public interface IExt { void Bump(); }";
+        var src = """
+            public record struct R : IExt
+            {
+                public int X { get; set; }
+                public void Bump() { X++; }
+            }
+            """;
+        var (output, _, diags) = RewriteWithMetadata(src, lib);
         Assert.DoesNotContain("readonly record struct", output);
         Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR070);
     }
