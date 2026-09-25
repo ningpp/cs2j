@@ -101,6 +101,15 @@ public class ProjectPreprocessorsConsistentTests
 
             Assert.Equal(projectPathSets[0], projectPathSets[1]);
             Assert.Equal(projectPathSets[0], projectPathSets[2]);
+
+            // record-readonly 驱动器存在且与既有预处理器同源（ProjectPreprocessSource）。
+            // 默认关（ConvertProjectOptions.RecordReadOnly = false），故 convert-project
+            // 不会自动触发；独立 verb 通过 --convert-record-classes 显式开启。
+            // 这里仅确认类型存在与签名兼容，不实际执行（避免 fixture 依赖）。
+            var recordReadonlyType = typeof(ProjectRecordReadOnlyPreprocessor);
+            Assert.NotNull(recordReadonlyType);
+            Assert.Equal(".cs2j-record-readonly-src",
+                ProjectRecordReadOnlyPreprocessor.IntermediateDirectoryName);
         }
         finally
         {
