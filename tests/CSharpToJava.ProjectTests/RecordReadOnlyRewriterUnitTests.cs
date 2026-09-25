@@ -2572,6 +2572,67 @@ public class RecordReadOnlyRewriterUnitTests
         Assert.Equal(2, stats.RecordClassesConverted);
         AssertOutputCompiles(output);
     }
+
+    [Fact]
+    public void RC9_RecordClass_SettableIndexer_FB1()
+    {
+        var src = """
+            public record class P
+            {
+                public int this[int i] { get; set; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RC-9/RR042：带 set 的索引器 → FB-1 跳过。
+        Assert.Equal(0, stats.RecordClassesConverted);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR042);
+        Assert.Contains("public int this[int i] { get; set; }", output);
+    }
+
+    [Fact]
+    public void RC10_PrivateCopyConstructor_InternalOnly_FeasibleWithRR014()
+    {
+        // sealed 才允许私有拷贝 ctor（CS8878）。
+        var src = """
+            public sealed record class P
+            {
+                public int X { get; set; }
+                private P(P other) { X = other.X; }
+                public P(int x) { X = x; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RC-10：私有拷贝 ctor，但改写点都在类型内 → 可转换，提示 RR014（Info）。
+        Assert.Contains("public int X { get; init; }", output);
+        Assert.Equal(1, stats.RecordClassesConverted);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR014
+            && d.Severity == RecordReadOnlySeverity.Info);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void RC10_PrivateCopyConstructor_ExternalWithSite_FB1()
+    {
+        var src = """
+            public sealed record class P
+            {
+                public int X { get; set; }
+                private P(P other) { X = other.X; }
+                public P(int x) { X = x; }
+            }
+            public class Consumer
+            {
+                public void Mutate(P p) { p.X = 42; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src,
+            new RecordReadOnlyOptions { ConvertRecordClasses = true });
+        // RC-10/RR080：私有拷贝 ctor，改写点在类型外（Consumer.Mutate），with 不可用 → FB-1。
+        Assert.Equal(0, stats.RecordClassesConverted);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR080);
+    }
 }
 
 

@@ -549,6 +549,21 @@ internal sealed class PlanBuilder
             return Fail(plan, RecordReadOnlyDiagnosticCode.RR057,
                 "dynamic receiver or reflection SetValue usage cannot be rewritten statically (MS-14).");
 
+        // RC-10：私有/不可访问拷贝 ctor。record class 的 with 表达式依赖可访问的拷贝 ctor。
+        // 若有私有拷贝 ctor 且改写点在类型外 → RR080（FB-1）。
+        // 若改写点都在类型内 → 可转换，RR014 提示（Info，报告阶段补）。
+        if (info.Kind == RecordKind.Class && info.HasPrivateCopyConstructor)
+        {
+            var hasExternalSite = info.Sites.Any(s =>
+                !SymbolEqualityComparer.Default.Equals(
+                    s.EnclosingMethod?.ContainingType, info.Symbol));
+            if (hasExternalSite)
+                return Fail(plan, RecordReadOnlyDiagnosticCode.RR080,
+                    "record class has a private/inaccessible copy constructor; the 'with' " +
+                    "expression used at external mutation sites is unavailable (RC-10).");
+            // 内部用点可转换；RR014 在报告阶段补。
+        }
+
         var needMemberRewrites = plan.MemberRewrites.Any(m =>
             m.Kind is MemberRewriteKind.SetToInit or MemberRewriteKind.FieldToInitProperty
                 or MemberRewriteKind.PrivateFieldToInitProperty);

@@ -912,6 +912,21 @@ internal sealed class RecordReadOnlyAnalyzer
                             "no longer visible through 'b' after conversion to immutable " +
                             "record class."));
                     }
+                    // RC-10：私有拷贝 ctor 限制提示（Info）。ReportSkippedRecords 只拿到
+                    // RecordPlan，这里内联重查私有拷贝 ctor。
+                    if (p.Symbol.GetMembers().OfType<IMethodSymbol>()
+                        .Any(m => m.MethodKind == MethodKind.Constructor
+                            && m is { Parameters.Length: 1 }
+                            && SymbolEqualityComparer.Default.Equals(
+                                m.Parameters[0].Type, p.Symbol)
+                            && m.DeclaredAccessibility == Accessibility.Private))
+                    {
+                        diagnostics.Add(p.InfoDiagnostic(
+                            RecordReadOnlyDiagnosticCode.RR014,
+                            "record class has a private copy constructor; 'with' expressions " +
+                            "are only available within this type. External callers cannot use " +
+                            "the generated 'With' members (RC-10)."));
+                    }
                 }
                 continue;
             }
