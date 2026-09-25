@@ -677,5 +677,131 @@ public class RecordReadOnlyRewriterUnitTests
         var (output, _, diags) = Rewrite(src);
         Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR051);
     }
+
+    [Fact]
+    public void MS3_CompoundAssignment_BecomesWithReadModifyWrite()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } public string? S { get; set; } }
+            public class C
+            {
+                public void M(P p)
+                {
+                    p.X += 5;
+                    p.X -= 2;
+                    p.S ??= "x";
+                }
+            }
+            """;
+        var model = ParseWithSemantics(src);
+        var pp = new RecordReadOnlyPreprocessor();
+        pp.BindCompilation(model.Compilation);
+        foreach (var plan in pp.Plans)
+        {
+            _output.WriteLine($"Plan: {plan.RecordQualifiedName}, Outcome: {plan.Outcome}, Sites: {plan.Sites.Count}, FailCode: {plan.FailCode}");
+            foreach (var s in plan.Sites)
+                _output.WriteLine($"  Site: Kind={s.Site.Kind}, WriteNode={s.Site.WriteNode}, Receiver={s.Site.Receiver}, Left={s.Site.Left}");
+        }
+        var (output, stats, _) = Rewrite(src);
+        _output.WriteLine($"OUTPUT:\n{output}");
+        _output.WriteLine($"MutationSitesRewritten: {stats.MutationSitesRewritten}");
+        Assert.Contains("p = p with { X = p.X + 5 };", output);
+        Assert.Contains("p = p with { X = p.X - 2 };", output);
+        Assert.Contains("p = p with { S = p.S ?? \"x\" };", output);
+        Assert.Equal(3, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS3_ImpureGetter_BlocksWithRR052()
+    {
+        var src = """
+            public record struct P
+            {
+                private int _x;
+                public int X { get => _x + Next(); set => _x = value; }
+                private static int Next() => 1;
+            }
+            public class C { public void M(P p) { p.X += 1; } }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR052);
+    }
+
+    [Fact]
+    public void MS4_IncrementStatement_BecomesWithPlusOne()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void M(P p)
+                {
+                    p.X++;
+                    ++p.X;
+                    p.X--;
+                }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("p = p with { X = p.X + 1 };", output);
+        Assert.Contains("p = p with { X = p.X - 1 };", output);
+        Assert.Equal(3, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS4_IncrementInExpressionPosition_BlocksWithRR053()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C { public int M(P p) => p.X++; }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR053);
+    }
+
+    [Fact]
+    public void MS2_AdjacentSameReceiverAssignments_MergeIntoOneWith()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } public int Y { get; set; } }
+            public class C
+            {
+                public void M(P p)
+                {
+                    p.X = 1;
+                    p.Y = 2;
+                }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("p = p with { X = 1, Y = 2 };", output);
+        Assert.DoesNotContain("p = p with { X = 1 };", output);
+        Assert.Equal(2, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS2_ReadAfterWriteAcrossStatements_DoesNotMerge()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } public int Y { get; set; } }
+            public class C
+            {
+                public void M(P p)
+                {
+                    p.X = 1;
+                    p.Y = p.X;
+                }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        // 不合并（合并会让 p.Y 读到旧值）；逐条 with 改写。
+        Assert.Contains("p = p with { X = 1 };", output);
+        Assert.Contains("p = p with { Y = p.X };", output);
+        Assert.Equal(2, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
 }
 
