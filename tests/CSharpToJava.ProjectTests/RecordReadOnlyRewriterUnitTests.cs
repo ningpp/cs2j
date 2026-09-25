@@ -75,6 +75,17 @@ public class RecordReadOnlyRewriterUnitTests
             "\n--- output ---\n" + output);
     }
 
+    /// <summary>断言 output 包含指定文本，忽略所有空白字符差异（Formatter 可将
+    /// `with` 表达式展开为多行）。比较时移除全部空白后做子串匹配。</summary>
+    private static void AssertContainsIgnoringWhitespace(string expected, string output)
+    {
+        var normExpected = expected.Replace(" ", "").Replace("\t", "").Replace("\r", "").Replace("\n", "");
+        var normOutput = output.Replace(" ", "").Replace("\t", "").Replace("\r", "").Replace("\n", "");
+        Assert.True(normOutput.Contains(normExpected, StringComparison.Ordinal),
+            $"Expected output to contain (ignoring whitespace): \"{expected}\"\n" +
+            $"--- output ---\n{output}");
+    }
+
     [Fact]
     public void Models_DefaultCounters_AreZero()
     {
@@ -1201,7 +1212,7 @@ public class RecordReadOnlyRewriterUnitTests
         Assert.Contains("public P Bump()", output);
         Assert.Contains("var __x = this.X;", output);
         Assert.Contains("__x = 1;", output);
-        Assert.Contains("return this with { X = __x };", output);
+        AssertContainsIgnoringWhitespace("return this with { X = __x };", output);
         Assert.Equal(1, stats.MethodsMigrated);
         AssertOutputCompiles(output);
     }
@@ -1219,7 +1230,7 @@ public class RecordReadOnlyRewriterUnitTests
         var (output, _, _) = Rewrite(src);
         Assert.Contains("public P Reset(P other)", output);
         Assert.Contains("__x = other.X;", output);
-        Assert.Contains("return this with { X = __x };", output);
+        AssertContainsIgnoringWhitespace("return this with { X = __x };", output);
         AssertOutputCompiles(output);
     }
 
@@ -1417,14 +1428,243 @@ public class RecordReadOnlyRewriterUnitTests
         Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR064);
     }
 
+    // ----- Task 17: MM-5 non-void out-result migration + RR053/RR065 -----
+
     [Fact]
-    public void MM_NonVoidMutatingMethod_StaysPendingRR020UntilNextTask()
+    public void MM5_NonVoidDiscarded_BecomesOutDiscardWriteback()
     {
         var src = """
             public record struct P
             {
                 public int X { get; set; }
                 public int Next() { X += 1; return X; }
+            }
+            public class C
+            {
+                public void M(P p) { p.Next(); }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("public P Next(out int result)", output);
+        Assert.Contains("p = p.Next(out _);", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM5_NonVoidSingleDeclarator_BecomesOutVarWriteback()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Next() { X += 1; return X; }
+            }
+            public class C
+            {
+                public void M(P p) { var v = p.Next(); System.Console.WriteLine(v); }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p.Next(out var v);", output);
+        Assert.DoesNotContain("var v = p.Next();", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM5_NonVoidNestedInArgument_HoistsTempBeforeStatement()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Next() { X += 1; return X; }
+            }
+            public class C
+            {
+                public void M(P p) { Use(p.Next()); }
+                private static void Use(int v) { }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p.Next(out var __o0);", output);
+        Assert.Contains("Use(__o0);", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM5_NonVoidInReturn_HoistsTemp()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Next() { X += 1; return X; }
+            }
+            public class C
+            {
+                public int M(P p) { return p.Next(); }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p.Next(out var __o0);", output);
+        Assert.Contains("return __o0;", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM5_NonVoidInIfCondition_HoistsIntoBlock()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public bool Ready() { X = 1; return X > 0; }
+            }
+            public class C
+            {
+                public void M(P p) { if (p.Ready()) { Tick(); } }
+                private static void Tick() { }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p.Ready(out var __o0);", output);
+        Assert.Contains("if (__o0)", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM5_NonVoidInFieldInitializer_BlocksWithRR053()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Next() { X += 1; return X; }
+            }
+            public class C
+            {
+                public P _p;
+                public int Field = new P().Next();
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR053);
+    }
+
+    [Fact]
+    public void MM5_NonVoidInExpressionBodiedMember_BlocksWithRR053()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Next() { X += 1; return X; }
+            }
+            public class C
+            {
+                private P _p;
+                public int V => new P().Next();
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR053);
+    }
+
+    [Fact]
+    public void MM5_NonVoidInMultiDeclarator_BlocksWithRR053()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Next() { X += 1; return X; }
+            }
+            public class C
+            {
+                public void M(P p) { int a = 1, b = p.Next(); }
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR053);
+    }
+
+    [Fact]
+    public void MM5_MigratedBody_AbsorbsNonVoidThisCallWithOutVar()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Next() { X += 1; return X; }
+                public int A() { var z = Next(); return z; }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("public P A(out int result)", output);
+        Assert.Contains("var __r0 = this.Next(out var z);", output);
+        Assert.Contains("__x = __r0.X;", output);
+        Assert.Contains("result = z;", output);
+        AssertContainsIgnoringWhitespace("return this with { X = __x };", output);
+        Assert.Equal(2, stats.MethodsMigrated);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM5_ExpressionBodiedNonVoidMethod_ExpandedToResultAssignment()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Bump() => X += 1;
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("public P Bump(out int result)", output);
+        Assert.Contains("result = __x += 1;", output);
+        AssertContainsIgnoringWhitespace("return this with { X = __x };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM5_CtorDiscardsNonVoidCall_ThisWritebackOutDiscard()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public P(int x) { X = x; Next(); }
+                public int Next() { X += 1; return X; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("this = this.Next(out _);", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM6_ObjectOverrideMutating_BlocksWithRR065()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public override string ToString() { X = 1; return X.ToString(); }
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR065);
+    }
+
+    [Fact]
+    public void MM6_InterfaceImplementationMutating_StaysPendingRR020()
+    {
+        var src = """
+            public interface I { void Bump(); }
+            public record struct P : I
+            {
+                public int X { get; set; }
+                public void Bump() { X = 1; }
             }
             """;
         var (_, _, diags) = Rewrite(src);

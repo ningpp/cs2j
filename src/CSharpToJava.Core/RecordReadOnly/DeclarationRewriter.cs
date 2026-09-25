@@ -28,8 +28,16 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
         var origRoot = (CompilationUnitSyntax)origTree.GetRoot();
         // 用 SpanStart 查找：前置 rewriter（MethodMigrator 等）可能改变 record 的
         // 结束位置，但起始位置不变。零长度 span 确保落在 record 的第一个 token 上。
-        var origNode = origRoot.FindNode(new TextSpan(node.SpanStart, 0))
-            .FirstAncestorOrSelf<RecordDeclarationSyntax>() ?? node;
+        RecordDeclarationSyntax origNode;
+        try
+        {
+            origNode = origRoot.FindNode(new TextSpan(node.SpanStart, 0))
+                .FirstAncestorOrSelf<RecordDeclarationSyntax>() ?? node;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            origNode = node;
+        }
         var recordSymbol = _context.Model.GetDeclaredSymbol(origNode);
         var plan = ActivePlan(recordSymbol);
 
@@ -178,8 +186,16 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
         var visited = (PropertyDeclarationSyntax)base.VisitPropertyDeclaration(node)!;
         // 从原始树中查找节点以获取符号。
         var origRoot = (CompilationUnitSyntax)_context.Model.SyntaxTree.GetRoot();
-        var origNode = origRoot.FindNode(new TextSpan(node.SpanStart, 0))
-            .FirstAncestorOrSelf<PropertyDeclarationSyntax>() ?? node;
+        PropertyDeclarationSyntax origNode;
+        try
+        {
+            origNode = origRoot.FindNode(new TextSpan(node.SpanStart, 0))
+                .FirstAncestorOrSelf<PropertyDeclarationSyntax>() ?? node;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            origNode = node;
+        }
         ISymbol? symbol = null;
         try { symbol = _context.Model.GetDeclaredSymbol(origNode); }
         catch (ArgumentException) { return visited; } // 节点不在原始树中
@@ -227,8 +243,17 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
         var any = false;
         foreach (var variable in node.Declaration.Variables)
         {
-            var origVar = origRoot.FindNode(new TextSpan(variable.SpanStart, 0))
-                .FirstAncestorOrSelf<VariableDeclaratorSyntax>() ?? variable;
+            // 前置 rewriter 克隆后节点 Span 可能超出原始树范围，FindNode 会抛异常。
+            VariableDeclaratorSyntax? origVar;
+            try
+            {
+                origVar = origRoot.FindNode(new TextSpan(variable.SpanStart, 0))
+                    .FirstAncestorOrSelf<VariableDeclaratorSyntax>() ?? variable;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return visited; // Span 越界，无法解析符号，跳过。
+            }
             IFieldSymbol? symbol = null;
             try { symbol = _context.Model.GetDeclaredSymbol(origVar) as IFieldSymbol; }
             catch (ArgumentException) { return visited; } // 节点不在原始树中

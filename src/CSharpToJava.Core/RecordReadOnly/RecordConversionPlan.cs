@@ -14,7 +14,13 @@ internal enum MemberRewriteKind
     PrivateFieldToInitProperty,   // RS-6b（配合 MM）
 }
 
-internal enum MethodMigrationKind { VoidToRecord, NonVoidToOut, Extension }
+[Flags]
+internal enum MethodMigrationKind
+{
+    VoidToRecord = 1,
+    NonVoidToOut = 2,
+    Extension = 4,
+}
 
 internal sealed record MemberRewrite(string MemberName, MemberRewriteKind Kind, ISymbol Symbol, bool IsRequired);
 
@@ -258,7 +264,7 @@ internal sealed class PlanBuilder
                          u.Method.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0))
             {
                 plan.Migrations.Add(new MethodMigrationPlan(
-                    unit.Method, MethodMigrationKind.VoidToRecord, unit.PromotedMembers));
+                    unit.Method, unit.Kind, unit.PromotedMembers));
             }
 
             var callSites = MethodCallSiteScanner.Scan(

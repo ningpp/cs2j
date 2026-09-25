@@ -1,13 +1,14 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System.Globalization;
 
 namespace CSharpToJava.Core.RecordReadOnly;
 
 internal sealed record MigrationUnit(
     IMethodSymbol Method,
-    IReadOnlyList<ISymbol> PromotedMembers,
-    bool IsVoid);
+    MethodMigrationKind Kind,
+    IReadOnlyList<ISymbol> PromotedMembers);
 
 internal sealed record MigrationFailure(
     RecordReadOnlyDiagnosticCode Code,
@@ -101,25 +102,28 @@ internal static class MethodMigrationPlanner
                 return (new(), new MigrationFailure(RecordReadOnlyDiagnosticCode.RR061,
                     "partial method signatures are bound across declarations and cannot be " +
                     "changed (MM-6).", location));
-            if (w.IsOverrideExplicitOrVirtual || ImplementsInterfaceMethod(w.Method))
+            // 隐式接口实现不标记 virtual，两个判定必须并列、接口在前（MM-6/IR）。
+            if (ImplementsInterfaceMethod(w.Method))
                 return (new(), new MigrationFailure(RecordReadOnlyDiagnosticCode.RR020,
-                    "virtual/override/interface-implementation methods are handled by interface " +
-                    "ripple (IR) in a later stage.", location));
-            if (!w.Method.ReturnsVoid)
-                return (new(), new MigrationFailure(RecordReadOnlyDiagnosticCode.RR020,
-                    "non-void mutating methods migrate to the 'out T result' shape in the next " +
-                    "task (MM-5).", location));
+                    "interface-implementation methods are handled by interface ripple (IR) " +
+                    "in a later stage.", location));
+            if (w.IsOverrideExplicitOrVirtual)
+                return (new(), new MigrationFailure(RecordReadOnlyDiagnosticCode.RR065,
+                    "a virtual/override/object-contract method cannot change its signature; " +
+                    "only interface-implementation methods can be rerouted via IR (MM-6).",
+                    location));
         }
 
         var units = mutating.ToDictionary(
             w => w.Method,
             w => new MigrationUnit(
                 w.Method,
+                w.Method.ReturnsVoid ? MethodMigrationKind.VoidToRecord
+                                     : MethodMigrationKind.NonVoidToOut,
                 influence[w.Method.OriginalDefinition]
                     .OrderBy(m => m.Name, StringComparer.Ordinal)
                     .ThenBy(m => m.ToDisplayString(), StringComparer.Ordinal)
-                    .ToList(),
-                w.Method.ReturnsVoid));
+                    .ToList()));
         return (units, null);
     }
 
@@ -135,7 +139,7 @@ internal static class MethodMigrationPlanner
             var cycleAt = Dfs(node);
             if (cycleAt != null)
             {
-                var w = byOriginal[(IMethodSymbol)cycleAt!];
+                var w = byOriginal[(IMethodSymbol)cycleAt];
                 return new MigrationFailure(RecordReadOnlyDiagnosticCode.RR062,
                     "mutating methods form a call-graph cycle; a bottom-up migration order cannot " +
                     "be fixed (MM-1/MM-6).",
@@ -150,7 +154,7 @@ internal static class MethodMigrationPlanner
             if (mark == 1) return node;
             if (mark == 2) return null;
             state[node] = 1;
-            if (byOriginal.TryGetValue(node as IMethodSymbol ?? (IMethodSymbol)byOriginal.Keys.First(), out var w))
+            if (byOriginal.TryGetValue((IMethodSymbol)node, out var w))
             {
                 foreach (var callee in w.SameRecordCalls)
                 {
@@ -183,7 +187,7 @@ internal static class MethodMigrationPlanner
     }
 }
 
-/// <summary>全树扫描迁移方法调用点，判定吸收 / this 回写 / 外部回写可行性。</summary>
+/// <summary>全树扫描迁移方法调用点，判定吸收 / this 回写 / 外部回写与提升可行性。</summary>
 internal static class MethodCallSiteScanner
 {
     public static List<(SitePlan Plan, bool WritebackThis)> Scan(
@@ -227,6 +231,15 @@ internal static class MethodCallSiteScanner
                     // 整体 this 赋值不合法，保守阻断（convert-or-skip）。
                     if (!nested && enclosing.MethodKind == MethodKind.Constructor)
                     {
+                        // ctor 内同样可能出现嵌套消费（Use(Next())），需要可提升。
+                        if (FindHoistBarrier(invocation) != null)
+                        {
+                            failure = new SiteFailure(RecordReadOnlyDiagnosticCode.RR053,
+                                "a migrated-method call in a non-statement context cannot be " +
+                                "hoisted to a 'this = this.M(...)' write-back (MM-5/MS-16).",
+                                invocation.GetLocation());
+                            return result;
+                        }
                         result.Add((MakeSite(tree, invocation,
                             SyntaxFactory.ThisExpression(), owner, migrated), WritebackThis: true));
                         continue;
@@ -238,13 +251,17 @@ internal static class MethodCallSiteScanner
                     return result;
                 }
 
-                var statementPosition =
-                    invocation.FirstAncestorOrSelf<ExpressionStatementSyntax>() != null;
-                if (!statementPosition)
+                // void 迁移方法的调用只可能出现在语句位；非 void 迁移方法可在表达式内消费，
+                // 但必须能提升前置语句（MM-5 三形态）。字段/属性初始化器、箭头表达式体、
+                // 特性实参、查询子句、构造初始化器(: this/base)、无块 lambda、多变量声明
+                // 都是不可提升屏障。
+                if (FindHoistBarrier(invocation) != null)
                 {
                     failure = new SiteFailure(RecordReadOnlyDiagnosticCode.RR053,
-                        "a migrated-method call consumed in an expression context cannot be " +
-                        "rewritten to a write-back statement (MM-5/MS-16).",
+                        "a migrated-method call in a non-statement context (field/property " +
+                        "initializer, expression-bodied member, attribute argument, query " +
+                        "clause, constructor initializer, expression lambda, or multi-variable " +
+                        "declarator) cannot be hoisted to a write-back statement (MM-5/MS-16).",
                         invocation.GetLocation());
                     return result;
                 }
@@ -287,6 +304,54 @@ internal static class MethodCallSiteScanner
         return new SitePlan(site, SiteActionKind.MethodMigrateCall);
     }
 
+    /// <summary>
+    /// 从调用点向上走到最近方法/访问器/匿名函数/本地函数/编译单元边界；途中命中不可提升
+    /// 语法形态即返回该屏障节点。有块 lambda 与有块本地函数不是屏障（块内可插入语句）。
+    /// </summary>
+    private static SyntaxNode? FindHoistBarrier(SyntaxNode node)
+    {
+        var cursor = node.Parent;
+        while (cursor is not null
+            and not BaseMethodDeclarationSyntax
+            and not AccessorDeclarationSyntax
+            and not AnonymousFunctionExpressionSyntax
+            and not LocalFunctionStatementSyntax
+            and not CompilationUnitSyntax)
+        {
+            switch (cursor)
+            {
+                case ArrowExpressionClauseSyntax arrow:
+                    return arrow;
+                case AttributeSyntax or AttributeArgumentSyntax:
+                    return cursor;
+                case ConstructorInitializerSyntax constructorInitializer:
+                    return constructorInitializer;
+                case QueryClauseSyntax queryClause:
+                    return queryClause;
+                case EqualsValueClauseSyntax { Parent: PropertyDeclarationSyntax }:
+                    return cursor;
+                case EqualsValueClauseSyntax
+                {
+                    Parent: VariableDeclaratorSyntax
+                    {
+                        Parent: VariableDeclarationSyntax
+                        {
+                            Parent: FieldDeclarationSyntax or EventFieldDeclarationSyntax
+                        }
+                    }
+                }:
+                    return cursor;
+                case VariableDeclarationSyntax { Variables.Count: > 1 }:
+                    return cursor;
+            }
+            cursor = cursor.Parent;
+        }
+        if (cursor is AnonymousFunctionExpressionSyntax { Block: null }
+            or LocalFunctionStatementSyntax { Body: null, ExpressionBody: not null })
+            return cursor;
+        return null;
+    }
+
     private static IMethodSymbol? EnclosingMember(SemanticModel model, SyntaxNode node)
     {
         var accessor = node.FirstAncestorOrSelf<AccessorDeclarationSyntax>();
@@ -299,7 +364,7 @@ internal static class MethodCallSiteScanner
     private static bool IsInNestedFunction(SyntaxNode node)
     {
         SyntaxNode? stop = (SyntaxNode?)node.FirstAncestorOrSelf<BaseMethodDeclarationSyntax>()
-            ?? (SyntaxNode?)node.FirstAncestorOrSelf<AccessorDeclarationSyntax>();
+            ?? node.FirstAncestorOrSelf<AccessorDeclarationSyntax>();
         for (var cursor = node.Parent; cursor != null && cursor != stop?.Parent; cursor = cursor.Parent)
         {
             if (cursor is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
@@ -311,56 +376,102 @@ internal static class MethodCallSiteScanner
 }
 
 /// <summary>
-/// Phase 3a：迁移方法声明（提升/出口合成/签名）与调用点回写；
-/// 同时作为第一个 rewriter，为后续 MutationSiteRewriter 的用点节点挂定位注解。
+/// 迁移调用点的共享语法重写器（MM-5 三形态 + 体内吸收 + this 回写）。
+/// 设计要点：每条语句最多产出"一个提升后的语句块"，块用 HoistBlockAnnotation 标记，
+/// 在最近的真实 Block/SwitchSection/CompilationUnit 处展平，保证声明语句提升后
+/// 作用域不缩小（var v = recv.M() 的 v 在后续语句仍可见）。
 /// </summary>
-internal sealed class MethodMigrator : CSharpSyntaxRewriter
+internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
 {
-    private readonly RewriteContext _context;
-    private readonly Dictionary<(int Start, int Kind), SitePlan> _callSites = new();
-    private readonly Dictionary<(int Start, int Kind), SyntaxAnnotation> _msAnnotations = new();
-    private readonly Dictionary<IMethodSymbol, MigrationUnit> _units =
-        new(SymbolEqualityComparer.Default);
-    private readonly HashSet<ISymbol> _migratedByOriginal;
+    private const string CallMarkKind = "Cs2jRecordReadOnlyMigratedCall";
+    internal static readonly SyntaxAnnotation HoistBlockAnnotation =
+        new("Cs2jRecordReadOnlyHoistBlock");
 
-    public MethodMigrator(RewriteContext context)
+    protected readonly SemanticModel Model;
+    protected readonly IReadOnlySet<IMethodSymbol> MigratedByOriginal;
+    protected readonly IReadOnlyDictionary<(int Start, int Kind), SyntaxAnnotation> MsAnnotations;
+
+    private readonly MigrationUnit? _unit;
+    private readonly Dictionary<ISymbol, string>? _locals;
+    private readonly string _resultName = "result";
+    private readonly HashSet<string> _usedNames = new(StringComparer.Ordinal);
+
+    private int _absorbedCounter;
+    private int _outCounter;
+    private bool _processingStatement;
+    private readonly List<StatementSyntax> _prefixes = new();
+    private string? _directCallData;
+    private string? _directDeclaratorName;
+    private Dictionary<string, IMethodSymbol>? _calleeByData;
+    private bool _mm3;
+    private string? _mm3Source;
+
+    protected MethodCallSyntaxRewriter(
+        SemanticModel model,
+        IReadOnlySet<IMethodSymbol> migratedByOriginal,
+        IReadOnlyDictionary<(int Start, int Kind), SyntaxAnnotation> msAnnotations)
     {
-        _context = context;
-        foreach (var plan in context.ActivePlans)
-        {
-            foreach (var migration in plan.Migrations)
-            {
-                if (migration.Method.DeclaringSyntaxReferences.FirstOrDefault()?.SyntaxTree.FilePath
-                        is { } file
-                    && string.Equals(file, context.FilePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    _units[migration.Method] = new MigrationUnit(
-                        migration.Method, migration.PromotedMembers,
-                        migration.Kind == MethodMigrationKind.VoidToRecord);
-                }
-            }
-            foreach (var sitePlan in plan.Sites)
-            {
-                if (!string.Equals(sitePlan.Site.FilePath, context.FilePath,
-                        StringComparison.OrdinalIgnoreCase))
-                    continue;
-                var key = (sitePlan.Site.WriteNode.SpanStart, sitePlan.Site.WriteNode.RawKind);
-                if (sitePlan.Action == SiteActionKind.MethodMigrateCall)
-                    _callSites[key] = sitePlan;
-                else
-                    _msAnnotations[key] = MutationSiteRewriter.SiteAnnotationFor(plan, sitePlan);
-            }
-        }
-        _migratedByOriginal = _units.Keys
-            .Select(m => (ISymbol)m.OriginalDefinition)
-            .ToHashSet(SymbolEqualityComparer.Default);
+        Model = model;
+        MigratedByOriginal = migratedByOriginal;
+        MsAnnotations = msAnnotations;
     }
 
+    protected MethodCallSyntaxRewriter(
+        SemanticModel model,
+        MigrationUnit unit,
+        IReadOnlySet<IMethodSymbol> migratedByOriginal,
+        IReadOnlyDictionary<(int Start, int Kind), SyntaxAnnotation> msAnnotations,
+        string resultName)
+        : this(model, migratedByOriginal, msAnnotations)
+    {
+        _unit = unit;
+        _resultName = resultName;
+        var declaration = unit.Method.DeclaringSyntaxReferences.First().GetSyntax()
+            .AncestorsAndSelf().OfType<MethodDeclarationSyntax>().First();
+        _locals = BuildLocalNames(unit, declaration);
+        LocalNames = _locals;
+        foreach (var name in _locals.Values) _usedNames.Add(name);
+    }
+
+    internal static MethodCallSyntaxRewriter ForBody(
+        SemanticModel model,
+        MigrationUnit unit,
+        IReadOnlySet<IMethodSymbol> migratedByOriginal,
+        IReadOnlyDictionary<(int Start, int Kind), SyntaxAnnotation> msAnnotations,
+        string resultName) =>
+        new(model, unit, migratedByOriginal, msAnnotations, resultName);
+
+    public IReadOnlyDictionary<ISymbol, string>? LocalNames { get; }
+
+    internal ExpressionSyntax BuildRecordWith(ExpressionSyntax receiver)
+    {
+        var initializers = _unit!.PromotedMembers.Select(member =>
+            (ExpressionSyntax)SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                SyntaxFactory.IdentifierName(member.Name),
+                SyntaxFactory.IdentifierName(_locals![member])));
+        return SyntaxFactory.WithExpression(receiver,
+            SyntaxFactory.InitializerExpression(
+                SyntaxKind.WithInitializerExpression,
+                SyntaxFactory.SeparatedList(initializers)));
+    }
+
+    // 迁移方法子树不经过外层 Visit，MS 用点注解在此补发；这样后续 MutationSiteRewriter
+    // 仍能按注解改写体内的 other.X = 2 等用点。
     public override SyntaxNode? Visit(SyntaxNode? node)
     {
+        // 语句级拦截：Roslyn 的 CSharpSyntaxRewriter 没有 VisitStatement(StatementSyntax)，
+        // 在此对非 Block 语句做迁移调用标记 + 提升 + 直接形态判定。
+        if (node is StatementSyntax statement
+            && !_processingStatement
+            && statement is not BlockSyntax)
+        {
+            return ProcessStatement(statement);
+        }
+
         var visited = base.Visit(node);
         if (node != null && visited != null
-            && _msAnnotations.TryGetValue((node.SpanStart, node.RawKind), out var annotation)
+            && MsAnnotations.TryGetValue((node.SpanStart, node.RawKind), out var annotation)
             && !visited.HasAnnotations(annotation.Kind))
         {
             visited = visited.WithAdditionalAnnotations(annotation);
@@ -368,188 +479,373 @@ internal sealed class MethodMigrator : CSharpSyntaxRewriter
         return visited;
     }
 
-    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    private SyntaxNode? ProcessStatement(StatementSyntax node)
     {
-        var symbol = _context.Model.GetDeclaredSymbol(node);
-        if (symbol == null || !_units.TryGetValue(symbol, out var unit))
-            return base.VisitMethodDeclaration(node);
+        // 仅收集“直接属于本语句表达式部分”的迁移调用；嵌套块/lambda/本地函数内的调用
+        // 由它们各自的语句 Visit 处理（FirstAncestor Statement 不等于本语句）。
+        var marked = node.DescendantNodes(n =>
+                n is not AnonymousFunctionExpressionSyntax and not LocalFunctionStatementSyntax)
+            .OfType<InvocationExpressionSyntax>()
+            .Where(invocation =>
+                invocation.FirstAncestorOrSelf<StatementSyntax>() == node
+                && Model.GetSymbolInfo(invocation).Symbol is IMethodSymbol callee
+                && MigratedByOriginal.Contains(callee.OriginalDefinition))
+            .ToList();
+        if (marked.Count == 0) return base.Visit(node);
 
-        var body = node.Body;
-        if (body == null && node.ExpressionBody != null)
+        var dataBySpan = new Dictionary<int, string>();
+        _calleeByData = new Dictionary<string, IMethodSymbol>();
+        for (var i = 0; i < marked.Count; i++)
         {
-            // 表达式体展开为块体（MM-4）。mutating void 箭头右侧只可能是赋值或调用表达式，
-            // 二者本身都是合法表达式语句。
-            body = SyntaxFactory.Block(
-                SyntaxFactory.ExpressionStatement(node.ExpressionBody.Expression));
+            var data = i.ToString(CultureInfo.InvariantCulture);
+            dataBySpan[marked[i].SpanStart] = data;
+            _calleeByData[data] = (IMethodSymbol)Model.GetSymbolInfo(marked[i]).Symbol!;
         }
-        if (body == null) return base.VisitMethodDeclaration(node);
+        var prepared = node.ReplaceNodes(marked,
+            (original, _) => original.WithAdditionalAnnotations(
+                new SyntaxAnnotation(CallMarkKind, dataBySpan[original.SpanStart])));
 
-        var bodyRewriter = new MigratedMethodBodyRewriter(
-            _context.Model, unit, _migratedByOriginal, _msAnnotations);
-        var migrated = (BlockSyntax)bodyRewriter.Visit(body)!;
+        _directCallData = null;
+        _directDeclaratorName = null;
+        MarkDirectForm(node, dataBySpan);
 
-        // MM-2：方法体顶部为每个被提升成员声明局部副本：var __x = this.X;
-        var promotionDeclarations = unit.PromotedMembers.Select(member =>
+        _prefixes.Clear();
+        _processingStatement = true;
+        StatementSyntax visited;
+        try
         {
-            var localName = bodyRewriter.LocalNames[member];
-            var declarator = SyntaxFactory.VariableDeclarator(
-                    SyntaxFactory.Identifier(localName))
-                .WithInitializer(SyntaxFactory.EqualsValueClause(
-                    SyntaxFactory.MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        SyntaxFactory.ThisExpression(),
-                        SyntaxFactory.IdentifierName(member.Name))));
-            return SyntaxFactory.LocalDeclarationStatement(
-                SyntaxFactory.VariableDeclaration(
-                    SyntaxFactory.ParseTypeName("var"),
-                    SyntaxFactory.SingletonSeparatedList(declarator)));
-        }).ToList();
+            visited = (StatementSyntax)base.Visit(prepared)!;
+        }
+        finally
+        {
+            _processingStatement = false;
+        }
 
-        var returnStatement = SyntaxFactory.ReturnStatement(BuildWithThisReturn(unit, bodyRewriter));
-        var finalBody = SyntaxFactory.Block(
-            promotionDeclarations.Concat(migrated.Statements).Append(returnStatement));
+        var prefixes = _prefixes.ToList();
+        var direct = _directCallData != null;
+        _directCallData = null;
+        _directDeclaratorName = null;
+        _calleeByData = null;
+        _mm3 = false;
+        _mm3Source = null;
 
-        var recordTypeSyntax = SyntaxFactory.ParseTypeName(
-            unit.Method.ContainingType.Name);
-        _context.Statistics.MethodsMigrated++;
-        return node.WithReturnType(recordTypeSyntax)
-            .WithBody(finalBody)
-            .WithExpressionBody(null)
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None))
-            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+        if (direct)
+        {
+            // 丢弃调用 / 单变量声明确：原语句整体被前缀序列取代。
+            return SyntaxFactory.Block(prefixes
+                    .WithNavigationAnnotation(RecordSyntaxFacts.RewriteAnnotation))
+                .WithAdditionalAnnotations(HoistBlockAnnotation);
+        }
+        if (prefixes.Count == 0) return visited;
+        return SyntaxFactory.Block(prefixes.Concat(new[] { visited })
+                .WithNavigationAnnotation(RecordSyntaxFacts.RewriteAnnotation))
+            .WithAdditionalAnnotations(HoistBlockAnnotation);
     }
 
-    internal static ExpressionSyntax BuildWithThisReturn(
-        MigrationUnit unit, MigratedMethodBodyRewriter bodyRewriter)
+    public override SyntaxNode? VisitBlock(BlockSyntax node)
     {
-        // 使用文本构造：以编程方式创建的 WithExpression 节点不含空白琐事，
-        // 格式化器会将其展开为多行；文本解析保留单行紧凑格式。
-        var memberAssigns = unit.PromotedMembers.Select(member =>
-            $"{member.Name} = {bodyRewriter.LocalNames[member]}");
-        var exprText = $"this with {{ {string.Join(", ", memberAssigns)} }}";
-        return SyntaxFactory.ParseExpression(exprText);
+        var visited = (BlockSyntax)base.VisitBlock(node)!;
+        return TryFlatten(visited.Statements, out var flat)
+            ? visited.WithStatements(SyntaxFactory.List(flat))
+            : visited;
+    }
+
+    public override SyntaxNode? VisitSwitchSection(SwitchSectionSyntax node)
+    {
+        var visited = (SwitchSectionSyntax)base.VisitSwitchSection(node)!;
+        return TryFlatten(visited.Statements, out var flat)
+            ? visited.WithStatements(SyntaxFactory.List(flat))
+            : visited;
+    }
+
+    public override SyntaxNode? VisitCompilationUnit(CompilationUnitSyntax node)
+    {
+        var visited = (CompilationUnitSyntax)base.VisitCompilationUnit(node)!;
+        if (!visited.Members.Any(m => m is GlobalStatementSyntax
+                { Statement: BlockSyntax block } && block.HasAnnotation(HoistBlockAnnotation)))
+            return visited;
+        var members = new List<MemberDeclarationSyntax>();
+        foreach (var member in visited.Members)
+        {
+            if (member is GlobalStatementSyntax global
+                && global.Statement is BlockSyntax wrapped
+                && wrapped.HasAnnotation(HoistBlockAnnotation))
+            {
+                members.AddRange(wrapped.Statements.Select(
+                    s => (MemberDeclarationSyntax)SyntaxFactory.GlobalStatement(s)));
+            }
+            else
+            {
+                members.Add(member);
+            }
+        }
+        return visited.WithMembers(SyntaxFactory.List(members));
+    }
+
+    /// <summary>把带 HoistBlockAnnotation 的包装块就地展平为其语句序列。</summary>
+    private static bool TryFlatten(IReadOnlyList<StatementSyntax> statements,
+        out List<StatementSyntax> flat)
+    {
+        flat = new List<StatementSyntax>();
+        var any = false;
+        foreach (var statement in statements)
+        {
+            if (statement is BlockSyntax block && block.HasAnnotation(HoistBlockAnnotation))
+            {
+                any = true;
+                flat.AddRange(block.Statements);
+            }
+            else
+            {
+                flat.Add(statement);
+            }
+        }
+        return any;
+    }
+
+    private void MarkDirectForm(StatementSyntax node,
+        IReadOnlyDictionary<int, string> dataBySpan)
+    {
+        if (node is ExpressionStatementSyntax { Expression: InvocationExpressionSyntax directCall }
+            && dataBySpan.TryGetValue(directCall.SpanStart, out var d1))
+        {
+            _directCallData = d1;
+            return;
+        }
+        if (node is LocalDeclarationStatementSyntax { Declaration.Variables.Count: 1 } declaration
+            && declaration.Declaration.Variables[0].Initializer?.Value
+                is InvocationExpressionSyntax declaratorCall
+            && dataBySpan.TryGetValue(declaratorCall.SpanStart, out var d2))
+        {
+            _directCallData = d2;
+            _directDeclaratorName = declaration.Declaration.Variables[0].Identifier.Text;
+        }
+    }
+
+    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        var visited = (InvocationExpressionSyntax)base.VisitInvocationExpression(node)!;
+        if (!_processingStatement || _calleeByData == null) return visited;
+        var data = node.GetAnnotations(CallMarkKind).FirstOrDefault()?.Data;
+        if (data == null || !_calleeByData.TryGetValue(data, out var callee)) return visited;
+        return RewriteMarkedCall(visited, data, callee);
+    }
+
+    private ExpressionSyntax RewriteMarkedCall(
+        InvocationExpressionSyntax visited, string data, IMethodSymbol callee)
+    {
+        var nonVoid = !callee.ReturnsVoid;
+        var isDirect = data == _directCallData;
+        var implicitThis = visited.Expression is IdentifierNameSyntax
+            || visited.Expression is MemberAccessExpressionSyntax
+                { Expression: ThisExpressionSyntax };
+        var absorb = _unit != null && implicitThis;
+
+        string? outName;
+        if (!nonVoid)
+        {
+            outName = null;
+        }
+        else if (_mm3 && absorb)
+        {
+            // this = M()（MM-3 源是吸收临时变量 __r，原返回值被丢弃）。
+            outName = "_";
+        }
+        else if (isDirect && _directDeclaratorName != null)
+        {
+            outName = _directDeclaratorName;
+        }
+        else if (isDirect)
+        {
+            outName = "_";
+        }
+        else
+        {
+            outName = NextSyntheticName(visited, "__o", ref _outCounter);
+        }
+
+        var call = nonVoid ? WithOutArgument(visited, outName!) : visited;
+
+        if (absorb)
+        {
+            var temp = NextSyntheticName(visited, "__r", ref _absorbedCounter);
+            var qualified = call.Expression is IdentifierNameSyntax id
+                ? call.WithExpression(QualifyThis(id.Identifier.Text))
+                : call;
+            _prefixes.Add(DeclareVar(temp, qualified));
+            // MM-3 场景的逐成员拷贝由 VisitExpressionStatement 用临时变量统一产出，避免重复。
+            if (!_mm3)
+            {
+                foreach (var member in _unit!.PromotedMembers)
+                    _prefixes.Add(SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            SyntaxFactory.IdentifierName(_locals![member]),
+                            Qualify(temp, member.Name))));
+            }
+            _mm3Source = temp;
+            return isDirect ? visited : SyntaxFactory.IdentifierName(outName!);
+        }
+
+        // 非吸收：回写接收者（this 仅可能出现在 ctor——scanner 已放行）。
+        ExpressionSyntax receiverNode = visited.Expression switch
+        {
+            IdentifierNameSyntax => SyntaxFactory.ThisExpression(),
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Expression,
+            _ => ReceiverOf(visited),
+        };
+        var receiverText = receiverNode.WithoutTrivia().ToFullString();
+        var writebackCall = visited.Expression is IdentifierNameSyntax identifier
+            ? call.WithExpression(SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.ParseExpression(receiverText),
+                SyntaxFactory.IdentifierName(identifier.Identifier.Text)))
+            : call;
+        // LHS 必须是独立节点实例（同一节点不能同时挂在两个树位置）。
+        var lhs = SyntaxFactory.ParseExpression(receiverText);
+        _prefixes.Add(SyntaxFactory.ExpressionStatement(
+            SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression, lhs, writebackCall)
+                .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation)));
+        return isDirect ? visited : SyntaxFactory.IdentifierName(outName!);
+    }
+
+    internal static InvocationExpressionSyntax WithOutArgument(
+        InvocationExpressionSyntax call, string name)
+    {
+        ExpressionSyntax outExpression = name == "_"
+            ? SyntaxFactory.IdentifierName("_")
+            : SyntaxFactory.DeclarationExpression(
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier("var")
+                    .WithTrailingTrivia(SyntaxFactory.Space)),
+                SyntaxFactory.SingleVariableDesignation(SyntaxFactory.Identifier(name)));
+        var argument = SyntaxFactory.Argument(outExpression)
+            .WithRefKindKeyword(SyntaxFactory.Token(SyntaxKind.OutKeyword)
+                .WithTrailingTrivia(SyntaxFactory.Space));
+        return call.AddArgumentListArguments(argument);
     }
 
     public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
     {
-        if (node.Expression is InvocationExpressionSyntax invocation
-            && _callSites.TryGetValue((node.Expression.SpanStart, node.Expression.RawKind),
-                out var sitePlan))
+        // MM-3：this = expr; → 逐提升成员拷贝。RHS 先经 Visit，使其中对提升成员的读取
+        // 同步替换为局部（this = Make(X); → __x = Make(__x).X;）。
+        if (_unit != null
+            && node.Expression is AssignmentExpressionSyntax
+                {
+                    RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
+                    Left: ThisExpressionSyntax,
+                } assignment)
         {
-            var rewritten = RewriteCallWriteback(invocation, sitePlan.Site.Receiver);
+            _mm3 = true;
+            _mm3Source = null;
+            var visitedRight = (ExpressionSyntax)Visit(assignment.Right)!;
+            var rhsPrefixes = _prefixes.ToList();
+            _prefixes.Clear();
+
+            // RHS 是对本 record 迁移方法的调用时，源对象是吸收临时（var __r = this.M(...)）；
+            // 否则按 RHS 整体表达式逐成员解析拷贝（每个成员各解析一份，禁止节点复用）。
+            var sourceText = visitedRight.WithoutTrivia().ToFullString();
+            var copies = _unit.PromotedMembers.Select(member =>
+            {
+                var source = _mm3Source != null
+                    ? (ExpressionSyntax)SyntaxFactory.IdentifierName(_mm3Source)
+                    : SyntaxFactory.ParseExpression(sourceText);
+                return SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        SyntaxFactory.IdentifierName(_locals![member]),
+                        SyntaxFactory.MemberAccessExpression(
+                            SyntaxKind.SimpleMemberAccessExpression,
+                            source,
+                            SyntaxFactory.IdentifierName(member.Name))));
+            });
+            return SyntaxFactory.Block(rhsPrefixes.Concat(copies)
+                .WithNavigationAnnotation(RecordSyntaxFacts.RewriteAnnotation));
+        }
+        return (SyntaxNode?)base.VisitExpressionStatement(node)!;
+    }
+
+    public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
+    {
+        if (_unit == null) return base.VisitReturnStatement(node);
+        var nonVoid = (_unit.Kind & MethodMigrationKind.NonVoidToOut) != 0;
+        if (node.Expression is { } expression)
+        {
+            if (!nonVoid) return base.VisitReturnStatement(node);
+            var visitedExpression = (ExpressionSyntax)Visit(expression)!;
             return SyntaxFactory.Block(
-                SyntaxFactory.ExpressionStatement(rewritten)
-                    .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation));
+                SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            SyntaxFactory.IdentifierName(_resultName),
+                            visitedExpression))
+                    .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation),
+                SyntaxFactory.ReturnStatement(
+                        BuildRecordWith(SyntaxFactory.ThisExpression()))
+                    .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation))
+                .WithAdditionalAnnotations(HoistBlockAnnotation);
         }
-        return base.VisitExpressionStatement(node);
-    }
-
-    /// <summary>调用点接收者：M() → this；x.M() → x。</summary>
-    internal static ExpressionSyntax ReceiverOf(InvocationExpressionSyntax invocation) =>
-        invocation.Expression switch
-        {
-            MemberAccessExpressionSyntax ma => ma.Expression,
-            _ => SyntaxFactory.ThisExpression(),
-        };
-
-    /// <summary>recv.M(...); → recv = recv.M(...);（接收者可写性已由 scanner 判定）。</summary>
-    internal static ExpressionSyntax RewriteCallWriteback(
-        InvocationExpressionSyntax invocation, ExpressionSyntax receiver)
-    {
-        var receiverText = receiver.ToFullString();
-        var receiverForCall = receiver.WithoutTrivia();
-        InvocationExpressionSyntax callWithReceiver;
-        if (invocation.Expression is IdentifierNameSyntax id)
-        {
-            callWithReceiver = invocation.WithExpression(
-                SyntaxFactory.MemberAccessExpression(
-                    SyntaxKind.SimpleMemberAccessExpression, receiverForCall,
-                    SyntaxFactory.IdentifierName(id.Identifier.Text)));
-        }
-        else if (invocation.Expression is MemberAccessExpressionSyntax ma)
-        {
-            callWithReceiver = invocation.WithExpression(
-                ma.WithExpression(receiverForCall));
-        }
-        else
-        {
-            callWithReceiver = invocation;
-        }
-        // LHS 必须是独立实例（同一节点不能同时挂在两个树位置），重新解析接收者文本。
-        var lhs = SyntaxFactory.ParseExpression(receiverText);
-        return SyntaxFactory.AssignmentExpression(
-                SyntaxKind.SimpleAssignmentExpression, lhs, callWithReceiver)
+        return SyntaxFactory.ReturnStatement(BuildRecordWith(SyntaxFactory.ThisExpression()))
             .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
-    }
-}
-
-/// <summary>单个迁移方法体内的提升替换 / this= 拆解 / 同 record 调用吸收 / 出口替换。</summary>
-internal sealed class MigratedMethodBodyRewriter : CSharpSyntaxRewriter
-{
-    private readonly SemanticModel _model;
-    private readonly MigrationUnit _unit;
-    private readonly IReadOnlySet<ISymbol> _migratedByOriginal;
-    private readonly IReadOnlyDictionary<(int Start, int Kind), SyntaxAnnotation> _msAnnotations;
-    private readonly Dictionary<ISymbol, string> _localByMember;
-    private readonly HashSet<ISymbol> _promoted;
-    private int _absorbedCounter;
-
-    public MigratedMethodBodyRewriter(SemanticModel model, MigrationUnit unit,
-        IReadOnlySet<ISymbol> migratedByOriginal,
-        IReadOnlyDictionary<(int Start, int Kind), SyntaxAnnotation> msAnnotations)
-    {
-        _model = model;
-        _unit = unit;
-        _migratedByOriginal = migratedByOriginal;
-        _msAnnotations = msAnnotations;
-        var declaration = unit.Method.DeclaringSyntaxReferences.First().GetSyntax()
-            .AncestorsAndSelf().OfType<MethodDeclarationSyntax>().First();
-        _localByMember = BuildLocalNames(unit, declaration);
-        _promoted = new HashSet<ISymbol>(unit.PromotedMembers, SymbolEqualityComparer.Default);
-        LocalNames = _localByMember;
-    }
-
-    public IReadOnlyDictionary<ISymbol, string> LocalNames { get; }
-
-    // 迁移方法子树不经过 MethodMigrator.Visit，MS 用点注解在此补发；
-    // 这样后续 MutationSiteRewriter 仍能按注解改写体内的 other.X = 2 等用点。
-    public override SyntaxNode? Visit(SyntaxNode? node)
-    {
-        var visited = base.Visit(node);
-        if (node != null && visited != null
-            && _msAnnotations.TryGetValue((node.SpanStart, node.RawKind), out var annotation)
-            && !visited.HasAnnotations(annotation.Kind))
-        {
-            visited = visited.WithAdditionalAnnotations(annotation);
-        }
-        return visited;
     }
 
     public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
-        if (node.Expression is ThisExpressionSyntax
-            && _model.GetSymbolInfo(node).Symbol is { } symbol
-            && _promoted.Contains(symbol) && !IsNameof(node))
+        var visited = base.VisitMemberAccessExpression(node);
+        if (_locals != null
+            && node.Expression is ThisExpressionSyntax
+            && TryGetSymbol(node, out var symbol)
+            && _locals.ContainsKey(symbol)
+            && !IsNameof(node))
         {
-            return SyntaxFactory.IdentifierName(_localByMember[symbol]);
+            return SyntaxFactory.IdentifierName(_locals[symbol]);
         }
-        return base.VisitMemberAccessExpression(node);
+        return visited;
     }
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
     {
-        if (_model.GetSymbolInfo(node).Symbol is { } symbol
-            && _promoted.Contains(symbol)
+        var visited = base.VisitIdentifierName(node);
+        if (_locals != null
+            && TryGetSymbol(node, out var symbol)
             && symbol is IFieldSymbol or IPropertySymbol
+            && _locals.ContainsKey(symbol)
             && !IsNameof(node)
-            // 只替换隐式 this 的成员引用（X 而非 other.X）；
-            // 显式 this.X 由 VisitMemberAccessExpression 处理。
-            // 当 node 是 MemberAccessExpression.Name 且接收者非 this 时不替换。
             && !IsMemberAccessNameOnNonThis(node))
         {
-            return SyntaxFactory.IdentifierName(_localByMember[symbol]);
+            return SyntaxFactory.IdentifierName(_locals[symbol]);
         }
-        return base.VisitIdentifierName(node);
+        return visited;
+    }
+
+    /// <summary>
+    /// 安全符号查找：节点经过 ReplaceNodes/WithAdditionalAnnotations 克隆后可能脱离
+    /// 原始语法树，SemanticModel.GetSymbolInfo 会抛 ArgumentException。通过 Span 在
+    /// 原始树中定位等价节点来解析符号。
+    /// </summary>
+    private bool TryGetSymbol(ExpressionSyntax node, out ISymbol? symbol)
+    {
+        symbol = null;
+        if (node.SyntaxTree == Model.SyntaxTree)
+        {
+            symbol = Model.GetSymbolInfo(node).Symbol;
+            return symbol != null;
+        }
+        // 克隆节点：用 Span 回原始树查找等价节点。Span 可能因克隆偏移而无法精确匹配，
+        // 尝试宽容查找（findInsideTrivia = true）。
+        try
+        {
+            var root = Model.SyntaxTree.GetRoot();
+            var span = node.Span;
+            if (span.Start < 0 || span.End > root.FullSpan.End) return false;
+            var original = root.FindNode(span, findInsideTrivia: true, getInnermostNodeForTie: true);
+            symbol = Model.GetSymbolInfo(original).Symbol;
+            return symbol != null;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>判断 node 是否为 member-access 的 Name 部分、且接收者不是 this。</summary>
@@ -560,114 +856,41 @@ internal sealed class MigratedMethodBodyRewriter : CSharpSyntaxRewriter
             && ma.Expression is not ThisExpressionSyntax;
     }
 
-    public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
+    private string NextSyntheticName(SyntaxNode anchor, string prefix, ref int counter)
     {
-        if (node.Expression != null) return base.VisitReturnStatement(node);
-        var visited = (ReturnStatementSyntax)base.VisitReturnStatement(node)!;
-        return visited.WithExpression(MethodMigrator.BuildWithThisReturn(_unit, this));
+        var taken = EnclosingDeclaredNames(anchor);
+        string candidate;
+        do
+        {
+            candidate = prefix + counter.ToString(CultureInfo.InvariantCulture);
+            counter++;
+        } while (taken.Contains(candidate) || !_usedNames.Add(candidate));
+        return candidate;
     }
 
-    public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
+    private static HashSet<string> EnclosingDeclaredNames(SyntaxNode node)
     {
-        // MM-3：this = expr; → 逐提升成员拷贝。RHS 先经 Visit，使其中对提升成员的
-        // 读取同步替换为局部（this = Make(X); → __x = Make(__x).X;）。
-        if (node.Expression is AssignmentExpressionSyntax
-            {
-                RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
-                Left: ThisExpressionSyntax,
-            } assignment)
+        var scope = node.AncestorsAndSelf().FirstOrDefault(ancestor => ancestor is
+            BaseMethodDeclarationSyntax
+            or AccessorDeclarationSyntax
+            or AnonymousFunctionExpressionSyntax
+            or LocalFunctionStatementSyntax);
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        if (scope == null) return names;
+        foreach (var declarator in scope.DescendantNodes().OfType<VariableDeclaratorSyntax>())
+            names.Add(declarator.Identifier.Text);
+        var parameters = scope switch
         {
-            var visitedRight = (ExpressionSyntax)Visit(assignment.Right)!;
-            var rightText = visitedRight.ToFullString();
-            var statements = _unit.PromotedMembers.Select(member =>
-            {
-                // 每个成员各解析一份 RHS：同一节点实例不能挂在多个拷贝语句中。
-                var rightCopy = SyntaxFactory.ParseExpression(rightText);
-                return SyntaxFactory.ExpressionStatement(
-                    SyntaxFactory.AssignmentExpression(
-                        SyntaxKind.SimpleAssignmentExpression,
-                        SyntaxFactory.IdentifierName(_localByMember[member]),
-                        SyntaxFactory.MemberAccessExpression(
-                            SyntaxKind.SimpleMemberAccessExpression,
-                            rightCopy,
-                            SyntaxFactory.IdentifierName(member.Name))));
-            });
-            return SyntaxFactory.Block(statements
-                .WithNavigationAnnotation(RecordSyntaxFacts.RewriteAnnotation));
-        }
-
-        // MM-5（吸收）：this.M()/M()（被调方是迁移方法）→ var __r = this.M(...); fi = __r.Fi;
-        if (node.Expression is InvocationExpressionSyntax invocation
-            && IsCallToMigratedSameRecord(invocation))
-        {
-            // 先常规访问，使实参内对提升成员的读取替换为局部（B(X) → B(__x)）；
-            // this.M 的 M 是方法符号、不在提升集合，成员访问保持不变。
-            var visited = (InvocationExpressionSyntax)base.VisitInvocationExpression(invocation)!;
-            var temp = $"__r{_absorbedCounter++}";
-            var call = visited.Expression is IdentifierNameSyntax id
-                ? visited.WithExpression(
-                    SyntaxFactory.MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        SyntaxFactory.ThisExpression(),
-                        SyntaxFactory.IdentifierName(id.Identifier.Text)))
-                : visited;
-            var declaration = SyntaxFactory.LocalDeclarationStatement(
-                SyntaxFactory.VariableDeclaration(
-                    SyntaxFactory.ParseTypeName("var"),
-                    SyntaxFactory.SingletonSeparatedList(
-                        SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(temp))
-                            .WithInitializer(SyntaxFactory.EqualsValueClause(call)))));
-            var copies = _unit.PromotedMembers.Select(member =>
-                SyntaxFactory.ExpressionStatement(
-                    SyntaxFactory.AssignmentExpression(
-                        SyntaxKind.SimpleAssignmentExpression,
-                        SyntaxFactory.IdentifierName(_localByMember[member]),
-                        SyntaxFactory.MemberAccessExpression(
-                            SyntaxKind.SimpleMemberAccessExpression,
-                            SyntaxFactory.IdentifierName(temp),
-                            SyntaxFactory.IdentifierName(member.Name)))));
-            return SyntaxFactory.Block(new StatementSyntax[] { declaration }.Concat(copies)
-                .WithNavigationAnnotation(RecordSyntaxFacts.RewriteAnnotation));
-        }
-
-        // 外部接收者（语句位）：other.B(); → other = other.B();。
-        // 被调方迁移前是 void，源码中不可能在表达式消费位出现，故语句位即全部形态。
-        if (node.Expression is InvocationExpressionSyntax external
-            && IsCallToMigratedExternal(external))
-        {
-            var visitedCall = (InvocationExpressionSyntax)base.VisitInvocationExpression(external)!;
-            var receiver = MethodMigrator.ReceiverOf(visitedCall);
-            var writeback = MethodMigrator.RewriteCallWriteback(visitedCall, receiver);
-            return SyntaxFactory.ExpressionStatement(writeback)
-                .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
-        }
-
-        return base.VisitExpressionStatement(node);
-    }
-
-    /// <summary>
-    /// MM-5（吸收）判据：解析出的 callee 属于本 record 的迁移单元集合（按 OriginalDefinition），
-    /// 且调用接收者是 this 或隐式 this（M() / this.M()）。对其他接收者（other.M()）不在此吸收。
-    /// </summary>
-    private bool IsCallToMigratedSameRecord(InvocationExpressionSyntax invocation)
-    {
-        if (_model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol callee) return false;
-        if (!_migratedByOriginal.Contains(callee.OriginalDefinition)) return false;
-        return invocation.Expression switch
-        {
-            IdentifierNameSyntax => true,
-            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } => true,
-            _ => false,
+            BaseMethodDeclarationSyntax method => method.ParameterList.Parameters,
+            ParenthesizedLambdaExpressionSyntax parenLambda => parenLambda.ParameterList.Parameters,
+            SimpleLambdaExpressionSyntax simpleLambda when simpleLambda.Parameter != null =>
+                SyntaxFactory.SingletonSeparatedList(simpleLambda.Parameter),
+            LocalFunctionStatementSyntax local => local.ParameterList.Parameters,
+            _ => default(SeparatedSyntaxList<ParameterSyntax>),
         };
-    }
-
-    /// <summary>callee 在迁移单元集合、接收者非 this（other.M()/this.F.M() 等）。</summary>
-    private bool IsCallToMigratedExternal(InvocationExpressionSyntax invocation)
-    {
-        if (_model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol callee) return false;
-        if (!_migratedByOriginal.Contains(callee.OriginalDefinition)) return false;
-        return invocation.Expression is MemberAccessExpressionSyntax
-            { Expression: not ThisExpressionSyntax };
+        foreach (var parameter in parameters)
+            names.Add(parameter.Identifier.Text);
+        return names;
     }
 
     private static bool IsNameof(ExpressionSyntax node)
@@ -696,6 +919,197 @@ internal sealed class MigratedMethodBodyRewriter : CSharpSyntaxRewriter
             map[member] = candidate;
         }
         return map;
+    }
+
+    /// <summary>调用点接收者：M() → this；x.M() → x。</summary>
+    internal static ExpressionSyntax ReceiverOf(InvocationExpressionSyntax invocation) =>
+        invocation.Expression switch
+        {
+            MemberAccessExpressionSyntax ma => ma.Expression,
+            _ => SyntaxFactory.ThisExpression(),
+        };
+
+    internal static LocalDeclarationStatementSyntax DeclareVar(
+        string name, ExpressionSyntax initializer)
+    {
+        var declarator = SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(name))
+            .WithInitializer(SyntaxFactory.EqualsValueClause(initializer));
+        var varType = SyntaxFactory.IdentifierName(SyntaxFactory.Identifier("var")
+            .WithTrailingTrivia(SyntaxFactory.Space));
+        return SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                varType, SyntaxFactory.SingletonSeparatedList(declarator)));
+    }
+
+    internal static MemberAccessExpressionSyntax QualifyThis(string name) =>
+        SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.ThisExpression(),
+            SyntaxFactory.IdentifierName(name));
+
+    internal static MemberAccessExpressionSyntax Qualify(string receiver, string name) =>
+        SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.IdentifierName(receiver),
+            SyntaxFactory.IdentifierName(name));
+}
+
+/// <summary>
+/// Phase 3c：迁移方法声明（提升 / 出口合成 / 签名）与全树调用点回写（外部模式逻辑
+/// 全部在共享基类）；同时作为第一个 rewriter，为后续 MutationSiteRewriter 的用点节点
+/// 挂定位注解。
+/// </summary>
+internal sealed class MethodMigrator : MethodCallSyntaxRewriter
+{
+    /// <summary>类型显示格式：完全限定但不加 global:: 前缀，特殊类型用关键字。</summary>
+    private static readonly SymbolDisplayFormat TypeFormat =
+        new SymbolDisplayFormat(
+            typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
+            globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
+            miscellaneousOptions: SymbolDisplayMiscellaneousOptions.UseSpecialTypes);
+
+    private readonly RewriteContext _context;
+    private readonly Dictionary<IMethodSymbol, MigrationUnit> _units =
+        new(SymbolEqualityComparer.Default);
+
+    public MethodMigrator(RewriteContext context)
+        : base(context.Model, BuildMigratedSet(context), BuildMsAnnotationMap(context))
+    {
+        _context = context;
+        foreach (var plan in context.ActivePlans)
+        {
+            foreach (var migration in plan.Migrations)
+            {
+                if (migration.Method.DeclaringSyntaxReferences.FirstOrDefault()?.SyntaxTree.FilePath
+                        is { } file
+                    && string.Equals(file, context.FilePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    _units[migration.Method] = new MigrationUnit(
+                        migration.Method, migration.Kind, migration.PromotedMembers);
+                }
+            }
+        }
+    }
+
+    private static IReadOnlySet<IMethodSymbol> BuildMigratedSet(RewriteContext context)
+    {
+        // 跨文件/跨 record 的调用也必须识别：集合取所有 active 计划的全部迁移方法。
+        var set = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        foreach (var plan in context.ActivePlans)
+            foreach (var migration in plan.Migrations)
+                set.Add(migration.Method.OriginalDefinition);
+        return set;
+    }
+
+    private static Dictionary<(int Start, int Kind), SyntaxAnnotation> BuildMsAnnotationMap(
+        RewriteContext context)
+    {
+        var map = new Dictionary<(int, int), SyntaxAnnotation>();
+        foreach (var plan in context.ActivePlans)
+        {
+            foreach (var sitePlan in plan.Sites)
+            {
+                if (!string.Equals(sitePlan.Site.FilePath, context.FilePath,
+                        StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (sitePlan.Action == SiteActionKind.MethodMigrateCall) continue;
+                var key = (sitePlan.Site.WriteNode.SpanStart, sitePlan.Site.WriteNode.RawKind);
+                map[key] = MutationSiteRewriter.SiteAnnotationFor(plan, sitePlan);
+            }
+        }
+        return map;
+    }
+
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        var symbol = _context.Model.GetDeclaredSymbol(node);
+        if (symbol == null || !_units.TryGetValue(symbol, out var unit))
+            return base.VisitMethodDeclaration(node);
+
+        var nonVoid = (unit.Kind & MethodMigrationKind.NonVoidToOut) != 0;
+        var resultName = UniqueResultName(node);
+
+        var bodyRewriter = ForBody(
+            _context.Model, unit, MigratedByOriginal, MsAnnotations, resultName);
+
+        var body = node.Body;
+        if (body == null && node.ExpressionBody != null)
+        {
+            // 表达式体展开为块体（MM-4）。非 void：Bump() => X += 1;
+            // → { result = __x += 1; }，尾部统一补 return this with {...}。
+            // 先用 bodyRewriter 访问原始表达式（节点在原始树中，符号可解析），
+            // 使 X 等成员引用替换为提升局部 __x，然后再包装为语句。
+            var rewrittenExpr = (ExpressionSyntax)bodyRewriter.Visit(
+                node.ExpressionBody.Expression)!;
+            body = nonVoid
+                ? SyntaxFactory.Block(SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        SyntaxFactory.IdentifierName(resultName),
+                        rewrittenExpr)))
+                : SyntaxFactory.Block(
+                    SyntaxFactory.ExpressionStatement(rewrittenExpr));
+        }
+        if (body == null) return base.VisitMethodDeclaration(node);
+
+        var migrated = (BlockSyntax)bodyRewriter.Visit(body)!;
+
+        // MM-2：方法体顶部为每个被提升成员声明局部副本：var __x = this.X;
+        var promotionDeclarations = unit.PromotedMembers
+            .Select(member => DeclareVar(
+                bodyRewriter.LocalNames![member], QualifyThis(member.Name)))
+            .ToList();
+
+        // 仅当迁移体不以 return 结尾时才补尾部 return this with {...}；
+        // VisitReturnStatement 已为非 void return 插入 return this with，
+        // 此处不重复添加。
+        var stmts = migrated.Statements;
+        var lastIsReturn = stmts.Count > 0
+            && stmts[^1] is ReturnStatementSyntax
+            && stmts[^1].HasAnnotation(RecordSyntaxFacts.RewriteAnnotation);
+        var allStatements = lastIsReturn
+            ? promotionDeclarations.Concat(stmts)
+            : promotionDeclarations.Concat(stmts).Append(
+                SyntaxFactory.ReturnStatement(
+                        bodyRewriter.BuildRecordWith(SyntaxFactory.ThisExpression()))
+                    .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation));
+        var finalBody = SyntaxFactory.Block(allStatements);
+
+        var recordTypeSyntax = SyntaxFactory.ParseTypeName(
+            unit.Method.ContainingType.ToDisplayString(TypeFormat));
+
+        var parameters = node.ParameterList.Parameters;
+        if (nonVoid)
+        {
+            // T M() → R M(out T result)。result 类型独立解析，避免与旧返回类型共享节点。
+            var resultTypeSyntax = SyntaxFactory.ParseTypeName(
+                symbol.ReturnType.ToDisplayString(TypeFormat));
+            var resultParameter = SyntaxFactory.Parameter(SyntaxFactory.Identifier(resultName))
+                .WithType(resultTypeSyntax)
+                .WithModifiers(SyntaxFactory.TokenList(
+                    SyntaxFactory.Token(SyntaxKind.OutKeyword)
+                        .WithTrailingTrivia(SyntaxFactory.Space)));
+            parameters = parameters.Add(resultParameter);
+        }
+
+        _context.Statistics.MethodsMigrated++;
+        return node.WithReturnType(recordTypeSyntax)
+            .WithParameterList(SyntaxFactory.ParameterList(parameters))
+            .WithBody(finalBody)
+            .WithExpressionBody(null)
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None))
+            .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
+    }
+
+    private static string UniqueResultName(MethodDeclarationSyntax node)
+    {
+        var taken = node.ParameterList.Parameters.Select(p => p.Identifier.Text)
+            .Concat(node.DescendantNodes().OfType<VariableDeclaratorSyntax>()
+                .Select(v => v.Identifier.Text))
+            .ToHashSet(StringComparer.Ordinal);
+        var name = "result";
+        while (taken.Contains(name)) name += "_";
+        return name;
     }
 }
 

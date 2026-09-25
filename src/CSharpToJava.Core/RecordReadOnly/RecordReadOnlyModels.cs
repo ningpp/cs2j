@@ -48,6 +48,7 @@ public enum RecordReadOnlyDiagnosticCode
     RR062, // 方法调用图含环（MM-1/MM-6）
     RR063, // getter 访问器体内修改其他成员（MM-6）
     RR064, // this = expr 无法展开：含 with 不可设置的实例状态（MM-3/MM-6）
+    RR065, // virtual/override/对象契约（ToString 等）方法签名不可改（MM-6；接口实现走 IR）
 
     // 070-079 接口连带
     RR070, // 外部接口无法加成员（IR-7/FB-3）
