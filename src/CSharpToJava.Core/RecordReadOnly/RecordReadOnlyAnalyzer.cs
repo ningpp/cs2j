@@ -478,21 +478,28 @@ internal sealed class RecordReadOnlyAnalyzer
         {
             var inner = arg.Expression is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.AddressOfExpression } addr
                 ? addr.Operand : arg.Expression;
-            if (inner is MemberAccessExpressionSyntax memberAccess
-                && model.GetSymbolInfo(memberAccess).Symbol is { ContainingType: { IsRecord: true } ct } sym
-                && _analysis.BySymbol.TryGetValue(ct, out var target))
+            if (inner is MemberAccessExpressionSyntax memberAccess)
             {
-                var site = new MutationSiteInfo
+                // GetSymbolInfo 可能因编译错误返回 null（如对属性取 ref），
+                // 此时从接收者类型上按名字查找成员（与 AddSite 相同策略）。
+                var sym = model.GetSymbolInfo(memberAccess).Symbol;
+                if (sym == null && model.GetTypeInfo(memberAccess.Expression).Type is INamedTypeSymbol rt)
+                    sym = rt.GetMembers(memberAccess.Name.Identifier.Text).FirstOrDefault();
+                if (sym is { ContainingType: { IsRecord: true } ct }
+                    && _analysis.BySymbol.TryGetValue(ct, out var target))
                 {
-                    Location = arg.GetLocation(), FilePath = tree.FilePath, WriteNode = arg,
-                    Left = memberAccess, Receiver = memberAccess.Expression,
-                    Member = sym, ReceiverType = ct,
-                    Kind = SiteKind.RefOutMemberArg,
-                    IsStatementPosition = arg.FirstAncestorOrSelf<ExpressionStatementSyntax>() != null,
-                    RefOutCallee = callee, CalleeInTree = inTree,
-                };
-                site.TargetRecord = target;
-                target.Sites.Add(site);
+                    var site = new MutationSiteInfo
+                    {
+                        Location = arg.GetLocation(), FilePath = tree.FilePath, WriteNode = arg,
+                        Left = memberAccess, Receiver = memberAccess.Expression,
+                        Member = sym, ReceiverType = ct,
+                        Kind = SiteKind.RefOutMemberArg,
+                        IsStatementPosition = arg.FirstAncestorOrSelf<ExpressionStatementSyntax>() != null,
+                        RefOutCallee = callee, CalleeInTree = inTree,
+                    };
+                    site.TargetRecord = target;
+                    target.Sites.Add(site);
+                }
             }
         }
     }

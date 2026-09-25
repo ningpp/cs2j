@@ -39,11 +39,20 @@ internal static class MutationSiteClassifier
             case SiteKind.ConditionalAssign:
                 return ClassifyConditional(analysis, plan, info, site);
 
-            // 后续任务支持的形态：在落地前整 record 保持原子跳过。
             case SiteKind.RefOutRecordArg:
+                // MS-10：in-tree 被调方体内成员写按 MS-9 处理，调用点无需改写；
+                // 外部方法无法证明不修改 → 保守 FB-1。
+                return site.CalleeInTree
+                    ? null
+                    : new SiteFailure(RecordReadOnlyDiagnosticCode.RR055,
+                        "record passed by ref/out to an external method; the callee may mutate " +
+                        "fields that become readonly/init (MS-10).", site.Location);
+
             case SiteKind.RefOutMemberArg:
-                return new SiteFailure(RecordReadOnlyDiagnosticCode.RR020,
-                    $"mutation site kind '{site.Kind}' is rewritten by a later stage.",
+                // MS-11：转换后成员是 init 属性/readonly 字段，无法取 ref/out（in-tree 也一样）。
+                return new SiteFailure(RecordReadOnlyDiagnosticCode.RR056,
+                    "a record member is passed by ref/out (e.g. Interlocked/Volatile/Marshal, " +
+                    "or int.TryParse(out r.M)); the member becomes init-only/readonly (MS-11).",
                     site.Location);
         }
 

@@ -1028,5 +1028,160 @@ public class RecordReadOnlyRewriterUnitTests
         var (output, _, diags) = Rewrite(src);
         Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR020);
     }
+
+    // ----- Task 15: MS-10/MS-11/MS-12/MS-14/MS-16/MS-18 -----
+
+    [Fact]
+    public void MS10_InTreeRefRecordArgument_CallSiteUntouched_BodyRewritten()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void Update(ref P p) { p.X = 3; }
+                public void Call()
+                {
+                    var p = new P();
+                    Update(ref p);
+                }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("p = p with { X = 3 };", output);
+        Assert.Contains("Update(ref p);", output);
+        Assert.Equal(1, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS10_OutParameterAssignedThenMemberWritten_Works()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void Create(out P p)
+                {
+                    p = new P();
+                    p.X = 9;
+                }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p with { X = 9 };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS10_ExternalRefRecordArgument_BlocksWithRR055()
+    {
+        var src = """
+            using System.Threading;
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void M()
+                {
+                    var p = new P();
+                    Interlocked.Exchange(ref p, default);
+                }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR055);
+    }
+
+    [Fact]
+    public void MS11_RefRecordMemberToExternal_BlocksWithRR056()
+    {
+        var src = """
+            using System.Threading;
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void M(P p) { Interlocked.Increment(ref p.X); }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR056);
+    }
+
+    [Fact]
+    public void MS12_ExistingWithExpressions_AreUntouched()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } public int Y { get; set; } }
+            public class C
+            {
+                public P M(P p)
+                {
+                    var q = p with { X = 1 };
+                    return q with { Y = 2, X = 3 };
+                }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("p with { X = 1 }", output);
+        Assert.Equal(0, stats.MutationSitesRewritten);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS14_DynamicReceiver_BlocksAllRecordsWithRR057()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void M(dynamic d) { d.X = 1; }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.DoesNotContain("readonly record struct", output);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR057);
+    }
+
+    [Fact]
+    public void MS14_ReflectionSetValue_BlocksAllRecordsWithRR057()
+    {
+        var src = """
+            using System.Reflection;
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public void M(P p, PropertyInfo prop) { prop.SetValue(p, 1); }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR057);
+    }
+
+    [Fact]
+    public void MS16_MutationInsideTupleExpression_BlocksWithRR053()
+    {
+        var src = """
+            public record struct P { public int X { get; set; } }
+            public class C
+            {
+                public (int, int) M(P p) => ((p.X = 1), 2);
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR053);
+    }
+
+    [Fact]
+    public void MS18_SelfDeclaredIndexer_RecordBlockedAtDeclarationRR042()
+    {
+        var src = """
+            public record struct R
+            {
+                public int this[int i] { get => 0; set { } }
+            }
+            public class C { public void M(R r) { r[0] = 1; } }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR042);
+    }
 }
 
