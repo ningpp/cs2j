@@ -26,6 +26,7 @@ internal enum SiteKind
     RefOutRecordArg,    // M(ref r) / M(out r)，r 整体是 record
     RefOutMemberArg,    // M(ref r.F) / int.TryParse(s, out r.N)
     AddressOfMember,    // &r.F
+    MethodCall,         // 迁移方法的调用点（MM-5）
 }
 
 internal sealed record ChainSegment(ISymbol Member, ITypeSymbol? ContainerType, ExpressionSyntax Access);
@@ -50,6 +51,8 @@ internal sealed class MutationSiteInfo
     public IMethodSymbol? RefOutCallee { get; init; }
     public bool CalleeInTree { get; init; }
     public List<ChainSegment> Chain { get; init; } = new();
+    /// <summary>MethodCall：被调用的迁移方法符号。</summary>
+    public IMethodSymbol? MethodCallee { get; set; }
     /// <summary>归属的目标 record（成员 ContainingType 命中分析清单时设置）。</summary>
     public RecordInfo? TargetRecord { get; set; }
 }
@@ -68,6 +71,8 @@ internal sealed class MethodWriteInfo
     public bool ExpressionBody { get; init; }
     public bool IsOverrideExplicitOrVirtual { get; init; }
     public bool IsConstructor { get; init; }
+    /// <summary>体内调用的、定义在同一 record 上的 in-tree 方法（MM-1 调用图边）。</summary>
+    public List<IMethodSymbol> SameRecordCalls { get; } = new();
 }
 
 internal sealed class RecordInfo
@@ -259,7 +264,9 @@ internal sealed class RecordReadOnlyAnalyzer
     private MethodWriteInfo? BuildWriteInfo(IMethodSymbol method, RecordInfo owner,
         Compilation compilation)
     {
-        var syntax = method.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
+        // For partial methods, prefer the implementation part (has body) over the definition part.
+        var effectiveMethod = method.PartialImplementationPart ?? method;
+        var syntax = effectiveMethod.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax();
         BaseMethodDeclarationSyntax? declaration = syntax as BaseMethodDeclarationSyntax;
         AccessorDeclarationSyntax? accessor = syntax as AccessorDeclarationSyntax;
         SyntaxNode? bodyRoot = declaration is not null ? (SyntaxNode)declaration : accessor;
@@ -308,6 +315,20 @@ internal sealed class RecordReadOnlyAnalyzer
                     break;
             }
         }
+
+        // MM-1：同 record in-tree 调用边（按 OriginalDefinition 归一，兼容泛型实例化）。
+        foreach (var invocation in bodyRoot.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol callee) continue;
+            if (callee.MethodKind != MethodKind.Ordinary) continue;
+            if (callee.DeclaringSyntaxReferences.Length == 0) continue;
+            if (SymbolEqualityComparer.Default.Equals(
+                    callee.ContainingType?.OriginalDefinition, owner.Symbol.OriginalDefinition))
+            {
+                info.SameRecordCalls.Add(callee);
+            }
+        }
+
         return info;
     }
 

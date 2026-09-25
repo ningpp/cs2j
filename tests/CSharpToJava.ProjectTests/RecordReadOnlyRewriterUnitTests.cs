@@ -331,7 +331,7 @@ public class RecordReadOnlyRewriterUnitTests
     }
 
     [Fact]
-    public void RS6b_PrivateFieldMutatedAfterCtor_InfeasibleBeforeMethodMigration()
+    public void RS6b_PrivateFieldMutatedAfterCtor_FeasibleWithMethodMigration()
     {
         var src = """
             public record struct P
@@ -341,8 +341,9 @@ public class RecordReadOnlyRewriterUnitTests
             }
             """;
         var (output, _, diags) = Rewrite(src);
-        Assert.DoesNotContain("readonly record struct", output);
-        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR020);
+        Assert.Contains("readonly record struct", output);
+        Assert.DoesNotContain(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR020);
+        AssertOutputCompiles(output);
     }
 
     [Fact]
@@ -1182,6 +1183,252 @@ public class RecordReadOnlyRewriterUnitTests
             """;
         var (output, _, diags) = Rewrite(src);
         Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR042);
+    }
+
+    // ----- Task 16: MM-1..MM-6 void method migration -----
+
+    [Fact]
+    public void MM_VoidMutatingMethod_PromotesAndReturnsRecord()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public void Bump() { X = 1; }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("public P Bump()", output);
+        Assert.Contains("var __x = this.X;", output);
+        Assert.Contains("__x = 1;", output);
+        Assert.Contains("return this with { X = __x };", output);
+        Assert.Equal(1, stats.MethodsMigrated);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM_ThisAssignment_BecomesPromotedCopies()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public void Reset(P other) { this = other; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("public P Reset(P other)", output);
+        Assert.Contains("__x = other.X;", output);
+        Assert.Contains("return this with { X = __x };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM_CallToMigratedMethodOnThis_AbsorbsResultIntoPromoted()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public void A()
+                {
+                    X = 1;
+                    B();
+                }
+                public void B() { X = 2; }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("var __r0 = this.B();", output);
+        Assert.Contains("__x = __r0.X;", output);
+        Assert.Equal(2, stats.MethodsMigrated);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM_CtorCallingMigratedMethod_ThisWritebackAfterAssigned()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public P(int x) { X = x; Bump(); }
+                public void Bump() { X += 1; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("this = this.Bump();", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM_ExternalStatementCallSite_WritebackReceiver()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public void Bump() { X = 1; }
+            }
+            public class C
+            {
+                public void M(P p) { p.Bump(); }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p.Bump();", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM_ExternalCallOnReadonlyReceiver_BlocksWithRR050()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public void Bump() { X = 1; }
+            }
+            public class C
+            {
+                public P P { get; }
+                public void M() { P.Bump(); }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR050);
+    }
+
+    [Fact]
+    public void MM_MigratedBody_ExternalMigratedCallGetsWriteback()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public void A(P other) { X = 1; other.Bump(); }
+                public void Bump() { X = 2; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("__x = 1;", output);
+        Assert.Contains("other = other.Bump();", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM_MigratedBody_ExternalMutationSiteStillRewrittenWith()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public void A(P other) { X = 1; other.X = 2; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("other = other with { X = 2 };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM6_IteratorMethod_BlocksWithRR060()
+    {
+        var src = """
+            using System.Collections.Generic;
+            public record struct P
+            {
+                public int X { get; set; }
+                public IEnumerable<int> Evens()
+                {
+                    X = 1;
+                    yield return X;
+                }
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR060);
+    }
+
+    [Fact]
+    public void MM6_PartialMethod_BlocksWithRR061()
+    {
+        var src = """
+            public partial record struct P
+            {
+                partial void Bump();
+            }
+            public partial record struct P
+            {
+                public int X { get; set; }
+                partial void Bump() { X = 1; }
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR061);
+    }
+
+    [Fact]
+    public void MM6_CallGraphCycle_BlocksWithRR062()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public void A() { X = 1; B(); }
+                public void B() { X = 2; A(); }
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR062);
+    }
+
+    [Fact]
+    public void MM6_GetterMutatingMember_BlocksWithRR063()
+    {
+        var src = """
+            public record struct P
+            {
+                private int _x;
+                public int X
+                {
+                    get { _x = 1; return _x; }
+                    set { _x = value; }
+                }
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR063);
+    }
+
+    [Fact]
+    public void MM6_ThisAssignmentWithGetOnlyState_BlocksWithRR064()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Y { get; }
+                public P(int y) { Y = y; }
+                public void Reset(P other) { this = other; }
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR064);
+    }
+
+    [Fact]
+    public void MM_NonVoidMutatingMethod_StaysPendingRR020UntilNextTask()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public int Next() { X += 1; return X; }
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR020);
     }
 }
 

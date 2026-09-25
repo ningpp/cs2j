@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Text;
 
 namespace CSharpToJava.Core.RecordReadOnly;
 
@@ -25,7 +26,10 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
         // 输入 node 可能来自 AnnotateSites 后的树，需要从原始树中查找对应节点。
         var origTree = _context.Model.SyntaxTree;
         var origRoot = (CompilationUnitSyntax)origTree.GetRoot();
-        var origNode = origRoot.FindNode(node.Span) as RecordDeclarationSyntax ?? node;
+        // 用 SpanStart 查找：前置 rewriter（MethodMigrator 等）可能改变 record 的
+        // 结束位置，但起始位置不变。零长度 span 确保落在 record 的第一个 token 上。
+        var origNode = origRoot.FindNode(new TextSpan(node.SpanStart, 0))
+            .FirstAncestorOrSelf<RecordDeclarationSyntax>() ?? node;
         var recordSymbol = _context.Model.GetDeclaredSymbol(origNode);
         var plan = ActivePlan(recordSymbol);
 
@@ -174,8 +178,11 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
         var visited = (PropertyDeclarationSyntax)base.VisitPropertyDeclaration(node)!;
         // 从原始树中查找节点以获取符号。
         var origRoot = (CompilationUnitSyntax)_context.Model.SyntaxTree.GetRoot();
-        var origNode = origRoot.FindNode(node.Span) as PropertyDeclarationSyntax ?? node;
-        var symbol = _context.Model.GetDeclaredSymbol(origNode);
+        var origNode = origRoot.FindNode(new TextSpan(node.SpanStart, 0))
+            .FirstAncestorOrSelf<PropertyDeclarationSyntax>() ?? node;
+        ISymbol? symbol = null;
+        try { symbol = _context.Model.GetDeclaredSymbol(origNode); }
+        catch (ArgumentException) { return visited; } // 节点不在原始树中
         var plan = ActivePlan(symbol?.ContainingType);
         if (plan == null || plan.Outcome != PlanOutcome.Converted) return visited;
         var rewrite = symbol == null ? null : FindRewrite(plan, symbol);
@@ -220,8 +227,11 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
         var any = false;
         foreach (var variable in node.Declaration.Variables)
         {
-            var origVar = origRoot.FindNode(variable.Span) as VariableDeclaratorSyntax ?? variable;
-            var symbol = _context.Model.GetDeclaredSymbol(origVar) as IFieldSymbol;
+            var origVar = origRoot.FindNode(new TextSpan(variable.SpanStart, 0))
+                .FirstAncestorOrSelf<VariableDeclaratorSyntax>() ?? variable;
+            IFieldSymbol? symbol = null;
+            try { symbol = _context.Model.GetDeclaredSymbol(origVar) as IFieldSymbol; }
+            catch (ArgumentException) { return visited; } // 节点不在原始树中
             var plan = ActivePlan(symbol?.ContainingType);
             var rewrite = symbol == null || plan == null ? null : FindRewrite(plan, symbol);
             if (rewrite?.Kind == MemberRewriteKind.PrivateFieldReadonly) any = true;

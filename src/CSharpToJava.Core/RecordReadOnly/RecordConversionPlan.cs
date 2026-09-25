@@ -44,7 +44,7 @@ internal sealed record FeatureCaps(
     public static FeatureCaps Current => new(
         ReadOnlyModifier: true,
         MemberRewrites: true,
-        MethodMigration: false,
+        MethodMigration: true,
         InterfaceRipple: false);}
 
 internal sealed class RecordPlan
@@ -248,6 +248,28 @@ internal sealed class PlanBuilder
                 return Fail(plan, RecordReadOnlyDiagnosticCode.RR020,
                     "record has instance method(s) that mutate state; method migration (MM) is " +
                     "required to convert.");
+
+            var (units, migrationFailure) = MethodMigrationPlanner.BuildUnits(info);
+            if (migrationFailure != null)
+                return FailAt(plan, migrationFailure.Code, migrationFailure.Reason,
+                    migrationFailure.Location);
+
+            foreach (var unit in units.Values.OrderBy(u =>
+                         u.Method.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0))
+            {
+                plan.Migrations.Add(new MethodMigrationPlan(
+                    unit.Method, MethodMigrationKind.VoidToRecord, unit.PromotedMembers));
+            }
+
+            var callSites = MethodCallSiteScanner.Scan(
+                analysis.Compilation!, info, units, out var callFailure);
+            if (callFailure != null)
+                return FailAt(plan, callFailure.Code, callFailure.Reason, callFailure.Location);
+            foreach (var (callSite, _) in callSites)
+            {
+                plan.Sites.Add(callSite);
+                plan.TouchedFiles.Add(callSite.Site.FilePath);
+            }
         }
 
         // 用点（MS）：逐点分类，任一不可行即整 record 失败（FB-1），错误位置在用点。
@@ -327,9 +349,10 @@ internal sealed class PlanBuilder
 
     // set 访问器会被转成 init（RS-9），init 访问器与 ctor 同样可写 readonly 字段，
     // 故仅由 ctor/set 访问器写的私有字段归入 RS-6a（readonly），无需提升。
+    // this = expr（MM-3）会逐成员拷贝私有字段，字段必须转私有 init 属性才能被出口 with 设置。
     private static bool IsPrivateFieldWrittenAfterConstruction(RecordInfo info, IFieldSymbol field)
         => info.WriteInfos.Values.Any(w => !w.IsConstructor && !w.IsPropertySetter
-            && w.WrittenMembers.Contains(field));
+            && (w.WritesThis || w.WrittenMembers.Contains(field)));
 
     private static bool PropertyImplementsInterfaceSetter(INamedTypeSymbol record, IPropertySymbol property)
     {

@@ -331,7 +331,8 @@ internal static class MutationSiteClassifier
     }
 
     /// <summary>MS-1 可写左值 + 无副作用（接收者会被求值两次）。</summary>
-    private static SiteFailure? ReceiverWritableAndPure(SemanticModel model, ExpressionSyntax receiver, RecordInfo info)
+    internal static SiteFailure? ReceiverWritableAndPure(
+        SemanticModel model, ExpressionSyntax receiver, RecordInfo? info = null)
     {
         switch (receiver)
         {
@@ -372,7 +373,7 @@ internal static class MutationSiteClassifier
                 // 只要该成员不在目标 record 上。
                 {
                     var maSymbol = model.GetSymbolInfo(ma).Symbol;
-                    if (maSymbol != null && info.Symbol.Equals(maSymbol.ContainingType, SymbolEqualityComparer.Default))
+                    if (info != null && maSymbol != null && info.Symbol.Equals(maSymbol.ContainingType, SymbolEqualityComparer.Default))
                         return new SiteFailure(RecordReadOnlyDiagnosticCode.RR020,
                             "nested member chains (MS-17) are rewritten by a later stage.",
                             receiver.GetLocation());
@@ -466,8 +467,16 @@ internal static class MutationSiteClassifier
 /// </summary>
 internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
 {
+    internal const string SiteAnnotationKind = "Cs2jRecordReadOnlySite";
+
+    internal static string SiteKey(RecordPlan owner, MutationSiteInfo site) =>
+        owner.Id + "|" + site.WriteNode.SpanStart + "|" + site.WriteNode.RawKind;
+
+    internal static SyntaxAnnotation SiteAnnotationFor(RecordPlan owner, SitePlan sitePlan) =>
+        new(SiteAnnotationKind, SiteKey(owner, sitePlan.Site));
+
     private readonly RewriteContext _context;
-    private readonly Dictionary<(int Start, int Kind), SitePlan> _siteKeys = new();
+    private readonly Dictionary<string, SitePlan> _siteByKey = new(StringComparer.Ordinal);
 
     public MutationSiteRewriter(RewriteContext context)
     {
@@ -476,11 +485,12 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
         {
             foreach (var sitePlan in plan.Sites)
             {
+                if (sitePlan.Action == SiteActionKind.MethodMigrateCall)
+                    continue; // MethodMigrator handles these
                 if (!string.Equals(sitePlan.Site.FilePath, context.FilePath,
                         StringComparison.OrdinalIgnoreCase))
                     continue;
-                var node = sitePlan.Site.WriteNode;
-                _siteKeys[(node.SpanStart, node.RawKind)] = sitePlan;
+                _siteByKey[SiteKey(plan, sitePlan.Site)] = sitePlan;
             }
         }
     }
@@ -637,32 +647,18 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
         return count;
     }
 
-    private bool ReadsPreviouslyWrittenMember(
+    private static bool ReadsPreviouslyWrittenMember(
         MutationSiteInfo currentSite,
         ExpressionSyntax right,
         List<(ExpressionStatementSyntax Stmt, SitePlan Plan, MutationSiteInfo Site,
             string Receiver, string Member)> run)
     {
-        var model = _context.Model;
-        var writtenSymbols = run
-            .Select(item => item.Site.Member)
-            .Where(s => s != null)
-            .ToHashSet(SymbolEqualityComparer.Default);
-        var receiverSymbol = currentSite.Receiver is IdentifierNameSyntax rid
-            ? model.GetSymbolInfo(rid).Symbol : null;
-
-        foreach (var access in right.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>())
-        {
-            if (model.GetSymbolInfo(access).Symbol is not { } accessed) continue;
-            if (!writtenSymbols.Contains(accessed)) continue;
-            // 确认读的是同一个接收者（标识符场景；元素/字段接收者保守不合并）。
-            if (receiverSymbol == null) return true;
-            if (access.Expression is IdentifierNameSyntax inner
-                && SymbolEqualityComparer.Default.Equals(
-                    model.GetSymbolInfo(inner).Symbol, receiverSymbol))
-                return true;
-        }
-        return false;
+        if (run.Count == 0) return false;
+        var receiverText = run[0].Receiver;
+        var writtenMembers = run.Select(item => item.Member).ToHashSet(StringComparer.Ordinal);
+        return right.DescendantNodesAndSelf().OfType<MemberAccessExpressionSyntax>().Any(ma =>
+            ma.Expression.WithoutTrivia().ToFullString() == receiverText
+            && writtenMembers.Contains(ma.Name.Identifier.Text));
     }
 
     // ----- single-statement expansion -----
@@ -686,8 +682,15 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
         yield return statement;
     }
 
-    private SitePlan? FindSite(ExpressionSyntax expression) =>
-        _siteKeys.TryGetValue((expression.SpanStart, expression.RawKind), out var plan) ? plan : null;
+    private SitePlan? FindSite(SyntaxNode node)
+    {
+        foreach (var annotation in node.GetAnnotations(SiteAnnotationKind))
+        {
+            if (annotation.Data != null && _siteByKey.TryGetValue(annotation.Data, out var plan))
+                return plan;
+        }
+        return null;
+    }
 
     // ----- per-kind rewrite dispatch -----
 
