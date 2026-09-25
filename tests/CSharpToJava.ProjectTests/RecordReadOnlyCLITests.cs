@@ -103,9 +103,13 @@ public class RecordReadOnlyCLITests
     [Fact]
     public async Task Verb_Project_IntermediateTreeBuilds()
     {
-        var fixtureDir = Path.Combine(AppContext.BaseDirectory, "SampleRecordSolution");
-        var outputDir = Path.Combine(Path.GetTempPath(),
+        // 私有副本驱动 CLI：RecordReadOnlyProjectTests 与本测试类会被 xunit 并行执行，
+        // 直接以 bin 下的共享 fixture 为源会与它们的 .test-output-* 创建/删除竞态。
+        var tempDir = Path.Combine(Path.GetTempPath(),
             "cs2j-rr-cli-proj-" + Guid.NewGuid().ToString("N"));
+        var fixtureDir = Path.Combine(tempDir, "fixture");
+        CopyFixture(AppContext.BaseDirectory, "SampleRecordSolution", fixtureDir);
+        var outputDir = Path.Combine(tempDir, "out");
 
         try
         {
@@ -114,7 +118,8 @@ public class RecordReadOnlyCLITests
                 "-s", fixtureDir,
                 "-d", outputDir);
 
-            Assert.Equal(0, exit);
+            Assert.True(exit == 0,
+                $"exit={exit}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
             Assert.Contains("record-readonly:", stdout);
             Assert.Contains("struct(s)", stdout);
             Assert.Contains("Preprocessed source:", stdout);
@@ -125,8 +130,26 @@ public class RecordReadOnlyCLITests
         }
         finally
         {
-            if (Directory.Exists(outputDir))
-                Directory.Delete(outputDir, recursive: true);
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    private static void CopyFixture(string baseDirectory, string name, string destination)
+    {
+        var sourceRoot = Path.Combine(baseDirectory, name);
+        foreach (var file in Directory.EnumerateFiles(
+            sourceRoot, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(sourceRoot, file);
+            var segments = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            // 排除构建产物与其它测试的输出目录（正常情况下 bin 下的 fixture 没有这些）。
+            if (segments.Any(s => s is "bin" or "obj" || s.StartsWith(".test-output", StringComparison.Ordinal)))
+                continue;
+
+            var target = Path.Combine(destination, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
         }
     }
 

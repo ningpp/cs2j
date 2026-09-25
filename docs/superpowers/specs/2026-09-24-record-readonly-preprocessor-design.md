@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-24
 **范围**: 新增 CLI 级 C#→C# 预处理器（Core `RecordReadOnly\` + CLI `ProjectRecordReadOnlyPreprocessor`），不涉及任何 C#→Java 转换代码
-**状态**: 待审核
+**状态**: 已实现（M1-M6，Task 1-30）
 
 ## 1. 背景与目标
 
@@ -294,5 +294,6 @@ C# 无 `readonly record class` 语法，转换目标是**语义 readonly**：对
 - 不保证外部程序集对被改签名方法/接口的二进制兼容（源码级转换边界）。
 - 不追踪反射/动态的运行时修改（静态不可见，文档化）。
 - 不规避接口新增抽象成员对**外部实现者**的源码/运行时破坏（IR-1 注；可用 DIM 默认体缓解，默认关闭）。
+- DIM（默认接口方法体）默认关闭，由 `RecordReadOnlyOptions` 无 `EnableDim` 开关保证；InterfaceRippler 生成的新接口成员一律为抽象（无默认体）。若后续需缓解外部实现者破坏，可在 `RecordReadOnlyOptions` 新增 `EnableDim` 并在 `InterfaceRippler` 给新成员加默认体（Task 22 Step 8 记录该决策）。
 - 不保证依赖公共 set 访问器的序列化/反序列化框架（旧式 JSON/XML 反序列化器等）行为不变（init 与现代序列化器兼容；旧框架可能写不回——已知限制）。
 - 不改变 record class 的别名观察语义变化（§4.2 已文档化，特性固有）。
