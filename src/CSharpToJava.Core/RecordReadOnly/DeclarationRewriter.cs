@@ -248,7 +248,7 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
                 var initAccessor = SyntaxFactory
                     .AccessorDeclaration(SyntaxKind.InitAccessorDeclaration)
                     .WithKeyword(SyntaxFactory.Token(SyntaxKind.InitKeyword)
-                        .WithTrailingTrivia(SyntaxFactory.Space))
+                        .WithTriviaFrom(accessor.Keyword))
                     .WithAttributeLists(accessor.AttributeLists)
                     .WithModifiers(accessor.Modifiers) // RS-3：保留 private 等修饰
                     .WithBody(accessor.Body)           // RS-4/RS-9：保体

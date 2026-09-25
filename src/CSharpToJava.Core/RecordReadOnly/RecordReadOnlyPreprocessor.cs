@@ -37,22 +37,25 @@ public sealed partial class RecordReadOnlyPreprocessor
 
         statistics.FilesScanned++;
         var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
+        var filePath = semanticModel.SyntaxTree.FilePath;
 
         // IR-1 可能只改接口文件（文件内没有任何 record 声明），必须先建分析/计划再判脏。
         EnsureBuilt(semanticModel);
 
+        // 跨文件用点（如 App 项目改写 Lib 的 record 属性）：本文件无 record 声明，
+        // 但有已转换计划登记的用点/触碰 → 不能按"干净文件"跳过。
+        var activePlans = _plan!.Plans
+            .Where(p => !_excludedPlanIds.Contains(p.Id) && p.TouchedFiles.Contains(filePath))
+            .ToList();
+
         if (!IsRecordDirty(root)
-            && !FileGainsInterfaceMember(_plan!, semanticModel.SyntaxTree.FilePath)
-            && !FileGetsInterfaceFill(_plan!, semanticModel.SyntaxTree.FilePath))
+            && activePlans.Count == 0
+            && !FileGainsInterfaceMember(_plan!, filePath)
+            && !FileGetsInterfaceFill(_plan!, filePath))
         {
             statistics.FilesSkippedClean++;
             return new RecordReadOnlyFileResult { OutputCode = sourceCode, Changed = false };
         }
-
-        var filePath = semanticModel.SyntaxTree.FilePath;
-        var activePlans = _plan!.Plans
-            .Where(p => !_excludedPlanIds.Contains(p.Id) && p.TouchedFiles.Contains(filePath))
-            .ToList();
 
         RecordReadOnlyAnalyzer.ReportSkippedRecords(
             _plan, _excludedPlanIds, filePath, statistics, diagnostics, _options);

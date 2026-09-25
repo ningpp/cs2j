@@ -545,6 +545,24 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
         return visited;
     }
 
+    /// <summary>
+    /// 顶级语句（无显式 Main 的 Program.cs）：与 VisitBlock 相同的语句级展开。
+    /// GlobalStatementSyntax 解包 → ProcessStatements → 重新包装。
+    /// </summary>
+    public override SyntaxNode? VisitCompilationUnit(CompilationUnitSyntax node)
+    {
+        var visited = (CompilationUnitSyntax)base.VisitCompilationUnit(node)!;
+        if (visited.Members.Count == 0 || visited.Members.Any(m => m is not GlobalStatementSyntax))
+            return visited;
+
+        var statements = SyntaxFactory.List(visited.Members
+            .Cast<GlobalStatementSyntax>()
+            .Select(global => global.Statement));
+        var rewritten = ProcessStatements(statements);
+        return visited.WithMembers(SyntaxFactory.List<MemberDeclarationSyntax>(
+            rewritten.Select(SyntaxFactory.GlobalStatement)));
+    }
+
     // ----- MS-2 adjacent merge -----
 
     private List<StatementSyntax> ProcessStatements(SyntaxList<StatementSyntax> statements)
