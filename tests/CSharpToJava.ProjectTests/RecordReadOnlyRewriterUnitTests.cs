@@ -1670,5 +1670,256 @@ public class RecordReadOnlyRewriterUnitTests
         var (_, _, diags) = Rewrite(src);
         Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR020);
     }
+
+    [Fact]
+    public void MM7_VoidExtension_ReturnsRecordAndPromotesReceiver()
+    {
+        var src = """
+            public static class E
+            {
+                public static void Bump(this P p) { p.X += 1; }
+            }
+            public record struct P
+            {
+                public int X { get; set; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("public static P Bump(this P p)", output);
+        Assert.Contains("var __x = p.X;", output);
+        Assert.Contains("__x += 1;", output);
+        AssertContainsIgnoringWhitespace("return p with { X = __x };", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM7_VoidExtension_ReducedCallGetsWriteback()
+    {
+        var src = """
+            public static class E
+            {
+                public static void Bump(this P p) { p.X += 1; }
+            }
+            public record struct P
+            {
+                public int X { get; set; }
+            }
+            public class C
+            {
+                public void M(P p) { p.Bump(); }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p.Bump();", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM7_VoidExtension_StaticQualifiedCallGetsWriteback()
+    {
+        var src = """
+            public static class E
+            {
+                public static void Bump(this P p) { p.X += 1; }
+            }
+            public record struct P
+            {
+                public int X { get; set; }
+            }
+            public class C
+            {
+                public void M(P p) { E.Bump(p); }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = E.Bump(p);", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM7_VoidExtension_StaticUnqualifiedCallInsideSameClassGetsWriteback()
+    {
+        var src = """
+            public static class E
+            {
+                public static void Bump(this P p) { p.X = 1; }
+                public static void Other(P p) { Bump(p); }
+            }
+            public record struct P
+            {
+                public int X { get; set; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = Bump(p);", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM7_NonVoidExtension_OutResultAfterThisParameter()
+    {
+        var src = """
+            public static class E
+            {
+                public static int Next(this P p) { p.X += 1; return p.X; }
+            }
+            public record struct P
+            {
+                public int X { get; set; }
+            }
+            public class C
+            {
+                public void M(P p) { var v = p.Next(); }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("public static P Next(this P p, out int result)", output);
+        Assert.Contains("p = p.Next(out var v);", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM7_NonVoidExtension_NestedCallHoists()
+    {
+        var src = """
+            public static class E
+            {
+                public static int Next(this P p) { p.X += 1; return p.X; }
+            }
+            public record struct P
+            {
+                public int X { get; set; }
+            }
+            public class C
+            {
+                public void M(P p) { Use(p.Next()); }
+                private static void Use(int v) { }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("p = p.Next(out var __o0);", output);
+        Assert.Contains("Use(__o0);", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM7_ExtensionBody_ReceiverReadsSubstituted()
+    {
+        var src = """
+            public static class E
+            {
+                public static void Set(this P p, int v) { p.X = p.X + v; }
+            }
+            public record struct P
+            {
+                public int X { get; set; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src);
+        Assert.Contains("var __x = p.X;", output);
+        Assert.Contains("__x = __x + v;", output);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM7_ExtensionBody_AbsorbsMigratedInstanceCall()
+    {
+        var src = """
+            public record struct P
+            {
+                public int X { get; set; }
+                public void Inc() { X += 1; }
+            }
+            public static class E
+            {
+                public static void Bump(this P p) { p.Inc(); }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("var __r0 = p.Inc();", output);
+        Assert.Contains("__x = __r0.X;", output);
+        AssertContainsIgnoringWhitespace("return p with { X = __x };", output);
+        Assert.Equal(2, stats.MethodsMigrated);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM7_InstanceBody_AbsorbsReducedExtensionCall()
+    {
+        var src = """
+            public static class E
+            {
+                public static void Bump(this P p) { p.X = 1; }
+            }
+            public record struct P
+            {
+                public int X { get; set; }
+                public void A() { this.Bump(); }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("var __r0 = this.Bump();", output);
+        Assert.Contains("__x = __r0.X;", output);
+        Assert.Equal(2, stats.MethodsMigrated);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MM7_ExtensionBody_AbsorbsReducedExtensionCall()
+    {
+        var src = """
+            public static class E
+            {
+                public static void A(this P p) { p.X = 1; }
+                public static void B(this P p) { p.A(); }
+            }
+            public record struct P
+            {
+                public int X { get; set; }
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Contains("var __r0 = p.A();", output);
+        Assert.Contains("__x = __r0.X;", output);
+        Assert.Equal(2, stats.MethodsMigrated);
+        AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void MS15_MethodGroupBindingToMigratedExtension_BlocksWithRR058()
+    {
+        var src = """
+            public static class E
+            {
+                public static void Bump(this P p) { p.X = 1; }
+                public static System.Action<P> Make() => Bump;
+            }
+            public record struct P
+            {
+                public int X { get; set; }
+            }
+            """;
+        var (_, _, diags) = Rewrite(src);
+        Assert.Contains(diags, d => d.Code == RecordReadOnlyDiagnosticCode.RR058);
+    }
+
+    [Fact]
+    public void MM7_ExtensionOnNonRecord_Unchanged()
+    {
+        var src = """
+            public static class S
+            {
+                public static int Len(this string s) => s.Length;
+            }
+            """;
+        var (output, stats, _) = Rewrite(src);
+        Assert.Equal(src, output);
+        Assert.Equal(0, stats.MethodsMigrated);
+    }
 }
+
+
+
+
+
 

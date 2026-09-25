@@ -260,6 +260,11 @@ internal sealed class PlanBuilder
                 return FailAt(plan, migrationFailure.Code, migrationFailure.Reason,
                     migrationFailure.Location);
 
+            var groupFailure = MethodGroupBindingScanner.Scan(analysis.Compilation!, units);
+            if (groupFailure != null)
+                return FailAt(plan, groupFailure.Code, groupFailure.Reason,
+                    groupFailure.Location);
+
             foreach (var unit in units.Values.OrderBy(u =>
                          u.Method.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0))
             {

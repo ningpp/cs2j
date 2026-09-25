@@ -259,6 +259,70 @@ internal sealed class RecordReadOnlyAnalyzer
             var wi = BuildWriteInfo(member, info, compilation);
             if (wi != null) info.WriteInfos[member] = wi;
         }
+
+        // MM-7/MS-19：in-tree 扩展方法（this R r）修改本 record 视同 mutating 成员。
+        // 外部（BCL/三方）扩展方法修改静态不可见，不在此列。
+        // 先为全部候选扩展构建 WriteInfo，再按“直接写成员，或调用其他 mutator（含其他
+        // 扩展，调用图闭包）”纳入——体内只转调 p.Inc() 的扩展没有直接写，但迁移后同样
+        // 必须返回记录并在出口回写自身接收者。
+        var extensionCandidates = new List<(IMethodSymbol Method, MethodWriteInfo Info)>();
+        foreach (var type in AllTypes(compilation))
+        {
+            if (!type.IsStatic || type.DeclaringSyntaxReferences.Length == 0) continue;
+            foreach (var method in type.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (!method.IsExtensionMethod || method.Parameters.Length == 0) continue;
+                if (!SymbolEqualityComparer.Default.Equals(
+                        method.Parameters[0].Type.OriginalDefinition, info.Symbol.OriginalDefinition))
+                    continue;
+                var wi = BuildWriteInfo(method, info, compilation);
+                if (wi == null) continue;
+                extensionCandidates.Add((method, wi));
+            }
+        }
+
+        var includedExtensions = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
+        var extensionChanged = true;
+        while (extensionChanged)
+        {
+            extensionChanged = false;
+            foreach (var (method, wi) in extensionCandidates)
+            {
+                if (includedExtensions.Contains(method)) continue;
+                var writesDirectly = wi.WrittenMembers.Count > 0 || wi.WritesThis;
+                var callsMutator = wi.SameRecordCalls.Any(c =>
+                    includedExtensions.Contains(c.OriginalDefinition)
+                    || (info.WriteInfos.TryGetValue(c.OriginalDefinition, out var calleeWi)
+                        && (calleeWi.WrittenMembers.Count > 0 || calleeWi.WritesThis)));
+                if (!writesDirectly && !callsMutator) continue;
+                includedExtensions.Add(method);
+                info.InTreeMethods.Add(method);
+                info.WriteInfos[method] = wi;
+                extensionChanged = true;
+            }
+        }
+    }
+
+    private static IEnumerable<INamedTypeSymbol> AllTypes(Compilation compilation)
+    {
+        var stack = new Stack<INamespaceOrTypeSymbol>();
+        stack.Push(compilation.GlobalNamespace);
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            foreach (var member in current.GetMembers())
+            {
+                if (member is INamespaceSymbol childNamespace)
+                {
+                    stack.Push(childNamespace);
+                }
+                else if (member is INamedTypeSymbol childType)
+                {
+                    yield return childType;
+                    stack.Push(childType);
+                }
+            }
+        }
     }
 
     private MethodWriteInfo? BuildWriteInfo(IMethodSymbol method, RecordInfo owner,
@@ -271,6 +335,14 @@ internal sealed class RecordReadOnlyAnalyzer
         AccessorDeclarationSyntax? accessor = syntax as AccessorDeclarationSyntax;
         SyntaxNode? bodyRoot = declaration is not null ? (SyntaxNode)declaration : accessor;
         if (bodyRoot == null) return null;
+
+        // MM-7：自身接收者——实例方法为隐式 this（null），扩展方法为 this 形参符号。
+        IParameterSymbol? selfParameter =
+            method.IsExtensionMethod && method.Parameters.Length > 0
+            && SymbolEqualityComparer.Default.Equals(
+                method.Parameters[0].Type.OriginalDefinition, owner.Symbol.OriginalDefinition)
+                ? method.Parameters[0]
+                : null;
 
         var info = new MethodWriteInfo
         {
@@ -299,52 +371,106 @@ internal sealed class RecordReadOnlyAnalyzer
             switch (node)
             {
                 case AssignmentExpressionSyntax assign:
-                    CollectWrittenSymbol(assign.Left, model, owner, info.WrittenMembers);
-                    if (assign.Left is ThisExpressionSyntax) info.WritesThis = true;
+                    CollectWrittenSymbol(assign.Left, model, owner, info.WrittenMembers,
+                        selfParameter);
+                    if (assign.Left is ThisExpressionSyntax && selfParameter == null)
+                        info.WritesThis = true;
                     break;
                 case PostfixUnaryExpressionSyntax post when post.Kind()
                     is SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression:
-                    CollectWrittenSymbol(post.Operand, model, owner, info.WrittenMembers);
+                    CollectWrittenSymbol(post.Operand, model, owner, info.WrittenMembers,
+                        selfParameter);
                     break;
                 case PrefixUnaryExpressionSyntax pre when pre.Kind()
                     is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression:
-                    CollectWrittenSymbol(pre.Operand, model, owner, info.WrittenMembers);
+                    CollectWrittenSymbol(pre.Operand, model, owner, info.WrittenMembers,
+                        selfParameter);
                     break;
                 case ArgumentSyntax arg when arg.RefKindKeyword.RawKind != (int)SyntaxKind.None:
-                    CollectWrittenSymbol(arg.Expression, model, owner, info.WrittenMembers);
+                    CollectWrittenSymbol(arg.Expression, model, owner, info.WrittenMembers,
+                        selfParameter);
                     break;
             }
         }
 
-        // MM-1：同 record in-tree 调用边（按 OriginalDefinition 归一，兼容泛型实例化）。
+        // MM-1：调用图边——callee 操作的必须是本方法的“自身接收者”（this 或 this 形参）。
         foreach (var invocation in bodyRoot.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
-            if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol callee) continue;
+            if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol rawCallee) continue;
+            // reduced 扩展调用（r.M()）解析为 ReducedExtension 符号；归一回原始静态方法。
+            var callee = rawCallee.ReducedFrom ?? rawCallee;
             if (callee.MethodKind != MethodKind.Ordinary) continue;
             if (callee.DeclaringSyntaxReferences.Length == 0) continue;
-            if (SymbolEqualityComparer.Default.Equals(
-                    callee.ContainingType?.OriginalDefinition, owner.Symbol.OriginalDefinition))
-            {
-                info.SameRecordCalls.Add(callee);
-            }
+            var selfArgument = SelfArgumentOf(invocation, callee, model);
+            if (selfArgument == null || !IsSelfArgument(selfArgument, model, selfParameter))
+                continue;
+            var targetsOwner =
+                (!callee.IsStatic
+                    && SymbolEqualityComparer.Default.Equals(
+                        callee.ContainingType?.OriginalDefinition, owner.Symbol.OriginalDefinition))
+                || (callee.IsExtensionMethod
+                    && callee.Parameters.Length > 0
+                    && SymbolEqualityComparer.Default.Equals(
+                        callee.Parameters[0].Type.OriginalDefinition, owner.Symbol.OriginalDefinition));
+            if (targetsOwner) info.SameRecordCalls.Add(callee);
         }
 
         return info;
     }
 
+    /// <summary>
+    /// 调用在“自身接收者”上的实参表达式：隐式实例调用 M() → this；
+    /// r.M()/this.M() → 点号左侧；扩展静态形态 M(r)/E.M(r) → 首参。
+    /// </summary>
+    private static ExpressionSyntax? SelfArgumentOf(InvocationExpressionSyntax invocation,
+        IMethodSymbol callee, SemanticModel model)
+    {
+        switch (invocation.Expression)
+        {
+            case IdentifierNameSyntax:
+                return callee.IsExtensionMethod
+                    ? invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression
+                    : SyntaxFactory.ThisExpression();
+            case MemberAccessExpressionSyntax ma:
+                // this.M() 是 reduced 扩展的实例形态，接收者是 this（GetSymbolInfo(this)
+                // 会解析到包含类型符号，必须先于类型限定判定）。
+                if (ma.Expression is ThisExpressionSyntax) return ma.Expression;
+                if (callee.IsExtensionMethod
+                    && model.GetSymbolInfo(ma.Expression).Symbol is ITypeSymbol)
+                {
+                    // E.Bump(r)：左侧是类型名（静态限定），接收者是首参。
+                    return invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression;
+                }
+                return ma.Expression;
+            default:
+                return null;
+        }
+    }
+
+    private static bool IsSelfArgument(ExpressionSyntax expression, SemanticModel model,
+        IParameterSymbol? selfParameter)
+    {
+        if (expression is ThisExpressionSyntax) return selfParameter == null;
+        return selfParameter != null
+            && expression is IdentifierNameSyntax id
+            && SymbolEqualityComparer.Default.Equals(
+                model.GetSymbolInfo(id).Symbol, selfParameter);
+    }
+
     private static void CollectWrittenSymbol(
         ExpressionSyntax expression, SemanticModel? model, RecordInfo owner,
-        HashSet<ISymbol> written)
+        HashSet<ISymbol> written, IParameterSymbol? selfParameter = null)
     {
         if (model == null) return;
         var current = expression;
-        // 剥掉 this. / 强制类型转换 / null 抑制。
+        // 剥掉 this./r. / 强制类型转换 / null 抑制。
         while (true)
         {
             switch (current)
             {
-                // 仅收集 this.F 写（MM 提升的是 this 的字段）；other.F 由 MS 用点处理。
-                case MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } m:
+                // this.F（实例方法）或 r.F（扩展方法 this 形参）才计入提升写入。
+                case MemberAccessExpressionSyntax m when IsSelfReceiver(
+                        m.Expression, model, selfParameter):
                     if (model.GetSymbolInfo(m).Symbol is { } s && SymbolBelongsTo(s, owner.Symbol))
                         written.Add(s);
                     return;
@@ -359,6 +485,15 @@ internal sealed class RecordReadOnlyAnalyzer
                 default: return;
             }
         }
+    }
+
+    private static bool IsSelfReceiver(ExpressionSyntax expression, SemanticModel model,
+        IParameterSymbol? selfParameter)
+    {
+        if (selfParameter == null) return expression is ThisExpressionSyntax;
+        return expression is IdentifierNameSyntax id
+            && SymbolEqualityComparer.Default.Equals(
+                model.GetSymbolInfo(id).Symbol, selfParameter);
     }
 
     private static bool SymbolBelongsTo(ISymbol symbol, INamedTypeSymbol ownerType) =>

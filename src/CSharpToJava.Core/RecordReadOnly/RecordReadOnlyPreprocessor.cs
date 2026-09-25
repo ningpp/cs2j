@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
+using System.Globalization;
 
 namespace CSharpToJava.Core.RecordReadOnly;
 
@@ -101,7 +102,8 @@ public sealed partial class RecordReadOnlyPreprocessor
         // 顺序：先迁移方法（第一个 rewriter，为后续 MutationSiteRewriter 的用点节点挂定位注解），
         // 再用点（注解定位，跨重写器稳定），再改声明，再接口连带。
         // 每个用点在计划阶段被唯一归类，故四个 rewriter 不会重复处理同一节点。
-        // DeclarationRewriter 已改为通过原始树查找符号，不受前置重写器克隆影响。
+        // DeclarationRewriter 通过成员列表结构路径在原始树找回声明节点（方法体改写会
+        // 平移后续声明的绝对位置，Span 反查不可靠；成员槽位不受语句级改写影响）。
         var afterMethods = (CompilationUnitSyntax)new MethodMigrator(context).Visit(root)!;
         var afterSites = (CompilationUnitSyntax)new MutationSiteRewriter(context).Visit(afterMethods)!;
         var afterDecls = (CompilationUnitSyntax)new DeclarationRewriter(context).Visit(afterSites)!;

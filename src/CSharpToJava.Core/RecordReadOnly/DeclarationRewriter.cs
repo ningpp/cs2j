@@ -8,7 +8,65 @@ namespace CSharpToJava.Core.RecordReadOnly;
 internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
 {
     private readonly RewriteContext _context;
+
     public DeclarationRewriter(RewriteContext context) => _context = context;
+
+    /// <summary>
+    /// 声明符号解析：前置 rewriter（方法迁移/用点回写）会平移后续声明的绝对位置，
+    /// Span 反查不可靠；但成员列表槽位不受语句级改写影响，故按“从根到节点的子节点
+    /// 槽位路径”在原始树找回声明节点，再做符号解析。找不到时退回 Span 反查。
+    /// </summary>
+    private ISymbol? GetDeclaredSymbolRobust(SyntaxNode node)
+    {
+        var origRoot = _context.Model.SyntaxTree.GetRoot();
+        var origNode = FindByPath(origRoot, node) ?? FindBySpan(origRoot, node);
+        if (origNode == null) return null;
+        try { return _context.Model.GetDeclaredSymbol(origNode); }
+        catch (ArgumentException) { return null; }
+    }
+
+    internal static SyntaxNode? FindByPath(SyntaxNode origRoot, SyntaxNode node)
+    {
+        var slots = new List<int>();
+        for (var cursor = node; cursor.Parent != null; cursor = cursor.Parent)
+        {
+            var slot = IndexOfChild(cursor.Parent, cursor);
+            if (slot < 0) return null;
+            slots.Add(slot);
+        }
+        slots.Reverse();
+        var current = origRoot;
+        foreach (var slot in slots)
+        {
+            var children = current.ChildNodes().ToList();
+            if (slot >= children.Count) return null;
+            current = children[slot];
+        }
+        return current;
+    }
+
+    private static int IndexOfChild(SyntaxNode parent, SyntaxNode child)
+    {
+        var index = 0;
+        foreach (var c in parent.ChildNodes())
+        {
+            if (ReferenceEquals(c, child)) return index;
+            index++;
+        }
+        return -1;
+    }
+
+    private static SyntaxNode? FindBySpan(SyntaxNode origRoot, SyntaxNode node)
+    {
+        try
+        {
+            return origRoot.FindNode(new TextSpan(node.SpanStart, 0));
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return null;
+        }
+    }
 
     private RecordPlan? ActivePlan(INamedTypeSymbol? type) =>
         type == null ? null
@@ -21,39 +79,26 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitRecordDeclaration(RecordDeclarationSyntax node)
     {
-        // 在 base.Visit 之前，用原始节点构建字段符号映射（visited 节点不在语法树中，
+        // 在 base.Visit 之前解析 record 符号（visited 节点不在语法树中，
         // SemanticModel.GetDeclaredSymbol 会抛 ArgumentException）。
-        // 输入 node 可能来自 AnnotateSites 后的树，需要从原始树中查找对应节点。
-        var origTree = _context.Model.SyntaxTree;
-        var origRoot = (CompilationUnitSyntax)origTree.GetRoot();
-        // 用 SpanStart 查找：前置 rewriter（MethodMigrator 等）可能改变 record 的
-        // 结束位置，但起始位置不变。零长度 span 确保落在 record 的第一个 token 上。
-        RecordDeclarationSyntax origNode;
-        try
-        {
-            origNode = origRoot.FindNode(new TextSpan(node.SpanStart, 0))
-                .FirstAncestorOrSelf<RecordDeclarationSyntax>() ?? node;
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            origNode = node;
-        }
-        var recordSymbol = _context.Model.GetDeclaredSymbol(origNode);
+        var recordSymbol = GetDeclaredSymbolRobust(node) as INamedTypeSymbol;
         var plan = ActivePlan(recordSymbol);
 
-        // 预先收集本 record 原始字段声明的符号 → MemberRewrite 映射，按声明符索引。
+        // 预先收集本 record 字段声明的符号 → MemberRewrite 映射，按声明符索引。
+        // 字段声明节点未被前置 rewriter 改写，符号定位标注保持，可直接查映射。
         var fieldRewriteMap = new Dictionary<(int FieldIndex, int VarIndex), MemberRewrite?>();
         if (plan is { Outcome: PlanOutcome.Converted })
         {
             var fieldIndex = 0;
-            foreach (var member in origNode.Members)
+            foreach (var member in node.Members)
             {
                 if (member is FieldDeclarationSyntax field)
                 {
                     for (var vi = 0; vi < field.Declaration.Variables.Count; vi++)
                     {
-                        var fieldSymbol = _context.Model.GetDeclaredSymbol(field.Declaration.Variables[vi]) as IFieldSymbol;
-                        var rewrite = fieldSymbol == null ? null : FindRewrite(plan, fieldSymbol);
+                        var varSymbol = GetDeclaredSymbolRobust(
+                            field.Declaration.Variables[vi]) as IFieldSymbol;
+                        var rewrite = varSymbol == null ? null : FindRewrite(plan, varSymbol);
                         fieldRewriteMap[(fieldIndex, vi)] = rewrite;
                     }
                     fieldIndex++;
@@ -184,21 +229,7 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitPropertyDeclaration(PropertyDeclarationSyntax node)
     {
         var visited = (PropertyDeclarationSyntax)base.VisitPropertyDeclaration(node)!;
-        // 从原始树中查找节点以获取符号。
-        var origRoot = (CompilationUnitSyntax)_context.Model.SyntaxTree.GetRoot();
-        PropertyDeclarationSyntax origNode;
-        try
-        {
-            origNode = origRoot.FindNode(new TextSpan(node.SpanStart, 0))
-                .FirstAncestorOrSelf<PropertyDeclarationSyntax>() ?? node;
-        }
-        catch (ArgumentOutOfRangeException)
-        {
-            origNode = node;
-        }
-        ISymbol? symbol = null;
-        try { symbol = _context.Model.GetDeclaredSymbol(origNode); }
-        catch (ArgumentException) { return visited; } // 节点不在原始树中
+        var symbol = GetDeclaredSymbolRobust(node);
         var plan = ActivePlan(symbol?.ContainingType);
         if (plan == null || plan.Outcome != PlanOutcome.Converted) return visited;
         var rewrite = symbol == null ? null : FindRewrite(plan, symbol);
@@ -239,24 +270,10 @@ internal sealed class DeclarationRewriter : CSharpSyntaxRewriter
     {
         var visited = (FieldDeclarationSyntax)base.VisitFieldDeclaration(node)!;
         // RS-6a：不提升属性、又非 readonly 的私有字段，加 readonly。
-        var origRoot = (CompilationUnitSyntax)_context.Model.SyntaxTree.GetRoot();
         var any = false;
         foreach (var variable in node.Declaration.Variables)
         {
-            // 前置 rewriter 克隆后节点 Span 可能超出原始树范围，FindNode 会抛异常。
-            VariableDeclaratorSyntax? origVar;
-            try
-            {
-                origVar = origRoot.FindNode(new TextSpan(variable.SpanStart, 0))
-                    .FirstAncestorOrSelf<VariableDeclaratorSyntax>() ?? variable;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                return visited; // Span 越界，无法解析符号，跳过。
-            }
-            IFieldSymbol? symbol = null;
-            try { symbol = _context.Model.GetDeclaredSymbol(origVar) as IFieldSymbol; }
-            catch (ArgumentException) { return visited; } // 节点不在原始树中
+            var symbol = GetDeclaredSymbolRobust(variable) as IFieldSymbol;
             var plan = ActivePlan(symbol?.ContainingType);
             var rewrite = symbol == null || plan == null ? null : FindRewrite(plan, symbol);
             if (rewrite?.Kind == MemberRewriteKind.PrivateFieldReadonly) any = true;

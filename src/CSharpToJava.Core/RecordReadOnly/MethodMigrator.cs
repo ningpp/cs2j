@@ -8,7 +8,15 @@ namespace CSharpToJava.Core.RecordReadOnly;
 internal sealed record MigrationUnit(
     IMethodSymbol Method,
     MethodMigrationKind Kind,
-    IReadOnlyList<ISymbol> PromotedMembers);
+    IReadOnlyList<ISymbol> PromotedMembers)
+{
+    /// <summary>MM-7：扩展方法迁移单元。实例方法为 false（自身接收者即 this）。</summary>
+    public bool IsExtension => (Kind & MethodMigrationKind.Extension) != 0;
+
+    /// <summary>扩展方法的 this 形参；实例方法为 null。</summary>
+    public IParameterSymbol? SelfParameter =>
+        IsExtension && Method.Parameters.Length > 0 ? Method.Parameters[0] : null;
+}
 
 internal sealed record MigrationFailure(
     RecordReadOnlyDiagnosticCode Code,
@@ -116,14 +124,20 @@ internal static class MethodMigrationPlanner
 
         var units = mutating.ToDictionary(
             w => w.Method,
-            w => new MigrationUnit(
-                w.Method,
-                w.Method.ReturnsVoid ? MethodMigrationKind.VoidToRecord
-                                     : MethodMigrationKind.NonVoidToOut,
-                influence[w.Method.OriginalDefinition]
-                    .OrderBy(m => m.Name, StringComparer.Ordinal)
-                    .ThenBy(m => m.ToDisplayString(), StringComparer.Ordinal)
-                    .ToList()));
+            w =>
+            {
+                var kind = (w.Method.ReturnsVoid
+                        ? MethodMigrationKind.VoidToRecord
+                        : MethodMigrationKind.NonVoidToOut)
+                    | (w.Method.IsExtensionMethod ? MethodMigrationKind.Extension : 0);
+                return new MigrationUnit(
+                    w.Method,
+                    kind,
+                    influence[w.Method.OriginalDefinition]
+                        .OrderBy(m => m.Name, StringComparer.Ordinal)
+                        .ThenBy(m => m.ToDisplayString(), StringComparer.Ordinal)
+                        .ToList());
+            });
         return (units, null);
     }
 
@@ -187,6 +201,51 @@ internal static class MethodMigrationPlanner
     }
 }
 
+/// <summary>
+/// MS-15：方法组/委托绑定（Action&lt;R&gt; a = Bump; / new Func&lt;..&gt;(E.Bump) /
+/// 实参传方法组 Use(Bump) / 箭头 => Bump）指向任一被迁移方法即否决。调用形态
+/// Bump(...) / E.Bump(...) 由 MethodCallSiteScanner 处理，此处显式排除。
+/// </summary>
+internal static class MethodGroupBindingScanner
+{
+    public static MigrationFailure? Scan(
+        Compilation compilation, IReadOnlyDictionary<IMethodSymbol, MigrationUnit> units)
+    {
+        var byOriginal = units.Keys.ToDictionary(
+            m => m.OriginalDefinition, m => m, SymbolEqualityComparer.Default);
+
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            var model = compilation.GetSemanticModel(tree);
+            foreach (var name in tree.GetRoot().DescendantNodes()
+                         .OfType<ExpressionSyntax>())
+            {
+                if (name is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+                    continue;
+                if (name.Parent is InvocationExpressionSyntax invocation
+                    && invocation.Expression == name)
+                    continue;
+
+                var symbolInfo = model.GetSymbolInfo(name);
+                IEnumerable<ISymbol> candidates = symbolInfo.Symbol != null
+                    ? new[] { symbolInfo.Symbol }
+                    : symbolInfo.CandidateSymbols;
+                if (!candidates.Any(s => s is IMethodSymbol m
+                        && byOriginal.ContainsKey(m.OriginalDefinition)))
+                    continue;
+                if (!model.GetConversion(name).IsMethodGroup) continue;
+
+                return new MigrationFailure(
+                    RecordReadOnlyDiagnosticCode.RR058,
+                    "a method-group/delegate binding targets a method whose signature " +
+                    "changes during migration; the binding cannot compile afterwards (MS-15).",
+                    name.GetLocation());
+            }
+        }
+        return null;
+    }
+}
+
 /// <summary>全树扫描迁移方法调用点，判定吸收 / this 回写 / 外部回写与提升可行性。</summary>
 internal static class MethodCallSiteScanner
 {
@@ -207,31 +266,39 @@ internal static class MethodCallSiteScanner
             var root = tree.GetRoot();
             foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
-                if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol callee) continue;
+                if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol rawCallee) continue;
+                // reduced 扩展调用（r.M()）归一回原始静态方法后再查迁移单元。
+                var callee = rawCallee.ReducedFrom ?? rawCallee;
                 if (!unitsByOriginal.TryGetValue(callee.OriginalDefinition, out var migrated))
                     continue;
 
                 var enclosing = EnclosingMember(model, invocation);
                 var nested = IsInNestedFunction(invocation);
-                var implicitThis = invocation.Expression is IdentifierNameSyntax;
-                var explicitThis = invocation.Expression
-                    is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax };
-                var receiverIsThis = implicitThis || explicitThis;
+                var self = SelfArgument(invocation, callee, model);
 
-                if (receiverIsThis
+                // 体吸收：调用位于一个自身也被迁移的方法/访问器体内（非嵌套函数），且作用
+                // 接收者就是该体的自身接收者（实例方法 this；扩展方法 this 形参）。这类调用
+                // 由 ForBody 重写器吸收为 var __r = ...，不生成外部用点。四种形态：
+                //   实例体内 M()/this.M()；扩展体内 r.Inc()/r.A()/Bump(r)/E.Bump(r)；
+                //   实例体内以静态形态调扩展 E.Bump(this)。
+                if (self != null
+                    && !nested
+                    && enclosing != null
+                    && unitsByOriginal.ContainsKey(enclosing.OriginalDefinition)
+                    && IsOwnSelfReceiver(enclosing, self, model))
+                {
+                    continue;
+                }
+
+                // MM-5：self 为 this 时只在 struct ctor 内可整体回写；getter/init(set)/
+                // add/remove 访问器与 lambda/本地函数内 this 只读，保守阻断。
+                if (self is ThisExpressionSyntax
                     && enclosing != null
                     && SymbolEqualityComparer.Default.Equals(
                         enclosing.ContainingType?.OriginalDefinition, owner.Symbol.OriginalDefinition))
                 {
-                    // 迁移方法体内直接调用：体改写时吸收结果，不生成外部用点。
-                    if (!nested && unitsByOriginal.ContainsKey(enclosing.OriginalDefinition))
-                        continue;
-                    // MM-5：仅 ctor 内 this 可整体回写（struct ctor 内 this 赋值合法）。
-                    // getter/init(set)/add/remove 访问器与 lambda/本地函数内 this 只读，
-                    // 整体 this 赋值不合法，保守阻断（convert-or-skip）。
                     if (!nested && enclosing.MethodKind == MethodKind.Constructor)
                     {
-                        // ctor 内同样可能出现嵌套消费（Use(Next())），需要可提升。
                         if (FindHoistBarrier(invocation) != null)
                         {
                             failure = new SiteFailure(RecordReadOnlyDiagnosticCode.RR053,
@@ -266,22 +333,66 @@ internal static class MethodCallSiteScanner
                     return result;
                 }
 
-                var receiver = invocation.Expression switch
+                if (self == null)
                 {
-                    MemberAccessExpressionSyntax ma => ma.Expression,
-                    _ => invocation.Expression,
-                };
-                var receiverFailure = MutationSiteClassifier.ReceiverWritableAndPure(model, receiver);
+                    failure = new SiteFailure(RecordReadOnlyDiagnosticCode.RR053,
+                        "a migrated-method call in an unrecognized invocation form cannot be " +
+                        "rewritten to a receiver write-back (MM-7/MS-19).",
+                        invocation.GetLocation());
+                    return result;
+                }
+
+                var receiverFailure = MutationSiteClassifier.ReceiverWritableAndPure(model, self);
                 if (receiverFailure != null)
                 {
                     failure = receiverFailure;
                     return result;
                 }
-                result.Add((MakeSite(tree, invocation, receiver, owner, migrated),
+                result.Add((MakeSite(tree, invocation, self, owner, migrated),
                     WritebackThis: false));
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// 调用作用的“自身接收者”实参表达式：实例 M() → 合成 this；r.M()/this.M() → 点号
+    /// 左侧；扩展静态形态 M(r)/E.M(r) → 首参。E.M(r) 中 M 左侧绑定到类型符号，需与
+    /// reduced r.M()（左侧绑定到变量/形参）区分。必须在原始语法树节点上调用。
+    /// </summary>
+    internal static ExpressionSyntax? SelfArgument(
+        InvocationExpressionSyntax invocation, IMethodSymbol callee, SemanticModel model)
+    {
+        switch (invocation.Expression)
+        {
+            case IdentifierNameSyntax:
+                return callee.IsExtensionMethod
+                    ? invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression
+                    : SyntaxFactory.ThisExpression();
+            case MemberAccessExpressionSyntax ma:
+                // this.M() 是 reduced 扩展的实例形态，接收者是 this（GetSymbolInfo(this)
+                // 会解析到包含类型符号，必须先于类型限定判定）。
+                if (ma.Expression is ThisExpressionSyntax) return ma.Expression;
+                if (callee.IsExtensionMethod
+                    && model.GetSymbolInfo(ma.Expression).Symbol is ITypeSymbol)
+                {
+                    return invocation.ArgumentList.Arguments.FirstOrDefault()?.Expression;
+                }
+                return ma.Expression;
+            default:
+                return null;
+        }
+    }
+
+    private static bool IsOwnSelfReceiver(
+        IMethodSymbol enclosing, ExpressionSyntax self, SemanticModel model)
+    {
+        if (self is ThisExpressionSyntax) return !enclosing.IsStatic;
+        return enclosing.IsExtensionMethod
+            && enclosing.Parameters.Length > 0
+            && self is IdentifierNameSyntax id
+            && SymbolEqualityComparer.Default.Equals(
+                model.GetSymbolInfo(id).Symbol, enclosing.Parameters[0]);
     }
 
     private static SitePlan MakeSite(SyntaxTree tree, InvocationExpressionSyntax invocation,
@@ -403,6 +514,8 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
     private string? _directCallData;
     private string? _directDeclaratorName;
     private Dictionary<string, IMethodSymbol>? _calleeByData;
+    private Dictionary<string, string?>? _selfReceiverTextByData;
+    private Dictionary<string, bool>? _selfIsOwnByData;
     private bool _mm3;
     private string? _mm3Source;
 
@@ -488,18 +601,28 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
             .OfType<InvocationExpressionSyntax>()
             .Where(invocation =>
                 invocation.FirstAncestorOrSelf<StatementSyntax>() == node
-                && Model.GetSymbolInfo(invocation).Symbol is IMethodSymbol callee
-                && MigratedByOriginal.Contains(callee.OriginalDefinition))
+                && Model.GetSymbolInfo(invocation).Symbol is IMethodSymbol raw
+                && MigratedByOriginal.Contains((raw.ReducedFrom ?? raw).OriginalDefinition))
             .ToList();
         if (marked.Count == 0) return base.Visit(node);
 
         var dataBySpan = new Dictionary<int, string>();
         _calleeByData = new Dictionary<string, IMethodSymbol>();
+        _selfReceiverTextByData = new Dictionary<string, string?>();
+        _selfIsOwnByData = new Dictionary<string, bool>();
         for (var i = 0; i < marked.Count; i++)
         {
             var data = i.ToString(CultureInfo.InvariantCulture);
             dataBySpan[marked[i].SpanStart] = data;
-            _calleeByData[data] = (IMethodSymbol)Model.GetSymbolInfo(marked[i]).Symbol!;
+            var rawSymbol = (IMethodSymbol)Model.GetSymbolInfo(marked[i]).Symbol!;
+            // reduced 扩展调用归一回原始静态方法，保证 IsExtensionMethod/签名判定成立。
+            var callee = rawSymbol.ReducedFrom ?? rawSymbol;
+            _calleeByData[data] = callee;
+            // 自身接收者的判定与文本必须在原始树节点上解析（prepared 克隆的 span 是
+            // 语句相对的，脱离原树后无法查符号）；克隆树上只消费这里算好的结果。
+            var selfArg = MethodCallSiteScanner.SelfArgument(marked[i], callee, Model);
+            _selfReceiverTextByData[data] = selfArg?.WithoutTrivia().ToFullString();
+            _selfIsOwnByData[data] = IsOwnSelfOf(selfArg);
         }
         var prepared = node.ReplaceNodes(marked,
             (original, _) => original.WithAdditionalAnnotations(
@@ -526,6 +649,8 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
         _directCallData = null;
         _directDeclaratorName = null;
         _calleeByData = null;
+        _selfReceiverTextByData = null;
+        _selfIsOwnByData = null;
         _mm3 = false;
         _mm3Source = null;
 
@@ -636,10 +761,10 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
     {
         var nonVoid = !callee.ReturnsVoid;
         var isDirect = data == _directCallData;
-        var implicitThis = visited.Expression is IdentifierNameSyntax
-            || visited.Expression is MemberAccessExpressionSyntax
-                { Expression: ThisExpressionSyntax };
-        var absorb = _unit != null && implicitThis;
+        // 自身接收者文本/吸收判定已在 ProcessStatement 于原始树节点上算好（克隆节点
+        // 脱离原树后 span 是语句相对的，无法查符号）。
+        _selfReceiverTextByData!.TryGetValue(data, out var receiverText);
+        var absorb = _unit != null && _selfIsOwnByData![data];
 
         string? outName;
         if (!nonVoid)
@@ -669,7 +794,10 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
         if (absorb)
         {
             var temp = NextSyntheticName(visited, "__r", ref _absorbedCounter);
+            // 仅实例方法体内的裸调用 M() 需要补 this.M()；扩展静态形态 Bump(p) 与
+            // reduced p.M()/this.M() 已是合法形态，保持原样。
             var qualified = call.Expression is IdentifierNameSyntax id
+                && !callee.IsExtensionMethod
                 ? call.WithExpression(QualifyThis(id.Identifier.Text))
                 : call;
             _prefixes.Add(DeclareVar(temp, qualified));
@@ -687,21 +815,24 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
             return isDirect ? visited : SyntaxFactory.IdentifierName(outName!);
         }
 
-        // 非吸收：回写接收者（this 仅可能出现在 ctor——scanner 已放行）。
-        ExpressionSyntax receiverNode = visited.Expression switch
+        // 非吸收：回写自身接收者（this 仅可能出现在 ctor——scanner 已放行）。
+        // 扩展静态形态 Bump(r)/E.Bump(r)：接收者取首参，调用表达式本身原样保留，
+        // 只在左侧产出 r = ...；reduced r.M() 同理。仅实例裸调用 M() 需补 this.M()。
+        if (receiverText == null) return isDirect ? visited : SyntaxFactory.IdentifierName(outName!);
+        ExpressionSyntax writebackCall;
+        if (visited.Expression is IdentifierNameSyntax identifier && !callee.IsExtensionMethod)
         {
-            IdentifierNameSyntax => SyntaxFactory.ThisExpression(),
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Expression,
-            _ => ReceiverOf(visited),
-        };
-        var receiverText = receiverNode.WithoutTrivia().ToFullString();
-        var writebackCall = visited.Expression is IdentifierNameSyntax identifier
-            ? call.WithExpression(SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                SyntaxFactory.ParseExpression(receiverText),
-                SyntaxFactory.IdentifierName(identifier.Identifier.Text)))
-            : call;
-        // LHS 必须是独立节点实例（同一节点不能同时挂在两个树位置）。
+            writebackCall = call.WithExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    // LHS 必须是独立解析节点（同一节点不能同时挂两个树位置）。
+                    SyntaxFactory.ParseExpression(receiverText),
+                    SyntaxFactory.IdentifierName(identifier.Identifier.Text)));
+        }
+        else
+        {
+            writebackCall = call;
+        }
         var lhs = SyntaxFactory.ParseExpression(receiverText);
         _prefixes.Add(SyntaxFactory.ExpressionStatement(
             SyntaxFactory.AssignmentExpression(
@@ -780,12 +911,11 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
                             SyntaxFactory.IdentifierName(_resultName),
                             visitedExpression))
                     .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation),
-                SyntaxFactory.ReturnStatement(
-                        BuildRecordWith(SyntaxFactory.ThisExpression()))
+                SyntaxFactory.ReturnStatement(BuildRecordWith(SelfReceiver()))
                     .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation))
                 .WithAdditionalAnnotations(HoistBlockAnnotation);
         }
-        return SyntaxFactory.ReturnStatement(BuildRecordWith(SyntaxFactory.ThisExpression()))
+        return SyntaxFactory.ReturnStatement(BuildRecordWith(SelfReceiver()))
             .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation);
     }
 
@@ -793,7 +923,7 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
     {
         var visited = base.VisitMemberAccessExpression(node);
         if (_locals != null
-            && node.Expression is ThisExpressionSyntax
+            && IsSelfMemberAccess(node)
             && TryGetSymbol(node, out var symbol)
             && _locals.ContainsKey(symbol)
             && !IsNameof(node))
@@ -801,6 +931,19 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
             return SyntaxFactory.IdentifierName(_locals[symbol]);
         }
         return visited;
+    }
+
+    /// <summary>
+    /// 实例体只替换 this.F；扩展体替换 this 形参上的 r.F（左值右值都替换，
+    /// r.X = r.X + v → __x = __x + v）。
+    /// </summary>
+    private bool IsSelfMemberAccess(MemberAccessExpressionSyntax node)
+    {
+        if (_unit?.SelfParameter == null)
+            return node.Expression is ThisExpressionSyntax;
+        return node.Expression is IdentifierNameSyntax id
+            && TryGetSymbol(id, out var symbol)
+            && SymbolEqualityComparer.Default.Equals(symbol, _unit.SelfParameter);
     }
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
@@ -929,6 +1072,32 @@ internal class MethodCallSyntaxRewriter : CSharpSyntaxRewriter
             _ => SyntaxFactory.ThisExpression(),
         };
 
+    /// <summary>
+    /// 体模式吸收判定：调用的自身接收者是否就是本方法的 self（this 或 this 形参）。
+    /// selfArg 必须来自原始语法树节点（语义查找依赖原树）。
+    /// </summary>
+    private bool IsOwnSelfOf(ExpressionSyntax? selfArg)
+    {
+        if (_unit == null || selfArg == null) return false;
+        if (selfArg is ThisExpressionSyntax) return _unit.SelfParameter == null;
+        return _unit.SelfParameter != null
+            && selfArg is IdentifierNameSyntax id
+            && Model.GetSymbolInfo(id).Symbol is { } symbol
+            && SymbolEqualityComparer.Default.Equals(symbol, _unit.SelfParameter);
+    }
+
+    /// <summary>出口 with/提升源的接收者表达式：实例方法 this；扩展方法 this 形参（r）。</summary>
+    internal ExpressionSyntax SelfReceiver() =>
+        _unit!.SelfParameter == null
+            ? SyntaxFactory.ThisExpression()
+            : SyntaxFactory.IdentifierName(_unit.SelfParameter.Name);
+
+    /// <summary>self 接收者上的成员访问：this.F（实例）或 r.F（扩展）。</summary>
+    internal MemberAccessExpressionSyntax QualifySelf(string name) =>
+        SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression, SelfReceiver(),
+            SyntaxFactory.IdentifierName(name));
+
     internal static LocalDeclarationStatementSyntax DeclareVar(
         string name, ExpressionSyntax initializer)
     {
@@ -1054,10 +1223,11 @@ internal sealed class MethodMigrator : MethodCallSyntaxRewriter
 
         var migrated = (BlockSyntax)bodyRewriter.Visit(body)!;
 
-        // MM-2：方法体顶部为每个被提升成员声明局部副本：var __x = this.X;
+        // MM-2/MM-7：方法体顶部为每个被提升成员声明局部副本：
+        // 实例方法 var __x = this.X;；扩展方法 var __x = r.X;。
         var promotionDeclarations = unit.PromotedMembers
             .Select(member => DeclareVar(
-                bodyRewriter.LocalNames![member], QualifyThis(member.Name)))
+                bodyRewriter.LocalNames![member], bodyRewriter.QualifySelf(member.Name)))
             .ToList();
 
         // 仅当迁移体不以 return 结尾时才补尾部 return this with {...}；
@@ -1071,12 +1241,14 @@ internal sealed class MethodMigrator : MethodCallSyntaxRewriter
             ? promotionDeclarations.Concat(stmts)
             : promotionDeclarations.Concat(stmts).Append(
                 SyntaxFactory.ReturnStatement(
-                        bodyRewriter.BuildRecordWith(SyntaxFactory.ThisExpression()))
+                        bodyRewriter.BuildRecordWith(bodyRewriter.SelfReceiver()))
                     .WithAdditionalAnnotations(RecordSyntaxFacts.RewriteAnnotation));
         var finalBody = SyntaxFactory.Block(allStatements);
 
+        // 扩展方法定义在静态类中，返回类型取 this 形参类型；实例方法取所在 record 类型。
+        var migratedReturnType = unit.SelfParameter?.Type ?? unit.Method.ContainingType;
         var recordTypeSyntax = SyntaxFactory.ParseTypeName(
-            unit.Method.ContainingType.ToDisplayString(TypeFormat));
+            migratedReturnType.ToDisplayString(TypeFormat));
 
         var parameters = node.ParameterList.Parameters;
         if (nonVoid)
@@ -1089,7 +1261,10 @@ internal sealed class MethodMigrator : MethodCallSyntaxRewriter
                 .WithModifiers(SyntaxFactory.TokenList(
                     SyntaxFactory.Token(SyntaxKind.OutKeyword)
                         .WithTrailingTrivia(SyntaxFactory.Space)));
-            parameters = parameters.Add(resultParameter);
+            // MM-7：static R Next(this R r, out T result)——out 恒在 this 参之后。
+            parameters = unit.IsExtension
+                ? parameters.Insert(1, resultParameter)
+                : parameters.Add(resultParameter);
         }
 
         _context.Statistics.MethodsMigrated++;
