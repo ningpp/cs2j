@@ -8,6 +8,7 @@ using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.LocalFunctionLift;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
+using CSharpToJava.Core.NullCoalesceRewriter;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Core.TypeScript;
 using CSharpToJava.Core.Workspace;
@@ -27,7 +28,7 @@ public class Program
     internal static async Task<int> MainImpl(string[] args)
     {
         using var parser = new Parser(settings => settings.AllowMultiInstance = true);
-        return await parser.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions, RecordReadOnlyVerbOptions, ArrayMethodOptions, ForeachDeconstructionVerbOptions>(args)
+        return await parser.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions, RecordReadOnlyVerbOptions, ArrayMethodOptions, ForeachDeconstructionVerbOptions, NullCoalesceVerbOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
@@ -43,6 +44,7 @@ public class Program
                 (RecordReadOnlyVerbOptions opts) => RecordReadOnlyVerbAsync(opts),
                 (ArrayMethodOptions opts) => ArrayMethod(opts),
                 (ForeachDeconstructionVerbOptions opts) => ForeachDeconstructionAsync(opts),
+                (NullCoalesceVerbOptions opts) => NullCoalesceAsync(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -228,6 +230,44 @@ public class Program
                 opts.Source = liftResult.PreprocessedSourcePath;
                 opts.FingerprintSourcePath ??= liftResult.OriginalSourcePath;
                 opts.FingerprintInputRoot ??= liftResult.SourceRoot;
+            }
+
+            if (opts.NullCoalesce)
+            {
+                var nullCoalesceResult = await ProjectNullCoalescePreprocessor.PreprocessAsync(
+                    new ProjectNullCoalesceRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                        VerifyBuild = opts.VerifyBuild,
+                        VerifyTests = opts.VerifyTests,
+                        Strict = opts.LocalFunctionStrict,
+                    });
+
+                Console.WriteLine(
+                    $"null-coalesce: {nullCoalesceResult.Statistics.FilesTransformed} transformed, " +
+                    $"{nullCoalesceResult.Statistics.FilesSkippedClean} clean, " +
+                    $"{nullCoalesceResult.Statistics.NullCoalescingRewritten} ?? rewritten, " +
+                    $"{nullCoalesceResult.Statistics.NullCoalescingAssignRewritten} ??= rewritten, " +
+                    $"{nullCoalesceResult.Statistics.TempVariablesGenerated} temp vars, " +
+                    $"{nullCoalesceResult.Statistics.ResidualCount} residual");
+
+                foreach (var diagnostic in nullCoalesceResult.Diagnostics)
+                {
+                    var prefix = diagnostic.FilePath != null ? $"{diagnostic.FilePath}: " : "";
+                    Console.Error.WriteLine($"[{diagnostic.Severity}] {prefix}{diagnostic.Message}");
+                }
+
+                if (!nullCoalesceResult.Success)
+                    return 1;
+
+                opts.Source = nullCoalesceResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= nullCoalesceResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= nullCoalesceResult.SourceRoot;
             }
 
             if (opts.TupleToStruct)
@@ -2102,6 +2142,10 @@ public class Program
         {
             preserved.Add(ProjectLocalFunctionLiftPreprocessor.IntermediateDirectoryName);
         }
+        if (opts.NullCoalesce)
+        {
+            preserved.Add(ProjectNullCoalescePreprocessor.IntermediateDirectoryName);
+        }
         return preserved.Count > 0 ? preserved : null;
     }
 
@@ -2932,6 +2976,7 @@ public class Program
             $"generic-preprocess={opts.GenericPreprocess}",
             $"strip-default={opts.StripDefault}",
             $"local-function-lift={opts.LocalFunctionLift}",
+            $"null-coalesce={opts.NullCoalesce}",
             $"extra-deps={GetNormalizedExtraDependencyToken(opts)}",
         };
     }
@@ -3833,6 +3878,92 @@ public class Program
         foreach (var diagnostic in preprocessResult.Diagnostics)
         {
             Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+        }
+
+        Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+        return preprocessResult.Success ? 0 : 1;
+    }
+
+    private static async Task<int> NullCoalesceAsync(NullCoalesceVerbOptions opts)
+    {
+        var coreOptions = new NullCoalesceOptions(Verbose: opts.Verbose, Strict: opts.Strict);
+        var rewriter = new NullCoalesceRewriter();
+
+        // Single-file mode
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+                "null-coalesce-standalone",
+                new[] { tree },
+                ProjectUnsignedTypePreprocessor.GetBasicReferences(),
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                    Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+            var model = compilation.GetSemanticModel(tree);
+            var result = rewriter.Preprocess(sourceCode, model, coreOptions);
+
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+                if (opts.Verbose)
+                    Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+            }
+            else
+            {
+                Console.Write(result.OutputCode);
+            }
+
+            foreach (var d in result.Diagnostics)
+                Console.Error.WriteLine($"[{d.Severity}] {d.Message}");
+
+            return result.Diagnostics.Any(d => d.Severity == NullCoalesceSeverity.Error) ? 1 : 0;
+        }
+
+        // Project / directory mode
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectNullCoalescePreprocessor.PreprocessAsync(
+            new ProjectNullCoalesceRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = true,
+                Verbose = opts.Verbose,
+                Options = coreOptions,
+                FilterUnsupportedProjects = !opts.NoFilterProjects,
+                VerifyBuild = !opts.NoVerifyBuild,
+                VerifyTests = !opts.NoVerifyTests,
+                Strict = opts.Strict,
+            });
+
+        Console.WriteLine(
+            $"null-coalesce: {preprocessResult.Statistics.FilesTransformed} transformed, " +
+            $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
+            $"{preprocessResult.Statistics.NullCoalescingRewritten} ?? rewritten, " +
+            $"{preprocessResult.Statistics.NullCoalescingAssignRewritten} ??= rewritten, " +
+            $"{preprocessResult.Statistics.TempVariablesGenerated} temp vars, " +
+            $"{preprocessResult.Statistics.ResidualCount} residual");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            var prefix = diagnostic.FilePath != null ? $"{diagnostic.FilePath}: " : "";
+            Console.Error.WriteLine($"[{diagnostic.Severity}] {prefix}{diagnostic.Message}");
         }
 
         Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
@@ -4932,6 +5063,30 @@ class ForeachDeconstructionVerbOptions
     public bool NoFilterProjects { get; set; }
 }
 
+[Verb("null-coalesce", HelpText = "Rewrite ?? and ??= operators to explicit ternary / if-assignment (single-file or project mode)")]
+class NullCoalesceVerbOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("strict", Default = false, HelpText = "Treat residual ??/??= as errors instead of warnings")]
+    public bool Strict { get; set; }
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+    [Option("no-verify-build", Default = false, HelpText = "Skip 'dotnet build' verification after null-coalesce preprocessing")]
+    public bool NoVerifyBuild { get; set; }
+    [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after null-coalesce preprocessing")]
+    public bool NoVerifyTests { get; set; }
+}
+
 // 命令行选项
 [Verb("convert", HelpText = "Convert a C# file to Java")]
 class ConvertOptions
@@ -5070,6 +5225,10 @@ class ConvertProjectOptions
         HelpText = "Disable the default foreach-deconstruction preprocessing step")]
     public bool NoForeachDeconstruction { get; set; }
 
+    [Option("no-null-coalesce", Default = false,
+        HelpText = "Disable the default null-coalesce (?? / ??=) preprocessing step")]
+    public bool NoNullCoalesce { get; set; }
+
     [Option("tuple-namespace", Default = "Cs2jTuples",
         HelpText = "Namespace for the generated tuple structs")]
     public string TupleNamespace { get; set; } = "Cs2jTuples";
@@ -5122,6 +5281,7 @@ class ConvertProjectOptions
     public bool StripDefault => !NoStripDefault;
     public bool TupleToStruct => !NoTupleToStruct;
     public bool ForeachDeconstruction => !NoForeachDeconstruction;
+    public bool NullCoalesce => !NoNullCoalesce;
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
