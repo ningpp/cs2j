@@ -119,12 +119,90 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
-        // ??= is handled in Task 3
         if (!node.IsKind(SyntaxKind.CoalesceAssignmentExpression))
             return base.VisitAssignmentExpression(node);
 
-        // Placeholder — full implementation added in Task 3
-        return base.VisitAssignmentExpression(node);
+        // Process right side first (may contain nested ??)
+        var visitedRight = (ExpressionSyntax?)Visit(node.Right);
+        var right = visitedRight ?? node.Right;
+        var left = node.Left;
+
+        // Check if left is a simple identifier (local variable / parameter)
+        if (left is IdentifierNameSyntax identifier)
+        {
+            // Simple identifier: no temp variable needed
+            // Rewrite: a ??= expr  →  if (a == null) { a = expr; }
+            var ifStmt = SyntaxFactory.IfStatement(
+                SyntaxFactory.BinaryExpression(
+                    SyntaxKind.EqualsExpression,
+                    identifier,
+                    SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+                SyntaxFactory.Block(
+                    SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            identifier,
+                            right))));
+
+            _stats.NullCoalescingAssignRewritten++;
+            return ifStmt;
+        }
+
+        // Member access / indexer: left may have side effects — use temp variable
+        var typeSymbol = _semanticModel?.GetTypeInfo(left).Type;
+        if (typeSymbol == null || typeSymbol is IErrorTypeSymbol)
+        {
+            _diagnostics.Add(new NullCoalesceDiagnostic(
+                NullCoalesceSeverity.Warning,
+                $"Cannot resolve type of left operand in ??= expression; skipping rewrite."));
+            _stats.SkippedUnsupported++;
+            return node;
+        }
+
+        var tempName = GenerateTempName();
+
+        // Build: var ___tN = <left>;
+        var tempDecl = SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.IdentifierName("var"),
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.VariableDeclarator(
+                        SyntaxFactory.Identifier(tempName),
+                        null,
+                        SyntaxFactory.EqualsValueClause(left)))));
+
+        // Build: if (___tN == null) { <left> = <right>; }
+        var ifStmt2 = SyntaxFactory.IfStatement(
+            SyntaxFactory.BinaryExpression(
+                SyntaxKind.EqualsExpression,
+                SyntaxFactory.IdentifierName(tempName),
+                SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+            SyntaxFactory.Block(
+                SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        left,
+                        right))));
+
+        // The IfStatement replaces the ExpressionStatement containing the ??=.
+        // The temp variable declaration needs to be inserted before the anchor.
+        var anchor = FindAnchorStatement(node);
+        if (anchor != null)
+        {
+            PendingDeclarations.Add(new PendingDeclaration(tempDecl, anchor, PendingDeclarations.Count));
+        }
+        else
+        {
+            _diagnostics.Add(new NullCoalesceDiagnostic(
+                NullCoalesceSeverity.Warning,
+                $"Cannot insert temp variable declaration for ??= expression; skipping rewrite."));
+            _stats.SkippedUnsupported++;
+            return node;
+        }
+
+        _stats.NullCoalescingAssignRewritten++;
+        _stats.TempVariablesGenerated++;
+        return ifStmt2;
     }
 
     private string GenerateTempName()
