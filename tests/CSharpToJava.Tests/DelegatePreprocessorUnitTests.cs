@@ -333,4 +333,136 @@ public class DelegatePreprocessorUnitTests
         Assert.Contains("=>", result.OutputCode);
         Assert.DoesNotContain("delegate", result.OutputCode);
     }
+
+    [Fact]
+    public void Event_CompoundAdd_Not_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            event Action E;
+            void M(Action h) {
+                E += h;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        // Events are skipped — left to Event preprocessor
+        Assert.Contains("E += h", result.OutputCode);
+    }
+
+    [Fact]
+    public void Explicit_DelegateCombine_Not_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action d1, Action d2) {
+                Action d = (Action)Delegate.Combine(d1, d2);
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        // Explicit Delegate.Combine calls are preserved
+        Assert.Contains("Delegate.Combine(d1, d2)", result.OutputCode);
+    }
+
+    [Fact]
+    public void MethodGroup_Conversion_Not_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            void M() { }
+            void M2() {
+                Action d = M;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.False(result.Changed);
+    }
+
+    [Fact]
+    public void Lambda_Not_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            void M() {
+                Action f = () => { };
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.False(result.Changed);
+    }
+
+    [Fact]
+    public void Delegate_Combine_With_MethodGroup()
+    {
+        var src = """
+        using System;
+        class C {
+            void M() { }
+            void M2(Action d) {
+                Action r = d + M;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Combine", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_Combine_With_Lambda()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action d) {
+                Action r = d + (() => { });
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Combine", result.OutputCode);
+    }
+
+    [Fact]
+    public void Generic_Delegate_Combine()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Func<int, int> f1, Func<int, int> f2) {
+                Func<int, int> r = f1 + f2;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Combine", result.OutputCode);
+    }
+
+    [Fact]
+    public void Idempotent_Second_Run_Produces_Same_Output()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action d1, Action d2, Action h) {
+                Action d = d1 + d2;
+                d += h;
+            }
+        }
+        """;
+        var first = Preprocess(src);
+        Assert.True(first.Changed);
+        var second = Preprocess(first.OutputCode);
+        // Second run: output should be byte-identical
+        Assert.Equal(first.OutputCode, second.OutputCode);
+    }
 }
