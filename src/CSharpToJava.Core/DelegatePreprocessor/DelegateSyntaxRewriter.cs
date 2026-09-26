@@ -242,5 +242,106 @@ internal sealed class DelegateSyntaxRewriter : CSharpSyntaxRewriter
     }
 
     public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node)
-        => base.VisitAnonymousMethodExpression(node);
+    {
+        // Visit children first (block body)
+        var visited = base.VisitAnonymousMethodExpression(node);
+        if (visited is not AnonymousMethodExpressionSyntax anonymousMethod)
+            return visited;
+
+        // Preserve async modifier if present
+        bool isAsync = anonymousMethod.AsyncKeyword.IsKind(SyntaxKind.AsyncKeyword);
+
+        // If the anonymous method has an explicit parameter list, convert directly
+        if (anonymousMethod.ParameterList != null)
+        {
+            _stats.AnonymousMethodRewritten++;
+            Changed = true;
+            var lambda = SyntaxFactory.ParenthesizedLambdaExpression(
+                anonymousMethod.ParameterList,
+                anonymousMethod.Block);
+            if (isAsync)
+            {
+                lambda = lambda.WithAsyncKeyword(anonymousMethod.AsyncKeyword);
+            }
+            return lambda.WithTriviaFrom(node);
+        }
+
+        // No explicit parameter list - need to synthesize from target delegate type
+        if (_semanticModel == null)
+        {
+            _stats.SkippedUnsupported++;
+            _diagnostics.Add(new DelegatePreprocessorDiagnostic(
+                DelegatePreprocessorSeverity.Warning,
+                "Cannot resolve target delegate type for parameter-less anonymous method without SemanticModel; skipping."));
+            return anonymousMethod;
+        }
+
+        var convertedType = _semanticModel.GetTypeInfo(node).ConvertedType;
+        if (convertedType is not INamedTypeSymbol namedType
+            || namedType.TypeKind != TypeKind.Delegate
+            || namedType.DelegateInvokeMethod == null)
+        {
+            _stats.SkippedUnsupported++;
+            _diagnostics.Add(new DelegatePreprocessorDiagnostic(
+                DelegatePreprocessorSeverity.Warning,
+                "Cannot resolve target delegate type for parameter-less anonymous method; skipping."));
+            return anonymousMethod;
+        }
+
+        var invokeMethod = namedType.DelegateInvokeMethod;
+        var parameters = invokeMethod.Parameters;
+
+        if (parameters.Length == 0)
+        {
+            // No params: () => { ... }
+            _stats.AnonymousMethodRewritten++;
+            Changed = true;
+            var lambda = SyntaxFactory.ParenthesizedLambdaExpression(
+                SyntaxFactory.ParameterList(),
+                anonymousMethod.Block);
+            if (isAsync)
+            {
+                lambda = lambda.WithAsyncKeyword(anonymousMethod.AsyncKeyword);
+            }
+            return lambda.WithTriviaFrom(node);
+        }
+
+        // Synthesize parameter names, avoiding identifiers already used in the block
+        var blockedNames = new HashSet<string>(
+            anonymousMethod.Block.DescendantNodes()
+                .OfType<IdentifierNameSyntax>()
+                .Select(id => id.Identifier.ValueText),
+            StringComparer.Ordinal);
+
+        var paramList = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(
+            parameters.Select((p, i) =>
+            {
+                string name = GenerateUniqueName("p" + i, blockedNames);
+                blockedNames.Add(name);
+                return SyntaxFactory.Parameter(SyntaxFactory.Identifier(name));
+            })));
+
+        _stats.AnonymousMethodRewritten++;
+        Changed = true;
+        var resultLambda = SyntaxFactory.ParenthesizedLambdaExpression(
+            paramList,
+            anonymousMethod.Block);
+        if (isAsync)
+        {
+            resultLambda = resultLambda.WithAsyncKeyword(anonymousMethod.AsyncKeyword);
+        }
+        return resultLambda.WithTriviaFrom(node);
+    }
+
+    private static string GenerateUniqueName(string baseName, HashSet<string> blocked)
+    {
+        if (!blocked.Contains(baseName))
+            return baseName;
+        for (int i = 0; ; i++)
+        {
+            var candidate = baseName + "_" + i;
+            if (!blocked.Contains(candidate))
+                return candidate;
+        }
+    }
 }

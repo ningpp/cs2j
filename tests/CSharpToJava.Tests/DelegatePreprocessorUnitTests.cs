@@ -249,4 +249,88 @@ public class DelegatePreprocessorUnitTests
         Assert.True(result.Changed);
         Assert.Contains("CsPrelude.Remove(CsPrelude.Remove", result.OutputCode);
     }
+
+    [Fact]
+    public void AnonymousMethod_ExplicitParams_To_Lambda()
+    {
+        var src = """
+        using System;
+        class C {
+            void M() {
+                Action<int> f = delegate(int x) { return; };
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("=>", result.OutputCode);
+        Assert.DoesNotContain("delegate", result.OutputCode);
+    }
+
+    [Fact]
+    public void AnonymousMethod_NoParam_To_Empty_Lambda()
+    {
+        var src = """
+        using System;
+        class C {
+            void M() {
+                Action f = delegate { };
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("=>", result.OutputCode);
+        Assert.DoesNotContain("delegate", result.OutputCode);
+    }
+
+    [Fact]
+    public void AnonymousMethod_Async_To_Async_Lambda()
+    {
+        var src = """
+        using System;
+        using System.Threading.Tasks;
+        class C {
+            async Task M() {
+                Func<Task> f = async delegate { await Task.Delay(1); };
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("async", result.OutputCode);
+        Assert.Contains("=>", result.OutputCode);
+        Assert.DoesNotContain("delegate", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_Declaration_Not_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            delegate void D(int x);
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.False(result.Changed);
+    }
+
+    [Fact]
+    public void AnonymousMethod_As_MethodArg_To_Lambda()
+    {
+        var src = """
+        using System;
+        class C {
+            void Run(Action<int> f) { }
+            void M() {
+                Run(delegate(int x) { });
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("=>", result.OutputCode);
+        Assert.DoesNotContain("delegate", result.OutputCode);
+    }
 }
