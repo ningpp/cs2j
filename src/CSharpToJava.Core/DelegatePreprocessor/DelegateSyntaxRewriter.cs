@@ -32,19 +32,13 @@ internal sealed class DelegateSyntaxRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
     {
-        // Visit children first (bottom-up). CSharpSyntaxRewriter default
-        // visits children first, but we call base to be explicit.
-        var visited = base.VisitBinaryExpression(node);
-        if (visited is not BinaryExpressionSyntax binary)
-            return visited;
-
         // Only handle + and -
-        if (!binary.IsKind(SyntaxKind.AddExpression) && !binary.IsKind(SyntaxKind.SubtractExpression))
-            return binary;
+        if (!node.IsKind(SyntaxKind.AddExpression) && !node.IsKind(SyntaxKind.SubtractExpression))
+            return base.VisitBinaryExpression(node);
 
         // Need semantic model to determine if operands are delegate types
         if (_semanticModel == null)
-            return binary;
+            return base.VisitBinaryExpression(node);
 
         // Check if either operand is a delegate type (use ORIGINAL node for semantic query)
         var leftType = _semanticModel.GetTypeInfo(node.Left).Type;
@@ -54,40 +48,46 @@ internal sealed class DelegateSyntaxRewriter : CSharpSyntaxRewriter
         bool rightIsDelegate = IsDelegateType(rightType);
 
         if (!leftIsDelegate && !rightIsDelegate)
-            return binary; // numeric + / -, not our concern
+            return base.VisitBinaryExpression(node); // numeric + / -, not our concern
 
         // Flatten left-nested AddExpression chains for Combine
-        if (binary.IsKind(SyntaxKind.AddExpression))
+        if (node.IsKind(SyntaxKind.AddExpression))
         {
-            var operands = new List<ExpressionSyntax>();
-            CollectAddOperands(binary, operands);
+            // Collect from ORIGINAL node (before children are visited)
+            // so left-nested Add chains are still recognizable
+            var rawOperands = new List<ExpressionSyntax>();
+            CollectAddOperands(node, rawOperands);
 
-            if (operands.Count >= 3)
+            if (rawOperands.Count >= 3)
             {
-                // Use params overload: Combine(a, b, c)
+                // Visit each operand to get the rewritten form
+                var visitedOperands = rawOperands
+                    .Select(op => (ExpressionSyntax)Visit(op)!)
+                    .ToArray();
+
                 _stats.CombineRewritten++;
                 Changed = true;
-                return CreateCombineCall(operands.ToArray())
+                return CreateCombineCall(visitedOperands)
                     .WithTriviaFrom(node);
             }
         }
 
-        // Two-operand case
-        var left = (ExpressionSyntax)binary.Left;
-        var right = (ExpressionSyntax)binary.Right;
+        // Two-operand case: visit children first
+        var visitedLeft = (ExpressionSyntax)Visit(node.Left)!;
+        var visitedRight = (ExpressionSyntax)Visit(node.Right)!;
 
-        if (binary.IsKind(SyntaxKind.AddExpression))
+        if (node.IsKind(SyntaxKind.AddExpression))
         {
             _stats.CombineRewritten++;
             Changed = true;
-            return CreateCombineCall(left, right)
+            return CreateCombineCall(visitedLeft, visitedRight)
                 .WithTriviaFrom(node);
         }
         else
         {
             _stats.RemoveRewritten++;
             Changed = true;
-            return CreateRemoveCall(left, right)
+            return CreateRemoveCall(visitedLeft, visitedRight)
                 .WithTriviaFrom(node);
         }
     }

@@ -177,4 +177,76 @@ public class DelegatePreprocessorUnitTests
         // Should not rewrite — arr[i++] is not a stable reference
         Assert.Contains("arr[i++] += h", result.OutputCode);
     }
+
+    [Fact]
+    public void Delegate_Multi_Combine_Three_Uses_Params()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action a, Action b, Action c) {
+                Action d = a + b + c;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Combine", result.OutputCode);
+        Assert.Contains("a", result.OutputCode);
+        Assert.Contains("b", result.OutputCode);
+        Assert.Contains("c", result.OutputCode);
+        // Should not contain nested Combine calls (flattened to params)
+        Assert.DoesNotContain("CsPrelude.Combine(CsPrelude.Combine", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_Nested_Combine_Remove()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action d1, Action d2, Action d3) {
+                Action d = (d1 + d2) - d3;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Remove", result.OutputCode);
+        Assert.Contains("CsPrelude.Combine", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_Right_Nested_Not_Flattened()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action a, Action b, Action c) {
+                Action d = a + (b + c);
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        // Right-nested: do not flatten, produce Combine(a, Combine(b, c))
+        Assert.Contains("CsPrelude.Combine(a", result.OutputCode);
+        Assert.Contains("CsPrelude.Combine(b", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_Remove_Not_Flattened()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action d1, Action d2, Action d3) {
+                Action d = d1 - d2 - d3;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Remove(CsPrelude.Remove", result.OutputCode);
+    }
 }
