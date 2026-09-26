@@ -9,6 +9,7 @@ using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.LocalFunctionLift;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 using CSharpToJava.Core.NullCoalesceRewriter;
+using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Core.TypeScript;
 using CSharpToJava.Core.Workspace;
@@ -28,7 +29,7 @@ public class Program
     internal static async Task<int> MainImpl(string[] args)
     {
         using var parser = new Parser(settings => settings.AllowMultiInstance = true);
-        return await parser.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions, RecordReadOnlyVerbOptions, ArrayMethodOptions, ForeachDeconstructionVerbOptions, NullCoalesceVerbOptions>(args)
+        return await parser.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions, RecordReadOnlyVerbOptions, ArrayMethodOptions, ForeachDeconstructionVerbOptions, NullCoalesceVerbOptions, DelegatePreprocessVerbOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
@@ -45,6 +46,7 @@ public class Program
                 (ArrayMethodOptions opts) => ArrayMethod(opts),
                 (ForeachDeconstructionVerbOptions opts) => ForeachDeconstructionAsync(opts),
                 (NullCoalesceVerbOptions opts) => NullCoalesceAsync(opts),
+                (DelegatePreprocessVerbOptions opts) => DelegatePreprocessAsync(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -3970,6 +3972,94 @@ public class Program
         return preprocessResult.Success ? 0 : 1;
     }
 
+    private static async Task<int> DelegatePreprocessAsync(DelegatePreprocessVerbOptions opts)
+    {
+        var coreOptions = new DelegatePreprocessorOptions(Verbose: opts.Verbose, Strict: opts.Strict);
+        var rewriter = new DelegatePreprocessor();
+
+        // Single-file mode
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+                "delegate-preprocess-standalone",
+                new[] { tree },
+                ProjectUnsignedTypePreprocessor.GetBasicReferences(),
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                    Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+            var model = compilation.GetSemanticModel(tree);
+            var result = rewriter.Preprocess(sourceCode, model, coreOptions);
+
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+                if (opts.Verbose)
+                    Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+            }
+            else
+            {
+                Console.Write(result.OutputCode);
+            }
+
+            foreach (var d in result.Diagnostics)
+                Console.Error.WriteLine($"[{d.Severity}] {d.Message}");
+
+            return result.Diagnostics.Any(d => d.Severity == DelegatePreprocessorSeverity.Error) ? 1 : 0;
+        }
+
+        // Project / directory mode
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectDelegatePreprocessor.PreprocessAsync(
+            new ProjectDelegatePreprocessRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = true,
+                Verbose = opts.Verbose,
+                Options = coreOptions,
+                FilterUnsupportedProjects = !opts.NoFilterProjects,
+                VerifyBuild = !opts.NoVerifyBuild,
+                VerifyTests = !opts.NoVerifyTests,
+                Strict = opts.Strict,
+            });
+
+        Console.WriteLine(
+            $"delegate: {preprocessResult.Statistics.FilesTransformed} transformed, " +
+            $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
+            $"{preprocessResult.Statistics.CombineRewritten} combine, " +
+            $"{preprocessResult.Statistics.RemoveRewritten} remove, " +
+            $"{preprocessResult.Statistics.CompoundAssignRewritten} compound, " +
+            $"{preprocessResult.Statistics.AnonymousMethodRewritten} anonymous method, " +
+            $"{preprocessResult.Statistics.SkippedUnsupported} skipped, " +
+            $"{preprocessResult.Statistics.ResidualCount} residual");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            var prefix = diagnostic.FilePath != null ? $"{diagnostic.FilePath}: " : "";
+            Console.Error.WriteLine($"[{diagnostic.Severity}] {prefix}{diagnostic.Message}");
+        }
+
+        Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+        return preprocessResult.Success ? 0 : 1;
+    }
+
     private static async Task<int> EliminateGoto(EliminateGotoOptions opts)
     {
         var elim = new GotoEliminator();
@@ -5061,6 +5151,30 @@ class ForeachDeconstructionVerbOptions
     [Option("no-filter-projects", Default = false,
         HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
     public bool NoFilterProjects { get; set; }
+}
+
+[Verb("delegate-preprocess", HelpText = "Rewrite delegate +/- / += / -= and anonymous methods")]
+class DelegatePreprocessVerbOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("strict", Default = false, HelpText = "Treat residual delegate operators as errors instead of warnings")]
+    public bool Strict { get; set; }
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+    [Option("no-verify-build", Default = false, HelpText = "Skip 'dotnet build' verification after delegate preprocessing")]
+    public bool NoVerifyBuild { get; set; }
+    [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after delegate preprocessing")]
+    public bool NoVerifyTests { get; set; }
 }
 
 [Verb("null-coalesce", HelpText = "Rewrite ?? and ??= operators to explicit ternary / if-assignment (single-file or project mode)")]
