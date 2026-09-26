@@ -117,6 +117,19 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         return rewritten;
     }
 
+    public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
+    {
+        // ??= appears as an ExpressionStatement in statement context.
+        // We need to replace the entire ExpressionStatement with an IfStatement.
+        if (node.Expression is AssignmentExpressionSyntax assign
+            && assign.IsKind(SyntaxKind.CoalesceAssignmentExpression))
+        {
+            return RewriteCoalesceAssignStatement(node, assign);
+        }
+
+        return base.VisitExpressionStatement(node);
+    }
+
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
         if (!node.IsKind(SyntaxKind.CoalesceAssignmentExpression))
@@ -199,6 +212,87 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
             _stats.SkippedUnsupported++;
             return node;
         }
+
+        _stats.NullCoalescingAssignRewritten++;
+        _stats.TempVariablesGenerated++;
+        return ifStmt2;
+    }
+
+    /// <summary>
+    /// Rewrites a ??= statement (ExpressionStatement containing CoalesceAssignmentExpression)
+    /// into an IfStatement. For simple identifiers: if (a == null) { a = expr; }
+    /// For member/indexer: temp var + if (___tN == null) { left = expr; }
+    /// </summary>
+    private SyntaxNode RewriteCoalesceAssignStatement(
+        ExpressionStatementSyntax exprStmt,
+        AssignmentExpressionSyntax assign)
+    {
+        // Process right side first (may contain nested ??)
+        var visitedRight = (ExpressionSyntax?)Visit(assign.Right);
+        var right = visitedRight ?? assign.Right;
+        var left = assign.Left;
+
+        // Check if left is a simple identifier (local variable / parameter)
+        if (left is IdentifierNameSyntax identifier)
+        {
+            // Simple identifier: no temp variable needed
+            // Rewrite: a ??= expr  →  if (a == null) { a = expr; }
+            var ifStmt = SyntaxFactory.IfStatement(
+                SyntaxFactory.BinaryExpression(
+                    SyntaxKind.EqualsExpression,
+                    identifier,
+                    SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+                SyntaxFactory.Block(
+                    SyntaxFactory.ExpressionStatement(
+                        SyntaxFactory.AssignmentExpression(
+                            SyntaxKind.SimpleAssignmentExpression,
+                            identifier,
+                            right))));
+
+            _stats.NullCoalescingAssignRewritten++;
+            return ifStmt;
+        }
+
+        // Member access / indexer: left may have side effects — use temp variable
+        var typeSymbol = _semanticModel?.GetTypeInfo(left).Type;
+        if (typeSymbol == null || typeSymbol is IErrorTypeSymbol)
+        {
+            _diagnostics.Add(new NullCoalesceDiagnostic(
+                NullCoalesceSeverity.Warning,
+                $"Cannot resolve type of left operand in ??= expression; skipping rewrite."));
+            _stats.SkippedUnsupported++;
+            return exprStmt;
+        }
+
+        var tempName = GenerateTempName();
+
+        // Build: var ___tN = <left>;
+        var tempDecl = SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.IdentifierName("var"),
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.VariableDeclarator(
+                        SyntaxFactory.Identifier(tempName),
+                        null,
+                        SyntaxFactory.EqualsValueClause(left)))));
+
+        // Build: if (___tN == null) { <left> = <right>; }
+        var ifStmt2 = SyntaxFactory.IfStatement(
+            SyntaxFactory.BinaryExpression(
+                SyntaxKind.EqualsExpression,
+                SyntaxFactory.IdentifierName(tempName),
+                SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+            SyntaxFactory.Block(
+                SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        left,
+                        right))));
+
+        // The temp variable declaration needs to be inserted before this ExpressionStatement.
+        // The ExpressionStatement is the anchor.
+        PendingDeclarations.Add(new PendingDeclaration(
+            tempDecl, exprStmt, PendingDeclarations.Count));
 
         _stats.NullCoalescingAssignRewritten++;
         _stats.TempVariablesGenerated++;

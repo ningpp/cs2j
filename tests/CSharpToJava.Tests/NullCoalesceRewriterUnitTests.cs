@@ -206,4 +206,90 @@ public class NullCoalesceRewriterUnitTests
         Assert.Equal(2, result.Statistics.NullCoalescingRewritten);
         Assert.Equal(2, result.Statistics.TempVariablesGenerated);
     }
+
+    [Fact]
+    public void CoalesceAssign_Simple_Identifier_No_Temp_Variable()
+    {
+        var src = """
+        class C {
+            void M(string? a, string b) {
+                a ??= b;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.Contains("if (a == null)", result.OutputCode);
+        Assert.DoesNotContain("___t", result.OutputCode);
+    }
+
+    [Fact]
+    public void CoalesceAssign_Member_Access_Generates_Temp_Variable()
+    {
+        var src = """
+        class C {
+            public string? Timeout;
+            void M(C config, int val) {
+                config.Timeout ??= val.ToString();
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.Contains("___t1", result.OutputCode);
+        Assert.Contains("if (___t1 == null)", result.OutputCode);
+        Assert.Contains("config.Timeout =", result.OutputCode);
+    }
+
+    [Fact]
+    public void CoalesceAssign_Indexer_Generates_Temp_Variable()
+    {
+        var src = """
+        using System.Collections.Generic;
+        class C {
+            void M(Dictionary<string, string> cache, string key, string val) {
+                cache[key] ??= val;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("??", result.OutputCode);
+        Assert.Contains("___t1", result.OutputCode);
+        Assert.Contains("if (___t1 == null)", result.OutputCode);
+        Assert.Contains("cache[key] =", result.OutputCode);
+    }
+
+    [Fact]
+    public void CoalesceAssign_Statistics_Counted()
+    {
+        var src = """
+        class C {
+            void M(string? a, string b, string? c, string d) {
+                a ??= b;
+                c ??= d;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.NullCoalescingAssignRewritten);
+    }
+
+    [Fact]
+    public void CoalesceAssign_Simple_No_Residual()
+    {
+        var src = """
+        class C {
+            void M(string? a, string b) {
+                a ??= b;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.ResidualCount);
+    }
 }
