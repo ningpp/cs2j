@@ -21,8 +21,12 @@ public sealed class ForeachDeconstructionPreprocessor
         options ??= new ForeachDeconstructionOptions();
         var stats = new ForeachDeconstructionStatistics { FilesScanned = 1 };
 
-        var tree = CSharpSyntaxTree.ParseText(sourceCode);
-        var root = (CompilationUnitSyntax)tree.GetRoot();
+        // Use the syntax tree from the semantic model when available so that
+        // SemanticModel.GetForEachStatementInfo works correctly. Otherwise
+        // parse a fresh tree (no semantic info — only pre-check works).
+        var root = semanticModel != null
+            ? (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot()
+            : (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(sourceCode).GetRoot();
 
         // Cheap pre-check: if no ForEachVariableStatementSyntax at all, return original.
         if (!root.DescendantNodes().OfType<ForEachVariableStatementSyntax>().Any())

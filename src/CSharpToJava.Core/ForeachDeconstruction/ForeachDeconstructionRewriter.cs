@@ -35,19 +35,24 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
     {
-        // Visit children first (in case of nested deconstruction foreach in the body).
-        var visited = (ForEachVariableStatementSyntax?)base.VisitForEachVariableStatement(node);
-        if (visited == null)
-            return visited;
-
         if (_model == null)
-            return visited;
+            return base.VisitForEachVariableStatement(node);
 
-        // Determine the element type.
-        var forEachInfo = _model.GetForEachStatementInfo(node);
-        var elementType = forEachInfo.ElementType as INamedTypeSymbol;
+        // Determine the element type BEFORE visiting children — the semantic
+        // model requires the original node which belongs to the syntax tree.
+        INamedTypeSymbol? elementType;
+        try
+        {
+            elementType = _model.GetForEachStatementInfo(node).ElementType as INamedTypeSymbol;
+        }
+        catch (ArgumentException)
+        {
+            // Node not within syntax tree (can happen after rewrites).
+            return base.VisitForEachVariableStatement(node);
+        }
+
         if (elementType == null)
-            return visited;
+            return base.VisitForEachVariableStatement(node);
 
         // Classify the element type.
         var family = ClassifyFamily(elementType);
@@ -58,16 +63,20 @@ internal sealed class ForeachDeconstructionRewriter : CSharpSyntaxRewriter
             case FamilyKind.Deconstruct:
                 AddInfoDiagnostic(node, "Deconstruct-based deconstruction skipped; handled by converter.");
                 _stats.ForeachDeconstructionsSkipped++;
-                return visited;
+                return base.VisitForEachVariableStatement(node);
             case FamilyKind.Tuple:
                 AddInfoDiagnostic(node, "Tuple-based deconstruction skipped; run TupleToStruct first.");
                 _stats.ForeachDeconstructionsSkipped++;
-                return visited;
+                return base.VisitForEachVariableStatement(node);
             default:
-                return visited;
+                return base.VisitForEachVariableStatement(node);
         }
 
-        // KV family: lower it.
+        // KV family: lower it. Visit children first for nested deconstruction.
+        var visited = (ForEachVariableStatementSyntax?)base.VisitForEachVariableStatement(node);
+        if (visited == null)
+            return visited;
+
         var entryName = FreshName("__entry", visited);
         var entryIdentifier = SyntaxFactory.IdentifierName(entryName);
 

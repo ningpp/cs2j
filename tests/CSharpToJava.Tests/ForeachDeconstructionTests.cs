@@ -102,28 +102,10 @@ public class ForeachDeconstructionTests
     }
 
     // ===================================================================
-    // 4. Inferred form: foreach ((x, y) in dict)
+    // 4. Inferred form: foreach ((x, y) in dict) — INVALID in C#
+    //    Deconstruction foreach requires var (x, y) or (Type x, Type y).
+    //    Skipped: not valid syntax.
     // ===================================================================
-
-    [Fact]
-    public void Lowers_InferredForm_UsesVar()
-    {
-        var src = """
-            using System.Collections.Generic;
-            class C {
-                void M(Dictionary<int, string> d) {
-                    foreach ((x, y) in d) {
-                        Console.WriteLine(x + y);
-                    }
-                }
-            }
-            """;
-        var result = Preprocess(src);
-        Assert.True(result.Changed);
-        Assert.Contains("var x = __entry.Key", result.OutputCode, StringComparison.Ordinal);
-        Assert.Contains("var y = __entry.Value", result.OutputCode, StringComparison.Ordinal);
-        AssertNoSyntaxErrors(result.OutputCode);
-    }
 
     // ===================================================================
     // 5. Discard: foreach ((int x, _) in dict)
@@ -432,8 +414,10 @@ public class ForeachDeconstructionTests
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(Dictionary<,>).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(System.Collections.Concurrent.ConcurrentDictionary<,>).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(SortedDictionary<,>).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(System.Threading.Tasks.Task).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(System.Runtime.CompilerServices.ITuple).Assembly.Location),
         };
         var compilation = CSharpCompilation.Create(
             "foreach-deconstruction-test",
