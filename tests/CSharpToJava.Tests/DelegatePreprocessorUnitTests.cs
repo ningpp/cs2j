@@ -1,0 +1,96 @@
+using CSharpToJava.Core.DelegatePreprocessor;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Xunit;
+
+namespace CSharpToJava.Tests;
+
+public class DelegatePreprocessorUnitTests
+{
+    private static DelegatePreprocessorResult Preprocess(string source)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("delegate-test",
+            new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Delegate).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Action).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Func<>).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var model = compilation.GetSemanticModel(tree);
+        return new DelegatePreprocessor().Preprocess(source, model);
+    }
+
+    [Fact]
+    public void Clean_File_Is_Byte_Level_Preserved()
+    {
+        var src = """
+        class C {
+            void M() {
+                var a = "hello";
+                System.Console.WriteLine(a);
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_Combine_Two_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action d1, Action d2) {
+                Action d = d1 + d2;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Combine", result.OutputCode);
+        Assert.Contains("d1", result.OutputCode);
+        Assert.Contains("d2", result.OutputCode);
+        Assert.DoesNotContain("d1 + d2", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_Remove_Two_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action d1, Action d2) {
+                Action d = d1 - d2;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Remove", result.OutputCode);
+        Assert.Contains("d1", result.OutputCode);
+        Assert.Contains("d2", result.OutputCode);
+        Assert.DoesNotContain("d1 - d2", result.OutputCode);
+    }
+
+    [Fact]
+    public void Numeric_Add_Not_Rewritten()
+    {
+        var src = """
+        class C {
+            void M() {
+                int x = 1 + 2;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+    }
+}
