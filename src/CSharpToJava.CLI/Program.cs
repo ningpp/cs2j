@@ -27,7 +27,7 @@ public class Program
     internal static async Task<int> MainImpl(string[] args)
     {
         using var parser = new Parser(settings => settings.AllowMultiInstance = true);
-        return await parser.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions, RecordReadOnlyVerbOptions, ArrayMethodOptions>(args)
+        return await parser.ParseArguments<ConvertOptions, ConvertProjectOptions, AnalyzeOptions, EliminateGotoOptions, MakeReadOnlyOptions, UnsignedTypeOptions, GenericPreprocessOptions, StripDefaultOptions, LocalFunctionLiftOptions, TupleToStructVerbOptions, StripConditionalOptions, RecordReadOnlyVerbOptions, ArrayMethodOptions, ForeachDeconstructionVerbOptions>(args)
             .MapResult(
                 (ConvertOptions opts) => ConvertFile(opts),
                 (ConvertProjectOptions opts) => ConvertProject(opts),
@@ -42,6 +42,7 @@ public class Program
                 (StripConditionalOptions opts) => StripConditionalCommand.RunAsync(opts),
                 (RecordReadOnlyVerbOptions opts) => RecordReadOnlyVerbAsync(opts),
                 (ArrayMethodOptions opts) => ArrayMethod(opts),
+                (ForeachDeconstructionVerbOptions opts) => ForeachDeconstructionAsync(opts),
                 errs => Task.FromResult(1)
             );
     }
@@ -272,6 +273,43 @@ public class Program
                 opts.Source = tupleResult.PreprocessedSourcePath;
                 opts.FingerprintSourcePath ??= tupleResult.OriginalSourcePath;
                 opts.FingerprintInputRoot ??= tupleResult.SourceRoot;
+            }
+
+            if (opts.ForeachDeconstruction)
+            {
+                var foreachResult = await ProjectForeachDeconstructionPreprocessor.PreprocessAsync(
+                    new ProjectForeachDeconstructionPreprocessRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                    });
+
+                Console.WriteLine(
+                    $"foreach-deconstruction: {foreachResult.Statistics.FilesTransformed} transformed, " +
+                    $"{foreachResult.Statistics.FilesSkippedClean} clean, " +
+                    $"{foreachResult.Statistics.ForeachDeconstructionsLowered} lowered, " +
+                    $"{foreachResult.Statistics.ForeachDeconstructionsSkipped} skipped");
+
+                foreach (var diagnostic in foreachResult.Diagnostics)
+                {
+                    if (diagnostic.Severity != CSharpToJava.Core.ForeachDeconstruction.ForeachDeconstructionSeverity.Info || opts.Verbose)
+                    {
+                        Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+                    }
+                }
+
+                if (!foreachResult.Success)
+                {
+                    return 1;
+                }
+
+                opts.Source = foreachResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= foreachResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= foreachResult.SourceRoot;
             }
 
             if (opts.StripDefault)
@@ -2032,6 +2070,10 @@ public class Program
         {
             preserved.Add(ProjectTupleToStructPreprocessor.IntermediateDirectoryName);
         }
+        if (opts.ForeachDeconstruction)
+        {
+            preserved.Add(ProjectForeachDeconstructionPreprocessor.IntermediateDirectoryName);
+        }
         if (opts.UnsignedType)
         {
             preserved.Add(ProjectUnsignedTypePreprocessor.IntermediateDirectoryName);
@@ -2885,6 +2927,7 @@ public class Program
             $"include-tests={opts.IncludeTests}",
             $"eliminate-goto={opts.EliminateGoto}",
             $"tuple-to-struct={opts.TupleToStruct}",
+            $"foreach-deconstruction={opts.ForeachDeconstruction}",
             $"unsigned-type={opts.UnsignedType}",
             $"generic-preprocess={opts.GenericPreprocess}",
             $"strip-default={opts.StripDefault}",
@@ -3695,6 +3738,97 @@ public class Program
             $"{preprocessResult.Statistics.TypesReplaced} types replaced, " +
             $"{preprocessResult.Statistics.OperatorsRewritten} operators rewritten, " +
             $"{preprocessResult.Statistics.LiteralsRewritten} literals rewritten");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+        }
+
+        Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+        return preprocessResult.Success ? 0 : 1;
+    }
+
+    private static async Task<int> ForeachDeconstructionAsync(ForeachDeconstructionVerbOptions opts)
+    {
+        var rewriterOptions = new CSharpToJava.Core.ForeachDeconstruction.ForeachDeconstructionOptions
+        {
+            Strict = opts.Strict,
+            ReportInfo = true,
+        };
+
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+                "foreach-deconstruction",
+                new[] { tree },
+                ProjectUnsignedTypePreprocessor.GetBasicReferences(),
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                    Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary,
+                    allowUnsafe: true));
+
+            var preprocessor = new CSharpToJava.Core.ForeachDeconstruction.ForeachDeconstructionPreprocessor();
+            var result = preprocessor.Preprocess(sourceCode, compilation.GetSemanticModel(tree), rewriterOptions);
+
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+                if (opts.Verbose)
+                {
+                    Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+                }
+            }
+            else
+            {
+                Console.Write(result.OutputCode);
+            }
+
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+            }
+
+            return result.Diagnostics.Any(d => d.Severity == CSharpToJava.Core.ForeachDeconstruction.ForeachDeconstructionSeverity.Error) ? 1 : 0;
+        }
+
+        // Project / directory mode
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectForeachDeconstructionPreprocessor.PreprocessAsync(
+            new ProjectForeachDeconstructionPreprocessRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = true,
+                Verbose = opts.Verbose,
+                RewriterOptions = rewriterOptions,
+                FilterUnsupportedProjects = !opts.NoFilterProjects,
+            });
+
+        Console.WriteLine(
+            $"foreach-deconstruction: {preprocessResult.Statistics.FilesTransformed} transformed, " +
+            $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
+            $"{preprocessResult.Statistics.ForeachDeconstructionsLowered} lowered, " +
+            $"{preprocessResult.Statistics.ForeachDeconstructionsSkipped} skipped");
 
         foreach (var diagnostic in preprocessResult.Diagnostics)
         {
@@ -4778,6 +4912,26 @@ class ArrayMethodOptions
     public bool NoFilterProjects { get; set; }
 }
 
+[Verb("foreach-deconstruction", HelpText = "Lower C# deconstruction foreach over KeyValuePair into plain foreach + explicit locals")]
+class ForeachDeconstructionVerbOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("strict", Default = false, HelpText = "Treat skipped deconstruction foreach as errors")]
+    public bool Strict { get; set; }
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+}
+
 // 命令行选项
 [Verb("convert", HelpText = "Convert a C# file to Java")]
 class ConvertOptions
@@ -4912,6 +5066,10 @@ class ConvertProjectOptions
         HelpText = "Disable the default tuple-to-struct preprocessing step (C# value tuples to generated readonly structs)")]
     public bool NoTupleToStruct { get; set; }
 
+    [Option("no-foreach-deconstruction", Default = false,
+        HelpText = "Disable the default foreach-deconstruction preprocessing step")]
+    public bool NoForeachDeconstruction { get; set; }
+
     [Option("tuple-namespace", Default = "Cs2jTuples",
         HelpText = "Namespace for the generated tuple structs")]
     public string TupleNamespace { get; set; } = "Cs2jTuples";
@@ -4963,6 +5121,7 @@ class ConvertProjectOptions
     public bool MakeReadOnly => !NoMakeReadOnly;
     public bool StripDefault => !NoStripDefault;
     public bool TupleToStruct => !NoTupleToStruct;
+    public bool ForeachDeconstruction => !NoForeachDeconstruction;
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
