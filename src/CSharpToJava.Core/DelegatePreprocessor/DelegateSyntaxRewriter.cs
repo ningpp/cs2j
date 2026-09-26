@@ -152,9 +152,94 @@ internal sealed class DelegateSyntaxRewriter : CSharpSyntaxRewriter
         return expr.WithTrailingTrivia().WithLeadingTrivia();
     }
 
-    // Placeholder for assignment/anonymous method handling — added in later tasks
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
-        => base.VisitAssignmentExpression(node);
+    {
+        var visited = base.VisitAssignmentExpression(node);
+        if (visited is not AssignmentExpressionSyntax assignment)
+            return visited;
+
+        if (!assignment.IsKind(SyntaxKind.AddAssignmentExpression)
+            && !assignment.IsKind(SyntaxKind.SubtractAssignmentExpression))
+            return assignment;
+
+        if (_semanticModel == null)
+            return assignment;
+
+        // Check if left operand is a delegate type (query original node)
+        var leftType = _semanticModel.GetTypeInfo(node.Left).Type;
+        if (!IsDelegateType(leftType))
+            return assignment; // numeric += / -=, not our concern
+
+        // Check if left is an event — skip events
+        var leftSymbol = _semanticModel.GetSymbolInfo(node.Left).Symbol;
+        if (leftSymbol is IEventSymbol)
+            return assignment;
+
+        // Stable reference check: only rewrite if left is a simple identifier
+        // or a member access without side effects in the receiver
+        if (!IsStableLeftValue(node.Left))
+        {
+            _stats.SkippedUnsupported++;
+            _diagnostics.Add(new DelegatePreprocessorDiagnostic(
+                DelegatePreprocessorSeverity.Warning,
+                "Compound assignment on non-simple left value is not supported; skipping rewrite."));
+            return assignment;
+        }
+
+        var left = (ExpressionSyntax)assignment.Left;
+        var right = (ExpressionSyntax)assignment.Right;
+
+        ExpressionSyntax newRight;
+        if (assignment.IsKind(SyntaxKind.AddAssignmentExpression))
+        {
+            _stats.CompoundAssignRewritten++;
+            newRight = CreateCombineCall(left, right);
+        }
+        else
+        {
+            _stats.CompoundAssignRewritten++;
+            newRight = CreateRemoveCall(left, right);
+        }
+
+        Changed = true;
+        return SyntaxFactory.AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            left,
+            SyntaxFactory.Token(SyntaxKind.EqualsToken)
+                .WithTriviaFrom(assignment.OperatorToken),
+            newRight)
+            .WithTriviaFrom(node);
+    }
+
+    /// <summary>
+    /// A left value is "stable" (safe to duplicate) if it is an identifier
+    /// or a member access whose receiver contains no invocations or
+    /// prefix/postfix unary operators.
+    /// </summary>
+    private static bool IsStableLeftValue(ExpressionSyntax left)
+    {
+        // Strip parentheses
+        while (left is ParenthesizedExpressionSyntax p)
+            left = p.Expression;
+
+        if (left is IdentifierNameSyntax)
+            return true;
+
+        if (left is MemberAccessExpressionSyntax member)
+        {
+            // Check receiver for side effects
+            var receiver = member.Expression;
+            while (receiver is MemberAccessExpressionSyntax ma)
+                receiver = ma.Expression;
+            // Receiver must not contain invocations or ++/--
+            return !receiver.DescendantNodesAndSelf()
+                .Any(n => n is InvocationExpressionSyntax
+                       || n is PrefixUnaryExpressionSyntax
+                       || n is PostfixUnaryExpressionSyntax);
+        }
+
+        return false;
+    }
 
     public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node)
         => base.VisitAnonymousMethodExpression(node);

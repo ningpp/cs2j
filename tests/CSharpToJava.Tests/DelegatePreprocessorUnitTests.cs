@@ -93,4 +93,88 @@ public class DelegatePreprocessorUnitTests
         Assert.False(result.Changed);
         Assert.Equal(src, result.OutputCode);
     }
+
+    [Fact]
+    public void Delegate_CompoundAdd_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action d, Action h) {
+                d += h;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Combine", result.OutputCode);
+        Assert.DoesNotContain("d += h", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_CompoundSubtract_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action d, Action h) {
+                d -= h;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Remove", result.OutputCode);
+        Assert.DoesNotContain("d -= h", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_CompoundAdd_Field_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            Action _field;
+            void M(Action h) {
+                _field += h;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Combine", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_CompoundAdd_Property_Rewritten()
+    {
+        var src = """
+        using System;
+        class C {
+            Action Prop { get; set; }
+            void M(Action h) {
+                Prop += h;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        Assert.True(result.Changed);
+        Assert.Contains("CsPrelude.Combine", result.OutputCode);
+    }
+
+    [Fact]
+    public void Delegate_CompoundAdd_UnstableLeft_Skipped()
+    {
+        var src = """
+        using System;
+        class C {
+            void M(Action[] arr, int i, Action h) {
+                arr[i++] += h;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+        // Should not rewrite — arr[i++] is not a stable reference
+        Assert.Contains("arr[i++] += h", result.OutputCode);
+    }
 }
