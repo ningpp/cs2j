@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CSharpToJava.Core\CSharpToJava.Core.csproj" />
     <ProjectReference Include="..\..\src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" />
+    <ProjectReference Include="..\..\src\Cs2jUnsigned\Cs2jUnsigned.csproj" />
   </ItemGroup>
 
   <ItemGroup>
