@@ -16,7 +16,7 @@ namespace dotnet.System
         public static sbyte Not8(sbyte a) { return (sbyte)~(int)a; }
         public static sbyte Shl8(sbyte a, int n) { unchecked { return (sbyte)(((int)a & 0xFF) << (n & 31)); } }
         public static sbyte Shr8(sbyte a, int n) { return (sbyte)((((int)a & 0xFF) >>> (n & 31)) & 0xFF); }
-        public static int Cmp8(sbyte a, sbyte b) { int x = (int)a & 0xFF; int y = (int)b & 0xFF; return x < y ? -1 : x > y ? 1 : 0; }
+        public static int Cmp8(sbyte a, sbyte b) { return ((int)a & 0xFF) - ((int)b & 0xFF); }
 
         // ================================================================
         // 16-bit domain (short storage)
@@ -32,7 +32,7 @@ namespace dotnet.System
         public static short Not16(short a) { return (short)~(int)a; }
         public static short Shl16(short a, int n) { unchecked { return (short)(((int)a & 0xFFFF) << (n & 31)); } }
         public static short Shr16(short a, int n) { return (short)((((int)a & 0xFFFF) >>> (n & 31)) & 0xFFFF); }
-        public static int Cmp16(short a, short b) { int x = (int)a & 0xFFFF; int y = (int)b & 0xFFFF; return x < y ? -1 : x > y ? 1 : 0; }
+        public static int Cmp16(short a, short b) { return ((int)a & 0xFFFF) - ((int)b & 0xFFFF); }
 
         // ================================================================
         // 32-bit domain (int storage, unsigned interpretation)

@@ -14,10 +14,10 @@ public class UnsignedBitsTests
         Assert.Equal(unchecked((sbyte)1), UnsignedBits.Shl8((sbyte)1, 32));
         Assert.Equal(unchecked((sbyte)0x0F), UnsignedBits.Shr8(unchecked((sbyte)0xF0), 4));
         Assert.Equal(unchecked((sbyte)0xFF), UnsignedBits.Not8((sbyte)0));
-        Assert.Equal(1, UnsignedBits.Cmp8(unchecked((sbyte)200), (sbyte)100));
+        Assert.Equal(100, UnsignedBits.Cmp8(unchecked((sbyte)200), (sbyte)100));
         Assert.Equal(unchecked((short)0), UnsignedBits.Add16(unchecked((short)-1), (short)1));     // 65535+1
         Assert.Equal(unchecked((short)0), UnsignedBits.Shl16((short)1, 16));
-        Assert.Equal(1, UnsignedBits.Cmp16(unchecked((short)-1), (short)1));
+        Assert.Equal(65534, UnsignedBits.Cmp16(unchecked((short)-1), (short)1));
         Assert.Equal(unchecked((sbyte)0x34), UnsignedBits.Narrow32To8(0x1234));
     }
 
