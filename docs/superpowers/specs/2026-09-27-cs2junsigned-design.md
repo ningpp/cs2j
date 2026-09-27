@@ -88,7 +88,8 @@ csproj 要点（与 `Cs2jUnsignedMath.csproj` 风格一致，保证"可转换 C#
 
 - `TargetFramework=net10.0`；`LangVersion=11`（需要无符号右移 `>>>`，且不使用更新语法）；
 - `Nullable=disable`；`ImplicitUsings=disable`；
-- 无任何引用；
+- 无任何 ProjectReference/PackageReference；
+- 通过 `InternalsVisibleTo("CSharpToJava.Tests")` 程序集特性允许测试直接覆盖 internal `UnsignedBits`；
 - 源码零 `using` 指令，所有非语言内建类型写全名。
 
 `CSharpToJavaConverter.slnx` 在 `/src/` 文件夹下增加本项目条目（新 GUID）。
@@ -145,14 +146,16 @@ public static readonly UByte MaxValue = new UByte((sbyte)-1); // 位模式全 1
 
 ### 5.3 浮点
 
-四类型均提供实例方法 `ToDouble()`、`ToSingle()`、`ToDecimal()`（见 §6.4）。另提供从 `double`/`float`/`decimal` 的 `explicit` 转换算子（等价默认 unchecked 上下文下的原生 cast：向零截断后按位宽截断；NaN/无穷/越界在 C# 中为未指定值，net10 CLR 实测为 0——以 oracle 测试锁定并复刻为 0，**不**抛异常；抛 `OverflowException` 是 `checked`/`System.Convert.ToXxx` 的行为，本项目不提供）。
+四类型均提供实例方法 `ToDouble()`、`ToSingle()`、`ToDecimal()`（见 §6.4）。另提供从 `double`/`float`/`decimal` 的 `explicit` 转换算子。
+- `decimal`：始终做范围与整数校验（与原生 decimal cast 一致）：向零截断时若存在非零小数、为负或超出 MaxValue，抛 `System.OverflowException`。
+- `double`/`float`（net10 实测后确定的**可移植规则**）：NaN 或负数 → 0；向零取整后超过 MaxValue → MaxValue；域内按精确截断取位模式。注：C# 语言对浮点→整数的越界结果本就标注为"未指定"，RyuJIT 存在 `(byte)300.0 == 44`、`(uint)4294967296.0 == 0` 等平台特有的位截断泄漏；本库**不**复刻这类未指定行为，采用饱和规则。对照测试只锁定明确域（域内精确值、NaN→0、`+∞`→MaxValue）不断言 RyuJIT 特有的越界位截断。
 
 ## 6. UnsignedBits 助手（internal static，全部只用有符号原语）
 
 ### 6.1 8/16 位 int 域
 
 - 运算：`unchecked((a & mask) op (b & mask)) & mask)`（mask = 0xFF / 0xFFFF）；`+ - *` 环绕；`& | ^` 直接；`~` 后掩码。
-- 移位（关键）：`sbyte`/`short` 操作数按 C# 规则**先提升为 int**，因此移位计数必须 `& 31`（不是 `& 7`/`& 15`），移位完成后再按 8/16 位截断。例：`(byte)1 << 8` 在 int 域得 256，截断为 0；`(byte)1 << 31` 截断为 128。`>>>`/`>>` 均为逻辑移位（掩码值已非负，二者结果相同）。
+- 移位（关键）：`sbyte`/`short` 操作数按 C# 规则**先提升为 int**，因此移位计数必须 `& 31`（不是 `& 7`/`& 15`），移位完成后再按 8/16 位截断。例（net10 实测）：`(byte)(1 << 8) == 0`、`(byte)(1 << 31) == 0`（位 31 落在截断范围外）、`(byte)(1 << 32) == 1`。`>>>`/`>>` 均为逻辑移位（掩码值已非负，二者结果相同）。
 - 除模：掩码后均为非负 int，直接 `/`、`%`；除零自然抛 `System.DivideByZeroException`。
 - 比较：掩码后直接比较。
 
@@ -176,25 +179,33 @@ public static readonly UByte MaxValue = new UByte((sbyte)-1); // 位模式全 1
 
 - 无符号 64 位 → decimal：`(decimal)(v >>> 1) * 2m + (decimal)(v & 1L)`（decimal 28 位精度对 ≤ 20 位整数精确）。32/16/8 位先用各自零扩展。
 - decimal → 64 位模式：`d >= 9223372036854775808m ? (long)(d - 18446744073709551616m) : (long)d`（`unchecked` 上下文中）；窄位宽再截断。
-- ToDouble/ToSingle：默认经 decimal 由运行时舍入；**若对照测试发现与原生 ulong→double 的双舍入差异**，改用 JDK 风格公式：`(double)(v >>> 1) * 2.0 + (double)(v & 1L)`（32 位用 `(double)(v & 0xFFFFFFFFL)` 精确）。以 net10 原生行为为最终准绳。
-- float/double → T：默认 unchecked cast 语义——`System.Math.Truncate` 向零取整；NaN/无穷/越界在 net10 CLR 下为 0（oracle 锁定），不抛异常。
+- ToDouble/ToSingle：经 decimal 典范值转换（探针已验证与原生 `ulong → double/float` 在 2^63+1、MaxValue 等边界完全一致，decimal→浮点为正确舍入，无双重舍入问题）；8/16/32 位直接由非负掩码值转换。
+- float/double → T（可移植饱和规则，见 §5.3）：NaN/负 → 0；`System.Math.Truncate` 后超 MaxValue → MaxValue；域内取精确位模式。
+- decimal → T：非整数、负值、越界一律 `System.OverflowException`（与原生 decimal cast 一致）。
 
 ### 6.5 ToString
 
 - 无格式/默认 provider：把值零扩展到非负表示（8/16/32 → int 或 long；64 → decimal），调 `ToString(System.Globalization.CultureInfo.InvariantCulture)`（无参 `ToString()` 等价不变文化的十进制）。
 - 标准数字格式 D/F/N/E/G/C/P/R 与自定义格式：委托非负典范表示（long 或 decimal）的 `ToString(format, provider ?? InvariantCulture)`。
-- **十六进制定制路径**（`X`/`x`）：不能委托 long/decimal（-1 的 X 会输出 16 个 F）。助手按 `>>>` 每次取 4 位，映射 0-9a-f，按位宽生成 2/4/8/16 个 nibble，精度说明符为最小位数（前导零填充）。大小写跟随 `X`/`x`。
+- **十六进制定制路径**（`X`/`x`）：不能委托 long/decimal（-1 的 X 会输出 16 个 F）。助手按 `>>>` 每次取 4 位，映射 0-9a-f；默认输出**最少 nibble 数**（0 → `"0"`；net10 实测 `((byte)1).ToString("X") == "1"`、`MaxValue.ToString("X20") == "0000FFFFFFFFFFFFFFFF"`），精度说明符为最小位数并前导补零；大小写跟随 `X`/`x`。
 
 ### 6.6 Parse / TryParse
 
 四类型共享按"位宽参数化"的实现：
 
 - 公共 API：`Parse(string)`、`Parse(string, System.Globalization.NumberStyles)`、`Parse(string, System.IFormatProvider)`、`Parse(string, System.Globalization.NumberStyles, System.IFormatProvider)`；`TryParse(string, out T)`、`TryParse(string, System.Globalization.NumberStyles, System.IFormatProvider, out T)`。
-- TryParse 返回 false 代替抛异常（null 入参仍按原生抛 `System.ArgumentNullException`）。
-- NumberStyles 校验：不支持的组合/未定义位（含 `AllowExponent`、`AllowCurrencySymbol`）抛 `System.ArgumentException`；各样式（Integer/HexNumber/Number/AllowBinarySpecifier 等）的允许字符按原生规则。
-- 词法处理：首尾空白（依据 styles）、前/后置符号与括号、千分位（取 provider 的 `NumberFormatInfo.NumberGroupSeparator/NumberGroupSizes` 做分组校验）、`AllowDecimalPoint` 时允许小数点但小数必须为零、`HexNumber` 十六进制（net10 允许可选 `0x` 前缀的行为以 oracle 锁定）、`AllowBinarySpecifier` 二进制（`0b` 前缀）、`NativeDigits` 归一化。
+- TryParse 返回 false 代替抛 Format/Overflow 异常（null 入参与非法样式仍抛异常，见下）。
+- 词法处理与 NumberStyles 允许位、进制/符号/括号/分隔符/小数点/指数规则均以本节末尾的 net10 探针锁定清单为准。
 - 数值累积用 `decimal` 精确累加（按进制加权），解析完成后做无符号范围校验（越界：Parse 抛 `System.OverflowException`，TryParse 返回 false）。
-- **凡 net10 行为存在不确定性（0x 前缀、provider 为 null 的回退、分组严格度、负号位置），一律以 net10 原生 `System.Byte/UInt16/UInt32/UInt64.Parse` 为 oracle 写对照测试锁定**，再据结果微调实现。
+- **net10 探针已锁定的具体行为（须逐条复刻）**：
+  - 样式位校验（Parse 与 TryParse 一致，非法即抛 `System.ArgumentException`）：hex 模式仅允许 `HexNumber` 三位（首尾空白 + HexSpecifier）；binary 模式仅允许首尾空白 + BinarySpecifier（再加 AllowLeadingSign 也抛异常）；十进制模式允许位 = 首尾空白、前后符号、括号、小数点、千分位、指数、货币符号；其余位（含未定义位）抛异常。
+  - hex/binary **不接受** `0x`/`0b` 前缀（`"0xFF"`、`"0b1010"` → FormatException/false）；binary 样式下直接写裸二进制数字（`"1010"` = 10）；出现超进制数字或越界 → Format/Overflow。
+  - 指数位实际参与求值：`AllowExponent` 下 `"1e2"` = 100。
+  - 千分位不按 `NumberGroupSizes` 严格校验：`"1,00"`、`"1,,000"` 均成功（等于去除分隔符），仅分隔符出现在整数部分首尾时 Format。
+  - 小数点仅允许零小数：`"1.0"` 成功、`"1.5"` Overflow。
+  - 负号（前/后置）与括号使值为负：`"-1"`、`"(1)"`、`"1-"`（需 AllowTrailingSign）对无符号类型 Overflow；`"0-"`、`"(0)"` 成功为 0；同时出现前后符号（`"+1-"`）Format。
+  - 空串/纯空白 → Format；provider 为 null 合法（回退当前文化）；TryParse 对 Format/Overflow 返回 false，对 null 入参抛 ArgumentNullException、非法样式抛 ArgumentException。
+  - NativeDigits 做等义数字替换；货币符号在 AllowCurrencySymbol 时允许（前缀）。
 
 ## 7. 各 struct 的成员面（四类型对称）
 
@@ -223,10 +234,10 @@ public static readonly UByte MaxValue = new UByte((sbyte)-1); // 位模式全 1
 
 测试项目可自由使用原生 `byte/ushort/uint/ulong` 作为 oracle。新增目录 `tests/CSharpToJava.Tests/Cs2jUnsigned/`：
 
-1. **算术等价**（`ArithmeticParityTests.cs`）：边界值 + 10k 确定性伪随机值（固定种子，覆盖跨符号位点），逐类型对照原生：`+ - * / %` 环绕、除零异常类型、`& | ^ ~`、`<< >> >>>`（含越界/跨位宽移位计数，重点锁定 `(byte)1 << 8 == 0`、`(byte)1 << 31 == 128` 等 int 提升语义）。
-2. **比较与相等**（`ComparisonParityTests.cs`）：全序、`CompareTo(object)`、null/错误类型、GetHashCode 与原生一致。
-3. **转换矩阵**（`ConversionParityTests.cs`）：四 struct 互转（隐式/显式）、与 sbyte/short/int/long 的显式转换、与 float/double/decimal 的转换（含向零截断、NaN/无穷/越界在 unchecked cast 下得 0），逐值对照原生 cast。
-4. **Parse/TryParse**（`ParseParityTests.cs`）：往返；畸形串；越界（`"256"`、`"65536"`、`"4294967296"`、`"18446744073709551616"`）；负号与括号；空白；Hex（含 `0xFF`/`FF`/`X` 样式）与 Binary（`0b`）；千分位与自定义 provider；异常类型（null、非法 NumberStyles、FormatException、OverflowException）。
+1. **算术等价**（`ArithmeticParityTests.cs`）：边界值 + 10k 确定性伪随机值（固定种子，覆盖跨符号位点），逐类型对照原生：`+ - * / %` 环绕、除零异常类型、`& | ^ ~`、`<< >> >>>`（含越界/跨位宽移位计数，重点锁定 net10 实测的 `(byte)(1<<8)==0`、`(byte)(1<<31)==0`、`(byte)(1<<32)==1`、`(ushort)(1<<16)==0`）。
+2. **比较与相等**（`ComparisonParityTests.cs`）：全序、`CompareTo(object)`（null→1、异类→ArgumentException、仅接受同类型装箱）、GetHashCode 与原生一致（探针锁定的 `(int)v ^ (int)(v >>> 32)`）。
+3. **转换矩阵**（`ConversionParityTests.cs`）：四 struct 互转（隐式/显式）、与 sbyte/short/int/long 的显式转换、与 float/double/decimal 的转换（域内向零截断逐值对照；NaN→0、`+∞`→MaxValue；decimal 越界/非整数抛 OverflowException）。RyuJIT 未指定的越界位截断（`(byte)300.0==44` 等）不纳入断言。
+4. **Parse/TryParse**（`ParseParityTests.cs`）：往返；畸形串；越界（`"256"`、`"65536"`、`"4294967296"`、`"18446744073709551616"`）；负号/括号/后置符号（`"(1)"`、`"1-"`、`"0-"`）；空白；Hex（裸 `"FF"` 成功、`"0xFF"` 失败、样式越界 ArgumentException）与 Binary（裸二进制成功、`"0b1010"` 失败）；指数 `"1e2"=100`；千分位宽松（`"1,00"`、`"1,,000"` 成功、首尾分隔符失败）；零小数 `"1.0"` 成功/`"1.5"` Overflow；非法样式 ArgumentException；异常类型对照。
 5. **ToString**（`ToStringParityTests.cs`）：默认、`D/N/X2/X4/X8/X16` 等格式矩阵，不变文化与自定义 provider。
 6. **ULong 专项**（`ULongEdgeTests.cs`）：2^63 边界；除数高位置 1（商 0/1）；MaxValue/MinValue 字符串往返；ToDouble/ToSingle/ToDecimal 边界（2^53、2^63、MaxValue）。
 
