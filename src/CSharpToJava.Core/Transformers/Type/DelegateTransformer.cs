@@ -29,12 +29,6 @@ public class DelegateTransformer : IDelegateTransformer
         // Mark as @FunctionalInterface
         javaInterface.Annotations.Add(new JavaAnnotation("FunctionalInterface"));
         // Task 27：TS 目标下委托声明为函数类型别名（export type X = (p) => R），
-        // 标记后 TsTypeWriter 发射 type、TsInterfaceProbeRewriter 跳过探针生成。
-        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
-        {
-            javaInterface.Annotations.Add(new JavaAnnotation("cs2j:TsDelegate"));
-        }
-
         // Build the single abstract method first (needed for type parameter filtering).
         var returnType = GetReturnType(node, context);
         var paramCount = node.ParameterList?.Parameters.Count ?? 0;

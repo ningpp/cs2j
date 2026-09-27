@@ -1135,10 +1135,7 @@ System.Console.WriteLine($"[DEBUG] LiftFieldInitializerStatements: field={f.Name
                     // wrong-typed array growth throws ArrayStoreException ("arraycopy:
                     // type mismatch"). Java has no per-closed-type statics, so static
                     // members that need the token must take it as a parameter instead.
-                    // TypeScript keeps the instance field as final.
-                    Modifiers = context.Options.TargetLanguage == TargetLanguage.TypeScript
-                        ? JavaModifiers.Private | JavaModifiers.Final
-                        : JavaModifiers.Private,
+                Modifiers = JavaModifiers.Private,
                     Type = "Class<?>",
                     Name = fieldName
                 });

@@ -11,7 +11,7 @@ var typeInfo = ctx.GetTypeInfo(typeSyntax);
 var propType = typeInfo.Type is null ? ctx.MapTypeFromSyntax(typeSyntax) : ctx.MapType(typeInfo.Type);
 var sym = ctx.GetDeclaredSymbol(p) as IPropertySymbol; var explicitImpl = p.ExplicitInterfaceSpecifier != null;
 var name = ConversionContext.EscapeJavaKeyword(explicitImpl ? p.Identifier.Text : sym?.Name ?? p.Identifier.Text);
-var fieldName = sym != null && ctx.Options.TargetLanguage != TargetLanguage.TypeScript
+var fieldName = sym != null
 ? JavaNaming.GetAutoPropertyBackingFieldName(sym) : ConversionContext.EscapeJavaKeyword(Camel(name)); 
 var isStatic = p.Modifiers.Any(m => m.IsKind(StaticKeyword)); var baseMods = ConvertModifiers(p.Modifiers, isStatic);
 var oldStatic = ctx.IsInStaticMember; if (isStatic) ctx.IsInStaticMember = true;
@@ -89,7 +89,7 @@ private JavaModifiers AccessorModifiers(SyntaxTokenList propertyTokens, SyntaxTo
 { if (!HasVisibility(propertyTokens)) modifiers = JavaModifiers.Public | (modifiers & ~Visibility); if (HasVisibility(accessorTokens))
 { var a = ConvertModifiers(accessorTokens, false); modifiers = (modifiers & ~Visibility) | (a & Visibility); }
 var propertyIsPublic = propertyTokens.Any(m => m.IsKind(PublicKeyword)) || !HasVisibility(propertyTokens);
-return SingleAccess(modifiers, isSetter && propertyIsPublic, isSetter && ctx.Options.TargetLanguage == TargetLanguage.Java); } 
+return SingleAccess(modifiers, isSetter && propertyIsPublic, isSetter); } 
 private static JavaModifiers SingleAccess(JavaModifiers m, bool propertyIsPublic = false, bool javaTarget = true) {
 if (m.HasFlag(JavaModifiers.Private) && m.HasFlag(JavaModifiers.Protected)) return m & ~JavaModifiers.Public & ~JavaModifiers.Private;
 if (javaTarget && propertyIsPublic && m.HasFlag(JavaModifiers.Private) && !m.HasFlag(JavaModifiers.Public) && !m.HasFlag(JavaModifiers.Protected))
@@ -130,10 +130,7 @@ private static void InitDefault(JavaFieldDeclaration field, PropertyDeclarationS
 { if (!needsField || p.Initializer != null) return; if (typeInfo.Type?.SpecialType == SpecialType.System_Decimal)
 { ctx.AddImport("io.github.ningpp.compat.Decimal"); field.Initializer = "Decimal.ZERO"; }
 else if (StructCloneHelper.IsUserDefinedStruct(typeInfo.Type)) {
-if (ctx.Options.TargetLanguage == TargetLanguage.TypeScript && typeInfo.Type is INamedTypeSymbol s
-&& s.InstanceConstructors.Length > 1 && s.Locations.Any(l => l.IsInSource))
-{ var bare = propType.Contains('<') ? propType[..propType.IndexOf('<')] : propType; field.Initializer = $"{bare}.Create$1()"; }
-else field.Initializer = $"new {propType}()"; } else if (sym?.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType) {
+field.Initializer = $"new {propType}()"; } else if (sym?.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType) {
 if (ctx.IsFlagsEnum(enumType.Name) || enumType.GetAttributes().Any(a => a.AttributeClass?.Name is "FlagsAttribute" or "Flags")) return;
 var enumRef = BuildEnumRef(enumType);
 if (ctx.CurrentEnclosingRoslynType?.GetMembers(enumRef).Any(m => m is IFieldSymbol or IPropertySymbol) == true) {

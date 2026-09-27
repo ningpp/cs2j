@@ -822,12 +822,11 @@ public class ArgumentTransformer
         {
             var javaTargetType = context.MapType(targetParam.Type);
             if (!string.IsNullOrWhiteSpace(javaTargetType)
-                && ((isFormatProviderParam && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+                && (isFormatProviderParam
                     || HasValueTypeOverloadAtSamePosition(targetParam, GetReceiverTypeOfInvocation(arg, context))
                     || HasReferenceTypeOverloadAtSamePosition(targetParam, GetReceiverTypeOfInvocation(arg, context), context)
-                    || (context.Options.TargetLanguage != TargetLanguage.TypeScript
-                        && (IsSystemCollectionsInterfaceReceiver(arg, context)
-                            || IsMultiEnumerableReceiver(arg, context)))))
+                    || IsSystemCollectionsInterfaceReceiver(arg, context)
+                    || IsMultiEnumerableReceiver(arg, context)))
             {
                 // Non-generic interface members (e.g. IList.Add(object)) bind the param to
                 // System.Object. The concrete Java receiver may lack an Object overload
@@ -850,8 +849,7 @@ public class ArgumentTransformer
         // bare null also matches (e.g. MethodInfo.invoke(Object, Object...) vs
         // invoke(Object, List<?>) — C# Invoke(object, object[]) binds the array overload).
         // Cast null to the array type to force the intended overload.
-        if (IsNullEmittingArgument(arg, context)
-            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        if (IsNullEmittingArgument(arg, context))
         {
             var javaTargetType2 = context.MapType(targetParam.Type);
             if (!string.IsNullOrWhiteSpace(javaTargetType2)
@@ -1020,9 +1018,8 @@ public class ArgumentTransformer
             // (via its interface chain), so only wrap plain List<T> results
             // (from ArrayHelper.toList). Use fromTyped() (not from()) to
             // preserve the element type — from() returns CSharpGenericIList<Object>.
-            if (paramNamed.Name == "IList"
-                && context.Options.TargetLanguage != TargetLanguage.TypeScript
-                && !collectionExpr.StartsWith("CSharpList<", StringComparison.Ordinal))
+        if (paramNamed.Name == "IList"
+            && !collectionExpr.StartsWith("CSharpList<", StringComparison.Ordinal))
             {
                 context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
                 return $"CSharpGenericIList.fromTyped({collectionExpr})";
@@ -1068,17 +1065,15 @@ public class ArgumentTransformer
                 }
 
                 // If target is IEnumerable<T> and the argument is a stream, materialize it.
-                if (argIsEnumerable && paramNamed2.Name is "IEnumerable"
-                    && context.Options.TargetLanguage != TargetLanguage.TypeScript
-                    && transformedExpr.Contains(".stream(", StringComparison.Ordinal))
+            if (argIsEnumerable && paramNamed2.Name is "IEnumerable"
+                && transformedExpr.Contains(".stream(", StringComparison.Ordinal))
                 {
                     javaTargetNeedsCollection = true;
                     targetIsIEnumerable = true;
                 }
             }
 
-            if (argIsEnumerable && javaTargetNeedsCollection
-                && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        if (argIsEnumerable && javaTargetNeedsCollection)
             {
                 context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 context.AddImport("java.util.stream.StreamSupport");
@@ -1098,8 +1093,7 @@ public class ArgumentTransformer
         // returns List<T> in Java. When the target parameter is IEnumerable<T>
         // (mapped to CSharpGenericIterable<T>), List<T> does not implement
         // CSharpGenericIterable<T>, so wrap it via CSharpGenericIterable.from().
-        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
-            && paramType is INamedTypeSymbol paramNamedEmpty
+        if (paramType is INamedTypeSymbol paramNamedEmpty
             && paramNamedEmpty.Name == "IEnumerable"
             && paramNamedEmpty.ContainingNamespace?.ToDisplayString().StartsWith("System") == true)
         {
@@ -1252,8 +1246,7 @@ public class ArgumentTransformer
         // lambda's own inferred return type, which may differ from the delegate
         // parameter's type argument after C# implicit widening (e.g. an int-returning
         // lambda bound to Func<long>). Re-cast the lambda to the parameter type.
-        if (paramType is INamedTypeSymbol { TypeKind: TypeKind.Delegate, TypeArguments.Length: 1 } delegateParam
-            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        if (paramType is INamedTypeSymbol { TypeKind: TypeKind.Delegate, TypeArguments.Length: 1 } delegateParam)
         {
             var mappedDelegate = context.MapType(delegateParam);
             if (mappedDelegate.StartsWith("Supplier<", StringComparison.Ordinal)
@@ -1741,10 +1734,6 @@ public class ArgumentTransformer
     private static string CoerceEnumerableStreamFallback(ArgumentSyntax arg, string transformedExpr, ConversionContext context)
     {
         if (context.SemanticModel == null)
-            return transformedExpr;
-
-        // Java-only stream coercion; TS target keeps native arrays / Enumerable chains.
-        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
             return transformedExpr;
 
         var argType = context.GetTypeInfo(arg.Expression).Type as INamedTypeSymbol;

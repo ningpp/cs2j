@@ -262,29 +262,6 @@ public class ProjectConversionPipeline
     private IReadOnlyList<ICs2jPass<ProjectPassState>> CreateProjectPasses(out ProjectLinqDesugarPass linqPass)
     {
         linqPass = new ProjectLinqDesugarPass();
-        if (_options.TargetLanguage == Context.TargetLanguage.TypeScript)
-        {
-            // Task 38：项目级 TS 分叉（spec §2.4）——TS 语法树层 rewriter 序列
-            // （ProjectTsSyntaxRewritePass）在类型归一化之前；emit pass（ProjectTsEmitPass）
-            // 复用共享前端 + TS 二次映射发射；
-            // ProjectJavaModuleDependencyPass 由 ProjectNpmDependencyPass 替换；
-            // NativeInterop 检查在 pass 内降级为警告；跨文件/跨包 import 由
-            // ProjectTsImportEmitPass 发射（Task 40，spec §3.3，取代 Java 通配导入模型）。
-            return new ICs2jPass<ProjectPassState>[]
-            {
-                linqPass,
-                new ProjectCompilationCheckPass(),
-                new ProjectUnsupportedDomainCheckPass(),
-                new ProjectPlatformBoundaryCheckPass(),
-                new ProjectNativeInteropCheckPass(),
-                new ProjectExtensionMethodCheckPass(),
-                new ProjectTsSyntaxRewritePass(),
-                new ProjectPartialTypeNormalizationPass(),
-                new ProjectTsEmitPass(_irRewriters),
-                new ProjectTsImportEmitPass(),
-                new ProjectNpmDependencyPass(),
-            };
-        }
 
         return new ICs2jPass<ProjectPassState>[]
         {

@@ -56,16 +56,6 @@ public class IndexerTransformer : IMemberTransformer
             ? "set"
             : (implementsMap || isDictionaryLikeType) ? "put" : "set";
 
-        // Task 27（TS 专属，规格 §1.4.3）：TS 索引器方法名
-        // get_Item/set_Item（避免 SafeIdentifier 将 get/set 转义为 get$/set$，
-        // 且与调用点 TsIndexerRewriter 语法层改写一致）。Java 目标保持
-        // get/set/put，零回归。
-        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
-        {
-            getterName = "get_Item";
-            setterName = "set_Item";
-        }
-
         // Resolve parameter types from the symbol when possible. For explicit interface
         // implementations this uses the interface member's parameter types so the generated
         // Java method signature matches the generated interface declaration exactly.

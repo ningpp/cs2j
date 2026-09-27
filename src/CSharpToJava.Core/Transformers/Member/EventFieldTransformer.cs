@@ -4,8 +4,6 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
-using CSharpToJava.Core.TypeScript;
-
 namespace CSharpToJava.Core.Transformers.Member;
 
 public class EventFieldTransformer : IEventFieldTransformer
@@ -18,9 +16,8 @@ public class EventFieldTransformer : IEventFieldTransformer
         // backing store of that explicit event (e.g. `event MouseEventHandler mouseMove;`
         // + `public new event MouseEventHandler MouseMove { add { mouseMove += value; } }`).
         // Generating a second listener list/add/remove/fire set would collide with the
-        // explicit event's members, so skip it entirely for the Java target.
-        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
-            && IsBackingStoreOfExplicitEvent(node, context))
+        // explicit event's members, so skip it entirely.
+        if (IsBackingStoreOfExplicitEvent(node, context))
         {
             return result;
         }
@@ -108,8 +105,7 @@ public class EventFieldTransformer : IEventFieldTransformer
         // must use interface-qualified listener member names so they do not collide with
         // same-named class events or with base-class listener methods of the same erasure.
         string? qualifier = null;
-        if (node.ExplicitInterfaceSpecifier != null
-            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        if (node.ExplicitInterfaceSpecifier != null)
         {
             var name = node.ExplicitInterfaceSpecifier.Name.ToString();
             var dotIdx = name.LastIndexOf('.');
@@ -149,22 +145,6 @@ public class EventFieldTransformer : IEventFieldTransformer
     }
 
     /// <summary>
-    /// Task 27：由事件监听器签名构建 TS 函数类型（(sender: any, args: any) => void）；
-    /// 参数类型经 Java→TS 映射（Object→any、int→number 等），参数名沿用 C# 委托参数名。
-    /// </summary>
-    private static string BuildTsListenerType(EventSignature sig, ConversionContext context)
-    {
-        var table = new TsMemberMappingTable(null, null);
-        var parts = new List<string>();
-        foreach (var p in sig.Parameters)
-        {
-            var pTs = table.TryMapType(p.Type, out var mapped, out _) ? mapped : p.Type;
-            parts.Add($"{p.Name}: {pTs}");
-        }
-        return $"({string.Join(", ", parts)}) => void";
-    }
-
-    /// <summary>
     /// Task 27：事件字段可见性与 C# 事件声明一致（public/protected/private/internal→public）。
     /// </summary>
     private static JavaModifiers GetEventFieldVisibility(SyntaxTokenList originalModifiers)
@@ -200,27 +180,6 @@ public class EventFieldTransformer : IEventFieldTransformer
         string? qualifier = null)
     {
         var result = new List<JavaSyntaxNode>();
-
-        // Task 27：TS 目标事件声明 → 兼容库 CsEvent<T> 字段（spec §4.3.7），
-        // +=/-= 与触发调用点由 AssignmentTransformer/事件调用 TS 分叉改写为
-        // .Add/.Remove/.Invoke；不再生成 Java 的监听器列表字段与 add/remove/fire 方法。
-        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
-        {
-            var tsStatic = originalModifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
-                ? JavaModifiers.Static
-                : JavaModifiers.None;
-            var listenerTs = BuildTsListenerType(sig, context);
-            var fieldVisibility = GetEventFieldVisibility(originalModifiers);
-            context.TsCompatSymbols.Add("CsEvent");
-            result.Add(new JavaFieldDeclaration
-            {
-                Type = $"CsEvent<{listenerTs}>",
-                Name = eventName,
-                Modifiers = fieldVisibility | tsStatic,
-                Initializer = $"new CsEvent<{listenerTs}>()",
-            });
-            return result;
-        }
 
         var fieldName = EventListenerNaming.GetFieldName(qualifier, eventName);
         var addMethodName = EventListenerNaming.GetAddMethodName(qualifier, eventName);

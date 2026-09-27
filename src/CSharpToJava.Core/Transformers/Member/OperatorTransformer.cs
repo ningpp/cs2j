@@ -93,21 +93,6 @@ public class OperatorTransformer
         var opToken = opDecl.OperatorToken.Text;
         var javaName = ConvertOperatorTokenToJavaName(opToken, paramCount);
 
-        // Task 27（TS 专属）：运算符静态方法名 op_Add 等（spec §3.2）。结构体的
-        // ==/!= 保持 valueEquals/notEquals（StructTransformer 合成依赖 + 调用点已走
-        // CsObject.equals），其余运算符（含结构体 +-*/ 等）按 TS 名表改名。
-        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
-        {
-            var opSymbol = context.GetDeclaredSymbol(opDecl) as IMethodSymbol;
-            bool isStructEquality = (opToken == "==" || opToken == "!=")
-                && opSymbol?.ContainingType?.IsValueType == true;
-            if (!isStructEquality
-                && OpSymbolToTsName.TryGetValue(opSymbol?.Name ?? string.Empty, out var tsName))
-            {
-                javaName = tsName;
-            }
-        }
-
         // Suffix for C# 11 checked operator variants to avoid duplicate method names (Issue 4)
         if (opDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.CheckedKeyword)))
             javaName += "Checked";

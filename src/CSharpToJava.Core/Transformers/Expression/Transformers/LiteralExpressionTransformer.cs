@@ -65,7 +65,7 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
             // literal that exceeds int range unless it carries an explicit L suffix
             // ("integer number too large"), so the L suffix must be preserved.
             // TypeScript has no L suffix either: the TS writer turns L into bigint 'n'.
-            return TransformHexBinaryLiteral(literal, context.Options.TargetLanguage);
+            return TransformHexBinaryLiteral(literal);
         }
 
         if (literal.EndsWith("f") || literal.EndsWith("F"))
@@ -182,7 +182,7 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
     /// implicit suffix would wrongly turn plain number masks (uint constants,
     /// generated 2^32 truncation masks) into bigint.
     /// </summary>
-    private static string TransformHexBinaryLiteral(string literal, TargetLanguage target)
+    private static string TransformHexBinaryLiteral(string literal)
     {
         // Strip trailing C# suffixes (U/u/L/l in any order, e.g. UL, LU).
         int i = literal.Length - 1;
@@ -199,13 +199,6 @@ public class LiteralExpressionTransformer : IIRExpressionTransformer
         if (hadLongSuffix)
         {
             return digits + "L";
-        }
-
-        if (target == TargetLanguage.TypeScript)
-        {
-            // Unsuffixed C# hex/binary literals are int/uint constants; TS keeps
-            // them as plain number literals (no implicit L, no implicit bigint).
-            return digits;
         }
 
         // Java: determine whether an L suffix is required based on the value.

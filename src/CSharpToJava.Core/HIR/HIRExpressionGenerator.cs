@@ -223,8 +223,7 @@ public class HIRExpressionGenerator
         // Class<T> parameters (registered via typeof(T)/default(T) in the body).
         // The HIR path (async lambdas, await chains) bypasses the string-based
         // InvocationExpressionTransformer's token prepending, so inject them here.
-        if (symbol?.IsGenericMethod == true && symbol.TypeArguments.Length > 0
-            && _ctx.Options.TargetLanguage != TargetLanguage.TypeScript)
+if (symbol?.IsGenericMethod == true && symbol.TypeArguments.Length > 0)
         {
             // Hoisted local functions and forward-referenced helpers register their
             // Class<T> requirements with keys that may not match the resolved symbol,

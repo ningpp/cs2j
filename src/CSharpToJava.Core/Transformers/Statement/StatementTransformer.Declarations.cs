@@ -271,9 +271,8 @@ public partial class StatementTransformer
                 // is concrete but the initializer chain ends with a method call (whose result
                 // Java infers as Object), restore the C# type with an explicit cast so `var`
                 // declares the intended type and member access compiles.
-                if (javaType == "var"
-                    && context.Options.TargetLanguage != TargetLanguage.TypeScript
-                    && localTargetType is { } localConcreteType
+        if (javaType == "var"
+            && localTargetType is { } localConcreteType
                     && IsUsableLocalOverrideType(localConcreteType)
                     && localConcreteType.SpecialType is not (SpecialType.System_Object or SpecialType.System_String)
                     && localConcreteType.TypeKind is not (TypeKind.Enum or TypeKind.Interface or TypeKind.Delegate)
@@ -408,8 +407,7 @@ public partial class StatementTransformer
                 // Java would otherwise infer Stream<T> from LINQ chains. Materialize eagerly.
                 // This applies both to implicit "var" and explicit IEnumerable<T> declarations,
                 // because IEnumerable<T> is intentionally lowered to Java var in this transformer.
-                if (javaType == "var" && context.SemanticModel != null
-                    && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        if (javaType == "var" && context.SemanticModel != null)
                 {
                     var localSym = context.GetDeclaredSymbol(v) as ILocalSymbol;
                     bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
@@ -477,9 +475,8 @@ public partial class StatementTransformer
                         var localSymForStream = context.GetDeclaredSymbol(v) as ILocalSymbol;
                         isSemanticArrayType = localSymForStream?.Type is IArrayTypeSymbol;
                     }
-                    if (initLooksLikeStream && !isArrayJavaType && !isSemanticArrayType
-                        && context.Options.TargetLanguage != TargetLanguage.TypeScript)
-                        context.MethodState.AddStreamVariable(v.Identifier.Text);
+        if (initLooksLikeStream && !isArrayJavaType && !isSemanticArrayType)
+            context.MethodState.AddStreamVariable(v.Identifier.Text);
                 }
                 // Struct chained assignment in variable declaration:
                 // Point center = previousCenter = p;

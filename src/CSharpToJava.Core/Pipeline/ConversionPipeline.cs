@@ -47,13 +47,6 @@ public class ConversionResult
     public IReadOnlySet<string>? JavaModuleDependencies { get; set; }
 
     /// <summary>
-    /// npm 包依赖（生成 TS 的 ESM 导入包名，如 "@csharptotypescript/compat"）。
-    /// 由 ProjectNpmDependencyPass（TS 目标，Task 38）收集；CLI 据此写模块
-    /// package.json dependencies（Task 40 接线）。
-    /// </summary>
-    public IReadOnlySet<string>? NpmPackageDependencies { get; set; }
-
-    /// <summary>
     /// The Java IR compilation unit for this output file.  Preserved after the emit pass so
     /// that downstream passes (e.g. cross-package import resolution, module dependency analysis)
     /// can operate on structured IR nodes rather than re-parsing generated code strings.
@@ -238,7 +231,7 @@ public class ConversionPipeline
                 var code = StripGlobalAlias(passState.GeneratedCode);
                 code = StripRedundantConditionalParens(code);
                 var result = CreateSuccessResult(code, context, request.FileName, passMetrics);
-                result.Compilation = passState.JavaCompilation;   // 保留 IR，供 TS 发射器直接发射（Task 10 绿测试）与后置 pass 使用
+                result.Compilation = passState.JavaCompilation;   // 保留 IR，供后置 pass 使用
                 result.LinqStatistics = passState.LinqStatistics;
                 return result;
             }
@@ -417,22 +410,6 @@ public class ConversionPipeline
 
     private IReadOnlyList<ICs2jPass<SingleFilePassState>> CreateSingleFilePasses(ConversionOptions options)
     {
-        // Codegen 层分叉：TS 路径用 SingleFileTsEmitPass 替换 SingleFileJavaEmitPass
-        //（仅跑用户注册 rewriter，Java 专属内置 rewriter 不进入 TS 管线）。
-        if (options.TargetLanguage == Context.TargetLanguage.TypeScript)
-        {
-            return new ICs2jPass<SingleFilePassState>[]
-            {
-                new SingleFileLinqDesugarPass(),
-                new SingleFileCompilationCheckPass(),
-                new SingleFileUnsupportedDomainCheckPass(),
-                new SingleFilePlatformBoundaryCheckPass(),
-                new SingleFileNativeInteropCheckPass(),
-                new SingleFileContextNormalizationPass(),
-                new SingleFileTsEmitPass(_irRewriters),
-            };
-        }
-
         return new ICs2jPass<SingleFilePassState>[]
         {
             new SingleFileLinqDesugarPass(),

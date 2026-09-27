@@ -161,9 +161,8 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
         LinqStatistics = null;
         state.Context.PreDesugarCompilation = null;
 
-        var isTsTarget = state.Context.Options.TargetLanguage == TargetLanguage.TypeScript;
         var runLinqRewrite = state.Context.Options.EnableLinqRewrite && !state.Context.Options.EffectivePreferStreamApi;
-        if (!runLinqRewrite && !isTsTarget)
+        if (!runLinqRewrite)
         {
             return;
         }
@@ -199,33 +198,7 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             }
         }
 
-        // Phase 2a (Task 36): TS-target BCL member mapping (MemberMappings.json).
-        // Must run before the LINQ rewrite: after Enumerable.xxx rewriting the
-        // lambda parameter types are unresolvable (compilation has no Enumerable
-        // reference) and member mapping would degrade to Java-ized names.
-        // Independent of EnableLinqRewrite so that --no-linq-rewrite still maps.
-        var memberChanged = false;
-        if (isTsTarget)
-        {
-            var memberInputTrees = state.Compilation.SyntaxTrees.ToList();
-            var memberResults = ProjectPassParallelism.RunDeterministic(
-                memberInputTrees,
-                state.Context.Options.EnableParallelProjectPasses,
-                syntaxTree => RewriteSyntaxTreeMembers(state, syntaxTree));
-            memberChanged = memberResults.Any(r => r.Changed);
-            foreach (var warning in memberResults.SelectMany(result => result.Warnings))
-            {
-                state.Context.Diagnostics.Warning(warning);
-            }
-            if (memberChanged)
-            {
-                state.Compilation = ReplaceChangedSyntaxTrees(state.Compilation, memberInputTrees, memberResults);
-            }
-        }
-
-        // Phase 2b: Rewrite LINQ method-call chains (Java target -> procedural
-        // loops; TS target -> array methods / Enumerable lazy chains, see
-        // RewriteSyntaxTree).
+        // Phase 2: Rewrite LINQ method-call chains -> procedural loops.
         var preRewriteCompilation = state.Compilation;
         var rewriteInputTrees = preRewriteCompilation.SyntaxTrees.ToList();
         var aggregatedStats = new LinqRewriteStatistics();
@@ -261,78 +234,13 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             }
         }
 
-        if (!desugarChanged && !memberChanged && !rewriteChanged)
+        if (!desugarChanged && !rewriteChanged)
         {
             return;
         }
 
         RebuildProjectStateAfterCompilationChange(state);
     }
-
-    /// <summary>
-    /// TS 目标（Task 36）：按 C# 全名查 TsMemberMappingTable 改写 BCL 成员调用
-    /// （CsString.* / Math.trunc / console.log / push / length / CsDictionary.* 等），
-    /// 兼容包符号登记到 context.TsCompatSymbols（发射器自动生成 compat 导入）。
-    /// 仅 TS 目标调用；必须在 TsLinqRewriter 之前运行（语义模型完整）。
-    /// </summary>
-    private static ProjectLinqRewriteResult RewriteSyntaxTreeMembers(ProjectPassState state, SyntaxTree syntaxTree)
-    {
-        if (ProjectPassState.IsSyntheticFilePath(syntaxTree.FilePath))
-        {
-            return new ProjectLinqRewriteResult
-            {
-                SyntaxTree = syntaxTree,
-                Warnings = [],
-                RewriteCount = 0,
-                Changed = false,
-            };
-        }
-
-        try
-        {
-            var semanticModel = state.Compilation.GetSemanticModel(syntaxTree);
-            var originalRoot = syntaxTree.GetRoot();
-            var memberMappingTable = new TypeScript.TsMemberMappingTable(
-                state.Context.Options.TypeScriptMappingConfigPath,
-                state.Context.Options.TypeScriptMemberMappingPath,
-                state.Context.Options.TypeMappingConfigPath);
-            var memberRoot = new TypeScript.Rewriters.TsMemberMappingRewriter(
-                semanticModel, memberMappingTable, state.Context)
-                .Visit(originalRoot);
-            var changed = false;
-            SyntaxTree rewrittenTree;
-            if (memberRoot is CompilationUnitSyntax memberCompilationUnit)
-            {
-                changed = !ReferenceEquals(memberCompilationUnit, originalRoot);
-                rewrittenTree = changed
-                    ? syntaxTree.WithRootAndOptions(memberCompilationUnit, syntaxTree.Options)
-                    : syntaxTree;
-            }
-            else
-            {
-                rewrittenTree = syntaxTree;
-            }
-
-            return new ProjectLinqRewriteResult
-            {
-                SyntaxTree = rewrittenTree,
-                Warnings = [],
-                RewriteCount = 0,
-                Changed = changed,
-            };
-        }
-        catch (Exception ex)
-        {
-            return new ProjectLinqRewriteResult
-            {
-                SyntaxTree = syntaxTree,
-                Warnings = ["TS member mapping skipped in '" + Path.GetFileName(syntaxTree.FilePath) + "': " + ex.Message],
-                RewriteCount = 0,
-                Changed = false,
-            };
-        }
-    }
-
 
     private static CSharpCompilation ReplaceChangedSyntaxTrees(
         CSharpCompilation compilation,
@@ -439,28 +347,14 @@ public sealed class ProjectLinqDesugarPass : ICs2jPass<ProjectPassState>, ICs2jP
             IReadOnlyList<string> warnings;
             int rewriteCount;
             LinqRewriteStatistics? statistics;
-            // Task 36 LINQ 目标分叉（spec §2.4）：TS 目标 → 简单链数组方法 filter/map、
-            // 复杂链 Enumerable.xxx 惰性链；Java 目标 → 过程化循环（原行为）。
-            if (state.Context.Options.TargetLanguage == TargetLanguage.TypeScript)
-            {
-                var tsRewriter = new TypeScript.Rewriters.TsLinqRewriter(semanticModel, state.Context);
-                rewrittenRoot = tsRewriter.Visit(originalRoot);
-                warnings = tsRewriter.SkippedLinqChains
-                    .Select(skipped => $"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {skipped}")
-                    .ToList();
-                rewriteCount = tsRewriter.RewrittenCalls;
-                statistics = new LinqRewriteStatistics { RewrittenChainCount = tsRewriter.RewrittenChains };
-            }
-            else
-            {
-                var rewriter = new LinqRewriter(semanticModel, state.Context.Options);
-                rewrittenRoot = rewriter.Visit(originalRoot);
-                warnings = rewriter.SkippedLinqChains
-                    .Select(skipped => $"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {skipped}")
-                    .ToList();
-                rewriteCount = rewriter.RewrittenLinqQueries;
-                statistics = rewriter.Statistics;
-            }
+            // LINQ chain rewriting -> procedural loops (LinqRewriter).
+            var rewriter = new LinqRewriter(semanticModel, state.Context.Options);
+            rewrittenRoot = rewriter.Visit(originalRoot);
+            warnings = rewriter.SkippedLinqChains
+                .Select(skipped => $"LINQ rewrite skipped in '{Path.GetFileName(syntaxTree.FilePath)}': {skipped}")
+                .ToList();
+            rewriteCount = rewriter.RewrittenLinqQueries;
+            statistics = rewriter.Statistics;
             var changed = false;
             SyntaxTree rewrittenTree;
             if (rewrittenRoot is CompilationUnitSyntax rewrittenCompilationUnit)
@@ -618,7 +512,6 @@ public sealed class ProjectNativeInteropCheckPass : ICs2jPass<ProjectPassState>
 
     public void Execute(ProjectPassState state)
     {
-        var isTsTarget = state.Context.Options.TargetLanguage == TargetLanguage.TypeScript;
         var syntaxTrees = state.Compilation.SyntaxTrees
             .Where(syntaxTree => !ProjectPassState.IsSyntheticFilePath(syntaxTree.FilePath))
             .Where(syntaxTree => !BoundaryAnalysisHelpers.IsPInvokeContainerFile(syntaxTree.FilePath))
@@ -636,19 +529,6 @@ public sealed class ProjectNativeInteropCheckPass : ICs2jPass<ProjectPassState>
             var diagnostics = analysisResult.Diagnostics;
             if (diagnostics.Count == 0)
             {
-                continue;
-            }
-
-            if (isTsTarget)
-            {
-                // TS 目标（Task 38，spec §2.4）：NativeInterop 检查降级为警告，不阻断发射
-                foreach (var diagnostic in diagnostics)
-                {
-                    state.Context.Diagnostics.Warning(diagnostic.Message, diagnostic.Location, diagnostic.Code, diagnostic.Category);
-                    // 存入结果的诊断须为降级后的 Warning 副本（原始为 Error，否则结果 Success 会被置 false）
-                    var downgraded = diagnostic with { Severity = Context.DiagnosticSeverity.Warning };
-                    state.RegisterFileDiagnostics(analysisResult.FilePath, [downgraded], blockEmit: false);
-                }
                 continue;
             }
 

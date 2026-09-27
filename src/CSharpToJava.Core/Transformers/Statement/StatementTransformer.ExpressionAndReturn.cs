@@ -175,8 +175,7 @@ public partial class StatementTransformer
         }
 
         // 整数字面量返回给 byte/short：Java 没有 C# 的常量隐式窄化
-        if (ctx.Options.TargetLanguage != TargetLanguage.TypeScript
-            && Regex.IsMatch(expr.Trim(), @"^-?\d+$")
+        if (Regex.IsMatch(expr.Trim(), @"^-?\d+$")
             && retType is INamedTypeSymbol { TypeKind: TypeKind.Struct } nt)
         {
             if (nt.SpecialType is SpecialType.System_Byte or SpecialType.System_SByte)
@@ -327,8 +326,6 @@ public partial class StatementTransformer
             && ctx.GetSymbolInfo(cond.Expression).Symbol is IEventSymbol evt)
         {
             var args = string.Join(", ", ci.ArgumentList.Arguments.Select(a => f.Transform(a.Expression, ctx)));
-            if (ctx.Options.TargetLanguage == TargetLanguage.TypeScript)
-                return $"{TsEventField(cond.Expression, evt, ctx)}.Invoke({args});";
             var q = Transformers.Member.EventListenerNaming.GetInterfaceQualifier(evt);
             var field = Transformers.Member.EventListenerNaming.GetFieldName(q, evt.Name);
             var fire = Transformers.Member.EventListenerNaming.GetFireMethodName(q, evt.Name);

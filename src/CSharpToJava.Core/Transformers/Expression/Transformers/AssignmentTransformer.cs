@@ -125,22 +125,13 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var rawRight = f.Transform(a.Right, c);
         // Custom event accessor body (`add { E += value; }`): the generated add method
         // names its single parameter after the listener (e.g. "handler"), not "value".
-        if (c.Options.TargetLanguage != TargetLanguage.TypeScript
-            && a.Right is IdentifierNameSyntax { Identifier.ValueText: "value" }
+        if (a.Right is IdentifierNameSyntax { Identifier.ValueText: "value" }
             && c.CurrentMethod?.Parameters.Length == 1)
         {
             rawRight = ConversionContext.EscapeJavaKeyword(c.CurrentMethod.Parameters[0].Name);
         }
         var handler = HandlerLambda(rawRight, a.Right, c);
         var action = op == "+=" ? "add" : "remove";
-
-        if (c.Options.TargetLanguage == TargetLanguage.TypeScript)
-        {
-            var receiver = a.Left is MemberAccessExpressionSyntax tsMa
-                ? f.Transform(tsMa.Expression, c)
-                : evt.IsStatic && c.CurrentType != null ? c.CurrentType.Name : "this";
-            return $"{receiver}.{evt.Name}.{(op == "+=" ? "Add" : "Remove")}({handler})";
-        }
 
         if (a.Left is MemberAccessExpressionSyntax ma)
         {
@@ -184,12 +175,10 @@ public class AssignmentTransformer : IIRExpressionTransformer
         if (method == null) return handler;
 
         var name = char.ToLowerInvariant(method.Name[0]) + method.Name[1..];
-        var ts = c.Options.TargetLanguage == TargetLanguage.TypeScript;
-        var parameters = string.Join(", ", method.Parameters.Select(p => ts ? p.Name : ConversionContext.EscapeJavaKeyword(p.Name)));
-        receiver ??= ts ? (method.IsStatic && c.CurrentType != null ? c.CurrentType.Name : "this")
-                        : method.IsStatic ? method.ContainingType.Name : "";
+        var parameters = string.Join(", ", method.Parameters.Select(p => ConversionContext.EscapeJavaKeyword(p.Name)));
+        receiver ??= method.IsStatic ? method.ContainingType.Name : "";
         var prefix = receiver.Length == 0 ? "" : receiver + ".";
-        var arrow = ts ? "=>" : "->";
+        var arrow = "->";
         return $"({parameters}) {arrow} {prefix}{name}({parameters})";
     }
 
@@ -200,7 +189,6 @@ public class AssignmentTransformer : IIRExpressionTransformer
         var f = ExpressionTransformerFacade.Instance;
         var left = f.Transform(a.Left, c);
         var right = f.Transform(a.Right, c);
-        if (c.Options.TargetLanguage == TargetLanguage.TypeScript) return $"{left} ??= {right}";
         c.AddPreStatement($"if ({left} == null) {left} = {right}");
         return left;
     }

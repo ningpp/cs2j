@@ -121,29 +121,6 @@ public class ConversionContext
     public ConversionOptions Options { get; }
     public SemanticModel? SemanticModel { get; set; }
 
-    /// <summary>
-    /// TS 目标（Task 23）：重载构造器工厂名集合（TsOverloadDisambiguationRewriter 登记；
-    /// InvocationExpressionTransformer 对 symbol==null 的 Type.Create$N(...) 调用保留大小写）。
-    /// </summary>
-    public HashSet<string>? TsFactoryMethodNames { get; set; }
-
-    /// <summary>
-    /// TS 目标（Task 24/25）：rewriter 登记需 compat 导入的符号
-    /// （TypeToken/csDefault/CsRuntime 等），RunTsRewriters 合并进发射器 CompatSymbols。
-    /// </summary>
-    public HashSet<string> TsCompatSymbols { get; } = new(StringComparer.Ordinal);
-
-    /// <summary>
-    /// TS 目标（Task 25）：接口探针函数（is$IXxx 全文本）——TsInterfaceProbeRewriter 生成，
-    /// TypeScriptEmitter 在类型声明之后追加。
-    /// </summary>
-    public Dictionary<string, string>? TsInterfaceProbes { get; set; }
-    /// <summary>
-    /// TS 目标（Task 39）：测试类元数据（键 "命名空间.类名"，全局命名空间键为类名）——
-    /// TsTestCollectorRewriter 收集 xUnit/MSTest 测试类信息，TsTestAssertRewriter 与
-    /// TypeScriptEmitter 据此把测试类发射为 vitest describe/it 结构。
-    /// </summary>
-    public Dictionary<string, TypeScript.TsTestClassInfo>? TsTestClasses { get; set; }
     public TypeMapping.TypeMappingRegistry TypeMappings { get; }
     public DiagnosticCollector Diagnostics { get; } = new();
 

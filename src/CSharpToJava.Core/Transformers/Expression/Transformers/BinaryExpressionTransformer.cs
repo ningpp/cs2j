@@ -128,8 +128,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             {
                 // 结构体 ==/!= 声明端保持 valueEquals/notEquals（StructTransformer
                 // 合成依赖），调用点残余路径沿用 Java 名保持一致。
-                var tsOpName = context.Options.TargetLanguage == TargetLanguage.TypeScript
-                    && !(ms.ContainingType.IsValueType && ms.Name is "op_Equality" or "op_Inequality");
+                var tsOpName = false;
                 var javaMethodName = GetOperatorMethodName(ms, tsOpName);
                 var leftIR = facade.TransformToIR(binExpr.Left, context);
                 var rightIR = facade.TransformToIR(binExpr.Right, context);
@@ -140,8 +139,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 JavaExpression? target;
                 // TS 无 Java 的隐式静态访问：类内调用点也必须
                 // Type.op_Add(...) 限定（Task 27）。
-                if (currentTypeName != null && operatorTypeName == currentTypeName
-                    && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+                if (currentTypeName != null && operatorTypeName == currentTypeName)
                 {
                     target = null; // unqualified call within same class (Java only)
                 }
@@ -181,11 +179,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Check for string equality (needs Objects.equals) → JavaMethodCallExpression
-        // Task 26 (TS only): skip this branch for TypeScript, falling through to the
-        // standard JavaBinaryExpression{==/!=} node; the TS emitter's EmitBinary maps
-        // ==/!= to ===/!== uniformly (string value comparison matches on both ends).
-        if ((op == "==" || op == "!=") && context.SemanticModel != null
-            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+if ((op == "==" || op == "!=") && context.SemanticModel != null)
         {
             bool leftIsString = IsStringType(binExpr.Left, context.SemanticModel);
             bool rightIsString = IsStringType(binExpr.Right, context.SemanticModel);
@@ -212,8 +206,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         // Nullable bool equality: route through the string transformer so the
         // null-safe Objects.equals(...) form is emitted instead of a raw
         // `==`/`!=` that unboxes the nullable Boolean.
-        if ((op == "==" || op == "!=") && context.SemanticModel != null
-            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+if ((op == "==" || op == "!=") && context.SemanticModel != null)
         {
             var nullableBoolEq = TryTransformNullableBoolEquality(binExpr, op, context);
             if (nullableBoolEq != null)
@@ -632,9 +625,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                     if (leftIsEnum && !IsEnumArithmeticOrBitwiseExpression(node.Left)) leftExpr = $"{leftExpr}.getValue()";
                     if (rightIsEnum && !IsEnumArithmeticOrBitwiseExpression(node.Right)) rightExpr = $"{rightExpr}.getValue()";
                     // Task 26 (TS only): equality operators -> === / !==
-                    var eqOp1 = context.Options.TargetLanguage == TargetLanguage.TypeScript
-                        ? (op == "==" ? "===" : "!==")
-                        : op;
+var eqOp1 = op;
                     return $"{leftExpr} {eqOp1} {rightExpr}";
                 }
             }
@@ -654,10 +645,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                     var rightExpr = facade.Transform(node.Right, context);
                     if (!leftIsEnumOp) leftExpr = $"{leftExpr}.getValue()";
                     if (!rightIsEnumOp) rightExpr = $"{rightExpr}.getValue()";
-                    // Task 26 (TS only): equality operators -> === / !==
-                    var eqOp2 = context.Options.TargetLanguage == TargetLanguage.TypeScript
-                        ? (op == "==" ? "===" : "!==")
-                        : op;
+                    var eqOp2 = op;
                     return $"{leftExpr} {eqOp2} {rightExpr}";
                 }
             }
@@ -723,19 +711,6 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         }
 
         // Task 26 (TS only): equality operators -> === / !== (spec 2.6.4).
-        // String/primitive/plain-reference/nullable comparisons in TS use ===/!==
-        // which matches C# value/reference semantics (string value comparison is
-        // identical on both ends, no Objects.equals wrapper needed); record/struct/
-        // Equals-overriding class ==/!= were already rewritten to
-        // CsObject.equals(...) by the syntax-level TsEqualityRewriter, so they never
-        // reach this branch. The Java path (default target) never enters it.
-        if (context.Options.TargetLanguage == TargetLanguage.TypeScript && (op == "==" || op == "!="))
-        {
-            left = WrapOperandIfNeeded(node.Left, left, op, true);
-            right = WrapOperandIfNeeded(node.Right, right, op, false);
-            return op == "==" ? $"{left} === {right}" : $"{left} !== {right}";
-        }
-
         // String == / != must preserve C#'s null-safe value semantics.
         if ((op == "==" || op == "!=") && context.SemanticModel != null)
         {
@@ -919,7 +894,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         string op,
         ConversionContext context)
     {
-        if (context.Options.TargetLanguage != TargetLanguage.Java || !IsComparisonOp(op))
+        if (!IsComparisonOp(op))
             return null;
 
         var semanticModel = context.GetSemanticModelForNode(node) ?? context.SemanticModel;
@@ -2021,13 +1996,9 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     {
         var facade = ExpressionTransformerFacade.Instance;
 
-        // Get the method name for this operator (e.g., operator+ → add; TS 目标 op_Add)
-        // 结构体 ==/!= 声明端保持 valueEquals/notEquals（合成依赖），
-        // 调用点残余路径（非双结构体操作数）沿用 Java 名保持一致。
-        var tsOpName = context.Options.TargetLanguage == TargetLanguage.TypeScript
-            && !(operatorSymbol.ContainingType.IsValueType
-                 && operatorSymbol.Name is "op_Equality" or "op_Inequality");
-        var javaMethodName = GetOperatorMethodName(operatorSymbol, tsOpName);
+        // Get the method name for this operator (e.g., operator+ → add).
+        // 结构体 ==/!= 保持 valueEquals/notEquals（合成依赖）。
+        var javaMethodName = GetOperatorMethodName(operatorSymbol);
 
         // Transform both operands
         var left = facade.Transform(node.Left, context);
@@ -2042,8 +2013,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
         // TS 无 Java 的隐式静态访问：类内调用点也必须
         // Type.op_Add(...) 限定（Task 27）。
-        if (currentTypeName != null && operatorTypeName == currentTypeName
-            && context.Options.TargetLanguage != TargetLanguage.TypeScript)
+        if (currentTypeName != null && operatorTypeName == currentTypeName)
         {
             return $"{javaMethodName}({left}, {right})";
         }
@@ -2174,13 +2144,6 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         var facade = ExpressionTransformerFacade.Instance;
         var left = facade.Transform(node.Left, context);
         var right = facade.Transform(node.Right, context);
-
-        // Task 20: TS 目标下 C# ?? 直译为原生 ??（ES2020，spec §1.4.7
-        // 优势点直译）；统一括号包裹保证任意嵌入位置优先级正确。
-        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
-        {
-            return $"({left} ?? {right})";
-        }
 
         // If the left operand is always null (e.g. from 'IEnumerable as T[]' which
         // always yields null in Java), simplify to just the right operand.
