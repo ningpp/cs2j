@@ -9,6 +9,7 @@ using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.LocalFunctionLift;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 using CSharpToJava.Core.NullCoalesceRewriter;
+using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Core.TypeScript;
@@ -47,7 +48,10 @@ public class Program
                 (ForeachDeconstructionVerbOptions opts) => ForeachDeconstructionAsync(opts),
                 (NullCoalesceVerbOptions opts) => NullCoalesceAsync(opts),
                 (DelegatePreprocessVerbOptions opts) => DelegatePreprocessAsync(opts),
-                errs => Task.FromResult(1)
+                _ => parser.ParseArguments<EnumPreprocessVerbOptions>(args)
+                    .MapResult(
+                        (EnumPreprocessVerbOptions opts) => EnumPreprocessAsync(opts),
+                        _ => Task.FromResult(1))
             );
     }
 
@@ -270,6 +274,47 @@ public class Program
                 opts.Source = nullCoalesceResult.PreprocessedSourcePath;
                 opts.FingerprintSourcePath ??= nullCoalesceResult.OriginalSourcePath;
                 opts.FingerprintInputRoot ??= nullCoalesceResult.SourceRoot;
+            }
+
+            if (opts.EnumPreprocess)
+            {
+                var enumResult = await ProjectEnumPreprocessor.PreprocessAsync(
+                    new ProjectEnumPreprocessRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                        VerifyBuild = opts.VerifyBuild,
+                        VerifyTests = opts.VerifyTests,
+                        Strict = opts.LocalFunctionStrict,
+                    });
+
+                Console.WriteLine(
+                    $"enum: {enumResult.Statistics.FilesTransformed} transformed, " +
+                    $"{enumResult.Statistics.FilesSkippedClean} clean, " +
+                    $"{enumResult.Statistics.FilesDirtyNoRewrite} dirty-no-rewrite, " +
+                    $"{enumResult.Statistics.BitwiseOrRewritten + enumResult.Statistics.BitwiseAndRewritten + enumResult.Statistics.BitwiseXorRewritten} bitwise, " +
+                    $"{enumResult.Statistics.BitwiseNotRewritten} ~, " +
+                    $"{enumResult.Statistics.CompoundAssignRewritten} compound, " +
+                    $"{enumResult.Statistics.HasFlagRewritten} HasFlag, " +
+                    $"{enumResult.Statistics.NullableLiftedRewritten} lifted, " +
+                    $"{enumResult.Statistics.ResidualCount} residual");
+
+                foreach (var diagnostic in enumResult.Diagnostics)
+                {
+                    var prefix = diagnostic.FilePath != null ? $"{diagnostic.FilePath}: " : "";
+                    Console.Error.WriteLine($"[{diagnostic.Severity}] {prefix}{diagnostic.Message}");
+                }
+
+                if (!enumResult.Success)
+                    return 1;
+
+                opts.Source = enumResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= enumResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= enumResult.SourceRoot;
             }
 
             if (opts.DelegatePreprocess)
@@ -2192,6 +2237,10 @@ if (opts.DelegatePreprocess)
 {
 preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
 }
+if (opts.EnumPreprocess)
+{
+preserved.Add(ProjectEnumPreprocessor.IntermediateDirectoryName);
+}
         return preserved.Count > 0 ? preserved : null;
     }
 
@@ -3024,6 +3073,7 @@ preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
             $"local-function-lift={opts.LocalFunctionLift}",
             $"null-coalesce={opts.NullCoalesce}",
             $"delegate-preprocess={opts.DelegatePreprocess}",
+            $"enum-preprocess={opts.EnumPreprocess}",
             $"extra-deps={GetNormalizedExtraDependencyToken(opts)}",
         };
     }
@@ -4093,6 +4143,95 @@ preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
             $"{preprocessResult.Statistics.CompoundAssignRewritten} compound, " +
             $"{preprocessResult.Statistics.AnonymousMethodRewritten} anonymous method, " +
             $"{preprocessResult.Statistics.SkippedUnsupported} skipped, " +
+            $"{preprocessResult.Statistics.ResidualCount} residual");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            var prefix = diagnostic.FilePath != null ? $"{diagnostic.FilePath}: " : "";
+            Console.Error.WriteLine($"[{diagnostic.Severity}] {prefix}{diagnostic.Message}");
+        }
+
+        Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+        return preprocessResult.Success ? 0 : 1;
+    }
+
+    private static async Task<int> EnumPreprocessAsync(EnumPreprocessVerbOptions opts)
+    {
+        var coreOptions = new EnumPreprocessorOptions(Verbose: opts.Verbose, Strict: opts.Strict);
+        var rewriter = new EnumPreprocessor();
+
+        // Single-file mode
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+                "enum-preprocess-standalone",
+                new[] { tree },
+                ProjectUnsignedTypePreprocessor.GetBasicReferences(),
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                    Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+            var model = compilation.GetSemanticModel(tree);
+            var result = rewriter.Preprocess(sourceCode, model, coreOptions);
+
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+                if (opts.Verbose)
+                    Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+            }
+            else
+            {
+                Console.Write(result.OutputCode);
+            }
+
+            foreach (var d in result.Diagnostics)
+                Console.Error.WriteLine($"[{d.Severity}] {d.Message}");
+
+            return result.Diagnostics.Any(d => d.Severity == EnumPreprocessorSeverity.Error) ? 1 : 0;
+        }
+
+        // Project / directory mode
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectEnumPreprocessor.PreprocessAsync(
+            new ProjectEnumPreprocessRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = true,
+                Verbose = opts.Verbose,
+                Options = coreOptions,
+                FilterUnsupportedProjects = !opts.NoFilterProjects,
+                VerifyBuild = !opts.NoVerifyBuild,
+                VerifyTests = !opts.NoVerifyTests,
+                Strict = opts.Strict,
+            });
+
+        Console.WriteLine(
+            $"enum: {preprocessResult.Statistics.FilesTransformed} transformed, " +
+            $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
+            $"{preprocessResult.Statistics.FilesDirtyNoRewrite} dirty-no-rewrite, " +
+            $"{preprocessResult.Statistics.BitwiseOrRewritten + preprocessResult.Statistics.BitwiseAndRewritten + preprocessResult.Statistics.BitwiseXorRewritten} bitwise, " +
+            $"{preprocessResult.Statistics.BitwiseNotRewritten} ~, " +
+            $"{preprocessResult.Statistics.CompoundAssignRewritten} compound, " +
+            $"{preprocessResult.Statistics.HasFlagRewritten} HasFlag, " +
+            $"{preprocessResult.Statistics.NullableLiftedRewritten} lifted, " +
             $"{preprocessResult.Statistics.ResidualCount} residual");
 
         foreach (var diagnostic in preprocessResult.Diagnostics)
@@ -5392,6 +5531,10 @@ class ConvertProjectOptions
         HelpText = "Disable the default delegate (+/- / += / -= / anonymous method) preprocessing step")]
     public bool NoDelegatePreprocess { get; set; }
 
+    [Option("no-enum-preprocess", Default = false,
+        HelpText = "Disable the default enum bitwise / HasFlag preprocessing step")]
+    public bool NoEnumPreprocess { get; set; }
+
     [Option("tuple-namespace", Default = "Cs2jTuples",
         HelpText = "Namespace for the generated tuple structs")]
     public string TupleNamespace { get; set; } = "Cs2jTuples";
@@ -5446,6 +5589,7 @@ class ConvertProjectOptions
     public bool ForeachDeconstruction => !NoForeachDeconstruction;
     public bool NullCoalesce => !NoNullCoalesce;
     public bool DelegatePreprocess => !NoDelegatePreprocess;
+    public bool EnumPreprocess => !NoEnumPreprocess;
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
@@ -5509,4 +5653,28 @@ class AnalyzeOptions
 
     [Option('r', "report", Required = true, HelpText = "Output report file path")]
     public string Report { get; set; } = string.Empty;
+}
+
+[Verb("enum-preprocess", HelpText = "Rewrite enum bitwise operations, compound assignments, and HasFlag to explicit integer operations + (E) casts (single-file or project mode)")]
+class EnumPreprocessVerbOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("strict", Default = false, HelpText = "Treat residual enum bitwise/HasFlag as errors instead of warnings")]
+    public bool Strict { get; set; }
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+    [Option("no-verify-build", Default = false, HelpText = "Skip 'dotnet build' verification after enum preprocessing")]
+    public bool NoVerifyBuild { get; set; }
+    [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after enum preprocessing")]
+    public bool NoVerifyTests { get; set; }
 }

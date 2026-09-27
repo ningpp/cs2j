@@ -110,6 +110,12 @@ public class ProjectPreprocessorsConsistentTests
             Assert.NotNull(recordReadonlyType);
             Assert.Equal(".cs2j-record-readonly-src",
                 ProjectRecordReadOnlyPreprocessor.IntermediateDirectoryName);
+
+            // enum preprocessor — verify type exists and intermediate name is correct
+            var enumPreprocessorType = typeof(ProjectEnumPreprocessor);
+            Assert.NotNull(enumPreprocessorType);
+            Assert.Equal(".cs2j-enum-src",
+                ProjectEnumPreprocessor.IntermediateDirectoryName);
         }
         finally
         {
