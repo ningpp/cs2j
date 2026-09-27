@@ -104,6 +104,15 @@ namespace dotnet.System
             {
                 return UnsignedBits.FormatHex(_v, format);
             }
+            // decimal 不支持 D（整型专属），需自行补零以匹配原生 ulong 行为。
+            if (spec == 'D' && TailDigits(format))
+            {
+                string digits = UnsignedBits.Plain64(_v);
+                int precision = format.Length == 1 ? 0 : int.Parse(format.Substring(1));
+                return precision > digits.Length
+                    ? new string('0', precision - digits.Length) + digits
+                    : digits;
+            }
             return UnsignedBits.ToDecimal64(_v)
                 .ToString(format, provider ?? global::System.Globalization.CultureInfo.InvariantCulture);
         }
