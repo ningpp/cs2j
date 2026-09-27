@@ -97,6 +97,12 @@ probe-out/
 .cs2j-strip-default-src/
 .cs2j-local-fn-src/
 .cs2j-tuple-src/
+.cs2j-foreach-deconstruction-src/
+.cs2j-null-coalesce-src/
+.cs2j-delegate-src/
+.cs2j-enum-src/
+.cs2j-record-readonly-src/
+.cs2j-array-src/
 .cs2j-test-output/
 
 snapshots/

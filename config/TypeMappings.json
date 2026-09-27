@@ -346,6 +346,13 @@
             ]
         },
         {
+            "csharp": "Cs2jPrelude.CsPrelude",
+            "java": "DelegateHelper",
+            "imports": [
+                "io.github.ningpp.compat.DelegateHelper"
+            ]
+        },
+        {
             "csharp": "System.Text.Json.JsonSerializerOptions",
             "java": "JsonSerializerOptions",
             "imports": [
@@ -6085,6 +6092,16 @@
         }
     ],
     "methodMappings": [
+        {
+            "type": "Cs2jPrelude.CsPrelude",
+            "method": "Combine",
+            "javaMethod": "combine"
+        },
+        {
+            "type": "Cs2jPrelude.CsPrelude",
+            "method": "Remove",
+            "javaMethod": "remove"
+        },
         {
             "type": "System.Buffer",
             "method": "BlockCopy",
