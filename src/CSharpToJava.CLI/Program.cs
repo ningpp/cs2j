@@ -272,6 +272,46 @@ public class Program
                 opts.FingerprintInputRoot ??= nullCoalesceResult.SourceRoot;
             }
 
+            if (opts.DelegatePreprocess)
+            {
+                var delegateResult = await ProjectDelegatePreprocessor.PreprocessAsync(
+                    new ProjectDelegatePreprocessRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                        VerifyBuild = opts.VerifyBuild,
+                        VerifyTests = opts.VerifyTests,
+                        Strict = opts.LocalFunctionStrict,
+                    });
+
+                Console.WriteLine(
+                    $"delegate: {delegateResult.Statistics.FilesTransformed} transformed, " +
+                    $"{delegateResult.Statistics.FilesSkippedClean} clean, " +
+                    $"{delegateResult.Statistics.CombineRewritten} combine, " +
+                    $"{delegateResult.Statistics.RemoveRewritten} remove, " +
+                    $"{delegateResult.Statistics.CompoundAssignRewritten} compound, " +
+                    $"{delegateResult.Statistics.AnonymousMethodRewritten} anonymous method, " +
+                    $"{delegateResult.Statistics.SkippedUnsupported} skipped, " +
+                    $"{delegateResult.Statistics.ResidualCount} residual");
+
+                foreach (var diagnostic in delegateResult.Diagnostics)
+                {
+                    var prefix = diagnostic.FilePath != null ? $"{diagnostic.FilePath}: " : "";
+                    Console.Error.WriteLine($"[{diagnostic.Severity}] {prefix}{diagnostic.Message}");
+                }
+
+                if (!delegateResult.Success)
+                    return 1;
+
+                opts.Source = delegateResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= delegateResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= delegateResult.SourceRoot;
+            }
+
             if (opts.TupleToStruct)
             {
                 // 第 2 级：消除全部 C# 值元组（元组类型/字面量/解构）为生成的 readonly
@@ -2144,10 +2184,14 @@ public class Program
         {
             preserved.Add(ProjectLocalFunctionLiftPreprocessor.IntermediateDirectoryName);
         }
-        if (opts.NullCoalesce)
-        {
-            preserved.Add(ProjectNullCoalescePreprocessor.IntermediateDirectoryName);
-        }
+if (opts.NullCoalesce)
+{
+preserved.Add(ProjectNullCoalescePreprocessor.IntermediateDirectoryName);
+}
+if (opts.DelegatePreprocess)
+{
+preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
+}
         return preserved.Count > 0 ? preserved : null;
     }
 
@@ -2979,6 +3023,7 @@ public class Program
             $"strip-default={opts.StripDefault}",
             $"local-function-lift={opts.LocalFunctionLift}",
             $"null-coalesce={opts.NullCoalesce}",
+            $"delegate-preprocess={opts.DelegatePreprocess}",
             $"extra-deps={GetNormalizedExtraDependencyToken(opts)}",
         };
     }
@@ -5339,9 +5384,13 @@ class ConvertProjectOptions
         HelpText = "Disable the default foreach-deconstruction preprocessing step")]
     public bool NoForeachDeconstruction { get; set; }
 
-    [Option("no-null-coalesce", Default = false,
-        HelpText = "Disable the default null-coalesce (?? / ??=) preprocessing step")]
+[Option("no-null-coalesce", Default = false,
+    HelpText = "Disable the default null-coalesce (?? / ??=) preprocessing step")]
     public bool NoNullCoalesce { get; set; }
+
+    [Option("no-delegate-preprocess", Default = false,
+        HelpText = "Disable the default delegate (+/- / += / -= / anonymous method) preprocessing step")]
+    public bool NoDelegatePreprocess { get; set; }
 
     [Option("tuple-namespace", Default = "Cs2jTuples",
         HelpText = "Namespace for the generated tuple structs")]
@@ -5396,6 +5445,7 @@ class ConvertProjectOptions
     public bool TupleToStruct => !NoTupleToStruct;
     public bool ForeachDeconstruction => !NoForeachDeconstruction;
     public bool NullCoalesce => !NoNullCoalesce;
+    public bool DelegatePreprocess => !NoDelegatePreprocess;
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
