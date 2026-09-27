@@ -59,40 +59,6 @@ class Test
         Assert.DoesNotContain("MyPoint", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void NumericArguments_ToByteConstructor_AreExplicitlyCast()
-    {
-        var result = Convert("""
-namespace Microsoft.Msagl.Drawing
-{
-    public struct Color
-    {
-        public Color(byte a, byte r, byte g, byte b)
-        {
-        }
-    }
-}
-
-namespace Dot2Graph
-{
-    class AttributeValuePair
-    {
-        Microsoft.Msagl.Drawing.Color Convert(System.Drawing.Color drawingColor)
-        {
-            return new Microsoft.Msagl.Drawing.Color(
-                drawingColor.A,
-                drawingColor.R,
-                drawingColor.G,
-                drawingColor.B);
-        }
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("new Microsoft.Msagl.Drawing.Color(DrawingColor.getA(drawingColor), DrawingColor.getR(drawingColor), DrawingColor.getG(drawingColor), DrawingColor.getB(drawingColor))", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

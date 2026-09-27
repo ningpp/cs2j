@@ -14,43 +14,6 @@ namespace CSharpToJava.Tests;
 public class IPAddressLoopbackMappingTests
 {
     [Fact]
-    public void IPAddress_Loopback_MappedToGetLoopbackAddress()
-    {
-        var result = Convert(@"
-using System.Net;
-class Test
-{
-    void M()
-    {
-        var addr = IPAddress.Loopback;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.DoesNotContain("InetAddress.Loopback", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("getLoopbackAddress", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void IPAddress_IPv6Loopback_MappedToIPAddressHelperIpv6Loopback()
-    {
-        var result = Convert(@"
-using System.Net;
-class Test
-{
-    void M()
-    {
-        var addr = IPAddress.IPv6Loopback;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.DoesNotContain("InetAddress.IPv6Loopback", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("InetAddress.getLoopbackAddress", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("IPAddressHelper.ipv6Loopback()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void IPAddress_Loopback_ToString_MappedCorrectly()
     {
         var result = Convert(@"

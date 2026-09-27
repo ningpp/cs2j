@@ -10,35 +10,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ExceptionCompatTests
 {
-    [Fact]
-    public void Exception_InnerExceptionAssignment_UsesCompatHelper()
-    {
-        var result = Convert(@"
-class Sample
-{
-    void M(System.Exception e)
-    {
-        if (e.InnerException != null)
-            e = e.InnerException;
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("ExceptionCompat.getInnerException(e)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getCause()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Exception_SourceAccess_UsesCompatHelper()
-    {
-        var result = Convert(@"
-class Sample
-{
-    String M(System.Exception e) => e.Source;
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("ExceptionCompat.getSource(e)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

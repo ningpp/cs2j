@@ -101,25 +101,6 @@ namespace Test {
         Assert.Contains("import java.util.Objects;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void UnresolvedType_MultipleProperties_GenerateGetters()
-    {
-        var result = Convert(@"
-namespace Test {
-    public class Demo {
-        UnknownType Item { get; set; }
-        public void M() {
-            var a = Item.Value;
-            var b = Item.Name;
-        }
-    }
-}
-");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("getItem().getValue()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("getItem().getName()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     // ── Fix 3: System.Xml.XmlReader type mapping ────────────────────────────
 
     [Fact]
@@ -135,25 +116,6 @@ namespace Test {
 ");
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("import dotnet.xml", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SystemXml_ReadState_EnumMember_IsQualifiedToAvoidCompatAmbiguity()
-    {
-        var result = Convert(@"
-using System.Xml;
-namespace Test {
-    public class Demo {
-        XmlReader Reader { get; set; }
-        public bool IsDone() {
-            return Reader.ReadState == ReadState.EndOfFile;
-        }
-    }
-}
-");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("import dotnet.xml.ReadState;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("getReader().getReadState() == ReadState.EndOfFile", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

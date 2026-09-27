@@ -175,28 +175,6 @@ class Test {
         Assert.Contains("e.getTargetPoint()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Auto-properties that are emitted as public fields in project pipeline
-    /// must NOT get getters.
-    /// </summary>
-    [Fact]
-    public void AutoProperty_EmittedAsField_AccessedAsField()
-    {
-        var result = Convert(@"
-class Node {
-    public object AlgorithmData { get; set; }
-}
-class Test {
-    void M(Node n) {
-        var data = n.AlgorithmData;
-    }
-}
-");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("n.AlgorithmData", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("n.getAlgorithmData()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

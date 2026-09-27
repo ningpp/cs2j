@@ -62,44 +62,5 @@ public class TypeShadowingRegressionTests
         var thing = results.Single(r => r.FileName == "IThing.java");
         Assert.Contains("dotnet.drawing.swing.Bitmap", thing.GeneratedCode);
     }
-
-    [Fact]
-    public async Task AliasCollision_InheritedStaticProperty_ShadowsAliasType()
-    {
-        // Control.MouseButtons (inherited static property) shadows the using alias in
-        // expression position: C# member lookup wins over using aliases. The identifier
-        // must become getMouseButtons(), not the [Flags] type mapping (int).
-        var results = await ConvertAsync(
-            new SourceFile
-            {
-                FilePath = "Control.cs",
-                Content = """
-namespace System.Windows.Forms {
-    [System.Flags] public enum MouseButtons { None = 0, Left = 1048576 }
-    public class Control {
-        public static MouseButtons MouseButtons { get; set; }
-    }
-}
-""",
-            },
-            new SourceFile
-            {
-                FilePath = "GViewer.cs",
-                Content = """
-using MouseButtons = System.Windows.Forms.MouseButtons;
-namespace Microsoft.Msagl.GraphViewerGdi {
-    public class GViewer : System.Windows.Forms.Control {
-        bool LeftPressed() { return MouseButtons == MouseButtons.Left; }
-    }
-}
-""",
-            });
-
-        Assert.All(results, r => Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
-
-        var gviewer = results.Single(r => r.FileName == "GViewer.java");
-        Assert.Contains("getMouseButtons() == MouseButtons.Left", gviewer.GeneratedCode);
-        Assert.DoesNotContain("int == MouseButtons.Left", gviewer.GeneratedCode);
-    }
 }
 

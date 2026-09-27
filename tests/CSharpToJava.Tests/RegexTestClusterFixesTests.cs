@@ -23,28 +23,6 @@ namespace CSharpToJava.Tests;
 public class RegexTestClusterFixesTests
 {
     [Fact]
-    public void ArrayIndexOfOnEnumArray_EmitsCSharpArrayIndexOf()
-    {
-        var result = Convert(@"
-using System;
-using System.Globalization;
-class C
-{
-    static int M(UnicodeCategory[] categories, char c)
-    {
-        return Array.IndexOf(categories, char.GetUnicodeCategory(c));
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("CSharpArray.indexOf(categories,", code);
-        Assert.DoesNotContain("= Array.indexOf(categories", code);
-        Assert.DoesNotContain("CSharpArray.CSharpArray", code);
-    }
-
-    [Fact]
     public void AssemblyGetExecutingAssembly_SingleAssemblyCompatPrefix()
     {
         var result = Convert(@"

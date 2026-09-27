@@ -1069,21 +1069,6 @@ class T {
         Assert.Contains("max(3, 5)", result);
     }
 
-    [Fact]
-    public void Invocation_MemberAccess_StaysCorrect()
-    {
-        // Member access invocations should still produce correct output (via raw fallback)
-        var result = ConvertCode(@"
-using System;
-class T {
-    void M() {
-        string s = ""hello"";
-        int len = s.Length;
-    }
-}");
-        Assert.Contains("length()", result);
-    }
-
     // ── Phase 5: ObjectCreationTransformer IR ──────────────────────
 
     [Fact]

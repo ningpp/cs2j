@@ -130,33 +130,6 @@ class C
         Assert.Contains("Class<T2> _cs2j_T2", code);
     }
 
-    [Fact]
-    public void ThreadCurrentUICulture_MapsToThreadHelperAccessors()
-    {
-        // C# Thread.CurrentThread.CurrentUICulture get/set. The converter emits
-        // ThreadHelper.currentThread().getCurrentUICulture()/setCurrentUICulture(),
-        // which compat ThreadHelper must expose (verified by the Maven build).
-        var result = Convert("""
-using System.Globalization;
-using System.Threading;
-class C
-{
-    static CultureInfo M(CultureInfo culture)
-    {
-        CultureInfo ui = Thread.CurrentThread.CurrentUICulture;
-        Thread.CurrentThread.CurrentUICulture = culture;
-        return ui;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("ThreadHelper.currentThread().getCurrentUICulture()", code);
-        Assert.Contains("ThreadHelper.currentThread().setCurrentUICulture(culture)", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

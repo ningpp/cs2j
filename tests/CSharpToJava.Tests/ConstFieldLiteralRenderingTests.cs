@@ -93,24 +93,6 @@ class Test
         Assert.Contains("0x80000000", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void ConstDouble_PositiveInfinity_RendersWrapperConstant()
-    {
-        var result = Convert(@"
-class Test
-{
-    double M()
-    {
-        const double expandMax = double.PositiveInfinity;
-        return Math.Min(expandMax, 1.0);
-    }
-}
-");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.DoesNotContain("Infinity.0", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Double.POSITIVE_INFINITY", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

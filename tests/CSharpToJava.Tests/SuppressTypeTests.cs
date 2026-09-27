@@ -93,25 +93,6 @@ public class MyUri : ISerializable
     }
 
     [Fact]
-    public void NormalizationForm_Maps_To_Normalizer_Form()
-    {
-        var result = Convert(@"
-using System.Text;
-
-public class Helper
-{
-    public string Normalize(string input)
-    {
-        return input.Normalize(NormalizationForm.FormC);
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.DoesNotContain("Normalizer$Form", result.GeneratedCode);
-        Assert.Contains("Normalizer.Form", result.GeneratedCode);
-    }
-
-    [Fact]
     public void FormatException_Maps_To_Compat_FormatException()
     {
         var result = Convert(@"

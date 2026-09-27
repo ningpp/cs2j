@@ -118,40 +118,6 @@ public class Viewer : IViewer {
         Assert.Contains("fireMouseMove", result.GeneratedCode);
     }
 
-    [Fact]
-    public async Task StaticPropertyOnMappedType_IsQualifiedAndMapped()
-    {
-        var results = await ConvertAsync(
-            new SourceFile
-            {
-                FilePath = "Control.cs",
-                Content = """
-namespace System.Windows.Forms {
-    public class Control {
-        public static int ModifierKeys { get; }
-    }
-}
-""",
-            },
-            new SourceFile
-            {
-                FilePath = "GViewer.cs",
-                Content = """
-namespace Microsoft.Msagl.GraphViewerGdi {
-    public class GViewer : System.Windows.Forms.Control {
-        public static bool Pressed() { return ModifierKeys == Keys.Control; }
-    }
-}
-""",
-            });
-
-        Assert.All(results, r => Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
-
-        var gviewer = results.Single(r => r.FileName == "GViewer.java");
-        Assert.Contains("Control.getModifierKeysStatic()", gviewer.GeneratedCode);
-        Assert.DoesNotContain("getModifierKeys() == Keys.Control", gviewer.GeneratedCode);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

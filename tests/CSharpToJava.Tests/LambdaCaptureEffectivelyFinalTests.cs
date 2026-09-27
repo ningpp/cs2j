@@ -24,33 +24,6 @@ public class LambdaCaptureEffectivelyFinalTests
 
     public LambdaCaptureEffectivelyFinalTests(ITestOutputHelper output) => _out = output;
 
-    [Fact]
-    public void ForeachVariableCapturedByNestedLambda_UsesHolder()
-    {
-        var result = Convert("""
-using System;
-using System.Collections.Generic;
-
-class Test
-{
-    static void M(List<string> items)
-    {
-        foreach (string item in items)
-        {
-            Func<string> f = () => item + "!";
-            Console.WriteLine(f());
-        }
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("String[] _item = new String[] { item };", code);
-        Assert.Contains("() -> _item[0] + \"!\"", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

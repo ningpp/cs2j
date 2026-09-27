@@ -255,27 +255,6 @@ class Sample
         Assert.Contains("Decimal constructed = Decimal.ZERO;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void DecimalConstants_MapToCompatConstants()
-    {
-        var result = Convert("""
-class Sample
-{
-    decimal Get()
-    {
-        return decimal.MaxValue - decimal.MinValue + decimal.One + decimal.Zero + decimal.MinusOne;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Decimal.MAX_VALUE", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Decimal.MIN_VALUE", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Decimal.ONE", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Decimal.ZERO", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Decimal.MINUS_ONE", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

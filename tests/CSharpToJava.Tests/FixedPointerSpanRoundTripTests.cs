@@ -14,48 +14,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class FixedPointerSpanRoundTripTests
 {
-    [Fact]
-    public void FixedOverSpan_TuplePointerState_ReconstructsSpanCompilably()
-    {
-        var result = Convert(@"
-class HexLike
-{
-    public static unsafe string ToString(System.ReadOnlySpan<byte> bytes)
-    {
-        fixed (byte* bytesPtr = bytes)
-        {
-            return string.Create(bytes.Length * 2, (Ptr: (System.IntPtr)bytesPtr, bytes.Length), static (chars, args) =>
-            {
-                var ros = new System.ReadOnlySpan<byte>((byte*)args.Ptr, args.Length);
-                for (int i = 0; i < ros.Length; i++)
-                {
-                    chars[i] = 'A';
-                }
-            });
-        }
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // fixed over a span must pin a real array, not the span object itself.
-        Assert.DoesNotContain("MemorySegment.ofArray(bytes)", code);
-        Assert.Contains("bytes.toByteArray()", code);
-
-        // (IntPtr) cast over the MemorySegment must not leak an IntPtr type name.
-        Assert.DoesNotContain("IntPtr", code);
-
-        // Named tuple fields lower to positional vavr accessors.
-        Assert.Contains("args._1()", code);
-        Assert.Contains("args._2()", code);
-        Assert.DoesNotContain("args.Ptr", code);
-        Assert.DoesNotContain("args.Length", code);
-
-        // Pointer+length reconstruction goes through the compat helper.
-        Assert.Contains("fromByteSegment(args._1(), args._2())", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

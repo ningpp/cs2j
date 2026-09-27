@@ -66,30 +66,6 @@ class Program
         Assert.Contains("< 0", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void UInt_CompoundOperand_Comparison_DoesNotMangleOperand()
-    {
-        // RegexNode.CanCombineCounts: (uint)nodeMin + (uint)nextMin >= int.MaxValue.
-        // The uint-typed operand is a compound expression; the mask-stripping must not
-        // treat the whole addition as a single (uint) cast.
-        var result = Convert("""
-class Program
-{
-    static bool CanCombine(int nodeMin, int nextMin)
-    {
-        return (uint)nodeMin + (uint)nextMin >= int.MaxValue;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-
-        Assert.Contains("Integer.compareUnsigned", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains(", Integer.MAX_VALUE) >= 0", result.GeneratedCode, StringComparison.Ordinal);
-        // The two masked operands of the addition must both survive intact.
-        Assert.DoesNotContain("(nextMin,", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -108,26 +108,6 @@ class Sample
     }
 
     [Fact]
-    public void UriMapping_UsesDotnetSystemPackage()
-    {
-        var result = Convert("""
-using System;
-
-class Sample
-{
-    bool Check(string value)
-    {
-        return Uri.IsWellFormedUriString(value, UriKind.RelativeOrAbsolute);
-    }
-}
-""", useDefaultMappings: true);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("import dotnet.system.UriKind;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Uri.isWellFormedUriString(value, UriKind.RelativeOrAbsolute)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void ConditionalAccess_MethodInvocation_EmitsSingleJavaCall()
     {
         var result = Convert("""

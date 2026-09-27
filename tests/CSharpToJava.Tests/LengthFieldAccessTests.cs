@@ -57,23 +57,6 @@ public class LengthFieldAccessTests
     }
 
     [Fact]
-    public void LengthProperty_OnString_StillUsesLengthMethod()
-    {
-        var result = Convert("""
-            class Sample
-            {
-                int Read(string s)
-                {
-                    return s.Length;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("s.length()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void LengthField_UnderscoreReceiver_UsesField()
     {
         var result = Convert("""

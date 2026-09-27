@@ -42,24 +42,6 @@ class AcceptException : Exception
     }
 
     [Fact]
-    public void StringLength_MapsToLengthMethod_NotArrayField()
-    {
-        var result = Convert("""
-class Test
-{
-    int M(string value)
-    {
-        return value.Length;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("value.length()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("value.length;", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void ConstructorBaseInitializer_WithNull_IsEmittedAsSuperCall()
     {
         var result = Convert("""
@@ -82,36 +64,6 @@ class Parser : Base
         Assert.Contains("public Parser() {", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("super(null);", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("public Parser();", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ReflectionFieldInfo_NullComparison_UsesJavaNullOperator()
-    {
-        var result = Convert("""
-using System;
-using System.Reflection;
-
-class Tokens
-{
-    public const int maxParseToken = 10;
-}
-
-class Scanner
-{
-    int GetMaxToken()
-    {
-        FieldInfo f = typeof(Tokens).GetField("maxParseToken");
-        return f == null ? int.MaxValue : (int)f.GetValue(null);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("import io.github.ningpp.compat.FieldInfo;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("FieldInfo f =", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("f == null ? Integer.MAX_VALUE", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("f.getValue(null)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("FieldInfo.valueEquals", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

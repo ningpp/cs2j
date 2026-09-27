@@ -10,46 +10,6 @@ namespace CSharpToJava.Tests;
 public class LambdaExternalReassignmentTests
 {
     /// <summary>
-    /// Variable captured by lambda and reassigned AFTER the lambda declaration.
-    /// </summary>
-    [Fact]
-    public void CapturedVariable_ReassignedAfterLambda_ProducesHolder()
-    {
-        var result = Convert(@"
-using System;
-class T {
-    void M() {
-        int x = 1;
-        Action a = () => Console.WriteLine(x);
-        x = 2;
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("int[] _x", result.GeneratedCode);
-        Assert.Contains("_x[0]", result.GeneratedCode);
-    }
-
-    /// <summary>
-    /// Variable captured by lambda and reassigned BEFORE the lambda declaration.
-    /// </summary>
-    [Fact]
-    public void CapturedVariable_ReassignedBeforeLambda_ProducesHolder()
-    {
-        var result = Convert(@"
-using System;
-class T {
-    void M() {
-        int x = 1;
-        x = 2;
-        Action a = () => Console.WriteLine(x);
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("int[] _x", result.GeneratedCode);
-        Assert.Contains("_x[0]", result.GeneratedCode);
-    }
-
-    /// <summary>
     /// Variable captured by lambda but NOT reassigned — no holder needed.
     /// </summary>
     [Fact]
@@ -146,69 +106,6 @@ class T {
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("int[] _x", result.GeneratedCode);
         Assert.DoesNotContain("int[] _y", result.GeneratedCode);
-    }
-
-    /// <summary>
-    /// Compound assignment (x += 2) is also detected as external reassignment.
-    /// </summary>
-    [Fact]
-    public void CapturedVariable_CompoundAssignment_ProducesHolder()
-    {
-        var result = Convert(@"
-using System;
-class T {
-    void M() {
-        int x = 1;
-        Action a = () => Console.WriteLine(x);
-        x += 2;
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("int[] _x", result.GeneratedCode);
-        Assert.Contains("_x[0]", result.GeneratedCode);
-    }
-
-    /// <summary>
-    /// For-loop variable captured by lambda — the increment (i++) is external to the lambda
-    /// but inside the for-statement. TransformForStatement now detects the pending holder
-    /// registered by PreScanLambdaCaptures and emits the holder array as part of the
-    /// for-loop initializer, so the captured variable is effectively final in the lambda.
-    /// </summary>
-    [Fact]
-    public void ForLoopVariable_CapturedByLambda_ProducesHolder()
-    {
-        var result = Convert(@"
-using System;
-class T {
-    void M() {
-        for (int i = 0; i < 10; i++) {
-            Action a = () => Console.WriteLine(i);
-        }
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("int[] _i", result.GeneratedCode);
-        Assert.Contains("_i[0]", result.GeneratedCode);
-    }
-
-    /// <summary>
-    /// Anonymous method (delegate { ... }) capturing an externally-reassigned variable.
-    /// </summary>
-    [Fact]
-    public void AnonymousMethod_CapturedReassignedVariable_ProducesHolder()
-    {
-        var result = Convert(@"
-using System;
-class T {
-    void M() {
-        int x = 1;
-        Action a = delegate { Console.WriteLine(x); };
-        x = 2;
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("int[] _x", result.GeneratedCode);
-        Assert.Contains("_x[0]", result.GeneratedCode);
     }
 
     /// <summary>

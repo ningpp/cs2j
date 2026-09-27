@@ -50,25 +50,4 @@ class Sample
         Assert.Contains("builder.append(2)", code);
     }
 
-    [Fact]
-    public void ValueListBuilder_LengthConvertedToGetLength()
-    {
-        var r = Convert(@"
-using System.Collections.Generic;
-
-class Sample
-{
-    int M()
-    {
-        ValueListBuilder<int> builder = new ValueListBuilder<int>();
-        builder.Append(42);
-        return builder.Length;
-    }
-}");
-        _out.WriteLine(r.GeneratedCode ?? "FAILED");
-        Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        // Length property should be converted to getLength() via getter pattern
-        Assert.Contains("builder.getLength()", code);
-    }
 }

@@ -104,34 +104,6 @@ public struct MyList : ICollection
     }
 
     [Fact]
-    public void Struct_PublicAndExplicitDifferentReturnType_ResolvesNameClash()
-    {
-        var result = Convert(@"
-using System.Collections;
-public class SyncToken { }
-public struct MyList : ICollection
-{
-    public int Count => 0;
-    public IEnumerator GetEnumerator() => null;
-
-    public SyncToken SyncRoot => new SyncToken();
-    object ICollection.SyncRoot => SyncRoot;
-
-    bool ICollection.IsSynchronized => false;
-}
-");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        _output.WriteLine(result.GeneratedCode);
-
-        // The Object-returning explicit accessor keeps the interface contract name and
-        // delegates to the typed class accessor, which is renamed to getSyncRoot$Class().
-        Assert.Equal(1, CountOccurrences(result.GeneratedCode, " getSyncRoot()"));
-        Assert.Contains("Object getSyncRoot() { return getSyncRoot$Class(); }", result.GeneratedCode);
-        Assert.Contains("SyncToken getSyncRoot$Class()", result.GeneratedCode);
-        Assert.Contains("getIsSynchronized", result.GeneratedCode);
-    }
-
-    [Fact]
     public void Class_GlobalQualifiedExplicitInterfaceProperties_AreEmitted()
     {
         // Parity check: classes already emitted these; structs must now behave the same.

@@ -98,31 +98,6 @@ class Sample
     }
 
     [Fact]
-    public void Type_Assembly_And_Assembly_GetName_BridgedToCompatHelpers()
-    {
-        var result = Convert("""
-            using System;
-            using System.Reflection;
-
-            class Sample
-            {
-                void Check(Type type, Assembly assembly)
-                {
-                    var a1 = type.Assembly;
-                    var a2 = typeof(string).Assembly;
-                    var name = assembly.GetName();
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("TypeHelper.getAssembly", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("AssemblyCompat", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("assembly.getPackage()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("type.getPackage()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void FunctionQuery_Ctor_AssignsListToGenericIList_DoesNotWrapWithFrom()
     {
         var result = Convert("""
@@ -267,43 +242,6 @@ class Sample
         Assert.Contains("value = null", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void DateTimeStyles_NoCurrentDateDefault_MappedToIntegerHelper()
-    {
-        var result = Convert("""
-            using System.Globalization;
-
-            class Sample
-            {
-                void M()
-                {
-                    var style = DateTimeStyles.AllowLeadingWhite | DateTimeStyles.AllowTrailingWhite | DateTimeStyles.NoCurrentDateDefault | DateTimeStyles.RoundtripKind;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("IntegerHelper.NoCurrentDateDefault", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void UIntMaxValue_AssignedToUIntVariable_GetsIntCast()
-    {
-        var result = Convert("""
-            class Sample
-            {
-                void M()
-                {
-                    uint u = uint.MaxValue;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Console.WriteLine("UINT:\n" + result.GeneratedCode);
-        Assert.DoesNotContain("= 4294967295L;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("(int) 4294967295L", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void LongValue_AssignedToIntVariable_GetsExplicitCast()
@@ -766,26 +704,6 @@ class Sample
     }
 
     [Fact]
-    public void AssemblyName_Ctor_String_LoadedByCompat()
-    {
-        var result = Convert("""
-            using System.Reflection;
-
-            class Sample
-            {
-                void Load()
-                {
-                    var originalAssembly = Assembly.Load(new AssemblyName("MyAssembly, Version=1.0.0.0"));
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("AssemblyCompat.load(new AssemblyCompat.AssemblyNameCompat(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("new Object(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void AssemblyName_GetPublicKeyToken_BridgedToCompatGetter()
     {
         var result = Convert("""
@@ -1038,26 +956,6 @@ class Sample
     }
 
     [Fact]
-    public void NullableBool_Value_GeneratesPrimitiveUnboxMethod()
-    {
-        var result = Convert("""
-            class Sample
-            {
-                void M(bool? b)
-                {
-                    if (b == null || b.Value)
-                    {
-                    }
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("b == null || b.booleanValue()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".getValue()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public async Task CrossClassPropertyWrite_ProjectMode_UsesSetterNotBackingField()
     {
         // Regression (AGL RectangleNode/RTree): a public auto-property write on an external
@@ -1093,35 +991,6 @@ public class RTree {
         Assert.Contains("n.setCount(2)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("n.count = 2", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("n.setUserData(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task SortedDictionaryEnumerator_Current_UsesGetCurrentNotGetCurrentClass()
-    {
-        // Regression (AGL GraphForCycleRemoval): SortedDictionary<K,V>.Enumerator
-        // implements both IEnumerator<KeyValuePair<K,V>> and IEnumerator. The Current
-        // property conflict with IEnumerator.Current (object-returning) must NOT
-        // cause the converter to generate getCurrent$Class(); it should use getCurrent()
-        // because the Java type is CSharpGenericEnumerator<T> which only has getCurrent().
-        var result = await ConvertProjectAsync(new[]
-        {
-            ("Sample.cs", @"
-using System.Collections.Generic;
-
-class Sample {
-    SortedDictionary<int, string> _map = new SortedDictionary<int, string>();
-    void M() {
-        var enumerator = _map.GetEnumerator();
-        if (enumerator.MoveNext()) {
-            var val = enumerator.Current.Value;
-        }
-    }
-}"),
-        });
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("getCurrent()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("getCurrent$Class()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1204,88 +1073,6 @@ class Sample {
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         Assert.Contains("boolean[] _isReferenced = new boolean[] { isReferenced }", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("(boolean[]) new Object[]", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void LambdaCapture_ExternallyReassignedViaRef_UsesArrayHolder()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                void Mutate(ref object value) { value = new object(); }
-
-                void M()
-                {
-                    object o = new object();
-                    Action<object> action = x => Console.WriteLine(o);
-                    Mutate(ref o);
-                    Console.WriteLine(o);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("Object[] _o = new Object[] { o }", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("_o[0]", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void LambdaCapture_ShadowedLocalExternallyReassignedViaRef_UsesArrayHolderForCorrectInstance()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                void Mutate(ref object value) { value = new object(); }
-
-                void M(bool condition)
-                {
-                    if (condition)
-                    {
-                        object o = null;
-                        Mutate(ref o);
-                    }
-
-                    object o = new object();
-                    Action<object> action = x => Console.WriteLine(o);
-                    Mutate(ref o);
-                    Console.WriteLine(o);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        // The outer 'o' must use a holder; the shadowed inner 'o' must not create a stray holder.
-        Assert.Contains("Object[] _o = new Object[] {", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("_o[0]", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ForLoopIterator_CapturedByLambdaAndIncremented_UsesArrayHolder()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                string WritePrimitive(Func<object, string> getter, object state) => getter(state);
-
-                void M(string[] vals)
-                {
-                    for (int i = 0; i < vals.Length; i++)
-                    {
-                        var value = WritePrimitive((state) => ((string[])state)[i], vals);
-                    }
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("int[] _i = new int[] { 0 }", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("_i[0]", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

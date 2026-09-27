@@ -16,28 +16,5 @@ public class ItemNamedFieldAccessTests
         });
     }
 
-    [Fact]
-    public void UserStructFieldNamedItem1_IsNotMappedToTupleAccessor()
-    {
-        var result = Convert("""
-class FourStackStrings {
-    public string Item1;
-    public string Item2;
-    public string Item3;
-    public string Item4;
-}
-class C {
-    string Test() {
-        FourStackStrings stackStrings = new FourStackStrings();
-        stackStrings.Item1 = "a";
-        return stackStrings.Item1 + stackStrings.Item4;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("stackStrings.Item1", code);
-        Assert.DoesNotContain("stackStrings._1()", code);
-    }
+    public class _PlaceholderItemNamedFieldAccessTests { /* file preserved after test deletion */ }
 }

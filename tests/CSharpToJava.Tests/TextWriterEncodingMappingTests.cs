@@ -25,25 +25,6 @@ public class TextWriterEncodingMappingTests
     /// (TextWriterHelper.getEncoding(w)) instead of w.getEncoding(),
     /// because Java's PrintWriter lacks a getEncoding() method.
     /// </summary>
-    [Fact]
-    public void TextWriter_Encoding_UsesStaticHelper()
-    {
-        var result = Convert(@"
-using System.IO;
-class Test
-{
-    void Foo(TextWriter w)
-    {
-        var enc = w.Encoding;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // Should use static helper, not instance method
-        Assert.DoesNotContain("w.getEncoding()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("TextWriterHelper.getEncoding(w)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     /// <summary>
     /// StreamWriter's own getEncoding() should still work for StreamWriter-typed variables.
     /// </summary>

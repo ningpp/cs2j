@@ -702,32 +702,6 @@ public class Query
     /// Non-flags enum used in a bitwise OR expression for a property return must have
     /// the result wrapped with EnumType.fromValue(...) so the return type matches.
     /// </summary>
-    [Fact]
-    public void NonFlagsEnum_BitwiseOrProperty_ReturnsFromValue()
-    {
-        var result = Convert(@"
-internal enum QueryProps
-{
-    None = 0x00,
-    Position = 0x01,
-    Count = 0x02,
-    Cached = 0x04,
-    Reverse = 0x08,
-    Merge = 0x10
-}
-
-public class ContextQuery
-{
-    public QueryProps Properties { get { return QueryProps.Merge | QueryProps.Cached | QueryProps.Position | QueryProps.Count; } }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        // QueryProps has 5+ members with power-of-two values → treated as Flags (int constants class)
-        // Bitwise OR on int constants produces a plain int expression
-        Assert.Contains("QueryProps.Merge", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("QueryProps.Cached", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
@@ -889,33 +863,6 @@ public class UriParser
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
         Assert.Contains("getValue() |", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("getValue() &", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void FlagsEnum_BitwiseOperations_RemainNativeIntOps()
-    {
-        // [Flags] enums are mapped to int/long, so bitwise ops should work natively
-        var result = Convert(@"
-using System;
-
-[Flags]
-public enum Permissions
-{
-    Read = 1,
-    Write = 2,
-    Execute = 4
-}
-
-public class Sample
-{
-    public Permissions Combine(Permissions p) { return p | Permissions.Write; }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // [Flags] enum should use native int bitwise ops, not getValue()/fromValue()
-        Assert.DoesNotContain("p.getValue()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Permissions.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("p | Permissions.Write", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

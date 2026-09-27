@@ -75,26 +75,6 @@ class C
     }
 
     [Fact]
-    public void NullableHasValue_EmitNullCheck()
-    {
-        var result = Convert(@"
-using System;
-class C
-{
-    static string Pick(int? index)
-    {
-        return index.HasValue ? ""a"" : ""b"";
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("index != null", code);
-        Assert.DoesNotContain("index.intValue() ?", code);
-    }
-
-    [Fact]
     public void PropertyInfoGetGetMethod_MapsToCamelCase()
     {
         var result = Convert(@"

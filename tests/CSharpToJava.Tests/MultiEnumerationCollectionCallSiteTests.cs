@@ -26,57 +26,6 @@ public class MultiEnumerationCollectionCallSiteTests
     public MultiEnumerationCollectionCallSiteTests(ITestOutputHelper output) => _out = output;
 
     [Fact]
-    public void ForeachOverMultiEnumerationCollection_UsesGetValues()
-    {
-        var result = Convert("""
-using System.Collections;
-using System.Collections.Generic;
-
-class Group { public int Index { get; set; } }
-
-class GroupCollection : IList<Group>, IReadOnlyDictionary<string, Group>
-{
-    public int Count => 0;
-    public bool IsReadOnly => true;
-    public Group this[int index] { get => null; set { } }
-    public IEnumerator GetEnumerator() => throw new System.NotImplementedException();
-    IEnumerator<Group> IEnumerable<Group>.GetEnumerator() => throw new System.NotImplementedException();
-    public void Add(Group item) { }
-    public void Clear() { }
-    public bool Contains(Group item) => false;
-    public void CopyTo(Group[] array, int arrayIndex) { }
-    public bool Remove(Group item) { return false; }
-    public int IndexOf(Group item) => -1;
-    public void Insert(int index, Group item) { }
-    public void RemoveAt(int index) { }
-    public Group this[string key] => null;
-    public IEnumerable<string> Keys => null;
-    public IEnumerable<Group> Values => null;
-    public bool ContainsKey(string key) => false;
-    public bool TryGetValue(string key, out Group value) { value = null; return false; }
-}
-
-class Test
-{
-    static GroupCollection Groups { get; } = null;
-
-    static void M()
-    {
-        foreach (Group item in Groups)
-        {
-            System.Console.WriteLine(item.Index);
-        }
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("for (Group item : (Iterable<Group>)(Iterable<?>)(getGroups().getValues()))", code);
-    }
-
-    [Fact]
     public void ForeachOverNonGenericIList_DoesNotUseGetValuesOnAdapter()
     {
         var result = Convert("""

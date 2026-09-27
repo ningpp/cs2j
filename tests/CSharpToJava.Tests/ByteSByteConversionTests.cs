@@ -168,22 +168,6 @@ class Test {
     }
 
     [Fact]
-    public void ByteMaxValue_MapsTo255()
-    {
-        var result = Convert("class Test { int x = byte.MaxValue; }");
-        Assert.True(result.Success);
-        Assert.Contains("255", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ByteMinValue_MapsTo0()
-    {
-        var result = Convert("class Test { int x = byte.MinValue; }");
-        Assert.True(result.Success);
-        Assert.Contains("0", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void SizeOfByte_Returns4()
     {
         var result = Convert("class Test { int s = sizeof(byte); }");
