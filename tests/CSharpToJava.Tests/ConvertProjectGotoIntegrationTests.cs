@@ -135,64 +135,6 @@ public sealed class ConvertProjectGotoIntegrationTests
     }
 
     [Fact]
-    public async Task ConvertProject_ExtraDeps_AddsDependenciesToGeneratedPomAndPlan()
-    {
-        var tempRoot = CreateTempDirectory();
-        var sourceRoot = Path.Combine(tempRoot, "Demo");
-        var destinationRoot = Path.Combine(tempRoot, "java");
-        Directory.CreateDirectory(sourceRoot);
-
-        try
-        {
-            await File.WriteAllTextAsync(Path.Combine(sourceRoot, "Sample.cs"), """
-            namespace Demo;
-            public class Sample
-            {
-                public int M() => 1;
-            }
-            """);
-
-            var exit = await Program.MainImpl([
-                "convert-project",
-                "-s", sourceRoot,
-                "-d", destinationRoot,
-                "--no-cache",
-                "--extra-deps", "io.github.ningpp:System.Private.Uri:0.0.1-SNAPSHOT,org.example:extra-lib:1.2.3",
-            ]);
-
-            Assert.Equal(0, exit);
-            var pom = await File.ReadAllTextAsync(Path.Combine(destinationRoot, "pom.xml"));
-            Assert.Contains("<groupId>io.github.ningpp</groupId>", pom, StringComparison.Ordinal);
-            Assert.Contains("<artifactId>System.Private.Uri</artifactId>", pom, StringComparison.Ordinal);
-            Assert.Contains("<version>0.0.1-SNAPSHOT</version>", pom, StringComparison.Ordinal);
-            Assert.Contains("<groupId>org.example</groupId>", pom, StringComparison.Ordinal);
-            Assert.Contains("<artifactId>extra-lib</artifactId>", pom, StringComparison.Ordinal);
-            Assert.Contains("<version>1.2.3</version>", pom, StringComparison.Ordinal);
-
-            using var planDocument = JsonDocument.Parse(
-                await File.ReadAllTextAsync(Path.Combine(destinationRoot, "cs2j-workspace-plan.json")));
-            var dependencies = planDocument.RootElement
-                .GetProperty("modules")[0]
-                .GetProperty("dependencies")
-                .EnumerateArray()
-                .ToList();
-
-            Assert.Contains(dependencies, dependency =>
-                dependency.GetProperty("groupId").GetString() == "io.github.ningpp"
-                && dependency.GetProperty("artifactId").GetString() == "System.Private.Uri"
-                && dependency.GetProperty("version").GetString() == "0.0.1-SNAPSHOT");
-            Assert.Contains(dependencies, dependency =>
-                dependency.GetProperty("groupId").GetString() == "org.example"
-                && dependency.GetProperty("artifactId").GetString() == "extra-lib"
-                && dependency.GetProperty("version").GetString() == "1.2.3");
-        }
-        finally
-        {
-            Directory.Delete(tempRoot, recursive: true);
-        }
-    }
-
-    [Fact]
     public async Task ConvertProject_ExtraDeps_AddsDependenciesToEveryGeneratedModulePomAndPlanModule()
     {
         var tempRoot = CreateTempDirectory();

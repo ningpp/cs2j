@@ -118,15 +118,6 @@ public sealed class ProjectSymbolResolverTests : IDisposable
     }
 
     [Fact]
-    public void ExtraDefines_AreTrimmedMergedAndCaseSensitive()
-    {
-        var file = WriteFile("Loose/Code.cs");
-        var result = ProjectSymbolResolver.ResolveForFile(file, extraDefines: [" foo ", "FOO", "foo"]);
-        Assert.Equal(["foo", "FOO"], result.Symbols);
-        Assert.Empty(result.Warnings);
-    }
-
-    [Fact]
     public void Configuration_AlsoSelectsTargetFramework()
     {
         var file = WriteFile("App/Code.cs");

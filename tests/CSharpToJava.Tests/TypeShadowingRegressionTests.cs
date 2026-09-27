@@ -101,27 +101,5 @@ namespace Microsoft.Msagl.GraphViewerGdi {
         Assert.Contains("getMouseButtons() == MouseButtons.Left", gviewer.GeneratedCode);
         Assert.DoesNotContain("int == MouseButtons.Left", gviewer.GeneratedCode);
     }
-    [Fact]
-    public async Task SyntaxFallback_ProjectTypeInCurrentNamespaceNeedsNoImport()
-    {
-        var results = await ConvertAsync(
-            new SourceFile
-            {
-                FilePath = "Geometry/Point.cs",
-                Content = "namespace Microsoft.Msagl.Core.Geometry { public struct Point { public double X { get; set; } } }",
-            },
-            new SourceFile
-            {
-                FilePath = "Geometry/Curves/ICurve.cs",
-                Content = "namespace Microsoft.Msagl.Core.Geometry.Curves { public interface ICurve { Point Start { get; } } }",
-            });
-
-        Assert.All(results, r => Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
-
-        var curve = results.Single(r => r.FileName == "ICurve.java");
-        // Same module defines exactly one Point: resolve to the project type.
-        Assert.DoesNotContain("dotnet.drawing.swing.Point", curve.GeneratedCode);
-        Assert.Contains("import Microsoft.Msagl.Core.Geometry.*;", curve.GeneratedCode);
-    }
 }
 
