@@ -272,17 +272,8 @@ public partial class StatementTransformer
     {
         var preambleStatements = DrainSwitchExpressionSideEffects(expression, context, out expression);
 
-        if (stmt.DescendantNodes().OfType<GotoStatementSyntax>()
-            .Any(gotoStmt => gotoStmt.IsKind(SyntaxKind.GotoCaseStatement)
-                || gotoStmt.IsKind(SyntaxKind.GotoDefaultStatement)))
-        {
-            var switchWithGoto = TransformSwitchWithGotoCase(stmt, expression, context).ToString("");
-            if (preambleStatements.Count == 0)
-                return new JavaStatementNode(switchWithGoto);
-
-            return new JavaStatementNode(string.Join("\n", preambleStatements) + "\n" + switchWithGoto);
-        }
-
+        // goto case/goto default must be desugared by GotoEliminator before Java conversion;
+        // any goto remaining inside a section hits the goto throw arm in Transform.
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var sections = new List<string>();
         var declarationsUsedByLaterSections = FindSwitchDeclarationsUsedByLaterSections(stmt);
@@ -297,15 +288,7 @@ public partial class StatementTransformer
                 {
                     case CaseSwitchLabelSyntax caseLabel:
                         var transformedLabel = exprTransformer.Transform(caseLabel.Value, context);
-                        if (ExpressionTransformerHelpers.TryFormatEnumMemberAccess(
-                            caseLabel.Value,
-                            context,
-                            useUnqualifiedRegularEnumInSwitchLabel: context.Options.TargetLanguage != TargetLanguage.TypeScript,
-                            out var formattedEnumLabel))
-                        {
-                            transformedLabel = formattedEnumLabel;
-                        }
-                        else if (transformedLabel.Contains(".get"))
+                        if (transformedLabel.Contains(".get"))
                         {
                             var parts = transformedLabel.Split(new[] { ".get" }, StringSplitOptions.None);
                             transformedLabel = parts.Last().Replace("()", "");
@@ -407,246 +390,6 @@ public partial class StatementTransformer
         return statement.TrimEnd().TrimEnd(';') + ";";
     }
 
-    private JavaSyntaxNode TransformSwitchWithGotoCase(
-        SwitchStatementSyntax stmt,
-        string expression,
-        ConversionContext context)
-    {
-        var exprTransformer = ExpressionTransformerFacade.Instance;
-        var sectionStates = stmt.Sections
-            .Select((section, index) => (section, state: index + 1))
-            .ToDictionary(item => item.section, item => item.state);
-        var stateByCaseValue = new Dictionary<string, int>(StringComparer.Ordinal);
-        int? defaultState = null;
-
-        foreach (var section in stmt.Sections)
-        {
-            foreach (var label in section.Labels)
-            {
-                if (label is CaseSwitchLabelSyntax caseLabel)
-                {
-                    stateByCaseValue[NormalizeSwitchCaseTarget(caseLabel.Value, context)] = sectionStates[section];
-                }
-                else if (label is DefaultSwitchLabelSyntax)
-                {
-                    defaultState = sectionStates[section];
-                }
-            }
-        }
-
-        var switchId = context.GenerateSyntheticName("_switch");
-        var stateName = switchId + "State";
-        var loopName = switchId + "Loop";
-        var sb = new StringBuilder();
-
-        // Drain any pending pre-statements BEFORE the switch statement.
-        // Pre-statements like base segment declarations (MemorySegment __baseN = ptr)
-        // must be placed before the switch, not inside a case, to avoid Java
-        // "may not have been initialized" errors when referenced across cases.
-        if (context.HasPendingPreStatements)
-        {
-            var pendingPre = context.DrainPreStatements();
-            foreach (var pre in pendingPre)
-                sb.AppendLine(pre.TrimEnd(';') + ";");
-        }
-
-        sb.AppendLine($"int {stateName} = 0;");
-        sb.AppendLine($"switch ({expression}) {{");
-        foreach (var section in stmt.Sections)
-        {
-            foreach (var label in section.Labels)
-            {
-                switch (label)
-                {
-                    case CaseSwitchLabelSyntax caseLabel:
-                        sb.AppendLine($"    case {FormatSwitchCaseLabel(caseLabel.Value, context)}:");
-                        break;
-                    case DefaultSwitchLabelSyntax:
-                        sb.AppendLine("    default:");
-                        break;
-                }
-            }
-
-            sb.AppendLine($"        {stateName} = {sectionStates[section]};");
-            sb.AppendLine("        break;");
-        }
-
-        sb.AppendLine("}");
-        sb.AppendLine($"{loopName}: while ({stateName} != -1) {{");
-        sb.AppendLine($"    switch ({stateName}) {{");
-
-        // Push the switch-goto-case context so nested goto case/default statements
-        // can be properly transformed to state transitions.
-        context.PushSwitchGotoCase(stmt, stateName, loopName, stateByCaseValue, defaultState);
-        try
-        {
-
-        foreach (var section in stmt.Sections)
-        {
-            sb.AppendLine($"        case {sectionStates[section]}:");
-            foreach (var statement in section.Statements)
-            {
-                if (statement is BreakStatementSyntax)
-                {
-                    sb.AppendLine($"            {stateName} = -1;");
-                    sb.AppendLine($"            break {loopName};");
-                }
-                else if (statement is ContinueStatementSyntax)
-                {
-                    // C# continue inside a switch-with-goto-case should exit the while loop
-                    // so the enclosing for/while loop can continue naturally
-                    sb.AppendLine($"            {stateName} = -1;");
-                    sb.AppendLine($"            break {loopName};");
-                }
-                else if (statement is GotoStatementSyntax gotoStmt
-                    && TryTransformSwitchGoto(gotoStmt, stateName, loopName, stateByCaseValue, defaultState, context, out var gotoCode))
-                {
-                    AppendSwitchLine(sb, gotoCode);
-                }
-                else
-                {
-                    var transformed = Transform(statement, context).ToString("");
-                    AppendSwitchLine(sb, transformed);
-                }
-
-                if (IsSwitchSectionTerminal(statement))
-                {
-                    break;
-                }
-            }
-
-            if (!section.Statements.Any(StatementAlwaysTerminatesSwitchSection))
-            {
-                sb.AppendLine($"            {stateName} = -1;");
-                sb.AppendLine($"            break {loopName};");
-            }
-        }
-
-        }
-        finally
-        {
-            context.PopSwitchGotoCase();
-        }
-
-        sb.AppendLine("        default:");
-        sb.AppendLine($"            {stateName} = -1;");
-        sb.AppendLine($"            break {loopName};");
-        sb.AppendLine("    }");
-        sb.AppendLine("}");
-
-        // Add a fallback return if the switch-with-goto-case is directly inside
-        // a method body and the method has a non-void return type.
-        // Java requires all paths to return a value, and the compiler can't verify
-        // that the while loop always hits a return case (the default branch breaks out).
-        // Only add when the switch is a direct child of the method body block
-        // AND is the last statement in that block (otherwise code after the switch
-        // handles the return, and a fallback return would be unreachable).
-        if (stmt.Parent is BlockSyntax methodBlock && methodBlock.Parent is MethodDeclarationSyntax methodDecl
-            && methodBlock.Statements.IndexOf(stmt) == methodBlock.Statements.Count - 1)
-        {
-            var returnType = methodDecl.ReturnType;
-            if (returnType is PredefinedTypeSyntax pdt &&
-                !pdt.Keyword.IsKind(SyntaxKind.VoidKeyword))
-            {
-                var keyword = pdt.Keyword.Text;
-                var defaultReturn = keyword switch
-                {
-                    "int" or "long" or "short" or "byte" or "float" or "double" or "char" => "return 0;",
-                    "bool" => "return false;",
-                    _ => "return null;"
-                };
-                sb.AppendLine(defaultReturn);
-            }
-            else if (returnType is not PredefinedTypeSyntax)
-            {
-                // Non-predefined return type (e.g., String, custom class) - add return null as fallback.
-                sb.AppendLine("return null;");
-            }
-        }
-
-        return new JavaStatementNode(sb.ToString());
-
-        string FormatSwitchCaseLabel(ExpressionSyntax caseValue, ConversionContext ctx)
-        {
-            var transformedLabel = exprTransformer.Transform(caseValue, ctx);
-            if (ExpressionTransformerHelpers.TryFormatEnumMemberAccess(
-                caseValue,
-                ctx,
-                useUnqualifiedRegularEnumInSwitchLabel: context.Options.TargetLanguage != TargetLanguage.TypeScript,
-                out var formattedEnumLabel))
-            {
-                transformedLabel = formattedEnumLabel;
-            }
-            else if (transformedLabel.Contains(".get"))
-            {
-                var parts = transformedLabel.Split(new[] { ".get" }, StringSplitOptions.None);
-                transformedLabel = parts.Last().Replace("()", "");
-            }
-
-            return transformedLabel;
-        }
-    }
-
-    private static string NormalizeSwitchCaseTarget(ExpressionSyntax expression, ConversionContext context)
-    {
-        return expression.NormalizeWhitespace().ToFullString();
-    }
-
-    private bool TryTransformSwitchGoto(
-        GotoStatementSyntax gotoStmt,
-        string stateName,
-        string loopName,
-        IReadOnlyDictionary<string, int> stateByCaseValue,
-        int? defaultState,
-        ConversionContext context,
-        out string code)
-    {
-        if (gotoStmt.IsKind(SyntaxKind.GotoDefaultStatement))
-        {
-            if (defaultState.HasValue)
-            {
-                code = $"{stateName} = {defaultState.Value}; continue {loopName};";
-                return true;
-            }
-
-            code = "/* TODO: goto default - default label not found */";
-            return true;
-        }
-
-        if (gotoStmt.IsKind(SyntaxKind.GotoCaseStatement))
-        {
-            var target = gotoStmt.Expression != null
-                ? NormalizeSwitchCaseTarget(gotoStmt.Expression, context)
-                : "";
-            if (stateByCaseValue.TryGetValue(target, out var state))
-            {
-                code = $"{stateName} = {state}; continue {loopName};";
-                return true;
-            }
-
-            code = $"/* TODO: goto case {target} - case label not found */";
-            return true;
-        }
-
-        code = "";
-        return false;
-    }
-
-    private static void AppendSwitchLine(StringBuilder sb, string text)
-    {
-        foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
-        {
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                sb.AppendLine();
-            }
-            else
-            {
-                sb.Append("            ").AppendLine(line.TrimEnd());
-            }
-        }
-    }
-
     private static HashSet<string> FindSwitchDeclarationsUsedByLaterSections(SwitchStatementSyntax stmt)
     {
         var result = new HashSet<string>(StringComparer.Ordinal);
@@ -689,38 +432,10 @@ public partial class StatementTransformer
     }
 
     private JavaSyntaxNode TransformBreakStatement(BreakStatementSyntax? stmt, ConversionContext context)
-    {
-        if (stmt != null
-            && context.TryGetSwitchGotoCaseInfo(
-                out SwitchStatementSyntax switchStatement,
-                out var stateName,
-                out var loopName,
-                out _,
-                out _)
-            && IsJumpTargetingSwitch(stmt, switchStatement))
-        {
-            return new JavaStatementNode($"{stateName} = -1; break {loopName};");
-        }
-
-        return new JavaStatementNode("break;");
-    }
+        => new JavaStatementNode("break;");
 
     private JavaSyntaxNode TransformContinueStatement(ContinueStatementSyntax? stmt, ConversionContext context)
-    {
-        if (stmt != null
-            && context.TryGetSwitchGotoCaseInfo(
-                out SwitchStatementSyntax switchStatement,
-                out var stateName,
-                out var loopName,
-                out _,
-                out _)
-            && IsContinueTargetingEnclosingLoopThroughSwitch(stmt, switchStatement))
-        {
-            return new JavaStatementNode($"{stateName} = -1; break {loopName};");
-        }
-
-        return new JavaStatementNode("continue;");
-    }
+        => new JavaStatementNode("continue;");
 
     private static bool IsSwitchSectionTerminal(StatementSyntax stmt) =>
         StatementAlwaysTerminatesSwitchSection(stmt);
@@ -733,14 +448,7 @@ public partial class StatementTransformer
             case SyntaxKind.ThrowStatement:
             case SyntaxKind.BreakStatement:
             case SyntaxKind.ContinueStatement:
-            case SyntaxKind.GotoStatement:
-            case SyntaxKind.GotoCaseStatement:
-            case SyntaxKind.GotoDefaultStatement:
                 return true;
-            case SyntaxKind.WhileStatement:
-                // A while(true) loop that contains goto case/default is effectively terminal
-                // because those gotos translate to "continue switchLoop" which exits the loop.
-                return IsWhileTrueWithGotoCase(stmt);
             case SyntaxKind.Block:
                 return stmt is BlockSyntax block
                     && block.Statements.Any()
@@ -753,61 +461,6 @@ public partial class StatementTransformer
             default:
                 return false;
         }
-    }
-
-    private static bool IsJumpTargetingSwitch(StatementSyntax jump, SwitchStatementSyntax switchStatement)
-    {
-        for (var parent = jump.Parent; parent != null; parent = parent.Parent)
-        {
-            if (ReferenceEquals(parent, switchStatement))
-                return true;
-
-            if (parent is SwitchStatementSyntax
-                or WhileStatementSyntax
-                or ForStatementSyntax
-                or ForEachStatementSyntax
-                or DoStatementSyntax)
-                return false;
-        }
-
-        return false;
-    }
-
-    private static bool IsContinueTargetingEnclosingLoopThroughSwitch(ContinueStatementSyntax stmt, SwitchStatementSyntax switchStatement)
-    {
-        for (var parent = stmt.Parent; parent != null; parent = parent.Parent)
-        {
-            if (ReferenceEquals(parent, switchStatement))
-                return true;
-
-            if (parent is WhileStatementSyntax
-                or ForStatementSyntax
-                or ForEachStatementSyntax
-                or DoStatementSyntax)
-                return false;
-        }
-
-        return false;
-    }
-
-    private static bool IsWhileTrueWithGotoCase(StatementSyntax stmt)
-    {
-        if (stmt is not WhileStatementSyntax whileStmt)
-            return false;
-
-        // Check if condition is literal true
-        if (whileStmt.Condition is not LiteralExpressionSyntax lit ||
-            !lit.Token.IsKind(SyntaxKind.TrueKeyword))
-            return false;
-
-        // Check if the body contains any goto case/default
-        return ContainsGotoCaseOrDefault(whileStmt.Statement);
-    }
-
-    private static bool ContainsGotoCaseOrDefault(StatementSyntax stmt)
-    {
-        return stmt.DescendantNodes().OfType<GotoStatementSyntax>().Any(g =>
-            g.IsKind(SyntaxKind.GotoCaseStatement) || g.IsKind(SyntaxKind.GotoDefaultStatement));
     }
 
     private JavaSyntaxNode TransformTryStatement(TryStatementSyntax stmt, ConversionContext context)
@@ -1165,11 +818,7 @@ public partial class StatementTransformer
             return transformedInitializer;
         }
 
-        return ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-            initializer,
-            transformedInitializer,
-            declaredResourceType,
-            context);
+        return transformedInitializer;
     }
 
     private static string? ResolveMethodReturnJavaType(IMethodSymbol method)
@@ -1452,7 +1101,7 @@ public partial class StatementTransformer
             DeclarationPatternSyntax dp
                 => BuildDeclPatternCondition(expr, dp, context),
             TypePatternSyntax tp
-                => $"({expr} instanceof {ExpressionTransformerHelpers.StripTypeArguments(context.MapTypeFromSyntax(tp.Type))})",
+                => $"({expr} instanceof {context.MapTypeFromSyntax(tp.Type)})",
             DiscardPatternSyntax
                 => "true",
             UnaryPatternSyntax np when np.OperatorToken.IsKind(SyntaxKind.NotKeyword)
@@ -1498,7 +1147,7 @@ public partial class StatementTransformer
 
         var conditions = new List<string>();
         if (typeName != null)
-            conditions.Add($"{expr} instanceof {ExpressionTransformerHelpers.StripTypeArguments(typeName)}");
+            conditions.Add($"{expr} instanceof {typeName}");
 
         if (pattern.PropertyPatternClause != null && typeName != null)
         {

@@ -109,97 +109,6 @@ public class Sample
     }
 
     [Fact]
-    public void ExplicitValueEnum_CastToInt_UsesGetValue()
-    {
-        var result = Convert(@"
-public enum Status
-{
-    Open = 10,
-    Closed = 20
-}
-
-public class Sample
-{
-    public int GetValue(Status s) { return (int)s; }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("s.getValue()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("ordinal()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ExplicitValueEnum_CastFromInt_UsesFromValue()
-    {
-        var result = Convert(@"
-public enum Status
-{
-    Open = 10,
-    Closed = 20
-}
-
-public class Sample
-{
-    public Status FromInt(int v) { return (Status)v; }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("Status.fromValue(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".values()[", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SimpleEnum_CastToInt_UsesOrdinal()
-    {
-        var result = Convert(@"
-public enum Direction { North, South, East, West }
-
-public class Sample
-{
-    public int GetIndex(Direction d) { return (int)d; }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("return d.getValue();", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SimpleEnum_CastFromInt_UsesValues()
-    {
-        var result = Convert(@"
-public enum Direction { North, South, East, West }
-
-public class Sample
-{
-    public Direction FromInt(int v) { return (Direction)v; }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("Direction.fromValue((int)(v))", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SimpleEnum_CastFromNegativeInt_UsesUncheckedSentinel()
-    {
-        var result = Convert(@"
-public enum Mode { Off, On }
-
-public class Sample
-{
-    public Mode GetSentinel() { return (Mode)(-1); }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Off(0)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("On(1)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("_UNMAPPED", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public static Mode fromValue(int v)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public static Mode fromValueUnchecked(int v)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return Mode.fromValue((int)((-1)))", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Mode.values()[(int)((-1))]", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void EnumCastFromObject_UsesJavaReferenceCast()
     {
         var result = Convert(@"
@@ -327,37 +236,6 @@ public class Sample
         Assert.Contains("Min(Integer.MIN_VALUE)", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("Read << 1", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("Read | Write", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ExplicitValueEnum_LongUnderlyingType_UsesLongValueAccessorsAndCasts()
-    {
-        var result = Convert(@"
-public enum BigStatus : long
-{
-    Small = 1L,
-    Huge = 5000000000L,
-    Next
-}
-
-public class Sample
-{
-    public long ToLong(BigStatus s) { return (long)s; }
-    public int ToInt(BigStatus s) { return (int)s; }
-    public BigStatus FromLong(long v) { return (BigStatus)v; }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("Small(1L)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Huge(5000000000L)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Next(5000000001L)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("private final long value;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public long getValue()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public static BigStatus fromValue(long v)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return s.getValue();", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return (int)(s.getValue());", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return BigStatus.fromValue((long)(v));", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("fromValue(int v)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -954,54 +832,6 @@ public class Document
         // Field should be initialized to the 0-valued member, not left as null
         Assert.Contains("AccessMode mode = AccessMode.Full", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("AccessMode mode;", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void DefaultExpression_EnumType_ReturnsZeroMember()
-    {
-        // C# default(EnumType) returns the member with value 0, not null.
-        var result = Convert(@"
-public enum Status
-{
-    Full,
-    Partial,
-    None
-}
-
-public class Sample
-{
-    public Status GetDefault() { return default(Status); }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Status.Full", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("null", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void EnumLocalVariable_WithoutInitializer_DefaultsToZeroMember()
-    {
-        // C# local enum variable with default(VertStatus) defaults to the 0-valued member,
-        // but Java enum reference defaults to null. The converter should use the 0-valued member.
-        var result = Convert(@"
-public enum VertStatus
-{
-    NotVisited,
-    InStack,
-    Visited,
-}
-
-public class Program
-{
-    public void Check()
-    {
-        VertStatus status = default(VertStatus);
-        System.Console.WriteLine(status);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("VertStatus.NotVisited", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

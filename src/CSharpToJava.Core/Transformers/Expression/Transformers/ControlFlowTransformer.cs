@@ -167,38 +167,6 @@ public class ControlFlowTransformer : IIRExpressionTransformer
         }
 
         // Java's conditional expression requires both branches to have compatible types.
-        // C# allows `condition ? decimalValue : 1` because 1 is implicitly convertible to decimal.
-        // Wrap the numeric branch with Decimal.valueOf(...) so both branches are Decimal-typed.
-        if (context.SemanticModel != null)
-        {
-            var conditionalType = context.GetTypeInfo(node).ConvertedType;
-            if (ExpressionTransformerHelpers.IsDecimalType(conditionalType))
-            {
-                trueExpr = ExpressionTransformerHelpers.ToDecimalExpression(
-                    node.WhenTrue, trueExpr, context.GetTypeInfo(node.WhenTrue).Type);
-                falseExpr = ExpressionTransformerHelpers.ToDecimalExpression(
-                    node.WhenFalse, falseExpr, context.GetTypeInfo(node.WhenFalse).Type);
-            }
-        }
-
-        // Target-typed conditional producing Span<T>/ReadOnlySpan<T>: C# implicitly
-        // converts string branches to ReadOnlySpan<char> (and T[] branches to spans),
-        // but Java has no such implicit conversion. Adapt every branch to the span
-        // type (wrapping String branches with MemoryExtensions.asSpan, arrays with
-        // new ReadOnlySpan<>(...)) so the ternary type-checks.
-        if (context.SemanticModel != null)
-        {
-            var conditionalType = context.GetTypeInfo(node).ConvertedType;
-            if (conditionalType is INamedTypeSymbol condSpanType
-                && condSpanType.OriginalDefinition?.ToDisplayString() is "System.Span<T>" or "System.ReadOnlySpan<T>")
-            {
-                trueExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-                    node.WhenTrue, trueExpr, conditionalType, context);
-                falseExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-                    node.WhenFalse, falseExpr, conditionalType, context);
-            }
-        }
-
         // If either branch generated branch-scoped pre-statements (e.g. object
         // initializer extraction), the ternary must be converted to an if-else
         // so that side effects execute only inside the taken branch.
@@ -684,7 +652,7 @@ public class ControlFlowTransformer : IIRExpressionTransformer
 
     private static string ToRuntimeTypeForInstanceOf(string mappedType)
     {
-        var stripped = ExpressionTransformerHelpers.StripTypeArguments(mappedType);
+        var stripped = mappedType;
         // Box floating-point patterns (instanceof double/float is a Java preview
         // feature); keep other primitives as-is to preserve existing switch-pattern
         // output (e.g. `o instanceof int i`).

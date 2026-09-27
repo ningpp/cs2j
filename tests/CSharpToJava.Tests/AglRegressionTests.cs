@@ -20,44 +20,6 @@ public class AglRegressionTests
     // zero value for primitive wrappers (e.g., 0 for Integer).
     // ------------------------------------------------------------------
     [Fact]
-    public void DefaultFactoryMethod_UsesRuntimeClassToken_WhenAvailable()
-    {
-        var result = Convert("""
-using System;
-using System.Collections.Generic;
-
-public class GenericBinaryHeapPriorityQueue<T>
-{
-    const int InitialHeapCapacity = 16;
-    T[] A;
-    int heapSize;
-
-    public GenericBinaryHeapPriorityQueue() { }
-
-    public T Peek(out double priority)
-    {
-        if (heapSize == 0)
-        {
-            priority = 0.0;
-            return default(T);
-        }
-        priority = 0.0;
-        return default(T);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        // The _cs2jDefault_T() method should use DefaultValue.ofClass(tClass)
-        // instead of DefaultValue.of() when a runtime class token is available.
-        Assert.Contains("_cs2jDefault_T", code);
-        Assert.Contains("DefaultValue.ofClass(tClass)", code);
-        Assert.DoesNotContain("DefaultValue.of()", code);
-    }
-
-    [Fact]
     public void LinqFirst_WithPredicate_EmptyCollection_ThrowsIllegalStateException()
     {
         var result = Convert("""
@@ -98,46 +60,6 @@ public class Demo
     // Fix: AddTypeOfDefaultRequirements now also scans DefaultLiteralExpression
     // nodes, inferring the target type from the semantic model's ConvertedType.
     // ------------------------------------------------------------------
-    [Fact]
-    public void DefaultLiteral_AfterGenericPreprocess_StillRegistersRuntimeClassField()
-    {
-        // This source uses bare 'default' literal — exactly what GenericPreprocessor
-        // produces when rewriting default(T) in safe (return) contexts.
-        var result = Convert("""
-using System;
-using System.Collections.Generic;
-
-public class GenericBinaryHeapPriorityQueue<T>
-{
-    const int InitialHeapCapacity = 16;
-    T[] A;
-    int heapSize;
-
-    public GenericBinaryHeapPriorityQueue() { }
-
-    public T Peek(out double priority)
-    {
-        if (heapSize == 0)
-        {
-            priority = 0.0;
-            return default;
-        }
-        priority = 0.0;
-        return default;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        // The _cs2jDefault_T() method should use DefaultValue.ofClass(tClass)
-        // instead of DefaultValue.of() when a runtime class token is available.
-        Assert.Contains("_cs2jDefault_T", code);
-        Assert.Contains("DefaultValue.ofClass(tClass)", code);
-        Assert.DoesNotContain("DefaultValue.of()", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

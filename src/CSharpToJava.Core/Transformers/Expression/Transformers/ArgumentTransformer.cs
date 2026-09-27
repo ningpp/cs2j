@@ -945,53 +945,6 @@ public class ArgumentTransformer
             }
         }
 
-        // Lambda returning array/List → target delegate expects IEnumerable<T> (CSharpGenericIterable<T>).
-        // C# arrays and List<T> implement IEnumerable<T>, but the Java mapped type is
-        // CSharpGenericIterable<T> which they don't implement. Wrap the lambda body.
-        if (arg.Expression is AnonymousFunctionExpressionSyntax
-            && targetParam.Type is INamedTypeSymbol delegateParamType
-            && delegateParamType.TypeKind == TypeKind.Delegate
-            && delegateParamType.DelegateInvokeMethod?.ReturnType is INamedTypeSymbol delegateReturnType
-            && ExpressionTransformerHelpers.IsIEnumerableType(delegateReturnType))
-        {
-            ExpressionSyntax? lambdaBodyExpr = arg.Expression switch
-            {
-                SimpleLambdaExpressionSyntax sl => sl.ExpressionBody,
-                ParenthesizedLambdaExpressionSyntax pl => pl.ExpressionBody,
-                _ => null
-            };
-
-            if (lambdaBodyExpr != null)
-            {
-                var bodyType = context.GetTypeInfo(lambdaBodyExpr).Type;
-                if (bodyType is IArrayTypeSymbol)
-                {
-                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                    context.AddImport("io.github.ningpp.compat.ArrayHelper");
-                    var bodyExpr = ExpressionTransformerFacade.Instance.Transform(lambdaBodyExpr, context);
-                    return transformedExpr.Replace(
-                        bodyExpr,
-                        $"CSharpGenericIterable.from(ArrayHelper.toList({bodyExpr}))",
-                        StringComparison.Ordinal);
-                }
-                else if (bodyType is INamedTypeSymbol bodyNamedType
-                    && (bodyNamedType.Name == "List" || bodyNamedType.Name == "Collection"
-                        || bodyNamedType.Name == "CSharpList"
-                        || bodyNamedType.Name == "IEnumerable"
-                        || bodyNamedType.Name == "ICollection"
-                        || bodyNamedType.Name == "IList")
-                    && !bodyNamedType.Equals(delegateReturnType, SymbolEqualityComparer.Default))
-                {
-                    context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                    var bodyExpr = ExpressionTransformerFacade.Instance.Transform(lambdaBodyExpr, context);
-                    return transformedExpr.Replace(
-                        bodyExpr,
-                        $"CSharpGenericIterable.from({bodyExpr})",
-                        StringComparison.Ordinal);
-                }
-            }
-        }
-
         var argType = context.GetTypeInfo(arg.Expression).Type;
         if (argType == null)
             return transformedExpr;
@@ -1057,12 +1010,9 @@ public class ArgumentTransformer
             if (targetParam.ContainingSymbol is IMethodSymbol { Name: "AddRange" })
                 return transformedExpr;
 
-            // IEnumerable targets keep the array identity (array -> IEnumerable -> (T[])
-            // cast round trips must return the same instance); IList/ICollection targets
-            // need a mutable collection.
-            var collectionExpr = ExpressionTransformerHelpers.IsIEnumerableType(paramNamed)
-                ? ExpressionTransformerHelpers.WrapArrayForIterableTarget(paramNamed, transformedExpr, context)
-                : ExpressionTransformerHelpers.BuildArrayToCollectionExpression(transformedExpr, argArrayType, context);
+            // Use ArrayHelper.toList to wrap the array for the target collection interface.
+            context.AddImport("io.github.ningpp.compat.ArrayHelper");
+            var collectionExpr = $"ArrayHelper.toList({transformedExpr})";
             // When the target is IList<T> (mapped to CSharpGenericIList<T>),
             // the BuildArrayToCollectionExpression result (List<T>) must be wrapped
             // via CSharpGenericIList.fromTyped() because Java's List<T> does not
@@ -1117,12 +1067,10 @@ public class ArgumentTransformer
                     javaTargetNeedsCollection = true;
                 }
 
-                // If target is IEnumerable<T> but the transformed argument is already a Java Stream,
-                // materialize it so Java receives an Iterable/Collection value.
-                // Use depth-aware check to avoid false positives from nested stream args.
+                // If target is IEnumerable<T> and the argument is a stream, materialize it.
                 if (argIsEnumerable && paramNamed2.Name is "IEnumerable"
                     && context.Options.TargetLanguage != TargetLanguage.TypeScript
-                    && Utilities.ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(transformedExpr))
+                    && transformedExpr.Contains(".stream(", StringComparison.Ordinal))
                 {
                     javaTargetNeedsCollection = true;
                     targetIsIEnumerable = true;
@@ -1135,20 +1083,6 @@ public class ArgumentTransformer
                 context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
                 context.AddImport("java.util.stream.StreamSupport");
                 context.AddImport("java.util.stream.Collectors");
-                if (Utilities.ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(transformedExpr))
-                {
-                    if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
-                    {
-                        return transformedExpr;
-                    }
-                    var collectExpr = $"{transformedExpr}.collect(CSharpList.toCSharpList())";
-                    if (targetIsIEnumerable)
-                    {
-                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                        return $"CSharpGenericIterable.from({collectExpr})";
-                    }
-                    return collectExpr;
-                }
                 var spliteratorCollectExpr = $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(CSharpList.toCSharpList())";
                 if (targetIsIEnumerable)
                 {
@@ -1314,22 +1248,6 @@ public class ArgumentTransformer
             return $"CSharpIDictionary.from({transformedExpr})";
         }
 
-        // Overload families (e.g. JsonSerializer's <T>deserialize(Class<T>, ...)
-        // vs deserialize(..., Class, ...)) make a bare null literal applicable to
-        // several overloads in Java, while C# resolved it through type inference.
-        // Pin null arguments to the bound parameter's mapped Java type so the
-        // javac overload selection matches the C# binding.
-        if (transformedExpr.Trim() == "null" && paramType != null)
-        {
-            var javaParamType = context.MapType(paramType);
-            if (!string.IsNullOrWhiteSpace(javaParamType)
-                && !ExpressionTransformerHelpers.IsJavaPrimitiveType(javaParamType)
-                && !javaParamType.EndsWith("[]", StringComparison.Ordinal))
-            {
-                return $"({javaParamType}) null";
-            }
-        }
-
         // Lambda arguments are often cast to Supplier<T>/Function<T,R> using the
         // lambda's own inferred return type, which may differ from the delegate
         // parameter's type argument after C# implicit widening (e.g. an int-returning
@@ -1349,11 +1267,7 @@ public class ArgumentTransformer
             }
         }
 
-        var result = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-            arg.Expression,
-            transformedExpr,
-            paramType,
-            context);
+        var result = transformedExpr;
 
         // C# ref/pointer parameters map to holders (IntHolder/ObjectHolder/...) in the
         // generated signature. A MemoryMarshal.getReference(...) argument yields the
@@ -1839,10 +1753,7 @@ public class ArgumentTransformer
 
         bool argIsEnumerable = IsEnumerableOrLinqStreamType(argType);
 
-        // Use depth-aware check: stream methods inside parenthesized arguments
-        // (e.g. gluedPolyline(x.stream().map(...).toArray(), y)) must NOT trigger
-        // collect on the outer method call which returns Iterable, not Stream.
-        if (!argIsEnumerable || !Utilities.ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(transformedExpr))
+        if (!argIsEnumerable)
             return transformedExpr;
 
         context.AddImport("java.util.stream.Collectors");

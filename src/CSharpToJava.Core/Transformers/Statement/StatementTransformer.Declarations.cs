@@ -282,14 +282,6 @@ public partial class StatementTransformer
                     && !HasCastPrefix(initExpr)
                     && context.SemanticModel != null)
                 {
-                    var mappedLocalType = context.MapType(localConcreteType);
-                    if (!string.IsNullOrWhiteSpace(mappedLocalType)
-                        && mappedLocalType != "Object"
-                        && !ExpressionTransformerHelpers.IsJavaPrimitiveType(mappedLocalType))
-                    {
-                        context.AddImportsForTypePublic(localConcreteType.ToDisplayString());
-                        initExpr = $"({mappedLocalType}) {initExpr}";
-                    }
                 }
                 if (!IsUsableLocalOverrideType(localTargetType) && context.SemanticModel != null)
                 {
@@ -457,13 +449,7 @@ public partial class StatementTransformer
                         var initExprTypeInfo = context.GetTypeInfo(v.Initializer!.Value);
                         var arrayTypeSymbol = initExprTypeInfo.Type as IArrayTypeSymbol
                             ?? initExprTypeInfo.ConvertedType as IArrayTypeSymbol;
-                        if (arrayTypeSymbol != null && localSym?.Type is INamedTypeSymbol localNamedType)
-                        {
-                            initExpr = ExpressionTransformerHelpers.IsIEnumerableType(localNamedType)
-                                ? ExpressionTransformerHelpers.WrapArrayForIterableTarget(localNamedType, initExpr, context)
-                                : ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayTypeSymbol, context);
-                        }
-                        else if (arrayTypeSymbol != null)
+                        if (arrayTypeSymbol != null)
                         {
                             initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayTypeSymbol, context);
                         }
@@ -480,9 +466,7 @@ public partial class StatementTransformer
                         // If it ends with .toArray(...), the stream was already terminated to an array —
                         // the variable is T[], not a stream, so do NOT register it as a stream variable.
                         && !initExpr.TrimEnd().EndsWith(".toArray()")
-                        && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")
-                        // Use top-level stream detection to avoid false positives from nested args
-                        && ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(initExpr);
+                        && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$");
                     // Do NOT register if the variable's Java type is an array (e.g. Point[]).
                     // Arrays are directly iterable in Java; they are never Java streams.
                     bool isArrayJavaType = javaType.EndsWith("[]");
@@ -567,11 +551,6 @@ public partial class StatementTransformer
                     }
                 }
 
-                initExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-                    v.Initializer.Value,
-                    initExpr,
-                    localTargetType,
-                    context);
                 init = $" = {initExpr}";
             }
             else if (wasConvertedFromVar && javaType != "var" && javaType != "Object")
@@ -658,7 +637,6 @@ public partial class StatementTransformer
                             "char" => "'\\0'",
                             _ => "null"
                         };
-                    lambdaCaptureHolderCode = ExpressionTransformerHelpers.BuildLambdaCaptureHolderDeclaration(capType, holderName, captureInit);
                     context.MethodState.ActivateLambdaCaptureHolder(origName, varDeclarator);
                 }
             }
@@ -1091,8 +1069,6 @@ public partial class StatementTransformer
     /// </summary>
     private static bool IsAssignableToCSharpICollection(ITypeSymbol type, ConversionContext context)
     {
-        if (ExpressionTransformerHelpers.IsCSharpCollectionBaseLike(type, context))
-            return false;
 
         if (type is INamedTypeSymbol named)
         {
@@ -1226,27 +1202,6 @@ public partial class StatementTransformer
             return false;
 
         var methodName = memberAccess.Name.Identifier.Text;
-        if (methodName == "GetTempPath"
-            && ExpressionTransformerHelpers.StaticReceiverMatches(
-                memberAccess.Expression,
-                context,
-                "Path",
-                "Paths",
-                "System.IO.Path"))
-        {
-            return true;
-        }
-
-        if (methodName == "Combine"
-            && ExpressionTransformerHelpers.StaticReceiverMatches(
-                memberAccess.Expression,
-                context,
-                "Path",
-                "Paths",
-                "System.IO.Path"))
-        {
-            return true;
-        }
 
         return false;
     }
@@ -1487,15 +1442,10 @@ public partial class StatementTransformer
         {
             var (targetNode, targetStr) = targets[i];
             var rhsStr = $"{tmpName}.clone()";
-            var lhsType = context.GetTypeInfo(targetNode).Type;
-            rhsStr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, rhsStr, lhsType, context);
             preStmts.Add($"{targetStr} = {rhsStr}");
         }
 
         var varInitExpr = $"{tmpName}.clone()";
-        var varLhsType = (context.GetDeclaredSymbol(varDecl) as ILocalSymbol)?.Type;
-        varInitExpr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(sourceNode, varInitExpr, varLhsType, context);
-
         return (varInitExpr, preStmts);
     }
 }

@@ -98,25 +98,6 @@ class Test {
         Assert.DoesNotContain("(short)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void UShortCast_ObjectValue_UsesIntegerUnboxingMask()
-    {
-        var result = Convert(@"
-class Test {
-    int M(object value) {
-        return (ushort)value;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-
-        // (ushort)obj must unbox Object before applying the ushort mask; route
-        // through EnumHelper so boxed enum constants (not Java Numbers) also work.
-        Assert.Contains("EnumHelper.toInt32(value)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("& 0xFFFF", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(int)(value)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

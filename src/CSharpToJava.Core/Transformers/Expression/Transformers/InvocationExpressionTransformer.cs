@@ -155,7 +155,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
                 if (mappedName != null)
                 {
-                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedName, context);
                     ApplyMappedName(call, mappedName, isStatic, receiver);
                 }
                 else
@@ -173,8 +172,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             case IdentifierNameSyntax identifier:
             {
                 var (mappedName, _) = TryResolveMappedName(invocation, identifier.Identifier.Text, context);
-                if (mappedName != null)
-                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedName, context);
 
                 var call = new JavaMethodCallExpression
                 {
@@ -221,7 +218,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
                 if (mappedName != null)
                 {
-                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedName, context);
                     return RenderMappedCall(mappedName, isStatic, receiver, arguments);
                 }
 
@@ -233,8 +229,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 var originalName = identifier.Identifier.Text;
                 var (mappedName, _) = TryResolveMappedName(node, originalName, context);
-                if (mappedName != null)
-                    ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mappedName, context);
 
                 var methodName = mappedName ?? ToCamelCase(originalName);
                 return $"{methodName}({arguments})";
@@ -252,12 +246,9 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private static string TransformReceiver(ExpressionSyntax expression, ConversionContext context)
     {
-        if (ExpressionTransformerHelpers.TryMapConfiguredQualifiedTypeReceiver(expression, context, out var mappedReceiver))
-            return mappedReceiver;
-
         var receiver = ExpressionTransformerFacade.Instance.Transform(expression, context);
         return ContainsGenericTypeQualifier(expression)
-            ? ExpressionTransformerHelpers.StripTypeArguments(receiver)
+            ? StripTypeArgs(receiver)
             : receiver;
     }
 
@@ -266,9 +257,6 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private static JavaExpression TransformReceiverToIR(ExpressionSyntax expression, ConversionContext context)
     {
-        if (ExpressionTransformerHelpers.TryMapConfiguredQualifiedTypeReceiver(expression, context, out var mappedReceiver))
-            return new JavaRawExpression(mappedReceiver);
-
         var receiver = ExpressionTransformerFacade.Instance.TransformToIR(expression, context);
         if (!ContainsGenericTypeQualifier(expression))
             return receiver;
@@ -276,10 +264,10 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         return receiver switch
         {
             JavaRawExpression raw => new JavaRawExpression(
-                ExpressionTransformerHelpers.StripTypeArguments(raw.Code), raw.ResolvedType),
+                StripTypeArgs(raw.Code), raw.ResolvedType),
             JavaIdentifierExpression identifier => new JavaIdentifierExpression
             {
-                Name = ExpressionTransformerHelpers.StripTypeArguments(identifier.Name)
+                Name = StripTypeArgs(identifier.Name)
             },
             _ => receiver
         };
@@ -404,7 +392,24 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
         // byte maps to Java int, but Parse lives on Byte (Byte.parseByte).
         var boxedReceiver = keyword == "byte" && originalMethodName == "Parse"
             ? "Byte"
-            : ExpressionTransformerHelpers.BoxedTypeName(primTypeSyntax);
+            : primTypeSyntax.Keyword.Text switch
+            {
+                "bool" => "Boolean",
+                "int" => "Integer",
+                "long" => "Long",
+                "double" => "Double",
+                "float" => "Float",
+                "decimal" => "Decimal",
+                "char" => "Character",
+                "short" => "Short",
+                "byte" => "Integer",
+                "uint" => "Integer",
+                "ulong" => "Long",
+                "ushort" => "Short",
+                "string" => "String",
+                "object" => "Object",
+                _ => primTypeSyntax.Keyword.Text
+            };
         var mappedMethod = MapPrimitiveStaticMethodName(keyword, originalMethodName);
 
         // char.ConvertFromUtf32 returns string in C# but Character.toChars returns char[].
@@ -619,5 +624,37 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var camelCase = char.ToLowerInvariant(name[0]) + name[1..];
         return ConversionContext.EscapeJavaKeyword(camelCase);
+    }
+
+    /// <summary>
+    /// Strips generic type arguments from a type name (e.g. List&lt;T&gt; → List).
+    /// </summary>
+    private static string StripTypeArgs(string typeName)
+    {
+        if (!typeName.Contains('<', StringComparison.Ordinal))
+            return typeName;
+
+        var builder = new StringBuilder(typeName.Length);
+        var depth = 0;
+
+        foreach (var ch in typeName)
+        {
+            if (ch == '<')
+            {
+                depth++;
+                continue;
+            }
+
+            if (ch == '>')
+            {
+                depth--;
+                continue;
+            }
+
+            if (depth == 0)
+                builder.Append(ch);
+        }
+
+        return depth == 0 ? builder.ToString() : typeName;
     }
 }

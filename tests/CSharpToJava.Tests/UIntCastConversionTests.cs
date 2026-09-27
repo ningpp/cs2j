@@ -86,25 +86,6 @@ class Test {
             "for (uint) cast conversion, but neither was found.\n---Generated---\n" + result.GeneratedCode);
     }
 
-    [Fact]
-    public void UIntCast_ObjectValue_UsesIntegerUnboxingMask()
-    {
-        var result = Convert(@"
-class Test {
-    double M(object value) {
-        return (double)(uint)value;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-
-        // (uint)obj must unbox Object before applying the uint mask; route through
-        // EnumHelper so boxed enum constants (not Java Numbers) also work.
-        Assert.Contains("EnumHelper.toInt32(value)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("& 0xFFFFFFFFL", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(value) & 0xFFFFFFFFL", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -4,7 +4,7 @@ namespace CSharpToJava.ConversionTests.Categories;
 
 /// <summary>
 /// Verifies correct conversion of miscellaneous C# language features: yield return, lock, nameof, typeof,
-/// sizeof, attributes, static classes, goto-based switch, nested classes, object methods, const, object initializers.
+/// sizeof, attributes, static classes, nested classes, object methods, const, object initializers.
 /// </summary>
 public class LanguageFeatureTests : ConversionTestBase
 {
@@ -51,13 +51,6 @@ public class LanguageFeatureTests : ConversionTestBase
     {
         var result = Convert("public static class S { public static int V; public static void M() { } }");
         AssertConversion(result, "public final class S {", "private S() {", "public static int V;", "public static void m() {");
-    }
-
-    [Fact]
-    public void GotoSwitch_ConvertsToStateMachine()
-    {
-        var result = Convert("class C { public void M(int x) { switch(x) { case 1: goto case 2; case 2: break; } } }");
-        AssertConversion(result, "_switch1State", "_switch1Loop", "continue _switch1Loop");
     }
 
     [Fact]

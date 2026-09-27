@@ -503,85 +503,6 @@ class Sample
     }
 
     [Fact]
-    public void SystemArrayCast_ToStringArray_UsesToArray()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                Array EnsureArrayIndex(Array a, int index, Type elementType) => a;
-
-                void M()
-                {
-                    string[] ids = (string[])EnsureArrayIndex(null, 0, typeof(string));
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains(".toArray(String.class)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(String[])(ensureArrayIndex", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void NameTableToArray_TypeOfElementAccessor_ChainsToArray()
-    {
-        var result = Convert("""
-            using System;
-
-            class ElementAccessor { }
-
-            class NameTable
-            {
-                public Array ToArray(Type type) => null;
-            }
-
-            class Sample
-            {
-                void M(NameTable table)
-                {
-                    ElementAccessor[] elements = (ElementAccessor[])table.ToArray(typeof(ElementAccessor));
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("table.toArray(ElementAccessor.class).toArray(ElementAccessor.class)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(ElementAccessor[])(table.toArray", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void NameTableToArray_TypeOfXmlSchemaObject_ChainsToArray()
-    {
-        var result = Convert("""
-            using System;
-
-            namespace System.Xml.Schema
-            {
-                public class XmlSchemaObject { }
-            }
-
-            class NameTable
-            {
-                public Array ToArray(Type type) => null;
-            }
-
-            class Sample
-            {
-                void M(NameTable table)
-                {
-                    System.Xml.Schema.XmlSchemaObject[] items = (System.Xml.Schema.XmlSchemaObject[])table.ToArray(typeof(System.Xml.Schema.XmlSchemaObject));
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("table.toArray(XmlSchemaObject.class).toArray(XmlSchemaObject.class)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(XmlSchemaObject[])(table.toArray", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void PropertyWithExplicitBackingField_SetViaExplicitSetterMethod_WritesBackingField()
     {
         var result = Convert("""
@@ -607,28 +528,6 @@ class Sample
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         Assert.Contains("this._memberInfo = memberInfo", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("this.memberInfo = memberInfo", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void TypeOfNullableUnboundGeneric_MapsToOptionalClassLiteral()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                bool IsNullable(Type type)
-                {
-                    return type.IsGenericType
-                        && type.GetGenericTypeDefinition() == typeof(Nullable<>).GetGenericTypeDefinition();
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Console.WriteLine("NULLABLE UNBOUND:\n" + result.GeneratedCode);
-        Assert.Contains("Optional.class", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("T.class", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

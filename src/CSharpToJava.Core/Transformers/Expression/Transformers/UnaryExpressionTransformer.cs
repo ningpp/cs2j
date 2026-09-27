@@ -102,7 +102,7 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
                     && IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleTargetSym, tupleMa.Name.Identifier.Text) >= 0;
 
                 bool isDecimalTarget = operandSyntax != null && context.SemanticModel != null
-                    && ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(operandSyntax).Type);
+                    && context.GetTypeInfo(operandSyntax).Type?.SpecialType == SpecialType.System_Decimal;
 
                 bool isEnumTarget = operandSyntax != null && context.SemanticModel != null
                     && IsNonFlagsEnum(context.GetTypeInfo(operandSyntax).Type, context);
@@ -1196,11 +1196,11 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         out string rewritten)
     {
         rewritten = string.Empty;
-        if (context.SemanticModel == null
-            || !ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(operand).Type))
-        {
-            return false;
-        }
+            if (context.SemanticModel == null
+                || context.GetTypeInfo(operand).Type?.SpecialType != SpecialType.System_Decimal)
+            {
+                return false;
+            }
 
         var transformedOperand = ExpressionTransformerFacade.Instance.Transform(operand, context);
         var method = op == "++" ? "add" : "subtract";
@@ -1216,11 +1216,11 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         out string result)
     {
         result = string.Empty;
-        if (context.SemanticModel == null
-            || !ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(operand).Type))
-        {
-            return false;
-        }
+            if (context.SemanticModel == null
+                || context.GetTypeInfo(operand).Type?.SpecialType != SpecialType.System_Decimal)
+            {
+                return false;
+            }
 
         var transformedOperand = ExpressionTransformerFacade.Instance.Transform(operand, context);
         var tmp = context.GenerateSyntheticName("_postDecimal");
@@ -1239,11 +1239,11 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
         out string result)
     {
         result = string.Empty;
-        if (context.SemanticModel == null
-            || !ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(operand).Type))
-        {
-            return false;
-        }
+            if (context.SemanticModel == null
+                || context.GetTypeInfo(operand).Type?.SpecialType != SpecialType.System_Decimal)
+            {
+                return false;
+            }
 
         var transformedOperand = ExpressionTransformerFacade.Instance.Transform(operand, context);
         var method = op == "++" ? "add" : "subtract";

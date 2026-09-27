@@ -400,56 +400,6 @@ public class FieldTransformer : IMemberTransformer
                         javaField.Initializer = ObjectCreationTransformer.WrapArrayForCollectionArg(javaField.Initializer, arrayType, context);
                 }
 
-                if (context.SemanticModel != null
-                    && fieldTypeSymbol is INamedTypeSymbol fieldIterable
-                    && (fieldIterable.OriginalDefinition?.ToDisplayString()
-                            == "System.Collections.Generic.IEnumerable<T>"
-                        || fieldIterable.ToDisplayString() == "System.Collections.IEnumerable")
-                    && context.GetTypeInfo(variable.Initializer.Value).Type is IArrayTypeSymbol)
-                {
-                    javaField.Initializer = ExpressionTransformerHelpers.WrapArrayForIterableTarget(
-                        fieldIterable, javaField.Initializer!, context);
-                }
-
-                if (IsEnumerableOrCollectionTypeSyntax(fieldDecl.Declaration.Type)
-                    && variable.Initializer.Value is ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax
-                    && !ExpressionTransformerHelpers.IsArrayAlreadyWrappedForCollectionOrIterable(javaField.Initializer))
-                {
-                    // Fallback when semantic model doesn't surface array type information.
-                    // Java Arrays.stream only supports int[], long[], double[], and T[].
-                    if (javaField.Initializer.StartsWith("new int[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new long[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new double[", StringComparison.Ordinal))
-                    {
-                        context.AddImport("java.util.Arrays");
-                        context.AddImport("java.util.stream.Collectors");
-                        context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                        javaField.Initializer = $"Arrays.stream({javaField.Initializer}).boxed().collect(CSharpList.toCSharpList())";
-                    }
-                    else if (javaField.Initializer.StartsWith("new short[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new byte[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new float[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new boolean[", StringComparison.Ordinal)
-                        || javaField.Initializer.StartsWith("new char[", StringComparison.Ordinal))
-                    {
-                        context.AddImport("java.util.stream.IntStream");
-                        context.AddImport("java.util.stream.Collectors");
-                        context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                        javaField.Initializer = $"IntStream.range(0, {javaField.Initializer}.length).mapToObj(i -> {javaField.Initializer}[i]).collect(CSharpList.toCSharpList())";
-                    }
-                    else
-                    {
-                        context.AddImport("io.github.ningpp.compat.ArrayHelper");
-                        javaField.Initializer = $"ArrayHelper.toList({javaField.Initializer})";
-                    }
-                }
-
-                javaField.Initializer = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-                    variable.Initializer.Value,
-                    javaField.Initializer,
-                    fieldTypeSymbol,
-                    context);
-
                 // [ThreadStatic] field WITH initializer: the holder itself must be
                 // initialized, not the per-thread value. Wrap the value expression in
                 // ThreadLocal.withInitial(() -> value) so every thread starts from it

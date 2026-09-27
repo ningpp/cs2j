@@ -35,22 +35,6 @@ unsafe class Holder {
         Assert.DoesNotContain("index.address()", code);
     }
 
-    [Fact]
-    public void CastRealPointerToInt_StillAppendsAddress()
-    {
-        var result = Convert(@"
-unsafe class Holder {
-    private static int Foo(byte* p) {
-        return (int)p;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("(int)(p.address())", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

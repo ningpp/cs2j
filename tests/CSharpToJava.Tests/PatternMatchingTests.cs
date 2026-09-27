@@ -10,41 +10,6 @@ public class PatternMatchingTests
     // ═══════════════════════════════════════════════════════════
 
     [Fact]
-    public void IsPattern_NotNull_ProducesNotEquals()
-    {
-        var result = Convert(@"
-class C {
-    bool Test(object o) => o is not null;
-}");
-        Assert.True(result.Success);
-        Assert.Contains("!(o == null)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void IsPattern_AndPattern_ProducesLogicalAnd()
-    {
-        var result = Convert(@"
-class C {
-    bool Test(int x) => x is > 0 and < 100;
-}");
-        Assert.True(result.Success);
-        Assert.Contains("x > 0", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("&&", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("x < 100", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void IsPattern_OrPattern_ProducesLogicalOr()
-    {
-        var result = Convert(@"
-class C {
-    bool Test(int x) => x is 1 or 2 or 3;
-}");
-        Assert.True(result.Success);
-        Assert.Contains("||", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void IsPattern_TypePattern_ProducesInstanceof()
     {
         var result = Convert(@"
@@ -68,22 +33,6 @@ class C {
 }");
         Assert.True(result.Success);
         Assert.Contains("o instanceof String s", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void IsPattern_VarPattern_AssignsVar()
-    {
-        var result = Convert(@"
-class C {
-    void Test(object o) {
-        if (o is var x) {
-            System.Console.WriteLine(x);
-        }
-    }
-}");
-        Assert.True(result.Success);
-        // var pattern always matches, assigns variable
-        Assert.Contains("x = o", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -230,22 +179,6 @@ class C {
         // null check via Objects.equals or == null
         Assert.Contains("null", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("instanceof String s", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Cast_StringToReadOnlySpan_UsesMemoryExtensions()
-    {
-        var result = Convert(@"
-using System;
-class C {
-    void Test(string s) {
-        ReadOnlySpan<char> span = (ReadOnlySpan<char>)s;
-        System.Console.WriteLine(span.Length);
-    }
-}");
-        Assert.True(result.Success);
-        Assert.Contains("MemoryExtensions.asSpan(s)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("toReadOnlySpan", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

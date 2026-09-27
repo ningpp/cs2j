@@ -3,8 +3,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
-using CSharpToJava.Core.Transformers.Expression.Utilities;
-
 namespace CSharpToJava.Core.Transformers.Expression;
 
 /// <summary>
@@ -177,8 +175,6 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     var mapped = TryMapPropertyToMethod(prop, exprType, context);
                     if (mapped != null)
                     {
-                        if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mapped))
-                            return $"{mapped}()";
                         if (mapped.Contains('.')) return mapped;
                         if (prop.ContainingType?.SpecialType == SpecialType.System_Array)
                             return $"{objExpr}.{mapped}";
@@ -224,9 +220,6 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                         }
                         if (mm != null)
                         {
-                            Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mm, context);
-                            if (Transformers.Expression.Utilities.ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(mm))
-                                return $"{mm}()";
                             if (mm.Contains('.')) return mm;
                             if (exprType.SpecialType == SpecialType.System_Array)
                                 return $"{objExpr}.{mm}";
@@ -237,18 +230,6 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 // C# Nullable<T>.Value/HasValue → Java wrapper unbox method (Boolean.booleanValue(), etc.)
                 // Task 20: TS 目标下 Value 直接取值、HasValue 发射 null 判定
                 // （spec §1.4.7 统一 null；Java 拆箱调用在 TS 中非法）
-                if (prop != null
-                    && ExpressionTransformerHelpers.IsNullableValueProperty(prop))
-                {
-                    if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
-                    {
-                        return prop.Name == "HasValue" ? $"({objExpr} !== null)" : $"({objExpr}!)";
-                    }
-                    if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(prop, context, out var bindingUnboxMethod))
-                    {
-                        return $"{objExpr}.{bindingUnboxMethod}()";
-                    }
-                }
 
                 // Direct field access: fields keep their Java name (no getter synthesis).
                 // The default-getter heuristic below only applies to property-like members;
@@ -292,8 +273,7 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                     {
                         receiverType = context.GetTypeInfo(condParent.Expression).Type;
                     }
-                    var streamExpr = Transformers.Expression.Utilities.ExpressionTransformerHelpers
-                        .BuildStreamExpression(objExpr, receiverType, context, addNullSourceGuard: false);
+                    var streamExpr = objExpr;
 
                     // Add .collect() terminal when this is the outermost expression
                     bool needsCollect = invocation.Parent is not MemberAccessExpressionSyntax;
@@ -371,20 +351,10 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 // Java bean getters (e.g. choice?.Mapping.TypeDesc.FullName).
                 if (context.GetSymbolInfo(memberAccess).Symbol is IPropertySymbol memberProp)
                 {
-                    if (ExpressionTransformerHelpers.IsNullableValueProperty(memberProp))
-                    {
-                        if (context.Options.TargetLanguage == TargetLanguage.TypeScript)
-                            return memberProp.Name == "HasValue" ? $"({accessTarget} !== null)" : $"({accessTarget}!)";
-                        if (ExpressionTransformerHelpers.TryGetNullableValueUnboxMethod(memberProp, context, out var memberUnboxMethod))
-                            return $"{accessTarget}.{memberUnboxMethod}()";
-                    }
-
                     var memberExprType = context.GetTypeInfo(memberAccess.Expression).Type;
                     var memberMapped = TryMapPropertyToMethod(memberProp, memberExprType, context);
                     if (memberMapped != null)
                     {
-                        if (ExpressionTransformerHelpers.IsMappedCompatibilityHelperMethod(memberMapped))
-                            return $"{memberMapped}()";
                         if (memberMapped.Contains('.')) return memberMapped;
                         if (memberProp.ContainingType?.SpecialType == SpecialType.System_Array)
                             return $"{accessTarget}.{memberMapped}";
@@ -481,7 +451,6 @@ public class ExpressionTransformerFacade : IExpressionTransformer
                 if (mapped != null) break;
             }
         }
-        Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
         return mapped;
     }
 
@@ -500,7 +469,6 @@ public class ExpressionTransformerFacade : IExpressionTransformer
             var mapped = context.TypeMappings.MapMethod(typeName, memberName);
             if (mapped != null)
             {
-                Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
                 return ConversionContext.EscapeJavaKeyword(mapped);
             }
 
@@ -508,7 +476,6 @@ public class ExpressionTransformerFacade : IExpressionTransformer
             mapped = context.TypeMappings.MapMethod(fqn, memberName);
             if (mapped != null)
             {
-                Transformers.Expression.Utilities.ExpressionTransformerHelpers.AddImportForMappedHelperMethod(mapped, context);
                 return ConversionContext.EscapeJavaKeyword(mapped);
             }
         }

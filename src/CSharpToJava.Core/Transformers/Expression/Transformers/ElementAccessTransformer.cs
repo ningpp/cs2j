@@ -252,12 +252,6 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 var argType = context.GetTypeInfo(arg).Type;
                 if (argType != null && IsNonIntIntegralType(argType))
                     idx = $"(int)({idx})";
-                else
-                    idx = ExpressionTransformerHelpers.AdaptExpressionToTargetType(arg, idx, indexType, context);
-            }
-            else
-            {
-                idx = ExpressionTransformerHelpers.AdaptExpressionToTargetType(arg, idx, indexType, context);
             }
             if (isArray)
             {
@@ -289,14 +283,7 @@ public class ElementAccessTransformer : IIRExpressionTransformer
         var argList = node.ArgumentList.Arguments.Select((argument, index) =>
         {
             var transformedArg = facade.Transform(argument.Expression, context);
-            var parameterType = indexerSymbol?.Parameters.Length > index
-                ? indexerSymbol.Parameters[index].Type
-                : null;
-            return ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-                argument.Expression,
-                transformedArg,
-                parameterType,
-                context);
+            return transformedArg;
         }).ToList();
         if (isArray)
             return string.Concat(argList.Select(a => $"[{a}]").Prepend(expr));

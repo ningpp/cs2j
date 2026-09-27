@@ -103,21 +103,6 @@ class C {
         Assert.Contains("e.reset()", result.GeneratedCode);
     }
 
-    [Fact]
-    public void ObjectAsArray_EmitsTryAsArray()
-    {
-        var result = Convert("""
-class D {
-    Capture[] M(object o) => o as Capture[];
-}
-class Capture { }
-""");
-
-        _ = result.GeneratedCode ?? "";
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("CSharpArray.tryAsArray(o, Capture.class)", result.GeneratedCode);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -2,7 +2,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
-using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Utilities;
 
@@ -1163,20 +1162,7 @@ internal static class RuntimeClassParameterHelper
             return ConversionContext.GetClassLiteral(typeParameter, context);
         }
 
-        if (preferPrimitiveClassLiteral)
-        {
-            var mappedType = context.MapType(runtimeType);
-            if (ExpressionTransformerHelpers.IsJavaPrimitiveType(mappedType))
-            {
-                return $"{mappedType}.class";
-            }
-
-            var stripped = ExpressionTransformerHelpers.StripTypeArguments(mappedType);
-            return $"{stripped}.class";
-        }
-
         var javaType = context.MapType(runtimeType);
-        javaType = ExpressionTransformerHelpers.ToRuntimeTypeForClassLiteral(javaType);
 
         return $"{javaType}.class";
     }

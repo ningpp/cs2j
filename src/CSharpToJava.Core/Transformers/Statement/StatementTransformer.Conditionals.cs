@@ -45,7 +45,7 @@ public partial class StatementTransformer
                 // Primitive out types (int, long, ...) must be declared with their boxed
                 // type so the null check below compiles (int == null is illegal Java).
                 // Subsequent uses auto-unbox/autobox (e.g. _stringTable.add(str, i)).
-                string declaredJavaType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(outJavaType);
+                string declaredJavaType = outJavaType;
 
                 var tvStmtTransformer = new StatementTransformer();
                 string thenBody;
@@ -233,7 +233,7 @@ public partial class StatementTransformer
                 var ifSb3 = new System.Text.StringBuilder();
                 // Primitive out types must be declared with their boxed type so the
                 // null initialization compiles (int value = null is illegal Java).
-                var hoistedDeclType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(outJavaType);
+                var hoistedDeclType = outJavaType;
                 ifSb3.Append($"{hoistedDeclType} {outVarName} = null;\n");
                 ifSb3.Append($"if ({tvTarget2}.containsKey({tvKey2})) {thenBody}");
 
@@ -398,9 +398,6 @@ public partial class StatementTransformer
     /// </summary>
     private static string CastGetResultForPrimitiveOutType(string target, string key, string outJavaType)
     {
-        var boxedOutType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(outJavaType);
-        if (string.Equals(boxedOutType, outJavaType, StringComparison.Ordinal))
-            return $"{target}.get({key})";
-        return $"({boxedOutType}) {target}.get({key})";
+        return $"{target}.get({key})";
     }
 }

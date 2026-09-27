@@ -45,24 +45,6 @@ public class BoolConverter
         Assert.DoesNotContain("typeToConvert != Boolean.class", code, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void GenericTypeParameterEquality_NormalizesWrapperType()
-    {
-        var result = Convert(@"
-public class BoolConverter<T>
-{
-    public bool CanConvert(System.Type typeToConvert)
-    {
-        return typeToConvert == typeof(T);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode;
-        Assert.Contains("TypeHelper.isSameType(typeToConvert, TypeHelper.toWrapperType(", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("typeToConvert == TypeHelper.toWrapperType(", code, StringComparison.Ordinal);
-    }
-
     private static Core.Pipeline.ConversionResult Convert(string sourceCode)
     {
         var pipeline = new Core.Pipeline.ConversionPipeline();

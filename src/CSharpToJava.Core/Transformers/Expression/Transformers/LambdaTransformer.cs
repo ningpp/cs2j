@@ -80,8 +80,13 @@ public class LambdaTransformer : IIRExpressionTransformer
                             string name = ConversionContext.EscapeJavaKeyword(p.Identifier.Text);
                             if (p.Type != null)
                             {
-                                string javaType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(
-                                    context.MapTypeFromSyntax(p.Type));
+                                string javaType = context.MapTypeFromSyntax(p.Type) switch
+                                {
+                                    "int" => "Integer", "long" => "Long", "double" => "Double",
+                                    "float" => "Float", "short" => "Short", "byte" => "Byte",
+                                    "char" => "Character", "boolean" => "Boolean",
+                                    _ => context.MapTypeFromSyntax(p.Type)
+                                };
                                 return $"{javaType} {name}";
                             }
                             return name;
@@ -192,8 +197,13 @@ public class LambdaTransformer : IIRExpressionTransformer
                 // Fix 2: emit explicit type when the parameter carries a declared type
                 if (p.Type != null)
                 {
-                    string javaType = ExpressionTransformerHelpers.BoxJavaPrimitiveType(
-                        context.MapTypeFromSyntax(p.Type));
+                    string javaType = context.MapTypeFromSyntax(p.Type) switch
+                    {
+                        "int" => "Integer", "long" => "Long", "double" => "Double",
+                        "float" => "Float", "short" => "Short", "byte" => "Byte",
+                        "char" => "Character", "boolean" => "Boolean",
+                        _ => context.MapTypeFromSyntax(p.Type)
+                    };
                     if (isRefOrOut)
                     {
                         context.AddImport("io.github.ningpp.compat.ObjectHolder");
@@ -254,7 +264,19 @@ public class LambdaTransformer : IIRExpressionTransformer
                     }
                 }
             }
-            context.AddPreStatement(ExpressionTransformerHelpers.BuildLambdaCaptureHolderDeclaration(capType, $"_{capName}", captureInit));
+            bool isPrimitive = capType switch
+            {
+                "int" or "long" or "double" or "float" or "short" or "byte" or "char" or "boolean" => true,
+                _ => false
+            };
+            string holderDecl;
+            if (isPrimitive)
+                holderDecl = $"{capType}[] _{capName} = new {capType}[] {{ {captureInit} }};";
+            else if (capType.Contains('<'))
+                holderDecl = $"@SuppressWarnings(\"unchecked\") {capType}[] _{capName} = ({capType}[]) new Object[] {{ {captureInit} }};";
+            else
+                holderDecl = $"{capType}[] _{capName} = new {capType}[] {{ {captureInit} }};";
+            context.AddPreStatement(holderDecl);
             // Register the holder as active so that IdentifierExpressionTransformer
             // replaces all subsequent references to capName with _capName[0] in the
             // enclosing scope (after the lambda). Without this, reads after the lambda

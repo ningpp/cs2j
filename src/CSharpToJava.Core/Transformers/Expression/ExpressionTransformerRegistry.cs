@@ -65,11 +65,6 @@ public static class ExpressionTransformerRegistry
                 {
                     var expr = tuple.Arguments[i].Expression;
                     var transformed = facade.Transform(expr, ctx);
-                    if (tupleElementTypes != null && i < tupleElementTypes.Length)
-                    {
-                        transformed = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-                            expr, transformed, tupleElementTypes[i], ctx);
-                    }
                     elementsList.Add(transformed);
                 }
                 var elements = string.Join(", ", elementsList);

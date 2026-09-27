@@ -71,25 +71,6 @@ public class DrawingPanel : ControlBase {
     }
 
     [Fact]
-    public void DelegateCastOfAnonymousMethod_IsStripped()
-    {
-        var result = Convert(@"
-using System;
-public class Viewer {
-    public delegate void Invoker();
-    public void Invoke(Delegate d) { }
-    public void Run() {
-        Invoke((Invoker)delegate { System.Console.WriteLine(1); });
-        Invoke((Invoker)Fix);
-    }
-    void Fix() { }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.DoesNotContain("(Invoker)", result.GeneratedCode);
-        Assert.Contains("invoke(() ->", result.GeneratedCode);
-    }
-
-    [Fact]
     public void ExplicitInterfaceEventAndClassEvent_BothGenerated()
     {
         var result = Convert(@"

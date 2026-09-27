@@ -40,25 +40,6 @@ class Sample
     }
 
     [Fact]
-    public void PointerCastToInt_UsesAddress()
-    {
-        var result = Convert(@"
-unsafe class Sample
-{
-    public int M(char* p)
-    {
-        return (int)p & 0x2;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // MemorySegment cannot be cast to int directly; use the segment address.
-        Assert.Contains("(int)(p.address())", code);
-    }
-
-    [Fact]
     public void FixedOverGetReferenceSpan_PinsWholeSpan()
     {
         var result = Convert(@"

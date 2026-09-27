@@ -5,7 +5,6 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
-using CSharpToJava.Core.Transformers.Expression.Utilities;
 using System.Globalization;
 
 namespace CSharpToJava.Core.Transformers.Type;
@@ -297,7 +296,18 @@ public class EnumTransformer : ITypeTransformer
         if (expr is MemberAccessExpressionSyntax memberAccess &&
             memberAccess.Expression is PredefinedTypeSyntax primType)
         {
-            var boxed = ExpressionTransformerHelpers.BoxedTypeName(primType);
+            var boxed = primType.Keyword.Text switch
+            {
+                "int" or "uint" => "Integer",
+                "long" or "ulong" => "Long",
+                "short" or "ushort" => "Short",
+                "byte" => "Byte",
+                "char" => "Character",
+                "bool" => "Boolean",
+                "double" => "Double",
+                "float" => "Float",
+                _ => primType.Keyword.Text
+            };
             var member = memberAccess.Name.Identifier.Text;
             var mapped = (primType.Keyword.Text, member) switch
             {

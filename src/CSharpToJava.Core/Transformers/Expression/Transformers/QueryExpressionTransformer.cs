@@ -49,7 +49,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
         var rangeVar = ConversionContext.EscapeJavaKeyword(fromClause.Identifier.Text);
         var source = facade.Transform(fromClause.Expression, context);
         var fromClauseType = context.GetTypeInfo(fromClause.Expression).Type;
-        sb.Append(ExpressionTransformerHelpers.BuildStreamExpression(source, fromClauseType, context, receiverSyntaxNode: fromClause.Expression));
+        sb.Append(BuildLocalStreamExpression(source, fromClauseType, context, receiverSyntaxNode: fromClause.Expression));
 
         // intermediate clauses — use index loop for look-ahead on join…into
         var clauseList = node.Body.Clauses.ToList();
@@ -97,7 +97,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                     {
                         sb.Append("\n    .boxed()");
                     }
-                    sb.Append($"\n    .flatMap({rangeVar} -> {ExpressionTransformerHelpers.BuildStreamExpression(innerSrc, innerSrcType, context)})");
+                    sb.Append($"\n    .flatMap({rangeVar} -> {BuildLocalStreamExpression(innerSrc, innerSrcType, context)})");
                     rangeVar = innerVar;
                     break;
 
@@ -117,7 +117,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                     var joinInType = context.GetTypeInfo(join.InExpression).Type;
                     var joinLeftExpr = facade.Transform(join.LeftExpression, context);
                     var joinRightExpr = facade.Transform(join.RightExpression, context);
-                    sb.Append($"\n    .flatMap({rangeVar} -> {ExpressionTransformerHelpers.BuildStreamExpression(joinInExpr, joinInType, context)}" +
+                    sb.Append($"\n    .flatMap({rangeVar} -> {BuildLocalStreamExpression(joinInExpr, joinInType, context)}" +
                               $"\n        .filter({joinVar} -> Objects.equals({joinLeftExpr}, {joinRightExpr})))");
                     rangeVar = joinVar;
                     break;
@@ -166,7 +166,7 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
                     context.AddImport("java.util.Collections");
                     var jiInSrcType = context.GetTypeInfo(joinInto.InExpression).Type;
                     sb.Append($"\n    .flatMap({capturedOuter} -> {{");
-                    sb.Append($"\n        var {intoId} = {ExpressionTransformerHelpers.BuildStreamExpression(jiInSrc, jiInSrcType, context)}");
+                    sb.Append($"\n        var {intoId} = {BuildLocalStreamExpression(jiInSrc, jiInSrcType, context)}");
                     sb.Append($"\n            .filter({jiVar} -> Objects.equals({jiLeft}, {jiRight}))");
                     sb.Append($"\n            .collect(CSharpList.toCSharpList());");
                     sb.Append($"\n        var _{intoId} = {intoId}.isEmpty() ? java.util.Collections.singletonList((Object)null) : {intoId};");
@@ -306,7 +306,13 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
         if (string.IsNullOrWhiteSpace(javaType) || javaType == elementType.ToDisplayString())
             return rangeVar;
 
-        var boxed = ExpressionTransformerHelpers.BoxJavaPrimitiveType(javaType);
+        var boxed = javaType switch
+        {
+            "int" => "Integer", "long" => "Long", "double" => "Double",
+            "float" => "Float", "short" => "Short", "byte" => "Byte",
+            "char" => "Character", "boolean" => "Boolean",
+            _ => javaType
+        };
         return $"({boxed} {rangeVar})";
     }
 
@@ -327,4 +333,80 @@ public class QueryExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsEnumerableNamedType(INamedTypeSymbol named)
         => named.Name == "IEnumerable" && named.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic";
+
+    /// <summary>
+    /// Local simplified stream expression builder.
+    /// Wraps a C# collection/array expression as a Java Stream for LINQ queries.
+    /// </summary>
+    private static string BuildLocalStreamExpression(
+        string receiverExpr,
+        ITypeSymbol? receiverType,
+        ConversionContext context,
+        bool boxPrimitiveArrayElements = false,
+        bool preserveGroupingValueStream = false,
+        ExpressionSyntax? receiverSyntaxNode = null,
+        bool addNullSourceGuard = true)
+    {
+        if (addNullSourceGuard)
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            receiverExpr = $"CSharpGenericIterable.requireNonNull({receiverExpr}, \"source\")";
+        }
+
+        if (receiverType is IArrayTypeSymbol arrayType)
+        {
+            var elem = arrayType.ElementType;
+
+            // Primitive arrays: use the appropriate Arrays.stream overload.
+            if (elem.SpecialType == SpecialType.System_Int32
+                || elem.SpecialType == SpecialType.System_Int64
+                || elem.SpecialType == SpecialType.System_Double)
+            {
+                context.AddImport("java.util.Arrays");
+                return $"Arrays.stream({receiverExpr})";
+            }
+
+            // Reference type array → Stream<T>
+            context.AddImport("java.util.Arrays");
+            return boxPrimitiveArrayElements
+                ? $"Arrays.stream({receiverExpr})"
+                : $"Arrays.stream({receiverExpr})";
+        }
+
+        if (preserveGroupingValueStream
+            && receiverType is INamedTypeSymbol groupingType
+            && groupingType.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true)
+        {
+            return $"{receiverExpr}.getValue().stream()";
+        }
+
+        // string → chars().mapToObj()
+        if (receiverType?.SpecialType == SpecialType.System_String)
+        {
+            return $"{receiverExpr}.chars().mapToObj(c -> (char)c)";
+        }
+
+        // Collection with .stream()
+        if (CanCallStream(receiverType))
+        {
+            return $"{receiverExpr}.stream()";
+        }
+
+        // Fallback: StreamSupport for Iterable
+        context.AddImport("java.util.stream.StreamSupport");
+        return $"StreamSupport.stream({receiverExpr}.spliterator(), false)";
+    }
+
+    private static bool CanCallStream(ITypeSymbol? receiverType)
+    {
+        if (receiverType is not INamedTypeSymbol named)
+            return false;
+
+        if (named.Name is "List" or "Collection" or "Set" or "ArrayList" or "HashSet"
+                 or "CSharpList" or "CSharpArrayList")
+            return true;
+
+        return named.AllInterfaces.Any(i =>
+            i.Name is "ICollection" or "IList" or "ISet" or "IReadOnlyCollection" or "IReadOnlyList");
+    }
 }

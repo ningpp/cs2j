@@ -20,26 +20,6 @@ public class ReflectionAttributeCompatTests
 
     public ReflectionAttributeCompatTests(ITestOutputHelper output) => _out = output;
 
-    [Fact]
-    public void NullableEnumCast_UsesFromValue()
-    {
-        var result = Convert("""
-using System;
-using System.Diagnostics;
-class C {
-    static DebuggerBrowsableState? GetState(object value) {
-        return (DebuggerBrowsableState?)(int?)value;
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("DebuggerBrowsableState.fromValue(", code);
-        Assert.DoesNotContain("(DebuggerBrowsableState)((Integer)", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

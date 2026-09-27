@@ -2,1370 +2,535 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
-using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
-using CSharpToJava.Core.Transformers;
 using CSharpToJava.Core.Transformers.Expression;
-using CSharpToJava.Core.Transformers.Expression.Utilities;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.Core.Transformers.Statement;
 
 public partial class StatementTransformer
 {
-    private JavaSyntaxNode TransformExpressionStatement(ExpressionStatementSyntax stmt, ConversionContext context)
+    // ── 表达式语句 ─────────────────────────────────────────────────────────
+    private JavaSyntaxNode TransformExpressionStatement(ExpressionStatementSyntax stmt, ConversionContext ctx)
     {
-        var exprTransformer = ExpressionTransformerFacade.Instance;
+        var f = ExpressionTransformerFacade.Instance;
+        var e = stmt.Expression;
 
-        // C# discard assignment `_ = expr;` — keep the RHS side effects but drop
-        // the (undeclared) discard target.
-        if (stmt.Expression is AssignmentExpressionSyntax discardAssign
-            && discardAssign.Left is IdentifierNameSyntax { Identifier.ValueText: "_" })
-        {
-            var rhs = exprTransformer.Transform(discardAssign.Right, context);
-            var trimmed = rhs.Trim().TrimEnd(';');
-            bool isStatementExpression = trimmed.Contains('(')
-                || trimmed.StartsWith("new ", StringComparison.Ordinal)
-                || trimmed.Contains('=');
-            return new JavaStatementNode(isStatementExpression ? trimmed + ";" : "");
-        }
-
-        // Terminal `await X;` inside a non-void async lambda body: the lambda is
-        // wrapped in CompletableFuture.supplyAsync and must RETURN the future
-        // (e.g. Assert.ThrowsAsync(async () => { await X; })).
-        if (context.MethodState.InAsyncLambdaReturnPosition
-            && stmt.Expression is AwaitExpressionSyntax terminalAwait
-            && stmt.Parent is BlockSyntax terminalBlock
-            && terminalBlock.Statements.LastOrDefault() == stmt)
-        {
-            var operand = exprTransformer.Transform(terminalAwait.Expression, context);
-            return new JavaStatementNode($"return {operand};");
-        }
-
-        // ConditionalAccessExpression (obj?.Method()) as a statement cannot be a ternary expression in Java.
-        // Java only allows method calls, assignments, and new as expression statements.
-        // Convert to: if (obj != null) { obj.Method(); }
-        if (stmt.Expression is ConditionalAccessExpressionSyntax condAccess)
-        {
-            var objExpr = exprTransformer.Transform(condAccess.Expression, context);
-            var innerCall = TransformConditionalAccessStatement(condAccess, objExpr, context);
-            return new JavaStatementNode(innerCall);
-        }
-
-        // Special case: dict.TryGetValue(key, out var v) as a standalone statement.
-        // For standard IDictionary implementations (mapped to Java Map), use containsKey() + get().
-        // For custom dictionaries (e.g. LowLevelDictionary), use tryGetValue(key, ObjectHolder).
-        // C# TryGetValue default-initializes the out parameter when the key is not found.
-        if (stmt.Expression is InvocationExpressionSyntax tvInvoc &&
-            tvInvoc.Expression is MemberAccessExpressionSyntax tvMa &&
-            tvMa.Name.Identifier.Text == "TryGetValue" &&
-            tvInvoc.ArgumentList.Arguments.Count == 2)
-        {
-            var tvTarget = exprTransformer.Transform(tvMa.Expression, context);
-            var tvKey = exprTransformer.Transform(tvInvoc.ArgumentList.Arguments[0].Expression, context);
-            var tvArg2 = tvInvoc.ArgumentList.Arguments[1];
-
-            // Determine if the receiver is a standard IDictionary (mapped to Java Map with containsKey)
-            // or a custom dictionary (needs tryGetValue with ObjectHolder)
-            bool isStandardMap = false;
-            if (context.SemanticModel != null)
-            {
-                var receiverTypeInfo = context.GetTypeInfo(tvMa.Expression);
-                if (receiverTypeInfo.Type != null)
-                {
-                    isStandardMap = receiverTypeInfo.Type.AllInterfaces.Any(i =>
-                        i.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IDictionary<TKey, TValue>");
-                    // Also check if the type itself is IDictionary
-                    if (!isStandardMap && receiverTypeInfo.Type is INamedTypeSymbol named)
-                    {
-                        isStandardMap = named.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IDictionary<TKey, TValue>";
-                    }
-                }
-            }
-
-            if (tvArg2.Expression is DeclarationExpressionSyntax tvDecl2)
-            {
-                var declType = context.GetTypeInfo(tvDecl2.Type);
-                var javaType = declType.Type != null ? context.MapType(declType.Type) : "var";
-                var varName = tvDecl2.Designation is SingleVariableDesignationSyntax sv ? sv.Identifier.Text : "_outVar";
-                var defaultVal = GetValueTypeDefault(declType.Type, javaType);
-                if (declType.Type?.SpecialType == SpecialType.System_Decimal)
-                    context.AddImport("io.github.ningpp.compat.Decimal");
-
-                if (isStandardMap)
-                {
-                    // Standard Java Map: use containsKey + get/getOrDefault
-                    var getCall = defaultVal != null
-                        ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
-                        : $"{tvTarget}.get({tvKey})";
-                    return new JavaStatementNode($"{javaType} {varName} = {getCall};");
-                }
-                else
-                {
-                    // Custom dictionary (e.g. LowLevelDictionary): use tryGetValue(key, ObjectHolder)
-                    const string ObjectHolderFqn = "io.github.ningpp.compat.ObjectHolder";
-                    var holderName = $"_{varName}Holder";
-                    var holderType = javaType == "var" ? "var" : $"{ObjectHolderFqn}<{javaType}>";
-                    var sb = new System.Text.StringBuilder();
-                    sb.AppendLine($"{holderType} {holderName} = new {ObjectHolderFqn}<>();");
-                    sb.Append($"{tvTarget}.tryGetValue({tvKey}, {holderName});");
-                    sb.Append($" {javaType} {varName} = {holderName}.value;");
-                    return new JavaStatementNode(sb.ToString());
-                }
-            }
-            else
-            {
-                var tvOut2 = exprTransformer.Transform(tvArg2.Expression, context);
-                var outTypeInfo = context.GetTypeInfo(tvArg2.Expression);
-                string? defaultVal = null;
-                if (outTypeInfo.Type is { IsValueType: true } outType)
-                {
-                    defaultVal = GetValueTypeDefault(outType, context.MapType(outType));
-                    if (outType.SpecialType == SpecialType.System_Decimal)
-                        context.AddImport("io.github.ningpp.compat.Decimal");
-                }
-
-                if (isStandardMap)
-                {
-                    // Standard Java Map: use containsKey + get/getOrDefault
-                    var getCall = defaultVal != null
-                        ? $"{tvTarget}.getOrDefault({tvKey}, {defaultVal})"
-                        : $"{tvTarget}.get({tvKey})";
-                    return new JavaStatementNode($"{tvOut2} = {getCall};");
-                }
-                else
-                {
-                    // Custom dictionary (e.g. LowLevelDictionary): use tryGetValue(key, ObjectHolder)
-                    const string ObjectHolderFqn = "io.github.ningpp.compat.ObjectHolder";
-                    var outJavaType = outTypeInfo.Type != null ? context.MapType(outTypeInfo.Type) : "Object";
-                    var holderName = context.GenerateSyntheticName("_outHolder");
-                    var sb = new System.Text.StringBuilder();
-                    sb.AppendLine($"{ObjectHolderFqn}<{outJavaType}> {holderName} = new {ObjectHolderFqn}<>();");
-                    sb.Append($"{tvTarget}.tryGetValue({tvKey}, {holderName});");
-                    sb.Append($" {tvOut2} = {holderName}.value;");
-                    return new JavaStatementNode(sb.ToString());
-                }
-            }
-        }
-
-        // Array.Sort(keys, items) overload: sort keys and reorder items accordingly.
-        if (stmt.Expression is InvocationExpressionSyntax arrSortInv
-            && arrSortInv.Expression is MemberAccessExpressionSyntax arrSortMa
-            && arrSortMa.Name.Identifier.Text == "Sort"
-            && arrSortInv.ArgumentList.Arguments.Count == 2)
-        {
-            var receiverText = arrSortMa.Expression.ToString();
-            bool isArrayReceiver = receiverText is "Array" or "System.Array";
-            if (isArrayReceiver && context.SemanticModel != null)
-            {
-                var arg0Expr = arrSortInv.ArgumentList.Arguments[0].Expression;
-                var arg1Expr = arrSortInv.ArgumentList.Arguments[1].Expression;
-                var keyArr = context.GetTypeInfo(arg0Expr).Type as IArrayTypeSymbol;
-                var itemArr = context.GetTypeInfo(arg1Expr).Type as IArrayTypeSymbol;
-
-                bool keyIsNumeric = keyArr?.ElementType.SpecialType is
-                    SpecialType.System_Byte or SpecialType.System_SByte
-                    or SpecialType.System_Int16 or SpecialType.System_UInt16
-                    or SpecialType.System_Int32 or SpecialType.System_UInt32
-                    or SpecialType.System_Int64 or SpecialType.System_UInt64
-                    or SpecialType.System_Single or SpecialType.System_Double
-                    or SpecialType.System_Decimal;
-
-                if (keyArr != null && itemArr != null && keyIsNumeric)
-                {
-                    var keysExpr = exprTransformer.Transform(arg0Expr, context);
-                    var itemsExpr = exprTransformer.Transform(arg1Expr, context);
-                    var keyElemType = context.MapType(keyArr.ElementType);
-                    var itemElemType = context.MapType(itemArr.ElementType);
-
-                    context.AddImport("java.util.Arrays");
-                    context.AddImport("java.util.Comparator");
-                    context.AddImport("java.util.stream.IntStream");
-
-                    var idxName = context.GenerateSyntheticName("_sortIdx");
-                    var keyCopyName = context.GenerateSyntheticName("_keyCopy");
-                    var itemCopyName = context.GenerateSyntheticName("_itemCopy");
-
-                    var sb = new System.Text.StringBuilder();
-                    sb.AppendLine($"Integer[] {idxName} = IntStream.range(0, {keysExpr}.length).boxed().toArray(Integer[]::new);");
-                    sb.AppendLine($"Arrays.sort({idxName}, Comparator.comparingDouble(i -> (double){keysExpr}[i]));");
-                    sb.AppendLine($"{keyElemType}[] {keyCopyName} = {keysExpr}.clone();");
-                    sb.AppendLine($"{itemElemType}[] {itemCopyName} = {itemsExpr}.clone();");
-                    sb.Append($"for (int i = 0; i < {idxName}.length; i++) {{ {keysExpr}[i] = {keyCopyName}[{idxName}[i]]; {itemsExpr}[i] = {itemCopyName}[{idxName}[i]]; }}");
-                    return new JavaStatementNode(sb.ToString());
-                }
-            }
-        }
-
-        // Debug.Assert / Trace.Assert / Contract.Requires / Contract.Assert
-        // Debug.Assert is compiled out in C# Release builds ([Conditional("DEBUG")]).
-        // Trace.Assert remains in Release. Contract.Assert/Requires require CONTRACTS_FULL symbol.
-        // Java's 'assert' is runtime-gated (-ea), not equivalent to compile-time removal.
-        // → strip Debug/Contract asserts as comments; keep Trace.Assert as `assert`.
-        if (stmt.Expression is InvocationExpressionSyntax assertInvoc &&
-            assertInvoc.Expression is MemberAccessExpressionSyntax assertMa &&
-            assertInvoc.ArgumentList.Arguments.Count >= 1 &&
-            assertMa.Name.Identifier.Text is "Assert" or "Requires")
-        {
-            bool isTrace = false;
-            bool isDebugOrContract = false;
-            if (context.SemanticModel != null &&
-                context.GetSymbolInfo(assertInvoc).Symbol is IMethodSymbol assertSym)
-            {
-                var typeName = assertSym.ContainingType.ToDisplayString();
-                isTrace = typeName == "System.Diagnostics.Trace";
-                isDebugOrContract = typeName is "System.Diagnostics.Debug"
-                                             or "System.Diagnostics.Contracts.Contract";
-            }
-            if (!isTrace && !isDebugOrContract)
-            {
-                // Syntactic fallback: semantic model absent or couldn't resolve the symbol
-                var receiver = assertMa.Expression.ToString();
-                isTrace = receiver is "Trace" or "System.Diagnostics.Trace";
-                isDebugOrContract = receiver is "Debug" or "Contract"
-                                             or "System.Diagnostics.Debug"
-                                             or "System.Diagnostics.Contracts.Contract";
-            }
-
-            if (isTrace)
-            {
-                var condition = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[0].Expression, context);
-                string assertStmt;
-                if (assertInvoc.ArgumentList.Arguments.Count >= 2)
-                {
-                    var message = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[1].Expression, context);
-                    assertStmt = $"assert {condition} : {message};";
-                }
-                else
-                {
-                    assertStmt = $"assert {condition};";
-                }
-
-                // Drain any pre/post statements emitted during condition/message transformation
-                if (context.HasPendingPreStatements || context.HasPendingPostStatements)
-                {
-                    var sb = new System.Text.StringBuilder();
-                    if (context.HasPendingPreStatements)
-                    {
-                        var preStmts = context.DrainPreStatements();
-                        sb.AppendLine(string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";")));
-                    }
-                    sb.Append(assertStmt);
-                    if (context.HasPendingPostStatements)
-                    {
-                        var postStmts = context.DrainPostStatements();
-                        sb.Append("\n" + string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";")));
-                    }
-                    return new JavaStatementNode(sb.ToString());
-                }
-
-                return new JavaStatementNode(assertStmt);
-            }
-
-            if (isDebugOrContract)
-            {
-                var condition = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[0].Expression, context);
-                string comment;
-                if (assertInvoc.ArgumentList.Arguments.Count >= 2)
-                {
-                    var message = exprTransformer.Transform(assertInvoc.ArgumentList.Arguments[1].Expression, context);
-                    comment = $"// Debug.Assert({condition}, {message});\n";
-                }
-                else
-                {
-                    comment = $"// Debug.Assert({condition});\n";
-                }
-                // Drain pre/post statements even for comments (they were emitted during transform)
-                // but discard them since the assert is a no-op
-                if (context.HasPendingPreStatements) context.DrainPreStatements();
-                if (context.HasPendingPostStatements) context.DrainPostStatements();
-                return new JavaStatementNode(comment);
-            }
-        }
-
-        // Debug.WriteLineIf / Trace.WriteLineIf / Debug.WriteIf / Trace.WriteIf
-        // Debug versions are [Conditional("DEBUG")]; Trace versions are [Conditional("TRACE")].
-        // Convert Trace versions to guarded System.out.println/print; strip Debug versions
-        // to match C# Release semantics. This must happen before the generic expression
-        // transformer, which would otherwise treat the boolean condition as a format string
-        // and emit String.format(boolean, String) — invalid Java.
-        if (stmt.Expression is InvocationExpressionSyntax writeIfInvoc &&
-            writeIfInvoc.Expression is MemberAccessExpressionSyntax writeIfMa &&
-            writeIfInvoc.ArgumentList.Arguments.Count >= 2 &&
-            writeIfMa.Name.Identifier.Text is "WriteLineIf" or "WriteIf")
-        {
-            bool isDebug = false;
-            bool isTrace = false;
-            if (context.SemanticModel != null &&
-                context.GetSymbolInfo(writeIfInvoc).Symbol is IMethodSymbol writeIfSym)
-            {
-                var typeName = writeIfSym.ContainingType.ToDisplayString();
-                isDebug = typeName == "System.Diagnostics.Debug";
-                isTrace = typeName == "System.Diagnostics.Trace";
-            }
-            if (!isDebug && !isTrace)
-            {
-                var receiver = writeIfMa.Expression.ToString();
-                isDebug = receiver is "Debug" or "System.Diagnostics.Debug";
-                isTrace = receiver is "Trace" or "System.Diagnostics.Trace";
-            }
-
-            if (isDebug || isTrace)
-            {
-                var condition = exprTransformer.Transform(writeIfInvoc.ArgumentList.Arguments[0].Expression, context);
-                var message = exprTransformer.Transform(writeIfInvoc.ArgumentList.Arguments[1].Expression, context);
-                string writeIfStmt;
-                if (isTrace)
-                {
-                    var printMethod = writeIfMa.Name.Identifier.Text == "WriteLineIf" ? "println" : "print";
-                    writeIfStmt = $"if ({condition}) System.out.{printMethod}({message});";
-                }
-                else
-                {
-                    writeIfStmt = writeIfMa.Name.Identifier.Text == "WriteLineIf"
-                        ? $"// Debug.WriteLineIf({condition}, {message});\n"
-                        : $"// Debug.WriteIf({condition}, {message});\n";
-                }
-
-                if (context.HasPendingPreStatements || context.HasPendingPostStatements)
-                {
-                    var sb = new System.Text.StringBuilder();
-                    if (context.HasPendingPreStatements)
-                    {
-                        var preStmts = context.DrainPreStatements();
-                        sb.AppendLine(string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";")));
-                    }
-                    sb.Append(writeIfStmt);
-                    if (context.HasPendingPostStatements)
-                    {
-                        var postStmts = context.DrainPostStatements();
-                        sb.Append("\n" + string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";")));
-                    }
-                    return new JavaStatementNode(sb.ToString());
-                }
-
-                return new JavaStatementNode(writeIfStmt);
-            }
-        }
-
-        // Fix 4: Tuple deconstruction — var (first, second) = GetPair();
-        // ExpressionStatement > AssignmentExpression where LHS is DeclarationExpression with ParenthesizedVariableDesignation
-        if (stmt.Expression is AssignmentExpressionSyntax tupleAssign
-            && tupleAssign.Left is DeclarationExpressionSyntax tupleDecl
-            && tupleDecl.Designation is ParenthesizedVariableDesignationSyntax parenDesig)
-        {
-            var rhsExpr = exprTransformer.Transform(tupleAssign.Right, context);
-            var tempVar = "_t";
-            // Build (index, name) pairs — skip discards but preserve the original
-            // tuple position so getters (_1, _2, ...) match the C# tuple element order.
-            var designations = parenDesig.Variables
-                .Select((v, i) => (Index: i, Var: v))
-                .Where(pair => pair.Var is SingleVariableDesignationSyntax svd && svd.Identifier.Text != "_")
-                .Select(pair => (pair.Index, Name: ((SingleVariableDesignationSyntax)pair.Var).Identifier.Text))
-                .ToList();
-            var sbTuple = new System.Text.StringBuilder();
-            sbTuple.AppendLine($"var {tempVar} = {rhsExpr};");
-            for (int i = 0; i < designations.Count; i++)
-            {
-                string getter = $"_{designations[i].Index + 1}";
-                if (i < designations.Count - 1)
-                    sbTuple.AppendLine($"var {ConversionContext.EscapeJavaKeyword(designations[i].Name)} = {tempVar}.{getter}();");
-                else
-                    sbTuple.Append($"var {ConversionContext.EscapeJavaKeyword(designations[i].Name)} = {tempVar}.{getter}();");
-            }
-            return new JavaStatementNode(sbTuple.ToString());
-        }
-
-        // Fix 4b: Typed tuple deconstruction — (Type a, Type b) = value;
-        // ExpressionStatement > AssignmentExpression where LHS is TupleExpression with DeclarationExpression arguments
-        if (stmt.Expression is AssignmentExpressionSyntax typedTupleAssign
-            && typedTupleAssign.Left is TupleExpressionSyntax tupleExpr)
-        {
-            var declArgs = tupleExpr.Arguments
-                .Select(a => a.Expression)
-                .OfType<DeclarationExpressionSyntax>()
-                .Where(d => d.Designation is SingleVariableDesignationSyntax)
-                .ToList();
-            if (declArgs.Count == tupleExpr.Arguments.Count && declArgs.Count > 0)
-            {
-                var rhsExpr = exprTransformer.Transform(typedTupleAssign.Right, context);
-                var tempVar = "_t";
-                var sbTuple = new System.Text.StringBuilder();
-                sbTuple.AppendLine($"var {tempVar} = {rhsExpr};");
-                for (int i = 0; i < declArgs.Count; i++)
-                {
-                    var svd = (SingleVariableDesignationSyntax)declArgs[i].Designation;
-                    var varName = ConversionContext.EscapeJavaKeyword(svd.Identifier.Text);
-                    string getter = $"_{i + 1}";
-                    if (i < declArgs.Count - 1)
-                        sbTuple.AppendLine($"var {varName} = {tempVar}.{getter}();");
-                    else
-                        sbTuple.Append($"var {varName} = {tempVar}.{getter}();");
-                }
-                return new JavaStatementNode(sbTuple.ToString());
-            }
-        }
-
-        // Fix 4c: Tuple assignment to expressions — (X, Y) = (x, y);
-        // LHS elements are ordinary expressions (auto-properties, fields, locals), not declarations.
-        // Split into sequential single assignments so each element follows the normal
-        // assignment path (auto-property writes map to backing fields, etc.).
-        // NOTE: elements are resolved via the ORIGINAL syntax nodes (they carry source
-        // positions); synthesized nodes have no tree/location so GetSymbolInfo fails.
-        if (stmt.Expression is AssignmentExpressionSyntax exprTupleAssign
-            && exprTupleAssign.Left is TupleExpressionSyntax exprTupleLeft
-            && exprTupleLeft.Arguments.Count > 0)
-        {
-            var lhsArgs = exprTupleLeft.Arguments
-                .Select(a => a.Expression)
-                .ToList();
-            if (lhsArgs.All(a => a is not DeclarationExpressionSyntax)
-                && exprTupleAssign.Right is TupleExpressionSyntax exprTupleRight
-                && exprTupleRight.Arguments.Count == lhsArgs.Count)
-            {
-                return new JavaStatementNode(TupleAssignmentSplitters.SplitTupleAssignment(exprTupleAssign, context));
-            }
-        }
-
-        // File.Delete(path) → FileHelper.delete(path) which declares `throws IOException`.
-        // When the call is NOT inside a try block that catches IOException,
-        // wrap it in try-catch to satisfy Java's checked-exception requirement.
-        if (stmt.Expression is InvocationExpressionSyntax fileDelInvoc
-            && fileDelInvoc.Expression is MemberAccessExpressionSyntax fileDelMa
-            && fileDelMa.Name.Identifier.Text == "Delete"
-            && fileDelInvoc.ArgumentList.Arguments.Count == 1
-            && ExpressionTransformerHelpers.StaticReceiverMatches(
-                fileDelMa.Expression, context, "File", "System.IO.File"))
-        {
-            context.AddImport("io.github.ningpp.compat.FileHelper");
-            var delArg = exprTransformer.Transform(fileDelInvoc.ArgumentList.Arguments[0].Expression, context);
-            var delExpr = $"FileHelper.delete({delArg})";
-
-            // Check if this statement is inside a try block whose catches include IOException
-            bool insideIOExceptionTry = IsInsideTryCatchingIOException(stmt, context);
-
-            if (insideIOExceptionTry)
-            {
-                return new JavaStatementNode(delExpr + ";");
-            }
-            else
-            {
-                // Wrap in try-catch to satisfy Java checked-exception requirement
-                return new JavaStatementNode($"try {{ {delExpr}; }} catch (IOException _e) {{ }}");
-            }
-        }
-
-        var expr = exprTransformer.Transform(stmt.Expression, context);
-
-        // Convert parenthesized conditional (ternary) expressions used as statements
-        // to if-else form. Java does not allow `(cond ? a : b);` as a statement —
-        // and a bare `cond ? a : b;` is only valid when the branches produce void.
-        // Wrap as `if (cond) { a; } else { b; }` to ensure semantic equivalence.
-        if (IsParenthesizedTernary(expr, out var cond, out var whenTrue, out var whenFalse))
-        {
-            // Transform to if-else statement
+        // obj?.M() 语句：三元结果不是合法 Java 语句，转 if (obj != null) { ... }
+        if (e is ConditionalAccessExpressionSyntax cond)
             return new JavaStatementNode(
-                $"if ({cond}) {{\n{whenTrue};\n}} else {{\n{whenFalse};\n}}");
-        }
+                TransformConditionalAccessStatement(cond, f.Transform(cond.Expression, ctx), ctx));
 
-        // Strip outer parentheses from conditional (ternary) expressions used as
-        // statements. This handles non-void producing ternaries that are valid
-        // expression statements in Java (result is discarded).
-        while (expr.Length > 2 && expr.StartsWith('(') && expr.EndsWith(')'))
+        if (e is InvocationExpressionSyntax inv && inv.Expression is MemberAccessExpressionSyntax ma)
         {
-            var inner = expr[1..^1];
-            // Only strip if the inner expression contains a ternary (issue only
-            // affects conditional expressions used as statements in Java).
-            if (!inner.Contains("?", StringComparison.Ordinal))
-                break;
-            // Verify the outer parens are not needed for grouping.
-            int depth = 0;
-            bool outerIsRedundant = true;
-            for (int i = 0; i < inner.Length; i++)
+            // dict.TryGetValue(k, out v) 独立成句：标准 Map 用 get/getOrDefault，自定义字典用 tryGetValue+ObjectHolder
+            if (ma.Name.Identifier.Text == "TryGetValue" && inv.ArgumentList.Arguments.Count == 2)
+                return new JavaStatementNode(TryGetValueAsStatement(inv, ma, ctx));
+
+            // Debug.Assert/Contract.Requires 按 Release 语义降为注释；Trace.Assert 保留为 assert
+            if (ma.Name.Identifier.Text is "Assert" or "Requires" && inv.ArgumentList.Arguments.Count >= 1)
             {
-                if (inner[i] == '(') depth++;
-                else if (inner[i] == ')')
-                {
-                    depth--;
-                    if (depth < 0) { outerIsRedundant = false; break; }
-                }
-            }
-            if (!outerIsRedundant || depth != 0)
-                break;
-            expr = inner;
-        }
-
-        // Drain any pre-statements emitted by the expression transformer
-        // (e.g., chain property assignment: list.Add(obj.Prop = local = expr) splits into pre-stmts)
-        // Also drain post-statements (e.g., out-param holder reads back into variables after the call)
-        if (context.HasPendingPreStatements)
-        {
-            var preStmts = context.DrainPreStatements();
-            var preStmtLines = string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";"));
-            // If the main expression is just a simple variable or an out-param holder field access
-            // (from chain-assignment hoisting), skip it as a statement — e.g. "anchors.value;" is
-            // not valid Java. Valid Java statements must be method calls, assignments, etc.
-            bool isNonStatement = IsBareReadExpression(expr);
-            string stmtBlock = isNonStatement ? preStmtLines : preStmtLines + "\n" + expr + ";";
-            if (context.HasPendingPostStatements)
-            {
-                var postStmts = context.DrainPostStatements();
-                stmtBlock += "\n" + string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";"));
-            }
-            return new JavaStatementNode(stmtBlock);
-        }
-
-        if (context.HasPendingPostStatements)
-        {
-            var postStmts = context.DrainPostStatements();
-            var postStmtLines = string.Join("\n", postStmts.Select(s => s + ";"));
-            return new JavaStatementNode(expr + ";\n" + postStmtLines);
-        }
-
-        return new JavaStatementNode(expr + ";");
-    }
-
-    /// <summary>
-    /// Walks up the syntax tree from <paramref name="stmt"/> to find the nearest
-    /// enclosing <see cref="TryStatementSyntax"/> whose catch clauses include
-    /// <c>System.IO.IOException</c> (or a base type like <c>System.Exception</c>).
-    /// Returns true when the statement is inside such a try block's body (not its
-    /// catch/finally blocks).
-    /// </summary>
-    private static bool IsInsideTryCatchingIOException(StatementSyntax stmt, ConversionContext context)
-    {
-        var parent = stmt.Parent;
-        while (parent != null)
-        {
-            // If we're inside a catch or finally block, we're no longer in the try body
-            if (parent is CatchClauseSyntax or FinallyClauseSyntax)
-            {
-                // We're in a catch/finally — check if the enclosing try (if any) catches IOException
-                // but only if we're in the try body, which we're not. So return false here.
-                // Actually, if we're in a finally block, the try's catches don't help us.
-                return false;
+                var kind = DiagnosticsKind(inv, ma, ctx);
+                var body = f.Transform(inv.ArgumentList.Arguments[0].Expression, ctx);
+                var msg = inv.ArgumentList.Arguments.Count >= 2
+                    ? f.Transform(inv.ArgumentList.Arguments[1].Expression, ctx) : null;
+                if (kind == "trace") return WithPending(ctx, msg != null ? $"assert {body} : {msg};" : $"assert {body};");
+                if (kind == "debug") { ctx.DrainPreStatements(); ctx.DrainPostStatements();
+                    return new JavaStatementNode($"// Debug.Assert({body}{(msg != null ? $", {msg}" : "")});\n"); }
             }
 
-            if (parent is TryStatementSyntax tryStmt)
+            // Debug/Trace.Write(Line)If：Debug 版按 Release 剥离，Trace 版转 if 守卫的输出
+            if (ma.Name.Identifier.Text is "WriteLineIf" or "WriteIf" && inv.ArgumentList.Arguments.Count >= 2
+                && DiagnosticsKind(inv, ma, ctx) is { } wk)
             {
-                // Make sure the statement is inside the try BODY (Block), not a catch/finally
-                // (already handled above — if we reach here, we're in the try body)
-                foreach (var catchClause in tryStmt.Catches)
-                {
-                    if (catchClause.Declaration?.Type == null)
-                    {
-                        // catch-all (catch { } or catch (Exception)) catches everything
-                        return true;
-                    }
-
-                    var caughtType = context.GetTypeInfo(catchClause.Declaration.Type).Type;
-                    if (caughtType == null)
-                    {
-                        // Fallback to name-based check
-                        var typeName = catchClause.Declaration.Type.ToString();
-                        if (typeName == "IOException" || typeName == "System.IO.IOException"
-                            || typeName == "Exception" || typeName == "System.Exception")
-                            return true;
-                        continue;
-                    }
-
-                    // Check if caughtType is IOException or a base type of IOException
-                    // (i.e., Exception, or any type that IOException inherits from)
-                    if (caughtType.Name == "IOException" || caughtType.ToDisplayString() == "System.IO.IOException")
-                        return true;
-
-                    // Check if caughtType is Exception or a parent of IOException
-                    if (caughtType.Name == "Exception" || caughtType.ToDisplayString() == "System.Exception")
-                        return true;
-                }
-                // This try doesn't catch IOException — continue up the tree
-            }
-
-            parent = parent.Parent;
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Transforms a C# conditional access expression used as a statement into a Java
-    /// <c>if (x != null) { ... }</c> chain. Nested conditional accesses become nested
-    /// <c>if</c> statements so that the generated code is a valid Java statement.
-    /// </summary>
-    /// <summary>
-    /// Task 27：构建 TS 事件字段访问（this.Click / b.Click / Use.Click）。
-    /// </summary>
-    private static string BuildTsEventFieldAccess(ExpressionSyntax expr, IEventSymbol evt, ConversionContext context)
-    {
-        var exprTransformer = ExpressionTransformerFacade.Instance;
-        switch (expr)
-        {
-            case IdentifierNameSyntax id:
-                return evt.IsStatic && context.CurrentType != null
-                    ? $"{context.CurrentType.Name}.{id.Identifier.Text}"
-                    : $"this.{id.Identifier.Text}";
-            case MemberAccessExpressionSyntax ma:
-                var receiver = ma.Expression is ThisExpressionSyntax
-                    ? "this"
-                    : exprTransformer.Transform(ma.Expression, context);
-                return $"{receiver}.{ma.Name.Identifier.Text}";
-            case ThisExpressionSyntax:
-                return $"this.{evt.Name}";
-            default:
-                return exprTransformer.Transform(expr, context);
-        }
-    }
-
-    private static string TransformConditionalAccessStatement(
-        ConditionalAccessExpressionSyntax condAccess,
-        string objExpr,
-        ConversionContext context)
-    {
-        var exprTransformer = ExpressionTransformerFacade.Instance;
-
-        // Task 27：TS 事件触发 —— Click?.Invoke(args) → this.Click.Invoke(args)
-        // （spec §4.3.7：CsEvent.Invoke 空事件安全，无需 null 守卫；事件字段由
-        //  EventFieldTransformer TS 分叉生成 CsEvent<T>）
-        // Java event trigger: Click?.Invoke(args) -> if (!_clickListeners.isEmpty()) { fireClick(args); }
-        // Events have no nullable Java field; the null check falls to the listener list and
-        // the invocation falls to the fire method.
-        if (context.Options.TargetLanguage != TargetLanguage.TypeScript
-            && context.SemanticModel != null
-            && condAccess.Expression is ExpressionSyntax condJavaEventExpr
-            && context.GetSymbolInfo(condJavaEventExpr).Symbol is IEventSymbol condJavaEvent
-            && condAccess.WhenNotNull is InvocationExpressionSyntax condJavaInvocation
-            && condJavaInvocation.Expression is MemberBindingExpressionSyntax condJavaBinding
-            && condJavaBinding.Name.Identifier.Text == "Invoke")
-        {
-            var javaQualifier = Transformers.Member.EventListenerNaming.GetInterfaceQualifier(condJavaEvent);
-            var javaField = Transformers.Member.EventListenerNaming.GetFieldName(javaQualifier, condJavaEvent.Name);
-            var javaFire = Transformers.Member.EventListenerNaming.GetFireMethodName(javaQualifier, condJavaEvent.Name);
-            var javaArgs = string.Join(", ", condJavaInvocation.ArgumentList.Arguments.Select(
-                a => exprTransformer.Transform(a.Expression, context)));
-            return $"if (!{javaField}.isEmpty()) {{ {javaFire}({javaArgs}); }}";
-        }
-
-
-        if (context.Options.TargetLanguage == TargetLanguage.TypeScript
-            && context.SemanticModel != null
-            && condAccess.Expression is ExpressionSyntax condEventExpr
-            && context.GetSymbolInfo(condEventExpr).Symbol is IEventSymbol condEvent
-            && condAccess.WhenNotNull is InvocationExpressionSyntax condInvocation
-            && condInvocation.Expression is MemberBindingExpressionSyntax condBinding
-            && condBinding.Name.Identifier.Text == "Invoke")
-        {
-            var condArgs = string.Join(", ", condInvocation.ArgumentList.Arguments.Select(
-                a => exprTransformer.Transform(a.Expression, context)));
-            var eventAccess = BuildTsEventFieldAccess(condEventExpr, condEvent, context);
-            return $"{eventAccess}.Invoke({condArgs});";
-        }
-
-        string innerCall;
-        switch (condAccess.WhenNotNull)
-        {
-            case MemberBindingExpressionSyntax binding:
-                innerCall = $"{objExpr}.{ConversionContext.EscapeJavaKeyword(binding.Name.Identifier.Text)};";
-                break;
-            case InvocationExpressionSyntax invocation when invocation.Expression is MemberBindingExpressionSyntax invokeBinding:
-                var methodName = ConversionContext.EscapeJavaKeyword(invokeBinding.Name.Identifier.Text);
-                var args = string.Join(", ", invocation.ArgumentList.Arguments.Select(a => exprTransformer.Transform(a.Expression, context)));
-
-                // Delegate field invocation: member?.ArraySource(value) cannot be emitted as a
-                // method call on the field itself. Resolve the SAM method and invoke through the
-                // getter (generated for public fields) so the call compiles in Java.
-                if (context.SemanticModel != null
-                    && TryResolveDelegateFieldInvocation(invokeBinding, invocation, objExpr, context, out var delegateTarget, out var samMethodName))
-                {
-                    innerCall = $"{delegateTarget}.{samMethodName}({args});";
-                }
-                // Delegate .Invoke() → SAM method: Invoke is not a valid Java method
-                // on functional interfaces. Map to run/accept/get/apply based on usage.
-                else if (methodName == "Invoke")
-                {
-                    int paramCount = invocation.ArgumentList.Arguments.Count;
-                    methodName = Transformers.Type.DelegateTransformer.InferSamMethodName(
-                        returnsVoid: true, paramCount); // statement context is always void
-                    innerCall = $"{objExpr}.{methodName}({args});";
-                }
-                else
-                {
-                    // Apply the same well-known renames + camelCase used for normal method
-                    // invocations so the call matches the lowercased generated declaration
-                    // (e.g. _groupcoll?.Reset() -> _groupcoll.reset()).
-                    var javaMethodName = methodName switch
-                    {
-                        "GetHashCode" => "hashCode",
-                        "GetEnumerator" => "iterator",
-                        "GetType" => "getClass",
-                        "Dispose" => "close",
-                        "ToLower" => "toLowerCase",
-                        "ToUpper" => "toUpperCase",
-                        "ToLowerInvariant" => "toLowerCase",
-                        "ToUpperInvariant" => "toUpperCase",
-                        _ when methodName.Length > 0 => char.ToLowerInvariant(methodName[0]) + methodName[1..],
-                        _ => methodName
-                    };
-                    innerCall = $"{objExpr}.{javaMethodName}({args});";
-                }
-                break;
-            case ConditionalAccessExpressionSyntax nestedCondAccess:
-                var nestedObjExpr = exprTransformer.TransformWhenNotNull(nestedCondAccess.Expression, objExpr, context);
-                innerCall = TransformConditionalAccessStatement(nestedCondAccess, nestedObjExpr, context);
-                break;
-            default:
-                // General case: ?.a.b(...) — recursively substitute the member binding with objExpr
-                innerCall = exprTransformer.TransformWhenNotNull(condAccess.WhenNotNull, objExpr, context) + ";";
-                break;
-        }
-        return $"if ({objExpr} != null) {{ {innerCall} }}";
-    }
-
-    /// <summary>
-    /// Detects when a conditional-access invocation such as <c>member?.ArraySource(value)</c>
-    /// refers to a delegate field. When true, returns the getter target (e.g. <c>member.getArraySource()</c>)
-    /// and the Java SAM method name (e.g. <c>accept</c>) to call on it.
-    /// </summary>
-    private static bool TryResolveDelegateFieldInvocation(
-        MemberBindingExpressionSyntax invokeBinding,
-        InvocationExpressionSyntax invocation,
-        string objExpr,
-        ConversionContext context,
-        out string delegateTarget,
-        out string samMethodName)
-    {
-        delegateTarget = string.Empty;
-        samMethodName = string.Empty;
-
-        if (context.GetSymbolInfo(invokeBinding).Symbol is not IFieldSymbol field
-            || field.Type?.TypeKind != TypeKind.Delegate
-            || field.Type is not INamedTypeSymbol delegateType
-            || delegateType.DelegateInvokeMethod is not IMethodSymbol invokeMethod)
-        {
-            return false;
-        }
-
-        var memberName = ConversionContext.EscapeJavaKeyword(invokeBinding.Name.Identifier.Text);
-        var propertyName = memberName.Length > 0
-            ? char.ToUpperInvariant(memberName[0]) + memberName[1..]
-            : memberName;
-        delegateTarget = $"{objExpr}.get{propertyName}()";
-        samMethodName = context.TypeMappings.MapMethod(delegateType.ToDisplayString(), "Invoke")
-            ?? Transformers.Type.DelegateTransformer.InferSamMethodName(invokeMethod.ReturnsVoid, invokeMethod.Parameters.Length);
-        return true;
-    }
-
-private static bool IsBareReadExpression(string expr)
-{
-    if (string.IsNullOrWhiteSpace(expr))
-        return false;
-
-    var trimmed = expr.Trim();
-    if (trimmed.EndsWith(".value", StringComparison.Ordinal))
-        return true;
-
-    // Strip array access brackets for analysis: "_matches[cap]" → "_matches"
-    // Then check if all dot-separated segments are identifier-like
-    var stripped = System.Text.RegularExpressions.Regex.Replace(trimmed, @"\[[^\]]*\]", "");
-    return stripped.Split('.').All(IsIdentifierLikeSegment);
-}
-
-/// <summary>
-/// Checks if a segment is an array access expression like "[cap]" or "[0]".
-/// </summary>
-private static bool IsArrayAccessSegment(string segment)
-{
-    return segment.StartsWith("[") && segment.EndsWith("]")
-        && segment.Length > 2; // Must have content between [ and ]
-}
-
-    private static bool IsIdentifierLikeSegment(string segment)
-    {
-        return segment.Length > 0
-            && (char.IsLetter(segment[0]) || segment[0] == '_' || segment[0] == '$')
-            && segment.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '$');
-    }
-
-    /// <summary>
-    /// Detects if the expression is a conditional (ternary) expression that needs
-    /// to be converted to an if-else statement for Java. Java allows ternary expressions
-    // as statements only when both branches are void; otherwise they must produce a value.
-    /// C# `?.` desugaring produces `(cond ? expr : null)` which Java rejects as a statement.
-    /// This method extracts the three parts if the expression is a ternary.
-    /// </summary>
-    private static bool IsParenthesizedTernary(string expr, out string condition, out string whenTrue, out string whenFalse)
-    {
-        condition = whenTrue = whenFalse = string.Empty;
-        if (string.IsNullOrEmpty(expr))
-            return false;
-
-        // Strip outer parens to find the ternary
-        var s = expr.Trim();
-        while (s.Length > 2 && s.StartsWith('(') && s.EndsWith(')'))
-        {
-            // Verify these are matching outer parens
-            int depth = 0;
-            bool matching = true;
-            for (int i = 0; i < s.Length - 1; i++)
-            {
-                if (s[i] == '(') depth++;
-                else if (s[i] == ')')
-                {
-                    depth--;
-                    if (depth == 0 && i < s.Length - 1) { matching = false; break; }
-                }
-            }
-        if (!matching || depth != 1)
-            break;
-        s = s[1..^1].Trim();
-    }
-
-    // The ternary must be the ENTIRE statement — it should not contain
-    // assignment operators at depth 0 (which would indicate the ternary
-    // is part of a larger expression like an assignment RHS).
-    int zeroDepthOp = -1;
-    int zd = 0;
-    for (int i = 0; i < s.Length; i++)
-    {
-        if (s[i] == '(') zd++;
-        else if (s[i] == ')') zd--;
-        else if (zd == 0 && s[i] == '=')
-        {
-            return false;
-        }
-    }
-
-    // Find the top-level '?' (the ternary operator)
-        int qPos = -1;
-        int depthT = 0;
-        for (int i = 0; i < s.Length; i++)
-        {
-            if (s[i] == '(') depthT++;
-            else if (s[i] == ')') depthT--;
-            else if (s[i] == '?' && depthT == 0 && i + 1 < s.Length && s[i + 1] != '.' && s[i + 1] != '?')
-            {
-                qPos = i;
-                break;
+                var body = f.Transform(inv.ArgumentList.Arguments[0].Expression, ctx);
+                var text = f.Transform(inv.ArgumentList.Arguments[1].Expression, ctx);
+                var s = ma.Name.Identifier.Text == "WriteLineIf" ? "println" : "print";
+                return WithPending(ctx, wk == "trace"
+                    ? $"if ({body}) System.out.{s}({text});"
+                    : $"// Debug.{ma.Name.Identifier.Text}({body}, {text});\n");
             }
         }
-        if (qPos <= 0)
-            return false;
 
-        // Find the top-level ':' (the separator)
-        int cPos = -1;
-        for (int i = qPos + 1; i < s.Length; i++)
+        // 元组解构/元组赋值
+        if (e is AssignmentExpressionSyntax assign)
         {
-            if (s[i] == '(') depthT++;
-            else if (s[i] == ')') depthT--;
-            else if (s[i] == ':' && depthT == 0)
+            var names = TupleDeconstructionNames(assign.Left);
+            if (names != null)
             {
-                cPos = i;
-                break;
+                var sb = new StringBuilder($"var _t = {f.Transform(assign.Right, ctx)};");
+                foreach (var (name, idx) in names)
+                    sb.Append($"\nvar {ConversionContext.EscapeJavaKeyword(name)} = _t._{idx}();");
+                return new JavaStatementNode(sb.ToString());
             }
+            if (assign.Left is TupleExpressionSyntax lhs && lhs.Arguments.Count > 0
+                && lhs.Arguments.All(a => a.Expression is not DeclarationExpressionSyntax)
+                && assign.Right is TupleExpressionSyntax rhs && rhs.Arguments.Count == lhs.Arguments.Count)
+                return new JavaStatementNode(TupleAssignmentSplitters.SplitTupleAssignment(assign, ctx));
         }
-        if (cPos <= qPos)
-            return false;
 
-        condition = s[..qPos].Trim();
-        whenTrue = s[(qPos + 1)..cPos].Trim();
-        whenFalse = s[(cPos + 1)..].Trim();
+        var expr = f.Transform(e, ctx);
 
-        // Only convert if the ternary is used as a void statement (the result is discarded)
-        // Both branches should be method calls or similar void-side-effect expressions
-        return true;
+        // 三元不能作语句，整体三元转 if-else（如裸标记位条件）
+        if (TryParseTernaryStatement(expr, out var c, out var t, out var el))
+            return new JavaStatementNode($"if ({c}) {{\n{t};\n}} else {{\n{el};\n}}");
+
+        return new JavaStatementNode(EmitWithPending(ctx, IsBareReadExpression(expr) ? "" : expr + ";"));
     }
 
-    private JavaSyntaxNode TransformThrowStatement(ThrowStatementSyntax stmt, ConversionContext context)
+    // ── throw / return ─────────────────────────────────────────────────────
+    private JavaSyntaxNode TransformThrowStatement(ThrowStatementSyntax stmt, ConversionContext ctx)
     {
+        if (stmt.Expression != null)
+            return new JavaStatementNode($"throw {ExpressionTransformerFacade.Instance.Transform(stmt.Expression, ctx)};");
+        var catchVar = stmt.Ancestors().TakeWhile(a => a is not AnonymousFunctionExpressionSyntax)
+            .OfType<CatchClauseSyntax>().FirstOrDefault();
+        if (catchVar == null)
+            return new JavaStatementNode("throw; /* TODO: rethrow outside catch - manual conversion required */");
+        var name = catchVar.Declaration.Identifier.ValueText;
+        if (string.IsNullOrWhiteSpace(name)) name = "_ex";
+        return new JavaStatementNode($"throw {ConversionContext.EscapeJavaKeyword(name.Trim())};");
+    }
+
+    private JavaSyntaxNode TransformReturnStatement(ReturnStatementSyntax stmt, ConversionContext ctx)
+    {
+        var f = ExpressionTransformerFacade.Instance;
         if (stmt.Expression == null)
-        {
-            // Java does not support bare 'throw;' — rethrow the enclosing catch variable
-            // Fix 2: Stop ancestor walk at lambda boundaries to avoid crossing exception scope
-            var catchVar = stmt.Ancestors()
-                .TakeWhile(a => a is not AnonymousFunctionExpressionSyntax)
-                .OfType<CatchClauseSyntax>()
-                .FirstOrDefault();
-            if (catchVar == null)
-                return new JavaStatementNode("throw; /* TODO: rethrow outside catch - manual conversion required */");
-            var rethrowName = catchVar.Declaration?.Identifier.ValueText;
-            if (string.IsNullOrWhiteSpace(rethrowName)) rethrowName = "_ex";
-            return new JavaStatementNode($"throw {ConversionContext.EscapeJavaKeyword(rethrowName.Trim())};");
-        }
-        var exprTransformer = ExpressionTransformerFacade.Instance;
-        var expr = exprTransformer.Transform(stmt.Expression, context);
-        return new JavaStatementNode($"throw {expr};");
-    }
+            return new JavaStatementNode(ctx.IsInAsyncContext
+                ? "return CompletableFuture.completedFuture(null);" : "return;");
 
-    private JavaSyntaxNode TransformReturnStatement(ReturnStatementSyntax stmt, ConversionContext context)
-    {
-        if (stmt.Expression == null)
+        // return dict.TryGetValue(k, out T v) ? v : null; → T v = dict.get(k); return v;
+        if (stmt.Expression is ConditionalExpressionSyntax tern
+            && tern.WhenTrue is IdentifierNameSyntax tv && tern.WhenFalse.IsKind(SyntaxKind.NullLiteralExpression)
+            && tern.Condition is InvocationExpressionSyntax ti && ti.Expression is MemberAccessExpressionSyntax tm
+            && tm.Name.Identifier.Text == "TryGetValue" && ti.ArgumentList.Arguments.Count == 2
+            && ti.ArgumentList.Arguments[1].Expression is DeclarationExpressionSyntax td
+            && td.Designation is SingleVariableDesignationSyntax tsv && tsv.Identifier.Text == tv.Identifier.Text)
         {
-            if (context.IsInAsyncContext)
-            {
-                context.AddImport("java.util.concurrent.CompletableFuture");
-                return new JavaStatementNode("return CompletableFuture.completedFuture(null);");
-            }
-            return new JavaStatementNode("return;");
+            var type = ctx.GetTypeInfo(td.Type).Type;
+            var jtype = type != null ? ctx.MapType(type) : "var";
+            var def = GetValueTypeDefault(type, jtype);
+            var v = ConversionContext.EscapeJavaKeyword(tsv.Identifier.Text);
+            var get = $"{f.Transform(tm.Expression, ctx)}.{(def != null ? $"getOrDefault({f.Transform(ti.ArgumentList.Arguments[0].Expression, ctx)}, {def})" : $"get({f.Transform(ti.ArgumentList.Arguments[0].Expression, ctx)})")}";
+            return new JavaStatementNode($"{jtype} {v} = {get};\nreturn {v};");
         }
 
-        var exprTransformer = ExpressionTransformerFacade.Instance;
+        var expr = f.Transform(stmt.Expression, ctx);
+        expr = AdjustReturnValue(stmt, expr, ctx);
 
-        // Special case: return dict.TryGetValue(key, out T v) ? v : null;
-        // The generic out-var path produces convoluted holder-based code; replace with
-        // a clean dict.get(key) which is semantically equivalent (both return null when
-        // the key is absent or the value is null).
-        if (stmt.Expression is ConditionalExpressionSyntax ternary
-            && ternary.WhenTrue is IdentifierNameSyntax trueIdent
-            && ternary.WhenFalse.IsKind(SyntaxKind.NullLiteralExpression)
-            && ternary.Condition is InvocationExpressionSyntax tryGetInvoke
-            && tryGetInvoke.Expression is MemberAccessExpressionSyntax tryGetMa
-            && tryGetMa.Name.Identifier.Text == "TryGetValue"
-            && tryGetInvoke.ArgumentList.Arguments.Count == 2
-            && tryGetInvoke.ArgumentList.Arguments[1].Expression is DeclarationExpressionSyntax outDecl
-            && outDecl.Designation is SingleVariableDesignationSyntax svd
-            && svd.Identifier.Text == trueIdent.Identifier.Text)
+        if (ctx.HasPendingPreStatements || ctx.HasPendingPostStatements)
         {
-            var dictExpr = exprTransformer.Transform(tryGetMa.Expression, context);
-            var keyExpr = exprTransformer.Transform(tryGetInvoke.ArgumentList.Arguments[0].Expression, context);
-            var typeInfo = context.GetTypeInfo(outDecl.Type);
-            var javaType = typeInfo.Type != null
-                ? context.MapType(typeInfo.Type) : "var";
-            var varName = ConversionContext.EscapeJavaKeyword(svd.Identifier.Text);
-            var defaultVal = GetValueTypeDefault(typeInfo.Type, javaType);
-            if (typeInfo.Type?.SpecialType == SpecialType.System_Decimal)
-                context.AddImport("io.github.ningpp.compat.Decimal");
-            var getCall = defaultVal != null
-                ? $"{dictExpr}.getOrDefault({keyExpr}, {defaultVal})"
-                : $"{dictExpr}.get({keyExpr})";
-            var retExpr2 = context.IsInAsyncContext
-                ? $"CompletableFuture.completedFuture({varName})"
-                : varName;
-            if (context.IsInAsyncContext)
-                context.AddImport("java.util.concurrent.CompletableFuture");
-            return new JavaStatementNode($"{javaType} {varName} = {getCall};\nreturn {retExpr2};");
-        }
-
-        var expr = exprTransformer.Transform(stmt.Expression, context);
-        var returnTargetType = ResolveReturnTargetType(stmt, context);
-
-        // Detect when a C# array element (from jagged array) is returned where a List<T> is expected.
-        // e.g., return outEdges[vertex]; where the method returns IList<TEdge> → List<TEdge> in Java
-        // and outEdges is TEdge[][] — element is TEdge[] which doesn't implement List<TEdge> in Java.
-        // Inside a lambda, `return expr` returns from the lambda (whose element type is the
-        // array itself, e.g. Select(obj => { ...; return obj; }) on IEnumerable<object[]>),
-        // so the enclosing method's return type must NOT drive array-to-collection wrapping.
-        bool returnInsideLambda = stmt.Ancestors().OfType<AnonymousFunctionExpressionSyntax>().Any();
-        if (!returnInsideLambda && stmt.Expression != null && context.SemanticModel != null)
-        {
-            var exprType = context.GetTypeInfo(stmt.Expression).Type;
-            if (exprType is IArrayTypeSymbol { Rank: 1 } arrayType)
+            var sb = new StringBuilder();
+            if (ctx.HasPendingPreStatements)
+                sb.AppendJoin("\n", ctx.DrainPreStatements().Select(s => s.TrimEnd(';') + ";")).Append('\n');
+            if (ctx.HasPendingPostStatements)
             {
-                // Check if the enclosing method's return type is IList<T>, ICollection<T>, or IEnumerable<T>
-                var enclosingMethod = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-                ITypeSymbol? enclosingRetSym = null;
-                if (enclosingMethod != null)
-                    enclosingRetSym = context.GetTypeInfo(enclosingMethod.ReturnType).Type;
-                // Also check property accessor (return in a get { } block)
-                if (enclosingRetSym == null)
-                {
-                    var propAccessor = stmt.Ancestors().OfType<AccessorDeclarationSyntax>().FirstOrDefault();
-                    if (propAccessor != null)
-                    {
-                        var propDecl = propAccessor.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault();
-                        if (propDecl != null)
-                            enclosingRetSym = context.GetTypeInfo(propDecl.Type).Type;
-                    }
-                }
-                if (enclosingRetSym is INamedTypeSymbol retNamed &&
-                    retNamed.Name is "IList" or "ICollection" or "List" or "Collection"
-                        or "IEnumerable" or "Iterable")
-                {
-                    // Primitive arrays (int[], double[], etc.) can't use ArrayHelper.toList() directly
-                    // because ArrayHelper.toList(int[]) returns List<int[]>, not List<Integer>.
-                    if (arrayType.ElementType.SpecialType is
-                        SpecialType.System_Int32 or SpecialType.System_Int64 or
-                        SpecialType.System_Double or SpecialType.System_Single or
-                        SpecialType.System_Boolean or SpecialType.System_Byte or
-                        SpecialType.System_Int16 or SpecialType.System_Char)
-                    {
-                        // Use CSharpList.toCSharpList() instead of toList()
-                        // because C# List<T> maps to Java ArrayList<T> (concrete), and
-                        // Collectors.toList() returns List<T> (interface) — type mismatch.
-                        expr = $"Arrays.stream({expr}).boxed().collect(java.util.stream.Collectors.toCollection(() -> new java.util.ArrayList<>()))";
-                        context.AddImport("java.util.Arrays");
-                        context.AddImport("java.util.stream.Collectors");
-                        context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                        if (context.ReturnsCSharpGenericIterable)
-                        {
-                            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                            expr = $"CSharpGenericIterable.from({expr})";
-                        }
-                    }
-                    else
-                    {
-                        expr = ExpressionTransformerHelpers.BuildArrayToCollectionViewExpression(expr, arrayType, context);
-                    }
-                }
-            }
-
-            // Detect when a Stream expression is returned from a method that declares Iterable/IEnumerable.
-            // C# LINQ expressions become Java Streams but IEnumerable<T> maps to Iterable<T>.
-            // Stream<T> does not implement Iterable<T>, so we need .collect(CSharpList.toCSharpList()).
-            var retExprType = context.GetTypeInfo(stmt.Expression).Type;
-            bool isStreamReturn = retExprType is INamedTypeSymbol retNamed2 &&
-                (retNamed2.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable") &&
-                retNamed2.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
-            if (isStreamReturn
-                && ExpressionTransformerHelpers.ContainsStreamMethodAtTopLevel(expr)
-                && context.Options.TargetLanguage != TargetLanguage.TypeScript)
-            {
-                // Check if enclosing method returns Iterable
-                var enclosing = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-                ITypeSymbol? enclosingRetType = enclosing != null
-                    ? context.GetTypeInfo(enclosing.ReturnType).Type
-                    : null;
-                // Also check property accessor (return inside a get { } block)
-                if (enclosingRetType == null)
-                {
-                    var accessorDecl = stmt.Ancestors().OfType<AccessorDeclarationSyntax>().FirstOrDefault();
-                    if (accessorDecl != null)
-                    {
-                        var propDecl2 = accessorDecl.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault();
-                        if (propDecl2 != null)
-                            enclosingRetType = context.GetTypeInfo(propDecl2.Type).Type;
-                    }
-                }
-                bool enclosingReturnsIterable = enclosingRetType is INamedTypeSymbol mret &&
-                    mret.Name is "IEnumerable" or "ICollection" or "IList";
-                // Don't double-collect: if the expression already contains .collect() or ends with .toArray()
-                // it's already materialized. Use Contains for .collect() since it may appear at any depth
-                // with varying closing parentheses (e.g., Concat produces Stream.concat(...).collect(CSharpList.toCSharpList())).
-                bool alreadyCollected = expr.Contains(".collect(CSharpList.toCSharpList())")
-                    || expr.EndsWith(".toList())")
-                    || expr.EndsWith("toList()))")
-                    || expr.EndsWith(".toArray())")
-                    || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)\)$")
-                    || System.Text.RegularExpressions.Regex.IsMatch(expr, @"\.toArray\([^)]+\)$");
-                if (enclosingReturnsIterable && !alreadyCollected)
-                {
-                    context.AddImport("java.util.stream.Collectors");
-                    context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                    expr = $"{expr}.collect(CSharpList.toCSharpList())";
-                    if (context.ReturnsCSharpGenericIterable)
-                    {
-                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                        expr = $"CSharpGenericIterable.from({expr})";
-                    }
-                }
-            }
-
-            // Detect when a Dictionary/Map is returned from a method that expects
-            // IEnumerable<KeyValuePair<K,V>> (→ CSharpGenericIterable<CSharpKeyValuePair<K,V>>).
-            // CSharpDictionary already implements CSharpGenericIterable<CSharpKeyValuePair<K,V>>,
-            // so no .entrySet() is needed — the dictionary itself is directly assignable.
-            // However, when the method returns IEnumerable<IGrouping<K,V>>, the Dictionary
-            // needs .entrySet() to produce Map.Entry<K,List<V>> items for the IGrouping pattern.
-            if (retExprType is INamedTypeSymbol dictRetType &&
-                (dictRetType.Name is "Dictionary" or "SortedDictionary" or "IDictionary" ||
-                 dictRetType.AllInterfaces.Any(i => i.Name is "IDictionary")))
-            {
-                var enclosing2 = stmt.Ancestors().OfType<MethodDeclarationSyntax>().FirstOrDefault();
-                ITypeSymbol? enclosingRetType2 = enclosing2 != null
-                    ? context.GetTypeInfo(enclosing2.ReturnType).Type
-                    : null;
-                if (enclosingRetType2 is INamedTypeSymbol encRet2 &&
-                    encRet2.Name is "IEnumerable" or "ICollection" or "IList" or "Iterable")
-                {
-                    // Check if this is an IGrouping return type — still needs .entrySet()
-                    bool isIGroupingReturn = encRet2.IsGenericType && encRet2.TypeArguments.Length > 0
-                        && encRet2.TypeArguments[0] is INamedTypeSymbol elemType
-                        && elemType.Name == "IGrouping";
-                    if (isIGroupingReturn)
-                    {
-                        context.AddImport("java.util.Map");
-                        context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                        expr = $"CSharpGenericIterable.from({expr}.entrySet())";
-                    }
-                    // Otherwise, CSharpDictionary is already CSharpGenericIterable<CSharpKeyValuePair<K,V>>
-                }
-            }
-        }
-
-        // Struct value copy: when returning a user-defined struct expression that is not a temporary,
-        // clone it to preserve C# value-copy semantics (C# return always copies structs).
-        // Skip inside property getters where the consumption site handles cloning.
-        // Also skip `return this;` inside the struct's own parameterless Clone() method:
-        // that method is mapped to Java clone(), so `return this.clone()` would recurse
-        // into itself forever (e.g. JsonElement.Clone()).
-        bool isSelfReturnInCloneMethod = stmt.Expression is ThisExpressionSyntax
-            && context.CurrentMethod is { Name: "Clone", Parameters.Length: 0, IsStatic: false };
-        if (stmt.Expression != null && context.SemanticModel != null && !context.SuppressReturnClone && !isSelfReturnInCloneMethod)
-        {
-            var retExprTypeForClone = context.GetTypeInfo(stmt.Expression).Type;
-            expr = StructCloneHelper.CloneStructValueIfNeeded(stmt.Expression, expr, retExprTypeForClone, context);
-        }
-
-        expr = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-            stmt.Expression,
-            expr,
-            returnTargetType,
-            context);
-
-        // When the method returns CSharpGenericIterable<T> but the expression is
-        // a Java Collection/List/Set/Iterable (not already a CSharpGenericIterable),
-        // wrap it in CSharpGenericIterable.from() so the types are compatible.
-        // Skip IDictionary because CSharpDictionary already implements CSharpGenericIterable.
-        if (context.ReturnsCSharpGenericIterable && context.SemanticModel != null)
-        {
-            var retExprType = context.GetTypeInfo(stmt.Expression).Type;
-            bool isAlreadyCSharpGenericIterable = expr.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal)
-                || expr.StartsWith("new CSharpList<", StringComparison.Ordinal)
-                || expr.StartsWith("new CSharpDictionary<", StringComparison.Ordinal)
-                || expr.StartsWith("new CSharpHashSet<", StringComparison.Ordinal)
-                || expr.StartsWith("new CSharpSortedSet<", StringComparison.Ordinal)
-                || expr.StartsWith("new CSharpQueue<", StringComparison.Ordinal)
-                || expr.StartsWith("new CSharpStack<", StringComparison.Ordinal)
-                || expr.StartsWith("new CSharpPriorityQueue<", StringComparison.Ordinal);
-            bool isIDictionary = retExprType is INamedTypeSymbol dictType
-                && (dictType.Name is "Dictionary" or "SortedDictionary" or "IDictionary"
-                    || dictType.AllInterfaces.Any(i => i.Name == "IDictionary"));
-            bool isEnumerableInterfaceType = retExprType is INamedTypeSymbol ifaceNamed
-                && ifaceNamed.Name is "IEnumerable" or "ICollection" or "IList"
-                    or "IReadOnlyCollection" or "IReadOnlyList"
-                && ifaceNamed.ContainingNamespace?.ToDisplayString().StartsWith("System") == true;
-            bool isJavaCollectionLike = !isAlreadyCSharpGenericIterable && !isIDictionary
-                && (isEnumerableInterfaceType
-                    || (retExprType is INamedTypeSymbol collNamed
-                        && collNamed.AllInterfaces.Any(i =>
-                            i.OriginalDefinition.ToDisplayString() is
-                            "System.Collections.Generic.IEnumerable<T>" or
-                            "System.Collections.Generic.ICollection<T>" or
-                            "System.Collections.Generic.IList<T>" or
-                            "System.Collections.Generic.ISet<T>")));
-            if (isJavaCollectionLike)
-            {
-                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
-                expr = $"CSharpGenericIterable.from({expr})";
-            }
-        }
-
-        // Bug 3: drain any pre/post statements produced while transforming the return expression
-        // (e.g., ref argument wrapping adds pre-statements for holder init and post-statements for write-back).
-        if (context.HasPendingPreStatements || context.HasPendingPostStatements)
-        {
-            var sb = new System.Text.StringBuilder();
-            if (context.HasPendingPreStatements)
-            {
-                var preStmts = context.DrainPreStatements();
-                sb.Append(string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";")));
-                sb.Append("\n");
-            }
-            if (context.HasPendingPostStatements)
-            {
-                // Capture the return value in a temp variable, emit post-stmts, then return it.
-                var postStmts = context.DrainPostStatements();
-                // Use the method's return type instead of "var" so that generic methods
-                // (e.g. TValue) produce the correct Java type instead of Object inference.
-                // "var _ret = readCore(...)" in a <TValue> TValue method would make
-                // Java infer Object, causing "Object cannot be converted to TValue".
-                var retType = (returnTargetType != null && context.SemanticModel != null)
-                    ? context.MapType(returnTargetType)
-                    : "var";
-                if (string.IsNullOrWhiteSpace(retType) || retType == "Object")
-                    retType = "var";
+                var retType = ResolveReturnTargetType(stmt, ctx) is { } rt && ctx.SemanticModel != null
+                    ? ctx.MapType(rt) : "var";
+                if (retType is "Object" or "") retType = "var";
                 sb.Append($"{retType} _ret = {expr};\n");
-                sb.Append(string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";")));
-                var asyncRet = context.IsInAsyncContext
-                    ? "CompletableFuture.completedFuture(_ret)"
-                    : "_ret";
-                sb.Append($"\nreturn {asyncRet};");
+                sb.AppendJoin("\n", ctx.DrainPostStatements().Select(s => s.TrimEnd(';') + ';'));
+                sb.Append(ctx.IsInAsyncContext ? "\nreturn CompletableFuture.completedFuture(_ret);" : "\nreturn _ret;");
             }
             else
-            {
-                var asyncExpr = context.IsInAsyncContext
-                    ? $"CompletableFuture.completedFuture({expr})"
-                    : expr;
-                sb.Append($"return {asyncExpr};");
-            }
-            if (context.IsInAsyncContext)
-                context.AddImport("java.util.concurrent.CompletableFuture");
+                sb.Append(ctx.IsInAsyncContext ? $"return CompletableFuture.completedFuture({expr});" : $"return {expr};");
             return new JavaStatementNode(sb.ToString());
         }
-
-        if (context.IsInAsyncContext)
-        {
-            context.AddImport("java.util.concurrent.CompletableFuture");
-            return new JavaStatementNode($"return CompletableFuture.completedFuture({expr});");
-        }
-        return new JavaStatementNode($"return {expr};");
+        return new JavaStatementNode(ctx.IsInAsyncContext
+            ? $"return CompletableFuture.completedFuture({expr});" : $"return {expr};");
     }
 
-    private static ITypeSymbol? ResolveReturnTargetType(ReturnStatementSyntax stmt, ConversionContext context)
+    // return 处的类型适配：数组→List、字典→entrySet、struct 值拷贝、Iterable 包装
+    private static string AdjustReturnValue(ReturnStatementSyntax stmt, string expr, ConversionContext ctx)
     {
-        if (context.SemanticModel == null)
-            return null;
+        if (ctx.SemanticModel == null) return expr;
+        var retType = ResolveReturnTargetType(stmt, ctx);
+        var srcType = ctx.GetTypeInfo(stmt.Expression).Type;
 
-        var returnScope = stmt.Ancestors().FirstOrDefault(ancestor => ancestor is MethodDeclarationSyntax
-            or AccessorDeclarationSyntax
-            or LocalFunctionStatementSyntax
-            or AnonymousFunctionExpressionSyntax);
-
-        return returnScope switch
+        // list?.ToArray() 条件访问返回数组：裸 toArray() 是 Object[]，需类型化 generator（原始元素走 stream）
+        if (srcType is IArrayTypeSymbol srcArr && retType is IArrayTypeSymbol
+            && expr.Contains(".toArray()", StringComparison.Ordinal)
+            && expr.Contains("!= null ?", StringComparison.Ordinal))
         {
-            MethodDeclarationSyntax method => context.GetTypeInfo(method.ReturnType).Type,
-            AccessorDeclarationSyntax accessor => (context.GetDeclaredSymbol(accessor) as IMethodSymbol)?.ReturnType,
-            LocalFunctionStatementSyntax localFunction => context.GetTypeInfo(localFunction.ReturnType).Type,
+            var replacement = srcArr.ElementType.SpecialType switch
+            {
+                SpecialType.System_Int32 or SpecialType.System_Int16 or SpecialType.System_Byte
+                    => ".stream().mapToInt(Number::intValue).toArray()",
+                SpecialType.System_Int64 => ".stream().mapToLong(Long::longValue).toArray()",
+                SpecialType.System_Double or SpecialType.System_Single
+                    => ".stream().mapToDouble(Double::doubleValue).toArray()",
+                _ => $".toArray({StripGenerics(BoxJavaType(ctx.MapType(srcArr.ElementType)))}[]::new)"
+            };
+            expr = expr.Replace(".toArray()", replacement, StringComparison.Ordinal);
+        }
+
+        // string 返回给 ReadOnlySpan<char>：经 compat MemoryExtensions.asSpan 桥接
+        if (srcType?.SpecialType == SpecialType.System_String
+            && retType is INamedTypeSymbol { Name: "ReadOnlySpan" })
+        {
+            ctx.AddImport("io.github.ningpp.compat.MemoryExtensions");
+            expr = $"MemoryExtensions.asSpan({expr})";
+        }
+
+        // 整数字面量返回给 byte/short：Java 没有 C# 的常量隐式窄化
+        if (ctx.Options.TargetLanguage != TargetLanguage.TypeScript
+            && Regex.IsMatch(expr.Trim(), @"^-?\d+$")
+            && retType is INamedTypeSymbol { TypeKind: TypeKind.Struct } nt)
+        {
+            if (nt.SpecialType is SpecialType.System_Byte or SpecialType.System_SByte)
+                expr = $"({expr}) & 0xFF";
+            else if (nt.SpecialType is SpecialType.System_Int16 or SpecialType.System_UInt16)
+                expr = $"(short) ({expr})";
+        }
+
+        if (!stmt.Ancestors().OfType<AnonymousFunctionExpressionSyntax>().Any()
+            && ctx.GetTypeInfo(stmt.Expression).Type is IArrayTypeSymbol { Rank: 1 } arr
+            && retType is INamedTypeSymbol rn)
+        {
+            // IReadOnlyList<T>/IReadOnlyCollection<T>：Java 数组不实现这些接口，复制包成 CSharpList
+            if (rn.OriginalDefinition?.ToDisplayString()
+                is "System.Collections.Generic.IReadOnlyList<T>"
+                    or "System.Collections.Generic.IReadOnlyCollection<T>")
+            {
+                var elemJava = rn.TypeArguments.Length == 1 ? BoxJavaType(ctx.MapType(rn.TypeArguments[0])) : "";
+                ctx.AddImport("io.github.ningpp.compat.ArrayHelper");
+                ctx.AddImport("io.github.ningpp.compat.CSharpList");
+                expr = $"new CSharpList<{elemJava}>(ArrayHelper.toList({expr}))";
+            }
+            else if (rn.Name is "IList" or "ICollection" or "List" or "Collection" or "IEnumerable" or "Iterable")
+            {
+                if (arr.ElementType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64
+                    or SpecialType.System_Double or SpecialType.System_Single or SpecialType.System_Boolean
+                    or SpecialType.System_Byte or SpecialType.System_Int16 or SpecialType.System_Char)
+                {
+                    ctx.AddImport("java.util.Arrays");
+                    expr = $"Arrays.stream({expr}).boxed().collect(java.util.stream.Collectors.toCollection(() -> new java.util.ArrayList<>()))";
+                    if (ctx.ReturnsCSharpGenericIterable)
+                    { ctx.AddImport("io.github.ningpp.compat.CSharpGenericIterable"); expr = $"CSharpGenericIterable.from({expr})"; }
+                }
+                else
+                {
+                    // 引用类型元素：数组视图即可赋给 Iterable/Collection
+                    ctx.AddImport("io.github.ningpp.compat.ArrayHelper");
+                    expr = $"ArrayHelper.asListView({expr})";
+                }
+            }
+        }
+
+        if (ctx.GetTypeInfo(stmt.Expression).Type is INamedTypeSymbol dn
+            && (dn.Name is "Dictionary" or "SortedDictionary" or "IDictionary" || dn.AllInterfaces.Any(i => i.Name == "IDictionary"))
+            && retType is INamedTypeSymbol en && en.Name is "IEnumerable" or "ICollection" or "IList" or "Iterable"
+            && en.TypeArguments.FirstOrDefault() is INamedTypeSymbol elem && elem.Name == "IGrouping")
+        {
+            ctx.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            expr = $"CSharpGenericIterable.from({expr}.entrySet())";
+        }
+
+        var selfClone = stmt.Expression is ThisExpressionSyntax
+            && ctx.CurrentMethod is { Name: "Clone", Parameters.Length: 0, IsStatic: false };
+        if (!ctx.SuppressReturnClone && !selfClone)
+            expr = StructCloneHelper.CloneStructValueIfNeeded(stmt.Expression, expr,
+                ctx.GetTypeInfo(stmt.Expression).Type, ctx);
+
+        if (ctx.ReturnsCSharpGenericIterable && ShouldWrapIterable(expr, ctx.GetTypeInfo(stmt.Expression).Type))
+        {
+            ctx.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            expr = $"CSharpGenericIterable.from({expr})";
+        }
+        return expr;
+    }
+
+    private static bool ShouldWrapIterable(string expr, ITypeSymbol? t)
+    {
+        if (expr.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal) || t is not INamedTypeSymbol n)
+            return false;
+        if (n.Name is "Dictionary" or "SortedDictionary" or "IDictionary" || n.AllInterfaces.Any(i => i.Name == "IDictionary"))
+            return false;
+        if (n.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList"
+            && n.ContainingNamespace?.ToDisplayString().StartsWith("System", StringComparison.Ordinal) == true)
+            return true;
+        return n.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString() is
+            "System.Collections.Generic.IEnumerable<T>" or "System.Collections.Generic.ICollection<T>"
+            or "System.Collections.Generic.IList<T>" or "System.Collections.Generic.ISet<T>");
+    }
+
+    // Java 不支持泛型数组创建，去掉类型参数（Tuple2<…> → Tuple2）
+    private static string StripGenerics(string t)
+        => t.Contains('<') ? t[..t.IndexOf('<')] : t;
+
+    private static ITypeSymbol? ResolveReturnTargetType(ReturnStatementSyntax stmt, ConversionContext ctx)
+    {
+        if (ctx.SemanticModel == null) return null;
+        var scope = stmt.Ancestors().FirstOrDefault(a => a is MethodDeclarationSyntax
+            or AccessorDeclarationSyntax or LocalFunctionStatementSyntax or AnonymousFunctionExpressionSyntax);
+        return scope switch
+        {
+            MethodDeclarationSyntax m => ctx.GetTypeInfo(m.ReturnType).Type,
+            AccessorDeclarationSyntax a => (ctx.GetDeclaredSymbol(a) as IMethodSymbol)?.ReturnType,
+            LocalFunctionStatementSyntax l => ctx.GetTypeInfo(l.ReturnType).Type,
             _ => null
         };
     }
 
+    // ── TryGetValue 独立语句 ────────────────────────────────────────────────
+    private const string HolderFqn = "io.github.ningpp.compat.ObjectHolder";
+
+    private static string TryGetValueAsStatement(InvocationExpressionSyntax inv, MemberAccessExpressionSyntax ma,
+        ConversionContext ctx)
+    {
+        var f = ExpressionTransformerFacade.Instance;
+        var target = f.Transform(ma.Expression, ctx);
+        var key = f.Transform(inv.ArgumentList.Arguments[0].Expression, ctx);
+        var outArg = inv.ArgumentList.Arguments[1];
+        var standard = ctx.GetTypeInfo(ma.Expression).Type is ITypeSymbol t && t.AllInterfaces.Any(i =>
+            i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IDictionary<TKey, TValue>");
+
+        if (outArg.Expression is DeclarationExpressionSyntax decl)
+        {
+            var type = ctx.GetTypeInfo(decl.Type).Type;
+            var jtype = type != null ? ctx.MapType(type) : "var";
+            var name = decl.Designation is SingleVariableDesignationSyntax sv ? sv.Identifier.Text : "_outVar";
+            if (!standard)
+            {
+                var holderType = jtype == "var" ? "var" : $"{HolderFqn}<{jtype}>";
+                return $"{holderType} _{name}Holder = new {HolderFqn}<>();\n"
+                     + $"{target}.tryGetValue({key}, _{name}Holder); {jtype} {name} = _{name}Holder.value;";
+            }
+            var def = GetValueTypeDefault(type, jtype);
+            return $"{jtype} {name} = {target}.{(def != null ? $"getOrDefault({key}, {def})" : $"get({key})")};";
+        }
+
+        var lhs = f.Transform(outArg.Expression, ctx);
+        if (!standard)
+        {
+            var jtype = ctx.GetTypeInfo(outArg.Expression).Type is { } ot ? ctx.MapType(ot) : "Object";
+            var holder = ctx.GenerateSyntheticName("_outHolder");
+            return $"{HolderFqn}<{jtype}> {holder} = new {HolderFqn}<>();\n"
+                 + $"{target}.tryGetValue({key}, {holder}); {lhs} = {holder}.value;";
+        }
+        var d = ctx.GetTypeInfo(outArg.Expression).Type is { IsValueType: true } vt
+            ? GetValueTypeDefault(vt, ctx.MapType(vt)) : null;
+        return $"{lhs} = {target}.{(d != null ? $"getOrDefault({key}, {d})" : $"get({key})")};";
+    }
+
+    // ── obj?.M() 条件访问语句 ───────────────────────────────────────────────
+    private static string TransformConditionalAccessStatement(
+        ConditionalAccessExpressionSyntax cond, string obj, ConversionContext ctx)
+    {
+        var f = ExpressionTransformerFacade.Instance;
+
+        // 事件触发：Java 走 fire 方法+监听器非空判断；TS 直接 CsEvent.Invoke
+        if (ctx.SemanticModel != null && cond.WhenNotNull is InvocationExpressionSyntax ci
+            && ci.Expression is MemberBindingExpressionSyntax cb && cb.Name.Identifier.Text == "Invoke"
+            && ctx.GetSymbolInfo(cond.Expression).Symbol is IEventSymbol evt)
+        {
+            var args = string.Join(", ", ci.ArgumentList.Arguments.Select(a => f.Transform(a.Expression, ctx)));
+            if (ctx.Options.TargetLanguage == TargetLanguage.TypeScript)
+                return $"{TsEventField(cond.Expression, evt, ctx)}.Invoke({args});";
+            var q = Transformers.Member.EventListenerNaming.GetInterfaceQualifier(evt);
+            var field = Transformers.Member.EventListenerNaming.GetFieldName(q, evt.Name);
+            var fire = Transformers.Member.EventListenerNaming.GetFireMethodName(q, evt.Name);
+            return $"if (!{field}.isEmpty()) {{ {fire}({args}); }}";
+        }
+
+        string inner;
+        switch (cond.WhenNotNull)
+        {
+            case MemberBindingExpressionSyntax b:
+                inner = $"{obj}.{ConversionContext.EscapeJavaKeyword(b.Name.Identifier.Text)};";
+                break;
+            case InvocationExpressionSyntax ic when ic.Expression is MemberBindingExpressionSyntax ib:
+                var method = ConversionContext.EscapeJavaKeyword(ib.Name.Identifier.Text);
+                var args = string.Join(", ", ic.ArgumentList.Arguments.Select(a => f.Transform(a.Expression, ctx)));
+                if (ctx.SemanticModel != null
+                    && TryResolveDelegateFieldInvocation(ib, ic, obj, ctx, out var getter, out var sam))
+                    inner = $"{getter}.{sam}({args});";
+                else if (method == "Invoke")
+                    inner = $"{obj}.{Transformers.Type.DelegateTransformer.InferSamMethodName(true, ic.ArgumentList.Arguments.Count)}({args});";
+                else
+                    inner = $"{obj}.{RenameStatementMethod(method)}({args});";
+                break;
+            case ConditionalAccessExpressionSyntax nested:
+                inner = TransformConditionalAccessStatement(nested,
+                    f.TransformWhenNotNull(nested.Expression, obj, ctx), ctx);
+                break;
+            default:
+                inner = f.TransformWhenNotNull(cond.WhenNotNull, obj, ctx) + ";";
+                break;
+        }
+        return $"if ({obj} != null) {{ {inner} }}";
+    }
+
+    private static string RenameStatementMethod(string m) => m switch
+    {
+        "GetHashCode" => "hashCode", "GetEnumerator" => "iterator", "GetType" => "getClass",
+        "Dispose" => "close", "ToLower" or "ToLowerInvariant" => "toLowerCase",
+        "ToUpper" or "ToUpperInvariant" => "toUpperCase",
+        _ => m.Length > 0 ? char.ToLowerInvariant(m[0]) + m[1..] : m
+    };
+
+    private static bool TryResolveDelegateFieldInvocation(MemberBindingExpressionSyntax ib,
+        InvocationExpressionSyntax ic, string obj, ConversionContext ctx, out string target, out string sam)
+    {
+        target = ""; sam = "";
+        if (ctx.GetSymbolInfo(ib).Symbol is not IFieldSymbol field
+            || field.Type is not INamedTypeSymbol { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } im })
+            return false;
+        var name = ConversionContext.EscapeJavaKeyword(ib.Name.Identifier.Text);
+        target = $"{obj}.get{char.ToUpperInvariant(name[0])}{name[1..]}()";
+        sam = ctx.TypeMappings.MapMethod(field.Type.ToDisplayString(), "Invoke")
+            ?? Transformers.Type.DelegateTransformer.InferSamMethodName(im.ReturnsVoid, im.Parameters.Length);
+        return true;
+    }
+
+    private static string TsEventField(ExpressionSyntax e, IEventSymbol evt, ConversionContext ctx)
+    {
+        var f = ExpressionTransformerFacade.Instance;
+        switch (e)
+        {
+            case IdentifierNameSyntax id:
+                return evt.IsStatic && ctx.CurrentType != null
+                    ? $"{ctx.CurrentType.Name}.{id.Identifier.Text}" : $"this.{id.Identifier.Text}";
+            case MemberAccessExpressionSyntax ma:
+                var r = ma.Expression is ThisExpressionSyntax ? "this" : f.Transform(ma.Expression, ctx);
+                return $"{r}.{ma.Name.Identifier.Text}";
+            default:
+                return $"this.{evt.Name}";
+        }
+    }
+
+    // ── 小工具 ──────────────────────────────────────────────────────────────
+    private static string? DiagnosticsKind(InvocationExpressionSyntax inv, MemberAccessExpressionSyntax ma, ConversionContext ctx)
+    {
+        var name = ctx.SemanticModel != null
+            ? (ctx.GetSymbolInfo(inv).Symbol as IMethodSymbol)?.ContainingType.ToDisplayString()
+            : null;
+        name ??= ma.Expression.ToString();
+        if (name is "System.Diagnostics.Trace" or "Trace") return "trace";
+        if (name is "System.Diagnostics.Debug" or "Debug"
+            or "System.Diagnostics.Contracts.Contract" or "Contract") return "debug";
+        return null;
+    }
+
+    /// <summary>提取元组解构左侧的 (变量名, 从 1 开始的位置)；非解构形式返回 null。</summary>
+    private static List<(string Name, int Idx)>? TupleDeconstructionNames(ExpressionSyntax left)
+    {
+        if (left is DeclarationExpressionSyntax { Designation: ParenthesizedVariableDesignationSyntax pd })
+            return pd.Variables.Select((v, i) => (v as SingleVariableDesignationSyntax, i + 1))
+                .Where(x => x.Item1 != null && x.Item1.Identifier.Text != "_")
+                .Select(x => (x.Item1!.Identifier.Text, x.Item2)).ToList();
+        if (left is TupleExpressionSyntax te && te.Arguments.Count > 0
+            && te.Arguments.All(a => a.Expression is DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax }))
+            return te.Arguments
+                .Select((a, i) => (((SingleVariableDesignationSyntax)((DeclarationExpressionSyntax)a.Expression).Designation)
+                    .Identifier.Text, i + 1)).ToList();
+        return null;
+    }
+
+    /// <summary>把 pre/post 悬挂语句拼到主句两侧。</summary>
+    private static string EmitWithPending(ConversionContext ctx, string main)
+    {
+        var sb = new StringBuilder();
+        if (ctx.HasPendingPreStatements)
+            sb.AppendJoin("\n", ctx.DrainPreStatements().Select(s => s.TrimEnd(';') + ";")).Append('\n');
+        sb.Append(main);
+        if (ctx.HasPendingPostStatements)
+            sb.Append('\n').AppendJoin("\n", ctx.DrainPostStatements().Select(s => s.TrimEnd(';') + ";"));
+        return sb.ToString();
+    }
+
+    private static JavaStatementNode WithPending(ConversionContext ctx, string main)
+        => new(EmitWithPending(ctx, main));
+
+    // 纯读取（变量/字段/holder.value）不是合法 Java 语句，输出时丢弃
+    private static bool IsBareReadExpression(string expr)
+        => !string.IsNullOrWhiteSpace(expr)
+           && Regex.Replace(expr.Trim(), @"\[[^\]]*\]", "").Split('.').All(seg =>
+                seg.Length > 0 && (char.IsLetter(seg[0]) || seg[0] is '_' or '$')
+                && seg.All(c => char.IsLetterOrDigit(c) || c is '_' or '$'));
+
+    // 剥离整体外层括号后，识别顶层三元（顶层出现 '=' 说明是赋值的一部分，不处理）
+    private static bool TryParseTernaryStatement(string expr, out string cond, out string whenTrue, out string whenFalse)
+    {
+        cond = whenTrue = whenFalse = "";
+        var s = expr.Trim();
+        while (s.Length > 2 && s[0] == '(' && s[^1] == ')')
+        {
+            int d = 0; var outer = false;
+            for (var i = 0; i < s.Length; i++)
+                if (s[i] == '(') d++;
+                else if (s[i] == ')' && --d == 0) { outer = i == s.Length - 1; break; }
+            if (!outer) break;
+            s = s[1..^1].Trim();
+        }
+        int q = -1, col = -1, depth = 0;
+        for (var i = 0; i < s.Length; i++)
+        {
+            if (s[i] == '(') depth++;
+            else if (s[i] == ')') depth--;
+            else if (depth == 0)
+            {
+                if (s[i] == '=') return false;
+                if (q < 0 && s[i] == '?' && i + 1 < s.Length && s[i + 1] is not '.' and not '?') q = i;
+                else if (q >= 0 && s[i] == ':') { col = i; break; }
+            }
+        }
+        if (q <= 0 || col <= q) return false;
+        cond = s[..q].Trim(); whenTrue = s[(q + 1)..col].Trim(); whenFalse = s[(col + 1)..].Trim();
+        return true;
+    }
+
     /// <summary>
-    /// Splits a C# tuple assignment — (X, Y) = (x, y) — into sequential single
-    /// assignments, resolving each element via its ORIGINAL syntax node (semantic
-    /// lookups require nodes that still belong to a tree with their parent chain).
-    /// Shared by ExpressionStatement conversion and constructor expression bodies.
+    /// (X, Y) = (x, y) 拆为顺序单赋值；检测 RHS/LHS 重叠（如交换）时先 hoist 临时变量。
+    /// 也被构造函数表达式体复用。
     /// </summary>
     internal static class TupleAssignmentSplitters
     {
-        internal static string SplitTupleAssignment(AssignmentExpressionSyntax assign, ConversionContext context)
+        internal static string SplitTupleAssignment(AssignmentExpressionSyntax assign, ConversionContext ctx)
         {
-            var tupleLeft = (TupleExpressionSyntax)assign.Left;
-            var tupleRight = (TupleExpressionSyntax)assign.Right;
-            var lhsArgs = tupleLeft.Arguments
-                .Select(a => a.Expression)
-                .ToList();
-            var exprTransformer = ExpressionTransformerFacade.Instance;
-            // C# evaluates ALL tuple RHS expressions before ANY LHS element is written.
-            // Emitting plain sequential assignments is only safe when no RHS expression
-            // reads a location that an earlier LHS write may have modified (e.g. the
-            // classic swap (a, b) = (b, a)). When an overlap is detected, hoist every
-            // RHS value into a temp local first, then assign the LHS elements.
+            var f = ExpressionTransformerFacade.Instance;
+            var lefts = ((TupleExpressionSyntax)assign.Left).Arguments.Select(a => a.Expression).ToList();
+            var rights = ((TupleExpressionSyntax)assign.Right).Arguments.Select(a => a.Expression).ToList();
+            var templates = new List<string>();
             var rightTexts = new List<string>();
-            var leftTargetTexts = new List<string>();
-            var assignTemplates = new List<string>();
-            for (int i = 0; i < lhsArgs.Count; i++)
+            var targets = new List<string>();
+
+            for (var i = 0; i < lefts.Count; i++)
             {
-                var leftExpr = lhsArgs[i];
-                var rightExpr = tupleRight.Arguments[i].Expression;
-                var rightText = exprTransformer.Transform(rightExpr, context);
-                string rhsPlaceholder = $"__cs2jTupleRhs{i}__";
-                string leftTarget;
-                var leftSymbol = GetSymbolInfoSafely(leftExpr, context);
-                if (leftSymbol is IPropertySymbol tupleProp)
+                var rightText = f.Transform(rights[i], ctx);
+                string target;
+                string template;
+                if (TryGetSymbol(lefts[i], ctx) is IPropertySymbol p)
                 {
-                    rightText = ExpressionTransformerHelpers.AdaptExpressionToTargetType(
-                        rightExpr, rightText, tupleProp.Type, context);
-                    if (tupleProp.SetMethod == null)
-                    {
-                        var fieldName = CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(tupleProp);
-                        leftTarget = $"this.{fieldName}";
-                        assignTemplates.Add($"{leftTarget} = {rhsPlaceholder}");
-                    }
-                    else
-                    {
-                        string setter = "set" + char.ToUpperInvariant(tupleProp.Name[0]) + tupleProp.Name[1..];
-                        string getter = "get" + char.ToUpperInvariant(tupleProp.Name[0]) + tupleProp.Name[1..];
-                        leftTarget = getter;
-                        assignTemplates.Add($"{setter}({rhsPlaceholder})");
-                    }
+                    var cap = char.ToUpperInvariant(p.Name[0]) + p.Name[1..];
+                    target = $"get{cap}()";
+                    template = p.SetMethod == null
+                        ? $"this.{JavaNaming.GetAutoPropertyBackingFieldName(p)} = __{i}__"
+                        : $"set{cap}(__{i}__)";
                 }
-                else if (leftExpr is IdentifierNameSyntax bareIdent
-                         && TryGetEnclosingProperty(bareIdent, context, out var enclosingProp))
-                {
-                    // Semantic model unavailable (e.g. struct members merged from a synthetic
-                    // syntax tree) — fall back to symbol-level lookup: a bare identifier matching
-                    // a property of the enclosing type maps to its backing field (auto-property pattern).
-                    string fieldName = CSharpToJava.Core.Context.JavaNaming.GetAutoPropertyBackingFieldName(enclosingProp);
-                    leftTarget = $"this.{fieldName}";
-                    assignTemplates.Add($"{leftTarget} = {rhsPlaceholder}");
-                }
-                else
-                {
-                    leftTarget = exprTransformer.Transform(leftExpr, context);
-                    assignTemplates.Add($"{leftTarget} = {rhsPlaceholder}");
-                }
-                rightTexts.Add(rightText);
-                leftTargetTexts.Add(leftTarget);
+                else { target = f.Transform(lefts[i], ctx); template = $"{target} = __{i}__"; }
+                targets.Add(target); templates.Add(template); rightTexts.Add(rightText);
             }
 
-            bool needsHoisting = false;
-            foreach (var rightText in rightTexts)
-            {
-                foreach (var leftTarget in leftTargetTexts)
-                {
-                    if (rightText.IndexOf(leftTarget, StringComparison.Ordinal) >= 0)
-                    {
-                        needsHoisting = true;
-                        break;
-                    }
-                }
-                if (needsHoisting)
-                    break;
-            }
-
-            var sbTuple = new System.Text.StringBuilder();
-            for (int i = 0; i < lhsArgs.Count; i++)
+            var hoist = rightTexts.Any(r => targets.Any(t => r.Contains(t, StringComparison.Ordinal)));
+            var sb = new StringBuilder();
+            for (var i = 0; i < lefts.Count; i++)
             {
                 string rhs;
-                if (needsHoisting)
-                {
-                    var tempName = $"_cs2jTupleTmp{i}";
-                    sbTuple.AppendLine($"var {tempName} = {rightTexts[i]};");
-                    rhs = tempName;
-                }
-                else
-                {
-                    rhs = rightTexts[i];
-                }
-                var assignText = assignTemplates[i].Replace($"__cs2jTupleRhs{i}__", rhs);
-                if (i < lhsArgs.Count - 1)
-                    sbTuple.AppendLine(assignText.TrimEnd(';') + ";");
-                else
-                    sbTuple.Append(assignText.TrimEnd(';') + ";");
+                if (hoist) { var tmp = $"_cs2jTupleTmp{i}"; sb.Append($"var {tmp} = {rightTexts[i]};\n"); rhs = tmp; }
+                else rhs = rightTexts[i];
+                var line = templates[i].Replace($"__{i}__", rhs) + ";";
+                sb.Append(i < lefts.Count - 1 ? line + "\n" : line);
             }
-            return sbTuple.ToString();
+            return sb.ToString();
         }
 
-        /// <summary>
-        /// Safe GetSymbolInfo: nodes from synthetic/merged syntax trees (e.g. struct members
-        /// processed via a different tree) throw ArgumentException on semantic lookup.
-        /// </summary>
-        private static ISymbol? GetSymbolInfoSafely(ExpressionSyntax expr, ConversionContext context)
+        private static ISymbol? TryGetSymbol(ExpressionSyntax e, ConversionContext ctx)
         {
-            if (context.SemanticModel == null)
-                return null;
-            try
-            {
-                return context.GetSymbolInfo(expr).Symbol;
-            }
-            catch (ArgumentException)
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Symbol-level fallback for tuple-assignment elements: reports whether the bare
-        /// identifier names an auto-property on the enclosing type. Works even when the
-        /// element comes from a synthetic/merged syntax tree (no usable semantic model).
-        /// </summary>
-        private static bool TryGetEnclosingProperty(
-            IdentifierNameSyntax identifier,
-            ConversionContext context,
-            out IPropertySymbol property)
-        {
-            property = null!;
-            var enclosingType = context.CurrentEnclosingRoslynType;
-            if (enclosingType == null)
-                return false;
-            foreach (var member in enclosingType.GetMembers())
-            {
-                if (member is IPropertySymbol prop
-                    && prop.Name == identifier.Identifier.Text)
-                {
-                    property = prop;
-                    return true;
-                }
-            }
-            return false;
+            if (ctx.SemanticModel == null) return null;
+            try { return ctx.GetSymbolInfo(e).Symbol; } catch (ArgumentException) { return null; }
         }
     }
 }

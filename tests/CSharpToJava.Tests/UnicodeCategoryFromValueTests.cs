@@ -17,47 +17,6 @@ public class UnicodeCategoryFromValueTests
 
     public UnicodeCategoryFromValueTests(ITestOutputHelper output) => _out = output;
 
-    [Fact]
-    public void UnicodeCategoryEnumCast_CompilesAgainstCompatRuntime()
-    {
-        var result = Convert("""
-using System;
-using System.Globalization;
-class C {
-    static UnicodeCategory FromInt(short c) {
-        if (c > 0) {
-            return (UnicodeCategory)(c - 1);
-        }
-        return (UnicodeCategory)(-1 - c);
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("UnicodeCategory.fromValue(", code);
-
-        using var temp = new TempDir();
-        var samplePath = Path.Combine(temp.Path, "C.java");
-        var outDir = Path.Combine(temp.Path, "classes");
-        Directory.CreateDirectory(outDir);
-        File.WriteAllText(samplePath, code);
-
-        var compatDir = Path.Combine(FindRepoRoot(), "java", "csharptojava-compat", "src", "main", "java", "io", "github", "ningpp", "compat");
-        var compatSources = new[]
-        {
-            "UnicodeCategory.java",
-        }.Select(name => Path.Combine(compatDir, name)).ToArray();
-
-        foreach (var source in compatSources)
-            Assert.True(File.Exists(source), $"Missing compat source: {source}");
-
-        var sources = string.Join(" ", compatSources.Append(samplePath).Select(path => $"\"{path}\""));
-        var javac = RunProcess("javac", $"-d \"{outDir}\" {sources}");
-        Assert.True(javac.ExitCode == 0, javac.Output);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

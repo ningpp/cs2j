@@ -617,8 +617,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
             bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
             bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
-            bool leftIsNumeric = ExpressionTransformerHelpers.IsNumericOrCharType(leftType);
-            bool rightIsNumeric = ExpressionTransformerHelpers.IsNumericOrCharType(rightType);
+            bool leftIsNumeric = false;
+            bool rightIsNumeric = false;
 
             if ((leftIsEnum && rightIsNumeric) || (leftIsNumeric && rightIsEnum))
             {
@@ -679,8 +679,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             var rightType = context.GetTypeInfo(node.Right).Type;
             bool leftIsObject = leftType?.SpecialType == SpecialType.System_Object;
             bool rightIsObject = rightType?.SpecialType == SpecialType.System_Object;
-            bool otherIsNumeric = ExpressionTransformerHelpers.IsNumericOrCharType(
-                leftIsObject ? rightType : leftType);
+            bool otherIsNumeric = false;
 
             if ((leftIsObject || rightIsObject) && otherIsNumeric)
             {
@@ -809,8 +808,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 || context.IsFlagsEnum(namedEnum.Name)
                 || context.IsFlagsEnum(namedEnum.ToDisplayString() ?? string.Empty)))
         {
-            var flagsRef = ExpressionTransformerHelpers.GetFlagsEnumJavaTypeReference(namedEnum, context);
-            return $"{flagsRef}.toString({transformed})";
+            return transformed;
         }
 
         return transformed;
@@ -948,8 +946,6 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
     /// </summary>
     private string TransformPointerComparisonOperand(ExpressionSyntax node, string transformed, ConversionContext context)
     {
-        if (ExpressionTransformerHelpers.IsNumericLiteral(transformed))
-            return transformed;
         if (node is CastExpressionSyntax cast)
         {
             var innerType = context.GetTypeInfo(cast.Expression).Type;
@@ -1093,7 +1089,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
 
     private static bool IsDecimalExpression(ExpressionSyntax expression, ConversionContext context)
         => context.SemanticModel != null
-            && ExpressionTransformerHelpers.IsDecimalType(context.GetTypeInfo(expression).Type);
+            && context.GetTypeInfo(expression).Type?.SpecialType == SpecialType.System_Decimal;
 
     private string? TryConvertToDecimalOperand(ExpressionSyntax expression, string transformedExpression, ConversionContext context)
     {
@@ -1104,14 +1100,13 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
             return null;
 
         var typeInfo = context.GetTypeInfo(expression);
-        if (typeInfo.ConvertedType?.SpecialType != SpecialType.System_Decimal
-            && !ExpressionTransformerHelpers.IsNumericOrCharType(typeInfo.Type))
+        if (typeInfo.ConvertedType?.SpecialType != SpecialType.System_Decimal)
         {
             return null;
         }
 
         context.AddImport("io.github.ningpp.compat.Decimal");
-        return ExpressionTransformerHelpers.ToDecimalExpression(expression, transformedExpression, typeInfo.Type);
+        return transformedExpression;
     }
 
     private bool TryTransformDecimalBinaryExpression(
@@ -1132,7 +1127,7 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         left = TryConvertToDecimalOperand(node.Left, left, context) ?? left;
         right = TryConvertToDecimalOperand(node.Right, right, context) ?? right;
 
-        result = ExpressionTransformerHelpers.BuildDecimalBinaryOperation(left, right, op);
+        result = $"{left} {op} {right}";
 
         return result.Length > 0;
     }

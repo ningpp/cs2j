@@ -39,10 +39,14 @@ public partial class StatementTransformer : IStatementTransformer
             SyntaxKind.UsingStatement => TransformUsingStatement(node as UsingStatementSyntax, context),
             SyntaxKind.BreakStatement => TransformBreakStatement(node as BreakStatementSyntax, context),
             SyntaxKind.ContinueStatement => TransformContinueStatement(node as ContinueStatementSyntax, context),
-            SyntaxKind.LabeledStatement => TransformLabelStatement(node as LabeledStatementSyntax, context),
-            SyntaxKind.GotoStatement => TransformGotoStatement(node as GotoStatementSyntax, context),
-            SyntaxKind.GotoCaseStatement => TransformGotoStatement(node as GotoStatementSyntax, context),
-            SyntaxKind.GotoDefaultStatement => TransformGotoStatement(node as GotoStatementSyntax, context),
+            // goto/label 语法必须在 Java 转换前由 GotoEliminator 预处理消除；
+            // 若此处仍遇到，说明预处理缺失或失败，直接抛异常而不是生成非法 Java。
+            SyntaxKind.LabeledStatement => throw new InvalidOperationException(
+                $"Labeled statement '{(node as LabeledStatementSyntax)?.Identifier.Text}' should have been eliminated by GotoEliminator before Java conversion."),
+            SyntaxKind.GotoStatement
+            or SyntaxKind.GotoCaseStatement
+            or SyntaxKind.GotoDefaultStatement => throw new InvalidOperationException(
+                $"'{node.Kind()}' should have been eliminated by GotoEliminator before Java conversion."),
             SyntaxKind.YieldReturnStatement => TransformYieldReturn(node as YieldStatementSyntax, context),
             SyntaxKind.YieldBreakStatement => TransformYieldBreak(node as YieldStatementSyntax, context),
             SyntaxKind.LockStatement => TransformLockStatement(node as LockStatementSyntax, context),
@@ -86,18 +90,7 @@ public partial class StatementTransformer : IStatementTransformer
 
         if (context.MethodState.ScopeDepth == 0)
         {
-            PrescanLabels(block.Statements, context);
             PrescanLocalFunctions(block, context);
-
-            // Analyze goto patterns to determine if state machine is needed
-            var gotoAnalyzer = GotoAnalyzer.Analyze(block, context.Labels);
-            context.MethodState.GotoAnalyzer = gotoAnalyzer;
-
-            // If state machine is needed (B2/B3/C class gotos), wrap in state machine
-            if (gotoAnalyzer.NeedsStateMachine)
-            {
-                return TransformBlockWithStateMachine(block, context, gotoAnalyzer);
-            }
         }
 
         context.MethodState.PushScope();
@@ -151,20 +144,7 @@ public partial class StatementTransformer : IStatementTransformer
 
         if (context.MethodState.ScopeDepth == 0)
         {
-            PrescanLabels(block.Statements, context);
             PrescanLocalFunctions(block, context);
-
-            // Analyze goto patterns to determine if state machine is needed
-            var gotoAnalyzer = GotoAnalyzer.Analyze(block, context.Labels);
-            context.MethodState.GotoAnalyzer = gotoAnalyzer;
-
-            // If state machine is needed (B2/B3/C class gotos), fall back to string-based body with state machine
-            if (gotoAnalyzer.NeedsStateMachine)
-            {
-                var stateMachineCode = TransformBlockWithStateMachine(block, context, gotoAnalyzer);
-                body.Statements.Add(new Java.JavaRawStatement(stateMachineCode));
-                return body;
-            }
         }
 
         context.MethodState.PushScope();

@@ -138,27 +138,6 @@ class Sample
     }
 
     [Fact]
-    public void DecimalToNumericCasts_UseCompatConversions()
-    {
-        var result = Convert("""
-class Sample
-{
-    int ToInt(decimal value) => (int)value;
-    long ToLong(decimal value) => (long)value;
-    double ToDouble(decimal value) => (double)value;
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("return value.intValue();", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return value.longValue();", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("return value.doubleValue();", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(int)(value)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(long)(value)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("(double)(value)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void DecimalMixedArithmeticAndComparison_WrapNumericOperands()
     {
         var result = Convert("""

@@ -92,19 +92,19 @@ public class Foo
     [Fact]
     public void ExpressionTransformerHelpers_IsJavaKeyword_True_IsKeyword()
     {
-        Assert.True(CSharpToJava.Core.Transformers.Expression.Utilities.ExpressionTransformerHelpers.IsJavaKeyword("true"));
+        Assert.True(CSharpToJava.Core.Context.ConversionContext.IsJavaKeyword("true"));
     }
 
     [Fact]
     public void ExpressionTransformerHelpers_IsJavaKeyword_False_IsKeyword()
     {
-        Assert.True(CSharpToJava.Core.Transformers.Expression.Utilities.ExpressionTransformerHelpers.IsJavaKeyword("false"));
+        Assert.True(CSharpToJava.Core.Context.ConversionContext.IsJavaKeyword("false"));
     }
 
     [Fact]
     public void ExpressionTransformerHelpers_IsJavaKeyword_Null_IsKeyword()
     {
-        Assert.True(CSharpToJava.Core.Transformers.Expression.Utilities.ExpressionTransformerHelpers.IsJavaKeyword("null"));
+        Assert.True(CSharpToJava.Core.Context.ConversionContext.IsJavaKeyword("null"));
     }
 
     [Fact]

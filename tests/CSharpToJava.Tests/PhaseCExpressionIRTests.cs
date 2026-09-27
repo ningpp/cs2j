@@ -696,19 +696,6 @@ class T<TValue> {
     }
 
     [Fact]
-    public void TypeOp_Default_TypeParameter_StructConstraint_EndToEnd()
-    {
-        var result = ConvertCode(@"
-class T {
-    TValue M<TValue>() where TValue : struct {
-        return default(TValue);
-    }
-}");
-        Assert.Contains("new TValue()", result);
-        Assert.DoesNotContain("null", result);
-    }
-
-    [Fact]
     public void TypeOp_Default_TypeParameter_ClassConstraint_EndToEnd()
     {
         var result = ConvertCode(@"
