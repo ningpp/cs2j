@@ -1952,3 +1952,16 @@ Expected: 全绿；既有测试零回归。
 4. csproj 零引用、Cs2jUnsignedMath 无改动 → Task 8 Step 2/3。
 5. 四类型均为 public readonly struct、字段 private readonly → 代码审查（Task 3-6 的实现已固定）。
 6. net10 oracle 对照全部一致 → Task 2-7 的 parity 测试。
+
+---
+
+## 实施更正记录（Task 3–8 落地时发现，均已验证）
+
+1. **库文件 BCL 引用必须全部 `global::System.` 限定**：在 `namespace dotnet.System` 内裸写 `System.IEquatable<>` 会解析成 `dotnet.System.*` 报 CS0234。四个 struct 的实现均已用 `global::System.` 前缀（含显式接口实现 `string global::System.IFormattable.ToString(...)`）。
+2. **parity 测试操作数**：`ua * b`（自定义 struct × 原生无符号类型）无法隐式提升，统一改为 `ua * ub`；oracle 侧仍为原生 `a * b`。
+3. **常量 `(sbyte)200` 需 `unchecked((sbyte)200)`**（CS0221）。
+4. **`(ulong)(ULong)x` 转换二义性**（CS0457，double/float 两条用户定义转换路径），测试中统一写为 `(ulong)(long)(ULong)x`。
+5. **CompareTo 原生语义差异**：`Byte`/`UInt16.CompareTo` 返回实际差值（范围在 int 内），`UInt32`/`UInt64` 返回 -1/0/1。`UnsignedBits.Cmp8`/`Cmp16` 改为返回差值，`Cmp32`/`Cmp64` 保持符号值；`UnsignedBitsTests` 同步更新为 100、65534。
+6. **Task 6 边界用例期望修正**：`MaxValue / MaxValue = 1`（计划原写 MaxValue），随机除法循环加 `b != 0` 防护。
+7. **ULong 的 D 格式**：非 hex 路径经 `decimal.ToString`，而 decimal 不支持整型专属的 `D` 说明符；ULong.ToString 对 `D[n]` 改为自行补零分发。
+8. **关键字扫描含注释**：库源码注释也不得出现 `ulong` 等字面 token（Step 1 扫描为纯文本匹配）。

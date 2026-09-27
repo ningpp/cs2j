@@ -104,7 +104,7 @@ namespace dotnet.System
             {
                 return UnsignedBits.FormatHex(_v, format);
             }
-            // decimal 不支持 D（整型专属），需自行补零以匹配原生 ulong 行为。
+            // decimal 不支持 D（整型专属），需自行补零以匹配原生无符号 64 位整数行为。
             if (spec == 'D' && TailDigits(format))
             {
                 string digits = UnsignedBits.Plain64(_v);
