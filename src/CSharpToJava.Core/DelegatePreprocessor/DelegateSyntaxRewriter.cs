@@ -119,7 +119,7 @@ internal sealed class DelegateSyntaxRewriter : CSharpSyntaxRewriter
         return SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
-                SyntaxFactory.IdentifierName("CsPrelude"),
+                SyntaxFactory.ParseName("Cs2jPrelude.CsPrelude"),
                 SyntaxFactory.IdentifierName("Combine")),
             SyntaxFactory.ArgumentList(argList));
     }
@@ -129,7 +129,7 @@ internal sealed class DelegateSyntaxRewriter : CSharpSyntaxRewriter
         return SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
-                SyntaxFactory.IdentifierName("CsPrelude"),
+                SyntaxFactory.ParseName("Cs2jPrelude.CsPrelude"),
                 SyntaxFactory.IdentifierName("Remove")),
             SyntaxFactory.ArgumentList(
                 SyntaxFactory.SeparatedList(new[]

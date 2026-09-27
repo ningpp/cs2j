@@ -196,7 +196,7 @@ public class DelegatePreprocessorUnitTests
         Assert.Contains("b", result.OutputCode);
         Assert.Contains("c", result.OutputCode);
         // Should not contain nested Combine calls (flattened to params)
-        Assert.DoesNotContain("CsPrelude.Combine(CsPrelude.Combine", result.OutputCode);
+        Assert.DoesNotContain("Cs2jPrelude.CsPrelude.Combine(Cs2jPrelude.CsPrelude.Combine", result.OutputCode);
     }
 
     [Fact]
@@ -230,8 +230,8 @@ public class DelegatePreprocessorUnitTests
         var result = Preprocess(src);
         Assert.True(result.Changed);
         // Right-nested: do not flatten, produce Combine(a, Combine(b, c))
-        Assert.Contains("CsPrelude.Combine(a", result.OutputCode);
-        Assert.Contains("CsPrelude.Combine(b", result.OutputCode);
+        Assert.Contains("Cs2jPrelude.CsPrelude.Combine(a", result.OutputCode);
+        Assert.Contains("Cs2jPrelude.CsPrelude.Combine(b", result.OutputCode);
     }
 
     [Fact]
@@ -247,7 +247,7 @@ public class DelegatePreprocessorUnitTests
         """;
         var result = Preprocess(src);
         Assert.True(result.Changed);
-        Assert.Contains("CsPrelude.Remove(CsPrelude.Remove", result.OutputCode);
+        Assert.Contains("Cs2jPrelude.CsPrelude.Remove(Cs2jPrelude.CsPrelude.Remove", result.OutputCode);
     }
 
     [Fact]
