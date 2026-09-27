@@ -30,6 +30,8 @@
 
 跨类型转换算子归属约定（避免重复定义）：**每个跨类型算子只定义在目标类型中**（向宽 implicit、向窄 explicit）。
 
+> **编译注意（Task 2-6 全部实现源码生效，实测 CS0234）：** 文件位于 `namespace dotnet.System` 内时，裸写 `System.X` 会经外层 `dotnet` 命名空间绑定为 `dotnet.System.X`。所有 BCL 类型全名引用必须加 `global::` 前缀（`global::System.IEquatable<T>`、`global::System.Globalization.NumberStyles`、`global::System.Math`、`global::System.OverflowException` 等）；命名空间声明本身保持 `namespace dotnet.System`。下文代码块中的 `System.` 在落地时一律按此替换。测试文件中需要引用枚举类型时用文件别名 `using St = System.Globalization.NumberStyles;`（测试工程不在 dotnet.System 命名空间内，无需 global::）。
+
 ---
 
 ## Task 1: 工程脚手架
@@ -106,6 +108,7 @@ Expected: 成功（新项目暂无 .cs 文件也可构建；若 SDK 因无源码
 
 ```csharp
 using dotnet.System;
+using St = System.Globalization.NumberStyles;
 
 namespace CSharpToJava.Tests.Cs2jUnsigned;
 
@@ -191,24 +194,23 @@ public class UnsignedBitsTests
     public void ParseUnsigned_OracleBehaviors()
     {
         var inv = System.Globalization.CultureInfo.InvariantCulture;
-        var st = System.Globalization.NumberStyles;
-        Assert.Equal(100m, UnsignedBits.ParseUnsigned("1e2", st.Integer | st.AllowExponent, inv, 4294967295m));
-        Assert.Equal(100m, UnsignedBits.ParseUnsigned("1,00", st.Integer | st.AllowThousands, inv, 4294967295m));
-        Assert.Equal(1000m, UnsignedBits.ParseUnsigned("1,,000", st.Integer | st.AllowThousands, inv, 4294967295m));
-        Assert.Throws<System.FormatException>(() => UnsignedBits.ParseUnsigned(",100", st.Integer | st.AllowThousands, inv, 4294967295m));
-        Assert.Equal(1m, UnsignedBits.ParseUnsigned("1.0", st.Integer | st.AllowDecimalPoint, inv, 4294967295m));
-        Assert.Throws<System.OverflowException>(() => UnsignedBits.ParseUnsigned("1.5", st.Integer | st.AllowDecimalPoint, inv, 4294967295m));
-        Assert.Throws<System.OverflowException>(() => UnsignedBits.ParseUnsigned("(1)", st.AllowParentheses | st.AllowLeadingSign, inv, 4294967295m));
-        Assert.Equal(0m, UnsignedBits.ParseUnsigned("(0)", st.AllowParentheses, inv, 4294967295m));
-        Assert.Throws<System.FormatException>(() => UnsignedBits.ParseUnsigned("+1-", st.AllowLeadingSign | st.AllowTrailingSign, inv, 4294967295m));
-        Assert.Throws<System.FormatException>(() => UnsignedBits.ParseUnsigned("0xFF", st.HexNumber, inv, 4294967295m));
-        Assert.Equal(10m, UnsignedBits.ParseUnsigned("1010", st.AllowBinarySpecifier, inv, 255m));
-        Assert.Throws<System.FormatException>(() => UnsignedBits.ParseUnsigned("0b1010", st.AllowBinarySpecifier, inv, 255m));
-        Assert.Throws<System.ArgumentException>(() => UnsignedBits.ParseUnsigned("1", st.HexNumber | st.AllowThousands, inv, 4294967295m));
-        Assert.Throws<System.ArgumentException>(() => UnsignedBits.ParseUnsigned("1", st.AllowBinarySpecifier | st.AllowLeadingSign, inv, 255m));
-        Assert.False(UnsignedBits.TryParseUnsigned("999", st.Integer, inv, 255m, out _));
-        Assert.False(UnsignedBits.TryParseUnsigned("0xFF", st.HexNumber, inv, 255m, out _));
-        Assert.Throws<System.ArgumentNullException>(() => UnsignedBits.ParseUnsigned(null, st.Integer, inv, 255m));
+        Assert.Equal(100m, UnsignedBits.ParseUnsigned("1e2", St.Integer | St.AllowExponent, inv, 4294967295m));
+        Assert.Equal(100m, UnsignedBits.ParseUnsigned("1,00", St.Integer | St.AllowThousands, inv, 4294967295m));
+        Assert.Equal(1000m, UnsignedBits.ParseUnsigned("1,,000", St.Integer | St.AllowThousands, inv, 4294967295m));
+        Assert.Throws<System.FormatException>(() => UnsignedBits.ParseUnsigned(",100", St.Integer | St.AllowThousands, inv, 4294967295m));
+        Assert.Equal(1m, UnsignedBits.ParseUnsigned("1.0", St.Integer | St.AllowDecimalPoint, inv, 4294967295m));
+        Assert.Throws<System.OverflowException>(() => UnsignedBits.ParseUnsigned("1.5", St.Integer | St.AllowDecimalPoint, inv, 4294967295m));
+        Assert.Throws<System.OverflowException>(() => UnsignedBits.ParseUnsigned("(1)", St.AllowParentheses | St.AllowLeadingSign, inv, 4294967295m));
+        Assert.Equal(0m, UnsignedBits.ParseUnsigned("(0)", St.AllowParentheses, inv, 4294967295m));
+        Assert.Throws<System.FormatException>(() => UnsignedBits.ParseUnsigned("+1-", St.AllowLeadingSign | St.AllowTrailingSign, inv, 4294967295m));
+        Assert.Throws<System.FormatException>(() => UnsignedBits.ParseUnsigned("0xFF", St.HexNumber, inv, 4294967295m));
+        Assert.Equal(10m, UnsignedBits.ParseUnsigned("1010", St.AllowBinarySpecifier, inv, 255m));
+        Assert.Throws<System.FormatException>(() => UnsignedBits.ParseUnsigned("0b1010", St.AllowBinarySpecifier, inv, 255m));
+        Assert.Throws<System.ArgumentException>(() => UnsignedBits.ParseUnsigned("1", St.HexNumber | St.AllowThousands, inv, 4294967295m));
+        Assert.Throws<System.ArgumentException>(() => UnsignedBits.ParseUnsigned("1", St.AllowBinarySpecifier | St.AllowLeadingSign, inv, 255m));
+        Assert.False(UnsignedBits.TryParseUnsigned("999", St.Integer, inv, 255m, out _));
+        Assert.False(UnsignedBits.TryParseUnsigned("0xFF", St.HexNumber, inv, 255m, out _));
+        Assert.Throws<System.ArgumentNullException>(() => UnsignedBits.ParseUnsigned(null, St.Integer, inv, 255m));
     }
 }
 ```
