@@ -180,8 +180,7 @@ public class Program
             // The registry is the single source of truth for pass identity,
             // ordering (locked via RunAfter) and defaults; legacy --no-xxx/enable
             // flags only override the enablement, all execution/output details live
-            // on the adapters. java-keywords still has its hand-written block below
-            // until its adapter is wired (Step 6).
+            // on the adapters.
             var passRegistry = PassCatalog.BuildRegistry();
             var passPlan = PassPlanResolver.Resolve(
                 passRegistry,
@@ -220,16 +219,12 @@ public class Program
                 },
                 RecordReadOnlyOptionsFactory = () => BuildRecordReadOnlyOptions(
                     opts.RecordReadOnlyOverrides, strict: false),
+                JavaKeywordOptionsFactory = () => BuildJavaKeywordOptions(
+                    opts.JavaKeywordsOverrides, strict: false),
             };
 
             foreach (var pass in passPlan.Enabled)
             {
-                if (pass.Id == PassIds.JavaKeywords)
-                {
-                    // Hand-written block further below; folded into this loop in Step 6.
-                    continue;
-                }
-
                 if (pass.Status == PassStatus.Stub)
                 {
                     // Enabled stub: fail loudly before touching the filesystem.
@@ -303,47 +298,6 @@ public class Program
                 {
                     Console.WriteLine(verboseSummaryLine);
                 }
-            }
-
-            if (opts.JavaKeywords)
-            {
-                var javaKeywordsResult = await ProjectJavaReservedWordPreprocessor.PreprocessAsync(
-                    new ProjectJavaReservedWordPreprocessRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        Options = BuildJavaKeywordOptions(opts.JavaKeywordsOverrides, strict: false),
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                    });
-
-                Console.WriteLine(
-                    $"java-keywords: {javaKeywordsResult.Statistics.SymbolsRenamed} symbol(s) renamed, " +
-                    $"{javaKeywordsResult.Statistics.OperatorTypesDowngraded} operator type(s) downgraded, " +
-                    $"{javaKeywordsResult.Statistics.BooleanSitesRewritten} boolean site(s) rewritten, " +
-                    $"{javaKeywordsResult.Statistics.NameofLiteralized} nameof(s) literalized, " +
-                    $"{javaKeywordsResult.Statistics.PlansSkipped} plan(s) skipped, " +
-                    $"{javaKeywordsResult.Statistics.PlansRolledBack} plan(s) rolled back");
-
-                foreach (var diagnostic in javaKeywordsResult.Diagnostics)
-                {
-                    if (diagnostic.Severity != CSharpToJava.Core.JavaKeywords.JavaKeywordSeverity.Info
-                        || opts.Verbose)
-                    {
-                        Console.Error.WriteLine(diagnostic.ToMsBuildString());
-                    }
-                }
-
-                if (!javaKeywordsResult.Success)
-                {
-                    return 1;
-                }
-
-                opts.Source = javaKeywordsResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= javaKeywordsResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= javaKeywordsResult.SourceRoot;
             }
 
             var options = new ConversionOptions

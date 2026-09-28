@@ -3,6 +3,8 @@ using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.ForeachDeconstruction;
+using CSharpToJava.Core.GenericPreprocess;
+using CSharpToJava.Core.JavaKeywords;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 using CSharpToJava.Core.NullCoalesceRewriter;
 using CSharpToJava.Core.Preprocessing;
@@ -40,6 +42,9 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Invoked only when record-readonly is enabled (keeps override loading lazy).</summary>
     public required Func<RecordReadOnlyOptions> RecordReadOnlyOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when java-keywords is enabled (keeps override loading lazy).</summary>
+    public required Func<JavaKeywordOptions> JavaKeywordOptionsFactory { get; init; }
 }
 
 /// <summary>
@@ -192,6 +197,12 @@ internal static class PassChainFactory
             PassIds.EliminateGoto => new GotoPassAdapter(
                 config.Verbose,
                 strict: false,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes),
+
+            PassIds.JavaKeywords => new JavaKeywordsPassAdapter(
+                config.JavaKeywordOptionsFactory(),
+                config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
 

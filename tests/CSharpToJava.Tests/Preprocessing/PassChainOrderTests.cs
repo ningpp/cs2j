@@ -1,6 +1,9 @@
 using CSharpToJava.CLI;
 using CSharpToJava.CLI.Preprocessing;
+using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.Preprocessing;
+using CSharpToJava.Core.ReadOnlyStructMaker;
+using CSharpToJava.Core.RecordReadOnly;
 
 namespace CSharpToJava.Tests.Preprocessing;
 
@@ -129,6 +132,24 @@ public sealed class PassChainOrderTests
         var error = Assert.Single(plan.Errors);
         Assert.StartsWith(PreprocessDiagnosticCodes.UnknownPass, error);
         Assert.Contains(PassIds.Enum, error);
+    }
+
+    [Fact]
+    public void ChainFactory_creates_an_adapter_for_every_implemented_pass()
+    {
+        var config = new PassChainConfiguration
+        {
+            MakerOptionsFactory = () => new ReadOnlyStructMakerOptions(),
+            RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
+            JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
+        };
+
+        foreach (var descriptor in PassCatalog.BuildRegistry().Ordered
+                     .Where(p => p.Status == PassStatus.Implemented))
+        {
+            var adapter = PassChainFactory.CreateAdapter(descriptor.Id, config);
+            Assert.Equal(descriptor.Id, adapter.Descriptor.Id);
+        }
     }
 
     [Fact]
