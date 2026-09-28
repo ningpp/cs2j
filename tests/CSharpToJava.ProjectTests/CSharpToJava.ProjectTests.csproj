@@ -120,4 +120,12 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Include SampleJavaKeywordSolution as content so it's available at test runtime -->
+    <Content Include="..\SampleJavaKeywordSolution\**\*.*">
+      <Link>SampleJavaKeywordSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
