@@ -50,6 +50,10 @@
       <Link>support\Cs2jRefOutIn\ByRef.cs</Link>
       <LogicalName>Cs2jRefOutIn.ByRef.cs</LogicalName>
     </EmbeddedResource>
+    <EmbeddedResource Include="..\Cs2jRefOutIn\RefStructByRef.cs">
+      <Link>support\Cs2jRefOutIn\RefStructByRef.cs</Link>
+      <LogicalName>Cs2jRefOutIn.RefStructByRef.cs</LogicalName>
+    </EmbeddedResource>
     <EmbeddedResource Include="..\Cs2jRefOutIn\Cs2jRefOutIn.csproj">
       <Link>support\Cs2jRefOutIn\Cs2jRefOutIn.csproj</Link>
       <LogicalName>Cs2jRefOutIn.Cs2jRefOutIn.csproj</LogicalName>

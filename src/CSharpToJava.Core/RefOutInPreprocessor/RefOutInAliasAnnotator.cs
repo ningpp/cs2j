@@ -20,9 +20,6 @@ internal sealed class RefOutInAliasAnnotator
     // Holder set: parameter symbols and method symbols that must become ByRef<T>
     private readonly HashSet<ISymbol> _holderSymbols = new(SymbolEqualityComparer.Default);
 
-    // Ref struct types encountered that need generated holders
-    private readonly HashSet<string> _requiredRefStructTypes = new();
-
     // Set of local declarations that are ref locals (identifier → known)
     private readonly HashSet<string> _refLocalNames = new();
 
@@ -30,7 +27,6 @@ internal sealed class RefOutInAliasAnnotator
     private readonly HashSet<IParameterSymbol> _inKeptParameters = new(SymbolEqualityComparer.Default);
 
     public IReadOnlySet<ISymbol> HolderSymbols => _holderSymbols;
-    public IReadOnlyCollection<string> RequiredRefStructTypes => _requiredRefStructTypes;
     public IReadOnlySet<string> RefLocalNames => _refLocalNames;
     public IReadOnlySet<IParameterSymbol> InKeptParameters => _inKeptParameters;
 
@@ -112,7 +108,6 @@ internal sealed class RefOutInAliasAnnotator
                 _holderSymbols.Add(param);
                 if (param.Type.IsRefLikeType)
                 {
-                    _requiredRefStructTypes.Add(RefOutInMangling.HolderName(param.Type));
                     _stats.RefStructParamsRewritten++;
                 }
                 else

@@ -23,13 +23,13 @@ public sealed class RefOutInRewriter
         if (!IsDirty(root))
         {
             stats.FilesSkippedClean = 1;
-            return new RefOutInRewriterResult(sourceCode, false, diagnostics, stats, Array.Empty<string>());
+            return new RefOutInRewriterResult(sourceCode, false, diagnostics, stats);
         }
 
         if (semanticModel == null)
         {
             stats.FilesSkippedClean = 1;
-            return new RefOutInRewriterResult(sourceCode, false, diagnostics, stats, Array.Empty<string>());
+            return new RefOutInRewriterResult(sourceCode, false, diagnostics, stats);
         }
 
         // Pass 1: Annotate
@@ -55,13 +55,16 @@ public sealed class RefOutInRewriter
                 "ROI099",
                 "ref/out/in rewrite produced invalid C# syntax; the original file was preserved.",
                 RefOutInSeverity.Error));
-            return new RefOutInRewriterResult(sourceCode, false, diagnostics, stats, Array.Empty<string>());
+            diagnostics.Add(new RefOutInRewriterDiagnostic(
+                RefOutInDiagnosticCodes.ReparseFailed,
+                "ref/out/in rewrite produced invalid C# syntax; the original file was preserved.",
+                RefOutInSeverity.Error));
+            return new RefOutInRewriterResult(sourceCode, false, diagnostics, stats);
         }
 
         stats.FilesTransformed = 1;
         return new RefOutInRewriterResult(
-            outputCode, true, diagnostics, stats,
-            annotator.RequiredRefStructTypes);
+            outputCode, true, diagnostics, stats);
     }
 
     internal static bool IsDirty(CompilationUnitSyntax root)

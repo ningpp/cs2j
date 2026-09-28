@@ -26,7 +26,6 @@ internal sealed class ProjectRefOutInPreprocessResult
     public required bool Success { get; init; }
     public required RefOutInRewriterStatistics Statistics { get; init; }
     public required IReadOnlyList<RefOutInRewriterDiagnostic> Diagnostics { get; init; }
-    public required IReadOnlyCollection<string> RequiredRefStructTypes { get; init; }
     public string? BuildLogSummary { get; init; }
     public string? TestLogSummary { get; init; }
 }
@@ -72,7 +71,6 @@ internal static class ProjectRefOutInPreprocessor
             Success = run.Success,
             Statistics = adapter.Statistics,
             Diagnostics = adapter.Diagnostics.ToList(),
-            RequiredRefStructTypes = adapter.RequiredRefStructTypes,
             BuildLogSummary = adapter.BuildLogSummary,
             TestLogSummary = adapter.TestLogSummary,
         };

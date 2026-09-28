@@ -314,14 +314,16 @@ public class C
     private static string RewriteAndAssertCompiles(string src, bool expectChanged = true)
     {
         var byRefSrc = File.ReadAllText(FindRepoRoot("src/Cs2jRefOutIn/ByRef.cs"));
+        var refStructSrc = File.ReadAllText(FindRepoRoot("src/Cs2jRefOutIn/RefStructByRef.cs"));
         var (tree, model) = ParseWithSemantics(src);
         var result = new RefOutInRewriter().Rewrite(src, model);
         Assert.Equal(expectChanged, result.Changed);
 
         var outTree = CSharpSyntaxTree.ParseText(result.OutputCode);
         var supportTree = CSharpSyntaxTree.ParseText(byRefSrc);
+        var refStructTree = CSharpSyntaxTree.ParseText(refStructSrc);
         var compilation = CSharpCompilation.Create("refout-verify",
-            new[] { outTree, supportTree },
+            new[] { outTree, supportTree, refStructTree },
             new[]
             {
                 MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
@@ -444,6 +446,27 @@ public class Caller
 public class Other { public static void Bump(ref int v) { v++; } }";
         var result = RewriteAndAssertCompiles(src);
         Assert.Contains("using Cs2jByRef;", result);
+    }
+
+    [Fact]
+    public void RefStructParam_UsesRefStructByRefSlot()
+    {
+        var src = @"
+using System;
+public class C
+{
+    public void M(ref Span<int> s) { s = s.Slice(1); }
+    public int Use()
+    {
+        Span<int> span = new int[] { 1, 2, 3 };
+        M(ref span);
+        return span[0];
+    }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("Cs2jByRef.RefStructByRef<System.Span<int>> s", result);
+        Assert.Contains(".Create(span)", result);
+        Assert.Contains("span = __ref", result);   // copy-out read-back
     }
 
     [Fact]

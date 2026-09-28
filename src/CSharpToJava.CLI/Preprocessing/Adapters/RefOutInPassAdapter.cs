@@ -22,7 +22,6 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
     private readonly RefOutInRewriter _rewriter = new();
     private readonly List<RefOutInRewriterDiagnostic> _diagnostics = new();
     private readonly RefOutInRewriterStatistics _statistics = new();
-    private readonly HashSet<string> _requiredRefStructTypes = new(StringComparer.Ordinal);
     private readonly List<string> _rewrittenSourceFiles = new();
     private List<string> _ownReleaseDirectories = new();
     private string? _buildLogSummary;
@@ -55,7 +54,6 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
 
     public RefOutInRewriterStatistics Statistics => _statistics;
     public IReadOnlyList<RefOutInRewriterDiagnostic> Diagnostics => _diagnostics;
-    public IReadOnlyCollection<string> RequiredRefStructTypes => _requiredRefStructTypes;
     public string? BuildLogSummary => _buildLogSummary;
     public string? TestLogSummary => _testLogSummary;
 
@@ -88,11 +86,6 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
             });
         }
 
-        foreach (var refStructType in result.RequiredRefStructTypes)
-        {
-            _requiredRefStructTypes.Add(refStructType);
-        }
-
         if (_verbose)
         {
             Console.WriteLine(
@@ -120,7 +113,7 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
         if (_statistics.RefParamsRewritten > 0 || _statistics.OutParamsRewritten > 0
             || _statistics.RefReturnsRewritten > 0 || _statistics.RefLocalsRewritten > 0
             || _statistics.RefFieldsRewritten > 0 || _statistics.DelegatesRewritten > 0
-            || _requiredRefStructTypes.Count > 0)
+            || _statistics.CallSitesLifted > 0)
         {
             await WriteExtensionFilesAsync(tree);
         }
@@ -217,8 +210,7 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
         ThrowOnCs2jRefOutInNameCollision(tree.Layout);
 
         await RefOutInSupportFiles.ReleaseAsync(
-            Path.Combine(tree.IntermediateRoot, RefOutInSupportFiles.LibDirectoryName),
-            _requiredRefStructTypes);
+            Path.Combine(tree.IntermediateRoot, RefOutInSupportFiles.LibDirectoryName));
 
         var hostProjectDirectories = ComputeExtensionHostProjectDirectories(
             tree.Layout, tree.Exclusion, _rewrittenSourceFiles);

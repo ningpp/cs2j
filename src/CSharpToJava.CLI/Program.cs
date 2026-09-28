@@ -2600,7 +2600,7 @@ public class Program
                 {
                     var outputDir = Path.GetDirectoryName(Path.GetFullPath(opts.Output)) ?? ".";
                     var helperPath = Path.Combine(outputDir, RefOutInSupportFiles.SingleFileHelperFileName);
-                    await File.WriteAllTextAsync(helperPath, RefOutInSupportFiles.GetByRefFileContent(),
+                    await File.WriteAllTextAsync(helperPath, RefOutInSupportFiles.GetSingleFileHelperContent(),
                         new System.Text.UTF8Encoding(false));
                     if (opts.Verbose)
                         Console.WriteLine($"Wrote support file: {helperPath}");
