@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Analysis;
 using CSharpToJava.Core.Context;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -52,13 +53,7 @@ internal static class JavaKeywordSyntaxFacts
             or PredefinedTypeSyntax;
     }
 
-    /// <summary>判断 lambda 是否赋给 Expression&lt;TDelegate&gt;（表达式树）。</summary>
+    /// <summary>判断 lambda 是否赋给 Expression&lt;TDelegate&gt;（表达式树）；判定提取到共享 <see cref="ExpressionTreeFacts"/>。</summary>
     public static bool IsExpressionTreeLambda(SemanticModel model, LambdaExpressionSyntax lambda)
-    {
-        var typeInfo = model.GetTypeInfo(lambda);
-        var convertedType = typeInfo.ConvertedType;
-        if (convertedType == null) return false;
-        var fullName = convertedType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        return fullName.StartsWith("global::System.Linq.Expressions.Expression<", StringComparison.Ordinal);
-    }
+        => ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda);
 }

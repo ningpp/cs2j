@@ -664,81 +664,15 @@ internal sealed class GenericSyntaxRewriter : CSharpSyntaxRewriter
 
     // -----------------------------------------------------------------------
     // Helpers: determine whether a TypeSyntax denotes a type parameter.
-    // Uses the SemanticModel when available; falls back to a conservative
-    // syntactic heuristic (single-identifier, not a known BCL type).
+    // Delegated to the shared GenericDeepenSyntaxFacts (C02) so the generic
+    // (E10) and generic-deepen (C02) passes cannot drift apart.
     // -----------------------------------------------------------------------
     private bool IsTypeParameterType(TypeSyntax? type)
-    {
-        if (type == null) return false;
-
-        // Quickly accept IdentifierNameSyntax that the semantic model confirms
-        // resolves to a type parameter.
-        if (_model != null)
-        {
-            try
-            {
-                var symbol = _model.GetSymbolInfo(type).Symbol;
-                if (symbol is ITypeParameterSymbol)
-                    return true;
-                // If symbol resolves to a real named type, it's NOT a type param.
-                if (symbol is INamedTypeSymbol)
-                    return false;
-                // Unresolved identifier in a generic context: fall through to
-                // the syntactic heuristic only when we have a generic enclosing
-                // type/method — but be conservative.
-            }
-            catch (ArgumentException)
-            {
-                // Node may not be part of this semantic model's tree (e.g.
-                // already-rewritten node). Fall back to syntactic heuristic.
-            }
-        }
-
-        // Syntactic heuristic (fallback when no semantic model or symbol
-        // unresolved): a bare single identifier (no namespace qualifier, no
-        // type arguments) is a candidate type parameter.
-        //
-        // We accept:
-        //  - Single uppercase letters (T, K, V) — classic type parameter names.
-        //  - Identifiers starting with 'T' followed by another uppercase
-        //    letter (TKey, TValue, TItem) — the conventional .NET pattern
-        //    for multi-char type parameter names (CA1715 naming guideline).
-        //
-        // We reject predefined type names (int, string, etc.) to avoid
-        // false positives on BCL value types.
-        if (type is IdentifierNameSyntax id)
-        {
-            var name = id.Identifier.Text;
-            if (IsPredefinedTypeName(name))
-                return false;
-            // Single uppercase letter (T, K, V, U).
-            if (name.Length == 1 && char.IsLetter(name[0]))
-                return true;
-            // Multi-char names following the TXxx convention (TKey, TValue, TItem).
-            // This is the standard .NET naming guideline for type parameters
-            // when a descriptive name is needed (CA1715).
-            if (name.Length >= 2 && name[0] == 'T' && char.IsUpper(name[1]))
-                return true;
-        }
-
-        return false;
-    }
+        => GenericDeepenSyntaxFacts.IsTypeParameterType(_model, type);
 
     private bool IsTypeParameterElementType(ArrayTypeSyntax arrayType)
     {
         // The element type is arrayType.ElementType (may itself be T).
         return IsTypeParameterType(arrayType.ElementType);
     }
-
-    private static bool IsPredefinedTypeName(string name) => name switch
-    {
-        "bool" or "byte" or "sbyte" or "char" or "decimal" or "double" or "float"
-        or "int" or "uint" or "long" or "ulong" or "short" or "ushort"
-        or "object" or "string" or "void" or "dynamic" or "var"
-        or "Boolean" or "Byte" or "SByte" or "Char" or "Decimal" or "Double"
-        or "Single" or "Int32" or "UInt32" or "Int64" or "UInt64"
-        or "Int16" or "UInt16" or "Object" or "String" or "Void"
-        => true,
-        _ => false,
-    };
 }
