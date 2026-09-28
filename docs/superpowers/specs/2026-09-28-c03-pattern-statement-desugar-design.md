@@ -1,0 +1,381 @@
+# C03 控制流去糖（pattern switch / 非整型 switch / catch-when / catch T）预处理器设计
+
+**日期**: 2026-09-28
+**范围**: 把注册表 stub `pattern-desugar` 落地为**语句侧** C#→C# 预处理器（Core `PatternDesugar/` + CLI 适配器），并把该 stub 翻转为 `Implemented`；不修改任何 C#→Java 转换代码
+**状态**: 设计稿，待评审（只调研与写文档；实现与 worktree 在后续任务进行）
+**注册表**: `pattern-desugar`（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L71-L80)，catalogItems `C03, C37`，RunAfter=`null-coalesce`）
+**Catalog 条目**: `prompts/preprocessor-catalog.md` C03（P0，L282-295）、C37（P1，L706-718）、§3.3 控制流去糖族（L898-915）、§4 风险 15（L934）/风险 8（L927）
+**基线提交**: `f68a783c`（= 当前 HEAD `feat(preprocessing): register 23 merged-family stub passes`）
+
+---
+
+## 1. 背景与目标
+
+### 1.1 每命中一处就是一次转换失败（语句侧现状证据）
+
+主转换器对 C03 目标构造全部 fail-fast，异常文案均为 "CS2J normalization required: … must be lowered by a preprocessor"：
+
+| 构造 | 失败点 | 行为 |
+|---|---|---|
+| 带模式标签（含 `when`）的 switch 语句 | [StatementTransformer.SwitchAndResource.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L22-L26) L22-26 | `NotSupportedException` |
+| bool/long/ulong/float/double/decimal governing 的 switch | 同文件 L29-42 | `NotSupportedException` |
+| 未知 switch label 种类 | 同文件 L58-61 | `NotSupportedException` |
+| `catch (T) when (…)` catch filter | 同文件 L141-145 | `NotSupportedException` |
+| 对类型参数的 catch（`catch (T)`） | 同文件 L152-156 | `NotSupportedException` |
+
+注：常量标签带 `when`（`case 1 when F:`）在 Roslyn 语法面也是 `CasePatternSwitchLabelSyntax`，因此同样在 L22 失败——没有「常量 switch 但带守卫」的旁路。
+
+表达式侧（C37 范围）则是另一类问题——**静默错误输出**：`is` 模式仅 3 条分支、其余兜底为恒真 `true`（[TypeOperationTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L107-L117) L115 `/* TODO: unsupported pattern */ true`）；switch *表达式*臂未知模式同样兜底（[ControlFlowTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L474-L507) L505 `/* TODO: pattern … */ true`，位置模式无分支，递归模式只桥接属性子模式 L521-561）。
+
+另：字符串 foreach 在 [StatementTransformer.Loops.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Loops.cs#L118-L122) L118-122 fail-fast。catalog C03 把它列为「可并入本通道或 C16」的第 ⑤ 项；**本设计明确不纳入 C03 锚点范围**，归 `foreach-source`（C16/C40），见 §11。
+
+### 1.2 PatternMatchingTests 红灯清单（2026-09-28 `-c Release` 实测复核）
+
+`tests/CSharpToJava.ConversionTests/Categories/PatternMatchingTests.cs`（11 例，直连单文件 `ConversionPipeline`）：**8 失败 / 3 通过**，与 catalog §4.15 记载一致。
+
+失败 8 例：
+
+| 用例 | 实际产物 / 失败原因 | 归属 |
+|---|---|---|
+| `IsConstantPattern_ConvertsToEquality` | `if (/* TODO: unsupported pattern */ true)` | C37 |
+| `RelationalPattern_ConvertsToComparison` | 同上恒真兜底 | C37 |
+| `LogicalPattern_ConvertsToAnd` | 同上 | C37 |
+| `OrPattern_ConvertsToOr` | 同上 | C37 |
+| `NegatedPattern_ConvertsToNotEqualsNull` | 同上 | C37 |
+| `NotTypePattern_ConvertsToNegatedInstanceof` | 同上 | C37 |
+| `PropertyPattern_ConvertsWithTodoMarker` | 测试期望的 `/* TODO: recursive pattern */ p` 文本在 src 全仓已不存在；实际产 `unsupported pattern` 恒真——**实现与断言双向脱节** | C37（C03 负责同步修订该断言，见 §2 末行） |
+| `IsDeclarationUsed_ConvertsToInstanceofWithBody` | 模式本身成功（`o instanceof String s`），方法体产 `s.getLength()` 而断言要 `s.length()`——非模式问题，是 String 成员映射口径 | 转换器既有问题，记录为独立项，不阻塞 C03 |
+
+通过 3 例：`IsTypePattern_ConvertsToInstanceof`、`IsDeclarationPattern_ConvertsToInstanceof`、`PatternMatchingNoCSharpResidue`（后者在恒真兜底下**空洞通过**——`is` 被整体替换为 `true`，自然无 C# 残留）。
+
+`tests/CSharpToJava.Tests/PatternMatchingTests.cs`（10 例）：**3 失败 / 7 通过**。失败全部是语句侧，错误信息即 §1.1 的 fail-fast 文案：
+
+- `SwitchStmt_PatternCase_DeclarationType_ConvertsToIfElse`
+- `SwitchStmt_PatternCase_WhenClause`
+- `SwitchStmt_PatternCase_ConstantNull`
+
+通过的 7 例覆盖 `is` 表达式两条窄分支与 switch *表达式*既有臂编译（含 Not/Type/Relational/Declaration/RecursiveProperty）。
+
+另有两组相关红灯：
+
+- [CatchFilterRethrowTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/CatchFilterRethrowTests.cs)：1 例失败（catch filter fail-fast）；该测试已写死目标形态 `else { throw ex; }`，正是本 pass 的验收形态。
+- [SwitchCaseWhenClausePrecedenceTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/SwitchCaseWhenClausePrecedenceTests.cs)：`CaseWhen_WithOrClause_IsParenthesized`、`CaseWhen_WithAndClause_KeepsSingleParens` 2 例失败（`case 1 when A || B` 走 L22 fail-fast）。该测试还锁死了一个**优先级不变式**：守卫必须整体加括号——`Objects.equals(type, 1) && (A || B)`，C03 的 C# 侧归约必须同构地把 when 条件整体括起，防止 Java 侧 `&&`/`||` 优先级错位回归（RegexNode.canBeMadeAtomic 事故）。
+
+### 1.3 目标形态
+
+机械归约，两类目标产物，均为可编译 C#（.NET 半区以原项目测试守门）：
+
+1. **pattern switch / 非整型 governing switch → 先单例化 governing 临时变量，再归约为 if-else 链**；模式归约为布尔表达式，模式变量为分支块内局部变量；`default` → `else`，无 default 则无 else；section 内 `break` 先以「goto 链尾标签」表达，交后续 `eliminate-goto` 消除。
+2. **catch-when / catch T → 单个 `catch (Exception __ex)` + 按子句顺序的类型测试与守卫 if-else 链，末端裸 `throw;`**；finally 原样保留。
+
+归约出的布尔表达式只含普通 C# 语法（`==`/`!=`/`is T v` 声明模式/`&&`/`||`/属性或字段访问），其中声明模式 `ex is T v` 是主转换器已接受的生产形态（由 [JavaGenericPatternRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Rewriters/JavaGenericPatternRewriter.cs#L110-L129) 在 Java 路径做泛型提升，类型参数形态在 [TypeOperationTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L90-L92) L90-92 已映射为 class token `isInstance`）。
+
+---
+
+## 2. 关键设计决策表
+
+| # | 决策点 | 结论 | 备注 |
+|---|---|---|---|
+| D1 | 总体形态 | 语义驱动逐文件 pass（整树 `CSharpCompilation`，Analyze 一次、逐文件 Rewrite），复刻 EnumPreprocessor 范式：dirty check → rewriter → Formatter → 语义 residual 复检 | [EnumPreprocessor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/EnumPreprocessor/EnumPreprocessor.cs)；干净文件字节级保留 |
+| D2 | pattern switch | `var __cs2jGov_n = <governing>;` 单例化一次；每个 section 的标签析取 + when 合取归约为一个 `if` 条件，section 体进分支块；多 section 串成 else-if；`default:` → `else` | governing 必须只求值一次（方法调用/属性访问有副作用） |
+| D3 | 同 section 多标签 | `case A: case B: Body` → `(condA || condB) && (when?)`，标签内析取、守卫整体合取且**整体加括号** | 锁死 SwitchCaseWhenClausePrecedenceTests 优先级不变式 |
+| D4 | 非整型 governing | **仅** Java switch 不支持的类型归约：`bool/long/ulong/float/double/decimal`（以 SemanticModel `SpecialType` 判定，与 L31-41 清单一致）；常量标签 → `__gov == c`（直接保留 C# `==` 语义：浮点精确匹配、decimal 等值、NaN 自然不匹配） | decimal 等值在 Java 半区由 numeric-boundary（C15/C34）后续负责；string/enum **不动**（Java 支持 string/enum switch），C05 enum-as-class 落地后再扩集（§11） |
+| D5 | 模式→布尔表达式 | 常量→`gov == c`（null 常量→`gov == null`）；type/declaration→`gov is T` / `gov is T v`；discard/var→`true`（var 绑定赋值保留）；relational→`gov > c` 等；and/or→`&&`/`||`；not→`!…`；parenthesized 透传；property/recursive→`gov != null`（值类型省略）+ 成员访问子条件递归归约，公共字段与属性都支持（`P.X` 用例是字段） | 全部由 PatternReducer 输出，**C03 与 C37 共用同一归约器**（catalog L709/L903） |
+| D6 | 位置/列表/Slice 模式 | C03 不实现：语句标签中出现 `PositionalPatternSyntax`/`ListPatternSyntax`/SlicePattern → **PD010 显式报错**（文件:行列 + 模式种类），绝不产出占位/恒真；对应 reducer 由 C37 注册后自然消错 | 这是默认开启不产生静默回退的关键闸门 |
+| D7 | when 子句 | 守卫表达式**原样保留**为 C# 表达式并整体括入 `(… && (<when>))`；但 Analyzer 必须扫描守卫内的 `IsPatternExpressionSyntax`，凡命中 C37 才支持的模式种类（D6 集合 + 属性模式以外的表达式侧形态），本 pass 先报 PD010，C37 合入后放开 | 防止 C03 单独默认开启后，守卫把恒真兜底送进 Java 产物 |
+| D8 | catch-when | 把该 try 的**全部 catch 子句合并**为一个 `catch (Exception __cs2jEx)`：按原子句序生成 `if (__cs2jEx is T1 v1 && (<f1>)) { body1 } else if …`，末端 `else throw;`；无 filter 的具体类型子句折叠为 `__cs2jEx is Tn vn` 同链节点；`finally` 不动；无类型 `catch { }` 视为 `Exception` | 不能只做「单 catch + if/else throw」——同类型后续子句（`catch(Foo)when F` 后接 `catch(Foo)`）要求 filter 假时继续匹配后子句；合并链精确保留 C# 按序匹配语义 |
+| D9 | catch T（类型参数） | 统一并入 D8 链：`__cs2jEx is T v` 即合法 C#；T 的约束类型若为 Exception 派生则语义不变，无约束时 C# 运行时按 Exception 捕获。Java 半区由 generic 既有路径把 `is T` 映射为 class token `isInstance`（L90-92 已验证形态） | 禁止新写特判；依赖 generic pass 在链上位于本 pass 之后的既有顺序 |
+| D10 | 裸 rethrow | 末端与未匹配分支一律发裸 `throw;`（保留 C# 堆栈语义）；该语句仍位于 catch 块内，转换器现路径映射为 `throw <catchVar>;`（[StatementTransformer.ExpressionAndReturn.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L88-L94) L88-94），与 CatchFilterRethrowTests 断言一致 | catch 外裸 throw 仍是既有 TODO，与本特性无关 |
+| D11 | 模式变量单例化 | governing 用确定性名 `__cs2jGov_<n>` 提升到链前；模式绑定变量在**各自分支块** `{ }` 内声明（两个分支可同名 `i`，块作用域天然隔离，对应 `case int i when i>0`/`case int i when i<0` 用例）；绑定通过 `is T v` 一次完成，不在链外预声明 | 不做「链外单变量 + 赋值」——那会引入确定赋值与 null 态问题 |
+| D12 | section 终止语义 | C# section 不允许穿透。`break;` → `goto __cs2jSwitchEnd_n;`，if 链后加同名标签（labeled statement）；`return/throw/continue` 原样保留（continue 仍指向外层循环）；无终止语句的块按 C# 规则本就不可编译（基线错误，不处理） | goto/标签由链上更靠后的 `eliminate-goto` 消除；pattern-desugar 的锚点在 goto 之前，顺序天然正确 |
+| D13 | `goto case`/`goto default` | 被归约 switch 的 section 体内若含 goto case/default → PD011 显式报错（罕见组合；goto case 只对常量标签合法），不做静默近似 | 与 E14 的精确分工：E14 处理普通 switch 上的残余 goto case，本 pass 只保证不制造无法解析的新形态 |
+| D14 | 与 JavaGenericPatternRewriter 切割 | 本 pass **不接管**泛型声明模式提升，输出中保留 `gov is CSharpList<T> v`；Java 路径的 `ProjectJavaPatternRewritePass`（[ProjectPasses.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L557-L598) L557-598）继续负责「类型模式 + 段首强转声明」。切割线：**C03 管语句/子句结构归约，rewriter 管泛型绑定变量的类型恢复**，二者作用节点不重叠（rewriter 只在 if/while/do/for 条件与无 when 的泛型声明 case 上动手——case 经 D2 后整体消失，竞争面被本 pass 先收敛） | catalog §4.15 要求的「争抢同一语法面」由此顺序解：先归约结构，再做泛型提升 |
+| D15 | string / enum governing | 保持 switch 原样（含 string 常量 case 与 enum case），本 pass dirty check 不命中 | Java 7+ string switch、enum switch 均为 1:1；C05 enum-as-class 落地时由 enum-declaration 侧或本 pass 扩集（§11） |
+| D16 | 测试期望同步修订 | ① Tests 工程 3 个语句侧用例改为「先跑 PatternDesugarPreprocessor 再进 ConversionPipeline」的组合夹具，Java 侧断言（if/instanceof/无 `switch (o)`）保持；② CatchFilterRethrowTests 同夹具，断言不变；③ SwitchCaseWhenClause 2 例同夹具，断言文本不变；④ ConversionTests 的 `PropertyPattern_ConvertsWithTodoMarker` 删除过时 TODO 文本断言、改为 `Skip="C37 positional/property expression-side"` 并登记到 C37 设计；⑤ `IsDeclarationUsed` 的 `getLength/length` 差异登记独立 issue，不改本 pass 范围 | 「先定死目标形态、再同步修订测试期望」（§4.15）；恒真占位文本断言不得保留 |
+| D17 | 翻转方式 | C03 合入时：descriptor 从 `PassStubCatalog.Stubs` 移入 `PassCatalog.Implemented`，新增 `PassIds.PatternDesugar`，加适配器与 `PassChainFactory` 分支；`Status=Implemented`，`defaultEnabled` 见 §8（建议过门槛即默认开） | 注册表测试 23→22、链序测试同步改（§7） |
+
+---
+
+## 3. 注册表与链位契约
+
+沿用 [PassDescriptor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassDescriptor.cs) 既有契约，翻转后描述符字段：
+
+| 字段 | 值 | 说明 |
+|---|---|---|
+| Id | `pattern-desugar` | `PassIds.PatternDesugar` 常量；即 `--enable-pass pattern-desugar` 名 |
+| DisplayName | `Pattern desugaring` | 沿用 stub 文案 |
+| IntermediateDirectoryName | `.cs2j-pattern-desugar-src` | 沿用 stub 注册，不改（指纹一次性失效可接受，foundation plan L137） |
+| Stage | `PassStage.ControlFlow` | 信息性分类 |
+| Status | `Stub` → **`Implemented`** | 本锚点任务的翻转职责 |
+| DefaultEnabled | 翻转时 `false`；满足 §8 后同特性改 `true` | 两步走，与 record-readonly/array-method 的 opt-in 先例一致；不新增 legacy 开关，只走通用 `--enable-pass/--disable-pass`（[PassPlanResolver.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassPlanResolver.cs) 对无 legacy toggle 的 implemented id 直接生效） |
+| RunAfterIds | 翻转时建议由 `{ null-coalesce }` 扩为 **`{ null-coalesce, tuple, foreach-deconstruction }`** | C37 的位置模式依赖 E06 元组字段/E07 解构命名契约（catalog L714）；同一 pass id 一次把锚点放足，避免 C37 再动链。仍严格早于 `eliminate-goto`（goto 现锚 make-readonly，拓扑序天然在后；D12 依赖此后序） |
+| SupportLibrary | `None` | 不注入支撑库，无需过滤清单 |
+| NeedsSemanticModel | `true`（默认） | governing 类型、catch 类型符号、模式成员符号都依赖 SemanticModel |
+| VerifyBuildByDefault / VerifyTestsByDefault | 建议均 `true`（枚举/goto 先例） | 中间树 Release build/test 是默认开启的硬证据 |
+| CatalogItems | `C03, C37` | 不变：一个 pass id 覆盖两条 catalog，C03 先翻转、C37 在同 pass 内扩展 |
+
+链序影响：[PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L53) 的 `LockedChain`（implemented 子序列）与 `EnabledByDefault` 是显式数组——翻转 PR 必须把 `pattern-desugar` 插入到 `foreach-deconstruction` 之后、`strip-default` 之前（或实际拓扑等价位），默认开启变更时再动第二个数组。[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) L24 的 stub 总数断言 `23 → 22` 同步修改。
+
+独立动词：通用 `preprocess --pass pattern-desugar` 经 `CliPreprocessChain` 天然可达，不新增独立 verb（与 java-keywords 保留自有 verb 的历史包袱不同，新 pass 一律走通用面）。
+
+锚点职责边界（本任务 vs C37）：
+
+- **C03（本设计）**：创建 `PatternDesugar/` 全部脚手架与语句侧组件（switch 语句、非整型 governing、catch filter、catch T）、PatternReducer 基干与语句侧模式种类、CLI 适配器、翻转 stub、默认开评估材料。
+- **C37（独立设计/独立 worktree）**：在**同一 pass、同一目录、同一 PatternReducer** 上增加表达式侧组件（`is` 表达式、switch 表达式臂、位置/列表模式），不新增 pass id，不新增中间目录。
+
+---
+
+## 4. Core 组件设计
+
+新目录 `src/CSharpToJava.Core/PatternDesugar/`（命名空间 `CSharpToJava.Core.PatternDesugar`），八个文件，对齐 foundation plan 的标准交付面与 EnumPreprocessor 现行外形：
+
+```
+src/CSharpToJava.Core/PatternDesugar/
+  PatternDesugarOptions.cs      # 选项记录：Strict(bool, 默认 true)、Verbose、允许的残余白名单
+  PatternDesugarStatistics.cs   # 计数 POCO（不引新接口；IPassStatistics 通用契约当前仓库未落地，跟现网各 pass 同款）
+  PatternDesugarDiagnostic.cs   # PatternDesugarDiagnostic(Code,Severity,Message,Location,FilePath) + Severity/Code
+  PatternDesugarResult.cs       # PatternDesugarResult(OutputCode, Changed, Diagnostics, Statistics)
+  PatternDesugarPreprocessor.cs # 公共入口：Preprocess(source, SemanticModel, options)
+  PatternDesugarAnalyzer.cs     # 整树语义分类：目标节点清单 + 降级计划（switch 计划/catch 计划）
+  PatternDesugarRewriter.cs     # CSharpSyntaxRewriter：按计划执行语句侧改写 + governing 临时变量/标签生成
+  PatternReducer.cs             # 模式→布尔表达式归约器（C03/C37 共用核心）+ 扩展点接口
+```
+
+### 4.1 入口 `PatternDesugarPreprocessor`
+
+签名与 [EnumPreprocessor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/EnumPreprocessor/EnumPreprocessor.cs#L14-L70) 同形：
+
+```csharp
+public sealed class PatternDesugarPreprocessor
+{
+    public PatternDesugarResult Preprocess(
+        string sourceCode,
+        SemanticModel? semanticModel = null,
+        PatternDesugarOptions? options = null);
+}
+```
+
+流程：语法 dirty check（文件内无 `CasePatternSwitchLabelSyntax`、无 catch filter/类型参数 catch、无 §D4 类型 governing 的 switch 即字节级返回 clean）→ Analyzer 产出计划 → Rewriter 执行 → `AdhocWorkspace` Formatter（与 enum 一致）→ 重解析 + 重建 compilation 做语义 residual 复检（仿 `CountResidualEnumOps`）：输出树中目标节点计数必须为 0，否则按 Strict 记 PD020 Error/Warning。无 SemanticModel（单文件裸调）时仅做语法级归约与语法 residual，D6/D7 判定按保守策略（无法语义确认的位置/列表模式仍报 PD010）。
+
+### 4.2 Analyzer（语义）
+
+对每个目标节点生成降级计划：
+
+- `SwitchLoweringPlan`：governing 表达式与类型符号（`SemanticModel.GetTypeInfo`）、是否需要归约（模式标签 ∪ D4 governing 类型）、按 section 序的标签/守卫/语句清单、是否含 `goto case`（D13）、链尾标签序号、governing 临时名序号。
+- `CatchLoweringPlan`：try 节点、全部 catch 子句（类型符号、是否 `ITypeParameterSymbol`、filter 表达式、body）、是否需要合并（任一子句带 filter 或类型参数即整组合并；纯具体类型无 filter 子句原样保留以最小化扰动）、合成异常变量名。
+- 守卫扫描（D7）：递归 `when` 条件中的 `IsPatternExpressionSyntax`，按 reducer 支持表判定可否放行。
+
+### 4.3 Rewriter（语句侧）
+
+`CSharpSyntaxRewriter`，按计划做局部替换：
+
+- switch 节点 → `{ <gov 声明>; if … else if … else …; <endlabel>: ; }`（无 default 时无 else；标签用空语句承载）。section 体做两条局部改写：`break;` → `goto endlabel;`；模式绑定变量经 reducer 产出的 `is T v` 自然声明于分支块。
+- try 节点 → 保留 try/finally，catch 列表替换为单 catch 链（D8）。
+- 所有新名字走确定性序号（`__cs2jGov_0`、`__cs2jEx_0`、`__cs2jSwitchEnd_0`），同输入同输出，不依赖访问顺序随机值。
+
+### 4.4 PatternReducer（共用核心 + C37 扩展点）
+
+归约结果形状：
+
+```csharp
+internal sealed record PatternReduction(
+    ExpressionSyntax Condition,              // 归约出的布尔表达式（已在正确括号层级）
+    IReadOnlyList<StatementSyntax> Prologue,  // 需要的前置声明（C03 基本为空；C37 表达式侧提升用）
+    bool Supported);
+
+internal sealed record PatternReductionContext(
+    ExpressionSyntax Subject,
+    SemanticModel Model,
+    PatternDesugarOptions Options,
+    List<PatternDesugarDiagnostic> Diagnostics,
+    Func<string> NewTempName);
+```
+
+扩展点一：**reducer 注册表**（按模式种类），C37 只加注册项、不改调用方：
+
+```csharp
+internal interface IPatternReducer
+{
+    bool CanReduce(PatternSyntax pattern, PatternReductionContext ctx);
+    PatternReduction Reduce(PatternSyntax pattern, PatternReductionContext ctx);
+}
+```
+
+C03 注册：`ConstantPattern`（含 null）、`TypePattern`、`DeclarationPattern`、`DiscardPattern`、`VarPattern`、`RelationalPattern`、`BinaryPattern(and/or)`、`UnaryPattern(not)`、`ParenthesizedPattern`、`RecursivePattern`（仅 PropertyPatternClause 子模式；类型与 Designation 按 L521-561 既有桥接语义在 C# 侧重做）。C37 追加：`PositionalPattern`、`ListPattern`、`SlicePattern`，并把表达式上下文特有的绑定提升装入 `Prologue`。
+
+扩展点二：**语句/表达式组件槽**，为 C37 的两个 rewriter 预留：
+
+```csharp
+internal interface IPatternDesugarComponent
+{
+    void Analyze(CompilationUnitSyntax root, SemanticModel model, PatternDesugarPlanBuilder builder);
+    SyntaxNode? Rewrite(SyntaxNode node, PatternDesugarRewriteContext ctx); // null = 不处理
+}
+```
+
+`PatternDesugarPreprocessor` 持有有序组件列表；C03 注册 `SwitchStatementComponent`、`CatchClauseComponent`；C37 注册 `IsPatternExpressionComponent`、`SwitchExpressionComponent`。C03 合入时该接口与注册机制必须到位但**只含 C03 两实现**，C37 不改入口签名。
+
+扩展点三：**共享命名与绑定作用域服务**（临时变量序号、绑定变量冲突探测），C03 的分支块策略与 C37 的段首提升策略共用同一序号源，避免两个 worktree 合入时名字碰撞。
+
+### 4.5 语义模型依赖清单
+
+| 用途 | API |
+|---|---|
+| governing 类型 / 非整型判定 | `GetTypeInfo(switch.Expression).Type`，`SpecialType` 白名单同 L33-40 |
+| catch 类型参数判定 | `GetTypeInfo(catch.Declaration.Type).Type is ITypeParameterSymbol`（同 L152） |
+| 递归模式成员解析（字段 vs 属性） | `GetSymbolInfo`/`GetDeclaredSymbol`，生成成员访问表达式（不调 getter 名——C# 侧保持 `p.X`，Java 命名归主转换器） |
+| 常量标签值 | 语法即常量表达式；不做值折叠 |
+| 模式变量符号 | `SemanticModel.GetDeclaredSymbol(label/designation)`，仅供冲突诊断，改名不在本 pass |
+
+---
+
+## 5. CLI 适配器与集成
+
+新增 [Adapters/PatternDesugarPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/PatternDesugarPassAdapter.cs)（预计 60–90 行），结构对照 [EnumPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/EnumPassAdapter.cs)：
+
+- 持有 `PatternDesugarPreprocessor`、累计 `PatternDesugarStatistics`/`Diagnostic`；`RewriteFileAsync` 调 `Preprocess(context.SourceCode, context.SemanticModel!, _options)`，Changed=false 返回 null（字节级复制）。
+- `AfterFilesAsync` 做跨文件 residual 汇总（PD020，Strict 决定 Error/Warning），与 enum 适配器 L79-92 同构。
+- `OnRestoreFailed/OnBuildFailed/OnTestsFailed`、`HasErrors`、`BuildChainSummaryLine()`（至少打印：transformed/clean、pattern switch 数、非整型 switch 数、catch filter 数、catch T 数、governing 临时变量数、residual/skipped）、`BuildChainDiagnosticLines` 全套实现。
+- `DeleteBuildOutputsAfterRestore = true`、`VerifyBuild/Tests` 跟随构造参数（convert-project 取 `PassChainConfiguration.VerifyBuild/Tests`）。
+
+接线点（翻转 PR 的完整改动面）：
+
+1. [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)：新增 `PassIds.PatternDesugar`（`PassIds` 类内常量），描述符从 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L71-L80) 删除并在 `Implemented` 表中按 §3 锚点插入；`PassStubCatalog.Ids.PatternDesugar` 常量保留到 C37 合入后清理（避免两个 worktree 反复改同一常量名；也可翻转时直接删除——以实施计划为准，二选一并在 plan 中锁死）。
+2. [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L91-L218)：`CreateAdapter` switch 加 `PassIds.PatternDesugar => new PatternDesugarPassAdapter(new PatternDesugarOptions(), …)`；不加 `BuildLegacyToggles`（无历史开关）。
+3. 无 `Program.cs` 手写块：convert-project 已由注册表统一循环驱动（foundation plan 已完成），新 implemented pass 经 `--enable-pass` 与通用 `preprocess` verb 即达；保留目录、指纹令牌由 descriptor 自动驱动（`pass:pattern-desugar=on/off`）。
+4. 不引支撑库：`PassSupportLibrary.None`，`IsExecutedSupportLibraryProject` 无需改。
+5. 标准 spine 足够（prepare → compile → 逐文件 Rewrite → restore → verify → clean bin），不重写 `ExecuteAsync`。
+
+---
+
+## 6. 诊断策略
+
+原则（catalog §4.12 第一原则）：**C# 侧无法等价表达时显式报错，禁止注释/占位/原样透传**。
+
+| 码 | 级别 | 含义 |
+|---|---|---|
+| PD001 | Info | 文件已转换（verbose 逐文件状态：transformed/clean/dirty-no-rewrite） |
+| PD010 | Error（Strict 可降 Warning，但不允许默认关） | 不可归约模式：语句标签或守卫中出现位置/列表/Slice 模式，或 reducer 无分支的 PatternSyntax 种类；消息含文件、行列、模式语法名、「将由 C37 支持」标注（适用时） |
+| PD011 | Error | 被归约 switch 内含 `goto case`/`goto default`（D13） |
+| PD020 | Error/Warning（Strict） | 输出树 residual 复检仍有目标节点（不应发生；防御性闸门，同 enum residual） |
+| PD030 | Error | restore/build/test 失败（适配器标准三映射） |
+
+**恒真占位/兜底注释的消灭路径**（本 pass 不删转换器代码，但建立不可达性）：
+
+- C03 默认开启后，语句侧 fail-fast 站点（SwitchAndResource L22/L39/L60/L144/L155）对预处理后输入成为不可达；表达式侧 L115/L505 的恒真兜底在 C37 合入前仍是现役代码——C03 通过 D7（守卫扫描 PD010）保证自己的产物不把表达式侧未知模式送进这两个兜底。
+- 转换器侧兜底文本的删除列入 **C37 合入后的后续 PR**（对照 java-keywords 设计 §10 的冗余清单做法），C03/C37 两个 PR 均不动转换器，只在本设计与 C37 设计中登记删除项：L115、L505 两处 `_ =>` 兜底届时改为 `throw new NotSupportedException(...)`（fail-fast 安全网），SwitchAndResource 五个 normalization 异常保留为最后防线。
+- residual 闸门（§7）在工程级证明「目标构造计数 0」，不靠人工读码。
+
+---
+
+## 7. 测试计划
+
+### 7.1 Core 单测矩阵（新增 `tests/CSharpToJava.Tests/PatternDesugarCoreTests.cs`，对照 EnumTransformerTests：内联源码 → `CSharpCompilation` → `Preprocess` → 归一化空白文本断言 + 输出可编译断言）
+
+- **pattern switch → if 链**：声明+类型双标签（`case string s`/`case int i`）；`when` 两分支同名变量 `i`（块作用域隔离）；`case null` 常量；多标签同 section（析取加括号）；`when A || B` / `when A && B` 守卫整体括号（优先级回归）；无 default（无 else、落空即继续）；有 default（else）；section 终止混搭（break/return/throw/continue）；嵌套 switch；属性模式标签（公共字段与属性两种成员）；`not`/`and`/`or`/relational/var/discard 标签各一。
+- **非整型 governing**：bool、long、ulong、float、double、decimal 各一（常量标签 → `==` 链）；**反例**：int/char/string/enum governing 且无模式标签 → 字节级 clean（D15）。
+- **governing 单例化**：governing 为方法调用/属性访问时输出恰好一次调用（临时变量）；简单标识符也统一提升（确定性优先）。
+- **break → goto 尾标签**：链后存在标签；输出仍为可编译 C#；与 E14 的衔接用一条「goto 消除后无 label/goto 残留」组合测试占位（若 E14 单文件入口可直连）。
+- **catch-when**：单 filter 子句（if/else throw 形态）；同类型两子句前带 filter 后不带（filter 假落入后子句的链式顺序）；多类型多 filter 顺序；filter 中引用异常成员；无 filter 具体类型子句保持原样不扰动；`finally` 保留；裸 `throw;` 位于 catch 内。
+- **catch T**：约束 `where T : Exception` 与无约束两种；`catch (T ex) when (…)` 组合；输出含 `__ex is T ex`。
+- **诊断**：列表模式标签 → PD010；位置模式标签 → PD010；守卫内含 `is [..]` → PD010；goto case → PD011；residual 人工注入 → PD020；非 Strict 下 PD020 为 Warning；无 SemanticModel 裸调路径。
+- 每个正例断言输出 `dotnet` 可编译（零 error）且不含 `CasePatternSwitchLabelSyntax`/catch filter 语法面（parse 后计数为 0）。
+
+### 7.2 修订既有用例（D16）
+
+- `tests/CSharpToJava.Tests/PatternMatchingTests.cs` 3 个语句侧失败例：新增测试辅助 `DesugarThenConvert(source)`（先 `PatternDesugarPreprocessor.Preprocess` 再 `ConversionPipeline.Convert`），Java 断言全部保留（`if (`、`instanceof String s`、`instanceof int i`、`else`、`DoesNotContain("switch (o)")`、`i > 0`、null 用例）。
+- `CatchFilterRethrowTests`：走同一组合辅助，原断言（`else { throw ex; }`、无 AssertionError）不变，直接转绿。
+- `SwitchCaseWhenClausePrecedenceTests` 2 个 case-when 例同辅助，`Objects.equals(...) && (...)` 断言不变；同文件其余 3 个无关注释/无符号用例不动。
+- `tests/CSharpToJava.ConversionTests/Categories/PatternMatchingTests.cs`：`PropertyPattern_ConvertsWithTodoMarker` 改为 `[Fact(Skip = "C37: expression-side recursive pattern reducer")]` 并改写用例体为 C37 目标断言草稿（`p.X` 成员比较、无 TODO 文本），由 C37 PR 取消 Skip；本 PR 同时把「断言含 TODO 文本」这一过时期望从仓内消灭。`IsDeclarationUsed…getLength/length` 差异另开 issue 并在用例旁注释，不计入 C03 红绿。
+- C37 的 8 红中其余 7 例保持现状（C37 PR 转绿），但 `PatternMatchingNoCSharpResidue` 的空洞通过问题在 C37 设计中处理（恒真兜底删除后该用例自然变严格）。
+
+### 7.3 项目级 fixture
+
+新增 `tests/SamplePatternSolution/`（`SamplePatternLib` + `SamplePatternApp` + `SamplePatternSolution.sln`，net10.0，Content Include 进 ProjectTests，仿 SampleRecordSolution）：
+
+- Lib：模式 switch（声明/类型/常量/null/属性/relational/and/or/not/when 全覆盖）、bool 与 long governing switch、`catch-when`（含同类型双 catch 顺序）、泛型方法内 `catch (T)`；配套 xunit 测试锁定运行时行为（filter 假必须继续传播、模式分支命中值）。
+- App：跨文件调用，保证模式变量/异常变量不跨文件泄漏。
+- 新增 `PatternDesugarProjectTests.cs`（仿 RecordReadOnlyProjectTests）：断言 `Success`、统计字段、中间树不含目标语法面、`dotnet build`/`dotnet test -c Release` 退出码 0、干净工程字节级复制（含 BOM 保持）。
+- residual 闸门测试：对 fixture 输出树跑 Analyzer 复检，`ResidualCount == 0`；另备一个「白名单 skip」夹具（含列表模式）断言在显式 skip 配置下 pass 成功且计数归白名单、不白名单时 PD010 失败——即「目标模式计数 0 或仅白名单 skip」的双态锁死。
+
+### 7.4 注册表与一致性测试
+
+- `PassStubCatalogTests`：stub 数 23→22；补一条 `pattern-desugar` 不在 stub 集且为 Implemented 的断言。
+- `PassChainOrderTests`：`LockedChain` 插入新位、默认开切换时改 `EnabledByDefault`；末位仍是 java-keywords 的断言不受影响。
+- CLI：`PreprocessVerbCLITests` 增加 `preprocess --pass pattern-desugar` 可达性、`--enable-pass/--disable-pass` 覆盖、保留目录 `.cs2j-pattern-desugar-src`、PD010 退出码语义。
+
+### 7.5 全量验证
+
+`dotnet build -c Release` 全绿；三个测试工程（CSharpToJava.Tests、CSharpToJava.ProjectTests、CSharpToJava.ConversionTests）`dotnet test -c Release` 全绿（ConversionTests 允许且仅允许 §7.2 登记的 C37 Skip 白名单）；csharp-sdk 基线项目转换不退化（默认关阶段先跑 opt-in 对比，默认开阶段跑全链）。
+
+---
+
+## 8. 默认开启验收门槛
+
+`defaultEnabled: false → true` 必须同时满足（catalog §4.10 的统一门槛具体化）：
+
+1. §7.1-7.4 全绿；三工程 Release build/test 全绿。
+2. 项目级 fixture 的 .NET 半区：中间树原项目测试全绿（证明 if 链/catch 链运行时语义等价，尤其 filter 假传播、同类型多 catch 顺序、governing 单次求值）。
+3. residual 闸门：fixture 与 csharp-sdk 抽样项目输出树目标节点计数为 0，或仅余白名单 skip（每条 skip 有 PD010 编号与 C37 去向）。
+4. csharp-sdk 基线：默认开 vs 默认关两次 convert-project，已转换成功的项目结果集不缩小、Java 侧测试不新增红；原失败项目中至少 pattern switch/catch-when 命中样本转为成功（收益证据）。
+5. 转换器恒真兜底在本 pass 输出上不可达的论证成立（D7 守卫扫描 + 代码审查；C37 合入后再做 L115/L505 硬化）。
+6. 性能：单环 restore/build/test 串行成本可接受；中间目录已接指纹（descriptor 驱动自动生效），无需额外汇编。
+
+未满足前保持 opt-in（`--enable-pass pattern-desugar`），但 Status 已是 Implemented——stub 翻转与默认开是两个独立、可分别验收的事件。
+
+---
+
+## 9. 里程碑
+
+| 里程碑 | 内容 | 预估规模 |
+|---|---|---|
+| M1 | Core 脚手架八文件（Options/Statistics/Diagnostic/Result/Preprocessor dirty-check/格式化/residual 复检）+ Analyzer 计划模型 + reducer 接口与 C03 模式种类 + 全量 Core 单测 §7.1 前半（switch 族） | Core ~700 行 |
+| M2 | catch-when/catch T 归约（D8-D10）、governing 单例化、break→goto 尾标签、PD010/PD011 闸门 + 对应单测 | Core ~400 行 |
+| M3 | CLI 适配器 + 注册表翻转（descriptor 移位、PassIds、Factory、链序/stub 测试 23→22）+ 通用 verb/CLI 测试 | CLI ~120 行 + 测试改动 |
+| M4 | §7.2 既有用例夹具化转绿、SamplePatternSolution fixture + 项目级测试、Release 全量验证、默认开门槛证据（§8） | fixture + 测试 |
+| M5 | 实现计划文档 `docs/superpowers/plans/2026-09-28-c03-pattern-statement-desugar.md`（writing-plans 展开）、C37 扩展点接口冻结评审、转换器兜底硬化清单移交 C37 | 文档 |
+
+---
+
+## 10. 风险
+
+1. **测试红灯与实现/预期双向脱节（catalog §4.15，主风险）**：`PropertyPattern_ConvertsWithTodoMarker` 断言的 `/* TODO: recursive pattern */` 在 src 已不存在，恒真兜底又让 `NoCSharpResidue` 空洞通过。缓解：D16 在 C03 PR 即消灭 TODO 文本断言、登记 C37 Skip；C37 以 11/11 全绿收口，不允许「改实现迁就过时断言」或反向。
+2. **与 JavaGenericPatternRewriter 争抢语法面（§4.15）**：D14 以「先结构归约、后泛型提升」的顺序切割，并保留一条 case 归约后 rewriter 在 switch 上无活可干的测试；若 C37 改变 if 条件中声明模式外形，须回归 JavaGenericPatternRewriter 四个语句入口。
+3. **catch filter 语义近似**：C# 过滤器在栈展开前运行（filter 副作用/finally 时序与「filter 中再抛」语义与 Java 不可表达层不同）。if/rethrow 链是标准机械近似；风险接受条件：fixture 覆盖 filter 假传播与顺序，文档化「filter 内副作用依赖」为已知限制（与 java-keywords §9 同体例），不声称 100% 语义同构。
+4. **表达式树禁区（§4 风险 8）**：C03 不重写守卫表达式内部、不改名、不生成表达式树节点变形，理论上不触碰该禁区；D7 扫描与 reducer 复用 catalog 要求的「表达式树节点内跳过」共享判定（C37/C08/C25 共用工具落地前，本 pass 对位于表达式树 lambda 内的 switch/catch——实际语言不允许——天然无命中，仍在评审中保留该检查项）。
+5. **实验性 Lowering 不可复用（§4 风险 9）**：[LowerPatternMatch.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Lowering/LowerPatternMatch.cs) 与 [VariableResolution.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Lowering/VariableResolution.cs) 仅 Java2 对比测试可达（IR 不同、生产不可达）；只借「模式节点分类归约 + 变量作用域两遍处理」的形态，禁止引用其代码或类型。
+6. **decimal/浮点 equals 的 Java 半区（§4 风险 14）**：D4 在 C# 侧发 `==` 是 .NET 语义正确的；Java 半区依赖 numeric-boundary 族对 decimal 二元运算的后续显式化。默认开门槛 §8.4 要求至少一个 decimal governing 样本在 Java 半区验证；未满足前该类型可维持 PD010 白名单姿态。
+7. **链位变更面**：RunAfterIds 从单锚扩三锚会改变 `--list-passes` 中 stub 的展示位置（stub 不执行，无功能影响），但必须与 C37 worktree 在同一契约上对齐，避免两边对锚点理解分叉（§11）。
+8. **goto 消结依赖后序 pass**：D12 产物含 goto/label；若用户在链上禁用了 eliminate-goto，Java 转换仍会失败——这是显式且更早的失败，非静默回退；在该 pass 的诊断/文档中注明与 eliminate-goto 的配套关系。
+
+---
+
+## 11. 并行协调
+
+### 11.1 与 C37 worktree 的精确关系
+
+- **同一 pass id、同一中间目录、同一 Core 目录**：`pattern-desugar` / `.cs2j-pattern-desugar-src` / `src/CSharpToJava.Core/PatternDesugar/`。不允许 C37 另立 pass。
+- **合并顺序：C03 先行合入并翻转 stub 为 Implemented（本设计）；C37 基于合入后的代码拉分支，只做三件事**：① 在 PatternReducer 注册 Positional/List/Slice reducer；② 新增并注册 `IsPatternExpressionComponent`、`SwitchExpressionComponent`；③ 放开 D7 守卫扫描的对应 PD010 闸门、取消 §7.2 登记的 Skip、转绿 8 个 ConversionTests 用例、硬化转换器 L115/L505 兜底。
+- §4.4 的三个扩展点（`IPatternReducer`、`IPatternDesugarComponent`、命名/绑定服务）在 C03 M1 冻结公开形状（internal 但同程序集可见），C37 设计评审须以该形状为准；如需改形状，在 C03 合入前由两份设计共同修订，不合入后再破接口。
+- 两侧默认开策略统一在 §8 门槛下管理：C03 可独立默认开（fail-fast 现状使回退方向安全），C37 合入时不得把默认开关回退；PatternMatchingTests 11/11 全绿是 C37 的完成线，不是 C03 的阻断线。
+- C37 的位置模式依赖 E06/E07，故本设计已把 RunAfter 锚点在 C03 翻转时一次扩足（§3），C37 不再改链位。
+
+### 11.2 与族内其他条目的交互
+
+- **C05 enum-declaration（enum-as-class）**：现网 enum governing switch 可直转 Java enum switch（D15 不动）；一旦 C05 把枚举类化，switch governing 须扩入归约集。交互方式：未来由 enum-declaration 或 pattern-desugar 任一侧扩 Analyzer 白名单，**不得两边各写一份 switch 归约**（§3.3 合并族原则）；本设计的 SwitchLoweringPlan 把 governing 判定集中在单一谓词，便于届时扩集。
+- **C16/C40 foreach-source**：字符串 foreach（Loops L121）明确归 foreach-source，本 pass 不碰 `ForEachStatementSyntax`；两 pass 都在 ControlFlow stage，foreach-source 锚 foreach-deconstruction，与本 pass 的 RunAfter 同锚不同节点，无语法面竞争。
+- **E14 eliminate-goto**：D12/D13 的 goto 尾标签是两 pass 的接口契约；pattern-desugar 拓扑序严格在前（现锚 null-coalesce/扩锚后仍在 strip-default 之前，goto 锚 make-readonly）。E14 若增强 `goto case` 能力，不得回流向本 pass 借结构。
+- **E06 tuple / E07 foreach-deconstruction / generic**：仅作为锚点与输出消费方（`is T v`、元组成员比较的 C# 形态由它们在各自环节处理），本 pass 不直接依赖其 API。
+
+---
+
+## 12. Worktree 分配
+
+- 分支：`feature/preproc-c03-pattern-desugar`
+- 目录：`.worktrees/preproc-c03-pattern-desugar`
+- base：`f68a783c`
+- 创建命令：
+
+```powershell
+git worktree add .worktrees/preproc-c03-pattern-desugar -b feature/preproc-c03-pattern-desugar f68a783c
+```
