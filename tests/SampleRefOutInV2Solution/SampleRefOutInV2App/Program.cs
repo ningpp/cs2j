@@ -34,3 +34,9 @@ calc.UpdateField(ref arr[0]);
 
 // int.TryParse (external)
 int.TryParse("42", out int parsed);
+
+// ref return + ref local rebinding
+ref int slot = ref calc.GetRef(arr, 1);
+slot = 99;
+slot = ref arr[2];
+slot = 42;

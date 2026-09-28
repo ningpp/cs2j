@@ -24,8 +24,8 @@ public class RefOutInPreprocessorTests
                     SourcePath = libDir,
                     DestinationRoot = outputDir,
                     Verbose = false,
-                    VerifyBuild = false,
-                    VerifyTests = false,
+                    VerifyBuild = true,
+                    VerifyTests = true,
                 });
 
             Assert.True(result.Success, string.Join("\n", result.Diagnostics));
@@ -47,6 +47,8 @@ public class RefOutInPreprocessorTests
                 "Cs2jRefOutIn support project not generated");
             Assert.True(File.Exists(Path.Combine(intermediateDir, "Cs2jRefOutIn", "ByRef.cs")),
                 "Cs2jRefOutIn ByRef.cs not generated");
+            Assert.True(File.Exists(Path.Combine(intermediateDir, "Cs2jRefOutIn", "RefStructByRef.cs")),
+                "Cs2jRefOutIn RefStructByRef.cs not generated (Q2-A)");
 
             // No inline _Cs2jRefOutIn.cs in project mode
             Assert.False(File.Exists(Path.Combine(intermediateDir, "_Cs2jRefOutIn.cs")),
@@ -79,8 +81,8 @@ public class RefOutInPreprocessorTests
                     SourcePath = Path.Combine(FixtureDir, "SampleRefOutInV2.sln"),
                     DestinationRoot = outputDir,
                     Verbose = false,
-                    VerifyBuild = false,
-                    VerifyTests = false,
+                    VerifyBuild = true,
+                    VerifyTests = true,
                 });
 
             Assert.True(result.Success, string.Join("\n", result.Diagnostics));
@@ -91,6 +93,10 @@ public class RefOutInPreprocessorTests
 
             // Internal call sites lifted to ByRef
             Assert.Contains("ByRef<int>.Create", progContent);
+
+            // C4: ref-return declaration becomes ByRef<int>; C7: rebinding becomes a proxy assignment
+            Assert.Contains("ByRef<int> slot = calc.GetRef(arr, 1);", progContent);
+            Assert.Contains("slot = ByRef<int>.Create(arr, 2);", progContent);
 
             // External BCL calls preserved
             Assert.Contains("out int", progContent); // int.TryParse, dict.TryGetValue
@@ -126,8 +132,8 @@ public class RefOutInPreprocessorTests
                     SourcePath = tempDir,
                     DestinationRoot = outputDir,
                     Verbose = false,
-                    VerifyBuild = false,
-                    VerifyTests = false,
+                    VerifyBuild = true,
+                    VerifyTests = true,
                 });
 
             Assert.True(result.Success);
