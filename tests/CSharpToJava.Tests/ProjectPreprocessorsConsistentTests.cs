@@ -111,6 +111,14 @@ public class ProjectPreprocessorsConsistentTests
             Assert.Equal(".cs2j-record-readonly-src",
                 ProjectRecordReadOnlyPreprocessor.IntermediateDirectoryName);
 
+            // java-keywords 驱动器存在且与既有预处理器同源（ProjectPreprocessSource）。
+            // 默认关（ConvertProjectOptions.JavaKeywords = false），故 convert-project
+            // 不会自动触发；独立 verb 通过 java-keywords 显式开启。
+            var javaKeywordsType = typeof(ProjectJavaReservedWordPreprocessor);
+            Assert.NotNull(javaKeywordsType);
+            Assert.Equal(".cs2j-java-keywords-src",
+                ProjectJavaReservedWordPreprocessor.IntermediateDirectoryName);
+
             // enum preprocessor — verify type exists and intermediate name is correct
             var enumPreprocessorType = typeof(ProjectEnumPreprocessor);
             Assert.NotNull(enumPreprocessorType);
