@@ -128,4 +128,14 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Include SampleGenericDeepenSolution as content so it's available at test runtime.
+         bin/obj are excluded: the fixture may have been built locally. -->
+    <Content Include="..\SampleGenericDeepenSolution\**\*.*"
+              Exclude="..\SampleGenericDeepenSolution\**\bin\**;..\SampleGenericDeepenSolution\**\obj\**">
+      <Link>SampleGenericDeepenSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

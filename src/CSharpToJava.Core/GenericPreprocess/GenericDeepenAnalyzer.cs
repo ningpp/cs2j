@@ -478,18 +478,31 @@ public sealed class GenericDeepenAnalyzer
             return (UsageClassification.Exclude, Array.Empty<string>());
         }
 
-        var assignment = identifier.Parent as AssignmentExpressionSyntax;
-        if (assignment != null && assignment.Left.Contains(identifier))
+        var assignment = identifier.Ancestors().OfType<AssignmentExpressionSyntax>()
+            .FirstOrDefault(a => a.Left.Span.Contains(identifier.Span));
+        if (assignment != null)
         {
             var isSimpleStatementAssignment = assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
-                && assignment.Left == identifier
-                && assignment.Parent is ExpressionStatementSyntax;
+                && assignment.Parent is ExpressionStatementSyntax
+                && (assignment.Left == identifier
+                    || assignment.Left is MemberAccessExpressionSyntax member && member.Name == identifier);
             if (!isSimpleStatementAssignment)
             {
                 return (UsageClassification.Exclude, Array.Empty<string>());
             }
 
-            return (UsageClassification.AssignmentTarget, RenderTypeArguments(identifier, model, candidate));
+            var assignmentArgs = RenderTypeArguments(identifier, model, candidate);
+            return assignmentArgs == null
+                ? (UsageClassification.Exclude, Array.Empty<string>())
+                : (UsageClassification.AssignmentTarget, assignmentArgs);
+        }
+
+        if (identifier.Ancestors().OfType<PrefixUnaryExpressionSyntax>().Any(p => p.Operand.Span.Contains(identifier.Span)
+                && (p.IsKind(SyntaxKind.PreIncrementExpression) || p.IsKind(SyntaxKind.PreDecrementExpression)))
+            || identifier.Ancestors().OfType<PostfixUnaryExpressionSyntax>().Any(p => p.Operand.Span.Contains(identifier.Span)
+                && (p.IsKind(SyntaxKind.PostIncrementExpression) || p.IsKind(SyntaxKind.PostDecrementExpression))))
+        {
+            return (UsageClassification.Exclude, Array.Empty<string>());
         }
 
         if (identifier.Ancestors().OfType<AssignmentExpressionSyntax>()
@@ -835,14 +848,21 @@ public sealed class GenericDeepenAnalyzer
         INamedTypeSymbol containingType,
         IEnumerable<GenericDeepenParamRef> referenced)
     {
-        var containingTypeName = containingType.OriginalDefinition.Name;
+        // Nested non-generic classes (Outer<T>.Inner) find their construction through
+        // any generic ancestor type name in the containing chain.
+        var chainNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var type = containingType.OriginalDefinition; type != null; type = type.ContainingType?.OriginalDefinition)
+        {
+            chainNames.Add(type.Name);
+        }
+
         var texts = new List<string>();
 
         if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
         {
             var generic = memberAccess.Expression.DescendantNodesAndSelf()
                 .OfType<GenericNameSyntax>()
-                .FirstOrDefault(g => g.Identifier.ValueText == containingTypeName);
+                .FirstOrDefault(g => chainNames.Contains(g.Identifier.ValueText));
             if (generic == null)
             {
                 return null;
@@ -860,7 +880,7 @@ public sealed class GenericDeepenAnalyzer
         {
             foreach (var ancestor in invocation.Ancestors().OfType<TypeDeclarationSyntax>())
             {
-                if (ancestor.Identifier.ValueText != containingTypeName || ancestor.TypeParameterList == null)
+                if (ancestor.TypeParameterList == null || !chainNames.Contains(ancestor.Identifier.ValueText))
                 {
                     continue;
                 }

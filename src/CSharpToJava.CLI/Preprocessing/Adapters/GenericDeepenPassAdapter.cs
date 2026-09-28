@@ -2,6 +2,7 @@ using System.Text;
 using System.Xml.Linq;
 using CSharpToJava.Core.GenericPreprocess;
 using CSharpToJava.Core.Preprocessing;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
@@ -81,7 +82,51 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
         DistributeHolderFiles(tree);
+        RunResidualScan(tree);
         return Task.CompletedTask;
+    }
+
+    /// <summary>Post-rewrite gate (spec §4.5): recompile the intermediate tree and count shapes C02 must have removed.</summary>
+    private void RunResidualScan(PassTreeContext tree)
+    {
+        if (!_options.RunResidualScan)
+        {
+            return;
+        }
+
+        var parseOptions = CreateParseOptions(tree);
+        var trees = new List<SyntaxTree>();
+        foreach (var file in Directory.EnumerateFiles(tree.IntermediateRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var normalized = file.Replace('\\', '/');
+            if (normalized.Contains("/obj/", StringComparison.OrdinalIgnoreCase)
+                || normalized.Contains("/bin/", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file), parseOptions, path: file));
+        }
+
+        if (trees.Count == 0)
+        {
+            return;
+        }
+
+        var compilation = CSharpCompilation.Create(
+            CompilationName ?? "cs2j-generic-deepen-residual",
+            trees, GetMetadataReferences(), CreateCompilationOptions());
+        foreach (var (rule, count) in GenericDeepenResidualScanner.Scan(compilation))
+        {
+            _statistics.ResidualsByRule.TryGetValue(rule, out var existing);
+            _statistics.ResidualsByRule[rule] = existing + count;
+            _diagnostics.Add(new GenericDeepenDiagnostic(
+                _options.Strict ? GenericDeepenSeverity.Error : GenericDeepenSeverity.Warning,
+                GenericDeepenRule.Residual,
+                GenericDeepenCodes.ResidualFound,
+                $"{count} residual site(s) of rule '{rule}' remain after generic-deepen; the rewrite did not cover them (spec §4.5).",
+                tree.IntermediateRoot));
+        }
     }
 
     /// <summary>
