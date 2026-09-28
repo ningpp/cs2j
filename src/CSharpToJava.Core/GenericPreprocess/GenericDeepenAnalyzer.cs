@@ -31,6 +31,25 @@ public sealed class TokenAnchorPlan
     public string FilePath => Declaration.SyntaxTree.FilePath;
 }
 
+/// <summary>One call site of a hoisted static method (GD-STATIC).</summary>
+public sealed class StaticMethodCallSitePlan
+{
+    public required InvocationExpressionSyntax Invocation { get; init; }
+    public required IReadOnlyList<string> TypeArgumentTexts { get; init; }
+}
+
+/// <summary>Static method referencing enclosing class type parameters, hoisted into a generic method (GD-STATIC).</summary>
+public sealed class StaticMethodPlan
+{
+    public required IMethodSymbol Method { get; init; }
+    public required MethodDeclarationSyntax Declaration { get; init; }
+    /// <summary>Class params hoisted under their own names (same-name shadowing keeps body text untouched).</summary>
+    public required IReadOnlyList<GenericDeepenParamRef> Params { get; init; }
+    public required IReadOnlyList<string> ConstraintTexts { get; init; }
+    public required IReadOnlyList<StaticMethodCallSitePlan> CallSites { get; init; }
+    public string FilePath => Declaration.SyntaxTree.FilePath;
+}
+
 /// <summary>Whole-compilation analysis result: plans keyed by symbol, sorted by (file, span).</summary>
 public sealed class GenericDeepenAnalysis
 {
@@ -38,6 +57,7 @@ public sealed class GenericDeepenAnalysis
     public required IReadOnlyList<TypeParamPatternPlan> Patterns { get; init; }
     public required IReadOnlyList<CatchTypeParamPlan> Catches { get; init; }
     public required IReadOnlyList<StaticFieldPlan> StaticFields { get; init; }
+    public required IReadOnlyList<StaticMethodPlan> StaticMethods { get; init; }
     public required IReadOnlyList<GenericDeepenDiagnostic> Diagnostics { get; init; }
     public required GenericDeepenStatistics Statistics { get; init; }
 
@@ -47,6 +67,7 @@ public sealed class GenericDeepenAnalysis
         Patterns = Array.Empty<TypeParamPatternPlan>(),
         Catches = Array.Empty<CatchTypeParamPlan>(),
         StaticFields = Array.Empty<StaticFieldPlan>(),
+        StaticMethods = Array.Empty<StaticMethodPlan>(),
         Diagnostics = Array.Empty<GenericDeepenDiagnostic>(),
         Statistics = new GenericDeepenStatistics(),
     };
@@ -144,7 +165,7 @@ public sealed class GenericDeepenAnalyzer
     public GenericDeepenAnalysis Analyze()
     {
         if (!_options.RewriteTypeOfAnchors && !_options.RewriteIsAsPatterns && !_options.RewriteCatchTypeParam
-            && !_options.RewriteStaticFieldHolders)
+            && !_options.RewriteStaticFieldHolders && !_options.RewriteStaticMembers)
         {
             return GenericDeepenAnalysis.Empty;
         }
@@ -157,6 +178,7 @@ public sealed class GenericDeepenAnalyzer
         BuildFamilies();
         PropagateNeeds();
         CollectStaticFieldPlans();
+        CollectStaticMethodPlans();
 
         var anchors = new List<TokenAnchorPlan>();
         foreach (var (method, needs) in _needs)
@@ -204,6 +226,7 @@ public sealed class GenericDeepenAnalyzer
             Patterns = _patterns,
             Catches = _catches,
             StaticFields = _staticFields,
+            StaticMethods = _staticMethods,
             Diagnostics = _diagnostics,
             Statistics = new GenericDeepenStatistics(),
         };
@@ -377,10 +400,10 @@ public sealed class GenericDeepenAnalyzer
 
     private enum UsageClassification { Read, AssignmentTarget, Exclude }
 
-    private static List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> CollectVisibleClassParams(IFieldSymbol field)
+    private static List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> CollectVisibleClassParams(ISymbol symbol)
     {
         var result = new List<(ITypeParameterSymbol, GenericDeepenParamRef)>();
-        var type = field.ContainingType?.OriginalDefinition;
+        var type = symbol.ContainingType?.OriginalDefinition;
         while (type != null)
         {
             foreach (var tp in type.TypeParameters)
@@ -537,7 +560,7 @@ public sealed class GenericDeepenAnalyzer
         return null;
     }
 
-    private static IReadOnlyList<string> CollectConstraintTexts(FieldDeclarationSyntax declaration, IReadOnlyList<GenericDeepenParamRef> referenced)
+    private static IReadOnlyList<string> CollectConstraintTexts(SyntaxNode declaration, IEnumerable<GenericDeepenParamRef> referenced)
     {
         var names = referenced.Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
         var texts = new List<string>();
@@ -581,6 +604,314 @@ public sealed class GenericDeepenAnalyzer
         }
 
         return text;
+    }
+
+    // ---- GD-STATIC: static method type-parameter hoisting ----
+
+    private readonly List<StaticMethodPlan> _staticMethods = new();
+
+    private void CollectStaticMethodPlans()
+    {
+        if (!_options.RewriteStaticMembers)
+        {
+            return;
+        }
+
+        ReportStaticPropertyGaps();
+
+        // Candidate pool: static ordinary methods in generic types without own type parameters.
+        var pool = new List<(IMethodSymbol Method, MethodDeclarationSyntax Declaration,
+            List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> Visible)>();
+        foreach (var (method, declaration) in _methodDecls)
+        {
+            if (method.MethodKind != MethodKind.Ordinary || !method.IsStatic) continue;
+
+            var visible = CollectVisibleClassParams(method);
+            if (visible.Count == 0) continue;
+
+            if (method.TypeParameters.Length > 0)
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.StaticMember, GenericDeepenCodes.StaticFamilyNotClosable,
+                    $"Static method '{method.ToDisplayString()}' has its own type parameters on top of the enclosing class parameters; hoisting would collide, the method is left in place.",
+                    declaration.SyntaxTree.FilePath,
+                    declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                continue;
+            }
+
+            var isStaticAbstract = declaration.Modifiers.Any(m =>
+                m.IsKind(SyntaxKind.AbstractKeyword) || m.IsKind(SyntaxKind.VirtualKeyword));
+            if (method.ContainingType.TypeKind == TypeKind.Interface || isStaticAbstract)
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.StaticMember, GenericDeepenCodes.StaticFamilyNotClosable,
+                    $"Static member '{method.ToDisplayString()}' is interface/static-abstract; hoisting is not supported there, the method is left in place.",
+                    declaration.SyntaxTree.FilePath,
+                    declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                continue;
+            }
+
+            var isExtern = declaration.Modifiers.Any(m => m.IsKind(SyntaxKind.ExternKeyword));
+            if (isExtern || declaration.Body == null && declaration.ExpressionBody == null)
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.StaticMember, GenericDeepenCodes.StaticFamilyNotClosable,
+                    $"Static method '{method.ToDisplayString()}' has no implementable body (extern/partial definition); hoisting is skipped.",
+                    declaration.SyntaxTree.FilePath,
+                    declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                continue;
+            }
+
+            if (HasMethodGroupReference(method))
+            {
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.StaticMember, GenericDeepenCodes.StaticFamilyNotClosable,
+                    $"Static method '{method.ToDisplayString()}' is referenced as a method group (delegate conversion) somewhere; hoisting would change the delegate shape, the method is left in place.",
+                    declaration.SyntaxTree.FilePath,
+                    declaration.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                continue;
+            }
+
+            pool.Add((method, declaration, visible));
+        }
+
+        // Fixpoint: a static method referencing class params (signature, body, or a call
+        // into an already-planned hoisted method with a class-param type argument) gets hoisted.
+        var planned = new Dictionary<IMethodSymbol, SortedSet<GenericDeepenParamRef>>(SymbolEqualityComparer.Default);
+        bool changed;
+        do
+        {
+            changed = false;
+            foreach (var (method, declaration, visible) in pool)
+            {
+                if (planned.ContainsKey(method)) continue;
+
+                var referenced = new List<GenericDeepenParamRef>();
+                CollectTypeReferences(method.ReturnType, visible, referenced);
+                foreach (var parameter in method.Parameters)
+                {
+                    CollectTypeReferences(parameter.Type, visible, referenced);
+                }
+
+                var model = _compilation.GetSemanticModel(declaration.SyntaxTree);
+                var bodyNodes = (declaration.Body ?? (SyntaxNode)declaration.ExpressionBody!).DescendantNodes().ToList();
+                foreach (var identifier in bodyNodes.OfType<IdentifierNameSyntax>())
+                {
+                    if (model.GetSymbolInfo(identifier).Symbol is ITypeParameterSymbol tp)
+                    {
+                        AddVisibleRef(tp, visible, referenced);
+                    }
+                }
+
+                foreach (var invocation in bodyNodes.OfType<InvocationExpressionSyntax>())
+                {
+                    if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol callee
+                        || !planned.ContainsKey(callee.OriginalDefinition))
+                    {
+                        continue;
+                    }
+
+                    foreach (var argument in callee.TypeArguments)
+                    {
+                        if (argument is ITypeParameterSymbol tp)
+                        {
+                            AddVisibleRef(tp, visible, referenced);
+                        }
+                    }
+                }
+
+                if (referenced.Count == 0) continue;
+                var set = new SortedSet<GenericDeepenParamRef>(ParamRefComparer.Instance);
+                foreach (var reference in referenced)
+                {
+                    set.Add(reference);
+                }
+
+                planned[method] = set;
+                changed = true;
+            }
+        }
+        while (changed);
+
+        foreach (var (method, declaration, _) in pool)
+        {
+            if (!planned.TryGetValue(method, out var referenced)) continue;
+
+            var callSites = CollectStaticMethodCallSites(method, declaration, referenced);
+            if (callSites == null)
+            {
+                continue;
+            }
+
+            _staticMethods.Add(new StaticMethodPlan
+            {
+                Method = method,
+                Declaration = declaration,
+                Params = referenced.ToList(),
+                ConstraintTexts = CollectConstraintTexts(declaration, referenced),
+                CallSites = callSites,
+            });
+        }
+
+        _staticMethods.Sort((a, b) => string.CompareOrdinal(a.FilePath, b.FilePath) != 0
+            ? string.CompareOrdinal(a.FilePath, b.FilePath)
+            : a.Declaration.SpanStart.CompareTo(b.Declaration.SpanStart));
+    }
+
+    private static void AddVisibleRef(
+        ITypeParameterSymbol tp,
+        List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
+        List<GenericDeepenParamRef> referenced)
+    {
+        var match = visible.FirstOrDefault(v => SymbolEqualityComparer.Default.Equals(v.Symbol, tp));
+        if (match.Ref != null && !referenced.Contains(match.Ref))
+        {
+            referenced.Add(match.Ref);
+        }
+    }
+
+    /// <summary>Static properties referencing class parameters are not rewritable in v1 — surface as CS2J1102.</summary>
+    private void ReportStaticPropertyGaps()
+    {
+        foreach (var tree in _compilation.SyntaxTrees)
+        {
+            var model = _compilation.GetSemanticModel(tree);
+            foreach (var property in tree.GetRoot().DescendantNodes().OfType<PropertyDeclarationSyntax>())
+            {
+                if (!property.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))) continue;
+                if (model.GetDeclaredSymbol(property) is not IPropertySymbol symbol) continue;
+
+                var visible = CollectVisibleClassParams(symbol);
+                if (visible.Count == 0) continue;
+
+                var referenced = new List<GenericDeepenParamRef>();
+                CollectTypeReferences(symbol.Type, visible, referenced);
+                if (referenced.Count == 0) continue;
+
+                _diagnostics.Add(new GenericDeepenDiagnostic(
+                    GenericDeepenSeverity.Warning, GenericDeepenRule.StaticMember, GenericDeepenCodes.StaticFamilyNotClosable,
+                    $"Static property '{symbol.ToDisplayString()}' references enclosing type parameters; static properties are not rewritable in v1 and are left in place.",
+                    tree.FilePath, property.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+            }
+        }
+    }
+
+    /// <summary>Any reference to the method outside an invocation operand (delegate/method-group conversion).</summary>
+    private bool HasMethodGroupReference(IMethodSymbol method)
+    {
+        foreach (var tree in _compilation.SyntaxTrees)
+        {
+            var model = _compilation.GetSemanticModel(tree);
+            foreach (var identifier in tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>())
+            {
+                if (identifier.Identifier.ValueText != method.Name) continue;
+                if (model.GetSymbolInfo(identifier).Symbol is not IMethodSymbol resolved
+                    || !SymbolEqualityComparer.Default.Equals(resolved.OriginalDefinition, method))
+                {
+                    continue;
+                }
+
+                if (IsWithinNameOf(identifier)) continue;
+                if (IsInvocationOperand(identifier)) continue;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsInvocationOperand(IdentifierNameSyntax identifier)
+        => identifier.Parent switch
+        {
+            InvocationExpressionSyntax invocation when invocation.Expression == identifier => true,
+            MemberAccessExpressionSyntax member when member.Name == identifier
+                => member.Parent is InvocationExpressionSyntax invocation && invocation.Expression == member,
+            _ => false,
+        };
+
+    /// <summary>Renders the call-site type arguments (receiver construction or enclosing declaration), like field usages.</summary>
+    private IReadOnlyList<string>? RenderMethodTypeArguments(
+        InvocationExpressionSyntax invocation,
+        INamedTypeSymbol containingType,
+        IEnumerable<GenericDeepenParamRef> referenced)
+    {
+        var containingTypeName = containingType.OriginalDefinition.Name;
+        var texts = new List<string>();
+
+        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            var generic = memberAccess.Expression.DescendantNodesAndSelf()
+                .OfType<GenericNameSyntax>()
+                .FirstOrDefault(g => g.Identifier.ValueText == containingTypeName);
+            if (generic == null)
+            {
+                return null;
+            }
+
+            foreach (var param in referenced)
+            {
+                texts.Add(generic.TypeArgumentList.Arguments[param.Ordinal].ToString());
+            }
+
+            return texts;
+        }
+
+        if (invocation.Expression is IdentifierNameSyntax)
+        {
+            foreach (var ancestor in invocation.Ancestors().OfType<TypeDeclarationSyntax>())
+            {
+                if (ancestor.Identifier.ValueText != containingTypeName || ancestor.TypeParameterList == null)
+                {
+                    continue;
+                }
+
+                foreach (var param in referenced)
+                {
+                    texts.Add(ancestor.TypeParameterList.Parameters[param.Ordinal].Identifier.ValueText);
+                }
+
+                return texts;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>All invocations of the method; null means a call site could not be resolved (CS2J1106, method left in place).</summary>
+    private List<StaticMethodCallSitePlan>? CollectStaticMethodCallSites(
+        IMethodSymbol method, MethodDeclarationSyntax declaration, SortedSet<GenericDeepenParamRef> referenced)
+    {
+        var sites = new List<StaticMethodCallSitePlan>();
+        foreach (var tree in _compilation.SyntaxTrees)
+        {
+            var model = _compilation.GetSemanticModel(tree);
+            foreach (var invocation in tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol resolved
+                    || !SymbolEqualityComparer.Default.Equals(resolved.OriginalDefinition, method))
+                {
+                    continue;
+                }
+
+                var args = RenderMethodTypeArguments(invocation, method.ContainingType, referenced);
+                if (args == null)
+                {
+                    _diagnostics.Add(new GenericDeepenDiagnostic(
+                        GenericDeepenSeverity.Warning, GenericDeepenRule.StaticMember, GenericDeepenCodes.CallSiteOutsideCompilation,
+                        $"Call site '{invocation}' of hoisted static method '{method.ToDisplayString()}' does not reveal the closed type construction; the method is left in place.",
+                        tree.FilePath, invocation.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                    return null;
+                }
+
+                sites.Add(new StaticMethodCallSitePlan
+                {
+                    Invocation = invocation,
+                    TypeArgumentTexts = args,
+                });
+            }
+        }
+
+        return sites;
     }
 
     // ---- phase 1: per-tree walk ----

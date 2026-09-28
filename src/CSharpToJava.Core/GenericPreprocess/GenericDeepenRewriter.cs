@@ -12,6 +12,8 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<SyntaxNode, CatchTypeParamPlan> _catchesByNode;
     private readonly HashSet<SyntaxNode> _fieldDeclRemovals;
     private readonly Dictionary<SyntaxNode, StaticFieldUsagePlan> _fieldUsages;
+    private readonly Dictionary<SyntaxNode, StaticMethodPlan> _staticMethodsByNode;
+    private readonly Dictionary<SyntaxNode, StaticMethodCallSitePlan> _staticCallSites;
     private readonly GenericDeepenStatistics _stats;
     private readonly List<GenericDeepenDiagnostic> _diagnostics;
     private readonly string _filePath;
@@ -22,6 +24,8 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         Dictionary<SyntaxNode, CatchTypeParamPlan> catchesByNode,
         HashSet<SyntaxNode> fieldDeclRemovals,
         Dictionary<SyntaxNode, StaticFieldUsagePlan> fieldUsages,
+        Dictionary<SyntaxNode, StaticMethodPlan> staticMethodsByNode,
+        Dictionary<SyntaxNode, StaticMethodCallSitePlan> staticCallSites,
         GenericDeepenStatistics stats,
         List<GenericDeepenDiagnostic> diagnostics,
         string filePath)
@@ -31,6 +35,8 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         _catchesByNode = catchesByNode;
         _fieldDeclRemovals = fieldDeclRemovals;
         _fieldUsages = fieldUsages;
+        _staticMethodsByNode = staticMethodsByNode;
+        _staticCallSites = staticCallSites;
         _stats = stats;
         _diagnostics = diagnostics;
         _filePath = filePath;
@@ -187,6 +193,12 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
         var visited = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node)!;
+        if (_staticMethodsByNode.TryGetValue(node, out var staticPlan))
+        {
+            visited = AttachTypeParameters(visited, staticPlan);
+            _stats.StaticMethodsRewritten++;
+        }
+
         if (!_anchorsByNode.TryGetValue(node, out var plan))
         {
             return visited;
@@ -211,6 +223,59 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
 
         var newBody = visited.Body.WithStatements(visited.Body.Statements.InsertRange(0, toInsert));
         return visited.WithBody(newBody);
+    }
+
+    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        var visited = (InvocationExpressionSyntax)base.VisitInvocationExpression(node)!;
+        if (!_staticCallSites.TryGetValue(node, out var callSite)) return visited;
+        var nameText = node.Expression switch
+        {
+            MemberAccessExpressionSyntax m => m.Name.Identifier.ValueText,
+            IdentifierNameSyntax id => id.Identifier.ValueText,
+            _ => null,
+        };
+        if (nameText == null) return visited;
+        var genericName = SyntaxFactory.GenericName(
+            SyntaxFactory.Identifier(nameText),
+            SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList<TypeSyntax>(
+                callSite.TypeArgumentTexts.Select(text => SyntaxFactory.ParseTypeName(text)))));
+        var expression = visited.Expression switch
+        {
+            MemberAccessExpressionSyntax m => m.WithName(genericName.WithTriviaFrom(m.Name)),
+            IdentifierNameSyntax id => genericName.WithTriviaFrom(id),
+            _ => visited.Expression,
+        };
+        _stats.CallSitesUpdated++;
+        return visited.WithExpression(expression);
+    }
+
+    /// <summary>
+    /// Steals the type-parameter list and constraint clauses from a scratch declaration —
+    /// avoids hand-building clause trivia.
+    /// </summary>
+    private static MethodDeclarationSyntax AttachTypeParameters(MethodDeclarationSyntax method, StaticMethodPlan plan)
+    {
+        var names = string.Join(", ", plan.Params.Select(p => p.Name));
+        var constraints = plan.ConstraintTexts.Count == 0 ? "" : " " + string.Join(" ", plan.ConstraintTexts);
+        var scratch = SyntaxFactory.ParseMemberDeclaration(
+            $"class __Scratch {{ void __M<{names}>(){constraints} {{ }} }}")!;
+        var typeParameterList = scratch.DescendantNodes().OfType<TypeParameterListSyntax>().Single();
+        var constraintClauses = scratch.DescendantNodes().OfType<TypeParameterConstraintClauseSyntax>().ToList();
+        var updated = method.WithTypeParameterList(
+            typeParameterList.WithTrailingTrivia(method.ParameterList.CloseParenToken.TrailingTrivia));
+        if (constraintClauses.Count > 0)
+        {
+            updated = updated.WithConstraintClauses(
+                SyntaxFactory.List(constraintClauses.Select((clause, index) =>
+                    index == 0
+                        ? clause.WithLeadingTrivia(
+                            SyntaxFactory.ElasticCarriageReturnLineFeed,
+                            SyntaxFactory.Whitespace("    "))
+                        : clause)));
+        }
+
+        return updated;
     }
 
     private List<StatementSyntax> AnchorsToInsert(MethodDeclarationSyntax method, TokenAnchorPlan plan)

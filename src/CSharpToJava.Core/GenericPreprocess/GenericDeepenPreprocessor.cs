@@ -79,8 +79,27 @@ public sealed class GenericDeepenPreprocessor
             }
         }
 
+        var staticMethodsByNode = new Dictionary<SyntaxNode, StaticMethodPlan>();
+        var staticCallSites = new Dictionary<SyntaxNode, StaticMethodCallSitePlan>();
+        foreach (var plan in _analysis.StaticMethods)
+        {
+            if (plan.Declaration.SyntaxTree == model.SyntaxTree)
+            {
+                staticMethodsByNode[plan.Declaration] = plan;
+            }
+
+            foreach (var callSite in plan.CallSites)
+            {
+                if (callSite.Invocation.SyntaxTree == model.SyntaxTree)
+                {
+                    staticCallSites[callSite.Invocation] = callSite;
+                }
+            }
+        }
+
         if (anchorsByNode.Count == 0 && patternsByNode.Count == 0 && catchesByNode.Count == 0
-            && fieldDeclRemovals.Count == 0 && fieldUsages.Count == 0)
+            && fieldDeclRemovals.Count == 0 && fieldUsages.Count == 0
+            && staticMethodsByNode.Count == 0 && staticCallSites.Count == 0)
         {
             stats.FilesSkippedClean = 1;
             AppendAnalysisDiagnostics(diagnostics, model);
@@ -90,7 +109,7 @@ public sealed class GenericDeepenPreprocessor
         var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
         var rewriter = new GenericDeepenRewriter(
             anchorsByNode, patternsByNode, catchesByNode, fieldDeclRemovals, fieldUsages,
-            stats, diagnostics, model.SyntaxTree.FilePath);
+            staticMethodsByNode, staticCallSites, stats, diagnostics, model.SyntaxTree.FilePath);
         var newRoot = rewriter.Visit(root);
         AppendAnalysisDiagnostics(diagnostics, model);
         if (newRoot == root)
