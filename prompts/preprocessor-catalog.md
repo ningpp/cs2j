@@ -4,6 +4,7 @@
 > 盘点范围：仓库 `d:\code\cs2j`（commit 工作区现状）。
 > 本文档**只盘点、不设计、不实现**：所有条目均给出代码库真实证据（路径 + 行号）。
 > 「preprocessor」在本文的含义：主转换（C#→Java）之前运行的、产出**语义等价且可编译 C#** 的纯源码重写通道；验证手段是中间目录 `dotnet build -c Release` / `dotnet test -c Release` 全绿。
+> 2026-09-28 二次补全：新增候选 **C29、C31–C36**（七项）；修正 §0.4 计数（原写 22，实际 29 项）与优先级归属（C10 明细行本为 P2，已归位）。
 
 ---
 
@@ -40,21 +41,21 @@
 
 `src/CSharpToJava.Core/Lowering/`（`LowerRefOut/LowerYield/LowerUsing/LowerProperty/LowerIndexer/LowerOperator/LowerEvent/LowerDelegate/LowerStruct/LowerPatternMatch/VariableResolution`）仅在 `NewConversionPipeline.cs:27-33` 注册；全仓搜索该管线**只被** `tests/CSharpToJava.Tests/Java2/PipelineComparisonTests.cs` 使用，不在生产路径（生产用 `ProjectConversionPipeline` + `Transformers/` + `Java/`）。它们的价值是**证明了各特性的目标降级形态**，是前置 preprocessor 的需求与形态证据，而非可复用实现。
 
-### 0.4 建议新增候选：22 个（含对既有通道的扩展）
+### 0.4 建议新增候选：36 个（含对既有通道的扩展）
 
 | 优先级 | 数量 | 编号 |
 |--------|------|------|
 | P0（消除现存 fail-fast / 完成半截工程） | 3 | C01 RefOutIn 接线收尾、C02 Generic 深化、C03 控制流去糖（pattern switch / catch-when 等） |
-| P1（转换器最厚的复杂度块，已有明确信号） | 6 | C04 yield、C05 enum 声明归一、C06 unsafe/FFM、C07 struct 值语义补全、C08 JavaKeywords 落地、C10 JSON/Attribute 归一 |
-| P2（成员/数值/并发等中等收益） | 12 | C09 ThreadStatic、C11 Property、C12 Indexer、C13 Event、C14 Operator、C15 checked/unchecked、C16 foreach 补全、C17 自增目标归一、C18 async/await、C19 扩展方法显式化、C26 LINQ 独立化、C30 closed generic metadata 前置化 |
-| P3（推测性/收益小或被兼容层充分吸收） | 8 | C20 partial 合并前置、C21 匿名类型提升、C22 `Nullable<T>` 提升、C23 插值字符串展开、C24 初始化器归一、C25 dynamic、C27 record `with`/init、C28 指令/using trivia 清扫 |
+| P1（转换器最厚的复杂度块 / **静默错误输出族**，已有明确信号） | 6 | C04 yield、C05 enum 声明归一、C06 unsafe/FFM、C07 struct 值语义补全、C08 JavaKeywords 落地、C31 Index/Range 归一 |
+| P2（成员/数值/并发等中等收益） | 15 | C09 ThreadStatic、C10 JSON/Attribute 归一、C11 Property、C12 Indexer、C13 Event、C14 Operator、C15 checked/unchecked、C16 foreach 补全、C17 自增目标归一、C18 async/await、C19 扩展方法显式化、C26 LINQ 独立化、C30 closed generic metadata 前置化、C32 Lambda 可变捕获前置化、C34 decimal 运算归一 |
+| P3（推测性/收益小或被兼容层充分吸收） | 12 | C20 partial 合并前置、C21 匿名类型提升、C22 `Nullable<T>` 提升、C23 插值字符串展开、C24 初始化器归一、C25 dynamic、C27 record `with`/init、C28 指令/using trivia 清扫、C29 lock/Monitor 归一（观察项）、C33 泛型型变/约束前置审计、C35 空条件 `?.` 去糖、C36 C# 12 集合表达式去糖 |
 
 ---
 
 ## 1. 分类目录
 
 ### 1.1 类型系统类
-E09 UnsignedTypeRewriter（已实现）、E10 GenericPreprocess（部分）、**C02 Generic 深化（typeof/is-as/静态泛型字段）**、E04/C05 enum（运算已做、声明缺口）、E06 TupleToStruct（已实现）、**C21 匿名类型提升**、**C25 dynamic**、**C22 `Nullable<T>` 提升**。
+E09 UnsignedTypeRewriter（已实现）、E10 GenericPreprocess（部分）、**C02 Generic 深化（typeof/is-as/静态泛型字段）**、E04/C05 enum（运算已做、声明缺口）、E06 TupleToStruct（已实现）、**C21 匿名类型提升**、**C25 dynamic**、**C22 `Nullable<T>` 提升**、**C33 泛型型变/约束前置审计（out/in 声明被丢弃、struct/new() 约束仅告警）**。
 
 ### 1.2 值语义 / 结构体类
 E13 ReadOnlyStructMaker（已实现）、E11 RecordReadOnly（已实现、opt-in）、**C07 struct 值语义补全（防御性 clone）**、**C06 的 ref struct 子项**、E15/C01 ref-out-in（Core 已实现未接线）、实验管线 `LowerStruct.cs`。
@@ -63,10 +64,10 @@ E13 ReadOnlyStructMaker（已实现）、E11 RecordReadOnly（已实现、opt-in
 E14 GotoEliminator（已实现）、E02 LocalFunctionLift（已实现）、**C03 控制流去糖（pattern/非整型 switch、catch-when、catch T）**、**C04 yield 迭代器降级**、E07/C16 foreach（部分/补全）、**C18 async/await**。
 
 ### 1.4 成员 / 语法糖类
-E08 默认参数剥离（已实现）、E05 委托（已实现）、**C11 Property 去糖**、**C12 Indexer 去糖**、**C13 Event 去糖**、**C14 Operator 去糖**、**C17 复杂自增目标归一**、**C19 扩展方法显式化**、**C27 record `with`/init**、**C15 checked/unchecked**、**C10 attribute 归一**。
+E08 默认参数剥离（已实现）、E05 委托（已实现）、**C11 Property 去糖**、**C12 Indexer 去糖**、**C13 Event 去糖**、**C14 Operator 去糖**、**C17 复杂自增目标归一**、**C19 扩展方法显式化**、**C27 record `with`/init**、**C15 checked/unchecked**、**C10 attribute 归一**、**C32 Lambda 可变捕获前置化**、**C34 decimal 运算归一**、**C35 空条件 `?.` 去糖**。
 
 ### 1.5 异步 / 并发类
-**C18 async/await**、**C09 `[ThreadStatic]`**（现由转换器内联处理）；lock/Interlocked/Volatile 当前由转换器 + compat 吸收（`Interlocked.java`、`ThreadHelper.java`、`StatementTransformer.cs:52` 的 lock 分支），暂列观察项（见 §4）。
+**C18 async/await**、**C09 `[ThreadStatic]`**（现由转换器内联处理）、**C29 lock/Monitor 归一（观察项）**：lock 直映 `synchronized`（`StatementTransformer.SwitchAndResource.cs:286-293`）、volatile 直映 Java volatile（`FieldTransformer.cs:104,410`）、Interlocked 由 compat `Interlocked.java`/`InterlockedHelper.java` 吸收——均为非失败型，但 `Monitor.TryEnter` 超时/`Pulse/Wait` 语义在直映下静默丢失，登记为 C29。
 
 ### 1.6 反射 / 序列化 / 属性类
 **C10 JSON/Attribute 归一**（`[JsonConverter]`/`[JsonPropertyName]` 等）、**C30 closed generic type metadata**（ROADMAP #10）、C02 的 `typeof(T)` 子项；compat 桥接见 `java/csharptojava-compat/.../Activator.java`、`TypeHelper`（设计文档引用）、`FieldInfo/MethodInfo/ConstructorInfo.java`、`JsonSerializer*.java`、`CompatJson*.java`、`DefaultContractResolver.java`。
@@ -76,7 +77,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 注：`.resx → .properties` 属资源管线（`Program.cs:965-982`），不是 C#→C# preprocessor，不列入候选。
 
 ### 1.8 其他
-**C06 unsafe/fixed/pointer/stackalloc/Span**、E12 ArrayMethodRewriter（已实现、opt-in；多维数组/Resize/Rank）、**C23 插值字符串**、**C24 对象/集合初始化器**、nameof（转换器已处理，见 `InvocationExpressionTransformer.cs:37-88`，仅在 E17 改名时需联动字面量化）、E16/C26 LINQ、E17 Java 保留字。
+**C06 unsafe/fixed/pointer/stackalloc/Span**、E12 ArrayMethodRewriter（已实现、opt-in；多维数组/Resize/Rank）、**C31 Index/Range（`^`/`..`/System.Index/System.Range，含 string 切片静默错误输出）**、**C23 插值字符串**、**C24 对象/集合初始化器**、**C36 C# 12 集合表达式/spread 去糖**、nameof（转换器已处理，见 `InvocationExpressionTransformer.cs:37-88`，仅在 E17 改名时需联动字面量化）、E16/C26 LINQ、E17 Java 保留字。
 
 ---
 
@@ -369,7 +370,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 |------|------|
 | 名称 | `AttributeNormalize`（先聚焦序列化 attribute 族） |
 | 分类 | 1.6 反射/序列化 |
-| 目标 C# 模式 | `[JsonConverter]`、`[JsonPropertyName]`、`[JsonIgnore]`、`[JsonInclude]`、`[JsonNumberHandling]`、`[JsonExtensionData]`、`[DataContract/DataMember]`、`[Obsolete]`、`[DefaultValue]` 等 → 统一形态（例如归一为转换器稳定识别的标记 attribute，或把构造期需要的反射信息改写为显式注册代码） |
+| 目标 C# 模式 | `[JsonConverter]`、`[JsonPropertyName]`、`[JsonIgnore]`、`[JsonInclude]`、`[JsonNumberHandling]`、`[JsonExtensionData]`、`[DataContract/DataMember]`、`[Obsolete]`、`[DefaultValue]` 等 → 统一形态（例如归一为转换器稳定识别的标记 attribute，或把构造期需要的反射信息改写为显式注册代码）；`[CallerMemberName/CallerFilePath/CallerLineNumber]` 族也应纳入（E08 已把携带 Caller attribute 的参数排除在剥离之外，`DefaultParameterVerifier.cs:16-17,113-115`——「调用点注入实参」语义在 Java 侧无对应，本通道需定保留/改写策略） |
 | 解决的转换难点 | attribute 在转换器里只有零星处理（全 Transformers 目录仅 `FieldTransformer.cs`/`PropertyTransformer.cs`/`EnumTransformer.cs` 7 处 AttributeListSyntax 命中），其余靠 compat 注解群硬桥：`CompatJsonConverter.java`、`CompatJsonPropertyName.java`、`CompatJsonIgnore.java`、`CompatJsonInclude.java`、`CompatJsonNumberHandling.java`、`CompatJsonExtensionData.java`、`CompatAttributeTypes.java`、`DefaultContractResolver.java`；映射配置 `config/TypeMappings.json:78-89,361-365`；ROADMAP #7「attribute(json)」 |
 | 证据 | 测试 `JsonNumberHandlingAnnotationProjectTests.cs`、`ReflectionAttributeCompatTests.cs`、`SystemTextJsonDeserializeTypeReferenceTests.cs`、`DataContractSerializerCompatibilityTests.cs` |
 | 与现有通道关系 | 应排在 C02（closed type token）之后；反射/字符串契约风险与 E17 nameof 同类（见 §4） |
@@ -589,6 +590,19 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P3**（整洁度/一致性，不解决 fail-fast） |
 | 状态 | 缺失（窄扩展） |
 
+#### C29 lock / Monitor 并发原语归一（P3，观察项）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `ConcurrencyNormalize`（lock/volatile/Monitor 族，观察项；可与 C09 合并评估为「并发归一」单通道） |
+| 分类 | 1.5 并发 |
+| 目标 C# 模式 | `lock (o) {…}`、`volatile` 字段、`Monitor.Enter/TryEnter(timeout)/Exit/Pulse/Wait` → 统一可映射形态：lock→`synchronized`、volatile→Java volatile 直映保留；无法直映的 `TryEnter` 超时、`Pulse/Wait` → `ThreadHelper`/`Object.wait/notify` 显式调用形态 |
+| 解决的转换难点 | 非失败型语义缺口：lock 直映 `synchronized`（`StatementTransformer.SwitchAndResource.cs:286-293`）、volatile 直映（`FieldTransformer.cs:104,410`）均可用，但 `Monitor.TryEnter` 超时分支与 `Pulse/Wait` 在直映下**静默丢失**（等价于死等/永不唤醒）；本条即 §1.5 原文「暂列观察项」的正式落点 |
+| 证据 | 同上；compat `ThreadHelper.java`、`Interlocked.java`/`InterlockedHelper.java` 吸收 Interlocked/Thread API |
+| 与现有通道关系 | 与 C09 ThreadStatic 同族；Interlocked/Volatile 静态 API 由 compat 吸收无需重复，仅 Monitor 实例语义需前置 |
+| 优先级 | **P3**（现路径可用；价值在把静默语义缺口显式化） |
+| 状态 | 缺失（转换器直映吸收中） |
+| 验证 | 中间树 build/test；fixture：`Monitor.TryEnter` 超时分支、`Pulse/Wait` 生产者-消费者、`lock` 嵌套 |
+
 #### C30 closed generic type metadata 前置化（P2，需先核实现状）
 | 字段 | 内容 |
 |------|------|
@@ -601,6 +615,83 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P2**（路线已被验证有效，但本仓工作量待核实） |
 | 状态 | 设计完成；compat 侧有落点；cs2j 生成码侧现状不明 |
 
+#### C31 Index / Range（`^` 与 `..`）归一（P1）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `IndexRangeNormalize`（建议挂 E12 同范式：注入切片辅助——并入 Cs2jArray 或新建 Cs2jIndexRange） |
+| 分类 | 1.8 表达式（数组/字符串/Span 切片） |
+| 目标 C# 模式 | ① 元素访问 `x[^n]`（数组/字符串/带 Index 索引器的自定义类型）；② 切片 `x[lo..hi]`、`x[lo..]`、`x[..^n]`（合法接收者：数组、string、Span/Memory、自定义 slice 索引器）；③ 独立 `^n` / `lo..hi` 表达式与 `System.Index`/`System.Range` 类型的局部/参数/字段；④ 全部改写为显式 int 索引或辅助调用（数组 `Arrays.copyOfRange`、字符串 `substring`、Span → C06 形态） |
+| 解决的转换难点 | 这是「静默错误输出」而非 fail-fast 的一族：`x[^n]` 元素访问已按接收者三类直映（`ElementAccessTransformer.cs:228-236`），但**切片不看接收者类型**一律产 `Arrays.copyOfRange(expr, lo, hi)`（`ElementAccessTransformer.cs:219-225`）——对 string 产出 `Arrays.copyOfRange("abc", …)`（不可编译 Java，String 非数组）；独立 `^n` 只输出注释（`ElementAccessTransformer.cs:294-299`）；独立范围表达式输出 `/* array */`/`/* length */` 占位（`ControlFlowTransformer.cs:640-650`）；`System.Index`/`System.Range` 在 `config/TypeMappings.json` 无映射；全仓无 Range/Index 专项测试 |
+| 证据 | 同上；E12 的 `src/Cs2jArray/ArrayHelper.cs` 无任何 Slice/Range 辅助（grep 无命中），需随本通道补支撑库 |
+| 与现有通道关系 | E12 ArrayMethod 同族（支撑库注入 + 过滤范式）；`arr[^1]++` 类复合目标并入 C17；Span 切片与 C06 衔接；排在 E06/E12 之后（tuple struct、数组辅助先定型） |
+| 优先级 | **P1**（命中即产出不可编译/错误 Java，比 fail-fast 更危险，且修复面机械） |
+| 状态 | 缺失 |
+| 验证 | 中间树 build/test；fixture：数组/字符串的 `^` 与 `..`、组合 `..^n`、独立 Index/Range 变量、切片后 `.Length`/再赋值、C# 切片拷贝语义 vs Java subList 视图语义的显式化 |
+
+#### C32 Lambda 可变捕获前置化（P2）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `CaptureLift`（可变捕获 → 显式 holder） |
+| 分类 | 1.4 / 闭包语义 |
+| 目标 C# 模式 | 被 lambda/局部函数捕获且存在**外部再赋值**的局部与参数 → C# 侧显式单元素数组（或生成 holder 类）声明，全部读写点改 `holder[0]`（语义等价、可编译 C#） |
+| 解决的转换难点 | 转换器内嵌整套捕获分析与运行时改写：`StatementTransformer.cs:68-82`（方法体级 `PreScanLambdaCaptures` 预扫描 + 参数 holder 前置发射）与 `:127,134`（第二份同构逻辑）、`Context/MethodConversionState.cs:314,442` 的捕获状态与 `PendingLambdaCaptureHolder`；与 E02 的捕获分析（`LocalFunctionLiftAnalyzer.cs`）重复建设；与 C01 的 lambda ref 参数 fail-fast（`LambdaTransformer.cs:99,200`）同一语义面 |
+| 证据 | 同上；回归 `LambdaExternalReassignmentTests.cs`、`LinqRewriterVariableCaptureTests.cs` |
+| 与现有通道关系 | 应在 E02 之后（复用其捕获分析基建）、C01 之后（ref 捕获与 ByRef 位置模型一致化）、C04 yield 之前（迭代器/lambda 共享捕获形态） |
+| 优先级 | **P2**（现路径可用；价值 = 删除转换器内最难调试的隐式状态，统一与 E02 的两套捕获分析） |
+| 状态 | 缺失（转换器内代偿） |
+| 验证 | 中间树 build/test；fixture：lambda 内改捕获变量外部可见、多 lambda 共享同一变量、参数捕获、嵌套 lambda、与 E02 提升后的局部函数交互 |
+
+#### C33 泛型型变与约束前置审计（P3）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `VarianceConstraintNormalize` |
+| 分类 | 1.1 类型系统 |
+| 目标 C# 模式 | ① `out T`/`in T` 声明-site 型变：移除或改写为使用-site（`? extends/super`），并在 C# 侧校验型变使用点安全；② `where T : struct/unmanaged`、`new()` 约束显式化（剥离 + 构造点/装箱路径校验）；`notnull`/`default` 归一 |
+| 解决的转换难点 | 型变声明被**直接丢弃仅告警**（`ClassTransformer.cs:183-192`、`InterfaceTransformer.cs:89-97`、`DelegateTransformer.cs:93-101`，诊断码 CS2J1003）——协变接口消费端在 Java 侧可能产生不被发现的违规写入；`struct`/`new()` 约束仅 `WarnConstraintDropped`（`ClassTransformer.cs:211-235`，L230/L232），`notnull`/`default` 静默忽略（L219-221） |
+| 证据 | 同上 |
+| 与现有通道关系 | 与 E10/C02 泛型族同批；定位是**审计型**通道（先做 C# 侧显式告警/拒绝 + 安全校验，再决定是否做使用-site 改写） |
+| 优先级 | **P3**（丢失形态是「声明降级」而非编译失败） |
+| 状态 | 缺失 |
+| 验证 | fixture：协变接口作为生产者/消费者两侧使用、struct 约束泛型的 `default(T)`/装箱路径、new() 约束工厂 |
+
+#### C34 decimal 运算归一收尾（P2）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `DecimalOps`（数值边界族规则；与 C15/C17 同通道或挂 E09 范式） |
+| 分类 | 1.4 / 数值 |
+| 目标 C# 模式 | decimal 上的 `+ - * / %`、比较、一元 `-`、`++/--`、`switch` governing、checked 溢出 → `io.github.ningpp.compat.Decimal` 显式方法调用（`add/subtract/multiply/divide/remainder/negate`），替代现保留的 `left op right` 原样输出 |
+| 解决的转换难点 | 类型与字面量映射已就绪（`config/TypeMappings.json:3620-3623`；字面量 → `Decimal.parse("…")`，`LiteralExpressionTransformer.cs:83-84`），但二元路径仅补 import 后**原样保留 `+ - * /`**（`BinaryExpressionTransformer.cs:88-92`）——Java 无运算符重载，`Decimal` 引用上的 `+` 是**不可编译 Java**（静默错误输出）；一元与自增直接 fail-fast（`UnaryExpressionTransformer.cs:150-151`、`:154-193` 含 decimal 自增目标） |
+| 证据 | compat `Decimal.java:261-314` 已备 `add/subtract/multiply/divide/remainder/negate` 实例方法——桥已建、C# 侧从未发射；设计 `docs/superpowers/specs/2026-06-04-csharp-decimal-design.md` |
+| 与现有通道关系 | 形态完全复刻 E09「运算符→支撑库方法调用」样板；数值边界族（C15/C17）同通道；须在 E09 之后（无符号类化改变实参类型）；`++/--` 子项与 C17 合并实施 |
+| 优先级 | **P2**（不可编译输出 + fail-fast 并存，方法面现成，边际成本低） |
+| 状态 | 缺失（字面量/类型映射已就绪，运算层缺口） |
+| 验证 | 中间树 build/test；fixture：四则/取模/比较、一元负号、`++/--`、decimal 常量字段、`ToString("F2")` 文化重载、switch on decimal |
+
+#### C35 空条件 `?.` / `?[]` 去糖前置化（P3）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `NullConditionalDesugar`（建议并入 E03 成为「null 糖归一」通道） |
+| 分类 | 1.4 语法糖 |
+| 目标 C# 模式 | `a?.b.c?.d()`、`arr?[i]`、`?.` 与 `??`/`??=` 组合 → 显式 null 检查语句/三元（保持接收者**单次求值**），归一到 E03 的产物形态 |
+| 解决的转换难点 | 非失败型、但特判面最宽：`ControlFlowTransformer.TransformConditionalAccess`（`ControlFlowTransformer.cs:22,45,314+`）+ `ExpressionTransformerFacade` 4 处「所属 ConditionalAccess」owner 链回溯（`ExpressionTransformerFacade.cs:117-121,165-169,186-193,272`）——条件访问的类型解析贯穿整个表达式转换器；无 fail-fast（仅未知 kind 兜底，L56） |
+| 证据 | 同上；E03 的两遍临时变量提升基建可直接复用 |
+| 与现有通道关系 | E03 的姊妹规则；去糖顺序必须在 E03 之前或同通道内统一（两者改写会互相暴露中间形态） |
+| 优先级 | **P3**（现路径成熟；收益 = 删掉 facade 的条件访问特判簇） |
+| 状态 | 缺失（转换器内代偿） |
+
+#### C36 C# 12 语法去糖（集合表达式/spread）（P3）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `CSharp12Desugar`（集合表达式/spread/target-typed new；兼 C# 11/12 新语法防线） |
+| 分类 | 1.8 表达式 |
+| 目标 C# 模式 | 集合表达式 `[1,2,3]`（目标类型数组/List/IEnumerable）、spread 元素 `..e`、空 `[]` → 按 ConvertedType 显式构造：数组 `new T[]{…}`、`List<T>` 用**可变** `new List<T>{…}` |
+| 解决的转换难点 | 现仅一条 delegate 规则：目标为数组产 `new T[]{…}`，否则兜底 `java.util.List.of(…)`（`ExpressionTransformerRegistry.cs:135-152`，`List.of` 在 L150）——`List.of` **不可变**，而 C# `List<int> l = [1,2]; l.Add(3)` 合法（静默语义差 → Java 运行时 `UnsupportedOperationException`）；spread 元素被 `OfType<ExpressionElementSyntax>()` **静默过滤丢失**（L139，全仓无 `SpreadElementSyntax` 处理）；E09 显式跳过集合表达式内部（`UnsignedTypeSyntaxRewriter.cs:447`），说明各 preprocessor 尚未把它当一等语法 |
+| 证据 | 同上；测试仅 `LinqRewriterVariableCaptureTests.cs:11`（变量捕获形态）一处 |
+| 与现有通道关系 | primary constructor 已由 E08 覆盖（`DefaultParameterDeclarationRewriter.cs:165,178-204`、`DefaultParameterOverloadBuilder.cs:140`），不列入；C# 11/12 其余新语法（`static abstract` interface members、`scoped`、泛型 attribute）无任何专项处理证据——本通道兼任「新版本语法盘点 + 显式拒绝」防线（见 §4.13） |
+| 优先级 | **P3**（spread 丢失是数据级 bug，置于 P3 首位） |
+| 状态 | 部分（窄规则已有；spread/可变语义缺口） |
+| 验证 | 中间树 build/test；fixture：`List<int> l = [1,2]; l.Add(3)`、`[.. a, x]`、嵌套 `[[1],[2]]`、空 `[]`、IEnumerable 目标 |
+
 ---
 
 ## 3. 推荐实施路线
@@ -609,18 +700,20 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 
 1. **C01 RefOutIn 接线收尾**（P0，Core 已就绪；先补 Java 映射 spec 与 CLI 包装）。
 2. **C03 控制流去糖**（P0，纯机械降级、消灭一整组 fail-fast；注意排在 E14 之前）。
-3. **C02 Generic 深化**（P0，ROADMAP #5/#10 的 C# 侧，连带核实 C30）。
-4. **C05 enum 声明归一**（P1，扩 E04；与 C03 同批验证 enum switch）。
-5. **C07 struct 值语义补全**（P1，扩 E13，回收 StructCloneHelper）。
-6. **C04 yield 迭代器降级**（P1，先原型 try/finally 子题）。
-7. **C08 JavaKeywords 落地**（P1，设计完备；按 spec 必须在链尾，默认关）。
-8. **C06 unsafe/FFM**（P1，按 fixed→stackalloc→指针→extern 分规则滚动，依赖 C01）。
-9. **C10 JSON/Attribute 窄版** 与 **C09 ThreadStatic**（P2，可并行，互不依赖）。
-10. **成员去糖族 C11→C12→C13→C14**（P2，一个通道四条规则，按此顺序因后者依赖前者方法化）。
-11. **数值边界族 C15→C17→C16**（P2，可挂在 E09/E04 既有通道内扩展）。
-12. **C19 扩展方法显式化 → C26 LINQ 通道独立化**（P2，LINQ 先重写、扩展解析后固化）。
-13. **C18 async**：先做形态①原型再决定是否投形态②。
-14. P3 项按下游实际命中率排序：C21/C22/C23/C24/C27/C20/C28/C25。
+3. **C31 Index/Range 归一**（P1，机械、消灭「静默错误输出」；挂 E12 支撑库范式）。
+4. **C02 Generic 深化**（P0，ROADMAP #5/#10 的 C# 侧，连带核实 C30）。
+5. **C05 enum 声明归一**（P1，扩 E04；与 C03 同批验证 enum switch）。
+6. **C07 struct 值语义补全**（P1，扩 E13，回收 StructCloneHelper）。
+7. **C04 yield 迭代器降级**（P1，先原型 try/finally 子题）。
+8. **C08 JavaKeywords 落地**（P1，设计完备；按 spec 必须在链尾，默认关）。
+9. **C06 unsafe/FFM**（P1，按 fixed→stackalloc→指针→extern 分规则滚动，依赖 C01）。
+10. **C34 decimal 运算归一**、**C10 JSON/Attribute 窄版** 与 **C09 ThreadStatic**（P2，三者互不依赖可并行；C34 有 compat Decimal 现成方法面与 E09 范式）。
+11. **C32 Lambda 可变捕获前置化**（P2，复用 E02 捕获分析基建，删转换器内隐式状态）。
+12. **成员去糖族 C11→C12→C13→C14**（P2，一个通道四条规则，按此顺序因后者依赖前者方法化）。
+13. **数值边界族 C15→C17→C16**（P2，可挂在 E09/E04 既有通道内扩展；C34 的 `++/--` 子项并入此处兜底）。
+14. **C19 扩展方法显式化 → C26 LINQ 通道独立化**（P2，LINQ 先重写、扩展解析后固化）。
+15. **C18 async**：先做形态①原型再决定是否投形态②。
+16. P3 项按下游实际命中率排序：C36/C35/C33/C21/C22/C23/C24/C27/C20/C28/C29/C25。
 
 ### 3.2 与现有链的依赖/顺序总览
 
@@ -647,16 +740,17 @@ E01 strip-conditional (174)
 候选插入建议（依赖理由见各条目）：
 
 ```text
-E01 → [C20 若做，放这里] → E02 → E03 → C03(控制流去糖) → E04+C05 → E05
+E01 → [C20 若做，放这里] → E02 → E03 → C03(控制流去糖) → C31(Index/Range) → E04+C05 → E05
  → E06 → E07+C16 → E08 → E09 → E10+C02(+C30) → C01(RefOutIn，位置需原型确认)
  → E11 → E12 → E13+C07 → C06(unsafe) → C04(yield)
- → C09/C10 → C11→C12→C13→C14(成员去糖) → C15/C17(数值族)
+ → C34(decimal) → C09/C10 → C32(lambda 捕获) → C11→C12→C13→C14(成员去糖) → C15/C17(数值族)
  → C19(扩展方法) → [E16/C26 LINQ 独立化后移到此处] → C18(async)
  → E14 goto → C08(JavaKeywords，设计定死最后) → 主转换
+（P3 观察项默认不进链：C29/C33/C35/C36 及 C20–C25/C27/C28 按下游命中率评估）
 ```
 
 横切约束：
-- 凡**注入支撑库**的通道（E05 Cs2jPrelude、E06 Cs2jTuples、E09 Cs2jUnsignedMath、E12 Cs2jArray、C01 Cs2jByRef）都要复用 `ProjectPreprocessSource.cs` 的 restore/资源准备，并在主转换前过滤支撑工程（现做法见 `Program.cs:750-756`）。
+- 凡**注入支撑库**的通道（E05 Cs2jPrelude、E06 Cs2jTuples、E09 Cs2jUnsignedMath、E12 Cs2jArray、C01 Cs2jByRef、C31 Cs2jIndexRange 或并入 Cs2jArray、C34 复用 compat `Decimal` 不新建工程）都要复用 `ProjectPreprocessSource.cs` 的 restore/资源准备，并在主转换前过滤支撑工程（现做法见 `Program.cs:750-756`）。
 - 凡**改名/改签名**的通道（C01、C02、C11-C14、C19、C08）必须基于 SemanticModel 的全编译符号表，不能文本替换——E11/C08 的 plan+回滚范式是指定骨架。
 
 ### 3.3 「同一底层难点」的合并建议
@@ -665,9 +759,11 @@ E01 → [C20 若做，放这里] → E02 → E03 → C03(控制流去糖) → E0
 |--------|------|----------|
 | 控制流去糖 | C03 + C16（string foreach）+ 部分 C05（enum switch） | 语句/模式到 if-链的机械归约 |
 | 成员去糖 | C11 + C12 + C13 + C14（+C27） | 「带访问器语法的成员 → 普通方法 + 后备字段」，对应实验 Lowering 四件套 |
-| 数值边界 | E09 后缀规则 + C15 + C17 + C22 + enum 运算（E04） | 数值运算在窄类型/特殊目标上的显式化；已有 UnsignedPostfix/EnumSyntaxRewriter 基建 |
+| 数值边界 | E09 后缀规则 + C15 + C17 + C22 + C34 decimal + enum 运算（E04） | 数值运算在窄类型/特殊目标上的显式化；已有 UnsignedPostfix/EnumSyntaxRewriter 基建与 compat `Decimal` 方法面 |
 | 值语义 | E11 + E13 + C07 + C01 的 ref struct 子项 | 复制/变异/只读边界；复用 StructAnalyzer/BoxingReachability/MethodMigrator |
-| 泛型擦除补偿 | E10 + C02 + C09（可合并静态字段规则）+ C30 | reified→erased 的运行时信息显式贯穿 |
+| 泛型擦除补偿 | E10 + C02 + C09（可合并静态字段规则）+ C30 + C33（型变/约束审计） | reified→erased 的运行时信息显式贯穿 |
+| 表达式/集合形态归一 | C23 + C24 + C35 + C36（+C31 的切片使用点） | 表达式糖 → 显式语句/构造/调用的机械归约；共用「单次求值临时变量提升」基建（E03 两遍范式） |
+| 捕获/隐藏状态前移 | C32 + C09 | 把转换器内的运行时隐式状态（lambda 捕获 holder、ThreadLocal）显式化为 C# 源码形态 |
 | unsafe 家族 | C06 全部子规则 + E12 的 Span/数组交叉 | 指针模型→索引/Span/FFM；共用 FfmHelper |
 | enum | E04 + C05 + C17 enum 自增 + C22 可空 enum | 同一 EnumSyntaxRewriter 扩展，不新建通道 |
 
@@ -686,6 +782,9 @@ E01 → [C20 若做，放这里] → E02 → E03 → C03(控制流去糖) → E0
 9. **实验性 Lowering 不是实现资产**：`Lowering/*` 仅被 Java2 对比测试引用（`NewConversionPipeline.cs:27-33` ↔ `PipelineComparisonTests.cs`），前置 preprocessor 只能借其**形态**，不能尝试共用代码（IR 不同、生产不可达）。
 10. **opt-in 通道的长期默认化**：E11 RecordReadOnly、E12 ArrayMethod 当前默认关——新增通道若也长期 opt-in，会形成「多套事实标准」；建议每个 P0/P1 通道落地时同时定义默认开启的验收门槛（build/test 全绿 + csharp-sdk 基线不退化）。
 11. **中间树验证成本**：每环都跑 restore + build + test 的串行链会显著拉长 convert-project 耗时；`VerifyBuild/VerifyTests` 已可关（`Program.cs:4773-4777`），但默认开启的通道越多越需要指纹缓存正确——新增中间目录须同步接入现有的 fingerprint/preserve 机制（现状通过 `opts.Source` 串联与指纹回填实现，见各块 `FingerprintSourcePath/FingerprintInputRoot` 赋值）。
+12. **「静默错误输出」是一族独立于 fail-fast 的高危现状（C31/C34/C36）**：三类构造今天不报错、而是产出不可编译/错误 Java——切片对 string 产 `Arrays.copyOfRange("abc", …)`（`ElementAccessTransformer.cs:219-225`）、独立 `^n` 产注释（`:294-299`）、decimal 二元保留 `+`（`BinaryExpressionTransformer.cs:88-92`）、集合表达式 spread 被过滤（`ExpressionTransformerRegistry.cs:139`）。前置化设计的第一原则：C# 侧无法等价表达时**显式报错**，禁止注释/占位/原样透传流入 Java 产物；本清单此前各条多以 fail-fast 计风险，补全后应将「静默错误输出」单列排查面。
+13. **C36 兼任 C# 11/12 新语法防线**：`static abstract` interface members、`scoped`、泛型 attribute 当前无任何专项处理证据（全仓 grep 无命中），会落入转换器默认分支；若输入库使用新语法，建议在 C36 内先做「语法盘点 + 显式拒绝」，再逐个收编。
+14. **「映射存在 ≠ 语义可用」（C34/C10）**：compat `Decimal.java:261-314` 的 `add/subtract/...` 齐备但 C# 侧从未发射；C10 的注解桥同理。实施前需盘点方法面是否齐备（比较运算、`ToString` 文化重载、`switch` governing 等），避免生成不存在的方法名。
 
 ---
 
