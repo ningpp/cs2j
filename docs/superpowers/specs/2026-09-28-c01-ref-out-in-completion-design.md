@@ -1,7 +1,7 @@
 # C01 RefOutIn 接线收尾设计（C# 位置模型闭环 + Java holder 映射）
 
 **日期**: 2026-09-28
-**状态**: 设计草案，待评审
+**状态**: 已核订（2026-09-28 对照 dev-3.x@ff216bcc 逐条核验全部代码证据并修正；Q3/Q5/Q6 已定案，见 §2.2）
 **对应 catalog 条目**: `prompts/preprocessor-catalog.md` §2.B C01（P0，「半截工程，完成边际成本最低、fail-fast 面最广」）
 **前置设计**: [2026-09-28-ref-out-in-preprocessor-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-ref-out-in-preprocessor-design.md)（下称 **D3**，决策 D1–D6 来源）、[2026-07-08-ref-out-in-comprehensive-tests-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-07-08-ref-out-in-comprehensive-tests-design.md)（旧 holder 测试设计）
 **范围**: 只做「完成接线」的设计——补齐 C# 侧重写器覆盖面与可编译性闭环、设计并落地 Java 侧 holder 映射、迁移旧断言。**不新增 pass、不翻转 stub、不重排链序、不删除旧转换器 holder 路径。**
@@ -28,7 +28,7 @@ dotnet CSharpToJava.CLI.dll ref-out-in -s tests/SampleRefOutInV2Solution/SampleR
 
 | 错误 | 位置 | 根因（代码行号见 §4） |
 |---|---|---|
-| CS8149 ×2 | `Calculator.cs:34` `return ref arr[index]` | 返回类型已去 ref，方法体未改写 |
+| CS8149 ×1 | 中间树 `Calculator.cs:34`（源文件 L33 `return ref arr[index]`，注入 using 后 +1 行）——全 fixture 唯一 ref 返回点 | 返回类型已去 ref，方法体未改写（C4） |
 | CS0103 ×3 | `Program.cs:9,10,38` `ByRef` 未找到 | 只有调用点改写的文件不注入 `using Cs2jByRef;` |
 | CS1615 | `Program.cs:15` `if (TryParse(..., out var p))` | 条件内声明式 out 未提升 |
 | CS1615 | `Program.cs:21` `if (calc.TryGet(out int result))` | 同上 |
@@ -40,11 +40,11 @@ dotnet CSharpToJava.CLI.dll ref-out-in -s tests/SampleRefOutInV2Solution/SampleR
 
 **Java 侧缺口（grep 实证）**：
 
-- compat 库只有 8 个基本类型 holder（[IntHolder.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/IntHolder.java) 等，`final`、public 字段 `value`、无共同抽象层）+ [ObjectHolder.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ObjectHolder.java)（`final class ObjectHolder<T>`）；**不存在 ByRef 位置层次**。
+- compat 库只有 8 个基本类型 holder（[IntHolder.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/IntHolder.java) 等——注意布尔 holder 实名 `BoolHolder`；除 `IntHolder` 为非 final 外均为 `public final class`，public 字段 `value`、无共同抽象层）+ [ObjectHolder.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ObjectHolder.java)（`final class ObjectHolder<T>`）；**不存在 ByRef 位置层次**。
 - 旧路径集中在 [HolderTypeResolver.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/HolderTypeResolver.cs)（字符串拼 FQN）、[ArgumentTransformer.Ref.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Ref.cs)（341 行 pre/post 提升 + 数据流明确赋值）、[MethodTransformer.cs:148](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L148)（签名 holder 化）、[ArgumentTransformer.Coercion.cs:158](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Coercion.cs#L158)、[JavaNaming.cs:441-445](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/JavaNaming.cs#L441-L445)、[StructCloneHelper.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/StructCloneHelper.cs)（effectively-read-only 优化）。
 - [config/TypeMappings.json](file:///d:/code/cs2j/config/TypeMappings.json#L334-L354) 已为 `Cs2jUnsigned.UnsignedMath`、`Cs2jArray.ArrayHelper`、`Cs2jPrelude.CsPrelude` 注册「C# 支撑类型 → compat Java 类型」映射，**唯独没有任何 `Cs2jByRef.*` 映射**。转换器当前会把 `ByRef<int>` 当普通用户泛型类裸转，产出无 import、无映射的 Java。
 - 支撑工程过滤已正确接线（[PassChainFactory.cs:233-234](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L233-L234)、[Program.cs:258-265](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L258-L265)、[MultiModulePlanner.cs:37](file:///d:/code/cs2j/src/CSharpToJava.CLI/MultiModulePlanner.cs#L37)），`ByRef.cs` 本身不参与 Java 转换——缺口只在「用户代码对 ByRef 的引用如何映射」。
-- 旧断言仍在：[RefOutInProjectTests.cs:29-40](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/RefOutInProjectTests.cs#L29-L40) 断言直连 pipeline 的 Java 产物含 `IntHolder`/`ObjectHolder`；[RefOutInComprehensiveTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/RefOutInComprehensiveTests.cs) 约 40 个用例直接喂原始 C# 给转换器，全部断言旧 holder 形态。
+- 旧断言仍在：[RefOutInProjectTests.cs:29-40](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/RefOutInProjectTests.cs#L29-L40) 断言直连 pipeline 的 Java 产物含 `IntHolder`/`ObjectHolder`；[RefOutInComprehensiveTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/RefOutInComprehensiveTests.cs) 实测 26 个用例直接喂原始 C# 给转换器，全部断言旧 holder 形态。
 - [RefOutInPostVerifier.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInPostVerifier.cs) 只检查参数位残留（L31-47），且全仓 grep 确认**生产路径从不调用它**（仅单测 L307 引用）。
 - ref struct holder 生成器 [RefOutInSupportFiles.cs:49-71](file:///d:/code/cs2j/src/CSharpToJava.CLI/RefOutInSupportFiles.cs#L49-L71) 产出的字段是 `object _slot` / `object[] _array`——ref struct 不能装箱（CS0029/CS0306），该产物对任何真实 ref struct 类型都不可用，且缺设计 §3.3 要求的强类型字段与全部 `Create` 工厂。
 
@@ -102,26 +102,26 @@ catalog C01 点名的 5 处转换器 fail-fast（行号本次逐一核实，均�
 
 #### Q2 C# ref struct holder 形态（直接决定 Q1 映射数量）
 
-- **方案 A（推荐）：单个泛型 `ref struct RefStructByRef<T>`**（direct slot + `(T[] array,int index)` 双模式 + 三工厂）。C# 允许 ref struct 持有不受限类型参数 `T` 的实例字段（`Span<T>` 自身即如此）；一次定义即可，删除 [RefOutInMangling.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInMangling.cs)、删除按类型代码生成，Java 侧映射收敛为一个 `RefStructByRef<T>` 普通类。
+- **方案 A（推荐，已定案）：单个泛型 `ref struct RefStructByRef<T>`（仅槽模式 + 双工厂 `Create()`/`Create(T)`）**。C# 允许 ref struct 持有不受限类型参数 `T` 的实例字段（`Span<T>` 自身即如此）；一次定义即可，删除 [RefOutInMangling.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInMangling.cs)、删除按类型代码生成，Java 侧映射收敛为一个 `RefStructByRef<T>` 普通类。**对 D3 §3.3 的修正：去掉 `(T[] array,int index)` 数组模式**——ref struct 不能作为数组元素（CS0611），`RefStructByRef<Span<int>>.Create(spanArr, i)` 永远不可实例化，双模式属死代码；且 csharp-sdk 实测（Utf8JsonReader 等 10+ 处 `ref ReadOnlySpan<byte>`）全是「ref struct 本体按槽传递 + `ref int` 按普通 ByRef」的混合形态，槽模式足够。
 - 方案 B：维持 D3 §3.3 按类型生成 `RefStructByRef_<Mangled>`，但把 [RefOutInSupportFiles.cs:49-71](file:///d:/code/cs2j/src/CSharpToJava.CLI/RefOutInSupportFiles.cs#L49-L71) 修为强类型实现；Java 侧需 demangle 或读特性还原元素类型，映射碎片化。
 
 推荐 A，M2 开工时先用 10 行探针验证 `ref struct RefStructByRef<T>` 在 net10.0 对 `T=Span<int>` 可编译可运行；若探针失败再退回 B。
 
-#### Q3 Java 侧 `.Value` 的 API 形态
+#### Q3 Java 侧 `.Value` 的 API 形态（已定案）
 
-推荐 **抽象方法 `getValue()`/`setValue(T)` + method mapping**（与转换器 `TryMapPropertyToMethod` 机制对齐，[ExpressionTransformerFacade.cs:421-455](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L421-L455)），不使用旧 holder 的 public 字段风格。若 get/set 共用一个 `Value` 名在 methodMappings 中无法区分读写（[TypeMappingRegistry.cs:43-56](file:///d:/code/cs2j/src/CSharpToJava.Core/TypeMapping/TypeMappingRegistry.cs#L43-L56) 每条目一个 `javaMethod`），则在转换器加 ByRef 专用识别分支（读→`getValue()`、赋值 LHS→`setValue(...)`），M3 以测试先行确认走哪条。
+**定案：抽象属性 `Value` + 转换器既有属性约定自动产出 `getValue()`/`setValue(T)`，无需专用分支、无需 methodMappings 条目。** 核验依据：C# 侧 `ByRef<T>.Value` 是 **属性**（`public abstract T Value { get; set; }`，IPropertySymbol），而转换器对未映射属性本就按 Java bean 约定发射——读路径经 [ExpressionTransformerFacade.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs) 的属性→getter 约定（`TryMapPropertyToMethod` 未命中后回落 `get+PascalName()`），写路径经 [AssignmentTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs) `Property()`（`set+PascalName(...)`，含复合赋值 get-op-set 展开）。因此 Java 类只需按 `getValue/setValue` 命名即可命中两条约定。备选的 methodMappings 方案已否决：[TypeMappingRegistry.cs:43-56](file:///d:/code/cs2j/src/CSharpToJava.Core/TypeMapping/TypeMappingRegistry.cs#L43-L56) 每条目仅一个 `javaMethod`，无法区分读写。M3 以回归测试锁死该约定（读→`getValue()`、赋值 LHS→`setValue(...)`、复合 `+=` 展开正确）。
 
 #### Q4 accessor 代理 lambda 的 Java 落地
 
-C# 工厂实参 `() => x`、`v => x = v` 推荐映射到 JDK `java.util.function.Supplier<T>` / `Consumer<T>`（[TypeGroupResolver.cs:556-564](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/TypeGroupResolver.cs#L556-L564) 已把 Func/Action 家族映射到 `java.util.function.*`）。风险：setter lambda `v => x = v` 是表达式 lambda（Java 赋值是表达式，合法）但捕获形态（捕获局部/字段/this/数组）必须在 C# 中间树实测转换；这正是 LambdaTransformer 两处 fail-fast 的对接面。备选：compat 自定义 `Cs2jGetter/Setter` 接口——仅当 Q4 实测 JDK 函数式路径不通时启用。
+C# 工厂实参 `() => x`、`v => x = v` 推荐映射到 JDK `java.util.function.Supplier<T>` / `Consumer<T>`。核验更正：[TypeGroupResolver.cs:556-564](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/TypeGroupResolver.cs#L556-L564) 是 `AddStandardJdkImports` 的**无条件标准 import 注入**（`java.util.function.{Supplier,Consumer,Function,...}` 全在其中），即 import 面零成本；Func/Action 家族 → `java.util.function.*` 的类型映射由既有 TypeMappings 提供。风险：setter lambda `v => x = v` 是表达式 lambda（Java 赋值是表达式，合法）但捕获形态（捕获局部/字段/this/数组）必须在 C# 中间树实测转换；这正是 LambdaTransformer 两处 fail-fast 的对接面。备选：compat 自定义 `Cs2jGetter/Setter` 接口——仅当 Q4 实测 JDK 函数式路径不通时启用。
 
-#### Q5 ref 字段 / 含 ByRef 字段的 ref struct 降级（矩阵 #15/#18）
+#### Q5 ref 字段 / 含 ByRef 字段的 ref struct 降级（矩阵 #15/#18）（已定案：显式 Error）
 
-现实现只改了字段声明类型（[RefOutInSyntaxRewriter.cs:597-612](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L597-L612)），构造/初始化适配与「ref struct 含类字段自动降级为普通 struct」均未做。M2 先在 csharp-sdk 扫描命中率：命中则补全；近零则按 catalog §4 风险 12 原则改为**显式 Error**（§6 CS2J3303 同族），禁止半坏代码流出。
+现实现只改了字段声明类型（[RefOutInSyntaxRewriter.cs:597-612](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L597-L612)），构造/初始化适配与「ref struct 含类字段自动降级为普通 struct」均未做。**2026-09-28 对全量 `D:\csharp-sdk`（两个 sln 的全部 .cs）扫描：ref 字段声明 0 命中**——按预设走 catalog §4 风险 12 原则：ref 字段改为**显式 Error（CS2J3303 族）**，删除半成品声明改写（改写但不改初始化/用法会产出更难诊断的半坏代码）。
 
-#### Q6 多维/交错数组元素 ref
+#### Q6 多维/交错数组元素 ref（已定案：默认 fail-fast）
 
-[ByRef.cs:14](file:///d:/code/cs2j/src/Cs2jRefOutIn/ByRef.cs#L14) 只有一维工厂，rewriter 却会对任意维数发射 `ByRef<T>.Create(arr, i, j)`（[RefOutInSyntaxRewriter.cs:427](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L427)）。M2 扫描 sdk 命中率后二选一：补 `Create(T[,],int,int)` 等重载，或显式 Error。默认先 fail-fast。
+[ByRef.cs:14](file:///d:/code/cs2j/src/Cs2jRefOutIn/ByRef.cs#L14) 只有一维数组工厂，rewriter 却会对任意维数发射 `ByRef<T>.Create(arr, i, j)`（[RefOutInSyntaxRewriter.cs:427](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L427)）。**2026-09-28 对全量 csharp-sdk 扫描：多维数组 ref 取址 0 命中**——默认 fail-fast（CS2J3303）定案；未来命中再按需补 `Create(T[,],int,int)` 重载。
 
 ---
 
@@ -158,7 +158,7 @@ C# 工厂实参 `() => x`、`v => x = v` 推荐映射到 JDK `java.util.function
 | C4 | ref 返回只改签名不改体：[L92-98](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L92-L98) 去了返回类型 ref，无 `VisitReturnStatement`，实测 CS8149；ref 属性/ref 索引器声明完全未处理 | `return ref e` → 按位置种类 `return <proxy(e)>`；补 property/indexer 声明与外部使用点 `.Value`（矩阵 #13/#16；§5.5） |
 | C5 | lambda / 局部函数 ref-out 形参未改写（只有 method/ctor/delegate 三个 Visit） | 同一符号表一致改写，消除 [LambdaTransformer.cs:99](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LambdaTransformer.cs#L99) 的输入面（矩阵 #8） |
 | C6 | 外部转发方向错误：[L270-274 与 L318-344](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L270-L344) 对外部 ref/out 实参里的 H 槽**不加** `.Value`，产出非法的 `Ext(ref a)`（a 已为 ByRef<T>） | 改为 `Ext(ref a.Value)` / `Ext(out a.Value)`（类字段取址合法，§5.4）；普通存储外部调用继续原样 |
-| C7 | ref struct 调用点仍发 `ByRef<T>.Create(...)`（[L427/L472/L487/L562/L569](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L427)），与 Q2 选定形态不符；ref 局部重绑定 `r = ref e2` 未处理 | 按 Q2 统一发 `RefStructByRef<T>.Create(...)`；重绑定改普通赋值（§5.5） |
+| C7 | ref struct 路径端到端断裂：形参签名改写为 `RefStructByRef_<Mangled>`（[L116-119](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L116-L119)），但生成 holder 无 `Create` 工厂、调用点也从不构造该类型——实参原样裸传，中间树必编译失败。`ByRef<T>.Create(...)` 的发射点（L427/L472/L487/L562/L569）是**数组元素/访问器代理**（与类型无关的通用代理形态），并非 ref struct 专用路径；ref 局部重绑定 `r = ref e2` 未处理 | 按 Q2 统一发 `RefStructByRef<T>`（槽模式 + 调用点工厂 + 读回）；重绑定改普通赋值（§5.5） |
 | C8 | `using Cs2jByRef;` 只在声明改写时经 `UsedHolder` 注入（[RefOutInRewriter.cs:43-47](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInRewriter.cs#L43-L47)），纯调用点文件缺 using，实测 CS0103 ×3 | 提升代码一旦引用 holder 工厂/类型即置位；或在收口阶段按编译诊断补注入（§5.6） |
 | C9 | `in` 碰撞保留 + Warning 未实现（`InOverloadKept` 恒 0） | CD8：去 `in` 后用符号表查重复声明/调用歧义，碰撞则保留并 Warning（§2） |
 | C10 | 后置自检过弱且未接线：[RefOutInPostVerifier.cs:31-47](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInPostVerifier.cs#L31-L47) 只查参数；适配器从不调用 | 升级到 D3 §7 四项断言（声明/返回/局部/字段/数组取址零内部残留；using/ProjectReference/`<Compile Remove>` 齐套），适配器 verify 阶段强制调用，违例 Error（§7.5） |
@@ -174,9 +174,9 @@ C# 工厂实参 `() => x`、`v => x = v` 推荐映射到 JDK `java.util.function
 | # | 缺口 | 补全内容 |
 |---|---|---|
 | S1 | [RefOutInSupportFiles.cs:49-71](file:///d:/code/cs2j/src/CSharpToJava.CLI/RefOutInSupportFiles.cs#L49-L71) 生成 `object` 字段的伪 holder，缺工厂，对 ref struct 不可用 | Q2 定案后：推荐改为释放**一个**泛型 `RefStructByRef<T>` 源文件（真源放 `src/Cs2jRefOutIn/`，嵌入资源分发，与 [ByRef.cs](file:///d:/code/cs2j/src/Cs2jRefOutIn/ByRef.cs) 同机制），删除按类型生成循环与 `RequiredRefStructTypes` 并集；若保留方案 B 则生成强类型 direct/array 双模式 + 三工厂 |
-| S2 | [ByRef.cs](file:///d:/code/cs2j/src/Cs2jRefOutIn/ByRef.cs) 仅一维数组工厂 | 随 Q6 决策补重载或维持一维（C13 报错对齐） |
+| S2 | [ByRef.cs](file:///d:/code/cs2j/src/Cs2jRefOutIn/ByRef.cs) 已具备四工厂三形态（无 seed 槽 / 带 seed 槽 / 一维数组元素 / 访问器闭包），缺口仅剩多维数组（Q6 已定案 fail-fast，无需补） | 维持现状；仅随 S1 一起作为嵌入资源分发，注释对齐 CS2J3303 报错口径 |
 | S3 | 单文件模式只写 ByRef.cs（[Program.cs:2602-2604](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L2602-L2604)），不含 RefStructByRef | 按 Q2 后形态合并写入 `_Cs2jRefOutIn.cs`（D3 §6.2） |
-| S4 | fixture 不可构建：[SampleRefOutInV2App.csproj](file:///d:/code/cs2j/tests/SampleRefOutInV2Solution/SampleRefOutInV2App/SampleRefOutInV2App.csproj) 用顶级语句但缺 `<OutputType>Exe</OutputType>`（CS8805）；三个项目测试显式关 verify | 修 csproj；用例打开 VerifyBuild/Tests；fixture 补齐矩阵代表场景（成员链、条件内 out、ref 返回、ref 局部），内容须与 C1-C13 同步演进 |
+| S4 | fixture 不可构建：[SampleRefOutInV2App.csproj](file:///d:/code/cs2j/tests/SampleRefOutInV2Solution/SampleRefOutInV2App/SampleRefOutInV2App.csproj) 用顶级语句但缺 `<OutputType>Exe</OutputType>`（CS8805）；三个项目测试显式关 verify；**fixture 无测试工程，`VerifyTests` 即使打开也无实义** | 修 csproj；**新增 `SampleRefOutInV2Tests` xunit 测试工程**（覆盖 ByRef 语义断言，使 `dotnet test` 有实际断言）；用例打开 VerifyBuild/Tests；fixture 补齐矩阵代表场景（成员链、条件内 out、ref 返回、ref 局部），内容须与 C1-C13 同步演进 |
 | S5 | 适配器后置钩子未做自检调用；ROI 码位与 CS2Jxxxx 风格不一致 | 接入 C10 自检；诊断码按 §6 映射（保留 ROI 旧码为消息别名一个版本，新码并行发射） |
 | S6 | 指纹/过滤/排除已接线，无需改动 | 仅回归确认 Cs2jRefOutIn 不进指纹快照、不规划 Maven |
 
@@ -249,7 +249,7 @@ public final class RefStructByRef<T> {
 |---|---|---|---|
 | J1 | 类型/字段/形参/局部 `Cs2jByRef.ByRef<T>` | `io.github.ningpp.compat.ByRef<T>` + import | TypeMappings.json `typeMappings` 新增条目，形状仿 [L334-340](file:///d:/code/cs2j/config/TypeMappings.json#L334-L340) UnsignedMath 条目 |
 | J2 | `Cs2jByRef.RefStructByRef<T>`（Q2 方案 A 后） | `io.github.ningpp.compat.RefStructByRef<T>` | 同上 |
-| J3 | `a.Value` 读 / `a.Value = x` 写 | `a.getValue()` / `a.setValue(x)` | 优先 methodMappings（`type=Cs2jByRef.ByRef, method=Value, javaMethod=getValue` 等，机制见 [TypeMappingRegistry.cs:313-327](file:///d:/code/cs2j/src/CSharpToJava.Core/TypeMapping/TypeMappingRegistry.cs#L313-L327)）；若单条目无法区分读写（Q3），在 [ExpressionTransformerFacade.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs) 加 ByRef 专用识别分支 |
+| J3 | `a.Value` 读 / `a.Value = x` 写 | `a.getValue()` / `a.setValue(x)` | **零配置**：`Value` 是 C# 属性，转换器既有属性约定自动产出（读→`get+Name()` 回落、写→[AssignmentTransformer.Property](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs) `set+Name(...)`，Q3 定案）；不注册 methodMappings，仅以回归测试锁死 |
 | J4 | `ByRef<T>.Create(...)` 四形态 | `ByRef.create(...)`（**去显式类型实参**，重载按参数形状解析） | 静态泛型调用发射规则：识别 receiver 为 ByRef/RefStructByRef 时省略类型见证；lambda 实参原样转 Java lambda，目标类型推断为 Supplier/Consumer |
 | J5 | `RefStructByRef_<Mangled>`（仅当 Q2 走方案 B） | `RefStructByRef<T元素>` | 需经特性标注或 demangle 还原元素类型；方案 A 落地后本规则删除 |
 | J6 | 旧路径签名 holder（外部/锁定残留） | `IntHolder`/`ObjectHolder<T>` 等 | 维持 [MethodTransformer.cs:148](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L148) + HolderTypeResolver 不动；回归测试锁死「ByRef 形参不被二次 holder 化」（参数已无 ref/out 关键字，天然不触发，加测试确认） |
@@ -301,7 +301,7 @@ D6（外部契约锁定）在 Java 侧的推论：
 
 ### 7.1 Core 单测（扩充 [RefOutInRewriterUnitTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/RefOutInRewriterUnitTests.cs)）
 
-- 现有 15 个文本断言用例保留，并把编译引用从「仅 mscorlib」升级为**带 Cs2jRefOutIn 源/程序集的真实编译**，每个正例断言输出 `CSharpCompilation` 零 error（仿 java-keywords 设计的 `AssertOutputCompiles`）。
+- 现有 16 个文本断言用例保留，并把编译引用从「仅 mscorlib」升级为**带 Cs2jRefOutIn 源/程序集的真实编译**，每个正例断言输出 `CSharpCompilation` 零 error（仿 java-keywords 设计的 `AssertOutputCompiles`）。
 - 新增（按 §4 缺口）：
   - C1：提升出现在 `if/while/do/for` 条件、`return` 右值、局部声明初始化、嵌套调用实参、`&&/||/??` 短路右侧（断言右侧不被无条件执行）、三元/二元；多实参前置左→右、读回逆序；
   - C2：`out var`/`out int x`/`out _`（含条件内与 foreach 体内）；
@@ -319,7 +319,7 @@ D6（外部契约锁定）在 Java 侧的推论：
 
 ### 7.2 项目级 fixture 与中间树 Release build/test
 
-- 修 [SampleRefOutInV2Solution](file:///d:/code/cs2j/tests/SampleRefOutInV2Solution)（S4：Exe + 场景补齐），[RefOutInPreprocessorTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/RefOutInPreprocessorTests.cs) 三个用例**打开 VerifyBuild/VerifyTests**，断言退出码 0 与测试全绿；保留对支撑库释放、ProjectReference、无内联 helper 的既有断言。
+- 修 [SampleRefOutInV2Solution](file:///d:/code/cs2j/tests/SampleRefOutInV2Solution)（S4：Exe + 新增 xunit 测试工程 + 场景补齐），[RefOutInPreprocessorTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/RefOutInPreprocessorTests.cs) 三个用例**打开 VerifyBuild/VerifyTests**，断言退出码 0 与测试全绿；保留对支撑库释放、ProjectReference、无内联 helper 的既有断言。
 - 新增覆盖：内部↔外部混用（ByRef 槽转发 `int.TryParse`）、ref 返回属性、ref 局部重绑定、Span ref/in 重载、（按 Q5/Q6 结论）ref 字段/多维数组。
 - CI 命令：`dotnet build -c Release`、`dotnet test -c Release` 于 `.cs2j-refoutin-src`；旧 [SampleRefOutInSolution](file:///d:/code/cs2j/tests/SampleRefOutInSolution) 保持直连 Java 路径基线不动（D3 §8.2 注记仍成立）。
 
@@ -418,8 +418,8 @@ M1/M2 只动 C# 侧即可独立交付价值（把「C# 闭环不成立」先修�
 
 - **分支**：feature/preproc-c01-refout-finish
 - **目录**：.worktrees/preproc-c01-refout-finish（仓库 d:\code\cs2j 内，已被 .gitignore 忽略；实测 `.gitignore:77` 与 `:85` 均含 `.worktrees/`）
-- **base**：f68a783c（dev-3.x 当前 HEAD，2026-09-28 核实：`feat(preprocessing): register 23 merged-family stub passes`）
-- **创建命令**：`git worktree add .worktrees/preproc-c01-refout-finish -b feature/preproc-c01-refout-finish f68a783c`
+- **base**：ff216bcc（dev-3.x HEAD，2026-09-28 核实：`docs: C09 [ThreadStatic] 前置化预处理器设计`。注：本设计核订版与实现计划以 docs 提交落在 dev-3.x，开工 base 应取「spec/plan 提交之后的 dev-3.x HEAD」，创建前用 `git rev-parse dev-3.x` 现场核实）
+- **创建命令**：`git worktree add .worktrees/preproc-c01-refout-finish -b feature/preproc-c01-refout-finish ff216bcc`
 - **说明**：开工时从该 worktree 启动；doc 本身在主工作区编写提交。
 
 ---
