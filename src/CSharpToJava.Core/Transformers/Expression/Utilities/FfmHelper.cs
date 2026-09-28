@@ -1,6 +1,7 @@
 using System;
 using CSharpToJava.Core.Context;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.Transformers.Expression.Utilities;
@@ -273,5 +274,106 @@ public static class FfmHelper
         if (usesArena)
             return ["java.lang.foreign.MemorySegment", "java.lang.foreign.ValueLayout", "java.lang.foreign.Arena"];
         return ["java.lang.foreign.MemorySegment", "java.lang.foreign.ValueLayout"];
+    }
+
+    /// <summary>
+    /// Renders a binary pointer operation: p + n, p - p, p - n, pointer ordering/equality.
+    /// Returns null when the expression is not a handled pointer operation so the caller
+    /// continues the normal pipeline (operands are transformed lazily, only on a match).
+    /// </summary>
+    public static string? TryTransformPointerBinary(BinaryExpressionSyntax node, string op, ConversionContext ctx)
+    {
+        var leftType = ctx.GetTypeInfo(node.Left).Type;
+        var rightType = ctx.GetTypeInfo(node.Right).Type;
+        var leftIsPtr = leftType is IPointerTypeSymbol;
+        var rightIsPtr = rightType is IPointerTypeSymbol;
+        var f = ExpressionTransformerFacade.Instance;
+
+        if (op == "+" && leftType is IPointerTypeSymbol addPtr)
+        {
+            var (left, right) = (f.Transform(node.Left, ctx), f.Transform(node.Right, ctx));
+            return PointerAddSub(left, right, addPtr, ctx, "+");
+        }
+        if (op == "-" && leftType is IPointerTypeSymbol subPtr)
+        {
+            var (left, right) = (f.Transform(node.Left, ctx), f.Transform(node.Right, ctx));
+            return rightIsPtr ? PointerDiff(left, right, subPtr, ctx)
+                              : PointerAddSub(left, right, subPtr, ctx, "-");
+        }
+        if (op is "==" or "!=" && (leftIsPtr || rightIsPtr))
+        {
+            var (left, right) = (f.Transform(node.Left, ctx), f.Transform(node.Right, ctx));
+            return PointerEquals(node, op, left, right, leftIsPtr, rightIsPtr, ctx);
+        }
+        if (op is "<" or ">" or "<=" or ">=" && leftIsPtr && rightIsPtr)
+        {
+            var (left, right) = (f.Transform(node.Left, ctx), f.Transform(node.Right, ctx));
+            return $"{PointerAddress(node.Left, left, ctx)} {op} {PointerAddress(node.Right, right, ctx)}";
+        }
+        return null;
+    }
+
+    /// <summary>p + n / p - n, with in-bounds slices preferred over raw advance.</summary>
+    private static string? PointerAddSub(string left, string right, IPointerTypeSymbol ptr,
+        ConversionContext ctx, string sign)
+    {
+        var info = ctx.FindPointerInfo(left.Trim())
+            ?? (ptr.PointedAtType != null ? CreatePointerInfo("", ptr.PointedAtType.ToDisplayString()) : null);
+        if (info == null) return null; // fall back to standard rendering
+
+        var scale = info.ElementSize == 1 ? right : $"(long)({right}) * {info.ElementSize}";
+        if (ctx.TryGetPointerBase(left.Trim(), out var baseVar))
+        {
+            var delta = sign == "+" ? scale : $"-{scale}";
+            var offset = $"{left}.address() - {baseVar}.address() {sign} {scale}";
+            return $"({offset} >= 0 && {offset} <= {baseVar}.byteSize() " +
+                   $"? {baseVar}.asSlice({offset}) : MemorySegmentHelper.advance({left}, {delta}))";
+        }
+        if (sign == "-")
+            return info.ElementSize == 1
+                ? $"MemorySegmentHelper.advance({left}, -{right})"
+                : $"MemorySegmentHelper.advance({left}, -(long)({right}) * {info.ElementSize})";
+        return GeneratePointerArithmetic(left.Trim(), info, right);
+    }
+
+    private static string PointerDiff(string left, string right, IPointerTypeSymbol leftPtr, ConversionContext ctx)
+    {
+        var info = ctx.FindPointerInfo(left.Trim())
+            ?? CreatePointerInfo("", leftPtr.PointedAtType?.ToDisplayString() ?? "byte");
+        var elementSize = info?.ElementSize ?? 1;
+        return elementSize == 1
+            ? $"({left}.address() - {right}.address())"
+            : $"({left}.address() - {right}.address()) / {elementSize}";
+    }
+
+    private static string? PointerEquals(BinaryExpressionSyntax node, string op,
+        string left, string right, bool leftIsPtr, bool rightIsPtr, ConversionContext ctx)
+    {
+        if (leftIsPtr && rightIsPtr)
+            return $"{PointerAddress(node.Left, left, ctx)} {op} {PointerAddress(node.Right, right, ctx)}";
+
+        var leftIsNull = node.Left.IsKind(SyntaxKind.NullLiteralExpression);
+        var rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
+        if (!((leftIsPtr && rightIsNull) || (rightIsPtr && leftIsNull)))
+            return null; // pointer vs non-null/non-pointer: fall back to standard rendering
+
+        // Segments from asSlice() are never reference-equal; null also means zero-address.
+        var pointer = leftIsPtr ? left : right;
+        return op == "=="
+            ? $"({pointer} == null || {pointer}.address() == 0)"
+            : $"({pointer} != null && {pointer}.address() != 0)";
+    }
+
+    /// <summary>Pointer operands compare via .address(); (byte*)n casts of integrals stay raw.</summary>
+    private static string PointerAddress(ExpressionSyntax node, string transformed, ConversionContext ctx)
+    {
+        if (node is CastExpressionSyntax cast
+            && ctx.GetTypeInfo(cast.Expression).Type is { } inner
+            && inner.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64
+                or SpecialType.System_Int16 or SpecialType.System_UInt32 or SpecialType.System_UInt64
+                or SpecialType.System_UInt16 or SpecialType.System_Byte or SpecialType.System_SByte
+                or SpecialType.System_Char or SpecialType.System_IntPtr or SpecialType.System_UIntPtr)
+            return transformed;
+        return transformed + ".address()";
     }
 }

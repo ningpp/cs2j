@@ -5,2200 +5,310 @@ using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression.Utilities;
-using System.Collections.Generic;
+using CSharpToJava.Core.Transformers.Member;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
-/// <summary>
-/// Handles binary expressions (arithmetic, logical, bitwise, comparison, coalesce).
-/// </summary>
+/// <summary>Binary expressions — thin dispatcher (logic lives in FfmHelper / BinaryExpressionSupport).</summary>
 [TransformerRegistration]
 public class BinaryExpressionTransformer : IIRExpressionTransformer
 {
     static BinaryExpressionTransformer()
-    {
-        ExpressionTransformerRegistry.Register(new[]
-        {
-            SyntaxKind.AddExpression,
-            SyntaxKind.SubtractExpression,
-            SyntaxKind.MultiplyExpression,
-            SyntaxKind.DivideExpression,
-            SyntaxKind.ModuloExpression,
-            SyntaxKind.GreaterThanExpression,
-            SyntaxKind.GreaterThanOrEqualExpression,
-            SyntaxKind.LessThanExpression,
-            SyntaxKind.LessThanOrEqualExpression,
-            SyntaxKind.EqualsExpression,
-            SyntaxKind.NotEqualsExpression,
-            SyntaxKind.LogicalAndExpression,
-            SyntaxKind.LogicalOrExpression,
-            SyntaxKind.CoalesceExpression,
-            SyntaxKind.BitwiseAndExpression,
-            SyntaxKind.BitwiseOrExpression,
-            SyntaxKind.ExclusiveOrExpression,
-            SyntaxKind.LeftShiftExpression,
-            SyntaxKind.RightShiftExpression,
-            SyntaxKind.UnsignedRightShiftExpression
-        }, new BinaryExpressionTransformer());
-    }
+        => ExpressionTransformerRegistry.Register(BinOps.RegisteredKinds, new BinaryExpressionTransformer());
 
     private static readonly Lazy<BinaryExpressionTransformer> _instance = new(() => new());
     public static BinaryExpressionTransformer Instance => _instance.Value;
 
     public string Transform(ExpressionSyntax node, ConversionContext context)
-        => node.Kind() switch
-        {
-            SyntaxKind.AddExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "+", context),
-            SyntaxKind.SubtractExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "-", context),
-            SyntaxKind.MultiplyExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "*", context),
-            SyntaxKind.DivideExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "/", context),
-            SyntaxKind.ModuloExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "%", context),
-            SyntaxKind.GreaterThanExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, ">", context),
-            SyntaxKind.GreaterThanOrEqualExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, ">=", context),
-            SyntaxKind.LessThanExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "<", context),
-            SyntaxKind.LessThanOrEqualExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "<=", context),
-            SyntaxKind.EqualsExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "==", context),
-            SyntaxKind.NotEqualsExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "!=", context),
-            SyntaxKind.LogicalAndExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "&&", context),
-            SyntaxKind.LogicalOrExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "||", context),
-            SyntaxKind.CoalesceExpression => TransformCoalesceExpression((BinaryExpressionSyntax)node, context),
-            SyntaxKind.BitwiseAndExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "&", context),
-            SyntaxKind.BitwiseOrExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "|", context),
-            SyntaxKind.ExclusiveOrExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "^", context),
-            SyntaxKind.LeftShiftExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, "<<", context),
-            SyntaxKind.RightShiftExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, ">>", context),
-            SyntaxKind.UnsignedRightShiftExpression => TransformBinaryExpression((BinaryExpressionSyntax)node, ">>>", context),
-            _ => throw new NotSupportedException($"Binary expression kind {node.Kind()} not supported.")
-        };
+    {
+        if (!BinOps.ByKind.TryGetValue(node.Kind(), out var op))
+            throw new NotSupportedException($"Unsupported binary expression: {node.Kind()}");
+        return op.Cat == BinOpCat.Coalesce
+            ? TransformCoalesce((BinaryExpressionSyntax)node, context)
+            : TransformBinary((BinaryExpressionSyntax)node, op, context);
+    }
 
-    /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
     {
-        if (node is not BinaryExpressionSyntax binExpr)
+        if (node is not BinaryExpressionSyntax bin
+            || !BinOps.ByKind.TryGetValue(bin.Kind(), out var op)
+            || op.Cat == BinOpCat.Coalesce)
             return new JavaRawExpression(Transform(node, context));
-
         var facade = ExpressionTransformerFacade.Instance;
 
-        // Coalesce (??) → JavaConditionalExpression
-        if (binExpr.IsKind(SyntaxKind.CoalesceExpression))
+        if (TryResolveOperatorCall(bin, op, context, inference: false, out var opType, out var javaName))
+            return BuildOperatorCallIR(bin, opType!, javaName, context);
+        if (op.Cat == BinOpCat.Relational && TryTransformCompatComparison(bin, op.Java, context) is { } cmp)
+            return new JavaRawExpression(cmp);
+
+        if (op.Cat == BinOpCat.Equality)
         {
-            // Delegate to Transform because of temp var hoisting for side-effectful left
-            var code = Transform(node, context);
-            return new JavaRawExpression(code);
-        }
-
-        // Map syntax kind to Java operator (null for special-cased kinds)
-        var op = binExpr.Kind() switch
-        {
-            SyntaxKind.AddExpression => "+",
-            SyntaxKind.SubtractExpression => "-",
-            SyntaxKind.MultiplyExpression => "*",
-            SyntaxKind.DivideExpression => "/",
-            SyntaxKind.ModuloExpression => "%",
-            SyntaxKind.GreaterThanExpression => ">",
-            SyntaxKind.GreaterThanOrEqualExpression => ">=",
-            SyntaxKind.LessThanExpression => "<",
-            SyntaxKind.LessThanOrEqualExpression => "<=",
-            SyntaxKind.EqualsExpression => "==",
-            SyntaxKind.NotEqualsExpression => "!=",
-            SyntaxKind.LogicalAndExpression => "&&",
-            SyntaxKind.LogicalOrExpression => "||",
-            SyntaxKind.BitwiseAndExpression => "&",
-            SyntaxKind.BitwiseOrExpression => "|",
-            SyntaxKind.ExclusiveOrExpression => "^",
-            SyntaxKind.LeftShiftExpression => "<<",
-            SyntaxKind.RightShiftExpression => ">>",
-            SyntaxKind.UnsignedRightShiftExpression => ">>>",
-            _ => null
-        };
-
-        if (op == null)
-            return new JavaRawExpression(Transform(node, context));
-
-        // Check for user-defined operators → JavaMethodCallExpression
-        if (context.SemanticModel != null)
-        {
-            var symbolInfo = context.GetSymbolInfo(node);
-            if (symbolInfo.Symbol is IMethodSymbol ms
-                && ms.MethodKind == MethodKind.UserDefinedOperator
-                && ms.ContainingType != null
-                && !IsBuiltInType(ms.ContainingType)
-                && OperatorHasSourceDeclaration(ms)
-                && !IsStructNullLiteralComparison(ms, binExpr))
-            {
-                // 结构体 ==/!= 声明端保持 valueEquals/notEquals（StructTransformer
-                // 合成依赖），调用点残余路径沿用 Java 名保持一致。
-                var tsOpName = false;
-                var javaMethodName = GetOperatorMethodName(ms, tsOpName);
-                var leftIR = facade.TransformToIR(binExpr.Left, context);
-                var rightIR = facade.TransformToIR(binExpr.Right, context);
-
-                var currentTypeName = context.CurrentType?.Name;
-                var operatorTypeName = ms.ContainingType.Name;
-
-                JavaExpression? target;
-                // TS 无 Java 的隐式静态访问：类内调用点也必须
-                // Type.op_Add(...) 限定（Task 27）。
-                if (currentTypeName != null && operatorTypeName == currentTypeName)
-                {
-                    target = null; // unqualified call within same class (Java only)
-                }
-                else
-                {
-                    var containingType = context.MapType(ms.ContainingType);
-                    var angleIdx = containingType.IndexOf('<');
-                    if (angleIdx > 0) containingType = containingType[..angleIdx];
-                    target = new JavaIdentifierExpression { Name = containingType };
-                }
-
-                var call = new JavaMethodCallExpression { Target = target, MethodName = javaMethodName };
-                call.Arguments.Add(leftIR);
-                call.Arguments.Add(rightIR);
-                return call;
-            }
-
-            // Fallback: when GetSymbolInfo fails or operator is from a non-source (BCL) type,
-            // use operand type info to detect compat library method calls
-            if (IsArithmeticOp(op))
-            {
-                bool shouldFallback = symbolInfo.Symbol == null
-                    || (symbolInfo.Symbol is IMethodSymbol ms2
-                        && ms2.MethodKind == MethodKind.UserDefinedOperator
-                        && !OperatorHasSourceDeclaration(ms2));
-                if (shouldFallback)
-                {
-                    var fallbackResult = TryTransformOperatorByTypeInfoToIR(binExpr, op, context);
-                    if (fallbackResult != null)
-                        return fallbackResult;
-                }
-            }
-
-            var compatComparison = TryTransformCompatComparison(binExpr, op, context);
-            if (compatComparison != null)
-                return new JavaRawExpression(compatComparison);
-        }
-
-        // Check for string equality (needs Objects.equals) → JavaMethodCallExpression
-if ((op == "==" || op == "!=") && context.SemanticModel != null)
-        {
-            bool leftIsString = IsStringType(binExpr.Left, context.SemanticModel);
-            bool rightIsString = IsStringType(binExpr.Right, context.SemanticModel);
-            bool leftIsNull = binExpr.Left.IsKind(SyntaxKind.NullLiteralExpression);
-            bool rightIsNull = binExpr.Right.IsKind(SyntaxKind.NullLiteralExpression);
-            if ((leftIsString || rightIsString) && !leftIsNull && !rightIsNull)
-            {
-                context.AddImport("java.util.Objects");
-                var leftIR = facade.TransformToIR(binExpr.Left, context);
-                var rightIR = facade.TransformToIR(binExpr.Right, context);
-                var equalsCall = new JavaMethodCallExpression
-                {
-                    Target = new JavaIdentifierExpression { Name = "Objects" },
-                    MethodName = "equals"
-                };
-                equalsCall.Arguments.Add(leftIR);
-                equalsCall.Arguments.Add(rightIR);
-                if (op == "!=")
-                    return new JavaUnaryExpression { Operator = "!", Operand = equalsCall, IsPostfix = false };
-                return equalsCall;
-            }
-        }
-
-        // Nullable bool equality: route through the string transformer so the
-        // null-safe Objects.equals(...) form is emitted instead of a raw
-        // `==`/`!=` that unboxes the nullable Boolean.
-if ((op == "==" || op == "!=") && context.SemanticModel != null)
-        {
-            var nullableBoolEq = TryTransformNullableBoolEquality(binExpr, op, context);
-            if (nullableBoolEq != null)
-                return new JavaRawExpression(nullableBoolEq);
-        }
-
-        // Check for event comparisons — fall back to raw
-        if ((op == "==" || op == "!=") && context.SemanticModel != null)
-        {
-            var leftSym = context.GetSymbolInfo(binExpr.Left).Symbol;
-            var rightSym = context.GetSymbolInfo(binExpr.Right).Symbol;
-            if (leftSym is IEventSymbol || rightSym is IEventSymbol)
+            if (IsStringEquality(bin, context)) return BuildObjectsEqualsIR(bin, op.Java, context);
+            if (BinarySpecial.TryNullableBoolEquality(bin, op, context) is { } nb)
+                return new JavaRawExpression(nb);
+            if (context.GetSymbolInfo(bin.Left).Symbol is IEventSymbol
+                || context.GetSymbolInfo(bin.Right).Symbol is IEventSymbol)
                 return new JavaRawExpression(Transform(node, context));
         }
-
-        // Handle enum comparison operators (<, >, <=, >=) in IR path.
-        if (IsComparisonOp(op) && context.SemanticModel != null)
-        {
-            var enumIR = TryTransformEnumComparisonToIR(binExpr, op, context);
-            if (enumIR != null)
-                return enumIR;
-        }
-
-        // Standard binary expression — produce structured IR
-        var standardLeftIR = facade.TransformToIR(binExpr.Left, context);
-        var standardRightIR = facade.TransformToIR(binExpr.Right, context);
+        if (op.Cat == BinOpCat.Relational && EnumBinary.TryComparison(bin, op, context) is { } enumCmp)
+            return new JavaRawExpression(enumCmp);
 
         return new JavaBinaryExpression
         {
-            Left = standardLeftIR,
-            Operator = op,
-            Right = standardRightIR
+            Left = facade.TransformToIR(bin.Left, context),
+            Operator = op.Java,
+            Right = facade.TransformToIR(bin.Right, context)
         };
     }
 
-    private string TransformBinaryExpression(BinaryExpressionSyntax node, string op, ConversionContext context)
+    private string TransformBinary(BinaryExpressionSyntax node, BinOp op, ConversionContext ctx)
     {
-        // C# Span<T> / ReadOnlySpan<T> define == / != as value comparisons
-        // (length + contents). Java maps spans to classes, where == is reference
-        // identity — route through MemoryExtensions.sequenceEqual instead.
-        if (op is "==" or "!=")
+        // Span<T> / System.Type define == as value equality; Java classes use identity.
+        if (op.Cat == BinOpCat.Equality && TryTransformSpanOrTypeEquality(node, op.Java, ctx) is { } special)
+            return special;
+        if (FfmHelper.TryTransformPointerBinary(node, op.Java, ctx) is { } ptr) return ptr;
+        if (op.Cat == BinOpCat.Equality && TryTransformEventNull(node, op.Java, ctx) is { } evt) return evt;
+
+        if (TryResolveOperatorCall(node, op, ctx, inference: true, out var opType, out var javaName))
+            return RenderOperatorCall(node, opType!, javaName, ctx);
+        if (op.Cat == BinOpCat.Relational && TryTransformCompatComparison(node, op.Java, ctx) is { } cmp)
+            return cmp;
+
+        if (op.Cat == BinOpCat.Arithmetic && EnumBinary.TryArithmetic(node, op, ctx) is { } enumArith)
+            return enumArith;
+        if (op.Cat == BinOpCat.Relational)
         {
-            var eqLeftType = context.GetTypeInfo(node.Left).Type;
-            var eqRightType = context.GetTypeInfo(node.Right).Type;
-            if (IsSpanType(eqLeftType) || IsSpanType(eqRightType))
-            {
-                var facade2 = ExpressionTransformerFacade.Instance;
-                var leftExpr = facade2.Transform(node.Left, context);
-                var rightExpr = facade2.Transform(node.Right, context);
-                context.AddImport("io.github.ningpp.compat.MemoryExtensions");
-                var eq = $"MemoryExtensions.sequenceEqual({leftExpr}, {rightExpr})";
-                return op == "==" ? eq : $"!({eq})";
-            }
+            if (EnumBinary.TryComparison(node, op, ctx) is { } enumCmp) return enumCmp;
+            if (BinarySpecial.TryUnsignedComparison(node, op, ctx) is { } unsigned) return unsigned;
         }
-
-        // C# System.Type equality: Java represents C# typeof(bool) as Boolean.class
-        // while runtime property types surface as boolean.class. Primitive/wrapper
-        // pairs must compare equal, so route through TypeHelper.isSameType instead
-        // of Java reference ==. Only when BOTH operands are System.Type: a Type vs
-        // null comparison must stay a reference check (e.g. Nullable.GetUnderlyingType(t) != null).
-        if (op is "==" or "!=")
-        {
-            var eqLeftType = context.GetTypeInfo(node.Left).Type;
-            var eqRightType = context.GetTypeInfo(node.Right).Type;
-            if (IsSystemType(eqLeftType) && IsSystemType(eqRightType))
-            {
-                var facade2 = ExpressionTransformerFacade.Instance;
-                var leftExpr = facade2.Transform(node.Left, context);
-                var rightExpr = facade2.Transform(node.Right, context);
-                context.AddImport("io.github.ningpp.compat.TypeHelper");
-                var eq = $"TypeHelper.isSameType({leftExpr}, {rightExpr})";
-                return op == "==" ? eq : $"!({eq})";
-            }
-        }
-
-    static bool IsSystemType(ITypeSymbol? type)
-        => type is INamedTypeSymbol { Name: "Type" } named
-           && named.ContainingNamespace?.ToDisplayString() == "System";
-
-        if (op == "+")
-        {
-            var leftType = context.GetTypeInfo(node.Left).Type;
-            if (leftType is IPointerTypeSymbol pointerType)
-            {
-                var facade2 = ExpressionTransformerFacade.Instance;
-                var leftExpr = facade2.Transform(node.Left, context);
-                var rightExpr = facade2.Transform(node.Right, context);
-
-                // Try to find pointer info from registry first (for simple identifiers)
-                var pointerInfo = context.FindPointerInfo(leftExpr.Trim());
-
-                // If not found (e.g., for nested expressions like "pChars + startPos"),
-                // create pointer info from the semantic type information
-                if (pointerInfo == null && pointerType.PointedAtType != null)
-                {
-                    var elementTypeName = pointerType.PointedAtType.ToDisplayString();
-                    pointerInfo = FfmHelper.CreatePointerInfo("", elementTypeName);
-                }
-
-                if (pointerInfo != null)
-                {
-                    // Use base segment with out-of-bounds protection
-                    if (context.TryGetPointerBase(leftExpr.Trim(), out var baseVar))
-                    {
-                        string offsetExpr = pointerInfo.ElementSize == 1
-                            ? $"{leftExpr}.address() - {baseVar}.address() + {rightExpr}"
-                            : $"{leftExpr}.address() - {baseVar}.address() + (long)({rightExpr}) * {pointerInfo.ElementSize}";
-                        string deltaBytesExpr = pointerInfo.ElementSize == 1
-                            ? rightExpr
-                            : $"(long)({rightExpr}) * {pointerInfo.ElementSize}";
-                        return $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegmentHelper.advance({leftExpr}, {deltaBytesExpr}))";
-                    }
-                    return FfmHelper.GeneratePointerArithmetic(leftExpr.Trim(), pointerInfo, rightExpr);
-                }
-            }
-        }
-
-        if (op == "-")
-        {
-            var leftType = context.GetTypeInfo(node.Left).Type;
-            var rightType = context.GetTypeInfo(node.Right).Type;
-
-            // Pointer - pointer (must be checked before Pointer - integer)
-            if (leftType is IPointerTypeSymbol && rightType is IPointerTypeSymbol)
-            {
-                var facade2 = ExpressionTransformerFacade.Instance;
-                var leftExpr = facade2.Transform(node.Left, context);
-                var rightExpr = facade2.Transform(node.Right, context);
-
-                var pointerInfo = context.FindPointerInfo(leftExpr.Trim());
-                if (pointerInfo == null && leftType is IPointerTypeSymbol leftPtr)
-                {
-                    var elementTypeName = leftPtr.PointedAtType?.ToDisplayString() ?? "byte";
-                    pointerInfo = FfmHelper.CreatePointerInfo("", elementTypeName);
-                }
-
-                var elementSize = pointerInfo?.ElementSize ?? 1;
-                if (elementSize == 1)
-                    return $"({leftExpr}.address() - {rightExpr}.address())";
-                return $"({leftExpr}.address() - {rightExpr}.address()) / {elementSize}";
-            }
-
-            // Pointer - integer
-            if (leftType is IPointerTypeSymbol leftPtrType)
-            {
-                var facade2 = ExpressionTransformerFacade.Instance;
-                var leftExpr = facade2.Transform(node.Left, context);
-                var rightExpr = facade2.Transform(node.Right, context);
-
-                var pointerInfo = context.FindPointerInfo(leftExpr.Trim());
-                if (pointerInfo == null && leftPtrType.PointedAtType != null)
-                {
-                    var elementTypeName = leftPtrType.PointedAtType.ToDisplayString();
-                    pointerInfo = FfmHelper.CreatePointerInfo("", elementTypeName);
-                }
-
-                if (pointerInfo != null)
-                {
-                    if (context.TryGetPointerBase(leftExpr.Trim(), out var baseVar))
-                    {
-                        // Use base segment with out-of-bounds protection.
-                        // Must check offsetExpr >= 0 to prevent negative offset in asSlice.
-                        string offsetExpr = pointerInfo.ElementSize == 1
-                            ? $"{leftExpr}.address() - {baseVar}.address() - {rightExpr}"
-                            : $"{leftExpr}.address() - {baseVar}.address() - (long)({rightExpr}) * {pointerInfo.ElementSize}";
-                        string deltaBytesExpr = pointerInfo.ElementSize == 1
-                            ? $"-{rightExpr}"
-                            : $"-(long)({rightExpr}) * {pointerInfo.ElementSize}";
-                        return $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegmentHelper.advance({leftExpr}, {deltaBytesExpr}))";
-                    }
-                    // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
-                    if (pointerInfo.ElementSize == 1)
-                        return $"MemorySegmentHelper.advance({leftExpr}, -{rightExpr})";
-                    return $"MemorySegmentHelper.advance({leftExpr}, -(long)({rightExpr}) * {pointerInfo.ElementSize})";
-                }
-            }
-        }
-
-        // Handle pointer comparison operators (<, >, <=, >=)
-        if (IsComparisonOp(op) && context.SemanticModel != null)
-        {
-            var leftType = context.GetTypeInfo(node.Left).Type;
-            var rightType = context.GetTypeInfo(node.Right).Type;
-            if (leftType is IPointerTypeSymbol && rightType is IPointerTypeSymbol)
-            {
-                var facade2 = ExpressionTransformerFacade.Instance;
-                var leftExpr = facade2.Transform(node.Left, context);
-                var rightExpr = facade2.Transform(node.Right, context);
-                return $"{TransformPointerComparisonOperand(node.Left, leftExpr, context)} {op} {TransformPointerComparisonOperand(node.Right, rightExpr, context)}";
-            }
-        }
+        if (op.Cat == BinOpCat.Equality && EnumBinary.TryEquality(node, op, ctx) is { } enumEq) return enumEq;
+        if (op.Cat == BinOpCat.Bitwise && EnumBinary.TryBitwise(node, op, ctx) is { } enumBit) return enumBit;
 
         var facade = ExpressionTransformerFacade.Instance;
+        var left = facade.Transform(node.Left, ctx);
+        if (op.Cat == BinOpCat.Logical) ctx.EnterShortCircuitOperand();
+        var right = facade.Transform(node.Right, ctx);
+        if (op.Cat == BinOpCat.Logical) ctx.ExitShortCircuitOperand();
 
-        // Handle pointer equality operators (==, !=)
-        // MemorySegment objects from asSlice() are never reference-equal even when pointing
-        // to the same address, so pointer comparisons must use .address().
-        if ((op == "==" || op == "!=") && context.SemanticModel != null)
+        // Decimal binary path in the original code returns before precedence wrapping.
+        if (ctx.GetTypeInfo(node.Left).Type?.SpecialType == SpecialType.System_Decimal
+            || ctx.GetTypeInfo(node.Right).Type?.SpecialType == SpecialType.System_Decimal)
         {
-            var leftType = context.GetTypeInfo(node.Left).Type;
-            var rightType = context.GetTypeInfo(node.Right).Type;
-            bool leftIsPointer = leftType is IPointerTypeSymbol;
-            bool rightIsPointer = rightType is IPointerTypeSymbol;
-
-            // Pointer == pointer or pointer == null
-            if (leftIsPointer || rightIsPointer)
-            {
-                var facade2 = ExpressionTransformerFacade.Instance;
-                var leftExpr = facade2.Transform(node.Left, context);
-                var rightExpr = facade2.Transform(node.Right, context);
-
-                bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
-                bool leftIsNull = node.Left.IsKind(SyntaxKind.NullLiteralExpression);
-
-                if (leftIsPointer && rightIsPointer)
-                {
-                    // Both are pointers: compare addresses
-                    var leftAddr = TransformPointerComparisonOperand(node.Left, leftExpr, context);
-                    var rightAddr = TransformPointerComparisonOperand(node.Right, rightExpr, context);
-                    return op == "=="
-                        ? $"{leftAddr} == {rightAddr}"
-                        : $"{leftAddr} != {rightAddr}";
-                }
-                if (leftIsPointer && rightIsNull)
-                {
-                    // Pointer == null: check if segment is null or zero-address
-                    return op == "=="
-                        ? $"({leftExpr} == null || {leftExpr}.address() == 0)"
-                        : $"({leftExpr} != null && {leftExpr}.address() != 0)";
-                }
-                if (rightIsPointer && leftIsNull)
-                {
-                    return op == "=="
-                        ? $"({rightExpr} == null || {rightExpr}.address() == 0)"
-                        : $"({rightExpr} != null && {rightExpr}.address() != 0)";
-                }
-            }
+            AddDecimalImportIfNeeded(node, ctx);
+            return $"{left} {op.Java} {right}";
         }
 
-        // Fix: Handle event null comparisons (e.g., ProgressChanged != null)
-        // C#: event != null  → Java: !_eventListeners.isEmpty()
-        // C#: event == null  → Java: _eventListeners.isEmpty()
-        if ((op == "==" || op == "!=") && context.SemanticModel != null)
+        if (op.Cat == BinOpCat.Equality)
         {
-            // Check if this is an event compared to null
-            var leftSymbol = context.GetSymbolInfo(node.Left).Symbol;
-            var rightSymbol = context.GetSymbolInfo(node.Right).Symbol;
-            bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
-            bool leftIsNull = node.Left.IsKind(SyntaxKind.NullLiteralExpression);
-
-            if ((leftSymbol is IEventSymbol eventSym && rightIsNull) ||
-                (rightSymbol is IEventSymbol && leftIsNull))
+            if (BinarySpecial.TryNullableBoolEquality(node, op, ctx) is { } nb) return nb;
+            if (IsStringEquality(node, ctx))
             {
-                var actualEventSym = leftSymbol as IEventSymbol ?? rightSymbol as IEventSymbol;
-                var eventName = actualEventSym?.Name;
-                var currentTypeName = context.CurrentType?.Name;
-
-                // Only convert to listener access within the same class
-                if (eventName != null && currentTypeName != null &&
-                    actualEventSym?.ContainingType?.Name == currentTypeName)
-                {
-                    var fieldName = Transformers.Member.EventListenerNaming.GetFieldName(
-                        Transformers.Member.EventListenerNaming.GetInterfaceQualifier(actualEventSym!), eventName);
-                    if (op == "!=")
-                        return $"!{fieldName}.isEmpty()";
-                    else
-                        return $"{fieldName}.isEmpty()";
-                }
+                ctx.AddImport("java.util.Objects");
+                var eq = $"Objects.equals({left}, {right})";
+                return op.Java == "!=" ? $"!{eq}" : eq;
             }
         }
-
-        // Check if this is a user-defined operator that should be converted to a static method call
-        if (context.SemanticModel != null)
+        if (op.Java == "+")
         {
-            var symbolInfo = context.GetSymbolInfo(node);
-            if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
-            {
-                // Only convert to method call if it's a user-defined type (not built-in types)
-                if (methodSymbol.MethodKind == MethodKind.UserDefinedOperator
-                    && !IsBuiltInType(methodSymbol.ContainingType)
-                    && OperatorHasSourceDeclaration(methodSymbol)
-                    && !IsStructNullLiteralComparison(methodSymbol, node))
-                {
-                    return TransformUserDefinedOperator(node, methodSymbol, context);
-                }
-            }
-
-            // Fallback: when GetSymbolInfo fails to resolve the operator (possible when the
-            // compilation has incomplete metadata references), or when the operator is from a
-            // non-source (BCL) type that maps to a compat library type (e.g. DateTime - DateTime),
-            // use GetTypeInfo on the operands to detect user-defined types and emit the
-            // corresponding Java static method call.
-            if (IsArithmeticOp(op))
-            {
-                bool shouldFallback = symbolInfo.Symbol == null
-                    || (symbolInfo.Symbol is IMethodSymbol ms2
-                        && ms2.MethodKind == MethodKind.UserDefinedOperator
-                        && !OperatorHasSourceDeclaration(ms2));
-                if (shouldFallback)
-                {
-                    var fallbackResult = TryTransformOperatorByTypeInfo(node, op, context);
-                    if (fallbackResult != null)
-                        return fallbackResult;
-                }
-            }
-
-            var compatComparison = TryTransformCompatComparison(node, op, context);
-            if (compatComparison != null)
-                return compatComparison;
+            if (IsStringType(node.Left, ctx) && !IsStringType(node.Right, ctx))
+                right = FormatNumericForConcat(node.Right, right, ctx);
+            else if (IsStringType(node.Right, ctx) && !IsStringType(node.Left, ctx))
+                left = FormatNumericForConcat(node.Left, left, ctx);
         }
 
-        // Handle enum arithmetic operators (+, -, *, /, %).
-        // Java enums do not support arithmetic operators; must use ordinal() or getValue() on operands.
-        if (IsArithmeticOp(op) && context.SemanticModel != null)
-        {
-            var enumArithmeticResult = TryTransformEnumArithmeticOperation(node, op, context);
-            if (enumArithmeticResult != null)
-                return enumArithmeticResult;
-        }
-
-        // Handle enum comparison operators (<, >, <=, >=).
-        // Java enums do not support ordering operators; must compare ordinal() or getValue().
-        if (IsComparisonOp(op) && context.SemanticModel != null)
-        {
-            var enumResult = TryTransformEnumComparison(node, op, context);
-            if (enumResult != null)
-                return enumResult;
-
-            // C# (uint)x <= y uses unsigned comparison semantics.
-            // The (uint) cast is converted to (int)((x) & 0xFFFFFFFFL), but the (int)
-            // truncation reverses the unsigned wrap-around, making the comparison wrong.
-            // Fix: use Integer.compareUnsigned for uint comparisons.
-            var leftType = context.GetTypeInfo(node.Left).Type;
-            var rightType = context.GetTypeInfo(node.Right).Type;
-            bool leftIsUInt = leftType?.SpecialType == SpecialType.System_UInt32;
-            bool rightIsUInt = rightType?.SpecialType == SpecialType.System_UInt32;
-            bool leftIsULong = leftType?.SpecialType == SpecialType.System_UInt64;
-            bool rightIsULong = rightType?.SpecialType == SpecialType.System_UInt64;
-            bool leftIsInt64 = leftType?.SpecialType == SpecialType.System_Int64;
-            bool rightIsInt64 = rightType?.SpecialType == SpecialType.System_Int64;
-            // C# (uint)ch - 'A' promotes to long (uint op char), hiding the UInt32 type
-            // from the semantic model — but the emitted chain still carries the uint mask
-            // (e.g. RegexCharClass.IsECMAWordChar's letter check). The wrap-around happens
-            // inside the uint subtraction, so the comparison must stay unsigned.
-            // A long operand mixed with uint promotes to SIGNED long in C#, so the
-            // plain comparison applies there, not compareUnsigned.
-            bool mixedSignedLong = (leftIsUInt && rightIsInt64) || (rightIsUInt && leftIsInt64);
-            if ((leftIsUInt || rightIsUInt || leftIsULong || rightIsULong) && !mixedSignedLong)
-            {
-                var leftExpr = facade.Transform(node.Left, context);
-                var rightExpr = facade.Transform(node.Right, context);
-                // Strip the & 0xFFFFFFFFL mask from uint operands since
-                // Integer.compareUnsigned handles the unsigned semantics directly.
-                leftExpr = StripUIntMask(leftExpr);
-                rightExpr = StripUIntMask(rightExpr);
-                // UInt64 comparisons use Long.compareUnsigned; UInt32 uses Integer.
-                var cmpOp = (leftIsULong || rightIsULong) ? op switch
-                {
-                    "<" => "Long.compareUnsigned({0}, {1}) < 0",
-                    ">" => "Long.compareUnsigned({0}, {1}) > 0",
-                    "<=" => "Long.compareUnsigned({0}, {1}) <= 0",
-                    ">=" => "Long.compareUnsigned({0}, {1}) >= 0",
-                    _ => "{0} " + op + " {1}"
-                } : op switch
-                {
-                    "<" => "Integer.compareUnsigned({0}, {1}) < 0",
-                    ">" => "Integer.compareUnsigned({0}, {1}) > 0",
-                    "<=" => "Integer.compareUnsigned({0}, {1}) <= 0",
-                    ">=" => "Integer.compareUnsigned({0}, {1}) >= 0",
-                    _ => "{0} " + op + " {1}"
-                };
-                return string.Format(cmpOp, leftExpr, rightExpr);
-            }
-            // Fallback for the (uint)ch - 'A' promotion case: detect the uint cast at the
-            // syntax level. Transforming the operands here just to string-check for the
-            // mask would duplicate all their side effects (e.g. a *ptr++ post-increment
-            // would be materialized and advanced twice).
-            if (ContainsUIntCast(node.Left) || ContainsUIntCast(node.Right))
-            {
-                var leftExprMasked = facade.Transform(node.Left, context);
-                var rightExprMasked = facade.Transform(node.Right, context);
-                var cmpOpMasked = op switch
-                {
-                    "<" => "Integer.compareUnsigned({0}, {1}) < 0",
-                    ">" => "Integer.compareUnsigned({0}, {1}) > 0",
-                    "<=" => "Integer.compareUnsigned({0}, {1}) <= 0",
-                    ">=" => "Integer.compareUnsigned({0}, {1}) >= 0",
-                    _ => "{0} " + op + " {1}"
-                };
-                return string.Format(cmpOpMasked,
-                    StripUIntMask(leftExprMasked),
-                    StripUIntMask(rightExprMasked));
-            }
-        }
-
-        // Handle enum vs numeric equality/inequality comparisons.
-        // Java enums cannot be compared to primitive values with ==/!=; compare .getValue() instead.
-        if ((op == "==" || op == "!=") && context.SemanticModel != null)
-        {
-            var leftType = context.GetTypeInfo(node.Left).Type as INamedTypeSymbol;
-            var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
-            bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
-            bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
-            bool leftIsNumeric = false;
-            bool rightIsNumeric = false;
-
-            if ((leftIsEnum && rightIsNumeric) || (leftIsNumeric && rightIsEnum))
-            {
-                var enumType = leftIsEnum ? leftType : rightType;
-
-                // Skip [Flags] enums mapped to primitive int/long constants (already numeric in Java).
-                if (!IsFlagsEnumType(enumType!, context))
-                {
-                    var leftExpr = facade.Transform(node.Left, context);
-                    var rightExpr = facade.Transform(node.Right, context);
-                    if (leftIsEnum && !IsEnumArithmeticOrBitwiseExpression(node.Left)) leftExpr = $"{leftExpr}.getValue()";
-                    if (rightIsEnum && !IsEnumArithmeticOrBitwiseExpression(node.Right)) rightExpr = $"{rightExpr}.getValue()";
-                    // Task 26 (TS only): equality operators -> === / !==
-var eqOp1 = op;
-                    return $"{leftExpr} {eqOp1} {rightExpr}";
-                }
-            }
-
-            // Handle enum == enum where one side is a bitwise/arithmetic enum expression.
-            // The bitwise/arithmetic transformer converts that side to a numeric expression,
-            // so the other (simple enum) side needs .getValue() for a valid Java comparison.
-            if (leftIsEnum && rightIsEnum)
-            {
-                var enumType = leftType!;
-                bool leftIsEnumOp = IsEnumArithmeticOrBitwiseExpression(node.Left);
-                bool rightIsEnumOp = IsEnumArithmeticOrBitwiseExpression(node.Right);
-
-                if (!IsFlagsEnumType(enumType, context) && (leftIsEnumOp || rightIsEnumOp))
-                {
-                    var leftExpr = facade.Transform(node.Left, context);
-                    var rightExpr = facade.Transform(node.Right, context);
-                    if (!leftIsEnumOp) leftExpr = $"{leftExpr}.getValue()";
-                    if (!rightIsEnumOp) rightExpr = $"{rightExpr}.getValue()";
-                    var eqOp2 = op;
-                    return $"{leftExpr} {eqOp2} {rightExpr}";
-                }
-            }
-        }
-
-        // Handle bitwise operations (&, |, ^) on non-Flags enum types.
-        // Java enums do not support bitwise operators; must use getValue() on operands.
-        if (IsBitwiseOp(op) && context.SemanticModel != null)
-        {
-            var enumBitwiseResult = TryTransformEnumBitwiseOperation(node, op, context);
-            if (enumBitwiseResult != null)
-                return enumBitwiseResult;
-        }
-
-        // Handle boxed Object & numeric (e.g. unsigned byte comparison or byte mask)
-        if (IsBitwiseOp(op) && context.SemanticModel != null)
-        {
-            var leftType = context.GetTypeInfo(node.Left).Type;
-            var rightType = context.GetTypeInfo(node.Right).Type;
-            bool leftIsObject = leftType?.SpecialType == SpecialType.System_Object;
-            bool rightIsObject = rightType?.SpecialType == SpecialType.System_Object;
-            bool otherIsNumeric = false;
-
-            if ((leftIsObject || rightIsObject) && otherIsNumeric)
-            {
-                var leftExpr = facade.Transform(node.Left, context);
-                var rightExpr = facade.Transform(node.Right, context);
-                if (leftIsObject)
-                    leftExpr = $"((Number){leftExpr}).intValue()";
-                if (rightIsObject)
-                    rightExpr = $"((Number){rightExpr}).intValue()";
-                return $"({leftExpr} {op} {rightExpr})";
-            }
-        }
-
-        // Standard operator - use Java's built-in operators
-        var left = facade.Transform(node.Left, context);
-
-        // For || and &&, the right operand is in a short-circuit context:
-        // side effects (like *ptr++) must only execute when the left operand
-        // doesn't short-circuit. Set the flag so TransformPostfix can defer
-        // the pointer increment into the expression instead of a pre-statement.
-        bool isShortCircuit = op == "||" || op == "&&";
-        if (isShortCircuit)
-            context.EnterShortCircuitOperand();
-        var right = facade.Transform(node.Right, context);
-        if (isShortCircuit)
-            context.ExitShortCircuitOperand();
-
-        if (TryTransformDecimalBinaryExpression(node, op, context, left, right, out var decimalResult))
-            return decimalResult;
-
-        // C# lifted bool? ==/!= bool comparisons must be null-safe. A direct Java
-        // `==`/`!=` unboxes the Boolean (NPE when null), and conditional-access
-        // lowering may even produce `(x != null ? ... : null) == true` which
-        // throws on the null false branch. bool? == true must mean
-        // HasValue && Value, i.e. Objects.equals(x, Boolean.TRUE).
-        if ((op == "==" || op == "!=") && context.SemanticModel != null)
-        {
-            var nullableBoolEq = TryTransformNullableBoolEquality(node, op, context);
-            if (nullableBoolEq != null)
-                return nullableBoolEq;
-        }
-
-        // Task 26 (TS only): equality operators -> === / !== (spec 2.6.4).
-        // String == / != must preserve C#'s null-safe value semantics.
-        if ((op == "==" || op == "!=") && context.SemanticModel != null)
-        {
-            bool leftIsString = IsStringType(node.Left, context.SemanticModel);
-            bool rightIsString = IsStringType(node.Right, context.SemanticModel);
-            if (leftIsString || rightIsString)
-            {
-                // null comparisons remain as == / !=
-                bool leftIsNull = node.Left.IsKind(SyntaxKind.NullLiteralExpression);
-                bool rightIsNull = node.Right.IsKind(SyntaxKind.NullLiteralExpression);
-                if (!leftIsNull && !rightIsNull)
-                {
-                    context.AddImport("java.util.Objects");
-                    string eq = $"Objects.equals({left}, {right})";
-                    return op == "!=" ? $"!{eq}" : eq;
-                }
-            }
-        }
-
-        // C# string + double/float uses .NET double.ToString() (trailing ".0"
-        // trimmed for integral values); Java's default concatenation would emit
-        // "36.0" instead of "36". Route numeric operands through DoubleHelper.
-        if (op == "+")
-        {
-            bool leftIsString = IsStringType(node.Left, context.SemanticModel);
-            bool rightIsString = IsStringType(node.Right, context.SemanticModel);
-            if (leftIsString || rightIsString)
-            {
-                if (leftIsString && !rightIsString)
-                {
-                    right = FormatDotNetNumericForStringConcat(node.Right, right, context);
-                }
-
-                if (rightIsString && !leftIsString)
-                {
-                    left = FormatDotNetNumericForStringConcat(node.Left, left, context);
-                }
-            }
-        }
-
-        // Wrap operands in parentheses when needed for operator precedence
-        left = WrapOperandIfNeeded(node.Left, left, op, true);
-        right = WrapOperandIfNeeded(node.Right, right, op, false);
-
-        var result = $"{left} {op} {right}";
-        if (TryWrapEnumBitwiseResult(node, result, context, out var wrappedResult))
-            return wrappedResult;
-
-        return result;
+        left = EnumBinary.WrapOperand(node.Left, left, op.Java, isLeft: true);
+        right = EnumBinary.WrapOperand(node.Right, right, op.Java, isLeft: false);
+        var result = $"{left} {op.Java} {right}";
+        return EnumBinary.TryWrapResult(node, result, ctx, out var wrapped) ? wrapped : result;
     }
 
-    private static string FormatDotNetNumericForStringConcat(
-        ExpressionSyntax operand,
-        string transformed,
-        ConversionContext context)
+    private string TransformCoalesce(BinaryExpressionSyntax node, ConversionContext ctx)
     {
-        var type = context.GetTypeInfo(operand).Type;
-        if (type?.SpecialType is SpecialType.System_Double or SpecialType.System_Single)
-        {
-            context.AddImport("io.github.ningpp.compat.DoubleHelper");
-            return $"DoubleHelper.toString({transformed})";
-        }
-
-        // [Flags] enums are mapped to int in Java, but C# string concatenation
-        // formats the enum using its member names ("East"), not the number.
-        if (type?.TypeKind == Microsoft.CodeAnalysis.TypeKind.Enum
-            && type is INamedTypeSymbol namedEnum
-            && (namedEnum.GetAttributes().Any(a =>
-                    a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute")
-                || context.IsFlagsEnum(namedEnum.Name)
-                || context.IsFlagsEnum(namedEnum.ToDisplayString() ?? string.Empty)))
-        {
-            return transformed;
-        }
-
-        return transformed;
-    }
-
-    /// <summary>
-    /// Detects `bool? ==/!= bool` and `bool? ==/!= bool?` comparisons (including
-    /// null-conditional expressions whose natural type is bool?) and returns a
-    /// null-safe Java expression, or null when the pattern does not apply.
-    /// </summary>
-    private static string? TryTransformNullableBoolEquality(
-        BinaryExpressionSyntax node,
-        string op,
-        ConversionContext context)
-    {
-        var leftType = context.GetTypeInfo(node.Left).Type;
-        var rightType = context.GetTypeInfo(node.Right).Type;
-        bool leftIsNullableBool = IsNullableBooleanType(leftType)
-            || (leftType?.SpecialType == SpecialType.System_Boolean && node.Left is ConditionalAccessExpressionSyntax);
-        bool rightIsNullableBool = IsNullableBooleanType(rightType)
-            || (rightType?.SpecialType == SpecialType.System_Boolean && node.Right is ConditionalAccessExpressionSyntax);
-
-        bool leftIsBoolLiteral = node.Left.IsKind(SyntaxKind.TrueLiteralExpression)
-            || node.Left.IsKind(SyntaxKind.FalseLiteralExpression);
-        bool rightIsBoolLiteral = node.Right.IsKind(SyntaxKind.TrueLiteralExpression)
-            || node.Right.IsKind(SyntaxKind.FalseLiteralExpression);
-
-        bool nullableVsNullable = leftIsNullableBool && rightIsNullableBool;
-        bool nullableVsLiteral = (leftIsNullableBool && rightIsBoolLiteral)
-            || (rightIsNullableBool && leftIsBoolLiteral);
-        if (!nullableVsNullable && !nullableVsLiteral)
-            return null;
-
         var facade = ExpressionTransformerFacade.Instance;
-        var left = facade.Transform(node.Left, context);
-        var right = facade.Transform(node.Right, context);
+        var left = facade.Transform(node.Left, ctx);
+        var right = facade.Transform(node.Right, ctx);
+        if (left == "null") return right;
 
-        // Literal side becomes the boxed constant; a nullable-vs-nullable pair
-        // compares with Objects.equals (null == null in C# lifted semantics).
-        string subject;
-        string comparison;
-        if (leftIsBoolLiteral)
+        // Merge into the ternary already produced by ?. conversion: replace its false branch.
+        if (left.StartsWith("(") && left.Contains(" != null ? ") && left.LastIndexOf(" : ") is var colon && colon > 0)
         {
-            subject = right;
-            comparison = node.Left.IsKind(SyntaxKind.TrueLiteralExpression) ? "Boolean.TRUE" : "Boolean.FALSE";
-        }
-        else if (rightIsBoolLiteral)
-        {
-            subject = left;
-            comparison = node.Right.IsKind(SyntaxKind.TrueLiteralExpression) ? "Boolean.TRUE" : "Boolean.FALSE";
-        }
-        else
-        {
-            subject = left;
-            comparison = right;
+            var before = left[..colon];
+            var falseBranch = left[(colon + 3)..];
+            if (falseBranch.Trim() == right.Trim()) return left;
+            var trailing = "";
+            for (var i = falseBranch.Length - 1; i >= 0 && falseBranch[i] is ')' or ']' or '}'; i--)
+                trailing = falseBranch[i] + trailing;
+            return $"{before} : {right}{trailing}";
         }
 
-        context.AddImport("java.util.Objects");
-        var equality = $"Objects.equals({subject}, {comparison})";
-        return op == "==" ? equality : $"!{equality}";
+        // Identifiers / one-level member accesses are side-effect-free to evaluate twice.
+        if (node.Left is IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax })
+            return $"{left} != null ? {left} : {right}";
+
+        var tmp = ctx.GenerateSyntheticName("_coalesce");
+        ctx.AddPreStatement($"var {tmp} = {left};");
+        return $"{tmp} != null ? {tmp} : {right}";
     }
 
-    private static bool IsNullableBooleanType(ITypeSymbol? type)
-        => type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } named
-           && named.TypeArguments.Length == 1
-           && named.TypeArguments[0].SpecialType == SpecialType.System_Boolean;
+    // (predicate on either operand, helper class, import, method)
+    private static readonly (Func<ITypeSymbol?, bool> Match, string Type, string Import, string Method)[]
+        ValueEqualityHelpers =
+        {
+            (IsSpanType,   "MemoryExtensions", "io.github.ningpp.compat.MemoryExtensions", "sequenceEqual"),
+            (IsSystemType, "TypeHelper",       "io.github.ningpp.compat.TypeHelper",       "isSameType"),
+        };
 
-    private static bool TryWrapEnumBitwiseResult(
-        BinaryExpressionSyntax node,
-        string numericExpression,
-        ConversionContext context,
-        out string result)
+    private string? TryTransformSpanOrTypeEquality(BinaryExpressionSyntax node, string op, ConversionContext ctx)
     {
-        result = string.Empty;
+        var (lt, rt) = (ctx.GetTypeInfo(node.Left).Type, ctx.GetTypeInfo(node.Right).Type);
+        var helper = ValueEqualityHelpers.FirstOrDefault(h =>
+            h.Type == "MemoryExtensions" ? h.Match(lt) || h.Match(rt) : h.Match(lt) && h.Match(rt));
+        if (helper.Type == null) return null;
 
-        var resultType = context.GetTypeInfo(node).ConvertedType as INamedTypeSymbol
-            ?? context.GetTypeInfo(node).Type as INamedTypeSymbol;
-        if (resultType?.TypeKind != TypeKind.Enum || IsFlagsEnumType(resultType, context))
-            return false;
-
-        var javaEnumType = context.MapType(resultType);
-        var angleIndex = javaEnumType.IndexOf('<');
-        if (angleIndex > 0)
-            javaEnumType = javaEnumType[..angleIndex];
-
-        if (EnumHasExplicitValues(resultType) || IsRegisteredExplicitValueEnum(resultType, context))
-        {
-            result = $"{javaEnumType}.fromValue({numericExpression})";
-        }
-        else
-        {
-            result = $"{javaEnumType}.values()[{numericExpression}]";
-        }
-
-        return true;
+        var f = ExpressionTransformerFacade.Instance;
+        ctx.AddImport(helper.Import);
+        var eq = $"{helper.Type}.{helper.Method}({f.Transform(node.Left, ctx)}, {f.Transform(node.Right, ctx)})";
+        return op == "==" ? eq : $"!({eq})";
     }
 
-    private static bool IsArithmeticOp(string op) => op is "*" or "/" or "+" or "-" or "%";
-
-    private static bool IsComparisonOp(string op) => op is "<" or ">" or "<=" or ">=";
-
-    /// <summary>
-    /// Java has no relational operators for objects. System.TimeSpan maps to
-    /// CSharpTimeSpan, so its C# relational operators must become compareTo calls.
-    /// </summary>
-    private string? TryTransformCompatComparison(
-        BinaryExpressionSyntax node,
-        string op,
-        ConversionContext context)
+    private static string? TryTransformEventNull(BinaryExpressionSyntax node, string op, ConversionContext ctx)
     {
-        if (!IsComparisonOp(op))
+        var evt = ctx.GetSymbolInfo(node.Left).Symbol is IEventSymbol le
+            && node.Right.IsKind(SyntaxKind.NullLiteralExpression) ? le
+            : ctx.GetSymbolInfo(node.Right).Symbol is IEventSymbol re
+            && node.Left.IsKind(SyntaxKind.NullLiteralExpression) ? re : null;
+        if (evt == null || ctx.CurrentType?.Name is not { } current || evt.ContainingType?.Name != current)
             return null;
-
-        var semanticModel = context.GetSemanticModelForNode(node) ?? context.SemanticModel;
-        if (semanticModel == null)
-            return null;
-
-        var leftType = semanticModel.GetTypeInfo(node.Left).Type?.ToDisplayString();
-        var rightType = semanticModel.GetTypeInfo(node.Right).Type?.ToDisplayString();
-        if (leftType is not "System.TimeSpan" && rightType is not "System.TimeSpan")
-            return null;
-
-        var facade = ExpressionTransformerFacade.Instance;
-        var left = facade.Transform(node.Left, context);
-        var right = facade.Transform(node.Right, context);
-        return $"{left}.compareTo({right}) {op} 0";
+        var field = EventListenerNaming.GetFieldName(
+            EventListenerNaming.GetInterfaceQualifier(evt), evt.Name);
+        return op == "!=" ? $"!{field}.isEmpty()" : $"{field}.isEmpty()";
     }
 
-    /// <summary>
-    /// Renders one operand of a pointer comparison. Real MemorySegment pointer
-    /// expressions are compared via .address(). Numeric literals (e.g. (byte*)8)
-    /// and pointer casts of integral values (e.g. (byte*)nLength where nLength is
-    /// IntPtr/long) are already raw values — appending .address() to them would
-    /// produce invalid Java (8.address()).
-    /// </summary>
-    private string TransformPointerComparisonOperand(ExpressionSyntax node, string transformed, ConversionContext context)
+    // TimeSpan relational operators become compareTo(...) op 0.
+    private string? TryTransformCompatComparison(BinaryExpressionSyntax node, string op, ConversionContext ctx)
     {
-        if (node is CastExpressionSyntax cast)
+        var sm = ctx.GetSemanticModelForNode(node) ?? ctx.SemanticModel;
+        if (sm?.GetTypeInfo(node.Left).Type?.ToDisplayString() is not "System.TimeSpan"
+            && sm?.GetTypeInfo(node.Right).Type?.ToDisplayString() is not "System.TimeSpan") return null;
+        var f = ExpressionTransformerFacade.Instance;
+        return $"{f.Transform(node.Left, ctx)}.compareTo({f.Transform(node.Right, ctx)}) {op} 0";
+    }
+
+    // Source-declared user operator, or BCL operator inferred from type info for arithmetic.
+    private static bool TryResolveOperatorCall(BinaryExpressionSyntax node, BinOp op, ConversionContext ctx,
+        bool inference, out INamedTypeSymbol? operatorType, out string javaName)
+    {
+        operatorType = null; javaName = "";
+        if (ctx.SemanticModel == null) return false;
+        if (ctx.GetSymbolInfo(node).Symbol is IMethodSymbol ms
+            && BinaryOperatorResolution.IsSourceUserDefinedOperator(ms, node))
         {
-            var innerType = context.GetTypeInfo(cast.Expression).Type;
-            if (innerType != null && IsIntegralValueType(innerType))
-                return transformed;
+            operatorType = ms.ContainingType;
+            javaName = BinaryOperatorResolution.JavaName(ms);
+            return true;
         }
-        return transformed + ".address()";
-    }
-
-    private static bool IsIntegralValueType(ITypeSymbol type)
-    {
-        return type.SpecialType is
-            SpecialType.System_Int32 or SpecialType.System_Int64 or SpecialType.System_Int16 or
-            SpecialType.System_UInt32 or SpecialType.System_UInt64 or SpecialType.System_UInt16 or
-            SpecialType.System_Byte or SpecialType.System_SByte or SpecialType.System_Char or
-            SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
-    }
-
-    /// <summary>
-    /// True when the expression subtree contains a C# (uint) cast. The uint-cast
-    /// transformer emits the (int)((expr) &amp; 0xFFFFFFFFL) mask, so a comparison
-    /// involving such a subtree needs unsigned comparison semantics even when the
-    /// semantic model reports a promoted type (e.g. uint op char → long).
-    /// </summary>
-    private static bool ContainsUIntCast(ExpressionSyntax node)
-    {
-        return node.DescendantNodesAndSelf().OfType<CastExpressionSyntax>().Any(cast =>
-            cast.Type is PredefinedTypeSyntax pts
-            && pts.Keyword.IsKind(SyntaxKind.UIntKeyword)
-            && !cast.Ancestors()
-                // Stop at the comparison node's parent so the walk includes the
-                // operand itself. A (uint) cast that lives inside an invocation
-                // operand (e.g. UnsignedMath.CompareUInt32(..., (uint)…)) must not
-                // re-trigger the unsigned-comparison fallback: the invocation
-                // already provides the comparison semantics, and re-wrapping it in
-                // Integer.compareUnsigned(compareUInt32(...), 0) treats the -1/0/1
-                // result as an unsigned value, making in-range checks always false.
-                .TakeWhile(ancestor => !ReferenceEquals(ancestor, node.Parent))
-                .OfType<InvocationExpressionSyntax>()
-                .Any());
-    }
-
-    private static bool IsSpanType(ITypeSymbol? type)
-    {
-        return type is INamedTypeSymbol named
-            && named.OriginalDefinition.ToDisplayString() is "System.ReadOnlySpan<T>" or "System.Span<T>";
-    }
-
-    /// <summary>
-    /// Strips the (int)((expr) &amp; 0xFFFFFFFFL) pattern from uint operands
-    /// since Integer.compareUnsigned handles the unsigned semantics directly.
-    /// Returns the inner expression without the mask and (int) cast.
-    /// </summary>
-    private static string StripUIntMask(string expr)
-    {
-        // Match pattern: (int)((<expr>) & 0xFFFFFFFFL)
-        // The pattern is generated by TypeOperationTransformer for (uint) casts.
-        // We need to extract <expr> and pass it to Integer.compareUnsigned.
-        // Example: (int)(((character - 'a')) & 0xFFFFFFFFL) → (character - 'a')
-        const string prefix = "(int)((";
-        const string suffix = ") & 0xFFFFFFFFL)";
-        if (expr.StartsWith(prefix) && expr.EndsWith(suffix))
+        if (op.Cat == BinOpCat.Arithmetic
+            && BinaryOperatorResolution.ShouldUseTypeInfoFallback(node, ctx)
+            && BinaryOperatorResolution.ResolveFallbackOperatorType(node, ctx, inference) is { } fbType
+            && BinaryOperatorResolution.TryGetJavaOperatorName(fbType, op, out javaName))
         {
-            // Extract the inner expression between prefix and suffix
-            string inner = expr.Substring(prefix.Length, expr.Length - prefix.Length - suffix.Length);
-            // Only strip when the operand is a single (uint) cast. For compound
-            // uint-typed operands (e.g. (uint)a + (uint)b), the prefix/suffix match
-            // by coincidence but the inner text is not balanced — stripping would
-            // mangle the expression. compareUnsigned still works with the masked
-            // operand left intact.
-            if (!IsBalancedParentheses(inner))
-            {
-                return expr;
-            }
-            // The inner expression may have an extra layer of parentheses from the
-            // original cast, e.g. ((character - 'a')). Strip one layer if present.
-            if (inner.StartsWith("(") && inner.EndsWith(")") && IsBalancedParentheses(inner.Substring(1, inner.Length - 2)))
-            {
-                inner = inner.Substring(1, inner.Length - 2);
-            }
-            return inner;
-        }
-        return expr;
-    }
-
-    private static bool IsBalancedParentheses(string s)
-    {
-        int depth = 0;
-        foreach (char c in s)
-        {
-            if (c == '(') depth++;
-            else if (c == ')')
-            {
-                depth--;
-                if (depth < 0) return false;
-            }
-        }
-        return depth == 0;
-    }
-
-    /// <summary>
-    /// Checks if a node is inside a pointer dereference expression *(expr),
-    /// traversing through ParenthesizedExpressionSyntax layers.
-    /// </summary>
-    private static bool IsInsidePointerDereference(ExpressionSyntax node)
-    {
-        var parent = node.Parent;
-        while (parent is ParenthesizedExpressionSyntax)
-            parent = parent.Parent;
-        return parent is PrefixUnaryExpressionSyntax prefix
-            && prefix.OperatorToken.IsKind(SyntaxKind.AsteriskToken);
-    }
-
-    private static bool IsBitwiseOp(string op) => op is "&" or "|" or "^";
-
-    /// <summary>
-    /// Returns true when the expression is (possibly parenthesized) enum arithmetic or bitwise
-    /// operation. These expressions are already converted to numeric Java expressions by the
-    /// dedicated enum transformers, so adding another .getValue() suffix would be invalid.
-    /// </summary>
-    private static bool IsEnumArithmeticOrBitwiseExpression(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax paren)
-            expression = paren.Expression;
-
-        if (expression is not BinaryExpressionSyntax binary)
-            return false;
-
-        return binary.Kind() is SyntaxKind.AddExpression
-            or SyntaxKind.SubtractExpression
-            or SyntaxKind.MultiplyExpression
-            or SyntaxKind.DivideExpression
-            or SyntaxKind.ModuloExpression
-            or SyntaxKind.BitwiseAndExpression
-            or SyntaxKind.BitwiseOrExpression
-            or SyntaxKind.ExclusiveOrExpression
-            or SyntaxKind.LeftShiftExpression
-            or SyntaxKind.RightShiftExpression
-            or SyntaxKind.UnsignedRightShiftExpression;
-    }
-
-    private static bool IsDecimalExpression(ExpressionSyntax expression, ConversionContext context)
-        => context.SemanticModel != null
-            && context.GetTypeInfo(expression).Type?.SpecialType == SpecialType.System_Decimal;
-
-    private string? TryConvertToDecimalOperand(ExpressionSyntax expression, string transformedExpression, ConversionContext context)
-    {
-        if (IsDecimalExpression(expression, context))
-            return transformedExpression;
-
-        if (context.SemanticModel == null)
-            return null;
-
-        var typeInfo = context.GetTypeInfo(expression);
-        if (typeInfo.ConvertedType?.SpecialType != SpecialType.System_Decimal)
-        {
-            return null;
-        }
-
-        context.AddImport("io.github.ningpp.compat.Decimal");
-        return transformedExpression;
-    }
-
-    private bool TryTransformDecimalBinaryExpression(
-        BinaryExpressionSyntax node,
-        string op,
-        ConversionContext context,
-        string left,
-        string right,
-        out string result)
-    {
-        result = string.Empty;
-
-        var leftIsDecimal = IsDecimalExpression(node.Left, context);
-        var rightIsDecimal = IsDecimalExpression(node.Right, context);
-        if (!leftIsDecimal && !rightIsDecimal)
-            return false;
-
-        left = TryConvertToDecimalOperand(node.Left, left, context) ?? left;
-        right = TryConvertToDecimalOperand(node.Right, right, context) ?? right;
-
-        result = $"{left} {op} {right}";
-
-        return result.Length > 0;
-    }
-
-    private static string? GetEnumAccessSuffix(INamedTypeSymbol enumType, ConversionContext context)
-    {
-        if (IsFlagsEnumType(enumType, context))
-            return null;
-
-        // Prefer the current symbol over the name registry to avoid same-simple-name
-        // enum collisions across conversions or type groups.
-        if (EnumHasExplicitValues(enumType))
-            return ".getValue()";
-
-        var enumName = enumType.ToDisplayString();
-        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
-            fullyQualifiedName = fullyQualifiedName["global::".Length..];
-
-        if (context.IsExplicitValueEnum(enumName) || context.IsExplicitValueEnum(fullyQualifiedName))
-            return ".getValue()";
-
-        return ".ordinal()";
-    }
-
-    /// <summary>
-    /// Checks if an enum type has explicit value initializers by inspecting its members.
-    /// </summary>
-    private static bool EnumHasExplicitValues(INamedTypeSymbol enumType)
-    {
-        foreach (var member in enumType.GetMembers())
-        {
-            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field
-                && field.Name != WellKnownMemberNames.InstanceConstructorName)
-            {
-                // If any member has a non-default value, the enum has explicit values.
-                // Default auto-increment starts at 0, so check if any value differs from its ordinal.
-                var ordinal = 0;
-                foreach (var checkMember in enumType.GetMembers())
-                {
-                    if (checkMember is IFieldSymbol { IsConst: true, HasConstantValue: true } checkField
-                        && checkField.Name != WellKnownMemberNames.InstanceConstructorName)
-                    {
-                        if (checkField.ConstantValue is int intVal && intVal != ordinal)
-                            return true;
-                        if (checkField.ConstantValue is long longVal && longVal != ordinal)
-                            return true;
-                        if (checkField.ConstantValue is uint uintVal && uintVal != ordinal)
-                            return true;
-                        if (checkField.ConstantValue is ulong ulongVal && ulongVal != (ulong)ordinal)
-                            return true;
-                        ordinal++;
-                    }
-                }
-                return false;
-            }
+            operatorType = fbType;
+            return true;
         }
         return false;
     }
 
-    private string? TryTransformEnumComparison(BinaryExpressionSyntax node, string op, ConversionContext context)
+    private string RenderOperatorCall(BinaryExpressionSyntax node, INamedTypeSymbol operatorType,
+        string javaName, ConversionContext ctx)
     {
-        var leftType = context.GetTypeInfo(node.Left).Type as INamedTypeSymbol;
-        var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
-
-        bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
-        bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
-
-        if (!leftIsEnum && !rightIsEnum)
-            return null;
-
-        var facade = ExpressionTransformerFacade.Instance;
-        var left = facade.Transform(node.Left, context);
-        var right = facade.Transform(node.Right, context);
-
-        if (leftIsEnum)
-        {
-            var suffix = GetEnumAccessSuffix(leftType!, context);
-            if (suffix != null) left = $"{left}{suffix}";
-        }
-
-        if (rightIsEnum)
-        {
-            var suffix = GetEnumAccessSuffix(rightType!, context);
-            if (suffix != null) right = $"{right}{suffix}";
-        }
-
-        left = WrapOperandIfNeeded(node.Left, left, op, true);
-        right = WrapOperandIfNeeded(node.Right, right, op, false);
-
-        return $"{left} {op} {right}";
+        var f = ExpressionTransformerFacade.Instance;
+        var call = $"{javaName}({f.Transform(node.Left, ctx)}, {f.Transform(node.Right, ctx)})";
+        return StaticQualifier(operatorType, ctx, node, qualifyCollision: true) is { } q ? $"{q}.{call}" : call;
     }
 
-    private JavaExpression? TryTransformEnumComparisonToIR(BinaryExpressionSyntax node, string op, ConversionContext context)
+    private JavaExpression BuildOperatorCallIR(BinaryExpressionSyntax node, INamedTypeSymbol operatorType,
+        string javaName, ConversionContext ctx)
     {
-        var leftType = context.GetTypeInfo(node.Left).Type as INamedTypeSymbol;
-        var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
-
-        bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
-        bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
-
-        if (!leftIsEnum && !rightIsEnum)
-            return null;
-
-        return new JavaRawExpression(TryTransformEnumComparison(node, op, context)!);
-    }
-
-    /// <summary>
-    /// Handles bitwise operations (&amp;, |, ^) on non-Flags enum types.
-    /// Java enums do not support bitwise operators, so must use getValue()/ordinal() on operands.
-    /// For Flags enums (mapped to int/long), no conversion is needed.
-    /// </summary>
-    private string? TryTransformEnumBitwiseOperation(BinaryExpressionSyntax node, string op, ConversionContext context)
-    {
-        var leftType = context.GetTypeInfo(node.Left).Type as INamedTypeSymbol;
-        var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
-
-        bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
-        bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
-
-        if (!leftIsEnum && !rightIsEnum)
-            return null;
-
-        // Flags enums are mapped to int/long in Java, so bitwise ops work natively
-        if (leftIsEnum && IsFlagsEnumType(leftType!, context))
-            return null;
-        if (rightIsEnum && IsFlagsEnumType(rightType!, context))
-            return null;
-
-        var facade = ExpressionTransformerFacade.Instance;
-
-        // When an enum operand is a cast from an integral value or another enum
-        // (e.g. (MyEnum)intValue or (MyEnum)otherEnumValue), unwrap it to the
-        // underlying integer expression directly. Otherwise the cast transformer
-        // emits MyEnum.fromValue((int)(...)) and appending .getValue() produces
-        // redundant nested fromValue calls.
-        string left;
-        string right;
-        bool leftUnwrapped = false;
-        bool rightUnwrapped = false;
-
-        if (leftIsEnum)
-        {
-            var unwrappedLeft = TryUnwrapEnumCastOperand(node.Left, leftType!, context);
-            if (unwrappedLeft != null)
-            {
-                left = unwrappedLeft;
-                leftUnwrapped = true;
-            }
-            else
-            {
-                left = facade.Transform(node.Left, context);
-            }
-        }
-        else
-        {
-            left = facade.Transform(node.Left, context);
-        }
-
-        if (rightIsEnum)
-        {
-            var unwrappedRight = TryUnwrapEnumCastOperand(node.Right, rightType!, context);
-            if (unwrappedRight != null)
-            {
-                right = unwrappedRight;
-                rightUnwrapped = true;
-            }
-            else
-            {
-                right = facade.Transform(node.Right, context);
-            }
-        }
-        else
-        {
-            right = facade.Transform(node.Right, context);
-        }
-
-        // Wrap enum operands with getValue() or ordinal() depending on enum kind.
-        // Guard: if the transformed expression already ends with a value-access
-        // suffix (from nested enum expression processing), don't append another.
-        if (leftIsEnum && !leftUnwrapped)
-        {
-            var suffix = GetEnumAccessSuffix(leftType!, context);
-            if (suffix != null
-                && !IsNestedBitwiseExpression(node.Left)
-                && !left.EndsWith(suffix, StringComparison.Ordinal)
-                && !IsBitwiseNotWithSuffix(left, suffix))
-                left = ApplyEnumAccessSuffix(left, suffix);
-        }
-
-        if (rightIsEnum && !rightUnwrapped)
-        {
-            var suffix = GetEnumAccessSuffix(rightType!, context);
-            if (suffix != null
-                && !IsNestedBitwiseExpression(node.Right)
-                && !right.EndsWith(suffix, StringComparison.Ordinal)
-                && !IsBitwiseNotWithSuffix(right, suffix))
-                right = ApplyEnumAccessSuffix(right, suffix);
-        }
-
-        left = WrapOperandIfNeeded(node.Left, left, op, true);
-        right = WrapOperandIfNeeded(node.Right, right, op, false);
-
-        var result = $"{left} {op} {right}";
-
-        // Only wrap the outermost bitwise expression with fromValue()/values()[]
-        // when the result is used in a context that expects an enum value.
-        // Nested bitwise expressions (e.g. a | b inside a | b | c) and expressions
-        // used in integer contexts (e.g. (flags & Value) != 0) must stay unwrapped
-        // to avoid invalid Java (enum compared to int) and double-wrapping.
-        if (ShouldWrapEnumBitwiseResult(node))
-        {
-            if (TryWrapEnumBitwiseResult(node, result, context, out var wrappedResult))
-                return wrappedResult;
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Returns true when the bitwise expression is used in a context that expects
-    /// an enum value (return, assignment, argument, cast, etc.), rather than an
-    /// integer context (comparison, arithmetic, nested bitwise, etc.).
-    /// Parenthesized expression wrappers are skipped.
-    /// </summary>
-    private static bool ShouldWrapEnumBitwiseResult(BinaryExpressionSyntax node)
-    {
-        var parent = node.Parent;
-        while (parent is ParenthesizedExpressionSyntax)
-            parent = parent.Parent;
-
-        return parent is ReturnStatementSyntax
-            or ArrowExpressionClauseSyntax
-            or YieldStatementSyntax
-            or EqualsValueClauseSyntax
-            or AssignmentExpressionSyntax
-            or ArgumentSyntax
-            or CastExpressionSyntax;
-    }
-
-    /// <summary>
-    /// Handles arithmetic operations (+, -, *, /, %) on non-Flags enum types.
-    /// Java enums do not support arithmetic operators, so must use getValue()/ordinal() on operands.
-    /// For Flags enums (mapped to int/long), no conversion is needed.
-    /// </summary>
-    private string? TryTransformEnumArithmeticOperation(BinaryExpressionSyntax node, string op, ConversionContext context)
-    {
-        var leftType = context.GetTypeInfo(node.Left).Type as INamedTypeSymbol;
-        var rightType = context.GetTypeInfo(node.Right).Type as INamedTypeSymbol;
-
-        bool leftIsEnum = leftType?.TypeKind == TypeKind.Enum;
-        bool rightIsEnum = rightType?.TypeKind == TypeKind.Enum;
-
-        if (!leftIsEnum && !rightIsEnum)
-            return null;
-
-        // Flags enums are mapped to int/long in Java, so arithmetic ops work natively
-        if (leftIsEnum && IsFlagsEnumType(leftType!, context))
-            return null;
-        if (rightIsEnum && IsFlagsEnumType(rightType!, context))
-            return null;
-
-        var facade = ExpressionTransformerFacade.Instance;
-        var left = facade.Transform(node.Left, context);
-        var right = facade.Transform(node.Right, context);
-
-        if (leftIsEnum)
-        {
-            var suffix = GetEnumAccessSuffix(leftType!, context);
-            if (suffix != null && !left.EndsWith(suffix, StringComparison.Ordinal))
-                left = ApplyEnumAccessSuffix(left, suffix);
-        }
-
-        if (rightIsEnum)
-        {
-            var suffix = GetEnumAccessSuffix(rightType!, context);
-            if (suffix != null && !right.EndsWith(suffix, StringComparison.Ordinal))
-                right = ApplyEnumAccessSuffix(right, suffix);
-        }
-
-        left = WrapOperandIfNeeded(node.Left, left, op, true);
-        right = WrapOperandIfNeeded(node.Right, right, op, false);
-
-        var result = $"{left} {op} {right}";
-
-        // C# enum arithmetic's result type is the enum's UNDERLYING type. For narrow
-        // underlying types (byte/sbyte/short/ushort) the value wraps at the type's
-        // width, e.g. (JsonTokenType)(byte)(0 - 7) == 249 — not -7. Java ordinal()
-        // arithmetic stays int, so comparisons like IsTokenTypePrimitive(None)
-        // ((byte)(None - String) <= (byte)(Null - String): 249 <= 4) flip from
-        // C#-false to Java-true. Mask the result to the underlying type's width.
-        if (op is "+" or "-")
-        {
-            var enumType = leftIsEnum ? leftType! : rightType!;
-            var underlying = enumType.EnumUnderlyingType?.SpecialType;
-            var mask = underlying switch
-            {
-                SpecialType.System_Byte or SpecialType.System_SByte => "0xFF",
-                SpecialType.System_UInt16 or SpecialType.System_Int16 => "0xFFFF",
-                _ => null
-            };
-            if (mask != null)
-            {
-                result = $"(({result}) & {mask})";
-            }
-        }
-
-        return result;
-    }
-
-    private static bool IsNestedBitwiseExpression(ExpressionSyntax expression)
-    {
-        while (expression is ParenthesizedExpressionSyntax parenthesized)
-            expression = parenthesized.Expression;
-
-        return expression is BinaryExpressionSyntax binary
-            && IsBitwiseOp(binary.Kind() switch
-            {
-                SyntaxKind.BitwiseAndExpression => "&",
-                SyntaxKind.BitwiseOrExpression => "|",
-                SyntaxKind.ExclusiveOrExpression => "^",
-                _ => string.Empty
-            });
-    }
-
-    /// <summary>
-    /// Applies an enum access suffix (.getValue() or .ordinal()) to an expression,
-    /// wrapping in parentheses if the expression is compound to ensure the suffix
-    /// applies to the whole expression, not just the last token.
-    /// </summary>
-    private static string ApplyEnumAccessSuffix(string expr, string suffix)
-    {
-        // If the expression contains operators or is complex, wrap in parens
-        if (expr.Contains(" | ") || expr.Contains(" & ") || expr.Contains(" ^ ")
-            || expr.Contains(" << ") || expr.Contains(">>")
-            || expr.Contains(" + ") || expr.Contains(" - ") || expr.Contains(" * ")
-            || expr.Contains(" / ") || expr.Contains(" % ")
-            || expr.Contains(" ? ") || expr.Contains(" : "))
-        {
-            return $"({expr}){suffix}";
-        }
-        return $"{expr}{suffix}";
-    }
-
-    /// <summary>
-    /// Checks if the expression is a bitwise-not (~) whose inner operand already
-    /// contains the enum value-access suffix (e.g. ~(A.getValue() | B.getValue())).
-    /// In that case the ~result is already an int, so appending another .getValue()
-    /// would be invalid (cannot dereference int).
-    /// </summary>
-    private static bool IsBitwiseNotWithSuffix(string expr, string suffix)
-    {
-        if (!expr.StartsWith("~", StringComparison.Ordinal))
-            return false;
-        var inner = expr[1..].TrimStart();
-        // Strip outer parens added by the unary transformer
-        if (inner.StartsWith("(", StringComparison.Ordinal) && inner.EndsWith(")", StringComparison.Ordinal))
-            inner = inner[1..^1];
-        return inner.Contains(suffix, StringComparison.Ordinal);
-    }
-
-    /// <summary>
-    /// When an enum operand of a bitwise expression is a cast from an integral value
-    /// or another enum (e.g. (MyEnum)intValue or (MyEnum)otherEnumValue), the cast
-    /// transformer emits MyEnum.fromValue((int)(...)). Appending .getValue() to that
-    /// produces redundant nested fromValue calls. Instead, unwrap the cast and return
-    /// the underlying integer expression directly.
-    /// </summary>
-    private static string? TryUnwrapEnumCastOperand(
-        ExpressionSyntax operand,
-        INamedTypeSymbol enumType,
-        ConversionContext context)
-    {
-        var stripped = operand;
-        while (stripped is ParenthesizedExpressionSyntax paren)
-            stripped = paren.Expression;
-
-        if (stripped is not CastExpressionSyntax castExpr)
-            return null;
-
-        var castTargetType = context.GetTypeInfo(castExpr.Type).Type as INamedTypeSymbol;
-        if (castTargetType?.TypeKind != TypeKind.Enum)
-            return null;
-
-        if (!SymbolEqualityComparer.Default.Equals(castTargetType, enumType))
-            return null;
-
-        var facade = ExpressionTransformerFacade.Instance;
-        var innerExpr = castExpr.Expression;
-        var innerTransformed = facade.Transform(innerExpr, context);
-        var innerType = context.GetTypeInfo(innerExpr).Type;
-
-        if (innerType?.TypeKind == TypeKind.Enum)
-        {
-            var suffix = GetEnumAccessSuffix((INamedTypeSymbol)innerType, context);
-            if (suffix != null)
-                innerTransformed = ApplyEnumAccessSuffix(innerTransformed, suffix);
-        }
-        else if (innerType?.SpecialType != SpecialType.System_Int32)
-        {
-            innerTransformed = $"(int)({innerTransformed})";
-        }
-
-        return innerTransformed;
-    }
-
-    /// <summary>
-    /// Checks if an enum type is a [Flags] enum, using both the context registration
-    /// and direct semantic model inspection (to handle cases where the enum hasn't
-    /// been registered yet due to processing order).
-    /// </summary>
-    private static bool IsFlagsEnumType(INamedTypeSymbol enumType, ConversionContext context)
-    {
-        if (HasFlagsAttribute(enumType))
-            return true;
-
-        var displayName = enumType.ToDisplayString();
-        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
-            fullyQualifiedName = fullyQualifiedName["global::".Length..];
-
-        if (context.IsFlagsEnum(displayName)
-            || context.IsFlagsEnum(fullyQualifiedName))
-            return true;
-
-        return false;
-    }
-
-    private static bool IsRegisteredExplicitValueEnum(INamedTypeSymbol enumType, ConversionContext context)
-    {
-        var displayName = enumType.ToDisplayString();
-        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
-            fullyQualifiedName = fullyQualifiedName["global::".Length..];
-
-        return context.IsExplicitValueEnum(displayName)
-            || context.IsExplicitValueEnum(fullyQualifiedName);
-    }
-
-    private static bool HasFlagsAttribute(INamedTypeSymbol enumType)
-    {
-        return enumType.GetAttributes().Any(a =>
-            a.AttributeClass?.ToDisplayString() is "System.FlagsAttribute"
-                or "System.Flags"
-                or "FlagsAttribute"
-                or "Flags");
-    }
-
-    /// <summary>
-    /// Fallback: when GetSymbolInfo can't resolve the operator method, use operand type info
-    /// to detect user-defined operators and emit the Java static method call.
-    /// </summary>
-    private string? TryTransformOperatorByTypeInfo(BinaryExpressionSyntax node, string op, ConversionContext context)
-    {
-        var semanticModel = context.GetSemanticModelForNode(node) ?? context.SemanticModel!;
-        var leftType = semanticModel.GetTypeInfo(node.Left).Type;
-        var rightType = semanticModel.GetTypeInfo(node.Right).Type;
-
-        // If both operand types are definitively built-in (e.g. double + double),
-        // no user-defined operator can apply — skip the syntax-based inference fallback.
-        if (leftType != null && rightType != null
-            && leftType is INamedTypeSymbol leftNamed && IsBuiltInType(leftNamed)
-            && rightType is INamedTypeSymbol rightNamed && IsBuiltInType(rightNamed))
-            return null;
-
-        // Prefer the left operand's type for the operator container (e.g. Point * double → Point).
-        // Skip error types (unresolved 'var' etc.) and interface types.
-        bool IsValidOperatorType(INamedTypeSymbol? t) =>
-            t != null && t.TypeKind != TypeKind.Error && t.TypeKind != TypeKind.Interface && !IsBuiltInType(t);
-
-        INamedTypeSymbol? operatorType = null;
-        if (IsValidOperatorType(leftType as INamedTypeSymbol))
-            operatorType = (INamedTypeSymbol)leftType!;
-        else if (IsValidOperatorType(rightType as INamedTypeSymbol))
-            operatorType = (INamedTypeSymbol)rightType!;
-
-        // If both GetTypeInfo calls failed, try to resolve the operand types via their symbols
-        if (operatorType == null)
-        {
-            static INamedTypeSymbol? ResolveOperandType(ExpressionSyntax expr, SemanticModel sm)
-            {
-                var type = sm.GetTypeInfo(expr).Type;
-                if (type is INamedTypeSymbol n && n.TypeKind != TypeKind.Error)
-                    return n;
-                var sym = sm.GetSymbolInfo(expr).Symbol;
-                var st = sym switch
-                {
-                    ILocalSymbol ls => ls.Type,
-                    IFieldSymbol fs => fs.Type,
-                    IParameterSymbol ps => ps.Type,
-                    IPropertySymbol pr => pr.Type,
-                    _ => null
-                };
-                if (st is INamedTypeSymbol sn && sn.TypeKind != TypeKind.Error)
-                    return sn;
-                // Try scope-based lookup for var-declared locals that GetSymbolInfo misses
-                if (expr is IdentifierNameSyntax id)
-                {
-                    var lookup = sm.LookupSymbols(expr.SpanStart, name: id.Identifier.Text)
-                        .Select(s => s switch
-                        {
-                            ILocalSymbol ls => ls.Type,
-                            IParameterSymbol ps => ps.Type,
-                            IFieldSymbol fs => fs.Type,
-                            _ => null
-                        })
-                        .OfType<INamedTypeSymbol>()
-                        .FirstOrDefault(t => t.TypeKind != TypeKind.Error);
-                    if (lookup != null) return lookup;
-                }
-                return null;
-            }
-            var resolvedLeft = ResolveOperandType(node.Left, semanticModel);
-            var resolvedRight = ResolveOperandType(node.Right, semanticModel);
-            if (IsValidOperatorType(resolvedLeft))
-                operatorType = resolvedLeft;
-            else if (IsValidOperatorType(resolvedRight))
-                operatorType = resolvedRight;
-        }
-
-        // Syntax-based fallback: if semantic model can't resolve types, try to infer
-        // operator type from operand structure (method calls on known types, etc.)
-        if (operatorType == null)
-        {
-            operatorType = InferOperatorTypeFromSyntax(node, semanticModel);
-        }
-
-        if (operatorType == null) return null;
-
-        // Map SyntaxKind to Roslyn operator method name, then to Java method name
-        var roslynOpName = SyntaxKindToRoslynOperatorName(node.Kind());
-        if (roslynOpName == null) return null;
-
-        // Verify the type actually declares this operator
-        bool hasSrcOp = operatorType.GetMembers(roslynOpName).Any(m =>
-                m is IMethodSymbol operatorMethod
-                && operatorMethod.MethodKind == MethodKind.UserDefinedOperator
-                && OperatorHasSourceDeclaration(operatorMethod));
-        bool hasBclOp = !hasSrcOp
-            && operatorType.GetMembers(roslynOpName).Any(m =>
-                m is IMethodSymbol operatorMethod
-                && operatorMethod.MethodKind == MethodKind.UserDefinedOperator);
-        if (!hasSrcOp && !hasBclOp)
-            return null;
-
-        var javaMethodName = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
-            .TryGetValue(roslynOpName, out var n) ? n : roslynOpName;
-
-        var facade = ExpressionTransformerFacade.Instance;
-        var left = facade.Transform(node.Left, context);
-        var right = facade.Transform(node.Right, context);
-
-        var currentTypeName = context.CurrentType?.Name;
-        var operatorTypeName = operatorType.Name;
-
-        if (currentTypeName != null && operatorTypeName == currentTypeName)
-            return $"{javaMethodName}({left}, {right})";
-
-        var containingType = context.MapType(operatorType);
-        var angleIdx = containingType.IndexOf('<');
-        if (angleIdx > 0) containingType = containingType[..angleIdx];
-        return $"{containingType}.{javaMethodName}({left}, {right})";
-    }
-
-    /// <summary>
-    /// IR-based fallback for user-defined operators when GetSymbolInfo fails.
-    /// </summary>
-    private JavaExpression? TryTransformOperatorByTypeInfoToIR(BinaryExpressionSyntax node, string op, ConversionContext context)
-    {
-        var semanticModel = context.GetSemanticModelForNode(node) ?? context.SemanticModel!;
-        var leftType = semanticModel.GetTypeInfo(node.Left).Type;
-        var rightType = semanticModel.GetTypeInfo(node.Right).Type;
-
-        // If both operand types are definitively built-in, no user-defined operator applies.
-        if (leftType != null && rightType != null
-            && leftType is INamedTypeSymbol leftNamed2 && IsBuiltInType(leftNamed2)
-            && rightType is INamedTypeSymbol rightNamed2 && IsBuiltInType(rightNamed2))
-            return null;
-
-        INamedTypeSymbol? operatorType = null;
-        if (leftType is INamedTypeSymbol lnt && lnt.TypeKind != TypeKind.Error && lnt.TypeKind != TypeKind.Interface && !IsBuiltInType(lnt))
-            operatorType = lnt;
-        else if (rightType is INamedTypeSymbol rnt && rnt.TypeKind != TypeKind.Error && rnt.TypeKind != TypeKind.Interface && !IsBuiltInType(rnt))
-            operatorType = rnt;
-
-        if (operatorType == null) return null;
-
-        var roslynOpName = SyntaxKindToRoslynOperatorName(node.Kind());
-        if (roslynOpName == null) return null;
-
-        // Check if the operator type maps to a compat library type that supports the operation
-        var mappedType = context.MapType(operatorType);
-        var angleIdx2 = mappedType.IndexOf('<');
-        if (angleIdx2 > 0) mappedType = mappedType[..angleIdx2];
-
-        bool hasSourceOperator = operatorType.GetMembers(roslynOpName).Any(m =>
-                m is IMethodSymbol operatorMethod
-                && operatorMethod.MethodKind == MethodKind.UserDefinedOperator
-                && OperatorHasSourceDeclaration(operatorMethod));
-
-        // Also check for BCL operators on types that map to compat types
-        // (e.g. DateTime - DateTime → CSharpDateTime.subtract)
-        bool hasBclOperator = !hasSourceOperator
-            && operatorType.GetMembers(roslynOpName).Any(m =>
-                m is IMethodSymbol operatorMethod
-                && operatorMethod.MethodKind == MethodKind.UserDefinedOperator);
-
-        if (!hasSourceOperator && !hasBclOperator)
-            return null;
-
-        var javaMethodName = CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName
-            .TryGetValue(roslynOpName, out var n) ? n : roslynOpName;
-
-        var facade = ExpressionTransformerFacade.Instance;
-        var leftIR = facade.TransformToIR(node.Left, context);
-        var rightIR = facade.TransformToIR(node.Right, context);
-
-        var currentTypeName = context.CurrentType?.Name;
-        var operatorTypeName = operatorType.Name;
-
-        JavaExpression? target;
-        if (currentTypeName != null && operatorTypeName == currentTypeName)
-        {
-            target = null;
-        }
-        else
-        {
-            var containingType = context.MapType(operatorType);
-            var angleIdx = containingType.IndexOf('<');
-            if (angleIdx > 0) containingType = containingType[..angleIdx];
-            target = new JavaIdentifierExpression { Name = containingType };
-        }
-
-        var call = new JavaMethodCallExpression { Target = target, MethodName = javaMethodName };
-        call.Arguments.Add(leftIR);
-        call.Arguments.Add(rightIR);
+        var f = ExpressionTransformerFacade.Instance;
+        JavaExpression? target = StaticQualifier(operatorType, ctx, node, qualifyCollision: false) is { } q
+            ? new JavaIdentifierExpression { Name = q } : null;
+        var call = new JavaMethodCallExpression { Target = target, MethodName = javaName };
+        call.Arguments.Add(f.TransformToIR(node.Left, ctx));
+        call.Arguments.Add(f.TransformToIR(node.Right, ctx));
         return call;
     }
 
-    /// <summary>
-    /// Syntax-based inference of the operator's containing type when all semantic-model methods fail.
-    /// Tries GetTypeInfo on the whole expression first, then recurses into sub-expressions.
-    /// Only returns non-built-in types (Point, Rectangle, etc.), never built-in types.
-    /// </summary>
-    private static INamedTypeSymbol? InferOperatorTypeFromSyntax(BinaryExpressionSyntax node, SemanticModel sm)
+    private JavaExpression BuildObjectsEqualsIR(BinaryExpressionSyntax node, string op, ConversionContext ctx)
     {
-        // First try GetTypeInfo on the whole operand expression
-        static INamedTypeSymbol? TryGetWholeType(ExpressionSyntax expr, SemanticModel sm)
+        var f = ExpressionTransformerFacade.Instance;
+        ctx.AddImport("java.util.Objects");
+        var call = new JavaMethodCallExpression
         {
-            var t = sm.GetTypeInfo(expr).Type;
-            if (t is INamedTypeSymbol n && n.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(n))
-                return n;
-            return null;
-        }
-
-        static INamedTypeSymbol? TryFromExpr(ExpressionSyntax expr, SemanticModel sm)
-        {
-            // First try the whole expression type
-            var whole = TryGetWholeType(expr, sm);
-            if (whole != null) return whole;
-
-            // Try member access: get member type from symbol first, then walk receiver type members
-            if (expr is MemberAccessExpressionSyntax ma)
-            {
-                var maSym = sm.GetSymbolInfo(ma).Symbol;
-                if (maSym is IPropertySymbol { Type: INamedTypeSymbol maPt } && maPt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(maPt))
-                    return maPt;
-                if (maSym is IFieldSymbol { Type: INamedTypeSymbol maFt } && maFt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(maFt))
-                    return maFt;
-                // Resolve receiver type and look up member on it
-                var recvType = TryFromExpr(ma.Expression, sm);
-                if (recvType != null)
-                {
-                    var memberName = ma.Name.Identifier.Text;
-                    bool foundPropertyOrField = false;
-                    foreach (var m in recvType.GetMembers(memberName))
-                    {
-                        if (m is IPropertySymbol { Type: INamedTypeSymbol mt } && mt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(mt))
-                            return mt;
-                        if (m is IFieldSymbol { Type: INamedTypeSymbol mft } && mft.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(mft))
-                            return mft;
-                        if (m is IPropertySymbol or IFieldSymbol)
-                            foundPropertyOrField = true;
-                    }
-                    // If member is a property/field with built-in type, return null
-                    // (expression resolves to built-in type, no user-defined operator applies)
-                    if (foundPropertyOrField)
-                        return null;
-                    return recvType;
-                }
-            }
-            // Try invocation: get return type, or receiver type
-            if (expr is InvocationExpressionSyntax inv)
-            {
-                // First try the return type of the whole invocation
-                var invType = sm.GetTypeInfo(inv).Type;
-                if (invType is INamedTypeSymbol n && n.TypeKind != TypeKind.Error) return n;
-                // Try to get return type from the invoked member symbol
-                if (inv.Expression is MemberAccessExpressionSyntax invMa2)
-                {
-                    var memberSym = sm.GetSymbolInfo(invMa2).Symbol;
-                    if (memberSym is IPropertySymbol { Type: INamedTypeSymbol pt } && pt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(pt))
-                        return pt;
-                    if (memberSym is IMethodSymbol { ReturnType: INamedTypeSymbol mrt } && mrt.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(mrt))
-                        return mrt;
-                }
-                // Then try the receiver
-                if (inv.Expression is MemberAccessExpressionSyntax invMa)
-                {
-                    var recv = TryFromExpr(invMa.Expression, sm);
-                    if (recv != null) return recv;
-                }
-            }
-            // Try simple identifier type
-            if (expr is IdentifierNameSyntax id)
-            {
-                var idType = sm.GetTypeInfo(id).Type;
-                if (idType is INamedTypeSymbol n && n.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(n))
-                    return n;
-                var idSym = sm.GetSymbolInfo(id).Symbol;
-                if (idSym is ILocalSymbol { Type: INamedTypeSymbol lsType } && lsType.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(lsType))
-                    return lsType;
-                if (idSym is IFieldSymbol { Type: INamedTypeSymbol fsType } && fsType.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(fsType))
-                    return fsType;
-                if (idSym is IParameterSymbol { Type: INamedTypeSymbol psType } && psType.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(psType))
-                    return psType;
-                // Try GetTypeInfo again on the identifier for cases where the local was inferred
-                var idConvertedType = sm.GetTypeInfo(id).ConvertedType;
-                if (idConvertedType is INamedTypeSymbol cn && cn.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(cn))
-                    return cn;
-                // Walk syntax tree to find var declaration and resolve type from initializer.
-                // Try up to 5 levels of var-declaration chains to find a resolvable type.
-                var decl = FindVarDeclaration(id);
-                for (int chainDepth = 0; chainDepth < 5 && decl?.Initializer?.Value is ExpressionSyntax initExpr; chainDepth++)
-                {
-                    var initType = sm.GetTypeInfo(initExpr).Type;
-                    if (initType is INamedTypeSymbol initN && initN.TypeKind != TypeKind.Error && !IsBuiltInTypeStatic(initN))
-                        return initN;
-                    var initResult = TryFromExpr(initExpr, sm);
-                    if (initResult != null) return initResult;
-                    // If initializer is a simple identifier (another var), follow the chain
-                    if (initExpr is IdentifierNameSyntax chainId)
-                        decl = FindVarDeclaration(chainId);
-                    else
-                        break;
-                }
-            }
-            // Try parenthesized expression
-            if (expr is ParenthesizedExpressionSyntax paren)
-                return TryFromExpr(paren.Expression, sm);
-            // Recurse into nested binary expressions but PREFER non-built-in types
-            if (expr is BinaryExpressionSyntax bin)
-            {
-                var left = TryFromExpr(bin.Left, sm);
-                var right = TryFromExpr(bin.Right, sm);
-                // Return the first non-built-in type found (left then right)
-                if (left != null && !IsBuiltInTypeStatic(left)) return left;
-                if (right != null && !IsBuiltInTypeStatic(right)) return right;
-                if (left != null) return left;
-                return right;
-            }
-            return null;
-        }
-
-        // Walk up the syntax tree to find the variable declaration for a given identifier.
-        // Used when semantic model can't resolve var-declared local types.
-        static Microsoft.CodeAnalysis.CSharp.Syntax.VariableDeclaratorSyntax? FindVarDeclaration(IdentifierNameSyntax id)
-        {
-            var name = id.Identifier.Text;
-            var parent = id.Parent;
-            while (parent != null)
-            {
-                if (parent is BlockSyntax block)
-                {
-                    foreach (var stmt in block.Statements)
-                    {
-                        if (stmt is LocalDeclarationStatementSyntax localDecl)
-                        {
-                            foreach (var v in localDecl.Declaration.Variables)
-                                if (v.Identifier.Text == name) return v;
-                        }
-                    }
-                }
-                else if (parent is ForEachStatementSyntax fe && fe.Identifier.Text == name)
-                {
-                    // For foreach (var x in col), x has no initializer, but we can check col
-                    return null;
-                }
-                parent = parent.Parent;
-            }
-            return null;
-        }
-
-        var result = TryFromExpr(node.Left, sm) ?? TryFromExpr(node.Right, sm);
-        // Only return non-built-in types (the caller will verify operator membership)
-        if (result != null && !IsBuiltInTypeStatic(result) && result.TypeKind != TypeKind.Error)
-            return result;
-        return null;
-    }
-
-    internal static string? SyntaxKindToRoslynOperatorNameStatic(Microsoft.CodeAnalysis.CSharp.SyntaxKind? kind) => kind switch
-    {
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.AddExpression => "op_Addition",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.SubtractExpression => "op_Subtraction",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.MultiplyExpression => "op_Multiply",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.DivideExpression => "op_Division",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.ModuloExpression => "op_Modulus",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.EqualsExpression => "op_Equality",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.NotEqualsExpression => "op_Inequality",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.GreaterThanExpression => "op_GreaterThan",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.LessThanExpression => "op_LessThan",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.GreaterThanOrEqualExpression => "op_GreaterThanOrEqual",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.LessThanOrEqualExpression => "op_LessThanOrEqual",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.BitwiseAndExpression => "op_BitwiseAnd",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.BitwiseOrExpression => "op_BitwiseOr",
-        Microsoft.CodeAnalysis.CSharp.SyntaxKind.ExclusiveOrExpression => "op_ExclusiveOr",
-        _ => null
-    };
-
-    private static string? SyntaxKindToRoslynOperatorName(Microsoft.CodeAnalysis.CSharp.SyntaxKind kind) =>
-        SyntaxKindToRoslynOperatorNameStatic(kind);
-
-    /// <summary>
-    /// True when the operator is a user-defined value-type operator compared
-    /// against a null literal (e.g. Point? q; q != null). C# semantics are a
-    /// HasValue check that never invokes the underlying value operator; the
-    /// Java struct maps to a class reference, so a plain ==/!= null is
-    /// correct. Emitting Point.notEquals(q, null) would dereference null and
-    /// throw a NullPointerException.
-    /// </summary>
-    private static bool IsStructNullLiteralComparison(IMethodSymbol operatorSymbol, BinaryExpressionSyntax node)
-        => operatorSymbol.ContainingType != null
-           && operatorSymbol.ContainingType.IsValueType
-           && (node.Left.IsKind(SyntaxKind.NullLiteralExpression)
-               || node.Right.IsKind(SyntaxKind.NullLiteralExpression));
-
-    private static bool IsStringType(ExpressionSyntax expr, SemanticModel semanticModel)
-    {
-        var typeInfo = semanticModel.GetTypeInfo(expr);
-        return typeInfo.Type?.SpecialType == SpecialType.System_String;
-    }
-
-    private static bool OperatorHasSourceDeclaration(IMethodSymbol operatorSymbol)
-        => operatorSymbol.Locations.Any(location => location.IsInSource)
-            || operatorSymbol.DeclaringSyntaxReferences.Length > 0;
-
-    internal static bool IsBuiltInTypeStatic(INamedTypeSymbol type) =>
-        type.TypeKind == TypeKind.Enum ||
-        (type.SpecialType != SpecialType.None && !IsMappedToCompatType(type.ToDisplayString())) ||
-        BuiltInTypeNames.Contains(type.ToDisplayString());
-
-    private static bool IsBuiltInType(INamedTypeSymbol type)
-    {
-        // Check if the type is a built-in C# type (int, double, string, bool, etc.)
-        var typeName = type.ToDisplayString();
-        return type.TypeKind == TypeKind.Enum ||
-               (type.SpecialType != SpecialType.None && !IsMappedToCompatType(typeName)) ||
-               BuiltInTypeNames.Contains(typeName);
-    }
-
-    // Types that have SpecialType != None but are mapped to compat library types
-    // which support operator methods (e.g. DateTime - DateTime → CSharpDateTime.subtract)
-    private static readonly HashSet<string> CompatMappedTypeNames = new(StringComparer.Ordinal)
-    {
-        "System.DateTime",
-        "System.TimeSpan",
-        "System.DateTimeOffset",
-        "DateTime",
-        "TimeSpan",
-        "DateTimeOffset",
-    };
-
-    private static bool IsMappedToCompatType(string typeName)
-        => CompatMappedTypeNames.Contains(typeName);
-
-    private static readonly HashSet<string> BuiltInTypeNames = new(StringComparer.Ordinal)
-    {
-        "int", "long", "short", "byte", "sbyte", "uint", "ulong", "ushort",
-        "float", "double", "decimal",
-        "bool", "boolean",
-        "char", "string",
-        "object",
-        "System.Int32", "System.Int64", "System.Int16", "System.Byte",
-        "System.SByte", "System.UInt32", "System.UInt64", "System.UInt16",
-        "System.Single", "System.Double", "System.Decimal",
-        "System.Boolean", "System.Char", "System.String", "System.Object"
-        ,"System.Type"
-    };
-
-    private string TransformUserDefinedOperator(BinaryExpressionSyntax node, IMethodSymbol operatorSymbol, ConversionContext context)
-    {
-        var facade = ExpressionTransformerFacade.Instance;
-
-        // Get the method name for this operator (e.g., operator+ → add).
-        // 结构体 ==/!= 保持 valueEquals/notEquals（合成依赖）。
-        var javaMethodName = GetOperatorMethodName(operatorSymbol);
-
-        // Transform both operands
-        var left = facade.Transform(node.Left, context);
-        var right = facade.Transform(node.Right, context);
-
-        // For user-defined operators, we need to call the static method
-        // Format: TypeName.method(left, right) or method(left, right) if in same class.
-        // Only omit the class qualifier when the call site is inside the operator's own class.
-        // Being in the same namespace/package is NOT sufficient — Java requires the class name.
-        var currentTypeName = context.CurrentType?.Name;  // e.g. "DemoSet"
-        var operatorTypeName = operatorSymbol.ContainingType.Name; // e.g. "DemoSet" (no generics)
-
-        // TS 无 Java 的隐式静态访问：类内调用点也必须
-        // Type.op_Add(...) 限定（Task 27）。
-        if (currentTypeName != null && operatorTypeName == currentTypeName)
-        {
-            return $"{javaMethodName}({left}, {right})";
-        }
-        else
-        {
-            var containingType = context.MapType(operatorSymbol.ContainingType);
-            // Strip type parameters from the class name used as a static call qualifier
-            // e.g. "DemoSet<T>" → "DemoSet"; Java doesn't allow type args on static calls.
-            var angleIdx = containingType.IndexOf('<');
-            if (angleIdx > 0) containingType = containingType[..angleIdx];
-
-            // Java name lookup treats member names and type names in the same space at call sites.
-            // If the current type also declares a member with the same simple name as the operator
-            // container type (e.g. field/property Point), force a fully-qualified static receiver.
-            var operatorTypeSimpleName = operatorSymbol.ContainingType.Name;
-            if (context.SemanticModel?.GetEnclosingSymbol(node.SpanStart)?.ContainingType is INamedTypeSymbol enclosingType
-                && enclosingType.GetMembers(operatorTypeSimpleName).Any(m => m is not INamedTypeSymbol))
-            {
-                var ns = operatorSymbol.ContainingType.ContainingNamespace?.ToDisplayString();
-                containingType = string.IsNullOrWhiteSpace(ns)
-                    ? operatorTypeSimpleName
-                    : $"{ns}.{operatorTypeSimpleName}";
-            }
-
-            return $"{containingType}.{javaMethodName}({left}, {right})";
-        }
-    }
-
-    private static string GetOperatorMethodName(IMethodSymbol operatorSymbol, bool tsTarget = false)
-    {
-        // Use the shared operator-name maps from OperatorTransformer to avoid divergence:
-        // TS 目标 op_Add 等（spec §3.2，Task 27），Java 目标 add/subtract 等。
-        var map = tsTarget
-            ? CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToTsName
-            : CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName;
-        return map.TryGetValue(operatorSymbol.Name, out var name)
-            ? name
-            : operatorSymbol.Name;
-    }
-
-    private static bool IsInSameCompilationUnit(ConversionContext context, INamedTypeSymbol type)
-    {
-        // Check if the type is defined in the current namespace/compilation unit
-        var currentNs = context.CurrentNamespace;
-        var typeNs = type.ContainingNamespace?.ToDisplayString() ?? "";
-
-        // Simple heuristic: same namespace means same compilation unit
-        return currentNs == typeNs || string.IsNullOrEmpty(typeNs);
-    }
-
-    private string WrapOperandIfNeeded(ExpressionSyntax operand, string transformedOperand, string parentOp, bool isLeft)
-    {
-        // If the operand is a binary expression with lower precedence, wrap in parentheses
-        if (operand is BinaryExpressionSyntax)
-        {
-            var operandKind = operand.Kind();
-            var operandPrecedence = GetOperatorPrecedence(operandKind);
-            var parentPrecedence = GetOperatorPrecedenceFromToken(parentOp);
-
-            // For left operand, only wrap if operand has lower precedence
-            // For right operand, wrap if operand has lower or equal precedence (for right associativity)
-            if (isLeft)
-            {
-                if (operandPrecedence < parentPrecedence) return $"({transformedOperand})";
-            }
-            else
-            {
-                if (operandPrecedence <= parentPrecedence) return $"({transformedOperand})";
-            }
-        }
-
-        // Expressions emitted as "expr & 0xFF" (C# byte/ushort/uint casts and byte[] reads)
-        // have bitwise-& precedence. Wrap when the parent operator has higher precedence
-        // so the mask applies to the whole operand, not just part of it.
-        if (transformedOperand.Contains("& 0xFF") && !transformedOperand.TrimEnd().EndsWith(")"))
-        {
-            var parentPrecedence = GetOperatorPrecedenceFromToken(parentOp);
-            if (parentPrecedence > 7) // 7 is & precedence; higher number = higher precedence
-            {
-                return $"({transformedOperand})";
-            }
-        }
-
-        return transformedOperand;
-    }
-
-    private static int GetOperatorPrecedence(SyntaxKind kind)
-    {
-        return kind switch
-        {
-            SyntaxKind.CoalesceExpression => 1,
-            SyntaxKind.ConditionalExpression => 2,
-            SyntaxKind.LogicalOrExpression => 3,
-            SyntaxKind.LogicalAndExpression => 4,
-            SyntaxKind.BitwiseOrExpression => 5,
-            SyntaxKind.ExclusiveOrExpression => 6,
-            SyntaxKind.BitwiseAndExpression => 7,
-            SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression => 8,
-            SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression or
-            SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression => 9,
-            SyntaxKind.LeftShiftExpression or SyntaxKind.RightShiftExpression or SyntaxKind.UnsignedRightShiftExpression => 10,
-            SyntaxKind.AddExpression or SyntaxKind.SubtractExpression => 11,
-            SyntaxKind.MultiplyExpression or SyntaxKind.DivideExpression or SyntaxKind.ModuloExpression => 12,
-            _ => 0
+            Target = new JavaIdentifierExpression { Name = "Objects" },
+            MethodName = "equals"
         };
+        call.Arguments.Add(f.TransformToIR(node.Left, ctx));
+        call.Arguments.Add(f.TransformToIR(node.Right, ctx));
+        return op == "!="
+            ? new JavaUnaryExpression { Operator = "!", Operand = call }
+            : call;
     }
 
-    private static int GetOperatorPrecedenceFromToken(string op)
+    // Qualifier for a static operator call; null means an unqualified in-class call.
+    private static string? StaticQualifier(INamedTypeSymbol operatorType, ConversionContext ctx,
+        BinaryExpressionSyntax node, bool qualifyCollision)
     {
-        return op switch
+        if (ctx.CurrentType is { Name: var currentName } && currentName == operatorType.Name) return null;
+        var q = ctx.MapType(operatorType);
+        var angle = q.IndexOf('<');
+        if (angle > 0) q = q[..angle];
+        // A member with the type's simple name shadows the type at the call site: use the FQN.
+        if (qualifyCollision
+            && ctx.SemanticModel?.GetEnclosingSymbol(node.SpanStart)?.ContainingType is INamedTypeSymbol enc
+            && enc.GetMembers(operatorType.Name).Any(m => m is not INamedTypeSymbol))
         {
-            "||" => 3,
-            "&&" => 4,
-            "|" => 5,
-            "^" => 6,
-            "&" => 7,
-            "==" or "!=" => 8,
-            "<" or "<=" or ">" or ">=" => 9,
-            "<<" or ">>" or ">>>" => 10,
-            "+" or "-" => 11,
-            "*" or "/" or "%" => 12,
-            _ => 0
-        };
+            var ns = operatorType.ContainingNamespace?.ToDisplayString();
+            q = string.IsNullOrWhiteSpace(ns) ? operatorType.Name : $"{ns}.{operatorType.Name}";
+        }
+        return q;
     }
 
-    private string TransformCoalesceExpression(BinaryExpressionSyntax node, ConversionContext context)
+    private static void AddDecimalImportIfNeeded(BinaryExpressionSyntax node, ConversionContext ctx)
     {
-        var facade = ExpressionTransformerFacade.Instance;
-        var left = facade.Transform(node.Left, context);
-        var right = facade.Transform(node.Right, context);
-
-        // If the left operand is always null (e.g. from 'IEnumerable as T[]' which
-        // always yields null in Java), simplify to just the right operand.
-        if (left == "null")
+        foreach (var operand in new[] { node.Left, node.Right })
         {
-            return right;
-        }
-
-        // If the left operand is already a ternary from ?. conversion (e.g. _array?.Length),
-        // the null check is already embedded. Replace the false branch with the ?? right side.
-        // Pattern: "(expr != null ? ... : falseBranch)" → "(expr != null ? ... : rightSide)"
-        if (left.StartsWith("(") && left.Contains(" != null ? ") && left.Contains(" : "))
-        {
-            // Find the last " : " to split the ternary (handles nested ternaries)
-            var colonIndex = left.LastIndexOf(" : ");
-            if (colonIndex > 0)
-            {
-                var beforeColon = left.Substring(0, colonIndex);
-                var falseBranch = left.Substring(colonIndex + 3);
-                // If the false branch is already the same as right, return as-is
-                if (falseBranch.Trim() == right.Trim())
-                {
-                    return left;
-                }
-                // Preserve trailing characters from falseBranch (e.g. closing parentheses)
-                // that are not part of the value itself. e.g. "null)" → keep ")"
-                var trailing = "";
-                for (int i = falseBranch.Length - 1; i >= 0; i--)
-                {
-                    if (falseBranch[i] == ')' || falseBranch[i] == ']' || falseBranch[i] == '}')
-                        trailing = falseBranch[i] + trailing;
-                    else
-                        break;
-                }
-                // Replace the false branch with the ?? right side
-                return $"{beforeColon} : {right}{trailing}";
-            }
-        }
-
-        // Avoid evaluating the left operand twice when it has side effects.
-        // Simple identifiers and single-level member accesses are safe to repeat.
-        bool isSafeToRepeat = node.Left is IdentifierNameSyntax
-            || node.Left is MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax };
-
-        if (isSafeToRepeat)
-        {
-            // C# a ?? b  → Java  a != null ? a : b
-            return $"{left} != null ? {left} : {right}";
-        }
-        else
-        {
-            // Use a temp variable so the left expression is evaluated only once
-            var tmpName = context.GenerateSyntheticName("_coalesce");
-            context.AddPreStatement($"var {tmpName} = {left};");
-            return $"{tmpName} != null ? {tmpName} : {right}";
+            var ti = ctx.GetTypeInfo(operand);
+            if (ti.Type?.SpecialType != SpecialType.System_Decimal
+                && ti.ConvertedType?.SpecialType == SpecialType.System_Decimal)
+                ctx.AddImport("io.github.ningpp.compat.Decimal");
         }
     }
+
+    // double/float concatenated by C# trims trailing ".0"; route through DoubleHelper.
+    private static string FormatNumericForConcat(ExpressionSyntax operand, string transformed, ConversionContext ctx)
+    {
+        if (ctx.GetTypeInfo(operand).Type?.SpecialType is SpecialType.System_Double or SpecialType.System_Single)
+        {
+            ctx.AddImport("io.github.ningpp.compat.DoubleHelper");
+            return $"DoubleHelper.toString({transformed})";
+        }
+        return transformed;
+    }
+
+    private static bool IsStringType(ExpressionSyntax expr, ConversionContext ctx)
+        => ctx.SemanticModel?.GetTypeInfo(expr).Type?.SpecialType == SpecialType.System_String;
+
+    private static bool IsStringEquality(BinaryExpressionSyntax node, ConversionContext ctx)
+        => ctx.SemanticModel != null
+           && (IsStringType(node.Left, ctx) || IsStringType(node.Right, ctx))
+           && !node.Left.IsKind(SyntaxKind.NullLiteralExpression)
+           && !node.Right.IsKind(SyntaxKind.NullLiteralExpression);
+
+    private static bool IsSpanType(ITypeSymbol? type)
+        => type is INamedTypeSymbol n
+           && n.OriginalDefinition.ToDisplayString() is "System.ReadOnlySpan<T>" or "System.Span<T>";
+
+    private static bool IsSystemType(ITypeSymbol? type)
+        => type is INamedTypeSymbol { Name: "Type" } t
+           && t.ContainingNamespace?.ToDisplayString() == "System";
 }

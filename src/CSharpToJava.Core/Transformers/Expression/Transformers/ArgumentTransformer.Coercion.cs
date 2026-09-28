@@ -1,0 +1,673 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Transformers;
+
+namespace CSharpToJava.Core.Transformers.Expression;
+
+public partial class ArgumentTransformer
+{
+    // System.Type (mapped to java.lang.Class) needs explicit adapters for these compat interfaces.
+    private static readonly (string InterfaceName, string FactoryMethod)[] SystemTypeArgumentWrappers =
+    {
+        ("System.Reflection.ICustomAttributeProvider", "asCustomAttributeProvider"),
+        ("System.Reflection.MemberInfo", "asMemberInfo")
+    };
+
+    private static string CoerceArgumentType(
+        ArgumentSyntax arg,
+        string transformedExpr,
+        IParameterSymbol targetParam,
+        ConversionContext context)
+    {
+        if (arg.RefKindKeyword.Kind() is SyntaxKind.RefKeyword or SyntaxKind.OutKeyword or SyntaxKind.InKeyword
+            || context.SemanticModel == null)
+        {
+            return transformedExpr;
+        }
+
+        var argType = context.GetTypeInfo(arg.Expression).Type;
+        var paramType = targetParam.Type;
+        bool isFormatProvider = paramType is INamedTypeSymbol fmt
+            && fmt.Name == "IFormatProvider" && InSystemNamespace(fmt);
+
+        if (IsNullEmittingArgument(arg, context))
+            transformedExpr = CoerceNullArgument(arg, transformedExpr, targetParam, context, isFormatProvider);
+
+        // System.Buffer operates on raw Java arrays; never wrap.
+        if (paramType?.SpecialType == SpecialType.System_Array
+            && targetParam.ContainingSymbol is IMethodSymbol { ContainingType: { } bufferType }
+            && bufferType.ToDisplayString() == "System.Buffer")
+        {
+            return transformedExpr;
+        }
+
+        foreach (var (interfaceName, factory) in SystemTypeArgumentWrappers)
+        {
+            if (paramType is INamedTypeSymbol capType && capType.ToDisplayString() == interfaceName
+                && argType is INamedTypeSymbol argNamed && IsSystemTypeOrDerived(argNamed))
+            {
+                context.AddImport("io.github.ningpp.compat.TypeHelper");
+                return $"TypeHelper.{factory}({transformedExpr})";
+            }
+        }
+
+        if (arg.Expression is ThisExpressionSyntax
+            && paramType is INamedTypeSymbol { Name: "IComparer", TypeArguments.Length: 1 })
+        {
+            context.AddImport("java.util.Comparator");
+            return $"({context.MapType(paramType)}) this::compare";
+        }
+
+        if (arg.Expression is AnonymousFunctionExpressionSyntax
+            && paramType.TypeKind == TypeKind.Delegate
+            && HasOverloadWithDifferentFunctionalParam(targetParam))
+        {
+            transformedExpr = CoerceLambdaArgument(transformedExpr, targetParam, context);
+        }
+
+        if (argType == null)
+            return transformedExpr;
+
+        if (IsIntegralEnumParameter(paramType, argType))
+            return CoerceIntegralToEnum(transformedExpr, paramType, context);
+
+        if (argType is INamedTypeSymbol grouping
+            && grouping.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true
+            && paramType is INamedTypeSymbol groupingParam
+            && IsEnumerableOrCollectionInterface(groupingParam))
+        {
+            return $"{transformedExpr}.getValue()";
+        }
+
+        if (argType is IArrayTypeSymbol && paramType is INamedTypeSymbol arrayParam
+            && IsEnumerableOrCollectionInterface(arrayParam))
+        {
+            return CoerceArrayToCollection(arg, transformedExpr, arrayParam, targetParam, context);
+        }
+
+        if (argType is INamedTypeSymbol argNamedType && !IsCollectionType(argType))
+        {
+            var materialized = TryMaterializeStream(transformedExpr, targetParam, argNamedType, context);
+            if (materialized != null)
+                return materialized;
+        }
+
+        if (paramType is INamedTypeSymbol emptyParam && emptyParam.Name == "IEnumerable" && InSystemNamespace(emptyParam))
+        {
+            var trimmed = transformedExpr.Trim();
+            if (trimmed.StartsWith("Collections.", StringComparison.Ordinal)
+                && (trimmed.Contains("emptyList()") || trimmed.EndsWith(".emptyList()")))
+            {
+                context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+                return $"CSharpGenericIterable.from({transformedExpr})";
+            }
+        }
+
+        if (TryCoerceMultiEnumerableDictionary(transformedExpr, paramType, argType, out var dictCoerced))
+            return dictCoerced;
+
+        if (ShouldWrapCollectionAsIterable(transformedExpr, paramType, argType, targetParam, context))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.from({transformedExpr})";
+        }
+
+        var bridged = TryBuildIterableBridge(transformedExpr, paramType, argType, targetParam, context);
+        if (bridged != null)
+            return bridged;
+
+        if (paramType.ToDisplayString() == "System.Collections.IList"
+            && argType.ToDisplayString() == "System.Collections.IList"
+            && !transformedExpr.StartsWith("CSharpGenericIList.from(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
+            return $"CSharpGenericIList.from({transformedExpr})";
+        }
+
+        if (paramType is INamedTypeSymbol dictParam && dictParam.ToDisplayString() == "System.Collections.IDictionary"
+            && argType is INamedTypeSymbol dictArg && IsGenericDictionary(dictArg)
+            && !transformedExpr.StartsWith("CSharpIDictionary.from(", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpIDictionary");
+            return $"CSharpIDictionary.from({transformedExpr})";
+        }
+
+        if (paramType is INamedTypeSymbol { TypeKind: TypeKind.Delegate, TypeArguments.Length: 1 } supplierParam)
+        {
+            var mappedDelegate = context.MapType(supplierParam);
+            if (mappedDelegate.StartsWith("Supplier<", StringComparison.Ordinal))
+            {
+                transformedExpr = System.Text.RegularExpressions.Regex.Replace(
+                    transformedExpr,
+                    @"^\(Supplier<[^>]+>\)\s*\(\)\s*->",
+                    $"({mappedDelegate}) () ->");
+            }
+        }
+
+        var refArgType = paramType ?? argType;
+        if (transformedExpr.Contains("getReference(", StringComparison.Ordinal))
+        {
+            if (refArgType.SpecialType == SpecialType.System_Byte
+                && TryExtractGetReferenceSpanArg(transformedExpr, out var spanArg))
+            {
+                context.AddImport("io.github.ningpp.compat.Unsafe");
+                return $"Unsafe.createByteSpanRef({spanArg})";
+            }
+            var holderType = HolderTypeResolver.GetHolderType(context.MapType(refArgType));
+            return HolderTypeResolver.GetHolderInstantiationWithValue(holderType, transformedExpr);
+        }
+
+        return argType.SpecialType == SpecialType.System_Byte
+            && paramType.SpecialType == SpecialType.System_SByte
+            ? $"(byte)({transformedExpr})"
+            : transformedExpr;
+    }
+
+    private static string CoerceNullArgument(
+        ArgumentSyntax arg,
+        string transformedExpr,
+        IParameterSymbol targetParam,
+        ConversionContext context,
+        bool isFormatProvider)
+    {
+        var javaTarget = context.MapType(targetParam.Type);
+        if (string.IsNullOrWhiteSpace(javaTarget))
+            return transformedExpr;
+
+        var receiver = GetReceiverTypeOfInvocation(arg, context);
+        if (isFormatProvider
+            || HasAmbiguousSiblingOverload(targetParam, receiver, context)
+            || IsSystemCollectionsInterfaceReceiver(receiver)
+            || IsMultiEnumerableReceiver(receiver))
+        {
+            var castType = javaTarget;
+            if (isFormatProvider)
+            {
+                castType = "CultureInfo";
+                context.AddImport("io.github.ningpp.compat.CultureInfo");
+            }
+            else if (castType == "Object")
+            {
+                var elementType = MapReceiverElementType(receiver, context);
+                if (!string.IsNullOrWhiteSpace(elementType) && elementType != "Object" && !IsJavaPrimitiveTypeName(elementType))
+                    castType = elementType;
+            }
+            return $"({castType}) {transformedExpr}";
+        }
+
+        if (!IsJavaPrimitiveTypeName(javaTarget) && javaTarget.EndsWith("[]", StringComparison.Ordinal))
+            return $"({javaTarget}) {transformedExpr}";
+
+        return transformedExpr;
+    }
+
+    private static string CoerceLambdaArgument(
+        string transformedExpr,
+        IParameterSymbol targetParam,
+        ConversionContext context)
+    {
+        var javaFuncType = context.MapType(targetParam.Type);
+        if (javaFuncType is "Object" or "var" || string.IsNullOrWhiteSpace(javaFuncType))
+            return transformedExpr;
+
+        // Task.Run(Func<Task>) maps to CompletableFuture.runAsync(Runnable).
+        if (javaFuncType.StartsWith("Supplier<", StringComparison.Ordinal)
+            && targetParam.ContainingSymbol is IMethodSymbol runMethod
+            && runMethod.Name == "Run"
+            && runMethod.ContainingType?.ToDisplayString() == "System.Threading.Tasks.Task"
+            && javaFuncType.Contains("CompletableFuture", StringComparison.Ordinal))
+        {
+            context.AddImport("java.lang.Runnable");
+            return $"(Runnable) {transformedExpr}";
+        }
+
+        return $"({javaFuncType}) {transformedExpr}";
+    }
+
+    private static bool IsIntegralEnumParameter(ITypeSymbol paramType, ITypeSymbol argType)
+        => paramType.TypeKind == TypeKind.Enum
+            && argType.TypeKind != TypeKind.Enum
+            && argType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int16
+                or SpecialType.System_Int64 or SpecialType.System_Byte or SpecialType.System_SByte
+                or SpecialType.System_UInt16 or SpecialType.System_UInt32 or SpecialType.System_UInt64;
+
+    private static string CoerceIntegralToEnum(string transformedExpr, ITypeSymbol paramType, ConversionContext context)
+    {
+        var javaEnumType = context.MapType(paramType);
+        if (string.IsNullOrWhiteSpace(javaEnumType))
+            return transformedExpr;
+        if (javaEnumType is "int" or "long" or "short" or "byte" or "Integer" or "Long" or "Short" or "Byte")
+            return transformedExpr;
+
+        if (paramType is INamedTypeSymbol named
+            && (context.IsExplicitValueEnum(named.Name) || context.IsExplicitValueEnum(named.ToDisplayString())))
+        {
+            return $"{javaEnumType}.fromValue(({GetExplicitEnumValueType(paramType, context)})({transformedExpr}))";
+        }
+        return $"{javaEnumType}.values()[(int)({transformedExpr})]";
+    }
+
+    private static string CoerceArrayToCollection(
+        ArgumentSyntax arg,
+        string transformedExpr,
+        INamedTypeSymbol arrayParam,
+        IParameterSymbol targetParam,
+        ConversionContext context)
+    {
+        // CSharpList.addRange accepts raw arrays.
+        if (targetParam.ContainingSymbol is IMethodSymbol { Name: "AddRange" })
+            return transformedExpr;
+
+        context.AddImport("io.github.ningpp.compat.ArrayHelper");
+        var collectionExpr = $"ArrayHelper.toList({transformedExpr})";
+        if (arrayParam.Name == "IList" && !collectionExpr.StartsWith("CSharpList<", StringComparison.Ordinal))
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
+            return $"CSharpGenericIList.fromTyped({collectionExpr})";
+        }
+        return collectionExpr;
+    }
+
+    /// <summary>
+    /// Materializes an Iterable/Stream argument when the Java target needs Collection.
+    /// Returns null when no materialization applies.
+    /// </summary>
+    private static string? TryMaterializeStream(
+        string transformedExpr,
+        IParameterSymbol targetParam,
+        INamedTypeSymbol argType,
+        ConversionContext context)
+    {
+        bool argIsEnumerable = IsEnumerableOrLinqStreamType(argType);
+        bool needsCollection = false;
+        bool targetIsIEnumerable = false;
+
+        if (targetParam.Type is INamedTypeSymbol p && InSystemNamespace(p))
+        {
+            if (IsCollectionFamilyInterface(p))
+                needsCollection = true;
+            if (argIsEnumerable && p.Name == "IEnumerable")
+            {
+                bool mappedNeedsCollection = IsJavaMethodRequiringCollection(targetParam.ContainingSymbol as IMethodSymbol, context)
+                    || IsJavaCollectionConstructor(targetParam.ContainingSymbol as IMethodSymbol);
+                targetIsIEnumerable = transformedExpr.Contains(".stream(", StringComparison.Ordinal);
+                if (mappedNeedsCollection || targetIsIEnumerable)
+                    needsCollection = true;
+            }
+        }
+
+        if (!argIsEnumerable || !needsCollection)
+            return null;
+
+        context.AddImport("java.util.ArrayList");
+        context.AddImport("io.github.ningpp.compat.CSharpList");
+        context.AddImport("java.util.stream.StreamSupport");
+        context.AddImport("java.util.stream.Collectors");
+        var collected = $"StreamSupport.stream({transformedExpr}.spliterator(), false).collect(CSharpList.toCSharpList())";
+        if (targetIsIEnumerable)
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.from({collected})";
+        }
+        return collected;
+    }
+
+    /// <summary>
+    /// A type implementing both IEnumerable&lt;V&gt; (via dictionary Values) and
+    /// IEnumerable&lt;KeyValuePair&gt; needs explicit getValues()/getKeys() adaptation.
+    /// </summary>
+    private static bool TryCoerceMultiEnumerableDictionary(
+        string transformedExpr,
+        ITypeSymbol paramType,
+        ITypeSymbol? argType,
+        out string coerced)
+    {
+        coerced = transformedExpr;
+        if (paramType is not INamedTypeSymbol { IsGenericType: true, TypeArguments.Length: 1 } param
+            || param.Name != "IEnumerable" || !InSystemNamespace(param)
+            || argType is not INamedTypeSymbol arg)
+        {
+            return false;
+        }
+
+        var paramElement = param.TypeArguments[0];
+        var dictionary = arg.AllInterfaces.FirstOrDefault(i => i.Name == "IReadOnlyDictionary" && i.TypeArguments.Length == 2);
+        if (dictionary == null)
+            return false;
+
+        bool enumeratesParamElement = arg.AllInterfaces.Any(i =>
+            i.Name == "IEnumerable" && i.IsGenericType && i.TypeArguments.Length == 1
+            && SymbolEqualityComparer.Default.Equals(i.TypeArguments[0], paramElement));
+        if (!enumeratesParamElement)
+            return false;
+
+        if (SymbolEqualityComparer.Default.Equals(dictionary.TypeArguments[1], paramElement))
+            coerced = $"{transformedExpr}.getValues()";
+        else if (SymbolEqualityComparer.Default.Equals(dictionary.TypeArguments[0], paramElement))
+            coerced = $"{transformedExpr}.getKeys()";
+        else
+            return false;
+
+        return true;
+    }
+
+    private static bool ShouldWrapCollectionAsIterable(
+        string transformedExpr,
+        ITypeSymbol paramType,
+        ITypeSymbol argType,
+        IParameterSymbol targetParam,
+        ConversionContext context)
+    {
+        return paramType is INamedTypeSymbol p && p.Name == "IEnumerable" && InSystemNamespace(p)
+            && argType is INamedTypeSymbol a
+            && (IsCollectionType(argType)
+                || a.AllInterfaces.Any(i => i.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>"))
+            && !IsGenericDictionary(a)
+            && !IsJavaMethodRequiringCollection(targetParam.ContainingSymbol as IMethodSymbol, context)
+            && !IsJavaCollectionConstructor(targetParam.ContainingSymbol as IMethodSymbol)
+            && !transformedExpr.StartsWith("CSharpGenericIterable.from(", StringComparison.Ordinal);
+    }
+
+    /// <summary>Builds the (JavaType)(Iterable&lt;?&gt;) bridge for generic variance and keySet()/values().</summary>
+    private static string? TryBuildIterableBridge(
+        string transformedExpr,
+        ITypeSymbol paramType,
+        ITypeSymbol argType,
+        IParameterSymbol targetParam,
+        ConversionContext context)
+    {
+        if (paramType is not INamedTypeSymbol param || !param.IsGenericType || !IsEnumerableOrCollectionInterface(param))
+            return null;
+
+        bool needsBridge = false;
+        if (argType is INamedTypeSymbol arg && arg.IsGenericType
+            && arg.TypeArguments.Length >= 1 && param.TypeArguments.Length >= 1)
+        {
+            needsBridge = !SymbolEqualityComparer.Default.Equals(arg.TypeArguments[0], param.TypeArguments[0])
+                && context.ProjectCompilation.ClassifyConversion(arg.TypeArguments[0], param.TypeArguments[0]).IsImplicit;
+        }
+
+        if (!needsBridge && !IsJavaCollectionConstructor(targetParam.ContainingSymbol as IMethodSymbol))
+        {
+            var trimmed = transformedExpr.Trim();
+            needsBridge = trimmed.EndsWith(".keySet()", StringComparison.Ordinal)
+                || trimmed.EndsWith(".values()", StringComparison.Ordinal);
+        }
+
+        if (!needsBridge)
+            return null;
+
+        var javaParamType = context.MapType(paramType);
+        return string.IsNullOrWhiteSpace(javaParamType)
+            ? null
+            : $"({javaParamType})(Iterable<?>)({transformedExpr})";
+    }
+
+    private static bool HasOverloadWithDifferentFunctionalParam(IParameterSymbol targetParam)
+    {
+        if (targetParam.ContainingSymbol is not IMethodSymbol containingMethod || containingMethod.ContainingType == null)
+            return false;
+
+        var overloads = containingMethod.MethodKind == MethodKind.Constructor
+            ? containingMethod.ContainingType.Constructors
+            : containingMethod.ContainingType.GetMembers(containingMethod.Name).OfType<IMethodSymbol>();
+
+        return overloads.Any(overload =>
+            !SymbolEqualityComparer.Default.Equals(overload, containingMethod)
+            && overload.Parameters.Length > targetParam.Ordinal
+            && !SymbolEqualityComparer.Default.Equals(overload.Parameters[targetParam.Ordinal].Type, targetParam.Type)
+            && (overload.Parameters[targetParam.Ordinal].Type.TypeKind == TypeKind.Delegate
+                || IsSingleMethodInterface(overload.Parameters[targetParam.Ordinal].Type)));
+    }
+
+    /// <summary>
+    /// A bare null is ambiguous in Java when a sibling overload (same other parameters)
+    /// accepts either a value type (mapped to a class in Java) or a different reference type.
+    /// </summary>
+    private static bool HasAmbiguousSiblingOverload(
+        IParameterSymbol targetParam,
+        INamedTypeSymbol? receiverType,
+        ConversionContext context)
+    {
+        var targetJava = context.MapType(targetParam.Type);
+        bool targetIsReference = !string.IsNullOrWhiteSpace(targetJava) && !IsJavaPrimitiveTypeName(targetJava);
+
+        foreach (var otherParam in GetSiblingOverloadParamAtPosition(targetParam, receiverType))
+        {
+            if (otherParam.Type.IsValueType)
+                return true;
+            if (targetIsReference)
+            {
+                var otherJava = context.MapType(otherParam.Type);
+                if (!string.IsNullOrWhiteSpace(otherJava)
+                    && !IsJavaPrimitiveTypeName(otherJava)
+                    && otherJava != targetJava)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static IEnumerable<IParameterSymbol> GetSiblingOverloadParamAtPosition(
+        IParameterSymbol targetParam,
+        INamedTypeSymbol? receiverType)
+    {
+        if (targetParam.ContainingSymbol is not IMethodSymbol containingMethod || containingMethod.ContainingType == null)
+            yield break;
+
+        int ordinal = targetParam.Ordinal;
+        var parameters = containingMethod.Parameters;
+        IEnumerable<IMethodSymbol> overloads = containingMethod.MethodKind == MethodKind.Constructor
+            ? containingMethod.ContainingType.Constructors
+            : containingMethod.ContainingType.GetMembers(containingMethod.Name).OfType<IMethodSymbol>();
+        if (receiverType != null && !SymbolEqualityComparer.Default.Equals(receiverType, containingMethod.ContainingType))
+            overloads = overloads.Concat(receiverType.GetMembers(containingMethod.Name).OfType<IMethodSymbol>());
+
+        foreach (var overload in overloads)
+        {
+            if (SymbolEqualityComparer.Default.Equals(overload, containingMethod)
+                || overload.Parameters.Length != parameters.Length)
+                continue;
+
+            bool otherParametersMatch = true;
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (i != ordinal && !SymbolEqualityComparer.Default.Equals(overload.Parameters[i].Type, parameters[i].Type))
+                {
+                    otherParametersMatch = false;
+                    break;
+                }
+            }
+            if (!otherParametersMatch)
+                continue;
+
+            var otherParam = overload.Parameters[ordinal];
+            if (!SymbolEqualityComparer.Default.Equals(otherParam.Type, targetParam.Type))
+                yield return otherParam;
+        }
+    }
+
+    private static INamedTypeSymbol? GetReceiverTypeOfInvocation(ArgumentSyntax arg, ConversionContext context)
+    {
+        if (arg.Parent is not ArgumentListSyntax argList
+            || argList.Parent is not InvocationExpressionSyntax invocation
+            || invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
+        {
+            return null;
+        }
+
+        var receiver = context.GetTypeInfo(memberAccess.Expression).Type as INamedTypeSymbol;
+        if (receiver == null)
+            return null;
+
+        // An interface-typed local emitted as `var`: recover the concrete initializer type,
+        // which determines the Java overload set.
+        if (memberAccess.Expression is IdentifierNameSyntax receiverId
+            && context.GetSymbolInfo(receiverId).Symbol is ILocalSymbol receiverLocal)
+        {
+            if (receiverLocal.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax() is VariableDeclaratorSyntax { Initializer: { } initializer }
+                && context.GetTypeInfo(initializer.Value).Type is INamedTypeSymbol initializedType)
+            {
+                receiver = initializedType;
+            }
+        }
+        return receiver;
+    }
+
+    private static bool IsNullEmittingArgument(ArgumentSyntax arg, ConversionContext context)
+    {
+        if (arg.Expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression })
+            return true;
+
+        if (arg.Expression is DefaultExpressionSyntax defaultExpr)
+        {
+            var type = context.GetTypeInfo(defaultExpr.Type).Type;
+            return type != null
+                && (type.IsReferenceType
+                    || type.IsValueType && type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T);
+        }
+
+        return false;
+    }
+
+    private static bool IsMultiEnumerableReceiver(INamedTypeSymbol? receiver)
+    {
+        if (receiver == null)
+            return false;
+
+        return receiver.AllInterfaces
+            .Where(i => i.Name == "IEnumerable"
+                && i.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+                && i.TypeArguments.Length == 1)
+            .Select(i => i.TypeArguments[0])
+            .Distinct(SymbolEqualityComparer.Default)
+            .Count() > 1;
+    }
+
+    private static string? MapReceiverElementType(INamedTypeSymbol? receiver, ConversionContext context)
+    {
+        if (receiver == null)
+            return null;
+
+        var dictionary = receiver.AllInterfaces
+            .FirstOrDefault(i => i.Name == "IReadOnlyDictionary" && i.TypeArguments.Length == 2);
+        if (dictionary != null)
+            return context.MapType(dictionary.TypeArguments[1]);
+
+        var element = receiver.AllInterfaces
+            .Where(i => i.Name == "IEnumerable"
+                && i.ContainingNamespace?.ToDisplayString() == "System.Collections.Generic"
+                && i.TypeArguments.Length == 1)
+            .Select(i => i.TypeArguments[0])
+            .FirstOrDefault();
+        return element != null ? context.MapType(element) : null;
+    }
+
+    private static bool IsSystemCollectionsInterfaceReceiver(INamedTypeSymbol? receiver)
+        => receiver is { TypeKind: TypeKind.Interface }
+            && receiver.ContainingNamespace?.ToDisplayString().StartsWith("System.Collections", StringComparison.Ordinal) == true;
+
+    private static bool IsJavaPrimitiveTypeName(string? javaType)
+        => javaType is "int" or "long" or "short" or "byte" or "char" or "boolean" or "double" or "float";
+
+    private static bool IsSingleMethodInterface(ITypeSymbol type)
+        => type is INamedTypeSymbol { TypeKind: TypeKind.Interface } named
+            && named.GetMembers().OfType<IMethodSymbol>()
+                .Count(m => m.MethodKind == MethodKind.Ordinary && m.IsAbstract) == 1;
+
+    private static bool IsJavaMethodRequiringCollection(IMethodSymbol? method, ConversionContext context)
+    {
+        if (method == null)
+            return false;
+        var mapped = context.TypeMappings.MapMethod(method.ContainingType.ToDisplayString(), method.Name)
+            ?? context.TypeMappings.MapMethod(
+                $"{method.ContainingType.ContainingNamespace}.{method.ContainingType.Name}", method.Name);
+        return mapped is "addAll" or "removeAll" or "containsAll" or "retainAll" or "addRange";
+    }
+
+    private static bool InSystemNamespace(INamedTypeSymbol type)
+        => type.ContainingNamespace?.ToDisplayString().StartsWith("System", StringComparison.Ordinal) == true;
+
+    private static bool IsEnumerableOrCollectionInterface(INamedTypeSymbol type)
+        => InSystemNamespace(type)
+            && type.Name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList";
+
+    private static bool IsCollectionFamilyInterface(INamedTypeSymbol type)
+        => IsEnumerableOrCollectionInterface(type) && type.Name != "IEnumerable";
+
+    private static bool IsEnumerableOrLinqStreamType(INamedTypeSymbol type)
+        => InSystemNamespace(type)
+            && type.Name is "IEnumerable" or "IOrderedEnumerable" or "IQueryable" or "IOrderedQueryable"
+                or "IGrouping" or "ILookup" or "ParallelQuery";
+
+    private static bool IsCollectionType(ITypeSymbol type)
+    {
+        if (type is not INamedTypeSymbol named)
+            return false;
+        if (named.Name is "ICollection" or "IList" or "List" or "HashSet" or "SortedSet"
+            or "IReadOnlyCollection" or "IReadOnlyList" or "Collection")
+        {
+            return true;
+        }
+        return named.AllInterfaces.Any(i =>
+            i.OriginalDefinition?.ToDisplayString() is "System.Collections.Generic.ICollection<T>" or "System.Collections.ICollection");
+    }
+
+    private static bool IsGenericDictionary(INamedTypeSymbol type)
+        => (type.Name is "Dictionary" or "SortedDictionary" or "IDictionary" && type.IsGenericType)
+            || type.AllInterfaces.Any(i => i.Name == "IDictionary" && i.IsGenericType);
+
+    private static bool IsSystemTypeOrDerived(INamedTypeSymbol type)
+    {
+        for (var current = type; current != null; current = current.BaseType)
+        {
+            var display = current.ToDisplayString();
+            if (display is "System.Type" or "System.Reflection.TypeInfo")
+                return true;
+        }
+        return false;
+    }
+
+    private static bool IsJavaCollectionConstructor(IMethodSymbol? method)
+        => method is { MethodKind: MethodKind.Constructor }
+            && method.ContainingType.Name is "List" or "HashSet" or "SortedSet" or "LinkedList" or "Queue";
+
+    private static string GetExplicitEnumValueType(ITypeSymbol enumType, ConversionContext context)
+    {
+        if (enumType is not INamedTypeSymbol named)
+            return "int";
+        if (context.IsExplicitValueEnum(named.Name))
+            return context.GetExplicitValueEnumValueType(named.Name);
+        if (context.IsExplicitValueEnum(named.ToDisplayString()))
+            return context.GetExplicitValueEnumValueType(named.ToDisplayString());
+        return named.EnumUnderlyingType?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
+            ? "long"
+            : "int";
+    }
+
+    private static string CoerceEnumerableStreamFallback(ArgumentSyntax arg, string transformedExpr, ConversionContext context)
+    {
+        if (context.SemanticModel == null)
+            return transformedExpr;
+        if (context.GetTypeInfo(arg.Expression).Type is not INamedTypeSymbol argType || !IsEnumerableOrLinqStreamType(argType))
+            return transformedExpr;
+
+        context.AddImport("java.util.stream.Collectors");
+        context.AddImport("java.util.ArrayList");
+        context.AddImport("io.github.ningpp.compat.CSharpList");
+        if (transformedExpr.Contains(".collect(", StringComparison.Ordinal))
+            return transformedExpr;
+
+        var collected = $"{transformedExpr}.collect(CSharpList.toCSharpList())";
+        if (argType.Name == "IEnumerable")
+        {
+            context.AddImport("io.github.ningpp.compat.CSharpGenericIterable");
+            return $"CSharpGenericIterable.from({collected})";
+        }
+        return collected;
+    }
+}
