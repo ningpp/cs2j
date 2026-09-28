@@ -1,0 +1,212 @@
+using CSharpToJava.Core.Preprocessing;
+
+namespace CSharpToJava.CLI.Preprocessing;
+
+/// <summary>Stable kebab-case pass identifiers shared by the CLI and the registry.</summary>
+internal static class PassIds
+{
+    public const string Conditional = "conditional";
+    public const string LocalFunctionLift = "local-function-lift";
+    public const string NullCoalesce = "null-coalesce";
+    public const string Enum = "enum";
+    public const string Delegate = "delegate";
+    public const string Tuple = "tuple";
+    public const string ForeachDeconstruction = "foreach-deconstruction";
+    public const string StripDefault = "strip-default";
+    public const string RefOutIn = "ref-out-in";
+    public const string Unsigned = "unsigned";
+    public const string Generic = "generic";
+    public const string RecordReadOnly = "record-readonly";
+    public const string ArrayMethod = "array-method";
+    public const string MakeReadonly = "make-readonly";
+    public const string EliminateGoto = "eliminate-goto";
+    public const string JavaKeywords = "java-keywords";
+}
+
+/// <summary>
+/// Descriptor table for the preprocess passes. Ordering is locked to the historical
+/// ConvertProject chain via RunAfter anchors — the topological sort must produce
+/// exactly that sequence, which Step 4 asserts in a regression test.
+/// </summary>
+internal static class PassCatalog
+{
+    public static IReadOnlyList<PassDescriptor> Implemented { get; } = new List<PassDescriptor>
+    {
+        new(
+            PassIds.Conditional,
+            "Conditional directive",
+            ProjectConditionalDirectivePreprocessor.IntermediateDirectoryName,
+            PassStage.Lexical,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            needsSemanticModel: false,
+            description: "Strip/adapt C# preprocessor directives (text pass with per-file symbol resolution)."),
+        new(
+            PassIds.LocalFunctionLift,
+            "Local function lift",
+            ProjectLocalFunctionLiftPreprocessor.IntermediateDirectoryName,
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.Conditional },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Lift local functions to class-level private static methods."),
+        new(
+            PassIds.NullCoalesce,
+            "Null coalesce",
+            ProjectNullCoalescePreprocessor.IntermediateDirectoryName,
+            PassStage.Expression,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.LocalFunctionLift },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Rewrite ?? / ??= expressions into Java-compatible forms."),
+        new(
+            PassIds.Enum,
+            "Enum",
+            ProjectEnumPreprocessor.IntermediateDirectoryName,
+            PassStage.Expression,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.NullCoalesce },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Convert [Flags] enums and bitwise/HasFlag usage to prelude helpers."),
+        new(
+            PassIds.Delegate,
+            "Delegate",
+            ProjectDelegatePreprocessor.IntermediateDirectoryName,
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.Enum },
+            supportLibrary: PassSupportLibrary.Cs2jPrelude,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Rewrite delegate declarations and invocations; inject the cs2j prelude."),
+        new(
+            PassIds.Tuple,
+            "Tuple to struct",
+            ProjectTupleToStructPreprocessor.IntermediateDirectoryName,
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.Delegate },
+            supportLibrary: PassSupportLibrary.Cs2jTuples,
+            description: "Distribute value-tuple usage into generated struct files."),
+        new(
+            PassIds.ForeachDeconstruction,
+            "Foreach deconstruction",
+            ProjectForeachDeconstructionPreprocessor.IntermediateDirectoryName,
+            PassStage.Expression,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.Tuple },
+            description: "Desugar foreach deconstruction into indexer loops."),
+        new(
+            PassIds.StripDefault,
+            "Strip default parameters",
+            ProjectDefaultParameterStripper.IntermediateDirectoryName,
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.ForeachDeconstruction },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Remove default parameter values and synthesize overloads."),
+        new(
+            PassIds.RefOutIn,
+            "Ref/out/in",
+            ProjectRefOutInPreprocessor.IntermediateDirectoryName,
+            PassStage.Abi,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.StripDefault },
+            supportLibrary: PassSupportLibrary.Cs2jRefOutIn,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Box ref/out/in parameters through the RefOutIn support project."),
+        new(
+            PassIds.Unsigned,
+            "Unsigned types",
+            ProjectUnsignedTypePreprocessor.IntermediateDirectoryName,
+            PassStage.Abi,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.RefOutIn },
+            supportLibrary: PassSupportLibrary.Cs2jUnsignedMath,
+            description: "Map unsigned integer types and math to the unsigned support project."),
+        new(
+            PassIds.Generic,
+            "Generic",
+            ProjectGenericPreprocessor.IntermediateDirectoryName,
+            PassStage.Abi,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.Unsigned },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Deepen generic rewrites for Java erasure compatibility."),
+        new(
+            PassIds.RecordReadOnly,
+            "Record readonly",
+            ProjectRecordReadOnlyPreprocessor.IntermediateDirectoryName,
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.Generic },
+            description: "Convert non-readonly records to immutable form with whole-tree rollback."),
+        new(
+            PassIds.ArrayMethod,
+            "Array method",
+            ProjectArrayMethodPreprocessor.IntermediateDirectoryName,
+            PassStage.Expression,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.Generic, PassIds.RecordReadOnly },
+            supportLibrary: PassSupportLibrary.Cs2jArray,
+            description: "Rewrite static array helpers and multi-dimensional arrays; inject the array support project."),
+        new(
+            PassIds.MakeReadonly,
+            "Make readonly struct",
+            ProjectReadOnlyStructPreprocessor.IntermediateDirectoryName,
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.ArrayMethod },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Make eligible structs readonly with whole-tree analysis and shim injection."),
+        new(
+            PassIds.EliminateGoto,
+            "Eliminate goto",
+            ProjectGotoPreprocessor.IntermediateDirectoryName,
+            PassStage.ControlFlow,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.MakeReadonly },
+            needsSemanticModel: false,
+            description: "Eliminate goto/labeled statements into structured loops (syntax pass)."),
+        new(
+            PassIds.JavaKeywords,
+            "Java reserved words",
+            ProjectJavaReservedWordPreprocessor.IntermediateDirectoryName,
+            PassStage.FinalNaming,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.EliminateGoto },
+            description: "Rename identifiers clashing with Java reserved words; runs last before conversion."),
+    };
+
+    private static readonly Dictionary<string, PassDescriptor> ById =
+        Implemented.ToDictionary(p => p.Id, StringComparer.Ordinal);
+
+    /// <summary>Get an implemented descriptor by <see cref="PassIds"/> constant.</summary>
+    public static PassDescriptor ImplementedById(string id) => ById[id];
+
+    /// <summary>Build the validated registry; stubs are appended in Step 8.</summary>
+    public static PassRegistry BuildRegistry()
+        => PassRegistry.Create(Implemented);
+}

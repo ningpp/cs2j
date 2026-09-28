@@ -1,6 +1,7 @@
+using CSharpToJava.CLI.Preprocessing;
+using CSharpToJava.CLI.Preprocessing.Adapters;
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using System.Xml.Linq;
 
 namespace CSharpToJava.CLI;
@@ -33,6 +34,12 @@ internal sealed class ProjectUnsignedTypePreprocessResult
     public required IReadOnlyList<UnsignedTypeRewriterDiagnostic> Diagnostics { get; init; }
 }
 
+/// <summary>
+/// Thin compatibility facade over the unified <see cref="ProjectPassRunner"/> +
+/// <see cref="UnsignedPassAdapter"/>. The shared reference-set / TFM helpers below
+/// remain here because other (not-yet-migrated) passes and standalone verbs build
+/// their own compilations through them.
+/// </summary>
 internal static class ProjectUnsignedTypePreprocessor
 {
     public const string IntermediateDirectoryName = ".cs2j-unsigned-src";
@@ -44,175 +51,30 @@ internal static class ProjectUnsignedTypePreprocessor
         ArgumentException.ThrowIfNullOrWhiteSpace(request.SourcePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.DestinationRoot);
 
-        var layout = ProjectPreprocessSource.ResolveLayout(request.SourcePath);
-        var intermediateRoot = Path.Combine(Path.GetFullPath(request.DestinationRoot), IntermediateDirectoryName);
+        var adapter = new UnsignedPassAdapter(
+            request.RewriterOptions,
+            request.Verbose,
+            request.FilterUnsupportedProjects,
+            request.CompatNamespacePrefixes);
 
-        if (Directory.Exists(intermediateRoot))
-        {
-            if (!request.Force)
+        var run = await ProjectPassRunner.RunAsync(
+            adapter,
+            new ProjectPassRunRequest
             {
-                throw new InvalidOperationException(
-                    $"Unsigned source directory already exists: {intermediateRoot}. Use --force to overwrite.");
-            }
-
-            Directory.Delete(intermediateRoot, recursive: true);
-        }
-
-        Directory.CreateDirectory(intermediateRoot);
-
-        var diagnostics = new List<UnsignedTypeRewriterDiagnostic>();
-        var statistics = new UnsignedTypeRewriterStatistics();
-        var rewriter = new UnsignedTypeRewriter();
-        var sourceRoot = layout.SourceRoot;
-
-        var projectGraph = ProjectPreprocessSource.TryLoadProjectGraph(layout, request.Verbose);
-        var exclusionInfo = request.FilterUnsupportedProjects
-            ? SupportedProjectFiltering.ComputeExclusions(
-                projectGraph,
-                request.Verbose,
-                request.CompatNamespacePrefixes,
-                layout.SourceRoot)
-            : new SupportedProjectFiltering.ExclusionInfo();
-
-        // Copy project files (.csproj, .sln), dropping excluded projects and
-        // rewriting the solution file so the intermediate tree is self-consistent.
-        await ProjectPreprocessSource.CopyProjectFilesAsync(layout, sourceRoot, intermediateRoot, exclusionInfo);
-        ProjectPreprocessSource.CopyAncestorMsBuildDirectoryFiles(
-            sourceRoot,
-            intermediateRoot,
-            "[unsigned-type]",
-            request.Verbose);
-
-        var sourceFiles = ProjectPreprocessSource.EnumerateSourceFiles(
-                sourceRoot, intermediateRoot, Path.GetFullPath(request.DestinationRoot))
-            .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(file, exclusionInfo))
-            .ToList();
-        var csFiles = sourceFiles
-            .Where(f => f.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        var syntaxTrees = new Dictionary<string, SyntaxTree>(StringComparer.OrdinalIgnoreCase);
-        foreach (var csFile in csFiles)
-        {
-            var sourceCode = await File.ReadAllTextAsync(csFile);
-            syntaxTrees[csFile] = CSharpSyntaxTree.ParseText(sourceCode, path: csFile);
-        }
-
-        var references = GetBasicReferences();
-        var compilation = CSharpCompilation.Create(
-            "unsigned-preprocess",
-            syntaxTrees.Values,
-            references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
-
-        var rewrittenSourceFiles = new List<string>();
-        var ownReleaseDirectories = FindOwnReleaseLibDirectories(sourceRoot);
-        foreach (var sourceFile in sourceFiles)
-        {
-            var relativePath = Path.GetRelativePath(sourceRoot, sourceFile);
-            var destinationFile = Path.Combine(intermediateRoot, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationFile)!);
-
-            if (!sourceFile.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
-            {
-                // The solution file was already copied (and possibly rewritten) in
-                // the project-file loop; copying it again would restore the original.
-                if (sourceFile.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                File.Copy(sourceFile, destinationFile, overwrite: true);
-                continue;
-            }
-
-            if (IsUnderOwnReleaseLib(sourceFile, ownReleaseDirectories))
-            {
-                // 早前释放的支撑库本体只原样复制，不参与改写——对它再跑
-                // unsigned 重写会把内部实现改写成对它自身的递归调用。
-                File.Copy(sourceFile, destinationFile, overwrite: true);
-                if (request.Verbose)
-                {
-                    Console.WriteLine($"[unsigned-type] clean (own release copy): {relativePath}");
-                }
-                continue;
-            }
-
-            if (!syntaxTrees.TryGetValue(sourceFile, out var tree))
-            {
-                File.Copy(sourceFile, destinationFile, overwrite: true);
-                continue;
-            }
-
-            var sourceCode = await File.ReadAllTextAsync(sourceFile);
-            var result = rewriter.Rewrite(sourceCode, compilation.GetSemanticModel(tree), request.RewriterOptions);
-            MergeStatistics(statistics, result.Statistics);
-
-            foreach (var diagnostic in result.Diagnostics)
-            {
-                diagnostics.Add(diagnostic with { Message = $"{relativePath}: {diagnostic.Message}" });
-            }
-
-            if (!result.Changed)
-            {
-                File.Copy(sourceFile, destinationFile, overwrite: true);
-            }
-            else
-            {
-                rewrittenSourceFiles.Add(sourceFile);
-                // 保留原文件的 BOM,让重写文件与原文件的 diff 只包含真实改动。
-                await File.WriteAllTextAsync(
-                    destinationFile,
-                    result.OutputCode,
-                    FileStartsWithBom(sourceFile)
-                        ? new System.Text.UTF8Encoding(true)
-                        : new System.Text.UTF8Encoding(false));
-            }
-
-            if (request.Verbose)
-            {
-                Console.WriteLine($"[unsigned-type] {(result.Changed ? "transformed" : "clean (copy)")}: {relativePath}");
-            }
-        }
-
-        if (statistics.OperatorsRewritten > 0 || statistics.CastsRewritten > 0)
-        {
-            await WriteExtensionFilesAsync(
-                intermediateRoot, sourceRoot, layout, exclusionInfo, rewrittenSourceFiles, projectGraph, diagnostics);
-        }
-
-        var restoreTarget = ProjectPreprocessSource.ResolveRestoreTarget(layout, intermediateRoot);
-        if (restoreTarget != null)
-        {
-            if (request.Verbose)
-            {
-                Console.WriteLine($"Restoring packages: {restoreTarget}");
-            }
-
-            var restoreExitCode = ProjectPreprocessSource.RunDotNetRestore(restoreTarget, "[unsigned-type]");
-            if (request.Verbose)
-            {
-                Console.WriteLine($"Restore exit code: {restoreExitCode}");
-            }
-
-            if (restoreExitCode != 0)
-            {
-                diagnostics.Add(new UnsignedTypeRewriterDiagnostic(
-                    UnsignedTypeSeverity.Error,
-                    $"dotnet restore failed with exit code {restoreExitCode} for {restoreTarget}. " +
-                    "Package references may not be resolved, leading to incorrect code generation."));
-            }
-        }
+                SourcePath = request.SourcePath,
+                DestinationRoot = request.DestinationRoot,
+                Force = request.Force,
+            });
 
         return new ProjectUnsignedTypePreprocessResult
         {
-            OriginalSourcePath = layout.EntryPath,
-            SourceRoot = sourceRoot,
-            IntermediateRoot = intermediateRoot,
-            PreprocessedSourcePath = ProjectPreprocessSource.MapToIntermediate(layout, intermediateRoot),
-            Success = !diagnostics.Any(d => d.Severity == UnsignedTypeSeverity.Error),
-            Statistics = statistics,
-            Diagnostics = diagnostics,
+            OriginalSourcePath = run.OriginalSourcePath,
+            SourceRoot = run.SourceRoot,
+            IntermediateRoot = run.IntermediateRoot,
+            PreprocessedSourcePath = run.PreprocessedSourcePath,
+            Success = run.Success,
+            Statistics = adapter.Statistics,
+            Diagnostics = adapter.Diagnostics.ToList(),
         };
     }
 
@@ -298,145 +160,6 @@ internal static class ProjectUnsignedTypePreprocessor
         }
     }
 
-    private static bool FileStartsWithBom(string path)
-    {
-        using var stream = File.OpenRead(path);
-        Span<byte> prefix = stackalloc byte[3];
-        var read = stream.Read(prefix);
-        return read >= 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF;
-    }
-
-    private static void MergeStatistics(UnsignedTypeRewriterStatistics target, UnsignedTypeRewriterStatistics source)
-    {
-        target.FilesScanned += source.FilesScanned;
-        target.FilesTransformed += source.FilesTransformed;
-        target.FilesSkippedClean += source.FilesSkippedClean;
-        target.TypesReplaced += source.TypesReplaced;
-        target.OperatorsRewritten += source.OperatorsRewritten;
-        target.CastsRewritten += source.CastsRewritten;
-        target.ArraysRewritten += source.ArraysRewritten;
-        target.GenericArgsReplaced += source.GenericArgsReplaced;
-        target.LiteralsRewritten += source.LiteralsRewritten;
-    }
-
-    /// <summary>
-    /// 把 Cs2jUnsignedMath 支撑库项目释放到中间树根（唯一真源经 CLI 嵌入资源
-    /// 分发），并给每个实际编译了被改写源文件的项目注入 ProjectReference。
-    /// host csproj 镜像原树任意深度，Include 相对路径动态计算。
-    /// </summary>
-    private static async Task WriteExtensionFilesAsync(
-        string intermediateRoot,
-        string sourceRoot,
-        ProjectPreprocessSourceLayout layout,
-        SupportedProjectFiltering.ExclusionInfo exclusionInfo,
-        IReadOnlyList<string> rewrittenFiles,
-        ProjectGraph? projectGraph,
-        List<UnsignedTypeRewriterDiagnostic> diagnostics)
-    {
-        ThrowOnCs2jUnsignedMathNameCollision(layout);
-
-        await UnsignedMathSupportFiles.ReleaseAsync(
-            Path.Combine(intermediateRoot, UnsignedMathSupportFiles.LibDirectoryName));
-
-        var hostProjectDirectories = ComputeAllExtensionHostProjectDirectories(
-            layout, exclusionInfo, rewrittenFiles, projectGraph);
-        EnsureExtensionProjectReferences(
-            sourceRoot, intermediateRoot, layout, exclusionInfo, hostProjectDirectories, diagnostics);
-    }
-
-    /// <summary>
-    /// 用户解决方案中已有保留名项目时立即终止，不静默误识别
-    /// （契约见 2026-08-15 设计文档 §4.3）。内容与 CLI 嵌入资源一致（行尾
-    /// 规整后比较）的保留名项目视为本 CLI 早前释放的支撑库本体，放行——
-    /// convert-project 内置的 unsigned 阶段会对已预处理输入再次运行本检查，
-    /// 后续 ReleaseAsync 会以相同内容幂等覆盖。
-    /// </summary>
-    private static void ThrowOnCs2jUnsignedMathNameCollision(ProjectPreprocessSourceLayout layout)
-    {
-        var collision = layout.ProjectFiles.FirstOrDefault(p =>
-            Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject(p) &&
-            !IsOwnReleasedUnsignedMathProjectFile(p));
-        if (collision != null)
-        {
-            throw new InvalidOperationException(
-                $"The source solution already contains a project named " +
-                $"'{Cs2jUnsignedMathProject.ProjectFileName}' ({collision}). That name is reserved " +
-                "for the cs2j unsigned math support library; rename the project and retry.");
-        }
-    }
-
-    /// <summary>csproj 内容与嵌入的支撑库项目文件一致（行尾规整后），即本 CLI 自己释放的支撑库。</summary>
-    private static bool IsOwnReleasedUnsignedMathProjectFile(string projectFilePath)
-    {
-        try
-        {
-            var content = File.ReadAllText(projectFilePath);
-            return string.Equals(
-                NormalizeLineEndings(content),
-                NormalizeLineEndings(UnsignedMathSupportFiles.GetProjectFileContent()),
-                StringComparison.Ordinal);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            // 读取失败时按“非本体”处理，让碰撞检查保持保守。
-            return false;
-        }
-    }
-
-    private static string NormalizeLineEndings(string text) =>
-        text.Replace("\r\n", "\n").Replace("\r", "\n");
-
-    /// <summary>
-    /// 扫描源树中本 CLI 早前释放的支撑库目录（任意深度——convert-project 的
-    /// 中间阶段整树镜像，其内置 unsigned 阶段的输入里支撑库位于树根下）。
-    /// </summary>
-    private static List<string> FindOwnReleaseLibDirectories(string sourceRoot)
-    {
-        var options = new EnumerationOptions
-        {
-            IgnoreInaccessible = true,
-            RecurseSubdirectories = true,
-            MatchCasing = MatchCasing.CaseInsensitive,
-        };
-        return Directory
-            .EnumerateDirectories(sourceRoot, UnsignedMathSupportFiles.LibDirectoryName, options)
-            .Where(dir => IsOwnReleasedUnsignedMathProjectFile(
-                Path.Combine(dir, Cs2jUnsignedMathProject.ProjectFileName)))
-            .Select(Path.GetFullPath)
-            .ToList();
-    }
-
-    private static bool IsUnderOwnReleaseLib(string filePath, IReadOnlyList<string> ownReleaseDirectories)
-    {
-        var fullPath = Path.GetFullPath(filePath);
-        return ownReleaseDirectories.Any(dir =>
-            fullPath.StartsWith(dir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
-            fullPath.StartsWith(dir + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>
-    /// host TFM 低于 net10.0 时构建前告警（NU1201 会推迟到用户 dotnet build
-    /// 中间树时才暴露，这里提前给出两条出路）。
-    /// </summary>
-    private static void WarnWhenTargetFrameworkBelowNet10(
-        XElement root,
-        string projectFilePath,
-        List<UnsignedTypeRewriterDiagnostic> diagnostics)
-    {
-        var tfm = GetFirstTargetFramework(root);
-        if (IsTargetFrameworkAtLeastNet10(tfm))
-        {
-            return;
-        }
-
-        diagnostics.Add(new UnsignedTypeRewriterDiagnostic(
-            UnsignedTypeSeverity.Warning,
-            $"{projectFilePath}: target framework '{tfm ?? "(none)"}' is below net10.0; the injected " +
-            $"reference to {Cs2jUnsignedMathProject.ProjectFileName} (net10.0) will fail to restore/build " +
-            "with NU1201. Upgrade the host TargetFramework to net10.0+, or report the case so " +
-            "Cs2jUnsignedMath can multi-target."));
-    }
-
     internal static string? GetFirstTargetFramework(XElement root)
     {
         var frameworks = GetPropertyValue(root, "TargetFrameworks");
@@ -500,225 +223,6 @@ internal static class ProjectUnsignedTypePreprocessor
         return version >= 10.0;
     }
 
-    /// <summary>
-    /// 对每个编译被重写源文件的项目，注入指向 Cs2jUnsignedMath 的
-    /// ProjectReference（追加前先移除指向同一目标的旧条目防重复）。
-    /// </summary>
-    private static void EnsureExtensionProjectReferences(
-        string sourceRoot,
-        string intermediateRoot,
-        ProjectPreprocessSourceLayout layout,
-        SupportedProjectFiltering.ExclusionInfo exclusionInfo,
-        IReadOnlySet<string> hostProjectDirectories,
-        List<UnsignedTypeRewriterDiagnostic> diagnostics)
-    {
-        var libProjectPath = Path.Combine(
-            intermediateRoot,
-            UnsignedMathSupportFiles.LibDirectoryName,
-            Cs2jUnsignedMathProject.ProjectFileName);
-
-        foreach (var projectFile in layout.ProjectFiles
-                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
-        {
-            if (SupportedProjectFiltering.IsUnderExcludedProject(projectFile, exclusionInfo))
-            {
-                continue;
-            }
-
-            var projectDirectory = Path.GetDirectoryName(projectFile)!;
-            if (!hostProjectDirectories.Contains(projectDirectory))
-            {
-                continue;
-            }
-
-            var destinationProjectFile = Path.Combine(
-                intermediateRoot,
-                Path.GetRelativePath(sourceRoot, projectFile));
-            EnsureExtensionProjectReference(
-                destinationProjectFile, libProjectPath, intermediateRoot, diagnostics);
-        }
-    }
-
-    private static void EnsureExtensionProjectReference(
-        string projectFilePath,
-        string libProjectPath,
-        string intermediateRoot,
-        List<UnsignedTypeRewriterDiagnostic> diagnostics)
-    {
-        if (!File.Exists(projectFilePath))
-        {
-            return;
-        }
-
-        XDocument document;
-        try
-        {
-            document = XDocument.Load(projectFilePath, LoadOptions.PreserveWhitespace);
-        }
-        catch (Exception)
-        {
-            return;
-        }
-
-        var root = document.Root;
-        if (root == null || !root.Name.LocalName.Equals("Project", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        var projectDirectory = Path.GetDirectoryName(projectFilePath)!;
-
-        // 根目录 host 特判：host csproj 本身位于中间树根时，Cs2jUnsignedMath/**
-        // 会落入 SDK 默认编译 glob，host 会多编一份 helper（LangVersion < 11
-        // 时直接编译失败）。显式排除，ProjectReference 照常注入。
-        var isSdkProject = root.Attribute("Sdk") != null;
-        var enableDefaultCompileItems = GetPropertyValue(root, "EnableDefaultCompileItems");
-        if (isSdkProject
-            && !string.Equals(enableDefaultCompileItems?.Trim(), "false", StringComparison.OrdinalIgnoreCase)
-            && PathsEqual(projectDirectory, intermediateRoot))
-        {
-            var removePattern = Path.Combine(UnsignedMathSupportFiles.LibDirectoryName, "**");
-            if (!root.Descendants().Any(e =>
-                    e.Name.LocalName == "Compile"
-                    && string.Equals((string?)e.Attribute("Remove"), removePattern, StringComparison.OrdinalIgnoreCase)))
-            {
-                root.Add(
-                    new XText(Environment.NewLine + "  "),
-                    new XElement("ItemGroup",
-                        new XElement("Compile", new XAttribute("Remove", removePattern))),
-                    new XText(Environment.NewLine));
-            }
-        }
-
-        foreach (var referenceElement in root.Descendants()
-                     .Where(e => e.Name.LocalName == "ProjectReference")
-                     .ToList())
-        {
-            var include = (string?)referenceElement.Attribute("Include");
-            if (string.IsNullOrWhiteSpace(include))
-            {
-                continue;
-            }
-
-            var resolvedPath = Path.GetFullPath(Path.Combine(projectDirectory, include!));
-            if (PathsEqual(resolvedPath, libProjectPath))
-            {
-                referenceElement.Remove();
-            }
-        }
-
-        var relativeInclude = Path.GetRelativePath(projectDirectory, libProjectPath);
-        root.Add(
-            new XText(Environment.NewLine + "  "),
-            new XElement("ItemGroup",
-                new XElement("ProjectReference", new XAttribute("Include", relativeInclude))),
-            new XText(Environment.NewLine));
-
-        WarnWhenTargetFrameworkBelowNet10(root, projectFilePath, diagnostics);
-
-        document.Save(projectFilePath, SaveOptions.DisableFormatting);
-    }
-
-    private static bool PathsEqual(string a, string b)
-        => string.Equals(
-            Path.GetFullPath(a).TrimEnd('\\', '/'),
-            Path.GetFullPath(b).TrimEnd('\\', '/'),
-            StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// 计算需要承载扩展方法文件的项目目录：项目实际编译了至少一个被重写的源文件
-    /// （目录内默认 glob，或 csproj 显式 Compile Include 解析到被重写文件）。
-    /// </summary>
-    private static IReadOnlySet<string> ComputeAllExtensionHostProjectDirectories(
-        ProjectPreprocessSourceLayout layout,
-        SupportedProjectFiltering.ExclusionInfo exclusionInfo,
-        IReadOnlyList<string> rewrittenFiles,
-        ProjectGraph? projectGraph)
-    {
-        if (projectGraph == null || rewrittenFiles.Count == 0)
-        {
-            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        return ComputeProjectsCompilingRewrittenFiles(layout, exclusionInfo, rewrittenFiles);
-    }
-
-    /// <summary>
-    /// 收集实际会编译至少一个被重写源文件的项目目录：目录内直接包含被重写文件
-    /// （SDK 默认 glob 场景），或 csproj 的 Compile Include 解析到被重写文件。
-    /// </summary>
-    private static IReadOnlySet<string> ComputeProjectsCompilingRewrittenFiles(
-        ProjectPreprocessSourceLayout layout,
-        SupportedProjectFiltering.ExclusionInfo exclusionInfo,
-        IReadOnlyList<string> rewrittenFiles)
-    {
-        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (rewrittenFiles.Count == 0)
-        {
-            return result;
-        }
-
-        var rewrittenFileSet = new HashSet<string>(rewrittenFiles, StringComparer.OrdinalIgnoreCase);
-
-        foreach (var projectFile in layout.ProjectFiles
-                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
-        {
-            if (SupportedProjectFiltering.IsUnderExcludedProject(projectFile, exclusionInfo))
-            {
-                continue;
-            }
-
-            var projectDirectory = Path.GetDirectoryName(projectFile)!;
-            if (rewrittenFiles.Any(file => ProjectPreprocessSource.IsSameOrDescendantPath(file, projectDirectory)))
-            {
-                result.Add(projectDirectory);
-            }
-        }
-
-        foreach (var projectFile in layout.ProjectFiles
-                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
-        {
-            if (SupportedProjectFiltering.IsUnderExcludedProject(projectFile, exclusionInfo))
-            {
-                continue;
-            }
-
-            var projectDirectory = Path.GetDirectoryName(projectFile)!;
-            if (result.Contains(projectDirectory))
-            {
-                continue;
-            }
-
-            XDocument projectDocument;
-            try
-            {
-                projectDocument = XDocument.Load(projectFile, LoadOptions.None);
-            }
-            catch (Exception)
-            {
-                continue;
-            }
-
-            foreach (var compileElement in projectDocument.Descendants().Where(e => e.Name.LocalName == "Compile"))
-            {
-                var include = (string?)compileElement.Attribute("Include");
-                if (string.IsNullOrWhiteSpace(include))
-                {
-                    continue;
-                }
-
-                var resolvedPath = Path.GetFullPath(Path.Combine(projectDirectory, include!));
-                if (rewrittenFileSet.Contains(resolvedPath))
-                {
-                    result.Add(projectDirectory);
-                    break;
-                }
-            }
-        }
-
-        return result;
-    }
-
     private static string? GetPropertyValue(XElement root, string propertyName)
     {
         return root.Descendants()
@@ -726,5 +230,4 @@ internal static class ProjectUnsignedTypePreprocessor
             .Select(element => (string?)element.Value)
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
-
 }
