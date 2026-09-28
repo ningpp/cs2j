@@ -123,7 +123,26 @@ internal sealed class RefOutInAliasAnnotator
                         _stats.OutParamsRewritten++;
                 }
             }
-            else if (refKind == RefKind.In || refKind == RefKind.RefReadOnly)
+            else if (refKind == RefKind.In)
+            {
+                // CD8 (C9): keep `in` when stripping would collide with an
+                // existing by-value overload of the same member name.
+                if (IsInOverloadCollision(method, method.ContainingType))
+                {
+                    _inKeptParameters.Add(param);
+                    _stats.InOverloadKept++;
+                    _diagnostics.Add(new RefOutInRewriterDiagnostic(
+                        RefOutInDiagnosticCodes.InOverloadCollision,
+                        $"stripping 'in' from '{method.ToDisplayString()}' parameter '{param.Name}' " +
+                        "would create an overload collision; keeping 'in'",
+                        RefOutInSeverity.Warning, param.Locations.FirstOrDefault()));
+                }
+                else
+                {
+                    _stats.InByValueParams++;
+                }
+            }
+            else if (refKind == RefKind.RefReadOnly)
             {
                 _stats.InByValueParams++;
             }
@@ -191,6 +210,28 @@ internal sealed class RefOutInAliasAnnotator
         var isInternal = symbol.Locations.Any(loc => loc.IsInSource);
         _classified[symbol] = isInternal ? SymbolClass.Internal : SymbolClass.External;
         return _classified[symbol];
+    }
+
+    /// <summary>CD8: true when another overload differs from the method only by `in`.</summary>
+    private static bool IsInOverloadCollision(IMethodSymbol method, ITypeSymbol? containingType)
+    {
+        if (containingType == null) return false;
+        foreach (var other in containingType.GetMembers(method.Name).OfType<IMethodSymbol>())
+        {
+            if (SymbolEqualityComparer.Default.Equals(other, method)) continue;
+            if (other.Parameters.Length != method.Parameters.Length) continue;
+            bool sameTypes = true;
+            bool differsOnlyByIn = false;
+            for (int i = 0; i < method.Parameters.Length; i++)
+            {
+                var pa = method.Parameters[i];
+                var pb = other.Parameters[i];
+                if (!SymbolEqualityComparer.Default.Equals(pa.Type, pb.Type)) { sameTypes = false; break; }
+                if ((pa.RefKind == RefKind.In) != (pb.RefKind == RefKind.In)) differsOnlyByIn = true;
+            }
+            if (sameTypes && differsOnlyByIn) return true;
+        }
+        return false;
     }
 
     private static bool IsLocked(ISymbol symbol)

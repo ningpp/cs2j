@@ -275,6 +275,16 @@ internal sealed class RefOutInStatementLifter
                 SyntaxFactory.Argument(Identifier(slot)));
         }
 
+        // (4b) ref-returning property/indexer use site: the expression already
+        // evaluates to ByRef<T> after the declaration rewrite — direct pass.
+        var useSym = _owner.GetSymbol(expr);
+        if (useSym is IPropertySymbol useProp
+            && (useProp.RefKind == RefKind.Ref || useProp.RefKind == RefKind.RefReadOnly))
+        {
+            return (null, null, SyntaxFactory.Argument(
+                expr.WithAdditionalAnnotations(DirectPassAnnotation)));
+        }
+
         // (5) element access
         if (expr is ElementAccessExpressionSyntax elem)
         {
@@ -344,7 +354,7 @@ internal sealed class RefOutInStatementLifter
         return (null, null, arg);
     }
 
-    private bool ContainsRefStructCapture(ExpressionSyntax expr)
+    internal bool ContainsRefStructCapture(ExpressionSyntax expr)
     {
         foreach (var id in expr.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
         {

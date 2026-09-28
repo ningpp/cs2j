@@ -139,13 +139,15 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 }
             }
 
-            // Ref return → ByRef return
+            // Ref return → ByRef<T> return
             TypeSyntax newReturnType = node.ReturnType;
             bool refReturn = (symbol.RefKind == RefKind.Ref || symbol.RefKind == RefKind.RefReadOnly)
                 && node.ReturnType is RefTypeSyntax;
             if (refReturn && node.ReturnType is RefTypeSyntax refReturnType)
             {
-                newReturnType = refReturnType.Type;
+                newReturnType = SyntaxFactory.GenericName(
+                    SyntaxFactory.Identifier("ByRef"),
+                    SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(refReturnType.Type)));
                 UsedHolder = true;
             }
 
@@ -153,6 +155,19 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 || node.ParameterList.Parameters
                     .Where((p, i) => !ReferenceEquals(newParamList[i], p)).Any()
                 || refReturn;
+
+            // C4: expression body `=> ref e` → `=> <proxy(e)>`
+            if (node.ExpressionBody?.Expression is RefExpressionSyntax refArrowMethod)
+            {
+                var innerM = refArrowMethod.Expression;
+                while (innerM is ParenthesizedExpressionSyntax p) innerM = p.Expression;
+                if (!_lifter.ContainsRefStructCapture(innerM))
+                {
+                    node = node.WithExpressionBody(
+                        node.ExpressionBody.WithExpression(BuildReturnProxy(innerM)));
+                    UsedHolder = true;
+                }
+            }
 
             // C1: expression body containing liftable calls → block body
             if (node.ExpressionBody != null && _lifter.ContainsLiftable(node.ExpressionBody.Expression))
@@ -331,7 +346,9 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         if ((invoke.RefKind == RefKind.Ref || invoke.RefKind == RefKind.RefReadOnly)
             && node.ReturnType is RefTypeSyntax refType)
         {
-            newReturnType = refType.Type;
+            newReturnType = SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier("ByRef"),
+                SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(refType.Type)));
             hasHolder = true;
         }
 
@@ -420,6 +437,21 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     {
         if (node.Expression == null)
             return base.VisitReturnStatement(node);
+
+        // C4: `return ref e` -> `return <proxy(e)>`
+        if (node.Expression is RefExpressionSyntax refExpr)
+        {
+            var inner = refExpr.Expression;
+            while (inner is ParenthesizedExpressionSyntax p) inner = p.Expression;
+            if (_lifter.ContainsRefStructCapture(inner))
+            {
+                Report3303(inner, "ref return of a ref-struct member cannot be proxied");
+                return base.VisitReturnStatement(node);
+            }
+            UsedHolder = true;
+            var proxy = BuildReturnProxy(inner);
+            return node.WithExpression(proxy);
+        }
 
         var lifted = _lifter.SpliceExpression(node.Expression, out var hoisted);
         var pending = _lifter.TakePendingReadbacks();
@@ -700,6 +732,24 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                     {
                         proxyExpr = expr;
                     }
+                    else if (expr is InvocationExpressionSyntax)
+                    {
+                        // ref-returning call: the callee already returns ByRef<T>
+                        var liftedCall = _lifter.SpliceExpression(expr, out var hCall);
+                        if (hCall.Count > 0)
+                        {
+                            var declStatement = SyntaxFactory.LocalDeclarationStatement(
+                                SyntaxFactory.VariableDeclaration(
+                                    SyntaxFactory.GenericName(
+                                        SyntaxFactory.Identifier("ByRef"),
+                                        SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(innerType))),
+                                    SyntaxFactory.SingletonSeparatedList(
+                                        declarator.WithInitializer(SyntaxFactory.EqualsValueClause(InjectSlotValues(liftedCall))))));
+                            return SyntaxFactory.Block(
+                                hCall.Append(declStatement));
+                        }
+                        proxyExpr = liftedCall;
+                    }
                     else if (expr is ElementAccessExpressionSyntax elem)
                     {
                         var (arr, indices) = DecomposeElementAccess(elem);
@@ -787,6 +837,80 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
     private static BlockSyntax HoistedBlock(IEnumerable<StatementSyntax> stmts) =>
         SyntaxFactory.Block(stmts).WithAdditionalAnnotations(RefOutInStatementLifter.HoistedBlockAnnotation);
+
+    // ── C4: ref-return proxies ──────────────────────────────────────────────
+
+    private ExpressionSyntax BuildReturnProxy(ExpressionSyntax inner)
+    {
+        var type = GetTypeOf(inner);
+        var t = type != null ? TypeDisplay(type) : "int";
+        if (inner is ElementAccessExpressionSyntax elem)
+        {
+            var (arr, indices) = DecomposeElementAccess(elem);
+            _stats.ArrayElementProxies++;
+            return SyntaxFactory.ParseExpression(
+                $"ByRef<{t}>.Create({arr}, {string.Join(", ", indices)})");
+        }
+        var name = inner.ToString();
+        _stats.AccessorProxies++;
+        return SyntaxFactory.ParseExpression(
+            $"ByRef<{t}>.Create(() => {name}, v => {name} = v)");
+    }
+
+    public override SyntaxNode? VisitPropertyDeclaration(PropertyDeclarationSyntax node)
+    {
+        var symbol = _semanticModel.GetDeclaredSymbol(node);
+        if (symbol == null || (symbol.RefKind != RefKind.Ref && symbol.RefKind != RefKind.RefReadOnly)
+            || node.Type is not RefTypeSyntax refPropType)
+            return base.VisitPropertyDeclaration(node);
+
+        UsedHolder = true;
+        if (node.ExpressionBody?.Expression is RefExpressionSyntax refArrow)
+        {
+            var inner = refArrow.Expression;
+            while (inner is ParenthesizedExpressionSyntax p) inner = p.Expression;
+            node = node.WithExpressionBody(node.ExpressionBody.WithExpression(BuildReturnProxy(inner)));
+        }
+        var byRefPropType = SyntaxFactory.GenericName(
+            SyntaxFactory.Identifier("ByRef"),
+            SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(refPropType.Type)));
+        return base.VisitPropertyDeclaration(node.WithType(byRefPropType));
+    }
+
+    public override SyntaxNode? VisitIndexerDeclaration(IndexerDeclarationSyntax node)
+    {
+        var symbol = _semanticModel.GetDeclaredSymbol(node);
+        if (symbol == null || (symbol.RefKind != RefKind.Ref && symbol.RefKind != RefKind.RefReadOnly)
+            || node.Type is not RefTypeSyntax refIndexerType)
+            return base.VisitIndexerDeclaration(node);
+
+        UsedHolder = true;
+        var byRefIndexerType = SyntaxFactory.GenericName(
+            SyntaxFactory.Identifier("ByRef"),
+            SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(refIndexerType.Type)));
+        return base.VisitIndexerDeclaration(node.WithType(byRefIndexerType));
+    }
+
+    // C7: ref-local rebinding `r = ref e2` -> `r = <proxy(e2)>`
+    public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
+    {
+        if (node.Left is IdentifierNameSyntax leftId && IsHolderName(leftId.Identifier.Text)
+            && node.Right is RefExpressionSyntax refRebind)
+        {
+            var inner = refRebind.Expression;
+            while (inner is ParenthesizedExpressionSyntax p) inner = p.Expression;
+            if (_lifter.ContainsRefStructCapture(inner))
+            {
+                Report3303(inner, "ref struct member cannot be re-bound through a proxy");
+                return base.VisitAssignmentExpression(node);
+            }
+            UsedHolder = true;
+            return node
+                .WithLeft(leftId.WithAdditionalAnnotations(RefOutInStatementLifter.DirectPassAnnotation))
+                .WithRight(BuildReturnProxy(inner));
+        }
+        return base.VisitAssignmentExpression(node);
+    }
 
     private static ExpressionSyntax Negate(ExpressionSyntax e) =>
         SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,

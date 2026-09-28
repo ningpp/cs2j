@@ -347,6 +347,106 @@ public class C
     }
 
     [Fact]
+    public void RefReturn_ArrayElement_BecomesByRefFactory()
+    {
+        var src = @"
+public class C
+{
+    public ref int GetRef(int[] arr, int index) { return ref arr[index]; }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("public ByRef<int> GetRef(int[] arr, int index)", result);
+        Assert.Contains("return ByRef<int>.Create(arr, index);", result);
+    }
+
+    [Fact]
+    public void RefProperty_DeclarationAndBodyRewritten()
+    {
+        var src = @"
+public class C
+{
+    private int _f;
+    public ref int P
+    {
+        get { return ref _f; }
+    }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("ByRef<int> P", result);
+        Assert.Contains("Create(() => _f", result);
+    }
+
+    [Fact]
+    public void RefProperty_UseSite_DirectPass()
+    {
+        var src = @"
+public class C
+{
+    private int _f;
+    public ref int P => ref _f;
+    public void Bump(ref int v) { v++; }
+    public void Use() { Bump(ref P); }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("Bump(P)", result);   // P already returns ByRef<int>
+    }
+
+    [Fact]
+    public void RefLocal_Rebinding_ReplacesProxy()
+    {
+        var src = @"
+public class C
+{
+    public ref int GetRef(int[] arr, int index) { return ref arr[index]; }
+    public int Use()
+    {
+        int[] arr = { 1, 2, 3 };
+        ref int r = ref GetRef(arr, 0);
+        r = ref arr[2];
+        r = 99;
+        return arr[2];
+    }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("r = ByRef<int>.Create(arr, 2);", result);
+        Assert.Contains("r.Value = 99;", result);
+    }
+
+    [Fact]
+    public void InOverloadCollision_KeepsIn_AndWarns()
+    {
+        var src = @"
+public class C
+{
+    public void M(int a) { }
+    public void M(in int a) { }
+}";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new RefOutInRewriter().Rewrite(src, model);
+        Assert.True(result.Changed);
+        Assert.Contains("in int a", result.OutputCode);
+        Assert.Equal(1, result.Statistics.InOverloadKept);
+        Assert.Contains(result.Diagnostics, d => d.Id == "CS2J3302");
+    }
+
+    [Fact]
+    public void PureCallSiteFile_GetsUsingInjection()
+    {
+        var src = @"
+public class Caller
+{
+    public void Use()
+    {
+        int x = 1;
+        Other.Bump(ref x);
+    }
+}
+public class Other { public static void Bump(ref int v) { v++; } }";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("using Cs2jByRef;", result);
+    }
+
+    [Fact]
     public void OutVar_InIfCondition_HoistedAndReadBack()
     {
         var src = @"
