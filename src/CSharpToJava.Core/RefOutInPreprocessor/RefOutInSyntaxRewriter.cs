@@ -452,7 +452,13 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
         var stmts = new List<StatementSyntax>();
         stmts.AddRange(hoisted);
-        stmts.Add(SyntaxFactory.ExpressionStatement(InjectSlotValues(lifted)));
+        // A non-void lifted call is already materialized as 
+        // in the hoisted statements — a bare temp statement would be CS0201.
+        if (!(lifted is IdentifierNameSyntax callTemp
+            && callTemp.Identifier.ValueText.StartsWith("__call", StringComparison.Ordinal)))
+        {
+            stmts.Add(SyntaxFactory.ExpressionStatement(InjectSlotValues(lifted)));
+        }
         stmts.AddRange(pending);
         return HoistedBlock(stmts);
     }

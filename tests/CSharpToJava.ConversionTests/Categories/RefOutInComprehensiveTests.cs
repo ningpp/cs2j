@@ -5,7 +5,12 @@ namespace CSharpToJava.ConversionTests.Categories;
 /// <summary>
 /// Comprehensive tests for ref/out/in parameter conversion across various types.
 /// Verifies that the C#-to-Java converter generates the correct holder types and value access patterns.
+/// §7.4 migration: these feed RAW C# to the direct pipeline and assert the legacy
+/// holder shapes — they are the LegacyHolderPath safety net for external/locked
+/// residue and direct-conversion entry points (CD6). Internal-form ByRef behavior
+/// is covered by RefOutInByRefPathTests (ByRefPath).
 /// </summary>
+[Trait("Category", "LegacyHolderPath")]
 public class RefOutInComprehensiveTests : ConversionTestBase
 {
     [Fact]
