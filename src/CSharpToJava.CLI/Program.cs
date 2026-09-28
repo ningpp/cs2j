@@ -14,6 +14,8 @@ using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.TypeMapping;
 using CSharpToJava.Core.Workspace;
+using CSharpToJava.Core.Preprocessing;
+using CSharpToJava.CLI.Preprocessing;
 using System.Text.Json;
 
 namespace CSharpToJava.CLI;
@@ -174,587 +176,133 @@ public class Program
 
             opts.ParsedExtraDependencies = ParseExtraDependencies(opts.ExtraDependencies);
 
-            if (opts.StripConditional)
+            // ---- Unified preprocess chain -------------------------------------
+            // The registry is the single source of truth for pass identity,
+            // ordering (locked via RunAfter) and defaults; legacy --no-xxx/enable
+            // flags only override the enablement, all execution/output details live
+            // on the adapters. java-keywords still has its hand-written block below
+            // until its adapter is wired (Step 6).
+            var passRegistry = PassCatalog.BuildRegistry();
+            var passPlan = PassPlanResolver.Resolve(
+                passRegistry,
+                PassChainFactory.BuildLegacyToggles(opts));
+            if (!passPlan.IsValid)
             {
-                var conditionalResult = await ProjectConditionalDirectivePreprocessor.PreprocessAsync(
-                    new ProjectConditionalDirectivePreprocessRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                    });
-
-                Console.WriteLine(
-                    $"strip-conditional: {conditionalResult.FilesTransformed} transformed, " +
-                    $"{conditionalResult.FilesSkippedClean} clean, " +
-                    $"{conditionalResult.DirectivesRemoved} directives removed, " +
-                    $"{conditionalResult.DisabledBranchesRemoved} disabled blocks removed");
-
-                foreach (var diagnostic in conditionalResult.Diagnostics)
+                foreach (var planError in passPlan.Errors)
                 {
-                    Console.Error.WriteLine(diagnostic);
+                    Console.Error.WriteLine(planError);
                 }
 
-                if (!conditionalResult.Success)
+                return 1;
+            }
+
+            opts.EnabledPassIntermediateDirectoryNames = passPlan.Enabled
+                .Select(pass => pass.IntermediateDirectoryName)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var executedSupportLibraries = passPlan.Enabled
+                .Where(pass => pass.SupportLibrary != PassSupportLibrary.None)
+                .Select(pass => pass.SupportLibrary)
+                .ToHashSet();
+
+            var chainConfig = new PassChainConfiguration
+            {
+                Verbose = opts.Verbose,
+                FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                VerifyBuild = opts.VerifyBuild,
+                VerifyTests = opts.VerifyTests,
+                Strict = opts.LocalFunctionStrict,
+                TupleNamespace = opts.TupleNamespace,
+                MakerOptionsFactory = () => new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions
                 {
+                    ForceReadOnlyQualifiedNames = LoadReadOnlyForceOverrides(opts.ReadOnlyOverrides),
+                },
+                RecordReadOnlyOptionsFactory = () => BuildRecordReadOnlyOptions(
+                    opts.RecordReadOnlyOverrides, strict: false),
+            };
+
+            foreach (var pass in passPlan.Enabled)
+            {
+                if (pass.Id == PassIds.JavaKeywords)
+                {
+                    // Hand-written block further below; folded into this loop in Step 6.
+                    continue;
+                }
+
+                if (pass.Status == PassStatus.Stub)
+                {
+                    // Enabled stub: fail loudly before touching the filesystem.
+                    Console.Error.WriteLine(ProjectPassRunner.StubMessage(pass));
                     return 1;
                 }
 
-                opts.Source = conditionalResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= conditionalResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= conditionalResult.SourceRoot;
-            }
+                var sourceBeforePass = opts.Source;
+                var adapter = PassChainFactory.CreateAdapter(pass.Id, chainConfig);
 
-            if (opts.LocalFunctionLift)
-            {
-                var liftResult = await ProjectLocalFunctionLiftPreprocessor.PreprocessAsync(
-                    new ProjectLocalFunctionLiftRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                        VerifyBuild = opts.VerifyBuild,
-                        VerifyTests = opts.VerifyTests,
-                        Strict = opts.LocalFunctionStrict,
-                    });
-
-                Console.WriteLine(
-                    $"local-function-lift: {liftResult.Statistics.FilesTransformed} transformed, " +
-                    $"{liftResult.Statistics.FilesSkippedClean} clean, " +
-                    $"{liftResult.Statistics.LocalFunctionsLifted} lifted, " +
-                    $"{liftResult.Statistics.LocalFunctionsSkipped} skipped, " +
-                    $"{liftResult.Statistics.LocalFunctionsResidual} residual");
-
-                foreach (var d in liftResult.Diagnostics)
-                    Console.Error.WriteLine($"[{d.Severity}] {d.FilePath}:{d.Line}: {d.Message}");
-
-                if (!liftResult.Success)
-                    return 1;
-
-                opts.Source = liftResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= liftResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= liftResult.SourceRoot;
-            }
-
-            if (opts.NullCoalesce)
-            {
-                var nullCoalesceResult = await ProjectNullCoalescePreprocessor.PreprocessAsync(
-                    new ProjectNullCoalesceRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                        VerifyBuild = opts.VerifyBuild,
-                        VerifyTests = opts.VerifyTests,
-                        Strict = opts.LocalFunctionStrict,
-                    });
-
-                Console.WriteLine(
-                    $"null-coalesce: {nullCoalesceResult.Statistics.FilesTransformed} transformed, " +
-                    $"{nullCoalesceResult.Statistics.FilesSkippedClean} clean, " +
-                    $"{nullCoalesceResult.Statistics.NullCoalescingRewritten} ?? rewritten, " +
-                    $"{nullCoalesceResult.Statistics.NullCoalescingAssignRewritten} ??= rewritten, " +
-                    $"{nullCoalesceResult.Statistics.TempVariablesGenerated} temp vars, " +
-                    $"{nullCoalesceResult.Statistics.ResidualCount} residual");
-
-                foreach (var diagnostic in nullCoalesceResult.Diagnostics)
+                var startLine = adapter.BuildChainStartLine();
+                if (startLine != null)
                 {
-                    var prefix = diagnostic.FilePath != null ? $"{diagnostic.FilePath}: " : "";
-                    Console.Error.WriteLine($"[{diagnostic.Severity}] {prefix}{diagnostic.Message}");
+                    Console.WriteLine(startLine);
                 }
 
-                if (!nullCoalesceResult.Success)
-                    return 1;
-
-                opts.Source = nullCoalesceResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= nullCoalesceResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= nullCoalesceResult.SourceRoot;
-            }
-
-            if (opts.EnumPreprocess)
-            {
-                var enumResult = await ProjectEnumPreprocessor.PreprocessAsync(
-                    new ProjectEnumPreprocessRequest
+                var run = await ProjectPassRunner.RunAsync(
+                    adapter,
+                    new ProjectPassRunRequest
                     {
                         SourcePath = opts.Source,
                         DestinationRoot = opts.Destination,
                         Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                        VerifyBuild = opts.VerifyBuild,
-                        VerifyTests = opts.VerifyTests,
-                        Strict = opts.LocalFunctionStrict,
                     });
 
-                Console.WriteLine(
-                    $"enum: {enumResult.Statistics.FilesTransformed} transformed, " +
-                    $"{enumResult.Statistics.FilesSkippedClean} clean, " +
-                    $"{enumResult.Statistics.FilesDirtyNoRewrite} dirty-no-rewrite, " +
-                    $"{enumResult.Statistics.BitwiseOrRewritten + enumResult.Statistics.BitwiseAndRewritten + enumResult.Statistics.BitwiseXorRewritten} bitwise, " +
-                    $"{enumResult.Statistics.BitwiseNotRewritten} ~, " +
-                    $"{enumResult.Statistics.CompoundAssignRewritten} compound, " +
-                    $"{enumResult.Statistics.HasFlagRewritten} HasFlag, " +
-                    $"{enumResult.Statistics.NullableLiftedRewritten} lifted, " +
-                    $"{enumResult.Statistics.ResidualCount} residual");
-
-                foreach (var diagnostic in enumResult.Diagnostics)
+                var preludeLine = adapter.BuildChainVerbosePrelude(
+                    sourceBeforePass, run.PreprocessedSourcePath);
+                if (preludeLine != null)
                 {
-                    var prefix = diagnostic.FilePath != null ? $"{diagnostic.FilePath}: " : "";
-                    Console.Error.WriteLine($"[{diagnostic.Severity}] {prefix}{diagnostic.Message}");
+                    Console.WriteLine(preludeLine);
                 }
 
-                if (!enumResult.Success)
-                    return 1;
-
-                opts.Source = enumResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= enumResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= enumResult.SourceRoot;
-            }
-
-            if (opts.DelegatePreprocess)
-            {
-                var delegateResult = await ProjectDelegatePreprocessor.PreprocessAsync(
-                    new ProjectDelegatePreprocessRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                        VerifyBuild = opts.VerifyBuild,
-                        VerifyTests = opts.VerifyTests,
-                        Strict = opts.LocalFunctionStrict,
-                    });
-
-                Console.WriteLine(
-                    $"delegate: {delegateResult.Statistics.FilesTransformed} transformed, " +
-                    $"{delegateResult.Statistics.FilesSkippedClean} clean, " +
-                    $"{delegateResult.Statistics.CombineRewritten} combine, " +
-                    $"{delegateResult.Statistics.RemoveRewritten} remove, " +
-                    $"{delegateResult.Statistics.CompoundAssignRewritten} compound, " +
-                    $"{delegateResult.Statistics.AnonymousMethodRewritten} anonymous method, " +
-                    $"{delegateResult.Statistics.SkippedUnsupported} skipped, " +
-                    $"{delegateResult.Statistics.ResidualCount} residual");
-
-                foreach (var diagnostic in delegateResult.Diagnostics)
+                var summaryLine = adapter.BuildChainSummaryLine();
+                if (summaryLine != null)
                 {
-                    var prefix = diagnostic.FilePath != null ? $"{diagnostic.FilePath}: " : "";
-                    Console.Error.WriteLine($"[{diagnostic.Severity}] {prefix}{diagnostic.Message}");
+                    Console.WriteLine(summaryLine);
                 }
 
-                if (!delegateResult.Success)
-                    return 1;
-
-                opts.Source = delegateResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= delegateResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= delegateResult.SourceRoot;
-            }
-
-            if (opts.TupleToStruct)
-            {
-                // 第 2 级：消除全部 C# 值元组（元组类型/字面量/解构）为生成的 readonly
-                // struct。放在 default 参数剥离之前，使后续各级只面对无元组源码。
-                var tupleResult = await ProjectTupleToStructPreprocessor.PreprocessAsync(
-                    new ProjectTupleToStructPreprocessRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        RewriterOptions = new CSharpToJava.Core.TupleToStruct.TupleToStructOptions
-                        {
-                            NamespaceName = opts.TupleNamespace,
-                        },
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                    });
-
-                Console.WriteLine(
-                    $"tuple-to-struct: {tupleResult.Statistics.FilesTransformed} transformed, " +
-                    $"{tupleResult.Statistics.FilesSkippedClean} clean, " +
-                    $"{tupleResult.Statistics.TupleTypesReplaced} types, " +
-                    $"{tupleResult.Statistics.TupleLiteralsRewritten} literals, " +
-                    $"{tupleResult.Statistics.DeconstructionsExpanded} deconstructions, " +
-                    $"{tupleResult.Statistics.StructsGenerated} structs generated");
-
-                foreach (var diagnostic in tupleResult.Diagnostics)
+                foreach (var diagnosticLine in adapter.BuildChainDiagnosticLines(opts.Verbose))
                 {
-                    if (diagnostic.Severity != CSharpToJava.Core.TupleToStruct.TupleToStructSeverity.Info || opts.Verbose)
+                    Console.Error.WriteLine(diagnosticLine);
+                }
+
+                if (!run.Success)
+                {
+                    var failureBanner = adapter.BuildChainFailureBanner();
+                    if (failureBanner != null)
                     {
-                        Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+                        Console.Error.WriteLine(failureBanner);
                     }
-                }
 
-                if (!tupleResult.Success)
-                {
                     return 1;
                 }
 
-                opts.Source = tupleResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= tupleResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= tupleResult.SourceRoot;
-            }
-
-            if (opts.ForeachDeconstruction)
-            {
-                var foreachResult = await ProjectForeachDeconstructionPreprocessor.PreprocessAsync(
-                    new ProjectForeachDeconstructionPreprocessRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                    });
-
-                Console.WriteLine(
-                    $"foreach-deconstruction: {foreachResult.Statistics.FilesTransformed} transformed, " +
-                    $"{foreachResult.Statistics.FilesSkippedClean} clean, " +
-                    $"{foreachResult.Statistics.ForeachDeconstructionsLowered} lowered, " +
-                    $"{foreachResult.Statistics.ForeachDeconstructionsSkipped} skipped");
-
-                foreach (var diagnostic in foreachResult.Diagnostics)
+                opts.Source = run.PreprocessedSourcePath;
+                if (adapter.RepointsFingerprintToPassInput)
                 {
-                    if (diagnostic.Severity != CSharpToJava.Core.ForeachDeconstruction.ForeachDeconstructionSeverity.Info || opts.Verbose)
-                    {
-                        Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
-                    }
+                    // eliminate-goto historically reassigned (=, not ??) the pointers.
+                    opts.FingerprintSourcePath = sourceBeforePass;
+                    opts.FingerprintInputRoot = run.SourceRoot;
+                    opts.UsingGotoPreprocessedSource = true;
+                }
+                else
+                {
+                    opts.FingerprintSourcePath ??= run.OriginalSourcePath;
+                    opts.FingerprintInputRoot ??= run.SourceRoot;
                 }
 
-                if (!foreachResult.Success)
+                var verboseSummaryLine = adapter.BuildChainVerboseSummaryLine();
+                if (verboseSummaryLine != null)
                 {
-                    return 1;
+                    Console.WriteLine(verboseSummaryLine);
                 }
-
-                opts.Source = foreachResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= foreachResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= foreachResult.SourceRoot;
-            }
-
-            if (opts.StripDefault)
-            {
-                var stripResult = await ProjectDefaultParameterStripper.PreprocessAsync(
-                    new ProjectDefaultParameterStripRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                        VerifyBuild = opts.VerifyBuild,
-                        VerifyTests = opts.VerifyTests,
-                    });
-
-                Console.WriteLine(
-                    $"strip-default: {stripResult.Statistics.FilesTransformed} transformed, " +
-                    $"{stripResult.Statistics.FilesSkippedClean} clean, " +
-                    $"{stripResult.Statistics.DeclarationsStripped} declarations stripped, " +
-                    $"{stripResult.Statistics.OverloadsGenerated} overloads generated");
-
-                foreach (var diagnostic in stripResult.Diagnostics)
-                {
-                    Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
-                }
-
-                if (!stripResult.Success)
-                {
-                    return 1;
-                }
-
-                opts.Source = stripResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= stripResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= stripResult.SourceRoot;
-            }
-
-            if (opts.RefOutIn)
-            {
-                var refOutInResult = await ProjectRefOutInPreprocessor.PreprocessAsync(
-                    new ProjectRefOutInPreprocessRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                        VerifyBuild = opts.VerifyBuild,
-                        VerifyTests = opts.VerifyTests,
-                    });
-
-                Console.WriteLine(
-                    $"ref-out-in: {refOutInResult.Statistics.FilesTransformed} transformed, " +
-                    $"{refOutInResult.Statistics.FilesSkippedClean} clean, " +
-                    $"{refOutInResult.Statistics.RefParamsRewritten} ref params, " +
-                    $"{refOutInResult.Statistics.OutParamsRewritten} out params, " +
-                    $"{refOutInResult.Statistics.CallSitesLifted} call sites lifted, " +
-                    $"{refOutInResult.Statistics.LockedContractMembers} locked members");
-
-                foreach (var diagnostic in refOutInResult.Diagnostics)
-                {
-                    if (diagnostic.Severity != RefOutInSeverity.Info || opts.Verbose)
-                        Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
-                }
-
-                if (!refOutInResult.Success)
-                {
-                    return 1;
-                }
-
-                opts.Source = refOutInResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= refOutInResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= refOutInResult.SourceRoot;
-            }
-
-            if (opts.UnsignedType)
-            {
-                var unsignedResult = await ProjectUnsignedTypePreprocessor.PreprocessAsync(
-                    new ProjectUnsignedTypePreprocessRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                    });
-
-                Console.WriteLine(
-                    $"unsigned-type: {unsignedResult.Statistics.FilesTransformed} transformed, " +
-                    $"{unsignedResult.Statistics.FilesSkippedClean} clean, " +
-                    $"{unsignedResult.Statistics.TypesReplaced} types replaced, " +
-                    $"{unsignedResult.Statistics.OperatorsRewritten} operators rewritten, " +
-                    $"{unsignedResult.Statistics.LiteralsRewritten} literals rewritten");
-
-                foreach (var diagnostic in unsignedResult.Diagnostics)
-                {
-                    Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
-                }
-
-                if (!unsignedResult.Success)
-                {
-                    return 1;
-                }
-
-                opts.Source = unsignedResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= unsignedResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= unsignedResult.SourceRoot;
-            }
-
-            if (opts.GenericPreprocess)
-            {
-                var genericResult = await ProjectGenericPreprocessor.PreprocessAsync(new ProjectGenericPreprocessRequest
-                {
-                    SourcePath = opts.Source,
-                    DestinationRoot = opts.Destination,
-                    Force = opts.Force,
-                    Verbose = opts.Verbose,
-                    FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                    CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                    VerifyBuild = opts.VerifyBuild,
-                    VerifyTests = opts.VerifyTests,
-                });
-
-                Console.WriteLine(
-                    $"generic: {genericResult.Statistics.FilesTransformed} transformed, " +
-                    $"{genericResult.Statistics.FilesSkippedClean} clean " +
-                    $"({genericResult.Statistics.DefaultExpressionsRewritten} default(T), " +
-                    $"{genericResult.Statistics.NewTypeParamRewritten} new T(), " +
-                    $"{genericResult.Statistics.NewTypeParamArrayRewritten} new T[n])");
-
-                foreach (var diagnostic in genericResult.Diagnostics)
-                {
-                    if (diagnostic.Severity != CSharpToJava.Core.GenericPreprocess.GenericPreprocessSeverity.Info || opts.Verbose)
-                    {
-                        Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.FilePath}: {diagnostic.Message}");
-                    }
-                }
-
-                if (!genericResult.Success)
-                {
-                    return 1;
-                }
-
-                opts.Source = genericResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= genericResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= genericResult.SourceRoot;
-            }
-
-            if (opts.RecordReadOnly)
-            {
-                var recordReadOnlyResult = await ProjectRecordReadOnlyPreprocessor.PreprocessAsync(
-                    new ProjectRecordReadOnlyPreprocessRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        Options = BuildRecordReadOnlyOptions(opts.RecordReadOnlyOverrides, strict: false),
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                    });
-
-                Console.WriteLine(
-                    $"record-readonly: {recordReadOnlyResult.Statistics.RecordStructsConverted} struct(s), " +
-                    $"{recordReadOnlyResult.Statistics.RecordClassesConverted} class(es) converted, " +
-                    $"{recordReadOnlyResult.Statistics.RecordsSkipped} skipped, " +
-                    $"{recordReadOnlyResult.Statistics.PlansRolledBack} plan(s) rolled back, " +
-                    $"{recordReadOnlyResult.Statistics.MutationSitesRewritten} site(s), " +
-                    $"{recordReadOnlyResult.Statistics.MethodsMigrated} method(s), " +
-                    $"{recordReadOnlyResult.Statistics.InterfaceRipples} interface ripple(s)");
-
-                foreach (var diagnostic in recordReadOnlyResult.Diagnostics)
-                {
-                    if (diagnostic.Severity != CSharpToJava.Core.RecordReadOnly.RecordReadOnlySeverity.Info
-                        || opts.Verbose)
-                    {
-                        Console.Error.WriteLine(diagnostic.ToMsBuildString());
-                    }
-                }
-
-                if (!recordReadOnlyResult.Success)
-                {
-                    return 1;
-                }
-
-                opts.Source = recordReadOnlyResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= recordReadOnlyResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= recordReadOnlyResult.SourceRoot;
-            }
-
-            if (opts.EnableArrayMethod)
-            {
-                if (opts.Verbose)
-                {
-                    Console.WriteLine("[convert-project] Running array-method preprocessor...");
-                }
-
-                var arrayMethodResult = await ProjectArrayMethodPreprocessor.PreprocessAsync(
-                    new ProjectArrayMethodPreprocessRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                        Verbose = opts.Verbose,
-                        RewriterOptions = new ArrayMethodRewriterOptions(Verbose: opts.Verbose),
-                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                    });
-
-                foreach (var diagnostic in arrayMethodResult.Diagnostics)
-                {
-                    Console.Error.WriteLine($"[array-method] [{diagnostic.Severity}] {diagnostic.Message}");
-                }
-
-                if (!arrayMethodResult.Success)
-                {
-                    Console.Error.WriteLine("[convert-project] array-method preprocessing failed; aborting.");
-                    return 1;
-                }
-
-                opts.Source = arrayMethodResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= arrayMethodResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= arrayMethodResult.SourceRoot;
-
-                if (opts.Verbose)
-                {
-                    Console.WriteLine(
-                        $"[convert-project] array-method: {arrayMethodResult.Statistics.FilesTransformed} transformed, " +
-                        $"{arrayMethodResult.Statistics.FilesSkippedClean} clean");
-                }
-            }
-
-            if (opts.MakeReadOnly)
-            {
-                // ReadOnlyStructMaker preprocessing runs BEFORE goto elimination
-                var readonlyResult = await ProjectReadOnlyStructPreprocessor.PreprocessAsync(new ProjectReadOnlyPreprocessRequest
-                {
-                    SourcePath = opts.Source,
-                    DestinationRoot = opts.Destination,
-                    Force = opts.Force,
-                    Verbose = opts.Verbose,
-                    MakerOptions = new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions
-                    {
-                        ForceReadOnlyQualifiedNames = LoadReadOnlyForceOverrides(opts.ReadOnlyOverrides),
-                    },
-                    FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                    CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                    VerifyBuild = opts.VerifyBuild,
-                    VerifyTests = opts.VerifyTests,
-                });
-
-                Console.WriteLine(
-                    $"make-readonly: {readonlyResult.Statistics.StructsConverted} converted, " +
-                    $"{readonlyResult.Statistics.StructsSkipped} skipped, " +
-                    $"{readonlyResult.Statistics.StructsFailed} failed (scanned {readonlyResult.Statistics.StructsScanned})");
-
-                // Always show warnings/errors; info-level only in verbose mode
-                foreach (var diagnostic in readonlyResult.Diagnostics)
-                {
-                    if (diagnostic.Severity != CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructSeverity.Info || opts.Verbose)
-                    {
-                        Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.FilePath}: {diagnostic.StructName}: {diagnostic.Reason}");
-                    }
-                }
-
-                if (!readonlyResult.Success)
-                {
-                    return 1;
-                }
-
-                opts.Source = readonlyResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath ??= readonlyResult.OriginalSourcePath;
-                opts.FingerprintInputRoot ??= readonlyResult.SourceRoot;
-            }
-
-            if (opts.EliminateGoto)
-            {
-                var originalSource = opts.Source;
-                var preprocessResult = await ProjectGotoPreprocessor.PreprocessAsync(new ProjectGotoPreprocessRequest
-                {
-                    SourcePath = originalSource,
-                    DestinationRoot = opts.Destination,
-                    Force = opts.Force,
-                    Verbose = opts.Verbose,
-                    FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
-                    CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
-                });
-
-                if (opts.Verbose)
-                {
-                    Console.WriteLine($"No-goto source: {originalSource} -> {preprocessResult.PreprocessedSourcePath}");
-                }
-
-                Console.WriteLine(
-                    $"eliminate-goto: {preprocessResult.Statistics.FilesTransformed} transformed, " +
-                    $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
-                    $"{preprocessResult.Statistics.GotosEliminated} goto(s) eliminated");
-
-                foreach (var diagnostic in preprocessResult.Diagnostics)
-                {
-                    Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
-                }
-
-                if (!preprocessResult.Success)
-                {
-                    return 1;
-                }
-
-                opts.Source = preprocessResult.PreprocessedSourcePath;
-                opts.FingerprintSourcePath = originalSource;
-                opts.FingerprintInputRoot = preprocessResult.SourceRoot;
-                opts.UsingGotoPreprocessedSource = true;
             }
 
             if (opts.JavaKeywords)
@@ -830,13 +378,13 @@ public class Program
             if (workspaceProjects != null && workspaceProjects.Count > 0)
             {
                 workspaceProjects = NormalizeWorkspaceProjects(workspaceProjects, opts.Verbose);
-                // Cs2jUnsignedMath 是 unsigned-type 预处理注入的内部支撑库：
+                // 各 pass 注入的内部支撑库（Cs2jUnsignedMath/Cs2jArray/Cs2jRefOutIn）：
                 // 仅作符号来源，不为其规划 Maven 模块、不转换其源文件。
-                // 放在指纹快照之前——helper 文件不再进入 Java 输出，不应参与缓存键。
+                // 按本次实际执行的 pass 集合过滤；放在指纹快照之前——helper 文件不再
+                // 进入 Java 输出，不应参与缓存键。
                 workspaceProjects = workspaceProjects
-                    .Where(p => !Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject(p.FilePath))
-                    .Where(p => !Cs2jArrayProject.IsCs2jArrayProject(p.FilePath))
-                    .Where(p => !Cs2jRefOutInProject.IsCs2jRefOutInProject(p.FilePath))
+                    .Where(p => !PassChainFactory.IsExecutedSupportLibraryProject(
+                        executedSupportLibraries, p.FilePath))
                     .ToList();
                 var inputFingerprintSnapshot = BuildWorkspaceInputFingerprintSnapshot(opts, workspaceProjects);
                 if (!opts.NoCache && TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
@@ -1501,70 +1049,16 @@ public class Program
         // node_modules holds npm dependencies, not generated artifacts: preserving it
         // across regenerations avoids a full npm install on every conversion round.
         preserved.Add("node_modules");
-        if (opts.UsingGotoPreprocessedSource)
+        // Preserve the intermediate tree of every pass the resolved chain enabled;
+        // the set is populated by ConvertProject from the registry-driven pass plan.
+        if (opts.EnabledPassIntermediateDirectoryNames != null)
         {
-            preserved.Add(ProjectGotoPreprocessor.IntermediateDirectoryName);
+            foreach (var intermediateDirectoryName in opts.EnabledPassIntermediateDirectoryNames)
+            {
+                preserved.Add(intermediateDirectoryName);
+            }
         }
-        if (opts.TupleToStruct)
-        {
-            preserved.Add(ProjectTupleToStructPreprocessor.IntermediateDirectoryName);
-        }
-        if (opts.ForeachDeconstruction)
-        {
-            preserved.Add(ProjectForeachDeconstructionPreprocessor.IntermediateDirectoryName);
-        }
-        if (opts.UnsignedType)
-        {
-            preserved.Add(ProjectUnsignedTypePreprocessor.IntermediateDirectoryName);
-        }
-        if (opts.RefOutIn)
-        {
-            preserved.Add(ProjectRefOutInPreprocessor.IntermediateDirectoryName);
-        }
-        if (opts.MakeReadOnly)
-        {
-            preserved.Add(ProjectReadOnlyStructPreprocessor.IntermediateDirectoryName);
-        }
-        if (opts.RecordReadOnly)
-        {
-            preserved.Add(ProjectRecordReadOnlyPreprocessor.IntermediateDirectoryName);
-        }
-        if (opts.JavaKeywords)
-        {
-            preserved.Add(ProjectJavaReservedWordPreprocessor.IntermediateDirectoryName);
-        }
-        if (opts.EnableArrayMethod)
-        {
-            preserved.Add(ProjectArrayMethodPreprocessor.IntermediateDirectoryName);
-        }
-        if (opts.GenericPreprocess)
-        {
-            preserved.Add(ProjectGenericPreprocessor.IntermediateDirectoryName);
-        }
-        if (!opts.NoStripDefault)
-        {
-            preserved.Add(ProjectDefaultParameterStripper.IntermediateDirectoryName);
-        }
-        if (opts.LocalFunctionLift)
-        {
-            preserved.Add(ProjectLocalFunctionLiftPreprocessor.IntermediateDirectoryName);
-        }
-if (opts.NullCoalesce)
-{
-preserved.Add(ProjectNullCoalescePreprocessor.IntermediateDirectoryName);
-}
-if (opts.DelegatePreprocess)
-{
-preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
-}
-        if (opts.EnumPreprocess)
-        {
-            preserved.Add(ProjectEnumPreprocessor.IntermediateDirectoryName);
-        }
-        if (opts.StripConditional)
-        {
-            preserved.Add(ProjectConditionalDirectivePreprocessor.IntermediateDirectoryName);
-        }
+
         return preserved.Count > 0 ? preserved : null;
     }
 
@@ -2373,7 +1867,7 @@ preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
 
     internal static IReadOnlyList<string> GetProjectConversionOptionTokens(ConvertProjectOptions opts)
     {
-        return new List<string>
+        var tokens = new List<string>
         {
             // 产物指纹按目标区分（Task 37）：Java/TS 目标产物布局不同，令牌必须含 target，
             // 否则 --target 切换会被增量缓存错误跳过。
@@ -2388,19 +1882,21 @@ preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
             $"maven-group-id={opts.MavenGroupId}",
             $"maven-version={opts.MavenVersion}",
             $"include-tests={opts.IncludeTests}",
-            $"eliminate-goto={opts.EliminateGoto}",
-            $"tuple-to-struct={opts.TupleToStruct}",
-            $"foreach-deconstruction={opts.ForeachDeconstruction}",
-            $"unsigned-type={opts.UnsignedType}",
-            $"ref-out-in={opts.RefOutIn}",
-            $"generic-preprocess={opts.GenericPreprocess}",
-            $"strip-default={opts.StripDefault}",
-            $"local-function-lift={opts.LocalFunctionLift}",
-            $"null-coalesce={opts.NullCoalesce}",
-            $"delegate-preprocess={opts.DelegatePreprocess}",
-            $"enum-preprocess={opts.EnumPreprocess}",
             $"extra-deps={GetNormalizedExtraDependencyToken(opts)}",
         };
+
+        // 每个注册 pass 一个开关令牌（注册表拓扑序，含默认关 pass），新增 pass 时
+        // 令牌自动覆盖；切换预处理组合会使旧产物指纹失效一次（预期行为）。
+        var legacyToggles = PassChainFactory.BuildLegacyToggles(opts);
+        foreach (var descriptor in PassCatalog.BuildRegistry().Ordered)
+        {
+            var enabled = legacyToggles.TryGetValue(descriptor.Id, out var flag)
+                ? flag
+                : descriptor.DefaultEnabled;
+            tokens.Add($"pass:{descriptor.Id}={enabled}");
+        }
+
+        return tokens;
     }
 
     private static string GetFingerprintSourcePath(ConvertProjectOptions opts) =>
@@ -5259,6 +4755,12 @@ class ConvertProjectOptions
     internal string? FingerprintSourcePath { get; set; }
     internal string? FingerprintInputRoot { get; set; }
     internal bool UsingGotoPreprocessedSource { get; set; }
+
+    /// <summary>
+    /// Intermediate directory names of every pass enabled by the resolved chain plan.
+    /// Populated by ConvertProject before the fingerprint/destination cleanup runs.
+    /// </summary>
+    internal IReadOnlySet<string>? EnabledPassIntermediateDirectoryNames { get; set; }
 }
 
 [Verb("local-function-lift", HelpText = "Lift local functions to member methods (single-file or project mode)")]
