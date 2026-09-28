@@ -263,7 +263,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | Core 9 文件 + 设计文档已评审（见 E15）；ROADMAP #3 |
 | 与现有通道关系 | 依赖：应在 E06 TupleToStruct、E04 Enum、E05 Delegate、E09 Unsigned 之后（这些会引入新调用形态）；建议先于 E13 ReadOnlyStruct（holder struct 与只读化有交互，需原型确认）；**必须完成设计 D3 遗留的 Java 映射 spec**（ByRef 在 Java 侧如何落地）才能默认开启 |
 | 优先级 | **P0**（半截工程，完成边际成本最低、fail-fast 面最广） |
-| 状态 | 部分（Core 完成，CLI/Java 缺） |
+| 状态 | **完成（2026-09-29）**：C# 语句级提升闭环（中间树 build/test 全绿、verify 默认开启）+ Java 侧 compat ByRef/RefStructByRef 层次与 TypeMappings J1-J4/J8 已接线；ByRefPath/LegacyHolderPath 测试分流（§7.4）。sdk「新增失败为零」基线比对与 ROI 旧码下线属 M5 后续 |
 | 验证 | 中间树 build/test 全绿；`RefOutInRewriterUnitTests.cs` 已在；新增项目级 fixture 与 csharp-sdk 32 项目「新增失败为零」比对（设计 D5） |
 
 #### C02 Generic 深化：typeof(T)/is-as T/静态泛型字段（P0）

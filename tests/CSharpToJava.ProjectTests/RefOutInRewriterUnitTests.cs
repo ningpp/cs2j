@@ -562,7 +562,7 @@ public class C
     }
 }";
         var result = RewriteAndAssertCompiles(src);
-        Assert.Contains("var __out", result);
+        Assert.Contains("ByRef<int> __out", result);
         Assert.Contains("v = __out", result);
     }
 
@@ -582,7 +582,7 @@ public class C
 }";
         var result = RewriteAndAssertCompiles(src);
         Assert.Contains("ByRef<int>.Create(() => x, v => x = v)", result);
-        Assert.Contains("var __ref", result);   // ref → accessor proxy
+        Assert.Contains("ByRef<int> __ref", result);   // ref → accessor proxy
     }
 
     [Fact]
@@ -657,7 +657,7 @@ public class C
     }
 }";
         var result = RewriteAndAssertCompiles(src);
-        Assert.Contains("var __out", result);
+        Assert.Contains("ByRef<int> __out", result);
         Assert.Contains("return __cond", result);
     }
 }

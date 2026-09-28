@@ -60,6 +60,20 @@ class ByRefTest {
     }
 
     @Test
+    void primitiveArrayElementSpecializations() {
+        int[] ints = { 1, 2 };
+        ByRef<Integer> i = ByRef.create(ints, 0);
+        i.setValue(10);
+        assertEquals(10, ints[0]);
+        assertEquals(10, i.getValue());
+
+        double[] ds = { 1.5, 2.5 };
+        ByRef<Double> d = ByRef.create(ds, 1);
+        d.setValue(9.5);
+        assertEquals(9.5, ds[1]);
+    }
+
+    @Test
     void refStructByRefSlotModes() {
         RefStructByRef<Integer> seeded = RefStructByRef.create(3);
         assertEquals(3, seeded.getValue());

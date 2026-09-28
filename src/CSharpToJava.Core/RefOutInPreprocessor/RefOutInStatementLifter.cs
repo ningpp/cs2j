@@ -242,7 +242,7 @@ internal sealed class RefOutInStatementLifter
         if (expr is IdentifierNameSyntax { Identifier.ValueText: "_" })
         {
             var slot = Temp("__out");
-            return (ParseStmt($"var {slot} = ByRef<{paramType}>.Create();"),
+            return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create();"),
                 null, SyntaxFactory.Argument(Identifier(slot)));
         }
 
@@ -255,7 +255,7 @@ internal sealed class RefOutInStatementLifter
             // (e.g. an if body), so the declaration escapes conditional splices.
             _rootOut.Add(ParseStmt($"{paramType} {varName} = {defaultLit};"));
             var slot = Temp("__out");
-            return (ParseStmt($"var {slot} = ByRef<{paramType}>.Create();"),
+            return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create();"),
                 ParseStmt($"{varName} = {slot}.Value;"),
                 SyntaxFactory.Argument(Identifier(slot)));
         }
@@ -270,7 +270,7 @@ internal sealed class RefOutInStatementLifter
             var ctor = isOut
                 ? $"RefStructByRef<{t}>.Create()"
                 : $"RefStructByRef<{t}>.Create({_owner.InjectSlotValues(Splice(expr))})";
-            return (ParseStmt($"var {slot} = {ctor};"),
+            return (ParseStmt($"Cs2jByRef.RefStructByRef<{t}> {slot} = {ctor};"),
                 ParseStmt($"{_owner.InjectSlotValues(expr)} = {slot}.Value;"),
                 SyntaxFactory.Argument(Identifier(slot)));
         }
@@ -308,7 +308,7 @@ internal sealed class RefOutInStatementLifter
                 var ctor = isOut
                     ? $"ByRef<{paramType}>.Create()"
                     : $"ByRef<{paramType}>.Create({target})";
-                return (ParseStmt($"var {slot} = {ctor};"),
+                return (ParseStmt($"ByRef<{paramType}> {slot} = {ctor};"),
                     ParseStmt($"{target} = {slot}.Value;"),
                     SyntaxFactory.Argument(Identifier(slot)));
             }
@@ -316,7 +316,7 @@ internal sealed class RefOutInStatementLifter
             var innerType = _owner.TypeDisplay(arrayType.ElementType);
             var readback = isOut ? ParseStmt($"{target} = {slot}.Value;") : null;
             _owner.Stats.ArrayElementProxies++;
-            return (ParseStmt($"var {slot} = ByRef<{innerType}>.Create({baseExpr}, {indexText});"),
+            return (ParseStmt($"ByRef<{innerType}> {slot} = ByRef<{innerType}>.Create({baseExpr}, {indexText});"),
                 readback, SyntaxFactory.Argument(Identifier(slot)));
         }
 
@@ -330,7 +330,7 @@ internal sealed class RefOutInStatementLifter
                 // Slot + read-back: never captures the variable, so unassigned
                 // locals stay legal (no CS0165 through the getter closure).
                 var slot = Temp("__out");
-                return (ParseStmt($"var {slot} = ByRef<{paramType}>.Create();"),
+                return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create();"),
                     ParseStmt($"{target} = {slot}.Value;"),
                     SyntaxFactory.Argument(Identifier(slot)));
             }
@@ -338,14 +338,14 @@ internal sealed class RefOutInStatementLifter
             if (ContainsRefStructCapture(expr))
             {
                 var slot = Temp("__ref");
-                return (ParseStmt($"var {slot} = ByRef<{paramType}>.Create({target});"),
+                return (ParseStmt($"ByRef<{paramType}> {slot} = ByRef<{paramType}>.Create({target});"),
                     ParseStmt($"{target} = {slot}.Value;"),
                     SyntaxFactory.Argument(Identifier(slot)));
             }
 
             var slot2 = Temp("__ref");
             _owner.Stats.AccessorProxies++;
-            return (ParseStmt($"var {slot2} = ByRef<{paramType}>.Create(() => {target}, v => {target} = v);"),
+            return (ParseStmt($"ByRef<{paramType}> {slot2} = ByRef<{paramType}>.Create(() => {target}, v => {target} = v);"),
                 null, SyntaxFactory.Argument(Identifier(slot2)));
         }
 

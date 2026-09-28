@@ -8241,6 +8241,10 @@
     ],
     "namespaceMappings": [
         {
+            "csharp": "Cs2jByRef",
+            "java": "io.github.ningpp.compat"
+        },
+        {
             "csharp": "System.Collections",
             "java": "dotnet.System.Collections"
         },
