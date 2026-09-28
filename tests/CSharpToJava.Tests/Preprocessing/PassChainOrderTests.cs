@@ -30,8 +30,9 @@ public sealed class PassChainOrderTests
         PassIds.Generic,
         PassIds.RecordReadOnly,
         PassIds.ArrayMethod,
-        PassIds.MakeReadonly,
-        PassIds.EliminateGoto,
+    PassIds.MakeReadonly,
+    PassStubCatalog.Ids.IteratorLowering,
+    PassIds.EliminateGoto,
         PassIds.JavaKeywords,
     ];
 
@@ -48,8 +49,8 @@ public sealed class PassChainOrderTests
         PassIds.RefOutIn,
         PassIds.Unsigned,
         PassIds.Generic,
-        PassIds.MakeReadonly,
-        PassIds.EliminateGoto,
+    PassIds.MakeReadonly,
+    PassIds.EliminateGoto,
     ];
 
     [Fact]

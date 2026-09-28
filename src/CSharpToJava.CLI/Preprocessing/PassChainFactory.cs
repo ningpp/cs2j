@@ -4,6 +4,7 @@ using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.ForeachDeconstruction;
 using CSharpToJava.Core.GenericPreprocess;
+using CSharpToJava.Core.IteratorLowering;
 using CSharpToJava.Core.JavaKeywords;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 using CSharpToJava.Core.NullCoalesceRewriter;
@@ -73,6 +74,7 @@ internal static class PassChainFactory
             [PassIds.RecordReadOnly] = opts.RecordReadOnly,
             [PassIds.ArrayMethod] = opts.EnableArrayMethod,
             [PassIds.MakeReadonly] = opts.MakeReadOnly,
+            [PassStubCatalog.Ids.IteratorLowering] = false,
             [PassIds.EliminateGoto] = opts.EliminateGoto,
             [PassIds.JavaKeywords] = opts.JavaKeywords,
         };
@@ -199,6 +201,15 @@ internal static class PassChainFactory
                 config.CompatNamespacePrefixes,
                 config.VerifyBuild,
                 config.VerifyTests),
+
+            PassStubCatalog.Ids.IteratorLowering => new IteratorLoweringPassAdapter(
+                new IteratorLoweringOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests,
+                config.Strict),
 
             // convert-project historically ran goto with Strict=false.
             PassIds.EliminateGoto => new GotoPassAdapter(

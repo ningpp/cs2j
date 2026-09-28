@@ -21,7 +21,7 @@ public sealed class PassStubCatalogTests
     {
         var ids = Stubs.Select(p => p.Id).ToArray();
 
-        Assert.Equal(23, ids.Length);
+        Assert.Equal(22, ids.Length);
         Assert.Contains(PassStubCatalog.Ids.ClosureLift, ids);
         Assert.Contains(PassStubCatalog.Ids.LinqChannel, ids);
         Assert.Contains(PassStubCatalog.Ids.DynamicDesugar, ids);
@@ -87,7 +87,7 @@ public sealed class PassStubCatalogTests
                 RecordReadOnlyOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 JavaKeywordOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 LegacyToggles = PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
-                EnablePassIds = new[] { PassStubCatalog.Ids.IteratorLowering },
+                EnablePassIds = new[] { PassStubCatalog.Ids.ClosureLift },
             });
 
             captured = errorWriter.ToString();
@@ -99,7 +99,7 @@ public sealed class PassStubCatalogTests
         }
 
         Assert.Contains(PreprocessDiagnosticCodes.StubNotImplemented, captured);
-        Assert.Contains(PassStubCatalog.Ids.IteratorLowering, captured);
+        Assert.Contains(PassStubCatalog.Ids.ClosureLift, captured);
         Assert.False(Directory.Exists(destinationRoot), "an enabled stub must not create any output directory");
     }
 }

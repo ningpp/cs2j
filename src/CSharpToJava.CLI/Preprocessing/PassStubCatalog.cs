@@ -149,16 +149,6 @@ internal static class PassStubCatalog
             description: "Lift lambda/anonymous-method captures into deterministic display classes.",
             catalogItems: "C32, C45"),
         new(
-            Ids.IteratorLowering,
-            "Iterator lowering",
-            ".cs2j-iterator-lowering-src",
-            PassStage.StateMachine,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { Ids.ClosureLift },
-            description: "Lower C# iterator methods into explicit state machine classes.",
-            catalogItems: "C04"),
-        new(
             Ids.NumericBoundary,
             "Numeric boundary explicitization",
             ".cs2j-numeric-boundary-src",
