@@ -34,24 +34,44 @@ public sealed class GenericDeepenPreprocessor
             FilesScanned = 1,
         };
         var diagnostics = new List<GenericDeepenDiagnostic>();
-        var byNode = new Dictionary<SyntaxNode, TokenAnchorPlan>();
+        var anchorsByNode = new Dictionary<SyntaxNode, TokenAnchorPlan>();
+        var patternsByNode = new Dictionary<SyntaxNode, TypeParamPatternPlan>();
+        var catchesByNode = new Dictionary<SyntaxNode, CatchTypeParamPlan>();
         foreach (var plan in _analysis.Anchors)
         {
             if (plan.Declaration.SyntaxTree == model.SyntaxTree)
             {
-                byNode[plan.Declaration] = plan;
+                anchorsByNode[plan.Declaration] = plan;
             }
         }
 
-        if (byNode.Count == 0)
+        foreach (var plan in _analysis.Patterns)
+        {
+            if (plan.If.SyntaxTree == model.SyntaxTree)
+            {
+                patternsByNode[plan.If] = plan;
+            }
+        }
+
+        foreach (var plan in _analysis.Catches)
+        {
+            if (plan.Clause.SyntaxTree == model.SyntaxTree)
+            {
+                catchesByNode[plan.Clause] = plan;
+            }
+        }
+
+        if (anchorsByNode.Count == 0 && patternsByNode.Count == 0 && catchesByNode.Count == 0)
         {
             stats.FilesSkippedClean = 1;
+            AppendAnalysisDiagnostics(diagnostics, model);
             return new GenericDeepenFileResult(model.SyntaxTree.ToString(), false, diagnostics, stats);
         }
 
         var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
-        var rewriter = new GenericDeepenRewriter(byNode, stats, diagnostics, model.SyntaxTree.FilePath);
+        var rewriter = new GenericDeepenRewriter(anchorsByNode, patternsByNode, catchesByNode, stats, diagnostics, model.SyntaxTree.FilePath);
         var newRoot = rewriter.Visit(root);
+        AppendAnalysisDiagnostics(diagnostics, model);
         if (newRoot == root)
         {
             stats.FilesSkippedClean = 1;
@@ -60,6 +80,13 @@ public sealed class GenericDeepenPreprocessor
 
         stats.FilesTransformed = 1;
         return new GenericDeepenFileResult(TryFormat(newRoot), true, diagnostics, stats);
+    }
+
+    /// <summary>Analysis-phase diagnostics (skip gates like CS2J1104/1105) belong to their file's result.</summary>
+    private void AppendAnalysisDiagnostics(List<GenericDeepenDiagnostic> diagnostics, SemanticModel model)
+    {
+        var filePath = model.SyntaxTree.FilePath;
+        diagnostics.AddRange(_analysis.Diagnostics.Where(d => d.FilePath == filePath));
     }
 
     private static string TryFormat(SyntaxNode root)

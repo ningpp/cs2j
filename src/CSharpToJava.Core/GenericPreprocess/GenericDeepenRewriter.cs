@@ -8,20 +8,94 @@ namespace CSharpToJava.Core.GenericPreprocess;
 internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
 {
     private readonly Dictionary<SyntaxNode, TokenAnchorPlan> _anchorsByNode;
+    private readonly Dictionary<SyntaxNode, TypeParamPatternPlan> _patternsByNode;
+    private readonly Dictionary<SyntaxNode, CatchTypeParamPlan> _catchesByNode;
     private readonly GenericDeepenStatistics _stats;
     private readonly List<GenericDeepenDiagnostic> _diagnostics;
     private readonly string _filePath;
 
     public GenericDeepenRewriter(
         Dictionary<SyntaxNode, TokenAnchorPlan> anchorsByNode,
+        Dictionary<SyntaxNode, TypeParamPatternPlan> patternsByNode,
+        Dictionary<SyntaxNode, CatchTypeParamPlan> catchesByNode,
         GenericDeepenStatistics stats,
         List<GenericDeepenDiagnostic> diagnostics,
         string filePath)
     {
         _anchorsByNode = anchorsByNode;
+        _patternsByNode = patternsByNode;
+        _catchesByNode = catchesByNode;
         _stats = stats;
         _diagnostics = diagnostics;
         _filePath = filePath;
+    }
+
+    public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
+    {
+        var visited = (IfStatementSyntax)base.VisitIfStatement(node)!;
+        if (!_patternsByNode.TryGetValue(node, out var plan))
+        {
+            return visited;
+        }
+
+        var originalExpression = ((IsPatternExpressionSyntax)node.Condition).Expression;
+        var tempDeclaration = SyntaxFactory.ParseStatement($"var {plan.TempName} = {originalExpression};");
+        var condition = SyntaxFactory.ParseExpression(
+            $"typeof({plan.Param.Name}).IsInstanceOfType({plan.TempName})");
+
+        var thenStatements = new List<StatementSyntax>();
+        if (!plan.IsDiscard)
+        {
+            thenStatements.Add(SyntaxFactory.ParseStatement(
+                $"{plan.Param.Name} {plan.VariableName} = ({plan.Param.Name})(object){plan.TempName};"));
+        }
+
+        thenStatements.AddRange(((BlockSyntax)visited.Statement).Statements);
+        var newIf = visited
+            .WithCondition(condition)
+            .WithStatement(SyntaxFactory.Block(thenStatements));
+
+        _stats.TypeParamPatternsRewritten++;
+        // Block wrapper: the temp and the if share one scope; else-chains keep their
+        // semantics because the else stays attached to the inner if.
+        return SyntaxFactory.Block(tempDeclaration, newIf);
+    }
+
+    public override SyntaxNode? VisitCatchClause(CatchClauseSyntax node)
+    {
+        var visited = (CatchClauseSyntax)base.VisitCatchClause(node)!;
+        if (!_catchesByNode.TryGetValue(node, out var plan))
+        {
+            return visited;
+        }
+
+        var declaration = SyntaxFactory.CatchDeclaration(
+            SyntaxFactory.ParseTypeName("global::System.Exception"),
+            SyntaxFactory.Identifier(plan.ExceptionVariableName));
+        var filter = SyntaxFactory.CatchFilterClause(
+            SyntaxFactory.Token(SyntaxKind.WhenKeyword).WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+            SyntaxFactory.ParseExpression(
+                $"typeof({plan.Param.Name}).IsAssignableFrom({plan.ExceptionVariableName}.GetType())"),
+            SyntaxFactory.Token(SyntaxKind.CloseParenToken));
+
+        var statements = new List<StatementSyntax>();
+        if (plan.VariableName != null)
+        {
+            statements.Add(SyntaxFactory.ParseStatement(
+                $"{plan.Param.Name} {plan.VariableName} = ({plan.Param.Name})(object){plan.ExceptionVariableName};"));
+        }
+
+        if (visited.Block != null)
+        {
+            statements.AddRange(visited.Block.Statements);
+        }
+
+        _stats.CatchTypeParamsRewritten++;
+        return visited
+            .WithDeclaration(declaration)
+            .WithFilter(filter)
+            .WithBlock(SyntaxFactory.Block(statements));
     }
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)

@@ -35,15 +35,39 @@ public sealed class TokenAnchorPlan
 public sealed class GenericDeepenAnalysis
 {
     public required IReadOnlyList<TokenAnchorPlan> Anchors { get; init; }
+    public required IReadOnlyList<TypeParamPatternPlan> Patterns { get; init; }
+    public required IReadOnlyList<CatchTypeParamPlan> Catches { get; init; }
     public required IReadOnlyList<GenericDeepenDiagnostic> Diagnostics { get; init; }
     public required GenericDeepenStatistics Statistics { get; init; }
 
     public static GenericDeepenAnalysis Empty { get; } = new()
     {
         Anchors = Array.Empty<TokenAnchorPlan>(),
+        Patterns = Array.Empty<TypeParamPatternPlan>(),
+        Catches = Array.Empty<CatchTypeParamPlan>(),
         Diagnostics = Array.Empty<GenericDeepenDiagnostic>(),
         Statistics = new GenericDeepenStatistics(),
     };
+}
+
+/// <summary>Liftable `if (x is T v)` statement: lowered to single-evaluation if-form (GD-ISAS-B).</summary>
+public sealed class TypeParamPatternPlan
+{
+    public required IsPatternExpressionSyntax Pattern { get; init; }
+    public required IfStatementSyntax If { get; init; }
+    public required GenericDeepenParamRef Param { get; init; }
+    public required string VariableName { get; init; }
+    public required string TempName { get; init; }
+    public required bool IsDiscard { get; init; }
+}
+
+/// <summary>`catch (T e)` clause lowered to a filtered catch over Exception (GD-CATCH).</summary>
+public sealed class CatchTypeParamPlan
+{
+    public required CatchClauseSyntax Clause { get; init; }
+    public required GenericDeepenParamRef Param { get; init; }
+    public required string? VariableName { get; init; }
+    public required string ExceptionVariableName { get; init; }
 }
 
 /// <summary>
@@ -67,6 +91,10 @@ public sealed class GenericDeepenAnalyzer
     private readonly Dictionary<IMethodSymbol, List<IMethodSymbol>> _families =
         new(SymbolEqualityComparer.Default);
 
+    private readonly List<TypeParamPatternPlan> _patterns = new();
+    private readonly List<CatchTypeParamPlan> _catches = new();
+    private int _patternTempCounter;
+
     private readonly record struct ForwardEdge(IMethodSymbol Callee, int CalleeParamOrdinal, GenericDeepenParamRef CallerParam);
 
     private sealed class ParamRefComparer : IComparer<GenericDeepenParamRef>
@@ -85,7 +113,7 @@ public sealed class GenericDeepenAnalyzer
 
     public GenericDeepenAnalysis Analyze()
     {
-        if (!_options.RewriteTypeOfAnchors)
+        if (!_options.RewriteTypeOfAnchors && !_options.RewriteIsAsPatterns && !_options.RewriteCatchTypeParam)
         {
             return GenericDeepenAnalysis.Empty;
         }
@@ -131,10 +159,18 @@ public sealed class GenericDeepenAnalyzer
         anchors.Sort((a, b) => string.CompareOrdinal(a.FilePath, b.FilePath) != 0
             ? string.CompareOrdinal(a.FilePath, b.FilePath)
             : a.Declaration.SpanStart.CompareTo(b.Declaration.SpanStart));
+        _patterns.Sort((a, b) => string.CompareOrdinal(a.If.SyntaxTree.FilePath, b.If.SyntaxTree.FilePath) != 0
+            ? string.CompareOrdinal(a.If.SyntaxTree.FilePath, b.If.SyntaxTree.FilePath)
+            : a.If.SpanStart.CompareTo(b.If.SpanStart));
+        _catches.Sort((a, b) => string.CompareOrdinal(a.Clause.SyntaxTree.FilePath, b.Clause.SyntaxTree.FilePath) != 0
+            ? string.CompareOrdinal(a.Clause.SyntaxTree.FilePath, b.Clause.SyntaxTree.FilePath)
+            : a.Clause.SpanStart.CompareTo(b.Clause.SpanStart));
 
         return new GenericDeepenAnalysis
         {
             Anchors = anchors,
+            Patterns = _patterns,
+            Catches = _catches,
             Diagnostics = _diagnostics,
             Statistics = new GenericDeepenStatistics(),
         };
@@ -190,10 +226,127 @@ public sealed class GenericDeepenAnalyzer
                     }
 
                     break;
+                case IsPatternExpressionSyntax pattern:
+                    CollectPattern(pattern, declaration, model, visible, needs);
+                    break;
+                case CatchClauseSyntax catchClause:
+                    CollectCatch(catchClause, declaration, model, visible, needs);
+                    break;
             }
         }
 
         return needs;
+    }
+
+    private void CollectPattern(
+        IsPatternExpressionSyntax pattern,
+        MethodDeclarationSyntax declaration,
+        SemanticModel model,
+        List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
+        ISet<GenericDeepenParamRef> needs)
+    {
+        if (!_options.RewriteIsAsPatterns
+            || pattern.Pattern is not DeclarationPatternSyntax declarationPattern
+            || declarationPattern.Type is not IdentifierNameSyntax typeIdentifier
+            || model.GetSymbolInfo(typeIdentifier).Symbol is not ITypeParameterSymbol tp)
+        {
+            return;
+        }
+
+        string variableName;
+        bool isDiscard;
+        switch (declarationPattern.Designation)
+        {
+            case SingleVariableDesignationSyntax designation:
+                variableName = designation.Identifier.ValueText;
+                isDiscard = designation.Identifier.IsKind(SyntaxKind.UnderscoreToken);
+                break;
+            case DiscardDesignationSyntax:
+                variableName = "_";
+                isDiscard = true;
+                break;
+            default:
+                return;
+        }
+
+        var match = visible.FirstOrDefault(v => SymbolEqualityComparer.Default.Equals(v.Symbol, tp));
+        if (match.Ref == null) return;
+
+        // Token need so the method entry gets an anchor.
+        needs.Add(match.Ref);
+
+        IfStatementSyntax? conditionOwner = pattern.Parent as IfStatementSyntax;
+        var liftable = conditionOwner != null
+        && conditionOwner.Condition == pattern
+        && conditionOwner.Statement is BlockSyntax;
+
+        var usedAfter = false;
+        if (liftable && conditionOwner!.Parent is BlockSyntax enclosing)
+        {
+            var after = enclosing.Statements.Where(s => s.SpanStart >= conditionOwner.Span.End);
+            usedAfter = !isDiscard && after.Any(s => s.DescendantNodes().OfType<IdentifierNameSyntax>()
+                .Any(i => i.Identifier.ValueText == variableName));
+        }
+
+        if (!liftable || usedAfter)
+        {
+            _diagnostics.Add(new GenericDeepenDiagnostic(
+                GenericDeepenSeverity.Warning, GenericDeepenRule.IsAs, GenericDeepenCodes.PatternNotLiftable,
+                $"Type-parameter pattern '{pattern}' is not statement-liftable here (composite condition, non-block body, or the pattern variable is used after the if); rewrite manually.",
+                declaration.SyntaxTree.FilePath,
+                pattern.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+            return;
+        }
+
+        _patterns.Add(new TypeParamPatternPlan
+        {
+            Pattern = pattern,
+            If = conditionOwner!,
+            Param = match.Ref,
+            VariableName = variableName,
+            TempName = $"__cs2j_pat{_patternTempCounter++}",
+            IsDiscard = isDiscard,
+        });
+    }
+
+    private void CollectCatch(
+        CatchClauseSyntax clause,
+        MethodDeclarationSyntax declaration,
+        SemanticModel model,
+        List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
+        ISet<GenericDeepenParamRef> needs)
+    {
+        if (!_options.RewriteCatchTypeParam
+            || clause.Declaration?.Type is not IdentifierNameSyntax identifier
+            || model.GetSymbolInfo(identifier).Symbol is not ITypeParameterSymbol tp)
+        {
+            return;
+        }
+
+        var match = visible.FirstOrDefault(v => SymbolEqualityComparer.Default.Equals(v.Symbol, tp));
+        if (match.Ref == null) return;
+
+        needs.Add(match.Ref);
+
+        if (clause.Filter != null)
+        {
+            _diagnostics.Add(new GenericDeepenDiagnostic(
+                GenericDeepenSeverity.Warning, GenericDeepenRule.Catch, GenericDeepenCodes.CatchLoweringPreconditionFailed,
+                $"catch over type parameter '{identifier.Identifier.ValueText}' with a filter cannot be lowered automatically; rewrite manually.",
+                declaration.SyntaxTree.FilePath,
+                clause.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+            return;
+        }
+
+        _catches.Add(new CatchTypeParamPlan
+        {
+            Clause = clause,
+            Param = match.Ref,
+            VariableName = string.IsNullOrEmpty(clause.Declaration?.Identifier.ValueText)
+                ? null
+                : clause.Declaration.Identifier.ValueText,
+            ExceptionVariableName = $"__cs2j_e{_catches.Count}",
+        });
     }
 
     private static void AddIfVisible(
