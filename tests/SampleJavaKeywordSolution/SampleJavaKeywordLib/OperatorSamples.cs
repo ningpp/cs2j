@@ -1,6 +1,6 @@
 namespace SampleJavaKeywordLib;
 
-// JK-5: operator true/false 声明降级为 IsTrue/IsFalse 方法
+// JK-5: op true/false 声明降级为 IsTrue/IsFalse 方法
 // JK-6a: if/while/for/do 条件使用点包裹
 // JK-6b: 条件表达式（三元）使用点包裹
 // JK-6c: when 守卫使用点包裹

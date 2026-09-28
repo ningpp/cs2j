@@ -13,7 +13,7 @@ public class KeywordSamples
     // JK-2: 字段改名（assert → assertValue）
     public int assert = 42;
 
-    // JK-2: verbatim 标识符（@class → classValue）
+    // JK-2: verbatim 标识符（C# keyword → classValue）
     public event System.Action? @class;
 
     // JK-2: 局部变量（yield → yieldValue）
@@ -41,7 +41,7 @@ public class KeywordSamples
         True();
         var n = Null;
         _ = assert;
-        @class?.Invoke();
+        @class?.Invoke(); // rewritten to classValue?.Invoke()
     }
 }
 
