@@ -353,6 +353,20 @@
             ]
         },
         {
+            "csharp": "Cs2jByRef.ByRef`1",
+            "java": "ByRef",
+            "imports": [
+                "io.github.ningpp.compat.ByRef"
+            ]
+        },
+        {
+            "csharp": "Cs2jByRef.RefStructByRef`1",
+            "java": "RefStructByRef",
+            "imports": [
+                "io.github.ningpp.compat.RefStructByRef"
+            ]
+        },
+        {
             "csharp": "System.Text.Json.JsonSerializerOptions",
             "java": "JsonSerializerOptions",
             "imports": [
@@ -6956,6 +6970,16 @@
             "type": "System.Linq.Enumerable",
             "method": "Where",
             "javaMethod": "filter"
+        },
+        {
+            "type": "Cs2jByRef.ByRef",
+            "method": "Create",
+            "javaMethod": "create"
+        },
+        {
+            "type": "Cs2jByRef.RefStructByRef",
+            "method": "Create",
+            "javaMethod": "create"
         },
         {
             "type": "System.Linq.Enumerable",

@@ -223,6 +223,17 @@ public class TypeMappingRegistry
             return mapping.JavaType;
         }
 
+        // J8 (CS2J3320): the ref/out/in preprocessor only emits ByRef`1 and
+        // RefStructByRef`1 from the Cs2jByRef namespace; any other form must
+        // fail fast instead of emitting a bare unresolved class name.
+        if (csharpType.StartsWith("Cs2jByRef.", StringComparison.Ordinal))
+        {
+            throw new NotSupportedException(
+                "CS2J3320: unmapped Cs2jByRef form '" + csharpType + "' — the ref/out/in " +
+                "preprocessor only emits ByRef<T>/RefStructByRef<T>; hand-written " +
+                "support types are not converted (catalog §4 risk 12).");
+        }
+
         // 处理可空类型
         if (csharpType.StartsWith("System.Nullable<") || csharpType.StartsWith("System.Nullable`1<"))
         {

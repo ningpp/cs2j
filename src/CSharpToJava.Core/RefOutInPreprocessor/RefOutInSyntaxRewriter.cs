@@ -419,6 +419,24 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         return node.WithStatements(SyntaxFactory.List(newStatements));
     }
 
+    /// <summary>
+    /// Top-level statements live outside any method declaration, so the
+    /// method-scoped holder registry never sees their ref locals. Push a
+    /// compilation-level scope seeded with the annotator's ref-local names.
+    /// </summary>
+    public override SyntaxNode? VisitCompilationUnit(CompilationUnitSyntax node)
+    {
+        if (!node.Members.OfType<GlobalStatementSyntax>().Any())
+            return base.VisitCompilationUnit(node);
+
+        _holderNameScopes.Push(new HashSet<string>(Annotator.RefLocalNames));
+        try
+        {
+            return base.VisitCompilationUnit(node);
+        }
+        finally { _holderNameScopes.Pop(); }
+    }
+
     // ── Pass 3: Statement-level call-site lifting ───────────────────────────
 
     public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
