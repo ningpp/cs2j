@@ -196,7 +196,15 @@ internal static class PassCatalog
             PassStage.FinalNaming,
             PassStatus.Implemented,
             defaultEnabled: false,
-            runAfterIds: new[] { PassIds.EliminateGoto },
+            // The naming pass stays last: it also anchors the late-chain stubs so
+            // the topological order keeps it at the tail as those families land.
+            runAfterIds: new[]
+            {
+                PassIds.EliminateGoto,
+                PassStubCatalog.Ids.PlatformIsolation,
+                PassStubCatalog.Ids.ConcurrencyNormalize,
+                PassStubCatalog.Ids.DynamicDesugar,
+            },
             description: "Rename identifiers clashing with Java reserved words; runs last before conversion."),
     };
 
@@ -206,7 +214,7 @@ internal static class PassCatalog
     /// <summary>Get an implemented descriptor by <see cref="PassIds"/> constant.</summary>
     public static PassDescriptor ImplementedById(string id) => ById[id];
 
-    /// <summary>Build the validated registry; stubs are appended in Step 8.</summary>
+    /// <summary>Build the validated registry (implemented passes plus the Step 8 stub catalog).</summary>
     public static PassRegistry BuildRegistry()
-        => PassRegistry.Create(Implemented);
+        => PassRegistry.Create(Implemented.Concat(PassStubCatalog.Stubs));
 }

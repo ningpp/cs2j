@@ -3455,6 +3455,15 @@ public class Program
                 return 1;
             }
 
+            // Enabled stubs fail with CS2J9001 before any directory is created.
+            var enabledStub = validationPlan.Enabled
+                .FirstOrDefault(pass => pass.Status == PassStatus.Stub);
+            if (enabledStub != null)
+            {
+                Console.Error.WriteLine(ProjectPassRunner.StubMessage(enabledStub));
+                return 1;
+            }
+
             Directory.CreateDirectory(opts.Destination);
 
             var chain = await CliPreprocessChain.RunAsync(new CliChainRequest

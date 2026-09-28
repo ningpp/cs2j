@@ -57,7 +57,19 @@ public sealed class PassChainOrderTests
     {
         var registry = PassCatalog.BuildRegistry();
 
-        Assert.Equal(LockedChain, registry.Ordered.Select(p => p.Id).ToArray());
+        // Stubs interleave at their anchors but never execute; the implemented
+        // subset must keep the exact historical sequence.
+        Assert.Equal(
+            LockedChain,
+            registry.Ordered.Where(p => p.Status == PassStatus.Implemented).Select(p => p.Id).ToArray());
+    }
+
+    [Fact]
+    public void Java_keywords_remains_the_last_pass_with_stubs_registered()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        Assert.Equal(PassIds.JavaKeywords, registry.Ordered[^1].Id);
     }
 
     [Fact]
@@ -158,8 +170,12 @@ public sealed class PassChainOrderTests
         var options = new ConvertProjectOptions();
         var toggles = PassChainFactory.BuildLegacyToggles(options);
 
+        // Legacy flags only exist for implemented passes; stubs are reachable
+        // solely through --enable-pass/--pass.
         Assert.Equal(
-            PassCatalog.BuildRegistry().Ordered.Select(p => p.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
+            PassCatalog.BuildRegistry().Ordered
+                .Where(p => p.Status == PassStatus.Implemented)
+                .Select(p => p.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }
 }

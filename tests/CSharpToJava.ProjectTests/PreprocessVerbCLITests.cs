@@ -76,6 +76,8 @@ public class PreprocessVerbCLITests
         Assert.Contains("conditional", stdout);
         Assert.Contains("eliminate-goto", stdout);
         Assert.Contains("java-keywords", stdout);
+        Assert.Contains("closure-lift", stdout);
+        Assert.Contains("Stub", stdout);
         Assert.Contains("off", stdout);
         Assert.Contains("on", stdout);
     }
@@ -97,6 +99,30 @@ public class PreprocessVerbCLITests
             Assert.Contains("no-such-pass", stderr);
             Assert.False(Directory.Exists(destDir),
                 "failure must be reported before any output directory is created");
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task EnabledStub_FailsWith_CS2J9001_AndCreatesNoDirectories()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", "public class C { }");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, _, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "closure-lift",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(1, exit);
+            Assert.Contains("CS2J9001", stderr);
+            Assert.Contains("closure-lift", stderr);
+            Assert.False(Directory.Exists(destDir),
+                "an enabled stub must be rejected before any output directory is created");
         }
         finally
         {

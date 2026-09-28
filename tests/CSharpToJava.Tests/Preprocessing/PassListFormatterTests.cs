@@ -17,7 +17,7 @@ public sealed class PassListFormatterTests
 
         foreach (var pass in registry.Ordered)
         {
-            var row = Assert.Single(lines.Skip(2), line => line.StartsWith(pass.Id));
+            var row = Assert.Single(lines.Skip(2), line => line.StartsWith(pass.Id + " "));
             Assert.Contains(pass.Stage.ToString(), row);
             Assert.Contains(pass.Status.ToString(), row);
             Assert.Contains(pass.DefaultEnabled ? " on " : " off ", row);
