@@ -28,6 +28,7 @@ public sealed class PassChainOrderTests
         PassIds.RefOutIn,
         PassIds.Unsigned,
         PassIds.Generic,
+        PassIds.GenericDeepen,
         PassIds.RecordReadOnly,
         PassIds.ArrayMethod,
     PassIds.MakeReadonly,
@@ -171,12 +172,12 @@ public sealed class PassChainOrderTests
         var options = new ConvertProjectOptions();
         var toggles = PassChainFactory.BuildLegacyToggles(options);
 
-        // Legacy flags only exist for implemented passes; stubs are reachable
-        // solely through --enable-pass/--pass.
+        // Legacy flags only exist for the historical implemented passes; stubs and
+        // newly flipped registry passes (e.g. generic-deepen) are reachable solely
+        // through their descriptor default plus --enable-pass/--pass.
         Assert.Equal(
-            PassCatalog.BuildRegistry().Ordered
-                .Where(p => p.Status == PassStatus.Implemented)
-                .Select(p => p.Id).OrderBy(id => id, StringComparer.Ordinal).ToArray(),
+            LockedChain.Where(id => id != PassIds.GenericDeepen)
+                .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }
 }

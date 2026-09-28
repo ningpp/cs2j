@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using CSharpToJava.CLI.Preprocessing;
 using CSharpToJava.CLI;
 
 namespace CSharpToJava.Tests;
@@ -124,6 +125,11 @@ public class ProjectPreprocessorsConsistentTests
             Assert.NotNull(enumPreprocessorType);
             Assert.Equal(".cs2j-enum-src",
                 ProjectEnumPreprocessor.IntermediateDirectoryName);
+
+            // generic-deepen (C02)：无门面类（设计决定），目录常量挂在 CLI 适配器上；
+            // 默认关，经 --enable-pass generic-deepen / --pass generic-deepen 开启。
+            Assert.Equal(".cs2j-generic-deepen-src",
+                PassCatalog.ImplementedById(PassIds.GenericDeepen).IntermediateDirectoryName);
         }
         finally
         {

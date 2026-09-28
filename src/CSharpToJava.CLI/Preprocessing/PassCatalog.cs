@@ -16,6 +16,7 @@ internal static class PassIds
     public const string RefOutIn = "ref-out-in";
     public const string Unsigned = "unsigned";
     public const string Generic = "generic";
+    public const string GenericDeepen = "generic-deepen";
     public const string RecordReadOnly = "record-readonly";
     public const string ArrayMethod = "array-method";
     public const string MakeReadonly = "make-readonly";
@@ -149,6 +150,18 @@ internal static class PassCatalog
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Deepen generic rewrites for Java erasure compatibility."),
+        new(
+            PassIds.GenericDeepen,
+            "Generic erasure deepening",
+            Adapters.GenericDeepenPassAdapter.IntermediateDirectoryName,
+            PassStage.Abi,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.Generic },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Make reified generic runtime information explicit for Java type erasure (typeof(T)/is-as T/static generic fields).",
+            catalogItems: "C02"),
         new(
             PassIds.RecordReadOnly,
             "Record readonly",

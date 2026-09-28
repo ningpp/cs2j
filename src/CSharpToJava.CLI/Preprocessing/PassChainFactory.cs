@@ -181,6 +181,14 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests),
 
+            PassIds.GenericDeepen => new GenericDeepenPassAdapter(
+                new GenericDeepenOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
             PassIds.RecordReadOnly => new RecordReadOnlyPassAdapter(
                 config.RecordReadOnlyOptionsFactory(),
                 config.Verbose,

@@ -25,7 +25,8 @@ internal static class PassStubCatalog
         public const string EnumDeclaration = "enum-declaration";
         public const string IndexRange = "index-range";
         public const string ForeachSource = "foreach-source";
-        public const string GenericDeepen = "generic-deepen";
+        public const string ClosedMetadata = "closed-metadata";
+        public const string VarianceAudit = "variance-audit";
         public const string StructValueSemantics = "struct-value-semantics";
         public const string UnsafeFfm = "unsafe-ffm";
         public const string ClosureLift = "closure-lift";
@@ -109,15 +110,25 @@ internal static class PassStubCatalog
             description: "Normalize foreach iteration sources and ref/ref-struct enumerators.",
             catalogItems: "C16, C40"),
         new(
-            Ids.GenericDeepen,
-            "Generic erasure deepening",
-            ".cs2j-generic-deepen-src",
+            Ids.ClosedMetadata,
+            "Closed-type metadata",
+            ".cs2j-closed-metadata-src",
             PassStage.Abi,
             PassStatus.Stub,
             defaultEnabled: false,
+            runAfterIds: new[] { PassIds.GenericDeepen },
+            description: "Consume closed java.lang.reflect.Type metadata keyed by generic-deepen tokens (P2; blocked on PatchClosed* archaeology).",
+            catalogItems: "C30"),
+        new(
+            Ids.VarianceAudit,
+            "Variance and constraint audit",
+            ".cs2j-variance-audit-src",
+            PassStage.Declarative,
+            PassStatus.Stub,
+            defaultEnabled: false,
             runAfterIds: new[] { PassIds.Generic },
-            description: "Make reified generic runtime information explicit for Java type erasure.",
-            catalogItems: "C02, C30, C33"),
+            description: "Audit out/in variance and struct/new() constraints; report usage sites needing rewrite (P3).",
+            catalogItems: "C33"),
         new(
             Ids.StructValueSemantics,
             "Struct value semantics",
@@ -175,7 +186,7 @@ internal static class PassStubCatalog
             PassStage.Declarative,
             PassStatus.Stub,
             defaultEnabled: false,
-            runAfterIds: new[] { Ids.GenericDeepen },
+            runAfterIds: new[] { PassIds.GenericDeepen },
             description: "Normalize attributes including the Caller* info family and P/Invoke annotations.",
             catalogItems: "C10"),
         new(

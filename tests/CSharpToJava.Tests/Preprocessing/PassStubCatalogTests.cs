@@ -21,10 +21,12 @@ public sealed class PassStubCatalogTests
     {
         var ids = Stubs.Select(p => p.Id).ToArray();
 
-        Assert.Equal(22, ids.Length);
+        Assert.Equal(23, ids.Length);
         Assert.Contains(PassStubCatalog.Ids.ClosureLift, ids);
         Assert.Contains(PassStubCatalog.Ids.LinqChannel, ids);
         Assert.Contains(PassStubCatalog.Ids.DynamicDesugar, ids);
+        Assert.Contains(PassStubCatalog.Ids.ClosedMetadata, ids);
+        Assert.Contains(PassStubCatalog.Ids.VarianceAudit, ids);
     }
 
     [Fact]
