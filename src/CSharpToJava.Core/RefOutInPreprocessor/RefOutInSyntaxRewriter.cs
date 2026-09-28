@@ -7,7 +7,7 @@ namespace CSharpToJava.Core.RefOutInPreprocessor;
 /// <summary>
 /// Pass 2+3: CSharpSyntaxRewriter that rewrites declarations (ref/out params,
 /// ref returns, ref locals, ref fields, delegates) and lifts call sites
-/// (ref/out arguments → ByRef proxies).
+/// (ref/out arguments → ByRef proxies) through RefOutInStatementLifter.
 /// </summary>
 internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 {
@@ -15,10 +15,11 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     private readonly RefOutInAliasAnnotator _annotator;
     private readonly RefOutInRewriterStatistics _stats;
     private readonly List<RefOutInRewriterDiagnostic> _diagnostics;
+    private readonly RefOutInStatementLifter _lifter;
     private int _tempCounter;
 
-    // Names of parameters/locals that are holder slots in the current method
-    private readonly HashSet<string> _currentMethodHolderNames = new();
+    // Holder-name scopes: one entry per active method/constructor frame.
+    private readonly Stack<HashSet<string>> _holderNameScopes = new();
 
     public bool UsedHolder { get; private set; }
 
@@ -32,9 +33,67 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         _annotator = annotator;
         _stats = stats;
         _diagnostics = diagnostics;
+        _lifter = new RefOutInStatementLifter(this);
     }
 
-    // --- Pass 2: Declaration rewriting ---
+    // ── surfaces used by RefOutInStatementLifter ────────────────────────────
+
+    internal RefOutInRewriterStatistics Stats => _stats;
+    internal RefOutInAliasAnnotator Annotator => _annotator;
+    internal int NextTemp() => _tempCounter++;
+
+    internal bool IsHolderName(string name) => _holderNameScopes.Any(s => s.Contains(name));
+
+    internal IMethodSymbol? ResolveInvocation(InvocationExpressionSyntax inv)
+    {
+        try { return _semanticModel.GetSymbolInfo(inv).Symbol as IMethodSymbol; }
+        catch (ArgumentException) { return null; }
+    }
+
+    internal ISymbol? GetSymbol(ExpressionSyntax e)
+    {
+        try { return _semanticModel.GetSymbolInfo(e).Symbol; }
+        catch (ArgumentException) { return null; }
+    }
+
+    internal ITypeSymbol? GetTypeOf(ExpressionSyntax e)
+    {
+        try
+        {
+            var ti = _semanticModel.GetTypeInfo(e);
+            return ti.Type ?? ti.ConvertedType;
+        }
+        catch (ArgumentException) { return null; }
+    }
+
+    internal string TypeDisplay(ITypeSymbol t) => t.ToDisplayString();
+
+    internal bool IsInternalCandidate(IMethodSymbol m) =>
+        m.Locations.Any(l => l.IsInSource)
+        && Annotator.GetSymbolClass(m) != RefOutInAliasAnnotator.SymbolClass.Locked;
+
+    /// <summary>CD8 wiring (C9): true when the parameter keeps its <c>in</c> modifier.</summary>
+    internal bool IsInKept(IMethodSymbol method, int index)
+    {
+        var param = method.Parameters[index];
+        return param.RefKind == RefKind.In && Annotator.InKeptParameters.Contains(param);
+    }
+
+    internal void MarkHolderUsed() => UsedHolder = true;
+
+    internal void Report3303(ExpressionSyntax node, string reason) =>
+        _diagnostics.Add(new RefOutInRewriterDiagnostic(
+            RefOutInDiagnosticCodes.UnproxyablePosition,
+            $"cannot construct a legal ByRef proxy here: {reason}",
+            RefOutInSeverity.Error, node.GetLocation()));
+
+    internal ExpressionSyntax InjectSlotValues(ExpressionSyntax expr)
+    {
+        if (expr == null) return expr!;
+        return (ExpressionSyntax)new SlotInjector(this).Visit(expr)!;
+    }
+
+    // ── Pass 2: Declaration rewriting ───────────────────────────────────────
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
@@ -42,42 +101,36 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         if (symbol == null)
             return base.VisitMethodDeclaration(node);
 
-        _currentMethodHolderNames.Clear();
-        bool isHolder = false;
-
-        // Pre-scan for ref local names in this method body (do this BEFORE
-        // any rewriting so the semantic model can still resolve symbols)
-        if (node.Body != null)
+        _holderNameScopes.Push(new HashSet<string>());
+        try
         {
-            var refLocals = node.Body.DescendantNodes()
-                .OfType<VariableDeclaratorSyntax>()
-                .Where(v => v.Parent is VariableDeclarationSyntax vd && vd.Type is RefTypeSyntax);
-            foreach (var rl in refLocals)
+            // Pre-scan for ref local names in this method body (BEFORE any
+            // rewriting so the semantic model can still resolve symbols).
+            if (node.Body != null)
             {
-                _currentMethodHolderNames.Add(rl.Identifier.Text);
+                var refLocals = node.Body.DescendantNodes()
+                    .OfType<VariableDeclaratorSyntax>()
+                    .Where(v => v.Parent is VariableDeclarationSyntax vd && vd.Type is RefTypeSyntax);
+                foreach (var rl in refLocals)
+                    CurrentHolderNames.Add(rl.Identifier.Text);
             }
-        }
 
-        // Determine which parameters are holders and populate _currentMethodHolderNames
-        // BEFORE visiting the body, so VisitIdentifierName can use them.
-        var newParamList = new List<ParameterSyntax>();
-        foreach (var param in node.ParameterList.Parameters)
-        {
-            var paramSymbol = symbol.Parameters.FirstOrDefault(p => p.Name == param.Identifier.Text);
-            if (paramSymbol != null && _annotator.HolderSymbols.Contains(paramSymbol))
+            var newParamList = new List<ParameterSyntax>();
+            foreach (var param in node.ParameterList.Parameters)
             {
-                isHolder = true;
-                _currentMethodHolderNames.Add(param.Identifier.Text);
-                newParamList.Add(RewriteParameter(param, paramSymbol));
-            }
-            else
-            {
-                var needsStrip = param.Modifiers.Any(m =>
-                    m.IsKind(SyntaxKind.InKeyword)
-                    || m.IsKind(SyntaxKind.ScopedKeyword));
-                if (needsStrip)
+                var paramSymbol = symbol.Parameters.FirstOrDefault(p => p.Name == param.Identifier.Text);
+                if (paramSymbol != null && _annotator.HolderSymbols.Contains(paramSymbol))
                 {
-                    isHolder = true;
+                    CurrentHolderNames.Add(param.Identifier.Text);
+                    newParamList.Add(RewriteParameter(param, paramSymbol));
+                }
+                else if (NeedsInStrip(param) && _annotator.IsInParameterKept(paramSymbol))
+                {
+                    // CD8: overload collision — keep `in`
+                    newParamList.Add(param);
+                }
+                else if (NeedsInStrip(param))
+                {
                     newParamList.Add(StripModifiers(param));
                 }
                 else
@@ -85,28 +138,57 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                     newParamList.Add(param);
                 }
             }
+
+            // Ref return → ByRef return
+            TypeSyntax newReturnType = node.ReturnType;
+            bool refReturn = (symbol.RefKind == RefKind.Ref || symbol.RefKind == RefKind.RefReadOnly)
+                && node.ReturnType is RefTypeSyntax;
+            if (refReturn && node.ReturnType is RefTypeSyntax refReturnType)
+            {
+                newReturnType = refReturnType.Type;
+                UsedHolder = true;
+            }
+
+            bool signatureChanged = newParamList.Count != node.ParameterList.Parameters.Count
+                || node.ParameterList.Parameters
+                    .Where((p, i) => !ReferenceEquals(newParamList[i], p)).Any()
+                || refReturn;
+
+            // C1: expression body containing liftable calls → block body
+            if (node.ExpressionBody != null && _lifter.ContainsLiftable(node.ExpressionBody.Expression))
+            {
+                node = ConvertExpressionBody(node);
+                signatureChanged = true;
+            }
+
+            var newParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParamList));
+            var visited = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node)!;
+            visited = visited.WithParameterList(newParams).WithReturnType(newReturnType);
+
+            if (signatureChanged) UsedHolder = true;
+            return visited;
         }
-
-        // Ref return → ByRef return
-        TypeSyntax newReturnType = node.ReturnType;
-        if ((symbol.RefKind == RefKind.Ref || symbol.RefKind == RefKind.RefReadOnly)
-            && node.ReturnType is RefTypeSyntax refType)
-        {
-            newReturnType = refType.Type;
-            isHolder = true;
-            UsedHolder = true;
-        }
-
-        // Visit the body on the ORIGINAL node first (so SemanticModel works),
-        // then swap in the rewritten parameter list and return type.
-        var newParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParamList));
-        var visited = (MethodDeclarationSyntax)base.VisitMethodDeclaration(node)!;
-        // Now apply the new parameter list and return type to the visited result
-        visited = visited.WithParameterList(newParams).WithReturnType(newReturnType);
-
-        if (isHolder) UsedHolder = true;
-        return visited;
+        finally { _holderNameScopes.Pop(); }
     }
+
+    private static bool NeedsInStrip(ParameterSyntax param) =>
+        param.Modifiers.Any(m => m.IsKind(SyntaxKind.InKeyword) || m.IsKind(SyntaxKind.ScopedKeyword));
+
+    private MethodDeclarationSyntax ConvertExpressionBody(MethodDeclarationSyntax node)
+    {
+        var lifted = _lifter.SpliceExpression(node.ExpressionBody!.Expression, out var hoisted);
+        var stmts = new List<StatementSyntax>();
+        stmts.AddRange(hoisted);
+        stmts.Add(SyntaxFactory.ReturnStatement(InjectSlotValues(lifted)));
+        stmts.AddRange(_lifter.TakePendingReadbacks());
+        UsedHolder = true;
+        return node
+            .WithBody(SyntaxFactory.Block(stmts))
+            .WithExpressionBody(null)
+            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.None));
+    }
+
+    private HashSet<string> CurrentHolderNames => _holderNameScopes.Peek();
 
     private ParameterSyntax RewriteParameter(ParameterSyntax param, IParameterSymbol symbol)
     {
@@ -115,12 +197,11 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
         if (type.IsRefLikeType)
         {
-            var holderName = RefOutInMangling.HolderName(type);
-            newType = SyntaxFactory.ParseTypeName(holderName);
+            newType = SyntaxFactory.ParseTypeName(
+                $"Cs2jByRef.RefStructByRef<{TypeDisplay(type)}>");
         }
         else
         {
-            // Wrap the underlying type in ByRef<T>
             var innerType = param.Type;
             if (innerType is RefTypeSyntax rt)
                 innerType = rt.Type;
@@ -178,27 +259,33 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         if (symbol == null)
             return base.VisitConstructorDeclaration(node);
 
-        _currentMethodHolderNames.Clear();
-
-        var newParamList = new List<ParameterSyntax>();
-        foreach (var param in node.ParameterList.Parameters)
+        _holderNameScopes.Push(new HashSet<string>());
+        try
         {
-            var paramSymbol = symbol.Parameters.FirstOrDefault(p => p.Name == param.Identifier.Text);
-            if (paramSymbol != null && _annotator.HolderSymbols.Contains(paramSymbol))
-            {
-                _currentMethodHolderNames.Add(param.Identifier.Text);
-                newParamList.Add(RewriteParameter(param, paramSymbol));
-            }
-            else
-            {
-                newParamList.Add(param);
-            }
-        }
+            if (node.ExpressionBody != null && _lifter.ContainsLiftable(node.ExpressionBody.Expression))
+                Report3303(node.ExpressionBody.Expression,
+                    "constructor expression body contains an internal ref/out call; convert to a block body");
 
-        var newParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParamList));
-        var visited = (ConstructorDeclarationSyntax)base.VisitConstructorDeclaration(node)!;
-        visited = visited.WithParameterList(newParams);
-        return visited;
+            var newParamList = new List<ParameterSyntax>();
+            foreach (var param in node.ParameterList.Parameters)
+            {
+                var paramSymbol = symbol.Parameters.FirstOrDefault(p => p.Name == param.Identifier.Text);
+                if (paramSymbol != null && _annotator.HolderSymbols.Contains(paramSymbol))
+                {
+                    CurrentHolderNames.Add(param.Identifier.Text);
+                    newParamList.Add(RewriteParameter(param, paramSymbol));
+                }
+                else
+                {
+                    newParamList.Add(param);
+                }
+            }
+
+            var newParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParamList));
+            var visited = (ConstructorDeclarationSyntax)base.VisitConstructorDeclaration(node)!;
+            return visited.WithParameterList(newParams);
+        }
+        finally { _holderNameScopes.Pop(); }
     }
 
     public override SyntaxNode? VisitDelegateDeclaration(DelegateDeclarationSyntax node)
@@ -240,7 +327,6 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
         var newParams = SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(newParamList));
 
-        // Ref return on delegate
         TypeSyntax newReturnType = node.ReturnType;
         if ((invoke.RefKind == RefKind.Ref || invoke.RefKind == RefKind.RefReadOnly)
             && node.ReturnType is RefTypeSyntax refType)
@@ -255,286 +341,344 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         return result;
     }
 
-    // --- Body rewriting: s → s.Value for holder symbols ---
+    // ── Body rewriting: s → s.Value for holder symbols ─────────────────────
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
     {
+        if (node.HasAnnotation(RefOutInStatementLifter.ValueInjectedAnnotation)
+            || node.HasAnnotation(RefOutInStatementLifter.DirectPassAnnotation))
+            return base.VisitIdentifierName(node);
+
         var name = node.Identifier.Text;
-
-        if (IsInDeclarationContext(node))
-            return base.VisitIdentifierName(node);
-
-        if (!_currentMethodHolderNames.Contains(name))
-            return base.VisitIdentifierName(node);
-
-        if (IsHolderSlotDirectPass(node))
-            return base.VisitIdentifierName(node);
-
-        if (IsExternalRefOutArgument(node))
+        if (IsInDeclarationContext(node) || !IsHolderName(name))
             return base.VisitIdentifierName(node);
 
         _stats.HoldersInjected++;
         return SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
-            node,
+            node.WithAdditionalAnnotations(RefOutInStatementLifter.ValueInjectedAnnotation),
             SyntaxFactory.IdentifierName("Value"));
     }
 
-    private bool IsInDeclarationContext(IdentifierNameSyntax node)
+    internal static bool IsInDeclarationContext(IdentifierNameSyntax node)
     {
         return node.Parent is ParameterSyntax
             || node.Parent is VariableDeclaratorSyntax
-            || node.Parent is SimpleBaseTypeSyntax;
+            || node.Parent is SimpleBaseTypeSyntax
+            || node.Parent is GenericNameSyntax
+            || node.Parent is QualifiedNameSyntax
+            || node.Parent is AliasQualifiedNameSyntax
+            || node.Parent is NameColonSyntax
+            || (node.Parent is MemberAccessExpressionSyntax mae && ReferenceEquals(mae.Name, node))
+            || (node.Parent is MemberBindingExpressionSyntax mbe && ReferenceEquals(mbe.Name, node));
     }
 
-    private bool IsHolderSlotDirectPass(IdentifierNameSyntax node)
+    public override SyntaxNode? VisitBlock(BlockSyntax node)
     {
-        if (node.Parent is ArgumentSyntax arg)
+        var newStatements = new List<StatementSyntax>();
+        bool changed = false;
+        foreach (var stmt in node.Statements)
         {
-            var invocation = arg.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault();
-            if (invocation != null)
+            var visited = (StatementSyntax)base.Visit(stmt)!;
+            if (visited is BlockSyntax inner
+                && inner.HasAnnotation(RefOutInStatementLifter.HoistedBlockAnnotation))
             {
-                IMethodSymbol? method;
-                try
-                {
-                    method = _semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-                }
-                catch (ArgumentException)
-                {
-                    return false;
-                }
-                if (method != null)
-                {
-                    var isExternal = !method.Locations.Any(l => l.IsInSource);
-                    if (!isExternal && (arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
-                        || arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)))
-                        return true;
-                }
+                newStatements.AddRange(inner.Statements);
+                changed = true;
+            }
+            else
+            {
+                newStatements.Add(visited);
+                changed |= !ReferenceEquals(visited, stmt);
             }
         }
-        return false;
+        if (!changed) return node;
+        return node.WithStatements(SyntaxFactory.List(newStatements));
     }
 
-    private bool IsExternalRefOutArgument(IdentifierNameSyntax node)
-    {
-        if (node.Parent is ArgumentSyntax arg)
-        {
-            var invocation = arg.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault();
-            if (invocation != null)
-            {
-                IMethodSymbol? method;
-                try
-                {
-                    method = _semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-                }
-                catch (ArgumentException)
-                {
-                    return false;
-                }
-                if (method != null)
-                {
-                    var isExternal = !method.Locations.Any(l => l.IsInSource);
-                    if (isExternal && (arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
-                        || arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)))
-                        return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    // --- Pass 3: Call-site lifting ---
+    // ── Pass 3: Statement-level call-site lifting ───────────────────────────
 
     public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
     {
-        var (lifted, newStatement) = TryLiftExpressionStatement(node);
-        if (lifted)
+        var lifted = _lifter.SpliceExpression(node.Expression, out var hoisted);
+        var pending = _lifter.TakePendingReadbacks();
+        if (hoisted.Count == 0 && pending.Count == 0)
         {
-            _stats.CallSitesLifted++;
-            return newStatement!;
+            if (ReferenceEquals(lifted, node.Expression))
+                return base.VisitExpressionStatement(node);
+            return node.WithExpression(InjectSlotValues(lifted));   // direct-pass / in-keyword drops only
         }
-        return base.VisitExpressionStatement(node);
+
+        var stmts = new List<StatementSyntax>();
+        stmts.AddRange(hoisted);
+        stmts.Add(SyntaxFactory.ExpressionStatement(InjectSlotValues(lifted)));
+        stmts.AddRange(pending);
+        return HoistedBlock(stmts);
     }
 
-    private (bool, StatementSyntax?) TryLiftExpressionStatement(ExpressionStatementSyntax node)
+    public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
     {
-        var expr = node.Expression;
+        if (node.Expression == null)
+            return base.VisitReturnStatement(node);
 
-        if (expr is not InvocationExpressionSyntax invocation)
-            return (false, null);
-
-        // The node may have been modified by parent rewriting (e.g. method signature
-        // changes), so it may not be in the original syntax tree anymore.
-        // If it's not in the tree, GetSymbolInfo will throw. Skip in that case.
-        IMethodSymbol? method;
-        try
+        var lifted = _lifter.SpliceExpression(node.Expression, out var hoisted);
+        var pending = _lifter.TakePendingReadbacks();
+        if (hoisted.Count == 0 && pending.Count == 0)
         {
-            method = _semanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+            if (ReferenceEquals(lifted, node.Expression))
+                return base.VisitReturnStatement(node);
+            return node.WithExpression(InjectSlotValues(lifted));
         }
-        catch (ArgumentException)
+
+        var stmts = new List<StatementSyntax>();
+        stmts.AddRange(hoisted);
+        stmts.Add(node.WithExpression(InjectSlotValues(lifted)));
+        stmts.AddRange(pending);
+        return HoistedBlock(stmts);
+    }
+
+    public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
+    {
+        var cond = _lifter.SpliceExpression(node.Condition, out var hoisted);
+        var visitedThen = (StatementSyntax)base.Visit(node.Statement)!;
+        ElseClauseSyntax? elseClause = node.Else != null
+            ? SyntaxFactory.ElseClause((StatementSyntax)base.Visit(node.Else.Statement)!)
+            : null;
+        if (hoisted.Count == 0)
         {
-            // Node not in original syntax tree — skip semantic lookup
-            return (false, null);
+            if (ReferenceEquals(cond, node.Condition))
+                return base.VisitIfStatement(node);
+            return SyntaxFactory.IfStatement(InjectSlotValues(cond), visitedThen, elseClause);
         }
-        if (method == null)
-            return (false, null);
 
-        var isExternal = !method.Locations.Any(l => l.IsInSource);
+        var newIf = SyntaxFactory.IfStatement(InjectSlotValues(cond), visitedThen, elseClause);
+        return HoistedBlock(hoisted.Append(newIf));
+    }
 
-        var leadingStatements = new List<StatementSyntax>();
-        var trailingStatements = new List<StatementSyntax>();
-        var newArgs = new List<ArgumentSyntax>();
-        bool anyLifted = false;
-
-        for (int i = 0; i < invocation.ArgumentList.Arguments.Count; i++)
+    public override SyntaxNode? VisitWhileStatement(WhileStatementSyntax node)
+    {
+        var cond = _lifter.SpliceExpression(node.Condition, out var hoisted);
+        if (hoisted.Count == 0)
         {
-            var arg = invocation.ArgumentList.Arguments[i];
-            var hasRef = arg.RefKindKeyword.IsKind(SyntaxKind.RefKeyword);
-            var hasOut = arg.RefKindKeyword.IsKind(SyntaxKind.OutKeyword);
+            if (ReferenceEquals(cond, node.Condition))
+                return base.VisitWhileStatement(node);
+            var visitedBodyOnly = (StatementSyntax)base.Visit(node.Statement)!;
+            return node.WithStatement(visitedBodyOnly).WithCondition(InjectSlotValues(cond));
+        }
 
-            if (!hasRef && !hasOut)
+        // while (C) B → while (true) { hoisted; if (!C) break; B; }
+        // continue inside B re-evaluates the spliced condition — semantics kept.
+        var visitedBody = (StatementSyntax)base.Visit(node.Statement)!;
+        var loopBody = new List<StatementSyntax>();
+        loopBody.AddRange(hoisted);
+        loopBody.Add(SyntaxFactory.IfStatement(
+            Negate(InjectSlotValues(cond)), SyntaxFactory.BreakStatement()));
+        loopBody.Add(visitedBody);
+        return SyntaxFactory.WhileStatement(
+            SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression),
+            SyntaxFactory.Block(loopBody));
+    }
+
+    public override SyntaxNode? VisitDoStatement(DoStatementSyntax node)
+    {
+        if (_lifter.ContainsLiftable(node.Condition))
+            Report3303(node.Condition,
+                "do-while condition contains an internal ref/out call; continue semantics cannot be preserved — restructure the loop");
+        return base.VisitDoStatement(node);
+    }
+
+    public override SyntaxNode? VisitForStatement(ForStatementSyntax node)
+    {
+        var preStmts = new List<StatementSyntax>();
+        bool anyLift = false;
+
+        // declarations / initializers: hoist only (the while(true) form discards them)
+        if (node.Declaration != null)
+        {
+            foreach (var d in node.Declaration.Variables)
             {
-                newArgs.Add(arg);
-                continue;
-            }
-
-            if (isExternal)
-            {
-                newArgs.Add(arg);
-                _stats.ExternalRefArgumentsKept++;
-                continue;
-            }
-
-            anyLifted = true;
-            var argExpr = arg.Expression;
-
-            // Case 1: Holder slot direct pass
-            if (argExpr is IdentifierNameSyntax idn && _currentMethodHolderNames.Contains(idn.Identifier.Text))
-            {
-                newArgs.Add(SyntaxFactory.Argument(argExpr));
-                continue;
-            }
-
-            // Case 2: Array element
-            if (argExpr is ElementAccessExpressionSyntax elemAccess)
-            {
-                var (arrExpr, indices) = DecomposeElementAccess(elemAccess);
-                if (arrExpr != null)
+                if (d.Initializer == null) continue;
+                var liftedInit = _lifter.SpliceExpression(d.Initializer.Value, out var hInit);
+                if (hInit.Count > 0)
                 {
-                    var paramType = method.Parameters[i].Type;
-                    var typeName = paramType.ToDisplayString();
-                    var indexArgs = string.Join(", ", indices);
-                    var proxyExpr = SyntaxFactory.ParseExpression(
-                        $"ByRef<{typeName}>.Create({arrExpr}, {indexArgs})");
-                    var tempName = $"__ref{++_tempCounter}";
-                    leadingStatements.Add(SyntaxFactory.LocalDeclarationStatement(
-                        SyntaxFactory.VariableDeclaration(
-                            SyntaxFactory.IdentifierName("var"),
-                            SyntaxFactory.SingletonSeparatedList(
-                                SyntaxFactory.VariableDeclarator(
-                                    SyntaxFactory.Identifier(tempName))
-                                    .WithInitializer(SyntaxFactory.EqualsValueClause(proxyExpr))))));
-                    if (hasOut)
+                    anyLift = true;
+                    preStmts.AddRange(hInit);
+                    preStmts.AddRange(_lifter.TakePendingReadbacks());
+                }
+            }
+        }
+
+        foreach (var init in node.Initializers)
+        {
+            var liftedInit = _lifter.SpliceExpression(init, out var hInit);
+            if (hInit.Count > 0)
+            {
+                anyLift = true;
+                preStmts.AddRange(hInit);
+                preStmts.AddRange(_lifter.TakePendingReadbacks());
+            }
+        }
+
+        // condition
+        ExpressionSyntax? newCondition = node.Condition;
+        var condStmts = new List<StatementSyntax>();
+        if (node.Condition != null)
+        {
+            var liftedCond = _lifter.SpliceExpression(node.Condition, out var hCond);
+            if (hCond.Count > 0) anyLift = true;
+            condStmts.AddRange(hCond);
+            condStmts.AddRange(_lifter.TakePendingReadbacks());
+            newCondition = InjectSlotValues(liftedCond);
+        }
+
+        // body + increments
+        var visitedBody = (StatementSyntax)base.Visit(node.Statement)!;
+        var incStmts = new List<StatementSyntax>();
+        var incExprs = new List<ExpressionSyntax>();
+        bool incrementsChanged = false;
+        foreach (var inc in node.Incrementors)
+        {
+            var liftedInc = _lifter.SpliceExpression(inc, out var hInc);
+            if (hInc.Count > 0)
+            {
+                anyLift = true;
+                incrementsChanged = true;
+                incStmts.AddRange(hInc);
+                incStmts.AddRange(_lifter.TakePendingReadbacks());
+            }
+            incExprs.Add(InjectSlotValues(liftedInc));
+        }
+
+        if (!anyLift && !incrementsChanged
+            && ReferenceEquals(newCondition, node.Condition))
+        {
+            return base.VisitForStatement(node);
+        }
+
+        // for (I; C; U) B → I; while (true) { C-splice; if (!C) break; B; U-splice; }
+        // (continue runs U then re-evaluates C — for semantics kept)
+        var loopBody = new List<StatementSyntax>();
+        loopBody.AddRange(condStmts);
+        if (newCondition != null)
+            loopBody.Add(SyntaxFactory.IfStatement(
+                Negate(newCondition), SyntaxFactory.BreakStatement()));
+        loopBody.Add(visitedBody);
+        loopBody.AddRange(incStmts);
+        foreach (var incExpr in incExprs)
+            loopBody.Add(SyntaxFactory.ExpressionStatement(incExpr));
+
+        preStmts.Add(SyntaxFactory.WhileStatement(
+            SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression),
+            SyntaxFactory.Block(loopBody)));
+        return HoistedBlock(preStmts);
+    }
+
+    public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
+        => LiftForEach(node, node.Expression, (e, body) => node.WithExpression(e).WithStatement(body));
+
+    public override SyntaxNode? VisitForEachVariableStatement(ForEachVariableStatementSyntax node)
+        => LiftForEach(node, node.Expression, (e, body) => node.WithExpression(e).WithStatement(body));
+
+    private SyntaxNode? LiftForEach(
+        StatementSyntax node, ExpressionSyntax expression,
+        Func<ExpressionSyntax, StatementSyntax, StatementSyntax> rebuild)
+    {
+        var lifted = _lifter.SpliceExpression(expression, out var hoisted);
+        var visitedBody = (StatementSyntax)base.Visit(((CommonForEachStatementSyntax)node).Statement)!;
+        if (hoisted.Count == 0)
+        {
+            if (ReferenceEquals(lifted, expression))
+                return base.Visit(node)!;
+            return rebuild(InjectSlotValues(lifted), visitedBody);
+        }
+        var newForeach = rebuild(InjectSlotValues(lifted), visitedBody);
+        return HoistedBlock(hoisted.Append(newForeach));
+    }
+
+    public override SyntaxNode? VisitLockStatement(LockStatementSyntax node)
+    {
+        if (_lifter.ContainsLiftable(node.Expression))
+            Report3303(node.Expression,
+                "lock expression contains an internal ref/out call; hoisting would move code outside the lock — restructure");
+        return base.VisitLockStatement(node);
+    }
+
+    public override SyntaxNode? VisitFixedStatement(FixedStatementSyntax node)
+    {
+        var initializer = node.Declaration.Variables
+            .Select(v => v.Initializer?.Value).OfType<ExpressionSyntax>().FirstOrDefault();
+        if (initializer != null && _lifter.ContainsLiftable(initializer))
+            Report3303(initializer,
+                "fixed statement initializer contains an internal ref/out call; the unsafe pointer domain (C06) does not compose with ByRef proxies");
+        return base.VisitFixedStatement(node);
+    }
+
+    public override SyntaxNode? VisitUsingStatement(UsingStatementSyntax node)
+    {
+        var hoisted = new List<StatementSyntax>();
+        ExpressionSyntax? newExpr = null;
+        VariableDeclarationSyntax? newDecl = null;
+
+        if (node.Expression != null)
+        {
+            var lifted = _lifter.SpliceExpression(node.Expression, out hoisted);
+            if (hoisted.Count == 0 && ReferenceEquals(lifted, node.Expression))
+                return base.VisitUsingStatement(node);
+            newExpr = InjectSlotValues(lifted);
+        }
+        else if (node.Declaration != null)
+        {
+            var vars = new List<VariableDeclaratorSyntax>();
+            foreach (var d in node.Declaration.Variables)
+            {
+                if (d.Initializer != null)
+                {
+                    var lifted = _lifter.SpliceExpression(d.Initializer.Value, out var h);
+                    if (h.Count > 0)
                     {
-                        trailingStatements.Insert(0, SyntaxFactory.ExpressionStatement(
-                            SyntaxFactory.AssignmentExpression(
-                                SyntaxKind.SimpleAssignmentExpression,
-                                argExpr,
-                                SyntaxFactory.MemberAccessExpression(
-                                    SyntaxKind.SimpleMemberAccessExpression,
-                                    SyntaxFactory.IdentifierName(tempName),
-                                    SyntaxFactory.IdentifierName("Value")))));
+                        hoisted.AddRange(h);
+                        hoisted.AddRange(_lifter.TakePendingReadbacks());
+                        vars.Add(d.WithInitializer(SyntaxFactory.EqualsValueClause(InjectSlotValues(lifted))));
+                        continue;
                     }
-                    newArgs.Add(SyntaxFactory.Argument(SyntaxFactory.IdentifierName(tempName)));
-                    _stats.ArrayElementProxies++;
-                    continue;
                 }
+                vars.Add(d);
             }
-
-            // Case 3: Identifier (local or field)
-            if (argExpr is IdentifierNameSyntax id)
-            {
-                var argSymbol = _semanticModel.GetSymbolInfo(id).Symbol;
-                var argType = argSymbol switch
-                {
-                    ILocalSymbol local => local.Type,
-                    IFieldSymbol field => field.Type,
-                    IParameterSymbol p => p.Type,
-                    _ => method.Parameters[i].Type,
-                };
-
-                var typeName = argType.ToDisplayString();
-                var varName = id.Identifier.Text;
-
-                if (hasRef)
-                {
-                    var tempName = $"__ref{++_tempCounter}";
-                    var proxyExpr = SyntaxFactory.ParseExpression(
-                        $"ByRef<{typeName}>.Create(() => {varName}, v => {varName} = v)");
-                    leadingStatements.Add(SyntaxFactory.LocalDeclarationStatement(
-                        SyntaxFactory.VariableDeclaration(
-                            SyntaxFactory.IdentifierName("var"),
-                            SyntaxFactory.SingletonSeparatedList(
-                                SyntaxFactory.VariableDeclarator(
-                                    SyntaxFactory.Identifier(tempName))
-                                    .WithInitializer(SyntaxFactory.EqualsValueClause(proxyExpr))))));
-                    newArgs.Add(SyntaxFactory.Argument(SyntaxFactory.IdentifierName(tempName)));
-                    _stats.AccessorProxies++;
-                }
-                else // out
-                {
-                    var tempName = $"__out{++_tempCounter}";
-                    var proxyExpr = SyntaxFactory.ParseExpression(
-                        $"ByRef<{typeName}>.Create(() => {varName}, v => {varName} = v)");
-                    leadingStatements.Add(SyntaxFactory.LocalDeclarationStatement(
-                        SyntaxFactory.VariableDeclaration(
-                            SyntaxFactory.IdentifierName("var"),
-                            SyntaxFactory.SingletonSeparatedList(
-                                SyntaxFactory.VariableDeclarator(
-                                    SyntaxFactory.Identifier(tempName))
-                                    .WithInitializer(SyntaxFactory.EqualsValueClause(proxyExpr))))));
-                    newArgs.Add(SyntaxFactory.Argument(SyntaxFactory.IdentifierName(tempName)));
-                    trailingStatements.Insert(0, SyntaxFactory.ExpressionStatement(
-                        SyntaxFactory.AssignmentExpression(
-                            SyntaxKind.SimpleAssignmentExpression,
-                            SyntaxFactory.IdentifierName(varName),
-                            SyntaxFactory.MemberAccessExpression(
-                                SyntaxKind.SimpleMemberAccessExpression,
-                                SyntaxFactory.IdentifierName(tempName),
-                                SyntaxFactory.IdentifierName("Value")))));
-                    _stats.AccessorProxies++;
-                }
-                continue;
-            }
-
-            newArgs.Add(arg);
+            if (hoisted.Count == 0)
+                return base.VisitUsingStatement(node);
+            newDecl = SyntaxFactory.VariableDeclaration(node.Declaration.Type, SyntaxFactory.SeparatedList(vars));
+        }
+        else
+        {
+            return base.VisitUsingStatement(node);
         }
 
-        if (!anyLifted)
-            return (false, null);
+        var visitedBody = (StatementSyntax)base.Visit(node.Statement)!;
+        var newUsing = node.WithStatement(visitedBody);
+        if (newExpr != null)
+            newUsing = (UsingStatementSyntax)newUsing.WithExpression(newExpr).WithDeclaration(null);
+        else
+            newUsing = (UsingStatementSyntax)newUsing.WithDeclaration(newDecl!).WithExpression(null);
 
-        var newInvocation = invocation.WithArgumentList(
-            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(newArgs)));
-        var newExpr = node.WithExpression(newInvocation);
-
-        var allStatements = leadingStatements
-            .Append(newExpr)
-            .Concat(trailingStatements)
-            .ToArray();
-
-        if (allStatements.Length == 1)
-            return (true, allStatements[0]);
-        return (true, SyntaxFactory.Block(allStatements));
+        return SyntaxFactory.Block(hoisted.Append(newUsing));
     }
 
-    private (string?, List<string>) DecomposeElementAccess(ElementAccessExpressionSyntax elem)
+    public override SyntaxNode? VisitSwitchStatement(SwitchStatementSyntax node)
     {
-        var arrExpr = elem.Expression.ToString();
-        var indices = elem.ArgumentList.Arguments.Select(a => a.Expression.ToString()).ToList();
-        return (arrExpr, indices);
+        var lifted = _lifter.SpliceExpression(node.Expression, out var hoisted);
+        var sections = SyntaxFactory.List(node.Sections.Select(s => (SwitchSectionSyntax)base.Visit(s)!));
+        if (hoisted.Count == 0)
+        {
+            if (ReferenceEquals(lifted, node.Expression))
+                return base.VisitSwitchStatement(node);
+            return node.WithExpression(InjectSlotValues(lifted)).WithSections(sections);
+        }
+        var newSwitch = node.WithExpression(InjectSlotValues(lifted)).WithSections(sections);
+        return HoistedBlock(hoisted.Append(newSwitch));
     }
 
-    // Handle ref local declarations: `ref T r = ref e;` → `ByRef<T> r = <proxy(e)>;`
+    // ── Local declarations ──────────────────────────────────────────────────
+
     public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
     {
         if (node.Declaration.Type is RefTypeSyntax refType)
@@ -552,7 +696,7 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                     var typeName = innerType.ToString();
 
                     ExpressionSyntax proxyExpr;
-                    if (expr is IdentifierNameSyntax id && _currentMethodHolderNames.Contains(id.Identifier.Text))
+                    if (expr is IdentifierNameSyntax id && IsHolderName(id.Identifier.Text))
                     {
                         proxyExpr = expr;
                     }
@@ -590,10 +734,38 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
             return SyntaxFactory.LocalDeclarationStatement(newDecl);
         }
 
-        return base.VisitLocalDeclarationStatement(node);
+        // C1: non-ref local initializers containing internal ref/out calls
+        var hoisted = new List<StatementSyntax>();
+        var newVariables = new List<VariableDeclaratorSyntax>();
+        bool anyLift = false;
+        foreach (var d in node.Declaration.Variables)
+        {
+            if (d.Initializer != null)
+            {
+                var lifted = _lifter.SpliceExpression(d.Initializer.Value, out var h);
+                if (h.Count > 0)
+                {
+                    anyLift = true;
+                    hoisted.AddRange(h);
+                    hoisted.AddRange(_lifter.TakePendingReadbacks());
+                    newVariables.Add(d.WithInitializer(
+                        SyntaxFactory.EqualsValueClause(InjectSlotValues(lifted))));
+                    continue;
+                }
+            }
+            newVariables.Add(d);
+        }
+        if (!anyLift)
+            return base.VisitLocalDeclarationStatement(node);
+
+        var newDeclaration = SyntaxFactory.VariableDeclaration(
+            node.Declaration.Type, SyntaxFactory.SeparatedList(newVariables));
+        var newStatement = node.WithDeclaration(newDeclaration);
+        return HoistedBlock(hoisted.Append(newStatement));
     }
 
-    // Handle ref field declarations
+    // ── Ref fields (C12 flips this to fail-fast in its own task) ────────────
+
     public override SyntaxNode? VisitFieldDeclaration(FieldDeclarationSyntax node)
     {
         if (node.Declaration.Type is RefTypeSyntax refType)
@@ -609,5 +781,46 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         }
 
         return base.VisitFieldDeclaration(node);
+    }
+
+    // ── helpers ─────────────────────────────────────────────────────────────
+
+    private static BlockSyntax HoistedBlock(IEnumerable<StatementSyntax> stmts) =>
+        SyntaxFactory.Block(stmts).WithAdditionalAnnotations(RefOutInStatementLifter.HoistedBlockAnnotation);
+
+    private static ExpressionSyntax Negate(ExpressionSyntax e) =>
+        SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression,
+            SyntaxFactory.ParenthesizedExpression(e));
+
+    private (string?, List<string>) DecomposeElementAccess(ElementAccessExpressionSyntax elem)
+    {
+        var arrExpr = elem.Expression.ToString();
+        var indices = elem.ArgumentList.Arguments.Select(a => a.Expression.ToString()).ToList();
+        return (arrExpr, indices);
+    }
+
+    /// <summary>
+    /// Pre-injects .Value for holder-slot identifiers inside generated fragments.
+    /// Idempotent via ValueInjectedAnnotation; respects DirectPassAnnotation.
+    /// </summary>
+    private sealed class SlotInjector : CSharpSyntaxRewriter
+    {
+        private readonly RefOutInSyntaxRewriter _owner;
+
+        public SlotInjector(RefOutInSyntaxRewriter owner) => _owner = owner;
+
+        public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+        {
+            if (node.HasAnnotation(RefOutInStatementLifter.ValueInjectedAnnotation)
+                || node.HasAnnotation(RefOutInStatementLifter.DirectPassAnnotation))
+                return node;
+            if (IsInDeclarationContext(node) || !_owner.IsHolderName(node.Identifier.Text))
+                return base.VisitIdentifierName(node);
+            _owner._stats.HoldersInjected++;
+            return SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                node.WithAdditionalAnnotations(RefOutInStatementLifter.ValueInjectedAnnotation),
+                SyntaxFactory.IdentifierName("Value"));
+        }
     }
 }

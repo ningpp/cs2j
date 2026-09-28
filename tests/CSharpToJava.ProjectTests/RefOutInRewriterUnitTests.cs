@@ -308,4 +308,154 @@ public class C
         Assert.True(verifyResult.IsClean, "Internal ref/out should be eliminated");
         Assert.True(verifyResult.HasCs2jByRefUsing, "using Cs2jByRef should be injected");
     }
+
+    // ── Task 3: real-compile harness + statement-level lifting ─────────────
+
+    private static string RewriteAndAssertCompiles(string src, bool expectChanged = true)
+    {
+        var byRefSrc = File.ReadAllText(FindRepoRoot("src/Cs2jRefOutIn/ByRef.cs"));
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new RefOutInRewriter().Rewrite(src, model);
+        Assert.Equal(expectChanged, result.Changed);
+
+        var outTree = CSharpSyntaxTree.ParseText(result.OutputCode);
+        var supportTree = CSharpSyntaxTree.ParseText(byRefSrc);
+        var compilation = CSharpCompilation.Create("refout-verify",
+            new[] { outTree, supportTree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(errors.Count == 0,
+            "output must compile: " + string.Join("; ", errors.Select(d => d.ToString()))
+            + "\n===== OUTPUT =====\n" + result.OutputCode);
+        return result.OutputCode;
+    }
+
+    internal static string FindRepoRoot(string relative)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, relative)))
+            dir = dir.Parent;
+        if (dir == null)
+            throw new InvalidOperationException($"repo root with '{relative}' not found");
+        return Path.Combine(dir.FullName, relative);
+    }
+
+    [Fact]
+    public void OutVar_InIfCondition_HoistedAndReadBack()
+    {
+        var src = @"
+public class C
+{
+    public bool TryGet(out int r) { r = 42; return true; }
+    public int Use()
+    {
+        if (TryGet(out var v)) { return v; }
+        return 0;
+    }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("var __out", result);
+        Assert.Contains("v = __out", result);
+    }
+
+    [Fact]
+    public void RefCall_InAssignmentRhs_Hoisted()
+    {
+        var src = @"
+public class C
+{
+    public int Bump2(ref int v) { v++; return v; }
+    public int Use()
+    {
+        int x = 1;
+        int y = 5 + Bump2(ref x);
+        return x + y;
+    }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("ByRef<int>.Create(() => x, v => x = v)", result);
+        Assert.Contains("var __ref", result);   // ref → accessor proxy
+    }
+
+    [Fact]
+    public void MemberChain_RefArg_AccessorProxy()
+    {
+        var src = @"
+public class H { public int Value; public void Update(ref int v) { v++; } }
+public class C
+{
+    public void Use()
+    {
+        var h = new H();
+        h.Value = 1;
+        h.Update(ref h.Value);
+    }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("Create(() => h.Value, v => h.Value = v)", result);
+    }
+
+    [Fact]
+    public void ShortCircuit_RightSideNotUnconditionallyExecuted()
+    {
+        var src = @"
+public class C
+{
+    public bool Flag;
+    public bool TryGet(out int r) { r = 1; return true; }
+    public int Use()
+    {
+        if (Flag && TryGet(out var v)) { return v; }
+        return 0;
+    }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("if (Flag)", result);   // right side wrapped in a conditional block
+    }
+
+    [Fact]
+    public void WhileCondition_OutCall_RestructuredToWhileTrue()
+    {
+        var src = @"
+public class C
+{
+    public int N;
+    public bool Next(out int r) { r = N; return N-- > 0; }
+    public int Drain()
+    {
+        int total = 0;
+        while (Next(out var v))
+        {
+            total += v;
+        }
+        return total;
+    }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("while (true)", result);
+        Assert.Contains("if (!", result);
+    }
+
+    [Fact]
+    public void ReturnStatement_OutCall_HoistedBeforeReturn()
+    {
+        var src = @"
+public class C
+{
+    public bool TryGet(out int r) { r = 7; return true; }
+    public int Use()
+    {
+        return TryGet(out var v) ? v : 0;
+    }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("var __out", result);
+        Assert.Contains("return __cond", result);
+    }
 }

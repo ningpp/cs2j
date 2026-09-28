@@ -26,9 +26,17 @@ internal sealed class RefOutInAliasAnnotator
     // Set of local declarations that are ref locals (identifier → known)
     private readonly HashSet<string> _refLocalNames = new();
 
+    // CD8: `in` parameters kept because stripping would create an overload collision
+    private readonly HashSet<IParameterSymbol> _inKeptParameters = new(SymbolEqualityComparer.Default);
+
     public IReadOnlySet<ISymbol> HolderSymbols => _holderSymbols;
     public IReadOnlyCollection<string> RequiredRefStructTypes => _requiredRefStructTypes;
     public IReadOnlySet<string> RefLocalNames => _refLocalNames;
+    public IReadOnlySet<IParameterSymbol> InKeptParameters => _inKeptParameters;
+
+    /// <summary>CD8 (C9): true when this in-parameter must keep its modifier.</summary>
+    public bool IsInParameterKept(IParameterSymbol? parameter) =>
+        parameter != null && _inKeptParameters.Contains(parameter);
 
     public RefOutInAliasAnnotator(
         SemanticModel semanticModel,
