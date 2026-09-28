@@ -34,6 +34,7 @@ internal static class MultiModulePlanner
             .Where(p => p.Kind == ProjectKind.Production)
             .Where(p => !Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject(p.ProjectFilePath))
             .Where(p => !Cs2jArrayProject.IsCs2jArrayProject(p.ProjectFilePath))
+            .Where(p => !Cs2jRefOutInProject.IsCs2jRefOutInProject(p.ProjectFilePath))
             .ToList();
 
         foreach (var project in productionProjects)

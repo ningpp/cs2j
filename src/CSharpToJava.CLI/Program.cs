@@ -4,6 +4,7 @@ using CSharpToJava.Core.GotoEliminator;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.Pipeline.Planning;
 using CSharpToJava.Core.UnsignedTypeRewriter;
+using CSharpToJava.Core.RefOutInPreprocessor;
 using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.LocalFunctionLift;
@@ -47,9 +48,10 @@ public class Program
                 (ForeachDeconstructionVerbOptions opts) => ForeachDeconstructionAsync(opts),
                 (NullCoalesceVerbOptions opts) => NullCoalesceAsync(opts),
                 (DelegatePreprocessVerbOptions opts) => DelegatePreprocessAsync(opts),
-                _ => parser.ParseArguments<EnumPreprocessVerbOptions>(args)
+                _ => parser.ParseArguments<EnumPreprocessVerbOptions, RefOutInVerbOptions>(args)
                     .MapResult(
                         (EnumPreprocessVerbOptions opts) => EnumPreprocessAsync(opts),
+                        (RefOutInVerbOptions opts) => RefOutInAsync(opts),
                         _ => Task.FromResult(1))
             );
     }
@@ -476,6 +478,45 @@ public class Program
                 opts.FingerprintInputRoot ??= stripResult.SourceRoot;
             }
 
+            if (opts.RefOutIn)
+            {
+                var refOutInResult = await ProjectRefOutInPreprocessor.PreprocessAsync(
+                    new ProjectRefOutInPreprocessRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                        VerifyBuild = opts.VerifyBuild,
+                        VerifyTests = opts.VerifyTests,
+                    });
+
+                Console.WriteLine(
+                    $"ref-out-in: {refOutInResult.Statistics.FilesTransformed} transformed, " +
+                    $"{refOutInResult.Statistics.FilesSkippedClean} clean, " +
+                    $"{refOutInResult.Statistics.RefParamsRewritten} ref params, " +
+                    $"{refOutInResult.Statistics.OutParamsRewritten} out params, " +
+                    $"{refOutInResult.Statistics.CallSitesLifted} call sites lifted, " +
+                    $"{refOutInResult.Statistics.LockedContractMembers} locked members");
+
+                foreach (var diagnostic in refOutInResult.Diagnostics)
+                {
+                    if (diagnostic.Severity != RefOutInSeverity.Info || opts.Verbose)
+                        Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+                }
+
+                if (!refOutInResult.Success)
+                {
+                    return 1;
+                }
+
+                opts.Source = refOutInResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= refOutInResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= refOutInResult.SourceRoot;
+            }
+
             if (opts.UnsignedType)
             {
                 var unsignedResult = await ProjectUnsignedTypePreprocessor.PreprocessAsync(
@@ -753,6 +794,7 @@ public class Program
                 workspaceProjects = workspaceProjects
                     .Where(p => !Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject(p.FilePath))
                     .Where(p => !Cs2jArrayProject.IsCs2jArrayProject(p.FilePath))
+                    .Where(p => !Cs2jRefOutInProject.IsCs2jRefOutInProject(p.FilePath))
                     .ToList();
                 var inputFingerprintSnapshot = BuildWorkspaceInputFingerprintSnapshot(opts, workspaceProjects);
                 if (!opts.NoCache && TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
@@ -1432,6 +1474,10 @@ public class Program
         if (opts.UnsignedType)
         {
             preserved.Add(ProjectUnsignedTypePreprocessor.IntermediateDirectoryName);
+        }
+        if (opts.RefOutIn)
+        {
+            preserved.Add(ProjectRefOutInPreprocessor.IntermediateDirectoryName);
         }
         if (opts.MakeReadOnly)
         {
@@ -2300,6 +2346,7 @@ preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
             $"tuple-to-struct={opts.TupleToStruct}",
             $"foreach-deconstruction={opts.ForeachDeconstruction}",
             $"unsigned-type={opts.UnsignedType}",
+            $"ref-out-in={opts.RefOutIn}",
             $"generic-preprocess={opts.GenericPreprocess}",
             $"strip-default={opts.StripDefault}",
             $"local-function-lift={opts.LocalFunctionLift}",
@@ -3097,6 +3144,104 @@ preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
         }
 
         Console.WriteLine($"Preprocessed source: {preprocessResult.PreprocessedSourcePath}");
+        return preprocessResult.Success ? 0 : 1;
+    }
+
+    private static async Task<int> RefOutInAsync(RefOutInVerbOptions opts)
+    {
+        var rewriterOptions = new RefOutInRewriterOptions(
+            Verbose: opts.Verbose,
+            Strict: opts.Strict);
+        var rewriter = new RefOutInRewriter();
+
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(sourceCode);
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+                "ref-out-in",
+                new[] { tree },
+                ProjectUnsignedTypePreprocessor.GetBasicReferences(),
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                    Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary,
+                    allowUnsafe: true));
+
+            var result = rewriter.Rewrite(sourceCode, compilation.GetSemanticModel(tree), rewriterOptions);
+
+            if (opts.Output != null)
+            {
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+                if (result.Changed)
+                {
+                    var outputDir = Path.GetDirectoryName(Path.GetFullPath(opts.Output)) ?? ".";
+                    var helperPath = Path.Combine(outputDir, RefOutInSupportFiles.SingleFileHelperFileName);
+                    await File.WriteAllTextAsync(helperPath, RefOutInSupportFiles.GetByRefFileContent(),
+                        new System.Text.UTF8Encoding(false));
+                    if (opts.Verbose)
+                        Console.WriteLine($"Wrote support file: {helperPath}");
+                }
+                if (opts.Verbose)
+                    Console.WriteLine($"Transformed: {opts.Input} -> {opts.Output}");
+            }
+            else
+            {
+                Console.Write(result.OutputCode);
+            }
+
+            foreach (var diagnostic in result.Diagnostics)
+            {
+                Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+            }
+
+            return result.Diagnostics.Any(d => d.Severity == RefOutInSeverity.Error) ? 1 : 0;
+        }
+
+        // Project / directory mode
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+
+        var preprocessResult = await ProjectRefOutInPreprocessor.PreprocessAsync(
+            new ProjectRefOutInPreprocessRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Verbose = opts.Verbose,
+                RewriterOptions = rewriterOptions,
+                FilterUnsupportedProjects = !opts.NoFilterProjects,
+                VerifyBuild = !opts.NoVerifyBuild,
+                VerifyTests = !opts.NoVerifyTests,
+            });
+
+        Console.WriteLine(
+            $"ref-out-in: {preprocessResult.Statistics.FilesTransformed} transformed, " +
+            $"{preprocessResult.Statistics.FilesSkippedClean} clean, " +
+            $"{preprocessResult.Statistics.RefParamsRewritten} ref params, " +
+            $"{preprocessResult.Statistics.OutParamsRewritten} out params, " +
+            $"{preprocessResult.Statistics.CallSitesLifted} call sites lifted, " +
+            $"{preprocessResult.Statistics.LockedContractMembers} locked members");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            var showInfo = diagnostic.Severity != RefOutInSeverity.Info || opts.Verbose;
+            if (showInfo)
+                Console.Error.WriteLine($"[{diagnostic.Severity}] {diagnostic.Message}");
+        }
+
         return preprocessResult.Success ? 0 : 1;
     }
 
@@ -4507,6 +4652,30 @@ class UnsignedTypeOptions
     public bool NoFilterProjects { get; set; }
 }
 
+[Verb("ref-out-in", HelpText = "Rewrite ref/out/in parameters to ByRef<T> proxy model (C# → C# source rewrite)")]
+class RefOutInVerbOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file")]
+    public string? Input { get; set; }
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+    [Option('v', "verbose", Default = false)]
+    public bool Verbose { get; set; }
+    [Option("strict", Default = false, HelpText = "Treat residual ref/out/in as fatal")]
+    public bool Strict { get; set; }
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+    [Option("no-verify-build", Default = false, HelpText = "Skip 'dotnet build' verification")]
+    public bool NoVerifyBuild { get; set; }
+    [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification")]
+    public bool NoVerifyTests { get; set; }
+}
+
 [Verb("array-method", HelpText = "Rewrite array instance members and System.Array static calls to Cs2jArray.ArrayHelper")]
 class ArrayMethodOptions
 {
@@ -4714,6 +4883,10 @@ class ConvertProjectOptions
     [Option("no-unsigned-type", Default = false,
         HelpText = "Disable the default unsigned-type preprocessing step")]
     public bool NoUnsignedType { get; set; }
+
+    [Option("no-ref-out-in", Default = false,
+        HelpText = "Disable the default ref/out/in preprocessing step")]
+    public bool NoRefOutIn { get; set; }
     
     [Option("no-make-readonly", Default = false, HelpText = "Disable the default readonly-struct preprocessing step")]
     public bool NoMakeReadOnly { get; set; }
@@ -4797,6 +4970,7 @@ class ConvertProjectOptions
     public bool EnableLinqRewrite => !NoLinqRewrite;
     public bool EliminateGoto => !NoEliminateGoto;
     public bool UnsignedType => !NoUnsignedType;
+    public bool RefOutIn => !NoRefOutIn;
     public bool MakeReadOnly => !NoMakeReadOnly;
     public bool StripDefault => !NoStripDefault;
     public bool TupleToStruct => !NoTupleToStruct;

@@ -45,6 +45,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Cs2jRefOutIn 支撑库（唯一真源在 src/Cs2jRefOutIn/，此处嵌入分发） -->
+    <EmbeddedResource Include="..\Cs2jRefOutIn\ByRef.cs">
+      <Link>support\Cs2jRefOutIn\ByRef.cs</Link>
+      <LogicalName>Cs2jRefOutIn.ByRef.cs</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\Cs2jRefOutIn\Cs2jRefOutIn.csproj">
+      <Link>support\Cs2jRefOutIn\Cs2jRefOutIn.csproj</Link>
+      <LogicalName>Cs2jRefOutIn.Cs2jRefOutIn.csproj</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="..\..\config\.gitignore">
       <Link>config\.gitignore</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
