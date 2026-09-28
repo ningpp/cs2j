@@ -171,6 +171,40 @@ public class Program
 
             opts.ParsedExtraDependencies = ParseExtraDependencies(opts.ExtraDependencies);
 
+            if (opts.StripConditional)
+            {
+                var conditionalResult = await ProjectConditionalDirectivePreprocessor.PreprocessAsync(
+                    new ProjectConditionalDirectivePreprocessRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                    });
+
+                Console.WriteLine(
+                    $"strip-conditional: {conditionalResult.FilesTransformed} transformed, " +
+                    $"{conditionalResult.FilesSkippedClean} clean, " +
+                    $"{conditionalResult.DirectivesRemoved} directives removed, " +
+                    $"{conditionalResult.DisabledBranchesRemoved} disabled blocks removed");
+
+                foreach (var diagnostic in conditionalResult.Diagnostics)
+                {
+                    Console.Error.WriteLine(diagnostic);
+                }
+
+                if (!conditionalResult.Success)
+                {
+                    return 1;
+                }
+
+                opts.Source = conditionalResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= conditionalResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= conditionalResult.SourceRoot;
+            }
+
             if (opts.LocalFunctionLift)
             {
                 var liftResult = await ProjectLocalFunctionLiftPreprocessor.PreprocessAsync(
@@ -1431,10 +1465,14 @@ if (opts.DelegatePreprocess)
 {
 preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
 }
-if (opts.EnumPreprocess)
-{
-preserved.Add(ProjectEnumPreprocessor.IntermediateDirectoryName);
-}
+        if (opts.EnumPreprocess)
+        {
+            preserved.Add(ProjectEnumPreprocessor.IntermediateDirectoryName);
+        }
+        if (opts.StripConditional)
+        {
+            preserved.Add(ProjectConditionalDirectivePreprocessor.IntermediateDirectoryName);
+        }
         return preserved.Count > 0 ? preserved : null;
     }
 
@@ -4703,6 +4741,10 @@ class ConvertProjectOptions
         HelpText = "Disable the default delegate (+/- / += / -= / anonymous method) preprocessing step")]
     public bool NoDelegatePreprocess { get; set; }
 
+    [Option("no-strip-conditional", Default = false,
+        HelpText = "Disable the default conditional-compilation (#if/#elif/#else/#endif) preprocessing step")]
+    public bool NoStripConditional { get; set; }
+
     [Option("no-enum-preprocess", Default = false,
         HelpText = "Disable the default enum bitwise / HasFlag preprocessing step")]
     public bool NoEnumPreprocess { get; set; }
@@ -4762,6 +4804,7 @@ class ConvertProjectOptions
     public bool NullCoalesce => !NoNullCoalesce;
     public bool DelegatePreprocess => !NoDelegatePreprocess;
     public bool EnumPreprocess => !NoEnumPreprocess;
+    public bool StripConditional => !NoStripConditional;
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
