@@ -5,55 +5,71 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.RefOutInPreprocessor;
 
 /// <summary>
-/// Post-rewrite semantic verification (§7). Walks the output syntax tree
-/// with a fresh SemanticModel and asserts that no internally-defined
-/// ref/out/in remains. Returns categorized counts.
+/// Post-rewrite residual gate (C10, D3 §7): asserts the rewritten output has
+/// zero INTERNAL ref/out declarations, ref returns, ref locals/fields or ref
+/// expressions outside external/locked call arguments. Violations carry
+/// CS2J3305 and fail the pass.
 /// </summary>
 public static class RefOutInPostVerifier
 {
-    public static PostVerificationResult Verify(
-        string outputCode,
-        MetadataReference[]? references = null)
+    public static IReadOnlyList<ResidualViolation> Verify(
+        IEnumerable<SyntaxTree> outputTrees, CSharpCompilation compilation)
     {
-        references ??= new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) };
-        var tree = CSharpSyntaxTree.ParseText(outputCode);
-        var compilation = CSharpCompilation.Create("refout-verify",
-            new[] { tree },
-            references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
-        var model = compilation.GetSemanticModel(tree);
-        var root = (CompilationUnitSyntax)tree.GetRoot();
-
-        var result = new PostVerificationResult();
-        var hasUsing = root.Usings.Any(u => u.Name?.ToString() == "Cs2jByRef");
-        result.HasCs2jByRefUsing = hasUsing;
-
-        foreach (var method in root.DescendantNodes().OfType<BaseMethodDeclarationSyntax>())
+        var violations = new List<ResidualViolation>();
+        foreach (var tree in outputTrees)
         {
-            var symbol = model.GetDeclaredSymbol(method);
-            if (symbol == null) continue;
+            var model = compilation.GetSemanticModel(tree);
+            var root = tree.GetCompilationUnitRoot();
 
-            foreach (var param in symbol.Parameters)
+            foreach (var method in root.DescendantNodes().OfType<BaseMethodDeclarationSyntax>())
             {
-                if (param.RefKind == RefKind.Ref || param.RefKind == RefKind.Out)
+                var symbol = model.GetDeclaredSymbol(method);
+                if (symbol == null) continue;
+                if (RefOutInAliasAnnotator.IsLocked(symbol)) continue;
+
+                foreach (var param in symbol.Parameters)
                 {
-                    var isInternal = param.Locations.Any(l => l.IsInSource);
-                    if (isInternal)
-                        result.InternalRefOutRemaining++;
-                    else
-                        result.ExternalRefOutKept++;
+                    if (param.RefKind is RefKind.Ref or RefKind.Out
+                        && param.Locations.Any(l => l.IsInSource))
+                        violations.Add(new ResidualViolation(tree.FilePath,
+                            $"internal '{symbol.ToDisplayString()}' still declares ref/out parameter '{param.Name}'"));
                 }
+                if (symbol.RefKind is RefKind.Ref or RefKind.RefReadOnly)
+                    violations.Add(new ResidualViolation(tree.FilePath,
+                        $"'{symbol.ToDisplayString()}' still declares a ref return"));
+            }
+
+            foreach (var local in root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>()
+                         .Where(l => l.Declaration.Type is RefTypeSyntax))
+                violations.Add(new ResidualViolation(tree.FilePath,
+                    "ref local survived rewriting"));
+
+            foreach (var field in root.DescendantNodes().OfType<FieldDeclarationSyntax>()
+                         .Where(f => f.Declaration.Type is RefTypeSyntax))
+                violations.Add(new ResidualViolation(tree.FilePath,
+                    "ref field survived rewriting"));
+
+            foreach (var refExpr in root.DescendantNodes().OfType<RefExpressionSyntax>())
+            {
+                if (refExpr.Ancestors().OfType<AnonymousFunctionExpressionSyntax>().Any()) continue;
+                var arg = refExpr.Ancestors().OfType<ArgumentSyntax>().FirstOrDefault();
+                if (arg != null)
+                {
+                    var inv = arg.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault();
+                    var target = inv != null
+                        ? model.GetSymbolInfo(inv).Symbol as IMethodSymbol
+                        : null;
+                    if (target != null
+                        && (target.Locations.All(l => !l.IsInSource)
+                            || RefOutInAliasAnnotator.IsLocked(target)))
+                        continue;   // external/locked residue is legitimate (CD1/CD3)
+                }
+                violations.Add(new ResidualViolation(tree.FilePath,
+                    "ref expression outside external/locked arguments survived"));
             }
         }
-
-        return result;
+        return violations;
     }
 }
 
-public sealed record PostVerificationResult
-{
-    public int InternalRefOutRemaining;
-    public int ExternalRefOutKept;
-    public bool HasCs2jByRefUsing;
-    public bool IsClean => InternalRefOutRemaining == 0;
-}
+public sealed record ResidualViolation(string FilePath, string Message);

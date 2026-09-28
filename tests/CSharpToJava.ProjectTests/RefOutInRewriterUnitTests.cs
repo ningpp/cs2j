@@ -304,9 +304,13 @@ public class C
         var result = new RefOutInRewriter().Rewrite(src, model);
         Assert.True(result.Changed);
 
-        var verifyResult = RefOutInPostVerifier.Verify(result.OutputCode);
-        Assert.True(verifyResult.IsClean, "Internal ref/out should be eliminated");
-        Assert.True(verifyResult.HasCs2jByRefUsing, "using Cs2jByRef should be injected");
+        var outTree = CSharpSyntaxTree.ParseText(result.OutputCode);
+        var compilation = CSharpCompilation.Create("refout-verify",
+            new[] { outTree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var violations = RefOutInPostVerifier.Verify(new[] { outTree }, compilation);
+        Assert.Empty(violations);
     }
 
     // ── Task 3: real-compile harness + statement-level lifting ─────────────
@@ -467,6 +471,81 @@ public class C
         Assert.Contains("Cs2jByRef.RefStructByRef<System.Span<int>> s", result);
         Assert.Contains(".Create(span)", result);
         Assert.Contains("span = __ref", result);   // copy-out read-back
+    }
+
+    [Fact]
+    public void Lambda_RefParam_RewrittenForInternalDelegate()
+    {
+        var src = @"
+public class C
+{
+    public delegate void Bump(ref int v);
+    public void Use()
+    {
+        Bump b = (ref int x) => { x = x + 1; };
+        int n = 0;
+        b(ref n);
+    }
+}";
+        var result = RewriteAndAssertCompiles(src);
+        Assert.Contains("ByRef<int> x", result);
+        Assert.Contains("x.Value = x.Value + 1", result);
+        Assert.Contains("b(__ref", result);   // slot direct pass at the delegate call site
+    }
+
+    [Fact]
+    public void RefField_ExplicitError_CS2J3303()
+    {
+        var src = "public class C { ref int _f; }";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new RefOutInRewriter().Rewrite(src, model);
+        Assert.Contains(result.Diagnostics,
+            d => d.Id == "CS2J3303" && d.Severity == RefOutInSeverity.Error);
+    }
+
+    [Fact]
+    public void MultiDimArrayRef_ExplicitError_CS2J3303()
+    {
+        var src = @"
+public class C
+{
+    public void M(ref int v) { }
+    public void Use() { int[,] grid = new int[2, 2]; M(ref grid[0, 1]); }
+}";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new RefOutInRewriter().Rewrite(src, model);
+        Assert.Contains(result.Diagnostics, d => d.Id == "CS2J3303");
+    }
+
+    [Fact]
+    public void Verifier_FlagsInternalRefParamResidue()
+    {
+        var tree = CSharpSyntaxTree.ParseText("public class C { public void M(ref int a) { } }");
+        var compilation = CSharpCompilation.Create("v", new[] { tree },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var violations = RefOutInPostVerifier.Verify(new[] { tree }, compilation);
+        Assert.Contains(violations, v => v.Message.Contains("still declares ref/out"));
+    }
+
+    [Fact]
+    public void Verifier_AllowsExternalRefArguments()
+    {
+        var tree = CSharpSyntaxTree.ParseText(@"
+public class C
+{
+    public void M(string s, out int r) { r = 0; }
+    public void Use() { M(""x"", out var v); }
+}");
+        var compilation = CSharpCompilation.Create("v", new[] { tree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var violations = RefOutInPostVerifier.Verify(new[] { tree }, compilation);
+        Assert.DoesNotContain(violations, v => v.Message.Contains("ref expression"));
     }
 
     [Fact]

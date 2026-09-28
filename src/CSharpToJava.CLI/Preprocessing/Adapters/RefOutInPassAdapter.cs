@@ -1,4 +1,6 @@
 using System.Xml.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.RefOutInPreprocessor;
 
@@ -26,6 +28,8 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
     private List<string> _ownReleaseDirectories = new();
     private string? _buildLogSummary;
     private string? _testLogSummary;
+    private readonly Dictionary<string, string> _finalOutputs = new(StringComparer.Ordinal);
+    private MetadataReference[]? _cachedReferences;
 
     public RefOutInPassAdapter(
         RefOutInRewriterOptions options,
@@ -75,8 +79,13 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
             return Task.FromResult<PassFileRewrite?>(null);
         }
 
+        if (_cachedReferences == null && context.SemanticModel != null)
+            _cachedReferences = context.SemanticModel.Compilation.References.ToArray();
+
         var result = _rewriter.Rewrite(context.SourceCode, context.SemanticModel!, _options);
         MergeStatistics(result.Statistics);
+        _finalOutputs[context.DestinationFilePath] =
+            result.Changed ? result.OutputCode : context.SourceCode;
 
         foreach (var diagnostic in result.Diagnostics)
         {
@@ -109,6 +118,8 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
 
     public override async Task AfterFilesAsync(PassTreeContext tree)
     {
+        RunResidualGate(tree);
+
         // Release support files and inject ProjectReferences
         if (_statistics.RefParamsRewritten > 0 || _statistics.OutParamsRewritten > 0
             || _statistics.RefReturnsRewritten > 0 || _statistics.RefLocalsRewritten > 0
@@ -119,11 +130,42 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
         }
     }
 
+    /// <summary>C10/S5: semantic residual gate over the full intermediate tree.</summary>
+    private void RunResidualGate(PassTreeContext tree)
+    {
+        if (_rewrittenSourceFiles.Count == 0 || _cachedReferences == null)
+            return;
+
+        var trees = new List<SyntaxTree>();
+        foreach (var (path, code) in _finalOutputs)
+            trees.Add(CSharpSyntaxTree.ParseText(code, path: path));
+
+        var compilation = CSharpCompilation.Create(
+            "refout-residual-verify",
+            trees,
+            _cachedReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+        foreach (var violation in RefOutInPostVerifier.Verify(trees, compilation))
+        {
+            _diagnostics.Add(new RefOutInRewriterDiagnostic(
+                RefOutInDiagnosticCodes.InternalResidue,
+                $"{Path.GetFileName(violation.FilePath)}: {violation.Message}",
+                RefOutInSeverity.Error));
+        }
+    }
+
     public override void OnRestoreFailed(int exitCode, string restoreTarget)
-        => _diagnostics.Add(new RefOutInRewriterDiagnostic(
+    {
+        _diagnostics.Add(new RefOutInRewriterDiagnostic(
             "ROI100",
             $"dotnet restore failed with exit code {exitCode} for {restoreTarget}.",
             RefOutInSeverity.Error));
+        _diagnostics.Add(new RefOutInRewriterDiagnostic(
+            RefOutInDiagnosticCodes.RestoreFailed,
+            $"dotnet restore failed with exit code {exitCode} for {restoreTarget}.",
+            RefOutInSeverity.Error));
+    }
 
     public override void OnBuildFailed(int exitCode)
     {
@@ -150,6 +192,10 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
                     "ROI101",
                     $"dotnet build failed after ref/out/in preprocessing: {_buildLogSummary}",
                     RefOutInSeverity.Error));
+                _diagnostics.Add(new RefOutInRewriterDiagnostic(
+                    RefOutInDiagnosticCodes.BuildFailed,
+                    $"dotnet build failed after ref/out/in preprocessing: {_buildLogSummary}",
+                    RefOutInSeverity.Error));
             }
         }
         else
@@ -159,6 +205,10 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
             {
                 _diagnostics.Add(new RefOutInRewriterDiagnostic(
                     "ROI102",
+                    $"dotnet test failed after ref/out/in preprocessing: {_testLogSummary}",
+                    RefOutInSeverity.Error));
+                _diagnostics.Add(new RefOutInRewriterDiagnostic(
+                    RefOutInDiagnosticCodes.TestsFailed,
                     $"dotnet test failed after ref/out/in preprocessing: {_testLogSummary}",
                     RefOutInSeverity.Error));
             }

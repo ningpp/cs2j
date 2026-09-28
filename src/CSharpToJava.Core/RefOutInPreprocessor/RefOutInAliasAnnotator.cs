@@ -88,6 +88,39 @@ internal sealed class RefOutInAliasAnnotator
         {
             _stats.RefFieldsRewritten++;
         }
+
+        // C5: lambda / anonymous method params classified against their
+        // converted delegate type (only internal, non-locked delegates).
+        foreach (var lambda in root.DescendantNodes().OfType<AnonymousFunctionExpressionSyntax>())
+        {
+            if (_semanticModel.GetTypeInfo(lambda).ConvertedType is not INamedTypeSymbol del
+                || del.DelegateInvokeMethod == null) continue;
+            var invoke = del.DelegateInvokeMethod;
+            if (GetSymbolClass(del) != SymbolClass.Internal) continue;
+            var lambdaParams = lambda switch
+            {
+                SimpleLambdaExpressionSyntax s => new[] { s.Parameter },
+                ParenthesizedLambdaExpressionSyntax pl => pl.ParameterList.Parameters.ToArray(),
+                AnonymousMethodExpressionSyntax am =>
+                    am.ParameterList?.Parameters.ToArray() ?? Array.Empty<ParameterSyntax>(),
+                _ => Array.Empty<ParameterSyntax>(),
+            };
+            for (int i = 0; i < lambdaParams.Length && i < invoke.Parameters.Length; i++)
+            {
+                var p = invoke.Parameters[i];
+                if (p.RefKind is RefKind.Ref or RefKind.Out)
+                {
+                    var sym = _semanticModel.GetDeclaredSymbol(lambdaParams[i]);
+                    if (sym != null) _holderSymbols.Add(sym);
+                }
+            }
+        }
+
+        // C5: local functions classified like methods
+        foreach (var lf in root.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
+        {
+            if (_semanticModel.GetDeclaredSymbol(lf) is IMethodSymbol sym) ClassifyMethod(sym);
+        }
     }
 
     private static bool IsRefVariableDeclaration(VariableDeclarationSyntax vd)
@@ -229,7 +262,7 @@ internal sealed class RefOutInAliasAnnotator
         return false;
     }
 
-    private static bool IsLocked(ISymbol symbol)
+    internal static bool IsLocked(ISymbol symbol)
     {
         if (symbol is not IMethodSymbol method)
         {

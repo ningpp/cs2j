@@ -81,6 +81,12 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
     internal void MarkHolderUsed() => UsedHolder = true;
 
+    internal void Report3304(ExpressionSyntax node, string reason) =>
+        _diagnostics.Add(new RefOutInRewriterDiagnostic(
+            RefOutInDiagnosticCodes.RefStructSlotForwarded,
+            reason,
+            RefOutInSeverity.Error, node.GetLocation()));
+
     internal void Report3303(ExpressionSyntax node, string reason) =>
         _diagnostics.Add(new RefOutInRewriterDiagnostic(
             RefOutInDiagnosticCodes.UnproxyablePosition,
@@ -818,16 +824,16 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitFieldDeclaration(FieldDeclarationSyntax node)
     {
-        if (node.Declaration.Type is RefTypeSyntax refType)
+        if (node.Declaration.Type is RefTypeSyntax)
         {
-            var innerType = refType.Type;
-            var newDecl = SyntaxFactory.VariableDeclaration(
-                SyntaxFactory.GenericName(
-                    SyntaxFactory.Identifier("ByRef"),
-                    SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(innerType))),
-                node.Declaration.Variables);
-            UsedHolder = true;
-            return node.WithDeclaration(newDecl);
+            // C12/Q5: the csharp-sdk scan found zero ref-field usages, so per
+            // spec the half-broken declaration rewrite becomes an explicit error.
+            _diagnostics.Add(new RefOutInRewriterDiagnostic(
+                RefOutInDiagnosticCodes.UnproxyablePosition,
+                "ref fields are not supported by the ref/out/in preprocessor (no known usage); " +
+                "declare the field as a normal field or wrap it explicitly.",
+                RefOutInSeverity.Error, node.GetLocation()));
+            return base.VisitFieldDeclaration(node);
         }
 
         return base.VisitFieldDeclaration(node);
@@ -837,6 +843,158 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
 
     private static BlockSyntax HoistedBlock(IEnumerable<StatementSyntax> stmts) =>
         SyntaxFactory.Block(stmts).WithAdditionalAnnotations(RefOutInStatementLifter.HoistedBlockAnnotation);
+
+    // ── C5: lambda / local-function ref-out params ──────────────────────────
+
+    /// <summary>Fragment nodes are not in the annotated tree — skip symbol lookups for them.</summary>
+    private bool InCurrentTree(SyntaxNode node) =>
+        ReferenceEquals(node.SyntaxTree, _semanticModel.SyntaxTree);
+
+
+
+    public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
+    {
+        if (!InCurrentTree(node))
+            return node;   // fragment lambda: pre-injected, no further processing
+
+        var sym = _semanticModel.GetDeclaredSymbol(node.Parameter);
+        bool holder = sym != null && _annotator.HolderSymbols.Contains(sym);
+        _holderNameScopes.Push(new HashSet<string>());
+        try
+        {
+            if (holder)
+            {
+                CurrentHolderNames.Add(node.Parameter.Identifier.Text);
+                var newParam = RewriteParameter(node.Parameter, sym!);
+                return base.VisitSimpleLambdaExpression(node.WithParameter(newParam));
+            }
+            return base.VisitSimpleLambdaExpression(node);
+        }
+        finally { _holderNameScopes.Pop(); }
+    }
+
+    public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
+    {
+        if (!InCurrentTree(node))
+            return node;   // fragment lambda: pre-injected, no further processing
+
+        _holderNameScopes.Push(new HashSet<string>());
+        try
+        {
+            var newParams = new List<ParameterSyntax>();
+            foreach (var param in node.ParameterList.Parameters)
+            {
+                var sym = _semanticModel.GetDeclaredSymbol(param);
+                if (sym != null && _annotator.HolderSymbols.Contains(sym))
+                {
+                    CurrentHolderNames.Add(param.Identifier.Text);
+                    newParams.Add(RewriteParameter(param, sym));
+                }
+                else
+                {
+                    newParams.Add(param);
+                }
+            }
+            var newNode = node.WithParameterList(node.ParameterList.WithParameters(
+                SyntaxFactory.SeparatedList(newParams)));
+            return base.VisitParenthesizedLambdaExpression(newNode);
+        }
+        finally { _holderNameScopes.Pop(); }
+    }
+
+    public override SyntaxNode? VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node)
+    {
+        if (!InCurrentTree(node))
+            return node;   // fragment lambda: pre-injected, no further processing
+
+        if (node.ParameterList == null)
+            return base.VisitAnonymousMethodExpression(node);
+        _holderNameScopes.Push(new HashSet<string>());
+        try
+        {
+            var newParams = new List<ParameterSyntax>();
+            foreach (var param in node.ParameterList.Parameters)
+            {
+                var sym = _semanticModel.GetDeclaredSymbol(param);
+                if (sym != null && _annotator.HolderSymbols.Contains(sym))
+                {
+                    CurrentHolderNames.Add(param.Identifier.Text);
+                    newParams.Add(RewriteParameter(param, sym));
+                }
+                else
+                {
+                    newParams.Add(param);
+                }
+            }
+            var newNode = node.WithParameterList(node.ParameterList.WithParameters(
+                SyntaxFactory.SeparatedList(newParams)));
+            return base.VisitAnonymousMethodExpression(newNode);
+        }
+        finally { _holderNameScopes.Pop(); }
+    }
+
+    public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
+    {
+        if (!InCurrentTree(node))
+            return node;   // fragment lambda: pre-injected, no further processing
+
+        var symbol = _semanticModel.GetDeclaredSymbol(node);
+        if (symbol == null)
+            return base.VisitLocalFunctionStatement(node);
+
+        _holderNameScopes.Push(new HashSet<string>());
+        try
+        {
+            var newParams = new List<ParameterSyntax>();
+            foreach (var param in node.ParameterList.Parameters)
+            {
+                var paramSymbol = symbol.Parameters.FirstOrDefault(p => p.Name == param.Identifier.Text);
+                if (paramSymbol != null && _annotator.HolderSymbols.Contains(paramSymbol))
+                {
+                    CurrentHolderNames.Add(param.Identifier.Text);
+                    newParams.Add(RewriteParameter(param, paramSymbol));
+                }
+                else
+                {
+                    newParams.Add(param);
+                }
+            }
+            var newNode = node.WithParameterList(node.ParameterList.WithParameters(
+                SyntaxFactory.SeparatedList(newParams)));
+            return base.VisitLocalFunctionStatement(newNode);
+        }
+        finally { _holderNameScopes.Pop(); }
+    }
+
+    // ── C11: CS2J3304 — ref struct holder forwarded to an external ref API ──
+
+    public override SyntaxNode? VisitArgument(ArgumentSyntax node)
+    {
+        if (node.Expression is IdentifierNameSyntax id
+            && (node.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+                || node.RefKindKeyword.IsKind(SyntaxKind.OutKeyword))
+            && IsHolderName(id.Identifier.Text))
+        {
+            var invocation = node.Ancestors().OfType<InvocationExpressionSyntax>().FirstOrDefault();
+            var target = invocation != null ? ResolveInvocation(invocation) : null;
+            if (target != null && !IsInternalCandidate(target))
+            {
+                var sym = GetSymbol(id);
+                var type = sym switch
+                {
+                    ILocalSymbol l => l.Type,
+                    IParameterSymbol p => p.Type,
+                    IFieldSymbol f => f.Type,
+                    _ => null,
+                };
+                if (type != null && type.IsRefLikeType)
+                    Report3304(id,
+                        $"ref struct holder '{id.Identifier.Text}' forwarded to external ref API " +
+                        $"'{target.ToDisplayString()}' — C# cannot express this through a holder (D3 §9.4)");
+            }
+        }
+        return base.VisitArgument(node);
+    }
 
     // ── C4: ref-return proxies ──────────────────────────────────────────────
 
