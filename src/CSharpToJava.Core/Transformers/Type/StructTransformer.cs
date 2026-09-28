@@ -6,29 +6,31 @@ using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
 using CSharpToJava.Core.PartialType;
+using CSharpToJava.Core.Transformers.Member;
 using CSharpToJava.Core.Transformers.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Type;
 
 /// <summary>
-/// 结构体转换器 - 将 C# struct 转换为 Java 类
+/// 结构体转换器：C# struct → 普通 Java class。
+/// 只做最简单的一一映射：不生成 clone/equals/hashCode/默认构造/value-class 等值语义
+/// 补丁；struct 的值语义差异由 C#→C# 预处理器在需要时消除。遇到未归一化的复杂构造
+/// （如 ref struct）时快速失败。
 /// </summary>
 public class StructTransformer : ITypeTransformer
 {
     public JavaTypeDeclaration Transform(TypeDeclarationSyntax node, ConversionContext context)
     {
         if (node is not StructDeclarationSyntax structDecl)
-        {
             throw new ArgumentException($"Expected StructDeclarationSyntax, got {node.GetType()}");
-        }
 
         return TransformCore(structDecl, null, context);
     }
 
     /// <summary>
-    /// Converts a merged partial struct (e.g. ref partial struct Utf8JsonReader split
-    /// across multiple files). Members are processed per original syntax node so the
-    /// semantic model matches each member's own tree, mirroring ClassTransformer.
+    /// Converts a merged partial struct. Members are processed per original syntax
+    /// node so the semantic model matches each member's own tree, mirroring
+    /// ClassTransformer.
     /// </summary>
     public JavaTypeDeclaration TransformMerged(MergedTypeDeclaration mergedType, ConversionContext context)
         => TransformMerged(mergedType, context, mergedType.OriginalSyntaxNodes);
@@ -44,9 +46,7 @@ public class StructTransformer : ITypeTransformer
         IReadOnlyList<TypeDeclarationSyntax> validNodes)
     {
         if (mergedType.MergedSyntax is not StructDeclarationSyntax structDecl)
-        {
             throw new ArgumentException($"Expected merged StructDeclarationSyntax, got {mergedType.MergedSyntax.GetType()}");
-        }
 
         return TransformCore(structDecl, mergedType.TypeSymbol, context, validNodes);
     }
@@ -57,377 +57,106 @@ public class StructTransformer : ITypeTransformer
         ConversionContext context,
         IReadOnlyList<TypeDeclarationSyntax>? originalNodes = null)
     {
-        var isReadOnly = structDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword));
-        bool isRefStruct = structDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.RefKeyword));
+        if (structDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.RefKeyword)))
+        {
+            throw new NotSupportedException(
+                $"CS2J normalization required: ref struct '{structDecl.Identifier.Text}' must be lowered by a preprocessor before Java conversion.");
+        }
 
-        // C# struct 转换为 Java 类
+        // C# struct 直接转换为普通 Java 类（readonly 关键字在声明层面忽略：
+        // ReadOnlyStruct 预处理器已完成方法体迁移，不强制字段 final）。
         var javaClass = new JavaClassDeclaration
         {
             Name = structDecl.Identifier.Text,
             Modifiers = ConvertModifiers(structDecl.Modifiers),
             IsConvertedFromStruct = true,
-            // Mark as value class if UseValueClass option is enabled and struct is readonly
-            IsValueClass = context.Options.UseValueClass && isReadOnly
         };
         var structSymbol = mergedStructSymbol ?? context.GetDeclaredSymbol(structDecl) as INamedTypeSymbol;
         if (structSymbol != null)
         {
-            // Java has no type overloading: a top-level struct that shares its simple name with
-            // a same-namespace sibling of a different arity must use the arity-safe name
-            // (e.g. KeyValuePair<TKey, TValue> next to the non-generic KeyValuePair static
-            // class → KeyValuePair2). References already resolve through
-            // ConversionContext.GetJavaTopLevelTypeName, so the declaration must agree.
+            // 名称以语义符号为准，并与跨文件引用解析共用同一个 arity-safe 名称。
             javaClass.Name = context.GetJavaTopLevelTypeName(structSymbol);
         }
+        javaClass.LeadingComment = context.GetDeclarationComments(structDecl, structSymbol).ToCombinedComment();
+
         var previousEnclosingRoslynType = context.CurrentEnclosingRoslynType;
         context.CurrentEnclosingRoslynType = structSymbol;
-        var convertedComments = context.GetDeclarationComments(structDecl, structSymbol).ToCombinedComment();
 
-        // Fix 3: ref struct — emit a leading comment since Java has no stack-only equivalent.
-        var leadingCommentLines = new List<string>();
-        if (isRefStruct)
-        {
-            leadingCommentLines.Add("// NOTE: Originally a C# ref struct (stack-only). Java does not enforce stack allocation.");
-        }
-
-        // Fix 1: class-level Javadoc warning about value semantics.
-        leadingCommentLines.Add("/**");
-        leadingCommentLines.Add(" * NOTE: Converted from a C# struct (value type). In C#, struct assignment copies");
-        leadingCommentLines.Add(" * the value; in Java, assignment copies the reference.");
-        leadingCommentLines.Add(" * Use {@link #clone()} to manually copy instances when value semantics are required.");
-        leadingCommentLines.Add(" */");
-        javaClass.LeadingComment = ConvertedCommentSet.JoinComments(convertedComments, string.Join("\n", leadingCommentLines));
-
-        // 处理类型参数
+        // 类型参数 + where 约束（直接映射为 <T extends IFoo>）。
         foreach (var typeParam in structDecl.TypeParameterList?.Parameters ?? Enumerable.Empty<TypeParameterSyntax>())
-        {
             javaClass.TypeParameters.Add(new JavaTypeParameter(typeParam.Identifier.Text));
-        }
-
-        // Propagate generic type parameter constraints
         ClassTransformer.ApplyTypeParameterConstraints(structDecl.ConstraintClauses, javaClass.TypeParameters, context);
 
-        // 处理接口实现
-        if (structDecl.BaseList != null)
-        {
-            foreach (var baseType in structDecl.BaseList.Types)
-            {
-                var typeInfo = context.GetTypeInfo(baseType.Type);
-                if (typeInfo.Type?.TypeKind == TypeKind.Interface)
-                {
-                    var iface = typeInfo.Type;
-                    // Skip MarshalByRefObject - it doesn't exist in Java
-                    if (iface.Name != "MarshalByRefObject"
-                        && iface.ToDisplayString() != "System.MarshalByRefObject")
-                    {
-                        // Readonly-struct migration changes mutating interface members from
-                        // `void M(args)` to `StructName M(args)`. Java cannot implement an
-                        // interface method with a different return type, so drop conflicting
-                        // interface declarations instead of emitting an unimplementable class.
-                        if (isReadOnly && structSymbol is INamedTypeSymbol namedStructSymbol &&
-                            HasInterfaceReturnTypeConflict(iface, namedStructSymbol))
-                        {
-                            continue;
-                        }
-                        javaClass.ImplementedTypes.Add(context.MapType(iface));
-                    }
-                }
-            }
-        }
+        AddInterfaces(javaClass, structSymbol, structDecl, context);
 
-        // 处理成员
+        // 处理成员。
         context.EnterType(javaClass);
 
-        // Register runtime class fields before processing members so that
-        // method bodies can reference the field names for array creation etc.
-        var runtimeClassTypeParameters = ClassTransformer.AddRuntimeClassFields(javaClass, structSymbol as INamedTypeSymbol, context);
-
-        // Pre-register nested enums so that their type information (FlagsEnum, ExplicitValueEnum)
-        // is available when processing method bodies that reference them.
+        // 预注册嵌套枚举，使方法体中对其的前向引用可以拿到枚举信息。
         foreach (var member in EnumerateMembers(structDecl, originalNodes, context))
-        {
             if (member is EnumDeclarationSyntax nestedEnum)
-            {
-                var enumTransformer = new Transformers.Type.EnumTransformer();
-                enumTransformer.TransformEnum(nestedEnum, context);
-            }
-        }
+                new EnumTransformer().TransformEnum(nestedEnum, context);
 
         foreach (var member in EnumerateMembers(structDecl, originalNodes, context))
-        {
             ProcessStructMember(member, javaClass, context);
-        }
+
         context.LeaveType();
 
-        // Explicit interface property accessors may coexist with same-name class property
-        // accessors that differ only in return type (e.g. object IFoo.Bar vs typed Bar).
-        // AddMethodIfNotDuplicateInternal keeps both; resolve the Java name clash here,
-        // exactly as ClassTransformer does for classes.
-        ClassTransformer.ResolveExplicitInterfacePropertyConflicts(javaClass);
-
-        // Fix 2: readonly struct → apply final to each instance field, not to the class declaration.
-        if (isReadOnly)
-        {
-            foreach (var field in javaClass.Fields)
-            {
-                // Only apply to instance fields; static fields already carry their own modifiers.
-                if ((field.Modifiers & JavaModifiers.Static) == 0)
-                {
-                    field.Modifiers |= JavaModifiers.Final;
-                }
-            }
-        }
-
-        // For non-readonly structs, still apply final to individually-declared readonly fields.
-        // The StructTransformer handles the no-arg ctor initialization, so final is safe here.
-        // Exception: ref structs may be reassigned as a whole (`this = other;`), which the
-        // converter expands into per-field assignments — final fields would then fail to compile.
-        if (!isReadOnly && !isRefStruct)
-        {
-            var readonlyFieldNames = new HashSet<string>();
-            foreach (var member in structDecl.Members)
-            {
-                if (member is FieldDeclarationSyntax fieldDecl
-                    && fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)))
-                {
-                    foreach (var v in fieldDecl.Declaration.Variables)
-                        readonlyFieldNames.Add(ConversionContext.EscapeJavaKeyword(v.Identifier.Text));
-                }
-            }
-            foreach (var field in javaClass.Fields)
-            {
-                if (readonlyFieldNames.Contains(field.Name))
-                    field.Modifiers |= JavaModifiers.Final;
-            }
-        }
-
-        // For final fields assigned in constructors, remove field initializers:
-        // Java forbids assigning a final field that carries an initializer in a
-        // constructor ("variable x might already have been assigned"). Applies to
-        // both readonly structs (all fields final) and readonly fields of plain structs.
-        var finalFieldsAssignedInCtors = new HashSet<string>();
-        foreach (var ctor in javaClass.Constructors)
-        {
-            var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
-            foreach (var field in javaClass.Fields)
-            {
-                if ((field.Modifiers & JavaModifiers.Static) != 0) continue;
-                if ((field.Modifiers & JavaModifiers.Final) == 0) continue;
-                if (body.Contains($"this.{field.Name} =") || body.Contains($"this.{field.Name}=") ||
-                    System.Text.RegularExpressions.Regex.IsMatch(body, $@"(?<!this\.)(?<!\w){System.Text.RegularExpressions.Regex.Escape(field.Name)}\s*="))
-                {
-                    finalFieldsAssignedInCtors.Add(field.Name);
-                }
-            }
-        }
-        foreach (var field in javaClass.Fields)
-        {
-            if (finalFieldsAssignedInCtors.Contains(field.Name) && !string.IsNullOrWhiteSpace(field.Initializer))
-            {
-                field.Initializer = null;
-            }
-        }
-
-        // Ensure the class implements Cloneable so Object.clone() works correctly
-        // when accessed through a reference typed as Object.
-        if (!javaClass.ImplementedTypes.Contains("Cloneable"))
-            javaClass.ImplementedTypes.Add("Cloneable");
-
-        // Fix 1: Emit a clone() method to approximate C# value-type copy semantics.
-        AddCloneMethod(javaClass, isReadOnly, structDecl, context, runtimeClassTypeParameters);
-
-        // Generate equals(Object) override when operator== was converted to valueEquals
-        // but no explicit equals(Object) override exists. Also generates equals() for
-        // structs without operator== (C# structs use value equality by default).
-        AddEqualsOverrideIfMissing(javaClass, context);
-
-        // Fix 6: If an equals() method was generated but hashCode() is absent, emit a hashCode().
-        AddHashCodeIfMissing(javaClass, context);
-
-        // Generate toString() for better debugging when no explicit override exists.
-        AddToStringIfMissing(javaClass);
-
-        // When struct has comparison operators (lessThan/greaterThan), add Comparable<T>
-        // bridge method if body references .compareTo(), mirroring ClassTransformer behavior.
-        AddComparableBridgeMethods(javaClass);
-
-        // Remove compareTo(Object) if compareTo(Typed) exists, to avoid bridge conflict
-        // with Java's auto-generated Comparable<T> bridge method.
-        ClassTransformer.RemoveCompareToBridgeConflicts(javaClass);
-
-        // Fix 4: C# structs always have an implicit zero-arg constructor. Emit one for Java
-        // when there are explicit parameterised constructors but no no-arg constructor.
-        // Also: always emit an explicit default ctor when struct has struct-typed instance fields,
-        // because in C#, `default(Outer)` initializes struct fields to their defaults (not null),
-        // but Java's implicit no-arg ctor leaves reference fields as null.
-        var structFieldNamesForCtor = BuildStructFieldNames(structDecl, context);
-        var enumFieldNamesForCtor = BuildEnumFieldNames(structDecl, context);
-        bool hasExplicitCtors = javaClass.Constructors.Any(c => c.Parameters.Count > 0);
-        bool hasNoArgCtor = javaClass.Constructors.Any(c => c.Parameters.Count == 0);
-        bool hasStructFieldsNeedingInit = javaClass.Fields.Any(f =>
-            (f.Modifiers & JavaModifiers.Static) == 0 && structFieldNamesForCtor.Contains(f.Name));
-        bool hasEnumFieldsNeedingInit = javaClass.Fields.Any(f =>
-            (f.Modifiers & JavaModifiers.Static) == 0 && enumFieldNamesForCtor.Contains(f.Name));
-
-        if ((hasExplicitCtors && !hasNoArgCtor) || (!hasNoArgCtor && (hasStructFieldsNeedingInit || hasEnumFieldsNeedingInit)))
-        {
-            // Collect runtime class field names so we skip them in the default constructor.
-            // These fields are managed by AddRuntimeClassConstructorParameters.
-            var runtimeClassFieldNames = runtimeClassTypeParameters
-                .Select(f => f.FieldName)
-                .ToHashSet(StringComparer.Ordinal);
-
-            var bodyLines = new List<string>();
-            foreach (var field in javaClass.Fields)
-            {
-                bool isInstance = (field.Modifiers & JavaModifiers.Static) == 0;
-                if (!isInstance) continue;
-
-                // Skip runtime class fields — they are initialized by AddRuntimeClassConstructorParameters
-                if (runtimeClassFieldNames.Contains(field.Name)) continue;
-
-                bool isFinal = (field.Modifiers & JavaModifiers.Final) != 0;
-                bool hasInitializer = !string.IsNullOrWhiteSpace(field.Initializer);
-
-                if (enumFieldNamesForCtor.Contains(field.Name) && !hasInitializer)
-                {
-                    // C# enum fields default to the zero-valued member, never null.
-                    bodyLines.Add($"this.{field.Name} = {field.Type}.values()[0];");
-                }
-                else if (structFieldNamesForCtor.Contains(field.Name) && !hasInitializer)
-                {
-                    // Struct-typed field: initialize to new StructType() to match C# value semantics.
-                    // In C#, struct fields are always zero-initialized, never null.
-                    bodyLines.Add($"this.{field.Name} = new {field.Type}();");
-                }
-                else if (isFinal && !hasInitializer)
-                {
-                    bodyLines.Add($"this.{field.Name} = {GetJavaDefaultValue(field.Type)};");
-                }
-            }
-
-            if (bodyLines.Count == 0)
-            {
-                bodyLines.Add("/* zero-initialized */");
-            }
-
-            var defaultCtor = new JavaConstructorDeclaration
-            {
-                ClassName = javaClass.Name,
-                Modifiers = JavaModifiers.Public,
-                Body = string.Join("\n", bodyLines)
-            };
-            javaClass.Constructors.Insert(0, defaultCtor);
-        }
-
-        // Add Class<?> parameters to constructors for generic types that need
-        // runtime type information (e.g., types with new T[] array creation).
-        ClassTransformer.AddRuntimeClassConstructorParameters(javaClass, runtimeClassTypeParameters, structSymbol as INamedTypeSymbol, context);
-
-        // Fix: For readonly structs (all instance fields final), Java requires each final field
-        // to be assigned exactly once per constructor path. Constructor chaining via this()
-        // causes double-assignment. Remove this() chains and ensure each constructor
-        // independently assigns all final fields.
-        if (isReadOnly)
-        {
-            FixReadonlyStructConstructorChaining(javaClass, structFieldNamesForCtor, enumFieldNamesForCtor);
-            DropFinalFromRepeatedlyAssignedFields(javaClass);
-        }
-
-        // For value classes (C# readonly struct → Java value class), add a
-        // field-copy constructor that directly assigns every instance field
-        // from its parameter.  MemoryMarshal.read uses this constructor to
-        // reconstruct value-class instances from their encoded byte layout,
-        // because Java value classes cannot have their final fields modified
-        // via reflection/Unsafe (unlike C# where MemoryMarshal.Read directly
-        // reinterprets the raw bytes).  The constructor is package-private
-        // to avoid polluting the public API.
-        if (javaClass.IsValueClass)
-        {
-            var instanceFields = javaClass.Fields
-                .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
-                .ToList();
-            if (instanceFields.Count > 0)
-            {
-                // Check if a constructor with the same parameter types already exists.
-                var fieldTypes = instanceFields.Select(f => f.Type).ToList();
-                bool hasFieldCopyCtor = javaClass.Constructors.Any(c =>
-                    c.Parameters.Count == fieldTypes.Count
-                    && c.Parameters.Select(p => p.Type).SequenceEqual(fieldTypes));
-                if (!hasFieldCopyCtor)
-                {
-                    var fieldCopyCtorParams = new List<JavaParameter>();
-                    var bodyLines = new List<string>();
-                    for (int i = 0; i < instanceFields.Count; i++)
-                    {
-                        var field = instanceFields[i];
-                        var paramName = $"__field{i}";
-                        fieldCopyCtorParams.Add(new JavaParameter(field.Type, paramName));
-                        bodyLines.Add($"this.{field.Name} = {paramName};");
-                    }
-                    var fieldCopyCtor = new JavaConstructorDeclaration
-                    {
-                        ClassName = javaClass.Name,
-                        Modifiers = JavaModifiers.None, // package-private
-                        Body = string.Join("\n", bodyLines)
-                    };
-                    foreach (var p in fieldCopyCtorParams)
-                        fieldCopyCtor.Parameters.Add(p);
-                    javaClass.Constructors.Add(fieldCopyCtor);
-                }
-            }
-        }
+        // 多语句字段初始化：static 字段进 static 块，实例字段进构造器（机械提升）。
+        ClassTransformer.LiftFieldInitializerStatements(javaClass);
 
         context.CurrentEnclosingRoslynType = previousEnclosingRoslynType;
         return javaClass;
     }
-    /// <summary>
-    /// True when an interface declares a method whose name and arity match a struct
-    /// instance method but whose return type differs — the case produced by readonly
-    /// struct migration (void Add(Point) → Rectangle Add(Point)). Java forbids
-    /// implementing such an interface, so the caller drops it.
-    /// </summary>
-    private static bool HasInterfaceReturnTypeConflict(ITypeSymbol iface, INamedTypeSymbol structSymbol)
+
+    private static void AddInterfaces(JavaClassDeclaration javaClass, INamedTypeSymbol? structSymbol,
+        StructDeclarationSyntax structDecl, ConversionContext context)
     {
-        foreach (var member in iface.GetMembers())
+        if (structSymbol != null)
         {
-            if (member is not IMethodSymbol ifaceMethod || ifaceMethod.MethodKind != MethodKind.Ordinary)
-                continue;
-            foreach (var candidate in structSymbol.GetMembers(ifaceMethod.Name).OfType<IMethodSymbol>())
+            foreach (var iface in structSymbol.Interfaces)
             {
-                if (candidate.MethodKind != MethodKind.Ordinary || candidate.IsStatic)
-                    continue;
-                if (candidate.Parameters.Length != ifaceMethod.Parameters.Length)
-                    continue;
-                // Covariant returns are legal in Java: a class method may return a
-                // subtype of the interface method's return type. Only a truly
-                // incompatible return type is a conflict.
-                if (!ReturnsCompatibleType(candidate.ReturnType, ifaceMethod.ReturnType))
-                    return true;
+                var mapped = context.MapTypeForDeclarationHeader(iface);
+                if (mapped != "__suppress__" && !javaClass.ImplementedTypes.Contains(mapped))
+                    javaClass.ImplementedTypes.Add(mapped);
             }
+            return;
         }
-        return false;
+
+        if (structDecl.BaseList == null) return;
+        foreach (var baseType in structDecl.BaseList.Types)
+        {
+            var typeInfo = context.GetTypeInfo(baseType.Type).Type;
+            if (typeInfo?.TypeKind != TypeKind.Interface) continue;
+            var mapped = context.MapTypeForDeclarationHeader(typeInfo);
+            if (!javaClass.ImplementedTypes.Contains(mapped))
+                javaClass.ImplementedTypes.Add(mapped);
+        }
     }
 
-    /// <summary>
-    /// True when <paramref name="actual"/> equals <paramref name="declared"/> or is a
-    /// subtype (class derivation or interface implementation) of it.
-    /// </summary>
-    private static bool ReturnsCompatibleType(ITypeSymbol actual, ITypeSymbol declared)
+    private static JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
     {
-        if (SymbolEqualityComparer.Default.Equals(actual, declared))
-            return true;
-        if (actual is INamedTypeSymbol named)
+        JavaModifiers result = JavaModifiers.None;
+        foreach (var modifier in modifiers)
         {
-            if (named.AllInterfaces.Any(i => SymbolEqualityComparer.Default.Equals(i, declared)))
-                return true;
-            for (var baseType = named.BaseType; baseType != null; baseType = baseType.BaseType)
+            result |= modifier.Kind() switch
             {
-                if (SymbolEqualityComparer.Default.Equals(baseType, declared))
-                    return true;
-            }
+                SyntaxKind.PublicKeyword => JavaModifiers.Public,
+                SyntaxKind.PrivateKeyword => JavaModifiers.Private,
+                SyntaxKind.InternalKeyword => JavaModifiers.Public,
+                SyntaxKind.ProtectedKeyword => JavaModifiers.Protected,
+                _ => JavaModifiers.None
+            };
         }
-        return false;
+        // 缺省访问修饰符（C# 默认 internal/private 视成员而定，类型默认 internal）→ public。
+        bool hasAccessModifier = modifiers.Any(m =>
+            m.IsKind(SyntaxKind.PublicKeyword) ||
+            m.IsKind(SyntaxKind.PrivateKeyword) ||
+            m.IsKind(SyntaxKind.ProtectedKeyword) ||
+            m.IsKind(SyntaxKind.InternalKeyword));
+        if (!hasAccessModifier)
+            result |= JavaModifiers.Public;
+        return result;
     }
 
     /// <summary>
@@ -462,1237 +191,158 @@ public class StructTransformer : ITypeTransformer
         }
     }
 
-    private static string GetMemberKey(MemberDeclarationSyntax member)
+    private static string GetMemberKey(MemberDeclarationSyntax member) => member switch
     {
-        return member switch
-        {
-            MethodDeclarationSyntax m => $"method:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => p.Type?.ToString() ?? "?") ?? Enumerable.Empty<string>())}",
-            PropertyDeclarationSyntax p => $"property:{p.Identifier.Text}",
-            FieldDeclarationSyntax f => $"field:{string.Join(",", f.Declaration.Variables.Select(v => v.Identifier.Text))}",
-            ConstructorDeclarationSyntax c => c.Modifiers.Any(mod => mod.IsKind(SyntaxKind.StaticKeyword))
-                ? "cctor"
-                : $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => p.Type?.ToString() ?? "?") ?? Enumerable.Empty<string>())}",
-            EventDeclarationSyntax e => $"event:{e.Identifier.Text}",
-            _ => $"other:{member.Kind()}:{member.GetHashCode()}"
-        };
-    }
-
-    /// <summary>
-    /// Counts chain arguments that are simple identifiers matching the target
-    /// constructor's parameter names at the same position. A chain that forwards
-    /// its own parameters (this(dateTimeOffset, kinds)) aligns 2:2 with its
-    /// intended target and 0:2 with an unrelated same-arity overload.
-    /// </summary>
-    private static int CountMatchingParamNames(JavaConstructorDeclaration ctor, List<string> chainArgs)
-    {
-        var matches = 0;
-        for (var i = 0; i < ctor.Parameters.Count && i < chainArgs.Count; i++)
-        {
-            var arg = chainArgs[i].Trim();
-            if (arg.Length > 0 && IsSimpleIdentifier(arg) &&
-                string.Equals(arg, ctor.Parameters[i].Name, StringComparison.Ordinal))
-            {
-                matches++;
-            }
-        }
-        return matches;
-    }
-
-    private static bool IsSimpleIdentifier(string text)
-        => text.All(ch => char.IsLetterOrDigit(ch) || ch == '_') &&
-           (char.IsLetter(text[0]) || text[0] == '_');
-
-    /// <summary>
-    /// Splits a comma-separated argument list at top-level commas (parentheses,
-    /// brackets, braces, and string literals are respected).
-    /// </summary>
-    private static List<string> SplitTopLevelArgs(string args)
-    {
-        var result = new List<string>();
-        if (string.IsNullOrWhiteSpace(args)) return result;
-        var depth = 0;
-        var current = new System.Text.StringBuilder();
-        var inString = false;
-        var inChar = false;
-        for (var i = 0; i < args.Length; i++)
-        {
-            var ch = args[i];
-            if (inString)
-            {
-                current.Append(ch);
-                if (ch == '"' && (i == 0 || args[i - 1] != '\\')) inString = false;
-                continue;
-            }
-            if (inChar)
-            {
-                current.Append(ch);
-                if (ch == '\'' && (i == 0 || args[i - 1] != '\\')) inChar = false;
-                continue;
-            }
-            switch (ch)
-            {
-                case '"': inString = true; current.Append(ch); break;
-                case '\'': inChar = true; current.Append(ch); break;
-                case '(': case '[': case '{': case '<': depth++; current.Append(ch); break;
-                case ')': case ']': case '}': case '>': depth--; current.Append(ch); break;
-                case ',' when depth == 0:
-                    result.Add(current.ToString().Trim());
-                    current.Clear();
-                    break;
-                default:
-                    current.Append(ch);
-                    break;
-            }
-        }
-        if (current.Length > 0)
-            result.Add(current.ToString().Trim());
-        return result;
-    }
-
-    /// <summary>
-    /// Java final fields allow a single assignment per constructor path. Whole-instance
-    /// reassignment expansions (`this = expr` → per-field copies, also emitted as
-    /// `__inst.f = ...` inside static factory conversions) can leave a field assigned
-    /// twice, and a field assigned only inside nested control flow (e.g. an `if`
-    /// block) is not definitely assigned on every path; drop final from such fields
-    /// so the code compiles. Value classes cannot carry non-final instance fields,
-    /// so a value class with any such field falls back to a regular class.
-    /// </summary>
-    private static void DropFinalFromRepeatedlyAssignedFields(JavaClassDeclaration javaClass)
-    {
-        var repeated = new HashSet<string>(StringComparer.Ordinal);
-
-        // Fields assigned inside ANY method body (e.g. `__inst.f = ...` in static
-        // factory conversions of `this = expr`) cannot stay final: Java finals are
-        // only assignable inside constructors.
-        foreach (var method in javaClass.Methods)
-        {
-            var mbody = method.Body ?? method.StructuredBody?.ToBodyString() ?? "";
-            foreach (var field in javaClass.Fields)
-            {
-                if ((field.Modifiers & JavaModifiers.Static) != 0) continue;
-                var escaped = System.Text.RegularExpressions.Regex.Escape(field.Name);
-                if (System.Text.RegularExpressions.Regex.IsMatch(mbody, $@"(?:this|__inst)\.{escaped}\s*="))
-                    repeated.Add(field.Name);
-            }
-        }
-
-        // Fields assigned more than once in a single constructor path also lose final.
-        // Assignments may be qualified (this.f = ...) or bare (f = ...) when no local
-        // shadows the field name.
-        foreach (var ctor in javaClass.Constructors)
-        {
-            var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
-            foreach (var field in javaClass.Fields)
-            {
-                if ((field.Modifiers & JavaModifiers.Static) != 0) continue;
-                if (repeated.Contains(field.Name)) continue;
-                var escaped = System.Text.RegularExpressions.Regex.Escape(field.Name);
-                var qualified = $@"(?:this|__inst)\.{escaped}\s*=";
-                var qualifiedCount = System.Text.RegularExpressions.Regex.Matches(body, qualified).Count;
-                var bareCount = 0;
-                var hasShadowLocal = System.Text.RegularExpressions.Regex.IsMatch(body,
-                    $@"(?:var|[A-Za-z_][\w<>,\s\.\[\]]*?)\s+{escaped}\s*=");
-                if (!hasShadowLocal)
-                {
-                    bareCount = System.Text.RegularExpressions.Regex.Matches(body,
-                        $@"(?<![\w.]){escaped}\s*=").Count;
-                    // Chained assignments (a = b = v) double-count the tail field across
-                    // statements only when it truly appears as an assignment target.
-                }
-                if (qualifiedCount + bareCount > 1)
-                    repeated.Add(field.Name);
-            }
-        }
-
-        // Fields whose only assignments are inside nested control-flow blocks
-        // (if/switch/loop) may not be definitely assigned on every constructor
-        // path. A conservative top-level-assignment check drops final for them
-        // too; otherwise javac reports "variable might not have been initialized".
-        foreach (var ctor in javaClass.Constructors)
-        {
-            var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
-            foreach (var field in javaClass.Fields)
-            {
-                if ((field.Modifiers & JavaModifiers.Static) != 0) continue;
-                if (repeated.Contains(field.Name)) continue;
-
-                var escaped = System.Text.RegularExpressions.Regex.Escape(field.Name);
-                var qualified = $@"(?:this|__inst)\.{escaped}\s*=";
-                var matches = System.Text.RegularExpressions.Regex.Matches(body, qualified)
-                    .Cast<System.Text.RegularExpressions.Match>()
-                    .ToList();
-
-                var hasShadowLocal = System.Text.RegularExpressions.Regex.IsMatch(body,
-                    $@"(?:var|[A-Za-z_][\w<>,\s\.\[\]]*?)\s+{escaped}\s*=");
-                if (!hasShadowLocal)
-                {
-                    matches.AddRange(System.Text.RegularExpressions.Regex.Matches(
-                        body,
-                        $@"(?<![\w.]){escaped}\s*=")
-                        .Cast<System.Text.RegularExpressions.Match>());
-                }
-
-                if (matches.Count == 0) continue;
-
-                var hasTopLevelAssignment = matches.Any(m => BraceDepthAt(body, m.Index) == 0);
-                var hasNestedAssignment = matches.Any(m => BraceDepthAt(body, m.Index) > 0);
-                if (hasNestedAssignment && !hasTopLevelAssignment)
-                    repeated.Add(field.Name);
-            }
-        }
-
-        foreach (var field in javaClass.Fields)
-        {
-            if (repeated.Contains(field.Name))
-                field.Modifiers &= ~JavaModifiers.Final;
-        }
-
-        // Java value classes (JEP 401) require final instance fields even when the
-        // field is not explicitly marked final. If any instance field had to lose
-        // final above, the struct cannot be emitted as a value class; fall back to
-        // a regular class (the readonly-struct clone-based codegen is unchanged).
-        if (javaClass.IsValueClass)
-        {
-            var anyNonFinalInstanceField = javaClass.Fields.Any(f =>
-                (f.Modifiers & JavaModifiers.Static) == 0 &&
-                (f.Modifiers & JavaModifiers.Final) == 0);
-            if (anyNonFinalInstanceField)
-                javaClass.IsValueClass = false;
-        }
-    }
-
-    private static int BraceDepthAt(string body, int position)
-    {
-        int depth = 0;
-        bool inLineComment = false;
-        bool inBlockComment = false;
-        bool inString = false;
-        bool inChar = false;
-        bool escaped = false;
-
-        for (int i = 0; i < position && i < body.Length; i++)
-        {
-            char c = body[i];
-            char next = i + 1 < body.Length ? body[i + 1] : '\0';
-
-            if (inLineComment)
-            {
-                if (c == '\n') inLineComment = false;
-                continue;
-            }
-            if (inBlockComment)
-            {
-                if (c == '*' && next == '/')
-                {
-                    inBlockComment = false;
-                    i++;
-                }
-                continue;
-            }
-            if (inString)
-            {
-                if (escaped) { escaped = false; continue; }
-                if (c == '\\') { escaped = true; continue; }
-                if (c == '"') inString = false;
-                continue;
-            }
-            if (inChar)
-            {
-                if (escaped) { escaped = false; continue; }
-                if (c == '\\') { escaped = true; continue; }
-                if (c == '\'') inChar = false;
-                continue;
-            }
-
-            if (c == '/' && next == '/') { inLineComment = true; i++; continue; }
-            if (c == '/' && next == '*') { inBlockComment = true; i++; continue; }
-            if (c == '"') { inString = true; continue; }
-            if (c == '\'') { inChar = true; continue; }
-            if (c == '{') depth++;
-            else if (c == '}') depth--;
-        }
-
-        return depth;
-    }
-
-    /// <summary>
-    /// Finds a constructor whose body ONLY assigns every instance field from its own
-    /// parameters (the readonly-struct maker's compose constructor, possibly with a
-    /// trailing __cs2jTag parameter) and builds a `new StructName(this.f1, ...)` copy
-    /// expression for clone(). Returns false when no such constructor exists.
-    /// </summary>
-    private static bool TryBuildComposeCtorCopy(JavaClassDeclaration javaClass,
-        List<JavaFieldDeclaration> instanceFields, HashSet<string> structFieldNames,
-        out string copyExpr)
-    {
-        copyExpr = "";
-        foreach (var ctor in javaClass.Constructors)
-        {
-            var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
-            var paramNames = ctor.Parameters.Select(p => p.Name).ToList();
-            var nonTagParams = paramNames.Where(n => n != "__cs2jTag").ToList();
-            if (nonTagParams.Count != instanceFields.Count)
-                continue;
-
-            // Every instance field must be assigned from a parameter, and the body
-            // must contain no other statements.
-            var assignedFrom = new Dictionary<string, string>(StringComparer.Ordinal);
-            var ok = true;
-            foreach (var line in body.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
-            {
-                var trimmed = line.Trim().TrimEnd(';');
-                if (trimmed.Length == 0 || trimmed == "{" || trimmed == "}") continue;
-                var match = System.Text.RegularExpressions.Regex.Match(trimmed,
-                    $@"^this\.(\w+)\s*=\s*(\w+)$");
-                if (!match.Success)
-                {
-                    ok = false;
-                    break;
-                }
-                var fieldName = match.Groups[1].Value;
-                var source = match.Groups[2].Value;
-                if (!instanceFields.Any(f => f.Name == fieldName) || !paramNames.Contains(source))
-                {
-                    ok = false;
-                    break;
-                }
-                assignedFrom[fieldName] = source;
-            }
-            if (!ok || assignedFrom.Count != instanceFields.Count)
-                continue;
-
-            // Build the argument list in the constructor's parameter order.
-            var args = new List<string>();
-            foreach (var param in ctor.Parameters)
-            {
-                if (param.Name == "__cs2jTag")
-                {
-                    args.Add("0");
-                    continue;
-                }
-                var field = assignedFrom.FirstOrDefault(kv => kv.Value == param.Name).Key;
-                if (field == null)
-                {
-                    ok = false;
-                    break;
-                }
-                args.Add(structFieldNames.Contains(field)
-                    ? $"this.{field}.clone()"
-                    : $"this.{field}");
-            }
-            if (!ok) continue;
-
-            var newTypeName = javaClass.TypeParameters.Count > 0
-                ? $"{javaClass.Name}<>"
-                : javaClass.Name;
-            copyExpr = $"new {newTypeName}({string.Join(", ", args)})";
-            return true;
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Fix 1 — Emit a clone() method to approximate C# struct value-copy semantics.
-    /// For non-readonly structs, copies each instance field into a new instance.
-    /// For readonly structs (all instance fields are final), only returns new StructName()
-    /// because final fields cannot be reassigned after construction.
-    /// </summary>
-    private static void AddCloneMethod(JavaClassDeclaration javaClass, bool isReadOnly,
-        StructDeclarationSyntax structDecl, ConversionContext context,
-        IReadOnlyList<(ITypeParameterSymbol TypeParameter, string FieldName, string ParameterName)> runtimeClassFields)
-    {
-        // Field-wise copy INTO an existing instance. C# restores a `ref` parameter by assigning to
-        // the parameter variable (`reader = readerCopy;`), which mutates the caller's storage; the
-        // converted code passes an ObjectHolder, and replacing `holder.value` is NOT visible to a
-        // caller that still holds the original reference. JsonSerializer.Deserialize(ref reader)
-        // needs the in-place form to honour "if an exception is thrown the reader is reset to the
-        // state it was in when the method was called" (ObjectTests#tooLittleJsonFails asserts
-        // reader.BytesConsumed == 0).
-        var assignableFields = javaClass.Fields
-            .Where(f => (f.Modifiers & JavaModifiers.Static) == 0 && (f.Modifiers & JavaModifiers.Final) == 0)
-            .ToList();
-        if (assignableFields.Count > 0)
-        {
-            javaClass.Methods.Add(new JavaMethodDeclaration
-            {
-                Name = "__cs2jCopyFrom",
-                ReturnType = "void",
-                Modifiers = JavaModifiers.Public,
-                Parameters = { new JavaParameter(javaClass.Name, "other") },
-                Body = string.Join("\n        ", assignableFields.Select(f => $"this.{f.Name} = other.{f.Name};")),
-                LeadingComment = "/** Copies every field of {@code other} into this instance (C# `ref` restore). */"
-            });
-        }
-
-        // For all structs, an existing clone() converted from C# Clone() may rely on
-        // a constructor with side effects (e.g. Rectangle(Point, Point) calling add()),
-        // which can produce incorrect results for empty/degenerate rectangles.
-        // Replace it with a compose-constructor copy when possible.
-        {
-            var instanceFieldsForReplace = javaClass.Fields
-                .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
-                .ToList();
-            var structFieldNamesForReplace = BuildStructFieldNames(structDecl, context);
-            if (javaClass.Methods.Any(m => m.Name == "clone") &&
-                TryBuildComposeCtorCopy(javaClass, instanceFieldsForReplace, structFieldNamesForReplace, out var replaceExpr))
-            {
-                foreach (var existing in javaClass.Methods.Where(m => m.Name == "clone").ToList())
-                {
-                    existing.StructuredBody = null; // Body must take precedence when rendered
-                    existing.Body = $"return {replaceExpr};";
-                }
-                return;
-            }
-        }
-
-        // If the C# struct already defined a Clone() method (mapped to clone()),
-        // but the clone body may have side effects via constructors (e.g. Rectangle).
-        // Replace with a field-wise copy when possible to preserve value semantics.
-        if (javaClass.Methods.Any(m => m.Name == "clone"))
-        {
-            // Check if the original C# Clone() method has custom logic (e.g. conditional
-            // returns, control flow). If so, keep the original body — replacing it with a
-            // field-wise copy would destroy the custom semantics (e.g. `return this;` inside
-            // Clone() must NOT become `return this.clone();` which would recurse forever).
-            bool hasCustomCloneBody = HasCustomCloneBody(structDecl);
-            if (!hasCustomCloneBody)
-            {
-                var instanceFieldsForFieldCopy = javaClass.Fields
-                    .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
-                    .ToList();
-                var structFieldNamesForFieldCopy = BuildStructFieldNames(structDecl, context);
-                // Only replace if there are no final instance fields (can't assign final fields)
-                bool hasFinalField = instanceFieldsForFieldCopy.Any(f => (f.Modifiers & JavaModifiers.Final) != 0);
-                if (!hasFinalField && instanceFieldsForFieldCopy.Count > 0)
-                {
-                    var newTypeName2 = javaClass.TypeParameters.Count > 0
-                        ? $"{javaClass.Name}<>"
-                        : javaClass.Name;
-                    var fieldCopyLines = new List<string>();
-                    foreach (var f in instanceFieldsForFieldCopy)
-                    {
-                        if (structFieldNamesForFieldCopy.Contains(f.Name))
-                            fieldCopyLines.Add($"copy.{f.Name} = this.{f.Name} != null ? this.{f.Name}.clone() : null;");
-                        else
-                            fieldCopyLines.Add($"copy.{f.Name} = this.{f.Name};");
-                    }
-                    var fieldCopyBody = $"var copy = new {newTypeName2}();\n        " +
-                        string.Join("\n        ", fieldCopyLines) + "\n        return copy;";
-                    foreach (var existing in javaClass.Methods.Where(m => m.Name == "clone").ToList())
-                    {
-                        existing.StructuredBody = null;
-                        existing.Body = fieldCopyBody;
-                    }
-                    return;
-                }
-            }
-            // Has final fields, no instance fields, or custom clone body — keep original clone()
-            return;
-        }
-
-        var instanceFields = javaClass.Fields
-            .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
-            .ToList();
-        bool hasFinalInstanceField = instanceFields.Any(f => (f.Modifiers & JavaModifiers.Final) != 0);
-
-        // Build a set of field names whose C# type is a user-defined struct.
-        // These fields need .clone() in the copy to preserve value semantics (deep copy).
-        var structFieldNames = BuildStructFieldNames(structDecl, context);
-
-        // Compute type name including generic type parameters for use in clone body.
-        string typeName = javaClass.TypeParameters.Count > 0
-            ? $"{javaClass.Name}<{string.Join(", ", javaClass.TypeParameters.Select(tp => tp.Name))}>"
-            : javaClass.Name;
-        // For 'new' expressions with generics, use diamond operator
-        string newTypeName = javaClass.TypeParameters.Count > 0
-            ? $"{javaClass.Name}<>"
-            : javaClass.Name;
-        // When the struct has runtime class fields, the no-arg constructor requires Class<?> args.
-        string runtimeClassCtorArgs = runtimeClassFields.Count > 0
-            ? string.Join(", ", runtimeClassFields.Select(f => $"this.{f.FieldName}"))
-            : "";
-        string newExpr = runtimeClassCtorArgs.Length > 0
-            ? $"new {newTypeName}({runtimeClassCtorArgs})"
-            : $"new {newTypeName}()";
-
-        string cloneBody;
-        if (instanceFields.Count == 0)
-        {
-            cloneBody = $"return {newExpr};";
-        }
-        else if (isReadOnly)
-        {
-            // readonly struct: all instance fields are final and cannot be assigned after construction.
-            // Prefer a pure compose constructor (body only assigns every field from its
-            // parameters, e.g. the maker-generated tagged ctor): other constructors may
-            // carry side effects (migrated Add calls) that recurse through clone().
-            if (TryBuildComposeCtorCopy(javaClass, instanceFields, structFieldNames, out var composeExpr))
-            {
-                cloneBody = $"return {composeExpr};";
-            }
-            else if (TryBuildCtorCopy(javaClass, instanceFields, structFieldNames, out var ctorCopyExpr))
-            {
-                cloneBody = $"return {ctorCopyExpr};";
-            }
-            else
-            {
-                cloneBody = $"// NOTE: readonly struct without matching constructor for field-wise copy.\n" +
-                            "return this;";
-            }
-        }
-        else if (hasFinalInstanceField)
-        {
-            // Some structs can have readonly fields even without the readonly struct modifier.
-            // Avoid illegal writes to final fields in clone().
-            if (TryBuildCtorCopy(javaClass, instanceFields, structFieldNames, out var ctorCopyExpr))
-            {
-                cloneBody = $"return {ctorCopyExpr};";
-            }
-            else
-            {
-                // A final field cannot be assigned after construction ("cannot assign a value to
-                // final variable"), so a field-wise copy has to go through a constructor that takes
-                // every field. Emitting one keeps clone() faithful instead of silently dropping the
-                // final fields it cannot write — measured: ArrayEnumerator.clone() copied only
-                // _curIdx, so the copy had _target == null and _endIdxOrVersion == 0, moveNext()
-                // returned false at once, and iterating a parsed JSON array yielded no elements.
-                var ctor = new JavaConstructorDeclaration
-                {
-                    ClassName = javaClass.Name,
-                    Modifiers = JavaModifiers.Private,
-                    Body = string.Join("\n", instanceFields.Select(f => $"this.{f.Name} = {f.Name};"))
-                };
-                foreach (var field in instanceFields)
-                {
-                    ctor.Parameters.Add(new JavaParameter(field.Type, field.Name));
-                }
-                javaClass.Constructors.Add(ctor);
-
-                cloneBody = $"return new {typeName}({string.Join(", ", instanceFields.Select(f => $"this.{f.Name}"))});";
-            }
-        }
-        else
-        {
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"{typeName} copy = {newExpr};");
-            foreach (var field in instanceFields)
-            {
-                sb.AppendLine(BuildFieldCopyLine(field, structFieldNames));
-            }
-            sb.Append("return copy;");
-            cloneBody = sb.ToString();
-        }
-
-        var cloneMethod = new JavaMethodDeclaration
-        {
-            Name = "clone",
-            ReturnType = typeName,
-            Modifiers = JavaModifiers.Public,
-            Body = cloneBody,
-            LeadingComment = "/** Returns a copy of this struct, approximating C# value-type copy semantics. */"
-        };
-        javaClass.Methods.Add(cloneMethod);
-    }
-
-    /// <summary>
-    /// Builds a line for field copy in clone(). Generates .clone() for struct-typed fields.
-    /// </summary>
-    private static string BuildFieldCopyLine(JavaFieldDeclaration field, HashSet<string> structFieldNames)
-    {
-        if (structFieldNames.Contains(field.Name))
-            return $"copy.{field.Name} = this.{field.Name} != null ? this.{field.Name}.clone() : null;";
-        return $"copy.{field.Name} = this.{field.Name};";
-    }
-
-    /// <summary>
-    /// Checks whether the original C# Clone() method has custom logic that should be
-    /// preserved (not replaced with a field-wise copy). Custom logic includes control
-    /// flow statements (if, switch, loops), multiple statements, or non-trivial returns.
-    /// </summary>
-    private static bool HasCustomCloneBody(StructDeclarationSyntax structDecl)
-    {
-        var cloneMethod = structDecl.Members.OfType<MethodDeclarationSyntax>()
-            .FirstOrDefault(m => m.Identifier.Text == "Clone" && m.ParameterList.Parameters.Count == 0);
-        if (cloneMethod == null)
-            return false;
-
-        var body = cloneMethod.Body ?? (SyntaxNode?)cloneMethod.ExpressionBody;
-        if (body == null)
-            return false;
-
-        // Single expression-bodied method (e.g. `=> new Node();`) is not custom.
-        if (cloneMethod.ExpressionBody != null)
-            return false;
-
-        var block = body as BlockSyntax;
-        if (block == null)
-            return false;
-
-        // A single `return ...;` statement is not custom (will be handled by the
-        // field-wise copy or kept as-is if it's a simple new/copy pattern).
-        if (block.Statements.Count == 1 && block.Statements[0] is ReturnStatementSyntax)
-            return false;
-
-        // Multiple statements or any control flow = custom logic.
-        if (block.Statements.Count > 1)
-            return true;
-
-        // Single statement that is not a return = custom logic.
-        return true;
-    }
-
-    /// <summary>
-    /// Builds a set of Java field names whose corresponding C# type is a user-defined struct.
-    /// Checks both explicit fields and auto-property backing fields.
-    /// </summary>
-    private static HashSet<string> BuildStructFieldNames(StructDeclarationSyntax structDecl, ConversionContext context)
-    {
-        var result = new HashSet<string>();
-        if (context.SemanticModel == null)
-            return result;
-
-        foreach (var member in structDecl.Members)
-        {
-            if (member is FieldDeclarationSyntax fieldDecl)
-            {
-                var fieldType = context.GetTypeInfo(fieldDecl.Declaration.Type).Type;
-                if (StructCloneHelper.IsUserDefinedStruct(fieldType))
-                {
-                    foreach (var variable in fieldDecl.Declaration.Variables)
-                        result.Add(ConversionContext.EscapeJavaKeyword(variable.Identifier.Text));
-                }
-            }
-            else if (member is PropertyDeclarationSyntax propDecl)
-            {
-                // Auto-properties generate backing fields with camelCase names
-                var propSymbol = context.GetDeclaredSymbol(propDecl) as IPropertySymbol;
-                if (propSymbol != null && StructCloneHelper.IsUserDefinedStruct(propSymbol.Type))
-                {
-                    var propName = ConversionContext.EscapeJavaKeyword(propDecl.Identifier.Text);
-                    var fieldName = ConversionContext.EscapeJavaKeyword(ToCamelCase(propName));
-                    result.Add(fieldName);
-                }
-            }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Builds a set of Java field names whose corresponding C# type is a
-    /// non-flags enum. Struct enum fields default to the zero-valued member in
-    /// C#; Java enum references default to null, so generated constructors must
-    /// initialize them explicitly.
-    /// </summary>
-    private static HashSet<string> BuildEnumFieldNames(StructDeclarationSyntax structDecl, ConversionContext context)
-    {
-        var result = new HashSet<string>();
-        if (context.SemanticModel == null)
-            return result;
-
-        foreach (var member in structDecl.Members)
-        {
-            if (member is FieldDeclarationSyntax fieldDecl)
-            {
-                var fieldType = context.GetTypeInfo(fieldDecl.Declaration.Type).Type;
-                if (IsNonFlagsEnumType(fieldType, context))
-                {
-                    foreach (var variable in fieldDecl.Declaration.Variables)
-                        result.Add(ConversionContext.EscapeJavaKeyword(variable.Identifier.Text));
-                }
-            }
-            else if (member is PropertyDeclarationSyntax propDecl)
-            {
-                var propSymbol = context.GetDeclaredSymbol(propDecl) as IPropertySymbol;
-                if (propSymbol != null && IsNonFlagsEnumType(propSymbol.Type, context))
-                {
-                    var propName = ConversionContext.EscapeJavaKeyword(propDecl.Identifier.Text);
-                    result.Add(ConversionContext.EscapeJavaKeyword(ToCamelCase(propName)));
-                }
-            }
-        }
-
-        return result;
-    }
-
-    private static bool IsNonFlagsEnumType(ITypeSymbol? type, ConversionContext context)
-    {
-        if (type is not INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
-            return false;
-
-        if (context.IsFlagsEnum(enumType.Name)
-            || context.IsFlagsEnum(enumType.ToDisplayString())
-            || enumType.GetAttributes().Any(attribute =>
-                attribute.AttributeClass?.ToDisplayString()
-                    is "System.FlagsAttribute" or "System.Flags" or "FlagsAttribute" or "Flags"))
-        {
-            return false;
-        }
-
-        return true;
-    }
-
-    private static string ToCamelCase(string name)
-    {
-        if (string.IsNullOrEmpty(name))
-            return name;
-        return char.ToLowerInvariant(name[0]) + name.Substring(1);
-    }
-
-    private static bool TryBuildCtorCopy(
-        JavaClassDeclaration javaClass,
-        IReadOnlyList<JavaFieldDeclaration> instanceFields,
-        HashSet<string> structFieldNames,
-        out string ctorCopyExpression)
-    {
-        foreach (var ctor in javaClass.Constructors)
-        {
-            if (ctor.Parameters.Count != instanceFields.Count)
-            {
-                continue;
-            }
-
-            bool matches = true;
-            for (int i = 0; i < ctor.Parameters.Count; i++)
-            {
-                var param = ctor.Parameters[i];
-                var field = instanceFields[i];
-                if (!string.Equals(param.Type, field.Type, StringComparison.Ordinal))
-                {
-                    matches = false;
-                    break;
-                }
-
-                if (!NamesEquivalent(param.Name, field.Name))
-                {
-                    matches = false;
-                    break;
-                }
-            }
-
-            if (!matches)
-            {
-                continue;
-            }
-
-            string typeName = javaClass.TypeParameters.Count > 0
-                ? $"{javaClass.Name}<{string.Join(", ", javaClass.TypeParameters.Select(tp => tp.Name))}>"
-                : javaClass.Name;
-            var args = instanceFields.Select(f =>
-                structFieldNames.Contains(f.Name)
-                    ? $"this.{f.Name} != null ? this.{f.Name}.clone() : null"
-                    : $"this.{f.Name}");
-            ctorCopyExpression = $"new {typeName}({string.Join(", ", args)})";
-            return true;
-        }
-
-        ctorCopyExpression = string.Empty;
-        return false;
-    }
-
-    private static bool NamesEquivalent(string a, string b)
-    {
-        static string Normalize(string s)
-        {
-            if (string.IsNullOrEmpty(s))
-            {
-                return string.Empty;
-            }
-
-            var chars = s.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray();
-            return new string(chars);
-        }
-
-        return string.Equals(Normalize(a), Normalize(b), StringComparison.Ordinal);
-    }
-
-    private static string GetJavaDefaultValue(string javaType)
-    {
-        string t = javaType.Trim();
-        return t switch
-        {
-            "boolean" => "false",
-            "byte" => "(byte)0",
-            "short" => "(short)0",
-            "int" => "0",
-            "long" => "0L",
-            "float" => "0.0f",
-            "double" => "0.0d",
-            "char" => "'\\0'",
-            _ => "null"
-        };
-    }
-
-    /// <summary>
-    /// Fix 6 — When an equals() method was generated for operator== but no hashCode() is present,
-    /// emit a hashCode() using Objects.hash() over all instance fields to maintain the
-    /// equals/hashCode contract required by Java.
-    /// </summary>
-    private static void AddHashCodeIfMissing(JavaClassDeclaration javaClass, ConversionContext context)
-    {
-        // Trigger on either an instance equals() override or a static valueEquals() generated
-        // from C# operator==. Both indicate equality comparison semantics that require hashCode.
-        bool hasEquals = javaClass.Methods.Any(m => m.Name == "equals" ||
-            (m.Name == "valueEquals" && (m.Modifiers & JavaModifiers.Static) != 0));
-        bool hasHashCode = javaClass.Methods.Any(m => m.Name == "hashCode");
-
-        if (!hasEquals || hasHashCode)
-            return;
-
-        var instanceFields = javaClass.Fields
-            .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
-            .ToList();
-
-        string hashBody;
-        if (instanceFields.Count == 0)
-        {
-            hashBody = "return getClass().hashCode();";
-        }
-        else
-        {
-            hashBody = $"return Objects.hash({string.Join(", ", instanceFields.Select(f => f.Name))});";
-            context.AddImport("java.util.Objects");
-        }
-
-        var hashCodeMethod = new JavaMethodDeclaration
-        {
-            Name = "hashCode",
-            ReturnType = "int",
-            Modifiers = JavaModifiers.Public,
-            Body = hashBody
-        };
-        hashCodeMethod.Annotations.Add(new JavaAnnotation("Override"));
-        javaClass.Methods.Add(hashCodeMethod);
-    }
-
-    /// <summary>
-    /// When operator== was converted to a static valueEquals() method but no explicit
-    /// equals(Object) override exists, generate one that delegates to valueEquals().
-    /// This is required for Java collections and equality checks to work correctly.
-    /// </summary>
-    private static void AddEqualsOverrideIfMissing(JavaClassDeclaration javaClass, ConversionContext context)
-    {
-        var valueEqualsMethod = javaClass.Methods.FirstOrDefault(m =>
-            m.Name == "valueEquals" && (m.Modifiers & JavaModifiers.Static) != 0);
-
-        bool hasEqualsObject = javaClass.Methods.Any(m =>
-            m.Name == "equals" && m.Parameters.Count == 1 && m.Parameters[0].Type == "Object");
-        if (hasEqualsObject)
-            return;
-
-        string className = javaClass.Name;
-        string returnStatement;
-        if (valueEqualsMethod != null && ValueEqualsDelegatesToInstanceEquals(valueEqualsMethod))
-        {
-            var instanceFields = javaClass.Fields
-                .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
-                .ToList();
-            if (instanceFields.Count == 0)
-            {
-                returnStatement = "        return true;";
-            }
-            else
-            {
-                returnStatement = "        return " + string.Join(" && ", instanceFields
-                    .Select(f => $"Objects.equals({f.Name}, other.{f.Name})")) + ";";
-            }
-
-            context.AddImport("java.util.Objects");
-        }
-        else if (valueEqualsMethod != null)
-        {
-            returnStatement = $"        return {className}.valueEquals(this, other);";
-        }
-        else
-        {
-            // No valueEquals method (struct had no operator==). C# structs use
-            // value equality by default (reflective field-by-field comparison).
-            // Generate equals() based on instance fields to match C# semantics.
-            var instanceFields = javaClass.Fields
-                .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
-                .ToList();
-            if (instanceFields.Count == 0)
-            {
-                returnStatement = "        return true;";
-            }
-            else
-            {
-                returnStatement = "        return " + string.Join(" && ", instanceFields
-                    .Select(f => $"Objects.equals({f.Name}, other.{f.Name})")) + ";";
-            }
-
-            context.AddImport("java.util.Objects");
-        }
-
-        var equalsMethod = new JavaMethodDeclaration
-        {
-            Name = "equals",
-            ReturnType = "boolean",
-            Modifiers = JavaModifiers.Public,
-            Body = $"if (this == o) return true;\n" +
-                   $"        if (!(o instanceof {className} other)) return false;\n" +
-                   returnStatement
-        };
-        equalsMethod.Parameters.Add(new JavaParameter("Object", "o"));
-        equalsMethod.Annotations.Add(new JavaAnnotation("Override"));
-        javaClass.Methods.Add(equalsMethod);
-    }
-
-    /// <summary>
-    /// Detects the operator==-converted pattern "return p0.equals(p1);" which would
-    /// recurse if the synthesized equals(Object) delegated back to valueEquals.
-    /// </summary>
-    private static bool ValueEqualsDelegatesToInstanceEquals(JavaMethodDeclaration valueEqualsMethod)
-    {
-        var body = (valueEqualsMethod.Body ?? valueEqualsMethod.StructuredBody?.ToBodyString() ?? string.Empty).Trim();
-        return System.Text.RegularExpressions.Regex.IsMatch(
-            body,
-            @"^return\s+\w+\s*\.\s*equals\s*\(\s*\w+\s*\)\s*;$");
-    }    /// <summary>
-    /// Generate a toString() method for structs when no explicit override exists.
-    /// Includes all instance field values for easier debugging.
-    /// </summary>
-    private static void AddToStringIfMissing(JavaClassDeclaration javaClass)
-    {
-        bool hasToString = javaClass.Methods.Any(m => m.Name == "toString" && m.Parameters.Count == 0);
-        if (hasToString)
-            return;
-
-        var instanceFields = javaClass.Fields
-            .Where(f => (f.Modifiers & JavaModifiers.Static) == 0)
-            .ToList();
-
-        string className = javaClass.Name;
-        string body;
-        if (instanceFields.Count == 0)
-        {
-            body = $"return \"{className}{{}}\";";
-        }
-        else
-        {
-            var fieldParts = string.Join(" + \", \" + ",
-                instanceFields.Select(f => $"\"{f.Name}=\" + {f.Name}"));
-            body = $"return \"{className}{{\" + {fieldParts} + \"}}\";";
-        }
-
-        var toStringMethod = new JavaMethodDeclaration
-        {
-            Name = "toString",
-            ReturnType = "String",
-            Modifiers = JavaModifiers.Public,
-            Body = body
-        };
-        toStringMethod.Annotations.Add(new JavaAnnotation("Override"));
-        javaClass.Methods.Add(toStringMethod);
-    }
-
-    /// <summary>
-    /// When struct has comparison operators (lessThan/greaterThan) and a method body
-    /// references .compareTo(), synthesize a compareTo() method and add Comparable&lt;T&gt;.
-    /// Mirrors ClassTransformer.AddComparableBridgeMethods logic.
-    /// </summary>
-    private static void AddComparableBridgeMethods(JavaClassDeclaration javaClass)
-    {
-        bool hasCompareTo = javaClass.Methods.Any(m => m.Name == "compareTo" && m.Parameters.Count == 1);
-        if (hasCompareTo) return;
-
-        bool bodyCallsCompareTo = javaClass.Methods.Any(m =>
-            m.Body != null && m.Body.Contains(".compareTo("));
-        if (!bodyCallsCompareTo) return;
-
-        var lessThanMethod = javaClass.Methods.FirstOrDefault(m =>
-            m.Name == "lessThan"
-            && m.Parameters.Count == 2
-            && (m.Modifiers & JavaModifiers.Static) != 0
-            && m.Parameters[0].Type == javaClass.Name);
-        if (lessThanMethod == null) return;
-
-        string className = javaClass.Name;
-        string elemType = lessThanMethod.Parameters[0].Type;
-
-        if (!javaClass.ImplementedTypes.Any(t => t == "Comparable" || t.StartsWith("Comparable<")))
-            javaClass.ImplementedTypes.Add($"Comparable<{className}>");
-
-        var compareTo = new JavaMethodDeclaration
-        {
-            Modifiers = JavaModifiers.Public,
-            ReturnType = "int",
-            Name = "compareTo",
-            Body = $"if ({className}.lessThan(this, other)) return -1;\n        if ({className}.lessThan(other, this)) return 1;\n        return 0;"
-        };
-        compareTo.Parameters.Add(new JavaParameter(elemType, "other"));
-        javaClass.Methods.Add(compareTo);
-    }
-
-    private JavaModifiers ConvertModifiers(SyntaxTokenList modifiers)
-    {
-        JavaModifiers result = JavaModifiers.None;
-
-        foreach (var modifier in modifiers)
-        {
-            result |= modifier.Kind() switch
-            {
-                SyntaxKind.PublicKeyword => JavaModifiers.Public,
-                SyntaxKind.PrivateKeyword => JavaModifiers.Private,
-                SyntaxKind.InternalKeyword => JavaModifiers.Public,
-                SyntaxKind.ProtectedKeyword => JavaModifiers.Protected,
-                // Fix 2: Do NOT map ReadOnlyKeyword to Final on the class declaration.
-                // For readonly structs, Final is applied to each individual instance field instead.
-                SyntaxKind.UnsafeKeyword => JavaModifiers.None,
-                _ => JavaModifiers.None
-            };
-        }
-
-        // Default to public when no explicit access modifier (C# default = internal)
-        bool hasAccessModifier = modifiers.Any(m =>
-            m.IsKind(SyntaxKind.PublicKeyword) ||
-            m.IsKind(SyntaxKind.PrivateKeyword) ||
-            m.IsKind(SyntaxKind.ProtectedKeyword) ||
-            m.IsKind(SyntaxKind.InternalKeyword));
-        if (!hasAccessModifier)
-            result |= JavaModifiers.Public;
-
-        return result;
-    }
+        MethodDeclarationSyntax m => $"method:{m.Identifier.Text}:{string.Join(",", m.ParameterList?.Parameters.Select(p => p.Type?.ToString() ?? "?") ?? Enumerable.Empty<string>())}",
+        PropertyDeclarationSyntax p => $"property:{p.Identifier.Text}",
+        FieldDeclarationSyntax f => $"field:{string.Join(",", f.Declaration.Variables.Select(v => v.Identifier.Text))}",
+        ConstructorDeclarationSyntax c when c.Modifiers.Any(mod => mod.IsKind(SyntaxKind.StaticKeyword)) => "cctor",
+        ConstructorDeclarationSyntax c => $"ctor:{string.Join(",", c.ParameterList?.Parameters.Select(p => p.Type?.ToString() ?? "?") ?? Enumerable.Empty<string>())}",
+        EventDeclarationSyntax e => $"event:{e.Identifier.Text}",
+        _ => $"other:{member.Kind()}:{member.GetHashCode()}"
+    };
 
     private void ProcessStructMember(MemberDeclarationSyntax member, JavaClassDeclaration javaClass, ConversionContext context)
     {
-        var factory = new Transformers.TransformerFactory();
+        var factory = new TransformerFactory();
 
         switch (member)
         {
             case FieldDeclarationSyntax fieldDecl:
-                var fieldTransformer = new Transformers.Member.FieldTransformer();
-                foreach (var fieldNode in fieldTransformer.TransformAll(fieldDecl, context))
+                foreach (var fieldNode in new FieldTransformer().TransformAll(fieldDecl, context))
                 {
                     if (fieldNode is JavaFieldDeclaration javaField)
                     {
-                        // struct 字段默认是 public（但不加 final，因为 struct 的属性可能有 setter）
-                        if (javaField.Modifiers == JavaModifiers.None)
-                        {
-                            javaField.Modifiers = JavaModifiers.Public;
-                        }
                         javaClass.Fields.Add(javaField);
-
-                        // Drain any pre-statements produced during field initializer transformation
-                        // (e.g. from object initializers like `new Foo { X = 1 }`).
-                        // For static fields, emit them as a static initializer block.
+                        // 字段初始化转换中产生的前置语句（如对象初始化器临时变量）：
+                        // static 字段进 static 块，实例字段进构造器。
                         DrainFieldPreStatements(javaField, javaClass, context);
                     }
                     else if (fieldNode is JavaMethodDeclaration syntheticMethod)
                     {
-                        javaClass.Methods.Add(syntheticMethod);
+                        ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, syntheticMethod);
                     }
                 }
                 break;
 
             case PropertyDeclarationSyntax propDecl:
-                // Explicit interface property implementations MUST be emitted: unlike C#
-                // (where explicit implementations are private and reached through interface
-                // casts), Java classes implement interface contracts with public methods
-                // carrying the interface's exact accessor names. Dropping them — as the old
-                // blanket skip did — leaves the converted struct without e.g.
-                // getIsSynchronized()/getSyncRoot() and the Java class fails to implement
-                // the interface. When a public property of the same name already exists,
-                // AddMethodIfNotDuplicateInternal drops the redundant accessor (the public
-                // method already satisfies the contract), and the return-type-conflict pass
-                // after member processing handles the remaining cases (mirrors ClassTransformer).
-                var propTransformer = factory.CreatePropertyTransformer();
-                var props = propTransformer.Transform(propDecl, context);
-                if (props is JavaMemberCollection collection)
-                {
-                    foreach (var prop in collection.Members)
-                    {
-                        if (prop is JavaFieldDeclaration jf) javaClass.Fields.Add(jf);
-                        if (prop is JavaMethodDeclaration jm) ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, jm);
-                    }
-                }
-                else if (props is JavaFieldDeclaration jf)
-                {
-                    javaClass.Fields.Add(jf);
-                }
-                else if (props is JavaMethodDeclaration jm)
-                {
-                    ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, jm);
-                }
+                var props = factory.CreatePropertyTransformer().Transform(propDecl, context);
+                AddPropertyLike(javaClass, props);
                 break;
 
             case MethodDeclarationSyntax methodDecl:
-                // Explicit interface implementations are generated as public methods (not skipped)
-                var methodTransformer = factory.CreateMethodTransformer();
-                var method = methodTransformer.Transform(methodDecl, context);
+                var method = factory.CreateMethodTransformer().Transform(methodDecl, context);
                 if (method is JavaMethodDeclaration javaMethod)
-                {
                     ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, javaMethod);
-                }
                 else if (method is JavaMemberCollection methodCollection)
-                {
                     foreach (var m in methodCollection.Members.OfType<JavaMethodDeclaration>())
-                    {
                         ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, m);
-                    }
-                }
                 break;
 
             case OperatorDeclarationSyntax opDecl:
-                var opTransformer = factory.CreateOperatorTransformer();
-                var opMethod = opTransformer.Transform(opDecl, context);
-                if (opMethod != null)
+                if (factory.CreateOperatorTransformer().Transform(opDecl, context) is { } opMethod)
                     ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, opMethod);
                 break;
 
             case ConversionOperatorDeclarationSyntax convDecl:
-                var convOpTransformer = factory.CreateOperatorTransformer();
-                var convOpMethod = convOpTransformer.TransformConversion(convDecl, context);
-                if (convOpMethod != null)
+                if (factory.CreateOperatorTransformer().TransformConversion(convDecl, context) is { } convOpMethod)
                     ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, convOpMethod);
                 break;
 
             case IndexerDeclarationSyntax indexerDecl:
-                var indexerTransformer = factory.CreateIndexerTransformer();
-                var indexerResult = indexerTransformer.Transform(indexerDecl, context);
-                if (indexerResult is JavaMemberCollection indexerCollection)
-                {
-                    foreach (var indexerMember in indexerCollection.Members)
-                    {
-                        if (indexerMember is JavaMethodDeclaration jm) ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, jm);
-                    }
-                }
+                if (factory.CreateIndexerTransformer().Transform(indexerDecl, context) is JavaMemberCollection indexerCollection)
+                    foreach (var indexerMember in indexerCollection.Members.OfType<JavaMethodDeclaration>())
+                        ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, indexerMember);
                 break;
 
             case ConstructorDeclarationSyntax ctorDecl:
-                var ctorTransformer = factory.CreateConstructorTransformer();
-                var ctor = ctorTransformer.Transform(ctorDecl, context);
+                var ctor = factory.CreateConstructorTransformer().Transform(ctorDecl, context);
                 if (ctor is JavaConstructorDeclaration javaCtor)
-                {
                     ClassTransformer.AddCtorIfNotDuplicateInternal(javaClass, javaCtor);
-                }
-                else if (ctor is Java.JavaMemberCollection ctorCollection)
-                {
-                    foreach (var ctorMember in ctorCollection.Members)
-                    {
-                        if (ctorMember is JavaConstructorDeclaration jcc)
-                        {
-                            ClassTransformer.AddCtorIfNotDuplicateInternal(javaClass, jcc);
-                        }
-                    }
-                }
+                else if (ctor is JavaMemberCollection ctorCollection)
+                    foreach (var ctorMember in ctorCollection.Members.OfType<JavaConstructorDeclaration>())
+                        ClassTransformer.AddCtorIfNotDuplicateInternal(javaClass, ctorMember);
                 else if (ctor is JavaStaticInitializerBlock staticInitBlock)
-                {
                     javaClass.StaticInitializers.Add(staticInitBlock);
-                }
                 break;
 
-            // ── Nested type declarations (mirroring ClassTransformer.ProcessMember) ──
-
-            case StructDeclarationSyntax nestedStruct:
-                var nestedStructTransformer = new StructTransformer();
-                var nestedStructResult = nestedStructTransformer.Transform(nestedStruct, context);
-                if (nestedStructResult is JavaClassDeclaration jcs)
-                {
-                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedStruct, context))
-                    {
-                        jcs.Modifiers |= JavaModifiers.Static;
-                        var usedEnclosingParams = NestedTypeHelper.GetEnclosingTypeParamsUsedByNested(nestedStruct, context);
-                        foreach (var param in usedEnclosingParams)
-                        {
-                            if (!jcs.TypeParameters.Any(tp => tp.Name == param.Name))
-                            {
-                                var jtp = new JavaTypeParameter(param.Name);
-                                foreach (var constraintType in param.ConstraintTypes)
-                                {
-                                    var bound = context.MapType(constraintType);
-                                    if (!string.IsNullOrEmpty(bound) && bound != "Object")
-                                        jtp.Bounds.Add(bound);
-                                }
-                                jcs.TypeParameters.Add(jtp);
-                            }
-                        }
-                    }
-                    javaClass.NestedTypes.Add(jcs);
-                }
+            case StructDeclarationSyntax nestedStruct when new StructTransformer().Transform(nestedStruct, context) is JavaClassDeclaration jcs:
+                AddNestedClassLike(jcs, nestedStruct, context);
+                javaClass.NestedTypes.Add(jcs);
                 break;
 
-            case ClassDeclarationSyntax nestedClass:
-                var nestedClassTransformer = factory.CreateClassTransformer();
-                var nestedClassResult = nestedClassTransformer.Transform(nestedClass, context);
-                if (nestedClassResult is JavaClassDeclaration jcn)
-                {
-                    if (NestedTypeHelper.ShouldBeStaticInJava(nestedClass, context))
-                    {
-                        jcn.Modifiers |= JavaModifiers.Static;
-                        var usedEnclosingParams = NestedTypeHelper.GetEnclosingTypeParamsUsedByNested(nestedClass, context);
-                        foreach (var param in usedEnclosingParams)
-                        {
-                            if (!jcn.TypeParameters.Any(tp => tp.Name == param.Name))
-                            {
-                                var jtp = new JavaTypeParameter(param.Name);
-                                foreach (var constraintType in param.ConstraintTypes)
-                                {
-                                    var bound = context.MapType(constraintType);
-                                    if (!string.IsNullOrEmpty(bound) && bound != "Object")
-                                        jtp.Bounds.Add(bound);
-                                }
-                                jcn.TypeParameters.Add(jtp);
-                            }
-                        }
-                    }
-                    javaClass.NestedTypes.Add(jcn);
-                }
+            case ClassDeclarationSyntax nestedClass when factory.CreateClassTransformer().Transform(nestedClass, context) is JavaClassDeclaration jcn:
+                AddNestedClassLike(jcn, nestedClass, context);
+                javaClass.NestedTypes.Add(jcn);
                 break;
 
             case EnumDeclarationSyntax nestedEnum:
-                var enumTransformer = new Transformers.Type.EnumTransformer();
-                var nestedEnumResult = enumTransformer.TransformEnum(nestedEnum, context);
-                if (nestedEnumResult is JavaEnumDeclaration je)
+                if (new EnumTransformer().TransformEnum(nestedEnum, context) is JavaTypeDeclaration je)
                 {
                     je.Modifiers |= JavaModifiers.Static;
                     javaClass.NestedTypes.Add(je);
                 }
-                else if (nestedEnumResult is JavaClassDeclaration jcEnum)
-                {
-                    // [Flags] enums generate a JavaClassDeclaration (int constants class)
-                    jcEnum.Modifiers |= JavaModifiers.Static;
-                    javaClass.NestedTypes.Add(jcEnum);
-                }
                 break;
 
-            case InterfaceDeclarationSyntax nestedInterface:
-                var nestedIfaceTransformer = factory.CreateInterfaceTransformer();
-                var nestedIfaceResult = nestedIfaceTransformer.Transform(nestedInterface, context);
-                if (nestedIfaceResult is JavaInterfaceDeclaration ji)
-                {
-                    ji.Modifiers |= JavaModifiers.Static;
-                    javaClass.NestedTypes.Add(ji);
-                }
+            case InterfaceDeclarationSyntax nestedInterface when factory.CreateInterfaceTransformer().Transform(nestedInterface, context) is JavaInterfaceDeclaration ji:
+                ji.Modifiers |= JavaModifiers.Static;
+                javaClass.NestedTypes.Add(ji);
                 break;
 
             case DelegateDeclarationSyntax nestedDelegate:
-                var delegateTransformer = new Transformers.Type.DelegateTransformer();
-                var nestedDelegateResult = delegateTransformer.TransformDelegate(nestedDelegate, context);
+                var nestedDelegateResult = new DelegateTransformer().TransformDelegate(nestedDelegate, context);
                 if (nestedDelegateResult != null)
-                {
                     javaClass.NestedTypes.Add(nestedDelegateResult);
-                }
                 break;
 
             case EventFieldDeclarationSyntax eventFieldDecl:
-                var eventFieldTransformer = new Transformers.Member.EventFieldTransformer();
-                var eventMembers = eventFieldTransformer.TransformEvent(eventFieldDecl, context);
-                foreach (var em in eventMembers)
+                foreach (var em in new EventFieldTransformer().TransformEvent(eventFieldDecl, context))
                 {
-                    if (em is JavaFieldDeclaration ef && !javaClass.Fields.Any(f => f.Name == ef.Name)) javaClass.Fields.Add(ef);
-                    if (em is JavaMethodDeclaration emm) ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, emm);
+                    if (em is JavaFieldDeclaration ef && !javaClass.Fields.Any(f => f.Name == ef.Name))
+                        javaClass.Fields.Add(ef);
+                    else if (em is JavaMethodDeclaration emm)
+                        ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, emm);
                 }
                 break;
         }
     }
 
+    private static void AddPropertyLike(JavaClassDeclaration javaClass, JavaSyntaxNode? props)
+    {
+        switch (props)
+        {
+            case null: break;
+            case JavaFieldDeclaration jf: javaClass.Fields.Add(jf); break;
+            case JavaMethodDeclaration jm: ClassTransformer.AddMethodIfNotDuplicateInternal(javaClass, jm); break;
+            case JavaMemberCollection collection:
+                foreach (var prop in collection.Members) AddPropertyLike(javaClass, prop);
+                break;
+        }
+    }
+
+    /// <summary>嵌套类/结构标 static，并复制它引用到的外部类型参数。</summary>
+    private static void AddNestedClassLike(JavaClassDeclaration nested, SyntaxNode nestedSyntax, ConversionContext context)
+    {
+        if (!NestedTypeHelper.ShouldBeStaticInJava(nestedSyntax, context)) return;
+        nested.Modifiers |= JavaModifiers.Static;
+        foreach (var param in NestedTypeHelper.GetEnclosingTypeParamsUsedByNested(nestedSyntax, context))
+        {
+            if (nested.TypeParameters.Any(tp => tp.Name == param.Name)) continue;
+            var jtp = new JavaTypeParameter(param.Name);
+            foreach (var constraintType in param.ConstraintTypes)
+            {
+                var bound = context.MapType(constraintType);
+                if (!string.IsNullOrEmpty(bound) && bound != "Object")
+                    jtp.Bounds.Add(bound);
+            }
+            nested.TypeParameters.Add(jtp);
+        }
+    }
+
     /// <summary>
-    /// Drains any pre-statements produced during field initializer transformation and
-    /// emits them as a static initializer block (for static fields) or inlines them
-    /// into the field initializer (for instance fields).
+    /// Drains pre-statements produced during field initializer transformation and
+    /// emits them as a static initializer block (static fields) or lifts them into
+    /// constructors (instance fields).
     /// </summary>
     internal static void DrainFieldPreStatementsPublic(JavaFieldDeclaration javaField, JavaClassDeclaration javaClass, ConversionContext context)
         => DrainFieldPreStatements(javaField, javaClass, context);
@@ -1702,9 +352,6 @@ public class StructTransformer : ITypeTransformer
         if (!context.HasPendingPreStatements)
             return;
 
-        // DEBUG: Log when DrainFieldPreStatements moves initializer to static block
-        System.Console.WriteLine($"[DEBUG] DrainFieldPreStatements: field={javaField.Name}, hasPreStmts={context.HasPendingPreStatements}, initializer={javaField.Initializer?.Substring(0, System.Math.Min(50, javaField.Initializer?.Length ?? 0))}");
-
         var preStatements = context.DrainPreStatements();
         if (preStatements.Count == 0)
             return;
@@ -1712,12 +359,6 @@ public class StructTransformer : ITypeTransformer
         bool isStatic = (javaField.Modifiers & JavaModifiers.Static) != 0;
         if (isStatic)
         {
-            // Move initialization to a static initializer block:
-            // static {
-            //     var _obj1 = new Foo();
-            //     _obj1.X = 1;
-            //     FieldName = _obj1;
-            // }
             var staticBlock = new JavaStaticInitializerBlock();
             foreach (var stmt in preStatements)
             {
@@ -1734,136 +375,7 @@ public class StructTransformer : ITypeTransformer
         }
         else
         {
-            // For instance fields, move pre-statements into constructors.
-            // Java does not support multi-statement field initializers, so the
-            // statements must be placed in each non-delegating constructor.
             ClassTransformer.LiftInitializerStatementsIntoConstructors(javaClass, preStatements);
-        }
-    }
-
-    /// <summary>
-    /// For readonly structs, Java final fields must be assigned exactly once per constructor path.
-    /// Constructor chaining via this() causes double-assignment. This method removes this() chains
-    /// and ensures each constructor independently assigns all final fields not already in its body.
-    /// </summary>
-    private static void FixReadonlyStructConstructorChaining(
-        JavaClassDeclaration javaClass,
-        HashSet<string> structFieldNames,
-        HashSet<string> enumFieldNames)
-    {
-        var instanceFields = javaClass.Fields
-            .Where(f => (f.Modifiers & JavaModifiers.Static) == 0 && (f.Modifiers & JavaModifiers.Final) != 0)
-            .ToList();
-        if (instanceFields.Count == 0) return;
-
-        // A no-argument this() chain only re-runs the default field initialization,
-        // which Java performs implicitly anyway. Drop it first so that a constructor
-        // whose target chains this() still qualifies as an inlining target. Otherwise
-        // e.g. BorderInfo(double) : this(double, double, double) with a target that
-        // itself chains this() would lose its parameter assignments entirely.
-        foreach (var ctor in javaClass.Constructors)
-        {
-            if (ctor.Initializer != null && ctor.Initializer.Trim() == "this()")
-            {
-                ctor.Initializer = null;
-            }
-        }
-
-        // Inline this(...) chains to a fixpoint so transitive chains (A -> B -> C)
-        // resolve deepest-first regardless of declaration order.
-        for (int pass = 0; pass < javaClass.Constructors.Count; pass++)
-        {
-            bool inlinedAny = false;
-            foreach (var ctor in javaClass.Constructors)
-            {
-                // Constructors chaining via this(...) would double-assign final fields in
-                // Java. Inline the chained constructor's assignments (substituting its
-                // parameters with the chain arguments) to preserve the original semantics.
-                if (ctor.Initializer == null || !ctor.Initializer.StartsWith("this("))
-                {
-                    continue;
-                }
-
-                var innerArgs = ctor.Initializer.Substring("this(".Length, ctor.Initializer.Length - "this(".Length - 1);
-                var chainArgs = SplitTopLevelArgs(innerArgs);
-                // Matching by parameter count alone is ambiguous when overloads share
-                // the arity (e.g. XsdDateTime(string, XsdDateTimeFlags) vs
-                // XsdDateTime(DateTimeOffset, XsdDateTimeFlags) — both take 2 params).
-                // Prefer the target whose parameter names align with the chain
-                // arguments (a chain almost always forwards its own parameter names,
-                // e.g. this(dateTimeOffset, kinds)); fall back to the first match.
-                var target = javaClass.Constructors
-                    .Where(c => c != ctor && c.Parameters.Count == chainArgs.Count && c.Initializer == null)
-                    .OrderByDescending(c => CountMatchingParamNames(c, chainArgs))
-                    .FirstOrDefault();
-                ctor.Initializer = null;
-                if (target != null)
-                {
-                    var targetBody = target.Body ?? target.StructuredBody?.ToBodyString() ?? "";
-                    // Substitute the target's parameter names with the chain arguments.
-                    for (var pi = 0; pi < target.Parameters.Count && pi < chainArgs.Count; pi++)
-                    {
-                        var paramName = target.Parameters[pi].Name;
-                        var argExpr = chainArgs[pi];
-                        if (string.IsNullOrWhiteSpace(paramName)) continue;
-                        targetBody = System.Text.RegularExpressions.Regex.Replace(
-                            targetBody,
-                            $@"(?<![\w.]){System.Text.RegularExpressions.Regex.Escape(paramName)}(?![\w])",
-                            argExpr.Replace("$", "$$"));
-                    }
-                    var existingBody = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
-                    ctor.StructuredBody = null; // Body must take precedence when rendered
-                    ctor.Body = string.IsNullOrWhiteSpace(existingBody)
-                        ? targetBody
-                        : targetBody + "\n" + existingBody;
-                    inlinedAny = true;
-                }
-            }
-            if (!inlinedAny) break;
-        }
-
-        foreach (var ctor in javaClass.Constructors)
-        {
-            // Find which final fields are already assigned in the body
-            var body = ctor.Body ?? ctor.StructuredBody?.ToBodyString() ?? "";
-            // this(...) forwarding constructors assign all final fields in the target;
-            // prepending defaults would push the required this() call off the first
-            // statement and double-assign final fields.
-            if (body.TrimStart().StartsWith("this(", StringComparison.Ordinal))
-            {
-                continue;
-            }
-            var assignedFields = new HashSet<string>();
-            foreach (var field in instanceFields)
-            {
-                // Check for "this.fieldName =" or "fieldName =" patterns
-                if (body.Contains($"this.{field.Name} =") || body.Contains($"this.{field.Name}=") ||
-                    System.Text.RegularExpressions.Regex.IsMatch(body, $@"(?<!this\.)(?<!\w){System.Text.RegularExpressions.Regex.Escape(field.Name)}\s*="))
-                {
-                    assignedFields.Add(field.Name);
-                }
-            }
-
-            // Prepend default assignments for final fields not already assigned
-            var prependLines = new List<string>();
-            foreach (var field in instanceFields)
-            {
-                if (assignedFields.Contains(field.Name)) continue;
-                if (!string.IsNullOrWhiteSpace(field.Initializer)) continue;
-
-                if (enumFieldNames.Contains(field.Name))
-                    prependLines.Add($"this.{field.Name} = {field.Type}.values()[0];");
-                else if (structFieldNames.Contains(field.Name))
-                    prependLines.Add($"this.{field.Name} = new {field.Type}();");
-                else
-                    prependLines.Add($"this.{field.Name} = {GetJavaDefaultValue(field.Type)};");
-            }
-
-            if (prependLines.Count > 0)
-            {
-                ctor.StructuredBody = null; // Body must take precedence when rendered
-                ctor.Body = string.Join("\n", prependLines) + "\n" + body;
-            }
         }
     }
 }

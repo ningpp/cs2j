@@ -31,17 +31,6 @@ public static class DefaultParameterHelper
         var overloads = new List<JavaSyntaxNode>();
         int javaParamOffset = hasStrippedThisParam ? 1 : 0;
 
-        // Generic methods have runtime Class<T> parameters inserted at the front of the
-        // Java signature (e.g. "Class<T> _cs2j_T"). These synthetic parameters must be
-        // preserved in every overload and forwarded to the full method.
-        int leadingSyntheticCount = CountLeadingSyntheticClassParameters(fullMethod.Parameters);
-
-        // Generic methods may also have trailing Class<?> parameters (e.g. "tValueClass")
-        // appended by AddRuntimeClassParametersForTypeParameterArrays. These are NOT in the
-        // C# parameter list (allParams), so the call-args loop above would miss them.
-        // We need to forward null for each trailing synthetic parameter.
-        int trailingSyntheticCount = CountTrailingSyntheticClassParameters(fullMethod.Parameters, allParams.Count + leadingSyntheticCount + javaParamOffset);
-
         for (int cutAt = firstDefaultIdx; cutAt < allParams.Count; cutAt++)
         {
             var overload = new JavaMethodDeclaration
@@ -54,13 +43,11 @@ public static class DefaultParameterHelper
             foreach (var tp in fullMethod.TypeParameters)
                 overload.TypeParameters.Add(tp);
 
-            int javaCutAt = leadingSyntheticCount + cutAt - javaParamOffset;
+            int javaCutAt = cutAt - javaParamOffset;
             for (int j = 0; j < javaCutAt && j < fullMethod.Parameters.Count; j++)
                 overload.Parameters.Add(fullMethod.Parameters[j]);
 
             var callArgs = new List<string>();
-            for (int s = 0; s < leadingSyntheticCount; s++)
-                callArgs.Add(fullMethod.Parameters[s].Name);
             for (int i = 0; i < allParams.Count; i++)
             {
                 if (i < cutAt)
@@ -71,24 +58,15 @@ public static class DefaultParameterHelper
                 {
                     // Cast the null default to the parameter's Java type so overload
                     // resolution is unambiguous when sibling optional-parameter
-                    // overloads differ in type (e.g. (String, JsonSerializerOptions)
-                    // vs (String, Class) both accept a bare null).
+                    // overloads differ in type.
                     var defaultValueExpr = allParams[i].Default?.Value;
-                    var isNullLiteral = defaultValueExpr is Microsoft.CodeAnalysis.CSharp.Syntax.LiteralExpressionSyntax litExpr
-                        && litExpr.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.NullLiteralExpression);
+                    var isNullLiteral = defaultValueExpr is LiteralExpressionSyntax litExpr
+                        && litExpr.IsKind(SyntaxKind.NullLiteralExpression);
                     var defaultVal = isNullLiteral
                         ? $"({context.MapTypeFromSyntax(allParams[i].Type)}) null"
                         : exprXf.Transform(defaultValueExpr!, context);
-                    callArgs.Add(defaultVal);                }
-            }
-            // Forward trailing synthetic Class<?> parameters (e.g. tValueClass) as null.
-            // These are appended after the C# parameters in the Java signature and are
-            // not part of allParams, so the loop above doesn't cover them.
-            for (int t = 0; t < trailingSyntheticCount; t++)
-            {
-                int paramIdx = fullMethod.Parameters.Count - trailingSyntheticCount + t;
-                var trailingParam = fullMethod.Parameters[paramIdx];
-                callArgs.Add($"({trailingParam.Type}) null");
+                    callArgs.Add(defaultVal);
+                }
             }
 
             // Abstract methods cannot have bodies; the overload is abstract too and
@@ -103,54 +81,6 @@ public static class DefaultParameterHelper
         }
 
         return overloads;
-    }
-
-    private static int CountLeadingSyntheticClassParameters(IList<JavaParameter> parameters)
-    {
-        int count = 0;
-        while (count < parameters.Count
-            && parameters[count].Name.StartsWith("_cs2j_", StringComparison.Ordinal)
-            && (parameters[count].Type.StartsWith("Class<", StringComparison.Ordinal)
-                || parameters[count].Type.Contains("TypeReference<", StringComparison.Ordinal)))
-        {
-            count++;
-        }
-        return count;
-    }
-
-    /// <summary>
-    /// Counts trailing synthetic Class<?> parameters that were appended after the
-    /// C# parameter list (e.g. "Class&lt;?&gt; tValueClass" added by
-    /// AddRuntimeClassParametersForTypeParameterArrays). The expectedCSharpParamCount
-    /// is the number of Java parameters that correspond to C# parameters (leading
-    /// synthetic + allParams - offset). Any parameters beyond that are trailing
-    /// synthetic ones that need null forwarding in overload call sites.
-    /// </summary>
-    private static int CountTrailingSyntheticClassParameters(
-        IList<JavaParameter> parameters,
-        int expectedCSharpParamCount)
-    {
-        int trailing = parameters.Count - expectedCSharpParamCount;
-        if (trailing <= 0)
-            return 0;
-
-        // Verify that the trailing parameters are indeed synthetic Class<?>/TypeReference
-        // parameters (not regular C# parameters that happen to be at the end).
-        int count = 0;
-        for (int i = parameters.Count - trailing; i < parameters.Count; i++)
-        {
-            if (i < 0 || i >= parameters.Count)
-                break;
-            var p = parameters[i];
-            // Trailing synthetic parameters have names like "tValueClass" (NOT prefixed
-            // with _cs2j_) and type "Class<?>" or "Class<T>". They are appended by
-            // AddRuntimeClassParametersForTypeParameterArrays.
-            if (p.Type.StartsWith("Class<", StringComparison.Ordinal))
-                count++;
-            else
-                break;
-        }
-        return count;
     }
 
     /// <summary>
@@ -172,10 +102,6 @@ public static class DefaultParameterHelper
 
         var overloads = new List<JavaSyntaxNode>();
 
-        // Generic classes may have runtime Class<T> parameters inserted at the front of
-        // constructors. Preserve and forward them just like for methods.
-        int leadingSyntheticCount = CountLeadingSyntheticClassParameters(fullCtor.Parameters);
-
         for (int cutAt = firstDefaultIdx; cutAt < allParams.Count; cutAt++)
         {
             var overload = new JavaConstructorDeclaration
@@ -185,13 +111,10 @@ public static class DefaultParameterHelper
                 LeadingComment = fullCtor.LeadingComment,
             };
 
-            int javaCutAt = leadingSyntheticCount + cutAt;
-            for (int j = 0; j < javaCutAt && j < fullCtor.Parameters.Count; j++)
+            for (int j = 0; j < cutAt && j < fullCtor.Parameters.Count; j++)
                 overload.Parameters.Add(fullCtor.Parameters[j]);
 
             var callArgs = new List<string>();
-            for (int s = 0; s < leadingSyntheticCount; s++)
-                callArgs.Add(fullCtor.Parameters[s].Name);
             for (int i = 0; i < allParams.Count; i++)
             {
                 if (i < cutAt)

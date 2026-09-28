@@ -1,1448 +1,172 @@
-using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using CSharpToJava.Core.Abstractions;
-using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
-using CSharpToJava.Core.Transformers;
 using CSharpToJava.Core.Transformers.Expression;
-using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Statement;
 
 public partial class StatementTransformer
 {
+    /// <summary>
+    /// Local declarations map directly: one explicit Java type, one or more
+    /// declarators with optional initializers, 'const'/'readonly' → final.
+    /// Implicit 'var' is resolved through the semantic model. ref locals,
+    /// pointers, fixed-size buffers and tuple deconstructions must be lowered
+    /// by a C#→C# preprocessor and fail fast here.
+    /// </summary>
     private JavaSyntaxNode TransformLocalDeclaration(LocalDeclarationStatementSyntax stmt, ConversionContext context)
     {
-        // Ref locals (ref int x = ref y;): the declaration's type is a RefTypeSyntax,
-        // for which Roslyn reports no type info — unwrap to the underlying type and
-        // resolve from the declared local symbol if needed.
-        var declTypeSyntax = stmt.Declaration.Type is RefTypeSyntax refTypeSyntax
-            ? refTypeSyntax.Type
-            : stmt.Declaration.Type;
-        var typeInfo = context.GetTypeInfo(declTypeSyntax);
-        ITypeSymbol? resolvedDeclType = typeInfo.Type;
-        bool isRefLocalDeclaration = stmt.Declaration.Type is RefTypeSyntax;
-        if (resolvedDeclType == null && isRefLocalDeclaration && stmt.Declaration.Variables.Count > 0)
+        if (stmt.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
         {
-            resolvedDeclType = (context.GetDeclaredSymbol(stmt.Declaration.Variables[0]) as ILocalSymbol)?.Type;
-        }
-        string javaType;
-        if (resolvedDeclType != null)
-        {
-            var resolvedType = resolvedDeclType;
-            // C# concrete enumerator structs (e.g. Dictionary<K,V>.Enumerator, List<T>.Enumerator)
-            // have no Java equivalent. The .iterator() call returns a Java-compatible adapter,
-            // so let Java infer the concrete type. Explicit IEnumerator declarations are mapped
-            // through TypeMappings.json to CSharpEnumerator and must stay explicit because
-            // Java cannot infer var from a null initializer.
-            bool isEnumeratorStruct = resolvedType is INamedTypeSymbol nes
-                && nes.Name == "Enumerator"
-                && nes.ContainingType != null;
-            javaType = isEnumeratorStruct ? "var" : context.MapType(resolvedType);
-            // Fallback: if MapType returns empty (e.g. unresolved error type), use var to let Java infer
-            if (string.IsNullOrWhiteSpace(javaType))
-                javaType = "var";
-            // LINQ extension method generic type parameters (TSource, TResult, TKey, TElement) that
-            // leak into the resolved type indicate an uninstantiated generic — use var instead.
-            // Only match when the javaType IS the bare type parameter name (no angle brackets),
-            // not when it's a concrete type that merely contains the parameter name as a type argument
-            // (e.g., "Entry<TKey, TValue>" should NOT be replaced with "var").
-            if (!javaType.Contains('<')
-                && (javaType.Contains("TSource") || javaType.Contains("TResult")
-                    || javaType.Contains("TKey") || javaType.Contains("TElement")))
-                javaType = "var";
-        }
-        else
-        {
-            javaType = isRefLocalDeclaration
-                ? context.MapTypeFromSyntax(declTypeSyntax)
-                : "var";
-            if (string.IsNullOrWhiteSpace(javaType))
-                javaType = "var";
+            throw new NotSupportedException(
+                "CS2J normalization required: using-declarations are handled as try-with-resources by the statement dispatcher.");
         }
 
-        // When mapping C# IEnumerable<T>/ICollection<T>/IList<T> to CSharpGenericIterable<T>/CSharpICollection<T>/CSharpGenericIList<T>
-        // for a local variable, use 'var' so Java infers the concrete return type (e.g. CSharpList<T>) from the initializer.
-        // This prevents CSharpGenericIterable<T> vs CSharpICollection<T> compatibility issues.
-        // Exception: when the initializer emits Java null (null literal or default(T) of a reference type),
-        // Java's var cannot infer the type, so keep the explicit type.
-        bool hasNullEmittingInitializer = stmt.Declaration.Variables.Any(v =>
-            v.Initializer?.Value is { } initValue && InitializerEmitsNull(initValue, context));
-        if (!hasNullEmittingInitializer
-            && !javaType.EndsWith("[]", StringComparison.Ordinal)
-            && javaType != "CSharpGenericIList<Object>"
-            && (javaType is "Iterable" or "CSharpGenericIterable" or "CSharpICollection" or "CSharpGenericIList"
-                  or "CSharpReadOnlyCollection" or "CSharpReadOnlyList"
-                || javaType.StartsWith("Iterable<") || javaType.StartsWith("CSharpGenericIterable<")
-                || javaType.StartsWith("CSharpICollection<") || javaType.StartsWith("CSharpGenericIList<")
-                || javaType.StartsWith("CSharpReadOnlyCollection<") || javaType.StartsWith("CSharpReadOnlyList<")))
-            javaType = "var";
-
-        // If the C# declaration used 'var' (implicit type) and had NO initializer, Java cannot infer the type.
-        // We need to add a type + default initializer. Track whether the original C# type was implicit.
-        bool wasImplicitVar = false;
-        if (typeInfo.Type != null)
+        if (stmt.Declaration.Type is RefTypeSyntax)
         {
-            wasImplicitVar = stmt.Declaration.Type.IsVar;
-        }
-        else
-        {
-            wasImplicitVar = true;
+            throw new NotSupportedException(
+                "CS2J normalization required: ref local must be lowered by a preprocessor before Java conversion.");
         }
 
-        // If C# used implicit 'var' with an initializer, prefer 'var' in Java.
-        // This avoids incorrect/over-specific type annotations when C# resolves to ILookup,
-        // IEnumerable, or uninstantiated generic types that don't cleanly map to Java equivalents.
-        // Exception: a null-emitting initializer (null literal or default(T) of a reference type)
-        // cannot be inferred by Java var, so keep the resolved concrete type.
-        bool hasNoInitializer = stmt.Declaration.Variables.All(v => v.Initializer == null);
-        if (wasImplicitVar && !hasNoInitializer && !hasNullEmittingInitializer)
+        if (stmt.Declaration.Type is TupleTypeSyntax)
         {
-            // Exception: Java's var cannot infer lambda/method-reference types inside ternary
-            // expressions, so keep the explicit type when the initializer is a conditional
-            // expression containing lambdas or method references.
-            bool hasTernaryWithLambda = stmt.Declaration.Variables.Any(v =>
-                v.Initializer?.Value is ConditionalExpressionSyntax cond
-                && (ContainsLambdaOrMethodRef(cond.WhenTrue) || ContainsLambdaOrMethodRef(cond.WhenFalse)));
-            // Java's var also cannot infer the type of a direct lambda expression —
-            // lambdas need an explicit target type (functional interface).
-            bool hasDirectLambdaInitializer = stmt.Declaration.Variables.Any(v =>
-                v.Initializer?.Value is LambdaExpressionSyntax);
-            if (!hasTernaryWithLambda && !hasDirectLambdaInitializer)
-                javaType = "var";
-        }
-        // Java's var cannot infer the type from a null-emitting initializer (null literal or
-        // default(T) of a reference type) — fall back to Object.
-        if (javaType == "var" && hasNullEmittingInitializer)
-            javaType = "Object";
-        if (stmt.Declaration.Variables.Count == 1
-            && stmt.Declaration.Variables[0].Initializer?.Value is { } singleInitializer
-            && TryInferStringTypeFromDegradedInitializer(singleInitializer, context, out var inferredStringType))
-        {
-            javaType = "String";
-            context.LocalTypeOverrides[stmt.Declaration.Variables[0].Identifier.Text] = inferredStringType;
-        }
-        bool wasConvertedFromVar = false;
-        if (javaType == "var" && hasNoInitializer && context.SemanticModel != null)
-        {
-            foreach (var variable in stmt.Declaration.Variables)
-            {
-                var localSym = context.GetDeclaredSymbol(variable) as ILocalSymbol;
-                if (localSym?.Type != null && localSym.Type is not IErrorTypeSymbol)
-                {
-                    javaType = context.MapType(localSym.Type);
-                    wasConvertedFromVar = true;
-                    break;
-                }
-            }
+            throw new NotSupportedException(
+                "CS2J normalization required: deconstruction local declaration must be lowered by a preprocessor before Java conversion.");
         }
 
-        // If this is a primitive-typed variable, check if it's used as an out-argument to TryGetValue.
-        // In that case, Java can't compare the result of map.get() (Integer) to null when assigned to
-        // a primitive (int). Use the boxed type (Integer, Long, etc.) instead.
-        // This applies whether or not the variable has an initializer (e.g. "int x = 0" also needs boxing
-        // when used as out-param to TryGetValue).
-        {
-            string? boxedType = javaType switch
-            {
-                "int" => "Integer", "long" => "Long", "double" => "Double",
-                "float" => "Float", "boolean" => "Boolean", "short" => "Short",
-                "byte" => "Byte", "char" => "Character", _ => null
-            };
-            if (boxedType != null && stmt.Parent is BlockSyntax parentBlock)
-            {
-                foreach (var variable in stmt.Declaration.Variables)
-                {
-                    var varName = variable.Identifier.Text;
-                    bool usedAsTryGetValueOut = parentBlock.DescendantNodes()
-                        .OfType<InvocationExpressionSyntax>()
-                        .Any(inv => inv.Expression is MemberAccessExpressionSyntax ma2
-                            && ma2.Name.Identifier.Text is "TryGetValue" or "TryGetComponent"
-                            && inv.ArgumentList.Arguments.Any(a =>
-                                a.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
-                                && a.Expression is IdentifierNameSyntax id
-                                && id.Identifier.Text == varName));
-                    if (usedAsTryGetValueOut)
-                    {
-                        javaType = boxedType;
-                        break;
-                    }
-                }
-            }
-        }
-
-        // Consumer<T> → BiConsumer<Object, T> when the initializer is a 2-parameter lambda.
-        // C# EventHandler<T>(object sender, T e) maps to Consumer<T> by default, but Java's
-        // Consumer accepts only 1 arg; detect 2-param lambdas and upgrade to BiConsumer.
-        if (javaType.StartsWith("Consumer<", StringComparison.Ordinal)
-            && stmt.Declaration.Variables.Count == 1
-            && stmt.Declaration.Variables[0].Initializer?.Value is ParenthesizedLambdaExpressionSyntax biLambda
-            && biLambda.ParameterList.Parameters.Count == 2)
-        {
-            var innerType = javaType.Substring("Consumer<".Length, javaType.Length - "Consumer<".Length - 1);
-            javaType = $"BiConsumer<Object, {innerType}>";
-            context.AddImport("java.util.function.BiConsumer");
-        }
+        var javaType = ResolveLocalJavaType(stmt, context);
+        var isFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword) || m.IsKind(SyntaxKind.ReadOnlyKeyword));
 
         var exprTransformer = ExpressionTransformerFacade.Instance;
-        var effectiveJavaType = GetEffectiveLocalDeclarationType(stmt, javaType, context);
+        var holderStatements = new List<string>();
+        var plainDeclarators = new List<string>();
+        JavaExpression? singleInitializerIR = null;
+        string? singleResolvedInitType = null;
 
-        // Special case: var x = target.Property = value
-        // Property setters return void in Java — split into two statements: "Type x = value; target.setProperty(x);"
-        if (stmt.Declaration.Variables.Count == 1)
+        foreach (var variable in stmt.Declaration.Variables)
         {
-            var sv = stmt.Declaration.Variables[0];
-            if (sv.Initializer?.Value is AssignmentExpressionSyntax assignInit
-                && assignInit.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.SimpleAssignmentExpression))
+            var localSymbol = context.GetDeclaredSymbol(variable) as ILocalSymbol;
+            if (localSymbol?.Type is IPointerTypeSymbol)
             {
-                // Check if the LHS of the initializer-assignment is a property setter
-                bool lhsIsProp = false;
-                if (assignInit.Left is MemberAccessExpressionSyntax maLhsCheck)
-                {
-                    var symCheck = context.GetSymbolInfo(maLhsCheck).Symbol;
-                    lhsIsProp = symCheck is IPropertySymbol || (symCheck == null && char.IsUpper(maLhsCheck.Name.Identifier.Text[0]));
-                }
-                else if (assignInit.Left is IdentifierNameSyntax idLhsCheck)
-                {
-                    var symCheck = context.GetSymbolInfo(idLhsCheck).Symbol;
-                    lhsIsProp = symCheck is IPropertySymbol;
-                }
-                if (lhsIsProp)
-                {
-                    var varName = context.MethodState.GetEffectiveLocalJavaName(
-                        context.GetDeclaredSymbol(sv), ConversionContext.EscapeJavaKeyword(sv.Identifier.Text));
-                    var rhsExpr = exprTransformer.Transform(assignInit.Right, context);
-                    if (context.SemanticModel != null)
-                    {
-                        var rhsType = context.GetTypeInfo(assignInit.Right).Type;
-                        rhsExpr = StructCloneHelper.CloneStructValueIfNeeded(assignInit.Right, rhsExpr, rhsType, context);
-                    }
-                    // Build setter call using varName as the value argument
-                    string setterCode;
-                    if (assignInit.Left is MemberAccessExpressionSyntax maLhsSet)
-                    {
-                        var maTarget = exprTransformer.Transform(maLhsSet.Expression, context);
-                        var maPropName = maLhsSet.Name.Identifier.Text;
-                        setterCode = $"{maTarget}.set{maPropName}({varName})";
-                    }
-                    else if (assignInit.Left is IdentifierNameSyntax idLhsSet)
-                    {
-                        setterCode = $"set{idLhsSet.Identifier.Text}({varName})";
-                    }
-                    else
-                    {
-                        setterCode = exprTransformer.Transform(assignInit, context);
-                    }
-                    var preStmts = context.DrainPreStatements();
-                    var preCode = preStmts.Count > 0 ? string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";")) + "\n" : "";
-                    return new JavaMemberCollection(
-                        new JavaStatementNode($"{preCode}{javaType} {varName} = {rhsExpr};"),
-                        new JavaStatementNode($"{setterCode};"));
-                }
-            }
-        }
-
-        var declarations = string.Join(", ", stmt.Declaration.Variables.Select(v =>
-        {
-            string init;
-            if (v.Initializer != null)
-            {
-                var localTargetType = context.GetDeclaredSymbol(v) as ILocalSymbol switch
-                {
-                    ILocalSymbol localSymbol => localSymbol.Type,
-                    _ => null
-                };
-                if (IsUsableLocalOverrideType(localTargetType))
-                {
-                    context.LocalTypeOverrides[v.Identifier.Text] = localTargetType!;
-                }
-                // C# ref locals (ref int[]? setLookup = ref _code.StringsAsciiLookup[operand0]):
-                // Java has no ref locals — bind the variable to the referenced value.
-                // The ref-holder machinery handles the ref argument passing at call sites.
-                var initValueExpr = v.Initializer.Value is RefExpressionSyntax refInit
-                    ? refInit.Expression
-                    : v.Initializer.Value;
-                var initExpr = exprTransformer.Transform(initValueExpr, context);
-                // Generic-method results (e.g. await DeserializeWrapper<T>(...)) lose their
-                // type argument in Java and surface as Object. When the declared local type
-                // is concrete but the initializer chain ends with a method call (whose result
-                // Java infers as Object), restore the C# type with an explicit cast so `var`
-                // declares the intended type and member access compiles.
-        if (javaType == "var"
-            && localTargetType is { } localConcreteType
-                    && IsUsableLocalOverrideType(localConcreteType)
-                    && localConcreteType.SpecialType is not (SpecialType.System_Object or SpecialType.System_String)
-                    && localConcreteType.TypeKind is not (TypeKind.Enum or TypeKind.Interface or TypeKind.Delegate)
-                    && initExpr.Trim().EndsWith(")", StringComparison.Ordinal)
-                    && !initExpr.Trim().StartsWith("new ", StringComparison.Ordinal)
-                    && !HasCastPrefix(initExpr)
-                    && context.SemanticModel != null)
-                {
-                }
-                if (!IsUsableLocalOverrideType(localTargetType) && context.SemanticModel != null)
-                {
-                    var initTypeInfoForOverride = context.GetTypeInfo(v.Initializer.Value);
-                    var initTypeForOverride = initTypeInfoForOverride.Type ?? initTypeInfoForOverride.ConvertedType;
-                    if (IsUsableLocalOverrideType(initTypeForOverride))
-                        context.LocalTypeOverrides[v.Identifier.Text] = initTypeForOverride!;
-                }
-                if (!IsUsableLocalOverrideType(localTargetType)
-                    && v.Initializer.Value is MemberAccessExpressionSyntax memberInit
-                    && TryInferAnonymousRecordComponentType(memberInit, context, out var componentType))
-                {
-                    context.LocalTypeOverrides[v.Identifier.Text] = componentType;
-                }
-                if (!IsUsableLocalOverrideType(localTargetType)
-                    && TryInferStringTypeFromDegradedInitializer(v.Initializer.Value, context, out var inferredStringType))
-                {
-                    context.LocalTypeOverrides[v.Identifier.Text] = inferredStringType;
-                }
-
-                // For pointer-typed local variables, propagate base segment info
-                if (localTargetType is IPointerTypeSymbol && v.Initializer.Value is BinaryExpressionSyntax binInit
-                    && binInit.OperatorToken.IsKind(SyntaxKind.MinusToken))
-                {
-                    var binLeftType = context.GetTypeInfo(binInit.Left).Type;
-                    if (binLeftType is IPointerTypeSymbol)
-                    {
-                        var binLeftExpr = exprTransformer.Transform(binInit.Left, context);
-                        if (context.TryGetPointerBase(binLeftExpr.Trim(), out var inheritedBase))
-                        {
-                            context.RegisterPointerBase(context.MethodState.GetEffectiveLocalJavaName(
-                                context.GetDeclaredSymbol(v), ConversionContext.EscapeJavaKeyword(v.Identifier.Text)), inheritedBase);
-                        }
-                    }
-                }
-                // Also handle pointer addition that creates a new pointer variable (e.g., char* end = p + 5;)
-                if (localTargetType is IPointerTypeSymbol && v.Initializer.Value is BinaryExpressionSyntax binAddInit
-                    && binAddInit.OperatorToken.IsKind(SyntaxKind.PlusToken))
-                {
-                    var binAddLeftType = context.GetTypeInfo(binAddInit.Left).Type;
-                    if (binAddLeftType is IPointerTypeSymbol)
-                    {
-                        var binAddLeftExpr = exprTransformer.Transform(binAddInit.Left, context);
-                        if (context.TryGetPointerBase(binAddLeftExpr.Trim(), out var inheritedBase))
-                        {
-                            context.RegisterPointerBase(context.MethodState.GetEffectiveLocalJavaName(
-                                context.GetDeclaredSymbol(v), ConversionContext.EscapeJavaKeyword(v.Identifier.Text)), inheritedBase);
-                        }
-                    }
-                }
-                // Handle pointer variable initialized from another pointer variable (e.g., char* newPos = curPos;)
-                // This propagates the base segment so subsequent pointer arithmetic on the new variable
-                // uses the base segment instead of the potentially zero-length slice.
-                if (localTargetType is IPointerTypeSymbol && v.Initializer.Value is IdentifierNameSyntax idInit)
-                {
-                    var idExpr = exprTransformer.Transform(idInit, context);
-                    if (context.TryGetPointerBase(idExpr.Trim(), out var inheritedBase))
-                    {
-                        context.RegisterPointerBase(context.MethodState.GetEffectiveLocalJavaName(
-                            context.GetDeclaredSymbol(v), ConversionContext.EscapeJavaKeyword(v.Identifier.Text)), inheritedBase);
-                    }
-                }
-                // When the declared type is a primitive array (e.g., int[]) and the initializer is
-                // a generic method whose original return type is T[] (type-parameter array),
-                // Java generics substitute T with the boxed type (Integer[]) — we must unbox it.
-                if (javaType is "int[]" or "long[]" or "double[]" or "float[]" or "boolean[]"
-                    && v.Initializer.Value is InvocationExpressionSyntax unboxInvExpr
-                    && context.SemanticModel != null)
-                {
-                    var invSym2 = context.GetSymbolInfo(unboxInvExpr).Symbol as IMethodSymbol;
-                    if (invSym2?.OriginalDefinition.ReturnType is IArrayTypeSymbol origRetArr2
-                        && origRetArr2.ElementType is ITypeParameterSymbol
-                        // Skip if already converted by TransformLinqToArray (contains mapToDouble/mapToInt etc.)
-                        && !initExpr.Contains(".mapToDouble(") && !initExpr.Contains(".mapToInt(") && !initExpr.Contains(".mapToLong(")
-                        && !initExpr.Contains("ArrayHelper.", StringComparison.Ordinal))
-                    {
-                        // The method returns T[] in Java (boxed array, e.g. Integer[]); use Arrays.stream() to unbox.
-                        // Java Arrays.stream only supports int[], long[], double[] for primitive arrays.
-                        // float[] and boolean[] have no direct stream unboxing support; leave as-is.
-                        if (javaType is "int[]" or "long[]" or "double[]")
-                            context.AddImport("java.util.Arrays");
-                        initExpr = javaType switch
-                        {
-                            "int[]" => $"Arrays.stream({initExpr}).mapToInt(Number::intValue).toArray()",
-                            "long[]" => $"Arrays.stream({initExpr}).mapToLong(Long::longValue).toArray()",
-                            "double[]" => $"Arrays.stream({initExpr}).mapToDouble(Double::doubleValue).toArray()",
-                            _ => initExpr
-                        };
-                    }
-                }
-
-                // Fix: C# arrays implement IEnumerable/ICollection/IList, so assigning an array directly
-                // to IList<T>/ICollection<T> is valid C#. In Java, arrays are NOT Collection subtypes.
-                // When the declared Java type is a collection interface and the initializer is an array,
-                // wrap with ArrayHelper.toList() (reference) or Arrays.stream().boxed().collect() (primitives).
-                if (context.SemanticModel != null
-                    && IsJavaCollectionOrListType(javaType)
-                    && !initExpr.Contains("ArrayHelper.toList(")
-                    && !initExpr.Contains("Arrays.asList(")
-                    && !initExpr.Contains("Arrays.stream(")
-                    && !initExpr.Contains("IntStream.range(")
-                    && !initExpr.Contains(".collect("))
-                {
-                    var initTypeInfo = context.GetTypeInfo(v.Initializer.Value);
-                    if (initTypeInfo.Type is IArrayTypeSymbol arrayType)
-                    {
-                        initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayType, context);
-                    }
-                }
-
-                // Fix K3: When the C# declared type is IEnumerable<T>/ICollection<T>/IList<T> (→ Java Iterable<T>)
-                // but the initializer ends with .toArray(T[]::new), the assignment would fail because
-                // T[] is NOT Iterable<T> in Java. Replace .toArray(T[]::new) with .collect(CSharpList.toCSharpList()).
-                if ((javaType.StartsWith("Iterable<") || javaType.StartsWith("List<") || javaType.StartsWith("Collection<"))
-                    && System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$"))
-                {
-                    initExpr = System.Text.RegularExpressions.Regex.Replace(
-                        initExpr.TrimEnd(), @"\.toArray\([^)]+::new\)$", ".collect(CSharpList.toCSharpList())");
-                    context.AddImport("java.util.stream.Collectors");
-                    context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                }
-
-                // For locals mapped to Java "var" whose semantic type is IEnumerable/ICollection/IList,
-                // Java would otherwise infer Stream<T> from LINQ chains. Materialize eagerly.
-                // This applies both to implicit "var" and explicit IEnumerable<T> declarations,
-                // because IEnumerable<T> is intentionally lowered to Java var in this transformer.
-        if (javaType == "var" && context.SemanticModel != null)
-                {
-                    var localSym = context.GetDeclaredSymbol(v) as ILocalSymbol;
-                    bool semanticTypeIsEnumerableLike = localSym?.Type is INamedTypeSymbol localNamed
-                        && localNamed.Name is "IEnumerable" or "IOrderedEnumerable" or "ICollection" or "IList";
-                    bool looksLikeStreamExpr = !initExpr.Contains(".collect(CSharpList.toCSharpList())")
-                        && !initExpr.TrimEnd().EndsWith(".toArray()")
-                        && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$")
-                        && (initExpr.Contains(".sorted(") || initExpr.Contains(".filter(") ||
-                            initExpr.Contains(".map(") || initExpr.Contains(".flatMap(") ||
-                            initExpr.Contains("StreamSupport.stream(") || initExpr.Contains("Arrays.stream(") ||
-                            initExpr.Contains("IntStream.range(") ||
-                            initExpr.Contains(".stream()") || initExpr.Contains("Stream.concat(") ||
-                            initExpr.Contains(".distinct(") || initExpr.Contains(".limit(") ||
-                            initExpr.Contains(".skip(") || initExpr.Contains(".peek("));
-
-                    if (semanticTypeIsEnumerableLike && looksLikeStreamExpr)
-                    {
-                        initExpr = $"{initExpr}.collect(CSharpList.toCSharpList())";
-                        context.AddImport("java.util.stream.Collectors");
-                        context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                    }
-
-                    // C# arrays implement IEnumerable<T>/ICollection<T>/IList<T> implicitly.
-                    // When the declared C# type was IEnumerable<T> (→ javaType was "Iterable<T>",
-                    // then lowered to "var"), the initializer may be an array. Java arrays do NOT
-                    // implement Iterable, so we must wrap: IEnumerable targets keep the array
-                    // identity (ArrayHelper.asIterable), ICollection/IList targets get a mutable
-                    // list (ArrayHelper.toList / Arrays.stream for primitives).
-                    if (semanticTypeIsEnumerableLike
-                        && !initExpr.Contains("ArrayHelper.toList(")
-                        && !initExpr.Contains("ArrayHelper.asIterable(")
-                        && !initExpr.Contains("Arrays.asList(")
-                        && !initExpr.Contains("Arrays.stream(")
-                        && !initExpr.Contains("IntStream.range(")
-                        && !initExpr.Contains(".collect("))
-                    {
-                        var initExprTypeInfo = context.GetTypeInfo(v.Initializer!.Value);
-                        var arrayTypeSymbol = initExprTypeInfo.Type as IArrayTypeSymbol
-                            ?? initExprTypeInfo.ConvertedType as IArrayTypeSymbol;
-                        if (arrayTypeSymbol != null)
-                        {
-                            initExpr = ObjectCreationTransformer.WrapArrayForCollectionArg(initExpr, arrayTypeSymbol, context);
-                        }
-                    }
-                }
-
-                // Track stream-typed local variables for subsequent for-each statements.
-                // When the initializer is a Java stream expression (not already collected), register
-                // the variable name so TransformForEachStatement can detect it.
-                // Guard: never register array-typed variables (T[]) as streams — arrays are
-                // directly iterable in Java and must not be collected in for-each loops.
-                {
-                    bool initLooksLikeStream = !initExpr.Contains(".collect(CSharpList.toCSharpList())")
-                        // If it ends with .toArray(...), the stream was already terminated to an array —
-                        // the variable is T[], not a stream, so do NOT register it as a stream variable.
-                        && !initExpr.TrimEnd().EndsWith(".toArray()")
-                        && !System.Text.RegularExpressions.Regex.IsMatch(initExpr.TrimEnd(), @"\.toArray\([^)]*\)$");
-                    // Do NOT register if the variable's Java type is an array (e.g. Point[]).
-                    // Arrays are directly iterable in Java; they are never Java streams.
-                    bool isArrayJavaType = javaType.EndsWith("[]");
-                    // Also check via semantic model: if the variable's C# type is an array, skip registration.
-                    bool isSemanticArrayType = false;
-                    if (context.SemanticModel != null)
-                    {
-                        var localSymForStream = context.GetDeclaredSymbol(v) as ILocalSymbol;
-                        isSemanticArrayType = localSymForStream?.Type is IArrayTypeSymbol;
-                    }
-        if (initLooksLikeStream && !isArrayJavaType && !isSemanticArrayType)
-            context.MethodState.AddStreamVariable(v.Identifier.Text);
-                }
-                // Struct chained assignment in variable declaration:
-                // Point center = previousCenter = p;
-                // In C# each variable gets an independent copy; in Java they'd share the same reference.
-                // Expand: var _structCopyN = p.clone(); previousCenter = _structCopyN.clone(); center = _structCopyN.clone();
-                if (context.SemanticModel != null && v.Initializer?.Value is AssignmentExpressionSyntax declChained
-                    && declChained.OperatorToken.Kind() == SyntaxKind.EqualsToken)
-                {
-                    var declaredLocalType = (context.GetDeclaredSymbol(v) as ILocalSymbol)?.Type;
-                    if (StructCloneHelper.IsUserDefinedStruct(declaredLocalType))
-                    {
-                        var (expandedInit, preStmtsForDecl) = ExpandChainedStructVarDecl(v, declChained, context);
-                        foreach (var ps in preStmtsForDecl) context.AddPreStatement(ps);
-                        initExpr = expandedInit;
-                        init = $" = {initExpr}";
-                        return $"{ConversionContext.EscapeJavaKeyword(v.Identifier.Text)}{init}";
-                    }
-                }
-
-                // Struct value copy: In C# struct assignment copies the value; in Java it copies the reference.
-                // Insert .clone() for user-defined struct initializers that are not fresh temporaries.
-                if (context.SemanticModel != null && v.Initializer != null)
-                {
-                    var initValueType = context.GetTypeInfo(v.Initializer.Value).Type;
-                    initExpr = StructCloneHelper.CloneStructValueIfNeeded(v.Initializer.Value, initExpr, initValueType, context);
-                }
-
-                // Task 4: Wrap local variable declarations of ICollection/ICollection<T>
-                // when the initializer is not already a CSharpICollection/CSharpCollection compatible type.
-                if (context.SemanticModel != null && v.Initializer != null && localTargetType != null
-                    && localTargetType is not IArrayTypeSymbol)
-                {
-                    var localDisplay = localTargetType.ToDisplayString();
-                    if (localDisplay == "System.Collections.ICollection"
-                        || localDisplay.StartsWith("System.Collections.Generic.ICollection<"))
-                    {
-                        var initType = context.GetTypeInfo(v.Initializer.Value).Type;
-                        if (initType != null && !IsAssignableToCSharpICollection(initType, context))
-                        {
-                            context.AddImport("io.github.ningpp.compat.CSharpICollection");
-                            if (localDisplay.StartsWith("System.Collections.Generic.ICollection<"))
-                                initExpr = $"CSharpICollection.fromTyped({initExpr})";
-                            else
-                                initExpr = $"CSharpICollection.from({initExpr})";
-                        }
-                    }
-                }
-
-                // Task 5: Wrap local variable declarations of IList/IList<T>
-                // when the initializer is not already a CSharpGenericIList/CSharpIList compatible type.
-                // Array-typed locals (e.g. IList<int>[]) are excluded — the declared Java type
-                // stays an array and fromTyped() would produce a mismatched generic view.
-                if (context.SemanticModel != null && v.Initializer != null && localTargetType != null
-                    && localTargetType is not IArrayTypeSymbol)
-                {
-                    var localDisplay = localTargetType.ToDisplayString();
-                    if (localDisplay == "System.Collections.IList"
-                        || localDisplay.StartsWith("System.Collections.Generic.IList<"))
-                    {
-                        var initType = context.GetTypeInfo(v.Initializer.Value).Type;
-                        if (initType != null && !IsAssignableToCSharpGenericIList(initType, localTargetType, context))
-                        {
-                            context.AddImport("io.github.ningpp.compat.CSharpGenericIList");
-                            if (localDisplay.StartsWith("System.Collections.Generic.IList<"))
-                                initExpr = $"CSharpGenericIList.fromTyped({initExpr})";
-                            else
-                                initExpr = $"CSharpGenericIList.from({initExpr})";
-                        }
-                    }
-                }
-
-                init = $" = {initExpr}";
-            }
-            else if (wasConvertedFromVar && javaType != "var" && javaType != "Object")
-            {
-                // The original C# used 'var' without initializer — Java needs a type with default.
-                // Delegate to the authoritative GetDefaultValueForType for consistent defaults.
-                var localSym = context.GetDeclaredSymbol(v) as ILocalSymbol;
-                var defaultVal = TypeOperationTransformer.GetDefaultValueForType(javaType, localSym?.Type, context);
-                init = $" = {defaultVal}";
-            }
-            else
-            {
-                // C# enum local variables without initializers default to the member with value 0,
-                // but Java enum references default to null. Initialize to the 0-valued member.
-                var localSym = context.GetDeclaredSymbol(v) as ILocalSymbol;
-                if (localSym?.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType
-                    && context.SemanticModel != null)
-                {
-                    bool isFlags = context.IsFlagsEnum(enumType.Name)
-                        || enumType.GetAttributes().Any(a =>
-                            a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
-                    if (!isFlags)
-                    {
-                        var enumTypeRef = BuildEnumTypeReference(enumType);
-                        var zeroMember = FindEnumMemberByValue(enumType, 0);
-                        init = zeroMember != null
-                            ? $" = {enumTypeRef}.{zeroMember}"
-                            : $" = {enumTypeRef}.values()[0]";
-                    }
-                    else
-                    {
-                        init = "";
-                    }
-                }
-                else
-                {
-                    init = "";
-                }
-            }
-            return $"{context.MethodState.GetEffectiveLocalJavaName(context.GetDeclaredSymbol(v), ConversionContext.EscapeJavaKeyword(v.Identifier.Text))}{init}";
-        }));
-
-        string localDeclPreCode = "";
-        if (context.HasPendingPreStatements)
-        {
-            var pendingPre = context.DrainPreStatements();
-            localDeclPreCode = string.Join("\n", pendingPre.Select(s => s.TrimEnd(';') + ";")) + "\n";
-        }
-
-        string localDeclPostCode = "";
-        if (context.HasPendingPostStatements)
-        {
-            var pendingPost = context.DrainPostStatements();
-            localDeclPostCode = "\n" + string.Join("\n", pendingPost.Select(s => s.TrimEnd(';') + ";"));
-        }
-
-        // Lambda capture holder: for variables captured by lambdas and externally reassigned,
-        // emit a holder declaration right after the variable declaration and activate the mapping.
-        // This allows IdentifierExpressionTransformer to replace subsequent references with _varName[0].
-        string? lambdaCaptureHolderCode = null;
-        if (stmt.Declaration.Variables.Count == 1)
-        {
-            var varDeclarator = stmt.Declaration.Variables[0];
-            var varName = context.MethodState.GetEffectiveLocalJavaName(
-                context.GetDeclaredSymbol(varDeclarator), ConversionContext.EscapeJavaKeyword(varDeclarator.Identifier.Text));
-            if (context.MethodState.HasPendingLambdaCaptureHolder(varDeclarator.Identifier.Text))
-            {
-                var origName = varDeclarator.Identifier.Text;
-                if (context.MethodState.TryGetPendingLambdaCaptureHolder(origName, varDeclarator, out var capType, out var holderName))
-                {
-                    // When the variable has no initializer (e.g. out parameter like "SparseMatrix Lw;"),
-                    // Java rejects reading the uninitialized variable in the capture array. Use the
-                    // type-appropriate default value (null for references, 0/false for primitives).
-                    string captureInit = varDeclarator.Initializer != null ? varName
-                        : capType switch
-                        {
-                            "int" => "0",
-                            "long" => "0L",
-                            "double" => "0.0",
-                            "float" => "0.0f",
-                            "boolean" => "false",
-                            "short" => "0",
-                            "byte" => "0",
-                            "char" => "'\\0'",
-                            _ => "null"
-                        };
-                    context.MethodState.ActivateLambdaCaptureHolder(origName, varDeclarator);
-                }
-            }
-        }
-
-        // Enum array default value fill: C# new EnumType[n] initializes to default(EnumType)
-        // (the member with value 0), but Java initializes to null. Add Arrays.fill() to bridge
-        // the semantic gap.
-        string? enumArrayFillStmt = null;
-        if (stmt.Declaration.Variables.Count == 1 && context.SemanticModel != null)
-        {
-            var singleVarCheck = stmt.Declaration.Variables[0];
-            if (singleVarCheck.Initializer?.Value is ArrayCreationExpressionSyntax arrCreation
-                && arrCreation.Initializer == null)
-            {
-                var varTypeInfo = context.GetTypeInfo(stmt.Declaration.Type);
-                if (varTypeInfo.Type is IArrayTypeSymbol arrayType
-                    && arrayType.ElementType.TypeKind == TypeKind.Enum
-                    && arrayType.ElementType is INamedTypeSymbol enumNamedType)
-                {
-                    bool isFlags = context.IsFlagsEnum(enumNamedType.Name)
-                        || enumNamedType.GetAttributes().Any(a =>
-                            a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
-                    if (!isFlags)
-                    {
-                        var varNameFill = context.MethodState.GetEffectiveLocalJavaName(
-                            context.GetDeclaredSymbol(singleVarCheck), ConversionContext.EscapeJavaKeyword(singleVarCheck.Identifier.Text));
-                        var enumTypeRef = BuildEnumTypeReference(enumNamedType);
-                        var zeroMember = FindEnumMemberByValue(enumNamedType, 0);
-                        string fillValue = zeroMember != null
-                            ? $"{enumTypeRef}.{zeroMember}"
-                            : $"{enumTypeRef}.values()[0]";
-                        enumArrayFillStmt = $"Arrays.fill({varNameFill}, {fillValue});";
-                        context.AddImport("java.util.Arrays");
-                    }
-                }
-            }
-        }
-
-        // Struct array default value fill: C# new UserStruct[n] zero-initializes every
-        // element (all fields default), but in Java the backing class array starts out
-        // null. The assignment path (TryGetStructArrayFillStatement) already fills for
-        // `x = new T[n]`; local declarations like `T[] x = new T[n]` need the same fill,
-        // otherwise reading a fresh element for the struct mutation write-back (e.g.
-        // `_attrStack[top] = _attrStack[top].set(...)`) throws NPE. Mirror the enum fill
-        // by appending the statement to the post code emitted right after the declaration.
-        if (stmt.Declaration.Variables.Count == 1 && context.SemanticModel != null)
-        {
-            var singleVarCheck = stmt.Declaration.Variables[0];
-            if (singleVarCheck.Initializer?.Value is ArrayCreationExpressionSyntax structArrCreation
-                && structArrCreation.Initializer == null
-                && structArrCreation.Type.RankSpecifiers.Count == 1)
-            {
-                var firstRank = structArrCreation.Type.RankSpecifiers[0];
-                if (firstRank.Sizes.Count == 1
-                    && !firstRank.Sizes[0].IsKind(SyntaxKind.OmittedArraySizeExpression))
-                {
-                    var structArrayType = context.GetTypeInfo(stmt.Declaration.Type).Type as IArrayTypeSymbol;
-                    if (structArrayType != null
-                        && StructCloneHelper.IsUserDefinedStruct(structArrayType.ElementType))
-                    {
-                        var structElementType = context.MapType(structArrayType.ElementType);
-                        if (!string.IsNullOrWhiteSpace(structElementType)
-                            && !structElementType.EndsWith("[]", StringComparison.Ordinal))
-                        {
-                            var varNameFill = context.MethodState.GetEffectiveLocalJavaName(
-                                context.GetDeclaredSymbol(singleVarCheck),
-                                ConversionContext.EscapeJavaKeyword(singleVarCheck.Identifier.Text));
-                            context.AddImport("java.util.Arrays");
-                            var structFillStmt = $"Arrays.setAll({varNameFill}, _i -> new {structElementType}());";
-                            localDeclPostCode = string.IsNullOrEmpty(localDeclPostCode)
-                                ? "\n" + structFillStmt
-                                : localDeclPostCode + "\n" + structFillStmt;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Produce structured JavaVariableDeclarationStatement for simple single-variable cases.
-        // This enables downstream IR rewriters (e.g. ImplicitCastCompletionRewriter) to inspect
-        // declared types and initializer types without string parsing.
-        if (stmt.Declaration.Variables.Count == 1
-            && string.IsNullOrEmpty(localDeclPreCode)
-            && string.IsNullOrEmpty(localDeclPostCode)
-            && enumArrayFillStmt == null
-            && lambdaCaptureHolderCode == null)
-        {
-            var singleVar = stmt.Declaration.Variables[0];
-            var varName = context.MethodState.GetEffectiveLocalJavaName(
-                context.GetDeclaredSymbol(singleVar), ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text));
-
-            // Determine initializer expression as IR node
-            JavaExpression? initializerIR = null;
-            string? resolvedInitType = null;
-            if (singleVar.Initializer != null)
-            {
-                // Re-extract the init expression from the declarations string.
-                // declarations is "varName = initExpr" — extract after " = ".
-                var declStr = declarations;
-                var eqIdx = declStr.IndexOf(" = ", StringComparison.Ordinal);
-                if (eqIdx >= 0)
-                {
-                    var initStr = declStr[(eqIdx + 3)..];
-                    initializerIR = new JavaRawExpression(initStr);
-                }
-
-                // Resolve initializer type from semantic model
-                if (context.SemanticModel != null)
-                {
-                    var initTypeInfo = context.GetTypeInfo(singleVar.Initializer.Value);
-                    var initType = initTypeInfo.Type ?? initTypeInfo.ConvertedType;
-                    if (initType != null && initType.TypeKind != TypeKind.Error)
-                    {
-                        var mapped = context.MapType(initType);
-                        if (!string.IsNullOrWhiteSpace(mapped))
-                            resolvedInitType = mapped;
-                    }
-                }
+                throw new NotSupportedException(
+                    $"CS2J normalization required: pointer local '{variable.Identifier.Text}' must be lowered by a preprocessor before Java conversion.");
             }
 
-            var structured = new JavaVariableDeclarationStatement
+            var name = context.MethodState.GetEffectiveLocalJavaName(
+                context.GetDeclaredSymbol(variable),
+                ConversionContext.EscapeJavaKeyword(variable.Identifier.Text));
+
+            var initExprText = variable.Initializer != null
+                ? exprTransformer.Transform(variable.Initializer.Value, context)
+                : null;
+
+            // A lambda-captured, externally reassigned local is rewritten to a
+            // one-element holder array; emit the holder declaration in place of
+            // the ordinary local declaration.
+            var origName = variable.Identifier.Text;
+            if (context.MethodState.HasPendingLambdaCaptureHolder(origName)
+                && context.MethodState.TryGetPendingLambdaCaptureHolder(origName, variable, out var capType, out var holderName))
             {
-                Type = effectiveJavaType,
-                Name = varName,
-                Initializer = initializerIR,
-                IsFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)),
-                ResolvedInitializerType = resolvedInitType
-            };
-            return structured;
-        }
-
-        // When enum array fill is needed, return declaration + fill as a JavaMemberCollection
-        if (enumArrayFillStmt != null && stmt.Declaration.Variables.Count == 1
-            && string.IsNullOrEmpty(localDeclPreCode)
-            && string.IsNullOrEmpty(localDeclPostCode)
-            && lambdaCaptureHolderCode == null)
-        {
-            var singleVar = stmt.Declaration.Variables[0];
-            var varName = context.MethodState.GetEffectiveLocalJavaName(
-                context.GetDeclaredSymbol(singleVar), ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text));
-
-            JavaExpression? initializerIR = null;
-            string? resolvedInitType = null;
-            if (singleVar.Initializer != null)
-            {
-                var declStr = declarations;
-                var eqIdx = declStr.IndexOf(" = ", StringComparison.Ordinal);
-                if (eqIdx >= 0)
-                {
-                    var initStr = declStr[(eqIdx + 3)..];
-                    initializerIR = new JavaRawExpression(initStr);
-                }
-
-                if (context.SemanticModel != null)
-                {
-                    var initTypeInfo = context.GetTypeInfo(singleVar.Initializer.Value);
-                    var initType = initTypeInfo.Type ?? initTypeInfo.ConvertedType;
-                    if (initType != null && initType.TypeKind != TypeKind.Error)
-                    {
-                        var mapped = context.MapType(initType);
-                        if (!string.IsNullOrWhiteSpace(mapped))
-                            resolvedInitType = mapped;
-                    }
-                }
-            }
-
-            var decl = new JavaVariableDeclarationStatement
-            {
-                Type = effectiveJavaType,
-                Name = varName,
-                Initializer = initializerIR,
-                IsFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)),
-                ResolvedInitializerType = resolvedInitType
-            };
-            return new JavaMemberCollection(decl, new JavaStatementNode(enumArrayFillStmt));
-        }
-
-        // Lambda capture holder + variable declaration as JavaMemberCollection
-        if (lambdaCaptureHolderCode != null && stmt.Declaration.Variables.Count == 1
-            && string.IsNullOrEmpty(localDeclPreCode)
-            && string.IsNullOrEmpty(localDeclPostCode)
-            && enumArrayFillStmt == null)
-        {
-            var singleVar = stmt.Declaration.Variables[0];
-            var varName = context.MethodState.GetEffectiveLocalJavaName(
-                context.GetDeclaredSymbol(singleVar), ConversionContext.EscapeJavaKeyword(singleVar.Identifier.Text));
-
-            JavaExpression? initializerIR = null;
-            string? resolvedInitType = null;
-            if (singleVar.Initializer != null)
-            {
-                var declStr = declarations;
-                var eqIdx = declStr.IndexOf(" = ", StringComparison.Ordinal);
-                if (eqIdx >= 0)
-                {
-                    var initStr = declStr[(eqIdx + 3)..];
-                    initializerIR = new JavaRawExpression(initStr);
-                }
-
-                if (context.SemanticModel != null)
-                {
-                    var initTypeInfo = context.GetTypeInfo(singleVar.Initializer.Value);
-                    var initType = initTypeInfo.Type ?? initTypeInfo.ConvertedType;
-                    if (initType != null && initType.TypeKind != TypeKind.Error)
-                    {
-                        var mapped = context.MapType(initType);
-                        if (!string.IsNullOrWhiteSpace(mapped))
-                            resolvedInitType = mapped;
-                    }
-                }
-            }
-
-            var decl = new JavaVariableDeclarationStatement
-            {
-                Type = effectiveJavaType,
-                Name = varName,
-                Initializer = initializerIR,
-                IsFinal = stmt.Modifiers.Any(m => m.IsKind(SyntaxKind.ReadOnlyKeyword)),
-                ResolvedInitializerType = resolvedInitType
-            };
-            return new JavaMemberCollection(decl, new JavaStatementNode(lambdaCaptureHolderCode));
-        }
-
-        // When the declaration carries pre-statements (e.g. object initializer chains),
-        // the lambda capture holder must still be emitted after the declaration —
-        // dropping it leaves later references replaced with holder access (_var[0])
-        // but no holder declaration, which fails to compile.
-        string lambdaCaptureSuffix = lambdaCaptureHolderCode != null
-            ? "\n" + lambdaCaptureHolderCode
-            : "";
-        return new JavaStatementNode($"{localDeclPreCode}{effectiveJavaType} {declarations};{localDeclPostCode}{lambdaCaptureSuffix}");
-    }
-
-    /// <summary>
-    /// True when the expression already starts with a Java cast prefix, e.g. "(T) expr"
-    /// or "(CSharpList&lt;String&gt;) expr" — such expressions must not be cast again.
-    /// </summary>
-    private static bool HasCastPrefix(string expression)
-    {
-        var trimmed = expression.TrimStart();
-        if (!trimmed.StartsWith("(", StringComparison.Ordinal))
-            return false;
-        int depth = 0;
-        for (int i = 0; i < trimmed.Length; i++)
-        {
-            char c = trimmed[i];
-            if (c == '(') depth++;
-            else if (c == ')')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    // Closing paren must be followed by whitespace + an operand
-                    // (cast), not directly by a member/chain (parenthesized expr).
-                    return i + 1 < trimmed.Length
-                        && char.IsWhiteSpace(trimmed[i + 1])
-                        && i > 1;
-                }
-            }
-            else if (c == '<' && depth == 1)
-            {
-                // Generic type argument — skip to matching '>' to avoid counting
-                // inner parens (e.g. Supplier<...>) as cast boundaries.
-                int gt = trimmed.IndexOf('>', i);
-                if (gt > 0) i = gt;
-            }
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Determines whether an initializer expression will emit a Java null literal.
-    /// Java's var cannot infer a type from null, so such declarations must keep an
-    /// explicit type. Handles both the null literal and default(T) where T is a
-    /// reference type, a nullable value type, or a reference-constrained type parameter
-    /// (all of which emit null via GetDefaultValueForType).
-    /// </summary>
-    private static bool InitializerEmitsNull(ExpressionSyntax initValue, ConversionContext context)
-    {
-        if (initValue.IsKind(SyntaxKind.NullLiteralExpression))
-            return true;
-        if (initValue is not DefaultExpressionSyntax defaultExpr)
-            return false;
-        var defaultType = context.GetTypeInfo(defaultExpr.Type).Type;
-        if (defaultType == null || defaultType is IErrorTypeSymbol)
-            return false;
-        if (defaultType is INamedTypeSymbol { IsGenericType: true } namedType
-            && namedType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T)
-            return true;
-        if (defaultType is ITypeParameterSymbol typeParam)
-            return typeParam.HasReferenceTypeConstraint && !typeParam.HasValueTypeConstraint;
-        return defaultType.TypeKind is not (TypeKind.Struct or TypeKind.Enum);
-    }
-
-    private static string GetEffectiveLocalDeclarationType(
-        LocalDeclarationStatementSyntax stmt,
-        string javaType,
-        ConversionContext context)
-    {
-        if (stmt.Declaration.Variables.Count != 1)
-            return javaType;
-
-        var variable = stmt.Declaration.Variables[0];
-        if (variable.Initializer == null)
-            return javaType;
-
-        var localType = (context.GetDeclaredSymbol(variable) as ILocalSymbol)?.Type;
-        return IsRuntimeTypeParameterArrayLocal(localType, variable.Initializer.Value, context)
-            ? "Object"
-            : javaType;
-    }
-
-    private static bool IsRuntimeTypeParameterArrayLocal(
-        ITypeSymbol? localType,
-        ExpressionSyntax initializer,
-        ConversionContext context)
-    {
-        if (localType is not IArrayTypeSymbol { Rank: 1, ElementType: ITypeParameterSymbol typeParameter }
-            || typeParameter.DeclaringMethod == null
-            || !SymbolEqualityComparer.Default.Equals(typeParameter.DeclaringMethod, context.CurrentMethod?.OriginalDefinition))
-        {
-            return false;
-        }
-
-        // Direct form: new T[n] (before GenericPreprocessor rewrite)
-        if (initializer is ArrayCreationExpressionSyntax { Type.RankSpecifiers.Count: 1 } arrayCreation
-            && arrayCreation.Type.ElementType is IdentifierNameSyntax elementName
-            && elementName.Identifier.Text == typeParameter.Name)
-        {
-            return context.TryGetRuntimeClassParameter(typeParameter.Name, out _);
-        }
-
-        // Rewritten form: (T[])Array.CreateInstance(typeof(T), n)
-        // GenericPreprocessor rewrites new T[n] before the converter runs.
-        // The initializer is a CastExpression wrapping the Array.CreateInstance call.
-        if (initializer is CastExpressionSyntax castExpr
-            && castExpr.Expression is InvocationExpressionSyntax invocation
-            && IsArrayCreateInstanceWithTypeOf(invocation, typeParameter, context))
-        {
-            return context.TryGetRuntimeClassParameter(typeParameter.Name, out _);
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Checks if the invocation is Array.CreateInstance(typeof(T), n)
-    /// where T is the given type parameter.
-    /// </summary>
-    private static bool IsArrayCreateInstanceWithTypeOf(
-        InvocationExpressionSyntax invocation,
-        ITypeParameterSymbol typeParameter,
-        ConversionContext context)
-    {
-        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
-            return false;
-
-        if (memberAccess.Name.Identifier.ValueText != "CreateInstance")
-            return false;
-
-        // Check receiver is System.Array or Array
-        var methodSymbol = context.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-        if (methodSymbol == null)
-        {
-            var receiverText = memberAccess.Expression.ToString();
-            if (receiverText != "System.Array" && receiverText != "Array")
-                return false;
-        }
-        else if (methodSymbol.ContainingType?.ToDisplayString() != "System.Array")
-        {
-            return false;
-        }
-
-        if (invocation.ArgumentList.Arguments.Count < 1)
-            return false;
-
-        var firstArg = invocation.ArgumentList.Arguments[0].Expression;
-        if (firstArg is not TypeOfExpressionSyntax typeOfExpr)
-            return false;
-
-        return context.GetTypeInfo(typeOfExpr.Type).Type is ITypeParameterSymbol tp
-            && tp.Name == typeParameter.Name;
-    }
-
-    private static string BuildEnumTypeReference(INamedTypeSymbol enumType)
-    {
-        return enumType.ContainingType is INamedTypeSymbol parentType
-            ? $"{BuildEnumTypeReference(parentType)}.{enumType.Name}"
-            : enumType.Name;
-    }
-
-    private static string? FindEnumMemberByValue(INamedTypeSymbol enumType, long value)
-    {
-        foreach (var member in enumType.GetMembers())
-        {
-            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field)
-            {
-                if (field.ConstantValue is int intVal && intVal == value)
-                    return field.Name;
-                if (field.ConstantValue is long longVal && longVal == value)
-                    return field.Name;
-                if (field.ConstantValue is short shortVal && shortVal == value)
-                    return field.Name;
-                if (field.ConstantValue is byte byteVal && byteVal == value)
-                    return field.Name;
-                if (field.ConstantValue is sbyte sbyteVal && sbyteVal == value)
-                    return field.Name;
-                if (field.ConstantValue is ushort ushortVal && ushortVal == value)
-                    return field.Name;
-                if (field.ConstantValue is uint uintVal && uintVal == value)
-                    return field.Name;
-                if (field.ConstantValue is ulong ulongVal && ulongVal == (ulong)value)
-                    return field.Name;
-            }
-        }
-        return null;
-    }
-
-    private static bool IsUsableLocalOverrideType(ITypeSymbol? type)
-        => type is { TypeKind: not (TypeKind.Error or TypeKind.Unknown) };
-
-    /// <summary>
-    /// Returns true when the mapped Java type for <paramref name="type"/> is already a
-    /// CSharpICollection compatible type, so no additional wrapping is needed.
-    /// Also returns true for user-defined C# classes that implement ICollection/ICollection&lt;T&gt;
-    /// directly, because the converter generates them as Java classes implementing CSharpICollection.
-    /// CollectionBase-derived and other non-generic collection bases are NOT compatible with
-    /// CSharpICollection&lt;?&gt; and must be bridged via <c>CSharpICollection.from()</c>.
-    /// </summary>
-    private static bool IsAssignableToCSharpICollection(ITypeSymbol type, ConversionContext context)
-    {
-
-        if (type is INamedTypeSymbol named)
-        {
-            bool implementsICollection = named.AllInterfaces.Any(i =>
-                i.OriginalDefinition.ToDisplayString() == "System.Collections.ICollection"
-                || i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.ICollection<T>")
-                || named.OriginalDefinition.ToDisplayString() == "System.Collections.ICollection"
-                || named.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.ICollection<T>";
-
-            // User-defined collection types (outside System.Collections) that don't inherit from a
-            // non-generic collection base are emitted as Java classes implementing CSharpICollection,
-            // so they can be assigned directly.
-            if (implementsICollection)
-            {
-                var ns = named.ContainingNamespace?.ToDisplayString() ?? "";
-                if (!ns.StartsWith("System.Collections", StringComparison.Ordinal))
-                    return true;
-            }
-        }
-
-        var javaType = context.MapType(type);
-        return javaType.Contains("CSharpICollection") || javaType.Contains("CSharpGenericIList") || javaType == "CSharpCollection";
-    }
-
-    /// <summary>
-    /// Returns true when the mapped Java type for <paramref name="sourceType"/> is already a
-    /// CSharpGenericIList or CSharpIList compatible type, so no additional wrapping is needed.
-    /// When <paramref name="targetType"/> is provided, CSharpList&lt;T&gt; is considered compatible
-    /// only with an IList&lt;T&gt; target that has the same element type.
-    /// </summary>
-    private static bool IsAssignableToCSharpGenericIList(ITypeSymbol sourceType, ConversionContext context)
-        => IsAssignableToCSharpGenericIList(sourceType, null, context);
-
-    private static bool IsAssignableToCSharpGenericIList(ITypeSymbol sourceType, ITypeSymbol? targetType, ConversionContext context)
-    {
-        var javaType = context.MapType(sourceType);
-        if (javaType.Contains("CSharpGenericIList") || javaType.Contains("CSharpIList"))
-            return true;
-
-        // CSharpList<T> implements CSharpGenericIList<T>, so it is directly assignable
-        // to an IList<T> target with the same element type. It is NOT assignable to
-        // non-generic IList (CSharpGenericIList<Object>) or to IList<U> with a different U.
-        if (javaType.StartsWith("CSharpList<", StringComparison.Ordinal)
-            && sourceType is INamedTypeSymbol sourceNamed
-            && sourceNamed.IsGenericType
-            && sourceNamed.TypeArguments.Length == 1)
-        {
-            if (targetType is INamedTypeSymbol targetNamed
-                && targetNamed.IsGenericType
-                && targetNamed.TypeArguments.Length == 1)
-            {
-                return SymbolEqualityComparer.Default.Equals(sourceNamed.TypeArguments[0], targetNamed.TypeArguments[0]);
-            }
-            return false;
-        }
-
-        // Any C# type that implements IList<T> will map to a Java type that implements
-        // CSharpGenericIList<T>, so it is directly assignable to an IList<T> target
-        // with the same element type.
-        if (sourceType is INamedTypeSymbol sourceNt)
-        {
-            foreach (var iface in sourceNt.AllInterfaces)
-            {
-                if (iface.IsGenericType
-                    && iface.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IList<T>"
-                    && targetType is INamedTypeSymbol targetNt
-                    && targetNt.IsGenericType
-                    && targetNt.TypeArguments.Length == 1
-                    && iface.TypeArguments.Length == 1)
-                {
-                    if (SymbolEqualityComparer.Default.Equals(iface.TypeArguments[0], targetNt.TypeArguments[0]))
-                        return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    private static bool TryInferStringTypeFromDegradedInitializer(
-        ExpressionSyntax initializer,
-        ConversionContext context,
-        out ITypeSymbol stringType)
-    {
-        stringType = null!;
-        if (context.SemanticModel == null)
-            return false;
-
-        var initializerTypeInfo = context.GetTypeInfo(initializer);
-        var initializerType = initializerTypeInfo.Type ?? initializerTypeInfo.ConvertedType;
-        if (initializerType != null
-            && initializerType.TypeKind is not (TypeKind.Error or TypeKind.Unknown)
-            && initializerType.SpecialType != SpecialType.System_Object)
-        {
-            return false;
-        }
-
-        if (initializer is ConditionalExpressionSyntax conditional
-            && IsStringLikeConditionalBranch(conditional.WhenTrue, context)
-            && IsStringLikeConditionalBranch(conditional.WhenFalse, context))
-        {
-            stringType = context.SemanticModel.Compilation.GetSpecialType(SpecialType.System_String);
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsStringLikeConditionalBranch(ExpressionSyntax expression, ConversionContext context)
-    {
-        var typeInfo = context.GetTypeInfo(expression);
-        var type = typeInfo.Type ?? typeInfo.ConvertedType;
-        if (type?.SpecialType == SpecialType.System_String)
-            return true;
-
-        if (expression.IsKind(SyntaxKind.NullLiteralExpression))
-            return true;
-
-        return expression switch
-        {
-            InvocationExpressionSyntax invocation => IsKnownStringReturningInvocation(invocation, context),
-            MemberAccessExpressionSyntax memberAccess => IsKnownStringPropertyAccess(memberAccess),
-            ParenthesizedExpressionSyntax parenthesized => IsStringLikeConditionalBranch(parenthesized.Expression, context),
-            _ => false,
-        };
-    }
-
-    private static bool IsKnownStringReturningInvocation(InvocationExpressionSyntax invocation, ConversionContext context)
-    {
-        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
-            return false;
-
-        var methodName = memberAccess.Name.Identifier.Text;
-
-        return false;
-    }
-
-    private static bool IsKnownStringPropertyAccess(MemberAccessExpressionSyntax memberAccess)
-    {
-        var propertyName = memberAccess.Name.Identifier.Text;
-        return propertyName is "DeploymentDirectory" or "TestRunDirectory" or "BaseDirectory";
-    }
-
-    private static bool TryInferAnonymousRecordComponentType(
-        MemberAccessExpressionSyntax memberAccess,
-        ConversionContext context,
-        out ITypeSymbol componentType)
-    {
-        componentType = null!;
-
-        if (context.SemanticModel == null
-            || memberAccess.Expression is not IdentifierNameSyntax receiver)
-        {
-            return false;
-        }
-
-        var receiverName = receiver.Identifier.Text;
-        var componentName = memberAccess.Name.Identifier.Text;
-        var foreachStmt = memberAccess.Ancestors().OfType<ForEachStatementSyntax>()
-            .FirstOrDefault(f => f.Identifier.Text == receiverName);
-        if (foreachStmt?.Expression is not InvocationExpressionSyntax invocation)
-            return false;
-
-        var helperName = invocation.Expression switch
-        {
-            IdentifierNameSyntax id => id.Identifier.Text,
-            GenericNameSyntax genericName => genericName.Identifier.Text,
-            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax memberName } => memberName.Identifier.Text,
-            _ => null
-        };
-        if (string.IsNullOrWhiteSpace(helperName))
-            return false;
-        
-
-        var containingType = foreachStmt.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
-        if (containingType == null)
-            return false;
-
-        foreach (var helper in containingType.Members.OfType<MethodDeclarationSyntax>()
-                     .Where(m => m.Identifier.Text == helperName))
-        {
-            if (TryInferAnonymousRecordComponentTypeFromHelper(helper, componentName, context, out componentType))
-                return true;
-        }
-
-        return false;
-    }
-
-    private static bool TryInferAnonymousRecordComponentTypeFromHelper(
-        MethodDeclarationSyntax helper,
-        string componentName,
-        ConversionContext context,
-        out ITypeSymbol componentType)
-    {
-        componentType = null!;
-
-        foreach (var local in helper.Body?.DescendantNodes().OfType<VariableDeclaratorSyntax>() ?? Enumerable.Empty<VariableDeclaratorSyntax>())
-        {
-            if (local.Initializer?.Value is not InvocationExpressionSyntax invocation)
+                var holderInit = initExprText ?? GetJavaDefaultForType(capType);
+                var holderStatement = capType.Contains('<')
+                    ? $"{capType}[] {holderName} = ({capType}[]) new Object[] {{ {holderInit} }}"
+                    : $"{capType}[] {holderName} = new {capType}[] {{ {holderInit} }}";
+                holderStatements.Add(holderStatement);
+                context.MethodState.ActivateLambdaCaptureHolder(origName, variable);
                 continue;
+            }
 
-            if (TryInferAnonymousRecordComponentTypeFromInvocation(invocation, componentName, context, out componentType))
-                return true;
-        }
+            plainDeclarators.Add(initExprText != null ? $"{name} = {initExprText}" : name);
 
-        foreach (var anonymous in helper.Body?.DescendantNodes().OfType<AnonymousObjectCreationExpressionSyntax>() ?? Enumerable.Empty<AnonymousObjectCreationExpressionSyntax>())
-        {
-            if (TryInferAnonymousRecordComponentTypeFromAnonymousCreation(anonymous, componentName, context, out componentType))
-                return true;
-        }
-
-        foreach (var yieldReturn in helper.Body?.DescendantNodes().OfType<YieldStatementSyntax>() ?? Enumerable.Empty<YieldStatementSyntax>())
-        {
-            if (yieldReturn.Expression is AnonymousObjectCreationExpressionSyntax anonymous
-                && TryInferAnonymousRecordComponentTypeFromAnonymousCreation(anonymous, componentName, context, out componentType))
+            if (stmt.Declaration.Variables.Count == 1 && variable.Initializer != null)
             {
-                return true;
+                singleInitializerIR = new JavaRawExpression(initExprText!);
+                var initType = context.GetTypeInfo(variable.Initializer.Value) is { } ti
+                    ? (ti.Type ?? ti.ConvertedType)
+                    : null;
+                if (initType is { TypeKind: not TypeKind.Error })
+                {
+                    var mapped = context.MapType(initType);
+                    if (!string.IsNullOrWhiteSpace(mapped))
+                        singleResolvedInitType = mapped;
+                }
             }
         }
 
-        return false;
-    }
+        var preStatements = context.HasPendingPreStatements ? context.DrainPreStatements() : new List<string>();
+        var postStatements = context.HasPendingPostStatements ? context.DrainPostStatements() : new List<string>();
 
-    private static bool TryInferAnonymousRecordComponentTypeFromInvocation(
-        InvocationExpressionSyntax invocation,
-        string componentName,
-        ConversionContext context,
-        out ITypeSymbol componentType)
-    {
-        componentType = null!;
-
-        if (invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.Text: "Select" }
-            && invocation.ArgumentList.Arguments.LastOrDefault()?.Expression is AnonymousFunctionExpressionSyntax lambda
-            && lambda.Body is AnonymousObjectCreationExpressionSyntax anonymous
-            && TryInferAnonymousRecordComponentTypeFromAnonymousCreation(anonymous, componentName, context, out componentType))
+        // Fast path: one plain declarator, no surrounding statements → structured IR.
+        if (holderStatements.Count == 0 && plainDeclarators.Count == 1
+            && preStatements.Count == 0 && postStatements.Count == 0)
         {
-            return true;
-        }
-
-        foreach (var nested in invocation.DescendantNodes().OfType<InvocationExpressionSyntax>())
-        {
-            if (TryInferAnonymousRecordComponentTypeFromInvocation(nested, componentName, context, out componentType))
-                return true;
-        }
-
-        return false;
-    }
-
-    private static bool TryInferAnonymousRecordComponentTypeFromAnonymousCreation(
-        AnonymousObjectCreationExpressionSyntax anonymous,
-        string componentName,
-        ConversionContext context,
-        out ITypeSymbol componentType)
-    {
-        componentType = null!;
-
-        foreach (var initializer in anonymous.Initializers)
-        {
-            var fieldName = initializer.NameEquals?.Name.Identifier.Text
-                ?? (initializer.Expression is IdentifierNameSyntax id ? id.Identifier.Text : null);
-            if (!string.Equals(fieldName, componentName, StringComparison.Ordinal))
-                continue;
-
-            var typeInfo = context.GetTypeInfo(initializer.Expression);
-            var inferred = typeInfo.Type ?? typeInfo.ConvertedType;
-            if (IsUsableLocalOverrideType(inferred))
+            return new JavaVariableDeclarationStatement
             {
-                componentType = inferred!;
-                return true;
-            }
+                Type = javaType,
+                Name = stmt.Declaration.Variables.Count == 1
+                    ? context.MethodState.GetEffectiveLocalJavaName(
+                        context.GetDeclaredSymbol(stmt.Declaration.Variables[0]),
+                        ConversionContext.EscapeJavaKeyword(stmt.Declaration.Variables[0].Identifier.Text))
+                    : plainDeclarators[0],
+                Initializer = singleInitializerIR,
+                IsFinal = isFinal,
+                ResolvedInitializerType = singleResolvedInitType
+            };
         }
 
-        return false;
+        var emitted = new List<JavaSyntaxNode>();
+        foreach (var pre in preStatements)
+            emitted.Add(new JavaStatementNode(pre.TrimEnd(';') + ";"));
+        foreach (var holder in holderStatements)
+            emitted.Add(new JavaStatementNode(holder + ";"));
+        if (plainDeclarators.Count > 0)
+        {
+            var finalKeyword = isFinal ? "final " : "";
+            emitted.Add(new JavaStatementNode($"{finalKeyword}{javaType} {string.Join(", ", plainDeclarators)};"));
+        }
+        foreach (var post in postStatements)
+            emitted.Add(new JavaStatementNode(post.TrimEnd(';') + ";"));
+
+        return emitted.Count == 1 ? emitted[0] : new JavaMemberCollection(emitted.ToArray());
     }
 
-    /// <summary>
-    /// C# implicitly converts an integer literal in a `yield return 1;` statement to the
-    /// iterator's element type (e.g. IEnumerable&lt;double&gt;). Java's generics do not
-    /// auto-box int into Double, so integer literals yielded into a Double-typed list must
-    /// be emitted as double literals.
-    /// </summary>
-    private static string AdaptYieldExpressionToElementType(
-        ExpressionSyntax exprSyntax,
-        string expr,
-        ConversionContext context)
+    private static string ResolveLocalJavaType(LocalDeclarationStatementSyntax stmt, ConversionContext context)
     {
-        var converted = context.GetTypeInfo(exprSyntax).ConvertedType;
-        if (converted == null || converted.TypeKind == TypeKind.Error)
-            return expr;
-        if (converted.SpecialType is not (SpecialType.System_Double or SpecialType.System_Single))
-            return expr;
+        // C# 'var' maps directly to Java 'var' (Java 10+ local variable inference).
+        if (stmt.Declaration.Type is IdentifierNameSyntax { Identifier.Text: "var" })
+            return "var";
 
-        if (System.Text.RegularExpressions.Regex.IsMatch(expr, @"^-?\d+$"))
+        var firstVariable = stmt.Declaration.Variables.FirstOrDefault();
+        var localType = firstVariable != null
+            ? (context.GetDeclaredSymbol(firstVariable) as ILocalSymbol)?.Type
+            : null;
+
+        string javaType;
+        if (localType is { } type && type is not IErrorTypeSymbol)
         {
-            var suffix = converted.SpecialType == SpecialType.System_Single ? "f" : ".0";
-            return expr + suffix;
+            javaType = context.MapType(type);
         }
-        return expr;
+        else
+        {
+            javaType = context.MapTypeFromSyntax(stmt.Declaration.Type);
+        }
+
+        if (string.IsNullOrWhiteSpace(javaType) || javaType == "var")
+        {
+            throw new NotSupportedException(
+                $"CS2J normalization required: cannot resolve the Java type of local declaration '{stmt.Declaration.Type}' without a semantic model; add an explicit type before Java conversion.");
+        }
+
+        return javaType;
     }
 
     private JavaSyntaxNode TransformYieldReturn(YieldStatementSyntax? stmt, ConversionContext context)
-    {
-        if (stmt?.Expression == null)
-            return new JavaStatementNode("// yield return (empty)");
-        var exprTransformer = ExpressionTransformerFacade.Instance;
-        var expr = exprTransformer.Transform(stmt.Expression, context);
-        expr = AdaptYieldExpressionToElementType(stmt.Expression, expr, context);
-
-        // Drain any pre/post-statements emitted during expression transformation
-        // (e.g., ref argument holder declarations and value write-backs).
-        if (context.HasPendingPreStatements || context.HasPendingPostStatements)
-        {
-            var sb = new System.Text.StringBuilder();
-            if (context.HasPendingPreStatements)
-            {
-                var preStmts = context.DrainPreStatements();
-                sb.Append(string.Join("\n", preStmts.Select(s => s.TrimEnd(';') + ";")));
-                sb.Append('\n');
-            }
-            sb.Append($"_yieldResult.add({expr});");
-            if (context.HasPendingPostStatements)
-            {
-                var postStmts = context.DrainPostStatements();
-                sb.Append('\n');
-                sb.Append(string.Join("\n", postStmts.Select(s => s.TrimEnd(';') + ";")));
-            }
-            return new JavaStatementNode(sb.ToString());
-        }
-
-        return new JavaStatementNode($"_yieldResult.add({expr});");
-    }
+        => throw new NotSupportedException(
+            "CS2J normalization required: 'yield return' must be lowered by a preprocessor (iterator lowering) before Java conversion.");
 
     private JavaSyntaxNode TransformYieldBreak(YieldStatementSyntax? stmt, ConversionContext context)
-    {
-        return new JavaStatementNode("return _yieldResult;");
-    }
-
-    private static int _declStructCopyCounter;
-
-    private (string initExpr, List<string> preStmts) ExpandChainedStructVarDecl(
-        VariableDeclaratorSyntax varDecl,
-        AssignmentExpressionSyntax chainedInit,
-        ConversionContext context)
-    {
-        var facade = ExpressionTransformerFacade.Instance;
-        var targets = new List<(ExpressionSyntax node, string transformed)>();
-
-        var current = chainedInit;
-        while (true)
-        {
-            targets.Add((current.Left, facade.Transform(current.Left, context)));
-            if (current.Right is AssignmentExpressionSyntax next
-                && next.OperatorToken.Kind() == SyntaxKind.EqualsToken)
-                current = next;
-            else
-                break;
-        }
-
-        var sourceNode = current.Right;
-        var sourceStr = facade.Transform(sourceNode, context);
-        var sourceType = context.GetTypeInfo(sourceNode).Type;
-        sourceStr = StructCloneHelper.CloneStructValueIfNeeded(sourceNode, sourceStr, sourceType, context);
-
-        var tmpName = $"_structCopy{Interlocked.Increment(ref _declStructCopyCounter)}";
-        var javaType = context.MapType(sourceType);
-
-        var preStmts = new List<string>();
-        preStmts.Add($"var {tmpName} = {sourceStr}");
-
-        for (int i = targets.Count - 1; i >= 0; i--)
-        {
-            var (targetNode, targetStr) = targets[i];
-            var rhsStr = $"{tmpName}.clone()";
-            preStmts.Add($"{targetStr} = {rhsStr}");
-        }
-
-        var varInitExpr = $"{tmpName}.clone()";
-        return (varInitExpr, preStmts);
-    }
+        => throw new NotSupportedException(
+            "CS2J normalization required: 'yield break' must be lowered by a preprocessor (iterator lowering) before Java conversion.");
 }

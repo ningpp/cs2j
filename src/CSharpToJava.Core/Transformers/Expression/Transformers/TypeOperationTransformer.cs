@@ -54,9 +54,30 @@ public class TypeOperationTransformer : IIRExpressionTransformer
     {
         var e = Expr(c, n.Expression);
         var sym = c.GetTypeInfo(n.Type).Type;
+        var srcSym = c.GetTypeInfo(n.Expression).Type;
         if (sym is IPointerTypeSymbol) return e; // all pointers lower to MemorySegment
+
+        // Plain enum casts: (E)i -> E.values()[i], (int)e -> e.ordinal().
+        if (sym is INamedTypeSymbol targetEnum && targetEnum.TypeKind == TypeKind.Enum)
+        {
+            var target = Map(n.Type, c);
+            if (srcSym is INamedTypeSymbol sourceEnum && sourceEnum.TypeKind == TypeKind.Enum)
+            {
+                return SymbolEqualityComparer.Default.Equals(sourceEnum, targetEnum)
+                    ? e
+                    : $"{target}.values()[{e}.ordinal()]";
+            }
+            var index = srcSym?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
+                ? $"(int)({e})"
+                : e;
+            return $"{target}.values()[{index}]";
+        }
+        if (srcSym?.TypeKind == TypeKind.Enum)
+            e = $"{e}.ordinal()";
+
         return sym?.SpecialType switch
         {
+            SpecialType.System_Int32 => e,
             SpecialType.System_Byte => $"{e} & 0xFF",                                   // unsigned narrowing → mask
             SpecialType.System_UInt16 => $"(((int)({e})) & 0xFFFF)",
             SpecialType.System_UInt32 => $"(int)(({e}) & 0xFFFFFFFFL)",

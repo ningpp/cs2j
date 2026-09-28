@@ -130,19 +130,6 @@ public class TypeMappingService
         return MapSimpleTypeName(projectType.Name);
     }
 
-    /// <summary>
-    /// [Flags] enum names mapped to int/long in Java. Scoped to this conversion context.
-    /// </summary>
-    private readonly HashSet<string> _flagsEnumNames = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _flagsEnumValueTypes = new(StringComparer.Ordinal);
-
-    /// <summary>
-    /// Enum names that have explicit integer values (need getValue()/fromValue() instead of ordinal()/values()[]).
-    /// Scoped to this conversion context.
-    /// </summary>
-    private readonly HashSet<string> _explicitValueEnumNames = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _explicitValueEnumValueTypes = new(StringComparer.Ordinal);
-
     private readonly Func<string, ITypeSymbol?> _resolveAlias;
     private readonly Func<string, string?> _getNestedTypeNameOverride;
 
@@ -173,29 +160,6 @@ public class TypeMappingService
           _isUsingAlias = isUsingAlias ?? (_ => false);
           _getNestedTypeNameOverride = getNestedTypeNameOverride ?? (_ => null);
       }
-
-    public void RegisterFlagsEnum(string enumName) => RegisterFlagsEnum(enumName, "int");
-    public void RegisterFlagsEnum(string enumName, string valueType)
-    {
-        _flagsEnumNames.Add(enumName);
-        _flagsEnumValueTypes[enumName] = NormalizeEnumValueType(valueType);
-    }
-    public bool IsFlagsEnum(string enumName) => _flagsEnumNames.Contains(enumName);
-    public string GetFlagsEnumValueType(string enumName)
-        => _flagsEnumValueTypes.TryGetValue(enumName, out var valueType) ? valueType : "int";
-
-    public void RegisterExplicitValueEnum(string enumName) => RegisterExplicitValueEnum(enumName, "int");
-    public void RegisterExplicitValueEnum(string enumName, string valueType)
-    {
-        _explicitValueEnumNames.Add(enumName);
-        _explicitValueEnumValueTypes[enumName] = NormalizeEnumValueType(valueType);
-    }
-    public bool IsExplicitValueEnum(string enumName) => _explicitValueEnumNames.Contains(enumName);
-    public string GetExplicitValueEnumValueType(string enumName)
-        => _explicitValueEnumValueTypes.TryGetValue(enumName, out var valueType) ? valueType : "int";
-
-    private static string NormalizeEnumValueType(string valueType)
-        => valueType == "long" ? "long" : "int";
 
     /// <summary>
     /// Clear per-file caches (TypeCache). Called before each file conversion.
@@ -719,27 +683,6 @@ public class TypeMappingService
             return "Object";
         }
 
-        // [Flags] enum → int
-        if (typeSymbol is INamedTypeSymbol namedEnumCheck && namedEnumCheck.TypeKind == TypeKind.Enum)
-        {
-            bool hasFlagsAttr = namedEnumCheck.GetAttributes().Any(a =>
-                a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
-            if (hasFlagsAttr || IsBitFlagsPatternEnum(namedEnumCheck))
-            {
-                var flagsValueType = GetEnumValueJavaType(namedEnumCheck);
-                RegisterFlagsEnum(namedEnumCheck.Name, flagsValueType);
-                RegisterFlagsEnum(namedEnumCheck.ToDisplayString(), flagsValueType);
-                return flagsValueType;
-            }
-
-            var displayName = namedEnumCheck.ToDisplayString();
-            var fullyQualifiedName = TrimGlobalPrefix(namedEnumCheck.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-            if (IsFlagsEnum(displayName))
-                return GetFlagsEnumValueType(displayName);
-            if (IsFlagsEnum(fullyQualifiedName))
-                return GetFlagsEnumValueType(fullyQualifiedName);
-        }
-
         // C# EventHandler is a (object sender, T args) delegate -> BiConsumer<Object, T>.
         // Non-generic EventHandler -> BiConsumer<Object, Object>.
         if (typeSymbol is INamedTypeSymbol namedEventHandler
@@ -901,28 +844,6 @@ public class TypeMappingService
                 return nestedOverride + "<" + string.Join(", ", namedOverridden.TypeArguments.Select(t => MapTypeForGeneric(t, referenceContext))) + ">";
             }
             return nestedOverride;
-        }
-        // [Flags] enums are mapped to their underlying value type (int/long),
-        // not to a nested class reference. Check before constructing the
-        // "OuterType.InnerType" string which would produce invalid Java
-        // (e.g. "Uri.Flags" as a parameter type instead of "long").
-        // Use the symbol's [Flags] attribute directly rather than the name-based
-        // registry (IsFlagsEnum) to avoid false positives when a non-Flags enum
-        // shares a name with a previously-registered Flags enum from another file.
-        if (typeSymbol is INamedTypeSymbol nestedEnum && nestedEnum.TypeKind == TypeKind.Enum)
-        {
-            bool hasFlagsAttr = nestedEnum.GetAttributes().Any(a =>
-                a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
-            if (hasFlagsAttr || IsBitFlagsPatternEnum(nestedEnum))
-            {
-                var flagsValueType = GetEnumValueJavaType(nestedEnum);
-                // Also register in the name-based registry so downstream code
-                // (expression transformers, etc.) can look it up by name.
-                RegisterFlagsEnum(name, flagsValueType);
-                var qualifiedEnumName = $"{outerType.Name}.{name}";
-                RegisterFlagsEnum(qualifiedEnumName, flagsValueType);
-                return flagsValueType;
-            }
         }
 
         // Dictionary<K,V>.KeyCollection → Set<K>, Dictionary<K,V>.ValueCollection → Collection<V>
@@ -1251,50 +1172,6 @@ public class TypeMappingService
         return ns?.GetTypeMembers(typeName).Length > 0;
     }
 
-    private static string GetEnumValueJavaType(INamedTypeSymbol enumType)
-    {
-        return enumType.EnumUnderlyingType?.SpecialType switch
-        {
-            SpecialType.System_Int64 or SpecialType.System_UInt64 => "long",
-            _ => "int"
-        };
-    }
-
-    /// <summary>
-    /// Detects enums that follow a bit-flags pattern (values are 0 or powers of two)
-    /// with at least 5 members, even without the [Flags] attribute.
-    /// Must match the logic in EnumTransformer.IsBitFlagsPatternEnum.
-    /// </summary>
-    private static bool IsBitFlagsPatternEnum(INamedTypeSymbol enumType)
-    {
-        var members = enumType.GetMembers().OfType<IFieldSymbol>()
-            .Where(f => f.HasConstantValue).ToList();
-        if (members.Count < 5) return false;
-
-        foreach (var member in members)
-        {
-            long value = member.ConstantValue switch
-            {
-                byte b => b,
-                sbyte sb => sb,
-                short s => s,
-                ushort us => us,
-                int i => i,
-                uint ui => ui,
-                long l => l,
-                ulong ul => (long)ul,
-                _ => -1
-            };
-
-            if (value < 0) return false;
-            if (value != 0 && !IsPowerOfTwo(value)) return false;
-        }
-
-        return true;
-    }
-
-    private static bool IsPowerOfTwo(long n) => n > 0 && (n & (n - 1)) == 0;
-
     private static string TrimGlobalPrefix(string name)
         => name.StartsWith("global::", StringComparison.Ordinal) ? name["global::".Length..] : name;
 
@@ -1441,14 +1318,6 @@ public class TypeMappingService
 
         if (TryMapTupleTypeFromSyntaxString(typeName, out var tupleType))
             return tupleType;
-
-        // [Flags] enum types are mapped to their underlying value type (int/long).
-        // When the semantic model cannot resolve the type (e.g. due to compilation errors
-        // in the same file), ConvertParameter falls back to this syntax-based path.
-        // Without this check, a parameter like "Uri.Flags flags" would keep the class
-        // name as the Java type instead of "long", producing invalid Java code.
-        if (IsFlagsEnum(typeName))
-            return GetFlagsEnumValueType(typeName);
 
         var keywordMapped = typeName switch
         {

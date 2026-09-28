@@ -241,11 +241,6 @@ public partial class ArgumentTransformer
         if (javaEnumType is "int" or "long" or "short" or "byte" or "Integer" or "Long" or "Short" or "Byte")
             return transformedExpr;
 
-        if (paramType is INamedTypeSymbol named
-            && (context.IsExplicitValueEnum(named.Name) || context.IsExplicitValueEnum(named.ToDisplayString())))
-        {
-            return $"{javaEnumType}.fromValue(({GetExplicitEnumValueType(paramType, context)})({transformedExpr}))";
-        }
         return $"{javaEnumType}.values()[(int)({transformedExpr})]";
     }
 
@@ -635,19 +630,6 @@ public partial class ArgumentTransformer
     private static bool IsJavaCollectionConstructor(IMethodSymbol? method)
         => method is { MethodKind: MethodKind.Constructor }
             && method.ContainingType.Name is "List" or "HashSet" or "SortedSet" or "LinkedList" or "Queue";
-
-    private static string GetExplicitEnumValueType(ITypeSymbol enumType, ConversionContext context)
-    {
-        if (enumType is not INamedTypeSymbol named)
-            return "int";
-        if (context.IsExplicitValueEnum(named.Name))
-            return context.GetExplicitValueEnumValueType(named.Name);
-        if (context.IsExplicitValueEnum(named.ToDisplayString()))
-            return context.GetExplicitValueEnumValueType(named.ToDisplayString());
-        return named.EnumUnderlyingType?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
-            ? "long"
-            : "int";
-    }
 
     private static string CoerceEnumerableStreamFallback(ArgumentSyntax arg, string transformedExpr, ConversionContext context)
     {

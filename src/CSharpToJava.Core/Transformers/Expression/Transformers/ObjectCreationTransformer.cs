@@ -69,9 +69,7 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
     private static string EmitNew(string name, ArgumentListSyntax? al, INamedTypeSymbol? type, ConversionContext c)
     {
         var args = ArgumentTransformer.TransformArgumentList(al, c, ExpressionTransformerFacade.Instance);
-        var extra = RuntimeClassParameterHelper.GetRuntimeClassArguments(type, c);
-        return extra.Count == 0 ? $"new {name}({args})"
-            : $"new {name}({args}{(args.Length > 0 ? ", " : "")}{string.Join(", ", extra)})";
+        return $"new {name}({args})";
     }
     private static string NewAnonymous(AnonymousObjectCreationExpressionSyntax n, ConversionContext c)
     {
@@ -146,19 +144,8 @@ public class ObjectCreationTransformer : IIRExpressionTransformer
         return $"{{ {string.Join(", ", vals)} }}";
     }
     private string NewStackAlloc(StackAllocArrayCreationExpressionSyntax n, ConversionContext c)
-    {
-        var f = ExpressionTransformerFacade.Instance;
-        var at = (ArrayTypeSyntax)n.Type;
-        var es = c.GetTypeInfo(at.ElementType).Type;
-        var elem = es?.SpecialType == SpecialType.System_Byte ? "byte" : c.MapTypeFromSyntax(at.ElementType);
-        var array = EmitArray(elem,
-            at.RankSpecifiers.SelectMany(rs => rs.Sizes.Select(s => f.Transform(s, c))).ToList(), n.Initializer, c);
-        var def = (c.GetTypeInfo(n).ConvertedType as INamedTypeSymbol)?.OriginalDefinition.ToDisplayString();
-        if (def is not ("System.Span<T>" or "System.ReadOnlySpan<T>")) return array;
-        var sn = def == "System.Span<T>" ? "Span" : "ReadOnlySpan";
-        c.AddImport($"io.github.ningpp.compat.{sn}");
-        return $"new {sn}<>({array})";
-    }
+        => throw new NotSupportedException(
+            $"CS2J normalization required: stackalloc in {n.Kind()} must be lowered by a preprocessor before Java conversion.");
     internal static string WrapArrayForCollectionArg(string expr, IArrayTypeSymbol arrayType, ConversionContext c)
         => expr;
     public static bool HasNewConstraintObjectCreation(IMethodSymbol method)

@@ -50,8 +50,8 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 || context.GetSymbolInfo(bin.Right).Symbol is IEventSymbol)
                 return new JavaRawExpression(Transform(node, context));
         }
-        if (op.Cat == BinOpCat.Relational && EnumBinary.TryComparison(bin, op, context) is { } enumCmp)
-            return new JavaRawExpression(enumCmp);
+
+        EnsureDirectBinaryOperands(bin, op, context);
 
         return new JavaBinaryExpression
         {
@@ -74,15 +74,10 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         if (op.Cat == BinOpCat.Relational && TryTransformCompatComparison(node, op.Java, ctx) is { } cmp)
             return cmp;
 
-        if (op.Cat == BinOpCat.Arithmetic && EnumBinary.TryArithmetic(node, op, ctx) is { } enumArith)
-            return enumArith;
-        if (op.Cat == BinOpCat.Relational)
-        {
-            if (EnumBinary.TryComparison(node, op, ctx) is { } enumCmp) return enumCmp;
-            if (BinarySpecial.TryUnsignedComparison(node, op, ctx) is { } unsigned) return unsigned;
-        }
-        if (op.Cat == BinOpCat.Equality && EnumBinary.TryEquality(node, op, ctx) is { } enumEq) return enumEq;
-        if (op.Cat == BinOpCat.Bitwise && EnumBinary.TryBitwise(node, op, ctx) is { } enumBit) return enumBit;
+        if (op.Cat == BinOpCat.Relational && BinarySpecial.TryUnsignedComparison(node, op, ctx) is { } unsigned)
+            return unsigned;
+
+        EnsureDirectBinaryOperands(node, op, ctx);
 
         var facade = ExpressionTransformerFacade.Instance;
         var left = facade.Transform(node.Left, ctx);
@@ -116,10 +111,37 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
                 left = FormatNumericForConcat(node.Left, left, ctx);
         }
 
-        left = EnumBinary.WrapOperand(node.Left, left, op.Java, isLeft: true);
-        right = EnumBinary.WrapOperand(node.Right, right, op.Java, isLeft: false);
-        var result = $"{left} {op.Java} {right}";
-        return EnumBinary.TryWrapResult(node, result, ctx, out var wrapped) ? wrapped : result;
+        left = WrapOperand(node.Left, left, op.Java, isLeft: true);
+        right = WrapOperand(node.Right, right, op.Java, isLeft: false);
+        return $"{left} {op.Java} {right}";
+    }
+
+    /// <summary>Parenthesize a child binary expression when precedence requires it.</summary>
+    private static string WrapOperand(ExpressionSyntax operand, string transformed, string parentOp, bool isLeft)
+    {
+        if (operand is BinaryExpressionSyntax
+            && BinOps.ByKind.TryGetValue(operand.Kind(), out var child)
+            && BinOps.ByJava.TryGetValue(parentOp, out var parent)
+            && (child.Prec < parent.Prec || (!isLeft && child.Prec == parent.Prec)))
+            return $"({transformed})";
+        return transformed;
+    }
+
+    /// <summary>
+    /// Plain Java enums support only direct == / !=. Any other operator applied to
+    /// an enum operand (arithmetic, comparison, shifts, bitwise) must be lowered to
+    /// ordinal/cast form by a C#→C# preprocessor.
+    /// </summary>
+    private static void EnsureDirectBinaryOperands(BinaryExpressionSyntax node, BinOp op, ConversionContext ctx)
+    {
+        var leftIsEnum = ctx.GetTypeInfo(node.Left).Type?.TypeKind == TypeKind.Enum;
+        var rightIsEnum = ctx.GetTypeInfo(node.Right).Type?.TypeKind == TypeKind.Enum;
+        if (!leftIsEnum && !rightIsEnum) return;
+
+        if (op.Cat == BinOpCat.Equality && leftIsEnum && rightIsEnum) return;
+
+        throw new NotSupportedException(
+            $"CS2J normalization required: enum operand in binary operator '{op.Java}' must be lowered to ordinal/cast form by a preprocessor before Java conversion.");
     }
 
     private string TransformCoalesce(BinaryExpressionSyntax node, ConversionContext ctx)

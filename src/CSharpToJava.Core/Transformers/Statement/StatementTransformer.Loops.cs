@@ -1,13 +1,9 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using CSharpToJava.Core.Abstractions;
-using CSharpToJava.Core.Comments;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
-using CSharpToJava.Core.Transformers;
 using CSharpToJava.Core.Transformers.Expression;
-using CSharpToJava.Core.Transformers.Expression.Utilities;
 
 namespace CSharpToJava.Core.Transformers.Statement;
 
@@ -18,146 +14,153 @@ public partial class StatementTransformer
         var exprTransformer = ExpressionTransformerFacade.Instance;
         var condition = exprTransformer.Transform(stmt.Condition, context);
 
-        // Fix: out/ref parameters in while condition — Holder declarations go before the loop;
-        // value read-backs go at the start of the body (re-read each iteration after the call).
-        string whilePreamble = "";
-        string whilePostInjection = "";
-        string whilePostAfterLoop = "";
-        if (context.HasPendingPreStatements)
-        {
-            var pre = context.DrainPreStatements();
-            whilePreamble = string.Join("\n", pre.Select(s => s.TrimEnd(';') + ";")) + "\n";
-        }
-        if (context.HasPendingPostStatements)
-        {
-            var post = context.DrainPostStatements();
-            whilePostInjection = string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
-            whilePostAfterLoop = "\n" + string.Join("\n", post.Select(s => s.TrimEnd(';') + ";"));
-        }
+        var preamble = DrainPendingStatementsAsPreamble(context);
+        RejectConditionPostStatements(context, "while");
 
-        var stmtTransformer = new StatementTransformer();
-        string body;
-        if (stmt.Statement is BlockSyntax block)
-        {
-            var bodyStr = TransformBlock(block, context);
-            body = $"{{\n        {whilePostInjection}{bodyStr}\n    }}";
-        }
-        else
-        {
-            var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
-            body = $"{{\n        {whilePostInjection}{bodyStr}\n    }}";
-        }
+        var body = TransformLoopBody(stmt.Statement, bodyPostInjection: null, context);
+        return new JavaStatementNode($"{preamble}while ({condition}) {body}");
+    }
 
-        return new JavaStatementNode($"{whilePreamble}while ({condition}) {body}{whilePostAfterLoop}");
+    private JavaSyntaxNode TransformDoStatement(DoStatementSyntax stmt, ConversionContext context)
+    {
+        var exprTransformer = ExpressionTransformerFacade.Instance;
+        var bodyBlock = TransformLoopBodyBlockText(stmt.Statement, context);
+
+        var condition = exprTransformer.Transform(stmt.Condition, context);
+        var preamble = DrainPendingStatementsAsPreamble(context);
+        RejectConditionPostStatements(context, "do-while");
+
+        return new JavaStatementNode($"{preamble}do {{\n        {bodyBlock}\n    }} while ({condition});");
     }
 
     private JavaSyntaxNode TransformForStatement(ForStatementSyntax stmt, ConversionContext context)
     {
         var exprTransformer = ExpressionTransformerFacade.Instance;
 
-        // 初始值
-        var initializers = "";
         var holderPreStatements = new List<string>();
+        var initializers = "";
         if (stmt.Declaration != null)
         {
-            var typeInfo = context.GetTypeInfo(stmt.Declaration.Type);
-            var declaredType = typeInfo.Type;
-            var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "var";
+            var firstVar = stmt.Declaration.Variables.FirstOrDefault();
+            var javaType = firstVar != null && (context.GetDeclaredSymbol(firstVar) as ILocalSymbol)?.Type is { } declType
+                ? context.MapType(declType)
+                : context.MapTypeFromSyntax(stmt.Declaration.Type);
+
             var vars = new List<string>();
-
-            // Lambda capture holders for for-loop iteration variables.
-            // PreScanLambdaCaptures detects captured locals that are externally reassigned
-            // (including i++ in the for-loop incrementors) and registers pending holders.
-            // Normal local declarations get their holder emitted by TransformLocalDeclaration,
-            // but for-loop variables are declared in the for-statement itself. We emit the
-            // holder declaration as a statement before the loop (Java for-init cannot mix
-            // declarations of different types) and activate the mapping before transforming
-            // the condition, incrementors, and body.
-            foreach (var varDeclarator in stmt.Declaration.Variables)
+            foreach (var variable in stmt.Declaration.Variables)
             {
-                var origName = varDeclarator.Identifier.Text;
-                var initExpr = varDeclarator.Initializer != null
-                    ? exprTransformer.Transform(varDeclarator.Initializer.Value, context)
-                    : string.Empty;
-                var init = varDeclarator.Initializer != null ? $" = {initExpr}" : "";
+                var origName = variable.Identifier.Text;
+                var initExpr = variable.Initializer != null
+                    ? exprTransformer.Transform(variable.Initializer.Value, context)
+                    : null;
 
-                if (context.MethodState.HasPendingLambdaCaptureHolder(origName) &&
-                    context.MethodState.TryGetPendingLambdaCaptureHolder(origName, varDeclarator, out var capType, out var holderName))
+                // Lambda capture holders for for-loop variables (capture rewriting is kept):
+                // the holder is emitted before the loop and the loop variable itself is dropped.
+                if (context.MethodState.HasPendingLambdaCaptureHolder(origName)
+                    && context.MethodState.TryGetPendingLambdaCaptureHolder(origName, variable, out var capType, out var holderName))
                 {
-                    var holderInit = !string.IsNullOrEmpty(initExpr)
-                        ? initExpr
-                        : GetJavaDefaultForType(capType);
-                    var holderStatement = capType.Contains('<')
+                    var holderInit = initExpr ?? GetJavaDefaultForType(capType);
+                    holderPreStatements.Add(capType.Contains('<')
                         ? $"{capType}[] {holderName} = ({capType}[]) new Object[] {{ {holderInit} }}"
-                        : $"{capType}[] {holderName} = new {capType}[] {{ {holderInit} }}";
-                    holderPreStatements.Add(holderStatement);
-                    context.MethodState.ActivateLambdaCaptureHolder(origName, varDeclarator);
+                        : $"{capType}[] {holderName} = new {capType}[] {{ {holderInit} }}");
+                    context.MethodState.ActivateLambdaCaptureHolder(origName, variable);
+                    continue;
                 }
-                else
-                {
-                    var forVarName = context.MethodState.GetEffectiveLocalJavaName(
-                        context.GetDeclaredSymbol(varDeclarator), varDeclarator.Identifier.ToString());
-                    vars.Add($"{forVarName}{init}");
-                }
+
+                var forVarName = context.MethodState.GetEffectiveLocalJavaName(
+                    context.GetDeclaredSymbol(variable), variable.Identifier.ToString());
+                vars.Add(initExpr != null ? $"{forVarName} = {initExpr}" : forVarName);
             }
 
-            initializers = vars.Count > 0
-                ? $"{javaType} {string.Join(", ", vars)}"
-                : "";
+            if (vars.Count > 0)
+                initializers = $"{javaType} {string.Join(", ", vars)}";
         }
         else if (stmt.Initializers.Any())
         {
             initializers = string.Join(", ", stmt.Initializers.Select(i => exprTransformer.Transform(i, context)));
         }
 
-        // 条件
         var condition = stmt.Condition != null
             ? exprTransformer.Transform(stmt.Condition, context)
             : "true";
+        var incrementors = string.Join(", ", stmt.Incrementors.Select(i => exprTransformer.Transform(i, context)));
 
-        // 增量
-        var incrementors = string.Join(", ", stmt.Incrementors.Select(i =>
-            exprTransformer.Transform(i, context)));
+        var pendingPre = context.HasPendingPreStatements ? context.DrainPreStatements() : new List<string>();
+        RejectConditionPostStatements(context, "for");
 
-        // Fix: drain any Holder pre/post statements produced while transforming
-        // the for-loop initializers, condition, or incrementors.
-        string forPreamble = "";
-        string forPostInjection = "";
-        if (context.HasPendingPreStatements)
-        {
-            var pre = context.DrainPreStatements();
-            forPreamble = string.Join("\n", pre.Select(s => s.TrimEnd(';') + ";")) + "\n";
-        }
-        if (holderPreStatements.Count > 0)
-        {
-            var holderBlock = string.Join("\n", holderPreStatements.Select(s => s.TrimEnd(';') + ";")) + "\n";
-            forPreamble = holderBlock + forPreamble;
-        }
-        if (context.HasPendingPostStatements)
-        {
-            var post = context.DrainPostStatements();
-            forPostInjection = string.Join("\n        ", post.Select(s => s.TrimEnd(';') + ";")) + "\n        ";
-        }
+        var preamble = string.Concat(
+            holderPreStatements.Select(s => s + ";\n"))
+            + string.Concat(pendingPre.Select(s => s.TrimEnd(';') + ";\n"));
 
-        var stmtTransformer = new StatementTransformer();
-        string body;
-        if (stmt.Statement is BlockSyntax block)
-        {
-            var bodyStr = TransformBlock(block, context);
-            body = $"{{\n        {forPostInjection}{bodyStr}\n    }}";
-        }
-        else
-        {
-            var bodyStr = stmtTransformer.Transform(stmt.Statement, context).ToString("");
-            body = $"{{\n        {forPostInjection}{bodyStr}\n    }}";
-        }
-
-        return new JavaStatementNode($"{forPreamble}for ({initializers}; {condition}; {incrementors}) {body}");
+        var body = TransformLoopBody(stmt.Statement, bodyPostInjection: null, context);
+        return new JavaStatementNode($"{preamble}for ({initializers}; {condition}; {incrementors}) {body}");
     }
 
     /// <summary>
-    /// Returns a Java literal representing the default value for a captured for-loop
-    /// variable when the C# source omits an explicit initializer.
+    /// foreach maps directly to Java's enhanced for. Iteration sources must be Java
+    /// arrays or Iterables after preprocessing. Strings, dictionaries, LINQ streams,
+    /// enumerator adapters and deconstructions must be lowered by a preprocessor.
+    /// </summary>
+    private JavaSyntaxNode TransformForEachStatement(ForEachStatementSyntax stmt, ConversionContext context)
+    {
+        var exprTransformer = ExpressionTransformerFacade.Instance;
+
+        var loopVarSymbol = context.GetDeclaredSymbol(stmt) as ILocalSymbol;
+        var javaType = loopVarSymbol?.Type is { } varType && varType is not IErrorTypeSymbol
+            ? context.MapType(varType)
+            : context.MapTypeFromSyntax(stmt.Type);
+        var identifier = context.MethodState.GetEffectiveLocalJavaName(
+            context.GetDeclaredSymbol(stmt), ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text));
+
+        var expression = exprTransformer.Transform(stmt.Expression, context);
+
+        var expressionType = context.GetTypeInfo(stmt.Expression).Type;
+        if (expressionType?.SpecialType == SpecialType.System_String)
+        {
+            throw new NotSupportedException(
+                "CS2J normalization required: foreach over a string must be lowered (e.g. toCharArray()) by a preprocessor before Java conversion.");
+        }
+        if (expressionType is not (IArrayTypeSymbol or null))
+        {
+            // Only arrays and Iterable types support Java enhanced-for directly.
+            // The compat type mapping is expected to make C# collection types Iterable.
+        }
+
+        var preamble = "";
+        if (context.HasPendingPreStatements)
+        {
+            var pre = context.DrainPreStatements();
+            preamble = string.Concat(pre.Select(s => s.TrimEnd(';') + ";\n"));
+        }
+        if (context.HasPendingPostStatements)
+        {
+            context.DrainPostStatements();
+            throw new NotSupportedException(
+                "CS2J normalization required: ref/out arguments producing read-backs in a foreach expression must be lowered by a preprocessor before Java conversion.");
+        }
+
+        // Captured foreach variable: copy into a holder at the top of the loop body.
+        string? holderPrefix = null;
+        if (context.MethodState.HasPendingLambdaCaptureHolder(stmt.Identifier.Text)
+            && context.MethodState.TryGetPendingLambdaCaptureHolder(stmt.Identifier.Text, stmt, out var capType, out var holderName))
+        {
+            holderPrefix = capType.Contains('<')
+                ? $"{capType}[] {holderName} = ({capType}[]) new Object[] {{ {identifier} }};"
+                : $"{capType}[] {holderName} = new {capType}[] {{ {identifier} }};";
+            context.MethodState.ActivateLambdaCaptureHolder(stmt.Identifier.Text, stmt);
+        }
+
+        var body = TransformLoopBody(stmt.Statement, holderPrefix, context);
+        return new JavaStatementNode($"{preamble}for ({javaType} {identifier} : {expression}) {body}");
+    }
+
+    private JavaSyntaxNode TransformForEachVariableStatement(ForEachVariableStatementSyntax stmt, ConversionContext context)
+        => throw new NotSupportedException(
+            "CS2J normalization required: deconstructing foreach must be lowered by a preprocessor before Java conversion.");
+
+    /// <summary>
+    /// Default literal for holder initialization when a captured for/local variable
+    /// has no initializer in source.
     /// </summary>
     private static string GetJavaDefaultForType(string javaType)
     {
@@ -171,654 +174,8 @@ public partial class StatementTransformer
             "char" => "'\\u0000'",
             "float" => "0.0f",
             "double" => "0.0",
-            "String" => "null",
-            "Object" => "null",
             _ => "null"
         };
-    }
-
-    private JavaSyntaxNode TransformForEachStatement(ForEachStatementSyntax stmt, ConversionContext context)
-    {
-        var exprTransformer = ExpressionTransformerFacade.Instance;
-
-        // Special case: foreach over a LINQ query with anonymous type select
-        // e.g.: foreach (var pair in from A a in src from B b in tgt select new { aV = a, bV = b })
-        // Transform as nested for loops, replacing pair.getaV() → a, pair.getbV() → b
-        if (stmt.Expression is QueryExpressionSyntax queryExpr &&
-            queryExpr.Body.SelectOrGroup is SelectClauseSyntax selectClause &&
-            selectClause.Expression is AnonymousObjectCreationExpressionSyntax anonCreate)
-        {
-            return TransformForEachWithAnonymousQuery(stmt, queryExpr, anonCreate, context);
-        }
-
-        var typeInfo = context.GetTypeInfo(stmt.Type);
-        var identifier = context.MethodState.GetEffectiveLocalJavaName(
-            context.GetDeclaredSymbol(stmt), ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text));
-        // Transform the collection expression FIRST so that any anonymous-type
-        // record synthesis (from `select new { ... }`) registers the record
-        // before we resolve the foreach variable type via MapType.
-        var expression = exprTransformer.Transform(stmt.Expression, context);
-
-        // Multi-enumeration adaptation: C# types like GroupCollection implement BOTH
-        // IEnumerable<T> (C# foreach yields T) AND IReadOnlyDictionary<K, V> (Java
-        // iteration yields CSharpKeyValuePair<K,V>). The Java mapping keeps only the
-        // dictionary enumeration, so `foreach (Group item in groups)` would iterate
-        // KeyValuePairs. When the C# foreach variable type equals the dictionary's
-        // Value (or Key) type, iterate .getValues() (C# GroupCollection.Values
-        // enumerates index 0..Count-1, exactly like its IEnumerable<Group>) / .getKeys().
-        if (typeInfo.Type is INamedTypeSymbol foreachVarType
-            && context.GetTypeInfo(stmt.Expression).Type is INamedTypeSymbol foreachExprNamed)
-        {
-            // The receiver may be a local declared with an interface type (e.g.
-            // `ICollection<Group> collection = CreateCollection();`) whose Java
-            // declaration was emitted as `var`; recover the concrete type from the
-            // initializer so dictionary-backed collections are detected.
-            var effectiveExprType = foreachExprNamed;
-            if (stmt.Expression is IdentifierNameSyntax receiverId
-                && context.GetSymbolInfo(receiverId).Symbol is ILocalSymbol receiverLocal)
-            {
-                var receiverDeclaredType = receiverLocal.Type?.ToDisplayString();
-                if (receiverDeclaredType is not ("System.Collections.IList"
-                    or "System.Collections.ICollection"
-                    or "System.Collections.IEnumerable"))
-                {
-                    var declarator = receiverLocal.DeclaringSyntaxReferences
-                        .FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
-                    if (declarator?.Initializer != null
-                        && context.GetTypeInfo(declarator.Initializer.Value).Type is INamedTypeSymbol initNamed)
-                    {
-                        effectiveExprType = initNamed;
-                    }
-                }
-            }
-
-            var dictIface = effectiveExprType.AllInterfaces
-                .FirstOrDefault(i => i.Name == "IReadOnlyDictionary" && i.TypeArguments.Length == 2);
-            if (dictIface != null)
-            {
-                var keyType = dictIface.TypeArguments[0];
-                var valueType = dictIface.TypeArguments[1];
-                if (SymbolEqualityComparer.Default.Equals(valueType, foreachVarType))
-                    expression = $"{expression}.getValues()";
-                else if (SymbolEqualityComparer.Default.Equals(keyType, foreachVarType))
-                    expression = $"{expression}.getKeys()";
-                // Non-generic enumeration (foreach (object item in list) over the
-                // non-generic IList): GroupCollection's non-generic IEnumerator.Current
-                // yields the Group itself (the collection's VALUE), so use the values view.
-                else if (foreachVarType.SpecialType == SpecialType.System_Object
-                    && effectiveExprType.AllInterfaces.Any(i =>
-                        i.ToDisplayString() == "System.Collections.IList"))
-                    expression = $"{expression}.getValues()";
-            }
-        }
-
-        var javaType = typeInfo.Type != null ? context.MapType(typeInfo.Type) : "var";
-
-        // C# allows foreach (char c in str) because string implements IEnumerable<char>.
-        // Java String does NOT implement Iterable<Character>, so we must use toCharArray().
-        // TS（Task 27）：for-of 可直接迭代字符串（char → string 映射一致），
-        // 无需 toCharArray（string 上无此成员，tsc TS2339）。
-        var exprTypeInfo = context.GetTypeInfo(stmt.Expression).Type;
-        var isStringCharArray = false;
-        if (exprTypeInfo?.SpecialType == SpecialType.System_String)
-        {
-            expression = $"{expression}.toCharArray()";
-            isStringCharArray = true;
-        }
-
-        // LINQ type parameter names that leak through unresolved generics
-        if (javaType is "TSource" or "TResult" or "TKey" or "TElement"
-            or "TFirst" or "TSecond" or "TAccumulate")
-            javaType = "Object";
-
-        // When C# used implicit typing ('var') and the resolved type is 'Object'
-        // (e.g., from LINQ-rewritten anonymous types degraded to object), use
-        // Java 'var' so the Java compiler can infer the actual element type from
-        // the collection expression (which may return List<SynthesizedRecord>).
-        if (javaType == "Object"
-            && stmt.Type is Microsoft.CodeAnalysis.CSharp.Syntax.IdentifierNameSyntax idName
-            && idName.Identifier.Text == "var")
-        {
-            javaType = "var";
-        }
-
-
-        var stmtTransformer = new StatementTransformer();
-        string body;
-
-        // Lambda capture holder for the foreach loop variable: Java for-each variables are
-        // never effectively final, so a captured variable (e.g. `foreach (int options in ...)`
-        // with a lambda inside the loop body) requires a holder copy at the top of the body.
-        // PreScanLambdaCaptures registered the pending holder; emit + activate it here so the
-        // body's references are rewritten to the holder element.
-        var loopVarHolderPrefix = "";
-        if (context.MethodState.HasPendingLambdaCaptureHolder(stmt.Identifier.Text) &&
-            context.MethodState.TryGetPendingLambdaCaptureHolder(stmt.Identifier.Text, stmt, out var loopVarCapType, out var loopVarHolderName))
-        {
-            var loopVarInit = context.MethodState.GetEffectiveLocalJavaName(
-                context.GetDeclaredSymbol(stmt), ConversionContext.EscapeJavaKeyword(stmt.Identifier.Text));
-            loopVarHolderPrefix = loopVarCapType.Contains('<')
-                ? $"{loopVarCapType}[] {loopVarHolderName} = ({loopVarCapType}[]) new Object[] {{ {loopVarInit} }};"
-                : $"{loopVarCapType}[] {loopVarHolderName} = new {loopVarCapType}[] {{ {loopVarInit} }};";
-            context.MethodState.ActivateLambdaCaptureHolder(stmt.Identifier.Text, stmt);
-        }
-
-        if (loopVarHolderPrefix.Length > 0)
-        {
-            body = stmt.Statement is BlockSyntax block
-                ? $"{{\n        {loopVarHolderPrefix}\n        {TransformBlock(block, context)}\n    }}"
-                : $"{{ {loopVarHolderPrefix} {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
-        }
-        else
-        {
-            body = stmt.Statement is BlockSyntax block
-                ? $"{{\n        {TransformBlock(block, context)}\n    }}"
-                : $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
-        }
-
-        // Detect: iterating over a Dictionary/Map
-        // CSharpDictionary already implements Iterable<CSharpKeyValuePair<K,V>>,
-        // so Java foreach works directly without .entrySet().
-        if (exprTypeInfo is INamedTypeSymbol exprNamed &&
-            (exprNamed.Name is "Dictionary" or "SortedDictionary" or "IDictionary" or
-             "HashMap" or "TreeMap" or "LinkedHashMap" ||
-             exprNamed.AllInterfaces.Any(i => i.Name is "IDictionary")))
-        {
-            // javaType should be CSharpKeyValuePair<K,V>
-            if (javaType.Contains("SimpleEntry") || javaType.Contains("KeyValuePair") || javaType == "var")
-            {
-                if (exprNamed.IsGenericType && exprNamed.TypeArguments.Length >= 2)
-                {
-                    var keyType = BoxJavaType(context.MapType(exprNamed.TypeArguments[0]));
-                    var valType = BoxJavaType(context.MapType(exprNamed.TypeArguments[1]));
-                    javaType = $"CSharpKeyValuePair<{keyType}, {valType}>";
-                    context.AddImport("io.github.ningpp.compat.CSharpKeyValuePair");
-                }
-                else
-                {
-                    javaType = "CSharpKeyValuePair<?, ?>";
-                    context.AddImport("io.github.ningpp.compat.CSharpKeyValuePair");
-                }
-            }
-        }
-
-        // Detect: iterating over an IGrouping<K,V> (Map.Entry<K, List<V>>) in a foreach.
-        // C#: IGrouping implements IEnumerable<V>, so foreach (var x in group) works directly.
-        // Java: Map.Entry does NOT implement Iterable, so we must use group.getValue().
-        if (exprTypeInfo is INamedTypeSymbol groupingExprType &&
-            groupingExprType.OriginalDefinition?.ToDisplayString().StartsWith("System.Linq.IGrouping<") == true)
-        {
-            expression = $"{expression}.getValue()";
-        }
-
-        // Pre-process: StreamSupport.stream(...).toArray() used in foreach can't be iterated (Object[]).
-        // Convert to .collect(CSharpList.toCSharpList()) so the list is Iterable<T> and foreach works.
-        {
-            var trimExpr = expression.TrimEnd();
-            if (trimExpr.EndsWith(".toArray()") && trimExpr.Contains("StreamSupport.stream("))
-            {
-                expression = trimExpr.Substring(0, trimExpr.Length - ".toArray()".Length)
-                                 + ".collect(CSharpList.toCSharpList())";
-                context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-            }
-        }
-
-        // Strip trailing .stream() from expressions like .entrySet().stream() or .values().stream()
-        // because the underlying collection is already Iterable and .stream() breaks for-each.
-        // After stripping, the result ends with a collection method (.entrySet(), .values(), etc.)
-        // which is already Iterable — skip further stream detection.
-        bool strippedTrailingStream = false;
-        if (expression.TrimEnd().EndsWith(".stream()"))
-        {
-            expression = expression.TrimEnd()[..^".stream()".Length];
-            strippedTrailingStream = true;
-        }
-
-        // Stream.concat(), StreamSupport.stream(), Arrays.stream(), etc.
-        // Collect to List to allow break/continue/return in the loop body.
-        // Use EndsWith check to avoid double-collecting an already-collected stream:
-        // the expression may contain inner .collect() calls (e.g. spliterator wrapping)
-        // but we only skip if the OUTERMOST call is already .collect(CSharpList.toCSharpList()).
-        // Use ContainsStreamMethodAtTopLevel to avoid false positives where stream calls
-        // appear only inside nested argument lists (e.g. method(x.stream().toArray(...))).
-        // Java-only stream detection: collecting Enumerable chains would produce
-        // invalid code; force-collect only for recognized stream patterns.
-        bool isStream = false;
-        isStream = !strippedTrailingStream
-                && !expression.TrimEnd().EndsWith(".collect(CSharpList.toCSharpList())")
-                && !EndsWithCollectCall(expression.TrimEnd())
-                && !expression.TrimEnd().EndsWith(".toArray()")
-                && !System.Text.RegularExpressions.Regex.IsMatch(expression.TrimEnd(), @"\.toArray\([^)]+\)$");
-
-        // Also detect by semantic type: if the C# expression type is IOrderedEnumerable or IQueryable
-        // (both are always yielded as Java Streams by the LINQ translator), force-collect.
-        if (!isStream && exprTypeInfo is INamedTypeSymbol csForeachType)
-        {
-            bool isLinqResult = csForeachType.Name is "IOrderedEnumerable" or "IOrderedQueryable" or "IQueryable"
-                || (csForeachType.ContainingNamespace?.ToDisplayString().StartsWith("System.Linq") == true
-                    && csForeachType.Name != "IEnumerable" && csForeachType.Name != "ICollection"
-                    && csForeachType.Name != "IGrouping");
-            if (isLinqResult)
-            {
-                // Guard: if the expression is a simple variable name that was NOT registered in
-                // StreamLocalVariables, its declaration already collected the stream.  Don't double-collect.
-                var exprTrimmed = expression.Trim();
-                bool isSimpleVar = !exprTrimmed.Contains('.') && !exprTrimmed.Contains('(');
-                if (!(isSimpleVar && !context.StreamLocalVariables.Contains(exprTrimmed)))
-                    isStream = true;
-            }
-        }
-
-        // Fallback: if the foreach expression is a locally-declared variable that was registered
-        // as stream-typed in TransformLocalDeclaration, treat it as a stream here too.
-        // This handles cases where the SemanticModel is unavailable or the type is not in System.Linq.
-        //
-        // Root cause of issue #10: StreamLocalVariables does not track scope - a variable name added
-        // to the set in one block persists for the rest of the method. When the same variable name is
-        // reused in a sibling scope with an array type (Point[]), the foreach must NOT collect it,
-        // because arrays are directly iterable in Java. Fix: exclude IArrayTypeSymbol from stream treatment.
-        if (!isStream && context.StreamLocalVariables.Contains(expression.Trim()))
-        {
-            bool exprIsCollectionLike =
-                // Named collection/iterable interfaces are already collections, not streams
-                (exprTypeInfo is INamedTypeSymbol exprNamedType &&
-                    exprNamedType.Name is "IEnumerable" or "ICollection" or "IList" or "List" or "Collection" or "Iterable")
-                // Arrays are directly iterable in Java (T[] supports for-each without stream wrapping)
-                || exprTypeInfo is IArrayTypeSymbol;
-            if (!exprIsCollectionLike)
-                isStream = true;
-        }
-
-        if (isStream)
-        {
-            // Always attempt to collect.
-            context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-            context.AddImport("java.util.stream.Collectors");
-            expression = $"{expression}.collect(CSharpList.toCSharpList())";
-        }
-
-        // Iterating a raw (non-generic) IEnumerable with a typed loop variable: in Java, iterating
-        // a raw Iterable yields Object, which can't be assigned to a typed variable (compile error).
-        // Use a wildcard double-cast: (Iterable<T>)(Iterable<?>)(expr). A direct (Iterable<T>) cast
-        // fails when expr's static type already implements Iterable<Object> (e.g., CSharpCollection),
-        // because Iterable<Object> and Iterable<T> are unrelated parameterized types.
-        // Java generics require boxed types, so primitive loop variables must be converted
-        // (e.g., Iterable<int> is invalid; use Iterable<Integer>).
-        bool isNonGenericEnumerableCast = false;
-        if (!isStream && !isStringCharArray && exprTypeInfo is not IArrayTypeSymbol
-            && javaType != "Object" && javaType != "var"
-            && exprTypeInfo is INamedTypeSymbol rawEnum
-            && IsNonGenericEnumerableOrCollection(rawEnum))
-        {
-            var iterTypeArg = BoxJavaType(javaType);
-            expression = $"(Iterable<{iterTypeArg}>)(Iterable<?>)({expression})";
-            isNonGenericEnumerableCast = true;
-        }
-
-        // Fix L: Downcast in foreach — C# allows implicitly downcasting the element type in foreach
-        // (e.g., foreach (NetworkEdge e in IEnumerable<PolyIntEdge>)) but Java does not.
-        // Detect via Roslyn's ForEachStatementInfo.ElementConversion.IsExplicit.
-        // Java arrays (including String.toCharArray()) are already valid foreach targets
-        // and cannot be cast to Iterable<T>; skip the wildcard downcast for them.
-        if (!isStream && !isNonGenericEnumerableCast && !isStringCharArray
-            && exprTypeInfo is not IArrayTypeSymbol
-            && javaType != "var" && javaType != "Object" && context.SemanticModel != null)
-        {
-            try
-            {
-                var forEachInfo = context.SemanticModel.GetForEachStatementInfo(stmt);
-                if (forEachInfo.ElementConversion.IsExplicit && !forEachInfo.ElementConversion.IsUserDefined
-                    && forEachInfo.ElementType != null)
-                {
-                    // Wrap iterable with a double cast to suppress the type mismatch.
-                    // At runtime the elements are already the correct subtype.
-                    expression = $"(Iterable<{javaType}>)(Iterable<?>)({expression})";
-                }
-            }
-            catch { /* SemanticModel may fail for some edge cases — skip silently */ }
-        }
-
-        // When a generic method call's Class<?> runtime parameter is cast to raw
-        // Class by ApplyClassTypeTokens, the method's generic return type is erased
-        // to raw (e.g. CSharpGenericIterable instead of CSharpGenericIterable<Tuple2<...>>).
-        // In a for-each, this makes the iterator yield Object instead of the
-        // element type. Add a double-cast to restore the parameterized type.
-        if (!isStream && !isNonGenericEnumerableCast && !isStringCharArray
-            && javaType != "var" && javaType != "Object"
-            && expression.Contains("((Class) (Class<?>) ", StringComparison.Ordinal)
-            && exprTypeInfo is INamedTypeSymbol genericEnum
-            && genericEnum.IsGenericType
-            && (genericEnum.Name == "IEnumerable" || genericEnum.AllInterfaces.Any(i => i.Name == "IEnumerable")))
-        {
-            var iterTypeArg = BoxJavaType(javaType);
-            expression = $"(Iterable<{iterTypeArg}>)(Iterable<?>)({expression})";
-            isNonGenericEnumerableCast = true;
-        }
-
-        return new JavaStatementNode($"for ({javaType} {identifier} : {expression}) {body}");
-    }
-
-    private JavaSyntaxNode TransformForEachVariableStatement(ForEachVariableStatementSyntax stmt, ConversionContext context)
-    {
-        var exprTransformer = ExpressionTransformerFacade.Instance;
-        var expression = exprTransformer.Transform(stmt.Expression, context);
-        var expressionType = context.GetTypeInfo(stmt.Expression).Type;
-        var elementType = GetEnumerableElementType(expressionType);
-        var javaType = elementType != null ? context.MapType(elementType) : "var";
-        if (javaType is "TSource" or "TResult" or "TKey" or "TElement")
-            javaType = "Object";
-
-        // Stream collection for raw IEnumerable iteration.
-        var loopVariable = context.GenerateSyntheticName("_foreachItem");
-        var prefix = new List<string>();
-        AppendForEachDesignation(stmt.Variable, loopVariable, prefix, context);
-
-        var stmtTransformer = new StatementTransformer();
-        string body;
-        if (stmt.Statement is BlockSyntax block)
-        {
-            var transformedBody = TransformBlock(block, context);
-            body = $"{{\n        {string.Join("\n        ", prefix)}{(prefix.Count > 0 ? "\n        " : "")}{transformedBody}\n    }}";
-        }
-        else
-        {
-            var transformedBody = stmtTransformer.Transform(stmt.Statement, context).ToString("");
-            body = $"{{\n        {string.Join("\n        ", prefix)}{(prefix.Count > 0 ? "\n        " : "")}{transformedBody}\n    }}";
-        }
-
-        return new JavaStatementNode($"for ({javaType} {loopVariable} : {expression}) {body}");
-    }
-
-    private static ITypeSymbol? GetEnumerableElementType(ITypeSymbol? type)
-    {
-        if (type is IArrayTypeSymbol array)
-            return array.ElementType;
-        if (type is not INamedTypeSymbol named)
-            return null;
-        if (named.Name is "IEnumerable" or "ICollection" or "IList" or "List" && named.TypeArguments.Length == 1)
-            return named.TypeArguments[0];
-        return named.AllInterfaces.FirstOrDefault(i => i.Name == "IEnumerable" && i.TypeArguments.Length == 1)?.TypeArguments[0];
-    }
-
-    private static void AppendForEachDesignation(
-        ExpressionSyntax variable,
-        string tupleExpression,
-        List<string> declarations,
-        ConversionContext context)
-    {
-        if (variable is DeclarationExpressionSyntax declaration)
-        {
-            AppendForEachDesignation(declaration.Designation, tupleExpression, declarations, context, declaration.Type);
-            return;
-        }
-
-        if (variable is TupleExpressionSyntax tuple)
-        {
-            for (var i = 0; i < tuple.Arguments.Count; i++)
-                AppendForEachDesignation(tuple.Arguments[i].Expression, $"{tupleExpression}._{i + 1}()", declarations, context);
-            return;
-        }
-
-        if (variable is IdentifierNameSyntax identifier && identifier.Identifier.Text != "_")
-        {
-            var javaName = ConversionContext.EscapeJavaKeyword(identifier.Identifier.Text);
-            declarations.Add($"var {javaName} = {tupleExpression};");
-        }
-    }
-
-    private static void AppendForEachDesignation(
-        VariableDesignationSyntax designation,
-        string tupleExpression,
-        List<string> declarations,
-        ConversionContext context,
-        TypeSyntax? declaredType = null)
-    {
-        if (designation is ParenthesizedVariableDesignationSyntax parenthesized)
-        {
-            for (var i = 0; i < parenthesized.Variables.Count; i++)
-                AppendForEachDesignation(parenthesized.Variables[i], $"{tupleExpression}._{i + 1}()", declarations, context);
-            return;
-        }
-
-        if (designation is SingleVariableDesignationSyntax single)
-        {
-            if (single.Identifier.Text == "_")
-                return;
-            var symbol = context.GetDeclaredSymbol(single) as ILocalSymbol;
-            var javaName = context.MethodState.GetEffectiveLocalJavaName(
-                symbol, ConversionContext.EscapeJavaKeyword(single.Identifier.Text));
-            var javaType = symbol != null
-                ? context.MapType(symbol.Type)
-                : declaredType != null ? context.MapTypeFromSyntax(declaredType) : "var";
-            declarations.Add($"{javaType} {javaName} = {tupleExpression};");
-        }
-    }
-
-    /// <summary>
-    /// Handles: foreach (var pair in from A a in src from B b in tgt ... select new { aField = a, bField = b })
-    /// by expanding to nested for-each loops, substituting the anonymous field accesses with the actual variables.
-    /// </summary>
-    private JavaSyntaxNode TransformForEachWithAnonymousQuery(
-        ForEachStatementSyntax stmt,
-        QueryExpressionSyntax queryExpr,
-        AnonymousObjectCreationExpressionSyntax anonCreate,
-        ConversionContext context)
-    {
-        var exprTransformer = ExpressionTransformerFacade.Instance;
-
-        // Collect all from-clauses (outer first, inner last)
-        var froms = new List<(string varName, string javaType, string sourceExpr)>();
-        var whereConditions = new List<string>();
-
-        // Outer from
-        var outerFrom = queryExpr.FromClause;
-        var outerSrc = exprTransformer.Transform(outerFrom.Expression, context);
-        var outerSrcType = context.GetTypeInfo(outerFrom.Expression).Type;
-        string outerIterType;
-        if (outerFrom.Type is PredefinedTypeSyntax || outerFrom.Type?.IsKind(SyntaxKind.IdentifierName) == true)
-        {
-            var ti = context.GetTypeInfo(outerFrom.Type);
-            outerIterType = ti.Type != null ? context.MapType(ti.Type) : "var";
-        }
-        else
-        {
-            outerIterType = "var";
-        }
-        // When the explicit from-clause type is a subtype of the collection element type,
-        // Java's for-each can't downcast. Wrap with double cast: (Iterable<Sub>)(Iterable<?>)(src)
-        outerSrc = WrapIfDowncastNeeded(outerIterType, outerSrcType, outerSrc);
-        froms.Add((outerFrom.Identifier.ValueText, outerIterType, outerSrc));
-
-        // Inner from-clauses
-        foreach (var clause in queryExpr.Body.Clauses)
-        {
-            if (clause is FromClauseSyntax innerFrom)
-            {
-                var innerSrc = exprTransformer.Transform(innerFrom.Expression, context);
-                var innerSrcType = context.GetTypeInfo(innerFrom.Expression).Type;
-                string innerIterType;
-                if (innerFrom.Type is PredefinedTypeSyntax || innerFrom.Type?.IsKind(SyntaxKind.IdentifierName) == true)
-                {
-                    var ti2 = context.GetTypeInfo(innerFrom.Type);
-                    innerIterType = ti2.Type != null ? context.MapType(ti2.Type) : "var";
-                }
-                else
-                {
-                    innerIterType = "var";
-                }
-                innerSrc = WrapIfDowncastNeeded(innerIterType, innerSrcType, innerSrc);
-                froms.Add((innerFrom.Identifier.ValueText, innerIterType, innerSrc));
-            }
-            else if (clause is WhereClauseSyntax where)
-            {
-                whereConditions.Add(exprTransformer.Transform(where.Condition, context));
-            }
-            // Ignore orderby (TODO: sorting)
-        }
-
-        // Build a map from anonymous field name → actual variable name from select clause
-        // e.g. new { sourceV = source, targetV = target } → sourceV→source, targetV→target
-        var fieldToVar = new Dictionary<string, string>();
-        foreach (var initializer in anonCreate.Initializers)
-        {
-            var fieldName = initializer.NameEquals?.Name.Identifier.ValueText
-                            ?? (initializer.Expression is IdentifierNameSyntax id ? id.Identifier.ValueText : null);
-            string? exprVarName = initializer.Expression is IdentifierNameSyntax id2 ? id2.Identifier.ValueText : null;
-            if (fieldName != null && exprVarName != null)
-                fieldToVar[fieldName] = exprVarName;
-        }
-
-        // The foreach identifier (e.g. "pair") is what downstream code accesses as pair.getXxx().
-        // We need to transform the body and replace "pair.getSourceV()", "pair.getTargetV()" etc.
-        // We do this by translating the body normally (which will emit pair.getFieldName())
-        // and then doing string replacement of those accessor patterns.
-        var forEachIdent = stmt.Identifier.Text;
-
-        var stmtTransformer = new StatementTransformer();
-        string body;
-        if (stmt.Statement is BlockSyntax block)
-        {
-            body = $"{{\n        {TransformBlock(block, context)}\n    }}";
-        }
-        else
-        {
-            body = $"{{ {stmtTransformer.Transform(stmt.Statement, context).ToString("")} }}";
-        }
-
-        // Replace pair.getFieldName() with the actual variable name
-        foreach (var (fieldName, varName) in fieldToVar)
-        {
-            // The getter follows JavaBean convention: capitalize first letter (e.g., sourceV -> getSourceV)
-            var getterName = "get" + ToPascalCase(fieldName);
-            body = body.Replace($"{forEachIdent}.{getterName}()", varName);
-            body = body.Replace($"{forEachIdent}.{fieldName}", varName);
-            body = body.Replace($"{forEachIdent}.{fieldName}()", varName);
-        }
-
-        // If body had helper aliases like "var source = pair.sourceV;" they become
-        // "var source = source;" after replacement and should be dropped.
-        body = System.Text.RegularExpressions.Regex.Replace(
-            body,
-            @"\bvar\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\1\s*;\s*",
-            string.Empty);
-        body = System.Text.RegularExpressions.Regex.Replace(
-            body,
-            @"\bvar\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*\1\s*\(\s*\)\s*;\s*",
-            string.Empty);
-
-        if (whereConditions.Count > 0)
-        {
-            var guard = whereConditions.Count == 1
-                ? whereConditions[0]
-                : string.Join(" && ", whereConditions.Select(condition => $"({condition})"));
-            body = WrapJavaBlockWithIf(body, guard);
-        }
-
-        // Build nested for loops from outermost to innermost
-        var sb = new System.Text.StringBuilder();
-        var indent = "";
-        for (int i = 0; i < froms.Count; i++)
-        {
-            var (varName, javaType, srcExpr) = froms[i];
-            // Wrap stream expressions in collect for the outer loops (inner loops can stay as-is if Iterable)
-            bool needsCollect = srcExpr.Contains("StreamSupport.stream(") || srcExpr.Contains("Arrays.stream(") || srcExpr.Contains("IntStream.range(") ||
-                (srcExpr.Contains(".map(") && !srcExpr.Contains(".collect(")) ||
-                (srcExpr.Contains(".filter(") && !srcExpr.Contains(".collect("));
-            if (needsCollect)
-            {
-                context.AddImport("java.util.stream.Collectors");
-                context.AddImport("java.util.ArrayList"); context.AddImport("io.github.ningpp.compat.CSharpList");
-                srcExpr = $"{srcExpr}.collect(CSharpList.toCSharpList())";
-            }
-            if (i == froms.Count - 1)
-            {
-                // Innermost: attach the body
-                sb.Append($"{indent}for ({javaType} {varName} : {srcExpr}) {body}");
-            }
-            else
-            {
-                sb.AppendLine($"{indent}for ({javaType} {varName} : {srcExpr}) {{");
-                indent += "    ";
-            }
-        }
-        // Close outer loops
-        for (int i = froms.Count - 2; i >= 0; i--)
-        {
-            indent = indent.Length >= 4 ? indent.Substring(4) : "";
-            sb.AppendLine();
-            sb.Append($"{indent}}}");
-        }
-
-        return new JavaStatementNode(sb.ToString());
-    }
-
-    private static string WrapJavaBlockWithIf(string body, string condition)
-    {
-        var normalized = body.Replace("\r\n", "\n");
-        var inner = normalized.Trim();
-        if (inner.StartsWith("{", StringComparison.Ordinal) && inner.EndsWith("}", StringComparison.Ordinal))
-        {
-            inner = inner.Substring(1, inner.Length - 2).Trim();
-        }
-
-        var indentedInner = IndentJavaLines(inner, "            ");
-        return string.IsNullOrWhiteSpace(indentedInner)
-            ? $"{{\n        if ({condition}) {{\n        }}\n    }}"
-            : $"{{\n        if ({condition}) {{\n{indentedInner}\n        }}\n    }}";
-    }
-
-    private static string IndentJavaLines(string text, string indent)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return string.Empty;
-        }
-
-        return string.Join("\n", text
-            .Replace("\r\n", "\n")
-            .Split('\n')
-            .Select(line => string.IsNullOrWhiteSpace(line) ? string.Empty : indent + line.Trim()));
-    }
-
-    /// <summary>
-    /// When the explicit from-clause type differs from the collection element type (downcast),
-    /// wraps the source expression with a double cast: (Iterable&lt;Sub&gt;)(Iterable&lt;?&gt;)(src)
-    /// so Java's for-each loop compiles despite the type mismatch.
-    /// </summary>
-    private static string WrapIfDowncastNeeded(string javaType, ITypeSymbol? collectionType, string sourceExpr)
-    {
-        if (javaType is "var" or "Object" || collectionType == null)
-            return sourceExpr;
-
-        // Extract element type from the collection (IEnumerable<T>, List<T>, etc.)
-        ITypeSymbol? elemType = null;
-        if (collectionType is INamedTypeSymbol named)
-        {
-            if (named.TypeArguments.Length == 1)
-                elemType = named.TypeArguments[0];
-            else
-                elemType = named.AllInterfaces
-                    .FirstOrDefault(i => i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>")
-                    ?.TypeArguments[0];
-        }
-        else if (collectionType is IArrayTypeSymbol arr)
-        {
-            elemType = arr.ElementType;
-        }
-
-        if (elemType == null)
-            return sourceExpr;
-
-        // Compare simple names: if the collection element type name differs from
-        // the declared loop variable type name, a downcast is needed.
-        var elemName = elemType.Name;
-        var javaSimpleName = javaType.Contains('<') ? javaType.Substring(0, javaType.IndexOf('<')) : javaType;
-        if (elemName != javaSimpleName)
-        {
-            return $"(Iterable<{javaType}>)(Iterable<?>)({sourceExpr})";
-        }
-
-        return sourceExpr;
     }
 
     private static string BoxJavaType(string t)
@@ -835,93 +192,42 @@ public partial class StatementTransformer
             _ => t
         };
 
-    private JavaSyntaxNode TransformDoStatement(DoStatementSyntax stmt, ConversionContext context)
+    private static string DrainPendingStatementsAsPreamble(ConversionContext context)
     {
-        var exprTransformer = ExpressionTransformerFacade.Instance;
-
-        var stmtTransformer = new StatementTransformer();
-        string bodyBlock;
-        if (stmt.Statement is BlockSyntax block)
-        {
-            bodyBlock = TransformBlock(block, context);
-        }
-        else
-        {
-            bodyBlock = stmtTransformer.Transform(stmt.Statement, context).ToString("");
-        }
-
-        // Condition is evaluated at end of each iteration. Any Holder declarations it produces
-        // must live outside the loop; value read-backs must happen AFTER the condition updates
-        // the holders and BEFORE the next iteration's body uses those values.
-        //
-        // A C# do-while has the semantics:
-        //   do { body; } while (condition);
-        // where condition (e.g. !ParseText(out startPos, out endPos, ref orChars)) updates
-        // the out/ref variables. In Java, these become IntHolder objects. The post-statements
-        // (holder.value → local variable read-backs) must run:
-        //   1. After the condition evaluates (so they read the latest holder values)
-        //   2. Before the next iteration's body (so the body sees updated values)
-        //   3. After the loop exits (so code after the loop sees the final values)
-        //
-        // The standard Java do-while can't insert code between while(condition) and the next
-        // body. So we rewrite as:
-        //   preStmts;                          // holder declarations
-        //   while (true) {
-        //       body;                          // uses local variables
-        //       if (!(condition)) break;       // updates holders; exits if done
-        //       postStmts;                     // read back from holders for next iteration
-        //   }
-        //   postStmts;                         // final read-back after loop exits
-        //
-        // For 'out' parameters where holders aren't seeded (new IntHolder()), postStmts at
-        // body START would overwrite correct local variables with default 0 on the first
-        // iteration, so this while(true)+break pattern is the only correct approach.
-        var condition = exprTransformer.Transform(stmt.Condition, context);
-
-        string doPreamble = "";
-        string doBodyTail = "";
-        string doAfterLoop = "";
-        if (context.HasPendingPreStatements)
-        {
-            var pre = context.DrainPreStatements();
-            doPreamble = string.Join("\n", pre.Select(s => s.TrimEnd(';') + ";")) + "\n";
-        }
-        if (context.HasPendingPostStatements)
-        {
-            var post = context.DrainPostStatements();
-            var postStmts = post.Select(s => s.TrimEnd(';') + ";").ToList();
-            doBodyTail = "\n        " + string.Join("\n        ", postStmts);
-            doAfterLoop = "\n" + string.Join("\n", postStmts);
-        }
-
-        // When there are no post-statements (no ref/out in condition), use the original
-        // do-while structure to avoid breaking Java's reachability analysis (e.g. when
-        // condition is a constant like 'true', while(true)+if(!true)break confuses javac
-        // into requiring a return after the loop).
-        // When there ARE post-statements, rewrite as while(true)+break to correctly
-        // position post-statements between the condition evaluation and the next body.
-        if (string.IsNullOrEmpty(doBodyTail) && string.IsNullOrEmpty(doAfterLoop))
-        {
-            return new JavaStatementNode($"{doPreamble}do {{\n        {bodyBlock}\n    }} while ({condition});");
-        }
-        var body = $"{{\n        {bodyBlock}\n        if (!({condition})) break;{doBodyTail}\n    }}";
-        return new JavaStatementNode($"{doPreamble}while (true) {body}{doAfterLoop}");
+        if (!context.HasPendingPreStatements) return "";
+        var pre = context.DrainPreStatements();
+        return string.Concat(pre.Select(s => s.TrimEnd(';') + ";\n"));
     }
 
-    private static bool IsNonGenericEnumerableOrCollection(INamedTypeSymbol type)
+    private static void RejectConditionPostStatements(ConversionContext context, string loopKind)
     {
-        // Generic collection interfaces (IEnumerable<T>, ICollection<T>, IList<T>) map to
-        // generic Java compat types (CSharpGenericIterable<T>, ...) and already provide
-        // the correct typed iterator.  Do not treat them as non-generic enumerable.
-        if (type.IsGenericType)
-            return false;
+        if (context.HasPendingPostStatements)
+        {
+            context.DrainPostStatements();
+            throw new NotSupportedException(
+                $"CS2J normalization required: ref/out arguments producing read-backs in a {loopKind} condition must be lowered by a preprocessor before Java conversion.");
+        }
+    }
 
-        if (type.Name is "IEnumerable" or "ICollection")
-            return true;
+    private string TransformLoopBody(StatementSyntax statement, string? bodyPostInjection, ConversionContext context)
+    {
+        if (statement is BlockSyntax block)
+        {
+            var bodyStr = TransformBlock(block, context);
+            var prefix = bodyPostInjection != null ? bodyPostInjection + "\n        " : "";
+            return $"{{\n        {prefix}{bodyStr}\n    }}";
+        }
 
-        return type.AllInterfaces.Any(i =>
-            !i.IsGenericType
-            && i.OriginalDefinition.ToDisplayString() is "System.Collections.IEnumerable"
-                or "System.Collections.ICollection");
+        var bodyText = new StatementTransformer().Transform(statement, context).ToString("");
+        if (bodyPostInjection != null)
+            return $"{{\n        {bodyPostInjection}\n        {bodyText}\n    }}";
+        return $"{{\n        {bodyText}\n    }}";
+    }
+
+    private string TransformLoopBodyBlockText(StatementSyntax statement, ConversionContext context)
+    {
+        return statement is BlockSyntax block
+            ? TransformBlock(block, context)
+            : new StatementTransformer().Transform(statement, context).ToString("");
     }
 }

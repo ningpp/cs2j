@@ -25,14 +25,11 @@ public partial class ArgumentTransformer
         IExpressionTransformer transformer,
         int argStartIndex = 0,
         IMethodSymbol? methodSymbol = null,
-        int maxArgCount = -1,
-        bool skipRuntimeClassArguments = false)
+        int maxArgCount = -1)
     {
         if (argumentList == null || argumentList.Arguments.Count <= argStartIndex)
         {
-            return skipRuntimeClassArguments
-                ? string.Empty
-                : string.Join(", ", RuntimeClassParameterHelper.GetRuntimeClassArguments(methodSymbol, context));
+            return string.Empty;
         }
 
         var args = argumentList.Arguments;
@@ -47,14 +44,6 @@ public partial class ArgumentTransformer
         var transformed = orderedArgs
             .Select((arg, index) => TransformArgument(arg, context, transformer, parameters, index))
             .ToList();
-
-        if (!skipRuntimeClassArguments)
-        {
-            AppendRuntimeClassArguments(
-                transformed,
-                parameters,
-                RuntimeClassParameterHelper.GetRuntimeClassArguments(methodSymbol, context));
-        }
 
         return string.Join(", ", transformed);
     }
@@ -87,31 +76,6 @@ public partial class ArgumentTransformer
         if (index >= p.Length && p.Length > 0 && p[^1].IsParams)
             index = p.Length - 1;
         return index < p.Length ? p[index] : null;
-    }
-
-    private static void AppendRuntimeClassArguments(
-        List<string> transformed,
-        ImmutableArray<IParameterSymbol>? parameters,
-        IReadOnlyList<string> runtimeClassArgs)
-    {
-        if (runtimeClassArgs.Count == 0)
-            return;
-
-        if (parameters.HasValue)
-        {
-            for (int i = transformed.Count; i < parameters.Value.Length; i++)
-            {
-                var parameter = parameters.Value[i];
-                if (parameter.HasExplicitDefaultValue)
-                    transformed.Add(ConvertOptionalDefaultValue(parameter));
-                else if (parameter.IsOptional)
-                    transformed.Add("null");
-                else
-                    break;
-            }
-        }
-
-        transformed.AddRange(runtimeClassArgs);
     }
 
     private static IReadOnlyList<ArgumentSyntax> ReorderNamedArguments(
@@ -264,30 +228,5 @@ public partial class ArgumentTransformer
             return transformedExpr;
 
         return StructCloneHelper.BuildCloneExpression(arg.Expression, transformedExpr);
-    }
-
-    private static string ConvertOptionalDefaultValue(IParameterSymbol parameter)
-    {
-        if (!parameter.HasExplicitDefaultValue)
-            return "null";
-
-        var value = parameter.ExplicitDefaultValue;
-        return value switch
-        {
-            null => "null",
-            string s => "\"" + CSharpToJava.Core.Utilities.StringEscapeHelper.EscapeJavaString(s) + "\"",
-            char c => "'" + (c == '\'' ? "\\'" : c == '\\' ? "\\\\" : c.ToString()) + "'",
-            bool b => b ? "true" : "false",
-            long l => l + "L",
-            int i => i.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            short sh => sh.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            byte by => by.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            uint ui => ui > int.MaxValue
-                ? ui + "L"
-                : ui.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            double d => d.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
-            float f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "f",
-            _ => value.ToString() ?? "null"
-        };
     }
 }

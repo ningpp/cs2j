@@ -109,30 +109,17 @@ public class FieldTransformer : IMemberTransformer
         // so we can warn when a subsequent initializer cross-references a prior variable.
         var declaredNames = new HashSet<string>();
 
-        // Static fields in generic classes whose type references the class's own type parameters
-        // cannot be expressed in Java (static members may not reference enclosing type parameters).
-        // Convert them to generic static methods that take the runtime Class<?> tokens.
-        bool convertStaticGenericFieldToMethod = ShouldConvertStaticFieldToGenericMethod(
-            fieldDecl, fieldTypeSymbol, context, out var referencedClassTypeParameters);
+        // Static fields in generic classes whose type references the class's own type
+        // parameters cannot be expressed in Java (static members may not reference
+        // enclosing type parameters). Require a preprocessor to normalize them.
+        if (IsStaticFieldReferencingClassTypeParameters(fieldDecl, fieldTypeSymbol, context))
+        {
+            throw new NotSupportedException(
+                $"CS2J normalization required: static field referencing enclosing type parameters in {fieldDecl.Kind()} must be lowered by a preprocessor before Java conversion.");
+        }
 
         foreach (var variable in fieldDecl.Declaration.Variables)
         {
-            if (convertStaticGenericFieldToMethod && variable.Initializer != null)
-            {
-                var syntheticMethod = BuildStaticGenericFieldAccessorMethod(
-                    variable,
-                    javaType,
-                    modifiers,
-                    referencedClassTypeParameters,
-                    sharedComment,
-                    context);
-                if (syntheticMethod != null)
-                {
-                    yield return syntheticMethod;
-                }
-                continue;
-            }
-
             // For [ThreadStatic] fields, register the field so that reads/writes
             // are rewritten to ThreadLocal.get()/set(), and change the declared
             // type to ThreadLocal<T> with a default initializer.
@@ -230,41 +217,12 @@ public class FieldTransformer : IMemberTransformer
                 context.AddImport("io.github.ningpp.compat.CompatJsonPropertyName");
             }
 
-            // C# structs are value types that can never be null — initialize fields
-            // with default instances so Java code doesn't encounter null struct references.
-            // C# enum fields without initializers default to the member with value 0,
-            // but Java enum references default to null. Initialize to the 0-valued member.
+            // C# enum fields default to the zero-valued member; plain Java enums are
+            // ordinal-ordered (0..n-1), so values()[0] is the direct equivalent.
             if (variable.Initializer == null
                 && fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType)
             {
-                bool isFlags = context.IsFlagsEnum(enumType.Name)
-                    || enumType.GetAttributes().Any(a =>
-                        a.AttributeClass?.Name is "FlagsAttribute" or "Flags");
-                if (!isFlags)
-                {
-                    var enumTypeRef = BuildEnumTypeReference(enumType);
-                    // A field/property with the same name as the enum type
-                    // (e.g. `public ClassType ClassType = ...`) makes the simple
-                    // reference self-referencing in Java — qualify with the package.
-                    // Only fields and properties can shadow a type name; nested types
-                    // returned by GetMembers do not cause shadowing.
-                    if (context.CurrentEnclosingRoslynType != null
-                        && context.CurrentEnclosingRoslynType.GetMembers(enumTypeRef)
-                            .Any(m => m is IFieldSymbol or IPropertySymbol))
-                    {
-                        var enumNs = enumType.ContainingNamespace?.ToDisplayString();
-                        if (!string.IsNullOrEmpty(enumNs) && enumNs != "<global namespace>")
-                        {
-                            var enumJavaPkg = context.NamespaceToPackage(enumNs);
-                            if (!string.IsNullOrEmpty(enumJavaPkg))
-                                enumTypeRef = $"{enumJavaPkg}.{enumTypeRef}";
-                        }
-                    }
-                    var zeroMember = FindEnumMemberByValue(enumType, 0);
-                    javaField.Initializer = zeroMember != null
-                        ? $"{enumTypeRef}.{zeroMember}"
-                        : $"{enumTypeRef}.values()[0]";
-                }
+                javaField.Initializer = $"{context.MapType(enumType)}.values()[0]";
             }
             else if (variable.Initializer == null
                 && fieldTypeSymbol?.SpecialType == SpecialType.System_Decimal)
@@ -355,18 +313,11 @@ public class FieldTransformer : IMemberTransformer
                 {
                     javaField.Initializer = RenderConstantValue(constVal.Value);
 
-                    // C# const enum fields inline as the underlying integer value. For non-flags
-                    // enums the Java type is the enum class, which is not assignable from a bare
-                    // integer, so wrap the value with EnumType.fromValue(...). Flags enums are
-                    // emitted as primitive int/long constants and must stay as bare literals.
-                    if (fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumFieldType
-                        && !IsFlagsEnum(enumFieldType, context))
+                    // C# const enum fields inline as the ordinal integer; index values() directly.
+                    if (fieldTypeSymbol is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumFieldType)
                     {
                         var javaEnumType = context.MapType(enumFieldType);
-                        var enumValueType = enumFieldType.EnumUnderlyingType?.SpecialType is SpecialType.System_Int64 or SpecialType.System_UInt64
-                            ? "long"
-                            : "int";
-                        javaField.Initializer = $"{javaEnumType}.fromValue(({enumValueType})({javaField.Initializer}))";
+                        javaField.Initializer = $"{javaEnumType}.values()[{javaField.Initializer}]";
                     }
                 }
                 else
@@ -501,53 +452,16 @@ public class FieldTransformer : IMemberTransformer
             || text.Contains("IReadOnlyList", StringComparison.Ordinal);
     }
 
-    private static string BuildEnumTypeReference(INamedTypeSymbol enumType)
-    {
-        return enumType.ContainingType is INamedTypeSymbol parentType
-            ? $"{BuildEnumTypeReference(parentType)}.{enumType.Name}"
-            : enumType.Name;
-    }
-
-    private static string? FindEnumMemberByValue(INamedTypeSymbol enumType, long value)
-    {
-        foreach (var member in enumType.GetMembers())
-        {
-            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field)
-            {
-                if (field.ConstantValue is int intVal && intVal == value)
-                    return field.Name;
-                if (field.ConstantValue is long longVal && longVal == value)
-                    return field.Name;
-                if (field.ConstantValue is short shortVal && shortVal == value)
-                    return field.Name;
-                if (field.ConstantValue is byte byteVal && byteVal == value)
-                    return field.Name;
-                if (field.ConstantValue is sbyte sbyteVal && sbyteVal == value)
-                    return field.Name;
-                if (field.ConstantValue is ushort ushortVal && ushortVal == value)
-                    return field.Name;
-                if (field.ConstantValue is uint uintVal && uintVal == value)
-                    return field.Name;
-                if (field.ConstantValue is ulong ulongVal && ulongVal == (ulong)value)
-                    return field.Name;
-            }
-        }
-        return null;
-    }
-
     /// <summary>
-    /// Determines whether a static field in a generic class must be converted to a
-    /// generic static method because its type references one of the enclosing class's
-    /// type parameters (Java forbids static members from referencing enclosing type params).
+    /// Determines whether a static field's declared type references one of the
+    /// enclosing generic class's own type parameters (Java forbids static members
+    /// from referencing enclosing type params).
     /// </summary>
-    private static bool ShouldConvertStaticFieldToGenericMethod(
+    private static bool IsStaticFieldReferencingClassTypeParameters(
         FieldDeclarationSyntax fieldDecl,
         ITypeSymbol? fieldTypeSymbol,
-        ConversionContext context,
-        out List<ITypeParameterSymbol> referencedClassTypeParameters)
+        ConversionContext context)
     {
-        referencedClassTypeParameters = new List<ITypeParameterSymbol>();
-
         if (!fieldDecl.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
             return false;
 
@@ -555,9 +469,7 @@ public class FieldTransformer : IMemberTransformer
         if (enclosingType == null || enclosingType.TypeParameters.Length == 0)
             return false;
 
-        referencedClassTypeParameters = CollectReferencedClassTypeParameters(
-            fieldTypeSymbol, enclosingType);
-        return referencedClassTypeParameters.Count > 0;
+        return CollectReferencedClassTypeParameters(fieldTypeSymbol, enclosingType).Count > 0;
     }
 
     /// <summary>
@@ -597,65 +509,6 @@ public class FieldTransformer : IMemberTransformer
             {
                 Visit(array.ElementType);
             }
-        }
-    }
-
-    /// <summary>
-    /// Builds a generic static accessor method that replaces a static field whose type
-    /// references the enclosing class's type parameters.
-    /// </summary>
-    private static JavaMethodDeclaration? BuildStaticGenericFieldAccessorMethod(
-        VariableDeclaratorSyntax variable,
-        string fieldJavaType,
-        JavaModifiers fieldModifiers,
-        List<ITypeParameterSymbol> classTypeParameters,
-        string? leadingComment,
-        ConversionContext context)
-    {
-        if (variable.Initializer == null)
-            return null;
-
-        var previousStaticContext = context.IsInStaticMember;
-        context.IsInStaticMember = true;
-
-        try
-        {
-            var initializer = Transformers.Expression.ExpressionTransformerFacade.Instance
-                .Transform(variable.Initializer.Value, context);
-
-            // Drain any pre-statements produced by the initializer (e.g. object initializers)
-            // so they become part of the method body rather than a static initializer block.
-            var bodyBuilder = new System.Text.StringBuilder();
-            if (context.HasPendingPreStatements)
-            {
-                foreach (var preStmt in context.DrainPreStatements())
-                {
-                    bodyBuilder.AppendLine(preStmt.TrimEnd().TrimEnd(';') + ";");
-                }
-            }
-            bodyBuilder.Append("return ").Append(initializer).Append(';');
-
-            var method = new JavaMethodDeclaration
-            {
-                Modifiers = fieldModifiers & ~(JavaModifiers.Final | JavaModifiers.Volatile | JavaModifiers.Transient),
-                ReturnType = fieldJavaType,
-                Name = ConversionContext.EscapeJavaKeyword(variable.Identifier.Text),
-                Body = bodyBuilder.ToString(),
-                LeadingComment = leadingComment
-            };
-
-            foreach (var typeParameter in classTypeParameters)
-            {
-                method.TypeParameters.Add(new JavaTypeParameter(typeParameter.Name));
-                var paramName = Transformers.Type.ClassTransformer.RuntimeClassParameterName(typeParameter.Name);
-                method.Parameters.Add(new JavaParameter("Class<?>", paramName));
-            }
-
-            return method;
-        }
-        finally
-        {
-            context.IsInStaticMember = previousStaticContext;
         }
     }
 
@@ -699,18 +552,6 @@ public class FieldTransformer : IMemberTransformer
             return $"0x{ul:X}L";
 
         return value.ToString() ?? "null";
-    }
-
-    /// <summary>
-    /// Returns true when the enum type is treated as a flags enum by the converter,
-    /// either because it was registered as such or because it carries [Flags].
-    /// </summary>
-    private static bool IsFlagsEnum(INamedTypeSymbol enumType, ConversionContext context)
-    {
-        return context.IsFlagsEnum(enumType.Name)
-            || context.IsFlagsEnum(enumType.ToDisplayString())
-            || enumType.GetAttributes().Any(attribute =>
-                attribute.AttributeClass?.ToDisplayString() is "System.FlagsAttribute" or "System.Flags" or "FlagsAttribute" or "Flags");
     }
 
     /// <summary>

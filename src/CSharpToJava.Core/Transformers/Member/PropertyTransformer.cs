@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis; using Microsoft.CodeAnalysis.CSharp; using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis; using Microsoft.CodeAnalysis.CSharp; using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions; using CSharpToJava.Core.Comments; using CSharpToJava.Core.Context; using CSharpToJava.Core.Java;
 using CSharpToJava.Core.Transformers.Expression; using CSharpToJava.Core.Transformers.Expression.Utilities;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxKind;  namespace CSharpToJava.Core.Transformers.Member; 
@@ -131,12 +131,7 @@ private static void InitDefault(JavaFieldDeclaration field, PropertyDeclarationS
 { ctx.AddImport("io.github.ningpp.compat.Decimal"); field.Initializer = "Decimal.ZERO"; }
 else if (StructCloneHelper.IsUserDefinedStruct(typeInfo.Type)) {
 field.Initializer = $"new {propType}()"; } else if (sym?.Type is INamedTypeSymbol { TypeKind: TypeKind.Enum } enumType) {
-if (ctx.IsFlagsEnum(enumType.Name) || enumType.GetAttributes().Any(a => a.AttributeClass?.Name is "FlagsAttribute" or "Flags")) return;
-var enumRef = BuildEnumRef(enumType);
-if (ctx.CurrentEnclosingRoslynType?.GetMembers(enumRef).Any(m => m is IFieldSymbol or IPropertySymbol) == true) {
-var ns = enumType.ContainingNamespace?.ToDisplayString(); if (!string.IsNullOrEmpty(ns) && ns != "<global namespace>")
-{ var pkg = ctx.NamespaceToPackage(ns); if (!string.IsNullOrEmpty(pkg)) enumRef = $"{pkg}.{enumRef}"; } } var zero = FindEnumZero(enumType);
-field.Initializer = zero == null ? $"{enumRef}.values()[0]" : $"{enumRef}.{zero}"; } } 
+field.Initializer = $"{ctx.MapType(enumType)}.values()[0]"; } } 
 private static void InitExpression(JavaFieldDeclaration field, PropertyDeclarationSyntax p, IPropertySymbol? sym, string fieldName, bool isStatic, ConversionContext ctx)
 { field.Initializer = Expr(p.Initializer!.Value, ctx); if (sym?.Type is INamedTypeSymbol iter
 && (iter.OriginalDefinition?.ToDisplayString() == "System.Collections.Generic.IEnumerable<T>" || iter.ToDisplayString() == "System.Collections.IEnumerable")
@@ -179,10 +174,7 @@ method.Annotations.Add(new JavaAnnotation(text)); ctx.AddImport($"io.github.ning
 private static bool IsBareRead(string expr) { if (string.IsNullOrWhiteSpace(expr)) return false; var t = expr.Trim();
 return t.EndsWith(".value", StringComparison.Ordinal) || t.Split('.').All(IsIdentifierSegment); }
 private static bool IsIdentifierSegment(string s) => s.Length > 0 && (char.IsLetter(s[0]) || s[0] == '_' || s[0] == '$') && s.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '$');
-private static string BuildEnumRef(INamedTypeSymbol t) => t.ContainingType is { } parent ? $"{BuildEnumRef(parent)}.{t.Name}" : t.Name;
-private static string? FindEnumZero(INamedTypeSymbol t) { foreach (var member in t.GetMembers())
-if (member is IFieldSymbol { IsConst: true, HasConstantValue: true, ConstantValue: { } value } && Convert.ToInt64(value) == 0) return member.Name;
-return null; } private static bool IsPublicAccessor(IMethodSymbol? a) => a?.DeclaredAccessibility == Accessibility.Public;
+private static bool IsPublicAccessor(IMethodSymbol? a) => a?.DeclaredAccessibility == Accessibility.Public;
 private static bool HasJsonInclude(IPropertySymbol p) => p.GetAttributes().Any(a => a.AttributeClass?.Name == "JsonIncludeAttribute"); 
 internal static bool TryGetJsonConverterType(ISymbol? member, out string converterTypeName) {
 converterTypeName = string.Empty; if (member == null) return false; foreach (var attr in member.GetAttributes())

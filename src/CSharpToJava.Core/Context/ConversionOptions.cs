@@ -86,8 +86,6 @@ public class ConversionOptions
     /// </summary>
     public bool EnableParallelProjectPasses { get; set; } = true;
 
-    internal RuntimeClassParameterRegistry RuntimeClassParameters { get; } = new();
-
     /// <summary>
     /// Shared store for default factory methods registered during type-parameter
     /// default(T) conversion. Shared across all project conversions so that factory

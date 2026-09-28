@@ -1,4 +1,4 @@
-﻿﻿﻿﻿﻿﻿﻿﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Analysis;
@@ -18,11 +18,7 @@ public class ConversionContext
     private readonly Stack<string> _namespaceStack = new();
     private readonly Stack<JavaTypeDeclaration> _typeStack = new();
     private readonly Stack<IMethodSymbol?> _methodStack = new();
-    private readonly Stack<Dictionary<string, string>> _runtimeClassFieldsStack = new();
     private readonly Stack<List<FixedPointerInfo>> _fixedScopeStack = new();
-    // Snapshot of runtime class parameters saved during EnterNestedMethodContext,
-    // restored in LeaveNestedMethodContext.
-    private Dictionary<string, string>? _nestedMethodClassParamSnapshot;
 
     // 映射 IMethodSymbol.OriginalDefinition → JavaMethodDeclaration，
     // 用于 override 处理时向 base/abstract 方法签名注入 leading _cs2j_T 参数。
@@ -395,217 +391,6 @@ public class ConversionContext
         return DefaultFactoryMethods.GetForClass(classFullMetadataName);
     }
 
-    /// <summary>
-    /// Per-method accumulator for Class&lt;T&gt; parameters needed by method-level
-    /// type parameters whose bodies use default(T). Drained by ClassTransformer
-    /// after each method is processed to add params to the method signature.
-    /// </summary>
-    private HashSet<string>? _pendingClassTypeParams;
-    private Dictionary<string, List<string>>? _pendingClassTypeParamsByMethod;
-
-    /// <summary>
-    /// Persistent set of method keys (containingType.MetadataName|method.MetadataName)
-    /// that have had Class&lt;T&gt; parameters added. Used by InvocationExpressionTransformer
-    /// to add type-token arguments at call sites.
-    /// </summary>
-    private readonly HashSet<string> _methodsWithClassParams = new();
-
-    /// <summary>
-    /// Persistent map from method key to ordered list of type parameter names that
-    /// need Class&lt;T&gt; tokens. Survives DrainClassTypeParams so call-site
-    /// transformers can determine which type tokens to prepend.
-    /// </summary>
-    private readonly Dictionary<string, List<string>> _methodClassTypeParamNames = new();
-
-    public void RequireClassTypeParam(string containingTypeMetadataName, string methodMetadataName, string typeParamName)
-{
-_pendingClassTypeParams ??= new();
-        _pendingClassTypeParams.Add(typeParamName);
-        _methodsWithClassParams.Add($"{containingTypeMetadataName}|{methodMetadataName}");
-
-        var key = $"{containingTypeMetadataName}|{methodMetadataName}";
-        if (!_methodClassTypeParamNames.TryGetValue(key, out var nameList))
-        {
-            nameList = new List<string>();
-            _methodClassTypeParamNames[key] = nameList;
-        }
-        if (!nameList.Contains(typeParamName))
-            nameList.Add(typeParamName);
-
-        _pendingClassTypeParamsByMethod ??= new();
-        if (!_pendingClassTypeParamsByMethod.TryGetValue(key, out var pendingList))
-        {
-            pendingList = new List<string>();
-            _pendingClassTypeParamsByMethod[key] = pendingList;
-        }
-        if (!pendingList.Contains(typeParamName))
-            pendingList.Add(typeParamName);
-    }
-
-    /// <summary>
-    /// Registers a Class&lt;T&gt; requirement for a method (regular or hoisted local
-    /// function) using the method's canonical Class-parameter key.
-    /// </summary>
-    public void RequireClassTypeParam(IMethodSymbol method, string typeParamName)
-    {
-        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
-        RequireClassTypeParam(typeName, methodKey, typeParamName);
-    }
-
-    /// <summary>
-    /// Records a method-level Class&lt;T&gt; requirement without enqueuing another
-    /// pending drain (used when the signature was already patched).
-    /// </summary>
-    public void RegisterMethodClassTypeParam(string containingTypeMetadataName, string methodMetadataName, string typeParamName)
-    {
-        _methodsWithClassParams.Add($"{containingTypeMetadataName}|{methodMetadataName}");
-
-        var key = $"{containingTypeMetadataName}|{methodMetadataName}";
-        if (!_methodClassTypeParamNames.TryGetValue(key, out var nameList))
-        {
-            nameList = new List<string>();
-            _methodClassTypeParamNames[key] = nameList;
-        }
-        if (!nameList.Contains(typeParamName))
-            nameList.Add(typeParamName);
-    }
-
-    public void RegisterMethodClassTypeParam(IMethodSymbol method, string typeParamName)
-    {
-        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
-        RegisterMethodClassTypeParam(typeName, methodKey, typeParamName);
-    }
-
-    /// <summary>
-    /// Returns the ordered list of type parameter names that need Class&lt;T&gt;
-    /// tokens for a method, or null if the method has none.
-    /// </summary>
-    public IReadOnlyList<string>? GetMethodClassTypeParamNames(string containingTypeMetadataName, string methodMetadataName)
-    {
-        var key = $"{containingTypeMetadataName}|{methodMetadataName}";
-        return _methodClassTypeParamNames.TryGetValue(key, out var list) ? list : null;
-    }
-
-    public IReadOnlyList<string>? GetMethodClassTypeParamNames(IMethodSymbol method)
-    {
-        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
-        return GetMethodClassTypeParamNames(typeName, methodKey);
-    }
-
-    /// <summary>
-    /// Replaces the registered Class&lt;T&gt; token order for a method with the given
-    /// names. Called after a method signature is patched so call sites emit tokens
-    /// in exactly the order the signature declares the parameters.
-    /// </summary>
-    public void SetMethodClassTypeParamNames(string containingTypeMetadataName, string methodMetadataName, IEnumerable<string> typeParameterNames)
-    {
-        var key = $"{containingTypeMetadataName}|{methodMetadataName}";
-        var list = new List<string>();
-        foreach (var name in typeParameterNames)
-        {
-            if (!list.Contains(name))
-                list.Add(name);
-        }
-        _methodClassTypeParamNames[key] = list;
-        _methodsWithClassParams.Add(key);
-    }
-
-    public void SetMethodClassTypeParamNames(IMethodSymbol method, IEnumerable<string> typeParameterNames)
-    {
-        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
-        SetMethodClassTypeParamNames(typeName, methodKey, typeParameterNames);
-    }
-    /// <summary>
-    /// Type parameter names whose runtime token is a Jackson TypeReference instead
-    /// of a Class literal. Registered when a generic method body deserializes the
-    /// type parameter (JsonSerializer.Deserialize&lt;T&gt;): call sites must then pass
-    /// new TypeReference&lt;...&gt;() {} so constructed generic element types survive.
-    /// </summary>
-    private readonly HashSet<string> _methodTypeRefTypeParamNames = new(StringComparer.Ordinal);
-
-    public void RequireTypeRefTypeParam(IMethodSymbol method, string typeParamName)
-    {
-        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
-        RequireTypeRefTypeParam(typeName, methodKey, typeParamName);
-    }
-
-    public void RequireTypeRefTypeParam(string containingTypeMetadataName, string methodMetadataName, string typeParamName)
-    {
-        RequireClassTypeParam(containingTypeMetadataName, methodMetadataName, typeParamName);
-        _methodTypeRefTypeParamNames.Add($"{containingTypeMetadataName}|{methodMetadataName}|{typeParamName}");
-    }
-
-    public bool IsTypeRefTypeParam(IMethodSymbol method, string typeParamName)
-    {
-        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
-        return _methodTypeRefTypeParamNames.Contains($"{typeName}|{methodKey}|{typeParamName}");
-    }
-
-    /// <summary>
-    /// Replaces the registered TypeReference-token set for a method with the given
-    /// names. Called after a method signature is patched so call sites emit the
-    /// right token flavor in exactly the order the signature declares parameters.
-    /// </summary>
-    public void SetMethodTypeRefTypeParamNames(IMethodSymbol method, IEnumerable<string> typeParameterNames)
-    {
-        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
-        var keyPrefix = $"{typeName}|{methodKey}|";
-        var existingMarkers = _methodTypeRefTypeParamNames
-            .Where(k => k.StartsWith(keyPrefix, StringComparison.Ordinal))
-            .ToArray();
-        _methodTypeRefTypeParamNames.RemoveWhere(k => k.StartsWith(keyPrefix, StringComparison.Ordinal));
-        // Preserve markers only for names still present in the final signature:
-        // never mark names that were registered through the Class-token path.
-        foreach (var name in typeParameterNames)
-        {
-            if (existingMarkers.Contains(keyPrefix + name, StringComparer.Ordinal))
-                _methodTypeRefTypeParamNames.Add(keyPrefix + name);
-        }
-    }
-
-    public IReadOnlySet<string>? DrainClassTypeParams()
-    {
-        var result = _pendingClassTypeParams;
-        _pendingClassTypeParams = null;
-        return result;
-    }
-
-    /// <summary>
-    /// Drains the pending Class&lt;T&gt; requirements for a single method only.
-    /// Pending requirements registered by other methods (e.g. while converting
-    /// call sites inside a different method body) stay queued for their own drain.
-    /// </summary>
-    public IReadOnlyList<string>? DrainClassTypeParamsForMethod(string containingTypeMetadataName, string methodMetadataName)
-    {
-        if (_pendingClassTypeParamsByMethod == null)
-            return null;
-
-        var key = $"{containingTypeMetadataName}|{methodMetadataName}";
-        if (_pendingClassTypeParamsByMethod.TryGetValue(key, out var list))
-        {
-            _pendingClassTypeParamsByMethod.Remove(key);
-            return list;
-        }
-        return null;
-    }
-
-    public IReadOnlyList<string>? DrainClassTypeParamsForMethod(IMethodSymbol method)
-    {
-        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
-        return DrainClassTypeParamsForMethod(typeName, methodKey);
-    }
-
-    public bool MethodHasClassParams(string containingTypeMetadataName, string methodMetadataName)
-    {
-        return _methodsWithClassParams.Contains($"{containingTypeMetadataName}|{methodMetadataName}");
-    }
-
-    public bool MethodHasClassParams(IMethodSymbol method)
-    {
-        var (typeName, methodKey) = GetMethodClassParamsKeyParts(method);
-        return MethodHasClassParams(typeName, methodKey);
-    }
-
     public bool IsOverrideMethod(IMethodSymbol method)
         => ConversionContext.IsOverrideOrImplementation(method);
 
@@ -654,80 +439,18 @@ _pendingClassTypeParams ??= new();
     }
 
     /// <summary>
-    /// Returns the canonical Class&lt;T&gt;-parameter key parts for a method.
-    /// Hoisted local functions must NOT share a key merely because their C# names
-    /// (and therefore ToDisplayString signatures) collide — two methods can each
-    /// declare <c>RunTestAsync&lt;T&gt;()</c>. They are keyed by their unique
-    /// hoisted Java name (runTestAsync, runTestAsync2, ...) so Class-parameter
-    /// requirements never leak between same-named local functions. Regular methods
-    /// keep the display-string key (their signatures include parameter lists).
-    /// </summary>
-    public (string ContainingTypeName, string MethodKey) GetMethodClassParamsKeyParts(IMethodSymbol method)
-    {
-        var original = method.OriginalDefinition;
-        var typeName = original.ContainingType?.MetadataName ?? "";
-        if (original.MethodKind == MethodKind.LocalFunction
-            && TryGetHoistedLocalFunctionName(original, out var hoistedName))
-        {
-            #if DEBUG
-            System.Console.WriteLine($"[DEBUG] GetMethodClassParamsKeyParts: localFn={original.Name}, hoistedName={hoistedName}, typeName={typeName}, key=local:{hoistedName}");
-            #endif
-            return (typeName, $"local:{hoistedName}");
-        }
-        #if DEBUG
-        if (original.MethodKind == MethodKind.LocalFunction)
-            System.Console.WriteLine($"[DEBUG] GetMethodClassParamsKeyParts: localFn={original.Name}, NO hoistedName, typeName={typeName}, key={original.ToDisplayString()}");
-        #endif
-        return (typeName, original.ToDisplayString());
-    }
-
-    /// <summary>
-    /// Returns the Class&lt;T&gt; literal for a type symbol at a call site.
+    /// Returns the Java class literal for a concrete type symbol at a call site.
     /// E.g., for C# int → "int.class", for ValueType → "ValueType.class".
-    /// When the type symbol is a type parameter (e.g., T from a generic method),
-    /// returns the registered runtime class parameter name instead of "T.class".
+    /// Type parameters cannot use T.class in Java. The main C#→Java pipeline must
+    /// reject <c>typeof(T)</c>/<c>is T</c> on a type parameter before reaching here
+    /// (fail fast, requiring preprocessor normalization); the plain "_cs2j_{T}"
+    /// fallback is retained only for the experimental HIR pipeline which manages
+    /// its own token declarations.
     /// </summary>
     public static string GetClassLiteral(ITypeSymbol typeSymbol, ConversionContext context)
     {
-        // Handle type parameters (e.g., T from a generic method) — cannot use T.class in Java.
         if (typeSymbol is ITypeParameterSymbol typeParam)
         {
-            // Class-level type parameters map to runtime Class fields (added by
-            // AddRuntimeClassFields); prefer those so field initializers and other
-            // members reference the field instead of an undeclared _cs2j_{T}.
-            if (context.TryGetRuntimeClassField(typeParam.Name, out var runtimeClassFieldName))
-            {
-                return runtimeClassFieldName;
-            }
-            if (context.TryGetRuntimeClassParameter(typeParam.Name, out var runtimeClassParam))
-            {
-                // The runtime-class-parameter registry is per-method (MethodState is
-                // reset in EnterMethod), so a found parameter is always declared by the
-                // current method's own signature — either the trailing Class<?> clazz
-                // parameter (AddRuntimeClassParametersForTypeParameterArrays) or a
-                // leading Class<T> _cs2j_ parameter (AddPendingRuntimeClassParameters).
-                // Re-registering a pending requirement here would inject a DUPLICATE
-                // leading parameter on top of the trailing one, making the signature
-                // arity mismatch the call sites (which only emit the trailing token
-                // for runtime-class-parameter-covered type parameters).
-                return runtimeClassParam;
-            }
-        // Register a Class<T> parameter requirement for the current method so that
-        // ApplyPendingClassTypeParams adds the parameter to the method signature.
-        var currentMethod = context.CurrentMethod;
-        if (currentMethod != null)
-        {
-            if (IsOverrideOrImplementation(currentMethod))
-            {
-                // Override/interface-implementation slots must keep the base's
-                // erasure signature — no leading Class<T> parameter can be added.
-                // The body's typeof(T) degrades to null (reflection-emit stubs
-                // accept it; the token is unavailable at runtime in this shape).
-                return "null";
-            }
-            context.RequireClassTypeParam(currentMethod, typeParam.Name);
-        }
-            // The parameter naming convention is _cs2j_{typeParamName}.
             return $"_cs2j_{typeParam.Name}";
         }
         if (typeSymbol.SpecialType == SpecialType.System_Int32) return "int.class";
@@ -813,16 +536,6 @@ _pendingClassTypeParams ??= new();
         return false;
     }
 
-    public void RegisterFlagsEnum(string enumName) => TypeMapper.RegisterFlagsEnum(enumName);
-    public void RegisterFlagsEnum(string enumName, string valueType) => TypeMapper.RegisterFlagsEnum(enumName, valueType);
-    public bool IsFlagsEnum(string enumName) => TypeMapper.IsFlagsEnum(enumName);
-    public string GetFlagsEnumValueType(string enumName) => TypeMapper.GetFlagsEnumValueType(enumName);
-
-    public void RegisterExplicitValueEnum(string enumName) => TypeMapper.RegisterExplicitValueEnum(enumName);
-    public void RegisterExplicitValueEnum(string enumName, string valueType) => TypeMapper.RegisterExplicitValueEnum(enumName, valueType);
-    public bool IsExplicitValueEnum(string enumName) => TypeMapper.IsExplicitValueEnum(enumName);
-    public string GetExplicitValueEnumValueType(string enumName) => TypeMapper.GetExplicitValueEnumValueType(enumName);
-
     // ─── Facade methods delegating to MethodState for backward compatibility ───
 
     public void AddPreStatement(string statement) => MethodState.AddPreStatement(statement);
@@ -851,69 +564,6 @@ _pendingClassTypeParams ??= new();
     public void ExitShortCircuitOperand() => MethodState.ExitShortCircuitOperand();
     public void RegisterShortCircuitDeferredSideEffect(string tempVar, string sideEffect) => MethodState.RegisterShortCircuitDeferredSideEffect(tempVar, sideEffect);
     public bool TryConsumeShortCircuitDeferredSideEffect(string tempVar, out string sideEffect) => MethodState.TryConsumeShortCircuitDeferredSideEffect(tempVar, out sideEffect!);
-    public void RegisterRuntimeClassParameter(string typeParameterName, string parameterName)
-        => MethodState.RegisterRuntimeClassParameter(typeParameterName, parameterName);
-    public bool TryGetRuntimeClassParameter(string typeParameterName, out string parameterName)
-    {
-        if (MethodState.TryGetRuntimeClassParameter(typeParameterName, out parameterName))
-            return true;
-
-        foreach (var fields in _runtimeClassFieldsStack)
-        {
-            if (fields.TryGetValue(typeParameterName, out parameterName!))
-                return true;
-        }
-
-        parameterName = string.Empty;
-        return false;
-    }
-
-    public bool TryGetRuntimeClassField(string typeParameterName, out string fieldName)
-    {
-        foreach (var fields in _runtimeClassFieldsStack)
-        {
-            if (fields.TryGetValue(typeParameterName, out fieldName!))
-                return true;
-        }
-
-        fieldName = string.Empty;
-        return false;
-    }
-
-    public void RegisterRuntimeClassField(string typeParameterName, string fieldName)
-    {
-        if (_runtimeClassFieldsStack.Count > 0)
-            _runtimeClassFieldsStack.Peek()[typeParameterName] = fieldName;
-    }
-
-    private readonly Dictionary<IMethodSymbol, IReadOnlyList<ITypeParameterSymbol>> _runtimeClassRequiredTypeParametersCache =
-        new(SymbolEqualityComparer.Default);
-    private readonly Dictionary<INamedTypeSymbol, IReadOnlyList<ITypeParameterSymbol>> _runtimeClassRequiredTypeParametersByTypeCache =
-        new(SymbolEqualityComparer.Default);
-
-    public bool TryGetCachedRuntimeClassRequiredTypeParameters(
-        IMethodSymbol methodSymbol,
-        out IReadOnlyList<ITypeParameterSymbol> typeParameters)
-        => _runtimeClassRequiredTypeParametersCache.TryGetValue(methodSymbol.OriginalDefinition, out typeParameters!);
-
-    public void CacheRuntimeClassRequiredTypeParameters(
-        IMethodSymbol methodSymbol,
-        IReadOnlyList<ITypeParameterSymbol> typeParameters)
-    {
-        _runtimeClassRequiredTypeParametersCache[methodSymbol.OriginalDefinition] = typeParameters;
-    }
-
-    public bool TryGetCachedRuntimeClassRequiredTypeParameters(
-        INamedTypeSymbol typeSymbol,
-        out IReadOnlyList<ITypeParameterSymbol> typeParameters)
-        => _runtimeClassRequiredTypeParametersByTypeCache.TryGetValue(typeSymbol.OriginalDefinition, out typeParameters!);
-
-    public void CacheRuntimeClassRequiredTypeParameters(
-        INamedTypeSymbol typeSymbol,
-        IReadOnlyList<ITypeParameterSymbol> typeParameters)
-    {
-        _runtimeClassRequiredTypeParametersByTypeCache[typeSymbol.OriginalDefinition] = typeParameters;
-    }
 
     public ConversionContext(ConversionOptions options, TypeMapping.TypeMappingRegistry typeMappings)
     {
@@ -947,7 +597,6 @@ _pendingClassTypeParams ??= new();
     public void EnterType(JavaTypeDeclaration type)
     {
         _typeStack.Push(type);
-        _runtimeClassFieldsStack.Push(new Dictionary<string, string>(StringComparer.Ordinal));
         CurrentClassNeedsMSTestExtension = false;
     }
 
@@ -956,7 +605,6 @@ _pendingClassTypeParams ??= new();
         if (_typeStack.Count > 0)
         {
             _typeStack.Pop();
-            _runtimeClassFieldsStack.Pop();
         }
     }
 
@@ -986,21 +634,11 @@ _pendingClassTypeParams ??= new();
     /// Pushes a method symbol onto the current-method stack WITHOUT resetting the
     /// method conversion state. Used when converting hoisted local function bodies
     /// (which belong to their own method scope but must not wipe the enclosing
-    /// method's bookkeeping), so GetClassLiteral can register Class&lt;T&gt; token
-    /// requirements against the local function.
+    /// method's bookkeeping).
     /// </summary>
     public void EnterNestedMethodContext(IMethodSymbol? method)
     {
         _methodStack.Push(method);
-        // Snapshot runtime class parameter registrations from the enclosing method's
-        // MethodState and clear them so GetClassLiteral does not find stale entries
-        // (e.g. _cs2j_T from an override method processed before the local function)
-        // and skip registering a Class<T> requirement for the local function.
-        // The snapshot is restored in LeaveNestedMethodContext so the enclosing
-        // method's own registrations remain intact after the local function body
-        // has been converted.
-        _nestedMethodClassParamSnapshot = MethodState.SnapshotRuntimeClassParameters();
-        MethodState.ClearRuntimeClassParameters();
     }
 
     /// <summary>
@@ -1010,13 +648,6 @@ _pendingClassTypeParams ??= new();
     {
         if (_methodStack.Count > 0)
             _methodStack.Pop();
-        // Restore the enclosing method's runtime class parameter registrations
-        // that were saved in EnterNestedMethodContext.
-        if (_nestedMethodClassParamSnapshot != null)
-        {
-            MethodState.RestoreRuntimeClassParameters(_nestedMethodClassParamSnapshot);
-            _nestedMethodClassParamSnapshot = null;
-        }
     }
 
     public string GenerateSyntheticName(string prefix)

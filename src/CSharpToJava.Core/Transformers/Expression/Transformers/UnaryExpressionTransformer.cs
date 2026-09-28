@@ -4,13 +4,14 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Abstractions;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.Java;
-using CSharpToJava.Core.Transformers.Expression.Utilities;
-using System.Collections.Generic;
 
 namespace CSharpToJava.Core.Transformers.Expression;
 
 /// <summary>
-/// Handles unary expressions (prefix/postfix operators, address of, pointer indirection).
+/// Handles unary expressions with the simplest direct C#→Java mapping:
+/// +x -x !x ~x, prefix/postfix ++/-- on simple lvalues, and x! (null-forgiving,
+/// dropped). Pointer ops, user-defined operators and any non-simple increment
+/// target must be lowered by a C#→C# preprocessor and fail fast here.
 /// </summary>
 [TransformerRegistration]
 public class UnaryExpressionTransformer : IIRExpressionTransformer
@@ -39,24 +40,29 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
     public string Transform(ExpressionSyntax node, ConversionContext context)
         => node.Kind() switch
         {
-            SyntaxKind.UnaryPlusExpression => TransformUnaryExpression((PrefixUnaryExpressionSyntax)node, "+", context),
-            SyntaxKind.UnaryMinusExpression => TransformUnaryExpression((PrefixUnaryExpressionSyntax)node, "-", context),
+            SyntaxKind.UnaryPlusExpression => TransformPrefix((PrefixUnaryExpressionSyntax)node, "+", context),
+            SyntaxKind.UnaryMinusExpression => TransformPrefix((PrefixUnaryExpressionSyntax)node, "-", context),
             SyntaxKind.LogicalNotExpression => TransformLogicalNot((PrefixUnaryExpressionSyntax)node, context),
-            SyntaxKind.BitwiseNotExpression => TransformUnaryExpression((PrefixUnaryExpressionSyntax)node, "~", context),
-            SyntaxKind.AddressOfExpression => TransformAddressOf((PrefixUnaryExpressionSyntax)node, context),
-            SyntaxKind.PointerIndirectionExpression => TransformPointerIndirection((PrefixUnaryExpressionSyntax)node, context),
-            SyntaxKind.PostIncrementExpression => TransformPostfix((PostfixUnaryExpressionSyntax)node, "++", context),
-            SyntaxKind.PostDecrementExpression => TransformPostfix((PostfixUnaryExpressionSyntax)node, "--", context),
-            SyntaxKind.PreIncrementExpression => TransformPrefix((PrefixUnaryExpressionSyntax)node, "++", context),
-            SyntaxKind.PreDecrementExpression => TransformPrefix((PrefixUnaryExpressionSyntax)node, "--", context),
-            SyntaxKind.SuppressNullableWarningExpression => ExpressionTransformerFacade.Instance.Transform(((PostfixUnaryExpressionSyntax)node).Operand, context),
+            SyntaxKind.BitwiseNotExpression => TransformPrefix((PrefixUnaryExpressionSyntax)node, "~", context),
+            SyntaxKind.AddressOfExpression => throw NormalizationRequired("address-of '&'", node),
+            SyntaxKind.PointerIndirectionExpression => throw NormalizationRequired("pointer indirection '*'", node),
+            SyntaxKind.PostIncrementExpression => TransformIncrement((PostfixUnaryExpressionSyntax)node, "++", isPostfix: true, context),
+            SyntaxKind.PostDecrementExpression => TransformIncrement((PostfixUnaryExpressionSyntax)node, "--", isPostfix: true, context),
+            SyntaxKind.PreIncrementExpression => TransformIncrement((PrefixUnaryExpressionSyntax)node, "++", isPostfix: false, context),
+            SyntaxKind.PreDecrementExpression => TransformIncrement((PrefixUnaryExpressionSyntax)node, "--", isPostfix: false, context),
+            // Null-forgiving operator has no Java counterpart: emit the operand unchanged.
+            SyntaxKind.SuppressNullableWarningExpression => ExpressionTransformerFacade.Instance.Transform(GetOperand(node), context),
             _ => throw new NotSupportedException($"Unary expression kind {node.Kind()} not supported.")
         };
 
-    /// <inheritdoc />
     public JavaExpression TransformToIR(ExpressionSyntax node, ConversionContext context)
     {
-        // For simple prefix/postfix ops that map 1:1 to Java, produce structured IR
+        if (node.Kind() == SyntaxKind.SuppressNullableWarningExpression)
+            return ExpressionTransformerFacade.Instance.TransformToIR(GetOperand(node), context);
+
+        if (node.Kind() is SyntaxKind.AddressOfExpression or SyntaxKind.PointerIndirectionExpression)
+            throw NormalizationRequired(node.Kind() == SyntaxKind.AddressOfExpression ? "address-of '&'" : "pointer indirection '*'", node);
+
         var (op, isPostfix) = node.Kind() switch
         {
             SyntaxKind.UnaryPlusExpression => ("+", false),
@@ -67,1526 +73,125 @@ public class UnaryExpressionTransformer : IIRExpressionTransformer
             SyntaxKind.PostDecrementExpression => ("--", true),
             SyntaxKind.PreIncrementExpression => ("++", false),
             SyntaxKind.PreDecrementExpression => ("--", false),
-            _ => (null, false)
+            _ => throw new NotSupportedException($"Unary expression kind {node.Kind()} not supported.")
         };
 
-        if (op != null)
+        var operand = GetOperand(node);
+
+        if (node.Kind() == SyntaxKind.LogicalNotExpression)
+            EnsureBooleanOperand(operand, context);
+        else if (node.Kind() is SyntaxKind.UnaryMinusExpression or SyntaxKind.UnaryPlusExpression
+            or SyntaxKind.BitwiseNotExpression)
+            EnsureBuiltInNumericOperand(node, operand, context);
+
+        if (op is "++" or "--")
+            EnsureSimpleIncrementTarget(operand, context);
+
+        return new JavaUnaryExpression
         {
-            // Check for user-defined operators or property increment — fall back to raw for those
-            bool isUserDefined = false;
-            if (context.SemanticModel != null)
-            {
-                var symbolInfo = context.GetSymbolInfo(node);
-                if (symbolInfo.Symbol is IMethodSymbol ms && ms.ContainingType != null && !IsBuiltInType(ms.ContainingType))
-                    isUserDefined = true;
-            }
-
-            if (!isUserDefined)
-            {
-                var operandSyntax = node switch
-                {
-                    PrefixUnaryExpressionSyntax prefix => prefix.Operand,
-                    PostfixUnaryExpressionSyntax postfix => postfix.Operand,
-                    _ => null
-                };
-
-                // Property/indexer increment needs complex hoisting — use raw fallback
-                bool isPropertyTarget = operandSyntax != null && context.SemanticModel != null
-                    && context.GetSymbolInfo(operandSyntax).Symbol is IPropertySymbol;
-
-                // Tuple element increment (state.count++) must rebuild the immutable
-                // vavr tuple via updateN() — use the raw transform.
-                bool isTupleElementTarget = operandSyntax is MemberAccessExpressionSyntax tupleMa
-                    && context.SemanticModel != null
-                    && context.GetTypeInfo(tupleMa.Expression).Type is INamedTypeSymbol { IsTupleType: true } tupleTargetSym
-                    && IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleTargetSym, tupleMa.Name.Identifier.Text) >= 0;
-
-                bool isDecimalTarget = operandSyntax != null && context.SemanticModel != null
-                    && context.GetTypeInfo(operandSyntax).Type?.SpecialType == SpecialType.System_Decimal;
-
-                bool isEnumTarget = operandSyntax != null && context.SemanticModel != null
-                    && IsNonFlagsEnum(context.GetTypeInfo(operandSyntax).Type, context);
-
-                // For LogicalNotExpression (!), verify the operand is boolean.
-                // C# allows ! on int (0→true, non-zero→false) but Java requires
-                // boolean. Non-boolean operands must fall back to the raw string path
-                // which calls TransformLogicalNot() → rewrites to (operand == 0).
-                if (node.Kind() == SyntaxKind.LogicalNotExpression
-                    && operandSyntax != null
-                    && !IsBooleanExpression(operandSyntax, context))
-                {
-                    return new JavaRawExpression(Transform(node, context));
-                }
-
-                if (!isPropertyTarget && !isTupleElementTarget && !isDecimalTarget && !isEnumTarget && operandSyntax != null)
-                {
-                    var operandIR = ExpressionTransformerFacade.Instance.TransformToIR(operandSyntax, context);
-                    return new JavaUnaryExpression
-                    {
-                        Operator = op,
-                        Operand = operandIR,
-                        IsPostfix = isPostfix
-                    };
-                }
-            }
-        }
-
-        // Complex cases: fall back to string-based transform
-        return new JavaRawExpression(Transform(node, context));
-    }
-
-    private string TransformUnaryExpression(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
-    {
-        // Check if this is a user-defined unary operator
-        if (context.SemanticModel != null)
-        {
-            var symbolInfo = context.GetSymbolInfo(node);
-            if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
-            {
-                // Only convert to method call if it's a user-defined type
-                if (!IsBuiltInType(methodSymbol.ContainingType))
-                {
-                    return TransformUserDefinedUnaryOperator(node, methodSymbol, context);
-                }
-            }
-        }
-
-        var facade = ExpressionTransformerFacade.Instance;
-        var operand = facade.Transform(node.Operand, context);
-
-        if (op == "-" && IsDecimalExpression(node.Operand, context))
-            return $"{operand}.negate()";
-
-        if (op == "+" && IsDecimalExpression(node.Operand, context))
-            return operand;
-
-        // Wrap in parentheses if operand is a binary expression
-        if (node.Operand is BinaryExpressionSyntax)
-        {
-            operand = $"({operand})";
-        }
-
-        // Special case: unary + is not valid on non-numeric types in Java — strip it
-        if (op == "+" && context.SemanticModel != null)
-        {
-            var operandType = context.GetTypeInfo(node.Operand).Type;
-            if (!IsNumericType(operandType))
-                return operand;
-        }
-
-        return $"{op}{operand}";
-    }
-
-    /// <summary>
-    /// Handles logical not (!). In C# the ! operator can be applied to int
-    /// (0 → true, non-zero → false) but Java requires a boolean operand.
-    /// When the operand is non-boolean, rewrite to (operand == 0).
-    /// </summary>
-    private string TransformLogicalNot(PrefixUnaryExpressionSyntax node, ConversionContext context)
-    {
-        var facade = ExpressionTransformerFacade.Instance;
-        var operand = facade.Transform(node.Operand, context);
-
-        if (IsBooleanExpression(node.Operand, context))
-        {
-            // Wrap operands whose transformed form embeds a top-level comparison
-            // (e.g. `!x.HasValue` → `!(x != null)`) so the negation binds to the
-            // whole comparison. Plain calls/property reads (e.g. `!node.isValid()`)
-            // need no parentheses.
-            if (node.Operand is BinaryExpressionSyntax
-                || (node.Operand is not IdentifierNameSyntax && ContainsTopLevelComparison(operand)))
-                operand = $"({operand})";
-            return $"!{operand}";
-        }
-
-        // Non-boolean: rewrite !x → (x == 0)
-        return $"({operand} == 0)";
-    }
-
-    private static bool ContainsTopLevelComparison(string expr)
-    {
-        foreach (var op in new[] { " != ", " == ", " < ", " > ", " <= ", " >= ", " && ", " || " })
-        {
-            if (expr.Contains(op, StringComparison.Ordinal))
-                return true;
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Determines whether an expression has boolean type.
-    /// Uses GetTypeInfo first; falls back to GetSymbolInfo for method invocations,
-    /// which is more reliable when the semantic model spans multiple files.
-    /// </summary>
-    private static bool IsBooleanExpression(ExpressionSyntax expr, ConversionContext context)
-    {
-        if (context.SemanticModel == null)
-            return false;
-
-        var typeInfo = context.GetTypeInfo(expr);
-        if (typeInfo.Type != null && typeInfo.Type.SpecialType == SpecialType.System_Boolean)
-            return true;
-
-        // GetTypeInfo on InvocationExpression can fail to resolve return type
-        // in cross-file scenarios. Fall back to checking the method symbol directly.
-        if (expr is InvocationExpressionSyntax invExpr)
-        {
-            var symbolInfo = context.GetSymbolInfo(invExpr);
-            if (symbolInfo.Symbol is IMethodSymbol method
-                && method.ReturnType.SpecialType == SpecialType.System_Boolean)
-                return true;
-
-            if (IsSourceDeclaredBooleanInvocation(invExpr, context))
-                return true;
-
-            // Fallback: when the semantic model can't resolve the method
-            // (e.g. after LINQ rewrite in project pipeline), use a naming
-            // heuristic — methods starting with "Is", "Has", "Can", etc.
-            // typically return bool in C#.
-            if (invExpr.Expression is MemberAccessExpressionSyntax ma
-                && IsBooleanMethodName(ma.Name.Identifier.Text))
-                return true;
-        }
-
-        // GetSymbolInfo fallback: check property/field/local/parameter symbols
-        // when GetTypeInfo fails to resolve the type (e.g. cross-file scenarios
-        // where the declaring type is in a different syntax tree).
-        var exprSymbolInfo = context.GetSymbolInfo(expr);
-        if (exprSymbolInfo.Symbol != null)
-        {
-            var symbolType = exprSymbolInfo.Symbol switch
-            {
-                IPropertySymbol prop => prop.Type,
-                IFieldSymbol field => field.Type,
-                ILocalSymbol local => local.Type,
-                IParameterSymbol param => param.Type,
-                _ => null
-            };
-            if (symbolType?.SpecialType == SpecialType.System_Boolean)
-                return true;
-        }
-
-        // Fallback for property/field member access: when the semantic model
-        // can't resolve the type (e.g. compat library types like StringHelper),
-        // use naming heuristic — C# properties starting with "Is" are typically bool.
-        if (expr is MemberAccessExpressionSyntax memberAccess
-            && IsBooleanMethodName(memberAccess.Name.Identifier.Text))
-            return true;
-
-        return false;
-    }
-
-    private static bool IsSourceDeclaredBooleanInvocation(InvocationExpressionSyntax invocation, ConversionContext context)
-    {
-        var methodName = invocation.Expression switch
-        {
-            IdentifierNameSyntax id => id.Identifier.Text,
-            MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax id } => id.Identifier.Text,
-            _ => null
+            Operator = op,
+            Operand = ExpressionTransformerFacade.Instance.TransformToIR(operand, context),
+            IsPostfix = isPostfix
         };
-        if (string.IsNullOrEmpty(methodName))
-            return false;
-
-        var argumentCount = invocation.ArgumentList.Arguments.Count;
-        var containingType = invocation.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
-        if (containingType == null)
-            return false;
-
-        return containingType.Members
-            .OfType<MethodDeclarationSyntax>()
-            .Any(method => method.Identifier.Text == methodName
-                && method.ParameterList.Parameters.Count == argumentCount
-                && IsBooleanReturnType(method.ReturnType, context));
     }
 
-    private static bool IsBooleanReturnType(TypeSyntax returnType, ConversionContext context)
+    private static string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
     {
-        if (returnType is PredefinedTypeSyntax predefined
-            && predefined.Keyword.IsKind(SyntaxKind.BoolKeyword))
-        {
-            return true;
-        }
-
-        var typeInfo = context.GetTypeInfo(returnType);
-        return typeInfo.Type?.SpecialType == SpecialType.System_Boolean
-            || typeInfo.ConvertedType?.SpecialType == SpecialType.System_Boolean;
+        EnsureBuiltInNumericOperand(node, node.Operand, context);
+        return $"{op}{ExpressionTransformerFacade.Instance.Transform(node.Operand, context)}";
     }
 
-    private static bool IsBooleanMethodName(string methodName)
+    private static string TransformLogicalNot(PrefixUnaryExpressionSyntax node, ConversionContext context)
     {
-        return methodName.StartsWith("Is", StringComparison.Ordinal)
-            || methodName.StartsWith("Has", StringComparison.Ordinal)
-            || methodName.StartsWith("Can", StringComparison.Ordinal)
-            || methodName.StartsWith("Should", StringComparison.Ordinal)
-            || methodName.StartsWith("Are", StringComparison.Ordinal)
-            || methodName == "Exists"
-            || methodName == "Contains"
-            || methodName == "Equals"
-            || methodName == "StartsWith"
-            || methodName == "EndsWith"
-            || methodName == "MoveNext"
-            || methodName == "TryParse";
+        EnsureBooleanOperand(node.Operand, context);
+        return $"!{ExpressionTransformerFacade.Instance.Transform(node.Operand, context)}";
     }
 
-    private static bool IsNumericType(ITypeSymbol? type)
+    private static string TransformIncrement(SyntaxNode node, string op, bool isPostfix, ConversionContext context)
     {
-        if (type == null) return false;
-        return type.SpecialType is
-            SpecialType.System_Int32 or SpecialType.System_Int64 or
-            SpecialType.System_Int16 or SpecialType.System_Byte or
-            SpecialType.System_SByte or SpecialType.System_UInt32 or
-            SpecialType.System_UInt64 or SpecialType.System_UInt16 or
-            SpecialType.System_Single or SpecialType.System_Double or
-            SpecialType.System_Decimal or SpecialType.System_Char;
+        var operand = GetOperand(node);
+        EnsureSimpleIncrementTarget(operand, context);
+        var target = ExpressionTransformerFacade.Instance.Transform(operand, context);
+        return isPostfix ? $"{target}{op}" : $"{op}{target}";
     }
 
-    private static bool IsDecimalExpression(ExpressionSyntax expression, ConversionContext context)
-        => context.SemanticModel != null
-            && context.GetTypeInfo(expression).Type?.SpecialType == SpecialType.System_Decimal;
-
-    private static bool IsBuiltInType(INamedTypeSymbol type)
+    private static ExpressionSyntax GetOperand(SyntaxNode node) => node switch
     {
-        var typeName = type.ToDisplayString();
-        return type.TypeKind == TypeKind.Enum ||
-               type.SpecialType != SpecialType.None ||
-               BuiltInTypeNames.Contains(typeName);
-    }
-
-    private static readonly HashSet<string> BuiltInTypeNames = new(StringComparer.Ordinal)
-    {
-        "int", "long", "short", "byte", "sbyte", "uint", "ulong", "ushort",
-        "float", "double", "decimal",
-        "bool", "boolean",
-        "char", "string",
-        "object",
-        "System.Int32", "System.Int64", "System.Int16", "System.Byte",
-        "System.SByte", "System.UInt32", "System.UInt64", "System.UInt16",
-        "System.Single", "System.Double", "System.Decimal",
-        "System.Boolean", "System.Char", "System.String", "System.Object"
+        PrefixUnaryExpressionSyntax prefix => prefix.Operand,
+        PostfixUnaryExpressionSyntax postfix => postfix.Operand,
+        _ => throw new NotSupportedException($"Unary node {node.Kind()} has no recognizable operand.")
     };
 
-    private string TransformUserDefinedUnaryOperator(PrefixUnaryExpressionSyntax node, IMethodSymbol operatorSymbol, ConversionContext context)
+    /// <summary>! accepts boolean operands only; !int style truthiness must be pre-normalized.</summary>
+    private static void EnsureBooleanOperand(ExpressionSyntax operand, ConversionContext context)
     {
-        var facade = ExpressionTransformerFacade.Instance;
-        var operand = facade.Transform(node.Operand, context);
-
-        return TransformUserDefinedUnaryOperatorCore(operand, operatorSymbol, context);
-    }
-
-    private string TransformUserDefinedUnaryOperator(PostfixUnaryExpressionSyntax node, IMethodSymbol operatorSymbol, ConversionContext context)
-    {
-        var facade = ExpressionTransformerFacade.Instance;
-        var operand = facade.Transform(node.Operand, context);
-
-        return TransformUserDefinedUnaryOperatorCore(operand, operatorSymbol, context);
-    }
-
-    private string TransformUserDefinedUnaryOperatorCore(string operand, IMethodSymbol operatorSymbol, ConversionContext context)
-    {
-        // Get the method name for this operator（TS 目标 op_UnaryNegation 等，Task 27）
-        var javaMethodName = GetOperatorMethodName(operatorSymbol);
-        var containingType = context.MapType(operatorSymbol.ContainingType);
-        var currentType = context.CurrentType?.Name;
-
-        // TS 无 Java 的隐式静态访问：类内调用点也必须
-        // Type.op_UnaryNegation(...) 限定（Task 27）。
-        if (containingType == currentType)
+        var type = context.GetTypeInfo(operand).Type;
+        if (type != null && type.SpecialType != SpecialType.System_Boolean)
         {
-            return $"{javaMethodName}({operand})";
-        }
-        else
-        {
-            return $"{containingType}.{javaMethodName}({operand})";
+            throw NormalizationRequired(
+                $"logical '!' on non-boolean operand of type '{type.ToDisplayString()}'", operand);
         }
     }
 
-    private static string GetOperatorMethodName(IMethodSymbol operatorSymbol, bool tsTarget = false)
+    /// <summary>+/~/− on user-defined operators or enum operands is not a direct mapping.</summary>
+    private static void EnsureBuiltInNumericOperand(ExpressionSyntax node, ExpressionSyntax operand,
+        ConversionContext context, bool isBitwiseNot = false)
     {
-        var map = tsTarget
-            ? CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToTsName
-            : CSharpToJava.Core.Transformers.Member.OperatorTransformer.OpSymbolToJavaName;
-        return map.TryGetValue(operatorSymbol.Name, out var name)
-            ? name
-            : operatorSymbol.Name;
-    }
-
-    private static bool IsInSameCompilationUnit(ConversionContext context, INamedTypeSymbol type)
-    {
-        var currentNs = context.CurrentNamespace;
-        var typeNs = type.ContainingNamespace?.ToDisplayString() ?? "";
-        return currentNs == typeNs || string.IsNullOrEmpty(typeNs);
-    }
-
-    private string TransformAddressOf(PrefixUnaryExpressionSyntax node, ConversionContext context)
-    {
-        var facade = ExpressionTransformerFacade.Instance;
-        var operand = facade.Transform(node.Operand, context);
-
-        if (context.IsInFixedScope)
+        var symbolInfo = context.GetSymbolInfo(node);
+        if (symbolInfo.Symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator })
         {
-            context.Diagnostics.Warning("Address-of operator (&) in fixed scope - using MemorySegment offset", node.GetLocation());
-            return operand;
+            throw NormalizationRequired("user-defined unary operator", node);
         }
 
-        if (TryTransformAddressOfScalarLocal(node, context, out var segmentName))
-            return segmentName;
-
-        context.Diagnostics.Warning("Address-of operator (&) has no Java equivalent - converting to unsafe memory access", node.GetLocation());
-        return $"/* C# addressof — no Java equivalent: {operand} */";
-    }
-
-    private static bool TryTransformAddressOfScalarLocal(
-        PrefixUnaryExpressionSyntax node, ConversionContext context, out string segmentName)
-    {
-        segmentName = string.Empty;
-
-        if (node.Operand is not IdentifierNameSyntax identifier)
-            return false;
-
-        var sourceName = identifier.Identifier.Text;
-
-        if (context.SemanticModel == null)
-            return false;
-
-        var symbol = context.GetSymbolInfo(identifier).Symbol;
-        if (symbol is not (ILocalSymbol or IParameterSymbol))
-            return false;
-
-        var typeSymbol = symbol switch
-        {
-            ILocalSymbol local => local.Type,
-            IParameterSymbol param => param.Type,
-            _ => null
-        };
-
-        if (typeSymbol == null || !IsAddressableScalar(typeSymbol))
-            return false;
-
-        if (context.TryGetAddressOfScratchSegment(sourceName, out var existingSegment))
-        {
-            segmentName = existingSegment;
-            return true;
-        }
-
-        var csharpElementType = GetCSharpElementTypeName(typeSymbol);
-        var pointerInfo = FfmHelper.CreatePointerInfo(sourceName, csharpElementType);
-        segmentName = $"_addr_{sourceName}";
-        var init = FfmHelper.GenerateAddressOfScratchInit(segmentName, sourceName, pointerInfo);
-        context.AddPreStatement(init);
-        context.RegisterAddressOfScratchSegment(sourceName, segmentName, pointerInfo);
-        foreach (var imp in FfmHelper.GetRequiredImports(false))
-            context.AddImport(imp);
-
-        return true;
-    }
-
-    private static bool IsAddressableScalar(ITypeSymbol type)
-    {
-        return type.SpecialType is
-            SpecialType.System_Byte or SpecialType.System_SByte or
-            SpecialType.System_Int16 or SpecialType.System_UInt16 or
-            SpecialType.System_Int32 or SpecialType.System_UInt32 or
-            SpecialType.System_Int64 or SpecialType.System_UInt64 or
-            SpecialType.System_Single or SpecialType.System_Double or
-            SpecialType.System_Boolean or SpecialType.System_Char;
-    }
-
-    private static string GetCSharpElementTypeName(ITypeSymbol type)
-    {
-        return type.SpecialType switch
-        {
-            SpecialType.System_Byte => "byte",
-            SpecialType.System_SByte => "sbyte",
-            SpecialType.System_Int16 => "short",
-            SpecialType.System_UInt16 => "ushort",
-            SpecialType.System_Int32 => "int",
-            SpecialType.System_UInt32 => "uint",
-            SpecialType.System_Int64 => "long",
-            SpecialType.System_UInt64 => "ulong",
-            SpecialType.System_Single => "float",
-            SpecialType.System_Double => "double",
-            SpecialType.System_Boolean => "bool",
-            SpecialType.System_Char => "char",
-            _ => type.Name
-        };
-    }
-
-    private string TransformPointerIndirection(PrefixUnaryExpressionSyntax node, ConversionContext context)
-    {
-        var facade = ExpressionTransformerFacade.Instance;
-
-        // Detect *(ptr - N) pattern at the C# AST level
-        var unwrappedOperand = node.Operand;
-        while (unwrappedOperand is ParenthesizedExpressionSyntax paren)
-            unwrappedOperand = paren.Expression;
-
-        if (unwrappedOperand is BinaryExpressionSyntax binary
-            && binary.OperatorToken.IsKind(SyntaxKind.MinusToken))
-        {
-            var leftType = context.GetTypeInfo(binary.Left).Type;
-            if (leftType is IPointerTypeSymbol)
-            {
-                var leftExpr = facade.Transform(binary.Left, context);
-                var rightExpr = facade.Transform(binary.Right, context);
-                var subPointerInfo = context.FindPointerInfo(leftExpr.Trim());
-                if (subPointerInfo == null && leftType is IPointerTypeSymbol ptrType)
-                {
-                    var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
-                    subPointerInfo = FfmHelper.CreatePointerInfo(leftExpr.Trim(), elementTypeName);
-                }
-
-                if (subPointerInfo != null)
-                {
-                    // Prefer base segment over backtrack variable.
-                    // Backtrack variables are defined as pre-statements in one switch-case
-                    // but may be referenced in another, causing Java "may not have been initialized"
-                    // errors in state machine (goto→switch) conversion.
-                    if (context.TryGetPointerBase(leftExpr.Trim(), out var baseVar))
-                    {
-                        string byteOffsetExpr = subPointerInfo.ElementSize == 1
-                            ? $"{leftExpr}.address() - {baseVar}.address() - {rightExpr}"
-                            : $"{leftExpr}.address() - {baseVar}.address() - (long)({rightExpr}) * {subPointerInfo.ElementSize}";
-                        return FfmHelper.GeneratePointerReadWithBoundsCheck(baseVar, subPointerInfo, byteOffsetExpr, baseVar, context);
-                    }
-
-                    // Fallback to backtrack variable (e.g., *ptr++ then *(ptr - 1))
-                    if (int.TryParse(rightExpr.Trim(), out int stepCount)
-                        && context.TryGetPointerBacktrackVar(leftExpr.Trim(), stepCount, out var backtrackVar))
-                    {
-                        if (context.TryGetPointerBase(backtrackVar.Trim(), out var btBaseVar))
-                        {
-                            return FfmHelper.GeneratePointerReadWithBoundsCheck(backtrackVar, subPointerInfo, "0", btBaseVar, context);
-                        }
-                        return FfmHelper.GeneratePointerRead(backtrackVar, subPointerInfo, "0");
-                    }
-                }
-            }
-        }
-
-        var operand = facade.Transform(node.Operand, context);
-
-        var operandText = operand.Trim();
-
-        // Check if the operand has a deferred side effect from a short-circuit context.
-        // This happens when *ptr++ appears inside || or && right operand.
-        // The pointer increment must be inlined into the short-circuit path.
-        if (context.TryConsumeShortCircuitDeferredSideEffect(operandText, out var deferredSideEffect))
-        {
-            var pointerInfo = context.FindPointerInfo(operandText);
-            if (pointerInfo == null)
-            {
-                var operandType = context.GetTypeInfo(node.Operand).Type;
-                if (operandType is IPointerTypeSymbol ptrType)
-                {
-                    var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
-                    pointerInfo = FfmHelper.CreatePointerInfo(operandText, elementTypeName);
-                }
-            }
-            if (pointerInfo != null)
-            {
-                // Generate: (deferredSideEffect) != null ? readValue : defaultValue
-                // The assignment always succeeds (non-null), so the read always executes,
-                // but the side effect (pointer increment) is now inside the short-circuit path.
-                var readExpr = context.TryGetPointerBase(operandText, out var baseVar)
-                    ? FfmHelper.GeneratePointerReadWithBoundsCheck(operandText, pointerInfo, "0", baseVar, context)
-                    : FfmHelper.GeneratePointerRead(operandText, pointerInfo, "0");
-                var defaultValue = pointerInfo.ElementSize switch
-                {
-                    1 => "(byte)0",
-                    2 => "'\\0'",
-                    4 => "0",
-                    8 => "0L",
-                    _ => "0"
-                };
-                return $"(({deferredSideEffect}) != null ? {readExpr} : {defaultValue})";
-            }
-        }
-
-        var pointerInfo2 = context.FindPointerInfo(operandText);
-        if (pointerInfo2 == null)
-        {
-            var operandType = context.GetTypeInfo(node.Operand).Type;
-            if (operandType is IPointerTypeSymbol ptrType)
-            {
-                var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
-                pointerInfo2 = FfmHelper.CreatePointerInfo(operandText, elementTypeName);
-            }
-        }
-        if (pointerInfo2 != null)
-        {
-            if (context.TryGetPointerBase(operandText, out var baseVar))
-            {
-                return FfmHelper.GeneratePointerReadWithBoundsCheck(operandText, pointerInfo2, "0", baseVar, context);
-            }
-            return FfmHelper.GeneratePointerRead(operandText, pointerInfo2, "0");
-        }
-
-        context.Diagnostics.Warning("Pointer indirection operator (*) has no Java equivalent - unsafe code not supported", node.GetLocation());
-        return $"/* unsafe: pointer deref */ {operand}";
-    }
-
-    private string TransformPostfix(PostfixUnaryExpressionSyntax node, string op, ConversionContext context)
-    {
-        if (op == "++" || op == "--")
-        {
-            var operandType = context.GetTypeInfo(node.Operand).Type;
-            if (operandType is IPointerTypeSymbol ptrType)
-            {
-                var facade0 = ExpressionTransformerFacade.Instance;
-                var operandExpr = facade0.Transform(node.Operand, context);
-                var pointerInfo = context.FindPointerInfo(operandExpr.Trim());
-                if (pointerInfo == null)
-                {
-                    var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
-                    pointerInfo = FfmHelper.CreatePointerInfo(operandExpr.Trim(), elementTypeName);
-                }
-                if (pointerInfo != null)
-                {
-                    long delta = op == "++" ? pointerInfo.ElementSize : -pointerInfo.ElementSize;
-
-                    string sliceExpr;
-                    if (context.TryGetPointerBase(operandExpr.Trim(), out var baseVar))
-                    {
-                        // Use base segment for pointer arithmetic with out-of-bounds protection.
-                        // C# allows one-past-end pointers (used only for address comparison),
-                        // but Java's MemorySegment.asSlice throws if offset > byteSize or offset < 0.
-                        // When the offset exceeds the base segment size or goes negative,
-                        // create a zero-length address-only segment via MemorySegment.ofAddress().
-                        var offsetExpr = $"{operandExpr}.address() - {baseVar}.address() + {delta}";
-                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegmentHelper.advance({operandExpr}, {delta}))";
-                    }
-                    else
-                    {
-                        // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
-                        sliceExpr = $"MemorySegmentHelper.advance({operandExpr}, {delta})";
-                    }
-
-                    if (IsDiscardedValueContext(node, context))
-                        return $"{operandExpr} = {sliceExpr}";
-
-                    var tmp = context.GenerateSyntheticName("_ptrPost");
-                    context.AddImport("java.lang.foreign.MemorySegment");
-
-                    if (context.IsInShortCircuitOperand)
-                    {
-                        // In a short-circuit context (|| or && right operand), we cannot
-                        // use pre-statements for the pointer increment because they would
-                        // execute unconditionally before the if condition, breaking
-                        // short-circuit semantics. Instead, register the increment as a
-                        // deferred side effect. The parent expression (e.g. *ptr++ via
-                        // TransformPointerIndirection) will consume it and inline it into
-                        // the short-circuit path.
-                        context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
-                        context.RegisterShortCircuitDeferredSideEffect(tmp, $"{operandExpr} = {sliceExpr}");
-                        // Register backtrack: after ptr++, *(ptr - 1) should use tmp
-                        context.RegisterPointerBacktrackVar(operandExpr.Trim(), 1, tmp);
-                        if (delta < 0)
-                            context.InvalidatePointerBacktrackVars(operandExpr.Trim());
-                        return tmp;
-                    }
-                    else
-                    {
-                        context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
-                        context.AddPreStatementAllowDuplicate($"{operandExpr} = {sliceExpr}");
-                        // Register backtrack: after ptr++, *(ptr - 1) should use tmp
-                        context.RegisterPointerBacktrackVar(operandExpr.Trim(), 1, tmp);
-                        if (delta < 0)
-                            context.InvalidatePointerBacktrackVars(operandExpr.Trim());
-                        return tmp;
-                    }
-                }
-            }
-        }
-
-        // Enum ++/-- must be rewritten because Java enums do not support unary increment.
-        if (TryTransformEnumIncrement(node, node.Operand, op, isPostfix: true, context, out var enumRewrite))
-        {
-            return enumRewrite;
-        }
-
-        // Statement context: rewrite property/indexer in place (no return value needed)
-        if (IsDiscardedValueContext(node, context)
-            && TryTransformDecimalIncrementAsAssignment(node.Operand, op, context, out var decimalRewrite))
-        {
-            return decimalRewrite;
-        }
-        if (IsDiscardedValueContext(node, context)
-            && TryTransformTupleIncrementAsMutation(node.Operand, op, context, out var tupleRewrite))
-        {
-            return tupleRewrite;
-        }
-        if (IsDiscardedValueContext(node, context)
-            && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
-        {
-            return rewritten;
-        }
-
-        if (IsDiscardedValueContext(node, context)
-            && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var indexerRewrite))
-        {
-            return indexerRewrite;
-        }
-
-        // Expression context: hoist property increment to pre-statement, return old value
-        if (!IsDiscardedValueContext(node, context)
-            && TryBuildDecimalHoistForPostfix(node.Operand, op, context, out var decimalHoisted))
-        {
-            return decimalHoisted;
-        }
-
-        if (!IsDiscardedValueContext(node, context)
-            && TryBuildTupleHoistForPostfix(node.Operand, op, context, out var tupleHoisted))
-        {
-            return tupleHoisted;
-        }
-
-        if (!IsDiscardedValueContext(node, context)
-            && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var propRewrite))
-        {
-            // propRewrite = "recv.setter(recv.getter() ± 1)" — we need old value
-            // Hoist: var _t = recv.getter(); recv.setter(_t ± 1); return _t;
-            if (TryBuildPropertyHoistForPostfix(node.Operand, op, context, out var hoisted))
-                return hoisted;
-        }
-
-        // Expression context: hoist indexer increment to pre-statement, return old value
-        if (!IsDiscardedValueContext(node, context)
-            && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var idxRewrite))
-        {
-            if (TryBuildIndexerHoistForPostfix(node.Operand, op, context, out var hoisted))
-                return hoisted;
-        }
-
-        // Check if this is a user-defined postfix operator (++, --)
-        if (context.SemanticModel != null)
-        {
-            var symbolInfo = context.GetSymbolInfo(node);
-            if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
-            {
-                // Only convert to method call if it's a user-defined type
-                if (!IsBuiltInType(methodSymbol.ContainingType))
-                {
-                    return TransformUserDefinedPostfixOperator(node, methodSymbol, context);
-                }
-            }
-        }
-
-        // C# unsigned types (ushort/byte/uint/ulong) wrap around on overflow,
-        // but Java signed types do not. For ++/-- on unsigned variables, we need
-        // to add bitmask to simulate wrap-around semantics.
-        // Postfix: i++/i-- returns old value, then applies mask.
-        if (context.SemanticModel != null && (op == "++" || op == "--"))
-        {
-            var postfixType = context.GetTypeInfo(node.Operand).Type;
-            if (postfixType?.SpecialType is SpecialType.System_UInt16 or SpecialType.System_Byte
-                or SpecialType.System_UInt32)
-            {
-                var postfixFacade = ExpressionTransformerFacade.Instance;
-                var postfixOperand = postfixFacade.Transform(node.Operand, context);
-                var postfixDelta = op == "++" ? "+ 1" : "- 1";
-                string maskExpr = postfixType.SpecialType switch
-                {
-                    SpecialType.System_UInt16 => $"(((int)({postfixOperand} {postfixDelta})) & 0xFFFF)",
-                    SpecialType.System_Byte => $"({postfixOperand} {postfixDelta}) & 0xFF",
-                    SpecialType.System_UInt32 => $"(int)(({postfixOperand} {postfixDelta}) & 0xFFFFFFFFL)",
-                    _ => $"{postfixOperand} {postfixDelta}"
-                };
-                // In discarded value context (statement or for-incrementor),
-                // we can just use the assignment form
-                if (IsDiscardedValueContext(node, context))
-                {
-                    return $"{postfixOperand} = {maskExpr}";
-                }
-                // In expression context, we need to return the old value
-                var tmpVar = context.GenerateSyntheticName("_us");
-                context.AddPreStatement($"int {tmpVar} = {postfixOperand}");
-                context.AddPreStatement($"{postfixOperand} = {maskExpr}");
-                return tmpVar;
-            }
-        }
-
-        var facade = ExpressionTransformerFacade.Instance;
-        var operand = facade.Transform(node.Operand, context);
-        return $"{operand}{op}";
-    }
-
-    private string TransformUserDefinedPostfixOperator(PostfixUnaryExpressionSyntax node, IMethodSymbol operatorSymbol, ConversionContext context)
-    {
-        var facade = ExpressionTransformerFacade.Instance;
-        var operand = facade.Transform(node.Operand, context);
-        var javaMethodName = GetOperatorMethodName(operatorSymbol);
-        var containingType = context.MapType(operatorSymbol.ContainingType);
-        var currentType = context.CurrentType?.Name;
-
-        // Postfix semantics: save pre-increment value, apply operator, return saved value
-        var tmp = context.GenerateSyntheticName("_post");
-        context.AddPreStatement($"var {tmp} = {operand};");
-        var methodCall = containingType == currentType
-            ? $"{operand} = {javaMethodName}({operand});"
-            : $"{operand} = {containingType}.{javaMethodName}({operand});";
-        context.AddPreStatement(methodCall);
-        return tmp;
-    }
-
-    private string TransformPrefix(PrefixUnaryExpressionSyntax node, string op, ConversionContext context)
-    {
-        if (op == "++" || op == "--")
-        {
-            var operandType = context.GetTypeInfo(node.Operand).Type;
-            if (operandType is IPointerTypeSymbol ptrType)
-            {
-                var facade0 = ExpressionTransformerFacade.Instance;
-                var operandExpr = facade0.Transform(node.Operand, context);
-                var pointerInfo = context.FindPointerInfo(operandExpr.Trim());
-                if (pointerInfo == null)
-                {
-                    var elementTypeName = GetCSharpElementTypeName(ptrType.PointedAtType);
-                    pointerInfo = FfmHelper.CreatePointerInfo(operandExpr.Trim(), elementTypeName);
-                }
-                if (pointerInfo != null)
-                {
-                    long delta = op == "++" ? pointerInfo.ElementSize : -pointerInfo.ElementSize;
-
-                    string sliceExpr;
-                    if (context.TryGetPointerBase(operandExpr.Trim(), out var baseVar))
-                    {
-                        // Use base segment with out-of-bounds protection (same as TransformPostfix).
-                        // C# allows one-past-end pointers (used only for address comparison),
-                        // but Java's MemorySegment.asSlice throws if offset > byteSize or offset < 0.
-                        var offsetExpr = $"{operandExpr}.address() - {baseVar}.address() + {delta}";
-                        sliceExpr = $"({offsetExpr} >= 0 && {offsetExpr} <= {baseVar}.byteSize() ? {baseVar}.asSlice({offsetExpr}) : MemorySegmentHelper.advance({operandExpr}, {delta}))";
-                    }
-                    else
-                    {
-                        // No base segment: use MemorySegment.ofAddress since asSlice doesn't support negative offsets
-                        sliceExpr = $"MemorySegmentHelper.advance({operandExpr}, {delta})";
-                    }
-
-                    if (IsDiscardedValueContext(node, context))
-                    {
-                        if (delta < 0)
-                            context.InvalidatePointerBacktrackVars(operandExpr.Trim());
-                        return $"{operandExpr} = {sliceExpr}";
-                    }
-
-                    var tmp = context.GenerateSyntheticName("_ptrPre");
-                    context.AddImport("java.lang.foreign.MemorySegment");
-                    context.AddPreStatementAllowDuplicate($"{operandExpr} = {sliceExpr}");
-                    context.AddPreStatement($"MemorySegment {tmp} = {operandExpr}");
-                    if (delta < 0)
-                        context.InvalidatePointerBacktrackVars(operandExpr.Trim());
-                    return tmp;
-                }
-            }
-        }
-
-        // Enum ++/-- must be rewritten because Java enums do not support unary increment.
-        if (TryTransformEnumIncrement(node, node.Operand, op, isPostfix: false, context, out var enumRewrite))
-        {
-            return enumRewrite;
-        }
-
-        // Statement context: rewrite property/indexer in place
-        if (IsDiscardedValueContext(node, context)
-            && TryTransformDecimalIncrementAsAssignment(node.Operand, op, context, out var decimalRewrite))
-        {
-            return decimalRewrite;
-        }
-        if (IsDiscardedValueContext(node, context)
-            && TryTransformTupleIncrementAsMutation(node.Operand, op, context, out var tupleRewrite))
-        {
-            return tupleRewrite;
-        }
-        if (IsDiscardedValueContext(node, context)
-            && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var rewritten))
-        {
-            return rewritten;
-        }
-
-        if (IsDiscardedValueContext(node, context)
-            && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var indexerRewrite))
-        {
-            return indexerRewrite;
-        }
-
-        // Expression context: hoist property increment to pre-statement, return new value
-        if (!IsDiscardedValueContext(node, context)
-            && TryBuildDecimalHoistForPrefix(node.Operand, op, context, out var decimalHoisted))
-        {
-            return decimalHoisted;
-        }
-
-        if (!IsDiscardedValueContext(node, context)
-            && TryBuildTupleHoistForPrefix(node.Operand, op, context, out var tupleHoisted))
-        {
-            return tupleHoisted;
-        }
-
-        if (!IsDiscardedValueContext(node, context)
-            && TryTransformPropertyIncrementAsSetter(node.Operand, op, context, out var propRewrite))
-        {
-            if (TryBuildPropertyHoistForPrefix(node.Operand, op, context, out var hoisted))
-                return hoisted;
-        }
-
-        // Expression context: hoist indexer increment to pre-statement, return new value
-        if (!IsDiscardedValueContext(node, context)
-            && TryTransformIndexerIncrementAsMutation(node.Operand, op, context, out var idxRewrite))
-        {
-            if (TryBuildIndexerHoistForPrefix(node.Operand, op, context, out var hoisted))
-                return hoisted;
-        }
-
-        // Check if this is a user-defined prefix operator (++, --)
-        if (context.SemanticModel != null)
-        {
-            var symbolInfo = context.GetSymbolInfo(node);
-            if (symbolInfo.Symbol is IMethodSymbol methodSymbol && methodSymbol.ContainingType != null)
-            {
-                // Only convert to method call if it's a user-defined type
-                if (!IsBuiltInType(methodSymbol.ContainingType))
-                {
-                    return TransformUserDefinedUnaryOperator(node, methodSymbol, context);
-                }
-            }
-        }
-
-        // C# unsigned types (ushort/byte/uint/ulong) wrap around on overflow,
-        // but Java signed types do not. For ++/-- on unsigned variables, we need
-        // to add bitmask to simulate wrap-around semantics.
-        // e.g. C# ushort --i when i=0 → i=65535; Java int --i when i=0 → i=-1
-        if (context.SemanticModel != null && (op == "++" || op == "--"))
-        {
-            var unsignedType = context.GetTypeInfo(node.Operand).Type;
-            if (unsignedType?.SpecialType is SpecialType.System_UInt16 or SpecialType.System_Byte
-                or SpecialType.System_UInt32)
-            {
-                var unsignedFacade = ExpressionTransformerFacade.Instance;
-                var unsignedOperand = unsignedFacade.Transform(node.Operand, context);
-                var unsignedDelta = op == "++" ? "+ 1" : "- 1";
-                var assignmentExpr = unsignedType.SpecialType switch
-                {
-                    SpecialType.System_UInt16 => $"{unsignedOperand} = (((int)({unsignedOperand} {unsignedDelta})) & 0xFFFF)",
-                    SpecialType.System_Byte => $"{unsignedOperand} = ({unsignedOperand} {unsignedDelta}) & 0xFF",
-                    SpecialType.System_UInt32 => $"{unsignedOperand} = (int)(({unsignedOperand} {unsignedDelta}) & 0xFFFFFFFFL)",
-                    _ => $"{op}{unsignedOperand}"
-                };
-                // In discarded value context (statement or for-incrementor),
-                // no outer parentheses needed
-                if (IsDiscardedValueContext(node, context))
-                    return assignmentExpr;
-                // In expression context, wrap in parentheses for correct precedence
-                return $"({assignmentExpr})";
-            }
-        }
-
-        var facade = ExpressionTransformerFacade.Instance;
-        var operand = facade.Transform(node.Operand, context);
-        return $"{op}{operand}";
-    }
-
-    private static bool IsDiscardedValueContext(SyntaxNode node, ConversionContext context)
-    {
-        if (node.Parent is ExpressionStatementSyntax)
-            return true;
-
-        if (node.Parent is ForStatementSyntax forStatement
-            && (forStatement.Initializers.Any(expr => ReferenceEquals(expr, node))
-                || forStatement.Incrementors.Any(expr => ReferenceEquals(expr, node))))
-            return true;
-
-        // Expression-bodied members whose value is discarded: void methods/local
-        // functions, set/init accessors, and void-delegate lambdas. Without this,
-        // ++/-- hoisting emits a bare temp expression statement (javac: not a statement).
-        SyntaxNode? arrowOwner = node.Parent switch
-        {
-            ArrowExpressionClauseSyntax arrow => arrow.Parent,
-            AnonymousFunctionExpressionSyntax lambda => lambda,
-            _ => null
-        };
-        if (arrowOwner != null)
-        {
-            if (arrowOwner is MethodDeclarationSyntax method)
-            {
-                var methodSymbol = context.SemanticModel?.GetDeclaredSymbol(method);
-                if (methodSymbol != null)
-                    return methodSymbol.ReturnsVoid;
-                return method.ReturnType is PredefinedTypeSyntax pts
-                    && pts.Keyword.IsKind(SyntaxKind.VoidKeyword);
-            }
-            if (arrowOwner is LocalFunctionStatementSyntax localFunction)
-            {
-                var localSymbol = context.SemanticModel?.GetDeclaredSymbol(localFunction);
-                if (localSymbol != null)
-                    return localSymbol.ReturnsVoid;
-                return localFunction.ReturnType is PredefinedTypeSyntax pts
-                    && pts.Keyword.IsKind(SyntaxKind.VoidKeyword);
-            }
-            if (arrowOwner is AccessorDeclarationSyntax accessor
-                && (accessor.IsKind(SyntaxKind.SetAccessorDeclaration)
-                    || accessor.IsKind(SyntaxKind.InitAccessorDeclaration)))
-                return true;
-            if (arrowOwner is AnonymousFunctionExpressionSyntax lambda && context.SemanticModel != null)
-            {
-                var converted = context.SemanticModel.GetTypeInfo(lambda).ConvertedType as INamedTypeSymbol;
-                if (converted?.DelegateInvokeMethod != null)
-                    return converted.DelegateInvokeMethod.ReturnsVoid;
-            }
-        }
-
-        return false;
+        var type = context.GetTypeInfo(operand).Type;
+        if (type == null) return;
+        if (type.TypeKind == TypeKind.Enum)
+            throw NormalizationRequired($"unary operator on enum operand '{type.ToDisplayString()}'", node);
+        if (type.SpecialType == SpecialType.System_Decimal)
+            throw NormalizationRequired("unary operator on decimal operand", node);
     }
 
     /// <summary>
-    /// Rewrites enum ++/-- into a Java-compatible assignment. Java enums do not support
-    /// unary increment/decrement, so we advance to the next/previous enum instance.
-    /// For simple (auto-numbered) enums this uses values()[ordinal +/- 1]; for explicit-value
-    /// enums it uses fromValue(getValue() +/- 1) to stay aligned with BinaryExpressionTransformer.
+    /// ++/-- map directly only for simple mutable lvalues (local/parameter, field,
+    /// array element) of built-in numeric types. Everything else requires preprocessing.
     /// </summary>
-    private static bool TryTransformEnumIncrement(
-        SyntaxNode unaryNode,
-        ExpressionSyntax operand,
-        string op,
-        bool isPostfix,
-        ConversionContext context,
-        out string rewritten)
+    private static void EnsureSimpleIncrementTarget(ExpressionSyntax operand, ConversionContext context)
     {
-        rewritten = string.Empty;
-        if (context.SemanticModel == null)
-            return false;
-
-        if (op != "++" && op != "--")
-            return false;
-
-        var enumType = context.GetTypeInfo(operand).Type as INamedTypeSymbol;
-        if (enumType?.TypeKind != TypeKind.Enum || IsFlagsEnumType(enumType, context))
-            return false;
-
-        var facade = ExpressionTransformerFacade.Instance;
-        var operandExpr = facade.Transform(operand, context);
-        var javaEnumType = context.MapType(enumType);
-        var angleIndex = javaEnumType.IndexOf('<');
-        if (angleIndex > 0)
-            javaEnumType = javaEnumType[..angleIndex];
-
-        var suffix = GetEnumAccessSuffix(enumType, context);
-        var delta = op == "++" ? "+ 1" : "- 1";
-
-        string valueExpr;
-        if (suffix == ".ordinal()")
+        var symbol = context.GetSymbolInfo(operand).Symbol;
+        switch (operand)
         {
-            valueExpr = $"{javaEnumType}.values()[{operandExpr}{suffix} {delta}]";
-        }
-        else
-        {
-            valueExpr = $"{javaEnumType}.fromValue({operandExpr}{suffix} {delta})";
+            case IdentifierNameSyntax:
+                // Locals/parameters are directly incrementable; any other identifier
+                // resolves to a field via semantic model below.
+                break;
+            case MemberAccessExpressionSyntax:
+                if (symbol is IPropertySymbol or IEventSymbol)
+                    throw NormalizationRequired("increment/decrement on a property or event", operand);
+                break;
+            case ElementAccessExpressionSyntax:
+                if (symbol is IPropertySymbol)
+                    throw NormalizationRequired("increment/decrement on an indexer", operand);
+                break;
+            default:
+                throw NormalizationRequired($"increment/decrement target {operand.Kind()}", operand);
         }
 
-        var assignmentExpr = $"{operandExpr} = {valueExpr}";
-
-        if (IsDiscardedValueContext(unaryNode, context))
+        var type = context.GetTypeInfo(operand).Type;
+        if (type == null) return;
+        if (type.TypeKind == TypeKind.Enum)
+            throw NormalizationRequired("increment/decrement on an enum target", operand);
+        if (type.SpecialType == SpecialType.System_Decimal)
+            throw NormalizationRequired("increment/decrement on a decimal target", operand);
+        if (type.SpecialType is SpecialType.System_UInt32 or SpecialType.System_UInt64
+            or SpecialType.System_UInt16 or SpecialType.System_Byte or SpecialType.System_IntPtr
+            or SpecialType.System_UIntPtr)
         {
-            rewritten = assignmentExpr;
-            return true;
+            throw NormalizationRequired($"increment/decrement on unsigned/narrow integer target '{type.ToDisplayString()}'", operand);
         }
-
-        // Expression context: preserve C# prefix/postfix semantics with hoisting.
-        if (isPostfix)
-        {
-            var tmp = context.GenerateSyntheticName("_enumPost");
-            context.AddPreStatement($"{javaEnumType} {tmp} = {operandExpr}");
-            context.AddPreStatementAllowDuplicate(assignmentExpr);
-            rewritten = tmp;
-        }
-        else
-        {
-            context.AddPreStatementAllowDuplicate(assignmentExpr);
-            rewritten = operandExpr;
-        }
-        return true;
+        if (symbol is IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator })
+            throw NormalizationRequired("user-defined increment/decrement operator", operand);
     }
 
-    private static bool IsNonFlagsEnum(ITypeSymbol? type, ConversionContext context)
-    {
-        if (type is not INamedTypeSymbol named || named.TypeKind != TypeKind.Enum)
-            return false;
-        return !IsFlagsEnumType(named, context);
-    }
-
-    private static bool IsFlagsEnumType(INamedTypeSymbol enumType, ConversionContext context)
-    {
-        if (HasFlagsAttribute(enumType))
-            return true;
-
-        var displayName = enumType.ToDisplayString();
-        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
-            fullyQualifiedName = fullyQualifiedName["global::".Length..];
-
-        return context.IsFlagsEnum(displayName)
-            || context.IsFlagsEnum(fullyQualifiedName);
-    }
-
-    private static bool HasFlagsAttribute(INamedTypeSymbol enumType)
-    {
-        return enumType.GetAttributes().Any(attribute =>
-            attribute.AttributeClass?.ToDisplayString() is "System.FlagsAttribute" or "System.Flags" or "FlagsAttribute" or "Flags");
-    }
-
-    private static string GetEnumAccessSuffix(INamedTypeSymbol enumType, ConversionContext context)
-    {
-        if (EnumHasExplicitValues(enumType))
-            return ".getValue()";
-
-        var enumName = enumType.ToDisplayString();
-        var fullyQualifiedName = enumType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-        if (fullyQualifiedName.StartsWith("global::", StringComparison.Ordinal))
-            fullyQualifiedName = fullyQualifiedName["global::".Length..];
-
-        if (context.IsExplicitValueEnum(enumName) || context.IsExplicitValueEnum(fullyQualifiedName))
-            return ".getValue()";
-
-        return ".ordinal()";
-    }
-
-    /// <summary>
-    /// Checks if an enum type has explicit value initializers by inspecting its members.
-    /// Mirrors the logic in BinaryExpressionTransformer.
-    /// </summary>
-    private static bool EnumHasExplicitValues(INamedTypeSymbol enumType)
-    {
-        foreach (var member in enumType.GetMembers())
-        {
-            if (member is IFieldSymbol { IsConst: true, HasConstantValue: true } field
-                && field.Name != WellKnownMemberNames.InstanceConstructorName)
-            {
-                var ordinal = 0;
-                foreach (var checkMember in enumType.GetMembers())
-                {
-                    if (checkMember is IFieldSymbol { IsConst: true, HasConstantValue: true } checkField
-                        && checkField.Name != WellKnownMemberNames.InstanceConstructorName)
-                    {
-                        if (checkField.ConstantValue is int intVal && intVal != ordinal)
-                            return true;
-                        if (checkField.ConstantValue is long longVal && longVal != ordinal)
-                            return true;
-                        if (checkField.ConstantValue is uint uintVal && uintVal != ordinal)
-                            return true;
-                        if (checkField.ConstantValue is ulong ulongVal && ulongVal != (ulong)ordinal)
-                            return true;
-                        ordinal++;
-                    }
-                }
-                return false;
-            }
-        }
-        return false;
-    }
-
-    private static bool TryTransformDecimalIncrementAsAssignment(
-        ExpressionSyntax operand,
-        string op,
-        ConversionContext context,
-        out string rewritten)
-    {
-        rewritten = string.Empty;
-            if (context.SemanticModel == null
-                || context.GetTypeInfo(operand).Type?.SpecialType != SpecialType.System_Decimal)
-            {
-                return false;
-            }
-
-        var transformedOperand = ExpressionTransformerFacade.Instance.Transform(operand, context);
-        var method = op == "++" ? "add" : "subtract";
-        rewritten = $"{transformedOperand} = {transformedOperand}.{method}(Decimal.ONE)";
-        context.AddImport("io.github.ningpp.compat.Decimal");
-        return true;
-    }
-
-    private static bool TryBuildDecimalHoistForPostfix(
-        ExpressionSyntax operand,
-        string op,
-        ConversionContext context,
-        out string result)
-    {
-        result = string.Empty;
-            if (context.SemanticModel == null
-                || context.GetTypeInfo(operand).Type?.SpecialType != SpecialType.System_Decimal)
-            {
-                return false;
-            }
-
-        var transformedOperand = ExpressionTransformerFacade.Instance.Transform(operand, context);
-        var tmp = context.GenerateSyntheticName("_postDecimal");
-        var method = op == "++" ? "add" : "subtract";
-        context.AddImport("io.github.ningpp.compat.Decimal");
-        context.AddPreStatement($"var {tmp} = {transformedOperand}");
-        context.AddPreStatement($"{transformedOperand} = {transformedOperand}.{method}(Decimal.ONE)");
-        result = tmp;
-        return true;
-    }
-
-    private static bool TryBuildDecimalHoistForPrefix(
-        ExpressionSyntax operand,
-        string op,
-        ConversionContext context,
-        out string result)
-    {
-        result = string.Empty;
-            if (context.SemanticModel == null
-                || context.GetTypeInfo(operand).Type?.SpecialType != SpecialType.System_Decimal)
-            {
-                return false;
-            }
-
-        var transformedOperand = ExpressionTransformerFacade.Instance.Transform(operand, context);
-        var method = op == "++" ? "add" : "subtract";
-        context.AddImport("io.github.ningpp.compat.Decimal");
-        context.AddPreStatement($"{transformedOperand} = {transformedOperand}.{method}(Decimal.ONE)");
-        result = transformedOperand;
-        return true;
-    }
-
-    private static bool TryTransformPropertyIncrementAsSetter(
-        ExpressionSyntax operand,
-        string op,
-        ConversionContext context,
-        out string rewritten)
-    {
-        rewritten = string.Empty;
-        if (context.SemanticModel == null)
-            return false;
-
-        var symbol = context.GetSymbolInfo(operand).Symbol as IPropertySymbol;
-        if (symbol == null || symbol.SetMethod == null)
-            return false;
-
-        var delta = op == "++" ? "+ 1" : "- 1";
-        var facade = ExpressionTransformerFacade.Instance;
-
-        if (operand is MemberAccessExpressionSyntax ma)
-        {
-            var recv = facade.Transform(ma.Expression, context);
-            var propName = symbol.Name;
-            var getter = JavaNaming.GetPropertyGetterName(propName);
-            var setter = "set" + char.ToUpperInvariant(propName[0]) + propName[1..];
-            rewritten = $"{recv}.{setter}({recv}.{getter}() {delta})";
-            return true;
-        }
-
-        if (operand is IdentifierNameSyntax id)
-        {
-            var propName = id.Identifier.Text;
-            var getter = "get" + char.ToUpperInvariant(propName[0]) + propName[1..];
-            var setter = "set" + char.ToUpperInvariant(propName[0]) + propName[1..];
-            rewritten = $"{setter}({getter}() {delta})";
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool TryTransformIndexerIncrementAsMutation(
-        ExpressionSyntax operand,
-        string op,
-        ConversionContext context,
-        out string rewritten)
-    {
-        rewritten = string.Empty;
-        if (context.SemanticModel == null || operand is not ElementAccessExpressionSyntax ela)
-            return false;
-
-        if (ela.ArgumentList.Arguments.Count != 1)
-            return false;
-
-        var delta = op == "++" ? "+ 1" : "- 1";
-        var facade = ExpressionTransformerFacade.Instance;
-        var target = facade.Transform(ela.Expression, context);
-        var key = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
-        var containerType = context.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
-
-        if (containerType != null && IsDictionaryLike(containerType))
-        {
-            rewritten = $"{target}.put({key}, {target}.get({key}) {delta})";
-            return true;
-        }
-
-        if (containerType != null && IsListLike(containerType))
-        {
-            rewritten = $"{target}.set({key}, {target}.get({key}) {delta})";
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsDictionaryLike(INamedTypeSymbol type)
-    {
-        var fullName = type.OriginalDefinition.ToDisplayString();
-        if (fullName is
-            "System.Collections.Generic.Dictionary<TKey, TValue>"
-            or "System.Collections.Generic.SortedDictionary<TKey, TValue>"
-            or "System.Collections.Generic.SortedList<TKey, TValue>"
-            or "System.Collections.Generic.IDictionary<TKey, TValue>"
-            or "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>"
-            or "System.Collections.Immutable.ImmutableDictionary<TKey, TValue>")
-            return true;
-
-        return type.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString() is
-            "System.Collections.Generic.IDictionary<TKey, TValue>"
-            or "System.Collections.Generic.IReadOnlyDictionary<TKey, TValue>");
-    }
-
-    private static bool IsListLike(INamedTypeSymbol type)
-    {
-        var fullName = type.OriginalDefinition.ToDisplayString();
-        if (fullName is
-            "System.Collections.Generic.List<T>"
-            or "System.Collections.Generic.IList<T>"
-            or "System.Collections.Generic.IReadOnlyList<T>")
-            return true;
-
-        return type.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString() is
-            "System.Collections.Generic.IList<T>"
-            or "System.Collections.Generic.IReadOnlyList<T>");
-    }
-
-    /// <summary>
-    /// Hoists a postfix property increment into pre-statements.
-    /// Returns the old value (pre-increment) as the expression result.
-    /// Pattern: var _t = getter(); setter(_t ± 1); → returns _t
-    /// </summary>
-    private static bool TryBuildPropertyHoistForPostfix(
-        ExpressionSyntax operand, string op, ConversionContext context, out string result)
-    {
-        result = string.Empty;
-        if (context.SemanticModel == null) return false;
-
-        var symbol = context.GetSymbolInfo(operand).Symbol as IPropertySymbol;
-        if (symbol == null || symbol.SetMethod == null) return false;
-
-        var delta = op == "++" ? "+ 1" : "- 1";
-        var facade = ExpressionTransformerFacade.Instance;
-        var propName = symbol.Name;
-        var getter = "get" + char.ToUpperInvariant(propName[0]) + propName[1..];
-        var setter = "set" + char.ToUpperInvariant(propName[0]) + propName[1..];
-        var tmp = context.GenerateSyntheticName("_prev");
-
-        if (operand is MemberAccessExpressionSyntax ma)
-        {
-            var recv = facade.Transform(ma.Expression, context);
-            context.AddPreStatement($"var {tmp} = {recv}.{getter}();");
-            context.AddPreStatement($"{recv}.{setter}({tmp} {delta});");
-            result = tmp;
-            return true;
-        }
-        if (operand is IdentifierNameSyntax)
-        {
-            context.AddPreStatement($"var {tmp} = {getter}();");
-            context.AddPreStatement($"{setter}({tmp} {delta});");
-            result = tmp;
-            return true;
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Hoists a prefix property increment into pre-statements.
-    /// Returns the new value (post-increment) as the expression result.
-    /// Pattern: setter(getter() ± 1); var _t = getter(); → returns _t
-    /// </summary>
-    private static bool TryBuildPropertyHoistForPrefix(
-        ExpressionSyntax operand, string op, ConversionContext context, out string result)
-    {
-        result = string.Empty;
-        if (context.SemanticModel == null) return false;
-
-        var symbol = context.GetSymbolInfo(operand).Symbol as IPropertySymbol;
-        if (symbol == null || symbol.SetMethod == null) return false;
-
-        var delta = op == "++" ? "+ 1" : "- 1";
-        var facade = ExpressionTransformerFacade.Instance;
-        var propName = symbol.Name;
-        var getter = "get" + char.ToUpperInvariant(propName[0]) + propName[1..];
-        var setter = "set" + char.ToUpperInvariant(propName[0]) + propName[1..];
-        var tmp = context.GenerateSyntheticName("_inc");
-
-        if (operand is MemberAccessExpressionSyntax ma)
-        {
-            var recv = facade.Transform(ma.Expression, context);
-            context.AddPreStatement($"var {tmp} = {recv}.{getter}() {delta};");
-            context.AddPreStatement($"{recv}.{setter}({tmp});");
-            result = tmp;
-            return true;
-        }
-        if (operand is IdentifierNameSyntax)
-        {
-            context.AddPreStatement($"var {tmp} = {getter}() {delta};");
-            context.AddPreStatement($"{setter}({tmp});");
-            result = tmp;
-            return true;
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Hoists a postfix indexer increment into pre-statements.
-    /// Returns the old value (pre-increment) as the expression result.
-    /// Pattern: var _t = map.get(key); map.put(key, _t ± 1); → returns _t
-    /// </summary>
-    private static bool TryBuildIndexerHoistForPostfix(
-        ExpressionSyntax operand, string op, ConversionContext context, out string result)
-    {
-        result = string.Empty;
-        if (context.SemanticModel == null || operand is not ElementAccessExpressionSyntax ela)
-            return false;
-        if (ela.ArgumentList.Arguments.Count != 1) return false;
-
-        var delta = op == "++" ? "+ 1" : "- 1";
-        var facade = ExpressionTransformerFacade.Instance;
-        var target = facade.Transform(ela.Expression, context);
-        var key = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
-        var containerType = context.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
-        var tmp = context.GenerateSyntheticName("_prev");
-
-        if (containerType != null && IsDictionaryLike(containerType))
-        {
-            context.AddPreStatement($"var {tmp} = {target}.get({key});");
-            context.AddPreStatement($"{target}.put({key}, {tmp} {delta});");
-            result = tmp;
-            return true;
-        }
-        if (containerType != null && IsListLike(containerType))
-        {
-            context.AddPreStatement($"var {tmp} = {target}.get({key});");
-            context.AddPreStatement($"{target}.set({key}, {tmp} {delta});");
-            result = tmp;
-            return true;
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Hoists a prefix indexer increment into pre-statements.
-    /// Returns the new value (post-increment) as the expression result.
-    /// </summary>
-    private static bool TryBuildIndexerHoistForPrefix(
-        ExpressionSyntax operand, string op, ConversionContext context, out string result)
-    {
-        result = string.Empty;
-        if (context.SemanticModel == null || operand is not ElementAccessExpressionSyntax ela)
-            return false;
-        if (ela.ArgumentList.Arguments.Count != 1) return false;
-
-        var delta = op == "++" ? "+ 1" : "- 1";
-        var facade = ExpressionTransformerFacade.Instance;
-        var target = facade.Transform(ela.Expression, context);
-        var key = facade.Transform(ela.ArgumentList.Arguments[0].Expression, context);
-        var containerType = context.GetTypeInfo(ela.Expression).Type as INamedTypeSymbol;
-        var tmp = context.GenerateSyntheticName("_inc");
-
-        if (containerType != null && IsDictionaryLike(containerType))
-        {
-            context.AddPreStatement($"var {tmp} = {target}.get({key}) {delta};");
-            context.AddPreStatement($"{target}.put({key}, {tmp});");
-            result = tmp;
-            return true;
-        }
-        if (containerType != null && IsListLike(containerType))
-        {
-            context.AddPreStatement($"var {tmp} = {target}.get({key}) {delta};");
-            context.AddPreStatement($"{target}.set({key}, {tmp});");
-            result = tmp;
-            return true;
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Rewrites a statement-context tuple element increment (state.count++ / --state.count)
-    /// into an immutable vavr tuple rebuild: `state = state.updateN(state._N() ± 1)`.
-    /// The receiver string may already carry a holder unwrap (state.value for ref/out
-    /// parameters), which is preserved as-is.
-    /// </summary>
-    private static bool TryTransformTupleIncrementAsMutation(
-        ExpressionSyntax operand, string op, ConversionContext context, out string rewritten)
-    {
-        rewritten = string.Empty;
-        if (context.SemanticModel == null || operand is not MemberAccessExpressionSyntax ma)
-            return false;
-
-        var receiverType = context.GetTypeInfo(ma.Expression).Type;
-        if (receiverType is not INamedTypeSymbol { IsTupleType: true } tupleSym)
-            return false;
-
-        var elementIndex = IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleSym, ma.Name.Identifier.Text);
-        if (elementIndex < 0) return false;
-
-        var delta = op == "++" ? "+ 1" : "- 1";
-        var facade = ExpressionTransformerFacade.Instance;
-        var recv = facade.Transform(ma.Expression, context);
-        context.AddImport("io.vavr.Tuple");
-        rewritten = $"{recv} = {recv}.update{elementIndex}({recv}._{elementIndex}() {delta})";
-        return true;
-    }
-
-    /// <summary>
-    /// Hoists a postfix tuple element increment into pre-statements.
-    /// Returns the old value (pre-increment) as the expression result.
-    /// Pattern: var _t = state._N(); state = state.updateN(_t ± 1); → returns _t
-    /// </summary>
-    private static bool TryBuildTupleHoistForPostfix(
-        ExpressionSyntax operand, string op, ConversionContext context, out string result)
-    {
-        result = string.Empty;
-        if (context.SemanticModel == null || operand is not MemberAccessExpressionSyntax ma)
-            return false;
-
-        var receiverType = context.GetTypeInfo(ma.Expression).Type;
-        if (receiverType is not INamedTypeSymbol { IsTupleType: true } tupleSym)
-            return false;
-
-        var elementIndex = IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleSym, ma.Name.Identifier.Text);
-        if (elementIndex < 0) return false;
-
-        var delta = op == "++" ? "+ 1" : "- 1";
-        var facade = ExpressionTransformerFacade.Instance;
-        var recv = facade.Transform(ma.Expression, context);
-        var tmp = context.GenerateSyntheticName("_prev");
-        context.AddImport("io.vavr.Tuple");
-        context.AddPreStatement($"var {tmp} = {recv}._{elementIndex}();");
-        context.AddPreStatement($"{recv} = {recv}.update{elementIndex}({tmp} {delta});");
-        result = tmp;
-        return true;
-    }
-
-    /// <summary>
-    /// Hoists a prefix tuple element increment into pre-statements.
-    /// Returns the new value as the expression result.
-    /// Pattern: var _t = state._N() ± 1; state = state.updateN(_t); → returns _t
-    /// </summary>
-    private static bool TryBuildTupleHoistForPrefix(
-        ExpressionSyntax operand, string op, ConversionContext context, out string result)
-    {
-        result = string.Empty;
-        if (context.SemanticModel == null || operand is not MemberAccessExpressionSyntax ma)
-            return false;
-
-        var receiverType = context.GetTypeInfo(ma.Expression).Type;
-        if (receiverType is not INamedTypeSymbol { IsTupleType: true } tupleSym)
-            return false;
-
-        var elementIndex = IdentifierExpressionTransformer.TryGetTupleElementIndex(tupleSym, ma.Name.Identifier.Text);
-        if (elementIndex < 0) return false;
-
-        var delta = op == "++" ? "+ 1" : "- 1";
-        var facade = ExpressionTransformerFacade.Instance;
-        var recv = facade.Transform(ma.Expression, context);
-        var tmp = context.GenerateSyntheticName("_inc");
-        context.AddImport("io.vavr.Tuple");
-        context.AddPreStatement($"var {tmp} = {recv}._{elementIndex}() {delta};");
-        context.AddPreStatement($"{recv} = {recv}.update{elementIndex}({tmp});");
-        result = tmp;
-        return true;
-    }
+    private static NotSupportedException NormalizationRequired(string construct, SyntaxNode node) =>
+        new($"CS2J normalization required: {construct} in {node.Kind()} must be lowered by a preprocessor before Java conversion.");
 }
