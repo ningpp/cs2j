@@ -50,11 +50,12 @@ public class Program
                 (ForeachDeconstructionVerbOptions opts) => ForeachDeconstructionAsync(opts),
                 (NullCoalesceVerbOptions opts) => NullCoalesceAsync(opts),
                 (DelegatePreprocessVerbOptions opts) => DelegatePreprocessAsync(opts),
-                _ => parser.ParseArguments<EnumPreprocessVerbOptions, RefOutInVerbOptions, JavaKeywordsVerbOptions>(args)
+                _ => parser.ParseArguments<EnumPreprocessVerbOptions, RefOutInVerbOptions, JavaKeywordsVerbOptions, PreprocessVerbOptions>(args)
                     .MapResult(
                         (EnumPreprocessVerbOptions opts) => EnumPreprocessAsync(opts),
                         (RefOutInVerbOptions opts) => RefOutInAsync(opts),
                         (JavaKeywordsVerbOptions opts) => JavaKeywordsVerbAsync(opts),
+                        (PreprocessVerbOptions opts) => PreprocessVerbAsync(opts),
                         _ => Task.FromResult(1))
             );
     }
@@ -179,33 +180,13 @@ public class Program
             // ---- Unified preprocess chain -------------------------------------
             // The registry is the single source of truth for pass identity,
             // ordering (locked via RunAfter) and defaults; legacy --no-xxx/enable
-            // flags only override the enablement, all execution/output details live
-            // on the adapters.
-            var passRegistry = PassCatalog.BuildRegistry();
-            var passPlan = PassPlanResolver.Resolve(
-                passRegistry,
-                PassChainFactory.BuildLegacyToggles(opts));
-            if (!passPlan.IsValid)
+            // flags and explicit --enable-pass/--disable-pass only override the
+            // enablement; all execution/output details live on the adapters.
+            var chain = await CliPreprocessChain.RunAsync(new CliChainRequest
             {
-                foreach (var planError in passPlan.Errors)
-                {
-                    Console.Error.WriteLine(planError);
-                }
-
-                return 1;
-            }
-
-            opts.EnabledPassIntermediateDirectoryNames = passPlan.Enabled
-                .Select(pass => pass.IntermediateDirectoryName)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            var executedSupportLibraries = passPlan.Enabled
-                .Where(pass => pass.SupportLibrary != PassSupportLibrary.None)
-                .Select(pass => pass.SupportLibrary)
-                .ToHashSet();
-
-            var chainConfig = new PassChainConfiguration
-            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = opts.Force,
                 Verbose = opts.Verbose,
                 FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
                 CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
@@ -221,83 +202,25 @@ public class Program
                     opts.RecordReadOnlyOverrides, strict: false),
                 JavaKeywordOptionsFactory = () => BuildJavaKeywordOptions(
                     opts.JavaKeywordsOverrides, strict: false),
-            };
+                LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
+                EnablePassIds = opts.EnablePasses,
+                DisablePassIds = opts.DisablePasses,
+            });
 
-            foreach (var pass in passPlan.Enabled)
+            if (!chain.Success)
             {
-                if (pass.Status == PassStatus.Stub)
-                {
-                    // Enabled stub: fail loudly before touching the filesystem.
-                    Console.Error.WriteLine(ProjectPassRunner.StubMessage(pass));
-                    return 1;
-                }
+                return 1;
+            }
 
-                var sourceBeforePass = opts.Source;
-                var adapter = PassChainFactory.CreateAdapter(pass.Id, chainConfig);
-
-                var startLine = adapter.BuildChainStartLine();
-                if (startLine != null)
-                {
-                    Console.WriteLine(startLine);
-                }
-
-                var run = await ProjectPassRunner.RunAsync(
-                    adapter,
-                    new ProjectPassRunRequest
-                    {
-                        SourcePath = opts.Source,
-                        DestinationRoot = opts.Destination,
-                        Force = opts.Force,
-                    });
-
-                var preludeLine = adapter.BuildChainVerbosePrelude(
-                    sourceBeforePass, run.PreprocessedSourcePath);
-                if (preludeLine != null)
-                {
-                    Console.WriteLine(preludeLine);
-                }
-
-                var summaryLine = adapter.BuildChainSummaryLine();
-                if (summaryLine != null)
-                {
-                    Console.WriteLine(summaryLine);
-                }
-
-                foreach (var diagnosticLine in adapter.BuildChainDiagnosticLines(opts.Verbose))
-                {
-                    Console.Error.WriteLine(diagnosticLine);
-                }
-
-                if (!run.Success)
-                {
-                    var failureBanner = adapter.BuildChainFailureBanner();
-                    if (failureBanner != null)
-                    {
-                        Console.Error.WriteLine(failureBanner);
-                    }
-
-                    return 1;
-                }
-
-                opts.Source = run.PreprocessedSourcePath;
-                if (adapter.RepointsFingerprintToPassInput)
-                {
-                    // eliminate-goto historically reassigned (=, not ??) the pointers.
-                    opts.FingerprintSourcePath = sourceBeforePass;
-                    opts.FingerprintInputRoot = run.SourceRoot;
-                    opts.UsingGotoPreprocessedSource = true;
-                }
-                else
-                {
-                    opts.FingerprintSourcePath ??= run.OriginalSourcePath;
-                    opts.FingerprintInputRoot ??= run.SourceRoot;
-                }
-
-                var verboseSummaryLine = adapter.BuildChainVerboseSummaryLine();
-                if (verboseSummaryLine != null)
-                {
-                    Console.WriteLine(verboseSummaryLine);
-                }
+            opts.Source = chain.FinalSourcePath;
+            opts.EnabledPassIntermediateDirectoryNames = chain.ExecutedIntermediateDirectoryNames;
+            var executedSupportLibraries = chain.ExecutedSupportLibraries;
+            if (chain.UsingGotoPreprocessedSource)
+            {
+                // eliminate-goto historically reassigned (=, not ??) the pointers.
+                opts.FingerprintSourcePath = chain.GotoRepointedSourcePath;
+                opts.FingerprintInputRoot = chain.GotoRepointedInputRoot;
+                opts.UsingGotoPreprocessedSource = true;
             }
 
             var options = new ConversionOptions
@@ -3478,6 +3401,107 @@ public class Program
         return preprocessResult.Success ? 0 : 1;
     }
 
+    /// <summary>
+    /// Generic <c>preprocess</c> verb: lists the catalog (<c>--list-passes</c>) or
+    /// runs the default chain / an explicitly selected set of registered passes
+    /// against a project or solution without performing Java conversion.
+    /// </summary>
+    private static async Task<int> PreprocessVerbAsync(PreprocessVerbOptions opts)
+    {
+        try
+        {
+            if (opts.ListPasses)
+            {
+                PassListFormatter.Print(PassCatalog.BuildRegistry());
+                return 0;
+            }
+
+            if (string.IsNullOrWhiteSpace(opts.Source) || string.IsNullOrWhiteSpace(opts.Destination))
+            {
+                Console.Error.WriteLine("Error: provide --list-passes or (-s <source> -d <destination>).");
+                return 1;
+            }
+
+            var hasDirectorySource = Directory.Exists(opts.Source);
+            var hasProjectSource = File.Exists(opts.Source)
+                && (Path.GetExtension(opts.Source).Equals(".csproj", StringComparison.OrdinalIgnoreCase)
+                    || Path.GetExtension(opts.Source).Equals(".sln", StringComparison.OrdinalIgnoreCase));
+            if (!hasDirectorySource && !hasProjectSource)
+            {
+                Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+                return 1;
+            }
+
+            // Explicit --pass selection means "run exactly these ids"; without it
+            // the descriptor defaults (convert-project chain) are used.
+            IReadOnlyDictionary<string, bool>? legacyToggles = null;
+            IEnumerable<string>? enablePassIds = opts.EnablePasses;
+            if (opts.Passes != null && opts.Passes.Any())
+            {
+                legacyToggles = PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry());
+                enablePassIds = opts.Passes.Concat(opts.EnablePasses ?? Array.Empty<string>()).ToList();
+            }
+
+            // Validate ids before creating any output directory.
+            var validationPlan = PassPlanResolver.Resolve(
+                PassCatalog.BuildRegistry(), legacyToggles, enablePassIds, opts.DisablePasses);
+            if (!validationPlan.IsValid)
+            {
+                foreach (var planError in validationPlan.Errors)
+                {
+                    Console.Error.WriteLine(planError);
+                }
+
+                return 1;
+            }
+
+            Directory.CreateDirectory(opts.Destination);
+
+            var chain = await CliPreprocessChain.RunAsync(new CliChainRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = true,
+                Verbose = opts.Verbose,
+                FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                VerifyBuild = opts.VerifyBuild,
+                VerifyTests = opts.VerifyTests,
+                Strict = opts.LocalFunctionStrict,
+                TupleNamespace = opts.TupleNamespace,
+                MakerOptionsFactory = () => new CSharpToJava.Core.ReadOnlyStructMaker.ReadOnlyStructMakerOptions
+                {
+                    ForceReadOnlyQualifiedNames = LoadReadOnlyForceOverrides(opts.ReadOnlyOverrides),
+                },
+                RecordReadOnlyOptionsFactory = () => BuildRecordReadOnlyOptions(
+                    opts.RecordReadOnlyOverrides, strict: false),
+                JavaKeywordOptionsFactory = () => BuildJavaKeywordOptions(
+                    opts.JavaKeywordsOverrides, strict: false),
+                LegacyToggles = legacyToggles,
+                EnablePassIds = enablePassIds,
+                DisablePassIds = opts.DisablePasses,
+            });
+
+            if (!chain.Success)
+            {
+                return 1;
+            }
+
+            Console.WriteLine($"[preprocess] output: {chain.FinalSourcePath}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            if (opts.Verbose)
+            {
+                Console.Error.WriteLine(ex.StackTrace);
+            }
+
+            return 1;
+        }
+    }
+
     private static async Task<int> ArrayMethod(ArrayMethodOptions opts)
     {
         var rewriterOptions = new ArrayMethodRewriterOptions(
@@ -4362,6 +4386,71 @@ class UnsignedTypeOptions
     public bool NoFilterProjects { get; set; }
 }
 
+[Verb("preprocess", HelpText = "Run registered preprocess passes on a C# project/solution without Java conversion; use --list-passes for pass ids")]
+class PreprocessVerbOptions
+{
+    [Option('p', "pass", Required = false, Separator = ',',
+        HelpText = "Pass id(s) to run, in locked order (repeatable or comma-separated); when omitted the convert-project default chain runs")]
+    public IEnumerable<string>? Passes { get; set; }
+
+    [Option("enable-pass", Required = false, Separator = ',',
+        HelpText = "Additionally enable a pass id on top of the default chain (repeatable or comma-separated)")]
+    public IEnumerable<string>? EnablePasses { get; set; }
+
+    [Option("disable-pass", Required = false, Separator = ',',
+        HelpText = "Disable a pass id (repeatable or comma-separated)")]
+    public IEnumerable<string>? DisablePasses { get; set; }
+
+    [Option("list-passes", Default = false, HelpText = "List registered preprocess passes with status and defaults, then exit")]
+    public bool ListPasses { get; set; }
+
+    [Option('s', "source", Required = false, HelpText = "Source directory, .csproj, or .sln path")]
+    public string? Source { get; set; }
+
+    [Option('d', "destination", Required = false, HelpText = "Destination directory path")]
+    public string? Destination { get; set; }
+
+    [Option('m', "mapping", Required = false, HelpText = "Path to type mapping configuration file (compat namespace prefixes)")]
+    public string? MappingConfig { get; set; }
+
+    [Option('v', "verbose", Default = false, HelpText = "Show detailed progress and info diagnostics")]
+    public bool Verbose { get; set; }
+
+    [Option("tuple-namespace", Default = "Cs2jTuples", HelpText = "Namespace for the generated tuple structs")]
+    public string TupleNamespace { get; set; } = "Cs2jTuples";
+
+    [Option("no-local-function-strict", Default = false,
+        HelpText = "Report residual local functions as warnings instead of failing the conversion")]
+    public bool NoLocalFunctionStrict { get; set; }
+
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+
+    [Option("no-verify-build", Default = false, HelpText = "Skip 'dotnet build' verification after passes that verify by default")]
+    public bool NoVerifyBuild { get; set; }
+
+    [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after passes that verify by default")]
+    public bool NoVerifyTests { get; set; }
+
+    [Option("readonly-overrides", Required = false,
+        HelpText = "Path to JSON config listing qualified type names to force as readonly structs (default: config/ReadOnlyStructOverrides.json)")]
+    public string? ReadOnlyOverrides { get; set; }
+
+    [Option("record-readonly-overrides", Required = false,
+        HelpText = "Path to RecordReadOnlyOverrides.json (default: config/RecordReadOnlyOverrides.json)")]
+    public string? RecordReadOnlyOverrides { get; set; }
+
+    [Option("java-keywords-overrides", Required = false,
+        HelpText = "Path to JavaKeywordsOverrides.json (default: config/JavaKeywordsOverrides.json)")]
+    public string? JavaKeywordsOverrides { get; set; }
+
+    public bool LocalFunctionStrict => !NoLocalFunctionStrict;
+    public bool FilterUnsupportedProjects => !NoFilterProjects;
+    public bool VerifyBuild => !NoVerifyBuild;
+    public bool VerifyTests => !NoVerifyTests;
+}
+
 [Verb("ref-out-in", HelpText = "Rewrite ref/out/in parameters to ByRef<T> proxy model (C# → C# source rewrite)")]
 class RefOutInVerbOptions
 {
@@ -4682,6 +4771,14 @@ class ConvertProjectOptions
     [Option("enable-array-method", Default = false,
         HelpText = "Run array-method preprocessor before conversion")]
     public bool EnableArrayMethod { get; set; }
+
+    [Option("enable-pass", Required = false, Separator = ',',
+        HelpText = "Enable a preprocess pass by id, overriding defaults and legacy flags (repeatable or comma-separated; use the 'preprocess --list-passes' verb for ids)")]
+    public IEnumerable<string>? EnablePasses { get; set; }
+
+    [Option("disable-pass", Required = false, Separator = ',',
+        HelpText = "Disable a preprocess pass by id, overriding defaults and legacy flags (repeatable or comma-separated; use the 'preprocess --list-passes' verb for ids)")]
+    public IEnumerable<string>? DisablePasses { get; set; }
 
     public bool UseRecords => !NoRecords;
     public bool GenerateJavaDoc => !NoJavaDoc;

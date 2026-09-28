@@ -78,6 +78,13 @@ internal static class PassChainFactory
         };
 
     /// <summary>
+    /// All-false legacy toggle map: used by the standalone verb's explicit
+    /// <c>--pass</c> selection so that only the requested ids run.
+    /// </summary>
+    public static IReadOnlyDictionary<string, bool> BuildAllDisabledToggles(PassRegistry registry)
+        => registry.Ordered.ToDictionary(pass => pass.Id, _ => false, StringComparer.Ordinal);
+
+    /// <summary>
     /// Create the adapter for an enabled, implemented pass. Throws for unknown ids
     /// or stubs (stubs are rejected by the caller before any adapter is requested).
     /// </summary>
