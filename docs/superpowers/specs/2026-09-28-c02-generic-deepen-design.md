@@ -1,9 +1,9 @@
 # C02 Generic 深化预处理器设计：typeof(T) / is-as T / 静态泛型字段
 
-**日期**: 2026-09-28
+**日期**: 2026-09-28（同日完成代码级评审修订，见 §13）
 **范围**: 把注册表 stub `generic-deepen`（catalog C02，P0）从 `Stub` 翻转为 `Implemented`；新增 Core 规则与 CLI 适配器，不修改 C#→Java 转换器代码（转换器侧配合项另立后续 PR，见 §10）
-**状态**: 设计稿，待评审；实施在独立 worktree（见 §12），本文不改动任何代码
-**对应基线**: f68a783c（`feat(preprocessing): register 23 merged-family stub passes`）
+**状态**: 已评审定稿；实施在独立 worktree（见 §12），本文不改动任何代码
+**对应基线**: 代码基线 f68a783c（`feat(preprocessing): register 23 merged-family stub passes`）；worktree 基线 ff216bcc（dev-3.x HEAD，f68a783c 之后均为 docs-only 提交，见 §12）
 **关联资料**: `prompts/preprocessor-catalog.md` C02（L269-281）/E10（L30）/C30（L615-626）/C33（L653-665）/§3.3（L898-915）/§4 风险 6/8/9/11（L925-930）/§5（L942-1003）；`.trae/documents/preprocessor-foundation_plan.md` L60-139
 
 ---
@@ -16,18 +16,18 @@ E10（`generic` pass，Core 入口 [GenericPreprocessor.cs](file:///d:/code/cs2j
 
 | # | 模式 | 现状 | 证据 |
 |---|---|---|---|
-| 1 | `default(T)` | **已做**：安全上下文化为 `default` 字面量；`==/!=` 与泛型方法推断实参两类上下文保守跳过 | [GenericPreprocess.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L217-L300) |
+| 1 | `default(T)` | **已做**：安全上下文改写为 `default` 字面量；`==/!=` 与泛型方法推断实参两类上下文保守跳过 | [GenericPreprocessor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L217-L249)（跳过判定 helper L255-300） |
 | 2 | `new T()` | **已做**：→ `global::System.Activator.CreateInstance<T>()` | [GenericPreprocess.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L307-L338) |
 | 3 | `new T[n]` | **已做**：→ `(T[])global::System.Array.CreateInstance(typeof(T), n)` | [GenericPreprocess.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L340-L391) |
 | 4 | 前向类型参数哨兵 | **已做（隐式补偿）**：对仅出现在泛型转发实参中的方法类型参数，在方法体首注入 `var __cs2j_typeof_T = typeof(T);`，触发转换器注入 leading `Class<T> _cs2j_T` | [GenericPreprocess.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L421-L602) |
 | 5 | override 兄弟哨兵同步 | **已做（隐式补偿）**：全编译预扫描 override 族，向缺少 `typeof(T)` 的兄弟/抽象（abstract→virtual+抛桩体）注入同款哨兵 | [GenericPreprocessor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L74-L166) |
 | 6 | `typeof(T)` | **未做，仅计数**（`TypeOfExpressionsSeen`）：类注释明示「暂不降级（仅统计），避免破坏签名/控制流」 | [GenericPreprocessor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L18)、[#L396-L403](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L396-L403) |
 | 7 | `is T` / `as T` | **未做，仅计数**（`IsTypeParamSeen`/`AsTypeParamSeen`） | [GenericPreprocessor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L405-L419) |
-| 8 | 引用封闭类型参数的**静态字段** | **Core 无规则**；转换器 fail-fast | [FieldTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L111-L119)（`CS2J normalization required: static field referencing enclosing type parameters …`） |
-| 9 | 引用类类型参数的静态成员（方法/属性） | Core 无规则；转换器后置校验 CS2J5002 兜底报错（静态方法引用类类型参数 Java 不可表达） | [JavaStaticContextValidationRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Java/Rewriters/JavaStaticContextValidationRewriter.cs#L8-L16) |
-| 10 | `catch (T) where T : Exception` | Core 无规则；转换器 fail-fast | [StatementTransformer.SwitchAndResource.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L151-L156) |
-| 11 | 类型参数声明模式 `x is T v` / switch 中的类型参数模式 | 无前置规则；转换器仅支持具体类型声明模式，未知模式落 `/* TODO: unsupported pattern */ true` 恒真占位（静默错误输出） | [TypeOperationTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L107-L125) |
-| 12 | 跨方法/跨文件/嵌套泛型的 token 一致性 | 无系统契约。转换器侧曾有 `DetectTypeOfDefaultUsage`/`MethodLikelyNeedsClassTokens` 双扫描器（见测试注释），现存 [ConversionContext.MethodClassTokenNeedCache](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L148-L153) 已无任何调用方；相关测试文件 [TrailingClassTokenCallSiteTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/TrailingClassTokenCallSiteTests.cs) 已被掏空（无测试方法），[CrossProjectGenericClassTokenTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/CrossProjectGenericClassTokenTests.cs) 仍有既存失败（见 §7） |
+| 8 | 引用封闭类型参数的**静态字段** | **Core 无规则**；转换器 fail-fast | [FieldTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L112-L118)（`CS2J normalization required: static field referencing enclosing type parameters …`） |
+| 9 | 引用类类型参数的静态成员（方法/属性） | Core 无规则；转换器后置校验 CS2J5002 兜底告警（Warning 级诊断；静态方法引用类类型参数 Java 不可表达） | [JavaStaticContextValidationRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Java/Rewriters/JavaStaticContextValidationRewriter.cs#L124-L146) |
+| 10 | `catch (T) where T : Exception` | Core 无规则；转换器 fail-fast | [StatementTransformer.SwitchAndResource.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L151-L156)（`catch clauses over a type parameter must be lowered by a preprocessor`） |
+| 11 | 类型参数声明模式 `x is T v` / switch 中的类型参数模式 | 无前置规则；转换器仅支持具体类型声明模式，未知模式落 `/* TODO: unsupported pattern */ true` 恒真占位（静默错误输出） | [TypeOperationTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L107-L117) |
+| 12 | 跨方法/跨文件/嵌套泛型的 token 一致性 | 无系统契约。转换器侧曾有 `DetectTypeOfDefaultUsage`/`MethodLikelyNeedsClassTokens` 双扫描器（见测试注释），现存 [ConversionContext.MethodClassTokenNeedCache](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L152-L153) 已无任何调用方（全仓 grep 仅剩声明）；相关测试文件 [TrailingClassTokenCallSiteTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/TrailingClassTokenCallSiteTests.cs) 已被掏空（无测试方法，a86e750f 移除），[CrossProjectGenericClassTokenTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/CrossProjectGenericClassTokenTests.cs) 有既存失败——**2026-09-28 实测 4 例中 2 例失败**（其一 `LibProject_GenericMethod_WithLinq_NoSpuriousClassToken`：转换器在 GraphSort.cs L1350-1359 处抛 `NotSupportedException`，见 §7.3） |
 
 转换器对 `typeof(T)`/`is T` 的 Java 形态**已有期望**：`typeof(T)` → `_cs2j_T`（方法签名上的 leading `Class<T>` 参数），`x is T` → `_cs2j_T.isInstance(x)`，封闭类型 → `Rt(...).class`，见 [TypeOperationTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L87-L130) 与 [ConversionContext.GetClassLiteral](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L441-L479)。即：**Java 侧令牌参数从哪传入，今天的答案是「转换器扫描方法体里的 `typeof(T)` 启发式注入」**；C02 的目标是把这件事从启发式升级为 C# 中间树上的显式、可 .NET 验证、跨项目一致的契约。
 
@@ -70,8 +70,8 @@ E10（`generic` pass，Core 入口 [GenericPreprocessor.cs](file:///d:/code/cs2j
 | `is T` / `as T`（二元表达式） | **保留 C# 原表达式不改写**：转换器已映射为 `_cs2j_T.isInstance(x)` / 三元判定（[TypeOperationTransformer.cs:87-106](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L87-L106)）；C02 只把该方法计入 token 需求并保证锚点存在。值类型 T 语义（装箱 isinst）由 C# 编译与 CLR 保证，不在 C# 侧改写成 `IsInstanceOfType`（会引入装箱/可空差异） | GD-ISAS-A |
 | 类型参数声明模式 `x is T v` | 语句层降级，单次求值：`var __cs2j_pat = x; if (typeof(T).IsInstanceOfType(__cs2j_pat)) { T v = (T)(object)__cs2j_pat; <体> }`；`(T)(object)` 对引用 T 恒等、对结构 T 正确拆箱；不可提升上下文（字段初始化器/特性实参/查询子句）→ CS2J1104 显式报错 | GD-ISAS-B；与 C03/C37 的分工：仅处理右类型解析为 `ITypeParameterSymbol` 的模式，具体类型模式不属本 pass |
 | `catch (T)` | → `catch (global::System.Exception __cs2j_e) when (typeof(T).IsAssignableFrom(__cs2j_e.GetType())) { T e = (T)(object)__cs2j_e; <原体> }`，过滤器不匹配时自然重抛（保 CLR「T 及派生类」匹配语义与栈）；C# 编译器已保证 T 带 Exception 约束 | GD-CATCH；非类型参数的 `catch-when` 是 C03 范围 |
-| 静态泛型字段（字段类型引用类类型参数） | 两形按用途选型，均为纯 BCL 可编译 C#：① **token 键控 holder**（可变/多次赋值/有状态字段，默认形）：在同编译单元生成非泛型 holder 小类 + `ConcurrentDictionary<Type, object>` 静态存储 + 泛型访问器，读写点改写为访问器调用，保证「每个闭型一份」与 C# 语义一致；② **泛型静态方法访问器**（`static readonly` 单次初始化且无赋值的单例形，如 `Empty = new Holder<T>()`）：字段 → `static TField __cs2j_get_<F><T>(System.Type __cs2j_token_T)`，访问点改写——转换器已有此形的内联处理（[StaticGenericFieldTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/StaticGenericFieldTests.cs#L31-L35)） | GD-FIELD；**不采用转换器现存的「降为实例字段」窄形**（按实例共享 ≠ C# 按闭型共享，语义不等价，仅 `Type` 型字段等无 T 字段类型的窄场景被其覆盖，见 [StaticFieldRuntimeClassTokenTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/StaticFieldRuntimeClassTokenTests.cs#L24-L31)） |
-| 引用类类型参数的静态方法/属性 | 引入方法自有类型参数（确定性名 `__cs2j_T`，碰撞则序号后缀），签名族整体改写（abstract/virtual/override/interface 实现同计划），全编译调用点补显式类型实参；extern/接口虚契约锁定或族不可闭合时 → CS2J1102 报错 | GD-STATIC；沿用 catalog §3.2 横切约束「改签名必须基于全编译符号表」 |
+| 静态泛型字段（字段类型引用类类型参数） | 两形按用途选型，均为纯 BCL 可编译 C#：① **token 键控 holder**（可变/多次赋值/有状态字段，默认形）：在同编译单元生成非泛型 holder 小类 + `Dictionary<Type, object>` 静态存储（**加锁 `lock` 双检懒初始化**；键为各 token 的 `AssemblyQualifiedName` 拼接串）+ 泛型访问器，读写点改写为访问器调用，保证「每个闭型一份」与 C# 语义一致——**已核实 [TypeMappings.json](file:///d:/code/cs2j/config/TypeMappings.json) 无 `System.Collections.Concurrent`/`ConcurrentDictionary` 任何映射，而 `System.Collections.Generic` 有命名空间级映射（L8228-8229 → `dotnet.System.Collections.Generic`），故存储选加锁 `Dictionary` 而非 `ConcurrentDictionary`**（见 §10 风险 11 核实结论）；② **泛型静态方法访问器**（`static readonly` 单次初始化且无赋值的单例形，如 `Empty = new Holder<T>()`）：字段 → `static TField __cs2j_get_<F><T>(System.Type __cs2j_token_T)`，访问点改写——转换器已有此形的内联处理（[StaticGenericFieldTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/StaticGenericFieldTests.cs#L31-L35)） | GD-FIELD；**不采用转换器现存的「降为实例字段」窄形**（按实例共享 ≠ C# 按闭型共享，语义不等价，仅 `Type` 型字段等无 T 字段类型的窄场景被其覆盖，见 [StaticFieldRuntimeClassTokenTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/StaticFieldRuntimeClassTokenTests.cs#L24-L31)） |
+| 引用类类型参数的静态方法/属性 | **v1 只改写静态方法**：为方法引入自有类型参数（确定性名 `__cs2j_T`，碰撞则序号后缀），全编译调用点补显式类型实参；**静态方法在 C# 不可 override，无签名族手术面**（`static abstract` 接口成员与已带自有类型参数的方法 → CS2J1102 报错跳过）。**静态属性 v1 显式报 CS2J1102**：属性声明无类型参数载体，属性→访问器化属 C11 member-desugar 语法面，待其落地后协同放开（禁止静默透传） | GD-STATIC；沿用 catalog §3.2 横切约束「改签名必须基于全编译符号表」；静态方法无族（C# 不可虚），风险面远小于 §10.2 的族改写评估 |
 | 调用链签名策略 | v1（M1-M4）**不改托管签名**，只做 L0/L1 锚点与静态成员/字段结构性降级；L2（普通实例泛型方法也显式加 `System.Type` 尾参）列为 M5+ 选项，先出原型验证转换器协同与开销，再决定是否替换锚点契约——避免一次性对全树调用点做签名手术 | 开放问题 Q1 |
 | 嵌套/递归泛型 | token 需求按「方法体直接使用 + 泛型转发 + override 族 + 字段 holder 访问器」闭包传播；`Outer<T>.Inner<U>` 的静态访问同时取 T/U 锚点；调用点实参为类型参数时由被调方计划反向要求调用方锚点 | GD-NEST |
 | 表达式树内判定 | 提取共享谓词 `ExpressionTreeFacts.IsExpressionTreeLambda`（现内联在 [JavaKeywordSyntaxFacts.IsExpressionTreeLambda](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/JavaKeywordSyntaxFacts.cs#L55-L63)）到 Core 共享位置（建议 `Analysis/ExpressionTreeFacts.cs`），JavaKeywords 改为引用；**表达式树 lambda 内禁止改写 `is T`/模式/注入锚点到 lambda 体内**（会改变树节点构成）；方法级锚点语句插在 lambda 之外安全；不可避站点 → CS2J1110 | catalog §4 风险 8 的共享判定要求 |
@@ -100,9 +100,11 @@ SupportLibrary              = PassSupportLibrary.None
 NeedsSemanticModel          = true
 VerifyBuildByDefault        = true
 VerifyTestsByDefault        = true
-CatalogItems                = "C02"（从 stub 的 "C02, C30, C33" 收窄，见 §3.5）
+CatalogItems                = "C02"（从 stub 的 "C02, C30, C33" 收窄，见 §3.5；既有 Implemented 条目均未设置 catalogItems（null），本条目刻意显式设置 "C02" 以免被误读为已覆盖 C30/C33）
 Description                 = "Make reified generic runtime information explicit for Java type erasure (typeof(T)/is-as T/static generic fields)."
 ```
+
+两处落地注意（评审核实）：① 既有 Implemented 条目的 `IntermediateDirectoryName` 取各自门面类的常量（如 `ProjectGenericPreprocessor.IntermediateDirectoryName`）；本 pass 不建门面（§5.1），改为 `GenericDeepenPassAdapter` 上的 `public const string IntermediateDirectoryName = ".cs2j-generic-deepen-src";`，`PassCatalog` 引用该常量（同程序集，CLI→CLI 合法）；② `PassIds` 是 `internal static class`（[PassCatalog.cs:6-24](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L24)），新增常量无可见性问题。
 
 链位语义：`unsigned → generic(E10) → generic-deepen(C02) → record-readonly / array-method / make-readonly → eliminate-goto → java-keywords → 主转换`。catalog 要求「必须在 E09 Unsigned 之后」由 E10 的既有位置传递满足；C02 不重排任何既有 pass。
 
@@ -116,7 +118,7 @@ Description                 = "Make reified generic runtime information explicit
 | [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L91-L218) | `CreateAdapter` switch 增 `PassIds.GenericDeepen => new GenericDeepenPassAdapter(...)`。**不进 `BuildLegacyToggles`**（无历史开关）：缺省启用态取 descriptor，通用 `--enable-pass/--disable-pass generic-deepen` 即可控制 |
 | `src/CSharpToJava.Core/GenericPreprocess/GenericDeepen*.cs` | 新增 Core 组件（§4） |
 | `src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs` | 新增共享谓词；JavaKeywords 改引用（一处小重构） |
-| 测试 | 注册表顺序/`--list-passes` 状态断言、Core 单测、项目级 fixture、residual 闸门、CLI 测试（§7）；[ProjectTests.csproj](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj) 增 fixture 的 Content/链接 |
+| 测试 | 注册表顺序/`--list-passes` 状态断言、Core 单测、项目级 fixture、residual 闸门、CLI 测试（§7）；[ProjectTests.csproj](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj) 增 fixture 的 Content/链接。**需同步更新的既有锁定测试（评审核实）**：[PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs)（`Registry_order_matches_the_locked_historical_chain` 的 16-id 锁定链 → 17 id，generic 之后、record-readonly 之前；默认启用集合断言不变——本 pass 默认关）、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs)（stub 计数 23 → 24：删 generic-deepen、补登 C30/C33 两个 stub，见 §3.5）；[PassListFormatterTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassListFormatterTests.cs) 行数按注册表自动派生，无需改 |
 
 不需要改的：`Program.cs` 的指纹逻辑（[L1765-1774](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1765-L1774) 已按注册表全集自动生成 `pass:generic-deepen=on/off` 令牌，翻转造成一次性缓存失效，符合预期）、保留目录（由已执行 pass 的 `IntermediateDirectoryName` 驱动）、通用 verb（`preprocess --pass generic-deepen` 自动可达；stub 启用即 CS2J9001 的拒绝路径 [Program.cs:3458-3465](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3458-L3465) 翻转后自然消失）、`ProjectPassRunner`（标准骨架 + `AfterFilesAsync` 已够用）。
 
@@ -133,7 +135,7 @@ Description                 = "Make reified generic runtime information explicit
 
 ### 3.5 C30/C33 的注册善后
 
-翻转 C02 时 `catalogItems` 只写 `"C02"`。C30 与 C33 保留为可见的未来条目：最小做法是在 `PassStubCatalog` 新增两个独立 stub（建议 id `closed-metadata`/`variance-audit`，默认关，分别 RunAfter `generic-deepen` 与 `generic`，描述注明 P2/P3 与阻塞项），使 `--list-passes` 仍能看到三兄弟且不会误认为 C02 已覆盖它们；是否当次补登可在实施 PR 决定，但**不得**让 C02 描述符继续标注三者。
+翻转 C02 时 `catalogItems` 只写 `"C02"`。C30 与 C33 保留为可见的未来条目：**评审决定当次补登两个独立 stub**（`PassStubCatalog` 新增 id `closed-metadata`（RunAfter `generic-deepen`，`PassStage.Abi`，catalogItems "C30"）与 `variance-audit`（RunAfter `generic`，`PassStage.Declarative`，catalogItems "C33"），默认关，描述注明 P2/P3 与阻塞项），使 `--list-passes` 仍能看到三兄弟且不会误认为 C02 已覆盖它们；stub 总数 23 → 24（-1 generic-deepen +2 新 stub，PassStubCatalogTests 同步）。**不得**让 C02 描述符继续标注三者。
 
 ### 3.6 默认关→默认开门槛
 
@@ -157,7 +159,7 @@ Description                 = "Make reified generic runtime information explicit
 | `GenericDeepenAnalyzer.cs` | **全编译一次**：① 类型参数符号表（类级/方法级 `ITypeParameterSymbol` → 容器、约束、序号）；② token 需求图：方法体直接使用（`typeof(T)`/`is T`/`as T`/`new T[n]` 经 E10 后的 `Array.CreateInstance(typeof(T),…)`/模式/catch/holder 访问）、泛型转发边、override 族边（沿用 E10 `PrescanOverrideSiblings` 的族收集但产出符号级计划）；③ 静态成员/字段分类（F0 常量/F1 单例只读/F2 有状态/ThreadStatic 标记排除/反射与序列化名风险标记）；④ 调用点索引（`IMethodSymbol` → 全部源内调用语法，含跨文件、跨项目同编译）；⑤ 表达式树区间标注；⑥ extern/接口虚契约/抽象族闭合性 |
 | `GenericDeepenPlan.cs` | 计划类型：`TokenAnchorPlan`（方法符号 + 有序锚点参数集 + TouchedFiles）、`TypeParamPatternPlan`、`CatchTypeParamPlan`、`StaticMemberPlan`（族级：签名改写 + 调用点集）、`StaticFieldHolderPlan`（字段符号、形选型、holder 生成需求、全部读写点、TouchedFiles）、`NestedTokenPlan`；每计划带 `Id/Outcome(Active|Skipped)/FailCode/FailReason/OwnsTouch`，供回退与 skip/force |
 | `GenericDeepenRewriter.cs` | `CSharpSyntaxRewriter`：按本文件 active 计划逐节点改写——插锚点、降级声明模式/catch、静态成员签名与调用点、字段读写点；只用语义绑定命中，禁止文本替换；改写节点挂 `RewriteAnnotation` |
-| `GenericDeepenHolderGenerator.cs` | 生成 holder 非泛型小类、`ConcurrentDictionary<Type,object>` 存储、泛型访问器（初始化表达式中对 T 的引用按 E10 同款规则归一：`new T()`→`Activator.CreateInstance<T>()`、`typeof(T)`→token 形参）；产出按项目归属的文件内容与 Compile 接线清单（归属算法复用 Tuple 已验证的项目引用图/可达性逻辑，可考虑提取共享 helper 但不强制） |
+| `GenericDeepenHolderGenerator.cs` | 生成 holder 非泛型小类、`Dictionary<Type,object>` 加锁存储（§2 核实结论）、泛型访问器（初始化表达式中对 T 的引用按 E10 同款规则归一：`new T()`→`Activator.CreateInstance<T>()`、`typeof(T)`→token 形参）；产出按项目归属的文件内容与 Compile 接线清单（归属算法复用 Tuple 已验证的项目引用图/可达性逻辑，可考虑提取共享 helper 但不强制） |
 | `GenericDeepenResidualScanner.cs` | 后置残余自检（§4.5） |
 | `GenericDeepenPreprocessor.cs` | 对外入口：`BindCompilation(Compilation)`/`Analyze()`/`ExcludePlans(ids)`/`Plans`/`RewriteFile(code, SemanticModel, stats, diagnostics)`/`GeneratedFileSpecs`/`ResidualScan(Compilation)`/`FormatAndValidate`（三候选：改动区格式化→整文件格式化→原文，与 JK/RR 同款） |
 | `Analysis/ExpressionTreeFacts.cs`（Core 共享） | `IsExpressionTreeLambda(SemanticModel, LambdaExpressionSyntax)` 共享谓词（从 JavaKeywords 提取） |
@@ -174,13 +176,13 @@ Description                 = "Make reified generic runtime information explicit
 ### 4.3 规则全集（GD-x）
 
 - **GD-ANCHOR-1（L0）**：方法体直接出现 `typeof(T)`/`is T`/`as T`/类型参数模式/`catch(T)`/经 E10 后的 `Array.CreateInstance(typeof(T),…)`/`Activator.CreateInstance<T>()` 之一，或经 GD-STATIC/GD-FIELD/GD-NEST 计算需要 token 时，块首按序插 `global::System.Type __cs2j_token_<T> = typeof(<T>);`；表达式体先包块（含 E10 已证的 override 表达式体场景）。锚点变量被转换器当作普通局部（其初始化器即 `typeof(T)`，被现有扫描识别），不改变任何可执行语义（多一次 Type 句柄读取，运行时无副作用差异）。
-- **GD-ANCHOR-2（L1 族同步）**：override/abstract/virtual/interface 族按基方法 OriginalDefinition 分组：族内任一实现需要某参数 token，则族内全部成员（含抽象声明→按 E10 先例改 virtual+抛桩体的既有形态保留决策，见开放问题 Q2）取得同序锚点；取代 E10 `SyncTypeOfForOverrideSiblings` 的字符串名集合做法。
-- **GD-ANCHOR-3（前向/转发）**：方法把自有类型参数仅经泛型调用实参转发给已判明需要 token 的被调方时，本方法补锚点；取代 E10 `InsertTypeOfForForwardedTypeParams`。E10 同名旧哨兵在本 pass 中被识别为已满足锚点（去重、不双注入）。
+- **GD-ANCHOR-2（L1 族同步）**：override/abstract/virtual/interface 族按基方法 OriginalDefinition 分组（接口实现族经 `INamedTypeSymbol.FindImplementationForInterfaceMember` 收集）：族内任一实现需要某参数 token，则族内全部成员（含抽象声明→按 E10 先例改 virtual+抛桩体的既有形态保留决策，见开放问题 Q2）取得同序锚点（按类型参数**序位**对齐，各成员用自身形参名，不按名字匹配）；取代 E10 `PrescanOverrideSiblings`（[GenericPreprocessor.cs:74-166](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L74-L166)，选项开关 `SyncTypeOfForOverrideSiblings`）的字符串名集合做法。
+- **GD-ANCHOR-3（前向/转发）**：方法把自有类型参数仅经泛型调用实参转发给已判明需要 token 的被调方时，本方法补锚点（按被调方第 j 个类型参数的需求 ↔ 调用方第 i 个实参的映射，工作表法迭代至不动点）；取代 E10 的前向哨兵逻辑（`GenericSyntaxRewriter.VisitMethodDeclaration` L421-602 区段，选项开关 `InsertTypeOfForForwardedTypeParams`——注意这是**选项字段名**而非方法名）。E10 同名旧哨兵在本 pass 中被识别为已满足锚点（去重、不双注入）。
 - **GD-ISAS-A**：`x is T`/`x as T`（右类型为 `ITypeParameterSymbol`）不改写表达式；计入需求并由 GD-ANCHOR 保锚点。
 - **GD-ISAS-B**：类型参数**声明模式**（`is T v`、`is {…}` 中含类型参数的复合形态仅支持单层声明/弃元，and/or/属性/列表模式属 C37，遇之报 CS2J1104 交由姊妹 pass）按 §2 单次求值形态语句化；`switch` 语句中的类型参数 case 同形降级为 if-链（与 C03 共用归约形态时仅取「类型参数 case」子集，若 C03 尚未落地则本规则只处理 `if` 上下文，switch case 报 CS2J1104，不抢语法面）。
 - **GD-CATCH**：`catch(T)` → 过滤式 catch（§2）；原 catch 的 `when` 不存在（类型参数 catch 不允许自带过滤），无 C03 交叉。
-- **GD-STATIC**：静态方法/静态属性（getter/setter）/静态本地方法引用**类级**类型参数 → 提升为方法自有类型参数（`__cs2j_T` 命名、按类参数序），族改写 + 全源内调用点补显式实参 `<...>`；方法级类型参数原已存在的只补差异；调用点在另一程序集（外部符号）不可改写 → CS2J1106。
-- **GD-FIELD-1（holder 形）**：有状态/可写/多闭型共享字段 → 生成非泛型 holder + `ConcurrentDictionary<Type,object>` + 泛型 get/set 访问器；读写点 `F` → `__cs2j_get_F<T>(typeof(T))` / `__cs2j_set_F<T>(typeof(T), v)`；初始化迁移到「字典未命中工厂」内，工厂内 T 引用按 token 归一。`[ThreadStatic]` 字段不属本规则（交 C09，见 §11）。
+- **GD-STATIC**：静态方法引用**类级**类型参数 → 提升为方法自有类型参数（`__cs2j_T` 命名、按类参数序），全编译调用点补显式实参 `<...>`；静态方法在 C# 不可虚，无 override 族手术面；`static abstract`/`static virtual` 接口成员、已带自有类型参数的静态方法、静态属性（属性无类型参数载体，待 C11 协同）→ CS2J1102 显式报错跳过；方法级类型参数原已存在的只补差异；调用点在另一程序集（外部符号）不可改写 → CS2J1106。
+- **GD-FIELD-1（holder 形）**：有状态/可写/多闭型共享字段 → 生成非泛型 holder + `Dictionary<Type,object>`（加锁双检懒初始化，键 = 各 token `AssemblyQualifiedName` 拼接）+ 泛型 get/set 访问器；读写点 `F` → `__cs2j_get_F<T>(typeof(T))` / `__cs2j_set_F<T>(typeof(T), v)`；初始化迁移到「字典未命中工厂」内，工厂内 T 引用按 token 归一。`[ThreadStatic]` 字段不属本规则（交 C09，见 §11）。
 - **GD-FIELD-2（单例访问器形）**：`static readonly` 且仅初始化一次、全文无赋值、初始化为可整体搬运表达式的字段 → 泛型静态方法访问器（转换器已有映射先例）；初始化含多语句/缓存副作用/字段间依赖链时回退 GD-FIELD-1。
 - **GD-FIELD-3（排除/报错）**：字段经反射按名访问、出现在 `[JsonPropertyName]` 等按名契约、`FixedBuffer`、extern 持有、可见性跨程序集且调用点不全可见 → CS2J1103（可 overrides.skip 该字段所在类型并退化为人工处理，但**不允许静默透传**）。
 - **GD-NEST**：嵌套泛型 `Outer<T>.Inner<U>`、泛型类泛型方法、递归类型（`Node<T> Next`）、`Dictionary<K,List<T>>` 形实参传播：按符号计算每个静态访问/构造/泛型调用点所需 token 闭包，在调用方落锚点并在需要处显式传 `typeof(T)`（为 L2 预留；L0/L1 阶段体现为锚点完备性与残余闸门）。
@@ -213,7 +215,7 @@ Description                 = "Make reified generic runtime information explicit
 
 新增 `src/CSharpToJava.CLI/Preprocessing/Adapters/GenericDeepenPassAdapter.cs`（预计 120-200 行，大于普通适配器，因持有 Analyze/Plan/生成文件状态），仿 [GenericPassAdapter](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/GenericPassAdapter.cs) + [TuplePassAdapter](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs) 混合形态：
 
-- `Descriptor => PassCatalog.ImplementedById(PassIds.GenericDeepen)`；`VerifyBuild/VerifyTests => true`；`DeleteBuildOutputsAfterRestore => true`。
+- `Descriptor => PassCatalog.ImplementedById(PassIds.GenericDeepen)`；`VerifyBuild/VerifyTests => true`；`DeleteBuildOutputsAfterRestore => true`；构造签名仿 [GenericPassAdapter](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/GenericPassAdapter.cs#L23-L37)（`options, verbose, filterUnsupportedProjects, compatNamespacePrefixes, verifyBuild, verifyTests` 六参）。
 - `CompilationReadyAsync`：`_preprocessor.BindCompilation(compilation); _preprocessor.Analyze();`（计划一次成型，skip/force 在构造适配器时由 options 应用 `ExcludePlans`）。
 - `RewriteFileAsync`：调 `RewriteFile`，Changed=false 返回 null（runner 字节级复制）；诊断补 RelativePath；统计合并。
 - `AfterFilesAsync`：取 `GeneratedFileSpecs`，按 Tuple 范式落盘 holder 文件 + csproj Compile 接线（项目引用图/归属逻辑可先内部复制最小实现，后续与 Tuple 提取共享）。
@@ -222,7 +224,7 @@ Description                 = "Make reified generic runtime information explicit
 
 ### 5.2 PassChainFactory / 选项
 
-- switch 增 case；`PassChainConfiguration` 增 `GenericDeepenOptionsFactory`（延迟加载 overrides，同 record-readonly/java-keywords 的 lazy factory 模式）或直接 `new GenericDeepenOptions()`（v1 无外部配置时从简）。
+- switch 增 case；**v1 从简：`new GenericDeepenOptions()` 直接构造**（不增 `GenericDeepenOptionsFactory` 延迟加载位，v1 无外部配置面；后续需要时再仿 record-readonly 的 lazy factory 模式加）。
 - 无 legacy toggle：`BuildLegacyToggles` 不动；默认态由 descriptor 决定，`--enable-pass/--disable-pass generic-deepen` 与 `--pass generic-deepen` 全经 [PassPlanResolver](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassPlanResolver.cs) 生效。
 
 ### 5.3 verify 默认、指纹与保留目录
@@ -288,7 +290,7 @@ Description                 = "Make reified generic runtime information explicit
 ### 7.3 跨文件泛型调用与既有信号
 
 - 复用既有 fixture `tests/SampleStaticGenericSolution/`（Lib `GraphSort.Sort<TEdge>` + App 调用）构造本 pass 开/关对照：本 pass 后中间树仍 build/test 全绿，且不新增无谓 token（锚点只插在被证明需要的方法）。
-- [CrossProjectGenericClassTokenTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/CrossProjectGenericClassTokenTests.cs) 的**既有失败是相关信号**（转换器侧定义点/调用点双扫描不一致、`MethodClassTokenNeedCache` 已无调用方、TrailingClassTokenCallSiteTests 已掏空）：记录其在本 pass 落地前后的结果作为旁证，但**不属本 pass 修复范围**——它验证的是转换器 Java 产物，修复依赖 L2/转换器协同（§9 M5+、开放问题 Q1），不得为让它转绿而在 C02 PR 里改转换器。
+- [CrossProjectGenericClassTokenTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/CrossProjectGenericClassTokenTests.cs) 的**既有失败是相关信号**（**2026-09-28 实测：4 例中 2 例失败**，其一 `LibProject_GenericMethod_WithLinq_NoSpuriousClassToken` 在转换期于 GraphSort.cs L1350-1359 抛 `NotSupportedException`；转换器侧定义点/调用点双扫描不一致、`MethodClassTokenNeedCache` 已无调用方、TrailingClassTokenCallSiteTests 已掏空）：记录其在本 pass 落地前后的结果作为旁证，但**不属本 pass 修复范围**——它验证的是转换器 Java 产物，修复依赖 L2/转换器协同（§9 M5+、开放问题 Q1），不得为让它转绿而在 C02 PR 里改转换器。**基线：2 failed / 2 passed，本 pass 合入后不得恶化（≤2 失败）。**
 
 ### 7.4 中间树 Release build/test 与 sdk 基线
 
@@ -303,7 +305,7 @@ Description                 = "Make reified generic runtime information explicit
 
 - 翻转前：`--enable-pass generic-deepen` → CS2J9001 退出 1（现状回归锁定）；翻转后：`--list-passes` 状态 Implemented、目录名正确；默认关时无中间目录/无耗时；`--enable-pass` 后链路执行并串联下一环输入；`--disable-pass generic-deepen`（默认开之后）可关；单文件 verb 跨文件计划 → CS2J1190。
 - 注册表：拓扑顺序断言（generic 之后、record-readonly 之前；attribute-normalize stub 仍解析到该 id）、描述符 `catalogItems=="C02"`、无重复 id/目录。
-- 一致性：若存在 `ProjectPreprocessorsConsistentTests` 同类注册表断言，追加本 pass 段；指纹令牌含 `pass:generic-deepen=...`。
+- 一致性：[ProjectPreprocessorsConsistentTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs) 追加本 pass 的类型存在性 + `IntermediateDirectoryName`（`.cs2j-generic-deepen-src`）断言段（仿该文件对 record-readonly/java-keywords/enum 的 L105-126 段）；指纹令牌含 `pass:generic-deepen=...`。
 
 ---
 
@@ -339,7 +341,7 @@ Description                 = "Make reified generic runtime information explicit
 ## 10. 风险
 
 1. **静态字段语义等价性（最高风险）**：C# 静态字段按**闭型**共享（`C<int>.x` 与 `C<string>.x` 是两份），Java 同份。holder 字典以 `Type` 为键复刻该语义，但初始化时序（beforefieldinit 懒初始化 vs 字典首访）、异常缓存、初始化循环依赖、结构 T 的装箱键都需 fixture 与 sdk 测试覆盖；「降实例字段」是转换器现存窄形但语义不等价，本 pass 不采用且需在后续转换器 PR 中收口（catalog C02 证据中的 StaticFieldRuntimeClassTokenTests 代表该窄形）。
-2. **签名族改写爆炸面（GD-STATIC/L2）**：虚方法/接口/抽象族改方法级类型参数会触碰所有实现与调用点；跨程序集不可见即报错可能在大库上产生大量 1102/1106。缓解：v1 只对静态成员做（范围小、Java 硬约束所迫），普通实例泛型方法的 L2 留 M5+ 原型；overrides 可 skip 类型。
+2. **签名族改写爆炸面（GD-STATIC/L2）**：~~虚方法/接口/抽象族改方法级类型参数会触碰所有实现与调用点~~（**评审核实收窄**：静态方法在 C# 不可虚，无 override 族；剩余爆炸面为 `static abstract` 接口成员与跨程序集调用点，均走 CS2J1102/1106 显式报错）；跨程序集不可见即报错可能在大库上产生大量 1102/1106。缓解：v1 只对无自有类型参数的普通静态方法做改写，其余显式报错；普通实例泛型方法的 L2 留 M5+ 原型；overrides 可 skip 类型。
 3. **表达式树/dynamic 共同禁区**（catalog §4 风险 8）：改写树内节点改变查询提供方语义；依赖共享 `ExpressionTreeFacts`，不各写一份判定；dynamic 站点不猜。
 4. **反射/字符串名契约**（catalog §4 风险 7）：字段→访问器改变成员面，`GetField("F")`、JSON 按名、XAML 静态不可见 → GD-FIELD-3 显式报错；holder/访问器生成名（`__cs2j_`）不保证反射可达，文档化限制同 JK §9。
 5. **C30 closed metadata 代码考古**（catalog §4 风险 6）：`PatchClosed*` 在本树 grep 无落点、compat 侧 `TypeHelper.closedCacheKey`/`ConcurrentHashMapHelper.putIfAbsentUntyped` 已存在——这是 **C30 的阻断项**；C02 只借「token/闭型从 C# 显式贯穿到 Java 反射」的方向，不引用其补丁、不发射注册码，避免重复建设。
@@ -348,7 +350,7 @@ Description                 = "Make reified generic runtime information explicit
 8. **E10 双轨期漂移**：M1-M4 期间 E10 哨兵规则与 C02 锚点共存，两者对「需要 token」的判定若不一致会产生分歧锚点；M1 必须把判定事实源收敛到 `GenericDeepenAnalyzer`（E10 helper 被提取复用），M5 后的后续 PR 再下线 E10 注入。
 9. **类型参数 `is T` 的值类型语义**：保留 C# 形不重写是正确性前提（自行改写成 `IsInstanceOfType` 会引入 null/Nullable 与装箱差异）；转换器映射 `isInstance` 对结构 T 的行为需在 Java 半区另行验证（不阻断 .NET 半区）。
 10. **并发改树热文件冲突**：多 pass 并行开发集中在注册表三文件，见 §11。
-11. **BCL 映射依赖假设**：holder 用到 `System.Collections.Concurrent.ConcurrentDictionary`——实施时须先核实 [TypeMappings.json](file:///d:/code/cs2j/config/TypeMappings.json) 与 compat 对其的 Java 映射完整（GetOrAdd 等），不完整则 holder 存储形降级为加锁 `Dictionary`（C# 侧实现自由，选转换器确定能映射的那一个）；这是 M3 开工前的核查项，不凭空假设。
+11. **BCL 映射依赖假设（已核实，2026-09-28）**：holder 存储原拟用 `System.Collections.Concurrent.ConcurrentDictionary`——**核实结果：[TypeMappings.json](file:///d:/code/cs2j/config/TypeMappings.json) 无任何 `System.Collections.Concurrent` 映射（grep 零命中），不可用**；而 `System.Collections.Generic` 有命名空间级映射（L8228-8229 → `dotnet.System.Collections.Generic`，`Dictionary<,>` 经 `ToDictionary` 等成员映射可达）。**结论：holder 存储形落地为加锁 `Dictionary<Type,object>`（`lock` 双检懒初始化）**，C# 侧语义等价（静态字段本就非并发安全契约），Java 侧映射确定。若实施中发现 `Dictionary<,>` 成员映射仍有缺口（TryGetValue/索引器等），缺口成员改写为 `ContainsKey`+索引器组合后再评估，不引入新依赖假设。
 
 ---
 
@@ -370,11 +372,27 @@ Description                 = "Make reified generic runtime information explicit
 
 - 分支：`feature/preproc-c02-generic-deepen`
 - 目录：`.worktrees/preproc-c02-generic-deepen`
-- base：`f68a783c`
+- base：`ff216bcc`（dev-3.x HEAD；f68a783c 之后到 ff216bcc 均为 docs-only 提交，代码基线等同 f68a783c，且含本设计文档与 plan，便于实施期对照）
 - 创建命令：
 
 ```bash
-git worktree add .worktrees/preproc-c02-generic-deepen -b feature/preproc-c02-generic-deepen f68a783c
+git worktree add .worktrees/preproc-c02-generic-deepen -b feature/preproc-c02-generic-deepen ff216bcc
 ```
 
 实施约束（交实施 worktree，不在本文档执行）：仅在上述 worktree 内改码；按 §9 里程碑逐提交；默认关先行，过 §8 门槛才翻默认开；转换器代码改动留后续 PR。
+
+---
+
+## 13. 评审修订记录（2026-09-28，代码级核实）
+
+对本设计的全部文件/行号/行为断言做了三路并行代码核实（注册表层 / Core 证据层 / 适配器与测试层），修订如下：
+
+1. **§1.1 证据表**：FieldTransformer fail-fast 实际位于 L112-118；CS2J5002 为 Warning 级诊断（`JavaStaticContextValidationRewriter.CheckTypeForClassTypeParam` L124-146，非 error）；`MethodClassTokenNeedCache` 声明于 ConversionContext.cs L152-153；TypeOperationTransformer 未知模式占位位于 IsPattern L107-117（L115）；default(T) 主体 L217-249 + 判定 helper L255-300。**CrossProjectGenericClassTokenTests 实测 4 例 2 失败**（`dotnet test -c Release --filter`，2026-09-28），已把「既有失败」从传闻升级为实测基线并写进 §7.3 验收口径。
+2. **§1.1 行 4/5 命名澄清**：E10 的前向哨兵与族同步逻辑分别是 `GenericSyntaxRewriter.VisitMethodDeclaration`（L421-602 区段）与 `PrescanOverrideSiblings`（L74-166）+ 选项开关 `InsertTypeOfForForwardedTypeParams`/`SyncTypeOfForOverrideSiblings`；原文把选项字段名当方法名引用，已改（§4.3 GD-ANCHOR-2/3）。
+3. **holder 存储形（§2/§4.1/§4.3 GD-FIELD-1/§10 风险 11）**：核实 TypeMappings.json **无** `ConcurrentDictionary`/`System.Collections.Concurrent` 映射（原设计风险 11 的乐观假设不成立），存储形定稿为加锁 `Dictionary<Type,object>`（`System.Collections.Generic` 命名空间级映射存在）。
+4. **GD-STATIC 收窄（§2/§4.3/§10 风险 2）**：静态方法 C# 不可虚 → 无 override 族手术面；`static abstract` 接口成员、已带自有类型参数的静态方法、静态属性（属性无类型参数载体）→ CS2J1102 显式报错跳过，禁静默。
+5. **§3.1/§3.2 落地细节**：无门面类时 `IntermediateDirectoryName` 常量放 `GenericDeepenPassAdapter`；`catalogItems: "C02"` 为 Implemented 表首例显式设置（既有条目均 null）；点名需同步更新的锁定测试（PassChainOrderTests 16→17 id、PassStubCatalogTests 23→24）。
+6. **§3.5 决策落定**：当次补登 `closed-metadata`/`variance-audit` 两个 stub。
+7. **§5.1/§5.2 定稿**：适配器构造签名六参仿 GenericPassAdapter；v1 不加 OptionsFactory。
+8. **§12 worktree base**：f68a783c → ff216bcc（docs-only 增量，含本设计自身）。
+9. 其余断言全部核实为真：stub 条目/Ids 常量/attribute-normalize 引用（PassStubCatalog.cs L111-120/L28/L188）、PassCatalog 结构与 16 条 Implemented 顺序、CreateAdapter switch（L94-217）、指纹令牌（Program.cs L1765-1774）、CS2J9001 拒绝路径（L3458-3465 + ProjectPassRunner.StubMessage）、`JavaKeywordSyntaxFacts.IsExpressionTreeLambda`（L55-63，internal 类中 public static，可提取）、E10 三计数器在 MergeStatistics 累加但摘要行未打印、`Analysis/` 目录已存在（仅 TypeParameterBindingAnalyzer.cs）、Tuple 生成文件分发骨架（AfterFilesAsync L122-130 + DistributeStructFiles L169-336 + EnsureCompileItem L421-473）、compat 侧 `ConcurrentHashMapHelper.putIfAbsentUntyped`/`TypeHelper.closedCacheKey` 均在。
