@@ -37,6 +37,8 @@ public sealed class GenericDeepenPreprocessor
         var anchorsByNode = new Dictionary<SyntaxNode, TokenAnchorPlan>();
         var patternsByNode = new Dictionary<SyntaxNode, TypeParamPatternPlan>();
         var catchesByNode = new Dictionary<SyntaxNode, CatchTypeParamPlan>();
+        var fieldDeclRemovals = new HashSet<SyntaxNode>();
+        var fieldUsages = new Dictionary<SyntaxNode, StaticFieldUsagePlan>();
         foreach (var plan in _analysis.Anchors)
         {
             if (plan.Declaration.SyntaxTree == model.SyntaxTree)
@@ -61,7 +63,24 @@ public sealed class GenericDeepenPreprocessor
             }
         }
 
-        if (anchorsByNode.Count == 0 && patternsByNode.Count == 0 && catchesByNode.Count == 0)
+        foreach (var plan in _analysis.StaticFields)
+        {
+            if (plan.Declaration.SyntaxTree == model.SyntaxTree)
+            {
+                fieldDeclRemovals.Add(plan.Declaration);
+            }
+
+            foreach (var usage in plan.Usages)
+            {
+                if (usage.Node.SyntaxTree == model.SyntaxTree)
+                {
+                    fieldUsages[usage.Node] = usage;
+                }
+            }
+        }
+
+        if (anchorsByNode.Count == 0 && patternsByNode.Count == 0 && catchesByNode.Count == 0
+            && fieldDeclRemovals.Count == 0 && fieldUsages.Count == 0)
         {
             stats.FilesSkippedClean = 1;
             AppendAnalysisDiagnostics(diagnostics, model);
@@ -69,7 +88,9 @@ public sealed class GenericDeepenPreprocessor
         }
 
         var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
-        var rewriter = new GenericDeepenRewriter(anchorsByNode, patternsByNode, catchesByNode, stats, diagnostics, model.SyntaxTree.FilePath);
+        var rewriter = new GenericDeepenRewriter(
+            anchorsByNode, patternsByNode, catchesByNode, fieldDeclRemovals, fieldUsages,
+            stats, diagnostics, model.SyntaxTree.FilePath);
         var newRoot = rewriter.Visit(root);
         AppendAnalysisDiagnostics(diagnostics, model);
         if (newRoot == root)

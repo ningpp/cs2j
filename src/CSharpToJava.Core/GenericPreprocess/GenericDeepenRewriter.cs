@@ -10,6 +10,8 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<SyntaxNode, TokenAnchorPlan> _anchorsByNode;
     private readonly Dictionary<SyntaxNode, TypeParamPatternPlan> _patternsByNode;
     private readonly Dictionary<SyntaxNode, CatchTypeParamPlan> _catchesByNode;
+    private readonly HashSet<SyntaxNode> _fieldDeclRemovals;
+    private readonly Dictionary<SyntaxNode, StaticFieldUsagePlan> _fieldUsages;
     private readonly GenericDeepenStatistics _stats;
     private readonly List<GenericDeepenDiagnostic> _diagnostics;
     private readonly string _filePath;
@@ -18,6 +20,8 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         Dictionary<SyntaxNode, TokenAnchorPlan> anchorsByNode,
         Dictionary<SyntaxNode, TypeParamPatternPlan> patternsByNode,
         Dictionary<SyntaxNode, CatchTypeParamPlan> catchesByNode,
+        HashSet<SyntaxNode> fieldDeclRemovals,
+        Dictionary<SyntaxNode, StaticFieldUsagePlan> fieldUsages,
         GenericDeepenStatistics stats,
         List<GenericDeepenDiagnostic> diagnostics,
         string filePath)
@@ -25,10 +29,92 @@ internal sealed class GenericDeepenRewriter : CSharpSyntaxRewriter
         _anchorsByNode = anchorsByNode;
         _patternsByNode = patternsByNode;
         _catchesByNode = catchesByNode;
+        _fieldDeclRemovals = fieldDeclRemovals;
+        _fieldUsages = fieldUsages;
         _stats = stats;
         _diagnostics = diagnostics;
         _filePath = filePath;
     }
+
+    public override SyntaxNode? VisitFieldDeclaration(FieldDeclarationSyntax node)
+    {
+        // Single-declarator plans remove the whole declaration.
+        if (_fieldDeclRemovals.Contains(node)) return null;
+        return base.VisitFieldDeclaration(node);
+    }
+
+    public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
+    {
+        if (node.Name is IdentifierNameSyntax name && _fieldUsages.TryGetValue(name, out var usage))
+        {
+            // The receiver (closed type construction) is dropped: the resolved type
+            // arguments already went into the accessor call.
+            return BuildFieldAccess(usage);
+        }
+
+        return base.VisitMemberAccessExpression(node);
+    }
+
+    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+    {
+        // Name position of a member access is handled by VisitMemberAccessExpression;
+        // receiver position (Latest.ToString()) still needs the accessor.
+        if (_fieldUsages.ContainsKey(node)
+            && (node.Parent is not MemberAccessExpressionSyntax parent || parent.Name != node))
+        {
+            return BuildFieldAccess(_fieldUsages[node]);
+        }
+
+        return base.VisitIdentifierName(node);
+    }
+
+    public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
+    {
+        if (node.Expression is AssignmentExpressionSyntax assignment
+            && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && FieldUsageOf(assignment.Left) is { IsAssignmentTarget: true } usage)
+        {
+            // Visit only the right side: rewriting the left as a read access would
+            // produce `__cs2j_get_.. = value`, which does not compile.
+            var right = (ExpressionSyntax)(Visit(assignment.Right) ?? assignment.Right)!;
+            var invocation = BuildFieldSetter(usage, right);
+            return node.WithExpression(invocation);
+        }
+
+        return base.VisitExpressionStatement(node);
+    }
+
+    private StaticFieldUsagePlan? FieldUsageOf(ExpressionSyntax expression)
+        => expression switch
+        {
+            IdentifierNameSyntax identifier when _fieldUsages.TryGetValue(identifier, out var usage) => usage,
+            MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } when _fieldUsages.TryGetValue(name, out var usage) => usage,
+            _ => null,
+        };
+
+    private ExpressionSyntax BuildFieldAccess(StaticFieldUsagePlan usage)
+    {
+        _stats.StaticFieldAccessesRewritten++;
+        return SyntaxFactory.ParseExpression($"{HolderReference(usage.Plan)}__cs2j_get_{usage.Plan.FieldName}<{TypeArgs(usage)}>({Tokens(usage)})");
+    }
+
+    private ExpressionSyntax BuildFieldSetter(StaticFieldUsagePlan usage, ExpressionSyntax right)
+    {
+        _stats.StaticFieldAccessesRewritten++;
+        return SyntaxFactory.ParseExpression(
+            $"{HolderReference(usage.Plan)}__cs2j_set_{usage.Plan.FieldName}<{TypeArgs(usage)}>({Tokens(usage)}, {right})");
+    }
+
+    private static string HolderReference(StaticFieldPlan plan)
+        => plan.HolderNamespace is { } ns
+            ? $"global::{ns}.{plan.HolderTypeName}."
+            : $"global::{plan.HolderTypeName}.";
+
+    private static string TypeArgs(StaticFieldUsagePlan usage)
+        => string.Join(", ", usage.TypeArgumentTexts);
+
+    private static string Tokens(StaticFieldUsagePlan usage)
+        => string.Join(", ", usage.TypeArgumentTexts.Select(a => $"typeof({a})"));
 
     public override SyntaxNode? VisitIfStatement(IfStatementSyntax node)
     {

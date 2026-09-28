@@ -1,3 +1,5 @@
+using System.Text;
+using System.Xml.Linq;
 using CSharpToJava.Core.GenericPreprocess;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis.CSharp;
@@ -74,6 +76,172 @@ internal sealed class GenericDeepenPassAdapter : ProjectPassAdapter
         return Task.FromResult(result.Changed
             ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true }
             : (PassFileRewrite?)null);
+    }
+
+    public override Task AfterFilesAsync(PassTreeContext tree)
+    {
+        DistributeHolderFiles(tree);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Holder ownership = declaring project: the project that compiles the file
+    /// declaring the field gets the holder class; every other usage reaches it via
+    /// project references. Tuple's cross-project reachability analysis is not needed.
+    /// </summary>
+    private void DistributeHolderFiles(PassTreeContext tree)
+    {
+        var staticFields = _preprocessor.Analysis.StaticFields;
+        if (staticFields.Count == 0)
+        {
+            return;
+        }
+
+        var layout = tree.Layout;
+        var intermediateRoot = tree.IntermediateRoot;
+        var sourceRoot = tree.SourceRoot;
+        var exclusionInfo = tree.Exclusion;
+
+        var projectFiles = layout.ProjectFiles
+            .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(file, exclusionInfo))
+            .ToList();
+
+        var plansByProject = new Dictionary<string, List<StaticFieldPlan>>(StringComparer.OrdinalIgnoreCase);
+        var unmappedPlans = new List<StaticFieldPlan>();
+        foreach (var projectFile in projectFiles)
+        {
+            var intermediateProjectFile = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, projectFile));
+            var compiled = ProjectCompileSet.ComputeCompiledFiles(intermediateProjectFile, intermediateRoot);
+            if (compiled == null)
+            {
+                continue;
+            }
+
+            var owned = staticFields
+                .Where(plan => compiled.Contains(ToIntermediatePath(plan.FilePath, sourceRoot, intermediateRoot)))
+                .ToList();
+            if (owned.Count > 0)
+            {
+                plansByProject[projectFile] = owned;
+            }
+        }
+
+        foreach (var plan in staticFields)
+        {
+            if (!plansByProject.Values.Any(list => list.Contains(plan)))
+            {
+                unmappedPlans.Add(plan);
+            }
+        }
+
+        foreach (var (projectFile, plans) in plansByProject)
+        {
+            var projectName = Path.GetFileNameWithoutExtension(projectFile);
+            var fileName = $"{GenericDeepenSyntaxFacts.GeneratedFileStem}.{projectName}.cs";
+            var intermediateProjectFile = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, projectFile));
+
+            var index = 0;
+            foreach (var content in GenericDeepenHolderGenerator.Generate(plans))
+            {
+                var rootPath = Path.Combine(intermediateRoot, index == 0 ? fileName : $"{Path.GetFileNameWithoutExtension(fileName)}.{index}.cs");
+                File.WriteAllText(rootPath, content, new UTF8Encoding(false));
+                EnsureCompileItem(
+                    intermediateProjectFile,
+                    Path.GetFileName(rootPath),
+                    Path.GetDirectoryName(intermediateProjectFile)!,
+                    rootPath);
+                index++;
+                _statistics.StaticFieldHoldersGenerated++;
+            }
+
+            _statistics.StaticFieldAccessorsGenerated += plans.Sum(
+                plan => plan.IsSingletonForm || !plan.NeedsSetter ? 1 : 2);
+
+            if (_verbose)
+            {
+                Console.WriteLine($"[generic-deepen] {projectName}: {plans.Count} static generic field(s) -> {fileName}");
+            }
+        }
+
+        foreach (var plan in unmappedPlans)
+        {
+            _diagnostics.Add(new GenericDeepenDiagnostic(
+                GenericDeepenSeverity.Warning, GenericDeepenRule.StaticField, GenericDeepenCodes.CallSiteOutsideCompilation,
+                $"Static generic field '{plan.FieldName}' could not be mapped to a declaring project; the holder was not generated and the field declaration was already removed — add the file to a project or disable the pass.",
+                plan.FilePath));
+        }
+    }
+
+    private static string ToIntermediatePath(string filePath, string sourceRoot, string intermediateRoot)
+        => Path.GetFullPath(Path.Combine(intermediateRoot, Path.GetRelativePath(sourceRoot, filePath)));
+
+    private static void EnsureCompileItem(
+        string projectFilePath,
+        string fileName,
+        string projectDirectory,
+        string sharedFilePath)
+    {
+        if (!File.Exists(projectFilePath))
+        {
+            return;
+        }
+
+        XDocument document;
+        try
+        {
+            document = XDocument.Load(projectFilePath, LoadOptions.PreserveWhitespace);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        var root = document.Root;
+        if (root == null || !root.Name.LocalName.Equals("Project", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var normalizedFileName = fileName.Replace('\\', '/');
+        foreach (var compileElement in root.Descendants()
+                     .Where(e => e.Name.LocalName == "Compile").ToList())
+        {
+            var include = (string?)compileElement.Attribute("Include");
+            var link = (string?)compileElement.Attribute("Link");
+            if (MatchesHelperFile(include, normalizedFileName)
+                || MatchesHelperFile(link, normalizedFileName))
+            {
+                compileElement.Remove();
+            }
+        }
+
+        var relativeInclude = Path.GetRelativePath(projectDirectory, sharedFilePath);
+        root.Add(
+            new XText(Environment.NewLine + "  "),
+            new XElement(
+                "ItemGroup",
+                new XElement(
+                    "Compile",
+                    new XAttribute("Include", relativeInclude),
+                    new XAttribute("Link", fileName))),
+            new XText(Environment.NewLine));
+
+        document.Save(projectFilePath, SaveOptions.DisableFormatting);
+    }
+
+    private static bool MatchesHelperFile(string? value, string normalizedFileName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var normalized = value!.Replace('\\', '/');
+        return normalized.Equals(normalizedFileName, StringComparison.OrdinalIgnoreCase)
+               || normalized.EndsWith("/" + normalizedFileName, StringComparison.OrdinalIgnoreCase);
     }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)

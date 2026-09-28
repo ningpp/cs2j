@@ -37,6 +37,7 @@ public sealed class GenericDeepenAnalysis
     public required IReadOnlyList<TokenAnchorPlan> Anchors { get; init; }
     public required IReadOnlyList<TypeParamPatternPlan> Patterns { get; init; }
     public required IReadOnlyList<CatchTypeParamPlan> Catches { get; init; }
+    public required IReadOnlyList<StaticFieldPlan> StaticFields { get; init; }
     public required IReadOnlyList<GenericDeepenDiagnostic> Diagnostics { get; init; }
     public required GenericDeepenStatistics Statistics { get; init; }
 
@@ -45,6 +46,7 @@ public sealed class GenericDeepenAnalysis
         Anchors = Array.Empty<TokenAnchorPlan>(),
         Patterns = Array.Empty<TypeParamPatternPlan>(),
         Catches = Array.Empty<CatchTypeParamPlan>(),
+        StaticFields = Array.Empty<StaticFieldPlan>(),
         Diagnostics = Array.Empty<GenericDeepenDiagnostic>(),
         Statistics = new GenericDeepenStatistics(),
     };
@@ -68,6 +70,34 @@ public sealed class CatchTypeParamPlan
     public required GenericDeepenParamRef Param { get; init; }
     public required string? VariableName { get; init; }
     public required string ExceptionVariableName { get; init; }
+}
+
+/// <summary>One reference site of a static generic field (GD-FIELD).</summary>
+public sealed class StaticFieldUsagePlan
+{
+    public required SyntaxNode Node { get; init; }
+    public required StaticFieldPlan Plan { get; init; }
+    public required bool IsAssignmentTarget { get; init; }
+    public required IReadOnlyList<string> TypeArgumentTexts { get; init; }
+}
+
+/// <summary>A static field referencing enclosing type parameters, replaced by holder accessors (GD-FIELD).</summary>
+public sealed class StaticFieldPlan
+{
+    public required IFieldSymbol Field { get; init; }
+    public required FieldDeclarationSyntax Declaration { get; init; }
+    public required VariableDeclaratorSyntax Declarator { get; init; }
+    public required string HolderTypeName { get; init; }
+    public required string? HolderNamespace { get; init; }
+    public required string FieldName { get; init; }
+    public required IReadOnlyList<GenericDeepenParamRef> Params { get; init; }
+    public required IReadOnlyList<string> ConstraintTexts { get; init; }
+    public required string FieldTypeText { get; init; }
+    public required string? InitializerText { get; init; }
+    public bool IsSingletonForm { get; init; }
+    public bool NeedsSetter { get; init; }
+    public required IReadOnlyList<StaticFieldUsagePlan> Usages { get; set; }
+    public string FilePath => Declaration.SyntaxTree.FilePath;
 }
 
 /// <summary>
@@ -113,7 +143,8 @@ public sealed class GenericDeepenAnalyzer
 
     public GenericDeepenAnalysis Analyze()
     {
-        if (!_options.RewriteTypeOfAnchors && !_options.RewriteIsAsPatterns && !_options.RewriteCatchTypeParam)
+        if (!_options.RewriteTypeOfAnchors && !_options.RewriteIsAsPatterns && !_options.RewriteCatchTypeParam
+            && !_options.RewriteStaticFieldHolders)
         {
             return GenericDeepenAnalysis.Empty;
         }
@@ -125,6 +156,7 @@ public sealed class GenericDeepenAnalyzer
 
         BuildFamilies();
         PropagateNeeds();
+        CollectStaticFieldPlans();
 
         var anchors = new List<TokenAnchorPlan>();
         foreach (var (method, needs) in _needs)
@@ -171,9 +203,384 @@ public sealed class GenericDeepenAnalyzer
             Anchors = anchors,
             Patterns = _patterns,
             Catches = _catches,
+            StaticFields = _staticFields,
             Diagnostics = _diagnostics,
             Statistics = new GenericDeepenStatistics(),
         };
+    }
+
+    // ---- GD-FIELD: static generic fields ----
+
+    private readonly List<StaticFieldPlan> _staticFields = new();
+
+    private void CollectStaticFieldPlans()
+    {
+        if (!_options.RewriteStaticFieldHolders)
+        {
+            return;
+        }
+
+        // Phase A: candidate declarations.
+        var candidates = new List<(IFieldSymbol Field, FieldDeclarationSyntax Declaration, VariableDeclaratorSyntax Declarator,
+            List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> Visible, List<GenericDeepenParamRef> Referenced)>();
+        foreach (var tree in _compilation.SyntaxTrees)
+        {
+            var model = _compilation.GetSemanticModel(tree);
+            foreach (var field in tree.GetRoot().DescendantNodes().OfType<FieldDeclarationSyntax>())
+            {
+                if (!field.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))) continue;
+
+                var declarator = field.Declaration.Variables.SingleOrDefault();
+                if (declarator == null)
+                {
+                    _diagnostics.Add(new GenericDeepenDiagnostic(
+                        GenericDeepenSeverity.Warning, GenericDeepenRule.StaticField, GenericDeepenCodes.StaticFieldNotRewritable,
+                        $"Static generic field declaration '{field.Declaration.Variables[0].Identifier.ValueText}' has multiple declarators; "
+                        + "v1 only rewrites single-declarator fields, the declaration is left in place.",
+                        tree.FilePath, field.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                    continue;
+                }
+
+                if (field.AttributeLists.SelectMany(l => l.Attributes)
+                    .Any(a => a.Name.ToString() is "ThreadStatic" or "ThreadStaticAttribute"
+                        or "global::System.ThreadStatic" or "global::System.ThreadStaticAttribute"))
+                {
+                    _diagnostics.Add(new GenericDeepenDiagnostic(
+                        GenericDeepenSeverity.Info, GenericDeepenRule.StaticField, GenericDeepenCodes.Info,
+                        $"[ThreadStatic] field '{field.Declaration.Variables[0].Identifier.ValueText}' is owned by the thread-static pass (C09); skipped here.",
+                        tree.FilePath, field.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                    continue;
+                }
+
+                if (model.GetDeclaredSymbol(declarator) is not IFieldSymbol fieldSymbol) continue;
+                var visible = CollectVisibleClassParams(fieldSymbol);
+                if (visible.Count == 0) continue;
+
+                var referenced = new List<GenericDeepenParamRef>();
+                CollectTypeReferences(fieldSymbol.Type, visible, referenced);
+                if (declarator.Initializer?.Value is { } initializer)
+                {
+                    foreach (var identifier in initializer.DescendantNodes().OfType<IdentifierNameSyntax>())
+                    {
+                        if (model.GetSymbolInfo(identifier).Symbol is ITypeParameterSymbol tp)
+                        {
+                            var match = visible.FirstOrDefault(v => SymbolEqualityComparer.Default.Equals(v.Symbol, tp));
+                            if (match.Ref != null && !referenced.Contains(match.Ref))
+                            {
+                                referenced.Add(match.Ref);
+                            }
+                        }
+                    }
+                }
+
+                if (referenced.Count == 0) continue;
+                referenced.Sort(ParamRefComparer.Instance);
+                candidates.Add((fieldSymbol, field, declarator, visible, referenced));
+            }
+        }
+
+        // Phase B: usage index (cross-tree).
+        foreach (var candidate in candidates)
+        {
+            var usages = new List<(SyntaxNode Node, bool IsAssignmentTarget, IReadOnlyList<string> TypeArgumentTexts)>();
+            var excluded = false;
+            foreach (var tree in _compilation.SyntaxTrees)
+            {
+                var model = _compilation.GetSemanticModel(tree);
+                foreach (var identifier in tree.GetRoot().DescendantNodes().OfType<IdentifierNameSyntax>())
+                {
+                    if (identifier.Identifier.ValueText != candidate.Field.Name) continue;
+                    if (model.GetSymbolInfo(identifier).Symbol is not IFieldSymbol resolved
+                        || !SymbolEqualityComparer.Default.Equals(resolved.OriginalDefinition, candidate.Field.OriginalDefinition))
+                    {
+                        continue;
+                    }
+
+                    if (IsWithinNameOf(identifier)) continue;
+
+                    if (IsWithinExpressionTree(model, identifier))
+                    {
+                        _diagnostics.Add(new GenericDeepenDiagnostic(
+                            GenericDeepenSeverity.Warning, GenericDeepenRule.StaticField, GenericDeepenCodes.ExpressionTreeSite,
+                            $"Static generic field '{candidate.Field.Name}' is referenced inside an expression-tree lambda; the field cannot be rewritten.",
+                            tree.FilePath, identifier.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                        excluded = true;
+                        break;
+                    }
+
+                    var (classification, typeArgs) = ClassifyUsage(identifier, model, candidate);
+                    if (classification == UsageClassification.Exclude)
+                    {
+                        _diagnostics.Add(new GenericDeepenDiagnostic(
+                            GenericDeepenSeverity.Warning, GenericDeepenRule.StaticField, GenericDeepenCodes.StaticFieldNotRewritable,
+                            $"Usage of static generic field '{candidate.Field.Name}' (compound assignment, ref/out pass, or unresolvable construction) cannot be rewritten; the field is left in place.",
+                            tree.FilePath, identifier.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+                        excluded = true;
+                        break;
+                    }
+
+                    usages.Add((identifier, classification == UsageClassification.AssignmentTarget, typeArgs ?? Array.Empty<string>()));
+                }
+
+                if (excluded) break;
+            }
+
+            if (excluded)
+            {
+                continue;
+            }
+
+            var declaration = candidate.Declaration;
+            var isReadonly = candidate.Field.IsReadOnly;
+            var hasInitializer = candidate.Declarator.Initializer != null;
+            var hasAssignments = usages.Any(u => u.IsAssignmentTarget);
+            var initializerIsSimple = hasInitializer && InitializerReferencesNoStaticGenericMembers(
+                _compilation.GetSemanticModel(declaration.SyntaxTree), candidate.Declarator.Initializer!.Value);
+            var isSingletonForm = isReadonly && !hasAssignments && hasInitializer && initializerIsSimple;
+
+            var plan = new StaticFieldPlan
+            {
+                Field = candidate.Field,
+                Declaration = declaration,
+                Declarator = candidate.Declarator,
+                HolderTypeName = GenericDeepenSyntaxFacts.HolderTypeName(candidate.Field.ContainingType.OriginalDefinition.MetadataName),
+                HolderNamespace = candidate.Field.ContainingNamespace is { IsGlobalNamespace: false } ns
+                    ? ns.ToDisplayString()
+                    : null,
+                FieldName = candidate.Field.Name,
+                Params = candidate.Referenced,
+                ConstraintTexts = CollectConstraintTexts(declaration, candidate.Referenced),
+                FieldTypeText = declaration.Declaration.Type.ToString(),
+                InitializerText = hasInitializer
+                    ? RenderInitializerText(candidate.Declarator.Initializer!.Value, candidate.Referenced)
+                    : null,
+                IsSingletonForm = isSingletonForm,
+                NeedsSetter = !isReadonly,
+                Usages = Array.Empty<StaticFieldUsagePlan>(),
+            };
+            plan.Usages = usages
+                .Select(u => new StaticFieldUsagePlan
+                {
+                    Node = u.Node,
+                    Plan = plan,
+                    IsAssignmentTarget = u.IsAssignmentTarget,
+                    TypeArgumentTexts = u.TypeArgumentTexts,
+                })
+                .ToList();
+            _staticFields.Add(plan);
+        }
+
+        _staticFields.Sort((a, b) => string.CompareOrdinal(a.FilePath, b.FilePath) != 0
+            ? string.CompareOrdinal(a.FilePath, b.FilePath)
+            : a.Declaration.SpanStart.CompareTo(b.Declaration.SpanStart));
+    }
+
+    private enum UsageClassification { Read, AssignmentTarget, Exclude }
+
+    private static List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> CollectVisibleClassParams(IFieldSymbol field)
+    {
+        var result = new List<(ITypeParameterSymbol, GenericDeepenParamRef)>();
+        var type = field.ContainingType?.OriginalDefinition;
+        while (type != null)
+        {
+            foreach (var tp in type.TypeParameters)
+            {
+                result.Add((tp, new GenericDeepenParamRef(GenericDeepenParamKind.ClassTypeParameter, tp.Ordinal, tp.Name)));
+            }
+
+            type = type.ContainingType?.OriginalDefinition;
+        }
+
+        return result;
+    }
+
+    private static void CollectTypeReferences(
+        ITypeSymbol type,
+        List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> visible,
+        List<GenericDeepenParamRef> referenced)
+    {
+        switch (type)
+        {
+            case ITypeParameterSymbol tp:
+                var match = visible.FirstOrDefault(v => SymbolEqualityComparer.Default.Equals(v.Symbol, tp));
+                if (match.Ref != null && !referenced.Contains(match.Ref))
+                {
+                    referenced.Add(match.Ref);
+                }
+
+                break;
+            case INamedTypeSymbol named:
+                foreach (var argument in named.TypeArguments)
+                {
+                    CollectTypeReferences(argument, visible, referenced);
+                }
+
+                break;
+            case IArrayTypeSymbol array:
+                CollectTypeReferences(array.ElementType, visible, referenced);
+                break;
+        }
+    }
+
+    private static bool IsWithinNameOf(IdentifierNameSyntax identifier)
+        => identifier.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax { Expression: IdentifierNameSyntax invoked } } }
+            && invoked.Identifier.ValueText == "nameof";
+
+    private static bool IsWithinExpressionTree(SemanticModel model, SyntaxNode node)
+    {
+        foreach (var ancestor in node.Ancestors().OfType<LambdaExpressionSyntax>())
+        {
+            if (CSharpToJava.Core.Analysis.ExpressionTreeFacts.IsExpressionTreeLambda(model, ancestor))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private (UsageClassification Classification, IReadOnlyList<string> TypeArgs) ClassifyUsage(
+        IdentifierNameSyntax identifier,
+        SemanticModel model,
+        (IFieldSymbol Field, FieldDeclarationSyntax Declaration, VariableDeclaratorSyntax Declarator,
+            List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> Visible, List<GenericDeepenParamRef> Referenced) candidate)
+    {
+        // Compound / incremented / ref-out usages are not rewritable in v1.
+        if (identifier.Parent is PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax
+            {
+                RawKind: (int)SyntaxKind.PreIncrementExpression or (int)SyntaxKind.PostIncrementExpression
+                or (int)SyntaxKind.PreDecrementExpression or (int)SyntaxKind.PostDecrementExpression
+            })
+        {
+            return (UsageClassification.Exclude, Array.Empty<string>());
+        }
+
+        var assignment = identifier.Parent as AssignmentExpressionSyntax;
+        if (assignment != null && assignment.Left.Contains(identifier))
+        {
+            var isSimpleStatementAssignment = assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+                && assignment.Left == identifier
+                && assignment.Parent is ExpressionStatementSyntax;
+            if (!isSimpleStatementAssignment)
+            {
+                return (UsageClassification.Exclude, Array.Empty<string>());
+            }
+
+            return (UsageClassification.AssignmentTarget, RenderTypeArguments(identifier, model, candidate));
+        }
+
+        if (identifier.Ancestors().OfType<AssignmentExpressionSyntax>()
+            .Any(a => a.Left.Span.Contains(identifier.Span) && !a.IsKind(SyntaxKind.SimpleAssignmentExpression)))
+        {
+            return (UsageClassification.Exclude, Array.Empty<string>());
+        }
+
+        if (identifier.Parent is ArgumentSyntax { RefKindKeyword.RawKind: not (int)SyntaxKind.None })
+        {
+            return (UsageClassification.Exclude, Array.Empty<string>());
+        }
+
+        var typeArgs = RenderTypeArguments(identifier, model, candidate);
+        return typeArgs == null
+            ? (UsageClassification.Exclude, Array.Empty<string>())
+            : (UsageClassification.Read, typeArgs);
+    }
+
+    /// <summary>
+    /// Renders the accessor's type arguments for one usage: receiver construction
+    /// (C&lt;int&gt;.F → "int") or the enclosing declaration's own parameter names (bare F → "T").
+    /// Null means the construction could not be resolved.
+    /// </summary>
+    private IReadOnlyList<string>? RenderTypeArguments(
+        IdentifierNameSyntax identifier,
+        SemanticModel model,
+        (IFieldSymbol Field, FieldDeclarationSyntax Declaration, VariableDeclaratorSyntax Declarator,
+            List<(ITypeParameterSymbol Symbol, GenericDeepenParamRef Ref)> Visible, List<GenericDeepenParamRef> Referenced) candidate)
+    {
+        var containingTypeName = candidate.Field.ContainingType.OriginalDefinition.Name;
+        var texts = new List<string>();
+
+        if (identifier.Parent is MemberAccessExpressionSyntax memberAccess && memberAccess.Name == identifier)
+        {
+            var generic = memberAccess.Expression.DescendantNodesAndSelf()
+                .OfType<GenericNameSyntax>()
+                .FirstOrDefault(g => g.Identifier.ValueText == containingTypeName);
+            if (generic == null)
+            {
+                return null;
+            }
+
+            foreach (var param in candidate.Referenced)
+            {
+                texts.Add(generic.TypeArgumentList.Arguments[param.Ordinal].ToString());
+            }
+
+            return texts;
+        }
+
+        // Bare identifier: inside the declaring type's own declaration(s).
+        foreach (var ancestor in identifier.Ancestors().OfType<TypeDeclarationSyntax>())
+        {
+            if (ancestor.Identifier.ValueText != containingTypeName || ancestor.TypeParameterList == null)
+            {
+                continue;
+            }
+
+            foreach (var param in candidate.Referenced)
+            {
+                texts.Add(ancestor.TypeParameterList.Parameters[param.Ordinal].Identifier.ValueText);
+            }
+
+            return texts;
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<string> CollectConstraintTexts(FieldDeclarationSyntax declaration, IReadOnlyList<GenericDeepenParamRef> referenced)
+    {
+        var names = referenced.Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
+        var texts = new List<string>();
+        foreach (var ancestor in declaration.Ancestors().OfType<TypeDeclarationSyntax>())
+        {
+            foreach (var clause in ancestor.ConstraintClauses)
+            {
+                if (clause.Name.Identifier.ValueText is { } name && names.Contains(name))
+                {
+                    texts.Add(clause.ToString());
+                }
+            }
+        }
+
+        return texts;
+    }
+
+    private static bool InitializerReferencesNoStaticGenericMembers(SemanticModel model, ExpressionSyntax initializer)
+    {
+        foreach (var identifier in initializer.DescendantNodes().OfType<IdentifierNameSyntax>())
+        {
+            if (model.GetSymbolInfo(identifier).Symbol is { IsStatic: true } symbol
+                && symbol.ContainingType is { IsGenericType: true })
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static string RenderInitializerText(ExpressionSyntax initializer, IReadOnlyList<GenericDeepenParamRef> referenced)
+    {
+        var text = initializer.ToString();
+        foreach (var param in referenced)
+        {
+            // typeof(T) → the accessor's token parameter; other T references keep
+            // binding to the accessor's own type parameter (same-name shadowing).
+            text = System.Text.RegularExpressions.Regex.Replace(
+                text, $@"typeof\(\s*{param.Name}\s*\)", $"__cs2j_token_{param.Name}");
+        }
+
+        return text;
     }
 
     // ---- phase 1: per-tree walk ----
