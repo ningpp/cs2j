@@ -48,10 +48,11 @@ public class Program
                 (ForeachDeconstructionVerbOptions opts) => ForeachDeconstructionAsync(opts),
                 (NullCoalesceVerbOptions opts) => NullCoalesceAsync(opts),
                 (DelegatePreprocessVerbOptions opts) => DelegatePreprocessAsync(opts),
-                _ => parser.ParseArguments<EnumPreprocessVerbOptions, RefOutInVerbOptions>(args)
+                _ => parser.ParseArguments<EnumPreprocessVerbOptions, RefOutInVerbOptions, JavaKeywordsVerbOptions>(args)
                     .MapResult(
                         (EnumPreprocessVerbOptions opts) => EnumPreprocessAsync(opts),
                         (RefOutInVerbOptions opts) => RefOutInAsync(opts),
+                        (JavaKeywordsVerbOptions opts) => JavaKeywordsVerbAsync(opts),
                         _ => Task.FromResult(1))
             );
     }
@@ -754,6 +755,47 @@ public class Program
                 opts.FingerprintSourcePath = originalSource;
                 opts.FingerprintInputRoot = preprocessResult.SourceRoot;
                 opts.UsingGotoPreprocessedSource = true;
+            }
+
+            if (opts.JavaKeywords)
+            {
+                var javaKeywordsResult = await ProjectJavaReservedWordPreprocessor.PreprocessAsync(
+                    new ProjectJavaReservedWordPreprocessRequest
+                    {
+                        SourcePath = opts.Source,
+                        DestinationRoot = opts.Destination,
+                        Force = opts.Force,
+                        Verbose = opts.Verbose,
+                        Options = BuildJavaKeywordOptions(opts.JavaKeywordsOverrides, strict: false),
+                        FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                        CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+                    });
+
+                Console.WriteLine(
+                    $"java-keywords: {javaKeywordsResult.Statistics.SymbolsRenamed} symbol(s) renamed, " +
+                    $"{javaKeywordsResult.Statistics.OperatorTypesDowngraded} operator type(s) downgraded, " +
+                    $"{javaKeywordsResult.Statistics.BooleanSitesRewritten} boolean site(s) rewritten, " +
+                    $"{javaKeywordsResult.Statistics.NameofLiteralized} nameof(s) literalized, " +
+                    $"{javaKeywordsResult.Statistics.PlansSkipped} plan(s) skipped, " +
+                    $"{javaKeywordsResult.Statistics.PlansRolledBack} plan(s) rolled back");
+
+                foreach (var diagnostic in javaKeywordsResult.Diagnostics)
+                {
+                    if (diagnostic.Severity != CSharpToJava.Core.JavaKeywords.JavaKeywordSeverity.Info
+                        || opts.Verbose)
+                    {
+                        Console.Error.WriteLine(diagnostic.ToMsBuildString());
+                    }
+                }
+
+                if (!javaKeywordsResult.Success)
+                {
+                    return 1;
+                }
+
+                opts.Source = javaKeywordsResult.PreprocessedSourcePath;
+                opts.FingerprintSourcePath ??= javaKeywordsResult.OriginalSourcePath;
+                opts.FingerprintInputRoot ??= javaKeywordsResult.SourceRoot;
             }
 
             var options = new ConversionOptions
@@ -1486,6 +1528,10 @@ public class Program
         if (opts.RecordReadOnly)
         {
             preserved.Add(ProjectRecordReadOnlyPreprocessor.IntermediateDirectoryName);
+        }
+        if (opts.JavaKeywords)
+        {
+            preserved.Add(ProjectJavaReservedWordPreprocessor.IntermediateDirectoryName);
         }
         if (opts.EnableArrayMethod)
         {
@@ -3808,6 +3854,180 @@ preserved.Add(ProjectDelegatePreprocessor.IntermediateDirectoryName);
         };
     }
 
+    private sealed class JavaKeywordsOverrideSets
+    {
+        public string[]? Force { get; set; }
+        public string[]? Skip { get; set; }
+    }
+
+    private static CSharpToJava.Core.JavaKeywords.JavaKeywordOptions BuildJavaKeywordOptions(
+        string? explicitPath,
+        bool strict,
+        IEnumerable<string>? extraForce = null,
+        IEnumerable<string>? extraSkip = null)
+    {
+        var path = explicitPath;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            path = Path.Combine(Directory.GetCurrentDirectory(), "config", "JavaKeywordsOverrides.json");
+            if (!File.Exists(path))
+            {
+                var dir = new DirectoryInfo(AppContext.BaseDirectory);
+                while (dir != null)
+                {
+                    var candidate = Path.Combine(dir.FullName, "config", "JavaKeywordsOverrides.json");
+                    if (File.Exists(candidate)) { path = candidate; break; }
+                    dir = dir.Parent;
+                }
+            }
+        }
+
+        var force = new HashSet<string>(StringComparer.Ordinal);
+        var skip = new HashSet<string>(StringComparer.Ordinal);
+        if (path != null && File.Exists(path))
+        {
+            try
+            {
+                var parsed = System.Text.Json.JsonSerializer.Deserialize<JavaKeywordsOverrideSets>(
+                    File.ReadAllText(path)) ?? new JavaKeywordsOverrideSets();
+                if (parsed.Force != null) force.UnionWith(parsed.Force);
+                if (parsed.Skip != null) skip.UnionWith(parsed.Skip);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"[Warning] Failed to load java-keywords overrides from {path}: {ex.Message}");
+            }
+        }
+        if (extraForce != null) force.UnionWith(extraForce);
+        if (extraSkip != null) skip.UnionWith(extraSkip);
+
+        return new CSharpToJava.Core.JavaKeywords.JavaKeywordOptions
+        {
+            ForceQualifiedNames = force,
+            SkipQualifiedNames = skip,
+            Strict = strict,
+        };
+    }
+
+    /// <summary>
+    /// 独立 java-keywords verb：单文件 -i/-o（只允许自包含，JK090）或
+    /// 项目 -s/-d（整树驱动 + 计划级回退）。
+    /// </summary>
+    private static async Task<int> JavaKeywordsVerbAsync(JavaKeywordsVerbOptions opts)
+    {
+        var options = BuildJavaKeywordOptions(
+            opts.Overrides,
+            strict: opts.Strict,
+            extraForce: opts.Force,
+            extraSkip: opts.Skip);
+
+        if (opts.Input != null)
+        {
+            if (!File.Exists(opts.Input))
+            {
+                Console.Error.WriteLine($"Error: Input file not found: {opts.Input}");
+                return 1;
+            }
+
+            var sourceCode = await File.ReadAllTextAsync(opts.Input);
+            var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
+                sourceCode,
+                new Microsoft.CodeAnalysis.CSharp.CSharpParseOptions(
+                    Microsoft.CodeAnalysis.CSharp.LanguageVersion.Latest),
+                path: Path.GetFullPath(opts.Input));
+            var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+                "java-keywords-file",
+                new[] { tree },
+                ProjectUnsignedTypePreprocessor.GetBasicReferences(),
+                new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                    Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+            var preprocessor =
+                new CSharpToJava.Core.JavaKeywords.JavaReservedWordPreprocessor(options);
+            preprocessor.BindCompilation(compilation);
+
+            // 单文件模式自包含闸门（JK090）：跨文件声明/引用/站点的 plan 一律排除
+            var nonSelfContained = preprocessor.Plans
+                .Where(p => p.TouchedFiles.Any(f => !string.Equals(
+                        Path.GetFullPath(f), tree.FilePath, StringComparison.OrdinalIgnoreCase)))
+                .Select(p => p.Id)
+                .ToList();
+            if (nonSelfContained.Count > 0)
+            {
+                preprocessor.ExcludePlans(nonSelfContained);
+            }
+
+            var statistics = new CSharpToJava.Core.JavaKeywords.JavaKeywordStatistics();
+            var diagnostics = new List<CSharpToJava.Core.JavaKeywords.JavaKeywordDiagnostic>();
+            var result = preprocessor.RewriteFile(
+                sourceCode, compilation.GetSemanticModel(tree), statistics, diagnostics);
+            foreach (var id in nonSelfContained)
+            {
+                var plan = preprocessor.Plans.First(p => p.Id == id);
+                diagnostics.Add(new CSharpToJava.Core.JavaKeywords.JavaKeywordDiagnostic(
+                    CSharpToJava.Core.JavaKeywords.JavaKeywordSeverity.Warning,
+                    CSharpToJava.Core.JavaKeywords.JavaKeywordDiagnosticCode.JK090,
+                    "plan is not self-contained within the single input file (declarations, " +
+                    "references, or boolean sites live outside the file); skipped in single-file mode.",
+                    tree.FilePath, 0, 0, plan.SymbolName));
+            }
+
+            if (opts.Output != null)
+                await File.WriteAllTextAsync(opts.Output, result.OutputCode, new System.Text.UTF8Encoding(false));
+            else
+                Console.Write(result.OutputCode);
+
+            foreach (var diagnostic in diagnostics)
+                Console.Error.WriteLine(diagnostic.ToMsBuildString());
+
+            return options.Strict && statistics.PlansSkipped > 0 ? 1 : 0;
+        }
+
+        if (opts.Source == null || opts.Destination == null)
+        {
+            Console.Error.WriteLine("Error: provide (-i [-o]) or (-s <source> -d <destination>).");
+            return 1;
+        }
+        if (!Directory.Exists(opts.Source) && !File.Exists(opts.Source))
+        {
+            Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
+            return 1;
+        }
+        Directory.CreateDirectory(opts.Destination);
+
+        var preprocessResult = await ProjectJavaReservedWordPreprocessor.PreprocessAsync(
+            new ProjectJavaReservedWordPreprocessRequest
+            {
+                SourcePath = opts.Source,
+                DestinationRoot = opts.Destination,
+                Force = true,
+                Verbose = opts.Verbose,
+                Options = options,
+                FilterUnsupportedProjects = opts.FilterUnsupportedProjects,
+                CompatNamespacePrefixes = LoadCompatNamespacePrefixes(opts.MappingConfig),
+            });
+
+        Console.WriteLine(
+            $"java-keywords: {preprocessResult.Statistics.SymbolsRenamed} symbol(s) renamed, " +
+            $"{preprocessResult.Statistics.OperatorTypesDowngraded} operator type(s) downgraded, " +
+            $"{preprocessResult.Statistics.BooleanSitesRewritten} boolean site(s) rewritten, " +
+            $"{preprocessResult.Statistics.NameofLiteralized} nameof(s) literalized, " +
+            $"{preprocessResult.Statistics.PlansSkipped} plan(s) skipped, " +
+            $"{preprocessResult.Statistics.PlansRolledBack} plan(s) rolled back");
+
+        foreach (var diagnostic in preprocessResult.Diagnostics)
+        {
+            if (diagnostic.Severity != CSharpToJava.Core.JavaKeywords.JavaKeywordSeverity.Info
+                || opts.Verbose)
+            {
+                Console.Error.WriteLine(diagnostic.ToMsBuildString());
+            }
+        }
+
+        return preprocessResult.Success ? 0 : 1;
+    }
+
     private static async Task<int> ArrayMethod(ArrayMethodOptions opts)
     {
         var rewriterOptions = new ArrayMethodRewriterOptions(
@@ -4587,6 +4807,46 @@ class RecordReadOnlyVerbOptions
     public bool FilterUnsupportedProjects => !NoFilterProjects;
 }
 
+[Verb("java-keywords", HelpText = "Normalize C# identifiers that clash with Java reserved words and downgrade operator true/false")]
+class JavaKeywordsVerbOptions
+{
+    [Option('i', "input", SetName = "file", HelpText = "Input .cs file (self-contained only)")]
+    public string? Input { get; set; }
+
+    [Option('o', "output", SetName = "file", HelpText = "Output .cs file (default: stdout)")]
+    public string? Output { get; set; }
+
+    [Option('s', "source", SetName = "dir", HelpText = "Source directory or .csproj/.sln file")]
+    public string? Source { get; set; }
+
+    [Option('d', "destination", SetName = "dir", HelpText = "Destination directory")]
+    public string? Destination { get; set; }
+
+    [Option('v', "verbose", Default = false, HelpText = "Show detailed progress")]
+    public bool Verbose { get; set; }
+
+    [Option("overrides", HelpText = "Path to JavaKeywordsOverrides.json")]
+    public string? Overrides { get; set; }
+
+    [Option("force", Separator = ',', HelpText = "Fully-qualified type names to force operator downgrade even in expression trees (comma-separated)")]
+    public IEnumerable<string>? Force { get; set; }
+
+    [Option("skip", Separator = ',', HelpText = "Fully-qualified type names to exclude from operator downgrade (comma-separated)")]
+    public IEnumerable<string>? Skip { get; set; }
+
+    [Option("strict", Default = false, HelpText = "Return non-zero exit code when any plan is skipped")]
+    public bool Strict { get; set; }
+
+    [Option('m', "mapping", Required = false, HelpText = "Path to type mapping configuration file")]
+    public string? MappingConfig { get; set; }
+
+    [Option("no-filter-projects", Default = false,
+        HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
+    public bool NoFilterProjects { get; set; }
+
+    public bool FilterUnsupportedProjects => !NoFilterProjects;
+}
+
 [Verb("strip-default", HelpText = "Strip default parameter values and generate C# overloads")]
 class StripDefaultOptions
 {
@@ -4960,6 +5220,14 @@ class ConvertProjectOptions
     [Option("record-readonly-overrides", Required = false,
         HelpText = "Path to RecordReadOnlyOverrides.json (default: config/RecordReadOnlyOverrides.json)")]
     public string? RecordReadOnlyOverrides { get; set; }
+
+    [Option("java-keywords", Default = false,
+        HelpText = "Enable the Java reserved-word normalization preprocessing step (rename identifiers that clash with Java keywords, downgrade operator true/false)")]
+    public bool JavaKeywords { get; set; }
+
+    [Option("java-keywords-overrides", Required = false,
+        HelpText = "Path to JavaKeywordsOverrides.json (default: config/JavaKeywordsOverrides.json)")]
+    public string? JavaKeywordsOverrides { get; set; }
 
     [Option("enable-array-method", Default = false,
         HelpText = "Run array-method preprocessor before conversion")]
