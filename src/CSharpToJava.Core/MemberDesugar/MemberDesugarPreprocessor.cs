@@ -43,19 +43,41 @@ public sealed partial class MemberDesugarPreprocessor
         foreach (var p in active.Where(p => p.Outcome != MemberDesugarOutcome.Planned))
             EmitSkipDiagnostics(p, filePath, statistics, diagnostics);
 
-        var planned = active.OfType<Properties.PropertyPlan>()
+        var plannedProps = active.OfType<Properties.PropertyPlan>()
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
-        if (planned.Count == 0)
+        var plannedIndexers = active.OfType<Indexers.IndexerPlan>()
+            .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
+        if (plannedProps.Count == 0 && plannedIndexers.Count == 0)
         {
             statistics.FilesSkippedClean++;
             return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
         }
-        statistics.PropertiesPlanned += planned.Count(p => IsFirstDeclarationFile(p, filePath));
+        statistics.PropertiesPlanned += plannedProps.Count(p => IsFirstDeclarationFile(p, filePath));
+        statistics.IndexersPlanned += plannedIndexers.Count(p => IsFirstDeclarationFile(p, filePath));
 
-        var rewriter = new Properties.PropertyUseSiteRewriter(
-            semanticModel, planned, active.OfType<Properties.PropertyPlan>().ToList(),
-            _options, statistics, diagnostics, filePath);
-        var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
+        // 属性 pass 先行（Order 10 → 20）；两族都改写同一文件时，索引器 pass 必须基于
+        // 重解析树重新绑定（SemanticModel 只能绑定自身语法树的节点，设计 §4.2-3）。
+        var current = (SyntaxNode)root;
+        var currentModel = semanticModel;
+        if (plannedProps.Count > 0)
+        {
+            var rewriter = new Properties.PropertyUseSiteRewriter(
+                semanticModel, plannedProps, active.OfType<Properties.PropertyPlan>().ToList(),
+                _options, statistics, diagnostics, filePath);
+            var visited = (CompilationUnitSyntax)rewriter.Visit(root)!;
+            if (!visited.IsEquivalentTo(root))
+            {
+                (currentModel, current) = RebindModel(semanticModel, visited);
+            }
+        }
+        if (plannedIndexers.Count > 0)
+        {
+            var indexerRewriter = new Indexers.IndexerUseSiteRewriter(
+                currentModel, plannedIndexers, active.OfType<Indexers.IndexerPlan>().ToList(),
+                _options, statistics, diagnostics, filePath);
+            current = indexerRewriter.Visit(current)!;
+        }
+        var newRoot = (CompilationUnitSyntax)current;
         if (newRoot.IsEquivalentTo(root))
         {
             statistics.FilesSkippedClean++;
@@ -119,6 +141,28 @@ public sealed partial class MemberDesugarPreprocessor
             return true;
         }
         return false;
+    }
+
+    /// <summary>属性 pass 产出新树后，索引器 pass 需要绑定新节点的 SemanticModel：
+    /// <summary>重解析改写文本并换树取新模型；返回新树根，后续 pass 必须访问新树
+    /// 节点（SemanticModel 只能绑定自身语法树的节点）。改写产物可能缺词法空白
+    /// （如 privateint，收尾格式化才补），直接重解析会把 privateint 当作类型名固化，
+    /// 因此先整树格式化再解析。</summary>
+    private static (SemanticModel Model, CompilationUnitSyntax Root) RebindModel(
+        SemanticModel original, CompilationUnitSyntax rewritten)
+    {
+        string text;
+        using (var workspace = new AdhocWorkspace())
+        {
+            try { text = Formatter.Format(rewritten, workspace).ToFullString(); }
+            catch { text = rewritten.ToFullString(); }
+        }
+        var oldTree = original.SyntaxTree;
+        var newTree = CSharpSyntaxTree.ParseText(
+            text, (CSharpParseOptions)oldTree.Options, oldTree.FilePath);
+        var newCompilation = original.Compilation.ReplaceSyntaxTree(oldTree, newTree);
+        return (newCompilation.GetSemanticModel(newTree),
+            (CompilationUnitSyntax)newTree.GetRoot());
     }
 
     /// <summary>三候选：改动区间格式化 → 整文件格式化 → 原文；重解析零错误取首个（RR/JK 同款）。</summary>

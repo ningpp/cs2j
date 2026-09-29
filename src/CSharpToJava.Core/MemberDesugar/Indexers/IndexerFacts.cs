@@ -21,6 +21,15 @@ internal static class IndexerFacts
     public static bool IsExternal(IPropertySymbol prop)
         => !prop.Locations.Any(l => l.IsInSource);
 
+    /// <summary>有效索引器名：显式接口实现的 MetadataName 形如 "IFoo.Item"，
+    /// 方法名/诊断必须取最后一段（[IndexerName] 自定义名同样落在 MetadataName，D3）。</summary>
+    public static string EffectiveName(IPropertySymbol prop)
+    {
+        var name = prop.MetadataName;
+        var dot = name.LastIndexOf('.');
+        return dot >= 0 ? name[(dot + 1)..] : name;
+    }
+
     public static bool ReturnsByRef(IPropertySymbol prop)
         => prop.ReturnsByRef || prop.ReturnsByRefReadonly;
 

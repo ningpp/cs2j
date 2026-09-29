@@ -751,10 +751,10 @@ public class MemberDesugarPropertyUnitTests
                 }
             }
             """);
-        AssertContains(output, "public int this[int i]");
+        AssertContains(output, "public int get_Item(int i)");
+        AssertContains(output, "c.set_Item(0, c.get_P());");
         AssertContains(output, "public event System.EventHandler? E;");
         AssertContains(output, "public static C operator +(C a, C b) => a;");
-        AssertContains(output, "c[0] = c.get_P();");
         AssertContains(output, "c.E += null;");
         AssertOutputCompiles(output);
     }

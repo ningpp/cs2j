@@ -32,4 +32,10 @@ internal sealed class IndexerPlan : MemberDesugarPlan
         var span = prop.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0;
         return $"MD:{prop.ContainingType?.ToDisplayString()}::{prop.MetadataName}@{span}";
     }
+
+    /// <summary>跨 Compilation 稳定键（属性 pass 改写后重解析树上的符号与原树符号
+    /// 不相等，站点查找必须按值匹配；重载按参数类型区分）。</summary>
+    public static string SiteKey(IPropertySymbol prop)
+        => $"{prop.ContainingType?.ToDisplayString()}::{prop.MetadataName}" +
+           $"({string.Join(",", prop.Parameters.Select(x => x.Type.ToDisplayString()))})";
 }

@@ -84,7 +84,9 @@ internal sealed class IndexerRule : IMemberDesugarRule
             {
                 switch (node)
                 {
-                    case ImplicitElementAccessSyntax iea when iea.Parent is InitializerExpressionSyntax:
+                    // 对象初始化器里的 [k] = v：ImplicitElementAccess 的父节点是赋值
+                    // 表达式而非初始化器，这里不能按父节点过滤。
+                    case ImplicitElementAccessSyntax iea:
                         HandleInitializerElement(iea, model, filePath,
                             candidates, siteFiles, siteFailures);
                         break;
@@ -272,7 +274,9 @@ internal sealed class IndexerRule : IMemberDesugarRule
     private static IndexerPlan CreatePlan(
         IPropertySymbol prop, IndexerDeclarationSyntax? decl, MemberDesugarOutcome outcome,
         IReadOnlyList<string> touchedFiles, MemberDesugarDiagnosticCode? code, string? reason)
-        => new()
+    {
+        var name = IndexerFacts.EffectiveName(prop);
+        return new IndexerPlan
         {
             Id = IndexerPlan.BuildId(prop),
             Kind = MemberDesugarKind.Indexer,
@@ -282,12 +286,13 @@ internal sealed class IndexerRule : IMemberDesugarRule
             FailCode = code,
             FailReason = reason,
             Indexer = prop,
-            MetadataName = prop.MetadataName,
-            GetterMethodName = AccessorsToMethods.GetterName(prop.MetadataName),
-            SetterMethodName = AccessorsToMethods.SetterName(prop.MetadataName),
+            MetadataName = name,
+            GetterMethodName = AccessorsToMethods.GetterName(name),
+            SetterMethodName = AccessorsToMethods.SetterName(name),
             HasSetter = prop.SetMethod != null,
             HasInitAccessor = decl != null && IndexerFacts.HasInitAccessor(decl),
         };
+    }
 
     private static void Record(
         Dictionary<IPropertySymbol, HashSet<string>> siteFiles, IPropertySymbol prop, string filePath)
