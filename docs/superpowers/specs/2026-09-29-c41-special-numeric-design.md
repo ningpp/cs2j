@@ -1,0 +1,441 @@
+# C41 特殊数值类型归一（Half / Int128 / UInt128 / nint / nuint / IntPtr / UIntPtr）设计
+
+**日期**: 2026-09-29
+**范围**: 在 C15 创建的 `numeric-boundary` pass 内，以**族内增量规则**形态新增 `SpecialNumeric` 规则（Core `NumericBoundary/Rules/SpecialNumeric/` + 自有测试 + fixture 子目录），对六类特殊数值的**类型使用点、运算、转换、sizeof、指针边界**做「audit 显式盘点 → 分类型显式拒绝或显式归一」；本任务**不注册新 pass、不翻转 stub、不改任何 C#→Java 转换代码**
+**状态**: 设计稿，待评审；实施前置 = C15（锚点）分支合入；catalog 定位 **P3 观察项**，默认长期 opt-in
+**族属**: catalog「数值边界族」（E09 + C15 + C17 + C22 + C34 + C41 + enum，[preprocessor-catalog.md:906](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L906-L906)）。注册表 stub 见 [PassStubCatalog.cs:162-171](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L162-L171)：id `numeric-boundary`、Stage=Expression、RunAfter=`{unsigned}`、catalogItems `"C15, C17, C22, C34, C41"`。C15 是锚点（[2026-09-28-c15-checked-unchecked-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md)），已预留 `Rules/SpecialNumeric/` 目录（C15 §4.1）、CS2J5380-5399 码段（C15 §4.5）与开放问题 5（sizeof 留给 C41/M4）
+
+---
+
+## 1. 背景与目标
+
+### 1.1 六类类型与 C# 语义要点
+
+| 类型 | 引入 | 宽度/域 | 关键语义 |
+|---|---|---|---|
+| `System.Half` | .NET 5（[MS 数值文档](https://learn.microsoft.com/zh-cn/dotnet/standard/numerics)；[doc-valhalla/04](file:///d:/code/cs2j/doc-valhalla/04-float16分析.md#L7-L7) 作 .NET 7+ 口径，以 MS 为准） | 16-bit IEEE 754 binary16，±65504 | **每个运算结果都按 binary16 舍入**（与 float/double 可用扩展精度不同）；无字面量后缀，只能 `(Half)x`；有 NaN/Inf/`Parse`/`ToString` |
+| `System.Int128` | .NET 7 | 128 位有符号定宽，16 字节 | checked 溢出、移位计数按 127 取模、`Parse`/`ToString("X")`、`BigInteger` 显式互转、实现 `INumber<Int128>` 等泛型数学接口 |
+| `System.UInt128` | .NET 7 | 128 位无符号定宽，16 字节，上界 2^128-1 | 同上 + 一元 `-` 回绕合法、无符号比较/除法、与 Half 间有显式转换 |
+| `nint` | C# 9 | 平台尺寸有符号整数（32/64 位），底层符号即 `System.IntPtr` | 算术为 native int 语义；`sizeof(nint)` **非常量** = `IntPtr.Size`；无后缀；编译期按目标平台折叠 |
+| `nuint` | C# 9 | 平台尺寸无符号整数，底层 `System.UIntPtr` | 同上；与 E09 无符号族同源 |
+| `IntPtr` / `UIntPtr` | BCL 1.x | 与 nint/nuint **同一运行时符号** | C# 9 起两种写法共享 native 算术；另有 `Zero`/`ToInt64`/`ToPointer`/`Size` 等成员面与指针互转 |
+
+注意：`Int128` 与 `decimal` 无关——decimal 虽是 128 位存储但是 96 位整数 + 小数位标度的十进制浮点，不可混用同一规则。
+
+三条容易写错的语义细节（实现时单测必须钉死）：
+
+1. **Half 逐运算舍入**：C# 规定 Half 运算的每一步结果都先舍入到 binary16（round to nearest, ties to even），不存在 float/double 允许的「扩展精度中间结果」；因此 `(Half)((float)a + (float)b)`（先 float 加再舍一次）恰好等价，但 `(float)a + (float)b` 不继续舍入就不等价。亚正规数（subnormal）区间与 ±65504 溢出为 Inf 是差异高发区。
+2. **nint 位宽影响常量折叠**：`const` 域不能声明 nint 常量（nint 非常量表达式友好类型），但字面量运算在编译期按当前目标平台折叠；`nint x = int.MaxValue + 1L` 之类形态在 32/64 位下结果不同，属决策 9 的宽度敏感桶。
+3. **移位计数掩码随宽度**：int/long 移位计数分别按 31/63 掩码，Int128/UInt128 按 127 掩码，nint/nuint 按平台（63/31）；nuint 用**逻辑**右补零（E09 的 UnsignedMath 移位面已处理 ulong 侧，[GetShiftDomain](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L313-L319) 现状把 Native 域留给本规则）。
+
+### 1.2 现状证据表（2026-09-29 grep/读码复核）
+
+| 类型/站点 | TypeMappings | compat 类 | Core 处理 | 诊断 | 结论 |
+|---|---|---|---|---|---|
+| `Half` | **无**（全仓 grep 零命中） | **无** | 全 src/tests 零命中，仅 [PassStubCatalog.cs:170](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L170-L170) 描述串出现 | 无 | 走未映射路径：Java 产物出现裸标识符 `Half`，不可编译 |
+| `Int128`/`UInt128` | **无** | **无**（`BitOperations` 也无对应） | 同上零命中 | 无 | 同上；checked 上下文由 C15 CS2J5320 兜报（[C15 §6](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md#L294-L294)） |
+| `IntPtr`/`nint` | **有**：`System.IntPtr → long`（[TypeMappings.json:4128-4131](file:///d:/code/cs2j/config/TypeMappings.json#L4128-L4131)）；`IntPtr.Size → IntPtrHelper.getSize`（[:6525-6527](file:///d:/code/cs2j/config/TypeMappings.json#L6525-L6527)） | [IntPtrHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/IntPtrHelper.java)（`getSize()` 固定返回 `Long.BYTES`） | 二元算术已被 E09 按 64 位域擦除（[UnsignedTypeSyntaxRewriter.cs:273-282](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L273-L282)）；自增 fail-fast（[UnaryExpressionTransformer.cs:185-190](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/UnaryExpressionTransformer.cs#L185-L190)）；sizeof 硬编码 `"8"`（[TypeOperationTransformer.cs:161](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L161-L161)） | fail-fast 部分 | **半覆盖**：表达式侧部分擦除，声明/参数类型语法无人改写（E09 仅 override `VisitIdentifierName`/`VisitCastExpression`，[L386](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L386-L386)/[L991](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L991-L991)），平台假设无诊断 |
+| `UIntPtr`/`nuint` | **无条目**（grep `UIntPtr` TypeMappings 零命中），但 [TypeMappingService.cs:707-724](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/TypeMappingService.cs#L707-L724) 特判查 `System.UIntPtr` → 查不到回落未映射 | [UIntPtr.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/UIntPtr.java) 存在（完整类，注释自称 "generated by CSharpToJava converter"、固定 64 位）——**半存活资产** | E09：二元按 UInt64 域（L274-277）、结果回包 `(nuint)` cast（[L347](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L347-L347)/[L358](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L358-L358)）、uint→nuint 零扩展（[L1099-1106](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L1099-L1106)、[L1209-1217](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L1209-L1217)）；一元/移位/自增 Native 域跳过（[L313-327](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L313-L327)、[UnsignedPostfixRewriter.cs:57-62](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedPostfixRewriter.cs#L57-L62)） | C17 CS2J5333 预留 | **不对称**：IntPtr→long 原语，UIntPtr 无映射却留 compat 类；nuint 声明点产裸 `UIntPtr` 类型名 |
+| `sizeof(T)` | — | — | 预定义类型发常量；IntPtr/UIntPtr 发 `"8"`；**其余（Half/Int128/用户类型）发 `"/* sizeof */"` 占位**（[TypeOperationTransformer.cs:155-164](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L155-L164)）；LinqRewriter 另有 UIntPtr→8 字面量（[LinqRewriter.cs:513](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L513-L513)） | 无 | 命中即 [catalog §4 风险 12](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931) 点名的静默占位 |
+| Roslyn 语法形态区分 | — | — | 全仓 grep `IsNativeIntegerType`/`NativeIntegers` **零命中**：nint 关键字形态与 IntPtr 写法当前不区分 | — | C41 须引入该判定 |
+
+对照：`DateOnly/TimeOnly/Guid` 均已映射（[TypeMappings.json:184](file:///d:/code/cs2j/config/TypeMappings.json#L184-L184)、[:191](file:///d:/code/cs2j/config/TypeMappings.json#L191-L191)、[:205](file:///d:/code/cs2j/config/TypeMappings.json#L205-L205)），本族是数值类型面唯一整组缺口。
+
+### 1.2.1 命中后今天的实际流转（走查，全部为只读复核推断的现状行为）
+
+| 输入片段 | 当前链路行为 | 终态 |
+|---|---|---|
+| `Half h = (Half)x; h + h2;` | 类型名经 [TypeMappingService.cs:735-741](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/TypeMappingService.cs#L735-L741) 查不到映射 → 回落短名 `Half`（无 import）；二元运算走 [BinaryExpressionTransformer.cs:80-116](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/BinaryExpressionTransformer.cs#L80-L116) 直印 `+` | Java 出现未知符号 `Half`，**不可编译，零诊断** |
+| `Int128 v = Int128.Parse(s); v << 3;` | 同上未映射；`Parse` 成员调用按短名直印；移位运算符直印 | 不可编译，零诊断；若外层有 `checked` 则先撞 C15 未落地期的转换器路径 |
+| `nint x = …; x + 1;` | E09 按 Int64 域重写为 `UnsignedMath`/cast 形态（二元）；Java 侧 `System.IntPtr → long` 承接 | **可工作**（64 位假设，无诊断） |
+| `nuint y; y++;` | E09 Native 域跳过（[UnsignedPostfixRewriter.cs:57-62](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedPostfixRewriter.cs#L57-L62)）→ 转换器 [UnaryExpressionTransformer.cs:185-190](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/UnaryExpressionTransformer.cs#L185-L190) 抛 `CS2J normalization required` | fail-fast（C17 CS2J5333 已登记） |
+| `nuint[] args; void M(nuint p)` | E09 不改写声明类型语法 → TypeMappingService 特判查 `System.UIntPtr` 无条目 → 裸类型名 `UIntPtr` | 大概率不可编译；compat UIntPtr.java 是否被 import 取决于同包巧合，**无保证** |
+| `sizeof(nint)` / `sizeof(MyStruct)` / `sizeof(Half)` | 前两档：硬编码 `"8"`；其余：`"/* sizeof */"` 注释（[TypeOperationTransformer.cs:155-164](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L155-L164)） | 前者静默押注 64 位；后者 Java 产物含注释垃圾且表达式类型缺失 |
+| `(nint)p`（p 为指针） | 转换器 FFM 路径把 IntPtr cast 当裸地址透传（[FfmHelper.cs:367-377](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Utilities/FfmHelper.cs#L367-L377)） | 半存活 FFM 面，正确性依赖 C06 重写 |
+
+### 1.2.2 字面量与常量形态盘点（六类均无专用后缀）
+
+- Half：无后缀；唯一引入形态是显式 cast `(Half)3.14`、`Half.Parse`、隐式常量转换仅限少数直接写在 cast 内的常量；
+- Int128/UInt128：无后缀；十进制整数字面量本身受 ulong 域限制，超界值只能 `Parse`/`TryParse`、双 ulong 构造或从 BigInteger 显式转；
+- nint/nuint：无后缀；整数字面量按平台域隐式转换（64 位下接受 long 范围常量），常量折叠在 32 位域先做 int 运算的边角（如 `nint x = 1 << 31`）是宽度敏感形态；
+- 结论：本规则不需要后缀词法处理（与 C43 无交集），但 rewrite 合成新字面量时必须由 SyntaxFacts 按目标域生成正确后缀（L/UL 与 cast），复用 C15 NB-6 的字面量基建。
+
+### 1.3 valhalla 既有分析结论（引用，不重复论证）
+
+- [04-float16分析.md:230-254](file:///d:/code/cs2j/doc-valhalla/04-float16分析.md#L230-L254)：当前 Java 无 Float16；推荐 **Half → float（精度损失可接受，需注释/诊断标记）**，Valhalla 后切换 value class `Float16`（估计 Java 27+，依赖 JEP 401/469）；`Half[] → float[]` 布局从 2 字节变 4 字节。
+- [06-对cs2j的影响与建议.md:154-159](file:///d:/code/cs2j/doc-valhalla/06-对cs2j的影响与建议.md#L154-L159)：映射表 `Half.javaType = "float"`、`futureJavaType = "Float16"`。
+
+### 1.4 目标
+
+1. **把六类类型从「不可编译静默/半覆盖无信号」变为具名报码**：audit 模式盘点全部使用点并按类型/站点分桶计数（P3 观察项的首要价值是取得命中率数据）；
+2. **分档显式化或显式拒绝**（§2 决策矩阵）：Half/Int128/UInt128 v1 显式拒绝；nint/nuint 把 E09 已开始的「固定 64 位擦除」做完并加平台假设诊断；sizeof 占位全部收口；
+3. 与 C15（checked）、C17（自增 CS2J5333）、E09（nuint 算术）、C06（指针边界）形成**无重叠的所有权表**，码位只追加不改号；
+4. 产物在 rewrite 模式下仍是可编译 C#，遵循 catalog §5.1 两半区方法论（.NET 半区 build/test 守门，compat Java 半区对拍）；audit 模式不改树。
+
+明确不做（留边界）：checked 128 位算术实现（M4 另评）、compat Int128/Float16 类的盲建（无命中率不投）、任何 C#→Java 转换代码改动、32 位 JVM 支持、注册表结构改动。
+
+### 1.5 硬不变式
+
+1. audit 模式输出树零 diff（字节级一致），但六类使用点**零漏盘**（analyzer 计数与 residual 扫描可对账）；
+2. reject/rewrite 模式下每个站点要么改写、要么有具名诊断使转换失败，**禁止** `/* sizeof */`、裸 `Half/Int128/UIntPtr` 标识符等静默产物流入 Java；
+3. 一切分类来自 SemanticModel（`GetTypeInfo`/`GetSymbolInfo`/`GetOperation` + `INamedTypeSymbol.IsNativeIntegerType`/`OriginalDefinition.SpecialType`），禁止按 token 文本判类型；
+4. 固定 64 位是**显式策略假设**而非隐式巧合：每个被擦除的 nint/nuint 文件/站点有 CS2J5385 可追溯；
+5. 幂等、BOM 保持、支撑工程目录 clean copy（沿用族纪律）。
+
+---
+
+## 2. 关键设计决策表
+
+| # | 决策点 | 结论 | 依据/备注 |
+|---|---|---|---|
+| 1 | **Half 总策略** | **M1/M2 显式拒绝（CS2J5381 Error）；M3+ 才评估 float 降级**，降级形态必须是「运算方法族 + 每站点精度 Warning」，不是类型文本替换 | valhalla 两文档结论（§1.3）；P3 观察项先用 audit 取命中率。.NET 侧 Half 每运算按 binary16 舍入（§1.1），**直接擦成 float 会改变级联运算结果**（float 保留额外精度），故降级须在每个二元/一元调用点插「binary16 舍入往返」helper，等效 `Half.Add(a,b) => (Half)((float)a+(float)b)` |
+| 2 | Half 降级时的中间树形态 | C# 中间树**保留真 `System.Half`**（.NET 5+ 真实类型，fixture 用 net10.0）：`a + b` → `HalfOps.Add(a, b)`（C# 支撑面，真身按 Half 舍入）；Java 半区 TypeMappings 增 `System.Half → float`，compat `Half.java` 提供 `add/subtract/...`（float 入参，运算后 binary16 舍入回 float） | 同 C15 方法族范式：.NET 半区可对拍真实 Half 值；禁止在 C# 层直接擦 float（丢 .NET 守门能力）。布局敏感站点（决策 3）不降级 |
+| 3 | Half 不可降级站点 | `Half[]`（2→4 字节布局变化）、`fixed`/unsafe/`stackalloc Half`、含 `[StructLayout]`/`[FieldOffset]` 结构体的 Half 字段、`BinaryPrimitives`/`BitConverter`/`Marshal` 上的 Half 重载、Half 上的泛型数学接口约束：即使开启降级也 **CS2J5383 Error** | valhalla 04 已注明数组布局变化；FFI 布局锁属 C06 D10/R8 同族原则 |
+| 4 | **Int128/UInt128 总策略** | **长期显式拒绝（CS2J5384 Error）**；M4 仅在 sdk audit 证明有命中时另立项评估，本任务不产 rewrite 代码 | 观察项无命中率证据；Java 无 128 位原语，任何路线都需新建 compat 完整数值面（[catalog §4 风险 14](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L933-L933)：映射存在 ≠ 语义可用） |
+| 5 | Int128 路线评估（M4 输入） | 若立项，**推荐 compat 定宽值类（双 long hi/lo）而非 `java.math.BigInteger`** | BigInteger 语义陷阱：①任意精度无定宽溢出，checked/回绕要另加 mask；②**只有有符号**，UInt128 每次运算后须手工 `& 2^128-1`，比较/除法/Parse 全部失真；③`BigInteger.toByteArray()` 是大端变长二补码，与 `BinaryPrimitives`/`BitConverter` 的 16 字节小端格式不一致；④移位语义（C# 计数按 127 取模）、`-` on UInt128、`ToString("X32")`/`Parse(NumberStyles.HexNumber)`、`PopCount/TrailingZeroCount/DivRem` 均需手写；⑤struct/泛型/字段布局与值类型期望不符。定宽值类与 UIntPtr.java 同构但成本高，须命中率支撑 |
+| 6 | 128 位字面量 | 无后缀；超 long 字面量 C# 侧只能 `(Int128)123…`（仍受 ulong 范围限制）或 `Int128.Parse("…")` / 双 ulong 构造；audit 单列字面量/Parse 桶，rewrite 评估时必须覆盖这三种引入形态 | reject 模式无需生成；M4 不得只支持十进制表达式 |
+| 7 | **nint/nuint 总策略** | **推荐：固定 64 位擦除做完**——nint→`long`、nuint→`long` + E09 无符号方法面（与现状方向一致），由 M2 补齐声明/参数/字段/返回类型语法、转换链、残余一元/移位站点，并对每个擦除发 CS2J5385 平台假设 Warning（strict Error） | 现状已实质押注 64 位（sizeof 发 8、IntPtrHelper 返回 `Long.BYTES`、UIntPtr.java 注释、E09 域分类，§1.2）；C41 把隐式巧合变显式策略。不推荐「保留 IntPtr compat 类只做指针转换、禁算术」——E09 已发大量 `long` 域算术，双表示会产生混合类型不可编译 |
+| 8 | 固定 64 位的论证 | cs2j 默认 `TargetJavaVersion = Java28`（[ConversionOptions.cs:11](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionOptions.cs#L11-L11)）；Java 28 目标下 32 位 JVM 非实际部署形态；既有四处代码已按 64 位产出。风险不在「JVM 宽度」而在**输入程序自身的宽度敏感分支**（决策 9） | 若未来要支持 32 位目标，应新增 TargetPlatform 维度整体重估，不由 C41 承担 |
+| 9 | nint 不可擦除站点 | `if (IntPtr.Size == 4/8)` 等宽度分支、同文件内 32/64 双路径、`IntPtr.Zero`/`ToInt32`/`ToPointer`/`new IntPtr(void*)` 等成员使用点、nint 常量折叠依赖平台宽度的表达式：**CS2J5386 Error**，audit 阶段先列清单 | 宽度分支擦成单路径会静默丢代码；成员面经 `long` 映射后行为需逐个人工定性 |
+| 10 | **nint 与 IntPtr 去重** | 同一底层符号的两种语法形态统一处理：`INamedTypeSymbol.IsNativeIntegerType == true`（nint/nuint 关键字）与其 `OriginalDefinition`（IntPtr/UIntPtr 普通写法）走同一分类器；诊断消息保留源写法文本 | Roslyn NativeIntegers 特性：nint 是包裹符号；全仓当前零判定（§1.2）。算术域只认 `SpecialType.System_IntPtr/UIntPtr`，语法形态仅影响措辞与 sizeof/常量行为 |
+| 11 | **nuint/UIntPtr 表示去重** | 不启用 [UIntPtr.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/UIntPtr.java) 作为第二条表示路径；M2 统一为 `long` + 无符号 helper（同 E09/C15 既有面）。UIntPtr.java 记为半存活资产：M2 audit 先 grep 是否有任何在产 Java 引用它，无引用则在后续 PR 标记废弃，**本任务不删 compat 文件** | IntPtr→long 与 UIntPtr→引用类型两套表示混合时，赋值/比较/泛型实例化全部断裂；单一原语表示与 E09 产物一致 |
+| 12 | **指针边界（与 C06 唯一安全通道）** | 指针↔nint/nuint/IntPtr/UIntPtr 的**显式转换节点**（`(nint)p`、`(void*)x`、`ToPointer()`）C41 **不改写**：audit 单列指针桶 CS2J5389 计数；rewrite 时保持节点为 C# 真身 nint/IntPtr 形态，交给 C06（Stage.Abi，更晚）D7/UF021 决定（白名单仅「同数组内差转 int」，其余 UF021 Error） | C06 [设计 D7](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c06-unsafe-ffm-design.md#L99-L99)/UF021 已声明指针↔整数转换所有权；[FfmHelper.cs:367-377](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Utilities/FfmHelper.cs#L367-L377) 现状把 IntPtr cast 当裸地址。C41 产物（long 域算术 + 保留的 cast 节点）必须是 C06 可消费形态 |
+| 13 | **sizeof 收口** | 四档：①预定义简单类型维持编译期常量；②`sizeof(nint)/nuint/IntPtr/UIntPtr` → C# 中间树改写为 `IntPtr.Size`/`UIntPtr.Size`（**运行时常量**，C# 语义如此），Java 侧 IntPtr 映射已存在（`IntPtrHelper.getSize`），UIntPtr 侧 M2 补一条 TypeMappings 或经同一 helper；③`sizeof(Half)/sizeof(Int128)/…`：reject 模式随类型 CS2J5381/5384 一并报，未来 rewrite 时为常量 2/16（它们是托管定宽预定义类型，确为编译期常量）；④用户定义类型/枚举外未知类型 → **CS2J5387 Error**，消灭 `"/* sizeof */"` | C15 开放问题 5 明确把 sizeof 留给 C41；enum sizeof 经 Roslyn `GetTypeInfo` 得底层整数 SpecialType，归①。不选直接发 `8`：中间树会丢失源语义且无法在 32 位 .NET 上 verify |
+| 14 | checked 上下文分工 | checked 内 Half/128 站点：M1-M3 继续由 C15 CS2J5320 兜报，C41 不重复发码（所有权表按节点种类切：C41 拥有**类型使用点**，C15 拥有 checked 运算节点）；nint/nuint 在 M2 NativeInt 归一后成为 long/ulong 真身节点，由 C15 规则自然接管 `AddCheckedInt64/UInt64`，CS2J5320 对该形态停用（码不删，表驱动） | 同 C17 决策 17 的停用机制；C17 CS2J5333（nint 自增）在 M2 后同样移交：擦除后的 long 简单目标走 C15/C17 既有路径 |
+| 15 | 规则序位（文件内） | 两段序位：**NativeIntErase 挂 Order=5（先于 C15=10/C17=20）**，使 nint/nuint 在 checked/自增分类前已归一为 long 域；Half/128 audit 与 Sizeof 挂 Order=50 | 序位 5 是 C41 对 C15 §4.5「共享组件不够用先扩根层」流程的最小申请；若 C15 落地版规则管线不支持 5，则退回「Order=50 + CS2J5320/5333 所有权移交表」备选（同 C17 模式），M0 定 |
+| 16 | 双模式 | 每个子规则支持 `Audit`（只盘点+诊断，不改树）与 `Rewrite`（按类型分档改写）；Half/128 另有 `Reject`（Audit 命中升级 Error 的严格档）。模式经规则 Options 节配置，**不新增 CLI 开关**（随 pass 启停 + options JSON） | P3 观察项定位要求「先能看、再能改」；M1 只交付 Audit + sizeof Reject/Rewrite |
+| 17 | 泛型数学/接口面 | `INumber<Half>`、`IBinaryInteger<Int128>` 等静态抽象接口成员调用、泛型约束 `where T : IBinaryInteger<T>`：v1 一律 CS2J5384 桶内单列计数，不随基础类型降级放行 | 静态抽象接口归 C36 新语法防线（[catalog §4 风险 13](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L932-L932)）；即使 Half 降级，接口形态也无 Java 对应 |
+| 18 | 表达式树/dynamic | `Expression<Lambda>` 内的六类类型节点、dynamic 绑定的特殊数值运算：Error（沿用 C15 CS2J5322/5323 同族判定，本规则码段内发 53xx 等价码），不提供 force | 改写改变表达式树形态；族内统一纪律 |
+| 19 | 支撑库归属 | M1（audit/sizeof）零新增库；M2 nint 擦除**不新增方法**（复用 E09/C15 的 UnsignedMath 面）；M3 Half 降级需 C# 支撑面（HalfOps）+ compat `Half.java`——优先评估扩 `Cs2jUnsignedMath`（C15 决策 12 已立「数值边界支撑面」先例），但其 TFM 须支持 System.Half（多目标或新库），列开放问题 2 | 描述符 `SupportLibrary = Cs2jUnsignedMath` 已在 C15 翻转时声明，M1/M2 零接线；M3 若新库需走完整注入/过滤/指纹六链路 |
+| 20 | Half 运算/成员覆盖清单（M3 范围冻结） | 方法族只收**内建运算符语义面**：二元 `+ - * /`、一元 `- +`、比较六类、显式转换（Half↔float/double/各整数，含溢出到 Inf 与 NaN 转型规则）；`Parse/TryParse/ToString`（含文化与 "G"/"R" 格式）、`IsNaN/isFinite`、`MaxValue/MinValue/Epsilon/PositiveInfinity`、`BitConverter.HalfToInt16Bits` 等走 compat 静态面单独盘点，不默认随 M3 发射 | 与 C34「映射存在 ≠ 语义可用」同纪律：方法面清单先齐再开 rewrite；符号/文化相关重载（`ToString(IFormatProvider)`）v1 拒绝 |
+| 21 | Int128/UInt128 API 面盘点（M4 输入，本任务只登记） | 算术/比较/移位/转换外必须单列：`MinValue/MaxValue/Zero/One`、`Parse/TryParse`（NumberStyles 含 HexNumber、IFormatProvider）、`ToString` 十进制与 `"X"` 填充、`PopCount/LeadingZeroCount/TrailingZeroCount/IsPow2/RotateLeft/RotateRight/DivRem`、`BigInteger` 互转、与 Half/char/指针的显式转换、`GetByteCount`/`WriteLittleEndian` 16 字节二进面、`ISignedNumber`/`IUnsignedNumber` 接口实现 | 任何遗漏面在 rewrite 后即「生成不存在的方法名」风险；故 M4 必须先出方法面对照表（C# 签名 → compat 方法名逐字）再写 Rewriter |
+| 22 | `default`/`new()`/可空/数组初始化 | `default(Half)`/`default(Int128)`/`new Int128()` 随类型拒绝同报；M3 降级时 `default(Half) → 0.0f` 须经 SyntaxFacts 单点（不可走转换器 GetDefaultValueForType 的 struct 分支 `new T()`，[TypeOperationTransformer.cs:151](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L151-L151)）；`Half?`/`Int128?` 归 C22 lifted，v1 随基础类型拒绝并在消息指路 C22 | 可空提升运算在基础类型无映射时本就不可表达，不做半成品 |
+| 23 | 等价性证明方法 | Half M3：.NET 半区以真 `System.Half` 执行同一表达式集（fixture Tests），Java 半区以 compat `Half` on float 执行，双端比对**舍入后**值（bits 级，含 NaN 载荷不要求、NaN 身份等价即可）；Int128 M4：边界值（min/max/-1/0/进位链）+ 随机 128 位向量百万级双端对拍；nint M2：在 64 位 .NET 上直接对拍（平台一致），宽度分支由 CS2J5386 排除 | 不用「抽样手算几个值」充当正确性证据；fixture Tests 在去糖后 C# 上跑，helper 实现错误 .NET 侧先红 |
+
+---
+
+## 3. 链位与族契约
+
+### 3.1 归属：numeric-boundary 族 Rules/SpecialNumeric/
+
+- 物理位置：`src/CSharpToJava.Core/NumericBoundary/Rules/SpecialNumeric/`（C15 [§4.1 预留](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md#L179-L187)）。只增该子目录、自有测试与 fixture 子目录；**不新建 pass/适配器/中间目录/支撑工程（M3 评估结论前）**。
+- **不翻转 stub**：Stub→Implemented 由 C15 完成；本任务开始前 C15 分支必须已合入 base（§12）。
+- 注册表唯一允许触碰（M1 落地时）：描述符 `catalogItems: "C15, C17, …" → …, "C41"` 单行追加，按 C15 §3.4-9 的族内合入序（C41 预期最后追加）；Status/DefaultEnabled/RunAfterIds/Stage/verify/支撑库字段一律不动；链序测试不动。
+
+### 3.2 与相邻 pass 的链关系
+
+```text
+… unsigned(E09) → numeric-boundary [C15(10) C17(20) C22(30) C34(40) C41(50)；NativeIntErase(5)] → generic → …
+…（更晚，另一 Stage）struct-value-semantics → unsafe-ffm(C06, Stage.Abi) …
+```
+
+- **E09（unsigned，硬前置，RunAfter=`{unsigned}` 已满足）**：E09 已把 nint/nuint 二元算术按 Int64/UInt64 域重写（[L273-282](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L273-L282)），但不改写类型声明语法、跳过 Native 域一元/移位/自增。C41 NativeIntErase 是其**收口**：只处理 E09 留下的 `(nuint)` cast、nuint/nint 声明点与 Native 残余，对 E09 已产 `UnsignedMath.*` 调用零改写（只认语法节点与语义绑定，不认方法名，同 C17 风险 3 纪律）。
+- **C06（unsafe-ffm，Stage.Abi，链更晚）**：C41 在 Expression 阶段先跑，其产物必须让 C06 可消费：指针 cast 节点保持 C# 真身（决策 12），纯算术已是 long 域。C41 不新增 RunAfter 依赖（C06 未落地期以 audit/Error 工作，与 C17 同模式）。
+- **C15/C17（同 pass）**：序位与所有权移交见决策 14/15；码位 CS2J5380-5399 为 C41 独占段（C15 §4.5 预留），不改 C15 的 5310-5329、C17 的 5330-5349。
+- **C22/C34（同 pass 未落地）**：`Int128?`/`Half?` lifted 运算归 C22 族界（audit 单列 nullable 桶，v1 随类型拒绝）；与 decimal 无交集（§1.1）。
+
+### 3.3 audit 模式的特殊链语义
+
+audit 子规则即使在 pass 默认关期间也可经独立 `preprocess --pass numeric-boundary --rule-options specialNumeric.mode=audit` 形态运行（需 C15 规则 Options 管线支持；M0 接缝）；audit 不产库注入、不产中间树 diff、verify 仅做「输入树原样可编译」对账，耗时为单遍语义遍历。
+
+### 3.4 与 C15/C17 的节点所有权实例
+
+| 源节点 | 今天 | M1（audit/reject） | M2（NativeIntErase 后） |
+|---|---|---|---|
+| `checked(nint x + 1)` | C15 CS2J5320 Error | 同左（C41 audit 另计 5380，不发重复 Error） | 归一为 long 真身后 C15 产 `AddCheckedInt64`，5320 对该形态停用 |
+| `nint x; x++`（简单目标） | C17 CS2J5333 预留/转换器 fail-fast | 同左 | 归一为 long 后属 C15/C17 直映集合，5333 停用 |
+| `IntPtr p; p.Q++`（属性目标） | C17 读改写 + CS2J5333 | audit 计数 | C17 读改写脚手架 + long 算术核 |
+| `checked(Half a + b)` | 裸 `Half` 不可编译 | C41 CS2J5381（先于 C15 语义分类报错） | M3：HalfOps checked 行为另定（Half 无 checked 概念，C# checked 对浮点无效，剥壳即可，对齐 C15 NB-11） |
+| `sizeof(Int128)` | `/* sizeof */` | CS2J5384（类型拒绝） | M4 立项后常量 16 |
+
+所有权移交一律「码位不删、规则表驱动停用」，并在共处 fixture 中以「同一节点全链只出现一条 Error/Warning」为断言，防止双报。
+
+---
+
+## 4. Core 组件设计
+
+### 4.1 目录与文件清单（C41 独占 Rules/SpecialNumeric/）
+
+```
+src\CSharpToJava.Core\NumericBoundary\Rules\SpecialNumeric\
+  SpecialNumericRule.cs          # INumericBoundaryRule 实现两个挂点：
+                                 #   Order=5  NativeIntErase（M2）
+                                 #   Order=50 Half/Int128 Audit/Reject + Sizeof（M1）
+                                 #   汇出 RuleFragment（统计桶/诊断/摘要/库需求）
+  SpecialNumericTypeFacts.cs     # 六类分类的唯一真相源：
+                                 #   IsHalf/IsInt128/IsUInt128（按 ToDisplayString + 程序集名指纹，
+                                 #     它们不是 SpecialType 枚举成员）
+                                 #   NativeInt 分类：INamedTypeSymbol.IsNativeIntegerType 与
+                                 #     OriginalDefinition.SpecialType == System_IntPtr/UIntPtr
+                                 #   使用点类别：声明/参数/字段/属性/数组元素/cast/二元/一元/移位/
+                                 #     自增/成员访问(Parse/MaxValue/Size/Zero)/sizeof/指针转换
+                                 #   布局敏感谓词（Half[]、StructLayout 祖先、BinaryPrimitives 接收器）
+  SpecialNumericAnalyzer.cs      # 盘点：自底向上遍历，产出 SpecialNumericSite 记录流
+                                 #   （TypeKind, SiteKind, SyntaxNode, IsPointerConversion,
+                                 #    IsLayoutSensitive, InCheckedContext, InExpressionTree）
+                                 # audit/rewrite 共用同一份盘点，保证「报的就是改的」
+  NativeIntEraser.cs             # M2：nint/nuint 类型语法（变量/参数/字段/返回/数组）归一、
+                                 #   转换链修正（符号/零扩展复用 UnsignedMathSyntax）、Native 残余
+  SizeofRewriter.cs              # M1：sizeof 四档收口（决策 13）
+  HalfRewriter.cs                # M3：HalfOps 方法族改写骨架（M1/M2 仅占位文件注释，不产调用）
+  Int128Rewriter.cs              # M4 评估占位（M1 不创建实现文件，只在本文档登记）
+  SpecialNumericDiagnostics.cs   # CS2J5380-5399 码位常量与 MSBuild 消息模板
+  SpecialNumericModels.cs        # SpecialNumericMode(Audit/Reject/Rewrite)、规则 Options 节、
+                                 #   强类型统计桶（TypesByKind: Dictionary<string,int> 等）
+```
+
+测试：`tests/CSharpToJava.ProjectTests/NumericBoundarySpecialNumericUnitTests.cs`；fixture 向 C15 建立的 `tests/SampleNumericBoundarySolution/` 追加 `SpecialNumeric/` 子目录（Lib/App/Tests 各文件），不新建 sln。
+
+### 4.2 规则发现与对 C15 共享层的接缝（M0）
+
+沿用 C17 §4.5 的授权模式，最小接缝：
+
+1. 若 C15 落地的 `INumericBoundaryRule` 支持任意 Order，直接挂 5 与 50 两规则；否则 Order=50 单挂 + 决策 15 备选的所有权移交。
+2. 只读复用 `NumericBoundaryAnalyzer`：checked 上下文查询、工程 `/checked` 种子、表达式树/dynamic 谓词、支撑工程跳过谓词、FormatAndValidate。
+3. Options/Statistics：根 `NumericBoundaryOptions` 经规则节扩展 `rules.specialNumeric.mode`（默认 `Audit`；`reject`/`rewrite` 显式开启）；族 Statistics 增规则段（§4.5）。
+4. 适配器零专属改动：M1 audit 不触发库注入；M2 复用 C17 §4.5-3 的「族级 UnsignedMath 调用需求」聚合；M3 支撑面注入按决策 19 另评。
+
+### 4.3 重写规则全集（SN-x）
+
+| 规则 | 输入 | 输出 | 模式/里程碑 |
+|---|---|---|---|
+| SN-1 六类使用点 audit | 全部命中节点 | 不改树；CS2J5380 Info 分桶（类型×站点类别） | Audit；M1 |
+| SN-2 Half 显式拒绝 | Half 使用点/运算/成员 | CS2J5381 Error，节点原样保留 | Reject；M1 |
+| SN-3 Half 降级（方法族） | Half 二元/一元/比较 | `HalfOps.Add/…`（保 Half 真身）+ CS2J5382/5383 | Rewrite；M3 |
+| SN-4 Int128/UInt128 拒绝 | 使用点/运算/Parse/成员 | CS2J5384 Error（泛型数学/表达式树/dynamic 子桶同码不同消息） | Reject；M1 起长期 |
+| SN-5 nint/nuint 类型面归一 | `nint x`/`nuint` 参数/字段/返回/数组 | 类型语法归一 long 域；cast 链按 E09 符号/零扩展惯例补正；CS2J5385 逐文件 Warning | Rewrite；M2 |
+| SN-6 nint/nuint 算术残余 | Native 域一元/移位/混合提升 | 复用 `UnsignedMath.*`（无符号侧）/裸 long（有符号侧）；checked 区产 C15 可接管的 long 真身 | Rewrite；M2 |
+| SN-7 宽度敏感拒绝 | IntPtr.Size 分支/32-64 双路径/复杂成员 | CS2J5386 Error | M2 |
+| SN-8 指针转换保留 | 指针↔nint/IntPtr cast、ToPointer | 不改写；CS2J5389 Info 审计计数，消息指路 C06 UF021 | Audit 始终；Rewrite 也不吞 |
+| SN-9 sizeof 收口 | `sizeof(...)` 全档 | 决策 13 四档：常量/`IntPtr.Size`/随类型拒绝/CS2J5387 | Rewrite+Reject；M1 |
+| SN-10 residual/对账 | 输出树重扫 | Rewrite：六类节点零残留（豁免见 §7.5）否则 CS2J5390；Audit：analyzer 计数与全树扫描数必须相等，否则 CS2J5390（工具自洽闸门） | M1 |
+| SN-11 成员访问/静态成员 | `IntPtr.Zero`、`Half.Parse`、`Int128.MaxValue`、`UIntPtr.Size` 等 | Audit 单列 Member 桶；Reject 随类型报；Rewrite 仅放行已盘点成员（M2 的 `IntPtr.Size`/M3 HalfOps 清单内），未盘点成员 → 对应类型 Error 码 | M1 起 |
+| SN-12 nullable/lifted | `Half?`/`Int128?`/`nint?` 声明与 lifted 算术 | Audit 单列 Nullable 桶；M1/M2 随基础类型拒绝并消息指路 C22；`nint?` 简单比较若 M2 验证与 `long?` 逐位同构可放行（strict 前单测钉死） | M1 盘点 |
+| SN-13 extern/handle 边界 | extern 签名、`[DllImport]` 方法内的 IntPtr 参数/字段、`SafeHandle` 派生 | Audit 计数但不改写、不报 Error（CS2J3201/3202 诊断链与 C42/C06 已拥有）；消息只做交叉指路，避免重复诊断 | Audit |
+
+### 4.4 nint/nuint 归一的形态示例
+
+```csharp
+// 输入
+nuint[] arr;
+nuint Sum(nuint a, uint b) {
+    nuint c = a + b;          // E09 已可能产 UnsignedMath.AddUInt64 + (nuint) 回包
+    return c << 2;            // Native 移位：E09 跳过
+}
+// SN-5/SN-6 输出（中间树仍是合法 C#：nuint 关键字保留与否取决于 verify 策略——
+// 归一目标是把「类型面」也固定为 64 位可映射形态；M0 用最小 diff 原则在
+// 「全部替换为 long/ulong + UnsignedMath cast」与「保留关键字仅补转换链」间定案，
+// Java 半区可编译性是硬标准，二选一后单测锁死）
+```
+
+M0 须先用一个含 `nuint` 局部+参数+移位的最小样本走通「E09 产物 → C41 归一 → Java 可编译」全链路，再冻结形态；现状 `System.UIntPtr` 无映射（§1.2）意味着「保留关键字」方案必须同时新增 TypeMappings 条目，倾向全替换 long 域。
+
+Half 降级（M3）形态示例，说明为何不能在 C# 层擦 float：
+
+```csharp
+// 输入
+Half Mix(Half a, Half b, Half c) => (a + b) * c;
+// 正确降级（C# 中间树保留真 Half；每个运算点显式舍入由 HalfOps 真身完成）
+Half Mix(Half a, Half b, Half c) => HalfOps.Multiply(HalfOps.Add(a, b), c);
+// 错误做法（禁止）：直接擦成 float——乘法在 float 精度上执行，
+// 与 C#「加完先舍入到 binary16 再乘」的结果可能不同，且 .NET 半区无法对拍
+float Mix(float a, float b, float c) => (a + b) * c;
+```
+
+### 4.5 Analyzer 站点记录与 audit 对账算法
+
+- 每条 `SpecialNumericSite` 记录：`TypeFamily`（Half/Int128/UInt128/NInt/NUInt）、`SyntaxForm`（Keyword= nint/nuint 关键字 / NamedType= IntPtr 等普通写法）、`SiteKind`（§4.1 清单）、`Span`（文件/行/列）、`InCheckedContext`、`InExpressionTree`、`IsDynamic`、`IsPointerConversion`、`IsLayoutSensitive`、`IsGenericMath`、`EnclosingProject`（宽度/csproj 归属用）。
+- 盘点算法：单次 `CSharpSyntaxRewriter` 自底向上遍历 + SemanticModel 绑定；类型使用点的识别以**符号**为准（变量声明的 `Type`、参数、字段、cast 的 `Type`、成员访问的 `Expression` 类型、`GetTypeInfo(node).Type/ConvertedType`），避免同一物理类型被重复计数——一个 cast 节点同时是「转换站点」和「类型使用点」时按 SiteKind=Cast 单计。
+- audit 对账（SN-10）：遍历结束后用独立第二遍纯语法+轻量绑定扫描（不共享第一遍状态）重数各桶；两边桶数逐键比对，任何差异即 CS2J5390——这是防「audit 数据本身不可信」的元闸门。
+- 指针/泛型数学/表达式树三类站点不随基础类型模式被「改写消化」：即使 M3 开 Half rewrite，这三类仍持续计数，供 C06/C36 与默认开评审取数。
+
+### 4.6 Options / Statistics / 诊断码段
+
+- Options：`rules.specialNumeric.mode = Audit|Reject|Rewrite`（默认 Audit）、子开关 `enableNativeIntErase`（M2 前 false）、`enableHalfRewrite`（M3 前 false）、`strict` 复用族值。
+- 统计桶：`HalfSites/Int128Sites/UInt128Sites/NIntSites/NUIntSites`（各按 SiteKind 再分）、`SitesByKind`、`PointerConversionSites`、`LayoutSensitiveSites`、`SizeofSitesByOutcome`、`GenericMathSites`、`ErrorsByReason: Dictionary<code,int>`、`AuditReconciled: bool`。
+- 码段 CS2J5380-5399（C15 §4.5 已预留，只追加）：
+
+| 码 | 级别 | 含义 |
+|---|---|---|
+| CS2J5380 | Info | audit 使用点计数（类型×站点分桶），仅 verbose/audit 报告 |
+| CS2J5381 | Error | Half 命中（Reject 模式；M3 降级开启后该码停用，转 5382） |
+| CS2J5382 | Warning（strict 即 Error） | Half→float 精度降级：逐运算站点的 binary16 舍入标记 |
+| CS2J5383 | Error | Half 布局敏感站点（数组/fixed/布局 struct/BinaryPrimitives）不可降级 |
+| CS2J5384 | Error | Int128/UInt128 命中（含其泛型数学接口、表达式树/dynamic 子桶） |
+| CS2J5385 | Warning（strict 即 Error） | nint/nuint 固定 64 位擦除（平台宽度假设显式标记） |
+| CS2J5386 | Error | 宽度敏感/不可擦除 nint 站点（IntPtr.Size 分支、双路径、复杂成员面） |
+| CS2J5387 | Error | `sizeof(用户类型/非预定义未知类型)`——消灭 `/* sizeof */` |
+| CS2J5388 | Info | sizeof 收口计数（nint→IntPtr.Size、Half/128→常量），仅 verbose |
+| CS2J5389 | Info | 指针↔nint/IntPtr 转换审计点（指路 C06 UF021） |
+| CS2J5390 | Warning（strict 即 Error） | residual：rewrite 残留六类节点 / audit 计数对账不平 |
+| CS2J5391-5399 | — | 预留（M2 成员面细化、M3 Half、M4 Int128） |
+
+---
+
+## 5. CLI 集成
+
+1. **无新 pass/适配器/中间目录**：随 `numeric-boundary` 执行（入口 `--numeric-boundary` / `--enable-pass` / 通用 `preprocess --pass`），pass 默认关期间零执行零痕迹。
+2. **CatalogItems 追加**：随 M1 落地单行 `"…, C41"`（§3.1），`--list-passes` 自动反映；无 legacy toggle、无链序测试改动。
+3. **audit 报告**：族摘要行追加 `special-numeric: H half/128 I128/U128, N nint/U nuint site(s); sizeof K const/R runtime/E error; pointer-boundary P; mode=audit`；`--verbose` 输出 CS2J5380 分桶明细（文件:行:类型:站点类别），作为 sdk 命中率 triage 的机器可扫输出（MSBuild 格式，grep 友好）。
+4. **verify**：继承描述符双默认开。audit 模式不改树，verify build 天然通过；rewrite 模式（M2 起）verify build 是硬守门（类型面归一最易引入 cast 编译错误）。
+5. **compat/TypeMappings 若新增（仅在对应 rewrite 里程碑）的 Java 半区清单**：
+	- M2：评估补 `System.UIntPtr → long`（若采「保留关键字」方案）或零新增（全替换方案）；`UIntPtr.Size` 映射一条（可复用 `IntPtrHelper.getSize` 或在 UIntPtr.java 已有 `getSize()`/`Size` 常量上路由，二选一后保持与 IntPtr 单侧对称）；UIntPtr.java 废弃标记（不删）。
+	- M3：TypeMappings 增 `System.Half → float`；compat 新增 `io.github.ningpp.compat.Half`（float 域 `add/subtract/multiply/divide/negate`、comparison、`roundToHalf(float)` binary16 banker's rounding 舍入、NaN/Inf 常量、Parse/toString 面）+ JUnit；C# 支撑面 HalfOps（决策 19）。
+	- M4：compat `Int128.java`/`UInt128.java`（双 long 定宽）仅在另立项后。
+	- 任何 compat 方法面必须先于默认开启齐备（[catalog §4 风险 14](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L933-L933)）。
+	- 命名纪律：compat 类 camelCase 方法名须与转换器派生结果逐字核对（C15 §4.4 同样要求）；新增 TypeMappings 条目必须成对补「类型条目 + 成员方法条目」，避免只映射类型不映射 `Size/Parse` 而产生半截映射（UIntPtr 现状正是半截反例）。
+6. 单文件模式：audit 可在单文件编译运行（盘点自包含）；rewrite 涉支撑库时继承族 CS2J5309 闸门，提示走项目模式。
+
+---
+
+## 6. 诊断策略（核心：未映射特殊数值从「不可编译静默」变具名报码）
+
+三类静默必须消灭（[catalog §4 风险 12 第一原则](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931)）：
+
+1. **未映射类型静默**：今天 Half/Int128/UInt128（及未被 E09 覆盖的 nuint 声明点）产裸 Java 标识符，编译期才炸且无 cs2j 诊断。SN-1/SN-2/SN-4/SN-5 让每个站点在预处理期具名可见。
+2. **精度损失静默**：Half→float 若实施，每次运算的 binary16 舍入差异以 CS2J5382 逐站点 Warning 显式化（strict 即 Error），布局敏感面 CS2J5383 硬拒绝——不接受全局开关静默降级。
+3. **sizeof 占位静默**：`/* sizeof */`（[TypeOperationTransformer.cs:163](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L163-L163)）由 SN-9 收口为常量/运行时属性/CS2J5387 三选一，不存在第四种去向。
+
+MSBuild 格式：`文件(行,列): warning/error CS2J53xx: [SN-x/类型] 描述`。消息模板要点（示例，落地时定字）：
+
+- `CS2J5381: [SN-2/Half] System.Half has no Java-side mapping yet; convert Half to float via an explicit opt-in rule (M3) or rewrite the source without Half.`
+- `CS2J5382: [SN-3/Half] Half arithmetic is downgraded to float with per-operation binary16 rounding; results may differ for subnormal/overflow inputs.`
+- `CS2J5384: [SN-4/Int128] 128-bit integer 'Int128' is not supported (no Java primitive; BigInteger/compat value-class route not approved).`
+- `CS2J5385: [SN-5/nint] platform-sized integer is erased to a fixed 64-bit 'long' domain; 32-bit branches are not preserved.`
+- `CS2J5387: [SN-9/sizeof] sizeof(<non-predefined type>) cannot be emitted as a Java compile-time constant; replace with an explicit constant or restructure.`
+
+转换器侧 sizeof/IntPtr 硬编码站点在预处理路径上成为不可达后，删除留后续 PR（同 C15/C17 范式）；直连 ConversionPipeline 单文件入口保留全部旧 fail-fast/占位作安全网，旧测试一行不改。audit 模式的 Info 码不改变退出码（供观察项长期开着取数据）；任何 Error 码不提供 force/skip 逃生口。
+
+---
+
+## 7. 测试计划
+
+全部 `-c Release`；先写单测矩阵再实现。
+
+### 7.1 Core 单测矩阵（六类型 × 使用点 × 模式）
+
+新增 [NumericBoundarySpecialNumericUnitTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests)（内联源码 → CSharpCompilation（须 `LanguageVersion.Latest` 与含 System.Half/Int128 的引用程序集）→ 族 Rewrite → 文本断言 + `AssertOutputCompiles`）：
+
+1. **audit 盘点**：六类型各自的局部/参数/字段/属性/数组元素声明、二元/一元/比较/移位/自增、cast、`Half.Parse`/`Int128.MaxValue`/`IntPtr.Zero`/`IntPtr.Size` 成员访问、`sizeof` 各一；断言 CS2J5380 分桶计数精确、输出零 diff、干净文件字节一致+BOM。
+2. **Half**：Reject 模式 `Half h = (Half)1.0; h + h;` → CS2J5381；`Half[]`/布局 struct/BinaryPrimitives → CS2J5383（Rewrite 模式同样拒绝）；M3 降级：`a+b` → `HalfOps.Add(a,b)` 文本断言、每站点 CS2J5382、strict 升级。
+3. **Int128/UInt128**：声明、算术、`(Int128)long`、`Int128.Parse("170141…")`、`ToString("X")`、移位、`-` on UInt128、`Int128?`、`INumber<Int128>` 约束、表达式树内使用 → 全部 CS2J5384（消息按子桶区分）。
+4. **nint/nuint 声明面**：`nint x`/`nuint y` 局部/参数/返回/字段/数组在 Rewrite 后归一为 64 位形态且 `AssertOutputCompiles`；nuint 初始化的零扩展（对齐 E09 [L1209-1217](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L1209-L1217)）；CS2J5385 计数到文件/站点。
+5. **nint/nuint 算术残余**：Native 域一元 `-`/`~`、移位 `<<`/`>>`（nuint 逻辑移位）、混合提升（nuint+uint）、自增（与 C17 组合：归一后由 C17/C15 接管，CS2J5333 不再触发）；checked nint 归一一例（与 C15 组合，验证 AddCheckedInt64 衔接）。
+6. **宽度敏感**：`if (IntPtr.Size == 4) … else …`、`IntPtr.Zero`/`ToInt64`/`ToPointer` 成员 → CS2J5386；audit 模式仅 Warning/Info 计数不失败。
+7. **指针交互（与 C06 组合）**：`(nint)p`、`(void*)x`、`IntPtr.ToPointer()` 在 C06 未合入时 audit 计数 + 节点原样；C06 合入后联合 fixture 断言 C41 不抢改写、C06 UF021 判定不受影响；FFM 白名单形态（同数组差）一例。
+8. **sizeof**：`sizeof(int)`→`4` 不变；`sizeof(nint)`→`IntPtr.Size`、`sizeof(nuint)`→`UIntPtr.Size`；`sizeof(Half)` 随 Half 拒绝同报；`sizeof(MyStruct)` → CS2J5387；enum sizeof 走底层常量；幂等（二次无 `IntPtr.Size.Size` 类重复改写）。
+9. **nint vs IntPtr 双写法**：语义上同类节点分类一致（IsNativeIntegerType true/false 两路径），诊断消息保留源文本。
+10. **工程性质**：audit 幂等零 diff；rewrite 幂等；支撑工程路径 clean copy；trivia/`#if` 保持；表达式树/dynamic 站点报错码。
+
+### 7.2 项目级 fixture（SampleNumericSolution/SpecialNumeric/ 追加）
+
+- Lib：六类型最小覆盖文件 + 一个纯 audit 模块（不改写只计数）+ 一个反例文件（Half/128/宽度分支/用户 sizeof）+ 与 C15/C17/E09 共处模块（checked nint、nuint 属性自增）。
+- Tests（.NET 半区守门）：M2 nint 归一后，64 位值域算术/移位/转换结果与原生 nint 逐值一致（含 uint→nuint 零扩展边界 `0xFFFF_FFFF`）；M3 Half 降级后，`HalfOps` 在 .NET 上以真 Half 对拍级联运算（亚正规数、banker's rounding、±65504 溢 Inf、`(Half)0.1 + (Half)0.2` 等舍入边界）。
+- 项目级测试：`result.Success`/统计桶/退出码；audit 模块中间树字节零 diff；反例文件诊断码与退出码；库注入仅在实际产生 UnsignedMath 调用时发生。
+
+### 7.3 Release build/test
+
+- `dotnet build -c Release`（CSharpToJavaConverter.slnx 全绿）；
+- `dotnet test -c Release` 三工程：CSharpToJava.Tests、CSharpToJava.ProjectTests、CSharpToJava.ConversionTests（本任务仅设计阶段，不执行）。
+
+### 7.4 Java 半区冒烟（各 rewrite 里程碑的默认开门禁）
+
+- M2：nint/nuint 归一代表样本经完整链路产可编译 Java，无裸 `UIntPtr` 类型名；nuint 算术调用名与 compat `UnsignedMath` 逐字一致；`IntPtr.Size` 走 `IntPtrHelper.getSize`。
+- M3（若投）：.NET `System.Half` 与 Java `float`+compat `Half` 精度边界对拍——亚正规数、舍入偶数、最大有限值/Inf、NaN 传播、链式三运算以上累积误差，双端结果集一致；`Half[]` 样本确认被 CS2J5383 拒绝而非静默错布局。
+
+### 7.5 residual 闸门
+
+1. Rewrite 模式：输出用户代码范围 parse 后扫描，六类类型使用点为 0（豁免：C06 指针 cast 真身节点、支撑工程目录、HalfOps 支撑面自身的 Half 签名——同 C15 豁免集机制），否则 CS2J5390。
+2. Audit 模式：analyzer 逐站点计数 == 独立全树扫描计数（防漏盘/重盘），不等即 CS2J5390。
+3. `/* sizeof */` 文本在启用本规则的中间树零出现（转换器直连路径除外）。
+4. 上游回归：E09/C15/C17/enum 既有 fixture 启用 audit 后统计零变化、build/test 全绿；E09 已产 `UnsignedMath.*` 与 `(nuint)` 形态不被误改（M2 前）。
+
+### 7.6 CLI / 一致性 / 链序
+
+- 默认关：无 `.cs2j-numeric-boundary-src` 新行为；启用后 `--list-passes` catalogItems 含 C41；mode=audit 经 options 生效；无新 toggle；CatalogItems 单行追加不影响 `LockedChain`/`EnabledByDefault` 断言。
+- audit 报告可被 `--verbose` 重定向存档：同一份 MSBuild 格式输出同时服务人工 triage 与脚本聚合（按 `CS2J5380` + 类型/站点标签 grep 统计），不另造 JSON 输出面（M1 不过度工程；M3 立项时若 CI 需要再加 `--audit-json`，列开放）。
+
+### 7.7 sdk audit 作业程序（M1 交付后执行，只读训练集）
+
+1. 对 D:\csharp-sdk 抽样/全量工程启用 pass + `mode=audit`，收集 CS2J5380/5389 桶与 `sizeof` 桶；
+2. 产出矩阵：行 = 六类型，列 = 声明/参数/字段/数组/算术/移位/自增/转换/Parse-ToString/常量成员/指针边界/泛型数学；
+3. 每条 Error 级潜在命中（Half/128/宽度分支/用户 sizeof）人工定性四分类：真不支持 / 分析器过保守 / 死代码（测试桩）/ 可走既有映射；
+4. 输出两份结论：①M2 nint 通道的 sdk 基线快照（启用前后 build/test 对比用）；②M3/M4 是否投资的命中率证据（无命中 = 维持拒绝的书面依据）；
+5. audit 作业本身不改训练集、不产生中间树入库（输出到临时目录），遵循训练集只读纪律。
+
+---
+
+## 8. 默认开启验收门槛
+
+1. **audit 子规则（SN-1/SN-8/SN-10 audit 档 + SN-9 报错档）可较早默认随 pass 开启**：不改树、不注入库、verify 零风险；门槛仅 = 单测/fixture/Release build+test 全绿 + audit 对账自洽 + 遍历耗时增量可接受。但 pass 整体 `defaultEnabled` 仍由 C15 §8 总门槛持有，本规则不单独翻 pass。
+2. **任何 rewrite 必须 compat 齐备**：M2 的长处在「零新增 Java 面」（复用既有 UnsignedMath/IntPtrHelper），故可先于 M3 开；M3 Half 降级必须以 compat `Half.java` + JUnit + 双端精度对拍全绿为硬前置；M4 128 位无 compat 不允许任何 rewrite 码合入。
+3. **sdk triage 硬数据**：在只读训练集 D:\csharp-sdk 跑 audit，产出六类型 × 站点类别命中矩阵；Half/Int128 的 M3/M4 投资决策以该数据为唯一依据（无命中则长期 Reject）。
+4. 观察项长期 opt-in 论证：默认开 rewrite 的附加门槛 = sdk 基线不退化（上游 pass 统计零变化、耗时增量、fixture build/test 不劣化）+ 每条 CS2J5381/5384/5386 Error 命中人工定性（真不支持 vs 分析器过保守）；未满足则维持 audit-only，避免 [catalog §4 风险 10](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L929-L929)「多套事实标准」。
+
+---
+
+## 9. 里程碑
+
+| 里程碑 | 内容 | 预估规模 |
+|---|---|---|
+| M1 纯审计 + sizeof 收口 | M0 接缝（规则序位/Options 节/统计）；SpecialNumericTypeFacts + Analyzer + SN-1/2/4/8/9/10（audit 全类型盘点；Half/128 Reject 报错；sizeof 四档收口消灭 `/* sizeof */`；宽度敏感先列 audit 清单）；适配器零专属改动；CatalogItems 追加 C41；fixture audit 模块 + 对账闸门 | Core ~450 行 |
+| M2 nint/nuint 通道（与 C06 协同验证） | SN-5/6/7：类型面归一、Native 算术残余、宽度分支拒绝；与 C15（checked 移交）/C17（CS2J5333 移交）/E09（产物零改写）共处联调；指针 cast 边界与 C06 设计对账（C06 未落地期 audit 占位）；UIntPtr.java 引用盘点；Java 半区长路径冒烟 | Core ~400 行 + fixture |
+| M3 Half 降级（带诊断） | 仅当 sdk audit 有命中且评审批准：SN-3 + HalfOps 支撑面（TFM 评估）+ compat Half.java + JUnit + .NET/Java 精度边界对拍 + CS2J5382/5383；无命中则本里程碑取消，维持 CS2J5381 | Core ~350 行 + 双侧支撑面 |
+| M4 Int128（评估后另立项） | sdk 命中驱动；输出独立 spec：compat 定宽值类 vs BigInteger 的最终选型（决策 5 倾向定宽值类）、Parse/ToString/二进制/移位/checked 全套方法面盘点；本任务只保留 CS2J5384 拒绝 | 文档/数据起 |
+
+每段 Definition of Done（对齐 C06/C17 惯例）：Release build/test 全绿；该里程碑新增诊断码在单测中逐码有正/反例；audit 对账闸门绿；开关关闭时现链零行为变化、上游 pass 统计零变化；红灯测试不留新增失败；CatalogItems/文档随代码同 PR。M1 完成后评审周期复跑 §7.7 sdk audit，以实测命中率决定 M2-M4 排期，禁止无数据提前投 rewrite。
+
+---
+
+## 10. 风险
+
+1. **Half 精度损失（最高语义风险）**：C# Half 每运算 binary16 舍入，擦 float 改变级联结果；数组/布局面 2→4 字节变化在 interop 下是 ABI 错误。缓解：M1 先拒绝；降级只走方法族（每运算插舍入）+ CS2J5382 逐站点 + CS2J5383 布局硬拒绝 + 双端边界对拍（§7.4）。
+2. **128 位语义面被低估**：BigInteger 五陷阱（决策 5）任一漏处理即「能编译、值错」；Parse/十六进制/二进制格式/移位掩码/lifted 全是边角。缓解：M4 前显式拒绝不装会；若立项，方法面盘点与 compat JUnit 先于发射（风险 14 纪律）。
+3. **平台宽度假设**：固定 64 位擦除会静默删去输入程序的 32 位分支。缓解：假设显式化（CS2J5385 每文件可追溯）+ 宽度分支硬拒绝（CS2J5386）+ audit 命中率清单；决策 8 记录论证边界（Java28 目标），未来 32 位需求走 TargetPlatform 整体重估。
+4. **指针算术安全**：把 `(nint)p + offset` 当普通 long 算术会脱离 C06 的可证性模型，产出野地址语义。缓解：指针 cast 节点 C41 绝不吞（SN-8），唯一通道是 C06 UF021/D7；与 C06 联合 fixture 锁边。
+5. **双表示/半存活资产误判**：UIntPtr.java 与 IntPtr→long 现状不对称，盲目「补齐 UIntPtr 映射」会制造第二表示。缓解：M2 先盘点在产引用再定废弃；单一 long 域表示不可回退。
+6. **Roslyn 形态判定错误**：nint 包裹符号、IntPtr 普通写法、`nuint` 无独立 SyntaxKind（上下文关键字，[UnsignedMathSyntax.cs:50](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedMathSyntax.cs#L50-L50)）使纯语法判定必然出错。缓解：分类只走 SemanticModel + IsNativeIntegerType/OriginalDefinition，双写法单测成对覆盖。
+7. **audit 漏盘的虚假安全感**：观察项长期靠 audit 数据决策，漏分类比不盘更糟。缓解：SN-10 双遍对账（analyzer vs 全树独立扫描）作为 audit 自身的自洽闸门。
+8. **TFM/语言版本失配**：Half/Int128 需 net5+/net7+ 引用程序集与 `LanguageVersion.Latest`；fixture 若停在旧 TFM，analyzer 会把这些类型解析为错误符号（分类落空）。缓解：fixture sln 统一 net10.0（同 C15），parse options 升 Latest；TypeFacts 对错误符号显式归「未解析」桶而非吞掉。
+9. **转换器侧重复站点漂移**：sizeof 常量除 [TypeOperationTransformer.cs:155-164](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L155-L164) 外还有 [LinqRewriter.cs:513](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L513-L513) 的 UIntPtr→8 独立字面量；预处理只改 C# 树不触转换器，两处口径可能长期分叉。缓解：SN-9 以中间树语义为唯一收口，LinqRewriter 站点登记进「转换器消费清单」后续 PR 统一。
+10. **观察项烂尾为永久审计噪声**：若 audit 长期默认开但 rewrite 永不投资，CS2J5380 报告会变成无人阅读的噪声。缓解：每个评审周期依据 §7.7 数据做「投 rewrite / 维持拒绝 / 下线审计」三选一决议，决议记录入 ROADMAP；audit 报告可经 options 关闭。
+
+---
+
+## 11. 并行协调
+
+- **C15 锚点（硬前置，同族）**：base 必须含已合入 C15；复用根层 Analyzer/Models/SyntaxFacts/适配器；CS2J5320 对 nint/128 的兜报按决策 14 表驱动移交/保留；开放问题 5（sizeof）由本任务 SN-9 收口。
+- **C17（同族）**：CS2J5333 nint 自增在 M2 后移交（nint 归一为 long 简单目标后走 C15/C17 路径）；C17 的 `NativeIntTarget` Analyzer 分类与本任务 TypeFacts 共用判定，M0 接缝时避免双份分类表（上收到根层或 SpecialNumericTypeFacts 单点）。
+- **E09 unsigned（已实现）**：C41 是其 nint/nuint 擦除的收口而非返工；RunAfter=`{unsigned}` 已满足；UnsignedMathSyntax 的 `(nuint)` cast 生成（[:96](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedMathSyntax.cs#L96-L96)）是 M2 归一的主要输入形态。
+- **C06 unsafe-ffm（未落地，Stage.Abi）**：指针↔整数转换所有权归 C06（UF021 白名单「同数组差转 int」）；C41 audit 产出的指针桶清单可供 C06 M3 命中率参考；两任务以「cast 节点不改写」为接口契约，不共享文件。
+- **C36（防线，未落地）**：Int128/Half 的静态抽象接口成员（`INumber<T>`/generic math）归 C36 新语法盘点；C41 audit 先把 GenericMathSites 桶数据备好，C36 落地时移交清单。
+- **C22 nullable / C34 decimal（同族未落地）**：`Half?`/`Int128?` lifted 归 C22；与 decimal 无交集但共用规则目录与族摘要。
+- **valhalla 未来**：Half 方案保留切换点——M3 产物所有 Half 接触面集中在 compat `Half.java` 单点，未来 Java Float16 value class 落地时只换该类内部表示（[04 文档](file:///d:/code/cs2j/doc-valhalla/04-float16分析.md#L219-L226) 时间线估计 Java 27+），调用点不动。
+- **C42 platform-isolation / NativeInterop 诊断链**：IntPtr 作为 extern 句柄/`SafeHandle`/`Marshal` 面的类型已在 CS2J3201-3203 诊断与 C42 隔离通道职责内；C41 对 SN-13 类站点只审计不双报，两规则以「是否 P/Invoke 语法容器」（复用 [UnsupportedDomainPasses.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/UnsupportedDomainPasses.cs) 的容器判定）划边。
+- **LinqRewriter（转换器内侧）**：[LinqRewriter.cs:513](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L513-L513) 独立硬编码 UIntPtr 宽度 8，不经过预处理链；登记进转换器消费清单，与 sizeof 站点同批收口（风险 9），本任务不触转换器。
+- **热文件冲突解法**：生产改动集 = `Rules/SpecialNumeric/*.cs`（全新目录）+ C15 根层小接缝（带 C15 回归）+ PassCatalog CatalogItems 一行 + 测试/fixture 追加；与 C17/C22/C34 仅在各自 Rules 子目录平行，无文件重叠；M3/M4 的 TypeMappings/compat 改动按里程碑单独评审。
+
+---
+
+## 12. Worktree 分配（只写不执行）
+
+- 分支：`feature/preproc-c41-special-numeric`
+- 目录：`.worktrees/preproc-c41-special-numeric`
+- base：`953293b9`（已核实存在：`docs: update doc base commit`）；**实现前先在该 worktree 内合入 C15 分支**（feature/preproc-c15-checked-unchecked），再开始 M0——C15 未合入时 `NumericBoundary/` 根层、适配器与 CS2J53xx 码段尚不存在；如与 C17 并行，M0 接缝（INumericBoundaryRule 序位）以 C15 合入版为准。
+- 创建命令（在仓库根、PowerShell 下执行；**本设计阶段不执行，原样记录**）：
+
+```powershell
+git worktree add .worktrees/preproc-c41-special-numeric -b feature/preproc-c41-special-numeric 953293b9
+```
+
+- worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core 仅新增 `NumericBoundary/Rules/SpecialNumeric/`（+ C15 授权的根层小接缝）、Core 单测 + SampleNumericBoundarySolution 的 `SpecialNumeric/` 追加 + Release build/test + residual/audit 对账闸门 + CLI 断言；M1 不新建支撑工程、不触转换器代码、不新增 TypeMappings（sizeof 收口仅产 C# 层 `IntPtr.Size`，Java 映射 IntPtr 侧已存在）；注册表除 CatalogItems 单行外零改动。
+
+---
+
+## 附：关键开放问题（供评审拍板）
+
+1. **逐类型总路线（推荐组合）**：Half = M1 显式拒绝 CS2J5381 → M3 经 sdk 命中批准后投「方法族 float 降级 + CS2J5382 精度诊断 + 布局面 CS2J5383 硬拒」；Int128/UInt128 = 长期显式拒绝 CS2J5384，M4 若立项选 compat 定宽双 long 值类（不选 BigInteger）；nint/nuint = M2 固定 64 位 long/ulong 擦除（延续 E09 现状方向）+ CS2J5385 显式假设 + 宽度分支 CS2J5386。
+2. **HalfOps 支撑面归属**：扩 `Cs2jUnsignedMath`（C15 决策 12 已接受其「数值边界支撑面」定位，但须多目标到含 System.Half 的 TFM）还是 M3 新建独立支撑工程（六链路全套接线）？M3 立项时随命中率一并拍板。
+3. **nuint 归一终形态**：全替换为 long 域（推荐，与 E09 产物一致、零 TypeMappings 改动，但中间树不再含 nuint 关键字）还是保留关键字 + 补 `System.UIntPtr → long` 映射（中间树更贴近源码、diff 小，但 cast 链更绕）？M0 用最小样本两种形态各做一次 verify 后定案；[UIntPtr.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/UIntPtr.java) 半存活资产的废弃时点随此决策。
+4. **sizeof(nint) 收口形态**：改写为 `IntPtr.Size`/`UIntPtr.Size` 运行时属性（推荐，C# 语义正确、.NET 32/64 verify 保真、Java 侧映射已存在 IntPtr 一半）还是直接常量 `8`（与固定 64 位政策更彻底但中间树不再可在 32 位验证源语义）？
+5. **规则序位**：NativeIntErase 挂 Order=5（先于 C15/C17，归一后自然移交，推荐）还是 Order=50（同 C17 所有权表驱动移交，少动根层但码位交接更复杂）？取决于 C15 落地版 `INumericBoundaryRule` 的 Order 自由度，M0 核实后定。
