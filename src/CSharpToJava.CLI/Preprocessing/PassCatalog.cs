@@ -22,6 +22,7 @@ internal static class PassIds
     public const string ArrayMethod = "array-method";
     public const string MakeReadonly = "make-readonly";
     public const string EliminateGoto = "eliminate-goto";
+    public const string MemberDesugar = "member-desugar";
     public const string JavaKeywords = "java-keywords";
 }
 
@@ -226,6 +227,18 @@ internal static class PassCatalog
             runAfterIds: new[] { PassIds.MakeReadonly, PassStubCatalog.Ids.IteratorLowering },
             needsSemanticModel: false,
             description: "Eliminate goto/labeled statements into structured loops (syntax pass)."),
+        new(
+            PassIds.MemberDesugar,
+            "Member desugaring",
+            ".cs2j-member-desugar-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassStubCatalog.Ids.StructValueSemantics, PassStubCatalog.Ids.ClosureLift },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Desugar properties into get_X/set_X methods and backing fields.",
+            catalogItems: "C11"),
         new(
             PassIds.JavaKeywords,
             "Java reserved words",

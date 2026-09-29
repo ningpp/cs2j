@@ -202,6 +202,8 @@ public class Program
                     opts.RecordReadOnlyOverrides, strict: false),
                 JavaKeywordOptionsFactory = () => BuildJavaKeywordOptions(
                     opts.JavaKeywordsOverrides, strict: false),
+                MemberDesugarOptionsFactory = () => BuildMemberDesugarOptions(
+                    opts.MemberDesugarOverrides, strict: false),
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
@@ -3283,6 +3285,62 @@ public class Program
         };
     }
 
+    private sealed class MemberDesugarOverrideSets
+    {
+        public string[]? Force { get; set; }
+        public string[]? Skip { get; set; }
+    }
+
+    private static CSharpToJava.Core.MemberDesugar.MemberDesugarOptions BuildMemberDesugarOptions(
+        string? explicitPath,
+        bool strict,
+        IEnumerable<string>? extraForce = null,
+        IEnumerable<string>? extraSkip = null)
+    {
+        var path = explicitPath;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            path = Path.Combine(Directory.GetCurrentDirectory(), "config", "MemberDesugarOverrides.json");
+            if (!File.Exists(path))
+            {
+                var dir = new DirectoryInfo(AppContext.BaseDirectory);
+                while (dir != null)
+                {
+                    var candidate = Path.Combine(dir.FullName, "config", "MemberDesugarOverrides.json");
+                    if (File.Exists(candidate)) { path = candidate; break; }
+                    dir = dir.Parent;
+                }
+            }
+        }
+
+        var force = new HashSet<string>(StringComparer.Ordinal);
+        var skip = new HashSet<string>(StringComparer.Ordinal);
+        if (path != null && File.Exists(path))
+        {
+            try
+            {
+                var parsed = System.Text.Json.JsonSerializer.Deserialize<MemberDesugarOverrideSets>(
+                    File.ReadAllText(path)) ?? new MemberDesugarOverrideSets();
+                if (parsed.Force != null) force.UnionWith(parsed.Force);
+                if (parsed.Skip != null) skip.UnionWith(parsed.Skip);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"[Warning] Failed to load member-desugar overrides from {path}: {ex.Message}");
+            }
+        }
+        if (extraForce != null) force.UnionWith(extraForce);
+        if (extraSkip != null) skip.UnionWith(extraSkip);
+
+        return new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions
+        {
+            ForceQualifiedNames = force,
+            SkipQualifiedNames = skip,
+            Strict = strict,
+        };
+    }
+
     /// <summary>
     /// 独立 java-keywords verb：单文件 -i/-o（只允许自包含，JK090）或
     /// 项目 -s/-d（整树驱动 + 计划级回退）。
@@ -3486,6 +3544,8 @@ public class Program
                     opts.RecordReadOnlyOverrides, strict: false),
                 JavaKeywordOptionsFactory = () => BuildJavaKeywordOptions(
                     opts.JavaKeywordsOverrides, strict: false),
+                MemberDesugarOptionsFactory = () => BuildMemberDesugarOptions(
+                    opts.MemberDesugarOverrides, strict: false),
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
@@ -4454,6 +4514,10 @@ class PreprocessVerbOptions
         HelpText = "Path to JavaKeywordsOverrides.json (default: config/JavaKeywordsOverrides.json)")]
     public string? JavaKeywordsOverrides { get; set; }
 
+    [Option("member-desugar-overrides", Required = false,
+        HelpText = "Path to MemberDesugarOverrides.json (default: config/MemberDesugarOverrides.json)")]
+    public string? MemberDesugarOverrides { get; set; }
+
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
@@ -4776,6 +4840,14 @@ class ConvertProjectOptions
     [Option("java-keywords-overrides", Required = false,
         HelpText = "Path to JavaKeywordsOverrides.json (default: config/JavaKeywordsOverrides.json)")]
     public string? JavaKeywordsOverrides { get; set; }
+
+    [Option("member-desugar", Default = false,
+        HelpText = "Enable the property desugaring preprocessing step (properties become get_X/set_X methods plus backing fields)")]
+    public bool MemberDesugar { get; set; }
+
+    [Option("member-desugar-overrides", Required = false,
+        HelpText = "Path to MemberDesugarOverrides.json (default: config/MemberDesugarOverrides.json)")]
+    public string? MemberDesugarOverrides { get; set; }
 
     [Option("enable-array-method", Default = false,
         HelpText = "Run array-method preprocessor before conversion")]

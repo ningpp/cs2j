@@ -130,6 +130,12 @@ public class ProjectPreprocessorsConsistentTests
             // 默认关，经 --enable-pass generic-deepen / --pass generic-deepen 开启。
             Assert.Equal(".cs2j-generic-deepen-src",
                 PassCatalog.ImplementedById(PassIds.GenericDeepen).IntermediateDirectoryName);
+
+            // member-desugar (C11)：无门面类（设计决定），目录常量挂在注册表描述符上；
+            // 默认关，经 --member-desugar / --enable-pass member-desugar / --pass member-desugar 开启。
+            Assert.Equal(".cs2j-member-desugar-src",
+                PassCatalog.ImplementedById(PassIds.MemberDesugar).IntermediateDirectoryName);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.MemberDesugarPassAdapter));
         }
         finally
         {

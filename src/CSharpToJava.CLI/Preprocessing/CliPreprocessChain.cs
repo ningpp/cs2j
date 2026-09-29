@@ -34,6 +34,9 @@ internal sealed class CliChainRequest
     /// <summary>Invoked only when java-keywords is enabled (keeps override loading lazy).</summary>
     public required Func<JavaKeywordOptions> JavaKeywordOptionsFactory { get; init; }
 
+    /// <summary>Invoked only when member-desugar is enabled (keeps override loading lazy).</summary>
+    public required Func<CSharpToJava.Core.MemberDesugar.MemberDesugarOptions> MemberDesugarOptionsFactory { get; init; }
+
     /// <summary>
     /// Per-id on/off state from legacy flags. Null means "use descriptor defaults";
     /// the standalone verb passes an all-disabled map together with explicit ids.
@@ -119,6 +122,7 @@ internal static class CliPreprocessChain
             MakerOptionsFactory = request.MakerOptionsFactory,
             RecordReadOnlyOptionsFactory = request.RecordReadOnlyOptionsFactory,
             JavaKeywordOptionsFactory = request.JavaKeywordOptionsFactory,
+            MemberDesugarOptionsFactory = request.MemberDesugarOptionsFactory,
         };
 
         var sourcePath = request.SourcePath;

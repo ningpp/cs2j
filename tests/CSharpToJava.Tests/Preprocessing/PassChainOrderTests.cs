@@ -35,6 +35,7 @@ public sealed class PassChainOrderTests
     PassIds.MakeReadonly,
     PassStubCatalog.Ids.IteratorLowering,
     PassIds.EliminateGoto,
+    PassIds.MemberDesugar,
         PassIds.JavaKeywords,
     ];
 
@@ -157,6 +158,7 @@ public sealed class PassChainOrderTests
             MakerOptionsFactory = () => new ReadOnlyStructMakerOptions(),
             RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
+            MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
         };
 
         foreach (var descriptor in PassCatalog.BuildRegistry().Ordered

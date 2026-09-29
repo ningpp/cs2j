@@ -14,6 +14,7 @@ public sealed class GenericDeepenRegistryTests
         MakerOptionsFactory = () => new ReadOnlyStructMakerOptions(),
         RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
         JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
+        MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
     };
 
     [Fact]

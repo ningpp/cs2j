@@ -33,7 +33,6 @@ internal static class PassStubCatalog
         public const string NumericBoundary = "numeric-boundary";
         public const string ThreadStatic = "thread-static";
         public const string AttributeNormalize = "attribute-normalize";
-        public const string MemberDesugar = "member-desugar";
         public const string ExtensionMethods = "extension-methods";
         public const string LinqChannel = "linq-channel";
         public const string AsyncNormalize = "async-normalize";
@@ -178,16 +177,6 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.GenericDeepen },
             description: "Normalize attributes including the Caller* info family and P/Invoke annotations.",
             catalogItems: "C10"),
-        new(
-            Ids.MemberDesugar,
-            "Member desugaring",
-            ".cs2j-member-desugar-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { Ids.StructValueSemantics, Ids.ClosureLift },
-            description: "Desugar accessor-syntax members (properties, events, indexers, finalizers) into methods and backing fields.",
-            catalogItems: "C11, C12, C13, C14, C27, C39, C46"),
         new(
             Ids.ExtensionMethods,
             "Extension method rewrite",

@@ -47,6 +47,9 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Invoked only when java-keywords is enabled (keeps override loading lazy).</summary>
     public required Func<JavaKeywordOptions> JavaKeywordOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when member-desugar is enabled (keeps override loading lazy).</summary>
+    public required Func<CSharpToJava.Core.MemberDesugar.MemberDesugarOptions> MemberDesugarOptionsFactory { get; init; }
 }
 
 /// <summary>
@@ -77,6 +80,7 @@ internal static class PassChainFactory
             [PassIds.MakeReadonly] = opts.MakeReadOnly,
             [PassStubCatalog.Ids.IteratorLowering] = false,
             [PassIds.EliminateGoto] = opts.EliminateGoto,
+            [PassIds.MemberDesugar] = opts.MemberDesugar,
             [PassIds.JavaKeywords] = opts.JavaKeywords,
         };
 
@@ -238,6 +242,12 @@ internal static class PassChainFactory
 
             PassIds.JavaKeywords => new JavaKeywordsPassAdapter(
                 config.JavaKeywordOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes),
+
+            PassIds.MemberDesugar => new MemberDesugarPassAdapter(
+                config.MemberDesugarOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
