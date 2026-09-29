@@ -48,6 +48,42 @@ Console.WriteLine($"static-initializer skip: {StaticInitializerSample.Shared.Lab
 var indexerLine = IndexerUseSite.UseIndexers();
 Console.WriteLine($"indexers: {indexerLine}");
 
+// C13 事件：跨工程订阅/退订（去糖后为 add_X/remove_X 调用）。
+var events = new EventSamples();
+var eventLog = new List<string>();
+EventHandler onBasic = (_, _) => eventLog.Add("basic");
+events.Basic += onBasic;
+events.Generic += (_, e) => eventLog.Add($"generic:{((SampleArgs)e).Message}");
+events.Logged += m => eventLog.Add($"logged:{m}");
+events.First += () => eventLog.Add("first");
+events.Second += () => eventLog.Add("second");
+events.Raise("hello");
+events.Basic -= onBasic;
+var beforeUnsub = eventLog.Count;
+events.Raise("again");
+Console.WriteLine($"events: {string.Join("|", eventLog)} (after-unsub-delta={eventLog.Count - beforeUnsub})");
+
+IEventSource implicitSource = new ImplicitEventSource();
+EventHandler onChange = (_, _) => Console.WriteLine("changed fired");
+implicitSource.Changed += onChange;
+((ImplicitEventSource)implicitSource).Raise();
+implicitSource.Changed -= onChange;
+
+IEventSource explicitSource = new ExplicitEventSource();
+explicitSource.Changed += (_, _) => Console.WriteLine("explicit fired");
+((ExplicitEventSource)explicitSource).RaiseExplicit();
+
+StaticEventHolder.Ticked += () => Console.WriteLine("ticked");
+StaticEventHolder.Tick();
+
+var structHolder = new StructEventHolder();
+structHolder.Changed += () => Console.WriteLine("struct changed");
+structHolder.Raise();
+
+var reserved = new ReservedNameSample();
+reserved.Raise(); // skip 对照事件（CS2J5157）：原样保留且可用
+
+
 public static class IndexerUseSite
 {
     public static string UseIndexers()

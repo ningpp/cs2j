@@ -152,4 +152,88 @@ public class BehaviorTests
     private static int GetSeed(SideEffectIndexer se)
         => (int)typeof(SideEffectIndexer).GetField("_seed",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(se)!;
+
+    // ---- C13 事件行为闸门：订阅顺序 / 退订 / 零订阅不抛 / 直接触发 NRE / custom 转发 / 显式接口 ----
+
+    [Fact]
+    public void Events_fire_in_subscription_order_and_unsubscribe_stops_delivery()
+    {
+        var calls = new List<string>();
+        var source = new ImplicitEventSource();
+        EventHandler h1 = (_, _) => calls.Add("h1");
+        EventHandler h2 = (_, _) => calls.Add("h2");
+        source.Changed += h1;
+        source.Changed += h2;
+        source.Changed += h1; // 重复订阅 → 触发两次
+        source.Raise();
+        Assert.Equal(new[] { "h1", "h2", "h1" }, calls);
+        source.Changed -= h1; // Delegate.Remove 移除最后一段匹配调用表：[h1,h2,h1] → [h1,h2]
+        calls.Clear();
+        source.Raise();
+        Assert.Equal(new[] { "h1", "h2" }, calls);
+    }
+
+    [Fact]
+    public void Event_guarded_invoke_is_noop_without_subscribers()
+    {
+        var sample = new EventSamples();
+        var fired = false;
+        sample.First += () => fired = true;
+        sample.Raise("nobody-listens-to-basic");
+        Assert.True(fired); // 已订阅者仍被触发；未订阅的 Basic?.Invoke 为无操作
+    }
+
+    [Fact]
+    public void Event_direct_invoke_throws_nre_when_no_subscribers()
+    {
+        var sample = new EventSamples();
+        Assert.Throws<NullReferenceException>(sample.RaiseDirectNoSubscribers);
+    }
+
+    [Fact]
+    public void Custom_forwarded_event_and_explicit_interface_dispatch()
+    {
+        var calls = new List<string>();
+        var custom = new CustomEventSample();
+        Action handler = () => calls.Add("custom");
+        custom.Forwarded += handler;
+        custom.RaiseForwarded();
+        Assert.Equal(new[] { "custom" }, calls);
+        custom.Forwarded -= handler;
+        calls.Clear();
+        custom.RaiseForwarded();
+        Assert.Empty(calls);
+
+        IEventSource source = new ExplicitEventSource();
+        EventHandler eh = (_, _) => calls.Add("explicit");
+        source.Changed += eh;
+        ((ExplicitEventSource)source).RaiseExplicit();
+        Assert.Equal(new[] { "explicit" }, calls);
+        source.Changed -= eh;
+        ((ExplicitEventSource)source).RaiseExplicit();
+        Assert.Equal(new[] { "explicit" }, calls);
+    }
+
+    [Fact]
+    public void Virtual_and_static_and_struct_events_dispatch()
+    {
+        var calls = new List<string>();
+        EventDerived derived = new();
+        derived.Virtual += (_, _) => calls.Add("virtual");
+        derived.RaiseDerived();
+        derived.RaiseBase(); // field-style override 自带新后备字段：base.RaiseBase 触发 base 字段 → 无新增
+        Assert.Equal(new[] { "virtual" }, calls);
+
+        var ticked = 0;
+        StaticEventHolder.Ticked += () => ticked++;
+        StaticEventHolder.Tick();
+        StaticEventHolder.Tick();
+        Assert.Equal(2, ticked);
+
+        var structCalls = 0;
+        var holder = new StructEventHolder();
+        holder.Changed += () => structCalls++;
+        holder.Raise();
+        Assert.Equal(1, structCalls);
+    }
 }
