@@ -3131,3 +3131,66 @@ internal interface IPatternReducer
 
    and make the C03 kinds implement it as small internal classes registered in a static list inside `PatternReducer` (the static `Reduce` dispatch walks the registry; unknown kinds fall through to the PD010 helper). The task code above shows the switch form — when implementing, keep the public static `Reduce` signature identical but route it through the registered `IPatternReducer` list so C03 ships the frozen extension point.
 4. **Rollback safety:** every task is a separate commit; the pass ships `defaultEnabled: false` so the default chain is untouched until §8 evidence is gathered.
+
+---
+
+## Implementation record (2026-09-29, branch `feature/preproc-c03-pattern-desugar`)
+
+All tasks landed. The design changed in five places where the planned output could not
+compile or would have been wrong; each change was validated by compiling the emitted C#
+and is recorded in the spec (see the spec's D4/D9/D11/D12 amendments).
+
+1. **Binding form (planned "`is T v` inside each branch" → hoist-and-assign).** C#
+   pattern variables scope to the enclosing block, so the planned form fails with
+   CS0136 both across `else if` branches (`if (o is string s) … else if (o is
+   string s)`) and when shadowing an outer parameter of the same name. Binding now
+   hoists one plain declaration per name to the top of the lowering block and
+   assigns inside the condition:
+   - reference types: `gov is T && ((v = (T)gov) != null)`
+   - value types: `gov is T && ((v = (T)gov) == v)`
+   - type parameters: `gov is T && ((v = (T)(object)gov) == v)` — a direct `(T)` cast
+     from the governing type is CS0030
+   - `var x` / type-less designations: eager `var x = gov;` prologue (no cast needed)
+
+   This also removes the generic-recovery gap noted in D14: the cast keeps the full
+   generic arguments, so `CSharpList<T>` bindings stay fully typed.
+
+2. **Section-final `break` is elided (planned: always `goto endlabel`).** The
+   if/else-if chain is exclusive, so a branch that runs out of statements has
+   already left the switch. Only mid-section breaks (`if (x) { break; } …`) emit
+   `goto __cs2jSwitchEnd_n` plus the trailing label. Consequence: real-world
+   switches produce no goto at all, so the output converts without relying on
+   `eliminate-goto`.
+
+3. **Governing set includes `object`/`dynamic`/type parameters.** Java's switch
+   accepts only primitives, strings and enums, so `switch (object)` with plain
+   `case 1:` labels would otherwise pass through untouched and fail later. Constant
+   labels on such a governing reduce to the `is`-test form (
+   `o is int && (__cs2jPat_0 = (int)o) == 1`), never a bare `o == 1` (boxing makes
+   that a silent reference comparison).
+
+4. **Constant labels reduce without synthesizing a `ConstantPatternSyntax`.**
+   `SyntaxFactory` re-parents nodes, which detaches them from the semantic model
+   (`GetTypeInfo` throws), so `case 1:` values go through
+   `PatternReducer.ReduceConstant` with the in-tree expression. All model lookups
+   go through a never-throwing `SafeTypeOf`.
+
+5. **`catch (T)` requires `where T : Exception`.** An unconstrained type parameter
+   in a catch declaration is CS0155, so the spec's "unconstrained" branch is
+   unreachable in valid input; only the constrained path exists.
+
+### Verification evidence
+
+- `dotnet build -c Release`: 0 errors.
+- `tests/CSharpToJava.Tests`: 2651 tests, 491 failures — those failures are
+  pre-existing on the base commit (the main workspace at the same source shows 497
+  failures / 2092 passes); the 6 statement-side pattern tests that were red are now
+  green, and `PatternDesugarCoreTests` adds 41 green tests.
+- `tests/CSharpToJava.ProjectTests`: green, including the new CLI reachability tests
+  and `PatternDesugarProjectTests`.
+- End-to-end: the desugared `SamplePatternSolution` intermediate tree builds and all
+  27 of its runtime tests pass, covering filter-false propagation, same-type clause
+  ordering, mid-section and nested-loop breaks, and `catch (T)` binding.
+- `--list-passes` reports `pattern-desugar ControlFlow Implemented off` with the
+  three RunAfter anchors; the pass stays `defaultEnabled: false` pending the spec's
+  §8 gate (a separate, independently verifiable event).
