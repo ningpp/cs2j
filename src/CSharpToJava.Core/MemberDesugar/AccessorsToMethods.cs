@@ -44,7 +44,7 @@ internal static class AccessorsToMethods
         if (inInterface)
             return property.Modifiers.Any(SyntaxKind.StaticKeyword)
                 ? SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.StaticKeyword))
-                : SyntaxFactory.TokenList<SyntaxToken>();
+                : SyntaxFactory.TokenList();
 
         var mods = new List<SyntaxToken>();
         var accessorAccessibility = accessor.Modifiers.FirstOrDefault(IsAccessibility);

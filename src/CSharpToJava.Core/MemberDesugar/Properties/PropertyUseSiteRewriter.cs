@@ -1,0 +1,695 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace CSharpToJava.Core.MemberDesugar.Properties;
+
+/// <summary>
+/// PD-6/PD-7/PD-8/PD-9：使用点改写 + 声明展开插入（单遍，绑定一律取原始 SemanticModel）。
+/// 读/写/复合/++--/方法组/base/?.、构造器直写后备字段、对象初始化器临时提升、nameof 字面量化。
+/// </summary>
+internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
+{
+    private readonly SemanticModel _model;
+    private readonly Dictionary<IPropertySymbol, PropertyPlan> _active;
+    private readonly HashSet<IPropertySymbol> _knownSymbols;
+    private readonly HashSet<string> _candidateNames;
+    private readonly MemberDesugarOptions _options;
+    private readonly MemberDesugarStatistics _stats;
+    private readonly List<MemberDesugarDiagnostic> _diagnostics;
+    private readonly string _filePath;
+    private int _tempCounter;
+
+    public PropertyUseSiteRewriter(
+        SemanticModel model,
+        IReadOnlyList<PropertyPlan> plannedPlans,
+        IReadOnlyList<PropertyPlan> allPlans,
+        MemberDesugarOptions options,
+        MemberDesugarStatistics stats,
+        List<MemberDesugarDiagnostic> diagnostics,
+        string filePath)
+    {
+        _model = model;
+        _active = new Dictionary<IPropertySymbol, PropertyPlan>(SymbolEqualityComparer.Default);
+        foreach (var p in plannedPlans) _active[p.Property] = p;
+        _knownSymbols = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
+        foreach (var p in allPlans) _knownSymbols.Add(p.Property);
+        _candidateNames = plannedPlans.Select(p => p.Property.Name).ToHashSet(StringComparer.Ordinal);
+        _options = options;
+        _stats = stats;
+        _diagnostics = diagnostics;
+        _filePath = filePath;
+    }
+
+    // ---- 声明展开（PD-1..PD-5/PD-10）+ residual 闸门（PD-12）----
+
+    public override SyntaxNode? VisitClassDeclaration(ClassDeclarationSyntax node) => VisitTypeLike(node);
+    public override SyntaxNode? VisitStructDeclaration(StructDeclarationSyntax node) => VisitTypeLike(node);
+    public override SyntaxNode? VisitInterfaceDeclaration(InterfaceDeclarationSyntax node) => VisitTypeLike(node);
+    public override SyntaxNode? VisitRecordDeclaration(RecordDeclarationSyntax node) => VisitTypeLike(node);
+
+    private SyntaxNode? VisitTypeLike(TypeDeclarationSyntax node)
+    {
+        var newMembers = new List<MemberDeclarationSyntax>();
+        foreach (var member in node.Members)
+        {
+            if (member is PropertyDeclarationSyntax propDecl
+                && _model.GetDeclaredSymbol(propDecl) is { } prop
+                && _active.TryGetValue(prop, out var plan))
+            {
+                var expander = new PropertyDeclarationExpander(
+                    _model, _options, _stats, _diagnostics, _filePath);
+                newMembers.AddRange(expander.Expand(propDecl, plan));
+                continue;
+            }
+
+            if (member is PropertyDeclarationSyntax residual
+                && _model.GetDeclaredSymbol(residual) is { } residualProp
+                && !_knownSymbols.Contains(residualProp))
+            {
+                _diagnostics.Add(new MemberDesugarDiagnostic(
+                    _options.Strict ? MemberDesugarSeverity.Error : MemberDesugarSeverity.Warning,
+                    MemberDesugarDiagnosticCode.ResidualProperty,
+                    $"property '{residualProp.Name}' has neither a plan nor a skip diagnostic " +
+                    "(residual gate, PD-12)",
+                    _filePath,
+                    residual.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                    residual.GetLocation().GetLineSpan().StartLinePosition.Character + 1,
+                    residualProp.Name));
+                _stats.PlansSkipped++;
+            }
+
+            if (Visit(member) is MemberDeclarationSyntax visited)
+                newMembers.Add(visited);
+        }
+        return node.WithMembers(SyntaxFactory.List(newMembers));
+    }
+
+    // ---- 语句级：复杂接收者复合赋值/自增自减 + 对象初始化器提升（PD-8/决策 7）----
+
+    public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
+    {
+        if (node.Expression is AssignmentExpressionSyntax ca
+            && !ca.IsKind(SyntaxKind.SimpleAssignmentExpression)
+            && TryGetPlan(ca.Left, out var compoundPlan)
+            && ca.Left is MemberAccessExpressionSyntax compoundAccess
+            && !IsSimpleReceiver(compoundAccess.Expression))
+        {
+            _stats.CompoundSitesRewritten++;
+            var right = (ExpressionSyntax)Visit(ca.Right)!;
+            var temp = TempName("recv");
+            var tempIdent = Ident(temp);
+            var read = Invoke(MemberAccess(tempIdent, compoundPlan.GetterMethodName));
+            var bin = Binary(ca.Kind(), ca.OperatorToken.Kind(), read, right);
+            var set = Invoke(MemberAccess(tempIdent, compoundPlan.SetterMethodName!), bin);
+            return Block(
+                DeclVar(temp, (ExpressionSyntax)Visit(compoundAccess.Expression)!),
+                SyntaxFactory.ExpressionStatement(set))
+                .WithLeadingTrivia(node.GetLeadingTrivia())
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+
+        if (node.Expression is PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax)
+        {
+            var operand = node.Expression switch
+            {
+                PrefixUnaryExpressionSyntax p => p.Operand,
+                PostfixUnaryExpressionSyntax p => p.Operand,
+                _ => null!,
+            };
+            if (operand != null && TryGetPlan(operand, out var incPlan)
+                && operand is MemberAccessExpressionSyntax incAccess
+                && !IsSimpleReceiver(incAccess.Expression))
+            {
+                _stats.CompoundSitesRewritten++;
+                var increment = node.Expression.IsKind(SyntaxKind.PreIncrementExpression)
+                    || node.Expression.IsKind(SyntaxKind.PostIncrementExpression);
+                var temp = TempName("recv");
+                var tempIdent = Ident(temp);
+                var read = Invoke(MemberAccess(tempIdent, incPlan.GetterMethodName));
+                var bin = Binary(
+                    increment ? SyntaxKind.AddAssignmentExpression : SyntaxKind.SubtractAssignmentExpression,
+                    increment ? SyntaxKind.PlusToken : SyntaxKind.MinusToken,
+                    read, One());
+                var set = Invoke(MemberAccess(tempIdent, incPlan.SetterMethodName!), bin);
+                return Block(
+                    DeclVar(temp, (ExpressionSyntax)Visit(incAccess.Expression)!),
+                    SyntaxFactory.ExpressionStatement(set))
+                    .WithLeadingTrivia(node.GetLeadingTrivia())
+                    .WithTrailingTrivia(node.GetTrailingTrivia())
+                    .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+            }
+        }
+
+        if (node.Expression is ObjectCreationExpressionSyntax oc && LiftCreation(oc, out var stmts, out _))
+            return Block(stmts)
+                .WithLeadingTrivia(node.GetLeadingTrivia())
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+
+        return base.VisitExpressionStatement(node);
+    }
+
+    public override SyntaxNode? VisitLocalDeclarationStatement(LocalDeclarationStatementSyntax node)
+    {
+        if (CanLiftLocalDeclaration(node)
+            && node.Declaration.Variables[0].Initializer?.Value is ObjectCreationExpressionSyntax oc
+            && LiftCreation(oc, out var stmts, out var result))
+        {
+            var declarator = node.Declaration.Variables[0]
+                .WithInitializer(SyntaxFactory.EqualsValueClause(result));
+            var final = node.WithDeclaration(node.Declaration
+                .WithVariables(SyntaxFactory.SeparatedList(new[] { declarator })));
+            return Block(stmts.Append(final))
+                .WithLeadingTrivia(node.GetLeadingTrivia())
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitLocalDeclarationStatement(node);
+    }
+
+    public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
+    {
+        if (node.Expression is ObjectCreationExpressionSyntax oc
+            && (node.Parent is BlockSyntax || node.Parent is SwitchSectionSyntax)
+            && LiftCreation(oc, out var stmts, out var result))
+        {
+            return Block(stmts.Append(SyntaxFactory.ReturnStatement(result)))
+                .WithLeadingTrivia(node.GetLeadingTrivia())
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitReturnStatement(node);
+    }
+
+    // ---- 赋值（PD-6/PD-7）----
+
+    public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
+    {
+        if (node.Parent is InitializerExpressionSyntax)
+            return base.VisitAssignmentExpression(node); // 由提升逻辑接管
+
+        if (!TryGetPlan(node.Left, out var plan))
+            return base.VisitAssignmentExpression(node);
+
+        var right = (ExpressionSyntax)Visit(node.Right)!;
+
+        if (node.IsKind(SyntaxKind.SimpleAssignmentExpression))
+        {
+            // PD-7：无 setter 且写入点位于声明类型构造器内 → 直写后备字段。
+            if (!plan.HasSetter && plan.BackingFieldName != null
+                && IsConstructorFieldWrite(node, plan))
+            {
+                _stats.WriteSitesRewritten++;
+                return BuildFieldStore(node.Left, plan.BackingFieldName, right);
+            }
+            _stats.WriteSitesRewritten++;
+            return BuildSetterCall(node.Left, plan, right);
+        }
+
+        // 复合赋值：仅语句位 + 简单接收者在此处理；复杂接收者在语句级提升。
+        if (node.Parent is not ExpressionStatementSyntax)
+            return base.VisitAssignmentExpression(node); // 分析期已闸门（5119），保险路径
+        if (node.Left is MemberAccessExpressionSyntax sma && !IsSimpleReceiver(sma.Expression))
+            return base.VisitAssignmentExpression(node);
+        if (node.Left is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+            return base.VisitAssignmentExpression(node);
+
+        _stats.CompoundSitesRewritten++;
+        var read = BuildGetterExpression(node.Left, plan);
+        return BuildSetterCall(node.Left, plan,
+            Binary(node.Kind(), node.OperatorToken.Kind(), read, right));
+    }
+
+    public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
+    {
+        if ((node.IsKind(SyntaxKind.PostIncrementExpression) || node.IsKind(SyntaxKind.PostDecrementExpression))
+            && TryGetPlan(node.Operand, out var plan)
+            && node.Parent is ExpressionStatementSyntax
+            && IsSimpleOperand(node.Operand))
+        {
+            _stats.CompoundSitesRewritten++;
+            var increment = node.IsKind(SyntaxKind.PostIncrementExpression);
+            var read = BuildGetterExpression(node.Operand, plan);
+            return BuildSetterCall(node.Operand, plan,
+                Binary(
+                    increment ? SyntaxKind.AddAssignmentExpression : SyntaxKind.SubtractAssignmentExpression,
+                    increment ? SyntaxKind.PlusToken : SyntaxKind.MinusToken,
+                    read, One()));
+        }
+        return base.VisitPostfixUnaryExpression(node);
+    }
+
+    public override SyntaxNode? VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
+    {
+        if ((node.IsKind(SyntaxKind.PreIncrementExpression) || node.IsKind(SyntaxKind.PreDecrementExpression))
+            && TryGetPlan(node.Operand, out var plan)
+            && node.Parent is ExpressionStatementSyntax
+            && IsSimpleOperand(node.Operand))
+        {
+            _stats.CompoundSitesRewritten++;
+            var increment = node.IsKind(SyntaxKind.PreIncrementExpression);
+            var read = BuildGetterExpression(node.Operand, plan);
+            return BuildSetterCall(node.Operand, plan,
+                Binary(
+                    increment ? SyntaxKind.AddAssignmentExpression : SyntaxKind.SubtractAssignmentExpression,
+                    increment ? SyntaxKind.PlusToken : SyntaxKind.MinusToken,
+                    read, One()));
+        }
+        return base.VisitPrefixUnaryExpression(node);
+    }
+
+    // ---- 读站点（PD-6）----
+
+    public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
+    {
+        // 条件访问接收者形态：a?.X.M() → a?.get_X().M()
+        if (node.Expression is MemberBindingExpressionSyntax binding
+            && TryGetPlan(binding, out var bindingPlan))
+        {
+            _stats.ReadSitesRewritten++;
+            var invoked = Invoke(SyntaxFactory.MemberBindingExpression(
+                SyntaxFactory.Token(SyntaxKind.DotToken),
+                SyntaxFactory.IdentifierName(bindingPlan.GetterMethodName)));
+            return node.WithExpression(invoked)
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+
+        if (TryGetPlan(node, out var plan)
+            && !IsDirectAssignmentLeft(node)
+            && node.Parent is not InitializerExpressionSyntax
+            && !IsInsideDeconstructionLeft(node))
+        {
+            var recv = (ExpressionSyntax)Visit(node.Expression)!;
+            var access = SyntaxFactory.MemberAccessExpression(
+                node.Kind(), recv, node.OperatorToken,
+                SyntaxFactory.IdentifierName(plan.GetterMethodName));
+            if (IsMethodGroupContext(node))
+                return access.WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+            _stats.ReadSitesRewritten++;
+            return Invoke(access)
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitMemberAccessExpression(node);
+    }
+
+    public override SyntaxNode? VisitConditionalAccessExpression(ConditionalAccessExpressionSyntax node)
+    {
+        // a?.X → a?.get_X()
+        if (node.WhenNotNull is MemberBindingExpressionSyntax binding
+            && TryGetPlan(binding, out var plan))
+        {
+            var recv = (ExpressionSyntax)Visit(node.Expression)!;
+            var invoked = Invoke(SyntaxFactory.MemberBindingExpression(
+                SyntaxFactory.Token(SyntaxKind.DotToken),
+                SyntaxFactory.IdentifierName(plan.GetterMethodName)));
+            _stats.ReadSitesRewritten++;
+            return SyntaxFactory.ConditionalAccessExpression(recv, invoked)
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitConditionalAccessExpression(node);
+    }
+
+    public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
+    {
+        if (!_candidateNames.Contains(node.Identifier.ValueText))
+            return base.VisitIdentifierName(node);
+
+        if (TryGetPlan(node, out var plan)
+            && !IsDirectAssignmentLeft(node)
+            && node.Parent is not InitializerExpressionSyntax
+            && node.Parent is not MemberAccessExpressionSyntax // 接收者由访问层处理
+            && !IsInsideDeconstructionLeft(node))
+        {
+            if (IsMethodGroupContext(node))
+                return SyntaxFactory.IdentifierName(plan.GetterMethodName)
+                    .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+            _stats.ReadSitesRewritten++;
+            return Invoke(SyntaxFactory.IdentifierName(plan.GetterMethodName))
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitIdentifierName(node);
+    }
+
+    // ---- nameof（PD-9 / 决策 11）：nameof(X)/nameof(C.X) → "X" ----
+
+    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        if (node.Expression is IdentifierNameSyntax nameSyntax
+            && nameSyntax.Identifier.ValueText == "nameof"
+            && node.ArgumentList.Arguments.Count == 1
+            && TryGetPlan(node.ArgumentList.Arguments[0].Expression, out var plan))
+        {
+            _stats.NameofLiteralized++;
+            return SyntaxFactory.LiteralExpression(
+                SyntaxKind.StringLiteralExpression,
+                SyntaxFactory.Literal(plan.Property.Name))
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitInvocationExpression(node);
+    }
+
+    // ---- 对象初始化器提升（PD-8 / 决策 7）----
+
+    private bool LiftCreation(
+        ObjectCreationExpressionSyntax oc, out List<StatementSyntax> stmts, out ExpressionSyntax result)
+    {
+        stmts = new List<StatementSyntax>();
+        result = oc;
+        if (oc.Initializer is not { } init || !init.IsKind(SyntaxKind.ObjectInitializerExpression))
+            return false;
+        var assigns = init.Expressions.OfType<AssignmentExpressionSyntax>().ToList();
+        if (!assigns.Any(a => TryGetPlan(a.Left, out _)))
+            return false;
+
+        var temp = TempName("init");
+        var kept = init.Expressions
+            .Where(e => e is not AssignmentExpressionSyntax a || !TryGetPlan(a.Left, out _))
+            .ToList();
+        var keptCreation = oc.WithInitializer(kept.Count > 0
+            ? SyntaxFactory.InitializerExpression(
+                SyntaxKind.ObjectInitializerExpression, SyntaxFactory.SeparatedList(kept))
+            : null);
+        stmts.Add(DeclVar(temp, (ExpressionSyntax)Visit(keptCreation)!));
+
+        var tempIdent = Ident(temp);
+        foreach (var a in assigns)
+        {
+            if (!TryGetPlan(a.Left, out var plan)) continue;
+            AppendLifted(stmts, tempIdent, a, plan);
+        }
+        result = tempIdent;
+        _stats.InitializersRewritten++;
+        return true;
+    }
+
+    private void AppendLifted(
+        List<StatementSyntax> stmts, ExpressionSyntax target,
+        AssignmentExpressionSyntax assign, PropertyPlan plan)
+    {
+        switch (assign.Right)
+        {
+            case ObjectCreationExpressionSyntax nested when NeedsLift(nested):
+            {
+                LiftCreation(nested, out var nestedStmts, out var nestedResult);
+                stmts.AddRange(nestedStmts);
+                stmts.Add(ExprStmt(BuildSetterOn(target, plan, nestedResult)));
+                return;
+            }
+
+            case InitializerExpressionSyntax nestedInit
+                when nestedInit.IsKind(SyntaxKind.ComplexElementInitializerExpression):
+            {
+                if (nestedInit.Expressions.All(e => e is AssignmentExpressionSyntax))
+                {
+                    // 成员初始化器 B = { X = 1 }：get_B() 求值一次存临时。
+                    var mem = TempName("mem");
+                    stmts.Add(DeclVar(mem, BuildGetterOn(target, plan)));
+                    var memIdent = Ident(mem);
+                    foreach (var e in nestedInit.Expressions.OfType<AssignmentExpressionSyntax>())
+                    {
+                        if (TryGetPlan(e.Left, out var inner))
+                        {
+                            stmts.Add(ExprStmt(BuildSetterOn(memIdent, inner,
+                                (ExpressionSyntax)Visit(e.Right)!)));
+                        }
+                        else
+                        {
+                            stmts.Add(ExprStmt(SyntaxFactory.AssignmentExpression(
+                                SyntaxKind.SimpleAssignmentExpression,
+                                PrefixReceiver(e.Left, memIdent),
+                                (ExpressionSyntax)Visit(e.Right)!)));
+                        }
+                    }
+                }
+                else
+                {
+                    // 集合初始化器 L = { 1, 2 } / { ["k"] = v }：get_L() 求值一次存临时。
+                    var col = TempName("col");
+                    stmts.Add(DeclVar(col, BuildGetterOn(target, plan)));
+                    var colIdent = Ident(col);
+                    foreach (var e in nestedInit.Expressions)
+                    {
+                        if (e is AssignmentExpressionSyntax ia
+                            && ia.Left is ImplicitElementAccessSyntax iei)
+                        {
+                            stmts.Add(ExprStmt(SyntaxFactory.AssignmentExpression(
+                                SyntaxKind.SimpleAssignmentExpression,
+                                SyntaxFactory.ElementAccessExpression(colIdent, iei.ArgumentList),
+                                (ExpressionSyntax)Visit(ia.Right)!)));
+                        }
+                        else
+                        {
+                            stmts.Add(ExprStmt(Invoke(
+                                MemberAccess(colIdent, "Add"),
+                                (ExpressionSyntax)Visit(e)!)));
+                        }
+                    }
+                }
+                return;
+            }
+
+            default:
+                stmts.Add(ExprStmt(BuildSetterOn(target, plan, (ExpressionSyntax)Visit(assign.Right)!)));
+                return;
+        }
+    }
+
+    private bool NeedsLift(ObjectCreationExpressionSyntax oc)
+        => oc.Initializer is { } init
+           && init.IsKind(SyntaxKind.ObjectInitializerExpression)
+           && init.Expressions.OfType<AssignmentExpressionSyntax>().Any(a => TryGetPlan(a.Left, out _));
+
+    private static bool CanLiftLocalDeclaration(LocalDeclarationStatementSyntax node)
+        => node.Declaration.Variables.Count == 1
+           && node.UsingKeyword.IsKind(SyntaxKind.None)
+           && node.AwaitKeyword.IsKind(SyntaxKind.None)
+           && !node.Modifiers.Any(m => m.IsKind(SyntaxKind.ConstKeyword)
+               || m.IsKind(SyntaxKind.StaticKeyword));
+
+    // ---- 符号/上下文判定 ----
+
+    private bool TryGetPlan(ExpressionSyntax node, out PropertyPlan plan)
+    {
+        plan = null!;
+        if (node is IdentifierNameSyntax id)
+        {
+            if (!_candidateNames.Contains(id.Identifier.ValueText)) return false;
+        }
+        else if (node is MemberAccessExpressionSyntax ma)
+        {
+            if (!_candidateNames.Contains(ma.Name.Identifier.ValueText)) return false;
+        }
+        else if (node is MemberBindingExpressionSyntax mb)
+        {
+            if (!_candidateNames.Contains(mb.Name.Identifier.ValueText)) return false;
+        }
+        else
+        {
+            return false;
+        }
+
+        if (_model.GetSymbolInfo(node).Symbol is IPropertySymbol p
+            && _active.TryGetValue(p, out plan))
+            return true;
+        return false;
+    }
+
+    /// <summary>方法组上下文：转换目标是委托而表达式本身类型不是委托（如 Func&lt;int&gt; f = c.X）。</summary>
+    private bool IsMethodGroupContext(ExpressionSyntax node)
+    {
+        var info = _model.GetTypeInfo(node);
+        if (info.ConvertedType is not { TypeKind: TypeKind.Delegate }) return false;
+        return info.Type is not { TypeKind: TypeKind.Delegate };
+    }
+
+    private static bool IsDirectAssignmentLeft(SyntaxNode node)
+        => node.Parent is AssignmentExpressionSyntax a && ReferenceEquals(a.Left, node);
+
+    private static bool IsInsideDeconstructionLeft(ExpressionSyntax node)
+        => node.Ancestors().OfType<TupleExpressionSyntax>()
+               .Any(t => t.Parent is AssignmentExpressionSyntax a && ReferenceEquals(a.Left, t))
+           || node.Ancestors().OfType<ParenthesizedExpressionSyntax>()
+               .Any(p => p.Parent is AssignmentExpressionSyntax a && ReferenceEquals(a.Left, p));
+
+    /// <summary>副作用无关接收者：标识符/this/base/预定义类型链（复合赋值内联安全）。</summary>
+    private static bool IsSimpleReceiver(ExpressionSyntax receiver) => receiver switch
+    {
+        IdentifierNameSyntax or ThisExpressionSyntax or BaseExpressionSyntax or PredefinedTypeSyntax => true,
+        MemberAccessExpressionSyntax ma => IsSimpleReceiver(ma.Expression),
+        ParenthesizedExpressionSyntax p => IsSimpleReceiver(p.Expression),
+        _ => false,
+    };
+
+    private static bool IsSimpleOperand(ExpressionSyntax operand) => operand switch
+    {
+        IdentifierNameSyntax => true,
+        MemberAccessExpressionSyntax ma => IsSimpleReceiver(ma.Expression),
+        _ => false,
+    };
+
+    /// <summary>PD-7：写入点位于声明类型的（静态）构造器内且接收者是 this/隐式。</summary>
+    private bool IsConstructorFieldWrite(AssignmentExpressionSyntax node, PropertyPlan plan)
+    {
+        if (_model.GetEnclosingSymbol(node.SpanStart) is not IMethodSymbol m
+            || m.MethodKind != MethodKind.Constructor
+            || !SymbolEqualityComparer.Default.Equals(m.ContainingType, plan.Property.ContainingType)
+            || m.IsStatic != plan.Property.IsStatic)
+            return false;
+        return node.Left switch
+        {
+            IdentifierNameSyntax => !plan.Property.IsStatic,
+            MemberAccessExpressionSyntax ma => ma.Expression is ThisExpressionSyntax,
+            _ => false,
+        };
+    }
+
+    // ---- 表达式构造 ----
+
+    private string TempName(string hint) => MemberDesugarSyntaxFacts.TempName(ref _tempCounter, hint);
+
+    private static IdentifierNameSyntax Ident(string name)
+        => SyntaxFactory.IdentifierName(name);
+
+    private static LiteralExpressionSyntax One()
+        => SyntaxFactory.LiteralExpression(
+            SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1));
+
+    private static BinaryExpressionSyntax Binary(
+        SyntaxKind assignmentKind, SyntaxKind operatorKind,
+        ExpressionSyntax left, ExpressionSyntax right)
+        => SyntaxFactory.BinaryExpression(ToBinaryKind(assignmentKind), left,
+            SyntaxFactory.Token(operatorKind), right);
+
+    private static SyntaxKind ToBinaryKind(SyntaxKind assignmentKind) => assignmentKind switch
+    {
+        SyntaxKind.AddAssignmentExpression => SyntaxKind.AddExpression,
+        SyntaxKind.SubtractAssignmentExpression => SyntaxKind.SubtractExpression,
+        SyntaxKind.MultiplyAssignmentExpression => SyntaxKind.MultiplyExpression,
+        SyntaxKind.DivideAssignmentExpression => SyntaxKind.DivideExpression,
+        SyntaxKind.ModuloAssignmentExpression => SyntaxKind.ModuloExpression,
+        SyntaxKind.AndAssignmentExpression => SyntaxKind.BitwiseAndExpression,
+        SyntaxKind.OrAssignmentExpression => SyntaxKind.BitwiseOrExpression,
+        SyntaxKind.ExclusiveOrAssignmentExpression => SyntaxKind.ExclusiveOrExpression,
+        SyntaxKind.LeftShiftAssignmentExpression => SyntaxKind.LeftShiftExpression,
+        SyntaxKind.RightShiftAssignmentExpression => SyntaxKind.RightShiftExpression,
+        SyntaxKind.UnsignedRightShiftAssignmentExpression => SyntaxKind.UnsignedRightShiftExpression,
+        SyntaxKind.CoalesceAssignmentExpression => SyntaxKind.CoalesceExpression,
+        _ => SyntaxKind.AddExpression,
+    };
+
+    private static InvocationExpressionSyntax Invoke(ExpressionSyntax e, ExpressionSyntax? arg = null)
+        => SyntaxFactory.InvocationExpression(e, arg == null
+            ? SyntaxFactory.ArgumentList()
+            : SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(new[] { SyntaxFactory.Argument(arg) })));
+
+    private static MemberAccessExpressionSyntax MemberAccess(ExpressionSyntax recv, string name)
+        => SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression, recv,
+            SyntaxFactory.Token(SyntaxKind.DotToken), SyntaxFactory.IdentifierName(name));
+
+    private static BlockSyntax Block(params StatementSyntax[] stmts)
+        => SyntaxFactory.Block(stmts);
+
+    private static BlockSyntax Block(IEnumerable<StatementSyntax> stmts)
+        => SyntaxFactory.Block(stmts);
+
+    private static ExpressionStatementSyntax ExprStmt(ExpressionSyntax e)
+        => SyntaxFactory.ExpressionStatement(e);
+
+    private static LocalDeclarationStatementSyntax DeclVar(string name, ExpressionSyntax value)
+        => SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.IdentifierName("var"),
+                SyntaxFactory.SeparatedList(new[]
+                {
+                    SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(name))
+                        .WithInitializer(SyntaxFactory.EqualsValueClause(value))
+                })));
+
+    /// <summary>左值 → set 调用：X=v / recv.X=v / base.X=v → set_X(v) / recv.set_X(v) / base.set_X(v)。</summary>
+    private ExpressionSyntax BuildSetterCall(
+        ExpressionSyntax left, PropertyPlan plan, ExpressionSyntax value)
+    {
+        switch (left)
+        {
+            case IdentifierNameSyntax:
+                return Invoke(Ident(plan.SetterMethodName!), value)
+                    .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+            case MemberAccessExpressionSyntax ma:
+            {
+                var recv = (ExpressionSyntax)Visit(ma.Expression)!;
+                return Invoke(SyntaxFactory.MemberAccessExpression(
+                        ma.Kind(), recv, SyntaxFactory.Token(SyntaxKind.DotToken),
+                        Ident(plan.SetterMethodName!)), value)
+                    .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+            }
+            default:
+                return Invoke(Ident(plan.SetterMethodName!), value);
+        }
+    }
+
+    private ExpressionSyntax BuildGetterExpression(ExpressionSyntax left, PropertyPlan plan)
+    {
+        switch (left)
+        {
+            case IdentifierNameSyntax:
+                return Invoke(Ident(plan.GetterMethodName));
+            case MemberAccessExpressionSyntax ma:
+            {
+                var recv = (ExpressionSyntax)Visit(ma.Expression)!;
+                return Invoke(SyntaxFactory.MemberAccessExpression(
+                    ma.Kind(), recv, SyntaxFactory.Token(SyntaxKind.DotToken),
+                    Ident(plan.GetterMethodName)));
+            }
+            default:
+                return Invoke(Ident(plan.GetterMethodName));
+        }
+    }
+
+    private static ExpressionSyntax BuildSetterOn(
+        ExpressionSyntax target, PropertyPlan plan, ExpressionSyntax value)
+        => Invoke(MemberAccess(target, plan.SetterMethodName!), value)
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+
+    private static ExpressionSyntax BuildGetterOn(ExpressionSyntax target, PropertyPlan plan)
+        => Invoke(MemberAccess(target, plan.GetterMethodName))
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+
+    /// <summary>PD-7：构造器内直写后备字段。X=v → x=v；this.X=v → this.x=v。</summary>
+    private ExpressionSyntax BuildFieldStore(
+        ExpressionSyntax left, string fieldName, ExpressionSyntax value)
+    {
+        var store = left switch
+        {
+            IdentifierNameSyntax => SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression, Ident(fieldName), value),
+            MemberAccessExpressionSyntax ma => SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    (ExpressionSyntax)Visit(ma.Expression)!,
+                    SyntaxFactory.Token(SyntaxKind.DotToken),
+                    Ident(fieldName)),
+                value),
+            _ => SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression, Ident(fieldName), value),
+        };
+        return store.WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+    }
+
+    /// <summary>嵌套成员初始化器的左值改挂在临时接收者上：X → __mem.X；X.Y → __mem.X.Y。</summary>
+    private static ExpressionSyntax PrefixReceiver(ExpressionSyntax left, ExpressionSyntax prefix)
+        => left switch
+        {
+            IdentifierNameSyntax id => SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression, prefix,
+                SyntaxFactory.Token(SyntaxKind.DotToken), id),
+            MemberAccessExpressionSyntax ma => SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                PrefixReceiver(ma.Expression, prefix),
+                SyntaxFactory.Token(SyntaxKind.DotToken), ma.Name),
+            _ => left,
+        };
+}
