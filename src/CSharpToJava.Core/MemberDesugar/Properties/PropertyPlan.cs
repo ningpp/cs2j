@@ -5,6 +5,9 @@ namespace CSharpToJava.Core.MemberDesugar.Properties;
 internal sealed class PropertyPlan : MemberDesugarPlan
 {
     public required IPropertySymbol Property { get; init; }
+    /// <summary>声明标识符文本（显式接口实现的 <see cref="IPropertySymbol.Name"/> 是
+    /// "IFoo.X" 形态，方法名必须用声明标识符）。</summary>
+    public required string DeclName { get; init; }
     /// <summary>后备字段名；计算属性为 null。</summary>
     public string? BackingFieldName { get; init; }
     public required string GetterMethodName { get; init; }
@@ -18,7 +21,7 @@ internal sealed class PropertyPlan : MemberDesugarPlan
     {
         if (!TouchedFiles.Contains(filePath)) return false;
         if (!string.Equals(typeName, Property.ContainingType?.Name, StringComparison.Ordinal)) return false;
-        return string.Equals(memberName, Property.Name, StringComparison.Ordinal)
+        return string.Equals(memberName, DeclName, StringComparison.Ordinal)
             || (memberName != null && BackingFieldName != null
                 && string.Equals(memberName, BackingFieldName, StringComparison.Ordinal))
             || string.Equals(memberName, GetterMethodName, StringComparison.Ordinal)

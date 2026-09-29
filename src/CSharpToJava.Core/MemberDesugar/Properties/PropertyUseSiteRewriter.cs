@@ -34,7 +34,7 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         foreach (var p in plannedPlans) _active[p.Property] = p;
         _knownSymbols = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
         foreach (var p in allPlans) _knownSymbols.Add(p.Property);
-        _candidateNames = plannedPlans.Select(p => p.Property.Name).ToHashSet(StringComparer.Ordinal);
+        _candidateNames = plannedPlans.Select(p => p.DeclName).ToHashSet(StringComparer.Ordinal);
         _options = options;
         _stats = stats;
         _diagnostics = diagnostics;
@@ -344,7 +344,7 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             _stats.NameofLiteralized++;
             return SyntaxFactory.LiteralExpression(
                 SyntaxKind.StringLiteralExpression,
-                SyntaxFactory.Literal(plan.Property.Name))
+                SyntaxFactory.Literal(plan.DeclName))
                 .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
         }
         return base.VisitInvocationExpression(node);
@@ -371,6 +371,9 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             ? SyntaxFactory.InitializerExpression(
                 SyntaxKind.ObjectInitializerExpression, SyntaxFactory.SeparatedList(kept))
             : null);
+        // `new C { .. }` 去掉初始化器后必须补空参数表，否则 `new C` 不是合法表达式。
+        if (kept.Count == 0 && keptCreation.ArgumentList == null)
+            keptCreation = keptCreation.WithArgumentList(SyntaxFactory.ArgumentList());
         stmts.Add(DeclVar(temp, (ExpressionSyntax)Visit(keptCreation)!));
 
         var tempIdent = Ident(temp);
@@ -559,8 +562,28 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     private static BinaryExpressionSyntax Binary(
         SyntaxKind assignmentKind, SyntaxKind operatorKind,
         ExpressionSyntax left, ExpressionSyntax right)
-        => SyntaxFactory.BinaryExpression(ToBinaryKind(assignmentKind), left,
-            SyntaxFactory.Token(operatorKind), right);
+    {
+        var binaryKind = ToBinaryKind(assignmentKind);
+        return SyntaxFactory.BinaryExpression(binaryKind, left,
+            SyntaxFactory.Token(ToBinaryToken(binaryKind)), right);
+    }
+
+    private static SyntaxKind ToBinaryToken(SyntaxKind binaryKind) => binaryKind switch
+    {
+        SyntaxKind.AddExpression => SyntaxKind.PlusToken,
+        SyntaxKind.SubtractExpression => SyntaxKind.MinusToken,
+        SyntaxKind.MultiplyExpression => SyntaxKind.AsteriskToken,
+        SyntaxKind.DivideExpression => SyntaxKind.SlashToken,
+        SyntaxKind.ModuloExpression => SyntaxKind.PercentToken,
+        SyntaxKind.BitwiseAndExpression => SyntaxKind.AmpersandToken,
+        SyntaxKind.BitwiseOrExpression => SyntaxKind.BarToken,
+        SyntaxKind.ExclusiveOrExpression => SyntaxKind.CaretToken,
+        SyntaxKind.LeftShiftExpression => SyntaxKind.LessThanLessThanToken,
+        SyntaxKind.RightShiftExpression => SyntaxKind.GreaterThanGreaterThanToken,
+        SyntaxKind.UnsignedRightShiftExpression => SyntaxKind.GreaterThanGreaterThanGreaterThanToken,
+        SyntaxKind.CoalesceExpression => SyntaxKind.QuestionQuestionToken,
+        _ => SyntaxKind.PlusToken,
+    };
 
     private static SyntaxKind ToBinaryKind(SyntaxKind assignmentKind) => assignmentKind switch
     {

@@ -29,7 +29,7 @@ internal static class PropertyFacts
 
     /// <summary>ref/ref-readonly 返回（CS2J5115）。</summary>
     public static bool ReturnsByRef(IPropertySymbol prop)
-        => prop.RefKind != RefKind.None;
+        => prop.RefKind != RefKind.None || prop.ReturnsByRef;
 
     /// <summary>partial 属性（CS2J5114；C#13 语法）。</summary>
     public static bool IsPartial(PropertyDeclarationSyntax decl)
@@ -40,19 +40,23 @@ internal static class PropertyFacts
         => prop.IsStatic && (prop.IsAbstract || prop.IsVirtual)
            && prop.ContainingType is { TypeKind: TypeKind.Interface };
 
-    /// <summary>访问器体使用 C#13 field 关键字（CS2J5122；v1 保守按标识符文本判）。</summary>
+    /// <summary>访问器体使用 C#13 field 关键字（CS2J5122；FieldExpression + 标识符文本双判）。</summary>
     public static bool UsesFieldKeyword(PropertyDeclarationSyntax decl)
         => decl.AccessorList?.Accessors.Any(UsesFieldKeyword) == true;
 
     private static bool UsesFieldKeyword(AccessorDeclarationSyntax accessor)
-        => (accessor.Body?.DescendantNodes().OfType<IdentifierNameSyntax>()
-                .Any(i => i.Identifier.ValueText == "field") == true)
-           || (accessor.ExpressionBody?.DescendantNodes().OfType<IdentifierNameSyntax>()
-                .Any(i => i.Identifier.ValueText == "field") == true);
+        => accessor.DescendantNodes().Any(IsFieldKeywordNode);
 
-    /// <summary>位置 record 参数属性（CS2J5123）：编译器合成。</summary>
+    private static bool IsFieldKeywordNode(SyntaxNode node)
+        => node.IsKind(SyntaxKind.FieldExpression)
+           || (node is IdentifierNameSyntax id && id.Identifier.ValueText == "field");
+
+    /// <summary>位置 record 参数属性（CS2J5123）：位置落在 record 参数上（无属性声明节点）。</summary>
     public static bool IsPositionalRecordProperty(IPropertySymbol prop)
-        => prop.IsImplicitlyDeclared;
+        => prop.ContainingType is { IsRecord: true }
+           && prop.Locations.Any(l => l.IsInSource
+               && l.SourceTree!.GetRoot().FindNode(l.SourceSpan)
+                   .AncestorsAndSelf().OfType<ParameterSyntax>().Any());
 
     /// <summary>显式接口实现。</summary>
     public static bool IsExplicitInterfaceImplementation(IPropertySymbol prop)

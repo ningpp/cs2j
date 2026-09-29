@@ -44,6 +44,32 @@ internal sealed class PropertyDeclarationExpander
             ? decl.AccessorList.Accessors
             : default(SyntaxList<AccessorDeclarationSyntax>);
         var getterIndex = -1;
+
+        // 表达式体属性（无 AccessorList）：`public int X => expr;` 合成 get_X() => expr。
+        if (decl.AccessorList == null && decl.ExpressionBody != null && prop.GetMethod != null)
+        {
+            getterIndex = members.Count;
+            var modifiers = AccessorsToMethods.BuildMethodModifiers(decl, accessor: null!,
+                inInterface, isExplicit);
+            members.Add((MethodDeclarationSyntax)SyntaxFactory.MethodDeclaration(
+                    default,
+                    modifiers,
+                    decl.Type,
+                    isExplicit
+                        ? SyntaxFactory.ExplicitInterfaceSpecifier(
+                            decl.ExplicitInterfaceSpecifier!.Name,
+                            SyntaxFactory.Token(SyntaxKind.DotToken))
+                        : null,
+                    SyntaxFactory.Identifier(plan.GetterMethodName),
+                    null,
+                    SyntaxFactory.ParameterList(),
+                    SyntaxFactory.List<TypeParameterConstraintClauseSyntax>(),
+                    null,
+                    decl.ExpressionBody)
+                .WithSemicolonToken(decl.SemicolonToken)
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation));
+        }
+
         foreach (var acc in accessors)
         {
             if (acc.IsKind(SyntaxKind.GetAccessorDeclaration) && prop.GetMethod != null)

@@ -23,9 +23,10 @@ internal sealed class PropertyRule : IMemberDesugarRule
         // ---- 阶段 1：声明收集 + 声明级闸门 ----
         var candidates = new Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, SemanticModel Model)>(
             SymbolEqualityComparer.Default);
-        var failures = new Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)>(
+        var failures = new Dictionary<IPropertySymbol, (PropertyDeclarationSyntax? Decl, string DeclName,
+            MemberDesugarDiagnosticCode Code, string Reason)>(SymbolEqualityComparer.Default);
+        var userSkipped = new Dictionary<IPropertySymbol, PropertyDeclarationSyntax>(
             SymbolEqualityComparer.Default);
-        var userSkipped = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
 
         foreach (var model in context.Models)
         {
@@ -34,21 +35,39 @@ internal sealed class PropertyRule : IMemberDesugarRule
             {
                 if (model.GetDeclaredSymbol(decl) is not { } prop || prop.IsIndexer) continue;
                 if (candidates.ContainsKey(prop) || failures.ContainsKey(prop)
-                    || userSkipped.Contains(prop)) continue;
+                    || userSkipped.ContainsKey(prop)) continue;
 
                 if (MatchesSet(options.SkipQualifiedNames, prop))
                 {
-                    userSkipped.Add(prop);
+                    userSkipped[prop] = decl;
                     continue;
                 }
 
                 var gate = DeclarationGate(decl, prop, model);
                 if (gate != null)
                 {
-                    failures[prop] = gate.Value;
+                    failures[prop] = (decl, decl.Identifier.ValueText, gate.Value.Code, gate.Value.Reason);
                     continue;
                 }
                 candidates[prop] = (decl, model);
+            }
+
+            // 位置 record 参数没有 PropertyDeclarationSyntax 节点：隐式属性统一 5123。
+            foreach (var rec in root.DescendantNodes().OfType<RecordDeclarationSyntax>())
+            {
+                if (rec.ParameterList == null) continue;
+                if (model.GetDeclaredSymbol(rec) is not INamedTypeSymbol type) continue;
+                foreach (var param in rec.ParameterList.Parameters)
+                {
+                    var prop = type.GetMembers(param.Identifier.ValueText)
+                        .OfType<IPropertySymbol>()
+                        .FirstOrDefault(p => !p.IsIndexer);
+                    if (prop == null || failures.ContainsKey(prop)
+                        || candidates.ContainsKey(prop) || userSkipped.ContainsKey(prop)) continue;
+                    failures[prop] = (null, param.Identifier.ValueText,
+                        MemberDesugarDiagnosticCode.PositionalRecordProperty,
+                        PropertyDiagnostics.PositionalRecord(param.Identifier.ValueText));
+                }
             }
         }
 
@@ -56,7 +75,9 @@ internal sealed class PropertyRule : IMemberDesugarRule
         var siteFiles = new Dictionary<IPropertySymbol, HashSet<string>>(SymbolEqualityComparer.Default);
         var siteFailures = new Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)>(
             SymbolEqualityComparer.Default);
-        var candidateNames = candidates.Keys.Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
+        // 站点名快筛用声明标识符（显式接口实现的符号 Name 是 "IFoo.X" 形态）。
+        var candidateNames = candidates.Values.Select(v => v.Decl.Identifier.ValueText)
+            .ToHashSet(StringComparer.Ordinal);
 
         foreach (var model in context.Models)
         {
@@ -133,8 +154,9 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 foreach (var f in files) touched.Add(f);
             CollectHierarchyLinks(prop, context.SourceProperties, touched);
 
-            if (userSkipped.Contains(prop)) continue; // 不可达（userSkipped 不入 candidates）
+            if (userSkipped.ContainsKey(prop)) continue; // 不可达（userSkipped 不入 candidates）
 
+            var declName = decl.Identifier.ValueText;
             if (siteFailures.TryGetValue(prop, out var fail))
             {
                 builder.Add(new PropertyPlan
@@ -147,8 +169,9 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     FailCode = fail.Code,
                     FailReason = fail.Reason,
                     Property = prop,
-                    GetterMethodName = AccessorsToMethods.GetterName(prop.Name),
-                    SetterMethodName = AccessorsToMethods.SetterName(prop.Name),
+                    DeclName = declName,
+                    GetterMethodName = AccessorsToMethods.GetterName(declName),
+                    SetterMethodName = AccessorsToMethods.SetterName(declName),
                     HasSetter = prop.SetMethod != null,
                     HasInitAccessor = PropertyFacts.HasInitAccessor(decl),
                     IsRequired = PropertyFacts.IsRequired(decl),
@@ -165,17 +188,40 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 Outcome = MemberDesugarOutcome.Planned,
                 TouchedFiles = touched.ToList(),
                 Property = prop,
+                DeclName = declName,
                 BackingFieldName = fieldName,
-                GetterMethodName = AccessorsToMethods.GetterName(prop.Name),
-                SetterMethodName = AccessorsToMethods.SetterName(prop.Name),
+                GetterMethodName = AccessorsToMethods.GetterName(declName),
+                SetterMethodName = AccessorsToMethods.SetterName(declName),
                 HasSetter = prop.SetMethod != null,
                 HasInitAccessor = PropertyFacts.HasInitAccessor(decl),
                 IsRequired = PropertyFacts.IsRequired(decl),
             });
         }
 
-        foreach (var prop in userSkipped)
+        foreach (var (prop, fail) in failures)
         {
+            builder.Add(new PropertyPlan
+            {
+                Id = PropertyPlan.BuildId(prop),
+                Kind = MemberDesugarKind.Property,
+                Symbol = prop,
+                Outcome = MemberDesugarOutcome.Infeasible,
+                TouchedFiles = DeclarationFiles(prop),
+                FailCode = fail.Code,
+                FailReason = fail.Reason,
+                Property = prop,
+                DeclName = fail.DeclName,
+                GetterMethodName = AccessorsToMethods.GetterName(fail.DeclName),
+                SetterMethodName = AccessorsToMethods.SetterName(fail.DeclName),
+                HasSetter = prop.SetMethod != null,
+                HasInitAccessor = fail.Decl != null && PropertyFacts.HasInitAccessor(fail.Decl),
+                IsRequired = fail.Decl != null && PropertyFacts.IsRequired(fail.Decl),
+            });
+        }
+
+        foreach (var (prop, decl) in userSkipped)
+        {
+            var declName = decl.Identifier.ValueText;
             builder.Add(new PropertyPlan
             {
                 Id = PropertyPlan.BuildId(prop),
@@ -184,8 +230,9 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 Outcome = MemberDesugarOutcome.UserSkipped,
                 TouchedFiles = DeclarationFiles(prop),
                 Property = prop,
-                GetterMethodName = AccessorsToMethods.GetterName(prop.Name),
-                SetterMethodName = AccessorsToMethods.SetterName(prop.Name),
+                DeclName = declName,
+                GetterMethodName = AccessorsToMethods.GetterName(declName),
+                SetterMethodName = AccessorsToMethods.SetterName(declName),
                 HasSetter = prop.SetMethod != null,
                 HasInitAccessor = false,
                 IsRequired = false,
@@ -331,11 +378,18 @@ internal sealed class PropertyRule : IMemberDesugarRule
             result = true;
         }
         else if (oc.Parent is EqualsValueClauseSyntax eq
-            && eq.Parent is AssignmentExpressionSyntax a
-            && a.Parent is InitializerExpressionSyntax init
-            && init.Parent is ObjectCreationExpressionSyntax outer)
+                 && eq.Parent is AssignmentExpressionSyntax a
+                 && a.Parent is InitializerExpressionSyntax init
+                 && init.Parent is ObjectCreationExpressionSyntax outer)
         {
             result = ComputeLiftable(outer, memo);
+        }
+        else if (oc.Parent is AssignmentExpressionSyntax va
+                 && va.Parent is InitializerExpressionSyntax vinit
+                 && vinit.Parent is ObjectCreationExpressionSyntax vouter)
+        {
+            // 初始化器赋值右值的嵌套创建：S = new Sub { X = 1 }，继承外层可提升性。
+            result = ComputeLiftable(vouter, memo);
         }
         else if (oc.Parent is InitializerExpressionSyntax complex
             && complex.IsKind(SyntaxKind.ComplexElementInitializerExpression)

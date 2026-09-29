@@ -34,7 +34,7 @@ internal static class AccessorsToMethods
     /// </summary>
     public static SyntaxTokenList BuildMethodModifiers(
         PropertyDeclarationSyntax property,
-        AccessorDeclarationSyntax accessor,
+        AccessorDeclarationSyntax? accessor,
         bool inInterface,
         bool isExplicitInterfaceImplementation)
     {
@@ -47,7 +47,7 @@ internal static class AccessorsToMethods
                 : SyntaxFactory.TokenList();
 
         var mods = new List<SyntaxToken>();
-        var accessorAccessibility = accessor.Modifiers.FirstOrDefault(IsAccessibility);
+        var accessorAccessibility = accessor?.Modifiers.FirstOrDefault(IsAccessibility) ?? default;
         var chosen = accessorAccessibility != default
             ? accessorAccessibility
             : property.Modifiers.FirstOrDefault(IsAccessibility);
