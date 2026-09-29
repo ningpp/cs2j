@@ -3186,8 +3186,17 @@ and is recorded in the spec (see the spec's D4/D9/D11/D12 amendments).
   pre-existing on the base commit (the main workspace at the same source shows 497
   failures / 2092 passes); the 6 statement-side pattern tests that were red are now
   green, and `PatternDesugarCoreTests` adds 41 green tests.
-- `tests/CSharpToJava.ProjectTests`: green, including the new CLI reachability tests
-  and `PatternDesugarProjectTests`.
+- `tests/CSharpToJava.ProjectTests`: 455 pass / 7 fail — the same 7 failures exist
+  on the base commit (generic class tokens, default values, JSON annotations,
+  unsigned end-to-end), so there are no regressions; the 5 new tests (3 CLI
+  reachability + 3 project gates, one of which locks the PD010 whitelist dual
+  state) are green.
+- `tests/CSharpToJava.ConversionTests`: 760 pass, base commit 112 failures / 0
+  skipped → 111 failures / 1 skipped here (the intended C37 skip for
+  `PropertyPattern_ConvertsToMemberComparison`), so again no regressions.
+- Failure-set diff against the base commit: 0 tests that passed before now fail;
+  exactly the 6 intended statement-side tests turned green.
+- Idempotence: re-running the pass over its own output transforms nothing.
 - End-to-end: the desugared `SamplePatternSolution` intermediate tree builds and all
   27 of its runtime tests pass, covering filter-false propagation, same-type clause
   ordering, mid-section and nested-loop breaks, and `catch (T)` binding.
