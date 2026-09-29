@@ -80,7 +80,7 @@ Java 没有运算符重载，C# 用户自定义运算符必须在 Java 产物中
 ### 3.1 归属与前置
 
 - **唯一 pass 归属**：`member-desugar`（[PassStubCatalog.cs:191-200](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L191-L200)，Stage=`Declarative`，中间目录 `.cs2j-member-desugar-src`，RunAfter `{ struct-value-semantics, closure-lift }`，catalogItems `"C11, C12, C13, C14, C27, C39, C46"`）。C14 不新增 pass id、不新增中间目录、不新增 RunAfter 边。
-- **硬前置：C11 锚点合入**。本任务分支从 `f68a783c` 切出后，**实现前先合入 C11 分支**（§12）；C11 提供共享符号表、plan/回退骨架、`IMemberDesugarRule` 发现机制、共享 `MemberDesugarSyntaxFacts`（表达式树/dynamic 判定、临时提升、RewriteAnnotation、FormatAndValidate）与族适配器。C14 的开发与验收全部基于 C11 合入后的代码形态。
+- **硬前置：C11 锚点合入**。本任务分支从 `67477551` 切出后，**实现前先合入 C11 分支**（§12）；C11 提供共享符号表、plan/回退骨架、`IMemberDesugarRule` 发现机制、共享 `MemberDesugarSyntaxFacts`（表达式树/dynamic 判定、临时提升、RewriteAnnotation、FormatAndValidate）与族适配器。C14 的开发与验收全部基于 C11 合入后的代码形态。
 - 与 C12/C13 为**同 pass 内并列规则**，目录物理隔离（§4.1），各自合入只追加自有目录与测试。
 - 语义顺序依据 catalog：C14「须晚于 E09（无符号扩展方法已接管数值运算）与 C05（enum 运算已被 E04 归并）」（[preprocessor-catalog.md:428](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L428-L428)）——两者均为链上已实现的早序 pass，member-desugar 天然在后；符号谓词（MethodKind + HasSourceDeclaration）保证即使同树共处也零误伤。
 
@@ -348,11 +348,11 @@ C14 不持有 pass 默认开关（族开关归 C11），但族 pass 翻 `default
 
 - 分支：`feature/preproc-c14-operator-desugar`
 - 目录：`.worktrees/preproc-c14-operator-desugar`
-- base：`f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，C11 设计已核实存在）；**实现前在该 worktree 内合入 C11 分支**（feature/preproc-c11-property-desugar），再开始 M0
+- base：`67477551`（`feat(preprocessing): register 23 merged-family stub passes`，C11 设计已核实存在）；**实现前在该 worktree 内合入 C11 分支**（feature/preproc-c11-property-desugar），再开始 M0
 - 创建命令（在仓库根、PowerShell 下执行；**本设计阶段不执行**，原样记录）：
 
 ```powershell
-git worktree add .worktrees/preproc-c14-operator-desugar -b feature/preproc-c14-operator-desugar f68a783c
+git worktree add .worktrees/preproc-c14-operator-desugar -b feature/preproc-c14-operator-desugar 67477551
 ```
 
 - worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core 仅新增 `MemberDesugar/Operators/`（规则 + 两阶段重写 + 诊断）、Core 单测 + 在 SampleMemberDesugarSolution 追加 operator fixture + Release build/test + residual 闸门 + JK 组合测试；不新建支撑工程；不新增/修改任何 CLI 注册、适配器、链序文件；不触转换器代码（§5.1 消费清单为后续 PR 输入）。

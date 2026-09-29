@@ -5,7 +5,7 @@
 **状态**: 设计稿，待评审（只调研与写文档；实现与 worktree 在后续任务进行）
 **注册表**: `pattern-desugar`（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L71-L80)，catalogItems `C03, C37`，RunAfter=`null-coalesce`）
 **Catalog 条目**: `prompts/preprocessor-catalog.md` C03（P0，L282-295）、C37（P1，L706-718）、§3.3 控制流去糖族（L898-915）、§4 风险 15（L934）/风险 8（L927）
-**基线提交**: `f68a783c`（= 当前 HEAD `feat(preprocessing): register 23 merged-family stub passes`）
+**基线提交**: `67477551`（= 当前 HEAD `feat(preprocessing): register 23 merged-family stub passes`）
 
 ---
 
@@ -373,9 +373,9 @@ internal interface IPatternDesugarComponent
 
 - 分支：`feature/preproc-c03-pattern-desugar`
 - 目录：`.worktrees/preproc-c03-pattern-desugar`
-- base：`f68a783c`
+- base：`67477551`
 - 创建命令：
 
 ```powershell
-git worktree add .worktrees/preproc-c03-pattern-desugar -b feature/preproc-c03-pattern-desugar f68a783c
+git worktree add .worktrees/preproc-c03-pattern-desugar -b feature/preproc-c03-pattern-desugar 67477551
 ```

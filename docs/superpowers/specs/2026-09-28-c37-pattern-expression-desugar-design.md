@@ -6,7 +6,7 @@
 **注册表**: `pattern-desugar`（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L71-L80)，catalogItems `C03, C37`，RunAfter=`null-coalesce`；C03 合入时翻转为 Implemented 并把 RunAfter 扩为 `{ null-coalesce, tuple, foreach-deconstruction }`，本任务不再动注册表）
 **硬依赖**: 姊妹设计 [2026-09-28-c03-pattern-statement-desugar-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c03-pattern-statement-desugar-design.md)（下称「C03 设计」）先合入；本设计以其 §4.4 冻结的三个扩展点（`IPatternReducer`、`IPatternDesugarComponent`、命名/绑定服务）为准
 **Catalog 条目**: `prompts/preprocessor-catalog.md` C37（P1，L706-718）、C03（P0，L282-295）、§3.3 控制流去糖族（L898-915）、§4 风险 15（L934）/风险 8（L927）、C35（L679-690）
-**基线提交**: `f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，已核实为当前 HEAD `a37c20e3` 的祖先）；实现前先把 C03 分支合入本任务分支
+**基线提交**: `67477551`（`feat(preprocessing): register 23 merged-family stub passes`，已核实为当前 HEAD `a37c20e3` 的祖先）；实现前先把 C03 分支合入本任务分支
 
 ---
 
@@ -96,7 +96,7 @@ C03 设计 §3「锚点职责边界」已定死：
 | 接入方式 | C03 冻结的组件槽：`IsPatternExpressionComponent`、`SwitchExpressionComponent` 追加进 `PatternDesugarPreprocessor` 的有序组件列表；Positional/List/Slice reducer 追加进 reducer 注册表 | 符合 C03 §4.4「C37 只加注册项、不改调用方」 |
 | 链序测试 | 无新增断言义务 | [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L53) 的 `LockedChain`/`EnabledByDefault` 已在 C03 PR 处理；C37 仅可能配合默认开动作（§8）改 `EnabledByDefault`，且不得把顺序改回 |
 
-依赖声明：**C03 分支先合入是本任务的硬前置**。分支策略为基线 `f68a783c` + 合入 C03 分支后开发（§12），不从裸 `f68a783c` 拉分支，避免对 `PatternReducer.cs`/`PatternDesugarAnalyzer.cs` 等热文件做反向合并。
+依赖声明：**C03 分支先合入是本任务的硬前置**。分支策略为基线 `67477551` + 合入 C03 分支后开发（§12），不从裸 `67477551` 拉分支，避免对 `PatternReducer.cs`/`PatternDesugarAnalyzer.cs` 等热文件做反向合并。
 
 ---
 
@@ -307,7 +307,7 @@ Status 在 C37 全程保持 C03 已翻转的 Implemented——C37 不产生任�
 
 ### 11.1 与 C03（硬依赖）
 
-- C03 分支**先合入**；本任务分支从 `f68a783c` 建立后第一件事是合入 C03 分支（§12），不在裸基线上开发。
+- C03 分支**先合入**；本任务分支从 `67477551` 建立后第一件事是合入 C03 分支（§12），不在裸基线上开发。
 - 接口冻结点：C03 M1 交付的 `IPatternReducer`、`IPatternDesugarComponent`、命名/绑定序号服务（C03 §4.4）即 C37 的契约；C37 评审时如发现形状不足，回到两份设计共同修订，不在 C03 合入后破接口。
 - 热文件冲突解法：`PatternReducer.cs`（reducer 注册表）、`PatternDesugarPreprocessor.cs`（组件列表）、`PatternDesugarAnalyzer.cs`、`PatternDesugarStatistics.cs` 是两侧共同热点——C03 以「注册表 + 有序组件列表」把扩展做成**追加注册项**（无调用方分支修改），C37 的 diff 因此只含追加行；若 C03 评审改动这些形状，以合入后的形状回读本设计 §4 再实现。
 - C03 D7 守卫 PD010 闸门与 C03 §7.2 的 Skip/夹具是给 C37 的移交清单，本设计 §6/§7 逐项接收并关闭。
@@ -331,11 +331,11 @@ C03 合入 → C37 M1-M3（Core + 红测转绿）→ C37 M4（fixture/门槛/默
 
 - 分支：`feature/preproc-c37-pattern-expr`
 - 目录：`.worktrees/preproc-c37-pattern-expr`
-- base：`f68a783c`（实现前先合入 C03 分支 `feature/preproc-c03-pattern-desugar`）
+- base：`67477551`（实现前先合入 C03 分支 `feature/preproc-c03-pattern-desugar`）
 - 创建命令：
 
 ```powershell
-git worktree add .worktrees/preproc-c37-pattern-expr -b feature/preproc-c37-pattern-expr f68a783c
+git worktree add .worktrees/preproc-c37-pattern-expr -b feature/preproc-c37-pattern-expr 67477551
 ```
 
 创建后在该 worktree 内合入 C03 分支（`git merge feature/preproc-c03-pattern-desugar`，或 C03 合入主干后 rebase 到合入提交），再开始 M1；不创建第二个 worktree、不改动注册表与链顺序文件（默认开门槛触发的 `EnabledByDefault` 断言更新除外）。

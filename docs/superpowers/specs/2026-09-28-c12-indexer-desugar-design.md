@@ -4,7 +4,7 @@
 **范围**: 向 member-desugar 族增加 Indexers 规则——Core `MemberDesugar/Indexers/`（声明归约 + 全调用点改写）；**不新增 pass、不新增适配器、不翻转 stub、不改任何 C#→Java 转换代码**
 **状态**: 设计待评审；实现依赖 C11 Property 锚点任务合入
 **族锚点**: C11 Property 去糖（catalog L384-394）——C11 创建 `src/CSharpToJava.Core/MemberDesugar/` 共享基建并把 `member-desugar` 从 Stub 翻转为 Implemented；本任务只在其骨架上增加规则目录
-**分支基线**: `f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在：`f68a783cd74cbfc398204bcdabe000e4f881ad30`）；实现前先 rebase/合入 C11 分支
+**分支基线**: `67477551`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在：`67477551d74cbfc398204bcdabe000e4f881ad30`）；实现前先 rebase/合入 C11 分支
 
 ## 1. 背景与目标
 
@@ -314,11 +314,11 @@ dotnet test tests/CSharpToJava.ConversionTests/CSharpToJava.ConversionTests.cspr
 
 - 分支：`feature/preproc-c12-indexer-desugar`
 - 目录：`.worktrees/preproc-c12-indexer-desugar`
-- base：`f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`）
+- base：`67477551`（`feat(preprocessing): register 23 merged-family stub passes`）
 - **实现前置动作**：worktree 创建后，先把 C11 Property 分支（`feature/preproc-c11-property-desugar`，名称以 C11 实际分支为准）merge/rebase 进来，确认 `src/CSharpToJava.Core/MemberDesugar/` 共享骨架与 member-desugar Implemented 翻转已在树中，再开始 M1；C11 未就绪期间只允许产出/评审本文档，不提交实现代码。
 
 ```powershell
-git worktree add .worktrees/preproc-c12-indexer-desugar -b feature/preproc-c12-indexer-desugar f68a783c
+git worktree add .worktrees/preproc-c12-indexer-desugar -b feature/preproc-c12-indexer-desugar 67477551
 ```
 
 ---

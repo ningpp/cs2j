@@ -395,11 +395,11 @@ internal sealed class MemberDesugarRuleAttribute(MemberDesugarKind kind, int ord
 
 - 分支：`feature/preproc-c11-property-desugar`
 - 目录：`.worktrees/preproc-c11-property-desugar`
-- base：`f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在）
+- base：`67477551`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在）
 - 创建命令（在仓库根、PowerShell 下执行；本设计阶段不执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c11-property-desugar -b feature/preproc-c11-property-desugar f68a783c
+git worktree add .worktrees/preproc-c11-property-desugar -b feature/preproc-c11-property-desugar 67477551
 ```
 
 - worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `MemberDesugar/`（共享基建 + Properties/）、CLI 单适配器 + 注册表翻转、本设计文档与后续 plan 文档（`docs/superpowers/plans/2026-09-28-c11-property-desugar.md`）、Core 单测 + fixture sln + Release build/test + residual 闸门 + CLI/链序测试；不新建支撑工程；不触转换器代码（§5.3 消费清单为后续 PR 输入）。

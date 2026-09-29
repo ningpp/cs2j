@@ -423,11 +423,11 @@ C13 在 C11 合入后开工，建议三段提交：
 
 - 分支：`feature/preproc-c13-event-desugar`
 - 目录：`.worktrees/preproc-c13-event-desugar`
-- base：`f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在；**实施前先合入 C11 锚点分支**，即实际开工 base = C11 合入后的主干/rebase 点）
+- base：`67477551`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在；**实施前先合入 C11 锚点分支**，即实际开工 base = C11 合入后的主干/rebase 点）
 - 创建命令（原样）：
 
 ```powershell
-git worktree add .worktrees/preproc-c13-event-desugar -b feature/preproc-c13-event-desugar f68a783c
+git worktree add .worktrees/preproc-c13-event-desugar -b feature/preproc-c13-event-desugar 67477551
 ```
 
 实施约束（交实施 worktree，不在本文档执行；本任务只产出本文档、不改代码、不建 worktree）：仅在上述 worktree 内改码；等 C11 合入后 rebase 到含 `MemberDesugar/` 共享基建的基线上；按 §9 里程碑逐提交；不注册/翻转任何 stub、不动 CLI 注册表；转换器代码改动（§5.4 消费清单与旧特例删除）留后续 PR；族 pass 默认开启以 §8 门槛为准，不抢跑。

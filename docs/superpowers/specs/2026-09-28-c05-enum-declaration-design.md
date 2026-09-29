@@ -491,8 +491,8 @@ public readonly struct Direction : IEquatable<Direction>
 
 - 分支：`feature/preproc-c05-enum-declaration`
 - 目录：`.worktrees/preproc-c05-enum-declaration`
-- base：`f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在：`f68a783cd74cbfc398204bcdabe000e4f881ad30`）
+- base：`67477551`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在：`67477551d74cbfc398204bcdabe000e4f881ad30`）
 
 ```powershell
-git worktree add .worktrees/preproc-c05-enum-declaration -b feature/preproc-c05-enum-declaration f68a783c
+git worktree add .worktrees/preproc-c05-enum-declaration -b feature/preproc-c05-enum-declaration 67477551
 ```
