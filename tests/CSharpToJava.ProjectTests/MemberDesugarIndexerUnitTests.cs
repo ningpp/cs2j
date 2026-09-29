@@ -543,6 +543,33 @@ public class MemberDesugarIndexerUnitTests
     // ---- 显式接口 / 特性 / 混合 / 幂等 ----
 
     [Fact]
+    public void ExcludedPlan_IndexerDeclarationBecomesResidual()
+    {
+        // 同文件另一索引器仍在计划内 → 改写器运行；被排除的重载声明落入残差闸门。
+        var src = """
+            class C
+            {
+                public int this[int i] => i;
+                public string this[string k] => k;
+                public int M() => this[0];
+            }
+            """;
+        var model = MemberDesugarPropertyUnitTests.ParseWithSemanticsPublic(src);
+        var pp = new MemberDesugarPreprocessor();
+        pp.BindCompilation(model.Compilation);
+        var excluded = pp.Plans.Single(p =>
+            p.Symbol is IPropertySymbol { IsIndexer: true } ip
+            && ip.Parameters[0].Type.SpecialType == SpecialType.System_String);
+        pp.ExcludePlans(new[] { excluded.Id });
+        var stats = new MemberDesugarStatistics();
+        var diags = new List<MemberDesugarDiagnostic>();
+        var result = pp.RewriteFile(src, model, stats, diags);
+        Assert.Contains(CS2J(5141), Codes(diags));
+        Assert.Contains("this[string k]", result.OutputCode); // 排除 plan → 声明保持
+        AssertContains(result.OutputCode, "this.get_Item(0)"); // 计划内站点照常改写
+    }
+
+    [Fact]
     public void ExplicitInterface_QualifiedMethodsGenerated()
     {
         var (outCode, stats, _) = MemberDesugarPropertyUnitTests.Rewrite("""

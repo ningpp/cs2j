@@ -258,14 +258,20 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
     public override string BuildChainSummaryLine()
     {
         _statistics.SkippedByReason.TryGetValue(MemberDesugarDiagnosticCode.ResidualProperty, out var residual);
+        _statistics.SkippedByReason.TryGetValue(MemberDesugarDiagnosticCode.ResidualIndexer, out var indexerResidual);
         return $"member-desugar: {_statistics.PropertiesPlanned} propert(y/ies) planned, " +
                $"{_statistics.BackingFieldsGenerated} field(s) generated, " +
                $"{_statistics.ReadSitesRewritten} read/{_statistics.WriteSitesRewritten} write/" +
                $"{_statistics.CompoundSitesRewritten} compound site(s) rewritten, " +
                $"{_statistics.InitializersRewritten} initializer(s), " +
+               $"{_statistics.IndexersPlanned} indexer(s) planned, " +
+               $"{_statistics.IndexerReadSitesRewritten} index read/" +
+               $"{_statistics.IndexerWriteSitesRewritten} write/" +
+               $"{_statistics.IndexerCompoundSitesExpanded} compound site(s) rewritten, " +
+               $"{_statistics.IndexerInitializerSitesRewritten} index initializer(s), " +
                $"{_statistics.PlansSkipped} skipped, " +
                $"{_statistics.PlansRolledBack} rolled back, " +
-               $"{residual} residual";
+               $"{residual} residual, {indexerResidual} indexer residual";
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)

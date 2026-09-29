@@ -25,6 +25,10 @@ public class MemberDesugarPropertyUnitTests
         return compilation.GetSemanticModel(tree);
     }
 
+    /// <summary>残差闸门类测试用的语义解析入口（ExcludePlans 流程需要自持 model）。</summary>
+    internal static SemanticModel ParseWithSemanticsPublic(string src)
+        => ParseWithSemantics(src);
+
     internal static (string OutputCode, MemberDesugarStatistics Stats,
         List<MemberDesugarDiagnostic> Diagnostics) Rewrite(
         string src, MemberDesugarOptions? options = null, params string[] extra)
