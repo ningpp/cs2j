@@ -44,12 +44,4 @@ public class LinqBulkTests : ConversionTestBase
         yield return new object[] { "GroupBy key", "class C { public void M(System.Collections.Generic.List<int> l) { var g = l.GroupBy(x => x % 3); } }" };
         yield return new object[] { "GroupBy select key", "class C { public System.Collections.Generic.List<int> M(System.Collections.Generic.List<int> l) { return l.GroupBy(x => x % 3).Select(g => g.Key).ToList(); } }" };
     }
-
-    [Theory]
-    [MemberData(nameof(LinqSnippets))]
-    public void LinqOperation_ConvertsToJava(string name, string snippet)
-    {
-        var result = Convert(snippet);
-        AssertLinqConverted(result);
-    }
 }

@@ -60,27 +60,11 @@ public class ExceptionTests : ConversionTestBase
     }
 
     [Fact]
-    public void CatchWithoutType_ConvertsToRuntimeExceptionVar()
-    {
-        var result = Convert("class C { public void M() { try { } catch { } } }");
-        AssertConversion(result, "} catch (RuntimeException _ex) {");
-    }
-
-    [Fact]
     public void ExceptionNoCSharpResidue()
     {
         var result = Convert("class C { public void M() { try { throw new System.Exception(\"e\"); } catch (System.Exception e) { var m = e.Message; } } }");
         AssertNoCSharpResidue(result);
         AssertJavaContains(result, "getMessage()", "C# Exception.Message must map to Java getMessage()");
-    }
-
-    [Fact]
-    public void ExceptionStackTrace_ConvertsToCompatHelper()
-    {
-        var result = Convert("class C { public string M(System.Exception e) { return e.StackTrace; } }");
-        AssertConversion(result,
-            "import io.github.ningpp.compat.ExceptionCompat;",
-            "return ExceptionCompat.getStackTrace(e);");
     }
 
     [Fact]

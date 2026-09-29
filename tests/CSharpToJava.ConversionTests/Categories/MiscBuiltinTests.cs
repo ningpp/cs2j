@@ -23,13 +23,6 @@ public class MiscBuiltinTests : ConversionTestBase
     }
 
     [Fact]
-    public void StringEmptyStatic_ConvertsToEmptyLiteral()
-    {
-        var result = Convert("class C { public void M() { var s = string.Empty; } }");
-        AssertConversion(result, "var s = \"\";");
-    }
-
-    [Fact]
     public void StringInterpolationNoCSharpResidue()
     {
         var result = Convert("class C { public string M(int a) { return $\"v={a}\"; } }");

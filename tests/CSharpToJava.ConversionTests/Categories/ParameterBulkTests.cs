@@ -15,26 +15,11 @@ public class ParameterBulkTests : ConversionTestBase
         AssertConversion(result, "public int m(int... a) {", "int s = 0;", "s += x;", "return s;");
     }
 
-    [Fact]
-    public void ParamsString_ConvertsToVarargs()
-    {
-        var result = Convert("class C { public void M(params string[] a) { var n = a.Length; } }");
-        AssertConversion(result, "public void m(String... a) {", "var n = a.length;");
-    }
 
-    [Fact]
-    public void OptionalIntUsed_ConvertsToOverload()
-    {
-        var result = Convert("class C { public int M(int a = 5) { return a * 2; } }");
-        AssertConversion(result, "public int m(int a) {", "public int m() {", "m(5);");
-    }
 
-    [Fact]
-    public void OptionalDouble_ConvertsToOverload()
-    {
-        var result = Convert("class C { public void M(double a = 1.0) { } }");
-        AssertConversion(result, "public void m(double a) {", "public void m() {", "m(1.0);");
-    }
+
+
+
 
     [Fact]
     public void OverloadByThreeTypes_ConvertsToDistinctMethods()

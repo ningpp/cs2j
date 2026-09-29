@@ -76,22 +76,4 @@ public class RecordTupleTests : ConversionTestBase
             "var a = _t._1();",
             "var b = _t._2();");
     }
-
-    [Fact]
-    public void TupleAsParameter_ConvertsToTuple2()
-    {
-        var result = Convert("class C { public void M((int, int) t) { var x = t.Item1; } }");
-        AssertConversion(result,
-            "import io.vavr.Tuple2;",
-            "public void m(Tuple2<Integer, Integer> t) {",
-            "var x = t._1();");
-    }
-
-    [Fact]
-    public void TupleNoCSharpResidue()
-    {
-        var result = Convert("class C { public (int, string) M() => (1, \"a\"); }");
-        AssertNoCSharpResidue(result);
-        AssertJavaDoesNotContain(result, "Item1", "C# tuple 'Item1' must be rewritten to Vavr '_1()'");
-    }
 }

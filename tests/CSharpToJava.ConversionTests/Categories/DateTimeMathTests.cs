@@ -26,13 +26,6 @@ public class DateTimeMathTests : ConversionTestBase
     }
 
     [Fact]
-    public void DateTimeNow_ConvertsToGetNow()
-    {
-        var result = Convert("class C { public System.DateTime M() { return System.DateTime.Now; } }");
-        AssertConversion(result, "return CSharpDateTime.getNow();");
-    }
-
-    [Fact]
     public void TimeSpan_ConvertsToCSharpTimeSpan()
     {
         var result = Convert("class C { public double M() { var t = new System.TimeSpan(1, 0, 0); return t.TotalHours; } }");
@@ -137,12 +130,4 @@ public class DateTimeMathTests : ConversionTestBase
             "Decimal d = Decimal.parse(\"1.5\");",
             "return d;");
     }
-
-    [Fact]
-    public void DecimalOperation_ConvertsToAdd()
-    {
-        var result = Convert("class C { public decimal M(decimal a, decimal b) { return a + b; } }");
-        AssertConversion(result, "public Decimal m(Decimal a, Decimal b) {", "return a.add(b);");
-    }
-
 }

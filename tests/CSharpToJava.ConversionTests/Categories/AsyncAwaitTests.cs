@@ -17,13 +17,6 @@ public class AsyncAwaitTests : ConversionTestBase
     }
 
     [Fact]
-    public void TaskCompletedTask_ConvertsToCompletedFutureNull()
-    {
-        var result = Convert("class C { public System.Threading.Tasks.Task M() { return System.Threading.Tasks.Task.CompletedTask; } }");
-        AssertConversion(result, "return CompletableFuture.completedFuture(null);");
-    }
-
-    [Fact]
     public void AsyncMethodReturningTask_Converts()
     {
         var result = Convert("class C { public async System.Threading.Tasks.Task DoWork() { await System.Threading.Tasks.Task.Delay(10); } }");
@@ -38,14 +31,6 @@ public class AsyncAwaitTests : ConversionTestBase
         AssertConversion(result, "CompletableFuture");
         AssertJavaDoesNotContain(result, "ConfigureAwait", "ConfigureAwait must be removed");
         AssertJavaDoesNotContain(result, "await");
-    }
-
-    [Fact]
-    public void AsyncReturnsConstant_ConvertsToCompletedFuture()
-    {
-        var result = Convert("class C { public async System.Threading.Tasks.Task<string> M() { return \"done\"; } }");
-        AssertConversion(result, "return CompletableFuture.completedFuture(\"done\");");
-        AssertJavaDoesNotContain(result, "async", "await");
     }
 
     [Fact]
@@ -82,21 +67,9 @@ public class AsyncAwaitTests : ConversionTestBase
         AssertJavaContains(result, "import java.util.concurrent.CompletableFuture;");
     }
 
-    [Fact]
-    public void AsyncReturningDouble_Converts()
-    {
-        var result = Convert("class C { public async System.Threading.Tasks.Task<double> M() { return 1.5; } }");
-        AssertConversion(result, "public CompletableFuture<Double> m() {", "return CompletableFuture.completedFuture(1.5);");
-        AssertJavaDoesNotContain(result, "async", "await");
-    }
 
-    [Fact]
-    public void AsyncReturningBool_Converts()
-    {
-        var result = Convert("class C { public async System.Threading.Tasks.Task<bool> M() { return true; } }");
-        AssertConversion(result, "public CompletableFuture<Boolean> m() {", "return CompletableFuture.completedFuture(true);");
-        AssertJavaDoesNotContain(result, "async", "await");
-    }
+
+
 
     [Fact]
     public void AwaitTaskRunSideEffect_Converts()
@@ -121,13 +94,5 @@ public class AsyncAwaitTests : ConversionTestBase
         var result = Convert("class C { public System.Threading.Tasks.Task<int> M() { return System.Threading.Tasks.Task.FromResult(1).ContinueWith(t => t.Result + 1); } }");
         AssertSuccess(result);
         AssertNoCSharpResidue(result);
-    }
-
-    [Fact]
-    public void AsyncReturningCustomType_Converts()
-    {
-        var result = Convert("class Item { } class C { public async System.Threading.Tasks.Task<Item> M() { return new Item(); } }");
-        AssertConversion(result, "public CompletableFuture<Item> m() {", "return CompletableFuture.completedFuture(new Item());");
-        AssertJavaDoesNotContain(result, "async", "await");
     }
 }

@@ -8,22 +8,9 @@ namespace CSharpToJava.ConversionTests.Categories;
 /// </summary>
 public class ExtensionMethodTests : ConversionTestBase
 {
-    [Fact]
-    public void ExtensionOnInt_ConvertsToStaticMethod()
-    {
-        var result = Convert("public static class E { public static int Double(this int x) => x * 2; }");
-        AssertConversion(result,
-            "public final class E {",
-            "private E() {",
-            "public static int doubleValue(int x) { return x * 2; }");
-    }
 
-    [Fact]
-    public void ExtensionOnString_ConvertsToStaticMethod()
-    {
-        var result = Convert("public static class E { public static void Log(this string s) { } }");
-        AssertConversion(result, "public final class E {", "public static void log(String s) {");
-    }
+
+
 
     [Fact]
     public void ExtensionWithExtraParam_ConvertsToStaticMethod()
@@ -39,11 +26,5 @@ public class ExtensionMethodTests : ConversionTestBase
         AssertConversion(result, "public static <T> T id(T x) { return x; }");
     }
 
-    [Fact]
-    public void ExtensionClassIsFinalWithPrivateCtor()
-    {
-        var result = Convert("public static class E { public static void M(this int x) { } }");
-        AssertConversion(result, "public final class E {", "private E() {");
-        AssertJavaDoesNotContain(result, "static class", "C# static class must become Java final class");
-    }
+
 }

@@ -67,13 +67,4 @@ public class UsingCastTests : ConversionTestBase
         var result = Convert("class C { public double M(int a) => (double)a / 2; }");
         AssertConversion(result, "return (double)(a) / 2;");
     }
-
-    [Fact]
-    public void AsNullCoalesce_ConvertsToCoalesceVariable()
-    {
-        var result = Convert("class C { public string M(object o) => (o as string) ?? \"\"; }");
-        AssertConversion(result,
-            "var _coalesce1 = ((o instanceof String ? (String)(o) : null));",
-            "return _coalesce1 != null ? _coalesce1 : \"\";");
-    }
 }

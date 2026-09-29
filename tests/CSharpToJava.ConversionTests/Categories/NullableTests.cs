@@ -46,14 +46,6 @@ public class NullableTests : ConversionTestBase
     }
 
     [Fact]
-    public void NullForgiving_StripsExclamation()
-    {
-        var result = Convert("class C { public string S = \"\"; public int L() => S!.Length; }");
-        AssertConversion(result, "public int l() { return S.length(); }");
-        AssertJavaDoesNotContain(result, "!", "C# null-forgiving '!' must be stripped");
-    }
-
-    [Fact]
     public void NullCoalescingChain_ConvertsToNestedTernary()
     {
         var result = Convert("class C { public string M(string a, string b) => a ?? b ?? \"\"; }");

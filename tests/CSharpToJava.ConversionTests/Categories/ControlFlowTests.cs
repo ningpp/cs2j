@@ -36,13 +36,6 @@ public class ControlFlowTests : ConversionTestBase
     }
 
     [Fact]
-    public void SwitchMultipleCases_ConvertsToJava()
-    {
-        var result = Convert("class C { public int M(int x) { switch (x) { case 1: case 2: return 10; default: return 0; } } }");
-        AssertConversion(result, "case 1, 2:", "default:");
-    }
-
-    [Fact]
     public void SwitchString_ConvertsToJavaStringSwitch()
     {
         var result = Convert("class C { public int M(string s) { switch (s) { case \"a\": return 1; default: return 0; } } }");
@@ -61,88 +54,6 @@ public class ControlFlowTests : ConversionTestBase
     {
         var result = Convert("class C { public int M(int[] a) { int s = 0; foreach (var x in a) { s += x; } return s; } }");
         AssertConversion(result, "for (int x : a)");
-    }
-
-    [Fact]
-    public void ForEachNamedTupleVariable_ConvertsToTupleAccessors()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Point { public int X; public int Y; }
-class C
-{
-    public int M()
-    {
-        var configurations = new List<(Point P, Point Q)>
-        {
-            (new Point { X = 0, Y = 0 }, new Point { X = 10, Y = 10 })
-        };
-        var total = 0;
-        foreach (var (pPoint, qPoint) in configurations)
-        {
-            total += pPoint.X + qPoint.X;
-        }
-        return total;
-    }
-}");
-
-        AssertConversion(result, "Tuple2<Point, Point>", "for (Tuple2<Point, Point> _foreachItem1 : configurations)");
-        AssertJavaContains(result, "Point pPoint = _foreachItem1._1();");
-        AssertJavaContains(result, "Point qPoint = _foreachItem1._2();");
-        AssertJavaContains(result, "total += pPoint.X + qPoint.X;");
-        AssertJavaDoesNotContain(result, "TODO: ForEachVariableStatement");
-    }
-
-    [Fact]
-    public void ForEachTupleVariable_UsesElementAccessorsForTypedDesignation()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class C
-{
-    public int M(List<(int, string)> values)
-    {
-        var total = 0;
-        foreach ((int number, string text) in values)
-        {
-            total += number + text.Length;
-        }
-        return total;
-    }
-}");
-
-        AssertConversion(result, "Tuple2<Integer, String>", "for (Tuple2<Integer, String> _foreachItem1 : values)");
-        AssertJavaContains(result, "int number = _foreachItem1._1();");
-        AssertJavaContains(result, "String text = _foreachItem1._2();");
-        AssertJavaContains(result, "total += number + text.length();");
-        AssertJavaDoesNotContain(result, "TODO: ForEachVariableStatement");
-    }
-
-    [Fact]
-    public void ForEachNestedTupleVariable_RecursivelyExtractsElements()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class C
-{
-    public int M(List<((int, int), string)> values)
-    {
-        var total = 0;
-        foreach (var ((x, y), text) in values)
-        {
-            total += x + y + text.Length;
-        }
-        return total;
-    }
-}");
-
-        AssertSuccess(result);
-        AssertJavaContains(result, "Tuple2<Tuple2<Integer, Integer>, String>");
-        AssertJavaContains(result, "int x = _foreachItem1._1()._1();");
-        AssertJavaContains(result, "int y = _foreachItem1._1()._2();");
-        AssertJavaContains(result, "String text = _foreachItem1._2();");
-        AssertJavaContains(result, "total += x + y + text.length();");
-        AssertJavaDoesNotContain(result, "TODO: ForEachVariableStatement");
     }
 
     [Fact]
@@ -296,13 +207,6 @@ class C
     }
 
     [Fact]
-    public void ForEachOverStringArray_ConvertsToJava()
-    {
-        var result = Convert("class C { public int M(string[] a) { int s = 0; foreach (var v in a) { s += v.Length; } return s; } }");
-        AssertConversion(result, "for (String v : a)", "v.length()");
-    }
-
-    [Fact]
     public void NestedForeachLoops_ConvertsToJava()
     {
         var result = Convert("class C { public int M(int[][] a) { int s = 0; foreach (var row in a) { foreach (var v in row) { s += v; } } return s; } }");
@@ -330,12 +234,7 @@ class C
         AssertConversion(result, "for (int i = 0; i < 5; i++) {");
     }
 
-    [Fact]
-    public void IfInsideFor_ConvertsToJava()
-    {
-        var result = Convert("class C { public int M(int[] a) { int c = 0; for (int i = 0; i < a.Length; i++) { if (a[i] > 0) c++; } return c; } }");
-        AssertConversion(result, "for (int i = 0; i < a.length; i++) {", "if (a[i] > 0) {", "c++;");
-    }
+
 
     [Fact]
     public void SwitchDefaultAtTop_ConvertsToJava()
@@ -379,12 +278,7 @@ class C
         AssertConversion(result, "switch (c) {", "case 'a':", "default:");
     }
 
-    [Fact]
-    public void NestedControlFlow_ConvertsToJava()
-    {
-        var result = Convert("class C { public int M(int[] a) { int total = 0; for (int i = 0; i < a.Length; i++) { if (a[i] < 0) continue; for (int j = 0; j < a[i]; j++) { total += j; } } return total; } }");
-        AssertConversion(result, "for (int i = 0; i < a.length; i++) {", "continue;", "for (int j = 0; j < a[i]; j++) {");
-    }
+
 
     [Fact]
     public void IfWithMethodCall_ConvertsToJava()

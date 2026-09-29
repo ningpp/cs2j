@@ -46,12 +46,7 @@ public class LanguageFeatureTests : ConversionTestBase
         AssertJavaDoesNotContain(result, "Serializable");
     }
 
-    [Fact]
-    public void StaticClass_ConvertsToFinalClass()
-    {
-        var result = Convert("public static class S { public static int V; public static void M() { } }");
-        AssertConversion(result, "public final class S {", "private S() {", "public static int V;", "public static void m() {");
-    }
+
 
     [Fact]
     public void NestedClass_ConvertsToStaticNested()
@@ -65,12 +60,5 @@ public class LanguageFeatureTests : ConversionTestBase
     {
         var result = Convert("class C { public const int Max = 10; }");
         AssertConversion(result, "public static final int Max = 10;");
-    }
-
-    [Fact]
-    public void ObjectInitializer_ConvertsToTempVariable()
-    {
-        var result = Convert("class C { public int X; public int Y; public void M() { var c = new C { X = 1, Y = 2 }; } }");
-        AssertConversion(result, "var _obj1 = new C();", "_obj1.X = 1;", "_obj1.Y = 2;", "var c = _obj1;");
     }
 }

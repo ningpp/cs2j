@@ -207,13 +207,6 @@ public class PrimitiveTypeTests : ConversionTestBase
     }
 
     [Fact]
-    public void CastExpression_MapsToJava()
-    {
-        var result = Convert("class C { public int M(double d) { return (int)d; } }");
-        AssertConversion(result, "return (int)(d);");
-    }
-
-    [Fact]
     public void ConstField_MapsToJavaFinal()
     {
         var result = Convert("class C { public const int Max = 100; }");

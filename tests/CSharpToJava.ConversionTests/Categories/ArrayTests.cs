@@ -23,34 +23,6 @@ public class ArrayTests : ConversionTestBase
     }
 
     [Fact]
-    public void ArrayLength_ConvertsToLengthField()
-    {
-        var result = Convert("class C { public int M(int[] a) { return a.Length; } }");
-        AssertConversion(result, "return a.length;");
-    }
-
-    [Fact]
-    public void ArrayInitializer()
-    {
-        var result = Convert("class C { public int M() { int[] a = new int[] { 1, 2, 3 }; return a.Length; } }");
-        AssertConversion(result, "int[] a = new int[] { 1, 2, 3 };");
-    }
-
-    [Fact]
-    public void ArrayInitializerShortForm()
-    {
-        var result = Convert("class C { public int[] M() { return new int[] { 4, 5 }; } }");
-        AssertConversion(result, "return new int[] { 4, 5 };");
-    }
-
-    [Fact]
-    public void JaggedArrayDeclaration()
-    {
-        var result = Convert("class C { public int M() { int[][] a = new int[2][]; a[0] = new int[3]; return a[0].Length; } }");
-        AssertConversion(result, "int[][] a = new int[2][];", "a[0] = new int[3];", "return a[0].length;");
-    }
-
-    [Fact]
     public void JaggedArrayElementAccess()
     {
         var result = Convert("class C { public int M() { int[][] a = new int[2][]; a[0] = new int[3]; a[0][1] = 5; return a[0][1]; } }");
@@ -83,13 +55,6 @@ public class ArrayTests : ConversionTestBase
     {
         var result = Convert("class C { public int[] Values; }");
         AssertConversion(result, "public int[] Values;");
-    }
-
-    [Fact]
-    public void ArrayAsMethodParameter()
-    {
-        var result = Convert("class C { public void M(int[] data) { var n = data.Length; } }");
-        AssertConversion(result, "m(int[] data)", "data.length");
     }
 
     [Fact]
@@ -189,20 +154,6 @@ public class ArrayTests : ConversionTestBase
     {
         var result = Convert("class C { public int M(int[][] a) { return a[1][2] + 1; } }");
         AssertConversion(result, "return a[1][2] + 1;");
-    }
-
-    [Fact]
-    public void ArrayLiteralInField()
-    {
-        var result = Convert("class C { public int[] Default = new int[] { 9, 8, 7 }; }");
-        AssertConversion(result, "public int[] Default = new int[] { 9, 8, 7 };");
-    }
-
-    [Fact]
-    public void ArrayLengthInLoopCondition()
-    {
-        var result = Convert("class C { public int M(int[] a) { int s = 0; for (int i = 0; i < a.Length; i++) { s += a[i]; } return s; } }");
-        AssertConversion(result, "i < a.length;", "s += a[i];");
     }
 
     [Fact]

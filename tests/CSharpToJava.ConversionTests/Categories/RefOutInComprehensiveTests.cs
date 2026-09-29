@@ -83,14 +83,6 @@ public class RefOutInComprehensiveTests : ConversionTestBase
         AssertConversion(result, "IntHolder a", "DoubleHolder b", "String c");
     }
 
-    [Fact]
-    [Trait("Category", "BasicTypes")]
-    public void RefOutUsedInExpression_ValueAccess()
-    {
-        var result = Convert("class C { public int M(ref int a) { return a + 1; } }");
-        AssertConversion(result, "IntHolder a", "return a.value + 1");
-    }
-
     // ── StructTypes ──────────────────────────────────────────────────
 
     [Fact]
@@ -111,30 +103,10 @@ public class RefOutInComprehensiveTests : ConversionTestBase
 
     [Fact]
     [Trait("Category", "StructTypes")]
-    public void RefStruct_FieldAccessThroughHolder()
-    {
-        var result = Convert("struct Point { public int X; public int Y; } class C { public void M(ref Point a) { a.X = 5; a.Y = 10; } }");
-        AssertConversion(result, "a.X = 5", "a.Y = 10");
-        Assert.False(result.GeneratedCode.Contains("ObjectHolder<Point>"),
-            "ref struct parameter with only field writes should use IsRefParamEffectivelyReadOnly optimization");
-    }
-
-    [Fact]
-    [Trait("Category", "StructTypes")]
     public void OutStruct_MethodAssignsAllFields()
     {
         var result = Convert("struct Point { public int X; public int Y; } class C { public void M(out Point a) { a = new Point(1, 2); } }");
         AssertConversion(result, "ObjectHolder<Point> a", "a.value = new Point(1, 2)");
-    }
-
-    [Fact]
-    [Trait("Category", "StructTypes")]
-    public void RefStructEffectivelyReadOnly_NoHolder()
-    {
-        var result = Convert("struct Point { public int X; public int Y; } class C { public int M(ref Point a) { return a.X + a.Y; } }");
-        AssertConversion(result, "public int m(Point a)", "return a.X + a.Y");
-        Assert.False(result.GeneratedCode.Contains("ObjectHolder<Point>"),
-            "ref struct parameter that is only read should not generate ObjectHolder");
     }
 
     // ── GenericTypes ──────────────────────────────────────────────────

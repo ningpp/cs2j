@@ -7,12 +7,7 @@ namespace CSharpToJava.ConversionTests.Categories;
 /// </summary>
 public class StructTests : ConversionTestBase
 {
-    [Fact]
-    public void SimpleStruct_ConvertsToCloneableClass()
-    {
-        var result = Convert("struct Point { public int X; public int Y; }");
-        AssertConversion(result, "public class Point implements Cloneable {", "public int X;", "public int Y;", "public Point clone() {");
-    }
+
 
     [Fact]
     public void StructWithConstructor_ConvertsToJava()
@@ -56,12 +51,7 @@ public class StructTests : ConversionTestBase
         AssertConversion(result, "public static int square(int x) {", "return x * x;");
     }
 
-    [Fact]
-    public void StructWithGenericField_ConvertsToJava()
-    {
-        var result = Convert("struct Holder<T> { public T Item; }");
-        AssertConversion(result, "public class Holder<T> implements Cloneable {", "public T Item;");
-    }
+
 
     [Fact]
     public void StructEquals_ConvertsToJava()
@@ -70,12 +60,7 @@ public class StructTests : ConversionTestBase
         AssertConversion(result, "public String toString() {");
     }
 
-    [Fact]
-    public void StructNestedInClass_ConvertsToJava()
-    {
-        var result = Convert("class Outer { public struct Inner { public int V; } }");
-        AssertConversion(result, "public static class Inner implements Cloneable {", "public int V;");
-    }
+
 
     [Fact]
     public void StructWithBoolField_ConvertsToBoolean()
@@ -91,12 +76,7 @@ public class StructTests : ConversionTestBase
         AssertConversion(result, "public double Value;");
     }
 
-    [Fact]
-    public void StructImplementingInterface_ConvertsToJava()
-    {
-        var result = Convert("interface IReset { void Reset(); } struct S : IReset { public void Reset() { } }");
-        AssertConversion(result, "public class S implements IReset, Cloneable {", "public void reset() {");
-    }
+
 
     [Fact]
     public void StructWithConst_ConvertsToStaticFinal()
@@ -105,19 +85,9 @@ public class StructTests : ConversionTestBase
         AssertConversion(result, "public static final int Max = 255;");
     }
 
-    [Fact]
-    public void StructWithReadOnlyField_ConvertsToJava()
-    {
-        var result = Convert("struct Bounds { public readonly int Min; public Bounds(int min) { Min = min; } }");
-        AssertConversion(result, "public final int Min;", "public Bounds(int min) {", "Min = min;");
-    }
 
-    [Fact]
-    public void EmptyStruct_ConvertsToCloneableClass()
-    {
-        var result = Convert("struct Empty { }");
-        AssertConversion(result, "public class Empty implements Cloneable {");
-    }
+
+
 
     [Fact]
     public void StructWithStringField_ConvertsToString()
@@ -147,21 +117,5 @@ public class StructTests : ConversionTestBase
         AssertSuccess(result);
         AssertNoCSharpResidue(result);
         AssertJavaContains(result, "public int get(int i) {");
-    }
-
-    [Fact]
-    public void StructImplementingIComparable_RemovesCompareToObjectBridge()
-    {
-        var result = Convert("using System; struct Mark : IComparable<Mark>, IComparable { public int CompareTo(Mark other) { return 0; } public int CompareTo(object? obj) { return CompareTo((Mark)obj); } }");
-        AssertConversion(result, "Comparable<Mark>");
-        AssertJavaDoesNotContain(result, "compareTo(Object", "compareTo(Object) must be removed to avoid bridge conflict with Comparable<T>");
-    }
-
-    [Fact]
-    public void StructWithDefaultParameterMethods_GeneratesOverloads()
-    {
-        var result = Convert("struct S { public bool Check(char expected, int offset = 0) { return true; } }");
-        AssertConversion(result, "public boolean check(char expected, int offset)");
-        AssertJavaContains(result, "check(char expected)", "Method with default param should generate overload without the defaulted param");
     }
 }

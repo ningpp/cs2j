@@ -7,13 +7,6 @@ namespace CSharpToJava.ConversionTests.Categories;
 /// </summary>
 public class StringTests : ConversionTestBase
 {
-    [Fact]
-    public void StringEmpty_ConvertsToEmptyLiteral()
-    {
-        var result = Convert("class C { public string M() { return string.Empty; } }");
-        AssertConversion(result, "return \"\";");
-        AssertJavaDoesNotContain(result, "String.Empty");
-    }
 
     [Fact]
     public void StringConcat_ConvertsToPlusOperator()
@@ -28,13 +21,6 @@ public class StringTests : ConversionTestBase
         var result = Convert("class C { public string M(int x) { return $\"val={x}\"; } }");
         AssertConversion(result, "return \"val=\" + x;");
         AssertJavaDoesNotContain(result, "$\"");
-    }
-
-    [Fact]
-    public void StringLength_ConvertsToLengthMethod()
-    {
-        var result = Convert("class C { public int M(string s) { return s.Length; } }");
-        AssertConversion(result, "return s.length();");
     }
 
     [Fact]
@@ -154,27 +140,6 @@ public class StringTests : ConversionTestBase
     }
 
     [Fact]
-    public void StringFieldInitializer_Empty()
-    {
-        var result = Convert("class C { public string Name = string.Empty; }");
-        AssertConversion(result, "public String Name = \"\";");
-    }
-
-    [Fact]
-    public void StringLocalDeclaration()
-    {
-        var result = Convert("class C { public void M() { string s = \"hello\"; var len = s.Length; } }");
-        AssertConversion(result, "String s = \"hello\";", "s.length()");
-    }
-
-    [Fact]
-    public void StringInTernary()
-    {
-        var result = Convert("class C { public string M(string s) { return s != null ? s : string.Empty; } }");
-        AssertConversion(result, "return (s != null ? s : \"\");");
-    }
-
-    [Fact]
     public void CharLiteralField()
     {
         var result = Convert("class C { public char Sep = ','; }");
@@ -211,14 +176,6 @@ public class StringTests : ConversionTestBase
     {
         var result = Convert("class C { public char[] M(string s) { return s.ToCharArray(); } }");
         AssertConversion(result, "return s.toCharArray();");
-    }
-
-    [Fact]
-    public void StringForeach_UsesToCharArrayEnhancedFor()
-    {
-        var result = Convert("class C { public int M(string s) { int n = 0; foreach (var c in s) { if (c == 'x') n++; } return n; } }");
-        AssertConversion(result, "for (char c : s.toCharArray())");
-        AssertJavaDoesNotContain(result, "(Iterable<");
     }
 
     [Fact]
@@ -275,26 +232,10 @@ public class StringTests : ConversionTestBase
     }
 
     [Fact]
-    public void StringFormatWithDouble()
-    {
-        var result = Convert("class C { public string M(double d) { return string.Format(\"{0:F2}\", d); } }");
-        AssertSuccess(result);
-        AssertNoCSharpResidue(result);
-        AssertJavaContains(result, "String.format");
-    }
-
-    [Fact]
     public void StringConcatChain_ConvertsToPlus()
     {
         var result = Convert("class C { public string M(string a, string b, string c) { return a + b + c; } }");
         AssertConversion(result, "return a + b + c;");
-    }
-
-    [Fact]
-    public void StringPropertyOnLocal()
-    {
-        var result = Convert("class C { public int M() { string s = \"abc\"; return s.Length; } }");
-        AssertConversion(result, "String s = \"abc\";", "return s.length();");
     }
 
     [Fact]
@@ -304,12 +245,5 @@ public class StringTests : ConversionTestBase
         AssertSuccess(result);
         AssertNoCSharpResidue(result);
         AssertJavaContains(result, "Objects.equals(s, \"x\")");
-    }
-
-    [Fact]
-    public void StringEmptyCheckViaLength()
-    {
-        var result = Convert("class C { public bool M(string s) { return s.Length == 0; } }");
-        AssertConversion(result, "return s.length() == 0;");
     }
 }

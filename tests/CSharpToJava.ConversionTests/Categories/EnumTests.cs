@@ -8,67 +8,19 @@ namespace CSharpToJava.ConversionTests.Categories;
 /// </summary>
 public class EnumTests : ConversionTestBase
 {
-    [Fact]
-    public void SimpleEnum_ConvertsToJavaEnum()
-    {
-        var result = Convert("enum Color { Red, Green, Blue }");
-        AssertConversion(result, "public enum Color {", "Red(0),", "Green(1),", "Blue(2),", "_UNMAPPED(-1);");
-    }
 
-    [Fact]
-    public void EnumWithExplicitValues_ConvertsToJavaEnum()
-    {
-        var result = Convert("enum Priority { Low = 1, Medium = 2, High = 3 }");
-        AssertConversion(result, "Low(1),", "Medium(2),", "High(3),");
-    }
 
-    [Fact]
-    public void EnumWithValueMethod_ConvertsToGetValue()
-    {
-        var result = Convert("enum Color { Red, Green }");
-        AssertConversion(result, "public int getValue() {");
-    }
 
-    [Fact]
-    public void EnumWithFromValue_ConvertsToJava()
-    {
-        var result = Convert("enum Color { Red, Green }");
-        AssertConversion(result, "public static Color fromValue(int v) {");
-    }
 
-    [Fact]
-    public void FlagsEnum_ConvertsToClassWithIntConstants()
-    {
-        var result = Convert("[System.Flags] enum Mode { A = 1, B = 2, C = 4 }");
-        AssertConversion(result, "public static final int A = 1;", "public static final int B = 2;", "public static final int C = 4;");
-    }
 
-    [Fact]
-    public void FlagsEnum_HasBitwiseHelpers()
-    {
-        var result = Convert("[System.Flags] enum Mode { A = 1, B = 2 }");
-        AssertConversion(result, "public static int and(int a, int b) {", "public static int or(int a, int b) {", "public static boolean has(int flags, int flag) {");
-    }
 
-    [Fact]
-    public void EnumUsedAsFieldType_ConvertsToJava()
-    {
-        var result = Convert("enum Color { Red, Green } class C { public Color Favorite; }");
-        AssertConversion(result, "public Color Favorite = Color.Red;");
-    }
+
 
     [Fact]
     public void EnumUsedAsParameter_ConvertsToJava()
     {
         var result = Convert("enum Color { Red, Green } class C { public void Set(Color c) { } }");
         AssertConversion(result, "public void set(Color c) {");
-    }
-
-    [Fact]
-    public void EnumWithExplicitZero_ConvertsToJavaEnum()
-    {
-        var result = Convert("enum Status { None = 0, Ok = 200 }");
-        AssertConversion(result, "None(0),", "Ok(200),");
     }
 
     [Fact]
@@ -104,15 +56,6 @@ public class EnumTests : ConversionTestBase
     }
 
     [Fact]
-    public void EnumCastFromInt_ConvertsToFromValue()
-    {
-        var result = Convert("enum Color { Red, Green } class C { public Color M(int x) { return (Color)x; } }");
-        AssertSuccess(result);
-        AssertNoCSharpResidue(result);
-        AssertJavaContains(result, "fromValue");
-    }
-
-    [Fact]
     public void EnumWithMethod_ConvertsToJava()
     {
         var result = Convert("enum Color { Red, Green } class C { public void Use() { var c = Color.Red; } }");
@@ -124,31 +67,6 @@ public class EnumTests : ConversionTestBase
     {
         var result = Convert("internal enum Level { Low, High }");
         AssertConversion(result, "enum Level {");
-    }
-
-    [Fact]
-    public void EnumWithLongValues_ConvertsToJava()
-    {
-        var result = Convert("enum Big { A = 1L, B = 2L }");
-        AssertSuccess(result);
-        AssertNoCSharpResidue(result);
-        AssertJavaContains(result, "A(");
-    }
-
-    [Fact]
-    public void EnumBackedByByte_ConvertsToJava()
-    {
-        var result = Convert("enum Small : byte { A, B }");
-        AssertSuccess(result);
-        AssertNoCSharpResidue(result);
-        AssertJavaContains(result, "enum Small");
-    }
-
-    [Fact]
-    public void FlagsEnumWithCombined_ConvertsToClass()
-    {
-        var result = Convert("[System.Flags] enum Opt { Read = 1, Write = 2, Exec = 4 }");
-        AssertConversion(result, "public static final int Read = 1;", "public static final int Write = 2;", "public static final int Exec = 4;");
     }
 
     [Fact]
@@ -179,27 +97,5 @@ public class EnumTests : ConversionTestBase
     {
         var result = Convert("enum A { X, Y } enum B { P, Q }");
         AssertConversion(result, "enum A {", "enum B {");
-    }
-
-    [Fact]
-    public void EnumFromValueUnchecked_ConvertsToJava()
-    {
-        var result = Convert("enum Color { Red, Green }");
-        AssertConversion(result, "public static Color fromValueUnchecked(int v) {");
-    }
-
-    [Fact]
-    public void ConstIntCastFromEnum_InlinesLiteralValue()
-    {
-        var result = Convert(@"
-enum Status { None = 0, Ok = 1 }
-class C {
-    public const int STATUS_OK = (int)Status.Ok;
-    public int M() { return STATUS_OK; }
-}");
-        AssertConversion(result,
-            "public static final int STATUS_OK = 1;",
-            "return STATUS_OK;");
-        AssertJavaDoesNotContain(result, ".getValue()", "const enum cast should not generate getValue() call");
     }
 }

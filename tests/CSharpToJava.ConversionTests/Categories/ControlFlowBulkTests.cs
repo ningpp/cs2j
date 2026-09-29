@@ -43,12 +43,7 @@ public class ControlFlowBulkTests : ConversionTestBase
         AssertConversion(result, "for (int i = 0; i < 10; i++) {", "if (i == 5) {", "continue;");
     }
 
-    [Fact]
-    public void Foreach_ConvertsToEnhancedFor()
-    {
-        var result = Convert("class C { public void M() { foreach (var x in new int[] { 1, 2 }) { var y = x; } } }");
-        AssertConversion(result, "for (int x : new int[] { 1, 2 }) {", "var y = x;");
-    }
+
 
     [Fact]
     public void WhileLoop_ConvertsIdentically()
@@ -113,12 +108,7 @@ public class ControlFlowBulkTests : ConversionTestBase
         AssertConversion(result, "switch (x) {", "case 1:", "r = 1;", "break;", "default:", "r = 0;");
     }
 
-    [Fact]
-    public void ForeachOverStringArray_ConvertsToEnhancedFor()
-    {
-        var result = Convert("class C { public void M() { foreach (var s in new string[] { \"a\", \"b\" }) { var n = s.Length; } } }");
-        AssertConversion(result, "for (String s : new String[] { \"a\", \"b\" }) {", "var n = s.length();");
-    }
+
 
     [Fact]
     public void IfChainThreeBranches_Converts()

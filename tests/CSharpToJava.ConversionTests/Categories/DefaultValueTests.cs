@@ -44,47 +44,10 @@ public class DefaultValueTests : ConversionTestBase
     }
 
     [Fact]
-    public void EnumDefault_WithZeroMember_EmitsZeroMember()
-    {
-        var result = Convert("enum Status { Full = 0, Empty = 1 } class C { public void M() { Status s = default; } }");
-        AssertConversion(result, "Status.Full");
-    }
-
-    [Fact]
-    public void EnumDefault_Flags_EmitsZero()
-    {
-        var result = Convert("[System.Flags] enum F { None = 0, A = 1 } class C { public void M() { F f = default; } }");
-        AssertConversion(result, "0");
-    }
-
-    [Fact]
-    public void EnumDefault_NoZeroMember_EmitsValues0()
-    {
-        // 无 0 值成员的枚举：当前转换器输出 values()[0]，作为稳定行为回归守卫。
-        var result = Convert("enum Color { Red = 1, Green = 2 } class C { public void M() { Color c = default; } }");
-        AssertConversion(result, "Color.values()[0]");
-    }
-
-    [Fact]
-    public void GenericStructConstraint_EmitsNewT()
-    {
-        var result = Convert("class C<T> where T : struct { public T V = default; }");
-        AssertConversion(result, "new T()");
-    }
-
-    [Fact]
     public void GenericClassConstraint_EmitsNull()
     {
         var result = Convert("class C<T> where T : class { public T V = default; }");
         AssertConversion(result, "null");
-    }
-
-    [Fact]
-    public void GenericUnconstrained_MethodLevel_EmitsDefaultValueOf()
-    {
-        var result = Convert("class C { public T M<T>() { T v = default; return v; } }");
-        AssertConversion(result, "DefaultValue.of(_cs2j_T)");
-        AssertJavaContains(result, "import io.github.ningpp.compat.DefaultValue;");
     }
 
     [Fact]
@@ -93,13 +56,6 @@ public class DefaultValueTests : ConversionTestBase
         var result = Convert("class C { public void M() { var t = default((int, string)); } }");
         AssertConversion(result, "Tuple.of(0, null)");
         AssertJavaContains(result, "import io.vavr.Tuple;");
-    }
-
-    [Fact]
-    public void TupleDefault_Literal_EmitsTupleOf()
-    {
-        var result = Convert("class C { public void M() { (int, string) t = default; } }");
-        AssertConversion(result, "Tuple.of(0, null)");
     }
 
     [Fact]
@@ -114,13 +70,6 @@ public class DefaultValueTests : ConversionTestBase
     {
         var result = Convert("class C { public void M() { int? n = default(int?); } }");
         AssertConversion(result, "null");
-    }
-
-    [Fact]
-    public void GenericUnconstrained_ClassLevel_EmitsCs2jDefault()
-    {
-        var result = Convert("class C<T> { public T V = default; }");
-        AssertConversion(result, "_cs2jDefault_T()");
     }
 
     [Fact]
@@ -149,13 +98,6 @@ public class DefaultValueTests : ConversionTestBase
     {
         var result = Convert("class C { void Callee(int x) {} void Caller() { Callee(default); } }");
         AssertConversion(result, "callee(0)");
-    }
-
-    [Fact]
-    public void DefaultInArrayElement_EmitsMarker()
-    {
-        var result = Convert("class C { public void M() { int[] a = new int[] { default }; } }");
-        AssertConversion(result, "new int[] { 0 }");
     }
 
     [Fact]

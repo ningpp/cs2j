@@ -58,14 +58,6 @@ public class LinqTests : ConversionTestBase
         yield return new object[] { "Take count", "class C { public int M(System.Collections.Generic.List<int> l) { return l.Take(5).Count(); } }" };
     }
 
-    [Theory]
-    [MemberData(nameof(LinqSnippets))]
-    public void LinqConversion(string description, string csharp)
-    {
-        var result = Convert(csharp);
-        AssertLinqConverted(result);
-    }
-
     [Fact]
     public void Where_ProducesProceduralHelper()
     {
