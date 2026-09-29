@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CSharpToJava.CLI;
 using CSharpToJava.CLI.Preprocessing;
+using CSharpToJava.CLI.Preprocessing.Adapters;
 using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
@@ -93,6 +94,70 @@ public class PatternDesugarProjectTests
             if (Directory.Exists(outputRoot))
                 Directory.Delete(outputRoot, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task UnsupportedPattern_IsAnError_UnlessTheFileIsWhitelisted()
+    {
+        // List patterns belong to C37. Until it lands the pass must fail loudly for
+        // such a file — and must be able to acknowledge it explicitly (whitelist)
+        // instead of silently emitting a placeholder.
+        const string source = """
+public class C
+{
+    public int M(object o)
+    {
+        switch (o)
+        {
+            case [1, ..]: return 1;
+            default: return 0;
+        }
+    }
+}
+""";
+        var tree = CSharpSyntaxTree.ParseText(source, path: "Sample.cs");
+        var compilation = Microsoft.CodeAnalysis.CSharp.CSharpCompilation.Create(
+            "whitelist-test",
+            new[] { tree },
+            new[]
+            {
+                Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                Microsoft.CodeAnalysis.MetadataReference.CreateFromFile(
+                    Path.Combine(Path.GetDirectoryName(typeof(object).Assembly.Location)!, "System.Runtime.dll")),
+            },
+            new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
+                Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary));
+        var model = compilation.GetSemanticModel(tree);
+
+        static PatternDesugarPassAdapter Adapter(string[]? whitelist) => new(
+            new CSharpToJava.Core.PatternDesugar.PatternDesugarOptions(ResidualWhitelist: whitelist),
+            verbose: false,
+            filterUnsupportedProjects: false,
+            compatNamespacePrefixes: null,
+            verifyBuild: false,
+            verifyTests: false,
+            strict: true);
+
+        var context = new PassFileContext
+        {
+            SourceCode = source,
+            SourceFilePath = "Sample.cs",
+            RelativePath = "Sample.cs",
+            DestinationFilePath = "Sample.cs",
+            SemanticModel = model,
+        };
+
+        // Without a whitelist entry: PD010 is an error and the file is left as-is.
+        var strict = Adapter(whitelist: null);
+        var strictRewrite = await strict.RewriteFileAsync(context);
+        Assert.Null(strictRewrite);
+        Assert.True(strict.HasErrors, "PD010 must be an error for a non-whitelisted file");
+
+        // With the file whitelisted: the same PD010 is acknowledged, not an error.
+        var whitelisted = Adapter(whitelist: new[] { "Sample.cs" });
+        var whitelistedRewrite = await whitelisted.RewriteFileAsync(context);
+        Assert.Null(whitelistedRewrite);
+        Assert.False(whitelisted.HasErrors, "a whitelisted file must not fail the pass");
     }
 
     [Fact]
