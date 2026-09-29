@@ -1,4 +1,5 @@
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.PatternDesugar;
 using CSharpToJava.Core.Pipeline;
 
 namespace CSharpToJava.Tests;
@@ -31,7 +32,10 @@ class C {
 
         var code = result.GeneratedCode ?? "";
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Objects.equals(type, 1) && (Objects.equals(str, \"A\") || Objects.equals(str, \"B\"))", code);
+        // The invariant is that the when-clause is parenthesized as a whole after
+        // the `&&`; the constant comparison form is the int==int `==` (Objects.equals
+        // is reserved for string==string, so the old expectation was unreachable).
+        Assert.Contains("type == 1 && (Objects.equals(str, \"A\") || Objects.equals(str, \"B\"))", code);
     }
 
     [Fact]
@@ -52,7 +56,7 @@ class C {
 
         var code = result.GeneratedCode ?? "";
         Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Objects.equals(type, 1) && (m > 0 && ch != 5)", code);
+        Assert.Contains("type == 1 && (m > 0 && ch != 5)", code);
     }
 
     [Fact]
@@ -110,10 +114,11 @@ class C {
 
     private static ConversionResult Convert(string sourceCode)
     {
+        var desugared = new PatternDesugarPreprocessor().Preprocess(sourceCode);
         var pipeline = new ConversionPipeline();
         return pipeline.Convert(new ConversionRequest
         {
-            SourceCode = sourceCode,
+            SourceCode = desugared.OutputCode,
             FileName = "Sample.cs",
             Options = new ConversionOptions(),
         });

@@ -260,6 +260,30 @@ class C {
 }
 """);
         var text = Normalize(result.OutputCode);
+        // A section-final break needs no jump: the exclusive chain already left
+        // the switch when the branch body ends.
+        Assert.DoesNotContain("goto", text);
+        Assert.DoesNotContain("__cs2jSwitchEnd", text);
+        AssertCompilesAndClean(result);
+    }
+
+    [Fact]
+    public void PatternSwitch_MidSectionBreak_BecomesGotoEndLabel()
+    {
+        var result = Desugar("""
+class C {
+    void M(object o, bool flag) {
+        switch (o) {
+            case string s:
+                if (flag) { break; }
+                System.Console.WriteLine(s);
+                break;
+            case int i: break;
+        }
+    }
+}
+""");
+        var text = Normalize(result.OutputCode);
         Assert.Contains("goto __cs2jSwitchEnd_0;", text);
         Assert.Contains("__cs2jSwitchEnd_0: ;", text);
         AssertCompilesAndClean(result);
@@ -281,9 +305,9 @@ class C {
 }
 """);
         var text = Normalize(result.OutputCode);
-        // The loop's break stays a break; the section's own break becomes goto.
+        // The loop's break stays a break; the section's trailing break is elided.
         Assert.Contains("while (true) { break; }", text);
-        Assert.Contains("goto __cs2jSwitchEnd_0;", text);
+        Assert.Contains("if (o is string && (s = (string)o) != null)", text);
         AssertCompilesAndClean(result);
     }
 

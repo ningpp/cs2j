@@ -342,9 +342,22 @@ internal sealed class SwitchStatementComponent : IPatternDesugarComponent
         for (var i = plan.Sections.Count - 1; i >= 0; i--)
         {
             var section = plan.Sections[i];
-            var body = SyntaxFactory.Block(section.Statements
+            var visited = section.Statements
                 .Select(s => (StatementSyntax)rewriter.Visit(s)!)
-                .ToList());
+                .ToList();
+
+            // A section-final `break` needs no jump: the if/else-if chain is
+            // exclusive, so a branch that runs out of statements has already left
+            // the switch. Eliding it keeps the output free of goto/label unless a
+            // mid-section break actually requires one (D12).
+            if (visited.Count > 0
+                && section.Statements[^1] is BreakStatementSyntax trailingBreak
+                && PatternDesugarAnalysis.BreakBelongsToSwitch(trailingBreak, plan.Switch))
+            {
+                visited.RemoveAt(visited.Count - 1);
+            }
+
+            var body = SyntaxFactory.Block(visited);
 
             if (section.IsDefault)
             {
@@ -520,9 +533,23 @@ internal sealed class SwitchStatementComponent : IPatternDesugarComponent
             }
         }
 
-        var needsEndLabel = sections.Any(s => s.Statements.Any(st =>
-            st.DescendantNodesAndSelf().OfType<BreakStatementSyntax>()
-                .Any(b => PatternDesugarAnalysis.BreakBelongsToSwitch(b, sw))));
+        // Only breaks that are NOT a section's final statement need a jump target.
+        var needsEndLabel = sections.Any(s =>
+        {
+            foreach (var statement in s.Statements)
+            {
+                var belongs = statement.DescendantNodesAndSelf()
+                    .OfType<BreakStatementSyntax>()
+                    .Any(b => PatternDesugarAnalysis.BreakBelongsToSwitch(b, sw));
+                if (!belongs)
+                    continue;
+                if (!ReferenceEquals(statement, s.Statements[^1]))
+                    return true;
+                if (statement is not BreakStatementSyntax)
+                    return true; // e.g. `if (x) break;` as the final statement
+            }
+            return false;
+        });
 
         builder.SwitchPlans[sw] = new SwitchLoweringPlan
         {

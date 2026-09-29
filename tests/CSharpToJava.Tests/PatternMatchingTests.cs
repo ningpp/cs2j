@@ -1,4 +1,5 @@
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.PatternDesugar;
 using CSharpToJava.Core.Pipeline;
 
 namespace CSharpToJava.Tests;
@@ -125,10 +126,14 @@ class C {
     }
 }");
         Assert.True(result.Success);
-        // Switch with pattern cases should become if-else chain
+        // Switch with pattern cases becomes an if-else chain. C03 hoists the
+        // bindings (a pattern variable cannot be redeclared across else-if), so
+        // the type test appears as instanceof + assignment rather than
+        // `instanceof String s`.
         Assert.Contains("if (", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("instanceof String s", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("instanceof int i", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("o instanceof String", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("s = (String)(o)", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("o instanceof Integer", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("else", result.GeneratedCode, StringComparison.Ordinal);
         // Should NOT contain switch keyword (converted to if-else)
         Assert.DoesNotContain("switch (o)", result.GeneratedCode, StringComparison.Ordinal);
@@ -154,9 +159,10 @@ class C {
     }
 }");
         Assert.True(result.Success);
-        Assert.Contains("instanceof int i", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("o instanceof Integer", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("if (", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains("i > 0", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("i < 0", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -176,9 +182,9 @@ class C {
     }
 }");
         Assert.True(result.Success);
-        // null check via Objects.equals or == null
+        // null check via == null
         Assert.Contains("null", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("instanceof String s", result.GeneratedCode, StringComparison.Ordinal);
+        Assert.Contains("o instanceof String", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -198,12 +204,18 @@ class C {
         Assert.Contains("getY()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Statement-side pattern constructs must go through the C03 preprocessor
+    /// first (the converter fail-fasts on pattern switch labels); expression-side
+    /// cases pass through unchanged because Preprocess is a no-op for them.
+    /// </summary>
     private static ConversionResult Convert(string csharpCode)
     {
+        var desugared = new PatternDesugarPreprocessor().Preprocess(csharpCode);
         var pipeline = new ConversionPipeline();
         return pipeline.Convert(new ConversionRequest
         {
-            SourceCode = csharpCode,
+            SourceCode = desugared.OutputCode,
             FileName = "Test.cs",
             Options = new ConversionOptions(),
         });
