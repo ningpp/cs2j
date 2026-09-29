@@ -43,48 +43,55 @@ public sealed partial class MemberDesugarPreprocessor
         foreach (var p in active.Where(p => p.Outcome != MemberDesugarOutcome.Planned))
             EmitSkipDiagnostics(p, filePath, statistics, diagnostics);
 
-        var plannedProps = active.OfType<Properties.PropertyPlan>()
+        var propertyPlans = active.OfType<Properties.PropertyPlan>().ToList();
+        var eventPlans = active.OfType<Events.EventPlan>().ToList();
+        var indexerPlans = active.OfType<Indexers.IndexerPlan>().ToList();
+        var plannedProperties = propertyPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
-        var plannedIndexers = active.OfType<Indexers.IndexerPlan>()
+        var plannedEvents = eventPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
-        if (plannedProps.Count == 0 && plannedIndexers.Count == 0)
+        var plannedIndexers = indexerPlans
+            .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
+        if (plannedProperties.Count == 0 && plannedEvents.Count == 0 && plannedIndexers.Count == 0)
         {
             statistics.FilesSkippedClean++;
             return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
         }
-        statistics.PropertiesPlanned += plannedProps.Count(p => IsFirstDeclarationFile(p, filePath));
+        statistics.PropertiesPlanned += plannedProperties.Count(p => IsFirstDeclarationFile(p, filePath));
+        statistics.EventsPlanned += plannedEvents.Count(p => IsFirstDeclarationFile(p, filePath));
         statistics.IndexersPlanned += plannedIndexers.Count(p => IsFirstDeclarationFile(p, filePath));
 
-        // 属性 pass 先行（Order 10 → 20）；两族都改写同一文件时，索引器 pass 必须基于
-        // 重解析树重新绑定（SemanticModel 只能绑定自身语法树的节点，设计 §4.2-3）。
-        var current = (SyntaxNode)root;
-        var currentModel = semanticModel;
-        if (plannedProps.Count > 0)
+        // 事件→属性→索引器三级 dispatch（C13 §3.2 + C12 Order）：
+        // 事件改写器在原始树上运行；属性/索引器改写器随后运行，跨族同文件时 ReplaceSyntaxTree 重绑定语义。
+        var workingRoot = root;
+        if (plannedEvents.Count > 0)
+        {
+            var eventRewriter = new Events.EventUseSiteRewriter(
+                semanticModel, plannedEvents, eventPlans,
+                _options, statistics, diagnostics, filePath);
+            workingRoot = (CompilationUnitSyntax)eventRewriter.Visit(workingRoot)!;
+        }
+        if (plannedProperties.Count > 0)
         {
             var rewriter = new Properties.PropertyUseSiteRewriter(
-                semanticModel, plannedProps, active.OfType<Properties.PropertyPlan>().ToList(),
+                semanticModel, plannedProperties, propertyPlans,
                 _options, statistics, diagnostics, filePath);
-            var visited = (CompilationUnitSyntax)rewriter.Visit(root)!;
-            if (!visited.IsEquivalentTo(root))
-            {
-                (currentModel, current) = RebindModel(semanticModel, visited);
-            }
+            workingRoot = (CompilationUnitSyntax)rewriter.Visit(workingRoot)!;
         }
         if (plannedIndexers.Count > 0)
         {
             var indexerRewriter = new Indexers.IndexerUseSiteRewriter(
-                currentModel, plannedIndexers, active.OfType<Indexers.IndexerPlan>().ToList(),
+                semanticModel, plannedIndexers, indexerPlans,
                 _options, statistics, diagnostics, filePath);
-            current = indexerRewriter.Visit(current)!;
+            workingRoot = (CompilationUnitSyntax)indexerRewriter.Visit(workingRoot)!;
         }
-        var newRoot = (CompilationUnitSyntax)current;
-        if (newRoot.IsEquivalentTo(root))
+        if (workingRoot.IsEquivalentTo(root))
         {
             statistics.FilesSkippedClean++;
             return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
         }
 
-        var outputCode = FormatAndValidate(newRoot);
+        var outputCode = FormatAndValidate(workingRoot);
         if (outputCode == null)
         {
             statistics.FilesSkippedClean++;
@@ -247,7 +254,10 @@ public sealed partial class MemberDesugarPreprocessor
             col = span.StartLinePosition.Character + 1;
         }
         statistics.PlansSkipped++;
-        var code = p.FailCode ?? MemberDesugarDiagnosticCode.ResidualProperty;
+        var fallbackCode = p is Events.EventPlan
+            ? MemberDesugarDiagnosticCode.ResidualEvent
+            : MemberDesugarDiagnosticCode.ResidualProperty;
+        var code = p.FailCode ?? fallbackCode;
         statistics.SkippedByReason.TryGetValue(code, out var count);
         statistics.SkippedByReason[code] = count + 1;
         diagnostics.Add(new MemberDesugarDiagnostic(
