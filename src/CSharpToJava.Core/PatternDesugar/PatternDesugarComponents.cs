@@ -54,6 +54,13 @@ internal sealed class PatternDesugarPlanBuilder
             : "";
         Diagnostics.Add(new PatternDesugarDiagnostic(code, severity, message + where, FilePath));
     }
+
+    /// <summary>Counter hook for PD010s reported through the reduction context.</summary>
+    public void NoteReductionNodeError()
+    {
+        UnsupportedSkipped++;
+        HasExplicitNodeErrors = true;
+    }
 }
 
 /// <summary>
@@ -76,6 +83,7 @@ internal sealed class SwitchLoweringPlan
     public required ITypeSymbol? GoverningType { get; init; }
     public required bool NeedsEndLabel { get; init; }
     public required string EndLabelName { get; init; }
+    public required LoweringScope Scope { get; init; }
     public required IReadOnlyList<SectionPlan> Sections { get; init; }
 
     internal sealed class SectionPlan
@@ -87,8 +95,16 @@ internal sealed class SwitchLoweringPlan
 
     internal sealed class LabelPlan
     {
-        /// <summary>Pattern (or constant-as-pattern) source; null on default labels.</summary>
+        /// <summary>Pattern source (CasePatternSwitchLabelSyntax); null otherwise.</summary>
         public required PatternSyntax? Pattern { get; init; }
+
+        /// <summary>Bare constant label value (`case 1:`); null otherwise. Never
+        /// wrapped in a synthesized ConstantPatternSyntax — that would detach the
+        /// node from the semantic model.</summary>
+        public required ExpressionSyntax? ConstantValue { get; init; }
+
+        /// <summary>Guard preserved verbatim (D7 gate applies); null when absent.</summary>
+        public required ExpressionSyntax? When { get; init; }
     }
 }
 
@@ -107,6 +123,7 @@ internal sealed class CatchLoweringPlan
     public required LowerStrategy Strategy { get; init; }
     public required IReadOnlyList<CatchClausePlan> Clauses { get; init; }
     public required string? SynthExceptionName { get; init; }
+    public required LoweringScope Scope { get; init; }
 
     internal sealed class CatchClausePlan
     {
@@ -135,14 +152,138 @@ internal static class PatternDesugarAnalysis
         return false;
     }
 
-    /// <summary>The D4 non-integer governing set (StatementTransformer L33-38).</summary>
+    /// <summary>
+    /// Governing types Java's switch statement cannot handle: the D4 non-integer
+    /// set (StatementTransformer L33-38) plus object/dynamic/type parameters
+    /// (Java switch accepts only primitives, strings and enums).
+    /// </summary>
     public static bool IsNonIntegerGoverning(ITypeSymbol? type)
         => type?.SpecialType is SpecialType.System_Boolean
            or SpecialType.System_Int64
            or SpecialType.System_UInt64
            or SpecialType.System_Single
            or SpecialType.System_Double
-           or SpecialType.System_Decimal;
+           or SpecialType.System_Decimal
+           or SpecialType.System_Object
+           || type is { TypeKind: TypeKind.Dynamic or TypeKind.TypeParameter };
+
+    /// <summary>GetTypeInfo that tolerates error types and detached nodes.</summary>
+    public static ITypeSymbol? SafeTypeInfo(SemanticModel? model, ExpressionSyntax expression)
+    {
+        if (model == null)
+            return null;
+        try
+        {
+            var type = model.GetTypeInfo(expression).Type;
+            return type is IErrorTypeSymbol ? null : type;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static readonly HashSet<string> PrimitiveKeywords = new(StringComparer.Ordinal)
+    {
+        "bool", "byte", "char", "decimal", "double", "float", "int", "long",
+        "sbyte", "short", "uint", "ulong", "ushort",
+    };
+
+    /// <summary>
+    /// Binding shape rules. Value types and type parameters use the self-compare
+    /// form (`(v = (T)x) == v`; `!= null` does not compile for them). Type
+    /// parameters additionally cast through object (`(T)(object)x`), because a
+    /// direct cast from the governing type to an unconstrained T is CS0030.
+    /// Without a semantic model, fall back to the primitive-keyword heuristic.
+    /// </summary>
+    public static BindingInfo DescribeBinding(TypeSyntax type, SemanticModel? model)
+    {
+        if (model != null)
+        {
+            var symbol = model.GetTypeInfo(type).Type;
+            var isTypeParameter = symbol?.TypeKind == TypeKind.TypeParameter;
+            var selfCompare = symbol == null || symbol.IsValueType || isTypeParameter;
+            return new BindingInfo(type, selfCompare, isTypeParameter);
+        }
+        var primitive = type is PredefinedTypeSyntax predefined
+            && PrimitiveKeywords.Contains(predefined.Keyword.ValueText);
+        return new BindingInfo(type, primitive, CastThroughObject: false);
+    }
+
+    /// <summary>
+    /// Collects every designation a label pattern introduces (recursively):
+    /// typed designations become hoisted assign-in-condition bindings, untyped
+    /// ones (var / type-less recursive) become eager `var x = gov;` prologues.
+    /// </summary>
+    public static void CollectBindings(
+        PatternSyntax pattern,
+        LoweringScope scope,
+        SemanticModel? model,
+        Func<string, string> newName)
+    {
+        switch (pattern)
+        {
+            case DeclarationPatternSyntax declaration:
+                if (declaration.Designation is SingleVariableDesignationSyntax single)
+                {
+                    scope.AssignBindings.TryAdd(
+                        single.Identifier.ValueText,
+                        DescribeBinding(declaration.Type, model));
+                }
+                break;
+
+            case VarPatternSyntax varPattern:
+                if (varPattern.Designation is SingleVariableDesignationSyntax varSingle
+                    && !scope.EagerBindings.Contains(varSingle.Identifier.ValueText))
+                {
+                    scope.EagerBindings.Add(varSingle.Identifier.ValueText);
+                }
+                break;
+
+            case RecursivePatternSyntax recursive:
+                if (recursive.Type != null)
+                {
+                    if (recursive.Designation is SingleVariableDesignationSyntax recursiveSingle)
+                    {
+                        scope.AssignBindings.TryAdd(
+                            recursiveSingle.Identifier.ValueText,
+                            DescribeBinding(recursive.Type, model));
+                    }
+                    else if (recursive.PropertyPatternClause != null)
+                    {
+                        // Member access needs a name; register a deterministic synthetic.
+                        var info = DescribeBinding(recursive.Type, model);
+                        scope.RegisterSynthetic(
+                            recursive, recursive.Type, info.SelfCompare, newName);
+                    }
+                }
+                else if (recursive.Designation is SingleVariableDesignationSyntax typeless
+                         && !scope.EagerBindings.Contains(typeless.Identifier.ValueText))
+                {
+                    scope.EagerBindings.Add(typeless.Identifier.ValueText);
+                }
+
+                if (recursive.PropertyPatternClause != null)
+                {
+                    foreach (var sub in recursive.PropertyPatternClause.Subpatterns)
+                        CollectBindings(sub.Pattern, scope, model, newName);
+                }
+                break;
+
+            case BinaryPatternSyntax binary:
+                CollectBindings(binary.Left, scope, model, newName);
+                CollectBindings(binary.Right, scope, model, newName);
+                break;
+
+            case UnaryPatternSyntax unary:
+                CollectBindings(unary.Pattern, scope, model, newName);
+                break;
+
+            case ParenthesizedPatternSyntax parenthesized:
+                CollectBindings(parenthesized.Pattern, scope, model, newName);
+                break;
+        }
+    }
 }
 
 internal sealed class SwitchStatementComponent : IPatternDesugarComponent
@@ -175,6 +316,27 @@ internal sealed class SwitchStatementComponent : IPatternDesugarComponent
                         SyntaxFactory.EqualsValueClause(plan.Switch.Expression.WithoutTrivia()))))));
         }
 
+        // Hoisted bindings: plain declarations for assign-in-condition bindings,
+        // eager assignments for var / type-less designations (revised D11).
+        foreach (var (name, binding) in plan.Scope.AssignBindings)
+        {
+            statements.Add(SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(
+                    binding.Type.WithoutTrivia(),
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(name))))));
+        }
+        foreach (var eager in plan.Scope.EagerBindings)
+        {
+            statements.Add(SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(
+                    SyntaxFactory.IdentifierName("var"),
+                    SyntaxFactory.SingletonSeparatedList(SyntaxFactory.VariableDeclarator(
+                        SyntaxFactory.Identifier(eager),
+                        null,
+                        SyntaxFactory.EqualsValueClause(Governing()))))));
+        }
+
         // Build the else-if chain bottom-up so default (last section) becomes else.
         StatementSyntax? chain = null;
         for (var i = plan.Sections.Count - 1; i >= 0; i--)
@@ -193,12 +355,24 @@ internal sealed class SwitchStatementComponent : IPatternDesugarComponent
             var labelConditions = new List<ExpressionSyntax>();
             foreach (var label in section.Labels)
             {
-                if (label.Pattern == null) continue;
-                var reduction = PatternReducer.Reduce(
-                    label.Pattern, Governing(), plan.GoverningType, ctx.ReductionContext());
+                if (label.Pattern == null && label.ConstantValue == null) continue;
+                var reductionContext = ctx.ReductionContext(plan.Scope);
+                var reduction = label.ConstantValue != null
+                    ? PatternReducer.ReduceConstant(
+                        label.ConstantValue, Governing(), plan.GoverningType, reductionContext)
+                    : PatternReducer.Reduce(
+                        label.Pattern!, Governing(), plan.GoverningType, reductionContext);
                 if (!reduction.Supported)
                     return null; // analyzer pre-checked every label; defensive only
-                labelConditions.Add(reduction.Condition!);
+                var labelCondition = reduction.Condition!;
+                if (label.When != null)
+                {
+                    // Guard joins its own label, parenthesized as a whole (D3/D7).
+                    labelCondition = SyntaxFactory.BinaryExpression(SyntaxKind.LogicalAndExpression,
+                        labelCondition,
+                        SyntaxFactory.ParenthesizedExpression(label.When.WithoutTrivia()));
+                }
+                labelConditions.Add(labelCondition);
             }
 
             ExpressionSyntax condition;
@@ -313,26 +487,36 @@ internal sealed class SwitchStatementComponent : IPatternDesugarComponent
             ? SyntaxFactory.IdentifierName(governingTemp)
             : sw.Expression.WithoutTrivia());
 
+        var scope = new LoweringScope();
+
         // Trial reduction: any unsupported label refuses the whole switch (D6)
-        // before any rewriting happens.
+        // before any rewriting happens. Bindings are collected first so the trial
+        // sees the same scope the rewrite will see.
         var trialContext = new PatternReductionContext(
-            model, builder.Options, builder.Diagnostics, builder.FilePath, builder.Names.Next);
+            model, builder.Options, builder.Diagnostics, builder.FilePath, builder.Names.Next, scope, builder);
         foreach (var section in sections)
         {
             foreach (var label in section.Labels)
             {
-                PatternSyntax? pattern = label switch
+                switch (label)
                 {
-                    CasePatternSwitchLabelSyntax patternLabel => patternLabel.Pattern,
-                    CaseSwitchLabelSyntax constantLabel =>
-                        SyntaxFactory.ConstantPattern(constantLabel.Value.WithoutTrivia()),
-                    _ => null,
-                };
-                if (pattern == null)
-                    continue;
-                var reduction = PatternReducer.Reduce(pattern, subject, governingType, trialContext);
-                if (!reduction.Supported)
-                    return;
+                    case CasePatternSwitchLabelSyntax patternLabel:
+                        PatternDesugarAnalysis.CollectBindings(
+                            patternLabel.Pattern, scope, model, builder.Names.Next);
+                        if (!PatternReducer.Reduce(
+                                patternLabel.Pattern, subject, governingType, trialContext).Supported)
+                        {
+                            return;
+                        }
+                        break;
+                    case CaseSwitchLabelSyntax constantLabel:
+                        if (!PatternReducer.ReduceConstant(
+                                constantLabel.Value, subject, governingType, trialContext).Supported)
+                        {
+                            return;
+                        }
+                        break;
+                }
             }
         }
 
@@ -348,18 +532,15 @@ internal sealed class SwitchStatementComponent : IPatternDesugarComponent
             GoverningType = governingType,
             NeedsEndLabel = needsEndLabel,
             EndLabelName = builder.Names.Next("__cs2jSwitchEnd"),
+            Scope = scope,
             Sections = sections.Select(s => new SwitchLoweringPlan.SectionPlan
             {
                 IsDefault = s.Labels.Any(l => l is DefaultSwitchLabelSyntax),
                 Labels = s.Labels.Select(l => new SwitchLoweringPlan.LabelPlan
                 {
-                    Pattern = l switch
-                    {
-                        CasePatternSwitchLabelSyntax patternLabel => patternLabel.Pattern,
-                        CaseSwitchLabelSyntax constantLabel =>
-                            SyntaxFactory.ConstantPattern(constantLabel.Value.WithoutTrivia()),
-                        _ => null,
-                    },
+                    Pattern = (l as CasePatternSwitchLabelSyntax)?.Pattern,
+                    ConstantValue = (l as CaseSwitchLabelSyntax)?.Value,
+                    When = (l as CasePatternSwitchLabelSyntax)?.WhenClause?.Condition,
                 }).ToList(),
                 Statements = s.Statements.ToList(),
             }).ToList(),
@@ -399,8 +580,22 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
             }));
         }
 
-        // D8 strategy ②: merged chain over one synthesized Exception parameter; each
-        // branch re-binds the original variable name via `is T <name>`.
+        // D8 strategy ②: merged chain over one synthesized Exception parameter.
+        // Each branch's original variable name is a HOISTED declaration assigned in
+        // the condition (`Exception ex;` + `__cs2jEx_0 is T && ((ex = (T)__cs2jEx_0)
+        // != null)`) — pattern variables cannot be redeclared across if/else-if.
+        var subject = SyntaxFactory.IdentifierName(plan.SynthExceptionName!);
+        var reductionContext = ctx.ReductionContext(plan.Scope);
+
+        // Hoisted per-name declarations (one per distinct original variable name).
+        var hoists = plan.Scope.AssignBindings
+            .Select(kv => (StatementSyntax)SyntaxFactory.LocalDeclarationStatement(
+                SyntaxFactory.VariableDeclaration(
+                    kv.Value.Type.WithoutTrivia(),
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(kv.Key))))))
+            .ToList();
+
         StatementSyntax chain = SyntaxFactory.ThrowStatement();
         var filtersLowered = 0;
         var typeParamsLowered = 0;
@@ -417,18 +612,24 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
                 continue;
             }
 
-            VariableDesignationSyntax designation = clausePlan.OriginalVariableName != null
-                ? SyntaxFactory.SingleVariableDesignation(
-                    SyntaxFactory.Identifier(clausePlan.OriginalVariableName))
-                : SyntaxFactory.DiscardDesignation();
-            var typeTest = SyntaxFactory.IsPatternExpression(
-                SyntaxFactory.IdentifierName(plan.SynthExceptionName!),
-                SyntaxFactory.DeclarationPattern(clause.Declaration.Type.WithoutTrivia(), designation));
-            ExpressionSyntax condition = typeTest;
+            ExpressionSyntax condition;
+            if (clausePlan.OriginalVariableName != null
+                && plan.Scope.AssignBindings.TryGetValue(
+                    clausePlan.OriginalVariableName, out var binding))
+            {
+                condition = PatternReducer.AssignBindingCondition(
+                    subject, binding.Type, clausePlan.OriginalVariableName,
+                    binding.SelfCompare, binding.CastThroughObject);
+            }
+            else
+            {
+                condition = PatternReducer.IsTypeTest(subject, clause.Declaration.Type);
+            }
+
             if (clause.Filter != null)
             {
                 condition = SyntaxFactory.BinaryExpression(SyntaxKind.LogicalAndExpression,
-                    typeTest,
+                    condition,
                     SyntaxFactory.ParenthesizedExpression(clause.Filter.FilterExpression.WithoutTrivia()));
                 filtersLowered++;
             }
@@ -443,10 +644,10 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
 
         var mergedCatch = SyntaxFactory.CatchClause(
             SyntaxFactory.CatchDeclaration(
-                SyntaxFactory.ParseTypeName("Exception"),
+                SyntaxFactory.ParseTypeName("System.Exception"),
                 SyntaxFactory.Identifier(plan.SynthExceptionName!)),
             null,
-            SyntaxFactory.Block(chain));
+            SyntaxFactory.Block(hoists.Concat(new[] { chain }).ToList()));
         return tryNode.WithCatches(SyntaxFactory.List(new[] { mergedCatch }));
     }
 
@@ -484,6 +685,8 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
             {
                 Try = tryNode,
                 Strategy = CatchLoweringPlan.LowerStrategy.PreserveBody,
+                SynthExceptionName = null,
+                Scope = new LoweringScope(),
                 Clauses = new[]
                 {
                     new CatchLoweringPlan.CatchClausePlan
@@ -493,9 +696,21 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
                         IsTypeParameter = false,
                     },
                 },
-                SynthExceptionName = null,
             };
             return;
+        }
+
+        // Hoisted bindings for every named clause variable (same name across
+        // clauses shares one declaration — condition assignment re-binds it).
+        var scope = new LoweringScope();
+        foreach (var clause in clauses)
+        {
+            var name = OriginalVariableName(clause);
+            if (name != null && clause.Declaration != null)
+            {
+                scope.AssignBindings.TryAdd(name,
+                    PatternDesugarAnalysis.DescribeBinding(clause.Declaration.Type, model));
+            }
         }
 
         builder.CatchPlans[tryNode] = new CatchLoweringPlan
@@ -509,6 +724,7 @@ internal sealed class CatchClauseComponent : IPatternDesugarComponent
                 IsTypeParameter = typeParamClauses.Contains(c),
             }).ToList(),
             SynthExceptionName = builder.Names.Next("__cs2jEx"),
+            Scope = scope,
         };
     }
 

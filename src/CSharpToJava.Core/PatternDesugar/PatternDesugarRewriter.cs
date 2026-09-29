@@ -17,8 +17,8 @@ internal sealed class PatternDesugarRewriteContext
     /// <summary>Back-reference set by the rewriter so components can recurse into nested nodes.</summary>
     public required PatternDesugarRewriter Rewriter { get; set; }
 
-    public PatternReductionContext ReductionContext() =>
-        new(Model, Options, Builder.Diagnostics, FilePath, Builder.Names.Next);
+    public PatternReductionContext ReductionContext(LoweringScope? scope = null) =>
+        new(Model, Options, Builder.Diagnostics, FilePath, Builder.Names.Next, scope, Builder);
 }
 
 /// <summary>

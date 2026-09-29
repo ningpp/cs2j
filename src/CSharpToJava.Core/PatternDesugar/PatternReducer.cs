@@ -14,14 +14,42 @@ internal sealed record PatternReduction(
     IReadOnlyList<StatementSyntax> Prologue,
     bool Supported);
 
+/// <summary>
+/// One hoisted binding: declared type syntax plus the two form flags. Casts into
+/// an unconstrained type parameter must route through object — `(T)someException`
+/// is CS0030, `(T)(object)someException` compiles for constrained and
+/// unconstrained T alike.
+/// </summary>
+internal sealed record BindingInfo(TypeSyntax Type, bool SelfCompare, bool CastThroughObject);
+
 /// <summary>Shared state for one reduction sweep (C03 and C37 use the same shape).</summary>
 internal sealed record PatternReductionContext(
     SemanticModel? Model,
     PatternDesugarOptions Options,
     List<PatternDesugarDiagnostic> Diagnostics,
     string? FilePath,
-    Func<string, string> NewName)
+    Func<string, string> NewName,
+    LoweringScope? Scope = null,
+    PatternDesugarPlanBuilder? Builder = null)
 {
+    /// <summary>
+    /// Model lookup that never throws: synthesized (re-parented) nodes are
+    /// detached from the semantic model, so GetTypeInfo would throw on them.
+    /// </summary>
+    public ITypeSymbol? SafeTypeOf(ExpressionSyntax expression)
+    {
+        if (Model == null)
+            return null;
+        try
+        {
+            return Model.GetTypeInfo(expression).Type;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
     public void Report(string code, PatternDesugarSeverity severity, string message, SyntaxNode node)
     {
         var span = node.GetLocation().GetLineSpan();
@@ -29,6 +57,59 @@ internal sealed record PatternReductionContext(
             ? $" ({FilePath ?? span.Path}:{span.StartLinePosition.Line + 1},{span.StartLinePosition.Character + 1})"
             : "";
         Diagnostics.Add(new PatternDesugarDiagnostic(code, severity, message + where, FilePath));
+        if (code is PatternDesugarCodes.UnsupportedPattern or PatternDesugarCodes.GotoCaseInLoweredSwitch)
+            Builder?.NoteReductionNodeError();
+    }
+}
+
+/// <summary>
+/// Binding scope for one lowered switch or merged catch chain.
+///
+/// C# pattern variables scope to the ENCLOSING BLOCK (empirically: no
+/// redeclaration across if/else-if, no shadowing of outer locals — CS0128 /
+/// CS0136), so `o is T v` conditions cannot be used in a desugared chain.
+/// Bindings are instead HOISTED to plain declarations at the top of the
+/// lowering block and ASSIGNED inside the condition:
+///   T v;                                   (hoisted declaration)
+///   gov is T && ((v = (T)gov) != null)     reference/type-parameter → != null
+///   gov is T && ((v = (T)gov) == v)        value type → self-compare (always true)
+/// Untyped designations ({ X: 1 } p, var x) and synthetic member bindings use
+/// eager `var p = gov;` prologue statements instead (no cast, no type needed).
+/// </summary>
+internal sealed class LoweringScope
+{
+    /// <summary>name → (declared type syntax, use the self-compare form).</summary>
+    public Dictionary<string, BindingInfo> AssignBindings { get; } = new(StringComparer.Ordinal);
+
+
+    /// <summary>Names eagerly assigned via `var name = Subject;` before the chain.</summary>
+    public List<string> EagerBindings { get; } = new();
+
+    /// <summary>Synthetic member-access bindings created while trial-reducing recursive patterns.</summary>
+    public Dictionary<RecursivePatternSyntax, string> SyntheticNames { get; } = new();
+
+    /// <summary>Register (once) a synthetic binding for a type-ful recursive pattern.</summary>
+    public string RegisterSynthetic(
+        RecursivePatternSyntax pattern, TypeSyntax type, bool selfCompare, Func<string, string> newName)
+    {
+        if (SyntheticNames.TryGetValue(pattern, out var existing))
+            return existing;
+        var name = newName("__cs2jPat");
+        SyntheticNames[pattern] = name;
+        AssignBindings[name] = new BindingInfo(type, selfCompare, false);
+        return name;
+    }
+
+    /// <summary>Register (once) a synthetic binding deduplicated by type text, for
+    /// constant/relational patterns on object/dynamic governing.</summary>
+    public string GetOrCreateSyntheticBinding(TypeSyntax type, Func<string, string> newName)
+    {
+        var existing = AssignBindings.FirstOrDefault(kv => kv.Value.Type.IsEquivalentTo(type)).Key;
+        if (existing != null)
+            return existing;
+        var name = newName("__cs2jPat");
+        AssignBindings[name] = new BindingInfo(type, SelfCompare: true, CastThroughObject: false);
+        return name;
     }
 }
 
@@ -49,10 +130,8 @@ internal interface IPatternReducer
 
 /// <summary>
 /// Reduces pattern syntax into plain boolean C# expressions. The output form
-/// set is deliberately narrow: ==/!=, `is T [v]`, &&/||, !, member access —
-/// everything the main converter already accepts. Object/dynamic/type-parameter
-/// governing never emits a bare `gov == c` (boxing makes it a silent reference
-/// comparison); those go through `gov is CT v && v == c`.
+/// set is deliberately narrow: ==/!=, `is T`, hoisted-variable assignment,
+/// &&/||, !, member access — everything the main converter already accepts.
 /// </summary>
 internal static class PatternReducer
 {
@@ -70,6 +149,20 @@ internal static class PatternReducer
         new ParenthesizedPatternReducer(),
         new RecursivePatternReducer(),
     ];
+
+    /// <summary>
+    /// Reduces a bare constant value (`case 1:` labels and constant patterns).
+    /// Kept separate from the PatternSyntax entry point so callers can pass an
+    /// in-tree expression directly: wrapping it in a synthesized
+    /// ConstantPatternSyntax re-parents the node and detaches it from the
+    /// semantic model, which would break the object-governing type test.
+    /// </summary>
+    internal static PatternReduction ReduceConstant(
+        ExpressionSyntax value,
+        ExpressionSyntax subject,
+        ITypeSymbol? subjectType,
+        PatternReductionContext ctx)
+        => ConstantPatternReducer.ReduceCore(value, subject, subjectType, ctx);
 
     public static PatternReduction Reduce(
         PatternSyntax pattern,
@@ -104,14 +197,8 @@ internal static class PatternReducer
         SyntaxFactory.BinaryExpression(SyntaxKind.NotEqualsExpression,
             subject.WithoutTrivia(), NullLiteral());
 
-    internal static ExpressionSyntax IsPattern(
-        ExpressionSyntax subject, TypeSyntax type, VariableDesignationSyntax? designation)
-    {
-        PatternSyntax pattern = designation == null
-            ? SyntaxFactory.TypePattern(type.WithoutTrivia())
-            : SyntaxFactory.DeclarationPattern(type.WithoutTrivia(), designation);
-        return SyntaxFactory.IsPatternExpression(subject.WithoutTrivia(), pattern);
-    }
+    internal static ExpressionSyntax IsTypeTest(ExpressionSyntax subject, TypeSyntax type) =>
+        SyntaxFactory.IsPatternExpression(subject.WithoutTrivia(), SyntaxFactory.TypePattern(type.WithoutTrivia()));
 
     internal static bool RequiresTypeTest(ITypeSymbol? subjectType)
         => subjectType is { TypeKind: TypeKind.Dynamic or TypeKind.TypeParameter }
@@ -137,7 +224,43 @@ internal static class PatternReducer
         return null;
     }
 
-    /// <summary>`gov is CT v && <v compare c>` for object/dynamic/type-parameter subjects.</summary>
+    /// <summary>
+    /// The hoisted-binding condition form: `subject is T && ((name = (T)subject) (∗≠null | == name))`.
+    /// The self-compare form is used for value types and type parameters (null
+    /// comparison would not compile for them).
+    /// </summary>
+    internal static ExpressionSyntax AssignBindingCondition(
+        ExpressionSyntax subject,
+        TypeSyntax type,
+        string name,
+        bool selfCompare,
+        bool castThroughObject = false)
+    {
+        var bound = SyntaxFactory.IdentifierName(name);
+        var castOperand = castThroughObject
+            ? (ExpressionSyntax)SyntaxFactory.CastExpression(
+                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.ObjectKeyword)),
+                subject.WithoutTrivia())
+            : subject.WithoutTrivia();
+        var assignment = SyntaxFactory.ParenthesizedExpression(
+            SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                bound,
+                SyntaxFactory.CastExpression(type.WithoutTrivia(), castOperand)));
+        var truth = selfCompare
+            ? SyntaxFactory.BinaryExpression(SyntaxKind.EqualsExpression, assignment, bound)
+            : SyntaxFactory.BinaryExpression(SyntaxKind.NotEqualsExpression, assignment, NullLiteral());
+        return SyntaxFactory.BinaryExpression(SyntaxKind.LogicalAndExpression,
+            IsTypeTest(subject, type), truth);
+    }
+
+    /// <summary>
+    /// `subject is CT && ((__cs2jPat_n = (CT)subject) ∗ c)` for object/dynamic
+    /// governing: a bare `gov == c` would box and compare by reference (silently
+    /// always false). The assignment expression's own value feeds the comparison,
+    /// so one conjunct binds and compares; the synthetic hoisted binding is
+    /// deduplicated per type and declared at the lowering block top.
+    /// </summary>
     internal static PatternReduction TypeTestThenCompare(
         ExpressionSyntax subject,
         ExpressionSyntax operand,
@@ -148,17 +271,23 @@ internal static class PatternReducer
         if (operandType == null)
             return NotSupported();
 
-        var bound = SyntaxFactory.Identifier(ctx.NewName("__cs2jPat"));
-        var typeTest = SyntaxFactory.IsPatternExpression(
-            subject.WithoutTrivia(),
-            SyntaxFactory.DeclarationPattern(
-                SyntaxFactory.ParseTypeName(operandType.ToDisplayString()),
-                SyntaxFactory.SingleVariableDesignation(bound)));
-        var comparison = SyntaxFactory.BinaryExpression(comparisonKind,
-            SyntaxFactory.IdentifierName(bound), operand.WithoutTrivia());
-        return new PatternReduction(
-            SyntaxFactory.BinaryExpression(SyntaxKind.LogicalAndExpression, typeTest, comparison),
-            Array.Empty<StatementSyntax>(), true);
+        var typeSyntax = SyntaxFactory.ParseTypeName(operandType.ToDisplayString());
+        var boundName = ctx.Scope != null
+            ? ctx.Scope.GetOrCreateSyntheticBinding(typeSyntax, ctx.NewName)
+            : ctx.NewName("__cs2jPat");
+
+        // `(__cs2jPat_n = (CT)subject) <op> operand` — the cast applies to the
+        // SUBJECT (the constant operand is what we compare against).
+        var assignment = SyntaxFactory.ParenthesizedExpression(
+            SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                SyntaxFactory.IdentifierName(boundName),
+                SyntaxFactory.CastExpression(typeSyntax, subject.WithoutTrivia())));
+        var combined = SyntaxFactory.BinaryExpression(SyntaxKind.LogicalAndExpression,
+            IsTypeTest(subject, typeSyntax),
+            SyntaxFactory.BinaryExpression(comparisonKind, assignment, operand.WithoutTrivia()));
+
+        return new PatternReduction(combined, Array.Empty<StatementSyntax>(), true);
     }
 }
 
@@ -180,15 +309,10 @@ internal sealed class VarPatternReducer : IPatternReducer
     public PatternReduction Reduce(
         PatternSyntax pattern, ExpressionSyntax subject, ITypeSymbol? subjectType, PatternReductionContext ctx)
     {
-        var varPattern = (VarPatternSyntax)pattern;
-        return varPattern.Designation switch
-        {
-            SingleVariableDesignationSyntax single => new PatternReduction(
-                SyntaxFactory.IsPatternExpression(subject.WithoutTrivia(),
-                    SyntaxFactory.VarPattern(single.WithoutTrivia())),
-                Array.Empty<StatementSyntax>(), true),
-            _ => PatternReducer.SupportedTrue(),
-        };
+        // `var x` always matches; the eager `var x = gov;` prologue statement is
+        // emitted by the component (registered during analysis), so the condition
+        // itself is plain `true`.
+        return PatternReducer.SupportedTrue();
     }
 }
 
@@ -199,10 +323,14 @@ internal sealed class ConstantPatternReducer : IPatternReducer
 
     public PatternReduction Reduce(
         PatternSyntax pattern, ExpressionSyntax subject, ITypeSymbol? subjectType, PatternReductionContext ctx)
-    {
-        var constant = (ConstantPatternSyntax)pattern;
+        => ReduceCore(((ConstantPatternSyntax)pattern).Expression, subject, subjectType, ctx);
 
-        if (constant.Expression.IsKind(SyntaxKind.NullLiteralExpression))
+    internal static PatternReduction ReduceCore(
+        ExpressionSyntax constantValue, ExpressionSyntax subject, ITypeSymbol? subjectType, PatternReductionContext ctx)
+    {
+        var constant = constantValue;
+
+        if (constant.IsKind(SyntaxKind.NullLiteralExpression))
         {
             if (subjectType is INamedTypeSymbol { SpecialType: not SpecialType.System_Nullable_T } valueType
                 && valueType.IsValueType)
@@ -210,7 +338,7 @@ internal sealed class ConstantPatternReducer : IPatternReducer
                 ctx.Report(PatternDesugarCodes.UnsupportedPattern,
                     ctx.Options.Strict ? PatternDesugarSeverity.Error : PatternDesugarSeverity.Warning,
                     "PD010: null pattern on a non-nullable value-type governing is unreachable",
-                    constant);
+                    constantValue);
                 return PatternReducer.NotSupported();
             }
 
@@ -222,23 +350,23 @@ internal sealed class ConstantPatternReducer : IPatternReducer
 
         if (PatternReducer.RequiresTypeTest(subjectType))
         {
-            var constantType = ctx.Model?.GetTypeInfo(constant.Expression).Type;
+            var constantType = ctx.SafeTypeOf(constant);
             if (constantType == null)
             {
                 ctx.Report(PatternDesugarCodes.UnsupportedPattern,
                     ctx.Options.Strict ? PatternDesugarSeverity.Error : PatternDesugarSeverity.Warning,
                     "PD010: constant pattern on object/dynamic governing needs a semantic model to pick the type-test form",
-                    constant);
+                    constantValue);
                 return PatternReducer.NotSupported();
             }
 
             return PatternReducer.TypeTestThenCompare(
-                subject, constant.Expression, SyntaxKind.EqualsExpression, constantType, ctx);
+                subject, constant, SyntaxKind.EqualsExpression, constantType, ctx);
         }
 
         return new PatternReduction(
             SyntaxFactory.BinaryExpression(SyntaxKind.EqualsExpression,
-                subject.WithoutTrivia(), constant.Expression.WithoutTrivia()),
+                subject.WithoutTrivia(), constant.WithoutTrivia()),
             Array.Empty<StatementSyntax>(), true);
     }
 }
@@ -253,7 +381,7 @@ internal sealed class TypePatternReducer : IPatternReducer
     {
         var typePattern = (TypePatternSyntax)pattern;
         return new PatternReduction(
-            PatternReducer.IsPattern(subject, typePattern.Type, null),
+            PatternReducer.IsTypeTest(subject, typePattern.Type),
             Array.Empty<StatementSyntax>(), true);
     }
 }
@@ -267,8 +395,23 @@ internal sealed class DeclarationPatternReducer : IPatternReducer
         PatternSyntax pattern, ExpressionSyntax subject, ITypeSymbol? subjectType, PatternReductionContext ctx)
     {
         var declaration = (DeclarationPatternSyntax)pattern;
+        if (declaration.Designation is not SingleVariableDesignationSyntax single)
+            return new PatternReduction(
+                PatternReducer.IsTypeTest(subject, declaration.Type),
+                Array.Empty<StatementSyntax>(), true);
+
+        if (ctx.Scope == null
+            || !ctx.Scope.AssignBindings.TryGetValue(single.Identifier.ValueText, out var binding))
+        {
+            // No lowering scope (bare reducer use): fall back to an is-pattern form.
+            return new PatternReduction(
+                SyntaxFactory.IsPatternExpression(subject.WithoutTrivia(),
+                    SyntaxFactory.DeclarationPattern(declaration.Type.WithoutTrivia(), single.WithoutTrivia())),
+                Array.Empty<StatementSyntax>(), true);
+        }
+
         return new PatternReduction(
-            PatternReducer.IsPattern(subject, declaration.Type, declaration.Designation),
+            PatternReducer.AssignBindingCondition(subject, binding.Type, single.Identifier.ValueText, binding.SelfCompare),
             Array.Empty<StatementSyntax>(), true);
     }
 }
@@ -308,7 +451,7 @@ internal sealed class RelationalPatternReducer : IPatternReducer
         }
         else if (PatternReducer.RequiresTypeTest(subjectType))
         {
-            var operandType = ctx.Model?.GetTypeInfo(relational.Expression).Type;
+            var operandType = ctx.SafeTypeOf(relational.Expression);
             if (operandType == null)
                 return PatternReducer.NotSupported();
             return PatternReducer.TypeTestThenCompare(
@@ -400,21 +543,52 @@ internal sealed class RecursivePatternReducer : IPatternReducer
 
         if (recursive.Type != null)
         {
-            var needsSyntheticBinding = recursive.Designation is not SingleVariableDesignationSyntax
-                && recursive.PropertyPatternClause != null;
-            var designation = needsSyntheticBinding
-                ? SyntaxFactory.SingleVariableDesignation(
-                    SyntaxFactory.Identifier(ctx.NewName("__cs2jPat")))
-                : recursive.Designation;
-            conditions.Add(PatternReducer.IsPattern(subject, recursive.Type, designation));
-            if (designation is SingleVariableDesignationSyntax binding)
-                baseExpression = SyntaxFactory.IdentifierName(binding.Identifier.WithoutTrivia());
+            if (recursive.Designation is SingleVariableDesignationSyntax userBinding)
+            {
+                if (ctx.Scope != null
+                    && ctx.Scope.AssignBindings.TryGetValue(userBinding.Identifier.ValueText, out var binding))
+                {
+                    conditions.Add(PatternReducer.AssignBindingCondition(
+                        subject, binding.Type, userBinding.Identifier.ValueText,
+                        binding.SelfCompare, binding.CastThroughObject));
+                    baseExpression = SyntaxFactory.IdentifierName(userBinding.Identifier.WithoutTrivia());
+                }
+                else
+                {
+                    conditions.Add(PatternReducer.IsTypeTest(subject, recursive.Type));
+                    baseExpression = SyntaxFactory.IdentifierName(userBinding.Identifier.WithoutTrivia());
+                }
+            }
+            else if (recursive.PropertyPatternClause != null)
+            {
+                if (ctx.Scope != null)
+                {
+                    // Member access needs a name — register (idempotently) a
+                    // deterministic synthetic hoisted binding. The self-compare form
+                    // compiles for value types and reference types alike.
+                    var synthetic = ctx.Scope.RegisterSynthetic(
+                        recursive, recursive.Type, selfCompare: true, ctx.NewName);
+                    var binding = ctx.Scope.AssignBindings[synthetic];
+                    conditions.Add(PatternReducer.AssignBindingCondition(
+                        subject, binding.Type, synthetic, binding.SelfCompare, binding.CastThroughObject));
+                    baseExpression = SyntaxFactory.IdentifierName(synthetic);
+                }
+                else
+                {
+                    conditions.Add(PatternReducer.IsTypeTest(subject, recursive.Type));
+                }
+            }
+            else
+            {
+                conditions.Add(PatternReducer.IsTypeTest(subject, recursive.Type));
+            }
         }
-        else if (recursive.Designation is SingleVariableDesignationSyntax varBinding)
+        else if (recursive.Designation is SingleVariableDesignationSyntax varBinding
+                 && ctx.Scope != null
+                 && ctx.Scope.EagerBindings.Contains(varBinding.Identifier.ValueText))
         {
-            // Type-less recursive pattern with a designation: bind the subject itself.
-            conditions.Add(SyntaxFactory.IsPatternExpression(subject.WithoutTrivia(),
-                SyntaxFactory.VarPattern(varBinding.WithoutTrivia())));
+            // Type-less designation: the eager `var p = gov;` prologue assigned the
+            // subject already — no condition contribution, member access on p.
             baseExpression = SyntaxFactory.IdentifierName(varBinding.Identifier.WithoutTrivia());
         }
         else if (PatternReducer.IsReferenceLike(subjectType))
