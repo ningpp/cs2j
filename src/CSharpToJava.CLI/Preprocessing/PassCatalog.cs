@@ -12,6 +12,7 @@ internal static class PassIds
     public const string Delegate = "delegate";
     public const string Tuple = "tuple";
     public const string ForeachDeconstruction = "foreach-deconstruction";
+    public const string PatternDesugar = "pattern-desugar";
     public const string StripDefault = "strip-default";
     public const string RefOutIn = "ref-out-in";
     public const string Unsigned = "unsigned";
@@ -106,6 +107,18 @@ internal static class PassCatalog
             defaultEnabled: true,
             runAfterIds: new[] { PassIds.Tuple },
             description: "Desugar foreach deconstruction into indexer loops."),
+        new(
+            PassIds.PatternDesugar,
+            "Pattern desugaring",
+            ".cs2j-pattern-desugar-src",
+            PassStage.ControlFlow,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.NullCoalesce, PassIds.Tuple, PassIds.ForeachDeconstruction },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Reduce pattern switches, non-integer governing switches, catch filters and type-parameter catches into if-chains and boolean expressions.",
+            catalogItems: "C03, C37"),
         new(
             PassIds.StripDefault,
             "Strip default parameters",

@@ -21,12 +21,24 @@ public sealed class PassStubCatalogTests
     {
         var ids = Stubs.Select(p => p.Id).ToArray();
 
-        Assert.Equal(23, ids.Length);
+        Assert.Equal(22, ids.Length);
+        Assert.DoesNotContain(PassIds.PatternDesugar, ids);
         Assert.Contains(PassStubCatalog.Ids.ClosureLift, ids);
         Assert.Contains(PassStubCatalog.Ids.LinqChannel, ids);
         Assert.Contains(PassStubCatalog.Ids.DynamicDesugar, ids);
         Assert.Contains(PassStubCatalog.Ids.ClosedMetadata, ids);
         Assert.Contains(PassStubCatalog.Ids.VarianceAudit, ids);
+    }
+
+    [Fact]
+    public void PatternDesugar_IsImplemented_AndNotAStub()
+    {
+        var descriptor = PassCatalog.ImplementedById(PassIds.PatternDesugar);
+
+        Assert.Equal(PassStatus.Implemented, descriptor.Status);
+        Assert.Equal("C03, C37", descriptor.CatalogItems);
+        Assert.Equal(".cs2j-pattern-desugar-src", descriptor.IntermediateDirectoryName);
+        Assert.DoesNotContain(Stubs, stub => stub.Id == PassIds.PatternDesugar);
     }
 
     [Fact]

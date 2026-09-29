@@ -24,6 +24,7 @@ public sealed class PassChainOrderTests
         PassIds.Delegate,
         PassIds.Tuple,
         PassIds.ForeachDeconstruction,
+        PassIds.PatternDesugar,
         PassIds.StripDefault,
         PassIds.RefOutIn,
         PassIds.Unsigned,
@@ -176,7 +177,7 @@ public sealed class PassChainOrderTests
         // newly flipped registry passes (e.g. generic-deepen) are reachable solely
         // through their descriptor default plus --enable-pass/--pass.
         Assert.Equal(
-            LockedChain.Where(id => id != PassIds.GenericDeepen)
+            LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

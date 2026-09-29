@@ -8,6 +8,7 @@ using CSharpToJava.Core.IteratorLowering;
 using CSharpToJava.Core.JavaKeywords;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 using CSharpToJava.Core.NullCoalesceRewriter;
+using CSharpToJava.Core.PatternDesugar;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
@@ -150,6 +151,15 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
+
+            PassIds.PatternDesugar => new PatternDesugarPassAdapter(
+                new PatternDesugarOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests,
+                config.Strict),
 
             PassIds.StripDefault => new StripDefaultPassAdapter(
                 new DefaultParameterStripperOptions(),

@@ -21,7 +21,6 @@ internal static class PassStubCatalog
     {
         public const string LexicalNormalize = "lexical-normalize";
         public const string PartialMerge = "partial-merge";
-        public const string PatternDesugar = "pattern-desugar";
         public const string EnumDeclaration = "enum-declaration";
         public const string IndexRange = "index-range";
         public const string ForeachSource = "foreach-source";
@@ -69,16 +68,6 @@ internal static class PassStubCatalog
             needsSemanticModel: false,
             description: "Merge partial type declarations across the tree before the semantic passes.",
             catalogItems: "C20"),
-        new(
-            Ids.PatternDesugar,
-            "Pattern desugaring",
-            ".cs2j-pattern-desugar-src",
-            PassStage.ControlFlow,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.NullCoalesce },
-            description: "Reduce pattern matches and switches into if-chains and boolean expressions.",
-            catalogItems: "C03, C37"),
         new(
             Ids.EnumDeclaration,
             "Enum declaration rewrite",
