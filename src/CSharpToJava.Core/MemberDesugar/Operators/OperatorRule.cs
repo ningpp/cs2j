@@ -331,7 +331,11 @@ internal sealed class OperatorRule : IMemberDesugarRule
         Dictionary<IMethodSymbol, (MemberDesugarDiagnosticCode Code, string Reason)> siteFailures,
         MemberDesugarOptions options, Dictionary<string, int> metadataSites)
     {
-        if (model.GetOperation(node) is not IConversionOperation conv
+        // 与重写期同一探测（ConversionResolver.TryFindUserConversion）：
+        // 隐式站点绑定的用户转换在 GetOperation(运算元).Parent（同语法），
+        // 复合 cast 的 GetOperation 为 null —— 二者都必须被分析期看见，否则 plan
+        // 不覆盖站点文件（TouchedFiles 缺项）且闸门失效。
+        if (!ConversionResolver.TryFindUserConversion(node, model, out var conv)
             || conv.OperatorMethod is not { } m) return; // 标准转换 OperatorMethod 为 null
         if (!OperatorFacts.HasSourceDeclaration(m.OriginalDefinition))
         {

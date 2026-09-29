@@ -3519,6 +3519,17 @@ Task 1/3/4/5 实施后实测发现计划文本与本仓 Roslyn 机制不符的�
 
 其余（Task 4 声明重写、Task 5 站点访问器与 `RenderCall`、Task 6-12 未开工部分）与计划一致；Task 5 的 `RenderCall` 签名按勘误 2/4 微调为 `(OperatorPlan plan, IMethodSymbol boundOperator, ExpressionSyntax site, params ExpressionSyntax[] args)`（qualifier 取绑定符号的 `ContainingType`，避免新鲜模型下 `plan.Operator.ContainingType` 跨编译显示串差异）。
 
+**Task 6 追加勘误（转换站点实测，2026-09-30）**：
+
+6. **`DefaultVisit` 拦截机制作废**（Task 6 Step 6.4 的 `DefaultVisit` 重写作废）：`CSharpSyntaxRewriter` 生成的 `VisitXxx` 方法**不再调用** `DefaultVisit`（实测：整树 0 次命中）。全覆盖拦截点只有 `public override SyntaxNode? Visit(SyntaxNode? node)` —— 它在父节点重建时逐个访问子节点（实测 75/75 节点全经此），故转换站点统一在 `Visit` 漏斗内包装（在 `base.Visit` 之后，保证实参为已改写子树）。该漏斗同时**取代** `ApplyOuterConversion`（二元/一元节点自身是转换站点时自动被包裹，如 `wrapper + wrapper` 再隐式转 long）。
+7. **隐式站点探测修正**（Task 6 Step 6.3 的 `model.GetOperation(expr) is IConversionOperation conv && conv.IsUserDefined` 作废）：隐式转换站点上 `GetOperation(运算元)` 返回**内层**操作（FieldReference/ParameterReference/Coalesce），用户转换在其 `.Parent` 且**语法节点相同**（实测）。原判据使分析期完全看不见隐式站点 → plan 的 `TouchedFiles` 缺站点文件、重写器对该文件不运行。正确判据（`ConversionResolver.TryFindUserConversion`，分析与重写共用）：
+   - ② 简单 cast：`GetOperation(expr) is IConversionOperation { OperatorMethod: not null }`；
+   - ① 隐式站点：`GetOperation(expr)?.Parent is IConversionOperation p && p.Syntax == expr && p.OperatorMethod != null`；
+   - ③ 复合 cast：`GetOperation(expr)` 返回 **null** → 仅在 `expr is CastExpressionSyntax` 时下钻最近可绑定祖先的操作树找 `c.OperatorMethod != null && c.Syntax == expr`。
+8. **复合 cast 与外层显式标准转换**（Task 6 Step 6.1 `Narrow` 用例的源不合法）：`(byte)s`（用户显式转换 S→int + 标准显式 int→byte）在操作树里是**两层** IConversionOperation（内层用户、外层标准，语法皆为 cast 节点），`GetOperation` 为 null。外层 cast 保留判据：`ClassifyConversion(methodReturn, outerTarget).IsExplicit`（→ `(byte)Src.ToIntExplicit(s)`）。注意：**隐式**运算符 + 显式标准外层（`implicit operator int(S)` 声明的 `(byte)s`）**不是合法 C#**，计划草稿的该用例必须改用 `explicit operator int(S)`；且两层转换共享同一语法节点时，包装实参取 `cast.Expression` 的已改写结果（不是 cast 节点本身），否则产出 `ToIntExplicit((int)t)`。
+9. **转换到表外目标 = 整 plan 跳过（决策 3 v1 边界）**：`explicit operator Temperature(double)`（目标为用户类型）→ CS2J5177，声明与站点均不动；同类型的 `implicit operator double(Temperature)` 是其自身的 plan、照常执行。计划草稿的 `FromCelsius`/`ToDoubleExplicit` 断言违反决策 3，落地时改为「镜像表内目标 + 一个显式方向站点的混合用例」与「表外目标原子跳过」两条。
+10. **装箱不是用户转换**：`object o = s`（S→object，S 有 implicit→int）绑定的转换 `IsUserDefined == false` → 站点不动；计划草稿断言 `object o = Src.ToInt(s)` 与 C# 语义不符，改为断言不动。名解析细节：同一站点同时声明 `implicit operator int` 与 `implicit operator long` 时，目标 `long` 上下文直接绑定 `op_Implicit→long`（故选 `ToLong` 而非 `ToInt`），断言按实际绑定写。
+
 ---
 
 ## Self-Review 记录（writing-plans 检查单）

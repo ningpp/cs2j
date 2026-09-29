@@ -13,6 +13,7 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
     private readonly SemanticModel _model;
     private readonly Dictionary<string, OperatorPlan> _active;
     private readonly HashSet<string> _knownKeys;
+    private readonly ConversionResolver _conversions;
     private readonly MemberDesugarOptions _options;
     private readonly MemberDesugarStatistics _stats;
     private readonly List<MemberDesugarDiagnostic> _diagnostics;
@@ -32,6 +33,8 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
         foreach (var p in plannedPlans) _active[PlanKey(p.Operator)] = p;
         _knownKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var p in allPlans) _knownKeys.Add(PlanKey(p.Operator));
+        _conversions = new ConversionResolver(
+            (CompilationUnitSyntax)model.SyntaxTree.GetRoot(), model, plannedPlans);
         _options = options;
         _stats = stats;
         _diagnostics = diagnostics;
@@ -43,6 +46,28 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
         => $"{op.ContainingType?.ToDisplayString()}::{op.Name}" +
            $"({string.Join(",", op.Parameters.Select(p => p.Type.ToDisplayString()))})" +
            $":{op.ReturnType.ToDisplayString()}";
+
+    // ---- OC-4/OC-5 转换站点：Visit 漏斗（CSharpSyntaxRewriter 的 Visit(SyntaxNode) 是
+    //      唯一全覆盖拦截点——DefaultVisit 对 C# 树不再被调用，实测 75/75 节点全经 Visit）----
+
+    public override SyntaxNode? Visit(SyntaxNode? node)
+    {
+        var visited = base.Visit(node);
+        if (node is ExpressionSyntax original
+            && visited is ExpressionSyntax visitedExpr
+            && _conversions.Recipes.TryGetValue(original, out var recipe))
+        {
+            // cast 站点的配方键在 cast 节点、实参是**内层运算元**（含复合 cast：用户转换
+            // 的内层运算元），故取 Visit 后的 cast.Expression 而非 cast 节点本身。
+            var argument = original is CastExpressionSyntax
+                ? ((CastExpressionSyntax)visitedExpr).Expression
+                : visitedExpr;
+            return _conversions.Wrap(recipe, argument, original.SpanStart, _stats)
+                .WithTriviaFrom(original)
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return visited;
+    }
 
     // ---- OD-1/OD-2 声明归约 + 白名单计数 + OC-9 residual 闸门 ----
 

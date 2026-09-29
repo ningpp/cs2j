@@ -14,6 +14,30 @@ public class MemberDesugarOperatorUnitTests
         Rewrite(string src, MemberDesugarOptions? options = null, params string[] extra)
         => MemberDesugarPropertyUnitTests.Rewrite(src, options, extra);
 
+    /// <summary>跨文件 harness（镜像 C11 UseSites_CrossFile）：整编译分析 → 逐文件 RewriteFile。</summary>
+    internal static (string[] Outputs, MemberDesugarStatistics Stats, List<MemberDesugarDiagnostic> Diags)
+        RewriteAll(MemberDesugarOptions? options, params string[] files)
+    {
+        var parseOptions = new CSharpParseOptions(LanguageVersion.Preview);
+        var trees = files.Select(f => CSharpSyntaxTree.ParseText(f, parseOptions)).ToArray();
+        var refs = new List<MetadataReference>();
+        var trusted = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES");
+        if (trusted != null)
+            foreach (var assembly in trusted.Split(Path.PathSeparator))
+                if (File.Exists(assembly)) refs.Add(MetadataReference.CreateFromFile(assembly));
+        var compilation = CSharpCompilation.Create("md-multifile", trees, refs,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var pp = new MemberDesugarPreprocessor(options ?? new MemberDesugarOptions());
+        pp.BindCompilation(compilation);
+        var stats = new MemberDesugarStatistics();
+        var diags = new List<MemberDesugarDiagnostic>();
+        var outputs = new string[trees.Length];
+        for (var i = 0; i < trees.Length; i++)
+            outputs[i] = pp.RewriteFile(files[i], compilation.GetSemanticModel(trees[i]), stats, diags)
+                .OutputCode;
+        return (outputs, stats, diags);
+    }
+
     internal static void AssertOutputCompiles(string output, params string[] extra)
         => MemberDesugarPropertyUnitTests.AssertOutputCompiles(output, extra);
 
@@ -533,6 +557,178 @@ public class MemberDesugarOperatorUnitTests
             """);
         Assert.Contains("d + TimeSpan.FromDays(1)", output);
         Assert.True(stats.MetadataOperatorSitesUntouched >= 1);
+    }
+
+    // ---- OC-4/OC-5 转换站点（决策 4；多文件形态：站点与声明分居两文件）----
+
+    [Fact]
+    public void ConversionSites_ExplicitCast_RewrittenToMethodCall()
+    {
+        var (outputs, stats, _) = RewriteAll(null, """
+            public struct Temperature
+            {
+                public double C;
+                public Temperature(double c) { C = c; }
+                public static implicit operator double(Temperature t) => t.C;
+                public static explicit operator int(Temperature t) => (int)t.C;
+            }
+            """, """
+            public static class Use
+            {
+                public static double Celsius(Temperature t) => t;   // 隐式站点
+                public static int Rounded(Temperature t) => (int)t; // 显式 cast 站点
+            }
+            """);
+        Assert.True(stats.OperatorConversionSitesRewritten >= 2);
+        AssertContains(outputs[0], "public static double ToDouble(Temperature t)");
+        AssertContains(outputs[0], "public static int ToIntExplicit(Temperature t)");
+        AssertContains(outputs[1], "Celsius(Temperature t) => Temperature.ToDouble(t)");
+        AssertContains(outputs[1], "Rounded(Temperature t) => Temperature.ToIntExplicit(t)");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void ConversionSites_ToNonTableType_MirrorMiss_DeclarationAndSitesUntouched()
+    {
+        // 决策 3 v1 边界：目标类型在命名镜像表外（此处为用户类型 Temperature）
+        // → 整 plan Infeasible（CS2J5177），声明与全部站点原子不动。
+        var (outputs, stats, diags) = RewriteAll(null, """
+            public struct Temperature
+            {
+                public double C;
+                public Temperature(double c) { C = c; }
+                public static implicit operator double(Temperature t) => t.C;
+                public static explicit operator Temperature(double c) => new Temperature(c);
+            }
+            """, """
+            public static class Use
+            {
+                public static double Celsius(Temperature t) => t;
+                public static Temperature FromCelsius(double c) => (Temperature)c;
+            }
+            """);
+        // 同类型的 implicit→double plan 照常计划执行，仅「到用户类型」的显式方向整 plan 跳过
+        Assert.Equal(1, stats.OperatorConversionSitesRewritten);
+        AssertContains(outputs[0], "public static double ToDouble(Temperature t)");
+        AssertContains(outputs[0], "explicit operator Temperature");
+        AssertContains(outputs[1], "Celsius(Temperature t) => Temperature.ToDouble(t)");
+        AssertContains(outputs[1], "(Temperature)c");
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.ConversionMirrorMiss);
+    }
+
+    [Fact]
+    public void ConversionSites_ImplicitSiteCatalogue_AllRewritten()
+    {
+        var (outputs, stats, _) = RewriteAll(null, """
+            using System.Collections.Generic;
+            public struct Wrapper
+            {
+                public int V;
+                public Wrapper(int v) { V = v; }
+                public static implicit operator int(Wrapper w) => w.V;
+                public static implicit operator long(Wrapper w) => w.V;
+            }
+            """, """
+            using System.Collections.Generic;
+            public static class Use
+            {
+                private static Wrapper _f = new Wrapper(7);
+                public static int FieldTarget() { int x = _f; return x; }
+                public static int ReturnSite() => _f;
+                public static int ArgSite(Wrapper w) => Take(w);
+                public static int Take(int i) => i;
+                public static int BranchSite(bool c, Wrapper w) => c ? w : 5;
+                public static long CoalesceSite(Wrapper? w) => w ?? new Wrapper(3);
+                public static List<int> CollectionSite(Wrapper w) => new List<int> { w, 2 };
+                public static System.Collections.Generic.IEnumerable<int> YieldSite(Wrapper w)
+                {
+                    yield return w;
+                    yield break;
+                }
+            }
+            """);
+        Assert.True(stats.OperatorConversionSitesRewritten >= 7);
+        AssertContains(outputs[1], "int x = Wrapper.ToInt(_f)");
+        AssertContains(outputs[1], "ReturnSite() => Wrapper.ToInt(_f)");
+        AssertContains(outputs[1], "Take(Wrapper.ToInt(w))");
+        AssertContains(outputs[1], "c ? Wrapper.ToInt(w) : 5");
+        AssertContains(outputs[1], "Wrapper.ToLong(w ?? new Wrapper(3))");
+        AssertContains(outputs[1], "new List<int> { Wrapper.ToInt(w), 2 }");
+        AssertContains(outputs[1], "yield return Wrapper.ToInt(w)");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void ConversionSites_ExplicitOperatorPlusStandardOuter_ResidualCastPreserved()
+    {
+        var (outputs, _, _) = RewriteAll(null, """
+            public struct Src
+            {
+                public int V;
+                public Src(int v) { V = v; }
+                public static explicit operator int(Src s) => s.V;
+                public static implicit operator long(Src s) => s.V;
+            }
+            """, """
+            public static class Use
+            {
+                public static byte Narrow(Src s) => (byte)s;   // 用户显式→int，再显式标准 int→byte
+                public static long Widen(Src s) => s;          // 用户隐式→long
+                public static int Direct(Src s) => (int)s;     // 用户显式→int（无外层）
+                public static object Box(Src s) { object o = s; return o; } // 装箱非用户转换：不动
+            }
+            """);
+        AssertContains(outputs[1], "Narrow(Src s) => (byte)Src.ToIntExplicit(s)");
+        AssertContains(outputs[1], "Widen(Src s) => Src.ToLong(s)");
+        AssertContains(outputs[1], "Direct(Src s) => Src.ToIntExplicit(s)");
+        AssertContains(outputs[1], "object o = s;");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void ConversionSites_BoolImplicit_InIfCondition_Rewritten()
+    {
+        var (outputs, _, _) = RewriteAll(null, """
+            public struct Flag
+            {
+                public bool B;
+                public Flag(bool b) { B = b; }
+                public static implicit operator bool(Flag f) => f.B;
+            }
+            """, """
+            public static class Use
+            {
+                public static int Check(Flag f)
+                {
+                    if (f) return 1;
+                    return 0;
+                }
+            }
+            """);
+        AssertContains(outputs[1], "if (Flag.ToBoolean(f))");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void ConversionSites_ExplicitCastOfUserConversion_InExpression()
+    {
+        var (outputs, _, _) = RewriteAll(null, """
+            public struct Money
+            {
+                public decimal Amount;
+                public Money(decimal a) { Amount = a; }
+                public static implicit operator decimal(Money m) => m.Amount;
+            }
+            """, """
+            public static class Use
+            {
+                public static string Print(Money m) => ((decimal)m).ToString("F2");
+            }
+            """);
+        AssertContains(outputs[1], "Money.ToDecimal(m)");
+        AssertNotContains(outputs[1], "(decimal)m");
+        AssertContains(outputs[1], ".ToString(\"F2\")");
+        AssertOutputCompiles(outputs[0], outputs[1]);
     }
 
 }
