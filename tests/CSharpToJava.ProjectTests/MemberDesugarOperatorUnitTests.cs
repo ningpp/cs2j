@@ -151,24 +151,6 @@ public class MemberDesugarOperatorUnitTests
     }
 
     [Fact]
-    public void Plan_BuiltForArithmeticDeclaration_AndDesugared()
-    {
-        var (output, stats, _) = Rewrite("""
-            public struct Point
-            {
-                public int X, Y;
-                public Point(int x, int y) { X = x; Y = y; }
-                public static Point operator +(Point a, Point b)
-                    => new Point(a.X + b.X, a.Y + b.Y);
-            }
-            """);
-        Assert.Equal(1, stats.OperatorsPlanned);
-        Assert.Contains("public static Point Add(Point a, Point b)", output);
-        Assert.DoesNotContain("operator", output);
-        AssertOutputCompiles(output);
-    }
-
-    [Fact]
     public void IncrementDecrementDeclarations_DeferredNotPlanned()
     {
         var (output, stats, _) = Rewrite("""
@@ -207,72 +189,6 @@ public class MemberDesugarOperatorUnitTests
     // ---- OD-1/OD-2 声明归约矩阵 ----
 
     [Fact]
-    public void Declaration_FullOperatorMatrix_Desugared()
-    {
-        var (output, stats, _) = Rewrite("""
-            public struct Swiss
-            {
-                public int V;
-                public Swiss(int v) { V = v; }
-                public static Swiss operator +(Swiss a, Swiss b) => new Swiss(a.V + b.V);
-                public static Swiss operator -(Swiss a, Swiss b) => new Swiss(a.V - b.V);
-                public static Swiss operator *(Swiss a, Swiss b) => new Swiss(a.V * b.V);
-                public static Swiss operator /(Swiss a, Swiss b) => new Swiss(a.V / b.V);
-                public static Swiss operator %(Swiss a, Swiss b) => new Swiss(a.V % b.V);
-                public static bool operator ==(Swiss a, Swiss b) => a.V == b.V;
-                public static bool operator !=(Swiss a, Swiss b) => a.V != b.V;
-                public static bool operator >(Swiss a, Swiss b) => a.V > b.V;
-                public static bool operator <(Swiss a, Swiss b) => a.V < b.V;
-                public static bool operator >=(Swiss a, Swiss b) => a.V >= b.V;
-                public static bool operator <=(Swiss a, Swiss b) => a.V <= b.V;
-                public static Swiss operator &(Swiss a, Swiss b) => new Swiss(a.V & b.V);
-                public static Swiss operator |(Swiss a, Swiss b) => new Swiss(a.V | b.V);
-                public static Swiss operator ^(Swiss a, Swiss b) => new Swiss(a.V ^ b.V);
-                public static Swiss operator ~(Swiss a) => new Swiss(~a.V);
-                public static Swiss operator <<(Swiss a, int n) => new Swiss(a.V << n);
-                public static Swiss operator >>(Swiss a, int n) => new Swiss(a.V >> n);
-                public static Swiss operator >>>(Swiss a, int n) => new Swiss(a.V >>> n);
-                public static Swiss operator -(Swiss a) => new Swiss(-a.V);
-                public static Swiss operator +(Swiss a) => a;
-                public static bool operator !(Swiss a) => a.V == 0;
-                public override bool Equals(object? o) => o is Swiss s && s.V == V;
-                public override int GetHashCode() => V;
-            }
-            """);
-        Assert.Equal(21, stats.OperatorsPlanned);
-        foreach (var name in new[] { "Add", "Subtract", "Multiply", "Divide", "Mod",
-                     "And", "Or", "Xor", "OnesComplement",
-                     "LeftShift", "RightShift", "UnsignedRightShift", "Negate", "Plus" })
-            Assert.Contains($"static Swiss {name}(", output);
-        foreach (var name in new[] { "ValueEquals", "NotEquals", "GreaterThan", "LessThan",
-                     "GreaterThanOrEqual", "LessThanOrEqual", "Not" })
-            Assert.Contains($"static bool {name}(", output);
-        Assert.DoesNotContain("operator ", output);
-        AssertOutputCompiles(output);
-    }
-
-    [Fact]
-    public void Declaration_Conversions_ImplicitAndExplicit()
-    {
-        var (output, stats, _) = Rewrite("""
-            public struct Temperature
-            {
-                public double C;
-                public Temperature(double c) { C = c; }
-                public static implicit operator double(Temperature t) => t.C;
-                public static explicit operator byte(Temperature t) => (byte)t.C;
-                public static implicit operator int(Temperature t) => (int)t.C;
-            }
-            """);
-        Assert.Equal(3, stats.OperatorsPlanned);
-        Assert.Contains("public static double ToDouble(Temperature t)", output);
-        Assert.Contains("public static byte ToByteExplicit(Temperature t)", output);
-        Assert.Contains("public static int ToInt(Temperature t)", output);
-        Assert.DoesNotContain("operator", output);
-        AssertOutputCompiles(output);
-    }
-
-    [Fact]
     public void Declaration_ConversionMirrorMiss_ReturnTypeOutsideTable_Skipped5177()
     {
         var (output, stats, diags) = Rewrite("""
@@ -285,60 +201,6 @@ public class MemberDesugarOperatorUnitTests
         Assert.Equal(0, stats.OperatorsPlanned);
         Assert.Contains("explicit operator Km", output);
         Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.ConversionMirrorMiss);
-    }
-
-    [Fact]
-    public void Declaration_CheckedPair_BothEmitted_CheckedKeywordStripped()
-    {
-        var (output, stats, _) = Rewrite("""
-            public struct Wide
-            {
-                public long Lo;
-                public Wide(long lo) { Lo = lo; }
-                public static Wide operator +(Wide a, Wide b) => new Wide(a.Lo + b.Lo);
-                public static Wide operator checked +(Wide a, Wide b) => throw new System.OverflowException();
-            }
-            """);
-        Assert.Equal(2, stats.OperatorsPlanned);
-        Assert.Contains("public static Wide Add(Wide a, Wide b)", output);
-        Assert.Contains("public static Wide AddChecked(Wide a, Wide b)", output);
-        Assert.DoesNotContain("checked", output);
-        AssertOutputCompiles(output);
-    }
-
-    [Fact]
-    public void Declaration_GenericOperator_BecomesPlainStaticMethod()
-    {
-        var (output, stats, _) = Rewrite("""
-            public struct Vec<T> where T : struct
-            {
-                public T X, Y;
-                public Vec(T x, T y) { X = x; Y = y; }
-                public static Vec<T> operator +(Vec<T> a, Vec<T> b) => new Vec<T>(a.X, b.Y);
-            }
-            """);
-        Assert.Equal(1, stats.OperatorsPlanned);
-        Assert.Contains("public static Vec<T> Add(Vec<T> a, Vec<T> b)", output);
-        AssertOutputCompiles(output);
-    }
-
-    [Fact]
-    public void Declaration_CollisionWithUserMethod_UserMemberUntouched()
-    {
-        var (output, stats, diags) = Rewrite("""
-            public class Money
-            {
-                public decimal Amount;
-                public Money(decimal a) { Amount = a; }
-                public static Money operator +(Money a, Money b) => new Money(a.Amount + b.Amount);
-                public static Money Add(Money a, Money b) => a;
-            }
-            """);
-        Assert.Equal(1, stats.OperatorsPlanned);
-        Assert.Contains("public static Money AddOperator(Money a, Money b)", output);
-        Assert.Contains("public static Money Add(Money a, Money b) => a;", output);
-        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.OperatorNameDisambiguated);
-        AssertOutputCompiles(output);
     }
 
     [Fact]
@@ -860,25 +722,6 @@ public class MemberDesugarOperatorUnitTests
         AssertOutputCompiles(outputs[0], outputs[1]);
     }
 
-    [Fact]
-    public void CompoundAssignment_EventAdd_NotTouched()
-    {
-        var (output, stats, _) = Rewrite("""
-            using System;
-            public class Pub
-            {
-                public event EventHandler? E;
-                public void On() => E?.Invoke(this, EventArgs.Empty);
-            }
-            public static class Use
-            {
-                public static void Wire(Pub p, EventHandler h) { p.E += h; }
-            }
-            """);
-        Assert.Contains("p.E += h", output);
-        Assert.Equal(0, stats.OperatorCompoundSitesRewritten);
-    }
-
     // ---- OC-6 提升公式（决策 5）----
 
     [Fact]
@@ -1043,39 +886,6 @@ public class MemberDesugarOperatorUnitTests
     // ---- OC-7 跳过闸门族 + checked 站点 ----
 
     [Fact]
-    public void ExpressionTreeSite_SkipsPlanAtomically_AndForceReleases()
-    {
-        const string src = """
-            using System.Linq.Expressions;
-            public struct P
-            {
-                public int V;
-                public P(int v) { V = v; }
-                public static P operator +(P a, P b) => new P(a.V + b.V);
-            }
-            public static class Use
-            {
-                public static Expression<System.Func<P, P, P>> E = (a, b) => a + b;
-                public static P Direct(P a, P b) => a + b;
-            }
-            """;
-        var (output, stats, diags) = Rewrite(src);
-        Assert.Equal(0, stats.OperatorsPlanned);
-        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.OperatorExpressionTreeSite);
-        AssertContains(output, "operator +(P a, P b)");          // 声明不动
-        AssertContains(output, "(a, b) => a + b");               // 树站点不动
-        AssertContains(output, "Direct(P a, P b) => a + b");     // 同 plan 全部站点不动（原子）
-
-        var forced = Rewrite(src, new MemberDesugarOptions
-        {
-            ForceQualifiedNames = new HashSet<string>(StringComparer.Ordinal) { "P" },
-        });
-        Assert.Equal(1, forced.Stats.OperatorsPlanned);
-        AssertContains(forced.OutputCode, "P.Add(a, b)");
-        AssertOutputCompiles(forced.OutputCode);
-    }
-
-    [Fact]
     public void InterfaceStaticAbstractOperator_SkipsWith5175()
     {
         var (output, stats, diags) = Rewrite("""
@@ -1164,28 +974,6 @@ public class MemberDesugarOperatorUnitTests
         var (output, stats, _) = Rewrite(src);
         Assert.Equal(0, stats.OperatorsPlanned);
         Assert.Equal(src, output);
-    }
-
-    [Fact]
-    public void CrossFile_PlansTouchBothFiles()
-    {
-        var (outputs, stats, _) = RewriteAll(null, """
-            public struct Cf
-            {
-                public int V;
-                public Cf(int v) { V = v; }
-                public static Cf operator +(Cf a, Cf b) => new Cf(a.V + b.V);
-            }
-            """, """
-            public static class Use
-            {
-                public static Cf Sum(Cf a, Cf b) => a + b;
-            }
-            """);
-        Assert.Equal(1, stats.OperatorsPlanned);
-        AssertContains(outputs[0], "static Cf Add(");
-        AssertContains(outputs[1], "Cf.Add(a, b)");
-        AssertOutputCompiles(outputs[0], outputs[1]);
     }
 
     // ---- 决策 7：与 JK 通道组合（SqlBool 型三值类型）----

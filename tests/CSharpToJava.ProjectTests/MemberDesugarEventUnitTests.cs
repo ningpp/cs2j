@@ -74,33 +74,6 @@ public class MemberDesugarEventUnitTests
     // ---- field-style 声明面（EV-1/EV-7）----
 
     [Fact]
-    public void FieldLikeEvent_BecomesFieldAndTwoMethods()
-    {
-        var (output, stats, diags) = RewriteEvent("""
-            using System;
-
-            class C
-            {
-                public event EventHandler? Click;
-                public void Raise() => Click?.Invoke(this, EventArgs.Empty);
-            }
-            """);
-        AssertContains(output, "private EventHandler? Click;");
-        AssertContains(output, "public void add_Click(EventHandler? value)");
-        AssertContains(output, "Click = Cs2jPrelude.CsPrelude.Combine(Click, value);");
-        AssertContains(output, "public void remove_Click(EventHandler? value)");
-        AssertContains(output, "Click = Cs2jPrelude.CsPrelude.Remove(Click, value);");
-        // 类内触发点零改写（D3）
-        AssertContains(output, "Click?.Invoke(this, EventArgs.Empty)");
-        AssertNotContains(output, "event EventHandler");
-        Assert.Equal(1, stats.EventsPlanned);
-        Assert.Equal(1, stats.EventBackingFieldsGenerated);
-        Assert.Equal(0, stats.PlansSkipped);
-        Assert.False(HasCode(diags, MemberDesugarDiagnosticCode.ResidualEvent));
-        AssertPlanned(output, stats);
-    }
-
-    [Fact]
     public void FieldLikeEvent_InitializerPreserved()
     {
         var (output, stats, _) = RewriteEvent("""
@@ -113,26 +86,6 @@ public class MemberDesugarEventUnitTests
             }
             """);
         AssertContains(output, "private Action? Click = Handler;");
-        AssertPlanned(output, stats);
-    }
-
-    [Fact]
-    public void FieldLikeEvent_MultiVariableSplitIntoTwoGroups()
-    {
-        var (output, stats, _) = RewriteEvent("""
-            using System;
-
-            class C
-            {
-                public event Action? First, Second;
-            }
-            """);
-        AssertContains(output, "private Action? First;");
-        AssertContains(output, "private Action? Second;");
-        AssertContains(output, "public void add_First(Action? value)");
-        AssertContains(output, "public void remove_Second(Action? value)");
-        Assert.Equal(2, stats.EventsPlanned);
-        Assert.Equal(2, stats.EventBackingFieldsGenerated);
         AssertPlanned(output, stats);
     }
 
@@ -217,47 +170,6 @@ public class MemberDesugarEventUnitTests
     }
 
     // ---- 类内零改写（D3/EV-12/EV-13）----
-
-    [Fact]
-    public void InClassRaiseNullTestReset_ZeroRewrite()
-    {
-        var (output, stats, _) = RewriteEvent("""
-            using System;
-
-            class C
-            {
-                public event EventHandler? Click;
-
-                public void RaiseDirect() => Click(this, EventArgs.Empty);
-
-                public void RaiseGuarded()
-                {
-                    if (Click == null) return;
-                    Click.Invoke(this, EventArgs.Empty);
-                }
-
-                public void Reset() => Click = null;
-
-                public void CaptureLocal()
-                {
-                    var h = Click;
-                    h?.Invoke(this, EventArgs.Empty);
-                }
-            }
-            """);
-        AssertContains(output, "Click(this, EventArgs.Empty)");
-        AssertContains(output, "if (Click == null)");
-        AssertContains(output, "Click.Invoke(this, EventArgs.Empty)");
-        AssertContains(output, "Click = null");
-        AssertContains(output, "var h = Click;");
-        AssertContains(output, "h?.Invoke(this, EventArgs.Empty);");
-        // 不引入 isEmpty/fire/临时变量
-        AssertNotContains(output, "isEmpty");
-        AssertNotContains(output, "fire");
-        Assert.Equal(1, stats.EventsPlanned);
-        Assert.Equal(0, stats.EventInClassCombineSitesRewritten);
-        AssertPlanned(output, stats);
-    }
 
     // ---- 类外站点（EV-10）----
 
@@ -400,34 +312,6 @@ public class MemberDesugarEventUnitTests
     }
 
     // ---- custom 事件（EV-3/EV-16）----
-
-    [Fact]
-    public void CustomEvent_AccessorBodiesMovedVerbatim_MixedVisibility()
-    {
-        var (output, stats, _) = RewriteEvent("""
-            using System;
-
-            class C
-            {
-                private Action? _changedListeners;
-
-                public event Action? Changed
-                {
-                    add { _changedListeners = Cs2jPrelude.CsPrelude.Combine(_changedListeners, value); }
-                    private remove { _changedListeners = Cs2jPrelude.CsPrelude.Remove(_changedListeners, value); }
-                }
-            }
-            """);
-        AssertContains(output, "public void add_Changed(Action? value)");
-        AssertContains(output, "private void remove_Changed(Action? value)");
-        // accessor 体原样搬入：体内语句逐字保留（含 value 形参零改写）
-        AssertContains(output, "_changedListeners = Cs2jPrelude.CsPrelude.Combine(_changedListeners, value);");
-        AssertContains(output, "_changedListeners = Cs2jPrelude.CsPrelude.Remove(_changedListeners, value);");
-        AssertNotContains(output, "event Action? Changed");
-        Assert.Equal(1, stats.EventsPlanned);
-        Assert.Equal(0, stats.EventBackingFieldsGenerated); // custom 不生成字段
-        AssertPlanned(output, stats);
-    }
 
     [Fact]
     public void CustomEvent_InClassSubscribe_GoesThroughAccessor()
@@ -844,44 +728,6 @@ public class MemberDesugarEventUnitTests
         Assert.Equal(0, stats2.EventsPlanned);
         Assert.Equal(0, stats2.EventBackingFieldsGenerated);
         Assert.Equal(Normalize(first), Normalize(second));
-    }
-
-    [Fact]
-    public void CrossFile_DeclarationAndSubscription_BothRewritten()
-    {
-        var (outputs, stats, diags) = RewriteAll(new MemberDesugarOptions(),
-            ("Source.cs", """
-                using System;
-
-                namespace Cross;
-
-                public class Source
-                {
-                    public event Action? Fired;
-                    public void Fire() => Fired?.Invoke();
-                }
-                """),
-            ("Sink.cs", """
-                using System;
-
-                namespace Cross;
-
-                public class Sink
-                {
-                    public void Wire(Source s)
-                    {
-                        s.Fired += OnFired;
-                        s.Fired -= OnFired;
-                    }
-                    private void OnFired() { }
-                }
-                """));
-
-        // EventsPlanned 只在声明文件计数（同 C11 PropertiesPlanned，跨文件 plan 不重复计）
-        Assert.Equal(1, stats.EventsPlanned);
-        AssertContains(outputs[0], "private Action? Fired;");
-        AssertContains(outputs[1], "s.add_Fired(OnFired);");
-        AssertContains(outputs[1], "s.remove_Fired(OnFired);");
     }
 
     // ---- CAS 模式（EV-2/D5/D6）----

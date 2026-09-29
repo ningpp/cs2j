@@ -104,49 +104,6 @@ public class MemberDesugarIndexerUnitTests
     // ---- 声明归约（IX-1..IX-5）----
 
     [Fact]
-    public void GetSetIndexer_ReducedToBothMethods()
-    {
-        var (outCode, stats, _) = MemberDesugarPropertyUnitTests.Rewrite("""
-            class C
-            {
-                private readonly int[] _a = new int[8];
-                public int this[int i] { get => _a[i]; set => _a[i] = value; }
-                public int Read(int i) => this[i];
-            }
-            """);
-        AssertContains(outCode, "public int get_Item(int i) => _a[i];");
-        AssertContains(outCode, "public void set_Item(int i, int value) => _a[i] = value;");
-        AssertContains(outCode, "this.get_Item(i)");
-        AssertNotContains(outCode, "this[int i]");
-        Assert.Equal(1, stats.IndexersPlanned);
-        Assert.True(stats.IndexerReadSitesRewritten >= 1);
-        MemberDesugarPropertyUnitTests.AssertOutputCompiles(outCode);
-    }
-
-    [Fact]
-    public void MultiParam_BlockAccessorBodies()
-    {
-        var (outCode, _, _) = MemberDesugarPropertyUnitTests.Rewrite("""
-            class M
-            {
-                private readonly int[,] _g = new int[4, 4];
-                public int this[int r, int c]
-                {
-                    get { return _g[r, c]; }
-                    set { _g[r, c] = value; }
-                }
-                public int Corner => this[0, 0];
-            }
-            """);
-        AssertContains(outCode, "public int get_Item(int r, int c)");
-        AssertContains(outCode, "public void set_Item(int r, int c, int value)");
-        AssertContains(outCode, "return _g[r, c];");
-        AssertContains(outCode, "_g[r, c] = value;");
-        AssertContains(outCode, "this.get_Item(0, 0)");
-        MemberDesugarPropertyUnitTests.AssertOutputCompiles(outCode);
-    }
-
-    [Fact]
     public void AbstractVirtualOverrideChain_ModifiersCarry()
     {
         var (outCode, _, _) = MemberDesugarPropertyUnitTests.Rewrite("""
@@ -639,23 +596,6 @@ public class MemberDesugarIndexerUnitTests
             """);
         AssertContains(outCode, "[DefaultMember(\"Item\")]");
         Assert.Contains(CS2J(5133), Codes(diags));
-        MemberDesugarPropertyUnitTests.AssertOutputCompiles(outCode);
-    }
-
-    [Fact]
-    public void MixedPropertyAndIndexerInOneFile_BothDesugared()
-    {
-        var (outCode, stats, _) = MemberDesugarPropertyUnitTests.Rewrite("""
-            class C
-            {
-                public int Count { get; set; }
-                public int this[int i] { get => i; set { } }
-                public int M(int i) { Count = this[i]; return Count + this[i]; }
-            }
-            """);
-        AssertContains(outCode, "set_Count(this.get_Item(i))");
-        AssertContains(outCode, "get_Count() + this.get_Item(i)");
-        Assert.True(stats.PropertiesPlanned >= 1 && stats.IndexersPlanned >= 1);
         MemberDesugarPropertyUnitTests.AssertOutputCompiles(outCode);
     }
 

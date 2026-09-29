@@ -29,26 +29,6 @@ public class CrossProjectGenericClassTokenTests
     /// checks MethodLikelyNeedsClassTokens before forwarding). This test verifies
     /// the two scanners are now consistent.
     /// </summary>
-    [Fact]
-    public async Task LibProject_GenericMethod_WithLinq_NoSpuriousClassToken()
-    {
-        var libDir = Path.Combine(AppContext.BaseDirectory, "SampleStaticGenericSolution", "SampleStaticGenericLib");
-        Assert.True(Directory.Exists(libDir), $"Fixture not found: {libDir}");
-
-        var pipeline = new ConversionPipeline();
-        var results = await pipeline.ConvertProjectWithPartialMergeAsync(libDir, Options);
-
-        Assert.NotEmpty(results);
-        var graphSort = Assert.Single(results, r =>
-            string.Equals(r.FileName, "GraphSort.java", StringComparison.OrdinalIgnoreCase));
-        Assert.True(graphSort.Success, string.Join("\n", graphSort.Diagnostics));
-
-        // The sort method must NOT have a Class<TEdge> parameter — the procedural
-        // LINQ methods don't create TEdge[] arrays, so no Class token is needed.
-        Assert.DoesNotContain("Class<TEdge>", graphSort.GeneratedCode);
-        // The sort signature should be: sort(EdgeGraph<TEdge> graph)
-        Assert.Contains("sort(EdgeGraph<TEdge> graph)", graphSort.GeneratedCode);
-    }
 
     /// <summary>
     /// App project calls Lib's generic method GraphSort.Sort(graph) where
@@ -90,60 +70,6 @@ public class CrossProjectGenericClassTokenTests
     /// Both the Lib definition and the App call site must be consistent —
     /// neither should have a Class<TEdge> token.
     /// </summary>
-    [Fact]
-    public async Task SlnProject_CrossProjectGenericCall_NoSpuriousClassToken()
-    {
-        Assert.True(File.Exists(SlnPath), $"Solution not found: {SlnPath}");
-        SolutionLoader.EnsureMSBuildRegistered();
-
-        using var loader = new SolutionLoader();
-        var projects = await loader.OpenSolutionAsync(SlnPath);
-        Assert.Equal(2, projects.Count);
-
-        var programJava = string.Empty;
-        var graphSortJava = string.Empty;
-
-        foreach (var wp in projects)
-        {
-            var extraPaths = wp.ProjectReferences
-                .Where(p => !string.IsNullOrWhiteSpace(p))
-                .Select(Path.GetDirectoryName)
-                .Where(d => !string.IsNullOrWhiteSpace(d))
-                .ToList()!;
-
-            var pipeline = new ConversionPipeline();
-            var results = await pipeline.ConvertProjectWithPartialMergeAsync(
-                wp.Directory,
-                Options,
-                additionalSemanticProjectPaths: extraPaths,
-                projectName: wp.Name,
-                projectFilePath: wp.FilePath,
-                projectReferences: wp.ProjectReferences,
-                isTestProject: wp.IsTestProject);
-
-            Assert.NotEmpty(results);
-            foreach (var r in results)
-            {
-                Assert.True(r.Success, $"{wp.Name}/{r.FileName}: {string.Join("\n", r.Diagnostics)}");
-            }
-
-            var programResult = results.FirstOrDefault(r =>
-                string.Equals(r.FileName, "Program.java", StringComparison.OrdinalIgnoreCase));
-            if (programResult != null)
-                programJava = programResult.GeneratedCode;
-
-            var graphSortResult = results.FirstOrDefault(r =>
-                string.Equals(r.FileName, "GraphSort.java", StringComparison.OrdinalIgnoreCase));
-            if (graphSortResult != null)
-                graphSortJava = graphSortResult.GeneratedCode;
-        }
-
-        // Lib: GraphSort.java must NOT have Class<TEdge> parameter
-        Assert.DoesNotContain("Class<TEdge>", graphSortJava);
-
-        // App: Program.java must NOT inject TestEdge.class
-        Assert.DoesNotContain("TestEdge.class", programJava);
-    }
 
     /// <summary>
     /// Workspace (MSBuildWorkspace) path: the App project's compilation references

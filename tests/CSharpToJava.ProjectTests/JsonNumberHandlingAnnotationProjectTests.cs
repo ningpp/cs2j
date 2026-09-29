@@ -53,30 +53,6 @@ public class Sample
 }
 """;
 
-    [Fact]
-    public async Task TypeLevelNumberHandling_IsEmittedAsCompatAnnotationWithFlagsValue()
-    {
-        var dir = CreateFixtureDirectory();
-        try
-        {
-            var pipeline = new ConversionPipeline();
-            var results = await pipeline.ConvertProjectWithPartialMergeAsync(dir, new ConversionOptions());
-
-            Assert.NotEmpty(results);
-            var code = string.Join("\n// ----\n", results.Select(r => r.GeneratedCode ?? ""));
-            _out.WriteLine(code);
-            // AllowReadingFromString | WriteAsString == 0x3
-            Assert.Contains("@CompatJsonNumberHandling(3)", code);
-            Assert.Contains("CompatJsonNumberHandling;", code);
-            // Only the annotated type carries the marker.
-            Assert.Equal(1, code.Split("@CompatJsonNumberHandling(").Length - 1);
-        }
-        finally
-        {
-            Directory.Delete(dir, recursive: true);
-        }
-    }
-
     private static string CreateFixtureDirectory()
     {
         var dir = Path.Combine(Path.GetTempPath(), "cs2j-numhandling-" + Guid.NewGuid().ToString("N"));

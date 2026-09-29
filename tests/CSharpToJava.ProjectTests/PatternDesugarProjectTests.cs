@@ -7,6 +7,7 @@ using CSharpToJava.CLI;
 using CSharpToJava.CLI.Preprocessing;
 using CSharpToJava.CLI.Preprocessing.Adapters;
 using CSharpToJava.Core.JavaKeywords;
+using CSharpToJava.Core.MemberDesugar;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
 using Microsoft.CodeAnalysis.CSharp;
@@ -40,6 +41,7 @@ public class PatternDesugarProjectTests
             DestinationRoot = outputRoot,
             MakerOptionsFactory = () => new ReadOnlyStructMakerOptions(),
             RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
+            MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
             EnablePassIds = new[] { PassId },
