@@ -19,7 +19,9 @@ public class MemberDesugarOperatorUnitTests
         RewriteAll(MemberDesugarOptions? options, params string[] files)
     {
         var parseOptions = new CSharpParseOptions(LanguageVersion.Preview);
-        var trees = files.Select(f => CSharpSyntaxTree.ParseText(f, parseOptions)).ToArray();
+        // 逐文件给真实路径：TouchedFiles / IsFirstDeclarationFile 依赖路径区分文件
+        var trees = files.Select((f, i) => CSharpSyntaxTree.ParseText(
+            f, parseOptions, $"file{i}.cs")).ToArray();
         var refs = new List<MetadataReference>();
         var trusted = (string?)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES");
         if (trusted != null)
@@ -1036,6 +1038,197 @@ public class MemberDesugarOperatorUnitTests
         Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.UnbuildableLift);
         AssertContains(outputs[0], "operator +(N a, N b)");
         AssertContains(outputs[1], "a + N.Make(b)");
+    }
+
+    // ---- OC-7 跳过闸门族 + checked 站点 ----
+
+    [Fact]
+    public void ExpressionTreeSite_SkipsPlanAtomically_AndForceReleases()
+    {
+        const string src = """
+            using System.Linq.Expressions;
+            public struct P
+            {
+                public int V;
+                public P(int v) { V = v; }
+                public static P operator +(P a, P b) => new P(a.V + b.V);
+            }
+            public static class Use
+            {
+                public static Expression<System.Func<P, P, P>> E = (a, b) => a + b;
+                public static P Direct(P a, P b) => a + b;
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src);
+        Assert.Equal(0, stats.OperatorsPlanned);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.OperatorExpressionTreeSite);
+        AssertContains(output, "operator +(P a, P b)");          // 声明不动
+        AssertContains(output, "(a, b) => a + b");               // 树站点不动
+        AssertContains(output, "Direct(P a, P b) => a + b");     // 同 plan 全部站点不动（原子）
+
+        var forced = Rewrite(src, new MemberDesugarOptions
+        {
+            ForceQualifiedNames = new HashSet<string>(StringComparer.Ordinal) { "P" },
+        });
+        Assert.Equal(1, forced.Stats.OperatorsPlanned);
+        AssertContains(forced.OutputCode, "P.Add(a, b)");
+        AssertOutputCompiles(forced.OutputCode);
+    }
+
+    [Fact]
+    public void InterfaceStaticAbstractOperator_SkipsWith5175()
+    {
+        var (output, stats, diags) = Rewrite("""
+            public interface IAdd<TSelf> where TSelf : IAdd<TSelf>
+            {
+                static abstract TSelf operator +(TSelf a, TSelf b);
+            }
+            """);
+        Assert.Equal(0, stats.OperatorsPlanned);
+        Assert.Contains(diags,
+            d => d.Code == MemberDesugarDiagnosticCode.StaticAbstractInterfaceOperator);
+        AssertContains(output, "static abstract TSelf operator +(TSelf a, TSelf b)");
+    }
+
+    [Fact]
+    public void ConversionMirrorMiss_GenericTarget_SkipsWith5177()
+    {
+        var (output, stats, diags) = Rewrite("""
+            using System.Collections.Generic;
+            public struct Box
+            {
+                public int V;
+                public Box(int v) { V = v; }
+                public static implicit operator List<int>(Box b) => new List<int> { b.V };
+            }
+            """);
+        Assert.Equal(0, stats.OperatorsPlanned);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.ConversionMirrorMiss);
+        AssertContains(output, "implicit operator List<int>(Box b)");
+    }
+
+    [Fact]
+    public void CheckedContext_SiteBindsCheckedVariantBySymbol()
+    {
+        var (outputs, _, _) = RewriteAll(null, """
+            public struct Wide
+            {
+                public long Lo;
+                public Wide(long lo) { Lo = lo; }
+                public static Wide operator +(Wide a, Wide b) => new Wide(a.Lo + b.Lo);
+                public static Wide operator checked +(Wide a, Wide b) => throw new System.OverflowException();
+            }
+            """, """
+            public static class Use
+            {
+                public static Wide Plain(Wide a, Wide b) => a + b;
+                public static Wide Ckd(Wide a, Wide b) => checked(a + b);
+            }
+            """);
+        AssertContains(outputs[1], "Plain(Wide a, Wide b) => Wide.Add(a, b)");
+        AssertContains(outputs[1], "Ckd(Wide a, Wide b) => Wide.AddChecked(a, b)");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    // ---- 工程性质（§7.1-14）----
+
+    [Fact]
+    public void Idempotent_SecondRewriteZeroDiff()
+    {
+        const string lib = """
+            public struct Q
+            {
+                public int V;
+                public Q(int v) { V = v; }
+                public static Q operator +(Q a, Q b) => new Q(a.V + b.V);
+                public static implicit operator int(Q q) => q.V;
+            }
+            """;
+        const string use = """
+            public static class Use
+            {
+                public static Q Bump(Q a, Q b) => a + b;
+                public static int Take(Q q) => q;
+            }
+            """;
+        var first = RewriteAll(null, lib, use).Outputs;
+        var second = RewriteAll(null, first[0], first[1]).Outputs;
+        Assert.Equal(first[0], second[0]);
+        Assert.Equal(first[1], second[1]);
+    }
+
+    [Fact]
+    public void CleanFile_ByteIdenticalCopy()
+    {
+        const string src = "public class Plain { public int X = 1; }\r\n";
+        var (output, stats, _) = Rewrite(src);
+        Assert.Equal(0, stats.OperatorsPlanned);
+        Assert.Equal(src, output);
+    }
+
+    [Fact]
+    public void CrossFile_PlansTouchBothFiles()
+    {
+        var (outputs, stats, _) = RewriteAll(null, """
+            public struct Cf
+            {
+                public int V;
+                public Cf(int v) { V = v; }
+                public static Cf operator +(Cf a, Cf b) => new Cf(a.V + b.V);
+            }
+            """, """
+            public static class Use
+            {
+                public static Cf Sum(Cf a, Cf b) => a + b;
+            }
+            """);
+        Assert.Equal(1, stats.OperatorsPlanned);
+        AssertContains(outputs[0], "static Cf Add(");
+        AssertContains(outputs[1], "Cf.Add(a, b)");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    // ---- 决策 7：与 JK 通道组合（SqlBool 型三值类型）----
+
+    [Fact]
+    public void JkCombination_GateTypeArithmeticDesugared_GateOpsRetainedForJk()
+    {
+        var (md, stats, _) = Rewrite("""
+            public struct SqlBool
+            {
+                public int V;
+                public SqlBool(int v) { V = v; }
+                public static SqlBool operator &(SqlBool a, SqlBool b) => new SqlBool(a.V & b.V);
+                public static SqlBool operator |(SqlBool a, SqlBool b) => new SqlBool(a.V | b.V);
+                public static SqlBool operator ^(SqlBool a, SqlBool b) => new SqlBool(a.V ^ b.V);
+                public static SqlBool operator +(SqlBool a, SqlBool b) => new SqlBool(a.V + b.V);
+                public static bool operator true(SqlBool x) => x.V != 0;
+                public static bool operator false(SqlBool x) => x.V == 0;
+                public static implicit operator bool(SqlBool x) => x.V != 0;
+            }
+            public static class Use
+            {
+                public static SqlBool Xor(SqlBool a, SqlBool b) => a ^ b;
+                public static SqlBool Sum(SqlBool a, SqlBool b) => a + b;
+                public static bool ToB(SqlBool a) => a;
+            }
+            """);
+        // 门控 & / | 与 op_True/op_False 保留给 JK（CS2J5180）；^ / + / bool 隐式转换去糖
+        Assert.True(stats.GateOperatorsRetained >= 2);
+        AssertContains(md, "public static SqlBool Xor(SqlBool a, SqlBool b)");
+        AssertContains(md, "Xor(SqlBool a, SqlBool b) => SqlBool.Xor(a, b)");
+        AssertContains(md, "Sum(SqlBool a, SqlBool b) => SqlBool.Add(a, b)");
+        AssertContains(md, "ToB(SqlBool a) => SqlBool.ToBoolean(a)");
+        AssertContains(md, "operator &(SqlBool a, SqlBool b)");
+        AssertContains(md, "operator |(SqlBool a, SqlBool b)");
+        AssertContains(md, "operator true(SqlBool x)");
+        AssertOutputCompiles(md);
+
+        // 组合：member-desugar 产物再跑 java-keywords 通道 → op_True 声明成 IsTrue 且可编译
+        var (jk, _, _) = JavaKeywordRewriterUnitTests.Rewrite(md);
+        AssertContains(jk, "IsTrue");
+        AssertNotContains(jk, "operator true");
+        AssertOutputCompiles(jk);
     }
 
 }

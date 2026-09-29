@@ -47,27 +47,37 @@ internal sealed class OperatorRule : IMemberDesugarRule
             {
                 switch (node)
                 {
-                    case BinaryExpressionSyntax bin
-                        when !bin.IsKind(SyntaxKind.LogicalAndExpression)
-                             && !bin.IsKind(SyntaxKind.LogicalOrExpression):
-                        ScanOperatorSite(bin, model.GetSymbolInfo(bin).Symbol, model, filePath,
-                            candidates, siteFiles, siteFailures, context.Options,
-                            context.MetadataOperatorSitesByFile);
+                    case BinaryExpressionSyntax bin:
+                        // 同一节点可能既是运算符站点又是转换站点（如 `w ?? v` 再隐式转换）：
+                        // 两类扫描都要跑，否则转换 plan 漏记站点文件（TouchedFiles 缺项）
+                        if (!bin.IsKind(SyntaxKind.LogicalAndExpression)
+                            && !bin.IsKind(SyntaxKind.LogicalOrExpression))
+                            ScanOperatorSite(bin, model.GetSymbolInfo(bin).Symbol, model, filePath,
+                                candidates, siteFiles, siteFailures, context.Options,
+                                context.MetadataOperatorSitesByFile);
+                        ScanConversionNode(bin, model, filePath, candidates, siteFiles, siteFailures,
+                            context.Options, context.MetadataOperatorSitesByFile);
                         break;
 
-                    case PrefixUnaryExpressionSyntax un when IsRewritableUnary(un):
-                        ScanOperatorSite(un, model.GetSymbolInfo(un).Symbol, model, filePath,
-                            candidates, siteFiles, siteFailures, context.Options,
-                            context.MetadataOperatorSitesByFile);
+                    case PrefixUnaryExpressionSyntax un:
+                        if (IsRewritableUnary(un))
+                            ScanOperatorSite(un, model.GetSymbolInfo(un).Symbol, model, filePath,
+                                candidates, siteFiles, siteFailures, context.Options,
+                                context.MetadataOperatorSitesByFile);
+                        ScanConversionNode(un, model, filePath, candidates, siteFiles, siteFailures,
+                            context.Options, context.MetadataOperatorSitesByFile);
                         break;
 
-                    case AssignmentExpressionSyntax assign when IsCompoundKind(assign):
-                        ScanCompoundSite(assign, model, filePath, candidates, siteFiles, siteFailures,
+                    case AssignmentExpressionSyntax assign:
+                        if (IsCompoundKind(assign))
+                            ScanCompoundSite(assign, model, filePath, candidates, siteFiles, siteFailures,
+                                context.Options, context.MetadataOperatorSitesByFile);
+                        ScanConversionNode(assign, model, filePath, candidates, siteFiles, siteFailures,
                             context.Options, context.MetadataOperatorSitesByFile);
                         break;
 
                     case ExpressionSyntax expr:
-                        // 转换站点（决策 4）：cast 语法与非 cast 隐式站点统一经 GetOperation 判定
+                        // 转换站点（决策 4）：cast 语法与非 cast 隐式站点统一经操作树判定
                         ScanConversionNode(expr, model, filePath, candidates, siteFiles, siteFailures,
                             context.Options, context.MetadataOperatorSitesByFile);
                         break;
@@ -307,24 +317,30 @@ internal sealed class OperatorRule : IMemberDesugarRule
             return;
         }
 
-        // 入/出转换链若绑定用户转换，其 plan 必须同为候选（否则链不可重建 → 5176）
+        // 入/出转换链若绑定用户转换，其 plan 必须同为候选（否则链不可重建 → 5176）；
+        // 候选者须把本文件计入其 TouchedFiles——链在重写期要调用该转换方法，
+        // 该 plan 必须对本文件 active。
         var compilation = (CSharpCompilation)model.Compilation;
         if (planOp.Parameters.Length == 2 && compound.Value.Type is { } rightType)
         {
             var inConv = compilation.ClassifyConversion(rightType, planOp.Parameters[1].Type);
-            if (inConv.IsUserDefined && inConv.MethodSymbol is { } inM
-                && !TryNormalize(inM, candidates, out _))
+            if (inConv.IsUserDefined && inConv.MethodSymbol is { } inM)
             {
-                MarkFailure(siteFailures, planOp, MemberDesugarDiagnosticCode.UnbuildableLift,
-                    OperatorDiagnostics.UnbuildableLift(planOp.Name));
+                if (TryNormalize(inM, candidates, out var inPlanOp))
+                    Record(siteFiles, inPlanOp, filePath);
+                else
+                    MarkFailure(siteFailures, planOp, MemberDesugarDiagnosticCode.UnbuildableLift,
+                        OperatorDiagnostics.UnbuildableLift(planOp.Name));
             }
         }
         var outConv = compilation.ClassifyConversion(planOp.ReturnType, compound.Type!);
-        if (outConv.IsUserDefined && outConv.MethodSymbol is { } outM
-            && !TryNormalize(outM, candidates, out _))
+        if (outConv.IsUserDefined && outConv.MethodSymbol is { } outM)
         {
-            MarkFailure(siteFailures, planOp, MemberDesugarDiagnosticCode.UnbuildableLift,
-                OperatorDiagnostics.UnbuildableLift(planOp.Name));
+            if (TryNormalize(outM, candidates, out var outPlanOp))
+                Record(siteFiles, outPlanOp, filePath);
+            else
+                MarkFailure(siteFailures, planOp, MemberDesugarDiagnosticCode.UnbuildableLift,
+                    OperatorDiagnostics.UnbuildableLift(planOp.Name));
         }
     }
 

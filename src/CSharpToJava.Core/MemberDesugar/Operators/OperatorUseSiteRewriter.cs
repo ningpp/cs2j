@@ -234,6 +234,25 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
         return base.VisitExpressionStatement(node);
     }
 
+    /// <summary>checked 上下文：用户运算符调用点的 checked 语义已由**变体选择**
+    /// （op_Checked* → AddChecked）承载，包装壳对纯调用表达式是冗余的（壳内已无数值运算）；
+    /// 内置 checked 算术与标准转换的 checked 壳保持原样。</summary>
+    public override SyntaxNode? VisitCheckedExpression(CheckedExpressionSyntax node)
+    {
+        var inner = (ExpressionSyntax)Visit(node.Expression)!;
+        var redundant = _model.GetOperation(node.Expression) switch
+        {
+            IBinaryOperation { OperatorMethod: { } bm } => TryGetPlan(bm, out _),
+            IUnaryOperation { OperatorMethod: { } um } => TryGetPlan(um, out _),
+            ICompoundAssignmentOperation { OperatorMethod: { } cm } => TryGetPlan(cm, out _),
+            IConversionOperation { OperatorMethod: { } vm } => TryGetPlan(vm, out _),
+            _ => false,
+        };
+        return redundant
+            ? inner.WithTriviaFrom(node)
+            : node.WithExpression(inner);
+    }
+
     public override SyntaxNode? VisitBlock(BlockSyntax node)
         => node.WithStatements(SyntaxFactory.List(SpliceStatements(node.Statements)));
 
