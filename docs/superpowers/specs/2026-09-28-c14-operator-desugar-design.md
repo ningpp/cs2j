@@ -2,8 +2,8 @@
 
 **日期**: 2026-09-28
 **范围**: 在已合入的 C11 property 锚点任务所建的 `member-desugar` 族基建上，新增 Core `MemberDesugar/Operators/` 规则目录：把用户自定义运算符（算术/比较/位运算/一元）与 `implicit`/`explicit` 转换运算符的**声明归约为普通静态方法**，并把全部调用点（二元、一元、复合赋值、隐式/显式转换站点）按 SemanticModel 绑定**显式化**为静态方法调用与显式转换链；产物为可编译 C#。本特性不改任何 C#→Java 转换代码，不新增/翻转 pass 注册
-**状态**: 设计稿，待评审；实施前置 = C11 分支合入
-**族属**: catalog P2「成员去糖族」（[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L904-L904)），归唯一已注册 pass `member-desugar`（[PassStubCatalog.cs:191-200](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L191-L200)，catalogItems 含 C14）。**C11 Property 是锚点任务**（[C11 设计](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md)）：共享基建、适配器、stub 翻转均由 C11 完成；C14 只在 C11 合入后的主干上增加 `Operators/` 规则，**不单独注册、不翻转 stub、不新增适配器、本分支对 PassCatalog/PassChainFactory 零改动**（§3、§11）
+**状态**: 评审修订版（对齐 C11 落地形态 `ac9bacab`，评审修订记录见 §13）；实施前置 = C11 分支合入（已完成：merge `ac9bacab`）
+**族属**: catalog P2「成员去糖族」（[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L904-L904)），归唯一已注册 pass `member-desugar`（C11 已在其分支内翻转为 Implemented 并登记于 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)，dev-3.x 侧 stub 条目 [PassStubCatalog.cs:191-200](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L191-L200) 已随翻转删除）。**C11 Property 是锚点任务**（[C11 设计](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md)）：共享基建、适配器、stub 翻转均由 C11 完成；C14 在 C11 合入后的主干上增加 `Operators/` 规则，**不单独注册、不翻转 stub、不新增 pass/适配器；对四个 CLI 注册热文件（PassCatalog/PassChainFactory/CliPreprocessChain/Program.cs）字节级零改动**，对已合入的共享根文件仅按 §3.2「post-merge 追加式编辑清单」做追加（同 C12 先例）（§3、§11）
 
 ---
 
@@ -55,10 +55,10 @@ Java 没有运算符重载，C# 用户自定义运算符必须在 Java 产物中
 
 | # | 决策点 | 结论 | 依据/备注 |
 |---|---|---|---|
-| 1 | 算术/比较/位/一元运算符方法命名 | C# 半区方法名 = 转换器现发射 Java 名的 **PascalCase 形态**，由 C14 新建静态表/函数 `ConvertOperatorName(IMethodSymbol)` 给出；它必须与转换器历史函数 `MethodTransformer.ConvertOperatorName`（86ed955 后重构为 [OperatorTransformer.OpSymbolToJavaName L23-L51](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/OperatorTransformer.cs#L23-L51)，[JK 设计 §背景 L13](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md#L13-L13)）**逐行对齐**：`op_Addition→Add`、`op_Subtraction→Subtract`、`op_Multiply→Multiply`、`op_Division→Divide`、`op_Modulus→Mod`、`op_Equality→ValueEquals`、`op_Inequality→NotEquals`、`op_GreaterThan→GreaterThan`、`op_LessThan→LessThan`、`op_GreaterThanOrEqual→GreaterThanOrEqual`、`op_LessThanOrEqual→LessThanOrEqual`、`op_BitwiseAnd→And`、`op_BitwiseOr→Or`、`op_ExclusiveOr→Xor`、`op_LogicalNot→Not`、`op_OnesComplement→OnesComplement`、`op_LeftShift→LeftShift`、`op_RightShift→RightShift`、`op_UnsignedRightShift→UnsignedRightShift`、`op_UnaryNegation→Negate`、`op_UnaryPlus→Plus` | 对齐原理：转换器普通方法路径 [MethodTransformer.JavaName L178-L187](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L178-L187) 对普通标识符仅首字母小写、无运算符特例，因此去糖 C# 方法 `Add` 经转换器必得 `add`，与 OperatorTransformer 当前发射**逐名相等**——无碰撞主路径 Java 半区零漂移。否决直接保留 Roslyn 元数据名 `op_Addition`：该族名为 C# 保留名，手写普通方法声明会被编译器拒绝（运算符槽位名），M1 以探针单测钉死该事实与确切诊断号；`And/Or` 等是普通标识符（非保留字），合法 |
-| 1b | checked 运算符（C# 11） | `op_CheckedAddition→AddChecked`、`op_CheckedSubtraction→SubtractChecked`… 规则 = 决策 1 基名 + `Checked` 后缀，与转换器 [OperatorTransformer.cs:96-98](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/OperatorTransformer.cs#L96-L98) `javaName += "Checked"` 对齐（Java 侧得 `addChecked`）。站点按 `IBinaryOperation.IsChecked` / 转换语义的 checked 上下文绑定选方法：checked 上下文绑 `op_Checked*`，unchecked 绑普通版 | 同一类型可同时声明两版（不同元数据名），去糖后是两个普通重载，C# 合法。checked **表达式/块对内建数值**的归一归 C15；本规则只负责「checked 用户运算符」的声明与站点 |
+| 1 | 算术/比较/位/一元运算符方法命名 | C# 半区方法名 = 转换器现发射 Java 名的 **PascalCase 形态**，由 C14 新建静态表/函数 `ConvertOperatorName(IMethodSymbol)` 给出；它必须与转换器历史函数 `MethodTransformer.ConvertOperatorName`（86ed955 后重构为 [OperatorTransformer.OpSymbolToJavaName L23-L51](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/OperatorTransformer.cs#L23-L51)，[JK 设计 §背景 L13](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md#L13-L13)）**逐行对齐**：`op_Addition→Add`、`op_Subtraction→Subtract`、`op_Multiply→Multiply`、`op_Division→Divide`、`op_Modulus→Mod`、`op_Equality→ValueEquals`、`op_Inequality→NotEquals`、`op_GreaterThan→GreaterThan`、`op_LessThan→LessThan`、`op_GreaterThanOrEqual→GreaterThanOrEqual`、`op_LessThanOrEqual→LessThanOrEqual`、`op_BitwiseAnd→And`、`op_BitwiseOr→Or`、`op_ExclusiveOr→Xor`、`op_LogicalNot→Not`、`op_OnesComplement→OnesComplement`、`op_LeftShift→LeftShift`、`op_RightShift→RightShift`、`op_UnsignedRightShift→UnsignedRightShift`、`op_UnaryNegation→Negate`、`op_UnaryPlus→Plus` | 对齐原理：转换器普通方法路径 [MethodTransformer.JavaName L178-L187](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L178-L187) 对普通标识符仅首字母小写、无运算符特例，因此去糖 C# 方法 `Add` 经转换器必得 `add`，与 OperatorTransformer 当前发射**逐名相等**——无碰撞主路径 Java 半区零漂移。评审修订：命名选择的**充分**依据是零漂移对齐（即使 `op_Addition` 作为普通方法名在 C# 合法，`JavaName` 派生将得 `op_Addition` ≠ 今发 `add`，漂移）；「C# 保留名被拒」一项改为 M0 探针单测**记录事实**（合法与否都不影响本决策），不再作为决策依据。`And/Or/Xor` 等是普通标识符（非保留字），合法 |
+| 1b | checked 运算符（C# 11） | `op_CheckedAddition→AddChecked`、`op_CheckedSubtraction→SubtractChecked`… 规则 = 决策 1 基名 + `Checked` 后缀，与转换器 [OperatorTransformer.cs:96-98](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/OperatorTransformer.cs#L96-L98) `javaName += "Checked"` 对齐（Java 侧得 `addChecked`）。站点选版**只按绑定 MethodSymbol 的元数据名**（`op_CheckedAddition` vs `op_Addition` 是不同元数据名的不同符号，checked/unchecked 上下文各绑其名），不读语法上下文、不用 `IBinaryOperation.IsChecked` 推断 | 同一类型可同时声明两版（不同元数据名），去糖后是两个普通重载，C# 合法。checked **表达式/块对内建数值**的归一归 C15；本规则只负责「checked 用户运算符」的声明与站点 |
 | 2 | 二元/一元调用点改写 | 按 `GetSymbolInfo(node).Symbol`（MethodKind.UserDefinedOperator、源内声明）把 `a + b` → `Type.Add(a, b)`、`-a` → `Type.Negate(a)`；接收类型限定名用 `ToMinimalDisplayString`（同 [OperatorTrueFalseRewriter.cs:192-194](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/OperatorTrueFalseRewriter.cs#L192-L194)），无歧义时允许非限定。内建数值运算（含 decimal）与 enum 运算不绑用户运算符符号，**天然不命中**（E04/E09/C34 边界靠符号谓词保证，不靠语法名） | 多重载（`Point*(Point,Point):double` 与 `*(double,Point):Point`）绑定即所得，去糖后为普通重载，[OperatorMethodNameCollisionTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/OperatorMethodNameCollisionTests.cs) 场景天然成立；严格区分二元 `-`/`+` 与一元（以符号名 `op_Subtraction` vs `op_UnaryNegation` 判定，不参数目） |
-| 2b | 复合赋值调用点 | `x += v`（绑定用户二元运算符 m 与可选回转转换 c）→ 左值只求值一次：简单局部/参数直写 `x = c(Type.Add(x, v))`；带副作用接收者 `Get().X += v` 先提升 `__cs2j_tmp`（临时名沿用全仓 `__cs2j` 前缀惯例，同 C11 PD-6/JK-6d 纪律）；回转转换 c 为用户定义时按决策 3 显式化，为标准隐式转换时不写 cast，仅当需要显式标准转换时保留 `(X)` | 复合赋值语义恒等 `x = (X)(x op v)`，回转 cast 必须按 `ICompoundAssignmentOperation` 的实际转换生成，禁止凭空补/省。事件 `+=`/`-=` 绑 IEventSymbol 不命中（C13）；属性目标由 C11 复合重写承载、通过共享运算符调用渲染器生成内层（§4.4 OC-8）；索引器目标在 C12 合入前 CS2J5179 跳过该 plan |
+| 2b | 复合赋值调用点 | `x += v`（绑定用户二元运算符 m 与可选回转转换 c）→ 左值只求值一次：简单局部/参数直写 `x = c(Type.Add(x, v))`；带副作用接收者 `Get().X += v`（X 为**字段**）先提升 `__cs2j_tmp`（临时名沿用全仓 `__cs2j` 前缀惯例，同 C11 PD-6/JK-6d 纪律）；回转转换 c 为用户定义时按决策 3 显式化，为标准隐式转换时不写 cast，仅当需要显式标准转换时保留 `(X)`。**评审修订（机械约束）**：左值绑定**属性或索引器**（IPropertySymbol 含 this[...]）且复合绑定用户运算符 → 该运算符 plan Infeasible CS2J5179 原子跳过——C11 落地的属性复合重写会合成 `set_X(get_X() op v)` 形态的**新**二元节点（重写树节点无 SemanticModel 可绑定，C14 无法在链式二遍中再显式化；反向合成 C14 产物的属性访问 C11 同样无法绑定），v1 不做跨族合成协作（附录 6 开放问题） | 复合赋值语义恒等 `x = (X)(x op v)`，回转 cast 必须按 `ICompoundAssignmentOperation` 的实际转换生成，禁止凭空补/省。事件 `+=`/`-=` 绑 IEventSymbol 不命中（C13）。属性/索引器目标跳过 = plan 原子不动 → 转换器既有 OperatorTransformer+BinaryExpressionSupport 路径照常消费（现状零退化），这是 v1 的**有意保守**而非缺功能 |
 | 3 | implicit/explicit 声明 → 显式转换方法链 | `public static implicit operator R(T x)` → `public static R ToR(T x)`；explicit 同名方法：v1 名为 `ToRExplicit`（两版若在同类型共存则 C# 半区必须不同名；M1 探针确认是否允许同 (S,T) 对同时声明两版并钉死规则）。转换名后缀取**目标类型**：基元/常用类型用与 Java 映射一致的固定别名镜像表（`Double→Double`、`Int32→Int`、`Int64→Long`、`Single→Float`、`Boolean→Boolean`、`String→String`、`Decimal→Decimal`、`Byte→Byte`、数组 `Byte[]→ByteArray`），算法复刻 [BuildConversionMethodSuffix L293-L314](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/OperatorTransformer.cs#L293-L314)，保证经 [MethodTransformer.JavaName](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L178-L187) 派生后 == 转换器今发 `toR`（如 `ToInt32?` 否——镜像表把 Int32 映为 `Int`，C# 方法名即 `ToInt`，Java 得 `toInt`，对齐今发）。镜像表外目标（泛型实例化/tuple/指针等）v1 → CS2J5177 plan 跳过并列 sdk triage | 命名与 Java 映射耦合沿用 C11 决策 3 先例（复用 JavaNaming 保后备字段零漂移）；交叉核对测试对每个别名断言「C# 半区名 → JavaName 派生 == TransformConversion 今发名」。外部元数据类型（ReadOnlyMemory 等）的转换不属本规则，转换器 compat 构造函数路径不受影响 |
 | 4 | implicit/explicit 站点枚举与显式化 | 以 `SemanticModel.GetOperation` 全树枚举 `IConversionOperation`：凡 `Conversion.IsUserDefined` 且 `MethodSymbol` 为**源内声明**的转换运算符，即改写为 `DeclType.ToR(inner)`。覆盖：显式 cast、赋值/变量与字段初始化器、return/yield-return、实参（含 params/扩展方法实参）、`? :` 分支与 switch 表达式臂归并、`??`/`??=`、数组/集合初始化器元素、属性/索引器 set、base ctor 初始化器、lambda 体推断、foreach 转换等一切隐式站点。嵌套结构（标准转换 ⊃ 用户转换 ⊃ 标准转换）只替换用户转换层；用户方法返回类型到目标类型之间残留的**必要外层标准转换**保留为显式 cast（按「方法返回类型是否可隐式转到目标类型」判定） | 用户转换在 C# 链中至多一层、两侧可夹标准转换，绝不自行做重载/提升决策——方法符号、IsNullable/IsUserDefined 标记全以 Roslyn operation 为准；operation 缺失/绑定错误/动态 → CS2J5176/5174 跳过 |
 | 5 | 用户定义提升（lifted）转换/运算符的歧义消解 | 判定：operation 的转换/运算符 `IsUserDefined` 且处于 nullable 形态（`Conversion.IsNullable`；二元 `IBinaryOperation.IsLifted`、一元同理），`MethodSymbol` 为底层非空运算符。一律按 C# 规范显式展开，公式锁定：①提升转换 `S?→T?`：`s.HasValue ? D.ToR(s.GetValueOrDefault()) : (R?)null`；②提升一元：`a.HasValue ? D.Negate(a.Value) : null`；③提升算术/移位/位运算（非门控 `&`/`|`、非相等）：`(a.HasValue & b.HasValue) ? D.Add(a.Value, b.Value) : null`；④提升关系运算（结果 `bool?`）：`(a.HasValue & b.HasValue) ? D.GreaterThan(a.Value, b.Value) : (bool?)null`；⑤提升相等：`(!a.HasValue && !b.HasValue) ? true : (a.HasValue && b.HasValue) ? D.ValueEquals(a.Value, b.Value) : false`，`!=` 取三值互补（双 null→false、一 null→true）；⑥提升复合赋值在左值 null 时写回 null，非 null 时按③/⑤取值；门控类型的提升 `&`/`|` 三值表随决策 7 整体留 JK/转换器 | 展开只做「语法显式化」，公式正确性由 fixture 的 .NET xunit 双端断言（与不重写基准逐值比对，覆盖双 null/单 null/双值）。链式提升（S?→T? 经 S→T 外加标准 nullable 包裹）只改写用户转换节点，外层标准转换保留；operation 无法给出底层方法符号 → CS2J5176 plan 跳过，禁止猜链 |
@@ -80,23 +80,32 @@ Java 没有运算符重载，C# 用户自定义运算符必须在 Java 产物中
 ### 3.1 归属与前置
 
 - **唯一 pass 归属**：`member-desugar`（[PassStubCatalog.cs:191-200](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L191-L200)，Stage=`Declarative`，中间目录 `.cs2j-member-desugar-src`，RunAfter `{ struct-value-semantics, closure-lift }`，catalogItems `"C11, C12, C13, C14, C27, C39, C46"`）。C14 不新增 pass id、不新增中间目录、不新增 RunAfter 边。
-- **硬前置：C11 锚点合入**。本任务分支从 `67477551` 切出后，**实现前先合入 C11 分支**（§12）；C11 提供共享符号表、plan/回退骨架、`IMemberDesugarRule` 发现机制、共享 `MemberDesugarSyntaxFacts`（表达式树/dynamic 判定、临时提升、RewriteAnnotation、FormatAndValidate）与族适配器。C14 的开发与验收全部基于 C11 合入后的代码形态。
+- **硬前置：C11 锚点合入（已完成）**。本任务分支从 `67477551` 切出后已 merge C11 分支头 `ac9bacab`（merge commit `412d5169`）；C11 提供共享符号表、plan/回退骨架、`IMemberDesugarRule` 发现机制（`MemberDesugarKind.Operator` 槽位已预留）、共享 `MemberDesugarSyntaxFacts`（表达式树/dynamic 判定、TempName、RewriteAnnotation；`FormatAndValidate` 为 `MemberDesugarPreprocessor` 上的 internal static）与族适配器。C14 的开发与验收全部基于 C11 合入后的代码形态。
 - 与 C12/C13 为**同 pass 内并列规则**，目录物理隔离（§4.1），各自合入只追加自有目录与测试。
 - 语义顺序依据 catalog：C14「须晚于 E09（无符号扩展方法已接管数值运算）与 C05（enum 运算已被 E04 归并）」（[preprocessor-catalog.md:428](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L428-L428)）——两者均为链上已实现的早序 pass，member-desugar 天然在后；符号谓词（MethodKind + HasSourceDeclaration）保证即使同树共处也零误伤。
 
-### 3.2 本分支的注册面零改动承诺
+### 3.2 本分支的注册面承诺与 post-merge 追加式共享文件编辑清单
 
-C14 分支**不修改**以下文件：
+**评审修订（对齐 C11 落地形态）**：C11 落地版 `MemberDesugarPreprocessor.RewriteFile` 是**属性专用硬编码**（`active.OfType<Properties.PropertyPlan>()` + 直接构造 `PropertyUseSiteRewriter`），共享 `MemberDesugarStatistics` 只有具体属性计数器，族摘要行在适配器内属性专用——C14 不可能「零改动共享文件」落地。因此沿 C12 已确立的**「post-merge 追加式共享文件编辑清单」**先例：C14 合入 C11 后允许的全部共享文件改动都是**纯追加**（枚举成员/计数器/派发分支/摘要行），不改既有属性行为，C11 属性单测与项目测试持续绿是硬门禁。
+
+C14 分支对以下注册热文件保持**字节级零改动**：
 
 | 文件 | 承诺 |
 |---|---|
-| [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | 零改动（描述符由 C11 翻转；C14 不新增条目） |
+| [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | 零改动（描述符由 C11 翻转；`CatalogItems` 的 `C14` 追加移交族锚点在合入协调时单行处理） |
 | [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) / [CliPreprocessChain.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs) | 零改动（无 options 工厂、无 switch 分支） |
-| [Program.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs) | 零改动（开关、overrides 装载、目录/指纹均由 C11 接线） |
-| [Adapters/](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters)（含 C11 新增的 MemberDesugarPassAdapter） | 零改动（规则程序集自动发现） |
+| [Program.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs) | 零改动（开关、overrides 装载、目录/指纹均由 C11 接线；overrides 为扁平 force/skip 字符串集，C14 的 `Ns.Type::op_Addition` / `Ns.Type::conversion(R)` 键直接复用，零解析改动） |
 | PassChainOrderTests / PassStubCatalogTests / ProjectPreprocessorsConsistentTests | 零改动（同 pass 内规则不进注册表、不改链序与 stub 数） |
 
-> 与 [C11 设计 §3.3-10](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L108-L108)「CatalogItems 后续追加 C14」的差异说明：本任务按授权约束采取**更严格口径**——`CatalogItems` 字符串的 `C14` 追加不由 C14 分支执行，移交族锚点（C11 owner）在合入协调时单行追加（或在 C12/C13/C14 全部就绪后统一改为 `"C11, C12, C13, C14"`）；本分支对 PassCatalog.cs 保持字节级零改动。
+**post-merge 追加式共享文件编辑清单**（C14 允许的全部共享文件改动）：
+
+| 共享文件（C11 所有） | C14 追加内容 |
+|---|---|
+| `src/CSharpToJava.Core/MemberDesugar/MemberDesugarModels.cs` | 诊断枚举追加 5170-5183 运算符码位（§6，C11 注释已预留「5130-5189 为 C12/C13/C14」）；`MemberDesugarStatistics` 追加运算符计数器（§5：OperatorsPlanned/BinarySitesRewritten/UnarySitesRewritten/CompoundSitesRewritten/ConversionSitesRewritten/LiftedSitesExpanded/GateOperatorsRetained/IncrementDecrementDeferred/MetadataSitesUntouched） |
+| `src/CSharpToJava.Core/MemberDesugar/MemberDesugarPreprocessor.cs` | `RewriteFile` 内追加 OperatorPlan 派发分支：**OperatorUseSiteRewriter 先于 PropertyUseSiteRewriter 执行**（链式顺序的机械依据见 §4.5）；「该文件无任何 planned plan」判定改为多族联合；UserSkipped Info 消息泛化为 "member-desugar plan skipped by overrides.skip configuration"（原文属性专用措辞） |
+| `src/CSharpToJava.CLI/Preprocessing/Adapters/MemberDesugarPassAdapter.cs` | `BuildChainSummaryLine()` 追加 operators 分项与 ResidualOperator 计数（纯展示，无行为） |
+
+**C14 独占新增**（全部落在 `src/CSharpToJava.Core/MemberDesugar/Operators/` 与带 Operator 后缀的测试/fixture 文件）：不在 `MemberDesugar/` 根共享文件与 `Properties/`/`Indexers/`/`Events/` 内写运算符特例逻辑。
 
 ### 3.3 默认开关
 
@@ -133,14 +142,14 @@ src\CSharpToJava.Core\MemberDesugar\            # C11 锚点创建；C14 对根�
   Properties\  Indexers\  Events\               # C14 不碰（Properties 为 C11 所有）
 ```
 
-规则实现对 C11 共享组件的依赖全部为**同程序集 internal 只读引用**：`MemberDesugarAnalyzer` 的成员/站点索引、`MemberDesugarPlanBuilder`、`MemberDesugarSyntaxFacts`（表达式树包含、dynamic、RewriteAnnotation、临时提升、FormatAndValidate）、`MemberDesugarModels`（Options/Statistics/Diagnostic/Severity/FileResult）。若接缝不足（见 §4.6），按 C11 规定走「锚点扩共享层 + property 回归」流程，不在 Operators/ 复制共享逻辑。
+规则实现对 C11 共享组件的依赖全部为**同程序集 internal 只读引用**：`MemberDesugarAnalyzer` 的模型缓存、`MemberDesugarPlanBuilder`、`MemberDesugarSyntaxFacts`（表达式树包含、dynamic、RewriteAnnotation、TempName）、`MemberDesugarModels`（Options/Statistics/Diagnostic/Severity/FileResult）、`MemberDesugarPreprocessor.FormatAndValidate`。共享文件的全部改动限于 §3.2 追加清单（枚举码位/计数器/RewriteFile 派发/摘要行），不在 Operators/ 复制共享逻辑。
 
-### 4.2 复用的共享契约（C11 已定，C14 实现同形）
+### 4.2 复用的共享契约（按 C11 落地形态）
 
-- `OperatorRule.Analyze(MemberDesugarAnalysisContext, MemberDesugarPlanBuilder)`：在共享 Analyzer 一次 BindCompilation 的索引上追加 operator plan；规则由程序集扫描发现、`Order=40`（Property=10 之后；Indexer/Event 预留 20/30），单测断言规则集合与顺序。
-- `OperatorPlan` 复用基类字段 `Id`/`Kind`/`Symbol`/`Outcome`/`TouchedFiles`/`FailCode`/`FailReason`/`FailLocation`/`OwnsTouch(file,typeName,memberName)`；plan Id 确定性 = `类型完全限定名 :: 元数据名 :: 签名源序`。
-- 统计经共享 Statistics 的**按规则计数袋**输出（假设 C11 共享 Statistics 提供 `RuleCounters`/SkippedByReason 通用槽；若 C11 落地版只有具体属性，由 §4.6 接缝流程补一个通用袋，而非在 C14 分叉统计类型）。
-- 重写产物挂 `MemberDesugarSyntaxFacts.RewriteAnnotation`，过共享 `FormatAndValidate` 三候选快筛，交付以整树重编译为准；回退迭代（原件重放→Bind→ExcludePlans→逐文件 RewriteFile→重建编译→DiffErrors→归属→回退 TouchedFiles，上限 1024 轮）完全复用族适配器。
+- `OperatorRule.Analyze(MemberDesugarAnalysisContext, MemberDesugarPlanBuilder)`：在共享 Analyzer 一次 BindCompilation 的模型缓存上自扫运算符声明与站点（共享 `MemberDesugarAnalyzer` 只索引属性，C12-C14 站点枚举按注释授权在各自 Analyze 内执行）；规则由程序集扫描发现（`[MemberDesugarRule(MemberDesugarKind.Operator, 40)]`，Property=10/Indexer=20/Event=30），单测断言规则集合与顺序。
+- `OperatorPlan` 复用基类字段 `Id`/`Kind`/`Symbol`/`Outcome`/`TouchedFiles`/`FailCode`/`FailReason` 与抽象 `OwnsTouch(file,typeName,memberName)`；plan Id 与 C11 落地格式同形：`MD:{类型完全限定名}::{op 元数据名}@{声明源 span 起点}`。
+- 统计：**评审修订**——C11 落地 `MemberDesugarStatistics` 为具体属性计数器（无通用袋）；C14 按 §3.2 清单向其**追加**运算符具体计数器（OperatorsPlanned/BinarySitesRewritten/UnarySitesRewritten/CompoundSitesRewritten/ConversionSitesRewritten/LiftedSitesExpanded/GateOperatorsRetained/IncrementDecrementDeferred/MetadataSitesUntouched），`SkippedByReason` 按码分桶复用。
+- 重写期绑定模型与 C11 落地形态**同形**：OperatorUseSiteRewriter 持原始 SemanticModel，遍历中对**原始节点**做 GetSymbolInfo/GetOperation 命中 plan（分析期产出 plan 与闸门，重写期对每个语法节点即时绑定判定——同 PropertyUseSiteRewriter 模式；分析期不预产「逐站点配方」，避免链式重写中的节点实例失配）。重写产物挂 `MemberDesugarSyntaxFacts.RewriteAnnotation`，过共享 `FormatAndValidate`（`MemberDesugarPreprocessor` internal static）三候选快筛，交付以整树重编译为准；回退迭代（原件重放→Bind→ExcludePlans→逐文件 RewriteFile→重建编译→DiffErrors→归属→回退 TouchedFiles，上限 1024 轮）完全复用族适配器。
 
 ### 4.3 OperatorAnalyzer：站点分类（与 JK 不重叠的保证）
 
@@ -160,7 +169,7 @@ src\CSharpToJava.Core\MemberDesugar\            # C11 锚点创建；C14 对根�
 | SB-InterfaceStatic | 接口 static abstract/virtual 运算符及经约束解析站点 | 接口运算符 | CS2J5175 跳过 |
 | SB-Tree / SB-Dynamic | 表达式树 lambda 内 / dynamic 绑定 | — | CS2J5173 / CS2J5174 跳过 |
 
-重叠消解硬规则：当一个条件表达式到 bool 的绑定是 `op_Implicit`/`op_Explicit`（非 op_True）时，站点落 SB-Conversion 不落 SB-JK-Bool（JK-6g 同义）；`!x` 即使出现在布尔条件内也只落 SB-Unary（JK-6h）；裸 `&&`/`||` 一律 SB-JK-Bool（含 T 结果位置）。分析器对每个站点记录所属 plan 与精确重写配方（方法符号、限定名、提升公式、残留 cast、临时提升需求），供 CallSiteRewriter 纯执行——**重写期不再做任何绑定推断**。
+重叠消解硬规则：当一个条件表达式到 bool 的绑定是 `op_Implicit`/`op_Explicit`（非 op_True）时，站点落 SB-Conversion 不落 SB-JK-Bool（JK-6g 同义）；`!x` 即使出现在布尔条件内也只落 SB-Unary（JK-6h）；裸 `&&`/`||` 一律 SB-JK-Bool（含 T 结果位置）。分析期产出：每个源内运算符/转换符号一个 plan（含闸门判定与命名预留），站点级分类不落盘——重写期由 OperatorUseSiteRewriter 按上表谓词对访问到的原始节点即时判定（GetSymbolInfo/GetOperation → 绑定符号 → plan 命中），与 C11 落地 PropertyUseSiteRewriter 同构。SB-Lifted 的可重建性边界：提升展开公式要求运算元可改写为 `.HasValue`/`.GetValueOrDefault()` 访问——运算元为 ConditionalAccessExpressionSyntax（`a?.X`）或其它无法无损改写的形态时 → CS2J5176 plan 跳过。
 
 ### 4.4 规则全集（OD/OC-x）
 
@@ -170,31 +179,42 @@ src\CSharpToJava.Core\MemberDesugar\            # C11 锚点创建；C14 对根�
 | OD-2 转换声明归约 | ConversionOperatorDeclaration → 静态方法 `ToR`/`ToRExplicit`（决策 3）；镜像表外目标 → plan Infeasible CS2J5177（声明与站点同不动） | implicit/explicit 关键字不向方法传递（编译期约束放宽同 C11 init 思路，运行行为由显式调用点保住） |
 | OC-1 二元显式化 | `a op b` → `Qual.Add(a, b)`；限定名最小化 | 转换器今发名交叉核对；原语运算不命中 |
 | OC-2 一元显式化 | `-a`/`+a`/`!a`/`~a` → `Qual.Negate(a)` 等 | 消除 [UnaryExpressionTransformer.cs:141-144](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/UnaryExpressionTransformer.cs#L141-L144) 的 fail-fast 面 |
-| OC-3 复合赋值 | 决策 2b：左值一次求值 + 回转转换链 | 临时提升；不可提升上下文 CS2J5179 |
+| OC-3 复合赋值 | 决策 2b：左值一次求值 + 回转转换链（变量/字段目标） | 临时提升；不可提升上下文或属性/索引器目标 → CS2J5179 plan 原子跳过 |
 | OC-4 显式转换站点 | cast 绑定用户转换 → 方法调用 + 必要外层标准 cast | 消灭 [TypeOperationTransformer.cs:84](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L84-L84) 静默错误路径的输入来源 |
 | OC-5 隐式转换站点 | 决策 4 的全部无形站点经 IConversionOperation 显式化 | 这是 C14 最大站点面；只替换用户转换层 |
 | OC-6 提升展开 | 决策 5 六类公式 | .NET 双端逐值断言 |
 | OC-7 跳过闸门 | 表达式树/dynamic/接口静态抽象/不可重建链/镜像表外/不可提升 → plan 原子跳过且必留诊断 | 禁止只改声明不改站点 |
-| OC-8 与属性/索引器复合的协作 | 属性目标的 `p.X += v`：C11 属性复合重写（PD-6，set/get 包裹）负责外层，**内层运算符应用**经 C14 暴露的 internal 共享渲染器（「给定运算符符号 + 运算元 syntax → 显式调用 syntax」纯函数，供 Properties/Indexers 同程序集直接调用，不修改 C11 文件）按 SB-Compound 配方生成；C11 rule Order=10 的合成节点由 OperatorRule(Order=40) 在同文件同轮重写中消费，族迭代回退循环兜底跨轮收敛 | C12 未合入时索引器目标复合 → CS2J5179；事件复合不命中本规则。需新增 plan 基类虚方法/共享渲染入口时走 §4.6 接缝流程 |
+| OC-8 与属性/索引器复合的划界（评审修订） | **v1 不做跨族合成协作**：复合赋值左值绑定属性/索引器（IPropertySymbol 含 indexer）且复合绑定用户运算符 → 该运算符 plan Infeasible CS2J5179（决策 2b）。机械依据：链式重写中先跑的 C11 属性复合重写合成新二元节点 `set_X(get_X() + v)`，新节点不属于任何编译树、无 SemanticModel 可绑定，C14 二遍无法显式化；反向（C14 先合成属性访问）对 C11 同理。属性半侧由 C11 落地逻辑照常展开（内层保留运算符语法），运算符声明/站点整体原样 → 转换器既有路径消费，现状零退化 | 长期协作形态（C11 侧预留内层渲染回调，或共享「运算符应用渲染器」在两 rewriter 间传递）列附录开放问题 6；事件复合绑 IEventSymbol 天然不命中 |
 | OC-9 残余对账 | 输出树中每个源内运算符/转换声明必须属于 Planned / Skipped(有诊断) / JK(op_True/False) / C17(op_Inc/Dec) / GateAndOr 五类之一；每个绑定源内运算符符号的站点语法不得残留（被 C14 拥有的类） | strict 下残余 → CS2J5183 Error（§7.5） |
 
-### 4.5 两阶段重写顺序
+### 4.5 两阶段重写顺序与跨族链式顺序（评审修订）
 
-单文件内取命中本文件的 active operator plans：先 **OD 声明重写**（成员位置保持，方法落在原运算符声明位置；同类型多运算符按源序），再 **OC 站点重写**（按 SB 配方，内层先于外层的自底向上顺序由 CSharpSyntaxRewriter 默认遍历保证）；OC-8 的属性/索引器合成内层在同一轮链中完成。重写后过 FormatAndValidate；plan 失败按 TouchedFiles 整文件重放。
+单文件内取命中本文件的 active operator plans：先 **OD 声明重写**（成员位置保持，方法落在原运算符声明位置；同类型多运算符按源序），再 **OC 站点重写**（自底向上由 CSharpSyntaxRewriter 默认遍历保证）。
 
-### 4.6 接缝不足时的处理（对 C11 共享层的可能回写）
+**跨族链式顺序（同一 RewriteFile 内）：OperatorUseSiteRewriter 先执行，PropertyUseSiteRewriter 后执行。** 机械依据：CSharpSyntaxRewriter 对未改写子树返回**原节点实例**，原节点实例的 `SyntaxTree` 仍指向原始树，原始 SemanticModel 的 GetSymbolInfo/GetOperation 对其照常可用；而重写合成的新节点不属于任何编译树、不可绑定。因此：
+- C14 先跑：C14 的全部站点（二元/一元/cast/隐式转换运算元）在原树上绑定改写；改写产物中**复用原节点实例**作为实参/运算元（内嵌的属性读、索引器读保持原实例）；
+- C11 后跑：其 TryGetPlan 依据名字快筛 + 原模型 GetSymbolInfo 命中那些**原实例**属性读，正常展开；C14 合成的调用节点（`Point.Add(...)`）不含属性语义，C11 不受影响；
+- 若反序（属性先跑），属性复合/读改写会重建 C14 站点的祖先节点，C14 的即时绑定仍可用（重建只发生在被属性改写的子树内），但 C11 属性复合合成的新二元节点（`get_X() + v`）C14 永远无法绑定——这正是 OC-8 划界的根因，顺序本身解决不了它，只能靠 plan 原子跳过。
 
-只允许三类锚点层扩展，且必须带 C11 property 回归、由 C11 owner 评审合入（C14 分支不直接改）：①plan 基类增加一个多态重写挂点（若 C11 落地版不是 plan 多态派发）；②共享 Statistics 增加按规则计数袋；③共享 Options 的 `rules.operators` 节支持（skip/force 载荷：`Ns.Type::op_Addition`、`Ns.Type::conversion(R)`）。这些在 C11 设计 §11「共享组件缺口先扩共享层」中已有授权路径。
+重写后过 FormatAndValidate；plan 失败按 TouchedFiles 整文件重放（复用族适配器整树迭代）。
+
+### 4.6 共享层扩展（post-merge 追加式编辑清单，同 §3.2）
+
+评审修订：设计稿原设想的「锚点扩层 + C11 owner 评审合入」三接缝（plan 多态挂点/通用计数袋/rules.operators 节）按 C11 落地形态定案如下，全部落在 §3.2 追加清单内，无需另立流程：
+1. **RewriteFile 派发**：C11 落地版为属性专用硬编码——在共享 `MemberDesugarPreprocessor.RewriteFile` 内追加 OperatorPlan 派发分支（OperatorUseSiteRewriter 先、PropertyUseSiteRewriter 后，§4.5）、「无 planned plan」判定改多族联合；
+2. **计数器**：向 `MemberDesugarStatistics` 追加运算符具体计数器（非通用袋）；
+3. **overrides**：**不新增** `rules.operators` JSON 节——C11 落地的 `MemberDesugarOptions` 为扁平 `SkipQualifiedNames`/`ForceQualifiedNames`（CLI 解析 `MemberDesugarOverrides.json` 的 force/skip 字符串数组），C14 的 plan 级键 `Ns.Type::op_Addition`、`Ns.Type::conversion(R)` 直接复用该扁平集，CLI 零改动；force 仅解除 CS2J5173 表达式树项（同 C11 语义）。
+所有共享文件追加以 C11 属性单测 + 项目测试持续绿为门禁（本分支已含 C11，回归即时可验）。
 
 ---
 
 ## 5. CLI 集成（无新适配器）
 
-- 统计/诊断全部汇入 C11 族适配器 [MemberDesugarPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters)（C11 新增）的既有通道：C14 计数器经共享按规则计数袋出现在族摘要（建议族摘要追加段：`operators: O planned, B binary/U unary/C compound/V conversion site(s), L lifted, G gate-retained, D deferred(++/--), A skipped, R rolled back`）；诊断 MSBuild 格式、Info 仅 verbose、restore/build/test 失败映射复用 C11 的 CS2J5102/5103/5104。
-- verify：沿用族描述符双默认开（verifyBuild/verifyTests=true，C11 翻转时设定），.NET 半区守门；无支撑库、无 AfterFilesAsync、无指纹豁免。
+- 统计/诊断全部汇入 C11 族适配器 [MemberDesugarPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters) 的既有通道：C14 计数器经 §3.2 清单追加到共享 `MemberDesugarStatistics`，族摘要行经 §3.2 清单追加 operators 分项（`operators: O planned, B binary/U unary/C compound/V conversion site(s), L lifted, G gate-retained, D deferred(++/--), A skipped, R rolled back`——纯展示追加）；诊断 MSBuild 格式、Info 仅 verbose、restore/build/test 失败映射复用 C11 的 CS2J5102/5103/5104。
+- verify：沿用族描述符双默认开（verifyBuild/verifyTests=true，C11 已设定），.NET 半区守门；无支撑库、无 AfterFilesAsync、无指纹豁免。
 - 入口：`--member-desugar` / `--enable-pass member-desugar` / 独立 `preprocess --pass member-desugar`；单文件模式受族 CS2J5109 闸门约束（运算符 plan 几乎必然跨文件）。
-- overrides：`config/MemberDesugarOverrides.json` 的 `rules.operators` 节（v1：`skip`（按 plan Id/类型）、`force`（仅解除 CS2J5173 表达式树项））；文件可选、解析失败 Warning 按空集继续。
-- **本分支 CLI 代码零改动**（§3.2）。
+- overrides（评审修订）：复用 C11 落地的扁平 force/skip 字符串集（`config/MemberDesugarOverrides.json`），C14 键形态 `Ns.Type::op_Addition` / `Ns.Type::conversion(R)` / `Ns.Type`（整类型）；force 仅解除 CS2J5173 表达式树项；文件可选、解析失败 Warning 按空集继续（CLI 零改动）。
+- **本分支对四个 CLI 注册热文件零改动**；对适配器仅 §3.2 清单内的摘要行追加（§3.2）。
 
 ### 5.1 Java 半区消费清单（转换器后续 PR 的输入，本任务不实施）
 
@@ -245,7 +265,7 @@ C14 使用 C11 §4.5 预留的 **CS2J5170-5189** 码段（共享 CS2J5100-5109 �
 2. **比较/相等**：`== != > < >= <=` 成对声明；结果 bool；与 `Objects.equals` 转换器路径无关（C# 半区只断言 ValueEquals/NotEquals 调用）。
 3. **位/移位**：`& | ^ ~ << >> >>>`；`And/Or/Xor` 标识符合法性；门控类型 `&`/`|` 保留（CS2J5180）而 `^`/算术去糖。
 4. **一元**：`-x +x !x ~x` → Negate/Plus/Not/OnesComplement；与二元 `-`/`+` 同型共存；`!x` 在 if 条件内只做方法化、不被 JK 逻辑包裹（C14 单独运行视角）。
-5. **复合赋值**：变量/字段/static/属性目标；`+= -= *= /=`；回转绑定用户转换的复合（`x += v` 回转型为声明类型）；副作用接收者只求值一次；不可提升上下文 → CS2J5179；事件 `+=` 不命中；索引器目标按 C12 是否合入两态断言。
+5. **复合赋值**：变量/字段/static 字段目标；`+= -= *= /=`；回转绑定用户转换的复合（`x += v` 回转型为声明类型）；副作用接收者只求值一次；**属性/索引器目标 → CS2J5179 plan 原子跳过（决策 2b，声明与站点全不动）**；不可提升上下文 → CS2J5179；事件 `+=` 不命中。
 6. **implicit/explicit**：声明 → `ToR`/`ToRExplicit`；显式 cast 站点；隐式站点全集（赋值、变量/字段初始化器、return、实参、`?:` 归并、switch 表达式臂、`??`、集合初始化器元素、base ctor 初始化器）；嵌套「标准转换 ⊃ 用户转换 ⊃ 标准转换」只换中层且残留必要 cast；implicit/explicit 同 (S,T) 对共存探针（M1 钉死合法性与命名）。
 7. **链式/提升**：`S?→T?` 提升转换；提升一元；提升算术；提升关系（`bool?` 结果）；提升 `==`/`!=` 三值表；提升复合赋值；双 null/单 null/双值逐值与未重写基准行为一致；非提升直链不被误判；无法重建的人造残缺模型 → CS2J5176。
 8. **泛型操作数**：`struct Vec<T>` 的运算符（签名含类类型形参）去糖后普通静态泛型方法 + 站点 `Vec<int>.Add`；泛型转换目标 → CS2J5177。
@@ -304,10 +324,10 @@ C14 不持有 pass 默认开关（族开关归 C11），但族 pass 翻 `default
 
 | 里程碑 | 内容 | 预估规模 |
 |---|---|---|
-| M0 前置与探针 | C11 分支合入；探针单测钉死：op_* 保留名手写诊断、implicit/explicit 同对共存规则；§4.6 接缝缺口盘点并回提 C11 owner | 调研/小补丁 |
+| M0 前置与探针 | ~~C11 分支合入~~（已完成：merge `ac9bacab`）；探针单测记录：op_* 手写方法合法性事实、implicit/explicit 同 (S,T) 对共存规则；§3.2 追加清单落地（码位/计数器/RewriteFile 派发/摘要行）+ C11 属性回归绿 | 调研/小补丁 |
 | M1 声明与直站点 | OperatorNames（ConvertOperatorName + 镜像表 + 碰撞升级）、OD-1/OD-2、OC-1/OC-2、OperatorPlan/Rule 接线；§7.1-1/2/3/4/10/14 单测 | ~500 行 |
 | M2 转换链（重点） | ConversionResolver + OC-4/OC-5：IConversionOperation 全站点形态、嵌套分层、残留 cast；显式 cast 静默面关闭；§7.1-6 单测 | ~550 行 |
-| M3 复合与提升（难点） | OC-3/OC-6/OC-8：复合回转链、临时提升、六类 lifted 展开公式、属性目标协作；checked 对；§7.1-5/7/9 单测；fixture 追加 + .NET 行为测试 | ~600 行 + fixture |
+| M3 复合与提升（难点） | OC-3/OC-6：复合回转链（变量/字段目标）、临时提升、六类 lifted 展开公式、属性/索引器目标 CS2J5179 划界；checked 对；§7.1-5/7/9 单测；fixture 追加 + .NET 行为测试 | ~600 行 + fixture |
 | M4 闸门与组合 | OC-7/OC-9：表达式树/dynamic/接口静态抽象/镜像表外/不可重建跳过族、CS2J5183 residual 闸门、门控保留与 **JK 组合**全链路、sdk 扫描报表、红灯对照表归档；Release build/test 全绿 | ~400 行 + 数据 |
 
 ---
@@ -321,16 +341,17 @@ C14 不持有 pass 默认开关（族开关归 C11），但族 pass 翻 `default
 5. **隐式转换站点遗漏**：隐式用户转换无语法节点，靠语法遍历必然漏；漏网后声明已改名会在整树重编译暴露为错误 → 可能触发大面积 CS2J5100 回退。缓解：以 GetOperation 全树枚举为唯一站点来源；OC-9 反向 residual 扫描（输出树不得再存在绑定已去糖方法名的隐式转换错误形态）；M2 起以 sdk 抽样验证站点枚举完备率。
 6. **与 JK 的组合耦合**（决策 7④）：门控类型 `&`/`|` 若被 C14 方法化，JK-6d/e 后续合成节点无法绑定。缓解：v1 门控保留 + CS2J5180 计数 + 组合中间树硬测试；长期若改为 JK 合成显式调用需 JK 侧跟进，列开放问题。
 7. **转换命名与 Java 映射的耦合/漂移**：镜像表外目标（泛型等）v1 跳过可能在 sdk 高命中；碰撞后缀路径 Java 名与现状不完全同形。缓解：sdk triage 决定收编顺序；零漂移主路径有逐名交叉测试；收口列入 §8-3 硬门禁，不碰巧放行。
-8. **C12/C17 跨族目标耦合**：索引器复合在 C12 前只能跳过；`++/--` 声明归 C17 但声明重写天然在 member-desugar 目录。缓解：CS2J5179/CS2J5181 显式计数与白名单；物理归属作为开放问题在 C17 立项时拍板。
-9. **checked 上下文判定**：站点绑错 checked/unchecked 版本会改变溢出行为。缓解：只信 IBinaryOperation.IsChecked 与 operation 绑定的 MethodSymbol，不读语法上下文推断；M3 专项测试。
-10. **整树迭代成本**：同 C11/JK（上限 1024 轮）。缓解：分析期一次算尽 plan/TouchedFiles/重写配方，稳态一轮收敛；保留轮次与耗时统计。
+8. **C12/C17 跨族目标耦合**：属性/索引器目标复合赋值 v1 只能整 plan 跳过（CS2J5179，决策 2b 评审修订）；`++/--` 声明归 C17 但声明重写天然在 member-desugar 目录。缓解：跳过 = 转换器既有路径照常消费（现状零退化）；CS2J5179/CS2J5181 显式计数与白名单；物理归属作为开放问题在 C17 立项时拍板。
+9. **checked 上下文判定**：站点绑错 checked/unchecked 版本会改变溢出行为。缓解：只信 operation 绑定的 MethodSymbol 元数据名（`op_Checked*` vs 普通版是不同符号），不读语法上下文推断；M3 专项测试。
+10. **整树迭代成本**：同 C11/JK（上限 1024 轮）。缓解：分析期一次算尽 plan/TouchedFiles，稳态一轮收敛；保留轮次与耗时统计。
+11. **链式重写的节点绑定失配（评审新增）**：跨族链式重写中，先跑 rewriter 合成的新节点不属于任何编译树，后跑 rewriter 无法对其做语义绑定；若 C14 站点祖先被 C11 属性改写重建，C14 的节点绑定同样失效。缓解：链式顺序固定 Operator 先/Property 后（§4.5），C14 改写一律复用原节点实例作为子结构；属性↔运算符交叠面（属性复合内层）已由 OC-8 划界整 plan 跳过，不依赖链式二遍绑定；整树重编译 + plan 原子回退兜底任何残余失配。
 
 ---
 
 ## 11. 并行协调
 
-- **C11 锚点（硬前置）**：C14 分支实现前先合入 C11；只增 `MemberDesugar/Operators/` 与自有测试、fixture 追加文件；不碰 `MemberDesugar/` 根目录 9 个共享文件与适配器（[C11 §4.5 所有权表](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L199-L212)）；接缝缺口走 §4.6 授权流程（锚点扩层 + property 回归），不在规则目录复制共享逻辑。
-- **C12 Indexer / C13 Event（同 pass 并行规则）**：三目录并列、规则 Order 10/20/30/40 确定性排序、自动发现；C14 不碰 `Indexers/`/`Events/`。交互点仅两处：①复合赋值目标分类（属性→C11、索引器→C12、事件→C13、运算符应用→C14，OC-8 渲染器共享）；②CatalogItems 单行追加统一由锚点侧收口（§3.2）。
+- **C11 锚点（硬前置，已合入 `ac9bacab`）**：C14 只增 `MemberDesugar/Operators/` 与自有测试、fixture 追加文件；共享根文件改动全部在 §3.2「post-merge 追加式编辑清单」内（Models/Preprocessor/Adapter 摘要行三处纯追加），C11 属性单测与项目测试持续绿为门禁；不在规则目录复制共享逻辑。
+- **C12 Indexer / C13 Event（同 pass 并行规则）**：三目录并列、规则 Order 10/20/30/40 确定性排序、自动发现；C14 不碰 `Indexers/`/`Events/`。交互点仅两处：①复合赋值目标分类（属性→C11、索引器→C12、事件→C13、运算符应用→C14；属性/索引器目标复合 v1 整 plan 跳过 CS2J5179，无共享渲染器耦合，§4.4 OC-8）；②CatalogItems 单行追加统一由锚点侧收口（§3.2）。
 - **java-keywords（已实现，C08/E17）**：边界见决策 7——op_True/op_False 全部归 JK；C14 在前去糖其余 op_*，JK 在最后只按 op_True/op_False 绑定动作；门控 `&`/`|` 保留是两通道组合启用的正确性条件；`(bool)x`/隐式 bool 转换归 C14（JK-6g），`!x` 归 C14（JK-6h）。两通道组合中间树列为 C14 必测项（JK 默认关期间同样要测，防其翻转时破裂）。
 - **C15 numeric-boundary（checked/unchecked）**：C14 负责 checked 用户运算符的声明/站点（AddChecked 对齐）；checked 表达式/块对内建数值的归一归 C15；两规则若未来同树共处，以绑定符号（用户 vs 内建）切分，无语法面争抢。
 - **C17 自增族（numeric-boundary）**：op_Increment/op_Decrement 声明与 `++/--` 站点整体移交，CS2J5181 计数、残余白名单；开放问题：该规则物理上落 `Operators/`（随 member-desugar 交付）还是 numeric-boundary 自有声明重写——C17 立项时拍板，C14 文档先行划界并保证其声明字节不动。
@@ -348,14 +369,15 @@ C14 不持有 pass 默认开关（族开关归 C11），但族 pass 翻 `default
 
 - 分支：`feature/preproc-c14-operator-desugar`
 - 目录：`.worktrees/preproc-c14-operator-desugar`
-- base：`67477551`（`feat(preprocessing): register 23 merged-family stub passes`，C11 设计已核实存在）；**实现前在该 worktree 内合入 C11 分支**（feature/preproc-c11-property-desugar），再开始 M0
-- 创建命令（在仓库根、PowerShell 下执行；**本设计阶段不执行**，原样记录）：
+- base：`67477551`（`docs: C37 模式表达式去糖设计`）；**C11 分支已合入**（merge `feature/preproc-c11-property-desugar` 头 `ac9bacab`，merge commit `412d5169`，评审修订时执行）
+- 创建与合入命令（在仓库根执行；已完成，原样记录）：
 
 ```powershell
 git worktree add .worktrees/preproc-c14-operator-desugar -b feature/preproc-c14-operator-desugar 67477551
+git -C .worktrees/preproc-c14-operator-desugar merge --no-ff feature/preproc-c11-property-desugar
 ```
 
-- worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core 仅新增 `MemberDesugar/Operators/`（规则 + 两阶段重写 + 诊断）、Core 单测 + 在 SampleMemberDesugarSolution 追加 operator fixture + Release build/test + residual 闸门 + JK 组合测试；不新建支撑工程；不新增/修改任何 CLI 注册、适配器、链序文件；不触转换器代码（§5.1 消费清单为后续 PR 输入）。
+- worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core 新增 `MemberDesugar/Operators/`（规则 + 两阶段重写 + 诊断）+ §3.2 清单内的三处共享文件纯追加、Core 单测 + 在 SampleMemberDesugarSolution 追加 operator fixture + Release build/test + residual 闸门 + JK 组合测试；不新建支撑工程；不新增/修改任何 CLI 注册与链序文件；不触转换器代码（§5.1 消费清单为后续 PR 输入）。
 
 ---
 
@@ -365,4 +387,20 @@ git worktree add .worktrees/preproc-c14-operator-desugar -b feature/preproc-c14-
 2. **方法名碰撞的收口形态**：v1 生成方法取 `*Operator` 后缀（保用户成员不改名、保反射契约），Java 半区碰撞路径从「用户方法 Pascal」变为「运算符 addOperator」；是否接受由 Java 消费 PR 统一，还是应在 C# 半区改用户方法名（更贴现状但破坏用户反射契约）？
 3. **JK 门控 `&`/`|` 的长期归属**：v1 门控类型保留运算符（JK 零改动）；长期是否改为 JK-6d/e 直接合成 `Type.And(...)` 显式调用以解除这一跨通道特判（需 JK 侧感知 member-desugar 产物）。
 4. **op_Increment/op_Decrement 的物理归属**：声明重写天然属于 member-desugar 规则目录，但 catalog 把 `++/--` 划在 numeric-boundary（C17）；C17 落地时是向 `Operators/` 贡献规则还是在 numeric-boundary 内自建声明重写，需两任务 owner 提前定。
-5. **`rules.operators` overrides 接缝**：C11 共享 Options/Statistics 是否原生支持按规则节与按规则计数袋；若不支持，§4.6 锚点扩层的最小形态（plan 挂点/计数袋/options 节三项）需在 M0 与 C11 owner 一次定死。
+5. ~~**`rules.operators` overrides 接缝**~~（**已定，评审修订**）：不新增 JSON 节——C11 落地的扁平 force/skip 字符串集直接承载 C14 键形态（§4.6-3）；计数袋亦改为向共享 Statistics 追加具体计数器（§3.2 清单）。
+6. **属性/索引器复合目标的长期协作形态（评审新增）**：v1 整 plan 跳过（CS2J5179，决策 2b/OC-8）；长期形态候选——C11 侧复合重写预留「内层运算符应用」渲染回调（分析期由 C14 提供「运算符符号 → 显式调用」纯函数），或两族共享同一复合展开器。需 C11/C12/C14 owner 联合拍板，/sdk 命中率决定优先级。
+
+---
+
+## 13. 评审修订记录（2026-09-29，对齐 C11 落地形态 `ac9bacab`）
+
+评审对设计稿逐项核对源码后修订（不改变目标形态与决策 1-15 的结论，落地机制对齐现实）：
+
+1. **§3.2/§4.6 共享文件改动**：设计稿「本分支对共享根文件/适配器零改动、走 C11 owner 流程」不可行——C11 落地 `MemberDesugarPreprocessor.RewriteFile` 属性专用硬编码、Statistics 无运算符计数器、适配器摘要行属性专用。改为 C12 先例的「post-merge 追加式共享文件编辑清单」（Models/Preprocessor/Adapter 三处纯追加），C11 属性回归绿为门禁。
+2. **§4.5 链式顺序**：新增跨族链式重写机械依据——Operator rewriter 先、Property rewriter 后（未改写子树返回原节点实例、原始模型可绑定；合成新节点不可绑定），并新增风险 11。
+3. **决策 2b/OC-8 属性复合协作降级**：设计稿「C11 复合重写经共享渲染器生成内层」在落地机制上不成立（C11 合成的新二元节点无模型可绑定，反向同理）；v1 改为属性/索引器目标复合 → 整 plan CS2J5179 原子跳过（转换器既有路径消费，零退化），长期协作列开放问题 6。
+4. **决策 1 探针定位**：「op_* 为 C# 保留名、手写必被拒」不再作为命名决策依据（零漂移对齐是充分依据）；M0 探针仅记录事实。
+5. **决策 1b checked 选版**：由 `IBinaryOperation.IsChecked` 改为**只按绑定 MethodSymbol 元数据名**（`op_Checked*` 与普通版是不同符号）。
+6. **§4.2/§4.3 绑定模型**：站点「分析期预产配方、重写期零推断」改为与 C11 落地 PropertyUseSiteRewriter 同构的「重写期对原始节点即时绑定」；plan Id 格式对齐 `MD:{type}::{name}@{span}`；SB-Lifted 增加 ConditionalAccess 运算元不可重建边界（CS2J5176）。
+7. **§5 overrides**：`rules.operators` JSON 节取消，复用 C11 扁平 force/skip 集（CLI 零改动）；开放问题 5 关闭。
+8. **§3.1/§12**：C11 合入完成记录（`ac9bakab` / merge `412d5169`）；base 引用对齐 `67477551`。
