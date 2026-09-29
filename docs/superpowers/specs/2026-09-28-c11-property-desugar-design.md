@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-28
 **范围**: 新增 CLI 级 C#→C# 预处理器族 `member-desugar` 的共享基建与 property 规则（Core `MemberDesugar/` + CLI 单适配器），把属性归约为「后备字段 + `get_X`/`set_X` 普通方法」的可编译 C#；本特性不改任何 C#→Java 转换代码
-**状态**: 设计已确认，待实施
+**状态**: 设计已复核修正（2026-09-29 对锚实现核验：overrides 查找次序、Core 成员可见性、restore/verify 三步复刻 MakeReadonly 而非 JK），待实施
 **族属**: catalog P2「成员去糖族」（C11 property / C12 indexer / C13 event / C14 operator，未来并入 C46/C27/C39；[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L904-L904)）。**C11 是该族锚点任务**：共享基建与注册表翻转在本任务完成，C12-C14 基于本任务合入后的 pass 扩展
 
 ---
@@ -13,7 +13,7 @@
 
 Java 没有属性语法，C# 属性必须在产物中表现为字段 + 访问器方法。当前这件事完全压在主转换器的单文件路径上：
 
-- [PropertyTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs) 共 192 行高密度单行代码，一个类内耦合：自动属性后备字段、full property、表达式体属性、`init`（[L21](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L21-L21) 仅把 init 当 set、[L73-L74](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L73-L74) 只补一条 doc 注释）、显式接口实现（L12）、hiding（[L110-L128](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L110-L128) 的基类扫描 + `_newSlot` 后缀）、struct clone（L36/L62-L64）、访问器可访问性（L88-L98）、yield 访问器（L48-L55）、XML/JSON 注解分发（L142-L183），文件开头 40 行即有 10+ 分支（catalog C11 证据，[preprocessor-catalog.md:383-393](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L383-L393)）。
+- [PropertyTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs) 共 192 行高密度单行代码，一个类内耦合：自动属性后备字段、full property、表达式体属性、`init`（[L21](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L21-L21) 仅把 init 当 set、[L73-L74](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L73-L74) 只补一条 doc 注释）、显式接口实现（L12）、hiding（[L110-L128](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L110-L128) 的基类扫描 + `_newSlot` 后缀）、struct clone（L36/L62-L64）、访问器可访问性（L88-L98）、yield 访问器（L48-L55）、XML/JSON 注解分发（L142-L183），文件开头 40 行即有 10+ 分支（catalog C11 证据，[preprocessor-catalog.md:384-394](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L384-L394)）。
 - 使用点改写散落在表达式层且依赖**首字母大写启发式**而非纯符号：[ExpressionTransformerFacade.cs:246-254](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L246-L254) 对「大写开头」成员名凭空合成 `getXxx()`；[L352-L366](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L352-L366) 经 `IPropertySymbol` 生成 `getX`；[AssignmentTransformer.cs:81-96](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs#L81-L96) 处理 set/复合赋值，并对无 setter 的只读属性直接按 Java 侧字段名写后备字段（[L88-L92](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs#L88-L92)，依赖 [JavaNaming.GetAutoPropertyBackingFieldName](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/JavaNaming.cs#L99-L127)）；构造器内同类写入在 [StatementTransformer.ExpressionAndReturn.cs:507](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L507-L507)。
 - 回归密集且多处是「转换器内补丁」：[PropertyHidingTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/PropertyHidingTests.cs)（hiding 时干脆不生成派生类 getter，靠丢成员保 Java 分派）、[ExplicitInterfacePropertyConflictTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ExplicitInterfacePropertyConflictTests.cs)（同名显式接口属性与类属性碰撞，靠 `_newSlot` + `@CompatPropertyName` 注解续命）、[PropertySetterExpressionBodyTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/PropertySetterExpressionBodyTests.cs)（setter 表达式体的 pre-statement 曾被丢弃产出非法 Java `_chainVal`）、[AutoPropertyFieldAccessTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/AutoPropertyFieldAccessTests.cs)。
 - 接口属性在 [InterfaceTransformer.cs:170-193](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/InterfaceTransformer.cs#L170-L193) 抽成抽象 getter/setter（剥离字段、清空方法体）；C# 8 默认接口实现（DIM）经 [L159-L165](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/InterfaceTransformer.cs#L159-L165) 加 Java `default`。record 位置属性由 [RecordTransformer.cs:248-272](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L248-L272) 单独生成 getter 并跳过同名字面属性。
@@ -70,7 +70,7 @@ Java 没有属性语法，C# 属性必须在产物中表现为字段 + 访问器
 
 ### 3.1 现状（stub）
 
-[PassStubCatalog.cs:191-200](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L191-L200) 已登记唯一条目：
+[PassStubCatalog.cs:192-201](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L192-L201) 已登记唯一条目：
 
 | 字段 | 值 |
 |---|---|
@@ -98,7 +98,7 @@ Java 没有属性语法，C# 属性必须在产物中表现为字段 + 访问器
 3. [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)：`PassChainConfiguration` 增 `required Func<MemberDesugarOptions> MemberDesugarOptionsFactory`（lazy 加载 overrides，仿 [JavaKeywordOptionsFactory](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L46-L47)）；`CreateAdapter` 增 `PassIds.MemberDesugar` 分支。
 4. [PassChainFactory.BuildLegacyToggles](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L59-L78)：增 `[PassIds.MemberDesugar] = opts.MemberDesugar`（[PassChainOrderTests.cs:168-180](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L168-L180) 要求每个 Implemented pass 都有 legacy toggle）；`ConvertProjectOptions` 增 `[Option("member-desugar", Default = false)]`。
 5. [CliPreprocessChain.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs)：`CliChainRequest` 增 options 工厂字段（[L29-L35](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs#L29-L35) 模式）并透传进 PassChainConfiguration（L119-L121 模式）。
-6. Program.cs：增 BuildMemberDesugarOptions 工厂（CWD→向上查找 `config/MemberDesugarOverrides.json`，仿 [BuildJavaKeywordOptions](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3236-L3285)，JSON 解析失败 Warning 按空集继续）；preserved 目录与指纹令牌已由描述符全集驱动（[Program.cs:923-940](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L923-L940)），无需逐 pass 接线；`--list-passes` 自动显示 Implemented/默认关/目录/说明。
+6. Program.cs：增 BuildMemberDesugarOptions 工厂（先查 CWD 下 `config/MemberDesugarOverrides.json`，不存在则从 AppContext.BaseDirectory 向上逐级查找，仿 [BuildJavaKeywordOptions](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3236-L3284)，JSON 解析失败 Warning 按空集继续）；preserved 目录与指纹令牌已由描述符全集驱动（[Program.cs:923-940](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L923-L940)），无需逐 pass 接线；`--list-passes` 自动显示 Implemented/默认关/目录/说明。
 7. 新增 [Adapters/MemberDesugarPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters)（§5）。
 8. 链序/注册表测试更新：
    - [PassChainOrderTests.cs:18-36](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L36) `LockedChain` 在 `EliminateGoto` 与 `JavaKeywords` 之间插入 `PassIds.MemberDesugar`；`EnabledByDefault`（L38-L53）**不变**（默认关）；`ChainFactory_creates_an_adapter_for_every_implemented_pass` 自动覆盖新适配器。
@@ -142,13 +142,15 @@ src\CSharpToJava.Core\MemberDesugar\
 
 ### 4.2 共享契约（与 RR/JK 同形，便于适配器逐行复刻）
 
-- `MemberDesugarPreprocessor(MemberDesugarOptions? options = null)`
-- `void BindCompilation(CSharpCompilation compilation)`：构建一次共享分析索引，发现并装配规则集
-- `MemberDesugarFileResult RewriteFile(string sourceCode, SemanticModel model, MemberDesugarStatistics stats, List<MemberDesugarDiagnostic> diagnostics)` → `{ OutputCode, Changed }`
-- `void ExcludePlans(IEnumerable<string> planIds)`
-- `IReadOnlyList<MemberDesugarPlan> Plans`（基类含 `Id`/`Kind`/`Symbol`/`Outcome`/`TouchedFiles`/`FailCode`/`FailReason`/`FailLocation`/`OwnsTouch(file, typeName, memberName)`）
-- `bool TryAttributeDiagnostic(Diagnostic d, IReadOnlyDictionary<string,string> rewrittenByFile, out string planId)`
+- `public MemberDesugarPreprocessor(MemberDesugarOptions? options = null)`
+- `internal void BindCompilation(CSharpCompilation compilation)`：构建一次共享分析索引，发现并装配规则集
+- `public MemberDesugarFileResult RewriteFile(string sourceCode, SemanticModel model, MemberDesugarStatistics stats, List<MemberDesugarDiagnostic> diagnostics)` → `{ OutputCode, Changed }`
+- `internal void ExcludePlans(IEnumerable<string> planIds)`
+- `internal IReadOnlyList<MemberDesugarPlan> Plans`（基类含 `Id`/`Kind`/`Symbol`/`Outcome`/`TouchedFiles`/`FailCode`/`FailReason`/`FailLocation`/`OwnsTouch(file, typeName, memberName)`）
+- `internal bool TryAttributeDiagnostic(Diagnostic d, IReadOnlyDictionary<string,string> rewrittenByFile, out string planId)`
 - `internal static string? FormatAndValidate(CompilationUnitSyntax root)`：三候选（改动区间格式化 → 整文件格式化 → 原文），重解析零错误取首个，与 RR/JK 同款。
+
+可见性与 RR/JK 完全一致：仅构造器与 `RewriteFile` 为 public，其余 internal（Core 经 `InternalsVisibleTo` 向 CLI/Tests/ProjectTests 开放，[CSharpToJava.Core.csproj](file:///d:/code/cs2j/src/CSharpToJava.Core/CSharpToJava.Core.csproj#L20-L28)）。
 
 ### 4.3 三阶段数据流
 
@@ -220,7 +222,7 @@ internal sealed class MemberDesugarRuleAttribute(MemberDesugarKind kind, int ord
 新增 `src/CSharpToJava.CLI/Preprocessing/Adapters/MemberDesugarPassAdapter.cs`（预计 200-300 行），**整树自驱动**（`RewriteFileAsync` 抛 NotSupportedException，同 [JavaKeywordsPassAdapter.cs:239-240](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/JavaKeywordsPassAdapter.cs#L239-L240)）：
 
 - `Descriptor => PassCatalog.ImplementedById(PassIds.MemberDesugar)`；`CreateParseOptions` 用 `LanguageVersion.Latest`；`FilterUnsupportedProjects`/`CompatNamespacePrefixes` 沿用全局配置；`VerifyBuild/VerifyTests => true`（descriptor 双默认开）；`DeleteBuildOutputsAfterRestore => true`（同 enum/make-readonly）。
-- ExecuteAsync 顺序复刻 JK 适配器：复制全部 .cs → 基线错误集 → 迭代（原件重放 → BuildCompilation → BindCompilation → ExcludePlans → 逐文件 RewriteFile/回写（BOM 保持，参 [JavaKeywordsPassAdapter.cs:113-116](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/JavaKeywordsPassAdapter.cs#L113-L116)）→ 重建编译 → DiffErrors → TryAttributeDiagnostic 归属 → 回退）→ Restore（`ProjectPreprocessSource.ResolveRestoreTarget` + `RunDotNetRestore`）→ `context.VerifyBuildAndTestsAsync()` → 置 context.Success。
+- ExecuteAsync 顺序复刻 JK 适配器：复制全部 .cs → 基线错误集 → 迭代（原件重放 → BuildCompilation → BindCompilation → ExcludePlans → 逐文件 RewriteFile/回写（BOM 保持，参 [JavaKeywordsPassAdapter.cs:113-116](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/JavaKeywordsPassAdapter.cs#L113-L116)）→ 重建编译 → DiffErrors → TryAttributeDiagnostic 归属 → 回退）→ Restore（`context.Restore()`）→ `await context.VerifyBuildAndTestsAsync()`（verify 双默认开；失败经 OnBuildFailed/OnTestsFailed 记 CS2J5103/5104 Error → HasErrors → run.Success=false）→ `ProjectPassRunner.DeleteBuildOutputs` → 置 context.Success。restore/verify/清理三步同 [MakeReadonlyPassAdapter.cs:206-213](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/MakeReadonlyPassAdapter.cs#L206-L213)（JK 适配器本身 verify 关、不调用 VerifyBuildAndTestsAsync，仅整树循环形态可复刻）。
 - 复用 runner 阶段助手（[PassExecutionContext](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassAdapter.cs#L79-L108)），不自造树准备/restore/过滤逻辑。
 - 摘要行：`member-desugar: N propert(y/ies) planned, F field(s) generated, R read/W write/C compound site(s) rewritten, I initializer(s), A skipped, B rolled back, K residual`；诊断行 MSBuild 格式，Info 仅 verbose。
 - restore/build/test 失败分别映射 CS2J5102/5103/5104。
