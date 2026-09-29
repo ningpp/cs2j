@@ -17,6 +17,21 @@ public class MemberDesugarProjectTests
     private static string FixtureDir
         => Path.Combine(AppContext.BaseDirectory, "SampleMemberDesugarSolution");
 
+    /// <summary>忽略空白的包含断言（合成表达式会被格式化器折行）。</summary>
+    private static void AssertContainsNormalized(string haystack, string needle)
+        => Assert.True(
+            new string(haystack.Where(c => !char.IsWhiteSpace(c)).ToArray())
+                .Contains(new string(needle.Where(c => !char.IsWhiteSpace(c)).ToArray()),
+                    StringComparison.Ordinal),
+            $"Expected to contain: {needle}");
+
+    private static void AssertDoesNotContainNormalized(string haystack, string needle)
+        => Assert.False(
+            new string(haystack.Where(c => !char.IsWhiteSpace(c)).ToArray())
+                .Contains(new string(needle.Where(c => !char.IsWhiteSpace(c)).ToArray()),
+                    StringComparison.Ordinal),
+            $"Expected NOT to contain: {needle}");
+
     [Fact]
     public async Task Solution_PropertiesDesugared_AndIntermediateBuildsAndTests()
     {
@@ -199,4 +214,88 @@ public class MemberDesugarProjectTests
             Directory.Delete(srcDir, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task Solution_OperatorsDesugared_AndIntermediateBuildsAndTests()
+    {
+        var solutionPath = Path.Combine(FixtureDir, "SampleMemberDesugarSolution.sln");
+        Assert.True(File.Exists(solutionPath), $"Fixture not found: {solutionPath}");
+        var outputDir = Path.Combine(FixtureDir, ".test-output-md-ops");
+        try
+        {
+            var adapter = new MemberDesugarPassAdapter(
+                new MemberDesugarOptions(), verbose: false,
+                filterUnsupportedProjects: true, compatNamespacePrefixes: null);
+            var run = await ProjectPassRunner.RunAsync(adapter, new ProjectPassRunRequest
+            {
+                SourcePath = solutionPath,
+                DestinationRoot = outputDir,
+                Force = true,
+            });
+
+            Assert.True(run.Success, string.Join("\n",
+                adapter.Diagnostics.Where(d => d.Severity == MemberDesugarSeverity.Error)
+                    .Select(d => d.ToMsBuildString())));
+            Assert.True(adapter.Statistics.OperatorsPlanned >= 15,
+                $"operators planned = {adapter.Statistics.OperatorsPlanned}");
+            Assert.True(adapter.Statistics.OperatorBinarySitesRewritten >= 3);
+            Assert.True(adapter.Statistics.OperatorUnarySitesRewritten >= 2);
+            Assert.True(adapter.Statistics.OperatorConversionSitesRewritten >= 3);
+            Assert.True(adapter.Statistics.OperatorCompoundSitesRewritten >= 2);
+            Assert.True(adapter.Statistics.OperatorLiftedSitesExpanded >= 2);
+            Assert.True(adapter.Statistics.GateOperatorsRetained >= 2);
+            Assert.True(adapter.Statistics.IncrementDecrementDeferred >= 1);
+            Assert.True(adapter.Statistics.MetadataOperatorSitesUntouched >= 1);
+            Assert.Equal(0,
+                adapter.Statistics.SkippedByReason.TryGetValue(
+                    MemberDesugarDiagnosticCode.ResidualOperator, out var r) ? r : 0);
+
+            var samples = await File.ReadAllTextAsync(Path.Combine(
+                run.IntermediateRoot, "SampleMemberDesugarLib", "OperatorSamples.cs"));
+            AssertContainsNormalized(samples, "public static Point Add(Point a, Point b)");
+            AssertContainsNormalized(samples, "public static Point Multiply(Point a, int k)");
+            AssertContainsNormalized(samples, "public static Money AddOperator(Money a, Money b)");
+            AssertContainsNormalized(samples, "public static Money Add(Money a, Money b)"); // 手写成员不动
+            AssertContainsNormalized(samples, "public static Wide AddChecked(Wide a, Wide b)");
+            AssertContainsNormalized(samples, "public static Flags UnsignedRightShift(Flags a, int n)");
+            AssertDoesNotContainNormalized(" operator +(", samples);
+            AssertDoesNotContainNormalized(" operator *(", samples);
+            AssertDoesNotContainNormalized(" operator ==(", samples);
+            AssertDoesNotContainNormalized(" operator !(", samples);
+            AssertDoesNotContainNormalized(" operator -(", samples);
+            AssertDoesNotContainNormalized(" operator &(", samples);   // Flags 非门控类型：& 也去糖
+            AssertDoesNotContainNormalized(" operator >>>(", samples);
+
+            var edges = await File.ReadAllTextAsync(Path.Combine(
+                run.IntermediateRoot, "SampleMemberDesugarLib", "OperatorEdgeSamples.cs"));
+            AssertContainsNormalized(edges, "public static double ToDouble(Temperature t)");
+            AssertDoesNotContainNormalized("implicit operator int(", edges); // 表内目标 → 去糖
+            AssertContainsNormalized(edges, "operator &(SqlBool a, SqlBool b)");   // 门控保留
+            AssertContainsNormalized(edges, "operator true(SqlBool x)");           // 移交 JK
+            AssertContainsNormalized(edges, "operator ++(Counter c)");             // 移交 C17
+            AssertContainsNormalized(edges, "operator +(ExprPoint a, ExprPoint b)"); // 表达式树原子跳过
+            AssertContainsNormalized(edges, "explicit operator Temperature(double c)"); // 表外目标跳过
+
+            var app = await File.ReadAllTextAsync(Path.Combine(
+                run.IntermediateRoot, "SampleMemberDesugarApp", "OperatorApp.cs"));
+            AssertContainsNormalized(app, "Point.Add(p, d)");
+            AssertContainsNormalized(app, "Point.ValueEquals(a, b)");
+            AssertContainsNormalized(app, "Money.AddOperator(a, b)");
+            AssertContainsNormalized(app, "Temperature.ToDouble(t)");
+            AssertContainsNormalized(app, "SqlBool.ToBoolean(x)");
+            AssertContainsNormalized(app, "Wide.AddChecked(a, b)");
+            AssertContainsNormalized(app, "Gate(SqlBool a, SqlBool b) => a & b"); // 门控站点保留
+            AssertContainsNormalized(app, "OptionalNum.Add(a.Value, b.Value)"); // 提升算术公式 ③
+            AssertContainsNormalized(app, "(OptionalNum?)null");
+            AssertContainsNormalized(app, "Snowflake.ToDouble(s.GetValueOrDefault())"); // 提升转换公式 ①
+            AssertContainsNormalized(app, "Flags.And(a, b)");
+
+            // VerifyBuild/VerifyTests 默认开 → run.Success 已证明中间树构建 + OperatorBehaviorTests 通过。
+        }
+        finally
+        {
+            if (Directory.Exists(outputDir)) Directory.Delete(outputDir, recursive: true);
+        }
+    }
+
 }
