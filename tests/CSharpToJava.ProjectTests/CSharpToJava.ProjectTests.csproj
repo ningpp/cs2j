@@ -113,6 +113,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Include SamplePatternSolution as content so it's available at test runtime -->
+    <Content Include="..\SamplePatternSolution\**\*.*">
+      <Link>SamplePatternSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Include SampleRecordSolution as content so it's available at test runtime -->
     <Content Include="..\SampleRecordSolution\**\*.*">
       <Link>SampleRecordSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
