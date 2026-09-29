@@ -61,22 +61,32 @@ public sealed partial class MemberDesugarPreprocessor
         statistics.EventsPlanned += plannedEvents.Count(p => IsFirstDeclarationFile(p, filePath));
         statistics.IndexersPlanned += plannedIndexers.Count(p => IsFirstDeclarationFile(p, filePath));
 
-        // 事件→属性→索引器三级 dispatch（C13 §3.2 + C12 Order）：
-        // 事件改写器在原始树上运行；属性/索引器改写器随后运行，跨族同文件时 ReplaceSyntaxTree 重绑定语义。
+        // 属性→事件(重解析)→索引器三级 dispatch（C13 §3.2 + C12 Order）：
+        // 属性改写器在原始树上运行；事件改写器在第二阶段经重解析树运行（属性产物是红色节点，
+        // 事件语义查询必须绑定自有模型）；索引器最后。事件 plan 归属键 = 「含类型::事件名」显示串。
         var workingRoot = root;
-        if (plannedEvents.Count > 0)
-        {
-            var eventRewriter = new Events.EventUseSiteRewriter(
-                semanticModel, plannedEvents, eventPlans,
-                _options, statistics, diagnostics, filePath);
-            workingRoot = (CompilationUnitSyntax)eventRewriter.Visit(workingRoot)!;
-        }
         if (plannedProperties.Count > 0)
         {
             var rewriter = new Properties.PropertyUseSiteRewriter(
                 semanticModel, plannedProperties, propertyPlans,
                 _options, statistics, diagnostics, filePath);
             workingRoot = (CompilationUnitSyntax)rewriter.Visit(workingRoot)!;
+        }
+        if (plannedEvents.Count > 0)
+        {
+            // 属性改写产物的合成 token 间距由最终 Formatter 修复；重解析前必须先格式化，
+            // 否则无空格相邻 token（如 private int / void add_E）会融合成非法标识符。
+            using (var workspace = new AdhocWorkspace())
+                workingRoot = (CompilationUnitSyntax)Formatter.Format(workingRoot, workspace);
+            var eventTree = CSharpSyntaxTree.ParseText(
+                workingRoot.ToFullString(), (CSharpParseOptions)semanticModel.SyntaxTree.Options, path: filePath);
+            var eventCompilation = ((CSharpCompilation)semanticModel.Compilation)
+                .ReplaceSyntaxTree(semanticModel.SyntaxTree, eventTree);
+            var eventModel = eventCompilation.GetSemanticModel(eventTree);
+            var eventRewriter = new Events.EventUseSiteRewriter(
+                eventModel, plannedEvents, eventPlans,
+                _options, statistics, diagnostics, filePath);
+            workingRoot = (CompilationUnitSyntax)eventRewriter.Visit(eventTree.GetRoot())!;
         }
         if (plannedIndexers.Count > 0)
         {
@@ -232,9 +242,12 @@ public sealed partial class MemberDesugarPreprocessor
         {
             // 只在声明文件发一次（Info）。
             if (!IsFirstDeclarationFile(p, filePath)) return;
+            var isEvent = p is Events.EventPlan;
             diagnostics.Add(new MemberDesugarDiagnostic(
-                MemberDesugarSeverity.Info, MemberDesugarDiagnosticCode.PlanCreated,
-                "property plan skipped by overrides.skip configuration",
+                MemberDesugarSeverity.Info,
+                isEvent ? MemberDesugarDiagnosticCode.EventPlanCreated : MemberDesugarDiagnosticCode.PlanCreated,
+                isEvent ? "event plan skipped by overrides.skip configuration"
+                        : "property plan skipped by overrides.skip configuration",
                 filePath, 0, 0, p.SymbolName));
             return;
         }

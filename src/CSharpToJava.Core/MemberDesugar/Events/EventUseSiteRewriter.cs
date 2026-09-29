@@ -5,17 +5,19 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.MemberDesugar.Events;
 
 /// <summary>
-/// EV-10..EV-15 使用点改写 + EV-1..EV-9 声明展开编排（单遍，绑定一律取原始 SemanticModel）：
+/// EV-10..EV-15 使用点改写 + EV-1..EV-9 声明展开编排（单遍）：
 /// 类内 field-like 组合 → 字段 = CsPrelude.Combine/Remove；类外/custom → add_X/remove_X 调用；
 /// 触发/判空/重置/类内 nameof 零改写（同名字段自动绑定，D3）；nameof 字面量化（EV-14）；
 /// residual 闸门（CS2J5158，模式同 C11 PD-12）。
+/// 本改写器在「先属性后事件」的第二阶段经重解析树运行（设计 §3.2）：属性改写产物是脱离
+/// 原树的红色节点，语义查询必须绑定到自有模型；plan 归属键 = 「含类型::事件名」显示串
+/// ——符号实例跨编译不通用，显示串键稳定。
 /// </summary>
 internal sealed class EventUseSiteRewriter : CSharpSyntaxRewriter
 {
     private readonly SemanticModel _model;
-    private readonly Dictionary<IEventSymbol, EventPlan> _active;
-    private readonly HashSet<IEventSymbol> _knownSymbols;
-    private readonly HashSet<string> _candidateNames;
+    private readonly Dictionary<string, EventPlan> _active;
+    private readonly HashSet<string> _knownKeys;
     private readonly MemberDesugarOptions _options;
     private readonly MemberDesugarStatistics _stats;
     private readonly List<MemberDesugarDiagnostic> _diagnostics;
@@ -31,18 +33,22 @@ internal sealed class EventUseSiteRewriter : CSharpSyntaxRewriter
         string filePath)
     {
         _model = model;
-        _active = new Dictionary<IEventSymbol, EventPlan>(SymbolEqualityComparer.Default);
-        foreach (var p in plannedPlans) _active[p.Event] = p;
-        _knownSymbols = new HashSet<IEventSymbol>(SymbolEqualityComparer.Default);
-        foreach (var p in allPlans) _knownSymbols.Add(p.Event);
-        _candidateNames = plannedPlans.Select(p => p.DeclName).ToHashSet(StringComparer.Ordinal);
+        _active = new Dictionary<string, EventPlan>(StringComparer.Ordinal);
+        foreach (var p in plannedPlans)
+            _active.TryAdd(KeyOf(p.Event), p); // 防御：异常输入下重复键不致命
+        _knownKeys = allPlans.Select(p => KeyOf(p.Event)).ToHashSet(StringComparer.Ordinal);
         _options = options;
         _stats = stats;
         _diagnostics = diagnostics;
         _filePath = filePath;
     }
 
-    // ---- 声明展开编排（EV-1..EV-9）+ residual 闸门（EV-9/CS2J5158）----
+    /// <summary>plan 归属键：含类型完全限定显示串 + 事件符号名（显式接口实现的 Name 是
+    /// "IFoo.X" 形态，两端一致即可）。符号实例跨 ReplaceSyntaxTree 编译不通用，显示串稳定。</summary>
+    private static string KeyOf(IEventSymbol evt)
+        => EventRule.KeyOf(evt);
+
+    // ---- 声明展开编排（EV-1..EV-9）+ residual 闸门（CS2J5158）----
 
     public override SyntaxNode? VisitClassDeclaration(ClassDeclarationSyntax node) => VisitTypeLike(node);
     public override SyntaxNode? VisitStructDeclaration(StructDeclarationSyntax node) => VisitTypeLike(node);
@@ -65,25 +71,23 @@ internal sealed class EventUseSiteRewriter : CSharpSyntaxRewriter
                 case EventDeclarationSyntax eventDecl:
                 {
                     if (_model.GetDeclaredSymbol(eventDecl) is not IEventSymbol evt) break;
-                    if (!evt.IsDefinition) evt = (IEventSymbol)evt.OriginalDefinition;
+                    var plan = FindPlan(evt);
 
-                    if (_active.TryGetValue(evt, out var plan))
+                    if (plan != null)
                     {
                         // 先在使用点改写器内改写 accessor 体（体内可能引用同族去糖事件，
                         // 如转发到 private field-style 事件），再展开。展开产物是脱离语法树的
-                        // 拷贝，无法再绑定 —— 语义绑定（特性路由）一律走原始声明。
+                        // 拷贝，无法再绑定 —— 语义绑定（特性路由）一律走重解析树上的原始声明。
                         var visited = (EventDeclarationSyntax)Visit(eventDecl)!;
                         foreach (var expanded in expander.ExpandEventDeclaration(visited, plan, eventDecl))
                             newMembers.Add(expanded);
                         continue;
                     }
-                    if (!_knownSymbols.Contains(evt))
-                    {
-                        EmitResidual(evt.Name, eventDecl.GetLocation());
-                        newMembers.Add(eventDecl);
-                        continue;
-                    }
-                    break; // skip/failed plan：声明原样保留
+                    if (_knownKeys.Contains(KeyOf(evt)))
+                        break; // skip/failed plan：声明原样保留
+                    EmitResidual(evt.Name, eventDecl.GetLocation());
+                    newMembers.Add(eventDecl);
+                    continue;
                 }
             }
 
@@ -107,24 +111,25 @@ internal sealed class EventUseSiteRewriter : CSharpSyntaxRewriter
                 keptVariables.Add(variable);
                 continue;
             }
-            if (!evt.IsDefinition) evt = (IEventSymbol)evt.OriginalDefinition;
+            var plan = FindPlan(evt);
 
-            if (_active.TryGetValue(evt, out var plan))
+            if (plan != null)
             {
                 planned.Add(((VariableDeclaratorSyntax)Visit(variable)!, plan));
                 continue;
             }
-            if (!_knownSymbols.Contains(evt))
+            if (!_knownKeys.Contains(KeyOf(evt)))
                 EmitResidual(evt.Name, variable.GetLocation());
             keptVariables.Add(variable); // skip/failed plan：变量原样保留
         }
 
         var leading = decl.GetLeadingTrivia();
-        var first = planned.Count > 0 && keptVariables.Count == 0;
+        var first = true;
         foreach (var (visitedVar, plan) in planned)
         {
-            foreach (var expanded in expander.ExpandFieldVariable(
-                decl, visitedVar, plan, first ? leading : default))
+            foreach (var expanded in plan.HasField
+                         ? expander.ExpandFieldVariable(decl, visitedVar, plan, first ? leading : default)
+                         : expander.ExpandAbstractSignatures(decl, plan, first ? leading : default))
                 output.Add(expanded);
             first = false;
         }
@@ -134,15 +139,8 @@ internal sealed class EventUseSiteRewriter : CSharpSyntaxRewriter
         var keptDecl = decl.WithDeclaration(
             decl.Declaration.WithVariables(SyntaxFactory.SeparatedList(keptVariables)));
         if (planned.Count > 0)
-        {
-            // 文档/注释 trivia 已随首个生成成员走，保留声明不再重复。
-            keptDecl = keptDecl.WithLeadingTrivia(default(SyntaxTriviaList));
-            output.Add((MemberDeclarationSyntax)Visit(keptDecl)!);
-        }
-        else
-        {
-            output.Add((MemberDeclarationSyntax)Visit(keptDecl)!);
-        }
+            keptDecl = keptDecl.WithLeadingTrivia(default(SyntaxTriviaList)); // trivia 已随首个生成成员走
+        output.Add((MemberDeclarationSyntax)Visit(keptDecl)!);
     }
 
     private void EmitResidual(string name, Location location)
@@ -258,6 +256,12 @@ internal sealed class EventUseSiteRewriter : CSharpSyntaxRewriter
 
     // ---- 符号/上下文判定 ----
 
+    private EventPlan? FindPlan(IEventSymbol evt)
+    {
+        if (!evt.IsDefinition) evt = (IEventSymbol)evt.OriginalDefinition;
+        return _active.TryGetValue(KeyOf(evt), out var plan) ? plan : null;
+    }
+
     private bool TryGetPlan(ExpressionSyntax node, out EventPlan plan)
     {
         plan = null!;
@@ -267,23 +271,24 @@ internal sealed class EventUseSiteRewriter : CSharpSyntaxRewriter
             MemberAccessExpressionSyntax ma => ma.Name.Identifier.ValueText,
             _ => null,
         };
-        if (name == null || !_candidateNames.Contains(name)) return false;
+        if (name == null || !_active.Values.Any(p => p.DeclName == name)) return false;
         if (_model.GetSymbolInfo(node).Symbol is not IEventSymbol evt) return false;
         // 构造泛型（Box<string>.E）归一到定义符号（Box<T>.E）才能命中候选。
         if (!evt.IsDefinition) evt = (IEventSymbol)evt.OriginalDefinition;
-        return _active.TryGetValue(evt, out plan!);
+        var found = FindPlan(evt);
+        if (found == null) return false;
+        plan = found;
+        return true;
     }
 
     private bool InDeclaringType(SyntaxNode node, EventPlan plan)
     {
         var enclosing = EventFacts.EnclosingType(_model, node);
-        return enclosing != null && SymbolEqualityComparer.Default.Equals(
-            enclosing, plan.Event.ContainingType);
+        return enclosing != null && string.Equals(
+            enclosing.ToDisplayString(), plan.Event.ContainingType?.ToDisplayString(), StringComparison.Ordinal);
     }
 
     /// <summary>事件名即字段名：左值两处出现（赋值目标 + Combine 实参）需两个独立节点实例。</summary>
     private static ExpressionSyntax LeftClone(ExpressionSyntax left)
         => (ExpressionSyntax)SyntaxFactory.ParseExpression(left.ToString());
-
-    // ---- 表达式构造 ----
 }

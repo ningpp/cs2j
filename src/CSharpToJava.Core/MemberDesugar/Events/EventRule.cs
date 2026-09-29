@@ -9,6 +9,8 @@ namespace CSharpToJava.Core.MemberDesugar.Events;
 /// 1) 声明收集（EventFieldDeclaration 变量级 + EventDeclaration）+ 声明级闸门；
 /// 2) 站点扫描（+=/-= 类内 vs 类外、dynamic、nameof、绑定不可解析）+ 层次联动文件；
 /// 3) EventPlan 产出（设计 §4.3 EV-1..EV-17）。
+/// 分析期在原始树上做全部语义查询；改写期（先属性后事件的第二阶段）经重解析树 +
+/// 「含类型::事件名」显示串键归属 plan——符号实例跨编译不通用，显示串键稳定。
 /// </summary>
 [MemberDesugarRule(MemberDesugarKind.Event, 30)]
 internal sealed class EventRule : IMemberDesugarRule
@@ -21,15 +23,20 @@ internal sealed class EventRule : IMemberDesugarRule
         var options = context.Options;
 
         // ---- 阶段 1：声明收集 + 声明级闸门 ----
-        var candidates = new Dictionary<IEventSymbol, MemberDeclarationSyntax>(SymbolEqualityComparer.Default);
+        var candidates = new Dictionary<IEventSymbol, (MemberDeclarationSyntax Decl, VariableDeclaratorSyntax? Variable, string DeclName)>(
+            SymbolEqualityComparer.Default);
         var failures = new Dictionary<IEventSymbol, (string DeclName, MemberDesugarDiagnosticCode Code, string Reason)>(
             SymbolEqualityComparer.Default);
-        var userSkipped = new Dictionary<IEventSymbol, MemberDeclarationSyntax>(SymbolEqualityComparer.Default);
+        var userSkipped = new Dictionary<IEventSymbol, (MemberDeclarationSyntax Decl, VariableDeclaratorSyntax? Variable, string DeclName)>(
+            SymbolEqualityComparer.Default);
+        // C# 13 partial 事件的定义/实现部件是两个符号但同一成员：按「含类型::名」键去重，
+        // 保证一个成员恰好一个 plan（首个声明部件先到先得）。
+        var registeredKeys = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var model in context.Models)
         {
             var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
-            foreach (var decl in root.DescendantNodes().OfType<MemberDeclarationSyntax>())
+            foreach (var decl in root.DescendantNodes())
             {
                 if (decl is EventFieldDeclarationSyntax fieldDecl)
                 {
@@ -37,18 +44,21 @@ internal sealed class EventRule : IMemberDesugarRule
                     {
                         if (model.GetDeclaredSymbol(variable) is not IEventSymbol evt) continue;
                         if (!evt.IsDefinition) evt = (IEventSymbol)evt.OriginalDefinition;
-                        if (candidates.ContainsKey(evt) || failures.ContainsKey(evt) || userSkipped.ContainsKey(evt))
+                        if (!registeredKeys.Add(KeyOf(evt)))
                             continue;
-                        Register(evt, fieldDecl, model, options, candidates, failures, userSkipped);
+                        // 多变量声明逐变量注册：plan 的声明名取变量标识符，不取首个变量。
+                        Register(evt, (fieldDecl, variable, variable.Identifier.ValueText),
+                            model, options, candidates, failures, userSkipped);
                     }
                 }
-                else
+                else if (decl is EventDeclarationSyntax customDecl)
                 {
-                    if (model.GetDeclaredSymbol(decl) is not IEventSymbol evt) continue;
+                    if (model.GetDeclaredSymbol(customDecl) is not IEventSymbol evt) continue;
                     if (!evt.IsDefinition) evt = (IEventSymbol)evt.OriginalDefinition;
-                    if (candidates.ContainsKey(evt) || failures.ContainsKey(evt) || userSkipped.ContainsKey(evt))
+                    if (!registeredKeys.Add(KeyOf(evt)))
                         continue;
-                    Register(evt, decl, model, options, candidates, failures, userSkipped);
+                    Register(evt, (customDecl, null, customDecl.Identifier.ValueText),
+                        model, options, candidates, failures, userSkipped);
                 }
             }
         }
@@ -57,11 +67,8 @@ internal sealed class EventRule : IMemberDesugarRule
         var siteFiles = new Dictionary<IEventSymbol, HashSet<string>>(SymbolEqualityComparer.Default);
         var siteFailures = new Dictionary<IEventSymbol, (MemberDesugarDiagnosticCode Code, string Reason)>(
             SymbolEqualityComparer.Default);
-        // 站点名快筛用声明标识符（显式接口实现的符号 Name 是 "IFoo.X" 形态）。
         var candidateNames = candidates.Values
-            .Select(DeclNameOf)
-            .Where(n => n != null)
-            .Select(n => n!)
+            .Select(c => c.DeclName)
             .ToHashSet(StringComparer.Ordinal);
 
         foreach (var model in context.Models)
@@ -91,61 +98,61 @@ internal sealed class EventRule : IMemberDesugarRule
         }
 
         // ---- 阶段 3：plan 产出 ----
-        foreach (var (evt, decl) in candidates)
+        foreach (var (evt, info) in candidates)
         {
-            var declName = DeclNameOf(decl) ?? evt.Name;
             var touched = CollectTouchedFiles(evt, siteFiles, candidates.Keys);
 
             if (siteFailures.TryGetValue(evt, out var siteFail))
             {
-                builder.Add(MakePlan(evt, decl, declName, MemberDesugarOutcome.Infeasible,
+                builder.Add(MakePlan(evt, info, MemberDesugarOutcome.Infeasible,
                     touched, siteFail.Code, siteFail.Reason, options));
                 continue;
             }
 
-            builder.Add(MakePlan(evt, decl, declName, MemberDesugarOutcome.Planned,
+            builder.Add(MakePlan(evt, info, MemberDesugarOutcome.Planned,
                 touched, null, null, options));
         }
 
         foreach (var (evt, fail) in failures)
         {
-            var decl = candidates.TryGetValue(evt, out var d) ? d
-                : userSkipped.TryGetValue(evt, out var s) ? s : null;
-            builder.Add(MakePlan(evt, decl, fail.DeclName, MemberDesugarOutcome.Infeasible,
+            if (!candidates.TryGetValue(evt, out var info)
+                && !userSkipped.TryGetValue(evt, out info))
+                info = (null, null, fail.DeclName);
+            builder.Add(MakePlan(evt, info, MemberDesugarOutcome.Infeasible,
                 DeclarationFiles(evt), fail.Code, fail.Reason, options));
         }
 
-        foreach (var (evt, decl) in userSkipped)
+        foreach (var (evt, info) in userSkipped)
         {
-            builder.Add(MakePlan(evt, decl, DeclNameOf(decl) ?? evt.Name,
-                MemberDesugarOutcome.UserSkipped, DeclarationFiles(evt), null, null, options));
+            builder.Add(MakePlan(evt, info, MemberDesugarOutcome.UserSkipped,
+                DeclarationFiles(evt), null, null, options));
         }
     }
 
-    // ---- 声明注册 + 声明级闸门（partial/WinRT/静态抽象接口/readonly struct → 保留名 → 特性路由）----
+    // ---- 声明注册 + 声明级闸门（partial/静态抽象接口/readonly struct → 保留名 → 特性路由）----
 
     private static void Register(
-        IEventSymbol evt, MemberDeclarationSyntax decl, SemanticModel model,
+        IEventSymbol evt,
+        (MemberDeclarationSyntax Decl, VariableDeclaratorSyntax? Variable, string DeclName) info,
+        SemanticModel model,
         MemberDesugarOptions options,
-        Dictionary<IEventSymbol, MemberDeclarationSyntax> candidates,
+        Dictionary<IEventSymbol, (MemberDeclarationSyntax, VariableDeclaratorSyntax?, string)> candidates,
         Dictionary<IEventSymbol, (string, MemberDesugarDiagnosticCode, string)> failures,
-        Dictionary<IEventSymbol, MemberDeclarationSyntax> userSkipped)
+        Dictionary<IEventSymbol, (MemberDeclarationSyntax, VariableDeclaratorSyntax?, string)> userSkipped)
     {
-        var declName = DeclNameOf(decl) ?? evt.Name;
-
         if (MatchesSet(options.SkipQualifiedNames, evt))
         {
-            userSkipped[evt] = decl;
+            userSkipped[evt] = info;
             return;
         }
 
-        var gate = DeclarationGate(evt, decl, model);
+        var gate = DeclarationGate(evt, info.Decl, model);
         if (gate != null)
         {
-            failures[evt] = (declName, gate.Value.Code, gate.Value.Reason);
+            failures[evt] = (info.DeclName, gate.Value.Code, gate.Value.Reason);
             return;
         }
-        candidates[evt] = decl;
+        candidates[evt] = info;
     }
 
     private static (MemberDesugarDiagnosticCode Code, string Reason)? DeclarationGate(
@@ -192,7 +199,7 @@ internal sealed class EventRule : IMemberDesugarRule
     private static void HandleCompoundSite(
         AssignmentExpressionSyntax assign, SemanticModel model, string filePath,
         HashSet<string> candidateNames,
-        Dictionary<IEventSymbol, MemberDeclarationSyntax> candidates,
+        Dictionary<IEventSymbol, (MemberDeclarationSyntax, VariableDeclaratorSyntax?, string)> candidates,
         Dictionary<IEventSymbol, HashSet<string>> siteFiles,
         Dictionary<IEventSymbol, (MemberDesugarDiagnosticCode Code, string Reason)> siteFailures)
     {
@@ -200,6 +207,19 @@ internal sealed class EventRule : IMemberDesugarRule
 
         var leftName = LeftName(assign.Left);
         if (leftName == null || !candidateNames.Contains(leftName)) return;
+
+        // dynamic 接收者（绑定延迟，GetSymbolInfo 为空）：同名候选全部保守跳过（CS2J5154）——
+        // 必须先于绑定检查（C11 同款顺序）。
+        if (MemberDesugarSyntaxFacts.IsDynamic(assign.Left, model))
+        {
+            foreach (var evt in candidates.Keys.Where(e => e.Name == leftName).ToList())
+            {
+                Record(siteFiles, evt, filePath);
+                MarkFailure(siteFailures, evt, MemberDesugarDiagnosticCode.EventDynamicSite,
+                    EventDiagnostics.Dynamic(evt.Name));
+            }
+            return;
+        }
 
         var symbol = model.GetSymbolInfo(assign.Left).Symbol;
         if (symbol == null)
@@ -215,16 +235,12 @@ internal sealed class EventRule : IMemberDesugarRule
         if (!candidates.ContainsKey(evtBound)) return;
 
         Record(siteFiles, evtBound, filePath);
-
-        if (MemberDesugarSyntaxFacts.IsDynamic(assign.Left, model))
-            MarkFailure(siteFailures, evtBound, MemberDesugarDiagnosticCode.EventDynamicSite,
-                EventDiagnostics.Dynamic(evtBound.Name));
     }
 
     private static void HandleNameofSite(
         ExpressionSyntax argument, SemanticModel model, string filePath,
         HashSet<string> candidateNames,
-        Dictionary<IEventSymbol, MemberDeclarationSyntax> candidates,
+        Dictionary<IEventSymbol, (MemberDeclarationSyntax, VariableDeclaratorSyntax?, string)> candidates,
         Dictionary<IEventSymbol, HashSet<string>> siteFiles)
     {
         var name = argument switch
@@ -243,11 +259,14 @@ internal sealed class EventRule : IMemberDesugarRule
     // ---- plan 产出 ----
 
     private static EventPlan MakePlan(
-        IEventSymbol evt, MemberDeclarationSyntax? decl, string declName,
+        IEventSymbol evt,
+        (MemberDeclarationSyntax? Decl, VariableDeclaratorSyntax? Variable, string DeclName) info,
         MemberDesugarOutcome outcome, IReadOnlyList<string> touched,
         MemberDesugarDiagnosticCode? failCode, string? failReason,
         MemberDesugarOptions options)
     {
+        var decl = info.Decl;
+        var declName = info.DeclName;
         var hasField = decl != null && NeedsField(evt, decl);
         var policyCas = options.EventSubscriptionPolicy == EventSubscriptionPolicy.InterlockedCompareExchange;
         var planKind = evt.ExplicitInterfaceImplementations.Length > 0
@@ -276,6 +295,11 @@ internal sealed class EventRule : IMemberDesugarRule
     }
 
     // ---- 小工具 ----
+
+    /// <summary>plan 归属键：含类型完全限定显示串 + 事件符号名。符号实例跨编译不通用，
+    /// 显示串键稳定（改写期经重解析树查找也用它，见 EventUseSiteRewriter.KeyOf）。</summary>
+    internal static string KeyOf(IEventSymbol evt)
+        => $"{evt.ContainingType?.ToDisplayString()}::{evt.Name}";
 
     private static string? DeclNameOf(MemberDeclarationSyntax decl)
         => decl switch

@@ -22,6 +22,8 @@
     <ProjectReference Include="..\..\src\CSharpToJava.Core\CSharpToJava.Core.csproj" />
     <ProjectReference Include="..\..\src\CSharpToJava.CLI\CSharpToJava.CLI.csproj" />
     <ProjectReference Include="..\..\src\Cs2jUnsignedMath\Cs2jUnsignedMath.csproj" />
+    <!-- C13：事件去糖产物引用 Cs2jPrelude.CsPrelude，单测验证编译经 TPA 解析 -->
+    <ProjectReference Include="..\..\src\Cs2jPrelude\Cs2jPrelude.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -736,6 +736,7 @@ public class MemberDesugarPropertyUnitTests
     }
 
     // ---- §7.1-11 边界零误伤 ----
+    // C13 落地后事件有独立规则：事件按 add_E/remove_E 去糖，索引器/运算符仍零误伤。
 
     [Fact]
     public void Boundary_IndexerEventOperatorUntouched()
@@ -757,9 +758,11 @@ public class MemberDesugarPropertyUnitTests
             """);
         AssertContains(output, "public int get_Item(int i)");
         AssertContains(output, "c.set_Item(0, c.get_P());");
-        AssertContains(output, "public event System.EventHandler? E;");
+        AssertNotContains(output, "public event System.EventHandler? E;");
+        AssertContains(output, "private System.EventHandler? E;");
+        AssertContains(output, "public void add_E(System.EventHandler? value)");
+        AssertContains(output, "c.E = Cs2jPrelude.CsPrelude.Combine(c.E, null);");
         AssertContains(output, "public static C operator +(C a, C b) => a;");
-        AssertContains(output, "c.E += null;");
         AssertOutputCompiles(output);
     }
 

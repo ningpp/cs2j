@@ -57,7 +57,25 @@ internal sealed class EventDeclarationExpander
         {
             yield return BuildGeneratedAccessor(
                 original, plan, type, name, name == plan.AdderName, methodAttrs,
-                leadingTrivia: default);
+                leadingTrivia: default, emitBody: true);
+        }
+    }
+
+    /// <summary>field-like 语法但 abstract/接口成员（无字段）：仅两方法签名（EV-4/EV-5）。</summary>
+    public IEnumerable<MemberDeclarationSyntax> ExpandAbstractSignatures(
+        EventFieldDeclarationSyntax original, EventPlan plan, SyntaxTriviaList leadingTrivia)
+    {
+        var type = original.Declaration.Type;
+        var (_, methodAttrs) = RouteAttributeLists(original.AttributeLists, fieldGenerated: false);
+
+        EmitPlanDiagnostics(plan);
+        var first = true;
+        foreach (var name in new[] { plan.AdderName, plan.RemoverName })
+        {
+            yield return BuildGeneratedAccessor(
+                original, plan, type, name, name == plan.AdderName, methodAttrs,
+                first ? leadingTrivia : default, emitBody: false);
+            first = false;
         }
     }
 
@@ -130,7 +148,7 @@ internal sealed class EventDeclarationExpander
     private MemberDeclarationSyntax BuildGeneratedAccessor(
         MemberDeclarationSyntax original, EventPlan plan, TypeSyntax type,
         string name, bool isAdd, List<AttributeListSyntax> methodAttrs,
-        SyntaxTriviaList leadingTrivia)
+        SyntaxTriviaList leadingTrivia, bool emitBody)
     {
         var inInterface = original.Parent is InterfaceDeclarationSyntax;
         // field-like 语法（EventFieldDeclarationSyntax）不存在显式接口形态，仅 EventDeclarationSyntax 有。
@@ -140,10 +158,13 @@ internal sealed class EventDeclarationExpander
 
         BlockSyntax? body = null;
         ArrowExpressionClauseSyntax? arrow = null;
-        if (plan.UseCas)
-            body = CasBody(plan, isAdd);
-        else
-            arrow = SyntaxFactory.ArrowExpressionClause(SimpleBody(plan, isAdd));
+        if (emitBody)
+        {
+            if (plan.UseCas)
+                body = CasBody(plan, isAdd);
+            else
+                arrow = SyntaxFactory.ArrowExpressionClause(SimpleBody(plan, isAdd));
+        }
 
         var method = SyntaxFactory.MethodDeclaration(
             SyntaxFactory.List(methodAttrs),
@@ -158,7 +179,7 @@ internal sealed class EventDeclarationExpander
             arrow)
             .WithLeadingTrivia(leadingTrivia)
             .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
-        if (arrow != null)
+        if (body == null)
             method = method.WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
         return method;
     }

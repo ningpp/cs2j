@@ -788,3 +788,4 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             _ => left,
         };
 }
+
