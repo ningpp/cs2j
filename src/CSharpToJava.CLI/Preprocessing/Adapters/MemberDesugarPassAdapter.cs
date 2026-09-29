@@ -359,13 +359,14 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
             {
                 continue;
             }
-            var projectDirectory = Path.GetDirectoryName(projectFile)!;
-            if (!touchedFiles.Any(file => ProjectPreprocessSource.IsSameOrDescendantPath(file, projectDirectory)))
+            var destinationProjectFile = Path.Combine(
+                tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, projectFile));
+            // touchedFiles 是中间树文件路径，必须与中间工程目录匹配。
+            var destinationProjectDirectory = Path.GetDirectoryName(destinationProjectFile)!;
+            if (!touchedFiles.Any(file => ProjectPreprocessSource.IsSameOrDescendantPath(file, destinationProjectDirectory)))
             {
                 continue;
             }
-            var destinationProjectFile = Path.Combine(
-                tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, projectFile));
             EnsureCs2jPreludeProjectReference(destinationProjectFile, libProjectPath, tree.IntermediateRoot);
         }
     }

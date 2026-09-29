@@ -319,7 +319,7 @@ public class MemberDesugarEventUnitTests
             """);
         AssertContains(output, "GetThing().add_Click(OnClick);");
         // 接收者单次求值：GetThing 的调用只出现一次（方法定义不算）
-        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(output, @"GetThing\(\)\.add_Click").Count);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(output, @"GetThing\(\)\.add_Click"));
         AssertPlanned(output, stats);
     }
 
