@@ -146,4 +146,14 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Include SampleMemberDesugarSolution as content so it's available at test runtime.
+         bin/obj are excluded: the fixture may have been built locally. -->
+    <Content Include="..\SampleMemberDesugarSolution\**\*.*"
+              Exclude="..\SampleMemberDesugarSolution\**\bin\**;..\SampleMemberDesugarSolution\**\obj\**">
+      <Link>SampleMemberDesugarSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
