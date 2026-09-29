@@ -44,3 +44,22 @@ Console.WriteLine($"getOnly: {getOnly.Created:O} {getOnly.Bits.Count}");
 var skipSample = new ExpressionTreeSample { Erp = 42 };
 Console.WriteLine($"expression-tree skip: {skipSample.Selector.Compile()()}");
 Console.WriteLine($"static-initializer skip: {StaticInitializerSample.Shared.Label}");
+
+var indexerLine = IndexerUseSite.UseIndexers();
+Console.WriteLine($"indexers: {indexerLine}");
+
+public static class IndexerUseSite
+{
+    public static string UseIndexers()
+    {
+        var grid = new SampleMemberDesugarLib.Grid();
+        grid[1, 2] = 9;
+        var named = new SampleMemberDesugarLib.NamedIndexer();
+        named[3] = "abc";
+        var cells = new SampleMemberDesugarLib.RefCells();
+        var total = cells.Bump();
+        var se = new SampleMemberDesugarLib.SideEffectIndexer();
+        var seed = se.Bump();
+        return $"{grid[1, 2]}|{named[3]}|{total}|{seed}";
+    }
+}

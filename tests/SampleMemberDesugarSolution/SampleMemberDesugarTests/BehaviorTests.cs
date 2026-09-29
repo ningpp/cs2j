@@ -114,4 +114,42 @@ public class BehaviorTests
         Assert.Equal(84, sample.Selector.Compile()());
         Assert.Equal("shared", StaticInitializerSample.Shared.Label);
     }
+
+    [Fact]
+    public void Indexers_behave_identically()
+    {
+        var grid = new Grid();
+        grid[1, 2] = 9;
+        Assert.Equal(9, grid[1, 2]);
+        grid[1, 1] = 4;
+        Assert.Equal(4, grid.Sum()); // Sum 只读对角线 [0,0]+[1,1]+[2,2]
+
+        var named = new NamedIndexer();
+        named[3] = "abc";
+        Assert.Equal("abc", named[3]);
+
+        var eg = new ExplicitGrid();
+        IRow row = eg;
+        IGrid g2 = eg;
+        g2[0, 1] = 5;
+        Assert.Equal(5, row[1]);
+
+        Assert.Equal(13, new RefCells().Bump());
+
+        var se = new SideEffectIndexer();
+        se.Bump();
+        Assert.Equal(1, GetSeed(se));
+    }
+
+    [Fact]
+    public void Indexers_single_evaluation_of_side_effecting_argument()
+    {
+        var se = new SideEffectIndexer();
+        se.Bump(); // this[Next()] += 10 —— Next() 必须只调用一次
+        Assert.Equal(1, GetSeed(se));
+    }
+
+    private static int GetSeed(SideEffectIndexer se)
+        => (int)typeof(SideEffectIndexer).GetField("_seed",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(se)!;
 }
