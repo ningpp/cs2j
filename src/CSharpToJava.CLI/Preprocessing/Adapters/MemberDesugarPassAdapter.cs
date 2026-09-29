@@ -281,6 +281,7 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
         _statistics.SkippedByReason.TryGetValue(MemberDesugarDiagnosticCode.ResidualProperty, out var residual);
         _statistics.SkippedByReason.TryGetValue(MemberDesugarDiagnosticCode.ResidualIndexer, out var indexerResidual);
         _statistics.SkippedByReason.TryGetValue(MemberDesugarDiagnosticCode.ResidualEvent, out var residualEvent);
+        _statistics.SkippedByReason.TryGetValue(MemberDesugarDiagnosticCode.ResidualOperator, out var residualOp);
         return $"member-desugar: {_statistics.PropertiesPlanned} propert(y/ies) planned, " +
                $"{_statistics.BackingFieldsGenerated} field(s) generated, " +
                $"{_statistics.ReadSitesRewritten} read/{_statistics.WriteSitesRewritten} write/" +
@@ -298,8 +299,17 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                $"{_statistics.EventNameofLiteralized} nameof), " +
                $"{_statistics.PlansSkipped} skipped, " +
                $"{_statistics.PlansRolledBack} rolled back, " +
-               $"{residual} residual, {indexerResidual} indexer residual, {residualEvent} event residual";
-    }
+               "#{residual} residual, {indexerResidual} indexer residual, {residualEvent} event residual" +
+               " | operators: {_statistics.OperatorsPlanned} planned, " +
+               "{_statistics.OperatorBinarySitesRewritten} binary/" +
+               "{_statistics.OperatorUnarySitesRewritten} unary/" +
+               "{_statistics.OperatorCompoundSitesRewritten} compound/" +
+               "{_statistics.OperatorConversionSitesRewritten} conversion site(s), " +
+               "{_statistics.OperatorLiftedSitesExpanded} lifted, " +
+               "{_statistics.GateOperatorsRetained} gate-retained, " +
+               "{_statistics.IncrementDecrementDeferred} deferred(++/--), " +
+               "{_statistics.MetadataOperatorSitesUntouched} metadata-only, " +
+               "{residualOp} operator-residual";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => _diagnostics

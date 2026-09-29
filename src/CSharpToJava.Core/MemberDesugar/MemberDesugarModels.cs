@@ -34,7 +34,7 @@ public enum MemberDesugarDiagnosticCode
     FieldKeywordAccessor = 5122,
     PositionalRecordProperty = 5123,
     WithSite = 5124,
-    // 5130-5149 indexer rules (C12, 设计 §6); 5150-5189 reserved for C13/C14.
+    // 5130-5141 indexer rules (C12, 设计 §6)。
     IndexerPlanCreated = 5130,        // Info，仅 verbose
     IndexerNameAdopted = 5131,        // Info：[IndexerName] 自定义名采用（特性已移除）
     IndexerInitWidened = 5132,        // Info：init 归约为普通 set
@@ -47,7 +47,7 @@ public enum MemberDesugarDiagnosticCode
     IndexerUnsupportedDeclaration = 5139, // Warning：extern / static abstract 接口索引器
     IndexerNameCollision = 5140,      // Warning，防御性
     ResidualIndexer = 5141,           // Warning（strict 升级 Error）：residual 闸门
-    // 5150-5158 event rules (C13)。5159-5179 事件后续追加预留，5180-5189 留 C14。
+    // 5150-5158 event rules (C13)。
     EventPlanCreated = 5150,        // Info，仅 verbose
     EventCasPolicyApplied = 5151,   // Info，仅 verbose
     EventStructCasDegraded = 5152,  // struct 事件降级 Simple（策略显式要求 CAS 时升 Warning）
@@ -57,6 +57,21 @@ public enum MemberDesugarDiagnosticCode
     EventAttributeUnroutable = 5156,
     EventNameCollision = 5157,
     ResidualEvent = 5158,
+    // 5170-5183 operator rules (C14)。
+    OperatorPlanCreated = 5170,        // Info，仅 verbose
+    ConversionPlanCreated = 5171,      // Info，仅 verbose
+    OperatorNameDisambiguated = 5172,  // Info，仅 verbose
+    OperatorExpressionTreeSite = 5173, // Warning（strict Error）；force 可解除
+    OperatorDynamicSite = 5174,        // Warning（strict Error）；force 不解除
+    StaticAbstractInterfaceOperator = 5175, // Warning（strict Error）
+    UnbuildableLift = 5176,            // Warning（strict Error）
+    ConversionMirrorMiss = 5177,       // Warning（strict Error）
+    OperatorNameExhausted = 5178,      // Warning（strict Error），理论兜底
+    CompoundTargetUnsupported = 5179,  // Warning（strict Error）
+    GateOperatorRetained = 5180,       // Info：门控类型 & / | 保留供 JK
+    IncrementDecrementDeferred = 5181, // Info：移交 C17
+    MetadataOnlyOperatorSite = 5182,   // Info：元数据-only 站点不动
+    ResidualOperator = 5183,           // Warning（strict Error）：residual 闸门（OC-9）
 }
 
 public sealed record MemberDesugarDiagnostic(
@@ -116,6 +131,16 @@ public sealed class MemberDesugarStatistics
     public int EventUnsubscribeSitesRewritten { get; set; }
     public int EventInClassCombineSitesRewritten { get; set; }
     public int EventNameofLiteralized { get; set; }
+    // C14 operators（设计 §3.2 post-merge 追加清单）
+    public int OperatorsPlanned { get; set; }
+    public int OperatorBinarySitesRewritten { get; set; }
+    public int OperatorUnarySitesRewritten { get; set; }
+    public int OperatorCompoundSitesRewritten { get; set; }
+    public int OperatorConversionSitesRewritten { get; set; }
+    public int OperatorLiftedSitesExpanded { get; set; }
+    public int GateOperatorsRetained { get; set; }
+    public int IncrementDecrementDeferred { get; set; }
+    public int MetadataOperatorSitesUntouched { get; set; }
 
     /// <summary>按诊断码分桶的跳过数（设计 §6：按原因分组）。</summary>
     public Dictionary<MemberDesugarDiagnosticCode, int> SkippedByReason { get; } = new();
