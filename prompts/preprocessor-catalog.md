@@ -7,6 +7,8 @@
 > 2026-09-28 二次补全：新增候选 **C29、C31–C36**（七项）；修正 §0.4 计数（原写 22，实际 29 项）与优先级归属（C10 明细行本为 P2，已归位）。
 > 2026-09-28 三次补全：新增候选 **C37–C42**（六项：模式表达式去糖、异步流/异步释放、终结器、foreach 迭代源二期、特殊数值类型、平台边界隔离）；为 C03/C15/C16/C18/C36 补充交叉证据；§0.4 计数更新为 42 项；§4.12「静默错误输出」扩充排查面（新增 5 处兜底/丢弃站点）；新增 §4.15（模式测试红灯与实现脱节）、§4.16（extern 行为矛盾）。
 > 2026-09-28 四次补全（方向性输入整合）：新增 **§5**（正确性两半区与 EF Core 测试预言机、CsCore 目标子集、分层判据、统一 pass 契约与编排、特性位剪枝、Layer 0–5×条目×sdk 实测频率全景、三笔架构债）；新增候选 **C43–C46**（词法字面量归一、using 显式化、lambda 闭包提升、成员签名显式化；前两项经代码核实**已被转换器内联吸收**，列观察项）；为 C04/C10/C23/C26/C28/C32/C36/C41 补充 sdk 频率或语义证据（含已核实的 LinqRewriter 无 IQueryable 分流、插值 handler 判定缺失）；§0.4 计数更新为 **46 项**；§4 新增风险 17–19。
+> 2026-09-29 五次补全（语言覆盖审计输入）：以 **C# 1.0–14 全语法/语义特性清单**（另册《CSharp转Java预处理器Pass清单》，58 pass 设计基线）对本清单 E01–E17 + C01–C46 做**差集审计**，新增候选 **C47–C52**（六项：相等性与字符串拼接调用点物化、params 集合显式化、C# 14 扩展成员、C# 14 `field` 关键字、C# 14 简单空条件赋值、版本防线升格与低频构造收编）；为 C02/C06/C11/C19/C23/C28/C29/C35/C36 九个既有条目补五次补全追加注记；§0.4 计数更新为 **52 项**；§4 新增风险 20–21（训练集与 .NET 10 目标的语言版本轴错配、相等性核实双向结局）；§5.5 全景表补 C# 13/14 构造行。**本批条目由语言层审计发现而非仓库 grep——各条目仓库证据状态以「验证」行动核实为准**（对齐 §5「方向性输入」处理原则：与代码证据冲突时以证据为准）。
+> 2026-09-29 六次补全（官方文档核对，learn.microsoft.com）：对 **12 个官方页全文精读核对**（member-access-operators / keywords/extension / keywords/field / keywords/params / equality-operators / addition-operator / collection-expressions / nullable-value-types / foreach-in / yield / statements/lock + whats-new/csharp-14）。**修正两处事实错误**：① C47 ⑥ 委托 `==` 官方语义为**调用列表值相等**而非「引用比较、Java 同形」——直映 Java `==` 必错值；② C# 14 extension 块支持**扩展运算符**（原文遗漏）、**扩展索引器实为 C# 15 预览**（原文误归 C# 14）。**补盘两项 C# 14 特性**：简单 lambda 参数修饰符（归 C45）、用户定义复合赋值运算符（归 C14/C17——`a += b` 不再必然拆解）。**新增遗漏子项**：record `==` 值相等（C47⑦）、[Conditional] 调用点条件编译（C10）、[SetsRequiredMembers]（C27）、checked 用户定义运算符（C# 11，C14）、readonly 实例成员（C# 8，C07）、集合表达式 `with(...)` 元素（C# 14，C36）、非绑定 `typeof(List<>)`（C52）、[ThreadStatic] 单线程初始化语义（C09）、[EnumeratorCancellation]/WithCancellation（C38 交界）。为 C04/C07/C09/C10/C14/C16/C20/C22/C27/C29/C31/C36/C40/C45/C47/C49/C51/C52 共 **18 个条目**追加「六次补全（官方文档核对）」行；为全部 **E01–E17 + C01–C52（69 条）**追加「官方文档」索引行（**已核**＝本批全文精读，其余为权威 URL 索引）；§4 风险 21 更新（语言层语义已由官方文档确证，剩余核实收敛为仓库内联覆盖面）。计数不变（52 项）。
 
 ---
 
@@ -43,14 +45,14 @@
 
 `src/CSharpToJava.Core/Lowering/`（`LowerRefOut/LowerYield/LowerUsing/LowerProperty/LowerIndexer/LowerOperator/LowerEvent/LowerDelegate/LowerStruct/LowerPatternMatch/VariableResolution`）仅在 `NewConversionPipeline.cs:27-33` 注册；全仓搜索该管线**只被** `tests/CSharpToJava.Tests/Java2/PipelineComparisonTests.cs` 使用，不在生产路径（生产用 `ProjectConversionPipeline` + `Transformers/` + `Java/`）。它们的价值是**证明了各特性的目标降级形态**，是前置 preprocessor 的需求与形态证据（「半成品规格书」），而非可复用实现。四次补全将该现状定性为架构债 A（§5.7）：规则应移植到 Roslyn rewriter，用 .NET 测试直接验证。
 
-### 0.4 建议新增候选：46 个（含对既有通道的扩展）
+### 0.4 建议新增候选：52 个（含对既有通道的扩展）
 
 | 优先级 | 数量 | 编号 |
 |--------|------|------|
 | P0（消除现存 fail-fast / 完成半截工程） | 3 | C01 RefOutIn 接线收尾、C02 Generic 深化、C03 控制流去糖（pattern switch / catch-when 等） |
-| P1（转换器最厚的复杂度块 / **静默错误输出族**，已有明确信号） | 7 | C04 yield（sdk 2887 处，方向性输入建议按频率升 P0，见条目注记）、C05 enum 声明归一、C06 unsafe/FFM、C07 struct 值语义补全、C08 JavaKeywords 落地、C31 Index/Range 归一、**C37 模式表达式去糖（`is` 表达式/switch 臂/位置与列表模式，实测测试红灯）** |
-| P2（成员/数值/并发等中等收益） | 18 | C09 ThreadStatic、C10 JSON/Attribute 归一、C11 Property、C12 Indexer、C13 Event、C14 Operator、C15 checked/unchecked、C16 foreach 补全、C17 自增目标归一、C18 async/await、C19 扩展方法显式化、C26 LINQ 独立化、C30 closed generic metadata 前置化、C32 Lambda 可变捕获前置化、C34 decimal 运算归一、**C38 异步流/异步释放归一**、**C40 foreach 迭代源二期（枚举器适配/ref foreach）**、**C45 Lambda 闭包提升（display class 全量形态，sdk lambda 4966 处）** |
-| P3（推测性/收益小或被兼容层充分吸收） | 18 | C20 partial 合并前置、C21 匿名类型提升、C22 `Nullable<T>` 提升、C23 插值字符串展开、C24 初始化器归一、C25 dynamic、C27 record `with`/init、C28 指令/using trivia 清扫、C29 lock/Monitor 归一（观察项）、C33 泛型型变/约束前置审计、C35 空条件 `?.` 去糖、C36 C# 12 集合表达式去糖、**C39 终结器消除、C41 特殊数值类型（Half/Int128/UInt128/nint/IntPtr）、C42 平台/互操作边界前置隔离**、**C43 词法字面量归一（raw string/u8/verbatim，已内联吸收，观察项）、C44 using 显式化（同步形态已内联，观察项）、C46 成员签名显式化（显式接口实现/new 隐藏/协变返回收口）** |
+| P1（转换器最厚的复杂度块 / **静默错误输出族**，已有明确信号） | 9 | C04 yield（sdk 2887 处，方向性输入建议按频率升 P0，见条目注记）、C05 enum 声明归一、C06 unsafe/FFM、C07 struct 值语义补全、C08 JavaKeywords 落地、C31 Index/Range 归一、**C37 模式表达式去糖（`is` 表达式/switch 臂/位置与列表模式，实测测试红灯）**、**C47 相等性与字符串拼接调用点物化（string `==`/`+` 的 null/值语义，先核实）**、**C49 C# 14 扩展成员（.NET 10 目标直接命中；先决＝Roslyn 包版本支持 C# 14 语法树）** |
+| P2（成员/数值/并发等中等收益） | 20 | C09 ThreadStatic、C10 JSON/Attribute 归一、C11 Property、C12 Indexer、C13 Event、C14 Operator、C15 checked/unchecked、C16 foreach 补全、C17 自增目标归一、C18 async/await、C19 扩展方法显式化、C26 LINQ 独立化、C30 closed generic metadata 前置化、C32 Lambda 可变捕获前置化、C34 decimal 运算归一、**C38 异步流/异步释放归一**、**C40 foreach 迭代源二期（枚举器适配/ref foreach）**、**C45 Lambda 闭包提升（display class 全量形态，sdk lambda 4966 处）**、**C48 params 集合显式化（C# 13，并入 E08 族）**、**C50 C# 14 `field` 关键字（随 C11 同批）** |
+| P3（推测性/收益小或被兼容层充分吸收） | 20 | C20 partial 合并前置、C21 匿名类型提升、C22 `Nullable<T>` 提升、C23 插值字符串展开、C24 初始化器归一、C25 dynamic、C27 record `with`/init、C28 指令/using trivia 清扫、C29 lock/Monitor 归一（观察项）、C33 泛型型变/约束前置审计、C35 空条件 `?.` 去糖、C36 C# 12 集合表达式去糖、**C39 终结器消除、C41 特殊数值类型（Half/Int128/UInt128/nint/IntPtr）、C42 平台/互操作边界前置隔离**、**C43 词法字面量归一（raw string/u8/verbatim，已内联吸收，观察项）、C44 using 显式化（同步形态已内联，观察项）、C46 成员签名显式化（显式接口实现/new 隐藏/协变返回收口）**、**C51 C# 14 简单空条件赋值 `a?.b = c`**、**C52 版本防线升格与低频构造收编（C# 13/14 + C# 8–12 补盘，C36 防线升格的伞条目）** |
 
 ---
 
@@ -66,7 +68,7 @@ E13 ReadOnlyStructMaker（已实现）、E11 RecordReadOnly（已实现、opt-in
 E14 GotoEliminator（已实现）、E02 LocalFunctionLift（已实现）、**C03 控制流去糖（pattern/非整型 switch、catch-when、catch T）**、**C37 模式表达式去糖（`is` 表达式/switch 表达式臂/位置与列表模式；C03 的表达式侧姊妹项）**、**C04 yield 迭代器降级（sdk 2887 处，频率最高的结构性缺口）**、E07/C16/C40 foreach（部分/补全/迭代源归一）、**C18 async/await**、**C38 异步流（`await foreach`/`await using`）**、**C44 using 显式化（同步形态已内联 try-with-resources，ref struct 边角观察项）**。
 
 ### 1.4 成员 / 语法糖类
-E08 默认参数剥离（已实现）、E05 委托（已实现）、**C11 Property 去糖**、**C12 Indexer 去糖**、**C13 Event 去糖**、**C14 Operator 去糖**、**C17 复杂自增目标归一**、**C19 扩展方法显式化**、**C27 record `with`/init**、**C15 checked/unchecked**、**C10 attribute 归一**、**C32 Lambda 可变捕获前置化**、**C45 Lambda 闭包提升（display class 全量形态，C32 的超集）**、**C46 成员签名显式化（显式接口实现/new 隐藏/协变返回，建议并入成员去糖族）**、**C34 decimal 运算归一**、**C35 空条件 `?.` 去糖**、**C39 终结器消除（`~T()` 被静默丢弃）**。
+E08 默认参数剥离（已实现）、E05 委托（已实现）、**C11 Property 去糖**、**C12 Indexer 去糖**、**C13 Event 去糖**、**C14 Operator 去糖**、**C17 复杂自增目标归一**、**C19 扩展方法显式化**、**C27 record `with`/init**、**C15 checked/unchecked**、**C10 attribute 归一**、**C32 Lambda 可变捕获前置化**、**C45 Lambda 闭包提升（display class 全量形态，C32 的超集）**、**C46 成员签名显式化（显式接口实现/new 隐藏/协变返回，建议并入成员去糖族）**、**C34 decimal 运算归一**、**C35 空条件 `?.` 去糖**、**C39 终结器消除（`~T()` 被静默丢弃）**、**C47 相等性与字符串拼接调用点物化（string `==`/`!=` 值相等、`+` 的 null-as-empty、tuple/Nullable 提升）**、**C48 params 集合显式化（C# 13 params collections + 调用点展开）**、**C49 C# 14 扩展成员（extension 块的扩展属性/扩展运算符/静态扩展；索引器为 C# 15 预览）**、**C50 C# 14 `field` 关键字（半自动属性）**、**C51 C# 14 简单空条件赋值 `a?.b = c`**。
 
 ### 1.5 异步 / 并发类
 **C18 async/await**、**C38 异步流/异步释放（`await foreach`/`await using` 关键字被语句转换器静默忽略；`IAsyncEnumerable`/`IAsyncDisposable` 无 TypeMappings 映射且 compat 无对应类）**、**C09 `[ThreadStatic]`**（现由转换器内联处理）、**C29 lock/Monitor 归一（观察项）**：lock 直映 `synchronized`（`StatementTransformer.SwitchAndResource.cs:286-293`）、volatile 直映 Java volatile（`FieldTransformer.cs:104,410`）、Interlocked 由 compat `Interlocked.java`/`InterlockedHelper.java` 吸收——均为非失败型，但 `Monitor.TryEnter` 超时/`Pulse/Wait` 语义在直映下静默丢失，登记为 C29。
@@ -79,7 +81,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 注：`.resx → .properties` 属资源管线（`Program.cs:965-982`），不是 C#→C# preprocessor，不列入候选。
 
 ### 1.8 其他
-**C06 unsafe/fixed/pointer/stackalloc/Span**、E12 ArrayMethodRewriter（已实现、opt-in；多维数组/Resize/Rank）、**C31 Index/Range（`^`/`..`/System.Index/System.Range，含 string 切片静默错误输出）**、**C23 插值字符串**、**C24 对象/集合初始化器**、**C36 C# 12 集合表达式/spread 去糖**、**C42 平台/互操作边界前置隔离（CS2J3001/3101/3102/3201-3203 诊断已存在，隔离通道缺失）**、nameof（转换器已处理，见 `InvocationExpressionTransformer.cs:37-88`，仅在 E17 改名时需联动字面量化）、E16/C26 LINQ、E17 Java 保留字。
+**C06 unsafe/fixed/pointer/stackalloc/Span**、E12 ArrayMethodRewriter（已实现、opt-in；多维数组/Resize/Rank）、**C31 Index/Range（`^`/`..`/System.Index/System.Range，含 string 切片静默错误输出）**、**C23 插值字符串**、**C24 对象/集合初始化器**、**C36 C# 12 集合表达式/spread 去糖**、**C42 平台/互操作边界前置隔离（CS2J3001/3101/3102/3201-3203 诊断已存在，隔离通道缺失）**、nameof（转换器已处理，见 `InvocationExpressionTransformer.cs:37-88`，仅在 E17 改名时需联动字面量化）、E16/C26 LINQ、E17 Java 保留字、**C52 版本防线升格与低频构造收编（C# 13/14 + C# 8–12 补盘的伞条目：`allows ref struct`、`System.Threading.Lock`、隐式 Span 转换、unbound `nameof`、`>>>`、NRT `T?` 注解、`file` 类型、DIM 菱形、`delegate*` 等）**。
 
 ---
 
@@ -95,6 +97,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | Core `ConditionalDirectiveStrip/ConditionalDirectiveStripper.cs:8-56,75-107`；CLI `ProjectConditionalDirectivePreprocessor.cs:35`（`.cs2j-conditional-src`）；接线 `Program.cs:174-206`；选项 `no-strip-conditional`（`Program.cs:4744-4746`）；verb `strip-conditional`（`Program.cs:32,44`，`StripConditionalCommand.cs`） |
 | 状态 | 已实现，默认开。预处理链**第一环**（必须最先跑，后续所有语义分析都基于存活分支） |
 | 验证 | 项目级测试 `ConditionalDirectiveStripTests.cs`、`StripConditionalCliTests.cs`、`DebugConditionalExclusionTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/preprocessor-directives（指令语义；C# 14 文件级 `#:` 指令见 whats-new/csharp-14） |
 
 #### E02 LocalFunctionLift
 | 字段 | 内容 |
@@ -105,6 +108,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 转换器内仍保留残余路径（`StatementTransformer.LocalFunctions.cs` 全文 321 行、`MethodTransformer.cs:37-46`），preprocessor 未覆盖时兜底；preprocessor 失败可由 `--no-local-function-strict` 降级为 warning（`Program.cs:4760-4762`） |
 | 状态 | 已实现，默认开；存在 residual 出口（严格模式闸门） |
 | 验证 | `LocalFunctionLiftTests.cs`、`LocalFunctionHoistingTests.cs`、`HoistedLocalFunctionCaptureScopeTests.cs`、`GenericLocalFunctionRenamedCallSiteTests.cs` 等十余项 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/local-functions |
 
 #### E03 NullCoalesceRewriter
 | 字段 | 内容 |
@@ -114,6 +118,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | Core `NullCoalesceRewriter/`（`NullCoalesceRewriter.cs:35-45`，统计 L8-13）；接线 `Program.cs:242-278`；设计 `docs/superpowers/specs/2026-09-26-null-coalesce-preprocessor-design.md` |
 | 状态 | 已实现，默认开 |
 | 验证 | `NullCoalesceRewriterUnitTests.cs`、`NullCoalesceAssignmentParensTests.cs`、`NullCoalesceWithAsArrayTests.cs`、`CoalesceArgumentTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/null-coalescing-operator |
 
 #### E04 EnumPreprocessor（注意：仅"运算"层）
 | 字段 | 内容 |
@@ -124,6 +129,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 缺口 | `[Flags]` enum、显式底层类型、显式成员值三类**声明**仍被转换器直接拒绝（`Transformers/Type/EnumTransformer.cs:29-45`），见 **C05**；`++/--` enum 目标仍 fail-fast（`UnaryExpressionTransformer.cs:181-182`），见 C17 |
 | 状态 | 已实现（窄），默认开 |
 | 验证 | `EnumPreprocessorUnitTests.cs`、`ProjectEnumPreprocessorTests.cs`、`ByteEnumArithmeticWrapTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/enum；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/bitwise-and-shift-operators |
 
 #### E05 DelegatePreprocessor
 | 字段 | 内容 |
@@ -134,6 +140,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 只做委托组合/匿名方法；**event** 的 `+=/-=` 与字段式事件仍由 `EventFieldTransformer.cs`（447 行）处理 → C13；delegate 类型→函数式接口仍由 `Type/DelegateTransformer.cs` + 实验 `LowerDelegate.cs` 负责 |
 | 状态 | 已实现，默认开；有 `SkippedUnsupported/ResidualCount` 残余统计 |
 | 验证 | `DelegatePreprocessorUnitTests.cs`、`ProjectDelegatePreprocessorTests.cs`、`AnonymousMethodParameterTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/delegates-overview；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/addition-operator（委托组合 +/=，已核）；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/equality-operators（委托相等，已核） |
 
 #### E06 TupleToStruct
 | 字段 | 内容 |
@@ -143,6 +150,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | `TupleToStruct/TupleToStructPreprocessor.cs:9-19`；`TupleShapeRegistry.cs`、`TupleStructFileContent.cs`；接线 `Program.cs:361-404`（注释 L363-364 明确「放在 default 参数剥离之前」）；默认命名空间 `Cs2jTuples`（`Program.cs:4752-4754`） |
 | 状态 | 已实现，默认开 |
 | 验证 | `TupleToStructProjectTests.cs`、`TupleToStructRewriterUnitTests.cs`、`MutableTupleAssignmentTests.cs`、`TupleDeconstructionDiscardTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/value-tuples |
 
 #### E07 ForeachDeconstruction
 | 字段 | 内容 |
@@ -153,6 +161,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 缺口 | 字符串 foreach 仍 fail-fast（`StatementTransformer.Loops.cs:121`）；非 KV/Deconstruct 的解构 foreach 残余 → **C16** |
 | 状态 | 已实现，默认开；必须排在 E06 之后 |
 | 验证 | `ForeachDeconstructionTests.cs`、`ProjectForeachDeconstructionPreprocessorTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/functional/deconstruct |
 
 #### E08 DefaultParameterStripper
 | 字段 | 内容 |
@@ -162,6 +171,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | `DefaultParameterStripper/DefaultParameterStripper.cs:12-35`；统计 `DefaultParameterStripperStatistics.cs:8-15`；接线 `Program.cs:443-477`；设计 `docs/superpowers/specs/2026-09-06-strip-default-parameter-design.md` |
 | 状态 | 已实现，默认开；转换器侧另有 `Transformers/Utilities/DefaultParameterHelper.cs` 兜底 |
 | 验证 | `DefaultParameterStripperTests.cs`、`DefaultParameterCatalogTests.cs`、`DefaultParameterOverloadBuilderTests.cs`、`StripDefaultProjectTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/named-and-optional-arguments；https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-12（primary constructor 吸收面） |
 
 #### E09 UnsignedTypeRewriter
 | 字段 | 内容 |
@@ -171,6 +181,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | Core `UnsignedTypeRewriter/`（11 文件，含 `UnsignedPostfixRewriter.cs`、`UnsignedMathSyntax.cs`、`UnsignedLiteralSyntax.cs`）；统计 `UnsignedTypeRewriterStatistics.cs:8-13`；接线 `Program.cs:479-512`；支撑库过滤 `Program.cs:750-756`；背景 `prompts/unsigned-type-rewriter-prompt.md:5`（双重映射冲突）、`config/TypeMappings.json:24-46`（有损映射）；设计 `docs/superpowers/specs/2026-08-15-unsigned-math-helper-design.md`、`2026-09-24-unsigned-math-lib-project-design.md` |
 | 状态 | 已实现，默认开。是「注入支撑库工程 + 过滤不转换」范式的样板（与 E12 同） |
 | 验证 | `UnsignedTypeRewriterUnitTests.cs`、`UnsignedTypeProjectTests.cs`、`UnsignedConversionEndToEndTests.cs`、`tests/CSharpToJava.Tests/Cs2jUnsigned/*` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/integral-numeric-types |
 
 #### E10 GenericPreprocess（部分实现）
 | 字段 | 内容 |
@@ -181,6 +192,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 缺口 | 见 **C02**（`typeof(T)/is/as T`、泛型静态字段、closed metadata） |
 | 状态 | 部分实现，默认开 |
 | 验证 | `GenericPreprocessTests.cs`、`ProjectGenericPreprocessorTests.cs`、`GenericNewConstraintInliningTests.cs`、`DefaultValueProjectTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/generics（静态成员逐封闭类型实例化） |
 
 #### E11 RecordReadOnly（opt-in）
 | 字段 | 内容 |
@@ -191,6 +203,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 与 E13 同属值语义链；转换器 `Type/RecordTransformer.cs`（513 行，决策分支 L25-59）仍承担 record struct/abstract record/额外成员等 fallback |
 | 状态 | 已实现，**默认关**；是 E17 JavaKeywords 明确要复刻的架构样板（JavaKeywords spec §1） |
 | 验证 | `RecordReadOnlyProjectTests.cs`、`RecordReadOnlyCLITests.cs`、`RecordReadOnlyRewriterUnitTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record（record == 值相等/with=clone+init，已核） |
 
 #### E12 ArrayMethodRewriter（opt-in）
 | 字段 | 内容 |
@@ -200,6 +213,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | Core `ArrayMethodRewriter/`（7 文件；入口注释 `ArrayMethodRewriter.cs:8-13`；统计 `ArrayMethodRewriterStatistics.cs:8-13`）；接线 `Program.cs:595-634`；开关默认 false（`Program.cs:4791-4793`）；支撑库过滤 `Program.cs:755`；设计 `docs/superpowers/specs/2026-09-25-array-helper-preprocessor-design.md` |
 | 状态 | 已实现，**默认关** |
 | 验证 | `ArrayMethodRewriterUnitTests.cs`、`ArrayMethodProjectTests.cs`、`ArrayMethodConversionEndToEndTests.cs`、`ArrayHelperSupportFilesTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/arrays/ |
 
 #### E13 ReadOnlyStructMaker
 | 字段 | 内容 |
@@ -210,6 +224,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 与 C07（可变 struct clone）互补；转换器 `Type/StructTransformer.cs:14-19,60-67` 明确「值语义差异由 C#→C# 预处理器消除，只做一一映射」，ref struct 直接拒绝（L60-64） |
 | 状态 | 已实现，默认开 |
 | 验证 | `ReadOnlyStructMakerTests.cs`、`ReadOnlyStructMakerL4/L5Tests.cs`、`ReadOnlyStructPreprocessorVerifyTests.cs`、`ReadOnlyStructPreprocessorCallSiteTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/struct（readonly struct 节） |
 
 #### E14 GotoEliminator
 | 字段 | 内容 |
@@ -219,6 +234,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | `GotoEliminator/GotoEliminator.cs:8-39`；CLI `ProjectGotoPreprocessor.cs:44`；接线 `Program.cs:679-716`（预处理链最后一环，`UsingGotoPreprocessedSource` 标记 L715）；设计 `docs/superpowers/specs/2026-06-27-goto-eliminator-design.md`、`2026-06-03-goto-conversion-redesign.md` |
 | 状态 | 已实现，默认开 |
 | 验证 | `GotoEliminatorTests.cs`、`ProjectGotoPreprocessorTests.cs`、`ProjectGotoPreprocessorRestoreTests.cs`、`ConvertProjectGotoIntegrationTests.cs`、`ContinueInSwitchGotoCaseTests.cs` |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/goto |
 
 #### E15 RefOutInPreprocessor（未接线的半截工程）
 | 字段 | 内容 |
@@ -229,6 +245,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 现状反差 | **无 CLI 包装、Program.cs 无接线**；全仓仅 `RefOutInRewriterUnitTests.cs` 引用。生产仍走 Java 侧 holder：`Transformers/Expression/Transformers/ArgumentTransformer.Ref.cs` + `HolderTypeResolver.cs`，项目级断言仍是 IntHolder/ObjectHolder（`tests/CSharpToJava.ProjectTests/RefOutInProjectTests.cs:24-40`）。转换器仍对 ref local（`StatementTransformer.Declarations.cs:30`）、lambda ref 参数（`LambdaTransformer.cs:99`）、using/foreach/循环条件中的 ref read-back（`SwitchAndResource.cs:236`、`Loops.cs:139,208`）fail-fast |
 | 状态 | **部分实现**（Core + 单测；CLI 集成与 Java 映射缺口） |
 | 验证 | 已具单测；接线后按中间目录 `dotnet build/test -c Release` + 设计 D5 的 csharp-sdk 32 项目基线比对 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/method-parameters（in/ref/out，已核） |
 
 #### E16 LinqRewrite（嵌入式 C# 重写通道，非独立 preprocessor）
 | 字段 | 内容 |
@@ -239,6 +256,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与 preprocessor 范式的差距 | 无独立 verb、无 `.cs2j-*-src` 中间树、不做 `dotnet build/test` 等价性验证；产物直接喂给主转换器。提升为独立通道的候选见 **C26** |
 | 状态 | 已实现（嵌入式） |
 | 验证 | `LinqProceduralPhase1..10Tests.cs`、`LinqChainRefactoringTests.cs`、`LinqQueryDesugarTests.cs`、`LinqObservabilityPhase10Tests.cs` 等数十项 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/linq/query-expression-overview（query→method 官方映射） |
 
 #### E17 JavaKeywords（已设计未实施）
 | 字段 | 内容 |
@@ -248,6 +266,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | 完整设计 `docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md`（状态 L5；管线位置 L92-97「EliminateGoto 之后、转换之前，默认关，独立 verb `java-keywords`」；规划目录 L50-65）；转换器侧现存兜底：`Context/JavaNaming.cs:132-165`（`IsJavaKeyword`）、`Transformers/Member/OperatorTransformer.cs:44-45,81-82,284-285`；相关测试 `JavaReservedWordTests.cs`、`KeywordBackingFieldAssignmentTests.cs`、`OperatorMethodNameCollisionTests.cs` |
 | 状态 | **缺失（设计完成待实施）**；按设计即 **C08** |
 | 验证 | 设计 §8 已规划：`JavaKeywordRewriterUnitTests.cs` + `SampleJavaKeywordSolution` 项目级 fixture + CLI/一致性测试 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/（C# 关键字索引；Java 保留字以 docs.oracle.com JLS §3.9 为准） |
 
 ---
 
@@ -265,6 +284,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P0**（半截工程，完成边际成本最低、fail-fast 面最广） |
 | 状态 | **完成（2026-09-29）**：C# 语句级提升闭环（中间树 build/test 全绿、verify 默认开启）+ Java 侧 compat ByRef/RefStructByRef 层次与 TypeMappings J1-J4/J8 已接线；ByRefPath/LegacyHolderPath 测试分流（§7.4）。sdk「新增失败为零」基线比对与 ROI 旧码下线属 M5 后续 |
 | 验证 | 中间树 build/test 全绿；`RefOutInRewriterUnitTests.cs` 已在；新增项目级 fixture 与 csharp-sdk 32 项目「新增失败为零」比对（设计 D5） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/method-parameters（已核）；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/ref |
 
 #### C02 Generic 深化：typeof(T)/is-as T/静态泛型字段（P0）
 | 字段 | 内容 |
@@ -278,6 +298,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P0** |
 | 状态 | 部分（3 个 P0 模式已做，本候选为缺口） |
 | 验证 | 中间树 build/test；fixture 复用 `TypeOfGenericTests`、`StaticGenericFieldTests`、`NestedGenericMappingTests`、`CrossProjectGenericClassTokenTests` 的 C# 形态 |
+| 五次补全追加 | 泛型静态字段的**逐封闭类型实例化语义**：C# 中 `C<int>` 与 `C<string>` 的静态字段互相独立，Java 擦除后共享——现条目只覆盖「引用 T 的静态字段」硬拒绝；**不引用 T 的静态字段**（如 `class C<T> { static int s_count; }`）是静默语义差，被计数器/缓存统计类代码依赖时错值。归入本通道审计子项：改写为 keyed 形态（`static readonly Dictionary<Type, …>`）或登记拒绝（见 C52 ③） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/generics；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/type-testing-and-cast（typeof/is/as） |
 
 #### C03 控制流去糖：pattern switch / 非整型 switch / catch-when（P0）
 | 字段 | 内容 |
@@ -292,6 +314,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 状态 | 缺失 |
 | 验证 | 中间树 build/test；fixture 覆盖关系/属性/元组/逻辑/关系模式、when 守卫、类型参数 catch、string foreach |
 | 三次补全追加 | **表达式侧不在本条目范围**：`is` 表达式、switch 表达式的模式编译见 **C37**（两者共用「模式→布尔表达式」归约器）。`PatternMatchingTests` 实测 8/11 失败（2026-09-28，`-c Release`）表明语句侧与表达式侧当前同时缺失，C03 与 C37 应同批交付，否则模式用例仍红（见 §4.15） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/selection-statements（switch 表达式/语句）；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/try-catch（异常过滤器） |
 
 #### C04 Yield 迭代器降级（P1）
 | 字段 | 内容 |
@@ -305,6 +328,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P1**（收益大但状态机综合复杂，需先做原型验证 try-catch/finally 语义）。四次补全注记：sdk 实测 **2887 处**（训练集最高频的结构性缺口；lambda 4966、局部函数 3486 之后排第三的高频糖，但前两者已有 E02/E05 通道），方向性输入（§5.5 Layer 3）建议按频率列 **P0**；本清单暂保留 P1——try/finally 原型与 C01/C32/C45 的捕获字段依赖未收敛，待 EF Core 画像（§5.1）与原型验证后重估 |
 | 状态 | 缺失 |
 | 验证 | 中间树 build/test；fixture：嵌套循环 yield、try/finally 中 yield、带参迭代器、`yield break` 早退 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/yield（**已核**：位置限制/返回类型五类/迭代器内 using） |
+| 六次补全（官方文档核对） | yield 位置限制（官方已核）：不得出现在带 in/ref/out 参数的方法、lambda/匿名方法、unsafe 块内（C# 13 起允许**方法含** unsafe 块、仅块内禁止）；yield return/break 不得在带 catch 的 try 与 catch/finally 块中、可在无 catch 的 try（含 finally）中；迭代器内 using 编译为 try-finally、与迭代器兼容（提前 break 仍正确释放——「yield+using Dispose 时序」子题的官方正向依据）；返回类型五类：IEnumerable<T>/IEnumerable/IAsyncEnumerable<T>/IEnumerator<T>/IEnumerator（async 迭代器 WithCancellation/[EnumeratorCancellation] 面归 C38） |
 
 #### C05 Enum 声明归一（[Flags]/底层类型/显式值）（P1）
 | 字段 | 内容 |
@@ -318,6 +343,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P1** |
 | 状态 | 缺失（E04 只做运算） |
 | 验证 | 中间树 build/test；fixture：`[Flags]` 位组合、byte 底层、显式跳跃值、enum 嵌套泛型集合 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/enum（[Flags]/底层类型/转换规则） |
 
 #### C06 Unsafe/FFM 归一（pointer/fixed/unsafe/stackalloc/extern/ref struct）（P1）
 | 字段 | 内容 |
@@ -331,6 +357,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P1**（高频基础设施代码命中，但等价性需逐项验证，建议按 fixed→stackalloc→指针→extern 分规则迭代） |
 | 状态 | 缺失（仅有分散的转换器内 FFM 兜底） |
 | 验证 | 中间树 build/test；fixture 即上述 4 份 spec 与现有 unsafe 测试簇 |
+| 五次补全追加 | **`delegate*` 函数指针子项**（C# 9）：类型形态（`delegate*<int, void>`、`delegate* unmanaged[Cdecl]<…>` 调用约定修饰符）、`&Method` 取函数地址、间接调用 `fp(x)`——与既有指针规则同族划入本通道；Java 侧落点 MethodHandle 或显式拒绝，与 C42 FFM 边界同批选型。语言审计输入，仓库现状待核（见 C52） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/unsafe；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/unsafe-code（delegate* 函数指针节）；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/stackalloc |
 
 #### C07 Struct 值语义补全（可变 struct 防御性 clone）（P1）
 | 字段 | 内容 |
@@ -344,6 +372,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P1** |
 | 状态 | 缺失（Java 侧代偿中） |
 | 验证 | 中间树 build/test；fixture：属性返回 struct、结构体数组元素改值、链式赋值、readonly 字段内变异 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/struct（readonly struct 与 readonly 实例成员节） |
+| 六次补全（官方文档核对） | 补子项：**readonly 实例成员**（C# 8 成员级 `readonly` 修饰——与 E13 的类型级 readonly struct 不同层；官方 struct 页已核）——含变异方法的 struct 经 readonly 成员/属性/只读字段调用触发防御性拷贝，与可变 clone 物化点存在交互（拷贝插入位置须避开 readonly 成员内的 this 视图），漏检方向是多余拷贝而非错值 |
 
 #### C08 JavaKeywords 落地（P1）
 | 字段 | 内容 |
@@ -354,6 +384,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 设计定死：**预处理链绝对最后一环**（E14 之后），分析对象是其它所有通道产出的最终中间树；默认关 + 独立 verb；落地后转换器 4 处兜底可评估退役（spec §10） |
 | 优先级 | **P1**（设计/验收/里程碑已完备，实施风险低；直接消除 `true/false/null` 命名类 bug） |
 | 状态 | 缺失（设计待实施） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/（上下文关键字全集） |
 
 #### C09 `[ThreadStatic]` 前置化（P2）
 | 字段 | 内容 |
@@ -367,6 +398,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P2**（现路径可用，前置化主要是简化转换器、消除跨组件状态） |
 | 状态 | 缺失（转换器内代偿） |
 | 验证 | 中间树 build/test；fixture：线程内独立副本、静态构造初始化、跨类读写点 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/api/system.threadstaticattribute（**已核**：静态初始化器仅单线程执行） |
+| 六次补全（官方文档核对） | ThreadStaticAttribute 官方语义（**已核**）：带初始化器的 `[ThreadStatic]` 字段**仅一个线程**（执行静态初始化器的线程，通常主线程）看到初始值，其余线程为 default(T)——与 `ThreadLocal<T>(() => init)` 的「每线程独立初始化」**不同**；本条目的 `new ThreadLocal<T>()` 无参物化恰好保真（初始值仅 default+单线程），但若源码带初始化器，须物化为「主线程 init、其余 default」的单线程语义而非 ThreadLocal 工厂；fixture 须含「静态初始化器 + 其他线程读取」用例 |
 
 #### C10 JSON / Attribute 归一（P2）
 | 字段 | 内容 |
@@ -380,6 +413,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P2**（桥接厚但当前可用；优先做「枚举化/白名单化」窄版本） |
 | 状态 | 缺失 |
 | 验证 | 中间树 build/test；fixture：STJ + Newtonsoft（`JsonConvert.java`/`JsonSerializerSettings.java`）+ DataContract 三套注解 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.conditionalattribute（**已核**：调用点按符号条件编译）；https://learn.microsoft.com/en-us/dotnet/csharp/advanced-topics/reflection-and-attributes/ |
+| 六次补全（官方文档核对） | 补子项：**[Conditional]**（Diagnostics，**已核**）——方法调用点按编译符号条件进入产物；E01 剥 `#if` 后调用点仍在源码中：C# 编译器在 Release 中间树构建时会静默消除 `[Conditional("DEBUG")]` 调用点，直译 Java 则**执行了本不应执行的调用**（静默行为差异）——须在 C# 侧按构建符号物化（符号已知→剥离调用点；未知→保留并告警）；[ModuleInitializer] 同类登记（Java 无模块初始化器对应） |
 
 #### C11 Property 去糖（P2）
 | 字段 | 内容 |
@@ -392,6 +427,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 与 C12/C13/C14 同属一族，建议一个 preprocessor 四条规则；必须晚于 E13/C07（属性是 struct 变异迁移主战场）；被 E17 的改名表覆盖（JK-1 属性符号） |
 | 优先级 | **P2** |
 | 状态 | 缺失 |
+| 五次补全追加 | **C# 14 `field` 关键字**（半自动属性）是本通道必备子规则，单列 **C50**（产物形态与本通道完全同形，Java 侧零新增）；目标基线为 .NET 10 时 C11 实施必须一并覆盖，否则访问器体内 `field` 标识符解析失败 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/properties（自动属性/init/required/field） |
 
 #### C12 Indexer 去糖（P2）
 | 字段 | 内容 |
@@ -404,6 +441,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 同 C11；复合赋值/自增（C17）依赖 indexer 先方法化 |
 | 优先级 | **P2** |
 | 状态 | 缺失 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/indexers/ |
 
 #### C13 Event 去糖（P2）
 | 字段 | 内容 |
@@ -416,6 +454,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 与 E05 DelegatePreprocessor 边界：E05 已处理委托 `+=` 组合；事件规则消费其产物。一族实现 |
 | 优先级 | **P2** |
 | 状态 | 缺失 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/event（+=/-= 与 add/remove 访问器） |
 
 #### C14 Operator 去糖（P2）
 | 字段 | 内容 |
@@ -428,6 +467,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | op_true/false 归 C08（已有精确绑定设计可复用其语义分类基建）；须晚于 E09（无符号扩展方法已接管数值运算）与 C05（enum 运算已被 E04 归并） |
 | 优先级 | **P2** |
 | 状态 | 缺失 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/operator-overloading（checked 用户定义运算符节，已核）；https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14（用户定义复合赋值运算符） |
+| 六次补全（官方文档核对） | 补两个官方子项（**已核**）：① **checked 用户定义运算符**（C# 11）——`operator checked +` 显式声明（元数据名 `op_CheckedAddition` 族），checked/unchecked 上下文分别绑定 checked/普通实现，与本通道及 C15 联动；② **用户定义复合赋值运算符**（C# 14）——`operator +=` 等复合形态可直接声明，`a += b` **不再必然拆解为 `a = a + b`**（物化前须 SemanticModel 查显式复合运算符——C17 的拆解前提被 C# 14 打破） |
 
 #### C15 checked / unchecked 归一（P2）
 | 字段 | 内容 |
@@ -442,6 +483,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 状态 | 缺失 |
 | 验证 | fixture：checked 表达式溢出、unchecked 常量折叠、嵌套块 |
 | 三次补全追加 | 本条目并非「纯 fail-fast」：checked **表达式**今天**静默丢失语义**——产 `/* checked */ expr` 前缀（`TypeOperationTransformer.cs:31`），溢出检查消失；相关的 `sizeof(用户类型/Int128 等)` 产 `"/* sizeof */"` 占位（`TypeOperationTransformer.cs:155-164`）；`unchecked` 语句文本被 `ShouldEmitStatementText` 直接过滤丢弃（`StatementTransformer.cs:310-315`，以 `/* TODO: UncheckedStatement` 前缀判别）。三者应并入同一「数值语义显式化」规则集，且 default 策略改为显式报错而非占位（见 §4.12） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/checked（默认溢出上下文/常量折叠规则） |
 
 #### C16 foreach 补全（string / 残余解构）（P2）
 | 字段 | 内容 |
@@ -455,6 +497,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P2**（工作量极小，顺手消灭一类 fail-fast） |
 | 状态 | 缺失（窄） |
 | 三次补全追加 | 本条目只覆盖「string + 残余解构」，**迭代源形态未覆盖**：模式化 `GetEnumerator`/显式 `IEnumerator` 适配、`ref`/`ref readonly` foreach 关键字在 `Loops.cs:104-155` 中均未检查（既不失败也不归一），且转换器注释自述「enumerator adapters … must be lowered by a preprocessor」（`Loops.cs:99-103`）——已登记为 **C40**，与 C16 同通道实施 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/foreach-in（**已核**：null 源 NRE/显式类型运行时检查） |
+| 六次补全（官方文档核对） | foreach 官方语义（**已核**）：**集合为 null 抛 NRE**（与空集合零迭代是两个分支——物化产物不得吞 null）；显式迭代变量类型含到该类型的转换、失败抛 InvalidCastException（运行时检查，非恒为隐式装箱）；模式化 GetEnumerator 可为**扩展方法**（语言规范专节）——除 string/残余解构外的迭代源统一归 C40；break/continue 语义与 Java 一致 |
 
 #### C17 复杂自增/自减目标归一（P2）
 | 字段 | 内容 |
@@ -467,6 +511,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 依赖 C11/C12（属性/索引器方法化后自增归约自然消失大半）；与 C05 enum、C14 decimal 运算同族 |
 | 优先级 | **P2** |
 | 状态 | 缺失 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/arithmetic-operators（前/后缀自增语义） |
 
 #### C18 async / await 归一（P2，高不确定）
 | 字段 | 内容 |
@@ -480,6 +525,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P2**（需求真实——async lambda 即失败；但全量降级收益/成本存疑，先做原型，见 §4） |
 | 状态 | 缺失 |
 | 三次补全追加 | 本条目只覆盖 async **方法体**；**异步序列与释放**是独立缺口：`await foreach`（`Loops.cs:104-155`）与 `await using`（`SwitchAndResource.cs:198-244`）的关键字均未被检查（静默降级为同步形态），且 `IAsyncEnumerable`/`IAsyncDisposable` 无类型映射、compat 无对应类——已登记为 **C38**，须与 C18 的形态选型同批定案 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/await；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/async |
 
 #### C19 扩展方法显式化（P2）
 | 字段 | 内容 |
@@ -492,6 +538,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 须在所有会引入新扩展方法的通道**之后**（E09 注入 Cs2jUnsignedMath、E12 注入 Cs2jArray、E05 注入 Cs2jPrelude——它必须看得见这些绑定），故位置靠后；与 E16 LINQ 有交互（LINQ 即扩展方法） |
 | 优先级 | **P2** |
 | 状态 | 缺失 |
+| 五次补全追加 | C# 14 extension 块引入的**扩展属性/扩展运算符/静态扩展**超出本条目「方法调用点」范围，已单列 **C49**（扩展索引器为 C# 15 预览，归 C52 防线）；两者共用扩展方法索引与接收者绑定基建，应同通道或紧邻批次实施 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/extension-methods；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/extension（C# 14，已核） |
 
 #### C20 partial 类型/方法合并前置（P3）
 | 字段 | 内容 |
@@ -504,6 +552,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 若前置，应放在**最前几位**（E01 之后），让后续全部通道只面对合并类型；但会与「逐文件重写 + 整树回滚」范式冲突（合并产物不可逆），需评估 |
 | 优先级 | **P3**（当前路径成熟，前置主要是架构简化） |
 | 状态 | 缺失 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/partial-type；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/partial-method（**已核**：C# 9 扩展形态/partial 事件构造器） |
+| 六次补全（官方文档核对） | partial 方法两代形态（**已核**）：C# 9 扩展 partial 方法（非 void 返回/out 参数/访问修饰符/实现**可选**）与经典 void+private 形态并存——PartialMethodMerger 须按「实现可选性」双轨合并；partial 构造器/事件（C# 13）：恰好一个定义性 + 一个实现性声明、**仅实现性 partial 构造器可带初始化器**、类上主构造器语法至多一个 partial 部分声明、partial 事件的实现性声明须带 add/remove（定义性为字段式事件） |
 
 #### C21 匿名类型提升（P3）
 | 字段 | 内容 |
@@ -516,6 +566,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 应在 E16 LINQ 之前（LINQ 过程式化会大量暴露匿名形状）；可复用 E06 shape registry 基建 |
 | 优先级 | **P3**（Java 28 record 路径已能吸收，仅低版本/复杂 LINQ 场景受益） |
 | 状态 | 缺失 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/anonymous-types |
 
 #### C22 `Nullable<T>` 值类型提升（P3）
 | 字段 | 内容 |
@@ -528,6 +579,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 与 E04 数值/枚举提升同族，可吸收 |
 | 优先级 | **P3**（compat `Nullable*` + 现有特判基本覆盖） |
 | 状态 | 缺失 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/nullable-value-types（**已核**：lifted 运算/bool? & | 例外） |
+| 六次补全（官方文档核对） | 提升运算官方规则（**已核**）：一元/二元运算与用户定义转换均提升（任一 null → 结果 null）；**`bool?` 的 `&`/`|` 是例外**（三值逻辑——null 与 true/false 组合可产非 null 结果）；比较 `< > <= >=` 任一 null → **false**（含 `null >= null` 为 false）；`==` 双 null → true、单 null → false；此表与 C47④ 的调用点物化须同源 |
 
 #### C23 插值字符串显式展开（P3）
 | 字段 | 内容 |
@@ -540,6 +593,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 四次补全追加 | sdk 实测 **650 处**。**必须用 SemanticModel 判定插值绑定的 handler**：默认 `DefaultInterpolatedStringHandler` → `string.Concat/Format`；自定义 `InterpolatedStringHandler`（json/日志场景在 sdk 高频使用）的追加语义、参数求值次数与条件构造完全不同，无脑 Concat 会改变可观察行为。raw string 插值 `$"""..."""` 与 C43 的词法边界须一并定义（raw 字面量本身已内联，见 C43） |
 | 优先级 | **P3**（现路径成熟，前置收益主要是删掉一整个大 transformer；handler 判定子项有正确性含义，若 EF Core 画像中日志/JSON 插值高频应提前） |
 | 状态 | 缺失 |
+| 五次补全追加 | const 内插字符串（C# 10 `const string s = $"a{1}"`）补入本通道子规则：编译期常量折叠形态，Java 侧 `static final` 需保证常量性；与 `string.Concat` 物化（C47 ③）产物同族。语言审计输入，仓库现状待核（见 C52） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/tokens/interpolated-strings（DefaultInterpolatedStringHandler/自定义 handler 绑定） |
 
 #### C24 对象/集合初始化器归一（P3）
 | 字段 | 内容 |
@@ -551,6 +606,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | 同上 |
 | 优先级 | **P3** |
 | 状态 | 缺失 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/object-and-collection-initializers |
 
 #### C25 dynamic（P3，长期观察）
 | 字段 | 内容 |
@@ -562,6 +618,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | 同上 |
 | 优先级 | **P3**（静态不可证场景多，建议长期仅做「可证明子集 + 其余报错」） |
 | 状态 | 缺失 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/advanced-topics/interop/using-type-dynamic |
 
 #### C26 LINQ 通道独立化（P2，结构性候选）
 | 字段 | 内容 |
@@ -575,6 +632,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 依赖 C19（扩展方法解析）若同批做需排序：LINQ 先（消费扩展方法糖）、C19 在后；应在 E02/E03/E06 之后 |
 | 优先级 | **P2**（不新增功能，但显著提升可验证性与流水线一致性；**三路分流门是通道化的前置验收条件**，不是可选项） |
 | 状态 | 缺失（重写器存在，通道化未做；receiver 分流未做） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/linq/（标准查询运算符语义） |
 
 #### C27 record `with` / init/required 补充去糖（P3）
 | 字段 | 内容 |
@@ -586,6 +644,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | `RecordTransformerTests.cs`、`RecordTupleTests.cs`、`PropertyTransformer.cs:21`（init 当 set 处理） |
 | 优先级 | **P3** |
 | 状态 | 缺失 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/init；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/required；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/with-expression |
+| 六次补全（官方文档核对） | 补子项：**[SetsRequiredMembers]**（C# 11）——构造器标记后编译器视 required 成员已初始化（绕过「构造时必须设置」校验）；required 物化时该声明与豁免语义须一并登记，否则低层检查无法重建；`with` 的非破坏性变更 = clone（protected virtual `<Clone>$`）+ init 赋值，与 E11 record 链共用物化（官方 with-expression 页） |
 
 #### C28 指令/using trivia 清扫扩展（P3）
 | 字段 | 内容 |
@@ -598,6 +658,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 证据 | 同上 |
 | 优先级 | **P3**（整洁度/一致性，不解决 fail-fast） |
 | 状态 | 缺失（窄扩展） |
+| 五次补全追加 | C# 12 **alias any type**（`using Point = (int, int);`、`using Buf = byte[];`、`using P = int*;`）——别名可指向元组/数组/指针类型，UsingAliasRegistry 解析形态需覆盖（元组别名须在 E06 之后展开为 tuple struct 名）；别名限定符 `::`（`global::`/extern alias）表达式形态同属本通道。另：`file` **局部类型**（C# 11 修饰符，与 file-scoped namespace 不同特性）归 **C52** 收编 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/using-directive（global using/C# 12 alias any type） |
 
 #### C29 lock / Monitor 并发原语归一（P3，观察项）
 | 字段 | 内容 |
@@ -611,6 +673,9 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P3**（现路径可用；价值在把静默语义缺口显式化） |
 | 状态 | 缺失（转换器直映吸收中） |
 | 验证 | 中间树 build/test；fixture：`Monitor.TryEnter` 超时分支、`Pulse/Wait` 生产者-消费者、`lock` 嵌套 |
+| 五次补全追加 | **C# 13 `System.Threading.Lock`/`Sync` 目标类型 lock**：编译器把 `lock (l)`（l 为 Lock 类型）译为 `EnterScope()` 的 scope 释放语义，与直映 `synchronized` 的 Monitor 语义**不可混用**（错误嵌套/释放时序差）；.NET 9+ BCL 新代码已开始使用。本通道需在入口用 SemanticModel 区分 lock 目标类型：`object` → synchronized 直映、`Lock` → compat 锁形态或显式拒绝。语言审计输入，仓库现状待核（C52 ①） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/lock（**已核**：Lock/Monitor 双下推形态）；https://learn.microsoft.com/en-us/dotnet/api/system.threading.lock |
+| 六次补全（官方文档核对） | lock 官方双下推形态（**已核**）：接收者为 `System.Threading.Lock`（.NET 9+/C# 13）时精确等价 `using (x.EnterScope()) { … }`（`Lock.Scope` 为 ref struct，Dispose 释放）；否则精确等价 `object __lockObj = x; bool __lockWasTaken = false; try { Monitor.Enter(__lockObj, ref __lockWasTaken); … } finally { if (__lockWasTaken) Monitor.Exit(__lockObj); }`——可重入计数/异常释放由此两形态完整承载；**lock 体内不得 await**（跨 await 持锁须 fail-fast）；编译器对「已知 Lock 对象被转型后加锁」发警告（转换器同理应告警） |
 
 #### C30 closed generic type metadata 前置化（P2，需先核实现状）
 | 字段 | 内容 |
@@ -623,6 +688,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | 与 C02 一体两面；落地前需先做一次代码考古确认补丁去向，再决定是「C# 前置注册」还是「Java 侧反射闭型」路线 |
 | 优先级 | **P2**（路线已被验证有效，但本仓工作量待核实） |
 | 状态 | 设计完成；compat 侧有落点；cs2j 生成码侧现状不明 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/generics（构造类型反射契约——工程条目，官方文档仅语言面） |
 
 #### C31 Index / Range（`^` 与 `..`）归一（P1）
 | 字段 | 内容 |
@@ -636,6 +702,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P1**（命中即产出不可编译/错误 Java，比 fail-fast 更危险，且修复面机械） |
 | 状态 | 缺失 |
 | 验证 | 中间树 build/test；fixture：数组/字符串的 `^` 与 `..`、组合 `..^n`、独立 Index/Range 变量、切片后 `.Length`/再赋值、C# 切片拷贝语义 vs Java subList 视图语义的显式化 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/member-access-operators（**已核**：^n=length−n/^0/…/countable/多维数组不支持） |
+| 六次补全（官方文档核对） | `^n` = `length − n`（`^1` 末元素、`^0` = length：元素访问越界、Range 端点合法——`..` ≡ `0..^0`、`a..` ≡ `a..^0`、`..b` ≡ `0..b`，**已核**）；接收者须为 countable（有 int `Count`/`Length` 属性）；**多维数组不支持** Index/Range——`x[i, ^1]` 须判定拒绝；切片产生新集合（数组为拷贝）——「拷贝 vs subList 视图」差异的官方依据 |
 
 #### C32 Lambda 可变捕获前置化（P2）
 | 字段 | 内容 |
@@ -649,6 +717,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P2**（现路径可用；价值 = 删除转换器内最难调试的隐式状态，统一与 E02 的两套捕获分析） |
 | 状态 | 缺失（转换器内代偿） |
 | 验证 | 中间树 build/test；fixture：lambda 内改捕获变量外部可见、多 lambda 共享同一变量、参数捕获、嵌套 lambda、与 E02 提升后的局部函数交互 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/lambda-expressions（捕获语义） |
 
 #### C33 泛型型变与约束前置审计（P3）
 | 字段 | 内容 |
@@ -662,6 +731,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P3**（丢失形态是「声明降级」而非编译失败） |
 | 状态 | 缺失 |
 | 验证 | fixture：协变接口作为生产者/消费者两侧使用、struct 约束泛型的 `default(T)`/装箱路径、new() 约束工厂 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/concepts/covariance-contravariance/（in/out 变型） |
 
 #### C34 decimal 运算归一收尾（P2）
 | 字段 | 内容 |
@@ -675,6 +745,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P2**（不可编译输出 + fail-fast 并存，方法面现成，边际成本低） |
 | 状态 | 缺失（字面量/类型映射已就绪，运算层缺口） |
 | 验证 | 中间树 build/test；fixture：四则/取模/比较、一元负号、`++/--`、decimal 常量字段、`ToString("F2")` 文化重载、switch on decimal |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/floating-point-numeric-types（decimal 节） |
 
 #### C35 空条件 `?.` / `?[]` 去糖前置化（P3）
 | 字段 | 内容 |
@@ -687,6 +758,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 与现有通道关系 | E03 的姊妹规则；去糖顺序必须在 E03 之前或同通道内统一（两者改写会互相暴露中间形态） |
 | 优先级 | **P3**（现路径成熟；收益 = 删掉 facade 的条件访问特判簇） |
 | 状态 | 缺失（转换器内代偿） |
+| 五次补全追加 | C# 14 **简单空条件赋值**（`a?.b = c` 及复合形态）补入本通道，单列 **C51**；E03+C35+C51 归一为完整「null 糖」通道后，Java 侧条件访问特判簇（facade 4 处 owner 链回溯）可整体退役 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/member-access-operators（**已核**：?./?[] 短路/单次求值） |
 
 #### C36 C# 12 语法去糖（集合表达式/spread）（P3）
 | 字段 | 内容 |
@@ -702,6 +775,9 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 验证 | 中间树 build/test；fixture：`List<int> l = [1,2]; l.Add(3)`、`[.. a, x]`、嵌套 `[[1],[2]]`、空 `[]`、IEnumerable 目标 |
 | 三次补全追加 | 盘点时已核实**不在本通道**的同族语法：空宽容 `x!` 已被透明剥离（`UnaryExpressionTransformer.cs:54`，无需前置）；`#nullable/#pragma` 由 E01 剥除。原列「the C# 11/12 新语法防线」职责保持不变（`static abstract`/`scoped`/泛型 attribute 全仓 grep 无命中，维持「先盘点 + 显式拒绝」）；成员级静默丢弃（终结器 `~T()`）单列 **C39** |
 | 四次补全追加 | 「cs2j 仓 grep 无命中」只说明本转换器源码不使用，**不代表输入不使用**：sdk 画像中 json/json-codegen 已使用接口 `static abstract/virtual` 成员（方向性输入 Layer 1，Java 无此特性，需 companion 模式，是独立难点而非仅拒绝项）；EF Core 画像扫描（§5.1）后须复核本防线优先级。另：`scoped` 与 C06 的 ref struct 子项同族 |
+| 五次补全追加 | 防线范围升格：**C# 11/12 → C# 11+（含 13/14）**——`allows ref struct` 反约束、隐式 Span 转换（重载决议变化）、unbound `nameof`、partial 构造器、`System.Threading.Lock`、`\e`、DIM 补盘等的「盘点 + 显式拒绝」职责见伞条目 **C52**；子项按家族拆入 C06（delegate*）/C29（Lock）/C10（attribute 目标限定符、`[OverloadResolutionPriority]`）/C20（partial 构造器/属性/事件）/C23（const 内插）/C43（`\e`） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/collection-expressions（**已核**：目标类型五类/with(...)/inline array 限制）；https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-12 |
+| 六次补全（官方文档核对） | 集合表达式目标类型官方清单（**已核**）：Span/ReadOnlySpan、数组、带 create 方法的类型（`[CollectionBuilder]`）、支持集合初始化器类型（IEnumerable+Add）、五个接口（IEnumerable/IReadOnlyCollection/IReadOnlyList/ICollection/IList）；**不能初始化 inline array**；**`with(...)` 元素（C# 14，本条目补盘）**——`[with(StringComparer.OrdinalIgnoreCase), "A", "B"]` 向 create 方法传构造实参，物化为显式工厂调用；目标为接口时具体集合类型由编译器选择——物化须钉死具体类型（与 `List.of` 不可变性问题同源） |
 
 #### C37 模式表达式去糖（`is` 表达式 / switch 表达式臂 / 位置与列表模式）（P1）
 | 字段 | 内容 |
@@ -715,6 +791,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P1**（恒真占位是典型静默错误输出，测试红灯已持续；归约形态机械、可编译性易保持） |
 | 状态 | 部分（3 条窄分支存在，其余兜底；与测试预期脱节） |
 | 验证 | 中间树 build/test；以 `PatternMatchingTests` 11/11 全绿为门槛；fixture 覆盖关系/逻辑/否定/常量/属性/递归/位置/列表/元组模式、`is` 出现在 if/while/三元/return/实参处的绑定变量使用、switch 表达式 + `when` 组合 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/is；https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/functional/pattern-matching（模式全集） |
 
 #### C38 异步流与异步释放归一（P2）
 | 字段 | 内容 |
@@ -728,6 +805,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P2**（静默语义丢失 + 类型/兼容层空白；命中率低于 plain async，全量降级成本与 C18 同量级） |
 | 状态 | 缺失（语句层静默降级 + 类型映射与 compat 双空白） |
 | 验证 | 中间树 build/test；fixture：`await foreach`、`await using`、异步迭代器方法（`yield return` 于 `async IAsyncEnumerable`）、`IAsyncEnumerable<T>` 参数/返回值、`ConfigureAwait` 组合 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/asynchronous-programming/generate-consume-asynchronous-stream（await foreach/异步迭代器/WithCancellation） |
 
 #### C39 终结器（`~T()`）消除（P3）
 | 字段 | 内容 |
@@ -741,6 +819,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P3**（静默丢弃属资源语义丢失，但不立即产生错误产物；命中率低） |
 | 状态 | 缺失（静默丢弃，无任何信号） |
 | 验证 | fixture：带终结器的类型（含继承链上的终结器）；断言中间树形态符合选型、产物无残留、且给出诊断 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/finalizers |
 
 #### C40 foreach 迭代源二期：枚举器适配 / ref foreach（P2）
 | 字段 | 内容 |
@@ -754,6 +833,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P2**（非 IEnumerable 源在 Java 侧无编译映射；ref foreach 静默错值） |
 | 状态 | 缺失（窄） |
 | 验证 | 中间树 build/test；fixture：duck-typed 枚举器类、显式 IEnumerator 实现、`GetEnumerator` 扩展方法、`ref`/`ref readonly` foreach、与非泛型集合/数组组合 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/foreach-in（**已核**：模式 GetEnumerator 可为扩展方法/ref 迭代变量/await foreach 模式） |
+| 六次补全（官方文档核对） | foreach 官方规则（**已核**）：模式化枚举要求 public 无参 `GetEnumerator` + public `Current` 属性 + 返回 bool 的无参 `MoveNext`——**GetEnumerator 可为扩展方法**（语言规范专节，C# 14 extension 块同构）；`ref`/`ref readonly` 迭代变量仅当 `Current` 为 ref 返回（Span 族）；await foreach 同构模式：`GetAsyncEnumerator`（可为扩展成员）+ `MoveNextAsync` 返回可 await 的 bool + 可选 ConfigureAwait/WithCancellation/[EnumeratorCancellation]；null 集合抛 NRE |
 
 #### C41 特殊数值类型归一（Half / Int128 / UInt128 / nint / IntPtr）（P3）
 | 字段 | 内容 |
@@ -767,6 +848,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P3**（观察项；命中率取决于下游库是否使用 .NET 7+ 数值类型） |
 | 状态 | 缺失（无映射、无 compat、无显式拒绝） |
 | 验证 | fixture：`Half`/`Int128`/`UInt128` 声明与运算、`Int128.Parse/MaxValue`；断言按选型映射或显式报错 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/integral-numeric-types（nint/nuint）；https://learn.microsoft.com/en-us/dotnet/api/system.half；https://learn.microsoft.com/en-us/dotnet/api/system.int128 |
 
 #### C42 平台 / 互操作边界前置隔离（P3）
 | 字段 | 内容 |
@@ -780,6 +862,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P3**（现有诊断已阻止静默产坏码，通道价值在批量隔离自动化与诊断信息保留） |
 | 状态 | 缺失（诊断存在，无隔离通道；extern 行为矛盾待澄清） |
 | 验证 | fixture：WinForms using、Registry 访问、`DllImport` 声明、OS 探针；断言转换前显式报错（或隔离后产物无平台类型残留） |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/extern（DllImport/LibraryImport/extern alias） |
 
 #### C43 词法层字面量归一（raw string / u8 / verbatim 组合）（P3，观察项）
 | 字段 | 内容 |
@@ -793,6 +876,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P3（观察项）**——现状无错误输出；仅在统一引擎落地、或需要「目标 Java 版本无关的中间树」时实施 |
 | 状态 | 不缺（转换器内联吸收中）；无独立通道 |
 | 验证 | 若做：中间树 build/test；fixture：多行 raw、含引号/换行 raw、u8 非 ASCII、`$@` 组合、raw 插值 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/tokens/raw-string；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/reference-types（u8 字面量节） |
 
 #### C44 using 显式化（using 声明/语句 → try/finally）（P3，观察项）
 | 字段 | 内容 |
@@ -806,6 +890,7 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P3（观察项）**——同步 using 现路径语义正确，前置仅为收敛输入面 |
 | 状态 | 不缺（同步形态内联）；ref struct/异步/yield 组合缺口登记在 C06/C38/C04 |
 | 验证 | 若做：中间树 build/test；fixture：using 声明跨 return/异常、堆叠 using、ref struct 释放、迭代器内 using |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/using（**已核**：using 语句/声明 → try-finally 语义） |
 
 #### C45 Lambda 闭包提升（lambda/匿名方法 → display class + 命名方法）（P2）
 | 字段 | 内容 |
@@ -819,6 +904,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P2**（频率第一、收益大；但属生成新类型的重量级 pass，需按「无捕获静态方法 → 仅 this → 值捕获 → 可变捕获(C32) → 嵌套/递归」分阶段） |
 | 状态 | 缺失（转换器直映 + holder 隐式状态代偿中） |
 | 验证 | 中间树 build/test；fixture：无捕获/静态 lambda、捕获局部并外部再赋值、多 lambda 共享、this 捕获、嵌套与自递归、async lambda（与 C18 联合）、表达式树内 lambda 保持不动 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/lambda-expressions（**已核**：C# 14 简单 lambda 参数修饰符节） |
+| 六次补全（官方文档核对） | **简单 lambda 参数修饰符**（C# 14 补盘项，**已核**）：参数修饰符 `scoped`/`ref`/`in`/`out`/`ref readonly` 可用于**省略参数类型**的 lambda（`TryParse<int> parse1 = (text, out result) => …`；此前修饰符必须伴随显式类型列表）；`params` 修饰仍需显式类型——本通道物化时统一改写为显式类型形态；ref/out 参数捕获与 C32 holder 衔接 |
 
 #### C46 成员签名显式化（显式接口实现 / new 隐藏 / 协变返回）（P3）
 | 字段 | 内容 |
@@ -832,6 +919,95 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 | 优先级 | **P3**（多数形态巧合可用；价值在碰撞场景正确性与转换器收口） |
 | 状态 | 缺失（零散识别/分支，无系统改写） |
 | 验证 | 中间树 build/test；fixture：显式接口方法碰撞、同名不同接口、`new` 隐藏跨虚调用、协变返回 + 泛型擦除组合 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/new-modifier（new 隐藏）；https://learn.microsoft.com/en-us/dotnet/csharp/language-proposals/csharp-9.0/covariant-returns（协变返回提案）；https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/interfaces（显式接口实现） |
+
+#### C47 相等性与字符串拼接调用点语义物化（string `==`/`!=`/`+`、tuple、Nullable 提升）（P1，先核实）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `EqualityConcatCallSite`（C14 声明侧的调用侧互补规则） |
+| 分类 | 1.4 / 数值与相等性 |
+| 目标 C# 模式 | 按操作数**语义类别**（SemanticModel 判定）而非语法形态物化：① string `==`/`!=` → `string.Equals(a, b)` / `!string.Equals(a, b)`（静态两参重载，null 操作数语义与 C# `==` 一致）；② 任一操作数静态类型为 `object` 的比较（含 `(object)a == b` 逃逸写法）→ `ReferenceEquals(a, b)`；③ string `+`（含多操作数链与 `+=`）→ `string.Concat(a, b[, c…])`——**C# 把 null 操作数当空串、Java `+` 产 `"null"` 字面量**，Concat 物化即编译器自身 lowering 同形；④ `bool?`/`Nullable<T>` 提升比较（与 C22 交界）；⑤ 元组 `==`（C# 9 字符串元组特例 `(a, b) == ("x", "y")`）→ 逐元素 Equals；⑥ 委托 `==` → **调用列表值相等**（六次补全修正：官方 equality-operators「Delegate equality」——同为 null，或调用列表**等长且逐项相等**（方法 + 接收者；多播 `(a+a)==(a+a)` 为 true 而 `ReferenceEquals` 为 false））→ `DelegateOps.equals(a, b)` 物化，Java `==` 同一性直映**错值**；⑦ **record `==`**（六次补全新增：record class/struct 的 `==` 为**值相等**——全部字段+自动属性逐项比较，官方「Record types equality」）→ 与 E11/C27 衔接，直映 `==` 错值 |
+| 解决的转换难点 | 语言层经典**静默错值**双源：`(==)` C# 按静态类型做重载决议、string 绑定值相等运算符，Java `==` 对引用恒为同一性——直译后字面量比较因驻留侥幸通过、运行时构造串（Concat/ToString/Span→string）错值；`(+)` null 语义差同理。本清单 §4.12「静默错误输出」家族此前未收录，属五次补全语言覆盖审计新发现 |
+| 证据 | 语言层：C# 语言规范运算符重载决议与 `+` 的 Concat lowering；Java 语言规范 `==` 同一性与字符串拼接 null 转换。**仓库现状待核实**（本条第一行动）：`BinaryExpressionTransformer` 已按操作数类型分派（C14 条目证据 `:133-144` 对 enum 操作数硬拒绝说明存在类型分派层）——string 分支是否存在、是否覆盖 `!=`/`(object)` 逃逸/`+` 的 null 语义/提升比较，需 grep 分派逻辑并跑「运行时构造等值串」「null + "a"」fixture；**若均已内联则本条降为观察项**（CsCore 收敛价值仍在：物化后 Java 侧删掉整个特判簇） |
+| 与现有通道关系 | C14 管用户自定义 `op_*` 声明与调用点，本条管**内置类型上编译器隐式绑定**的调用点，两者拼满分派面；`+` 物化与 E03（`??`）、C23（插值→`string.Format/Concat`）产物同族；enum `==` 预期已被 E04/转换器吸收；LINQ 表达式树内跳过（§4 风险 8） |
+| 优先级 | **P1**（核实门：已内联→观察项收档；未覆盖→与 C31/C34 同列 §4.12 最高危静默错误输出并立即补，见 §4 风险 21） |
+| 状态 | **待核实**（语言审计发现，非代码 grep 产物） |
+| 验证 | 核实行动见「证据」行；fixture：`new string("a".ToCharArray()) == "a"`、`!=`、`(object)s == t`、`null + "a"`（C# 得 "a"、Java 直译得 "nulla"）、多段 `+=`、`bool?` 三值、`(a,b)==("x","y")`、**委托值相等**（`(a+a)==(a+a)` 为 true；不同接收者的同方法 `o1.M==o2.M` 为 false）、**record `==`**（同值两实例为 true）；物化后中间树 build/test + Java 侧同语义用例 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/equality-operators（**已核**：字符串序数相等/委托调用列表相等/元组相等/record 值相等）；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/addition-operator（**已核**：null→空串） |
+| 六次补全（官方文档核对） | 官方 equality-operators/addition-operator 已核：① string `==` 为**大小写敏感的序数（ordinal）比较**（Java `String.equals` 同为序数——物化面干净）；② string `+` 任一操作数 null → 空串替换（官方原文「the string representation of null is an empty string」）；③ **委托 `==` = 调用列表值相等**（⑥ 原表述「引用比较」已修正）；④ 引用类型默认 `==` 为同一性**但可重载**（C14 运算符物化后仍需调用点绑定分类，`object` 静态类型除外）；⑤ 元组 `==` 逐元素；⑥ record `==` 值相等（新增 ⑦） |
+
+#### C48 params 集合显式化（C# 13 params collections / params 调用点展开）（P2）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `ParamsCollections`（E08 参数族姊妹规则，可并入同一通道共享两遍范式） |
+| 分类 | 1.4 成员/调用点 |
+| 目标 C# 模式 | ① C# 13 `params` 集合（六次补全按官方 params 页精确化——**合法类型**：一维数组 `T[]`；`Span<T>`/`ReadOnlySpan<T>`；带 create 方法的类型（`[CollectionBuilder]`）；支持集合初始化器的类型（`IEnumerable<T>` + 可访问实例 `Add`——`List<T>` 即经此规则，**不含 StringBuilder**）；五个接口 `IEnumerable<T>`/`IReadOnlyCollection<T>`/`IReadOnlyList<T>`/`ICollection<T>`/`IList<T>`），调用点 `M(1, 2, 3)` 物化为显式集合构造 `M(new T[]{ 1, 2, 3 })`（Span 形态与 C06 选型衔接；实参形态三类：逗号列表/单个集合/空）；② 经典 `params T[]` 与**集合表达式组合**（`M([1, 2])`、`M(..span)`）的调用点统一为显式数组实参（与 C36 划界：C36 管目标类型推断，本条管 params 形态面）；③ 声明侧 params 修饰符语义登记（空实参 `M()` 合法、`IEnumerable` 展开语义） |
+| 解决的转换难点 | Java varargs 仅一维数组末位参数，`params ReadOnlySpan<T>` 等集合形态无 Java 对应；E08 只处理默认值，**params 从未进入任何 E/C 条目**——五次补全语言审计差集发现（C# 13 特性全集 vs 本清单） |
+| 证据 | 语言层：C# 13 params collections（官方 What's new in C# 13）；.NET 10 BCL（既定转译目标 Collections/Text/Xml 基线）公共 API 已使用 `params ReadOnlySpan<T>`。**仓库/训练集现状待核实**：D:\csharp-sdk（.NET 8/9 时代源码）预期低频；`ArgumentTransformer`/`ExpressionTransformerRegistry` 的 params 展开路径需 grep |
+| 与现有通道关系 | 并入 E08 通道（「Collect 签名目录 → Strip + 改调用点」两遍范式直接复用）；Span 形态依赖 C06 选型先行；C36 集合表达式的调用点组合依赖本条先定 params 面貌 |
+| 优先级 | **P2**（.NET 10 目标命中率待扫描计数；规则面小、范式现成） |
+| 状态 | **待核实**（语言审计发现） |
+| 验证 | 中间树 build/test；fixture：`params ReadOnlySpan<int>` 展开、`params IEnumerable<T>`/`List<T>`（可变集合语义）、空实参 `M()`、与默认值组合 `M(1, b: 2)`、`M([1,2])` 组合 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/params（**已核**：params collections 合法类型与调用形态） |
+
+#### C49 C# 14 扩展成员归一（extension 块：扩展属性/扩展运算符/静态扩展）（P1）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `ExtensionMemberNormalize`（C19 的 C# 14 声明侧扩展 + 成员去糖族规则） |
+| 分类 | 1.4 成员 |
+| 目标 C# 模式 | C# 14 顶层非泛型静态类中的 `extension(ReceiverType receiver) { … }` 块（receiver 可泛型）：① 实例**扩展属性**（get/set/表达式体）；② **静态扩展运算符**（六次补全修正：`public static … operator +(...)` 等在 extension 块内声明，调用点 `a + b` 走用户定义运算符决议，官方 extension 页已核；扩展索引器为 C# 15 预览，归 C52 防线）；③ **静态**扩展方法/属性（调用点为**接收者类型名限定**新语法：`IEnumerable<int>.Generate(...)`）→ 全部物化为传统静态类 + 显式静态成员：属性调用点 `x.P` → `Ext.GetP(x)` / `Ext.SetP(x, v)`（与 C11/C12 成员方法化产物形态对齐）、运算符调用点并入 C14 声明物化、静态成员改传统类名调用 |
+| 解决的转换难点 | C19 只覆盖**方法调用点**物化；C# 14 引入的扩展属性/扩展运算符/静态成员在 C19 设计视野之外：`x.P` 走 PropertyTransformer 普通成员查找将解析失败或静默错绑；声明侧亦无条目（C11 只处理类型内成员）。Java 无扩展成员任何形态 |
+| 证据 | 语言层：C# 14 extension members（官方语言参考「Extension member declarations」：顶层非泛型静态类可用 extension 块声明扩展成员）；.NET 10 BCL 新 API 实际使用。**仓库现状待核实**：`Pipeline/ExtensionMethodIndex.cs` 与 PropertyTransformer 是否识别 extension 块语法；**先决**：cs2j 所用 Microsoft.CodeAnalysis 包版本需 ≥ 支持 C# 14 语法树，否则 .NET 10 源码在 parse 层即全量失败（§4 风险 20） |
+| 与现有通道关系 | 与 C19 一体（共用扩展方法索引与接收者绑定基建，同通道或紧邻批次）；产物与 C11/C12 对齐使 Java 侧零特判；须晚于 E13（struct receiver 扩展属性与只读化交互）；被 E17 改名表覆盖 |
+| 优先级 | **P1**（.NET 10 目标基线直接命中；与 C50/C51 同属「Roslyn 版本先决」批） |
+| 状态 | **待核实**（语言审计发现；第一步验证 cs2j 的 Roslyn 包对 C# 14 的 parse 支持） |
+| 验证 | 中间树 build/test；fixture：扩展属性 get/set、扩展运算符调用点、静态扩展方法（接收者类型名限定调用 `IEnumerable<int>.Generate(...)`）、泛型 receiver、`a.ExtProp.B` 链式、与 `using static`/别名组合 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/extension（**已核**：成员种类/签名唯一性/泛型参数位置/C# 15 扩展索引器）；https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14 |
+| 六次补全（官方文档核对） | 官方 extension 页已核：成员种类 = 方法/属性/**运算符**/索引器（**索引器 C# 15 起为预览**——C# 14 基线 parse 层即拒绝，防线登记归 C52）；同一静态类内（含多个 extension 块）成员签名必须**唯一**（receiver 计入签名）；泛型参数位置规则：receiver 使用 → 声明在块上，仅成员使用 → 声明在成员上，不能两处同名；静态扩展调用语法为**接收者类型名限定**（含泛型类型名）；新形态与经典 `this` 参数静态方法 IL 相同、源兼容——**物化最简路径为改写回经典形态**（扩展属性/运算符生成静态方法对） |
+
+#### C50 C# 14 `field` 关键字去糖（半自动属性）（P2，随 C11 同批）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `MemberDesugar`（C11 的 C# 14 子规则） |
+| 分类 | 1.4 成员 |
+| 目标 C# 模式 | `int P { get => field + 1; set => field = value; }`——访问器体内 `field` 上下文关键字（编译器合成后备字段的显式引用）→ 改写为显式私有后备字段 + 普通访问器体（即 C11 产物形态）；只读半自动（仅 get）、表达式体、属性初始化器组合全覆盖 |
+| 解决的转换难点 | `field` 在访问器内是**语义上引用合成字段**的标识符而非普通表达式——转换器把它当普通标识符解析会解析为不存在符号或错绑同名局部/参数。C# 12/13 期间为 preview、C# 14 GA |
+| 证据 | 语言层：C# 14 `field` 上下文关键字 GA（官方 What's new in C# 14）。**仓库现状待核实**：PropertyTransformer 对访问器体内标识符的解析路径；.NET 10 BCL 实际使用量在目标源码扫描中计数 |
+| 与现有通道关系 | 并入 C11（`MemberDesugar` 属性规则；见 C11 五次补全追加行）；产物与 C11 完全同形故 Java 侧零新增；须在 E17 之前（`field` 撞 Java 侧改名规则时联动）；与 C27（init/required）组合形态同批验证 |
+| 优先级 | **P2**（若 .NET 10 目标源码扫描显示 Collections/Text 高频使用则随 C11 同批，等价 P1） |
+| 状态 | **待核实**（语言审计发现） |
+| 验证 | 中间树 build/test；fixture：get/set 均用 `field`、仅 get、`field` 与属性初始化器、readonly struct 中 `field`、`field` 与 `??=`/复合赋值组合 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/field（**已核**：上下文关键字/单访问器体+编译器生成另一侧） |
+
+#### C51 C# 14 简单空条件赋值（`a?.b = c` 及复合形态）（P3）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `NullConditionalDesugar`（C35/E03 家族的 C# 14 追加规则，见 C35 五次补全追加行） |
+| 分类 | 1.4 语法糖 |
+| 目标 C# 模式 | ① 简单空条件赋值 `a?.b = c`、`a?[i] = v` → `if (a != null) { a.b = c; }`（接收者单次求值）；② 复合空条件赋值 `a?.b += c` → 同形 if + 复合赋值（与 C17 自增目标族同批）；③ 赋值右侧含 `?.` 链的组合 |
+| 解决的转换难点 | C35 只覆盖**读取链** `a?.b.c?.d()`；赋值目标位置的 `?.` 是 C# 14 新语法——若条件访问改写不识别赋值目标形态，将落入未知 kind 兜底或产生错误 Java；空条件赋值语义 = 「非 null 才赋值」，静默丢失即行为差异 |
+| 证据 | 语言层：C# 14 simple null-conditional assignment（官方 What's new in C# 14）。**仓库现状待核实**：C35 所列 `ControlFlowTransformer.TransformConditionalAccess` 与 `ExpressionTransformerFacade` owner 链回溯是否覆盖 AssignmentExpression 左侧 |
+| 与现有通道关系 | 并入 C35（C35 升格为「null 糖归一」通道，含 E03/C35/C51 三规则）；接收者单次求值复用 E03 两遍临时变量提升基建 |
+| 优先级 | **P3**（低频新语法；随 C35 顺带收编，无独立排期价值） |
+| 状态 | **待核实**（语言审计发现） |
+| 验证 | fixture：`a?.b = c`、`a?[i] = v`、`a?.b += c`、右侧同为 `?.` 链、接收者为属性/方法调用（单次求值验证）、**RHS 条件求值**（null 接收者时右侧不得执行——`values?[2] = GenerateNextIndex()` 形态）、ref/out 目标形态 fail-fast |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/member-access-operators（**已核**：空条件赋值限制全集）；https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14 |
+| 六次补全（官方文档核对） | 官方 member-access-operators 已核（限制全集）：仅**引用类型**接收者；复合赋值（`+=` 等）**允许**；`++`/`--` **不允许**；**右侧仅在左侧非空时求值**（`values?[2] = GenerateNextIndex()` 中 RHS 条件调用——本条 ① 的 if 物化已保真）；空条件表达式**不是变量**——不可 ref 赋值/赋给 ref 变量/作 ref/out 实参（fail-fast 面） |
+
+#### C52 版本防线升格与低频构造收编（C# 13/14 + C# 8–12 补盘）（P3）
+| 字段 | 内容 |
+|------|------|
+| 名称 | `CSharp13PlusGuard`（C36 防线从「C# 11/12」升格为「C# 11+」的伞条目；收编项而非全量通道） |
+| 分类 | 1.8 其他 / 版本边界 |
+| 目标 C# 模式 | ① **C# 13**：`allows ref struct` 泛型反约束（`where T : allows ref struct`）、lock 目标类型 `System.Threading.Lock`（编译器把 `lock(l)` 译为 `EnterScope`，与 C29 的 synchronized 直映语义不同，见 C29 追加行）、`\e` 转义（词法，C43 同批）、method group 自然类型改进（影响 C45 委托绑定）、`[OverloadResolutionPriority]`（C10）、partial 属性/事件（C20，Layer 1 已登记）；② **C# 14**：隐式 Span 转换（`ReadOnlySpan<T>` ← `T[]`/字符串等接收点隐式化，**改变重载决议结果**——与 C06/C48 交界）、unbound generic `nameof`（`nameof(List<>)`）、partial 构造器（C20）、**简单 lambda 参数修饰符**（C45，六次补全补盘）、**用户定义复合赋值运算符**（C14/C17——`a += b` 不再必然拆解为 `a = a + b`，须先查 SemanticModel 显式复合运算符）、**文件级应用指令**（`#:package`/`#:sdk` 等，E01 识别）；③ **C# 8–12 补盘**：接口默认成员（DIM）完整形态面——非公共访问（private/protected/internal）默认实现、默认属性/事件、菱形**最具体重实现**（`I.M()` 显式语法，C46 交界；Java default 方法只覆盖公共实例方法子集）、`>>>` 无符号右移（与 Java `>>>` **1:1 直映**，仅登记不需通道）、NRT 引用类型 `T?` 注解的声明层剥离（`#nullable` 指令与 `!` 已处理；`?` 注解本体归词法批，C28/C43 同族）、`file` 局部类型（C# 11 修饰符——**与 file-scoped namespace 是两个不同特性**，Java 无对应需改名）、attribute 目标限定符（`[field:]`/`[return:]`/`[assembly:]`，C10）、别名限定符 `::`（`global::`/extern alias 表达式形态，C28）、`delegate*` 函数指针（C# 9，归 C06，见其追加行）、const 内插字符串（C# 10，C23 子规则）、lambda 参数默认值（C# 12，罕见）、泛型静态字段**逐封闭类型实例化**语义（C#：`C<int>`/`C<string>` 静态互相独立；Java 擦除后共享——非 T 引用型是静默语义差，见 C02 追加行） |
+| 解决的转换难点 | 这些构造共同构成「转换器默认分支黑洞」（§4 风险 13 既有定性）；其中有正确性含义的子项：`System.Threading.Lock`（直映 synchronized 错语义：scope 释放且与 Monitor 不可混用）、隐式 Span 转换（静默选错重载）、DIM 菱形（Java 侧歧义或缺省）、泛型静态逐实例化（计数器/缓存统计错值） |
+| 证据 | 语言层：C# 13/14 官方特性清单（What's new in C# 13/14）与语言参考；C36 三/四次补全已定性「仓 grep 无命中 ≠ 输入不使用」。**仓库现状待核实**：逐子项 grep（`\e`→C43、Lock→C29、delegate*→C06、DIM 菱形→与 C46 联测） |
+| 与现有通道关系 | **伞条目**：子项按家族拆入 C06/C09/C10/C20/C23/C28/C29/C43/C46/C02；伞条目只保留「版本扫描 + 显式拒绝」职责（C36 升格）；每次 Roslyn 包升级或目标基线升级时重跑差集审计（本五次补全的方法论） |
+| 优先级 | **P3**（防线价值为主；.NET 10 目标源码特性扫描（§4 风险 20）完成后按命中数拆入各家族） |
+| 状态 | **待核实**（语言审计发现；C36 升格注记见其五次补全追加行） |
+| 验证 | 中间树 build/test + 「未知语法显式报错」断言；fixture：`allows ref struct` 方法、`System.Threading.Lock` lock、`nameof(List<>)`、`file class`、`[return:]`、`delegate*` 声明、`const string s = $"a{1}"`、DIM 菱形重实现 |
+| 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-13；https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14（**已核**：特性全集比对基准） |
+| 六次补全（官方文档核对） | whats-new/csharp-14 特性全集比对（**已核**）后补盘：① 简单 lambda 参数修饰符（C45）；② 用户定义复合赋值运算符（C14/C17）；③ 文件级应用指令 `#:package`/`#:sdk` 等（E01）；④ **扩展索引器为 C# 15 预览**（官方 extension 页——C# 14 基线防线上须显式拒绝而非误解析）；⑤ 非绑定 `typeof(List<>)`（非新语法但同族——C02 typeof 归一须覆盖泛型定义形态，区别于 C# 14 的 unbound `nameof`） |
 
 ---
 
@@ -856,6 +1032,8 @@ E01 ConditionalDirectiveStrip（已实现；`#if` 族 + 可选 `#region`，并�
 14. **C19 扩展方法显式化 → C26 LINQ 通道独立化**（P2，LINQ 先重写、扩展解析后固化；**C26 入口必须先落 IQueryable/Expression 三路分流门**）。
 15. **C18 async → C38 异步流/异步释放**：先做形态①原型再决定是否投形态②；C38 与 C18 的形态选型同批定案；**C44 using 显式化**仅 ref struct/yield 组合子题随 C06/C04/C38 顺带处理，同步形态维持转换器内联。
 16. P3 项按下游实际命中率排序：C36/C35/C33/C21/C22/C23/C24/C27/C20/C28/C29/C25/**C39/C41/C42/C43/C44/C46**（后三项为四次补全新增，其中 C43/C44 现状已内联吸收，默认不进链）。
+17. **C47 相等性/拼接调用点核实**（P1 核实门：先 grep `BinaryExpressionTransformer` 的 string/Equals 分派并跑「运行时构造字符串相等」「null + "a"」fixture；已内联 → 观察项收档；未覆盖 → 按 §4 风险 21 立即补）。
+18. **C49 + C50（C# 14 成员面）**（先决＝验证 Roslyn 包版本对 C# 14 语法树的 parse 支持；.NET 10 目标扫描后定批）；**C48 params 族**（P2，并入 E08 同通道，先扫计数）；C51/C52 随 C35/C36 家族顺带收编（P3）。
 
 ### 3.2 与现有链的依赖/顺序总览
 
@@ -883,12 +1061,12 @@ E01 strip-conditional (174)
 
 ```text
 E01 → [C43+C28(词法批，观察项)] → [C20 若做，放这里] → E02 → E03 → C03+C37(控制流/模式去糖) → C31(Index/Range) → E04+C05 → E05
- → E06 → E07+C16+C40(foreach 源) → E08 → E09 → E10+C02(+C30) → C01(RefOutIn，位置需原型确认)
- → E11 → E12 → E13+C07 → C06(unsafe) → C32+C45(闭包提升，须先于状态机) → C04(yield)
- → C34(decimal) → C09/C10 → C11→C12→C13→C14(+C46 签名收口) → C15/C17(数值族)
+ → E06 → E07+C16+C40(foreach 源) → E08+C48(params 族) → E09 → E10+C02(+C30) → C01(RefOutIn，位置需原型确认)
+ → E11 → E12 → E13+C07 → C06(unsafe，含 delegate* 子项) → C32+C45(闭包提升，须先于状态机) → C04(yield)
+ → C34(decimal) → C47(相等性/拼接调用点，核实后进链) → C09/C10 → C11→C12→C13→C14(+C46 签名收口) → C49+C50(C# 14 成员面，随成员去糖族) → C15/C17(数值族)
  → C19(扩展方法) → [E16/C26 LINQ 独立化（入口 IQueryable 三路分流）后移到此处] → C18+C38(异步/异步流；C44 仅 ref struct/using 子题)
  → E14 goto → C08(JavaKeywords，设计定死最后) → 主转换
-（P3 观察项默认不进链：C29/C33/C35/C36/C39/C41/C42/C43/C44/C46 及 C20–C25/C27/C28 按下游命中率评估）
+（P3 观察项默认不进链：C29/C33/C35/C36/C39/C41/C42/C43/C44/C46/C51/C52 及 C20–C25/C27/C28 按下游命中率评估）
 ```
 
 横切约束：
@@ -901,17 +1079,18 @@ E01 → [C43+C28(词法批，观察项)] → [C20 若做，放这里] → E02 �
 |--------|------|----------|
 | 词法/指令归一 | E01 + C28 + **C43（raw/u8/verbatim，观察项）** | 纯语法、幂等、不需语义模型；统一引擎「一次 parse 合批」首批对象（§5.4） |
 | 控制流去糖 | C03 + **C37（表达式侧，共用模式归约器）** + C16 + **C40（foreach 迭代源/ref 源）** + 部分 C05（enum switch） | 语句/模式到 if-链与布尔表达式的机械归约 |
-| 成员去糖 | C11 + C12 + C13 + C14 + **C46（显式接口/new 隐藏/协变返回收口）**（+C27 + **C39 终结器删除**） | 「带访问器语法的成员 → 普通方法 + 后备字段」，对应实验 Lowering 四件套；同一 SemanticModel 符号表 |
+| 成员去糖 | C11 + C12 + C13 + C14 + **C46（显式接口/new 隐藏/协变返回收口）** + **C49（C# 14 扩展成员）** + **C50（C# 14 `field`）**（+C27 + **C39 终结器删除**） | 「带访问器语法的成员 → 普通方法 + 后备字段」，对应实验 Lowering 四件套；同一 SemanticModel 符号表 |
 | 闭包/状态机提升 | E02 + E05（匿名方法前半步）+ C32 + **C45（display class 全量提升）** + C04（迭代器）+ C18 的 async lambda 子项 | 捕获分析/确定性命名/holder 共享；fixpoint 互相喂送（§5.4）；C32 建议作为 C45 第一阶段 |
-| 数值边界 | E09 后缀规则 + C15 + C17 + C22 + C34 decimal + **C41 特殊数值（Half/Int128/UInt128/nint/IntPtr）** + enum 运算（E04） | 数值运算在窄类型/特殊目标上的显式化；已有 UnsignedPostfix/EnumSyntaxRewriter 基建与 compat `Decimal` 方法面 |
+| 数值边界 | E09 后缀规则 + C15 + C17 + C22 + C34 decimal + **C41 特殊数值（Half/Int128/UInt128/nint/IntPtr）** + enum 运算（E04） + **C47（相等性/字符串拼接调用点）** | 数值运算在窄类型/特殊目标上的显式化；已有 UnsignedPostfix/EnumSyntaxRewriter 基建与 compat `Decimal` 方法面 |
 | 值语义 | E11 + E13 + C07 + C01 的 ref struct 子项 + **C44 的 ref struct using 子题** | 复制/变异/只读边界；复用 StructAnalyzer/BoxingReachability/MethodMigrator |
 | 泛型擦除补偿 | E10 + C02 + C09（可合并静态字段规则）+ C30 + C33（型变/约束审计） | reified→erased 的运行时信息显式贯穿 |
-| 表达式/集合形态归一 | C23（**handler 语义判定**）+ C24 + C35 + C36（+C31 的切片使用点） | 表达式糖 → 显式语句/构造/调用的机械归约；共用「单次求值临时变量提升」基建（E03 两遍范式） |
+| 表达式/集合形态归一 | C23（**handler 语义判定**）+ C24 + C35 + **C51（C# 14 空条件赋值）** + C36（+C31 的切片使用点）+ **C48（params 调用点展开）** | 表达式糖 → 显式语句/构造/调用的机械归约；共用「单次求值临时变量提升」基建（E03 两遍范式） |
 | 捕获/隐藏状态前移 | C32 + C09（已并入闭包族 C45 统一捕获分析） | 把转换器内的运行时隐式状态（lambda 捕获 holder、ThreadLocal）显式化为 C# 源码形态 |
 | 异步族 | C18 + **C38（异步序列/释放）** | await 与异步迭代的显式状态/桥接归一；共用形态选型（轻/重）与 foreach 插入点 |
 | 平台边界 | **C42（隔离/拒绝）** + C06 的 extern 子项 + C10（P/Invoke 属性） | 外部契约边界；共享 CS2J3001/3101/3102/3201-3203 诊断基建 |
 | unsafe 家族 | C06 全部子规则 + E12 的 Span/数组交叉 + **C44 的 ref struct disposables 子项** + `[InlineArray]` 盘点 | 指针模型→索引/Span/FFM；共用 FfmHelper |
 | enum | E04 + C05 + C17 enum 自增 + C22 可空 enum | 同一 EnumSyntaxRewriter 扩展，不新建通道 |
+| 版本面 / 新语法防线 | C36（升格 C# 11+）+ **C52（伞条目）** + **C49/C50/C51（C# 14）** + **C48（C# 13）** | 版本升级差集审计 + 显式拒绝，防「默认分支黑洞」（§4 风险 13/20）；目标基线 .NET 10 的共同先决＝Roslyn 包版本支持 C# 14 语法树 |
 
 ---
 
@@ -936,6 +1115,8 @@ E01 → [C43+C28(词法批，观察项)] → [C20 若做，放这里] → E02 �
 17. **目标画像错配 + IQueryable/Expression 盲区（C26，四次补全）**：训练集 D:\csharp-sdk 中 `Expression<>` 仅 2 处、`IQueryable` **0 处**，而二者是 EF Core 的命门；现有 json/regex/uri/xml-tiny 练的是 BCL/Span/序列化肌肉，练不到「表达式树 + query pipeline + DI」。正式排期前必须先拉 EF Core 源码（EFCore.Relational、EFCore.SqlServer、Microsoft.Extensions.*）跑同一套特性扫描（§5.1、§5.6 债务 C）。同时已核实 LinqRewriter 无 receiver 分流（C26 条目证据），在 EF 代码上会把服务端查询静默改写为客户端求值——能编译、单测难抓；三路分流门是 C26 通道化的前置验收条件。
 18. **插值字符串 handler 绑定（C23，四次补全）**：sdk 插值 650 处中相当比例绑定自定义 `InterpolatedStringHandler`（json/日志）；无脑降 `Concat/Format` 会改变参数求值次数与结果。C23 必须经 SemanticModel 判定 handler 类型后再选降级形态，不能纯语法展开。
 19. **统一引擎替换手写链的迁移边界（§5.4，四次补全）**：分批重建语义模型、fixpoint、特性位剪枝是对现有 14 环「复制整树 → reparse → restore」串行链的结构性替换。应先以 E01+C28+C43 三个纯语法 pass 试点「一次 parse 内存合批 + 适配器包装」，验证指纹/回滚/落盘调试三不变后再推广；不一次性重排全部通道（避免改动规模超过问题半径）。
+20. **训练集与目标基线的语言版本轴错配（五次补全，C47–C52 的共同背景）**：本清单全部频率证据来自 D:\csharp-sdk（json/regex/uri/xml-tiny，.NET 8/9 时代源码），对 C# 13/14 特性（params collections、`extension` 块、`field`、简单空条件赋值、隐式 Span 转换、`System.Threading.Lock`）**零样本**；而既定转译目标是 .NET 10 runtime（Collections → Text → Xml），其源码按 C# 14 编写——与债务 C 同族但**轴不同**（语言版本轴 vs 领域轴）。两个行动：① **先决检查**：cs2j 的 Microsoft.CodeAnalysis 包版本必须能 parse C# 14 语法树，否则 .NET 10 源码在 parse 层即全量失败（见 C49 条目状态行）；② 把 .NET 10 目标源码纳入 §5.1 特性扫描基线，与 EF Core 画像同批跑，再定 C48–C51 批次。
+21. **C47 相等性核实的双向结局（五次补全）**：① 若 `BinaryExpressionTransformer` 已内联 string `==` → equals 分派——C47 降为观察项（CsCore 收敛价值仍在），记录证据后关闭；② 若未覆盖——「运行时构造的等值字符串」用例将**静默错值**且字面量单测因驻留侥幸通过（与 §4.12 家族同性质），应立即补并重估 P0。核实必须覆盖 `!=`、`(object)` 逃逸、`Nullable` 提升、元组特例、`+` 的 null 语义五个子面——只测 `==` 字面量会误判为已支持。**六次补全**：string（序数值相等）/委托（调用列表值相等）/拼接（null→空串）/元组/record 的 C# 侧语义已由官方文档确证——其中**委托 `==` 直映 Java 即静默错值**（`o1.M == o1.M` 两实例 C# true / Java false），不依赖仓库核实即可定性；剩余核实面收敛为「仓库内联是否已覆盖」。
 
 ---
 
@@ -1015,6 +1196,7 @@ interface ICs2jPreprocessPass {
 | file-scoped namespace / global using / using static / extern alias | 2 / 20+ | C28 | using 别名注册表兜底（`UsingAliasRegistry.cs`） |
 | `#if` / `#nullable` / NRT `!` | 大量 / `!` 203 | E01 | 已实现（指令剥离）；`!` 透明剥离（`UnaryExpressionTransformer.cs:54`） |
 | `checked`/`unchecked` | 47 | C15 | fail-fast 与 `/* checked */` 静默占位并存 |
+| NRT 引用类型 `T?` 注解（声明层）/ `\e` 转义（C# 13） | —（待扫 .NET 10 基线） | C52（词法批候选，C43/C28 同族） | `#nullable` 指令与 `!` 已由 E01/内联处理；`?` 注解本体现状待核 |
 
 **Layer 1 — 声明层（一进多出，全部可被 .NET 测试验证）**
 
@@ -1034,6 +1216,8 @@ interface ICs2jPreprocessPass {
 | 默认参数 | — | E08 | 已实现 |
 | 显式接口实现 / new 隐藏 / 协变返回 | — | C46 | 仅去重键识别，方法级无改写 |
 | 接口 static abstract/virtual 成员 | 少（json/json-codegen 有使用） | C36 防线 | 无处理；companion 模式是独立难点 |
+| 扩展属性/扩展运算符/静态扩展（C# 14 `extension` 块；索引器为 C# 15 预览） | —（训练集无 C# 14；.NET 10 目标待扫） | C49 | 待核实；C19 只覆盖方法调用点，声明侧无处理 |
+| `field` 关键字（C# 14 半自动属性） | —（同上） | C50 | 待核实；预期由 C11 产物形态吸收 |
 
 **Layer 2 — 表达式层**
 
@@ -1053,6 +1237,8 @@ interface ICs2jPreprocessPass {
 | `nameof` / `[CallerMemberName]` / `[CallerArgumentExpression]` | nameof 1272 | 内联 + C10 | nameof 已处理；Caller* 族缺调用点注入 |
 | 泛型 `default(T)`/`new T()`/`new T[n]`/`typeof(T)`/`is T`/`as T` | — | E10 + C02 | 前 3 模式已做，后 3 缺 |
 | discard `_` / lambda 上 attribute / static lambda | — | C45 / C10 | 随闭包提升与 attribute 归一处理 |
+| params 集合（C# 13 `params ReadOnlySpan<T>` 等）/ params 调用点展开 | —（.NET 10 目标待扫） | C48 | 待核实；E08 只处理默认值；Java varargs 仅数组 |
+| 简单空条件赋值 `a?.b = c`（C# 14） | — | C51 | 待核实；C35 只覆盖读取链 |
 
 **Layer 3 — 控制流层**
 
@@ -1082,7 +1268,7 @@ interface ICs2jPreprocessPass {
 | `Span` / `ReadOnlySpan` / `Memory` | 266 / 722 / 82 | C06 | ref struct 直接拒绝；compat 有 Span.java 等 |
 | `stackalloc` / `ref struct` | 101 / 15 | C06 | fail-fast；仅 fixed 字段缓冲区有 FFM 兜底 |
 | ref 返回 / `scoped` | 526 | E15/C01 + C06 | Core 已实现未接线；scoped 无处理 |
-| `unsafe` / 指针 / `fixed` | 255 / 1136 / 135 | C06 | fail-fast 群；4 份 spec 已写 |
+| `unsafe` / 指针 / `fixed` | 255 / 1136 / 135 | C06 | fail-fast 群；4 份 spec 已写；`delegate*` 函数指针子项待核（五次补全） |
 | 无符号类型 | — | E09 | 已实现（Cs2jUnsignedMath 范式） |
 | decimal | — | C34 | 二元 `+ - * /` 原样输出（不可编译 Java）；compat 方法面齐备 |
 | `IntPtr`/`nint`/`Half`/`Int128`/`UInt128` | — | C41 | 无映射、无 compat、无显式拒绝 |
@@ -1090,12 +1276,13 @@ interface ICs2jPreprocessPass {
 | `Nullable<T>` | — | C22 | compat + 零散特判 |
 | 泛型逆变协变 / 约束 | — | C33 | 型变声明丢弃仅告警（CS2J1003） |
 | `[InlineArray]` | — | C06 待盘点 | 无处理证据 |
+| `System.Threading.Lock`（C# 13 lock 目标类型）/ 隐式 Span 转换（C# 14） | — | C29 / C52 | 待核实；Lock 直映 synchronized 语义错（scope 释放语义）；隐式转换改变重载决议 |
 
 ### 5.6 三笔架构债（本仓对照）
 
 - **债务 A：主路径上有一整套 lowering 规则是「死代码」，但它们是新 pass 的半成品规格书。** `NewConversionPipeline.cs:27-33` 注册的 11 个 IR lowering pass（property/event/indexer/operator/refout/struct/using/yield/delegate/pattern match/变量解析）仅 `PipelineComparisonTests` 可达；生产主路径是 `ProjectConversionPipeline` → TypeGroupResolver → 巨型 transformer（`InvocationExpressionTransformer.cs` 已 12,927 行），边翻译边降级。规则移植到 Roslyn rewriter 后即可用 .NET 测试直接验证形态；**只能借形态，不能共用 IR 代码**（§4 风险 9）。
 - **债务 B：预处理链是 `Program.cs` 手写的 14 段串联。** 每段独立复制整棵源树到 `.cs2j-*-src` → reparse → restore → 改写 → 下一段再复制一遍（`Program.cs:174-716`）；没有统一注册、没有顺序契约（只靠注释，如 `Program.cs:363-364,638`）、没有 fixpoint、residual 检查非标准件。加到 20+ pass 时会崩（慢、不可调试、顺序靠口口相传）——§5.4 的契约/编排是还债方向，迁移边界见风险 19。
-- **债务 C：训练集与目标难度画像不匹配。** sdk 高频项（lambda 4966、局部函数 3486、yield 2887、await 1297、raw string 1345、ReadOnlySpan 722、指针 1136）练的是 BCL 数值/Span/序列化肌肉；而 `Expression<>` 2 处、`IQueryable` 0 处——恰是 EF Core 命门（表达式树 + query pipeline + DI）。还债动作就是 §5.1 的 EF Core 画像扫描，先扫再排期。
+- **债务 C：训练集与目标难度画像不匹配。** sdk 高频项（lambda 4966、局部函数 3486、yield 2887、await 1297、raw string 1345、ReadOnlySpan 722、指针 1136）练的是 BCL 数值/Span/序列化肌肉；而 `Expression<>` 2 处、`IQueryable` 0 处——恰是 EF Core 命门（表达式树 + query pipeline + DI）。还债动作就是 §5.1 的 EF Core 画像扫描，先扫再排期。（五次补全补注：错配有**两个轴**——领域轴（EF Core）与**语言版本轴**（.NET 10 源码用 C# 13/14，训练集零样本，见 §4 风险 20）；还债动作同一条：把目标源码纳入特性扫描基线。）
 
 ---
 
@@ -1114,4 +1301,4 @@ interface ICs2jPreprocessPass {
 | 9. local function | 已实现（带 residual 闸门） | E02 |
 | 10. closed generic type metadata（Json、去 ThreadLocal） | 设计定稿、compat 有落点；cs2j 生成码补丁本树未见 | C30 + C02 |
 
-> 注：三次/四次补全新增的 **C37–C46 均不在 ROADMAP 十项内**（ROADMAP 未覆盖模式表达式去糖、异步流/异步释放、foreach 迭代源二期、终结器、特殊数值类型、平台边界隔离、词法字面量归一、using 显式化、lambda 闭包提升、成员签名显式化）；其中 C37 的测试红灯（8/11 失败）、C39 的静默丢弃、LinqRewriter 无 IQueryable 分流（C26）为盘点新发现并经 grep 核实。方向性输入（CsCore、统一引擎、EF Core 预言机、Layer×频率全景、三笔架构债）见 §5。
+> 注：三次/四次补全新增的 **C37–C46**、五次补全新增的 **C47–C52 均不在 ROADMAP 十项内**（ROADMAP 未覆盖模式表达式去糖、异步流/异步释放、foreach 迭代源二期、终结器、特殊数值类型、平台边界隔离、词法字面量归一、using 显式化、lambda 闭包提升、成员签名显式化；五次补全另增：相等性/字符串拼接调用点物化、params 集合、C# 14 扩展成员/`field`/空条件赋值、版本防线升格）；其中 C37 的测试红灯（8/11 失败）、C39 的静默丢弃、LinqRewriter 无 IQueryable 分流（C26）为盘点新发现并经 grep 核实；**C47–C52 为语言覆盖审计发现，仓库证据以各条目「验证」行动为准**。方向性输入（CsCore、统一引擎、EF Core 预言机、Layer×频率全景、三笔架构债）见 §5。
