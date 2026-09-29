@@ -34,6 +34,19 @@ public enum MemberDesugarDiagnosticCode
     FieldKeywordAccessor = 5122,
     PositionalRecordProperty = 5123,
     WithSite = 5124,
+    // 5130-5149 indexer rules (C12, 设计 §6); 5150-5189 reserved for C13/C14.
+    IndexerPlanCreated = 5130,        // Info，仅 verbose
+    IndexerNameAdopted = 5131,        // Info：[IndexerName] 自定义名采用（特性已移除）
+    IndexerInitWidened = 5132,        // Info：init 归约为普通 set
+    DefaultMemberRetained = 5133,     // Info：类型级 [DefaultMember] 保留
+    ExternalIndexerSite = 5134,       // Info，仅 verbose：外部索引器用点未改写
+    IndexerExpressionTreeSite = 5135, // Warning，force 可解除
+    IndexerDynamicSite = 5136,        // Warning
+    IndexerNonLiftableSite = 5137,    // Warning：复合/自增/初始化器/写值消费不可提升
+    IndexerPartialDeclaration = 5138, // Warning：C# 13 partial 索引器
+    IndexerUnsupportedDeclaration = 5139, // Warning：extern / static abstract 接口索引器
+    IndexerNameCollision = 5140,      // Warning，防御性
+    ResidualIndexer = 5141,           // Warning（strict 升级 Error）：residual 闸门
 }
 
 public sealed record MemberDesugarDiagnostic(
@@ -77,6 +90,15 @@ public sealed class MemberDesugarStatistics
     public int RequiredConstraintsDropped { get; set; }
     public int PlansSkipped { get; set; }
     public int PlansRolledBack { get; set; }
+
+    // C12 indexer rule counters (设计 §5.3).
+    public int IndexersPlanned { get; set; }
+    public int IndexerReadSitesRewritten { get; set; }
+    public int IndexerWriteSitesRewritten { get; set; }
+    public int IndexerCompoundSitesExpanded { get; set; }
+    public int IndexerInitializerSitesRewritten { get; set; }
+    public int ExplicitInterfaceIndexers { get; set; }
+    public int ExternalIndexerSites { get; set; }
 
     /// <summary>按诊断码分桶的跳过数（设计 §6：按原因分组）。</summary>
     public Dictionary<MemberDesugarDiagnosticCode, int> SkippedByReason { get; } = new();
