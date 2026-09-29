@@ -47,6 +47,16 @@ public enum MemberDesugarDiagnosticCode
     IndexerUnsupportedDeclaration = 5139, // Warning：extern / static abstract 接口索引器
     IndexerNameCollision = 5140,      // Warning，防御性
     ResidualIndexer = 5141,           // Warning（strict 升级 Error）：residual 闸门
+    // 5150-5158 event rules (C13)。5159-5179 事件后续追加预留，5180-5189 留 C14。
+    EventPlanCreated = 5150,        // Info，仅 verbose
+    EventCasPolicyApplied = 5151,   // Info，仅 verbose
+    EventStructCasDegraded = 5152,  // struct 事件降级 Simple（策略显式要求 CAS 时升 Warning）
+    EventUnsupportedDeclaration = 5153,
+    EventDynamicSite = 5154,
+    EventUnbindableSite = 5155,
+    EventAttributeUnroutable = 5156,
+    EventNameCollision = 5157,
+    ResidualEvent = 5158,
 }
 
 public sealed record MemberDesugarDiagnostic(
@@ -99,6 +109,13 @@ public sealed class MemberDesugarStatistics
     public int IndexerInitializerSitesRewritten { get; set; }
     public int ExplicitInterfaceIndexers { get; set; }
     public int ExternalIndexerSites { get; set; }
+    // ---- C13 events ----
+    public int EventsPlanned { get; set; }
+    public int EventBackingFieldsGenerated { get; set; }
+    public int EventSubscribeSitesRewritten { get; set; }
+    public int EventUnsubscribeSitesRewritten { get; set; }
+    public int EventInClassCombineSitesRewritten { get; set; }
+    public int EventNameofLiteralized { get; set; }
 
     /// <summary>按诊断码分桶的跳过数（设计 §6：按原因分组）。</summary>
     public Dictionary<MemberDesugarDiagnosticCode, int> SkippedByReason { get; } = new();
@@ -119,6 +136,19 @@ public sealed class MemberDesugarOptions
     public bool Strict { get; init; }
 
     public bool ReportInfo { get; init; } = true;
+
+    /// <summary>事件生成访问器的订阅线程安全模式（C13 D5，默认 Simple——与 Roslyn
+    /// C# 3.0+ field-like event 的实际代码生成一致；InterlockedCompareExchange 为增强选项）。</summary>
+    public EventSubscriptionPolicy EventSubscriptionPolicy { get; init; }
+        = EventSubscriptionPolicy.Simple;
+}
+
+/// <summary>事件生成访问器的订阅线程安全模式（C13 D5）。Simple 与 Roslyn（C# 3.0+）
+/// field-like event 的实际代码生成严格一致；InterlockedCompareExchange 为 lock-free 线性化增强。</summary>
+public enum EventSubscriptionPolicy
+{
+    Simple,
+    InterlockedCompareExchange,
 }
 
 public sealed record MemberDesugarFileResult
