@@ -3530,6 +3530,17 @@ Task 1/3/4/5 实施后实测发现计划文本与本仓 Roslyn 机制不符的�
 9. **转换到表外目标 = 整 plan 跳过（决策 3 v1 边界）**：`explicit operator Temperature(double)`（目标为用户类型）→ CS2J5177，声明与站点均不动；同类型的 `implicit operator double(Temperature)` 是其自身的 plan、照常执行。计划草稿的 `FromCelsius`/`ToDoubleExplicit` 断言违反决策 3，落地时改为「镜像表内目标 + 一个显式方向站点的混合用例」与「表外目标原子跳过」两条。
 10. **装箱不是用户转换**：`object o = s`（S→object，S 有 implicit→int）绑定的转换 `IsUserDefined == false` → 站点不动；计划草稿断言 `object o = Src.ToInt(s)` 与 C# 语义不符，改为断言不动。名解析细节：同一站点同时声明 `implicit operator int` 与 `implicit operator long` 时，目标 `long` 上下文直接绑定 `op_Implicit→long`（故选 `ToLong` 而非 `ToInt`），断言按实际绑定写。
 
+**Task 7-12 追加勘误（2026-09-30，全部按代码事实落地）**：
+
+11. **复合赋值提升分支**（Task 7）：`WrapLiftedCompound(assignment, ...)` 形态作废——公式 ⑥ 的真分支内需要 `.Value` 取值，故提升分支在 `RenderCompoundInner` 内直接产出条件表达式（`x = x.HasValue ? D.Add(x.Value, v) : (R?)null`）；左值内联条件由 `IdentifierNameSyntax` 放宽为 `OperatorFacts.IsSimpleLvalue`（identifier/this/base 为根的字段链——`h.Total += v`、`this.F += v` 都可内联），分析期闸门同步（非简单左值且非语句位 → CS2J5179）。
+12. **可空性判定用语法类型**（Task 8）：提升操作的 `IOperation.Type` 会把**非可空**运算元也抬成 `T?`（实测），据此生成守卫会产出不可编译的 `v.HasValue`；改为 `SemanticModel.GetTypeInfo(expr).Type` 判定。
+13. **`Nullable<T>` 提升形态的 `checked` 壳**（Task 9）：`checked(a + b)` 在运算符调用点被显式化后，checked 语义已由变体选择（`op_Checked*` → `AddChecked`）承载，故 `VisitCheckedExpression` 对纯用户运算符应用丢弃冗余壳；内置 checked 算术与标准转换保持原样。
+14. **阶段 2 派发**（Task 9 实测缺口）：`BinaryExpressionSyntax`/`PrefixUnaryExpressionSyntax`/`AssignmentExpressionSyntax` 节点可能**同时**是运算符站点与转换站点（`w ?? v` 的 result 再隐式转换、`x += v` 的 result 再转换），原 switch 只跑其一 → 转换 plan 漏记站点文件（TouchedFiles 缺项，重写器对该文件不激活）。三个分支都追加 `ScanConversionNode`。
+15. **复合赋值入/出转换的站点文件**（Task 7/9）：链中用户转换的 plan 必须在站点文件 active，故 `ScanCompoundSite` 对可行候选补 `Record(siteFiles, plan, filePath)`。
+16. **JK 组合调用形态**（Task 10）：JK 入口是 `JavaReservedWordPreprocessor.RewriteFile(source, model, stats, diags)`（非计划草稿里的 `JavaKeywordsPreprocessor.Rewrite`）；组合测试单文件两阶段：member-desugar 产物 → JK 重写 → 断言 op_True → IsTrue 且可编译 ✓ 一次通过。
+17. **Fixture 边界**（Task 11）：`z += new OptionalNum(3)` 这类副作用运算元使**整 plan** 跳过（CS2J5176，见勘误 10）；行为测试三处断言按 C# 真实语义修正（点积 11、`>` 方向、用户 `++` 返回同实例）；表达式树样本改用独立类型 `ExprPoint`（按 Task 11 实现注记）。跨文件站点断言一律忽略空白（格式化器折行）。
+18. **验收基线**（Task 12）：`dotnet build -c Release` 0 error；三测试工程 Release 全量对照基线 merge `412d5169` 无回归（`CSharpToJava.Tests` 失败集逐名相同 497 条、`ConversionTests` 112/760/872 相同、`ProjectTests` 7 条既有环境红在基线同样红）；共享文件 diff 仅 Models/Preprocessor/Adapter 三处（§3.2 清单穷尽），四个 CLI 注册热文件零改动。
+
 ---
 
 ## Self-Review 记录（writing-plans 检查单）

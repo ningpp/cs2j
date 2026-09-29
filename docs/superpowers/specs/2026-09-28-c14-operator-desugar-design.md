@@ -2,7 +2,8 @@
 
 **日期**: 2026-09-28
 **范围**: 在已合入的 C11 property 锚点任务所建的 `member-desugar` 族基建上，新增 Core `MemberDesugar/Operators/` 规则目录：把用户自定义运算符（算术/比较/位运算/一元）与 `implicit`/`explicit` 转换运算符的**声明归约为普通静态方法**，并把全部调用点（二元、一元、复合赋值、隐式/显式转换站点）按 SemanticModel 绑定**显式化**为静态方法调用与显式转换链；产物为可编译 C#。本特性不改任何 C#→Java 转换代码，不新增/翻转 pass 注册
-**状态**: 评审修订版（对齐 C11 落地形态 `ac9bacab`，评审修订记录见 §13）；实施前置 = C11 分支合入（已完成：merge `ac9bacab`）
+**状态**: 已实现（M0-M4 完成：运算符规则/重写器/提升公式/闸门族/工程性质/Fixture 全绿；落地勘误见 §13.9，Java 半区消费清单 §5.1 为后续 PR 输入）
+**实现分支**: `feature/preproc-c14-operator-desugar`（Task 1-11 提交链）
 **族属**: catalog P2「成员去糖族」（[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L904-L904)），归唯一已注册 pass `member-desugar`（C11 已在其分支内翻转为 Implemented 并登记于 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)，dev-3.x 侧 stub 条目 [PassStubCatalog.cs:191-200](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L191-L200) 已随翻转删除）。**C11 Property 是锚点任务**（[C11 设计](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md)）：共享基建、适配器、stub 翻转均由 C11 完成；C14 在 C11 合入后的主干上增加 `Operators/` 规则，**不单独注册、不翻转 stub、不新增 pass/适配器；对四个 CLI 注册热文件（PassCatalog/PassChainFactory/CliPreprocessChain/Program.cs）字节级零改动**，对已合入的共享根文件仅按 §3.2「post-merge 追加式编辑清单」做追加（同 C12 先例）（§3、§11）
 
 ---
@@ -423,3 +424,6 @@ git -C .worktrees/preproc-c14-operator-desugar merge --no-ff feature/preproc-c11
 7. **拦截点为 `Visit(SyntaxNode)` 漏斗**（改 §4.2 OC-4/OC-5 的「DefaultVisit 兜底」）：`CSharpSyntaxRewriter` 生成的 `VisitXxx` 不再调用 `DefaultVisit`（实测 0 次命中），全覆盖拦截点是 `Visit(SyntaxNode)` 覆写（父节点重建时逐子访问，实测 75/75）；在 `base.Visit` 之后包装即得「实参已改写」。该漏斗同时取代原设想的 `ApplyOuterConversion`。cast 站点的包装实参必须是 `cast.Expression` 的已改写结果（配方键在 cast 节点、被转换的是其内层运算元）。
 8. **外层显式标准转换**（决策 4 边界细化）：`(byte)s` 形态保留 `(byte)` 外层 cast（判据 `ClassifyConversion(方法返回类型, 外层目标).IsExplicit` → `(byte)Src.ToIntExplicit(s)`）；但「隐式运算符 + 显式标准外层」在 C# 中不合法（隐式运算符后续标准转换必须隐式），故该形态只可能出现在显式运算符声明上。装箱（`object o = s`）不是用户转换，站点不动。
 9. **转换到表外目标即整 plan 跳过**（决策 3 v1 边界重申）：`explicit operator MyType(...)`（目标为泛型实例化/tuple/指针/**用户类型**等镜像表外目标）→ CS2J5177，声明与站点原子不动；表内目标（含数组）照常。
+10. **提升公式的运算元简单性边界**（Task 11 fixture 实测）：提升二元/复合的运算元必须是局部/参数/字段（公式需两次引用），`z += new OptionalNum(3)`、`x + F(...)` 之类副作用表达式 → 整 plan 原子跳过 CS2J5176（声明与全部站点不动，转换器既有路径消费）。fixture 与行为测试按支持形态书写；「语句位把副作用运算元提升到临时量」列为 v2 候选。
+11. **fixture 断言纪律**（Task 11）：`OperatorBehaviorTests` 在**原始树与去糖树**双态运行，断言必须是 C# 真实语义——本轮修正了三处草稿错误：`Point * Point` 点积值、`>` 经 `b < a` 定义的方向、用户定义 `++` 返回同一实例故后缀形式亦见自增后的值；跨文件站点断言用忽略空白的包含匹配（合成表达式会被格式化器折行）。
+12. **验收基线（本沙箱）**（Task 12）：三测试工程 Release 全量对照 merge 基线 `412d5169` 无回归——`CSharpToJava.Tests` 失败集逐名相同（497）、`CSharpToJava.ConversionTests` 计数相同（112/760/872）、`CSharpToJava.ProjectTests` 7 条失败在基线上同样失败（环境性既有红）；C14 全绿范围：member-desugar 单测 126/126、项目测试 4/4（含 fixture 中间树 build+test）。
