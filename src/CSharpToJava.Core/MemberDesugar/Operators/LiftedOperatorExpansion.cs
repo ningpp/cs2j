@@ -18,4 +18,9 @@ internal static partial class LiftedOperatorExpansion
         ConversionResolver.Recipe recipe, ExpressionSyntax visited, int spanStart)
         => throw new System.NotSupportedException(
             "lifted conversion sites are gated to Infeasible (CS2J5176) before rewrite");
+
+    public static ExpressionSyntax WrapLiftedCompound(
+        ExpressionSyntax assignment, ExpressionSyntax left, ITypeSymbol resultType)
+        => throw new System.NotSupportedException(
+            "lifted compound sites are gated to Infeasible (CS2J5176) before rewrite");
 }

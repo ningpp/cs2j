@@ -289,7 +289,8 @@ internal sealed class OperatorRule : IMemberDesugarRule
                 OperatorDiagnostics.CompoundUnsupported(planOp.Name, "property/indexer target"));
             return;
         }
-        if (assign.Left is not IdentifierNameSyntax && assign.Parent is not ExpressionStatementSyntax)
+        if (!OperatorFacts.IsSimpleLvalue(assign.Left)
+            && assign.Parent is not ExpressionStatementSyntax)
         {
             MarkFailure(siteFailures, planOp,
                 MemberDesugarDiagnosticCode.CompoundTargetUnsupported,

@@ -731,4 +731,150 @@ public class MemberDesugarOperatorUnitTests
         AssertOutputCompiles(outputs[0], outputs[1]);
     }
 
+    // ---- OC-3 复合赋值（决策 2b）----
+
+    [Fact]
+    public void CompoundAssignment_LocalAndFieldTargets_Inlined()
+    {
+        var (outputs, stats, _) = RewriteAll(null, """
+            public struct Acc
+            {
+                public int V;
+                public Acc(int v) { V = v; }
+                public static Acc operator +(Acc a, Acc b) => new Acc(a.V + b.V);
+                public static Acc operator *(Acc a, Acc b) => new Acc(a.V * b.V);
+            }
+            """, """
+            public class Holder
+            {
+                public Acc Total;
+            }
+            public static class Use
+            {
+                public static Acc Bump(Acc x, Acc v, Holder h)
+                {
+                    x += v;
+                    x *= v;
+                    h.Total += v;
+                    this_none();
+                    return x;
+                }
+                private static void this_none() { }
+            }
+            """);
+        Assert.True(stats.OperatorCompoundSitesRewritten >= 3);
+        AssertContains(outputs[1], "x = Acc.Add(x, v)");
+        AssertContains(outputs[1], "x = Acc.Multiply(x, v)");
+        AssertContains(outputs[1], "h.Total = Acc.Add(h.Total, v)");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void CompoundAssignment_SideEffectReceiver_LiftedOnceToTemp()
+    {
+        var (outputs, stats, _) = RewriteAll(null, """
+            public struct Acc
+            {
+                public int V;
+                public Acc(int v) { V = v; }
+                public static Acc operator +(Acc a, Acc b) => new Acc(a.V + b.V);
+            }
+            """, """
+            public class Holder
+            {
+                public Acc Total;
+                public static Holder Instance() => new Holder();
+            }
+            public static class Use
+            {
+                public static void Bump(Acc v)
+                {
+                    Holder.Instance().Total += v;
+                }
+            }
+            """);
+        Assert.True(stats.OperatorCompoundSitesRewritten >= 1);
+        AssertContains(outputs[1], "var __cs2j_recv0 = Holder.Instance();");
+        AssertContains(outputs[1], "__cs2j_recv0.Total = Acc.Add(__cs2j_recv0.Total, v);");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void CompoundAssignment_PropertyTarget_SkipsPlanAtomically()
+    {
+        var (outputs, stats, diags) = RewriteAll(null, """
+            public struct Acc
+            {
+                public int V;
+                public Acc(int v) { V = v; }
+                public static Acc operator +(Acc a, Acc b) => new Acc(a.V + b.V);
+            }
+            """, """
+            public class Box
+            {
+                public Acc P { get; set; }
+            }
+            public static class Use
+            {
+                public static void Bump(Box b, Acc v)
+                {
+                    b.P += v;
+                }
+            }
+            """);
+        Assert.Equal(0, stats.OperatorsPlanned); // plan Infeasible → 计数不涨
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.CompoundTargetUnsupported);
+        AssertContains(outputs[0], "operator +(Acc a, Acc b)"); // 声明原子不动
+        // C11 属性族照常消费该复合站点（合成 set_P(get_P() + v)，二元仍绑未动的运算符）
+        AssertContains(outputs[1], "b.set_P(b.get_P() + v);");
+        AssertNotContains(outputs[1], "Acc.Add(");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void CompoundAssignment_BackConversionUserDefined_ChainsExplicit()
+    {
+        // op+ 返回 Money（用户类型）；目标 decimal 由用户隐式转换 declared 在 Money 上提供
+        var (outputs, stats, _) = RewriteAll(null, """
+            public struct Money
+            {
+                public decimal V;
+                public Money(decimal v) { V = v; }
+                public static Money operator +(decimal a, Money b) => new Money(a + b.V);
+                public static implicit operator decimal(Money m) => m.V;
+            }
+            """, """
+            public static class Use
+            {
+                public static decimal Bump(decimal d, Money m)
+                {
+                    d += m;
+                    return d;
+                }
+            }
+            """);
+        Assert.True(stats.OperatorCompoundSitesRewritten >= 1);
+        AssertContains(outputs[1], "d = Money.ToDecimal(Money.Add(d, m));");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void CompoundAssignment_EventAdd_NotTouched()
+    {
+        var (output, stats, _) = Rewrite("""
+            using System;
+            public class Pub
+            {
+                public event EventHandler? E;
+                public void On() => E?.Invoke(this, EventArgs.Empty);
+            }
+            public static class Use
+            {
+                public static void Wire(Pub p, EventHandler h) { p.E += h; }
+            }
+            """);
+        Assert.Contains("p.E += h", output);
+        Assert.Equal(0, stats.OperatorCompoundSitesRewritten);
+    }
+
 }

@@ -44,4 +44,15 @@ internal static class OperatorFacts
             return true;
         return false;
     }
+
+    /// <summary>复合赋值可安全内联（左值求值两次无副作用）的左值形态（决策 2b）：
+    /// 标识符 / this / base，或以它们为根的字段访问链（镜像 C11 IsSimpleReceiver 纪律）。
+    /// 其余接收者形态须在语句位提升 `__cs2j_recv`，否则分析期整 plan 跳过（CS2J5179）。</summary>
+    public static bool IsSimpleLvalue(ExpressionSyntax left) => left switch
+    {
+        IdentifierNameSyntax or ThisExpressionSyntax or BaseExpressionSyntax => true,
+        MemberAccessExpressionSyntax ma => IsSimpleLvalue(ma.Expression),
+        ParenthesizedExpressionSyntax p => IsSimpleLvalue(p.Expression),
+        _ => false,
+    };
 }

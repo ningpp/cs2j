@@ -18,6 +18,7 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
     private readonly MemberDesugarStatistics _stats;
     private readonly List<MemberDesugarDiagnostic> _diagnostics;
     private readonly string _filePath;
+    private int _tempCounter;
 
     public OperatorUseSiteRewriter(
         SemanticModel model,
@@ -177,6 +178,165 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
     private bool TryGetPlan(IMethodSymbol m, out OperatorPlan plan)
         => _active.TryGetValue(PlanKey(m.IsDefinition ? m : m.OriginalDefinition), out plan!)
            && plan != null;
+
+    // ---- OC-3 复合赋值（决策 2b）：简单左值内联；复杂接收者在语句位提升 __cs2j_recv ----
+
+    public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
+    {
+        if (OperatorRule.IsCompoundKind(node)
+            && _model.GetOperation(node) is ICompoundAssignmentOperation compound
+            && compound.OperatorMethod is { } m && TryGetPlan(m, out var plan)
+            && OperatorFacts.IsSimpleLvalue(node.Left))
+        {
+            var left = (ExpressionSyntax)Visit(node.Left)!;
+            var right = (ExpressionSyntax)Visit(node.Right)!;
+            var inner = RenderCompoundInner(plan, m, compound, left, right);
+            _stats.OperatorCompoundSitesRewritten++;
+            var result = SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression, left, inner)
+                .WithTriviaFrom(node);
+            return compound.IsLifted
+                ? LiftedOperatorExpansion.WrapLiftedCompound(result, left, plan.Operator.ReturnType)
+                : result;
+        }
+        return base.VisitAssignmentExpression(node);
+    }
+
+    public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
+    {
+        // 复杂接收者（带副作用的接收者表达式）：提升接收者只求值一次（设计决策 2b）
+        if (node.Expression is AssignmentExpressionSyntax assign
+            && OperatorRule.IsCompoundKind(assign)
+            && _model.GetOperation(assign) is ICompoundAssignmentOperation compound
+            && compound.OperatorMethod is { } m && TryGetPlan(m, out var plan)
+            && assign.Left is MemberAccessExpressionSyntax access
+            && !OperatorFacts.IsSimpleLvalue(access))
+        {
+            var recv = (ExpressionSyntax)Visit(access.Expression)!;
+            var right = (ExpressionSyntax)Visit(assign.Right)!;
+            var temp = MemberDesugarSyntaxFacts.TempName(ref _tempCounter, "recv");
+            var tempIdent = SyntaxFactory.IdentifierName(temp);
+            var leftRewritten = access.WithExpression(tempIdent);
+            var inner = RenderCompoundInner(plan, m, compound, leftRewritten, right);
+            _stats.OperatorCompoundSitesRewritten++;
+            var store = SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression, leftRewritten, inner);
+            return SyntaxFactory.Block(
+                    SyntaxFactory.LocalDeclarationStatement(
+                        SyntaxFactory.VariableDeclaration(
+                            SyntaxFactory.IdentifierName("var")
+                                .WithTrailingTrivia(SyntaxFactory.Space),
+                            SyntaxFactory.SingletonSeparatedList(
+                                SyntaxFactory.VariableDeclarator(temp)
+                                    .WithInitializer(SyntaxFactory.EqualsValueClause(recv))))),
+                    SyntaxFactory.ExpressionStatement(store))
+                .WithLeadingTrivia(node.GetLeadingTrivia())
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitExpressionStatement(node);
+    }
+
+    public override SyntaxNode? VisitBlock(BlockSyntax node)
+        => node.WithStatements(SyntaxFactory.List(SpliceStatements(node.Statements)));
+
+    public override SyntaxNode? VisitSwitchSection(SwitchSectionSyntax node)
+        => node.WithStatements(SyntaxFactory.List(SpliceStatements(node.Statements)));
+
+    private IEnumerable<StatementSyntax> SpliceStatements(SyntaxList<StatementSyntax> statements)
+    {
+        foreach (var stmt in statements)
+        {
+            if (Visit(stmt) is not StatementSyntax visited) continue;
+            if (visited is BlockSyntax spliced
+                && spliced.HasAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation.Kind))
+            {
+                var list = spliced.Statements.ToList();
+                if (list.Count > 0)
+                {
+                    list[0] = list[0].WithLeadingTrivia(
+                        spliced.GetLeadingTrivia().Concat(list[0].GetLeadingTrivia()));
+                    list[^1] = list[^1].WithTrailingTrivia(spliced.GetTrailingTrivia());
+                }
+                foreach (var s in list) yield return s;
+                continue;
+            }
+            yield return visited;
+        }
+    }
+
+    /// <summary>语义恒等 `x = (T)(x op v)`：内层调用 + 入转换（右运算元）/出转换（结果）链。
+    /// 入/出转换按 `ClassifyConversion` 实测判定（CommonConversion 无 IsExplicit）。</summary>
+    private ExpressionSyntax RenderCompoundInner(
+        OperatorPlan plan, IMethodSymbol boundOperator, ICompoundAssignmentOperation compound,
+        ExpressionSyntax left, ExpressionSyntax right)
+    {
+        var compilation = (CSharpCompilation)_model.Compilation;
+        var qualifier = boundOperator.ContainingType!
+            .ToMinimalDisplayString(_model, compound.Syntax.SpanStart);
+        var argRight = right;
+        if (boundOperator.Parameters.Length == 2 && compound.Value.Type is { } rightType)
+        {
+            var inConv = compilation.ClassifyConversion(rightType, boundOperator.Parameters[1].Type);
+            argRight = ApplyInConversion(inConv, right, boundOperator.Parameters[1].Type);
+        }
+        var call = SyntaxFactory.InvocationExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxFactory.ParseTypeName(qualifier),
+                    SyntaxFactory.IdentifierName(plan.GeneratedMethodName)),
+                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(new[]
+                {
+                    SyntaxFactory.Argument(left),
+                    SyntaxFactory.Argument(argRight),
+                })))
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        var outConv = compilation.ClassifyConversion(
+            boundOperator.ReturnType, compound.Type!);
+        return ApplyOutConversion(outConv, call, compound.Type!, compound.Syntax.SpanStart);
+    }
+
+    private ExpressionSyntax ApplyInConversion(
+        Conversion inConversion, ExpressionSyntax value, ITypeSymbol parameterType)
+    {
+        if (inConversion.IsUserDefined && inConversion.MethodSymbol is { } um
+            && TryGetPlan(um, out var up))
+            return InvokeConversion(up, value);
+        if (!inConversion.IsImplicit && inConversion.Exists)
+            return SyntaxFactory.CastExpression(
+                SyntaxFactory.ParseTypeName(
+                    parameterType.ToMinimalDisplayString(_model, value.SpanStart)),
+                value);
+        return value;
+    }
+
+    private ExpressionSyntax ApplyOutConversion(
+        Conversion outConversion, ExpressionSyntax value, ITypeSymbol targetType, int spanStart)
+    {
+        if (outConversion.IsUserDefined && outConversion.MethodSymbol is { } um
+            && TryGetPlan(um, out var up))
+            return InvokeConversion(up, value);
+        if (!outConversion.IsImplicit && outConversion.Exists)
+            return SyntaxFactory.CastExpression(
+                SyntaxFactory.ParseTypeName(
+                    targetType.ToMinimalDisplayString(_model, spanStart)),
+                value);
+        return value;
+    }
+
+    private ExpressionSyntax InvokeConversion(OperatorPlan conversionPlan, ExpressionSyntax value)
+    {
+        var qualifier = conversionPlan.Operator.ContainingType!
+            .ToMinimalDisplayString(_model, value.SpanStart);
+        return SyntaxFactory.InvocationExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    SyntaxFactory.ParseTypeName(qualifier),
+                    SyntaxFactory.IdentifierName(conversionPlan.GeneratedMethodName)),
+                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
+                    new[] { SyntaxFactory.Argument(value) })))
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+    }
 
     // ---- 声明→方法 ----
 
