@@ -11,6 +11,7 @@ namespace CSharpToJava.ProjectTests;
 /// run.Success 即证明中间树通过 dotnet build + dotnet test（BehaviorTests 为
 /// 去糖前/后行为等价闸门）。
 /// </summary>
+[Collection("SampleMemberDesugarSolution")]
 public class MemberDesugarProjectTests
 {
     private static string FixtureDir
