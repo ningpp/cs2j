@@ -80,6 +80,7 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
         var acceptedDiagnostics = new List<MemberDesugarDiagnostic>();
         var success = true;
         const int maxIterations = 1024;
+        IReadOnlyList<MemberDesugarPlan>? lastPlans = null;
 
         for (var iteration = 0; iteration < maxIterations; iteration++)
         {
@@ -95,6 +96,7 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                 tree.Layout, intermediateRoot);
             preprocessor.BindCompilation(compilation);
             preprocessor.ExcludePlans(excluded);
+            lastPlans = preprocessor.Plans;
 
             // rewrittenByFile：被改写文件 → 其原始源文件路径（值当前未参与归属，仅作"在改写集"判定）。
             var rewrittenByFile = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -215,6 +217,25 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
         _diagnostics.AddRange(acceptedDiagnostics);
         _statistics = acceptedStats;
 
+        // C13：事件改写产物引用 Cs2jPrelude.CsPrelude.Combine/Remove——有生效事件 plan 时
+        // 条件释放支撑工程并向含事件触碰文件的项目注入 ProjectReference（设计 §3.2-3）。
+        // 默认链中 delegate pass 先行已在场；此处兜底覆盖单 pass / 边角配置。
+        if (success && lastPlans != null)
+        {
+            var eventTouchedFiles = lastPlans
+                .OfType<CSharpToJava.Core.MemberDesugar.Events.EventPlan>()
+                .Where(p => p.Outcome == MemberDesugarOutcome.Planned && !excluded.Contains(p.Id))
+                .SelectMany(p => p.TouchedFiles)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (eventTouchedFiles.Count > 0)
+            {
+                await PreludeSupportFiles.ReleaseAsync(
+                    Path.Combine(intermediateRoot, PreludeSupportFiles.LibDirectoryName));
+                EnsureCs2jPreludeProjectReferences(tree, eventTouchedFiles);
+            }
+        }
+
         // make-readonly 尾段（设计 §5.1）：还原包 → 验证构建/测试 → 清理 bin 输出。
         var restoreTarget = ProjectPreprocessSource.ResolveRestoreTarget(tree.Layout, intermediateRoot);
         if (restoreTarget != null)
@@ -259,6 +280,7 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
     {
         _statistics.SkippedByReason.TryGetValue(MemberDesugarDiagnosticCode.ResidualProperty, out var residual);
         _statistics.SkippedByReason.TryGetValue(MemberDesugarDiagnosticCode.ResidualIndexer, out var indexerResidual);
+        _statistics.SkippedByReason.TryGetValue(MemberDesugarDiagnosticCode.ResidualEvent, out var residualEvent);
         return $"member-desugar: {_statistics.PropertiesPlanned} propert(y/ies) planned, " +
                $"{_statistics.BackingFieldsGenerated} field(s) generated, " +
                $"{_statistics.ReadSitesRewritten} read/{_statistics.WriteSitesRewritten} write/" +
@@ -269,9 +291,14 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                $"{_statistics.IndexerWriteSitesRewritten} write/" +
                $"{_statistics.IndexerCompoundSitesExpanded} compound site(s) rewritten, " +
                $"{_statistics.IndexerInitializerSitesRewritten} index initializer(s), " +
+               $"{_statistics.EventsPlanned} event(s) planned " +
+               $"({_statistics.EventBackingFieldsGenerated} field(s), " +
+               $"{_statistics.EventSubscribeSitesRewritten}+/{_statistics.EventUnsubscribeSitesRewritten}- subscribe, " +
+               $"{_statistics.EventInClassCombineSitesRewritten} in-class combine, " +
+               $"{_statistics.EventNameofLiteralized} nameof), " +
                $"{_statistics.PlansSkipped} skipped, " +
                $"{_statistics.PlansRolledBack} rolled back, " +
-               $"{residual} residual, {indexerResidual} indexer residual";
+               $"{residual} residual, {indexerResidual} indexer residual, {residualEvent} event residual";
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -318,6 +345,116 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
             ProjectUnsignedTypePreprocessor.GetBasicReferences(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
     }
+
+    // ---- C13：Cs2jPrelude 在场保证（设计 §3.2-3，镜像 DelegatePassAdapter 注入形态）----
+
+    private void EnsureCs2jPreludeProjectReferences(PassTreeContext tree, IReadOnlyList<string> touchedFiles)
+    {
+        var libProjectPath = Path.Combine(
+            tree.IntermediateRoot, PreludeSupportFiles.LibDirectoryName, "Cs2jPrelude.csproj");
+        foreach (var projectFile in tree.Layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (SupportedProjectFiltering.IsUnderExcludedProject(projectFile, tree.Exclusion))
+            {
+                continue;
+            }
+            var projectDirectory = Path.GetDirectoryName(projectFile)!;
+            if (!touchedFiles.Any(file => ProjectPreprocessSource.IsSameOrDescendantPath(file, projectDirectory)))
+            {
+                continue;
+            }
+            var destinationProjectFile = Path.Combine(
+                tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, projectFile));
+            EnsureCs2jPreludeProjectReference(destinationProjectFile, libProjectPath, tree.IntermediateRoot);
+        }
+    }
+
+    private static void EnsureCs2jPreludeProjectReference(
+        string projectFilePath, string libProjectPath, string intermediateRoot)
+    {
+        if (!File.Exists(projectFilePath))
+        {
+            return;
+        }
+
+        System.Xml.Linq.XDocument document;
+        try
+        {
+            document = System.Xml.Linq.XDocument.Load(projectFilePath, System.Xml.Linq.LoadOptions.PreserveWhitespace);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+
+        var root = document.Root;
+        if (root == null || !root.Name.LocalName.Equals("Project", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var projectDirectory = Path.GetDirectoryName(projectFilePath)!;
+
+        // 释放的 Cs2jPrelude/ 源码目录不能被宿主项目的默认 Compile 项重复编译。
+        var isSdkProject = root.Attribute("Sdk") != null;
+        var enableDefaultCompileItems = GetPropertyValue(root, "EnableDefaultCompileItems");
+        if (isSdkProject
+            && !string.Equals(enableDefaultCompileItems?.Trim(), "false", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(
+                Path.GetFullPath(projectDirectory).TrimEnd('\\', '/'),
+                Path.GetFullPath(intermediateRoot).TrimEnd('\\', '/'),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            var removePattern = Path.Combine(PreludeSupportFiles.LibDirectoryName, "**");
+            if (!root.Descendants().Any(e =>
+                    e.Name.LocalName == "Compile"
+                    && string.Equals((string?)e.Attribute("Remove"), removePattern, StringComparison.OrdinalIgnoreCase)))
+            {
+                root.Add(
+                    new System.Xml.Linq.XText(Environment.NewLine + "  "),
+                    new System.Xml.Linq.XElement("ItemGroup",
+                        new System.Xml.Linq.XElement("Compile", new System.Xml.Linq.XAttribute("Remove", removePattern))),
+                    new System.Xml.Linq.XText(Environment.NewLine));
+            }
+        }
+
+        foreach (var referenceElement in root.Descendants()
+                     .Where(e => e.Name.LocalName == "ProjectReference")
+                     .ToList())
+        {
+            var include = (string?)referenceElement.Attribute("Include");
+            if (string.IsNullOrWhiteSpace(include))
+            {
+                continue;
+            }
+            var resolvedPath = Path.GetFullPath(Path.Combine(projectDirectory, include!));
+            if (string.Equals(
+                    Path.GetFullPath(resolvedPath).TrimEnd('\\', '/'),
+                    Path.GetFullPath(libProjectPath).TrimEnd('\\', '/'),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                referenceElement.Remove();
+            }
+        }
+
+        var relativeInclude = Path.GetRelativePath(projectDirectory, libProjectPath);
+        root.Add(
+            new System.Xml.Linq.XText(Environment.NewLine + "  "),
+            new System.Xml.Linq.XElement("ItemGroup",
+                new System.Xml.Linq.XElement("ProjectReference", new System.Xml.Linq.XAttribute("Include", relativeInclude))),
+            new System.Xml.Linq.XText(Environment.NewLine));
+
+        document.Save(projectFilePath, System.Xml.Linq.SaveOptions.DisableFormatting);
+    }
+
+    private static string? GetPropertyValue(System.Xml.Linq.XElement root, string propertyName)
+        => root.Descendants()
+            .Where(e => e.Name.LocalName == "PropertyGroup")
+            .SelectMany(pg => pg.Elements())
+            .Where(e => e.Name.LocalName.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
+            .Select(e => e.Value)
+            .FirstOrDefault();
 
     /// <summary>(相对中间根路径, 错误码, 消息) 集合。</summary>
     private static HashSet<(string File, string Id, string Message)> BuildErrorSet(
