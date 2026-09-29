@@ -28,8 +28,12 @@ internal sealed class PropertyDeclarationExpander
         _filePath = filePath;
     }
 
-    public IReadOnlyList<MemberDeclarationSyntax> Expand(PropertyDeclarationSyntax decl, PropertyPlan plan)
+    /// <summary>展开属性声明。<paramref name="bindingDecl"/> 是语义绑定（特性路由）用的
+    /// 原始树内声明；<paramref name="decl"/> 的访问器体已过使用点改写（脱离语法树的拷贝）。</summary>
+    public IReadOnlyList<MemberDeclarationSyntax> Expand(
+        PropertyDeclarationSyntax decl, PropertyPlan plan, PropertyDeclarationSyntax? bindingDecl = null)
     {
+        bindingDecl ??= decl;
         var prop = plan.Property;
         var inInterface = prop.ContainingType is { TypeKind: TypeKind.Interface };
         var isExplicit = decl.ExplicitInterfaceSpecifier != null;
@@ -38,7 +42,7 @@ internal sealed class PropertyDeclarationExpander
 
         var members = new List<MemberDeclarationSyntax>();
         if (fieldGenerated)
-            members.Add(BuildField(decl, plan));
+            members.Add(BuildField(decl, plan, bindingDecl));
 
         var accessors = decl.AccessorList != null
             ? decl.AccessorList.Accessors
@@ -76,13 +80,13 @@ internal sealed class PropertyDeclarationExpander
             {
                 if (getterIndex < 0) getterIndex = members.Count;
                 members.Add(BuildMethod(decl, plan, acc, plan.GetterMethodName,
-                    isGetter: true, inInterface, isExplicit, isAuto));
+                    isGetter: true, inInterface, isExplicit, isAuto, bindingDecl));
             }
             else if ((acc.IsKind(SyntaxKind.SetAccessorDeclaration)
                     || acc.IsKind(SyntaxKind.InitAccessorDeclaration)) && plan.HasSetter)
             {
                 members.Add(BuildMethod(decl, plan, acc, plan.SetterMethodName!,
-                    isGetter: false, inInterface, isExplicit, isAuto));
+                    isGetter: false, inInterface, isExplicit, isAuto, bindingDecl));
             }
         }
 
@@ -124,7 +128,8 @@ internal sealed class PropertyDeclarationExpander
     private static int LineOf(IPropertySymbol prop)
         => (prop.Locations.FirstOrDefault(l => l.IsInSource)?.GetLineSpan().StartLinePosition.Line ?? 0) + 1;
 
-    private FieldDeclarationSyntax BuildField(PropertyDeclarationSyntax decl, PropertyPlan plan)
+    private FieldDeclarationSyntax BuildField(
+        PropertyDeclarationSyntax decl, PropertyPlan plan, PropertyDeclarationSyntax bindingDecl)
     {
         var prop = plan.Property;
         var mods = new List<SyntaxToken> { SyntaxFactory.Token(SyntaxKind.PrivateKeyword) };
@@ -142,10 +147,11 @@ internal sealed class PropertyDeclarationExpander
 
         // PD-10：[field:] 显式目标与「Field 可施用」的属性级特性 → 字段。
         var attrLists = new List<AttributeListSyntax>();
-        foreach (var list in decl.AttributeLists)
+        for (var i = 0; i < decl.AttributeLists.Count; i++)
         {
-            if (AttributeRouting.RouteList(list, _model, fieldGenerated: true) == AttributeRouting.Destination.Field)
-                attrLists.Add(list.WithTarget(null)); // 落到字段上即默认目标
+            if (AttributeRouting.RouteList(bindingDecl.AttributeLists[i], _model, fieldGenerated: true)
+                == AttributeRouting.Destination.Field)
+                attrLists.Add(decl.AttributeLists[i].WithTarget(null)); // 落到字段上即默认目标
         }
 
         var field = SyntaxFactory.FieldDeclaration(
@@ -168,7 +174,8 @@ internal sealed class PropertyDeclarationExpander
 
     private MethodDeclarationSyntax BuildMethod(
         PropertyDeclarationSyntax decl, PropertyPlan plan, AccessorDeclarationSyntax acc,
-        string name, bool isGetter, bool inInterface, bool isExplicit, bool isAuto)
+        string name, bool isGetter, bool inInterface, bool isExplicit, bool isAuto,
+        PropertyDeclarationSyntax bindingDecl)
     {
         var modifiers = AccessorsToMethods.BuildMethodModifiers(decl, acc, inInterface, isExplicit);
         var returnType = isGetter
@@ -178,32 +185,33 @@ internal sealed class PropertyDeclarationExpander
         var parameterList = isGetter
             ? SyntaxFactory.ParameterList()
             : SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(new[]
-            {
-                SyntaxFactory.Parameter(
-                    default, default,
-                    decl.Type.WithoutTrivia(),
-                    SyntaxFactory.Identifier("value"),
-                    null)
-            }));
+              {
+                  SyntaxFactory.Parameter(
+                      default, default,
+                      decl.Type.WithoutTrivia(),
+                      SyntaxFactory.Identifier("value"),
+                      null)
+              }));
 
         var attrLists = new List<AttributeListSyntax>(acc.AttributeLists);
         if (isGetter)
         {
             var fieldGenerated = plan.BackingFieldName != null && !plan.Property.IsAbstract;
-            foreach (var list in decl.AttributeLists)
+            for (var i = 0; i < decl.AttributeLists.Count; i++)
             {
-                var route = AttributeRouting.RouteList(list, _model, fieldGenerated);
+                var route = AttributeRouting.RouteList(bindingDecl.AttributeLists[i], _model, fieldGenerated);
                 if (route is AttributeRouting.Destination.Getter or AttributeRouting.Destination.Methods)
-                    attrLists.Add(list.WithTarget(null));
+                    attrLists.Add(decl.AttributeLists[i].WithTarget(null));
             }
         }
         if (!isGetter)
         {
             var fieldGenerated = plan.BackingFieldName != null && !plan.Property.IsAbstract;
-            foreach (var list in decl.AttributeLists)
+            for (var i = 0; i < decl.AttributeLists.Count; i++)
             {
-                if (AttributeRouting.RouteList(list, _model, fieldGenerated) == AttributeRouting.Destination.Methods)
-                    attrLists.Add(list.WithTarget(null));
+                if (AttributeRouting.RouteList(bindingDecl.AttributeLists[i], _model, fieldGenerated)
+                    == AttributeRouting.Destination.Methods)
+                    attrLists.Add(decl.AttributeLists[i].WithTarget(null));
             }
         }
 

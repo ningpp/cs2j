@@ -48,6 +48,68 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitInterfaceDeclaration(InterfaceDeclarationSyntax node) => VisitTypeLike(node);
     public override SyntaxNode? VisitRecordDeclaration(RecordDeclarationSyntax node) => VisitTypeLike(node);
 
+    // ---- 语句拼接：提升产物块拆入外层作用域（`var x = new C { .. }` 的 x 必须对后续语句可见）----
+
+    public override SyntaxNode? VisitCompilationUnit(CompilationUnitSyntax node)
+    {
+        var members = new List<MemberDeclarationSyntax>();
+        foreach (var member in node.Members)
+        {
+            if (member is GlobalStatementSyntax global)
+            {
+                if (Visit(global.Statement) is not StatementSyntax visited) continue;
+                if (visited is BlockSyntax spliced
+                    && spliced.HasAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation.Kind))
+                {
+                    var parts = Splice(spliced).ToList();
+                    parts[0] = parts[0].WithLeadingTrivia(
+                        global.GetLeadingTrivia().Concat(parts[0].GetLeadingTrivia()));
+                    for (var i = 0; i < parts.Count; i++)
+                        members.Add(SyntaxFactory.GlobalStatement(parts[i]));
+                    continue;
+                }
+                members.Add(global.WithStatement(visited));
+                continue;
+            }
+            if (Visit(member) is MemberDeclarationSyntax visitedMember)
+                members.Add(visitedMember);
+        }
+        return node.WithMembers(SyntaxFactory.List(members));
+    }
+
+    public override SyntaxNode? VisitBlock(BlockSyntax node)
+        => node.WithStatements(SyntaxFactory.List(SpliceStatements(node.Statements)));
+
+    public override SyntaxNode? VisitSwitchSection(SwitchSectionSyntax node)
+        => node.WithStatements(SyntaxFactory.List(SpliceStatements(node.Statements)));
+
+    private IEnumerable<StatementSyntax> SpliceStatements(SyntaxList<StatementSyntax> statements)
+    {
+        foreach (var stmt in statements)
+        {
+            if (Visit(stmt) is not StatementSyntax visited) continue;
+            if (visited is BlockSyntax spliced
+                && spliced.HasAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation.Kind))
+            {
+                foreach (var s in Splice(spliced)) yield return s;
+                continue;
+            }
+            yield return visited;
+        }
+    }
+
+    /// <summary>拆开提升块并转移首尾 trivia，保持声明在外层作用域可见。</summary>
+    private static IEnumerable<StatementSyntax> Splice(BlockSyntax block)
+    {
+        var statements = block.Statements;
+        if (statements.Count == 0) yield break;
+        var list = statements.ToList();
+        list[0] = list[0].WithLeadingTrivia(
+            block.GetLeadingTrivia().Concat(list[0].GetLeadingTrivia().Where(t => t.IsDirective)));
+        list[^1] = list[^1].WithTrailingTrivia(block.GetTrailingTrivia());
+        foreach (var s in list) yield return s;
+    }
+
     private SyntaxNode? VisitTypeLike(TypeDeclarationSyntax node)
     {
         var newMembers = new List<MemberDeclarationSyntax>();
@@ -57,9 +119,14 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 && _model.GetDeclaredSymbol(propDecl) is { } prop
                 && _active.TryGetValue(prop, out var plan))
             {
+                // 先在使用点改写器内改写访问器体（计算属性可能引用同族去糖属性，
+                // 如 FullName => FirstName + ..），再展开。展开产物是脱离语法树的
+                // 拷贝，无法再绑定 —— 语义绑定（特性路由）一律走原始声明。
+                var visitedDecl = (PropertyDeclarationSyntax)Visit(propDecl)!;
                 var expander = new PropertyDeclarationExpander(
                     _model, _options, _stats, _diagnostics, _filePath);
-                newMembers.AddRange(expander.Expand(propDecl, plan));
+                foreach (var expanded in expander.Expand(visitedDecl, plan, propDecl))
+                    newMembers.Add(expanded);
                 continue;
             }
 
@@ -175,7 +242,10 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             && (node.Parent is BlockSyntax || node.Parent is SwitchSectionSyntax)
             && LiftCreation(oc, out var stmts, out var result))
         {
-            return Block(stmts.Append(SyntaxFactory.ReturnStatement(result)))
+            // return 关键字与表达式之间必须显式留白（return__x 会拼接成单个标识符）。
+            var @return = SyntaxFactory.ReturnStatement(
+                result.WithLeadingTrivia(SyntaxFactory.Space));
+            return Block(stmts.Append(@return))
                 .WithLeadingTrivia(node.GetLeadingTrivia())
                 .WithTrailingTrivia(node.GetTrailingTrivia())
                 .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
@@ -493,10 +563,10 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             return false;
         }
 
-        if (_model.GetSymbolInfo(node).Symbol is IPropertySymbol p
-            && _active.TryGetValue(p, out plan))
-            return true;
-        return false;
+        if (_model.GetSymbolInfo(node).Symbol is not IPropertySymbol p) return false;
+        // 构造泛型（Box<string>.Value）归一到定义符号（Box<T>.Value）命中计划。
+        if (!p.IsDefinition) p = p.OriginalDefinition;
+        return _active.TryGetValue(p, out plan);
     }
 
     /// <summary>方法组上下文：转换目标是委托而表达式本身类型不是委托（如 Func&lt;int&gt; f = c.X）。</summary>
@@ -624,7 +694,9 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     private static LocalDeclarationStatementSyntax DeclVar(string name, ExpressionSyntax value)
         => SyntaxFactory.LocalDeclarationStatement(
             SyntaxFactory.VariableDeclaration(
-                SyntaxFactory.IdentifierName("var"),
+                // "var" 与标识符之间必须显式留白：无 trivia 的相邻标识符会拼接成
+                // 单个 token（var__cs2j_init0），重解析后语义破坏。
+                SyntaxFactory.IdentifierName("var").WithTrailingTrivia(SyntaxFactory.Space),
                 SyntaxFactory.SeparatedList(new[]
                 {
                     SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(name))

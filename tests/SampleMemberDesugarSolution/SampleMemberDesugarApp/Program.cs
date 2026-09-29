@@ -41,5 +41,6 @@ Console.WriteLine($"collision: {collision.Sum}");
 var getOnly = new GetOnlyWithInitializer();
 Console.WriteLine($"getOnly: {getOnly.Created:O} {getOnly.Bits.Count}");
 
-Console.WriteLine($"expression-tree skip: {new ExpressionTreeSample { Erp = 42 }.Selector.Compile()()}");
+var skipSample = new ExpressionTreeSample { Erp = 42 };
+Console.WriteLine($"expression-tree skip: {skipSample.Selector.Compile()()}");
 Console.WriteLine($"static-initializer skip: {StaticInitializerSample.Shared.Label}");

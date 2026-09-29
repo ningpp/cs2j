@@ -142,7 +142,7 @@ internal sealed class PropertyRule : IMemberDesugarRule
         var fieldNames = BackingFieldNaming.Assign(
             candidates.Where(kv => siteFailures.ContainsKey(kv.Key) == false
                                    && PropertyFacts.NeedsBackingField(kv.Value.Decl, kv.Key))
-                .Select(kv => kv.Key));
+                .Select(kv => (kv.Key, kv.Value.Decl.Identifier.ValueText)));
 
         foreach (var (prop, declModel) in candidates)
         {
@@ -472,7 +472,10 @@ internal sealed class PropertyRule : IMemberDesugarRule
         prop = null!;
         if (node is not (IdentifierNameSyntax or MemberAccessExpressionSyntax or MemberBindingExpressionSyntax))
             return false;
-        if (model.GetSymbolInfo(node).Symbol is IPropertySymbol p && candidates.ContainsKey(p))
+        if (model.GetSymbolInfo(node).Symbol is not IPropertySymbol p) return false;
+        // 构造泛型（Box<string>.Value）要归一到定义符号（Box<T>.Value）才能命中候选。
+        if (!p.IsDefinition) p = p.OriginalDefinition;
+        if (candidates.ContainsKey(p))
         {
             prop = p;
             return true;

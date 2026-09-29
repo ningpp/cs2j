@@ -110,7 +110,8 @@ public class BehaviorTests
     [Fact]
     public void Skipped_properties_still_behave()
     {
-        Assert.Equal(84, new ExpressionTreeSample { Erp = 42 }.Selector.Compile()());
+        var sample = new ExpressionTreeSample { Erp = 42 };
+        Assert.Equal(84, sample.Selector.Compile()());
         Assert.Equal("shared", StaticInitializerSample.Shared.Label);
     }
 }
