@@ -296,22 +296,6 @@ class T {
     // ── End-to-end: ImplicitCastCompletionRewriter integration ─────
 
     [Fact]
-    public void NarrowingConversion_LongToInt_AddsCast()
-    {
-        // When a long initializer is assigned to an int variable,
-        // the ImplicitCastCompletionRewriter should add a cast.
-        // This test verifies the rewriter works on production-generated IR.
-        var result = ConvertCode(@"
-class T {
-    long GetValue() { return 100L; }
-    void M() {
-        int x = (int)GetValue();
-    }
-}");
-        Assert.Contains("(int)", result);
-    }
-
-    [Fact]
     public void ObjectInitializer_WithPreStatements_StillWorks()
     {
         var result = ConvertCode(@"

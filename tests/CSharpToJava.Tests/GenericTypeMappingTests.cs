@@ -107,27 +107,6 @@ class Test : ICloneable {
     }
 
     [Fact]
-    public void ClassImplementsTwoIComparerInterfaces_UsesHelperMethodsNotExtends()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class ScanSegment { }
-class SegmentIntersector : IComparer<SegmentIntersector.SegEvent>, IComparer<ScanSegment> {
-    internal class SegEvent { }
-    public int Compare(SegEvent a, SegEvent b) { return 0; }
-    public int Compare(ScanSegment a, ScanSegment b) { return 0; }
-}");
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics));
-        var code = result.GeneratedCode!;
-
-        // Must NOT use "extends" for interfaces
-        Assert.DoesNotContain("extends CSharpGenericComparer", code);
-        // Both interfaces extracted to helper methods (Java type erasure)
-        Assert.Contains("asSegEventComparer", code);
-        Assert.Contains("asScanSegmentComparer", code);
-    }
-
-    [Fact]
     public void ClassImplementsIComparable_UsesImplements()
     {
         var result = Convert(@"

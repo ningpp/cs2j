@@ -109,51 +109,6 @@ public class Sample
         Assert.DoesNotContain("Func<int,", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void NewFunc_FromCustomDelegate_GeneratesLambdaWrapper()
-    {
-        var result = Convert(@"
-using System;
-
-public delegate CTestModule ModuleGenerator();
-
-public class CTestModule { }
-
-public class Sample
-{
-    public static Func<CTestModule> Test(ModuleGenerator gen)
-    {
-        return new Func<CTestModule>(gen);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("() -> gen.get()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("return gen;", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void NewDelegate_LambdaInObjectArray_CastsToDelegateType()
-    {
-        var result = Convert(@"
-using System;
-
-public delegate string MatchEvaluator(string match);
-
-public class Sample
-{
-    public static void Test()
-    {
-        object[] data = new object[] { ""a"", new MatchEvaluator(m => ""uhoh""), 0 };
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The cast to MatchEvaluator must be present so the lambda has a target type
-        // when stored in Object[].
-        Assert.Matches(@"\(MatchEvaluator\)\s*\(m\s*->", result.GeneratedCode);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

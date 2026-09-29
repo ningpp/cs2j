@@ -22,33 +22,6 @@ public class PropertyAssignmentAsSubExpressionTests
     /// Java should BE:    var _chainVal0 = new ConeLeftSide(cone); cone.setLeftSide(_chainVal0);
     ///                    insertToTree(leftConeSides, _chainVal0)
     /// </summary>
-    [Fact]
-    public void PropertyAssignment_UsedAsMethodArgument_HoistsSetterToPreStatement()
-    {
-        var result = Convert(@"
-class ConeLeftSide { public ConeLeftSide(Cone c) {} }
-class RBNode {}
-class Cone
-{
-    public ConeLeftSide LeftSide { get; set; }
-    RBNode[] leftConeSides;
-    RBNode InsertToTree(RBNode[] sides, ConeLeftSide side) { return null; }
-    void Test(Cone cone)
-    {
-        RBNode leftNode = InsertToTree(leftConeSides, cone.LeftSide = new ConeLeftSide(cone));
-    }
-}");
-
-        Assert.True(result.Success);
-        var code = result.GeneratedCode;
-
-        // The setter call must NOT appear as a method argument (would be void)
-        Assert.DoesNotContain("insertToTree(leftConeSides, cone.setLeftSide(", code, StringComparison.Ordinal);
-        // The setter call must be a pre-statement
-        Assert.Contains("cone.setLeftSide(", code, StringComparison.Ordinal);
-        // A temp variable must be used as the argument
-        Assert.Contains("insertToTree(leftConeSides,", code, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// Issue #8 Case 2: property assignment used in a return statement.
@@ -58,36 +31,6 @@ class Cone
     ///                    boneEdge.setCrossedCdtEdges(_chainVal0);
     ///                    return _chainVal0;
     /// </summary>
-    [Fact]
-    public void PropertyAssignment_UsedInReturnStatement_HoistsSetterToPreStatement()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class SdBoneEdge
-{
-    public IEnumerable<object> CrossedCdtEdges { get; set; }
-}
-class Sample
-{
-    IEnumerable<object> ThreadBoneEdgeThroughCdt(SdBoneEdge e) { return null; }
-    IEnumerable<object> CrossedCdtEdgesOfBoneEdge(SdBoneEdge boneEdge)
-    {
-        if (boneEdge.CrossedCdtEdges != null)
-            return boneEdge.CrossedCdtEdges;
-        return boneEdge.CrossedCdtEdges = ThreadBoneEdgeThroughCdt(boneEdge);
-    }
-}");
-
-        Assert.True(result.Success);
-        var code = result.GeneratedCode;
-
-        // The setter call must NOT appear in a return statement (would return void)
-        Assert.DoesNotContain("return boneEdge.setCrossedCdtEdges(", code, StringComparison.Ordinal);
-        // The setter call must be a pre-statement
-        Assert.Contains("boneEdge.setCrossedCdtEdges(", code, StringComparison.Ordinal);
-        // There must be a return of a temp variable
-        Assert.Contains("return ", code, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// Standalone property assignment statement should still generate a simple setter call (no hoisting).

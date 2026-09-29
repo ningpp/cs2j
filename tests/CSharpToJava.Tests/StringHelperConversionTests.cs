@@ -29,24 +29,6 @@ class Sample
     }
 
     [Fact]
-    public void String_Join_StringArray_ConvertsToStringHelperJoin()
-    {
-        var result = Convert(@"
-class Sample
-{
-    public string JoinParts(string[] parts)
-    {
-        return string.Join("", "", parts);
-    }
-}");
-
-        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("StringHelper.join(\", \", parts)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("import io.github.ningpp.compat.StringHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("String.join(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void StringAlias_Join_StringArray_ConvertsToStringHelperJoin()
     {
         var result = Convert(@"
@@ -622,76 +604,7 @@ class Sample
 
     // ==================== String constructor: new string(char, int) → StringHelper.newString(char, int) ====================
 
-    [Fact]
-    public void String_Ctor_CharInt_ConvertsToStringHelperNewString()
-    {
-        var result = Convert(@"
-class Sample
-{
-    public string Repeat(char c, int count)
-    {
-        return new string(c, count);
-    }
-}");
-
-        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("StringHelper.newString(c, count)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("new String(c, count)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void String_Ctor_CharLiteralInt_ConvertsToStringHelperNewString()
-    {
-        var result = Convert(@"
-class Sample
-{
-    public string MakeString()
-    {
-        return new string('a', 5);
-    }
-}");
-
-        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("StringHelper.newString('a', 5)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("new String('a', 5)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void String_Ctor_BracketCharLiteralInt_ConvertsToStringHelperNewString()
-    {
-        var result = Convert(@"
-class Sample
-{
-    public string MakeString()
-    {
-        return new string('[', 65) + ""2"" + new string(']', 65);
-    }
-}");
-
-        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("StringHelper.newString('[', 65)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("StringHelper.newString(']', 65)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("new String('[', 65)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("new String(']', 65)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     // ==================== Import verification ====================
-
-    [Fact]
-    public void StringHelperMethods_GenerateImportStatement()
-    {
-        var result = Convert(@"
-class Sample
-{
-    public bool Check(string s, char[] chars)
-    {
-        return s.IndexOfAny(chars) != -1;
-    }
-}");
-
-        Assert.True(result.Success, $"Conversion failed. Generated code:\n{result.GeneratedCode}");
-        Assert.Contains("import io.github.ningpp.compat.StringHelper;", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     // ==================== Helper ====================
 

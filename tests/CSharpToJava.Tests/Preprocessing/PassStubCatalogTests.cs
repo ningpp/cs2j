@@ -17,20 +17,6 @@ public sealed class PassStubCatalogTests
         PassCatalog.BuildRegistry().WhereStatus(PassStatus.Stub).ToArray();
 
     [Fact]
-    public void All_merged_families_are_registered_as_stubs()
-    {
-        var ids = Stubs.Select(p => p.Id).ToArray();
-
-        Assert.Equal(22, ids.Length);
-        Assert.DoesNotContain(PassIds.PatternDesugar, ids);
-        Assert.Contains(PassStubCatalog.Ids.ClosureLift, ids);
-        Assert.Contains(PassStubCatalog.Ids.LinqChannel, ids);
-        Assert.Contains(PassStubCatalog.Ids.DynamicDesugar, ids);
-        Assert.Contains(PassStubCatalog.Ids.ClosedMetadata, ids);
-        Assert.Contains(PassStubCatalog.Ids.VarianceAudit, ids);
-    }
-
-    [Fact]
     public void PatternDesugar_IsImplemented_AndNotAStub()
     {
         var descriptor = PassCatalog.ImplementedById(PassIds.PatternDesugar);

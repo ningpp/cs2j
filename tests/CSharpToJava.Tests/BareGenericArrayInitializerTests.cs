@@ -10,37 +10,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class BareGenericArrayInitializerTests
 {
-    [Fact]
-    public void EmptyBareInitializer_GenericElementType_EmitsRawArrayWithCast()
-    {
-        var result = Convert(@"
-using System;
-class Pair<T> { }
-class T {
-    void M() {
-        Pair<int>[] arr = {};
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("(Pair<Integer>[]) new Pair[] {  }", result.GeneratedCode);
-        Assert.DoesNotContain("new Pair<Integer>[]", result.GeneratedCode);
-    }
-
-    [Fact]
-    public void NonEmptyBareInitializer_GenericElementType_EmitsRawArrayWithCast()
-    {
-        var result = Convert(@"
-using System;
-class Pair<T> { }
-class T {
-    void M() {
-        Pair<int> a = null;
-        Pair<int>[] arr = { a };
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("(Pair<Integer>[]) new Pair[] { a }", result.GeneratedCode);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

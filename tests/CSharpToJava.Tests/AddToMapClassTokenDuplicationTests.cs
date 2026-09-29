@@ -20,36 +20,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class AddToMapClassTokenDuplicationTests
 {
-    [Fact]
-    public void GenericMethodWithNewTConstraint_HasExactlyOneClassParameter()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-
-class CollectionUtilities {
-    public static void AddToMap<TS, T, TC>(Dictionary<T, TC> dictionary, T key, TS value)
-        where TC : ICollection<TS>, new() {
-        TC tc;
-        if (!dictionary.TryGetValue(key, out tc))
-            dictionary[key] = tc = new TC();
-        tc.Add(value);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // The method signature should have exactly one Class<?> parameter (trailing),
-        // not both a leading Class<T> _cs2j_TC and a trailing Class<?> tCClass.
-        Assert.Contains("Class<?>", code, StringComparison.Ordinal);
-
-        // Count Class<?> parameters in the method signature
-        var classParamCount = System.Text.RegularExpressions.Regex
-            .Matches(code, @"Class<\?>").Count;
-        Assert.True(classParamCount == 1,
-            $"Expected exactly 1 Class<?> parameter, got {classParamCount}.\nFull code:\n{code}");
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

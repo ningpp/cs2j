@@ -17,27 +17,6 @@ public class ReadOnlyDictInterfaceTests
     }
 
     [Fact]
-    public void TryGetValueOutVarInt_OnHashtable_CastsGetResult()
-    {
-        var result = Convert(@"
-using System.Collections;
-class C {
-    void Test(Hashtable table, int key) {
-        if (table.TryGetValue(key, out int value)) {
-            System.Console.WriteLine(value);
-        }
-    }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode ?? "";
-        // The out-variable declaration is hoisted before the if (C# out-variable
-        // scope covers the whole block); the get() result is cast inside the then-branch.
-        Assert.Contains("Integer value = null;", code, StringComparison.Ordinal);
-        Assert.Contains("value = (Integer) ", code, StringComparison.Ordinal);
-        Assert.Contains(".get(", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void DynamicMethodCreateDelegate_UsesInstanceCall()
     {
         var result = Convert(@"

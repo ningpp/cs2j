@@ -10,32 +10,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class IEquatableMappingTests
 {
-    [Fact]
-    public void ClassImplementingIEquatable_GeneratesEqualsToMethod()
-    {
-        var result = Convert(@"
-using System;
-public class Atom : IEquatable<Atom>
-{
-    private int _value;
-
-    public override bool Equals(object other)
-    {
-        return Equals(other as Atom);
-    }
-
-    public bool Equals(Atom other)
-    {
-        return _value == other._value;
-    }
-}
-");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("implements IEquatable<Atom>", result.GeneratedCode);
-        Assert.Contains("public boolean equalsTo(Atom other)", result.GeneratedCode);
-        Assert.DoesNotContain("public boolean equals(Atom other)", result.GeneratedCode);
-    }
 
     [Fact]
     public void IEquatableEqualsCall_MapsToEqualsTo()

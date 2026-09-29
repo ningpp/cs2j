@@ -12,38 +12,4 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class LocalFunctionExpressionBodySpanAdaptationTests
 {
-    [Fact(Skip = "预处理阶段已消除局部函数；转换器 hoisting 路径仅作为 fallback 保留。")]
-    public void LocalFunctionExpressionBodyReturningReadOnlySpan_IsWrapped()
-    {
-        var result = Convert(@"
-class CharClass
-{
-    public bool IsWordChar(int ch)
-    {
-        static System.ReadOnlySpan<byte> AsciiLookup() => new byte[]
-        {
-            0x00, 0x00, 0xFF, 0x03
-        };
-        System.ReadOnlySpan<byte> asciiLookup = AsciiLookup();
-        return true;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("new ReadOnlySpan<Integer>(", code);
-        Assert.DoesNotContain("ReadOnlySpan<Integer> asciiLookup() { return new byte[]", code);
-    }
-
-    private static ConversionResult Convert(string sourceCode)
-    {
-        var pipeline = new ConversionPipeline();
-        return pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = sourceCode,
-            FileName = "Test.cs",
-            Options = new ConversionOptions(),
-        });
-    }
 }

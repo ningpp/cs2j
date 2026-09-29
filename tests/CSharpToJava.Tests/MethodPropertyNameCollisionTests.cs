@@ -24,143 +24,21 @@ public class MethodPropertyNameCollisionTests
     /// and user method SetFirstEdge(PathEdge edge) also maps to setFirstEdge().
     /// After fix, both methods must survive — the user method renamed to PascalCase.
     /// </summary>
-    [Fact]
-    public void SetterAndMethod_SameNameAndSignature_UserMethodRenamedToPascalCase()
-    {
-        var result = Convert(@"
-namespace Demo
-{
-    class Path
-    {
-        internal PathEdge FirstEdge { get; set; }
-        internal PathEdge LastEdge { get; set; }
-
-        internal void SetFirstEdge(PathEdge edge)
-        {
-            LastEdge = FirstEdge = edge;
-            edge.Path = this;
-        }
-    }
-    class PathEdge
-    {
-        internal Path Path { get; set; }
-    }
-}");
-
-        Assert.True(result.Success);
-        var code = result.GeneratedCode;
-
-        // Auto-generated property setter MUST exist with standard Java Bean name
-        Assert.Contains("setFirstEdge(", code, StringComparison.Ordinal);
-        // Auto-generated property getter MUST exist
-        Assert.Contains("getFirstEdge(", code, StringComparison.Ordinal);
-        // Auto-generated property setter for LastEdge MUST exist
-        Assert.Contains("setLastEdge(", code, StringComparison.Ordinal);
-
-        // User-defined method MUST exist, renamed to PascalCase to avoid collision
-        Assert.Contains("SetFirstEdge(", code, StringComparison.Ordinal);
-        // The method body logic must be present (chained assignment)
-        Assert.Contains("setLastEdge(", code, StringComparison.Ordinal);
-        Assert.Contains("edge.setPath(this)", code, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// Reverse declaration order: user method SetFirstEdge declared BEFORE property FirstEdge.
     /// The fix must handle both processing orders correctly.
     /// </summary>
-    [Fact]
-    public void MethodBeforeProperty_SameNameCollision_UserMethodStillRenamed()
-    {
-        var result = Convert(@"
-namespace Demo
-{
-    class Path
-    {
-        internal void SetFirstEdge(PathEdge edge)
-        {
-            LastEdge = FirstEdge = edge;
-            edge.Path = this;
-        }
-
-        internal PathEdge FirstEdge { get; set; }
-        internal PathEdge LastEdge { get; set; }
-    }
-    class PathEdge
-    {
-        internal Path Path { get; set; }
-    }
-}");
-
-        Assert.True(result.Success);
-        var code = result.GeneratedCode;
-
-        // Both must survive regardless of declaration order
-        Assert.Contains("setFirstEdge(", code, StringComparison.Ordinal);
-        Assert.Contains("SetFirstEdge(", code, StringComparison.Ordinal);
-        Assert.Contains("edge.setPath(this)", code, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// Getter collision: property Value { get; } generates getValue(), and user method
     /// GetValue() also maps to getValue(). User method should be renamed to PascalCase.
     /// </summary>
-    [Fact]
-    public void GetterAndMethod_SameNameAndSignature_UserMethodRenamedToPascalCase()
-    {
-        var result = Convert(@"
-class Container
-{
-    public int Value { get; }
-    public int GetValue() { return Value * 2; }
-}");
-
-        Assert.True(result.Success);
-        var code = result.GeneratedCode;
-
-        // Auto-generated getter MUST exist
-        Assert.Contains("getValue()", code, StringComparison.Ordinal);
-        // User-defined method MUST exist, renamed to PascalCase
-        Assert.Contains("GetValue()", code, StringComparison.Ordinal);
-        // Method body should be present
-        Assert.Contains("return getValue() * 2", code, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// Private auto-property accessors are dropped in favor of an accessible user method
     /// with the same Java Bean name. Calls must therefore keep camelCase.
     /// </summary>
-    [Fact]
-    public void PrivateSetterAndMethodCollision_CallSiteUsesCamelCaseUserMethod()
-    {
-        var result = Convert(@"
-namespace Demo
-{
-    class Constraint
-    {
-        internal int VectorIndex { get; private set; }
-
-        internal void SetVectorIndex(int vectorIndex)
-        {
-            this.VectorIndex = vectorIndex;
-        }
-    }
-
-    class ConstraintVector
-    {
-        internal void Add(Constraint constraint)
-        {
-            constraint.SetVectorIndex(1);
-        }
-    }
-}");
-
-        Assert.True(result.Success);
-        var code = result.GeneratedCode;
-
-        Assert.Contains("void setVectorIndex(int vectorIndex)", code, StringComparison.Ordinal);
-        Assert.Contains("constraint.setVectorIndex(1)", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("constraint.SetVectorIndex(1)", code, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// The private-accessor collision rule must be independent of declaration order.

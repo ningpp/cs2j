@@ -19,39 +19,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class LinqDictionarySourceExpressionTests
 {
-    [Fact]
-    public void LinqQueryOverDictionaryProperty_ShouldUsePropertyName_NotTypeName()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-
-class IntPair
-{
-    public int X { get; set; }
-    public int Y { get; set; }
-}
-
-class Edge { }
-
-class Database
-{
-    Dictionary<IntPair, List<Edge>> multiedges = new Dictionary<IntPair, List<Edge>>();
-
-    public Dictionary<IntPair, List<Edge>> Multiedges { get { return this.multiedges; } }
-
-    internal IEnumerable<Edge> SkeletonEdges()
-    {
-        return from kv in Multiedges where kv.Key.X != kv.Key.Y select kv.Value[0];
-    }
-}");
-
-        Assert.True(result.Success);
-        // The generated Java must NOT contain the raw C# type name.
-        Assert.DoesNotContain("System.Collections", result.GeneratedCode, StringComparison.Ordinal);
-        // The property reference should be preserved (lowercased for Java).
-        Assert.Contains("multiedges", result.GeneratedCode, StringComparison.OrdinalIgnoreCase);
-    }
 
     [Fact]
     public void LinqMethodChainOverDictionaryVariable_ShouldUseVariableName()

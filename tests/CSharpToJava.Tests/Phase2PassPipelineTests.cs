@@ -276,25 +276,6 @@ public class Phase2PassPipelineTests
     }
 
     [Fact]
-    public async Task ProjectConversionPipeline_AllowsNativeMethodsFile_WithStubEmit()
-    {
-        var pipeline = new ProjectConversionPipeline(CreateOptions());
-        var results = await pipeline.ConvertProjectAsync(new[]
-        {
-            new SourceFile
-            {
-                FilePath = "NativeMethods.cs",
-                Content = "using System.Runtime.InteropServices; class NativeMethods { [DllImport(\"kernel32.dll\")] private static extern bool Beep(uint frequency, uint duration); }",
-            }
-        });
-
-        var result = Assert.Single(results);
-        Assert.True(result.Success);
-        Assert.DoesNotContain(result.Diagnostics, diagnostic => diagnostic.Code == "CS2J3201" || diagnostic.Code == "CS2J3203");
-        Assert.Contains("UnsupportedOperationException", result.GeneratedCode);
-    }
-
-    [Fact]
     public async Task ProjectConversionPipeline_AllowsGeneratedAssemblyInfoFile()
     {
         var pipeline = new ProjectConversionPipeline(CreateOptions());

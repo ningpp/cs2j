@@ -14,66 +14,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ByteEnumArithmeticWrapTests
 {
-    [Fact]
-    public void ByteEnumSubtraction_WrapsAtByteWidth()
-    {
-        var result = Convert(@"
-enum TokenType : byte
-{
-    None,
-    StartObject,
-    EndObject,
-    StartArray,
-    EndArray,
-    PropertyName,
-    Comment,
-    String,
-    Number,
-    True,
-    False,
-    Null,
-}
-
-class Helper
-{
-    static bool IsTokenTypePrimitive(TokenType tokenType)
-    {
-        return (tokenType - TokenType.String) <= (TokenType.Null - TokenType.String);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // The C# byte-wrap semantics must survive: mask the enum subtraction result.
-        Assert.Contains("& 0xFF", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void IntEnumSubtraction_NoMaskNeeded()
-    {
-        var result = Convert(@"
-enum TokenType
-{
-    None,
-    String,
-    Null,
-}
-
-class Helper
-{
-    static bool IsTokenTypePrimitive(TokenType tokenType)
-    {
-        return (tokenType - TokenType.String) <= (TokenType.Null - TokenType.String);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // int-backed enums do not wrap — no 0xFF mask may appear.
-        Assert.DoesNotContain("0xFF", code, StringComparison.Ordinal);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

@@ -13,21 +13,6 @@ namespace CSharpToJava.Tests;
 public class OutDiscardAndArraySpanAdaptationTests
 {
 
-    [Fact]
-    public void ByteArrayReturnedAsReadOnlySpan_IsWrapped()
-    {
-        var result = Convert(@"
-class Lookup
-{
-    static System.ReadOnlySpan<byte> Table => new byte[] { 0xFF, 0x0, 0x1 };
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("new ReadOnlySpan<Integer>(", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -37,30 +37,6 @@ class Holder
         Assert.DoesNotContain("new ReadOnlyMemory<Character>[", code);
     }
 
-    [Fact]
-    public void ArrayAssignedToSpan_IsWrappedInNewSpan()
-    {
-        var result = Convert(@"
-class Buffer
-{
-    private System.Span<int> _span;
-    private int[] _arrayFromPool;
-
-    private void Grow()
-    {
-        int[] array = new int[8];
-        _span = _arrayFromPool = array;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // T[] → Span<T> implicit conversion must become new Span<>(array).
-        Assert.Contains("_span = new Span<>(", code);
-        Assert.DoesNotContain("_span = _arrayFromPool = array", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

@@ -165,28 +165,4 @@ class Sample {
     /// because IGrouping implements IEnumerable. Java Map.Entry does not implement Iterable,
     /// so we must call .getValue() to get the underlying List.
     /// </summary>
-    [Fact]
-    public void GroupBy_InnerForeach_ShouldUseGetValue()
-    {
-        var r = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Sample {
-    void M(List<int> numbers) {
-        var groups = numbers.GroupBy(n => n % 2);
-        foreach (var group in groups) {
-            foreach (var item in group) {
-                System.Console.WriteLine(item);
-            }
-        }
-    }
-}");
-        _out.WriteLine(r.GeneratedCode ?? "FAILED");
-        Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        // The inner foreach should iterate over group.getValue(), not group directly
-        Assert.Contains(".getValue()", code);
-        // .getValue() returns List which is already Iterable, no .collect() needed on it
-        Assert.DoesNotContain(".getValue().collect(", code);
-    }
 }

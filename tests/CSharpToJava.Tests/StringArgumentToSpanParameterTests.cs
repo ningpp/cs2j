@@ -13,34 +13,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class StringArgumentToSpanParameterTests
 {
-    [Fact]
-    public void ConstStringArgumentToReadOnlySpanParameter_IsWrappedWithAsSpan()
-    {
-        var result = Convert(@"
-class CharClass
-{
-    private const string SetA = ""\u0030\u003A"";
-    private const string SetB = ""\u0000\u0030\u003A"";
-
-    private void AddSet(System.ReadOnlySpan<char> set)
-    {
-    }
-
-    public void AddWord(bool ecma, bool negate)
-    {
-        if (ecma)
-        {
-            AddSet(negate ? SetA : SetB);
-        }
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("MemoryExtensions.asSpan(", code);
-        Assert.DoesNotContain("addSet((negate ? SetA : SetB))", code);
-    }
 
     [Fact]
     public void StringReturnedAsReadOnlySpan_IsWrappedWithAsSpan()

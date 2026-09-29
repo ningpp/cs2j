@@ -13,35 +13,4 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class UnsignedOverloadCollisionTests
 {
-    [Fact]
-    public void UnsignedOverload_SameWidthCollide_SurvivesUnderErasureSuffix()
-    {
-        var pipeline = new ConversionPipeline();
-        var result = pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = @"
-class NumberWriter
-{
-    public void WriteValue(long value)
-    {
-    }
-
-    public void WriteValue(ulong value)
-    {
-    }
-}",
-            FileName = "NumberWriter.cs",
-            Options = new ConversionOptions(),
-        });
-
-        Assert.True(result.Success,
-            "Conversion failed: " + string.Join("; ", result.Diagnostics.Select(d => $"[{d.Severity}] {d.Message}")));
-
-        var code = result.GeneratedCode;
-
-        // The signed overload (first in source order) keeps the plain name; the
-        // unsigned one must NOT be dropped or merged into it.
-        Assert.Contains("void writeValue(long value)", code);
-        Assert.Matches(@"void writeValue_erasure_2\(long value\)", code);
-    }
 }

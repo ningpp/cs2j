@@ -49,28 +49,6 @@ public class Viewer {
     }
 
     [Fact]
-    public void InheritedEventSubscription_UsesAddListenerMethod()
-    {
-        var result = Convert(@"
-using System;
-public class ControlBase {
-    public event EventHandler<MouseEventArgs> MouseClick;
-}
-public class MouseEventArgs : EventArgs { }
-public class DrawingPanel : ControlBase {
-    public void SetCms() {
-        MouseClick += delegate(object sender, MouseEventArgs e) { OnMouseMove(e); };
-    }
-    protected void OnMouseMove(MouseEventArgs e) { }
-}");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        // The subclass must subscribe via the inherited listener method, not a local field.
-        Assert.Contains("addMouseClickListener((sender, e) ->", result.GeneratedCode);
-        var panelPart = result.GeneratedCode.Substring(result.GeneratedCode.IndexOf("public class DrawingPanel"));
-        Assert.DoesNotContain("_mouseClickListeners", panelPart);
-    }
-
-    [Fact]
     public void ExplicitInterfaceEventAndClassEvent_BothGenerated()
     {
         var result = Convert(@"

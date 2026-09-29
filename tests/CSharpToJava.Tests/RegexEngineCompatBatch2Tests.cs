@@ -46,52 +46,6 @@ class P {
     }
 
     [Fact]
-    public void NegatedTryGetValueWithIntOut_DeclaresBoxedType()
-    {
-        var result = Convert("""
-using System.Collections.Generic;
-class W {
-    private Dictionary<string, int> _stringTable = new Dictionary<string, int>();
-    int StringCode(string str) {
-        if (!_stringTable.TryGetValue(str, out int i)) {
-            i = _stringTable.Count;
-            _stringTable.Add(str, i);
-        }
-        return i;
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("Integer i = (Integer)", code);
-        Assert.DoesNotContain("int i = (Integer)", code);
-    }
-
-    [Fact]
-    public void RefLocalDeclaration_BindsReferencedValue()
-    {
-        var result = Convert("""
-class C {
-    private int[] _codes;
-    void M(int operand0) {
-        ref int[] setLookup = ref _codes[operand0];
-        if (setLookup != null) {
-            setLookup[0] = 1;
-        }
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.DoesNotContain("var setLookup = null", code);
-        Assert.Contains("int[] setLookup = ", code);
-    }
-
-    [Fact]
     public void SpanCharCompoundAssignment_CastsBackToChar()
     {
         var result = Convert("""

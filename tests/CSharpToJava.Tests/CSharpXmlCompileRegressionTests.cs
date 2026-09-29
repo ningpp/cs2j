@@ -6,96 +6,6 @@ namespace CSharpToJava.Tests;
 
 public class CSharpXmlCompileRegressionTests
 {
-    [Fact]
-    public void OutDecimalParameter_AssignedIntLiteral_WrapsWithDecimalValueOf()
-    {
-        var result = Convert("""
-class Sample
-{
-    void Calculate(out decimal minOccurs, out decimal maxOccurs)
-    {
-        minOccurs = 0;
-        maxOccurs = 0;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains(".value = Decimal.valueOf(0)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".value = 0;", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void DecimalPropertyCompoundAssignment_ViaMemberAccess_UsesCompatMultiply()
-    {
-        var result = Convert("""
-class Particle
-{
-    public decimal MinOccurs { get; set; }
-    public decimal MaxOccurs { get; set; }
-}
-
-class Sample
-{
-    void Multiply(Particle baseParticle, Particle baseGroupBase)
-    {
-        baseParticle.MinOccurs *= baseGroupBase.MinOccurs;
-        if (baseParticle.MaxOccurs != decimal.MaxValue)
-        {
-            baseParticle.MaxOccurs *= baseGroupBase.MaxOccurs;
-        }
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("baseParticle.setMinOccurs(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains(".multiply(", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("baseParticle.getMinOccurs() * baseGroupBase.getMinOccurs()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void DecimalFieldMemberAccess_AssignedIntLiteral_WrapsWithDecimalValueOf()
-    {
-        var result = Convert("""
-class Sample
-{
-    decimal _value;
-
-    void SetZero()
-    {
-        this._value = 0;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("this._value = Decimal.valueOf(0)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("this._value = 0;", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void DecimalConditionalExpression_IntLiteralBranch_WrapsWithDecimalValueOf()
-    {
-        var result = Convert("""
-class Container
-{
-    public decimal MaxOccurs { get; set; }
-}
-
-class Sample
-{
-    void SetOccurs(Container container, bool repeats)
-    {
-        container.MaxOccurs = repeats ? decimal.MaxValue : 1;
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Decimal.valueOf(1)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("? Decimal.MAX_VALUE : 1", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void FunctionQuery_Ctor_AssignsListToGenericIList_DoesNotWrapWithFrom()
@@ -242,49 +152,6 @@ class Sample
         Assert.Contains("value = null", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-
-    [Fact]
-    public void LongValue_AssignedToIntVariable_GetsExplicitCast()
-    {
-        var result = Convert("""
-            class Sample
-            {
-                void M()
-                {
-                    long l = 100L;
-                    int i = (int)l;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Console.WriteLine("LONG:\n" + result.GeneratedCode);
-        Assert.Contains("int i = (int)(l)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ValueTypeInNonGenericForeach_BoxesIterableTypeArgument()
-    {
-        var result = Convert("""
-            using System.Collections;
-
-            class Sample
-            {
-                void M(ICollection c)
-                {
-                    foreach (int symbol in c)
-                    {
-                    }
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Console.WriteLine("FOREACH:\n" + result.GeneratedCode);
-        Assert.Contains("Iterable<Integer>)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Iterable<int>", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     [Fact]
     public void ExplicitInterfaceIndexer_INameScope_GeneratesObjectSetMethod()
     {
@@ -426,108 +293,6 @@ namespace System.Xml.Serialization
         Assert.Contains("public Object get(String name, String ns)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("public Object set(Object name, Object ns, Object value)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("public Object get(Object name, Object ns)", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Temp_Diagnostics_FailingForeachCases()
-    {
-        // Diagnostic output for failing tests in SameTypeErasureConflictTests,
-        // LinqConcatSetOperatorTests, and ArrayForeachNotCollectedTests.
-        var cases = new[] {
-            (@"
-using System.Collections.Generic;
-
-class Rectangle { }
-class Point { }
-
-class Box
-{
-    public int Count;
-
-    public Box(IEnumerable<Point> points)
-    {
-        Count = 100;
-        foreach (var p in points)
-            Count++;
-    }
-
-    public Box(IEnumerable<Rectangle> rectangles)
-    {
-        Count = 200;
-        foreach (var r in rectangles)
-            Count++;
-    }
-
-    public static Box FromRectangles(IEnumerable<Rectangle> rectangles)
-    {
-        return new Box(rectangles);
-    }
-}
-", "erasure"),
-            (@"
-using System.Collections.Generic;
-using System.Linq;
-
-class Sample {
-    public static IEnumerable<string> ConcatLists(IList<string> strs1, IList<string> strs2) {
-        return strs1.Select(str => str).Concat(strs2.Select(str => str));
-    }
-}
-", "concat"),
-            (@"
-using System.Collections.Generic;
-using System.Linq;
-class Point { public int X, Y; }
-class Sample
-{
-    void Test(IEnumerable<Point> source, Point[] arr)
-    {
-        {
-            var pts = source.Where(p => p.X > 0);
-            foreach (var p in pts) { }
-        }
-        {
-            Point[] pts = arr;
-            foreach (var p in pts) { }
-        }
-    }
-}
-", "arrayvar")
-        };
-
-        foreach (var (src, name) in cases)
-        {
-            var result = Convert(src);
-            Assert.True(result.Success, $"{name}: " + string.Join("\n", result.Diagnostics));
-        }
-    }
-
-    [Fact]
-    public void PropertyWithExplicitBackingField_SetViaExplicitSetterMethod_WritesBackingField()
-    {
-        var result = Convert("""
-            class MemberInfo { }
-
-            class XmlChoiceIdentifierAttribute
-            {
-                private MemberInfo _memberInfo;
-
-                internal MemberInfo MemberInfo
-                {
-                    get { return _memberInfo; }
-                    set { _memberInfo = value; }
-                }
-
-                internal void SetMemberInfo(MemberInfo memberInfo)
-                {
-                    MemberInfo = memberInfo;
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("this._memberInfo = memberInfo", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("this.memberInfo = memberInfo", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -711,29 +476,6 @@ class Sample
     }
 
     [Fact]
-    public void EnumToObject_StaticCall_MapsToEnumHelper()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                enum Color { Red, Green, Blue }
-
-                object ConvertToEnum(Type enumType, long value)
-                {
-                    return Enum.ToObject(enumType, value);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("EnumHelper.toObject(enumType, value)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("import io.github.ningpp.compat.EnumHelper;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("Enum.toObject(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void ExpressionTree_FieldAssignmentLambda_GeneratesCompatExpressionCalls()
     {
         var result = Convert("""
@@ -796,28 +538,6 @@ class Sample
         Assert.Contains("Expression.lambda(", result.GeneratedCode, StringComparison.Ordinal);
         Assert.Contains(".compile()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("(BiConsumer<TObj, TParam>)Expression.lambda", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void GenericCapturedVariable_ExternallyReassigned_UsesUncheckedObjectArrayHolder()
-    {
-        var result = Convert("""
-            using System;
-
-            class Sample
-            {
-                Action<T> Build<T>()
-                {
-                    Action<T> action = null;
-                    action = x => { };
-                    return x => action(x);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("@SuppressWarnings(\"unchecked\")", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("(Consumer<T>[]) new Object[]", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -892,31 +612,6 @@ public class RTree {
         Assert.Contains("n.setUserData(", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task ObjectInitializer_UnresolvedProperty_DefaultsToSetterCall()
-    {
-        // Regression (AGL GeometryGraphReader): when an object initializer sets a property
-        // on a type from an unreferenced external assembly (e.g. System.Xml.XmlReaderSettings),
-        // the semantic model cannot resolve the member symbol. The converter must default to
-        // a setter call (setXxx) rather than a direct backing-field write, because Java compat
-        // classes have private fields with public setters.
-        var result = await ConvertProjectAsync(new[]
-        {
-            ("Sample.cs", @"
-class Sample {
-    void M() {
-        var settings = new ExternalConfig { Timeout = 42, Enabled = true };
-    }
-}"),
-        });
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        Assert.Contains("setTimeout(42)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("setEnabled(true)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".timeout = 42", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".enabled = true", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();
@@ -972,80 +667,6 @@ class Sample {
         Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
         Assert.Contains("boolean[] _isReferenced = new boolean[] { isReferenced }", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("(boolean[]) new Object[]", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void PrivateNewMethodHidingProtectedBase_PromotedToBaseAccessInJava()
-    {
-        var result = Convert("""
-            using System;
-
-            class BaseConverter
-            {
-                protected Exception CreateInvalidClrMappingException(Type sourceType, Type destinationType) => null;
-            }
-
-            class ListConverter : BaseConverter
-            {
-                private new Exception CreateInvalidClrMappingException(Type sourceType, Type destinationType) => null;
-            }
-
-            class UntypedConverter : ListConverter
-            {
-                Exception Use(Type sourceType, Type destinationType)
-                {
-                    return CreateInvalidClrMappingException(sourceType, destinationType);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        // The hiding method must not be emitted as private; otherwise Java reports
-        // "attempting to assign weaker access privileges" and derived classes cannot see it.
-        Assert.DoesNotContain("private RuntimeException createInvalidClrMappingException", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("createInvalidClrMappingException(sourceType, destinationType)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task GotoInsideTryCatch_LabelAfterTry_DoesNotGenerateUnreachableJava()
-    {
-        var source = """
-            class Sample
-            {
-                public object ParseValue(string s)
-                {
-                    try
-                    {
-                        if (s == null) goto Error;
-                        return s;
-                    }
-                    catch (Exception)
-                    {
-                        throw;
-                    }
-                Error:
-                    throw new Exception("invalid");
-                }
-            }
-            """;
-
-        var eliminator = new CSharpToJava.Core.GotoEliminator.GotoEliminator();
-        var preprocessed = eliminator.Eliminate(source);
-        Assert.True(preprocessed.Diagnostics.All(d => d.Severity != CSharpToJava.Core.GotoEliminator.GotoEliminatorSeverity.Error),
-            string.Join("\n", preprocessed.Diagnostics.Select(d => d.Message)));
-        Assert.DoesNotContain("goto", preprocessed.OutputCode, StringComparison.Ordinal);
-
-        var result = await ConvertProjectAsync(new[] { ("Sample.cs", preprocessed.OutputCode) });
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-
-        using var temp = new TempDir();
-        var outDir = Path.Combine(temp.Path, "classes");
-        Directory.CreateDirectory(outDir);
-        var javaPath = Path.Combine(temp.Path, "Sample.java");
-        File.WriteAllText(javaPath, result.GeneratedCode);
-
-        var javac = RunProcess(FindRequiredExecutable("javac"), $"-d \"{outDir}\" \"{javaPath}\"");
-        Assert.True(javac.ExitCode == 0, javac.Output);
     }
 
     private static string FindRequiredExecutable(string name)

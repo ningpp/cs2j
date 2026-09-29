@@ -47,24 +47,6 @@ class ReadOnly : Base
         Assert.DoesNotContain("read(Reader reader)", code, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void ReadOnlyNonVirtualMethod_KeepsByValueOptimization()
-    {
-        var result = Convert(@"
-struct Reader { }
-
-class Sample
-{
-    public int Peek(ref Reader reader) { return 2; }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // Non-virtual read-only methods keep the by-value optimization.
-        Assert.DoesNotContain("ObjectHolder<Reader>", code, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

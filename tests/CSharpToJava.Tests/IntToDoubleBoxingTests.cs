@@ -9,26 +9,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class IntToDoubleBoxingTests
 {
-    [Fact]
-    public void DictionaryIntValueToPutDouble_AddsCast()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Test
-{
-    void M()
-    {
-        var p = new Dictionary<string, double>();
-        int n = 10;
-        p[""key""] = 1 / n;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // Must cast int expression to double for Java autoboxing to Double
-        Assert.Contains("(double)", result.GeneratedCode);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

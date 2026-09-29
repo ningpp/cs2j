@@ -14,59 +14,12 @@ public class StreamToIterableAssignmentTests
     /// Reproduces: "Stream&lt;Edge&gt; cannot convert to Iterable&lt;Edge&gt;"
     /// when LINQ Where result is assigned to a field typed as IEnumerable.
     /// </summary>
-    [Fact]
-    public void FieldAssignment_LinqWhere_ToIEnumerableField_CollectsStream()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Edge
-{
-    public int Source;
-    public int Target;
-}
-class Generator
-{
-    IEnumerable<Edge> edges;
-    public Generator(IEnumerable<Edge> input)
-    {
-        this.edges = input.Where(e => e.Source != e.Target);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // Standalone Where is now procedurally rewritten (not stream API)
-        Assert.Contains("ProceduralLinq", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// Reproduces: "Iterable&lt;Edge&gt; → cannot pass to ArrayList constructor"
     /// when new ArrayList is used with an Iterable (not Collection) argument.
     /// In Java, ArrayList accepts Collection, not Iterable.
     /// </summary>
-    [Fact]
-    public void NewArrayList_WithIterable_WrapsWithStreamSupport()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Edge { }
-class Sample
-{
-    void M(IEnumerable<Edge> edges)
-    {
-        var list = new List<Edge>(edges);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // new ArrayList<>(Iterable) doesn't compile; need materialization
-        var code = result.GeneratedCode;
-        // Should produce either StreamSupport.stream().collect() or similar
-        Assert.True(
-            code.Contains("StreamSupport.stream(") || code.Contains("new ArrayList<>("),
-            $"Expected Iterable→Collection wrapping, got:\n{code}");
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

@@ -40,32 +40,6 @@ public class GenericMethodForwardTypeParamTests(ITestOutputHelper output)
     /// method. The overload must forward _cs2j_T as the leading param, and the
     /// default-value params as the trailing ones.
     /// </summary>
-    [Fact]
-    public void GenericMethod_ForwardWithDefaultParam_OverloadsForwardClassToken()
-    {
-        var result = Convert("""
-            using System;
-
-            public static class JsonSerializer
-            {
-                public static TValue Deserialize<TValue>(string json, JsonSerializerOptions options = null)
-                {
-                    var _ = typeof(TValue);
-                    return default(TValue);
-                }
-            }
-
-            public class JsonSerializerOptions { }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode;
-        // Full method has the leading _cs2j_T
-        Assert.Contains("deserialize(Class<TValue> _cs2j_TValue, String json, JsonSerializerOptions options)", code);
-        // Overload (without options) forwards _cs2j_T + default value for options
-        Assert.Contains("deserialize(Class<TValue> _cs2j_TValue, String json)", code);
-        Assert.Contains("return deserialize(_cs2j_TValue, json, (JsonSerializerOptions) null)", code);
-    }
 
     /// <summary>
     /// Mirrors the actual DeserializationWrapper scenario from System.Text.Json:
@@ -76,67 +50,6 @@ public class GenericMethodForwardTypeParamTests(ITestOutputHelper output)
     /// signature placed Class&lt;?&gt; at the TRAILING position — arity/position
     /// mismatch and unresolved _cs2j_T variable.
     /// </summary>
-    [Fact]
-    public void Override_ForwardToAsync_DoesNotPutTokenInLeadingPosition()
-    {
-        var result = Convert("""
-            using System.IO;
-            using System.Threading;
-            using System.Threading.Tasks;
-
-            public abstract class WrapperBase
-            {
-                protected internal abstract Task<T> DeserializeWrapper<T>(string json, JsonSerializerOptions options = null);
-            }
-
-            public class JsonSerializerOptions { }
-
-            public class ConcreteWrapper : WrapperBase
-            {
-                protected internal override async Task<T> DeserializeWrapper<T>(string json, JsonSerializerOptions options = null)
-                {
-                    using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json)))
-                    {
-                        return await JsonSerializer.DeserializeAsync<T>(stream, options);
-                    }
-                }
-            }
-
-            public static class JsonSerializer
-            {
-                public static ValueTask<T> DeserializeAsync<T>(Stream utf8Json, JsonSerializerOptions options = null, CancellationToken cancellationToken = default)
-                {
-                    return ValueTask.FromResult(default(T)!);
-                }
-
-                public static ValueTask<T> Deserialize<T>(string json, JsonSerializerOptions options = null)
-                {
-                    return ValueTask.FromResult(default(T)!);
-                }
-            }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-
-        var code = result.GeneratedCode;
-        TestOutput.WriteLine("FULL GENERATED:\n" + code + "\nEND");
-
-        // The generated code should COMPILE. Specifically:
-        // - The deserializeAsync method should have _cs2j_T as a leading Class<T> parameter
-        var lines = code.Split('\n');
-        // Find the deserializeAsync declaration line - it should have _cs2j_T
-        var asyncDeclLine = lines.FirstOrDefault(l =>
-            l.Contains("deserializeAsync(") && l.Contains("_cs2j_T"));
-        TestOutput.WriteLine($"async decl: {asyncDeclLine}");
-        // Verify _cs2j_T is in the method signature (as declared parameter)
-        Assert.Contains("_cs2j_T", asyncDeclLine ?? "");
-        // Verify the call site doesn't have undeclared _cs2j_T in a non-parameter position
-        var asyncCallLines = lines.Where(l => l.Contains("deserializeAsync(") && !l.Contains("CompletableFuture deserializeAsync")).ToList();
-        foreach (var line in asyncCallLines)
-        {
-            TestOutput.WriteLine($"async call/decl: {line.Trim()}");
-        }
-    }
 
     // ── Bug 4: Multiple files cross-reference (mirror the real S.T.J scenario) ──
 

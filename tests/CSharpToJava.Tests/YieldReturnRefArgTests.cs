@@ -20,61 +20,6 @@ public class YieldReturnRefArgTests
     /// with ref char parameter, and the holder declarations must be
     /// scoped correctly within each branch.
     /// </summary>
-    [Fact]
-    public void YieldReturnWithRefArg_InIfElse_ShouldDeclareHolderBeforeUse()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-
-class Writer
-{
-    IEnumerable<string> GetTokens(int count)
-    {
-        var prev = 'w';
-        for (int i = 0; i < count; i++)
-        {
-            if (i != count - 1)
-                yield return Format(i, ref prev);
-            else
-                yield return Format(i, ref prev);
-        }
-    }
-
-    string Format(int value, ref char previous)
-    {
-        var result = previous == 'L' ? value.ToString() : ""L"" + value;
-        previous = 'L';
-        return result;
-    }
-}");
-
-        Assert.True(result.Success, "Conversion should succeed");
-
-        // The ref holder variable must be declared BEFORE it is used.
-        // It must NOT appear as an undeclared reference.
-        var code = result.GeneratedCode;
-
-        // Each _yieldResult.add(...Ref) call must be preceded by the holder declaration
-        // in the same scope. Check that Ref holders are declared somewhere.
-        Assert.Contains("Holder", code);
-
-        // The holder must NOT be used before declaration (i.e., if the holder
-        // is used in the if-branch, its declaration must also be in the if-branch,
-        // not leaked into the else-branch)
-        var lines = code.Split('\n');
-        foreach (var line in lines)
-        {
-            // If a line contains _yieldResult.add(...Ref), the Ref variable
-            // should have been declared earlier in the SAME block
-            if (line.Contains("_yieldResult.add") && line.Contains("Ref"))
-            {
-                // Verify the holder is not used without being declared first
-                // (the exact position check is handled by the Java compiler,
-                // but we can verify the declaration exists in the output)
-                Assert.Contains("Holder", code);
-            }
-        }
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

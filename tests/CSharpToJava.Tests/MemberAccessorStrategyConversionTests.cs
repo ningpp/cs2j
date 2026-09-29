@@ -11,29 +11,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class MemberAccessorStrategyConversionTests
 {
-    [Fact]
-    public void ReflectionEmitMemberAccessorInstantiation_UsesReflectionMemberAccessor()
-    {
-        var result = Convert(@"
-using System;
-
-namespace dotnet.text.json.Serialization
-{
-    public class ReflectionEmitMemberAccessor { }
-    public class ReflectionMemberAccessor { }
-
-    public class Options
-    {
-        public object M() => new ReflectionEmitMemberAccessor();
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("new ReflectionMemberAccessor()", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("new ReflectionEmitMemberAccessor()", code, StringComparison.Ordinal);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

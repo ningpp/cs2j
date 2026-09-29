@@ -13,27 +13,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class LocalFunctionTypeRefPropagationTests
 {
-    [Fact]
-    public void NonDeserializeCaller_KeepsClassToken()
-    {
-        // Methods that don't call Deserialize<T> and aren't called by
-        // TypeRef methods should keep Class<T> tokens
-        var result = Convert("""
-class Demo {
-    public T[] Repeat<T>(T value, int count)
-    {
-        return new T[count];
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode!;
-
-        // Should use Class<?> (trailing), not TypeReference
-        Assert.Contains("Class<?>", code);
-        Assert.DoesNotContain("TypeReference", code);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

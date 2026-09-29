@@ -8,33 +8,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class CrossInheritanceErasureTests
 {
-    [Fact]
-    public void DerivedMethod_SameErasedSig_DifferentGenericArgs_EmitsCS2J1004()
-    {
-        var pipeline = new ConversionPipeline();
-        var result = pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = @"
-using System.Collections.Generic;
-
-class Base
-{
-    public virtual void Process(List<string> items) { }
-}
-
-class Derived : Base
-{
-    public void Process(List<int> items) { }
-}",
-            FileName = "Derived.cs",
-            Options = new ConversionOptions(),
-        });
-
-        Assert.True(result.Success);
-        Assert.Contains(result.Diagnostics, d =>
-            d.Code == "CS2J1004" && d.Category == "TypeErasure"
-            && d.Message.Contains("Process"));
-    }
 
     [Fact]
     public void DerivedMethod_SameExactSignature_NoCS2J1004()

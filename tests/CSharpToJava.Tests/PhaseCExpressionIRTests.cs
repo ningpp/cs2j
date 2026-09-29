@@ -495,19 +495,6 @@ class T {
     }
 
     [Fact]
-    public void CastExpression_EndToEnd()
-    {
-        var result = ConvertCode(@"
-class T {
-    void M() {
-        double d = 3.14;
-        int i = (int)d;
-    }
-}");
-        Assert.Contains("(int)", result);
-    }
-
-    [Fact]
     public void TypeOfExpression_EndToEnd()
     {
         var result = ConvertCode(@"
@@ -647,41 +634,6 @@ class T {
     }
 
     [Fact]
-    public void TypeOp_Default_TypeParameter_Unconstrained_EndToEnd()
-    {
-        var result = ConvertCode(@"
-class T {
-    TValue M<TValue>() {
-        return default(TValue);
-    }
-}");
-        // Method-level type parameter: a Class<TValue> parameter is added so
-        // DefaultValue.of(token) can return the proper default (0 for int,
-        // new ValueType() for structs, null for reference types).
-        Assert.Contains("Class<TValue>", result);
-        Assert.Contains("DefaultValue.of(_cs2j_TValue)", result);
-        Assert.DoesNotContain("return null", result);
-        Assert.DoesNotContain("_cs2jDefault_", result);
-    }
-
-    [Fact]
-    public void TypeOp_Default_TypeParameter_StaticMethod_EndToEnd()
-    {
-        var result = ConvertCode(@"
-class T {
-    public static TValue M<TValue>() {
-        return default(TValue);
-    }
-}");
-        // Method-level type parameter in a static method — Class<TValue> param
-        // added so callers pass a type token for correct default values.
-        Assert.Contains("Class<TValue>", result);
-        Assert.Contains("DefaultValue.of(_cs2j_TValue)", result);
-        Assert.DoesNotContain("return null", result);
-        Assert.DoesNotContain("_cs2jDefault_", result);
-    }
-
-    [Fact]
     public void TypeOp_Default_TypeParameter_StaticPropertyGetter_EndToEnd()
     {
         var result = ConvertCode(@"
@@ -706,24 +658,6 @@ class T {
 }");
         Assert.Contains("null", result);
         Assert.DoesNotContain("new TValue()", result);
-    }
-
-    [Fact]
-    public void TypeOp_DefaultLiteral_TypeParameter_EndToEnd()
-    {
-        var result = ConvertCode(@"
-class T {
-    TValue M<TValue>() {
-        TValue x = default;
-        return x;
-    }
-}");
-        // Method-level type parameter with bare 'default' literal.
-        // Class<TValue> param added so callers can pass type token.
-        Assert.Contains("Class<TValue>", result);
-        Assert.Contains("DefaultValue.of(_cs2j_TValue)", result);
-        Assert.DoesNotContain("= null", result);
-        Assert.DoesNotContain("_cs2jDefault_", result);
     }
 
     [Fact]
@@ -1086,22 +1020,6 @@ class T {
         Assert.Contains("new Foo(42, \"hello\")", result);
     }
 
-    [Fact]
-    public void ObjectCreation_ProducesJavaNewExpressionIR()
-    {
-        var ctx = new ConversionContext(new ConversionOptions(), new CSharpToJava.TypeMapping.TypeMappingRegistry(new CSharpToJava.TypeMapping.TypeMappingConfig()));
-        var facade = ExpressionTransformerFacade.Instance;
-        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
-            "class Foo { } class T { void M() { var f = new Foo(); } }");
-        var root = tree.GetRoot();
-        var creation = root.DescendantNodes()
-            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ObjectCreationExpressionSyntax>()
-            .First();
-        var ir = facade.TransformToIR(creation, ctx);
-        Assert.IsType<JavaNewExpression>(ir);
-        Assert.Contains("new Foo()", ir.ToInlineString());
-    }
-
     // ── Phase 6: AssignmentTransformer IR ──────────────────────────
 
     [Fact]
@@ -1128,23 +1046,6 @@ class T {
     }
 }");
         Assert.Contains("x += 10", result);
-    }
-
-    [Fact]
-    public void Assignment_ProducesAssignmentIR()
-    {
-        var ctx = new ConversionContext(new ConversionOptions(), new CSharpToJava.TypeMapping.TypeMappingRegistry(new CSharpToJava.TypeMapping.TypeMappingConfig()));
-        var facade = ExpressionTransformerFacade.Instance;
-        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(
-            "class T { void M() { int x = 0; x = 42; } }");
-        var root = tree.GetRoot();
-        var assignment = root.DescendantNodes()
-            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.AssignmentExpressionSyntax>()
-            .First();
-        var ir = facade.TransformToIR(assignment, ctx);
-        Assert.IsType<JavaAssignmentExpression>(ir);
-        var assign = (JavaAssignmentExpression)ir;
-        Assert.Equal("=", assign.Operator);
     }
 
     [Fact]

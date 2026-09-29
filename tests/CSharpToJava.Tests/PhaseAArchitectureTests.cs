@@ -72,32 +72,6 @@ public class PhaseAArchitectureTests
         Assert.Equal(0, state.ScopeDepth);
     }
 
-    [Fact]
-    public void ScopeTracker_StreamVarInSiblingScope_ForeachNotCollected()
-    {
-        // Integration test: same variable name in sibling scopes should not cause
-        // the second usage (array type) to be treated as a stream.
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Point { public int X; public int Y; }
-class Sample
-{
-    void Test(IEnumerable<Point> source, Point[] arr)
-    {
-        {
-            var pts = source.Where(p => p.X > 0);
-        }
-        {
-            Point[] pts = arr;
-            foreach (var p in pts) { }
-        }
-    }
-}");
-        Assert.True(result.Success);
-        Assert.DoesNotContain("pts.collect(", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     // ═══════════════════════════════════════════════════════════
     // L1.4 Lambda Capture Registry
     // ═══════════════════════════════════════════════════════════

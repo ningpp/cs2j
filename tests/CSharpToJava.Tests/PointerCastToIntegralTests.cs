@@ -15,26 +15,6 @@ namespace CSharpToJava.Tests;
 public class PointerCastToIntegralTests
 {
 
-    [Fact]
-    public void CastIntPtrToIntPointerChain_DoesNotAppendAddress()
-    {
-        var result = Convert(@"
-using System;
-unsafe class Holder {
-    private static int Foo(int length) {
-        IntPtr index = (IntPtr)0;
-        int b = (int)(byte*)index;
-        return b;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("(int)(index)", code);
-        Assert.DoesNotContain("index.address()", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

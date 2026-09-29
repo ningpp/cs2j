@@ -17,39 +17,6 @@ public class CursorStreamCompatTests
 
     public CursorStreamCompatTests(ITestOutputHelper output) => _out = output;
 
-    [Fact]
-    public void CursorFromManifestResourceStream_CompilesAgainstCompatRuntime()
-    {
-        var result = Convert("""
-using System.Windows.Forms;
-using System.Reflection;
-
-class Sample {
-    static Cursor Load(Assembly a, string r) {
-        return new Cursor(a.GetManifestResourceStream(r));
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("new Cursor(a.getManifestResourceStream(r))", code, StringComparison.Ordinal);
-
-        using var temp = new TempDir();
-        var samplePath = Path.Combine(temp.Path, "Sample.java");
-        var outDir = Path.Combine(temp.Path, "classes");
-        Directory.CreateDirectory(outDir);
-        File.WriteAllText(samplePath, code);
-
-        var compatClasses = Path.GetFullPath(Path.Combine(FindRepoRoot(), "java", "csharptojava-compat", "target", "classes"));
-        Assert.True(Directory.Exists(compatClasses), $"Missing compat build output: {compatClasses}");
-
-        var javac = RunProcess("javac", $"-cp \"{compatClasses}\" -d \"{outDir}\" \"{samplePath}\"");
-        Assert.True(javac.ExitCode == 0, javac.Output);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

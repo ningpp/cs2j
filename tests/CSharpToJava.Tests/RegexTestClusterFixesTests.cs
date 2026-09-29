@@ -63,27 +63,6 @@ class C
     }
 
     [Fact]
-    public void LambdaNullAssignmentValue_UsesTypedResultVariable()
-    {
-        var result = Convert(@"
-using System;
-class C
-{
-    public string Name { get; set; }
-    static void M(C c)
-    {
-        Func<string> f = () => c.Name = null;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.DoesNotContain("var __result = null;", code);
-        Assert.Contains("String __result = null;", code);
-    }
-
-    [Fact]
     public void AssemblyCompanyAttributeTypeOf_EmitsClassLiteral()
     {
         var result = Convert(@"

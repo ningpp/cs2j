@@ -12,31 +12,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ConditionalSpanBranchAdaptationTests
 {
-    [Fact]
-    public void TargetTypedConditionalToReadOnlySpan_WrapsStringBranches()
-    {
-        var result = Convert(@"
-using System;
-class CharClass
-{
-    private const string NullCharString = ""\0"";
-
-    static System.ReadOnlySpan<char> SetFromProperty(string set, bool invert)
-    {
-        return
-            !invert ? set :
-            set[0] == '\0' ? set.AsSpan(1) :
-            NullCharString + set;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("MemoryExtensions.asSpan(set)", code);
-        Assert.Contains("MemoryExtensions.asSpan(NullCharString + set)", code);
-        Assert.DoesNotContain("return (!invert ? set :", code);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

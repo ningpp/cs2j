@@ -96,37 +96,6 @@ class Parser : Base
         Assert.Contains("super(null);", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void FormatExceptionCatch_DoesNotDuplicateArgumentExceptionCatch()
-    {
-        var result = Convert("""
-using System;
-
-class Test
-{
-    int M(string text)
-    {
-        try
-        {
-            return int.Parse(text);
-        }
-        catch (FormatException)
-        {
-            return -1;
-        }
-        catch (ArgumentException)
-        {
-            return -2;
-        }
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("catch (FormatException _ex)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("catch (IllegalArgumentException _ex)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

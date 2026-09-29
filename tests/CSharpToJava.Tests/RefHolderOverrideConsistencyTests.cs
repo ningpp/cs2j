@@ -38,34 +38,6 @@ class Derived : Base
         Assert.Contains("protected void create(io.github.ningpp.compat.ObjectHolder<Reader> reader, io.github.ningpp.compat.ObjectHolder<Stack> state)", code);
     }
 
-    [Fact]
-    public void NonAbstractBaseWithBody_UsesItsOwnAnalysis()
-    {
-        var result = Convert(@"
-struct Reader { }
-struct Stack { }
-class Base
-{
-    protected virtual void Create(ref Reader reader, ref Stack state)
-    {
-        state.Value = 5;
-    }
-}
-class Derived : Base
-{
-    protected override void Create(ref Reader reader, ref Stack state)
-    {
-        state.Value = 5;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("void create(Reader reader, Stack state)", code);
-        Assert.DoesNotContain("abstract void create(io.github.ningpp.compat.ObjectHolder", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

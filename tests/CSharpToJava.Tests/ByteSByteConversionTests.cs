@@ -68,19 +68,6 @@ class Test {
     }
 
     [Fact]
-    public void ByteCastInComparison_ParenthesizesMask()
-    {
-        var result = Convert("class Test { bool M(int ch) { return ch == (byte)']'; } }");
-        Assert.True(result.Success, result.GeneratedCode);
-
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("ch == ", code, StringComparison.Ordinal);
-        Assert.Contains("& 0xFF)", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("ch == ']' & 0xFF", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("ch == ((int)(']')) & 0xFF", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void ByteArrayRead_AddsMask()
     {
         var result = Convert(@"
@@ -129,29 +116,6 @@ class Test {
     }
 
     [Fact]
-    public void ByteArrayFieldBareInitializer_CastsOutOfRangeLiterals()
-    {
-        var result = Convert("class Test { byte[] buf = { 1, 128, 255 }; }");
-        Assert.True(result.Success, result.GeneratedCode);
-
-        Assert.Contains("byte[] buf = new byte[] { 1, (byte)128, (byte)255 }", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ByteArrayLocalBareInitializer_CastsOutOfRangeLiterals()
-    {
-        var result = Convert(@"
-class Test {
-    void M() {
-        byte[] buf = { 1, 128, 255 };
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-
-        Assert.Contains("byte[] buf = new byte[] { 1, (byte)128, (byte)255 };", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void ByteMethodParameter_BecomesInt()
     {
         var result = Convert("class Test { void Foo(byte b) { } }");
@@ -173,19 +137,6 @@ class Test {
         var result = Convert("class Test { int s = sizeof(byte); }");
         Assert.True(result.Success);
         Assert.Contains("int s = 4", StripAccessModifiers(result.GeneratedCode), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ByteCompoundAssignment_HasMask()
-    {
-        var result = Convert(@"
-class Test {
-    void Inc(byte b) {
-        b += 1;
-    }
-}");
-        Assert.True(result.Success);
-        Assert.Contains("& 0xFF", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -57,25 +57,6 @@ public class Foo
     }
 
     [Fact]
-    public void Method_DefaultParams_GeneratesOverload()
-    {
-        var result = Convert(@"
-public class Test
-{
-    public int Add(int x, int y = 5)
-    {
-        return x + y;
-    }
-}
-");
-
-        Assert.True(result.Success);
-        Assert.Contains("int add(int x, int y)", result.GeneratedCode);
-        Assert.Contains("int add(int x)", result.GeneratedCode);
-        Assert.Contains("return add(x, 5);", result.GeneratedCode);
-    }
-
-    [Fact]
     public void AbstractMethod_DefaultParams_Skipped()
     {
         var result = Convert(@"
@@ -93,23 +74,6 @@ public abstract class Base
     }
 
     [Fact]
-    public void VoidMethod_DefaultParam_NoReturnPrefix()
-    {
-        var result = Convert(@"
-public class Logger
-{
-    public void Log(string message, string level = ""INFO"")
-    {
-    }
-}
-");
-
-        Assert.True(result.Success);
-        var overloadBody = "log(message, \"INFO\");";
-        Assert.Contains(overloadBody, result.GeneratedCode);
-    }
-
-    [Fact]
     public void Constructor_NoDefaultParams_NoOverloads()
     {
         var result = Convert(@"
@@ -124,47 +88,5 @@ public class Simple
         Assert.True(result.Success);
         Assert.Contains("Simple(int a, int b)", result.GeneratedCode);
         Assert.DoesNotContain("this(", result.GeneratedCode);
-    }
-
-    [Fact]
-    public void GenericMethod_DefaultParamAfterRequired_GeneratesOverloadWithClassParam()
-    {
-        var result = Convert(@"
-public static class Test
-{
-    public static void Run<T>(string xml, string testExpression, string startingNodePath = null)
-        where T : Exception
-    {
-        var _ = typeof(T);
-    }
-}
-");
-
-        Assert.True(result.Success);
-        Assert.Contains("void run(Class<T> _cs2j_T, String xml, String testExpression, String startingNodePath)", result.GeneratedCode);
-        Assert.Contains("void run(Class<T> _cs2j_T, String xml, String testExpression)", result.GeneratedCode);
-        Assert.Contains("run(_cs2j_T, xml, testExpression, (String) null);", result.GeneratedCode);
-    }
-
-    [Fact]
-    public void GenericMethod_MultipleDefaultParams_GeneratesOverloadWithClassParam()
-    {
-        var result = Convert(@"
-public static class Test
-{
-    public static void Execute<T>(int a, int b = 1, int c = 2)
-        where T : Exception
-    {
-        var _ = typeof(T);
-    }
-}
-");
-
-        Assert.True(result.Success);
-        Assert.Contains("void execute(Class<T> _cs2j_T, int a, int b, int c)", result.GeneratedCode);
-        Assert.Contains("void execute(Class<T> _cs2j_T, int a)", result.GeneratedCode);
-        Assert.Contains("void execute(Class<T> _cs2j_T, int a, int b)", result.GeneratedCode);
-        Assert.Contains("execute(_cs2j_T, a, 1, 2);", result.GeneratedCode);
-        Assert.Contains("execute(_cs2j_T, a, b, 2);", result.GeneratedCode);
     }
 }

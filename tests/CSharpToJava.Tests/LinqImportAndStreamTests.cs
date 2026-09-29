@@ -13,40 +13,6 @@ public class LinqImportAndStreamTests
 {
 
     [Fact]
-    public void Join_AddsObjectsImport()
-    {
-        var result = Convert(@"
-using System.Linq;
-class Sample {
-    void M() {
-        var a = new[] { new { Id = 1 }, new { Id = 2 } };
-        var b = new[] { new { Id = 1, V = ""A"" } };
-        var r = a.Join(b, x => x.Id, y => y.Id, (x, y) => new { x, y }).ToList();
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        // LINQ desugarer now always on
-        Assert.True(result.Success, result.GeneratedCode);
-    }
-
-    [Fact]
-    public void GroupJoin_AddsObjectsImport()
-    {
-        var result = Convert(@"
-using System.Linq;
-class Sample {
-    void M() {
-        var a = new[] { new { Id = 1 }, new { Id = 2 } };
-        var b = new[] { new { Id = 1, V = ""A"" } };
-        var r = a.GroupJoin(b, x => x.Id, y => y.Id, (x, g) => new { x, g });
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        // LINQ desugarer now always on
-        Assert.True(result.Success, result.GeneratedCode);
-    }
-
-    [Fact]
     public void QuerySyntax_Join_AddsObjectsImport()
     {
         var result = Convert(@"

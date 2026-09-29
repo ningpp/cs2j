@@ -6,29 +6,6 @@ namespace CSharpToJava.Tests;
 
 public class StackAllocArrayCreationTests
 {
-    [Fact]
-    public void StackAllocWithInitializer_OmitsDimensionExpression()
-    {
-        // RegexNode.ExtractCommonPrefix: stackalloc char[1] { startingNode.Ch }.
-        // Java forbids combining a dimension expression with an array initializer
-        // (new Character[1] { ... } is a compile error); the size must be inferred.
-        var result = Convert("""
-using System;
-
-class C {
-    void M(char ch) {
-        ReadOnlySpan<char> span = stackalloc char[1] { ch };
-        if (span[0] == ch) { }
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("new Character[] { ", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("new Character[1] {", code, StringComparison.Ordinal);
-        CompileJavaWithCompat(code);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

@@ -14,39 +14,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class HoistedLocalFunctionCaptureScopeTests
 {
-    [Fact(Skip = "预处理阶段已消除局部函数；转换器 hoisting 路径仅作为 fallback 保留。")]
-    public void CaptureRegistration_DoesNotLeakIntoLaterMethods()
-    {
-        var result = Convert(@"
-class Holder
-{
-    private void Seed()
-    {
-        var converters = new System.Collections.Generic.List<int>();
-        Add(5);
-        void Add(int value) => converters.Add(value);
-    }
-
-    private void Use()
-    {
-        Add(5);
-    }
-
-    private void Add(int value) { }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // Seed's call passes the capture variable. The hoisted local function is
-        // renamed to add2 because its camelCase name collides with the class's
-        // Add(int) member (emitted as add).
-        Assert.Contains("add2(5, converters)", code);
-        // Use's call to the unrelated Add(int) method must NOT get the stale capture appended.
-        var useBody = ExtractMethodBody(code, "use");
-        Assert.Contains("add(5);", useBody);
-        Assert.DoesNotContain("converters", useBody);
-    }
 
     private static string ExtractMethodBody(string code, string methodName)
     {

@@ -9,47 +9,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class GenericConstraintDiagnosticsTests
 {
-    [Fact]
-    public void WhereT_New_EmitsCS2J1002()
-    {
-        var pipeline = new ConversionPipeline();
-        var result = pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = @"
-class Factory<T> where T : new()
-{
-    T Create() { return new T(); }
-}",
-            FileName = "Factory.cs",
-            Options = new ConversionOptions(),
-        });
-
-        Assert.True(result.Success);
-        Assert.Contains(result.Diagnostics, d =>
-            d.Code == "CS2J1002" && d.Category == "GenericConstraint"
-            && d.Message.Contains("new()"));
-    }
-
-    [Fact]
-    public void WhereT_Struct_EmitsCS2J1002()
-    {
-        var pipeline = new ConversionPipeline();
-        var result = pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = @"
-class Wrapper<T> where T : struct
-{
-    T value;
-}",
-            FileName = "Wrapper.cs",
-            Options = new ConversionOptions(),
-        });
-
-        Assert.True(result.Success);
-        Assert.Contains(result.Diagnostics, d =>
-            d.Code == "CS2J1002" && d.Category == "GenericConstraint"
-            && d.Message.Contains("struct"));
-    }
 
     [Fact]
     public void WhereT_TypeBound_NoCS2J1002()

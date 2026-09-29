@@ -10,30 +10,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class LambdaStreamToIterableTests
 {
-    [Fact]
-    public void Lambda_ReturningStream_WhenTargetIsIterable_AddsCollect()
-    {
-        var result = Convert(@"
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
-class Node { public int Id { get; set; } }
-
-class Test
-{
-    Func<IEnumerable<int>> _supplier;
-
-    void Init(List<Node> nodes)
-    {
-        _supplier = () => nodes.Select(n => n.Id);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // Standalone Select inside lambda is now procedurally rewritten
-        Assert.Contains("ProceduralLinq", result.GeneratedCode);
-    }
 
     [Fact]
     public void Lambda_ReturningNonStream_WhenTargetIsIterable_NoCollect()

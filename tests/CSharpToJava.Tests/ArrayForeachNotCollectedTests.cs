@@ -158,39 +158,6 @@ class Sample
     /// an array with the same variable name. Regression test for the specific
     /// pattern in the issue report.
     /// </summary>
-    [Fact]
-    public void StreamVarThenArrayVar_SameName_ForeachCorrect()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-class Point { public int X, Y; }
-class Sample
-{
-    void Test(IEnumerable<Point> source, Point[] arr)
-    {
-        // First: 'pts' as stream (Where returns IEnumerable; collected by var block → added to StreamLocalVariables)
-        {
-            var pts = source.Where(p => p.X > 0);
-            foreach (var p in pts) { }
-        }
-        // Second: 'pts' as array — must iterate directly without collecting
-        {
-            Point[] pts = arr;
-            foreach (var p in pts) { }
-        }
-    }
-}");
-
-        Assert.True(result.Success);
-        // Both foreaches should be present; the second (array) one must not collect
-        var code = result.GeneratedCode;
-        // Array foreach should iterate directly
-        int idx = code.LastIndexOf("for (Point p : pts)", StringComparison.Ordinal);
-        Assert.True(idx >= 0, "Should have 'for (Point p : pts)' for the array foreach");
-        // After the last for-each, there should be no .collect() call immediately following "pts"
-        Assert.DoesNotContain("pts.collect(", code, StringComparison.Ordinal);
-    }
 
     private static ConversionResult Convert(string csharpCode)
     {

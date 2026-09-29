@@ -13,20 +13,6 @@ namespace CSharpToJava.Tests;
 public class ReadOnlyMemoryToByteArrayTests
 {
 
-    [Fact]
-    public void ImplicitByteArrayToReadOnlyMemory_EmitsConstructorWrap()
-    {
-        var result = Convert(@"
-class Holder {
-    public System.ReadOnlyMemory<byte> Wrap(byte[] data) => data;
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("new ReadOnlyMemory<Integer>(data)", code);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

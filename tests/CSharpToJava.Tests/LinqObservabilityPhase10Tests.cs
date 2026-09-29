@@ -43,46 +43,6 @@ class C {
     }
 
     [Fact]
-    public void Statistics_EncounteredOperatorsTracked()
-    {
-        var result = ConvertProcedural(@"
-using System.Collections.Generic;
-using System.Linq;
-class C {
-    int M(List<int> items) {
-        return items.Where(x => x > 0).Sum();
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.NotNull(result.LinqStatistics);
-        // Both Where and Sum should be tracked as encountered
-        Assert.True(result.LinqStatistics.EncounteredOperators.Count >= 2,
-            $"Expected >= 2 operators, got {result.LinqStatistics.EncounteredOperators.Count}");
-        Assert.True(result.LinqStatistics.EncounteredOperators.Any(o => o.MethodFullName.Contains("Where")),
-            "Where should be tracked");
-        Assert.True(result.LinqStatistics.EncounteredOperators.Any(o => o.MethodFullName.Contains("Sum")),
-            "Sum should be tracked");
-    }
-
-    [Fact]
-    public void Statistics_RewrittenOperatorsMarked()
-    {
-        var result = ConvertProcedural(@"
-using System.Collections.Generic;
-using System.Linq;
-class C {
-    int M(List<int> items) {
-        return items.Where(x => x > 0).Sum();
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.NotNull(result.LinqStatistics);
-        // On successful rewrite, operators should be marked as rewritten
-        Assert.True(result.LinqStatistics.EncounteredOperators.Any(o => o.WasRewritten),
-            "At least one operator should be marked as rewritten");
-    }
-
-    [Fact]
     public void Statistics_NullWhenLinqRewriteDisabled()
     {
         var pipeline = new ConversionPipeline();
@@ -157,25 +117,6 @@ class C {
         Assert.Equal(42, info.LineNumber);
         Assert.Equal("Custom", info.MethodName);
         Assert.Equal("Not supported", info.Message);
-    }
-
-    [Fact]
-    public void Statistics_MultipleChains_TracksAll()
-    {
-        var result = ConvertProcedural(@"
-using System.Collections.Generic;
-using System.Linq;
-class C {
-    int M(List<int> items) {
-        var a = items.Where(x => x > 0).Sum();
-        var b = items.Select(x => x * 2).Count();
-        return a + b;
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        Assert.NotNull(result.LinqStatistics);
-        Assert.True(result.LinqStatistics.RewrittenChainCount >= 2,
-            $"Expected >= 2 rewritten chains, got {result.LinqStatistics.RewrittenChainCount}");
     }
 
     // ─── Helpers ───

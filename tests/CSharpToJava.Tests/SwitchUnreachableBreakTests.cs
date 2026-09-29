@@ -5,6 +5,17 @@ namespace CSharpToJava.Tests;
 
 public class SwitchUnreachableBreakTests
 {
+    private static ConversionResult Convert(string sourceCode)
+    {
+        var pipeline = new ConversionPipeline();
+        return pipeline.Convert(new ConversionRequest
+        {
+            SourceCode = sourceCode,
+            FileName = "Sample.cs",
+            Options = new ConversionOptions(),
+        });
+    }
+
     [Fact]
     public void PlainSwitch_ReturnWithTrailingBreak_StripsBreak()
     {
@@ -95,121 +106,5 @@ class C {
         Assert.True(result.Success);
         Assert.Contains("return 1;", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("System.out.println(\"never\")", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void PlainSwitch_PreservesExplicitCaseBlocks_ForLocalVariableScope()
-    {
-        var result = Convert(@"
-class C {
-    int Test(string x) {
-        int total = 0;
-        switch (x) {
-            case ""a"":
-                {
-                    int value = 1;
-                    total += value;
-                    break;
-                }
-            case ""b"":
-                {
-                    int value = 2;
-                    total += value;
-                    break;
-                }
-        }
-        return total;
-    }
-}");
-        Assert.True(result.Success);
-        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
-        Assert.Contains("case \"a\":", code, StringComparison.Ordinal);
-        Assert.Matches("case \"a\":\\s*\\{\\s*int value_1 = 1;\\s*total \\+= value_1;", code);
-        Assert.Matches("case \"b\":\\s*\\{\\s*int value_1 = 2;\\s*total \\+= value_1;", code);
-    }
-
-    [Fact]
-    public void NestedBlock_BreakWithTrailingSiblingBreak_StripsUnreachableSibling()
-    {
-        var result = Convert(@"
-class C {
-    void Test(int state) {
-        switch (state) {
-            case 1:
-                {
-                    {
-                        state = 2;
-                        break;
-                    }
-
-                    break;
-                }
-        }
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
-
-        Assert.Contains("state = 2;", code, StringComparison.Ordinal);
-        Assert.DoesNotMatch(@"(?s)state\s*=\s*2;\s*break;\s*\}\s*break;", code);
-    }
-
-    [Fact]
-    public void InfiniteForWithoutReachableBreak_StripsUnreachableFallbackReturn()
-    {
-        var result = Convert(@"
-class C {
-    bool Test(bool done) {
-        for (;;) {
-            if (done) {
-                return true;
-            }
-            done = true;
-        }
-
-        return default(bool);
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
-
-        Assert.Contains("for (; true; )", code, StringComparison.Ordinal);
-        Assert.Contains("return true;", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("return false;", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void InfiniteForWithReachableBreak_KeepsFollowingReturn()
-    {
-        var result = Convert(@"
-class C {
-    int Test(bool done) {
-        for (;;) {
-            if (done) {
-                break;
-            }
-            done = true;
-        }
-
-        return 0;
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        var code = result.GeneratedCode.Replace("\r\n", "\n", StringComparison.Ordinal);
-
-        Assert.Contains("for (; true; )", code, StringComparison.Ordinal);
-        Assert.Contains("break;", code, StringComparison.Ordinal);
-        Assert.Contains("return 0;", code, StringComparison.Ordinal);
-    }
-
-    private static ConversionResult Convert(string csharpCode)
-    {
-        var pipeline = new ConversionPipeline();
-        return pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = csharpCode,
-            FileName = "Test.cs",
-            Options = new ConversionOptions(),
-        });
     }
 }

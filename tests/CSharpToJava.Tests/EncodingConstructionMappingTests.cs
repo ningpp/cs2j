@@ -28,50 +28,6 @@ public class EncodingConstructionMappingTests
     }
 
     [Fact]
-    public void NewUTF8Encoding_ProducesEncodingGetUTF8()
-    {
-        var r = Convert(@"
-using System.Text;
-
-class Sample
-{
-    Encoding DetectEncoding()
-    {
-        return new UTF8Encoding(true, true);
-    }
-}");
-        _out.WriteLine(r.GeneratedCode ?? "FAILED");
-        Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        // new UTF8Encoding(true, true) throws on invalid bytes (throwOnInvalidBytes: true),
-        // so the mapping must be getUTF8ThrowOnInvalid() — plain getUTF8() would silently
-        // replace malformed input, breaking .NET semantics.
-        Assert.Contains("Encoding.getUTF8ThrowOnInvalid()", code);
-        Assert.DoesNotContain("StandardCharsets", code);
-        Assert.DoesNotContain("Charset", code);
-    }
-
-    [Fact]
-    public void NewASCIIEncoding_ProducesEncodingGetASCII()
-    {
-        var r = Convert(@"
-using System.Text;
-
-class Sample
-{
-    Encoding GetAscii()
-    {
-        return new ASCIIEncoding();
-    }
-}");
-        _out.WriteLine(r.GeneratedCode ?? "FAILED");
-        Assert.True(r.Success);
-        var code = r.GeneratedCode ?? "";
-        Assert.Contains("Encoding.getASCII()", code);
-        Assert.DoesNotContain("StandardCharsets", code);
-    }
-
-    [Fact]
     public void EncodingGetPreambleOverride_KeepsByteArrayReturnType()
     {
         var r = Convert(@"

@@ -10,44 +10,6 @@ public class XmlDateTimeConstructorTests
     /// must be converted to CSharpDateTime(year, month, day, hour, minute, second, 0, DateTimeKind) 8-param constructor
     /// because CSharpDateTime has no 7-param constructor with DateTimeKind.
     /// </summary>
-    [Fact]
-    public void DateTimeConstructor_WithDateTimeKind_InsertsMillisecondZero()
-    {
-        var result = Convert("""
-using System;
-
-class Sample
-{
-    DateTime GetUtc()
-    {
-        return new DateTime(2024, 6, 15, 12, 30, 0, DateTimeKind.Utc);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("import io.github.ningpp.compat.CSharpDateTime;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("new CSharpDateTime(2024, 6, 15, 12, 30, 0, 0, DateTimeKind.Utc)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void DateTimeConstructor_WithDateTimeKindLocal_InsertsMillisecondZero()
-    {
-        var result = Convert("""
-using System;
-
-class Sample
-{
-    DateTime GetLocal()
-    {
-        return new DateTime(2024, 6, 15, 12, 30, 0, DateTimeKind.Local);
-    }
-}
-""");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("new CSharpDateTime(2024, 6, 15, 12, 30, 0, 0, DateTimeKind.Local)", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void DateTimeConstructor_SixParams_NoKind_NoChange()

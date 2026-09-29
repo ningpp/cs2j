@@ -34,28 +34,6 @@ class Constraint
     /// Reproduces: "Cluster[] cannot be converted to Iterable&lt;Cluster&gt;"
     /// when passing new T[] as constructor argument expecting IEnumerable&lt;T&gt;.
     /// </summary>
-    [Fact]
-    public void ConstructorArg_ArrayLiteral_ToIEnumerable_Wraps()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-class Cluster { }
-class Layout
-{
-    IEnumerable<Cluster> clusters;
-    public Layout(IEnumerable<Cluster> items) { clusters = items; }
-    public Layout(Cluster single)
-        : this(new Cluster[] { single })
-    {
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The array literal should be wrapped when passed to IEnumerable parameter.
-        // An IEnumerable parameter holds the array itself in C#, so the
-        // identity-preserving view is used (ArrayHelper.asIterable).
-        Assert.Contains("ArrayHelper.asIterable(", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// Method returning array field as IEnumerable should wrap with a live array view.

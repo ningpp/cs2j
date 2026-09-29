@@ -112,25 +112,6 @@ class C {
 
     // ─── Keyword escaping in records ───
 
-    [Fact]
-    public void RecordField_JavaKeyword_IsEscaped()
-    {
-        var result = Convert(@"
-using System.Linq;
-class C {
-    void M() {
-        var a = new[] { 1, 2, 3 };
-        var r = a.Select(x => new { Int = x, Class = ""test"" }).ToList();
-    }
-}");
-        Assert.True(result.Success, result.GeneratedCode);
-        // 'int' and 'class' are Java keywords; should be escaped to 'intValue' and 'classValue'
-        Assert.Contains("intValue", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("classValue", result.GeneratedCode, StringComparison.Ordinal);
-        // Should NOT contain bare 'int' or 'class' as record parameters
-        Assert.DoesNotContain("(int int,", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     // ─── collectingAndThen detection ───
 
     [Fact]

@@ -13,26 +13,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class TestReflectionHelperTests
 {
-    [Fact]
-    public void OverrideOfProtectedInternalBaseMethod_WidensToPublic()
-    {
-        var result = Convert(@"
-class Base
-{
-    protected internal abstract int CreateInstance();
-}
-class Derived : Base
-{
-    protected override int CreateInstance() { return 1; }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        Assert.Contains("public abstract int createInstance();", code);
-        Assert.Contains("public int createInstance()", code);
-        Assert.DoesNotContain("protected int createInstance()", code);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

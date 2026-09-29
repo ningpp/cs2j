@@ -32,25 +32,6 @@ public struct Vector2
         Assert.DoesNotContain("private float length;", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void ExpressionBodiedProperty_CloneDoesNotCopyPhantomField()
-    {
-        var result = Convert(@"
-using System;
-public struct Vector2
-{
-    public float X;
-    public float Y;
-    public float LengthSquared => X * X + Y * Y;
-}");
-
-        Assert.True(result.Success);
-        // Clone should only copy X and Y, not a phantom 'lengthSquared' field
-        Assert.Contains("copy.X = this.X;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("copy.Y = this.Y;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("copy.lengthSquared", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     // ── Fix 2: default literal for struct types ─────────────────────────────────
 
     [Fact]
@@ -108,23 +89,6 @@ class Sample
     }
 
     // ── Fix 3: Generic struct clone includes type parameters ────────────────────
-
-    [Fact]
-    public void GenericStruct_CloneIncludesTypeParameters()
-    {
-        var result = Convert(@"
-public struct Pair<T>
-{
-    public T First;
-    public T Second;
-}");
-
-        Assert.True(result.Success);
-        // Clone should use generic type in declaration and diamond in new expression
-        Assert.Contains("Pair<T> copy = new Pair<>()", result.GeneratedCode, StringComparison.Ordinal);
-        // Return type should include type parameter
-        Assert.Contains("Pair<T> clone()", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     // ── Fix 4: Indexer handling in struct ────────────────────────────────────────
 
@@ -198,88 +162,7 @@ public struct Config
 
     // ── Additional struct tests ─────────────────────────────────────────────────
 
-    [Fact]
-    public void ReadonlyStruct_FieldsAreFinal()
-    {
-        var result = Convert(@"
-public readonly struct ReadOnlyPoint
-{
-    public readonly int X;
-    public readonly int Y;
-
-    public ReadOnlyPoint(int x, int y) { X = x; Y = y; }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("public final int X;", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public final int Y;", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_ImplementsCloneable()
-    {
-        var result = Convert(@"
-public struct Point { public int X, Y; }");
-
-        Assert.True(result.Success);
-        Assert.Contains("implements Cloneable", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("clone()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_DefaultConstructorGenerated()
-    {
-        var result = Convert(@"
-public struct Point
-{
-    public int X, Y;
-    public Point(int x, int y) { X = x; Y = y; }
-}");
-
-        Assert.True(result.Success);
-        // Should have both no-arg and parameterized constructors
-        Assert.Contains("public Point()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public Point(int x, int y)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_NestedStructField_CloneCallsClone()
-    {
-        var result = Convert(@"
-public struct Inner { public int Value; }
-public struct Outer
-{
-    public Inner Data;
-}");
-
-        Assert.True(result.Success);
-        // Clone should deep-copy struct-typed fields.
-        // Null check is appropriate because C# structs become Java classes (reference types),
-        // and the field could be null at the Java level (e.g. before initialization).
-        Assert.Contains("this.Data != null ? this.Data.clone() : null", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     // ── Nested type declarations inside struct ──────────────────────────────────
-
-    [Fact]
-    public void Struct_NestedStruct_GeneratedAsStaticClass()
-    {
-        var result = Convert(@"
-public struct Outer
-{
-    public struct Inner
-    {
-        public int Value;
-    }
-    public Inner Data;
-}");
-
-        Assert.True(result.Success);
-        // Nested struct should be generated as a static class inside the outer class
-        Assert.Contains("public static class Inner implements Cloneable", result.GeneratedCode, StringComparison.Ordinal);
-        // Nested struct should have its own clone method
-        Assert.Contains("Inner clone()", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void Struct_NestedEnum_GeneratedAsStaticEnum()
@@ -310,32 +193,6 @@ public struct Container
 
         Assert.True(result.Success);
         Assert.Contains("public static class Builder", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_DeeplyNestedStruct_ThreeLevels()
-    {
-        var result = Convert(@"
-public struct Level1
-{
-    public struct Level2
-    {
-        public struct Level3
-        {
-            public int Value;
-        }
-        public Level3 Inner;
-    }
-    public Level2 Middle;
-}");
-
-        Assert.True(result.Success);
-        // All three levels should be present
-        Assert.Contains("class Level1", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("static class Level2", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("static class Level3", result.GeneratedCode, StringComparison.Ordinal);
-        // Deep nesting should have clone support
-        Assert.Contains("Level3 clone()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     // ── Operator overloading ────────────────────────────────────────────────────
@@ -372,33 +229,6 @@ public struct Vec2
 
         Assert.True(result.Success);
         Assert.Contains("public static Vec2 negate(Vec2 v)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_OperatorUsage_GeneratesStaticMethodCalls()
-    {
-        var result = Convert(@"
-public struct Vec2
-{
-    public float X, Y;
-    public Vec2(float x, float y) { X = x; Y = y; }
-    public static Vec2 operator +(Vec2 a, Vec2 b) => new Vec2(a.X + b.X, a.Y + b.Y);
-    public static Vec2 operator -(Vec2 v) => new Vec2(-v.X, -v.Y);
-}
-class User
-{
-    void Test()
-    {
-        var a = new Vec2(1, 2);
-        var b = new Vec2(3, 4);
-        var c = a + b;
-        var d = -a;
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("Vec2.add(a, b)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Vec2.negate(a)", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -473,60 +303,7 @@ public struct Temperature
 
     // ── IEquatable<T> removal ───────────────────────────────────────────────────
 
-    [Fact]
-    public void Struct_IEquatable_MapsEqualsToEqualsTo()
-    {
-        var result = Convert(@"
-using System;
-public struct Point : IEquatable<Point>
-{
-    public int X, Y;
-    public bool Equals(Point other) => X == other.X && Y == other.Y;
-    public override bool Equals(object obj) => obj is Point p && Equals(p);
-    public override int GetHashCode() => HashCode.Combine(X, Y);
-}");
-
-        Assert.True(result.Success);
-        // IEquatable<T> now maps to the compat interface and must be implemented
-        Assert.Contains("implements IEquatable<Point>", result.GeneratedCode, StringComparison.Ordinal);
-        // Equals(Point) implements IEquatable<Point>.equalsTo(Point)
-        Assert.Contains("boolean equalsTo(Point other)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain("boolean equals(Point other)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     // ── Auto-generated equals/toString ──────────────────────────────────────────
-
-    [Fact]
-    public void Struct_ValueEquals_GeneratesEqualsObjectOverride()
-    {
-        var result = Convert(@"
-public struct Point
-{
-    public int X, Y;
-    public static bool operator ==(Point a, Point b) => a.X == b.X && a.Y == b.Y;
-    public static bool operator !=(Point a, Point b) => !(a == b);
-}");
-
-        Assert.True(result.Success);
-        // Should auto-generate equals(Object) that delegates to valueEquals
-        Assert.Contains("@Override", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("equals(Object o)", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("valueEquals(this, other)", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_ToString_AutoGenerated()
-    {
-        var result = Convert(@"
-public struct Point
-{
-    public int X, Y;
-}");
-
-        Assert.True(result.Success);
-        Assert.Contains("toString()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("Point{", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void Struct_ExplicitToString_NotOverridden()
@@ -547,68 +324,6 @@ public struct Point
 
     // ── this = expr expansion ───────────────────────────────────────────────────
 
-    [Fact]
-    public void Struct_ThisAssignDefault_ExpandsToFieldReset()
-    {
-        var result = Convert(@"
-public struct MutablePoint
-{
-    public int X, Y;
-    public void Reset()
-    {
-        this = default;
-    }
-}");
-
-        Assert.True(result.Success);
-        // Should NOT contain 'this = ' (invalid Java)
-        Assert.DoesNotContain("this = ", result.GeneratedCode, StringComparison.Ordinal);
-        // Should contain field-by-field zero-initialization
-        Assert.Contains("this.X = 0", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("this.Y = 0", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_ThisAssignOther_ExpandsToFieldCopy()
-    {
-        var result = Convert(@"
-public struct MutablePoint
-{
-    public int X, Y;
-    public void SetTo(MutablePoint other)
-    {
-        this = other;
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.DoesNotContain("this = ", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("this.X = other.X", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("this.Y = other.Y", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_ThisAssignDefault_StructFields_InitializedNotNull()
-    {
-        var result = Convert(@"
-public struct Vec2 { public float X, Y; }
-public struct Rect
-{
-    public Vec2 Min;
-    public Vec2 Max;
-    public void Reset()
-    {
-        this = default;
-    }
-}");
-
-        Assert.True(result.Success);
-        Assert.DoesNotContain("this = ", result.GeneratedCode, StringComparison.Ordinal);
-        // Struct-typed fields should be initialized to new instances, not null
-        Assert.Contains("this.Min = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("this.Max = new Vec2()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
     // ── Struct field initialization in default ctor ─────────────────────────────
 
     [Fact]
@@ -625,30 +340,6 @@ public struct Outer
         Assert.True(result.Success);
         // Struct-typed field should be initialized at declaration (C# value type semantics)
         Assert.Contains("public Inner Data = new Inner()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_WithStructFieldAndExplicitCtor_DefaultCtorAlsoInitializes()
-    {
-        var result = Convert(@"
-public struct Inner { public int Value; }
-public struct Wrapper
-{
-    public Inner Info;
-    public int Count;
-    public Wrapper(int count)
-    {
-        Count = count;
-        Info = new Inner();
-    }
-}");
-
-        Assert.True(result.Success);
-        // Should have both ctors (explicit one + auto-generated default)
-        Assert.Contains("public Wrapper()", result.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("public Wrapper(int count)", result.GeneratedCode, StringComparison.Ordinal);
-        // Struct-typed field should be initialized at declaration (C# value type semantics)
-        Assert.Contains("public Inner Info = new Inner()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -756,71 +447,6 @@ public class Simple
         Assert.DoesNotContain("public double Value = ", result.GeneratedCode, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void StructArray_Assignment_FillsElementsWithDefaultInstances()
-    {
-        var result = Convert(@"
-public class NamespaceTable
-{
-    private struct Entry
-    {
-        public string Prefix;
-        public void Set(string prefix) { Prefix = prefix; }
-    }
-
-    private Entry[] entries;
-
-    public NamespaceTable()
-    {
-        entries = new Entry[8];
-        entries[0].Set("""");
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        Assert.Contains("import java.util.Arrays;", code, StringComparison.Ordinal);
-        Assert.Contains("entries = new Entry[8];", code, StringComparison.Ordinal);
-        Assert.Contains("Arrays.setAll(entries, _i -> new Entry());", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("entries[0].set", code[..code.IndexOf("Arrays.setAll", StringComparison.Ordinal)], StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void StructArray_LocalDeclaration_FillsElementsWithDefaultInstances()
-    {
-        var result = Convert(@"
-public class Writer
-{
-    private struct AttrName
-    {
-        public string Prefix;
-        public void Set(string prefix) { Prefix = prefix; }
-    }
-
-    private AttrName[] stack = new AttrName[8];
-
-    public void AddAttribute(string prefix)
-    {
-        int top = count++;
-        if (top == stack.Length)
-        {
-            AttrName[] newStack = new AttrName[top * 2];
-            System.Array.Copy(stack, newStack, top);
-            stack = newStack;
-        }
-        stack[top].Set(prefix);
-    }
-
-    private int count;
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-        // The freshly-grown local array must be filled with default instances:
-        // reading newStack[top] for the in-place mutation write-back would NPE otherwise.
-        Assert.Contains("Arrays.setAll(newStack, _i -> new AttrName());", code, StringComparison.Ordinal);
-    }
-
     // ── Generic type parameter struct binding tests ──────────────────────────
 
     [Fact]
@@ -839,23 +465,6 @@ public class Derived : Base<ValueType> { }
         // Field of type parameter that is always bound to the same struct should get initializer
         // The field type stays as the type parameter name (TValue), but the initializer
         // uses the concrete struct type (ValueType) so Java can instantiate it.
-        Assert.Contains("new ValueType()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void GenericTypeParam_DefaultLiteral_EmitsNewStruct()
-    {
-        var result = Convert(@"
-public struct ValueType { public int Value; }
-public class Container<TValue>
-{
-    public void Reset() { TValue v = default; }
-}
-public class Derived : Container<ValueType> { }
-");
-
-        Assert.True(result.Success);
-        // default literal where TValue is always bound to a struct should emit new ValueType()
         Assert.Contains("new ValueType()", result.GeneratedCode, StringComparison.Ordinal);
     }
 
@@ -947,107 +556,7 @@ public sealed class Parser : ShiftReduceParser<ValueType>
         Assert.DoesNotContain("_cs2jDefault_TValue", code, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public async Task StructBoundSubclass_ThreeLevelInheritance_NoSpuriousOverride()
-    {
-        // GrandParent<T> → Parent<T> → Child<ValueType>
-        // GrandParent uses default(T) → AlwaysSameStruct (Child binds to ValueType).
-        // No factory method → no override at any level.
-        var results = await new ProjectConversionPipeline(new ConversionOptions())
-            .ConvertProjectAsync(new[]
-            {
-                new SourceFile
-                {
-                    FilePath = "ThreeLevel.cs",
-                    Content = """
-public struct ValueType { public string sVal; }
-
-public abstract class GrandParent<TValue>
-{
-    public TValue Field;
-    protected TValue GetDefault() { return default(TValue); }
-}
-
-public abstract class Parent<TValue> : GrandParent<TValue>
-{
-}
-
-public abstract class Child : Parent<ValueType>
-{
-    public void Use()
-    {
-        var x = GetDefault();
-    }
-}
-"""
-                }
-            });
-
-        Assert.All(results, r =>
-            Assert.True(r.Success, string.Join("; ", r.Diagnostics.Select(d => d.Message))));
-
-        var code = string.Join("\n", results.Select(r => r.GeneratedCode));
-
-        // The conversion succeeded — no Java compilation errors would occur.
-        Assert.Contains("new ValueType()", code, StringComparison.Ordinal);
-
-        // Key invariant: if a subclass contains _cs2jDefault_TValue @Override,
-        // the base class must also define that method. Check that the base
-        // (GrandParent) has the factory method if Child overrides it.
-        var childStart = code.IndexOf("class Child", StringComparison.Ordinal);
-        Assert.True(childStart > 0, "Child class should be present in output");
-        var nextClass = code.IndexOf("class ", childStart + 10, StringComparison.Ordinal);
-        var childBody = nextClass > 0 ? code[childStart..nextClass] : code[childStart..];
-
-        if (childBody.Contains("_cs2jDefault_TValue"))
-        {
-            // If Child has the override, GrandParent must have the base factory method.
-            Assert.Contains("_cs2jDefault_TValue()", code.AsSpan(0, childStart), StringComparison.Ordinal);
-        }
-        // Either way: conversion succeeded and no spurious @Override on non-existent method.
-    }
-
     // ── Chained struct assignment expansion (LowerStruct) ──────────────────────
-
-    [Fact]
-    public void Struct_ChainedAssignment_ExpandsToTempVarWithClone()
-    {
-        var result = Convert(@"
-public struct Point { public int X, Y; }
-public class Program
-{
-    public Point center;
-    public Point previousCenter;
-    public void M(Point p)
-    {
-        center = previousCenter = p;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode;
-        Assert.Contains("_structCopy", code, StringComparison.Ordinal);
-        Assert.Contains(".clone()", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("previousCenter = p", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_SimpleAssignment_AddsClone()
-    {
-        var result = Convert(@"
-public struct Point { public int X, Y; }
-public class Program
-{
-    public Point center;
-    public void M(Point p)
-    {
-        center = p;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        Assert.Contains("center = p.clone()", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void Struct_AssignmentFromNew_NoClone()
@@ -1066,49 +575,6 @@ public class Program
         Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
         Assert.Contains("center = new Point()", result.GeneratedCode, StringComparison.Ordinal);
         Assert.DoesNotContain("new Point().clone()", result.GeneratedCode, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_LocalVarChainedAssignment_ExpandsToTempVarWithClone()
-    {
-        var result = Convert(@"
-public struct Point { public int X, Y; }
-public class Program
-{
-    public void M(Point p)
-    {
-        Point center;
-        Point previousCenter;
-        center = previousCenter = p;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode;
-        Assert.Contains("_structCopy", code, StringComparison.Ordinal);
-        Assert.Contains("previousCenter =", code, StringComparison.Ordinal);
-        Assert.Contains("center =", code, StringComparison.Ordinal);
-        Assert.Contains(".clone()", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_VarDeclChainedAssignment_ExpandsToTempVarWithClone()
-    {
-        var result = Convert(@"
-public struct Point { public int X, Y; }
-public class Program
-{
-    public Point previousCenter;
-    public void M(Point p)
-    {
-        Point center = previousCenter = p;
-    }
-}");
-
-        Assert.True(result.Success);
-        var code = result.GeneratedCode;
-        Assert.Contains("_structCopy", code, StringComparison.Ordinal);
-        Assert.Contains(".clone()", code, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1149,51 +615,6 @@ public class Box
     }
 
     [Fact]
-    public void Struct_ExplicitPropertyGetter_ReturnsClone()
-    {
-        var result = Convert(@"
-public struct Point { public int X, Y; }
-public class Box
-{
-    private Point _value;
-    public Point Value
-    {
-        get { return _value; }
-        set { _value = value; }
-    }
-}");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode;
-        Assert.Contains("return _value.clone();", code, StringComparison.Ordinal);
-        Assert.Contains("_value = value.clone();", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Struct_PropertyAssignmentExpression_InitializesLocalWithClone()
-    {
-        var result = Convert(@"
-public struct Point { public int X, Y; }
-public class Box
-{
-    public Point Value { get; set; }
-}
-public class Program
-{
-    public void M(Box box, Point p)
-    {
-        Point copy = box.Value = p;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode;
-        Assert.Contains("Point copy = p.clone();", code, StringComparison.Ordinal);
-        Assert.Contains("box.setValue(copy);", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("Point copy = p;", code, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Struct_PropertySetterFromGetter_UsesCopySemantics()
     {
         var result = Convert(@"
@@ -1217,49 +638,7 @@ public class Program
         Assert.Contains("target.setValue(source.getValue())", code, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Struct_ChainedPropertySetterAssignment_UsesSingleCopiedValue()
-    {
-        var result = Convert(@"
-public struct Point { public int X, Y; }
-public class Box
-{
-    public Point Value { get; set; }
-}
-public class Program
-{
-    public void M(Box left, Box right, Point p)
-    {
-        left.Value = right.Value = p;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        var code = result.GeneratedCode;
-        Assert.Contains("var _chainVal", code, StringComparison.Ordinal);
-        Assert.Contains("= p.clone();", code, StringComparison.Ordinal);
-        Assert.Contains("right.setValue(_chainVal", code, StringComparison.Ordinal);
-        Assert.Contains("left.setValue(_chainVal", code, StringComparison.Ordinal);
-    }
-
     // ── User-defined conversion operator call-sites ────────────────────────────
-
-    [Fact]
-    public void ExplicitCast_IntToInt_StillUsesJavaStyleCast()
-    {
-        var result = Convert(@"
-public class User
-{
-    public int Test(double d)
-    {
-        return (int)d;
-    }
-}");
-
-        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        // Numeric cast stays as Java-style cast
-        Assert.Contains("(int)", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

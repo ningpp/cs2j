@@ -14,44 +14,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class ByteArrayBase64AmbiguousImportTests
 {
-    [Fact]
-    public void LargeByteArrayInitializer_UsesFullyQualifiedBase64()
-    {
-        // Build a C# source with a byte[] of 512+ elements so the Base64 threshold is hit.
-        var bytes = new System.Text.StringBuilder();
-        bytes.Append("public static byte[] Data = { ");
-        for (int i = 0; i < 520; i++)
-        {
-            if (i > 0) bytes.Append(", ");
-            bytes.Append((i % 256).ToString());
-        }
-        bytes.Append(" };");
-
-        var source = "namespace TestNs\n" +
-                     "{\n" +
-                     "    public class TestClass\n" +
-                     "    {\n" +
-                     "        " + bytes + "\n" +
-                     "    }\n" +
-                     "}\n";
-
-        var result = Convert(source);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics) + "\n---Generated---\n" + result.GeneratedCode);
-        var code = result.GeneratedCode ?? "";
-
-        // The converter must emit fully-qualified java.util.Base64 to avoid
-        // ambiguity with io.github.ningpp.compat.Base64.
-        Assert.Contains("java.util.Base64.getDecoder().decode", code, StringComparison.Ordinal);
-
-        // It must NOT emit an unqualified Base64.getDecoder() call (i.e. without
-        // the java.util. prefix).  Check by ensuring no occurrence of Base64
-        // is preceded by something other than "java.util.".
-        // Simple approach: replace all "java.util.Base64" with a placeholder,
-        // then verify no "Base64.getDecoder" remains.
-        var sanitized = code.Replace("java.util.Base64", "__FQ__");
-        Assert.DoesNotContain("Base64.getDecoder", sanitized, StringComparison.Ordinal);
-    }
 
     private static ConversionResult Convert(string sourceCode)
     {

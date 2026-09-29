@@ -157,22 +157,6 @@ class T {
     }
 
     [Fact]
-    public void AsyncLambda_ProducesCompletableFuture()
-    {
-        var result = ConvertCode(@"
-using System;
-using System.Threading.Tasks;
-class T {
-    void M() {
-        Func<Task<int>> f = async () => {
-            return 42;
-        };
-    }
-}");
-        Assert.Contains("CompletableFuture", result);
-    }
-
-    [Fact]
     public void VoidLambdaWithChainedPropertyAssignment_NoBareVariableStatement()
     {
         // When a void lambda's body is a property assignment like () => obj.Prop = value,

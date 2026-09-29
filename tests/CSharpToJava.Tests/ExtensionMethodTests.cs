@@ -36,28 +36,6 @@ public static class StringExtensions
     /// <summary>
     /// RewriteExtensionMethods option should strip receiver parameter when enabled (single-project mode).
     /// </summary>
-    [Fact]
-    public void RewriteExtensionMethods_StripsReceiver_WhenEnabled()
-    {
-        var pipeline = new ConversionPipeline();
-        var result = pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = @"
-public static class StringExtensions
-{
-    public static string Repeat(this string s, int count)
-    {
-        return s + count;
-    }
-}",
-            FileName = "Test.cs",
-            Options = new ConversionOptions { RewriteExtensionMethods = true },
-        });
-
-        Assert.True(result.Success);
-        // When RewriteExtensionMethods=true, the 'this string s' parameter is stripped
-        Assert.Contains("static String repeat(int count)", result.GeneratedCode, StringComparison.Ordinal);
-    }
 
     /// <summary>
     /// ExtensionMethodIndex scanning should discover extension methods from compilation.

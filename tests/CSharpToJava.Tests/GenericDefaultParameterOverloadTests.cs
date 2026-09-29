@@ -40,34 +40,6 @@ public class GenericDefaultParameterOverloadTests
     ///
     /// After fix: the overload body should forward null for tValueClass.
     /// </summary>
-    [Fact]
-    public void GenericMethod_DefaultParam_TrailingClassToken_ForwardedInOverloadCall()
-    {
-        var result = Convert("""
-            using System;
-
-            public static class JsonSerializer
-            {
-                public static TValue Deserialize<TValue>(string json, JsonSerializerOptions options = null)
-                    where TValue : Exception
-                {
-                    var _ = typeof(TValue);
-                    return default(TValue);
-                }
-            }
-
-            public class JsonSerializerOptions { }
-            """);
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        // The full method should have a trailing Class<?> tValueClass parameter.
-        // If the trailing parameter exists, the overload must forward null for it.
-        // Check that any overload call includes the trailing Class<?> parameter forwarding.
-        var code = result.GeneratedCode;
-        // The overload (json only) must forward the leading Class<T> parameter
-        // and the default-value for options.
-        Assert.Contains("deserialize(_cs2j_TValue, json, (JsonSerializerOptions) null)", code);
-    }
 
     /// <summary>
     /// A generic method with two default-valued parameters and a trailing

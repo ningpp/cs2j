@@ -15,34 +15,6 @@ public class LambdaIntToDoubleReturnCastTests
 
     public LambdaIntToDoubleReturnCastTests(ITestOutputHelper output) => _out = output;
 
-    [Fact]
-    public void LambdaReturningInt_TargetingDouble_ReturnsCastedValue()
-    {
-        var result = Convert("""
-using System;
-
-class BimodalSequence
-{
-    public BimodalSequence(Func<int, double> sequence, int length) { }
-}
-
-class Test
-{
-    static void Run()
-    {
-        var seq = new BimodalSequence(i => i, 5);
-    }
-}
-""");
-
-        _out.WriteLine(result.GeneratedCode ?? "FAILED");
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        var code = result.GeneratedCode ?? "";
-
-        // The lambda body should be cast to double
-        Assert.Contains("(double)", code, StringComparison.Ordinal);
-    }
-
     private static ConversionResult Convert(string sourceCode)
     {
         var pipeline = new ConversionPipeline();

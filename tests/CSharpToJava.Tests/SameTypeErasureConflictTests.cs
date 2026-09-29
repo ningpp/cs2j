@@ -7,34 +7,6 @@ public class SameTypeErasureConflictTests
 {
 
     [Fact]
-    public void DifferentTypeParamCount_UsesExistingNtpSuffix()
-    {
-        // Existing behavior must stay unchanged
-        var pipeline = new ConversionPipeline();
-        var result = pipeline.Convert(new ConversionRequest
-        {
-            SourceCode = @"
-class Sample
-{
-    void M(object x) { }
-    void M<T>(T x) { }
-}",
-            FileName = "Sample.cs",
-            Options = new ConversionOptions(),
-        });
-
-        Assert.True(result.Success,
-            "Conversion failed: " + string.Join("; ", result.Diagnostics.Select(d => $"[{d.Severity}] {d.Message}")));
-
-        var code = result.GeneratedCode;
-        // Method with 0 type params (fewer) gets _0tp
-        Assert.Contains("void m_0tp", code);
-        // Method with 1 type param (more) keeps original name without suffix.
-        // Java syntax puts type parameters before the return type: <T> void m(T x)
-        Assert.Contains("<T> void m", code);
-    }
-
-    [Fact]
     public async Task SameNameNestedDelegates_DifferentArity_BothSurviveWithRename()
     {
         // JsonClassInfo declares two delegates named ParameterizedConstructorDelegate

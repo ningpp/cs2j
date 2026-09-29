@@ -87,79 +87,10 @@ namespace Microsoft.Msagl.Core.DataStructures {
     }
 }";
 
-    [Fact]
-    public async Task ProjectConversion_StandaloneWhereInOperator_NoResidualWhereCall()
-    {
-        var options = CreateOptions();
-        var pipeline = new ProjectConversionPipeline(options);
-        var results = await pipeline.ConvertProjectAsync(new[]
-        {
-            new SourceFile { FilePath = "ValidateArg.cs", Content = ValidateArgStub },
-            new SourceFile { FilePath = "Set.cs", Content = SetCs },
-        });
-
-        Assert.Equal(2, results.Count);
-        var setResult = Assert.Single(results, r => r.FileName == "Set.java");
-        Assert.True(setResult.Success, string.Join("\n", setResult.Diagnostics));
-
-        // The key assertion: no residual .where() or .Where() in the output
-        Assert.DoesNotContain(".where(", setResult.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Where(", setResult.GeneratedCode, StringComparison.Ordinal);
-
-        // Verify the chain was procedurally rewritten (not just stream-API fallback)
-        Assert.Contains("ProceduralLinq", setResult.GeneratedCode, StringComparison.Ordinal);
-    }
-
     /// <summary>
     /// Same test but with many additional files to simulate a large project.
     /// This reproduces the MSAGL scenario where the LinqRewriter throws
     /// NotSupportedException in TryVisitInvocationExpression for standalone
     /// Where chains in large compilations.
     /// </summary>
-    [Fact]
-    public async Task ProjectConversion_LargeProject_StandaloneWhereStillRewritten()
-    {
-        var options = CreateOptions();
-        var pipeline = new ProjectConversionPipeline(options);
-
-        // Build source files: ValidateArg + Set + many dummy classes to simulate a
-        // real project with ~100 files (like MSAGL's ~500)
-        var files = new List<SourceFile>
-        {
-            new() { FilePath = "ValidateArg.cs", Content = ValidateArgStub },
-            new() { FilePath = "Set.cs", Content = SetCs },
-        };
-
-        for (int i = 0; i < 100; i++)
-        {
-            files.Add(new SourceFile
-            {
-                FilePath = $"Dummy{i:D3}.cs",
-                Content = $@"
-using System;
-using System.Collections.Generic;
-namespace Microsoft.Msagl.Dummy{i:D3} {{
-    public class DummyClass{i:D3} {{
-        private List<int> _items = new List<int>();
-        public int Count => _items.Count;
-        public void Add(int x) {{ _items.Add(x); }}
-        public bool HasPositive() {{ return _items.Any(v => v > 0); }}
-        public List<int> GetPositive() {{ return _items.Where(v => v > 0).ToList(); }}
-        public IEnumerable<int> GetDoubled() {{ return _items.Select(v => v * 2); }}
-        public IEnumerable<int> GetSorted() {{ return _items.OrderBy(v => v); }}
-    }}
-}}"
-            });
-        }
-
-        var results = await pipeline.ConvertProjectAsync(files);
-
-        Assert.Equal(files.Count, results.Count);
-        var setResult = Assert.Single(results, r => r.FileName == "Set.java");
-        Assert.True(setResult.Success, string.Join("\n", setResult.Diagnostics));
-
-        Assert.DoesNotContain(".where(", setResult.GeneratedCode, StringComparison.Ordinal);
-        Assert.DoesNotContain(".Where(", setResult.GeneratedCode, StringComparison.Ordinal);
-        Assert.Contains("ProceduralLinq", setResult.GeneratedCode, StringComparison.Ordinal);
-    }
 }

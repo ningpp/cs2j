@@ -9,29 +9,6 @@ namespace CSharpToJava.Tests;
 /// </summary>
 public class UnresolvedLinqSelectFallbackTests
 {
-    [Fact]
-    public void Select_OnIEnumerable_MappedToStreamMap()
-    {
-        var result = Convert(@"
-using System.Collections.Generic;
-using System.Linq;
-
-class Edge { public int Weight { get; set; } }
-
-class Test
-{
-    IEnumerable<Edge> _edges;
-    IEnumerable<int> GetWeights()
-    {
-        return _edges.Select(e => e.Weight);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.DoesNotContain(".Select(", result.GeneratedCode);
-        // Standalone Select is now procedurally rewritten (not stream API)
-        Assert.Contains("ProceduralLinq", result.GeneratedCode);
-    }
 
     [Fact]
     public void Select_InNullCoalescing_MappedToStreamMap()

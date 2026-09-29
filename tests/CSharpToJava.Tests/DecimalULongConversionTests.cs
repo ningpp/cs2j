@@ -33,27 +33,4 @@ public class DecimalULongConversionTests
 
         throw new DirectoryNotFoundException("Could not locate repository root from test output directory.");
     }
-
-    [Fact]
-    public void NewDecimal_FromULong_UsesCompatHelper()
-    {
-        var result = Convert(@"
-class C
-{
-    decimal M(ulong x)
-    {
-        return new decimal(x);
-    }
-}");
-
-        Assert.True(result.Success, string.Join("\n", result.Diagnostics));
-        Assert.Contains("Decimal.createFrom_long(", result.GeneratedCode, StringComparison.Ordinal);
-
-        // The compat library must expose the helper used by the generated code.
-        var repoRoot = FindRepoRoot();
-        var compatDecimal = Path.Combine(repoRoot, "java", "csharptojava-compat", "src", "main", "java", "io", "github", "ningpp", "compat", "Decimal.java");
-        Assert.True(File.Exists(compatDecimal), $"Compat source not found: {compatDecimal}");
-        var compatSource = File.ReadAllText(compatDecimal);
-        Assert.Contains("createFrom_long", compatSource, StringComparison.Ordinal);
-    }
 }

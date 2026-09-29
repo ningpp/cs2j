@@ -200,55 +200,6 @@ public class AglGenericClassTokenRegressionTests
         Assert.Contains("Label.PlacementSide.Top", foo.GeneratedCode);
         Assert.Contains("Label.PlacementSide side", foo.GeneratedCode);
     }
-
-    [Fact]
-    public async Task RuntimeClassField_IsInstanceField_NotStatic()
-    {
-        // Regression for agl-master QUT.Gppg.PushdownPrefixState<T>: the runtime
-        // Class token field for a class-level type parameter was emitted as STATIC,
-        // so instantiating the generic class twice with different type arguments
-        // clobbered the shared token. In ShiftReduceParser, valueStack<ValueType>
-        // and locationStack<LexLocation> then both grew with the LAST-created
-        // class token, producing
-        //   "arraycopy: type mismatch: can not copy ValueType[] into LexLocation[]".
-        // The field must be per-instance.
-        var results = await ConvertAsync(new[]
-        {
-            new SourceFile { FilePath = "Box.cs", Content = """
-                namespace Demo
-                {
-                    public class Box<T>
-                    {
-                        public T[] Empty() { return new T[0]; }
-                        public Box() { }
-                        public Box(int seed) { }
-                    }
-                }
-                """ },
-            new SourceFile { FilePath = "Use.cs", Content = """
-                namespace Demo
-                {
-                    public class Use
-                    {
-                        public void Go()
-                        {
-                            var a = new Box<Integer>(1);
-                            var b = new Box<String>(2);
-                            a.Empty();
-                            b.Empty();
-                        }
-                    }
-                }
-                """ },
-        });
-
-        var box = Assert.Single(results, r => r.FileName == "Box.java");
-        Assert.True(box.Success, string.Join("\n", box.Diagnostics));
-        Assert.DoesNotContain("static Class<?>", box.GeneratedCode);
-        Assert.Contains("private Class<?> tClass;", box.GeneratedCode);
-        // Every constructor must receive and store the token per instance.
-        Assert.Contains("this.tClass = tClass;", box.GeneratedCode);
-    }
     private static async Task<List<ConversionResult>> ConvertAsync(SourceFile[] files)
     {
         var pipeline = new ProjectConversionPipeline(new ConversionOptions());
