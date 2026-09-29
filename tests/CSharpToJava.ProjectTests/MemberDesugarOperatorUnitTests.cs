@@ -877,4 +877,165 @@ public class MemberDesugarOperatorUnitTests
         Assert.Equal(0, stats.OperatorCompoundSitesRewritten);
     }
 
+    // ---- OC-6 提升公式（决策 5）----
+
+    [Fact]
+    public void LiftedConversion_NullableToNullable_Expanded()
+    {
+        var (outputs, stats, _) = RewriteAll(null, """
+            public struct Snow
+            {
+                public int V;
+                public Snow(int v) { V = v; }
+                public static implicit operator double(Snow s) => s.V;
+            }
+            """, """
+            public static class Use
+            {
+                public static double? F(Snow? s) => s;
+            }
+            """);
+        Assert.True(stats.OperatorLiftedSitesExpanded >= 1);
+        AssertContains(outputs[1],
+            "s.HasValue ? Snow.ToDouble(s.GetValueOrDefault()) : (double?)null");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void LiftedArithmetic_ExpandedWithHasValueGuard()
+    {
+        var (outputs, stats, _) = RewriteAll(null, """
+            public struct N
+            {
+                public int V;
+                public N(int v) { V = v; }
+                public static N operator +(N a, N b) => new N(a.V + b.V);
+            }
+            """, """
+            public static class Use
+            {
+                public static N? F(N? a, N? b) => a + b;
+            }
+            """);
+        Assert.True(stats.OperatorLiftedSitesExpanded >= 1);
+        AssertContains(outputs[1],
+            "a.HasValue & b.HasValue ? N.Add(a.Value, b.Value) : (N?)null");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void LiftedRelational_ExpandedToBoolNullable()
+    {
+        var (outputs, _, _) = RewriteAll(null, """
+            public struct N
+            {
+                public int V;
+                public N(int v) { V = v; }
+                public static bool operator >(N a, N b) => a.V > b.V;
+                public static bool operator <(N a, N b) => a.V < b.V;
+            }
+            """, """
+            public static class Use
+            {
+                public static bool? F(N? a, N? b) => a > b;
+            }
+            """);
+        AssertContains(outputs[1],
+            "a.HasValue & b.HasValue ? N.GreaterThan(a.Value, b.Value) : (bool?)null");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void LiftedEquality_ThreeValuedTable()
+    {
+        var (outputs, _, _) = RewriteAll(null, """
+            public struct N
+            {
+                public int V;
+                public N(int v) { V = v; }
+                public static bool operator ==(N a, N b) => a.V == b.V;
+                public static bool operator !=(N a, N b) => a.V != b.V;
+                public override bool Equals(object? o) => o is N n && n.V == V;
+                public override int GetHashCode() => V;
+            }
+            """, """
+            public static class Use
+            {
+                public static bool? Eq(N? a, N? b) => a == b;
+                public static bool? Ne(N? a, N? b) => a != b;
+            }
+            """);
+        AssertContains(outputs[1],
+            "!a.HasValue && !b.HasValue ? true : a.HasValue && b.HasValue ? N.ValueEquals(a.Value, b.Value) : false");
+        AssertContains(outputs[1],
+            "!a.HasValue && !b.HasValue ? false : a.HasValue && b.HasValue ? N.NotEquals(a.Value, b.Value) : true");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void LiftedUnary_Expanded()
+    {
+        var (outputs, _, _) = RewriteAll(null, """
+            public struct N
+            {
+                public int V;
+                public N(int v) { V = v; }
+                public static N operator -(N a) => new N(-a.V);
+            }
+            """, """
+            public static class Use
+            {
+                public static N? F(N? a) => -a;
+            }
+            """);
+        AssertContains(outputs[1], "a.HasValue ? N.Negate(a.Value) : (N?)null");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void LiftedCompound_WritesBackNullWhenLeftNull()
+    {
+        var (outputs, _, _) = RewriteAll(null, """
+            public struct N
+            {
+                public int V;
+                public N(int v) { V = v; }
+                public static N operator +(N a, N b) => new N(a.V + b.V);
+            }
+            """, """
+            public static class Use
+            {
+                public static void F(N? x, N v)
+                {
+                    x += v;
+                }
+            }
+            """);
+        AssertContains(outputs[1], "x = x.HasValue ? N.Add(x.Value, v) : (N?)null");
+        AssertOutputCompiles(outputs[0], outputs[1]);
+    }
+
+    [Fact]
+    public void LiftedSite_NonSimpleOperand_SkipsWith5176()
+    {
+        var (outputs, stats, diags) = RewriteAll(null, """
+            public struct N
+            {
+                public int V;
+                public N(int v) { V = v; }
+                public static N operator +(N a, N b) => new N(a.V + b.V);
+                public static N Make(N b) => b;
+            }
+            """, """
+            public static class Use
+            {
+                public static N? F(N? a, N b) => a + N.Make(b);
+            }
+            """);
+        Assert.Equal(0, stats.OperatorsPlanned);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.UnbuildableLift);
+        AssertContains(outputs[0], "operator +(N a, N b)");
+        AssertContains(outputs[1], "a + N.Make(b)");
+    }
+
 }

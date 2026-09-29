@@ -297,8 +297,11 @@ internal sealed class OperatorRule : IMemberDesugarRule
                 OperatorDiagnostics.CompoundUnsupported(planOp.Name, "non-statement complex receiver"));
             return;
         }
-        if (compound.IsLifted && !OperatorFacts.IsSimpleLiftedOperand(assign.Left, model))
+        if (compound.IsLifted
+            && (!OperatorFacts.IsSimpleLiftedOperand(assign.Left, model)
+                || !OperatorFacts.IsSimpleLiftedOperand(assign.Right, model)))
         {
+            // 公式 ⑥ 需两次引用两侧运算元（守卫 + 取值）→ 副作用运算元不可重建
             MarkFailure(siteFailures, planOp, MemberDesugarDiagnosticCode.UnbuildableLift,
                 OperatorDiagnostics.UnbuildableLift(planOp.Name));
             return;

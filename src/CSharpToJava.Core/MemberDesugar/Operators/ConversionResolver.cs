@@ -150,8 +150,9 @@ internal sealed class ConversionResolver
         if (recipe.IsLifted)
         {
             stats.OperatorLiftedSitesExpanded++;
+            var nullableDisplay = recipe.Plan.Operator.ReturnType.ToDisplayString() + "?";
             return LiftedOperatorExpansion.ExpandLiftedConversion(
-                recipe, visited, spanStart);
+                recipe.Qualifier, recipe.Plan.GeneratedMethodName, nullableDisplay, visited);
         }
         stats.OperatorConversionSitesRewritten++;
         var call = SyntaxFactory.InvocationExpression(

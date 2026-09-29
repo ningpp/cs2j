@@ -192,12 +192,9 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
             var right = (ExpressionSyntax)Visit(node.Right)!;
             var inner = RenderCompoundInner(plan, m, compound, left, right);
             _stats.OperatorCompoundSitesRewritten++;
-            var result = SyntaxFactory.AssignmentExpression(
+            return SyntaxFactory.AssignmentExpression(
                     SyntaxKind.SimpleAssignmentExpression, left, inner)
                 .WithTriviaFrom(node);
-            return compound.IsLifted
-                ? LiftedOperatorExpansion.WrapLiftedCompound(result, left, plan.Operator.ReturnType)
-                : result;
         }
         return base.VisitAssignmentExpression(node);
     }
@@ -274,6 +271,15 @@ internal sealed partial class OperatorUseSiteRewriter : CSharpSyntaxRewriter
         var compilation = (CSharpCompilation)_model.Compilation;
         var qualifier = boundOperator.ContainingType!
             .ToMinimalDisplayString(_model, compound.Syntax.SpanStart);
+        if (compound.IsLifted)
+        {
+            // 公式 ⑥：`x = x.HasValue ? D.Add(x.Value, v) : (R?)null`（入/出转换为可空提升语义，
+            // 不走下面的标准转换链判定——可空→非可空的“转换”是守卫，不是 cast）
+            _stats.OperatorLiftedSitesExpanded++;
+            return LiftedOperatorExpansion.ExpandLiftedCompound(
+                qualifier, plan.GeneratedMethodName, left, right,
+                compound.Type!, _model, compound.Syntax.SpanStart);
+        }
         var argRight = right;
         if (boundOperator.Parameters.Length == 2 && compound.Value.Type is { } rightType)
         {
