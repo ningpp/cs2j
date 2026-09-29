@@ -131,6 +131,110 @@ public class PreprocessVerbCLITests
     }
 
     [Fact]
+    public async Task PatternDesugarPass_LowersStatementSidePatterns_ThroughTheCli()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace PatternSample;
+
+public static class Switches
+{
+    public static int Pick(object o)
+    {
+        switch (o)
+        {
+            case string s: return s.Length;
+            case int i: return i;
+            default: return 0;
+        }
+    }
+}
+""");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "pattern-desugar",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(0, exit);
+            Assert.Equal(string.Empty, stderr);
+
+            // Only the pattern-desugar intermediate tree exists.
+            var intermediateDirs = Directory
+                .GetDirectories(destDir, ".cs2j-*", SearchOption.TopDirectoryOnly)
+                .Select(Path.GetFileName)
+                .ToArray();
+            Assert.Single(intermediateDirs);
+            Assert.Equal(".cs2j-pattern-desugar-src", intermediateDirs[0]);
+
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-pattern-desugar-src", "Class1.cs"));
+            Assert.Contains("is string &&", rewritten);
+            Assert.Contains("is int &&", rewritten);
+            Assert.DoesNotContain("case string s", rewritten);
+            Assert.DoesNotContain("switch (o)", rewritten);
+
+            Assert.Contains("pattern-desugar:", stdout);
+            Assert.Contains("pattern-switch", stdout);
+            Assert.DoesNotContain("unsigned-type:", stdout);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task PatternDesugarPass_ReportsUnsupportedPatterns_AsPD010()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace PatternSample;
+
+public static class Lists
+{
+    public static int Pick(object o)
+    {
+        switch (o)
+        {
+            case [1, ..]: return 1;
+            default: return 0;
+        }
+    }
+}
+""");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "pattern-desugar",
+                "-s", sourceDir, "-d", destDir);
+
+            // A list pattern is C37 territory: the pass fails loudly rather than
+            // emitting a placeholder.
+            Assert.Equal(1, exit);
+            var output = stdout + stderr;
+            Assert.Contains("PD010", output);
+            Assert.Contains("list", output, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ListPasses_ShowsPatternDesugarAsImplemented()
+    {
+        var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
+
+        Assert.Equal(0, exit);
+        var line = stdout.Split('\n').First(l => l.Contains("pattern-desugar"));
+        Assert.Contains("Implemented", line);
+    }
+
+    [Fact]
     public async Task ExplicitPassSelection_RunsOnlyTheRequestedPass()
     {
         var sourceDir = CreateTempWorkspace("Lib.csproj",
