@@ -150,73 +150,6 @@ public sealed partial class MemberDesugarPreprocessor
         statistics.IndexersPlanned += plannedIndexers.Count(p => IsFirstDeclarationFile(p, filePath));
         statistics.OperatorsPlanned += plannedOperators.Count(p => IsFirstDeclarationFile(p, filePath));
 
-        // 四级 dispatch：属性→事件(重解析)→运算符(重解析)→索引器
-        // 属性改写器在原始树上运行；事件/运算符改写器经替换树运行（产物是红色节点，
-        // 语义查询必须绑定自有模型）；索引器最后。事件 plan 归属键使用「含类型::事件名」显示串，
-        // 运算符 plan 归属键使用「含类型::op 名(参数):返回」（设计 §4.6）。
-        var workingRoot = root;
-        if (plannedProperties.Count > 0)
-        {
-            var rewriter = new Properties.PropertyUseSiteRewriter(
-                semanticModel, plannedProperties, propertyPlans,
-                _options, statistics, diagnostics, filePath);
-            workingRoot = (CompilationUnitSyntax)rewriter.Visit(workingRoot)!;
-        }
-        if (plannedEvents.Count > 0)
-        {
-            using (var workspace = new AdhocWorkspace())
-                workingRoot = (CompilationUnitSyntax)Formatter.Format(workingRoot, workspace);
-            var eventTree = CSharpSyntaxTree.ParseText(
-                workingRoot.ToFullString(), (CSharpParseOptions)semanticModel.SyntaxTree.Options, path: filePath);
-            var eventCompilation = ((CSharpCompilation)semanticModel.Compilation)
-                .ReplaceSyntaxTree(semanticModel.SyntaxTree, eventTree);
-            var eventModel = eventCompilation.GetSemanticModel(eventTree);
-            var eventRewriter = new Events.EventUseSiteRewriter(
-                eventModel, plannedEvents, eventPlans,
-                _options, statistics, diagnostics, filePath);
-            workingRoot = (CompilationUnitSyntax)eventRewriter.Visit(eventTree.GetRoot())!;
-        }
-        if (plannedOperators.Count > 0 || hasOperatorDecls)
-        {
-            var intermediate = FormatAndValidate(workingRoot);
-            if (intermediate == null)
-            {
-                statistics.FilesSkippedClean++;
-                diagnostics.Add(new MemberDesugarDiagnostic(
-                    MemberDesugarSeverity.Warning, MemberDesugarDiagnosticCode.PlanRolledBack,
-                    "member-desugar rewrite failed local parse validation; the original file was " +
-                    "preserved pending whole-tree validation.", filePath, 0, 0, null));
-                return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
-            }
-            SemanticModel operatorModel;
-            if (ReferenceEquals(workingRoot, root))
-            {
-                operatorModel = semanticModel;
-            }
-            else
-            {
-                var (replacementModel, replacementRoot) = ParseReplacement(semanticModel, intermediate);
-                operatorModel = replacementModel;
-                workingRoot = replacementRoot;
-            }
-            var opRewriter = new Operators.OperatorUseSiteRewriter(
-                operatorModel, plannedOperators, operatorPlans,
-                _options, statistics, diagnostics, filePath);
-            workingRoot = (CompilationUnitSyntax)opRewriter.Visit(workingRoot)!;
-        }
-        if (plannedIndexers.Count > 0)
-        {
-            var indexerRewriter = new Indexers.IndexerUseSiteRewriter(
-                semanticModel, plannedIndexers, indexerPlans,
-                _options, statistics, diagnostics, filePath);
-            workingRoot = (CompilationUnitSyntax)indexerRewriter.Visit(workingRoot)!;
-        }
-        if (workingRoot.IsEquivalentTo(root)) (feat(member-desugar): C14 operator rule/rewriter — declarations + binary/unary sites to static calls)
-        {
-            statistics.FilesSkippedClean++;
-            return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
-        }
-
         var outputCode = FormatAndValidate(workingRoot);
         if (outputCode == null)
         {
@@ -379,7 +312,7 @@ public sealed partial class MemberDesugarPreprocessor
                 MemberDesugarSeverity.Info,
                 isEvent ? MemberDesugarDiagnosticCode.EventPlanCreated : MemberDesugarDiagnosticCode.PlanCreated,
                 isEvent ? "event plan skipped by overrides.skip configuration"
-                        : "property plan skipped by overrides.skip configuration", (feat(member-desugar): C14 operator rule/rewriter — declarations + binary/unary sites to static calls)
+                        : "property plan skipped by overrides.skip configuration",
                 filePath, 0, 0, p.SymbolName));
             return;
         }

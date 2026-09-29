@@ -310,6 +310,7 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                "{_statistics.IncrementDecrementDeferred} deferred(++/--), " +
                "{_statistics.MetadataOperatorSitesUntouched} metadata-only, " +
                "{residualOp} operator-residual";
+    }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => _diagnostics
