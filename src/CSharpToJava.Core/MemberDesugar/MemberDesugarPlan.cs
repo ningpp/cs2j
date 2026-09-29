@@ -57,5 +57,9 @@ internal sealed class MemberDesugarAnalysisContext
     /// <summary>全部源内非 indexer 属性符号（partial 多部件按符号天然去重）。</summary>
     public required IReadOnlyList<IPropertySymbol> SourceProperties { get; init; }
 
+    /// <summary>决策 9：绑到元数据-only 用户运算符的站点计数，按文件键（重写期并入统计）。</summary>
+    public Dictionary<string, int> MetadataOperatorSitesByFile { get; }
+        = new(StringComparer.OrdinalIgnoreCase);
+
     public SemanticModel ModelFor(SyntaxTree tree) => Compilation.GetSemanticModel(tree);
 }

@@ -762,6 +762,11 @@ public class MemberDesugarPropertyUnitTests
         AssertContains(output, "private System.EventHandler? E;");
         AssertContains(output, "public void add_E(System.EventHandler? value)");
         AssertContains(output, "c.E = Cs2jPrelude.CsPrelude.Combine(c.E, null);");
+        // C14 起同文件 operator 与属性混编：属性先改写（c.P → c.get_P()），
+        // operator 后改写（声明 → Add、站点 → C.Add(...)，经替换树新鲜模型绑定）。
+        // 该测试从「operator 不动」红灯基线更新为 C14 契约（设计 §7.6）。
+        AssertContains(output, "public static C Add(C a, C b) => a;");
+        AssertContains(output, "var d = C.Add(c, c);");
         AssertContains(output, "public static C operator +(C a, C b) => a;");
         AssertOutputCompiles(output);
     }

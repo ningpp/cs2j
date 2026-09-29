@@ -3507,6 +3507,20 @@ git commit -m "docs: C14 operator desugar design — mark implemented"
 
 ---
 
+## 落地勘误（实现中实测修正，2026-09-30；以本条为准）
+
+Task 1/3/4/5 实施后实测发现计划文本与本仓 Roslyn 机制不符的五处偏差，已在代码与设计文档（§4.5/§4.6/§13.9）中修正：
+
+1. **链式顺序反转为 Property 先、Operator 后**（Task 1 Step 1.4 的注记与代码段作废）：属性重写器在属性声明上做 `GetDeclaredSymbol`，只认未改写原树节点——先跑运算符重写器会让属性重写器抛「语法节点不在语法树中」。正确实现：属性先跑；树已变时取 `FormatAndValidate` 的干净中间文本 → `CSharpSyntaxTree.ParseText(..., (CSharpParseOptions)original.SyntaxTree.Options, filePath)` + `compilation.ReplaceSyntaxTree` → 新鲜模型 + 新树根 → 运算符重写器在新树上运行。（中间文本必须过 `FormatAndValidate`：属性展开合成的节点带无分隔 trivia 文本形态，直接重解析报 CS1001。）
+2. **plan 查找走稳定键**（Task 5 Step 5.3 的 `TryGetPlan(m, out plan)` 按 `IMethodSymbol` 相等查找作废）：新鲜模型符号与原编译符号不相等。改为 `OperatorUseSiteRewriter.PlanKey(IMethodSymbol)` = `{ContainingType 全名}::{op 元数据名}({参数类型表}):{返回类型}`；重写器构造函数建 `Dictionary<string, OperatorPlan>` 与 `HashSet<string>`。
+3. **同名重载共享生成名**（Task 3 阶段 3 的逐符号 `Disambiguate` 作废）：同类型同基名重载组必须先 `GroupBy(BaseName)` → 逐组 `Disambiguate` 一次 → 组内共享；预留集只收非运算符/转换成员（含基类链），否则 `op_Multiply(Point,int)`/`(int,Point)`/`(Point,Point)` 会被误升级为 `MultiplyOperator`/`MultiplyOperator2`。
+4. **元数据-only 计数在分析期**（Task 5 Step 5.3 中重写器的 `_stats.MetadataOperatorSitesUntouched++` 作废）：重写器只在有 plan 的文件运行，无计划文件漏计。改为 `OperatorRule` 阶段 2 站点扫描时按文件键落 `MemberDesugarAnalysisContext.MetadataOperatorSitesByFile`，`RewriteFile` 开头（早退判定之前）并入统计；三个 Scan* 方法各增 `Dictionary<string,int> metadataSites` 形参，`!HasSourceDeclaration(m.OriginalDefinition)` 时 `RecordMetadataSite` 后返回。
+5. **含 operator 声明的无计划文件也过重写器**（Task 1 Step 1.4 的「`plannedProps.Count == 0 && plannedOps.Count == 0` 即 clean 跳过」作废）：纯 inc/dec 或纯门控 `&`/`|` 文件需过一遍运算符重写器产出 Info 计数（CS2J5181/CS2J5180）。改为 `hasOperatorDecls = root.DescendantNodes().OfType<OperatorDeclarationSyntax>().Any()`，早退条件加 `&& !hasOperatorDecls`，重写器触发条件加 `|| hasOperatorDecls`。
+
+其余（Task 4 声明重写、Task 5 站点访问器与 `RenderCall`、Task 6-12 未开工部分）与计划一致；Task 5 的 `RenderCall` 签名按勘误 2/4 微调为 `(OperatorPlan plan, IMethodSymbol boundOperator, ExpressionSyntax site, params ExpressionSyntax[] args)`（qualifier 取绑定符号的 `ContainingType`，避免新鲜模型下 `plan.Operator.ContainingType` 跨编译显示串差异）。
+
+---
+
 ## Self-Review 记录（writing-plans 检查单）
 
 1. **Spec coverage**: 决策 1/1b（Task 2 命名层+Task 4 checked）✓；决策 2/2b（Task 5/7）✓；决策 3/4（Task 2/6）✓；决策 5（Task 8）✓；决策 6 表达式树/dynamic（Task 9；dynamic 站点在 Task 3 分析闸门）✓；决策 7 JK 边界（Task 3 门控保留 + Task 10 组合）✓；决策 8 碰撞（Task 2/4）✓；决策 9 元数据-only（Task 5 计数）✓；决策 10 接口静态抽象（Task 9）✓；决策 11 反射契约（Task 11 fixture 两态断言）✓；决策 12 inc/dec（Task 3/11）✓；决策 13 无支撑库（全任务无注入）✓；决策 14 attribute（Task 4）✓；决策 15 执行形态（Task 1/3 接线）✓；OC-9 residual（Task 4）✓；§7.1 单测矩阵 1-14 组全覆盖（每组至少 1 个代表用例）；§7.2 fixture（Task 11）；§7.3/§7.6（Task 12）；§7.4 反射（Task 11）；§7.5 residual 闸门（Task 4 计数 + Task 11 断言 0）。

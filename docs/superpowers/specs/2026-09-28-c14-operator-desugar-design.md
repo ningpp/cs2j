@@ -102,7 +102,7 @@ C14 分支对以下注册热文件保持**字节级零改动**：
 | 共享文件（C11 所有） | C14 追加内容 |
 |---|---|
 | `src/CSharpToJava.Core/MemberDesugar/MemberDesugarModels.cs` | 诊断枚举追加 5170-5183 运算符码位（§6，C11 注释已预留「5130-5189 为 C12/C13/C14」）；`MemberDesugarStatistics` 追加运算符计数器（§5：OperatorsPlanned/BinarySitesRewritten/UnarySitesRewritten/CompoundSitesRewritten/ConversionSitesRewritten/LiftedSitesExpanded/GateOperatorsRetained/IncrementDecrementDeferred/MetadataSitesUntouched） |
-| `src/CSharpToJava.Core/MemberDesugar/MemberDesugarPreprocessor.cs` | `RewriteFile` 内追加 OperatorPlan 派发分支：**OperatorUseSiteRewriter 先于 PropertyUseSiteRewriter 执行**（链式顺序的机械依据见 §4.5）；「该文件无任何 planned plan」判定改为多族联合；UserSkipped Info 消息泛化为 "member-desugar plan skipped by overrides.skip configuration"（原文属性专用措辞） |
+| `src/CSharpToJava.Core/MemberDesugar/MemberDesugarPreprocessor.cs` | `RewriteFile` 内追加 OperatorPlan 派发分支：**PropertyUseSiteRewriter 先、OperatorUseSiteRewriter 后**（链式顺序的机械依据与落地修订见 §4.5）；「该文件无任何 planned plan」判定改为多族联合（含 operator 声明文件，白名单计数器需过重写器）；UserSkipped Info 消息泛化为 "member-desugar plan skipped by overrides.skip configuration"（原文属性专用措辞） |
 | `src/CSharpToJava.CLI/Preprocessing/Adapters/MemberDesugarPassAdapter.cs` | `BuildChainSummaryLine()` 追加 operators 分项与 ResidualOperator 计数（纯展示，无行为） |
 
 **C14 独占新增**（全部落在 `src/CSharpToJava.Core/MemberDesugar/Operators/` 与带 Operator 后缀的测试/fixture 文件）：不在 `MemberDesugar/` 根共享文件与 `Properties/`/`Indexers/`/`Events/` 内写运算符特例逻辑。
@@ -187,23 +187,28 @@ src\CSharpToJava.Core\MemberDesugar\            # C11 锚点创建；C14 对根�
 | OC-8 与属性/索引器复合的划界（评审修订） | **v1 不做跨族合成协作**：复合赋值左值绑定属性/索引器（IPropertySymbol 含 indexer）且复合绑定用户运算符 → 该运算符 plan Infeasible CS2J5179（决策 2b）。机械依据：链式重写中先跑的 C11 属性复合重写合成新二元节点 `set_X(get_X() + v)`，新节点不属于任何编译树、无 SemanticModel 可绑定，C14 二遍无法显式化；反向（C14 先合成属性访问）对 C11 同理。属性半侧由 C11 落地逻辑照常展开（内层保留运算符语法），运算符声明/站点整体原样 → 转换器既有路径消费，现状零退化 | 长期协作形态（C11 侧预留内层渲染回调，或共享「运算符应用渲染器」在两 rewriter 间传递）列附录开放问题 6；事件复合绑 IEventSymbol 天然不命中 |
 | OC-9 残余对账 | 输出树中每个源内运算符/转换声明必须属于 Planned / Skipped(有诊断) / JK(op_True/False) / C17(op_Inc/Dec) / GateAndOr 五类之一；每个绑定源内运算符符号的站点语法不得残留（被 C14 拥有的类） | strict 下残余 → CS2J5183 Error（§7.5） |
 
-### 4.5 两阶段重写顺序与跨族链式顺序（评审修订）
+### 4.5 两阶段重写顺序与跨族链式顺序（评审修订 + 落地修订）
 
 单文件内取命中本文件的 active operator plans：先 **OD 声明重写**（成员位置保持，方法落在原运算符声明位置；同类型多运算符按源序），再 **OC 站点重写**（自底向上由 CSharpSyntaxRewriter 默认遍历保证）。
 
-**跨族链式顺序（同一 RewriteFile 内）：OperatorUseSiteRewriter 先执行，PropertyUseSiteRewriter 后执行。** 机械依据：CSharpSyntaxRewriter 对未改写子树返回**原节点实例**，原节点实例的 `SyntaxTree` 仍指向原始树，原始 SemanticModel 的 GetSymbolInfo/GetOperation 对其照常可用；而重写合成的新节点不属于任何编译树、不可绑定。因此：
-- C14 先跑：C14 的全部站点（二元/一元/cast/隐式转换运算元）在原树上绑定改写；改写产物中**复用原节点实例**作为实参/运算元（内嵌的属性读、索引器读保持原实例）；
-- C11 后跑：其 TryGetPlan 依据名字快筛 + 原模型 GetSymbolInfo 命中那些**原实例**属性读，正常展开；C14 合成的调用节点（`Point.Add(...)`）不含属性语义，C11 不受影响；
-- 若反序（属性先跑），属性复合/读改写会重建 C14 站点的祖先节点，C14 的即时绑定仍可用（重建只发生在被属性改写的子树内），但 C11 属性复合合成的新二元节点（`get_X() + v`）C14 永远无法绑定——这正是 OC-8 划界的根因，顺序本身解决不了它，只能靠 plan 原子跳过。
+**跨族链式顺序（同一 RewriteFile 内）：PropertyUseSiteRewriter 先执行，OperatorUseSiteRewriter 后执行——与本节初版的「Operator 先」相反（落地修订，2026-09-30）。** 落地实测的机械事实：
+
+- CSharpSyntaxRewriter 对未改写子树返回**原节点实例**；但一旦祖先被重建，**重挂载后的节点无法再用原始 SemanticModel 绑定**（`GetDeclaredSymbol` 抛「语法节点不在语法树中」）。属性重写器在声明级做 `GetDeclaredSymbol`（属性声明 → 符号），因此它**必须跑在未改写的原根上**，且不能改（C11 已合入、单测冻结）；
+- 故顺序为 属性先、运算符后。属性重写器改完树后，`RewriteFile` 取**中间产物文本**（先过 `FormatAndValidate`——属性展开合成的节点带无分隔 trivia 的文本形态 `publicint p;`，直接重解析会出语法错误）重新 `ParseText` 并 `ReplaceSyntaxTree` 进原编译，产出**新鲜 SemanticModel**；
+- 运算符重写器在**新鲜模型 + 新树根**上运行（节点属于新树 → 声明级/站点级绑定全部可用）。跨编译的符号相等不成立（Roslyn 每次重解析都产生新符号实例），因此 plan 查找一律走**稳定键**：`{ContainingType 全名}::{op 元数据名}({参数类型表}):{返回类型}`（§4.6-4）；
+- 单族文件（只有运算符计划）不触发重解析：`current == root` 时直接用原始模型；
+- 属性复合内层（`set_X(get_X() op v)`）的跨族合成面仍按 OC-8/决策 2b 整 plan 跳过（CS2J5179）——顺序调整不解决该面，v1 边界不变。
 
 重写后过 FormatAndValidate；plan 失败按 TouchedFiles 整文件重放（复用族适配器整树迭代）。
 
 ### 4.6 共享层扩展（post-merge 追加式编辑清单，同 §3.2）
 
 评审修订：设计稿原设想的「锚点扩层 + C11 owner 评审合入」三接缝（plan 多态挂点/通用计数袋/rules.operators 节）按 C11 落地形态定案如下，全部落在 §3.2 追加清单内，无需另立流程：
-1. **RewriteFile 派发**：C11 落地版为属性专用硬编码——在共享 `MemberDesugarPreprocessor.RewriteFile` 内追加 OperatorPlan 派发分支（OperatorUseSiteRewriter 先、PropertyUseSiteRewriter 后，§4.5）、「无 planned plan」判定改多族联合；
+1. **RewriteFile 派发**：C11 落地版为属性专用硬编码——在共享 `MemberDesugarPreprocessor.RewriteFile` 内追加 OperatorPlan 派发分支（PropertyUseSiteRewriter 先、OperatorUseSiteRewriter 后，§4.5 落地修订：树已变则重解析换新鲜模型）、「无 planned plan」判定改多族联合（含 operator 声明文件：白名单计数器需过重写器）；
 2. **计数器**：向 `MemberDesugarStatistics` 追加运算符具体计数器（非通用袋）；
 3. **overrides**：**不新增** `rules.operators` JSON 节——C11 落地的 `MemberDesugarOptions` 为扁平 `SkipQualifiedNames`/`ForceQualifiedNames`（CLI 解析 `MemberDesugarOverrides.json` 的 force/skip 字符串数组），C14 的 plan 级键 `Ns.Type::op_Addition`、`Ns.Type::conversion(R)` 直接复用该扁平集，CLI 零改动；force 仅解除 CS2J5173 表达式树项（同 C11 语义）。
+4. **plan 稳定键桥接**（落地修订，2026-09-30）：链式二遍的新鲜模型与原编译符号实例不相等，`OperatorUseSiteRewriter` 的 plan 查找键为 `{ContainingType}::{op 元数据名}({参数类型表}):{返回类型}`（`OperatorUseSiteRewriter.PlanKey`），对声明级与站点级绑定统一适用；同类型同名重载（`op_Multiply(Point,int)` / `(int,Point)` / `(Point,Point)`）**共享生成名**以镜像 Java 重载（`Multiply` 三枚），只有与用户成员/基类成员（含 `object.ToString`）真实碰撞才逐组升级 `*Operator`；转换目标在镜像表外、用户跳过、站点闸门失败的符号名不再参与预留。
+5. **决策 9 元数据-only 计数**：改在**分析期**（`OperatorRule` 阶段 2 的站点扫描，按文件键落 `MemberDesugarAnalysisContext.MetadataOperatorSitesByFile`）计数，`RewriteFile` 开头并入统计——重写器只在有 plan 的文件运行，放重写期会漏计无计划文件（落地实测）。
 所有共享文件追加以 C11 属性单测 + 项目测试持续绿为门禁（本分支已含 C11，回归即时可验）。
 
 ---
@@ -344,7 +349,7 @@ C14 不持有 pass 默认开关（族开关归 C11），但族 pass 翻 `default
 8. **C12/C17 跨族目标耦合**：属性/索引器目标复合赋值 v1 只能整 plan 跳过（CS2J5179，决策 2b 评审修订）；`++/--` 声明归 C17 但声明重写天然在 member-desugar 目录。缓解：跳过 = 转换器既有路径照常消费（现状零退化）；CS2J5179/CS2J5181 显式计数与白名单；物理归属作为开放问题在 C17 立项时拍板。
 9. **checked 上下文判定**：站点绑错 checked/unchecked 版本会改变溢出行为。缓解：只信 operation 绑定的 MethodSymbol 元数据名（`op_Checked*` vs 普通版是不同符号），不读语法上下文推断；M3 专项测试。
 10. **整树迭代成本**：同 C11/JK（上限 1024 轮）。缓解：分析期一次算尽 plan/TouchedFiles，稳态一轮收敛；保留轮次与耗时统计。
-11. **链式重写的节点绑定失配（评审新增）**：跨族链式重写中，先跑 rewriter 合成的新节点不属于任何编译树，后跑 rewriter 无法对其做语义绑定；若 C14 站点祖先被 C11 属性改写重建，C14 的节点绑定同样失效。缓解：链式顺序固定 Operator 先/Property 后（§4.5），C14 改写一律复用原节点实例作为子结构；属性↔运算符交叠面（属性复合内层）已由 OC-8 划界整 plan 跳过，不依赖链式二遍绑定；整树重编译 + plan 原子回退兜底任何残余失配。
+11. **链式重写的节点绑定失配（评审新增，落地修订）**：跨族链式重写中，后跑的 rewriter 无法对前一个 rewriter 重挂载/合成的节点做语义绑定。落地实测：**属性重写器（声明级 `GetDeclaredSymbol`）不能跑在被重建的树上**（抛「语法节点不在语法树中」），故最终顺序为 **Property 先、Operator 后**（§4.5 落地修订），运算符重写器改在**中间产物重解析出的新鲜模型**上运行、plan 走稳定键桥接（§4.6-4）。属性↔运算符交叠面（属性复合内层）仍由 OC-8 划界整 plan 跳过（CS2J5179）；整树重编译 + plan 原子回退兜底任何残余失配。
 
 ---
 
@@ -397,10 +402,20 @@ git -C .worktrees/preproc-c14-operator-desugar merge --no-ff feature/preproc-c11
 评审对设计稿逐项核对源码后修订（不改变目标形态与决策 1-15 的结论，落地机制对齐现实）：
 
 1. **§3.2/§4.6 共享文件改动**：设计稿「本分支对共享根文件/适配器零改动、走 C11 owner 流程」不可行——C11 落地 `MemberDesugarPreprocessor.RewriteFile` 属性专用硬编码、Statistics 无运算符计数器、适配器摘要行属性专用。改为 C12 先例的「post-merge 追加式共享文件编辑清单」（Models/Preprocessor/Adapter 三处纯追加），C11 属性回归绿为门禁。
-2. **§4.5 链式顺序**：新增跨族链式重写机械依据——Operator rewriter 先、Property rewriter 后（未改写子树返回原节点实例、原始模型可绑定；合成新节点不可绑定），并新增风险 11。
+2. **§4.5 链式顺序**：新增跨族链式重写机械依据；落定版为 **Property 先、Operator 后**（初版「Operator 先」在实测中失败：属性重写器的声明级绑定不能跑在被重建的树上）——详见 §13.9 落地修订。
 3. **决策 2b/OC-8 属性复合协作降级**：设计稿「C11 复合重写经共享渲染器生成内层」在落地机制上不成立（C11 合成的新二元节点无模型可绑定，反向同理）；v1 改为属性/索引器目标复合 → 整 plan CS2J5179 原子跳过（转换器既有路径消费，零退化），长期协作列开放问题 6。
 4. **决策 1 探针定位**：「op_* 为 C# 保留名、手写必被拒」不再作为命名决策依据（零漂移对齐是充分依据）；M0 探针仅记录事实。
 5. **决策 1b checked 选版**：由 `IBinaryOperation.IsChecked` 改为**只按绑定 MethodSymbol 元数据名**（`op_Checked*` 与普通版是不同符号）。
 6. **§4.2/§4.3 绑定模型**：站点「分析期预产配方、重写期零推断」改为与 C11 落地 PropertyUseSiteRewriter 同构的「重写期对原始节点即时绑定」；plan Id 格式对齐 `MD:{type}::{name}@{span}`；SB-Lifted 增加 ConditionalAccess 运算元不可重建边界（CS2J5176）。
 7. **§5 overrides**：`rules.operators` JSON 节取消，复用 C11 扁平 force/skip 集（CLI 零改动）；开放问题 5 关闭。
 8. **§3.1/§12**：C11 合入完成记录（`ac9bakab` / merge `412d5169`）；base 引用对齐 `67477551`。
+
+### 13.9 落地修订（2026-09-30，实现中实测发现，对齐 Task 3-5 提交）
+
+实现过程中发现并修正的机制性偏差（目标形态与决策 1-15 结论不变）：
+
+1. **链式顺序反转**（改 §4.5/§4.6-1/风险 11）：属性重写器在属性声明上做 `GetDeclaredSymbol`，只认未改写的原树节点；被运算符重写器重建过的节点会抛「语法节点不在语法树中」。故最终顺序 **Property 先、Operator 后**：属性改完 → `FormatAndValidate` 取干净中间文本（属性展开合成的节点带无分隔 trivia，如 `publicint p;`，直接重解析会语法错误）→ `ParseText` + `ReplaceSyntaxTree` 换**新鲜模型** → 运算符重写器在新树上运行。
+2. **plan 稳定键桥接**（新增 §4.6-4）：新鲜模型与原编译符号实例不相等，plan 查找键改为 `{ContainingType}::{op 元数据名}({参数类型表}):{返回类型}`，声明级与站点级统一适用。
+3. **同名重载共享生成名**（细化决策 1/8）：同一类型内同基名运算符重载（`op_Multiply(Point,int)`/`(int,Point)`/`(Point,Point)`）共享生成名 `Multiply`（镜像 Java 重载与 `OperatorTransformer` 今发名），只有与用户成员/基类链成员（含 `object.ToString` → `ToStringOperator`）真实碰撞才逐组升级 `*Operator`；转换镜像表外/用户跳过/站点失败的符号不参与名称预留。
+4. **决策 9 计数移入分析期**（改 §4.6-5）：元数据-only 站点计数落在 `OperatorRule` 阶段 2（`MemberDesugarAnalysisContext.MetadataOperatorSitesByFile`，按文件键），`RewriteFile` 开头并入统计——重写器只在有 plan 的文件运行，放重写期会漏计无计划文件（单测 `BinarySites_MetadataOnlyOperator_UntouchedAndCounted` 实测）。
+5. **白名单文件也过重写器**（细化 §4.6-1）：文件含 operator 声明但无任何 plan（纯 inc/dec、纯门控 `&`/`|`）时仍须跑一遍运算符重写器以产出 Info 计数（inc/dec → CS2J5181、门控 → CS2J5180），树不变则按 clean 跳过。
