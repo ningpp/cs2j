@@ -65,6 +65,141 @@ public final class UnsignedMath {
     public static long rightShiftUInt64(long a, int n) { return a >>> (n & 63); }
     public static int compareUInt64(long a, long b) { return Long.compareUnsigned(a, b); }
 
+    // ---- Checked arithmetic (numeric-boundary C15) ----
+    // .NET throws System.OverflowException; Java reports java.lang.ArithmeticException.
+    public static int addCheckedInt32(int a, int b) { return Math.addExact(a, b); }
+    public static int subtractCheckedInt32(int a, int b) { return Math.subtractExact(a, b); }
+    public static int multiplyCheckedInt32(int a, int b) { return Math.multiplyExact(a, b); }
+    public static int negateCheckedInt32(int a) { return Math.negateExact(a); }
+
+    public static long addCheckedInt64(long a, long b) { return Math.addExact(a, b); }
+    public static long subtractCheckedInt64(long a, long b) { return Math.subtractExact(a, b); }
+    public static long multiplyCheckedInt64(long a, long b) { return Math.multiplyExact(a, b); }
+    public static long negateCheckedInt64(long a) { return Math.negateExact(a); }
+
+    public static int addCheckedUInt32(int a, int b) {
+        long sum = (a & 0xFFFFFFFFL) + (b & 0xFFFFFFFFL);
+        if (sum > 0xFFFFFFFFL) {
+            throw new ArithmeticException("overflow");
+        }
+        return (int) sum;
+    }
+
+    public static int subtractCheckedUInt32(int a, int b) {
+        long diff = (a & 0xFFFFFFFFL) - (b & 0xFFFFFFFFL);
+        if (diff < 0L) {
+            throw new ArithmeticException("overflow");
+        }
+        return (int) diff;
+    }
+
+    public static int multiplyCheckedUInt32(int a, int b) {
+        long product = (a & 0xFFFFFFFFL) * (b & 0xFFFFFFFFL);
+        if (product > 0xFFFFFFFFL) {
+            throw new ArithmeticException("overflow");
+        }
+        return (int) product;
+    }
+
+    public static long addCheckedUInt64(long a, long b) {
+        long sum = a + b;
+        if (Long.compareUnsigned(sum, a) < 0) {
+            throw new ArithmeticException("overflow");
+        }
+        return sum;
+    }
+
+    public static long subtractCheckedUInt64(long a, long b) {
+        long diff = a - b;
+        if (Long.compareUnsigned(diff, a) > 0) {
+            throw new ArithmeticException("overflow");
+        }
+        return diff;
+    }
+
+    public static long multiplyCheckedUInt64(long a, long b) {
+        BigInteger product = toUnsignedBigInteger(a).multiply(toUnsignedBigInteger(b));
+        if (product.bitLength() > 64) {
+            throw new ArithmeticException("overflow");
+        }
+        return product.longValue();
+    }
+
+    private static BigInteger toUnsignedBigInteger(long v) {
+        byte[] bytes = new byte[8];
+        long x = v;
+        for (int i = 7; i >= 0; i--) {
+            bytes[i] = (byte) (x & 0xFFL);
+            x >>>= 8;
+        }
+        return new BigInteger(1, bytes);
+    }
+
+    // ---- Checked narrowing conversions (numeric-boundary C15) ----
+    // Narrow/int/uint results return int, matching the toByteInt32 convention;
+    // long/ulong-domain results return long.
+    private static int checkedRange(long v, long min, long max) {
+        if (v < min || v > max) {
+            throw new ArithmeticException("overflow");
+        }
+        return (int) v;
+    }
+
+    private static int checkedRangeUnsignedSource(long unsignedValue, long max) {
+        if (unsignedValue < 0L || Long.compareUnsigned(unsignedValue, max) > 0) {
+            throw new ArithmeticException("overflow");
+        }
+        return (int) unsignedValue;
+    }
+
+    // from Int32 domain
+    public static int toSByteCheckedInt32(int v) { return checkedRange(v, -128L, 127L); }
+    public static int toByteCheckedInt32(int v) { return checkedRange(v, 0L, 255L); }
+    public static int toInt16CheckedInt32(int v) { return checkedRange(v, -32768L, 32767L); }
+    public static int toUInt16CheckedInt32(int v) { return checkedRange(v, 0L, 65535L); }
+    public static int toCharCheckedInt32(int v) { return checkedRange(v, 0L, 65535L); }
+    public static int toUInt32CheckedInt32(int v) { return checkedRange(v, 0L, 0xFFFFFFFFL); }
+
+    // from UInt32 domain
+    public static int toSByteCheckedUInt32(int v) { return checkedRange(v & 0xFFFFFFFFL, 0L, 127L); }
+    public static int toByteCheckedUInt32(int v) { return checkedRange(v & 0xFFFFFFFFL, 0L, 255L); }
+    public static int toInt16CheckedUInt32(int v) { return checkedRange(v & 0xFFFFFFFFL, 0L, 32767L); }
+    public static int toUInt16CheckedUInt32(int v) { return checkedRange(v & 0xFFFFFFFFL, 0L, 65535L); }
+    public static int toCharCheckedUInt32(int v) { return checkedRange(v & 0xFFFFFFFFL, 0L, 65535L); }
+    public static int toInt32CheckedUInt32(int v) { return checkedRange(v & 0xFFFFFFFFL, 0L, 0x7FFFFFFFL); }
+
+    // from Int64 domain
+    public static int toSByteCheckedInt64(long v) { return checkedRange(v, -128L, 127L); }
+    public static int toByteCheckedInt64(long v) { return checkedRange(v, 0L, 255L); }
+    public static int toInt16CheckedInt64(long v) { return checkedRange(v, -32768L, 32767L); }
+    public static int toUInt16CheckedInt64(long v) { return checkedRange(v, 0L, 65535L); }
+    public static int toCharCheckedInt64(long v) { return checkedRange(v, 0L, 65535L); }
+    public static int toInt32CheckedInt64(long v) {
+        return checkedRange(v, Integer.MIN_VALUE, Integer.MAX_VALUE);
+    }
+    public static int toUInt32CheckedInt64(long v) { return checkedRange(v, 0L, 0xFFFFFFFFL); }
+    public static long toUInt64CheckedInt64(long v) {
+        if (v < 0L) {
+            throw new ArithmeticException("overflow");
+        }
+        return v;
+    }
+
+    // from UInt64 domain
+    public static int toSByteCheckedUInt64(long v) { return checkedRangeUnsignedSource(v, 127L); }
+    public static int toByteCheckedUInt64(long v) { return checkedRangeUnsignedSource(v, 255L); }
+    public static int toInt16CheckedUInt64(long v) { return checkedRangeUnsignedSource(v, 32767L); }
+    public static int toUInt16CheckedUInt64(long v) { return checkedRangeUnsignedSource(v, 65535L); }
+    public static int toCharCheckedUInt64(long v) { return checkedRangeUnsignedSource(v, 65535L); }
+    public static int toInt32CheckedUInt64(long v) { return checkedRangeUnsignedSource(v, 0x7FFFFFFFL); }
+    public static int toUInt32CheckedUInt64(long v) { return checkedRangeUnsignedSource(v, 0xFFFFFFFFL); }
+    public static long toInt64CheckedUInt64(long v) {
+        if (v < 0L) {
+            throw new ArithmeticException("overflow");
+        }
+        return v;
+    }
+
     // ---- Conversions ----
     public static int toByteInt32(int v) { return v & 0xFF; }
     public static int toByteInt64(long v) { return (int) v & 0xFF; }

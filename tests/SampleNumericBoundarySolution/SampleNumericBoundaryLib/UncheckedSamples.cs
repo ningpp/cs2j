@@ -1,7 +1,7 @@
 namespace SampleNumericBoundaryLib;
 
 /// <summary>
-/// M1 (NB-1/NB-2/NB-6): every unchecked construct here disappears from the
+/// M2/M3 (NB-1/NB-2/NB-6): every unchecked construct here disappears from the
 /// intermediate tree. The runtime behavior after stripping must stay identical
 /// because the default project context is unchecked.
 /// </summary>
@@ -26,9 +26,8 @@ public static class UncheckedSamples
     }
 
     /// <summary>
-    /// Nested site: the checked block is retained in M1 (legal C#), the inner
-    /// unchecked expression is stripped. Callers must avoid overflowing inputs
-    /// in M1 (full per-site fidelity arrives with M2).
+    /// Nested site: the outer checked block becomes helperized (M2), the inner
+    /// unchecked expression wins and is stripped to a plain add.
     /// </summary>
     public static int NestedInsideChecked(int a, int b)
     {

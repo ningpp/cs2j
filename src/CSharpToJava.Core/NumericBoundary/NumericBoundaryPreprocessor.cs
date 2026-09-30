@@ -7,7 +7,7 @@ using CSharpToJava.Core.Preprocessing;
 namespace CSharpToJava.Core.NumericBoundary;
 
 /// <summary>
-/// Public per-file entry for the numeric-boundary pass (C15, M1). Mirrors
+/// Public per-file entry for the numeric-boundary pass (C15). Mirrors
 /// <see cref="UnsignedTypeRewriter.UnsignedTypeRewriter"/>: one semantic-model
 /// traversal per file, span formatting with reparsing validation, byte-identical
 /// passthrough for clean files.
@@ -27,44 +27,36 @@ public sealed class NumericBoundaryPreprocessor
             ? (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot()
             : (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(sourceCode).GetRoot();
 
-        if (!IsDirty(root))
+        var projectDefaultChecked = NumericBoundaryAnalyzer.ResolveProjectDefaultChecked(
+            options.SourceFilePath,
+            options.CheckForOverflowUnderflowByProjectDirectory) ?? false;
+
+        if (!IsDirty(root, projectDefaultChecked))
         {
             stats.FilesSkippedClean = 1;
             return new NumericBoundaryFileResult(sourceCode, false, diagnostics, stats);
         }
 
-        var projectDefaultChecked = NumericBoundaryAnalyzer.ResolveProjectDefaultChecked(
-            options.SourceFilePath,
-            options.CheckForOverflowUnderflowByProjectDirectory) ?? false;
-
         var analyzer = new NumericBoundaryAnalyzer(semanticModel, projectDefaultChecked);
-        var rewriter = new CheckedExprRewriter(analyzer, stats);
-        var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
+        var rewriter = new CheckedExprRewriter(analyzer, stats, diagnostics);
+        var visitedRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
+        var newRoot = (CompilationUnitSyntax)rewriter.ApplyHoists(visitedRoot);
 
-        // NB-13 residual gate (M1 scope: unchecked must be gone everywhere in user
-        // code; checked nodes may remain until M2/M3). Runs on the rewritten tree.
-        stats.ResidualUncheckedNodes = CountUncheckedNodes(newRoot);
-        stats.ResidualCheckedNodes = CountCheckedNodes(newRoot);
-        if (stats.ResidualUncheckedNodes > 0)
+        // NB-13 residual gate on the rewritten tree (M2/M3: both checked and
+        // unchecked keyword nodes must be gone from user code).
+        ApplyResidualGate(newRoot, options, stats, diagnostics);
+
+        // NB-12: any error diagnostic rolls the whole file back to the original
+        // bytes — a half-rewritten file must never reach the intermediate tree.
+        if (diagnostics.Any(d => d.Severity == NumericBoundarySeverity.Error))
         {
-            var severity = options.Strict
-                ? NumericBoundarySeverity.Error
-                : NumericBoundarySeverity.Warning;
-            diagnostics.Add(new NumericBoundaryDiagnostic(
-                severity,
-                PreprocessDiagnosticCodes.NumericBoundaryResidualNode,
-                $"{stats.ResidualUncheckedNodes} residual unchecked node(s) remain after numeric-boundary " +
-                "preprocessing; user code must not keep unchecked expressions/blocks."));
-            if (severity == NumericBoundarySeverity.Error)
-            {
-                stats.ErrorsByReason[PreprocessDiagnosticCodes.NumericBoundaryResidualNode] =
-                    stats.ResidualUncheckedNodes;
-            }
+            stats.FilesDirtyNoRewrite = 1;
+            return new NumericBoundaryFileResult(sourceCode, false, diagnostics, stats);
         }
 
         if (!rewriter.MadeChanges)
         {
-            // M1 common case: file contains checked-only sites that M1 preserves.
+            // Dirty input (keyword or project /checked) but nothing rewrote.
             stats.FilesDirtyNoRewrite = 1;
             return new NumericBoundaryFileResult(sourceCode, false, diagnostics, stats);
         }
@@ -85,23 +77,121 @@ public sealed class NumericBoundaryPreprocessor
         return new NumericBoundaryFileResult(outputCode, true, diagnostics, stats);
     }
 
-    internal static bool IsDirty(CompilationUnitSyntax root)
-        => root.DescendantNodes().Any(static node =>
+    internal static bool IsDirty(CompilationUnitSyntax root, bool projectDefaultChecked)
+    {
+        if (projectDefaultChecked)
+        {
+            // A /checked project rewrites keyword-free files too (every integer
+            // arithmetic site is checked by default).
+            return true;
+        }
+
+        return root.DescendantNodes().Any(static node =>
             node is CheckedExpressionSyntax or CheckedStatementSyntax);
+    }
 
-    private static int CountUncheckedNodes(SyntaxNode root)
-        => root.DescendantNodes().Count(static node =>
-            (node is CheckedExpressionSyntax expression
-                && expression.IsKind(SyntaxKind.UncheckedExpression))
-            || (node is CheckedStatementSyntax statement
-                && statement.IsKind(SyntaxKind.UncheckedStatement)));
+    /// <summary>
+    /// NB-13: scan the output tree for surviving checked/unchecked nodes.
+    /// Unchecked survivors are always an error. Surviving checked EXPRESSION
+    /// shells are exactly the user-defined <c>op_Checked*</c> vouchers kept for
+    /// member-desugar (their count is tracked during the traversal); they are
+    /// exempt only while member-desugar co-runs (decision 4 / open question 6).
+    /// Any mismatch (or a surviving checked BLOCK) is CS2J5327 (strict → Error).
+    /// </summary>
+    private static void ApplyResidualGate(
+        SyntaxNode root,
+        NumericBoundaryOptions options,
+        NumericBoundaryStatistics stats,
+        List<NumericBoundaryDiagnostic> diagnostics)
+    {
+        var memberDesugarCoRunning =
+            options.EnabledPassIds?.Contains(NumericBoundaryOptions.MemberDesugarPassId) == true;
 
-    private static int CountCheckedNodes(SyntaxNode root)
-        => root.DescendantNodes().Count(static node =>
-            (node is CheckedExpressionSyntax expression
-                && expression.IsKind(SyntaxKind.CheckedExpression))
-            || (node is CheckedStatementSyntax statement
-                && statement.IsKind(SyntaxKind.CheckedStatement)));
+        var residualUnchecked = 0;
+        var residualCheckedExpressions = 0;
+        var residualCheckedBlocks = 0;
+
+        foreach (var node in root.DescendantNodes())
+        {
+            switch (node)
+            {
+                case CheckedExpressionSyntax expression:
+                    if (expression.IsKind(SyntaxKind.UncheckedExpression))
+                    {
+                        residualUnchecked++;
+                    }
+                    else
+                    {
+                        residualCheckedExpressions++;
+                    }
+
+                    break;
+                case CheckedStatementSyntax statement:
+                    if (statement.IsKind(SyntaxKind.UncheckedStatement))
+                    {
+                        residualUnchecked++;
+                    }
+                    else
+                    {
+                        residualCheckedBlocks++;
+                    }
+
+                    break;
+            }
+        }
+
+        stats.ResidualUncheckedNodes = residualUnchecked;
+        stats.ResidualCheckedNodes = residualCheckedExpressions + residualCheckedBlocks;
+
+        // Every surviving checked expression must be one kept voucher.
+        var unexpectedChecked = residualCheckedBlocks
+            + Math.Max(0, residualCheckedExpressions - stats.CheckedUserOpShellsDeferred);
+        var voucherChecked = Math.Min(residualCheckedExpressions, stats.CheckedUserOpShellsDeferred);
+
+        void AddResidual(int count, string message)
+        {
+            if (count == 0)
+            {
+                return;
+            }
+
+            var severity = options.Strict
+                ? NumericBoundarySeverity.Error
+                : NumericBoundarySeverity.Warning;
+            diagnostics.Add(new NumericBoundaryDiagnostic(
+                severity, PreprocessDiagnosticCodes.NumericBoundaryResidualNode, message));
+            if (severity == NumericBoundarySeverity.Error)
+            {
+                stats.ErrorsByReason[PreprocessDiagnosticCodes.NumericBoundaryResidualNode] =
+                    stats.ErrorsByReason.GetValueOrDefault(PreprocessDiagnosticCodes.NumericBoundaryResidualNode) + count;
+            }
+        }
+
+        if (residualUnchecked > 0)
+        {
+            AddResidual(
+                residualUnchecked,
+                $"{residualUnchecked} residual unchecked node(s) remain after numeric-boundary " +
+                "preprocessing; user code must not keep unchecked expressions/blocks.");
+        }
+
+        if (voucherChecked > 0 && !memberDesugarCoRunning)
+        {
+            AddResidual(
+                voucherChecked,
+                $"{voucherChecked} checked expression shell(s) wrapping user-defined checked operators " +
+                "(op_Checked*) remain, but the member-desugar pass is not enabled in this chain; " +
+                "enable member-desugar alongside numeric-boundary.");
+        }
+
+        if (unexpectedChecked > 0)
+        {
+            AddResidual(
+                unexpectedChecked,
+                $"{unexpectedChecked} residual checked node(s) remain after numeric-boundary preprocessing; " +
+                "user code must not keep checked expressions/blocks.");
+        }
+    }
 
     /// <summary>
     /// Same three-candidate strategy as the unsigned rewriter: format only the

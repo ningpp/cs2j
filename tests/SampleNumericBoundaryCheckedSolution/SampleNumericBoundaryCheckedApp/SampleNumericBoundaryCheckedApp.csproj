@@ -4,7 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <!-- M1 rejects project-wide checked arithmetic with CS2J5326 (design decision 15). -->
+    <!-- Project-wide checked arithmetic: numeric-boundary rewrites every site
+         to checked helpers and removes this property from the intermediate tree. -->
     <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
   </PropertyGroup>
 </Project>

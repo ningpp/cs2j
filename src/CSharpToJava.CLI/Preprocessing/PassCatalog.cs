@@ -161,7 +161,7 @@ internal static class PassCatalog
             ".cs2j-numeric-boundary-src",
             PassStage.Expression,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.Unsigned },
             supportLibrary: PassSupportLibrary.Cs2jUnsignedMath,
             verifyBuildByDefault: true,

@@ -42,10 +42,8 @@ public sealed class PassChainOrderTests
         PassIds.JavaKeywords,
     ];
 
-    // numeric-boundary is implemented but default-off: it is reachable only via
-    // --enable-pass numeric-boundary / --pass numeric-boundary (design §5.2).
-    private static readonly string[] EnabledByDefault =
-        LockedChain.Where(id => id != PassStubCatalog.Ids.NumericBoundary).ToArray();
+    // As of C15 M4 numeric-boundary is default-on as well.
+    private static readonly string[] EnabledByDefault = LockedChain;
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()

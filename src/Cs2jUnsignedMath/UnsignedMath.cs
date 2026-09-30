@@ -98,6 +98,64 @@ namespace Cs2jUnsigned
             return a < b ? -1 : 1;
         }
 
+        // ---- Checked arithmetic (numeric-boundary pass, C15) ----
+        // Overflow throws System.OverflowException; the Java counterparts throw
+        // java.lang.ArithmeticException (see compat UnsignedMath).
+        public static int AddCheckedInt32(int a, int b) => checked(a + b);
+        public static int SubtractCheckedInt32(int a, int b) => checked(a - b);
+        public static int MultiplyCheckedInt32(int a, int b) => checked(a * b);
+        public static int NegateCheckedInt32(int a) => checked(-a);
+
+        public static long AddCheckedInt64(long a, long b) => checked(a + b);
+        public static long SubtractCheckedInt64(long a, long b) => checked(a - b);
+        public static long MultiplyCheckedInt64(long a, long b) => checked(a * b);
+        public static long NegateCheckedInt64(long a) => checked(-a);
+
+        public static uint AddCheckedUInt32(uint a, uint b) => checked(a + b);
+        public static uint SubtractCheckedUInt32(uint a, uint b) => checked(a - b);
+        public static uint MultiplyCheckedUInt32(uint a, uint b) => checked(a * b);
+
+        public static ulong AddCheckedUInt64(ulong a, ulong b) => checked(a + b);
+        public static ulong SubtractCheckedUInt64(ulong a, ulong b) => checked(a - b);
+        public static ulong MultiplyCheckedUInt64(ulong a, ulong b) => checked(a * b);
+
+        // ---- Checked narrowing conversions (numeric-boundary pass, C15) ----
+        // from Int32 domain (byte/sbyte/short/ushort/char sources normalize here)
+        public static System.SByte ToSByteCheckedInt32(int v) => checked((sbyte)v);
+        public static System.Byte ToByteCheckedInt32(int v) => checked((byte)v);
+        public static System.Int16 ToInt16CheckedInt32(int v) => checked((short)v);
+        public static System.UInt16 ToUInt16CheckedInt32(int v) => checked((ushort)v);
+        public static char ToCharCheckedInt32(int v) => checked((char)v);
+        public static uint ToUInt32CheckedInt32(int v) => checked((uint)v);
+
+        // from UInt32 domain
+        public static System.SByte ToSByteCheckedUInt32(uint v) => checked((sbyte)v);
+        public static System.Byte ToByteCheckedUInt32(uint v) => checked((byte)v);
+        public static System.Int16 ToInt16CheckedUInt32(uint v) => checked((short)v);
+        public static System.UInt16 ToUInt16CheckedUInt32(uint v) => checked((ushort)v);
+        public static char ToCharCheckedUInt32(uint v) => checked((char)v);
+        public static int ToInt32CheckedUInt32(uint v) => checked((int)v);
+
+        // from Int64 domain
+        public static System.SByte ToSByteCheckedInt64(long v) => checked((sbyte)v);
+        public static System.Byte ToByteCheckedInt64(long v) => checked((byte)v);
+        public static System.Int16 ToInt16CheckedInt64(long v) => checked((short)v);
+        public static System.UInt16 ToUInt16CheckedInt64(long v) => checked((ushort)v);
+        public static char ToCharCheckedInt64(long v) => checked((char)v);
+        public static int ToInt32CheckedInt64(long v) => checked((int)v);
+        public static uint ToUInt32CheckedInt64(long v) => checked((uint)v);
+        public static ulong ToUInt64CheckedInt64(long v) => checked((ulong)v);
+
+        // from UInt64 domain
+        public static System.SByte ToSByteCheckedUInt64(ulong v) => checked((sbyte)v);
+        public static System.Byte ToByteCheckedUInt64(ulong v) => checked((byte)v);
+        public static System.Int16 ToInt16CheckedUInt64(ulong v) => checked((short)v);
+        public static System.UInt16 ToUInt16CheckedUInt64(ulong v) => checked((ushort)v);
+        public static char ToCharCheckedUInt64(ulong v) => checked((char)v);
+        public static int ToInt32CheckedUInt64(ulong v) => checked((int)v);
+        public static uint ToUInt32CheckedUInt64(ulong v) => checked((uint)v);
+        public static long ToInt64CheckedUInt64(ulong v) => checked((long)v);
+
         // ---- Conversions ----
         public static System.Byte ToByteInt32(int v) => unchecked((byte)(v & 0xFF));
         public static System.Byte ToByteInt64(long v) => unchecked((byte)((int)v & 0xFF));

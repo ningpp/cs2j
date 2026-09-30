@@ -41,15 +41,29 @@ public static class PreprocessDiagnosticCodes
     /// <summary>numeric-boundary: compile-time constant materialized as a literal (verbose-only info).</summary>
     public const string NumericBoundaryConstantMaterializedInfo = "CS2J5312";
 
-    // CS2J5320: checked operation/conversion on unsupported numeric kinds (C41).
-    // CS2J5321: checked floating-point/decimal → integer conversion.
-    // CS2J5322: dynamically bound checked site.
-    // CS2J5323: checked site inside an expression-tree lambda.
-    // CS2J5324: complex ++ --/compound targets in checked context (C17).
-    // CS2J5325: nullable lifted checked arithmetic (C22).
+    /// <summary>numeric-boundary: checked operation/conversion on unsupported numeric kinds (Half/Int128/nint/…, C41).</summary>
+    public const string NumericBoundaryUnsupportedType = "CS2J5320";
 
-    /// <summary>numeric-boundary: project enables <c>&lt;CheckForOverflowUnderflow&gt;true&lt;/&gt;</c> (M1 placeholder).</summary>
-    public const string NumericBoundaryProjectCheckedOverflow = "CS2J5326";
+    /// <summary>numeric-boundary: checked floating-point/decimal → integer conversion.</summary>
+    public const string NumericBoundaryFloatingToInteger = "CS2J5321";
+
+    /// <summary>numeric-boundary: dynamically bound checked site.</summary>
+    public const string NumericBoundaryDynamic = "CS2J5322";
+
+    /// <summary>numeric-boundary: checked site inside an expression-tree lambda.</summary>
+    public const string NumericBoundaryExpressionTree = "CS2J5323";
+
+    /// <summary>numeric-boundary: complex ++/--/compound target in checked context (C17).</summary>
+    public const string NumericBoundaryComplexIncrement = "CS2J5324";
+
+    /// <summary>numeric-boundary: nullable lifted checked arithmetic (C22).</summary>
+    public const string NumericBoundaryNullableLifted = "CS2J5325";
+
+    // CS2J5326 was the M1 placeholder for project-wide CheckForOverflowUnderflow;
+    // M2 supports that setting fully, so the code is retired (never emitted).
+    // public const string NumericBoundaryProjectCheckedOverflow = "CS2J5326";
+
+
 
     /// <summary>numeric-boundary: residual unchecked/checked node survived in user-scope output (NB-13).</summary>
     public const string NumericBoundaryResidualNode = "CS2J5327";

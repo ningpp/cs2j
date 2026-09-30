@@ -119,6 +119,7 @@ internal static class CliPreprocessChain
             VerifyTests = request.VerifyTests,
             Strict = request.Strict,
             TupleNamespace = request.TupleNamespace,
+            EnabledPassIds = plan.Enabled.Select(pass => pass.Id).ToHashSet(StringComparer.Ordinal),
             MakerOptionsFactory = request.MakerOptionsFactory,
             RecordReadOnlyOptionsFactory = request.RecordReadOnlyOptionsFactory,
             JavaKeywordOptionsFactory = request.JavaKeywordOptionsFactory,

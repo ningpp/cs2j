@@ -37,6 +37,13 @@ internal sealed class PassChainConfiguration
     public bool VerifyBuild { get; init; } = true;
     public bool VerifyTests { get; init; } = true;
 
+    /// <summary>
+    /// Ids of every pass enabled in the running chain. numeric-boundary uses
+    /// this to apply the decision-4/Q6 voucher exemption (op_Checked shells are
+    /// allowed only while member-desugar co-runs).
+    /// </summary>
+    public IReadOnlySet<string>? EnabledPassIds { get; init; }
+
     /// <summary>Historical --no-local-function-strict value, shared by lift/??/enum/delegate.</summary>
     public bool Strict { get; init; } = true;
 
@@ -77,9 +84,9 @@ internal static class PassChainFactory
             [PassIds.StripDefault] = opts.StripDefault,
             [PassIds.RefOutIn] = opts.RefOutIn,
             [PassIds.Unsigned] = opts.UnsignedType,
-            // No convert-project legacy switch: numeric-boundary is reachable only
-            // through --enable-pass/--pass (design §5.2).
-            [PassStubCatalog.Ids.NumericBoundary] = false,
+            // M4: numeric-boundary defaults ON in the open gate (design §8);
+            // disable explicitly with --disable-pass numeric-boundary.
+            [PassStubCatalog.Ids.NumericBoundary] = true,
             [PassIds.Generic] = opts.GenericPreprocess,
             [PassIds.RecordReadOnly] = opts.RecordReadOnly,
             [PassIds.ArrayMethod] = opts.ArrayMethod,
@@ -195,7 +202,7 @@ internal static class PassChainFactory
                 config.CompatNamespacePrefixes),
 
             PassStubCatalog.Ids.NumericBoundary => new NumericBoundaryPassAdapter(
-                new NumericBoundaryOptions(),
+                new NumericBoundaryOptions { EnabledPassIds = config.EnabledPassIds },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

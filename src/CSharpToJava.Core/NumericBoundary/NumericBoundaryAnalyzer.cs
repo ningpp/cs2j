@@ -1,6 +1,7 @@
 using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.Preprocessing;
 
 namespace CSharpToJava.Core.NumericBoundary;
 
@@ -15,20 +16,75 @@ namespace CSharpToJava.Core.NumericBoundary;
 internal sealed class NumericBoundaryAnalyzer
 {
     private readonly SemanticModel? _model;
-    private readonly Stack<bool> _checkedContextStack = new();
+    private readonly Stack<Frame> _contextStack = new();
 
     public NumericBoundaryAnalyzer(SemanticModel? model, bool projectDefaultChecked = false)
     {
         _model = model;
-        _checkedContextStack.Push(projectDefaultChecked);
+        ProjectDefaultChecked = projectDefaultChecked;
+        _contextStack.Push(new Frame(projectDefaultChecked, IsExplicitKeyword: false, IsReset: false));
     }
 
-    /// <summary>True while rewriting inside an active checked context (checked shell/block or project /checked).</summary>
-    public bool IsInCheckedContext => _checkedContextStack.Count > 0 && _checkedContextStack.Peek();
+    /// <summary>Project-wide default overflow context (<c>CheckForOverflowUnderflow</c>).</summary>
+    public bool ProjectDefaultChecked { get; }
 
+    private sealed record Frame(bool IsChecked, bool IsExplicitKeyword, bool IsReset);
+
+    /// <summary>True while rewriting inside an active checked context (checked shell/block or project /checked).</summary>
+    public bool IsInCheckedContext => CurrentFrame().IsChecked;
+
+    /// <summary>
+    /// True inside an explicit checked/unchecked shell or block (NB-6 scope).
+    /// A lambda/anonymous-method boundary resets both this and the checked
+    /// context to the project default (C# lambdas do not inherit checked blocks;
+    /// local functions do, so they get no reset).
+    /// </summary>
+    public bool IsWithinExplicitNumericScope
+    {
+        get
+        {
+            foreach (var frame in _contextStack)
+            {
+                if (frame.IsReset)
+                {
+                    return false;
+                }
+
+                if (frame.IsExplicitKeyword)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    private Frame CurrentFrame()
+    {
+        foreach (var frame in _contextStack)
+        {
+            return frame;
+        }
+
+        return new Frame(false, false, false);
+    }
+
+    /// <summary>Push a checked/unchecked keyword scope (shell or block).</summary>
     public IDisposable PushContext(bool isChecked)
     {
-        _checkedContextStack.Push(isChecked);
+        _contextStack.Push(new Frame(isChecked, IsExplicitKeyword: true, IsReset: false));
+        return new ContextScope(this);
+    }
+
+    /// <summary>
+    /// Push a lambda/anonymous-method boundary: anonymous functions do NOT
+    /// inherit an enclosing checked block, so their body runs in the project
+    /// default context and hides outer explicit scopes.
+    /// </summary>
+    public IDisposable PushAnonymousFunctionBoundary()
+    {
+        _contextStack.Push(new Frame(ProjectDefaultChecked, IsExplicitKeyword: false, IsReset: true));
         return new ContextScope(this);
     }
 
@@ -36,10 +92,12 @@ internal sealed class NumericBoundaryAnalyzer
     {
         private readonly NumericBoundaryAnalyzer _analyzer;
         public ContextScope(NumericBoundaryAnalyzer analyzer) => _analyzer = analyzer;
-        public void Dispose() => _analyzer._checkedContextStack.Pop();
+        public void Dispose() => _analyzer._contextStack.Pop();
     }
 
-    // ── shell inner classification (M1: checked expressions only) ──
+    // ── operation classification ──
+
+    public Microsoft.CodeAnalysis.IOperation? GetOperation(SyntaxNode node) => _model?.GetOperation(node);
 
     /// <summary>
     /// True when the inner expression binds to a user-defined <b>checked</b>
@@ -55,7 +113,7 @@ internal sealed class NumericBoundaryAnalyzer
     /// </summary>
     public bool IsCheckedUserOperatorVariant(ExpressionSyntax inner)
     {
-        if (_model?.GetOperation(inner) is not { } operation)
+        if (GetOperation(inner) is not { } operation)
         {
             return false;
         }
@@ -76,37 +134,7 @@ internal sealed class NumericBoundaryAnalyzer
             _ => null,
         };
 
-    /// <summary>
-    /// True for <c>checked(e)</c> sites that M1 must NOT strip even though they are
-    /// not built-in integer arithmetic: compound assignments and ++/-- (NB-7/8,
-    /// M3), nullable lifted numeric operations (future CS2J5325) and dynamically
-    /// bound sites (future CS2J5322). Retaining the shell keeps the code compilable
-    /// and loses no overflow check; later milestones close each bucket loudly.
-    /// </summary>
-    public bool IsDeferredCheckedSite(ExpressionSyntax inner)
-    {
-        if (_model?.GetOperation(inner) is not { } operation)
-        {
-            return false;
-        }
-
-        switch (operation)
-        {
-            case Microsoft.CodeAnalysis.Operations.ICompoundAssignmentOperation:
-            case Microsoft.CodeAnalysis.Operations.IIncrementOrDecrementOperation:
-                return true;
-            case Microsoft.CodeAnalysis.Operations.IBinaryOperation binary:
-                return IsNullableNumeric(binary.Type) || IsDynamic(binary.Type);
-            case Microsoft.CodeAnalysis.Operations.IUnaryOperation unary:
-                return IsNullableNumeric(unary.Type) || IsDynamic(unary.Type);
-            case Microsoft.CodeAnalysis.Operations.IConversionOperation conversion:
-                return IsNullableNumeric(conversion.Type);
-            default:
-                return false;
-        }
-    }
-
-    private static bool IsNullableNumeric(ITypeSymbol? type)
+    private static bool IsNullableNumericType(ITypeSymbol? type)
     {
         if (type is not INamedTypeSymbol named || named.OriginalDefinition.SpecialType
                 != SpecialType.System_Nullable_T)
@@ -119,65 +147,181 @@ internal sealed class NumericBoundaryAnalyzer
             || NumericBoundarySyntaxFacts.IsFloatingPointOrDecimalType(argument);
     }
 
-    private static bool IsDynamic(ITypeSymbol? type) => type?.TypeKind == TypeKind.Dynamic;
+    private static bool IsDynamicType(ITypeSymbol? type) => type?.TypeKind == TypeKind.Dynamic;
 
     /// <summary>
-    /// M1 policy for a <c>checked(e)</c> shell whose inner expression is not a
-    /// compile-time constant and not a user-defined operator: built-in integer
-    /// arithmetic/conversion sites keep the shell (M2/M3 closes them), everything
-    /// else is stripped with the inner operation untouched.
+    /// Platform-width or future numeric kinds unsupported by v1 (CS2J5320):
+    /// nint/nuint/IntPtr/UIntPtr, Half, Int128/UInt128 and anything else numeric
+    /// outside the four integer domains / narrow targets / floating-decimal set.
     /// </summary>
-    public bool IsBuiltInIntegerCheckedSite(ExpressionSyntax inner)
+    public static bool IsUnsupportedNumericType(ITypeSymbol? type)
     {
-        if (_model?.GetOperation(inner) is not { } operation)
+        if (type == null)
         {
             return false;
         }
 
+        if (type.SpecialType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr)
+        {
+            return true;
+        }
+
+        if (type.TypeKind == TypeKind.Structure
+            && type.SpecialType == SpecialType.None)
+        {
+            var name = type.ContainingNamespace?.ToDisplayString() == "System"
+                ? type.Name
+                : null;
+            if (name is "Half" or "Int128" or "UInt128")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>True for a lifted (nullable numeric) built-in arithmetic/conversion operation.</summary>
+    public static bool IsLiftedOperation(Microsoft.CodeAnalysis.IOperation? operation)
+    {
         switch (operation)
         {
-            case Microsoft.CodeAnalysis.Operations.IBinaryOperation binary:
-                return binary.OperatorMethod == null
-                    && NumericBoundarySyntaxFacts.IsIntegralType(binary.Type)
-                    && binary.OperatorKind is Microsoft.CodeAnalysis.Operations.BinaryOperatorKind.Add
-                        or Microsoft.CodeAnalysis.Operations.BinaryOperatorKind.Subtract
-                        or Microsoft.CodeAnalysis.Operations.BinaryOperatorKind.Multiply
-                        or Microsoft.CodeAnalysis.Operations.BinaryOperatorKind.Divide
-                        or Microsoft.CodeAnalysis.Operations.BinaryOperatorKind.Remainder;
-
-            case Microsoft.CodeAnalysis.Operations.IUnaryOperation unary:
-                return unary.OperatorMethod == null
-                    && NumericBoundarySyntaxFacts.IsIntegralType(unary.Type)
-                    && unary.OperatorKind == Microsoft.CodeAnalysis.Operations.UnaryOperatorKind.Minus;
-
-            case Microsoft.CodeAnalysis.Operations.IConversionOperation conversion:
-                // Enum conversions and identity conversions never overflow-check
-                // (NB-11); everything else integer-targeted keeps the shell in M1 —
-                // this also conservatively retains future error sites
-                // (floating→integer CS2J5321 / lifted CS2J5325) so no check is lost.
-                if (conversion.OperatorMethod != null || conversion.Conversion.IsIdentity)
-                {
-                    return false;
-                }
-
-                if (NumericBoundarySyntaxFacts.IsEnumType(conversion.Type)
-                    || NumericBoundarySyntaxFacts.IsEnumType(conversion.Operand?.Type))
-                {
-                    return false;
-                }
-
-                return NumericBoundarySyntaxFacts.IsIntegralType(conversion.Type);
-
+            case Microsoft.CodeAnalysis.Operations.IBinaryOperation b:
+                return b.IsLifted;
+            case Microsoft.CodeAnalysis.Operations.IUnaryOperation u:
+                return u.IsLifted;
+            case Microsoft.CodeAnalysis.Operations.ICompoundAssignmentOperation c:
+                return c.IsLifted;
+            case Microsoft.CodeAnalysis.Operations.IIncrementOrDecrementOperation i:
+                return i.IsLifted;
+            case Microsoft.CodeAnalysis.Operations.IConversionOperation v:
+                return IsNullableNumericType(v.Type) || IsNullableNumericType(v.Operand?.Type);
             default:
                 return false;
         }
     }
 
     /// <summary>
+    /// Classify a checked-context arithmetic site (binary/unary/compound/
+    /// increment). Returns a CS2J53xx error code, or null when the site is
+    /// expressible. Expression-tree/dynamic/lifted checks precede type checks.
+    /// </summary>
+    public string? ClassifyCheckedSiteError(
+        SyntaxNode site,
+        Microsoft.CodeAnalysis.IOperation operation,
+        ITypeSymbol? resultType)
+    {
+        if (IsWithinExpressionTree(site))
+        {
+            return PreprocessDiagnosticCodes.NumericBoundaryExpressionTree;
+        }
+
+        if (IsDynamicType(resultType))
+        {
+            return PreprocessDiagnosticCodes.NumericBoundaryDynamic;
+        }
+
+        if (IsLiftedOperation(operation))
+        {
+            return PreprocessDiagnosticCodes.NumericBoundaryNullableLifted;
+        }
+
+        if (IsUnsupportedNumericType(resultType))
+        {
+            return PreprocessDiagnosticCodes.NumericBoundaryUnsupportedType;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Classify an explicit integer conversion in checked context (NB-7/NB-12).
+    /// Returns a CS2J53xx error code, or null when the conversion is expressible
+    /// (integral→integral, non-constant, non-identity, non-enum).
+    /// </summary>
+    public string? ClassifyCheckedConversionError(
+        SyntaxNode site,
+        Microsoft.CodeAnalysis.Operations.IConversionOperation conversion)
+    {
+        var target = conversion.Type;
+        var source = conversion.Operand?.Type;
+
+        if (IsWithinExpressionTree(site))
+        {
+            return PreprocessDiagnosticCodes.NumericBoundaryExpressionTree;
+        }
+
+        if (IsDynamicType(target) || IsDynamicType(source))
+        {
+            return PreprocessDiagnosticCodes.NumericBoundaryDynamic;
+        }
+
+        if (IsLiftedOperation(conversion))
+        {
+            return PreprocessDiagnosticCodes.NumericBoundaryNullableLifted;
+        }
+
+        if (IsUnsupportedNumericType(target) || IsUnsupportedNumericType(source))
+        {
+            return PreprocessDiagnosticCodes.NumericBoundaryUnsupportedType;
+        }
+
+        if (NumericBoundarySyntaxFacts.IsIntegralType(target)
+            && NumericBoundarySyntaxFacts.IsFloatingPointOrDecimalType(source))
+        {
+            return PreprocessDiagnosticCodes.NumericBoundaryFloatingToInteger;
+        }
+
+        return null;
+    }
+
+    // ── increment/compound target classification (decision 9) ──
+
+    public enum TargetShape
+    {
+        /// <summary>Local variable or parameter referenced by a bare identifier.</summary>
+        LocalOrParameter,
+
+        /// <summary>Field referenced by a bare identifier or by this./base. member access.</summary>
+        Field,
+
+        /// <summary>Property/indexer/event/qualified member/anything else (CS2J5324 in checked context).</summary>
+        Complex,
+    }
+
+    public TargetShape ClassifyTarget(ExpressionSyntax target)
+    {
+        if (_model == null)
+        {
+            return TargetShape.Complex;
+        }
+
+        ExpressionSyntax effective = target;
+        if (target is MemberAccessExpressionSyntax memberAccess
+            && memberAccess.Expression is ThisExpressionSyntax or BaseExpressionSyntax)
+        {
+            effective = memberAccess.Name;
+        }
+        else if (target is not IdentifierNameSyntax)
+        {
+            return TargetShape.Complex;
+        }
+
+        var symbol = _model.GetSymbolInfo(effective).Symbol
+            ?? (effective is IdentifierNameSyntax ? _model.GetSymbolInfo(target).Symbol : null);
+        return symbol switch
+        {
+            ILocalSymbol or IParameterSymbol => TargetShape.LocalOrParameter,
+            IFieldSymbol => TargetShape.Field,
+            _ => TargetShape.Complex,
+        };
+    }
+
+    /// <summary>
     /// Materialize a constant inner expression into a target-correct literal.
     /// Handles conversion operations (value already folded by the compiler),
     /// folded binary/unary operations, and bare constant expressions whose
-    /// converted type is numeric (e.g. <c>byte b = unchecked(256);</c>).
+    /// converted type is numeric (e.g. <c>byte b = 256;</c>).
     /// </summary>
     public bool TryMaterializeConstant(ExpressionSyntax inner, out ExpressionSyntax literal)
     {
@@ -229,17 +373,39 @@ internal sealed class NumericBoundaryAnalyzer
             return false;
         }
 
+        // Folded arithmetic feeding an implicit narrowing conversion
+        // (e.g. `byte b = 100 + 100;` inside a /checked project): materialize
+        // directly into the converted target. When the value does not fit, bail
+        // out and leave the original fold in place (the caller also skips runtime
+        // helperization for constants) so default-context compile semantics survive.
+        var convertedType = _model.GetTypeInfo(inner).ConvertedType;
+        if (convertedType != null
+            && NumericBoundarySyntaxFacts.IsIntegralType(convertedType)
+            && NumericBoundarySyntaxFacts.IsIntegralType(targetType)
+            && !convertedType.Equals(targetType, SymbolEqualityComparer.Default))
+        {
+            return NumericBoundarySyntaxFacts.TryMaterializeLiteral(convertedType, value, out literal);
+        }
+
         return NumericBoundarySyntaxFacts.TryMaterializeLiteral(targetType, value, out literal);
     }
 
-    private static bool IsNumericType(ITypeSymbol type)
+    /// <summary>Integral or floating-point/decimal numeric type (NB-6 literal materialization guard).</summary>
+    public static bool IsNumericType(ITypeSymbol type)
         => NumericBoundarySyntaxFacts.IsIntegralType(type)
-            || NumericBoundarySyntaxFacts.IsFloatingPointOrDecimalType(type);
+        || NumericBoundarySyntaxFacts.IsFloatingPointOrDecimalType(type);
+
+    /// <summary>
+    /// True when the expression is a compile-time constant. Folded constant
+    /// arithmetic never becomes a runtime helper call; it either materializes
+    /// (NB-6) or keeps its original folded form.
+    /// </summary>
+    public bool HasCompileTimeConstantValue(SyntaxNode node)
+        => _model?.GetConstantValue(node).HasValue ?? false;
 
     /// <summary>
     /// True when <paramref name="node"/> is (or is inside) a lambda converted to
     /// <c>System.Linq.Expressions.Expression&lt;TDelegate&gt;</c> (CS2J5323 site).
-    /// M1 keeps the plumbing; the loud failure lands with M3.
     /// </summary>
     public bool IsWithinExpressionTree(SyntaxNode node)
     {
@@ -264,9 +430,12 @@ internal sealed class NumericBoundaryAnalyzer
         return false;
     }
 
-    /// <summary>True when the node binds dynamically (CS2J5322 site; plumbing for M3).</summary>
-    public bool IsDynamic(ExpressionSyntax node)
-        => _model?.GetTypeInfo(node).Type?.TypeKind == TypeKind.Dynamic;
+    /// <summary>1-based line/column of a site for MSBuild-style diagnostics.</summary>
+    public static (int Line, int Column) GetLineColumn(SyntaxNode node)
+    {
+        var span = node.GetLocation().GetLineSpan();
+        return (span.StartLinePosition.Line + 1, span.StartLinePosition.Character + 1);
+    }
 
     // ── project-level /checked (decision 15) ──
 

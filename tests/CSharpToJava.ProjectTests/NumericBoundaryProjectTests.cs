@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -11,16 +12,18 @@ using CSharpToJava.Core.RecordReadOnly;
 namespace CSharpToJava.ProjectTests;
 
 /// <summary>
-/// Project-level gate for the numeric-boundary pass (C15, M1):
-/// unchecked-only fixtures are stripped with no support library, retained
-/// checked nodes still produce a tree that builds and keeps runtime overflow
-/// behavior, and project-wide CheckForOverflowUnderflow is rejected with
-/// CS2J5326.
+/// Project-level gate for the numeric-boundary pass (C15, M2/M3):
+/// checked sites are explicitized to Cs2jUnsigned.UnsignedMath helpers, the
+/// Cs2jUnsignedMath support library is released and referenced, the rewritten
+/// intermediate tree builds and preserves runtime overflow behavior,
+/// project-wide CheckForOverflowUnderflow is handled the same way, and
+/// unsupported sites fail the chain with the file rolled back.
 /// </summary>
 public class NumericBoundaryProjectTests
 {
     private const string PassId = "numeric-boundary";
     private const string IntermediateName = ".cs2j-numeric-boundary-src";
+    private const string SupportLibDirectoryName = "Cs2jUnsignedMath";
 
     private static async Task<CliChainResult> RunPassAsync(
         string sourcePath, string outputRoot, bool verify)
@@ -42,12 +45,12 @@ public class NumericBoundaryProjectTests
     }
 
     [Fact]
-    public async Task UncheckedFixture_Stripped_NoSupportLibrary_IntermediateBuildsAndRuntimeChecksPass()
+    public async Task MixedFixture_Rewritten_SupportLibraryReleasedAndReferenced_IntermediateBuildsAndRuns()
     {
         var fixtureDir = Path.Combine(AppContext.BaseDirectory, "SampleNumericBoundarySolution");
         // Keep the output root in TEMP: nesting under the test bin directory makes
         // the built app's exe path exceed MAX_PATH on Windows.
-        var outputRoot = Path.Combine(Path.GetTempPath(), "cs2j-nb-m1-positive");
+        var outputRoot = Path.Combine(Path.GetTempPath(), "cs2j-nb-m2-positive");
         try
         {
             var result = await RunPassAsync(
@@ -61,21 +64,35 @@ public class NumericBoundaryProjectTests
             var intermediate = Path.Combine(outputRoot, IntermediateName);
             Assert.True(Directory.Exists(intermediate));
 
-            // M1 emits no checked helpers, so no Cs2jUnsignedMath project may be
-            // released into the intermediate tree.
-            Assert.False(
-                Directory.Exists(Path.Combine(intermediate, "Cs2jUnsignedMath")),
-                "M1 must not release the Cs2jUnsignedMath support library");
+            // M2 releases the support library into the intermediate tree.
+            var supportLibDir = Path.Combine(intermediate, SupportLibDirectoryName);
+            Assert.True(Directory.Exists(supportLibDir),
+                "numeric-boundary must release the Cs2jUnsignedMath support library");
+            Assert.True(File.Exists(Path.Combine(supportLibDir, "UnsignedMath.cs")));
+            Assert.True(File.Exists(Path.Combine(supportLibDir, "Cs2jUnsignedMath.csproj")));
 
-            // NB-13 over the intermediate user tree: zero unchecked keyword nodes;
-            // checked nodes are allowed to remain in M1.
+            // The project compiling rewritten files gets the ProjectReference.
+            var libProject = Path.Combine(
+                intermediate, "SampleNumericBoundaryLib", "SampleNumericBoundaryLib.csproj");
+            var libProjectText = await File.ReadAllTextAsync(libProject);
+            Assert.Contains("Cs2jUnsignedMath.csproj", libProjectText);
+
+            // NB-13 over the intermediate USER tree (the support library itself
+            // legitimately contains checked): zero checked/unchecked keyword nodes.
             foreach (var file in Directory.EnumerateFiles(intermediate, "*.cs", SearchOption.AllDirectories))
             {
+                if (file.StartsWith(supportLibDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 var text = await File.ReadAllTextAsync(file);
                 var root = CSharpSyntaxTree.ParseText(text).GetRoot();
-                Assert.Empty(root.DescendantNodes()
-                    .Where(n => n.IsKind(SyntaxKind.UncheckedExpression)
-                        || n.IsKind(SyntaxKind.UncheckedStatement)));
+                Assert.DoesNotContain(root.DescendantNodes(), n =>
+                    n.IsKind(SyntaxKind.CheckedExpression)
+                    || n.IsKind(SyntaxKind.CheckedStatement)
+                    || n.IsKind(SyntaxKind.UncheckedExpression)
+                    || n.IsKind(SyntaxKind.UncheckedStatement));
             }
 
             var uncheckedSamples = await File.ReadAllTextAsync(
@@ -84,20 +101,26 @@ public class NumericBoundaryProjectTests
             Assert.Contains("(byte)v", uncheckedSamples);
             Assert.Contains("(a + b)", uncheckedSamples);
             Assert.Contains("-1", uncheckedSamples);
-            // NB-2: the unwrapped block leaves no nested bare block for the splice site.
             var uncheckedRoot = CSharpSyntaxTree.ParseText(uncheckedSamples).GetRoot();
-            Assert.Empty(uncheckedRoot.DescendantTokens()
-                .Where(t => t.IsKind(SyntaxKind.UncheckedKeyword)));
+            Assert.DoesNotContain(uncheckedRoot.DescendantTokens(),
+                t => t.IsKind(SyntaxKind.UncheckedKeyword));
 
             var checkedSamples = await File.ReadAllTextAsync(
                 Path.Combine(intermediate, "SampleNumericBoundaryLib", "CheckedSamples.cs"));
-            // M1 retention: built-in integer checked sites stay untouched.
-            Assert.Contains("checked(a + b)", checkedSamples);
-            Assert.Contains("checked((byte)v)", checkedSamples);
-            Assert.Contains("checked", checkedSamples);
+            // M2/M3: every checked site is a fully-qualified helper call.
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.AddCheckedInt32", checkedSamples);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.AddCheckedInt64", checkedSamples);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.AddCheckedUInt32", checkedSamples);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.AddCheckedUInt64", checkedSamples);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.NegateCheckedInt32", checkedSamples);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.ToByteCheckedInt32", checkedSamples);
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.ToInt32CheckedUInt64", checkedSamples);
+            var checkedRoot = CSharpSyntaxTree.ParseText(checkedSamples).GetRoot();
+            Assert.DoesNotContain(checkedRoot.DescendantTokens(),
+                t => t.IsKind(SyntaxKind.CheckedKeyword));
 
-            // Runtime evidence (the .NET half of equivalence): run the Exe fixture
-            // against the rewritten intermediate tree.
+            // Runtime evidence: the rewritten Exe fixture self-checks values and
+            // overflow behavior against the helper-backed intermediate tree.
             var appProject = Path.Combine(
                 intermediate, "SampleNumericBoundaryApp", "SampleNumericBoundaryApp.csproj");
             var (exitCode, output) = await RunDotNetAsync("run", $"-c Release --project \"{appProject}\" --no-launch-profile");
@@ -115,23 +138,87 @@ public class NumericBoundaryProjectTests
     }
 
     [Fact]
-    public async Task CheckForOverflowUnderflowProject_IsRejected_CS2J5326()
+    public async Task CheckForOverflowUnderflowProject_RewrittenWithoutFlag_OverflowsAtRuntime()
     {
         var fixtureDir = Path.Combine(AppContext.BaseDirectory, "SampleNumericBoundaryCheckedSolution");
-        var outputRoot = Path.Combine(fixtureDir, ".test-output-checked-overflow");
+        // TEMP root: a fixture-local output makes the built exe path exceed MAX_PATH.
+        var outputRoot = Path.Combine(Path.GetTempPath(), "cs2j-nb-checked-overflow");
         try
         {
             var result = await RunPassAsync(
                 Path.Combine(fixtureDir, "SampleNumericBoundaryCheckedSolution.sln"),
                 outputRoot,
+                verify: true);
+
+            Assert.True(result.Success, "project-wide /checked must be rewritten, not rejected");
+
+            var intermediate = Path.Combine(outputRoot, IntermediateName);
+            var appProjectPath = Path.Combine(
+                intermediate, "SampleNumericBoundaryCheckedApp", "SampleNumericBoundaryCheckedApp.csproj");
+            var appProjectText = await File.ReadAllTextAsync(appProjectPath);
+            // The flag ELEMENT is removed from the intermediate tree; helpers
+            // carry the semantics (comments mentioning the name may remain).
+            var appProjectXml = XDocument.Parse(appProjectText);
+            Assert.DoesNotContain(appProjectXml.Descendants(),
+                e => e.Name.LocalName == "CheckForOverflowUnderflow");
+            Assert.Contains("Cs2jUnsignedMath.csproj", appProjectText);
+
+            var programPath = Path.Combine(
+                intermediate, "SampleNumericBoundaryCheckedApp", "Program.cs");
+            var program = await File.ReadAllTextAsync(programPath);
+            var programRoot = CSharpSyntaxTree.ParseText(program).GetRoot();
+            Assert.DoesNotContain(programRoot.DescendantTokens(),
+                t => t.IsKind(SyntaxKind.CheckedKeyword)
+                    || t.IsKind(SyntaxKind.UncheckedKeyword));
+            // foreach compound accumulation in the (former) /checked project.
+            Assert.Contains("Cs2jUnsigned.UnsignedMath.AddCheckedInt32", program);
+
+            Assert.True(Directory.Exists(Path.Combine(intermediate, SupportLibDirectoryName)),
+                "the support library must be released for a /checked project");
+
+            // Runtime: the non-overflowing sum prints first, then the overflow
+            // path surfaces as an unhandled OverflowException.
+            var (exitCode, output) = await RunDotNetAsync(
+                "run", $"-c Release --project \"{appProjectPath}\" --no-launch-profile");
+            Assert.NotEqual(0, exitCode);
+            // Match the app's own output line (dotnet run interleaves MSBuild logs).
+            var outputLines = output.Split('\n').Select(l => l.Trim('\r', ' ', '\t')).ToHashSet();
+            Assert.Contains("6", outputLines);
+            Assert.Contains("System.OverflowException", output);
+        }
+        finally
+        {
+            if (Directory.Exists(outputRoot))
+            {
+                Directory.Delete(outputRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task DynamicCheckedConversion_FailsChain_FileRolledBack()
+    {
+        var fixtureDir = Path.Combine(AppContext.BaseDirectory, "SampleNumericBoundaryUnsupportedSolution");
+        var outputRoot = Path.Combine(Path.GetTempPath(), "cs2j-nb-unsupported");
+        try
+        {
+            var result = await RunPassAsync(
+                Path.Combine(fixtureDir, "SampleNumericBoundaryUnsupportedSolution.sln"),
+                outputRoot,
                 verify: false);
 
-            Assert.False(result.Success, "project-wide /checked must fail numeric-boundary M1");
+            // CS2J5322: dynamic checked sites cannot be explicitized; NB-12 rolls
+            // the whole file back and fails the chain (diagnostic text is covered
+            // at adapter/unit level; CliChainResult contracts Success=false).
+            Assert.False(result.Success, "dynamic checked conversion must fail numeric-boundary");
 
-            // M1 placeholder semantics (design decision 15): the pass reports the
-            // per-project CS2J5326 error and the chain fails. CliChainResult does
-            // not surface diagnostic text, so Success=false is the contracted signal;
-            // the adapter-side aggregation is unit-covered through BuildChainDiagnosticLines.
+            var intermediate = Path.Combine(outputRoot, IntermediateName);
+            var programPath = Path.Combine(
+                intermediate, "SampleNumericBoundaryUnsupportedApp", "Program.cs");
+            var program = await File.ReadAllTextAsync(programPath);
+            // Rolled back byte-identical: the unsupported site stays untouched.
+            Assert.Contains("checked((int)d)", program);
+            Assert.DoesNotContain("Cs2jUnsigned", program);
         }
         finally
         {

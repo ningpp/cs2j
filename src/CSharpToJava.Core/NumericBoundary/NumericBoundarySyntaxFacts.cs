@@ -15,9 +15,13 @@ internal static class NumericBoundarySyntaxFacts
 {
     public const string UnwrapBlockAnnotationKind = "Cs2jNumericBoundaryUnwrapBlock";
     public const string RewriteAnnotationKind = "Cs2jNumericBoundaryRewrite";
+    public const string PostfixHoistAnnotationKind = "Cs2jNumericBoundaryPostfixHoist";
 
     public static readonly SyntaxAnnotation UnwrapBlockAnnotation = new(UnwrapBlockAnnotationKind);
     public static readonly SyntaxAnnotation RewriteAnnotation = new(RewriteAnnotationKind);
+
+    /// <summary>Prefix for hoisted postfix old-value temporaries (design decision 9).</summary>
+    public const string TempNamePrefix = "__cs2j_nb_";
 
     /// <summary>
     /// Integer domains C# arithmetic is performed in. Includes <c>char</c> and the
@@ -45,6 +49,187 @@ internal static class NumericBoundarySyntaxFacts
             or SpecialType.System_Double;
 
     public static bool IsEnumType(ITypeSymbol? type) => type?.TypeKind == TypeKind.Enum;
+
+    // ── arithmetic domains (NB-3/4/5/8) ──
+
+    /// <summary>The four integer domains overflow-checked arithmetic is emitted in.</summary>
+    public enum NumericDomain
+    {
+        Int32,
+        Int64,
+        UInt32,
+        UInt64,
+    }
+
+    public static bool IsArithmeticDomainSpecialType(SpecialType specialType) => specialType is
+        SpecialType.System_Int32
+        or SpecialType.System_Int64
+        or SpecialType.System_UInt32
+        or SpecialType.System_UInt64;
+
+    public static bool TryGetArithmeticDomain(ITypeSymbol? type, out NumericDomain domain)
+    {
+        if (type is not null && type.TypeKind == TypeKind.Structure)
+        {
+            switch (type.SpecialType)
+            {
+                case SpecialType.System_Int32:
+                    domain = NumericDomain.Int32;
+                    return true;
+                case SpecialType.System_Int64:
+                    domain = NumericDomain.Int64;
+                    return true;
+                case SpecialType.System_UInt32:
+                    domain = NumericDomain.UInt32;
+                    return true;
+                case SpecialType.System_UInt64:
+                    domain = NumericDomain.UInt64;
+                    return true;
+            }
+        }
+
+        domain = default;
+        return false;
+    }
+
+    /// <summary>narrow integer types whose arithmetic is promoted to an int/long domain.</summary>
+    public static bool IsNarrowIntegerSpecialType(SpecialType specialType) => specialType is
+        SpecialType.System_SByte
+        or SpecialType.System_Byte
+        or SpecialType.System_Int16
+        or SpecialType.System_UInt16
+        or SpecialType.System_Char;
+
+    public static string DomainSuffix(NumericDomain domain) => domain switch
+    {
+        NumericDomain.Int32 => "Int32",
+        NumericDomain.Int64 => "Int64",
+        NumericDomain.UInt32 => "UInt32",
+        NumericDomain.UInt64 => "UInt64",
+        _ => throw new InvalidOperationException(),
+    };
+
+    public static SyntaxKind DomainPredefinedKeyword(NumericDomain domain) => domain switch
+    {
+        NumericDomain.Int32 => SyntaxKind.IntKeyword,
+        NumericDomain.Int64 => SyntaxKind.LongKeyword,
+        NumericDomain.UInt32 => SyntaxKind.UIntKeyword,
+        NumericDomain.UInt64 => SyntaxKind.ULongKeyword,
+        _ => throw new InvalidOperationException(),
+    };
+
+    /// <summary>
+    /// Build <c>Cs2jUnsigned.UnsignedMath.Method(args)</c> (fully qualified, same
+    /// shape as the unsigned pass' StaticCall).
+    /// </summary>
+    public static InvocationExpressionSyntax HelperCall(string method, params ExpressionSyntax[] arguments)
+    {
+        var memberAccess = SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                SyntaxFactory.IdentifierName("Cs2jUnsigned"),
+                SyntaxFactory.IdentifierName("UnsignedMath")),
+            SyntaxFactory.IdentifierName(method));
+
+        return SyntaxFactory.InvocationExpression(
+            memberAccess,
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.SeparatedList(
+                    arguments.Select(SyntaxFactory.Argument))));
+    }
+
+    public static ExpressionSyntax LiteralOne()
+        => SyntaxFactory.LiteralExpression(
+            SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1));
+
+    public static CastExpressionSyntax CastToDomain(NumericDomain domain, ExpressionSyntax expression)
+        => SyntaxFactory.CastExpression(
+            SyntaxFactory.PredefinedType(SyntaxFactory.Token(DomainPredefinedKeyword(domain))),
+            expression);
+
+    // ── checked conversion matrix (NB-7, design decision 10) ──
+
+    private static string TargetName(SpecialType specialType) => specialType switch
+    {
+        SpecialType.System_SByte => "SByte",
+        SpecialType.System_Byte => "Byte",
+        SpecialType.System_Int16 => "Int16",
+        SpecialType.System_UInt16 => "UInt16",
+        SpecialType.System_Char => "Char",
+        SpecialType.System_Int32 => "Int32",
+        SpecialType.System_UInt32 => "UInt32",
+        SpecialType.System_Int64 => "Int64",
+        SpecialType.System_UInt64 => "UInt64",
+        _ => throw new InvalidOperationException(),
+    };
+
+    /// <summary>Inclusive [min,max] range of an integral special type, stored in decimal (holds 2^64 exactly).</summary>
+    private static (decimal Min, decimal Max) IntegralRange(SpecialType specialType) => specialType switch
+    {
+        SpecialType.System_SByte => (-128m, 127m),
+        SpecialType.System_Byte => (0m, 255m),
+        SpecialType.System_Int16 => (-32768m, 32767m),
+        SpecialType.System_UInt16 => (0m, 65535m),
+        SpecialType.System_Char => (0m, 65535m),
+        SpecialType.System_Int32 => (-2147483648m, 2147483647m),
+        SpecialType.System_UInt32 => (0m, 4294967295m),
+        SpecialType.System_Int64 => (-9223372036854775808m, 9223372036854775807m),
+        SpecialType.System_UInt64 => (0m, 18446744073709551615m),
+        _ => throw new InvalidOperationException(),
+    };
+
+    /// <summary>
+    /// True when every value of <paramref name="source"/> fits <paramref name="target"/>:
+    /// the explicit conversion can never overflow and no helper is needed.
+    /// </summary>
+    public static bool ConversionAlwaysFits(SpecialType source, SpecialType target)
+    {
+        var s = IntegralRange(source);
+        var t = IntegralRange(target);
+        return t.Min <= s.Min && s.Max <= t.Max;
+    }
+
+    /// <summary>
+    /// Arithmetic domain encoding a conversion source: narrow types promote to
+    /// Int32; Int32/UInt32/Int64/UInt64 keep their own domain.
+    /// </summary>
+    public static NumericDomain SourceDomain(SpecialType source)
+    {
+        if (IsNarrowIntegerSpecialType(source) || source == SpecialType.System_Int32)
+        {
+            return NumericDomain.Int32;
+        }
+
+        return source switch
+        {
+            SpecialType.System_UInt32 => NumericDomain.UInt32,
+            SpecialType.System_Int64 => NumericDomain.Int64,
+            SpecialType.System_UInt64 => NumericDomain.UInt64,
+            _ => throw new InvalidOperationException(),
+        };
+    }
+
+    /// <summary>
+    /// Name of the checked conversion helper for an integral→integral explicit
+    /// conversion that can overflow (e.g. <c>ToByteCheckedInt32</c>,
+    /// <c>ToUInt32CheckedInt64</c>). Returns null when target fully contains the
+    /// source (widening — no runtime check).
+    /// </summary>
+    public static string? TryGetCheckedConversionName(SpecialType target, SpecialType source)
+    {
+        if (!IsIntegralSpecialType(target) || !IsIntegralSpecialType(source))
+        {
+            return null;
+        }
+
+        if (ConversionAlwaysFits(source, target))
+        {
+            return null;
+        }
+
+        return "To" + TargetName(target) + "Checked" + DomainSuffix(SourceDomain(source));
+    }
 
     /// <summary>
     /// After stripping <c>unchecked(e)</c>/<c>checked(e)</c> the inner expression

@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using CSharpToJava.Core.NumericBoundary;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.CLI.Preprocessing.SupportLibraries;
@@ -5,12 +6,12 @@ using CSharpToJava.CLI.Preprocessing.SupportLibraries;
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
 /// <summary>
-/// Adapter for the numeric-boundary pass (C15, M1). Runs on the standard spine.
-/// M1 only strips unchecked shells/blocks, materializes constants and strips
-/// non-integer checked shells; checked helper sites never occur yet, so no
-/// support library is released in M1 (the guarded injection hook documents the
-/// M2 entry point; shared helpers will be extracted from
-/// <see cref="UnsignedPassAdapter"/> then, per design §5.1).
+/// Adapter for the numeric-boundary pass (C15, M2/M3/M4). Runs on the standard
+/// spine: keyword checked/unchecked sites plus project-wide
+/// <c>&lt;CheckForOverflowUnderflow&gt;true&lt;/csproj&gt;</c> are rewritten to
+/// Cs2jUnsigned.UnsignedMath checked helpers, the shared Cs2jUnsignedMath
+/// support library is released into the intermediate tree and ProjectReferences
+/// are injected through <see cref="Cs2jUnsignedMathInjection"/>.
 /// </summary>
 internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
 {
@@ -24,8 +25,7 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
     private readonly NumericBoundaryPreprocessor _rewriter = new();
     private readonly List<NumericBoundaryDiagnostic> _diagnostics = new();
     private readonly NumericBoundaryStatistics _statistics = new();
-    private readonly HashSet<string> _reportedCheckedOverflowProjects =
-        new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _rewrittenSourceFiles = new();
 
     private List<string> _ownReleaseDirectories = new();
     private IReadOnlyDictionary<string, bool> _checkForOverflowMap =
@@ -67,6 +67,7 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         _checkForOverflowMap = NumericBoundaryAnalyzer.ParseCheckForOverflowUnderflow(
             tree.Layout.ProjectFiles.Where(file =>
                 file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)));
+        _statistics.CheckedOverflowProjectsDetected = _checkForOverflowMap.Values.Count(v => v);
         return Task.CompletedTask;
     }
 
@@ -93,7 +94,6 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
 
         var result = _rewriter.Rewrite(context.SourceCode, context.SemanticModel, perFileOptions);
         MergeStatistics(result.Statistics);
-        ReportProjectCheckedOverflowOnce(context.SourceFilePath);
 
         foreach (var diagnostic in result.Diagnostics)
         {
@@ -116,6 +116,7 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
 
         if (result.Changed)
         {
+            _rewrittenSourceFiles.Add(context.SourceFilePath);
             var rewrite = new PassFileRewrite
             {
                 OutputCode = result.OutputCode,
@@ -128,27 +129,117 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         return Task.FromResult<PassFileRewrite?>(null);
     }
 
-    public override Task AfterFilesAsync(PassTreeContext tree)
+    public override async Task AfterFilesAsync(PassTreeContext tree)
     {
-        // M2 entry point (design §5.1): when CheckedBinarySites/CheckedUnarySites/
-        // CheckedConversionSites/CheckedIncrementSites/CompoundAssignments become
-        // nonzero, release Cs2jUnsignedMath via UnsignedMathSupportFiles.ReleaseAsync
-        // and inject ProjectReferences through shared helpers extracted from
-        // UnsignedPassAdapter (no duplicated injection logic). M1 never increments
-        // those counters, so this hook is intentionally unreachable.
+        StripProjectCheckedFlags(tree);
+
         var checkedHelperSites = _statistics.CheckedBinarySites
             + _statistics.CheckedUnarySites
             + _statistics.CheckedConversionSites
             + _statistics.CheckedIncrementSites
             + _statistics.CompoundAssignments;
-        if (checkedHelperSites > 0)
+        if (checkedHelperSites == 0)
         {
-            throw new InvalidOperationException(
-                "numeric-boundary M1 emitted checked-helper site counters, but the support-library " +
-                "injection hook lands with M2. This is an implementation error.");
+            // Pure stripping pass: no support library needed.
+            return;
         }
 
-        return Task.CompletedTask;
+        if (tree.Layout.ProjectFiles.Count == 0)
+        {
+            // CS2J5309: helper calls were emitted into loose .cs input without a
+            // host project; there is nowhere to attach the support library.
+            _diagnostics.Add(new NumericBoundaryDiagnostic(
+                NumericBoundarySeverity.Warning,
+                PreprocessDiagnosticCodes.NumericBoundarySingleFileNotSelfContained,
+                "numeric-boundary emitted checked-helper calls but the input contains no .csproj/.sln " +
+                "host; the Cs2jUnsignedMath support library cannot be attached. Preprocess a project " +
+                "or solution directory instead."));
+            return;
+        }
+
+        var restoreTarget = ProjectPreprocessSource.ResolveRestoreTarget(
+            tree.Layout, tree.IntermediateRoot);
+        if (restoreTarget == null)
+        {
+            _diagnostics.Add(new NumericBoundaryDiagnostic(
+                NumericBoundarySeverity.Warning,
+                PreprocessDiagnosticCodes.NumericBoundarySingleFileNotSelfContained,
+                "numeric-boundary emitted checked-helper calls but no restore target (.csproj/.sln) " +
+                "was found in the intermediate tree; the Cs2jUnsignedMath support library cannot be attached."));
+            return;
+        }
+
+        await Cs2jUnsignedMathInjection.ReleaseAndInjectAsync(
+            tree,
+            _rewrittenSourceFiles,
+            message => _diagnostics.Add(new NumericBoundaryDiagnostic(
+                NumericBoundarySeverity.Warning,
+                PreprocessDiagnosticCodes.NumericBoundaryCheckedSiteInfo,
+                message)));
+    }
+
+    /// <summary>
+    /// Remove <c>&lt;CheckForOverflowUnderflow&gt;</c> from every intermediate
+    /// csproj that enabled it. All checked semantics now live in the emitted
+    /// helper calls (and in the explicit checked blocks inside the released
+    /// support library); keeping the flag would double-check calls and, more
+    /// importantly, reject implicit constant-narrowing folds that the pass
+    /// materializes with unchecked-wrap values so the intermediate tree compiles.
+    /// </summary>
+    private void StripProjectCheckedFlags(PassTreeContext tree)
+    {
+        // The map is keyed by project directory (see
+        // NumericBoundaryAnalyzer.ParseCheckForOverflowUnderflow).
+        foreach (var projectFile in tree.Layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            var projectDirectory = Path.GetFullPath(Path.GetDirectoryName(projectFile)!);
+            if (!_checkForOverflowMap.TryGetValue(projectDirectory, out var isChecked) || !isChecked)
+            {
+                continue;
+            }
+
+            var intermediateProjectFile = Path.Combine(
+                tree.IntermediateRoot,
+                Path.GetRelativePath(tree.SourceRoot, projectFile));
+            if (!File.Exists(intermediateProjectFile))
+            {
+                continue;
+            }
+
+            XDocument document;
+            try
+            {
+                document = XDocument.Load(intermediateProjectFile, LoadOptions.PreserveWhitespace);
+            }
+            catch (Exception)
+            {
+                continue;
+            }
+
+            var flags = document.Descendants()
+                .Where(e => e.Name.LocalName == "CheckForOverflowUnderflow")
+                .ToList();
+            if (flags.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var flag in flags)
+            {
+                flag.Remove();
+            }
+
+            try
+            {
+                document.Save(intermediateProjectFile, SaveOptions.DisableFormatting);
+            }
+            catch (Exception)
+            {
+                // A read-only intermediate file is reported by the build gate;
+                // never fail the pass over csproj cleanup.
+            }
+        }
     }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)
@@ -225,57 +316,6 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
             _statistics.ErrorsByReason[pair.Key] =
                 _statistics.ErrorsByReason.GetValueOrDefault(pair.Key) + pair.Value;
         }
-    }
-
-    /// <summary>CS2J5326 (M1): report each /checked project exactly once.</summary>
-    private void ReportProjectCheckedOverflowOnce(string sourceFilePath)
-    {
-        var projectDirectory = ResolveProjectDirectory(sourceFilePath);
-        if (projectDirectory == null
-            || _reportedCheckedOverflowProjects.Contains(projectDirectory))
-        {
-            return;
-        }
-
-        _reportedCheckedOverflowProjects.Add(projectDirectory);
-        _statistics.CheckedOverflowProjectsDetected++;
-        _diagnostics.Add(new NumericBoundaryDiagnostic(
-            NumericBoundarySeverity.Error,
-            PreprocessDiagnosticCodes.NumericBoundaryProjectCheckedOverflow,
-            $"Project '{projectDirectory}' sets <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>; " +
-            "project-wide checked arithmetic is not supported until numeric-boundary M2."));
-    }
-
-    private string? ResolveProjectDirectory(string sourceFilePath)
-    {
-        if (_checkForOverflowMap.Count == 0)
-        {
-            return null;
-        }
-
-        var fullPath = Path.GetFullPath(sourceFilePath);
-        string? best = null;
-        foreach (var projectDirectory in _checkForOverflowMap.Keys)
-        {
-            if (!_checkForOverflowMap[projectDirectory])
-            {
-                continue;
-            }
-
-            var normalized = projectDirectory.TrimEnd(
-                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            if ((fullPath.Equals(normalized, StringComparison.OrdinalIgnoreCase)
-                    || fullPath.StartsWith(
-                        normalized + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-                    || fullPath.StartsWith(
-                        normalized + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                && (best == null || normalized.Length > best.Length))
-            {
-                best = normalized;
-            }
-        }
-
-        return best;
     }
 
     /// <summary>

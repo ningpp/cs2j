@@ -485,8 +485,8 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 同上 |
 | 与现有通道关系 | 小而独立；建议作为「数值边界归一」规则集与 E09/C17 同通道 |
 | 优先级 | **P2**（规则简单、命中即失败，性价比高） |
-| 状态 | 缺失 |
-| 验证 | fixture：checked 表达式溢出、unchecked 常量折叠、嵌套块 |
+| 状态 | **已完成（2026-09-30，pass id `numeric-boundary`，默认开启）**：M1 拒检基建→M2 checked 显式化（算术/一元/转换/复合/自增）+ Cs2jUnsignedMath 双侧支撑库→M3 NB-12/NB-13 闸门、工程级 /checked、member-desugar voucher 共处→M4 默认翻转；设计 `docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md`，实施记录 `docs/superpowers/plans/2026-09-28-c15-checked-unchecked.md` |
+| 验证 | fixture：checked 表达式溢出、unchecked 常量折叠、嵌套块（SampleNumericBoundarySolution/SampleNumericBoundaryCheckedSolution/SampleNumericBoundaryUnsupportedSolution，含 dotnet run 运行时溢出证据） |
 | 三次补全追加 | 本条目并非「纯 fail-fast」：checked **表达式**今天**静默丢失语义**——产 `/* checked */ expr` 前缀（`TypeOperationTransformer.cs:31`），溢出检查消失；相关的 `sizeof(用户类型/Int128 等)` 产 `"/* sizeof */"` 占位（`TypeOperationTransformer.cs:155-164`）；`unchecked` 语句文本被 `ShouldEmitStatementText` 直接过滤丢弃（`StatementTransformer.cs:310-315`，以 `/* TODO: UncheckedStatement` 前缀判别）。三者应并入同一「数值语义显式化」规则集，且 default 策略改为显式报错而非占位（见 §4.12） |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/checked（默认溢出上下文/常量折叠规则） |
 

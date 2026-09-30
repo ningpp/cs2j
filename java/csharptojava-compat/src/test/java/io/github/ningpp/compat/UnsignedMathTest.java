@@ -155,4 +155,118 @@ class UnsignedMathTest {
         assertEquals(0xF0L, UnsignedMath.orInt64(0xF0L, 0x00L));
         assertEquals(0xFFL ^ 0x0FL, UnsignedMath.xorInt64(0xFFL, 0x0FL));
     }
+
+    // ---- checked 算术（C15 numeric-boundary；溢出断言 ArithmeticException） ----
+
+    @Test
+    void checkedInt32_inRange_matchesExactMath() {
+        assertEquals(5, UnsignedMath.addCheckedInt32(2, 3));
+        assertEquals(-1, UnsignedMath.subtractCheckedInt32(2, 3));
+        assertEquals(-6, UnsignedMath.multiplyCheckedInt32(-2, 3));
+        assertEquals(7, UnsignedMath.negateCheckedInt32(-7));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.addCheckedInt32(Integer.MAX_VALUE, 1));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.subtractCheckedInt32(Integer.MIN_VALUE, 1));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.multiplyCheckedInt32(Integer.MAX_VALUE, 2));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.negateCheckedInt32(Integer.MIN_VALUE));
+    }
+
+    @Test
+    void checkedInt64_inRangeAndOverflow() {
+        assertEquals(5L, UnsignedMath.addCheckedInt64(2L, 3L));
+        assertEquals(-4L, UnsignedMath.negateCheckedInt64(4L));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.addCheckedInt64(Long.MAX_VALUE, 1L));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.subtractCheckedInt64(Long.MIN_VALUE, 1L));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.multiplyCheckedInt64(Long.MAX_VALUE, 2L));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.negateCheckedInt64(Long.MIN_VALUE));
+    }
+
+    @Test
+    void checkedUInt32_inRangeAndOverflow() {
+        assertEquals(5, UnsignedMath.addCheckedUInt32(2, 3));
+        assertEquals(1, UnsignedMath.subtractCheckedUInt32(3, 2));
+        assertEquals(12, UnsignedMath.multiplyCheckedUInt32(3, 4));
+        // 0xFFFFFFFF + 1 / 0 - 1 / 0xFFFFFFFF * 2 溢出
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.addCheckedUInt32(-1, 1));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.subtractCheckedUInt32(0, 1));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.multiplyCheckedUInt32(-1, 2));
+        // 2^32 - 1 + 0 不溢出
+        assertEquals(-1, UnsignedMath.addCheckedUInt32(-1, 0));
+        assertEquals(-1, UnsignedMath.subtractCheckedUInt32(-1, 0));
+    }
+
+    @Test
+    void checkedUInt64_inRangeAndOverflow() {
+        assertEquals(5L, UnsignedMath.addCheckedUInt64(2L, 3L));
+        assertEquals(1L, UnsignedMath.subtractCheckedUInt64(3L, 2L));
+        assertEquals(12L, UnsignedMath.multiplyCheckedUInt64(3L, 4L));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.addCheckedUInt64(-1L, 1L));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.subtractCheckedUInt64(0L, 1L));
+        assertThrows(ArithmeticException.class,
+                () -> UnsignedMath.multiplyCheckedUInt64(-1L, 2L));
+        // 边界不溢出：max + 0、max - max
+        assertEquals(-1L, UnsignedMath.addCheckedUInt64(-1L, 0L));
+        assertEquals(0L, UnsignedMath.subtractCheckedUInt64(-1L, -1L));
+    }
+
+    // ---- checked 转换族（C15；越界断言 ArithmeticException） ----
+
+    @Test
+    void checkedConversions_inRangeReturnSameValue() {
+        assertEquals(127, UnsignedMath.toSByteCheckedInt32(127));
+        assertEquals(255, UnsignedMath.toByteCheckedInt32(255));
+        assertEquals(32767, UnsignedMath.toInt16CheckedInt32(32767));
+        assertEquals(65535, UnsignedMath.toUInt16CheckedInt32(65535));
+        assertEquals(65535, UnsignedMath.toCharCheckedInt32(65535));
+        assertEquals(0x7FFFFFFF, UnsignedMath.toUInt32CheckedInt32(Integer.MAX_VALUE));
+
+        assertEquals(255, UnsignedMath.toByteCheckedUInt32(255));
+        assertEquals(0x7FFFFFFF, UnsignedMath.toInt32CheckedUInt32(0x7FFFFFFF));
+
+        assertEquals(127L, UnsignedMath.toSByteCheckedInt64(127L));
+        // Java stores uint32 in int: compare through the unsigned view.
+        assertEquals(0xFFFFFFFFL, Integer.toUnsignedLong(UnsignedMath.toUInt32CheckedInt64(0xFFFFFFFFL)));
+        assertEquals(Long.MAX_VALUE, UnsignedMath.toUInt64CheckedInt64(Long.MAX_VALUE));
+
+        assertEquals(255, UnsignedMath.toByteCheckedUInt64(255L));
+        assertEquals(0x7FFFFFFFL, UnsignedMath.toInt32CheckedUInt64(0x7FFFFFFFL));
+        assertEquals(Long.MAX_VALUE, UnsignedMath.toInt64CheckedUInt64(Long.MAX_VALUE));
+    }
+
+    @Test
+    void checkedConversions_overflowThrows() {
+        // from Int32
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toSByteCheckedInt32(128));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toByteCheckedInt32(-1));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toInt16CheckedInt32(32768));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toUInt16CheckedInt32(-1));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toCharCheckedInt32(65536));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toUInt32CheckedInt32(-1));
+
+        // from UInt32（参数为无符号存储 int）
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toSByteCheckedUInt32(128));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toInt32CheckedUInt32(-1));
+
+        // from Int64
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toInt32CheckedInt64(0x1_00000000L));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toUInt32CheckedInt64(-1L));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toUInt64CheckedInt64(-1L));
+
+        // from UInt64（参数为无符号存储 long）
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toByteCheckedUInt64(256L));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toInt32CheckedUInt64(-1L));
+        assertThrows(ArithmeticException.class, () -> UnsignedMath.toInt64CheckedUInt64(-1L));
+    }
 }

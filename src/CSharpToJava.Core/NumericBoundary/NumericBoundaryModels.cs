@@ -8,6 +8,9 @@ namespace CSharpToJava.Core.NumericBoundary;
 /// </summary>
 public sealed record NumericBoundaryOptions
 {
+    /// <summary>Chain id of member-desugar (C14); checked user-operator shells are exempt from NB-13 only when it co-runs.</summary>
+    public const string MemberDesugarPassId = "member-desugar";
+
     /// <summary>Upgrade residual-gate warnings (CS2J5327) to errors (same discipline as enum).</summary>
     public bool Strict { get; init; } = true;
 
@@ -17,12 +20,19 @@ public sealed record NumericBoundaryOptions
     /// <summary>
     /// Project directory → <c>CheckForOverflowUnderflow</c> value, parsed per csproj
     /// by the adapter (design decision 15). The per-file default context is seeded
-    /// from the owning project. M1 reports CS2J5326 for <c>true</c> projects.
+    /// from the owning project. M2 fully supports <c>true</c> projects.
     /// </summary>
     public IReadOnlyDictionary<string, bool>? CheckForOverflowUnderflowByProjectDirectory { get; init; }
 
     /// <summary>Absolute source path of the file being rewritten (project-ownership lookup).</summary>
     public string? SourceFilePath { get; init; }
+
+    /// <summary>
+    /// Ids of the passes enabled in the current chain (Q6). A surviving checked
+    /// user-operator shell is exempt from NB-13 only while member-desugar (C14)
+    /// co-runs and strips it downstream.
+    /// </summary>
+    public IReadOnlySet<string>? EnabledPassIds { get; init; }
 }
 
 public enum NumericBoundarySeverity
