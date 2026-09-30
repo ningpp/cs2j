@@ -22,6 +22,7 @@ public sealed class PassChainOrderTests
         PassIds.LocalFunctionLift,
         PassIds.NullCoalesce,
         PassIds.Enum,
+        PassIds.EnumDeclaration,
         PassIds.Delegate,
         PassIds.Tuple,
         PassIds.ForeachDeconstruction,
@@ -43,10 +44,12 @@ public sealed class PassChainOrderTests
         PassIds.JavaKeywords,
     ];
 
-    // C15 M4 起 numeric-boundary 默认开；C07 struct-value-semantics 已落地但暂保持 opt-in
-    // （设计 §8 default-enablement 闸门未放行），故从 EnabledByDefault 中排除。
+    // C15 M4 起 numeric-boundary 默认开；C07 struct-value-semantics 与 C05 enum-declaration
+    // 已落地但暂保持 opt-in（各自设计 §8 default-enablement 闸门未放行），故默认启用
+    // 列表显式排除这两个 id。
     private static readonly string[] EnabledByDefault =
-        LockedChain.Where(id => id != PassIds.StructValueSemantics).ToArray();
+        LockedChain.Where(id => id != PassIds.StructValueSemantics
+            && id != PassIds.EnumDeclaration).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -151,11 +154,9 @@ public sealed class PassChainOrderTests
         Assert.Equal("C02", byId[PassIds.GenericDeepen].CatalogItems);
         Assert.Equal("C03, C37", byId[PassIds.PatternDesugar].CatalogItems);
         Assert.Equal("C04", byId[PassStubCatalog.Ids.IteratorLowering].CatalogItems);
-<<<<<<< HEAD
         Assert.Equal("C15", byId[PassStubCatalog.Ids.NumericBoundary].CatalogItems);
-=======
         Assert.Equal("C07", byId[PassIds.StructValueSemantics].CatalogItems);
->>>>>>> aba27011 (test: C07 struct-value-semantics 测试套件（registry/order/stub/consistent）)
+        Assert.Equal("C05", byId[PassIds.EnumDeclaration].CatalogItems);
         Assert.Equal("C11, C12, C13, C14", byId[PassIds.MemberDesugar].CatalogItems);
     }
 
@@ -169,6 +170,7 @@ public sealed class PassChainOrderTests
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
             StructValueSemanticsOptionsFactory = () => new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
+            EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
         };
 
         foreach (var descriptor in PassCatalog.BuildRegistry().Ordered
@@ -225,7 +227,8 @@ public sealed class PassChainOrderTests
         // newly flipped registry passes (e.g. generic-deepen) are reachable solely
         // through their descriptor default plus --enable-pass/--pass.
         Assert.Equal(
-            LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar)
+            LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
+                && id != PassIds.EnumDeclaration)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

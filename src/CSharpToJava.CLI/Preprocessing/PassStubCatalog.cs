@@ -21,7 +21,6 @@ internal static class PassStubCatalog
     {
         public const string LexicalNormalize = "lexical-normalize";
         public const string PartialMerge = "partial-merge";
-        public const string EnumDeclaration = "enum-declaration";
         public const string ForeachSource = "foreach-source";
         public const string ClosedMetadata = "closed-metadata";
         public const string VarianceAudit = "variance-audit";
@@ -67,16 +66,6 @@ internal static class PassStubCatalog
             needsSemanticModel: false,
             description: "Merge partial type declarations across the tree before the semantic passes.",
             catalogItems: "C20"),
-        new(
-            Ids.EnumDeclaration,
-            "Enum declaration rewrite",
-            ".cs2j-enum-declaration-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.Enum },
-            description: "Rewrite enum-as-class declaration forms ahead of the value conversion.",
-            catalogItems: "C05"),
         new(
             Ids.ForeachSource,
             "Foreach source rewrite",

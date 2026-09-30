@@ -9,6 +9,7 @@ internal static class PassIds
     public const string LocalFunctionLift = "local-function-lift";
     public const string NullCoalesce = "null-coalesce";
     public const string Enum = "enum";
+    public const string EnumDeclaration = "enum-declaration";
     public const string Delegate = "delegate";
     public const string Tuple = "tuple";
     public const string ForeachDeconstruction = "foreach-deconstruction";
@@ -79,6 +80,18 @@ internal static class PassCatalog
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Convert [Flags] enums and bitwise/HasFlag usage to prelude helpers."),
+        new(
+            PassIds.EnumDeclaration,
+            "Enum declaration rewrite",
+            ".cs2j-enum-declaration-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.Enum },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Normalize [Flags]/non-int/explicit-value enums into enum-like sealed classes and rewrite every use site tree-wide; opt-in only.",
+            catalogItems: "C05"),
         new(
             PassIds.Delegate,
             "Delegate",

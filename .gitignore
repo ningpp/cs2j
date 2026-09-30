@@ -97,8 +97,13 @@ probe-out/
 .cs2j-null-coalesce-src/
 .cs2j-delegate-src/
 .cs2j-enum-src/
+.cs2j-enum-declaration-src/
 .cs2j-record-readonly-src/
 .cs2j-array-src/
+.cs2j-pattern-desugar-src/
+.cs2j-iterator-lowering-src/
+.cs2j-member-desugar-src/
+.cs2j-java-keywords-src/
 .cs2j-test-output/
 
 snapshots/

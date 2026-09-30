@@ -126,6 +126,15 @@ public class ProjectPreprocessorsConsistentTests
             Assert.Equal(".cs2j-enum-src",
                 ProjectEnumPreprocessor.IntermediateDirectoryName);
 
+            // enum-declaration (C05)：无门面类（设计决定），目录常量挂在注册表描述符上；
+            // 默认关，经 --enable-pass enum-declaration / --pass enum-declaration 开启。
+            var enumDeclarationDescriptor = PassCatalog.ImplementedById(PassIds.EnumDeclaration);
+            Assert.Equal(".cs2j-enum-declaration-src",
+                enumDeclarationDescriptor.IntermediateDirectoryName);
+            Assert.False(enumDeclarationDescriptor.DefaultEnabled);
+            Assert.Equal("C05", enumDeclarationDescriptor.CatalogItems);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.EnumDeclarationPassAdapter));
+
             // generic-deepen (C02)：无门面类（设计决定），目录常量挂在 CLI 适配器上；
             // 默认关，经 --enable-pass generic-deepen / --pass generic-deepen 开启。
             Assert.Equal(".cs2j-generic-deepen-src",

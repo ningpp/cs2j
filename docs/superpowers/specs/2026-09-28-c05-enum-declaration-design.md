@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-28（2026-09-29 核订：证据行号重定位、C03/C11-C14 状态同步、§12 worktree base 哈希纠错；2026-09-30 更新：§12 worktree base 前移至 dev-3.x 最新提交 `30d13211`，无需开工前 rebase）
 **范围**: 新增注册表 pass `enum-declaration`（Core `EnumDeclaration/` + CLI `EnumDeclarationPassAdapter`），只做 C#→C# 预处理；本特性不修改 C#→Java 转换器与 Java compat 代码（桥接面重定义仅定契约，落地为后续工作项）
-**状态**: 已核订（2026-09-29 对照 dev-3.x@2d25700e 逐条核验全部代码证据并修正：EnumTransformer 三处 throw 与 IsFlagsEnum 行号全部实测吻合；TypeGroupResolver 吞异常区间修正 L640-645；ordinal 站点补录 2 处新证据（PropertyTransformer/ArgumentTransformer.Coercion）；C03 已落地并显式把 enum governing switch 让回转换器（`PatternDesugarComponents.cs:465`）、C11-C14 已落地默认关——§11 协调表按现状重写；**§12 worktree base 全哈希原为「短哈希 + 他人尾段」拼接的无效对象，已改正为 f68a783c**；仍待评审与实施）
+**状态**: 已核订（2026-09-29 对照 dev-3.x@2d25700e 逐条核验全部代码证据并修正：EnumTransformer 三处 throw 与 IsFlagsEnum 行号全部实测吻合；TypeGroupResolver 吞异常区间修正 L640-645；ordinal 站点补录 2 处新证据（PropertyTransformer/ArgumentTransformer.Coercion）；C03 已落地并显式把 enum governing switch 让回转换器（`PatternDesugarComponents.cs:465`）、C11-C14 已落地默认关——§11 协调表按现状重写；**§12 worktree base 全哈希原为「短哈希 + 他人尾段」拼接的无效对象，已改正为 f68a783c**；仍待评审与实施）**；2026-09-30：M1–M4 已在 `feature/preproc-c05-enum-declaration`（base `30d13211`）落地，默认关；D1 实测锁定为回退档 sealed class；三工程 Release 测试全绿（见 §13），M5/M6 与 §8 默认开启门槛未完成**
 **注册表锚点**: stub `enum-declaration` 已登记于 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L70-L79)（catalogItems `C05`，RunAfter=`enum`，默认关）
 **catalog 对应**: `prompts/preprocessor-catalog.md` C05（L334-346）、§3.3 enum 族（L1092）、§4 风险 4（L1102）、§4 风险 12（L1110）、优先级 P1（L53）
 **前置设计**: [2026-09-26-enum-preprocessor-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-26-enum-preprocessor-design.md)（E04，使用点侧，已实现）
@@ -502,3 +502,18 @@ public readonly struct Direction : IEquatable<Direction>
 ```powershell
 git worktree add .worktrees/preproc-c05-enum-declaration -b feature/preproc-c05-enum-declaration 30d13211
 ```
+
+---
+
+## 13. 实施记录（2026-09-30，M1–M4 落地，默认关）
+
+工作分支 `feature/preproc-c05-enum-declaration`（worktree `.worktrees/preproc-c05-enum-declaration`，base `30d13211`，未提交）。
+
+- **交付**：Core `EnumDeclaration/` 8 文件（Preprocessor/Models/Analyzer/Plan/Synthesizer/SyntaxFacts/Rewriter/EnumUseSiteRewriter）+ CLI `Adapters/EnumDeclarationPassAdapter.cs`（整树迭代、ED031 单 plan 原子回滚、ED030 整轮回退、§7.5 语义 residual 闸门）；注册表 Stub→Implemented 翻转（id 迁 `PassIds.EnumDeclaration`，位处 `enum` 与 `delegate` 之间，`defaultEnabled:false`、verifyBuild/Tests=true、SupportLibrary=None）；单测 33 个（声明分类/全成员/使用点/ED010/ED020/ED030/ED031/ED040/D16/幂等/E04→C05 双 pass）；fixture `tests/SampleEnumDeclarationSolution/`（Lib+App）+ 项目测试 2 个；`.gitignore` 补齐本目录及 §3.3 第 6 条四条历史遗漏。
+- **D1 形态**：锁定**回退档 enum-like sealed class**（`private readonly U _value`、私有 ctor、`GetValue()`、`DEFAULT=new E((U)0)`、static readonly 成员、`FromValue`、值相等 `Equals/GetHashCode`、按需 Parse/TryParse/Format（X 按 U mask 宽度）/GetValues/GetNames/GetName/IsDefined/ToObject/HasFlag/CompareTo）；`E?` 在 class 形态下即可空引用（显式 `Nullable<E>` 仍 ED020）。注意：struct 原型否决的书面证据未留存（实现代理仅在代码注释中声称「M1 实测锁定」），M5 评审时建议补一次 struct 形态探针归档。
+- **验证（评审独立复现）**：`dotnet build CSharpToJavaConverter.slnx -c Release` 0 错误；Tests **2139**/2139、ProjectTests **618**/618、ConversionTests **671**/671 全绿（含 E04 29 用例不回归）；默认关有解析器/clean 工程字节级用例钉住。
+- **全链 E2E（`convert-project --enable-pass enum-declaration` 对 fixture）**：全部 C# 预处理环（含 E04→C05→…→member-desugar→java-keywords）编译通过，Java 转换 6 模块 0 失败。过程中修复两个被 C05 输入暴露的**既有 pass 缺陷**（与 C05 同 PR、纯纠偏、各自旧测试全绿）：
+  1. E04 `EnumSyntaxRewriter` HasFlag 内联 `(U)x & (U)y == (U)y` 漏内层括号，落盘被重解析为 `(U)x & ((U)y == (U)y)`（CS0019，纯净 base 用 byte enum 可复现）——内层 `&` 显式加括号；C05 使用点改写器两种形状均兼容。
+  2. ref-out-in `RefOutInSyntaxRewriter.LiftForEach` 快路径 `base.Visit(node)` 经虚分发重入自身导致 StackOverflow（无需提升的 foreach 即触发）——改为以已访问 body 直接 rebuild。
+- **javac 缺口（留 M6 / §8 门槛，默认保持关的直接原因之一）**：生成类经主转换器后的 Java 产物尚不能 javac——①原始类型真值字段调 `_value.getHashCode()`（primitive 不可解引用）；②`StringBuilder.Length` 被译为 `getLength()`（应为 `length()`）；③无符号生成代码经 unsigned pass 产 `Cs2jUnsigned.UnsignedMath`（链路有对应支撑模块，Maven reactor 受下条阻塞未完成验证）；④既有支撑文件缺陷：`cs2jprelude` 的 `CsPrelude.java` 缺 `import io.github.ningpp.compat.Delegate`（jar 中类存在），导致一切转换工程的 Maven 全量 javac 断在 prelude 模块——与 C05 无关，建议独立修复。
+- **未做（M5）**：sdk（D:\csharp-sdk）频率补扫与回滚率统计、§7.6 Q4 存量红灯分类（核订时记录的 77 红在 base 30d13211 已不存在，enum 过滤集 88/88 绿，需重新登记基线说明）、ED040 序列化站点 sdk 清单、`DualTargetCorpus/Enums.cs` 扩充；ED030/ED031 已有单测，项目级触发 fixture 未构造。

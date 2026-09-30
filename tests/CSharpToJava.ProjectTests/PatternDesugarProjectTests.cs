@@ -44,6 +44,7 @@ public class PatternDesugarProjectTests
             MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
             StructValueSemanticsOptionsFactory = () =>
                 new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
+            EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
             EnablePassIds = new[] { PassId },

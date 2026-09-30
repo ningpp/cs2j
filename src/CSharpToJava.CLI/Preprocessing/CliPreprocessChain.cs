@@ -41,6 +41,9 @@ internal sealed class CliChainRequest
     /// <summary>Invoked only when struct-value-semantics is enabled (keeps override loading lazy).</summary>
     public required Func<StructValueSemanticsOptions> StructValueSemanticsOptionsFactory { get; init; }
 
+    /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
+    public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
+
     /// <summary>
     /// Per-id on/off state from legacy flags. Null means "use descriptor defaults";
     /// the standalone verb passes an all-disabled map together with explicit ids.
@@ -129,6 +132,7 @@ internal static class CliPreprocessChain
             JavaKeywordOptionsFactory = request.JavaKeywordOptionsFactory,
             MemberDesugarOptionsFactory = request.MemberDesugarOptionsFactory,
             StructValueSemanticsOptionsFactory = request.StructValueSemanticsOptionsFactory,
+            EnumDeclarationOptionsFactory = request.EnumDeclarationOptionsFactory,
         };
 
         var sourcePath = request.SourcePath;

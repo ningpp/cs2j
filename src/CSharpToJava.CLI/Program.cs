@@ -206,6 +206,11 @@ public class Program
                     opts.MemberDesugarOverrides, strict: false),
                 StructValueSemanticsOptionsFactory = () => BuildStructValueSemanticsOptions(
                     opts.StructValueSemanticsOverrides),
+                EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions
+                {
+                    Strict = opts.LocalFunctionStrict,
+                    ReportInfo = opts.Verbose,
+                },
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
@@ -3605,6 +3610,11 @@ public class Program
                     opts.MemberDesugarOverrides, strict: false),
                 StructValueSemanticsOptionsFactory = () => BuildStructValueSemanticsOptions(
                     opts.StructValueSemanticsOverrides),
+                EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions
+                {
+                    Strict = opts.LocalFunctionStrict,
+                    ReportInfo = opts.Verbose,
+                },
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,

@@ -139,6 +139,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Include SampleEnumDeclarationSolution as content so it's available at test runtime -->
+    <Content Include="..\SampleEnumDeclarationSolution\**\*.*"
+              Exclude="..\SampleEnumDeclarationSolution\**\bin\**;..\SampleEnumDeclarationSolution\**\obj\**">
+      <Link>SampleEnumDeclarationSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Include SampleGenericDeepenSolution as content so it's available at test runtime.
          bin/obj are excluded: the fixture may have been built locally. -->
     <Content Include="..\SampleGenericDeepenSolution\**\*.*"

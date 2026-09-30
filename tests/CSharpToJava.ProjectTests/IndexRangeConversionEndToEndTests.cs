@@ -67,6 +67,9 @@ public class IndexRangeConversionEndToEndTests
                 StructValueSemanticsOptionsFactory = () =>
                     new CSharpToJava.Core.StructValueSemantics
                         .StructValueSemanticsOptions(),
+                EnumDeclarationOptionsFactory = () =>
+                    new CSharpToJava.Core.EnumDeclaration
+                        .EnumDeclarationOptions(),
                 LegacyToggles = PassCatalog.BuildRegistry().Ordered
                     .Select(d => d.Id)
                     .ToDictionary(

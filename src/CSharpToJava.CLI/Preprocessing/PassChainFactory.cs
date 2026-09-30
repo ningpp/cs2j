@@ -64,6 +64,9 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Invoked only when struct-value-semantics is enabled (keeps override loading lazy).</summary>
     public required Func<StructValueSemanticsOptions> StructValueSemanticsOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
+    public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
 }
 
 /// <summary>
@@ -147,6 +150,15 @@ internal static class PassChainFactory
 
             PassIds.Enum => new EnumPassAdapter(
                 new EnumPreprocessorOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests,
+                config.Strict),
+
+            PassIds.EnumDeclaration => new EnumDeclarationPassAdapter(
+                config.EnumDeclarationOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
