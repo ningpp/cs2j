@@ -1,6 +1,6 @@
 # C05 Enum 声明归一预处理器设计（[Flags]/底层类型/显式值；enum-as-class 外显契约）
 
-**日期**: 2026-09-28（2026-09-29 核订：证据行号重定位、C03/C11-C14 状态同步、§12 worktree base 哈希纠错）
+**日期**: 2026-09-28（2026-09-29 核订：证据行号重定位、C03/C11-C14 状态同步、§12 worktree base 哈希纠错；2026-09-30 更新：§12 worktree base 前移至 dev-3.x 最新提交 `30d13211`，无需开工前 rebase）
 **范围**: 新增注册表 pass `enum-declaration`（Core `EnumDeclaration/` + CLI `EnumDeclarationPassAdapter`），只做 C#→C# 预处理；本特性不修改 C#→Java 转换器与 Java compat 代码（桥接面重定义仅定契约，落地为后续工作项）
 **状态**: 已核订（2026-09-29 对照 dev-3.x@2d25700e 逐条核验全部代码证据并修正：EnumTransformer 三处 throw 与 IsFlagsEnum 行号全部实测吻合；TypeGroupResolver 吞异常区间修正 L640-645；ordinal 站点补录 2 处新证据（PropertyTransformer/ArgumentTransformer.Coercion）；C03 已落地并显式把 enum governing switch 让回转换器（`PatternDesugarComponents.cs:465`）、C11-C14 已落地默认关——§11 协调表按现状重写；**§12 worktree base 全哈希原为「短哈希 + 他人尾段」拼接的无效对象，已改正为 f68a783c**；仍待评审与实施）
 **注册表锚点**: stub `enum-declaration` 已登记于 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L70-L79)（catalogItems `C05`，RunAfter=`enum`，默认关）
@@ -494,10 +494,11 @@ public readonly struct Direction : IEquatable<Direction>
 
 - 分支：`feature/preproc-c05-enum-declaration`
 - 目录：`.worktrees/preproc-c05-enum-declaration`
-- base：`f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，全哈希 `f68a783cd74cbfc398204bcdabe000e4f881ad30`，已核实存在且为当前 HEAD 的祖先）
-  > **2026-09-29 核订纠错**：原文写作 `67477551`（并给出「全哈希」`67477551d74cbfc398204bcdabe000e4f881ad30`）——该字符串是**短哈希与另一提交尾段的拼接**，`git cat-file` 报 `could not get object info`，用它建 worktree 会直接失败。其中 `67477551`（`674775519b42…`）实为「docs: C37 模式表达式去糖设计」提交，与 stub 注册无关；base 的正确值即本行 `f68a783c`（与 C06/C07/C09/C10 四份文档所记一致）。
-- 2026-09-29 核订补充：base 落在 stub 注册提交上，而该提交之后主干已推进（C01-C04、C11-C14 落地，含 `PassStubCatalog.cs`/`PassCatalog.cs`/`PassChainFactory.cs`/`Program.cs` 的同文件改动）——开工前先 rebase 到最新 `dev-3.x`，并按 §3.3 的公共热文件清单解冲突（各分支只增自己的条目）。
+- base：**`30d13211`**（`feat(preprocessing): C31 Index/Range 落地 + 已落地 pass 默认开启收口`，全哈希 `30d132116122ec6f032fed15615829c0e38e3985`，2026-09-30 本地 `dev-3.x` HEAD；当日网络离线无法 fetch，`origin/dev-3.x` 远端引用停在 `94e123b8`，以本地 `dev-3.x` 最新提交为准）
+  > **2026-09-30 更新**：base 已由 `f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，全哈希 `f68a783cd74cbfc398204bcdabe000e4f881ad30`）前移到当日 `dev-3.x` 最新提交 `30d13211`，两者祖先关系已核实（f68a783c 为 30d13211 祖先）。C01-C04、C11-C14、C31 等落地提交均已含于新 base，开工前**不再需要 rebase**；§3.3 公共热文件（`PassStubCatalog.cs`/`PassCatalog.cs`/`PassChainFactory.cs`/`Program.cs`）按新 base 现状直接落位。
+  > **2026-09-29 核订纠错（历史记录）**：原文写作 `67477551`（并给出「全哈希」`67477551d74cbfc398204bcdabe000e4f881ad30`）——该字符串是**短哈希与另一提交尾段的拼接**，`git cat-file` 报 `could not get object info`，用它建 worktree 会直接失败。其中 `67477551`（`674775519b42…`）实为「docs: C37 模式表达式去糖设计」提交，与 stub 注册无关；纠错后的旧 base 为 `f68a783c`（与 C06/C07/C09/C10 四份文档所记一致）。
+- 2026-09-29 核订补充（2026-09-30 已执行）：~~base 落在 stub 注册提交上，而该提交之后主干已推进（C01-C04、C11-C14 落地，含 `PassStubCatalog.cs`/`PassCatalog.cs`/`PassChainFactory.cs`/`Program.cs` 的同文件改动）——开工前先 rebase 到最新 `dev-3.x`，并按 §3.3 的公共热文件清单解冲突（各分支只增自己的条目）。~~ 见上 2026-09-30 更新：base 已前移，无需 rebase。
 
 ```powershell
-git worktree add .worktrees/preproc-c05-enum-declaration -b feature/preproc-c05-enum-declaration f68a783c
+git worktree add .worktrees/preproc-c05-enum-declaration -b feature/preproc-c05-enum-declaration 30d13211
 ```

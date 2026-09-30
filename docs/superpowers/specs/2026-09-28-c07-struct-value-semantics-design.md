@@ -5,7 +5,7 @@
 **状态**: 已核订（2026-09-29 对照 dev-3.x@2d25700e 逐条核验全部代码证据并修正；C02 generic-deepen、C03 pattern-desugar、C04 iterator-lowering、C11–C14 member-desugar 已落地进 PassCatalog Implemented 表且均默认关，member-desugar 下游锚点从 stub 表迁至 PassCatalog、链位现状、W 系列行号与 `CloneStructValueIfNeeded` 调用点计数按现状更新）
 **catalog 锚点**: `prompts/preprocessor-catalog.md` §2.B C07（L363，P1，条目状态仍为「缺失」）；§1.2 值语义类；§3.3 合并族 = E11 + E13 + C07 + C01 ref struct 子项 + C44 ref struct using 子题
 **注册表现状**: stub 已登记于 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L120-L129)（id=`struct-value-semantics`，Stage=Declarative，RunAfter=`make-readonly`，默认关）
-**base 提交**: f68a783c `feat(preprocessing): register 23 merged-family stub passes`
+**base 提交**: 30d13211 `feat(preprocessing): C31 Index/Range 落地 + 已落地 pass 默认开启收口`（2026-09-30 自 f68a783c 前移至 dev-3.x 最新提交）
 
 ---
 
@@ -400,11 +400,11 @@ public S Clone() => new S(this);
 
 - 分支：`feature/preproc-c07-struct-value-semantics`
 - 目录：`.worktrees/preproc-c07-struct-value-semantics`
-- base：`f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在）
+- base：`30d13211`（`feat(preprocessing): C31 Index/Range 落地 + 已落地 pass 默认开启收口`；2026-09-30 自 f68a783c 更新为 dev-3.x 最新提交，已核实存在）
 - 创建命令（在仓库根、PowerShell 下执行；本设计阶段不执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c07-struct-value-semantics -b feature/preproc-c07-struct-value-semantics f68a783c
+git worktree add .worktrees/preproc-c07-struct-value-semantics -b feature/preproc-c07-struct-value-semantics 30d13211
 ```
 
 - worktree 内交付面遵循 foundation plan「并行开发交付包模板」：Core `StructValueSemantics/`、CLI 单适配器 + 注册表翻转、本设计文档与后续 plan 文档、Core 单测 + fixture sln + Release build/test + residual 闸门 + CLI 测试；不新建支撑工程；不触转换器代码。
