@@ -36,14 +36,17 @@ public sealed class PassChainOrderTests
         PassIds.ArrayMethod,
         PassIds.IndexRange,
     PassIds.MakeReadonly,
+    PassIds.StructValueSemantics,
     PassStubCatalog.Ids.IteratorLowering,
     PassIds.EliminateGoto,
     PassIds.MemberDesugar,
         PassIds.JavaKeywords,
     ];
 
-    // As of C15 M4 numeric-boundary is default-on as well.
-    private static readonly string[] EnabledByDefault = LockedChain;
+    // C15 M4 起 numeric-boundary 默认开；C07 struct-value-semantics 已落地但暂保持 opt-in
+    // （设计 §8 default-enablement 闸门未放行），故从 EnabledByDefault 中排除。
+    private static readonly string[] EnabledByDefault =
+        LockedChain.Where(id => id != PassIds.StructValueSemantics).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -148,7 +151,11 @@ public sealed class PassChainOrderTests
         Assert.Equal("C02", byId[PassIds.GenericDeepen].CatalogItems);
         Assert.Equal("C03, C37", byId[PassIds.PatternDesugar].CatalogItems);
         Assert.Equal("C04", byId[PassStubCatalog.Ids.IteratorLowering].CatalogItems);
+<<<<<<< HEAD
         Assert.Equal("C15", byId[PassStubCatalog.Ids.NumericBoundary].CatalogItems);
+=======
+        Assert.Equal("C07", byId[PassIds.StructValueSemantics].CatalogItems);
+>>>>>>> aba27011 (test: C07 struct-value-semantics 测试套件（registry/order/stub/consistent）)
         Assert.Equal("C11, C12, C13, C14", byId[PassIds.MemberDesugar].CatalogItems);
     }
 
@@ -161,6 +168,7 @@ public sealed class PassChainOrderTests
             RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
+            StructValueSemanticsOptionsFactory = () => new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
         };
 
         foreach (var descriptor in PassCatalog.BuildRegistry().Ordered
@@ -169,6 +177,42 @@ public sealed class PassChainOrderTests
             var adapter = PassChainFactory.CreateAdapter(descriptor.Id, config);
             Assert.Equal(descriptor.Id, adapter.Descriptor.Id);
         }
+    }
+
+    [Fact]
+    public void StructValueSemantics_legacy_flag_and_explicit_enable_are_equivalent()
+    {
+        var registry = PassCatalog.BuildRegistry();
+        var baselineToggles = PassChainFactory.BuildLegacyToggles(new ConvertProjectOptions());
+        var baseline = PassPlanResolver.Resolve(registry, baselineToggles);
+
+        // convert-project 的 --struct-value-semantics 经 legacy toggle 进 Resolver。
+        var viaLegacy = PassPlanResolver.Resolve(
+            registry,
+            PassChainFactory.BuildLegacyToggles(
+                new ConvertProjectOptions { StructValueSemantics = true }));
+
+        // preprocess 的 --enable-pass struct-value-semantics 走显式覆盖（§7.6 等价性）。
+        var viaExplicit = PassPlanResolver.Resolve(
+            registry,
+            baselineToggles,
+            enablePassIds: new[] { PassIds.StructValueSemantics });
+
+        Assert.True(viaLegacy.IsValid);
+        Assert.True(viaExplicit.IsValid);
+
+        // 两种开关产生完全相同的启用集合……
+        Assert.Equal(
+            viaLegacy.Enabled.Select(p => p.Id).ToArray(),
+            viaExplicit.Enabled.Select(p => p.Id).ToArray());
+
+        // ……且都恰为基线集合多出 C07 一个 pass（按锁定链序插在 make-readonly 之后）。
+        var baselineIds = baseline.Enabled.Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+        var expected = registry.Ordered
+            .Select(p => p.Id)
+            .Where(id => baselineIds.Contains(id) || id == PassIds.StructValueSemantics)
+            .ToArray();
+        Assert.Equal(expected, viaExplicit.Enabled.Select(p => p.Id).ToArray());
     }
 
     [Fact]

@@ -137,6 +137,12 @@ public class ProjectPreprocessorsConsistentTests
                 PassCatalog.ImplementedById(PassIds.MemberDesugar).IntermediateDirectoryName);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.MemberDesugarPassAdapter));
 
+            // struct-value-semantics (C07)：无门面类（设计决定），目录常量挂在注册表描述符上；
+            // 默认关，经 --struct-value-semantics / --enable-pass struct-value-semantics / --pass 开启。
+            Assert.Equal(".cs2j-struct-value-semantics-src",
+                PassCatalog.ImplementedById(PassIds.StructValueSemantics).IntermediateDirectoryName);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.StructValueSemanticsPassAdapter));
+
             // index-range (C31)：无门面类（设计决定），目录常量挂在 CLI 适配器上；
             // 默认开（defaultEnabled: true），经 --pass index-range 隔离/ --enable-pass 追加。
             Assert.Equal(".cs2j-index-range-src",

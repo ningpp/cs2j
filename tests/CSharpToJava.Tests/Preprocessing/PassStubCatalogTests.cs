@@ -87,6 +87,7 @@ public sealed class PassStubCatalogTests
                 RecordReadOnlyOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 JavaKeywordOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 MemberDesugarOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
+                StructValueSemanticsOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 LegacyToggles = PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
                 EnablePassIds = new[] { PassStubCatalog.Ids.ClosureLift },
             });

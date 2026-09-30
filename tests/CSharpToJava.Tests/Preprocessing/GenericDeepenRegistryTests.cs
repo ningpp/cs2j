@@ -3,6 +3,7 @@ using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
+using CSharpToJava.Core.StructValueSemantics;
 
 namespace CSharpToJava.Tests.Preprocessing;
 
@@ -15,6 +16,7 @@ public sealed class GenericDeepenRegistryTests
         RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
         JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
         MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
+        StructValueSemanticsOptionsFactory = () => new StructValueSemanticsOptions(),
     };
 
     [Fact]
