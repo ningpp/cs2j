@@ -237,8 +237,8 @@ internal static class PassCatalog
             runAfterIds: new[] { PassStubCatalog.Ids.StructValueSemantics, PassStubCatalog.Ids.ClosureLift },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Desugar properties into get_X/set_X methods and backing fields.",
-            catalogItems: "C11"),
+            description: "Desugar properties (C11), indexers (C12), events (C13) and operators (C14) into backing fields plus explicit get_X/set_X/get_Item/add_X/remove_X methods.",
+            catalogItems: "C11, C12, C13, C14"),
         new(
             PassIds.JavaKeywords,
             "Java reserved words",
