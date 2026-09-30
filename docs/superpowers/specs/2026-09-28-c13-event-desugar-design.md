@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-28（2026-09-29 按 C11 落地形态修订）
 **范围**: 在 `member-desugar` 族 pass 下新增 **Events 规则集**（Core `MemberDesugar/Events/`），把 C# `event`（字段式 / 自定义 add/remove / 显式接口实现 / virtual/abstract）声明改写为「委托后备字段 + `add_X`/`remove_X` 访问器方法」，并把 `+=`/`-=`/`nameof` 等全部使用点统一改写为语义等价的可编译 C#；本任务**不新增 pass、不注册/翻转 stub、不改 CLI 注册表**
-**状态**: 设计已按 C11 合入形态修订（C11 分支 `feature/preproc-c11-property-desugar` @ `ac9bacab` 已 merge 进本分支，含 stub→Implemented 翻转、`MemberDesugar/` 骨架、`MemberDesugarPassAdapter` 与 `SampleMemberDesugarSolution` fixture）
+**状态**: **已实现并合入 dev-3.x 主干**（2026-09-29 止于 129cb473，实际分支 `clean-c3`；2026-09-30 核实）——member-desugar 族 Events 规则集（Core `MemberDesugar/Events/`：EventRule/EventPlan/EventFacts/EventDiagnostics + 声明扩展 add_X/remove_X + 使用点重写，property-first 两遍派发，适配器按条件注入 Cs2jPrelude 引用），不新增/翻转 pass；跨项目订阅 fixture 与行为测试绿；worktree 与分支 2026-09-30 已删除（见 §12）
 **Catalog**: C13（P2，分类 1.4 成员）[preprocessor-catalog.md L407-L417](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L407-L417)；族归属「成员去糖」C11+C12+C13+C14+C46（[L898-L904](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L898-L904)）；风险 7 反射/字符串契约（[L926](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L926)）、风险 9 实验 Lowering 非资产（[L928](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L928)）；并发背景见 §1.5（[L71-L72](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L71-L72)）
 **注册表现状**: member-desugar 已由 C11 从 Stub 翻转为 Implemented——现登记于 [PassCatalog.cs L217-L228](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L217-L228)（dev-3.x 侧 stub 条目 [PassStubCatalog.cs L191-L200](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L191-L200) 已随翻转删除），Stage=`Declarative`，RunAfter=`{struct-value-semantics, closure-lift}`，目录 `.cs2j-member-desugar-src`，默认关（显式启用）。C13 只在族 pass 内追加规则，注册表零行为改动
 
@@ -459,8 +459,9 @@ dotnet test tests/CSharpToJava.ConversionTests/CSharpToJava.ConversionTests.cspr
 
 ## 12. Worktree 分配
 
-- 分支：`feature/preproc-c13-event-desugar`
-- 目录：`.worktrees/preproc-c13-event-desugar`
+- **关闭记录（2026-09-30）**：实现实际在分支 `clean-c3`（worktree 同名目录 `.worktrees/preproc-c13-event-desugar`）上完成、止于 129cb473 并合入 dev-3.x；worktree 与分支当日已删除。以下为原规划留档：
+- （原规划）分支：`feature/preproc-c13-event-desugar`
+- （原规划）目录：`.worktrees/preproc-c13-event-desugar`
 - base：dev-3.x `5e3e796d`（含本文档自身与 `67477551` 注册基线；base 必须包含本文档，故取 dev-3.x HEAD 而非 `67477551`）
 - **实现前置动作（已完成）**：worktree 创建后 merge C11 分支 `feature/preproc-c11-property-desugar`（`ac9bacab`），确认 `src/CSharpToJava.Core/MemberDesugar/` 共享骨架、`MemberDesugarPassAdapter` 与 member-desugar Implemented 翻转已在树中，再开始 M1。
 

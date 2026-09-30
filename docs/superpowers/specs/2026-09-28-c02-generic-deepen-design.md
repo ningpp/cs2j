@@ -373,7 +373,7 @@ Description                 = "Make reified generic runtime information explicit
 
 - 分支：`feature/preproc-c02-generic-deepen`
 - 目录：`.worktrees/preproc-c02-generic-deepen`
-- 状态（2026-09-30 核实）：该分支历史使命已完成——实现提交（止于 ecc1376e）已在 dev-3.x 主干，分支无独有提交；2026-09-30 仅快进到 75958d7a 留档，**不再用于实施**；worktree/分支删除或保留由维护者决定。
+- 状态（2026-09-30 核实/当日关闭）：该分支历史使命已完成——实现提交（止于 ecc1376e）已在 dev-3.x 主干，分支无独有提交；worktree 快进留档后**已于 2026-09-30 连同分支一并删除**。
 - 历史创建命令（已执行，留档）：
 
 ```bash

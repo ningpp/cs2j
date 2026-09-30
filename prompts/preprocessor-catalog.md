@@ -11,6 +11,7 @@
 > 2026-09-29 六次补全（官方文档核对，learn.microsoft.com）：对 **12 个官方页全文精读核对**（member-access-operators / keywords/extension / keywords/field / keywords/params / equality-operators / addition-operator / collection-expressions / nullable-value-types / foreach-in / yield / statements/lock + whats-new/csharp-14）。**修正两处事实错误**：① C47 ⑥ 委托 `==` 官方语义为**调用列表值相等**而非「引用比较、Java 同形」——直映 Java `==` 必错值；② C# 14 extension 块支持**扩展运算符**（原文遗漏）、**扩展索引器实为 C# 15 预览**（原文误归 C# 14）。**补盘两项 C# 14 特性**：简单 lambda 参数修饰符（归 C45）、用户定义复合赋值运算符（归 C14/C17——`a += b` 不再必然拆解）。**新增遗漏子项**：record `==` 值相等（C47⑦）、[Conditional] 调用点条件编译（C10）、[SetsRequiredMembers]（C27）、checked 用户定义运算符（C# 11，C14）、readonly 实例成员（C# 8，C07）、集合表达式 `with(...)` 元素（C# 14，C36）、非绑定 `typeof(List<>)`（C52）、[ThreadStatic] 单线程初始化语义（C09）、[EnumeratorCancellation]/WithCancellation（C38 交界）。为 C04/C07/C09/C10/C14/C16/C20/C22/C27/C29/C31/C36/C40/C45/C47/C49/C51/C52 共 **18 个条目**追加「六次补全（官方文档核对）」行；为全部 **E01–E17 + C01–C52（69 条）**追加「官方文档」索引行（**已核**＝本批全文精读，其余为权威 URL 索引）；§4 风险 21 更新（语言层语义已由官方文档确证，剩余核实收敛为仓库内联覆盖面）。计数不变（52 项）。
 > 2026-09-30 七次勘误（维护者确认 + 主干对齐，证据核对不改盘点结论）：①维护者确认失败/跳过红测为**有意手动删除**，验收件随各通道实现补回（恢复属各通道任务，不再视为矛盾）；②**C11–C14 已由维护者手动合并主干 dev-3.x**：member-desugar 为 Implemented 描述符（默认关），其 catalogItems 已对齐 `"C11, C12, C13, C14"`；③**修正 E01 两处错误描述**——`#nullable`/`#pragma`/`#line`/`#error`/`#warning` 等活动指令实际**保留**（`IsRemovedDirective` 白名单 L78-86；`#warning` 另附一条诊断，L38-45），剥除的只有条件指令族（含未选分支）与可选 `#region`；同步修正 §1.7 L80、C36 三次补全行的相反表述；④C30 代码考古收口：PatchClosed* 曾由 2694f975 引入、被 c8d6d31f 架构性删除（均为 HEAD 祖先），非「未合入」；下游仓持有状态仍待 M1 核实门；⑤C47 核实门结论落账：**B 档部分覆盖、需补**（string `==`/`bool?`/元组已内联；`(object)` 逃逸、拼接 null 语义、委托值相等、record `==` 四子面静默错值/不可编译）；⑥勘正陈旧引用：C34 TypeMappings 实为 L3633-3639、C38 ForeachDeconstructionTests 实为 L162-181、C39 ClassTransformer 实为 L316-380、C42 诊断消息措辞（3001/3201 用 "is not supported by the Java-only conversion pipeline"，仅 3101/3102 含 "must be isolated"）。
 > 2026-09-30 八次更新（第一批完成态核实）：经提交链与注册表双向核实，**C01/C02/C03/C37 均已实现并合入 dev-3.x**（C01 止于 48331c9c、在链默认开；C02 止于 ecc1376e、Implemented 默认关；C03+C37 止于 15d534a1、Implemented 默认关，catalogItems `C03, C37`）——三个条目的「缺失/部分」状态行与 §3.1 路线图 1/2/4 同步更正为已完成（各 pass 默认开启评审/sdk 基线等挂起项见各状态行）；对应四份设计文档加「2026-09-30 再基线」完成态记录。挂起未做：C01 M5（sdk 全量比对、ROI 旧码下线）、C02 M4 默认开启评审与 sdk 计数门、两个新 pass 的默认翻转。
+> 2026-09-30 九次更新（第二批完成态核实 + worktree 清理）：经提交链与注册表双向核实，**C04 与 C11–C14 均已实现并合入 dev-3.x**（C04 止于 b784b47f、Implemented 默认关；C11–C14 共用 member-desugar 族 pass、Implemented 默认关，分别止于 8f6032da/146fdda2/129cb473/2d25700e）——五个条目的「缺失」状态行、§3.1 路线图 7/12、§5.5 频率表 C04 行同步更正；注册表补齐 catalogItems 映射 `C01`（ref-out-in）与 `C04`（iterator-lowering，C11–C14 已带联合映射）并有测试锁定；五份设计文档加完成态记录。C01–C03/C11–C14 的 **7 个使命完成 worktree 及分支当日删除**（实现提交均已在主干）。仍挂起：C04 §7.2 项目级 fixture 与 §8 默认开启五门槛（try/finally 两半区原型、sdk 2887 站点基线、EF Core 画像）、member-desugar 默认翻转评审、C46 签名收口。
 
 ---
 
@@ -328,8 +329,8 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 见上；ROADMAP 未列但转换器明确「must be lowered by a preprocessor (iterator lowering)」 |
 | 与现有通道关系 | 必须在 E02 LocalFunctionLift、C01 RefOutIn 之后（迭代器捕获与 ref 参数会进状态机字段）；try/yield 交互、`using` 内 yield 需与 IDisposable 形态联动（`LowerUsing.cs` 同构问题） |
 | 优先级 | **P1**（收益大但状态机综合复杂，需先做原型验证 try-catch/finally 语义）。四次补全注记：sdk 实测 **2887 处**（训练集最高频的结构性缺口；lambda 4966、局部函数 3486 之后排第三的高频糖，但前两者已有 E02/E05 通道），方向性输入（§5.5 Layer 3）建议按频率列 **P0**；本清单暂保留 P1——try/finally 原型与 C01/C32/C45 的捕获字段依赖未收敛，待 EF Core 画像（§5.1）与原型验证后重估 |
-| 状态 | 缺失 |
-| 验证 | 中间树 build/test；fixture：嵌套循环 yield、try/finally 中 yield、带参迭代器、`yield break` 早退 |
+| 状态 | **已实现（2026-09-29 落地 b784b47f，2026-09-30 核实）**：stub 已升迁 Implemented（**默认关**，Stage=StateMachine，RunAfter=`make-readonly`（closure-lift 仍为 stub，按设计 §3.3 由拓扑透传锚定），catalogItems `C04`，PassCatalog.cs L209-221）；Core `IteratorLowering/` 9 文件（Analyzer/CfgBuilder/StateMachinePlan/Rewriter/Naming/Options/Statistics/Diagnostic/Preprocessor）+ `IteratorLoweringPassAdapter`（残余门禁）+ PassChainFactory 接线，stub 计数 23→22；测试 `IteratorLoweringUnitTests`（ProjectTests）+ PassChainOrderTests 顺序断言（index < eliminate-goto）。**挂起**：§7.2 SampleIteratorSolution 项目级 fixture、§8 默认开启五门槛（try/finally 两半区原型、residual 为 0、sdk 2887 站点基线、EF Core 画像、opt-in 观察期）；CS2J0405 体内 lambda 捕获形态仍以 C32+C45 为前置 |
+| 验证 | 中间树 build/test；fixture：嵌套循环 yield、try/finally 中 yield、带参迭代器、`yield break` 早退（单测已覆盖；项目级 SampleIteratorSolution fixture 待补，见状态行） |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/yield（**已核**：位置限制/返回类型五类/迭代器内 using） |
 | 六次补全（官方文档核对） | yield 位置限制（官方已核）：不得出现在带 in/ref/out 参数的方法、lambda/匿名方法、unsafe 块内（C# 13 起允许**方法含** unsafe 块、仅块内禁止）；yield return/break 不得在带 catch 的 try 与 catch/finally 块中、可在无 catch 的 try（含 finally）中；迭代器内 using 编译为 try-finally、与迭代器兼容（提前 break 仍正确释放——「yield+using Dispose 时序」子题的官方正向依据）；返回类型五类：IEnumerable<T>/IEnumerable/IAsyncEnumerable<T>/IEnumerator<T>/IEnumerator（async 迭代器 WithCancellation/[EnumeratorCancellation] 面归 C38） |
 
@@ -428,7 +429,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 同上 |
 | 与现有通道关系 | 与 C12/C13/C14 同属一族，建议一个 preprocessor 四条规则；必须晚于 E13/C07（属性是 struct 变异迁移主战场）；被 E17 的改名表覆盖（JK-1 属性符号） |
 | 优先级 | **P2** |
-| 状态 | 缺失 |
+| 状态 | **已实现（2026-09-29，2026-09-30 核实）**：member-desugar 族**锚点 pass** 已翻转 Implemented（**默认关**，Stage=Declarative，RunAfter=`{ struct-value-semantics, closure-lift }`，catalogItems `C11, C12, C13, C14`，PassCatalog.cs L230-241）；Core `MemberDesugar/` 共享基建（规则发现/plan/回滚/命名/统计/诊断）+ 属性声明归约/使用点重写 + `MemberDesugarPassAdapter` + CLI 接线；SampleMemberDesugarSolution fixture（12/12 行为门 + e2e 绿）；提交链 7300f1bf→2c51aec3→26ea367c→ffa9cbe9→8f6032da（分支 feature/preproc-c11-property-desugar，已并入 dev-3.x）。默认翻转评审挂起 |
 | 五次补全追加 | **C# 14 `field` 关键字**（半自动属性）是本通道必备子规则，单列 **C50**（产物形态与本通道完全同形，Java 侧零新增）；目标基线为 .NET 10 时 C11 实施必须一并覆盖，否则访问器体内 `field` 标识符解析失败 |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/properties（自动属性/init/required/field） |
 
@@ -442,7 +443,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 同上 |
 | 与现有通道关系 | 同 C11；复合赋值/自增（C17）依赖 indexer 先方法化 |
 | 优先级 | **P2** |
-| 状态 | 缺失 |
+| 状态 | **已实现（2026-09-29，2026-09-30 核实）**：member-desugar 族 Indexers 规则（Core `MemberDesugar/Indexers/`：声明归约 get_Item/set_Item + 两遍全调用点改写 + 索引器 residual 闸门覆盖 + 适配器摘要段）；不新增 pass/开关；SampleMemberDesugarSolution 索引器 fixture 与项目级门齐备；止于 146fdda2（分支 clean-c2，已并入 dev-3.x） |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/indexers/ |
 
 #### C13 Event 去糖（P2）
@@ -455,7 +456,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 同上 |
 | 与现有通道关系 | 与 E05 DelegatePreprocessor 边界：E05 已处理委托 `+=` 组合；事件规则消费其产物。一族实现 |
 | 优先级 | **P2** |
-| 状态 | 缺失 |
+| 状态 | **已实现（2026-09-29，2026-09-30 核实）**：member-desugar 族 Events 规则（`MemberDesugar/Events/`：EventRule/EventPlan/EventFacts/EventDiagnostics + 声明扩展（add_X/remove_X）+ 使用点重写，property-first 两遍派发 + 适配器按条件注入 Cs2jPrelude 引用）；跨项目订阅 fixture 与行为测试绿；止于 129cb473（分支 clean-c3，已并入 dev-3.x） |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/event（+=/-= 与 add/remove 访问器） |
 
 #### C14 Operator 去糖（P2）
@@ -468,7 +469,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 同上 |
 | 与现有通道关系 | op_true/false 归 C08（已有精确绑定设计可复用其语义分类基建）；须晚于 E09（无符号扩展方法已接管数值运算）与 C05（enum 运算已被 E04 归并） |
 | 优先级 | **P2** |
-| 状态 | 缺失 |
+| 状态 | **已实现（M0-M4/Task 1-12 全链，2026-09-29 落地 2d25700e，2026-09-30 核实）**：member-desugar 族 Operators 规则（`MemberDesugar/Operators/`：运算符/转换声明归约为静态方法 + 二元/一元站点、OC-3 复合赋值内联/提升、OC-4/5 转换站点显式化、OC-6 六族提升公式 + skip 闸门族 + 诊断 CS2J5170-5183 + 工程性质/JK 组合测试）；Sample fixture 全绿，落地勘误见设计 §13.9；分支 clean-c4 已并入 dev-3.x。Java 半区消费清单（设计 §5.1）为后续 PR |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/operator-overloading（checked 用户定义运算符节，已核）；https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14（用户定义复合赋值运算符） |
 | 六次补全（官方文档核对） | 补两个官方子项（**已核**）：① **checked 用户定义运算符**（C# 11）——`operator checked +` 显式声明（元数据名 `op_CheckedAddition` 族），checked/unchecked 上下文分别绑定 checked/普通实现，与本通道及 C15 联动；② **用户定义复合赋值运算符**（C# 14）——`operator +=` 等复合形态可直接声明，`a += b` **不再必然拆解为 `a = a + b`**（物化前须 SemanticModel 查显式复合运算符——C17 的拆解前提被 C# 14 打破） |
 
@@ -1024,12 +1025,12 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 4. ~~**C02 Generic 深化**~~ **已完成（止于 ecc1376e）**：generic-deepen Implemented 默认关（typeof(T)/is-as T/静态字段 holder/residual 闸门/E2E）；M4 默认开启评审与 sdk 计数门挂起，C30 下游核实门仍独立挂起。
 5. **C05 enum 声明归一**（P1，扩 E04；与 C03 同批验证 enum switch）。
 6. **C07 struct 值语义补全**（P1，扩 E13，回收 StructCloneHelper）。
-7. **C04 yield 迭代器降级**（P1，先原型 try/finally 子题；**前置依赖 C32+C45 闭包提升**——捕获必须先成为显式字段；sdk 2887 处的频率证据支持在 EF Core 画像后重估为 P0）。
+7. ~~**C04 yield 迭代器降级**~~ **已完成（自包含形态，2026-09-29 止于 b784b47f）**：iterator-lowering Implemented 默认关（RunAfter 锚 make-readonly；Core 9 文件 + 适配器 + 单测/顺序锁）；§7.2 项目级 fixture 与 §8 默认开启五门槛（try/finally 两半区原型、sdk 2887 站点基线、EF Core 画像）仍挂起；CS2J0405 体内 lambda 捕获形态仍以 C32+C45 为前置，故原「前置依赖」对**全量形态**继续成立。
 8. **C08 JavaKeywords 落地**（P1，设计完备；按 spec 必须在链尾，默认关）。
 9. **C06 unsafe/FFM**（P1，按 fixed→stackalloc→指针→extern 分规则滚动，依赖 C01）。
 10. **C34 decimal 运算归一**、**C10 JSON/Attribute 窄版** 与 **C09 ThreadStatic**（P2，三者互不依赖可并行；C34 有 compat Decimal 现成方法面与 E09 范式）。
-11. **C32 → C45 闭包提升族**（P2，先落可变捕获 holder（C32），再按无捕获→this→值捕获→嵌套递归分阶段全量 display class 提升（C45）；复用 E02 捕获分析基建，删转换器内隐式状态；必须在 C04 之前完成）。
-12. **成员去糖族 C11→C12→C13→C14（+C46 签名收口）**（P2，一个通道五条规则，按此顺序因后者依赖前者方法化；C46 的显式接口/new 隐藏/协变返回依赖完整合并签名，晚于 C20）。
+11. **C32 → C45 闭包提升族**（P2，先落可变捕获 holder（C32），再按无捕获→this→值捕获→嵌套递归分阶段全量 display class 提升（C45）；复用 E02 捕获分析基建，删转换器内隐式状态；是 C04 **CS2J0405 捕获形态全量化**与 C18 的前置——C04 自包含 M1 形态已先行落地，见路线 7）。
+12. ~~**成员去糖族 C11→C12→C13→C14（+C46 签名收口）**~~ **C11–C14 已完成（2026-09-29，四规则随 member-desugar 同一 pass 顺序落地，分别止于 8f6032da/146fdda2/129cb473/2d25700e，Implemented 默认关，catalogItems `C11, C12, C13, C14`）**；默认翻转评审与 **C46 签名收口**（显式接口/new 隐藏/协变返回，晚于 C20）仍挂起。
 13. **数值边界族 C15→C17**（P2，可挂在 E09/E04 既有通道内扩展；C34 的 `++/--` 子项并入此处兜底）；**foreach 通道 C16+C40**（P2，string/残余解构/枚举器适配/ref 源统一显式化）。
 14. **C19 扩展方法显式化 → C26 LINQ 通道独立化**（P2，LINQ 先重写、扩展解析后固化；**C26 入口必须先落 IQueryable/Expression 三路分流门**）。
 15. **C18 async → C38 异步流/异步释放**：先做形态①原型再决定是否投形态②；C38 与 C18 的形态选型同批定案；**C44 using 显式化**仅 ref struct/yield 组合子题随 C06/C04/C38 顺带处理，同步形态维持转换器内联。
@@ -1064,8 +1065,8 @@ E01 strip-conditional (174)
 ```text
 E01 → [C43+C28(词法批，观察项)] → [C20 若做，放这里] → E02 → E03 → C03+C37(控制流/模式去糖) → C31(Index/Range) → E04+C05 → E05
  → E06 → E07+C16+C40(foreach 源) → E08+C48(params 族) → E09 → E10+C02(+C30) → C01(RefOutIn，位置需原型确认)
- → E11 → E12 → E13+C07 → C06(unsafe，含 delegate* 子项) → C32+C45(闭包提升，须先于状态机) → C04(yield)
- → C34(decimal) → C47(相等性/拼接调用点，核实后进链) → C09/C10 → C11→C12→C13→C14(+C46 签名收口) → C49+C50(C# 14 成员面，随成员去糖族) → C15/C17(数值族)
+ → E11 → E12 → E13+C07 → C06(unsafe，含 delegate* 子项) → C32+C45(闭包提升，C04 全量捕获形态前置) → ~~C04(yield)~~(M1 自包含形态已落地默认关)
+ → C34(decimal) → C47(相等性/拼接调用点，核实后进链) → C09/C10 → ~~C11→C12→C13→C14~~(已落地默认关；C46 签名收口待办) → C49+C50(C# 14 成员面，随成员去糖族) → C15/C17(数值族)
  → C19(扩展方法) → [E16/C26 LINQ 独立化（入口 IQueryable 三路分流）后移到此处] → C18+C38(异步/异步流；C44 仅 ref struct/using 子题)
  → E14 goto → C08(JavaKeywords，设计定死最后) → 主转换
 （P3 观察项默认不进链：C29/C33/C35/C36/C39/C41/C42/C43/C44/C46/C51/C52 及 C20–C25/C27/C28 按下游命中率评估）
@@ -1099,7 +1100,7 @@ E01 → [C43+C28(词法批，观察项)] → [C20 若做，放这里] → E02 �
 ## 4. 风险与开放问题
 
 1. **C18 async 全量降级的等价性/成本**：源码级 async 状态机 ≈ 重写编译器 lowering，且与 `using`/try-finally/锁交互复杂；建议先做形态①（提升 async lambda、归一 ConfigureAwait），用真实命中率决定形态②去留。
-2. **C04 yield 与 try/finally、using、ref 的组合**：Dispose 时序与 C01 holder、C06 Span 释放相互耦合，必须先出原型 + 专项 fixture，不能直接进默认链。
+2. **C04 yield 与 try/finally、using、ref 的组合**：Dispose 时序与 C01 holder、C06 Span 释放相互耦合，必须先出原型 + 专项 fixture，不能直接进默认链。（2026-09-30 更新：C04 自包含状态机已落地为 Implemented 默认关（b784b47f）；本风险即其 §8 默认开启门槛的未过项——try/finally 两半区原型与 SampleIteratorSolution 项目级 fixture 完成前不翻默认开）
 3. **C06 unsafe 的 ABI/外部契约**：`[DllImport]`/`[LibraryImport] extern`、对外部接口的 ref 实现必须锁定（RefOutIn 设计 D6 已确立原则），任何指针改写都不能改变封送布局；fixed→MemorySegment 只在字段缓冲区被验证过（`FieldTransformer.cs:70-101`）。
 4. **C05 enum-as-class 的外显契约**：`Enum.ToString/Parse/Format/GetValues`、switch、字典键、`[Flags]` 序列化都会随表示形态变化；compat `EnumHelper` 虽厚但仍是「Java enum」假设，前置归一后需要同步重定义桥接面。
 5. **C01 RefOutIn 的 Java 映射缺口是真实阻断**：设计 D3 自述「Java 产物暂不可编译为已知中间状态」；`RefOutInProjectTests.cs:29-40` 现断言的是旧 IntHolder/ObjectHolder 路径——接线意味着要同时改测试断言与 holder 体系，必须先补 Java 侧 spec。
@@ -1237,7 +1238,7 @@ interface ICs2jPreprocessPass {
 | target-typed `new()` / `default` 字面量 | default 277 | C24 / E10 | `default(T)` 已处理；字面量判定零散 |
 | 解构（tuple/Deconstruct/foreach 解构） | 少 | E06 / E07 / C40 | 元组与 KVP/Deconstruct foreach 已做 |
 | `nameof` / `[CallerMemberName]` / `[CallerArgumentExpression]` | nameof 1272 | 内联 + C10 | nameof 已处理；Caller* 族缺调用点注入 |
-| 泛型 `default(T)`/`new T()`/`new T[n]`/`typeof(T)`/`is T`/`as T` | — | E10 + C02 | 前 3 模式已做，后 3 缺 |
+| 泛型 `default(T)`/`new T()`/`new T[n]`/`typeof(T)`/`is T`/`as T` | — | E10 + C02 | 前 3 模式随 E10 已做；后 3 已由 C02 generic-deepen 承接（Implemented 默认关，ecc1376e，M4 默认开启门挂起） |
 | discard `_` / lambda 上 attribute / static lambda | — | C45 / C10 | 随闭包提升与 attribute 归一处理 |
 | params 集合（C# 13 `params ReadOnlySpan<T>` 等）/ params 调用点展开 | —（.NET 10 目标待扫） | C48 | 待核实；E08 只处理默认值；Java varargs 仅数组 |
 | 简单空条件赋值 `a?.b = c`（C# 14） | — | C51 | 待核实；C35 只覆盖读取链 |
@@ -1247,7 +1248,7 @@ interface ICs2jPreprocessPass {
 | 构造 | sdk 频率 | 条目 | 现状 |
 |---|---|---|---|
 | `foreach`（数组快速路径/ref struct enumerator/await foreach 分型） | 海量 | C16 + C40 | 常规已处理；枚举器适配/ref 源缺；await 源在 C38 |
-| `yield return/break` | **2887** | C04 | fail-fast；sdk 最高频结构性缺口（P0 建议，见条目） |
+| `yield return/break` | **2887** | C04 | **已落地（iterator-lowering Implemented 默认关，b784b47f）**；pass 关闭时仍 fail-fast；sdk 最高频结构性缺口（P0 建议，见条目，默认开启门槛挂起） |
 | `lock` | 32 | C29 | synchronized 直映；`Monitor.TryEnter` 超时/`Pulse/Wait` 静默丢失 |
 | using 语句 / using 声明 | 多 | 内联 + C44（观察） | try-with-resources + 连续资源预扫描已做 |
 | `await using` | — | C38 | AwaitKeyword 不检查，静默降级 |

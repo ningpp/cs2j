@@ -6,7 +6,7 @@
 **再基线（2026-09-30）**: 本设计（含姊妹 C37）**已在主干实现完成**，无需重新实施。实现提交链（均为 dev-3.x 祖先、75958d7a 已含）：**aa9fc2df**（PatternDesugar 核心组件：reducer/plans/rewriter/preprocessor）→**700bfa7a**（hoist-and-assign 绑定 + 41 项核心测试）→**559dcce4**（尾部 break 消解 + D16 fixture 全绿）→**1b67b823**（D17 翻转 pattern-desugar stub 为 Implemented，catalogItems `C03, C37`）→**d06064ef**（CLI 可达性）→**1e1fa112**（SamplePatternSolution fixture + 项目级守门）→**15d534a1**（PD010 白名单双态适配器级锁定）。现状：PassCatalog.cs L111-122，`pattern-desugar` Implemented、**默认关**、Stage=ControlFlow、RunAfter=`{ null-coalesce, tuple, foreach-deconstruction }`、catalogItems `"C03, C37"`；Core 实现 `src/CSharpToJava.Core/PatternDesugar/`（9 文件，含表达式侧 is-pattern/switch-expression 落点）；测试 PatternDesugarCoreTests/PatternMatchingTests + SamplePatternSolution 端到端，随 2026-09-30 Release 基线全绿（Tests 2102/ProjectTests 592/ConversionTests 671）。2026-09-30 复核：Roslyn 已升级 5.0.0；被删红测为维护者有意删除。
 **注册表**: `pattern-desugar`（[PassCatalog.cs L111-L122](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L111-L122)，catalogItems `C03, C37`，RunAfter=`{ null-coalesce, tuple, foreach-deconstruction }`）
 **Catalog 条目**: `prompts/preprocessor-catalog.md` C03（P0，L282-295）、C37（P1，L706-718）、§3.3 控制流去糖族（L898-915）、§4 风险 15（L934）/风险 8（L927）
-**基线提交**: 实现已合入 dev-3.x（止于 15d534a1，75958d7a 已含）；worktree `.worktrees/preproc-c03-pattern-desugar`（分支 feature/preproc-c03-pattern-desugar）2026-09-30 快进到 75958d7a 留档，分支无独有提交、使命已完成，不再用于实施
+**基线提交**: 实现已合入 dev-3.x（止于 15d534a1，75958d7a 已含）；worktree `.worktrees/preproc-c03-pattern-desugar` 与分支 feature/preproc-c03-pattern-desugar 快进留档后**已于 2026-09-30 删除**（分支无独有提交，实现均在主干；C37 共用本 worktree，无独立分支）
 
 ---
 

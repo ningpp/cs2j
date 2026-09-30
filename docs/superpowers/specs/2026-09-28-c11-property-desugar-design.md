@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-28
 **范围**: 新增 CLI 级 C#→C# 预处理器族 `member-desugar` 的共享基建与 property 规则（Core `MemberDesugar/` + CLI 单适配器），把属性归约为「后备字段 + `get_X`/`set_X` 普通方法」的可编译 C#；本特性不改任何 C#→Java 转换代码
-**状态**: 设计已复核修正（2026-09-29 对锚实现核验：overrides 查找次序、Core 成员可见性、restore/verify 三步复刻 MakeReadonly 而非 JK），待实施
+**状态**: **已实现并合入 dev-3.x 主干**（2026-09-29 落地，止于 8f6032da；2026-09-30 核实）——member-desugar 锚点 pass 已翻转 Implemented（默认关，[PassCatalog.cs L230-L241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)，catalogItems `C11, C12, C13, C14`）；Core `MemberDesugar/` 共享基建 + Properties 规则 + `MemberDesugarPassAdapter` + SampleMemberDesugarSolution fixture（12/12 行为门 + e2e 绿）；C12/C13/C14 随后在同一 pass 顺序落地。默认翻转评审挂起；worktree 与分支 2026-09-30 已删除（见 §12）
 **族属**: catalog P2「成员去糖族」（C11 property / C12 indexer / C13 event / C14 operator，未来并入 C46/C27/C39；[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L904-L904)）。**C11 是该族锚点任务**：共享基建与注册表翻转在本任务完成，C12-C14 基于本任务合入后的 pass 扩展
 
 ---
@@ -405,6 +405,7 @@ git worktree add .worktrees/preproc-c11-property-desugar -b feature/preproc-c11-
 ```
 
 - worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `MemberDesugar/`（共享基建 + Properties/）、CLI 单适配器 + 注册表翻转、本设计文档与后续 plan 文档（`docs/superpowers/plans/2026-09-28-c11-property-desugar.md`）、Core 单测 + fixture sln + Release build/test + residual 闸门 + CLI/链序测试；不新建支撑工程；不触转换器代码（§5.3 消费清单为后续 PR 输入）。
+- **关闭记录（2026-09-30）**：实现链（止于 8f6032da）全部合入 dev-3.x 后，worktree `.worktrees/preproc-c11-property-desugar` 与分支 `feature/preproc-c11-property-desugar` 已删除。
 
 ---
 

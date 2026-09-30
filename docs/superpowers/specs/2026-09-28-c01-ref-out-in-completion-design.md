@@ -419,7 +419,7 @@ M1/M2 只动 C# 侧即可独立交付价值（把「C# 闭环不成立」先修�
 
 - **分支**：feature/preproc-c01-refout-finish
 - **目录**：.worktrees/preproc-c01-refout-finish（仓库 d:\code\cs2j 内，已被 .gitignore 忽略；实测 `.gitignore:77` 与 `:85` 均含 `.worktrees/`）
-- **状态（2026-09-30 核实）**：该分支的历史使命已完成——全部实现提交（止于 48331c9c）已在 dev-3.x 主干，分支无独有提交；2026-09-30 仅将其快进到 75958d7a 留档，**不再用于实施**。worktree/分支的删除或保留由维护者决定。
+- **状态（2026-09-30 核实/当日关闭）**：该分支的历史使命已完成——全部实现提交（止于 48331c9c）已在 dev-3.x 主干，分支无独有提交；worktree 快进留档后**已于 2026-09-30 连同分支一并删除**。
 - **历史创建命令**（已执行，留档）：`git worktree add .worktrees/preproc-c01-refout-finish -b feature/preproc-c01-refout-finish ff216bcc`
 
 ---

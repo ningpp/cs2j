@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-28（2026-09-29 按 C11 落地形态修订）
 **范围**: 向 member-desugar 族增加 Indexers 规则——Core `MemberDesugar/Indexers/`（声明归约 + 全调用点改写）；**不新增 pass、不新增适配器、不新增 CLI 开关、不改任何 C#→Java 转换代码**
-**状态**: 设计已按 C11 合入形态修订（C11 分支 `feature/preproc-c11-property-desugar` @ `ac9bacab` 已 merge 进本分支，含 stub→Implemented 翻转、`MemberDesugar/` 骨架、`MemberDesugarPassAdapter` 与 `SampleMemberDesugarSolution` fixture）
+**状态**: **已实现并合入 dev-3.x 主干**（2026-09-29 止于 146fdda2，实际分支 `clean-c2`；2026-09-30 核实）——member-desugar 族 Indexers 规则（Core `MemberDesugar/Indexers/`：声明归约 get_Item/set_Item + 两遍全调用点改写 + 索引器 residual 闸门 + 适配器摘要段）随同一 pass 交付，无新增注册表行为（pass 默认关）；SampleMemberDesugarSolution 索引器 fixture 与项目级门齐备；worktree 与分支 2026-09-30 已删除（见 §12）
 **族锚点**: C11 Property 去糖（catalog L384-394）——C11 创建 `src/CSharpToJava.Core/MemberDesugar/` 共享基建（规则发现/plan/回滚/命名/统计/诊断模型）并翻转 member-desugar 为 Implemented；本任务在其骨架上增加 Indexers 规则目录
 **分支基线**: dev-3.x `5e3e796d`（含 `67477551` 注册基线与本文档），merge C11 `ac9bacab`（merge-base 恰为 `67477551`，无冲突）
 
@@ -320,8 +320,9 @@ dotnet test tests/CSharpToJava.ConversionTests/CSharpToJava.ConversionTests.cspr
 
 ## 12. Worktree 分配
 
-- 分支：`feature/preproc-c12-indexer-desugar`
-- 目录：`.worktrees/preproc-c12-indexer-desugar`
+- **关闭记录（2026-09-30）**：实现实际在分支 `clean-c2`（worktree 目录同名 `.worktrees/preproc-c12-indexer-desugar`）上完成、止于 146fdda2 并合入 dev-3.x；worktree 与分支当日已删除。以下为原规划留档：
+- （原规划）分支：`feature/preproc-c12-indexer-desugar`
+- （原规划）目录：`.worktrees/preproc-c12-indexer-desugar`
 - base：dev-3.x `5e3e796d`（含 `67477551` 注册基线 + 本设计文档与 C31/C37 设计文档——base 必须包含本文档自身，故取 dev-3.x HEAD 而非 `67477551`；`67477551` 与 C11 的 merge-base 一致，无冲突面）
 - **实现前置动作（已完成）**：worktree 创建后 merge C11 分支 `feature/preproc-c11-property-desugar`（`ac9bacab`），确认 `src/CSharpToJava.Core/MemberDesugar/` 共享骨架、`MemberDesugarPassAdapter` 与 member-desugar Implemented 翻转已在树中，再开始 M1。
 

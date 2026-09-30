@@ -3,7 +3,7 @@
 **日期**: 2026-09-28
 **范围**: 在已合入的 C11 property 锚点任务所建的 `member-desugar` 族基建上，新增 Core `MemberDesugar/Operators/` 规则目录：把用户自定义运算符（算术/比较/位运算/一元）与 `implicit`/`explicit` 转换运算符的**声明归约为普通静态方法**，并把全部调用点（二元、一元、复合赋值、隐式/显式转换站点）按 SemanticModel 绑定**显式化**为静态方法调用与显式转换链；产物为可编译 C#。本特性不改任何 C#→Java 转换代码，不新增/翻转 pass 注册
 **状态**: 已实现（M0-M4 完成：运算符规则/重写器/提升公式/闸门族/工程性质/Fixture 全绿；落地勘误见 §13.9，Java 半区消费清单 §5.1 为后续 PR 输入）
-**实现分支**: `feature/preproc-c14-operator-desugar`（Task 1-11 提交链）
+**实现分支**: 实际为 `clean-c4`（worktree `.worktrees/preproc-c14-operator-desugar`；原规划名 `feature/preproc-c14-operator-desugar` 留档见 §12），Task 1-12 提交链止于 2d25700e，已合入 dev-3.x；**worktree 与分支 2026-09-30 已删除**
 **族属**: catalog P2「成员去糖族」（[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L904-L904)），归唯一已注册 pass `member-desugar`（C11 已在其分支内翻转为 Implemented 并登记于 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)，dev-3.x 侧 stub 条目 [PassStubCatalog.cs:191-200](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L191-L200) 已随翻转删除）。**C11 Property 是锚点任务**（[C11 设计](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md)）：共享基建、适配器、stub 翻转均由 C11 完成；C14 在 C11 合入后的主干上增加 `Operators/` 规则，**不单独注册、不翻转 stub、不新增 pass/适配器；对四个 CLI 注册热文件（PassCatalog/PassChainFactory/CliPreprocessChain/Program.cs）字节级零改动**，对已合入的共享根文件仅按 §3.2「post-merge 追加式编辑清单」做追加（同 C12 先例）（§3、§11）
 
 ---
@@ -373,8 +373,9 @@ C14 不持有 pass 默认开关（族开关归 C11），但族 pass 翻 `default
 
 ## 12. Worktree 分配
 
-- 分支：`feature/preproc-c14-operator-desugar`
-- 目录：`.worktrees/preproc-c14-operator-desugar`
+- **关闭记录（2026-09-30）**：实际落地分支为 `clean-c4`（worktree 同名目录 `.worktrees/preproc-c14-operator-desugar`），Task 1-12 链止于 2d25700e 并合入 dev-3.x；worktree 与分支当日已删除。以下为原规划留档：
+- （原规划）分支：`feature/preproc-c14-operator-desugar`
+- （原规划）目录：`.worktrees/preproc-c14-operator-desugar`
 - base：`67477551`（`docs: C37 模式表达式去糖设计`）；**C11 分支已合入**（merge `feature/preproc-c11-property-desugar` 头 `ac9bacab`，merge commit `412d5169`，评审修订时执行）
 - 创建与合入命令（在仓库根执行；已完成，原样记录）：
 

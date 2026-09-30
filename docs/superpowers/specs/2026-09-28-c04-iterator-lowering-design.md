@@ -2,8 +2,9 @@
 
 **日期**: 2026-09-28
 **范围**: 新增 C#→C# 预处理器 `iterator-lowering`（Core `IteratorLowering\` + CLI 适配器），把含 `yield return` / `yield break` 的迭代器成员降级为显式状态机类；不涉及 C#→Java 转换代码改造
-**状态**: 设计稿，待评审；默认不实施（风险 2 要求原型先行，见 §8）
-**注册表**: stub 已登记于 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L151-L160)（`Ids.IteratorLowering = "iterator-lowering"`，Stage=StateMachine，RunAfter=`closure-lift`，默认关，目录 `.cs2j-iterator-lowering-src`，catalogItems=C04）
+**状态**: **已实现并合入 dev-3.x 主干**（2026-09-29 b784b47f 落地，2026-09-30 核实；M1 自包含范围，pass 默认关；M2-M4 与 §8 默认开启五门槛挂起）
+**落地记录（2026-09-30 核实）**: 实现直接提交于 dev-3.x（**未使用 §12 规划的 worktree/分支**）：Core `IteratorLowering/` 9 文件（Preprocessor/Analyzer/CfgBuilder/StateMachinePlan/IteratorStateMachineRewriter/Naming/Options/Statistics/Diagnostic）+ CLI `IteratorLoweringPassAdapter`（AfterFilesAsync 残余门禁）+ PassCatalog 注册（[L209-L221](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L209-L221)，catalogItems `C04`）+ PassChainFactory 接线 + stub 条目删除（PassStubCatalogTests 计数 23→22）+ PassChainOrderTests 顺序断言；测试 `tests/CSharpToJava.ProjectTests/IteratorLoweringUnitTests.cs`
+**注册表**: Implemented 描述符 [PassCatalog.cs L209-L221](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L209-L221)（`iterator-lowering`，Stage=StateMachine，默认关，RunAfter=`make-readonly`——closure-lift 仍为 stub，按 §3.3 透传策略锚定；eliminate-goto 的 RunAfter 已含本 pass；catalogItems `C04`）；`PassStubCatalog.Ids.IteratorLowering` 常量按 §3.2 计划保留复用。设计期 stub 事实见 §3.1 留档
 
 > 命名口径提示：catalog 正文曾出现 `IteratorLowering` / `iterator-lifting` 等写法。**一律以代码为准：pass id = `iterator-lowering`**；类型/命名空间用 `IteratorLowering`。
 
@@ -53,7 +54,9 @@
 
 ## 3. 注册表与链位契约
 
-### 3.1 现状（stub，已核实）
+### 3.1 现状（2026-09-29 已翻转 Implemented；下文为设计期 stub 事实留档）
+
+> **2026-09-30 核实**：b784b47f 已按 §3.2 清单完成翻转——stub 条目删除、`Ids.IteratorLowering` 常量保留、PassChainFactory 增加 Adapter case、测试计数（23→22）与顺序锁定就位；与计划的唯一偏差是 Implemented 描述符 RunAfter 锚定为 `make-readonly` 而非 `closure-lift`（后者仍是 stub，拓扑透传，见 §3.3 策略 3），catalogItems 补登 `C04`。以下段落保留为设计期事实。
 
 [PassStubCatalog.cs:151-160](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L151-L160)：
 
@@ -348,6 +351,8 @@ private sealed class Cs2jIterator_GetTokens_0
 | **M3 using / lock** | using 归一（含 pattern-based、using declaration）、资源字段与区域 finally、lock Monitor 形态专项 | §7.1 第 6-7 组全绿；CS2J0402 非法组合用例齐 |
 | **M4 ref/unsafe/残余形态 + 默认化评估** | 不跨边界 ref struct/ref local/unsafe 保留策略、struct 迭代器 this 捕获语义、CS2J0404/0405/0406 形态盘点（决定哪些随 closure-lift 前置）、sdk 基线 + EF Core 画像、默认开门槛评审 | §8 五项结论成文；默认关→开或继续 opt-in 的决策记录 |
 
+> **落地进展（2026-09-30 核实）**：b784b47f 交付 **M1 范围**——Analyzer（成员发现/合法性闸门/捕获活性分析）、CFG 与状态编号、直线/分支/循环形态状态机发射、单类线程守卫与克隆构造、字段提升、residual 闸门、适配器、stub→Implemented（默认关）、Core 单测（IteratorLoweringUnitTests）与链序测试（PassChainOrderTests）。**M2（try/finally 两半区原型）、M3（using/lock）、M4（§8 默认化五门槛）与 §7.2 SampleIteratorSolution 项目级 fixture 未做**，是默认翻转前的全部挂起项。
+
 ## 10. 风险
 
 1. **（catalog §4 风险 2，最高）yield × try/finally × using × ref 的 Dispose 时序**：提前 Dispose、嵌套区域、挂起在区域边界附近时的 finally 选择，任一错误都是"少释放/双释放"且 .NET 单测未必全覆盖。缓解：M2 原型先行 + 专项 fixture 计数断言 + Java 半区复测；不进默认链直到 §8 门槛全过。
@@ -372,10 +377,11 @@ catalog §3.3（第 905 行）将 E02/E05/C32/C45/C04/C18 子项并为"闭包/�
    - 任一合并点都必须重跑三方交界 fixture（lambda 内 foreach-yield 合成面、async iterator 占位用例）。
 5. 三个 worktree 的代码隔离以"不碰同一文件"为纪律：C04 触碰 PassStubCatalog（删一条）、PassCatalog（加一条+goto 边）、PassChainFactory（加一个 case）；closure-lift 翻转时触碰同样三个文件——**这是预期的文本冲突点，解决规则在合并顺序中固定（后合者保留两条 descriptor 与各自边），不存在语义冲突**。
 
-## 12. Worktree 分配
+## 12. Worktree 分配（规划，未采用）
 
-- 分支：`feature/preproc-c04-iterator-lowering`
-- 目录：`.worktrees/preproc-c04-iterator-lowering`
+- **实际落地（2026-09-30 核实）**：下列 worktree/分支**从未创建**——C04 由 b784b47f（2026-09-29）直接提交到 dev-3.x 主干，因此 2026-09-30 的 worktree 清理不涉及 C04。以下为原规划留档：
+- （原规划）分支：`feature/preproc-c04-iterator-lowering`
+- （原规划）目录：`.worktrees/preproc-c04-iterator-lowering`
 - base：`f68a783c`（已核实存在：`f68a783cd74cbfc398204bcdabe000e4f881ad30` — "feat(preprocessing): register 23 merged-family stub passes"）
 - 创建命令：
 
