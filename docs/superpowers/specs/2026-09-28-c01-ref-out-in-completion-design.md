@@ -2,6 +2,7 @@
 
 **日期**: 2026-09-28
 **状态**: 已核订（2026-09-28 对照 dev-3.x@ff216bcc 逐条核验全部代码证据并修正；Q3/Q5/Q6 已定案，见 §2.2）
+**再基线（2026-09-30）**: 实施基准变更为 dev-3.x@**75958d7a**（见 §12）。先决事实更新：① Roslyn 已由 3c0d37bd 升级至 **5.0.0**（支持 C# 14）；② C11–C14 已合并主干，member-desugar 为 Implemented 描述符（默认关，catalogItems `C11, C12, C13, C14`）；③ 维护者确认此前删除的失败/跳过测试为**有意手动删除**——本文 §7/§8 引用的旧断言/fixture 若已不在树中属预期，验收件由本任务按当前代码重新补齐，不得视为矛盾；④ 开工时实施者须对本文全部代码证据（行号/计数/失败用例）按 75958d7a 重新核验后再动手。
 **对应 catalog 条目**: `prompts/preprocessor-catalog.md` §2.B C01（P0，「半截工程，完成边际成本最低、fail-fast 面最广」）
 **前置设计**: [2026-09-28-ref-out-in-preprocessor-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-ref-out-in-preprocessor-design.md)（下称 **D3**，决策 D1–D6 来源）、[2026-07-08-ref-out-in-comprehensive-tests-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-07-08-ref-out-in-comprehensive-tests-design.md)（旧 holder 测试设计）
 **范围**: 只做「完成接线」的设计——补齐 C# 侧重写器覆盖面与可编译性闭环、设计并落地 Java 侧 holder 映射、迁移旧断言。**不新增 pass、不翻转 stub、不重排链序、不删除旧转换器 holder 路径。**
@@ -418,9 +419,9 @@ M1/M2 只动 C# 侧即可独立交付价值（把「C# 闭环不成立」先修�
 
 - **分支**：feature/preproc-c01-refout-finish
 - **目录**：.worktrees/preproc-c01-refout-finish（仓库 d:\code\cs2j 内，已被 .gitignore 忽略；实测 `.gitignore:77` 与 `:85` 均含 `.worktrees/`）
-- **base**：ff216bcc（dev-3.x HEAD，2026-09-28 核实：`docs: C09 [ThreadStatic] 前置化预处理器设计`。注：本设计核订版与实现计划以 docs 提交落在 dev-3.x，开工 base 应取「spec/plan 提交之后的 dev-3.x HEAD」，创建前用 `git rev-parse dev-3.x` 现场核实）
-- **创建命令**：`git worktree add .worktrees/preproc-c01-refout-finish -b feature/preproc-c01-refout-finish ff216bcc`
-- **说明**：开工时从该 worktree 启动；doc 本身在主工作区编写提交。
+- **base（2026-09-30 再基线）**：**75958d7a**（`docs: C49 设计与 catalog 对齐 Roslyn 5.0.0 实测事实`，dev-3.x HEAD）。worktree 与分支已存在，2026-09-30 已从旧锚点 ff216bcc 快进重置到 75958d7a（旧分支无独有提交、工作区干净）；**禁止重新创建 worktree**，直接在现有目录开工。
+- **历史创建命令**（已执行，留档）：`git worktree add .worktrees/preproc-c01-refout-finish -b feature/preproc-c01-refout-finish ff216bcc`
+- **说明**：从该 worktree 启动实施；设计与计划文档的再基线修订在主工作区提交，worktree 分支按惯例包含 docs 提交后开工。
 
 ---
 

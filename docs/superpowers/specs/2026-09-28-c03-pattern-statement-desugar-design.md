@@ -2,10 +2,11 @@
 
 **日期**: 2026-09-28（2026-09-29 评审修订：catch 单子句保形归约与裸 `else throw;` 形态、governing 简单标识符不提升、SwitchCaseWhenClause/CatchFilterRethrow 断言口径按现渲染器核实修正、常量/关系模式编译性细则、residual 与 PD010/PD011 去重）
 **范围**: 把注册表 stub `pattern-desugar` 落地为**语句侧** C#→C# 预处理器（Core `PatternDesugar/` + CLI 适配器），并把该 stub 翻转为 `Implemented`；不修改任何 C#→Java 转换代码
-**状态**: 设计稿，待评审（只调研与写文档；实现与 worktree 在后续任务进行）
+**状态**: 设计已定稿，进入实施（2026-09-30 再基线后开工；worktree 已就绪，见下）
+**再基线（2026-09-30）**: 实施基准 = dev-3.x@**75958d7a**。先决事实：① Roslyn 已升级至 **5.0.0**（3c0d37bd，完整 C# 14 模式语法可 parse）；② 维护者确认 PatternMatching/PatternBulk 等被删红测为**有意手动删除**——本设计引用的旧红灯测试若不在树中属预期，验收测试由本任务按当前代码重新补齐（catalog 路线图 2 已将「PatternMatchingTests 全绿」更新为「补回后全绿」口径）；③ 本 pass 与 **C37 表达式侧同批交付**（同一 worktree 同一分支，C03 先翻转 stub，C37 随后在同一 pass 追加表达式规则，各自独立提交）；④ 注册表计数/行号（stub 总数、RunAfter 等）开工时按 75958d7a 实测重验。
 **注册表**: `pattern-desugar`（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L72-L81)，catalogItems `C03, C37`，RunAfter=`null-coalesce`）
 **Catalog 条目**: `prompts/preprocessor-catalog.md` C03（P0，L282-295）、C37（P1，L706-718）、§3.3 控制流去糖族（L898-915）、§4 风险 15（L934）/风险 8（L927）
-**基线提交**: `953293b9`（当前 HEAD；stub 注册位于其祖先 `67477551`）
+**基线提交**: **`75958d7a`**（2026-09-30 再基线；历史锚点 `953293b9`/`67477551` 已为其祖先）；worktree `.worktrees/preproc-c03-pattern-desugar`（分支 feature/preproc-c03-pattern-desugar）已快进重置到该提交，直接开工
 
 ---
 

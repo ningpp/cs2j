@@ -2,11 +2,12 @@
 
 **日期**: 2026-09-28
 **范围**: 在 C03 已合入的同一 pass `pattern-desugar`（Core `PatternDesugar/` + CLI 适配器）上扩展**表达式侧**规则；不新增 pass、不新增中间目录、不翻转 stub、不修改任何 C#→Java 转换代码
-**状态**: 设计稿，待评审（只调研与写文档；实现与 worktree 在 C03 合入后进行）
+**状态**: 设计已定稿，进入实施（2026-09-30 再基线；与 C03 同批、同 worktree 顺序作业）
+**再基线（2026-09-30）**: 实施基准 = dev-3.x@**75958d7a**。① Roslyn 已升级至 **5.0.0**；② 被删红测为维护者有意删除，表达式侧验收测试由本任务重新补齐（表达式侧是「恒真占位」静默错误输出，必须补运行时语义断言而非仅 build 守门）；③ **不再单独建分支**：C37 与 C03 在同一 worktree `.worktrees/preproc-c03-pattern-desugar`（同一分支 feature/preproc-c03-pattern-desugar）顺序实施——C03 提交后本任务直接在其后提交，catalog 口径的「先把 C03 分支合入」在同分支上自然成立；④ 开工前按 75958d7a 重验全部行号与 C03 已冻结扩展点的实际命名。
 **注册表**: `pattern-desugar`（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L71-L80)，catalogItems `C03, C37`，RunAfter=`null-coalesce`；C03 合入时翻转为 Implemented 并把 RunAfter 扩为 `{ null-coalesce, tuple, foreach-deconstruction }`，本任务不再动注册表）
-**硬依赖**: 姊妹设计 [2026-09-28-c03-pattern-statement-desugar-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c03-pattern-statement-desugar-design.md)（下称「C03 设计」）先合入；本设计以其 §4.4 冻结的三个扩展点（`IPatternReducer`、`IPatternDesugarComponent`、命名/绑定服务）为准
+**硬依赖**: 姊妹设计 [2026-09-28-c03-pattern-statement-desugar-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c03-pattern-statement-desugar-design.md)（下称「C03 设计」）先实施并提交于同一分支；本设计以其 §4.4 冻结的三个扩展点（`IPatternReducer`、`IPatternDesugarComponent`、命名/绑定服务）为准
 **Catalog 条目**: `prompts/preprocessor-catalog.md` C37（P1，L782-794）、C03（P0，L304-317）、§3.3 控制流去糖族（L1076-1093）、§4 风险 15（L1113）/风险 8（L1106）、C35（L750-762）
-**基线提交**: `67477551`（`feat(preprocessing): register 23 merged-family stub passes`，已核实为当前 HEAD `a37c20e3` 的祖先）；实现前先把 C03 分支合入本任务分支
+**基线提交**: **`75958d7a`**（2026-09-30 再基线；历史锚点 `67477551` 已为其祖先）；C03 在同一分支先提交，本任务紧随其后
 
 ---
 
