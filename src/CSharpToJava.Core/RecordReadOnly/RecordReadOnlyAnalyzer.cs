@@ -557,6 +557,20 @@ internal sealed class RecordReadOnlyAnalyzer
             case ElementAccessExpressionSyntax element:
                 HandleElementTarget(compilation, tree, model, assign, element);
                 return;
+            // C# 14（Roslyn 5.0）：空条件赋值升格为正式语法，赋值内嵌在
+            // ConditionalAccessExpression.WhenNotNull 中，写节点是外层 ConditionalAccess：
+            //   p?.X = v   → ConditionalAccess(p, Assignment(MemberBinding(.X), v))
+            //   p?.A.B = v → ConditionalAccess(p, Assignment(MemberAccess(MemberBinding(.A), .B), v))
+            case MemberBindingExpressionSyntax
+                when assign.Parent is ConditionalAccessExpressionSyntax outer
+                    && outer.WhenNotNull == assign:
+                AddSite(compilation, tree, model, outer, left, SiteKind.ConditionalAssign);
+                return;
+            case MemberAccessExpressionSyntax
+                when assign.Parent is ConditionalAccessExpressionSyntax outer2
+                    && outer2.WhenNotNull == assign:
+                AddSite(compilation, tree, model, outer2, left, SiteKind.ConditionalAssign);
+                return;
             case ConditionalAccessExpressionSyntax:
                 AddSite(compilation, tree, model, assign, left, SiteKind.ConditionalAssign);
                 return;
@@ -698,6 +712,30 @@ internal sealed class RecordReadOnlyAnalyzer
             }
             cursor = cae.Expression;
         }
+        // C# 14（Roslyn 5.0）：writeNode 是外层 ConditionalAccessExpressionSyntax，
+        // WhenNotNull 内嵌 AssignmentExpression；p?.X = v 时 left 是 MemberBindingExpressionSyntax。
+        else if (writeNode is ConditionalAccessExpressionSyntax newCae
+            && newCae.WhenNotNull is AssignmentExpressionSyntax
+            && left is MemberBindingExpressionSyntax newMbe)
+        {
+            var memberName = newMbe.Name.Identifier.Text;
+            var recvType = model.GetTypeInfo(newCae.Expression).Type;
+            if (recvType is INamedTypeSymbol rt)
+            {
+                // nullable struct P? → UnderlyingType 是 P（与旧形态分支相同的解包）。
+                var effectiveType = rt.NullableAnnotation == NullableAnnotation.Annotated
+                    && rt.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T
+                        ? rt
+                        : (rt is { IsValueType: true, OriginalDefinition.SpecialType: SpecialType.System_Nullable_T }
+                            ? ((INamedTypeSymbol)rt).TypeArguments[0]
+                            : rt);
+                deepestMember = effectiveType.GetMembers(memberName).FirstOrDefault();
+                receiverType = effectiveType;
+                recordMemberReceiver = newCae; // Receiver 为外层 ConditionalAccess
+                chain.Add(new ChainSegment(deepestMember!, effectiveType, newCae));
+            }
+            cursor = newCae.Expression;
+        }
         else
         {
             while (cursor is MemberAccessExpressionSyntax ma)
@@ -719,6 +757,13 @@ internal sealed class RecordReadOnlyAnalyzer
             if (cursor is ElementAccessExpressionSyntax)
             {
                 receiverType ??= model.GetTypeInfo(cursor).Type;
+            }
+            // C# 14 p?.A.B = v：写节点是外层 ConditionalAccess，Receiver 必须是它，
+            // 而非链尾的 MemberBindingExpressionSyntax（否则 MS-5 分类判为不支持形态）。
+            if (writeNode is ConditionalAccessExpressionSyntax
+                && left is MemberAccessExpressionSyntax)
+            {
+                recordMemberReceiver = (ExpressionSyntax)writeNode;
             }
         }
         if (deepestMember?.ContainingType is not { } memberOwner) return;

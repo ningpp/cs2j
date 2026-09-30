@@ -197,8 +197,13 @@ internal static class MutationSiteClassifier
         if (MemberIsInitSettable(plan, site.Member) is { } memberFailure)
             return new SiteFailure(memberFailure.Code, memberFailure.Reason, site.Location);
 
-        var isCompound = site.WriteNode is AssignmentExpressionSyntax
-            and not { RawKind: (int)SyntaxKind.SimpleAssignmentExpression };
+        // C# 14：写节点是外层 ConditionalAccess，复合赋值（+= 等）内嵌在 WhenNotNull。
+        var compoundSource = site.WriteNode is ConditionalAccessExpressionSyntax compoundCae
+            && compoundCae.WhenNotNull is AssignmentExpressionSyntax nestedAssignment
+            ? nestedAssignment
+            : site.WriteNode as AssignmentExpressionSyntax;
+        var isCompound = compoundSource is not null
+            && compoundSource.Kind() != SyntaxKind.SimpleAssignmentExpression;
         var isIncrement = site.WriteNode is PrefixUnaryExpressionSyntax
             or PostfixUnaryExpressionSyntax;
         if ((isCompound || isIncrement) && !GetterIsEffectivelyPure(site.Member))
@@ -1035,34 +1040,57 @@ internal sealed class MutationSiteRewriter : CSharpSyntaxRewriter
     {
         if (site.Receiver is not ConditionalAccessExpressionSyntax conditional) return null;
 
-        // p?.X = v → left 是 ConditionalAccessExpressionSyntax，WhenNotNull 是 MemberBindingExpressionSyntax。
-        // p?.A.B = v → left 是 MemberAccessExpressionSyntax（已由上层处理）。
+        // C# 14（Roslyn 5.0）：p?.X = v 的语句表达式即外层 ConditionalAccessExpression，
+        // WhenNotNull 内嵌 AssignmentExpression，其 Left 是 MemberBindingExpressionSyntax（.X）；
+        // p?.A.B = v 时 Left 是 MemberAccessExpressionSyntax。
+        // 旧形态（p?.X++）语句表达式是 Prefix/PostfixUnaryExpression，site.Left 是 ConditionalAccess。
+        ExpressionSyntax writeCore;
         string memberName;
-        if (site.Left is ConditionalAccessExpressionSyntax cae
-            && cae.WhenNotNull is MemberBindingExpressionSyntax mbe)
+        if (writeExpression is ConditionalAccessExpressionSyntax outerCae
+            && outerCae.WhenNotNull is AssignmentExpressionSyntax outerAssignment)
         {
-            memberName = mbe.Name.Identifier.Text;
-        }
-        else if (site.Left is MemberAccessExpressionSyntax memberAccess)
-        {
-            memberName = memberAccess.Name.Identifier.Text;
+            switch (outerAssignment.Left)
+            {
+                case MemberBindingExpressionSyntax mbe:
+                    memberName = mbe.Name.Identifier.Text;
+                    break;
+                case MemberAccessExpressionSyntax memberAccess:
+                    memberName = memberAccess.Name.Identifier.Text;
+                    break;
+                default:
+                    return null;
+            }
+            writeCore = outerAssignment;
         }
         else
         {
-            return null;
+            writeCore = writeExpression;
+            if (site.Left is ConditionalAccessExpressionSyntax cae
+                && cae.WhenNotNull is MemberBindingExpressionSyntax mbe)
+            {
+                memberName = mbe.Name.Identifier.Text;
+            }
+            else if (site.Left is MemberAccessExpressionSyntax memberAccess)
+            {
+                memberName = memberAccess.Name.Identifier.Text;
+            }
+            else
+            {
+                return null;
+            }
         }
 
         var rootText = conditional.Expression.WithoutTrivia().ToFullString();
 
         ExpressionSyntax qValue;
-        switch (writeExpression)
+        switch (writeCore)
         {
             case PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax:
             {
                 var read = SyntaxFactory.ParseExpression($"q.{memberName}");
                 var one = SyntaxFactory.LiteralExpression(
                     SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(1));
-                var decrement = writeExpression.Kind()
+                var decrement = writeCore.Kind()
                     is SyntaxKind.PostDecrementExpression or SyntaxKind.PreDecrementExpression;
                 qValue = decrement
                     ? SyntaxFactory.BinaryExpression(SyntaxKind.SubtractExpression, read,
