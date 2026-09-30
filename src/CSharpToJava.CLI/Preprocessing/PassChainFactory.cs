@@ -8,7 +8,9 @@ using CSharpToJava.Core.IndexRange;
 using CSharpToJava.Core.IteratorLowering;
 using CSharpToJava.Core.JavaKeywords;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
+using CSharpToJava.Core.MemberDesugar;
 using CSharpToJava.Core.NullCoalesceRewriter;
+using CSharpToJava.Core.NumericBoundary;
 using CSharpToJava.Core.PatternDesugar;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
@@ -75,6 +77,9 @@ internal static class PassChainFactory
             [PassIds.StripDefault] = opts.StripDefault,
             [PassIds.RefOutIn] = opts.RefOutIn,
             [PassIds.Unsigned] = opts.UnsignedType,
+            // No convert-project legacy switch: numeric-boundary is reachable only
+            // through --enable-pass/--pass (design §5.2).
+            [PassStubCatalog.Ids.NumericBoundary] = false,
             [PassIds.Generic] = opts.GenericPreprocess,
             [PassIds.RecordReadOnly] = opts.RecordReadOnly,
             [PassIds.ArrayMethod] = opts.ArrayMethod,
@@ -188,6 +193,15 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
+
+            PassStubCatalog.Ids.NumericBoundary => new NumericBoundaryPassAdapter(
+                new NumericBoundaryOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests,
+                config.Strict),
 
             PassIds.Generic => new GenericPassAdapter(
                 new CoreGenericPreprocessOptions(),

@@ -4,6 +4,7 @@
 **范围**: 新增 CLI 级 C#→C# 预处理器族 `numeric-boundary` 的共享基建与 checked/unchecked 规则（Core `NumericBoundary/` + CLI 单适配器），把 checked 上下文/表达式显式化为溢出检查辅助调用、把 unchecked 上下文/表达式剥离为裸算术；本特性不改任何 C#→Java 转换代码
 **状态**: 设计已确认，待实施
 **校订（2026-09-29）**: ①catalog 链接行号按当前文件重算（§3.3 数值边界族 L1084；§4 风险 8/10/11/12/14 为 L1106/1108/1109/1110/1112）；②转换器锚点行号校正（checked/unchecked 块抛点实为 StatementTransformer.SwitchAndResource.cs L303-L309，消息行 L305/L309；其余链接逐一核实）；③注册表事实更正：numeric-boundary stub 条目在 PassStubCatalog.cs L150-L159（非 L161-L170），Ids.NumericBoundary 常量仍在 L33；④翻转清单改按 IteratorLowering 先例——id 常量**保留**在 PassStubCatalog.Ids，不新增 PassIds 成员、默认不新增 Program.cs 独立开关（是否要 `--numeric-boundary` 专用开关列开放问题 7）；⑤stub 计数更正：现状实有 21 条，PassStubCatalogTests.cs:24 断言 22 已与实现漂移（26ea367c 漏改），翻转后 20 条、断言改 20；⑥C14 状态更新：member-desugar 已翻转为 Implemented（默认关），op_Checked* 已在 member-desugar 处理，C15/C14 链序交接补入决策 4/NB-11/NB-13/§11/开放问题 6；⑦链位预期序列与测试行号对齐当前主干（含 generic-deepen/iterator-lowering/member-desugar）；⑧worktree base 由 f68a783c 更新为当前 HEAD 2d25700e。
+**校订（2026-09-30）**: worktree base 由 2d25700e 更新为 dev-3.x 最新提交 `30d13211`（`feat(preprocessing): C31 Index/Range 落地 + 已落地 pass 默认开启收口`）；§12 的 base 与创建命令同步。base 前进后本文所引代码行号可能漂移，实施时一律以 30d13211 实测为准（§3.2 链序亦以实测拓扑序为准）。
 **族属**: catalog P2「数值边界族」（E09 后缀规则 + C15 + C17 + C22 + C34 + C41 + enum 运算，[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1084-L1084)）。**C15 是该族首个落地规则与锚点任务**：共享基建与注册表翻转在本任务完成，C17/C22/C34/C41 基于本任务合入后的 pass 增量扩展
 
 ---
@@ -414,11 +415,11 @@ MSBuild 格式：`文件(行,列): warning/error CS2J53xx: [规则/类型] 描�
 
 - 分支：`feature/preproc-c15-checked-unchecked`
 - 目录：`.worktrees/preproc-c15-checked-unchecked`
-- base：`2d25700e`（2026-09-29 当前 HEAD；校订前写的 `f68a783c` 仅为 stub 初登点，其后 iterator-lowering/generic-deepen/pattern-desugar/member-desugar 已翻转，若仍从 f68a783c 切支会缺失 §3.4 全部先例与 PassCatalog 当前链位，故更新）
+- base：`30d13211`（2026-09-30 dev-3.x 最新提交，`feat(preprocessing): C31 Index/Range 落地 + 已落地 pass 默认开启收口`；2026-09-29 校订曾定为 `2d25700e`，更早的 `f68a783c` 仅为 stub 初登点——从旧 base 切支会缺失 §3.4 全部先例与 PassCatalog 当前链位，故随 dev-3.x 前进更新；实施时代码行号以该 base 实测为准）
 - 创建命令（在仓库根、PowerShell 下执行；本设计阶段不执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c15-checked-unchecked -b feature/preproc-c15-checked-unchecked 2d25700e
+git worktree add .worktrees/preproc-c15-checked-unchecked -b feature/preproc-c15-checked-unchecked 30d13211
 ```
 
 - worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-116](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L116)）：Core `NumericBoundary/`（共享基建 + CheckedArithmetic 规则）、CLI 单适配器 + 注册表翻转、支撑库双侧方法（Cs2jUnsignedMath + compat UnsignedMath.java + JUnit）、本设计文档与后续 plan 文档（`docs/superpowers/plans/2026-09-28-c15-checked-unchecked.md`）、Core 单测 + fixture sln + Release build/test + residual 闸门 + CLI/链序测试；不新建支撑工程；不触转换器代码（§6 消费清单为后续 PR 输入）。

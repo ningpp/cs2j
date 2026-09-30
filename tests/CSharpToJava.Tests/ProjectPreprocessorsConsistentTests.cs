@@ -142,6 +142,12 @@ public class ProjectPreprocessorsConsistentTests
             Assert.Equal(".cs2j-index-range-src",
                 PassCatalog.ImplementedById(PassIds.IndexRange).IntermediateDirectoryName);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.IndexRangePassAdapter));
+
+            // numeric-boundary (C15)：无门面类（设计决定），目录常量挂注册表描述符；
+            // 默认关，经 --enable-pass numeric-boundary / --pass numeric-boundary 开启。
+            Assert.Equal(".cs2j-numeric-boundary-src",
+                PassCatalog.ImplementedById(PassStubCatalog.Ids.NumericBoundary).IntermediateDirectoryName);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.NumericBoundaryPassAdapter));
         }
         finally
         {

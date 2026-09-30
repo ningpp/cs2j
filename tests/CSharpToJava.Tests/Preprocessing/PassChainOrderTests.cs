@@ -29,6 +29,7 @@ public sealed class PassChainOrderTests
         PassIds.StripDefault,
         PassIds.RefOutIn,
         PassIds.Unsigned,
+        PassStubCatalog.Ids.NumericBoundary,
         PassIds.Generic,
         PassIds.GenericDeepen,
         PassIds.RecordReadOnly,
@@ -41,7 +42,10 @@ public sealed class PassChainOrderTests
         PassIds.JavaKeywords,
     ];
 
-    private static readonly string[] EnabledByDefault = LockedChain;
+    // numeric-boundary is implemented but default-off: it is reachable only via
+    // --enable-pass numeric-boundary / --pass numeric-boundary (design §5.2).
+    private static readonly string[] EnabledByDefault =
+        LockedChain.Where(id => id != PassStubCatalog.Ids.NumericBoundary).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -146,6 +150,7 @@ public sealed class PassChainOrderTests
         Assert.Equal("C02", byId[PassIds.GenericDeepen].CatalogItems);
         Assert.Equal("C03, C37", byId[PassIds.PatternDesugar].CatalogItems);
         Assert.Equal("C04", byId[PassStubCatalog.Ids.IteratorLowering].CatalogItems);
+        Assert.Equal("C15", byId[PassStubCatalog.Ids.NumericBoundary].CatalogItems);
         Assert.Equal("C11, C12, C13, C14", byId[PassIds.MemberDesugar].CatalogItems);
     }
 

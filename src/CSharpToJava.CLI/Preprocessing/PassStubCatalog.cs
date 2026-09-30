@@ -138,16 +138,8 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.RefOutIn },
             description: "Lift lambda/anonymous-method captures into deterministic display classes.",
             catalogItems: "C32, C45"),
-        new(
-            Ids.NumericBoundary,
-            "Numeric boundary explicitization",
-            ".cs2j-numeric-boundary-src",
-            PassStage.Expression,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.Unsigned },
-            description: "Make narrow/special numeric operations explicit (decimal, Half, Int128, nint and enum arithmetic).",
-            catalogItems: "C15, C17, C22, C34, C41"),
+        // Ids.NumericBoundary flipped to Implemented in PassCatalog (C15);
+        // the id constant stays here by the iterator-lowering precedent (§3.4).
         new(
             Ids.ThreadStatic,
             "Thread-static rewrite",
