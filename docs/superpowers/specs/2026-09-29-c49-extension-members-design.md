@@ -69,7 +69,7 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 | `x.P = v` / `x.P += 1` | 赋值左路普通属性查找 | 同上，且复合赋值会错误走实例字段/属性配方 |
 | `a + b`（绑到扩展运算符） | BinaryExpression 走原语/用户运算符渲染；源内运算符声明在块内、OperatorTransformer 看不到 | 用户运算符解析落空，产出 receiver 类型上不存在的运算/方法 |
 | `IEnumerable<int>.Generate(...)` | 左部为类型符号的 MemberAccess invocation；普通静态成员查找 | 接收者类型上不存在该静态方法 → 绑定失败 |
-| 声明侧 | IMemberTransformer 按类成员派发，ExtensionBlockSyntax 不是已知成员节点 | 整块及其成员**静默不产出**（无 fail-fast、无占位），是最危险的一类——能走完转换但 Java 缺类成员 |
+| 声明侧 | IMemberTransformer 按类成员派发，ExtensionBlockDeclarationSyntax 不是已知成员节点 | 整块及其成员**静默不产出**（无 fail-fast、无占位），是最危险的一类——能走完转换但 Java 缺类成员 |
 
 ### 1.3 ★先决核实结论：Roslyn parse 层（全条目第一风险）
 
@@ -77,25 +77,26 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 
 | 项 | 现状 | 结论 |
 |---|---|---|
-| `Microsoft.CodeAnalysis.CSharp` / `.Workspaces` / `Workspaces.MSBuild` | **4.12.0**（Core 三处同版；tools 一处 4.12.0） | 见下版本对照 |
+| `Microsoft.CodeAnalysis.CSharp` / `.Workspaces` / `Workspaces.MSBuild` | **5.0.0**（Core 三处同版；tools 一处 5.0.0；2026-09-30 由 4.12.0 升级，提交 3c0d37bd） | 见下版本对照 |
 | TargetFramework | `net10.0` | 运行时满足，无需改 |
 | 工程 LangVersion | Core/CLI 不设（由 parse options 控制）；支撑库 latest/13/11 不等 | 与 parse 先决无关 |
-| 全部 parse 入口 | 统一 `CSharpParseOptions(LanguageVersion.Latest)`（[ProjectCompilationBuilder.cs:30](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectCompilationBuilder.cs#L30)、各 pass 适配器、Program.cs 两处） | 升级包后自动取新版 Latest |
+| 全部 parse 入口 | 统一 `CSharpParseOptions(LanguageVersion.Latest)`（[ProjectCompilationBuilder.cs:30](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectCompilationBuilder.cs#L30)、各 pass 适配器、Program.cs 两处） | 升级包后 Latest 自动取 C# 14 |
 
-版本对照（WebSearch + Microsoft Learn 官方页核实，2026-09-29）：
+版本对照（xUnit 探针实测 + Microsoft Learn 官方页核实，2026-09-30；**实测推翻了本文档早先"4.14 即 C# 14 GA"的假设**）：
 
 | Roslyn 包版本 | VS 代 | C# 14 extension 块 |
 |---|---|---|
-| **4.12.0（现 pin）** | VS 2022 17.12（2025-01） | **不支持**：extension 块语法解析尚未进入编译器。官方 .NET 10 破坏性变更页明确"`extension` treated as a contextual keyword — Introduced in Visual Studio 2022, version **17.14**"；4.12 下 `extension(…){…}` 在类成员位置按标识符解析失败（CS1001/CS1519 类语法诊断），**.NET 10 源码在 parse 层即全量失败** |
-| 4.13.x | VS 2022 17.13 | 同为 17.14 之前，不支持（官方引入版本为 17.14） |
-| **4.14.0+** | VS 2022 17.14 / .NET 10 | **C# 14 GA：含 extension 块语法树与扩展成员语义 API**；`LanguageVersion.Latest` = C# 14；**C# 15 扩展索引器仅在 `LanguageVersion.Preview` 可解析** |
+| **4.12.0** | VS 2022 17.12（2025-01） | **不支持**：extension 块语法解析尚未进入编译器；`extension(…){…}` 在类成员位置按标识符解析失败（CS1001/CS1519 类语法诊断），**.NET 10 源码在 parse 层即全量失败** |
+| 4.13.x | VS 2022 17.13 | 同为 17.14 之前，不支持 |
+| **4.14.0** | VS 2022 17.14 / .NET 10 | **探针实测：extension 块在 4.14 中仍是预览特性，并非 GA**——`LanguageVersion` 枚举最高只到 **CSharp13（无 CSharp14）**；`extension(…){…}` 在 `Latest` 下 **16 个语法错误**，仅 `LanguageVersion.Preview` 下 0 错误；预览节点类名 **`ExtensionBlockSyntax`**，SyntaxKind=`ExtensionBlockDeclaration` |
+| **5.0.0（现 pin）** | Roslyn 5.x 新一代稳定线 | **C# 14 GA 载体（实测）**：`LanguageVersion.CSharp14` 存在；extension 块在 `Latest` 下 **0 错误**；GA 节点类名 **`ExtensionBlockDeclarationSyntax`**，SyntaxKind=`ExtensionBlockDeclaration`（另有 ExtensionKeyword/ExtensionMemberCref）；形状属性 TypeParameterList/ParameterList/ConstraintClauses/Members 全部存在。NuGet 另有 5.3.0/5.6.0/5.9.0 可选，本期取 5.0.0 |
 
-**先决结论**：
+**先决结论（M0 已执行）**：
 
-1. M0 必须把四个 PackageReference 升级到 **4.14.0 或更新的 4.14.x 稳定 patch**（实施时取 NuGet 上最新 4.14.x；三个 Core 包与 tools 一个包同版，不混版）。不需要改 VS/构建工具——NuGet 包自带编译器。
-2. 升级后 API 形态以**反射探针实测为准**（预览期语法树/符号 API 有滚动；规范实现里的节点类名预期为 `ExtensionBlockSyntax`，含 TypeParameterList/ParameterList/ConstraintClauses/Members，但代码中禁止不经验证硬编码其形状）。
-3. 启动期加 parse 自检：用最小片段 `static class E { extension(int x) { public int P => x; } }` 在 `LanguageVersion.Latest` 下 parse，若节点树中无 extension 块节点或含语法错误诊断 → **CS2J1213 Error**："Microsoft.CodeAnalysis ≥ 4.14 required to parse C# 14 extension blocks"，本规则拒绝运行（不是静默 no-op）。
-4. Roslyn 4.12→4.14 跨两个次版本，升级本身对既有 18 个 pass 的回归面（breaking changes 页所列 Span 隐式转换、extension 标识符等）须按 M0 回归套跑，这是 C50/C51 共用的"Roslyn 版本先决批"，C49 不独占升级动作但负责驱动。
+1. 四个 PackageReference 已升级到 **5.0.0**（三个 Core 包与 tools 一个包同版，不混版；提交 3c0d37bd）。不需要改 VS/构建工具——NuGet 包自带编译器。
+2. 升级后 API 形态以探针实测为准：GA 节点类名 **`ExtensionBlockDeclarationSyntax`**（4.14 预览期曾用 `ExtensionBlockSyntax`，勿再引用旧名），含 TypeParameterList/ParameterList/ConstraintClauses/Members；后续代码按实测形状编码。
+3. 启动期 parse 自检：用最小片段 `static class E { extension(int x) { public int P => x; } }` 在 `LanguageVersion.Latest` 下 parse，若节点树中无 extension 块节点或含语法错误诊断 → **CS2J1213 Error**："Microsoft.CodeAnalysis ≥ 5.0 required to parse C# 14 extension blocks"，本规则拒绝运行（不是静默 no-op）。
+4. Roslyn 4.12→5.0 的升级回归已按 M0 套跑（Tests 2102 / ProjectTests 592 / ConversionTests 671 全绿）。实测发现两处语法形状变化并已适配：① extension 块（见上）；② **空条件赋值升格为正式语法后，赋值节点内嵌于 `ConditionalAccessExpression.WhenNotNull`**（旧形态是 AssignmentExpression 左路包 ConditionalAccess），RecordReadOnly 通道 MS-5 已同步修复。这是 C50/C51 共用的"Roslyn 版本先决批"，C49 不独占升级动作但负责驱动。
 
 ### 1.4 目标
 
@@ -122,10 +123,10 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 | 10 | receiver `ref/in/readonly/scoped` | 规范 grammar 允许 `parameter_modifiers?`；逐成员映射为生成静态方法首参的同款修饰（属性 `get_P(ref Receiver r)` / `set_P(ref Receiver r, v)`；ref 写入语义经 setter 首参 ref 保住——具体哪些成员/访问器组合合法以 M0 探针矩阵为准，不合法组合由原编译拒绝，本规则不额外发明）；`scoped` 是逃逸元数据不进签名但保留在形参 | 不支持组合（如指针 receiver——经典扩展方法即有指针首参限制，M0 钉死允许集）→ CS2J1211 显式拒绝 |
 | 11 | host 类与命名/可见性 | **不新建类、不新建文件**：成员全部生成进块所在的原静态类（同类多块合并进同类；host 可 partial，成员落在块所在源文件的该类部件中）；保持原 `public/internal` 可访问性与原命名空间；调用点一律 `global::` 全限定（复用 C19 ExtensionHostSyntaxFactory，FullyQualifiedFormat，禁止手拼字符串、禁止向源文件加 using） | 零 using 丢失/别名遮蔽问题；internal host 对同图调用点可见（merged compilation 同编）；metadata 侧 host 不可达分类沿用 C19 EM-EXTERNAL（1203） |
 | 12 | 同类多块 / 多成员 | 各块独立展开、成员按源序插入原块位置；同签名冲突在**输入编译期**已被 Roslyn 拒（receiver 计入签名），改写后若重编译出现 CS0102/CS0111 级碰撞（理论只可能来自生成名映射缺陷）→ CS2J1212 并按 plan 回退 | residual 以重编译零新增错误为闸门 |
-| 13 | 运算符决议 | 调用点分类只认真实绑定符号：Binary/Unary/Conversion/Compound 操作绑定到 `MethodKind.UserDefinedOperator/Conversion` 且声明语法引用位于 ExtensionBlockSyntax（M0 确认符号判据）才选中；原语运算、metadata 运算符、接口 static abstract 运算符不选（沿用 C14 SB-Metadata/SB-InterfaceStatic 归属与码段） | 不重新实现候选决议；C14 的 SB-JK-Bool/SB-IncDec/SB-GateAndOr 排除表原样继承 |
+| 13 | 运算符决议 | 调用点分类只认真实绑定符号：Binary/Unary/Conversion/Compound 操作绑定到 `MethodKind.UserDefinedOperator/Conversion` 且声明语法引用位于 ExtensionBlockDeclarationSyntax（M0 确认符号判据）才选中；原语运算、metadata 运算符、接口 static abstract 运算符不选（沿用 C14 SB-Metadata/SB-InterfaceStatic 归属与码段） | 不重新实现候选决议；C14 的 SB-JK-Bool/SB-IncDec/SB-GateAndOr 排除表原样继承 |
 | 14 | LINQ 边界 | 块内扩展方法若被 LINQ 链以 reduced 形态调用，继续归 C19 **EM-LINQ 豁免集**（Enumerable/Queryable host 不重写）；C49 声明改写不区分用途，豁免只作用于调用点选择器 | 与 C19 §3.4 结论一致；混合链策略继承 C19 |
 | 15 | 表达式树 | 扩展属性/运算符调用点位于 `Expression<>` lambda 内：**默认整 plan 跳过**（成员访问/运算符节点→MethodCall 会改变表达式树形态），口径同 C11 决策 12/C14 CS2J5173；扩展方法（方法调用形态）按 C19 EM-EXPRTREE 可改写 + 同一性断言 | overrides.force 解除时风险用户自担 |
-| 16 | 幂等 | 产物中无块、无扩展糖：经典 `this` 方法/普通静态方法/get_X/Add 全部不是扩展语法，重复运行零 diff；residual 零 ExtensionBlockSyntax 断言锁死 | EMD-IDEAL |
+| 16 | 幂等 | 产物中无块、无扩展糖：经典 `this` 方法/普通静态方法/get_X/Add 全部不是扩展语法，重复运行零 diff；residual 零 ExtensionBlockDeclarationSyntax 断言锁死 | EMD-IDEAL |
 | 17 | CS2J1206 过渡 | 选项 `MaterializeExtensionBlocks`（默认 **false**）：false 时维持 C19 现状——遇块即 CS2J1206 Error；true 时按子开关物化，不支持子集走 1209/1211。**不用 `--strict` 承载行为差异**（strict 只升级 Warning），旧行为由显式策略开关保留，便于灰度与回滚 | 默认开评审（M3）前所有环境行为 = 今天 |
 | 18 | 与 member-desugar 的门控 | 属性/运算符子规则物化产物依赖 C11/C14 转换器消费链（get_X→getX 派生、op 名映射）；启用 EMD-PROP/EMD-OP 时若 member-desugar 不在本次启用 pass 集且转换器消费改造未合入 → **CS2J1208 拒绝该子规则**（不是产出不可消费 Java）。EMD-METHOD/EMD-STATIC 无此依赖 | C11 设计 §2 决策 1b 已把 Java 半区消费改造列为其开门禁；C49 不提前透支 |
 | 19 | nameof/反射/动态 | 块内成员的 `nameof` 处理跟随 C11 决策 11（替换为原名常量）；dynamic 不发生扩展绑定，不选中；反射按名面限制声明同 C11/C14 | 不新增风险面类别 |
@@ -158,7 +159,7 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 |---|---|
 | 五锚（delegate/tuple/ref-out-in/unsigned/array-method） | 原样保留（可见性不变量，同 C19 §3.2） |
 | `make-readonly` / `iterator-lowering`（C19 EM-ORDER 建议追加） | 保留追加：E13 的 reduced 启发式、迭代器展开产新站点都在本 pass 前完成；**C49 不引入新锚**——声明侧改写对象（extension 块）不可能被 E13/E14 产生或消费（grep 零命中、语法新），struct receiver 的只读化交互在 E13 阶段已定型，C49 只平移其结果 |
-| member-desugar（C11/C14，Declarative） | Stage 序天然在 Expression 之前；其分析器须**跳过 extension 块内声明**（`node.FirstAncestorOrSelf<ExtensionBlockSyntax>() != null` 或符号 `IsExtension` 判据），把成员留给 C49（§11，C11/C14 落地时的硬 checklist） |
+| member-desugar（C11/C14，Declarative） | Stage 序天然在 Expression 之前；其分析器须**跳过 extension 块内声明**（`node.FirstAncestorOrSelf<ExtensionBlockDeclarationSyntax>() != null` 或符号 `IsExtension` 判据），把成员留给 C49（§11，C11/C14 落地时的硬 checklist） |
 | E17 java-keywords | 仍在链尾：生成的 `get_X/set_X/Add/…` 标识符若撞 Java 关键字由 JK 对普通静态方法/调用点的既有规则覆盖；C49 生成节点不引入 `__cs2j_` 新标识，无新增碰撞面 |
 
 落点 = C19 落点：`iterator-lowering` 之后、`eliminate-goto` 之前；规则在 pass 内的执行序见 §4.5。
@@ -188,7 +189,7 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 | `GenericParameterMapping.cs` | 块参数→成员方法参数表的合并算法（EMD-GEN）：块参数前置于成员参数、约束合并平移、调用点实参表省略/保留判定（复用 C19 EM-GEN 原则） |
 | `ExtensionBlockDeclarationRewriter.cs` | 块节点 → 零到多个经典成员声明（就地替换块节点；trivia/XML doc/attribute/修饰符平移；属性访问器体中 receiver 引用保持原名）；属性拆分严格调 C11 命名契约（`get_X/set_X`）；运算符命名调 C14 `OperatorMemberNaming`/命名镜像表（以公共组件方式引用，不复制表） |
 | `ExtensionBlockCallSiteRewriter.cs` | 按计划纯执行调用点改写：限定名走 C19 `ExtensionHostSyntaxFactory` 的 `global::` NameSyntax；属性复合赋值/`++--` 的临时提升配方引用 C11 既有实现；运算符站点配方引用 C14 SB 表；重写期不做任何绑定推断 |
-| `ExtensionBlockResidualScanner.cs` | AfterFiles：①零 `ExtensionBlockSyntax`；②零未配对扩展调用点（属性/运算符/类型名限定）；③改写点重绑定同一性（§4.6）；④索引器拒绝计数与诊断配对；⑤幂等二次运行零 diff |
+| `ExtensionBlockResidualScanner.cs` | AfterFiles：①零 `ExtensionBlockDeclarationSyntax`；②零未配对扩展调用点（属性/运算符/类型名限定）；③改写点重绑定同一性（§4.6）；④索引器拒绝计数与诊断配对；⑤幂等二次运行零 diff |
 
 ### 4.2 成员映射规格（速查）
 
@@ -228,13 +229,13 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 2. 参数序列：receiver 首参类型/ref-kind、其余实参顺序、泛型 arity 与计划一致。
 3. 声明侧：每个原块成员恰有一个生成成员配对；host 类成员集无意外增减（块外成员零触碰）。
 4. 表达式树区内零改写（跳过计数配对）。
-5. 全树 `ExtensionBlockSyntax` 计数 = 0（C#15 preview 语言版本下另测索引器拒绝路径）。
+5. 全树 `ExtensionBlockDeclarationSyntax` 计数 = 0（C#15 preview 语言版本下另测索引器拒绝路径）。
 
 任一失败：该 plan CS2J1210 同族回退（与 C19 表达式树回退码同段，新增 EMD 明细码 1222）。
 
 ### 4.7 声明改写细节
 
-1. **块节点替换**：ExtensionBlockSyntax 在 ClassDeclaration 的 Members 中被替换为 0..N 个成员声明；成员源序 = 块内源序，多个块各自就地展开不重排；块的分号/括号 trivia 按 C14 OD-1 声明替换构造同款处理。
+1. **块节点替换**：ExtensionBlockDeclarationSyntax 在 ClassDeclaration 的 Members 中被替换为 0..N 个成员声明；成员源序 = 块内源序，多个块各自就地展开不重排；块的分号/括号 trivia 按 C14 OD-1 声明替换构造同款处理。
 2. **receiver 形参注入**：实例成员首参 = `[this] [ref/in] ReceiverType receiverName`；形参名默认沿用块 receiver 标识符（方法体零改名）；块 receiver 无名但含实例成员属源程序非法（编译器已拒）；仅静态成员的块不注入形参。
 3. **属性拆分**：block-bodied get/set、表达式体、访问器可访问性、init 归约全部沿用 C11 PD 规则的实现口径（引用共享实现，不复制）；生成方法位于原属性位置，getter 先于 setter。
 4. **运算符拆分**：引用 C14 `OperatorDeclarationRewriter` 的声明构造逻辑处理参数表/返回类型/体平移；差别仅在最终宿主位置（普通类成员，声明来源标注为 extension block）与首参无 `this`（扩展运算符经决议而非 receiver 实例查找）。
@@ -279,7 +280,7 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 | CS2J1209 | Error（不分级） | 不支持的扩展成员构造：**扩展索引器（C# 15 预览，C52 联动码）**、块内字段/事件/嵌套类型等 grammar 外形态、未来预览中的 `partial extension` |
 | CS2J1211 | Warning / strict Error | 探针确认不支持的 receiver 形态（如指针 receiver、不允许的 ref 成员组合），该块不改 |
 | CS2J1212 | Warning / strict Error | 改写后重编译签名碰撞（CS0102/CS0111 归属到 EMD 计划），整组回退 |
-| CS2J1213 | **Error（启动期）** | Roslyn 版本不足：parse 探针未发现 extension 块节点/存在语法诊断，提示升级 Microsoft.CodeAnalysis ≥ 4.14 |
+| CS2J1213 | **Error（启动期）** | Roslyn 版本不足：parse 探针未发现 extension 块节点/存在语法诊断，提示升级 Microsoft.CodeAnalysis ≥ 5.0 |
 | CS2J1222 | Warning / strict Error | residual 同一性断言失败（§4.6），plan 回退 |
 | 复用 | — | 歧义 1201、绑定失败 1202、metadata 无落点 1203、ref 1204、表达式树 1210、residual 1220、verify 1230/1231、单文件 1290、EM001 Info，全部沿用 C19，EMD 明细进 Info |
 
@@ -299,7 +300,7 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 
 ### 7.1 M0 探针测试（parse 先决，硬前提）
 
-1. 升级 4.14.x 后 parse 探针：`LanguageVersion.Latest` 解析官方四类样本（实例方法/属性/运算符、静态方法/属性、块泛型/成员泛型）成功；记录节点类型名、属性形状与符号 API（`IsExtension`、访问器符号 host/名字、调用点 MethodKind、扩展运算符 ContainingType 与 marker 类型形态）。
+1. 升级 5.0.0 后 parse 探针：`LanguageVersion.Latest` 解析官方四类样本（实例方法/属性/运算符、静态方法/属性、块泛型/成员泛型）成功；记录节点类型名、属性形状与符号 API（`IsExtension`、访问器符号 host/名字、调用点 MethodKind、扩展运算符 ContainingType 与 marker 类型形态）。
 2. `LanguageVersion.Preview` 下解析扩展索引器成功、`Latest` 下报语法错——钉死 CS2J1209 的双语言版本行为。
 3. receiver 修饰矩阵：`ref`/`in`/`readonly ref`/`scoped` × 方法/属性(get/set)/运算符/静态成员的合法集；指针 receiver；无名 receiver 仅静态成员、有名 receiver 静态成员引用 receiver 名（规范禁止，除 nameof）。
 4. 静态扩展推断边界（§4.4-4）：块参数仅出现在 receiver 类型的静态成员。

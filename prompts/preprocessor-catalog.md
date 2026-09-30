@@ -958,10 +958,10 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 分类 | 1.4 成员 |
 | 目标 C# 模式 | C# 14 顶层非泛型静态类中的 `extension(ReceiverType receiver) { … }` 块（receiver 可泛型）：① 实例**扩展属性**（get/set/表达式体）；② **静态扩展运算符**（六次补全修正：`public static … operator +(...)` 等在 extension 块内声明，调用点 `a + b` 走用户定义运算符决议，官方 extension 页已核；扩展索引器为 C# 15 预览，归 C52 防线）；③ **静态**扩展方法/属性（调用点为**接收者类型名限定**新语法：`IEnumerable<int>.Generate(...)`）→ 全部物化为传统静态类 + 显式静态成员：属性调用点 `x.P` → `Ext.GetP(x)` / `Ext.SetP(x, v)`（与 C11/C12 成员方法化产物形态对齐）、运算符调用点并入 C14 声明物化、静态成员改传统类名调用 |
 | 解决的转换难点 | C19 只覆盖**方法调用点**物化；C# 14 引入的扩展属性/扩展运算符/静态成员在 C19 设计视野之外：`x.P` 走 PropertyTransformer 普通成员查找将解析失败或静默错绑；声明侧亦无条目（C11 只处理类型内成员）。Java 无扩展成员任何形态 |
-| 证据 | 语言层：C# 14 extension members（官方语言参考「Extension member declarations」：顶层非泛型静态类可用 extension 块声明扩展成员）；.NET 10 BCL 新 API 实际使用。**仓库现状待核实**：`Pipeline/ExtensionMethodIndex.cs` 与 PropertyTransformer 是否识别 extension 块语法；**先决**：cs2j 所用 Microsoft.CodeAnalysis 包版本需 ≥ 支持 C# 14 语法树，否则 .NET 10 源码在 parse 层即全量失败（§4 风险 20） |
+| 证据 | 语言层：C# 14 extension members（官方语言参考「Extension member declarations」：顶层非泛型静态类可用 extension 块声明扩展成员）；.NET 10 BCL 新 API 实际使用。**仓库现状（2026-09-30 已核实）**：`Pipeline/ExtensionMethodIndex.cs` 与 PropertyTransformer 尚不识别 extension 块语法；**先决已闭环**——Microsoft.CodeAnalysis 已由 4.12 升级至 **5.0.0**（探针实测 4.14 中 extension 块仍为预览：枚举最高 CSharp13、Latest 下 16 个语法错误；§4 风险 20，提交 3c0d37bd），声明/调用侧物化待实施 |
 | 与现有通道关系 | 与 C19 一体（共用扩展方法索引与接收者绑定基建，同通道或紧邻批次）；产物与 C11/C12 对齐使 Java 侧零特判；须晚于 E13（struct receiver 扩展属性与只读化交互）；被 E17 改名表覆盖 |
 | 优先级 | **P1**（.NET 10 目标基线直接命中；与 C50/C51 同属「Roslyn 版本先决」批） |
-| 状态 | **待核实**（语言审计发现；第一步验证 cs2j 的 Roslyn 包对 C# 14 的 parse 支持） |
+| 状态 | **先决批已完成（2026-09-30）**：Roslyn 升级 **5.0.0**（GA 节点 ExtensionBlockDeclarationSyntax，Latest 下零语法错误，提交 3c0d37bd）；空条件赋值语法树形状变化的 MS-5 回归已同步修复，全量 3365 测试通过；声明/调用侧物化待实施 |
 | 验证 | 中间树 build/test；fixture：扩展属性 get/set、扩展运算符调用点、静态扩展方法（接收者类型名限定调用 `IEnumerable<int>.Generate(...)`）、泛型 receiver、`a.ExtProp.B` 链式、与 `using static`/别名组合 |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/extension（**已核**：成员种类/签名唯一性/泛型参数位置/C# 15 扩展索引器）；https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14 |
 | 六次补全（官方文档核对） | 官方 extension 页已核：成员种类 = 方法/属性/**运算符**/索引器（**索引器 C# 15 起为预览**——C# 14 基线 parse 层即拒绝，防线登记归 C52）；同一静态类内（含多个 extension 块）成员签名必须**唯一**（receiver 计入签名）；泛型参数位置规则：receiver 使用 → 声明在块上，仅成员使用 → 声明在成员上，不能两处同名；静态扩展调用语法为**接收者类型名限定**（含泛型类型名）；新形态与经典 `this` 参数静态方法 IL 相同、源兼容——**物化最简路径为改写回经典形态**（扩展属性/运算符生成静态方法对） |
