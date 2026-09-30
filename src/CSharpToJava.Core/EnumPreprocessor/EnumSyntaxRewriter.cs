@@ -695,11 +695,14 @@ internal sealed class EnumSyntaxRewriter : CSharpSyntaxRewriter
             // Use the same casted arg for comparison
             var argCastedForCompare = MaybeCastToUnderlying(arg, argExpr, receiverEnum, underlying);
 
-            var andExpr = SyntaxFactory.BinaryExpression(
-                SyntaxKind.BitwiseAndExpression,
-                receiverCasted,
-                SyntaxFactory.Token(SyntaxKind.AmpersandToken),
-                argCasted);
+            // BitwiseAnd 的优先级低于 Equals：语法树落盘为文本后会被重新解析为
+            // a & (b == c)（byte & bool 编译错误），内层 & 表达式必须显式加括号。
+            var andExpr = SyntaxFactory.ParenthesizedExpression(
+                SyntaxFactory.BinaryExpression(
+                    SyntaxKind.BitwiseAndExpression,
+                    receiverCasted,
+                    SyntaxFactory.Token(SyntaxKind.AmpersandToken),
+                    argCasted));
             var eqExpr = SyntaxFactory.BinaryExpression(
                 SyntaxKind.EqualsExpression,
                 andExpr,

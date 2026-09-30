@@ -649,8 +649,10 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         var visitedBody = (StatementSyntax)base.Visit(((CommonForEachStatementSyntax)node).Statement)!;
         if (hoisted.Count == 0)
         {
+            // 快路径：表达式无需提升。不能调 base.Visit(node)——Visit 经 node.Accept
+            // 虚分发会重入本 override 造成无限递归（SO）；body 已手动访问过，直接重建。
             if (ReferenceEquals(lifted, expression))
-                return base.Visit(node)!;
+                return rebuild(expression, visitedBody);
             return rebuild(InjectSlotValues(lifted), visitedBody);
         }
         var newForeach = rebuild(InjectSlotValues(lifted), visitedBody);
