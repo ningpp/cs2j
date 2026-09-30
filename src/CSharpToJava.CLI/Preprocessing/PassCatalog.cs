@@ -142,7 +142,8 @@ internal static class PassCatalog
             supportLibrary: PassSupportLibrary.Cs2jRefOutIn,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Box ref/out/in parameters through the RefOutIn support project."),
+            description: "Box ref/out/in parameters through the RefOutIn support project.",
+            catalogItems: "C01"),
         new(
             PassIds.Unsigned,
             "Unsigned types",
@@ -216,7 +217,8 @@ internal static class PassCatalog
             runAfterIds: new[] { PassIds.MakeReadonly },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Lower C# iterator methods into explicit state machine classes."),
+            description: "Lower C# iterator methods into explicit state machine classes.",
+            catalogItems: "C04"),
         new(
             PassIds.EliminateGoto,
             "Eliminate goto",

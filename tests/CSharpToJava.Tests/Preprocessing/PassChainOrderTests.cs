@@ -151,6 +151,18 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
+    public void Implemented_catalog_passes_carry_their_catalog_item_mappings()
+    {
+        var byId = PassCatalog.BuildRegistry().Ordered.ToDictionary(p => p.Id);
+
+        Assert.Equal("C01", byId[PassIds.RefOutIn].CatalogItems);
+        Assert.Equal("C02", byId[PassIds.GenericDeepen].CatalogItems);
+        Assert.Equal("C03, C37", byId[PassIds.PatternDesugar].CatalogItems);
+        Assert.Equal("C04", byId[PassStubCatalog.Ids.IteratorLowering].CatalogItems);
+        Assert.Equal("C11, C12, C13, C14", byId[PassIds.MemberDesugar].CatalogItems);
+    }
+
+    [Fact]
     public void ChainFactory_creates_an_adapter_for_every_implemented_pass()
     {
         var config = new PassChainConfiguration
