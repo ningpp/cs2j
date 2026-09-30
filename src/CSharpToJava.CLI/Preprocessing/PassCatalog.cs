@@ -22,6 +22,7 @@ internal static class PassIds
     public const string ArrayMethod = "array-method";
     public const string IndexRange = "index-range";
     public const string MakeReadonly = "make-readonly";
+    public const string StructValueSemantics = "struct-value-semantics";
     public const string EliminateGoto = "eliminate-goto";
     public const string MemberDesugar = "member-desugar";
     public const string JavaKeywords = "java-keywords";
@@ -235,6 +236,18 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Make eligible structs readonly with whole-tree analysis and shim injection."),
         new(
+            PassIds.StructValueSemantics,
+            "Struct value semantics",
+            ".cs2j-struct-value-semantics-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.MakeReadonly },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Make struct copy/mutation/readonly boundaries explicit with defensive clones.",
+            catalogItems: "C07"),
+        new(
             PassStubCatalog.Ids.IteratorLowering,
             "Iterator lowering",
             ".cs2j-iterator-lowering-src",
@@ -263,7 +276,7 @@ internal static class PassCatalog
             PassStage.Declarative,
             PassStatus.Implemented,
             defaultEnabled: true,
-            runAfterIds: new[] { PassStubCatalog.Ids.StructValueSemantics, PassStubCatalog.Ids.ClosureLift },
+            runAfterIds: new[] { PassIds.StructValueSemantics, PassStubCatalog.Ids.ClosureLift },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Desugar properties (C11), indexers (C12), events (C13) and operators (C14) into backing fields plus explicit get_X/set_X/get_Item/add_X/remove_X methods.",

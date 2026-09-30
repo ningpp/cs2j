@@ -2,6 +2,7 @@ using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
+using CSharpToJava.Core.StructValueSemantics;
 
 namespace CSharpToJava.CLI.Preprocessing;
 
@@ -36,6 +37,9 @@ internal sealed class CliChainRequest
 
     /// <summary>Invoked only when member-desugar is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.MemberDesugar.MemberDesugarOptions> MemberDesugarOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when struct-value-semantics is enabled (keeps override loading lazy).</summary>
+    public required Func<StructValueSemanticsOptions> StructValueSemanticsOptionsFactory { get; init; }
 
     /// <summary>
     /// Per-id on/off state from legacy flags. Null means "use descriptor defaults";
@@ -124,6 +128,7 @@ internal static class CliPreprocessChain
             RecordReadOnlyOptionsFactory = request.RecordReadOnlyOptionsFactory,
             JavaKeywordOptionsFactory = request.JavaKeywordOptionsFactory,
             MemberDesugarOptionsFactory = request.MemberDesugarOptionsFactory,
+            StructValueSemanticsOptionsFactory = request.StructValueSemanticsOptionsFactory,
         };
 
         var sourcePath = request.SourcePath;

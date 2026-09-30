@@ -42,6 +42,8 @@ public class PatternDesugarProjectTests
             MakerOptionsFactory = () => new ReadOnlyStructMakerOptions(),
             RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
             MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
+            StructValueSemanticsOptionsFactory = () =>
+                new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
             EnablePassIds = new[] { PassId },

@@ -204,6 +204,8 @@ public class Program
                     opts.JavaKeywordsOverrides, strict: false),
                 MemberDesugarOptionsFactory = () => BuildMemberDesugarOptions(
                     opts.MemberDesugarOverrides, strict: false),
+                StructValueSemanticsOptionsFactory = () => BuildStructValueSemanticsOptions(
+                    opts.StructValueSemanticsOverrides),
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
@@ -3341,6 +3343,61 @@ public class Program
         };
     }
 
+    private sealed class StructValueSemanticsOverrideSets
+    {
+        public string[]? Force { get; set; }
+        public string[]? Skip { get; set; }
+    }
+
+    /// <summary>
+    /// 加载 config/StructValueSemanticsOverrides.json（{ "skip": [], "force": [] }）。
+    /// 路径解析与 record-readonly 同口径（CWD → AppContext.BaseDirectory 向上查找）；
+    /// 文件可选；JSON 解析失败 → Warning 按空集继续，不致命（设计 §5）。
+    /// </summary>
+    private static CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions
+        BuildStructValueSemanticsOptions(string? explicitPath)
+    {
+        var path = explicitPath;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            path = Path.Combine(Directory.GetCurrentDirectory(), "config", "StructValueSemanticsOverrides.json");
+            if (!File.Exists(path))
+            {
+                var dir = new DirectoryInfo(AppContext.BaseDirectory);
+                while (dir != null)
+                {
+                    var candidate = Path.Combine(dir.FullName, "config", "StructValueSemanticsOverrides.json");
+                    if (File.Exists(candidate)) { path = candidate; break; }
+                    dir = dir.Parent;
+                }
+            }
+        }
+
+        var force = new HashSet<string>(StringComparer.Ordinal);
+        var skip = new HashSet<string>(StringComparer.Ordinal);
+        if (path != null && File.Exists(path))
+        {
+            try
+            {
+                var parsed = System.Text.Json.JsonSerializer.Deserialize<StructValueSemanticsOverrideSets>(
+                    File.ReadAllText(path)) ?? new StructValueSemanticsOverrideSets();
+                if (parsed.Force != null) force.UnionWith(parsed.Force);
+                if (parsed.Skip != null) skip.UnionWith(parsed.Skip);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(
+                    $"[Warning] Failed to load struct-value-semantics overrides from {path}: {ex.Message}");
+            }
+        }
+
+        return new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions
+        {
+            ForceQualifiedNames = force,
+            SkipQualifiedNames = skip,
+        };
+    }
+
     /// <summary>
     /// 独立 java-keywords verb：单文件 -i/-o（只允许自包含，JK090）或
     /// 项目 -s/-d（整树驱动 + 计划级回退）。
@@ -3546,6 +3603,8 @@ public class Program
                     opts.JavaKeywordsOverrides, strict: false),
                 MemberDesugarOptionsFactory = () => BuildMemberDesugarOptions(
                     opts.MemberDesugarOverrides, strict: false),
+                StructValueSemanticsOptionsFactory = () => BuildStructValueSemanticsOptions(
+                    opts.StructValueSemanticsOverrides),
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
@@ -4518,6 +4577,10 @@ class PreprocessVerbOptions
         HelpText = "Path to MemberDesugarOverrides.json (default: config/MemberDesugarOverrides.json)")]
     public string? MemberDesugarOverrides { get; set; }
 
+    [Option("struct-value-semantics-overrides", Required = false,
+        HelpText = "Path to StructValueSemanticsOverrides.json (default: config/StructValueSemanticsOverrides.json)")]
+    public string? StructValueSemanticsOverrides { get; set; }
+
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
@@ -4848,6 +4911,14 @@ class ConvertProjectOptions
     [Option("member-desugar-overrides", Required = false,
         HelpText = "Path to MemberDesugarOverrides.json (default: config/MemberDesugarOverrides.json)")]
     public string? MemberDesugarOverrides { get; set; }
+
+    [Option("struct-value-semantics", Default = false,
+        HelpText = "Enable the struct-value-semantics pass (defensive Clone insertion for residual mutable structs)")]
+    public bool StructValueSemantics { get; set; }
+
+    [Option("struct-value-semantics-overrides", Required = false,
+        HelpText = "Path to StructValueSemanticsOverrides.json (default: config/StructValueSemanticsOverrides.json)")]
+    public string? StructValueSemanticsOverrides { get; set; }
 
     [Option("no-array-method", Default = false,
         HelpText = "Disable the default array-method preprocessing step")]

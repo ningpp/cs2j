@@ -234,6 +234,101 @@ public static class Lists
         Assert.Contains("Implemented", line);
     }
 
+    // ───────────────────────── C07 struct-value-semantics（设计 §7.6）─────────────────────────
+
+    [Fact]
+    public async Task ListPasses_ShowsStructValueSemantics_ImplementedAndOffByDefault()
+    {
+        var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
+
+        Assert.Equal(0, exit);
+        var line = stdout.Split('\n').First(l => l.Contains("struct-value-semantics"));
+        Assert.Contains("Implemented", line);
+        Assert.Contains("off", line); // 默认关（M6 不翻转）
+    }
+
+    [Fact]
+    public async Task DefaultChain_DoesNotCreate_StructValueSemantics_IntermediateTree()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace SvsDefault;
+
+public static class Calc
+{
+    public static int Add(int a, int b) => a + b;
+}
+""");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, _, stderr) = await RunCliAsync(
+                "preprocess", "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(0, exit);
+            Assert.True(Directory.Exists(destDir), stderr);
+            Assert.False(
+                Directory.Exists(Path.Combine(destDir, ".cs2j-struct-value-semantics-src")),
+                "struct-value-semantics is default-off and must not run without an explicit flag");
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ExplicitPassSelection_RunsStructValueSemantics()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace SvsSample;
+
+public struct Point
+{
+    public int X;
+    public void Move(int dx) { X += dx; }
+}
+
+public static class Runner
+{
+    public static void Go()
+    {
+        var p = new Point();
+        var q = p;
+        q.Move(1);
+        System.Console.WriteLine(q.X);
+    }
+}
+""");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "struct-value-semantics",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.True(exit == 0,
+                $"preprocess --pass struct-value-semantics failed (exit {exit}).\nstderr: {stderr}\nstdout: {stdout}");
+
+            var intermediateDirs = Directory
+                .GetDirectories(destDir, ".cs2j-*", SearchOption.TopDirectoryOnly)
+                .Select(Path.GetFileName)
+                .ToArray();
+            Assert.Single(intermediateDirs);
+            Assert.Equal(".cs2j-struct-value-semantics-src", intermediateDirs[0]);
+
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-struct-value-semantics-src", "Class1.cs"));
+            Assert.Contains("Clone()", rewritten);
+            Assert.Contains("struct-value-semantics:", stdout);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task ExplicitPassSelection_RunsOnlyTheRequestedPass()
     {

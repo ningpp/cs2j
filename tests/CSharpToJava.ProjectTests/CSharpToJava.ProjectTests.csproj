@@ -175,6 +175,12 @@
       <Link>SampleNumericBoundaryUnsupportedSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Include SampleStructValueSemanticsSolution (C07) as content; bin/obj excluded. -->
+    <Content Include="..\SampleStructValueSemanticsSolution\**\*.*"
+              Exclude="..\SampleStructValueSemanticsSolution\**\bin\**;..\SampleStructValueSemanticsSolution\**\obj\**">
+      <Link>SampleStructValueSemanticsSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

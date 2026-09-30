@@ -64,6 +64,9 @@ public class IndexRangeConversionEndToEndTests
                 MemberDesugarOptionsFactory = () =>
                     new CSharpToJava.Core.MemberDesugar
                         .MemberDesugarOptions(),
+                StructValueSemanticsOptionsFactory = () =>
+                    new CSharpToJava.Core.StructValueSemantics
+                        .StructValueSemanticsOptions(),
                 LegacyToggles = PassCatalog.BuildRegistry().Ordered
                     .Select(d => d.Id)
                     .ToDictionary(

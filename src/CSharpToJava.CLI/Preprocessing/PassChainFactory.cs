@@ -16,6 +16,7 @@ using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
 using CSharpToJava.Core.RefOutInPreprocessor;
+using CSharpToJava.Core.StructValueSemantics;
 using CSharpToJava.Core.TupleToStruct;
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using CSharpToJava.CLI.Preprocessing.Adapters;
@@ -60,6 +61,9 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Invoked only when member-desugar is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.MemberDesugar.MemberDesugarOptions> MemberDesugarOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when struct-value-semantics is enabled (keeps override loading lazy).</summary>
+    public required Func<StructValueSemanticsOptions> StructValueSemanticsOptionsFactory { get; init; }
 }
 
 /// <summary>
@@ -92,6 +96,7 @@ internal static class PassChainFactory
             [PassIds.ArrayMethod] = opts.ArrayMethod,
             [PassIds.IndexRange] = true,
             [PassIds.MakeReadonly] = opts.MakeReadOnly,
+            [PassIds.StructValueSemantics] = opts.StructValueSemantics,
             [PassStubCatalog.Ids.IteratorLowering] = opts.IteratorLowering,
             [PassIds.EliminateGoto] = opts.EliminateGoto,
             [PassIds.MemberDesugar] = opts.MemberDesugar,
@@ -255,6 +260,12 @@ internal static class PassChainFactory
                 config.CompatNamespacePrefixes,
                 config.VerifyBuild,
                 config.VerifyTests),
+
+            PassIds.StructValueSemantics => new StructValueSemanticsPassAdapter(
+                config.StructValueSemanticsOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes),
 
             PassStubCatalog.Ids.IteratorLowering => new IteratorLoweringPassAdapter(
                 new IteratorLoweringOptions(),

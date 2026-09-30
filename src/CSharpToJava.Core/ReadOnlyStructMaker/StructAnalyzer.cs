@@ -495,7 +495,7 @@ internal sealed class StructAnalyzer
     /// return values if left unmigrated. Methods with other return types are
     /// excluded (their migration would change signatures via out-parameters).
     /// </summary>
-    private static bool IsTransitiveMigrationCandidate(IMethodSymbol method, MethodDeclarationSyntax methodDecl)
+    internal static bool IsTransitiveMigrationCandidate(IMethodSymbol method, MethodDeclarationSyntax methodDecl)
     {
         if (methodDecl.ReturnType is PredefinedTypeSyntax pts &&
             pts.Keyword.IsKind(SyntaxKind.VoidKeyword))
@@ -634,7 +634,7 @@ internal sealed class StructAnalyzer
     /// Truly recursive calls (resolving to the method itself) are ignored; calls to
     /// same-name overloads are delegations and count as mutations.
     /// </summary>
-    private bool CallsMutatingMethod(MethodDeclarationSyntax method,
+    internal bool CallsMutatingMethod(MethodDeclarationSyntax method,
         HashSet<string> mutatingNames, IMethodSymbol ownMethod)
     {
         var ownName = ownMethod.Name;
@@ -674,7 +674,7 @@ internal sealed class StructAnalyzer
         return false;
     }
 
-    private bool IsMutating(MethodDeclarationSyntax method)
+    internal bool IsMutating(MethodDeclarationSyntax method)
     {
         // Get the containing type so we only detect mutations to THIS struct's fields,
         // not to local variables' fields (e.g. localPoint.X += 1 is NOT mutating).

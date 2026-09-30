@@ -25,7 +25,6 @@ internal static class PassStubCatalog
         public const string ForeachSource = "foreach-source";
         public const string ClosedMetadata = "closed-metadata";
         public const string VarianceAudit = "variance-audit";
-        public const string StructValueSemantics = "struct-value-semantics";
         public const string UnsafeFfm = "unsafe-ffm";
         public const string ClosureLift = "closure-lift";
         public const string IteratorLowering = "iterator-lowering";
@@ -109,23 +108,13 @@ internal static class PassStubCatalog
             description: "Audit out/in variance and struct/new() constraints; report usage sites needing rewrite (P3).",
             catalogItems: "C33"),
         new(
-            Ids.StructValueSemantics,
-            "Struct value semantics",
-            ".cs2j-struct-value-semantics-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.MakeReadonly },
-            description: "Make struct copy/mutation/readonly boundaries explicit.",
-            catalogItems: "C07"),
-        new(
             Ids.UnsafeFfm,
             "Unsafe to FFM",
             ".cs2j-unsafe-ffm-src",
             PassStage.Abi,
             PassStatus.Stub,
             defaultEnabled: false,
-            runAfterIds: new[] { Ids.StructValueSemantics },
+            runAfterIds: new[] { PassIds.StructValueSemantics },
             description: "Lower pointers/stackalloc/fixed buffers/extern to index, Span and FFM forms.",
             catalogItems: "C06"),
         new(
