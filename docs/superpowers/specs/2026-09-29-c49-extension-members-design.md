@@ -2,9 +2,9 @@
 
 **日期**: 2026-09-29
 **范围**: catalog C49（P1，`.NET 10` 目标基线直接命中）：顶层非泛型静态类中的 `extension(ReceiverType receiver) { … }` 块——实例扩展属性、扩展运算符、静态扩展方法/属性、块/成员两级泛型——的声明侧归一与调用点显式化；扩展索引器（C# 15 预览）显式拒绝归 C52
-**归属**: C19 `extension-methods` pass 的**声明侧规则族**（规则前缀 EMD，Extension Member Declarations），不新增 stub、不新增 pass、不新增中间目录；本文是 [2026-09-29-c19-extension-methods-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c19-extension-methods-design.md) 的姊妹设计
+**归属**: C19 `extension-methods` pass 的**声明侧规则族**（catalog 名称 `ExtensionMemberNormalize`；规则前缀 EMD，Extension Member Declarations），不新增 stub、不新增 pass、不新增中间目录；本文是 [2026-09-29-c19-extension-methods-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c19-extension-methods-design.md) 的姊妹设计
 **状态**: 设计定稿待评审；实施在独立 worktree（见 §12），本文不改动任何代码、不执行任何 git 写操作
-**关联资料**: [preprocessor-catalog.md](file:///d:/code/cs2j/prompts/preprocessor-catalog.md) C49（L953-966）/C19（L530-542）/C11（L419-431）/C14 对齐 /C52（L997-1010）；[preprocessor-foundation_plan.md](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md) L60-139；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L202-L218)；官方语言参考 https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/extension ；特性规范 csharp-14.0/extensions
+**关联资料**: [preprocessor-catalog.md](file:///d:/code/cs2j/prompts/preprocessor-catalog.md) C49（L953-966）/C19（L530-542）/C11（L419-431）/C14 对齐 /C52（L997-1010）；[preprocessor-foundation_plan.md](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md) L60-139；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L180-L206)；官方语言参考 https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/extension 、 https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14 ；特性规范 csharp-14.0/extensions
 
 ---
 
@@ -58,7 +58,7 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 | 2 | 既有扩展索引只扫经典 `this` 形态：[ExtensionMethodIndex.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ExtensionMethodIndex.cs) 全文 199 行，`root.DescendantNodes().OfType<MethodDeclarationSyntax>()` + 首参 `SyntaxKind.ThisKeyword` + `IsExtensionMethod` 符号确认；对块内成员无发现路径 | L151-196 |
 | 3 | 属性链路只认识类内 `PropertyDeclarationSyntax`：[PropertyTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L7-L13) 入口 `node is not PropertyDeclarationSyntax p` 即抛；块嵌套的属性即使被枚举也无 host 类型可挂后备字段；调用点 `x.P` 走普通成员绑定，对扩展属性将解析失败或静默错绑（C49 catalog 已登记的事故面） | L7-13 |
 | 4 | C19 设计把 C# 14 扩展块定为 **CS2J1206 Error**（EM-EXT14，[C19 设计 §2/§6](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c19-extension-methods-design.md)）：`v1 仅支持经典 static class + 首个 this 形参`。本任务把该报错**升格为物化**，1206 退为"规则关闭/遇到不支持子集"时的码 | C19 §2 EM-EXT14、§6 码表 |
-| 5 | 注册表已有 `extension-methods` stub（catalogItems `"C19"`，RunAfter 五锚），C49 与其一体；`linq-channel` stub 的 RunAfter 引用该 id | [PassStubCatalog.cs:202-228](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L202-L228) |
+| 5 | 注册表已有 `extension-methods` stub（catalogItems `"C19"`，RunAfter 五锚），C49 与其一体；`linq-channel` stub 的 RunAfter 引用该 id | [PassStubCatalog.cs:180-206](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L180-L206) |
 | 6 | Java 无扩展成员任何形态（无扩展属性/扩展运算符/类型静态扩展语法） | catalog C49 |
 
 四类调用点在现状链路上的具体失败形态（C49 不实施时）：
@@ -95,7 +95,7 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 1. M0 必须把四个 PackageReference 升级到 **4.14.0 或更新的 4.14.x 稳定 patch**（实施时取 NuGet 上最新 4.14.x；三个 Core 包与 tools 一个包同版，不混版）。不需要改 VS/构建工具——NuGet 包自带编译器。
 2. 升级后 API 形态以**反射探针实测为准**（预览期语法树/符号 API 有滚动；规范实现里的节点类名预期为 `ExtensionBlockSyntax`，含 TypeParameterList/ParameterList/ConstraintClauses/Members，但代码中禁止不经验证硬编码其形状）。
 3. 启动期加 parse 自检：用最小片段 `static class E { extension(int x) { public int P => x; } }` 在 `LanguageVersion.Latest` 下 parse，若节点树中无 extension 块节点或含语法错误诊断 → **CS2J1213 Error**："Microsoft.CodeAnalysis ≥ 4.14 required to parse C# 14 extension blocks"，本规则拒绝运行（不是静默 no-op）。
-4. Roslyn 4.12→4.14 跨两个次版本，升级本身对既有 15 个 pass 的回归面（breaking changes 页所列 Span 隐式转换、extension 标识符等）须按 M0 回归套跑，这是 C50/C51 共用的"Roslyn 版本先决批"，C49 不独占升级动作但负责驱动。
+4. Roslyn 4.12→4.14 跨两个次版本，升级本身对既有 18 个 pass 的回归面（breaking changes 页所列 Span 隐式转换、extension 标识符等）须按 M0 回归套跑，这是 C50/C51 共用的"Roslyn 版本先决批"，C49 不独占升级动作但负责驱动。
 
 ### 1.4 目标
 
@@ -348,7 +348,7 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 
 ## 8. 默认开启验收门槛
 
-1. **M0 硬前提**：Roslyn 升级到 4.14.x 且探针全绿（parse/符号 API/限制集）；升级后既有 15 pass Release build/test 零新增回归（C50/C51 同批受益，回归责任在升级批）。
+1. **M0 硬前提**：Roslyn 升级到 4.14.x 且探针全绿（parse/符号 API/限制集）；升级后既有 18 pass Release build/test 零新增回归（C50/C51 同批受益，回归责任在升级批）。
 2. **C19 pass 先合入**：C49 不先于 C19 翻转；合入顺序 = C19 分支 → C49（§12）。
 3. fixture sln 与 sdk 预处理树 Release build/test 全绿、sdk 新增失败为零；§4.6 同一性断言全过、residual 零块。
 4. 属性/运算符产物的消费链就绪：C11/C14 已合入或其转换器消费改造（get_X→getX、op 命名表）先行；否则两子规则保持门控关闭（1208 保护）。
@@ -415,7 +415,21 @@ git worktree add .worktrees/preproc-c49-extension-members -b feature/preproc-c49
 
 ---
 
-## 附：关键开放问题（评审输入）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持本文 §12 登记的自有 base `9b99c60b`（不改动），创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **改写策略**：**确认方案 A**（声明 + 调用点同步显式改写，二次编译仅作验证）；**否决方案 B**——纯声明改写靠重绑的逐形验证成本无界且把正确性押在重绑稳定性上，与"中间树必须自身语义确定"口径冲突。实施中发现方案 A 无法覆盖的形态时发显式诊断登记，不回退到 B。
+2. **Roslyn 4.14.x 落点版本**：实施时取的**精确 patch 版本由 M0 探针决定并锁定 CI global_versions**（探针同时确认 GA API 中块节点/receiver/`IsExtension` 的确切形状）；探针结果回填 §4 后才允许写规则代码，组件名/判据按探针微调不算设计变更。
+3. **receiver 修饰允许集**：以 **M0 探针矩阵实测为准**（ref/in/readonly/scoped × 成员种类、指针 receiver、set 访问器 ref 首参）；矩阵不支持的组合**收窄 1211 范围**（显式诊断）而非勉强物化，set 访问器 ref 首参物化形态同样按探针定，禁止超证承诺。
+4. **catalogItems 时机**：**C19 翻转 PR 即写 `"C19, C49"`**（翻转时即登记承接关系，避免 catalog 再次滞后）；若 EMD-PROP/EMD-OP 与 C11/C14 落地次序倒挂，门控 **1208 长期保留**（倒挂期内持续拦截），待次序补齐且画像干净后才允许评估退役，退役另走门槛。
+5. **metadata 扩展属性/运算符**：外部程序集声明、无源码块的扩展属性/运算符 **v1 只报告**（显式诊断，指物到程序集与成员）；**M3 按 sdk 扫描计数升级**——有真实命中即生成兼容绑定声明（companion 式），零命中则维持只报告并在两个画像周期后复核，不无限期只报告。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **改写策略**：推荐已采纳方案 A（声明+调用点同步显式改写，二次编译仅验证）；是否有评审意见愿意承担方案 B（纯声明改写靠重绑）的逐形验证成本（§2 决策 2）。
 2. **Roslyn 4.14.x 落点版本**：实施时取哪个具体 patch（M0 决定，锁 CI）；GA API 中块节点/receiver/`IsExtension` 的确切形状以探针回填，可能微调 §4 组件名与判据。

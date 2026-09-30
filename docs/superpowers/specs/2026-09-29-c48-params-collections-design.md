@@ -2,9 +2,9 @@
 
 **日期**: 2026-09-29
 **范围**: 在已实现的 E08 `strip-default` pass（`DefaultParameterStripper/`）内新增 **ParamsCollections 规则集**（零新 pass、零 stub 翻转、零新中间目录/适配器）：① 识别 C# 13 `params` 集合声明（八类合法类型），把调用点三形态（逗号列表 / 单个集合实参 / 空实参）归一为**显式集合构造实参**；② 经典 `params T[]` 与集合表达式 `M([1,2])`、`M(..span)` 组合时的面貌划界（C36 管表达式自身，C48 管 params 形参槽位）；③ 声明侧：`params T[]` **保留** params 修饰符（直映 Java varargs），其余 params 集合声明**物化为普通参数**并改写全部展开式调用点；④ 与 E08 默认参数补全在同一两遍范式内协作（`M(1, b: 2)` 具名实参）。本任务为只读调研 + 设计产出，**不实现代码、不注册/翻转任何 pass、不执行 build/test/git 写操作**。
-**状态**: 设计待评审；硬前置 M0 Roslyn 探针（§9）；M1 建议等待 C24/C36 分支节奏（助手复用，见 §3.4/§11）
-**Catalog**: C48（P2，分类 1.4 成员/调用点）[preprocessor-catalog.md L939-L951](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L939-L951)；E08 两遍范式 [L166-L174](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L166-L174)；C36 边界 [L693-L706](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L693-L706)；C06 Span 选型 [L348-L361](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L348-L361)；C52 隐式 Span 转换交界 [L997-L1010](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L997-L1010)
-**注册表现状**: `strip-default` 已在 [PassCatalog.cs L109-L117](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L109-L117) 登记（Status=Implemented、defaultEnabled=true、Stage=Declarative、RunAfter=`[foreach-deconstruction]`、目录 `.cs2j-strip-default-src`）；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 23 个 stub **无任何 params 条目**（已逐行核实）。C48 不新增 pass id；规则门控仅存在于 `DefaultParameterStripperOptions`，**默认关（opt-in）**
+**状态**: 设计待评审；硬前置 M0 Roslyn 探针（§9）；M1 不阻塞开工（自带最小发射；助手复用待 C24/C36 合入，见 §3.4/§11）
+**Catalog**: C48（P2，分类 1.4 成员/调用点）[preprocessor-catalog.md L939-L951](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L939-L951)；E08 两遍范式 [L166-L174](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L166-L174)；C36 边界 [L764-L779](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L764-L779)；C06 Span 选型 [L348-L361](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L348-L361)；C52 隐式 Span 转换交界 [L997-L1010](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L997-L1010)
+**注册表现状**: `strip-default` 已在 [PassCatalog.cs L123-L133](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L123-L133) 登记（Status=Implemented、defaultEnabled=true、Stage=Declarative、RunAfter=`[foreach-deconstruction]`、目录 `.cs2j-strip-default-src`）；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 21 个 stub **无任何 params 条目**（已逐行核实）。C48 不新增 pass id；规则门控仅存在于 `DefaultParameterStripperOptions`，**默认关（opt-in）**
 **base**: `9b99c60b`（`docs: C46 成员签名显式化设计（显式接口实现 / new 隐藏 / 协变返回）`，已 `git rev-parse --verify` 校验存在，完整 SHA `9b99c60b33980c3c351b70d6b99e6b4bf57b30ae`）
 
 ---
@@ -51,7 +51,7 @@ Java 可变实参（varargs）只接受方法末位、一维数组形态的 `T..
 | P1 | [MethodTransformer.cs L148-L149](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L148-L149)、[ConstructorTransformer.cs L95-L98](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/ConstructorTransformer.cs#L95-L98)、[DelegateTransformer.cs L196](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/DelegateTransformer.cs#L196-L196) | 见 `ParamsKeyword` 即置 `JavaParameter.IsVarArgs = true`，**不看参数类型** | `params IEnumerable<T>`/`params Span<T>` 产出 Java `Iterable...`/`Span...` 式非法 varargs（非一维数组类型），javac 拒绝 |
 | P2 | [ArgumentTransformer.cs L76-L78](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs#L76-L78) | 溢出位置实参全部映射到末位 params 形参逐参 coerce | `M(1,2,3)` 靠 Java varargs 逗号直透恰好工作；单集合实参/集合类型无构造逻辑；全 Core grep `IsParamsCollection/ParamCollection` **零命中**（4.12 新 API 无任何消费方） |
 | P3 | [DefaultParameterSignature.cs L22,L53](file:///d:/code/cs2j/src/CSharpToJava.Core/DefaultParameterStripper/DefaultParameterSignature.cs#L22-L53) | E08 签名目录已录 `bool[] IsParams`，但仅用于「params 槽可省略」（[Rewriter L627,L717](file:///d:/code/cs2j/src/CSharpToJava.Core/DefaultParameterStripper/DefaultParameterDeclarationRewriter.cs#L717-L717)） | params 从不被物化；[OverloadBuilder.cs L363-L373](file:///d:/code/cs2j/src/CSharpToJava.Core/DefaultParameterStripper/DefaultParameterOverloadBuilder.cs#L363-L373) 转发 params 空槽时只认 `ArrayTypeSyntax` 发空数组，非数组形态无分支 |
-| P4 | 测试盘点 | glob `**/*[Pp]arams*` 零文件；经典用例仅 [MethodParameterTests.cs L14/L21/L28](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/MethodParameterTests.cs#L14-L28) 三个（`params int[]/string[]` 声明直映）；E08 组合仅 [DefaultParameterStripperTests.cs L232](file:///d:/code/cs2j/tests/CSharpToJava.Tests/DefaultParameterStripperTests.cs#L232-L232)（`int level = 0, params object[] args`，params 保持省略）；全 tests grep `params (ReadOnlySpan|Span|IEnumerable|IList|ICollection|IReadOnly|List<)` **零命中** | 非数组 params 集合零护栏；声明/调用点显式化零断言 |
+| P4 | 测试盘点 | glob `**/*[Pp]arams*` 零文件；经典用例仅 [MethodParameterTests.cs L14/L21](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/MethodParameterTests.cs#L11-L23) 两个（`params int[]/string[]` 声明直映）；E08 组合仅 [DefaultParameterStripperTests.cs L231](file:///d:/code/cs2j/tests/CSharpToJava.Tests/DefaultParameterStripperTests.cs#L231-L231)（`int level = 0, params object[] args`，params 保持省略）；全 tests grep `params (ReadOnlySpan|Span|IEnumerable|IList|ICollection|IReadOnly|List<)` **零命中** | 非数组 params 集合零护栏；声明/调用点显式化零断言 |
 
 ### 1.4 目标与非目标
 
@@ -102,13 +102,13 @@ Java 可变实参（varargs）只接受方法末位、一维数组形态的 `T..
 
 | 策略 | 适用 | 结论 |
 |---|---|---|
-| A. **保留 `params T[]`** | K1 经典数组声明 | **推荐/采用**：下游 [MethodTransformer.cs L148](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L148-L148) 直映 Java 末位 `T...`，零转换器改动；显式 `new T[]{}` 实参在 Java varargs 位是「精确类型数组实参」，javac 不再二次包装，语义一致 |
+| A. **保留 `params T[]`** | K1 经典数组声明 | **推荐/采用**：下游 [MethodTransformer.cs L149](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L149-L149) 直映 Java 末位 `T...`，零转换器改动；显式 `new T[]{}` 实参在 Java varargs 位是「精确类型数组实参」，javac 不再二次包装，语义一致 |
 | B. **剥离 params，物化为普通参数** | K2/K3/K4/K5 全部非数组 params 集合 | **采用**：删 `params` 修饰符（`ParameterSyntax.WithModifiers` 去 ParamsKeyword），形参类型不变；该声明所有展开式调用点必须同步显式化（跨文件签名目录保障，同 E08 Collect 遍）；剥离后 P1 站点不再产出非法 Java varargs |
 | C. 统一剥离全部 params（含 K1） | —— | **否决**：`Console.WriteLine(string, params object[])` 等海量经典声明与 Java varargs 天然对应，全剥只会平白要求每个调用点显式数组且使 Java 侧丢失 varargs 外形；与「最小物化」原则相悖 |
 
 一致性要求（策略 B 的连带面，M1 实现/夹具覆盖）：
 
-- **override / 接口实现 / 显式接口实现 / partial 两半 / base 调用**：params 集合在 IL 元数据带 `[System.Runtime.CompilerServices.ParamCollectionAttribute]`，源码侧 `params` 不是签名差异但影响调用合法性。Catalog Collect 遍按符号（含 `OverriddenMethod`/`AllInterfaces`/`ExplicitInterfaceImplementations`，复用 [DefaultParameterCatalog.EnumerateLookupSymbols L244-L253](file:///d:/code/cs2j/src/CSharpToJava.Core/DefaultParameterStripper/DefaultParameterCatalog.cs#L244-L253) 既有遍历）把同一 virtual 槽位的所有声明一并物化，避免「基类剥离、派生类保留」造成中间树跨程序集调用决议漂移；
+- **override / 接口实现 / 显式接口实现 / partial 两半 / base 调用**：params 集合在 IL 元数据带 `[System.Runtime.CompilerServices.ParamCollectionAttribute]`，源码侧 `params` 不是签名差异但影响调用合法性。Catalog Collect 遍按符号（既有 [DefaultParameterCatalog.EnumerateLookupSymbols L244-L253](file:///d:/code/cs2j/src/CSharpToJava.Core/DefaultParameterStripper/DefaultParameterCatalog.cs#L244-L253) 仅沿 `OverriddenMethod` 链向上遍历；接口实现面需在实现时扩展 `AllInterfaces`/`ExplicitInterfaceImplementations`）把同一 virtual 槽位的所有声明一并物化，避免「基类剥离、派生类保留」造成中间树跨程序集调用决议漂移；
 - 剥离后构造函数链（` : this(…)` / ` : base(…)`）展开式调用同样改写；4.12 资源串存在 `ERR_ParamsCollectionInfiniteChainOfConstructorCalls`/`ERR_ParamsCollectionConstructorDoesntInitializeRequiredMember`/`ERR_ParamsCollectionMissingConstructor`，提示 ctor 场景有特殊规则，M0 探针核实并入夹具；
 - **元数据丢失登记**：剥离 `params` 后中间程序集不再带 `ParamCollectionAttribute`，反射可见性变化（同 E08 用 `[DefaultParameterValue]` 保元数据的思路）——v1 不补发该 Attribute（其构造签名/可访问性需探针确认），作为开放问题 Q3 与 Java 侧反射消费方联合评估；
 - `params` 非末位（CS0231）、表达式树内 params 集合（4.12 有 `ERR_ParamsCollectionExpressionTree`，同 C36 CS9175 不可达族）、`ERR_ParamsCollectionExtensionAddMethod`（Add 扩展方法非法）均属基线编译错误，防御性识别 + CS2J0601 计数，不做功能支持。
@@ -156,7 +156,7 @@ Java 可变实参（varargs）只接受方法末位、一维数组形态的 `T..
 
 ### 3.3 与 C36 的交汇：顺序与双重包裹规避
 
-- 链位事实：`expression-desugar`（C23/C24/C35/C36 族）锚点 RunAfter=`null-coalesce`（[PassStubCatalog.cs L246](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L246-L246)），拓扑上先于 `strip-default`（其锚点链 foreach-deconstruction 更靠后）；stub 翻转后族 pass 先跑。
+- 链位事实：`expression-desugar`（C23/C24/C35/C36 族）锚点 RunAfter=`null-coalesce`（[PassStubCatalog.cs L224](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L224-L224)），拓扑上先于 `strip-default`（其锚点链 foreach-deconstruction 更靠后）；stub 翻转后族 pass 先跑。
 - **交汇规则（顺序无关，双保险）**：
   1. C36 先跑：`M([1,2])` → `M(new int[]{1,2})`；C48 经 IOperation 见到该实参 ArgumentKind=Default（单实参正常式）→ 直传，**不包第二层**；`M(1,2,3)` 不含集合表达式，C36 不触达，C48 正常展开；
   2. 若 C48 先跑（防御性假设）：`M([1,2])` 中集合表达式仍是**用户显式单实参**（ArgumentKind=Default）→ C48 同样直传；即包裹判定只认 `ParamArray/ParamCollection`，语法上是否 `CollectionExpressionSyntax` 完全不参与——结构上杜绝双重包裹；
@@ -165,7 +165,7 @@ Java 可变实参（varargs）只接受方法末位、一维数组形态的 `T..
 
 ### 3.4 RunAfter 依赖核对
 
-- C48 不新增 pass/锚点；`strip-default` 现有位置（foreach-deconstruction 之后、ref-out-in 之前，[PassCatalog L110-L127](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L110-L127)）满足所有顺序需求：params 物化不依赖 tuple/foreach；ref-out-in 在其后，scoped 剥离不影响本规则（D6）；
+- C48 不新增 pass/锚点；`strip-default` 现有位置（foreach-deconstruction 之后、ref-out-in 之前，[PassCatalog L123-L145](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L123-L145)）满足所有顺序需求：params 物化不依赖 tuple/foreach；ref-out-in 在其后，scoped 剥离不影响本规则（D6）；
 - **C06（unsafe-ffm）是语义依赖不是链位依赖**：K2 v1 数组形态只依赖「`T[]`→Span 隐式转换」这一 BCL 既有事实，不要求 C06 落地；要求 C06 最终 Span 选型与本规则同形（堆数组包装），c06 设计已持此形态（C36 §11 同口径）；
 - C24/C36 助手为**代码复用依赖**（Add 发射、TargetTypeResolver），两者未合入时 C48 M1 在 `ParamsCollections/` 内自带最小实现（K1/K2/K5 + 空态只需数组与 `new List<T>(){}`，不依赖语句化/TempLifter——params 实参位是零临时表达式位），C24/C36 合入后只增提取共用（开放问题 Q4）。
 
@@ -234,8 +234,8 @@ Java 可变实参（varargs）只接受方法末位、一维数组形态的 `T..
 沿用 `StripDefaultPassAdapter`（[Adapters/StripDefaultPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/StripDefaultPassAdapter.cs)），无新适配器/verb/目录：
 
 1. **选项接线**：
-   - `PassChainFactory.CreateAdapter` 中 strip-default 分支（[L154-L160](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L154-L160)）的 `new DefaultParameterStripperOptions()` 增填 `ParamsCollections` 子节，值来自 `ConvertProjectOptions` 新增 `--enable-params-collections`（默认 false）与可选 `--params-collections-scope`/`--params-collections-expand-arrays`（灰度用，long option 风格对齐现有 `--no-*` 族，[Program.cs L4705-L4707](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4705-L4707)）；
-   - 独立 verb `strip-default` 的 [StripDefaultOptions L4333-L4370](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4333-L4370) 增同名选项，在 [Program.cs L3939-L3943](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3939-L3943) 构造 options 处透传；
+   - `PassChainFactory.CreateAdapter` 中 strip-default 分支（[L168-L174](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L168-L174)）的 `new DefaultParameterStripperOptions()` 增填 `ParamsCollections` 子节，值来自 `ConvertProjectOptions` 新增 `--enable-params-collections`（默认 false）与可选 `--params-collections-scope`/`--params-collections-expand-arrays`（灰度用，long option 风格对齐现有 `--no-*` 族，[Program.cs L4752-L4764](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4752-L4764)）；
+   - 独立 verb `strip-default` 的 [StripDefaultOptions L4394-L4430](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4394-L4430) 增同名选项，在 [Program.cs L3999-L4003](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3999-L4003) 构造 options 处透传；
    - 通用 `--disable-pass strip-default` 仍整体关闭本规则（规则不独立于 pass 运行）；规则关闭 = pass 行为与今日逐字节一致；
 2. **ParseOptions**：M0 探针结论若需要，适配器 `CreateParseOptions` 只增 `WithLanguageVersion(LanguageVersion.Latest)`（现状未指定版本，4.12 默认已支持 C#13，预期零改动）；
 3. **统计字段**（`ParamsStatistics`，并入现有 `DefaultParameterStripperStatistics` 合并流，沿用 [MergeStatistics L224-L237](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/StripDefaultPassAdapter.cs#L224-L237) 模式）：`ParamsSites`（声明，按 Kind 分桶 Array/Span/Builder/Initializable/Interface）、`ParamsCallSitesExpanded`（形态 A）、`ParamsCallSitesEmpty`（C）、`ParamsCallSitesPassthrough`（B）、`ParamsDeclarationsMaterialized`（策略 B）、`ArrayCallSitesExpanded`（D8 子规则）、`SpanAsArraySites`、`BuilderSitesBlocked`、`SkippedByReason: Dictionary<code,int>`、`ResidualCount`；
@@ -311,8 +311,8 @@ dotnet test -c Release tests/CSharpToJava.ConversionTests/CSharpToJava.Conversio
 
 ### 7.4 共处回归与 residual 闸门
 
-- **E08 回归**：[DefaultParameterStripperTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/DefaultParameterStripperTests.cs)、`DefaultParameterCatalogTests`、`DefaultParameterOverloadBuilderTests`、`StripDefaultProjectTests` 全绿且零改动；L232 `params object[]` 组合用例在 C48 开关两档输出一致（K1 不动）；
-- **现有 varargs 护栏**：[MethodParameterTests.cs L14-L28](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/MethodParameterTests.cs#L14-L28) 保持绿色（K1 声明保留 → Java varargs 直映；默认关时调用点逗号仍走 P2 老路径）；
+- **E08 回归**：[DefaultParameterStripperTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/DefaultParameterStripperTests.cs)、`DefaultParameterCatalogTests`、`DefaultParameterOverloadBuilderTests`、`StripDefaultProjectTests` 全绿且零改动；L231 `params object[]` 组合用例在 C48 开关两档输出一致（K1 不动）；
+- **现有 varargs 护栏**：[MethodParameterTests.cs L11-L23](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/MethodParameterTests.cs#L11-L23) 保持绿色（K1 声明保留 → Java varargs 直映；默认关时调用点逗号仍走 P2 老路径）；
 - **C36 共处**：expression-desugar 翻转后联测 `M([1,2])/M(..s)` 全链（C36 去糖 → C48 直传，无双包）；两规则开关四象限；
 - **ref-out-in 共处**：strip-default 产物即 ref-out-in 输入，params 物化不与 scoped/ref 剥离冲突（Span 形参无 ref 组合）；
 - **residual「零非数组 params」口径**：输出树每个非数组 `params` 修饰符必须属于「已物化（0605/0604）」或「显式跳过（0601/0602/0606/0607/0608/0610/0612）」之一；strict 下 0619 非零即退出非零；
@@ -396,7 +396,21 @@ git worktree add .worktrees/preproc-c48-params-collections -b feature/preproc-c4
 
 ---
 
-## 附：关键开放问题（供评审拍板）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持本文 §12 登记的自有 base `9b99c60b`（不改动），创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **经典 `params T[]` 逗号调用面貌**：v1 **保持逗号调用**（Java varargs 直透，K1 声明保留、Java 半区天然正确、噪声最小），不随本规则显式化；.NET 10 BCL"非数组 params 占比"画像与 Java 侧 P1/P2 清理只影响非数组形态的优先级，**不追溯改动数组形态**，此条 M3 不再翻案。
+2. **K2 Span 终态与版本边界**：v1 用 **`new T[]{}` 隐式转换**（已可编译）收口；显式 `AsSpan` 等终态**等 C06 Span 支撑终态统一收口**，本 pass 不自造 Span 半区。`ReadOnlySpan<char>` 的 char 面 **v1 排除**，待 C#14 隐式 Span 转换在 C52 批次的 4.12/4.14 探针确认重载决议无歧义后再决定收编，不凭推测放行。
+3. **策略 B 元数据与跨声明一致性**：为剥离后的参数**补发 `ParamCollectionAttribute`**（保反射可见性——下游 Java 反射/序列化面依赖参数符号，与"便利下游转换"口径一致），构造签名以 M0 探针为准；override/interface/partial 整族物化时**部分符号不可解析（0612）一律 fail-fast 整族报错**，不跳过、不半剥离（半剥离比不剥离更危险），误报率用大仓夹具验证。
+4. **C24/C36 助手复用时机**：**M1 自带最小发射、不阻塞开工**（零临时、无语句化需求，复制面小，K1/K2/K5 不依赖语句化）；**M2 与 C24 Add 助手绑定合并**（届时消复制）；**K3 builder 节奏完全跟 C36 CE-10 对齐**，不提前另建 builder 发射面。
+5. **空实参单例同一性**：以 **"与编译器 lowering 同形、`ReferenceEquals` 可观察行为一致"为唯一裁决标准**——M0 探针确认 4.12 对 `M()` 合成 ParamArray/ParamCollection 空实参是否复用缓存（`Array.Empty<T>()` vs `new T[]{}`、空接口集合是否单例），探针见缓存则发缓存形、见新建则发新建形；不以"哪个更省分配"自行选形。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **D8 经典 `params T[]` 逗号调用点的默认面貌**：v1 保持逗号（Java varargs 直透）还是随本规则默认全部显式化？倾向前者（K1 声明保留、Java 半区天然正确、噪声最小），但需 .NET 10 BCL 画像评估「非数组 params 占比」与 Java 侧清理 P1/P2 路径后的统一口径；M3 凭命中率与 §8-7 核查结论拍板。
 2. **K2 Span 终态形态与版本边界**：v1 `new T[]{}` 隐式转换已可编译，是否需要 v2 的显式 `AsSpan`（或等 C06 的 Span 支撑终态统一收口）？C#14 隐式 Span 转换（C52）对 `ReadOnlySpan<char>` 重载决议的影响在 4.12 探针下确认后，决定 char 面是 v1 排除还是直接收编。

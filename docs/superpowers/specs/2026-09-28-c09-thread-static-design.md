@@ -1,21 +1,21 @@
 # C09 `[ThreadStatic]` 前置化预处理器设计
 
-**日期**: 2026-09-28
+**日期**: 2026-09-28（2026-09-29 核订：全部代码证据按 dev-3.x@2d25700e 重定位；按 catalog C09 条目六次补全的官方语义把内联初始化器默认策略从 EveryThread 翻转为 FirstThreadFaithful；C02/C01 落地状态与 §11 并行协调同步）
 **范围**: 新增注册表 pass `thread-static`（Core `ThreadStaticRewrite\` + CLI `Preprocessing/Adapters/ThreadStaticPassAdapter.cs`），把 `[ThreadStatic]` 隐式线程本地状态改写为显式 `System.Threading.ThreadLocal<T>` 包装字段 + `.Value` 访问的可编译 C#；实施 PR 不改 C#→Java 转换器
-**状态**: 设计已确认，待实施
-**Catalog**: C09（P2，分类 1.5 并发）；§3.3 中同时被挂在「泛型擦除补偿族」（[preprocessor-catalog.md L908](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L908)）与「捕获/隐藏状态前移族」（[L910](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L910)，C32+C09，并入闭包族 C45 统一捕获分析）
-**注册表现状**: stub 已登记——[PassStubCatalog.cs L171-L180](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L171-L180)，id `thread-static`，Stage=`Declarative`，RunAfter=`generic`，目录 `.cs2j-thread-static-src`，默认关
+**状态**: 已核订（2026-09-29 对照 dev-3.x@2d25700e 逐条核验全部代码证据并修正；关键修正：① stub 锚点 L171-L180→L160-L169、FieldTransformer/PassCatalog/PassChainFactory/TypeMappings 等行号全量重定位；② 内联初始化器默认物化改为 FirstThreadFaithful 单线程保真形，EveryThread 降为显式选项（对齐 catalog C09 六次补全官方语义）；③ C02 generic-deepen 已落地（默认关、分析器已按 attribute 名排除 [ThreadStatic] 字段），§2/§11 依赖表述由「两 pass 均未落地」改写为已落地协调；④ 「tests 零 ThreadStatic 命中」断言更新（C02 测试已有 skip 对照）；⑤ 链序断言更新为 thread-static 插在 generic 与 generic-deepen 之间）
+**Catalog**: C09（P2，分类 1.5 并发）；§3.3 中同时被挂在「泛型擦除补偿族」（[preprocessor-catalog.md L1086](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1086)）与「捕获/隐藏状态前移族」（[L1088](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1088)，C32+C09，并入闭包族 C45 统一捕获分析）
+**注册表现状**: stub 已登记——[PassStubCatalog.cs L160-L169](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L160-L169)，id `thread-static`，Stage=`Declarative`，RunAfter=`generic`，目录 `.cs2j-thread-static-src`，默认关
 
 ## 1. 背景与目标
 
 ### 1.1 现状：转换器内联处理，且只改了声明，读写点改写不存在
 
-当前 `[ThreadStatic]` 的处理全部内联在转换器 Java emit 层，全仓仅两处实现文件命中（[全仓 grep 结果](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs)）：
+当前 `[ThreadStatic]` 的处理全部内联在转换器 Java emit 层。全仓 src 实现文件命中三处（另 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 登记一条 stub）：本节 1、2 两处为 C09 自身的转换器代偿；第 3 处是 2026-09-29 核订时新增的——已落地的 C02 generic-deepen 在 GD-FIELD 分析器里按 attribute 名排除 `[ThreadStatic]` 字段（[GenericDeepenAnalyzer.cs L268-L273](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericDeepenAnalyzer.cs#L268-L273)，登记 Info「owned by the thread-static pass (C09)」，所有权让渡已兑现于代码）：
 
-1. **字段声明被改写为 Java `ThreadLocal<T>`**：[FieldTransformer.cs L50-L57](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L50-L57) 检测 attribute；[L122-L146](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L122-L146) 注册字段、改声明类型为 `ThreadLocal<boxedT>`、无初始化器时发 `new ThreadLocal<>()`；[L343-L351](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L343-L351) 有初始化器时包成 `ThreadLocal.withInitial(() -> <init>)`，并 `AddImport("java.lang.ThreadLocal")`。
+1. **字段声明被改写为 Java `ThreadLocal<T>`**：[FieldTransformer.cs L51-L57](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L51-L57) 检测 attribute；[L123-L147](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L123-L147) 注册字段、改声明类型为 `ThreadLocal<boxedT>`、无初始化器时发 `new ThreadLocal<>()`；[L343-L351](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L343-L351) 有初始化器时包成 `ThreadLocal.withInitial(() -> <init>)`，并 `AddImport("java.lang.ThreadLocal")`。
 2. **上下文注册表是只写死状态**：[ConversionContext.cs L397-L439](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L397-L439) 提供 `RegisterThreadStaticField` / `IsThreadStaticField(...)` / `IsThreadStaticFieldDeclaration(...)`。全仓 grep 证实：`RegisterThreadStaticField` 唯一调用方是 FieldTransformer；两个 `IsThreadStaticField` 查询方法**零调用方**。
 
-[FieldTransformer.cs L53-L55 注释](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L53-L55) 声称读写点在 `IdentifierExpressionTransformer` 与 `AssignmentTransformer` 改 `.get()/.set()`、且 `ClassTransformer` 预注册字段——两处声称均不成立：
+[FieldTransformer.cs L53-L56 注释](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L53-L56) 声称读写点在 `IdentifierExpressionTransformer` 与 `AssignmentTransformer` 改 `.get()/.set()`、且 `ClassTransformer` 预注册字段——两处声称均不成立：
 
 - [IdentifierExpressionTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs) 与 [AssignmentTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs) 全文无 `ThreadStatic`/`ThreadLocal` 命中；
 - [ClassTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs) 只有 `PreRegisterNestedEnums`（L95/L251），无 ThreadStatic 预扫描。
@@ -29,12 +29,12 @@
 | `[ThreadStatic] static int x;` 且无任何引用 | 产出可编译 Java（死声明），仅此一种幸存 |
 | 任意读 `x` | Java 侧按 `int` 消费，实际类型 `ThreadLocal<Integer>` → 类型不匹配，Java 编译失败 |
 | 任意写 `x = v` / 复合赋值 / `++` | 向 `ThreadLocal<T>` 赋 `T` → Java 编译失败；无诊断、无 fail-fast，错误只在 Java 半区暴露 |
-| 泛型类中 `[ThreadStatic] static T x;` | 先撞 [FieldTransformer.cs L114-L118](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L114-L118) 的 `CS2J normalization required: static field referencing enclosing type parameters` fail-fast |
+| 泛型类中 `[ThreadStatic] static T x;` | 先撞 [FieldTransformer.cs L115-L119](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L115-L119) 的 `CS2J normalization required: static field referencing enclosing type parameters` fail-fast |
 | 带内联初始化器 | `withInitial(() -> e)` 给**每个线程**初值，与 C#「仅触发静态构造的首线程初始化、其余线程取 default」语义不一致（代码注释自陈「closest sane Java semantics」），属静默语义偏移 |
 | 实例字段上的 `[ThreadStatic]` | 检测谓词 [L434-L435](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L434-L435) 要求 static，非静态字段上的 attribute 被静默丢弃（CLR 本就忽略该形态） |
 | 用户源码直接使用 `System.Threading.ThreadLocal<T>` | [TypeMappings.json](file:///d:/code/cs2j/config/TypeMappings.json) 无 `System.Threading.ThreadLocal` 类型/成员映射（全文件无命中）；`.Value` 会按普通属性派生 `getValue/setValue`，而 Java `ThreadLocal` 是 `get/set`；`new ThreadLocal<T>(() => e)` 对应 Java 静态工厂 `withInitial(Supplier)` 而非实例构造——Java 半区同样不成立 |
 
-测试侧：`tests/` 全目录 grep `ThreadStatic|ThreadLocal` **零 C# 命中**（该构造当前无任何回归锁定）。ROADMAP #6 明确登记「[ThreadStatic]」为待前置化项（[ROADMAP.md L7](file:///d:/code/cs2j/ROADMAP.md#L7)）。
+测试侧：`tests/` 全目录 grep `ThreadStatic|ThreadLocal` 仅有 [GenericDeepenTests.cs L445 `ThreadStaticField_SkippedWithInfo`](file:///d:/code/cs2j/tests/CSharpToJava.Tests/GenericDeepenTests.cs#L445) 一处命中（已落地的 C02 的「[ThreadStatic] 字段跳过 + Info」对照用例），C09 自身的声明/读写点改写仍**零测试覆盖**。ROADMAP #6 明确登记「[ThreadStatic]」为待前置化项（[ROADMAP.md L7](file:///d:/code/cs2j/ROADMAP.md#L7)）。
 
 ### 1.3 目标与前置化后转换器删除什么
 
@@ -54,8 +54,8 @@ var v = _counter.Value;
 
 前置化 PR 落地并默认开启后，转换器侧下列代码成为后续 PR 的删除/改写对象（本特性 PR 不动转换器，删除以默认开启为前置门，同 C02/C08 范式）：
 
-1. [FieldTransformer.cs L50-L57](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L50-L57) 检测分支；
-2. [L122-L146](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L122-L146) 注册 + `ThreadLocal<T>` 声明/初始化器改写；
+1. [FieldTransformer.cs L51-L57](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L51-L57) 检测分支；
+2. [L123-L147](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L123-L147) 注册 + `ThreadLocal<T>` 声明/初始化器改写；
 3. [L343-L351](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L343-L351) `withInitial` 包装与 `AddImport("java.lang.ThreadLocal")`；
 4. [ConversionContext.cs L397-L439](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L397-L439) 整套只写注册表与过期注释；
 5. 配套的**新增**工作（Java 半区消费 BCL 形态，见 §5.4）：`System.Threading.ThreadLocal<T>` 类型映射、`Value` get/set → `get()/set()`、`.ctor(Func<T>)` → `withInitial(Supplier)`、`Dispose/remove` 的映射决策。
@@ -71,12 +71,12 @@ var v = _counter.Value;
 | 静态字段 | v1 主形态，全量支持（非泛型容器） | §4.3 TS-1~TS-5 |
 | 实例字段 | CLR 忽略实例字段上的 `[ThreadStatic]`；v1 **不改写**，出 CS2J1201 Warning 并保留原样 | 不静默丢 attribute；未来可用选项显式化（见 §4.3 TS-9） |
 | 无初始化器 | `new ThreadLocal<T>()`——每线程 default/null，与 C# 严格等价 | |
-| 内联初始化器 | 默认 `new ThreadLocal<T>(() => INIT)`（**EveryThread 策略**），初始化表达式原样搬入工厂 lambda，出 Info TS002 说明语义归一 | C# 原语义是「仅首线程初始化」的陷阱；EveryThread 是当前 Java emit 已选择的意图近似，详见 §2.1；选项 `InitializerPolicy.FirstThreadFaithful` 提供严格形（M2） |
+| 内联初始化器 | 默认 **FirstThreadFaithful 单线程保真**：holder 无参构造 `new ThreadLocal<T>()`，初始化表达式按声明序注入静态构造（无显式 cctor 则合成），出 Info TS002 留痕——与官方语义「仅执行静态初始化器的线程见到初始值、其余线程 default(T)」严格一致（catalog C09 条目六次补全 2026-09-29 官方文档核对明确要求此物化形，本设计据核订翻转原 EveryThread 默认）。选项 `InitializerPolicy.EveryThread`（`new ThreadLocal<T>(() => INIT)`，每线程独立初值）作为显式 opt-in 保留，仅适合「源码意图明确是每线程初始化」的字段，详见 §2.1 | C# 原语义是「仅首线程初始化」的陷阱；当前 Java emit 的 `withInitial` 是意图近似、偏离官方语义（§1.2），前置化不再继承该偏移 |
 | 静态构造函数中的赋值 | 保留为 `f.Value = e`，不搬入工厂 | cctor 只在一个线程跑一次，与 C# 严格一致；与内联初始化器策略的差异显式记录（§4.3 TS-10） |
 | `readonly` 组合 | 输出 holder 加 `readonly`；原 cctor 内赋值改 `.Value=` 合法（holder 引用只读、Value 可变） | |
 | 多变量声明 | `[ThreadStatic] static int a, b;` 拆为两个独立字段声明 | holder 各自初始化；trivia/attribute 归属按变量拆分 |
 | 泛型容器静态字段 | v1 对「容器是泛型类型」的命中字段一律**跳过 + CS2J1204 Warning**（无论字段类型是否引用类类型参数） | C# 按闭型各持一份、Java 擦除后共享；且引用类类型参数的静态字段本就 fail-fast。组合形 holder 与 C02 共同设计，见 §11 |
-| 与 C02 holder 的关系 | 建议链序 **C09 在 `generic-deepen` 之前**：C09 先产出 `ThreadLocal<T>` 字段，C02 的 GD-FIELD holder 规则把「类型引用类类型参数的静态字段」统一 holder 化（holder 存 ThreadLocal 对象，访问器 `.Value`），同时复刻每闭型/每线程两份隔离 | 与 C02 文档 §11「建议 C09 RunAfter 增 generic-deepen」的初判相反，理由见 §11；两 pass 均未落地，顺序可在本设计定死 |
+| 与 C02 holder 的关系 | **C02 已落地**（Implemented、默认关，[PassCatalog.cs L167-L178](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L167-L178)，RunAfter=`generic`），其 GD-FIELD-1 规则已声明排除 `[ThreadStatic]` 字段交 C09（C02 设计 §4.3/§11），且已兑现于代码（[GenericDeepenAnalyzer.cs L268-L273](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericDeepenAnalyzer.cs#L268-L273) 按 attribute 名过滤 + Info）。链序：C09 插在 generic 与 generic-deepen 之间（C09 先行）；C09 改写后 attribute 消失，C02 的排除过滤对这些字段自然失效（`ThreadLocal<T>` 不引用类类型参数时 GD-FIELD 本就不命中）；「泛型容器 + ThreadLocal holder」组合形留 C02 后续增补 | C02 文档 §11 原建议「C09 落地时 RunAfter 增 generic-deepen」（C09 后行），本设计 §11 维持反序主张；C02 已按「排除交 C09」落地，无论孰先孰后两 pass 均无双重改写，链序由本设计 §3.1 的插入位置定死 |
 | struct 值类型 T | 读/写/复合赋值支持；`f.Value.Mut()`/`f.Value.X =` 等变异点按语句级临时变量提升 + 回写；不可提升上下文 CS2J1203 | catalog C09 注明「ThreadLocal<结构体> 变异语义需原型确认」；C09 链位早于 E13/C07，不能依赖后置 struct 通道 |
 | `ref/out/&` 传递 | 属性不是变量，无法 `ref f.Value`；v1 命中即 CS2J1202 Error、整条字段计划跳过 | C01（ref-out-in）链位更早，其产物形态需实测；直接 ref-local/指针不绕过 |
 | 表达式树 / dynamic | 表达式树内站点改变树节点形态 → 字段计划跳过 + CS2J1205（Warning，strict Error）；dynamic 绑定站点不可判定 → CS2J1202 | 与 JK-8/C02 共用「表达式树禁区」判定（未来共享 `ExpressionTreeFacts`） |
@@ -85,23 +85,24 @@ var v = _counter.Value;
 
 ### 2.1 `[ThreadStatic]` 配内联初始化器的 C# 语义陷阱
 
-`[ThreadStatic] static int x = 42;` 的真实 CLR 语义：静态构造在**首个触碰该类型的线程**上执行，初始化器也只在该线程把 `x` 置为 42；**其余线程的 `x` 是 0**。这是被广泛记录的坑，也是当前 Java emit 用 `withInitial` 偏离 C# 的点。两种 C# 目标形：
+`[ThreadStatic] static int x = 42;` 的真实 CLR 语义（catalog C09 条目 2026-09-29 六次补全经官方文档核对确认）：静态构造在**首个触碰该类型的线程**上执行，初始化器也只在该线程把 `x` 置为 42；**其余线程的 `x` 是 0**。这是被广泛记录的坑，也是当前 Java emit 用 `withInitial` 偏离 C# 的点。两种 C# 目标形：
 
-- **EveryThread（默认）**：`new ThreadLocal<int>(() => 42)`，每个首访线程都得 42。.NET 半区测试若刻意断言「非首线程见 default」会变红——这正是把隐式陷阱显式化为「通常意图」的语义归一，逐字段 Info 可审计。
-- **FirstThreadFaithful（M2，选项）**：
+- **FirstThreadFaithful（默认，官方保真）**：
 
   ```csharp
   private static readonly ThreadLocal<int> x = new ThreadLocal<int>();
-  static C() { x.Value = 42; /* 按初始化器声明序插入 */ }
+  static C() { x.Value = 42; /* 按初始化器声明序注入 */ }
   ```
 
-  无显式 cctor 则合成静态构造；初始化器间的依赖顺序、异常缓存语义按 Roslyn 静态字段初始化顺序保持。实现成本高，v1 不做。
+  无显式 cctor 则合成静态构造；已有显式 cctor 则把注入赋值放在 cctor 体最前（C# 语义中字段初始化器先于构造体执行）；多个带初始化器字段按声明序排列，初始化器间的依赖顺序、异常缓存语义与 Roslyn 静态字段初始化一致。跨线程行为与 C# 严格逐点一致：首触线程见 42、其余线程见 0。合成 cctor 由 Roslyn 语法构造即可完成，成本可控，v1 交付。
+
+- **EveryThread（M2，显式选项）**：`new ThreadLocal<int>(() => 42)`，每个首访线程都得 42。它**偏离**官方 `[ThreadStatic]` 语义（等价于「每线程各自执行一次初始化器」），只应在源码意图明确是每线程初始化时由 overrides/选项逐字段启用；启用时出 Info 留痕。保留该选项的动机：当前 Java emit 已选择 `withInitial` 意图近似，个别项目可能已按「每线程初值」写了 Java 侧断言，选项提供平滑迁移路径。
 
 ## 3. 注册表与链位契约
 
 ### 3.1 描述符
 
-翻转时从 [PassStubCatalog.cs L171-L180](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L171-L180) 删除 stub，在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) 的 `Implemented` 表中**紧随 `generic` 条目之后**插入（注册表拓扑顺序由顺序断言测试锁死）：
+翻转时从 [PassStubCatalog.cs L160-L169](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L160-L169) 删除 stub，在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) 的 `Implemented` 表中**紧随 `generic` 条目（L156-L166）之后、`generic-deepen` 条目（L167-L178）之前**插入（两个 pass 的 RunAfter 都只锚 `generic`，先后由表序/topo 稳定序决定；注册表拓扑顺序由顺序断言测试 [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) 的 `LockedChain` 锁死，翻转时须在 `PassIds.Generic` 与 `PassIds.GenericDeepen` 之间插入 `thread-static`）：
 
 ```text
 Id                          = "thread-static"
@@ -110,7 +111,7 @@ IntermediateDirectoryName   = ".cs2j-thread-static-src"
 Stage                       = PassStage.Declarative
 Status                      = PassStatus.Implemented
 DefaultEnabled              = false（初版 opt-in；过 §8 门槛后翻 true——本 pass 具备较早默认开的条件，见 §3.4）
-RunAfterIds                 = { "generic" }（generic-deepen 落地后的顺序处理见 §11）
+RunAfterIds                 = { "generic" }（generic-deepen 已落地并同锚 generic；两 pass 先后由上述插入位置锁定为 C09 先行，见 §11）
 SupportLibrary              = PassSupportLibrary.None
 NeedsSemanticModel          = true
 VerifyBuildByDefault        = true
@@ -119,7 +120,7 @@ CatalogItems                = "C09"
 Description                 = "Rewrite [ThreadStatic] fields into explicit ThreadLocal<T> holders with .Value access."
 ```
 
-链位语义：`… → unsigned → generic(E10) → thread-static(C09) → record-readonly / array-method / make-readonly → … → java-keywords → 主转换`。不重排任何既有 pass。
+链位语义：`… → unsigned → generic(E10) → thread-static(C09) → generic-deepen(C02) → record-readonly / array-method / make-readonly → … → java-keywords → 主转换`。不重排任何既有 pass。
 
 ### 3.2 Stub→Implemented 翻转清单
 

@@ -3,8 +3,10 @@
 **日期**: 2026-09-29
 **范围**: 新建 `src/CSharpToJava.Core/ExpressionDesugar/` 表达式族共享基建（表达式→语句临时提升、单次求值、共享 Options/Statistics/Diagnostic/规则接口）与 `expression-desugar` pass 脚手架，落地首个规则 C23：在 C# 层把插值字符串 `$"..."`（含对齐 `,n`、格式 `:fmt`、嵌套插值、verbatim/raw 插值的插值部分）显式展开为 `string.Concat` / `string.Format` / 常量折叠；**必须**经 SemanticModel 判定插值绑定的 handler，自定义 `InterpolatedStringHandler` 默认显式报错。不改任何 C#→Java 转换代码（Java 侧大 transformer 的下掉为默认开启后的独立 PR）
 **状态**: 设计已确认，待实施
-**注册表**: stub `expression-desugar`（[PassStubCatalog.cs:239-248](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L239-L248)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，RunAfter=`null-coalesce`，中间目录 `.cs2j-expression-desugar-src`）。本特性是该 pass 的**锚点**：翻转 stub 并把 catalogItems 收窄为 `"C23"`；C24 初始化器 / C35 空条件 / C36 集合表达式后续在同一 pass 内扩展（预留规则目录 `Interpolations/`、`Initializers/`、`NullConditional/`、`CollectionExpr/` 与码段）
+**注册表**: stub `expression-desugar`（[PassStubCatalog.cs:217-226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，RunAfter=`null-coalesce`，中间目录 `.cs2j-expression-desugar-src`；2026-09-29 复核 `PassStubCatalog.Stubs` 现值 **21** 个）。本特性是该 pass 的**族内规则**（无独立 pass id）：翻转 stub 并把 catalogItems 收窄为 `"C23"`；C24 初始化器 / C35 空条件 / C36 集合表达式后续在同一 pass 内扩展（预留规则目录 `Interpolations/`、`Initializers/`、`NullConditional/`、`CollectionExpr/` 与码段）
 **base**: `953293b9`（`docs: update doc base commit`，已校验存在）
+
+> **校订（2026-09-29）**：本文件按当前磁盘做证据核对，仅改本文件，未触任何代码/测试，未运行构建测试。改动枚举：① 注册表锚点更正——`expression-desugar` stub 条目实为 [PassStubCatalog.cs:217-226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)（原引 L239-248 已漂移到 `platform-isolation` 条目），Stubs 现 21 个，翻转后 20；id 常量保留在 `PassStubCatalog.Ids`（iterator-lowering 先例：常量 [PassStubCatalog.cs:32](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L32) 仍在、Stubs 无条目）；② 全部 file:/// 链接按实测重锚（PassCatalog L209-219/L58-68、PassChainFactory L227-234/L81、PassChainOrderTests L18-40/L42-57/L172-185、Program.cs L1767-1776、NullCoalescePassAdapter L73-91、StringExpressionTransformer S4/S6 区段）；③ §2.1 新增**硬门 G0**（handler 绑定判定先于一切展开），IE-1 标注为门，四次补全的 handler 三差异（追加语义/求值次数/条件构造）入主规则；④ 补入五次补全子规则（C# 10 const 内插的编译期折叠 + Java 侧 `static final` 常量性）与 C47 ③（string `+`→`string.Concat` 物化）同源交叉引用；⑤ raw 插值 `$"""..."""` 与 C43 的词法边界改写清晰（R9 所引 catalog C43 行号 784-795 更正为 [preprocessor-catalog.md:867-879](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L867-L879)）；⑥ 测试面按磁盘真改正：`PassStubCatalogTests.cs` **无硬编码 stub 总数断言**，翻转先例是同文件 `PatternDesugar_IsImplemented_AndNotAStub`（L19-28）；Glob 无 `StringConcat*` 同名测试，既有拼接回归为 `DoubleStringConcatenationTests.cs`。
 
 ---
 
@@ -19,9 +21,9 @@
 | S1 | 全 `src`/`tests` grep `InterpolatedStringHandler\|DefaultInterpolatedStringHandler` | **零命中**（仅 catalog 文档提及）；[StringExpressionTransformer.cs:31-134](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L31-L134) 纯语法分派，不查 SemanticModel 绑定 | 自定义 handler（日志/JSON 高频）被无脑降为 Java 拼接/`String.format`，**静默改变可观察行为**（catalog §4 风险 18 点名，见 §1.2） |
 | S2 | [StringExpressionTransformer.cs:52-54](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L52-L54)/[:145-147](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L145-L147) | 只读 `FormatClause`，**全文件无 `AlignmentClause` 引用** | `$"{x,5}"` / `$"{x,-5:X}"` 的对齐宽度被**静默丢弃**，输出不做空格填充；全仓无任何对齐测试（grep 无命中） |
 | S3 | [StringExpressionTransformer.cs:367-368](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L367-L368) | 不认识的格式说明符发 `%s /* TODO: format specifier … */` | catalog §4 风险 12 实名点名的静默错误输出站点：占位注释直接流入 Java 产物 |
-| S4 | [StringExpressionTransformer.cs:224-258](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L224-L258) + [:342-370](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L342-L370) | 直接产 Java `String.format`，并把 C# composite 风格手工转成 printf `%` 风格（D/F/E/X/N/G/P 有损表，无对齐、无 M/R 等） | C# 侧 composite `{0:X}` 与 Java printf `%x` 两套小语言被混写在 Java 侧；[StringFormatDoubleTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/StringFormatDoubleTests.cs) 仅剩一个空 helper（无任何 `[Fact]`），回归护栏名存实亡 |
+| S4 | [StringExpressionTransformer.cs:224-259](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L224-L259) + [:342-370](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L342-L370) | 直接产 Java `String.format`，并把 C# composite 风格手工转成 printf `%` 风格（D/F/E/X/N/G/P 有损表，无对齐、无 M/R 等） | C# 侧 composite `{0:X}` 与 Java printf `%x` 两套小语言被混写在 Java 侧；[StringFormatDoubleTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/StringFormatDoubleTests.cs) 仅剩一个空 helper（无任何 `[Fact]`），回归护栏名存实亡 |
 | S5 | 文化语义 | Java `String.format` 走 `Locale.getDefault()`；bool/Double 差异靠 compat `csFormat` 事后打补丁（[StringHelper.java:1099-1146](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java#L1099-L1146)）；`formatCs` 不支持对齐（[正则 :1263](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java#L1263) 不含 `,alignment`）、`%s` null 印 `"null"` 而非 C# 的 `""` | 文化/null/对齐三处运行时差异分散在兼容层与转换器两侧，无法在 .NET 侧验证（最高风险，§2.3、§10 R1） |
-| S6 | [StringExpressionTransformer.cs:213-218](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L213-L218)/[:268-293](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L268-L293) | 4 段阈值切 `StringBuilder`、无符号洞手工掩码（`& 0xFFFFFFFFL`/`Long.toUnsignedString`）、二元/三元表达式括号特判全部耦在 Java 表达式生成里 | 无法在 C# 中间树做 build/test 等价性验证，回归只能靠 Java 侧文本断言 |
+| S6 | 括号特判 [StringExpressionTransformer.cs:187-193](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L187-L193)、4 段阈值切 `StringBuilder` [:213-218](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L213-L218)、无符号洞手工掩码（`& 0xFFFFFFFFL`/`Long.toUnsignedString`）[:268-287](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L268-L287) | 全部耦在 Java 表达式生成里 | 无法在 C# 中间树做 build/test 等价性验证，回归只能靠 Java 侧文本断言 |
 | S7 | null 洞 | concat 路径最终经 [StringHelper.concat](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java#L7-L17)（[null 跳过 :1314-1317](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java#L1314-L1317)）侥幸正确；format 路径 `%s` 对 null 印 `"null"` | `$"{(string)null}:{1:F2}"` 这类混合形态在 Java 半区与 C# 不一致 |
 | S8 | raw/verbatim 文本规则 | raw 判定 [:49-50](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L49-L50)、`$@`/`@$` 折行/双引号规则 [:289-339](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L289-L339)；非插值 raw 字面量在 [LiteralExpressionTransformer.cs:233-255](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs#L233-L255) | 词法关注点（C43）与表达式关注点（C23）在 Java 侧耦合；本特性必须只消费已 parse 的 `InterpolatedStringExpression` 并划清边界（§11） |
 
@@ -35,7 +37,7 @@ C# 10 起插值字符串的降级目标由**使用点绑定**决定，不是固�
   2. **条件构造**：`out bool` 守卫与 `InterpolatedStringHandlerArgument` 提前求值，改写了副作用顺序；
   3. **结果可能根本不是字符串**：handler 常以 `ref struct` 形式直接被 API 消费（写 JSON/写日志/写 buffer），没有等价的 `string` 值可替换。
 
-catalog 四次补全实测：训练集 sdk 插值约 **650 处**，其中相当比例绑定自定义 handler（json/日志场景）。把它们统一降成 `string.Concat/Format` 会**强行求值参数并伪造一个 string 结果**——能编译、单测难抓，属风险 18 专属的正确性项。因此 handler 判定是本 pass 的前置门，不是优化项。
+catalog 四次补全实测：训练集 sdk 插值约 **650 处**，其中相当比例绑定自定义 handler（json/日志场景）。把它们统一降成 `string.Concat/Format` 会**强行求值参数并伪造一个 string 结果**——能编译、单测难抓，属风险 18 专属的正确性项。因此 handler 判定是本 pass 的前置门（主规则中的硬门地位见 §2.1 G0，规则执行点见 IE-1），不是优化项或备注。
 
 ### 1.3 目标形态
 
@@ -67,7 +69,9 @@ catalog 四次补全实测：训练集 sdk 插值约 **650 处**，其中相当�
 
 ### 2.1 展开五路总览
 
-HandlerBindingAnalyzer（§4.3）对每个 `InterpolatedStringExpressionSyntax` 给出绑定类别，规则按下表五路处置：
+HandlerBindingAnalyzer（§4.3）对每个 `InterpolatedStringExpressionSyntax` 给出绑定类别，规则按下表五路处置。
+
+> **硬门 G0（handler 绑定门，catalog 四次补全 / §4 风险 18 的强制语义项，先于一切展开）**：绑定类别判定是**主规则的第一道闸门，不是备注或优化项**。对任一插值节点，未取得 `Constant`/`DefaultString` 分类之前，**禁止**任何规则发射 `string.Concat`/`string.Format`/字面量。默认 `DefaultInterpolatedStringHandler` 与自定义 `[InterpolatedStringHandler]` 在三个可观察维度不同——① **追加语义**（handler 自定义 `AppendLiteral`/`AppendFormatted`，结果可非 string）；② **参数求值次数**（默认每洞文本序恰好一次；自定义可零次，如日志级别关闭时副作用不发生，也可多次）；③ **条件构造**（构造参数经 `[InterpolatedStringHandlerArgument]` **先于**插值求值，构造函数 `out bool append` 守卫为 false 时整段零求值）。纯语法展开（看见 `$"..."` 就降 Concat/Format）必然在自定义 handler 站点强行求值参数并伪造 string 结果——能编译、单测难抓。门的处置：`CustomHandler` 默认 strict Error（CS2J0510），仅非 strict `HandlerPolicy=Keep` 降级 Warning + 原样保留（IE-KEEP，显式有计数）；`Unknown` 一律 Error（CS2J0512），不猜测。
 
 | 路径 | 触发条件 | 产物 | 诊断 |
 |---|---|---|---|
@@ -83,7 +87,7 @@ HandlerBindingAnalyzer（§4.3）对每个 `InterpolatedStringExpressionSyntax` 
 |---|---|---|
 | 总体架构 | 语义驱动**逐文件** pass：dirty 检查 → 族级 Analyzer 建文件上下文 → 规则管线（C23 仅插值一条规则）自底向上改写并收集 `PendingTemp` → 族级 `TempLifter` 统一插语句 → 格式化 → residual 闸门；复刻 [NullCoalesceSyntaxRewriter](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L13-L42) 两遍范式与 [IteratorLoweringPreprocessor](file:///d:/code/cs2j/src/CSharpToJava.Core/IteratorLowering/IteratorLoweringPreprocessor.cs#L12-L95) 的入口外形 | 无改名/签名变化、无跨文件生成、无支撑库；标准 spine 即可，不覆写 `ExecuteAsync` |
 | 判定真相源 | 一律 SemanticModel/IOperation：`GetConstantValue`、`GetTypeInfo().ConvertedType`、`GetOperation(node)` 及其父链上的 `IInterpolatedStringHandlerCreationOperation`、handler 类型上的 `[InterpolatedStringHandler]`、构造参数上的 `[InterpolatedStringHandlerArgument]` | 禁止按 `$` 文本/参数名猜 handler；S1 根因即不看绑定。Roslyn 4.12（[Core.csproj:12](file:///d:/code/cs2j/src/CSharpToJava.Core/CSharpToJava.Core.csproj#L12)）IOperation 外形以 M0 最小探针核实为准（§9），不凭记忆写规则 |
-| **Concat vs Format 选择** | 无格式且无对齐且洞类型全在白名单 → `Concat`；否则 → `Format`。「否则」包括：任一对齐子句、任一格式子句、任一静态类型实现 `IFormattable` 且不在等价白名单 | 两种目标都是 BCL 原语，Java 侧已有路由：`Concat→StringHelper.concat`（[StringConcatRewriter.cs:31-45](file:///d:/code/cs2j/src/CSharpToJava.Core/Java/Rewriters/StringConcatRewriter.cs#L31-L45) + [TypeMappings.json:6319-6323](file:///d:/code/cs2j/config/TypeMappings.json#L6319-L6323)），`Format→format`（[TypeMappings.json:6324-6328](file:///d:/code/cs2j/config/TypeMappings.json#L6324-L6328)，Java 半区缺口见 §10 R1） |
+| **Concat vs Format 选择** | 无格式且无对齐且洞类型全在白名单 → `Concat`；否则 → `Format`。「否则」包括：任一对齐子句、任一格式子句、任一静态类型实现 `IFormattable` 且不在等价白名单 | 两种目标都是 BCL 原语，Java 侧已有路由：`Concat→StringHelper.concat`（[StringConcatRewriter.cs:31-45](file:///d:/code/cs2j/src/CSharpToJava.Core/Java/Rewriters/StringConcatRewriter.cs#L31-L45) + [TypeMappings.json:6319-6323](file:///d:/code/cs2j/config/TypeMappings.json#L6319-L6323)），`Format→format`（[TypeMappings.json:6324-6328](file:///d:/code/cs2j/config/TypeMappings.json#L6324-L6328)，Java 半区缺口见 §10 R1）。**与 catalog C47 ③ 同源**：C47 的 string `+`（含多操作数链/`+=`）调用点物化同样发 `string.Concat`——null→空串、实参按序求值一次，与 C23 插值 Concat 产物同形、Java 侧同走 `StringHelper.concat`；两通道落地时不得分叉出第二套拼接规则（C47 仓库现状仍为「待核实」，本条仅约定产物同源） |
 | **文化语义** | 展开**只用当前文化**：`string.Format(fmt, args)` 等价 `Format(CultureInfo.CurrentCulture, …)`，与默认 handler 的 `AppendFormatted` 文化一致；**绝不**发 `CultureInfo.InvariantCulture` / `FormattableString.Invariant`——`$"{d}"` 在 de-DE 下必须仍产出 de-DE 文本，换 invariant 是可观察行为改变。`FormattableString.Invariant($"...")` 是源码显式选择，其内部插值的 ConvertedType 为 `FormattableString`，走 IE-KEEP | C# 侧语义由中间树 xUnit 直接钉死；Java 侧 `Locale.getDefault()` 与 .NET `CurrentCulture` 不等价（R1），由双半区预言机与 compat 收敛，不在 C# pass 内偷换文化 |
 | IFormattable 洞 | 默认 handler 对 `IFormattable` 洞调 `ToString(null, CurrentCulture)`，而 `Concat` 调无参 `ToString()`。白名单（可证明两者等价：基元、enum、`string`、`DateTime(Offset)`/`DateOnly/TimeOnly`/`TimeSpan`/`Guid`/`char` 等 BCL 类型，无参 `ToString()` 即「G + 当前文化」）内走 Concat；**用户自定义/未知 IFormattable 实现整串升级 Format 路径**（合成仅含 `{i}` 的 composite），保证文化分派不丢 | 宁可整串走 Format，不承担显式接口实现下两路径分叉的风险；白名单以 SemanticModel 符号判定，不认类型名文本 |
 | **对齐空格填充** | `,n` 直接进 composite：`{i,n}`（n>0 左填充/右对齐，n<0 右填充/左对齐，填充符空格），与 `string.Format` 填充规则完全一致；对齐+格式合成为 `{i,n:fmt}`。对齐表达式 C# 要求编译期常量，取 `GetConstantValue` 的整数值；非常量属基线编译错误，防御性报 CS2J0514 | 消灭 S2：现状对齐被整体丢弃。不得自行造空格循环（重复求值/宽度计算都偏离 BCL） |
@@ -96,11 +100,11 @@ HandlerBindingAnalyzer（§4.3）对每个 `InterpolatedStringExpressionSyntax` 
 | ref struct / 指针洞 | ref struct 不能装箱进 `object`。`ReadOnlySpan<char>`/`Span<T>` 等可证具有非虚 `ToString()` 覆盖的洞 → 显式 `x.ToString()`（C# 侧与 handler 文本一致）；无法证明安全覆盖的 ref struct 洞、指针洞 → CS2J0513 Error（M1 不收编） | `DefaultInterpolatedStringHandler.AppendFormatted<T>` 经泛型实例化允许 ref struct T，目标两路径都不允许，属真实表达力边界 |
 | 嵌套插值 | 洞中的 `$"..."` 自底向上先展开（内层为 Concat/Format 调用，类型 string，作为外层实参合法）；不做 Format 展平合并（嵌套 `string.Format` 调用保持嵌套），文本与求值顺序等价 | 深嵌套各洞仍只求值一次；Core 单测覆盖三层 |
 | 空/纯文本插值 | `$""`、`$"abc"` 经 IE-FOLD 成 `""`/`"abc"` 字面量；连续洞、首尾文本按空段剔除规则拼段（`$"{a}{b}"`→`Concat(a, b)`） | 单洞 `$"{x}"` 白名单类型 → `Concat(x)`（单参 params 重载合法，null string→`""`） |
-| **常量折叠** | 仅对 `GetConstantValue().HasValue` 的整串折叠为字面量；这是 `const string` 声明、常量默认参数等常量上下文的**唯一合法**展开（`Concat/Format` 非常量表达式，发进去会破坏基线可编译性）；含非常量洞不折叠，即便洞是简单名 | 折叠值以编译器常量值为准，不自算格式/对齐 |
-| **自定义 handler 白名单/报错** | 默认 strict=Error：任何非 string 转换的插值（自定义 handler、ref handler 形参位）报 CS2J0510，消息带 handler 类型名与构造参数列表；非 strict（`HandlerPolicy=Keep`）降级 Warning 并原样保留节点（IE-KEEP）。M1–M3 **不做任何具体 handler 白名单仿真**；M4 依 sdk 画像评审 | 禁止静默错译是第一原则（§6）；Keep 是显式、有诊断、有计数的逃生门，不是静默透传 |
+| **常量折叠**（含五次补全 C# 10 const 内插子规则） | 仅对 `GetConstantValue().HasValue` 的整串折叠为字面量；这是 `const string` 声明（C# 10 起允许 `const string s = $"a{1}"`，编译器整串编译期折叠）、常量默认参数、特性实参、`switch` 常量 case 等常量上下文的**唯一合法**展开（`Concat/Format` 非常量表达式，发进去会破坏基线可编译性）；含非常量洞不折叠，即便洞是简单名。**Java 侧常量性联动**：对应产物为 `static final String` 常量变量（constant variable，带 ConstantValue、可用于注解/常量上下文），只有「字面量初始化」保持常量性——折叠是唯一同时保住 C# const 与 Java `static final` 常量性的路径，发 Concat/Format 会同时破坏两侧 | 折叠值以编译器常量值（`GetConstantValue`）为准，不自算格式/对齐；const 内插在 sdk 画像的占比与仓库语言版本现状 catalog 标注「待核（见 C52）」，本规则不依赖画像结果，语义门先行 |
+| **自定义 handler 白名单/报错**（硬门 G0 的处置列） | 默认 strict=Error：任何非 string 转换的插值（自定义 handler、ref handler 形参位）报 CS2J0510，消息带 handler 类型名与构造参数列表，并显式说明「追加语义/参数求值次数/条件构造不同，禁止降级 Concat/Format」；非 strict（`HandlerPolicy=Keep`）降级 Warning 并原样保留节点（IE-KEEP）。M1–M3 **不做任何具体 handler 白名单仿真**；M4 依 sdk 画像评审 | 禁止静默错译是第一原则（§6）；Keep 是显式、有诊断、有计数的逃生门，不是静默透传 |
 | `FormattableString` / `IFormattable` 绑定 | 转换类型为 `System.FormattableString`/`System.IFormattableString`（如 `FormattableString f = $"...";`、`FormattableString.Invariant($"...")` 实参）→ IE-KEEP + CS2J0511 Warning：这是用户显式选择的运行时对象（参数数组、composite、`Invariant`/`CurrentCulture` 成员都依赖该形态），展开即破坏 | residual 统计单列「kept-formattable」，不计未解释残留；Java 侧维持现状处理 |
 | verbatim 插值 `$@""`/`@$""` | 与普通插值同规则；文本取 ValueText（折行、`""` 转义已由 Roslyn 解码），重发为常规字面量；不再在产物中保留 `@` | 消灭 S8 中 Java 侧的 `""`→引号/折行规则复刻 |
-| raw 插值 `$"""..."""` / `$$"""..."""` | 本特性只消费已 parse 的 `InterpolatedStringExpressionSyntax`：多 `$` 决定洞括号层数（Roslyn 已解析出洞），文本 ValueText 已去缩进/去括号转义；产物一律常规字面量/Concat/Format。raw 定界符本身、非插值 raw 字面量归 C43，本 pass 不触碰 token 形态（M0 探针核实 1/2/3 个 `$` 的 ValueText 行为） | 与 C43 划界的关键：即便 C43 尚未实施，本 pass 也不依赖其产物——Roslyn 直接给出可用节点 |
+| raw 插值 `$"""..."""` / `$$"""..."""` | 本特性只消费已 parse 的 `InterpolatedStringExpressionSyntax`：多 `$` 决定洞括号层数（Roslyn 已解析出洞），文本 ValueText 已去缩进/去括号转义；产物一律常规字面量/Concat/Format，`$"""` 定界符随插值节点展开**自然消失**——C23 不设立独立的「定界符归一」动作，也不依赖 C43 是否实施（M0 探针核实 1/2/3 个 `$` 的 ValueText 行为）。**与 C43 的硬划界**：非插值 raw 字面量 `"""..."""`（无 `$`，[LiteralExpressionTransformer.cs:233-245](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs#L233-L245) 现状内联）、`"x"u8`、verbatim `@"…"` 的词法定界符/缩进/u8 归一策略归 C43；插值 raw 整体是 `InterpolatedStringExpressionSyntax`（节点种类与 C43 的 `LiteralExpressionSyntax` 不相交），归 C23 | 划界判据是**语法节点种类 + 是否带 `$`**，不是定界符文本：带 `$` 的 raw 随本 pass 展开后全树即无 raw 词法；不带 `$` 的 raw 本 pass 永不触达。详见 §11 C43 行 |
 | 表达式树 / 查询内插值 | `Expression<Func<...>>` lambda 内的插值：M1–M3 **跳过不改写** + CS2J0515（Info），走共享表达式树祖先判定（catalog §4 风险 8）；普通 IEnumerable LINQ（含查询理解式内的插值）正常展开。M4 评估是否降为编译器规范形（C# 编译器在表达式树中本就把插值降为 `string.Format` 调用，见 Q4） | linq-channel（C26）在后；IQueryable 三路分流归 C26，本 pass 不替它决策 |
 | `nameof` / 普通字符串 | 不受影响：`nameof(x)` 与含 `{`/`%` 的普通字面量不产生插值节点，规则不触达 | 防误伤单测 |
 | 幂等 | 产物零插值节点（豁免区除外），二次运行零 diff、Changed=false | 单测与项目级双断言 |
@@ -110,7 +114,7 @@ HandlerBindingAnalyzer（§4.3）对每个 `InterpolatedStringExpressionSyntax` 
 三层事实必须分开：
 
 1. **C# 侧（本 pass 的正确性边界）**：默认插值与 `string.Format(CultureInfo.CurrentCulture, …)` 同族——当前文化、`IFormattable` 分派、对齐空格、null→`""` 完全一致；与 `string.Concat` 的唯一已知分叉是非白名单 `IFormattable` 的无参 `ToString()`，已由「非白名单即升 Format」堵死。因此 IE-CONCAT/IE-FORMAT/IE-FOLD 在 .NET 半区可证等价，且明确**不引入 invariant**。
-2. **Java 侧（下游半区）**：`String.format` 用 `Locale.getDefault()`，与 .NET `CurrentCulture` 不逐文化对应；现有 [StringHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java) 用 `Locale.ROOT` 的 `csFormat`/`formatCs` 实际是 invariant 近似（为 JSON 场景故意为之，[:1131-1137](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java#L1131-L1137)），且 `formatCs` 不吃对齐、不把 null 归一空串。
+2. **Java 侧（下游半区）**：`String.format` 用 `Locale.getDefault()`，与 .NET `CurrentCulture` 不逐文化对应；现有 [StringHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java) 用 `Locale.ROOT` 的 `csFormat`（[:1100-1101](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java#L1100-L1101)）/`formatCs`（[:1241-1243](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java#L1241-L1243)）实际是 invariant 近似（为 JSON 场景故意为之，Double 动机注释 [:1131-1137](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java#L1131-L1137)），且 `formatCs` 不吃对齐（[正则 :1263](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/StringHelper.java#L1263)）、不把 null 归一空串。
 3. **结论**：本 pass 不在 C# 层替 Java 半区做文化妥协（发 invariant 会让 .NET 半区先错）；文化风险以「.NET 半区锁当前文化等价 + Java 半区固定 Locale 运行时预言机（§7.3）+ 默认开门禁前 compat 格式化能力盘点（§8 第 3 条）」三段式收敛。
 
 ### 2.4 目标形态示例
@@ -145,11 +149,11 @@ Expression<Func<object>> e = () => $"{x}"; // CS2J0515 跳过（表达式树）
 
 ### 3.1 描述符翻转
 
-实施完成后，把 [PassStubCatalog.cs:239-248](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L239-L248) 的 `expression-desugar` stub 删除，在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) `Implemented` 表登记（翻转范式同 iterator-lowering：[PassCatalog.cs:195-205](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L195-L205)）：
+实施完成后，把 [PassStubCatalog.cs:217-226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226) 的 `expression-desugar` stub 删除，在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) `Implemented` 表登记（翻转范式同 iterator-lowering：其 Implemented 描述符在 [PassCatalog.cs:209-219](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L209-L219)）：
 
 | 字段 | 值 |
 |---|---|
-| Id | `expression-desugar`（沿用 `PassStubCatalog.Ids.ExpressionDesugar` 常量，不迁入 `PassIds`——与 iterator-lowering 落地做法一致） |
+| Id | `expression-desugar`（沿用 `PassStubCatalog.Ids.ExpressionDesugar` 常量，不迁入 `PassIds`——与 iterator-lowering 落地做法一致：常量 [PassStubCatalog.cs:32](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L32) 保留而 Stubs 无条目，PassCatalog 以 `PassStubCatalog.Ids.IteratorLowering` 引用） |
 | IntermediateDirectoryName | `.cs2j-expression-desugar-src`（与 stub 一致，零指纹迁移成本） |
 | Stage | `Expression` |
 | Status | `Implemented` |
@@ -163,25 +167,25 @@ Expression<Func<object>> e = () => $"{x}"; // CS2J0515 跳过（表达式树）
 
 ### 3.2 拓扑位置与物理插入点
 
-描述符**物理插入** `Implemented` 表 `null-coalesce` 条目（[PassCatalog.cs:56-66](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L56-L66)）之后、`enum` 条目之前。理由：`expression-desugar` 与 `enum` 都只声明 RunAfter `null-coalesce`，拓扑平局按注册表声明顺序裁决（[PassRegistry.cs:100-117](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L100-L117)，「ties keep declaration order」），插入位置即执行位置，无需改任何既有描述符。翻转后实现性子序列为：
+描述符**物理插入** `Implemented` 表 `null-coalesce` 条目（[PassCatalog.cs:58-68](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L58-L68)）之后、`enum` 条目（[:69-79](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L69-L79)）之前。理由：`expression-desugar` 与 `enum` 都只声明 RunAfter `null-coalesce`，拓扑平局按注册表声明顺序裁决（[PassRegistry.cs:100-117](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L100-L117)，「declaration order is the deterministic tiebreak」），插入位置即执行位置，无需改任何既有描述符。翻转后实现性子序列为：
 
 ```
 … null-coalesce → expression-desugar(默认关) → enum → delegate → …
 ```
 
-stub（`pattern-desugar` 等同锚 stub）仍按注册表机制 interleaving，但不过执行计划；`java-keywords` 末尾位置不受影响。
+其余未翻转 stub 仍按注册表机制 interleaving 进全序但不进默认执行计划（[PassChainOrderTests.cs:64-68](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L64-L68) 注释与断言口径）；`java-keywords` 末尾位置不受影响（同文件另有断言）。
 
 ### 3.3 锚点翻转清单（实施 PR 的完整改动面，含三个测试文件断言）
 
 1. 新增 `src/CSharpToJava.Core/ExpressionDesugar/` 全部组件（§4），含四个规则目录（本期仅 `Interpolations/` 有实现，其余三个仅占位目录 + 目录级注释说明归属，零代码）。
 2. 新增 [Adapters/ExpressionDesugarPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/ExpressionDesugarPassAdapter.cs)（§5）。
-3. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删除 `ExpressionDesugar` stub 条目（L239-248）；`Ids.ExpressionDesugar` 常量**保留**。
+3. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删除 `ExpressionDesugar` stub 条目（[L217-226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)）；`Ids.ExpressionDesugar` 常量（[:39](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L39)）**保留**。
 4. [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)：按 §3.2 物理插入 Implemented 描述符。
-5. [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)：`CreateAdapter` switch 增 `expression-desugar` 分支（仿 [:213-220](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L213-L220)）；`BuildLegacyToggles` 按 iterator-lowering 先例（[:77](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L77)）增 `[PassStubCatalog.Ids.ExpressionDesugar] = false`（无 legacy `--no-xxx` 开关，通用 `--enable-pass`/`--pass` 唯一入口）。
-6. **三个既有测试文件的断言必须同步更新**：
-   - [PassStubCatalogTests.cs:24](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24)：`Assert.Equal(23, ids.Length)` → **22**；补一条「`expression-desugar` 不在 stub 集合」断言（仿同文件既有 `Assert.Contains` 风格用 `Assert.DoesNotContain`）。
-   - [PassChainOrderTests.cs:18-38](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L38)：`LockedChain` 在 `PassIds.NullCoalesce` 与 `PassIds.Enum` 之间插入 `PassStubCatalog.Ids.ExpressionDesugar`；`EnabledByDefault`（[:40-55](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L40-L55)）**不变**（本 pass 默认关）；`BuildLegacyToggles_covers_every_registered_pass`（[:170-182](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L170-L182)）因第 5 条已加 toggle 而无需开例外。
-   - [ProjectPreprocessorsConsistentTests.cs:129-132](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs#L129-L132)：仿 generic-deepen 先例补 `Assert.Equal(".cs2j-expression-desugar-src", PassCatalog.ImplementedById(PassStubCatalog.Ids.ExpressionDesugar).IntermediateDirectoryName)`。
+5. [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)：`CreateAdapter` switch 增 `expression-desugar` 分支（仿 iterator-lowering 分支 [:227-234](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L227-L234)）；`BuildLegacyToggles` 按 iterator-lowering 先例（[:81](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L81)）增 `[PassStubCatalog.Ids.ExpressionDesugar] = false`（无 legacy `--no-xxx` 开关，通用 `--enable-pass`/`--pass` 唯一入口）。
+6. **三个既有测试文件的断言必须同步更新**（2026-09-29 已按当前磁盘复核；工作区 tests 另有外部变更，实施时以合入时点实际内容为准）：
+   - [PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs)：当前文件**无硬编码 stub 总数断言**（`Stubs` 经 `BuildRegistry().WhereStatus(Stub)` 动态取得），不存在「23→22」式计数可改；仿同文件已翻转先例 [PatternDesugar_IsImplemented_AndNotAStub:19-28](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L19-L28) 补一条：`expression-desugar` 状态为 Implemented、`CatalogItems == "C23"`、中间目录名一致、且 `Assert.DoesNotContain(Stubs, …)`（先例在 L27）。参考事实：`PassStubCatalog.Stubs` 2026-09-29 实测 **21** 个，翻转后 **20**；若实施时文件已被加过总数断言，按届时实际值改，本文件不预判。
+   - [PassChainOrderTests.cs:18-40](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L40)：`LockedChain` 在 `PassIds.NullCoalesce`（L22）与 `PassIds.Enum`（L23）之间插入 `PassStubCatalog.Ids.ExpressionDesugar`；`EnabledByDefault`（[:42-57](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L42-L57)）**不变**（本 pass 默认关）；`BuildLegacyToggles_covers_every_registered_pass`（[:172-185](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L172-L185)）因 `LockedChain` 已同步插入、且第 5 条已加 toggle，两边集合仍相等，无需新开例外（注意其现有 GenericDeepen/PatternDesugar 两条例外保持不动）。
+   - [ProjectPreprocessorsConsistentTests.cs:129-132](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs#L129-L132)：仿 generic-deepen 先例补 `Assert.Equal(".cs2j-expression-desugar-src", PassCatalog.ImplementedById(PassStubCatalog.Ids.ExpressionDesugar).IntermediateDirectoryName)`（member-desugar 先例 [:134-138](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs#L134-L138) 可一并参考）。
 7. [PassListFormatterTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassListFormatterTests.cs)：若存在按状态计数/快照的断言，同步翻为 Implemented/默认关（实施时按实际断言面改）。
 8. 转换器侧 S1–S8 分支本期**不删不改**（直连单文件入口仍需要安全网），下掉排期见 §8 第 6 条。
 9. 通用 CLI 面天然可达：`--enable-pass expression-desugar`、`preprocess --pass expression-desugar -s src -d dst`、`--list-passes` 状态翻 Implemented（不新增独立 verb、不新增单文件模式——handler 判定强依赖整编译 SemanticModel，理由同 C31）。
@@ -277,8 +281,8 @@ src/CSharpToJava.Core/ExpressionDesugar/
 
 ### 4.4 插值规则集（IE-1 ~ IE-6）
 
-- **IE-1 绑定分类**：HandlerBindingAnalyzer 五分类（§4.3），产出 `InterpolationPlan(Path, Holes, TextSegments)`。
-- **IE-2 常量折叠**：`Constant` → `SyntaxFactory.Literal(constantValue as string ?? "")` 整体替换。
+- **IE-1 绑定分类（硬门 G0 的规则执行点）**：HandlerBindingAnalyzer 五分类（§4.3），产出 `InterpolationPlan(Path, Holes, TextSegments)`。**门约束**：仅 `Constant` 可流入 IE-2、仅 `DefaultString` 可流入 IE-3/IE-4；`CustomHandler`/`Unknown` 只准走 IE-5，任何 emitter 不得在分类缺失或非默认绑定情况下发射 Concat/Format/字面量（单测须构造自定义 handler 用例验证「无绑定不发射」）。
+- **IE-2 常量折叠**：`Constant` → `SyntaxFactory.Literal(constantValue as string ?? "")` 整体替换。C# 10 const 内插（`const string s = $"a{1}"`）必须经此路：折叠是常量上下文（const 声明/特性/默认参数/常量 case）与 Java 侧 `static final` 常量性的唯一合法展开（§2.2 常量折叠行）。
 - **IE-3 Concat 发射**：`DefaultString` 且无对齐/格式且洞全白名单 → 分段（文本段 ValueText 原样、洞表达式零复制复用）→ 空文本段剔除 → `string.Concat(...)`；无符号四件套与安全 ref struct 的 `ToString` 包装在入段前按 §2.2 处理；单参/多参统一 `Concat`。
 - **IE-4 Format 发射**：命中格式/对齐/非白名单 IFormattable → composite 逐段构建（文本 ValueText 做 `{`/`}` 翻倍；洞发 `{i}`、`{i,align}`、`{i:fmt}`、`{i,align:fmt}`；对齐取常量整数值）→ `string.Format(compositeLiteral, holeExpressions...)`。
 - **IE-5 保留/报错**：`FormattableString`（0511）、表达式树（0515，受 `RewriteInExpressionTrees=false` 控制）、CustomHandler（0510，按 policy）、ref struct/指针洞（0513）、非常量对齐（0514）、Unknown（0512）。
@@ -314,18 +318,18 @@ src/CSharpToJava.Core/ExpressionDesugar/
 
 1. 持有 `ExpressionDesugarPreprocessor`、`ExpressionDesugarOptions`、累计 `ExpressionDesugarDiagnostic`/`ExpressionDesugarStatistics`；`Descriptor` 取 `PassCatalog.ImplementedById(PassStubCatalog.Ids.ExpressionDesugar)`。
 2. `RewriteFileAsync`：调 `Preprocess(context.SourceCode, context.SemanticModel, _options)`，合并统计、给诊断附 `RelativePath`，Changed=false → null（clean 文件字节级复制，保 BOM 走 runner 默认）。
-3. `AfterFilesAsync`：对中间树做全树 residual 复扫（仿 [NullCoalescePassAdapter.cs:74-92](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/NullCoalescePassAdapter.cs#L74-L92) 的 `CountResidual…`），按语法种类计数并与豁免配对；未解释残留 >0 时按 strict 发 CS2J0516。
+3. `AfterFilesAsync`：对中间树做全树 residual 复扫（仿 [NullCoalescePassAdapter.cs:73-91](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/NullCoalescePassAdapter.cs#L73-L91) 的 `CountResidualNullCoalesce`），按语法种类计数并与豁免配对；未解释残留 >0 时按 strict 发 CS2J0516。
 4. `VerifyBuild/VerifyTests` 取 config 开关（默认 true/true）；`DeleteBuildOutputsAfterRestore = true`（双验后清 bin，同 null-coalesce/iterator）。
 5. `HasErrors` = 含 Error 诊断；`BuildChainSummaryLine` 至少打印：插值站点、Concat、Format、折叠、对齐、格式、自定义 handler（错/保留）、FormattableString 保留、表达式树跳过、临时提升（预期 0）、residual；`BuildChainDiagnosticLines` 格式 `[expression-desugar] [severity] path: message`。
 6. `OnRestoreFailed/OnBuildFailed/OnTestsFailed` 记 CS2J0520（restore 为 Warning，build/test 为 Error，仿 iterator 适配器）。
 7. **支撑库：无**。`SupportLibrary.None`：不注入工程、不进支撑库过滤、`IsExecutedSupportLibraryProject` 无需改动；产物只含 BCL `System.String` 调用。
-8. **指纹**：无需手写——[Program.cs:1765-1774](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1765-L1774) 已对注册表每个 pass 自动生成 `pass:<id>=on/off` 令牌，翻转后自动纳入；无支撑库文件进快照问题；切换组合一次性缓存失效可接受（foundation plan 既定）。
+8. **指纹**：无需手写——[Program.cs:1767-1776](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1767-L1776) 已对注册表每个 pass 自动生成 `pass:<id>=on/off` 令牌，翻转后自动纳入；无支撑库文件进快照问题；切换组合一次性缓存失效可接受（foundation plan 既定）。
 9. **集成点**：仅 §3.3 第 4/5 两处（`PassCatalog` + `PassChainFactory`）；标准 spine「parse→compile→逐文件 rewrite→AfterFiles→restore→verify」（[ProjectPassAdapter.cs:268-269](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassAdapter.cs#L268-L269)）无定制。
 10. 通用 verb 为唯一项目级入口（`preprocess --pass expression-desugar`、`--enable-pass expression-desugar`、`--list-passes`）；**不做单文件模式**（handler 分类跨文件，且单文件场景自定义 handler/FormattableString 多落报错）。
 
 ## 6. 诊断策略
 
-**第一原则（catalog §4 风险 12/18）**：无法在 C# 侧等价显式化时**显式报错**，禁止注释/占位/原样静默透传。S2（丢对齐）、S3（TODO 注释）、S1（handler 无脑降级）三类静默在本 pass 全部转为「正确展开」或「带码失败」。Error 诊断使运行退出非零；strict 关闭时 Error 降 Warning 但仍逐条可见、可计数。
+**第一原则（catalog §4 风险 12/18）**：无法在 C# 侧等价显式化时**显式报错**，禁止注释/占位/原样静默透传。S2（丢对齐）、S3（TODO 注释）、S1（handler 无脑降级）三类静默在本 pass 全部转为「正确展开」或「带码失败」；其中 S1 的制度保证是 §2.1 硬门 G0——绑定判定先于展开，自定义 handler 默认 CS2J0510。Error 诊断使运行退出非零；strict 关闭时 Error 降 Warning 但仍逐条可见、可计数。
 
 码段 `CS2J05xx`（expression-desugar 族；只追加不改号；MSBuild 风格输出）：
 
@@ -334,7 +338,7 @@ src/CSharpToJava.Core/ExpressionDesugar/
 | CS2J0501 | Info | 插值站点经 IE-CONCAT 显式化为 `string.Concat`（计数用） |
 | CS2J0502 | Info | 插值站点经 IE-FORMAT 显式化为 `string.Format`（内部分别计对齐/格式/IFormattable 升级） |
 | CS2J0503 | Info | 全常量插值折叠为字符串字面量 |
-| CS2J0510 | Error（strict 默认）/Warning（Keep 策略） | 插值绑定自定义 `InterpolatedStringHandler`（含显式 handler 形参位）：消息含 handler 类型全名、构造签名与「参数求值次数/条件构造不一致，禁止降级 Concat/Format」说明，并给手工改写建议 |
+| CS2J0510 | Error（strict 默认）/Warning（Keep 策略） | 插值绑定自定义 `InterpolatedStringHandler`（硬门 G0 拦截，含显式 handler 形参位）：消息含 handler 类型全名、构造签名与「追加语义/参数求值次数/条件构造不一致，禁止降级 Concat/Format」说明，并给手工改写建议 |
 | CS2J0511 | Warning | 绑定 `FormattableString`/`IFormattable`，节点原样保留（用户显式运行时形态） |
 | CS2J0512 | Error | 绑定不可判定（error type/跨编译元数据缺失）；不猜测、不展开 |
 | CS2J0513 | Error | ref struct（无可证非虚 `ToString` 覆盖）或指针洞无法物化为 `object` 实参 |
@@ -362,7 +366,7 @@ src/CSharpToJava.Core/ExpressionDesugar/
 7. **副作用与单次求值（探针计数，非仅文本）**：`$"{Next()}-{Next()}"`（顺序、各 1 次）、洞内含赋值/后自增/三元/`await`/条件访问式实参、接收者为方法返回；断言 Concat/Format 展开**零临时变量**；
 8. **null**：null string、null object、`int?` 无值 → 结果 `""`；与文本/格式混合；
 9. **值类型面**：int/long/double/float/bool（`True`/`False` 文本）/char/enum/DateTime/自定义 struct（override ToString）/显式 IFormattable 探针/无符号 byte/ushort/uint/ulong（无格式走 `ToString()` 包装、有格式走 Format 原样）/`ReadOnlySpan<char>` 洞走 `ToString()`/未知 ref struct 与指针洞→CS2J0513；
-10. **常量折叠**：全字面量、const 符号组合、`const string` 声明上下文必须可编译、默认参数上下文；含非常量洞不折叠；折叠值与 `GetConstantValue` 一致；
+10. **常量折叠（含 C# 10 const 内插，五次补全子规则）**：全字面量、const 符号组合、`const string s = $"a{1}"` 声明上下文必须可编译、特性实参、默认参数、`switch` 常量 case；含非常量洞不折叠；折叠值与 `GetConstantValue` 一致；断言 const 折叠产物是裸字面量（无 Concat/Format 包裹）；Java 半区 e2e 补 `static final String` 常量性用例（产物保持字面量初始化，可进入注解/常量上下文）；
 11. **raw/verbatim**：`$@""`（内嵌引号 `""`、折行）、`@$""`、单行/多行 `$""""""`、`$$""""""`（多美元括号层数）、raw 缩进剥离、含换行/引号/花括号文本；产物中无 `@`/`"""` 词法；
 12. **自定义 handler**：探针定义带 `[InterpolatedStringHandler]` 的 handler（构造 `out bool append`、`[InterpolatedStringHandlerArgument]` 前置参数、append=false 时洞零求值）→ 默认 CS2J0510 Error 且文件不改写；Keep 策略下 Warning + 节点保留 + residual 配对豁免；日志风格（无 string 结果）与 JSON writer 风格两类夹具；
 13. **FormattableString**：变量/参数/`Invariant(...)` 实参位 → CS2J0511 保留，二次运行稳定；
@@ -384,11 +388,11 @@ src/CSharpToJava.Core/ExpressionDesugar/
 
 - **.NET 半区（本 pass 的主正确性证据，catalog §5.1）**：同一套 xUnit 断言在「原生 C#」与「预处理后中间树」上各跑一次，逐串相等——基础、对齐方向、格式说明符全集、文化（显式固定 `CultureInfo` 与自定义探针 provider 双文化）、null、枚举、无符号、嵌套、副作用计数、`const` 折叠。
 - **Java 半区**：仿 [ArrayMethodConversionEndToEndTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/ArrayMethodConversionEndToEndTests.cs) 增 e2e：经完整转换跑 Java 测试，固定 `Locale`（与 .NET 固定文化对照），钉 `Concat` 路径（null→`""`、无符号四件套、bool 大小写、double 整数形态）与 `Format` 路径（D/X/F/对齐）。已知缺口（`%s` null、`formatCs` 不支持对齐）在默认开门禁前列为必须关闭项或显式受限集（§8 第 3 条、Q2）。
-- 现有护栏不被默认关破坏：[StringTests.StringInterpolation_ConvertsToConcatenation](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/StringTests.cs#L25-L31) 等直连转换断言保持绿色（pass 默认关，输入仍含插值）；[StringFormatDoubleTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/StringFormatDoubleTests.cs) 空壳在本期补入实质用例（或由新 e2e 取代并登记删除）。
+- 现有护栏不被默认关破坏：[StringTests.StringInterpolation_ConvertsToConcatenation](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/StringTests.cs#L25-L31) 等直连转换断言保持绿色（pass 默认关，输入仍含插值）；[StringFormatDoubleTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/StringFormatDoubleTests.cs) 空壳（2026-09-29 复核：全文 19 行、零 `[Fact]`，仅一个 private helper）在本期补入实质用例（或由新 e2e 取代并登记删除）。另注：catalog 所称 `StringConcat*` 回归在磁盘上**无同名文件**（2026-09-29 Glob 实测），拼接回归实际位于 [DoubleStringConcatenationTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/DoubleStringConcatenationTests.cs)，新 e2e 与其合并而非另起同名文件。
 
 ### 7.4 一致性 / CLI / 链序
 
-- §3.3 第 6 条三个测试文件断言更新（PassStubCatalog 23→22、LockedChain 插入位、一致性目录名）；
+- §3.3 第 6 条三个测试文件断言更新（PassStubCatalogTests 补 Implemented/非 stub 断言——当前无总数断言，stub 21→20 仅当实施时存在计数断言；LockedChain 插入位；一致性目录名）；
 - 新增 `ExpressionDesugarCLITests`（仿 `PreprocessVerbCLITests`/`JavaKeywordCLITests` 项目级驱动）：默认关不出目录不耗时；`--enable-pass`/`preprocess --pass` 执行；`--list-passes` 显示 Implemented/默认关/catalogItems `C23`；strict 报错退出码非零且不留半成品目录；
 - residual 闸门测试（AfterFiles 全树复扫配对逻辑）。
 
@@ -441,7 +445,7 @@ M0–M4 全程 `DefaultEnabled=false`；每个里程碑自身 Release build/test
 | R6 | **表达式树/Linq 形状**：改写表达式树内插值会改变 IQueryable 提供方看到的树 | catalog §4 风险 8/17；E16 [LinqRewriter](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs) grep 无插值处理 | M1–M3 共享判定跳过（0515）；IQueryable 三路分流归 C26；Q4 评审 M4 是否降编译器规范形 |
 | R7 | **格式小语言翻译债外溢**：现状 Java 侧有损转换表 + TODO 站点（S3/S4），若误把翻译搬进 C# pass 会把债固化 | [StringExpressionTransformer.cs:342-370](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L342-L370) | composite 原样透传，翻译只留在 Java 半区一处（compat），默认开后删 Java 侧重表 |
 | R8 | **装箱点显形影响 make-readonly**：插值本就经 handler 装箱 struct，但现转换器不可见；展开为 Concat/Format 后装箱点对 [BoxingReachabilityAnalyzer](file:///d:/code/cs2j/src/CSharpToJava.Core/ReadOnlyStructMaker/CallSiteUpdater.cs#L471) 显形（其已列 Format/Concat/Join，[BoxingReachabilityAnalyzer.cs:341](file:///d:/code/cs2j/src/CSharpToJava.Core/ReadOnlyStructMaker/BoxingReachabilityAnalyzer.cs#L341)） | 链序 expression-desugar 早于 make-readonly | 理论上只提升分析精度（装箱本就存在）；fixture 放 struct 插值组合；默认开前跑 make-readonly 基线不退化 |
-| R9 | **raw/词法越界**：误碰 C43 职责（定界符/u8/缩进策略）会与未来 lexical-normalize 争抢 | catalog C43（784-795 行）；S8 | 只消费 ValueText/已 parse 洞；产物全常规词法；M0 探针锁定行为；C43 文档对齐边界 |
+| R9 | **raw/词法越界**：误碰 C43 职责（非插值 raw/u8/verbatim 的定界符/缩进策略）会与未来 lexical-normalize 争抢 | [catalog C43（preprocessor-catalog.md:867-879）](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L867-L879)；S8；四次补全「raw 插值与 C43 词法边界须一并定义」 | 只消费 ValueText/已 parse 洞；插值 raw（`$"""`）展开后自然无定界符，非插值 `"""`/`u8` 永不触达；产物全常规词法；M0 探针锁定行为；C43 文档对齐边界 |
 | R10 | **默认关双轨期行为分叉**：pass 开/关两套字符串路径，画像统计与 Java 侧断言可能只覆盖一条 | catalog §4 风险 10 | 默认关不改既有测试；新行为全部走 opt-in 测试；§8 门槛控制默认化；大 transformer 下掉放在最后 |
 | R11 | **ref struct/指针洞表达力边界**：handler 泛型允许、目标两路径不允许 | §2.2 决策行 | 白名单 `ToString()` + CS2J0513；不发明 helper；C06 域（指针）不越界 |
 | R12 | **composite 转义错误**：括号翻倍作用在错误文本层（Token.Text vs ValueText）、raw 多美元、`%` 处理位置混淆会产生运行时格式异常 | §2.2 composite 行 | 统一 ValueText→翻倍；`%` 不在 C# composite 转义（Java 半区 formatCs 已 replace）；花括号/百分号专项单测 |
@@ -454,14 +458,14 @@ M0–M4 全程 `DefaultEnabled=false`；每个里程碑自身 Release build/test
 |---|---|---|
 | **C24 InitializerDesugar / C35 NullConditionalDesugar / C36 CSharp12Desugar（同一 pass）** | 共用 pass id、中间目录、适配器与全部 `Shared/`；C23 是锚点，先落基建与规则接口；C35 是 `TempLifter` 最密切的重度消费者（`?.`/`?[]` 接收者单次求值），C24 初始化器提升、C36 集合目标构造均会产生语句前置 | 目录/码段/Options 组合属性/partial 统计/规则接口按 §4.6 预留；各族只加本规则目录 + `ExpressionDesugarRuleSet.cs` 一行 + catalogItems 加宽；**热文件冲突解法**：`RuleSet`/Options/Statistics 冲突全部是追加式（加行/加 partial），约定后落地者 rebase 取并集，禁止修改既有规则行；共享接口变更需全族评审 |
 | **C35 姊妹文档** | 2026-09-29 撰写时 `2026-09-29-c35-null-conditional-design.md` **尚不存在**（已核对 specs 目录）；本文按锚点假设编写：C35 将消费同一 `TempLifter`（PendingTemp/Collect/Apply + `__ed_` 命名 + 锚点规则）与共享表达式树判定 | C35 文档落地时若发现锚点/锚语句需求不同，以其文档提差异，由族评审演进接口（只增不改）；C23 M1 冻结契约前预留 review 窗口 |
-| **C43 lexical-normalize（raw/u8/verbatim）** | C43 管词法定界符与非插值字面量；C23 只管已 parse 插值的**插值部分**；raw 插值的文本缩进/括号归一由 Roslyn ValueText 承担，双方都不做对方的词法变换 | 两 pass 语法面不相交（节点种类不同）；链位上 C43 属 Lexical 前段、C23 属 Expression，即便同树也幂等；边界在两文档互引 |
+| **C43 lexical-normalize（raw/u8/verbatim）** | 硬划界按节点种类 + 是否带 `$`：C43 管**非插值** raw（`"""…"""` 无 `$`，现状 [LiteralExpressionTransformer.cs:233-245](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs#L233-L245) 内联）、`u8`、verbatim `@"…"` 的词法定界符/缩进归一；**插值 raw `$"""..."""`/`$$"""..."""` 整体是 `InterpolatedStringExpressionSyntax`，归 C23**——C23 消费 Roslyn 已 parse 的洞与 ValueText（缩进剥离/括号层数已解析），展开为常规字面量/Concat/Format 后 `$"""` 定界符自然消失；双方都不做对方的词法变换 | 两 pass 语法面不相交（`LiteralExpressionSyntax` vs `InterpolatedStringExpressionSyntax`，与 catalog C43「raw **插值**与 C23 划界」表述一致，见 [preprocessor-catalog.md:867-879](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L867-L879)）；链位上 C43 属 Lexical 前段、C23 属 Expression，C23 不依赖 C43 产物，即便同树也幂等；边界在两文档互引 |
 | **E16 LinqRewriter / C26 linq-channel（含 IQueryable 分流门）** | 现状 E16 对插值无特殊处理（grep 证据）；C23 先于 linq-channel，展开后 E16 看到的是普通 BCL 调用，无语法面争抢；表达式树内跳过与 C26 IQueryable/Expression 三路分流共用同一禁区判定 | 共享 `IsInExpressionTree` 口径（M1 C23 内置最小实现，注释登记与 C02/C19/C26 的合并去向）；C23 不替 C26 做 queryable 决策 |
 | **C19 extension-methods** | C23 发射的 `string.Concat/Format` 是 BCL 静态调用，对 C19 不可见；插值**洞内**的 reduced 扩展方法调用保持原节点作为实参，由链后 C19（锚点：所有注入支撑库 pass 之后）归约为静态调用 | 链序保证 C19 在 expression-desugar 之后看到实参；无需 RunAfter 边；联合用例：`$"{arr.MyExt()}"` 先变 `Concat(arr.MyExt())` 再变 `Concat(Ext.MyExt(arr))` |
 | **E09 unsigned** | 见 R5：无符号洞发 `ToString()` 交 E09 拦截；C23 不引用 UnsignedMath 支撑库 | 四象限组合为发布硬测试；E09 关闭时纯 BCL 形态在 .NET 半区自洽 |
 | **make-readonly（E13）** | 见 R8：装箱点显形 | 组合 fixture + 基线不退化 |
 | **C08 java-keywords（链尾）** | `__ed_*` 临时名与 `Concat/Format` 非 Java 保留字 | 无协调；若撞名由 C08 改名表统一覆盖 |
 | **Java 侧转换器/StringHelper（同仓不同半区）** | [StringExpressionTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs) 本期不动；默认开后下掉 S1–S8 分支；[StringConcatRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Java/Rewriters/StringConcatRewriter.cs) 继续服务显式 Concat；compat `formatCs` 的对齐/null/文化增强（Q2）是 Java 半区独立工作项，不进本 pass 目录 | 默认开门禁（§8 第 3/6 条）协调排期；两阶段合并不影响 pass 自身落地 |
-| **注册表/链序测试** | 本分支独占注册表变更 = 删一行 stub + 加一行 Implemented + 工厂一分支 + 三处断言 | 与同期翻转其他 stub 的工作在 PassStubCatalogTests 计数（23→22 与他族翻转可加性：注意若他族先合，基数再变，以合入时实际值为准）/LockedChain 上小冲突，按注册表评审节奏 rebase |
+| **注册表/链序测试** | 本分支独占注册表变更 = 删一行 stub + 加一行 Implemented + 工厂一分支 + 三处断言（2026-09-29：Stubs 21→20） | PassStubCatalogTests 现无硬编码总数断言（新增断言仿 PatternDesugar 先例）；与同期翻转其他 stub 的工作在该文件/LockedChain 上小冲突，按注册表评审节奏 rebase，基数一律以合入时 `PassStubCatalog.Stubs` 实际值为准 |
 
 ## 12. Worktree 分配（只写不执行；本设计任务未执行该命令）
 
@@ -477,7 +481,21 @@ git worktree add .worktrees/preproc-c23-interpolation -b feature/preproc-c23-int
 
 ---
 
-## 附：开放问题（实现前/默认开前需评审确认）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+- **Q1 自定义 handler**：终态维持 strict Error / 非 strict Keep **二选一**，不做受控仿真白名单（每 handler 追加语义不同，仿真必然漂移）；Microsoft.Extensions.Logging、System.Text.Json writer 等具体高频 handler 如确有需求，各自独立立项，不进本 pass。
+- **Q2 Java 半区落点**：扩 `StringHelper.formatCs`（补对齐 `,n`、null→`""`、文化路由）并把转换链上**全部** `string.Format`（含本 pass 产物与用户既有 `{0}` 直调）统一路由；由独立转换器 PR 完成，作为翻默认开硬前提；否决 `Format→format` 直映与特判双轨。
+- **Q3 Concat 等价白名单**：收紧为「**仅基元 + enum + string**」，其余 `IFormattable` 一律升 Format；未来任何扩白名单须附双半区文化等价证明。
+- **Q4 表达式树内插值**：**M4 收编**为编译器规范形 `string.Format("{0}", x)`，先做与 Roslyn lowering 的逐节点一致性证明；证明失败则 0515 保留，并在默认开门槛中作为显式已知限制登记（含 sdk 命中计数）。
+- **Q5 转换器旧臂退役**：[StringExpressionTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs) 插值分支由**独立 PR 先行删除**，作为翻默认开硬前提；不保留双轨安全网版本。
+
+---
+
+### 原问题记录（裁决前）
 
 - **Q1 自定义 handler 的终态策略**：M1–M3 默认 Error、非 strict Keep。M4 画像后需定：是否对高频具体 handler（如 Microsoft.Extensions.Logging 条件 handler、System.Text.Json writer handler）做**受控仿真白名单**（模拟构造参数提前求值 + `out bool append` 守卫 + 零求值语义），还是永久「Error/Keep 二选一」。仿真成本高且每家 handler 追加语义不同，倾向后者，需要 sdk 命中数据支撑。
 - **Q2 Java 半区格式化落点**：扩 `StringHelper.formatCs`（补对齐 `,n`、null→`""`、文化路由）并把转换链上 C# 源码里的 `string.Format`（含本 pass 新增与用户既有 `{0}` 直调）统一路由过去？还是维持 `TypeMappings` 的 `Format→format` 直映、仅对本 pass 产物特判？前者语义集中但触及现有 `{0}` 直调行为面，后者留双轨。需在 §8 第 3 条前定案。

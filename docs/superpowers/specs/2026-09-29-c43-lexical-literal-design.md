@@ -3,7 +3,7 @@
 **日期**: 2026-09-29
 **范围**: 在 C28 锚点任务落地后的 `src/CSharpToJava.Core/LexicalNormalize/` 下新增 `Literals/` 子目录（纯语法、幂等、每文件只 parse 一次），追加四条字面量规则 LL-1…LL-4 与一个保真校验规则 LL-5：非插值 raw string `"""…"""` → 常规 C# 字符串字面量；`"x"u8` → 逐字节 `new byte[]{ (byte)0xXX, … }`；非插值 verbatim `@"…"` → 常规字符串字面量；插值形态（`$""`/`$@""`/`@$""`/`$"""..."""`/多美元）**整体跳过**交 C23。本任务不新注册 pass、不翻转默认开关、不改任何 C#→Java 转换代码。
 **状态**: 设计稿（★观察项——默认关，实施触发条件见 §1.3 与 §8）
-**族属**: catalog P3「词法/指令归一族」（[preprocessor-catalog.md §3.3 L1080](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1080-L1080)：E01 + C28 + **C43**）。注册表 stub `lexical-normalize` 条目 `catalogItems = "C28, C43 (observation)"`、`RunAfter={conditional}`、`Stage=Lexical`、`needsSemanticModel=false`（[PassStubCatalog.cs:50-60](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L50-L60)）。**C28 是锚点**：其设计 [2026-09-29-c28-directive-trivia-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c28-directive-trivia-design.md) 已为 C43 预留 `Literals/` 目录所有权（§4.1）、CS2J5570-5599 码段（§6）、规则序列追加位与适配器选项透传接缝（§11 协调条）。本设计是对该预留槽位的填充设计。
+**族属**: catalog P3「词法/指令归一族」（[preprocessor-catalog.md §3.3 L1079](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1079-L1079)：E01 + C28 + **C43**）。注册表 stub `lexical-normalize` 条目 `catalogItems = "C28, C43 (observation)"`、`RunAfter={conditional}`、`Stage=Lexical`、`needsSemanticModel=false`（[PassStubCatalog.cs:48-58](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L48-L58)）。**C28 是锚点**：其设计 [2026-09-29-c28-directive-trivia-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c28-directive-trivia-design.md) 已为 C43 预留 `Literals/` 目录所有权（§4.1）、CS2J5570-5599 码段（§6）、规则序列追加位与适配器选项透传接缝（§11 协调条）。本设计是对该预留槽位的填充设计。
 
 ---
 
@@ -13,11 +13,11 @@
 
 2026-09-28 已核实并在本次调研中复核：C43 覆盖的三种词法形态，主转换器已全部内联吸收，**无 fail-fast、无静默坏码、无测试红灯证据**：
 
-- **raw string**：[LiteralExpressionTransformer.cs:233-245](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs#L233-L245)——`TargetJavaVersion >= 15` 发 Java text block `"""\n…"""`（尾行无换行时补一个 `\n`），低版本回落 `StringEscapeHelper.EscapeJavaString(token.ValueText)` 转义普通串；HIR 路径另在 [HIRExpressionGenerator.cs:81-88](file:///d:/code/cs2j/src/CSharpToJava.Core/HIR/HIRExpressionGenerator.cs#L81-L88) 对 raw token 原样透传 `token.Text`（C# `"""` 与 Java 15 text block 同形）。
+- **raw string**：[LiteralExpressionTransformer.cs:233-245](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs#L233-L245)——`TargetJavaVersion >= 15` 发 Java text block `"""\n…"""`（尾行无换行时补一个 `\n`），低版本回落 `StringEscapeHelper.EscapeJavaString(token.ValueText)` 转义普通串；HIR 路径另在 [HIRExpressionGenerator.cs:81-85](file:///d:/code/cs2j/src/CSharpToJava.Core/HIR/HIRExpressionGenerator.cs#L81-L85) 对 raw token 原样透传 `token.Text`（C# `"""` 与 Java 15 text block 同形）。
 - **u8**：[LiteralExpressionTransformer.cs:288-294](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs#L288-L294)——`Encoding.UTF8.GetBytes(token.ValueText)` 后发 `new byte[]{ (byte)0xXX, … }`，注册于 `SyntaxKind.Utf8StringLiteralExpression`（[:25](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs#L25-L25)、[:41](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs#L41-L41)）。
 - **verbatim**：[LiteralExpressionTransformer.cs:247-255](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs#L247-L255)——`StringLiteralToken` 文本前缀 `@`/`$@`/`@$` 时取 `ValueText` 经 `EscapeJavaString` 发普通 Java 串（`""` → `\"`、换行保留为值再转义）；插值 verbatim 的正文/洞处理在 [StringExpressionTransformer.cs:290-339](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L290-L339)（`isVerbatim`/`isRaw` 分类于 [:48-50](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L48-L50)、[:140-142](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/StringExpressionTransformer.cs#L140-L142)）。
 
-catalog C43 条目（[L867-879](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L867-L879)）因此定调 **P3（观察项）、状态「不缺（转换器内联吸收中）」**；方向性输入称 sdk raw string 1345 处、「最高性价比第一个 pass」（[§5.5 L1194](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1194-L1194)），但 §5 篇首已声明方向性输入与代码证据冲突时以证据为准（[L1125](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1125-L1125)）——本设计全程遵循该定调。
+catalog C43 条目（[L867-879](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L867-L879)）因此定调 **P3（观察项）、状态「不缺（转换器内联吸收中）」**；方向性输入称 sdk raw string 1345 处（[§5.5 L1194](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1194-L1194)）、「最高性价比第一个 pass」（转引于 [L873](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L873-L873)），但 §5 篇首已声明方向性输入与代码证据冲突时以证据为准（[L1125](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1125-L1125)）——本设计全程遵循该定调。
 
 ### 1.2 §5.3 分层判据的正面回答
 
@@ -50,13 +50,13 @@ catalog C43 条目（[L867-879](file:///d:/code/cs2j/prompts/preprocessor-catalo
 
 | # | 决策点 | 结论 | 依据/备注 |
 |---|---|---|---|
-| D1 | raw → 常规串的取值层 | **不手写解码，统一用 Roslyn `token.ValueText` + `SyntaxFactory.Literal(value)` 重建常规 `StringLiteralToken`**；严禁自行按 `"""` 切分源码文本 | `ValueText` 已由 Roslyn 完成全部词法语义：定界符剥离、首行换行去除、缩进裁剪、换行归一、引号/反斜杠字面化。手写算法必然与编译器漂移；C23 发射常规字面量也用同一工厂（[c23-design L91](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L91-L91)）。缩进裁剪规则（§4.3）作为**必须理解并用测试钉死的契约**，而非待实现的算法 |
+| D1 | raw → 常规串的取值层 | **不手写解码，统一用 Roslyn `token.ValueText` + `SyntaxFactory.Literal(value)` 重建常规 `StringLiteralToken`**；严禁自行按 `"""` 切分源码文本 | `ValueText` 已由 Roslyn 完成全部词法语义：定界符剥离、首行换行去除、缩进裁剪、换行归一、引号/反斜杠字面化。手写算法必然与编译器漂移；C23 发射常规字面量也用同一工厂（[c23-design L94](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L94-L94)）。缩进裁剪规则（§4.3）作为**必须理解并用测试钉死的契约**，而非待实现的算法 |
 | D2 | 多行 raw 缩进裁剪契约 | 精确复刻 Roslyn 规则的**观测口径**：① 开定界符所在行其后只允许空白且必须换行，该首个换行**不进值**；② 闭定界符左侧空白列 = 公共前导列，每个内容行必须带完全一致的前导空白前缀（tab/space 逐字符一致，混用即编译错误），该前缀从每行剥除；③ 全空白行剥前缀后归一为空串；④ 闭定界符前最后一个换行**进值**；⑤ 内容换行在 `ValueText` 中归一为 LF（`\r\n`/`\r` → `\n`）；⑥ raw 内无任何转义，`\` 与少于定界符长度的连续 `"`（含 `""`、`"""` 配 4 引号定界）均为字面内容 | 单行 raw 无换行概念，值即定界符间全部文本。⑤ 的精确行为以 .NET 半区对照测试钉死（§7.1），不在本仓重新论证；命中无法解析形态时 Roslyn 已先给 parse Error（文件原样透传，§6） |
 | D3 | 常规串的转义发射 | 委托 `SyntaxFactory.Literal(valueText)`：`"` → `\"`、`\` → `\\`、CR/LF/Tab/控制字符 → `\r\n\t\uXXXX`；可打印非 ASCII（中文/emoji）按源码 UTF-8 原样发射；不引入 Java 专属转义（本 pass 产物是 **C#** 中间树，不做 `\uXXXX` 之外的 Java 化） | 与 [StringEscapeHelper.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Utilities/StringEscapeHelper.cs) 的 Java 转义职责分离：转换器收常规 C# 串后仍走现有 `EscapeJavaString`，本 pass 不预支 Java 决策 |
 | D4 | u8 发射形态 | **逐字节常量数组**：`new byte[]{ (byte)0xXX, … }`（数组初始化器，元素为十六进制字节常量 + 显式 `(byte)` 强转，空串 → `new byte[]{}`）；**不选** `Encoding.UTF8.GetBytes("…")` | ① C# 编译器对 u8 的语义是编译期 UTF-8（无 BOM）常量 blob，逐字节常量是同形 lowering，.NET 半区可直接断言；② GetBytes 是运行时调用、引入分配与 `System.Text.Encoding` 符号（违反不变式 5），且非常量；③ 0x80-0xFF 半区强转写法与现有转换器发射一致（[:292](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LiteralExpressionTransformer.cs#L292-L292)），消除「隐式常量转换」在旧 LangVersion/部分上下文的可读性歧义。`new byte[]` 到 `ReadOnlySpan<byte>` 靠 C# 11 隐式 span 转换，方法实参/字段初始化场景 verify build 覆盖；与 C06 span 上下文无新增耦合（数组形态本就可隐式转 span） |
 | D5 | u8 非 ASCII / 代理项 | 字节序列取 `Encoding.UTF8.GetBytes(token.ValueText)`（Core 计算用，不发射到产物）：中文 3 字节、emoji 4 字节按 UTF-8 展开；孤立代理项以 .NET 默认替换策略（U+FFFD → `EF BF BD`）为**暂定口径并钉测试**；若实测 Roslyn 对 `"\uD800"u8` 判编译错误，则 parse/编译阶段由 verify build 拦截，本 pass 不自行特判 | 正常可编译输入不含孤立代理；该条仅防值保真校验的边角分歧，属残余登记项 |
 | D6 | verbatim 转义 | `@"` 前缀的**非插值** `StringLiteralToken`：取 `ValueText`（`""` 已合为单个 `"`；源换行**原样保留**——verbatim 不做 CRLF 归一，值中即源里的 `\r\n`/`\n`）→ `SyntaxFactory.Literal` 重建，换行以 `\r\n` 转义形式进常规串 | 与 raw 的换行口径差异（D2⑤ vs 本条）必须分别用 CRLF 夹具钉死；判定只认 `LiteralExpressionSyntax` 且 `token.Text` 以 `@"` 起始，不碰标识符 `@name`（那是 [JavaNaming.cs:156](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/JavaNaming.cs#L156-L156) 的另一族词法） |
-| D7 | `$@`/`@$`/插值 raw 的形态 | **v1 整体跳过，不剥离 `$`、不拆分洞**：凡 `InterpolatedStringExpressionSyntax`（start token 为 `InterpolatedStringStartToken`/`InterpolatedVerbatimStringStartToken`/`InterpolatedSingleLineRawStringStartToken`/`InterpolatedMultiLineRawStringStartToken`，含多美元 `$$`）→ LL-4 只计数（CS2J5574），节点原样 | 词法 pass 先于 C23（Expression stage）：若在 C23 之前把插值 raw 的文本段改写成常规 token，C23 看到的节点种类/token 种类与 `ValueText` 口径（多美元括号层数、对齐/格式洞）全部改变，两 pass 语法面相交即破坏 [c23 §11 L457](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L457-L457) 的「节点种类不同、不相交」约定。整体跳过后：C23 消费 Roslyn 已 parse 的洞并直接发射常规字面量（其 M3 矩阵含 raw/verbatim 全形态，[c23 L366](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L366-L366)），终态自然收敛；C23 落地前这些形态继续由转换器内联吸收，无正确性回退 |
+| D7 | `$@`/`@$`/插值 raw 的形态 | **v1 整体跳过，不剥离 `$`、不拆分洞**：凡 `InterpolatedStringExpressionSyntax`（start token 为 `InterpolatedStringStartToken`/`InterpolatedVerbatimStringStartToken`/`InterpolatedSingleLineRawStringStartToken`/`InterpolatedMultiLineRawStringStartToken`，含多美元 `$$`）→ LL-4 只计数（CS2J5574），节点原样 | 词法 pass 先于 C23（Expression stage）：若在 C23 之前把插值 raw 的文本段改写成常规 token，C23 看到的节点种类/token 种类与 `ValueText` 口径（多美元括号层数、对齐/格式洞）全部改变，两 pass 语法面相交即破坏 [c23 §11 L461](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L461-L461) 的「节点种类不同、不相交」约定。整体跳过后：C23 消费 Roslyn 已 parse 的洞并直接发射常规字面量（其 M3 矩阵含 raw/verbatim 全形态（[c23 L431](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L431-L431)；夹具明细见 [L370](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L370-L370)）），终态自然收敛；C23 落地前这些形态继续由转换器内联吸收，无正确性回退 |
 | D8 | 幂等 | LL-1/3 产物为常规 `StringLiteralToken`（文本无前缀、非 raw kind）；LL-2 产物为数组创建表达式（无 `Utf8StringLiteralToken`）；二次跑零目标节点 | residual 闸门（LL-5）扫描输出树对应 token kind/前缀，违例 CS2J5582 |
 | D9 | trivia 处理 | 新节点统一 `.WithTriviaFrom(旧节点)`（leading/trailing 全继承）；raw 多行字面量前导注释、行尾布局不额外格式化（不同于 LN-7，本规则不跑 `Formatter`） | 字面量替换是单点表达式替换，不引起周边 whitespace 变化，diff 最小化；幂等文本比较（ordinal）天然成立 |
 | D10 | 纯语法 | 不建 compilation、不接 SemanticModel；字节计算仅用 `System.Text.Encoding.UTF8` 静态工具；目标形态判定全凭 `SyntaxKind` 与 token 文本前缀 | 维持 C28 parse-only 快路径（[ProjectPassRunner.cs:164-174](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassRunner.cs#L164-L174)） |
@@ -143,7 +143,7 @@ src\CSharpToJava.Core\LexicalNormalize\
 
 - LL-3：`@"…"` → 同 LL-1 的 ValueText+`SyntaxFactory.Literal` 路径（区别仅在换行口径：verbatim 值中保留源换行，工厂会发 `\r\n`/`\n` 转义）；
 - LL-4：`InterpolatedLiteralCounter` 用 `SyntaxWalker` 或 rewriter 中 `VisitInterpolatedStringExpression` 计数后**原样返回**（不递归改写其内部文本 token——内部 `InterpolatedStringTextSyntax.TextToken` 即使带 raw/verbatim 种类也不碰）；
-- 接缝承诺（与 [c23 §11 L457](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L457-L457) 对齐）：C43 管「定界符与非插值字面量」，C23 管「已 parse 插值的插值部分」；raw 插值的文本缩进/多美元括号归一由 Roslyn ValueText 承担，双方都不做对方的词法变换。C23 未落地前，插值形态零改写继续走转换器内联路径；C23 落地后，其产物全为常规词法，LL-5 residual 自然收紧到零。
+- 接缝承诺（与 [c23 §11 L461](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L461-L461) 对齐）：C43 管「定界符与非插值字面量」，C23 管「已 parse 插值的插值部分」；raw 插值的文本缩进/多美元括号归一由 Roslyn ValueText 承担，双方都不做对方的词法变换。C23 未落地前，插值形态零改写继续走转换器内联路径；C23 落地后，其产物全为常规词法，LL-5 residual 自然收紧到零。
 
 ### 4.6 LL-5 LiteralNormalizationVerifier
 
@@ -265,7 +265,7 @@ src\CSharpToJava.Core\LexicalNormalize\
 | 里程碑 | 内容 | 前置 | 预估规模 |
 |---|---|---|---|
 | M1 非插值 raw（LL-1） | `Literals/` 骨架（Facts/Options/Verifier）+ RawStringLiteralRewriter + 模型/序列追加 + 适配器选项透传 + `CatalogItems`/Description 更新；§7.1-1/2/3/4/10/12 + C28 回归 + Release build/test | **C28 分支合入 base**（§12）；pass 仍默认关 | Core ~250 行（含 verifier），适配器改动 ~30 行 |
-| M2 u8 + verbatim（LL-2/3/4） | ByteLiteralFactory、Utf8/Verbatim rewriter、插值计数；fixture 扩展（span 实参/中文/emoji/CRLF）；§7.1-5…9/11/13、7.2/7.4/7.5；Release 全绿 | M1 | Core ~250 行 + fixture |
+| M2 u8 + verbatim（LL-2/3/4） | ByteLiteralFactory、Utf8/Verbatim rewriter、插值计数；fixture 扩展（span 实参/中文/emoji/CRLF）；§7.1-5…9/11/13、7.2/7.4；Release 全绿 | M1 | Core ~250 行 + fixture |
 | M3 一次 parse 合批（统一引擎期） | E01+C28+C43 三 rewriter 链在 `LexicalBatchRunner` 中共享一次 parse（catalog 风险 19 试点），验证指纹/回滚/落盘调试三不变；sdk 分桶报表（§8-3）与 Java 半区对照；默认开评审随 C28 §8 | 统一引擎立项（§8-1 驱动成立） | 编排/数据，非本 pass 业务规则 |
 
 ---
@@ -310,7 +310,21 @@ git worktree add .worktrees/preproc-c43-lexical-literal -b feature/preproc-c43-l
 
 ---
 
-## 附：关键开放问题
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **驱动成立时点**：本设计**维持存档状态**，不抢先实现；进入实施的客观条件 = 统一引擎"一次 parse 合批"**或**版本无关中间树**任一成立**，且由实际消费方（HIR 或 Java2 管线）在立项任务书中背书；两驱动皆不成立则持续存档，每两个里程碑窗口复核一次，不悄悄开工。
+2. **换行归一口径**：把"换行归一"列为管线中的**显式步骤**（不依赖 `ValueText` 的隐式行为），以 M1 §7.1-3 夹具在 CRLF/CR/LF 三源形（含全空白行、闭行）实测锁定并回填本文；显式归一即便在 Roslyn 版本间 ValueText 行为漂移时仍可重现。
+3. **孤立代理项 u8 语义**：M0 用最小探针判定 `"\uD800"u8` 是编译器报错还是替换字节 EF BF BD，按探针结果锁死 D5 口径与夹具形态（探针说报错则规则同形报错/显式诊断，说替换则同形发替换字节）；sdk 画像存在此类站点时升级为阻断级核对，不杜撰语义。
+4. **超长 u8 产物形态**：默认**内联 `new byte[]{…}` 单形态**；超阈值改发独立静态字段数组的备选**默认不做**（引入成员声明，撞 §5.3 判据），须等 sdk blob 长度分布+verify 编译开销基准证据再立项，不提前抽象。
+5. **`\e` 归属**：**现即裁决归 C43**——新增规则 **LL-6（零算法转写，`\e` → `\u001b` 等价字符实体）**，不再等 C52 伞条目"顺手"；catalog L778/L1199 两处冲突口径随 **C52 审计批次一并回填**订正（行号引用与归属同时改），LL-6 的夹具与单测随 C43 实施同交。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **驱动成立时点**：统一引擎「一次 parse 合批」与版本无关中间树两个驱动，何者先成立、由哪个消费方（HIR？Java2 管线？）背书？两者皆不成立则本设计仅存档（§1.2/§8）。
 2. **D2⑤ 换行归一的实测口径**：多行 raw 在 CRLF/CR 源下 `ValueText` 是否一律 LF（含全空白行、闭行），以 M1 的 §7.1-3 夹具实测为准并回填本文；若 Roslyn 版本间行为变化，是否需要把「换行归一」做成显式步骤而非依赖 ValueText。

@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-29
 **范围**: 在 `member-desugar` 族 pass 下新增 **Signatures 规则集**（Core `MemberDesugar/Signatures/`），把三类依赖 C# 签名/分派暗语义的成员形态——① 显式接口实现（方法/属性/索引器/事件）、② `new` 隐藏成员、③ C# 9 协变返回 override——改写为不依赖该暗语义的显式可编译 C#：改名 public 槽位方法 + 按 SemanticModel 静态绑定重写全部调用点，或在 Java 不可表达处显式报码。本任务**不注册/不翻转 stub、不新增适配器、不改 CLI 注册表、不触转换器代码**
-**状态**: 设计稿，待评审；实施前提为 C11 锚点合入
+**状态**: 设计稿，待评审；**C11–C14 已由维护者手动合并主干 dev-3.x**（2026-09-30 确认），硬前置已满足；Signatures 规则待追加（`MemberDesugarKind.Signature` 枚举值已预留）
 **族属**: catalog P3「成员去糖族」第 6 条规则集（[preprocessor-catalog.md:910-922](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L910-L922)，§3.3 合并族表 [L1082](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1082-L1082)）；锚点设计 [2026-09-28-c11-property-desugar-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md)
 
 ---
@@ -15,10 +15,10 @@
 
 - 去重键把 `ExplicitInterfaceSpecifier` 拼入 C# 侧 MemberKey，仅保证 partial 去重时不被误并：[ClassTransformer.cs:303-308](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L303-L308)（方法/属性/事件三键带限定名，索引器走 `other`）。
 - **方法没有任何显式接口专门改写**：[MethodTransformer.cs:154-176](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L154-L176) 不读 `ExplicitInterfaceSpecifier`，方法名经 [JavaName:178-187](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L178-L187) 首字母小写派生——`void I.Foo()` 与 `public void Foo()` 派生出**同一个** Java 名 `foo`。
-- 同 Java 名 + 同擦除参数签名的方法被**静默丢弃**：[AddMethodIfNotDuplicateInternal:540-545](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L540-L545)。即 `void IA.F()`/`void IB.F()` 两个不同实现体、或显式实现与类自有同名方法并存时，后入者无声消失（接口未实现/绑错槽位），无诊断。
+- 同 Java 名 + 同擦除参数签名的方法被**静默丢弃**：[AddMethodIfNotDuplicateInternal:539-544](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L539-L544)。即 `void IA.F()`/`void IB.F()` 两个不同实现体、或显式实现与类自有同名方法并存时，后入者无声消失（接口未实现/绑错槽位），无诊断。
 - 调用点侧零符号特判：`src/CSharpToJava.Core/Transformers/Expression` 全目录 grep `ExplicitInterfaceImplementations|ExplicitInterfaceSpecifier` **零命中**。接口引用调用 `((IFoo)x).Foo()` 仅靠「Java 实现方法恰好也叫 foo」才能编过——catalog 所述「无碰撞时恰好能编译，碰撞/泛型重实现场景静默出错」即此。
 - 属性/索引器/事件各有 1–4 处零散补丁：
-  - 属性：[PropertyTransformer.cs:12-13](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L12-L13) 用语法原名派生访问器；碰撞靠测试锁定的 `getName$Class` 续命（[ExplicitInterfacePropertyConflictTests.cs:53-60](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ExplicitInterfacePropertyConflictTests.cs#L53-L60)）。
+  - 属性：[PropertyTransformer.cs:12-13](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L12-L13) 用语法原名派生访问器；碰撞曾靠测试锁定的 `getName$Class` 续命（**待核实**：[ExplicitInterfacePropertyConflictTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ExplicitInterfacePropertyConflictTests.cs) 当前仅 37 行、无测试方法——提交 25c68781 删除；src 全仓 grep 无 `getName$Class` 生成）。
   - 索引器：[IndexerTransformer.cs:28-37](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/IndexerTransformer.cs#L28-L37) 与 [:228-253](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/IndexerTransformer.cs#L228-L253) 的「按接口简单名文本匹配 AllInterfaces」兜底（命名空间/别名同名易错），回归 [InterfaceIndexerReturnTypeTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/InterfaceIndexerReturnTypeTests.cs)。
   - 事件：[EventFieldTransformer.cs:104-113](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/EventFieldTransformer.cs#L104-L113) 取限定名末段拼 `addIViewerMouseDownListener`，回归 [InterfaceEventListenerNamingTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/InterfaceEventListenerNamingTests.cs)。
 - 访问级别也错：C# 显式实现是私有访问形态，Java 接口方法必须 public；MethodTransformer 对无修饰符方法不补 public。
@@ -30,7 +30,7 @@
 
 **③ 协变返回：多数可直映，擦除冲突无系统处理。**
 
-- Java 5+ 支持引用类型协变返回，普通「override 返回更派生引用类型」可保留；但泛型返回（如 `IEnumerable<string> override IEnumerable<object>`）擦除后非子类型、以及值类型卷入的组合，转换器无分析、无桥接合成，collision 时落到 `AddMethodIfNotDuplicateInternal` 静默丢方法或产出不可编译 Java。全仓 grep `covariant|Covariant` 仅见委托/接口声明侧型变（[ClassTransformer.cs:40](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L40-L40)），与 override 返回类型无关。
+- Java 5+ 支持引用类型协变返回，普通「override 返回更派生引用类型」可保留；但泛型返回（如 `IEnumerable<string> override IEnumerable<object>`）擦除后非子类型、以及值类型卷入的组合，转换器无分析、无桥接合成，collision 时落到 `AddMethodIfNotDuplicateInternal` 静默丢方法或产出不可编译 Java。转换器侧 grep `covariant|Covariant` 仅见委托/接口声明侧型变（[ClassTransformer.cs:40](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L40-L40)，另见 DelegateTransformer.cs:96、InterfaceTransformer.cs:92），与 override 返回类型处理无关（CLI 适配器与 JavaNaming 注释中另有 covariant 字样，均非转换器对 override 返回类型的处理）。
 
 ### 1.2 目标
 
@@ -48,12 +48,12 @@
 | 条目 | 产物形态（C46 的输入） | C46 负责 |
 |---|---|---|
 | C11 property | 属性 → 后备字段 + `get_X/set_X`；显式实现保留为 `T IFoo.get_X()`（C11 决策 8）；`new` 平移为 `new` 方法（C11 决策 6，不造 Java 注解） | 消限定名/public、隐藏改名、协变桥接 |
-| C12 indexer | `T IFoo.GetItem(…)`/`SetItem` 显式方法对（IX-3）；协变索引器明确划给 C46（C12 D7/R4） | 同上 |
-| C13 event | `void IFoo.AddXxxListener/RemoveXxxListener` 显式方法对（EV-6） | 同上 |
+| C12 indexer | `T IFoo.get_Item(…)`/`set_Item` 显式方法对（IX-3）；协变索引器经 C12 D7/R4/Q5 确认合法输入中不存在，C46 无对应分支 | 同上 |
+| C13 event | `void IFoo.add_Xxx/remove_Xxx` 显式方法对（EV-6） | 同上 |
 | C14 operator | `op_*` → 命名方法；运算符不参与显式接口（C# 语法不允许显式实现运算符，静态抽象运算符除外→C36） | 无交集 |
 | C27 record with | 合成 `virtual Base Cs2jWithClone()` + `override Derived Cs2jWithClone()`（RC-1/RC-2）——天然协变返回对 | CR 规则识别并归类为「直映保留」，不重复桥接 |
 | C39 finalizer | 占 CS2J5200-5219 | 码位避让，无共享逻辑 |
-| C36 防线 | CS2J0585 静态抽象盘点/拒绝 | 见 §2 决策 12，只跳过引用 |
+| C36 防线 | CS2J0585 静态抽象盘点/拒绝 | 见 §2 决策 13，只跳过引用 |
 | C20 partial merge | 合并后单一类型声明 | C46 须晚于 C20（结论见 §3.3） |
 
 ### 1.4 硬不变式
@@ -124,7 +124,7 @@ class Derived : Base {
 
 | # | 决策点 | 结论 | 依据/备注 |
 |---|---|---|---|
-| 1 | ★显式实现的命名规则 | **接口槽位方法保留规范名、让位者改名**：`void IFoo.Foo()` → `public void Foo()`；属性/索引器/事件经 C11–C14 已为 `get_X/set_X`、`GetItem/SetItem`、`AddXxxListener/RemoveXxxListener`，消限定名后**沿用不动**。仅当类自身存在同名同槽成员（或同槽被占）时，**让位的类成员**改名 `{Name}_cs2jClass`，接口实现体占规范名 | 否决 `IFoo_Foo` 前缀式：Java 接口要求实现方法恰为槽位名，前缀名不满足接口、还需再发委托壳，两层名字；让接口实现占规范名则调用点改动最小，且与现转换器补丁方向一致（接口 getName 标准名、类成员 `getName$Class`）。`$Class` 中的 `$` 替换为 `_cs2jClass`：合法 C# 标识符、族内 `__cs2j` 惯例同构、进共享命名预留表防撞；终命名由 JK-1 链尾兜底 |
+| 1 | ★显式实现的命名规则 | **接口槽位方法保留规范名、让位者改名**：`void IFoo.Foo()` → `public void Foo()`；属性/索引器/事件经 C11–C14 已为 `get_X/set_X`、`get_Item/set_Item`、`add_Xxx/remove_Xxx`，消限定名后**沿用不动**。仅当类自身存在同名同槽成员（或同槽被占）时，**让位的类成员**改名 `{Name}_cs2jClass`，接口实现体占规范名 | 否决 `IFoo_Foo` 前缀式：Java 接口要求实现方法恰为槽位名，前缀名不满足接口、还需再发委托壳，两层名字；让接口实现占规范名则调用点改动最小，且与现转换器补丁方向一致（接口 getName 标准名、类成员 `getName$Class`——**待核实**：当前树 src 无该生成，见 §1.1① 注）。`$Class` 中的 `$` 替换为 `_cs2jClass`：合法 C# 标识符、族内 `__cs2j` 惯例同构、进共享命名预留表防撞；终命名由 JK-1 链尾兜底 |
 | 2 | 同名不同接口 `IA.F()/IB.F()` | ① 两实现体**同源/等价**（同一隐式实现、或二者皆纯转发同一成员）→ 合并为一个 public `F()` 满足双接口；② **实现体分歧 → CS2J5191，plan 原子跳过**（v1 不做适配类模拟）；③ 仅一个显式实现而另一接口本就由同一槽隐式满足 → 常规提升即可 | Java 一个类只能有一个 `f()` 槽位，无法对 IA/IB 分派两个方法体；分歧实现是真实语义差（C# 接口映射按引用静态类型选体），只能人工重构。同源判定用符号绑定 + 体归一化比较，保守分歧（拿不准）按②处理 |
 | 3 | 访问级别 | 显式实现消限定名时**一律提升 public**：无修饰符/原 private 形态 → public；访问器跟随 C11–C12 已定的方法可访问性；`internal` 维持现状映射（internal→public 既有先例） | Java 接口方法必须 public；C# 显式实现本就只能经接口引用访问，提升 public 不放大任何「经类型名的新调用能力」之外的语义，改名/接口检查由调用点重写保住 |
 | 4 | ★调用点重写范围（SI） | 以 `SemanticModel.GetSymbolInfo/GetOperation` 绑定的符号为准分五类：**(a)** 接收者静态类型为接口（含接口变量、参数、字段）→ 绑接口槽位符号，**不动**；**(b)** 泛型约束 `T : IFoo` 的 `t.Foo()` → 接口分派，不动；**(c)** `((IFoo)x).Foo()`/`(x as IFoo)?.Foo()`/is 模式后调用 → 绑接口槽，不动（仅清理因形态需要的多余强转）；**(d)** 绑定到**让位类成员符号**的调用（接收者静态类型为实现类/派生类）→ 改 `{Name}_cs2jClass`；**(e)** `base.Foo()`/this 内直连 → 按绑定符号归 (d) 或不动 | 禁止按接收者语法文本/名字猜分派；泛型接口用 `ExplicitInterfaceImplementations[0].ContainingType` 的符号同一性判定，**不沿用** [IndexerTransformer.GetExplicitInterfaceType:246-253](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/IndexerTransformer.cs#L246-L253) 的简单名文本匹配。方法组/委托绑定同 (d) 规则改写 |
@@ -166,12 +166,12 @@ class Derived : Base {
 
 ### 3.1 现状（已核实）
 
-[PassStubCatalog.cs:192-201](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L192-L201)：id `member-desugar`、Stage=`Declarative`、Status=`Stub`、默认关、RunAfter=`{struct-value-semantics, closure-lift}`、`catalogItems="C11, C12, C13, C14, C27, C39, C46"`——**C46 已在字符串中**，本任务不编辑该文件。C11 翻转时该 stub 条目删除、Implemented 描述符 CatalogItems 收窄为 `"C11"`（C11 §3.3），后续条目按合入序追加；C46 合入时追加 `"C46"`（一行字符串，预期协调点）。
+member-desugar 现为 Implemented 描述符：[PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)，id `member-desugar`、Stage=`Declarative`、Status=`Implemented`、默认关、RunAfter=`{struct-value-semantics, closure-lift}`、`catalogItems="C11"`——**C46 不在当前字符串中**（撰写时该 stub 位于 PassStubCatalog.cs、catalogItems 含 C46；C11 翻转后 stub 删除、CatalogItems 收窄为 `"C11"`，与 C11 §3.3 一致），本任务不编辑该文件；C46 合入时追加 `"C46"`（一行字符串，预期协调点）。**2026-09-30 勘误**：catalogItems 当前真值已变为 `"C11, C12, C13, C14"`（维护者合并 C12–C14 后已对齐），C46 合入时须在此真值上追加为 `"C11, C12, C13, C14, C46"`，勿回退 C12–C14。
 
 ### 3.2 本任务的注册姿态
 
 - **不注册/不翻转**：Signatures 是族内规则集，经 C11 建立的 `[MemberDesugarRule]` 程序集发现自动装配，不新增 pass、不新增适配器、不改 [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) switch、不增 CLI 开关；选项走族 options 子节 `rules.signatures`，经通用 `preprocess --pass member-desugar` 与 convert-project 链透传（同 C27 §5）。
-- **代码落位**：`src/CSharpToJava.Core/MemberDesugar/Signatures/`（C11 §4.1 已预留 `MemberDesugarKind.Signature`，[c11 设计:184](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L184-L184)）。
+- **代码落位**：`src/CSharpToJava.Core/MemberDesugar/Signatures/`（C11 §4.1 已预留 `MemberDesugarKind.Signature`，[c11 设计:186](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L186-L186)）。
 - **码位确认**：占 **CS2J5190-5199**（C11 §11 预留建议、C27 §11 明确「5190-5199 建议归 C46」、C39 占 5200-5219、C27 占 52xx）。本文档确认该段位，不挤占他条。
 - **实施前提**：base 须在 C11 分支合入之后（§12）；M2 方法面以 C11 已合为最低条件，属性/索引器/事件面（M3）分别等待 C12/C13。
 
@@ -214,7 +214,7 @@ src\CSharpToJava.Core\MemberDesugar\
       CrPlan.cs / CovariantBridgeRewriter.cs   # CR-1 审计 / CR-2 桥接合成 / CR-3 报码
 ```
 
-共享根目录 9 文件**只读引用**（C11 所有权表）：复用 `MemberDesugarAnalyzer` 的编译绑定与站点枚举入口、`MemberDesugarPlan` 基类（Id/Kind/Symbol/Outcome/TouchedFiles/OwnsTouch/Fail*）、`BackingFieldNaming` 跨规则命名预留表（登记 `_cs2jClass/_cs2jNew/_cs2jCovariant` 新名防撞）、`AccessorsToMethods`（修饰符/public 提升骨架）、`MemberDesugarSyntaxFacts`（RewriteAnnotation、表达式树包含、dynamic、临时提升、FormatAndValidate）、族回退迭代器。确需放宽 internal 可见性只改可见性，由 C11–C13 既有单测守门。
+共享根目录 8 文件**只读引用**（C11 所有权表；2026-09-30 复核：AccessorsToMethods、BackingFieldNaming、MemberDesugarAnalyzer、MemberDesugarModels、MemberDesugarPlan、MemberDesugarPreprocessor、MemberDesugarRules、MemberDesugarSyntaxFacts）：复用 `MemberDesugarAnalyzer` 的编译绑定与站点枚举入口、`MemberDesugarPlan` 基类（Id/Kind/Symbol/Outcome/TouchedFiles/OwnsTouch/Fail*）、`BackingFieldNaming` 跨规则命名预留表（登记 `_cs2jClass/_cs2jNew/_cs2jCovariant` 新名防撞）、`AccessorsToMethods`（修饰符/public 提升骨架）、`MemberDesugarSyntaxFacts`（RewriteAnnotation、表达式树包含、dynamic、临时提升、FormatAndValidate）、族回退迭代器。确需放宽 internal 可见性只改可见性，由 C11–C13 既有单测守门。
 
 ### 4.2 SignatureExplicitizationAnalyzer（整树一次）
 
@@ -306,7 +306,7 @@ src\CSharpToJava.Core\MemberDesugar\
 内联源码 → CSharpCompilation → Bind/RewriteFile → 忽略空白断言 + `AssertOutputCompiles` + 二次执行零 diff：
 
 1. **显式接口方法**：无碰撞 `void IFoo.Foo()` → `public void Foo()`，无修饰符→public；接口引用调用保持、类引用调用经接口形态验证；显式 + 类自有同名两体（接口体占槽位名、类成员 `Foo_cs2jClass`、两类静态类型调用点各归各位）；同名双接口 `IA.F()/IB.F()` 体等价合并、体分歧 CS2J5191；泛型接口 `IFoo<int>.Bar`/`IFoo<string>.Bar`；多接口一次实现（单 public 方法满足双接口，调用两接口引用均通）；接口重新实现（B 显式实现、D 重列 IFoo 并提供新版）；`((IFoo)x).`/`as`/`is`/约束 `T:IFoo` 五类接收者；方法组 `Action a = c.Foo` 绑定分类；跨文件接口+实现+调用三文件联动。
-2. **属性/索引器/事件显式实现**：消费 C11–C13 产物（`IFoo.get_X`、`IFoo.GetItem`、`IFoo.AddXxxListener`）做 SI-1/2/5；显式事件后备存储不重复发射（对齐 [InterfaceEventListenerNamingTests:74-93](file:///d:/code/cs2j/tests/CSharpToJava.Tests/InterfaceEventListenerNamingTests.cs#L74-L93)）；与 C12 多维索引器共处；未启用对应访问器规则时仅登记 Info 不产 plan（决策 16）。
+2. **属性/索引器/事件显式实现**：消费 C11–C13 产物（`IFoo.get_X`、`IFoo.get_Item`、`IFoo.add_Xxx`）做 SI-1/2/5；显式事件后备存储不重复发射（对齐 [InterfaceEventListenerNamingTests:74-93](file:///d:/code/cs2j/tests/CSharpToJava.Tests/InterfaceEventListenerNamingTests.cs#L74-L93)）；与 C12 多维索引器共处；未启用对应访问器规则时仅登记 Info 不产 plan（决策 16）。
 3. **new 隐藏**：方法 `new`（有/无令牌两种）基类引用调基槽、派生引用调新名（.NET 行为断言）；`new virtual` 三层链两虚槽各组调用点；`new static`；纯 base 委托扩可见性 → 同名桥接 + `base.getX()` 体；属性/索引器访问器配对改名；字段隐藏；改名后 `new` 令牌已移除（无 CS0109）。
 4. **协变返回**：引用类型直映（`override Derived Clone()`）保留；泛型擦除冲突（`IEnumerable<string>` vs `IEnumerable<object>`）合成 bridge + `M_cs2jCovariant`，基/派生两静态类型调用点分别断言返回运行时类型；sealed override；C27 `Cs2jWithClone` 对固定 Retained 不重复桥；值类型卷入 CS2J5195；不可桥重载撞车 CS2J5196。
 5. **闸门/边界**：表达式树内显式接口调用 CS2J5194 整 plan 不动；dynamic CS2J5194；`GetInterfaceMap`/`GetMethod("IFoo.Foo")` CS2J5193 站点保留；`nameof(IFoo.Foo)` 字面量化；静态抽象 CS2J5198；构造函数 `new` 不误伤；普通 virtual/override/运算符零误伤；干净文件字节一致 + BOM；幂等（bridge/改名二次运行零 diff）。
@@ -371,7 +371,7 @@ src\CSharpToJava.Core\MemberDesugar\
 6. **与 C02 泛型深化的哨兵/擦除交互**：CR-2 bridge 新增 override 方法，C02 的 override 兄弟 `__cs2j_typeof_T` 哨兵同步（[c02 设计决策 5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c02-generic-deepen-design.md)）须把两个槽位都视作 override 族；擦除改名归 C02/JK 既有 `_erasure_N`，C46 不重复发明。缓解：链位上 generic-deepen 远早于 member-desugar，C46 消费其产物；bridge 形态单测显式含泛型返回 + token 场景。
 7. **规则相位/回环**：SI 改名后 NH 再扫到新名成员、CR bridge 新方法被 SI 认领。缓解：相位固定 SI→NH→CR + RewriteAnnotation/已生成符号不认领谓词；幂等零 diff 硬测。
 8. **默认关期补丁漂移**：转换器三处零散分支继续演进会与本设计目标分叉。缓解：不改不删但以红灯对照表锁定行为预期；消费 PR 是 §8 硬门禁，不靠「碰巧能编译」长期并存（风险 10 多套事实标准）。
-9. **C11–C13 合入节奏依赖**：M3 被 C12/C13 阻塞；其规则输出形态（`IFoo.GetItem` 等）若调整，SI 输入契约变。缓解：M2 只做方法面先收口最大缺口；输入契约以 C11–C13 文档引用名为准，规则对「仍是访问器语法」形态只登记不产 plan。
+9. **C11–C13 合入节奏依赖**：M3 被 C12/C13 阻塞；其规则输出形态（`IFoo.get_Item` 等）若调整，SI 输入契约变。缓解：M2 只做方法面先收口最大缺口；输入契约以 C11–C13 文档引用名为准，规则对「仍是访问器语法」形态只登记不产 plan。
 
 ---
 
@@ -383,10 +383,10 @@ src\CSharpToJava.Core\MemberDesugar\
 - **C27 clone 协变**：`Cs2jWithClone` virtual/override 对固定归 CR-1；C27 占 52xx 码位互不重叠；两规则同经族执行器，C27 先于 CR 相位（Records 规则产工厂、CR 只审计）。
 - **C36 static abstract**：CS2J0585 是唯一错误码，C46 只发 CS2J5198 Info；若 C36 未翻转，静态抽象成员原样留树（行为同今天）。
 - **C39 终结器**：5200-5219 码位已占，无逻辑交集。
-- **JK 改名表（C08 终环）**：`_cs2jClass/_cs2jNew/_cs2jCovariant` 新名若撞 Java 保留字由 JK-1 统一逃逸（JK-1 改名种类含普通方法与显式接口实现，[jk 设计 §4.2](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md#L137-L157)）；C46 不自做终命名；JK-4c 多候选方法组反查规则同样适用于本规则的改名站点。
+- **JK 改名表（C08 终环）**：`_cs2jClass/_cs2jNew/_cs2jCovariant` 新名若撞 Java 保留字由 JK-1 统一逃逸（JK-1 改名种类含普通方法与显式接口实现，[jk 设计 §4.2](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md#L152-L166)）；C46 不自做终命名；JK-4c 多候选方法组反查规则同样适用于本规则的改名站点。
 - **C02 泛型 override**：见风险 6；泛型构造映射（决策 5）的擦除结论以 C02 输出树为事实源，C46 只做接口槽同一性判定。
-- **热文件**：本任务**不碰** [ClassTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs)（MemberKey:303-308 与去重:540-545 留待消费 PR 在预处理输入不可达后简化）、不碰注册表/链序文件（CatalogItems 追加 C46 是合入时唯一一行协调，与 C12/C13/C27/C39 同列）；全部新代码在 `MemberDesugar/Signatures/` 与自有测试/fixture 文件内。
-- **转换器消费 PR（默认开门禁，非本特性）**：MethodTransformer new→Override 错映（:166）、显式实现 public/命名、Property/Indexer/Event 三补丁退役、`getName$Class`/`_newSlot` 特例下线——统一登记为 §8-3 后续工作单，与 C11 §5.3/C27 §5.4 消费清单合并管理。
+- **热文件**：本任务**不碰** [ClassTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs)（MemberKey:303-308 与去重:539-544 留待消费 PR 在预处理输入不可达后简化）、不碰注册表/链序文件（CatalogItems 追加 C46 是合入时唯一一行协调，与 C12/C13/C27/C39 同列）；全部新代码在 `MemberDesugar/Signatures/` 与自有测试/fixture 文件内。
+- **转换器消费 PR（默认开门禁，非本特性）**：MethodTransformer new→Override 错映（:166）、显式实现 public/命名、Property/Indexer/Event 三补丁退役、`getName$Class`（待核实，当前树未见）/`_newSlot` 特例下线——统一登记为 §8-3 后续工作单，与 C11 §5.3/C27 §5.4 消费清单合并管理。
 
 ---
 
@@ -405,7 +405,21 @@ git worktree add .worktrees/preproc-c46-member-signature -b feature/preproc-c46-
 
 ---
 
-## 附：关键开放问题（供评审拍板）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **命名规则**：采纳推荐——**接口槽位保留规范名 + 让位/隐藏成员单下划线后缀改名**（`Foo_cs2jClass`/`Foo_cs2jNew`/`M_cs2jCovariant`，预留表防撞）；**否决** `NewX` 前缀（破坏 get_/set_ 配对且可撞用户名）与 `IFoo_Foo` 前缀式（迫使接口实现再发委托壳）。族内 `__cs2j` 双下划线旧风格（含 E11 现存 `WithXxx__cs2j`）在族命名收口 PR（默认开前）统一改为单下划线，与 C11/C27 惯例拉齐，不再新增任何双下划线名。
+2. **同名双接口分歧终局**：v1 对同签名分歧实现发 **CS2J5191 硬错**（保 `is IA`/`is IB` 身份不变式，不静默选边）；未来"显式适配对象 + 调用点包装"只允许作为用户**显式 opt-in 的 force 档**，诊断/文档必须明示其改变 `is IA` 可观察结果，禁止自动适配。
+3. **规则排序契约**：采用**族执行器按 Kind 分相**（Signatures 晚于访问器四类），不用全局 Order 区间表达；由 **C11 锚点实现分相机制**，从而允许**方法面在 C12/C13 未合时独立交付**（M2 解耦的关键），C46 M1 开工前以 C11 锚点实际管线形状验证分相可用。
+4. **CR-2 泛型桥接默认范围**：**M4 两部分同时做**——引用类型实参泛型协变桥接 + 与 C02 哨兵/token 交互的复杂形态；复杂形态不跳过而是 **CS2J5196 降 Warning 并继续生成保守桥**（保全覆盖、画像驱动后续精度），范围依据 M1 sdk 擦除冲突协变命中率微调但不缩减交付面。
+5. **NH-3 纯委托桥等价性边界**：**限制为白名单形态**——仅"基类在编译内**且**槽位为 sealed 或基类链上无任何覆写"时发同名 public 桥；基类在编译外、非 sealed 且存在第三方派生覆写可能的形态发显式诊断不桥接（第三方派生使虚覆写矩阵不可证等价），白名单判据进整树分析器与单测。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **命名规则**：推荐「接口槽位保留规范名 + 让位/隐藏成员后缀改名」（`Foo_cs2jClass`/`Foo_cs2jNew`/`M_cs2jCovariant`，预留表防撞）；备选 `NewX` 前缀或 `IFoo_Foo` 前缀式（前者破坏 get_/set_ 配对且可撞用户名，后者迫使接口实现再发委托壳）。后缀词汇（`_cs2jClass` vs 族内 `__cs2j` 双下划线风格）需与 C11/C27 命名惯例统一。
 2. **同名双接口分歧实现的终局**：v1 推荐 CS2J5191 硬报码（保身份不变式）；是否接受未来以「显式适配对象 + 调用点包装」作为 force 选项（改变 `is IA` 结果，须用户知情）。

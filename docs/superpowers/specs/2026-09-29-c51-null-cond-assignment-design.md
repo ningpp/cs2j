@@ -3,7 +3,7 @@
 **日期**: 2026-09-29
 **范围**: 在 C35 落地的 `src/CSharpToJava.Core/ExpressionDesugar/NullConditional/` 目录内新增 `Assignment/` 子规则，把 C# 14 空条件赋值（成员 `a?.b = c`、索引 `a?[i] = v`、全部复合赋值 `a?.b += c`、含 `a?.b ??= c`、链式 `a?.b?.c = d`、结果被消费的值形态 `return a?.b = c`）在 C# 层归一为「段临时变量 + `if` 守卫语句 / null 三元」，保持接收者**严格单次求值**且 **RHS 与索引实参仅在接收者非 null 时求值**。不新增 pass、不翻转 stub、不改任何 C#→Java 转换代码
 **状态**: 设计已确认，待实施（硬依赖 C23 锚点与 C35 分支先合入；M0 Roslyn 探针为开工前置）
-**注册表**: 不新增条目；沿用 stub `expression-desugar`（[PassStubCatalog.cs:239-248](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L239-L248)，catalogItems `"C23, C24, C35, C36"` 已含 C35 与本项的编号位）。C51 落地时把 C35 已加宽的同一描述符 catalogItems 再追加为 `"C23, C35, C51"`（[C35 §3.1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c35-null-conditional-design.md#L94-L99) 同一描述符、同一字符串的第二次加宽）
+**注册表**: 不新增条目；沿用 stub `expression-desugar`（[PassStubCatalog.cs:217-226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)，catalogItems `"C23, C24, C35, C36"` 已含 C35 与本项的编号位）。C51 落地时把 C35 已加宽的同一描述符 catalogItems 再追加为 `"C23, C35, C51"`（[C35 §3.1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c35-null-conditional-design.md#L94-L99) 同一描述符、同一字符串的第二次加宽）
 **base**: `9b99c60b33980c3c351b70d6b99e6b4bf57b30ae`（`docs: C46 成员签名显式化设计`，2026-09-29 已 `git rev-parse --verify` 校验存在；实施前先合入 C23+C35 分支，见 §12）
 
 ---
@@ -21,9 +21,9 @@ C35（[2026-09-29-c35-null-conditional-design.md](file:///d:/code/cs2j/docs/supe
 | # | 站点 | 现状行为 |
 |---|---|---|
 | A1 | 整节点按 `ConditionalAccessExpression` 分派到 [ControlFlowTransformer.cs:314-337](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L314-L337)：`TransformConditionalAccess` 无脑产 `(obj != null ? whenNotNull : null/false/0)`；`whenNotNull` 交 facade | 空条件赋值在 Roslyn 语法树里整节点仍是 ConditionalAccess（§1.3 形态 F1），WhenNotNull 是 AssignmentExpression，被嵌进三元真分支文本；不产守卫语句，成员路径还丢失接收者（见 A2） |
-| A2 | `ExpressionTransformerFacade.TransformWhenNotNull`（[ExpressionTransformerFacade.cs:96-388](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L96-L388)）**无 AssignmentExpression 分支**（全方法 grep `Assignment` 零命中），落入 [L383-387](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L383-L387) 默认 `Transform(expr)` | `a?.b = c` 的 WhenNotNull 交给 [AssignmentTransformer.cs:44-77](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs#L44-L77)；其属性路径仅在 `a.Left is MemberAccessExpressionSyntax ma`（[L84](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs#L84)）时取接收者，而此处左值是 `MemberBindingExpressionSyntax` → 产无接收者的 `setX(c)` 文本；索引路径要求 `ElementAccessExpressionSyntax`（[L63](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs#L63)），而此处是 `ElementBindingExpressionSyntax`（读侧 `?[]` 已确认零分支、测试以 TODO 锁定，[NullableTests.cs:25-31](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/NullableTests.cs#L25-L31)）→ TODO 注释进 Java |
+| A2 | `ExpressionTransformerFacade.TransformWhenNotNull`（[ExpressionTransformerFacade.cs:96-388](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L96-L388)）**无 AssignmentExpression 分支**（全方法 grep `Assignment` 零命中），落入 [L383-387](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L383-L387) 默认 `Transform(expr)` | `a?.b = c` 的 WhenNotNull 交给 [AssignmentTransformer.cs:43-76](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs#L43-L76)；其属性路径仅在 `a.Left is MemberAccessExpressionSyntax ma`（[L83](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs#L83)）时取接收者，而此处左值是 `MemberBindingExpressionSyntax` → 产无接收者的 `setX(c)` 文本；索引路径要求 `ElementAccessExpressionSyntax`（[L62](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs#L62)），而此处是 `ElementBindingExpressionSyntax`（读侧 `?[]` 已确认零分支、测试以 TODO 锁定，[NullableTests.cs:25-31](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/NullableTests.cs#L25-L31)）→ TODO 注释进 Java |
 | A3 | 语句层：`a?.b = c;` 外层是 CA 不是 Assignment，[StatementTransformer.ExpressionAndReturn.cs:58](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L58) 的赋值快路径不命中，走 `TransformConditionalAccessStatement`（[L317-361](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L317-L361)）拼 `if (obj != null) { … }` | 守卫骨架巧合正确，但块内仍是 A2 的错误目标文本；RHS 条件求值在字符串拼装路径下碰巧落在真分支内（Java 三元/if 惰性），属偶然保真而非设计 |
-| A4 | E03 对 `a?.b ??= c` 的**具体破坏路径**（本任务新核实，§3.4 升级为硬依赖）：[NullCoalesceSyntaxRewriter.cs:133-218](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L133-L218) `VisitAssignmentExpression` 不检查祖先，默认遍历会进入 CA.WhenNotNull 内的 CoalesceAssignment；左值是 MemberBinding（非 Identifier），走成员路径产 `var ___tN = .b;` 与 `if (___tN == null) { .b = c; }`，并把 **IfStatement 返回到表达式槽位** | C# 14 合法输入（§1.3 形态 F7）经 E03 后成不可编译/结构损坏中间树；C35 §3.4 原把 E03 guard 列为「可选小补丁」，C51 必须将其升级为硬前置或自备形状防御（§3.4、§10 R3） |
+| A4 | E03 对 `a?.b ??= c` 的**具体破坏路径**（本任务新核实，§3.4 升级为硬依赖）：[NullCoalesceSyntaxRewriter.cs:133-219](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L133-L219) `VisitAssignmentExpression` 不检查祖先，默认遍历会进入 CA.WhenNotNull 内的 CoalesceAssignment；左值是 MemberBinding（非 Identifier），走成员路径产 `var ___tN = .b;` 与 `if (___tN == null) { .b = c; }`，并把 **IfStatement 返回到表达式槽位** | C# 14 合法输入（§1.3 形态 F7）经 E03 后成不可编译/结构损坏中间树；C35 §3.4 原把 E03 guard 列为「可选小补丁」，C51 必须将其升级为硬前置或自备形状防御（§3.4、§10 R3） |
 
 ### 1.3 ★官方限制集核实结果（2026-09-29 核；**两处推翻任务假设**）
 
@@ -116,7 +116,7 @@ C35（[2026-09-29-c35-null-conditional-design.md](file:///d:/code/cs2j/docs/supe
 
 链序事实：expression-desugar（Expression 阶段，null-coalesce 之后）远早于 numeric-boundary（unsigned 之后，C17 [§3.1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c17-increment-target-design.md#L115-L120)）。
 
-1. `a?.b += c`：C51 先变 `if (__ed_s0 != null) __ed_s0.b += c;`——守卫体内是**普通属性复合赋值**；C17 之后按其 IT-1 决策对属性目标做读-改-写展开时，节点位于普通 if 块内，其「条件执行祖先/锚点可行性」分析（[C17 §4.2](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c17-increment-target-design.md#L166-L196)）把它当普通块内语句处理即可，无需感知 `?.`。
+1. `a?.b += c`：C51 先变 `if (__ed_s0 != null) __ed_s0.b += c;`——守卫体内是**普通属性复合赋值**；C17 之后按其 IT-1 决策对属性目标做读-改-写展开时，节点位于普通 if 块内，其「条件执行祖先/锚点可行性」分析（[C17 §4.2](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c17-increment-target-design.md#L171-L201)）把它当普通块内语句处理即可，无需感知 `?.`。
 2. `a?.b++` 非法（F5），故 C17 TargetKind.Conditional（其 Analyzer 表中「`?.` 条件访问目标 → CS2J5339 指路 C35」）在 C# 14 输入下对 `++/--` 不可达；C17 保留该指路作为旧 LangVersion/防御面，两族无代码依赖。
 3. 用户定义复合赋值运算符（C52②、C17 决策 11，C# 14 `op_Checked...` 新形态）：C51 产物 `__ed_s0.b += c` 留在守卫体内，C17 查 SemanticModel 显式复合运算符的路径不变；RHS `c` 已被守卫保护，符合「仅非 null 时求值右操作数并执行用户运算符」。
 4. get/set 次数：C51 不拆复合，C17/属性方法化各做一次 get + 一次 set，全链恰好各一（NA-INV-3 探针在 C17 合入前后两态各跑一次）。
@@ -318,7 +318,7 @@ M0–M2 全程 `DefaultEnabled=false`（随族）；每个里程碑自身 Releas
 |---|---|---|---|
 | R1 | **★RHS/索引实参被提前求值（最高发语义错误）**：把 RHS 提为守卫外临时、或在 Analyze 阶段提前渲染实参，都会让 null 接收者时发生可观察调用 | F6；任务书点名 | Emitter 节点原样置于块内/真分支，禁止 RHS 走 PendingTemp；§7.1-2/3 计数探针 null 盘零调用为硬验收；review 清单单列 |
 | R2 | **语法树外形随预览版漂移**：F1 经规范定形，但 4.12.0 若仅部分支持，可能出现 token 挂位差异/skipped tokens | §1.4 | M0 先行钉死；Facts 单入口适配；不识别即 0569 不猜测；包升级评审与 C52 同批 |
-| R3 | **E03 损坏 `?. ??=` 组合（A4）**：已在代码级证实访问路径会产出裸 MemberBinding 的 if/声明 | [NullCoalesceSyntaxRewriter.cs:133-218](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L133-L218) | guard 小 PR 列为 M1 合并前置（C35 已建提案）；C51 形状探测 0569 双保险；四象限测试锁 |
+| R3 | **E03 损坏 `?. ??=` 组合（A4）**：已在代码级证实访问路径会产出裸 MemberBinding 的 if/声明 | [NullCoalesceSyntaxRewriter.cs:133-219](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L133-L219) | guard 小 PR 列为 M1 合并前置（C35 已建提案）；C51 形状探测 0569 双保险；四象限测试锁 |
 | R4 | **与 C12/C17 顺序假设破裂**：注册表未来重排（member-desugar 提前，见 C17 §3.3 同源议题）可能让方法化先于守卫 | §3.3/§3.4 论证依赖链序事实 | C51 两序不等价（C12 无法方法化 ElementBinding）——在 C35/C51 默认开评审中把「expression-desugar 先于 member-desugar」登记为硬链序约束，必要时补 RunAfter 边（届时单提案）；联合 fixture 守门 |
 | R5 | **值类型接收者形态误判**：record struct 移交路径依赖 CA 节点在位（0562），普通 struct 误产 `.Value.X=` 即 CS1612 | F9；C35 R4 | 只取 SemanticModel 类型判定；禁发明 `.Value` 赋值；0561/0562 分流测试随 C35 联合 fixture |
 | R6 | **链式目标的段序/嵌套块错误**：M7/M8 被任务书预设为非法，若按非法实现会拒绝合法 C# 14 代码 | F3 规范示例 | 本设计已按合法实现；M0 复核 `a?.b.c=d` 诊断；嵌套 if/三元模板 NA-4 与规范逐格对齐 |
@@ -356,7 +356,21 @@ git worktree add .worktrees/preproc-c51-null-cond-assignment -b feature/preproc-
 
 ---
 
-## 附：关键开放问题（实现前/默认开前需评审确认）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持本文 §12 登记的自有 base `9b99c60b`（不改动），创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+- **Q1 值形态产物**：采用**规范最简三元形（NA-5）** `__ed_s0 != null ? __ed_s0.b = c : (T?)null`，**不切换**锚点块形态；可读性差不构成语义理由，且锚点块重度依赖 PendingAnchorReplacement、临时密度更高。默认开前不再就此翻案，除非画像出现 NA-5 形被后续 pass 错误处理的实证缺陷。
+- **Q2 兄弟副作用精确顺序**：确认 **C51 不单独立项**，挂 **C35 Q2 统一裁决**——段临时前置相对同句前序实参仅保 parity（E03 现状），不做语句分裂精确保序；C35 Q2 收口时 C51 同形受益、同批验证。
+- **Q3 值类型接收者终态**：跟 **C35 Q3 同决策**——record struct 维持 0562 移交；**M3 随 C35 一并自降 `HasRequirements`/块临时回写收编普通 struct**（0561 面缩小），本规则不提前单独收编，M3 交付面含 C51 普通 struct 条件赋值夹具。
+- **Q4 NA-6 内层临时命名**：短期统一采用族内 **`__ed_nN`**（否决沿用 E03 `___tN`——新代码不再扩散旧序号风格）；待三套 lifter 上收 `SingleEvaluationTempLifter`（C35 Q1② 技术债）时**统一改名为 `_cs2j…` 口径**并一次性消序号避让，上收 PR 前 `__ed_nN` 为唯一合法新名。
+- **Q5 Roslyn 升级范围**：与 **C52 联合评审**——M0 判定 4.12.0 不支持时，升级目标取 **.NET 10 GA 对应包**（不吃 Preview），同批纳入 C49/C50 的 C#14 探针需求；harness 解析选项（Preview vs CSharp14）由**一个统一收口 PR** 处理，C51 不自升包版本、不自改解析选项。
+
+---
+
+### 原问题记录（裁决前）
 
 - **Q1 值形态的产物形态选择**：规范值形态 `__ed_s0 != null ? __ed_s0.b = c : (T?)null` 最省临时（NA-5 默认），但赋值表达式嵌三元可读性较差；备选是统一锚点块 + 结果临时（`T? __ed_r; if (...) __ed_r = __ed_s0.b = c; … return __ed_r;`，重度使用 PendingAnchorReplacement）。M1 按规范最简形实现，默认开前按画像可读性评审是否切换。
 - **Q2 兄弟副作用精确顺序**：与 C35 Q2 同源——段临时前置相对同句前序实参的次序仅保 parity（E03 现状），不做语句分裂精确保序；确认 C51 不单独立项，挂 C35 Q2 统一决策。

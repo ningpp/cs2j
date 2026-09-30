@@ -2,21 +2,35 @@
 
 **日期**: 2026-09-29
 **范围**: 新增注册表 pass `concurrency-normalize`（Core `ConcurrencyNormalize\` + CLI `Preprocessing/Adapters/ConcurrencyNormalizePassAdapter.cs`），把 `Monitor.Enter/TryEnter/Exit/Wait/Pulse/PulseAll` 显式调用归一为**可编译、可在 .NET 半区跑并发测试验证语义**的规范 C# 形态；`lock` 语句与 `volatile` 字段的直映路径 v1 不动；实施 PR 不改 C#→Java 转换器，Java 半区桥接（TypeMappings + compat `Monitor.java` 真实化）列为后续 PR
-**状态**: 设计已确认，待实施（P3 观察项，建议长期 opt-in，论证见 §8）
-**Catalog**: C29（P3 观察项，分类 1.5 并发）；[preprocessor-catalog.md L602-L613](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L602-L613)；§3.3「可与 C09 合并评估为并发归一单通道」（[L910](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L910)）；§4 风险 12「静默错误输出」族（[L931](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931)）
-**注册表现状**: stub 已登记——[PassStubCatalog.cs L269-L280](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L269-L280)，id `concurrency-normalize`，Stage=`Declarative`，RunAfter=`eliminate-goto`，目录 `.cs2j-concurrency-normalize-src`，默认关；且 [PassCatalog.cs L229](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L229) 的 JavaKeywords 描述符已把该 stub id 收进 RunAfterIds，链上锚点事实存在
+**状态**: 设计已确认，待实施（P3 观察项，建议长期 opt-in，论证见 §8）；**2026-09-29 磁盘复核（HEAD `ef70e5a2`）：`concurrency-normalize` 仍为 stub，预处理层零实现，无「部分已实现的同名 pass」（见文首校订结论 1）**
+
+> **校订（2026-09-29）**——本次只做证据核对与行号/事实订正，未改任何代码、注册表与 catalog：
+>
+> 1. **实现结论（首要）**：按当前磁盘（HEAD `ef70e5a2`）逐文件复核，`concurrency-normalize` **仍是 [PassStubCatalog.cs L247-L258](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L247-L258) 的 stub，不存在「concurrency-normalize 已 Implemented」与「lock-normalize stub」两条重叠注册**：[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) Implemented 表无该条目；`src/CSharpToJava.Core/ConcurrencyNormalize/` 目录、CLI `Adapters/ConcurrencyNormalizePassAdapter.cs`、`PassChainFactory` switch 臂、Core/fixture 测试**全部不存在**（全仓 grep 零命中，21 个适配器无该族）；全仓亦**从无 `lock-normalize` id**（[PassStubCatalog.cs L110-L119](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L110-L119) 实为 VarianceAudit/C33）。C29 在预处理层零实现，状态维持「设计定稿、待实施」；已存在的仅是转换器老直映（`lock`/`volatile`）与 compat/映射吸收（Interlocked/Thread）+ 死壳 `Monitor.java`，逐项见 §1.1。
+> 2. **注册表行号重锚**：stub 块 L247-L258（原引 L269-L280），id 常量在 [L42](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L42)（原引 L44），晚锚注释 L254-L255（原引 L276-L278）；JavaKeywords 尾锚块 [PassCatalog.cs L251-L257](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L251-L257)（concurrency 锚点 [L255](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L255)，原引 L229）；stub 表现共 **21** 条。
+> 3. **翻转叙述统一为 IteratorLowering 先例**：id 常量**留在 `PassStubCatalog.Ids` 不迁 `PassIds`**（先例：描述符 [PassCatalog.cs L210](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L210)、工厂 [PassChainFactory.cs L81/L227-L228](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L81-L81)、链序测试 [PassChainOrderTests.cs L36](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L36) 均引用 `PassStubCatalog.Ids.IteratorLowering`）；尾锚符号翻转时**无需改**（§3.1/§3.2/M2 已同步订正，原「迁常量 + 换锚点符号」说法作废）。
+> 4. **catalog 链接重锚**：C29 条目在 [L664-L679](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L664-L679)（原引 L602-L613）；「可与 C09 合并评估为并发归一单通道」现仅存于 C29 名称行 [L667](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L667)（§3.3 现表 [L1076-L1093](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1076-L1093) 已无 C29 行，原引 L910 失效）；§4 风险 12「静默错误输出」在 [L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110)（原引 L931）；「非失败型语义缺口」定性在 [L670](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L670)（原引 L608-L611）。
+> 5. **测试存在性订正**：lock 直映回归由两处减为**一处**——[ExtraConversionTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/ExtraConversionTests.cs) 已随 HEAD `ef70e5a2` 测试删除批次清空（现仅空类），现存 [LanguageFeatureTests.cs L11-L16](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/LanguageFeatureTests.cs#L11-L16)（`LockStatement_ConvertsToSynchronized`）；Interlocked 现存测试 3 个（[InterlockedCompareExchangeTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/InterlockedCompareExchangeTests.cs)、[InterlockedExchangeTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/InterlockedExchangeTests.cs)、[InterlockedOrCompatTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/InterlockedOrCompatTests.cs)）；**无 `LockStatement*`/`Monitor*` 命名的测试文件**（Glob 零命中），§1.1 已补证据。
+> 6. **链位补述**：member-desugar（C11/C14）已翻转，LockedChain 现为 …→eliminate-goto→**member-desugar**→java-keywords（[PassChainOrderTests.cs L18-L40](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L40)）；C29 翻转后与 member-desugar 互无 RunAfter 约束，相对次序只由注册表插入序决定，须在翻转时于 LockedChain 锁定（§3.1）。
+> 7. **零散行号订正**：volatile 发射在 [JavaMemberDeclaration.cs L57](file:///d:/code/cs2j/src/CSharpToJava.Core/Java/JavaMemberDeclaration.cs#L57)（原引 L58）；C18 锁内 await 决策 D10 在 [c18 设计 L71](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c18-async-normalize-design.md#L71)（原引 L70）；PassStage 信息性注释 [PassDescriptor.cs L3-L7](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassDescriptor.cs#L3-L7)（原引 L8-L30）；§12 当前 HEAD 改注 `ef70e5a2`（base `953293b9` 已核仍存在，worktree 命令作为计划工件保留）。
+
+> **开放问题（校订新增，待裁决，禁止以推测补码）**
+>
+> - **Q-1（同物异名/他仓落点待查）**：本次核对的输入前提称存在「`concurrency-normalize` 已 Implemented（默认关，Stage.Lexical，RunAfter 含 make-readonly/goto/ref-out-in/iterator-lowering/member-desugar/linq-channel；Core `ConcurrencyNormalize/` 7 文件 + CLI adapter）」与「`lock-normalize` stub（Stage.ControlFlow，RunAfter=foreach-deconstruction，catalogItems `C29, C46, C50 (volatile part)`）」两条——当前工作树、已注册全部 pass、全仓 grep（含 tests/）及 `.worktrees` 均无任一对应物。若该实现位于未挂载分支/下游仓，**实施前须先定位实物并裁决与本设计的关系（替代、互补或异名同物）**；裁决前注册表/catalog 一律以「单一 `concurrency-normalize` stub、catalogItems 仅 `C29`」为准。前提所提 C46（成员签名收口，catalog §3.3 属「成员去糖」族）、C50（C# 14 `field`）在现行注册表均无 volatile/C29 归属线索。
+> - **Q-2**：catalog C29 名称行保留「可与 C09 合并评估为并发归一单通道」措辞（L667），但 §3.3 合并族表已无对应行；是否在 catalog 补回评估行不影响本设计 §2.9「独立 pass」结论，仅登记叙述漂移。
+
 
 ## 1. 背景与目标
 
 ### 1.1 现状：两条直映路径可用，Monitor 显式 API 无映射且 compat 是死壳
 
-| 子项 | 现状（HEAD `5e3e796d` 逐处复核） | 判定 |
+| 子项 | 现状（HEAD `5e3e796d` 初核；2026-09-29 校订于 HEAD `ef70e5a2` 逐项重锚，存在性以当前磁盘为准） | 判定 |
 |---|---|---|
-| `lock (o) {…}` | 语句分发 [StatementTransformer.cs L52](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L52) → [TransformLockStatement L286-L293](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L286-L293)，直接发 `synchronized (expr) { body }`；有回归锁定：[ExtraConversionTests.cs L17](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/ExtraConversionTests.cs#L17)、[LanguageFeatureTests.cs L11-L16](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/LanguageFeatureTests.cs#L11-L16) | **直映可用** |
-| `volatile` 基元字段 | 修饰符直映 [FieldTransformer.cs L410](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L410) → `JavaModifiers.Volatile`（[JavaMemberDeclaration.cs L58](file:///d:/code/cs2j/src/CSharpToJava.Core/Java/JavaMemberDeclaration.cs#L58)）；非基元字段只加一行建议注释（[FieldTransformer.cs L354-L356](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L354-L356)） | **直映可用**（注释非诊断，可见性差） |
-| `Interlocked.*` | 成员映射齐（[TypeMappings.json L8131-L8161](file:///d:/code/cs2j/config/TypeMappings.json#L8131-L8161)），compat [Interlocked.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Interlocked.java) / [InterlockedHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/InterlockedHelper.java) 吸收；但另有一条类型映射 `System.Threading.Interlocked → AtomicInteger`（[L3608-L3613](file:///d:/code/cs2j/config/TypeMappings.json#L3608-L3613)）与 [L4421-L4424](file:///d:/code/cs2j/config/TypeMappings.json#L4421-L4424) 的 compat 映射**双映射并存**，M1 盘点 | **已吸收，不动**（盘点双映射） |
+| `lock (o) {…}` | 语句分发 [StatementTransformer.cs L52](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L52) → [TransformLockStatement L286-L293](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L286-L293)，直接发 `synchronized (expr) { body }`；回归测试现存**一处**：[LanguageFeatureTests.cs L11-L16](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/LanguageFeatureTests.cs#L11-L16)（`LockStatement_ConvertsToSynchronized`）；原第二处 [ExtraConversionTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/ExtraConversionTests.cs) 的 lock 用例已随 HEAD `ef70e5a2` 测试删除批次移除（该类现仅空类，校订 5） | **直映可用**（测试仅一处） |
+| `volatile` 基元字段 | 修饰符直映 [FieldTransformer.cs L410](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L410) → `JavaModifiers.Volatile`（发射点 [JavaMemberDeclaration.cs L57](file:///d:/code/cs2j/src/CSharpToJava.Core/Java/JavaMemberDeclaration.cs#L57)）；非基元字段只加一行建议注释（[FieldTransformer.cs L354-L356](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L354-L356)） | **直映可用**（注释非诊断，可见性差） |
+| `Interlocked.*` | 成员映射齐（[TypeMappings.json L8131-L8161](file:///d:/code/cs2j/config/TypeMappings.json#L8131-L8161)，CompareExchange/Exchange/Increment/Decrement 四成员），compat [Interlocked.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Interlocked.java) / [InterlockedHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/InterlockedHelper.java) 吸收；但另有一条类型映射 `System.Threading.Interlocked → AtomicInteger`（[L3608-L3613](file:///d:/code/cs2j/config/TypeMappings.json#L3608-L3613)）与 [L4421-L4424](file:///d:/code/cs2j/config/TypeMappings.json#L4421-L4424) 的 compat 映射**双映射并存**，M1 盘点；现存转换侧测试 [InterlockedCompareExchangeTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/InterlockedCompareExchangeTests.cs)、[InterlockedExchangeTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/InterlockedExchangeTests.cs)、[InterlockedOrCompatTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/InterlockedOrCompatTests.cs)（无 `LockStatement*`/`Monitor*` 专项测试，Glob 零命中） | **已吸收，不动**（盘点双映射） |
 | `Thread.MemoryBarrier/Sleep` | compat [ThreadHelper.java L55-L85](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ThreadHelper.java#L55-L85)（VarHandle 全栅栏/sleep），`System.Threading.Thread → ThreadHelper`（[TypeMappings.json L3566-L3571](file:///d:/code/cs2j/config/TypeMappings.json#L3566-L3571)） | **已吸收，不动** |
-| `Monitor.Enter/Exit` 显式调用 | **全仓零特判**（src 全目录 grep `Monitor\.` 无命中）；`System.Threading.Monitor` 在 TypeMappings.json 无类型/成员映射（grep 零命中），全仓也无 compat 通配 import。按未映射静态调用回退路径（[InvocationExpressionTransformer.cs L216-L224](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs#L216-L224)）推断产物为 `Monitor.enter(...)` 形且**无 import**，实际发射文本由 M1 探针锁定 | **缺口**（疑似 Java 编译失败；待探针确认） |
+| `Monitor.Enter/Exit` 显式调用 | **全仓零特判**（src 全目录 grep `Monitor\.` 无命中；校订于 HEAD `ef70e5a2` 复核仍零命中）；`System.Threading.Monitor` 在 TypeMappings.json 无类型/成员映射（grep 零命中），全仓也无 compat 通配 import。按未映射静态调用回退路径（[InvocationExpressionTransformer.cs L216-L224](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs#L216-L224)）推断产物为 `Monitor.enter(...)` 形且**无 import**，实际发射文本由 M1 探针锁定 | **缺口**（疑似 Java 编译失败；待探针确认） |
 | compat `Monitor.java` | [Monitor.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Monitor.java) 存在但**无任何配置引用，是死壳**；且语义错误：`enter` 空实现（[L13-L19](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Monitor.java#L13-L19)，注释自称「锁在调用方 synchronized 块获取」——手写 Enter 调用点并无该块）；`tryEnter(obj,int)` **恒返回 true**（[L51-L57](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Monitor.java#L51-L57)，超时分支永不可达）；`wait/pulse` 直接 `obj.wait()/notify()`（[L70-L90](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Monitor.java#L70-L90)），未持 intrinsic lock 时 Java 抛 `IllegalMonitorStateException` | **死壳 + 错误语义** |
 | `Monitor.TryEnter(timeout)` | 无映射；即使被接到死壳，超时分支恒成功——等价于「永不超时」的静默错值 | **静默丢失** |
 | `Monitor.Wait/Pulse/PulseAll` | 无映射；接到死壳时仅在「外层恰有 `synchronized(o)`」（即用户同时写了 `lock(o)`）才偶然成立，裸用即运行时炸；C# 侧对应异常 `SynchronizationLockException` 已有映射（[TypeMappings.json L977-L981](file:///d:/code/cs2j/config/TypeMappings.json#L977-L981)） | **缺口/偶然可用** |
@@ -24,7 +38,7 @@
 
 ### 1.2 失败面定性：非失败型语义缺口
 
-catalog 把 C29 定性为「非失败型语义缺口」（[L608-L611](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L608-L611)）：主路径（`lock`/`volatile` 基元）今天可用且有测试；痛处在手写 Monitor 面——要么 Java 半区不可编译（无映射无 import），要么接上 compat 死壳后**静默错值**（超时永真、wait/notify 脱离持锁块）。这正是 §4 风险 12 要求消灭的「不报错、却产出错误运行时行为」一族。C29 的价值是**在 C# 阶段把这些构造显式化、结构化、可诊断化**，而不是新发明一套并发运行时。
+catalog 把 C29 定性为「非失败型语义缺口」（[L670](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L670)）：主路径（`lock`/`volatile` 基元）今天可用且有测试；痛处在手写 Monitor 面——要么 Java 半区不可编译（无映射无 import），要么接上 compat 死壳后**静默错值**（超时永真、wait/notify 脱离持锁块）。这正是 §4 风险 12 要求消灭的「不报错、却产出错误运行时行为」一族。C29 的价值是**在 C# 阶段把这些构造显式化、结构化、可诊断化**，而不是新发明一套并发运行时。
 
 ### 1.3 目标
 
@@ -70,7 +84,7 @@ finally { if (__lockTaken) Monitor.Exit(o); }
 理论上的「前置」就是在 C# 树做这步降低。**推荐不做**，理由：
 
 1. **Java intrinsic lock 只能由 `synchronized` 结构化获取，没有任何方法调用可以获得它**——这正是 compat `Monitor.enter` 只能写空实现的根本原因（[Monitor.java L13-L19](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Monitor.java#L13-L19)）。前置后转换器仍须把该模式**再识别回** `synchronized`，等于给转换器增加一段脆弱的模式匹配去抵消预处理，零语义收益；
-2. 直映路径已实现（8 行）且有双测试锁定；前置只服务于「CsCore 输入形态收敛」的假设目标，而 lock 是语句糖、不影响任何类型/签名面，不是 CsCore 的收敛痛点；
+2. 直映路径已实现（8 行）且有回归测试锁定（现存一处，校订 5；fixture 再补嵌套/throw 并发行为）；前置只服务于「CsCore 输入形态收敛」的假设目标，而 lock 是语句糖、不影响任何类型/签名面，不是 CsCore 的收敛痛点；
 3. 反向（把手写 Enter/Exit 归一回 lock，CN-2）才是有产出的方向。
 
 历史问题只审计不改写（CN-6）：`lock (this)`（监视器对外可见，外部代码可致死锁，C#/Java 通病）；`lock(typeof(T))`（C# 锁的是每个闭型不同的 `RuntimeType`；Java 侧 `typeof(T)` 发 `T.class` 且剥泛型实参，[TypeOperationTransformer.cs L126-L129](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L126-L129)，泛型擦除后多闭型共享一把锁）；`lock("…")`/字符串表达式（驻留共享，两边规则不同）。合成私有锁字段会改变类型成员面与对象身份，v1 不做，留 M3 显式选项。
@@ -140,7 +154,7 @@ C# `volatile`（读 acquire / 写 release；允许类型=引用类型、定宽�
 
 ### 2.8 async 内 lock
 
-`await` 出现在 `lock` 体内 = CS1996（C# 基线必拒）；锁内持 Monitor 跨 await 本就不合法，无需设计「跨挂起持锁」表达。所有权归 C18（[C18 设计 D10](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c18-async-normalize-design.md#L70)，CS2J1805）；C29 仅基线优先地防御镜像 CS2J2930（基线快照已拒则不发）。
+`await` 出现在 `lock` 体内 = CS1996（C# 基线必拒）；锁内持 Monitor 跨 await 本就不合法，无需设计「跨挂起持锁」表达。所有权归 C18（[C18 设计 D10](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c18-async-normalize-design.md#L71)，CS2J1805）；C29 仅基线优先地防御镜像 CS2J2930（基线快照已拒则不发）。
 
 ### 2.9 独立 pass 还是与 C09 合并：结论=独立
 
@@ -149,17 +163,17 @@ C# `volatile`（读 acquire / 写 release；允许类型=引用类型、定宽�
 1. **改写面不同**：C09 改字段**存储声明 + 全部读写点**（`[ThreadStatic] → ThreadLocal<T> + .Value`）；C29 改**语句结构与 Monitor 调用**，不碰字段声明；
 2. **验证方法不同**：C09 验每线程副本；C29 验互斥/等待/通知/超时的并发行为（§7.2）；
 3. **Java 半区不同**：C09 消费 `ThreadLocal` 元数据；C29 消费 Monitor 映射 + compat 真实化；
-4. **链位不同**：C09 RunAfter=`generic`（早），C29 RunAfter=`eliminate-goto`（链尾，晚于 java-keywords 之外的全部语义 pass）；
-5. catalog §3.3 的「合并为并发归一单通道」是**评估建议不是指令**；未来统一引擎若建「并发族合批」是 §5.4 统一引擎话题，届时以共享 Analyzer 合批，不提前物理合并。C09 先跑后，`lock(x.Value)` 对 C29 只是普通表达式锁对象，天然兼容（§11）。
+4. **链位不同**：C09 RunAfter=`generic`（早，[PassStubCatalog.cs L167](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L167)），C29 RunAfter=`eliminate-goto`（晚锚点，[L256](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L256)；与已翻转的 member-desugar 互无 RunAfter 约束，相对次序翻转时在 LockedChain 锁定，见 §3.1 校注）；
+5. catalog 的「合并为并发归一单通道」措辞现仅存于 C29 名称行（[L667](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L667)），§3.3 合并族表已无该建议行（Q-2）——是**评估建议不是指令**；未来统一引擎若建「并发族合批」是 §5.4 统一引擎话题，届时以共享 Analyzer 合批，不提前物理合并。C09 先跑后，`lock(x.Value)` 对 C29 只是普通表达式锁对象，天然兼容（§11）。
 
 ## 3. 注册表与链位契约
 
 ### 3.1 描述符
 
-翻转时从 [PassStubCatalog.cs L269-L280](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L269-L280) 删除 stub，在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) `Implemented` 表中**置于 `eliminate-goto` 之后、`java-keywords` 之前**（拓扑顺序由 [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) 锁死）：
+翻转时从 [PassStubCatalog.cs L247-L258](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L247-L258) 删除 stub **条目**（常量保留，见 §3.2），在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) `Implemented` 表中**置于 `eliminate-goto` 之后、`java-keywords` 之前**（拓扑顺序由 [PassChainOrderTests.cs L18-L40](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L40) 锁死）。**校注（2026-09-29）**：member-desugar 翻转后已占 goto 之后一位（[PassCatalog.cs L230-L241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)），其 RunAfter 只锚 StructValueSemantics/ClosureLift 两个 stub，与 C29 互无强约束；建议 C29 描述符**置于 member-desugar 之后**，并同步在 LockedChain 增列锁定该相对次序（拓扑并列时顺序只由注册表插入序决定）。
 
 ```text
-Id                          = "concurrency-normalize"
+Id                          = PassStubCatalog.Ids.ConcurrencyNormalize // "concurrency-normalize"，常量留 PassStubCatalog.Ids（IteratorLowering 先例）
 DisplayName                 = "Concurrency normalization"
 IntermediateDirectoryName   = ".cs2j-concurrency-normalize-src"
 Stage                       = PassStage.Declarative
@@ -174,17 +188,17 @@ CatalogItems                = "C29"
 Description                 = "Normalize explicit Monitor enter/try-enter/wait/pulse calls into canonical lock-based C# forms; lock/volatile direct mapping untouched."
 ```
 
-链位语义：`… → make-readonly → iterator-lowering → eliminate-goto → concurrency-normalize(C29) → java-keywords(C08) → 主转换`。Stage 标 `Declarative` 而锚点在链尾是注册表既有事实（[PassDescriptor.cs L8-L30](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassDescriptor.cs#L8-L30) 注明 Stage 仅信息性，顺序只由 RunAfterIds 决定），不改。RunAfter 晚锚点无功能依赖——C29 的语法面（lock/Monitor 调用）不被 goto 消除之后的任何 pass 产生，但晚锚点保证命名 pass 恒最后，沿用 stub 注释原话（[PassStubCatalog.cs L276-L278](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L276-L278)）。
+链位语义：`… → make-readonly → iterator-lowering → eliminate-goto → member-desugar(已翻转) → concurrency-normalize(C29，建议位次) → java-keywords(C08) → 主转换`（member-desugar 与 C29 的相对次序以翻转时 LockedChain 锁定为准，见上校注）。Stage 标 `Declarative` 而锚点在链尾是注册表既有事实（[PassDescriptor.cs L3-L7](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassDescriptor.cs#L3-L7) 注明 Stage 仅信息性，顺序只由 RunAfterIds 决定），不改。RunAfter 晚锚点无功能依赖——C29 的语法面（lock/Monitor 调用）不被 goto 消除之后的任何 pass 产生，但晚锚点保证命名 pass 恒最后，沿用 stub 注释原话（[PassStubCatalog.cs L254-L255](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L254-L255)）。
 
 ### 3.2 Stub→Implemented 翻转清单
 
 | 文件 | 改动 |
 |---|---|
-| [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) | 删除 L269-L280 `ConcurrencyNormalize` stub；`Ids.ConcurrencyNormalize` 常量（[L44](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L44)）迁到 [PassIds](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L24)；**同步把 [PassCatalog.cs L229](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L229) JavaKeywords RunAfterIds 中的 `PassStubCatalog.Ids.ConcurrencyNormalize` 改为 `PassIds.ConcurrencyNormalize`**（该锚点已存在，只换符号引用） |
-| [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | 按 §3.1 插 Implemented 描述符；`PassIds` 增常量 |
-| `src/CSharpToJava.CLI/Preprocessing/Adapters/ConcurrencyNormalizePassAdapter.cs` | **新增**适配器（§5.1） |
-| [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) | `CreateAdapter` switch 增 `PassIds.ConcurrencyNormalize => new ConcurrencyNormalizePassAdapter(...)`；不进 `BuildLegacyToggles`（无历史开关），经通用 `--enable-pass/--disable-pass` 控制 |
-| `src/CSharpToJava.Core/ConcurrencyNormalize/Concurrency*.cs` | 新增 Core 组件（§4） |
+| [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) | 删除 L247-L258 `ConcurrencyNormalize` stub **条目**；**`Ids.ConcurrencyNormalize` 常量（[L42](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L42)）保留不迁**——IteratorLowering 先例：翻转后描述符（[PassCatalog.cs L210](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L210)）、工厂（[PassChainFactory.cs L81](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L81)、[L227-L228](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L227-L228)）、链序测试（[PassChainOrderTests.cs L36](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L36)）一律继续引用 `PassStubCatalog.Ids.*` |
+| [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | 按 §3.1 插 Implemented 描述符（id 引用 `PassStubCatalog.Ids.ConcurrencyNormalize`，置于 member-desugar 之后）；**不新增 `PassIds` 常量**；[L255](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L255) JavaKeywords 尾锚**符号原样不动**（翻转前即引用 `PassStubCatalog.Ids.ConcurrencyNormalize`，无「换符号」动作；原计划「迁常量 + 换锚点符号」已按 IteratorLowering 先例作废，校订 3） |
+| `src/CSharpToJava.CLI/Preprocessing/Adapters/ConcurrencyNormalizePassAdapter.cs` | **新增**适配器（§5.1）——当前磁盘不存在（21 个现存适配器无该族，校订 1） |
+| [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) | `CreateAdapter` switch 增 `PassStubCatalog.Ids.ConcurrencyNormalize => new ConcurrencyNormalizePassAdapter(...)`（先例 [L227-L228](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L227-L228)）；不进 `BuildLegacyToggles`（无历史开关；IteratorLowering 先例另在 [L81](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L81) 显式列 `= false`，翻转时可照补但非必需），经通用 `--enable-pass/--disable-pass` 控制 |
+| `src/CSharpToJava.Core/ConcurrencyNormalize/Concurrency*.cs` | 新增 Core 组件（§4）；目录当前磁盘不存在（校订 1） |
 | 测试 | 链序/`--list-passes` 断言（[PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs)、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs)）、Core 单测、fixture、residual 闸门、CLI（§7） |
 
 不改：`Program.cs` 指纹逻辑（全集令牌自动纳入，翻转一次性缓存失效，foundation plan 既定决策）；保留目录由已执行 pass 目录名驱动；通用 verb `preprocess --pass concurrency-normalize` 自动可达，stub CS2J9001 拒绝路径翻转后自然消失。
@@ -252,7 +266,7 @@ Description                 = "Normalize explicit Monitor enter/try-enter/wait/p
 
 新增 `src/CSharpToJava.CLI/Preprocessing/Adapters/ConcurrencyNormalizePassAdapter.cs`（预计 120-170 行），形态最近 [EnumPassAdapter](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/EnumPassAdapter.cs)（语义逐文件 + AfterFiles 对账），在 `CompilationReadyAsync` 做一次性 Bind/Analyze（同 C09 适配器）：
 
-- `Descriptor => PassCatalog.ImplementedById(PassIds.ConcurrencyNormalize)`；双 verify=true；`DeleteBuildOutputsAfterRestore => true`；
+- `Descriptor => PassCatalog.ImplementedById(PassStubCatalog.Ids.ConcurrencyNormalize)`（IteratorLowering 先例，常量不在 `PassIds`）；双 verify=true；`DeleteBuildOutputsAfterRestore => true`；
 - 持有单个 `ConcurrencyPreprocessor` 与累计统计/诊断；options 从 `PassChainConfiguration`（Strict/开关）构造；
 - `RewriteFileAsync` 调 `RewriteFile`，Changed=false 返回 null；
 - `AfterFilesAsync`：ResidualScan + strict 升级；restore/build/test 失败映射 CS2J2902/2903/2904；
@@ -345,7 +359,7 @@ fixture 与合成样本断言：输出树 Monitor 绑定站点数 = active 改�
 ### 7.5 CLI / 注册表测试
 
 - 翻转前：`--enable-pass concurrency-normalize` → CS2J9001 退出 1（经 [PreprocessVerbCLITests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/PreprocessVerbCLITests.cs) 同类用例锁现状）；翻转后：`--list-passes` Implemented、目录 `.cs2j-concurrency-normalize-src`、默认关时无目录无耗时；启用后产物串给 java-keywords 与主转换；`--disable-pass` 可关；
-- 注册表：拓扑顺序断言（eliminate-goto 之后、java-keywords 之前；[PassCatalog.cs L229](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L229) 锚点符号随翻转更新）、`catalogItems=="C29"`、无重复 id/目录；[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) stub 断言同步移除；
+- 注册表：拓扑顺序断言（eliminate-goto/member-desugar 之后、java-keywords 之前，在 [PassChainOrderTests.cs L18-L40](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L40) LockedChain 增列；[PassCatalog.cs L255](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L255) 尾锚符号**不随翻转更新**，保持 `PassStubCatalog.Ids.ConcurrencyNormalize`）、`catalogItems=="C29"`、无重复 id/目录；[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) stub 断言同步移除（该校验动态取 stub 集，无硬编码计数）；
 - 指纹令牌含 `pass:concurrency-normalize=...`。
 
 ## 8. 默认开启验收门槛
@@ -366,7 +380,7 @@ fixture 与合成样本断言：输出树 Monitor 绑定站点数 = active 改�
 | 里程碑 | 内容 | 验证 |
 |---|---|---|
 | **M1 审计盘点**（不改产品码） | ① sdk/`D:\csharp-sdk` 频率扫描：lock/volatile 关键字、Monitor 全重载（Enter 两形、TryEnter 四形、Wait 五形、Pulse/All）、Volatile 静态 API、§2.7 范围外原语分布；②探针锁定无映射下 `Monitor.*` 的**实际 Java 发射文本与 import 行为**（验证 §1.1 推断）；③确认 compat `Monitor.java` 死壳无引用；④checked exception/throws 传播盘点；⑤Interlocked 双映射实际命中路径；⑥审计报告回填本设计，修正 catalog「Volatile 已吸收」叙述 | 审计文档 + M2 范围确认；不接线 |
-| **M2 显式化 + 翻转（默认关）** | Core 骨架（options/statistics/diagnostics/models/入口）+ Analyzer + CN-1~CN-12（FrontLoad 两选项不接）+ LockRewriter/VolatileRewriter(审计) + ResidualScanner + 适配器 + stub→Implemented 翻转（含 L229 锚点换符号）+ Core 单测 + SampleConcurrencySolution（.NET 半区五项并发行为全绿）+ 注册表/CLI 测试 + sdk 基线比对 | `--list-passes` 可见；fixture Release build/test 双绿；干净树零差异；2910/2911/2920 分类齐 |
+| **M2 显式化 + 翻转（默认关）** | Core 骨架（options/statistics/diagnostics/models/入口）+ Analyzer + CN-1~CN-12（FrontLoad 两选项不接）+ LockRewriter/VolatileRewriter(审计) + ResidualScanner + 适配器 + stub→Implemented 翻转（**常量留 `PassStubCatalog.Ids`、L255 尾锚符号不换**，校订 3；LockedChain 增列锁 member-desugar 相对次序）+ Core 单测 + SampleConcurrencySolution（.NET 半区五项并发行为全绿）+ 注册表/CLI 测试 + sdk 基线比对 | `--list-passes` 可见；fixture Release build/test 双绿；干净树零差异；2910/2911/2920 分类齐 |
 | **M3 Java 半区与评审项（不承诺排期）** | §5.4 路线 (a)（Monitor 类型/成员映射 + compat 真实化 + timed TryEnter 显式不支持）；双半区并发行为对照；路线 (b) 与 FrontLoadLock/FrontLoadVolatile 评审（默认维持 false）；`Volatile` 静态 API → VarHandle 立项；按 §8 数据决定是否评默认开（建议维持 opt-in） | 双半区对照报告；默认开评审（预期不翻） |
 
 ## 10. 风险
@@ -387,18 +401,18 @@ fixture 与合成样本断言：输出树 Monitor 绑定站点数 = active 改�
 | 并行条目 | 关系与边界 | 协调动作 |
 |---|---|---|
 | **C09** thread-static | 同族不同面：C09 改字段存储声明+读写点，C29 改语句/调用；C09 链位更早（RunAfter generic），C29 看到的已是 `ThreadLocal<T>.Value` 形态——`lock(x.Value)` 对 CN 只是普通锁表达式（值为 object 即可），无特判 | 不合并（§2.9）；Core 目录不重叠；若未来建并发族共享 Analyzer，以「字段状态源 + 区域源」两类接入，不提前抽象 |
-| **C18** async-normalize | `await in lock` 主诊断归 C18 CS2J1805（[D10](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c18-async-normalize-design.md#L70)）；C18 链位在 C29 之前，C29 消费其产物 | C29 CS2J2930 仅基线优先的防御镜像，不重复报错；async 方法内 Monitor 用法由 CN 持锁校验照常工作 |
+| **C18** async-normalize | `await in lock` 主诊断归 C18 CS2J1805（[D10](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c18-async-normalize-design.md#L71)）；C18 链位在 C29 之前，C29 消费其产物 | C29 CS2J2930 仅基线优先的防御镜像，不重复报错；async 方法内 Monitor 用法由 CN 持锁校验照常工作 |
 | **C04** iterator-lowering | 既有规则：yield 在 lock 内 → CS2J0402 skip（[IteratorLoweringAnalyzer.cs L196-L205](file:///d:/code/cs2j/src/CSharpToJava.Core/IteratorLowering/IteratorLoweringAnalyzer.cs#L196-L205)） | C29 不抢该诊断；C04 在链更早，C29 看到的 lock 体已不含被 skip 迭代器的歧义形态；热文件不重叠 |
 | **C02** generic-deepen | `lock(typeof(T<…>))` 身份审计（2931）与泛型擦除主题相邻 | 无代码耦合；2931 文案引用擦除事实即可 |
 | **C08/E17** JavaKeywords | 链尾，C29 之后；合成名 `__cs2j_mt/__cs2j_to` 为合法 Java 标识符 | 原名撞 Java 保留字由 C08 统一逃逸；无冲突 |
 | **compat 桥接面归属** | [Monitor.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Monitor.java) 真实化、TypeMappings Monitor 条目、ThreadHelper 是否扩面（建议否）、Volatile→VarHandle | 全部归「C29 Java 半区后续 PR」，与预处理 PR 分离；M3 评审路线 (a)/(b)；不动 Interlocked 既有面 |
-| 公共热文件 | [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)、[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)（**L229 锚点行**）、[PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)、[PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs)、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) | 各 worktree 仅追加/替换各自 id 的行；合并顺序任意，按 rebase 解冲突；禁止顺手重排既有 pass 顺序 |
+| 公共热文件 | [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)（L42 常量、L247-L258 stub 条目）、[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)（**L251-L257 尾锚块，L255 锚点翻转不改符号**；Implemented 表插描述符）、[PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)、[PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs)、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) | 各 worktree 仅追加/替换各自 id 的行；合并顺序任意，按 rebase 解冲突；禁止顺手重排既有 pass 顺序 |
 
 ## 12. Worktree 分配
 
 - 分支：`feature/preproc-c29-concurrency-normalize`
 - 目录：`.worktrees/preproc-c29-concurrency-normalize`
-- base：`953293b9`（`docs: update doc base commit`，已核实存在；当前 HEAD `5e3e796d`）
+- base：`953293b9`（`docs: update doc base commit`，2026-09-29 校订已核仍存在；**当前 HEAD `ef70e5a2`**，文首附录⑧原即要求建树后 rebase 到当时 dev-3.x HEAD `ef70e5a2`，两者现已一致）
 - 创建命令（**只写不执行——由实施 worktree 执行，本设计任务不执行任何 git 写操作**）：
 
 ```powershell
@@ -406,3 +420,17 @@ git worktree add .worktrees/preproc-c29-concurrency-normalize -b feature/preproc
 ```
 
 实施约束：仅在上述 worktree 内改码；按 §9 里程碑逐提交；M2 翻转即 Implemented + 默认关；FrontLoadLock/FrontLoadVolatile 不接实现；转换器与 compat 改动（§5.4）留后续 PR；默认开评审前必须先有 M1/M3 频率与 Java 半区证据。
+
+---
+
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（散见决策表/里程碑门的悬置项，按主题收口）：**
+
+1. **Java 半区 monitor 路线**：定 **路线 (a) intrinsic 桥**——`Monitor.Enter/Exit` 桥的 enter/exit 空体由 Java `synchronized` 块持锁保证（桥方法只做签名承接），`Wait/Pulse/PulseAll` 委托到 `Object.wait/notify/notifyAll`；否决路线 (b) 全量 ReentrantLock 表锁（v1 分配/侵入面过大）。
+2. **timed `TryEnter` 终态（拍死，不接恒真壳）**：v1 **维持 CS2J2911 显式门**，禁止生成"恒返回 true"的桩、禁止伪造超时语义；**M3 方案 = 对使用 TryEnter 的锁对象整体改 ReentrantLock 代码生成**——CN 按类型/数据流识别同一锁对象上的 `lock`/`TryEnter` 混用：仅 TryEnter 出现的对象走表锁代码生成；**同一对象上 intrinsic（lock）与表锁（TryEnter）混用无法统一的，发 CS2J2911 硬错并指路**（要求用户手工拆分锁对象），不做静默二选一。
+3. **ThreadHelper 边界（确认）**：**ThreadHelper 不扩 monitor 面**——monitor 语义全部落 [Monitor.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Monitor.java) compat 桥与 TypeMappings 条目，ThreadHelper 维持线程构造面单一职责。
+4. **Volatile 静态 API**：`Volatile.Read/Write` 等静态 API → Java `VarHandle` 的 compat 桥**排 M3+ 立项**（明确排期、登记终态去向，不无限挂起）；M3 前对应站点显式诊断计数，画像零命中可在两个画像周期后书面降级。
+5. **前置事实**：M2 翻转即 Implemented+默认关；默认开评审前必须先有 M1/M3 频率画像与 Java 半区桥证据，顺序不抢跑；FrontLoadLock/FrontLoadVolatile 永不接实现（只计数）。

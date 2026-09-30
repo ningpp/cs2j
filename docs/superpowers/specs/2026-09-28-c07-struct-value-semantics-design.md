@@ -1,10 +1,10 @@
 # C07 Struct 值语义补全（可变 struct 防御性 clone）预处理器设计
 
-**日期**: 2026-09-28
+**日期**: 2026-09-28（2026-09-29 核订：对照 dev-3.x@2d25700e 复核全部代码证据；实测类数据保留原始测量口径，依赖代码已变更处的复核注记见正文）
 **范围**: 新增注册表 pass `struct-value-semantics`（Core `StructValueSemantics\` + CLI `Adapters\StructValueSemanticsPassAdapter.cs`），把残余【可变 struct】的复制/变异/装箱边界在 C#→C# 中间树上显式化；不改 C#→Java 转换器代码、不引支撑库
-**状态**: 设计稿，待评审
-**catalog 锚点**: `prompts/preprocessor-catalog.md` C07（P1，§1.2 值语义族 = E11 + E13 + C07 + C01 ref struct 子项 + C44 ref struct using 子题）
-**注册表现状**: stub 已登记于 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L121-L130)（id=`struct-value-semantics`，Stage=Declarative，RunAfter=`make-readonly`，默认关）
+**状态**: 已核订（2026-09-29 对照 dev-3.x@2d25700e 逐条核验全部代码证据并修正；C02 generic-deepen、C03 pattern-desugar、C04 iterator-lowering、C11–C14 member-desugar 已落地进 PassCatalog Implemented 表且均默认关，member-desugar 下游锚点从 stub 表迁至 PassCatalog、链位现状、W 系列行号与 `CloneStructValueIfNeeded` 调用点计数按现状更新）
+**catalog 锚点**: `prompts/preprocessor-catalog.md` §2.B C07（L363，P1，条目状态仍为「缺失」）；§1.2 值语义类；§3.3 合并族 = E11 + E13 + C07 + C01 ref struct 子项 + C44 ref struct using 子题
+**注册表现状**: stub 已登记于 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L120-L129)（id=`struct-value-semantics`，Stage=Declarative，RunAfter=`make-readonly`，默认关）
 **base 提交**: f68a783c `feat(preprocessing): register 23 merged-family stub passes`
 
 ---
@@ -19,10 +19,10 @@ C# 的 struct 是值类型：变量初始化、赋值、传值参、返回、装
 
 | # | C# 形态（值语义） | 生产转换器现状 | 错误 Java 形态 / 语义丢失点 |
 |---|---|---|---|
-| W1 | `S b = a; b.Mutate();`（局部初始化复制） | 局部声明转换**完全不插 clone**（[StatementTransformer.Declarations.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Declarations.cs) 无任何 clone 逻辑；全仓 `CloneStructValueIfNeeded` 仅 3 个调用点） | `S b = a;` 直译为同引用赋值，`b` 的变异污染 `a` |
+| W1 | `S b = a; b.Mutate();`（局部初始化复制） | 局部声明转换**完全不插 clone**（[StatementTransformer.Declarations.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Declarations.cs) 无任何 clone 逻辑；全仓 `CloneStructValueIfNeeded` 仅 2 个调用点：[StatementTransformer.ExpressionAndReturn.cs:233](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L233)、[PropertyTransformer.cs:42](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L42)；2026-09-29 核订） | `S b = a;` 直译为同引用赋值，`b` 的变异污染 `a` |
 | W2 | `a = b;`（结构体赋值，含字段/属性槽） | [AssignmentTransformer.cs:76](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/AssignmentTransformer.cs#L76) 默认分支裸发 `lhs = rhs` | 两变量共享同一对象，后续变异互相可见 |
 | W3 | `a = b = c;`（链式赋值，三个独立副本） | 无处理；实验管线 [LowerStruct.cs:139-166](file:///d:/code/cs2j/src/CSharpToJava.Core/Lowering/LowerStruct.cs#L139-L166) 有 temp + 逐目标 clone 展开，但 Lowering 仅被 Java2 对比测试引用（catalog §4 风险 9：**不是实现资产**） | 三个目标互相别名；任一变异其余皆可见 |
-| W4 | `M(arr[i]);`（数组元素作值参，C# 传副本） | [ArgumentTransformer.cs:227](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs#L227) 对 `ElementAccessExpressionSyntax` **显式跳过** clone，注释自认 「for backward compatibility」 | 被调方对形参的变异直接改写成数组元素 |
+| W4 | `M(arr[i]);`（数组元素作值参，C# 传副本） | [ArgumentTransformer.cs:227](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.cs#L227) 对 `ElementAccessExpressionSyntax` **显式跳过** clone（跳过点本身无注释；「for backward compatibility」的自认注释现位于 [StructCloneHelper.cs:65-67](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/StructCloneHelper.cs#L65-L67) 的 `IsCloneableTemporary` 注） | 被调方对形参的变异直接改写成数组元素 |
 | W5 | `object o = s; o` 装箱 / `(S)o` 拆箱 / 接口转换 `IFoo f = s;` | struct 即 Java class，装箱/接口转换是恒等引用；无副本产生 | 箱与原变量共享状态：经接口分派的变异（C# 只作用于装箱副本）回写原变量；拆箱后修改也回写原对象 |
 | W6 | `return s;`（返回值副本） | [StatementTransformer.ExpressionAndReturn.cs:229-234](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L229-L234) 插 clone，但有 `SuppressReturnClone` 与 `Clone()` 自递归两个特判口 | 依赖特判正确；调用方与被返回字段仍可能在未走该路径处别名 |
 | W7 | 属性 getter 返回 struct、auto-property setter | [PropertyTransformer.cs:36-63](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L36-L63) 对 auto-property 发 `field.clone()`/`value.clone()`；自定义 getter 走 W6 | 自定义 setter、字段槽赋值无统一保证；调用点是否再 clone 靠 [StructCloneHelper.IsPropertyAccess](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/StructCloneHelper.cs#L76-L90) 名字猜测 |
@@ -91,7 +91,7 @@ C# 的 struct 是值类型：变量初始化、赋值、传值参、返回、装
 
 ### 3.1 现状（stub）
 
-[PassStubCatalog.cs:121-130](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L121-L130) 已登记：
+[PassStubCatalog.cs:120-129](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L120-L129)（核订重定位）已登记：
 
 | 字段 | 值 |
 |---|---|
@@ -105,11 +105,15 @@ C# 的 struct 是值类型：变量初始化、赋值、传值参、返回、装
 | CatalogItems | `C07` |
 | Description | `Make struct copy/mutation/readonly boundaries explicit.` |
 
-下游锚点已存在：`unsafe-ffm` RunAfter 含本 id（[PassStubCatalog.cs:131-140](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L131-L140)）；`member-desugar` RunAfter 含本 id（[PassStubCatalog.cs:191-200](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L191-L200)）。拓扑排序按声明顺序决胜（[PassRegistry.cs:95-133](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L95-L133)）。
+下游锚点已存在（**2026-09-29 核订重定位与状态更正**）：
+
+- `unsafe-ffm`：仍是 stub，RunAfter 含本 id（[PassStubCatalog.cs:130-139](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L130-L139)）✓；
+- `member-desugar`：**已翻转落地**（[PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)，Implemented、默认关、verify build/tests 默认开），其 `RunAfterIds = { PassStubCatalog.Ids.StructValueSemantics, PassStubCatalog.Ids.ClosureLift }`——即**仍以本 id 为锚**，但条目已从 stub 表迁至 Implemented 表，原文引的「PassStubCatalog.cs:191-200」现在是 `ExtensionMethods` 条目（**核订纠错**）。这带来一条实务影响：本 pass 翻转时若把 id 常量迁出 `PassStubCatalog.Ids`，必须同步改 `member-desugar` 的引用（§3.3 已列）。
+- 拓扑排序按声明顺序决胜（[PassRegistry.cs:95-142](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L95-L142) 的 `TopologicalSort`，核订纠正原文的 L95-133）。
 
 ### 3.2 链位与顺序锁
 
-catalog §3 建议链序为 `… → E13 + C07 → C06 → C32+C45 → C04 → … → E14 goto → C08`。stub 当前与 `eliminate-goto` 同以 `make-readonly` 为唯一锚点，因 Implemented 表先于 Stub 表参与决胜，现状序为 goto 先于 C07；翻转时必须锁定为 **make-readonly → struct-value-semantics → eliminate-goto**（clone 插入与 shim 先行，goto 的变量提升/结构化在后，避免 goto 后的平铺代码再被语句级插桩）：
+catalog §3 建议链序为 `… → E13 + C07 → C06 → C32+C45 → C04 → … → E14 goto → C08`。**2026-09-29 核订状态更正**：原文「stub 当前与 `eliminate-goto` 同以 `make-readonly` 为唯一锚点」已不成立——C04 落地后 `eliminate-goto` 的锚点为 `{ make-readonly, iterator-lowering }`（[PassCatalog.cs:220-229](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L220-L229)），不再与 C07 共享唯一锚点；而 Implemented 表先于 Stub 表参与决胜这一事实不变，故现状序仍是 goto 先于 C07（C07 仍为 stub，只在 stub 段被排序）。翻转时必须锁定为 **make-readonly → struct-value-semantics → eliminate-goto**（clone 插入与 shim 先行，goto 的变量提升/结构化在后，避免 goto 后的平铺代码再被语句级插桩）：
 
 - 新 descriptor 在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) `Implemented` 表中**紧接 make-readonly 条目声明**（位于 eliminate-goto 之前），靠声明序决胜；
 - 同步在注册表顺序断言测试（foundation plan Step 4 的「拓扑序 == 链顺序」锁）中加入 `…, make-readonly, struct-value-semantics, eliminate-goto, …` 序列；
@@ -118,7 +122,7 @@ catalog §3 建议链序为 `… → E13 + C07 → C06 → C32+C45 → C04 → �
 ### 3.3 翻转清单（stub → Implemented）
 
 1. [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)：`PassIds` 增 `StructValueSemantics = "struct-value-semantics"`；`Implemented` 增描述符（首翻 `defaultEnabled: false`，`verifyBuildByDefault: true`、`verifyTestsByDefault: true`，`NeedsSemanticModel = true`，SupportLibrary=None）。
-2. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删除本 id 的 stub 条目；引用 `Ids.StructValueSemantics` 的下游锚点（unsafe-ffm、member-desugar）改引 `PassIds.StructValueSemantics`（两处编译期改名，不行为变化）。
+2. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删除本 id 的 stub 条目；引用 `Ids.StructValueSemantics` 的下游锚点改引 `PassIds.StructValueSemantics`——**核订后的影响面**：stub `unsafe-ffm`（同文件 [L130-139](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L130-L139)）与**已落地**的 `member-desugar`（[PassCatalog.cs:237](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L237)）两处，均为编译期改名、不行为变化。**id 常量归属提示**：现有两手先例——C02 迁到 `PassIds`、C04 保留在 `PassStubCatalog.Ids`（`PassCatalog.cs:210` 反向引用）；建议随 C02，并与既有形态一并评审对齐。
 3. [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)：`PassChainConfiguration` 增 `Func<StructValueSemanticsOptions>` 工厂（lazy 加载 overrides，仿 MakerOptionsFactory）；`CreateAdapter` 增 switch 分支；本 pass 无 legacy 二级开关时仅走通用 `--enable-pass/--disable-pass`，并在 `ConvertProjectOptions` 增 `[Option("struct-value-semantics", Default = false)]` + `BuildLegacyToggles` 一行（与 record-readonly 同等待遇）。
 4. [CliPreprocessChain.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs)：`CliChainRequest` 增 options 工厂字段并透传。
 5. Program.cs：preserved 目录集合按描述符驱动接入（foundation 后指纹令牌对每个注册表 pass 生成 `pass:<id>=on/off`，本 pass 自动纳入；确认 `.cs2j-struct-value-semantics-src` 进 preserve、非启用时零痕迹）；`--list-passes` 状态自动翻为 Implemented。
@@ -374,7 +378,7 @@ public S Clone() => new S(this);
 4. **整树迭代成本**：共享文件被多 plan 触碰时每轮全量重放+重编译（RR 同款，上限 1024 轮）；大 sln 耗时风险。缓解：站点与归属信息在分析期一次算全，稳态应一轮收敛（仅新错误触发迭代）；保留轮次与耗时统计。
 5. **嵌套 struct 字段深拷贝完备性**：字段类型为外部程序集 struct（无 Clone、无源声明）时无法递归；缓解：按 IsUserDefinedStruct 同口径——仅对源内残余 struct 字段递归，外部 struct 字段直接赋值（与 C# 经外部类型自身值语义复制的边界一致），并登记 Info 供审计；枚举/Nullable/E06 tuple struct 各自走既定映射，不调 Clone。
 6. **E13/L5 形态耦合**：WithXxx、getXxx()、covariant 接口桥等 E13 产物若被误判为可变点会错插。缓解：残余集合以 `readonly` 修饰符为硬边界，E13 产物全部带 readonly；单测 §7.1-12 与 E13 统计零变化守门。
-7. **与未来 C11-C14 成员去糖的次序**：member-desugar 锚定本 pass 之后；若属性/索引器被先去糖为普通方法，站点形态变化——本 pass 锚位在前是正确方向，但 member-desugar 落地时需复用本 pass 输出的 C# 显式形态回归。
+7. **与 C11-C14 成员去糖的次序**（**2026-09-29 核订：已落地，风险转为核对项**）：member-desugar 锚定本 pass 之后（现状 `RunAfterIds = {struct-value-semantics, closure-lift}`，两者均为 stub，故它在链尾 [PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)）；若属性/索引器被先去糖为普通方法，站点形态变化——本 pass 锚位在前是正确方向 ✓。落地后新增的实际核对项：member-desugar 的属性/索引器规则会把属性改写为 `get_X/set_X` + 后备字段（并按 `Properties/PropertyRule.cs:263` 路由成员级 attribute），因此 C07 若先跑则站点形态是**去糖前的属性语法**，两者必须约定「C07 的站点枚举只认 C# 属性/索引器语法，去糖后的方法形由 member-desugar 自行保证值语义不劣化」；在本 pass 落地前该核对以 fixture 断言（§7.1-12 的 E13 共处一树用例可扩为三 pass 共处）。
 8. **表达式树/dynamic 跳过的共享工具尚不存在**（catalog §4 风险 8）：v1 内部先实现判定，JK/RR/C07 各持一份的技术债登记，待统一引擎期合并；跳过站点不插 clone 的残余风险由 SV013/SV014 计数可见。
 9. **拆箱/接口分派的运行时花样**：显式/隐式实现、泛型接口、变体接口下 box 副本语义细致，VS-5 规则可能欠逼近；以 §7.2 可达性矩阵 + Java 半区 fixture 双保险，欠逼近先 SV040 不硬插。
 
@@ -388,7 +392,7 @@ public S Clone() => new S(this);
 - **与 C06 unsafe 边界**：指针/fixed/stackalloc/`&` 存储的身份别名与 clone 互斥；含 fixed 缓冲区字段的 struct 不建 plan；unsafe 上下文中的值流站点不插。unsafe-ffm 的 RunAfter 锚点已在 C07 之后，合顺序天然成立。
 - **与 C04 struct this 捕获（iterator-lowering）边界**：可变 struct 的实例迭代器/async 方法把 `this` 提升进状态机（装箱捕获），C07 判 this 逃逸 SV040；C04 在链位上晚于 C07，落地后这些方法会被先降级为显式状态机类，SV040 命中面随之收缩——两 pass 不共享代码，以 SV040 清单作为衔接台账，C04 落地后回归该清单。
 - **与 C32/C45 闭包提升**：lambda 捕获可变 struct 局部时，显示类持有的是变量还是值决定 clone 点；C07 v1 对「捕获后被外部再赋值/逃逸」按 SV040 处理，纯查询捕获允许（局部副本仍可插 clone）；closure-lift 落地后与 C04 同路径收敛。
-- **worktree 合并顺序**：建议 C07 先于 unsafe-ffm、member-desugar 合并（二者 RunAfter 已锚定本 id，id 常量从 Stub 命名空间迁到 PassIds 的改名会产生编译期冲突，属预期一次性解突）；与同期其它 stub 翻转任务（C02/C03/C04 等）的冲突热点集中在 PassStubCatalog.cs / PassCatalog.cs / PassChainFactory.cs / CliPreprocessChain.cs / Program.cs 五个文件——各自分支只增自己的条目，不合改他人条目；合并以「rebase 到最新主干 + 注册表校验测试 + 链序断言」为门禁。
+- **worktree 合并顺序**：建议 C07 先于 unsafe-ffm 合并（其 RunAfter 锚定本 id，id 常量改名会产生编译期冲突，属预期一次性解突）。**2026-09-29 核订状态同步**：原文列作「同期其它 stub 翻转任务」的 **C02/C03/C04 均已落地入主干**（连同 C01、C08、C11-C14），故本 pass 现在是**唯一的先行者**——翻转时须 rebase 最新 `dev-3.x`，冲突热点文件与原文一致（PassStubCatalog.cs / PassCatalog.cs / PassChainFactory.cs / CliPreprocessChain.cs / Program.cs，另加 PassChainOrderTests.cs）；各自分支只增自己的条目，不合改他人条目；合并以「rebase 到最新主干 + 注册表校验测试 + 链序断言」为门禁。**registry 现状提示**：`member-desugar` 已引用本 pass 的 id 常量（§3.1），翻转时两处引用必须同批改完，否则注册表校验直接抛 `PassRegistryException`。
 
 ---
 

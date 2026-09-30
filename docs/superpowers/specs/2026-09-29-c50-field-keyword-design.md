@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-29
 **范围**: 在 C11 `member-desugar` 族 pass 的 `Properties/` 规则目录内新增 **FieldKeyword 前置微改写规则**：把访问器体内引用编译器合成后备字段的 `field` 上下文关键字（half-implemented / field-backed properties，C# 14 GA）归一为「显式私有后备字段 + 普通访问器体」，产物与 C11 属性去糖的输入形态完全同形；本规则零 stub 翻转、无调用点改写、不新建 pass、不触转换器
-**状态**: 设计待评审；实施依赖 C11 锚点分支合入（§12）
+**状态**: 设计待评审；**C11–C14 已由维护者手动合并主干 dev-3.x**（2026-09-30 确认），可直接在 `MemberDesugar/Properties/` 内实施 FieldKeyword 微改写规则
 **族属**: catalog P2「成员去糖族」C11 的 C# 14 子规则（[preprocessor-catalog.md:968-980](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L968-L980)）；catalog 明定「并入 C11，产物与 C11 完全同形故 Java 侧零新增」（[五次补全 L430](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L430-L430)）
 
 ---
@@ -19,7 +19,7 @@ string Name { get; private set => field = value?.Trim(); } // auto get + full se
 string Lazy => field ??= Compute();                         // get-only 表达式体，field 仍合成
 ```
 
-现有转换器对访问器体内表达式没有任何 `field` 特判（已全仓 grep 确认零命中）：块体经 `StatementTransformer.TransformBlock`、表达式体经 `ExpressionTransformerFacade` 按**普通标识符**处理（[PropertyTransformer.cs:34-36](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L34-L36)、[L57](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L57-L57)、[L71-72](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L71-L72)），Java 产物中出现未定义符号 `field`；后备字段发射路径只覆盖 `IsAutoProperty` 与带初始化器属性（[L23-30](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L23-L30)），field-backed 属性既不被识别为 auto，标识符也无法解析，属确定性错误输出。
+现有转换器对访问器体内表达式没有任何 `field` 特判（已全仓 grep 确认零命中）：块体经 `StatementTransformer.TransformBlock`/`TransformBlockToStructuredBody`、表达式体经 `ExpressionTransformerFacade` 按**普通标识符**处理（[PropertyTransformer.cs:34-36](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L34-L36)、[L57](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L57-L57)、[L71-72](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L71-L72)），Java 产物中出现未定义符号 `field`；后备字段发射路径只覆盖 `IsAutoProperty` 与带初始化器属性（[L23-30](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L23-L30)），field-backed 属性既不被识别为 auto，标识符也无法解析，属确定性错误输出。
 
 ### 1.2 目标
 
@@ -80,13 +80,13 @@ string Lazy => field ??= Compute();                         // get-only 表达�
 
 ### 3.1 归属：`member-desugar` / `Properties/`，零 stub 翻转
 
-- C50 没有自己的 descriptor / adapter / 中间目录 / CLI 开关 / RunAfter 边；[PassStubCatalog.cs:192-201](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L192-L201) 的 stub 删除与 PassCatalog 注册仍由 C11 锚点完成（[c11-design §3.3](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L94-L108)）。
+- C50 没有自己的 descriptor / adapter / 中间目录 / CLI 开关 / RunAfter 边；member-desugar 的 stub 删除与 PassCatalog 注册已由 C11 锚点完成——现注册于 [PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)（[c11-design §3.3](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L94-L108)）。
 - Stage=Declarative、RunAfterIds=`{struct-value-semantics, closure-lift}`、目录 `.cs2j-member-desugar-src`、verify 双开、无支撑库，全部沿用 C11。
 - 代码全部落在 `src/CSharpToJava.Core/MemberDesugar/Properties/`（C11 独占目录，经锚点合入后在其上追加文件）；不碰 `MemberDesugar/` 根目录共享文件（若接缝能力不足，按 C11 §4.5 约定由锚点扩共享层，不在 Properties 复制）。
 
 ### 3.2 catalogItems 文本
 
-现状 stub 字符串为 `"C11, C12, C13, C14, C27, C39, C46"`（[PassStubCatalog.cs:201](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L201-L201)）。catalog C50 条目明定「并入 C11」，**建议锚点翻转时直接登记为 `"C11, C50"`**（C50 与 C11 同批交付，见 §8/§9）；若 C11 先行翻转已收窄为 `"C11"`，则 C50 合入时按 C11 §3.3-10「只追加不改写」惯例改为 `"C11, C50"`，一行字符串预期冲突。CatalogItems 不含 C50 期间 `--list-passes` 不宣称覆盖 C50。
+C11 锚点已翻转 stub 并注册于 PassCatalog，catalogItems 现状为 `"C11"`（[PassCatalog.cs:241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L241-L241)）。catalog C50 条目明定「并入 C11」，**建议锚点翻转时直接登记为 `"C11, C50"`**（C50 与 C11 同批交付，见 §8/§9）；锚点翻转已收窄为 `"C11"`，C50 合入时按 C11 §3.3-10「只追加不改写」惯例改为 `"C11, C50"`，一行字符串预期冲突。**2026-09-30 勘误**：维护者已合并 C12–C14，catalogItems 真值现为 `"C11, C12, C13, C14"`；C50 合入时在此真值上追加为 `"C11, C12, C13, C14, C50"`，勿回退 C12–C14。CatalogItems 不含 C50 期间 `--list-passes` 不宣称覆盖 C50。
 
 ### 3.3 规则相位：声明收集的前置微改写
 
@@ -323,7 +323,21 @@ git worktree add .worktrees/preproc-c50-field-keyword -b feature/preproc-c50-fie
 
 ---
 
-## 附：关键开放问题（供评审拍板）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持本文 §12 登记的自有 base `9b99c60b`（不改动），创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **Roslyn 升级路径**：4.12→≥4.14 **统一归 C52 升级**（C50/C49/C51 同批节奏由 C52 锚定，否决各 pass 分支自升——多分支自升会造成 TFM/包版本事实源分裂）；**不接受 4.12+Preview 作为过渡**（Preview API 形状不稳，规则不得建在漂移面上）；M0 FK-P0 探针数据作为 C52 升级评审输入，C50 规则代码在升级落地后开工。
+2. **C50 与 C11 默认开批次**：**规则恒在、无独立开关**——即便 field 命中低频，也允许在 C11 默认开时随版本门保持"规则在、无命中"状态；门只有**版本门 + 门槛门**两个，不为低频规则单造开关。catalog **P2 扫描阈值等同 P1**（同一门槛，不设更松的第二档），阈值数字随 C11 门槛表登记。
+3. **接缝形态**：采用 **PropertyRule 内前置 normalizer 钩子**落地（否决 `Kind=Property, Order=1` 内部子规则——不新增规则发现面）；钩子由 C11 锚点实现时按其管线形状定具体接口，C50 只提供 normalizer 逻辑，规则自动发现数量不增加。
+4. **接口静态 field-backed 属性**：若 M0 FK-P3 探针**证实 C#14 允许接口静态 field-backed 属性**（接口可含静态字段），则 **M2 直接收编，不长期保留 CS2J5127 跳过**（与"全语义支持"一致：合法构造有明确 Java 终态——companion/holder 静态字段承载）；探针证伪（编译器不允许）则维持 CS2J5127 显式诊断并注明编译器版本依据。
+5. **CS2J5122 处置与码位**：**重定义为 residual 闸门码**（不退役——保留对未归一 field 站点的末端拦截计数）；CS2J5125-5128 建议号**以 C11 锚点统一登记为准**，登记结果回填本文，若号段位移 M1 纯常量改名。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **Roslyn 升级路径**：4.12→≥4.14 由 C52 统一升级还是 C50 分支自升（影响 C49/C51 同批节奏）？4.12+Preview 是否接受为过渡（倾向不接受）？M0 FK-P0 数据为决策输入。
 2. **C50 与 C11 的默认开批次**：若 .NET 10 目标扫描 field 命中低频，C50 规则是否允许在 C11 默认开时随版本门保持「规则恒在但无命中」状态（实现倾向：是，规则无独立开关，门只有版本与门槛）；catalog P2 等价 P1 的扫描阈值需评审定。

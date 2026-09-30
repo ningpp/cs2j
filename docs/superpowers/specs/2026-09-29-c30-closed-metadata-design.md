@@ -4,7 +4,7 @@
 **范围**: 注册表 stub `closed-metadata`（catalog C30，P2）的路线决策与实施设计；本文档只做只读代码考古与设计定稿，不改动任何代码
 **状态**: 设计稿（M1 考古收口 + 路线评审为强制门，见 §10）
 **对应基线**: `953293b9`（2026-09-29，`docs: update doc base commit`；= HEAD 往前 2 个提交，均为 docs-only）
-**关联资料**: `prompts/preprocessor-catalog.md` C30（L615-625）/C02（L269-280）/§3.3 泛型擦除补偿族（L908）/§4 风险 6（L925）；旧设计 [2026-09-22-closed-type-metadata-chain-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-22-closed-type-metadata-chain-design.md) 与实施记录 [2026-09-22-closed-type-metadata-chain-plan.md](file:///d:/code/cs2j/docs/superpowers/plans/2026-09-22-closed-type-metadata-chain-plan.md)；C02 设计 [2026-09-28-c02-generic-deepen-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c02-generic-deepen-design.md)；`.trae/documents/preprocessor-foundation_plan.md` L60-139；ROADMAP #10
+**关联资料**: `prompts/preprocessor-catalog.md` C30（L680-691）/C02（L289-302）/§3.3 泛型擦除补偿族（L1086）/§4 风险 6（L1104）；旧设计 [2026-09-22-closed-type-metadata-chain-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-22-closed-type-metadata-chain-design.md) 与实施记录 [2026-09-22-closed-type-metadata-chain-plan.md](file:///d:/code/cs2j/docs/superpowers/plans/2026-09-22-closed-type-metadata-chain-plan.md)；C02 设计 [2026-09-28-c02-generic-deepen-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c02-generic-deepen-design.md)；`.trae/documents/preprocessor-foundation_plan.md` L60-139；ROADMAP #10
 
 ---
 
@@ -36,7 +36,7 @@ compat [TypeHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/
 
 ### 1.3 零 ThreadLocal 目标
 
-让闭型的类型实参在 **C# 阶段就显式可追溯**（显式 `System.Type` token / 注册代码），或在 Java 反射侧沿声明签名显式贯穿 `java.lang.reflect.Type`，使类型解析成为闭型的**纯函数**，与反射顺序、调用时序、线程状态全部无关。catalog C30 的定位原文（L618）：「不单独新建 C# 通道；作为 **C02 的产出契约**登记（备选：生成『闭型元数据注册』C# 代码）」。
+让闭型的类型实参在 **C# 阶段就显式可追溯**（显式 `System.Type` token / 注册代码），或在 Java 反射侧沿声明签名显式贯穿 `java.lang.reflect.Type`，使类型解析成为闭型的**纯函数**，与反射顺序、调用时序、线程状态全部无关。catalog C30 的定位原文（L683）：「不单独新建 C# 通道；作为 **C02 的产出契约**登记（备选：生成『闭型元数据注册』C# 代码）」。
 
 ### 1.4 范围与非目标
 
@@ -60,35 +60,35 @@ compat [TypeHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/
 
 | # | 模式 | C# 源码（src+tests，排除 bin/obj） | 其他位置 | 结论 |
 |---|---|---|---|---|
-| 1 | `PatchClosed` | **1 命中且非代码**：[PassStubCatalog.cs:120](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L120) stub 描述串 `"blocked on PatchClosed* archaeology"` | catalog L622；0922 plan L18；0922 spec L64；C02 spec L57；C02 plan L577 | **当前树无任何 PatchClosed* 实现代码** |
-| 2 | `ClosedTypeMetadata` | 0 | catalog L622；0922 plan/spec；compat [ClosedTypeMetadataTest.java:21](file:///d:/code/cs2j/java/csharptojava-compat/src/test/java/io/github/ningpp/compat/ClosedTypeMetadataTest.java#L21)（类注释） | C# 侧零落点；仅文档 + Java 测试 |
+| 1 | `PatchClosed` | **1 命中且非代码**：[PassStubCatalog.cs:108](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L108) stub 描述串 `"blocked on PatchClosed* archaeology"` | catalog L687；0922 plan L18；0922 spec L64；C02 spec L57；C02 plan L577 | **当前树无任何 PatchClosed* 实现代码** |
+| 2 | `ClosedTypeMetadata` | 0 | catalog L687；0922 plan/spec；compat [ClosedTypeMetadataTest.java:21](file:///d:/code/cs2j/java/csharptojava-compat/src/test/java/io/github/ningpp/compat/ClosedTypeMetadataTest.java#L21)（类注释） | C# 侧零落点；仅文档 + Java 测试 |
 | 3 | `ClosedType` / `closedType` | 3 命中，全部为 C02 **测试方法名**（per-closed-type holder 语义，与本通道无关）：[GenericDeepenTests.cs:414](file:///d:/code/cs2j/tests/CSharpToJava.Tests/GenericDeepenTests.cs#L414)、[RuntimeBehaviorTests.cs:9](file:///d:/code/cs2j/tests/SampleGenericDeepenSolution/SampleGenericDeepenTests/RuntimeBehaviorTests.cs#L9)、:19 | compat TypeHelper L1214 等（见 §2.4）；0922 文档；2026-07-02 plan L222（反射探针工具里的局部变量名，无关） | 无 C30 实现落点 |
 | 4 | `closed_type` | 0 | 0 | 不存在 |
-| 5 | ThreadLocal 队列相关（TYPE_ARGUMENTS / CONSUMED / registerMemberType 等） | **0 落点**。src 中 ThreadLocal 仅两处且都是 C09 面：[FieldTransformer.cs:50-56,121-147](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L50-L56)（`[ThreadStatic]` → `ThreadLocal<T>` 字段映射）、[ConversionContext.cs:397-402](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L397-L402)（ThreadStatic 字段登记表注释） | compat TypeHelper 7 条 ThreadLocal（§1.2）；config 中 java.base 的 `ThreadLocal.json` 等是 BCL 映射配置 | C# 生成器侧从不直接引用队列；队列的调用方是**生成码产物**（下游 Java） |
+| 5 | ThreadLocal 队列相关（TYPE_ARGUMENTS / CONSUMED / registerMemberType 等） | **0 落点**。src 中 ThreadLocal 仅两处且都是 C09 面：[FieldTransformer.cs:51-57,121-147](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L51-L57)（`[ThreadStatic]` → `ThreadLocal<T>` 字段映射）、[ConversionContext.cs:397-402](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L397-L402)（ThreadStatic 字段登记表注释） | compat TypeHelper 7 条 ThreadLocal（§1.2）；config 中 java.base 的 `ThreadLocal.json` 等是 BCL 映射配置 | C# 生成器侧从不直接引用队列；队列的调用方是**生成码产物**（下游 Java） |
 
-### 2.2 git 历史考古（catalog L622 开放问题的答案）
+### 2.2 git 历史考古（catalog L687 开放问题的答案）
 
 `git log --all -S "PatchClosed"` 完整结果：`2694f975`（引入）→ `c8d6d31f`（删除）→ `92b9013d`/`c508bf26`/`a37c20e3`/`db9bbd08`（仅 docs）。
 
 **PatchClosed* 曾在本仓存在并已被架构性删除**，关键提交：
 
 - **引入**：`2694f975 improve + fix`（2026-09-22 前后约 18 轮补丁的落点）。删除前的 [ProjectPasses.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs) 含门控 `private const bool ClosedTypeMetadataEnabled = true;` 与 8 个补丁方法：`PatchClosedMemberType` / `PatchClosedParameterInfo` / `PatchClosedElementClassInfo` / `PatchClosedOptionLookups` / `PatchClosedMemberConverterResolution` / `PatchClosedFactoryEntry` / `PatchClosedEnumerableFactory` / `PatchClosedObjectFactory`（另有常开的 `PatchFastPathWriteNullGuard`），形态为「锚点正则 + 不匹配即响亮告警」，对按硬编码文件名识别的生成 Java（JsonPropertyInfo.java / JsonClassInfo.java / JsonSerializerOptions.java / JsonConverterFactory.java / IEnumerableConverterFactory.java / ObjectConverterFactory.java）做后处理文本替换并内联 Java 片段。配套测试 `tests/CSharpToJava.Tests/ClosedTypeMetadataPatchTests.cs`（632 行，26 个测试，plan 记录后期 17 个）。
-- **删除**：`c8d6d31f refactor: remove hardcoded generated-file patch logic from ProjectPasses`（2026-09-23，宁培培，**是 HEAD 祖先**）。ProjectPasses.cs 约 3000 行 → **721 行**（`-2998/+52`，全提交 6 文件）；ClosedTypeMetadataPatchTests.cs 全删（-632）；StructClonePatchTests.cs 同删（-104）。提交说明：删除按硬编码生成文件名键控的逐文件正则补丁、删除 no-op compatibility emit pass、注销按 app 方法名键控的 IR rewriter，代之以有序补丁表并清退死实验开关。
+- **删除**：`c8d6d31f refactor: remove hardcoded generated-file patch logic from ProjectPasses`（2026-09-23，宁培培，**是 HEAD 祖先**）。ProjectPasses.cs 约 3000 行（3236）→ **1031 行**（`-2998/+52`，全提交 6 文件）；ClosedTypeMetadataPatchTests.cs 全删（-632）；StructClonePatchTests.cs 同删（-104）。提交说明：删除按硬编码生成文件名键控的逐文件正则补丁、删除 no-op compatibility emit pass、注销按 app 方法名键控的 IR rewriter，代之以有序补丁表并清退死实验开关。
 - **删除不是孤立事件**：其后 `3771daf0`（remove Compatibility pack subsystem）、`0e8d06e8`（remove CrossPackageImport*）、`d7246fd1`（移除 TypeScript）、`4b736217`（remove RuntimeClassParameter system）持续沿同一方向清退「后处理补丁/兼容包」架构。
-- **现存 ProjectPasses.cs（721 行）内容**：`ProjectLinqDesugarPass`、`ProjectCompilationCheckPass`、`ProjectUnsupportedDomainCheckPass`、`ProjectPlatformBoundaryCheckPass`、`ProjectNativeInteropCheckPass`、`ProjectPartialTypeNormalizationPass`、`ProjectJavaPatternRewritePass`、`ProjectTypeEmitPass`、`ProjectExtensionMethodCheckPass`——全部作用于 **C# 中间树**，无一生成或修补 Java 文件。
+- **现存 ProjectPasses.cs（830 行）内容**：`ProjectLinqDesugarPass`、`ProjectCompilationCheckPass`、`ProjectUnsupportedDomainCheckPass`、`ProjectPlatformBoundaryCheckPass`、`ProjectNativeInteropCheckPass`、`ProjectPartialTypeNormalizationPass`、`ProjectJavaPatternRewritePass`、`ProjectTypeEmitPass`、`ProjectExtensionMethodCheckPass`——全部作用于 **C# 中间树**，无一生成或修补 Java 文件。
 - **分支排查**：`git branch -a` 无任何分支保留补丁代码；6 个现存 worktree（c01/c02/c03/c11/c12/c14）均为 preproc 新特性分支。
-- **结论**：0922 设计状态标注「已实现(设计定稿)」在 2026-09-22 当日为真；次日其生成码侧即被整体删除，且文档状态从未回改——这就是 catalog L622「grep 不到、现状不明」的完整成因。补丁**不是未合入，而是合入后被架构性回退**。
+- **结论**：0922 设计状态标注「已实现(设计定稿)」在 2026-09-22 当日为真；次日其生成码侧即被整体删除，且文档状态从未回改——这就是 catalog L687「grep 不到、现状不明」的完整成因。补丁**不是未合入，而是合入后被架构性回退**。
 
 ### 2.3 旧设计声称落点 vs 当前树差异
 
 | 0922 设计/plan 声称 | 当前树（2026-09-29） | 差异 |
 |---|---|---|
-| §3.2 生成码补丁 8 个 PatchClosed*（门控 `ClosedTypeMetadataEnabled`，位于 ProjectPasses.cs） | ProjectPasses.cs 721 行，全部补丁方法不存在 | **已删除**（c8d6d31f） |
+| §3.2 生成码补丁 8 个 PatchClosed*（门控 `ClosedTypeMetadataEnabled`，位于 ProjectPasses.cs） | ProjectPasses.cs 830 行，全部补丁方法不存在 | **已删除**（c8d6d31f） |
 | plan「Gates」：cs2j `dotnet test` 3185/0（26 in ClosedTypeMetadataPatchTests，后期 3176/0、17 个） | ClosedTypeMetadataPatchTests.cs 不存在（-632 行） | **已删除** |
 | §3.1 compat API：`PropertyInfo.getGenericPropertyType`、`TypeHelper.declaredGenericType/collectClosureLayers/genericArgumentsInLayers/closedCacheKey/createConverterForClosedType/substituteTypeVariables`、`ConcurrentHashMapHelper.getOrAddUntyped` | **全部存活**（§2.4 实测行号） | 无差异（API 名 plan 后期为 `putIfAbsentUntyped`） |
 | §4 退役 4 个 ThreadLocal 补丁（WriteElementPropertyInfo/ElementArgumentScope/MemberClassInfoLookup/MemberArgumentCapture） | 这些补丁本就是 ProjectPasses 正则补丁，随 c8d6d31f 一并消失；但 compat 侧旧 ThreadLocal API（registerMemberType/beginElementArgumentsScope/cachedClassInfoForMember 等）**全部仍在** | 补丁没了，compat 旧 API 仍被**当前生成码**调用，新旧两套并存于 compat |
 | §3.3 端到端：下游 dotnet-text-json 仓再生成 + mvn 全量回归 | 下游仓本机不存在：`D:\dotnet-text-json` Test-Path=False（D:\ 仅 YamlDotNet-18.0.0）；本仓无 submodule、无路径配置引用 | **补丁是否被搬入下游仓，无法从本树证实或证伪**（M1 强制门，§10） |
-| §3.2 键类型 `ClosedGenericKey(raw, args)` | [TypeHelper.java:880](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java#L880) 的 `ClosedGenericKey` 现存，但只被旧 `converterCacheKey`（L849）使用；`closedCacheKey`（L1121-1126）现产 **`ClosedStructuralKey`**（L1123） | 两套结构键并存，签名近似，路线 A/C 接线时须明确是否统一（§3 决策 D5、§11 风险 2） |
+| §3.2 键类型 `ClosedGenericKey(raw, args)` | [TypeHelper.java:880](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/TypeHelper.java#L880) 的 `ClosedGenericKey` 现存，被旧 `converterCacheKey`（L873 实例化；方法在 L849）与 `cachedClassInfoForMember`（L761）使用；`closedCacheKey`（L1121-1126）现产 **`ClosedStructuralKey`**（L1123） | 两套结构键并存，签名近似，路线 A/C 接线时须明确是否统一（§3 决策 D5、§11 风险 2） |
 
 ### 2.4 compat 侧闭型消费 API 现状（已落地、被测试 pin 死）
 
@@ -102,30 +102,30 @@ compat [TypeHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/
 | `declaredGenericType(MemberInfo)` | L1102 | PropertyInfo 走 `getGenericPropertyType()`，FieldInfo 走 `getGenericType()`，零副作用 |
 | `closedCacheKey(Type)` | L1121 | ParameterizedType → `ClosedStructuralKey(raw, 递归规范化 args)`；其余 → 原 Class（Class/TypeReference 路径 key 形态不变） |
 | `substituteTypeVariables(Type, Map<String,Type>)` | L1137 | 泛型定义成员按闭型实参重绑定；裸 TypeVariable 查绑定（未解析返回 null）；任一实参未解析返回 null；具体类型原样返回（调用方可引用同一判跳过） |
-| `createConverterForClosedType(Object factory, Type closed, Object options)` | L1214 | 反射探测工厂闭型入口 `createConverter(Class, Type[], options)`，有则调、无则回退旧 `createConverter(Class, options)`；compat 不引用生成类型 |
+| `createConverterForClosedType(Object factory, Type closed, Object options)` | L1214 | 反射探测工厂闭型入口 `createConverter(Class, Map, options)`（layers：Class→Type[]），有则调、无则回退旧 `createConverter(Class, options)`；compat 不引用生成类型 |
 | `consumeMemberTypeArguments(Type closed)` | L442 | plan fix #9 的 drop-all 卫生函数：清掉闭型传递闭包内每个 raw 的全部 per-raw 簿记 |
 | `toRawClass(Type)` | L910 | ParameterizedType→raw；GenericArrayType→擦除组件数组类（L917-923，修过闭型泛型数组误落 Object 的缺陷） |
 
 [ConcurrentHashMapHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/ConcurrentHashMapHelper.java)：
 
 - `putIfAbsentUntyped(map, key, value)` L71-73：闭型链专用，调用方自备 `closedCacheKey`，纯 `putIfAbsent`，零注册表咨询（L63-69 注释明示键空间与擦除键不相交）。
-- `tryAdd` L10-32 / `getOrAdd` L36-61：旧混合路径，key 经 `converterCacheKey`（读 ThreadLocal）改写并驱逐旧擦除项——**这是 catalog L621 所引「ThreadLocal-free 键控」的实际形态：新旧两套并存，按调用方分流**。
+- `tryAdd` L10-32 / `getOrAdd` L36-61：旧混合路径，key 经 `converterCacheKey`（读 ThreadLocal）改写并驱逐旧擦除项——**这是 catalog L686 所引「ThreadLocal-free 键控」的实际形态：新旧两套并存，按调用方分流**。
 
 [PropertyInfo.java:372-380](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/PropertyInfo.java#L372-L380) `getGenericPropertyType()`（getter 泛型返回型优先，否则 setter 首参泛型型，不触发 registerMemberType）；[FieldInfo.java:55-56](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/FieldInfo.java#L55-L56) `getGenericType()` 直接镜像。
 
-[ClosedTypeMetadataTest.java](file:///d:/code/cs2j/java/csharptojava-compat/src/test/java/io/github/ningpp/compat/ClosedTypeMetadataTest.java)（318 行）pin 住全部契约：嵌套层展开/同 raw 首层胜出、清 ThreadLocal 后闭型解析正确、null layers 回退、未知 raw 走界、闭型 field/getter 反射无副作用（反射断言 MEMBER_ARGUMENTS 为空，L148-151）、结构键相等性、putIfAbsentUntyped、substituteTypeVariables 六例（含 `T=List<String>` 嵌套替换）、consumeMemberTypeArguments 三例。
+[ClosedTypeMetadataTest.java](file:///d:/code/cs2j/java/csharptojava-compat/src/test/java/io/github/ningpp/compat/ClosedTypeMetadataTest.java)（318 行）pin 住全部契约：嵌套层展开/同 raw 首层胜出、清 ThreadLocal 后闭型解析正确、null layers 回退、未知 raw 走界、闭型 field/getter 反射无副作用（反射断言 MEMBER_ARGUMENTS 为空，L148-151）、结构键相等性、putIfAbsentUntyped、substituteTypeVariables 五例（含 `T=List<String>` 嵌套替换）、consumeMemberTypeArguments 三例。
 
 **小结**：compat 半区是「已完工且不改即满足」的资产；缺口只在**谁来调用这套纯函数**——c8d6d31f 之后，生成码侧没有任何调用方。
 
 ### 2.5 C02 generic-deepen token 现状（主树已落地，默认关）
 
-- 注册表：[PassCatalog.cs:153-164](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L153-L164) `generic-deepen` = `Implemented`、**`defaultEnabled: false`**、`PassStage.Abi`、RunAfter=`generic`、`catalogItems: "C02"`（db9bbd08 翻转，stub 表中已无该 id；closed-metadata stub 的 RunAfter 引用 `PassIds.GenericDeepen`）。
-- Core：`src/CSharpToJava.Core/GenericPreprocess/` 10 文件（Analyzer/Plan/Rewriter/HolderGenerator/ResidualScanner/Options/Statistics/Diagnostics/SyntaxFacts/Preprocessor）；适配器 [GenericDeepenPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/GenericDeepenPassAdapter.cs)；中间目录 `.cs2j-generic-deepen-src`。
+- 注册表：[PassCatalog.cs:167-178](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L167-L178) `generic-deepen` = `Implemented`、**`defaultEnabled: false`**、`PassStage.Abi`、RunAfter=`generic`、`catalogItems: "C02"`（db9bbd08 翻转，stub 表中已无该 id；closed-metadata stub 的 RunAfter 引用 `PassIds.GenericDeepen`）。
+- Core：`src/CSharpToJava.Core/GenericPreprocess/` 10 个 GenericDeepen 文件（Analyzer/Result/Rewriter/HolderGenerator/ResidualScanner/Options/Statistics/Diagnostics/SyntaxFacts/Preprocessor；另有 3 个 E10 遗留 GenericPreprocess* 文件，共 13 文件）；适配器 [GenericDeepenPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/GenericDeepenPassAdapter.cs)；中间目录 `.cs2j-generic-deepen-src`。
 - token 产物形态（2026-09-29 实测）：
   - 方法块首锚点 `global::System.Type __cs2j_token_<T> = typeof(<T>);`（[GenericDeepenSyntaxFacts.cs:9](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericDeepenSyntaxFacts.cs#L9) `AnchorPrefix = "__cs2j_token_"`，测试锁定文本见 [GenericDeepenTests.cs:52](file:///d:/code/cs2j/tests/CSharpToJava.Tests/GenericDeepenTests.cs#L52)）；E10 旧哨兵 `__cs2j_typeof_` 被识别去重；碰撞加 `_2` 后缀。
   - 静态泛型字段 holder：生成文件 `_Cs2jGenericHolders.<ProjectName>.cs`（`GeneratedFileStem`），holder 类 `__Cs2jGenericHolder_<T>`，访问器 `__cs2j_get_<F><T>(global::System.Type __cs2j_token_T)`；存储形为**加锁 `Dictionary<string,object>`**，键 = 各 token 的 `AssemblyQualifiedName` 以 `"|"` 拼接（[GenericDeepenHolderGenerator.cs:59-82](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericDeepenHolderGenerator.cs#L59-L82)）。
   - residual 闸门：[GenericDeepenResidualScanner.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericDeepenResidualScanner.cs) 重编译中间树，扫 `static-field` / `catch-type-param` / `type-param-pattern` 三类残余。
-- **与 C30 消费契约对齐的关键事实**：C02 锚点承载的是**类型参数 T 的运行时 Class token**（解决 `typeof(T)`/`is T`/静态字段按闭型共享），**不产生具体闭型 `List<List<short>>` 的任何注册物**。stub 描述现写的 "keyed by generic-deepen tokens"（PassStubCatalog.cs:120）是愿景而非现存契约：C# 的 `typeof(List<List<short>>)` 经转换器到 Java 侧，class literal 擦除后只剩 `CSharpList.class`，嵌套实参在 Java 字节码里天然消失——闭型需要的是 `java.lang.reflect.Type` **构造树**（compat `parameterized(raw, args...)` 可造），与 C02 的 `Class<T>` token 同族但不同型。这一缺口决定了路线 A 的核心工作量（§3 决策 D2）。
+- **与 C30 消费契约对齐的关键事实**：C02 锚点承载的是**类型参数 T 的运行时 Class token**（解决 `typeof(T)`/`is T`/静态字段按闭型共享），**不产生具体闭型 `List<List<short>>` 的任何注册物**。stub 描述现写的 "keyed by generic-deepen tokens"（PassStubCatalog.cs:108）是愿景而非现存契约：C# 的 `typeof(List<List<short>>)` 经转换器到 Java 侧，class literal 擦除后只剩 `CSharpList.class`，嵌套实参在 Java 字节码里天然消失——闭型需要的是 `java.lang.reflect.Type` **构造树**（compat `parameterized(raw, args...)` 可造），与 C02 的 `Class<T>` token 同族但不同型。这一缺口决定了路线 A 的核心工作量（§3 决策 D2）。
 
 ### 2.6 被删除补丁族的完整清单（git show c8d6d31f^ 核实）
 
@@ -205,7 +205,7 @@ git branch -a
 
 ### 3.3 路线 C 下的 stub 定位（近期形态）
 
-选 C 时 `closed-metadata` **不翻转为 Implemented**：保留 [PassStubCatalog.cs:112-121](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L112-L121) 的 Stub（默认关、显式启用 CS2J9001），描述更新为「审计/契约型占位：compat 闭型契约见 specs/2026-09-29-c30-...；生成码补丁由下游 dotnet-text-json 仓持有（M1 核实结论链接）」。可选地在 M2 增加一个**只读审计器**（不改树，作为独立 diagnostics 命令或 Implemented 审计型 pass，形态参考 §5.2），扫描中间树闭型站点与转换器发射的反射调用，产出「该程序依赖哪些闭型、当前 Java 产物将走 ThreadLocal 还是反射签名」的报告——为路线 A 提供频率证据，对齐 catalog §4 风险 10（opt-in 条目不长期空转）。
+选 C 时 `closed-metadata` **不翻转为 Implemented**：保留 [PassStubCatalog.cs:100-109](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L100-L109) 的 Stub（默认关、显式启用 CS2J9001），描述更新为「审计/契约型占位：compat 闭型契约见 specs/2026-09-29-c30-...；生成码补丁由下游 dotnet-text-json 仓持有（M1 核实结论链接）」。可选地在 M2 增加一个**只读审计器**（不改树，作为独立 diagnostics 命令或 Implemented 审计型 pass，形态参考 §5.2），扫描中间树闭型站点与转换器发射的反射调用，产出「该程序依赖哪些闭型、当前 Java 产物将走 ThreadLocal 还是反射签名」的报告——为路线 A 提供频率证据，对齐 catalog §4 风险 10（opt-in 条目不长期空转）。
 
 ### 3.4 规则全集（路线 A，CM-x 预登记）
 
@@ -239,10 +239,10 @@ git branch -a
 
 ### 4.1 现状（不动）
 
-[PassStubCatalog.cs:112-121](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L112-L121)：
+[PassStubCatalog.cs:100-109](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L100-L109)：
 
 ```text
-Id                          = "closed-metadata"（Ids.ClosedMetadata，L28）
+Id                          = "closed-metadata"（Ids.ClosedMetadata，L27）
 DisplayName                 = "Closed-type metadata"
 IntermediateDirectoryName   = ".cs2j-closed-metadata-src"
 Stage                       = PassStage.Abi
@@ -277,7 +277,7 @@ VerifyTestsByDefault        = true
 CatalogItems                = "C30"
 ```
 
-链位：`generic(E10) → generic-deepen(C02) → closed-metadata(C30) → …（attribute-normalize stub 亦锚 generic-deepen，拓扑上二者无先后强依赖，注册顺序由 RunAfter 偏序决定）`。本 pass 不重排既有 18 个 Implemented 条目；翻转时同步：[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 删条目、保留 `Ids.ClosedMetadata` 常量（迁移到 [PassIds](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L25) 最干净，与 C02 同先例）；[PassChainFactory.cs:93](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L93) `CreateAdapter` switch 增 case（仿 GenericDeepen L183-189）；注册表顺序测试、stub 计数测试（现 24 stub → 23）、`--list-passes` 断言同步。
+链位：`generic(E10) → generic-deepen(C02) → closed-metadata(C30) → …（attribute-normalize stub 亦锚 generic-deepen，拓扑上二者无先后强依赖，注册顺序由 RunAfter 偏序决定）`。本 pass 不重排既有 20 个 Implemented 条目；翻转时同步：[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 删条目、保留 `Ids.ClosedMetadata` 常量（迁移到 [PassIds](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L26) 最干净，与 C02 同先例）；[PassChainFactory.cs:98](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L98) `CreateAdapter` switch 增 case（仿 GenericDeepen L198-204）；注册表顺序测试、stub 计数测试（现 21 stub → 20；注：现有 PassStubCatalogTests 无硬编码计数断言）、`--list-passes` 断言同步。
 
 ### 4.4 中间目录与验证
 
@@ -428,7 +428,7 @@ CatalogItems                = "C30"
 - 开关组合矩阵（fixture 参数化）：C02 off/on × C30 off/on 四格——C30 on + C02 off 必须 CS2J1205 失败退出；C02 on + C30 off 字节级等同只跑 C02；双 off 零差异；双 on 全绿。再叠 unsigned/tuple/array-method 开关各一格验证 D5 时序假设。
 - 双半区联调（需 compat 先行 mvn install 到本机仓）：fixture 中间树编译引用的 compat 版本必须包含新增注册 API；版本不含时转换器/编译诊断须可定位（不允许 NoSuchMethodError 留到运行时才暴露——M3 决定该校验放在 build 期还是运行期守卫）。
 - CLI/注册表：路线 C 下 `--enable-pass closed-metadata` 仍 CS2J9001（回归锁定）、`--list-passes` 文案正确；路线 A 翻转后状态/目录/默认关无目录无耗时、单文件 CS2J1290、拓扑顺序（generic-deepen 之后）与 catalogItems=="C30" 断言；指纹令牌含 `pass:closed-metadata=...`。
-- 注册表一致性：[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) 的 stub 计数（路线 A 翻转时 24 → 23）、[GenericDeepenRegistryTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/GenericDeepenRegistryTests.cs) 同类断言为本 pass 注册表测试的范本；ProjectPreprocessorsConsistentTests 追加本 pass 的类型存在性 + 中间目录名断言。
+- 注册表一致性：[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) 的 stub 计数（路线 A 翻转时 21 → 20）、[GenericDeepenRegistryTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/GenericDeepenRegistryTests.cs) 同类断言为本 pass 注册表测试的范本；ProjectPreprocessorsConsistentTests 追加本 pass 的类型存在性 + 中间目录名断言。
 
 ---
 
@@ -499,7 +499,7 @@ CatalogItems                = "C30"
 | 并行条目 | 关系 | 协调要点 |
 |---|---|---|
 | **C02 generic-deepen** | 一体两面（catalog §3.3 泛型擦除补偿族 E10+C02+C09+C30+C33）：C02 产出类型参数 token，C30 产/消闭型 Type 结构 | C30 RunAfter 硬锚 generic-deepen；共享符号工具提取到 Core `Analysis/`，不复制 analyzer；C02 不发射注册码、C30 不改 C02 节点；默认开时序 C02 先行；热文件 PassCatalog/PassStubCatalog/PassChainFactory/注册表测试按 id 分区追加 |
-| **C10 attribute-normalize** | stub 同锚 generic-deepen（[PassStubCatalog.cs:189](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L189)）；`[JsonConverter]`/`[JsonPropertyName]` 等按名属性直接影响消费面枚举（0922 §3.2 条 6 属性优先级不变） | 拓扑偏序不强依赖；消费面属性识别规则各自实现，若 C10 先合则 C30 读其归一结果 |
+| **C10 attribute-normalize** | stub 同锚 generic-deepen（[PassStubCatalog.cs:177](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L177)）；`[JsonConverter]`/`[JsonPropertyName]` 等按名属性直接影响消费面枚举（0922 §3.2 条 6 属性优先级不变） | 拓扑偏序不强依赖；消费面属性识别规则各自实现，若 C10 先合则 C30 读其归一结果 |
 | **C33 variance-audit** | 同审计族，读同一批泛型符号但不改节点 | 零实现冲突；审计器（§5.2）可与 C33 审计基建共享报告格式 |
 | **C09 thread-static** | 同涉及 ThreadLocal 关键词，但 C09 处理 `[ThreadStatic]` 字段，C30 处理序列化类型实参队列 | 语义面不相交；文档/诊断中明确两类 ThreadLocal 的不同命运（C09 显式化字段；C30 消灭消费侧依赖） |
 | **序列化 compat（TypeHelper/ConcurrentHashMapHelper/PropertyInfo/FieldInfo）** | C30 路线 A 必须改 compat（新增注册表面、可能统一双键类） | compat 改动 TDD 先行、mvn install 到本机仓后下游才能消费；任何 compat 签名变更需同步检查下游调用方（M1 核实其存在性后建立通知机制） |
@@ -523,3 +523,17 @@ git worktree add .worktrees/preproc-c30-closed-metadata -b feature/preproc-c30-c
 ```
 
 实施约束：仅在该 worktree 内改码；路线 C 落地时只允许文档/stub 描述/审计器类改动；路线 A 按 §10 里程碑逐提交、默认关先行；compat 改动与 C# 改动分提交；转换器改动留独立后续 PR；未过 §9 门槛不得翻默认开。
+
+---
+
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（散见决策表/里程碑门的悬置项，按主题收口）：**
+
+1. **路线总决议**：批准 **"近期 C → 中期 A"** 单线路径——**近期 = 路线 C**（stub 保留：只更新 stub 描述、交付只读审计器/契约型输出与 sdk 频率测量，码位保留不分配实现）；**中期 = 路线 A**（C# 前置注册，A1 声明驱动先行、A2 动态闭型随后）；**路线 B（生成 Java 后的文件级补丁形态，含 B2）永久关闭**，已被 c8d6d31f 架构方向历史否决，设计与评审中不再出现。
+2. **M1 为强制门且环境前提明确**：M1 下游考古**必须在可访问下游 dotnet-text-json 仓及其生成物的环境中**完成 §10.1 六项核实并回填 §2.3；本裁决时本机 **`D:\dotnet-text-json` 不存在、不可访问**，故在此之前**不允许任何实现性提交**，也不得出具"路线 C 收口"以外的结论。
+3. **A 升格触发条件**：M1 若证伪路线 C（下游完全没有补丁/等价手写改造）**且嵌套 JSON 仍在本仓生成器服务范围内**，则**路线 A 升格为近期主线**（走 M2'），无需再等一个评审周期；若嵌套 JSON 已不属服务范围，则维持 C 并书面记录边界。
+4. **路线 A 纪律预先锁定**：RunAfter 硬锚 generic-deepen 且默认开时序 C02 先行（双 opt-in 不长期并存）；零 ThreadLocal 消费是硬验收（7 张 ThreadLocal map 反射断言）；双键类统一/隔离在 M2 定案并以 compat 测试锁死；转换器 D2（闭型 typeof 树映射）为独立后续 PR、以本 pass 默认开为前置门。
+5. **状态一致性红线**：M1 结论必须回填本文件 §2.3/§10.1 并更新状态行（路线决议与代码现状同一提交保证），任何后续翻转/退役同步修订本设计，杜绝"文档说已实现、树里没有"再次发生。

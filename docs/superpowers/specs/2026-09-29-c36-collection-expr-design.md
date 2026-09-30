@@ -3,8 +3,8 @@
 **日期**: 2026-09-29
 **范围**: 在 C23 锚点合入后的 `src/CSharpToJava.Core/ExpressionDesugar/` 共享族基建上新增 `CollectionExpr/` 规则集，在 C# 层把集合表达式 `[1,2,3]`（`CollectionExpressionSyntax`）按 **SemanticModel/IOperation 得到的 ConvertedType** 显式构造为与目标类型同构的**可变/正确**形态：数组 `T[]` → `new T[]{…}`；`List<T>`/具体集合 → 可变 `new List<T>(){…}` 或「构造 + Add/AddRange 语句序列」；`IEnumerable<T>`/`IList<T>` 等接口目标 → 编译器规范具体类（`List<T>` 等）；`Span<T>`/`ReadOnlySpan<T>` → v1 数组形态（与 C06 划界）；带 `[CollectionBuilder]` 的类型 → v1 显式报码、M2 经 IOperation 收编；spread 元素 `..e`（`SpreadElementSyntax`）→ `AddRange`/Span `foreach` 展开，**消灭现有 `OfType<ExpressionElementSyntax>()` 静默过滤丢数据 bug**；空 `[]`、嵌套 `[[1],[2]]`、副作用顺序与 spread 单次求值一并覆盖。规则集另含 **C# 11/12 新语法防线盘点器**：接口 `static abstract/virtual` 成员（显式拒绝 + 未来 companion 展望）、`scoped`（盘点，与 C01/C06 划界）、泛型 attribute（显式拒绝）。本任务**不注册/不翻转 pass、不新增 pass id/中间目录/适配器、不改任何 C#→Java 转换器代码**
 **状态**: 设计待评审；实现硬前置 C23 锚点分支合入；M1 建议等待 C24 合入以复用 Add/上下文语句化助手（见 §3、§12）
-**Catalog**: C36（P3 首位——spread 丢失是数据级 bug；分类 1.8 表达式）[preprocessor-catalog.md L691-L704](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L691-L704)；C24 边界 [L544-L553](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L544-L553)；C41 数值元素边界 [L758-L769](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L758-L769)；族合并表 [§3.3 L909](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L909-L909)；静默错误输出风险 12 [L931](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931)；新语法防线风险 13 [L932](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L932-L932)
-**注册表现状**: stub `expression-desugar`（[PassStubCatalog.cs L239-L248](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L239-L248)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，RunAfter=`null-coalesce`，目录 `.cs2j-expression-desugar-src`）。stub 翻转与族基建由 C23 锚点完成；C36 只在同一 pass 内追加 `CollectionExpr/` 规则，合入时 catalogItems 以 rebase 基线实际值为准加宽为含 `C36`（锚点侧文件统一登记），不新增 pass id、不拆链
+**Catalog**: C36（P3 首位——spread 丢失是数据级 bug；分类 1.8 表达式）[preprocessor-catalog.md L764-L780](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L764-L780)；C24 边界 [L599-L609](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L599-L609)；C41 数值元素边界 [L839-L851](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L839-L851)；族合并表 [§3.3 L1087](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1087-L1087)；静默错误输出风险 12 [L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)；新语法防线风险 13 [L1111](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1111-L1111)
+**注册表现状**: stub `expression-desugar`（[PassStubCatalog.cs L217-L226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，RunAfter=`null-coalesce`，目录 `.cs2j-expression-desugar-src`）。stub 翻转与族基建由 C23 锚点完成；C36 只在同一 pass 内追加 `CollectionExpr/` 规则，合入时 catalogItems 以 rebase 基线实际值为准加宽为含 `C36`（锚点侧文件统一登记），不新增 pass id、不拆链
 **base**: `953293b9`（`docs: update doc base commit`，已 `git rev-parse --verify` 校验存在，完整 SHA `953293b908e9143437c45f287fb4277e890c398e`）；实际开工 base = C23（建议含 C24）分支合入后的 rebase 点
 
 ---
@@ -13,15 +13,15 @@
 
 ### 1.1 现状：一条窄规则、两类静默错误
 
-集合表达式今天仅在 **C#→Java 主转换器**内部被一条窄 delegate 规则处理，全仓唯一处理点 [ExpressionTransformerRegistry.cs:134-150](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs#L134-L150)。2026-09-29 复核证据：
+集合表达式今天仅在 **C#→Java 主转换器**内部被一条窄 delegate 规则处理，全仓唯一处理点 [ExpressionTransformerRegistry.cs:135-151](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs#L135-L151)。2026-09-29 复核证据：
 
 | # | 站点 | 现状行为 | 后果 |
 |---|---|---|---|
-| S1 | [L142-L149](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs#L142-L149) | 仅当 `GetTypeInfo(node).ConvertedType is IArrayTypeSymbol` 发 `new T[]{…}`；**其余全部兜底 `java.util.List.of(…)`** | `List<int> l = [1,2]; l.Add(3);` 在 C# 合法且可变，Java 侧 `List.of` **不可变** → 运行时 `UnsupportedOperationException`。能编译、单测难抓，静默语义差（catalog P3 首位依据） |
+| S1 | [L142-L150](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs#L142-L150) | 仅当 `GetTypeInfo(node).ConvertedType is IArrayTypeSymbol` 发 `new T[]{…}`；**其余全部兜底 `java.util.List.of(…)`** | `List<int> l = [1,2]; l.Add(3);` 在 C# 合法且可变，Java 侧 `List.of` **不可变** → 运行时 `UnsupportedOperationException`。能编译、单测难抓，静默语义差（catalog P3 首位依据） |
 | S2 | [L138-L139](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs#L138-L139) | 元素取 `coll.Elements.OfType<ExpressionElementSyntax>()`；`SpreadElementSyntax`（`..e`）**不是** `ExpressionElementSyntax`，被 OfType **静默过滤** | `[..a, x]` 中 spread 数据整体丢失，无异常、无诊断、无 TODO——**数据级 bug**；全 `src` grep `SpreadElement` 零命中，确认无任何补偿处理 |
 | S3 | 全 `src` grep `CollectionExpression\|SpreadElement\|CollectionBuilder\|ExpressionElement` | 仅 2 个文件 6 行命中：窄规则本身（L135/138/139）与 E09 的 byte 判定（[UnsignedTypeSyntaxRewriter.cs:439-L449](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L439-L449)）；`CollectionBuilder` 零命中 | 无目标类型分派、无接口具体类选择、无 .NET 8 builder 模式、无 spread、无嵌套专项；E09 只在 byte 常量收窄处「认得」该语法，反证各 preprocessor 未把它当一等语法 |
-| S4 | 测试面 | 仅 [ArrayTests.cs:257-270](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/ArrayTests.cs#L257-L270) 两个数组目标用例（钉「数组目标不得出 List.of」）；[LinqRewriterVariableCaptureTests.cs:11](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqRewriterVariableCaptureTests.cs#L11) 仅方法名含 CollectionExpression，用例本体是 LINQ 捕获，**无 spread/List 可变性/接口/嵌套/spread 任何断言** | 现有护栏只锁数组直映这一恰好正确的分支；S1/S2 完全无测试 |
-| S5 | 新版本语法 | 接口 `static abstract/virtual` 成员、泛型 attribute 在 `src` **零命中**；`scoped` 仅 C01 RefOutIn 在参数重写路径剥离（[RefOutInSyntaxRewriter.cs:239-243,259-263](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L239-L263)，`ScopedRemoved` 计数；dirty 判定 [RefOutInRewriter.cs:72-77](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInRewriter.cs#L72-L77)） | catalog 四次补全 [L704](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L704-L704)：sdk json/json-codegen **已使用**接口 static abstract 成员——「本仓不用」≠「输入不用」；命中即落入转换器默认分支，无信号 |
+| S4 | 测试面 | 仅 [ArrayTests.cs:207-221](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/ArrayTests.cs#L207-L221) 两个数组目标用例（钉「数组目标不得出 List.of」）；[LinqRewriterVariableCaptureTests.cs:11](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqRewriterVariableCaptureTests.cs#L11) 仅方法名含 CollectionExpression，用例本体是 LINQ 捕获，**无 spread/List 可变性/接口/嵌套/spread 任何断言** | 现有护栏只锁数组直映这一恰好正确的分支；S1/S2 完全无测试 |
+| S5 | 新版本语法 | 接口 `static abstract/virtual` 成员在 `src` **无真实声明使用**（但 MemberDesugar 闸门诊断已点名本语法，详见 §2.5）；泛型 attribute 在 `src` **零命中**；`scoped` 仅 C01 RefOutIn 在参数重写路径剥离（[RefOutInSyntaxRewriter.cs:239-243,259-263](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L239-L263)，`ScopedRemoved` 计数；dirty 判定 [RefOutInRewriter.cs:72-77](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInRewriter.cs#L72-L77)） | catalog 四次补全 [L777](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L777-L777)：sdk json/json-codegen **已使用**接口 static abstract 成员——「本仓不用」≠「输入不用」；命中即落入转换器默认分支，无信号 |
 
 ### 1.2 目标形态
 
@@ -48,7 +48,7 @@ int[] empty = [];                            // → int[] empty = new int[]{};
 
 ### 1.3 非目标（边界）
 
-- **不改 Java 侧任何代码**：[ExpressionTransformerRegistry.cs:134-150](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs#L134-L150) 窄规则本期保留为直连单文件路径安全网，默认开后下掉排期另立 PR；
+- **不改 Java 侧任何代码**：[ExpressionTransformerRegistry.cs:135-151](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs#L135-L151) 窄规则本期保留为直连单文件路径安全网，默认开后下掉排期另立 PR；
 - **对象/集合初始化器、target-typed `new()`** 归 C24；本规则只消费 `CollectionExpressionSyntax`/`SpreadElementSyntax`，但复用 C24 的 Add 发射与上下文语句化助手；
 - **`stackalloc`/Span 栈生命周期/ref struct 声明**归 C06（D5 已认领显式/隐式 stackalloc 统一堆化，[c06 设计](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c06-unsafe-ffm-design.md)）；本规则 Span 目标只发数组形态，不模拟栈分配；
 - **`nint`/`nuint`/`Half`/`Int128` 元素**的类型归一归 C41/E09；本规则按符号发射元素表达式，不做数值降级；
@@ -112,12 +112,12 @@ int[] empty = [];                            // → int[] empty = new int[]{};
 
 ### 2.5 ★新版本语法防线表（CE-GUARD，M3 盘点/显式拒绝）
 
-防线规则与集合表达式同属 `CollectionExpr/` 规则集（M3 前以独立 Analyzer 提供盘点计数），**只盘点/拒绝，不在本通道实现收编**：
+防线规则与集合表达式同属 `CollectionExpr/` 规则集（M3 前以独立 Analyzer 提供盘点计数），**只盘点/拒绝，不在本通道实现收编**（注：catalog 五次补全已将防线范围升格为 C# 11+ 伞条目 C52，见 [catalog L997-L1010](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L997-L1010)；本设计 CE-GUARD 仍限 C# 11/12，升格衔接待评审）：
 
 | 语法 | 现状证据 | 处置 | 码 |
 |---|---|---|---|
-| 接口 `static abstract`/`static virtual` 成员（方法/属性/事件/索引器/运算符，含 sdk json-codegen 已用形态） | `src` 零命中；Java 无对应特性（接口不能有静态抽象成员，也无静态接口多态分派） | **声明站点：strict Error 显式拒绝**，消息含成员签名与「Java 无此特性；未来 companion 模式 = 伴随类静态方法 + 单态化分派，属独立专题」；通过接口类型对 static abstract 成员的**调用站点**：M3 探针可识别则 Warning 盘点（generic math/JSON 序列化器高频），不静默 | CS2J0585 |
-| `scoped` 关键字（C# 11 `scoped Span<T>` 局部/参数） | C01 RefOutIn 已在参数重写路径剥离（5 处命中，带 `ScopedRemoved` 计数）；**局部 `scoped` 等非 C01 重写形态无覆盖**（catalog [L1084](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1084-L1084) 注「scoped 无处理」） | 盘点不重写：参数形态发 Info（下游 C01 剥离，顺序上 C01 在 expression-desugar 之后，盘点时仍可见 token，仅计数不报错）；局部/其余形态 Warning 指路 C06/C01 补全；不与 C01 重复剥离 | CS2J0586 |
+| 接口 `static abstract`/`static virtual` 成员（方法/属性/事件/索引器/运算符，含 sdk json-codegen 已用形态） | `src` 无真实声明使用；但 MemberDesugar（C11–C14）已有声明级闸门/诊断点名本语法（[PropertyDiagnostics.cs:17](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyDiagnostics.cs#L17-L17)、[PropertyFacts.cs:38](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyFacts.cs#L38-L38)、[IndexerRule.cs:148](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Indexers/IndexerRule.cs#L148-L148)、[EventRule.cs:169](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Events/EventRule.cs#L169-L169)、[OperatorDiagnostics.cs:19](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Operators/OperatorDiagnostics.cs#L19-L19)、[OperatorFacts.cs:26](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Operators/OperatorFacts.cs#L26-L26)），与本防线存在职责重叠；Java 无对应特性（接口不能有静态抽象成员，也无静态接口多态分派） | **声明站点：strict Error 显式拒绝**，消息含成员签名与「Java 无此特性；未来 companion 模式 = 伴随类静态方法 + 单态化分派，属独立专题」；通过接口类型对 static abstract 成员的**调用站点**：M3 探针可识别则 Warning 盘点（generic math/JSON 序列化器高频），不静默 | CS2J0585 |
+| `scoped` 关键字（C# 11 `scoped Span<T>` 局部/参数） | C01 RefOutIn 已在参数重写路径剥离（带 `ScopedRemoved` 计数；原「5 处命中」处数待核实——现 grep 可见 `ScopedKeyword` 引用 4 处 + `ScopedRemoved` 自增 2 处）；**局部 `scoped` 等非 C01 重写形态无覆盖**（catalog [L1270](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1270-L1270) 注「scoped 无处理」） | 盘点不重写：参数形态发 Info（下游 C01 剥离，顺序上 C01 在 expression-desugar 之后，盘点时仍可见 token，仅计数不报错）；局部/其余形态 Warning 指路 C06/C01 补全；不与 C01 重复剥离 | CS2J0586 |
 | 泛型 attribute（`class FooAttribute<T> : Attribute`，C# 11） | `src` 零命中；Java 注解不能带类型形参 | 声明站点 strict Error；实例化应用站点 Warning 盘点；归 C10 attribute 归一远期收编 | CS2J0587 |
 | 集合表达式入表达式树（防御） | 基线 CS9175 | 理论不可达；命中即 Info + 不改写，供残损输入诊断 | CS2J0588 |
 
@@ -289,7 +289,7 @@ dotnet test -c Release tests/CSharpToJava.ConversionTests/CSharpToJava.Conversio
 - **四象限扩展**：expression-desugar × unsigned 两 pass on/off，专项复核 **byte/ushort 常量元素**：C36 产物中 `new byte[]{128}` 仍落在 E09 [IsByteArrayInitializerElement](file:///d:/code/cs2j/src/CSharpToJava.Core/UnsignedTypeRewriter/UnsignedTypeSyntaxRewriter.cs#L444-L449) 的 `InitializerExpressionSyntax` 父模式（cast 自动接上）；但语句化的 `tmp.Add(128)` 与 `ToArray()` 元素父节点不是初始化器，需确认 E09 是否需只增识别 Add 实参（§11），unsigned 关闭时 C# 半区仍编译通过（常量隐式转换）；
 - 与 C24 共处：集合表达式 + 对象初始化器同文件，临时序号/锚点不冲突；C36 发射的集合初始化器不被 C24 回访；
 - 与 LINQ/fixture：`new[] { … }.Select(…)` 式链、[LinqRewriterVariableCaptureTests.cs:11](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqRewriterVariableCaptureTests.cs#L11) 继续绿；集合表达式在查询实参/返回位的组合；
-- **现有直连护栏默认关不改**：[ArrayTests.cs:257-270](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/ArrayTests.cs#L257-L270) 两个数组用例保持绿色（pass 默认关，输入仍含集合表达式，走窄规则）。
+- **现有直连护栏默认关不改**：[ArrayTests.cs:207-221](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/ArrayTests.cs#L207-L221) 两个数组用例保持绿色（pass 默认关，输入仍含集合表达式，走窄规则）。
 
 ### 7.5 residual「零集合表达式」口径与 CLI
 
@@ -298,11 +298,11 @@ dotnet test -c Release tests/CSharpToJava.ConversionTests/CSharpToJava.Conversio
 
 ## 8. 默认开启验收门槛
 
-本规则无独立 pass 默认态，随 expression-desugar 族门槛（[c23 §8](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L408-L418)）开启；本规则附加项：
+本规则无独立 pass 默认态，随 expression-desugar 族门槛（[c23 §8](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L411-L422)）开启；本规则附加项：
 
 1. §7.1 矩阵全绿；fixture 与三个测试工程 Release build/test 全绿；幂等、字节复制、residual 双零闸门（零集合表达式/零 spread）全绿；
 2. .NET 半区等价：可变性、内容/顺序、spread 多源与单次求值、副作用序列、嵌套、接口具体类选择全矩阵双跑一致；
-3. **Java 半区就绪核查（只核查，转换器改动另开 PR）**：去糖产物经主转换产出可编译且运行时正确的 Java——S1 用例（List 目标 Add 不抛）e2e 全绿；窄规则 [L134-L150](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs#L134-L150) 在预处理输入上确认不可达；Add/AddRange/foreach/ToArray 的 Java 映射齐备；
+3. **Java 半区就绪核查（只核查，转换器改动另开 PR）**：去糖产物经主转换产出可编译且运行时正确的 Java——S1 用例（List 目标 Add 不抛）e2e 全绿；窄规则 [L135-L151](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerRegistry.cs#L135-L151) 在预处理输入上确认不可达；Add/AddRange/foreach/ToArray 的 Java 映射齐备；
 4. E09 byte 常量衔接（§7.4 四象限）有结论：要么现有父模式覆盖全部新产物，要么 E09 只增识别项已合入；
 5. csharp-sdk 画像试跑：集合表达式/spread 站点总量、目标种类分布、0580（CollectionBuilder）/0585（static abstract）/0583（不可提升）命中清单逐条人工定性；防线 inventory 对 json/json-codegen 等已知 static abstract 使用库给出量化报告（呼应 catalog 四次补全的 EF Core 复核要求）；
 6. 与 C23/C24/C35 及 E09/C01 启用组合下 fixture 与 sdk 抽样工程 build/test 不退化；耗时增量可接受；
@@ -364,7 +364,21 @@ git worktree add .worktrees/preproc-c36-collection-expr -b feature/preproc-c36-c
 
 ---
 
-## 附：关键开放问题（供评审拍板）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃或过滤；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **CollectionBuilder 收编范围**：M2 直接做基于 IOperation 的**通用** builder 工厂发射（非白名单驱动，全语义）；M0 探针覆盖字典 builder（`ReadOnlySpan<KeyValuePair<K,V>>`）与自定义形参，通用路径不能覆盖的形态才保留 CS2J0580 显式诊断；`ImmutableArray<T>` 等 BCL 高频类型白名单仅作验证夹具，不作功能开关。
+2. **spread 语句化与字段/属性初始化器**：随 C24 裁决 1 的构造函数迁移能力统一退役 CS2J0583 主类；`a.Append(x).ToArray()` 式零临时 LINQ 改写面**否决**（引入与 C19 的顺序耦合且依赖 LINQ）。
+3. **static abstract companion**：**单独立 catalog 条目**（sdk json-codegen 已结构性使用，是真实阻断而非理论形态），负责 companion 类 + 单态化/泛型特化分派及与 C02 generic-deepen 的分工；C36 v1 显式拒绝并在诊断文案指路新条目，不以"观察项"搁置。
+4. **C24 Add 助手可见性**：C36 作为首个外部消费者，M1 后按 C24/C35 三家实际需求只增提取到 `Shared/`，不提前抽象。
+5. **数组目标含 spread 的构造形态**：统一 List + `ToArray()` 单形态；`Concat(...).ToArray()` 与 `Array.Resize`/`CopyTo` 拼接形态否决（无画像性能证据，且前者引 System.Linq 依赖与 C19 顺序耦合），未来有基准数据再议。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **CollectionBuilder 类型的收编范围与白名单**：M2 按 IOperation 通用发射 builder 工厂调用，还是先做画像驱动白名单（`ImmutableArray<T>` 等 BCL 高频类型）？通用路径对字典 builder（`ReadOnlySpan<KeyValuePair<K,V>>`）与自定义形参形态的覆盖度需 M0 探针数据；v1 0580 拒绝期间用 sdk 命中率定优先级。
 2. **spread 语句化对字段/属性初始化器的策略**：长期是否同 C24 Q1 做构造函数迁移（退役 0583 主类），还是提供「`[..a, x]` → `a.Append(x).ToArray()` 式零临时 BCL 改写面」（依赖 LINQ/扩展方法，可能引入与 C19 的交互）；倾向前者，需命中率支撑。

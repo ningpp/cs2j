@@ -3,8 +3,11 @@
 **日期**: 2026-09-29
 **范围**: 把注册表 stub `linq-channel`（catalog C26，P2，结构性候选）从 `Stub` 翻转为 `Implemented`；新增 Core 通道组件与 CLI 适配器，把 E16 的嵌入式 LINQ 重写提升为「独立中间目录 + 独立入口 + dotnet build/test 等价性闸门 + skipped-chain 报告」的标准 preprocessor，并在通道入口强制实施 receiver 三路分流。**嵌入式 E16 的摘除不在本特性 PR，归 M4 独立转换器 PR（§5.4）**
 **状态**: 设计定稿待评审；实施在独立 worktree（见 §12），本文不改动任何代码
+
+> **校订（2026-09-29）**：本文据当前工作区做证据核对，仅改本文档，未触任何代码与 tests/。改动枚举：①源码行号全部按当前工作区重算——[LinqRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs) 实为 1768 行（非 1624；文件含混合行结束符，`Measure-Object -Line` 少计，编辑器/rg 行号为准）、[LinqRewriter.Rules.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs) 2391 行（非 2156）、[LinqQueryDesugarer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs) 265 行，Program.cs/PassCatalog/PassChainFactory/测试等行号同步更正；②补 2026-09-29 四路 grep 复核结论（LinqRewrite/ 全目录 `IQueryable`/`IOrderedQueryable`/`System.Linq.Expressions`/`Expression<` **零命中**，见 §1.3）；③catalog 引用行号重算（C26 为 L623-635、C19 为 L530-543、C21 为 L558-570、§4 风险 8 为 L1106、风险 17 为 L1115、§5.1 为 L1127-1136）；④翻转清单更正：stub `linq-channel` 条目实在 [PassStubCatalog.cs#L197-L206](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L197-L206)；翻转先例改按 **IteratorLowering**（id 常量留在 `PassStubCatalog.Ids`，不迁 PassIds）；当前已实现 pass 20 个、stub 21 个，`LockedChain` 为 20 项（翻转后 21），`PassStubCatalogTests` **无硬编码 stub 计数断言**；链位更正为「MemberDesugar 之后、JavaKeywords 之前」（MemberDesugar 已实现，C26 不可能「紧随 eliminate-goto」）；⑤**复用既有** [ExpressionTreeFacts.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs)（C02/C08 已共用），不再于 LinqChannel/ 新建第二份；⑥测试口径更正：Linq/Query 相关 35 文件，146 个 `[Fact]/[Theory]` + LinqBulkTests 21 条 yield 数据片段 = 167 用例；`Expression<Func>` 在 tests/ 另有 4 处非 LINQ 分流用途（§1.1）；⑦语法名 fallback 区间更正为 [LinqRewriter.cs#L796-L858](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L858)。E16 嵌入式 LinqRewriter 现状仍经 ProjectPasses/SingleFilePasses + Program 旧路径运行（与注册表统一链并存，本文无「已统一」声称，并存/摘除设计见 §5.3-§5.5）。
+
 **对应基线**: `953293b9`（dev-3.x HEAD，完整 SHA `953293b908e9143437c45f287fb4277e890c398e`，"docs: update doc base commit"，2026-09-29 已核实存在）
-**关联资料**: `prompts/preprocessor-catalog.md` C26（L566-577，含四次补全强制门全文）/C19（L484-494）/C21（L508-518）/§4 风险 17（L936，IQueryable 静默客户端求值）与风险 8（L927，表达式树共同禁区）/§5.1 .NET 半区与 EF Core 测试预言机（L946-955）；`.trae/documents/preprocessor-foundation_plan.md` L60-139（标准 spine/verify/中间目录契约/交付包模板）；姊妹设计 [2026-09-29-c19-extension-methods-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c19-extension-methods-design.md)（§3.4 EM-ORDER/EM-LINQ 结论）、[2026-09-29-c21-anonymous-type-lift-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c21-anonymous-type-lift-design.md)；范本 [2026-09-28-java-keywords-preprocessor-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md)
+**关联资料**: `prompts/preprocessor-catalog.md` C26（L623-635，含四次补全强制门全文）/C19（L530-543）/C21（L558-570）/§4 风险 17（L1115，IQueryable 静默客户端求值）与风险 8（L1106，表达式树共同禁区）/§5.1 .NET 半区与 EF Core 测试预言机（L1127-1136）；`.trae/documents/preprocessor-foundation_plan.md` L60-139（标准 spine/verify/中间目录契约/交付包模板）；姊妹设计 [2026-09-29-c19-extension-methods-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c19-extension-methods-design.md)（§3.4 EM-ORDER/EM-LINQ 结论）、[2026-09-29-c21-anonymous-type-lift-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c21-anonymous-type-lift-design.md)；范本 [2026-09-28-java-keywords-preprocessor-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md)
 
 ---
 
@@ -16,48 +19,48 @@ E16 的全部资产位于 [LinqRewrite/](file:///d:/code/cs2j/src/CSharpToJava.C
 
 | 资产 | 规模/入口 | 职责与证据 |
 |---|---|---|
-| [LinqRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs) | 1624 行，partial `CSharpSyntaxRewriter` | 过程式化主体重写器：方法链 → foreach/聚合循环 + 提取 `*_ProceduralLinqHelper`（[L1620-1667](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L1620-L1667)）；foreach 直接包裹（[L1599-1618](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L1599-L1618)）；构造仅吃 `SemanticModel + ConversionOptions`（[L43-47](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L43-L47)）。源自第三方 roslyn-linq-rewrite（文件头版权 L1-21） |
-| [LinqRewriter.Rules.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs) | 2156 行 | 全部算子规则（Where/Select/Join/GroupJoin/聚合/排序/分组/集合运算…）与规则常量（如 `WhereMethod` 的 reduced 显示名，[L2309](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs#L2309)） |
-| [LinqQueryDesugarer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs) | 233+ 行 | **纯语法**把 query expression（`from…where…select`）去糖为 member-access 方法链（[L19-37](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs#L19-L37)、[L108-120](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs#L108-L120)）；不查 SemanticModel |
+| [LinqRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs) | 1768 行（2026-09-29 校订；旧称 1624 行系混合行结束符下 `Measure-Object -Line` 少计），partial `CSharpSyntaxRewriter` | 过程式化主体重写器：方法链 → foreach/聚合循环 + 提取 `*_ProceduralLinqHelper`（[L1620-1667](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L1620-L1667)）；foreach 直接包裹（[L1599-1618](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L1599-L1618)）；构造仅吃 `SemanticModel + ConversionOptions`（[L43-47](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L43-L47)）。源自第三方 roslyn-linq-rewrite（文件头版权 L1-21） |
+| [LinqRewriter.Rules.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs) | 2391 行（2026-09-29 校订，旧称 2156 行） | 全部算子规则（Where/Select/Join/GroupJoin/聚合/排序/分组/集合运算…）与规则常量（如 `WhereMethod` 的 reduced 显示名，[L2309](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs#L2309)） |
+| [LinqQueryDesugarer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs) | 265 行（2026-09-29 校订，旧称 233+ 行） | **纯语法**把 query expression（`from…where…select`）去糖为 member-access 方法链（[L19-37](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs#L19-L37)、[L108-120](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs#L108-L120)）；不查 SemanticModel |
 | [LinqRewriteObservability.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriteObservability.cs) | 104 行 | `LinqSkipReason`（9 种）、`LinqSkipInfo`、`LinqOperatorOccurrence`、`LinqRewriteStatistics`（DesugaredQueryCount/RewrittenChainCount/RewrittenMethodCount/SkippedChains/EncounteredOperators + MergeFrom） |
 | [LinqStep.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqStep.cs)、[Lambda.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/Lambda.cs)、[ExtensionMethods.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/ExtensionMethods.cs)、[CanRewrapForeachVisitor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/CanRewrapForeachVisitor.cs)、[LiteralString.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LiteralString.cs)、[ExitException.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/ExitException.cs) | 辅助 | 注意 [ExtensionMethods.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/ExtensionMethods.cs) 是第三方语法 helper（`WithStatic/WithRef`），与扩展方法语义解析无关（C19 设计 §1.1 已澄清） |
 
 **调用点（嵌入式，主转换期运行）**：
 
-- 项目路径：[ProjectPasses.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs) 的 `ProjectLinqDesugarPass`（[L151-243](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L151-L243)），门控一行 [L164](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L164)：`EnableLinqRewrite && !EffectivePreferStreamApi`；两阶段——并行纯语法 desugar（[L286-327](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L286-L327)）→ 重建 compilation → 逐树 `LinqRewriter`（[L329-385](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L329-L385)）→ 重建 Library/TypeGroups（[L262-284](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L262-L284)）；注册于 [ProjectConversionPipeline.cs:262-279](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L262-L279)（pass 链首位），统计经 `LastLinqStatistics`（[L341](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L341)）上抛。
+- 项目路径：[ProjectPasses.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs) 的 `ProjectLinqDesugarPass`（[L151-243](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L151-L243)），门控一行 [L164](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L164)：`EnableLinqRewrite && !EffectivePreferStreamApi`；两阶段——并行纯语法 desugar（[L286-327](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L286-L327)）→ 重建 compilation → 逐树 `LinqRewriter`（[L329-397](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L329-L397)）→ 重建 Library/TypeGroups（[L262-284](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L262-L284)）；注册于 [ProjectConversionPipeline.cs:262-279](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L262-L279)（pass 链首位），统计经 `LastLinqStatistics`（[L341](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L341)）上抛。
 - 单文件路径：[SingleFilePasses.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs) 的 `SingleFileLinqDesugarPass`（[L28-121](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs#L28-L121)），门控 [L40](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs#L40)，desugarer [L64](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs#L64)、rewriter [L82](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs#L82)；注册于 [ConversionPipeline.cs:415](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs#L415)。
 
 **门控与报告**：
 
-- `ConversionOptions.EnableLinqRewrite` 默认 **true**（[ConversionOptions.cs:53-54](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionOptions.cs#L53-L54)）；CLI `--no-linq-rewrite`（[Program.cs:4606-4607](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4606-L4607) 与 [L4667-4668](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4667-L4668)，`EnableLinqRewrite => !NoLinqRewrite`）。
+- `ConversionOptions.EnableLinqRewrite` 默认 **true**（[ConversionOptions.cs:53-54](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionOptions.cs#L53-L54)）；CLI `--no-linq-rewrite` 两处（2026-09-29 校订）：`ConvertOptions` 的 [L4670-4671](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4670-L4671)（便捷属性 `EnableLinqRewrite => !NoLinqRewrite` 在 [L4688](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4688)）与 `ConvertProjectOptions` 的 [L4731-4732](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4731-L4732)（属性在 [L4866](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4866)）。
 - Stream 偏好选项 `PreferStreamApi`（[L60](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionOptions.cs#L60)）**已是死开关**：`EffectivePreferStreamApi => false` 硬编码（[L62-68](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionOptions.cs#L62-L68)）——当前事实上只有过程式化一条策略。
-- 报告：`--linq-report`（[Program.cs:4685-4686](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4685-L4686)）→ `WriteLinqReport` 产 `cs2j-linq-report.json`（[L1330-1382](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1330-L1382)：desugared/rewritten/skipped 计数 + skippedChains + uncoveredOperators），三种转换目标各调一次（[L384-385](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L384-L385)、[L627-628](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L627-L628)、[L811-812](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L811-L812)），统计靠 `MergeLinqStatistics` 跨项目聚合（[L1384-1395](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1384-L1395)）。
+- 报告：`--linq-report`（2026-09-29 校订：[Program.cs:L4749-4750](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4749-L4750)，`ConvertProjectOptions`）→ `WriteLinqReport` 产 `cs2j-linq-report.json`（[L1332-1384](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1332-L1384)：desugared/rewritten/skipped 计数 + skippedChains + uncoveredOperators），三种转换目标各调一次（[L387](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L387)、[L630](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L630)、[L814](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L814)），统计靠 `MergeLinqStatistics`（定义 [L1386-1397](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1386-L1397)，调用点 [L526](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L526)/[L720](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L720)）跨项目聚合。
 - 失败不阻断：rewriter 内部 catch `InvalidCastException/NotSupportedException/ArgumentException` → 记 skipped chain + Warning，继续转换（[LinqRewriter.cs:106-120](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L106-L120)、[SingleFilePasses.cs:90-100](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs#L90-L100)）。
 
-**测试现状**：tests 下 Linq/Query 相关 **35 个文件、167 个 `[Fact]/[Theory]`**（LinqProceduralPhase1-9、LinqChainRefactoringTests、LinqQueryDesugarTests、LinqObservabilityPhase10Tests、ConversionTests 的 LinqTests/LinqBulkTests 等），全部面向**嵌入式路径**；全 tests 目录**没有任何 IQueryable / AsQueryable / `Expression<Func>` 专项测试**（唯一命中是 [ArrayForeachNotCollectedTests.cs:71](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ArrayForeachNotCollectedTests.cs#L71) 一处注释性用例）。
+**测试现状**（2026-09-29 复核口径）：tests 下文件名含 Linq/Query 的 **35 个文件**，共 **146 个 `[Fact]/[Theory]` 属性**，另加 [LinqBulkTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/LinqBulkTests.cs) 的 **21 条 yield 数据片段**（该类本身无 `[Fact]` 方法）——合计 **167 个用例口径**（LinqProceduralPhase1-9、LinqChainRefactoringTests、LinqQueryDesugarTests、LinqObservabilityPhase10Tests、ConversionTests 的 LinqTests/LinqBulkTests 等），全部面向**嵌入式路径**。**没有任何 IQueryable 路由/表达式树保留专项测试**：`IQueryable`/`AsQueryable` 全 tests 仅命中 [ArrayForeachNotCollectedTests.cs:71](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ArrayForeachNotCollectedTests.cs#L71)（测试输入字符串中的 `AsQueryable()`，非分流断言）；`Expression<Func` 另有 4 处**非 LINQ 分流**用途——[ProjectRegressionShapeTests.cs:194,227,258](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectRegressionShapeTests.cs#L194)（member-desugar 形状输入）、[GenericDeepenFactsTests.cs:33-34](file:///d:/code/cs2j/tests/CSharpToJava.Tests/GenericDeepenFactsTests.cs#L33-L34)（测既有 `ExpressionTreeFacts.IsExpressionTreeLambda`）、SampleMemberDesugarSolution 的 [SkipSamples.cs:14](file:///d:/code/cs2j/tests/SampleMemberDesugarSolution/SampleMemberDesugarLib/SkipSamples.cs#L14) 与 [OperatorEdgeSamples.cs:83](file:///d:/code/cs2j/tests/SampleMemberDesugarSolution/SampleMemberDesugarLib/OperatorEdgeSamples.cs#L83)（fixture 样例源码）。
 
 ### 1.2 通道化收益（catalog C26 立项理由）
 
-1. **.NET 半区等价性可证**：过程式化产物是合法 C#，在独立中间目录 `.cs2j-linq-channel-src` 上跑 `dotnet build -c Release` + `dotnet test -c Release`（源项目自带 xUnit），降级正确性在 .NET 侧直接暴露——不再只靠 Java 侧迭代（foundation plan §5.1 两半区模型，catalog L946-955）。
-2. **流水线一致性**：与已翻转的 18 个注册表 pass 共用 descriptor/拓扑/指纹/verify/`--list-passes`/CS2J9001 stub 语义；LINQ 是最后一个仍以手写内嵌形态存在的大型重写器。
+1. **.NET 半区等价性可证**：过程式化产物是合法 C#，在独立中间目录 `.cs2j-linq-channel-src` 上跑 `dotnet build -c Release` + `dotnet test -c Release`（源项目自带 xUnit），降级正确性在 .NET 侧直接暴露——不再只靠 Java 侧迭代（foundation plan §5.1 两半区模型，catalog L1127-1136）。
+2. **流水线一致性**：与已翻转的 20 个注册表 pass（2026-09-29 校订：Implemented 表现 20 项，含 IteratorLowering、MemberDesugar）共用 descriptor/拓扑/指纹/verify/`--list-passes`/CS2J9001 stub 语义；LINQ 是最后一个仍以手写内嵌形态存在的大型重写器。
 3. **失败位置前移**：skipped chain、过程式化引入的编译错误在中间树当场暴露，而不是带着残余 LINQ 调用进入 Java emit。
 4. **策略可独立演化**：Stream/Procedural 两路、未来 Queryable 查询提供方映射，都变成「通道产物」这一个可独立验证的输入面。
 
 ### 1.3 ★核心问题：缺 receiver 三路分流，EF 服务端查询会被静默改成客户端求值
 
-catalog 四次补全（L574）的强制语义门：LINQ 必须在通道入口按 receiver 分三路——
+catalog 四次补全（[catalog L631](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L631)）的强制语义门：LINQ 必须在通道入口按 receiver 分三路——
 
 1. `IEnumerable`/`IOrderedEnumerable` receiver → 现有过程式展开；
 2. `IQueryable`/`IOrderedQueryable` receiver（含一切绑定到 `System.Linq.Queryable` 的调用）→ **绝不展开**，保留 `Queryable.xxx(...)` 交 Java 侧查询提供方；
 3. `Expression<Func<...>>` 实参 → 保留表达式树节点构造（lambda 保持被引号包裹）。
 
-**2026-09-28/29 复核证据**：
+**2026-09-28 / 2026-09-29 复核证据**：
 
-- [LinqRewrite/](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/) 全目录**无任何 IQueryable / Expression 树判定**（grep 命中的 `Expression` 均为 Roslyn 语法类型，与 `System.Linq.Expressions` 无关）。
+- **2026-09-29 四路 grep 复核（结论：维持 catalog 2026-09-28 判断）**：在 [src/CSharpToJava.Core/LinqRewrite/](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/) 全目录分别 grep `IQueryable`、`IOrderedQueryable`、`System.Linq.Expressions`、`Expression<`，**四路全部零命中**——无 receiver 分流、无表达式树判定。泛 grep `Expression` 的 933 处命中分布于 6 个文件（Rules.cs 684、LinqRewriter.cs 179、LinqQueryDesugarer.cs 50、CanRewrapForeachVisitor.cs 8、Lambda.cs 8、LinqStep.cs 4），人工判读均为 Roslyn 语法类型（`ExpressionSyntax` 家族等），与 `System.Linq.Expressions` 无关。
 - 主仓仅三处相关：①[ConversionPipeline.cs:177-183](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs#L177-L183) 补 `System.Linq.Queryable`/`System.Linq.Expressions` 程序集引用让 Roslyn 能解析符号（**仅引用，不做行为分流**）；②[TypeMappingService.cs:516-522](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/TypeMappingService.cs#L516-L522) 把 `Expression<TDelegate>` 包装剥成委托类型映射；③[ArgumentTransformer.Coercion.cs:597-600](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Coercion.cs#L597-L600) 一处类型名字枚举（含 IQueryable/IOrderedQueryable/ParallelQuery，用于集合 coercion，非 LINQ 分流）。
-- **具体危险路径已定位**：rewriter 的算子身份判定 `GetMethodFullName` 首选语义符号的 reduced 显示名（[LinqRewriter.cs:788-795](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L788-L795)），`Queryable.Where` 的 reduced 显示名是 `System.Linq.IQueryable<TSource>.Where<TSource>(System.Linq.Expressions.Expression<...>)`，**正常解析时**不命中任何 `KnownMethods`（全部是 `System.Collections.Generic.IEnumerable<...>` 形态，如 [LinqRewriter.Rules.cs:2309](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs#L2309)）；但当语义符号解析失败（注释自述「common in project pipeline」），存在**按语法名猜 Enumerable 身份的 fallback**（[LinqRewriter.cs:796-844](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L844)）：`n == null` 时仅凭 `ma.Name.Identifier.Text == "Where"/"Select"/...` 就构造 `IEnumerable<TSource>.Where(...)` 身份——Queryable 调用在此分支会被**误判为 Enumerable 并过程式化**。
+- **具体危险路径已定位**：rewriter 的算子身份判定 `GetMethodFullName` 首选语义符号的 reduced 显示名（[LinqRewriter.cs:788-795](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L788-L795)），`Queryable.Where` 的 reduced 显示名是 `System.Linq.IQueryable<TSource>.Where<TSource>(System.Linq.Expressions.Expression<...>)`，**正常解析时**不命中任何 `KnownMethods`（全部是 `System.Collections.Generic.IEnumerable<...>` 形态，如 [LinqRewriter.Rules.cs:2309](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs#L2309)）；但当语义符号解析失败（注释自述「common in project pipeline」），存在**按语法名猜 Enumerable 身份的 fallback**（[LinqRewriter.cs:796-858](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L858)）：`n == null` 时仅凭 `ma.Name.Identifier.Text == "Where"/"Select"/...` 就构造 `IEnumerable<TSource>.Where(...)` 身份——Queryable 调用在此分支会被**误判为 Enumerable 并过程式化**。
 
-后果（catalog §4 风险 17，L936）：`dbContext.Orders.Where(o => o.Total > 100)` 本应翻译为服务端 SQL，被展开成客户端 foreach 后**代码照样编译、业务单测用 in-memory 列表往往还能通过**，直到生产环境全表加载才暴露——这是「能编译、单测难抓」的静默语义错误。风险 8（L927）同理：表达式树内 lambda 被改写会改变树节点形态，破坏提供方的表达式检视。
+后果（catalog §4 风险 17，[L1115](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1115)，2026-09-29 校订，旧引 L936）：`dbContext.Orders.Where(o => o.Total > 100)` 本应翻译为服务端 SQL，被展开成客户端 foreach 后**代码照样编译、业务单测用 in-memory 列表往往还能通过**，直到生产环境全表加载才暴露——这是「能编译、单测难抓」的静默语义错误。风险 8（[L1106](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1106)，旧引 L927）同理：表达式树内 lambda 被改写会改变树节点形态，破坏提供方的表达式检视。
 
 ### 1.4 目标与非目标
 
@@ -66,12 +69,12 @@ catalog 四次补全（L574）的强制语义门：LINQ 必须在通道入口按
 1. 翻转 `linq-channel` 为标准 preprocessor：中间目录 `.cs2j-linq-channel-src`、注册表拓扑、verify 默认双开、独立入口、指纹接入、skipped-chain JSON 报告。
 2. **★三路分流门 100% 正确是通道化的前置验收条件**（不是可选项）：Enumerable 过程式化、Queryable 零误展开、Expression 树零破坏，并以防回归闸门测试永久锁死。
 3. 通道化 Enumerable 路径与嵌入式 E16 **逐行为等价**（同一重写器、同一组规则），.NET 半区 build/test 全绿。
-4. 封堵 [LinqRewriter.cs:796-844](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L844) 的语法名猜测 fallback：解析失败时保守保留 + 显式诊断，禁止猜 Enumerable。
+4. 封堵 [LinqRewriter.cs:796-858](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L858) 的语法名猜测 fallback：解析失败时保守保留 + 显式诊断，禁止猜 Enumerable。
 
 **非目标**：
 
 - **不做 Java 侧查询提供方**：当前 [TypeMappings.json:3697-3702](file:///d:/code/cs2j/config/TypeMappings.json#L3697-L3702) 把 `IQueryable\`1` 映射为 `java.util.stream.Stream`，java/ 目录无 Queryable 兼容类（2026-09-29 grep 零命中）。通道 v1 的职责是**在 C# 侧保住 Queryable 形态不被破坏**，使未来的 Java 提供方映射成为可能；端到端「服务端查询下推 Java」是独立工作项（§2-D15、§11）。
-- 不复活 Stream 策略（`EffectivePreferStreamApi` 硬编码 false 保持）；不重写算子规则；不搬移 3780 行第三方重写器（§2-D13）。
+- 不复活 Stream 策略（`EffectivePreferStreamApi` 硬编码 false 保持）；不重写算子规则；不搬移 4159 行第三方重写器（§2-D13；2026-09-29 校订：1768+2391=4159，旧称 3780=1624+2156）。
 - 单文件直转模式不通道化（无工程树可做中间目录），保留嵌入式 E16（§5.5）。
 
 ---
@@ -90,11 +93,11 @@ catalog 四次补全（L574）的强制语义门：LINQ 必须在通道入口按
 | D8 Stream 偏好旁路 | v1 **不设通道级 Stream 选项**：`PreferStreamApi`/`--prefer-stream-api` 已是死开关（[ConversionOptions.cs:62-68](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionOptions.cs#L62-L68) 硬编码 false），通道只产出过程式化一种 Envelope；Stream 是 Java emit 层映射话题，随 D15 单独评审。通道描述符不新增 options 字段，避免复活双策略复杂度 | 现状核实结论；`--prefer-stream-api/--prefer-procedural` CLI 选项在 M4 退役评审中处理（§5.4） |
 | D9 通道化后默认开/关 | 翻转时 `defaultEnabled: false`（opt-in）；满足 §8 全部门槛（★三路分流 100%、IQueryable 零误展开、Release build/test 全绿、E16 双跑抑制验证）后翻 true | 对齐 catalog 风险 10 与 C02/C19/C21 既有惯例 |
 | D10 嵌入式 E16：退役/并存 | **并存于整个 M1-M3（默认关期间）**：通道运行时由 CLI 单点抑制 E16（§5.3），通道不运行时 E16 原样。**E16 项目路径摘除归 M4 独立转换器 PR**，不进通道特性 PR；单文件路径长期保留 E16（§5.5） | 与 C19/C21「转换器侧旧资产另立 PR」同款风险隔离；167 个测试与三种 verb 依赖 E16 外形 |
-| D11 skipped-chain / channel 报告格式 | 扩展现有 `LinqRewriteStatistics`（不破坏 `--linq-report` 消费者）：新增路由计数（`EnumerableChainsExpanded`/`QueryableChainsPreserved`/`ExpressionArgumentSites`/`MixedChainsPreserved`/`AmbiguousChains`/`ProviderCustomCalls`）与 `PreservedChains`（file/line/host/operator 序列/route）。通道在中间根写 `cs2j-linq-channel-report.json`（schema 见 §4.6）；`--linq-report` 在 M4 前继续出 E16 老报告，M4 切换为通道报告（字段超集，文件名沿用 `cs2j-linq-report.json`） | 复用 [LinqRewriteObservability.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriteObservability.cs) 与 [Program.cs:1330-1382](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1330-L1382) 现有格式 |
+| D11 skipped-chain / channel 报告格式 | 扩展现有 `LinqRewriteStatistics`（不破坏 `--linq-report` 消费者）：新增路由计数（`EnumerableChainsExpanded`/`QueryableChainsPreserved`/`ExpressionArgumentSites`/`MixedChainsPreserved`/`AmbiguousChains`/`ProviderCustomCalls`）与 `PreservedChains`（file/line/host/operator 序列/route）。通道在中间根写 `cs2j-linq-channel-report.json`（schema 见 §4.6）；`--linq-report` 在 M4 前继续出 E16 老报告，M4 切换为通道报告（字段超集，文件名沿用 `cs2j-linq-report.json`） | 复用 [LinqRewriteObservability.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriteObservability.cs) 与 [Program.cs:1332-1384](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1332-L1384) 现有格式 |
 | D12 失败语义 | 分流**判定**失败（符号歧义/解析失败）= 保守保留 + LC0010（默认 Warning，`--strict` 下 Error）；**「Queryable 节点被要求展开」= LC0011 硬 Error + 整文件回退**（防回归性质，任何正常输入都不应产生）；rewriter 规则展开异常维持今天的 skip+Warning 口径（不改变既有 167 测试行为） | catalog 风险 12 第一原则：无法等价时显式诊断，禁止静默透传；但不借通道化之机改变既有 skip 策略 |
-| D13 重写器：直接引用还是搬迁 | **不搬迁**。`LinqRewriter` 留在 [LinqRewrite/](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/)（第三方版权、1624+2156 行、167 测试依赖其命名空间与行为）；通道 Core 新建独立目录 `LinqChannel/` 引用它。接入方式 = **最小 seam**：给 `LinqRewriter` 构造增加一个**可选**分类器参数（默认 null = 今天行为，零变化），并以新 partial 文件 `LinqRewriter.Gate.cs` 承载闸门检查（两个拦截点：`TryVisitInvocationExpression` 入口与 `TryVisitForEachStatement` 的 collection 判定），对既有大文件只加极小 hunk | LC-SEAM；搬迁改名回归（版权头/using/167 测试期望）是纯风险零收益；M5+ 可再评估命名空间归并 |
+| D13 重写器：直接引用还是搬迁 | **不搬迁**。`LinqRewriter` 留在 [LinqRewrite/](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/)（第三方版权、1768+2391=4159 行，2026-09-29 校订；167 用例口径依赖其命名空间与行为）；通道 Core 新建独立目录 `LinqChannel/` 引用它。接入方式 = **最小 seam**：给 `LinqRewriter` 构造增加一个**可选**分类器参数（默认 null = 今天行为，零变化），并以新 partial 文件 `LinqRewriter.Gate.cs` 承载闸门检查（两个拦截点：`TryVisitInvocationExpression` 入口与 `TryVisitForEachStatement` 的 collection 判定），对既有大文件只加极小 hunk | LC-SEAM；搬迁改名回归（版权头/using/167 测试期望）是纯风险零收益；M5+ 可再评估命名空间归并 |
 | D14 编译模型：逐文件还是整树 | **整树编译、两阶段、自定义 ExecuteAsync**（同 JavaKeywords 适配器形态）：阶段 1 全树纯语法 desugar → 落盘 → 重建编译；阶段 2 逐文件 `LinqRewriter`（吃各自 SemanticModel）。标准 spine 的单次编译不够用（desugar 后必须重绑符号才能判 Queryable），适配器自己驱动 stage helper（`BuildStandardCompilation` 从磁盘重读，见 [ProjectPassRunner.cs:136-155](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassRunner.cs#L136-L155)） | 与今天 `ProjectLinqDesugarPass` 的两阶段结构一一对应，等价性可比对 |
-| D15 Java 半区边界（诚实范围声明） | 通道只保证 C# 半区：Queryable 链**形态不被破坏**。当前 Java 半区 `IQueryable\`1 → java.util.stream.Stream`（[TypeMappings.json:3697](file:///d:/code/cs2j/config/TypeMappings.json#L3697)）、`Expression` → compat `Expression`（[L3370-3388](file:///d:/code/cs2j/config/TypeMappings.json#L3370-L3388)，[Expression.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Expression.java) 存在），即 Queryable 保留后 Java 终态今天仍是 Stream 客户端形态。**EF 服务端下推需要独立的 Java 查询提供方/桥接设计，不在本通道承诺内**；通道的价值是消除「静默改成客户端 foreach」并把边界做成报告中可见的显式事实 | 不夸大收益；M0 对 EF Core 源码跑计数扫描（catalog §5.1 L955、风险 17 L936）为该后续工作定量 |
+| D15 Java 半区边界（诚实范围声明） | 通道只保证 C# 半区：Queryable 链**形态不被破坏**。当前 Java 半区 `IQueryable\`1 → java.util.stream.Stream`（[TypeMappings.json:3697](file:///d:/code/cs2j/config/TypeMappings.json#L3697)）、`Expression` → compat `Expression`（[L3369-3375](file:///d:/code/cs2j/config/TypeMappings.json#L3369-L3375)，2026-09-29 校订；其下 BinaryExpression/LambdaExpression 条目止于 L3389；[Expression.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Expression.java) 存在），即 Queryable 保留后 Java 终态今天仍是 Stream 客户端形态。**EF 服务端下推需要独立的 Java 查询提供方/桥接设计，不在本通道承诺内**；通道的价值是消除「静默改成客户端 foreach」并把边界做成报告中可见的显式事实 | 不夸大收益；M0 对 EF Core 源码跑计数扫描（catalog §5.1 L1136、风险 17 L1115，2026-09-29 校订）为该后续工作定量 |
 
 ### ★D1 判定结论论证（评审锚点）
 
@@ -103,7 +106,7 @@ catalog 四次补全（L574）的强制语义门：LINQ 必须在通道入口按
 1. **接口归属本身歧义**：`IQueryable<T> : IEnumerable<T>`，自定义 query provider 类型同时实现两者；`List<T>` 只实现 IEnumerable 但 `list.AsQueryable()` 的静态类型变成 IQueryable——「查 receiver 实现了哪些接口」给不出唯一答案，而 C# 重载决议已经基于 receiver **静态类型**与实参可转换性（`Func<>` vs `Expression<Func<>>`）做出了唯一选择，复用该选择比重建判定又稳又便宜。
 2. **reduced / 非 reduced / 查询式去糖三态统一**：`src.Where(f)`（ReducedExtension，ContainingType 仍是 Queryable）、`Queryable.Where(src, f)`（普通静态调用）、query syntax 去糖后重编译绑定的调用——三种形态的 `ContainingType` 结论一致。
 3. **边界算子天然正确**（D7）：`AsEnumerable/AsQueryable` 的语义翻转、仅存在于 Enumerable 的 `ToList/ToDictionary`，符号归属都与 C# 求值边界精确同构；receiver 启发式必然在这些点误判。
-4. **封堵现有漏洞**：D1 判定前置到 `IsSupportedMethod` 之前，[LinqRewriter.cs:796-844](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L844) 的 `n == null` 语法名 fallback 对 LINQ 链不再可达——符号拿不到时走 Ambiguous 保留（LC0010），绝不猜 Enumerable。
+4. **封堵现有漏洞**：D1 判定前置到 `IsSupportedMethod` 之前，[LinqRewriter.cs:796-858](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L858) 的 `n == null` 语法名 fallback 对 LINQ 链不再可达——符号拿不到时走 Ambiguous 保留（LC0010），绝不猜 Enumerable。
 
 ---
 
@@ -111,7 +114,7 @@ catalog 四次补全（L574）的强制语义门：LINQ 必须在通道入口按
 
 ### 3.1 描述符（Stub → Implemented 翻转目标）
 
-在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) `Implemented` 表**末尾、`java-keywords` 之前**插入：
+在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) `Implemented` 表 **`member-desugar`（L230-241）之后、`java-keywords`（L242-258）之前**插入（2026-09-29 校订：旧述「末尾、java-keywords 之前」未点名 MemberDesugar——它已是 Implemented，故 C26 不可能紧随 eliminate-goto，链位分析见 §3.2）：
 
 ```text
 Id                          = "linq-channel"
@@ -120,7 +123,7 @@ IntermediateDirectoryName   = ".cs2j-linq-channel-src"
 Stage                       = PassStage.ControlFlow          ← stub 原值维持（Stage 仅信息性）
 Status                      = PassStatus.Implemented
 DefaultEnabled              = false（初版 opt-in；过 §8 门槛后翻 true）
-RunAfterIds                 = { "extension-methods",         ← stub 锚保留（C19，翻转后常量迁 PassIds）
+RunAfterIds                 = { "extension-methods",         ← stub 锚保留（C19；id 常量留 PassStubCatalog.Ids，见 §3.3）
                                 "anonymous-type-lift",       ← stub 锚保留（C21，同上）
                                 "eliminate-goto" }           ← LC-ORDER 新增已实现锚，见 §3.2
 SupportLibrary              = PassSupportLibrary.None
@@ -131,19 +134,20 @@ CatalogItems                = "C26"
 Description                 = "Channel LINQ by receiver: proceduralize Enumerable, preserve Queryable calls and Expression<Func> arguments."
 ```
 
-`IntermediateDirectoryName` 常量放适配器 `LinqChannelPassAdapter.IntermediateDirectoryName`（无历史门面类，同 C02/C21 先例，不新建 `ProjectXxxPreprocessor.cs` 薄壳）。
+`IntermediateDirectoryName` 常量放适配器 `LinqChannelPassAdapter.IntermediateDirectoryName`（无历史门面类，同 generic-deepen/C21 先例，不新建 `ProjectXxxPreprocessor.cs` 薄壳）。
 
 ### 3.2 stub 期拓扑：两个 RunAfter 锚也是 stub 时怎么办（LC-ORDER）
 
-问题：翻转 C26 时 C19（`extension-methods`）与 C21（`anonymous-type-lift`）**大概率仍是 stub**（两者均未翻转）。注册表允许 Implemented 描述符 RunAfter stub id（`java-keywords` 已先例行：其 RunAfter 含 platform-isolation/concurrency-normalize/dynamic-desugar 三个 stub，[PassCatalog.cs:225-231](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L225-L231)），但仅有 stub 锚时，C26 在已实现子链中的相对位置只靠传递边与注册顺序 tie-break，存在漂移风险：
+问题：翻转 C26 时 C19（`extension-methods`）与 C21（`anonymous-type-lift`）**大概率仍是 stub**（两者均未翻转，2026-09-29 核实）。注册表允许 Implemented 描述符 RunAfter stub id（`java-keywords` 已先例行：其 RunAfter 含 platform-isolation/concurrency-normalize/dynamic-desugar 三个 stub，[PassCatalog.cs:L251-L257](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L251-L257)，2026-09-29 校订），但仅有 stub 锚时，C26 在已实现子链中的相对位置只靠传递边与注册顺序 tie-break，存在漂移风险：
 
-- C19 stub 的传递锚 = {delegate, tuple, ref-out-in, unsigned, array-method}；C21 stub 的传递锚 = {tuple}。它们只保证 C26 落在 `array-method` 之后，与 `make-readonly`/`iterator-lowering`/`eliminate-goto` 之间**无任何边**。
+- C19 stub 的传递锚 = {delegate, tuple, ref-out-in, unsigned, array-method}（[PassStubCatalog.cs:L187-L194](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L187-L194)）；C21 stub 的传递锚 = {tuple}（[L234](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L234)）。它们只保证 C26 落在 `array-method` 之后，与 `make-readonly`/`iterator-lowering`/`eliminate-goto` 之间**无任何边**。
+- **2026-09-29 校订补**：已实现子链中 `eliminate-goto` 与 `java-keywords` 之间还隔着**已实现**的 `member-desugar`（[PassCatalog.cs:L230-L241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)，RunAfter 仅挂 struct-value-semantics/closure-lift 两个 stub，与 C26 无边）。故 C26 翻转后的实际已实现子序列为 …`eliminate-goto` → `member-desugar` → `linq-channel` → `java-keywords`（C26 与 member-desugar 的先后靠 Implemented 表注册顺序）。
 
 **决策（LC-ORDER）**：翻转时**追加已实现锚 `eliminate-goto`**。理由：
 
 1. **等价于今天的事实顺序**：现状 eliminate-goto 在 CLI 预处理链尾运行，而 E16 LINQ 在**更晚的主转换 desugar 期**才运行（[ProjectPasses.cs:151-164](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L151-L164)）。「goto 在前、LINQ 在后」是现网行为，追加锚把该事实固化为拓扑边，通道化不引入链序回归。
 2. goto 是纯语法 pass（descriptor `needsSemanticModel: false`），不改变 LINQ 调用的 reduced 糖形态，C19 EM-LINQ 所依赖的 `GetSymbolInfo` 完整性不受影响；C19 翻转后其位置在 eliminate-goto **之前**（EM-ORDER：iterator-lowering 之后、goto 之前），拓扑 `C19 → goto → C26` 无环、满足 C26 RunAfter C19 的注册契约。
-3. `java-keywords` 仍是最后一个 pass：C26 不进 java-keywords 的 RunAfter 集合，描述符在 `Implemented` 表中注册于其前，现有「java-keywords 末位锁定」测试（[PassChainOrderTests.cs:70-75](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L70-L75)）保持成立；新增顺序断言显式锁定「已实现子链中 linq-channel 紧随 eliminate-goto 之后、java-keywords 之前」。
+3. `java-keywords` 仍是最后一个 pass：C26 不进 java-keywords 的 RunAfter 集合，描述符在 `Implemented` 表中注册于其前，现有「java-keywords 末位锁定」测试（[PassChainOrderTests.cs:L71-L77](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L71-L77)，2026-09-29 校订）保持成立；新增顺序断言显式锁定已实现子序列末段 `…eliminate-goto, member-desugar, linq-channel, java-keywords`（边保证 goto 在 LINQ 前；与 member-desugar 的相邻由注册位置保证，C26 描述符按 §3.1 插在 member-desugar 块之后）。
 4. C21（Declarative，RunAfter=tuple）翻转后天然位于链前段，与 LC-ORDER 无交互。
 
 备选（不推荐）：不追加锚、仅靠 Implemented 表注册顺序 tie-break——省一条边但把链位正确性押在表顺序上，C19/C21 翻转或未来新 pass 插入时可能静默漂移，被顺序测试漏过（测试只锁已实现子序列）。
@@ -152,25 +156,25 @@ Description                 = "Channel LINQ by receiver: proceduralize Enumerabl
 
 | 文件 | 改动 |
 |---|---|
-| [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L219-L228) | 删除 `linq-channel` stub 条目（L219-228）；`Ids.LinqChannel` 常量迁移到 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L25) 的 `PassIds`（同 C02 翻转先例）。**注意**：stub 表内没有其他条目引用该常量，可直接迁移 |
-| [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | `PassIds` 增 `LinqChannel = "linq-channel"`；按 §3.1 位置插 Implemented 描述符 |
+| [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L197-L206) | 删除 `linq-channel` stub 条目（2026-09-29 校订：实在 **L197-206**，旧引 L219-228；Stage.ControlFlow、RunAfter={extension-methods, anonymous-type-lift}、catalogItems=C26 均与 §3.1 一致）。**id 常量按 IteratorLowering 先例保留**：`Ids.LinqChannel`（[L37](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L37)）不迁 `PassIds`——IteratorLowering 翻转后常量即留在 `PassStubCatalog.Ids`，由 Implemented 描述符与 factory 直接引用（[PassCatalog.cs:L210](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L210)、[PassChainFactory.cs:L227](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L227)，goto 的 RunAfter 在 [PassCatalog.cs:L227](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L227) 同样引用）。注：C02（generic-deepen）当年是迁入 PassIds 的另一先例，但最近的 IteratorLowering 确立了「常量留 Ids」惯例，本设计从新。stub 表内除自身条目外无其他条目引用该常量 |
+| [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | **不动 `PassIds`（L6-27）**；按 §3.1 位置（member-desugar 块 L230-241 之后、java-keywords 块 L242-258 之前）插 Implemented 描述符，id 引用 `PassStubCatalog.Ids.LinqChannel` |
 | `src/CSharpToJava.CLI/Preprocessing/Adapters/LinqChannelPassAdapter.cs` | **新增**适配器（§5.1） |
-| [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L93-L237) | `PassChainConfiguration` 增 `LinqChannelOptionsFactory`（懒加载，同 JavaKeywordOptions 模式）；`CreateAdapter` switch 增分支；**不进 `BuildLegacyToggles`**（通道缺省态取描述符；`--no-linq-rewrite` 的映射在 M4 随 E16 退役处理，默认关期间两者独立，见 §5.3） |
+| [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L98-L257) | `PassChainConfiguration`（L29-52）增 `LinqChannelOptionsFactory`（懒加载，同 [JavaKeywordOptionsFactory L47-48](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L47-L48) 模式）；`CreateAdapter` switch（L98-257）增分支（case 标签用 `PassStubCatalog.Ids.LinqChannel`，同 L227 IteratorLowering）；**不进 `BuildLegacyToggles`**（L64-85；通道缺省态取描述符；`--no-linq-rewrite` 的映射在 M4 随 E16 退役处理，默认关期间两者独立，见 §5.3） |
 | `src/CSharpToJava.Core/LinqChannel/*` | **新增** Core 组件（§4） |
 | [LinqRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs) + 新增 `LinqRewriter.Gate.cs` | 最小 seam（D13）：构造器一个可选参数 + 两个入口的闸门 hunk；默认 null 时逐字节保持今天行为 |
-| 测试 | ①[PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L38) `LockedChain` 18 → 19（linq-channel 位于 IteratorLowering/EliminateGoto 之后、JavaKeywords 之前——stub 交织下已实现子序列中的精确相对位置）；`EnabledByDefault` 不变（默认关）；②[PassStubCatalogTests.cs:24](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) stub 计数 23 → 22；③`ProjectPreprocessorsConsistentTests` 追加 adapter/目录/描述符断言（仿 generic-deepen 段）；④Core 单测/fixture/residual/CLI（§7） |
+| 测试 | ①[PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L40) `LockedChain`（2026-09-29 校订：当前 **20 项**，旧述 18）→ **21 项**，在 `PassIds.MemberDesugar`（现 L38）与 `PassIds.JavaKeywords`（现 L39）之间插入 `PassStubCatalog.Ids.LinqChannel`（即末段 …IteratorLowering、EliminateGoto、MemberDesugar、**linq-channel**、JavaKeywords）；`EnabledByDefault`（L42-57）不变（默认关）；②**stub 计数无需改**（2026-09-29 校订更正旧述「23 → 22」）：[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) **没有硬编码 stub 数量断言**（:24 是 PatternDesugar 的状态断言；:31-46 的默认关/目录唯一性断言基于动态 `Stubs` 集合）——当前 stub 21 个，翻转后 20 个，断言自动成立；③`ProjectPreprocessorsConsistentTests` 追加 adapter/目录/描述符断言（仿 generic-deepen 段）；④Core 单测/fixture/residual/CLI（§7） |
 
 不需要改：指纹逻辑（按注册表全集自动生成 `pass:linq-channel=on/off` 令牌，翻转造成一次性缓存失效，符合 foundation plan L72 既定口径）、preserve 目录机制、`ProjectPassRunner`（适配器自定义 ExecuteAsync 复用 stage helper）、通用 verb（`preprocess --pass linq-channel` 自动可达）。
 
 ### 3.4 独立入口命名
 
-- v1 **只经通用入口**：`preprocess --pass linq-channel`（[PreprocessVerbOptions](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4399) / `PreprocessVerbAsync` [L3409](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3409)）与 convert-project 注册表链；**不新增** `ProjectLinqChannelPreprocessor` 薄门面、不新增专用动词（stub 是注册表先建的，无历史 verb，同 C02/C05/C21 决策）。
+- v1 **只经通用入口**：`preprocess --pass linq-channel`（[PreprocessVerbOptions](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4459) / `PreprocessVerbAsync` [L3467](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3467)，2026-09-29 校订，旧引 L4399/L3409）与 convert-project 注册表链；**不新增** `ProjectLinqChannelPreprocessor` 薄门面、不新增专用动词（stub 是注册表先建的，无历史 verb，同 C02/C05/C21 决策）。
 - 「独立 verb 命名」保留结论：若 M4 退役 E16 后需要与 `--linq-report` 搭配的便捷入口，再按 foundation plan 的「旧 verb 薄委托」模式新增动词 `linq-channel`（内部仅调 runner 指定 pass）；本设计不预支该动词。
 
 ### 3.5 中间目录与 verify
 
 - 目录 `.cs2j-linq-channel-src`；输入 = 前序全部已启用 pass 的产物树（默认关期间即当前链 + goto 产物），输出交 java-keywords（默认关时直接）与主转换。
-- `VerifyBuild/VerifyTests` **默认双开**（最严档，对齐 generic/generic-deepen/C19/C21）：过程式化是大体量语句改写，.NET 半区 build/test 是本通道存在的核心理由；`DeleteBuildOutputsAfterRestore = true`；`--no-verify-build/--no-verify-tests` 可关（[Program.cs:4773-4777](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4773-L4777) 既有机制，catalog 风险 11）。
+- `VerifyBuild/VerifyTests` **默认双开**（最严档，对齐 generic/generic-deepen/C19/C21）：过程式化是大体量语句改写，.NET 半区 build/test 是本通道存在的核心理由；`DeleteBuildOutputsAfterRestore = true`；`--no-verify-build/--no-verify-tests` 可关（2026-09-29 校订：convert-project 选项在 [Program.cs:L4818-4822](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4818-L4822)，旧引 L4773-4777；`preprocess` 通用 verb 的同款选项在 [L4499-4502](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4499-L4502)；既有机制，catalog 风险 11）。
 - 无支撑库：不增 `PassSupportLibrary` 枚举值，不触发支撑工程过滤，本通道不生成新文件（helper 方法注入在**改写文件内部**，是既有 rewriter 行为）。
 
 ---
@@ -190,7 +194,7 @@ Description                 = "Channel LINQ by receiver: proceduralize Enumerabl
 | `LinqChannelPlan.cs` | 单文件改写计划：文件内全部 LINQ 调用的路由决策集、待保留节点位置集、整链保留判定（D6）、Changed 预测；供 rewriter seam 与 residual 扫描共用 |
 | `LinqChannelRewriter.cs` | 通道侧编排入口（非新重写器）：①对一个 SyntaxTree 跑 `LinqQueryDesugarer`（原样复用）；②重建编译后构造 `LinqRouteClassifier` + `LinqRewriter(semantic, options, gate)`，返回结果（root/统计/skipped/诊断）；③幂等自检 |
 | `LinqChannelReport.cs` | 通道报告 JSON 序列化（§4.6），输出到中间根 |
-| `ExpressionTreeFacts.cs` | 「节点是否处于 Expression<TDelegate> 引号内」共享判定（§4.4）；v1 落于本目录，C45（closure-lift 表达式树 lambda skip）落地时提升为共享组件（catalog 风险 8、§11） |
+| （不新建；复用 `Core/Analysis/ExpressionTreeFacts.cs`） | **2026-09-29 校订（重要事实更新）**：「lambda 是否处于 `Expression<TDelegate>` 引号内」的判定**已存在**——[Analysis/ExpressionTreeFacts.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs)（L10-19，`IsExpressionTreeLambda` 正是 D2/§4.4 所用的 `GetTypeInfo(lambda).ConvertedType` 口径），已被 C02 [GenericDeepenAnalyzer.cs:L456](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericDeepenAnalyzer.cs#L456) 与 C08 [JavaKeywordSyntaxFacts.cs:L57-L58](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/JavaKeywordSyntaxFacts.cs#L57-L58)（[JavaKeywordAnalyzer.cs:L484](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/JavaKeywordAnalyzer.cs#L484) 经该薄包装消费）共用（对应 CS2J1110，[GenericDeepenDiagnostics.cs:L37](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericDeepenDiagnostics.cs#L37)）。通道**直接引用并在该类增补**「祖先调用实参位点」查询（§4.4），不新建第二份；C45（closure-lift）落地时在原位扩展即可（catalog 风险 8、§11） |
 
 ### 4.2 ★LinqRouteClassifier（QueryableGate）判定算法
 
@@ -202,7 +206,7 @@ ClassifyInvocation(invocation):
   3. symbol == null:
        - info.CandidateReason ∈ {OverloadResolutionFailure, Ambiguous, …} → Ambiguous(Candidate)
        - 其他 → Ambiguous(Unbound)
-       ★不再有任何「按语法名猜 Enumerable」回退（封堵 LinqRewriter.cs:796-844）
+       ★不再有任何「按语法名猜 Enumerable」回退（封堵 LinqRewriter.cs:796-858）
   4. host = symbol.ContainingType 的全限定显示名
        host == System.Linq.Enumerable → Enumerable
        host == System.Linq.Queryable  → Queryable
@@ -229,12 +233,12 @@ ClassifyChain(rewriter 已回溯出的 member-access LINQ 链):
   1. 构造器增加可选参数 `LinqChannel.ILinqRewriteGate? gate = null`（存只读字段；null 时全部闸门检查短路返回「可展开」，**嵌入式 E16 不传该参数，行为零变化**）；
   2. 在 `TryVisitInvocationExpression` 与 `TryVisitForEachStatement` 的 `IsSupportedMethod` 判定前各加一个 `gate?.ShouldPreserve(...) == true` 早退（保留节点、记统计/诊断）。
 - 新增 partial 文件 `LinqRewriter.Gate.cs`（同命名空间 `CSharpToJava.Core.LinqRewrite`，partial 类）：放 gate 字段、两个调用点的私有包装、以及「保留时的统计/诊断回传」。Core 内部引用（LinqChannel → LinqRewrite 同程序集），无跨工程问题。
-- **不允许**在 Rules.cs（2156 行）内加任何 Queryable 名字特判；全部路由知识收敛在 `LinqChannel/`，Rules 保持「只懂怎么展开 Enumerable」。
-- fallback 收口：[LinqRewriter.cs:796-844](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L844) 的 `n == null` 语法名 switch 在 gate 启用时**整段不可达**（Ambiguous 已在外围保留）；加内部断言（gate 非 null 且 `n == null` 且处于 LINQ 链上下文 → 抛 LC0011 级不变量违规），防止未来规则改动重新打开洞口。
+- **不允许**在 Rules.cs（2391 行，2026-09-29 校订）内加任何 Queryable 名字特判；全部路由知识收敛在 `LinqChannel/`，Rules 保持「只懂怎么展开 Enumerable」。
+- fallback 收口：[LinqRewriter.cs:796-858](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L858) 的 `n == null` 语法名 switch 在 gate 启用时**整段不可达**（Ambiguous 已在外围保留）；加内部断言（gate 非 null 且 `n == null` 且处于 LINQ 链上下文 → 抛 LC0011 级不变量违规），防止未来规则改动重新打开洞口。
 
 ### 4.4 ExpressionTreePreservation（第三路）
 
-- `ExpressionTreeFacts.IsQuotedLambda(model, lambda)`：从 lambda 节点取 `GetTypeInfo(lambda).ConvertedType`，判定是否 `Expression<TDelegate>`；并提供「祖先调用实参位点」反查（处理 `q.Where(x => …)` 这类 lambda 不直接带独立 ConvertedType 上下文的形态——以所在 invocation 的形参类型/绑定符号参数为准，与 Classifier D2 同源）。
+- 复用并扩展既有 `ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda)`（[Core/Analysis/ExpressionTreeFacts.cs:L10-L19](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs#L10-L19)，2026-09-29 校订：原计划新建的判定已存在）：从 lambda 节点取 `GetTypeInfo(lambda).ConvertedType`，判定是否 `Expression<TDelegate>`；通道在**同一文件**增补「祖先调用实参位点」反查（处理 `q.Where(x => …)` 这类 lambda 不直接带独立 ConvertedType 上下文的形态——以所在 invocation 的形参类型/绑定符号参数为准，与 Classifier D2 同源）。
 - 保留语义：quoted lambda 的体内节点**一个都不许**被通道改写（不内联、不提临时变量、不重命名参数为展开形态）。Enumerable 路展开只可能遇到 `Func<>` lambda；quoted 只出现在 Queryable/NonLinq 调用，按 D6 整链保留后天然不可达——本组件的职责是把「不可达」做成**后置可验证事实**（residual 扫描重编译对比表达式树节点序列，§7.10），并为 C45/C19 提供共享判定（catalog 风险 8）。
 - 表达式树内出现通道无法证明的节点（自定义调用、语句式 lambda 等）：LC0012 显式报错而非尝试改写。
 
@@ -277,7 +281,7 @@ ClassifyChain(rewriter 已回溯出的 member-access LINQ 链):
 }
 ```
 
-- 老字段（desugared/rewritten/skipped/uncovered）保持与 [Program.cs:1340-1377](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1340-L1377) 同名同义，`schemaVersion` 与 `routing/preservedChains` 为超集追加。
+- 老字段（desugared/rewritten/skipped/uncovered）保持与 [Program.cs:1332-1384](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1332-L1384)（2026-09-29 校订，旧引 1340-1377）同名同义，`schemaVersion` 与 `routing/preservedChains` 为超集追加。
 - **Diagnostic**：适配器自有 `LinqChannelDiagnostic`（Severity/Code/Message/FilePath/Line + ToMsBuildString），不替换通用 `PassDiagnostic` 契约（foundation plan L56）。
 
 ---
@@ -288,7 +292,7 @@ ClassifyChain(rewriter 已回溯出的 member-access LINQ 链):
 
 新增 `src/CSharpToJava.CLI/Preprocessing/Adapters/LinqChannelPassAdapter.cs`，继承 [ProjectPassAdapter](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassAdapter.cs)，形态对齐 [JavaKeywordsPassAdapter](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/JavaKeywordsPassAdapter.cs)（**override `ExecuteAsync` 自驱两阶段**，`RewriteFileAsync` 抛 NotSupportedException）：
 
-- `Descriptor => PassCatalog.ImplementedById(PassIds.LinqChannel)`；`LogPrefix "[linq-channel]"`；`CreateParseOptions` 用 `LanguageVersion.Latest`；`CompilationName "linq-channel-preprocess"`；global using 合成沿用 JavaKeywords 适配器同款 `ImplicitGlobalUsings.BuildForProject`（[JavaKeywordsPassAdapter.cs:289-305](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/JavaKeywordsPassAdapter.cs#L289-L305)）。
+- `Descriptor => PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel)`（2026-09-29 校订：id 常量按 IteratorLowering 先例留 `PassStubCatalog.Ids`）；`LogPrefix "[linq-channel]"`；`CreateParseOptions` 用 `LanguageVersion.Latest`；`CompilationName "linq-channel-preprocess"`；global using 合成沿用 JavaKeywords 适配器同款 `ImplicitGlobalUsings.BuildForProject`（[JavaKeywordsPassAdapter.cs:289-305](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/JavaKeywordsPassAdapter.cs#L289-L305)）。
 - `VerifyBuild/VerifyTests` 取构造入参（convert-project 全局 verify 开关）；`DeleteBuildOutputsAfterRestore = true`。
 - 持有聚合 `LinqChannelStatistics` 与诊断列表；`BuildChainSummaryLine` 形如：
   `linq-channel: N chains expanded (M methods), Q queryable chains preserved, E expression-arg sites, A ambiguous, S skipped, D queries desugared`。
@@ -304,13 +308,13 @@ ClassifyChain(rewriter 已回溯出的 member-access LINQ 链):
 
 通道与 E16 **绝不能对同一棵树各跑一次**（过程式化幂等性虽大体成立，但 skipped 链会被二次尝试、helper 会二次提取）。单点方案：
 
-- convert-project 在注册表链执行后已有 `CliChainResult.ExecutedIntermediateDirectoryNames`（[CliPreprocessChain.cs:67](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs)）；当其中包含 `.cs2j-linq-channel-src` 时，在构造下游转换 options 处把 `EnableLinqRewrite` 置 false（一处条件，不写新开关）。
+- convert-project 在注册表链执行后已有 `CliChainResult.ExecutedIntermediateDirectoryNames`（[CliPreprocessChain.cs:L70](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs#L70)，2026-09-29 校订，旧引 L67）；当其中包含 `.cs2j-linq-channel-src` 时，在构造下游转换 options 处把 `EnableLinqRewrite` 置 false（一处条件，不写新开关）。
 - 通道未启用时 E16 路径与今天**完全一致**（门控仍在 [ProjectPasses.cs:164](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L164)）。
 - `--no-linq-rewrite` 在默认关期间语义不变（只关 E16）；M4 翻默认开时把它映射为 `--disable-pass linq-channel`（经 `BuildLegacyToggles` 一行映射），并在帮助文本标注。
 
 ### 5.4 旧调用点摘除归属：**转换器后续 PR（M4），不是本通道 PR 的一部分**
 
-[ProjectPasses.cs:151-401](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L151-L401)（`ProjectLinqDesugarPass` + 两个 helper + Library 重建）、[ProjectConversionPipeline.cs:262-279,341](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L262-L279) 的注册与 `LastLinqStatistics`、[SingleFilePasses.cs:28-121](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs#L28-L121)、[ConversionPipeline.cs:415](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs#L415)——摘除涉及 167 个测试的期望迁移、三 verb 统计外形、报告接线，风险半径独立且大。按 C19/C21 同款原则：**通道 PR 只加不改转换器**（除 §5.3 一处抑制条件与 §4.3 seam 默认参数）；M4 在通道翻默认开且门槛全过后，以独立 PR 退役项目路径 E16，届时：
+[ProjectPasses.cs:151-398](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L151-L398)（2026-09-29 校订，旧引 151-401；`ProjectLinqDesugarPass` + 两个 helper + Library 重建）、[ProjectConversionPipeline.cs:262-279,341](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L262-L279) 的注册与 `LastLinqStatistics`、[SingleFilePasses.cs:28-121](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs#L28-L121)、[ConversionPipeline.cs:415](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs#L415)——摘除涉及 167 个测试的期望迁移、三 verb 统计外形、报告接线，风险半径独立且大。按 C19/C21 同款原则：**通道 PR 只加不改转换器**（除 §5.3 一处抑制条件与 §4.3 seam 默认参数）；M4 在通道翻默认开且门槛全过后，以独立 PR 退役项目路径 E16，届时：
 
 - 删除项目路径内嵌 pass 与其重建逻辑（`PreDesugarCompilation` 等下游依赖点逐一盘点）；
 - `--no-linq-rewrite` 改为注册表 toggle 映射；`--prefer-stream-api/--prefer-procedural` 死选项一并评审移除或重定义；
@@ -373,7 +377,7 @@ ClassifyChain(rewriter 已回溯出的 member-access LINQ 链):
 
 - fixture 内手写最小 `IQueryable<T>` + `IQueryProvider`（**RecordingQueryProvider**：记录每次传入的 Expression，不依赖 EF Core NuGet 包）：断言过程式化零发生、provider 收到的表达式树形态与不经通道时逐节点一致。
 - 提供方自定义扩展（静态类 `MyQueryableExtensions.Include`）：NonLinq 计数、零改写。
-- 真实 EF Core：M0 仅对 EFCore/EFCore.Relational/EFCore.SqlServer 源码跑**分类器计数扫描**（不下转换、不进 CI 强依赖，catalog §5.1 L955）；fixture 中以「模拟 EF 形态」的最小 DbContext 抽象（DbSet 风格属性 + Recording provider）承担 CI 职责。
+- 真实 EF Core：M0 仅对 EFCore/EFCore.Relational/EFCore.SqlServer 源码跑**分类器计数扫描**（不下转换、不进 CI 强依赖，catalog §5.1 [L1127-1136](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1127-L1136)，2026-09-29 校订，旧引 L955）；fixture 中以「模拟 EF 形态」的最小 DbContext 抽象（DbSet 风格属性 + Recording provider）承担 CI 职责。
 
 ### 7.6 项目级 fixture（`tests/SampleLinqChannelSolution/`，Lib+App+Tests+sln，纳入 ProjectTests）
 
@@ -403,7 +407,7 @@ Enumerable 用例的「源项目测试 vs 中间树项目测试」在同一套 x
 ### 7.11 CLI 与一致性
 
 - `preprocess --pass linq-channel` 单独可达；stub 期启用仍 CS2J9001（翻转前）；`--enable-pass/--disable-pass`、`--list-passes`（Implemented/默认关/目录/RunAfter 三锚）、preserve 目录、verify 失败退出码、strict 升级。
-- [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) 19 子序列与末位断言、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) 22 stub 断言、`ProjectPreprocessorsConsistentTests` 目录断言、`ChainFactory_creates_an_adapter_for_every_implemented_pass` 自动覆盖新适配器。
+- [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) 21 项已实现子序列（2026-09-29 校订：翻转后 20 → 21）与末位断言（[L71-L77](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L71-L77)）、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) **无 stub 计数硬断言**（2026-09-29 实读核实，旧述「22 stub 断言」不实；必要时新增 LinqChannel 已实现非 stub 的显式断言，仿 L20-28 PatternDesugar）、`ProjectPreprocessorsConsistentTests` 目录断言、`ChainFactory_creates_an_adapter_for_every_implemented_pass` 自动覆盖新适配器。
 - 双跑抑制（§5.3）：通道启用时 E16 统计为空且无二次 helper；通道关闭时 E16 统计与今天一致。
 - [DualTargetCorpus](file:///d:/code/cs2j/tests/DualTargetCorpus) 增补 Enumerable/Queryable/混合链双目标用例。
 
@@ -419,7 +423,7 @@ Enumerable 用例的「源项目测试 vs 中间树项目测试」在同一套 x
 4. M0 基线测量完成并回填：csharp-sdk 与 **EF Core 源码**的路由计数（Enumerable 链/Queryable 站点/Expression 站点/Ambiguous 站点密度），LC0010 命中站点全部完成人工分类，无未知形状静默透传（catalog 风险 17）。
 5. §5.3 双跑抑制在 convert-project 全链路上验证（含指纹/增量：通道开关产生正确的一次性缓存失效与后续命中）。
 6. 通道启用时主转换端到端冒烟：Enumerable 产物 Java 侧不退化，Queryable 保留站点的 Java 终态与现状（Stream 映射）一致或更优——**不要求** Java 提供方就位（D15），但要求通道不制造新的 Java 编译失败。
-7. C19/C21 均为 stub 的当前拓扑下，LC-ORDER 顺序断言稳定（§3.2），且评审确认 C19/C21 翻转不需要改 C26 描述符（仅常量引用迁移）。
+7. C19/C21 均为 stub 的当前拓扑下，LC-ORDER 顺序断言稳定（§3.2），且评审确认 C19/C21 翻转不需要改 C26 描述符（2026-09-29 校订：C26 的 RunAfter 锚用 id 字符串，且按 IteratorLowering 先例 stub id 常量翻转后仍留 `PassStubCatalog.Ids`，无「常量引用迁移」动作——旧述此项系按 C02 旧先例误推）。
 
 ---
 
@@ -428,7 +432,7 @@ Enumerable 用例的「源项目测试 vs 中间树项目测试」在同一套 x
 | 里程碑 | 内容 | 出口判据 |
 |---|---|---|
 | **M0 分流探针 + 基线测量** | 独立小工具/测试内实现 `LinqRouteClassifier` 原型（不接通道）：①核实 Queryable.* 符号 reduced 显示名与 `KnownMethods` 零交集、枚举 Enumerable/Queryable 同名算子全表；②量化项目管线 `n == null` fallback 命中率与真实 Queryable 误展开复现（构造最小复现钉死漏洞）；③csharp-sdk 路由计数；④拉 EF Core 源码跑同分类器计数（catalog §5.1）；⑤RecordingQueryProvider 可行性原型 | 基线数字回填本设计 §8；误展开最小复现存档；不改生产代码 |
-| **M1 通道壳与报告** | LinqChannel/ 骨架（Options/Statistics/Diagnostic/Report/Plan）+ 适配器 + 注册表翻转（默认关，`EnableQueryableGate` 先行）；两阶段整树执行打通但**规则行为 = E16 镜像**（gate 只观测计数不拦截）；中间根 JSON 报告；verify 双开；fixture 骨架 | 通道产物与 E16 中间结果等价；`--list-passes`/独立入口可达；stub 计数/链序测试更新 |
+| **M1 通道壳与报告** | LinqChannel/ 骨架（Options/Statistics/Diagnostic/Report/Plan）+ 适配器 + 注册表翻转（默认关，`EnableQueryableGate` 先行）；两阶段整树执行打通但**规则行为 = E16 镜像**（gate 只观测计数不拦截）；中间根 JSON 报告；verify 双开；fixture 骨架 | 通道产物与 E16 中间结果等价；`--list-passes`/独立入口可达；链序测试更新（`LockedChain` 20 → 21；`PassStubCatalogTests` 无 stub 计数硬断言，2026-09-29 核实） |
 | **M2 Enumerable 通道化** | seam 正式接入（gate 可切换）；Enumerable 全矩阵 + §7.8 等价性 + 167 测试双路径比对；双跑抑制（§5.3）；幂等/residual 的 Enumerable 部分 | Enumerable 站点在通道下与 E16 逐行为等价；Release build/test 全绿 |
 | **M3 ★Queryable 门** | gate 强制开启并移除关闭路径；封堵 fallback（LC0011 不变量）；Queryable/Expression/混合链/自定义 provider 矩阵；RecordingQueryProvider fixture + 模拟 DbContext；query syntax 两源；residual 全门；strict 诊断 | **IQueryable 零误展开**；三门矩阵全绿；EF Core 计数扫描无未分类形状 |
 | **M4 默认开 / 旧路径退役** | §8 门槛评审 → 翻默认开；独立转换器 PR 摘 E16 项目路径（§5.4）、`--no-linq-rewrite` 映射、报告切 schema v2、存量测试迁移；单文件是否接 gate（Q4）定稿；Java Queryable 提供方立项材料（计数/边界报告）交后续 | 默认链含 linq-channel；E16 项目代码删除且三工程全绿 |
@@ -439,16 +443,16 @@ Enumerable 用例的「源项目测试 vs 中间树项目测试」在同一套 x
 
 | # | 风险 | 证据/说明 | 缓解 |
 |---|---|---|---|
-| R1 | **EF 画像错配 + IQueryable 盲区**（catalog 风险 17）：训练集 IQueryable 0 处、Expression 2 处，现有语料练不到 query pipeline；三门在真实 EF 代码上的形状覆盖未知 | catalog L936；tests 零 IQueryable 专项 | M0 必做 EF Core 源码计数扫描；RecordingQueryProvider + 模拟 DbContext 进 CI fixture；默认开门槛 1/4 硬锁 |
-| R2 | **语法名 fallback 静默误展开**：[LinqRewriter.cs:796-844](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L844) 在符号未解析时按名字猜 Enumerable，项目管线注释自述符号解析常失败 | 本设计 §1.3 已定位具体路径 | gate 前置使 fallback 对 LINQ 链不可达；LC0010 保守保留；LC0011 不变量 + 残缺 metadata 负向用例 |
-| R3 | **表达式树共同禁区**（catalog 风险 8）：多个通道（C45/C19/本通道）都需要「树内跳过」，各写一份判定会漂移 | catalog L927；C02 已有 CS2J1110 先例 | `ExpressionTreeFacts` 单点实现，residual 做节点序列同一性断言；C45 落地时提升共享（§11） |
-| R4 | **重写器 seam/搬迁回归**：3780 行第三方重写器、规则互相耦合（提取 helper/捕获分析/匿名消毒），167 测试之外仍可能有缝隙 | roslyn-linq-rewrite 血统；[LinqRewriter.cs:106-120](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L106-L120) 宽 catch | 不搬迁（D13）；gate 参数默认 null 保证 E16 零变化；M2 双路径等价比对；失败口径维持现状不扩大 |
+| R1 | **EF 画像错配 + IQueryable 盲区**（catalog 风险 17）：训练集 IQueryable 0 处、Expression 2 处，现有语料练不到 query pipeline；三门在真实 EF 代码上的形状覆盖未知 | catalog [L1115](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1115)（2026-09-29 校订，旧引 L936）；tests 零 IQueryable 专项（四路 grep 零命中，§1.3） | M0 必做 EF Core 源码计数扫描；RecordingQueryProvider + 模拟 DbContext 进 CI fixture；默认开门槛 1/4 硬锁 |
+| R2 | **语法名 fallback 静默误展开**：[LinqRewriter.cs:796-858](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L858) 在符号未解析时按名字猜 Enumerable，项目管线注释自述符号解析常失败 | 本设计 §1.3 已定位具体路径 | gate 前置使 fallback 对 LINQ 链不可达；LC0010 保守保留；LC0011 不变量 + 残缺 metadata 负向用例 |
+| R3 | **表达式树共同禁区**（catalog 风险 8）：多个通道（C45/C19/本通道）都需要「树内跳过」，各写一份判定会漂移 | catalog [L1106](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1106)（2026-09-29 校订，旧引 L927）；C02/C08 已有 [ExpressionTreeFacts](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs)（CS2J1110）单点先例 | 直接复用既有单点（不新建第二份），residual 做节点序列同一性断言；C45 落地时在同一文件扩展（§11） |
+| R4 | **重写器 seam/搬迁回归**：4159 行第三方重写器（2026-09-29 校订：1768+2391=4159，旧称 3780=1624+2156）、规则互相耦合（提取 helper/捕获分析/匿名消毒），167 用例口径之外仍可能有缝隙 | roslyn-linq-rewrite 血统；[LinqRewriter.cs:106-120](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L106-L120) 宽 catch | 不搬迁（D13）；gate 参数默认 null 保证 E16 零变化；M2 双路径等价比对；失败口径维持现状不扩大 |
 | R5 | 混合链 v1 整链保留导致覆盖率回退（部分本可展开的 Enumerable 段被保留） | D6 保守策略 | LC0020 全部入报告可盘点；v2 切段独立设计；保留不产生错误代码（主转换现有 Stream 映射承接） |
 | R6 | 双轨期双重 LINQ 处理或统计重复 | E16 与通道并存 | §5.3 单点抑制（以实际执行目录集为信号）；测试断言「通道启用时 E16 统计为空」 |
 | R7 | **Java 半区无 Queryable 提供方**：保留后 IQueryable 今天仍映射 Stream，通道不直接产生「服务端执行」的端到端价值 | [TypeMappings.json:3697-3702](file:///d:/code/cs2j/config/TypeMappings.json#L3697-L3702)；java/ 无 Queryable 类 | D15 诚实范围声明；通道价值定位为止损（消除静默客户端化）+ 边界显式化；Java 提供方独立立项，M4 交付计数材料 |
 | R8 | query over IQueryable 被去糖改变语法（query → 方法链），虽语义恒等但可能与下游（C19/主转换器 QueryExpressionTransformer）假设交互 | [LinqQueryDesugarer.cs:19-37](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs#L19-L37)；[QueryExpressionTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/QueryExpressionTransformer.cs) | desugar 是 C# 规范 lowering；.NET 半区 build/test 守门；M3 两源矩阵；Queryable 查询式残余由符号断言（不依赖语法形状） |
 | R9 | 两阶段 + verify 的耗时（catalog 风险 11） | 每环一 restore 一 build/test | verify 可关；clean 工程零触碰；指纹缓存；无 LINQ 命中工程阶段 2 快检跳过 |
-| R10 | LC-ORDER 与 C19 EM-ORDER 的跨设计次序耦合 | C19 在 goto 前、C26 在 goto 后；两者经注册边共存 | §3.2 已论证无环；顺序测试锁「C19 → goto → C26 → naming」；C19 翻转不改 C26 描述符（Q2 留评审） |
+| R10 | LC-ORDER 与 C19 EM-ORDER 的跨设计次序耦合 | C19 在 goto 前、C26 在 goto 后；两者经注册边共存；已实现子链中 goto 与 C26 之间隔着 member-desugar（2026-09-29 校订） | §3.2 已论证无环；顺序测试锁「C19 → goto → member-desugar → C26 → naming」（C26 描述符注册于 member-desugar 块之后）；C19 翻转不改 C26 描述符（Q2 留评审） |
 | R11 | 通道只在项目路径，单文件路径继续无门，文档/用户预期分叉 | §5.5 | Q4 定稿前文档明示；单文件接 gate 成本低（同 classifier），M4 可顺手收口 |
 
 ---
@@ -460,7 +464,7 @@ Enumerable 用例的「源项目测试 vs 中间树项目测试」在同一套 x
 | **C19 `extension-methods`（stub，姊妹设计已定稿）** | C19 以 **EM-LINQ 排除**让出 LINQ reduced 糖（host 集 Enumerable/Queryable 不选中），结论是**维持注册次序 C19 → C26**、不交换链序（C19 设计 §3.4 硬证据：LinqRewriter 结构性依赖 member-access reduced 形态，吃不下静态形态） | C26 RunAfter 保留 `extension-methods` 锚；★三路门在 reduced 形态上工作，C19 已确认不受影响；host 常量 v1 双份、C19 落地后提取共享；混合链上用户扩展节点策略（C19 §3.4-4）与本通道 D6 保守保留在 M3 做交叉用例；LC-ORDER 新增 goto 锚与 EM-ORDER 无冲突（R10） |
 | **C21 `anonymous-type-lift`（stub，姊妹设计已定稿）** | C21 在 LINQ 前把匿名投影具名化；其 RunAfter=tuple、C26 已反向锚定 | C21 未落地时通道沿用 rewriter 既有 `object` 消毒/record 门控（[LinqRewriter.cs:632-665](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L632-L665)）；C21 落地默认开后，M4 对齐移除匿名分支（C21 §11 已把 LinqRewriter 匿名门控退役挂到 C26/M5）；transparent identifier 豁免两设计一致 |
 | **E16 嵌入式 LINQ（现状）** | 通道化前唯一 LINQ 入口；项目路径 M4 摘除、单文件保留 | §5.3 双跑抑制是唯一并存期接线；M1-M3 不改 E16 默认行为；M4 摘除清单见 §5.4 |
-| **C45 `closure-lift`（stub）/ C32** | 表达式树内 lambda skip 需要同一判定（catalog 风险 8 点名 C45） | `ExpressionTreeFacts` 按共享组件设计，v1 住 LinqChannel/，C45 翻转时提升到 Core 公共位置（如 `Core/Preprocessing/ExpressionTreeFacts.cs`），两处引用；C02 的 CS2J1110 判定届时一并归并评审 |
+| **C45 `closure-lift`（stub）/ C32** | 表达式树内 lambda skip 需要同一判定（catalog 风险 8 点名 C45） | 2026-09-29 校订：共享组件**已在公共位置**——[Core/Analysis/ExpressionTreeFacts.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs) 由 C02 GenericDeepen/C08 JavaKeywords 共用；本通道直接复用并增补「祖先实参位点」查询，C45 翻转时在同一文件扩展即可，无需提升/归并动作；C02 的 CS2J1110 判定即该文件现状 |
 | **Java Stream / Queryable 映射（转换器 + compat）** | `IQueryable\`1→Stream` 现状、`PreferStreamApi` 死开关、compat 有 Expression.java 无 Queryable | 通道 v1 不改任何 Java 映射；M0 计数报告作为 Java 查询提供方立项输入；未来若新增 Queryable compat/映射，其输入契约 = 本通道 preservedChains 形态 |
 | **C08/E17 java-keywords（链尾）** | Queryable/Expression 保留名是 BCL 名，通道产物中的标识符撞 Java 关键字由 C08 兜底 | LC-ORDER 保证 C26 在 C08 之前；末位锁定测试保持 |
 | **E15 `eliminate-goto`（已实现）** | 纯语法；新增直接 RunAfter 锚 | 见 §3.2 LC-ORDER；M2 增「goto 含 LINQ 方法」组合用例（goto 先结构化、LINQ 后展开） |
@@ -485,7 +489,21 @@ git worktree add .worktrees/preproc-c26-linq-channel -b feature/preproc-c26-linq
 
 ---
 
-## 附：关键开放问题（评审决策点）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默客户端求值；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **Q1（LC-ORDER）**：追加 `RunAfter = eliminate-goto`，固化「goto 先、LINQ 后」事实顺序。
+2. **Q2（host 常量归属）**：Enumerable/Queryable host 集在 **C19 翻转时**提取为共享常量（落 `Core/Analysis/LinqHostFacts.cs`，与 InteropBoundaryFacts/DynamicSiteFacts 同目录惯例），C19 与 C26 均消费；C26 不携带第二份硬编码。
+3. **Q3（混合链切段）**：终态做 AsEnumerable/物化边界切段展开；M0/M3 观察到**任意真实 mixed chain** 即立项（整链客户端求值是正确性问题，不以密度为否决条件）。
+4. **Q4（单文件 gate）**：M4 把同一 classifier 接进 `SingleFileLinqDesugarPass`——单文件直转必须获得同样的 IQueryable 零误展开保证，否则单文件模式仍是静默错误通道。
+5. **Q5（LC0010 严格度）**：v1 默认 Warning、`--strict` Error；默认开评审时凭 sdk/EF 计数向默认 Error 收紧（只准趋严，不回退到静默 skip）。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **Q1（LC-ORDER）**：C26 追加 `eliminate-goto` 锚（固化今天「goto 先、LINQ 后」事实顺序）还是只靠注册顺序 tie-break？本设计推荐追加（§3.2）。
 2. **Q2（host 常量归属）**：Enumerable/Queryable host 集 v1 在 C19、C26 双份硬编码，何时提取共享常量？建议 C19 翻转时提取，本设计仅挂注释交叉引用。

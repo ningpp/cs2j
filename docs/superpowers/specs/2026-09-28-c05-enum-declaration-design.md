@@ -1,10 +1,10 @@
 # C05 Enum 声明归一预处理器设计（[Flags]/底层类型/显式值；enum-as-class 外显契约）
 
-**日期**: 2026-09-28
+**日期**: 2026-09-28（2026-09-29 核订：证据行号重定位、C03/C11-C14 状态同步、§12 worktree base 哈希纠错）
 **范围**: 新增注册表 pass `enum-declaration`（Core `EnumDeclaration/` + CLI `EnumDeclarationPassAdapter`），只做 C#→C# 预处理；本特性不修改 C#→Java 转换器与 Java compat 代码（桥接面重定义仅定契约，落地为后续工作项）
-**状态**: 设计稿，待评审
-**注册表锚点**: stub `enum-declaration` 已登记于 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L82-L90)（catalogItems `C05`，RunAfter=`enum`，默认关）
-**catalog 对应**: `prompts/preprocessor-catalog.md` C05（L309-321）、§3.3 enum 族（L914）、§4 风险 4（L923）、§4 风险 12（L931）、优先级 P1（L51）
+**状态**: 已核订（2026-09-29 对照 dev-3.x@2d25700e 逐条核验全部代码证据并修正：EnumTransformer 三处 throw 与 IsFlagsEnum 行号全部实测吻合；TypeGroupResolver 吞异常区间修正 L640-645；ordinal 站点补录 2 处新证据（PropertyTransformer/ArgumentTransformer.Coercion）；C03 已落地并显式把 enum governing switch 让回转换器（`PatternDesugarComponents.cs:465`）、C11-C14 已落地默认关——§11 协调表按现状重写；**§12 worktree base 全哈希原为「短哈希 + 他人尾段」拼接的无效对象，已改正为 f68a783c**；仍待评审与实施）
+**注册表锚点**: stub `enum-declaration` 已登记于 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L70-L79)（catalogItems `C05`，RunAfter=`enum`，默认关）
+**catalog 对应**: `prompts/preprocessor-catalog.md` C05（L334-346）、§3.3 enum 族（L1092）、§4 风险 4（L1102）、§4 风险 12（L1110）、优先级 P1（L53）
 **前置设计**: [2026-09-26-enum-preprocessor-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-26-enum-preprocessor-design.md)（E04，使用点侧，已实现）
 **格式范本**: [2026-09-28-java-keywords-preprocessor-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md)
 
@@ -16,24 +16,25 @@
 
 E04（pass id `enum`，[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L66-L76)）已实现并默认开启，但它**只做使用点表达式**：位运算 `| & ^ ~`、复合赋值、`HasFlag`、可空 lifted 全部降级为「`(U)` 底层整数运算 + `(E)` 强转」（[EnumSyntaxRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/EnumPreprocessor/EnumSyntaxRewriter.cs)，E04 设计 §3）。E04 的非目标明确写着「不重写 `Enum.Parse/IsDefined/GetValues/GetNames/Format/ToString`」（E04 设计 §4.10/§11），且**完全不触碰 enum 声明**。
 
-声明侧现状（2026-09-28 复核）：
+声明侧现状（2026-09-28 复核；2026-09-29 核订逐条重验并补录 2 处站点）：
 
 1. **三类声明 100% 转换失败**。主转换器唯一的 enum 入口 [EnumTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/EnumTransformer.cs#L25-L58) 对三种形态直接 `throw NotSupportedException("CS2J normalization required: …")`：
    - `[Flags]`（L29-33）；
    - 显式底层类型（`enum E : byte` 的 BaseList，L35-39）；
    - 任意成员带显式值（L41-45，含重复值/跳跃值/自动递增接续）。
-   异常在 [TypeGroupResolver.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/TypeGroupResolver.cs#L640-L643) 被吞为 Warning 并返回 `null`——**类型文件被静默丢弃**，使用点仍产出半截 Java，属 catalog §4 风险 12 的同族「静默错误输出」。
-2. **唯一能直转的形态（默认 int、无显式值、无 [Flags]）建立在 ordinal 假设上**，显式值即使不抛也是错的语义：
+   异常在 [TypeGroupResolver.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/TypeGroupResolver.cs#L640-L645) 被吞为 Warning（L642）并返回 `null`（L645）——**类型文件被静默丢弃**，使用点仍产出半截 Java，属 catalog §4 风险 12 的同族「静默错误输出」。
+2. **唯一能直转的形态（默认 int、无显式值、无 [Flags]）建立在 ordinal 假设上**，显式值即使不抛也是错的语义（**2026-09-29 核订时补录 2 处新站点**）：
    - `(E)i → E.values()[i]`、`(int)e → e.ordinal()`、跨 enum 强转 `target.values()[e.ordinal()]`（[TypeOperationTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L60-L76)）；
-   - `default(E) → E.values()[0]`（[TypeOperationTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L152)、[FieldTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L220-L226)）——C# 语义是**数值 0**，与「第一个声明成员」并不等价（无 0 值成员时错误）；
+   - **实参位置整型→enum 的强制收窄**：`CoerceIntegralToEnum` 产 `Enum.values()[(int)expr]`（[ArgumentTransformer.Coercion.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Coercion.cs#L236-L245)，核订补录）；
+   - `default(E) → E.values()[0]`（[TypeOperationTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/TypeOperationTransformer.cs#L152)、[FieldTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L220-L226)、**以及属性初始化器路径 [PropertyTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L134)，核订补录**）——C# 语义是**数值 0**，与「第一个声明成员」并不等价（无 0 值成员时错误）；
    - const enum 字段按 ordinal 下标回填（[FieldTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L316-L321)）；
-   - enum governing 的 switch 不在 fail-fast 清单内（[StatementTransformer.SwitchAndResource.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L28-L42) 只拒绝 bool/long/ulong/float/double/decimal），原样落为 Java enum switch，隐式依赖 ordinal 与声明序号一致。
-3. **测试与实现已长期脱节**。`EnumTransformerTests` 断言的是一版已被删除的富实现（`Open(10)` 构造、`private final int value;`、`getValue()`、`fromValue(int)`、`_UNMAPPED` 可变单例、flags 常量类）。实测（2026-09-28，`dotnet test -c Release --filter EnumTransformerTests`）：**41 失败 / 2 通过 / 43 总计**；enum/flags 全过滤器（Tests 工程）：**77 失败 / 74 通过 / 1 跳过 / 152 总计**，红灯集中在 `EnumTransformerTests`（41）、`EnumExtremeValueTests`（4）、`EnumConditionalExpressionTests`（3）、`EnumPropertyDefaultTests`（3）、`FlagsEnumInterfacePropertyTests`（2）、`ByteEnumArithmeticWrapTests`（2）、`FlagsEnumToStringTests`（2）、`EnumValueMemberCollisionTests`（1）、`StructEnumFieldDefaultTests`（1）等。同一次实测中 **E04 单测 29/29 全绿**——「使用点已做、声明缺失」的两半区状态被测试结果直接证实。
-4. Java 侧桥接厚但假设已锁死在「Java enum」形态：[EnumHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/EnumHelper.java) 全部方法以 `Class.isEnum()`/`getEnumConstants()`/`Enum.name()`/ordinal 为前提（L5-16、L56-93、L95-146、L217-248），并反射寻找转换器生成的 `getValue()`/`fromValue()`（L164-248）、按常量值域反推底层位宽（L280-397）、过滤合成 `_UNMAPPED`（L148-150）；`format` 的 `D/X` 直接用 ordinal（L399-427），对显式值枚举语义错误。`System.Enum` 六个静态方法经 [TypeMappings.json](file:///d:/code/cs2j/config/TypeMappings.json#L6576-L6604) 映射到 `EnumHelper.tryParse/parse/getValues/getNames/format/toObject`。这正是 catalog §4 风险 4 指出的「compat `EnumHelper` 虽厚但仍是 Java enum 假设，前置归一后需要同步重定义桥接面」。
+   - enum governing 的 switch 不在 fail-fast 清单内（[StatementTransformer.SwitchAndResource.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L28-L42) 只拒绝 bool/long/ulong/float/double/decimal，核订重验：区间与类型清单**均不变**，C03 落地未触碰该闸门），原样落为 Java enum switch，隐式依赖 ordinal 与声明序号一致。**2026-09-29 核订新增边界事实**：C03 `pattern-desugar` 已落地（Status=Implemented、默认关），其分析器**显式**把 enum governing 的普通标签 switch 判为「交回转换器直转」（[PatternDesugarComponents.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/PatternDesugar/PatternDesugarComponents.cs#L465)，注释同时记录 Java switch 只接受 primitives/strings/enums 的理由 L158）——即 C03 只消除**模式标签**而把 enum 的 ordinal 假设原样保留，与本节结论一致，C05 落地时该语法面归 C05（见 §11）。
+3. **测试与实现已长期脱节**。`EnumTransformerTests` 断言的是一版已被删除的富实现（`Open(10)` 构造、`private final int value;`、`getValue()`、`fromValue(int)`、`_UNMAPPED` 可变单例、flags 常量类）。实测（2026-09-28，`dotnet test -c Release --filter EnumTransformerTests`）：**41 失败 / 2 通过 / 43 总计**；enum/flags 全过滤器（Tests 工程）：**77 失败 / 74 通过 / 1 跳过 / 152 总计**，红灯集中在 `EnumTransformerTests`（41）、`EnumExtremeValueTests`（4）、`EnumConditionalExpressionTests`（3）、`EnumPropertyDefaultTests`（3）、`FlagsEnumInterfacePropertyTests`（2）、`ByteEnumArithmeticWrapTests`（2）、`FlagsEnumToStringTests`（2）、`EnumValueMemberCollisionTests`（1）、`StructEnumFieldDefaultTests`（1）等。同一次实测中 **E04 单测 29/29 全绿**——「使用点已做、声明缺失」的两半区状态被测试结果直接证实。**2026-09-29 核订注记**：这组计数为 2026-09-28 快照，核订未重测；次日 4b736217（RuntimeClassParameter 移除重构）再次改动了 `EnumTransformer.cs`，§8 门槛与 §7.6 处置前须重测基线（`EnumHelper.java`、`EnumPreprocessor/` 自测量日后未变）。
+4. Java 侧桥接厚但假设已锁死在「Java enum」形态：[EnumHelper.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/EnumHelper.java)（428 行）全部方法以 `Class.isEnum()`/`getEnumConstants()`/`Enum.name()`/ordinal 为前提（L5-16、L56-93、L95-146、L218-248），并反射寻找转换器生成的 `getValue()`/`fromValue()`（L153-248：`invokeOpened` 与 `getMethod("getValue"/"fromValue")` 站点 L183/L206/L227）、按常量值域反推底层位宽（L280-397：`scanEnumWidth`/`truncateToEnumWidth`/`getUnderlyingTypeCode`）、过滤合成 `_UNMAPPED`（L148-150）；`format` 的 `D/X` 直接用 ordinal（L399-427），对显式值枚举语义错误。`System.Enum` 六个静态方法经 [TypeMappings.json](file:///d:/code/cs2j/config/TypeMappings.json#L6590-L6617) 映射到 `EnumHelper.tryParse/parse/getValues/getNames/format/toObject`。这正是 catalog §4 风险 4 指出的「compat `EnumHelper` 虽厚但仍是 Java enum 假设，前置归一后需要同步重定义桥接面」。
 
 ### 1.2 频率
 
-C05 为 catalog P1（[L51](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L51)）。catalog 未登记 enum 声明三族在训练集 D:\csharp-sdk 的具体命中数（条目内无 sdk 计数，与 C04/C23 等带计数条目不同）；本设计不杜撰数字。**频率补扫是默认开启门槛之一**（§8）：在 sdk 基线上分别统计 `[Flags]`、非 int 底层类型、带显式值 enum 声明数，以及 `System.Enum` 反射 API/switch/字典键/enum 泛型实参的使用点密度，作为范围与优先级复核输入。
+C05 为 catalog P1（[L53](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L53)）。catalog 未登记 enum 声明三族在训练集 D:\csharp-sdk 的具体命中数（条目内无 sdk 计数，与 C04/C23 等带计数条目不同）；本设计不杜撰数字。**频率补扫是默认开启门槛之一**（§8）：在 sdk 基线上分别统计 `[Flags]`、非 int 底层类型、带显式值 enum 声明数，以及 `System.Enum` 反射 API/switch/字典键/enum 泛型实参的使用点密度，作为范围与优先级复核输入。
 
 ### 1.3 与 E04 的分工
 
@@ -46,7 +47,7 @@ C05 为 catalog P1（[L51](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#
 | 链位 | `null-coalesce` 之后 | `enum` 之后（本 pass 消费 E04 产物，见 §3） |
 | `(E)`/`(U)` 强转 | 产物里大量保留 | C05 把针对**被改写类型**的强转改写成显式成员调用（§2 D7），使新形态自洽可编译 |
 
-两半合起来覆盖 catalog §3.3 enum 族「E04 + C05 + C17 + C22，同一 EnumSyntaxRewriter 扩展，不新建通道」（[L914](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L914)）。注册表基础建设已把 C05 登记为**独立 id**（stub `enum-declaration`，foundation plan L84）而非并入 E04：本设计遵循注册表现状——**独立 pass、独立 Core 命名空间、共享 E04 已验证的事实逻辑**（底层类型八分类、窄类型 `unchecked`、可空解包等），不回填合并通道（理由见 §3.2）。
+两半合起来覆盖 catalog §3.3 enum 族「E04 + C05 + C17 + C22，同一 EnumSyntaxRewriter 扩展，不新建通道」（[L1092](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1092)，2026-09-29 核订重定位）。注册表基础建设已把 C05 登记为**独立 id**（stub `enum-declaration`，foundation plan L84）而非并入 E04：本设计遵循注册表现状——**独立 pass、独立 Core 命名空间、共享 E04 已验证的事实逻辑**（底层类型八分类、窄类型 `unchecked`、可空解包等），不回填合并通道（理由见 §3.2）。
 
 ### 1.4 目标与非目标
 
@@ -79,7 +80,7 @@ C05 为 catalog P1（[L51](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#
 | D4 | 显式值求值 | Analyzer 对每个成员读 `IFieldSymbol.ConstantValue`（编译期常量真值），自动递增、重复值、跳跃、负值、十六进制、位运算初始化器（含已被 E04 改写成 `(E)((U)a \| (U)b)` 的成员初始化，E04 §4.7 保证仍是常量）全部覆盖；取不到常量值 → ED010 Error，该 plan 不建立 | 不自行实现 C# 枚举值递增规则（容易在重复值/位运算上出错）；以符号模型常量值为唯一真相 |
 | D5 | `[Flags]` 是否分叉表示 | **不分叉**：flags 与非 flags 同一 struct 形态。flags 只影响 ①是否生成「组合名分解/逗号组合解析」成员（G/F 与 Parse 的 flags 语义）；②是否生成 `HasFlag`（实际对所有类型都生成，成本极低）。声明上的 `[Flags]`/`[FlagsAttribute]` **移除**（AttributeUsage 仅 Enum，挂 struct 上无法编译），flags 事实编码进生成成员 | E04 对 flags/非 flags 已统一规则（E04 §0 修正 1），声明侧对齐；同时消灭「按位模式启发式猜 flags」（历史提交 `6e9e4c9f` 证明该启发式会出 `_UNMAPPED` 状态共享 bug） |
 | D6 | 外显成员契约（生成形态） | 见 §2.3 完整成员表。**按需生成**：Analyzer 盘点使用点决定可选成员是否生成；核心成员（值字段/实例/Value/FromValue/Equals 族/ToString）无条件生成 | 所有成员都是普通 C# 字段/属性/方法，转换器无需识别「枚举」即可转换；命名经碰撞消解，不依赖转换器命名魔法 |
-| D7 | 使用点改写 | 针对被改写类型的：成员引用、强转、switch/常量模式、`System.Enum` 静态调用、枚举格式化，全部在 plan 的 TouchedFiles 内改写到外显成员（规则全集 §4.5）。**不依赖用户自定义转换运算符**（不在 struct 上声明 implicit/explicit operator），所有跨表示边界都是普通方法调用 | 规避 C14（运算符转换）未专项收口的不确定性（catalog §4 风险 14「映射存在≠语义可用」）；E04 产物里的 `(U)e`/`(E)i` 由本 pass 二次改写成 `e.Value`/`E.FromValue(...)`，两 pass 自然咬合 |
+| D7 | 使用点改写 | 针对被改写类型的：成员引用、强转、switch/常量模式、`System.Enum` 静态调用、枚举格式化，全部在 plan 的 TouchedFiles 内改写到外显成员（规则全集 §4.5）。**不依赖用户自定义转换运算符**（不在 struct 上声明 implicit/explicit operator），所有跨表示边界都是普通方法调用 | 规避 C14（运算符转换）未专项收口的不确定性（catalog §4 风险 14「映射存在≠语义可用」）；E04 产物里的 `(U)e`/`(E)i` 由本 pass 二次改写成 `e.Value`/`E.FromValue(...)`，两 pass 自然咬合。**2026-09-29 核订**：C14 已落地（member-desugar operator 规则，默认关，诊断码 CS2J5170-5183 含 checked 用户定义运算符与 C# 14 用户定义复合赋值子项），但本决策不变——生成结构体仍不声明自定义运算符，因此 C14 通道对本 pass 产物无输入面；原「未专项收口」的措辞按现状收窄为「已收口但与本 pass 无交互」 |
 | D8 | ToString/Parse/Format/GetValues/GetNames/IsDefined/ToObject/GetName/GetUnderlyingType 契约 | 在生成类型上提供同名外显成员并改写调用点（精确语义表见 §2.4）；`Enum.GetUnderlyingType(typeof(E))` 直接改写为 `typeof(U)`；运行时 `Type` 重载 → ED020 Error | 替代 TypeMappings.json 六条 EnumHelper 映射在新形态上的适用性；名字/值语义按 .NET 运行时规则实现（含 flags 组合名、ignoreCase、数字串直返） |
 | D9 | switch / 字典键 / 装箱 | ①switch 语句与 switch 表达式（governing 为被改写类型）在 C# 侧降为值比较 if-链/三元链；常量模式 `x is E.A` 同改（§4.5.4）。②字典键：struct 值语义 + 生成 `IEquatable<E>`/`Equals`/`GetHashCode`（按 Value）保持 `Dictionary<E,V>` 行为。③装箱/拆箱 `object o = e; (E)o` 保持合法 C#（struct 天然支持） | 表示形态变化后 C# switch 不允许对 struct 用常量标签，而本 pass 中间树必须当场可编译（verifyBuild 默认开），不能等 C03；字典/装箱由 fixture 钉住（§7） |
 | D10 | 序列化契约 | M1 不宣称自动支持按名序列化；Analyzer 盘点 `[JsonConverter(typeof(JsonStringEnumConverter))]`、`JsonStringEnumMemberName`、`[EnumMember]`、`[XmlEnum]` 等**携带名字契约**的特性与 flags 数值序列化站点，逐处 ED040 Warning（列类型/成员/特性）。默认数值 JSON 往返纳入 fixture（要求转换器对合成 struct 产出数值形态，不满足则阻止默认开启） | 序列化随表示形态变化是 catalog §4 风险 4 的明示项；先显式化、再逐契约收口，禁止静默改变 JSON 线格式 |
@@ -92,7 +93,7 @@ C05 为 catalog P1（[L51](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#
 
 ### 2.1 D1 详述：为什么是 enum-like value type 而不是 int 常量类
 
-catalog C05 给的两档候选是「enum-like class」或「C# 侧改写为 struct/常量类」（[L314](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L314)）。二者关键差异：
+catalog C05 给的两档候选是「enum-like class」或「C# 侧改写为 struct/常量类」（[L339](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L339)，2026-09-29 核订重定位）。二者关键差异：
 
 | 维度 | A. enum-like 值类型（推荐） | B. int 常量类 + `E→U` 全树替换 |
 |---|---|---|
@@ -164,7 +165,7 @@ catalog C05 给的两档候选是「enum-like class」或「C# 侧改写为 stru
 
 ### 3.1 现状与目标描述符
 
-stub 现状（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L82-L90)）：id `enum-declaration`，显示名 "Enum declaration rewrite"，目录 `.cs2j-enum-declaration-src`，`PassStage.Declarative`，`PassStatus.Stub`，`defaultEnabled: false`，`runAfterIds: { PassIds.Enum }`，`needsSemanticModel` 默认 true，catalogItems `C05`。
+stub 现状（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L70-L79)，2026-09-29 核订重定位）：id `enum-declaration`，显示名 "Enum declaration rewrite"，目录 `.cs2j-enum-declaration-src`，`PassStage.Declarative`，`PassStatus.Stub`，`defaultEnabled: false`，`runAfterIds: { PassIds.Enum }`，`needsSemanticModel` 默认 true（[PassDescriptor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassDescriptor.cs#L76) 形参默认值，核订确认），catalogItems `C05`。
 
 翻转后目标描述符（其余字段在 Stub→Implemented 时显式化）：
 
@@ -188,16 +189,18 @@ stub 现状（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Pre
 3. 独立开关允许在 E04 默认开启的既成事实下单独灰度声明侧。
 4. 共享通过代码复用实现：把 E04 中「U 八分类/keyword 生成/窄类型 unchecked/可空解包」等纯函数事实按需提取为内部公共工具（或在新命名空间内复制小函数），不改变 E04 公共契约与其 29 个单测。
 
-链位副作用检查（RunAfter=`enum` 的拓扑后果）：本 pass 实际排在 `null-coalesce → enum → enum-declaration → delegate → tuple → … → unsigned → generic → …` 的早期位置——早于 E09 unsigned（生成的 U 类型引用由 unsigned pass 继续处理，与 E04 同款配合）、早于 E10 generic（满足 catalog「须在 Generic 之前：enum 作泛型实参/数组元素」，[L317](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L317)）、早于 strip-default（生成成员无默认参数，实际无交互）。与 pattern-desugar（C03，锚 `null-coalesce`）的相对顺序在注册表上未强约束——两 pass 都落地时需补 RunAfter 边，见 §11。
+链位副作用检查（RunAfter=`enum` 的拓扑后果）：本 pass 实际排在 `null-coalesce → enum → enum-declaration → delegate → tuple → … → unsigned → generic → …` 的早期位置——早于 E09 unsigned（生成的 U 类型引用由 unsigned pass 继续处理，与 E04 同款配合）、早于 E10 generic（满足 catalog「须在 Generic 之前：enum 作泛型实参/数组元素」，[L342](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L342)）、早于 strip-default（生成成员无默认参数，实际无交互）。**2026-09-29 核订**：该序列的落盘断言位于 [PassChainOrderTests.cs:18-40](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L40) 的 `LockedChain`（现含 20 个 Implemented id，顺序即实现链）；翻转后 `enum-declaration` 必须插在 `Enum` 与 `Delegate` 之间且该数组同步更新——注意 C03 落地后 `pattern-desugar` 已插在 `ForeachDeconstruction` 与 `StripDefault` 之间，同批翻转时会争同一段槽位，需按 rebase 后实际拓扑重排。与 pattern-desugar（C03，锚 `null-coalesce`，**已落地**）的相对顺序在注册表上仍**未强约束**——两 pass 均已/将落地时需补 RunAfter 边，见 §11。
 
 ### 3.3 Stub→Implemented 翻转清单
 
-1. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删除 `Ids.EnumDeclaration` 常量与 Stubs 表中的 enum-declaration 条目（常量迁移至 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L24) 的 `PassIds`）；全局检索对 `PassStubCatalog.Ids.EnumDeclaration` 的引用（当前仅 stub 自身）。
+1. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L70-L79)：删除 `Ids.EnumDeclaration` 常量（[L24](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L24)）与 Stubs 表中的 enum-declaration 条目（常量迁移至 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L27) 的 `PassIds`，核订重定位：`PassIds` 类现为 L6-L27，已含 `JavaKeywords`/`MemberDesugar` 等后续落地项）；全局检索对 `PassStubCatalog.Ids.EnumDeclaration` 的引用（当前仅 stub 自身）。
+   > **2026-09-29 核订（id 常量归属两手先例，须评审定案）**：现有代码里翻转后的做法**不统一**——C02 `generic-deepen` 按本文档计划把常量迁到了 `PassIds.GenericDeepen`（[PassCatalog.cs:20](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L20) 定义、L168-178 使用）；而 C04 `iterator-lowering` **保留**在 `PassStubCatalog.Ids.IteratorLowering`（[PassCatalog.cs:210](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L210) 反向引用 stub 类的常量）。本 pass 建议随 C02（迁 `PassIds`，与 `PassIds` 的文档定位一致），但需在实施时与 C04 遗留形态一并对齐，避免同一注册表出现两套 id 常量归属。
 2. `PassCatalog.Implemented`：按 §3.1 增加描述符（`RunAfterIds: new[] { PassIds.Enum }`，verifyBuild/Tests=true，defaultEnabled=false）。
-3. [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)：`CreateAdapter` switch 增加 `PassIds.EnumDeclaration => new EnumDeclarationPassAdapter(...)`；`PassChainConfiguration` 增加 `Func<EnumDeclarationOptions>` 懒加载工厂（仿 JavaKeywordOptionsFactory，L46-47）。无 legacy toggle（不新增 `--no-xxx` 老开关），启停只走描述符默认值 + 通用 `--enable-pass/--disable-pass`。
+3. [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)：`CreateAdapter` switch 增加 `PassIds.EnumDeclaration => new EnumDeclarationPassAdapter(...)`；`PassChainConfiguration` 增加 `Func<EnumDeclarationOptions>` 懒加载工厂（核订重定位：仿 `JavaKeywordOptionsFactory` 现位于 [L49](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L49)，同期 `MemberDesugarOptionsFactory` 在 L52 —— 都是本设计之后新增的同款先例）。无 legacy toggle（不新增 `--no-xxx` 老开关），启停只走描述符默认值 + 通用 `--enable-pass/--disable-pass`。
 4. 新增 CLI `Adapters/EnumDeclarationPassAdapter.cs`（§5）。
-5. 注册表顺序断言/`--list-passes` 测试更新（状态 Stub→Implemented、默认值可见）。
-6. 文档与 `.gitignore`：中间目录 `.cs2j-enum-declaration-src/` 加入忽略清单（与既有 `.cs2j-enum-src/` 同处，顺手核对历史遗漏目录，E04 设计 §8.4 已列同类债务）。
+5. 注册表顺序断言/`--list-passes` 测试更新（状态 Stub→Implemented、默认值可见）。**2026-09-29 核订定位到具体断言**：[PassChainOrderTests.cs:18-40](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L40) 的 `LockedChain`（必须插入 `enum-declaration` 槽位）、[PassStubCatalogTests.cs:24](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) 的 stub 计数 `Assert.Equal(22, …)`（翻转后应为 21）、以及同文件的 `PatternDesugar_IsImplemented_AndNotAStub`（可仿写本 pass 的对应用例）。
+   > **2026-09-29 核订发现（现存红灯，非本 pass 引入）**：`PassStubCatalogTests.All_merged_families_are_registered_as_stubs` 断言 **22**，但 `PassStubCatalog.Stubs` 实际只有 **21** 条（`grep -c "^        new($"` 实测 21；注册表不合成条目，见 [PassRegistry.Create](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L45-L90)）——26ea367c 移除 member-desugar stub 时（22→21）漏改该数字（提交信息自述「23 -> 22」，与实际 22→21 亦不一致）。本 pass 翻转会把它变成 20，建议顺带修正该断言为真实值。
+6. 文档与 `.gitignore`：中间目录 `.cs2j-enum-declaration-src/` 加入忽略清单（与既有 `.cs2j-enum-src/` 同处，顺手核对历史遗漏目录，E04 设计 §8.4 已列同类债务）。**2026-09-29 核订：债务已扩大**——[.gitignore](file:///d:/code/cs2j/.gitignore#L89-L102) 现列 13 条 `.cs2j-*-src/`，而 C03/C04/C11-C14/C08 落地/wiring 新增的 `.cs2j-pattern-desugar-src/`、`.cs2j-iterator-lowering-src/`、`.cs2j-member-desugar-src/`、`.cs2j-java-keywords-src/` **均未登记**；本 pass 翻转时应一并补齐（各自 worktree 追加自己那一行）。
 
 stub 显式启用即 CS2J9001（[PreprocessDiagnosticCodes.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PreprocessDiagnosticCodes.cs#L12)）的行为在翻转后自然消失；翻转 PR 必须与适配器同批交付，不允许中间态。
 
@@ -419,9 +422,9 @@ public readonly struct Direction : IEquatable<Direction>
 
 ### 7.6 与现有 enum 测试的衔接
 
-- E04 资产不动且必须保持绿：`EnumPreprocessorUnitTests`（29/29，实测 2026-09-28）、`ProjectEnumPreprocessorTests`、`ByteEnumArithmeticWrapTests` 中 E04 相关断言。
+- E04 资产不动且必须保持绿：`EnumPreprocessorUnitTests`（29/29，实测 2026-09-28）、`ProjectEnumPreprocessorTests`、`ByteEnumArithmeticWrapTests` 中 E04 相关断言。**2026-09-29 核订注记**：`EnumPreprocessor/` 自 2026-09-27（14711e58）未再变更，上述 29/29 快照的代码面未动；但 `EnumTransformer.cs` 在 2026-09-28 之后又被 4b736217（RuntimeClassParameter 移除重构）改动，涉及转换器侧期望的用例需重测。
 - 转换器侧存量红灯（实测 `EnumTransformerTests` 41 红、enum 过滤集 77 红/74 绿/1 跳）：这些断言面向**已删除的转换器富实现**（getValue/fromValue/_UNMAPPED/常量类）。本 pass 不改转换器，**单文件直转路径（ConversionPipeline）不经预处理**，故这些红灯不会因本特性转绿。处置方案（M5 前定案，列为开放问题 Q4）：① 保持现状并在测试类标注「待 C05 项目级路径 + 转换器收口」分类；② 迁移可复用断言到项目级 fixture（C05 路径下的等价断言）；③ 转换器收口 PR 中删除/重写。默认建议 ①+②，不在本 pass 内大面积改测试期望。
-- `ProjectPreprocessorsConsistentTests`：追加 adapter/描述符存在性与 `.cs2j-enum-declaration-src` 断言（仿 enum 段 L122-126）；注册表顺序断言更新。
+- `ProjectPreprocessorsConsistentTests`：追加 adapter/描述符存在性与 `.cs2j-enum-declaration-src` 断言（仿 enum 段 [L123-127](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs#L123-L127)，核订重定位）；该文件现已含 `PassCatalog.ImplementedById(PassIds.MemberDesugar)` 段（L137）可作「翻转后的 descriptor 断言」直接范本。注册表顺序断言更新（同上）。
 - CLI 测试：`--enable-pass enum-declaration` 启停、`--list-passes` Implemented/默认关、preserve 目录、ED030/ED020 退出码语义。
 - `tests/DualTargetCorpus/Enums.cs`：补 flags byte/long、显式跳跃值、重复值、Parse/Format 双目标用例。
 
@@ -458,7 +461,7 @@ public readonly struct Direction : IEquatable<Direction>
 
 | # | 风险 | 证据/说明 | 缓解 |
 |---|---|---|---|
-| R1 | **enum-as-class 外显契约随表示形态全面变化**（catalog §4 风险 4，[L923](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L923)）：`Enum.ToString/Parse/Format/GetValues`、switch、字典键、`[Flags]` 序列化全部依赖表示 | EnumHelper 全方法 Java enum 假设（isEnum/ordinal/反射 getValue/_UNMAPPED）；转换器 ordinal 假设散布 5+ 站点（§1.1） | 外显成员契约（D6）+ 使用点全改写（§4.5）+ 桥接重定义（D11）；不靠运行时反射；逐契约 fixture |
+| R1 | **enum-as-class 外显契约随表示形态全面变化**（catalog §4 风险 4，[L1102](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1102)）：`Enum.ToString/Parse/Format/GetValues`、switch、字典键、`[Flags]` 序列化全部依赖表示 | EnumHelper 全方法 Java enum 假设（isEnum/ordinal/反射 getValue/_UNMAPPED）；转换器 ordinal 假设散布 6 处站点（§1.1，核订补录后计数） | 外显成员契约（D6）+ 使用点全改写（§4.5）+ 桥接重定义（D11）；不靠运行时反射；逐契约 fixture |
 | R2 | 转换器对「合成 readonly struct + 静态只读实例 + 数组成员/Parse 方法体」的转换可能有自身缺口（struct 默认值、泛型实例化、StringBuilder/数组转换） | catalog §4 风险 14「映射存在≠语义可用」；StructTransformer 路径复杂 | M1 原型先行证伪；不可转换的构造不生成（合成器语言子集自律）；默认关 + 门槛 4；发现转换器缺口时报 ED020 而非硬闯 |
 | R3 | 双形态混装（ProblemOnly）：被改写 enum 与保留 Java enum 之间强转/数组/字典混用边界 | §2.2；下游对普通 enum 仍有 ordinal 债 | ED012 计数；scope=All 作为已登记的演进路线；不在首期追求全量 |
 | R4 | 编译期常量上下文：enum 成员是 C# 编译期常量，struct static readonly 不是——特性参数、`const`、旧 case、attribute、默认参数值、`switch` 标签全面受影响 | §4.5 规则 1/4 | switch 当场降级；const 降级为 static readonly；**特性参数等不可降级站点 ED020 + plan 回滚**，不静默凑合 |
@@ -479,11 +482,11 @@ public readonly struct Direction : IEquatable<Direction>
 | **C15 checked/unchecked + C34 decimal（numeric-boundary，RunAfter unsigned）** | 枚举窄化截断的 unchecked 包裹由 C05 按 D14 自产；C15 统一 checked 上下文归一；C34 与 enum 无直接交叠 | 顺序上 C05 远早于 numeric-boundary，无语法面争抢；C15 落地时把 C05 产物视同既有 unsigned 产出的 unchecked 形态（E04 已在产） |
 | **C17 自增目标归一** | `e++/e--/e+1` 不在 C05；C17 把 enum 目标降为读-改-写 | C17 在 numeric-boundary（更晚）；C05 提供的 `FromValue/Value` 是 C17 enum 分支的目标形态；C17 落地前这些站点维持转换器 fail-fast（[UnaryExpressionTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/UnaryExpressionTransformer.cs#L181-L182)），不属 C05 回退 |
 | **C22 可空值类型提升** | C05 后 `E?` 是普通 `Nullable<struct>`；lifted 位运算已由 E04 处理；比较/转换/GOV 留 C22 | C22 通用规则对 Nullable<E> 自然生效，无需 enum 特例；与 §3.3 enum 族成员关系不变 |
-| **C03 pattern-desugar / C37 表达式模式（P0）** | C03 把 pattern switch/非整型 switch 降 if-链；C05 只对**被本 pass 改写类型**的常量 switch/常量模式做最小降级（中间树当场可编译所需）；关系/属性/位置模式归 C03/C37 | 两 stub 均锚 `null-coalesce`；C03 落地时注册表需补「`pattern-desugar` RunAfter `enum-declaration`（或反向边，评审定）」——倾向 C05 在前（C03 见到的已是 struct if-链/残余模式），避免两 pass 争同一 SwitchSyntax；goto case 在 C03/E14 之前由 ED020 拦截 |
-| **E10 generic / C02 generic-deepen** | enum 作泛型实参/数组元素须在 generic 之前完成（catalog C05 注记） | C05 链位已早于 generic；`: Enum` 约束交互点由 ED020 盘点，generic-deepen 落地时共享判定 |
-| **C11-C14 成员去糖（member-desugar）** | C05 生成的是普通方法/属性/字段，恰是成员去糖的**目标形态**而非输入；晚于 C05 的成员 pass 不应再改写生成 struct（生成代码在 plan 标注/命名空间可识别） | member-desugar RunAfter struct/closure（远晚）；约定：后续 pass 对带 `Cs2jEnumDeclarationRewrite` 标注产物幂等跳过（标注落盘策略与 JK/RR 一致：仅语法标注，不进产物文本） |
+| **C03 pattern-desugar / C37 表达式模式（P0）** | C03 把 pattern switch/非整型 switch 降 if-链；C05 只对**被本 pass 改写类型**的常量 switch/常量模式做最小降级（中间树当场可编译所需）；关系/属性/位置模式归 C03/C37 | **2026-09-29 核订：C03 已落地**（`pattern-desugar` 在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L111-L122)，Status=Implemented、defaultEnabled=false、verifyBuild/Tests=true、`RunAfterIds={null-coalesce, tuple, foreach-deconstruction}`）。两 pass 之间**仍无 RunAfter 边**（enum-declaration stub 仍只锚 `enum`）——原「落地时需补边」待决项现为可执行动作：倾向 C05 在前（C03 见到的已是 struct if-链/残余模式），避免两 pass 争同一 SwitchSyntax。另已核实 C03 把 enum governing 的**普通标签** switch 显式让回转换器（[PatternDesugarComponents.cs:465](file:///d:/code/cs2j/src/CSharpToJava.Core/PatternDesugar/PatternDesugarComponents.cs#L465)），故「enum switch 归 C05」无重复改写风险；goto case 在 C03/E14 之前仍由 ED020 拦截 |
+| **E10 generic / C02 generic-deepen** | enum 作泛型实参/数组元素须在 generic 之前完成（catalog C05 注记） | C05 链位已早于 generic ✓（拓扑：`enum → enum-declaration → delegate → … → unsigned → generic`）；`: Enum` 约束交互点由 ED020 盘点。**2026-09-29 核订**：C02 已落地（`generic-deepen` 在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L167-L178)，Status=Implemented、默认关、`RunAfterIds={generic}`）——原计划中的「generic-deepen 落地时共享判定」变为可执行动作：ED020 的 `: Enum` 约束盘点可与 C02 静态泛型字段规则共享符号判定 |
+| **C11-C14 成员去糖（member-desugar）** | C05 生成的是普通方法/属性/字段，恰是成员去糖的**目标形态**而非输入；晚于 C05 的成员 pass 不应再改写生成 struct（生成代码在 plan 标注/命名空间可识别） | **2026-09-29 核订：C11/C12/C13/C14 四条规则均已落地**（`member-desugar` 在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)，Status=Implemented、defaultEnabled=false、verifyBuild/Tests=true，`RunAfterIds={StructValueSemantics, ClosureLift}`——即锚定 C07 与 C32 stub）；原「远晚」判断成立 ✓。约定不变：后续 pass 对带 `Cs2jEnumDeclarationRewrite` 标注的产物幂等跳过（标注落盘策略与 JK/RR 一致：仅语法标注，不进产物文本） |
 | **C20 partial-merge（观察项）** | enum 不可 partial，无交集 | 无 |
-| **C08/E17 java-keywords（链尾）** | 生成成员名（Value/FromValue/Parse…）非 Java 保留字；被改写枚举的成员名若撞 Java 保留字，由 C08 在链尾统一改名（包括生成 struct 的字段名——C08 的全符号改名表覆盖字段种类） | C05 在前、C08 在后；nameof 策略互不冲突（§4.5 规则 9） |
+| **C08/E17 java-keywords（链尾）** | 生成成员名（Value/FromValue/Parse…）非 Java 保留字；被改写枚举的成员名若撞 Java 保留字，由 C08 在链尾统一改名（包括生成 struct 的字段名——C08 的全符号改名表覆盖字段种类） | C05 在前、C08 在后；nameof 策略互不冲突（§4.5 规则 9）。**2026-09-29 核订：C08 已落地**（`java-keywords` 在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L242-L258)，Status=Implemented、defaultEnabled=false、`PassStage.FinalNaming`、`RunAfterIds={eliminate-goto, platform-isolation, concurrency-normalize, dynamic-desugar}`——链尾锚点成立 ✓）。落地实况与本文相关的两点：① 全符号改名表覆盖字段/类型/局部等种类（Core `JavaKeywords/` 7 文件），故 C05 生成的 struct 字段名在链尾可被统一改名 ✓；② 但 **JK-6d/6e（`&&`/`||` 同构展开）在 C08 落地版中未实现**（[OperatorTrueFalseRewriter.cs:13](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/OperatorTrueFalseRewriter.cs#L13) 自述「标注为后续迭代」，分析器仅收集站点用于 JK-8 判定）——与本条目的交集为零（C05 产物无 operator true/false），不影响 C05 |
 
 ---
 
@@ -491,8 +494,10 @@ public readonly struct Direction : IEquatable<Direction>
 
 - 分支：`feature/preproc-c05-enum-declaration`
 - 目录：`.worktrees/preproc-c05-enum-declaration`
-- base：`67477551`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在：`67477551d74cbfc398204bcdabe000e4f881ad30`）
+- base：`f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，全哈希 `f68a783cd74cbfc398204bcdabe000e4f881ad30`，已核实存在且为当前 HEAD 的祖先）
+  > **2026-09-29 核订纠错**：原文写作 `67477551`（并给出「全哈希」`67477551d74cbfc398204bcdabe000e4f881ad30`）——该字符串是**短哈希与另一提交尾段的拼接**，`git cat-file` 报 `could not get object info`，用它建 worktree 会直接失败。其中 `67477551`（`674775519b42…`）实为「docs: C37 模式表达式去糖设计」提交，与 stub 注册无关；base 的正确值即本行 `f68a783c`（与 C06/C07/C09/C10 四份文档所记一致）。
+- 2026-09-29 核订补充：base 落在 stub 注册提交上，而该提交之后主干已推进（C01-C04、C11-C14 落地，含 `PassStubCatalog.cs`/`PassCatalog.cs`/`PassChainFactory.cs`/`Program.cs` 的同文件改动）——开工前先 rebase 到最新 `dev-3.x`，并按 §3.3 的公共热文件清单解冲突（各分支只增自己的条目）。
 
 ```powershell
-git worktree add .worktrees/preproc-c05-enum-declaration -b feature/preproc-c05-enum-declaration 67477551
+git worktree add .worktrees/preproc-c05-enum-declaration -b feature/preproc-c05-enum-declaration f68a783c
 ```

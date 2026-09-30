@@ -2,8 +2,8 @@
 
 **日期**: 2026-09-29
 **范围**: 在 C11 锚点建立的 `member-desugar` 族内新增小规则目录 `Finalizers/`，对 C# 终结器（destructor / CLR `Finalize` 重写）从「转换器静默丢弃」改为「显式诊断优先、人工确认后可删除」；本特性不注册/不翻转 pass、不动 RunAfterIds、默认不改正转换器（转换器 fail-fast 安全网列为同步后续 PR）
-**状态**: 设计已确认，待 C11 锚点合入后实施
-**族属**: catalog P3「成员去糖族」（[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L904-L904)）；注册表 stub `member-desugar` 的 catalogItems 已含 C39（[PassStubCatalog.cs:192-201](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L192-L201)）；C11 Property 是族锚点（[2026-09-28-c11-property-desugar-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md)），本设计假设其 §4.5 族契约成立
+**状态**: 设计已确认；**C11–C14 已由维护者手动合并主干 dev-3.x**（2026-09-30 确认），可直接在 member-desugar 族内新增 `Finalizers/` 规则（pass 默认关）
+**族属**: catalog P3「成员去糖族」（[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1082-L1082)）；C11–C14 已合入，`member-desugar` 现为 Implemented 描述符（[PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)，catalogItems 2026-09-30 已对齐 `"C11, C12, C13, C14"`，C39 待按合入序追加）；C11 Property 是族锚点（[2026-09-28-c11-property-desugar-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md)），本设计假设其 §4.5 族契约成立
 
 ---
 
@@ -13,11 +13,11 @@
 
 C# 终结器 `~T() { ... }` 是成员级语法，主转换器按成员逐种分发，但分发 switch 中没有它的位置：
 
-- [ClassTransformer.ProcessMember](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L317-L381) 的成员 `switch`（[L338-L380](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L338-L380)）覆盖 field/property/method/constructor/operator/conversion/indexer/嵌套类型/delegate/event-field/event 共 11 个分支，**既无 `DestructorDeclarationSyntax` 分支，也无 `default`**。终结器落入 switch 后直接走出方法，不产出任何 Java 成员、不抛异常、不写注释、不发诊断。
+- [ClassTransformer.ProcessMember](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L316-L380) 的成员 `switch`（[L337-L379](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L337-L379)）覆盖 field/property/method/constructor/operator/conversion/indexer/嵌套类型/delegate/event-field/event 共 11 个分支，**既无 `DestructorDeclarationSyntax` 分支，也无 `default`**。终结器落入 switch 后直接走出方法，不产出任何 Java 成员、不抛异常、不写注释、不发诊断。
 - 全 `src/CSharpToJava.Core` grep `Destructor` 仅一处命中：[LambdaTransformer.cs:306-308](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LambdaTransformer.cs#L306-L308)，只服务 lambda 可见局部名收集（把终结器体纳入名字集合），不产出成员。
 - `tests/` 全目录 grep `Destructor|finalizer|~\w+\(` **零命中**：没有任何测试锁定终结器行为，静默丢弃无回归护栏。
 - 对比同函数内 extern/DllImport 的处理：[ClassTransformer.cs:346-350](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L346-L350) 对 extern 方法显式 `throw new NotSupportedException("CS2J normalization required: ...")`——终结器缺少同等级别的 fail-fast。
-- catalog 三次/四次补全已将本现象登记为「静默错误输出」族（[preprocessor-catalog.md:931](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931)，风险 12）与 C39 专条（[L732-L743](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L732-L743)）。
+- catalog 三次/四次补全已将本现象登记为「静默错误输出」族（[preprocessor-catalog.md:1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)，风险 12）与 C39 专条（[L810-L822](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L810-L822)）。
 
 ### 1.2 终结器语义（为什么不能静默删，也不能简单翻译）
 
@@ -52,7 +52,7 @@ C# 终结器 `~T() { ... }` 是成员级语法，主转换器按成员逐种分�
 
 | # | 决策点 | 结论 | 依据/备注 |
 |---|---|---|---|
-| 1 | **★三选型** | **A 显式拒绝为推荐默认（宁假阳）**：每处终结器具名报码、不重写，要求人工改为确定性 Dispose（或显式登记例外）；B 删除+Warning+body 留痕作为逃生口；C Cleaner 引导列远期，v1 配置即报错 | 终结器体内是**非确定性资源语义**，静态分析无法判定「删掉是否安全」：可能释放非托管句柄、也可能做关键 flush。命中率仅 2 处（§1.3），假阳成本极低；静默误删代价是进程期资源泄漏/数据丢失。对应 catalog「显式拒绝而非静默删除」建议（[L735](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L735-L735)）与风险 12 第一原则（[L931](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931)） |
+| 1 | **★三选型** | **A 显式拒绝为推荐默认（宁假阳）**：每处终结器具名报码、不重写，要求人工改为确定性 Dispose（或显式登记例外）；B 删除+Warning+body 留痕作为逃生口；C Cleaner 引导列远期，v1 配置即报错 | 终结器体内是**非确定性资源语义**，静态分析无法判定「删掉是否安全」：可能释放非托管句柄、也可能做关键 flush。命中率仅 2 处（§1.3），假阳成本极低；静默误删代价是进程期资源泄漏/数据丢失。对应 catalog「显式拒绝而非静默删除」建议（[L813](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L813-L813)）与风险 12 第一原则（[L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)） |
 | 2 | 默认动作的交付节奏 | 选型定 A 为**产品默认**；出厂渐进：M1 级别为 **Warning**（strict 升 Error），§8 门槛达成后默认翻 **Error**；B（`Policy=Remove`）作为 `force-remove` 逃生口始终可选 | Error 默认会卡住含 2 处终结器的真实画像（§1.3），Warning→Error 渐进让先有诊断流、再以 sdk triage 数据翻转；族 `Strict` 选项与 C11/C13 同构，翻转仅改默认严重级一行 |
 | 3 | 模式 B 删除时的 body 去向 | **默认不自动提取方法、不写树内注释**：删除成员，body 原文 + 符号 + span + 分类写入中间目录 sidecar `.cs2j-finalizer-removals.json`，每处必出 CS2J5201 Warning（含 sidecar 路径）；两个可选项默认关：`EmitRemovalMarkerComment`（原位留 `// CS2J5201: ...` 注释）、`ExtractRemovedBody`（提取为永不调用的 `private void Cs2jRemovedFinalizer_T()`） | 树内注释可能随转换器流入 Java 产物，违反族「禁止占位静默透传」纪律；自动提取的未调用方法在 Java 侧是死代码，且方法体捕获 `this`/字段会制造「兜底逻辑仍在」的错觉。sidecar 是日志而非产物：.json 不参与编译、不被转换器消费，杜绝 body 丢失（仍可在日志检索） |
 | 4 | 终结器体分类 | 五分类：`Empty`（空体/仅基类链）、`DisposePattern`（唯一有效语句是 `Dispose(false)` 形态）、`SafeHandleOnly`（仅触碰 `SafeHandle`/`CriticalHandle` 字段）、`NativeRelease`（`Marshal.Free*`/`NativeLibrary.Free`/IntPtr 句柄释放/extern 释放）、`Other`（上述之外：flush、日志、自定义逻辑）；另有无体 `Extern` | 分类决定信号措辞与 B 档可否自动删：Empty/SafeHandleOnly 是冗余终结器（SafeHandle 自带关键终结器，用户终结器多余）；DisposePattern 是可人工确认的安全候选；NativeRelease/Other 默认拒绝自动删（CS2J5204/CS2J5205） |
@@ -61,7 +61,7 @@ C# 终结器 `~T() { ... }` 是成员级语法，主转换器按成员逐种分�
 | 7 | `CriticalFinalizerObject` | 含入类型派生自 `CriticalFinalizerObject`（含语义模型判定，跨程序集基类也算）时，**任何模式都拒绝自动删除**（CS2J5205 Error），只能经逐类型 force 显式豁免（豁免仍留 Error 级日志） | 关键终结器有 CER 保证，删除属于平台契约变更，与 C42 平台边界同族风险；SafeHandle 族类型自身不允许用户声明终结器（C# 编译器/分析器已有约束），重点拦截用户自定义关键终结器 |
 | 8 | 模式 C（Cleaner 引导） | v1 **不实现**：options 选 `CleanerGuide` 即 CS2J5208 配置错误；远期形态仅做设计备忘——在构造器发射显式注册 `Cs2jCleaner.Register(holder, static state => ...)`（state 不持有 target，防复活），转换器配合映射 `java.lang.ref.Cleaner`，需 compat 新类 + 转换器 PR | Cleaner 是主动注册模型，无法从终结器语法机械推导注册点（构造器？多个构造器？反序列化路径？）；sdk 两处都是 Dispose 模式（§1.3），Cleaner 路线收益低，先积累需求 |
 | 9 | 策略 options | 族 options 子节 `rules.finalizers`：`Policy = Reject/Remove/CleanerGuide`（默认 Reject）、`bool Strict`（继承族级，默认 true）、`IReadOnlySet<string> ForceRemoveTypes`（逐类型 FQN 白名单，仅解除 CS2J5204，不解除 CS2J5205）、`bool EmitRemovalMarkerComment=false`、`bool ExtractRemovedBody=false` | 逃生口与 JK/C11 overrides 同范式：显式、可审计、按类型精确；不提供「全库静默删除」总开关 |
-| 10 | 规则发现与 Kind | 经 C11 锚点的 `IMemberDesugarRule` 程序集发现机制注册；需要锚点在 `MemberDesugarKind` 枚举补一个 `Finalizer` 成员（[C11 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L183-L195) 现仅 Property/Indexer/Event/Operator/Signature）——这是对锚点共享文件的一处增量，按 §11 协调 | C11 §11 已为 C39 预留 `Finalizers/` 目录与 CS2J52xx 码段建议（[L386](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L386-L386)） |
+| 10 | 规则发现与 Kind | 经 C11 锚点的 `IMemberDesugarRule` 程序集发现机制注册；需要锚点在 `MemberDesugarKind` 枚举补一个 `Finalizer` 成员（[C11 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L183-L195) 现仅 Property/Indexer/Event/Operator/Signature）——这是对锚点共享文件的一处增量，按 §11 协调 | C11 §11 已为 C39 预留 `Finalizers/` 目录与 CS2J52xx 码段建议（[L388](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L388-L388)） |
 | 11 | 支撑库 | **无**：A 档不重写；B 档只删成员 + 写 sidecar（.json 不编译）；不注入 C# 支撑工程、不新建 Java compat 类 | Cleaner 路线（决策 8）才需要 compat，v1 零注入 |
 | 12 | 转换器安全网 | 后续 PR（与 M1 同步推进）：`ProcessMember` 增 `case DestructorDeclarationSyntax d: throw new NotSupportedException("CS2J normalization required: finalizer ...")`（仿 extern 文案），并增 `default` 对真正未知成员种类抛异常；`IncompleteMemberSyntax` 显式列为例外（容错跳过，不吞没新种类） | 安全网保证「不启用 member-desugar」路径也响亮失败；`default` 落地前需枚举全部成员种类证明无新误伤（§10-4），该 PR 属转换器改动，不在本规则 worktree 交付内 |
 
@@ -71,17 +71,17 @@ C# 终结器 `~T() { ... }` 是成员级语法，主转换器按成员逐种分�
 
 ### 3.1 归属 member-desugar，不新增 pass、不翻转、不动 RunAfterIds
 
-- C39 没有独立 descriptor/adapter/中间目录/CLI 开关。[PassStubCatalog.cs:192-201](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L192-L201) 的 stub 条目（Stage=`Declarative`、RunAfter=`{ struct-value-semantics, closure-lift }`、catalogItems 已含 `"C11, C12, C13, C14, C27, C39, C46"`）由 C11 锚点翻转；C39 合入时该 pass 已为 Implemented，规则经程序集发现自动生效。
-- **catalogItems 已含 C39，注册表结构无需改动**；C39 落地时仅在 PassCatalog 的 catalogItems 字符串按合入序追加 `C39`（锚点翻转时收窄为 `"C11"`，之后 C12/C13/C14/C39 各追加一次，一行字符串冲突，属预期协调点，同 C13 §3.1）。
+- C39 没有独立 descriptor/adapter/中间目录/CLI 开关。`member-desugar` 已由 C11 锚点翻转为 Implemented 描述符（[PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)：Stage=`Declarative`、RunAfter=`{ struct-value-semantics, closure-lift }`、catalogItems 当前为 `"C11"`）；C39 规则经程序集发现自动生效。
+- **注册表结构无需改动**；C39 落地时在 PassCatalog 的 catalogItems 字符串按合入序追加 `C39`（**2026-09-30 勘误：当前真值已是 `"C11, C12, C13, C14"`——在此真值上追加为 `"C11, C12, C13, C14, C39"`，切勿按旧文回退成 `"C11"` 或 `"C11, C39"`**；一行字符串冲突，属预期协调点，同 C13 §3.1）。
 - C39 的开关只存在于族 options 子节（决策 9），不新增 verb、不新增 `--enable-pass` 目标；在 C11 合入前启用 member-desugar 仍是 CS2J9001（[PreprocessDiagnosticCodes.cs:12](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PreprocessDiagnosticCodes.cs#L12-L12)）。
-- 目录/指纹/保留目录/verify 全沿用族一份 `.cs2j-member-desugar-src`，不新增中间树环节（[catalog §4 风险 11](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L930-L930)）。sidecar 写在该中间目录根部，天然随中间目录清理，不进指纹快照（非 .cs）。
+- 目录/指纹/保留目录/verify 全沿用族一份 `.cs2j-member-desugar-src`，不新增中间树环节（[catalog §4 风险 11](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1109-L1109)）。sidecar 写在该中间目录根部，天然随中间目录清理，不进指纹快照（非 .cs）。
 
 ### 3.2 与 C36「语法盘点 + 显式拒绝」防线的关系：归成员族，不归 C36
 
-catalog C39 条目曾写「若采用显式拒绝策略可直接并入 C36」（[L740](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L740-L740)）。复核结论：**归 member-desugar/Finalizers/**，理由：
+catalog C39 条目曾写「若采用显式拒绝策略可直接并入 C36」（[L818](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L818-L818)）。复核结论：**归 member-desugar/Finalizers/**，理由：
 
-1. §3.3 合并族表已把 C39 明确列入「成员去糖」族（[L904](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L904-L904)），且注册表事实先行（catalogItems 已在 member-desugar）；
-2. C36 是表达式/C# 11-12 新语法防线（集合表达式、spread、`static abstract`、`scoped`、泛型 attribute，[L691-L704](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L691-L704)），终结器是老牌成员语法，不需要「语法盘点」，需要的是**成员级语义分类与删除/拒绝**——复用 C11 的整树编译、plan、回退框架；
+1. §3.3 合并族表已把 C39 明确列入「成员去糖」族（[L1082](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1082-L1082)），且 C11 锚点已落地（member-desugar 为 Implemented 描述符）；
+2. C36 是表达式/C# 11-12 新语法防线（集合表达式、spread、`static abstract`、`scoped`、泛型 attribute，[L764-L780](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L764-L780)），终结器是老牌成员语法，不需要「语法盘点」，需要的是**成员级语义分类与删除/拒绝**——复用 C11 的整树编译、plan、回退框架；
 3. 两防线互补：未来若 C36 增加「未识别成员」通用盘点，终结器由 C39 先消费；C36 不为 `~T()` 发第二份诊断（避免双报码）。
 
 ### 3.3 硬不变式
@@ -158,7 +158,7 @@ C39 **不改 Program.cs、不增适配器、不增开关/verb**，全部经 C11 
 
 ## 6. 诊断策略（每处终结器具名报码，禁止零信号丢弃）
 
-使用 **CS2J5200–CS2J5219** 码段：C11 锚点已在其 §11 为 C39 建议 `Finalizers/` + CS2J52xx（[C11 L386](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L386-L386)）；族公共回退/restore/build/test 码沿用锚点 CS2J5100-5104，本规则不重复定义。码位只追加不改号；**最终码位表由 C11 锚点统一登记**（C13 对 MD2xx 采用同一预留惯例，附 Q2）；若锚点改按族内子段编号，M1 做纯常量改名。格式：`文件(行,列): warning/error CS2J52xx: [Ns.Type] 描述`。
+使用 **CS2J5200–CS2J5219** 码段：C11 锚点已在其 §11 为 C39 建议 `Finalizers/` + CS2J52xx（[C11 L388](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L388-L388)）；族公共回退/restore/build/test 码沿用锚点 CS2J5100-5104，本规则不重复定义。码位只追加不改号；**最终码位表由 C11 锚点统一登记**（C13 对 MD2xx 采用同一预留惯例，附 Q2）；若锚点改按族内子段编号，M1 做纯常量改名。格式：`文件(行,列): warning/error CS2J52xx: [Ns.Type] 描述`。
 
 | 码 | 级别 | 含义 |
 |---|---|---|
@@ -176,11 +176,11 @@ C39 **不改 Program.cs、不增适配器、不增开关/verb**，全部经 C11 
 
 原则：
 
-1. **零信号丢弃即事故**：与 [catalog §4 风险 12](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931) 一致——不允许「删了无码」「留着无码」两种状态；
+1. **零信号丢弃即事故**：与 [catalog §4 风险 12](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110) 一致——不允许「删了无码」「留着无码」两种状态；
 2. A/B 模式分级分明：A 档信号在树（成员保留）、B 档信号在 sidecar + Warning（成员消失），两档都可审计；
 3. Warning 经族 `Strict`（默认 true）升 Error；唯一「默认关的警告」是 M1 出厂严重级（决策 2 的过渡期），§8 门槛后翻 Error；
 4. 跳过/拒绝全部按 `SkippedByReason: Dictionary<code,int>` 分桶进统计与摘要，供 sdk 基线盘点；
-5. **转换器侧 fail-fast 建议（后续 PR，FN-9）**：在 [ClassTransformer.cs:338-380](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L338-L380) 的 switch 增 `case DestructorDeclarationSyntax` 显式抛 NotSupportedException（文案仿 [L348-350](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L348-L350) extern），并增 `default:` 对未知成员种类抛异常；`IncompleteMemberSyntax` 显式容错。它与本规则构成双保险：pass 未启用时转换器响亮失败，pass 启用时预处理显式诊断。该 PR 改转换器，归独立后续 PR（与 M1 同步），不在本规则 worktree 内。
+5. **转换器侧 fail-fast 建议（后续 PR，FN-9）**：在 [ClassTransformer.cs:337-379](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L337-L379) 的 switch 增 `case DestructorDeclarationSyntax` 显式抛 NotSupportedException（文案仿 [L348-349](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L348-L349) extern），并增 `default:` 对未知成员种类抛异常；`IncompleteMemberSyntax` 显式容错。它与本规则构成双保险：pass 未启用时转换器响亮失败，pass 启用时预处理显式诊断。该 PR 改转换器，归独立后续 PR（与 M1 同步），不在本规则 worktree 内。
 
 ---
 
@@ -263,7 +263,7 @@ C39 **不改 Program.cs、不增适配器、不增开关/verb**，全部经 C11 
 1. **资源泄漏语义误删（核心风险）**：终结器是某些非托管句柄（无 Dispose 调用路径时）的唯一释放点；B 档删除后 Java 进程期泄漏，OS 句柄未必随进程退出及时回收。缓解：A 为默认、B 需显式 Policy + 逐类型 force；NativeRelease/Other 默认拒删（CS2J5204）；Critical 永不自动删（CS2J5205）；body 全量 sidecar 留痕；§8 要求每条命中人工定性。**论证 Error 默认合理性**：命中率 2（假阳成本≈读两条 Warning 的时间），漏删代价是不可见的资源/数据语义丢失——非对称损失下「宁假阳」是唯一合理选择。
 2. **终结器被依赖做关键刷新时的行为改变**：如日志/文件 `Flush()`、XmlElementList 式 Dispose(false) 兜底——GC 时刷新本就不可靠，但用户可能事实上依赖进程退出前的 GC 节奏。缓解：Other 分类拒删 + 人工评审；文档明确「迁移目标是确定性 Dispose/using，而非找另一个非确定性钩子」；.NET 半区 fixture 对 Dispose 路径行为守门。
 3. **默认关期信号真空**：member-desugar 默认关且转换器安全网未合时，终结器仍被静默丢弃。缓解：M1 把转换器 fail-fast PR 列为同步交付（FN-9）；安全网先于规则默认开独立生效。
-4. **转换器 `default` 的误伤面**：ProcessMembers 还承担 partial 合并（[ClassTransformer.cs:259-298](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L259-L298)），未知成员种类理论上还包括 `IncompleteMemberSyntax`（错误语法树）等；贸然 `default throw` 可能让当前靠静默吞掉容错的输入变红。缓解：转换器 PR 先枚举 Roslyn 全部 MemberDeclarationSyntax 派生种类逐一举证去向，IncompleteMember 显式容错并（可选）发 Warning；用现有全量测试工程回归守门；该 PR 独立于本规则评审。
+4. **转换器 `default` 的误伤面**：ProcessMembers 还承担 partial 合并（[ClassTransformer.cs:258-297](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L258-L297)），未知成员种类理论上还包括 `IncompleteMemberSyntax`（错误语法树）等；贸然 `default throw` 可能让当前靠静默吞掉容错的输入变红。缓解：转换器 PR 先枚举 Roslyn 全部 MemberDeclarationSyntax 派生种类逐一举证去向，IncompleteMember 显式容错并（可选）发 Warning；用现有全量测试工程回归守门；该 PR 独立于本规则评审。
 5. **终结器语义细节误判**：异常吞没、resurrection、finalizer 线程、CER 保证等无法在 C# 源码层完整验证。缓解：分析器只做保守分类不做语义承诺；跨程序集基类信息缺失降级（CS2J5211）；ReRegister 站点直接升高拒绝等级。
 6. **sidecar 可发现性**：删除记录在中间目录，用户可能不看。缓解：CS2J5201 消息内嵌路径与条目序号、摘要行汇总、strict 下 Refused/对账不平升 Error；sidecar 不随产物分发，仅是审计日志。
 7. **与 C06/C42 平台面重叠**：SafeHandle/Marshal 既是终结器体分类依据也是平台隔离对象，可能双报码。缓解：C39 只报终结器成员码（CS2J52xx），平台合规归 C42 的 CS2J30xx/31xx；消息中交叉引用但不重复阻断；顺序上 C39 在 Declarative 先跑、C42 在 ABI 后跑，各自独立。
@@ -302,7 +302,21 @@ git worktree add .worktrees/preproc-c39-finalizer-strip -b feature/preproc-c39-f
 
 ---
 
-## 附：关键开放问题（供评审拍板）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **选型确认**：采纳推荐 **A（Reject）**：默认显式报码、不重写；B（Remove+sidecar）保留为显式逃生口；C（Cleaner）v1 不实现且不预留半吊子挂钩。严重级走 **M1 出厂 Warning → 门槛后 Error** 的渐进（否决直接出厂 Error：sdk 两处真实文件会被立刻卡死，Warning 画像期先取得终结器站点的真实分布与处置确认）。终结器在 Java 侧确无语义等价物（finalize 已弃用且不等价），门槛后长期保持 Error 是合法终态，不违反"全语义支持"口径——该构造的登记终态去向就是"显式拒绝+人工改造指路"。
+2. **B 档 body 留痕形态**：默认 **sidecar JSON、树内零痕迹**（否决原位注释与方法提取：二者都会让死代码/注释流入 Java 产物）；sidecar 与源码同根受控、随审计产物可 diff，原位形态不提供开关。
+3. **`MemberDesugarKind.Finalizer` 落点**：不阻塞 C11 锚点分支；由 **C39 在 C11 合入后以首个小 PR 追加**枚举值与交接实现，C11/C39 交接清单据此写定（锚点只保证枚举可加性，不预置空值）。
+4. **FN-9 安全网范围**：只加 **`DestructorDeclarationSyntax` 显式 case**（最小、零误伤）；同期不加 `default` 抛异常（完整成员种类枚举举证成本不值当）。`IncompleteMemberSyntax` 容错策略 = **发 Warning 不静默跳过**（残缺成员可能正藏终结器，静默即漏报）。
+5. **码段位**：占 **CS2J5200-5219，以 C11 锚点统一登记为准**；若锚点改用 C13 式 MD 子段编号，M1 纯常量改名、不改设计语义，号段登记结果回填本文。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **选型确认（推荐 A）**：默认策略 Reject（显式报码、不重写），B（Remove+sidecar）仅作显式逃生口，C（Cleaner）v1 不实现——是否同意「宁假阳」与 Warning→Error 渐进（M1 出厂 Warning、门槛后 Error）？备选意见：直接出厂 Error（最响，但会立刻卡住 sdk 两处真实文件）。
 2. **B 档 body 留痕形态**：默认 sidecar JSON、树内零痕迹（本设计推荐，避免注释流入 Java 产物）；是否需要默认开启原位注释或方法提取？后两者的死代码/产物污染风险是否可接受？

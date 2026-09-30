@@ -28,15 +28,15 @@
 1. `IsGeneratedAssemblyInfoFile`（:369-371）：`*.AssemblyInfo.cs` 跳过 CS2J3101（MSBuild 生成的 assembly 级 OS 标注），两条管线均生效；
 2. `IsPInvokeContainerFile`（:379-381）：文件名为 `NativeMethods.cs` 时**整文件跳过 NativeInteropAnalyzer**——仅项目管线实际生效；单文件管线因 [ConversionPipeline.cs:148](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs#L148) `ParseText` 未传 FileName 而恒不命中（C06 §1.2 实测）。:373-377「ClassTransformer already emits stub bodies」注释为**陈旧假陈述**。
 
-另有一条现网白名单：`HasCompatNamespacePrefix`（:84-101）对具备显式 TypeMappings 命名空间映射（compat 包兜底）的前缀豁免 CS2J3001；映射来自 `TypeMappingRegistry.GetExplicitNamespaceMappings()`，CLI 装载点 [Program.cs:1520-1529](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1520-L1529)，测试默认配置 `config/TypeMappings.json`（[Phase2PassPipelineTests.cs:498-504](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Phase2PassPipelineTests.cs#L498-L504)，WinForms 放行用例 :96-108）。
+另有一条现网白名单：`HasCompatNamespacePrefix`（:84-101）对具备显式 TypeMappings 命名空间映射（compat 包兜底）的前缀豁免 CS2J3001；映射来自 `TypeMappingRegistry.GetExplicitNamespaceMappings()`，CLI 装载点 [Program.cs:1520-1529](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L1520-L1529)，测试默认配置 `config/TypeMappings.json`（[Phase2PassPipelineTests.cs:478-484](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Phase2PassPipelineTests.cs#L478-L484)，WinForms 放行用例 :96-108）。
 
 测试工程探针降级：项目管线对 `IsTestProject` 传 `shouldDowngradeTestPlatformProbes`（[ProjectPasses.cs:460-474](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L460-L474)），6 个探针身份（`IsWindows/IsLinux/IsMacOS/IsOSPlatform/ProcessArchitecture/OSArchitecture`，:234-240）降为 Warning 不阻断；**注意 `OSDescription` 不在降级集**。单文件管线不降级（[SingleFilePasses.cs:166-190](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/SingleFilePasses.cs#L166-L190)）。
 
 ### 1.2 注册方式：诊断在转换器内，预处理链无承接
 
 - 单文件管线：[ConversionPipeline.cs:417-419](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs#L417-L419)，三个 `SingleFile*CheckPass` 位于 CompilationCheck 之后、emit 之前；Error → `BlockEmit = true`（SingleFilePasses.cs:159-162/185-188/211-214）。
-- 项目管线：[ProjectConversionPipeline.cs:270-272](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L270-L272)，Error → `RecordBlockingDiagnostics` 阻断该文件。
-- 注册表 stub：[PassStubCatalog.cs:259-268](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L259-L268)，id `platform-isolation`、目录 `.cs2j-platform-isolation-src`、`PassStage.Abi`、`PassStatus.Stub`、默认关、`RunAfter = eliminate-goto`；启用即 CS2J9001。
+- 项目管线：[ProjectConversionPipeline.cs:269-271](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L269-L271)，Error → `RecordBlockingDiagnostics` 阻断该文件。
+- 注册表 stub：[PassStubCatalog.cs:237-246](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L237-L246)，id `platform-isolation`、目录 `.cs2j-platform-isolation-src`、`PassStage.Abi`、`PassStatus.Stub`、默认关、`RunAfter = eliminate-goto`；启用即 CS2J9001。
 - 缺口 = **有诊断、无隔离动作**：现状只能整文件失败/阻断 emit，批量隔离（重定向探针、抛错桩、端口抽象）无从下手；且 extern 逃过检查后在 [ClassTransformer.cs:346-350](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L346-L350)（`IsExternLike` :390-392）硬抛 `NotSupportedException`。C06 §1.2 已实测定论：**任何路径都不产生 stub**，NativeMethods.cs 在项目管线最终 `[Error]`、无 `NativeMethods.java`。
 - 转换器内已有一处**手工点状代偿**先例：[ProjectConversionPipeline.cs:152/205-254](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L205-L254) 按文件名（`Regex.cs`）把 `Regex.CompileToAssembly` 方法体改写成抛 `PlatformNotSupportedException`——这正是 C42 要批量通道化、从转换器内迁出的形态。PNSE 映射已存在（[TypeMappings.json:816-819](file:///d:/code/cs2j/config/TypeMappings.json#L816-L819)，`io.github.ningpp.compat.PlatformNotSupportedException`）。
 
@@ -82,7 +82,7 @@ M1 inventory 的分类结果必须与上表逐格一致（含 Warning/Error 级�
 | D4 | 白名单/配置载体 | 源根 JSON（`Cs2jPlatformIsolation.json`，CWD 向上查找，沿用 ReadOnlyStruct/Record/JavaKeywords overrides 与 C25 manifest 约定）；**不走 csproj 标注** | Core 无 MSBuild item 通道，json 可被 Core 与单文件独立 verb 直接读取；配置随源码受控、不进 .gitignore |
 | D5 | 桩签名移植 | 成员签名含 `RegistryKey` 等平台类型时：Facade 档换为端口接口类型；Stub 档换为可移植句柄（`string`/`System.IntPtr`/`object`）并在报告记录签名变更，调用点由编译器暴露人工修复；禁止保留平台类型参数 | 中间树必须可编译；签名变更一律 PI010 Info 列明 |
 | D6 | 桩命名空间与 partial 拼接 | 探针 shim 单一文件 `Cs2jPlatformProbe.g.cs`，命名空间 `Cs2j.Platform`，**仅含 BCL + 保守常量/PNSE**（自身零平台身份）；成员桩 `<DeclaringType>.PlatformStub.g.cs`，namespace/类名与原类型一致、标 `partial`；经 `AfterFilesAsync` 按 tuple 生成文件范式分发 | C20 在链早段、C42 在链晚段：C42 产物天然作用于 C20 合并后的树；转换器现有 partial 归一（`ProjectPartialTypeNormalizationPass`、`MemberKey` 去重）承接多部件，C20 翻转后加联合幂等测试（§11） |
-| D7 | 诊断码 | **检测码不加新码**：沿用 CS2J3001/3101/3102/3201/3202/3203 与现有消息原文；**新增 PI0xx 仅描述隔离动作/报告/闸门**（§6） | 既有 15 处测试断言（Phase2/Planning）在 pass 默认关时零改动 |
+| D7 | 诊断码 | **检测码不加新码**：沿用 CS2J3001/3101/3102/3201/3202/3203 与现有消息原文；**新增 PI0xx 仅描述隔离动作/报告/闸门**（§6） | 既有 14 处 CS2J3xxx 测试引用（Phase2 10 / Planning 4）在 pass 默认关时零改动 |
 | D8 | extern 红线 | 任何模式下 C42 **不对 extern/DllImport 生成桩或空体**；Reject 档引用 CS2J3203/UF060 指引；白名单归一完全等 C06 R8 | catalog 风险16 + C06 §1.2；`NativeMethods.cs` 文件名豁免在 C42 启用后不再是逃生通道（§10 R4） |
 | D9 | 支撑库 | M1/M2 **零新 C# 支撑工程**：探针/桩只用 BCL，PNSE 走既有 compat 映射；Facade 端口是纯生成源码 | 若 M3 证明需要可移植 probe 实现包，另立注入子项（对齐 C06 D12） |
 | D10 | 语义模型 | `needsSemanticModel = true`；3102/3202 的身份判定依赖 SemanticModel（现状即如此）；单文件模式跨文件 Facade 规划发 PI090 跳过（同 UF090/JK090 范式） | 3101 属性扫描纯语法可独立工作 |
@@ -100,7 +100,7 @@ M1 inventory 的分类结果必须与上表逐格一致（含 Warning/Error 级�
 | 互操作属性（6 个） | CS2J3201 | **Reject**，归一/白名单交 C06 R8；C10 盘点 | 消息附「C06 FFM 白名单或人工端口」指引 |
 | extern 方法 | CS2J3203 | **Reject**（C06 UF060），**永不发桩** | D8 |
 | 互操作类型/API（4 个） | CS2J3202 | **Reject**（C06 UF070）；SafeHandle/HandleRef 长期选型归 C06 | C06 D8 |
-| 已归一 interop facade / C42 生成标记 | — | 共享谓词识别后不报（§4.5） | 防 3201/3203 双报（C06 §6 :212） |
+| 已归一 interop facade / C42 生成标记 | — | 共享谓词识别后不报（§4.5） | 防 3201/3203 双报（C06 §6 :215） |
 
 ---
 
@@ -108,7 +108,7 @@ M1 inventory 的分类结果必须与上表逐格一致（含 Warning/Error 级�
 
 ### 3.1 stub 现状与翻转目标
 
-[PassStubCatalog.cs:259-268](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L259-L268)：id `platform-isolation`、显示名 "Platform boundary isolation"、目录 `.cs2j-platform-isolation-src`、`PassStage.Abi`、`PassStatus.Stub`、`defaultEnabled: false`、`runAfterIds: { PassIds.EliminateGoto }`、catalogItems `C42`。禁用零成本；显式启用即 CS2J9001。
+[PassStubCatalog.cs:237-246](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L237-L246)：id `platform-isolation`、显示名 "Platform boundary isolation"、目录 `.cs2j-platform-isolation-src`、`PassStage.Abi`、`PassStatus.Stub`、`defaultEnabled: false`、`runAfterIds: { PassIds.EliminateGoto }`、catalogItems `C42`。禁用零成本；显式启用即 CS2J9001。
 
 翻转后描述符：Status=`Implemented`（M1 审计落地即翻，审计即完整实现，同 C25 口径）；Stage 维持 `Abi`；目录/RunAfter 维持（M3 评估加边，见 §3.2）；`NeedsSemanticModel=true`；`SupportLibrary=None`（D9）；verify 双开仅对 Stub/Facade apply 生效，Report 模式 adapter 内关闭；默认关长期保持（§8）。
 
@@ -118,19 +118,19 @@ M1 inventory 的分类结果必须与上表逐格一致（含 Warning/Error 级�
 
 1. **隔离对象是最终中间树**：前置 pass 全部结构去糖后，清单才是真正流入 Java 转换器的平台面，不对将被消除的糖节点重复计数；
 2. 部分 pass 的生成代码可能**引入**新调用（状态机/提升/生成文件），晚位能抓到；
-3. 必须早于 java-keywords：[PassCatalog.cs:225-232](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L225-L232) 已用 RunAfter 边锁定 FinalNaming 最后；
+3. 必须早于 java-keywords：[PassCatalog.cs:249-258](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L249-L258) 已用 RunAfter 边锁定 FinalNaming 最后；
 4. 不注入支撑库、不改名，与前序 pass 无文件冲突（生成文件除外，D6）。
 
 与 C06 的张力：三 analyzer 表是 C06 R8 的输入之一，且 Facade 档要消费「已归一 facade」谓词——但 M1（审计）/M2（OS 探针桩）**不触碰**互操作归一，无硬依赖。结论：
 
 - **M1/M2 维持 `RunAfter = { eliminate-goto }` 不加边**；对互操作族只在报告中给出「交 C06 白名单/手工」分组，C06 未合也能独立交付；
-- **M3 追加 `RunAfter = { eliminate-goto, unsafe-ffm }`**。无环性论证：unsafe-ffm → struct-value-semantics → make-readonly；eliminate-goto → make-readonly/iterator-lowering；两条路径均无任何节点回指 platform-isolation（java-keywords 在两者下游，不构成回边），加边只把 platform-isolation 锁定到 unsafe-ffm 之后，拓扑无环（注册表启动期环校验 [PassRegistry.cs:95-133](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L95-L133) 兜底）；stub 禁用时该边从启用子计划过滤（eliminate-goto 锚 iterator-lowering stub 是同款先例，[PassCatalog.cs:213](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L213)）；
-- 当前 stub 声明顺序 platform → concurrency → dynamic（PassStubCatalog.cs:259/269/281），翻转时在顺序断言中锁定相对位置（同 C25 §3.3 约定）。
+- **M3 追加 `RunAfter = { eliminate-goto, unsafe-ffm }`**。无环性论证：unsafe-ffm → struct-value-semantics → make-readonly；eliminate-goto → make-readonly/iterator-lowering；两条路径均无任何节点回指 platform-isolation（java-keywords 在两者下游，不构成回边），加边只把 platform-isolation 锁定到 unsafe-ffm 之后，拓扑无环（注册表启动期环校验 [PassRegistry.cs:95-133](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L95-L133) 兜底）；stub 禁用时该边从启用子计划过滤（eliminate-goto 锚 iterator-lowering stub 是同款先例，[PassCatalog.cs:227](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L227)）；
+- 当前 stub 声明顺序 platform → concurrency → dynamic（PassStubCatalog.cs:237/247/259），翻转时在顺序断言中锁定相对位置（同 C25 §3.3 约定）。
 
 ### 3.3 Stub→Implemented 翻转清单
 
-1. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删 `Ids.PlatformIsolation` 常量与 :259-268 条目，常量迁 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L25) `PassIds`；
-2. PassCatalog.cs：java-keywords RunAfter 中 `PassStubCatalog.Ids.PlatformIsolation`（:228）改 `PassIds.PlatformIsolation`；`Implemented` 表插描述符（eliminate-goto 之后、concurrency/dynamic 相邻位，先于 java-keywords）；M3 才改 RunAfter 加 unsafe-ffm；
+1. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删 `Ids.PlatformIsolation` 常量与 :237-246 条目，常量迁 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L25) `PassIds`；
+2. PassCatalog.cs：java-keywords RunAfter 中 `PassStubCatalog.Ids.PlatformIsolation`（:254）改 `PassIds.PlatformIsolation`；`Implemented` 表插描述符（eliminate-goto 之后、concurrency/dynamic 相邻位，先于 java-keywords）；M3 才改 RunAfter 加 unsafe-ffm；
 3. [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) `CreateAdapter` switch 加 `PassIds.PlatformIsolation => new PlatformIsolationPassAdapter(...)` + Options 懒加载工厂；无 legacy toggle（不新增 `--no-platform-isolation`，走通用 `--enable-pass/--disable-pass`）；
 4. 新增 CLI `Adapters/PlatformIsolationPassAdapter.cs`（§5）；
 5. [.gitignore:89-102](file:///d:/code/cs2j/.gitignore#L89-L102) 增 `.cs2j-platform-isolation-src/`；`Cs2jPlatformIsolation.json`/`Cs2jInteropWhitelist.json` **不**忽略；
@@ -327,7 +327,7 @@ C06 §2 开放问题首项（白名单配置格式，[C06:108](file:///d:/code/c
 ### 7.3 Release build/test 与全量回归（实施者执行）
 
 - `dotnet build -c Release` + 三工程 `dotnet test -c Release` 全绿（CSharpToJavaConverter.slnx）；
-- **默认关零变化**：pass 关闭时中间目录集合、诊断集（含 NativeMethods.cs/AssemblyInfo 豁免与测试工程降级）、Java 产物与翻转前一致——既有 Phase2PassPipelineTests（15 处 3xxx 断言）与 PlanningTests 不改即过；
+- **默认关零变化**：pass 关闭时中间目录集合、诊断集（含 NativeMethods.cs/AssemblyInfo 豁免与测试工程降级）、Java 产物与翻转前一致——既有 Phase2PassPipelineTests（10 处 3xxx 断言）与 PlanningTests（4 处 3xxx 引用）不改即过；
 - PassChainOrderTests：默认关计划不含本 pass；启用计划含且位于 eliminate-goto 之后、java-keywords 之前；M3 加 unsafe-ffm 边后断言更新。
 
 ### 7.4 residual 闸门与 CLI
@@ -383,11 +383,11 @@ C06 §2 开放问题首项（白名单配置格式，[C06:108](file:///d:/code/c
 | 相邻工作 | 边界 | 顺序/依赖 |
 |---|---|---|
 | **C06 unsafe-ffm** | 两面契约：C06 改指针/fixed/调用形态与 extern 白名单，C42 管边界隔离/拒绝策略与批量编排；共享 `InteropBoundaryFacts` 与两个标记 FQN（§4.5）；UF060 消息指引 C42，C42 互操作族报告引用 UF 码 | C06 §11：C06 先合默认关；C42 M1 不依赖 C06 代码（谓词文件自建、恒 false）；M3 加 RunAfter unsafe-ffm 并消费 R8 facade；白名单配置 json 格式结论待 C06 确认 |
-| **C01 ref-out-in** | ABI 锁定谓词 `IsLocked`（[RefOutInAliasAnnotator.cs:188-250](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInAliasAnnotator.cs#L188-L250)）已识别 DllImport/接口实现 | Facade/桩成员签名涉 ref/out 穿 ABI 时复用同一谓词，不复制；C01 在链前段，无 RunAfter 依赖 |
+| **C01 ref-out-in** | ABI 锁定谓词 `IsLocked`（[RefOutInAliasAnnotator.cs:265-327](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInAliasAnnotator.cs#L265-L327)）已识别 DllImport/接口实现 | Facade/桩成员签名涉 ref/out 穿 ABI 时复用同一谓词，不复制；C01 在链前段，无 RunAfter 依赖 |
 | **C10 attribute-normalize** | C10 对 6 个互操作属性与 4 个 OS guard 属性只盘点（AN003/AN-P），永不发射 CS2J3xxx；C10 的 inventory 作 C42 输入 | 属性名白名单互不重写（封送语义归 C06，擦除归 C42，其余归一归 C10）；生成标记属性 `Cs2j.Generation.*` 需 C10 列入 generated 透传类；联合 fixture 防双改 |
 | **C20 partial-merge** | C20 在 Lexical 早段合并用户 partial；C42 在 Abi 晚段生成 partial 桩文件 | C42 产物作用于 C20 合并后树；桩部件须在转换器既有 partial 归一下无碰撞（MemberKey :301-310）；C20 翻转后加「C20 合并 → C42 桩拼接」联合幂等测试；无需新增边（C20 天然在前） |
 | **C25 dynamic-desugar / C36** | 复用审计报告/manifest/residual 范式与「显式拒绝、禁止占位」基建；码位各自独立（PI/DS/CE） | 同锚 eliminate-goto，注册表插入顺序锁定 platform → concurrency → dynamic；若抽公共边界报告组件，三方改消费不重复建设 |
-| **三 analyzer（转换器热文件）** | `UnsupportedDomainPasses.cs`：C06 M0 改注释、C42 M2 抽表、C10 只读消费 | 解法＝M1 C42 零触碰（internal 直接调用）；抽表排在 C06 M0 合入后由 C42 单 owner 一次性 PR；C10 永不改该文件；CheckPass 注册点（ConversionPipeline.cs:417-419、ProjectConversionPipeline.cs:270-272）全程不动 |
+| **三 analyzer（转换器热文件）** | `UnsupportedDomainPasses.cs`：C06 M0 改注释、C42 M2 抽表、C10 只读消费 | 解法＝M1 C42 零触碰（internal 直接调用）；抽表排在 C06 M0 合入后由 C42 单 owner 一次性 PR；C10 永不改该文件；CheckPass 注册点（ConversionPipeline.cs:417-419、ProjectConversionPipeline.cs:269-271）全程不动 |
 | **转换器内 PNSE 代偿** | Regex.CompileToAssembly 文件名硬编码改写（ProjectConversionPipeline.cs:205-254） | M2 后登记为 C42 可表达的既有代偿样本；其退役/外迁是独立 PR，不在 M1 触碰 |
 
 **热文件清单**：[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)、[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)、[PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)、[.gitignore](file:///d:/code/cs2j/.gitignore)、PassChainOrderTests.cs（各翻转通道共享，按 rebase 串行解冲突）；M2 增 UnsupportedDomainPasses.cs（单 owner）；新增 `Analysis/InteropBoundaryFacts.cs`（C06/C10 将引用，需尽早冻结签名）。
@@ -405,3 +405,18 @@ C06 §2 开放问题首项（白名单配置格式，[C06:108](file:///d:/code/c
 ```powershell
 git worktree add .worktrees/preproc-c42-platform-isolation -b feature/preproc-c42-platform-isolation 953293b9
 ```
+
+---
+
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（散见决策表/里程碑门的悬置项，按主题收口）：**
+
+1. **共享事实落点**：批准 §4.5——**`InteropBoundaryFacts.cs` 落 `src/CSharpToJava.Core/Analysis/`**（与 ExpressionTreeFacts/DynamicSiteFacts 同列），两个互操作标记 FQN 与白名单判定为 C06/C10/C42 单一事实源；C42 M1 自建谓词文件（恒 false 占位）但签名须在 M1 冻结，C06 R8 facade 落地后改消费不复制。
+2. **链序**：**M1/M2 RunAfter 只锚 `eliminate-goto`**（同锚三通道注册表插入顺序锁定 platform → concurrency → dynamic，写进拓扑断言）；**M3 加 RunAfter `unsafe-ffm`** 并消费其 R8 facade，不在 M1 提前依赖 C06 代码。
+3. **默认严重级**：通道默认 **Report**（显式报告/审计，不静默透传也不一刀切 Error）；隔离/拒绝策略升级按画像站点逐批走门槛，OS guard 不可判定即显式诊断，禁止占位与静默丢弃。
+4. **CheckPass 安全网**：三个 CheckPass 注册点（ConversionPipeline/ProjectConversionPipeline）**永不因本通道删除或绕过**——本通道只加隔离与报告，不削弱既有编译基线闸门。
+5. **extern 纪律**：**extern 方法永不发桩**（不生成空壳/throw 占位冒充实现）；无 Java 终态的 ABI 面只走显式诊断 + 白名单/标记体系指路，PNSE 等既有转换器代偿的退役/外仓是独立 PR，不在 M1 触碰。
+6. **extern alias 分流（与 C28 对齐）**：真双程序集同名冲突的 extern alias 场景归本通道**显式拒转**；单程序集别名（`X::` 限缩）归 C28 M3 规则转写 `global::`，两家不重叠诊断。

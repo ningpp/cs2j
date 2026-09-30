@@ -3,7 +3,7 @@
 **日期**: 2026-09-28
 **范围**: 新增 C#→C# 预处理器 `index-range`（Core `IndexRange/` + CLI 薄适配器），在 C# 层把 from-end 索引（`^n`）与范围切片（`a..b`）显式化为长度相关的 `int` 索引与 `(offset, count)` 调用形态；不改任何 C#→Java 转换代码（转换器侧冗余分支的下掉为后续独立 PR）
 **状态**: 设计已确认，待实施
-**注册表**: stub `index-range`（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L91-L100)，catalogItems C31，Stage=Expression，RunAfter=`array-method`，中间目录 `.cs2j-index-range-src`）
+**注册表**: stub `index-range`（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L80-L89)，catalogItems C31，Stage=Expression，RunAfter=`array-method`，中间目录 `.cs2j-index-range-src`）
 **base**: `f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`）
 
 ---
@@ -20,7 +20,7 @@ C31 属于 catalog §4 风险 12 点名的「静默错误输出」族：**不报
 | S2 | [ElementAccessTransformer.cs:294-299](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ElementAccessTransformer.cs#L294-L299) | 独立 `^n`（非元素访问参数位）只产注释 `/* C# from-end index ^n — requires array name to resolve */` | 表达式位被注释整体替换（如 `return ^1;` 的实参/返回场景），**不可编译 Java** |
 | S3 | [ControlFlowTransformer.cs:642-651](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L642-L651) | 独立范围表达式产 `Arrays.copyOfRange(/* array */, lo, /* length */)`；`..` 产 `/* full range */` | 占位注释流入 Java 产物，不可编译 |
 | S4 | [ElementAccessTransformer.cs:228-236](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ElementAccessTransformer.cs#L228-L236) | `x[^n]` 元素访问按 array/string/兜底三分支直映，但接收者文本 `expr` 在输出中出现两次（`expr[expr.length - n]`） | `GetArr()[^1]` 类**带副作用接收者被求值两次**；Span 等类型落入 `.get(size())` 兜底，方法不存在 |
-| S5 | [TypeMappings.json](file:///d:/code/cs2j/config/TypeMappings.json#L2517) | 全仓无 `System.Index`/`System.Range` 映射（仅有 `System.IndexOutOfRangeException`） | 独立 Index/Range 类型的局部/参数/字段无 Java 对应 |
+| S5 | [TypeMappings.json](file:///d:/code/cs2j/config/TypeMappings.json#L2531) | 全仓无 `System.Index`/`System.Range` 映射（仅有 `System.IndexOutOfRangeException`） | 独立 Index/Range 类型的局部/参数/字段无 Java 对应 |
 | S6 | [ArrayHelper.cs](file:///d:/code/cs2j/src/Cs2jArray/ArrayHelper.cs) / compat `ArrayHelper.java` | grep 无任何 `Slice`/`Range` 辅助（仅有 IndexOf/LastIndexOf 等同名前缀方法）；catalog 亦记录全仓无 Index/Range 专项测试 | 数组切片无「拷贝语义」助手可用；无回归护栏 |
 
 S1/S2/S3 是本特性必须消灭的静默输出；S4 的双求值由本特性的单次求值临时变量机制顺带消除；S5/S6 决定支撑库边界（§2、§3）。
@@ -92,7 +92,7 @@ span[i..j] → span.Slice(i, j - i)         // Span/Memory/ArraySegment：视图
 
 ### 3.1 描述符翻转
 
-实施完成后把 [PassStubCatalog.cs:91-100](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L91-L100) 的 `index-range` stub 删除，在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) `Implemented` 表登记：
+实施完成后把 [PassStubCatalog.cs:80-89](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L80-L89) 的 `index-range` stub 删除，在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) `Implemented` 表登记：
 
 | 字段 | 值 |
 |---|---|
@@ -208,7 +208,7 @@ src/CSharpToJava.Core/IndexRange/
 4. `VerifyBuild/VerifyTests` 取 config 开关（默认 true），`DeleteBuildOutputsAfterRestore = true`。
 5. `HasErrors` = 存在 Severity.Error 诊断；`BuildChainSummaryLine` 输出 hat 站点、切片站点、跳过/错误计数；诊断行格式 `[index-range] [severity] message`。
 6. `PassChainFactory.CreateAdapter` 增 `PassIds.IndexRange` 分支；`PassChainConfiguration` 无需新工厂委托（options 无外部配置文件）。
-7. 通用 verb（项目/解决方案模式，唯一入口）：`preprocess --pass index-range -s src -d dst`、`--enable-pass index-range`、`--list-passes`（已核对 [Program.cs:4398-4420](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4398-L4420)，通用 verb 仅 `-s/-d`，无 `-i/-o`）。**首期不新增单文件模式**：本 pass 强依赖整编译 SemanticModel（接收者分类跨文件），且单文件场景独立 `^`/`..` 多落 IR110/IR120；如后续确有需求，仿 array-method 独立 verb（`array-method -i/-o` 配 `_Cs2jArrayHelper.cs` 释放）另行立项，不列入默认开门槛。
+7. 通用 verb（项目/解决方案模式，唯一入口）：`preprocess --pass index-range -s src -d dst`、`--enable-pass index-range`、`--list-passes`（已核对 [Program.cs:4458-4480](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4458-L4480)，通用 verb 仅 `-s/-d`，无 `-i/-o`）。**首期不新增单文件模式**：本 pass 强依赖整编译 SemanticModel（接收者分类跨文件），且单文件场景独立 `^`/`..` 多落 IR110/IR120；如后续确有需求，仿 array-method 独立 verb（`array-method -i/-o` 配 `_Cs2jArrayHelper.cs` 释放）另行立项，不列入默认开门槛。
 
 ## 6. 诊断策略
 

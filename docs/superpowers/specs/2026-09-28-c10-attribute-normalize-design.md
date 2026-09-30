@@ -1,10 +1,10 @@
 # C10 JSON / Attribute 归一预处理器设计
 
-**日期**: 2026-09-28
+**日期**: 2026-09-28（2026-09-29 核订：行号全量重定位、C02 landed 使 §3.2 前提失效、member-desugar 落地后的 attribute 覆盖面重述）
 **范围**: 新增注册表 pass `attribute-normalize`（Core `AttributeNormalize\` + CLI `Preprocessing/Adapters/AttributeNormalizePassAdapter.cs`）。v1 做三件事：①Caller* 族（`CallerMemberName`/`CallerFilePath`/`CallerLineNumber`/`CallerArgumentExpression`）编译期调用点注入语义 → 在调用点显式填参并从声明端归一；②JSON/序列化注解**保留 + 全量盘点 + 桥接面核对**（不做结构改写）；③P/Invoke/平台注解**只盘点透传**，拒绝权归 C06/C42。实施 PR 不改 C#→Java 转换器
-**状态**: 设计已确认，待实施
-**Catalog**: C10（P2，分类 1.6 反射/序列化）；[preprocessor-catalog.md L371-L382](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L371-L382)；§3.3「平台边界族」[L912](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L912)；§4 风险 7 [L926](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L926)、风险 12 [L931](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931)、风险 14 [L933](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L933)、风险 16 [L935](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L935)
-**注册表现状**: stub 已登记——[PassStubCatalog.cs L181-L190](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L181-L190)，id `attribute-normalize`，Stage=`Declarative`，RunAfter=`generic-deepen`，目录 `.cs2j-attribute-normalize-src`，默认关
+**状态**: 已核订（2026-09-29 对照 dev-3.x@2d25700e 逐条核验全部代码证据并修正：catalog 与注册表引用行号全量重定位；`AttributeListSyntax` 的 grep 口径纠正为 `AttributeLists`（实测 Transformers 恰 3 文件，与原结论一致）；**C11-C14 member-desugar 已带成员级 attribute 路由落地**（§11 原「必须携带」契约已履行，§1.1/§1.2 的覆盖面重述）；**C02 generic-deepen 已落地使 §3.2「stub 期拓扑处理」前提失效**——`RunAfterIds` 的锚点与 `LockedChain` 槽位迁移从「等 C02」变为本 pass 自查项；CS2J13xx 码段经实测确认空闲；仍待实施）
+**Catalog**: C10（P2，分类 1.6 反射/序列化）；[preprocessor-catalog.md L404](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L404)（核订重定位）；§3.3「平台边界族」[L1090](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1090)；§4 风险 7 [L1105](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1105)、风险 12 [L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110)、风险 14 [L1112](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1112)、风险 16 [L1114](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1114)
+**注册表现状**: stub 已登记——[PassStubCatalog.cs L170-L179](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L170-L179)（核订重定位），id `attribute-normalize`，Stage=`Declarative`，RunAfter=`generic-deepen`，目录 `.cs2j-attribute-normalize-src`，默认关
 
 ## 1. 背景与目标
 
@@ -15,16 +15,17 @@
 **族 A：调用点注入类（Caller* 族）——语义在转换器中不存在**
 
 - 全仓对 `CallerMemberName|CallerFilePath|CallerLineNumber` 的全部命中只有 E08（strip-default）的**排除判定**两处：[DefaultParameterVerifier.cs L16-L21/L104-L123](file:///d:/code/cs2j/src/CSharpToJava.Core/DefaultParameterStripper/DefaultParameterVerifier.cs#L16-L21) 与 [DefaultParameterDeclarationRewriter.cs L1528-L1553](file:///d:/code/cs2j/src/CSharpToJava.Core/DefaultParameterStripper/DefaultParameterDeclarationRewriter.cs#L1528-L1553)——携带 Caller 参数的方法被**整个方法**豁免默认值剥离（连同同方法其它普通可选参数）。
-- `CallerArgumentExpression` 全仓**零命中**（catalog 四次补全要求同通道处理，[L376](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L376)）。
+- `CallerArgumentExpression` 全仓**零命中**（catalog 四次补全要求同通道处理；**2026-09-29 核订复验**：`grep CallerArgumentExpression src/ tests/ config/` 仍为零命中，即该族至今无任何转换或测试覆盖——本设计的 AN-C5 是唯一处理面；原文引的 catalog L376 已漂移，该注记现位于 C10 条目内）。
 - Transformers 目录对 Caller 族零命中：声明端 attribute 被静默丢弃，调用点也**永远不会出现**编译器本应注入的实参。`void Log(string msg, [CallerMemberName] string caller = null)` 在 Java 侧等价于「caller 恒为默认值」，且无任何诊断——典型的静默语义丢失（catalog §4 风险 12 第一原则的打击对象）。
 
 **族 B：序列化契约类——桥接厚但覆盖面窄，靠 compat 注解硬桥**
 
-- 属性/字段级零星处理（全 Transformers 目录仅 3 个文件读 attribute 符号）：
+- 属性/字段级零星处理（全 Transformers 目录仅 3 个文件读 attribute **语法列表**。**2026-09-29 核订实测**：`grep -rl AttributeLists src/CSharpToJava.Core/Transformers/` 命中 `PropertyTransformer`/`ClassTransformer`/`EnumTransformer` 三个文件，与原结论一致；原文以 `AttributeListSyntax`（类型名）为 grep 口径实际零命中，口径已纠正——`FieldTransformer`/`MethodTransformer` 均为 0 次，字段级处理走**符号属性** `GetAttributes()` 而非语法树）：
   - [PropertyTransformer.cs L142-L170](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L142-L170)：XML 四注解（`XmlAttribute/XmlIgnore/XmlArray/XmlArrayItem`）+ `JsonExtensionData`/`JsonIgnore(Condition)`/`JsonNumberHandling`/`DebuggerBrowsable`/`JsonInclude`/`JsonPropertyName`/`JsonConverter` 经符号读出发 compat 注解；converter 类型解析 [L179-L192](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L179-L192)。
   - [FieldTransformer.cs L166-L218](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/FieldTransformer.cs#L166-L218)：字段级 `JsonNumberHandling`/`JsonInclude`/`JsonPropertyName` + 非 public 标记。
   - [EnumTransformer.cs L59-L71](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/EnumTransformer.cs#L59-L71)：`[Flags]` 双路判定（语义符号 + 语法名）。
-- compat 桥接面：[CompatJsonIgnore.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CompatJsonIgnore.java)、[CompatJsonPropertyName.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CompatJsonPropertyName.java)、`CompatJsonInclude`/`CompatJsonConverter`/`CompatJsonNumberHandling`/`CompatJsonExtensionData`、`CompatAttributeTypes`、`DefaultContractResolver`（Newtonsoft 契约）、`DataContractSerializer`、`ObsoleteAttribute`、`DefaultValueAttribute` 等。映射配置 [TypeMappings.json L78-L89](file:///d:/code/cs2j/config/TypeMappings.json#L78-L89)（`JsonSerializer`）与 [L361-L365](file:///d:/code/cs2j/config/TypeMappings.json#L361-L365)（`JsonConverter<T>` → `Object`）。
+- compat 桥接面：[CompatJsonIgnore.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CompatJsonIgnore.java)、[CompatJsonPropertyName.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CompatJsonPropertyName.java)、`CompatJsonInclude`/`CompatJsonConverter`/`CompatJsonNumberHandling`/`CompatJsonExtensionData`、`CompatAttributeTypes`、`DefaultContractResolver`（Newtonsoft 契约）、`DataContractSerializer`、`ObsoleteAttribute`、`DefaultValueAttribute` 等。映射配置 [TypeMappings.json L86](file:///d:/code/cs2j/config/TypeMappings.json#L86) 与 [L328](file:///d:/code/cs2j/config/TypeMappings.json#L328)（`System.Text.Json.JsonSerializer` 两条）、[L377](file:///d:/code/cs2j/config/TypeMappings.json#L377)（`System.Text.Json.Serialization.JsonConverter` → `Object`）——**核订纠错**：原文引的「L361-L365（JsonConverter<T> → Object）」现已被 **C01 落地的 `Cs2jByRef.RefStructByRef\`1` 映射**占据，JsonConverter 条目实际在 L377。
+- **2026-09-29 核订补录（本设计写作后落地的第三条通道）**：**C11-C14 member-desugar 已落地（默认关），且自带成员级 attribute 路由**——`MemberDesugar/` 下 8 个文件读 `AttributeLists`：`Properties/PropertyRule.cs:263`、`Properties/PropertyDeclarationRewriter.cs`、`Events/EventRule.cs:178`、`Events/EventFacts.cs`、`Events/EventDeclarationExpander.cs:41,69,86`（含 `RouteAttributeLists` 把字段级/方法级 attribute 分流，L130）等。含义有二：① 属性/索引器/事件去糖后 attribute 的**归属决策已由 C11-C14 自己承担**——§11 的 C11-C14 行原要求「C11-C14 落地时必须在其 plan 中携带成员级 attribute 迁移规则」，**该契约已履行**，实施 C10 时应把该行从「待办契约」改读作「既有实现核对」；② C10 在链上先跑（现拓扑：C10 早于 member-desugar），inventory 看到的是**去糖前**的属性声明形态，与 §11 既定分工一致。
 - E08 已对 JSON 注解做副作用避让：[DefaultParameterDeclarationRewriter.cs L1053-L1054/L1155-L1195](file:///d:/code/cs2j/src/CSharpToJava.Core/DefaultParameterStripper/DefaultParameterDeclarationRewriter.cs#L1155-L1195) 用文件名后缀表识别 `JsonConstructor` 等七类 attribute 的文件，改变默认值剥离策略。
 - 回归测试：`JsonNumberHandlingAnnotationProjectTests.cs`（项目管线，类型级注解）、`ReflectionAttributeCompatTests.cs`、`SystemTextJsonDeserializeTypeReferenceTests.cs`、`DataContractSerializerCompatibilityTests.cs`。
 - **映射存在 ≠ 语义可用**（§4 风险 14 点名 C10）：compat 注解只**物化转换器实际读取的构造参数**。例如 [CompatJsonIgnore.java L19-L26](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/CompatJsonIgnore.java#L19-L26) 自述对象初始化器语法被丢弃、`Condition` 默认 `Always`；Newtonsoft `[JsonProperty("x")]`、DataContract `[DataMember(Name=…, EmitDefaultValue=…)]` 在转换器中**没有对应符号读取分支**（全仓 grep 无 `JsonPropertyAttribute`/`DataMemberAttribute` 的消费点）——属性存在、注解类也在 compat，但名字/参数到不了 Java 运行时。
@@ -35,19 +36,19 @@
   - CS2J3001 不支持命名空间（[L31-L73](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/UnsupportedDomainPasses.cs#L31-L73)）；
   - CS2J3101 `SupportedOSPlatform`/`UnsupportedOSPlatform`/`*Guard` 属性（[L143-L154](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/UnsupportedDomainPasses.cs#L143-L154)）；CS2J3102 平台特定 API（[L156-L229](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/UnsupportedDomainPasses.cs#L156-L229)）；
   - CS2J3201 `DllImport`/`LibraryImport`/`ComImport`/`MarshalAs`/`UnmanagedCallersOnly`/`GeneratedComInterface` 属性（[L262-L273](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/UnsupportedDomainPasses.cs#L262-L273)）；CS2J3203 extern 方法（[L275-L287](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/UnsupportedDomainPasses.cs#L275-L287)）；CS2J3202 `Marshal`/`NativeLibrary`/`HandleRef`/`SafeHandle`（[L289-L355](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/UnsupportedDomainPasses.cs#L289-L355)）。
-- 转换器侧另有一条矛盾路径（§4 风险 16）：[ClassTransformer.cs L346-L350](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L346-L350) 对 extern/DllImport 直接抛异常，[L390-L392](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L390-L392) `IsExternLike` 文本判名；而 [UnsupportedDomainPasses.cs L373-L381](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/UnsupportedDomainPasses.cs#L373-L381) `IsPInvokeContainerFile` 的注释却称「ClassTransformer 会发 stub」。C01 已把 DllImport/LibraryImport extern 视为锁定符号（[RefOutInAliasAnnotator.cs L201-L219](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInAliasAnnotator.cs#L201-L219)）。
+- 转换器侧另有一条矛盾路径（§4 风险 16）：[ClassTransformer.cs L346-L350](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L346-L350) 对 extern/DllImport 直接抛异常，[L390-L392](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L390-L392) `IsExternLike` 文本判名；而 [UnsupportedDomainPasses.cs L373-L381](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/UnsupportedDomainPasses.cs#L373-L381) `IsPInvokeContainerFile` 的注释却称「ClassTransformer 会发 stub」。C01 已把 DllImport/LibraryImport extern 视为锁定符号（[RefOutInAliasAnnotator.cs L278-L295](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInAliasAnnotator.cs#L278-L295)，核订重定位；`IsLocked` 谓词本体在 [L265](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInAliasAnnotator.cs#L265)）。
 
 ### 1.2 静默丢失面汇总
 
 | 面 | 现状 |
 |---|---|
-| 方法/返回值/参数/类型（除 §1.1 特例）/程序集级自定义 attribute | 无任何发射路径；[MethodTransformer.cs L98](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L98) 唯一 attribute 相关代码 `BuildDeploymentItemAnnotation(...) => null`；grep `AttributeListSyntax` 在 Transformers 仅 [EnumTransformer.cs L67-L70](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/EnumTransformer.cs#L67-L70) 与 ClassTransformer 两处 |
+| 方法/返回值/参数/类型（除 §1.1 特例）/程序集级自定义 attribute | 无任何发射路径；[MethodTransformer.cs L98](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L98) 唯一 attribute 相关代码 `BuildDeploymentItemAnnotation(...) => null`；grep 口径纠正为 `AttributeLists` 后，Transformers 内**恰 3 个文件**命中（[EnumTransformer.cs L67-L70](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/EnumTransformer.cs#L67-L70)、`ClassTransformer`、`PropertyTransformer`）；**member-desugar（C11-C14，默认关）是链上第二批 attribute 消费者**（8 文件，见 §1.1 族 B 核订补录），但它是**改写期**的迁移路由而非「发射到 Java」——本行「无发射路径」的结论对两者在 v1 都成立 |
 | Caller* 族 | 属性丢弃 + 调用点不注入，无诊断（§1.1 族 A） |
 | Newtonsoft / DataContract 名契约 | compat 有序列化器与属性类壳，但成员级 `Name` 等参数无读取分支，按名契约静默不生效 |
 | STJ 注解的未读参数 | 转换器按属性类名白名单读取固定构造参数/具名参数；其余实参（对象初始化器形式、未列名具名参数）静默丢弃 |
 | P/Invoke/平台 | 有显式诊断（CS2J3xxx），但 `NativeMethods.cs` 文件名豁免与 ClassTransformer 抛异常行为自相矛盾（风险 16），且 C10 不应重复报同一节点 |
 
-ROADMAP #7「attribute(json)」登记待前置化（[ROADMAP.md L8](file:///d:/code/cs2j/ROADMAP.md#L8)）。
+ROADMAP #7「attribute(json)」登记待前置化（[ROADMAP.md L7](file:///d:/code/cs2j/ROADMAP.md#L7)，**核订纠错**：原文引 L8，实际 L8 是「method parameter default value」，`7. attribute(json)` 在第 7 行）。
 
 ### 1.3 目标、非目标与与 C06/C42 的分工
 
@@ -59,7 +60,7 @@ ROADMAP #7「attribute(json)」登记待前置化（[ROADMAP.md L8](file:///d:/c
 
 **非目标（v1）**：不改转换器/compat 任何代码；不做 JSON 契约的显式注册代码改写；不做 P/Invoke→FFM 归一（C06）与平台隔离（C42）；不处理成员去糖（C11-C14 落地前属性仍挂在原语法成员上）；不做全宇宙自定义 attribute 的语义推理。
 
-**分工红线**（catalog §3.3 平台边界族 [L912](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L912) 与 C06 设计 §11 既有约定）：
+**分工红线**（catalog §3.3 平台边界族 [L912](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1090) 与 C06 设计 §11 既有约定）：
 
 - **CS2J3001/3101/3102/3201-3203 的发射权在平台边界族（C42/C06）**：C10 只消费这些码的语义边界做盘点分类，绝不在同一节点上重复诊断；
 - C06 负责 extern 的归一/白名单/UF060 判定，C42 负责非互操作输入的隔离与拒绝基建，「已归一 facade」共享谓词由 C06/C42 落地；C10 产出的 inventory 是它们的**输入数据**之一，不是判定分支；
@@ -92,7 +93,7 @@ ROADMAP #7「attribute(json)」登记待前置化（[ROADMAP.md L8](file:///d:/c
 
 ### 3.1 描述符
 
-翻转时从 [PassStubCatalog.cs L181-L190](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L181-L190) 删除 stub，在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) 的 `Implemented` 表中**紧随 `make-readonly` 描述符之后**插入（声明序选择，兼顾 stub 期拓扑结果与 C02 落地后的迁移，见 §3.2；注册表拓扑顺序由 [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) 锁死；[PassRegistry.cs L95-L133](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L95-L133) 的 Kahn 排序以**声明序为确定性 tiebreak**，禁用的 stub 仍作为排序节点存在）：
+翻转时从 [PassStubCatalog.cs L170-L179](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L170-L179)（核订重定位）删除 stub，在 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) 的 `Implemented` 表中**紧随 `make-readonly` 描述符之后**插入（声明序选择，兼顾 stub 期拓扑结果与 C02 落地后的迁移，见 §3.2；注册表拓扑顺序由 [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) 锁死；[PassRegistry.cs L95-L142](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L95-L142) 的 `TopologicalSort` 以**声明序为确定性 tiebreak**，禁用的 stub 仍作为排序节点存在；核订纠正原文引的 L95-L133——该文件的 Kahn 排序现跨 L95-L142）：
 
 ```text
 Id                          = "attribute-normalize"
@@ -110,27 +111,31 @@ CatalogItems                = "C10"
 Description                 = "Fill Caller* info arguments at call sites; inventory JSON/serialization and P/Invoke attributes."
 ```
 
-### 3.2 Stub 期拓扑处理（generic-deepen 尚未落地）
+### 3.2 拓扑处理（**2026-09-29 核订：前提已变——C02 generic-deepen 已落地**）
 
-stub 现状 `RunAfterIds = { generic-deepen }`，而 generic-deepen 自身是 stub（[PassStubCatalog.cs L111-L120](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L111-L120)）。C10 很可能先于 C02 翻转，拓扑按下列规则处理，全部为声明与测试层面的约定，不改排序器：
+> **核订结论（本节前提失效）**：原文写作时 generic-deepen 自身是 stub，故本节按「C10 先于 C02 翻转」设计了两阶段迁移。**C02 已于 db9bbd08 落地**：`generic-deepen` 现为 [PassCatalog.cs L167-L178](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L167-L178) 的 Implemented 条目（`defaultEnabled: false`、`PassStage.Abi`、`RunAfterIds = {generic}`），其 id 常量已在 `PassIds.GenericDeepen`（[PassCatalog.cs:20](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L20)），stub 表中**已无该节点**。
+>
+> 因此：**本 pass 翻转时直接引用 `PassIds.GenericDeepen`**（不必再走 `PassStubCatalog.Ids.GenericDeepen`），并且原文交给「C02 翻转 PR」的 `LockedChain` 槽位迁移**改由本 pass 自己完成**——即 `attribute-normalize` 在 `LockedChain` 中应插在 **`make-readonly` 之后、`eliminate-goto` 之前**（而非原文 §3.2-2/§7.6 所写的「eliminate-goto 与 java-keywords 之间」）。
+>
+> 以下 4 条原文规则保留作历史与推导说明，其中第 1、3 条已被上述结论取代（标注 ✅已落地/⚠️已过时）：
 
-1. **id 常量归属**：C02 设计 §3.2 已约定其翻转时把 `Ids.GenericDeepen` 迁到 [PassIds](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L24)。C10 翻转时若常量仍在 `PassStubCatalog.Ids`，本 pass 的 `RunAfterIds` 直接引用 `PassStubCatalog.Ids.GenericDeepen`（注册表全集始终含该节点，RunAfter 解析合法）；C02 落地后改为 `PassIds.GenericDeepen`，两 pass 各自 rebase 解一次引用。
-2. **stub 期的实际执行位置**：generic-deepen 禁用时仍是拓扑节点（位于 stub 声明段第 7 个），C10 因此被推到该节点之后——在已启用链中实际表现为晚于 `make-readonly`/`eliminate-goto`、早于 `java-keywords`。为把位置锁定在 catalog 建议区（`… E13/C07 → … → C09/C10 → C11-C14 …`，[catalog L887-L888](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L887-L888)）且不依赖未实现节点，翻转时**追加已实现锚点 `make-readonly`**：`RunAfterIds = { generic-deepen, make-readonly }`。
-3. **C02 落地后的位置迁移**：generic-deepen 成为已实现 pass（紧随 generic）后，其 stub 节点消失，C10 不再被推迟到 stub 扫描段——已实现子序列中 C10 上移到 **make-readonly 之后、eliminate-goto 之前**（make-readonly 锚保证；前提是 C10 描述符在 Implemented 表中插在 make-readonly 之后）。语义不变量（晚于 generic-deepen/make-readonly、早于 java-keywords/member-desugar）两阶段都成立；`LockedChain` 的位置条目由 **C02 翻转 PR 一并改写**（登记为 §11 协调项，C10 先合时锁定 stub 期位置即可）。
-4. **不变量**：始终晚于 E08 strip-default（Caller 豁免逻辑的载体，经 generic 传递满足）；始终早于 java-keywords（FinalNaming 锁尾）；始终早于 member-desugar（其 stub 声明位与 RunAfter 均在 C10 之后）。顺序断言只锁「已启用子序列」中 C10 的这三条相对关系，不断言禁用 stub 的穿插。
+1. ⚠️**已过时**——**id 常量归属**：C02 设计 §3.2 已约定其翻转时把 `Ids.GenericDeepen` 迁到 [PassIds](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L27)（现为 L6-L27，核订重定位）。**C02 已按约定落地**：常量在 `PassIds.GenericDeepen`，本 pass 的 `RunAfterIds` 直接引用 `PassIds.GenericDeepen` 即可，原文的「先引 stub 常量、后由 C02 rebase」两步合并为一步。
+2. **执行位置**：`RunAfterIds = { generic-deepen, make-readonly }` 的**结论保留**（双锚更稳，且 `generic-deepen` 现已可解析为已实现节点）。但需注意：原「C10 被 stub 节点推到 eliminate-goto 之后」的推导已失效——generic-deepen 落为已实现条目、紧随 `generic`（[PassCatalog.cs:167](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L167)），故 C10 的实际落点由 `make-readonly` 锚决定（在 `record-readonly`/`array-method`/`make-readonly` 之后），catalog 建议区（`… E13/C07 → … → C09/C10 → C11-C14 …`）成立 ✓。
+3. ✅**已达成**——**位置迁移**：generic-deepen 现为已实现 pass，其 stub 节点消失，C10 不再被推迟到 stub 扫描段；已实现子序列中的落点即 **make-readonly 之后、eliminate-goto 之前**（前提：C10 描述符在 Implemented 表中插在 make-readonly 之后）。语义不变量（晚于 generic-deepen/make-readonly、早于 java-keywords/member-desugar）成立。**唯一遗留动作**：`LockedChain` 的槽位需由**本 pass 的翻转 PR**写入（原设计记的「由 C02 翻转 PR 一并改写」已不成立——C02 的翻转提交 26ea367c/db9bbd08 只处理了自己的槽位）。
+4. **不变量**（不变）：始终晚于 E08 strip-default（Caller 豁免逻辑的载体，经 generic 传递满足）；始终早于 java-keywords（FinalNaming 锁尾）；始终早于 member-desugar。**核订实测现状**：member-desugar 已在 [PassCatalog.cs L230-L241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241) 落地（`RunAfterIds = {struct-value-semantics, closure-lift}`——两个 stub，故它被拓扑推到链尾），`java-keywords` 在 L242-L258（`PassStage.FinalNaming`）；两者现状均晚于 C10 ✓。顺序断言只锁「已启用子序列」中 C10 的这三条相对关系，不断言禁用 stub 的穿插。
 
 ### 3.3 Stub→Implemented 翻转清单
 
 | 文件 | 改动 |
 |---|---|
-| [PassStubCatalog.cs L181-L190](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L181-L190) | 删除 `AttributeNormalize` stub 条目；`Ids.AttributeNormalize` 常量迁到 [PassIds](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L24)（全仓仅 stub 表自引用，迁移无外部点） |
+| [PassStubCatalog.cs L170-L179](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L170-L179)（核订重定位） | 删除 `AttributeNormalize` stub 条目；`Ids.AttributeNormalize` 常量迁到 [PassIds](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L27)（全仓仅 stub 表自引用，迁移无外部点）。**核订提示**：id 常量归属现有两手先例——C02 迁到了 `PassIds`（`PassIds.GenericDeepen`），C04 保留在 `PassStubCatalog.Ids`（`PassCatalog.cs:210` 反向引用 `PassStubCatalog.Ids.IteratorLowering`）；建议随 C02，并在实施时与既有形态对齐 |
 | [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | 按 §3.1 插入 Implemented 描述符；`PassIds` 增 `AttributeNormalize` 常量 |
 | `src/CSharpToJava.CLI/Preprocessing/Adapters/AttributeNormalizePassAdapter.cs` | **新增**适配器（§5） |
-| [PassChainFactory.cs L91-L218](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L91-L218) | `CreateAdapter` switch 增 `PassIds.AttributeNormalize => new AttributeNormalizePassAdapter(...)`；**不进 `BuildLegacyToggles`**（无历史开关），经通用 `--enable-pass/--disable-pass attribute-normalize` 与 `preprocess --pass attribute-normalize` 控制（同 C09 先例） |
-| [PassChainConfiguration](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L27-L48) / [CliPreprocessChain.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs) | 增 `AttributeNormalizeOptionsFactory`（lazy 加载 overrides，仿 `JavaKeywordOptionsFactory`）并透传 |
+| [PassChainFactory.cs L98](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L98)（`CreateAdapter` 现起于 L98，核订重定位） | `CreateAdapter` switch 增 `PassIds.AttributeNormalize => new AttributeNormalizePassAdapter(...)`；**不进 `BuildLegacyToggles`**（现为 [L64-L85](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L64-L85)）（无历史开关），经通用 `--enable-pass/--disable-pass attribute-normalize` 与 `preprocess --pass attribute-normalize` 控制（同 C09 先例） |
+| [PassChainConfiguration](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L29-L53)（核订重定位：类现跨 L29-L53，已含 `MemberDesugarOptionsFactory`）/ [CliPreprocessChain.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs)（配置组装现于 [L113-L126](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs#L113-L126)） | 增 `AttributeNormalizeOptionsFactory`（lazy 加载 overrides，仿 `JavaKeywordOptionsFactory`/`MemberDesugarOptionsFactory`）并透传 |
 | `config/AttributeNormalizeOverrides.json` | **新增、可选、默认缺省**：`{ "keepAttributes": [], "ignoreAttributes": [], "skipTypes": [], "callerFilePathPolicy": "FreezeAnalyzed" }`；查找逻辑同 record-readonly/java-keywords（CWD 起向上找） |
 | `src/CSharpToJava.Core/AttributeNormalize/AttributeNormalize*.cs` | 新增 Core 组件（§4） |
-| 测试 | [PassStubCatalogTests.cs L24](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) stub 数 23 → 22；PassChainOrderTests 顺序断言；Core 单测、项目 fixture、residual 闸门、CLI 测试（§7） |
+| 测试 | [PassStubCatalogTests.cs L24](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) 的 stub 计数断言——**核订实测更正**：原文记「23 → 22」已过时，`PassStubCatalog.Stubs` 现**实际 21 条**（`Ids` 常量 22 个），而该行断言仍写着 **22**（26ea367c 移除 member-desugar stub 时 22→21 漏改数字，**该断言今天即红**）；本 pass 翻转后应为 **20**，建议顺带把现有偏差一并修正；PassChainOrderTests 顺序断言；Core 单测、项目 fixture、residual 闸门、CLI 测试（§7） |
 
 不需要改的：`Program.cs` 指纹逻辑（全集 `pass:<id>=on/off` 令牌自动覆盖，翻转造成一次性缓存失效，foundation plan 既定决策）；保留目录由实际执行集合驱动；stub 的 CS2J9001 拒绝路径翻转后自然消失；通用 verb 自动可达。
 
@@ -242,7 +247,7 @@ stub 现状 `RunAfterIds = { generic-deepen }`，而 generic-deepen 自身是 st
 
 - 指纹：翻转自动纳入全集令牌（`pass:attribute-normalize=false→true` 一次性失效，接受）。
 - 保留目录：`.cs2j-attribute-normalize-src` 由已执行集合自动 preserve。
-- `SupportLibrary.None`：不注入/不过滤任何支撑工程，[IsExecutedSupportLibraryProject](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L225-L235) 无改动。
+- `SupportLibrary.None`：不注入/不过滤任何支撑工程，[IsExecutedSupportLibraryProject](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L264-L272)（核订重定位）无改动。
 
 ### 5.4 Java 半区消费清单（转换器后续 PR 的输入，本 pass 不实施）
 
@@ -253,7 +258,7 @@ stub 现状 `RunAfterIds = { generic-deepen }`，而 generic-deepen 自身是 st
 
 ## 6. 诊断策略
 
-新增 **CS2J13xx** 码段（CS2J10xx 泛型、CS2J11xx C02、CS2J12xx C09、CS2J30xx/31xx/32xx 平台、CS2J33xx C01、CS2J40xx Java 元数据、CS2J90xx pass 基建，本段不冲突；码位只追加不改号）。MSBuild 格式：`文件(行,列): warning/error CS2J13xx: [规则/目标限定名] 描述`。
+新增 **CS2J13xx** 码段（CS2J10xx 泛型、CS2J11xx C02、CS2J12xx C09、**CS2J50xx C11-C14 member-desugar（本设计写作后落地）**、CS2J30xx/31xx/32xx 平台、CS2J33xx C01、CS2J40xx Java 元数据、CS2J90xx pass 基建，本段不冲突；码位只追加不改号）。**2026-09-29 核订实测**：`grep -rhoE "CS2J1[0-9]{3}" src/` 仅命中 CS2J1001-1003/1100-1106/1110/1120/1130-1131/1190，**13xx 段完全空闲** ✓；同时实测确认 50xx 已被 member-desugar 占用（CS2J5100-5183），故补入上面的枚举。MSBuild 格式：`文件(行,列): warning/error CS2J13xx: [规则/目标限定名] 描述`。
 
 | 码 | 级别 | 含义 |
 |---|---|---|
@@ -325,7 +330,7 @@ stub 现状 `RunAfterIds = { generic-deepen }`，而 generic-deepen 自身是 st
 ### 7.6 CLI / 注册表测试
 
 - 翻转前：`--enable-pass attribute-normalize` → CS2J9001 退出 1（现状回归）；翻转后：`--list-passes` 状态 Implemented、目录名、默认关时无目录无耗时；`--enable-pass` 后链上执行并串给下一环；`--disable-pass attribute-normalize` 可关；单文件 verb 跨文件 → CS2J1390；`--strict` 升级矩阵。
-- 注册表：[PassStubCatalogTests.cs L24](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) 计数 23 → 22 并移除常量引用断言；[PassChainOrderTests.cs L18-L36](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L36) 的 `LockedChain` 在 **`eliminate-goto` 与 `java-keywords` 之间**插入 `attribute-normalize`（§3.2 拓扑模拟的确定结果：generic-deepen 为 stub 时，C10 被 generic-deepen 节点推到 stub 扫描段，在已实现子序列中落此位；描述符在 Implemented 表中声明在 make-readonly 条目之后，为 C02 落地后的位置迁移备好声明序）；另加单测断言 C10 在全序列中晚于 generic-deepen 与 make-readonly、早于 member-desugar 与 java-keywords（这四条不变量在 C02 落地前后都成立，具体 LockedChain 槽位的迁移由 C02 翻转 PR 改写，见 §3.2-3/§11）；stub 期穿插不锁死。
+- 注册表：[PassStubCatalogTests.cs L24](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) 计数 23 → 22 并移除常量引用断言；[PassChainOrderTests.cs L18-L40](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs#L18-L40)（核订重定位）的 `LockedChain`（现含 20 个 Implemented id，条数已随 C03/C04/C02/C11-C14 落地增长）在 **`make-readonly` 与 `eliminate-goto` 之间**插入 `attribute-normalize`——**核订修正槽位**：原文写「eliminate-goto 与 java-keywords 之间」，其推导前提是 generic-deepen 仍为 stub；C02 已落地（见 §3.2 核订），正确槽位是 make-readonly 之后、eliminate-goto 之前（与 §3.2-3 一致）；另加单测断言 C10 在全序列中晚于 generic-deepen 与 make-readonly、早于 member-desugar 与 java-keywords（这四条不变量在 C02 落地前后都成立，具体 LockedChain 槽位的迁移由 C02 翻转 PR 改写，见 §3.2-3/§11）；stub 期穿插不锁死。
 - 指纹令牌含 `pass:attribute-normalize=...`。
 
 ## 8. 默认开启验收门槛
@@ -367,13 +372,13 @@ stub 现状 `RunAfterIds = { generic-deepen }`，而 generic-deepen 自身是 st
 
 | 并行条目 | 关系 | 合并顺序与冲突点 |
 |---|---|---|
-| **C02** generic-deepen（锚点 pass） | stub `RunAfter=generic-deepen` 直接引用其 id；C02 spec §3.2 已约定翻转时迁常量到 `PassIds` 并保持 attribute-normalize 引用可解析 | 谁先合都行：C10 先合则引用 `PassStubCatalog.Ids.GenericDeepen`（合法排序节点，§3.2-1/2）；C02 先合则引用 `PassIds.GenericDeepen`。后合方 rebase 改一次引用。**C02 翻转 PR 额外负责**：把 PassChainOrderTests 的 `LockedChain` 中 C10 槽位从「eliminate-goto 与 java-keywords 之间」迁到「make-readonly 与 eliminate-goto 之间」（§3.2-3），并同步更新 `RunAfterIds` 常量引用。**禁止**两边各自新建同名字符串常量 |
-| **C06** unsafe-ffm / **C42** platform-isolation（平台边界族） | 共享 CS2J3001/3101/3102/3201-3203 诊断基建（catalog §3.3 [L912](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L912)）；C06 spec §11 已定「C42 负责隔离拒绝基建、已归一 facade 共享谓词」 | C10 只产 inventory/AN003，永不发 3xxx；C06/C42 落地时消费 inventory 的 Interop/Platform 分类做数据交叉核对，不要求 C10 改 Core 接口（报告为只读产物）。合入顺序任意；C42 澄清风险 16 后把结论回灌 §4.3 AN-P2 |
-| **C11-C14** member-desugar（属性声明交互） | JSON/序列化 attribute 今天挂在属性/事件/索引器声明上；成员去糖后属性应跟随到 GetX/SetX/后备字段的正确目标（JsonPropertyName 跟 getter、JsonIgnore 跟访问器等） | **契约**：C10 在链路上先跑（早于 member-desugar），v1 保留属性原位不动 = 不提前替 C11-C14 做归属决策；C11-C14 落地时必须在其 plan 中携带「成员级 attribute 迁移」规则（消费 PropertyTransformer L154-L170 的既有目标语义作为依据），残余闸门与 C10 inventory 对账。Caller 参数属方法/索引器形参，去糖不改变其形参归属，无冲突。热文件不重叠（各改各的 Core 目录） |
+| **C02** generic-deepen（锚点 pass） | 引用其 id 作 RunAfter 锚 | **2026-09-29 核订：C02 已落地**（[PassCatalog.cs L167-L178](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L167-L178)，默认关），故原文「谁先合都行」的分支收敛为一条路径：C10 直接引用 `PassIds.GenericDeepen`。**原分配给 C02 翻转 PR 的动作需改由本 pass 完成**——`LockedChain` 中 C10 槽位插到「make-readonly 与 eliminate-goto 之间」（§3.2-3/§7.6 核订修正），C02 的翻转提交（db9bbd08/26ea367c）只写了自身槽位。**禁止**两边各自新建同名字符串常量 |
+| **C06** unsafe-ffm / **C42** platform-isolation（平台边界族） | 共享 CS2J3001/3101/3102/3201-3203 诊断基建（catalog §3.3 [L912](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1090)）；C06 spec §11 已定「C42 负责隔离拒绝基建、已归一 facade 共享谓词」 | C10 只产 inventory/AN003，永不发 3xxx；C06/C42 落地时消费 inventory 的 Interop/Platform 分类做数据交叉核对，不要求 C10 改 Core 接口（报告为只读产物）。合入顺序任意；C42 澄清风险 16 后把结论回灌 §4.3 AN-P2 |
+| **C11-C14** member-desugar（属性声明交互） | JSON/序列化 attribute 今天挂在属性/事件/索引器声明上；成员去糖后属性应跟随到 GetX/SetX/后备字段的正确目标（JsonPropertyName 跟 getter、JsonIgnore 跟访问器等） | **契约（核订：已履行）**：C10 在链路上先跑（早于 member-desugar ✓ 现状拓扑成立），v1 保留属性原位不动 = 不提前替 C11-C14 做归属决策。**2026-09-29 核订实测**：C11-C14 已落地（默认关）并且**自带成员级 attribute 路由**——`Properties/PropertyRule.cs:263`、`Events/EventDeclarationExpander.cs:41,69,86`（`RouteAttributeLists` 分流字段级/方法级，L130）、`Events/EventRule.cs:178` 等 8 个文件消费 `AttributeLists`，即原「落地时必须携带迁移规则」的要求已满足；实施 C10 时改为**核对**这些路由与 inventory 的归属标注是否一致。Caller 参数属方法/索引器形参，去糖不改变其形参归属，无冲突。热文件不重叠（各改各的 Core 目录） |
 | **E08** strip-default | Caller 方法当前被 E08 整体豁免默认值剥离；C10 移除 Caller attribute 后这些方法在 C10 输出树中「看起来可剥」但 E08 不会重跑 | v1 接受默认值留在树中（§2），下游行为不劣于现状；Q1（C10 内复用 E08 Core 补综合）在 M2+ 评估，需先确认转换器对「C10 后残留默认值」的消费路径，不阻塞 M1 |
 | **C09** thread-static | 同属 Declarative 阶段 attribute 驱动 pass；ThreadStatic 归 GovernedElsewhere，C10 inventory 只登记不改 | 无实现冲突；两 pass 对同一字段不同 attribute 各管各；若同时启用，链序由各自 RunAfter 决定（C09 锚 generic，C10 锚 generic-deepen+make-readonly） |
 | **C08/E17** JavaKeywords | 链尾兜底；C10 不改名，插入的字面量与 `__cs2j` 临时量（本 pass 基本不生成临时量）不引入保留字 | 无冲突；原成员名是 Java 保留字时由 C08 统一逃逸，CallerMemberName 冻结值取**C# 原名**（字符串内容不逃逸，与 nameof 字面量化同原则） |
-| 公共热文件 | [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)、[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)、[PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)、PassChainConfiguration/CliPreprocessChain、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs)/PassChainOrderTests | 各 worktree 仅追加各自 id 的行/各自的 factory 注入点；stub 计数测试按合入顺序改数字（23→22→…）；合并顺序任意，rebase 解冲突；禁止顺手重排既有 pass 顺序 |
+| 公共热文件 | [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)、[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)、[PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)、PassChainConfiguration/CliPreprocessChain、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs)/PassChainOrderTests | 各 worktree 仅追加各自 id 的行/各自的 factory 注入点；stub 计数测试按合入顺序改数字（**核订更正**：现实际 21 条而断言仍写 22——先修正既有偏差，本 pass 翻转后为 20）；合并顺序任意，rebase 解冲突；禁止顺手重排既有 pass 顺序 |
 
 ## 12. Worktree 分配
 

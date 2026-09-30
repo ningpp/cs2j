@@ -1,9 +1,9 @@
 # Java 保留字归一化预处理器设计
 
-**日期**: 2026-09-28
+**日期**: 2026-09-28（2026-09-29 核订：实现落地状态回填、§3.3 接线现状重写、JK-6d/e 缺口登记）
 **范围**: 新增 CLI 级 C#→C# 预处理器（Core `JavaKeywords\` + CLI `ProjectJavaReservedWordPreprocessor`），不涉及任何 C#→Java 转换代码
-**状态**: 设计已确认，待实施
-**对应提交**: 86ed95592f9631bfadeaf8a91ed94044e94fa624（转换器侧 true/false/null 与 op_True/op_False 特例的根因修复）
+**状态**: 已核订 + **已实施**（2026-09-29 对照 dev-3.x@2d25700e 逐条核验：§3.1 的 7 个 Core 文件、CLI 驱动、`config/JavaKeywordsOverrides.json`、verb 与单文件闸门**全部落地且文件名逐一吻合**；诊断码 JK001/002/010/020/030/031/040/090 八项齐备；§8 的四类测试资产（单测/项目级 fixture/一致性/CLI）均存在；`java-keywords` 已进 PassCatalog（Status=Implemented、defaultEnabled=false、PassStage.FinalNaming、链尾锚点成立）。**核订同时发现一项落地缺口：JK-6d/6e（`&&`/`||` 同构展开）未实现**——见 §4.3 与 §11；另 §3.3 原定的四处手写接线中有两处已被注册表驱动链取代）
+**对应提交**: 86ed95592f9631bfadeaf8a91ed94044e94fa624（转换器侧 true/false/null 与 op_True/op_False 特例的根因修复；核订已验全哈希存在，提交时间为 2026-06-01，非本设计日期附近的提交）
 
 ## 1. 背景与目标
 
@@ -13,6 +13,8 @@
 2. `MethodTransformer.ConvertOperatorName`（重构后位于 `OperatorTransformer`）补 `op_True→isTrue`、`op_False→isFalse`；`UnaryExpressionTransformer` 改用统一 `OpSymbolToJavaName` 查表。
 
 本设计把这两类处理**前移到一个独立的 C#→C# 预处理器**：转换器输入的是"已经安全的 C#"——成员名不再是 Java 保留字，源码中不再存在 `operator true/false` 声明与隐式布尔使用点。转换器侧特例的删除为后续 PR（本特性不动转换器代码，冗余清单见 §10）。
+
+> **2026-09-29 核订（落地状态）**：上述两类处理已按本设计落地（Core `JavaKeywords/` 7 文件 + CLI 驱动 + verb + overrides + fixture，详见 §3.1/§3.3 的现状注）。§10 的冗余清单**尚未执行**：转换器侧 4 处特例原样在位（`JavaNaming.IsJavaKeyword` 的 `true/false/null/_/yield` 条目、`EscapeJavaKeyword` 的 `Value` 追加、`OperatorTransformer` 的 `op_True→isTrue`/`op_False→isFalse` 三处表项），核订已逐条复验其行号（§10）——即「删除为后续 PR」这一定性仍准确。
 
 本特性严格复用已落地的 record-readonly 预处理器架构（`src/CSharpToJava.Core/RecordReadOnly/` + `src/CSharpToJava.CLI/ProjectRecordReadOnlyPreprocessor.cs`）：三阶段（分析→计划→逐文件重写）、整树重编译比对基线、plan 级原子回退、`FormatAndValidate`、`ProjectPreprocessSource` 全套驱动。不另起一套。
 
@@ -39,7 +41,7 @@
 | `&&`/`||` 降级 | 与 C# 编译器同构的精确降级（`IsFalse` 短路门 + `&`/`|`），保持 T 类型与三值逻辑语义 | 见 §4.3 JK-6 |
 | 布尔上下文口径 | 只改写语义模型判定**编译器实际绑定 op_true/op_false** 的站点；自定义 bool 转换、`operator !` 站点不动 | 漏网由整树重编译捕获并回退 plan |
 | 其它运算符 | op_Xxx（Addition 等）一律不处理 | JK-7 |
-| 管线集成 | 独立预处理器、convert-project **默认关**（`--java-keywords` 显式开启）+ 独立 verb `java-keywords`；位于预处理链**最后**（EliminateGoto 之后、转换之前） | 分析对象是其它预处理器产出的最终中间树 |
+| 管线集成 | 独立预处理器、convert-project **默认关**（`--java-keywords` 显式开启）+ 独立 verb `java-keywords`；位于预处理链**最后**（EliminateGoto 之后、转换之前） | 分析对象是其它预处理器产出的最终中间树。**2026-09-29 核订**：落地为注册表描述符 `java-keywords`（[PassCatalog.cs:242-258](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L242-L258)，`PassStage.FinalNaming`、`defaultEnabled: false`、`RunAfterIds = {eliminate-goto, platform-isolation, concurrency-normalize, dynamic-desugar}`），链尾锚点成立；`--java-keywords` 标志经 `BuildLegacyToggles`（[PassChainFactory.cs:84](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L84)）接入统一链而非手写执行块 |
 | overrides | `config/JavaKeywordsOverrides.json`，`force`/`skip` **仅作用于运算符降级 plan**；关键字改名不可屏蔽 | 默认空，文件可选 |
 | C#→Java | 完全不动 | §10 列冗余清单 |
 
@@ -64,6 +66,8 @@ src\CSharpToJava.CLI\ProjectJavaReservedWordPreprocessor.cs
 
 config\JavaKeywordsOverrides.json  # { "force": ["Ns.Type"], "skip": ["Ns.Type"] }，默认 []
 ```
+
+> **2026-09-29 核订**：以上 7 个 Core 文件 + CLI 驱动 + overrides 配置**全部落地且文件名逐一吻合**（实测 `wc -l`：Analyzer 533 / Models 105 / Plan 222 / SyntaxFacts 59 / Preprocessor 255 / KeywordRenamingRewriter 442 / OperatorTrueFalseRewriter 210 行；CLI 驱动 70 行）。唯一命名瑕疵：`JavaKeywordSyntaxFacts.cs:33` 的注释把 JK-0 写成「JR-0」（全库 18 处 JK-8、各 4 处 JK-5/6a/6b/6c 等均为 JK 前缀，仅此 1 处 JR），属注释级笔误，不影响行为。
 
 公开契约（与 `RecordReadOnlyPreprocessor` 同形）：
 
@@ -95,6 +99,17 @@ config\JavaKeywordsOverrides.json  # { "force": ["Ns.Type"], "skip": ["Ns.Type"]
 2. `ConvertProject` 执行块：位置在 **EliminateGoto 块（Program.cs 现状 line 645-682）之后、`new ConversionOptions(...)`（line 684）之前**——预处理链的最后一环。`if (opts.JavaKeywords)` → `PreprocessAsync`，打印统计，逐条输出诊断（Info 仅 verbose），失败 `return 1`，成功后 `opts.Source = result.PreprocessedSourcePath`，并设置 fingerprint 回填（仿同块）。
 3. `GetPreservedDestinationDirectories`：`if (opts.JavaKeywords) preserved.Add(ProjectJavaReservedWordPreprocessor.IntermediateDirectoryName);`
 4. 独立 verb `java-keywords`（`JavaKeywordsVerbOptions`）：单文件 `-i/-o`（缺省 stdout）+ 项目 `-s/-d` 双模式；`-v/--verbose`、`--overrides`、`--force a,b`、`--skip a,b`、`--strict`、`-m/--mapping`、`--no-filter-projects`，与 record-readonly verb 同构；注册进 `ParseArguments<...>` 泛型列表与 `MapResult` 分支。单文件模式自包含闸门（见 §3.4）。
+
+**2026-09-29 核订：实际接线与本节四处清单的对照**
+
+| # | 设计原定 | 落地实况 | 结论 |
+|---|---|---|---|
+| 1 | `ConvertProjectOptions` 选项 | `[Option("java-keywords", Default = false)]` 在 [Program.cs:4836](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4836)、`[Option("java-keywords-overrides")]` 在 [L4840](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4840)；`BuildJavaKeywordOptions` 的 CWD 向上查找在 [L3238-3280](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3238-L3280) | **按原设计落地** ✓ |
+| 2 | `ConvertProject` 手写执行块（`if (opts.JavaKeywords) → PreprocessAsync`） | **已由注册表驱动链取代，不存在手写执行块**：`opts.JavaKeywords` 只经 [PassChainFactory.BuildLegacyToggles L84](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L84) 进统一链，由 `PassPlanResolver` + `CliPreprocessChain` 执行（`grep "opts.JavaKeywords" Program.cs` 无命中） | **被基建取代（更优）**；原文引的「EliminateGoto 块 line 645-682 / ConversionOptions line 684」行号已随 f68a783c 的统一链迁移失效，不再需要 |
+| 3 | `GetPreservedDestinationDirectories` 手写 `preserved.Add(...)` | **已由注册表驱动取代**：[Program.cs:925-942](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L925-L942) 改为遍历 `opts.EnabledPassIntermediateDirectoryNames`（由 pass plan 填充），`java-keywords` 的中间目录自动进入 preserve 集合 | **被基建取代（更优）** ✓ |
+| 4 | 独立 verb `java-keywords` | [Program.cs:4353](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L4353) `[Verb("java-keywords", …)]` + [JavaKeywordsVerbAsync L3348](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3348) 起；单文件 `-i/-o` 与 JK090 闸门在 [L3399-3401](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3399-L3401) | **按原设计落地** ✓ |
+
+即：**四处接线中 1、4 按原设计实现，2、3 被 f68a783c 的注册表统一链吸收**——这是本设计写作之后才落地的基建，后续同类 pass 设计（C06 等）已直接按「Program.cs 零手写接线」范式书写。
 
 ### 3.4 单文件模式限制
 
@@ -215,6 +230,14 @@ public static bool operator false(Foo x) => BODY;  →   public static bool IsFa
 
 **JK-7 范围限制**：类型上的其它 `op_Xxx`（op_Addition、op_Implicit、op_LogicalNot…）一律不处理，声明与使用点原样保留，转换器既有 `OpSymbolToJavaName` 路径继续负责。op_true/false 的降级不以"类型是否还有别的运算符"为条件。
 
+> **2026-09-29 核订：JK-6d/e 是落地缺口（本节最大发现）**。实际落地的 [OperatorTrueFalseRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/OperatorTrueFalseRewriter.cs) 只覆盖 **JK-5 声明降级 + JK-6a/6b/6c 三类布尔位置包裹**（文件头注释 L9-14 自述），**JK-6d/6e（`x && y` / `x || y` 的编译器等构展开）与 JK-6f（嵌套/混合递归套用）未实现**；L13 明确写着「JK-6d/e：&& / || 同构展开——标注为后续迭代」。
+>
+> 配套事实：`JavaKeywordAnalyzer` **已经收集** `AndAlso`/`OrElse` 站点（[JavaKeywordAnalyzer.cs:371-381](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/JavaKeywordAnalyzer.cs#L371-L381)，`BooleanSiteKind.AndAlso/OrElse` 定义在 [JavaKeywordPlan.cs:75-76](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/JavaKeywordPlan.cs#L75-L76)），但收集目的仅是把该类站点纳入 JK-8 闸门判定（表达式树/dynamic/不可提升），**重写阶段不会改写它们**。
+>
+> 影响面（决定缺口是否致命）：`x && y`（x 为用户定义 T 且声明了 op_true/op_false/op_&）在 C# 里合法，改写后仍是合法 C#，**中间树不会不可编译**；缺口表现为「该站点未被降级，仍带用户自定义 `&&` 语义进入 Java 转换」，属**残余而非静默错值**——即与 JK-8 那种「形态被改坏」不同，但也不满足本设计「输入不再含隐式布尔使用点」的目标。落地补齐时应连同 §8 中「三值逻辑类型 `x && y`/`x || y` 同构展开（布尔位置与 T 结果位置两种断言）」的用例一起交付；缺口未补前 `--java-keywords` 的语义承诺应记为「部分」。
+>
+> 另：§8 用例清单中的运算符正例（if/while/do/for/`?:`/catch-when/switch-when）与 **JK-6a/6b/6c 一一对应**，落地已覆盖；JK-6d/e 部分**没有对应落地测试**（fixture `SampleJavaKeywordSolution` 的覆盖范围以 6a-c 为准）。
+
 **JK-8 不可行情形（该运算符 plan 原子跳过，JK020 诊断）**：
 
 - 布尔使用点位于**表达式树 lambda**（赋给 `Expression<TDelegate>` 的 lambda，语义模型可判 `ArgumentKind`/lambda 的转换目标）内：改写会改变表达式树节点构成（不同方法调用），查询提供方等运行时语义静态不可证。
@@ -301,6 +324,8 @@ public static bool operator false(Foo x) => BODY;  →   public static bool IsFa
 
 ## 8. 测试策略（测试先行）
 
+> **2026-09-29 核订**：四类资产均已落地——`tests/CSharpToJava.ProjectTests/JavaKeywordRewriterUnitTests.cs`、`JavaKeywordProjectTests.cs`、`JavaKeywordCLITests.cs`，fixture `tests/SampleJavaKeywordSolution/`（Lib + App + sln）。自述的「测试先行」口径与实际提交顺序相符（fixture 测试先于实现提交，见 `c11fa9ae`/`5e7d6dfc`/`3942a813` 早于 `65634940`）。**但 §8 第 1 条运算符正例中的 `x && y`/`x || y` 同构展开用例无对应落地实现**（JK-6d/e 缺口，见 §4.3），实施补齐时须一并补测试。
+
 1. **单元测试** `tests/CSharpToJava.ProjectTests/JavaKeywordRewriterUnitTests.cs`（仿 `RecordReadOnlyRewriterUnitTests`：内联源码 → `CSharpCompilation` → `RewriteFile` → 文本断言（忽略空白辅助方法同款）+ `AssertOutputCompiles`）：
    - 正例：`True()→TrueValue()` 且同文件调用点同步；`False()/Null()`；`True`+`False` 同类共存；`assert→assertValue` 回归；`Assert→AssertValue`；全大写 `FALSE` 不动；非关键字 `foo` 原样；`@event→eventValue`（声明+引用去 `@`）；`@true`；`_`/`yield`；属性/字段/事件/局部/形参/类型形参/嵌套类型/枚举成员/命名空间段/using 别名各一；跨文件引用（`extra` 编译单元）；显式接口实现联动；方法组绑定；碰撞 `True` 与既有 `TrueValue` → `TrueValue2`；`nameof(X.True)→"True"` 与不涉改名的 nameof 不动。
    - 运算符正例：`operator true/false→IsTrue/IsFalse`；`if(f)→if(Foo.IsTrue(f))`；while/do/for/`?:`/catch-when/switch-when 各一；三值逻辑类型（IsTrue/IsFalse 不互补，附 `operator &`/`operator |`）的 `x && y`/`x || y` 同构展开（布尔位置与 T 结果位置两种断言）；混合嵌套；复杂运算元临时变量提升；`!x` 不动；`(bool)x` 走自定义转换不动；同类型带 op_Addition 时 true/false 仍降级而 op_Addition 不动（JK-7）。
@@ -335,6 +360,17 @@ public static bool operator false(Foo x) => BODY;  →   public static bool IsFa
 
 其它不做项：true/false 之外的运算符（JK-7）；转换链其它预处理器的任何调整；Java 侧代码生成。
 
+**2026-09-29 核订：本清单 4 项逐条复验（行号全部吻合，退役仍未执行）**
+
+| # | 站点 | 核订实测 |
+|---|---|---|
+| 1 | `JavaNaming.IsJavaKeyword` 全表 + `EscapeJavaKeyword` 的 `Value` 追加 | [JavaNaming.cs:132-152](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/JavaNaming.cs#L132-L152)（`true/false/null` 在 L144、`_` 在 L145、`yield` 在 L149）+ [L154-165](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/JavaNaming.cs#L154-L165)（`Value` 追加在 L164）✓ 与原文引的 L132-165 完全一致 |
+| 2 | `OperatorTransformer.OpSymbolToJavaName` 的 `op_True→isTrue`/`op_False→isFalse`、直通表、一元算子表 | [OperatorTransformer.cs:44-45](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/OperatorTransformer.cs#L44-L45)、[:81-82](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/OperatorTransformer.cs#L81-L82)、[:284-285](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/OperatorTransformer.cs#L284-L285) ✓ 三处行号全部精确命中原文引用 |
+| 3 | 86ed955 所述 `MethodTransformer.ConvertOperatorName` 的 op_True/op_False 映射 | 职责确已在 `OperatorTransformer`（原文判断正确）；核订另验 86ed955 全哈希存在（2026-06-01） |
+| 4 | `UnaryExpressionTransformer` 统一查表机制保留、仅 true/false 特例可随 2 下掉 | 与 #2 同批处理，未变 |
+
+**核订结论**：冗余清单在「以 `--java-keywords` 预处理过的项目」这一路径上仍然成立且**尚未下掉**；同时须记一条新事实——因 JK-6d/e 缺口（§4.3），`&&`/`||` 站点上的 op_true/op_false 绑定在预处理后**依然存在**，故 `UnaryExpressionTransformer`/`OperatorTransformer` 的 true/false 特例在补齐 JK-6d/e 之前**不能视为完全冗余**。
+
 ## 11. 工作量与里程碑（供 writing-plans 展开）
 
 | 里程碑 | 内容 | 预估规模 |
@@ -344,3 +380,15 @@ public static bool operator false(Foo x) => BODY;  →   public static bool IsFa
 | M3 | OperatorTrueFalseRewriter（声明降级 + 布尔站点语义分类 + &&/`||` 同构展开 + 临时变量提升 + JK-8 闸门）+ 单测 | ~500 行 |
 | M4 | overrides 配置、单文件模式/JK090、诊断打磨、SampleJavaKeywordSolution + 项目级/CLI/一致性测试、dotnet build 验证 | ~400 行 + fixture |
 | M5 | 规格/计划文档与交付说明（§10 冗余清单）、全量测试与回归 | 文档 |
+
+**2026-09-29 核订：里程碑落地回填**
+
+| 里程碑 | 落地状态 |
+|---|---|
+| M1 | **已落地**：Models（[JavaKeywordModels.cs:11-105](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/JavaKeywordModels.cs#L11-L105) 含 Options/Statistics/Diagnostic/Severity/FileResult，JK001-JK090 全码位）、SyntaxFacts（59 行）、Preprocessor 契约 + `FormatAndValidate`（[L150](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/JavaReservedWordPreprocessor.cs#L150)）、Analyzer 改名表与 JK-4b 碰撞消歧（[JavaKeywordAnalyzer.cs:149](file:///d:/code/cs2j/src/CSharpToJava.Core/JavaKeywords/JavaKeywordAnalyzer.cs#L149) 起）、CLI 驱动与 overrides |
+| M2 | **已落地**：`KeywordRenamingRewriter.cs` 442 行（声明点/引用点改名、nameof 字面量化）；`Statistics` 的分种类计数（MethodsRenamed…AliasesRenamed 共 9 项）与设计一致 |
+| M3 | **部分落地**：`OperatorTrueFalseRewriter.cs` 210 行覆盖 JK-5 + JK-6a/6b/6c + JK-8 闸门；**JK-6d/6e/f（`&&`/`||` 同构展开与临时变量提升）未实现**，见 §4.3 缺口与 §8 注 |
+| M4 | **已落地**：overrides（[Program.cs:3238-3280](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L3238-L3280)）、单文件模式 + JK090、`SampleJavaKeywordSolution` fixture、项目级/CLI/一致性测试；中间树 `dotnet build` 断言在 `JavaKeywordProjectTests` 中（仿 `RecordReadOnlyProjectTests.RunDotNetBuildAsync`） |
+| M5 | **部分**：§10 冗余清单已成文且核订复验行号准确，但**退役动作（下掉转换器 4 处特例）尚未执行**——原设计即把它列为后续 PR，故不属缺口 |
+
+综合：本特性可记为「**已实施（默认关），一处语义缺口（JK-6d/e）**」。

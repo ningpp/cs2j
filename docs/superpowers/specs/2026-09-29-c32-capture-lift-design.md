@@ -21,7 +21,7 @@ lambda 可变捕获今天没有 C# 层形态，全部在 C#→Java 转换器内�
 9. **重复建设**：E02 在 [LocalFunctionLift/](file:///d:/code/cs2j/src/CSharpToJava.Core/LocalFunctionLift/LocalFunctionLiftAnalyzer.cs) 已建成体系化捕获分析（`CollectCaptures`/`IsCapturedVariableWritten`/fixpoint 传播 [LocalFunctionLiftAnalyzer.cs:405-583](file:///d:/code/cs2j/src/CSharpToJava.Core/LocalFunctionLift/LocalFunctionLiftAnalyzer.cs#L405-L583)）、确定性命名（[LocalFunctionLiftNaming.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LocalFunctionLift/LocalFunctionLiftNaming.cs)）、跨文件命名表（[LocalFunctionLiftPreprocessor.cs:15](file:///d:/code/cs2j/src/CSharpToJava.Core/LocalFunctionLift/LocalFunctionLiftPreprocessor.cs#L15)）。
 10. **回归资产**：[LambdaExternalReassignmentTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LambdaExternalReassignmentTests.cs)（直连转换管线，断言 Java 文本里的 `int[] _x`/`[0]`）、[LinqRewriterVariableCaptureTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqRewriterVariableCaptureTests.cs)。
 
-catalog 四次补全已定调（[preprocessor-catalog.md:640-651](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L640-L651)、[:810-821](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L810-L821)、§3.3 [:905](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L905)、[:910](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L910)）：C45 是本通道超集，**C32 作为 C45 第一阶段落地，不建第二套捕获分析**。
+catalog 四次补全已定调（[preprocessor-catalog.md:708-720](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L708-L720)、[:895-908](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L895-L908)、§3.3 [:1083](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1083)、[:1088](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1088)）：C45 是本通道超集，**C32 作为 C45 第一阶段落地，不建第二套捕获分析**。
 
 ### 1.2 目标
 
@@ -55,15 +55,15 @@ catalog 四次补全已定调（[preprocessor-catalog.md:640-651](file:///d:/cod
 | D3 | 只读值捕获 | **不动**。无写站点的捕获变量在 Java 侧即 effectively final，直连路径已可用 | catalog C32 范围仅限可变；动只读会产生无收益 churn，且提前侵占 C45 工作面 |
 | D4 | 参数捕获 | 参数保留在签名上；holder 实例在方法体首句构造、字段以参数初值初始化；方法体内全部站点（含再赋值、lambda 内外）改写 | 对齐现转换器参数 holder 前置发射（[StatementTransformer.cs:76-88](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L76-L88)），但在 C# 层一次做对 |
 | D5 | this 捕获 | 不动（无「可变性」概念；Java lambda 可直接捕获 this） | C45 字段化；C32 提升 this 无收益 |
-| D6 | ref 捕获 | 被捕获符号是 `ref` 局部或 `RefKind != None` 的参数（C01 未归一形态）→ **CS2J3201 显式报错**，不猜测 | 字段化会切断与调用方槽位的别名；C01 默认在链（[PassCatalog.cs:120-131](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L120-L131)），其产物 `ByRef<T>` 形参是普通对象，不再触发本条；lambda 的 ref/out 形参仍由转换器 fail-fast，C32 不碰 lambda 签名 |
+| D6 | ref 捕获 | 被捕获符号是 `ref` 局部或 `RefKind != None` 的参数（C01 未归一形态）→ **CS2J3201 显式报错**，不猜测 | 字段化会切断与调用方槽位的别名；C01 默认在链（[PassCatalog.cs:134-145](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L134-L145)），其产物 `ByRef<T>` 形参是普通对象，不再触发本条；lambda 的 ref/out 形参仍由转换器 fail-fast，C32 不碰 lambda 签名 |
 | D7 | 多 lambda 共享 | 同一符号全方法只有一个 holder（一个字段、一个实例）；同一声明作用域内多个被提升符号**共用一个 holder 类与实例**（一组） | Roslyn 同作用域单个 display class 实例；也对齐现测试「holder 只建一次」（LambdaExternalReassignmentTests `SingleHolder`） |
 | D8 | 嵌套 lambda | 外层变量提升后，内层 lambda 捕获的是 holder 实例（只读局部），不再触发二次提升；分析对所有嵌套 lambda 一次算完，重写共用同一组站点表 | 单层 Analyze→Rewrite 即可收敛，无需迭代；生成名带 annotation 保证重跑幂等（§4.6） |
 | D9 | for/foreach 循环捕获 | **for** 归纳变量：holder 实例在循环**之前**构造，循环内/捕获 lambda 全部改字段（单一存储，等价 C# 单一循环变量）。**foreach** 迭代变量：holder 在循环体**首句每轮新建**并以本轮值初始化，lambda 捕获本轮实例（C# 5+ 每轮独立变量语义） | 现转换器两处专门发射点（Loops.cs:57-66 与 :142-153）即此二分；旧版 C#（≤4）foreach 共享变量是历史坑，本 pass 以 Roslyn/Latest 编译语义为准并在 fixture 用「循环内创建委托、循环外调用」断言锁定每轮值 |
 | D10 | lock/using/const 变量 | `lock(x)` 的 x 被提升时锁表达式同步改 `lock(holder._cs2jCap_x)`（别名不变）；using 局部在 C# 中只读、const 不可赋值——均无写站点，不提升；using 外再赋值本就非法（基线 CS 错误） | 基线优先：Roslyn 已拒绝的非法组合不二次负责（§6） |
-| D11 | 表达式树 | `Expression<TDelegate>` 引号内 lambda 整体跳过（共享 [ExpressionTreeFacts.IsExpressionTreeLambda](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs#L12)），子树内标识符不被重写；若同一可变符号还被语句 lambda 捕获（混合），**CS2J3206 报错并跳过该符号**（只改外部站点会令树内引用悬空，改字段会改变表达式树形态） | catalog §4 风险 8（[:927](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L927)）；表达式树 lambda 不可能含赋值，纯引号引用不需要 holder |
+| D11 | 表达式树 | `Expression<TDelegate>` 引号内 lambda 整体跳过（共享 [ExpressionTreeFacts.IsExpressionTreeLambda](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs#L12)），子树内标识符不被重写；若同一可变符号还被语句 lambda 捕获（混合），**CS2J3206 报错并跳过该符号**（只改外部站点会令树内引用悬空，改字段会改变表达式树形态） | catalog §4 风险 8（[:1106](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1106)）；表达式树 lambda 不可能含赋值，纯引号引用不需要 holder |
 | D12 | 静态 lambda / 无捕获 | 含 `static` 修饰或经分析无捕获的 lambda：不产生任何 holder（其体自然不在任何站点表内） | C45 时映射为静态命名方法；本期无作业 |
 | D13 | async lambda | 体的可变变量照常提升（holder 改写与 await 无关，C# 语义保持）；不拒绝、不生成状态机 | C18 负责 async 语义；holder 先显式化正是 C18 的前置条件（catalog C45 行） |
-| D14 | 匿名方法 / 局部函数 | 匿名方法应由 E05（`delegate` pass，默认开）先降为 lambda；残余 `AnonymousMethodExpressionSyntax` → CS2J3203。局部函数应由 E02（默认开）提升为私有方法；提升后方法体内的 lambda 按普通方法体处理；残余局部函数与其外层的跨边界捕获 → CS2J3204 | E02/E05 都在链上且先于本 pass（[PassCatalog.cs:45-89](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L45-L89)）；残余属异常防线 |
+| D14 | 匿名方法 / 局部函数 | 匿名方法应由 E05（`delegate` pass，默认开）先降为 lambda；残余 `AnonymousMethodExpressionSyntax` → CS2J3203。局部函数应由 E02（默认开）提升为私有方法；提升后方法体内的 lambda 按普通方法体处理；残余局部函数与其外层的跨边界捕获 → CS2J3204 | E02/E05 都在链上且先于本 pass（[PassCatalog.cs:47-91](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L47-L91)）；残余属异常防线 |
 | D15 | 指针/ErrorType/dynamic | 指针类型变量被 lambda 捕获本就是基线编译错误（镜像 E02 `IsUnsupportedCaptureType`，[LocalFunctionLiftAnalyzer.cs:787-797](file:///d:/code/cs2j/src/CSharpToJava.Core/LocalFunctionLift/LocalFunctionLiftAnalyzer.cs#L787-L797)）→ CS2J3205 防御诊断；符号解析失败/ErrorType → CS2J3202；dynamic 正常可分析，不特殊处理 | 无法等价表达时显式报错，禁止注释/占位（catalog 第一原则） |
 | D16 | 字段/属性初始化器内 lambda | 无方法体宿主放置 holder 实例，v1 CS2J3204 跳过并报码 | Roslyn 自身为此生成 display class；形态留给 C45，M1 审计先量命中率 |
 
@@ -87,8 +87,8 @@ catalog 四次补全已定调（[preprocessor-catalog.md:640-651](file:///d:/cod
 | 新建 | [Adapters/ClosureLiftPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters) | 仿 [LocalFunctionLiftPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/LocalFunctionLiftPassAdapter.cs)：整树语义、verify build/test、residual 闸门（§5） |
 | 改 | [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) | 删除 closure-lift 条目；**保留 `Ids.ClosureLift` 常量**（PassCatalog/排序边/其他 stub 引用） |
 | 改 | [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | `Implemented` 表在 make-readonly 之后、iterator-lowering 之前插入 descriptor：Status=Implemented、`defaultEnabled:false`（M3 门槛后再议翻 true）、verifyBuild/Tests=true、runAfterIds=`["ref-out-in"]`、catalogItems=`"C32"`、无支撑库；**同时给 iterator-lowering 的 runAfterIds 追加 `PassStubCatalog.Ids.ClosureLift`**（拓扑锁死 closure→iterator） |
-| 改 | [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) | `CreateAdapter` switch 加 `PassStubCatalog.Ids.ClosureLift => new ClosureLiftPassAdapter(...)`；`BuildLegacyToggles` 加 `[ClosureLift] = false`（仿 iterator [:77](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L77)，无 legacy 开关，仅通用 `--enable-pass`） |
-| 改 | [PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) | `Assert.Equal(23, …)` → 22；`Assert.Contains(ClosureLift,…)` 删除；两处 CS2J9001/启用计划用例（:65、:92）改用仍为 stub 的 id（建议 `async-normalize`——它同样语义默认关且无副作用） |
+| 改 | [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) | `CreateAdapter` switch 加 `PassStubCatalog.Ids.ClosureLift => new ClosureLiftPassAdapter(...)`；`BuildLegacyToggles` 加 `[ClosureLift] = false`（仿 iterator [:81](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L81)，无 legacy 开关，仅通用 `--enable-pass`） |
+| 改 | [PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) | （计数断言已不存在：`Assert.Equal(23,…)` 在 C03 翻转时删除；现树 21 条 stub，本 pass 翻后 20 条，无计数断言需改）两处 ClosureLift 靶子用例（启用计划 :57-69、CS2J9001 :71-105，靶子行 :63、:91）改用仍为 stub 的 id（建议 `async-normalize`——它同样语义默认关且无副作用） |
 | 新建 | `tests/.../Preprocessing/ClosureLiftOrderingTests.cs` | 全序断言：`index(ref-out-in) < index(closure-lift) < index(iterator-lowering) < index(eliminate-goto)`；默认计划不含 closure-lift；全启用计划含且相邻关系成立 |
 | 不改 | Program.cs / 指纹 / 保留目录 | 通用链 descriptor 驱动，目录集合经执行结果自动回填；指纹令牌按注册表全集 `pass:<id>=on/off` 自动纳入；无支撑库、不重指指纹源 |
 
@@ -321,7 +321,7 @@ internal interface IClosureLiftStage
 
 1. 基线优先：整树先取编译诊断快照；Roslyn 已拒绝的形态（匿名方法在 E05 之后不应存在、指针捕获、using 变量赋值等）属用户源码错误，不重复报、不兜底。
 2. 本 pass 只对「基线没拦住、但本 pass 不能安全改写」的形态发 CS2J32xx（§4.7）；strict 下任何 Error 令本次 pass 失败、文件原样保留（树仍可编译），verify build 不会被坏树污染。
-3. 禁止注释/占位/原样透传（catalog §4 第一原则，[:931](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931)）：不得发 `/* TODO capture */`，不得只改一半站点（站点表不全 = CS2J3202，不改）。
+3. 禁止注释/占位/原样透传（catalog §4 第一原则，[:1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110)）：不得发 `/* TODO capture */`，不得只改一半站点（站点表不全 = CS2J3202，不改）。
 4. 每条诊断带文件/行号/成员名/符号名/TriggerReason，AuditOnly 报告同时输出「若改写将生成的类名/字段名」，供 M1 评审命中率。
 5. 转换器侧既有 fail-fast（async lambda、lambda ref 参数等）保持不变，是默认关期与直连管线的安全网。
 
@@ -381,7 +381,7 @@ internal interface IClosureLiftStage
 3. csharp-sdk（D:\csharp-sdk）画像：AuditOnly 报告成文——命中文件数/符号数/原因分桶/foreach 占比/CS2J3201-3206 命中数；开启后基线 build/test 不退化、无新增 CS2J32xx Error；holder 分配增量在可接受范围（审计给数据，门槛评审定阈值）。
 4. residual 闸门在 sdk 中间树为 0（除显式登记的 skip 诊断且全部 Warning 级有主）。
 5. 与 C04 联合开关（closure-lift + iterator-lowering 同开）在含「lambda 内 foreach-yield」交界 fixture 上绿；与 E02/E05 默认链任意组合幂等。
-6. 默认关至少稳定一个里程碑窗口，再评审翻默认开；不重蹈「长期 opt-in 多套事实标准」（catalog 风险 10，[:929](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L929)）。
+6. 默认关至少稳定一个里程碑窗口，再评审翻默认开；不重蹈「长期 opt-in 多套事实标准」（catalog 风险 10，[:1108](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1108)）。
 
 ## 9. 里程碑
 
@@ -411,10 +411,10 @@ internal interface IClosureLiftStage
 2. **E02（资产复用不复制）**：M2 提取 `Analysis/CaptureClassification.cs` 是硬纪律；E02 gate/命名表/skip 原因不外借；E02 测试是提取的零行为回归门。E02 提升后的私有方法是 C32 的正常分析根（7.1-17）。
 3. **E05（前置）**：匿名方法→lambda 已默认在链；C32 只消费 lambda，CS2J3203 是防线不是常态。
 4. **C04 iterator-lowering（下游，已落地）**：现状锚 `make-readonly`；本 pass 翻转时**补边** `iterator-lowering.RunAfter += closure-lift`（§3.2），锁死「捕获先显式、状态机后保存」；默认关期 C04 自承 `_cs2jCap_` 字段，两形态不相遇；同开时共跑交界 fixture。
-5. **C18 async-normalize（下游 stub）**：其 RunAfter 已含 closure-lift（[PassStubCatalog.cs:236](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L236)），翻转时无需改拓扑；async lambda 内 holder（D13）是其前置输入。
+5. **C18 async-normalize（下游 stub）**：其 RunAfter 已含 closure-lift（[PassStubCatalog.cs:214](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L214)），翻转时无需改拓扑；async lambda 内 holder（D13）是其前置输入。
 6. **C45（同 pass 超集）**：严格按 §3.4/§4.8 接口接阶段；同日设计引用本文件命名/形状/诊断段，不另起 id、不另建目录。
 7. **C26/C25（表达式树/dynamic 共享判定）**：[ExpressionTreeFacts.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs) 已在主树（`Analysis/`，C02 提取，base `953293b9` 已存在），C32 直接引用；C25 设计的 `DynamicSiteFacts` 落地后本 pass 不重复 dynamic 判定（dynamic 站点本就可经 SemanticModel 分析，D15）。
-8. **member-desugar（stub）**：RunAfter 已含 closure-lift；访问器内 lambda 的 holder 宿主在成员去糖前后都是类型成员，无文本冲突预期，仅注册表热文件协同（见风险 4）。
+8. **member-desugar（已翻转为 Implemented，默认关）**：RunAfter 仍含 closure-lift（[PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)）；访问器内 lambda 的 holder 宿主在成员去糖前后都是类型成员，无文本冲突预期，仅注册表热文件协同（见风险 4）。
 9. **热文件清单**（冲突只允许在这些点）：[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)（删一条）、[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)（加一条 + iterator 边）、[PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)（case + toggle 两行）、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs)（计数与靶子）；新增 Core/适配器/测试文件均为本 pass 独占，与所有在途 worktree 不重叠。
 
 ## 12. Worktree 分配（只写不执行；本设计文档在主工作区编写）
@@ -434,8 +434,23 @@ git worktree add .worktrees/preproc-c32-capture-lift -b feature/preproc-c32-capt
 
 ## 附：关键证据索引
 
-- catalog：[preprocessor-catalog.md:640-651](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L640-L651)（C32）、[:810-821](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L810-L821)（C45）、[:898-915](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L898-L915)（§3.3 族表）、[:918-939](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L918-L939)（风险 8 等）
+- catalog：[preprocessor-catalog.md:708-720](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L708-L720)（C32）、[:895-908](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L895-L908)（C45）、[:1076-1093](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1076-L1093)（§3.3 族表）、[:1097-1119](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1097-L1119)（风险 8 等）
 - 注册表/链：[PassStubCatalog.cs:152-161](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L152-L161)、[PassCatalog.cs:196-215](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L196-L215)、[PassChainFactory.cs:60-80](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L60-L80)、[PassRegistry.cs:95-133](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L95-L133)
 - 转换器现状：[StatementTransformer.cs:68-89](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L68-L89)、[:124-143](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L124-L143)、[StatementTransformer.Utilities.cs:120-255](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Utilities.cs#L120-L255)、[StatementTransformer.Declarations.cs:66-77](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Declarations.cs#L66-L77)、[StatementTransformer.Loops.cs:57-66](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Loops.cs#L57-L66)、[:142-153](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Loops.cs#L142-L153)、[MethodConversionState.cs:310-555](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/MethodConversionState.cs#L310-L555)、[LambdaTransformer.cs:38-100](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LambdaTransformer.cs#L38-L100)、[:160-201](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LambdaTransformer.cs#L160-L201)、[:228-274](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LambdaTransformer.cs#L228-L274)、[IdentifierExpressionTransformer.cs:45-54](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs#L45-L54)、[ArgumentTransformer.Ref.cs:139-140](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Ref.cs#L139-L140)
 - E02 资产：[LocalFunctionLiftAnalyzer.cs:405-529](file:///d:/code/cs2j/src/CSharpToJava.Core/LocalFunctionLift/LocalFunctionLiftAnalyzer.cs#L405-L529)、[:531-583](file:///d:/code/cs2j/src/CSharpToJava.Core/LocalFunctionLift/LocalFunctionLiftAnalyzer.cs#L531-L583)、[:952-988](file:///d:/code/cs2j/src/CSharpToJava.Core/LocalFunctionLift/LocalFunctionLiftAnalyzer.cs#L952-L988)、[LocalFunctionLiftNaming.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LocalFunctionLift/LocalFunctionLiftNaming.cs)、[LocalFunctionLiftPassAdapter.cs:74-136](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/LocalFunctionLiftPassAdapter.cs#L74-L136)
 - 共享/姊妹：[ExpressionTreeFacts.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs)、[2026-09-28-c04-iterator-lowering-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c04-iterator-lowering-design.md)、[2026-09-28-c01-ref-out-in-completion-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c01-ref-out-in-completion-design.md)、[preprocessor-foundation_plan.md:77-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L77-L117)
+
+---
+
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（散见决策表/里程碑门的悬置项，按主题收口）：**
+
+1. **holder 命名契约冻结**：holder 类名 **`Cs2jDisplayClass_<member>_<n>`**、实例 `__cs2jClosureN`、字段 **`_cs2jCap_<x>`** 即 **C45 display class 命名的严格子集**——C45 阶段扩展（`_cs2jThis`/`Lambda_n`/嵌套链）只增不改，C32 产物在 C45 落地后字节断言不失效（D2 零返工）；命名一律走 E02 跨文件命名表防撞，不另起序号空间。
+2. **CaptureClassification 单一实现**：**M2 硬纪律 = 先从 E02 提取唯一的 `Analysis/CaptureClassification`**（含写站点保守并集口径），E02 改为消费方且其测试先绿，再开 holder 重写；全仓禁止第二份捕获分类口径（C45 后续同样只查不改）。
+3. **默认关窗口**：M2 翻转后**默认关至少稳定一个里程碑窗口**，再随 §8 六门槛评审翻默认开；不重蹈长期 opt-in 多事实标准，但也不在 M2 同批抢翻。
+4. **链序**：翻转时补边 **`iterator-lowering` RunAfter `closure-lift`**（捕获先显式、状态机后保存）；C18/member-desugar 的 RunAfter 已含本 pass，翻转 PR 以拓扑双边断言锁定，不靠 Kahn 兜底巧合。
+5. **数组形态（SingleElementArray）**：仅作对照选项保留单测，默认路径唯一为类形态；`"末次写先于首个捕获点则不提升"` 等过提升精化本期不做，须 AuditOnly 画像数据支持再议。
+6. **转换器边界**：本 pass 一行不改转换器；旧 holder 机制删除是默认开之后的独立 PR，直连管线 fail-fast 与旧测试保留到那时。

@@ -1,10 +1,11 @@
 # C27 record `with` / init / required 补充去糖（member-desugar Records 规则）设计
 
 **日期**: 2026-09-29
-**范围**: 在 C11 Property 锚点任务合入后的 `member-desugar` 族 pass 下新增 **Records 规则集**（Core `MemberDesugar/Records/`）：把 `with` 表达式改写为「克隆工厂/值拷贝 + 成员赋值」的可编译 C#，补齐 record 位置参数成员的去糖、record 面上 init/required 收尾；本任务**不新增 pass、不注册/翻转 stub、不改 RunAfterIds、不改 C#→Java 转换器代码**
-**状态**: 设计待评审；实现硬前置 C11 锚点分支合入（base 见 §12）
-**Catalog**: C27（P3，分类 1.4/1.2）[preprocessor-catalog.md L579-L588](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L579-L588)；族归属「成员去糖」（[§3.3 L904](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L904-L904)）；横切约束（改名通道必须基于全编译 SemanticModel，[L896](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L896-L896)）、风险 7 反射/字符串契约（[L926](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L926-L926)）、风险 8 表达式树（[L927](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L927-L927)）、风险 9 Lowering 非资产（[L928](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L928-L928)）、风险 12 禁止静默错误输出（[L931](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931)）
-**注册表现状**: `member-desugar` 已登记为 stub——[PassStubCatalog.cs L192-L201](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L192-L201)，Stage=`Declarative`，RunAfter=`{struct-value-semantics, closure-lift}`，目录 `.cs2j-member-desugar-src`，`catalogItems="C11, C12, C13, C14, C27, C39, C46"`，默认关。**C27 的 catalogItems 占位已在，无需改注册表结构**；stub 翻转与族基建由 C11 完成，C27 只在翻转后的族 pass 内追加 `Records/` 规则
+**校订（2026-09-29）**: 按当前磁盘证据逐条核对、手术式修订，改动枚举：① catalog 行号全部重算——C27 条目实为 [L637-L648](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L637-L648)、§3.3「成员去糖」族行 [L1082](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1082-L1082)、横切约束 [L1072-L1074](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1072-L1074)、风险 7-12 为 [L1105-L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1105-L1110)；② **member-desugar stub 已由 C11 翻转，C11-C14 均已落地**（[PassCatalog.cs L230-L241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241) Implemented、`catalogItems="C11"`；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 现 21 个 stub、已无 member-desugar 条目；`MemberDesugar/` 下 Properties/Indexers/Events/Operators 四规则目录在盘），注册表叙述按真值改写，C27 开工不再有「等锚点分支合入」前置；③ member-desugar 对 with/init/required 覆盖实判：**with 未覆盖**（[PropertyRule.cs L287-L293](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L287-L293) 对 with 内属性赋值显式判 CS2J5124 跳过）、**init 已覆盖（属性面）**（[PropertyDeclarationRewriter.cs L110-L123](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyDeclarationRewriter.cs#L110-L123)，CS2J5120）、**required 部分覆盖**（仅属性面，CS2J5121；字段 required 与 `[SetsRequiredMembers]` 全 src 零处理）、位置 record 属性 CS2J5123 显式跳过（[PropertyRule.cs L64-L69/L257-L259](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L64-L69)）；④ `MemberDesugarKind` 枚举实位 [MemberDesugarPlan.cs L6-L13](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarPlan.cs#L6-L13)（非 MemberDesugarRules.cs），规则发现机制已定为程序集扫描 `[MemberDesugarRule]`（[MemberDesugarRules.cs L10-L35](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarRules.cs#L10-L35)）；⑤ E11 链位行号（[PassCatalog.cs L179-L187](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L179-L187)）、E11 单测 with 断言数（实测 45 行含 `with {`、其中 42 行为断言，非「约 28 处」）等行号/数字订正；⑥ tests/ 现无任何 Record*With*/Init*/Required* 专项测试文件（以当前磁盘为准，本任务测试均为新增）；src 与 java/csharptojava-compat grep `RequiredMember`/`IsExternalInit`/`SetsRequiredMembers` **零命中**（compat 无对应支撑，本特性也不需要支撑库）；⑦ 删除仓内不存在的本地 `file:///d:/code/cs2j/dotnet/.../record` 链接，换官方 URL；⑧ 官方语义复核：CS8858/CS8859/CS8868/CS8878 码号无误；复制 ctor 仅在 record 存在 required 成员时带 `[SetsRequiredMembers]`（决策 7 措辞收紧）；位置 record 参数不可加 `required`（官方 required 关键字文档确认）。本次仅改本文档，未碰任何代码与测试。
+**范围**: 在已落地的 `member-desugar` 族 pass 下新增 **Records 规则集**（Core `MemberDesugar/Records/`）：把 `with` 表达式改写为「克隆工厂/值拷贝 + 成员赋值」的可编译 C#，补齐 record 位置参数成员的去糖、record 面上 init/required 收尾；本任务**不新增 pass、不注册/翻转 stub、不改 RunAfterIds、不改 C#→Java 转换器代码**
+**状态**: 设计待评审；原硬前置 C11 锚点**已合入主干**（C11-C14 已 Implemented、默认关），C27 直接在已落地的 `MemberDesugar/` 骨架上加 `Records/`（分支 base 见 §12）
+**Catalog**: C27（P3，分类 1.4/1.2）[preprocessor-catalog.md L637-L648](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L637-L648)；族归属「成员去糖」（[§3.3 L1082](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1082-L1082)）；横切约束（改名通道必须基于全编译 SemanticModel，[L1072-L1074](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1072-L1074)）、风险 7 反射/字符串契约（[L1105](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1105-L1105)）、风险 8 表达式树（[L1106](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1106-L1106)）、风险 9 Lowering 非资产（[L1107](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1107-L1107)）、风险 12 禁止静默错误输出（[L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)）
+**注册表现状（2026-09-29 核实）**: `member-desugar` **已从 stub 翻转为 Implemented**——[PassCatalog.cs L230-L241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)，Stage=`Declarative`，RunAfter=`{struct-value-semantics, closure-lift}`（[L237](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L237-L237)，二者仍是 stub），目录 `.cs2j-member-desugar-src`，**`catalogItems="C11"`（[L241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L241-L241)）**，`PassIds.MemberDesugar` 常量在 [PassCatalog.cs L25](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L25-L25)，默认关；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 现存 **21 个** stub，已无 member-desugar 条目（翻转先例 iterator-lowering：id 常量留 [PassStubCatalog.Ids L32](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L32-L32)、在 PassCatalog 注册为 Implemented；member-desugar 因翻转时无其它 RunAfter 引用，其 Ids 常量已按 C11 翻转清单删除）。**C27 无需改注册表结构**：合入时仅把 L241 字符串按 C11 §3.3-10 约定追加为 `"C11, C27"`（一行），C27 只在族 pass 内追加 `Records/` 规则
 
 ---
 
@@ -33,21 +34,33 @@ C# 语义对照（设计依据，[Microsoft Learn: with expression](https://lear
 
 ### 1.2 init / required 在转换器侧没有系统处理
 
-- init：[PropertyTransformer.cs:21](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L21-L21) 把 `InitAccessorDeclaration` 与 set 同槽处理；[L73-L74](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L73-L74) 仅追加一条 doc 注释。Java 侧无 init 强制，外部写入在 Java 产物中无任何防护。
-- required：**全转换器零处理**——`Transformers/` 目录 grep `IsRequired|SetsRequiredMembers|RequiredKeyword` 无任何业务命中（仅英文散文）。`required` 成员漏初始化是纯编译期错误，漏过转换器即静默。
-- record 声明侧：[RecordTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs) 现 570 行，[L25-L59](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L25-L59) 的形态分派（record struct→可变类、abstract→不可变类、有额外实例成员→不可变类、否则 Java record）决定了下游路径；位置参数 getter 在 [L248-L258](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L248-L258) 单独发；**从不发射复制构造函数**，因此即便表达式侧想调用克隆也没有 Java 侧目标。Equals/GetHashCode/PrintMembers/Deconstruct 由转换器既有路径处理，**不在本条**。
-- Lowering/ 目录**无任何 with/init/required 实验**（已 grep 核实）；按 [catalog §4 风险 9](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L928-L928)，本设计只借形态、不共用 Lowering 代码。
+- init（转换器侧）：[PropertyTransformer.cs:21](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L21-L21) 把 `InitAccessorDeclaration` 与 set 同槽处理；[L73-L74](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/PropertyTransformer.cs#L73-L74) 仅追加一条 doc 注释。Java 侧无 init 强制，外部写入在 Java 产物中无任何防护。
+- required（转换器侧）：**全转换器零处理**——`Transformers/` 目录 grep `IsRequired|SetsRequiredMembers|RequiredKeyword|IsExternalInit` 无任何业务命中。`required` 成员漏初始化是纯编译期错误，漏过转换器即静默。
+- record 声明侧：[RecordTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs) 现 570 行，[L25-L59](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L25-L59) 的形态分派（record struct→可变类、abstract→不可变类、有额外实例成员→不可变类、否则 Java record）决定了下游路径；位置参数 getter 在 [L248-L258](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L248-L258) 单独发；immutable-class 形态只在 [L223-L245](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L223-L245) 发一个主构造（含 `super(...)`），**从不发射复制构造函数**（全文件无 copy/original 命中），因此即便表达式侧想调用克隆也没有 Java 侧目标。Equals/GetHashCode/PrintMembers/Deconstruct 由转换器既有路径处理，**不在本条**。
+- Lowering/ 目录**无任何 with/init/required 实验**（12 个文件 grep `WithExpression|IsExternalInit|RequiredMember|record` 零命中，已核实）；按 [catalog §4 风险 9](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1107-L1107)，本设计只借形态、不共用 Lowering 代码。
+
+**member-desugar（C11-C14，已 Implemented）覆盖现状（2026-09-29 grep 实判，结论：with 未覆盖 / init 已覆盖（属性面）/ required 部分覆盖）**：
+
+| 面 | 结论 | 磁盘证据 |
+|---|---|---|
+| `with` 表达式 | **未覆盖** | 全 `MemberDesugar/` 无任何 WithExpressionSyntax 重写；C11 反而把「with 初始化器内的属性赋值」显式判失败跳过 CS2J5124（[PropertyRule.cs L287-L293](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L287-L293)，文案 [PropertyDiagnostics.cs L38-L40](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyDiagnostics.cs#L38-L40) 「C27 prerequisite missing」），被引用属性的整个 plan 原子不动 |
+| 位置 record 参数属性 | **未覆盖（显式留白给 C27）** | CS2J5123 两处闸门：参数表扫描 [PropertyRule.cs L64-L69](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L64-L69)、声明判定 [L257-L259](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L257-L259)（`IsPositionalRecordProperty`），文案 [PropertyDiagnostics.cs L34-L36](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyDiagnostics.cs#L34-L36) 点名「left to RecordTransformer; C27」 |
+| init（属性） | **已覆盖** | [PropertyFacts.cs L22-L24](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyFacts.cs#L22-L24) 识别 init；[PropertyDeclarationRewriter.cs L110-L113/L122](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyDeclarationRewriter.cs#L110-L122) 放宽为普通 set 方法并计 CS2J5120 Info（统计 `InitAccessorsWidened`）；C12 索引器另有 CS2J5132 |
+| required（属性） | **已覆盖** | [PropertyFacts.cs L26-L28](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyFacts.cs#L26-L28) 识别 required 关键字；[PropertyDeclarationRewriter.cs L115-L121/L123](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyDeclarationRewriter.cs#L115-L123) 不传修饰并计 CS2J5121 Info（`RequiredConstraintsDropped`） |
+| required（**字段**） | **未覆盖** | 全 `MemberDesugar/` 仅 [AccessorsToMethods.cs L60](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/AccessorsToMethods.cs#L60-L60) 在属性改写时过滤 RequiredKeyword；无字段声明规则认领 `required int F;`（E11 [DeclarationRewriter.cs L203-L204](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/DeclarationRewriter.cs#L203-L204) 是**生产方**） |
+| `[SetsRequiredMembers]` | **未覆盖** | 全 `src/` grep 零命中（无剥离、无识别）；java/csharptojava-compat 同样零命中 |
+| init/required 的 Java/compat 支撑 | **无、也不需要** | `IsExternalInit`/`RequiredMemberAttribute` 在 src 与 compat 全树零命中；二者纯编译期约束，决策 13 支撑库为「无」与此一致 |
 
 ### 1.3 E11 只读化是 `with` 表达式的增量生产方
 
-E11 record-readonly（已实现、默认关，链位 [PassCatalog.cs:166-173](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L166-L173)，RunAfter=`generic`，Declarative 阶段早于 member-desugar）把大量变异点改写为 `with`：
+E11 record-readonly（已实现、默认关，链位 [PassCatalog.cs L179-L187](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L179-L187)，RunAfter=`generic`（[L186](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L186-L186)），Declarative 阶段早于 member-desugar）把大量变异点改写为 `with`：
 
-- 站点重写器直接拼 `recv with { M = … }`：[MutationSiteRewriter.cs:873-880](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/MutationSiteRewriter.cs#L873-L880)；其单测约 28 处断言锁定 `with {` 产物（[RecordReadOnlyRewriterUnitTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/RecordReadOnlyRewriterUnitTests.cs)，含嵌套链 `a = a with { B = a.B with { C = 8 } }`、数组元素、span、lambda、空条件赋值）。
-- mutating 方法迁移出口合成 `return this with { … }`；接口 ripple 合成 `WithXxx` 方法，方法体仍是 `this with { … }`（E11 设计 MM-4/IR-3，[record-readonly-design L160/L187-L188](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-24-record-readonly-preprocessor-design.md#L160-L188)）。
-- E11 声明侧还会**制造** init/required：[DeclarationRewriter.cs:203-213](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/DeclarationRewriter.cs#L203-L213)（字段提升属性时加 `required` 与 init 访问器）、[RecordConversionPlan.cs:319/332](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/RecordConversionPlan.cs#L319-L332)（SetToInit / FieldToInitProperty）。
+- 站点重写器直接拼 `recv with { M = … }`：[MutationSiteRewriter.cs L873-L880](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/MutationSiteRewriter.cs#L873-L880)；其单测实测 **45 行含 `with {`（其中 42 行为断言）**锁定 `with {` 产物（[RecordReadOnlyRewriterUnitTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/RecordReadOnlyRewriterUnitTests.cs)，含嵌套链 `a = a with { B = a.B with { C = 8 } }`（L1014）、数组元素、span、lambda、空条件赋值、`WithP__cs2j` 接口 ripple（L2354））。
+- mutating 方法迁移出口合成 `return this with { … }`（MM-4）；接口 ripple 合成 `WithXxx` 方法，方法体仍是 `this with { … }`（E11 设计 MM-4 / IR-2，[record-readonly-design L160](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-24-record-readonly-preprocessor-design.md#L160-L160) 与 [L187-L188](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-24-record-readonly-preprocessor-design.md#L187-L188)；IR-3 非 record 实现者补齐在 [L189](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-24-record-readonly-preprocessor-design.md#L189-L189)）。
+- E11 声明侧还会**制造** init/required：[DeclarationRewriter.cs L203-L213](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/DeclarationRewriter.cs#L203-L213)（字段提升属性时加 `required`（L203-L204）与 init 访问器（L209-L213））、[RecordConversionPlan.cs L319/L332](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/RecordConversionPlan.cs#L319-L332)（SetToInit / FieldToInitProperty）。
 - E11 已明确登记边界 RC-10「私有/不可访问复制 ctor → FB-1」、MS-12「`with` 不动」、MS-17 嵌套链——**它只生产、不消费 with**。
 
-结论：C27 是 E11 产物的必然下游收口；E11 默认开启的可行性部分取决于 C27。C11 已在开放问题 4 点名本任务（[c11-design L369/L414](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L369-L414)），并以 CS2J5123（位置 record 参数属性）、CS2J5124（被 with 初始化器引用的属性）两条跳过码留白——**C27 落地即承接并退役这两个跳过面**。
+结论：C27 是 E11 产物的必然下游收口；E11 默认开启的可行性部分取决于 C27。C11 已在门槛第 10 条与开放问题 4 点名本任务（[c11-design L371/L416](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L371-L416)；跳过码定义 [L275-L276](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L275-L276)），并以 CS2J5123（位置 record 参数属性）、CS2J5124（被 with 初始化器引用的属性）两条跳过码留白——**C27 落地即承接并退役这两个跳过面**。
 
 ### 1.4 目标
 
@@ -64,8 +77,8 @@ E11 record-readonly（已实现、默认关，链位 [PassCatalog.cs:166-173](fi
 ### 1.5 硬不变式（与 C11/C13 族契约一致）
 
 1. 中间源码树预处理后永远可编译（整树重编译相对基线无新增 error）；record plan 为原子改写单位（声明 + 全部 with 站点全改或全不改）；
-2. 禁止注释/占位/半成品流入下游：无法等价表达即显式诊断并原子不动（[catalog §4 风险 12](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931)）；
-3. 一切站点判定来自全编译 SemanticModel（符号绑定，禁文本替换；[catalog §3 横切约束](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L896-L896)）；
+2. 禁止注释/占位/半成品流入下游：无法等价表达即显式诊断并原子不动（[catalog §4 风险 12](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)）；
+3. 一切站点判定来自全编译 SemanticModel（符号绑定，禁文本替换；[catalog §3.2 横切约束](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1072-L1074)）；
 4. 幂等：产物二次执行零 diff；干净文件字节级复制（含 BOM 保持）。
 
 ---
@@ -75,21 +88,21 @@ E11 record-readonly（已实现、默认关，链位 [PassCatalog.cs:166-173](fi
 | # | 决策点 | 结论 | 依据/备注 |
 |---|---|---|---|
 | 1 | record class `with` 总体形态 | 声明侧每 record 合成**源内可调用的虚克隆工厂**，使用点改写为「源表达式只求值一次 → 工厂调用 → 逐成员赋值」语句序列；空初始化器直接降为工厂调用表达式 | 编译器真实 lowering 即「虚 `<Clone>$`（体内 `new R(this)`）+ 初始化器」。`<Clone>$` 是源内非法标识符、`Clone` 被 CS8859 预留，故必须合成新名成员（决策 2）。外部站点不能直接调 protected 复制 ctor，public 工厂是唯一源内表达 |
-| 2 | 克隆工厂命名与防撞 | 固定基名 **`Cs2jWithClone`**；跨 record 预留表（复用 C11 BackingFieldNaming 预留机制）发现用户已占用同名时追加确定性后缀 `Cs2jWithClone__cs2j`（再撞再序号）；派生覆写名必须与基类一致，碰撞解析按继承链整体取同一结果名 | `__cs2j` 前缀/后缀为全仓惯例（GotoEliminator、E11 `With__cs2j` 等）。工厂结果名进入 plan 与统计，站点重写只按 plan 中的定名发射，禁运行时拼名 |
+| 2 | 克隆工厂命名与防撞 | 固定基名 **`Cs2jWithClone`**；跨 record 预留表（复用 C11 BackingFieldNaming 预留机制）发现用户已占用同名时追加确定性后缀（按裁决④统一命名规则为**单下划线**让位形 `Cs2jWithClone_cs2j`，再撞再序号；实现时若族命名收口 PR 尚未落地，临时沿用 E11/GotoEliminator 的 `__cs2j` 双下划线惯例 `Cs2jWithClone__cs2j` 并在收口 PR 统一改名——两形均不进 Java 侧硬编码）；派生覆写名必须与基类一致，碰撞解析按继承链整体取同一结果名 | `__cs2j` 前缀/后缀为现存全仓惯例（GotoEliminator、E11 `With__cs2j` 等），但 2026-09-29 裁决④收口为单下划线词表。工厂结果名进入 plan 与统计，站点重写只按 plan 中的定名发射，禁运行时拼名 |
 | 3 | 多态克隆：virtual clone vs switch 类型 | **采用虚工厂**：抽象 record 发 `public abstract R Cs2jWithClone();`；非密封具体 record 发 `public virtual R Cs2jWithClone() => new R(this);`；派生 record 发 `public override D Cs2jWithClone() => new D(this);`；**密封 record 发非虚普通方法**。**否决 switch-on-type**：它是闭世界假设，树外派生 record 不可枚举，会把 `Base b = new Derived(); b with {…}` 的运行时类型静默改为 Base，直接违反「结果与接收者同运行时类型」语言保证 | 工厂体内 `new R(this)` 调复制 ctor：编译器合成 ctor（protected，类型内可访问）或用户自定义 ctor（自动接管，定制复制语义零额外处理）；派生 ctor 由 C# 语言强制链基类复制 ctor（CS8868）。E11 RC-10「复制 ctor 不可访问」在本形态下结构性消解——工厂位于类型内部，可访问同类型任何可见性的复制 ctor；树外派生类型的残余洞见决策 4 |
 | 4 | 树外（metadata-only）record 的虚分派洞 | 分析器对每个含 with 站点的静态接收者类型枚举**编译内**派生 record：密封/抽象链完整→正常；非密封且编译引用中存在树外派生类型（或分析器不能证明闭包）→ 该 record plan 的相关 with 站点判 **CS2J5221 跳过**（strict Error），overrides.force 仅在用户书面接受「树外派生克隆退化为基类」时解除 | 虚方法对未覆写它的树外派生类会回落到最近树内基类工厂——这是向既有类型加虚成员的固有版本化问题，与 E11 IR-7/FB-3 的树外接口 ripple 同类。不偷偷 switch、不假装多态成立 |
 | 5 | record struct / struct / 元组 `with` | **不发工厂、不调 ctor**：`s with { X = e }` → `var __cs2j_wsrc = s; var __cs2j_wclone = __cs2j_wsrc; __cs2j_wclone.set_X(e);`（局部按值拷贝即语言规定的克隆语义；struct 隐式密封无多态问题）。字段成员直写字段，属性成员经 C11 set_X。空初始化器对变量接收者可消歧为接收者本身时仍保守发拷贝（防 ref 别名可观察差异） | readonly struct/readonly record struct 的克隆局部是**可变局部**，init 放宽后的普通 set 调用合法（决策 6）。E06 tuple pass 早于本 pass，元组多已为生成 struct；残余 `ValueTuple` 站点同路径（Item1 等为字段）。record struct 位置 reshape 特有项见决策 8b |
-| 6 | init-only 归宿 | **不保留 init、不引入任何「别的机制」**：与 C11 PD-3/决策 4 完全合流——record 位置/额外属性的 init 访问器在去糖树中一律为普通 set_X；record 面计数并入 C11 InitAccessorsWidened（CS2J5120 Info），C27 不另设码 | init 是纯编译期 ExternalInit/modreq 约束，C# 源内方法级无法表达，Java 侧也无强制；放宽只扩大「能编译的程序超集」，不改变任何原合法程序运行时行为。with 初始化器对 init 成员的赋值因此直接是 set_X 调用 |
-| 7 | required 归宿 | **移除约束 + 解除强制，不注入构造期校验，不并入 ctor 参数**：(a) 属性 required 随 C11 决策 5（关键字不传方法）；(b) C27 补 **record/struct 字段 required**（`required int F;`）——字段保留、去 `required` 修饰；(c) 移除源上的 `[SetsRequiredMembers]`（构造器/类型）用法；(d) 统一计数 RequiredConstraintsDropped（CS2J5121 Info，并入 C11 统计） | 否决「required → ctor 参数」：普通 class/struct DTO 无位置语法，改 ctor 签名会摧毁无参构造与对象初始化器/序列化生态；record 位置参数本身永不可 required（已被主构造赋值）。`[SetsRequiredMembers]` 仅编译器/分析器语义、无运行时行为，留着只会成为转换器侧未知注解。**with 不触发 required 强制**（复制 ctor 本就带 SetsRequiredMembers 语义、克隆复制全部 required 成员），with 站点只赋值被覆写成员 |
+| 6 | init-only 归宿 | **不保留 init、不引入任何「别的机制」**：与 C11 PD-3/决策 4 完全合流——record 位置/额外属性的 init 访问器在去糖树中一律为普通 set_X；record 面计数并入 C11 InitAccessorsWidened（CS2J5120 Info），C27 不另设码。**该路径 C11 已实现**（[PropertyFacts.cs L22-L24](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyFacts.cs#L22-L24) + [PropertyDeclarationRewriter.cs L110-L113](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyDeclarationRewriter.cs#L110-L113)），C27 只是让 record 位置属性进入同一路径 | init 是纯编译期 IsExternalInit/modreq 约束（全 src/compat grep `IsExternalInit` 零命中），C# 源内方法级无法表达，Java 侧也无强制；放宽只扩大「能编译的程序超集」，不改变任何原合法程序运行时行为。with 初始化器对 init 成员的赋值因此直接是 set_X 调用 |
+| 7 | required 归宿 | **移除约束 + 解除强制，不注入构造期校验，不并入 ctor 参数**：(a) 属性 required 随 C11 决策 5（关键字不传方法，**已实现**：[PropertyDeclarationRewriter.cs L115-L121](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyDeclarationRewriter.cs#L115-L121)）；(b) C27 补 **record/struct 字段 required**（`required int F;`）——字段保留、去 `required` 修饰；(c) 移除源上的 `[SetsRequiredMembers]`（构造器/类型）用法（**当前全 src 零处理，C27 新建**）；(d) 统一计数 RequiredConstraintsDropped（CS2J5121 Info，并入 C11 统计） | 否决「required → ctor 参数」：普通 class/struct DTO 无位置语法，改 ctor 签名会摧毁无参构造与对象初始化器/序列化生态；record 位置参数**语法上不可加 required**（官方 required 文档：「不能在 record 的位置参数声明上使用 required 修饰符」；但可为位置属性另写显式 required 属性声明——由 RC-3 显式成员路径覆盖）。`[SetsRequiredMembers]` 仅编译器/分析器语义、无运行时行为，留着只会成为转换器侧未知注解。**with 不触发 required 强制**：官方语义——合成复制 ctor **仅在 record 存在 required 成员时**带 `[SetsRequiredMembers]`，克隆复制全部成员、with 初始化器只赋值被覆写项；另注意官方链式规则「链到带 SetsRequiredMembers ctor 的 ctor 也必须带该特性」，reshape 显式主构造/复制 ctor 因 required 已整体移除而不受影响 |
 | 8a | 位置 record class reshape 形态 | **保留 `record` 关键字**，把参数表移入类型体：`record R(int X, int Y)` → 无参表 `record R { 显式属性 X/Y + 主构造 R(int x,int y) + 显式复制 ctor protected R(R o) + Deconstruct(out int x,out int y) + 克隆工厂 }`；属性随后在**同一 plan 的声明阶段直接降为终形**（后备字段 + get_X/set_X，复用 C11 AccessorsToMethods/BackingFieldNaming，不再产生 PropertyDeclarationSyntax 交给 Properties 规则二轮）；派生 `record D(int X,int B): Base(X)` 同形，主构造 `: base(x)`、复制 ctor `: base(o)` | 保留 record 即保留编译器合成的 Equals/GetHashCode/**PrintMembers**（按实例字段，显式自动属性的后备字段计入），不重造等值面；仅 **Deconstruct 是位置参数专属合成物**，须显式补发（签名按参数序 out）。主构造/复制 ctor/Deconstruct 的显式形态都是 C# 合法语法，整树重编译守门 |
-| 8b | 位置 record struct reshape 差异 | 同构但：位置属性是 get/**set**（非 init）；**必须补发无参构造函数**（record struct 编译器合成无参 ctor，去掉参数表即丢失）且 ctor 赋全部字段默认值；不发复制 ctor 与克隆工厂（决策 5）；Deconstruct 同样补发；其余 struct 约束（字段初始化器限制等）由整树编译守门 | record struct 语义清单见 [Learn: record](file:///d:/code/cs2j/dotnet/csharp/language-reference/builtin-types/record)：合成位置属性（可写）、主构造、无参 ctor、Deconstruct |
+| 8b | 位置 record struct reshape 差异 | 同构但：位置属性是 get/**set**（非 init）；**必须补发无参构造函数**（record struct 编译器合成无参 ctor，去掉参数表即丢失）且 ctor 赋全部字段默认值；不发复制 ctor 与克隆工厂（决策 5）；Deconstruct 同样补发；其余 struct 约束（字段初始化器限制等）由整树编译守门 | record struct 语义清单见官方文档 [Learn: record types](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/builtin-types/record)（2026-09-29 核：仓内无本地镜像，原 `file:///d:/code/cs2j/dotnet/...` 链接在盘不存在已删）：合成位置属性（可写）、主构造、无参 ctor、Deconstruct |
 | 8c | 位置 reshape 的 v1 闸门 | 出现以下任一形态的位置 record，整个 record plan 判 **CS2J5220 跳过**：① 字段初始化器或 record 体内语句**捕获主构造参数**（C#12 捕获语义，含 `private int _f = X;`，base 参数列表除外）；② 用户已声明同签名 Deconstruct/复制 ctor 但形态无法机械合并；③ 主构造参数与类型内既有成员/显式属性同名冲突无法按 C11 命名表消解。纯 DTO 形位置 record（绝大多数，含 `: base(a,b)`）完整支持 | 捕获参数迁移要把初始化器/体内语句搬进显式 ctor 体并保序，属可做但高风险的二期项；v1 宁假阳不漏改，命中率进 sdk 测量决定是否提前 |
 | 9 | with 初始化器语法面 | v1 支持：成员赋值 `X = e`（左值绑定 IPropertySymbol→set_X、IFieldSymbol→字段直写，按符号不按文本）、多成员、空初始化器、**嵌套 with**（内层 RHS 先提升：内层克隆/赋值语句先于外层 set，内外源接收者各只求值一次）。v1 不支持→CS2J5224 整站点跳过：嵌套对象初始化器 `X = { … }`、嵌套集合初始化器（`Add` 形态） | 嵌套 with 是 E11 MS-17 的标准产物（`a with { B = a.B with { C = 8 } }`），必须支持；`X = { … }` 语义是对克隆的既有成员实例做就地变异，可表达（`clone.get_X().set_Y(..)`）但罕见，先测量 |
 | 10 | 临时提升与不可提升上下文 | 与 C11 PD-8/决策 7 同一「单次求值临时提升」纪律：源接收者含副作用或非可重读表达式时先提升 `__cs2j_wsrc`；克隆体 `__cs2j_wclone`；语句插在最近可插入语句位置。字段初始化器、表达式体成员、特性实参、查询表达式等不可提升位置的 with → **CS2J5223** 原子跳过 | 不发「能编译、求值次数错」的程序；嵌套 with 的提升顺序在 plan 期算定（后序遍历），不靠运行时拼接 |
 | 11 | 表达式树 / dynamic / 非 record class / 匿名类型 | 表达式树 lambda 内 with→CS2J5226（合法 C# 本不允许，防御性兜底，共享判定工具）；dynamic 接收者→CS2J5227；静态类型为非 record 普通 class 的 with→CS2J5228（CS8858，合法输入不应出现，残余兜底）；**匿名类型 with→CS2J5225**，等 C21 提升为命名类型后再消缺，C27 不提前消费 | 与 C11 PD-11 跳过族同构：站点与声明同生同灭、必留诊断 |
-| 12 | 与 C24（初始化器归一）顺序 | member-desugar 在 **Declarative** 阶段先跑，expression-desugar（C23/C24/C35/C36，Expression 阶段）后跑：**required 与 with 初始化器在本族先归一**（with→语句序列；required 对象初始化器经 C11 PD-8→set 序列），C24 落地时面对的是普通语句 + 残余 `new C {…}` 一般形态，**不得引入 required/record 感知**；C24 对本族产物必须幂等 | 两 pass 分属不同 Stage，链序天然成立（[PassStubCatalog RunAfter 锚点](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L199-L199) 与 expression-desugar 锚点 NullCoalesce 无交叉）；C24 设计文档尚不存在，本约定作为给 C24 的前置契约登记 |
+| 12 | 与 C24（初始化器归一）顺序 | member-desugar 在 **Declarative** 阶段先跑，expression-desugar（C23/C24/C35/C36，Expression 阶段）后跑：**required 与 with 初始化器在本族先归一**（with→语句序列；required 对象初始化器经 C11 PD-8→set 序列），C24 落地时面对的是普通语句 + 残余 `new C {…}` 一般形态，**不得引入 required/record 感知**；C24 对本族产物必须幂等 | 两 pass 分属不同 Stage，链序天然成立（member-desugar RunAfter 锚点在 [PassCatalog.cs L237](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L237-L237)；expression-desugar 仍是 stub，锚点 NullCoalesce 在 [PassStubCatalog.cs L224](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L224-L224)，二者无交叉）；C24 设计文档尚不存在，本约定作为给 C24 的前置契约登记 |
 | 13 | 支撑库 | **无**：复制 ctor、值拷贝、普通方法/字段全是 BCL/C# 语言形态 | 无注入、无过滤、无指纹豁免成本 |
-| 14 | nameof/反射契约 | with/克隆不引入新名称引用面；reshape 后位置属性名 X 仍以 get_X/set_X/后备字段存在；绑定 record 成员的 nameof 由 C11 PD-9 字面量化规则统一处理。反射契约（`<Clone>$`/GetProperty/按名 JSON）沿用 E17 同款「反射不保证」限制声明 + overrides skip 名单 | [catalog §4 风险 7](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L926-L926)。去糖后编译器合成 `<Clone>$` 仍在（我们只是多加一个源内工厂），record 的反射等值面不变 |
+| 14 | nameof/反射契约 | with/克隆不引入新名称引用面；reshape 后位置属性名 X 仍以 get_X/set_X/后备字段存在；绑定 record 成员的 nameof 由 C11 PD-9 字面量化规则统一处理。反射契约（`<Clone>$`/GetProperty/按名 JSON）沿用 E17 同款「反射不保证」限制声明 + overrides skip 名单 | [catalog §4 风险 7](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1105-L1105)。去糖后编译器合成 `<Clone>$` 仍在（我们只是多加一个源内工厂），record 的反射等值面不变 |
 | 15 | 计划粒度与回退 | 每个 record **命名类型符号**一条 `RecordClonePlan`：含 reshape 决策、工厂定名、TouchedFiles（声明部件 + 该类型静态接收者的全部 with 站点文件）；struct/tuple 的 with 站点无声明侧改写，按接收者类型聚合为站点组 plan。含任一不可行站点 → 整 plan 原子不动；整树重编译新增错误经族迭代器归属/回退（机制随 C11） | 站点可能由 E11 新生成，plan 构建于「本 pass 运行时编译」，只看符号不看语法来源，因此 E11 产物与手写 with 同处理 |
 | 16 | 转换器代码 | 本特性 PR **不动**任何 `Transformers/` 代码；§5.4 Java 半区消费清单是默认开门禁，旧 with/record 特例删除留后续 PR | 与 C11/C13 同范式；直连单文件管线保留现有（错误）行为作安全网，红灯测试一行不改 |
 
@@ -99,30 +112,30 @@ E11 record-readonly（已实现、默认关，链位 [PassCatalog.cs:166-173](fi
 
 ### 3.1 归属 `member-desugar`，不新增 pass、不翻转 stub、不动 RunAfterIds
 
-- C27 没有自己的 descriptor/adapter/中间目录/CLI 开关。stub 翻转（[PassStubCatalog.cs:192-201](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L192-L201) 删除、PassCatalog 注册）由 C11 完成；C27 合入时该 pass 已 Implemented。
-- **Stage=Declarative、RunAfterIds=`{struct-value-semantics, closure-lift}` 全部沿用不动**；目录/指纹/保留目录/verify 全用族 pass 一份 `.cs2j-member-desugar-src`，不新增中间树环节（[catalog §4 风险 11](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L930-L930)）。
-- **CatalogItems 无需改结构**：stub 字符串已含 C27；C11 翻转时收窄为 `"C11"`（[c11-design §3.3-1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L96-L96)），C27 合入时按 C11 §3.3-10 约定**追加一行**为 `"C11, C27"`（若 C12-C14 已合入则按实际合入序追加，一次一行字符串冲突，属预期协调点）。
-- Records 规则开关只存在于族 options 内部子节（§5）；族 pass 默认关期间，C27 无任何端到端行为。
+- C27 没有自己的 descriptor/adapter/中间目录/CLI 开关。member-desugar **已由 C11 翻转为 Implemented**（[PassCatalog.cs L230-L241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)，翻转清单执行情况见 [c11-design §3.3](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L94-L108)）；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 中已无该条目（现 21 个 stub）。
+- **Stage=Declarative、RunAfterIds=`{struct-value-semantics, closure-lift}` 全部沿用不动**（[PassCatalog.cs L234/L237](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L234-L237)）；目录/指纹/保留目录/verify 全用族 pass 一份 `.cs2j-member-desugar-src`，不新增中间树环节（[catalog §4 风险 11](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1109-L1109)）。
+- **CatalogItems 只改一行**：现值 `"C11"`（[L241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L241-L241)，翻转时已按 [c11-design §3.3-1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L96-L96) 收窄）；C27 合入时按 C11 §3.3-10（[c11-design L108](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L108-L108)）约定**追加一行**为 `"C11, C27"`（C12-C14 已合入但 CatalogItems 未追加其编号——当前实测仅 `"C11"`，合入协调按当时真值一行处理）。**2026-09-30 勘误**：catalogItems 已对齐为 `"C11, C12, C13, C14"`，C27 合入时须在此真值上追加为 `"C11, C12, C13, C14, C27"`，勿回退 C12–C14。
+- Records 规则开关只以扁平属性存在于族 `MemberDesugarOptions`（§5）；族 pass 默认关期间（当前即默认关），C27 合入后仍无任何端到端行为，直到显式启用 member-desugar。
 
-### 3.2 对 C11 锚点的依赖与接缝请求
+### 3.2 对已落地族基建的接缝请求
 
-实施前先把 C11 分支合入 C27 分支（§12），在已落地的 `MemberDesugar/` 骨架上加 `Records/`。接缝需求（形态若与 C11 最终实现有出入，以锚点为准做同名适配）：
+C11-C14 已在主干落地，直接在既有 `MemberDesugar/` 骨架上加 `Records/`（§12）。对照磁盘后的接缝需求：
 
-1. `IMemberDesugarRule` 枚举需含 `Record` 一类——C11 草案枚举为 `Property/Indexer/Event/Operator/Signature`（[c11-design §4.5 L184](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L184-L184)）。`MemberDesugarKind.Record` 是本任务对**共享单文件** `MemberDesugarRules.cs` 的唯一一行追加请求（含规则发现顺序：Property 之后、其余之前，建议 `Order=5`）；C27 不改共享文件的任何既有行为。
-2. 复用：全编译符号索引与站点枚举、MemberPlan 基类（Id/Symbol/Outcome/TouchedFiles/OwnsTouch/Fail*）、BackingFieldNaming 跨规则预留表、AccessorsToMethods 修饰符/可访问性/显式接口骨架、MemberDesugarSyntaxFacts（RewriteAnnotation、表达式树/dynamic 判定、临时提升、FormatAndValidate 三候选）、整树 Analyze→Plan→逐文件 Rewrite→回退迭代器。
-3. Records 规则在同一文件内的执行次序约定：**声明侧 Records reshape 先于 Properties/Indexers 等声明规则**（reshape 直接产终形字段+方法，不产新属性语法，故与 Properties 规则无节点争抢）；**使用点侧重写顺序**：WithExpressionRewriter 先（with 站点展开为 set_X/字段赋值），Properties/Indexers 使用点规则随后只按符号绑定扫残余——去糖后 with 已不存在，两者不在同一语法节点上交集。该顺序通过规则 Order 与族执行器保证，不靠文件遍历巧合。
+1. `MemberDesugarKind` 枚举需含 `Record` 一类——**枚举实位是 [MemberDesugarPlan.cs L6-L13](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarPlan.cs#L6-L13)**（现值 `Property/Indexer/Event/Operator/Signature`，与 [c11-design §4.5 L186](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L186-L186) 一致；非原设计所写的 MemberDesugarRules.cs）。`MemberDesugarKind.Record` 是本任务对**共享文件 MemberDesugarPlan.cs** 的唯一一行追加请求；建议规则 Order=5。规则发现机制**已定为程序集扫描**（[MemberDesugarRules.cs L10-L35](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarRules.cs#L10-L35)：带 `[MemberDesugarRule(kind, order)]` 特性 + 无参构造 + 实现 `IMemberDesugarRule`，按 Kind/Order 排序），Records 规则类在独占目录内加特性即被发现，无需注册点热文件；C27 不改共享文件的任何既有行为。
+2. 复用（均已在盘）：全编译符号索引与站点枚举、[MemberDesugarPlan.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarPlan.cs) plan 基类（Id/Symbol/Outcome/TouchedFiles/OwnsTouch/Fail*）、[BackingFieldNaming.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/BackingFieldNaming.cs) 跨规则预留表、[AccessorsToMethods.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/AccessorsToMethods.cs) 修饰符/可访问性/显式接口骨架、[MemberDesugarSyntaxFacts.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarSyntaxFacts.cs)（RewriteAnnotation、表达式树/dynamic 判定、临时提升、FormatAndValidate 三候选）、整树 Analyze→Plan→逐文件 Rewrite→回退迭代器（[MemberDesugarPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/MemberDesugarPassAdapter.cs) 已自驱动文件环）。
+3. Records 规则在族内的执行次序约定：**声明侧 Records reshape 先于 Properties/Indexers 等声明规则**（reshape 直接产终形字段+方法，不产新属性语法，故与 Properties 规则无节点争抢）；**使用点侧重写顺序**：WithExpressionRewriter 先（with 站点展开为 set_X/字段赋值），Properties/Indexers 使用点规则随后只按符号绑定扫残余——去糖后 with 已不存在，两者不在同一语法节点上交集。该顺序通过规则 Order 与族执行器保证，不靠文件遍历巧合。
 
 ### 3.3 文件所有权
 
-| 文件/目录 | 所有任务 | C27 行为 |
+| 文件/目录 | 现状归属 | C27 行为 |
 |---|---|---|
-| PassStubCatalog.cs / PassCatalog.cs / PassChainFactory.cs / CliPreprocessChain.cs / Program.cs | **C11 独占** | 只读；仅在 C27 合入时按 C11 §3.3-10 改 CatalogItems 一行字符串（由当时合入者执行） |
-| `Adapters/MemberDesugarPassAdapter.cs` | **C11 独占** | 不改；统计段/options 子节/诊断经规则接缝汇入（与 C13 同模式） |
-| `MemberDesugar/` 根目录共享文件 | C11 所有，C27 只读复用 | **唯一例外**：`MemberDesugarRules.cs` 追加 `Record` 枚举值一行（§3.2-1）；命名/碰撞能力不足时由 C11 接受 PR 扩共享层，禁止在 `Records/` 复制 |
-| `MemberDesugar/Properties/**` | C11 独占 | 不改；退役 CS2J5123/5124 的方式是「Records plan 接管位置属性与 with 站点」，C11 跳过谓词需要能识别「已被 Records plan 认领」——通过 plan 归属/OwnsTouch 互斥实现，**不编辑 Properties 代码**（若 C11 实现未预留互斥挂点，则由锚点补一个 `IContestedSite` 式归属查询，属 C11 维护项） |
-| `MemberDesugar/Records/**` | **C27 独占** | 全部新增代码落此目录（含规则注册点） |
-| `Indexers/Events/Operators` | C12/C13/C14 | 不触碰 |
-| 测试/夹具 | 各自 | 共享 fixture 加 `Records*` 前缀文件（§7.2），不建第二套 sln（除非族 fixture 尚不存在） |
+| PassStubCatalog.cs / PassCatalog.cs / PassChainFactory.cs / CliPreprocessChain.cs / Program.cs | 注册表（C11 翻转已完成） | 只读；唯一改动是合入时把 [PassCatalog.cs L241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L241-L241) CatalogItems 改一行 `"C11, C27"`（按 C11 §3.3-10，由合入者执行） |
+| `Adapters/MemberDesugarPassAdapter.cs` | C11 建立、已落地 | 不改；统计段/扁平 options 属性/诊断经规则接缝汇入（C13/C14 已验证该模式：适配器 L281-L285 汇总各 residual 计数） |
+| `MemberDesugar/` 根目录共享文件 | C11-C14 共享，C27 只读复用 | **唯一例外**：[MemberDesugarPlan.cs L6-L13](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarPlan.cs#L6-L13) 枚举追加 `Record` 一行（§3.2-1，订正：不是 MemberDesugarRules.cs）；命名/碰撞能力不足时扩共享层，禁止在 `Records/` 复制 |
+| `MemberDesugar/Properties/**` | C11 独占（已落地） | 退役 CS2J5123/5124 需要既有三处闸门改认「已被 Records plan 认领」：[PropertyRule.cs L64-L69](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L64-L69)（参数表扫描）、[L257-L259](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L257-L259)（IsPositionalRecordProperty）、[L287-L293](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L287-L293)（with 祖先判定）。理想路径是在共享层加 plan 归属/OwnsTouch 互斥查询、Properties 只加一个「已被 Records 认领则不判失败」挂点；**C27 无法在独占目录内单独完成此挂点**，属必须与 C11 维护者协调的一行级改动（开放问题 6） |
+| `MemberDesugar/Records/**` | **C27 独占（新建）** | 全部新增代码落此目录；规则类标 `[MemberDesugarRule(MemberDesugarKind.Record, 5)]` 即被发现，无需独立注册文件 |
+| `Indexers/Events/Operators` | C12/C13/C14（均已落地） | 不触碰 |
+| 测试/夹具 | 各自 | 族 fixture [tests/SampleMemberDesugarSolution/](file:///d:/code/cs2j/tests/SampleMemberDesugarSolution/SampleMemberDesugarSolution.sln) **已存在**（Lib/App/Tests + sln，含 DtoSamples/InterfaceSamples 等），直接加 `Records*` 前缀夹具，不建第二套 sln |
 
 ### 3.4 硬不变式
 
@@ -147,8 +160,8 @@ E11 record-readonly（已实现、默认关，链位 [PassCatalog.cs:166-173](fi
 | `WithExpressionRewriter.cs` | **阶段二（使用点）**：只接受语义反查命中 plan 的 WithExpressionSyntax；record class→工厂调用 + 赋值序列；struct/tuple→值拷贝局部 + 赋值；空初始化器→纯工厂/纯拷贝；嵌套 with 递归后序提升；字段/属性按 IFieldSymbol/IPropertySymbol 分别发射直写/set_X；源接收者单次求值（决策 10）；不可提升上下文/不支持初始化器→交由 plan 期定案跳过，本文件不产出半成品 |
 | `RecordResidualScanner.cs` | 重写后整树扫描：WithExpressionSyntax 总数、按接收者 kind 分桶、克隆工厂覆盖率（每个被克隆的 record 都有同定名工厂）、位置参数表残留；与 skip plan 集合对账 |
 | `RecordDiagnostics.cs` | CS2J5210-5230 码位常量与消息模板（§6） |
-| `RecordRule.cs` | `IMemberDesugarRule` 实现（规则 id `"records"`，Kind=Record，Order=5）：贡献 plan 列表、挂两阶段 rewriter、统计段与摘要片段、OwnsTouch 归属、与 Properties 规则的站点认领互斥查询（§3.2-3） |
-| `RecordRuleRegistration.cs` | 位于独占目录内的注册点；发现机制（显式 Add vs 程序集扫描）由 C11 锚点定 |
+| `RecordRule.cs` | `IMemberDesugarRule` 实现（类标 `[MemberDesugarRule(MemberDesugarKind.Record, /*order*/5)]`，经既有程序集扫描自动发现，见 [MemberDesugarRules.cs L18-L35](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarRules.cs#L18-L35)）：贡献 plan 列表、挂两阶段 rewriter、统计段与摘要片段、OwnsTouch 归属、与 Properties 规则的站点认领互斥查询（§3.2-3） |
+| `RecordRuleRegistration.cs` | **可不建**：发现机制已定为程序集扫描（§3.2-1），规则类加特性即注册；若需要目录内组织说明/内部聚合，可留为同目录普通静态类，不含任何热文件注册 |
 
 编译构造沿用族标准（`CSharpParseOptions(LanguageVersion.Latest)` + 合成 global usings + `GetBasicReferences()` DLL、`allowUnsafe: true`）；分析只查询**当轮原始** SemanticModel。
 
@@ -225,7 +238,7 @@ E11 record-readonly（已实现、默认关，链位 [PassCatalog.cs:166-173](fi
 C27 **不改 Program.cs、不增适配器、不增开关/verb、不改注册表结构**，全部 CLI 面由 C11 建立的族适配器承载：
 
 1. **执行**：族适配器整树自驱动骨架（[ProjectPassAdapter.cs:79-108](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassAdapter.cs#L79-L108) PassExecutionContext + [ProjectPassRunner.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassRunner.cs) 阶段助手）；Records 规则不请求支撑库（决策 13）。
-2. **选项透传**：族 options 增 `rules.records` 子节（Strict/ReportInfo/SkipRecords/AllowMetadataDerivedCloneFallback），经通用 `preprocess --pass member-desugar` 与 convert-project 链到达规则，不新增 CLI 参数。
+2. **选项透传**：族 [MemberDesugarOptions L151-L169](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarModels.cs#L151-L169) 现为**扁平**类（SkipQualifiedNames/ForceQualifiedNames/Strict/ReportInfo/EventSubscriptionPolicy，规则特有项以扁平属性加在同一类上，C13 的 EventSubscriptionPolicy 即先例，**无 `rules.xxx` 子节机制**）；C27 沿用此惯例：record/with 站点的 skip/force 复用既有 SkipQualifiedNames（`Ns.Type`/`Ns.Type::Member`）与 ForceQualifiedNames，规则特有开关以一个扁平属性加入该类（如 `AllowMetadataDerivedCloneFallback`，对应 CS2J5221 force），经通用 `preprocess --pass member-desugar` 与 convert-project 链到达规则，不新增 CLI 参数。
 3. **统计汇入**：RecordWithStatistics 投影通用 5 字段进族统计；族摘要行追加 records 段，建议形如：
    `member-desugar: … records: <RecordPlans> reshaped, <WithSites> with-site(s) rewritten (<classClone>/<structCopy>/<nested>/<empty>), <CloneFactories> clone factor(ies), <PositionalReshaped> positional, <RequiredDropped>, <Skipped> skipped, <ResidualWith> residual`。
    特有计数：RecordClassPlans/RecordStructPlans/PositionalReshaped/CloneFactoriesSynthesized（abstract/virtual/override/sealed 分项）、WithSitesTotal/WithSitesClass/WithSitesStruct/WithSitesNested/WithSitesEmpty、FieldAssignments/PropertyAssignments、TemporariesPromoted、RequiredFieldDropped、SetsRequiredMembersRemoved、PlansSkipped（按码分桶）、ResidualWithCount。
@@ -236,7 +249,7 @@ C27 **不改 Program.cs、不增适配器、不增开关/verb、不改注册表�
 
 默认开启前逐项核实/补齐（缺则补转换器，不凭空假设；对齐 C11 §5.3/C13 §5.4 纪律）：
 
-1. **复制构造函数的 Java 发射**：去糖 record 的 `protected R(R original)`（及派生 `: base(original)` 链）经 ConstructorTransformer/ClassTransformer 必须产出同形 Java 构造（immutable-class 形态 [RecordTransformer.cs:155-275](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L155-L275) 现只发主构造，需补发复制构造）；这是克隆工厂 `new R(this)` 的 Java 侧目标，**无此前置则去糖 record 的 Java 产物不可编译**——列头号核查项。
+1. **复制构造函数的 Java 发射**：去糖 record 的 `protected R(R original)`（及派生 `: base(original)` 链）经 ConstructorTransformer/ClassTransformer 必须产出同形 Java 构造（immutable-class 形态方法 [CreateImmutableClass L155](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L155-L155) 现仅在 [L223-L245](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L223-L245) 发一个主构造含 `super(...)`，全文件无复制 ctor 发射，需补发）；这是克隆工厂 `new R(this)` 的 Java 侧目标，**无此前置则去糖 record 的 Java 产物不可编译**——列头号核查项。
 2. **克隆工厂识别**：`Cs2jWithClone()`（含 `__cs2j` 防撞后缀）经 MethodTransformer 按普通方法发射；其体内 `new R(this)` 与复制构造配对；abstract/override 修饰走现有虚方法分派（Java 万物虚，override 形态天然成立）。
 3. **with 使用点零特殊路径**：去糖树无 WithExpressionSyntax，[ControlFlowTransformer.cs:54/574-638](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L574-L638) 在预处理输入上证实不可达；[RecordTupleTests.cs:26-31](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/RecordTupleTests.cs#L26-L31) 的错误断言（`new R()` 丢覆写）改写为「去糖 C# → Java」断言，值必须保留（拷贝 + X=2）；旧分支删除留后续 PR。
 4. **位置 reshape 后的 record 形态**：无参数表、有额外字段/方法的 record 命中既有 immutable-class fallback（[L44-L58](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L44-L58)）；Deconstruct、get_X/set_X（C11 消费改造联动）、后备字段名经既有路径；record struct reshape 后走 CreateMutableRecordStruct（[L477](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/RecordTransformer.cs#L477-L477)），无参 ctor 不重复发。
@@ -247,7 +260,7 @@ C27 **不改 Program.cs、不增适配器、不增开关/verb、不改注册表�
 
 ## 6. 诊断策略
 
-Records 规则级诊断占 **CS2J52xx** 子段提案：C11 锚点登记表为 property 留 5110-5129、C12 5130-5149、C13 5150-5169、C14 5170-5189、C46 建议 5190-5199（[c11-design §4.5/§11](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L206-L206)）；**C27 提议 5200-5230**（C39 及以后顺延），最终码位表由 C11 锚点统一登记确认，调整仅做常量改名。族级公共码（CS2J5100-5104 回退/restore/build/test）不重复定义。MSBuild 格式：`文件(行,列): warning/error CS2J52xx: [Ns.Type] 描述`。
+Records 规则级诊断占 **CS2J52xx** 子段提案：c11 设计登记表为 property 留 5110-5129、C12 5130-5149、C13 5150-5169、C14 5170-5189、C46 建议 5190-5199（[c11-design §4.5/§11 码位行 L207](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L207-L207)）；磁盘现状（[MemberDesugarModels.cs L12-L75](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarModels.cs#L12-L75)）：property 已占 5110-5124（含 CS2J5123/5124 两个 C27 留白码）、indexer 5130-5141、event 5150-5158、operator 5170-5183，5184-5199 空闲；**C27 提议 5200-5230**（C39 及以后顺延），与已占码位无冲突，最终码位表在共享枚举登记确认，调整仅做常量改名。族级公共码（CS2J5100-5104 回退/restore/build/test、5109 单文件）不重复定义。MSBuild 格式：`文件(行,列): warning/error CS2J52xx: [Ns.Type] 描述`。
 
 | 码 | 级别 | 含义 |
 |---|---|---|
@@ -267,7 +280,7 @@ Records 规则级诊断占 **CS2J52xx** 子段提案：C11 锚点登记表为 pr
 | CS2J5230 | Warning（strict Error） | residual 闸门：输出残留无对应 skip 诊断的 WithExpressionSyntax，或被克隆 record 缺同定名工厂 |
 | CS2J5290 | Warning | 单文件模式：record plan 非自包含（声明/站点跨文件），排除 |
 
-原则（[catalog §4 风险 12](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931)）：不可判定即显式诊断、整 plan 不动；**禁止只改声明留 with、禁止 with 原样透传、禁止 `.clone()` 式想当然发射**；Warning 经 Strict 升 Error；SkippedByReason 分桶进统计与 sdk 盘点。已知限制文档化：反射（合成 `<Clone>$` 仍在但源内工厂是新增成员）、树外派生多态（CS2J5221）、匿名类型（CS2J5225）不保证。
+原则（[catalog §4 风险 12](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)）：不可判定即显式诊断、整 plan 不动；**禁止只改声明留 with、禁止 with 原样透传、禁止 `.clone()` 式想当然发射**；Warning 经 Strict 升 Error；SkippedByReason 分桶进统计与 sdk 盘点。已知限制文档化：反射（合成 `<Clone>$` 仍在但源内工厂是新增成员）、树外派生多态（CS2J5221）、匿名类型（CS2J5225）不保证。
 
 ---
 
@@ -291,7 +304,7 @@ Records 规则级诊断占 **CS2J52xx** 子段提案：C11 锚点登记表为 pr
 
 ### 7.2 项目级 fixture
 
-优先并入 C11 建立的族共享解决方案（预期 `tests/SampleMemberDesugarSolution/`，Content Include 进 ProjectTests，net10.0），C27 只增 `Records*` 前缀夹具；若合入时族 fixture 不存在，则先建 `tests/SampleRecordWithSolution/`（Lib+App+Tests+.sln，仿 SampleRecordSolution），后续评估并入：
+并入**已存在**的族共享解决方案 [tests/SampleMemberDesugarSolution/](file:///d:/code/cs2j/tests/SampleMemberDesugarSolution/SampleMemberDesugarSolution.sln)（2026-09-29 在盘：Lib+App+Tests+.sln，net 样例含 DtoSamples/InterfaceSamples/IndexerSamples/EventSamples/OperatorSamples），C27 只增 `Records*` 前缀夹具；无需另建第二套 sln（若 Records 夹具规模证明需要独立 sln，再仿 SampleRecordSolution 建 `tests/SampleRecordWithSolution/` 并后续评估并入）：
 
 - Lib：位置 record 群（class/struct、泛型、三层继承、抽象基 + 两个派生、自定义复制 ctor、带额外属性/字段的 record、required/init record）；一个主构造参数捕获的反例 record（独立文件，断言 CS2J5220 跳过且中间树可编译）；普通 struct 与元组 with 用例；一个树外派生洞对照（引用元数据 record 的独立程序集，断言 CS2J5221）。
 - App/Tests（.NET 半区行为守门，xunit）：
@@ -308,7 +321,7 @@ Records 规则级诊断占 **CS2J52xx** 子段提案：C11 锚点登记表为 pr
 ### 7.4 E11 产物共处回归（关键）
 
 - 对 SampleRecordSolution（E11 fixture，其 App 已断言含 `with {`，[RecordReadOnlyProjectTests.cs:101](file:///d:/code/cs2j/tests/CSharpToJava.ProjectTests/RecordReadOnlyProjectTests.cs#L101-L101)）启用 member-desugar（Records 规则）：E11 产出的全部 with（MS-1~MS-17、MM 出口、WithXxx 方法体）被消费，中间树 build/test 全绿；E11 自身统计**零变化**（C27 在下游不回改 E11 决策）。
-- RecordReadOnlyRewriterUnitTests 的 28 处 with 形态逐条在 C27 单测中有「with→无 with」对应断言，形成上下游对照表。
+- RecordReadOnlyRewriterUnitTests 实测 45 行含 `with {`（42 行为断言：含 MS 站点、MM 出口 `return this with`、IR-2 `WithP`/`WithP__cs2j` 等形态）逐条在 C27 单测中有「with→无 with」对应断言，形成上下游对照表。
 
 ### 7.5 residual 闸门（零 with）
 
@@ -318,7 +331,7 @@ Records 规则级诊断占 **CS2J52xx** 子段提案：C11 锚点登记表为 pr
 
 ### 7.6 CLI / 红灯对照
 
-- C11 合入前不新增 CLI 测试（member-desugar 仍 CS2J9001）；C11 合入后：`preprocess --pass member-desugar` 时 Records 规则随族执行、摘要含 records 段、`--list-passes` catalogItems 含 C27、`--strict` 下 CS2J5230/522x 退出码语义、禁用时无中间目录。
+- C11 已合入、member-desugar 已是 Implemented（默认关），CLI 测试直接按启用形态写：`preprocess --pass member-desugar` 时 Records 规则随族执行、摘要含 records 段、`--list-passes` catalogItems 含 C27（合入后 L241 为 `"C11, C27"`）、`--strict` 下 CS2J5230/522x 退出码语义、禁用时无中间目录。
 - **不改红灯测试一行**：[RecordTupleTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/RecordTupleTests.cs)、[RecordTransformerTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/RecordTransformerTests.cs) 走直连单文件管线，是转换器安全网（含当前错误行为锁定）；为每用例建 C# 半区正确对照（尤其 L29 丢值反例），作为 §5.4 Java 消费 PR 的核对底稿。
 
 ---
@@ -334,17 +347,17 @@ Records 规则无独立开关默认态，随 member-desugar 族 pass 默认开�
 5. sdk 基线不退化：启用后各 fixture 与 sdk 抽样工程中间树 build/test 不劣于未启用；E11 及其余上游 pass 统计零变化；convert-project 耗时增量可接受（指纹缓存评估）。
 6. overrides/逃生口、`--list-passes` 描述、README/ROADMAP 条目齐备；本设计与 plan 文档定稿。
 
-未达门槛长期随族 opt-in，每评审周期复跑第 4/5 项（[catalog §4 风险 10](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L929-L929)）。
+未达门槛长期随族 opt-in，每评审周期复跑第 4/5 项（[catalog §4 风险 10](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1108-L1108)）。
 
 ---
 
 ## 9. 里程碑
 
-C27 在 C11 合入后开工，建议四段：
+C11-C14 已落地，C27 直接开工，建议四段：
 
 | 里程碑 | 内容 | 验证/规模 |
 |---|---|---|
-| M0 测量与骨架 | `Records/` 骨架（options/models/plan/注册点，对齐 C11 契约）；CloneCtorResolver 全分类（含树外派生探测）；sdk with/位置 record 命中率测量轮 | Core ~300 行；M0 数据 |
+| M0 测量与骨架 | `Records/` 骨架（models/options 扁平项/plan/规则类标 `[MemberDesugarRule]`，**无独立注册文件**；Properties 挂点协调见开放问题 6）；CloneCtorResolver 全分类（含树外派生探测）；sdk with/位置 record 命中率测量轮 | Core ~300 行；M0 数据 |
 | M1 显式成员 record with | RC-1/RC-2 + WR-1/WR-2/WR-3/WR-6/WR-7：克隆工厂（abstract/virtual/override/sealed/自定义复制 ctor）+ 类/record class with 改写 + 多态 + 空初始化器 + 临时提升 + 跳过族主体；Core 单测 1/2/7/9 主体 | ~500 行；基本样本中间树 build 通过；多态 .NET 测试绿 |
 | M2 struct 与位置 reshape | RC-3/RC-4 + WR-4/WR-5：位置 class/struct reshape（ctor/复制 ctor/无参 ctor/Deconstruct/基链/泛型）、闸门 CS2J5220、struct/tuple 值拷贝、嵌套 with 后序提升；fixture（含继承层次）+ residual 闸门 + 回退测试 | ~700 行 + fixture；fixture Release build/test 全绿 |
 | M3 required/init 收尾与 E11 回归 | RC-5、CS2J5120/5121 record 面计数、SetsRequiredMembers 剥离；E11 产物共处回归（§7.4）；CS2J5221-5228 全部跳过码打磨；元数据/匿名/表达式树边界；幂等/BOM 审计；Release build/test 全绿 | ~300 行；sdk 新增失败为零 |
@@ -362,7 +375,7 @@ C27 在 C11 合入后开工，建议四段：
 5. **E11 上下游耦合**：E11 是 with 大生产方，其 MM/IR/MS 形态（含 `WithXxx__cs2j` 改名、接口 ripple）若演进会增减站点形态。缓解：站点只按 SemanticModel 绑定分类、不按文本/不按 E11 注解；E11 统计零变化为硬回归项；§7.4 共处回归固定。
 6. **init/required 放宽的编译期盲区**：中间树合法程序超集，漏初始化不在 .NET 侧报红（与 C11 风险 4 同源）。缓解：纯编译期约束、运行时行为不变；计数留痕（CS2J5120/5121）；正确性由初始化器/克隆路径的行为测试覆盖。
 7. **克隆工厂命名碰撞与 JK 终命名**：用户成员占用 `Cs2jWithClone`（低频但合法）。缓解：跨 record 预留表 + 确定性后缀；结果名若撞 Java 保留字由 C08 java-keywords 链尾统一逃逸，C27 不自做终命名。
-8. **Lowering 误用**（[catalog §4 风险 9](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L928-L928)）：Lowering/ 无 with 实验，本规则 Core 新目录零 using Lowering。
+8. **Lowering 误用**（[catalog §4 风险 9](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1107-L1107)）：Lowering/ 12 个文件无 with/init/required 实验（已 grep 核实），本规则 Core 新目录零 using Lowering。
 9. **Java 半区复制构造缺口**：去糖 record 依赖 Java 侧复制构造与工厂配对发射，消费 PR 未完成前默认不可开。缓解：§5.4-1 列为硬门禁；pass 默认关；红灯测试留证。
 10. **residual 闸门与既有错误输出的冲突**：当前转换器容忍裸 with（产出错误 Java）；reshape/跳过边界外的残余必须零漏网。缓解：CS2J5230 strict Error + sdk 全量扫描；禁止「扫不到就放过」。
 
@@ -372,16 +385,16 @@ C27 在 C11 合入后开工，建议四段：
 
 | 并行条目 | 关系 | 协调动作 |
 |---|---|---|
-| **C11 Property（锚点）** | 硬前置：族基建、stub 翻转、plan/回退/格式化/命名表/规则发现全由 C11 建立；CS2J5123/5124 留白由 C27 承接退役 | C27 在 C11 合入后 rebase 开工；请求共享枚举加 `Record`（§3.2-1，唯一共享文件一行）与站点认领互斥挂点；规则 id/Order 与注册机制 M1 一次对齐；init/required 计数并入 C11 统计不另立；**不改 Properties/ 代码与适配器** |
-| **E11 RecordReadOnly（已实现，默认关）** | C27 是 E11 所产 with 的消费收口；E11 链位在前（RunAfter=generic，同 Declarative 阶段早于 member-desugar 锚点） | 以 E11 输出树为必跑回归（§7.4），E11 统计零变化；E11 的 RC-10 复制 ctor 可访问性阻断由本特性结构性消解（决策 3），E11 侧不因此改规则；E11 接口 ripple 的 `WithXxx` 方法体（`this with`）由 WR-6 消费 |
-| **E13 make-readonly / C07 struct-value-semantics** | member-desugar RunAfter 锚点已锁（struct-value-semantics）；struct with 值拷贝以变异迁移完成后的形态为输入 | C27 不改写 E13/C07 产物语义；readonly struct 的 with 在可变克隆局部上经放宽 setter 成立（对 readonly record 天然成立，catalog C27 条目已述）；以其输出树做共处回归 |
-| **C12 Indexer / C13 Event / C14 Operator** | 同一族 pass、同一共享层、不同独占目录 | 目录互不触碰；聚合面（规则发现/options 子节/统计段/摘要）各带各的，rebase 解追加行；**任一都不得单独翻转/注册 stub**；record 索引器不在 with 面（with 语法不支持索引器，E11 RS-19 已在声明级排除） |
+| **C11 Property** | ~~硬前置~~ **已落地**：族基建、stub 翻转、plan/回退/格式化/命名表/规则发现均已在盘（PassCatalog Implemented、`[MemberDesugarRule]` 程序集扫描）；CS2J5123/5124 留白码仍由 C27 承接退役 | C27 直接在主干开工；请求共享枚举 [MemberDesugarPlan.cs L6-L13](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarPlan.cs#L6-L13) 加 `Record`（一行）与站点认领互斥挂点（开放问题 6，三处挂点在 PropertyRule.cs）；规则 id/Order 与发现机制已无须再对齐（沿用特性即可）；init/required 计数并入 C11 统计不另立；**不改 Properties/ 规则行为与适配器**（挂点除外，按开放问题 6 裁决执行） |
+| **E11 RecordReadOnly（已实现，默认关）** | C27 是 E11 所产 with 的消费收口；E11 链位在前（RunAfter=generic，同 Declarative 阶段早于 member-desugar） | 以 E11 输出树为必跑回归（§7.4），E11 统计零变化；E11 的 RC-10 复制 ctor 可访问性阻断由本特性结构性消解（决策 3），E11 侧不因此改规则；E11 接口 ripple 的 `WithXxx` 方法体（`this with`）由 WR-6 消费 |
+| **E13 make-readonly / C07 struct-value-semantics** | member-desugar RunAfter 已锁（struct-value-semantics）；struct with 值拷贝以变异迁移完成后的形态为输入 | C27 不改写 E13/C07 产物语义；readonly struct 的 with 在可变克隆局部上经放宽 setter 成立（对 readonly record 天然成立，catalog C27 条目已述）；以其输出树做共处回归 |
+| **C12 Indexer / C13 Event / C14 Operator** | 同一族 pass、同一共享层、不同独占目录；**三者均已 Implemented**（在盘目录 Indexers/Events/Operators，诊断 5130-5183 段已占） | 目录互不触碰；聚合面（规则发现/扁平 options 属性/统计段/摘要）各带各的，冲突只在共享文件追加行；**不翻转/注册 stub**；record 索引器不在 with 面（with 语法不支持索引器，E11 RS-19 已在声明级排除） |
 | **C24 InitializerDesugar（P3，设计未落地）** | required 与对象/with 初始化器的归一顺序 | 本设计 §2 决策 12 即给 C24 的前置契约：required/with 在 Declarative 先归一，C24 在 Expression 阶段只处理一般 `new C{…}`/集合初始化器且对本族产物幂等；C24 设计评审时引用本条 |
 | **C21 anonymous-type-lift（stub）** | 匿名类型 with v1 跳过（CS2J5225） | C21 提升匿名类型为命名 record-like 类型后，其 with 自动落入 WR-1/WR-4；C27 不提前改 C21，跳过码随 C21 落地退役 |
-| **C46 签名收口（同 catalogItems）** | 诊断码段 5190-5199 建议归 C46；克隆工厂是新虚方法/覆写，属 C46 Java 分派收口的输入面 | C27 占 52xx（§6），码位表锚点统一登记；工厂保留 abstract/virtual/override 原生 C# 形态，不造 Java 注解；C46 落地时消费普通方法 |
-| **C39 终结器（同 catalogItems）** | 无功能交叉 | 码位顺延（5231+ 或锚点另定）；仅共用 Analyzer 外壳 |
+| **C46 签名收口（同 catalogItems）** | 诊断码段 5190-5199 建议归 C46；克隆工厂是新虚方法/覆写，属 C46 Java 分派收口的输入面 | C27 占 52xx（§6），码位表在族共享码位枚举统一登记；工厂保留 abstract/virtual/override 原生 C# 形态，不造 Java 注解；C46 落地时消费普通方法 |
+| **C39 终结器（同 catalogItems）** | 无功能交叉 | 码位顺延（5231+ 或族 owner 另定）；仅共用 Analyzer 外壳 |
 | **C08 JavaKeywords（链尾，默认关）** | 新方法名 `Cs2jWithClone` 与 reshape 后成员名的 Java 保留字风险 | 由 JK-1 符号改名链尾兜底；C27 不内联关键字逃逸（BackingFieldNaming 复用除外） |
-| 公共热文件 | MemberDesugarRules.cs（枚举一行）、族 options/统计聚合、CatalogItems 字符串 | C27 改动面压到「一行枚举 + 独占目录 + 合入时一行 CatalogItems」；合并门禁 = rebase 最新主干 + 注册表校验/链序断言全绿；不重排他规则顺序 |
+| 公共热文件 | MemberDesugarPlan.cs（`MemberDesugarKind` 枚举一行，非 MemberDesugarRules.cs）、族 options/统计聚合、CatalogItems 字符串 | C27 改动面压到「一行枚举 + 独占目录 + 合入时一行 CatalogItems」；合并门禁 = rebase 最新主干 + 注册表校验/链序断言全绿；不重排他规则顺序 |
 
 ---
 
@@ -389,21 +402,40 @@ C27 在 C11 合入后开工，建议四段：
 
 - 分支：`feature/preproc-c27-record-with`
 - 目录：`.worktrees/preproc-c27-record-with`
-- base：`953293b9`（已核实存在，`docs: update doc base commit`）；**实现前先合入 C11 锚点分支**，实际开工 base = C11 合入后的主干/rebase 点
-- 创建命令（在仓库根、PowerShell 下执行；本任务只产出本文档，**不执行**）：
+- base（校订）：裁决时锚点 `953293b9`（`docs: update doc base commit`）与 dev-3.x HEAD `ef70e5a2` 均经 `git cat-file` 核实存在；**C11-C14 已合入主干**（member-desugar Implemented、`MemberDesugar/` 四规则在盘），实际开工 base 直接取**开工当日主干 HEAD** 即可，无需再等锚点合入或先行 rebase。
+- 创建命令（在仓库根、PowerShell 下执行；本任务只产出本文档，**不执行**；base 位以下令为例，实施时换当日主干 HEAD）：
 
 ```powershell
-git worktree add .worktrees/preproc-c27-record-with -b feature/preproc-c27-record-with 953293b9
+git worktree add .worktrees/preproc-c27-record-with -b feature/preproc-c27-record-with <当日主干 HEAD>
 ```
 
-实施约束（交实施 worktree）：仅在上述 worktree 内改码；等 C11 合入后 rebase 到含 `MemberDesugar/` 共享基建的基线；按 §9 里程碑逐提交；不注册/翻转任何 stub、不动 RunAfterIds、不新增 pass/适配器/verb；转换器代码改动（§5.4）留后续 PR；族 pass 默认开启以 §8 门槛为准，不抢跑；交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `MemberDesugar/Records/`、Core 单测 + fixture（优先族共享 sln）+ Release build/test + residual 零 with 闸门 + CLI 测试、本设计与 plan 文档（`docs/superpowers/plans/2026-09-29-c27-record-with.md`）；不新建支撑工程。
+实施约束（交实施 worktree）：仅在上述 worktree 内改码；按 §9 里程碑逐提交；不注册/翻转任何 stub、不动 RunAfterIds、不新增 pass/适配器/verb；共享文件仅 [MemberDesugarPlan.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarPlan.cs) 枚举一行 + 可能的 Properties 归属挂点（开放问题 6），注册表仅 CatalogItems 一行；转换器代码改动（§5.4）留后续 PR；族 pass 默认开启以 §8 门槛为准，不抢跑；交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md L108-L117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `MemberDesugar/Records/`、Core 单测 + fixture（并入已存在的族共享 sln）+ Release build/test + residual 零 with 闸门 + CLI 测试、本设计与 plan 文档（`docs/superpowers/plans/2026-09-29-c27-record-with.md`）；不新建支撑工程。
 
 ---
 
-## 附：关键开放问题（供评审拍板）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（**单下划线后缀**）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。**（校订注：该收口已完成——member-desugar 已翻转为 Implemented，PassStubCatalog 现为 21 个 stub；两 commit 均核实存在，见 §12。）**
+
+**裁决（按原题号）：**
+
+1. **保留 `record` 关键字**：编译器继续保 Equals/PrintMembers，只补 ctor/Deconstruct，reshape 面最小；不降为普通 class。
+2. **树外派生 record 多态闸门**：M2 实现同编译 + 引用程序集派生类型全枚举（全编译符号 API 可支撑，不接受「非密封即跳过」的过度保守）；仅枚举后仍不能证明闭包时 CS2J5221 Warning + force 范式。
+3. **主构造参数捕获（决策 8c）**：捕获迁移**提前到 M2**（位置 record 在字段初始化器/体内引用主构造参数是高频形态，不等 M4+）。
+4. **码段与命名**：占 CS2J5200-5230（避 C46 的 5190-5199；磁盘现状 5184-5199 空闲，见 §6），以族共享码位枚举统一登记为准；克隆基名 `Cs2jWithClone`、防撞后缀按全局命名规则用**单下划线** `WithXxx_cs2j`——E11 现用的 `WithXxx__cs2j` 双下划线形态在族命名收口 PR（默认开前）统一改名，C27/C46 不各自发明词表。
+5. **Java 半区复制构造**：M2 即出转换器消费原型，v1 逐字段构造（不复用未来统一 copy 机制）；转换器消费 PR 合入是本特性**默认开的头号硬门禁**，但不阻塞 C# 侧实现与默认关先行（stub 翻转已由 C11 完成）。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **位置 record reshape 是否保留 `record` 关键字**：本设计推荐保留（编译器继续保 Equals/PrintMembers，只补 ctor/Deconstruct，reshape 面最小）；备选是降为普通 class（连等值面一起显式化，工作量与风险均大，且与转换器现有 immutable-class 路径重复）。
 2. **树外派生 record 的多态闸门强度**：CS2J5221 v1 对「非密封且不能证明闭包」即跳过是否过保守；是否值得做跨引用程序集的派生类型全枚举（编译成本），还是接受 warning + force 范式。
 3. **主构造参数捕获（决策 8c）v1 跳过的命中率与排期**：若 sdk 中位置 record 大量在字段初始化器/体内引用主构造参数，M2 覆盖率会受限，可能需把捕获迁移提前到 M2 而非 M4+。
 4. **CS2J52xx 码段与克隆工厂定名**：5200-5230 段位需 C11 锚点在统一码位表确认（避开 C46 的 5190-5199）；`Cs2jWithClone` 基名与 `__cs2j` 防撞后缀是否符合族命名惯例（E11 现用 `WithXxx__cs2j`）。
 5. **Java 半区复制构造的目标形态**：§5.4-1 要求转换器为 immutable-class record 发 Java 复制构造——是逐字段构造还是复用未来的统一 copy 机制，需转换器消费 PR 早做原型，因其是本特性默认开的头号硬门禁。
+
+### 校订新增开放问题（2026-09-29 核对时登记）
+
+6. **Properties 三处闸门归属挂点的认领方式（待与 C11 维护者协调）**：CS2J5123/5124 退役要求把 record/struct 位置属性从 Properties 规则改由 Records 规则认领，但三处闸门挂点都在共享文件 [PropertyRule.cs L64-L69](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L64-L69)、[L257-L259](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L257-L259)、[L287-L293](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Properties/PropertyRule.cs#L287-L293) 内，与 C27「独占 `MemberDesugar/Records/` 目录」原则冲突。候选：① Properties 三处加 kind 查询钩子（最小共享面，推荐）；② 站点互斥表从 RecordRule 反向回调；③ 直接在共享文件加 `kind == Record` 分支（最脏）。M0 需与 C11 维护者拍板挂点形式并锁定接口；在拍板前 C27 不擅自改共享文件。
+7. **CatalogItems 补登（实施期机械动作，非设计阻塞）**：member-desugar [PassCatalog.cs L241](file:///d:/code/cs2j/src/CSharpToJava.Core/Passes/PassCatalog.cs#L241-L241) 现仅登记 `"C11"`（C12-C14 已实现但均未追加，属族内既有欠账）；C27 合入时应把 `C27` 追加进同一字符串，是否顺带补 C12-C14 由族 owner 决定。

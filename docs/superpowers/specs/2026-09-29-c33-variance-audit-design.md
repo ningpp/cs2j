@@ -3,8 +3,8 @@
 **日期**: 2026-09-29
 **范围**: 新增注册表 pass `variance-audit`（Core `VarianceAudit/` + CLI `VarianceAuditPassAdapter`），只做 C#→C# 层**只读审计**：枚举 `out T`/`in T` 声明-site 型变的全部使用点并做生产者/消费者安全分类，逐项盘点 `struct`/`unmanaged`/`new()`/`notnull`/`default`/`class` 约束及其语义依赖站点，出具名诊断 + 机器可读报告；本特性不做任何源码改写、不发射 Java 通配符、不新增 compat 代码
 **状态**: 设计稿，待评审
-**注册表锚点（2026-09-29 主树实读核实）**: stub `variance-audit` 登记于 [PassStubCatalog.cs#L122-L131](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L122-L131)（catalogItems `C33`，Stage=`Declarative`，**RunAfter=`generic`**，默认关，目录 `.cs2j-variance-audit-src`）。注意：foundation plan 原表曾把 C02/C30/C33 合并在 `generic-deepen` 一个 id 下（[preprocessor-foundation_plan.md#L87](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L87)），主树实际注册已拆为三个 id——`generic-deepen` 已 Implemented（默认关，catalogItems 仅 `C02`，[PassCatalog.cs#L154-L164](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L154-L164)）、`closed-metadata` 为 stub 锚 `generic-deepen`（C30，[PassStubCatalog.cs#L112-L121](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L112-L121)）、`variance-audit` 为 stub **仍锚 `generic`**。本设计以主树现状为准，维持 RunAfter=`generic`（§3.3 论证）
-**catalog 对应**: `prompts/preprocessor-catalog.md` C33（[L653-L664](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L653-L664)）、C02 关系（[L269-L280](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L269-L280)）、§3.3 泛型擦除补偿族 E10+C02+C09+C30+C33（[L908](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L908)）、§4 风险（[L918-L939](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L918-L939)，尤险 10/11/12）；foundation plan [L60-L139](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L60-L139)
+**注册表锚点（2026-09-29 主树实读核实）**: stub `variance-audit` 登记于 [PassStubCatalog.cs#L110-L119](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L110-L119)（catalogItems `C33`，Stage=`Declarative`，**RunAfter=`generic`**，默认关，目录 `.cs2j-variance-audit-src`）。注意：foundation plan 原表曾把 C02/C30/C33 合并在 `generic-deepen` 一个 id 下（[preprocessor-foundation_plan.md#L87](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L87)），主树实际注册已拆为三个 id——`generic-deepen` 已 Implemented（默认关，catalogItems 仅 `C02`，[PassCatalog.cs#L167-L178](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L167-L178)）、`closed-metadata` 为 stub 锚 `generic-deepen`（C30，[PassStubCatalog.cs#L100-L109](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L100-L109)）、`variance-audit` 为 stub **仍锚 `generic`**。本设计以主树现状为准，维持 RunAfter=`generic`（§3.3 论证）
+**catalog 对应**: `prompts/preprocessor-catalog.md` C33（[L722-L734](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L722-L734)）、C02 关系（[L289-L302](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L289-L302)）、§3.3 泛型擦除补偿族 E10+C02+C09+C30+C33（[L1086](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1086)）、§4 风险（[L1108-L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1108-L1110)，尤险 10/11/12）；foundation plan [L60-L139](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L60-L139)
 **审计型 pass 范本**: [2026-09-29-c25-dynamic-desugar-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c25-dynamic-desugar-design.md)（report-only 模式、报告 JSON、adapter 钩子纪律）；同族设计 [2026-09-29-c30-closed-metadata-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c30-closed-metadata-design.md)、[2026-09-28-c02-generic-deepen-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c02-generic-deepen-design.md)
 
 ---
@@ -23,7 +23,7 @@
 | 6 | `notnull`：显式 `break`，**静默忽略** | [ClassTransformer.cs#L218-L219](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L218-L219) | 无 |
 | 7 | `default` 约束（泛型 override 还原约束）：`DefaultConstraintSyntax` 分支直接 `break`，**静默忽略** | [ClassTransformer.cs#L232](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L232) | 无 |
 | 8 | `class` 约束：空分支静默忽略（注释「Java 默认即引用类型」） | [ClassTransformer.cs#L230](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L230) | 无 |
-| 9 | `unmanaged`：全 `src/` grep `unmanaged` **零命中**。语法上它是伪类型标识符，落入 `TypeConstraintSyntax` 通用分支（L220-L227），`GetTypeInfo` 解析不到真实类型 → 无 Bounds、无任何诊断。**比 catalog L659 所述「仅 WarnConstraintDropped」更差：unmanaged 是纯静默**（M1 单测钉死 GetTypeInfo 实际返回） | [ClassTransformer.cs#L220-L227](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L220-L227) | 无 |
+| 9 | `unmanaged`：全 `src/` grep `unmanaged` **零命中**。语法上它是伪类型标识符，落入 `TypeConstraintSyntax` 通用分支（L220-L227），`GetTypeInfo` 解析不到真实类型 → 无 Bounds、无任何诊断。**比 catalog L728 所述 struct/new() 仅「WarnConstraintDropped」更差：unmanaged 是纯静默**（M1 单测钉死 GetTypeInfo 实际返回） | [ClassTransformer.cs#L220-L227](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/ClassTransformer.cs#L220-L227) | 无 |
 | 10 | 全 `src/` grep `ITypeParameterSymbol.Variance`/`VarianceAnnotation` **零命中**——型变判定全部只读语法 token，语义模型的型变信息从未被消费 | — | — |
 
 约束处理只有一份实现：接口与委托都转调 `ClassTransformer.ApplyTypeParameterConstraints`（[InterfaceTransformer.cs#L108](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/InterfaceTransformer.cs#L108)、[DelegateTransformer.cs#L235-L239](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/DelegateTransformer.cs#L235-L239)）。
@@ -45,7 +45,7 @@
 
 ### 1.4 定位：审计型通道
 
-catalog 定调（[L661](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L661)）：「**审计型**通道（先做 C# 侧显式告警/拒绝 + 安全校验，再决定是否做使用-site 改写）」；P3（[L662](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L662)：丢失形态是「声明降级」而非编译失败）。
+catalog 定调（[L730](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L730)）：「**审计型**通道（先做 C# 侧显式告警/拒绝 + 安全校验，再决定是否做使用-site 改写）」；P3（[L731](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L731)：丢失形态是「声明降级」而非编译失败）。
 
 目标按两个里程碑递进：
 
@@ -60,11 +60,11 @@ catalog 定调（[L661](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L66
 - 不接管 C02 的 `typeof(T)`/`is-as T`/静态泛型字段、C30 的闭型元数据；
 - 不改转换器现有 CS2J1002/CS2J1003 行为（默认关期间链行为零变化；退役是默认开门之后的独立 PR，D14）。
 
-### 1.5 与泛型族分工（catalog §3.3 泛型擦除补偿族，[L908](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L908)）
+### 1.5 与泛型族分工（catalog §3.3 泛型擦除补偿族，[L1086](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1086)）
 
 | 成员 | 职责 | 与 C33 边界 |
 |---|---|---|
-| E10 `generic`（已实现，默认开） | `default(T)`→`default`、`new T()`→`Activator.CreateInstance<T>()`、`new T[n]`→`Array.CreateInstance`、override Class token 哨兵（[catalog L175-L183](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L175-L183)） | C33 锚其后；new() 构造点归 E10，C33 只审计声明、交叉引用 E10 产物、盘点 E10 不覆盖的残余（D6） |
+| E10 `generic`（已实现，默认开） | `default(T)`→`default`、`new T()`→`Activator.CreateInstance<T>()`、`new T[n]`→`Array.CreateInstance`、override Class token 哨兵（[catalog L190](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L190)） | C33 锚其后；new() 构造点归 E10，C33 只审计声明、交叉引用 E10 产物、盘点 E10 不覆盖的残余（D6） |
 | C02 `generic-deepen`（已实现，默认关） | `typeof(T)`/`is-as T`/类型参数 catch/静态泛型字段/嵌套 token 传播 | 无站点重叠；C33 不复用其 token，只在报告中提示同编译单元已开/未开 C02 |
 | C30 `closed-metadata`（stub） | Java 反射侧消费闭型 `java.lang.reflect.Type` | C33 的型变/约束是**声明-site 安全性**问题，C30 是**运行时闭型信息**问题；报告 JSON 词汇对齐，数据不互依赖 |
 | C09 `thread-static`（stub） | ThreadLocal 隐藏状态 | 同锚 `generic`、同 Stage=Declarative，仅注册表顺序协调 |
@@ -85,7 +85,7 @@ catalog 定调（[L661](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L66
 | D5b | struct/unmanaged 语义依赖站点（M1 枚举集） | ①`default(T)`/`default` 字面量且转换目标为该 T → VA027（Java 侧兜底 `null`，具体错误，§1.3#3）；②`new T()` 站点（E10 已重写的 → 与 VA022 关联 Info；E10 不覆盖的带初始化器/带参形式 → VA023 Warning，D6）；③T 上的装箱身份依赖（`(object)x`、`lock(x)`、引用相等、`as/is object`）M1 仅 Info 计数，不逐站点判错；④`T[]`、`Nullable<T>`、`T?` M1 登记计数。③④的逐站点安全判定列 M3 | M1 必须零假阴覆盖 ①②（这两站今天确定产错/可能失败），③④ 先量化 |
 | D6 | new() 与 E10 划界 | E10 只重写**无参、无初始化器**的 `new T()`（[GenericPreprocessor.cs#L307-L338](file:///d:/code/cs2j/src/CSharpToJava.Core/GenericPreprocess/GenericPreprocessor.cs#L307-L338)）。C33 在链上跑在 E10 之后：①对 `new()` 约束声明发 VA022；②识别 `global::System.Activator.CreateInstance<T>()` 形态，关联回约束声明（Info，注明构造保证已由 E10 显式化、运行时由 Activator 反射满足、异常形态为运行时而非编译期）；③E10 未覆盖的残余 `new T()`（带 object initializer 或参数）发 VA023 Warning（这些站点直转路径行为未定义）。C33 **不**改写任何构造点；独立 verb 对原始源码跑时看到的是重写前形态，报告以 `RewrittenBy=generic(pass present)` 标注差异 | 锚 `generic` 的核心理由之一；`new T[n]` 同理由 E10 覆盖，仅登记 |
 | D7 | 型变组合（嵌套泛型） | 嵌套出现位的有效型变 = 外层位置型变 ∘ 内层参数声明型变，标准复合规则：co∘co=co、contra∘contra=co、co∘contra=contra；任一环节为 Both 则结果 Both。例：`IEnumerable<Action<T>>` 出现在方法**参数**位（Consumer）→ Action 的 `in T`（contra）与外层 Consumer（contra）复合为 co：T 在该点整体是 Producer。判定沿 `INamedTypeSymbol.TypeArguments` 与对应 `TypeParameters[i].Variance` 逐层下推；报告记录完整组合链（每一层的位置方向×声明方向），供未来改写器直接消费 | 这是 use-site 改写最易出错的面，M1 先把数据枚举对 |
-| D8 | 委托型变 | 委托是第二类合法声明载体：`Action<in T>`、`Func<in T1,...,out TResult>` 及用户自定义泛型委托。①声明点同样盘点；②使用点除 D3 的 Invoke 签名流向（参数 Consumer、返回 Producer）外，重点枚举**委托构造/方法组转换/委托赋值**中的型变转换（D3a），例如把 `Action<object>` 传作 `Action<string>`；③委托组合（`+=`）两侧型变不匹配在 C# 即编译错误，不进安全判定 | [GenericConstraintDiagnosticsTests.cs#L140-L158](file:///d:/code/cs2j/tests/CSharpToJava.Tests/GenericConstraintDiagnosticsTests.cs#L140-L158) 已有声明侧测试 |
+| D8 | 委托型变 | 委托是第二类合法声明载体：`Action<in T>`、`Func<in T1,...,out TResult>` 及用户自定义泛型委托。①声明点同样盘点；②使用点除 D3 的 Invoke 签名流向（参数 Consumer、返回 Producer）外，重点枚举**委托构造/方法组转换/委托赋值**中的型变转换（D3a），例如把 `Action<object>` 传作 `Action<string>`；③委托组合（`+=`）两侧型变不匹配在 C# 即编译错误，不进安全判定 | [GenericConstraintDiagnosticsTests.cs#L97-L116](file:///d:/code/cs2j/tests/CSharpToJava.Tests/GenericConstraintDiagnosticsTests.cs#L97-L116) 已有声明侧测试 |
 | D9 | 映射后可变性扩大（违规写门面） | C# 协变/只读契约映射到的 Java 类型若带有 C# 契约不存在的变更成员，即构成 catalog 所述「不被发现的违规写入」。M1 实现一张**可配置的映射可变性表**（种子：`TypeMappings.json` 中 BCL 只读/协变接口与其 Java 映射类型的成员差，如只读接口→可变 Java 集合）；对 Producer 分类的使用点，若映射类型存在 `add/set/remove/put` 等变更成员 → VA012。表未覆盖的映射保守按「可能扩大」处理（Warning），绝不默认安全 | 宁可表不全报假阳，不假装映射保持只读；表随语料迭代 |
 | D10 | 报告分级 | **Error**：仅 `--variance-strict` 下 VA010/011/012/015/020/021/023/027/030（M2 闸门）；M1 普通模式这些码均为 Warning，链继续。**Warning**：型变依赖转换、可变性扩大、struct/unmanaged 丢弃、E10 残余构造点、default(T) 错误兜底。**Info**：声明点登记、纯 Producer/Consumer 使用点（通配符候选）、嵌套组合、new()/notnull/default/class 约束、报告写出。Info 仅 verbose/报告 JSON 可见，不刷屏 | 审计模式默认不阻断（对齐 C25 D3） |
 | D11 | use-site 改写接口预留但不实施 | 报告 JSON 的每个 useSite 携带未来改写所需全部字段：`suggestedWildcard(Extends/Super/Invariant)`、`compositionChain[]`、`mappedJavaType`、`mutatingMembers[]`、`enclosedBy(ExpressionTree/Dynamic)`。Core 不出现任何 `? extends/super` 字符串拼接、不提供 Rewriter 类、Options 不含 Rewrite 模式。未来立项时以本报告为输入规格，另做 Java 发射层通配符模型 + 捕获转换验证 | 险：Java 通配符捕获（capture conversion）会改变重载解析与可赋值性，机械插入通配符可制造新的不可编译 Java；必须独立设计 |
@@ -99,7 +99,7 @@ catalog 定调（[L661](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L66
 
 ### 3.1 stub 现状（主树实读）
 
-[PassStubCatalog.cs#L122-L131](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L122-L131)：id `variance-audit`，显示名 "Variance and constraint audit"，目录 `.cs2j-variance-audit-src`，`PassStage.Declarative`，`PassStatus.Stub`，`defaultEnabled: false`，`runAfterIds: new[] { PassIds.Generic }`，`needsSemanticModel` 默认 true，catalogItems `C33`。禁用时零成本；显式启用即 CS2J9001 失败。
+[PassStubCatalog.cs#L110-L119](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L110-L119)：id `variance-audit`，显示名 "Variance and constraint audit"，目录 `.cs2j-variance-audit-src`，`PassStage.Declarative`，`PassStatus.Stub`，`defaultEnabled: false`，`runAfterIds: new[] { PassIds.Generic }`，`needsSemanticModel` 默认 true，catalogItems `C33`。禁用时零成本；显式启用即 CS2J9001 失败。
 
 **核实结论（回应任务疑点）**：C02 翻转提交确实把原合并条目拆成了 `generic-deepen`（Implemented，C02）+ `closed-metadata`（stub，C30，锚 generic-deepen）+ `variance-audit`（stub，C33）三个注册项；`variance-audit` 的锚**没有**随 C02 翻转为 generic-deepen，主树至今锚 `generic`。本设计维持该锚（理由 §3.3）。
 
@@ -126,9 +126,9 @@ catalog 定调（[L661](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L66
 
 ### 3.4 Stub→Implemented 翻转清单
 
-1. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删除 `Ids.VarianceAudit` 常量（L29）与 Stubs 表条目（L122-L131）；常量迁至 [PassCatalog.cs#L6-L25](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L25) 的 `PassIds`。
+1. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删除 `Ids.VarianceAudit` 常量（L28）与 Stubs 表条目（L110-L119）；常量迁至 [PassCatalog.cs#L6-L27](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L27) 的 `PassIds`。
 2. [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)：`Implemented` 表在 GenericDeepen 条目之后插入 `variance-audit` 描述符（`runAfterIds: new[] { PassIds.Generic }`，verify 双 false，defaultEnabled=false，SupportLibrary=None，catalogItems "C33"）。插在 GenericDeepen 之后、RecordReadOnly 之前，锁定拓扑相对序；`java-keywords` 的 RunAfter 无需改动（本 pass 不是其锚点）。
-3. [PassChainFactory.cs#L93-L237](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L93-L237)：switch 增 `PassIds.VarianceAudit => new VarianceAuditPassAdapter(config.VarianceAuditOptionsFactory(), ...)`；`PassChainConfiguration` 增 `Func<VarianceAuditOptions> VarianceAuditOptionsFactory`（懒加载，仿 JavaKeywordOptionsFactory，L47-L48）。无 legacy toggle（不新增 `--no-variance-audit`）。
+3. [PassChainFactory.cs#L101-L256](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L101-L256)：switch 增 `PassIds.VarianceAudit => new VarianceAuditPassAdapter(config.VarianceAuditOptionsFactory(), ...)`；`PassChainConfiguration` 增 `Func<VarianceAuditOptions> VarianceAuditOptionsFactory`（懒加载，仿 JavaKeywordOptionsFactory，L48-L49）。无 legacy toggle（不新增 `--no-variance-audit`）。
 4. 新增 CLI `Adapters/VarianceAuditPassAdapter.cs`（§5）。
 5. [Program.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs) 的 `ConvertProjectOptions` 与 parser：增 `--variance-strict`、`--variance-report-info`（§5.2）；通用 `preprocess --pass variance-audit` 由现有 all-disabled toggles 机制天然支持，不新增 verb。
 6. [.gitignore#L89-L101](file:///d:/code/cs2j/.gitignore#L89-L101)：增 `.cs2j-variance-audit-src/`（同区登记；顺带记录 `.cs2j-generic-deepen-src/` 当前也未登记，由 C02 侧自行处理，不在本 pass 范围）。
@@ -221,7 +221,7 @@ VarianceAudit/
 - `AfterFilesAsync`：写 `variance-audit-report.json`（UTF-8 无 BOM，D13）；
 - `VerifyBuild => false`、`VerifyTests => false`、`DeleteBuildOutputsAfterRestore => false`（审计不 restore/不 build/不 test）；
 - `OnRestoreFailed/OnBuildFailed/OnTestsFailed`：形式实现（spine 不可达，保留码位 VA050-052 定义以防未来模式扩展）；
-- `HasErrors => _options.Strict && _diagnostics.Any(d => d.Severity == Error)`——普通模式永远成功（Warning 不阻断），strict 模式 Error → runner 既有机制中止链、退出码非 0（[CliPreprocessChain.cs#L169-L183](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs#L169-L183)）；
+- `HasErrors => _options.Strict && _diagnostics.Any(d => d.Severity == Error)`——普通模式永远成功（Warning 不阻断），strict 模式 Error → runner 既有机制中止链、退出码非 0（[CliPreprocessChain.cs#L178-L186](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs#L178-L186)）；
 - `BuildChainSummaryLine`：`variance-audit: D variant declaration(s), U use site(s) (P/C/B), V variance conversion(s), K unsafe; C constraints (struct/unmanaged/new/...); report=variance-audit-report.json`；
 - `BuildChainDiagnosticLines(verbose)`：Warning/Error 常显，Info 仅 verbose。
 
@@ -229,7 +229,7 @@ VarianceAudit/
 
 - 翻转后默认关；`--enable-pass variance-audit` 开启即审计（无模式选择）。
 - convert-project 选项：`--variance-strict`（M2 闸门）、`--variance-report-info`（默认 true，`--variance-no-report-info` 抑制 Info 诊断流），经 `PassChainConfiguration.VarianceAuditOptionsFactory` 懒构造。
-- 独立入口：通用 `preprocess --pass variance-audit`（[BuildAllDisabledToggles](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L86-L87) 机制）携带相同选项；**可直接对原始源码出报告**——此时 E10 未运行，报告 `passPresent.generic=false`，`new T()`/`default(T)` 以原始形态入账（D6 已内置两种形态识别）。这是「链位较晚丢失出处」顾虑（E10 已改写站点）的标准缓解姿势。
+- 独立入口：通用 `preprocess --pass variance-audit`（[BuildAllDisabledToggles](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L91-L92) 机制）携带相同选项；**可直接对原始源码出报告**——此时 E10 未运行，报告 `passPresent.generic=false`，`new T()`/`default(T)` 以原始形态入账（D6 已内置两种形态识别）。这是「链位较晚丢失出处」顾虑（E10 已改写站点）的标准缓解姿势。
 - 指纹：全集令牌自动含 `pass:variance-audit=on/off`；输出树字节等于输入，下一环 `opts.Source` 串联零特殊处理；无支撑库过滤项。
 
 ### 5.3 失败语义
@@ -297,7 +297,7 @@ VarianceAudit/
 - `where T : struct` → VA020 + 依赖站点关联；`default(T)`/`default` 字面量在该 T 上 → VA027（对照无约束 T 的 default：不报 VA027）；
 - `where T : unmanaged` → VA021（**钉死当前零诊断现状下本码是唯一信号**；同时钉死 GetTypeInfo 对「unmanaged」伪类型的实际返回）；
 - `where T : new()` + `new T()` → E10 形态两种跑法：先过 GenericPreprocessor 再审计 → VA022 + Activator 关联 Info；独立对原始源码审计 → 原始 `new T()` 入账且 `passPresent.generic=false`；`new T(){ X=1 }` 残余 → VA023；
-- `notnull` → VA024（不产 bounds，对照 [ProjectRegressionShapeTests.cs#L217-L267](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectRegressionShapeTests.cs#L217-L267) 既有断言不受影响）；`where T : default` → VA025；`class`/`class?` → VA026；
+- `notnull` → VA024（不产 bounds；全 `tests/` grep `notnull` 零命中，无既有断言受影响）；`where T : default` → VA025；`class`/`class?` → VA026；
 - `where T : IComparable<T>` 不产任何 VA 码（已映射 bounds 的对照负例）；
 - 多约束子句混合（`where T : struct, IComparable<T>, new()`）分桶不重复。
 
@@ -380,7 +380,7 @@ VarianceAudit/
 | 相邻工作 | 边界 | 顺序/依赖 |
 |---|---|---|
 | **E10 `generic`（已实现，默认开）** | 构造点/默认表达式重写归 E10；C33 审计声明与残余、识别其产物（Activator/Array.CreateInstance/default 字面量）并交叉引用，不重复重写 | RunAfter=generic 强边已在 stub；同树组合测试（§7.3）；若 E10 未来扩大 new() 覆盖（带初始化器），VA023 分类同步收窄 |
-| **C02 `generic-deepen`（已实现，默认关）** | typeof(T)/is-as/静态字段/token 传播与本 pass 无站点交集；同属泛型擦除补偿族（[catalog L908](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L908)） | 无强依赖（不锚它，§3.3）；复用其 residual scan 的「strict 升 Error + 统计分桶」范式（[GenericDeepenPassAdapter.cs#L89-L130](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/GenericDeepenPassAdapter.cs#L89-L130)）；报告 `passPresent.genericDeepen` 位 |
+| **C02 `generic-deepen`（已实现，默认关）** | typeof(T)/is-as/静态字段/token 传播与本 pass 无站点交集；同属泛型擦除补偿族（[catalog L1086](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1086)） | 无强依赖（不锚它，§3.3）；复用其 residual scan 的「strict 升 Error + 统计分桶」范式（[GenericDeepenPassAdapter.cs#L89-L130](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/GenericDeepenPassAdapter.cs#L89-L130)）；报告 `passPresent.genericDeepen` 位 |
 | **C30 `closed-metadata`（stub，设计稿）** | C30 消费 C02 token 做 Java 反射闭型贯穿；C33 做声明-site 型变安全与约束显式化。二者可能在同一泛型密集工程同时开启 | 无 RunAfter 边；报告 JSON 词汇（totals/sites/severity）互相看齐；未来若抽公共审计报告组件，二者为首批消费者 |
 | **C09 `thread-static`（stub）** | 同 Stage=Declarative、同锚 generic | 仅注册表插入顺序协调（翻转时拓扑断言各自锁定），无功能交互 |
 | **C25 `dynamic-desugar`（设计稿，审计型范本）** | 共享 audit-only pass 的 adapter 范式（恒 null rewrite、verify 双关、报告 JSON、strict 闸门、独立 verb 缓解晚链位） | 无依赖；本设计直接沿用其纪律（D12/D13/R3 同款）；若 C25 先落地公共报告写盘工具，C33 改为消费 |
@@ -403,3 +403,18 @@ VarianceAudit/
 ```powershell
 git worktree add .worktrees/preproc-c33-variance-audit -b feature/preproc-c33-variance-audit 953293b9
 ```
+
+---
+
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（散见决策表/里程碑门的悬置项，按主题收口）：**
+
+1. **通道性质**：**纯审计、永不改树**（恒 null rewrite、逐文件字节不变）；use-site `? extends/super` 改写**不在任何默认开门范围内**，M3 另立项且必须有 Java 编译+行为双预言（通配符模型 + 捕获转换原型 + 真实语料 PECS 分类正确率），本期不产任何写入产物。
+2. **M1 交付与默认状态**：M1 纯审计报告（inventory/facts/classifier/ConstraintAuditor/报告 JSON/adapter）翻转 Implemented 后，**audit 模式默认开**（Warning/Info 非阻断，`Success==true`）；门槛刻意低于写型 pass——§8 五条（全绿、sdk 补扫、噪声可接受、耗时可接受、人工抽检无事实错误）满足即翻，Warning 不经 strict 不阻断。
+3. **M2 strict 闸门分批**：strict Error 闸门**分批推广，VA023/VA027 先行**（这两类"确定产错"零假阴优先）；其余 Error 类码须 sdk 站点逐一人工分类确认后再纳入 strict，不含糊升 Error；strict 长期 opt-in，VA030 为闸门汇总码。
+4. **假阳/假阴口径**：假阳可接受（Info/报告聚合降噪），**事实错误不可以**（Producer 报成 Consumer 一类为验收红线）；断链/候选不全保守 Both+VA015，M1 不产任何"Safety"强断言写入。
+5. **链序**：拓扑锁定 `generic → generic-deepen → variance-audit → record-readonly`，不强锚 C02；`passPresent` 位图保证 E10 链位导致的形态变化可归因。
+6. **转换器退役**：CS2J1002/CS2J1003 退役是 audit 默认开门、语料验证后的**独立 PR**；退役前单文件直转兜底与原测试断言保留，M1/M2 零转换器改动。

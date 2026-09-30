@@ -4,7 +4,7 @@
 **日期**：2026-09-29　**状态**：分治设计稿，待评审
 **本期结论（先读这段）**：
 
-1. **同步 using 现路径语义正确，不前置、不动生产代码**；本任务不注册独立 pass、不翻独立 stub（注册表现状：[PassStubCatalog.cs:238](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L238) 的 async-normalize catalogItems 已标注 `"C18, C38 (C44 subtopic)"`，C44 无独立条目——保持不变）。
+1. **同步 using 现路径语义正确，不前置、不动生产代码**；本任务不注册独立 pass、不翻独立 stub（注册表现状：[PassStubCatalog.cs:216](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L216) 的 async-normalize catalogItems 已标注 `"C18, C38 (C44 subtopic)"`，C44 无独立条目——保持不变）。
 2. **三个真实缺口各归其主**：ref struct disposable → C06（`unsafe-ffm`）；`await using` → C38（`async-normalize/AsyncStreams/`）；yield 内 using → C04（`iterator-lowering`）。本文档给出三个接缝的精确落点与一处需要回填的归属矛盾（§3.2、§11）。
 3. **CsCore 全量收敛期**若决策「同步 using 也前置」，本文档第 2/3/4 章已预留可直接实施的完整规则设计（新 pass `using-desugar`，RunAfter `eliminate-goto`）。
 4. **worktree 条件使用**：仅做三缺口子题时**不建**本 worktree；本 worktree 仅在「CsCore 同步前置立项」或「跨三 pass 抽共享 UsingFinally 模板」时创建（§12）。
@@ -19,7 +19,7 @@
 |---|---|---|---|
 | using 语句（含嵌套堆叠） | 直映 Java try-with-resources；沿 `Statement as UsingStatementSyntax` 下钻，把堆叠资源收集为**单一 resource 列表**（LIFO 由 t.w.r 多资源逆序关闭保证），再取最内层 using 的真实语句体 | [StatementTransformer.SwitchAndResource.cs:198-244](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L198-L244)（`TransformUsingStatement`:202；下钻 :205-219；找最内层 :222-224；发射 :243） | 正确（一处已知语义偏差见 §10 风险 4，不阻断） |
 | using 语句·表达式资源 `using (expr)` | 标识符直用；其他表达式合成 `_cs2jResource` 临时，类型取语义模型，失败回落 `AutoCloseable` | [SwitchAndResource.cs:272-284](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L272-L284) | 正确 |
-| using 声明 `using var x = …;` | 语句级预扫描：块内遇到 using 声明即收集**连续** using 声明的全部资源，把剩余语句整体包成一个 try-with-resources，模拟「作用域延伸到块尾」 | [StatementTransformer.cs:167-190](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L167-L190)（预扫描入口 :167-170）、[:241-249](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L241-L249)（IR 变体）、[BuildUsingDeclarationResources 在 SwitchAndResource.cs:246-253](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L246-L253)、连续收集 [StatementTransformer.cs:457-475](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L457-L475)、递归包体 [:477-495](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L477-L495) | 正确（结构化块内；goto 面见 §10） |
+| using 声明 `using var x = …;` | 语句级预扫描：块内遇到 using 声明即收集**连续** using 声明的全部资源，把剩余语句整体包成一个 try-with-resources，模拟「作用域延伸到块尾」 | [StatementTransformer.cs:167-191](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L167-L191)（预扫描入口 :167-170）、[:241-250](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L241-L250)（IR 变体）、[BuildUsingDeclarationResources 在 SwitchAndResource.cs:246-253](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.SwitchAndResource.cs#L246-L253)、连续收集 [StatementTransformer.cs:457-475](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L457-L475)、递归包体 [:477-495](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L477-L495) | 正确（结构化块内；goto 面见 §10） |
 | using 声明的控制流交互 | 无条件跳转分析把「含 using 声明的块」排除出裸跳转判定（跳转须经 t.w.r 出口） | [StatementTransformer.cs:341-344](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L341-L344)（`ContainsUsingDeclaration`:447-455） | 正确 |
 | 漏网防护 | using 关键字的局部声明若走到普通声明变换直接 fail-fast（设计上不可达） | [StatementTransformer.Declarations.cs:21-25](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Declarations.cs#L21-L25) | 防线在位 |
 | 实验形态证据 | IR 级 `IrCSharpUsingStatement → IrTryCatchStatement + close()`；仅 Java2 对比测试可达，**生产不可达、不可复用代码**（catalog §4 风险 9） | [Lowering/LowerUsing.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Lowering/LowerUsing.cs)（全 46 行；核心 :28-38） | 仅借形 |
@@ -136,7 +136,7 @@ using (var r = Make()) { Body(); }
 
 ### 3.1 本期动作：零注册表改动
 
-- **不新增 stub、不新增 pass id、不新增目录名**。[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 无 C44 条目，保持；async-normalize 条目（:232-238）catalogItems = `"C18, C38 (C44 subtopic)"` 是 C44 子题的唯一注册表面，C18 翻转/C38 扩宽时按 [C38 §3.1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c38-async-stream-design.md) 既有计划修改，本文档不产生新动作。
+- **不新增 stub、不新增 pass id、不新增目录名**。[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 无 C44 条目，保持；async-normalize 条目（:207-216）catalogItems = `"C18, C38 (C44 subtopic)"` 是 C44 子题的唯一注册表面，C18 翻转/C38 扩宽时按 [C38 §3.1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c38-async-stream-design.md) 既有计划修改，本文档不产生新动作。
 - 不新增 CLI 选项、不新增适配器；`--list-passes` 不出现 C44。
 
 ### 3.2 子题规则落点表（实施时代码落在哪里）
@@ -145,13 +145,15 @@ using (var r = Make()) { Body(); }
 |---|---|---|---|---|
 | G1 ref struct using | `unsafe-ffm`（stub，Stage=ABI） | `src/CSharpToJava.Core/UnsafeFfm/RefStructUsingRewriter.cs`（建议新增 R9，与 R7 `RefStructDeclRewriter.cs` 同目录并列） | R9 + UF055；复用 UnsafeFfmAnalyzer 的 ref struct 声明清单与 SemanticModel 绑定 | [C06 §4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c06-unsafe-ffm-design.md)（需按本文档回填一行，见下） |
 | G2 await using | `async-normalize`（stub，StateMachine；C18 翻转后承载） | `src/CSharpToJava.Core/AsyncNormalize/AsyncStreams/AwaitUsingRewriter.cs` | AS-4（语句）/AS-5（声明）；CS2J1841/1842/1849；统计 `AwaitUsingExpanded`、`AsyncDisposeGuardsEmitted` | C38 §2.2/§4.3，**无需任何回填**（D12 已写明不另立规则） |
-| G3 yield 内 using | `iterator-lowering`（stub，StateMachine；Core 目录已存在骨架） | `src/CSharpToJava.Core/IteratorLowering/IteratorStateMachineRewriter.cs` + `ControlFlow/CfgBuilder.cs`（保护区域表） | D5 using 归一（M3）；区域/资源字段登记；CS2J0403 拒 ref struct 跨 yield | C04 D5/M3，**无需回填**（已显式包含 pattern-based 与 using 声明） |
+| G3 yield 内 using | `iterator-lowering`（Implemented 默认关，StateMachine；Core 实现已在位，using 子题仍待 M3） | `src/CSharpToJava.Core/IteratorLowering/IteratorStateMachineRewriter.cs` + `ControlFlow/CfgBuilder.cs`（保护区域表） | D5 using 归一（M3）；区域/资源字段登记；CS2J0403 拒 ref struct 跨 yield | C04 D5/M3，**无需回填**（已显式包含 pattern-based 与 using 声明） |
 
 **★需评审拍板的归属矛盾（G1）**：catalog 两处（L889、§3.3 L1091 unsafe 家族/L1085 值语义族）明确把「C44 的 ref struct disposables 子项」划入 C06；但 [C06 设计 D9（:101）](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c06-unsafe-ffm-design.md#L101)、R7（:163）、§11（:306）三处写明「`using ref struct` 子题归 C44，本 pass 不触碰」。两边不可能同时为真。本设计的建议（与 catalog 权威结论一致）：
 
 1. C06 spec 在 M4 段补一条 **R9 `RefStructUsingRewriter`**：扫描 using 语句/声明资源类型为 IsRefLikeType 的站点，白名单外发 **UF055**（Error，「ref struct disposable cannot be represented in the Java type surface」），白名单内按 C06 统一选型处理；
 2. R7 文案保持「只判声明、不碰 using 体」，using 站点由 R9 拥有，两规则同 pass 内顺序执行、互不重叠；
 3. 该回填是 C06 M4 实施时的一行文档改动 + 一个规则文件，不需要新开 pass——这正是「C44 不独立成链」的具体含义。
+
+> **2026-09-29 拍板：以上建议已采纳（见 §13.1 裁决 1）**——C06 M4 增 R9（`RefStructUsingRewriter` + UF055）拥有全部 ref struct using 站点；对上文第 1 条的细化：**Span 族白名单 v1 随 R9 给空操作归一**（非"按统一选型延后"），仅白名单外站点发 UF055。C06 D9/开放问题/R7/§10/§11 旧措辞已同步回填。
 
 ### 3.3 【预留】CsCore 同步前置的链位推荐
 
@@ -161,7 +163,7 @@ using (var r = Make()) { Body(); }
 |---|---|---|
 | pass id | `using-desugar` | 与三归属 pass 的 using 规则按「资源种类/上下文」切分，边界可判定（见下「职责切分」） |
 | Stage | ControlFlow | 块级结构改写；需要 SemanticModel（D13 绑定、D15 分类），**不得并入 C28/C43 的 Layer 0 纯语法合批**（§11.4） |
-| RunAfter | **`eliminate-goto`**（先例：`platform-isolation`/`concurrency-normalize`/`dynamic-desugar` 三个 stub 均 RunAfter EliminateGoto，[PassStubCatalog.cs:266,278,288](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L266)） | D9：goto 已先行消除；且拓扑上自然晚于 unsafe-ffm/closure-lift/iterator-lowering/async-normalize（它们都在 goto 之前），保证到达本 pass 的 using 只剩「非异步、非 ref struct、非迭代器体」的同步普通形态 |
+| RunAfter | **`eliminate-goto`**（先例：`platform-isolation`/`concurrency-normalize`/`dynamic-desugar` 三个 stub 均 RunAfter EliminateGoto，[PassStubCatalog.cs:244,256,266](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L244)） | D9：goto 已先行消除；且拓扑上自然晚于 unsafe-ffm/closure-lift/iterator-lowering/async-normalize（它们都在 goto 之前），保证到达本 pass 的 using 只剩「非异步、非 ref struct、非迭代器体」的同步普通形态 |
 | catalogItems | `"C44"` | 翻转时注册表三热文件（PassStubCatalog 加条 → 翻转日删条、PassCatalog 加 descriptor、PassChainFactory 加 case）按 foundation plan 标准工序 |
 | 默认开关 | 翻转即默认关（opt-in），达 §8.2 门槛后再议默认开 | 观察项转实现项的统一纪律（catalog §4 风险 10） |
 
@@ -273,7 +275,7 @@ UsingDesugarResidualGate.cs   # 输出树 UsingStatementSyntax/using 声明零�
 | ref struct using（自定义 ref struct Dispose、Span 族白名单两例） | C06 fixture sln（unsafe 家族专项） | C06 §7；R9 用例：UF055 断言 + 白名单行为断言；本 pass 不另建 |
 | await using 语句/声明/堆叠/pattern | C38 fixture | 引用 C38 §7 第 5/7/8 组与 .NET 半区 await using fixture，不复制 |
 | yield 内 using（using 块/声明/多资源/嵌套；枚举到一半 Dispose() 的时序） | C04 专项 fixture sln | 引用 C04 §7.1 第 6 组、§7.2（提前 Take、using 文件/内存流、两半区计数断言） |
-| 跨族交界（固定/建议各 1 例，仅登记在各自 pass 的联合 fixture 清单） | C06×C04：fixed/Span 局部与 yield+using；C38×C04：async iterator 占位用例（M4） | C06 §11 已要求交叉 fixture；C04 §11 第 5 条已要求三方交界 fixture |
+| 跨族交界（固定/建议各 1 例，仅登记在各自 pass 的联合 fixture 清单） | C06×C04：fixed/Span 局部与 yield+using；C38×C04：async iterator 占位用例（M4） | C06 §11 已要求交叉 fixture；C04 §11 第 4 条已要求三方交界 fixture |
 
 ### 7.3 闸门与回归
 
@@ -383,7 +385,19 @@ git worktree add .worktrees/preproc-c44-using-desugar -b feature/preproc-c44-usi
 
 ---
 
-## 13. 关键开放问题（评审输入）
+## 13. 开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **G1 归属拍板**：**同意 §3.2 建议——C06 M4 新增 R9（`RefStructUsingRewriter` + UF055）拥有全部 ref struct using 站点**；C06 D9/R7/§11 三处"归 C44"措辞由本裁决一并回填订正（见 C06 文档 2026-09-29 回填，引用本节）。**Span 族白名单 v1 随 R9 同时交付空操作归一**（`using Span<…>` 站点本身无资源释放语义，空归一是语义正确而非放水）；非白名单 ref struct 的 using 站点由 UF055 显式诊断。await using 仍归 C38、yield+using 仍归 C04，本节不改变其归属。
+2. **Roslyn 绑定细节探针**：实施**首步**即跑 `TryGetDisposeMethod` 探针 + IL 查看，锁定接口/pattern 双实现优先级与 `Nullable<T>` 资源是否产生 box；规则现稿"接口优先、Nullable 经 HasValue+Value 不装箱"为假设，探针结论若不同则按探针修订 D14/D3 并回填本文，禁止在未探针情况下写规则代码。
+3. **共享模板抽提**：**认可新建 `Shared/` 目录**（否决塞入 GotoEliminator 旁等既有目录——语义不相关）；抽提由**第一个真实消费方触发**（C40、C38-M2、C04-M3 中先落地者），抽提时第二个消费方的已知需求只作形状参考、不提前参数化，`DisposeFinallyFactory` 落 `Shared/` 后三方改为引用。
+4. **M2 触发条件客观化**：§8.2 三个定性条件在 CsCore/统一引擎立项时**转成可验收清单**，清单必须含"转换器内联 using 六个站点的删除顺序"（逐站点列出删除提交与对应预处理规则接管验证），条件未全部可验收则 M2 不启动，不以定性判断开工。
+5. **异常屏蔽偏差处置时点**：t.w.r. `addSuppressed` 与 C# finally 的异常屏蔽差异**接受现状保留至 M2 一次性收敛**（M1 不动主转换器、不冲击现有 Java 产物快照）；收敛工作并入 **compat 异常语义统一批次**（与 C22 Q3 同批：Nullable 异常面、finally 屏蔽面一次收口），M2 交付物含差异行为矩阵与快照更新。
+
+### 13.1 原问题记录（裁决前）
 
 1. **G1 归属矛盾拍板**：是否同意 §3.2 建议——C06 M4 新增 R9（`RefStructUsingRewriter` + UF055）拥有 ref struct using 站点，回填 C06 D9/R7/§11 三处「归 C44」措辞？白名单（Span 族）v1 是随 R9 一起给空操作归一，还是 UF055 一律拒绝、白名单延后？
 2. **Roslyn 绑定细节探针**：D14 的接口/pattern 双实现优先级、D3 的 `Nullable<T>` 资源是否产生 box，需在实施首步以 `TryGetDisposeMethod` 探针 + IL 查看锁定；本设计规则按「接口优先、Nullable 经 HasValue+Value」草拟，存在按探针修订的可能。

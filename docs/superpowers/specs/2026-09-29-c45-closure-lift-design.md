@@ -507,3 +507,18 @@ git worktree add .worktrees/preproc-c45-closure-lift -b feature/preproc-c45-clos
 - E05 现状：[DelegateSyntaxRewriter.cs:115-140](file:///d:/code/cs2j/src/CSharpToJava.Core/DelegatePreprocessor/DelegateSyntaxRewriter.cs#L115-L140)（Combine/Remove）、[:174-176](file:///d:/code/cs2j/src/CSharpToJava.Core/DelegatePreprocessor/DelegateSyntaxRewriter.cs#L174-L176)（事件跳过）、[:244-334](file:///d:/code/cs2j/src/CSharpToJava.Core/DelegatePreprocessor/DelegateSyntaxRewriter.cs#L244-L334)（匿名方法→lambda）
 - 转换器现状（M5 对象）：[LambdaTransformer.cs:38-100](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LambdaTransformer.cs#L38-L100)、[:160-201](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LambdaTransformer.cs#L160-L201)、[:228-274](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/LambdaTransformer.cs#L228-L274)、[StatementTransformer.cs:68-89](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L68-L89)、[:124-143](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.cs#L124-L143)、[MethodConversionState.cs:310-555](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/MethodConversionState.cs#L310-L555)
 - 共享/姊妹：[ExpressionTreeFacts.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs)、[DelegateTransformer.cs:11-15](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Type/DelegateTransformer.cs#L11-L15)、[Lambda.cs:34-48](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/Lambda.cs#L34-L48)、[c04 §4.3/§11](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c04-iterator-lowering-design.md)、[c18 D3/D12/§3.3/§11](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c18-async-normalize-design.md)
+
+---
+
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（散见决策表/里程碑门的悬置项，按主题收口）：**
+
+1. **D2 加性演进为 M2 红线**：**HolderPlan → DisplayClassPlan 必须纯加性演进、C32 全部用例字节断言零失效**，此为 M2 合并审查第一红线（不允许借收编重写 holder 形状）；C32 冻结的 `Cs2jDisplayClass_<member>_<n>`/`_cs2jCap_` 命名只增不改。
+2. **RunAfter 双边确认时点**：closure-lift 翻转（或 C45 阶段扩宽）时，**与 iterator-lowering、async-normalize 两条 RunAfter 边在同一 PR 同时确认**并补排序快照双边断言（"捕获先显式、状态机后保存"；async 边界 D17 两不跨）；不依赖 Kahn 声明序兜底。
+3. **默认开数据门**：M4 是否翻默认开，**以三项硬数据定案——新增嵌套类型数、IL 体积增量、sdk 编译时长增量**（AuditOnly 4966 站点分桶 + 三项测量齐全才评审），阈值在门槛评审定；数据不达标即继续 opt-in，不用定性判断放行。
+4. **CaptureClassification 单一事实**：沿用 C32 裁决——C45 只查不改 E02 提取的唯一 `Analysis/CaptureClassification`，写站点仍走同一 `FindWriteSites` 保守并集口径，禁止第二口径。
+5. **M5 退役节奏**：转换器旧 holder 路径退役（MethodConversionState 状态帧 → StatementTransformer 预扫描 → LambdaTransformer holder 发射，三步独立提交）**不得早于 M4 默认开后一个稳定窗口**；M5 未完成不阻塞 C45 默认开，两套事实按 C32 §10-9 纪律共存。
+6. **E16 退路（D20）**：M2 探针先行量化 LinqRewrite 对显式委托构造实参的行为；退路 (a)/(b) 均不进默认路径，默认开以"双端结论成文"为硬门；linq-channel 前移（退路 b）的承接归 C26，本 pass 不自带。

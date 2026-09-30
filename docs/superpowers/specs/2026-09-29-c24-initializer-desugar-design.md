@@ -3,9 +3,11 @@
 **日期**: 2026-09-29
 **范围**: 在 C23 锚点合入后的 `src/CSharpToJava.Core/ExpressionDesugar/` 共享族基建上新增 `Initializers/` 规则集，在 C# 层把对象初始化器（`new C { A = 1 }`，含嵌套创建/嵌套成员初始化、init 属性赋值）、集合初始化器（`new List<int> { 1, 2 }`，含多参/扩展/fluent `Add`、IEnumerable 模式）、字典索引初始化器（`new D { [k] = v }`）、target-typed `new()`（含可空目标）统一归一为「构造调用 + 逐成员 set/赋值/Add/索引赋值」的语句序列，严格保持构造实参→初始化器、成员按源码序的求值顺序与单次求值。本任务**不注册/不翻转 pass、不新增 pass id/中间目录/适配器、不改任何 C#→Java 转换器代码**
 **状态**: 设计待评审；实现硬前置 C23 锚点分支合入（见 §3、§12）
-**Catalog**: C24（P3，分类 1.8 表达式）[preprocessor-catalog.md L544-L553](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L544-L553)；族归属「表达式/集合形态归一」（[§3.3 L909](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L909-L909)：C23+C24+C35+C36，共用单次求值临时变量提升基建）；C36 边界 [L691-L704](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L691-L704)；横切约束（禁止静默错误输出，[catalog §4 风险 12](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931)；表达式树共享判定，[风险 8](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L927-L927)）
-**注册表现状**: stub `expression-desugar`（[PassStubCatalog.cs L239-L248](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L239-L248)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，RunAfter=`null-coalesce`，目录 `.cs2j-expression-desugar-src`）。stub 翻转与族基建由 **C23 锚点**完成（翻转时收窄 catalogItems 为 `"C23"`）；C24 只在翻转后的同一 pass 内追加 `Initializers/` 规则，合入时 catalogItems 加宽为 `"C23, C24"`（该字符串属锚点侧文件，由锚点侧统一登记，见 §3）
+**Catalog**: C24（P3，分类 1.8 表达式，名称 `InitializerDesugar`）[preprocessor-catalog.md L599-L609](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L599-L609)；族归属「表达式/集合形态归一」（[§3.3 L1087](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1087-L1087)：C23+C24+C35+C36（该族行另含 C51/C48/C31 使用点），共用单次求值临时变量提升基建）；C36 边界（集合表达式 `[...]`/spread/target-typed 边界）[L764-L780](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L764-L780)；横切约束（禁止静默错误输出，[catalog §4 风险 12 L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)；表达式树共享判定，[风险 8 L1106](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1106-L1106)）
+**注册表现状**: 合并 stub `expression-desugar`（[PassStubCatalog.cs L217-L226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，`runAfterIds: new[] { PassIds.NullCoalesce }`，目录 `.cs2j-expression-desugar-src`；id 常量 [Ids.ExpressionDesugar L39](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L39-L39)，`Stubs` 2026-09-29 实测 21 个；C24 **无独立 id/描述符**）。stub 翻转与族基建由 **C23 锚点**完成（翻转时收窄 catalogItems 为 `"C23"`）；C24 只在翻转后的同一 pass 内追加 `Initializers/` 规则，合入时 catalogItems 加宽为 `"C23, C24"`（该字符串属锚点侧文件，由锚点侧统一登记，见 §3）
 **base**: `953293b9`（`docs: update doc base commit`，C23 设计已校验存在）；实际开工 base = C23 分支合入后的 rebase 点
+
+> **校订（2026-09-29）**：仅证据核对，不改设计结论。① 全部 file:/// 链接按当前磁盘重算：catalog C24 段实为 [L599-L609](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L599-L609)、§3.3 表达式/集合形态族 [L1087](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1087-L1087)、C36 段 [L764-L780](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L764-L780)、§4 风险 8 [L1106](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1106-L1106)/风险 12 [L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)；expression-desugar stub 实为 [PassStubCatalog.cs L217-L226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)（旧文误引 L239-L248），`Stubs` 当前共 **21** 个；② 登记事实对齐：C24 无独立 pass id，归合并 stub `expression-desugar`（Stage.Expression、RunAfter=`null-coalesce`、catalogItems `"C23, C24, C35, C36"`），翻转按 iterator-lowering 先例（id 常量留 `PassStubCatalog.Ids`）；③ 作废不实断言：ObjectInitializerMethodChainTests 全文 80 行仅 1 个用例（旧引「L116/L150 getter 链断言」不存在），TernaryObjectInitializerNullGuardTests 与 ObjectInitializerArrayToIListTests 两个类当前均为 **0 个 `[Fact]`** 的空类（仅注释 + helper）；`ArrayHelper.toList` 包裹仅见于实参 coercion 路径 [ArgumentTransformer.Coercion.cs L247-L266](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Coercion.cs#L247-L266)，初始化器 set 路径是否经过未证实；④ 决策 8/IN-7 补 params Add、扩展 Add、IEnumerable 资格的官方语义要点；⑤ 新增开放问题 Q6（缺失的 Java 侧护栏）/Q7（适配器前向引用）。
 
 ---
 
@@ -21,11 +23,11 @@
 | S2 | 同上 | 不判定 init/readonly/可访问性：init-only 属性、get-only 属性、readonly 字段一律发 `setX(...)`/字段直写 | 对只读成员产出**不可编译 Java** 或绕过 init 约束，无诊断 |
 | S3 | [L56-L65](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L56-L65) 集合初始化器分支 | **硬编码无参构造** `new {name}()`，`ObjectCreationExpressionSyntax.ArgumentList` 整体丢弃 | `new List<int>(8) { 1, 2 }` 容量实参丢失；无无参构造函数的类型直接产出不可编译 Java；custom collection 的构造实参（依赖注入、比较器）全丢 |
 | S4 | [L60-L64](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L60-L64) | 纯文本启发式：嵌套两元素即 `put(k,v)`，其余即 `add(e)`；**零 SemanticModel Add 绑定** | 多参 `Add(k,v)`（非字典类型）被错发 `put`；扩展方法 `Add`、`Add` 返回非 void 的 fluent 集合、IEnumerable 模式全部未按 C# 绑定语义处理 |
-| S5 | [L26-L27](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L26-L27) target-typed new | `ImplicitObjectCreationExpressionSyntax` 取 `GetTypeInfo(io).Type`，为 null 时 `name="Object"`；无显式类型发射策略 | `new() { ... }` 在类型推断缺失处产 `new Object()`，静默错译；无对应测试 |
-| S6 | 求值顺序事故史 | [ObjectInitializerMethodChainTests.cs L7-L21](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerMethodChainTests.cs#L7-L21) 记录 `new App { Args = args }.Run()` 曾因前置语句队列重复 transform 而**构造与 set 各发射两次**；[TernaryObjectInitializerNullGuardTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/TernaryObjectInitializerNullGuardTests.cs) 4 个用例钉住另一类缺陷：初始化器被无条件提出三元真分支，`setTipPosition(parsePoint(str))` 在 `str == null` 时仍执行 | 现路径靠 facade 特判与前置语句队列维持单次/条件求值；这正是 catalog §3.3 要求「表达式糖→显式语句 + 单次求值临时提升」的根因 |
+| S5 | [L27](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L27-L27) target-typed new 分派 + [L39](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L39-L39) 兜底 | `ImplicitObjectCreationExpressionSyntax` 取 `GetTypeInfo(io).Type`，type 为 null/error 且无语法类型时 `name="Object"`（[L39](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L39-L39)）；无显式类型发射策略 | `new() { ... }` 在类型推断缺失处产 `new Object()`，静默错译；无对应测试 |
+| S6 | 求值顺序事故史 | [ObjectInitializerMethodChainTests.cs L6-L21](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerMethodChainTests.cs#L6-L21) 类注释记录 `new App { Args = args }.Run()` 曾因前置语句队列重复 transform 而**构造与 set 各发射两次**（该文件仅 1 个 `[Fact]`，[L24-L56](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerMethodChainTests.cs#L24-L56)，断言单次构造/set）；[TernaryObjectInitializerNullGuardTests.cs L6-L19](file:///d:/code/cs2j/tests/CSharpToJava.Tests/TernaryObjectInitializerNullGuardTests.cs#L6-L19) 注释记录另一类缺陷：初始化器被无条件提出三元真分支，`setTipPosition(parsePoint(str))` 在 `str == null` 时仍执行——**但该类当前 0 个 `[Fact]`（空类，仅注释 + Convert helper，2026-09-29 磁盘核实）** | 现路径靠 facade 特判与前置语句队列维持单次/条件求值；第二类事故无自动化守门（开放问题 Q6）；这正是 catalog [§3.3 L1087](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1087-L1087) 要求「表达式糖→显式语句 + 单次求值临时提升」的根因 |
 | S7 | 无 residual 闸门 | 初始化器分支不产任何诊断；跳过即静默 | 缺成员/缺 Add/不可提升上下文全部「能转完但结果错」，属风险 12 静默错误输出族 |
 
-另有一条 Java 半区专用护栏：[ObjectInitializerArrayToIListTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerArrayToIListTests.cs)（`T[]` 赋 `IList<T>` 属性时 Java 侧包 `ArrayHelper.toList`）。该包裹是 Java 半区关注（C# 中 `T[]` 本就实现 `IList<T>`），C24 的 C# 产物保持普通赋值即可，本测试在 pass 默认关期间一行不改。
+另有一个**当前为空的** Java 半区护栏测试类：[ObjectInitializerArrayToIListTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerArrayToIListTests.cs)——类内仅注释（[L7-L13](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerArrayToIListTests.cs#L7-L13)）与 Convert helper，**0 个 `[Fact]`**（2026-09-29 磁盘核实）。注释称 `T[]` 赋 `IList<T>` 属性时 Java 侧包 `ArrayHelper.toList`：包裹实现仅见于实参 coercion 路径 [ArgumentTransformer.Coercion.cs L247-L266](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Coercion.cs#L247-L266)，而 [ObjectCreationTransformer.cs L149-L150](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L149-L150) 的 `WrapArrayForCollectionArg` 现为恒等空实现——初始化器 `setX(...)` 路径是否经过 coercion 包裹**未证实**（开放问题 Q6）。该包裹本是 Java 半区关注（C# 中 `T[]` 本就实现 `IList<T>`），C24 的 C# 产物保持普通赋值即可，本测试类在 pass 默认关期间一行不改。
 
 ### 1.2 目标语句序列形态
 
@@ -90,7 +92,7 @@ C a = __ed_0;
 ### 1.4 非目标（边界）
 
 - **record `with` 表达式**：归 C27（[c27-design §2 决策 9/12](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c27-record-with-design.md#L87-L90)）；with 初始化器在 Declarative 阶段先归一，C24 对其产物幂等即可；
-- **集合表达式 `[1,2,3]`/spread `..e`**：归 C36（[catalog L691-L704](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L691-L704)）；`CollectionExpressionSyntax` 节点 C24 不触达；
+- **集合表达式 `[1,2,3]`/spread `..e`**：归 C36（[catalog L764-L780](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L764-L780)，含目标类型五类、`with(...)`、inline array 限制的官方清单）；**边界：C36 管 `CollectionExpressionSyntax`（方括号）的目标类型推断与物化，C24 管花括号初始化器（`InitializerExpressionSyntax`）**，两语法面不相交；
 - **`stackalloc`**：归 C06；[ObjectCreationTransformer L146-L148](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L146-L148) 已是显式 throw，本规则不消费；
 - **数组初始化器** `new int[] { 1, 2 }` / `new[] { 1 }`（`ArrayInitializerExpression`）：Java 有同形数组字面量，主转换器 [L85-L145](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L85-L145) 直映成立，不进本规则 residual 口径；
 - **匿名对象** `new { A = 1 }`（`AnonymousObjectCreationExpressionSyntax`）：归 C21 提升；
@@ -105,10 +107,10 @@ C a = __ed_0;
 | 3 | 成员赋值序 | 构造调用语句 → 初始化器成员项**严格源码序**；属性（未放宽时保持属性写 `tmp.Prop = v`）、可写字段直写、索引器 `tmp[k] = v`、集合 `Add` 统一进入同一有序语句表，不按种类重排 | C# 编译器 lowering 即此序；成员 RHS 间若有观察依赖（共享状态/副作用）必须可见 |
 | 4 | 单次求值与临时策略 | 构造实参与各成员值表达式**零复制**内联进唯一一条语句；嵌套 getter 链（决策 6）、复杂上下文（决策 11）经 `TempLifter` 提升；临时名复用族前缀 `__ed_`，由文件上下文统一发号 | 与 C23 §4.5 同一序号空间，保证未来同文件多规则协同时顺序确定 |
 | 5 | 嵌套创建初始化 `P = new T {…}` | 自底向上：内层先产完整「构造+赋值」语句组并得临时，外层成员赋值引用该临时；内层语句组插在外层构造语句之后、外层该成员赋值之前（即源码序位置） | RHS 只求值一次；不内联展开（内联无法表达内层成员语句） |
-| 6 | 嵌套成员初始化 `P = { … }` | 语义是「取既有成员实例并就地变异」：为成员访问链发**一个** getter 临时 `var __ed_m = __ed_0.P;`（链只求值一次），随后对 `__ed_m` 逐成员赋值；不重新给 `P` 赋值 | 对应 [ObjectInitializerMethodChainTests L116/L150](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerMethodChainTests.cs#L116-L150) 现有 Java 侧 getter 链断言；C# 侧语义比现 Java 侧「内联重复 getter」更严格（getter 可有副作用） |
-| 7 | **init / readonly 可写性与 C11/C27 边界** | 逐成员用符号判定：① 普通 set 属性/可写字段 → 正常赋值；② init-only 属性（`IPropertySymbol.SetMethod.IsInitOnly`）且源树仍是 init 访问器 → 构造后语句赋值在 C# 中非法（CS8852 同族约束），**CS2J0531 显式报错**，消息指明启用 member-desugar（C11 PD-3 放宽 init、PD-8 已先归一其对象初始化器，[c11 L173/L269](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L173-L269)）；③ readonly 字段/get-only 属性出现在初始化器——M0 探针确认基线即 CS0191/CS0200，防御性归 CS2J0531 并附「基线非法」说明；④ C11 已放宽/已归一的成员在 C24 输入树中不再是 init/属性，按实际符号发射（方法调用或字段写），对 C11/C27 产物**幂等** | member-desugar 属 Declarative 阶段，链序天然先于 Expression（[c27 决策 12](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c27-record-with-design.md#L90-L90)）；C24 不引入任何 required/record/init 感知，只按「运行时树实际符号」绑定；required 检查是编译期约束，C11 移除后 C24 不补校验 |
-| 8 | **Add 重载 / 多参 / 扩展 / fluent / IEnumerable** | 一律取 Operation 的 `AddMethod` 绑定：① 单参 → `tmp.Add(e)`；② 复杂元素 `{ a, b }`（`ComplexElementInitializerExpression`）→ 按实参个数发 `tmp.Add(a, b)`（**不**按参数个数猜 `put`）；③ 扩展方法 Add → 保留 reduced 调用语法 `tmp.Add(a,b)` 重编译（using 仍在作用域，绑定自动复现），不手拼静态调用；④ `Add` 返回非 void（fluent）→ 表达式语句自然丢弃返回值（C# 规范允许）；⑤ 重载决议完全复用编译器结果，发射参数零改写；⑥ **AddMethod 不可解析的 IEnumerable 形态**：M0 探针钉死 Roslyn 实际允许的源码子集与 Operation 外形后按探针发射，探针不成立即 CS2J0533，不发明 helper | 消灭 S4；扩展 Add、fluent Add 在训练集真实存在（如 builder 风格集合）；dynamic 接收器归决策 13 |
-| 9 | **字典索引初始化器归属** | `new D { [k] = v }`（初始化器内 `ImplicitElementAccessSyntax`）**归 C24**：发射索引赋值语句 `tmp[k] = v;`（多维索引器 `tmp[a,b]=v` 同形），键、值表达式各一次、源码序；绑定必须是可写索引器属性，否则 CS2J0531。**与 C12 划界**：C12 负责索引器**声明**去糖（`this[]`→`GetItem/SetItem`）及其使用点（含其 D13 已认领的源内索引器初始化器，[c12 D13](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c12-indexer-desugar-design.md#L68-L68)）；C24 在 Expression 阶段处理 C12 之后**残余**的索引初始化站点（BCL `Dictionary`、元数据类型、C12 未认领的源内索引器），按 C24 时树的实际绑定发射，两规则以「声明侧认领 + 阶段先后」天然互斥，不编辑 C12 代码 | 索引实参表达式节点原样保留（含 `^`/`..`，交 C31，[c12 D10](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c12-indexer-desugar-design.md#L65-L65)）；消灭 S1 的静默跳过 |
+| 6 | 嵌套成员初始化 `P = { … }` | 语义是「取既有成员实例并就地变异」：为成员访问链发**一个** getter 临时 `var __ed_m = __ed_0.P;`（链只求值一次），随后对 `__ed_m` 逐成员赋值；不重新给 `P` 赋值 | **2026-09-29 磁盘核实**：[ObjectInitializerMethodChainTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerMethodChainTests.cs) 全文 80 行、仅 1 个用例（[L24-L56](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerMethodChainTests.cs#L24-L56)，单次构造/set 计数），**不存在**嵌套 getter 链断言（旧引「L116/L150」作废）；现 Java 侧对该形态如何发射无测试锁定，C#「getter 单次求值」语义（getter 可有副作用/返回 null）由 C24 M1/M2 新增行为探针守门（§7.1-4、开放问题 Q6） |
+| 7 | **init / readonly 可写性与 C11/C27 边界** | 逐成员用符号判定：① 普通 set 属性/可写字段 → 正常赋值；② init-only 属性（`IPropertySymbol.SetMethod.IsInitOnly`）且源树仍是 init 访问器 → 构造后语句赋值在 C# 中非法（CS8852 同族约束），**CS2J0531 显式报错**，消息指明启用 member-desugar（C11 [PD-3 L170](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L170-L170) 放宽 init、[PD-8 L175](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c11-property-desugar-design.md#L175-L175) 已先归一其对象初始化器）；③ readonly 字段/get-only 属性出现在初始化器——M0 探针确认基线即 CS0191/CS0200，防御性归 CS2J0531 并附「基线非法」说明；④ C11 已放宽/已归一的成员在 C24 输入树中不再是 init/属性，按实际符号发射（方法调用或字段写），对 C11/C27 产物**幂等** | member-desugar 属 Declarative 阶段，链序天然先于 Expression（[c27 决策 12](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c27-record-with-design.md#L90-L90)）；C24 不引入任何 required/record/init 感知，只按「运行时树实际符号」绑定；required 检查是编译期约束，C11 移除后 C24 不补校验 |
+| 8 | **Add 重载 / 多参 / 扩展 / params / fluent / IEnumerable** | 一律取 Operation 的 `AddMethod` 绑定：① 单参 → `tmp.Add(e)`；② 复杂元素 `{ a, b }`（`ComplexElementInitializerExpression`）→ 按实参个数发 `tmp.Add(a, b)`（**不**按参数个数猜 `put`，`IDictionary<TKey,TValue>` 初始化器官方语义即多参 `Add(k,v)`）；③ 扩展方法 Add → 保留 reduced 调用语法 `tmp.Add(a,b)` 重编译（using 仍在作用域，绑定自动复现），不手拼静态调用；④ `Add` 返回非 void（fluent）→ 表达式语句自然丢弃返回值（C# 规范允许表达式语句丢弃返回值）；⑤ 重载决议完全复用编译器结果，发射参数零改写；⑥ **AddMethod 不可解析的 IEnumerable 形态**：M0 探针钉死 Roslyn 实际允许的源码子集与 Operation 外形后按探针发射，探针不成立即 CS2J0533，不发明 helper；⑦ **params Add**：元素实参按正常重载决议命中 params 形参的**展开形式**（如 `void Add(params int[] xs)` 配 `{ 1, 2, 3 }` → `tmp.Add(1, 2, 3)`），实参零改写、不手拼 `new int[]{…}`（M0 探针确认 4.12 Operation 外形） | **官方语义要点**（[object and collection initializers](https://learn.microsoft.com/en-us/dotnet/csharp/programming-guide/classes-and-structs/object-and-collection-initializers)）：集合初始化器要求集合类型实现 `System.Collections.IEnumerable`，且对每个元素初始值存在一个**可访问的实例或扩展 `Add`**，元素即一次普通方法调用实参表——重载决议（含 params 展开、可选参、泛型推断）与普通调用完全相同；无适用 Add 基线即编译错误（CS1922/CS0117 同族），CS2J0533 与此对齐。消灭 S4；扩展 Add、fluent Add 在训练集真实存在（如 builder 风格集合）；dynamic 接收器归决策 13 |
+| 9 | **字典索引初始化器归属** | `new D { [k] = v }`（初始化器内 `ImplicitElementAccessSyntax`）**归 C24**：发射索引赋值语句 `tmp[k] = v;`（多维索引器 `tmp[a,b]=v` 同形），键、值表达式各一次、源码序；绑定必须是可写索引器属性，否则 CS2J0531。**与 C12 划界**：C12 负责索引器**声明**去糖（`this[]`→`GetItem/SetItem`）及其使用点（含其 D13 已认领的源内索引器初始化器，[c12 D13 L70](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c12-indexer-desugar-design.md#L70-L70)）；C24 在 Expression 阶段处理 C12 之后**残余**的索引初始化站点（BCL `Dictionary`、元数据类型、C12 未认领的源内索引器），按 C24 时树的实际绑定发射，两规则以「声明侧认领 + 阶段先后」天然互斥，不编辑 C12 代码 | 索引实参表达式节点原样保留（含 `^`/`..`，交 C31，[c12 D10 L67](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c12-indexer-desugar-design.md#L67-L67)）；消灭 S1 的静默跳过 |
 | 10 | **target-typed new 类型推断矩阵** | `ImplicitObjectCreationExpressionSyntax` 取 `GetTypeInfo(node).ConvertedType`（error type/缺失 → CS2J0535；可空注解取底层 `T`），重发为显式 `new T(args)` 再接初始化器序列。上下文：局部/using 声明 RHS（强目标，支持）；`return`/`yield return`/`throw`（返回类型为目标，支持）；实参位（形参类型为目标，支持，配合决策 11 实参交错规则）；三元/`??` 分支（另一支或整体转换类型为目标）；字段/属性初始化器（有目标类型，**但表达式位不可提升**，见决策 12）；`base(…)`/`: this(…)` 实参（构造链，v1 CS2J0537）；lambda/方法组推断目标（`Func<T>` 等，v1 CS2J0537） | 无初始化器的裸 `new()` 也显式化（residual 口径含 `ImplicitObjectCreationExpressionSyntax`）；构造实参同样零复制 |
 | 11 | **表达式位语句化（上下文 lowering）** | 初始化器是「一语句序列 + 一值」，表达式位置由 `InitializerContextLowering` 把**最近外围语句**改写为块：变量声明 RHS→「临时声明+序列+原声明赋临时」；表达式语句→序列+保留尾部调用/赋值；return/throw→序列+return 临时；赋值 RHS→序列+赋值；using 声明/语句→序列+using 临时；三元分支→合成 if/else 双支定指赋值临时（两支都明确赋值，保证 C# 明确赋值分析通过，见 §1.2-6）；实参位→仅当前面实参含副作用时把前序实参一并提升为临时以保持左→右求值序（`M(F(), new(){A=G()}, H())` → `var a=F(); var t0=new T(); t0.A=G(); M(a,t0,H());`），前序全为无副作用表达式时不提升 | S6 两族回归的正面收口；语句化只改最近外围语句的形状，不改变其外层语义；标记语句（带 annotation）供 `TempLifter` 作锚点，**不改 TempLifter 签名**（§3.2） |
 | 12 | **不可提升上下文** | 不存在「最近外围可写语句」且无法零临时表达的位置：字段/属性初始化器（含静态；构造函数迁移不进 v1）、特性实参、默认参数值、`const` 初始值、查询表达式子句、表达式树 lambda（受共享 `IsInExpressionTree` 策略控制，默认跳过留诊断）、`nameof`/特性等常量上下文、`lock` 语句表达式参数（基线类型约束，防御）→ CS2J0538；决策 11 中 v1 未实现的语句化形态（构造链实参、lambda 推断目标等）→ CS2J0537 | 与 C11 CS2J5119、C27 CS2J5223、C31 IR130 同口径；宁假阳显式报错，不做半成品外提；字段位高频形态（只读字典静态表）命中率由 M0 测量，构造函数迁移列 M4+ 开放问题 Q1 |
@@ -120,17 +122,18 @@ C a = __ed_0;
 
 ### 3.1 归属 `expression-desugar`，不新增 pass、不翻转 stub
 
-- C24 没有独立 descriptor/adapter/中间目录/CLI 开关；pass 翻转由 C23 完成（[c23-design §3.3](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L174-L187)）。C24 实施时该 pass 已 Implemented、默认关。
-- Stage=Expression、RunAfterIds=`[ "null-coalesce" ]`、目录 `.cs2j-expression-desugar-src` 全部沿用；规则开关只存在于族 options 子节 `InitializerOptions`。
-- **catalogItems 由锚点侧统一登记**：C24 合入时由实施 PR 在 rebase 后把 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) 该描述符的 catalogItems 从 `"C23"` 加宽为 `"C23, C24"`（[c23 §3.4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L189-L193) 既定约定）；不新增 pass id、不拆链、不新增中间目录。
+- C24 没有独立 descriptor/adapter/中间目录/CLI 开关/pass id；归合并 stub `expression-desugar`（[PassStubCatalog.cs L217-L226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)）。pass 翻转由 C23 完成（[c23-design §3.3 翻转清单](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L178-L191)）。C24 实施时该 pass 已 Implemented、默认关。
+- **翻转策略按 iterator-lowering 先例**（2026-09-29 磁盘核实）：`Ids.ExpressionDesugar` 常量（[L39](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L39-L39)）翻转后**保留**于 `PassStubCatalog.Ids`（先例 `Ids.IteratorLowering` [L32](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L32-L32)）；stub 条目删除、Implemented 描述符移入 [PassCatalog.cs L209-L219](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L209-L219)（引用同一 id 常量）；[PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) 加 adapter 分支（先例 [L227-L234](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L227-L234)）与 legacy toggle（先例 [L81](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L81-L81)）。`PassStubCatalog.Stubs` 当前 21 个，翻转后 20。
+- Stage=Expression、RunAfterIds=`[ "null-coalesce" ]`（stub 现状即 `PassIds.NullCoalesce`）、目录 `.cs2j-expression-desugar-src` 全部沿用；规则开关只存在于族 options 子节 `InitializerOptions`。
+- **catalogItems 由锚点侧统一登记**：C24 合入时由实施 PR 在 rebase 后把 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) 该描述符的 catalogItems 从 `"C23"` 加宽为 `"C23, C24"`（[c23 §3.4 L193-L197](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L193-L197) 既定约定）；不新增 pass id、不拆链、不新增中间目录。
 - **本设计阶段不碰任何注册表文件**；C24 分支在 C23 合入后从含 `ExpressionDesugar/` 骨架的基线切出（§12）。
 
 ### 3.2 对 C23 锚点的接缝请求（只增不改）
 
-1. 独占目录 `ExpressionDesugar/Initializers/`（C23 已预留占位，[c23 §4 目录树 L221](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L221-L221)）；
+1. 独占目录 `ExpressionDesugar/Initializers/`（C23 已预留占位，[c23 §4 目录树 L225](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L225-L225)）；
 2. 复用：`ExpressionDesugarPreprocessor` 入口、`IExpressionDesugarRule`、`ExpressionDesugarFileContext`、共享 `ExpressionDesugarAnalyzer`（SemanticModel 包装、`IsInExpressionTree`、常量上下文、锚点搜索）、`TempLifter`（`PendingTemp`/`Collect`/`Apply`/`__ed_` 发号与碰撞避让）、族 Options/Statistics/Diagnostic/Result；
 3. **唯一共享文件追加**：`ExpressionDesugarRuleSet.cs` 规则清单加一行（Initializers 在 Interpolations 之后、NullConditional/CollectionExpr 之前）；`ExpressionDesugarOptions.cs` 追加一个 nullable 子选项属性；码段常量与 partial 统计落本规则目录，不改共享文件既有内容；
-4. 锚点扩展说明：C24 的语句锚点可以是 `InitializerContextLowering` 合成块内的**标记语句**（Apply 在重写后的树上搜索锚点，签名不变）；若 M1 证实需要锚点层级能力（如分支内多锚点排序），以只增 API 方式提差异给族评审，不擅自改 `PendingTemp` 形状（[c23 §4.5 冻结点](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L287-L296)）。
+4. 锚点扩展说明：C24 的语句锚点可以是 `InitializerContextLowering` 合成块内的**标记语句**（Apply 在重写后的树上搜索锚点，签名不变）；若 M1 证实需要锚点层级能力（如分支内多锚点排序），以只增 API 方式提差异给族评审，不擅自改 `PendingTemp` 形状（[c23 §4.5 冻结点 L298](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L298-L298)，节范围 [L290-L299](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L290-L299)）。
 
 ### 3.3 与 C36/C11 的链序建议
 
@@ -173,7 +176,7 @@ C a = __ed_0;
 - **IN-4 嵌套创建**：`new O { I = new I { D = 5 } }` → 内层构造+赋值先于外层成员赋值（决策 5 before/after）。
 - **IN-5 嵌套成员初始化**：`new O { I = { D = 5 } }` → getter 临时一次 + 变异（决策 6 before/after）；多层 `A = { B = { C = 1 } }` 逐层发临时、源码序。
 - **IN-6 集合 Add 序列（单参）**：`new L { e1, e2 }` → `__ed_0.Add(e1); __ed_0.Add(e2);`；元素为集合初始化表达式（嵌套集合）按 IOperation 递归。
-- **IN-7 多参/扩展/fluent Add**：`new P { { 1, 2 } }` → `__ed_0.Add(1, 2);`（绑定为准，不发 `put`）；扩展 Add 保持 reduced 语法；非 void 返回作表达式语句丢弃；IEnumerable 无 Add 形态按 M0 探针子集发射或 CS2J0533。
+- **IN-7 多参/扩展/params/fluent Add**：`new P { { 1, 2 } }` → `__ed_0.Add(1, 2);`（绑定为准，不发 `put`）；扩展 Add 保持 reduced 语法；params Add 按重载决议展开形式发射（决策 8⑦）；非 void 返回作表达式语句丢弃；IEnumerable 无 Add 形态按 M0 探针子集发射或 CS2J0533（官方：集合须实现 IEnumerable 且存在可访问实例/扩展 Add，决策 8 官方语义要点）。
 - **IN-8 字典索引初始化器**：`new D { [k] = v, [a,b] = w }` → `__ed_0[k] = v; __ed_0[a, b] = w;`；键值各一次；C12 已认领站点不在输入树中（决策 9）。
 - **IN-9 target-typed new（无初始化器）**：`T x = new();` → `T x = new T();`；`C? f() => new();` → `return new C();`；可空目标取底层类型；构造实参保留。
 - **IN-10 target-typed new（带初始化器）**：IN-9 + IN-2/IN-6 序列；各上下文（局部/using/返回/实参/分支）按决策 10/11 语句化。
@@ -195,12 +198,12 @@ C a = __ed_0;
 
 ## 5. CLI 集成
 
-C24 **零注册表结构改动、不新增适配器/verb/开关**，全部 CLI 面由 C23 建立的 [ExpressionDesugarPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/ExpressionDesugarPassAdapter.cs)（C23 新增）承载：
+C24 **零注册表结构改动、不新增适配器/verb/开关**，全部 CLI 面由 C23 建立的 [ExpressionDesugarPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/ExpressionDesugarPassAdapter.cs)（**C23 锚点新增；2026-09-29 磁盘上尚不存在**，开放问题 Q7）承载：
 
 1. **选项透传**：族 options 增 `Initializers` 子节，经通用 `preprocess --pass expression-desugar` 与 convert-project 链到达规则；不新增 CLI 参数（需要灰度时只走 options/配置面）；
 2. **统计汇入**：`InitializerStatistics` 以 partial 累加进族 `ExpressionDesugarStatistics` 与族级 `TempsLifted`；摘要行追加 initializers 段，建议形如：
-   `… init: <ObjectSites> obj, <CollectionSites> coll (<AddSingle>/<AddMulti>/<AddExtension>/<AddFluent>/<EnumerableFallback>), <IndexSites> dict-index, <TargetTypedSites> target-new, <NestedCreate>/<NestedMember> nested, <ContextLowered> ctx-stmts, <Temps> temps, <Skipped> skipped, <Residual> residual`；
-3. **特有计数**：ObjectInitializerSites、CollectionInitializerSites、DictionaryIndexInitializerSites、TargetTypedNewSites（裸 new 与带初始化器分计）、MemberAssignments（property/field/indexer 分计）、AddCalls（AddSingle/AddMulti/AddExtension/AddFluent/EnumerableFallback）、NestedCreateSites、NestedMemberInitSites、ContextLowered（按上下文名分桶）、SkippedByReason（按码分桶）、ResidualInitializerCount；
+   `… init: <ObjectSites> obj, <CollectionSites> coll (<AddSingle>/<AddMulti>/<AddExtension>/<AddParams>/<AddFluent>/<EnumerableFallback>), <IndexSites> dict-index, <TargetTypedSites> target-new, <NestedCreate>/<NestedMember> nested, <ContextLowered> ctx-stmts, <Temps> temps, <Skipped> skipped, <Residual> residual`；
+3. **特有计数**：ObjectInitializerSites、CollectionInitializerSites、DictionaryIndexInitializerSites、TargetTypedNewSites（裸 new 与带初始化器分计）、MemberAssignments（property/field/indexer 分计）、AddCalls（AddSingle/AddMulti/AddExtension/AddParams/AddFluent/EnumerableFallback）、NestedCreateSites、NestedMemberInitSites、ContextLowered（按上下文名分桶）、SkippedByReason（按码分桶）、ResidualInitializerCount；
 4. **诊断汇入**：复用族适配器选择器与 `[expression-desugar] [severity] path: message` 格式；restore/build/test 失败沿用族公共 CS2J0520，不重复定义；
 5. **支撑库：无**。`SupportLibrary.None`，无注入/过滤/指纹豁免；产物仅 BCL 构造/赋值/Add/索引；
 6. **指纹/目录**：沿用 pass 既有 `pass:expression-desugar=on/off` 自动令牌与 `.cs2j-expression-desugar-src`，非启用零痕迹；
@@ -208,7 +211,7 @@ C24 **零注册表结构改动、不新增适配器/verb/开关**，全部 CLI �
 
 ## 6. 诊断策略
 
-**第一原则**：无法在 C# 侧等价显式化即显式报错，禁止 S1–S5 式静默跳过/丢弃。码段 `CS2J0530–CS2J0549`（C23 §6 预留段，[c23 L346](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L346-L346)；只追加、不交叉占用；MSBuild 风格输出）：
+**第一原则**：无法在 C# 侧等价显式化即显式报错，禁止 S1–S5 式静默跳过/丢弃。码段 `CS2J0530–CS2J0549`（C23 §6 预留段，[c23 L350](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L350-L350)；只追加、不交叉占用；MSBuild 风格输出）：
 
 | 码 | 级别 | 含义 |
 |---|---|---|
@@ -238,10 +241,10 @@ C24 **零注册表结构改动、不新增适配器/verb/开关**，全部 CLI �
 2. **成员赋值序副作用探针（行为级，非仅文本）**：`new C { A = Next(), B = Next() }`、构造实参与成员 RHS 交叉副作用——断言调用序列与原生 C# 完全一致、每探针各 1 次；
 3. **嵌套创建**：两/三层；内层构造先于外层成员赋值；内层 RHS 副作用计数；与集合初始化器互套；
 4. **嵌套成员初始化**：`I = { D = 5 }` getter 只调一次（getter 内计数探针）；多层链式；getter 返回 null 时行为与原生 C# 一致（NRE 同位抛出）；
-5. **集合初始化器**：`new List<int>(8){…}` 容量实参保留；单参 Add；多参 Add（非字典类型，断言**不**出现 `put`/`Add` 之外发射）；扩展方法 Add（using 静态/普通扩展两类）；fluent `T Add(...)` 返回非 void（断言返回值丢弃且程序行为一致）；无参集合元素与复杂元素混排；
+5. **集合初始化器**：`new List<int>(8){…}` 容量实参保留；单参 Add；多参 Add（非字典类型，断言**不**出现 `put`/`Add` 之外发射）；扩展方法 Add（using 静态/普通扩展两类）；**params Add 展开形式**（`void Add(params T[] xs)` 配多元素，决策 8⑦，断言发射 `Add(a,b,c)` 且不手拼数组）；fluent `T Add(...)` 返回非 void（断言返回值丢弃且程序行为一致）；无参集合元素与复杂元素混排；
 6. **字典索引初始化器**：`Dictionary<int,string>` 单/多键、多维索引器、键值副作用顺序、自定义索引器；与 Add 形式混排；
 7. **target-typed new**：局部声明、`C?` 可空目标、字段声明 RHS（无初始化器的裸 `new()` 可零临时→支持；带初始化器→CS2J0538）、return/yield/throw、实参位（前序实参有/无副作用两态）、using 声明、三元分支、`: this()` 实参→CS2J0537、推断失败→CS2J0535；
-8. **条件守卫（S6 正面收口）**：三元真/假两支初始化、`??`、lambda 分支、嵌套三元；.NET 探针断言副作用只在命中分支发生（对应 [TernaryObjectInitializerNullGuardTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/TernaryObjectInitializerNullGuardTests) 四个场景的 C# 半区版本）；
+8. **条件守卫（S6 正面收口）**：三元真/假两支初始化、`??`、lambda 分支、嵌套三元；.NET 探针断言副作用只在命中分支发生（[TernaryObjectInitializerNullGuardTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/TernaryObjectInitializerNullGuardTests.cs) 注释 [L6-L19](file:///d:/code/cs2j/tests/CSharpToJava.Tests/TernaryObjectInitializerNullGuardTests.cs#L6-L19) 描述的事故场景——该类当前 0 个 `[Fact]`，这里是其首个自动化回归，见开放问题 Q6）；
 9. **init/readonly 边界**：未启用 member-desugar 的 init 属性 → CS2J0531 且文件不改写；readonly 字段/get-only → CS2J0531；模拟 C11 产物树（手写等价输入：普通 set 方法 + 字段）→ 正常发射；
 10. **不可提升/跳过族**：静态字段初始化器、实例字段初始化器、特性实参、默认参数、查询子句、表达式树（0542 跳过配对）、dynamic（0541）——每种断言原子不动与诊断码；
 11. **数组/匿名零误伤**：`new int[]{1,2}`、`new[]{1}`、`new { A = 1 }`、裸数组元素 `{1,2}` 不触达（residual 口径不含数组初始化器）；
@@ -268,7 +271,7 @@ dotnet test -c Release tests/CSharpToJava.ConversionTests/CSharpToJava.Conversio
 
 - **C11/C27 产物共处**：以 member-desugar（property/records 规则）输出树为输入再跑本规则：init 已放宽、PD-8 已归一站点零重复处理、统计不重计；反向（member 关）对象/集合规则独立成立（init 站点 CS2J0531 除外）；
 - **C36/C23 共处**：同一文件插值 + 初始化器混排，临时序号/锚点不冲突；C36 的 `[1,2]` 节点不被本规则触达；
-- **现有 Java 侧护栏默认关不改**：[ObjectInitializerMethodChainTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerMethodChainTests.cs)（单次构造、嵌套 getter 链）、[ObjectInitializerArrayToIListTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerArrayToIListTests.cs)、[TernaryObjectInitializerNullGuardTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/TernaryObjectInitializerNullGuardTests.cs) 继续走直连单文件管线保持绿色；为每用例建 C# 半区正确对照，作为 Java 消费 PR 核对底稿。
+- **现有 Java 侧测试类默认关不改（2026-09-29 磁盘现状）**：[ObjectInitializerMethodChainTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerMethodChainTests.cs) 仅 1 个用例（单次构造/set，无嵌套 getter 链用例）；[ObjectInitializerArrayToIListTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ObjectInitializerArrayToIListTests.cs) 与 [TernaryObjectInitializerNullGuardTests](file:///d:/code/cs2j/tests/CSharpToJava.Tests/TernaryObjectInitializerNullGuardTests.cs) **均为空类（0 个 `[Fact]`，仅注释 + helper）**。三类文件一行不改、继续编译（无用例即无失败）；C# 半区行为对照与缺失回归由 C24 新增（Q6），作为 Java 消费 PR 核对底稿。
 
 ### 7.5 residual 闸门与 CLI
 
@@ -277,7 +280,7 @@ dotnet test -c Release tests/CSharpToJava.ConversionTests/CSharpToJava.Conversio
 
 ## 8. 默认开启验收门槛
 
-本规则无独立 pass 默认态，随 expression-desugar 族门槛（[c23 §8](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L408-L418)）开启；评审中本规则附加项：
+本规则无独立 pass 默认态，随 expression-desugar 族门槛（[c23 §8 L412-L422](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L412-L422)）开启；评审中本规则附加项：
 
 1. §7.1 矩阵全绿；fixture 与三个测试工程 Release build/test 全绿；幂等、字节复制、residual 零初始化器闸门全绿；
 2. .NET 半区与原生 C# 行为等价：求值顺序/单次求值、条件分支副作用、构造实参保留、多参/扩展/fluent Add、字典索引、嵌套 getter 全矩阵通过；
@@ -308,7 +311,7 @@ M0–M4 全程族 pass `DefaultEnabled=false`；每里程碑自身 Release build
 | R3 | **init 语句后赋值非法** | 未启用 C11 时 `tmp.set_P(v)`/`tmp.P=v` 对 init 属性在构造后不可编译 | CS2J0531 显式指路 member-desugar；M3 两类输入树共处回归；不发明反射/helper 绕过 |
 | R4 | **构造实参丢失回归面** | S3 现路径丢实参但部分依赖类型恰好有无参 ctor 而「碰巧能跑」 | IN-3 统一保留实参；fixture 覆盖带参构造集合；画像比对构造签名 |
 | R5 | **字段初始化器高频被拒** | 静态只读字典 `static readonly D = new() {…}` 在 sdk 高频，v1 CS2J0538 可能命中率高 | M0/M4 测命中率；报错信息给出手动改写范式（移到静态构造/构造函数）；构造函数迁移列 M4+（Q1），不因高频而偷做半成品 |
-| R6 | **嵌套 getter 语义** | 现 Java 侧内联重复 getter（测试只锁文本），C# 语义要求一次；getter 有副作用/返回 null 时两路径不同 | IN-5 getter 临时；null 行为同位 NRE 探针；与现有 Java 侧文本断言的差异登记为 Java 消费 PR 输入 |
+| R6 | **嵌套 getter 语义** | 现 Java 侧对 `P = { … }` 是否内联重复调用 getter **无测试锁定**（2026-09-29 磁盘上无相关用例，见决策 6 注与 Q6）；若现状为重复 getter，getter 有副作用/返回 null 时与 C#「一次」语义不同 | IN-5 getter 临时；null 行为同位 NRE 探针；现状行为先经 M0 探针/Java 半区核查取证，差异登记为 Java 消费 PR 输入 |
 | R7 | **与 C11/C12 的阶段耦合** | member-desugar 若未把某类属性/索引器使用点改净，C24 面对混合形态 | 只按运行时 SemanticModel 绑定发射，不按语法来源；共处回归（§7.4）；站点认领靠阶段先后天然互斥；C11 跳过码（CS2J5119/MD120）与 C24 诊断各自留痕，不合并码 |
 | R8 | **表达式树/dynamic** | 树内初始化器改写改变树形状；dynamic Add 无静态绑定 | 共享 `IsInExpressionTree` 跳过（0542，与 C23/C26 同口径）；dynamic CS2J0541；不猜绑定 |
 | R9 | **Roslyn API 外形记忆偏差** | `ICollectionElementInitializerOperation` 在 Roslyn 4.12 的属性、IEnumerable fallback、init 标记外形可能与假设不符 | M0 探针先行（同 C23 M0 纪律），规则代码以探针结论为准 |
@@ -318,7 +321,7 @@ M0–M4 全程族 pass `DefaultEnabled=false`；每里程碑自身 Release build
 
 | 相邻工作 | 边界 | 接口约定/合并顺序 |
 |---|---|---|
-| **C23 interpolation-expand（锚点，硬依赖）** | 族入口、`Shared/*`、Options/Statistics/Diagnostic、`TempLifter`、RuleSet、适配器全部 C23 所有；C24 只加 `Initializers/` 目录 + 一行规则 + 一个 options 属性 + catalogItems 加宽（锚点侧文件，统一登记） | 等 C23 分支合入后 rebase 开工（§12）；共享接口需要演进时只增不改、提族评审；热文件冲突全部追加式，落地者 rebase 取并集（[c23 §11](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L451-L456)） |
+| **C23 interpolation-expand（锚点，硬依赖）** | 族入口、`Shared/*`、Options/Statistics/Diagnostic、`TempLifter`、RuleSet、适配器全部 C23 所有；C24 只加 `Initializers/` 目录 + 一行规则 + 一个 options 属性 + catalogItems 加宽（锚点侧文件，统一登记） | 等 C23 分支合入后 rebase 开工（§12）；共享接口需要演进时只增不改、提族评审；热文件冲突全部追加式，落地者 rebase 取并集（[c23 §11 L455-L459](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L455-L459)） |
 | **C36 collection-expr（同一 pass，目标同构）** | `[1,2,3]`/spread 归 C36；初始化器语法归 C24；C36 的 `List<T>` 目标最终形态（构造+Add）与 IN-6 同构 | 规则序 C24 先于 C36；建议 C36 直接复用 C24 emitter/plan 助手（位于 `Initializers/` 的发射工具设为族内可见），不产生回流第二轮；目录并列、码段不交叉（053x vs 057x） |
 | **C35 null-conditional（同一 pass）** | `?.`/`?[]` 归 C35；初始化器内的条件访问表达式作为普通子表达式保留 | 同享 TempLifter 序号空间；`new C { A = x?.Y }` 两规则协同时副作用序由统一发号保证；落地先后按各自节奏 |
 | **C11 property / C27 records（member-desugar）** | init/required/with/属性初始化器在 Declarative 阶段先归一；C24 在 Expression 阶段只按运行时树符号处理残余一般形态，对其产物幂等，不引入 record/required 感知 | 链序天然（[c27 决策 12](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c27-record-with-design.md#L90-L90) 已把本条登记为给 C24 的前置契约）；CS2J0531 消息显式指路；M3 共处回归为硬项 |
@@ -343,10 +346,28 @@ git worktree add .worktrees/preproc-c24-initializer-desugar -b feature/preproc-c
 
 ---
 
-## 附：关键开放问题（供评审拍板）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **初始化器提升进构造函数**：**M4 立项实现**（实例/静态构造，含多 ctor 链接与 partial，与 C11/C07 构造改写协调）；默认开前 sdk 中 CS2J0538 站点要么清零、要么全部具备迁移出路，不保留为长期阻断。
+2. **IEnumerable 无 Add fallback**：M0 探针定论——Roslyn 存在合法降级形态则 M2 收编（含 fluent 返回值交互）；不存在则 CS2J0533 作为终态显式拒绝。
+3. **裸 `new()`**：零临时显式化与带初始化器站点**同批默认开启**（零风险内联 `new T()`，接受改写面/diff 扩大）。
+4. **发射助手可见性**：先放 `Initializers/` internal；C35/C36 产生第二个外部消费需求时只增提取到 `Shared/`，不提前抽象。
+5. **非 strict 残留语义**：CS2J0531/0533/0535/0537/0538/0541 降 Warning 保留原节点时，摘要中单列并标记「下游产物不保证可编译」，避免双轨期误判已支持。
+6. **Java 侧护栏取证**：M0/M1 先补三个语义点的自动化守门（嵌套成员 getter 链守卫、三元条件守卫、初始化器路径 `T[]→IList<T>` 包裹），并证实 ObjectCreationTransformer 发射路径是否经过 ArgumentTransformer coercion；取证与补测试为**默认开硬前提**，不允许空壳测试类伴随默认开。
+7. **族基建前向引用**：开工 rebase 后先复核 C23 锚点实际落地的 `ExpressionDesugar/` 基建形态（TempLifter/RuleSet/Options 签名）再实施，本文名字与签名以锚点实物为准。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **字段/属性初始化器位置的构造函数迁移**：静态只读字典表等高频形态 v1 只能 CS2J0538；是否在 M4+ 做「初始化器提升进构造函数（实例/静态构造，含多 ctor 链接与 partial）」，其复杂度与 C11/C07 的构造体改写可能耦合，需 sdk 命中率数据决定排期。
 2. **IEnumerable 无 Add fallback 的支持边界**：依赖 M0 探针结论——若 Roslyn 对「实现 IEnumerable 但无 Add」的集合初始化存在合法降级形态，其发射形式与 fluent 返回值的交互需在 M2 前定案；不成立则永久 CS2J0533。
 3. **裸 `new()` 零临时显式化是否默认开启**：无初始化器的 target-typed new 可零风险内联 `new T()`，但会扩大改写面与画像 diff；是否与带初始化器站点同批默认开启，还是先只开初始化器相关站点，由 M4 画像数据评审。
 4. **C36 复用 Initializers emitter 的可见性边界**：发射助手放在 `Initializers/` 内 internal 还是上提到 `Shared/`；若 C35 也需要语句化能力（分支锚点），`InitializerContextLowering` 是否泛化为族共享 `StatementContextLowering`，建议 M1 后按 C35/C36 实际需求只增提取。
 5. **非 strict 保留策略的残留语义**：CS2J0531/0533/0535/0537/0538/0541 降 Warning 保留原节点时，下游 Java 转换仍走现有（错误）路径——保留是否应同时附「下游产物不保证可编译」标记并在摘要中单列，避免双轨期误判为已支持。
+6. **Java 侧护栏名存实亡（2026-09-29 校订新增）**：三个名义相关测试类的磁盘现状为——ObjectInitializerMethodChainTests 仅 1 个用例（单次构造/set），TernaryObjectInitializerNullGuardTests 与 ObjectInitializerArrayToIListTests 均为 0 `[Fact]` 空类；嵌套成员 getter 链、三元条件守卫、`T[]→IList<T>` 包裹三个语义点均无自动化守门。其中 `ArrayHelper.toList` 包裹仅在实参 coercion 路径 [ArgumentTransformer.Coercion.cs L247-L266](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Coercion.cs#L247-L266) 找到，初始化器 `setX(...)` 发射路径（ObjectCreationTransformer L49-L52）是否经过该 coercion **未证实**（`WrapArrayForCollectionArg` L149-L150 为恒等空实现）。需 M0/M1 先做一次现状取证：补测试还是在 Java 消费 PR 中统一收口，由评审拍板；本设计的 C# 半区矩阵（§7.1）已把缺失场景列入新增范围。
+7. **族基建文件均为前向引用（2026-09-29 校订新增）**：`ExpressionDesugarPassAdapter.cs`、`src/CSharpToJava.Core/ExpressionDesugar/` 全部共享组件（`TempLifter`、`ExpressionDesugarRuleSet`、`ExpressionDesugarOptions` 等）在当前磁盘均不存在（C23 锚点分支未合入）；本文对其名字、签名、码段、目录树的引用全部以 [c23 设计](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md) 为准，开工 rebase 后须先复核锚点实际落地形态再实施。

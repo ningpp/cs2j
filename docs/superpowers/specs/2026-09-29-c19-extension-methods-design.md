@@ -4,7 +4,17 @@
 **范围**: 把注册表 stub `extension-methods`（catalog C19，P2）从 `Stub` 翻转为 `Implemented`；新增 Core 规则与 CLI 适配器，不修改 C#→Java 转换器代码（转换器侧旧资产退役另立后续 PR，见 §10/§9 M5）
 **状态**: 设计定稿待评审；实施在独立 worktree（见 §12），本文不改动任何代码
 **对应基线**: `953293b9`（dev-3.x HEAD，完整 SHA `953293b908e9143437c45f287fb4277e890c398e`，"docs: update doc base commit"）
-**关联资料**: `prompts/preprocessor-catalog.md` C19（L483-494）/C26（L565-577）/§3.3 表达式与方法解析族（L898-915）/§4 风险 7、8、10、11、12（L918-939）；`.trae/documents/preprocessor-foundation_plan.md` L60-139；范本 [2026-09-28-c02-generic-deepen-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c02-generic-deepen-design.md)
+**关联资料**: `prompts/preprocessor-catalog.md` C19（L530-542）/C26（L623-635）/§3.2 横切约束（L1072-1074）/§3.3「同一底层难点」的合并建议（L1076-1093）/§4 风险 7、8、10、11、12（L1105-1110）；`.trae/documents/preprocessor-foundation_plan.md` L60-139；范本 [2026-09-28-c02-generic-deepen-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c02-generic-deepen-design.md)
+
+> **校订（2026-09-29）**：按 dev-3.x 当前 HEAD `2d25700e`（对应基线 `953293b9` 之后 82 个提交，工作区干净）做证据复核，改动枚举：
+> ① catalog 行号全部按当前重算——C19 为 L530-542（原写 L483-494）、C26 为 L623-635（原写 L565-577；三路分流门 L631、「LINQ 先」排序备注 L632）、§3.2 横切约束 L1072-1074（原写 L896）、§3.3 标题为「同一底层难点」的合并建议（L1076-1093）、§4 风险 7/8/10/11/12 为 L1105-1110（原写 L918-939），风险 13 在 L1111、风险 20 在 L1118；
+> ② 注册表计数据实——`LockedChain` 现为 **20** id（本文定稿后 `pattern-desugar`、`member-desugar` 两个 stub 已先后翻转为 Implemented），本 pass 翻转后为 **21**（原写 18→19）；stub 实测 **21** 条，而 [PassStubCatalogTests.cs:24](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) 断言 22——系 `member-desugar` 翻转提交 `26ea367c` 引入的**基线红灯**（该提交把 stub 从 22 条删成 21 条却保留断言 22），本 pass 删条后 stub 为 **20** 条、断言应随改为 20（顺带转绿，原写 23→22）；
+> ③ stub/链位行号更新：`extension-methods` stub 在 [PassStubCatalog.cs#L180-L196](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L180-L196)（原写 L202-218）、`linq-channel` stub L197-206（原写 L219-228）、其 RunAfter 引用在 L204（原写 L226）、delegate 描述符 `SupportLibrary=Cs2jPrelude` 在 [PassCatalog.cs#L88](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L88)（原写 L86）、`CreateAdapter` switch 在 [PassChainFactory.cs#L98-L257](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L98-L257)（原写 L93-237）；
+> ④ C#14 边界表述与 catalog 对齐：extension 块的扩展属性/扩展运算符/静态扩展归 **C49**（catalog L952-965，注册表当前无对应 stub），扩展索引器为 C#15 预览、归 **C52**（原表述「如 extension-members-cs14」系杜撰名，已删）；
+> ⑤ 支撑库注入/过滤通道改为现机制描述：描述符 `SupportLibrary` 字段 → [CliPreprocessChain.cs#L108-L111](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs#L108-L111) 汇总已执行库集合 → [Program.cs#L264-L267](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L264-L267) 在指纹快照前经 [PassChainFactory.IsExecutedSupportLibraryProject](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L264-L274) 过滤（catalog 旧写「Program.cs:750-756」在该处现为资源拷贝代码）；
+> ⑥ `member-desugar`（C11-C14）已翻转且链位在 `eliminate-goto` 之后（即本 pass 提议落点之后），原文「显式化之后只剩 goto 纯语法 pass 与命名 pass」不再成立，已据实更正并增开放问题 Q6；`--list-passes` 实际为五列定宽格式（原写含目录名/C19 的竖线格式不实），已更正；
+> ⑦ 其余 Core 文件行号微修（InvocationExpressionTransformer 成员访问分支 L136-169/L207-240、静态映射路径 L503-551 等）；「Transformers 目录 grep 仅命中 MemoryExtensions 特判」更正为对 `IsExtensionMethod`/`ReducedExtension` **零命中**；RecordReadOnly 族 reduced 归一为 **4 处**（原写 6 处）。
+> 探针类结论（`r?.M()` 合法性、C#14 符号形态、metadata 绑定率）仍登记为开放问题，未凭记忆坐实。
 
 ---
 
@@ -17,15 +27,15 @@
 | 1 | [ExtensionMethodIndex.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ExtensionMethodIndex.cs)（全文 199 行） | 主转换器**自建**扩展方法索引：`ExtensionMethodDescriptor` 按 docCommentId / receiverType（`OriginalDefinition` 规范化）/ project 三字典组织；`ScanCompilation` 语法扫 `this` 修饰 + `IsExtensionMethod` 符号确认；描述符里预算了 Java 包名/host 类名/camelCase 方法名 | 只索引**声明**，不做调用点绑定、不做 using 可见性判定、不做重载决议；构造于主转换前（[Cs2jLibrary.cs:44](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Cs2jLibrary.cs#L40-L44)、[ProjectConversionPipeline.cs:320-335](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L320-L335)），多项目模式靠 CLI 预填 |
 | 2 | [ExtensionMethods.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/ExtensionMethods.cs) | 名字是「扩展方法」，实为 roslyn-linq-rewrite 第三方版权的**语法 helper**（`WithStatic`/`WithRef`），与扩展方法语义解析无关 | 双份逻辑盘点中的命名噪声：真正的 LINQ 扩展解析在 LinqRewriter 的 SemanticModel 调用里（见 §3.5 证据） |
 | 3 | [ProjectPasses.cs:740-830](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L740-L830) `ProjectExtensionMethodCheckPass` | 主转换期校验：调用点绑定为 `MethodKind.ReducedExtension` 时，按 `ReducedFrom.GetDocumentationCommentId()` 查自建索引、按 `TypeMappings.MapMethod(hostType, name)` 查表；两者都不中则 **Warning `CS2J_EXT001`，`blockEmit:false` 非阻断** | LINQ host（`System.Linq.Enumerable`/`Queryable`）硬编码豁免（L790-793、L825-829）；只告警不改写，Java 产物继续「引用可能不可用的静态 host 类」 |
-| 4 | [InvocationExpressionTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs)（成员访问分支 L135-168、L206-240） | 调用渲染主路径：`x.M(a)` 一律渲染为 receiver 实例调用 `receiver.m(a)`；是否改成静态分派完全依赖 [TryResolveMappedName](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs#L559-L595) 查 TypeMappings，且查表只用 `ContainingType.ToDisplayString()` + 名字 + 参数数 | **全文件无任何 `IsExtensionMethod` / `ReducedExtension` 分支**（全 Transformers 目录 grep 仅命中 `MemoryExtensions` 特判，见下）：用户自定义扩展 host 不在 TypeMappings 中时，产出的是 receiver Java 类型上根本不存在的实例方法 |
-| 5 | 各 pass 私有 reduced 符号启发式 | RecordReadOnly 族 6 处 `ReducedFrom ?? raw` 归一（[MethodMigrator.cs:278,646,660](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/MethodMigrator.cs#L278)、[RecordReadOnlyAnalyzer.cs:400-438](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/RecordReadOnlyAnalyzer.cs#L400-L438)）；[BoxingReachabilityAnalyzer.cs:207-209](file:///d:/code/cs2j/src/CSharpToJava.Core/ReadOnlyStructMaker/BoxingReachabilityAnalyzer.cs#L207-L209)（「reduced 调用 receiver 不在参数表里」）；[DefaultParameterCatalog.cs:219,263-265](file:///d:/code/cs2j/src/CSharpToJava.Core/DefaultParameterStripper/DefaultParameterCatalog.cs#L219-L265)；[ForeachDeconstructionRewriter.cs:166](file:///d:/code/cs2j/src/CSharpToJava.Core/ForeachDeconstruction/ForeachDeconstructionRewriter.cs#L166) 注释 | 每个消费点各自把 reduced 符号归一回静态符号——同一份语义事实被反复重建，正是 C19 要消灭的「双份/N 份解析」面 |
+| 4 | [InvocationExpressionTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs)（成员访问分支 L136-169、L207-240） | 调用渲染主路径：`x.M(a)` 一律渲染为 receiver 实例调用 `receiver.m(a)`；是否改成静态分派完全依赖 [TryResolveMappedName](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs#L559-L595) 查 TypeMappings，且查表只用 `ContainingType.ToDisplayString()` + 名字 + 参数数 | **全文件无任何 `IsExtensionMethod` / `ReducedExtension` 分支**（2026-09-29 复核：全 Transformers 目录对这两个标识符 grep **零命中**；`MemoryExtensions` 仅以 host 名字面量出现在逐 host 补丁三处文件——[BinaryExpressionTransformer.cs:179-187](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/BinaryExpressionTransformer.cs#L179-L187)、[StatementTransformer.ExpressionAndReturn.cs:169-174](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L169-L174)、PropertyTransformer.cs:40，见下）：用户自定义扩展 host 不在 TypeMappings 中时，产出的是 receiver Java 类型上根本不存在的实例方法 |
+| 5 | 各 pass 私有 reduced 符号启发式 | RecordReadOnly 族共 4 处 `ReducedFrom ?? raw` 归一（MethodMigrator 3 处：[L278](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/MethodMigrator.cs#L278)、L646、L660；RecordReadOnlyAnalyzer 1 处：[L400-438](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/RecordReadOnlyAnalyzer.cs#L400-L438)）；[BoxingReachabilityAnalyzer.cs:207-209](file:///d:/code/cs2j/src/CSharpToJava.Core/ReadOnlyStructMaker/BoxingReachabilityAnalyzer.cs#L207-L209)（「reduced 调用 receiver 不在参数表里」）；[DefaultParameterCatalog.cs:219,263-265](file:///d:/code/cs2j/src/CSharpToJava.Core/DefaultParameterStripper/DefaultParameterCatalog.cs#L219-L265)；[ForeachDeconstructionRewriter.cs:166](file:///d:/code/cs2j/src/CSharpToJava.Core/ForeachDeconstruction/ForeachDeconstructionRewriter.cs#L166) 注释 | 每个消费点各自把 reduced 符号归一回静态符号——同一份语义事实被反复重建，正是 C19 要消灭的「双份/N 份解析」面 |
 | 附 | 实验开关 `RewriteExtensionMethods` | 唯一会动扩展形态的转换器期选项，**默认 false**（[ConversionOptions.cs:75](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionOptions.cs#L75)），多项目模式被强制关闭并告警（[ProjectConversionPipeline.cs:300-308](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ProjectConversionPipeline.cs#L300-L308)） | 单项目专用、作用是剥 receiver 形参（声明侧），与 C19 的「调用点显式化」不是同一形态，C19 不依赖、不复活它 |
 
 测试也是双份且各盖一半：[tests/CSharpToJava.Tests/ExtensionMethodTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ExtensionMethodTests.cs)（115 行：索引扫描、声明保持、`RewriteExtensionMethods` 剥参）与 [tests/CSharpToJava.ConversionTests/Categories/ExtensionMethodTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/ExtensionMethodTests.cs)（49 行：声明侧 `static class` → `final class` + private ctor）。**没有任何测试断言「用户扩展调用点被降级为对 host 类的静态调用」**——调用点绑定正确性目前在 .NET 半区零闸门（§7 补）。
 
 ### 1.2 Java 侧静态分派回归：四处可观察语义差异（不止是「名字没映射上」）
 
-catalog C19 记录「Java 侧静态方法分派与 C# 扩展接收者语义在重载/泛型处反复出回归」（L489）。代码级根因是：扩展调用的 C# 语义是**静态、非虚分派**，而现渲染路径产出**实例虚分派**，差异在四个点上可观察：
+catalog C19 记录「Java 侧静态方法分派与 C# 扩展接收者语义在重载/泛型处反复出回归」（[catalog L536](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L536)）。代码级根因是：扩展调用的 C# 语义是**静态、非虚分派**，而现渲染路径产出**实例虚分派**，差异在四个点上可观察：
 
 1. **null 接收者**：C# 中 `x.M(a)` 绑定为扩展方法时等价 `Host.M(x, a)`，`x == null` 本身**不抛**（是否 NRE 取决于方法体是否解引用首参）；Java 实例形态 `x.m(a)` 在进入方法体前即对 `x` 虚分派 → 必然 NPE。这是最常被真实代码依赖的语义（大量 `ThrowIfNull`/`NullGuard` 风格扩展）。
 2. **非虚分派**：扩展方法按**静态类型**绑定，不随运行时类型变化；receiver Java 类型若存在同名可覆写方法，实例形态会被动态分派劫持。
@@ -37,7 +47,7 @@ catalog C19 记录「Java 侧静态方法分派与 C# 扩展接收者语义在�
 在所有会向中间树**注入新代码/新绑定**的锚点 pass 之后，新增独立 pass `extension-methods`：
 
 1. **调用点显式化**：整树一次 `CSharpCompilation`，凡 `SemanticModel.GetSymbolInfo` 绑定为 `IMethodSymbol { MethodKind == ReducedExtension }` 的调用 `r.M(a)`，按 C# 语义改写为不可降级的显式静态调用 `global::Ns.Host.M<...>(r, a)`（receiver 为首参，求值次序不变；泛型实参与 ref-kind 见 §2）。
-2. **SemanticModel 是唯一真相**：using/命名空间嵌套引入、实例同名优先、重载决议、泛型推断全部直接消费 Roslyn 绑定结果，不重建候选决议、不做文本/名字猜测（catalog §3.2 横切约束 L896）。
+2. **SemanticModel 是唯一真相**：using/命名空间嵌套引入、实例同名优先、重载决议、泛型推断全部直接消费 Roslyn 绑定结果，不重建候选决议、不做文本/名字猜测（catalog §3.2 横切约束，L1072-1074：不重建决议、SemanticModel 为唯一真相）。
 3. **LINQ 糖保留归主**：绑定到 `System.Linq.Enumerable`/`Queryable` 等 LINQ host 的 reduced 调用**不改写**，糖继续归 E16（今天，主转换器内嵌）/ C26（未来 `linq-channel`）消费——链序与所有权的复核结论见 §3.4。
 4. 产物仍是语义等价 C#，fixture 与 sdk 中间树 `dotnet build -c Release` / `dotnet test -c Release` 全绿；不可判定站点显式诊断（CS2J12xx），禁止注释/占位/原样静默透传（catalog §4 风险 12）。
 5. **不做**：不改扩展方法**声明**（不剥 `this` 形参、不动静态 host 类）、不新建支撑库、不在本特性 PR 改转换器；旧资产退役（索引/校验 pass/逐 host 补丁）登记为后续 PR（§9 M5）。
@@ -59,16 +69,16 @@ catalog C19 记录「Java 侧静态方法分派与 C# 扩展接收者语义在�
 | null 条件扩展 `r?.M(a)` | **M0 探针任务**：用最小 Roslyn 编译确认当前语言版本下该形态是否合法、绑定是否仍为 ReducedExtension（资料不确定，禁止凭记忆写规则）。合法则 v1 候选形为临时变量提升 + 条件静态调用（复用表达式族「单次求值临时变量」基建口径）；v1 若不落地则该站点 **CS2J1205 显式报告并跳过**（strict Error），禁止静默透传 | EM-COND；与 C24/C35（expression-desugar）的所有权边界：本 pass 只出报码，临时提升基建落地后再收编 |
 | `this ref` / `this in` / `this scoped` 接收者 | 按首参 `RefKind` 发射实参修饰：`this ref Span<T>` → `Host.M(ref r, a)`、`this in`/`ref readonly` → `in r`；`scoped` 是逃逸元数据不进调用语法；普通值接收者不加修饰 | EM-REF；`ArgumentSyntax` 复用源实参节点，仅替换 `RefOrOutKeyword`/`InKeyword` |
 | 实例方法同名优先 | 不做任何特殊处理：适用实例方法存在时 Roslyn 不绑 reduced，节点自然不被选中；另出 Core 单测锁死「实例/扩展同名同适用度」两类样本 | 防止任何「按名字找扩展」的回退路径破坏该规则 |
-| 扩展属性 / C# 14 扩展成员块 | **v1 仅支持经典 `static class` + 首个 `this` 形参的扩展方法**；M0 探针确认 `LanguageVersion.Latest` 下 C# 14 extension 块（含扩展属性、无 this 形参的扩展成员）的语法/符号形态；分析器一旦发现该形态即 **CS2J1206 显式报错**（strict 前也为 Error：无法等价改写的构造不得静默），是否另立注册表条目（如 `extension-members-cs14`）M5 评审 | EM-EXT14；对齐 catalog §4 风险 13「新语法防线」口径 |
+| 扩展属性 / C# 14 扩展成员块 | **v1 仅支持经典 `static class` + 首个 `this` 形参的扩展方法**；C# 14 `extension` 块的**扩展属性、扩展运算符、静态扩展成员**已在 catalog 单列 **C49**（[catalog L952-965](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L952-L965)；注册表当前无对应 stub），**扩展索引器为 C# 15 预览、归 C52 防线**（catalog L957、L965）；M0 探针确认 `LanguageVersion.Latest` 下 extension 块的语法/符号形态；分析器一旦发现该块（无论何种成员）即 **CS2J1206 显式报错**（strict 前也为 Error：无法等价改写的构造不得静默）；是否为 C49 注册观察 stub / 排紧邻批次 M5 评审 | EM-EXT14；对齐 catalog §4 风险 13（L1111）「新语法防线」与风险 20（L1118）口径；与 C49 共用索引与接收者绑定基建（catalog C19 五次补全，L541） |
 | 表达式树 `Expression<Func<...>>` 内站点 | **照常改写**（与多数改名 pass 不同）：C# 编译器对扩展糖在表达式树中本就发射为静态方法的 `MethodCallExpression`（receiver 是首参），显式化前后表达式树节点同形、同 `MethodInfo`；但必须过 **EM-EXPRTREE 同一性断言**：改写后重新编译，对比前后 `GetSymbolInfo` 的 `OriginalDefinition` 与参数序列，不一致则 CS2J1210 回退该站点。lambda 体内改写不得引入新局部/语句 | catalog §4 风险 8 的共同禁区在本 pass 的特化结论；C02 提取的 `ExpressionTreeFacts` 若已落地则复用，否则本 pass 自带最小判定 |
 | 方法组形态 `var f = r.M;`（非调用） | reduced 扩展方法也可经成员访问以方法组形式出现在委托转换/`nameof` 之外的位置；v1 检测「成员访问绑定为 ReducedExtension 但父节点不是调用」的站点 → **CS2J1207 显式报告**（候选降级形 `(x) => Host.M(x)` 留 M2 评审，禁止 v1 悄悄插 lambda） | EM-GROUP |
 | `nameof` / 反射 | `nameof(r.M)` 取的是标识符文本且不是调用，不经过本 pass 选择器，保持原样；本 pass **不改声明、不改任何成员名**，不新增 catalog §4 风险 7 的反射/JSON/XAML 按名面（显式静态调用在 CLR 与原糖是同一个 MethodInfo） | 风险面显著小于改名族 pass |
 | dynamic 接收者 | C# 本就不对 dynamic 接收器做扩展绑定；`GetSymbolInfo` 拿不到 reduced 符号 → 不选中、Info 计数；不猜测 | 与各语义 pass 同策略 |
 | 外部程序集 host（BCL/NuGet 扩展） | **同样改写**为 `global::Ns.Host.M(r, a)`：静态限定形态正是转换器 TypeMappings 静态路径的输入（比现状的实例渲染 + 逐 host 补丁更直接）；host 是否「在转换图/有映射」的分类只影响**诊断级别**：图内用户 host/支撑库 host 静默改写；metadata host 无 TypeMappings 落点时 **CS2J1203 报告**（承接 CS2J_EXT001 语义，non-strict Warning、strict Error），不再产出无主 Java | EM-EXTERNAL；`ContainingType.Locations[0].IsInSource` 且在本 compilation → 图内；否则 metadata |
-| 支撑库注入扩展的可见性 | 链位五锚保证 E05 prelude（经 delegate 注入）、E06 tuple、C01 ref-out-in、E09 Cs2jUnsignedMath、E12 Cs2jArray 的注入产物已在中间树（merged compilation 直接可见）；**2026-09-29 核实：四个支撑工程与 `*SupportFiles.cs` 当前均无 `this` 扩展方法（grep 零命中），今天暴露的都是普通静态 helper**——五锚是面向未来（支撑库升级/C15/C31/C34）的不变量，不是当前数据依赖 | §3.2/§11 |
+| 支撑库注入扩展的可见性 | 链位五锚保证 E05 prelude（经 delegate 注入）、E06 tuple、C01 ref-out-in、E09 Cs2jUnsignedMath、E12 Cs2jArray 的注入产物已在中间树（merged compilation 直接可见）；**2026-09-29 复核：四个支撑工程 Cs2jPrelude/Cs2jRefOutIn/Cs2jUnsignedMath/Cs2jArray（E06 tuple 无独立工程，产物为分发进用户工程的生成 struct 文件）与四个 `*SupportFiles.cs`（Prelude/RefOutIn/UnsignedMath/ArrayHelper）对 `this` 扩展声明 grep 零命中（另有遗留工程 src/Cs2jUnsigned 的 3 处命中均为 "this operation" 字符串字面量），今天暴露的都是普通静态 helper**——五锚是面向未来（支撑库升级/C15/C31/C34）的不变量，不是当前数据依赖 | §3.2/§4.2/§11 |
 | 幂等 | 已是静态形态的 `Host.M(r, a)` 绑定为普通静态方法（非 reduced），天然不重复改写；residual 扫描对每个改写点做重绑定断言 | EM-IDEAL |
 | 声明侧 | 一个字不改：`this` 修饰保留（C# 合法、中间树正常编译），声明→Java 的 `final class` + private ctor 映射由现有转换器承担（ConversionTests 五例已覆盖） | 与实验选项 `RewriteExtensionMethods`（剥形参）划清界限 |
-| 与转换器关系 | 本特性 PR **不改转换器**；显式静态调用经现有「静态类型限定接收者」路径消费（`TryResolveMappedName` 返回 `isStatic:true` → `RenderMappedCall` 首参路径，[InvocationExpressionTransformer.cs:505-557](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs#L505-L557)）；默认开启前以冒烟证明该路径吃下图内 host（§8-4） | §9 M5 退役清单 |
+| 与转换器关系 | 本特性 PR **不改转换器**；显式静态调用经现有「静态类型限定接收者」路径消费（`TryResolveMappedName` 返回 `isStatic:true` → `ApplyMappedName`/`RenderMappedCall` 静态首参路径，[InvocationExpressionTransformer.cs:509-551](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/InvocationExpressionTransformer.cs#L509-L551)）；默认开启前以冒烟证明该路径吃下图内 host（§8-4） | §9 M5 退役清单 |
 
 ---
 
@@ -99,14 +109,14 @@ Description                 = "Explicitize extension method calls to static host
 
 ### 3.2 链位：五锚契约与 EM-ORDER 追加建议（评审决策点）
 
-**五锚是「可见性」不变量，不是「相邻」约束。** stub 登记的 RunAfter = delegate / tuple / ref-out-in / unsigned / array-method（[PassStubCatalog.cs:202-218](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L202-L218)），精确对应五条会注入支撑代码的已实现通道（E05 prelude 实际挂在 `delegate` 描述符的 `SupportLibrary=Cs2jPrelude` 上，见 [PassCatalog.cs:86](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L86)）。五锚必须原样保留。
+**五锚是「可见性」不变量，不是「相邻」约束。** stub 登记的 RunAfter = delegate / tuple / ref-out-in / unsigned / array-method（[PassStubCatalog.cs:180-196](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L180-L196)，五锚在 L187-194），精确对应五条会注入支撑代码的已实现通道（E05 prelude 实际挂在 `delegate` 描述符的 `SupportLibrary=Cs2jPrelude` 上，见 [PassCatalog.cs:88](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L88)）。五锚必须原样保留。
 
-但五锚只把本 pass 放在 `array-method` 之后；当前链上 `array-method` 之后还有 `make-readonly`（默认开）与 `iterator-lowering`（已实现、默认关）。两个 pass 持有**按 reduced 糖形态工作的语义启发式**：
+但五锚只把本 pass 放在 `array-method` 之后；当前链上 `array-method` 之后还有 `make-readonly`（默认开）与 `iterator-lowering`（已实现、默认关），再往后是 `eliminate-goto`（默认开）与 `member-desugar`（C11-C14，2026-09-29 翻转、已实现默认关，位于 `eliminate-goto` 之后、`java-keywords` 之前）。其中 make-readonly/iterator-lowering 两个 pass 持有**按 reduced 糖形态工作的语义启发式**：
 
 - E13 make-readonly 的 [BoxingReachabilityAnalyzer.cs:207-209](file:///d:/code/cs2j/src/CSharpToJava.Core/ReadOnlyStructMaker/BoxingReachabilityAnalyzer.cs#L207-L209) 明确依赖「reduced 调用 receiver 不在参数表」来排除装箱；C19 若先跑，receiver 变成显式首参，该启发式的输入形态改变（同文件 MethodMigrator 还会迁方法、CallSiteUpdater 改调用点）。
 - E14 iterator-lowering 把迭代器体展开为状态机类，展开产物可能携带扩展调用糖；本 pass 在其后才能显式化这些新站点（方向上与「注入新代码的 pass 先行」同理）。
 
-**结论（EM-ORDER）**：翻转时把 RunAfter 扩为「五锚 + `make-readonly` + `iterator-lowering`」，落点 = `iterator-lowering` 之后、`eliminate-goto` 之前；`java-keywords` 仍是最后一个 pass（其 RunAfter 集合不变，注册表末位锁定测试保持成立）。这样所有 reduced 糖形态的消费者都先于本 pass 运行，C19 是链上最后一个语义/表达式改写，显式化之后只剩 goto 纯语法 pass 与命名 pass。
+**结论（EM-ORDER）**：翻转时把 RunAfter 扩为「五锚 + `make-readonly` + `iterator-lowering`」，落点 = `iterator-lowering` 之后、`eliminate-goto` 之前（对应 LockedChain 现 L36/L37 之间）；`java-keywords` 仍是最后一个 pass（其 RunAfter 集合不变，注册表末位锁定测试保持成立）。这样 make-readonly/iterator-lowering 两个 reduced 糖形态消费者都先于本 pass 运行。C19 之后链上依次为 `eliminate-goto`（纯语法）、`member-desugar`（声明/成员去糖，默认关）与 `java-keywords`；member-desugar 的改写面是属性/事件/索引器/运算符/终结器声明及其使用点，不产生经典 `this` 形参扩展调用糖，初步判定与本 pass 节点面不相交（C#14 扩展属性归 C49，由 CS2J1206 门拦截，见 EM-EXT14），实际交互复核列为开放问题 Q6。
 
 备选（不推荐）：保持五锚，用 fixture 证明 E13 在静态形态下分析结果逐位等价后可不追加；该证明须覆盖 MethodMigrator 迁移扩展方法的场景（RecordReadOnly 族已有 `MethodMigrationKind.Extension`，[MethodMigrator.cs:139](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/MethodMigrator.cs#L139)），成本高于加锚，列为开放问题 Q1。
 
@@ -114,27 +124,27 @@ Description                 = "Explicitize extension method calls to static host
 
 | 文件 | 改动 |
 |---|---|
-| [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L202-L218) | 删除 `extension-methods` stub 条目（L202-218）；**删除 `Ids.ExtensionMethods` 常量前先把 `linq-channel` stub 的 RunAfter 引用（L226）改为 `PassIds.ExtensionMethods`**（同 C02 翻转 generic-deepen 的常量迁移做法） |
+| [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L180-L196) | 删除 `extension-methods` stub 条目（L180-196，含 L36 的 `Ids.ExtensionMethods` 常量）；**删除常量前先把 `linq-channel` stub 的 RunAfter 引用（L204）改为 `PassIds.ExtensionMethods`**（C02 翻转 generic-deepen 的常量迁移做法；pattern-desugar/member-desugar 翻转同法。例外：iterator-lowering 翻转时常量保留在 PassStubCatalog.Ids 并直接被 PassCatalog 引用，不建议仿） |
 | [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | `PassIds` 增 `ExtensionMethods = "extension-methods"`；按 §3.1 位置插 Implemented 描述符 |
 | `src/CSharpToJava.CLI/Preprocessing/Adapters/ExtensionMethodResolvePassAdapter.cs` | **新增**适配器（§5） |
-| [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L93-L237) | `CreateAdapter` switch 增 `PassIds.ExtensionMethods => new ExtensionMethodResolvePassAdapter(...)`；**不进 `BuildLegacyToggles`**（无历史开关，缺省态取描述符，通用 `--enable-pass/--disable-pass` 控制） |
+| [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L98-L257) | `CreateAdapter` switch 增 `PassIds.ExtensionMethods => new ExtensionMethodResolvePassAdapter(...)`；**不进 `BuildLegacyToggles`**（无历史开关，缺省态取描述符，通用 `--enable-pass/--disable-pass` 控制） |
 | `src/CSharpToJava.Core/ExtensionMethodResolve/*` | 新增 Core 组件（§4） |
-| 测试 | ① [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) `LockedChain` 18 → 19 id（插在 IteratorLowering 与 EliminateGoto 之间；`EnabledByDefault` 不变——本 pass 默认关）；② [PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) stub 计数 23 → 22（不补继任 stub；C#14 扩展成员由 CS2J1206 门承接，是否另注册观察条目 M5 定）；③ [ProjectPreprocessorsConsistentTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs#L131-L132) 仿 generic-deepen 段追加 `IntermediateDirectoryName == ".cs2j-extension-methods-src"` 断言；④ Core 单测/fixture/residual/CLI（§7） |
+| 测试 | ① [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) `LockedChain` **20 → 21** id（现链 20 个 implemented id，末尾 ArrayMethod→MakeReadonly(L35)→IteratorLowering(L36)→EliminateGoto(L37)→MemberDesugar(L38)→JavaKeywords(L39)；本 pass 插在 L36 与 L37 之间；`EnabledByDefault` 现 13 项不变——本 pass 默认关）；② [PassStubCatalogTests.cs:24](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) stub 计数：**当前实现 21 条而断言 22（基线红灯，member-desugar 翻转提交 `26ea367c` 删条未同步断言）**；本 pass 删 `extension-methods` 后为 **20 条，断言直接改 20（顺带转绿）**，不补继任 stub；C#14 extension 块归 C49/C52（见 EM-EXT14），C49 是否注册观察条目 M5 定；③ [ProjectPreprocessorsConsistentTests.cs:131-132](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs#L131-L132) 仿 generic-deepen/member-desugar 段（L129-138 区域，新断言追加在现有段之后）加 `IntermediateDirectoryName == ".cs2j-extension-methods-src"` 断言；④ Core 单测/fixture/residual/CLI（§7） |
 
-不需要改：`Program.cs` 指纹逻辑（已按注册表全集自动生成 `pass:extension-methods=on/off` 令牌，翻转造成一次性缓存失效，符合预期）、preserve 目录（由实际执行 pass 的描述符驱动）、通用 verb（`preprocess --pass extension-methods` 自动可达；stub 期启用即 CS2J9001 的路径翻转后自然消失）、`ProjectPassRunner`（标准 spine + AfterFiles 够用）。
+不需要改：`Program.cs` 指纹逻辑（已按注册表全集自动生成 `pass:extension-methods=on/off` 令牌，见 Program.cs:1767-1776；翻转造成一次性缓存失效，符合预期）、preserve 目录（由实际执行 pass 的描述符驱动）、通用 verb（`preprocess --pass extension-methods` 自动可达；stub 期启用即 CS2J9001 的路径翻转后自然消失）、`ProjectPassRunner`（标准 spine + AfterFiles 够用）。
 
-### 3.4 与 `linq-channel`（C26）相对次序：复核结论（对照 catalog L574）
+### 3.4 与 `linq-channel`（C26）相对次序：复核结论（对照 catalog L632）
 
 事实对照：
 
-- 注册表：`linq-channel` 的 RunAfter = `{ extension-methods, anonymous-type-lift }`（[PassStubCatalog.cs:219-228](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L219-L228)）——注册契约是 **C19 在前、C26 在后**。
-- catalog C26 行备注：「依赖 C19（扩展方法解析）若同批做需排序：**LINQ 先**（消费扩展方法糖）、C19 在后」（L574）——字面上与注册表相反。
+- 注册表：`linq-channel` 的 RunAfter = `{ extension-methods, anonymous-type-lift }`（[PassStubCatalog.cs:197-206](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L197-L206)，引用在 L204）——注册契约是 **C19 在前、C26 在后**。
+- catalog C26 行备注：「依赖 C19（扩展方法解析）若同批做需排序：**LINQ 先**（消费扩展方法糖）、C19 在后」（[catalog L632](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L632)）——字面上与注册表相反。
 
 **复核结论：维持注册次序（C19 → C26），「LINQ 先消费糖」通过所有权排除实现，而不是链序交换。** 硬证据：
 
-1. E16 的 [LinqRewriter.cs:123-129](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L123-L129) 对 `node.Expression` 做 `as MemberAccessExpressionSyntax` 结构性 cast，链回溯 [L212-219](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L212-L219) 是 `while (c.Expression is MemberAccessExpressionSyntax)`——它**结构性依赖 reduced 糖形态**；[LinqQueryDesugarer.cs:254-260](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs#L254-L260) 查询语法去糖也发射 member-access reduced 形态。若 C19 把 LINQ 链改成 `global::System.Linq.Enumerable.Where(src, ...)` 静态形态，E16/C26 的链识别全部失配。
+1. E16 的 [LinqRewriter.cs:123-129](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L123-L129) 对 `node.Expression` 做 `as MemberAccessExpressionSyntax` 结构性 cast，链回溯 [L212-219](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L212-L219) 是 `while (c.Expression is MemberAccessExpressionSyntax)`——它**结构性依赖 reduced 糖形态**；[LinqQueryDesugarer.cs:254-264](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs#L254-L264) 查询语法去糖（MakeCall）也发射 member-access reduced 形态。若 C19 把 LINQ 链改成 `global::System.Linq.Enumerable.Where(src, ...)` 静态形态，E16/C26 的链识别全部失配。
 2. 因此本 pass 设 **EM-LINQ 排除策略**：调用绑定到 LINQ host 集（默认 `System.Linq.Enumerable`、`System.Linq.Queryable`，复用 [ProjectPasses.cs:825-829](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L821-L829) 的同一对 host，做成可配置集）时**不选中**，糖原样保留。效果上「LINQ 先拿到自己的糖」成立：今天糖流入主转换器由内嵌 E16（`EnableLinqRewrite && !EffectivePreferStreamApi`，[ProjectPasses.cs:164](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L164)）消费；C26 通道化后糖在 C26 环被消费。两条时间线下 C19 对 LINQ 站点的行为一致：零触碰。
-3. catalog L574 的排序建议在「LINQ 重写器能吃静态形态」的假设下才成立；代码证据否定该假设，故以注册表契约为准，并在 C26 设计中回链本结论。C26 的 IQueryable 三路分流门（catalog L573）依赖 receiver 语义判定——reduced 形态下 `GetSymbolInfo`/receiver 类型信息完整，不受影响。
+3. catalog L632 的排序建议在「LINQ 重写器能吃静态形态」的假设下才成立；代码证据否定该假设，故以注册表契约为准，并在 C26 设计中回链本结论。C26 的 IQueryable 三路分流门（[catalog L631](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L631)）依赖 receiver 语义判定——reduced 形态下 `GetSymbolInfo`/receiver 类型信息完整，不受影响。
 4. **混合链**（`src.Where(...).MyUserExt().Select(...)`）：C19 只改 `MyUserExt` 一个节点为静态调用，LINQ 节点保持糖；E16 链遍历遇到非 member-access 子节点的行为列为 M4 专项风险验证（§10-1），必要时 C19 对「LINQ 链上的用户扩展」整链保守跳过并出 CS2J1203 之外的 Info——策略以探针结果定，v1 默认只改孤立用户扩展节点。
 
 ### 3.5 中间目录、验证与默认值
@@ -166,12 +176,12 @@ Description                 = "Explicitize extension method calls to static host
 | `ExtensionMethodResolveResult.cs` | `record ExtensionFileResult(string OutputCode, bool Changed, IReadOnlyList<ExtensionDiagnostic> Diagnostics, ExtensionStatistics Statistics)` |
 | `ExtensionMethodResolvePreprocessor.cs` | 入口：`BindCompilation(CSharpCompilation)` / `Analyze(ExtensionMethodResolveOptions)`（整树一次，逐文件产出 binding 表，按文件路径+span 确定性排序）/ `RewriteFile(SemanticModel)` / `ResidualScan(CSharpCompilation)` / 格式化与校验（改动区格式化→整文件格式化→原文三级，同 JK/RR/C02） |
 
-编译构造沿用 runner 标准（[ProjectPassRunner.BuildStandardCompilation](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassRunner.cs#L135-L154)）：`CSharpParseOptions(LanguageVersion.Latest)` + `NETCOREAPP` 符号 + 合成 global using 树 + `GetBasicReferences()` + `allowUnsafe:true` 单库编译，**整树 .cs 合并进同一 compilation**（跨项目用户代码符号即源码符号）。
+编译构造沿用 runner 标准（[ProjectPassRunner.BuildStandardCompilation](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassRunner.cs#L135-L154)）：runner 基类 [ProjectPassAdapter](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/ProjectPassAdapter.cs) 的默认 parse 选项声明 `NETCOREAPP` 符号（L152-153，语言版本取 Roslyn 默认 Latest，未显式传参）、`GetBasicReferences()` 经基类 `GetMetadataReferences`（L180-181）、编译选项 `allowUnsafe:true`（L183-184）。**本 pass 适配器须显式 override `CreateParseOptions(CSharpParseOptions(LanguageVersion.Latest))`**——显式 Latest 与合成 global using 树都有现成先例：[TuplePassAdapter.cs:47-48,59-88](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs#L47-L88)（`CreateAdditionalSyntaxTrees` + `ImplicitGlobalUsings.BuildForProject`；RecordReadOnly/JavaKeywords/MemberDesugar 的 per-project parse 同款）。最终**整树 .cs 合并进同一 compilation**（跨项目用户代码符号即源码符号）。
 
 ### 4.2 跨项目 / 元数据边界
 
 1. **图内用户 host（含多工程）**：merged compilation 把所有未排除工程的 .cs 合编，Lib 声明/App 调用是同编译内绑定，`ContainingType.Locations[0].IsInSource == true`、`DeclaringSyntaxReferences` 非空 → `InCompilationUser`，无条件改写。
-2. **注入的支撑工程**：支撑工程源码由其注入 pass 复制进中间树且不被排除（过滤只发生在 Java 转换/指纹侧），同样是源码符号 → `InCompilationSupport`；改写为对支撑 C# 类型的全限定静态调用，中间树 build/test 直接验证，Java 侧交转换器映射到 compat 对应物。
+2. **注入的支撑工程**：支撑工程源码由其注入 pass 复制进中间树且**不被 pass 自身排除**（merged compilation 直接可见），同样是源码符号 → `InCompilationSupport`；改写为对支撑 C# 类型的全限定静态调用，中间树 build/test 直接验证，Java 侧交转换器映射到 compat 对应物。Java 侧/指纹侧过滤的**现机制**（2026-09-29 复核）：描述符 `SupportLibrary` 字段（[PassDescriptor.cs:96](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassDescriptor.cs#L96)）经 [CliPreprocessChain.cs:108-111](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs#L108-L111) 汇总为 executedSupportLibraries，[Program.cs:264-267](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L264-L267) 在指纹快照前调 [PassChainFactory.IsExecutedSupportLibraryProject](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L264-L274) 过滤；**该函数现仅识别 Cs2jUnsignedMath/Cs2jArray/Cs2jRefOutIn 三类工程**（虽 `PassSupportLibrary` 枚举五值齐全）。Prelude/Tuples 的 Java 侧排除路径不经此函数（`Cs2jPreludeProject.IsCs2jPreludeProject` 当前零调用方），列为开放问题 Q7，实施前核实——本 pass 不改动该机制（描述符 `SupportLibrary=None`）。
 3. **metadata host（BCL/NuGet）**：符号来自 `MetadataReference`，无源码位置 → `ExternalMetadata`；默认改写（决策 EM-EXTERNAL），是否「有 Java 落点」由适配器结合 TypeMappings 查表做**诊断分级**（Core 不依赖 CLI 的映射表——Core 只打分类标签，host→是否可映射的判定函数由适配器注入，保持 Core 无 TypeMappings 依赖）。
 4. **已知边界**：runner 的 `GetBasicReferences()` 只含基础引用，不含中间树 restore 出来的 NuGet 程序集；这些程序集提供的扩展方法可能绑定失败（Info→CS2J1202）或错误绑定。**M0 在 sdk 上测量 reduced 站点的绑定成功率**；若不可绑比例可观，M3 增强适配器 `GetMetadataReferences()`：经 ProjectGraph 枚举 restore 输出目录程序集补充引用（按工程分组、构建 per-project compilation 是更重的备选，非必要不做）。见开放问题 Q2。
 5. **单文件 verb 模式**：本 pass 无跨文件计划，但绑定依赖编译引用完整性；引用不全导致的非 reduced 结论与真「非扩展」无法区分时保守不改 + CS2J1290 Warning（仿 JK090/C02-1190 口径）。
@@ -189,7 +199,7 @@ Description                 = "Explicitize extension method calls to static host
 - **EM-EXPRTREE**：表达式树内改写 + 重绑定同一性断言，失败 CS2J1210 单站回退。
 - **EM-COND**：`r?.M()` 按 §2/M0 探针结论，v1 兜底 CS2J1205。
 - **EM-GROUP**：reduced 方法组（非调用成员访问）→ CS2J1207。
-- **EM-EXT14**：C# 14 扩展成员块 → CS2J1206 Error。
+- **EM-EXT14**：C# 14 `extension` 块（扩展属性/扩展运算符/静态扩展归 C49；扩展索引器为 C#15 预览、归 C52）→ CS2J1206 Error。
 - **EM-IDEAL**：全改写点幂等/可重编译。
 
 ### 4.4 三阶段数据流与回退
@@ -228,7 +238,7 @@ Description                 = "Explicitize extension method calls to static host
 ### 5.2 PassChainFactory / 选项 / 可达性
 
 - switch 增 case，v1 直接 `new ExtensionMethodResolveOptions()`（同 C02，不加 lazy OptionsFactory）；不进 `BuildLegacyToggles`。
-- `preprocess --list-passes` 翻转后显示 `extension-methods | Expression | Implemented | default off | .cs2j-extension-methods-src | C19`。
+- `preprocess --list-passes` 翻转后新增一行（[PassListFormatter.BuildLines](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassListFormatter.cs#L13-L33) 为五列定宽：id/stage/status/default/run-after），形如：`extension-methods           Expression   Implemented   off       delegate,tuple,ref-out-in,unsigned,array-method[,make-readonly,iterator-lowering]`；目录名与 CatalogItems 不出现在该表面，由描述符与 ProjectPreprocessorsConsistentTests 锁定。
 - 指纹：注册表自动覆盖，翻转一次性缓存失效；preserve 目录自动纳入。
 - 单文件 verb：绑定不完整保守跳过 CS2J1290（§4.2-5）。
 
@@ -306,7 +316,7 @@ Description                 = "Explicitize extension method calls to static host
 ### 7.6 CLI / 注册表测试
 
 - 翻转前 `--enable-pass extension-methods` → CS2J9001 退出 1（现状锁定）；翻转后 `--list-passes` 状态 Implemented、目录名正确；默认关时无目录/无耗时；启用后链路执行并把产物串给下一环；`preprocess --pass extension-methods -s … -d …` 单跑可达；单文件模式引用缺口 → CS2J1290。
-- 注册表：拓扑顺序断言（19 id 锁定链中的位置）、末位仍是 java-keywords、默认启用集合不含本 pass、stub 计数 22、无重复 id/目录。
+- 注册表：拓扑顺序断言（**21 id** 锁定链中的位置，插在 IteratorLowering/EliminateGoto 之间）、末位仍是 java-keywords、默认启用集合（13 项）不含本 pass、**stub 计数 20**（同时修复 L24 断言 22 的基线红灯）、无重复 id/目录。
 - 一致性：ProjectPreprocessorsConsistentTests 追加段；指纹令牌含 `pass:extension-methods=...`。
 - 两份既有 `ExtensionMethodTests`：**全部保持通过**（声明侧行为与索引扫描本 pass 不触碰）；不重写其断言。
 
@@ -336,7 +346,7 @@ Description                 = "Explicitize extension method calls to static host
 | M2 | EM-REF + EM-GROUP + EM-COND（按探针）+ EM-EXPRTREE 同一性 + ref/方法组/表达式树用例；fixture 补 null receiver 运行时断言 | 单测/项目测 |
 | M3 | EM-EXTERNAL + host 可映射性注入点（CLI 侧 TypeMappings 判定，先报告后分级）+ 1203 与 CS2J_EXT001 对账；metadata 引用增强按 M0 数据决定（§4.2-4）；多工程 fixture 完整版 + 支撑库串行三样本 | sdk 轮 |
 | M4 | EM-LINQ 混合链策略定稿 + E16 双模式零影响比对 + E13/E14 链位用例 + 回退实战 + strict/overrides + residual 全门 + sdk 基线比对 | 候选默认开评审 |
-| M5 | 过 §8 门槛后 descriptor 翻默认开；plan 收尾；登记转换器侧后续 PR 清单：①`ProjectExtensionMethodCheckPass`/CS2J_EXT001 退役或降级为纯 residual 复核；②`ExtensionMethodIndex` 与 `Cs2jLibrary.ExtensionMethodIndex` 退役评估（跨项目预填路径）；③InvocationExpressionTransformer 逐 host 补丁（MemoryExtensions 等）收口；④`RewriteExtensionMethods` 选项去留；⑤C#14 是否另注册观察 stub | 默认开 |
+| M5 | 过 §8 门槛后 descriptor 翻默认开；plan 收尾；登记转换器侧后续 PR 清单：①`ProjectExtensionMethodCheckPass`/CS2J_EXT001 退役或降级为纯 residual 复核；②`ExtensionMethodIndex` 与 `Cs2jLibrary.ExtensionMethodIndex` 退役评估（跨项目预填路径）；③InvocationExpressionTransformer 逐 host 补丁（MemoryExtensions 等）收口；④`RewriteExtensionMethods` 选项去留；⑤**C49**（C#14 扩展属性/扩展运算符/静态扩展，catalog L952-965，注册表尚无 stub）是否注册观察 stub 或排紧邻批次；C#15 扩展索引器随 **C52** 防线跟踪 | 默认开 |
 | M5+（不承诺） | C26 通道化时回链 EM-LINQ 契约；方法组→lambda、`?.`→临时提升随 expression-desugar 基建收编（注销 1207/1205） | 独立条目 |
 
 ---
@@ -344,7 +354,7 @@ Description                 = "Explicitize extension method calls to static host
 ## 10. 风险
 
 1. **LINQ 被误显式化（最高风险）**：LinqRewriter/LinqQueryDesugarer 结构性依赖 reduced member-access 形态（§3.4 证据），一旦 C19 改写 Enumerable/Queryable 站点，E16 链识别静默失效——能编译、单测可能不直接红（过程式展开退化为普通调用翻译），属 catalog §4 风险 12 式静默事故。缓解：EM-LINQ host 集**不可经选项删空**（只可扩）、residual 双向计数（LINQ 站点被改写数必须为 0，进闸门）、M0 探针④固化失配复现、M4 双模式比对。
-2. **与 E11/E13 reduced 启发式的次序耦合**：MethodMigrator/BoxingReachabilityAnalyzer/DefaultParameterCatalog 都吃 reduced 形态；EM-ORDER 追加锚（§3.2）把本 pass 放到它们之后是主缓解；若不追加，须承担等价性证明成本（开放问题 Q1）。C01 之后落地的成员去糖族（C11-C14/member-desugar）原则上在本 pass 之前（declarative 阶段），翻转其链位时须复核（§11）。
+2. **与 E11/E13 reduced 启发式的次序耦合**：MethodMigrator/BoxingReachabilityAnalyzer/DefaultParameterCatalog 都吃 reduced 形态；EM-ORDER 追加锚（§3.2）把本 pass 放到它们之后是主缓解；若不追加，须承担等价性证明成本（开放问题 Q1）。**现状更新（2026-09-29）**：pattern-desugar（C03/C37）已翻转，链位在 foreach/strip 之间、早于本 pass，控制流去糖不产生扩展调用糖，无交互；member-desugar（C11-C14）已翻转但默认关，链位在 `eliminate-goto` 之后（本 pass 提议落点之后），其节点面初步判定与本 pass 不相交，翻转默认开前仍须按 Q6 复核（§11）。
 3. **外部 host 大库告警噪声**：EF Core/`Microsoft.Extensions.*` 大量扩展方法经 metadata 绑定；1203 若全部 Warning 可能淹没日志。缓解：分级（TypeMappings 命中静默、未命中才报）、sdk triage 门槛（§8-4）、必要时按 host 全名 overrides；同时这正是比现状 CS2J_EXT001 更早暴露问题的收益，不能因噪声回退为静默。
 4. **metadata 引用不全导致假「非扩展」**：标准编译缺 NuGet 程序集时绑定失败，站点被漏改且 1202 可能被当作噪声忽略。缓解：M0 绑定率测量、CS2J1202 在 strict 下为 Error、M3 按数据增强引用（开放问题 Q2）。
 5. **泛型/嵌套 host 显式形态的编译等价性**：省略方法类型实参依赖「receiver→显式首参推断同构」，理论等价但须用推断边界样本压测（不可显式书写类型、tuple 元素名、lambda 返回类型推断、nullable 引用类型上下文）；嵌套泛型 host 的类型实参取自构造符号，须防 `OriginalDefinition` 误用回未构造形。
@@ -365,9 +375,11 @@ Description                 = "Explicitize extension method calls to static host
 | **E16 嵌入式 LINQ**（现状，非注册 pass） | 在主转换器内、跑在全部 preprocessor 之后（`EnableLinqRewrite && !EffectivePreferStreamApi`） | C19 不落地前/后 E16 输入均为 reduced 糖（EM-LINQ 保证），E16 零改动；两种模式（procedural / prefer-stream）各跑零影响比对（§7.3）；混合链若失配，策略选「整链保守跳过 + Info」而非抢改 |
 | **C15/C31/C34**（numeric-boundary / index-range，未来支撑库） | 均可能注入带扩展方法的新支撑代码（C31 可能并入 Cs2jArray；C34 复用 compat Decimal 不新建工程） | 其 stub 翻转 PR 必须：①若新注入产物含扩展方法，把自身 id 加进 `extension-methods` 的 RunAfter（并在本 pass 设计/plan 留 checklist 项）；②支撑 host 经 merged compilation 自动进入可见集，无需本 pass 改代码；③其 fixture 与本 pass 串行跑。现 stub 锚（numeric-boundary→unsigned、index-range→array-method）不保证拓扑在本 pass 之前，**翻转时以 RunAfter 显式链接为准，不靠阶段名推断顺序** |
 | **C02 generic-deepen** | 同改方法体，但规则面不相交：C02 插 `typeof(T)` 锚点语句/签名手术，C19 改调用表达式 | 二者对 reduced 符号无共同节点；receiver 为含 C02 锚点方法调用的纯表达式组合时各自独立；Core 目录不重叠；C02 若先合，复用其 `ExpressionTreeFacts` 与 residual/回退骨架 |
-| C11-C14 member-desugar / C03-C37 等未落地族 | 声明/语句去糖若产生新调用糖，理论消费者次序需复核 | 协调规则同 C15：凡「注入/产生新调用表达式」的通道，翻转时显式 RunAfter 链接到本 pass 之前；本 pass 默认开启后任何新注册 pass 须在评审中回答「是否产生扩展调用糖」 |
+| C03-C37 pattern-desugar（**已翻转 Implemented**） | 控制流去糖（is-not/or/property/discard），链位 foreach→strip 之间，早于本 pass；不产生扩展调用糖 | 现状已核实无交互（2026-09-29）；翻转 C19 时跑一遍 pattern+extension 混合 fixture 留证即可 |
+| C11-C14 member-desugar（**已翻转 Implemented、默认关**） | 链位在 `eliminate-goto` 之后（本 pass 落点之后）；属性/事件/索引器/运算符/终结器使用点改写原则上不产生经典 `this` 形参扩展调用糖 | 默认开启前按 Q6 做混合 fixture 复核；C#14 扩展属性归 C49（CS2J1206 门），不进入两者交互面 |
+| 其他未落地族（C15 等） | 声明/语句去糖若产生新调用糖，理论消费者次序需复核 | 协调规则：凡「注入/产生新调用表达式」的通道，翻转时显式 RunAfter 链接到本 pass 之前；本 pass 默认开启后任何新注册 pass 须在评审中回答「是否产生扩展调用糖」 |
 | C08 java-keywords | 链尾命名 pass | 本 pass 全限定 host 名中的标识符若撞 Java 关键字由 C08 兜底（C08 在最后）；生成节点无 `__cs2j_` 新标识，无新增碰撞面 |
-| 公共热文件 | `PassStubCatalog.cs`、`PassCatalog.cs`、`PassChainFactory.cs`、PassChainOrderTests、PassStubCatalogTests、ProjectPreprocessorsConsistentTests | 各 worktree 仅追加各自 id 的行与各自测试段；按 rebase 解冲突；禁止顺手重排既有顺序；stub 计数（23→22）与锁定链（18→19）的断言修改归本 pass 分支所有，他分支若先翻转其他 stub 需相应 rebase 调整计数 |
+| 公共热文件 | `PassStubCatalog.cs`、`PassCatalog.cs`、`PassChainFactory.cs`、PassChainOrderTests、PassStubCatalogTests、ProjectPreprocessorsConsistentTests | 各 worktree 仅追加各自 id 的行与各自测试段；按 rebase 解冲突；禁止顺手重排既有顺序；stub 计数（**当前 21→本 pass 后 20**，并顺带修复 PassStubCatalogTests L24 断言 22 的现存红灯）与锁定链（**20→21**）的断言修改归本 pass 分支所有，他分支若先翻转其他 stub 需相应 rebase 调整计数 |
 
 ---
 
@@ -386,10 +398,30 @@ git worktree add .worktrees/preproc-c19-extension-methods -b feature/preproc-c19
 
 ---
 
-## 附：关键开放问题（评审输入）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **EM-ORDER**：翻转时 RunAfter 追加 `make-readonly` 与 `iterator-lowering`（采纳推荐），不投入五锚等价性证明。
+2. **metadata 引用**：v1 维持 merged compilation；M0 实测 sdk 扩展站点的 metadata 绑定率，**绑定率 <99% 则 M3 必须补 restore 程序集引用**；不做 per-project compilation。
+3. **null 条件扩展 `r?.M()`**：v1 **收编**（临时提升为规范形），CS2J1205 仅保留给经探针确认无法提升的形态；不长期停在显式失败。
+4. **C# 14 扩展成员块/扩展属性/扩展运算符**：全部归 **C49**（设计稿已立，排紧邻批次），C19 不注册观察 stub；CS2J1206 诊断文案直接指路 C49；扩展索引器（C# 15 预览）随 C52 版本防线跟踪。
+5. **方法组 reduced 站点（EM-GROUND）**：v1 收编；旧资产退役按 M5 清单——索引与校验 pass 在**默认开前删除**，逐 host 补丁/实验选项在默认开后一个版本内清完。
+6. **member-desugar 后置交互**：M4「成员去糖+用户扩展调用」混合 fixture 为硬验收，不绿不默认开。
+7. **支撑工程 Java 侧过滤覆盖面**：M2 前核实 prelude/tuple 注入产物在 Java 转换/指纹侧的确切排除路径（含 `IsExecutedSupportLibraryProject` 扩面），不绿不默认开。
+8. **现存基线红灯**：翻转 PR 直接把 PassStubCatalogTests 断言改为翻转真值（按统一口径⑧），不单独修。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **EM-ORDER**：翻转时 RunAfter 是否追加 `make-readonly`/`iterator-lowering`（推荐追加），还是投入等价性证明成本维持五锚（§3.2）。
 2. **metadata 引用**：M0 测得 sdk 扩展站点的 metadata 绑定率后，是否需要在 M3 为 merged compilation 补 restore 程序集引用 / per-project compilation（§4.2-4）。
 3. **null 条件扩展 `r?.M()`**：合法性探针结论与 v1 是否收编（临时提升）还是停在 CS2J1205（§2 EM-COND）。
-4. **C#14 扩展成员块/扩展属性**：探针确认形态后，CS2J1206 长期报错是否足够，还是另注册观察 stub（§2 EM-EXT14）。
+4. **C#14 扩展成员块/扩展属性**：探针确认形态后，CS2J1206 长期报错是否足够；与 catalog 已立条目 **C49**（扩展属性/扩展运算符/静态扩展，L952-965）的排期协作——是否为 C49 注册观察 stub 或排紧邻批次；扩展索引器（C#15 预览）随 C52 防线跟踪（§2 EM-EXT14、M5⑤）。
 5. **方法组 reduced 站点（EM-GROUND）** 与**旧资产退役顺序**（索引/校验 pass/逐 host 补丁/实验选项，M5 清单）的排期。
+6. **member-desugar 后置交互**（2026-09-29 新增）：member-desugar 已 Implemented 且链位在本 pass 之后（goto 后、java-keywords 前，默认关）；M4 用「成员去糖 + 用户扩展调用」混合 fixture 复核两 pass 串行结果（重点：属性/事件/索引器/运算符使用点改写是否遇到扩展形态、改写后节点是否被后续 pass 再触碰）；结论不绿则在 member-desugar 翻默认开前补交互用例。
+7. **支撑工程 Java 侧过滤覆盖面**（2026-09-29 新增）：`IsExecutedSupportLibraryProject` 现仅识别 UnsignedMath/Array/RefOutIn 三工程，`Cs2jPreludeProject.IsCs2jPreludeProject` 零调用方、Cs2jTuples 无工程类——prelude/tuple 注入产物在 Java 转换/指纹侧的确切排除路径实施前核实（不影响本 pass 的中间树可见性结论，见 §4.2-2）。
+8. **现存基线红灯**：PassStubCatalogTests L24 断言 22 与实现 21 不符（`member-desugar` 翻转提交 `26ea367c` 引入），属基线事实而非本设计缺陷；本 pass 翻转 PR 直接把断言改为 20，不单独修。

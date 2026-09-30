@@ -1,9 +1,9 @@
 # C35 空条件 `?.` / `?[]` 去糖前置化（`expression-desugar` 族规则）设计
 
 **日期**: 2026-09-29
-**范围**: 在 C23 锚点落地的 `expression-desugar` 族基建（`src/CSharpToJava.Core/ExpressionDesugar/`）内新增规则目录 `NullConditional/`，在 C# 层把空条件成员访问（`a?.b.c?.d()`）、条件索引（`arr?[i]`）、委托/事件 `?.Invoke()`、条件赋值目标（`a?.b = v`）、void 语句上下文显式化为「段临时变量 + null 检查三元 / if 语句」，保持接收者**严格单次求值**与 null 短路；值类型成员终端产 lifted `Nullable<T>` 形态。不注册新 pass、不翻转 stub、不改任何 C#→Java 转换代码（Java 侧特判簇的下掉为默认开启后的独立 PR）
+**范围**: 在 C23 锚点落地的 `expression-desugar` 族基建（`src/CSharpToJava.Core/ExpressionDesugar/`）内新增规则目录 `NullConditional/`，在 C# 层把空条件成员访问（`a?.b.c?.d()`）、条件索引（`arr?[i]`）、委托/事件 `?.Invoke()`、void 语句上下文显式化为「段临时变量 + null 检查三元 / if 语句」（**条件赋值目标 `a?.b = v` 已裁决移出本规则、单列 C51**，见 §3 NC-7 注记），保持接收者**严格单次求值**与 null 短路；值类型成员终端产 lifted `Nullable<T>` 形态。不注册新 pass、不翻转 stub、不改任何 C#→Java 转换代码（Java 侧特判簇的下掉为默认开启后的独立 PR）
 **状态**: 设计已确认，待实施（依赖 C23 锚点分支先合入）
-**注册表**: 不新增/不翻转任何条目；沿用 stub `expression-desugar`（[PassStubCatalog.cs:239-248](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L239-L248)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，RunAfter=`null-coalesce`，中间目录 `.cs2j-expression-desugar-src`）。C23 翻转时 catalogItems 收窄为 `"C23"`；本特性落地时在**同一描述符**上加宽为 `"C23, C35"`（[C23 §3.4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L189-L193)）
+**注册表**: 不新增/不翻转任何条目；沿用 stub `expression-desugar`（[PassStubCatalog.cs:217-226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，RunAfter=`null-coalesce`，中间目录 `.cs2j-expression-desugar-src`）。C23 翻转时 catalogItems 收窄为 `"C23"`；本特性落地时在**同一描述符**上加宽为 `"C23, C35"`（[C23 §3.4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L193-L197)）
 **base**: `953293b9`（`docs: update doc base commit`，已 `git rev-parse --verify` 校验存在；实施前先合入 C23 分支，见 §12）
 
 ---
@@ -16,12 +16,12 @@
 
 | # | 站点 | 现状行为 | 后果 |
 |---|---|---|---|
-| S1 | [ControlFlowTransformer.cs:313-336](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L313-L336) `TransformConditionalAccess`（注册 [L22](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L22)、分派 [L45](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L45)） | 产 `({objExpr} != null ? {whenNotNull} : null)`；值类型非 `Nullable<T>` 消费上下文时 false 分支改发基元默认值（[L319-334](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L319-L334)，`false/0/0.0/Decimal.ZERO`） | Java 侧内联三元，接收者文本 `objExpr` 在条件与真分支重复出现；带副作用接收者被求值两次；lifted 判定（`ConvertedType`）与 Java 拆箱特判耦在字符串发射里 |
+| S1 | [ControlFlowTransformer.cs:314-337](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L314-L337) `TransformConditionalAccess`（注册 [L22](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L22)、分派 [L45](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L45)） | 产 `({objExpr} != null ? {whenNotNull} : null)`；值类型非 `Nullable<T>` 消费上下文时 false 分支改发基元默认值（判定 [L322-335](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L322-L335)；字面量 `false/0/0.0/Decimal.ZERO` 在 [L339-350](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L339-L350)） | Java 侧内联三元，接收者文本 `objExpr` 在条件与真分支重复出现；带副作用接收者被求值两次；lifted 判定（`ConvertedType`）与 Java 拆箱特判耦在字符串发射里 |
 | S2 | [ExpressionTransformerFacade.cs:96-388](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L96-L388) `TransformWhenNotNull` | 四处「所属 ConditionalAccess」owner 链回溯：tuple ItemN 回退取接收者类型（[L117-123](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L117-L123)）、属性映射取接收者具体类型（[L165-174](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L165-L174)）、TypeMappings 兜底回溯（[L189-199](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L189-L199)）、`?.Select/.Where` 取接收者类型（[L271-275](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L271-L275)）；另有嵌套 CA 分支（[L379-381](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L379-L381)）与 `MethodInfo?.Invoke` 特判（[L297-317](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L297-L317)、[L394-413](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L394-L413)） | 「条件访问的接收者类型」这一事实被全表达式转换器反复重新发现；语义解析失败时靠 owner 链猜测，是 catalog C35 条目点名的特判簇本体 |
 | S3 | void/语句上下文由语句层另起一套：[StatementTransformer.ExpressionAndReturn.cs:21-24](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L21-L24)、`TransformConditionalAccessStatement` [L317-361](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L317-L361) | `obj?.M();` 转 `if (obj != null) { … }`；字段式事件 `evt?.Invoke(args)` 特判为 fire 方法 + 监听器非空（[L324-333](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L324-L333)）；委托字段 getter/SAM 推导（[L371-383](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L371-L383)） | 值路径三元与语句路径 if 两套实现同构但分立；嵌套链递归重拼（[L352-355](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.ExpressionAndReturn.cs#L352-L355)） |
-| S4 | `?[]`（`ElementBindingExpressionSyntax`） | 全 `src/` grep `ElementBinding` **零命中**：`TransformWhenNotNull` 只处理 `ElementAccessExpressionSyntax`（[L374-377](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L374-L377)），无 ElementBinding 分支，落入 facade 总兜底 `/* TODO: ElementBindingExpression – … */`（[ExpressionTransformerFacade.cs:29-37](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L29-L37)） | catalog §4 风险 12 族静默错误输出；现有测试 [NullableTests.cs:25-31](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/NullableTests.cs#L25-L31) 竟以 `AssertConversion(result, "TODO: ElementBindingExpression")` **锁定错误产物** |
+| S4 | `?[]`（`ElementBindingExpressionSyntax`） | 2026-09-30 复核：全 `src/` grep `ElementBinding` 已**非零命中**——member-desugar 族 [IndexerRule.cs:97-100](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Indexers/IndexerRule.cs#L97-L100) 分派 `ElementBindingExpressionSyntax`、[IndexerUseSiteRewriter.cs:166-183](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/Indexers/IndexerUseSiteRewriter.cs#L166-L183) 把有 plan 的外部索引器 `r?[i]` 改写成 `r?.get_Item(i)`（IX-9）；但 `TransformWhenNotNull` 仍只处理 `ElementAccessExpressionSyntax`（[L374-377](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L374-L377)），无 ElementBinding 分支，无 plan 的形态（如数组 `a?[0]`）落入 facade 总兜底 `/* TODO: ElementBindingExpression – … */`（[ExpressionTransformerFacade.cs:29-38](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L29-L38)） | catalog §4 风险 12 族静默错误输出；现有测试 [NullableTests.cs:25-31](file:///d:/code/cs2j/tests/CSharpToJava.ConversionTests/Categories/NullableTests.cs#L25-L31) 竟以 `AssertConversion(result, "TODO: ElementBindingExpression")` **锁定错误产物** |
 | S5 | 无 fail-fast 正面清单 | 表达式未知 kind 仅 facade 发 TODO 注释（[L35](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L35)）；ControlFlowTransformer 未知 kind 在 [L56](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L56) `throw new NotSupportedException` | 条件访问各形态靠散落分支覆盖，漏一个即静默 TODO 进 Java 产物 |
-| S6 | 旁路消费者 | [TupleToStructPreprocessor.cs:650-673](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L650-L673) 重建 `t?.Item8` 成员链；[LinqRewriter.cs:77-83](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L77-L83) 与 [HIRExpressionGenerator.cs:406](file:///d:/code/cs2j/src/CSharpToJava.Core/HIR/HIRExpressionGenerator.cs#L406) 各有 CA 访问者；[RecordReadOnly/MutationSiteRewriter.cs:1030-1096](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/MutationSiteRewriter.cs#L1030-L1096) 已收编 `p?.X = 1`（record struct → switch/with，副作用接收者 RR051，[L213](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/MutationSiteRewriter.cs#L213)） | 前置归一必须给每条旁路明确交接结论（§11），不能各写一套 |
+| S6 | 旁路消费者 | [TupleToStructPreprocessor.cs:650-673](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L650-L673) 重建 `t?.Item8` 成员链；[LinqRewriter.cs:77-83](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L77-L83) 与 [HIRExpressionGenerator.cs:406](file:///d:/code/cs2j/src/CSharpToJava.Core/HIR/HIRExpressionGenerator.cs#L406) 各有 CA 访问者；[RecordReadOnly/MutationSiteRewriter.cs:1031-1097](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/MutationSiteRewriter.cs#L1031-L1097) 已收编 `p?.X = 1`（record struct → switch/with，副作用接收者 RR051，[L213](file:///d:/code/cs2j/src/CSharpToJava.Core/RecordReadOnly/MutationSiteRewriter.cs#L213)） | 前置归一必须给每条旁路明确交接结论（§11），不能各写一套 |
 
 ### 1.2 目标形态
 
@@ -40,7 +40,7 @@
 
 2. 长链逐段临时变量、严格按 `?.` 文本顺序求值，null 短路：前段为 null 时后段的 getter、实参、索引运算元**一律不求值**。
 3. 与 E03（`??`/`??=`）的组合以「E03 产物 → 本规则」为唯一交汇方向（§3.4），本规则产物不再生任何 `??` 节点。
-4. 本规则是 C23 冻结的族 `TempLifter`（[C23 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L287-L296)）的**首个重度消费者**；除段临时声明外，还需「锚点语句替换」（void/if 形态与结果临时块形态），该能力以只增不改方式扩在 `NullConditional/` 目录内（§4.4）。
+4. 本规则是 C23 冻结的族 `TempLifter`（[C23 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L291-L300)）的**首个重度消费者**；除段临时声明外，还需「锚点语句替换」（void/if 形态与结果临时块形态），该能力以只增不改方式扩在 `NullConditional/` 目录内（§4.4）。
 5. pass 默认关跟随 C23 锚点（opt-in）；满足 §8 门槛后随族评审翻默认开；Java 侧 S1–S6 分支本期**不删不改**，作为直连单文件路径安全网。
 
 ### 1.3 与 E03 的分工表
@@ -48,8 +48,8 @@
 | 维度 | E03 `NullCoalesceRewriter`（已实现，链上更早） | C35 `NullConditional`（本特性，族规则） |
 |---|---|---|
 | 语法面 | `CoalesceExpression`（`??`）、`CoalesceAssignmentExpression`（`??=`） | `ConditionalAccessExpression`、`MemberBindingExpression`、`ElementBindingExpression` |
-| 产物形态 | 临时 + `t != null ? t : r` 三元；`??=` → if-赋值（[NullCoalesceSyntaxRewriter.cs:44-219](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L44-L219)） | 段临时 + 嵌套 null 三元 / if 语句；lifted `T?` 终端 |
-| 临时机制 | 自有两遍：Pass1 收 `PendingDeclaration`，Pass2 [NullCoalesceStatementLifter](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceStatementLifter.cs#L11-L38) 锚点前插 | 消费 C23 族 `Shared/TempLifter`（形态复刻 E03，见 [C23 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L287-L296)）；另加语句替换能力 |
+| 产物形态 | 临时 + `t != null ? t : r` 三元；`??=` → if-赋值（[NullCoalesceSyntaxRewriter.cs:44-218](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L44-L218)） | 段临时 + 嵌套 null 三元 / if 语句；lifted `T?` 终端 |
+| 临时机制 | 自有两遍：Pass1 收 `PendingDeclaration`，Pass2 [NullCoalesceStatementLifter](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceStatementLifter.cs#L11-L38) 锚点前插 | 消费 C23 族 `Shared/TempLifter`（形态复刻 E03，见 [C23 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L291-L300)）；另加语句替换能力 |
 | 交接 | 先跑；`a?.b ?? c` 被提为 `var ___t = a?.b; ___t != null ? ___t : c`，条件访问节点**原样保留一次** | 后跑；把 E03 临时初值中的 CA 单落点归一成段临时三元，接收者仍只求值一次（§3.4 NC-6） |
 | 命名 | `___tN` | 族前缀 `__ed_`（C23 冻结），C35 子前缀 `__ed_s`（段）/`__ed_r`（结果） |
 
@@ -64,7 +64,7 @@
 ### 1.5 非目标
 
 - 不翻转 `expression-desugar` stub、不新增 pass id、不改链序（C23 锚点职责）；C23 未合入前本特性不可实施。
-- 不重写 `??`/`??=`（E03 所有权；本规则只消费其产物）；不做 lifted 运算符（C22 所有权，[C22 §1.4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c22-nullable-value-design.md#L61-L61) 明确 `?.`/`?[]` 归 C35）；不做 `^`/`..`（C31）与 `?.` 的联合 lowering 算法（只保证组合可工作，§11）。
+- 不重写 `??`/`??=`（E03 所有权；本规则只消费其产物）；不做 lifted 运算符（C22 所有权，[C22 §1.4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c22-nullable-value-design.md#L82-L82) 明确 `?.`/`?[]` 归 C35）；不做 `^`/`..`（C31）与 `?.` 的联合 lowering 算法（只保证组合可工作，§11）。
 - 不模拟表达式树 lowering（`?.` 本就不能进表达式树，基线编译错误，仅防御性跳过）；不改 Java 侧转换器、compat、TypeMappings。
 - M1–M3 不做跨语句实参顺序的语句分裂优化（Q2）。
 
@@ -72,7 +72,7 @@
 
 | 决策点 | 结论 | 备注/证据 |
 |---|---|---|
-| 总体架构 | 语义驱动**逐文件**族规则：C23 族入口统一 dirty 检查 → 文件上下文 → 规则管线中 C35 `Analyze`（链段规划）+ `Rewrite`（自底向上，值形态登记 `PendingTemp`、语句形态直接替换锚点语句）→ 族 `TempLifter.Apply` 一次 → 格式化 → residual 闸门；复刻 E03 两遍范式但复用族基建 | 不自行插文件/格式化；规则接口按 [C23 §4.2](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L232-L257) 冻结契约，只增不改 |
+| 总体架构 | 语义驱动**逐文件**族规则：C23 族入口统一 dirty 检查 → 文件上下文 → 规则管线中 C35 `Analyze`（链段规划）+ `Rewrite`（自底向上，值形态登记 `PendingTemp`、语句形态直接替换锚点语句）→ 族 `TempLifter.Apply` 一次 → 格式化 → residual 闸门；复刻 E03 两遍范式但复用族基建 | 不自行插文件/格式化；规则接口按 [C23 §4.2](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L249-L259) 冻结契约，只增不改 |
 | 判定真相源 | 一律 SemanticModel/IOperation：`GetOperation(ca)` 的 `IConditionalAccessOperation`/`IConditionalAccessInstanceOperation` 取段接收者与终端类型；`GetTypeInfo(node).Type` 取 lifted 结果类型；`GetSymbolInfo(binding)` 取成员/方法/索引器/事件符号 | 禁止按标识符文本猜成员；S2 四处 owner 回溯的根因就是缺统一段模型。Roslyn 4.12（[Core.csproj](file:///d:/code/cs2j/src/CSharpToJava.Core/CSharpToJava.Core.csproj)）IOperation 外形由 M0 最小探针核实（同 C23 纪律） |
 | **值上下文 → 临时 + 三元（NC-VALUE）** | 规范两形状：① 单段且接收者在**内联白名单**（局部/参数/`this`/字段，即 `IFieldSymbol`/`ILocalSymbol`/`IParameterSymbol`，不含属性）→ 零声明内联 `a != null ? a.B : null`；② 其余 → 段临时前置 + 守卫内对段临时做成员访问，长链用「段临时条件预取 + 嵌套三元」（§4.3 NC-2） | 白名单内重复的是简单名读，无用户副作用；白名单外宁可多临时不可双求值（INV-1） |
 | 值类型终端 → `Nullable<T>` | 终端绑定符号返回非可空值类型 `T` 时，结果临时/三元类型显式发 `T?`（类型名取 `ITypeSymbol.ToDisplayString()`），真分支按需加 `(T?)` 保形 cast、null 分支 `(T?)null`；终端本身已 `T?`/引用类型则不 cast | 与 C22 lifted 形态同构；cast 只作用于条件访问终端，后续 lifted 运算由 C22 守卫规则消费（§11） |
@@ -93,8 +93,8 @@
 
 ### 3.1 所属：`expression-desugar` 族 `NullConditional/` 规则，不翻转、不另立 pass
 
-- 物理落点 `src/CSharpToJava.Core/ExpressionDesugar/NullConditional/`（C23 锚点预留目录，[C23 §4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L199-L224)）；C23 未合入前该目录不存在，本特性分支基于「C23 分支合入后」的树实施（§12）。
-- 注册表零结构改动：不动 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)、不动描述符 RunAfter/Stage/目录名；落地时仅把 C23 已翻转的 Implemented 描述符 catalogItems 由 `"C23"` 加宽为 `"C23, C35"`（[C23 §3.4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L189-L193) 约定的同一描述符加宽）。
+- 物理落点 `src/CSharpToJava.Core/ExpressionDesugar/NullConditional/`（C23 锚点预留目录，[C23 §4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L199-L228)）；C23 未合入前该目录不存在，本特性分支基于「C23 分支合入后」的树实施（§12）。
+- 注册表零结构改动：不动 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)、不动描述符 RunAfter/Stage/目录名；落地时仅把 C23 已翻转的 Implemented 描述符 catalogItems 由 `"C23"` 加宽为 `"C23, C35"`（[C23 §3.4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L193-L197) 约定的同一描述符加宽）。
 - 规则接入三处追加式热文件：`ExpressionDesugarRuleSet.cs` +1 行（NullConditional 规则）、`ExpressionDesugarOptions.cs` +1 个 nullable 子选项属性、partial 统计文件落在 `NullConditional/` 本目录；禁止修改 C23 既有规则行（§11 热文件解法）。
 - 依赖方向：**硬依赖 C23 锚点**（共享 Analyzer/TempLifter/Options/Statistics/Diagnostic/规则接口与适配器）；E03 是链序上的前驱数据关系而非代码依赖（不引用 `NullCoalesceRewriter` 类型）。
 
@@ -103,7 +103,7 @@
 catalog C35 条目建议「并入 E03 成为 null 糖归一通道」并要求论证去糖顺序。结论：**逻辑上是一条 null 糖归一通道，物理上保持两个相邻 pass、维持注册表现状（E03 → expression-desugar），不把 C35 挂进 E03**。理由：
 
 1. **锚点已冻结**：C23 设计已确认 `expression-desugar` RunAfter=`null-coalesce`、物理插在 null-coalesce 与 enum 之间（[C23 §3.2](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L164-L172)），码段 CS2J0550-0569、目录 `NullConditional/`、族 `TempLifter` 全部按此拓扑预留；反向挂 E03 意味着推翻锚点、在 E03 内重长链段分析与族 Options，破坏「一个 expression-desugar pass + 多规则族」约定。
-2. **两遍临时提升可直接复用对接，无需同进程**：E03 的 [PendingDeclaration](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L27-L30) + [StatementLifter](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceStatementLifter.cs#L21-L38) 形态已被 C23 族 `TempLifter` 原样泛化（PendingTemp/Collect/Apply + 文件上下文发号，[C23 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L287-L296)）；C35 作为该基建首个重度消费者即完成事实上的统一。E03 自有 lifter 的后续收敛（上收共享组件）已在 [C23 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L295-L295) 与 [C31 Q3](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c31-index-range-design.md#L337-L337) 登记为独立后续项，本特性不动 E03 代码（唯二例外建议见 §3.4 末与 §11，均为可选小补丁）。
+2. **两遍临时提升可直接复用对接，无需同进程**：E03 的 [PendingDeclaration](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L27-L30) + [StatementLifter](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceStatementLifter.cs#L21-L38) 形态已被 C23 族 `TempLifter` 原样泛化（PendingTemp/Collect/Apply + 文件上下文发号，[C23 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L291-L300)）；C35 作为该基建首个重度消费者即完成事实上的统一。E03 自有 lifter 的后续收敛（上收共享组件）已在 [C23 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L299-L299) 与 [C31 Q3](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c31-index-range-design.md#L337-L337) 登记为独立后续项，本特性不动 E03 代码（唯二例外建议见 §3.4 末与 §11，均为可选小补丁）。
 3. **语义论证（E03 先跑不破坏 C35 正确性）**：
    - `??`：E03 把左操作数整体提入临时初值（[L75-96](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L75-L96)），CA 在其中**恰好一个落点**；C35 再对该落点做段规划，接收者求值次数不变（§3.4 NC-6 探针验证）。
    - `??=`：E03 对成员/索引左值的现状形态是「`var ___t = left; if (___t == null) { left = right; }`」（[L177-218](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L177-L218)），`left` 在声明与赋值中各出现一次——对普通成员目标本就存在接收者重复求值的近似；若 `left` 含 CA，C35 事后会分别改写两处而产生两个段计划。结论：该交叉形态不由链序兜，而由 §3.4 的 E03 前置 guard 建议 + CS2J0563 防御码闭合。
@@ -112,7 +112,7 @@ catalog C35 条目建议「并入 E03 成为 null 糖归一通道」并要求论
 ### 3.3 pass 内多趟方案：规则单趟 + 链整体单趟 visit，不做规则级固定点
 
 - C35 规则在 `ExpressionDesugarRuleSet` 中**单趟**执行：`Analyze` 对每个链根产一个 `ChainPlan`，`Rewrite` 自底向上访问但只在**链根**整体替换（嵌套 CA 标记为已规划、跳过），因此任意深度嵌套链在一次 visit 内闭合，替换结果不含 CA 节点，不需要第二趟。
-- 族规则间（C23 Interpolation ↔ C35 NullConditional）亦无需固定点：C23 洞表达式零复制（[C23 §2.2 副作用行](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L92-L92)），其产物 `string.Concat/Format(...)` 不含 `?.`；C35 产物不含插值节点。建议 RuleSet 中 NullConditional 排在 Interpolation **之后**（追加行自然在其后）：插值先归一为 BCL 调用，C35 再处理调用实参内的 CA，语义与「C23 先跑」的链位事实一致；两种顺序经分析等价（副作用顺序边界见 §10 R5 与 Q2），以追加顺序为准，不调整 C23 行。
+- 族规则间（C23 Interpolation ↔ C35 NullConditional）亦无需固定点：C23 洞表达式零复制（[C23 §2.2 副作用行](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L95-L95)），其产物 `string.Concat/Format(...)` 不含 `?.`；C35 产物不含插值节点。建议 RuleSet 中 NullConditional 排在 Interpolation **之后**（追加行自然在其后）：插值先归一为 BCL 调用，C35 再处理调用实参内的 CA，语义与「C23 先跑」的链位事实一致；两种顺序经分析等价（副作用顺序边界见 §10 R5 与 Q2），以追加顺序为准，不调整 C23 行。
 - 终止性证明要素（写进单测）：每次替换严格减少 CA/ElementBinding 节点数（n→0），段临时初值与 if/三元内只含普通表达式，故 visit + 一次 `TempLifter.Apply` 后语法目标节点归零。
 
 ### 3.4 组合形态交汇样例（E03 产物 → C35）
@@ -173,7 +173,7 @@ src/CSharpToJava.Core/ExpressionDesugar/NullConditional/
 
 ### 4.2 对 C23 `TempLifter` 与 E03 lifter 的统一复用方案
 
-- 段临时一律走 C23 冻结的 `PendingTemp(Declaration, AnchorStatement, Order, Owner)` + `Collect/Apply`：`Owner=NullConditional`，序号由文件上下文统一发号，与同句中的 C23/C24/C31 风格临时（未来）共享确定序（[C23 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L287-L296)）。
+- 段临时一律走 C23 冻结的 `PendingTemp(Declaration, AnchorStatement, Order, Owner)` + `Collect/Apply`：`Owner=NullConditional`，序号由文件上下文统一发号，与同句中的 C23/C24/C31 风格临时（未来）共享确定序（[C23 §4.5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L291-L300)）。
 - 机制等价于 E03 两遍：Pass1（本规则 rewriter）只登记/替换，`TempLifter.Apply` 在族入口统一执行一次；`VisitBlock` 锚点前插声明的算法与 [NullCoalesceStatementLifter.cs:21-38](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceStatementLifter.cs#L21-L38) 同构（内嵌块作用域天然正确）。
 - 命名：段接收者 `__ed_s<N>`、链结果 `__ed_r<N>`；碰撞避让复用 `ExpressionSyntaxFacts`；不新增命名前缀（保持 C23 `__ed_` 统一，C08 无需特殊协调）。
 - E03 自有 lifter 本期不迁移（与 [C31 §4.3](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c31-index-range-design.md#L199-L199) 同口径），其收敛为独立后续项；本特性产出后，表达式族三条线（E03、index-range、expression-desugar）的临时提升形态已全部同构，收敛为机械工作。
@@ -221,6 +221,8 @@ src/CSharpToJava.Core/ExpressionDesugar/NullConditional/
   ```
 - **NC-6 与 `??` 组合（消费 E03 产物）**：样例与不变式见 §3.4；规则对「E03 临时初值中的 CA 单落点」直接套用 NC-1/2/4，触发 CS2J0567 Info 计数；探针同时断言 E03 临时与 C35 段临时的求值次数。
 - **NC-7 条件赋值目标**
+
+  > **归属裁决（2026-09-30）**：NC-7 从本规则移出、与 catalog **C51** 对齐——赋值目标（含复合/自增形态）是 C# 14 新语法面，由同一目录 `ExpressionDesugar/NullConditional/` 下的 **`Assignment/` 子规则**承接（见 [C51 设计](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c51-null-cond-assignment-design.md)）；**不新增 pass、catalog 编号 C51 单独保留**。下列 NC-7 原文仅作历史设计依据保留，实施以 C51 文档为准。
   ```csharp
   // before: a?.b = v;                  → var __ed_s0 = a; if (__ed_s0 != null) __ed_s0.b = v;
   // before: arr?[i] = v;              → var __ed_s0 = arr; if (__ed_s0 != null) __ed_s0[ i ] = v;
@@ -253,7 +255,7 @@ src/CSharpToJava.Core/ExpressionDesugar/NullConditional/
 
 零注册表结构改动，全部增量挂在 C23 已落地的适配器上：
 
-1. **不新增适配器文件、不动 PassChainFactory/PassCatalog 结构**：[ExpressionDesugarPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/ExpressionDesugarPassAdapter.cs)（C23 新增）已持有族 Options/统计/诊断；C35 子选项经 `ExpressionDesugarOptions.NullConditional`（组合属性，[C23 §4.2](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L234-L237)）透传，规则在 `ExpressionDesugarRuleSet` 生效，适配器摘要行追加 C35 计数即可（小改，归 C35 PR）。
+1. **不新增适配器文件、不动 PassChainFactory/PassCatalog 结构**：[ExpressionDesugarPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/ExpressionDesugarPassAdapter.cs)（C23 新增）已持有族 Options/统计/诊断；C35 子选项经 `ExpressionDesugarOptions.NullConditional`（组合属性，[C23 §4.2](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L238-L241)）透传，规则在 `ExpressionDesugarRuleSet` 生效，适配器摘要行追加 C35 计数即可（小改，归 C35 PR）。
 2. 描述符仅 catalogItems 加宽 `"C23" → "C23, C35"`；`--list-passes` 自动反映；中间目录、指纹令牌（注册表自动 `pass:expression-desugar=on/off`）、clean 字节复制、BOM 保持全部沿用族机制。
 3. **无支撑库**：产物只含 C# 原生三元/if/成员访问/索引/调用与 `(T?)` cast；不注入工程、不进支撑库过滤、不改 TypeMappings/compat。
 4. **统计汇入族**：C35 计数通过 partial `NullConditionalStatistics` 累加入族 `ExpressionDesugarStatistics`（族五字段 + `TempsLifted` 共享），适配器 `BuildChainSummaryLine` 增「NC sites/index/invoke/assign/void/lifted/skipped/residual」一段；诊断行前缀沿用 `[expression-desugar]`。
@@ -351,7 +353,7 @@ dotnet test -c Release tests/CSharpToJava.ConversionTests/CSharpToJava.Conversio
 
 ## 8. 默认开启验收门槛
 
-本规则不独立翻 pass；随 `expression-desugar` 族门槛（[C23 §8](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L408-L418)）并附加：
+本规则不独立翻 pass；随 `expression-desugar` 族门槛（[C23 §8](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L412-L422)）并附加：
 
 1. §7.1 矩阵全绿（尤其计数探针两盘）；fixture 与三测试工程 Release build/test 全绿；幂等零 diff；
 2. residual 零「未解释条件访问」：画像中每处 `?.`/`?[]` 均有归一或 0562/0565 配对；CS2J0557/0559/0561 命中清单逐条评审；
@@ -375,15 +377,15 @@ M1–M3 全程随族 `DefaultEnabled=false`；每个里程碑自身 Release buil
 
 | # | 风险（按严重度） | 证据/说明 | 缓解 |
 |---|---|---|---|
-| R1 | **单次求值被破坏（最高风险）**：现状 S1 内联三元天然重复接收者；长链独立逐 CA 改写会重复非平凡段接收者（`__ed_s0.b.c` 两次） | [ControlFlowTransformer.cs:335](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L335)；E03 成员左值亦有重复近似 | 链根整体规划 + 段临时条件预取；★计数探针两盘断言（§7.1-11）；白名单外禁止内联；0563 拒绝 E03 双落点 |
+| R1 | **单次求值被破坏（最高风险）**：现状 S1 内联三元天然重复接收者；长链独立逐 CA 改写会重复非平凡段接收者（`__ed_s0.b.c` 两次） | [ControlFlowTransformer.cs:336](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L336)；E03 成员左值亦有重复近似 | 链根整体规划 + 段临时条件预取；★计数探针两盘断言（§7.1-11）；白名单外禁止内联；0563 拒绝 E03 双落点 |
 | R2 | **null 短路顺序错误**：段临时若全部无条件预取，会提前求值后段 getter/实参，可观察行为改变（尤其 `?.Invoke(F())`） | INV-2 | 后段接收者放进上一段守卫内预取；方法/索引实参只出现在真分支；探针断言 null 盘下实参计数 0 |
-| R3 | **lifted 类型错判**：值类型终端漏 `T?` 会让 null 分支不可编译或被 Java 拆箱 NPE；现状 Java 侧靠 ConvertedType 发基元默认值（S1）打补丁 | [ControlFlowTransformer.cs:319-334](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L319-L334)；C22 边界 | 类型只取 IOperation/GetTypeInfo；结果显式 `T?` 临时 + `(T?)` cast；与 C22 组合单测（lifted 终端再参与运算） |
+| R3 | **lifted 类型错判**：值类型终端漏 `T?` 会让 null 分支不可编译或被 Java 拆箱 NPE；现状 Java 侧靠 ConvertedType 发基元默认值（S1）打补丁 | [ControlFlowTransformer.cs:322-335](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L322-L335)（默认值字面量在 [:339-350](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L339-L350)）；C22 边界 | 类型只取 IOperation/GetTypeInfo；结果显式 `T?` 临时 + `(T?)` cast；与 C22 组合单测（lifted 终端再参与运算） |
 | R4 | **值类型条件赋值产出不可编译 C#**：`p.Value.X = 1` 触发 CS1612 | make-readonly MS-5 只覆盖 record struct 且依赖 CA 节点在位 | 分层：record struct 0562 移交；其余 0561 Error；禁止发明 `.Value` 赋值；组合 fixture 守门 |
-| R5 | **固定点/求值顺序**：族规则顺序与「临时前置到锚点」会把复杂接收者的求值移到同语句兄弟副作用之前（如插值洞/实参列表中前序 `F()`）——E03 现状即同近似 | E03 anchor-before-statement；[C23 §2.2 副作用行](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L92-L92) | INV-1 次数为硬保证；跨兄弟顺序与 E03 保持 parity 并显式文档化；精确语句分裂列 Q2，M1–M3 不做；探针覆盖 `M(F(), Get()?.b, G())` |
+| R5 | **固定点/求值顺序**：族规则顺序与「临时前置到锚点」会把复杂接收者的求值移到同语句兄弟副作用之前（如插值洞/实参列表中前序 `F()`）——E03 现状即同近似 | E03 anchor-before-statement；[C23 §2.2 副作用行](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L95-L95) | INV-1 次数为硬保证；跨兄弟顺序与 E03 保持 parity 并显式文档化；精确语句分裂列 Q2，M1–M3 不做；探针覆盖 `M(F(), Get()?.b, G())` |
 | R6 | **临时变量爆炸与可读性**：长链每段 1 接收者 + 1 预取 + 结果临时，深链方法体膨胀 | GuardedBlock 形态 | 白名单内联零声明；临时名/块经 AdhocWorkspace 格式化；画像统计段长分布（ChainsByLength）；不合并不同段临时（合并会破坏短路） |
 | R7 | **`?[^n]` 跨 pass 顺序陷阱**：C31 的索引运算元提升若走出三元真分支/if 块，会把 `n` 变成无条件求值 | [C31 Q5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c31-index-range-design.md#L339-L339)、IR130 | 链序 C35 先于 C31（注册事实）；常量 hat 由 C31 折叠无临时；联合 fixture 钉「null 接收者时 `n` 不求值」；必要时向 C31 提「守卫块内锚点」增强需求（Q4） |
 | R8 | **旁路消费者回归**：TupleToStruct 重建 `t?.ItemN`、LinqRewriter/RecordReadOnly/HIR 都访问 CA | S6 六处 | expression-desugar 链位在 E06/E11 之前：TupleToStruct 后续看到的是普通成员访问（联合用例 `t?.Item8`）；make-readonly 依赖的 CA 在 0562 路径保留；逐条 §11 列交界并配样本 |
-| R9 | **无锚点上下文静默 skip 回潮**：E03 对无锚点仅 Warning+保留，若 C35 沿用则 S4 族静默延续 | E03 [L107-113](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L107-L113) | 默认 Error（0557/0558）；非 strict 才降 Warning 且必须 residual 配对；闸门 0566 |
+| R9 | **无锚点上下文静默 skip 回潮**：E03 对无锚点仅 Warning+保留，若 C35 沿用则 S4 族静默延续 | E03 [L104-112](file:///d:/code/cs2j/src/CSharpToJava.Core/NullCoalesceRewriter/NullCoalesceSyntaxRewriter.cs#L104-L112) | 默认 Error（0557/0558）；非 strict 才降 Warning 且必须 residual 配对；闸门 0566 |
 | R10 | **链耗时/指纹/双轨期**：新增语义规则与族共用一次遍历，边际成本低；默认关期两套条件访问路径 | catalog §4 风险 10/11 | 族级 dirty 检查（无 CA 文件字节复制）；指纹自动；默认关不改既有测试；§8 控制默认化 |
 | R11 | **Roslyn API 外形偏差**：嵌套 CA 中内层前导 MemberBinding 的精确父结构、IConditionalAccessOperation 在 4.12 的外形可能与假设有差 | 同 C23 R14 教训 | M0 探针先行，规划器代码以探针结论为准 |
 
@@ -394,7 +396,7 @@ M1–M3 全程随族 `DefaultEnabled=false`；每个里程碑自身 Release buil
 | **C23 interpolation-expand（锚点，硬前置）** | C35 只在 C23 落地后的 `ExpressionDesugar/` 内加目录与追加行；共享 Analyzer/TempLifter/Options/Statistics/Diagnostic/适配器；`PendingAnchorReplacement` 落本规则目录，不上收 Shared | 实施分支 base 上先合 C23（§12）；RuleSet/Options/统计/摘要行为追加式改动，落地者 rebase 取并集，禁改 C23 规则行；共享接口变更需全族评审 |
 | **E03 null-coalesce（链上前驱）** | `??`/`??=` 归 E03；C35 只消费 E03 产物中的 CA 单落点（NC-6）；不引用 E03 类型 | 顺序结论 §3.2；可选 E03 小补丁（含 CA 的 `??=` 左值 skip + SkippedUnsupported）独立 PR、其测试守门；0563 为未打补丁时的防御；lifter 后续统一上收为共同技术债，不双向依赖 |
 | **C31 index-range（`?[^n]` 交叉结论）** | C31 拥有 `^`/`..`；C35 拥有条件外壳。**边界结论（答 [C31 Q5](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c31-index-range-design.md#L339-L339)）**：维持 C31 M1–M3 对 CA 祖先站点 IR130 指路 C35 不变（C35 未启用时的正确防线）；两 pass 都启用时，因链序 expression-desugar（null-coalesce 后）远早于 index-range（array-method 后），`arr?[^n]` 先被 C35 剥成 `__ed_s0 != null ? __ed_s0[^n] : null`，C31 看到的是普通三元内元素访问，走其常规 IR-1，**无需 C31 改算法**；联合要求仅一项：C31 提升 hat 运算元时不得移出守卫分支（R7/Q4），M3 联合 fixture 钉死 | residual 按语法种类天然分界；C35 关闭时 C31 IR130 仍有效，开关四象限独立成立 |
-| **C22 nullable-value（lifted 交界）** | C35 管条件访问产 `T?`；C22 管 `T?` 上的 lifted 运算/解包（[C22 §1.4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c22-nullable-value-design.md#L61-L61)、§11 C35 行已约定「产 `T?` 后按一般规则处理」） | 链序 C35 早于 numeric-boundary；C35 产物的 `(int?)` 终端进入 C22 守卫规则无需感知 `?.`；`?.` 目标自增归本规则 NC-7（引用类型/登记路径），C22 CS2J5355 指路不重复 |
+| **C22 nullable-value（lifted 交界）** | C35 管条件访问产 `T?`；C22 管 `T?` 上的 lifted 运算/解包（[C22 §1.4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c22-nullable-value-design.md#L82-L82)、§11 C35 行已约定「产 `T?` 后按一般规则处理」） | 链序 C35 早于 numeric-boundary；C35 产物的 `(int?)` 终端进入 C22 守卫规则无需感知 `?.`；`?.` 目标自增归本规则 NC-7（引用类型/登记路径），C22 CS2J5355 指路不重复 |
 | **E11 record-readonly / E13 make-readonly** | 二者在链上晚于 expression-desugar，其 MS-5 条件赋值收编依赖原 CA 节点 | record struct 条件赋值 C35 保留 + CS2J0562 配对；副作用接收者 RR051 行为不变；联合 fixture 覆盖 `p?.X = 1/+= 1/++`；若未来 MS-5 扩面到普通 struct，同步收窄 0561 |
 | **E06 tuple-to-struct** | 现有 `t?.Item8` 链重建（[TupleToStructPreprocessor.cs:650-673](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L650-L673)）发生在链更后段；C35 归一后其输入是普通成员访问，VisitConditionalAccess 在预处理路径不再触发 | 联合用例 `t?.Item8?.ToString()`；确认 tuple pass 对普通访问路径等价，无 RunAfter 边需求 |
 | **C26 linq-channel / C45 closure-lift（表达式树 skip）** | `?.` 不进表达式树（基线非法）；共享 `IsInExpressionTree` 判定口径（C23 M1 内置最小实现，登记合并去向） | C35 直接消费共享 Analyzer；0565 配对；不替 C26 做 queryable 决策 |
@@ -417,7 +419,21 @@ git worktree add .worktrees/preproc-c35-null-conditional -b feature/preproc-c35-
 
 ---
 
-## 附：关键开放问题（实现前/默认开前需评审确认）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+- **Q1 链序与 E03 归一**：维持注册表现状（C35 作 expression-desugar 族规则消费 E03 产物，不反向挂边、不新建 null 糖 pass）；① **采纳 §3.4 E03 小补丁**（含 CA 的 `??=` 左值 skip 修复），随 C35 M2 合入，CS2J0563 不作为长期行为；② 三套同构 lifter 上收 `Core/Preprocessing/Expressions/SingleEvaluationTempLifter` 的时点定为**本 pass 默认开前**（不允许三套命名/逻辑漂移随默认开固化）。
+- **Q2 兄弟副作用精确顺序**：M3 前凭画像定论——存在真实「同句前序副作用 + 条件访问」混合站点则实现语句分裂精确保序，并作为默认开硬门；无命中则永久与 E03 parity 并文档化限制。
+- **Q3 值类型接收者条件赋值**：**M3 收编普通 struct**（自降 `HasValue`/块临时 + 回写 `var q = p.Value; q.X = v; p = q;`）；record struct 维持移交 make-readonly（0562），其余 0561 在 M3 前为 v1 行为。
+- **Q4 `?[^n]` 联合 lowering**：C35 对非白名单索引实参**自发块内临时（GuardedBlock）作为默认路径**，不依赖 C31 增强 lifter；C31 dominated 插点增强为可选优化；M3 两族联合 fixture 为硬验收。
+- **Q5 void 无锚点面扩面节奏**：M2 收编表达式体 void 成员、switch arm 承载的条件调用；using 声明等其余形态 M3；**默认开前 CS2J0557/0558 清单必须全部有主**（已支持或显式诊断），不允许静默残留。
+
+---
+
+### 原问题记录（裁决前）
 
 - **Q1（链序结论）与 E03 的最终归一形态**：本设计推荐「保持注册表现状——C35 作为 expression-desugar 族规则消费 E03 产物，不反向挂 E03、不新建 null 糖 pass」，理由是锚点/码段/基建已冻结、两遍 lifter 已被族 TempLifter 同构复用、两语法面不相交使单趟无环终止。待评审确认两点：① 是否采纳 §3.4 对 E03 的可选小补丁（含 CA 的 `??=` 左值 skip），还是保留 CS2J0563 硬拒绝作为长期行为；② E03/index-range/expression-desugar 三套同构 lifter 上收 `Core/Preprocessing/Expressions/SingleEvaluationTempLifter` 的时点（建议默认开后独立 PR）。
 - **Q2 锚点前插临时与兄弟实参的求值顺序**：INV-1 保证求值次数，但「接收者临时提前到锚点语句之前」相对同句前序副作用（其他实参、插值洞）与 E03 现状同为近似。M3 前需凭画像数据决定是否实现「语句分裂」精确保序（把锚点调用拆成前序实参临时 + 段临时 + 调用），还是永久与 E03 parity 并文档化限制。

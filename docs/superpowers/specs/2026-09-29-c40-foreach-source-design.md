@@ -3,7 +3,7 @@
 **日期**: 2026-09-29
 **范围**: 在 C16 已创建的 `foreach-source` pass（Core [ForeachSource/](file:///d:/code/cs2j/src/CSharpToJava.Core/ForeachSource/)）内增量增加两个规则目录 `Rules/EnumeratorAdapter/`（FA-x）与 `Rules/RefForeach/`（FR-x）：① 模式化 foreach（duck-typed `GetEnumerator`、直接枚举器变量）lower 为编译器形态 `GetEnumerator()` + `while(MoveNext())` + `Current`（按 `IDisposable`/pattern Dispose 决定 finally）；② `foreach (ref var x in …)` / `ref readonly` lower 为索引循环 + ref 局部。**不新增 pass、不翻转开关、不改注册表结构、不碰 C#→Java 转换器**。
 **状态**: 设计稿，待评审；实施硬前置 = C16 锚点分支合入（见 §3、§12）
-**族属**: catalog P2「控制流去糖族」（[preprocessor-catalog.md:745-756](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L745-L756)，§3.3 [L903](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L903-L903)）。注册表 stub `foreach-source`（[PassStubCatalog.cs:102-111](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L102-L111)，`catalogItems = "C16, C40"`、`RunAfter = foreach-deconstruction`、`Stage = ControlFlow`）。**C16 是锚点**（设计 [2026-09-29-c16-foreach-complete-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c16-foreach-complete-design.md)）：锚点翻转为 Implemented 时 `catalogItems` 收窄为 `"C16"`，本任务合入时追加回 `"C16, C40"`。
+**族属**: catalog P2「控制流去糖族」（§3.3「同一底层难点」的合并建议 [preprocessor-catalog.md:1076-1081](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1076-L1081)，控制流去糖族表行 [L1081](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1081-L1081)）。注册表 stub `foreach-source`（[PassStubCatalog.cs:90-99](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L90-L99)，`catalogItems = "C16, C40"`、`RunAfter = foreach-deconstruction`、`Stage = ControlFlow`）。**C16 是锚点**（设计 [2026-09-29-c16-foreach-complete-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c16-foreach-complete-design.md)）：锚点翻转为 Implemented 时 `catalogItems` 收窄为 `"C16"`，本任务合入时追加回 `"C16, C40"`。
 
 > 现状说明（2026-09-29 只读复核）：当前工作区 HEAD（`5e3e796d`）中 C16 设计文档已落盘但 `ForeachSource/` 与适配器尚未创建（C16 在独立分支实施），`foreach-source` 仍为 Stub。本设计所有「C16 已有」表述均以 C16 设计文档 §4 为契约基线。
 
@@ -20,7 +20,7 @@
 strings/dictionaries/LINQ/解构已分别由 C16/E04/E12/E16/E07 覆盖，唯独「enumerator adapters」无任何通道。实际行为分三种：
 
 1. **模式化 foreach 静默产不可编译 Java**：不实现 `IEnumerable` 但有可访问 `GetEnumerator()`（实例或扩展方法）返回带 `MoveNext()`/`Current` 类型的源，经 [Loops.cs:104-155](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Loops.cs#L104-L155) 直译为 `for (T x : expr)`；[L123-L127](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Loops.cs#L123-L127) 只有数组/null 判断，非 Iterable 源不报错、不占位，产出无法编译的 Java。普通（非 ref）foreach over `Span<T>` 同病：`Span<T>` 不实现 `IEnumerable`，compat [Span.java](file:///d:/code/cs2j/java/csharptojava-compat/src/main/java/io/github/ningpp/compat/Span.java) 也不实现 Iterable。
-2. **ref foreach 静默错值（本族最高危）**：[Loops.cs:104-L155](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Loops.cs#L104-L155) 全函数无 `RefKeyword` 判定。`foreach (ref var x in span) { x = …; }` 被按值 foreach 处理：Java 侧 `for (T x : span)`（经 compat `get`），循环体内对 `x` 的赋值不回写 Span 元素——**典型 catalog §4 风险 12「静默错误输出」**（[L931](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931)）。
+2. **ref foreach 静默错值（本族最高危）**：[Loops.cs:104-L155](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Loops.cs#L104-L155) 全函数无 `RefKeyword` 判定。`foreach (ref var x in span) { x = …; }` 被按值 foreach 处理：Java 侧 `for (T x : span)`（经 compat `get`），循环体内对 `x` 的赋值不回写 Span 元素——**典型 catalog §4 风险 12「静默错误输出」**（[L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)）。
 3. **直接枚举器变量 foreach**：`foreach (var x in enumerator)`（源静态类型即 `IEnumerator`/`IEnumerator<T>` 或鸭子枚举器）同样直译为 enhanced-for，Java 侧 `Iterator` 接口不是 Iterable，不可编译。
 
 旁证：转换器把 `GetEnumerator` 方法名映射为 `iterator`（[ExpressionTransformerFacade.cs:488](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/ExpressionTransformerFacade.cs#L488-L488)、[MethodTransformer.cs:181](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Member/MethodTransformer.cs#L181-L181)），说明现网只有「集合自身 iterator()」单一路径，无枚举器驱动形态。
@@ -94,7 +94,7 @@ for (int __cs2jFrI = 0; __cs2jFrI < __cs2jFrSrc.Length; __cs2jFrI++)
 5. 枚举器局部一律 `var`（具体类型），禁止把值类型枚举器强转/声明为 `IEnumerator` 造成提前装箱（决策 5）。
 6. 源表达式严格只求值一次（统一 `__cs2jFaSrc`/`__cs2jFrSrc` 缓存）；索引循环中源被多次引用（Length + 每次索引），必须走缓存。
 7. 幂等：改写点不再含 foreach 节点，二次执行零 diff；trivia/BOM/干净文件复制纪律同 C16。
-8. 禁止注释/占位/原样透传流入 Java 产物（[catalog §4 风险 12](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L931-L931)）。
+8. 禁止注释/占位/原样透传流入 Java 产物（[catalog §4 风险 12](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)）。
 
 ---
 
@@ -102,7 +102,7 @@ for (int __cs2jFrI = 0; __cs2jFrI < __cs2jFrSrc.Length; __cs2jFrI++)
 
 | # | 决策点 | 结论 | 依据/备注 |
 |---|---|---|---|
-| 1 | duck-typing 判定 API | **以 SemanticModel 的 foreach 绑定信息为唯一事实源**：主用 `SemanticModel.GetForEachStatementInfo(node)`（Roslyn 4.12，仓库已引 [Microsoft.CodeAnalysis.CSharp 4.12.0](file:///d:/code/cs2j/src/CSharpToJava.Core/CSharpToJava.Core.csproj#L12-L12)；成员 `GetEnumeratorMethod/MoveNextMethod/CurrentProperty/DisposeMethod/ElementType/ElementConversion/CurrentConversion/IsAsynchronous/IsDynamicallyDispatched` 已经 XML 元数据复核），辅以 `GetOperation(node) as IForEachLoopOperation`（同 DLL 元数据含 `get_IsRef` 与全套枚举器符号）；ref/ref readonly 的权威判据用 `GetDeclaredSymbol(node) : ILocalSymbol` 的 `RefKind`（`Ref`/`RefReadOnly`/`None`），语法侧 `node.RefKeyword.IsKind(SyntaxKind.RefKeyword)` 仅作快速筛选 | 同 API 已在仓库三处消费：[ForeachDeconstructionRewriter.cs:46](file:///d:/code/cs2j/src/CSharpToJava.Core/ForeachDeconstruction/ForeachDeconstructionRewriter.cs#L46-L46)、[TupleToStructPreprocessor.cs:1314](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L1314-L1314)、[IteratorLoweringAnalyzer.cs:268](file:///d:/code/cs2j/src/CSharpToJava.Core/IteratorLowering/IteratorLoweringAnalyzer.cs#L268-L268)。**不自行模拟 C# 候选归约**（自己找 GetEnumerator/MoveNext 极易与编译器分歧）；`IForEachLoopOperation.IsRef` 4.12 可用性由 M1 探针钉死，`ILocalSymbol.RefKind` 为零成本兜底（开放问题 5）。4.12 **不存在** `GetForEachSymbols`/`ForEachSymbols`（已在包 DLL 字符串中复核为 -1），不得引用该高版本 API |
+| 1 | duck-typing 判定 API | **以 SemanticModel 的 foreach 绑定信息为唯一事实源**：主用 `SemanticModel.GetForEachStatementInfo(node)`（Roslyn 4.12，仓库已引 [Microsoft.CodeAnalysis.CSharp 4.12.0](file:///d:/code/cs2j/src/CSharpToJava.Core/CSharpToJava.Core.csproj#L12-L12)；成员 `GetEnumeratorMethod/MoveNextMethod/CurrentProperty/DisposeMethod/ElementType/ElementConversion/CurrentConversion/IsAsynchronous/IsDynamicallyDispatched` 已经 XML 元数据复核），辅以 `GetOperation(node) as IForEachLoopOperation`（同 DLL 元数据含 `get_IsRef` 与全套枚举器符号）；ref/ref readonly 的权威判据用 `GetDeclaredSymbol(node) : ILocalSymbol` 的 `RefKind`（`Ref`/`RefReadOnly`/`None`），语法侧 `node.RefKeyword.IsKind(SyntaxKind.RefKeyword)` 仅作快速筛选 | 同 API 已在仓库三处消费：[ForeachDeconstructionRewriter.cs:46](file:///d:/code/cs2j/src/CSharpToJava.Core/ForeachDeconstruction/ForeachDeconstructionRewriter.cs#L46-L46)、[TupleToStructPreprocessor.cs:1313](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L1313-L1313)、[IteratorLoweringAnalyzer.cs:268](file:///d:/code/cs2j/src/CSharpToJava.Core/IteratorLowering/IteratorLoweringAnalyzer.cs#L268-L268)。**不自行模拟 C# 候选归约**（自己找 GetEnumerator/MoveNext 极易与编译器分歧）；`IForEachLoopOperation.IsRef` 4.12 可用性由 M1 探针钉死，`ILocalSymbol.RefKind` 为零成本兜底（开放问题 5）。4.12 **不存在** `GetForEachSymbols`/`ForEachSymbols`（已在包 DLL 字符串中复核为 -1），不得引用该高版本 API |
 | 2 | 实例 vs 扩展 GetEnumerator | 不区分：绑定给出的 `GetEnumeratorMethod` 即编译器选中的符号（实例优先，扩展次之）；改写**只生成语法调用** `__cs2jFaSrc.GetEnumerator()`，不内联扩展静态名，重新绑定交给 C# 编译器 | 同文件 using/static using 全部保留，扩展归约结果不变；await foreach 的 `GetAsyncEnumerator` 扩展形态同理归 C38（Learn 迭代语句文档明确扩展成员可作 GetEnumerator/GetAsyncEnumerator）。`IMethodSymbol.IsExtensionMethod` 仅用于统计与诊断文案 |
 | 3 | 何时判定「需要 FA」（不与转换器抢源） | 同时满足：普通 `ForEachStatementSyntax`、无 ref/await、非 string（C16 面）、源静态类型**非 array**、且其类型/基类/接口**不实现** `System.Collections.IEnumerable` 与 `IEnumerable<T>`；绑定给出枚举器（`GetEnumeratorMethod != null`，或直接枚举器模式 `MoveNextMethod != null && GetEnumeratorMethod == null`，决策 4） | `List<T>` 等虽以模式绑定公共 `GetEnumerator()`，但实现了 IEnumerable → 转换器 + compat Iterable 路径已覆盖，**不重写**（避免海量改动与 struct Enumerator 类型名流入 Java）。数组值 foreach、非泛型集合 cast 路径有回归锁定（[ArrayForeachNotCollectedTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ArrayForeachNotCollectedTests.cs)、[ForeachNonGenericCollectionCastTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ForeachNonGenericCollectionCastTests.cs)），零误伤夹具必测 |
 | 4 | 直接枚举器变量源 | `IEnumerator`/`IEnumerator<T>` 或任意「自身有 MoveNext+Current」类型的变量直接作 foreach 源（C# 允许集合即枚举器模式）：lower 为 `var __cs2jFaE = __cs2jFaSrc;`（一次复制；class 为引用复制、struct 为值复制，均与编译器一致），后续 MoveNext/Current/Dispose 骨架相同 | 此时 `GetEnumeratorMethod` 为 null、`MoveNextMethod/CurrentProperty` 非空；不得凭空再调一次 `GetEnumerator()`。非泛型 `IEnumerator.Current` 为 `object`，值类型元素本就有装箱——这是 C# 既有语义，保留（决策 7） |
@@ -123,7 +123,7 @@ for (int __cs2jFrI = 0; __cs2jFrI < __cs2jFrSrc.Length; __cs2jFrI++)
 
 ### 3.1 链位（不新增 pass、不改顺序）
 
-C16 合入后链序（C16 设计 §3.2）：`…, tuple, foreach-deconstruction, foreach-source, strip-default, ref-out-in, unsigned, generic, …, eliminate-goto, java-keywords`。C40 规则作为 `foreach-source` 内部有序规则执行，**链位零变化**：
+C16 合入后链序（C16 设计 §3.2）：`…, tuple, foreach-deconstruction, foreach-source, pattern-desugar, strip-default, ref-out-in, unsigned, generic, …, eliminate-goto, java-keywords`。C40 规则作为 `foreach-source` 内部有序规则执行，**链位零变化**：
 
 - 早于 strip-default / ref-out-in（C01）/ unsigned / generic：FR 产出的 `ref T item = ref src[i]` 由后续 C01 统一改写为 ByRef 形态——C40 **不自己消 ref**。
 - 早于 iterator-lowering（C04）/ eliminate-goto（E14）/ java-keywords（C08）：合成 while/try/for 参与后续状态机、goto、改名处理。
@@ -220,7 +220,7 @@ ForeachBinding
 2. **body 规整**：非块体包 `Block`（移植 [ForeachDeconstructionRewriter.cs:424-436](file:///d:/code/cs2j/src/CSharpToJava.Core/ForeachDeconstruction/ForeachDeconstructionRewriter.cs#L424-L436) 的 PrependStatements）；元素声明/解包语句前置；原节点 trivia 搬到替换语句首节点。
 3. **try/finally 合成**：`SyntaxFactory.TryStatement(Block(whileStmt), default, finallyClause)`；finally 块仅一条 Dispose 语句（显式接口形态先转 `(IDisposable)e`）。引用类型枚举器优先直接 `e.Dispose()`（可访问时），避免不必要强转。
 4. **源缓存**：FA/FR 统一在最前插 `var __cs2jXxxSrc = node.Expression;`，循环内全部引用缓存局部（不变式 6）；副作用计数器 fixture 断言源只求值一次。
-5. **for 循环**（FR/FA-5）：`For(int i=0; i<src.Length; i++)`，条件与步长不引方法调用以外的复杂表达式，确保 C01 的条件 splice（[RefOutInSyntaxRewriter.cs:551-635](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L551-L635)）与转换器直转无歧义。
+5. **for 循环**（FR/FA-5）：`For(int i=0; i<src.Length; i++)`，条件与步长不引方法调用以外的复杂表达式，确保 C01 的条件 splice（[RefOutInSyntaxRewriter.cs:552-636](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L552-L636)）与转换器直转无歧义。
 6. **ref 局部声明**：`VariableDeclaration(RefTypeSyntax(ref/readonly, TElement), VariableDeclarator(item).WithInitializer(EqualsValue(RefExpression(indexAccess/Current))))`；类型文本用语义符号渲染，不用 `node.Type` 原文（`var` 在 ref 局部声明中非法，必须实类型）。
 
 ---
@@ -405,7 +405,21 @@ git worktree add .worktrees/preproc-c40-foreach-source -b feature/preproc-c40-fo
 
 ---
 
-## 附：关键开放问题（供评审拍板）
+## 附：开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+1. **`ref T x = ref span[i]` 声明站点代理形态**：采纳前者——**升级 C01** [RefOutInSyntaxRewriter.cs:783-789](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L783-L789) 元素访问分支，对非数组接收器发访问器代理 `ByRef<T>.Create(() => span[i], v => span[i] = v)`，作为 **C40 M3 的硬前置 PR**（保留别名语义与体内 ref 实参传递能力，Java 半区与 Span get/set 缝合）；否决 C40 侧产出无 ref 局部展开（丢语义）。C01 该 PR 与 C40 各自独立提交、顺序合入。
+2. **空 Dispose 装箱白名单**：**不做**符号白名单、不做合成空方法探针跳过；v1 一律如实生成 finally 释放并计 **CS2J5455**（分配噪声不属于语义偏差，跳过白名单会引入"按符号猜语义"的长期维护面）；白名单优化须等 sdk 命中率+基准证据另立项。
+3. **ref readonly 产物**：用**无 setter 访问器代理**（`ByRef<T>.Create(getter, null)` 形态/等价只读代理），否决统一双参代理——只读约束必须在 C# 中间树编译期就可见；fixture 锁定"对代理写入无法编译"，并与 C01 设计 Q 系列回填同口径。
+4. **自定义鸭子枚举器验收深度**：M3 冒烟只覆盖常规 MoveNext/Current/Dispose 转换；**非泛型枚举器 + 值类型元素的 cast/装箱对照**按冒烟实测反馈决定是否扩 fixture——发现可观察差异即扩，不预防性铺满。
+5. **`IForEachLoopOperation.IsRef` 可用性**：M1 第一步用最小编译探针确认 Roslyn 4.12 下属性可取；**不可取则全程使用 `ILocalSymbol.RefKind`**（已确认可靠），设计其余部分不回退，探针结论回填本文。
+
+---
+
+### 原问题记录（裁决前）
 
 1. **C01 对 `ref T x = ref span[i]` 声明站点的代理形态**：升级 [RefOutInSyntaxRewriter.cs:783-789](file:///d:/code/cs2j/src/CSharpToJava.Core/RefOutInPreprocessor/RefOutInSyntaxRewriter.cs#L783-L789) 元素访问分支，对非数组接收器发访问器代理 `ByRef<T>.Create(() => span[i], v => span[i] = v)`（别名语义正确、Java 半区与 Span get/set 缝合），作为 C40 M3 前置？还是由 C40 在 C# 侧直接产出无 ref 局部的展开（会丢失体内 ref 实参传递能力，不推荐）。倾向前者。
 2. **显式接口 Dispose 装箱是否需要白名单跳过**：对 `List<T>.Enumerator` 等已知 Dispose 为空操作的 struct，finally 中 `((IDisposable)e).Dispose()` 是纯分配噪声；是否按符号白名单或「struct 且 Dispose 为合成空方法」探针跳过？默认先如实生成 + CS2J5455 计数，sdk 命中率驱动决策。

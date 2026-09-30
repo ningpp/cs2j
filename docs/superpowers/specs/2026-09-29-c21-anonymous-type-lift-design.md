@@ -1,10 +1,15 @@
 # C21 匿名类型提升预处理器设计（具名不可变类型 + 跨方法/跨文件形状去重）
 
+**校订（2026-09-29）**: 本稿经逐链接证据核校（仅校订本文档，结论性设计不变），改动如下：
+1. **行号更正**：C21 stub 实为 [PassStubCatalog.cs#L227-L236](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L227-L236)（原误 L249-L258）；linq-channel stub 为 [L197-L206](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L197-L206)（原误 L219-L228），其 RunAfter 在 [L204](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L204)（原误 L226）；catalog C21 为 [L558-L569](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L558-L569)（原误 L508-L518）、C26 为 [L623-L635](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L623-L635)（原误 L566-L577）、§4 风险为 [L1097-L1119](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1097-L1119)（原误 L918-L939；风险 7→[L1105](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1105)、风险 10→[L1108](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1108)）、C21 优先级 P3 在 [L567](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L567)（原误 L517）；[PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) CreateAdapter switch 为 [L98-L257](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L98-L257)（原误 L93-L237）、JavaKeywordOptionsFactory 在 [L48-L49](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L48-L49)（原误 L47-L48）；[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) PassIds 为 [L6-L27](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L27)（原误 L6-L25）；TuplePassAdapter.CreateAdditionalSyntaxTrees 为 [L58-L87](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs#L58-L87)（原误 L59-L88，两处）；ShapeDisplayInScope 为 [L1662-L1679](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L1662-L1679)（原误 L1663-L1680）；合成器「插入序不排序」注释在 [AnonymousTypeRecordSynthesizer.cs#L144-L145](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs#L144-L145)（原误 L143-L147）。
+2. **失实断言更正**：① catalog §3.3 并不存在「类型声明前置族 E06+C05+C21」——§3.3 实为「同一底层难点」合并建议（[L1076-L1093](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1076-L1093)），全表未收录 C21，原引用删除并登记开放问题 Q1；② §4.2 步骤 3 的失败码位原写「AL001 Error」，与 §6 诊断表自相矛盾，更正为 AL002 Warning；③ E10 generic 描述符实为默认开（[PassCatalog.cs#L157-L166](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L157-L166)），仅 generic-deepen 为 opt-in，原「已实现/opt-in」统称更正；④ SampleTuple/SampleJavaKeyword 两个 fixture 仅 Lib+App、无 Tests 工程，Lib+App+Tests 三工程范本改引 SampleMemberDesugarSolution；⑤ [LinqChainRefactoringTests.cs#L97](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqChainRefactoringTests.cs#L97) 测试方法名声称「不同形状不同名」但方法体未做名称断言，原「被测试钉住」表述弱化并登记 Q2；⑥ D16 明确退役的是合成器对 EscapeJavaKeyword 的**调用**，通用工具 [JavaNaming.EscapeJavaKeyword](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/JavaNaming.cs#L154-L165)（关键字追加 `Value`，故 `Int/Class`→`intValue/classValue`）本身保留；⑦ CSharpToJavaVisitor 发 record 的形态补注「无宿主类时发顶层类型」；⑧ foundation plan L138 仅规定 Stub 语义，「翻转与适配器同批交付」改述为该语义的推论而非原文。
+3. **补强实证**：表达式树共享判定补实名 [ExpressionTreeFacts.IsExpressionTreeLambda](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs#L10-L12)（JK-8 经 JavaKeywordSyntaxFacts 委托同一实现）；关键字转义效果补测试实证 [LinqChainRefactoringTests.cs#L116-L129](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqChainRefactoringTests.cs#L116-L129)。
+
 **日期**: 2026-09-29
 **范围**: 新增注册表 pass `anonymous-type-lift`（Core `AnonymousTypeLift/` + CLI `AnonymousTypeLiftPassAdapter`），只做 C#→C# 预处理：把全部 `new { … }` 匿名对象创建点改写为对生成的具名不可变类型的构造，形状按 E06 TupleToStruct 同款 shape registry 基建在跨方法/跨文件/跨编译单元间去重；本特性不新增 Java compat 代码
 **状态**: 设计稿，待评审
-**注册表锚点**: stub `anonymous-type-lift` 已登记于 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L249-L258)（catalogItems `C21`，Stage=`Declarative`，RunAfter=`tuple`，默认关，目录 `.cs2j-anonymous-type-lift-src`）；下游 linq-channel stub 的 RunAfter 已含本 pass（[L219-L228](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L219-L228)）
-**catalog 对应**: `prompts/preprocessor-catalog.md` C21（[L508-L518](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L508-L518)）、§3.3 类型声明前置族 E06+C05+C21（[L898-L915](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L898-L915)）、C26（[L566-L577](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L566-L577)）、§4 风险（[L918-L939](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L918-L939)，尤其风险 7/8/10/11）、优先级 P3（[L517](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L517)）
+**注册表锚点**: stub `anonymous-type-lift` 已登记于 [PassStubCatalog.cs#L227-L236](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L227-L236)（catalogItems `C21`，Stage=`Declarative`，RunAfter=`tuple`，默认关，目录 `.cs2j-anonymous-type-lift-src`）；下游 linq-channel stub 的 RunAfter 已含本 pass（[L197-L206](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L197-L206)）
+**catalog 对应**: `prompts/preprocessor-catalog.md` C21（[L558-L569](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L558-L569)）、C26（[L623-L635](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L623-L635)）、§4 风险（[L1097-L1119](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1097-L1119)，尤其风险 7/8/10/11）、优先级 P3（[L567](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L567)）。注：catalog §3.3「同一底层难点」合并建议表（[L1076-L1093](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1076-L1093)）未收录 C21（见 §13 Q1）
 **同构样板**: E06 `tuple-to-struct`（已实现、默认开）——[TupleShapeRegistry.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleShapeRegistry.cs)、[TupleStructFileContent.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleStructFileContent.cs)、[TupleToStructPreprocessor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs)、[TuplePassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs)
 **格式范本**: [2026-09-28-c05-enum-declaration-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c05-enum-declaration-design.md)（同为「生成新声明」的整树 pass）
 
@@ -17,13 +22,13 @@
 C# 匿名类型（`new { X = 1, Y = 2 }`、投影缩写 `new { e.X, e.Y }`）是编译器生成的 `internal sealed` 不可命名引用类型，主转换器无法按普通类型声明转换，现有两条处理路径：
 
 1. **Map.of 降级路径（实际唯一生效的创建点路径）**：[ObjectCreationTransformer.NewAnonymous](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L74-L84) 把每个匿名对象创建直接降为 `java.util.Map.of("X", …, "Y", …)`。类型信息在此丢失——后续成员访问 `pair.sourceV`、`foreach` 变量、LINQ 投影链全部失去静态类型；[TypeMappingService](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/TypeMappingService.cs#L443-L464) 对匿名类型符号只能尝试匹配「已合成 record」，匹配不到即映射为 `Object`。
-2. **合成 Java record 路径（基建存在但当前为死代码）**：[AnonymousTypeRecordSynthesizer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs) 提供按结构键去重的 Java record 合成（[SynthesizedRecordStore](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/SynthesizedRecordStore.cs)、[ConversionContext](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L343-L349) 注册/查询、[CSharpToJavaVisitor](file:///d:/code/cs2j/src/CSharpToJava.Core/Visitors/CSharpToJavaVisitor.cs#L86-L117) 与 [TypeGroupResolver](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/TypeGroupResolver.cs#L264-L281) 把合成 record 发为嵌套类型），但全仓 grep 证实 **`SynthesizeForAnonymousType` 无任何生产调用点**（仅类内递归自调）；该路径只在 Java 28 + `UseRecords` 条件下由 LINQ 侧门控（[LinqRewriter.CanUseRecordsForAnonymousTypes](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L49-L56)），且 LINQ 过程式化遇到匿名类型时一律把显示名消毒为 `object`（[SanitizeAnonymousTypeDisplay](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L637-L665)），或直接以 `AnonymousTypeRequiresRecords` 跳过整条链（[LinqRewriter.cs#L410-L436](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L410-L436)、[LinqRewriteObservability.cs#L15](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriteObservability.cs#L15)）；提取方法返回类型置空则产出未定义 `T`（[LinqRewriter.Rules.cs#L2162](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs#L2162)）。
+2. **合成 Java record 路径（基建存在但当前为死代码）**：[AnonymousTypeRecordSynthesizer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs) 提供按结构键去重的 Java record 合成（[SynthesizedRecordStore](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/SynthesizedRecordStore.cs)、[ConversionContext](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L343-L349) 注册/查询、[CSharpToJavaVisitor](file:///d:/code/cs2j/src/CSharpToJava.Core/Visitors/CSharpToJavaVisitor.cs#L86-L117)（发为末个类的嵌套类型，无宿主类时发顶层类型）与 [TypeGroupResolver](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/TypeGroupResolver.cs#L264-L281)（发为嵌套类型）把合成 record 发出），但全仓 grep 证实 **`SynthesizeForAnonymousType` 无任何生产调用点**（仅类内递归自调）；该路径只在 Java 28 + `UseRecords` 条件下由 LINQ 侧门控（[LinqRewriter.CanUseRecordsForAnonymousTypes](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L49-L56)），且 LINQ 过程式化遇到匿名类型时一律把显示名消毒为 `object`（[SanitizeAnonymousTypeDisplay](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L637-L665)），或直接以 `AnonymousTypeRequiresRecords` 跳过整条链（[LinqRewriter.cs#L410-L436](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L410-L436)、[LinqRewriteObservability.cs#L15](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriteObservability.cs#L15)）；提取方法返回类型置空则产出未定义 `T`（[LinqRewriter.Rules.cs#L2162](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs#L2162)）。
 
 高频失败面被既有测试直接钉住：
 
 - [ForeachAnonymousTypeTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ForeachAnonymousTypeTests.cs)：foreach 变量类型在集合表达式转换前解析，record 尚未合成 → `Object pair`；
 - [LinqAnonymousTypeExtractedMethodTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqAnonymousTypeExtractedMethodTests.cs)：foreach 体内含 continue/break 导致 LINQ 提取方法时，helper 返回类型/迭代变量退化为 `Object`/未定义 `T`（源自 MsmtRectilinearPath.java 真实编译错误）；
-- [LinqChainRefactoringTests.cs#L97](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqChainRefactoringTests.cs#L97) 及同文件 record 字段 Java 关键字转义断言：不同形状须得不同名、`Int/Class` 属性须转义——这些是**转换器侧临时启发式**（[SingularizePascalCase](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs#L229-L267)、[EnsureUniqueRecordName](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs#L198-L222)），命名不确定、作用域仅限单文件、与 JUnit 注解名 `Test` 碰撞需要特判。
+- [LinqChainRefactoringTests.cs#L116-L129](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqChainRefactoringTests.cs#L116-L129) 钉住 record 字段 Java 关键字转义（`Int/Class` 属性须转义为 `intValue/classValue`）；同文件 [L97](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqChainRefactoringTests.cs#L97) 测试方法名声称「不同形状须得不同名」，但 2026-09-29 复核其方法体只断言 `Success` 与 `ProceduralLinq`、**并未真正断言记录名差异**（见 §13 Q2）。这些命名都是**转换器侧临时启发式**（[SingularizePascalCase](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs#L229-L267)、[EnsureUniqueRecordName](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs#L198-L222)），命名不确定、作用域仅限单文件、与 JUnit 注解名 `Test` 碰撞需要特判。
 
 ### 1.2 目标：在 C# 侧把匿名类型变成具名不可变类型
 
@@ -74,13 +79,13 @@ var q = sources.Select(s => new global::Cs2jAnonymous.Anon_Name_String_Nested_An
 | # | 决策点 | 结论 | 依据与备注 |
 |---|---|---|---|
 | D1 | 目标表示形态 | **`internal sealed class`：只读自动属性 `{ get; }` + 全参构造器 + override `Equals(object)`/`GetHashCode()`/`ToString()`；不实现 `IEquatable<T>`、不声明 `==`/`!=`、不用 record、不用 struct** | 见 §2.1 语义对照表。关键：匿名类型 `==` 是引用相等而 C# record 是值相等——用 record 会静默改变可观察行为。M1 需验证主转换器对「合成 sealed class + 只读属性 + `string.Concat(params object[])`」的转换质量 |
-| D2 | 形状规范化与确定性命名 | 形状键 = 属性**按声明顺序**的 `(名称, 类型结构键)` 序列；类型键走 SemanticModel 符号结构（复用 E06 `BuildDisplayTemplate`/`MangleType`/`SlotAssigner` 思路），**区分 dynamic/object**（二者在 C# 中是不同形状）；名称 = `Anon` + 属性名 mangle + 类型 mangle，480 字符截断、`_2/_3` 碰撞后缀；全部引用以 `global::Cs2jAnonymous.` 限定 | E06 [MakeUniqueName](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleShapeRegistry.cs#L508-L526) 已验证确定性命名；形状不排序进键（顺序不同即不同类型，与 C# 及[现有合成器注释](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs#L143-L147)一致），但生成文件前按键排序保证文件内容跨运行稳定（指纹） |
+| D2 | 形状规范化与确定性命名 | 形状键 = 属性**按声明顺序**的 `(名称, 类型结构键)` 序列；类型键走 SemanticModel 符号结构（复用 E06 `BuildDisplayTemplate`/`MangleType`/`SlotAssigner` 思路），**区分 dynamic/object**（二者在 C# 中是不同形状）；名称 = `Anon` + 属性名 mangle + 类型 mangle，480 字符截断、`_2/_3` 碰撞后缀；全部引用以 `global::Cs2jAnonymous.` 限定 | E06 [MakeUniqueName](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleShapeRegistry.cs#L508-L526) 已验证确定性命名；形状不排序进键（顺序不同即不同类型，与 C# 及[现有合成器注释](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs#L144-L145)一致），但生成文件前按键排序保证文件内容跨运行稳定（指纹） |
 | D3 | 跨方法/跨文件/跨项目去重 | ①方法/文件：整树一个 registry，同形同类型实参即同形；②项目：**默认每个编译单元各生成一份 internal 类型**，忠实复刻「匿名类型 internal、跨程序集同形不同类型」；不引入 E06 的 public owner 图算法 | 匿名类型不可在公共签名中命名，跨程序集流只经 object/dynamic，per-assembly 副本必然可编译且语义最忠实（跨程序集 `Equals` 本就为 false）。InternalsVisibleTo 不改变该结论。**待 M1**：确认是否存在「经前序 pass 物化为具名跨工程签名」的反例（§2.4），若有则对该子集启用 E06 式 public owner |
 | D4 | 可变性边界 | 只读属性（get-only，构造期赋值），**不做 init/record/with**；但嵌套成员的可变性原样保留（`new { list = new List<int>() }` 后 `x.list.Add(1)` 合法） | 匿名类型只保证顶层属性只读；class 形态下引用类型成员的原地修改天然保持；struct 形态会引入复制语义，排除 |
 | D5 | Equals 语义 | `public override bool Equals(object obj)`：`obj is TName other && EqualityComparer<P1>.Default.Equals(P1, other.P1) && …`，逐字段、按声明顺序；不同形状永不等（精确运行时类型检查由 `is TName` 保证）；null receiver 不适用（实例方法） | 与 Roslyn 生成匿名类型的 Equals 同构；直接复用 E06 [EqualExpr](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleStructFileContent.cs#L206-L207) 的 EqualityComparer 写法。**不声明 IEquatable**（匿名类型没有），避免给下游引入额外接口面 |
 | D6 | GetHashCode 语义 | 固定种子 17、逐字段 `hash = hash * 31 + EqualityComparer<P>.Default.GetHashCode(P)`（与 E06 生成 struct 同一算法） | 仅要求：相等实例哈希相等、字典键可用；不要求复刻编译器内部哈希组合常数（BCL 字符串哈希本就带进程随机种子，无法也无需逐位复刻） |
 | D7 | ToString 格式 | 生成 `return global::System.String.Concat("{ P1 = ", P1, ", P2 = ", P2, " }");`（object 参数重载：null 实参渲染为空串；区域性/布尔/嵌套全部由各值自己的 `ToString()` 承担，嵌套形状递归自然命中其 ToString）。零属性形状返回 `"{ }"` | C# 匿名 ToString 实测格式即 `{ X = 1, Y = 2 }`、null 渲染为 `""`。`string.Concat(params object?[])` 的 null→Empty 语义精确匹配；比手写三元判断简洁且对值类型/引用类型统一。转换器对该重载的映射质量列 M1 验证项，不达标则退化为「逐字段显式 `(object)P ?? ""` 条件拼接」 |
-| D8 | nameof / 反射 / 序列化 | `nameof(x.X)` 零改写（属性同名保留）；生成类挂 `[CompilerGenerated]`（保留「编译器生成」发现面）；基于属性名的 JSON 序列化（System.Text.Json/Newtonsoft）线格式保持（名称与声明顺序保持）；`GetType().Name/FullName`、`IsAnonymousType` 反射判定、手写反序列化为具体匿名类型等**身份反射**无法等价 → AL040 Warning 点名列点，不阻断 | 风险 7（[L926](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L926)）同族「反射/字符串契约」；匿名类型名本就是不可言说的 `<>f__AnonymousType…`，依赖其类型身份的代码本身不可移植，先显式盘点 |
+| D8 | nameof / 反射 / 序列化 | `nameof(x.X)` 零改写（属性同名保留）；生成类挂 `[CompilerGenerated]`（保留「编译器生成」发现面）；基于属性名的 JSON 序列化（System.Text.Json/Newtonsoft）线格式保持（名称与声明顺序保持）；`GetType().Name/FullName`、`IsAnonymousType` 反射判定、手写反序列化为具体匿名类型等**身份反射**无法等价 → AL040 Warning 点名列点，不阻断 | 风险 7（[L1105](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1105)）同族「反射/字符串契约」；匿名类型名本就是不可言说的 `<>f__AnonymousType…`，依赖其类型身份的代码本身不可移植，先显式盘点 |
 | D9 | 与 dynamic 的边界 | 属性类型为 `dynamic` 的形状：生成类中属性**保留 `dynamic` 声明**（C# 合法），形状键区分 dynamic/object（D2）；`dynamic d = new { X = 1 }; d.X` 在中间树照常动态绑定（class 上有真实属性）。该形状打 AL030 Info（Java 侧无 dynamic，属 C25 未覆盖面），不跳过、不降级 | C25 dynamic-desugar 锚 eliminate-goto（远晚）；本 pass 只保真不降级。**待 M1**：若证明转换器对 dynamic 属性必然产出坏 Java，则对「含 dynamic 字段的形状」整体不提升（创建点保留）+ AL030 Warning，走今天的失败路径，不静默产出半截类型 |
 | D10 | 执行模型 | **标准 spine**（无需 E11/C05 式 plan/回滚）：全树编译一次 → 逐文件 dirty 快检 → rewriter 边登记形状边改写 → `AfterFilesAsync` 按编译单元闭包分发生成文件 + Compile Include/Link 挂接 → restore → verify build/tests。与 E06 完全同构 | 匿名类型在 C# 中**不可被任何签名命名**，创建点改写后重编译自动重新绑定所有 var/lambda/泛型推断，不存在「声明改了用点没改」的半改写不可编译窗口（§2.4） |
 | D11 | 创建点改写面 | 只改写 `AnonymousObjectCreationExpressionSyntax`：语义取 `TypeInfo.Type/ConvertedType`（须 `IsAnonymousType`），登记形状后替换为带 `global::` 限定的 `ObjectCreationExpressionSyntax`，参数按属性声明顺序取各 initializer 的表达式（投影缩写 `new { e.X }` 即 `X = e.X`）；其余语法（成员访问、var、lambda、隐式数组、初始化器）**一律不动**，靠重编译重新绑定 | 与 E06 VisitTupleExpression 同构（[L523-L552](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L523-L552)）；语义解析失败（IErrorTypeSymbol/缺引用）→ AL010 Warning + 原样保留，不硬造类型 |
@@ -88,7 +93,7 @@ var q = sources.Select(s => new global::Cs2jAnonymous.Anon_Name_String_Nested_An
 | D13 | 支撑库 | **不注入支撑库**（descriptor `SupportLibrary = None`）：Equals/GetHashCode 用 BCL `EqualityComparer<T>.Default`，ToString 用 BCL `String.Concat`；无共享工程、无 csproj 运行时引用、无过滤清单 | 与 C05 D13 同原则；Compile Include/Link 只挂**生成源码**，与 E06 挂生成 struct 文件同型（不是支撑库工程） |
 | D14 | 诊断与 residual | 创建点残余在 strict 下为 Error（AL060）；residual 闸门 = 语义扫描「绑定到匿名类型的 `AnonymousObjectCreationExpressionSyntax` 数量为 0」；查询 transparent identifier 的匿名符号残余只计 Info（D9/非目标），不计失败 | 匿名创建节点语法唯一，不存在 E04 那种语法同形误报；transparent identifier 无创建节点，必须显式排除以免闸门误红 |
 | D15 | 幂等 | 输出再跑：dirty 快检无 `AnonymousObjectCreationExpressionSyntax` → 整文件字节复制；形状集为空 → 不生成任何文件 | 与 E06 IsTupleDirty/Clean 复制同构 |
-| D16 | 标识符与碰撞 | 属性名按 C# 规则本就是合法标识符，生成类内成员（构造参数小写化、类型形参 `__P{i}`）做声明空间探测，碰撞确定性加序号；生成类名只含字母数字/下划线；属性名撞 Java 保留字（`Int/Class/new`…）**不在本 pass 处理**，由链尾 C08 java-keywords 统一改名 | 现有合成器的 `EscapeJavaKeyword`/`intValue`/`classValue` 启发式（[L132-L134](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs#L132-L134)）随之退役，消除单文件启发式 |
+| D16 | 标识符与碰撞 | 属性名按 C# 规则本就是合法标识符，生成类内成员（构造参数小写化、类型形参 `__P{i}`）做声明空间探测，碰撞确定性加序号；生成类名只含字母数字/下划线；属性名撞 Java 保留字（`Int/Class/new`…）**不在本 pass 处理**，由链尾 C08 java-keywords 统一改名 | 现有合成器在字段抽取处调用转义（[AnonymousTypeRecordSynthesizer.cs#L132-L134](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs#L132-L134)）；其实现是通用工具 [JavaNaming.EscapeJavaKeyword](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/JavaNaming.cs#L154-L165)：Java 关键字一律追加 `Value`（故 `Int/Class`→`intValue/classValue`，效果由 [LinqChainRefactoringTests.cs#L116-L129](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqChainRefactoringTests.cs#L116-L129) 钉住）。M5 退役合成器后消失的是这条**调用链**（JavaNaming 通用工具本身保留、全仓共用），改名职责唯一归 C08，消除单文件启发式 |
 
 ### 2.1 D1 详述：为什么是 sealed class 而不是 record / struct / Map
 
@@ -177,7 +182,7 @@ M1 须加一条**扫描断言**固化该前提：对 C21 输入树做全编译�
 
 ### 3.1 现状与目标描述符
 
-stub 现状（[PassStubCatalog.cs#L249-L258](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L249-L258)）：id `anonymous-type-lift`，显示名 "Anonymous type lift"，目录 `.cs2j-anonymous-type-lift-src`，`PassStage.Declarative`，`PassStatus.Stub`，`defaultEnabled: false`，`runAfterIds: { PassIds.Tuple }`，`needsSemanticModel` 默认 true，catalogItems `C21`。linq-channel stub 的 `runAfterIds: { extension-methods, anonymous-type-lift }`（[L226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L226)）。
+stub 现状（[PassStubCatalog.cs#L227-L236](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L227-L236)）：id `anonymous-type-lift`，显示名 "Anonymous type lift"，目录 `.cs2j-anonymous-type-lift-src`，`PassStage.Declarative`，`PassStatus.Stub`，`defaultEnabled: false`，`runAfterIds: { PassIds.Tuple }`，`needsSemanticModel` 取描述符默认值 true（[PassDescriptor.cs#L76](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassDescriptor.cs#L76)），catalogItems `C21`。linq-channel stub 的 `runAfterIds: { extension-methods, anonymous-type-lift }`（[L204](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L204)）。
 
 翻转后目标描述符：
 
@@ -186,7 +191,7 @@ stub 现状（[PassStubCatalog.cs#L249-L258](file:///d:/code/cs2j/src/CSharpToJa
 | Id | `anonymous-type-lift` | 不变 |
 | Stage | `Declarative` | 生成新类型声明，与 stub 登记及 E06 同族 |
 | Status | `Implemented` | Stub→Implemented 翻转 |
-| DefaultEnabled | **false（落地起步）→ 满足 §8 后翻 true** | 对齐 record-readonly/array-method/generic-deepen/java-keywords 策略与 catalog 风险 10（[L929](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L929)） |
+| DefaultEnabled | **false（落地起步）→ 满足 §8 后翻 true** | 对齐 record-readonly/array-method/generic-deepen/java-keywords 策略与 catalog 风险 10（[L1108](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1108)） |
 | RunAfterIds | `{ "tuple" }`（维持） | 复用 E06 基建且形状上无前后依赖，锚 tuple 即落在声明前置族（E06→C21）；linq-channel 已反向锚本 pass |
 | IntermediateDirectoryName | `.cs2j-anonymous-type-lift-src`（维持） | |
 | NeedsSemanticModel | true | 形状/类型键/泛型槽位全靠符号模型 |
@@ -205,14 +210,14 @@ stub 现状（[PassStubCatalog.cs#L249-L258](file:///d:/code/cs2j/src/CSharpToJa
 
 ### 3.3 Stub→Implemented 翻转清单
 
-1. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删除 `Ids.AnonymousTypeLift` 常量与 Stubs 表条目（常量迁至 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L25) 的 `PassIds`）；同步更新 linq-channel stub RunAfter 对该常量的引用（改为 `PassIds.AnonymousTypeLift`）。
+1. [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)：删除 `Ids.AnonymousTypeLift` 常量（现 [L40](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L40)）与 Stubs 表条目（现 L227-L236）；常量迁至 [PassCatalog.cs#L6-L27](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L6-L27) 的 `PassIds`；同步更新 linq-channel stub RunAfter（现 [L204](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L204)）对该常量的引用（改为 `PassIds.AnonymousTypeLift`）。
 2. `PassCatalog.Implemented`：按 §3.1 增加描述符（`runAfterIds: new[] { PassIds.Tuple }`，verifyBuild/Tests=true，defaultEnabled=false，SupportLibrary=None）。
-3. [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L93-L237)：`CreateAdapter` switch 增加 `PassIds.AnonymousTypeLift => new AnonymousTypeLiftPassAdapter(...)`；`PassChainConfiguration` 增加 `Func<AnonymousTypeLiftOptions>` 懒加载工厂（仿 [JavaKeywordOptionsFactory](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L47-L48)）。无 legacy toggle（不新增 `--no-anonymous-type-lift` 老开关），启停只走描述符默认值 + 通用 `--enable-pass/--disable-pass`。
+3. [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L98-L257)：`CreateAdapter` switch 增加 `PassIds.AnonymousTypeLift => new AnonymousTypeLiftPassAdapter(...)`；`PassChainConfiguration` 增加 `Func<AnonymousTypeLiftOptions>` 懒加载工厂（仿 [JavaKeywordOptionsFactory](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L48-L49)）。无 legacy toggle（不新增 `--no-anonymous-type-lift` 老开关，`BuildLegacyToggles` 不改），启停只走描述符默认值 + 通用 `--enable-pass/--disable-pass`。
 4. 新增 CLI `Adapters/AnonymousTypeLiftPassAdapter.cs`（§5）。
 5. 注册表顺序断言/`--list-passes` 测试更新（Stub→Implemented、默认值、链位可见；CS2J9001 行为对该 id 消失）。
 6. [.gitignore](file:///d:/code/cs2j/.gitignore#L89-L102)：增加 `.cs2j-anonymous-type-lift-src/`（与既有 `.cs2j-tuple-src/` 同处登记）。
 
-stub 显式启用即 [CS2J9001](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PreprocessDiagnosticCodes.cs#L12) 的行为在翻转后自然消失；翻转 PR 必须与适配器同批交付，不允许中间态（foundation plan L138）。
+stub 显式启用即 [CS2J9001](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PreprocessDiagnosticCodes.cs#L12) 的行为在翻转后自然消失；**翻转 PR 必须与适配器同批交付、不允许中间态**——这是 [foundation plan L138](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L138) Stub 语义（默认关完全不参与、显式启用即响亮报错）的必然推论：只翻状态不接适配器会让启用该 id 直接报错。
 
 ### 3.4 生成文件目录约定
 
@@ -259,9 +264,9 @@ AnonymousTypeLiftModels.cs        # AnonymousTypeLiftOptions（NamespaceName="Cs
 
 ### 4.2 数据流（标准 spine，与 E06 同构）
 
-1. **准备/编译**：runner 复制工程树 → parse 全树 + 建 `CSharpCompilation`（`LanguageVersion.Latest`、`NETCOREAPP`、allowUnsafe、`GetBasicReferences()`；仿 E06 [CreateAdditionalSyntaxTrees](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs#L59-L88) 合成 ImplicitUsings 工程的 global usings，否则属性类型解析会退化）。
+1. **准备/编译**：runner 复制工程树 → parse 全树 + 建 `CSharpCompilation`（parse 选项须**同时**含 `LanguageVersion.Latest` 与 `NETCOREAPP` 预处理符号——仿 E06 时勿照抄其只给 Latest 的 override，详见 §5.1/§13 Q3；allowUnsafe、metadata references 走基类 [ProjectPassAdapter.GetMetadataReferences](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassAdapter.cs#L180-L184) 的 `GetBasicReferences()`；仿 E06 [CreateAdditionalSyntaxTrees](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs#L58-L87) 合成 ImplicitUsings 工程的 global usings，否则属性类型解析会退化）。
 2. **逐文件改写**：dirty 快检（无 `AnonymousObjectCreationExpressionSyntax` 直接字节复制）→ `AnonymousSiteRewriter` 在原语义模型上工作：创建点经语义模型取匿名类型符号 → `registry.GetOrCreate(symbol)`（嵌套形状递归先注册）→ TrackShape 记入 `ShapesByFile[file]`（含嵌套闭包）→ 替换为限定构造表达式；其余节点不动。
-3. **格式化/校验**：复刻 E06 [FormatAndValidate](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L213-L256)：改动区间格式化 → 整文件格式化 → 原文，三候选重新 parse，取零 error 之首；全失败则保留原文 + AL001 Error（不产出语法损坏的中间 C#）。
+3. **格式化/校验**：复刻 E06 [FormatAndValidate](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L213-L256)：改动区间格式化 → 整文件格式化 → 原文，三候选重新 parse，取零 error 之首；全失败则保留原文 + AL002 Warning（不产出语法损坏的中间 C#；码位与级别以 §6 诊断表为准）。
 4. **生成文件分发（AfterFiles）**：adapter 按「文件 → 编译单元（ProjectCompileSet.ComputeCompiledFiles）」聚合每个项目所需形状闭包，生成 internal 类型集合文件，写中间树根并 `EnsureCompileItem` 挂接（D3：每项目一份，无 owner 图、无跨项目复用判定）。
 5. **restore + verify**：`dotnet build`/`dotnet test -c Release`（descriptor 默认双开，受全局 `--no-verify-*` 控制）。
 
@@ -279,11 +284,11 @@ AnonymousTypeLiftModels.cs        # AnonymousTypeLiftOptions（NamespaceName="Cs
 1. **匿名对象创建**（唯一改写节点）：`VisitAnonymousObjectCreationExpression`：
    - `TypeInfo(node).Type`（回退 `ConvertedType`）须为 `INamedTypeSymbol { IsAnonymousType: true }`，否则 AL010 + 原样；
    - 先 `Visit` 各 initializer 表达式（保证嵌套创建先登记、参数表达式也被改写）；
-   - `GetOrCreate` 形状后构造 `new global::Cs2jAnonymous.Name<源类型实参>(arg0, arg1, …)`；泛型实参按源码符号显示（仿 E06 [ShapeDisplayInScope](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L1663-L1680)，槽位→源形参名）；
+   - `GetOrCreate` 形状后构造 `new global::Cs2jAnonymous.Name<源类型实参>(arg0, arg1, …)`；泛型实参按源码符号显示（仿 E06 [ShapeDisplayInScope](file:///d:/code/cs2j/src/CSharpToJava.Core/TupleToStruct/TupleToStructPreprocessor.cs#L1662-L1679)，槽位→源形参名）；
    - 挂统一注解 `Cs2jAnonymousTypeLiftRewrite`（供区间格式化与后续 pass 幂等识别，不落盘进产物文本）。
 2. **查询语法内投影**：`select new { … }`、`let`/`join … into` 子句中的匿名创建同为该节点，照常改写；查询本身保持查询语法（C26/E16 之后处理）。
 3. **不动的节点**：成员访问（`.X` 重新绑定到生成属性）、`var`/`var p = …`、lambda、隐式数组 `new[] { new{…}, … }`（元素类型重编译推断为生成类型）、对象/集合初始化器、三元/`is` 属性模式、`nameof`、`(object)`/`(dynamic)` 强转。
-4. **跳过条件**：节点位于表达式树 lambda 内（共享 JK-8 判定工具，catalog 风险 8）→ AL020 Warning 原样保留；语义模型解析出 IErrorTypeSymbol → AL010 原样保留。
+4. **跳过条件**：节点位于表达式树 lambda 内（复用共享判定 [ExpressionTreeFacts.IsExpressionTreeLambda](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs#L10-L12)——JK-8 经 JavaKeywordSyntaxFacts 委托同一实现，catalog 风险 8）→ AL020 Warning 原样保留；语义模型解析出 IErrorTypeSymbol → AL010 原样保留。
 5. **残余统计**：每文件改写后 parse 计数残余 `AnonymousObjectCreationExpressionSyntax`（语义复核仍绑定匿名类型），计入 Statistics.ResidualCreations；>0 出 Warning（strict 下 AL060 Error）。
 
 ### 4.5 统计与模型（AnonymousTypeLiftModels.cs）
@@ -299,8 +304,8 @@ AnonymousTypeLiftModels.cs        # AnonymousTypeLiftOptions（NamespaceName="Cs
 新增 `src/CSharpToJava.CLI/Preprocessing/Adapters/AnonymousTypeLiftPassAdapter.cs`，继承 [ProjectPassAdapter](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassAdapter.cs)，形态对齐 [TuplePassAdapter](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs)（标准 spine，不 override ExecuteAsync）：
 
 - `Descriptor => PassCatalog.ImplementedById(PassIds.AnonymousTypeLift)`；`LogPrefix "[anonymous-type-lift]"`；
-- `CreateParseOptions` 用 `LanguageVersion.Latest`；`CompilationName "anonymous-type-lift-preprocess"`；
-- `CreateAdditionalSyntaxTrees`：**照搬 E06 的 ImplicitGlobalUsings 合成**（[TuplePassAdapter.cs#L59-L88](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs#L59-L88)）；
+- `CreateParseOptions`：**须同时给 `LanguageVersion.Latest` 与 `NETCOREAPP` 预处理符号**（`new(LanguageVersion.Latest, preprocessorSymbols: new[] { "NETCOREAPP" })`）。注意不能照抄 E06 现状——[TuplePassAdapter L47-L48](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs#L47-L48) 的 override 只写 `LanguageVersion.Latest`，覆盖时丢掉了基类 [ProjectPassAdapter L152-L153](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassAdapter.cs#L152-L153) 默认的 `NETCOREAPP` 符号（E06 既有缺陷，勿复制；见 §13 Q3）；`CompilationName "anonymous-type-lift-preprocess"`；
+- `CreateAdditionalSyntaxTrees`：**照搬 E06 的 ImplicitGlobalUsings 合成**（[TuplePassAdapter.cs#L58-L87](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs#L58-L87)）；
 - `RewriteFileAsync`：调 Core `RewriteFile`，Changed=false 返回 null（runner 字节复制），Changed=true 返回 `PassFileRewrite { PreserveBom = true }`；诊断加 `RelativePath` 前缀；
 - `AfterFilesAsync`：`DistributeTypeFiles(tree)`——E06 分发算法的简化版：
   - `ProjectCompileSet.ComputeCompiledFiles` 计算「项目→编译的改写文件→所需形状闭包」；
@@ -376,7 +381,7 @@ verify 失败（build/test 退出码非 0）按 runner 既有约定置 adapter H
 
 **诊断/保护**：表达式树内创建（AL020）；缺引用 IErrorTypeSymbol（AL010）；dynamic 形状（AL030）计数；残余计数与 strict；FormatAndValidate 三候选；BOM 保持；clean 文件字节级复制；**幂等**（输出再跑零改写、零生成文件）。
 
-### 7.2 项目级 fixture（`tests/SampleAnonymousTypeLiftSolution/`，仿 SampleTuple/JavaKeyword fixture：Lib+App+Tests+sln，纳入 ProjectTests Content）
+### 7.2 项目级 fixture（`tests/SampleAnonymousTypeLiftSolution/`，Lib+App+Tests+sln 四件；三工程结构仿 [SampleMemberDesugarSolution](file:///d:/code/cs2j/tests/SampleMemberDesugarSolution)——注意既有 SampleTuple/SampleJavaKeyword 两个 fixture 仅 Lib+App、无 Tests 工程，不能照其工程数；纳入 ProjectTests Content）
 
 - **Lib**：LINQ 投影工具方法（返回 object 签名，内部创建匿名类型）、泛型方法投影、嵌套投影、含 `dynamic` 属性形状一处；
 - **App**：与 Lib **同形的独立创建**（断言两工程各得 internal 副本、互不依赖）、foreach over 投影、查询式 + 方法链混合、`Distinct/GroupBy/Join/ToDictionary` 键、隐式数组、`nameof`；
@@ -457,7 +462,7 @@ verify 失败（build/test 退出码非 0）按 runner 既有约定置 adapter H
 | **C25 `dynamic-desugar`（stub）** | C21 保真 dynamic 属性但不降级；C25 未来把动态站点显式化 | 无 RunAfter 依赖；AL030 诊断类型与 C25 共享分类；C25 落地时对 `Cs2jAnonymous` 生成类上的 dynamic 属性按普通 dynamic 站点处理 |
 | **转换器 synthesizer 退役（M5）** | 默认开后以下转换器代码成为死路径，单 PR 退役：①[AnonymousTypeRecordSynthesizer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs)（当前已零生产调用）；②[SynthesizedRecordStore](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/SynthesizedRecordStore.cs) 及 [ConversionContext](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L343-L349) 注册面与 [L579-L586](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/ConversionContext.cs#L579-L586) 两个 resolver；③[TypeMappingService](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/TypeMappingService.cs#L443-L464) 匿名分支；④[ObjectCreationTransformer.NewAnonymous](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ObjectCreationTransformer.cs#L74-L84) 的 Map.of 降级；⑤[CSharpToJavaVisitor](file:///d:/code/cs2j/src/CSharpToJava.Core/Visitors/CSharpToJavaVisitor.cs#L86-L117)/[TypeGroupResolver](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/TypeGroupResolver.cs#L264-L281) 合成 record 发射；⑥LinqRewriter 匿名门控/消毒（与 C26 协调，可延后到 C26 PR）；同步重写 ForeachAnonymousTypeTests/LinqAnonymousTypeExtractedMethodTests/LinqChainRefactoringTests 期望 | M5 在默认开 PR 之后；退役前保留默认关回退能力；⑥与 C26 同批或更早，二者评审对齐 |
 | **E02 local-function-lift / E05 delegate（已实现，在本 pass 之前）** | 两者均不可能在产物中物化匿名类型名（局部函数必须显式返回类型；lambda 保持推断），无语法面争抢 | §2.4 扫描断言固化前提；不修改两 pass |
-| **E10 generic / generic-deepen（已实现/opt-in）** | 生成泛型匿名类的泛型实例化、数组元素由后续 generic 通道常规处理 | 链位天然在其后（拓扑上 generic 晚于 tuple 链段）；无特殊接线 |
+| **E10 generic（已实现、默认开）/ generic-deepen（已实现、opt-in）** | 生成泛型匿名类的泛型实例化、数组元素由后续 generic 通道常规处理 | 链位天然在其后（拓扑上 generic 晚于 tuple 链段）；无特殊接线 |
 | **C08/E17 java-keywords（链尾）** | 生成类属性名若撞 Java 保留字（`new/class/int`…）由 C08 全符号改名表统一处理 | C21 不做 Java 关键字转义（D16）；退役现有 `intValue/classValue` 启发式后该职责唯一归 C08 |
 | **C20 partial-merge（观察项）** | 生成文件非 partial；输入 partial 类型中的匿名创建按普通创建点处理 | 无交集 |
 
@@ -477,3 +482,23 @@ verify 失败（build/test 退出码非 0）按 runner 既有约定置 adapter H
 ```powershell
 git worktree add .worktrees/preproc-c21-anonymous-type -b feature/preproc-c21-anonymous-type 953293b9
 ```
+
+---
+
+## 13. 开放问题裁决（2026-09-29 拍板）
+
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+**裁决（按原题号）：**
+
+- **Q1**：翻转 PR 回补 catalog §3.3 分组（E06/C05/C21 并入「生成新声明」合并族），事实订正随 PR 走，不留给 catalog 维护者异步处理。
+- **Q2**：M5 必须把 `DifferentAnonymousTypes_GetDifferentRecordNames` 重写为带真实记录名差异断言的测试，作为默认开硬门槛；该用例修复前不得声称"不同形状不同名"已被钉住。
+- **Q3**：本 pass 适配器按 §5.1 组合 `LanguageVersion.Latest` + `NETCOREAPP` 预处理符号；**TuplePassAdapter（E06）丢失 NETCOREAPP 符号的同缺陷随本 pass 翻转 PR 一并修复并跑 E06 回归**——`#if NETCOREAPP` API 可见性是正确性问题，不留双轨。
+- **Q4**：维持 M1 证据门——合成 sealed class 的 Java 转换质量（D1/D7/R1/M1 门槛 6）、dynamic 属性形状（D9/R6）、跨工程具名匿名签名反例（D3/R3）均须 M1 原型 + 中间树 build/主转换/javac 证据锁死，证据不绿不默认开。属执行门，不改变设计。
+
+### 13.1 原问题记录（裁决前）
+
+- **Q1（catalog 分组缺位）**：`prompts/preprocessor-catalog.md` §3.3「同一底层难点」合并建议表（[L1076-L1093](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1076-L1093)）**未收录 C21**，原稿「§3.3 类型声明前置族 E06+C05+C21」无出处，已删除。是否在 C21 落地时回补 catalog（如把 E06/C05/C21 并入「生成新声明」合并族）属 catalog 维护决策，本设计不代改；翻转 PR 不依赖该回补。
+- **Q2（既有测试名实不符）**：[LinqChainRefactoringTests.cs#L97](file:///d:/code/cs2j/tests/CSharpToJava.Tests/LinqChainRefactoringTests.cs#L97) `DifferentAnonymousTypes_GetDifferentRecordNames` 方法体仅断言 `Success` 与 `ProceduralLinq`，没有记录名差异断言。M5 重写转换器侧测试时必须补上真实名称断言，不得据该测试现状声称「不同形状不同名」已被钉住；该行为当前仅由合成器代码（[EnsureUniqueRecordName](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/AnonymousTypeRecordSynthesizer.cs#L198-L222)）保证。
+- **Q3（E06 parse 选项既有缺口）**：[TuplePassAdapter L47-L48](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs#L47-L48) override `CreateParseOptions` 时只给 `LanguageVersion.Latest`，丢掉了基类 [ProjectPassAdapter L152-L153](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/ProjectPassAdapter.cs#L152-L153) 的 `NETCOREAPP` 预处理符号（意味着 `#if NETCOREAPP` 包裹的 API 在 E06 中间编译中不可见）。本 pass 适配器按 §5.1 组合两者、不复制该缺陷；是否回头修 E06 属独立改动，本稿不代改。
+- **Q4（无法在设计期证实，保持既有「待 M1」标注）**：主转换器对合成 sealed class（只读自动属性/全参 ctor/`is T other`/`String.Concat(params object[])`/`EqualityComparer<T>`）的 Java 转换质量（D1/D7/R1/M1 门槛 6）、dynamic 属性形状的 Java 侧行为（D9/R6）、以及是否存在经前序 pass 物化的跨工程具名匿名签名反例（D3/R3），均需 M1 原型 + 中间树 build/主转换/javac 证据锁死；本稿不对这些未验证项下结论。
