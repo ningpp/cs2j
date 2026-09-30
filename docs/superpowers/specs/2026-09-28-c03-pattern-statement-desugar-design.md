@@ -2,11 +2,11 @@
 
 **日期**: 2026-09-28（2026-09-29 评审修订：catch 单子句保形归约与裸 `else throw;` 形态、governing 简单标识符不提升、SwitchCaseWhenClause/CatchFilterRethrow 断言口径按现渲染器核实修正、常量/关系模式编译性细则、residual 与 PD010/PD011 去重）
 **范围**: 把注册表 stub `pattern-desugar` 落地为**语句侧** C#→C# 预处理器（Core `PatternDesugar/` + CLI 适配器），并把该 stub 翻转为 `Implemented`；不修改任何 C#→Java 转换代码
-**状态**: 设计已定稿，进入实施（2026-09-30 再基线后开工；worktree 已就绪，见下）
-**再基线（2026-09-30）**: 实施基准 = dev-3.x@**75958d7a**。先决事实：① Roslyn 已升级至 **5.0.0**（3c0d37bd，完整 C# 14 模式语法可 parse）；② 维护者确认 PatternMatching/PatternBulk 等被删红测为**有意手动删除**——本设计引用的旧红灯测试若不在树中属预期，验收测试由本任务按当前代码重新补齐（catalog 路线图 2 已将「PatternMatchingTests 全绿」更新为「补回后全绿」口径）；③ 本 pass 与 **C37 表达式侧同批交付**（同一 worktree 同一分支，C03 先翻转 stub，C37 随后在同一 pass 追加表达式规则，各自独立提交）；④ 注册表计数/行号（stub 总数、RunAfter 等）开工时按 75958d7a 实测重验。
-**注册表**: `pattern-desugar`（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L72-L81)，catalogItems `C03, C37`，RunAfter=`null-coalesce`）
+**状态**: **已实现并合入 dev-3.x 主干**（与 C37 同批，2026-09-30 核实，提交链见「再基线」段；pass 默认关）
+**再基线（2026-09-30）**: 本设计（含姊妹 C37）**已在主干实现完成**，无需重新实施。实现提交链（均为 dev-3.x 祖先、75958d7a 已含）：**aa9fc2df**（PatternDesugar 核心组件：reducer/plans/rewriter/preprocessor）→**700bfa7a**（hoist-and-assign 绑定 + 41 项核心测试）→**559dcce4**（尾部 break 消解 + D16 fixture 全绿）→**1b67b823**（D17 翻转 pattern-desugar stub 为 Implemented，catalogItems `C03, C37`）→**d06064ef**（CLI 可达性）→**1e1fa112**（SamplePatternSolution fixture + 项目级守门）→**15d534a1**（PD010 白名单双态适配器级锁定）。现状：PassCatalog.cs L111-122，`pattern-desugar` Implemented、**默认关**、Stage=ControlFlow、RunAfter=`{ null-coalesce, tuple, foreach-deconstruction }`、catalogItems `"C03, C37"`；Core 实现 `src/CSharpToJava.Core/PatternDesugar/`（9 文件，含表达式侧 is-pattern/switch-expression 落点）；测试 PatternDesugarCoreTests/PatternMatchingTests + SamplePatternSolution 端到端，随 2026-09-30 Release 基线全绿（Tests 2102/ProjectTests 592/ConversionTests 671）。2026-09-30 复核：Roslyn 已升级 5.0.0；被删红测为维护者有意删除。
+**注册表**: `pattern-desugar`（[PassCatalog.cs L111-L122](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L111-L122)，catalogItems `C03, C37`，RunAfter=`{ null-coalesce, tuple, foreach-deconstruction }`）
 **Catalog 条目**: `prompts/preprocessor-catalog.md` C03（P0，L282-295）、C37（P1，L706-718）、§3.3 控制流去糖族（L898-915）、§4 风险 15（L934）/风险 8（L927）
-**基线提交**: **`75958d7a`**（2026-09-30 再基线；历史锚点 `953293b9`/`67477551` 已为其祖先）；worktree `.worktrees/preproc-c03-pattern-desugar`（分支 feature/preproc-c03-pattern-desugar）已快进重置到该提交，直接开工
+**基线提交**: 实现已合入 dev-3.x（止于 15d534a1，75958d7a 已含）；worktree `.worktrees/preproc-c03-pattern-desugar`（分支 feature/preproc-c03-pattern-desugar）2026-09-30 快进到 75958d7a 留档，分支无独有提交、使命已完成，不再用于实施
 
 ---
 

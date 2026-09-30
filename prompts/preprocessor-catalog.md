@@ -10,6 +10,7 @@
 > 2026-09-29 五次补全（语言覆盖审计输入）：以 **C# 1.0–14 全语法/语义特性清单**（另册《CSharp转Java预处理器Pass清单》，58 pass 设计基线）对本清单 E01–E17 + C01–C46 做**差集审计**，新增候选 **C47–C52**（六项：相等性与字符串拼接调用点物化、params 集合显式化、C# 14 扩展成员、C# 14 `field` 关键字、C# 14 简单空条件赋值、版本防线升格与低频构造收编）；为 C02/C06/C11/C19/C23/C28/C29/C35/C36 九个既有条目补五次补全追加注记；§0.4 计数更新为 **52 项**；§4 新增风险 20–21（训练集与 .NET 10 目标的语言版本轴错配、相等性核实双向结局）；§5.5 全景表补 C# 13/14 构造行。**本批条目由语言层审计发现而非仓库 grep——各条目仓库证据状态以「验证」行动核实为准**（对齐 §5「方向性输入」处理原则：与代码证据冲突时以证据为准）。
 > 2026-09-29 六次补全（官方文档核对，learn.microsoft.com）：对 **12 个官方页全文精读核对**（member-access-operators / keywords/extension / keywords/field / keywords/params / equality-operators / addition-operator / collection-expressions / nullable-value-types / foreach-in / yield / statements/lock + whats-new/csharp-14）。**修正两处事实错误**：① C47 ⑥ 委托 `==` 官方语义为**调用列表值相等**而非「引用比较、Java 同形」——直映 Java `==` 必错值；② C# 14 extension 块支持**扩展运算符**（原文遗漏）、**扩展索引器实为 C# 15 预览**（原文误归 C# 14）。**补盘两项 C# 14 特性**：简单 lambda 参数修饰符（归 C45）、用户定义复合赋值运算符（归 C14/C17——`a += b` 不再必然拆解）。**新增遗漏子项**：record `==` 值相等（C47⑦）、[Conditional] 调用点条件编译（C10）、[SetsRequiredMembers]（C27）、checked 用户定义运算符（C# 11，C14）、readonly 实例成员（C# 8，C07）、集合表达式 `with(...)` 元素（C# 14，C36）、非绑定 `typeof(List<>)`（C52）、[ThreadStatic] 单线程初始化语义（C09）、[EnumeratorCancellation]/WithCancellation（C38 交界）。为 C04/C07/C09/C10/C14/C16/C20/C22/C27/C29/C31/C36/C40/C45/C47/C49/C51/C52 共 **18 个条目**追加「六次补全（官方文档核对）」行；为全部 **E01–E17 + C01–C52（69 条）**追加「官方文档」索引行（**已核**＝本批全文精读，其余为权威 URL 索引）；§4 风险 21 更新（语言层语义已由官方文档确证，剩余核实收敛为仓库内联覆盖面）。计数不变（52 项）。
 > 2026-09-30 七次勘误（维护者确认 + 主干对齐，证据核对不改盘点结论）：①维护者确认失败/跳过红测为**有意手动删除**，验收件随各通道实现补回（恢复属各通道任务，不再视为矛盾）；②**C11–C14 已由维护者手动合并主干 dev-3.x**：member-desugar 为 Implemented 描述符（默认关），其 catalogItems 已对齐 `"C11, C12, C13, C14"`；③**修正 E01 两处错误描述**——`#nullable`/`#pragma`/`#line`/`#error`/`#warning` 等活动指令实际**保留**（`IsRemovedDirective` 白名单 L78-86；`#warning` 另附一条诊断，L38-45），剥除的只有条件指令族（含未选分支）与可选 `#region`；同步修正 §1.7 L80、C36 三次补全行的相反表述；④C30 代码考古收口：PatchClosed* 曾由 2694f975 引入、被 c8d6d31f 架构性删除（均为 HEAD 祖先），非「未合入」；下游仓持有状态仍待 M1 核实门；⑤C47 核实门结论落账：**B 档部分覆盖、需补**（string `==`/`bool?`/元组已内联；`(object)` 逃逸、拼接 null 语义、委托值相等、record `==` 四子面静默错值/不可编译）；⑥勘正陈旧引用：C34 TypeMappings 实为 L3633-3639、C38 ForeachDeconstructionTests 实为 L162-181、C39 ClassTransformer 实为 L316-380、C42 诊断消息措辞（3001/3201 用 "is not supported by the Java-only conversion pipeline"，仅 3101/3102 含 "must be isolated"）。
+> 2026-09-30 八次更新（第一批完成态核实）：经提交链与注册表双向核实，**C01/C02/C03/C37 均已实现并合入 dev-3.x**（C01 止于 48331c9c、在链默认开；C02 止于 ecc1376e、Implemented 默认关；C03+C37 止于 15d534a1、Implemented 默认关，catalogItems `C03, C37`）——三个条目的「缺失/部分」状态行与 §3.1 路线图 1/2/4 同步更正为已完成（各 pass 默认开启评审/sdk 基线等挂起项见各状态行）；对应四份设计文档加「2026-09-30 再基线」完成态记录。挂起未做：C01 M5（sdk 全量比对、ROI 旧码下线）、C02 M4 默认开启评审与 sdk 计数门、两个新 pass 的默认翻转。
 
 ---
 
@@ -297,7 +298,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | `GenericPreprocessor.cs:18`（明确未做）；prompt `prompts/generic-preprocess-prompt.md:7-15,49`；静态字段 fail-fast `FieldTransformer.cs:115-118`；closed metadata 设计 `docs/superpowers/specs/2026-09-22-closed-type-metadata-chain-design.md` |
 | 与现有通道关系 | 是 E10 的直接续作；与 C30（closed metadata）互为表里——C02 在 C# 侧显式化 token，C30 在 Java 反射侧消费闭型；必须在 E09 Unsigned 之后（无符号类化改变泛型实参种类） |
 | 优先级 | **P0** |
-| 状态 | 部分（3 个 P0 模式已做，本候选为缺口） |
+| 状态 | **已实现（2026-09-28/29，2026-09-30 核实）**：`generic-deepen` 已翻转为 Implemented（**默认关**，RunAfter=`generic`，catalogItems `C02`，PassCatalog.cs L167-178）；实现位于 `GenericPreprocess/GenericDeepen*`（10 文件）+ `GenericDeepenPassAdapter`，含 typeof(T)/is-as T/GD-FIELD 静态字段 holder 化、residual 闸门与 SampleGenericDeepenSolution 端到端；提交链 14fed211→db9bbd08→0c969001→ecc1376e。**M4 默认开启评审与 sdk 计数门仍挂起** |
 | 验证 | 中间树 build/test；fixture 复用 `TypeOfGenericTests`、`StaticGenericFieldTests`、`NestedGenericMappingTests`、`CrossProjectGenericClassTokenTests` 的 C# 形态 |
 | 五次补全追加 | 泛型静态字段的**逐封闭类型实例化语义**：C# 中 `C<int>` 与 `C<string>` 的静态字段互相独立，Java 擦除后共享——现条目只覆盖「引用 T 的静态字段」硬拒绝；**不引用 T 的静态字段**（如 `class C<T> { static int s_count; }`）是静默语义差，被计数器/缓存统计类代码依赖时错值。归入本通道审计子项：改写为 keyed 形态（`static readonly Dictionary<Type, …>`）或登记拒绝（见 C52 ③） |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/generics；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/type-testing-and-cast（typeof/is/as） |
@@ -312,7 +313,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 同上行号；模式测试需求 `ConversionTests/Categories/PatternMatchingTests.cs`、`PatternBulkTests.cs`、`SwitchCaseWhenClausePrecedenceTests.cs`、`CatchFilterRethrowTests.cs` |
 | 与现有通道关系 | 独立但建议排在 E14 Goto 之前（goto case 去糖与 switch 去糖会争抢同一语法面——实际应让 C03 先把 pattern switch 归一成普通 switch/if，再交 E14 处理残余 goto case）；无其他强依赖 |
 | 优先级 | **P0**（每命中一处就是一次转换失败，且降级形态机械、可编译性易保持） |
-| 状态 | 缺失 |
+| 状态 | **已实现（2026-09-28/29，2026-09-30 核实）**：`pattern-desugar` 已翻转 Implemented（**默认关**，catalogItems `C03, C37`，RunAfter=`{ null-coalesce, tuple, foreach-deconstruction }`，PassCatalog.cs L111-122）；Core `PatternDesugar/` 9 文件 + 适配器，含模式/非整型 switch、catch-when、类型参数 catch 与表达式侧（C37）；SamplePatternSolution 项目级守门齐备；提交链 aa9fc2df→700bfa7a→559dcce4→1b67b823→d06064ef→1e1fa112→15d534a1 |
 | 验证 | 中间树 build/test；fixture 覆盖关系/属性/元组/逻辑/关系模式、when 守卫、类型参数 catch、string foreach |
 | 三次补全追加 | **表达式侧不在本条目范围**：`is` 表达式、switch 表达式的模式编译见 **C37**（两者共用「模式→布尔表达式」归约器）。`PatternMatchingTests` 实测 8/11 失败（2026-09-28，`-c Release`）表明语句侧与表达式侧当前同时缺失，C03 与 C37 应同批交付，否则模式用例仍红（见 §4.15） |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/statements/selection-statements（switch 表达式/语句）；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/try-catch（异常过滤器） |
@@ -790,7 +791,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | `TypeOperationTransformer.cs:107-117`（`IsPattern` 三分支与 L115 兜底）；`ControlFlowTransformer.cs:474-507`（`BuildSwitchArmCondition` 与 L505 兜底）、`:521-561`（属性子模式桥接）；`JavaGenericPatternRewriter.cs:110-129`（泛型声明模式提升——「instanceof + 强转声明」形态已被生产路径接受）；测试 `tests/CSharpToJava.ConversionTests/Categories/PatternMatchingTests.cs`（2026-09-28 `-c Release` 实测 8/11 失败）、`PatternBulkTests.cs` |
 | 与现有通道关系 | 与 C03 是同一特性两侧：C03 = **语句**侧（pattern switch/`when`/catch filter），C37 = **表达式**侧（`is` 表达式/switch 表达式臂）；只做一侧则模式用例仍红，建议同批交付。须在 E06/E07（元组字段与解构命名契约）之后；改写引入的模式变量提升与 `JavaGenericPatternRewriter` 的既有提升**会争抢同一语法面**，实施时须合并为一条通道或明确先后（开放问题，见 §4.15） |
 | 优先级 | **P1**（恒真占位是典型静默错误输出，测试红灯已持续；归约形态机械、可编译性易保持） |
-| 状态 | 部分（3 条窄分支存在，其余兜底；与测试预期脱节） |
+| 状态 | **已实现（与 C03 同批，2026-09-30 核实）**：表达式侧 is-pattern/switch 表达式臂归约已在 `PatternDesugar/PatternReducer.cs`+`PatternDesugarComponents.cs` 落地，随 pattern-desugar 翻转（1b67b823，catalogItems 即 `C03, C37`）；PatternDesugarCoreTests 表达式矩阵 + SamplePatternSolution 端到端全绿 |
 | 验证 | 中间树 build/test；以 `PatternMatchingTests` 11/11 全绿为门槛；fixture 覆盖关系/逻辑/否定/常量/属性/递归/位置/列表/元组模式、`is` 出现在 if/while/三元/return/实参处的绑定变量使用、switch 表达式 + `when` 组合 |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/is；https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/functional/pattern-matching（模式全集） |
 
@@ -1017,10 +1018,10 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 ### 3.1 建议顺序（仅排序，不含实现设计）
 
 0. **（观察项，先于一切语义 pass）** E01 之后可插入 **C43+C28 词法批**（raw string/u8/verbatim/namespace/using 归一）——纯语法、幂等、只 parse 一次；现状转换器已内联吸收，仅在统一引擎（§5.4）落地或需要版本无关中间树时实施。
-1. **C01 RefOutIn 接线收尾**（P0，Core 已就绪；先补 Java 映射 spec 与 CLI 包装）。
-2. **C03 控制流去糖 + C37 模式表达式去糖**（P0+P1，同一「模式→布尔」归约器的语句侧/表达式侧，须**同批交付**并以 `PatternMatchingTests` 全绿为门槛，否则模式用例仍红；注意排在 E14 之前）。
+1. ~~**C01 RefOutIn 接线收尾**~~ **已完成（2026-09-28/29，止于 48331c9c）**：在链默认开；M5 sdk 全量比对与 ROI 旧码下线为挂起后续。
+2. ~~**C03 控制流去糖 + C37 模式表达式去糖**~~ **已完成（同批，止于 15d534a1）**：pattern-desugar Implemented 默认关，语句/表达式两侧共用归约器，SamplePatternSolution 守门齐备；默认翻转待评审。
 3. **C31 Index/Range 归一**（P1，机械、消灭「静默错误输出」；挂 E12 支撑库范式）。
-4. **C02 Generic 深化**（P0，ROADMAP #5/#10 的 C# 侧，连带核实 C30）。
+4. ~~**C02 Generic 深化**~~ **已完成（止于 ecc1376e）**：generic-deepen Implemented 默认关（typeof(T)/is-as T/静态字段 holder/residual 闸门/E2E）；M4 默认开启评审与 sdk 计数门挂起，C30 下游核实门仍独立挂起。
 5. **C05 enum 声明归一**（P1，扩 E04；与 C03 同批验证 enum switch）。
 6. **C07 struct 值语义补全**（P1，扩 E13，回收 StructCloneHelper）。
 7. **C04 yield 迭代器降级**（P1，先原型 try/finally 子题；**前置依赖 C32+C45 闭包提升**——捕获必须先成为显式字段；sdk 2887 处的频率证据支持在 EF Core 画像后重估为 P0）。

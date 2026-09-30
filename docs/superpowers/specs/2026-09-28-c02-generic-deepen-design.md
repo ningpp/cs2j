@@ -2,9 +2,9 @@
 
 **日期**: 2026-09-28（同日完成代码级评审修订，见 §13）
 **范围**: 把注册表 stub `generic-deepen`（catalog C02，P0）从 `Stub` 翻转为 `Implemented`；新增 Core 规则与 CLI 适配器，不修改 C#→Java 转换器代码（转换器侧配合项另立后续 PR，见 §10）
-**状态**: 已评审定稿；实施在独立 worktree（见 §12），本文不改动任何代码
-**再基线（2026-09-30）**: 实施基准变更为 dev-3.x@**75958d7a**（见 §12）。先决事实更新：① Roslyn 已由 3c0d37bd 升级至 **5.0.0**（支持 C# 14，parse 固定 LanguageVersion.Latest 不变）；② C11–C14 已合并主干（member-desugar Implemented、默认关），§13.5 的锁定测试计数（PassChainOrderTests/PassStubCatalogTests 等）须以当前实测为准；③ 维护者确认被删失败/跳过测试为**有意手动删除**——§1.1 行 12 的 CrossProjectGenericClassTokenTests「4 例 2 失败」、TrailingClassTokenCallSiteTests 空壳等现状须开工时重新实测，验收件由本任务补齐，不得照抄旧失败清单；④ C30 closed-metadata 考古已收口（PatchClosed* 被 c8d6d31f 架构性删除；compat 纯函数存活；下游仓 M1 本机不可达时记录为挂起，不阻塞 C02）；⑤ 开工前按 75958d7a 重验本文全部行号/计数。
-**对应基线**: 历史代码基线 f68a783c（`feat(preprocessing): register 23 merged-family stub passes`）；**现行 worktree 基线 75958d7a**（dev-3.x HEAD，2026-09-30 再基线，见 §12）
+**状态**: **已实现并合入 dev-3.x 主干**（2026-09-30 核实，提交链见「再基线」段；pass 默认关，M4 默认开启评审与 sdk 计数门为挂起后续）
+**再基线（2026-09-30）**: 本设计**已在主干实现完成**，无需重新实施。实现提交链（均为 dev-3.x 祖先、75958d7a 已含）：**14fed211**（核心骨架 options/diagnostics/statistics/facts + 共享 ExpressionTreeFacts）→**db9bbd08**（翻转 generic-deepen stub 为 Implemented（C02），补登 closed-metadata/variance-audit stub）→**0c969001**（GD-FIELD 静态泛型字段→holder/accessor，按项目生成文件）→**ecc1376e**（residual 闸门 + SampleGenericDeepenSolution fixture + 项目级端到端测试）。现状：`generic-deepen` 为 Implemented、**默认关**、RunAfter=`generic`、catalogItems `"C02"`（PassCatalog.cs L167-178）；Core 实现位于既有目录 `src/CSharpToJava.Core/GenericPreprocess/`（GenericDeepen* 10 文件），适配器 `Adapters/GenericDeepenPassAdapter.cs`；测试 GenericDeepenTests/GenericDeepenFactsTests/GenericDeepenRegistryTests 随 2026-09-30 Release 基线全绿。2026-09-30 复核：Roslyn 已升级 5.0.0；C11–C14 已合并；被删红测为维护者有意删除。**默认开启评审（M4）与 sdk 计数门**仍为挂起后续。
+**对应基线**: 历史代码基线 f68a783c（`feat(preprocessing): register 23 merged-family stub passes`）；实现已合入 dev-3.x（见上提交链）
 **关联资料**: `prompts/preprocessor-catalog.md` C02（L269-281）/E10（L30）/C30（L615-626）/C33（L653-665）/§3.3（L898-915）/§4 风险 6/8/9/11（L925-930）/§5（L942-1003）；`.trae/documents/preprocessor-foundation_plan.md` L60-139
 
 ---
@@ -373,7 +373,7 @@ Description                 = "Make reified generic runtime information explicit
 
 - 分支：`feature/preproc-c02-generic-deepen`
 - 目录：`.worktrees/preproc-c02-generic-deepen`
-- base（2026-09-30 再基线）：**`75958d7a`**（dev-3.x HEAD，`docs: C49 设计与 catalog 对齐 Roslyn 5.0.0 实测事实`；含 Roslyn 5.0.0 升级、C11–C14 合并与全部文档勘误）。worktree 已存在并已从旧锚点快进重置到 75958d7a（旧分支无独有提交、工作区干净），**禁止重新创建**，直接在现有目录开工。
+- 状态（2026-09-30 核实）：该分支历史使命已完成——实现提交（止于 ecc1376e）已在 dev-3.x 主干，分支无独有提交；2026-09-30 仅快进到 75958d7a 留档，**不再用于实施**；worktree/分支删除或保留由维护者决定。
 - 历史创建命令（已执行，留档）：
 
 ```bash
@@ -397,4 +397,4 @@ git worktree add .worktrees/preproc-c02-generic-deepen -b feature/preproc-c02-ge
 7. **§5.1/§5.2 定稿**：适配器构造签名六参仿 GenericPassAdapter；v1 不加 OptionsFactory。
 8. **§12 worktree base**：f68a783c → ff216bcc（docs-only 增量，含本设计自身）。
 9. 其余断言全部核实为真：stub 条目/Ids 常量/attribute-normalize 引用（PassStubCatalog.cs L111-120/L28/L188）、PassCatalog 结构与 16 条 Implemented 顺序、CreateAdapter switch（L94-217）、指纹令牌（Program.cs L1765-1774）、CS2J9001 拒绝路径（L3458-3465 + ProjectPassRunner.StubMessage）、`JavaKeywordSyntaxFacts.IsExpressionTreeLambda`（L55-63，internal 类中 public static，可提取）、E10 三计数器在 MergeStatistics 累加但摘要行未打印、`Analysis/` 目录已存在（仅 TypeParameterBindingAnalyzer.cs）、Tuple 生成文件分发骨架（AfterFilesAsync L122-130 + DistributeStructFiles L169-336 + EnsureCompileItem L421-473）、compat 侧 `ConcurrentHashMapHelper.putIfAbsentUntyped`/`TypeHelper.closedCacheKey` 均在。
-10. **2026-09-30 再基线**：ff216bcc → **75958d7a**（先决批：Roslyn 5.0.0、C11–C14 合并、被删红测确认为维护者有意删除；见文首「再基线」段与 §12）。
+10. **2026-09-30 再基线**：核实本设计已实现并合入主干（提交链 14fed211→db9bbd08→0c969001→ecc1376e，见文首「再基线」段与 §12）；ff216bcc→75958d7a 间含该实现及先决批（Roslyn 5.0.0、C11–C14）。

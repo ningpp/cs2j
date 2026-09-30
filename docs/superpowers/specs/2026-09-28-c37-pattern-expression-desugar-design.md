@@ -2,12 +2,12 @@
 
 **日期**: 2026-09-28
 **范围**: 在 C03 已合入的同一 pass `pattern-desugar`（Core `PatternDesugar/` + CLI 适配器）上扩展**表达式侧**规则；不新增 pass、不新增中间目录、不翻转 stub、不修改任何 C#→Java 转换代码
-**状态**: 设计已定稿，进入实施（2026-09-30 再基线；与 C03 同批、同 worktree 顺序作业）
-**再基线（2026-09-30）**: 实施基准 = dev-3.x@**75958d7a**。① Roslyn 已升级至 **5.0.0**；② 被删红测为维护者有意删除，表达式侧验收测试由本任务重新补齐（表达式侧是「恒真占位」静默错误输出，必须补运行时语义断言而非仅 build 守门）；③ **不再单独建分支**：C37 与 C03 在同一 worktree `.worktrees/preproc-c03-pattern-desugar`（同一分支 feature/preproc-c03-pattern-desugar）顺序实施——C03 提交后本任务直接在其后提交，catalog 口径的「先把 C03 分支合入」在同分支上自然成立；④ 开工前按 75958d7a 重验全部行号与 C03 已冻结扩展点的实际命名。
-**注册表**: `pattern-desugar`（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L71-L80)，catalogItems `C03, C37`，RunAfter=`null-coalesce`；C03 合入时翻转为 Implemented 并把 RunAfter 扩为 `{ null-coalesce, tuple, foreach-deconstruction }`，本任务不再动注册表）
-**硬依赖**: 姊妹设计 [2026-09-28-c03-pattern-statement-desugar-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c03-pattern-statement-desugar-design.md)（下称「C03 设计」）先实施并提交于同一分支；本设计以其 §4.4 冻结的三个扩展点（`IPatternReducer`、`IPatternDesugarComponent`、命名/绑定服务）为准
+**状态**: **已实现并合入 dev-3.x 主干**（与 C03 同批，2026-09-30 核实；pass 默认关）
+**再基线（2026-09-30）**: 表达式侧规则已随 C03 实现一并落地（提交链见 C03 设计「再基线」段，aa9fc2df…15d534a1；翻转提交 1b67b823 的 catalogItems 即 `C03, C37`）。表达式侧落点：`PatternDesugar/PatternReducer.cs`、`PatternDesugarComponents.cs` 处理 is-pattern 表达式/switch 表达式臂（IsPatternExpression/SwitchExpressionSyntax 等），与语句侧共用同一「模式→布尔表达式」归约器；验证含 PatternDesugarCoreTests 表达式矩阵与 SamplePatternSolution 端到端，2026-09-30 Release 基线全绿。Roslyn 已升级 5.0.0；被删红测为维护者有意删除。
+**注册表**: `pattern-desugar`（[PassCatalog.cs L111-L122](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L111-L122)，catalogItems `C03, C37`，已 Implemented、默认关，RunAfter=`{ null-coalesce, tuple, foreach-deconstruction }`）
+**硬依赖**: 姊妹设计 [2026-09-28-c03-pattern-statement-desugar-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c03-pattern-statement-desugar-design.md)（下称「C03 设计」）——两者已在同批实现中合入主干
 **Catalog 条目**: `prompts/preprocessor-catalog.md` C37（P1，L782-794）、C03（P0，L304-317）、§3.3 控制流去糖族（L1076-1093）、§4 风险 15（L1113）/风险 8（L1106）、C35（L750-762）
-**基线提交**: **`75958d7a`**（2026-09-30 再基线；历史锚点 `67477551` 已为其祖先）；C03 在同一分支先提交，本任务紧随其后
+**基线提交**: 实现已合入 dev-3.x（止于 15d534a1，75958d7a 已含），无需另建分支
 
 ---
 
