@@ -10,8 +10,9 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// <summary>
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
-/// the topological sort must keep producing this exact order, and the default
-/// enablement must match the old flag defaults.
+/// the topological sort must keep producing this exact order. As of 2026-09-30
+/// every implemented pass is default-on ("default enablement 收口"); the legacy
+/// flags survive as --no-xxx negations.
 /// </summary>
 public sealed class PassChainOrderTests
 {
@@ -32,6 +33,7 @@ public sealed class PassChainOrderTests
         PassIds.GenericDeepen,
         PassIds.RecordReadOnly,
         PassIds.ArrayMethod,
+        PassIds.IndexRange,
     PassIds.MakeReadonly,
     PassStubCatalog.Ids.IteratorLowering,
     PassIds.EliminateGoto,
@@ -39,22 +41,7 @@ public sealed class PassChainOrderTests
         PassIds.JavaKeywords,
     ];
 
-    private static readonly string[] EnabledByDefault =
-    [
-        PassIds.Conditional,
-        PassIds.LocalFunctionLift,
-        PassIds.NullCoalesce,
-        PassIds.Enum,
-        PassIds.Delegate,
-        PassIds.Tuple,
-        PassIds.ForeachDeconstruction,
-        PassIds.StripDefault,
-        PassIds.RefOutIn,
-        PassIds.Unsigned,
-        PassIds.Generic,
-    PassIds.MakeReadonly,
-    PassIds.EliminateGoto,
-    ];
+    private static readonly string[] EnabledByDefault = LockedChain;
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()

@@ -25,7 +25,7 @@ public sealed class GenericDeepenRegistryTests
         Assert.Equal("C02", descriptor.CatalogItems);
         Assert.Equal(".cs2j-generic-deepen-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.Abi, descriptor.Stage);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(new[] { PassIds.Generic }, descriptor.RunAfterIds);
         Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
         Assert.True(descriptor.VerifyBuildByDefault);

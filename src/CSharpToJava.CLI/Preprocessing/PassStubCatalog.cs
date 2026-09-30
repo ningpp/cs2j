@@ -22,7 +22,6 @@ internal static class PassStubCatalog
         public const string LexicalNormalize = "lexical-normalize";
         public const string PartialMerge = "partial-merge";
         public const string EnumDeclaration = "enum-declaration";
-        public const string IndexRange = "index-range";
         public const string ForeachSource = "foreach-source";
         public const string ClosedMetadata = "closed-metadata";
         public const string VarianceAudit = "variance-audit";
@@ -34,6 +33,8 @@ internal static class PassStubCatalog
         public const string ThreadStatic = "thread-static";
         public const string AttributeNormalize = "attribute-normalize";
         public const string ExtensionMethods = "extension-methods";
+        public const string ExtensionMembers = "extension-members";
+        public const string EqualityConcat = "equality-concat";
         public const string LinqChannel = "linq-channel";
         public const string AsyncNormalize = "async-normalize";
         public const string ExpressionDesugar = "expression-desugar";
@@ -77,16 +78,6 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.Enum },
             description: "Rewrite enum-as-class declaration forms ahead of the value conversion.",
             catalogItems: "C05"),
-        new(
-            Ids.IndexRange,
-            "Index/range desugaring",
-            ".cs2j-index-range-src",
-            PassStage.Expression,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.ArrayMethod },
-            description: "Desugar System.Index/System.Range hat and slice expressions into explicit calls.",
-            catalogItems: "C31"),
         new(
             Ids.ForeachSource,
             "Foreach source rewrite",
@@ -195,6 +186,16 @@ internal static class PassStubCatalog
             description: "Rewrite extension methods after every support-library-injecting pass.",
             catalogItems: "C19"),
         new(
+            Ids.ExtensionMembers,
+            "C# 14 extension member rewrite",
+            ".cs2j-extension-members-src",
+            PassStage.Declarative,
+            PassStatus.Stub,
+            defaultEnabled: false,
+            runAfterIds: new[] { Ids.ExtensionMethods },
+            description: "Rewrite C# 14 extension blocks (extension properties/operators/static extensions) back to classic static classes with explicit static members.",
+            catalogItems: "C49"),
+        new(
             Ids.LinqChannel,
             "LINQ channelization",
             ".cs2j-linq-channel-src",
@@ -234,6 +235,16 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.Tuple },
             description: "Lift anonymous types into named generated types before the LINQ channel.",
             catalogItems: "C21"),
+        new(
+            Ids.EqualityConcat,
+            "Equality/concat call-site materialization",
+            ".cs2j-equality-concat-src",
+            PassStage.Expression,
+            PassStatus.Stub,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.MemberDesugar },
+            description: "Materialize string ==/!= and + call sites, (object) escapes, delegate value equality and record == by symbol-bound semantics.",
+            catalogItems: "C47"),
         new(
             Ids.PlatformIsolation,
             "Platform boundary isolation",

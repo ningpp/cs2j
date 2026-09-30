@@ -20,6 +20,7 @@ internal static class PassIds
     public const string GenericDeepen = "generic-deepen";
     public const string RecordReadOnly = "record-readonly";
     public const string ArrayMethod = "array-method";
+    public const string IndexRange = "index-range";
     public const string MakeReadonly = "make-readonly";
     public const string EliminateGoto = "eliminate-goto";
     public const string MemberDesugar = "member-desugar";
@@ -114,7 +115,7 @@ internal static class PassCatalog
             ".cs2j-pattern-desugar-src",
             PassStage.ControlFlow,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.NullCoalesce, PassIds.Tuple, PassIds.ForeachDeconstruction },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
@@ -171,7 +172,7 @@ internal static class PassCatalog
             Adapters.GenericDeepenPassAdapter.IntermediateDirectoryName,
             PassStage.Abi,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.Generic },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
@@ -183,7 +184,7 @@ internal static class PassCatalog
             ProjectRecordReadOnlyPreprocessor.IntermediateDirectoryName,
             PassStage.Declarative,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.Generic },
             description: "Convert non-readonly records to immutable form with whole-tree rollback."),
         new(
@@ -192,10 +193,23 @@ internal static class PassCatalog
             ProjectArrayMethodPreprocessor.IntermediateDirectoryName,
             PassStage.Expression,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.Generic, PassIds.RecordReadOnly },
             supportLibrary: PassSupportLibrary.Cs2jArray,
             description: "Rewrite static array helpers and multi-dimensional arrays; inject the array support project."),
+        new(
+            PassIds.IndexRange,
+            "Index/range desugaring",
+            ".cs2j-index-range-src",
+            PassStage.Expression,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.ArrayMethod },
+            supportLibrary: PassSupportLibrary.Cs2jArray,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Desugar ^/.. (System.Index/System.Range) into length-based int indices and (offset, count) calls; inject the array support project.",
+            catalogItems: "C31"),
         new(
             PassIds.MakeReadonly,
             "Make readonly struct",
@@ -213,7 +227,7 @@ internal static class PassCatalog
             ".cs2j-iterator-lowering-src",
             PassStage.StateMachine,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.MakeReadonly },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
@@ -235,7 +249,7 @@ internal static class PassCatalog
             ".cs2j-member-desugar-src",
             PassStage.Declarative,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassStubCatalog.Ids.StructValueSemantics, PassStubCatalog.Ids.ClosureLift },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
@@ -247,7 +261,7 @@ internal static class PassCatalog
             ProjectJavaReservedWordPreprocessor.IntermediateDirectoryName,
             PassStage.FinalNaming,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             // The naming pass stays last: it also anchors the late-chain stubs so
             // the topological order keeps it at the tail as those families land.
             runAfterIds: new[]
@@ -256,6 +270,8 @@ internal static class PassCatalog
                 PassStubCatalog.Ids.PlatformIsolation,
                 PassStubCatalog.Ids.ConcurrencyNormalize,
                 PassStubCatalog.Ids.DynamicDesugar,
+                PassStubCatalog.Ids.ExtensionMembers,
+                PassStubCatalog.Ids.EqualityConcat,
             },
             description: "Rename identifiers clashing with Java reserved words; runs last before conversion."),
     };

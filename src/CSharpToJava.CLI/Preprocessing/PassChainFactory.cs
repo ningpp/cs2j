@@ -4,6 +4,7 @@ using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.ForeachDeconstruction;
 using CSharpToJava.Core.GenericPreprocess;
+using CSharpToJava.Core.IndexRange;
 using CSharpToJava.Core.IteratorLowering;
 using CSharpToJava.Core.JavaKeywords;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
@@ -76,9 +77,10 @@ internal static class PassChainFactory
             [PassIds.Unsigned] = opts.UnsignedType,
             [PassIds.Generic] = opts.GenericPreprocess,
             [PassIds.RecordReadOnly] = opts.RecordReadOnly,
-            [PassIds.ArrayMethod] = opts.EnableArrayMethod,
+            [PassIds.ArrayMethod] = opts.ArrayMethod,
+            [PassIds.IndexRange] = true,
             [PassIds.MakeReadonly] = opts.MakeReadOnly,
-            [PassStubCatalog.Ids.IteratorLowering] = false,
+            [PassStubCatalog.Ids.IteratorLowering] = opts.IteratorLowering,
             [PassIds.EliminateGoto] = opts.EliminateGoto,
             [PassIds.MemberDesugar] = opts.MemberDesugar,
             [PassIds.JavaKeywords] = opts.JavaKeywords,
@@ -215,6 +217,15 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 compatNamespacePrefixes: null),
+
+            PassIds.IndexRange => new IndexRangePassAdapter(
+                new IndexRangeOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests,
+                config.Strict),
 
             PassIds.MakeReadonly => new MakeReadonlyPassAdapter(
                 config.MakerOptionsFactory(),

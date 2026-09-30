@@ -62,9 +62,14 @@ public class GenericDeepenProjectTests
 
         try
         {
+            // --pass selects EXACTLY these ids (all other passes disabled), keeping
+            // the generic-deepen output deterministic after the 2026-09-30 default
+            // flips; using --enable-pass here would additionally run the whole
+            // default chain (pattern-desugar would rewrite the type-parameter catch
+            // before generic-deepen sees it).
             var (exit, stdout, stderr) = await RunCliAsync(
                 "preprocess", "-s", solutionPath, "-d", destination,
-                "--enable-pass", "generic-deepen");
+                "--pass", "generic-deepen");
 
             // VerifyBuild/VerifyTestsByDefault: the runner already executed dotnet build +
             // dotnet test on the intermediate tree (RuntimeBehaviorTests = the semantics

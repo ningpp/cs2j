@@ -69,6 +69,24 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
             File.Copy(pair.Source, pair.Dest, overwrite: true);
         }
 
+        // Preserve non-.cs assets (csproj, Directory.Build.*, ...). Tree preparation
+        // copies them only when the project graph resolves; intermediate-tree input
+        // often yields an empty graph, so the own loop must carry them itself.
+        // .sln stays handled (and exclusion-rewritten) by tree preparation.
+        foreach (var asset in tree.SourceFiles)
+        {
+            if (asset.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                || asset.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var assetDest = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, asset));
+            Directory.CreateDirectory(Path.GetDirectoryName(assetDest)!);
+            File.Copy(asset, assetDest, overwrite: true);
+        }
+
         // 基线错误集：用原始内容、但 path 取中间树路径，保证键可直接比对。
         var baselineErrors = BuildErrorSet(
             sourceFiles.Select(p => (Path: p.Dest, Content: File.ReadAllText(p.Source))),

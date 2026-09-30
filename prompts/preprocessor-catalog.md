@@ -12,12 +12,13 @@
 > 2026-09-30 七次勘误（维护者确认 + 主干对齐，证据核对不改盘点结论）：①维护者确认失败/跳过红测为**有意手动删除**，验收件随各通道实现补回（恢复属各通道任务，不再视为矛盾）；②**C11–C14 已由维护者手动合并主干 dev-3.x**：member-desugar 为 Implemented 描述符（默认关），其 catalogItems 已对齐 `"C11, C12, C13, C14"`；③**修正 E01 两处错误描述**——`#nullable`/`#pragma`/`#line`/`#error`/`#warning` 等活动指令实际**保留**（`IsRemovedDirective` 白名单 L78-86；`#warning` 另附一条诊断，L38-45），剥除的只有条件指令族（含未选分支）与可选 `#region`；同步修正 §1.7 L80、C36 三次补全行的相反表述；④C30 代码考古收口：PatchClosed* 曾由 2694f975 引入、被 c8d6d31f 架构性删除（均为 HEAD 祖先），非「未合入」；下游仓持有状态仍待 M1 核实门；⑤C47 核实门结论落账：**B 档部分覆盖、需补**（string `==`/`bool?`/元组已内联；`(object)` 逃逸、拼接 null 语义、委托值相等、record `==` 四子面静默错值/不可编译）；⑥勘正陈旧引用：C34 TypeMappings 实为 L3633-3639、C38 ForeachDeconstructionTests 实为 L162-181、C39 ClassTransformer 实为 L316-380、C42 诊断消息措辞（3001/3201 用 "is not supported by the Java-only conversion pipeline"，仅 3101/3102 含 "must be isolated"）。
 > 2026-09-30 八次更新（第一批完成态核实）：经提交链与注册表双向核实，**C01/C02/C03/C37 均已实现并合入 dev-3.x**（C01 止于 48331c9c、在链默认开；C02 止于 ecc1376e、Implemented 默认关；C03+C37 止于 15d534a1、Implemented 默认关，catalogItems `C03, C37`）——三个条目的「缺失/部分」状态行与 §3.1 路线图 1/2/4 同步更正为已完成（各 pass 默认开启评审/sdk 基线等挂起项见各状态行）；对应四份设计文档加「2026-09-30 再基线」完成态记录。挂起未做：C01 M5（sdk 全量比对、ROI 旧码下线）、C02 M4 默认开启评审与 sdk 计数门、两个新 pass 的默认翻转。
 > 2026-09-30 九次更新（第二批完成态核实 + worktree 清理）：经提交链与注册表双向核实，**C04 与 C11–C14 均已实现并合入 dev-3.x**（C04 止于 b784b47f、Implemented 默认关；C11–C14 共用 member-desugar 族 pass、Implemented 默认关，分别止于 8f6032da/146fdda2/129cb473/2d25700e）——五个条目的「缺失」状态行、§3.1 路线图 7/12、§5.5 频率表 C04 行同步更正；注册表补齐 catalogItems 映射 `C01`（ref-out-in）与 `C04`（iterator-lowering，C11–C14 已带联合映射）并有测试锁定；五份设计文档加完成态记录。C01–C03/C11–C14 的 **7 个使命完成 worktree 及分支当日删除**（实现提交均已在主干）。仍挂起：C04 §7.2 项目级 fixture 与 §8 默认开启五门槛（try/finally 两半区原型、sdk 2887 站点基线、EF Core 画像）、member-desugar 默认翻转评审、C46 签名收口。
+> 2026-09-30 十次更新（C08 完成态补登 + C47/C49 占位补盘）：**C08/E17 JavaKeywords 经核实已完整落地并接入统一链**（Core 7 文件 `JavaKeywords/` + CLI 适配器 `JavaKeywordsPassAdapter` + 门面，PassCatalog Implemented 默认关；单测/项目/CLI/SampleJavaKeywordSolution 齐备）——九次更新漏登，现补正 §0.1/§0.2/E17/§3.1。同时**注册表新增两个 Stub 占位**：`extension-members`（catalogItems C49，RunAfter extension-methods）与 `equality-concat`（catalogItems C47，RunAfter member-desugar）；java-keywords 的 RunAfter 同步锚定这两个占位，链尾测试继续成立。计数不变（52 项）。
 
 ---
 
 ## 0. 摘要
 
-### 0.1 已接入 `convert-project` 的 preprocessor：14 个
+### 0.1 已接入 `convert-project` 的 preprocessor：15 个
 
 当前在 `src/CSharpToJava.CLI/Program.cs` 的 `ConvertProject` 中按固定顺序串联（入口块行号见 §2.A）：
 
@@ -37,12 +38,13 @@
 | E12 | ArrayMethodRewriter（数组方法/多维数组） | `.cs2j-array-src` | **关（opt-in）** | 已实现（配套 Cs2jArray 支撑库） |
 | E13 | ReadOnlyStructMaker（struct 只读化） | `.cs2j-readonly-src` | 开 | 已实现 |
 | E14 | GotoEliminator（goto/label→状态机） | `.cs2j-no-goto-src` | 开 | 已实现 |
+| E17 | JavaKeywords（Java 保留字归一化、operator true/false 降级） | `.cs2j-java-keywords-src` | **关（opt-in）** | 已实现（2026-09-30 补登） |
 
-### 0.2 未接入但已存在/已设计：3 个
+### 0.2 未接入但已存在/已设计：1 个
 
-- **E15 RefOutInPreprocessor —— 部分实现（Core + 单测完成，CLI/流水线未集成，Java 衔接未定）**。Core 9 个文件齐备（`src/CSharpToJava.Core/RefOutInPreprocessor/`），有设计与实施文档（`docs/superpowers/specs/2026-09-28-ref-out-in-preprocessor-design.md`、`docs/superpowers/plans/2026-09-28-ref-out-in-preprocessor.md`），但**没有** `ProjectRefOutInPreprocessor.cs`，`Program.cs` 无任何接线；唯一引用是 `tests/CSharpToJava.ProjectTests/RefOutInRewriterUnitTests.cs`。生产路径仍走 Java 侧 holder（见 §2.A E15）。
+- **E15 RefOutInPreprocessor —— 已接入统一链（catalog id `ref-out-in`，catalogItems C01，默认开）**：第八次更新已核实，Core 9 文件（`src/CSharpToJava.Core/RefOutInPreprocessor/`）经 CLI 适配器 `RefOutInPassAdapter` 接入，配套 Cs2jRefOutIn 支撑库注入与项目级测试齐备；M5（sdk 全量比对、旧码下线）仍挂起。
 - **E16 LinqRewrite / LinqQueryDesugarer —— 已实现但属"嵌入式通道"**：它本身是 `CSharpSyntaxRewriter`，但运行在主转换 pass 内部（`ProjectPasses.cs:164,301,351`、`SingleFilePasses.cs:40,64,82`），没有独立 verb、没有中间目录与 build/test 验证。规模极大（`LinqRewriter.Rules.cs` 2156 行、`LinqRewriter.cs` 1624 行）。
-- **E17 JavaKeywords（Java 保留字归一化）—— 设计已确认，完全未实施**：`docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md`（状态行 L5「设计已确认，待实施」），规划的 `src/CSharpToJava.Core/JavaKeywords/` 目录当前不存在。
+- ~~**E17 JavaKeywords —— 设计已确认，完全未实施**~~：**2026-09-30 第十次更新核实已完整落地**，见 §0.1 E17 行；Core 目录 `src/CSharpToJava.Core/JavaKeywords/`（7 文件）、设计文档状态行已加完成态记录。
 
 ### 0.3 实验性 Java2 管线下的 11 个 Lowering pass
 
@@ -261,14 +263,14 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 验证 | `LinqProceduralPhase1..10Tests.cs`、`LinqChainRefactoringTests.cs`、`LinqQueryDesugarTests.cs`、`LinqObservabilityPhase10Tests.cs` 等数十项 |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/linq/query-expression-overview（query→method 官方映射） |
 
-#### E17 JavaKeywords（已设计未实施）
+#### E17 JavaKeywords（已实现，2026-09-30 补登）
 | 字段 | 内容 |
 |------|------|
 | 分类 | 1.8 其他（命名安全） |
 | 目标模式 | ① 全部符号种类中派生为 Java 保留字的标识符（含 `true/false/null/_/yield`、`@event`、PascalCase `Assert` 等）统一改名 `XxxValue` + 碰撞消歧 + `nameof` 字面量化（规则 JK-0~JK-4）；② `operator true/false` 声明与全部布尔使用点（`if/?:/when/&&/||`）编译器同构降级为 `IsTrue/IsFalse`（JK-5~JK-8） |
-| 证据 | 完整设计 `docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md`（状态 L5；管线位置 L92-97「EliminateGoto 之后、转换之前，默认关，独立 verb `java-keywords`」；规划目录 L50-65）；转换器侧现存兜底：`Context/JavaNaming.cs:132-165`（`IsJavaKeyword`）、`Transformers/Member/OperatorTransformer.cs:44-45,81-82,284-285`；相关测试 `JavaReservedWordTests.cs`、`KeywordBackingFieldAssignmentTests.cs`、`OperatorMethodNameCollisionTests.cs` |
-| 状态 | **缺失（设计完成待实施）**；按设计即 **C08** |
-| 验证 | 设计 §8 已规划：`JavaKeywordRewriterUnitTests.cs` + `SampleJavaKeywordSolution` 项目级 fixture + CLI/一致性测试 |
+| 证据 | 完整设计 `docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md`；**实现已落地**：Core `src/CSharpToJava.Core/JavaKeywords/`（SyntaxFacts、KeywordRenamingRewriter、OperatorTrueFalseRewriter、options/statistics/diagnostics 等 7 文件）、CLI 门面 `ProjectJavaReservedWordPreprocessor` + 适配器 `JavaKeywordsPassAdapter`，统一链 Implemented（默认关）；转换器侧历史兜底 `Context/JavaNaming.cs:132-165` 等仍在 |
+| 状态 | **已实现（默认关；默认开启收口随当日统一翻转）**；即 **C08**。九次更新漏登，第十次补正 |
+| 验证 | 已建：`JavaReservedWord*Tests`（单测）、`JavaKeywordProjectTests`（项目级 SampleJavaKeywordSolution）、`JavaKeywordCLITests`、PassChainOrderTests；默认开启验证见任务一 |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/（C# 关键字索引；Java 保留字以 docs.oracle.com JLS §3.9 为准） |
 
 ---
@@ -934,7 +936,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 语言层：C# 语言规范运算符重载决议与 `+` 的 Concat lowering；Java 语言规范 `==` 同一性与字符串拼接 null 转换。**仓库现状待核实**（本条第一行动）：`BinaryExpressionTransformer` 已按操作数类型分派（C14 条目证据 `:133-144` 对 enum 操作数硬拒绝说明存在类型分派层）——string 分支是否存在、是否覆盖 `!=`/`(object)` 逃逸/`+` 的 null 语义/提升比较，需 grep 分派逻辑并跑「运行时构造等值串」「null + "a"」fixture；**若均已内联则本条降为观察项**（CsCore 收敛价值仍在：物化后 Java 侧删掉整个特判簇）。**2026-09-30 核实门结论（详见 C47 设计 §4.1）**：判据是 `GetSymbolInfo().Symbol` 而非公开 `BinaryOperatorKind`（Roslyn 4.12 五类相等公开 kind 全是 Equals/NotEquals、拼接是 Add）；string `==`（→`Objects.equals`，`BinaryExpressionTransformer.cs:96-104`）、`bool?` 特判、元组**已内联**；**四子面未覆盖、静默错值/不可编译**：`(object)` 逃逸比较、string `+`/`+=` null-as-empty、委托 `==` 调用列表值相等、record `==` 值相等；本条**不降观察项，按 P1 补全** |
 | 与现有通道关系 | C14 管用户自定义 `op_*` 声明与调用点，本条管**内置类型上编译器隐式绑定**的调用点，两者拼满分派面；`+` 物化与 E03（`??`）、C23（插值→`string.Format/Concat`）产物同族；enum `==` 预期已被 E04/转换器吸收；LINQ 表达式树内跳过（§4 风险 8） |
 | 优先级 | **P1**（核实门：已内联→观察项收档；未覆盖→与 C31/C34 同列 §4.12 最高危静默错误输出并立即补，见 §4 风险 21） |
-| 状态 | **部分覆盖、需补**（2026-09-30 核实结论见设计 §4.1）：已内联 string `==`/`bool?`/元组（双侧 `bool?` 缺测试护栏）；`(object)` 逃逸、拼接 null 语义、委托值相等、record `==` 四子面静默错值/不可编译，按 P1 完整物化 |
+| 状态 | **部分覆盖、需补**（2026-09-30 核实结论见设计 §4.1）：已内联 string `==`/`bool?`/元组（双侧 `bool?` 缺测试护栏）；`(object)` 逃逸、拼接 null 语义、委托值相等、record `==` 四子面静默错值/不可编译，按 P1 完整物化。**注册表占位已补（2026-09-30 第十次更新）**：stub id `equality-concat`（RunAfter member-desugar），启用时 fail-fast CS2J9001 直到实现 |
 | 验证 | 核实行动见「证据」行；fixture：`new string("a".ToCharArray()) == "a"`、`!=`、`(object)s == t`、`null + "a"`（C# 得 "a"、Java 直译得 "nulla"）、多段 `+=`、`bool?` 三值、`(a,b)==("x","y")`、**委托值相等**（`(a+a)==(a+a)` 为 true；不同接收者的同方法 `o1.M==o2.M` 为 false）、**record `==`**（同值两实例为 true）；物化后中间树 build/test + Java 侧同语义用例 |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/equality-operators（**已核**：字符串序数相等/委托调用列表相等/元组相等/record 值相等）；https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/addition-operator（**已核**：null→空串） |
 | 六次补全（官方文档核对） | 官方 equality-operators/addition-operator 已核：① string `==` 为**大小写敏感的序数（ordinal）比较**（Java `String.equals` 同为序数——物化面干净）；② string `+` 任一操作数 null → 空串替换（官方原文「the string representation of null is an empty string」）；③ **委托 `==` = 调用列表值相等**（⑥ 原表述「引用比较」已修正）；④ 引用类型默认 `==` 为同一性**但可重载**（C14 运算符物化后仍需调用点绑定分类，`object` 静态类型除外）；⑤ 元组 `==` 逐元素；⑥ record `==` 值相等（新增 ⑦） |
@@ -963,7 +965,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 语言层：C# 14 extension members（官方语言参考「Extension member declarations」：顶层非泛型静态类可用 extension 块声明扩展成员）；.NET 10 BCL 新 API 实际使用。**仓库现状（2026-09-30 已核实）**：`Pipeline/ExtensionMethodIndex.cs` 与 PropertyTransformer 尚不识别 extension 块语法；**先决已闭环**——Microsoft.CodeAnalysis 已由 4.12 升级至 **5.0.0**（探针实测 4.14 中 extension 块仍为预览：枚举最高 CSharp13、Latest 下 16 个语法错误；§4 风险 20，提交 3c0d37bd），声明/调用侧物化待实施 |
 | 与现有通道关系 | 与 C19 一体（共用扩展方法索引与接收者绑定基建，同通道或紧邻批次）；产物与 C11/C12 对齐使 Java 侧零特判；须晚于 E13（struct receiver 扩展属性与只读化交互）；被 E17 改名表覆盖 |
 | 优先级 | **P1**（.NET 10 目标基线直接命中；与 C50/C51 同属「Roslyn 版本先决」批） |
-| 状态 | **先决批已完成（2026-09-30）**：Roslyn 升级 **5.0.0**（GA 节点 ExtensionBlockDeclarationSyntax，Latest 下零语法错误，提交 3c0d37bd）；空条件赋值语法树形状变化的 MS-5 回归已同步修复，全量 3365 测试通过；声明/调用侧物化待实施 |
+| 状态 | **先决批已完成（2026-09-30）**：Roslyn 升级 **5.0.0**（GA 节点 ExtensionBlockDeclarationSyntax，Latest 下零语法错误，提交 3c0d37bd）；空条件赋值语法树形状变化的 MS-5 回归已同步修复，全量 3365 测试通过；声明/调用侧物化待实施。**注册表占位已补（2026-09-30 第十次更新）**：stub id `extension-members`（RunAfter extension-methods），启用时 fail-fast CS2J9001 直到实现 |
 | 验证 | 中间树 build/test；fixture：扩展属性 get/set、扩展运算符调用点、静态扩展方法（接收者类型名限定调用 `IEnumerable<int>.Generate(...)`）、泛型 receiver、`a.ExtProp.B` 链式、与 `using static`/别名组合 |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/extension（**已核**：成员种类/签名唯一性/泛型参数位置/C# 15 扩展索引器）；https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14 |
 | 六次补全（官方文档核对） | 官方 extension 页已核：成员种类 = 方法/属性/**运算符**/索引器（**索引器 C# 15 起为预览**——C# 14 基线 parse 层即拒绝，防线登记归 C52）；同一静态类内（含多个 extension 块）成员签名必须**唯一**（receiver 计入签名）；泛型参数位置规则：receiver 使用 → 声明在块上，仅成员使用 → 声明在成员上，不能两处同名；静态扩展调用语法为**接收者类型名限定**（含泛型类型名）；新形态与经典 `this` 参数静态方法 IL 相同、源兼容——**物化最简路径为改写回经典形态**（扩展属性/运算符生成静态方法对） |
@@ -1026,7 +1028,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 5. **C05 enum 声明归一**（P1，扩 E04；与 C03 同批验证 enum switch）。
 6. **C07 struct 值语义补全**（P1，扩 E13，回收 StructCloneHelper）。
 7. ~~**C04 yield 迭代器降级**~~ **已完成（自包含形态，2026-09-29 止于 b784b47f）**：iterator-lowering Implemented 默认关（RunAfter 锚 make-readonly；Core 9 文件 + 适配器 + 单测/顺序锁）；§7.2 项目级 fixture 与 §8 默认开启五门槛（try/finally 两半区原型、sdk 2887 站点基线、EF Core 画像）仍挂起；CS2J0405 体内 lambda 捕获形态仍以 C32+C45 为前置，故原「前置依赖」对**全量形态**继续成立。
-8. **C08 JavaKeywords 落地**（P1，设计完备；按 spec 必须在链尾，默认关）。
+8. ~~**C08 JavaKeywords 落地**~~ **已完成（2026-09-29 落地，2026-09-30 第十次更新补登）**：java-keywords Implemented（默认关；设计完备，链尾锚定）；默认开启随当日统一翻转收口。
 9. **C06 unsafe/FFM**（P1，按 fixed→stackalloc→指针→extern 分规则滚动，依赖 C01）。
 10. **C34 decimal 运算归一**、**C10 JSON/Attribute 窄版** 与 **C09 ThreadStatic**（P2，三者互不依赖可并行；C34 有 compat Decimal 现成方法面与 E09 范式）。
 11. **C32 → C45 闭包提升族**（P2，先落可变捕获 holder（C32），再按无捕获→this→值捕获→嵌套递归分阶段全量 display class 提升（C45）；复用 E02 捕获分析基建，删转换器内隐式状态；是 C04 **CS2J0405 捕获形态全量化**与 C18 的前置——C04 自包含 M1 形态已先行落地，见路线 7）。

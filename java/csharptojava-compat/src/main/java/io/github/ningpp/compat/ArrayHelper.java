@@ -489,6 +489,44 @@ public class ArrayHelper {
         return result;
     }
 
+    // ---- C31 range slices (copy semantics)----
+
+    public static <T> T[] slice(T[] array, int offset, int count) {
+        return Arrays.copyOfRange(array, offset, offset + count);
+    }
+
+    public static int[] slice(int[] array, int offset, int count) {
+        return Arrays.copyOfRange(array, offset, offset + count);
+    }
+
+    public static long[] slice(long[] array, int offset, int count) {
+        return Arrays.copyOfRange(array, offset, offset + count);
+    }
+
+    public static short[] slice(short[] array, int offset, int count) {
+        return Arrays.copyOfRange(array, offset, offset + count);
+    }
+
+    public static byte[] slice(byte[] array, int offset, int count) {
+        return Arrays.copyOfRange(array, offset, offset + count);
+    }
+
+    public static double[] slice(double[] array, int offset, int count) {
+        return Arrays.copyOfRange(array, offset, offset + count);
+    }
+
+    public static float[] slice(float[] array, int offset, int count) {
+        return Arrays.copyOfRange(array, offset, offset + count);
+    }
+
+    public static boolean[] slice(boolean[] array, int offset, int count) {
+        return Arrays.copyOfRange(array, offset, offset + count);
+    }
+
+    public static char[] slice(char[] array, int offset, int count) {
+        return Arrays.copyOfRange(array, offset, offset + count);
+    }
+
     public static <T> int indexOf(T[] array, Object value) {
         for (int i = 0; i < array.length; i++) {
             if (Objects.equals(array[i], value)) return i;

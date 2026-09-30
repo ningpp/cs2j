@@ -4825,33 +4825,37 @@ class ConvertProjectOptions
         HelpText = "Path to JSON config listing qualified type names to force as readonly structs (default: config/ReadOnlyStructOverrides.json)")]
     public string? ReadOnlyOverrides { get; set; }
 
-    [Option("record-readonly", Default = false,
-        HelpText = "Enable the record-to-readonly-record preprocessing step (non-readonly records to readonly records)")]
-    public bool RecordReadOnly { get; set; }
+    [Option("no-record-readonly", Default = false,
+        HelpText = "Disable the default record-to-readonly-record preprocessing step (non-readonly records to readonly records)")]
+    public bool NoRecordReadOnly { get; set; }
 
     [Option("record-readonly-overrides", Required = false,
         HelpText = "Path to RecordReadOnlyOverrides.json (default: config/RecordReadOnlyOverrides.json)")]
     public string? RecordReadOnlyOverrides { get; set; }
 
-    [Option("java-keywords", Default = false,
-        HelpText = "Enable the Java reserved-word normalization preprocessing step (rename identifiers that clash with Java keywords, downgrade operator true/false)")]
-    public bool JavaKeywords { get; set; }
+    [Option("no-java-keywords", Default = false,
+        HelpText = "Disable the default Java reserved-word normalization preprocessing step (rename identifiers that clash with Java keywords, downgrade operator true/false)")]
+    public bool NoJavaKeywords { get; set; }
 
     [Option("java-keywords-overrides", Required = false,
         HelpText = "Path to JavaKeywordsOverrides.json (default: config/JavaKeywordsOverrides.json)")]
     public string? JavaKeywordsOverrides { get; set; }
 
-    [Option("member-desugar", Default = false,
-        HelpText = "Enable the property desugaring preprocessing step (properties become get_X/set_X methods plus backing fields)")]
-    public bool MemberDesugar { get; set; }
+    [Option("no-member-desugar", Default = false,
+        HelpText = "Disable the default member desugaring preprocessing step (properties become get_X/set_X methods plus backing fields)")]
+    public bool NoMemberDesugar { get; set; }
 
     [Option("member-desugar-overrides", Required = false,
         HelpText = "Path to MemberDesugarOverrides.json (default: config/MemberDesugarOverrides.json)")]
     public string? MemberDesugarOverrides { get; set; }
 
-    [Option("enable-array-method", Default = false,
-        HelpText = "Run array-method preprocessor before conversion")]
-    public bool EnableArrayMethod { get; set; }
+    [Option("no-array-method", Default = false,
+        HelpText = "Disable the default array-method preprocessing step")]
+    public bool NoArrayMethod { get; set; }
+
+    [Option("no-iterator-lowering", Default = false,
+        HelpText = "Disable the default iterator-lowering preprocessing step (yield state machine)")]
+    public bool NoIteratorLowering { get; set; }
 
     [Option("enable-pass", Required = false, Separator = ',',
         HelpText = "Enable a preprocess pass by id, overriding defaults and legacy flags (repeatable or comma-separated; use the 'preprocess --list-passes' verb for ids)")]
@@ -4879,6 +4883,13 @@ class ConvertProjectOptions
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
     public bool VerifyTests => !NoVerifyTests;
+
+    /// <summary>Passes whose enable flags were flipped to default-on; legacy toggle names preserved.</summary>
+    public bool RecordReadOnly => !NoRecordReadOnly;
+    public bool JavaKeywords => !NoJavaKeywords;
+    public bool MemberDesugar => !NoMemberDesugar;
+    public bool ArrayMethod => !NoArrayMethod;
+    public bool IteratorLowering => !NoIteratorLowering;
 
     /// <summary>Resolve PreferStreamApi: explicit flags override, otherwise null (version-based default).</summary>
     public bool? PreferStreamApi => PreferStreamApiFlag ? true : PreferProceduralFlag ? false : null;

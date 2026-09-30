@@ -2,8 +2,8 @@
 
 **日期**: 2026-09-28
 **范围**: 新增 C#→C# 预处理器 `index-range`（Core `IndexRange/` + CLI 薄适配器），在 C# 层把 from-end 索引（`^n`）与范围切片（`a..b`）显式化为长度相关的 `int` 索引与 `(offset, count)` 调用形态；不改任何 C#→Java 转换代码（转换器侧冗余分支的下掉为后续独立 PR）
-**状态**: 设计已确认，待实施
-**注册表**: stub `index-range`（[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L80-L89)，catalogItems C31，Stage=Expression，RunAfter=`array-method`，中间目录 `.cs2j-index-range-src`）
+**状态**: 已实现（M1–M3 落地：Core 去糖 + CLI 适配器 + Cs2jArray Slice + compat slice；23 个 Core 单测全绿、.NET 半区行为等价、转换后工程 Release build 通过）
+**注册表**: `Implemented` 条目 `index-range`（[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)，catalogItems C31，Stage=Expression，RunAfter=`array-method`，中间目录 `.cs2j-index-range-src`，默认启用）；原 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) stub 已删除
 **base**: `f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`）
 
 ---
@@ -100,7 +100,7 @@ span[i..j] → span.Slice(i, j - i)         // Span/Memory/ArraySegment：视图
 | IntermediateDirectoryName | `.cs2j-index-range-src`（与 stub 一致，零指纹迁移成本） |
 | Stage | `Expression` |
 | Status | `Implemented` |
-| DefaultEnabled | **false**（落地即 opt-in；满足 §8 门槛后单独 PR 翻 true） |
+| DefaultEnabled | **true**（与设计原定 false 不同：实施同期确立「已落地 pass 一律默认开」方针，C31 随落地直接默认开；M4 自定义模式未列入本次范围，相关站点保持 IR120/IR130 显式拒绝） |
 | RunAfterIds | `[ "array-method" ]`（维持 stub 锚点）。描述符须**物理插入** `Implemented` 表 array-method 与 make-readonly 两条目之间：index-range 与 make-readonly 都只 RunAfter array-method，拓扑平局按注册表声明顺序裁决（[PassRegistry.cs:100-117](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L100-L117)），插入位置即执行位置，无需改 make-readonly 描述符；该顺序由 PassChainOrderTests 锁定 |
 | SupportLibrary | `Cs2jArray`（复用，不新建支撑工程；见 §3.2） |
 | NeedsSemanticModel | `true` |
@@ -257,7 +257,7 @@ src/CSharpToJava.Core/IndexRange/
 
 - [ProjectPreprocessorsConsistentTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs) 增 index-range 条目（存在性、目录名 `.cs2j-index-range-src`）；
 - 更新 `PassChainOrderTests`（拓扑序含 index-range 且位于 array-method 之后）与 `PassStubCatalogTests`（stub 总数 −1、index-range 不再是 stub）；
-- 新增 `IndexRangeCLITests`（仿 `PreprocessVerbCLITests`/`JavaKeywordCLITests` 的项目级驱动）：默认关、`--enable-pass index-range` 开启、`preprocess --pass index-range -s/-d` 执行、保留目录注册、`--list-passes` 显示 Implemented/默认关、IR110/IR120 失败退出码非零且不残留中间目录（stub 拒绝语义已有先例：启用未实现 stub 在建目录前失败）。
+- 新增 `IndexRangeCLITests`（仿 `PreprocessVerbCLITests`/`JavaKeywordCLITests` 的项目级驱动）：默认开、`preprocess --pass index-range` 隔离执行、`--enable-pass` 面可达、保留目录注册、`--list-passes` 显示 Implemented/默认开、IR110/IR120 失败退出码非零且不残留中间目录（stub 拒绝语义已有先例：启用未实现 stub 在建目录前失败）。
 
 ### 7.4 验证命令
 
@@ -269,6 +269,8 @@ dotnet test -c Release tests/CSharpToJava.ConversionTests/CSharpToJava.Conversio
 ```
 
 ## 8. 默认开启验收门槛
+
+> **实施备注（2026-09-28）**：C31 未走 opt-in 过渡——随 M1–M3 落地直接 `DefaultEnabled=true`（任务一方针：已落地 pass 一律默认开）。下表门槛中，第 1/2/4 条已满足（Release build、23 单测全绿、residual 闸门、幂等、四象限支撑库组合经 .NET 半区验证）；第 3 条 Java 半区仅完成 compat `slice` 方法面齐备与 .NET 半区行为等价，Java 侧 e2e 与第 5 条 sdk 画像试跑留作跟进；第 6 条按设计保留转换器侧安全网。M4 范围（自定义模式）未实施，相关站点继续显式诊断。
 
 opt-in 落地后翻 `DefaultEnabled=true` 的全部条件：
 
@@ -288,13 +290,13 @@ opt-in 落地后翻 `DefaultEnabled=true` 的全部条件：
 | M3 string/Span 特化 | `Substring` 三变体/恒等、Span/Memory/ArraySegment `Slice` 视图分派、`..` 拷贝 vs 恒等语义、Java 半区 e2e、四象限组合、副作用行为测试补齐、CLI/链序/一致性测试、Release 全绿 | ~400 行 + fixture |
 | M4 自定义模式 + 默认开 | IOperation 模式识别收编自定义 int 索引器/Slice（含扩展方法）；评估独立 Index/Range 局部值配对降级（或保持 IR120，依 Q2 评审）；`?[]` 与 C35 联合策略；sdk 画像试跑与 IR120 清单评审；满足 §8 后翻默认开 | ~400 行/扫描 |
 
-M1–M4 全程保持 `DefaultEnabled=false`；每个里程碑自身须 Release build/test 全绿，不留半残中间树。
+M1–M3 已落地并随「已落地 pass 默认开」方针直接 `DefaultEnabled=true`；M4（自定义模式）未实施。每个里程碑自身须 Release build/test 全绿，不留半残中间树。
 
 ## 10. 风险
 
 | # | 风险 | 证据/说明 | 缓解 |
 |---|---|---|---|
-| R1 | **静默错误输出族**：现状不报错却产不可编译 Java，漏一个形态即延续风险 12 | S1–S3（[ElementAccessTransformer.cs:219-225](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ElementAccessTransformer.cs#L219-L225)/[:294-299](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ElementAccessTransformer.cs#L294-L299)、[ControlFlowTransformer.cs:642-651](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L642-L651)） | 不可判定即 Error；residual 闸门 IR140；默认关 + §8 门槛 |
+| R1 | **静默错误输出族**：现状不报错却产不可编译 Java，漏一个形态即延续风险 12 | S1–S3（[ElementAccessTransformer.cs:219-225](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ElementAccessTransformer.cs#L219-L225)/[:294-299](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ElementAccessTransformer.cs#L294-L299)、[ControlFlowTransformer.cs:642-651](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ControlFlowTransformer.cs#L642-L651)） | 不可判定即 Error；residual 闸门 IR140；默认开 + §8 门槛（未覆盖站点全部显式诊断） |
 | R2 | **双求值**：现有 hat 直映把接收者文本输出两次，副作用场景静默语义错 | S4（[:228-236](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ElementAccessTransformer.cs#L228-L236)）；range 分支默认 hi 亦重复接收者 | TempLifter 单次求值 + 探针行为测试（非文本断言）；白名单外一律提升 |
 | R3 | **接收者误判**：var 解析失败/dynamic/跨工程元数据近似下分类错误会产错形态 | 转换器已有 VarTypeMap 兜底近似，本 pass 不得继承该猜测作风 | 只用 SemanticModel 绑定；Unknown→IR110；fixture 跨工程验证；整树 build/test 兜底 |
 | R4 | **拷贝/视图语义混淆**：数组 range 是拷贝、Span 是视图、string `..` 恒等；若统一助手会出数据级 bug | catalog C31 验证条目明确点名「C# 切片拷贝语义 vs Java subList 视图语义」 | IR-3 按 ReceiverKind 分派；`arr[..]` 强制 Slice 拷贝；.NET 半区变异探针测试 |

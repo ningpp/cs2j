@@ -150,6 +150,18 @@ namespace Cs2jArray
             return result;
         }
 
+        // ---- C31 range slices (copy semantics)----
+
+        public static T[] Slice<T>(T[] array, int offset, int count)
+        {
+            var result = new T[count];
+            for (int i = 0; i < count; i++)
+            {
+                result[i] = array[offset + i];
+            }
+            return result;
+        }
+
         public static int IndexOf(System.Array array, object value) => System.Array.IndexOf(array, value);
 
         public static int IndexOf(System.Array array, object value, int startIndex) => System.Array.IndexOf(array, value, startIndex);

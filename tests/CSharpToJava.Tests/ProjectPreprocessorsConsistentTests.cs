@@ -136,6 +136,12 @@ public class ProjectPreprocessorsConsistentTests
             Assert.Equal(".cs2j-member-desugar-src",
                 PassCatalog.ImplementedById(PassIds.MemberDesugar).IntermediateDirectoryName);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.MemberDesugarPassAdapter));
+
+            // index-range (C31)：无门面类（设计决定），目录常量挂在 CLI 适配器上；
+            // 默认开（defaultEnabled: true），经 --pass index-range 隔离/ --enable-pass 追加。
+            Assert.Equal(".cs2j-index-range-src",
+                PassCatalog.ImplementedById(PassIds.IndexRange).IntermediateDirectoryName);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.IndexRangePassAdapter));
         }
         finally
         {
