@@ -53,6 +53,7 @@ public sealed partial class MemberDesugarPreprocessor
         var eventPlans = active.OfType<Events.EventPlan>().ToList();
         var indexerPlans = active.OfType<Indexers.IndexerPlan>().ToList();
         var operatorPlans = active.OfType<Operators.OperatorPlan>().ToList();
+        var finalizerPlans = active.OfType<Finalizers.FinalizerPlan>().ToList();
         var plannedProperties = propertyPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         var plannedEvents = eventPlans
@@ -64,8 +65,11 @@ public sealed partial class MemberDesugarPreprocessor
         // Info 级白名单（inc/dec、门控 &/|）在重写期计数：文件含 operator 声明时
         // 即使无任何 plan 也过一遍 operator rewriter（树不变 → 计数后按 clean 跳过）。
         var hasOperatorDecls = root.DescendantNodes().OfType<OperatorDeclarationSyntax>().Any();
+        // C39：含终结器声明的文件绝不能被 clean 跳过，否则 A 档零诊断（FN-5 信号真空）。
+        var hasDestructorDecls = root.DescendantNodes().OfType<DestructorDeclarationSyntax>().Any();
         if (plannedProperties.Count == 0 && plannedEvents.Count == 0
-            && plannedIndexers.Count == 0 && plannedOperators.Count == 0 && !hasOperatorDecls)
+            && plannedIndexers.Count == 0 && plannedOperators.Count == 0 && !hasOperatorDecls
+            && !hasDestructorDecls)
         {
             statistics.FilesSkippedClean++;
             return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
@@ -80,6 +84,15 @@ public sealed partial class MemberDesugarPreprocessor
         // 语义查询必须绑定自有模型）；索引器最后。事件 plan 归属键使用「含类型::事件名」显示串，
         // 运算符 plan 归属键使用「含类型::op 名(参数):返回」（设计 §4.6）。
         var workingRoot = root;
+        // C39（M1）：在属性阶段之前，基于原始 root + 原始 semanticModel 先跑 finalizer rewriter。
+        // M1 只发诊断、树不变（Changed=false）；M2 将在此顺序上删除成员。
+        if (hasDestructorDecls)
+        {
+            var finalizerRewriter = new Finalizers.FinalizerRewriter(
+                semanticModel, finalizerPlans,
+                _options, statistics, diagnostics, filePath);
+            workingRoot = (CompilationUnitSyntax)finalizerRewriter.Visit(workingRoot)!;
+        }
         if (plannedProperties.Count > 0)
         {
             var rewriter = new Properties.PropertyUseSiteRewriter(

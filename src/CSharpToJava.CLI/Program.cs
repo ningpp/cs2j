@@ -3300,6 +3300,18 @@ public class Program
     {
         public string[]? Force { get; set; }
         public string[]? Skip { get; set; }
+        /// <summary>C39 rules.finalizers 子节（缺省整节 → Reject 默认）。</summary>
+        public FinalizerSets? Finalizers { get; set; }
+    }
+
+    /// <summary>rules.finalizers 配置形态（C39 设计 §2 决策 9）。M1 仅 Policy 生效；
+    /// ForceRemoveTypes/EmitRemovalMarkerComment/ExtractRemovedBody 为 M2 承载透传。</summary>
+    private sealed class FinalizerSets
+    {
+        public string? Policy { get; set; }
+        public string[]? ForceRemoveTypes { get; set; }
+        public bool? EmitRemovalMarkerComment { get; set; }
+        public bool? ExtractRemovedBody { get; set; }
     }
 
     private static CSharpToJava.Core.MemberDesugar.MemberDesugarOptions BuildMemberDesugarOptions(
@@ -3326,11 +3338,12 @@ public class Program
 
         var force = new HashSet<string>(StringComparer.Ordinal);
         var skip = new HashSet<string>(StringComparer.Ordinal);
+        MemberDesugarOverrideSets? parsed = null;
         if (path != null && File.Exists(path))
         {
             try
             {
-                var parsed = System.Text.Json.JsonSerializer.Deserialize<MemberDesugarOverrideSets>(
+                parsed = System.Text.Json.JsonSerializer.Deserialize<MemberDesugarOverrideSets>(
                     File.ReadAllText(path)) ?? new MemberDesugarOverrideSets();
                 if (parsed.Force != null) force.UnionWith(parsed.Force);
                 if (parsed.Skip != null) skip.UnionWith(parsed.Skip);
@@ -3349,6 +3362,36 @@ public class Program
             ForceQualifiedNames = force,
             SkipQualifiedNames = skip,
             Strict = strict,
+            Finalizers = BuildFinalizerOptions(parsed?.Finalizers, path),
+        };
+    }
+
+    /// <summary>映射 rules.finalizers 子节（C39）：Policy 大小写不敏感映射 Reject/Remove/CleanerGuide，
+    /// 缺失/非法值回退 Reject；沿用族惯例（配置缺失/解析失败 → Warning 空集继续，不致命）。</summary>
+    private static CSharpToJava.Core.MemberDesugar.Finalizers.FinalizerOptions BuildFinalizerOptions(
+        FinalizerSets? sets, string? sourcePath)
+    {
+        var policy = CSharpToJava.Core.MemberDesugar.Finalizers.FinalizerPolicy.Reject;
+        if (!string.IsNullOrWhiteSpace(sets?.Policy))
+        {
+            if (Enum.TryParse<CSharpToJava.Core.MemberDesugar.Finalizers.FinalizerPolicy>(
+                    sets.Policy, ignoreCase: true, out var parsedPolicy))
+                policy = parsedPolicy;
+            else
+                Console.Error.WriteLine(
+                    $"[Warning] Invalid rules.finalizers Policy '{sets.Policy}' in {sourcePath}; " +
+                    "falling back to Reject.");
+        }
+
+        var forceRemove = new HashSet<string>(StringComparer.Ordinal);
+        if (sets?.ForceRemoveTypes != null) forceRemove.UnionWith(sets.ForceRemoveTypes);
+
+        return new CSharpToJava.Core.MemberDesugar.Finalizers.FinalizerOptions
+        {
+            Policy = policy,
+            ForceRemoveTypes = forceRemove,
+            EmitRemovalMarkerComment = sets?.EmitRemovalMarkerComment ?? false,
+            ExtractRemovedBody = sets?.ExtractRemovedBody ?? false,
         };
     }
 

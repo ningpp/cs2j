@@ -8,7 +8,8 @@ public enum MemberDesugarSeverity
 }
 
 /// <summary>CS2J51xx 诊断码。5100-5109 共享基建；5110-5129 property（C11）；
-/// 5130-5189 为 C12/C13/C14 预留。码位只追加不改号（设计 §6）。</summary>
+/// 5130-5189 为 C12/C13/C14 预留；5190-5199 留 C46；5200-5219 为 C39 终结器规则段。
+/// 码位只追加不改号（设计 §6 / C39 设计 §6）。</summary>
 public enum MemberDesugarDiagnosticCode
 {
     // 5100-5109 shared infrastructure
@@ -72,6 +73,20 @@ public enum MemberDesugarDiagnosticCode
     IncrementDecrementDeferred = 5181, // Info：移交 C17
     MetadataOnlyOperatorSite = 5182,   // Info：元数据-only 站点不动
     ResidualOperator = 5183,           // Warning（strict Error）：residual 闸门（OC-9）
+    // 5190-5199 预留给 C46，C39 禁止占用。
+    // 5200-5211 finalizer rules (C39, 设计 §6)。M1 仅 A 档显式诊断；
+    // 5201/5204/5210 为 M2 删除模式/residual 预留码位（本阶段不发射）。
+    FinalizerRejected = 5200,              // Warning（strict Error）：A 档显式拒绝，成员保留
+    FinalizerRemoved = 5201,               // Warning：B 档已删除 + sidecar（M2）
+    FinalizerDisposePattern = 5202,        // Info，仅 verbose：标准 Dispose 模式 + 配对
+    FinalizerRedundant = 5203,             // Info，仅 verbose：空体/仅 SafeHandle 字段，冗余
+    FinalizerRemoveRefused = 5204,         // Warning（strict Error）：B 档拒绝删除（M2）
+    FinalizerCriticalBlocked = 5205,       // Error（不可解除）：CriticalFinalizerObject 派生
+    FinalizerGcLifecycleSite = 5206,       // Info，仅 verbose：GC 生命周期 API 站点清点
+    FinalizerBaseChain = 5207,             // Info，仅 verbose：基类终结器链信息
+    FinalizerCleanerGuideUnsupported = 5208, // Error：Policy=CleanerGuide v1 未实现
+    FinalizerResidual = 5210,              // Warning（strict Error）：residual 对账不平（M2）
+    FinalizerSingleFileDegraded = 5211,    // Warning：单文件模式分析降级
 }
 
 public sealed record MemberDesugarDiagnostic(
@@ -142,6 +157,27 @@ public sealed class MemberDesugarStatistics
     public int IncrementDecrementDeferred { get; set; }
     public int MetadataOperatorSitesUntouched { get; set; }
 
+    // ---- C39 finalizers（M1：仅显式诊断，设计 §5.3/§9）----
+    /// <summary>检出的终结器 plan 数（仅在首个声明文件计入）。</summary>
+    public int FinalizersDetected { get; set; }
+    /// <summary>发射主报码（5200/5205/5208）的终结器数。</summary>
+    public int FinalizersReported { get; set; }
+    /// <summary>CriticalFinalizerObject 派生、被 CS2J5205 阻断数。</summary>
+    public int FinalizerCriticalBlocked { get; set; }
+    /// <summary>含终结器类型内 GC.ReRegisterForFinalize 站点总数。</summary>
+    public int FinalizerResurrectionSites { get; set; }
+    /// <summary>含终结器类型内 GC.SuppressFinalize 站点总数。</summary>
+    public int FinalizerSuppressFinalizeSites { get; set; }
+    /// <summary>基类链上存在基类终结器的 plan 数。</summary>
+    public int FinalizerChainsWithBaseFinalizer { get; set; }
+    // FN-2 六分类计数。
+    public int FinalizerEmpty { get; set; }
+    public int FinalizerDisposePattern { get; set; }
+    public int FinalizerSafeHandleOnly { get; set; }
+    public int FinalizerNativeRelease { get; set; }
+    public int FinalizerOther { get; set; }
+    public int FinalizerExtern { get; set; }
+
     /// <summary>按诊断码分桶的跳过数（设计 §6：按原因分组）。</summary>
     public Dictionary<MemberDesugarDiagnosticCode, int> SkippedByReason { get; } = new();
 }
@@ -166,6 +202,10 @@ public sealed class MemberDesugarOptions
     /// C# 3.0+ field-like event 的实际代码生成一致；InterlockedCompareExchange 为增强选项）。</summary>
     public EventSubscriptionPolicy EventSubscriptionPolicy { get; init; }
         = EventSubscriptionPolicy.Simple;
+
+    /// <summary>C39 终结器规则子节（rules.finalizers，设计 §2 决策 9）。Strict 沿用族级
+    /// <see cref="Strict"/>，不在子节内重复。</summary>
+    public Finalizers.FinalizerOptions Finalizers { get; init; } = new();
 }
 
 /// <summary>事件生成访问器的订阅线程安全模式（C13 D5）。Simple 与 Roslyn（C# 3.0+）

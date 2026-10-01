@@ -36,6 +36,9 @@ public class NumericBoundaryDecimalOpsProjectTests
                 new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
             EnumDeclarationOptionsFactory = () =>
                 new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
+            // 基线既有：C47 新增 required 工厂时漏更新本文件，补齐以恢复测试工程编译（与 NumericBoundaryProjectTests 同形）。
+            EqualityConcatOptionsFactory = () =>
+                new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
             EnablePassIds = new[] { PassId },

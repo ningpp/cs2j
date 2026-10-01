@@ -10,6 +10,7 @@ internal enum MemberDesugarKind
     Event,     // C13
     Operator,  // C14
     Signature, // C46 预留
+    Finalizer, // C39：置于最后，保证程序集发现排序中终结器规则最后运行
 }
 
 internal enum MemberDesugarOutcome
