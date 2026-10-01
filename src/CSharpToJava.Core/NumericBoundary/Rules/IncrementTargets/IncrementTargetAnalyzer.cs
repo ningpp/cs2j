@@ -24,7 +24,7 @@ internal enum TargetKind
     Property,
     Indexer,
 
-    /// <summary>Array element whose element type is enum (decision 15; decimal/custom/nint elements wait for M2).</summary>
+    /// <summary>Array element whose element type is enum/decimal/custom/nint (decision 15; M2 owns enum + decimal, the rest error).</summary>
     ArrayElementSpecial,
 
     /// <summary>Property/indexer/method symbol with RefKind != None (decision 16).</summary>
@@ -107,7 +107,9 @@ internal sealed record IncrementTargetClassification(
     ISymbol? Member,
     IMethodSymbol? GetMethod,
     IMethodSymbol? SetMethod,
-    bool IsStaticMember)
+    bool IsStaticMember,
+    /// <summary>RefKind of a ref-returning property/indexer/method target (decision 16); None otherwise.</summary>
+    RefKind RefKind = RefKind.None)
 {
     public bool IsPrefix => UnaryKind is SyntaxKind.PreIncrementExpression
         or SyntaxKind.PreDecrementExpression;
@@ -148,24 +150,42 @@ internal sealed class IncrementTargetAnalyzer
     /// <item>Property/Indexer members on a built-in/unsigned/enum core in BOTH
     /// checked and unchecked regions (checked output is bare arithmetic that
     /// the C15 sweep then helperizes);</item>
-    /// <item>enum array elements (decision 15);</item>
-    /// <item>unchecked simple residuals only (byte/ushort/uint/ulong and simple
-    /// enums). Checked simple locals/parameters/side-effect-free fields are
-    /// handed to C15 NB-8 and this rule leaves zero trace on them.</item>
+    /// <item>enum/decimal array elements (decision 15);</item>
+    /// <item>unchecked simple residuals (byte/ushort/uint/ulong and simple
+    /// enums) and every simple decimal site — decimal is immune to checked
+    /// context (decision 8).</item>
     /// </list>
-    /// M2 categories (Decimal/NativeInt/LiftedNullable/Dynamic/ExpressionTree/
-    /// CustomOp/RefReturning/EnumFromValue) and Event/Pointer/Conditional are
-    /// never owned here.
+    /// M2 additionally owns, so the planner can emit one loud diagnostic per
+    /// site (Error → NB-12 whole-file rollback; ref alias is rewritten with a
+    /// CS2J5340 Warning unless strict):
+    /// <list type="bullet">
+    /// <item>NativeInt (CS2J5333), LiftedNullable (CS2J5335), Dynamic
+    /// (CS2J5336), ExpressionTree (CS2J5337) and CustomOp (CS2J5338) on every
+    /// target shape;</item>
+    /// <item>RefReturning property/indexer/method targets (decision 16);
+    /// ref-readonly sites are owned only so planning can refuse them with
+    /// CS2J5332.</item>
+    /// </list>
+    /// EnumFromValue is a C05 fingerprint hook only (decision 7) and is never
+    /// owned until C05 lands. Event/Pointer/Conditional stay outside ownership.
     /// </summary>
     public static bool IsOwnedByRule(IncrementTargetClassification classification)
     {
-        if (classification.Core is ArithmeticCore.Decimal
-            or ArithmeticCore.NativeInt
+        // Owned-but-unsupported cores: the planner reports the matching
+        // CS2J53xx error and NB-12 rolls the file back, so the residual gate
+        // never sees them.
+        if (classification.Core is ArithmeticCore.NativeInt
             or ArithmeticCore.LiftedNullable
             or ArithmeticCore.Dynamic
             or ArithmeticCore.ExpressionTree
-            or ArithmeticCore.CustomOp
-            or ArithmeticCore.EnumFromValue)
+            or ArithmeticCore.CustomOp)
+        {
+            return true;
+        }
+
+        // C05 dual-contract fingerprint: detect-only hook (decision 7); no
+        // target shape on that core is rewritten until C05 lands.
+        if (classification.Core == ArithmeticCore.EnumFromValue)
         {
             return false;
         }
@@ -174,10 +194,18 @@ internal sealed class IncrementTargetAnalyzer
         {
             case TargetKind.Property:
             case TargetKind.Indexer:
+            case TargetKind.RefReturning:
                 return true;
             case TargetKind.ArrayElementSpecial:
-                return classification.Core == ArithmeticCore.EnumCast;
+                return classification.Core is ArithmeticCore.EnumCast
+                    or ArithmeticCore.Decimal;
             case TargetKind.SimpleDirect:
+                if (classification.Core == ArithmeticCore.Decimal)
+                {
+                    // decimal is unaffected by checked/unchecked context.
+                    return true;
+                }
+
                 // Checked simple built-in/enum sites stay with C15 (NB-8).
                 return !classification.IsChecked
                     && classification.Core is ArithmeticCore.UnsignedDomain
@@ -219,6 +247,16 @@ internal sealed class IncrementTargetAnalyzer
         var isChecked = ResolveIsChecked(unaryNode);
         var lift = ClassifyLift(unaryNode, isPrefix);
 
+        // Dynamic binds no storage shape at all (d.P, d.M(), d[...] are all
+        // dynamic), so classify the core before the symbol-shape branches —
+        // every dynamic site is CS2J5336 (decision 18).
+        if (operandType?.TypeKind == TypeKind.Dynamic)
+        {
+            return NewClassification(
+                kind, TargetKind.Other, ArithmeticCore.Dynamic, isChecked, lift,
+                operand, member: null);
+        }
+
         // ── target-dominated shapes (checked before symbol resolution) ──
 
         if (IsEventSymbol(symbol) || symbolInfo.CandidateSymbols.OfType<IEventSymbol>().Any())
@@ -248,7 +286,14 @@ internal sealed class IncrementTargetAnalyzer
 
         if (operand is ElementAccessExpressionSyntax)
         {
-            if (symbol is IPropertySymbol indexerProperty)
+            // Candidate symbols cover read-only / ref-readonly indexers the
+            // same way the property branch does (++ on a get-only indexer is
+            // CS0200/CS0443; ++ on a ref-readonly indexer is CS8331), so the
+            // illegal-target/ref-readonly diagnostics still name them.
+            var indexerProperty = symbol as IPropertySymbol
+                ?? symbolInfo.CandidateSymbols.OfType<IPropertySymbol>()
+                    .FirstOrDefault(property => property.IsIndexer);
+            if (indexerProperty != null)
             {
                 var indexerTarget = indexerProperty.RefKind != RefKind.None
                     ? TargetKind.RefReturning
@@ -274,6 +319,27 @@ internal sealed class IncrementTargetAnalyzer
                     isChecked,
                     special ? lift : Liftability.NotNeeded,
                     operand, member: null);
+            }
+
+            return NewClassification(
+                kind, TargetKind.Other, ArithmeticCore.BuiltinNarrow, isChecked, lift,
+                operand, member: null);
+        }
+
+        // ── ref-returning method invocation: M()++ is legal only when M
+        //    returns by ref (decision 16); a by-value method result is a
+        //    baseline CS1059/CS0211 error and stays Other/unowned. ──
+
+        if (operand is InvocationExpressionSyntax)
+        {
+            var invokedMethod = symbol as IMethodSymbol
+                ?? symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+            if (invokedMethod != null && invokedMethod.RefKind != RefKind.None)
+            {
+                return NewClassification(
+                    kind, TargetKind.RefReturning,
+                    ClassifyCore(unaryNode, operandType, operation, forComplexTarget: true),
+                    isChecked, lift, operand, invokedMethod, invokedMethod.RefKind);
             }
 
             return NewClassification(
@@ -349,12 +415,17 @@ internal sealed class IncrementTargetAnalyzer
         bool isChecked,
         Liftability lift,
         ExpressionSyntax operand,
-        ISymbol? member)
+        ISymbol? member,
+        RefKind refKind = RefKind.None)
     {
         var property = member as IPropertySymbol;
+        var effectiveRefKind = refKind != RefKind.None
+            ? refKind
+            : property?.RefKind ?? RefKind.None;
         return new IncrementTargetClassification(
             kind, target, core, isChecked, lift, property, operand, member,
-            property?.GetMethod, property?.SetMethod, member?.IsStatic ?? false);
+            property?.GetMethod, property?.SetMethod, member?.IsStatic ?? false,
+            effectiveRefKind);
     }
 
     /// <summary>All ++/-- sites in tree order (rules and tests iterate this).</summary>
@@ -475,13 +546,28 @@ internal sealed class IncrementTargetAnalyzer
 
         if (operation?.OperatorMethod is { MethodKind: MethodKind.UserDefinedOperator })
         {
+            // IT-8 true site (decision 11): CS2J5338 until the C14
+            // Increment/Decrement naming contract freezes. The desugared-call
+            // extension point is TryGetDesugaredIncrementContract; a 2026-10-01
+            // probe proved a hand-authored `static K Increment(K)` method never
+            // binds `k++` (overload resolution always selects op_Increment), so
+            // the desugared shape is unreachable in source and no invocation is
+            // rendered from source.
             return ArithmeticCore.CustomOp;
         }
 
         if (type?.TypeKind == TypeKind.Enum)
         {
-            // C05 FromValue dual fingerprint is M2 work; do not guess it here.
             return ArithmeticCore.EnumCast;
+        }
+
+        // C05 dual-contract fingerprint hook (decision 7): a non-enum value
+        // type carrying instance Value + static FromValue(U). Detection only;
+        // IsOwnedByRule keeps EnumFromValue unowned and no FromValue call is
+        // rendered until C05 lands and M2 wires the dual-form expansion.
+        if (HasC05FromValueFingerprint(type))
+        {
+            return ArithmeticCore.EnumFromValue;
         }
 
         if (type?.SpecialType == SpecialType.System_Decimal)
@@ -525,6 +611,57 @@ internal sealed class IncrementTargetAnalyzer
         return argument.TypeKind == TypeKind.Enum
             || NumericBoundarySyntaxFacts.IsIntegralType(argument)
             || argument.SpecialType == SpecialType.System_Decimal;
+    }
+
+    /// <summary>
+    /// C05 FromValue dual-form fingerprint (decision 7, M2 detection hook):
+    /// a non-enum value type exposing an instance <c>Value</c> property and a
+    /// static one-parameter <c>FromValue(U)</c> method, as C05 D6/D12 will
+    /// generate. C05 is not landed yet, so this is used to classify the core
+    /// as <see cref="ArithmeticCore.EnumFromValue"/> while ownership stays off;
+    /// the hook must never guess member text beyond the symbol fingerprint and
+    /// must never render a FromValue call on its own.
+    /// </summary>
+    private static bool HasC05FromValueFingerprint(ITypeSymbol? type)
+    {
+        if (type is not INamedTypeSymbol named || type.TypeKind == TypeKind.Enum)
+        {
+            return false;
+        }
+
+        if (!named.IsValueType)
+        {
+            return false;
+        }
+
+        var hasInstanceValue = named.GetMembers("Value")
+            .OfType<IPropertySymbol>()
+            .Any(property => !property.IsStatic);
+        if (!hasInstanceValue)
+        {
+            return false;
+        }
+
+        return named.GetMembers("FromValue")
+            .OfType<IMethodSymbol>()
+            .Any(method => method.IsStatic
+                && method.MethodKind == MethodKind.Ordinary
+                && method.Parameters.Length == 1);
+    }
+
+    /// <summary>
+    /// IT-8 desugaring extension point (decision 11): once C14 freezes the
+    /// Increment/Decrement member names in OperatorNames.cs, resolve the bound
+    /// desugared static factory here and render <c>Qual.Increment(old)</c> with
+    /// the return-conversion chain. The contract is deliberately reported as
+    /// unavailable for now: true sites are CS2J5338 and a hand-authored static
+    /// Increment/Decrement method can never bind <c>++/--</c> (2026-10-01 probe).
+    /// </summary>
+    internal static bool TryGetDesugaredIncrementContract(
+        IMethodSymbol? operatorMethod, out IMethodSymbol? desugaredMethod)
+    {
+        desugaredMethod = null;
+        return false;
     }
 
     /// <summary>

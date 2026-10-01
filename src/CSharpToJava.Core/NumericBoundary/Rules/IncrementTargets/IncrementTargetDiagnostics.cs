@@ -18,6 +18,8 @@ internal static class IncrementTargetDiagnostics
     public const string ReasonEvent = "event";
     public const string ReasonPointer = "pointer";
     public const string ReasonConditional = "conditional";
+    public const string ReasonRefReturn = "ref-return";
+    public const string ReasonRefReadOnly = "ref-readonly";
 
     public const string TempRoleReceiver = "receiver";
     public const string TempRoleIndexArg = "indexArg";
@@ -28,7 +30,8 @@ internal static class IncrementTargetDiagnostics
     /// <summary>CS2J5330 per-file expansion summary (verbose-only Info).</summary>
     public static string SiteInfo(
         int totalSites, int property, int indexer, int enumArray,
-        int enumSimple, int unsignedResidual, int postfixLifted, int unsignedMathCalls)
+        int enumSimple, int unsignedResidual, int postfixLifted, int unsignedMathCalls,
+        int decimalSites = 0, int refAliasSites = 0)
     {
         var parts = new List<string>
         {
@@ -38,6 +41,16 @@ internal static class IncrementTargetDiagnostics
             $"{enumSimple} enum-residual",
             $"{unsignedResidual} unsigned-residual",
         };
+        if (decimalSites > 0)
+        {
+            parts.Add($"{decimalSites} decimal");
+        }
+
+        if (refAliasSites > 0)
+        {
+            parts.Add($"{refAliasSites} ref-alias");
+        }
+
         var message = $"C17 increment-targets expanded {totalSites} site(s) ({string.Join(", ", parts)}); " +
             $"{postfixLifted} postfix site(s) lifted";
         if (unsignedMathCalls > 0)
@@ -69,6 +82,15 @@ internal static class IncrementTargetDiagnostics
 
     public static string DecimalExpanded(string siteDescription) =>
         $"decimal increment/decrement '{siteDescription}' was expanded to 'old ± 1m'; the Java-side " +
+        $"method surface is owned by C34 ({PreprocessDiagnosticCodes.IncrementTargetDecimalInfo})";
+
+    /// <summary>
+    /// CS2J5334 aggregate Info: one per file when any decimal site was
+    /// expanded. Decision (open-question ruling 2 / M2 task book): C34 is
+    /// already merged, so decimal is an Info dependency note, not a Warning.
+    /// </summary>
+    public static string DecimalExpandedInfo(int decimalSites) =>
+        $"{decimalSites} decimal increment/decrement site(s) were expanded to 'old ± 1m'; the Java-side " +
         $"method surface is owned by C34 ({PreprocessDiagnosticCodes.IncrementTargetDecimalInfo})";
 
     public static string NullableLifted(string siteDescription) =>

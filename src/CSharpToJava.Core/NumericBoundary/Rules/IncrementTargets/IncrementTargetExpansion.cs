@@ -142,9 +142,27 @@ internal static class IncrementTargetExpansion
             ArithmeticCore.BuiltinNarrow => BuildNarrowCore(operandType, oldValue, kind, classification.IsChecked),
             ArithmeticCore.EnumCast => BuildEnumCore(classification, operandType, oldValue, kind),
             ArithmeticCore.UnsignedDomain => BuildUnsignedCore(operandType, oldValue, decrement, classification.IsChecked, stats),
+            ArithmeticCore.Decimal => BuildDecimalCore(oldValue, kind),
             _ => throw new InvalidOperationException(
-                $"core {classification.Core} is not rewritable by C17 M1"),
+                $"core {classification.Core} is not rewritable by C17 M1/M2"),
         };
+    }
+
+    /// <summary>
+    /// IT-7 decimal core (decision 8): bare <c>old + 1m</c> / <c>old - 1m</c>
+    /// with no cast — checked context never affects decimal arithmetic. The
+    /// literal is built with the decimal <see cref="Literal"/> overload so the
+    /// token carries an actual decimal value and an <c>m</c> suffix; its bound
+    /// SpecialType.System_Decimal is what the downstream C34 pass keys on to
+    /// reduce this binary to <c>decimal.Add/Subtract</c>. No compat call is
+    /// emitted here (the Java method surface is C34's, CS2J5334 Info).
+    /// </summary>
+    private static ExpressionSyntax BuildDecimalCore(ExpressionSyntax old, SyntaxKind binaryKind)
+    {
+        var literalOneM = LiteralExpression(
+            SyntaxKind.NumericLiteralExpression,
+            Literal(1m));
+        return Binary(binaryKind, old, literalOneM);
     }
 
     private static ExpressionSyntax Binary(SyntaxKind kind, ExpressionSyntax left, ExpressionSyntax right)

@@ -292,14 +292,34 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
 
         var it = _statistics.IncrementTargets;
         if (it.TotalSites != 0 || it.UnsignedMathCallSites != 0
-            || it.PrefixInlineSites != 0 || it.EventSites != 0)
+            || it.PrefixInlineSites != 0 || it.EventSites != 0
+            || it.DecimalSites != 0 || it.RefAliasSites != 0
+            || it.CustomOperatorSites != 0)
         {
             var tempCount = it.TempsByRole.Values.Sum();
             var deferredCount = it.DeferredByReason.Values.Sum();
+            var m2Parts = new List<string>();
+            if (it.DecimalSites != 0)
+            {
+                m2Parts.Add($"{it.DecimalSites} decimal");
+            }
+
+            if (it.RefAliasSites != 0)
+            {
+                m2Parts.Add($"{it.RefAliasSites} ref-alias");
+            }
+
+            if (it.CustomOperatorSites != 0)
+            {
+                m2Parts.Add($"{it.CustomOperatorSites} custom-operator");
+            }
+
+            var m2Suffix = m2Parts.Count > 0 ? $", {string.Join("/", m2Parts)} site(s)" : string.Empty;
             line += $"; increment-targets: {it.PropertySites} property/" +
                     $"{it.IndexerSites} indexer/" +
                     $"{it.SpecialArrayElementSites} enum-array/" +
-                    $"{it.EnumCastSites + it.UnsignedResidualSites} simple site(s), " +
+                    $"{it.EnumCastSites + it.UnsignedResidualSites} simple site(s)" +
+                    $"{m2Suffix}, " +
                     $"{it.UnsignedMathCallSites} unsigned helper call(s), " +
                     $"{it.PostfixLiftedSites} postfix lifted/" +
                     $"{it.PrefixInlineSites} prefix inlined, " +

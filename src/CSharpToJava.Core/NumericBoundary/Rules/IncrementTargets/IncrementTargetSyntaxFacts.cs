@@ -24,6 +24,9 @@ internal static class IncrementTargetSyntaxFacts
     public const string OldTempPrefix = "__cs2j_inc_o";
     public const string DiscardTempPrefix = "__cs2j_inc_d";
 
+    /// <summary>IT-9 ref-local alias prefix (design §4.4): explicit <c>ref T</c>.</summary>
+    public const string RefTempPrefix = "__cs2j_inc_f";
+
     /// <summary>Parentheses stripped view of an expression.</summary>
     public static ExpressionSyntax UnwrapParens(ExpressionSyntax expression)
     {
@@ -126,6 +129,29 @@ internal static class IncrementTargetSyntaxFacts
                 NumericBoundarySyntaxFacts.RewriteAnnotation,
                 new SyntaxAnnotation(RewriteAnnotationKind));
 
+    /// <summary>
+    /// IT-9 ref-local alias declaration: <c>ref T name = ref initializer;</c>.
+    /// The type is always explicit (design §4.4 — <c>ref var</c> is never
+    /// emitted); the initializer is the single-evaluation READ of the
+    /// ref-returning property/indexer/method target.
+    /// </summary>
+    public static LocalDeclarationStatementSyntax RefLocalDeclaration(
+        string name, TypeSyntax aliasType, ExpressionSyntax initializer) =>
+        LocalDeclarationStatement(
+                VariableDeclaration(
+                    RefType(
+                        Token(SyntaxKind.RefKeyword).WithTrailingTrivia(Space),
+                        aliasType.WithTrailingTrivia(Space)),
+                    SingletonSeparatedList(
+                        VariableDeclarator(name)
+                            .WithInitializer(EqualsValueClause(
+                                RefExpression(
+                                    Token(SyntaxKind.RefKeyword).WithTrailingTrivia(Space),
+                                    initializer))))))
+            .WithAdditionalAnnotations(
+                NumericBoundarySyntaxFacts.RewriteAnnotation,
+                new SyntaxAnnotation(RewriteAnnotationKind));
+
     public static string SiteText(SyntaxNode node)
     {
         var text = node.ToString().Replace('\r', ' ').Replace('\n', ' ');
@@ -165,6 +191,9 @@ internal static class IncrementTargetSyntaxFacts
         public string Old(int site) => Allocate($"{OldTempPrefix}{site}");
 
         public string Discard(int site) => Allocate($"{DiscardTempPrefix}{site}");
+
+        /// <summary>IT-9 ref-local alias name for a site.</summary>
+        public string Ref(int site) => Allocate($"{RefTempPrefix}{site}");
 
         private string Allocate(string baseName)
         {

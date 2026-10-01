@@ -156,7 +156,9 @@ internal sealed class IncrementTargetRule : INumericBoundaryRule
             + stats.IndexerSites
             + stats.SpecialArrayElementSites
             + stats.EnumCastSites
-            + stats.UnsignedResidualSites;
+            + stats.UnsignedResidualSites
+            + stats.DecimalSites
+            + stats.RefAliasSites;
         if (totalRewritten == 0)
         {
             return;
@@ -173,7 +175,19 @@ internal sealed class IncrementTargetRule : INumericBoundaryRule
                 stats.EnumCastSites,
                 stats.UnsignedResidualSites,
                 stats.PostfixLiftedSites,
-                stats.UnsignedMathCallSites)));
+                stats.UnsignedMathCallSites,
+                stats.DecimalSites,
+                stats.RefAliasSites)));
+
+        // CS2J5334: one aggregated Info per file (C34 already merged —
+        // Info, not Warning; open-question ruling 2).
+        if (stats.DecimalSites > 0)
+        {
+            diagnostics.Add(new NumericBoundaryDiagnostic(
+                NumericBoundarySeverity.Info,
+                PreprocessDiagnosticCodes.IncrementTargetDecimalInfo,
+                IncrementTargetDiagnostics.DecimalExpandedInfo(stats.DecimalSites)));
+        }
 
         if (stats.TempsByRole.Count > 0)
         {

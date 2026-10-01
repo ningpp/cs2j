@@ -96,10 +96,75 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                     continue;
             }
 
+            // M2 owned-but-unsupported cores: one loud Error per site and the
+            // whole file rolls back via NB-12 (Changed=false upstream).
+            switch (classification.Core)
+            {
+                case ArithmeticCore.NativeInt:
+                    ReportSiteError(node,
+                        PreprocessDiagnosticCodes.IncrementTargetNativeInt,
+                        IncrementTargetDiagnostics.ReasonNativeInt,
+                        IncrementTargetDiagnostics.NativeInt(IncrementTargetSyntaxFacts.SiteText(node)));
+                    continue;
+                case ArithmeticCore.LiftedNullable:
+                    ReportSiteError(node,
+                        PreprocessDiagnosticCodes.IncrementTargetNullableLifted,
+                        IncrementTargetDiagnostics.ReasonLifted,
+                        IncrementTargetDiagnostics.NullableLifted(IncrementTargetSyntaxFacts.SiteText(node)));
+                    continue;
+                case ArithmeticCore.Dynamic:
+                    ReportSiteError(node,
+                        PreprocessDiagnosticCodes.IncrementTargetDynamic,
+                        IncrementTargetDiagnostics.ReasonDynamic,
+                        IncrementTargetDiagnostics.Dynamic(IncrementTargetSyntaxFacts.SiteText(node)));
+                    continue;
+                case ArithmeticCore.ExpressionTree:
+                    // Defensive only: ++ inside an Expression<TDelegate> lambda
+                    // is baseline CS0832, so compilable input never reaches here.
+                    ReportSiteError(node,
+                        PreprocessDiagnosticCodes.IncrementTargetExpressionTree,
+                        IncrementTargetDiagnostics.ReasonExpressionTree,
+                        IncrementTargetDiagnostics.ExpressionTree(IncrementTargetSyntaxFacts.SiteText(node)));
+                    continue;
+                case ArithmeticCore.CustomOp:
+                    // Counted on the true-site hit even though the file rolls
+                    // back (same convention as EventSites).
+                    _stats.CustomOperatorSites++;
+                    ReportSiteError(node,
+                        PreprocessDiagnosticCodes.IncrementTargetCustomOperator,
+                        IncrementTargetDiagnostics.ReasonCustomOperator,
+                        IncrementTargetDiagnostics.CustomOperator(IncrementTargetSyntaxFacts.SiteText(node)));
+                    continue;
+            }
+
+            // IT-9 ref-returning targets (decision 16).
+            if (classification.Target == TargetKind.RefReturning)
+            {
+                if (classification.RefKind == RefKind.RefReadOnly)
+                {
+                    // ref readonly variable: ++ is baseline CS8331.
+                    ReportIllegal(
+                        node,
+                        IncrementTargetDiagnostics.ReasonRefReadOnly,
+                        "ref-returning property/indexer/method returns a readonly reference");
+                    continue;
+                }
+
+                if (_options.Strict)
+                {
+                    // The Java half depends on the C01 holder: strict refuses.
+                    ReportSiteError(node,
+                        PreprocessDiagnosticCodes.IncrementTargetRefReturn,
+                        IncrementTargetDiagnostics.ReasonRefReturn,
+                        IncrementTargetDiagnostics.RefReturn(IncrementTargetSyntaxFacts.SiteText(node)));
+                    continue;
+                }
+            }
+
             if (!IncrementTargetAnalyzer.IsOwnedByRule(classification))
             {
-                // M2 categories / ref-returning / direct-map / checked-simple:
-                // untouched and undiagnosed by M1.
+                // Direct-map / checked-simple / EnumFromValue-hook sites:
+                // untouched and undiagnosed.
                 continue;
             }
 
@@ -113,7 +178,10 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
             // A field reached through an effectful/qualified receiver is also
             // classified Property but carries Member (IFieldSymbol) — fields
             // have no accessors and are always writable when reachable.
-            if (classification.Property is { } propertySymbol)
+            // Ref-returning properties/indexers carry only a get accessor and
+            // are written THROUGH the returned ref, so the set check is skipped.
+            if (classification.Target != TargetKind.RefReturning
+                && classification.Property is { } propertySymbol)
             {
                 if (propertySymbol.GetMethod == null)
                 {
@@ -126,6 +194,13 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                     ReportIllegal(node, "read-only", "property or indexer has no accessible set accessor");
                     continue;
                 }
+            }
+
+            if (classification.Target == TargetKind.RefReturning)
+            {
+                // Non-strict: the file is still rewritten via a ref local
+                // alias; the C01 Java-half dependency stays loud (CS2J5340).
+                ReportRefAliasWarning(node);
             }
 
             candidates.Add((node, classification));
@@ -333,7 +408,8 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
         var operandType = _model.GetTypeInfo(classification.Operand).Type
             ?? _model.GetTypeInfo(classification.Operand).ConvertedType;
 
-        var (descriptor, tempDeclarations) = BuildTarget(site, classification, visitedEffective);
+        var (descriptor, tempDeclarations) = BuildTarget(
+            site, classification, visitedEffective, operandType);
         var statements = new List<StatementSyntax>(tempDeclarations);
 
         var marker = new SyntaxAnnotation(IncrementTargetSyntaxFacts.HoistAnnotationKind);
@@ -419,7 +495,10 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
     /// declarations in source evaluation order.
     /// </summary>
     private (TargetDescriptor Descriptor, List<StatementSyntax> Temps) BuildTarget(
-        int site, IncrementTargetClassification classification, ExpressionSyntax visitedEffective)
+        int site,
+        IncrementTargetClassification classification,
+        ExpressionSyntax visitedEffective,
+        ITypeSymbol? operandType)
     {
         var temps = new List<StatementSyntax>();
 
@@ -429,6 +508,12 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
             {
                 var descriptor = BuildSimpleDescriptor(visitedEffective);
                 return (descriptor, temps);
+            }
+
+            case TargetKind.RefReturning:
+            {
+                return BuildRefReturningTarget(
+                    site, classification, visitedEffective, operandType, temps);
             }
 
             case TargetKind.Property:
@@ -519,6 +604,183 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
         }
     }
 
+    /// <summary>
+    /// IT-9 (decision 16): hoist receiver/index args/method args in source
+    /// order, evaluate the ref-returning READ exactly once into a ref local
+    /// alias (<c>ref T __cs2j_inc_f{N} = ref READ;</c>), then let every
+    /// subsequent read/write target the alias identifier. Statement order:
+    /// receiver/arg temps → alias declaration → (caller appends old temp) →
+    /// write.
+    /// </summary>
+    private (TargetDescriptor Descriptor, List<StatementSyntax> Temps) BuildRefReturningTarget(
+        int site,
+        IncrementTargetClassification classification,
+        ExpressionSyntax visitedEffective,
+        ITypeSymbol? operandType,
+        List<StatementSyntax> temps)
+    {
+        ExpressionSyntax read;
+        switch (visitedEffective)
+        {
+            // Implicit ref property: P++ (bound IPropertySymbol, no receiver).
+            case IdentifierNameSyntax identifier:
+                read = IdentifierName(identifier.Identifier.Text);
+                break;
+
+            // Ref property through an explicit/static receiver.
+            case MemberAccessExpressionSyntax memberAccess:
+            {
+                var member = classification.Member!;
+                ReceiverRef receiver;
+                if (classification.IsStaticMember)
+                {
+                    receiver = new ReceiverRef.StaticType
+                    {
+                        TypeDisplay = member.ContainingType
+                            .ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                    };
+                }
+                else
+                {
+                    receiver = BuildReceiver(site, memberAccess.Expression, temps);
+                }
+
+                read = new TargetDescriptor.Member
+                {
+                    Name = member.Name,
+                    Receiver = receiver,
+                }.BuildAccess();
+                break;
+            }
+
+            // Ref indexer: receiver + index args hoisted exactly like IT-3.
+            case ElementAccessExpressionSyntax:
+            {
+                var (indexerDescriptor, indexerTemps) = BuildTarget(
+                    site,
+                    classification with { Target = TargetKind.Indexer },
+                    visitedEffective,
+                    operandType);
+                temps.AddRange(indexerTemps);
+                read = indexerDescriptor.BuildAccess();
+                break;
+            }
+
+            // Ref-returning method invocation: h.M(args)++ / M(args)++.
+            case InvocationExpressionSyntax invocation:
+                read = BuildRefMethodRead(
+                    site,
+                    classification,
+                    invocation,
+                    (InvocationExpressionSyntax)classification.Operand,
+                    temps);
+                break;
+
+            default:
+                throw new InvalidOperationException(
+                    $"unexpected ref-returning target shape {visitedEffective.Kind()}");
+        }
+
+        var aliasName = _names.Ref(site);
+        AddTempRole(IncrementTargetDiagnostics.TempRoleRefAlias);
+
+        // ParseTypeName (not ParseName): the display string can be a keyword
+        // type (int/decimal/…) or a generic namespace-qualified type.
+        var aliasType = operandType != null
+            ? ParseTypeName(operandType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
+            : ParseTypeName("object");
+        temps.Add(IncrementTargetSyntaxFacts.RefLocalDeclaration(aliasName, aliasType, read));
+
+        return (new TargetDescriptor.SimpleIdentifier { Name = aliasName }, temps);
+    }
+
+    /// <summary>
+    /// Rebuild a ref-returning method invocation once, with the receiver and
+    /// by-value arguments replaced by hoisted temporaries. ref/out/in
+    /// arguments are forwarded verbatim (a hoisted <c>var</c> temp would break
+    /// the by-reference argument contract); such arguments are variables and
+    /// cannot observe repeated evaluation.
+    /// </summary>
+    private ExpressionSyntax BuildRefMethodRead(
+        int site,
+        IncrementTargetClassification classification,
+        InvocationExpressionSyntax visitedInvocation,
+        InvocationExpressionSyntax originalInvocation,
+        List<StatementSyntax> temps)
+    {
+        ExpressionSyntax callable;
+        switch (visitedInvocation.Expression)
+        {
+            // Implicit instance/static call: M(…) / M<…>(…) keeps its name.
+            case IdentifierNameSyntax or GenericNameSyntax:
+                callable = visitedInvocation.Expression;
+                break;
+            case MemberAccessExpressionSyntax memberAccess:
+            {
+                ExpressionSyntax receiverExpression;
+                if (classification.IsStaticMember)
+                {
+                    receiverExpression = ParseTypeName(
+                        classification.Member!.ContainingType
+                            .ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+                }
+                else
+                {
+                    var receiver = BuildReceiver(site, memberAccess.Expression, temps);
+                    receiverExpression = ReceiverExpression(receiver);
+                }
+
+                // ma.Name preserves a generic method name (GenericName).
+                callable = MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    receiverExpression,
+                    memberAccess.Name);
+                break;
+            }
+            default:
+                throw new InvalidOperationException(
+                    $"unexpected ref-method receiver shape {visitedInvocation.Expression.Kind()}");
+        }
+
+        var rebuiltArguments = new List<ArgumentSyntax>();
+        for (var i = 0; i < originalInvocation.ArgumentList.Arguments.Count; i++)
+        {
+            var originalArgument = originalInvocation.ArgumentList.Arguments[i];
+            var visitedArgument = visitedInvocation.ArgumentList.Arguments[i];
+
+            if (originalArgument.RefKindKeyword.Kind() != SyntaxKind.None)
+            {
+                rebuiltArguments.Add(visitedArgument);
+                continue;
+            }
+
+            var name = _names.Argument(site, i);
+            AddTempRole(IncrementTargetDiagnostics.TempRoleIndexArg);
+            temps.Add(IncrementTargetSyntaxFacts.VarDeclaration(
+                name, visitedArgument.Expression));
+            rebuiltArguments.Add(Argument(
+                originalArgument.NameColon != null
+                    ? NameColon(IdentifierName(originalArgument.NameColon.Name.ToString()))
+                    : null,
+                Token(SyntaxKind.None),
+                IdentifierName(name)));
+        }
+
+        return InvocationExpression(
+            callable,
+            ArgumentList(SeparatedList(rebuiltArguments)));
+    }
+
+    private static ExpressionSyntax ReceiverExpression(ReceiverRef receiver) => receiver switch
+    {
+        ReceiverRef.Temp temp => IdentifierName(temp.Name),
+        ReceiverRef.This => ThisExpression(),
+        ReceiverRef.Base => BaseExpression(),
+        ReceiverRef.Identifier id => IdentifierName(id.Name),
+        ReceiverRef.StaticType type => ParseTypeName(type.TypeDisplay),
+        _ => throw new InvalidOperationException(),
+    };
+
     private static TargetDescriptor BuildSimpleDescriptor(ExpressionSyntax visitedEffective)
     {
         switch (visitedEffective)
@@ -560,6 +822,23 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
 
     private void CountSite(IncrementTargetClassification classification)
     {
+        // Core buckets first: a site can contribute to both a core bucket
+        // (DecimalSites) and its target-shape bucket below.
+        switch (classification.Core)
+        {
+            case ArithmeticCore.Decimal:
+                _stats.DecimalSites++;
+                break;
+        }
+
+        if (classification.Target == TargetKind.RefReturning)
+        {
+            // Ref-alias sites keep their own bucket; the underlying
+            // property/indexer/method shape is not double-counted.
+            _stats.RefAliasSites++;
+            return;
+        }
+
         switch (classification.Target)
         {
             case TargetKind.Property:
@@ -611,6 +890,36 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
             IncrementTargetDiagnostics.NoAnchor(IncrementTargetSyntaxFacts.SiteText(site)),
             line, column));
         BumpDeferred($"{PreprocessDiagnosticCodes.IncrementTargetNoAnchor}:{reason}");
+    }
+
+    /// <summary>
+    /// M2 loud-fail core/site codes (CS2J5333/5335/5336/5337/5338 and strict
+    /// CS2J5340): one Error per site; NB-12 rolls the whole file back.
+    /// </summary>
+    private void ReportSiteError(
+        ExpressionSyntax site, string code, string reason, string message)
+    {
+        HasErrorDiagnostic = true;
+        var (line, column) = GetLineColumn(site);
+        _diagnostics.Add(new NumericBoundaryDiagnostic(
+            NumericBoundarySeverity.Error, code, message, line, column));
+        BumpDeferred($"{code}:{reason}");
+    }
+
+    /// <summary>
+    /// Non-strict CS2J5340: the ref-alias rewrite is still emitted, but the
+    /// Java half depends on the C01 holder so the dependency stays visible.
+    /// Warnings do not bump DeferredByReason (the site is rewritten, not
+    /// deferred) and never trigger NB-12.
+    /// </summary>
+    private void ReportRefAliasWarning(ExpressionSyntax site)
+    {
+        var (line, column) = GetLineColumn(site);
+        _diagnostics.Add(new NumericBoundaryDiagnostic(
+            NumericBoundarySeverity.Warning,
+            PreprocessDiagnosticCodes.IncrementTargetRefReturn,
+            IncrementTargetDiagnostics.RefReturn(IncrementTargetSyntaxFacts.SiteText(site)),
+            line, column));
     }
 
     private void BumpDeferred(string key)
