@@ -296,6 +296,21 @@ internal static class PassCatalog
             description: "Desugar properties (C11), indexers (C12), events (C13) and operators (C14) into backing fields plus explicit get_X/set_X/get_Item/add_X/remove_X methods.",
             catalogItems: "C11, C12, C13, C14"),
         new(
+            PassStubCatalog.Ids.EqualityConcat,
+            "Equality/concat call-site materialization",
+            ".cs2j-equality-concat-src",
+            PassStage.Expression,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            // Design §3.2: anchored right after tuple; opt-in only until J1-J6 land.
+            runAfterIds: new[] { PassIds.Tuple },
+            supportLibrary: PassSupportLibrary.Cs2jPrelude,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Materialize string ==/!= and + call sites, (object) escapes, delegate value equality and record == by symbol-bound semantics.",
+            catalogItems: "C47"),
+        new(
             PassIds.JavaKeywords,
             "Java reserved words",
             ProjectJavaReservedWordPreprocessor.IntermediateDirectoryName,

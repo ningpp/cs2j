@@ -69,8 +69,52 @@ public final class DelegateHelper {
         return -1;
     }
 
-    private static boolean delegateEquals(Object left, Object right) {
-        return left == right || Objects.equals(left, right);
+    /**
+     * Mirrors C# delegate {@code ==} (System.Delegate.op_Equality): two delegates are
+     * equal when both are null, or their invocation lists have the same length and are
+     * item-by-item equal (same method + same receiver). Multicast proxies are expanded
+     * through {@link MulticastInvocationHandler#delegates}; a single invocation item is
+     * compared via {@link Objects#equals(Object, Object)}.
+     *
+     * <p>Limitation: for method references bound to an instance receiver, Java method
+     * references carry no runtime method/receiver metadata beyond what the functional
+     * interface object exposes, so two separately created references to the same method
+     * on the same receiver are only equal when the JDK/runtime happens to intern or
+     * value-compare them; this method cannot reconstruct the C# invocation item shape.
+     */
+    public static boolean delegateEquals(Object left, Object right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+
+        List<Object> leftList = invocationListOf(left);
+        List<Object> rightList = invocationListOf(right);
+        if (leftList.size() != rightList.size()) {
+            return false;
+        }
+        for (int i = 0; i < leftList.size(); i++) {
+            // Single invocation items: no multicast expansion at this level;
+            // Objects.equals is the value-equality fallback (identity for lambdas).
+            if (!Objects.equals(leftList.get(i), rightList.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns the invocation list of a delegate: the backing delegate list for a
+     * multicast proxy, or a one-element list for a single invocation item.
+     */
+    private static List<Object> invocationListOf(Object delegate) {
+        if (Proxy.isProxyClass(delegate.getClass())
+            && Proxy.getInvocationHandler(delegate) instanceof MulticastInvocationHandler handler) {
+            return handler.delegates;
+        }
+        return List.of(delegate);
     }
 
     private static Object createProxy(Object sample, List<Object> delegates) {
@@ -104,8 +148,10 @@ public final class DelegateHelper {
             if (method.getDeclaringClass() == Object.class) {
                 return switch (method.getName()) {
                     case "toString" -> delegates.toString();
-                    case "hashCode" -> System.identityHashCode(proxy);
-                    case "equals" -> proxy == args[0];
+                    // List-based hashCode companion to delegateEquals, to keep
+                    // the Object equals/hashCode contract.
+                    case "hashCode" -> delegatesHashCode(delegates);
+                    case "equals" -> DelegateHelper.delegateEquals(proxy, args[0]);
                     default -> method.invoke(this, args);
                 };
             }
@@ -119,6 +165,14 @@ public final class DelegateHelper {
                 }
             }
             return result;
+        }
+
+        private static int delegatesHashCode(List<Object> delegates) {
+            int hash = 1;
+            for (Object item : delegates) {
+                hash = 31 * hash + (item == null ? 0 : item.hashCode());
+            }
+            return hash;
         }
 
         private static Object defaultValue(Class<?> returnType) {

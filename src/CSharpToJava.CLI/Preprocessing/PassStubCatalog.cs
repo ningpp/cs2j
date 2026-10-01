@@ -205,16 +205,7 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.Tuple },
             description: "Lift anonymous types into named generated types before the LINQ channel.",
             catalogItems: "C21"),
-        new(
-            Ids.EqualityConcat,
-            "Equality/concat call-site materialization",
-            ".cs2j-equality-concat-src",
-            PassStage.Expression,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.MemberDesugar },
-            description: "Materialize string ==/!= and + call sites, (object) escapes, delegate value equality and record == by symbol-bound semantics.",
-            catalogItems: "C47"),
+        // Ids.EqualityConcat flipped to Implemented in PassCatalog (C47).
         new(
             Ids.PlatformIsolation,
             "Platform boundary isolation",

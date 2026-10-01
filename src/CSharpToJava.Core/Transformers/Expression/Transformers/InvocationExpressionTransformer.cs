@@ -221,7 +221,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                     return RenderMappedCall(mappedName, isStatic, receiver, arguments);
                 }
 
-                return $"{receiver}.{ToCamelCase(originalName)}({arguments})";
+                return $"{receiver}.{AccessorOrCamelName(originalName)}({arguments})";
             }
 
             // CallMethod(arg1, arg2) → callMethod(arg1, arg2)
@@ -230,7 +230,7 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 var originalName = identifier.Identifier.Text;
                 var (mappedName, _) = TryResolveMappedName(node, originalName, context);
 
-                var methodName = mappedName ?? ToCamelCase(originalName);
+                var methodName = mappedName ?? AccessorOrCamelName(originalName);
                 return $"{methodName}({arguments})";
             }
 
@@ -317,8 +317,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         // `string` keeps its existing handling: System.String maps to java.lang.String and the
         // TypeMappings table already routes the static helpers (StringHelper.*).
+        // `object` is excluded as well: object.Equals/object.ReferenceEquals static calls must
+        // resolve through the System.Object method-mapping entries (Objects.equals /
+        // ObjectHelper.referenceEquals); the generic primitive path would render non-existent
+        // static Object.equals/referenceEquals methods instead.
         if (memberAccess.Expression is not PredefinedTypeSyntax primTypeSyntax
-            || primTypeSyntax.Keyword.Text == "string")
+            || primTypeSyntax.Keyword.Text == "string"
+            || primTypeSyntax.Keyword.Text == "object")
         {
             return false;
         }
@@ -541,13 +546,59 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             // Static compatibility helper: instance receiver is passed as the first argument;
             // a static type receiver (e.g. string.IsNullOrEmpty) is dropped entirely.
             if (isStatic)
-                return $"{mappedName}({arguments})";
+            {
+                // "out.println" is a field access on java.lang.System, not a class name:
+                // qualify with System (java.lang needs no import).
+                var rendered = mappedName.StartsWith("out.", StringComparison.Ordinal)
+                    ? "System." + mappedName
+                    : mappedName;
+                return $"{rendered}({arguments})";
+            }
             return string.IsNullOrEmpty(arguments)
                 ? $"{mappedName}({receiver})"
                 : $"{mappedName}({receiver}, {arguments})";
         }
 
         return $"{receiver}.{mappedName}({arguments})";
+    }
+
+    /// <summary>
+    /// Simple-prefix → FQN import table for dotted mapped names rendered by
+    /// <see cref="ApplyMappedName"/>/<see cref="RenderMappedCall"/> (e.g. an
+    /// invocation mapped to "Objects.equals" needs <c>import java.util.Objects;</c>).
+    /// <para>
+    /// The project pipeline already emits <c>java.util.*</c> wildcard imports, but
+    /// <c>ObjectHelper</c>/<c>DelegateHelper</c>/<c>StringHelper</c> are not covered
+    /// by that wildcard, and the single-file pipeline has no wildcard at all — both
+    /// pipelines rely on this rule for explicit helper imports. Prefixes absent from
+    /// this table keep their historical behavior (no import added here).
+    /// </para>
+    /// </summary>
+    private static readonly Dictionary<string, string> DottedNameImports =
+        new(StringComparer.Ordinal)
+        {
+            ["Objects"] = "java.util.Objects",
+            ["ObjectHelper"] = "io.github.ningpp.compat.ObjectHelper",
+            ["DelegateHelper"] = "io.github.ningpp.compat.DelegateHelper",
+            ["Environment"] = "io.github.ningpp.compat.Environment",
+            ["StringHelper"] = "io.github.ningpp.compat.StringHelper",
+            ["MathHelper"] = "io.github.ningpp.compat.MathHelper",
+            ["MemoryExtensions"] = "io.github.ningpp.compat.MemoryExtensions",
+        };
+
+    /// <summary>
+    /// Adds the import required by a dotted mapped name (simple prefix → FQN).
+    /// No-op for non-dotted names or unknown prefixes.
+    /// </summary>
+    private static void AddImportForMappedName(string mappedName, ConversionContext context)
+    {
+        var dotIndex = mappedName.IndexOf('.');
+        if (dotIndex <= 0)
+            return;
+
+        var prefix = mappedName.Substring(0, dotIndex);
+        if (DottedNameImports.TryGetValue(prefix, out var import))
+            context.AddImport(import);
     }
 
     /// <summary>
@@ -591,6 +642,12 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             }
         }
 
+        // J6: dotted mapped names need an explicit FQN import (single-file pipeline
+        // and non-java.util helpers). Centralized here so all four render paths
+        // (IR/text × member-access/identifier) get it.
+        if (mappedName != null)
+            AddImportForMappedName(mappedName, context);
+
         return (mappedName, methodSymbol.IsStatic);
     }
 
@@ -624,6 +681,20 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
 
         var camelCase = char.ToLowerInvariant(name[0]) + name[1..];
         return ConversionContext.EscapeJavaKeyword(camelCase);
+    }
+
+    /// <summary>
+    /// Mirrors MethodTransformer.GetJavaMethodName: member-desugar (C11) accessor
+    /// methods get_X/set_X render as X on the Java side, so call sites must strip
+    /// exactly as method declarations do. Any other name gets ordinary camel-casing.
+    /// Mapped names (e.g. ByRef.get_Value → getValue) are resolved by the caller
+    /// before this and never reach here.
+    /// </summary>
+    private static string AccessorOrCamelName(string name)
+    {
+        if (name.StartsWith("get_") || name.StartsWith("set_"))
+            return ConversionContext.EscapeJavaKeyword(char.ToUpper(name[4]) + name[5..]);
+        return ToCamelCase(name);
     }
 
     /// <summary>

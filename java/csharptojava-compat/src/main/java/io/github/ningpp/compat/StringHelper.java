@@ -1341,6 +1341,24 @@ public class StringHelper {
             return;
         }
 
+        // C# string.Concat boxes values and calls their ToString():
+        //   Boolean prints the English keyword "True"/"False" (not "true"/"false");
+        //   Double/Float print .NET invariant text, trimming a trailing ".0" (1.0 -> "1",
+        //   not "1.0"). Routed through DoubleHelper.toString, the same formatter used by
+        //   the format path.
+        if (value instanceof Boolean booleanValue) {
+            builder.append(booleanValue.booleanValue() ? "True" : "False");
+            return;
+        }
+        if (value instanceof Double doubleValue) {
+            builder.append(DoubleHelper.toString(doubleValue.doubleValue()));
+            return;
+        }
+        if (value instanceof Float floatValue) {
+            builder.append(DoubleHelper.toString(floatValue.doubleValue()));
+            return;
+        }
+
         builder.append(value);
     }
 

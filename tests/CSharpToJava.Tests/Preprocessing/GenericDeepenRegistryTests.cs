@@ -18,6 +18,7 @@ public sealed class GenericDeepenRegistryTests
         MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
         StructValueSemanticsOptionsFactory = () => new StructValueSemanticsOptions(),
         EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
+        EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
     };
 
     [Fact]

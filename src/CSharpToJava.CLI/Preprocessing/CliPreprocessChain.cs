@@ -1,3 +1,4 @@
+using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
@@ -43,6 +44,9 @@ internal sealed class CliChainRequest
 
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when equality-concat is enabled (keeps override loading lazy).</summary>
+    public required Func<EqualityConcatOptions> EqualityConcatOptionsFactory { get; init; }
 
     /// <summary>
     /// Per-id on/off state from legacy flags. Null means "use descriptor defaults";
@@ -140,6 +144,7 @@ internal static class CliPreprocessChain
             StructValueSemanticsOptionsFactory = request.StructValueSemanticsOptionsFactory,
             EnumDeclarationOptionsFactory = request.EnumDeclarationOptionsFactory,
             EnableDecimalOps = request.EnableDecimalOps,
+            EqualityConcatOptionsFactory = request.EqualityConcatOptionsFactory,
         };
 
         var sourcePath = request.SourcePath;

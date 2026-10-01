@@ -49,6 +49,14 @@ public final class ObjectHelper {
         return a.equals(b);
     }
 
+    /**
+     * Mirrors C# object.ReferenceEquals(a, b): reference identity only,
+     * never value equality. Both null yields true.
+     */
+    public static boolean referenceEquals(Object a, Object b) {
+        return a == b;
+    }
+
     public static String objectToString(Object value) {
         if (value == null) {
             throw new NullPointerException("value");

@@ -119,6 +119,9 @@ public static class ProjectCompilationBuilder
         var dotnetAssemblies = new[]
         {
             "System.Runtime.dll",
+            "System.Console.dll", // System.Console lives in its own assembly on .NET Core;
+                                  // without it bare Console does not resolve and the
+                                  // WriteLine → out.println mapping cannot fire.
             "System.Collections.dll",
             "System.ObjectModel.dll", // KeyedCollection<TKey,TItem>, ObservableCollection<T>
             "System.Collections.NonGeneric.dll",  // System.Collections.Queue, Stack, Hashtable, ArrayList
