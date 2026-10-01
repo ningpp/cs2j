@@ -17,10 +17,14 @@ internal enum TargetKind
     /// <summary>Local/parameter/side-effect-free field access on an owned arithmetic core.</summary>
     SimpleDirect,
 
+    /// <summary>
+    /// Property/indexer-shaped read-modify-write member: an <see cref="IPropertySymbol"/>
+    /// or a field reached through an effectful receiver (e.g. <c>GetObj()._f</c>, <c>a.B._f</c>).
+    /// </summary>
     Property,
     Indexer,
 
-    /// <summary>Array element whose element type is enum/decimal/custom-inc/nint (decision 15).</summary>
+    /// <summary>Array element whose element type is enum (decision 15; decimal/custom/nint elements wait for M2).</summary>
     ArrayElementSpecial,
 
     /// <summary>Property/indexer/method symbol with RefKind != None (decision 16).</summary>
@@ -62,11 +66,10 @@ internal enum ArithmeticCore
 }
 
 /// <summary>
-/// Coarse M0 liftability of a site (design decision 14). M1 adds the
-/// preceding-side-effect proof; M0 only separates standalone statements,
-/// value-consumed positions inside the unconditional-execution whitelist
+/// Liftability of a site (decision 14): standalone statements, value-consumed
+/// positions inside the unconditional-execution whitelist
 /// (ExpressionStatement/LocalDeclaration/Return/Throw/YieldReturn) and
-/// anchor-free positions.
+/// anchor-free positions (condition/query/lambda/initializer/attribute/?./…).
 /// </summary>
 internal enum Liftability
 {
@@ -87,9 +90,9 @@ internal enum Liftability
 }
 
 /// <summary>
-/// M0 four-tuple classification of one ++/-- site:
-/// (UnaryKind, TargetKind, ArithmeticCore, Checkedness, Liftability).
-/// M1 extends the record with get/set symbols and RefKind details.
+/// Classification of one ++/-- site: (UnaryKind, TargetKind, ArithmeticCore,
+/// Checkedness, Liftability) plus the accessor/receiver details M1 needs to
+/// render a single-evaluation read-modify-write sequence.
 /// </summary>
 internal sealed record IncrementTargetClassification(
     SyntaxKind UnaryKind,
@@ -97,13 +100,23 @@ internal sealed record IncrementTargetClassification(
     ArithmeticCore Core,
     bool IsChecked,
     Liftability Lift,
-    IPropertySymbol? Property);
+    IPropertySymbol? Property,
+    /// <summary>Parentheses-unwrapped operand syntax node of the unary expression.</summary>
+    ExpressionSyntax Operand,
+    /// <summary>Bound member for member-access targets (property or field); null otherwise.</summary>
+    ISymbol? Member,
+    IMethodSymbol? GetMethod,
+    IMethodSymbol? SetMethod,
+    bool IsStaticMember)
+{
+    public bool IsPrefix => UnaryKind is SyntaxKind.PreIncrementExpression
+        or SyntaxKind.PreDecrementExpression;
+}
 
 /// <summary>
 /// Read-only semantic classifier for C17 (design §4.2). Every decision comes
 /// from the <see cref="SemanticModel"/> (GetSymbolInfo/GetTypeInfo/GetOperation);
-/// token text is never trusted. M0 never writes the tree, emits no diagnostics
-/// and moves no statistics.
+/// token text is never trusted.
 /// </summary>
 internal sealed class IncrementTargetAnalyzer
 {
@@ -130,6 +143,51 @@ internal sealed class IncrementTargetAnalyzer
     };
 
     /// <summary>
+    /// Single-point ownership predicate (design decision 17). M1 owns:
+    /// <list type="bullet">
+    /// <item>Property/Indexer members on a built-in/unsigned/enum core in BOTH
+    /// checked and unchecked regions (checked output is bare arithmetic that
+    /// the C15 sweep then helperizes);</item>
+    /// <item>enum array elements (decision 15);</item>
+    /// <item>unchecked simple residuals only (byte/ushort/uint/ulong and simple
+    /// enums). Checked simple locals/parameters/side-effect-free fields are
+    /// handed to C15 NB-8 and this rule leaves zero trace on them.</item>
+    /// </list>
+    /// M2 categories (Decimal/NativeInt/LiftedNullable/Dynamic/ExpressionTree/
+    /// CustomOp/RefReturning/EnumFromValue) and Event/Pointer/Conditional are
+    /// never owned here.
+    /// </summary>
+    public static bool IsOwnedByRule(IncrementTargetClassification classification)
+    {
+        if (classification.Core is ArithmeticCore.Decimal
+            or ArithmeticCore.NativeInt
+            or ArithmeticCore.LiftedNullable
+            or ArithmeticCore.Dynamic
+            or ArithmeticCore.ExpressionTree
+            or ArithmeticCore.CustomOp
+            or ArithmeticCore.EnumFromValue)
+        {
+            return false;
+        }
+
+        switch (classification.Target)
+        {
+            case TargetKind.Property:
+            case TargetKind.Indexer:
+                return true;
+            case TargetKind.ArrayElementSpecial:
+                return classification.Core == ArithmeticCore.EnumCast;
+            case TargetKind.SimpleDirect:
+                // Checked simple built-in/enum sites stay with C15 (NB-8).
+                return !classification.IsChecked
+                    && classification.Core is ArithmeticCore.UnsignedDomain
+                        or ArithmeticCore.EnumCast;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
     /// Classify a PrefixUnary/PostfixUnary ++/-- node; returns null for any other
     /// node or operator kind.
     /// </summary>
@@ -146,9 +204,10 @@ internal sealed class IncrementTargetAnalyzer
             return null;
         }
 
-        var operand = unaryNode is PrefixUnaryExpressionSyntax pre
+        var rawOperand = unaryNode is PrefixUnaryExpressionSyntax pre
             ? pre.Operand
             : ((PostfixUnaryExpressionSyntax)unaryNode).Operand;
+        var operand = IncrementTargetSyntaxFacts.UnwrapParens(rawOperand);
 
         var operation = _model.GetOperation(unaryNode) as NBOp.IIncrementOrDecrementOperation;
         var operandType = _model.GetTypeInfo(operand).Type
@@ -164,22 +223,25 @@ internal sealed class IncrementTargetAnalyzer
 
         if (IsEventSymbol(symbol) || symbolInfo.CandidateSymbols.OfType<IEventSymbol>().Any())
         {
-            return new IncrementTargetClassification(
-                kind, TargetKind.Event, ArithmeticCore.DirectMap, isChecked, Liftability.NoAnchor, null);
+            return NewClassification(
+                kind, TargetKind.Event, ArithmeticCore.DirectMap, isChecked,
+                Liftability.NoAnchor, operand, member: null);
         }
 
         if (operand is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PointerIndirectionExpression }
             or MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.PointerMemberAccessExpression })
         {
-            return new IncrementTargetClassification(
-                kind, TargetKind.Pointer, ArithmeticCore.DirectMap, isChecked, Liftability.NoAnchor, null);
+            return NewClassification(
+                kind, TargetKind.Pointer, ArithmeticCore.DirectMap, isChecked,
+                Liftability.NoAnchor, operand, member: null);
         }
 
         if (operand is ConditionalAccessExpressionSyntax or MemberBindingExpressionSyntax
             || unaryNode.Ancestors().OfType<ConditionalAccessExpressionSyntax>().Any())
         {
-            return new IncrementTargetClassification(
-                kind, TargetKind.Conditional, ArithmeticCore.DirectMap, isChecked, Liftability.NoAnchor, null);
+            return NewClassification(
+                kind, TargetKind.Conditional, ArithmeticCore.DirectMap, isChecked,
+                Liftability.NoAnchor, operand, member: null);
         }
 
         // ── element access: indexer vs true array (decision 4 / 15) ──
@@ -191,10 +253,10 @@ internal sealed class IncrementTargetAnalyzer
                 var indexerTarget = indexerProperty.RefKind != RefKind.None
                     ? TargetKind.RefReturning
                     : TargetKind.Indexer;
-                return new IncrementTargetClassification(
+                return NewClassification(
                     kind, indexerTarget,
                     ClassifyCore(unaryNode, operandType, operation, forComplexTarget: true),
-                    isChecked, lift, indexerProperty);
+                    isChecked, lift, operand, indexerProperty);
             }
 
             if (IsTrueArrayElement(operand, out var elementType))
@@ -205,30 +267,48 @@ internal sealed class IncrementTargetAnalyzer
                     or ArithmeticCore.Decimal
                     or ArithmeticCore.CustomOp
                     or ArithmeticCore.NativeInt;
-                return new IncrementTargetClassification(
+                return NewClassification(
                     kind,
                     special ? TargetKind.ArrayElementSpecial : TargetKind.NotOwned,
                     special ? elementCore : ArithmeticCore.DirectMap,
                     isChecked,
                     special ? lift : Liftability.NotNeeded,
-                    null);
+                    operand, member: null);
             }
 
-            return new IncrementTargetClassification(
-                kind, TargetKind.Other, ArithmeticCore.BuiltinNarrow, isChecked, lift, null);
+            return NewClassification(
+                kind, TargetKind.Other, ArithmeticCore.BuiltinNarrow, isChecked, lift,
+                operand, member: null);
         }
 
         // ── property (member access / identifier bound to IPropertySymbol) ──
+        // Candidate symbols cover read-only targets (P++ on a get-only property
+        // is CS0200/CS0443) so the illegal-target diagnostic still names them.
 
-        if (symbol is IPropertySymbol property)
+        var boundProperty = symbol as IPropertySymbol
+            ?? symbolInfo.CandidateSymbols.OfType<IPropertySymbol>().FirstOrDefault();
+        if (boundProperty != null)
         {
-            var propertyTarget = property.RefKind != RefKind.None
+            var propertyTarget = boundProperty.RefKind != RefKind.None
                 ? TargetKind.RefReturning
                 : TargetKind.Property;
-            return new IncrementTargetClassification(
+            return NewClassification(
                 kind, propertyTarget,
                 ClassifyCore(unaryNode, operandType, operation, forComplexTarget: true),
-                isChecked, lift, property);
+                isChecked, lift, operand, boundProperty);
+        }
+
+        // ── field reached through an effectful/qualified receiver:
+        //    member-shaped RMW target (rendering is identical to a property) ──
+
+        if (symbol is IFieldSymbol field
+            && operand is MemberAccessExpressionSyntax fieldAccess
+            && !IsSimpleFieldReceiver(fieldAccess.Expression))
+        {
+            return NewClassification(
+                kind, TargetKind.Property,
+                ClassifyCore(unaryNode, operandType, operation, forComplexTarget: true),
+                isChecked, lift, operand, field);
         }
 
         // ── simple storage: local / parameter / side-effect-free field ──
@@ -242,24 +322,42 @@ internal sealed class IncrementTargetAnalyzer
                 && operandType.SpecialType is not SpecialType.System_IntPtr
                     and not SpecialType.System_UIntPtr)
             {
-                return new IncrementTargetClassification(
-                    kind, TargetKind.Other, ArithmeticCore.BuiltinNarrow, isChecked, lift, null);
+                return NewClassification(
+                    kind, TargetKind.Other, ArithmeticCore.BuiltinNarrow, isChecked, lift,
+                    operand, member: null);
             }
 
             var core = ClassifyCore(unaryNode, operandType, operation, forComplexTarget: false);
             var target = core == ArithmeticCore.DirectMap
                 ? TargetKind.NotOwned
                 : simpleShape.Value;
-            return new IncrementTargetClassification(
+            return NewClassification(
                 kind, target, core, isChecked,
-                target == TargetKind.NotOwned ? Liftability.NotNeeded : lift, null);
+                target == TargetKind.NotOwned ? Liftability.NotNeeded : lift,
+                operand, member: null);
         }
 
-        return new IncrementTargetClassification(
-            kind, TargetKind.Other, ArithmeticCore.BuiltinNarrow, isChecked, lift, null);
+        return NewClassification(
+            kind, TargetKind.Other, ArithmeticCore.BuiltinNarrow, isChecked, lift,
+            operand, member: null);
     }
 
-    /// <summary>All ++/-- sites in tree order (rules and tests iterate this in M0/M1).</summary>
+    private static IncrementTargetClassification NewClassification(
+        SyntaxKind kind,
+        TargetKind target,
+        ArithmeticCore core,
+        bool isChecked,
+        Liftability lift,
+        ExpressionSyntax operand,
+        ISymbol? member)
+    {
+        var property = member as IPropertySymbol;
+        return new IncrementTargetClassification(
+            kind, target, core, isChecked, lift, property, operand, member,
+            property?.GetMethod, property?.SetMethod, member?.IsStatic ?? false);
+    }
+
+    /// <summary>All ++/-- sites in tree order (rules and tests iterate this).</summary>
     public IReadOnlyList<(ExpressionSyntax Node, IncrementTargetClassification C)> FindAllSites(SyntaxNode root)
     {
         var sites = new List<(ExpressionSyntax, IncrementTargetClassification)>();
@@ -298,8 +396,22 @@ internal sealed class IncrementTargetAnalyzer
     }
 
     /// <summary>
+    /// A field member access whose receiver cannot observe a side effect
+    /// (this/base/bare identifier) stays a simple shape; a field through an
+    /// invocation, nested property or any other expression is a member RMW
+    /// target and needs receiver hoisting.
+    /// </summary>
+    private static bool IsSimpleFieldReceiver(ExpressionSyntax receiver)
+    {
+        receiver = IncrementTargetSyntaxFacts.UnwrapParens(receiver);
+        return receiver is ThisExpressionSyntax
+            or BaseExpressionSyntax
+            or IdentifierNameSyntax;
+    }
+
+    /// <summary>
     /// Local/parameter or a side-effect-free field access (bare identifier,
-    /// this./base. or a simple-name qualified member). Reuses the C15 shape
+    /// this./base. or an identifier-qualified member). Reuses the C15 shape
     /// classifier for bare/this/base identifiers and extends minimally for
     /// simple-qualified fields.
     /// </summary>
@@ -329,10 +441,10 @@ internal sealed class IncrementTargetAnalyzer
     }
 
     private static bool IsSideEffectFreeReceiver(ExpressionSyntax receiver) =>
-        receiver is ThisExpressionSyntax
+        IncrementTargetSyntaxFacts.UnwrapParens(receiver)
+            is ThisExpressionSyntax
             or BaseExpressionSyntax
-            or IdentifierNameSyntax
-            or ParenthesizedExpressionSyntax;
+            or IdentifierNameSyntax;
 
     /// <summary>
     /// Select the arithmetic core from the operand static type and the bound
@@ -449,44 +561,55 @@ internal sealed class IncrementTargetAnalyzer
     }
 
     /// <summary>
-    /// Coarse lift bucket (decision 14 whitelist). Walks parents until the
-    /// nearest enclosing statement: crossing an anonymous function/query or
-    /// hitting a non-whitelisted statement (if/while/for/… condition etc.)
-    /// means NoAnchor; a field/property/attribute initializer has no enclosing
-    /// statement and is therefore also NoAnchor.
+    /// Lift bucket (decision 14 whitelist). The nearest enclosing statement is
+    /// the anchor: crossing an anonymous-function/local-function boundary
+    /// (checked from above the anchor), a query/initializer/arrow/conditional
+    /// expression, or landing on a non-whitelisted statement (if/while/for
+    /// condition position, lock/using headers, …) means NoAnchor. A
+    /// field/property/attribute initializer has no enclosing statement and is
+    /// NoAnchor too.
     /// </summary>
     private static Liftability ClassifyLift(ExpressionSyntax unaryNode, bool isPrefix)
     {
-        for (SyntaxNode? current = unaryNode; current.Parent != null; current = current.Parent)
+        var anchor = IncrementTargetSyntaxFacts.FindAnchorStatement(unaryNode);
+        if (anchor == null
+            || IncrementTargetSyntaxFacts.IsBlockedPath(unaryNode, anchor)
+            || CrossesFunctionScope(anchor)
+            || !IncrementTargetSyntaxFacts.IsWhitelistedAnchor(anchor))
         {
-            var parent = current.Parent;
+            return Liftability.NoAnchor;
+        }
 
-            if (parent is AnonymousFunctionExpressionSyntax or QueryExpressionSyntax)
+        if (anchor is ExpressionStatementSyntax expressionStatement)
+        {
+            return IncrementTargetSyntaxFacts.IsStandaloneExpression(unaryNode, expressionStatement)
+                ? Liftability.Standalone
+                : isPrefix ? Liftability.InlinePrefix : Liftability.LiftablePostfix;
+        }
+
+        return isPrefix ? Liftability.InlinePrefix : Liftability.LiftablePostfix;
+    }
+
+    /// <summary>
+    /// True when the anchor statement lives inside a lambda/anonymous-method
+    /// or a local function body (decision 14 keeps M1 out of both even when
+    /// the hoist itself would be block-local).
+    /// </summary>
+    private static bool CrossesFunctionScope(StatementSyntax anchor)
+    {
+        for (var current = anchor.Parent; current != null; current = current.Parent)
+        {
+            if (current is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)
             {
-                return Liftability.NoAnchor;
+                return true;
             }
 
-            switch (parent)
+            if (current is MemberDeclarationSyntax)
             {
-                case ExpressionStatementSyntax expressionStatement:
-                    return expressionStatement.Expression == unaryNode
-                        ? Liftability.Standalone
-                        : isPrefix ? Liftability.InlinePrefix : Liftability.LiftablePostfix;
-                case LocalDeclarationStatementSyntax
-                    or ReturnStatementSyntax
-                    or ThrowStatementSyntax
-                    or YieldStatementSyntax:
-                    return isPrefix ? Liftability.InlinePrefix : Liftability.LiftablePostfix;
-            }
-
-            if (parent is StatementSyntax)
-            {
-                // Site sits in a non-whitelisted statement (condition position,
-                // switch section label expressions, lock/using headers, …).
-                return Liftability.NoAnchor;
+                return false;
             }
         }
 
-        return Liftability.NoAnchor;
+        return false;
     }
 }

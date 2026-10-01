@@ -25,6 +25,39 @@ internal static class IncrementTargetDiagnostics
     public const string TempRoleNewValue = "newValue";
     public const string TempRoleRefAlias = "refAlias";
 
+    /// <summary>CS2J5330 per-file expansion summary (verbose-only Info).</summary>
+    public static string SiteInfo(
+        int totalSites, int property, int indexer, int enumArray,
+        int enumSimple, int unsignedResidual, int postfixLifted, int unsignedMathCalls)
+    {
+        var parts = new List<string>
+        {
+            $"{property} property",
+            $"{indexer} indexer",
+            $"{enumArray} enum-array",
+            $"{enumSimple} enum-residual",
+            $"{unsignedResidual} unsigned-residual",
+        };
+        var message = $"C17 increment-targets expanded {totalSites} site(s) ({string.Join(", ", parts)}); " +
+            $"{postfixLifted} postfix site(s) lifted";
+        if (unsignedMathCalls > 0)
+        {
+            message += $"; {unsignedMathCalls} Cs2jUnsigned.UnsignedMath call(s)";
+        }
+
+        return message;
+    }
+
+    /// <summary>CS2J5331 per-file temporary summary (verbose-only Info).</summary>
+    public static string TempInfo(IReadOnlyDictionary<string, int> tempsByRole)
+    {
+        var rendered = tempsByRole
+            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .Select(pair => $"{pair.Value} {pair.Key}");
+        return "C17 increment-targets hoisted "
+            + $"{tempsByRole.Values.Sum()} temporary variable(s) ({string.Join(", ", rendered)})";
+    }
+
     public static string IllegalTarget(string siteDescription, string pointerOrOther) =>
         $"increment/decrement target '{siteDescription}' is not a rewritable storage location " +
         $"({pointerOrOther}); events accept only +=/-= (C13) and pointer targets belong to C06 " +

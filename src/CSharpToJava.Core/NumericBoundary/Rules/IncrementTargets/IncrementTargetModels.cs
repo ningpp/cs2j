@@ -29,6 +29,12 @@ public sealed class IncrementTargetStatistics
     /// <summary>ref-returning targets expanded via ref alias (decision 16).</summary>
     public int RefAliasSites;
 
+    /// <summary>
+    /// Cs2jUnsigned.UnsignedMath Add/Sub UInt32/UInt64 calls emitted by M1
+    /// (one per call; drives the family support-library injection decision).
+    /// </summary>
+    public int UnsignedMathCallSites;
+
     // ── shape/lift buckets ──
 
     /// <summary>Prefix sites whose value is consumed inline (IT-10).</summary>
