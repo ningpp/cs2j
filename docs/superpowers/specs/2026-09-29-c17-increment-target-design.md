@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-29
 **范围**: 在 C15 创建的 `numeric-boundary` pass 内，以**族内增量规则**形态新增 `IncrementTargets` 规则（Core `NumericBoundary/Rules/IncrementTargets/` + 自有测试 + fixture 追加），把属性/索引器/enum/decimal/无符号残余/IntPtr/自定义 `++/--` 等转换器不可直映的目标归约为「单次求值的读-改-写显式语句」；本任务**不注册新 pass、不翻转 stub、不改任何 C#→Java 转换代码**
-**状态**: 设计稿，待评审；实施前置 = C15（锚点）分支合入
+**状态**: 2026-10-01 进入实施（worktree base 前移至 dev-3.x `0ba86416`；该基线 C15 已合入、pass 已 Implemented 且默认开，C34 DecimalOps 亦已合入，见 §12）；原状态：设计稿，待评审；实施前置 = C15（锚点）分支合入
 **校订（2026-09-29）**: ①全部 file:/// 链接按当前仓库逐一复核：[UnaryExpressionTransformer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/UnaryExpressionTransformer.cs) L154-193 各 throw 行（L169/L173/L176/L182/L184/L189/L192、enum 判定 L181-182）、UnsignedPostfixRewriter（L37-39/L57-62/L66-115/L140-148）、UnsignedTypeSyntaxRewriter（L228-246/L248-255/L182-204/L879-989，原锚点即准确）、EnumSyntaxRewriter、NullCoalesce、BinaryExpressionTransformer、compat Decimal.java 行号均核实无误；②catalog 文档内引用行号按当前重算（§3.3 数值边界族 L1084、§3.1 建议链 L1030-1031、§5.1 L1127-1134、§4 风险 8 L1106/风险 12 L1110）；③numeric-boundary stub 实在 [PassStubCatalog.cs:150-159](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L150-L159)（原误引 L162-171），catalogItems `"C15, C17, C22, C34, C41"`、RunAfter=unsigned、Stage=Expression 均核实；④member-desugar 现状改写：C11/C12/C13/C14 **已实现**（单一 member-desugar pass，默认关，[PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)），属性/索引器**语句位**自增已被去糖、值消费位致 plan 失败（CS2J5119/CS2J5137），`op_Increment`/`op_Decrement` 经 CS2J5181 显式移交 C17——正文中「未落地/未合入」类表述按此更新；⑤更正链序事实：当前注册表全序（静态推演）member-desugar 在 numeric-boundary **之前**（§3.3）；⑥新增决策 21 与开放问题 6：C# 14 用户定义复合赋值运算符边界；⑦跨设计文档锚点更正（C11 PD-6 L173、C12 IX-8 L189/D9 L66、C14 开放问题 4 L395、OC-8 L188）。
 **族属**: catalog P2「数值边界族」（[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1084-L1084)）。**C15 是该族锚点**：[PassStubCatalog.cs:150-159](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L150-L159) 的 `numeric-boundary` stub（catalogItems `"C15, C17, C22, C34, C41"`、RunAfter=unsigned、Stage=Expression）由 C15 翻转并创建 `src/CSharpToJava.Core/NumericBoundary/`（含 `Rules/` 子目录预留、CS2J53xx 诊断码段、`NumericBoundaryPassAdapter`；2026-09-29 核实该目录尚不存在）；C17 无独立 stub，只在 C15 合入后向 `Rules/IncrementTargets/` 增量
 
@@ -120,8 +120,8 @@ E09（unsigned pass，已实现）只解决了**无符号简单目标**的一部
 ### 3.1 归属：numeric-boundary 族 Rules/IncrementTargets/
 
 - 物理位置：`src/CSharpToJava.Core/NumericBoundary/Rules/IncrementTargets/`（C15 [§4.1 已预留](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md#L179-L187)）。本规则只增该子目录、自有测试文件与 fixture 追加文件；**不新建 pass、不新增适配器、不新增中间目录、不新增支撑工程**。
-- **不翻转 stub**：`numeric-boundary` 的 Stub→Implemented 由 C15 完成；本任务开始前 C15 分支必须已合入 base（见 §12）。
-- 注册表唯一允许触碰：C15 合入后 [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) 中该描述符的 `catalogItems` 单行追加 `"C15" → "C15, C17"`（C15 [§3.4-9](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md#L160-L160) 预告的预期一行冲突）。Status/DefaultEnabled/RunAfterIds/Stage/verify/支撑库字段一律不动；链序测试（`LockedChain`/`EnabledByDefault`）不动。
+- **不翻转 stub**：`numeric-boundary` 的 Stub→Implemented 由 C15 完成（2026-10-01 基线核实：已 Implemented、默认开）；本任务开始前 C15 必须已合入 base（§12，已满足）。
+- 注册表唯一允许触碰：[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) 中该描述符的 `catalogItems` 单行追加——2026-10-01 基线真值为 `"C15, C34"`（C34 已随族合入），故实际追加为 `"C15, C34" → "C15, C34, C17"`（设计初稿记的 `"C15" → "C15, C17"` 是 C34 合入前的预期一行冲突，以基线真值为准）。Status/DefaultEnabled/RunAfterIds/Stage/verify/支撑库字段一律不动；链序测试（`LockedChain`/`EnabledByDefault`）不动。
 
 ### 3.2 前置依赖
 
@@ -247,8 +247,8 @@ C15 [§4.1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-u
 
 ## 5. CLI 集成（零注册表结构改动）
 
-1. **无新 pass/适配器/开关/中间目录**：本规则随 `numeric-boundary` pass 执行，入口面完全继承 C15（`--numeric-boundary` / `--enable-pass numeric-boundary` / 通用 `preprocess --pass`），pass 默认关期间规则零执行、零痕迹；不新增 legacy toggle、不进 [PassChainFactory](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)。
-2. **注册表唯一改动**：PassCatalog 描述符 `catalogItems: "C15" → "C15, C17"`（§3.1）；`--list-passes` 自动反映；`PassChainOrderTests`/`PassStubCatalogTests` 不动。
+1. **无新 pass/适配器/开关/中间目录**：本规则随 `numeric-boundary` pass 执行，入口面完全继承 C15（`--numeric-boundary` / `--enable-pass numeric-boundary` / 通用 `preprocess --pass`）；规则节 kill-switch `EnableIncrementTargets=false` 时零执行、零痕迹（2026-10-01 基线：pass 本身已默认开，§7.6「默认关」验收项改以 kill-switch 关闭态验证）；不新增 legacy toggle、不进 [PassChainFactory](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)。
+2. **注册表唯一改动**：PassCatalog 描述符 `catalogItems: "C15, C34" → "C15, C34, C17"`（§3.1，2026-10-01 基线真值）；`--list-passes` 自动反映；`PassChainOrderTests`/`PassStubCatalogTests` 不动。
 3. **统计汇入**：RuleFragment 自渲染摘要片段，建议族摘要行追加 `increment-targets: P property/I indexer/E enum/D decimal/U unsigned-residual/X custom site(s), L postfix lifted, T temp(s), R deferred`；适配器文件除 §4.5-3 的一行注入判定外不改。
 4. **支撑库**：复用 `Cs2jUnsignedMath`（descriptor 已声明 `PassSupportLibrary.Cs2jUnsignedMath`）；本规则**不新增库方法**——IT-6 调用的 `AddUInt32/SubtractUInt32/…` 属 E09 既有面，checked 域属 C15 新增面。仅当 IT-6 产生调用时参与「有改写才注入」判定（§4.5-3）；支撑工程目录文件 clean copy、residual 豁免、Maven 过滤/指纹豁免全部继承。
 5. **verify**：继承描述符双默认开（verifyBuild/verifyTests=true）；本规则的语句提升最易引入编译错误，verify build 是硬守门，不允许规则级关闭。
@@ -327,7 +327,7 @@ MSBuild 格式：`文件(行,列): warning/error CS2J53xx: [IT-x/分类] 描述`
 
 ### 7.6 CLI / 一致性 / 转换器回归
 
-- 默认关：无 `.cs2j-numeric-boundary-src` 新增行为、链序不变；启用后 `--list-passes` 显示 catalogItems 含 C17；无新 toggle、无新适配器。
+- 关闭态（2026-10-01 基线 pass 已默认开，以规则节 `EnableIncrementTargets=false` 模拟原「默认关」验收）：规则零执行、无 C17 新增行为、链序不变；启用后 `--list-passes` 显示 catalogItems 含 C17；无新 toggle、无新适配器。
 - 转换器既有测试（[tests/CSharpToJava.Tests](file:///d:/code/cs2j/tests/CSharpToJava.Tests) 中直连 ConversionPipeline 的自增相关用例）持续全绿、零改动；默认开评审时再统一处置预期，本规则不迁就旧断言改测试。
 
 ---
@@ -384,29 +384,33 @@ MSBuild 格式：`文件(行,列): warning/error CS2J53xx: [IT-x/分类] 描述`
 
 ---
 
-## 12. Worktree 分配（只写不执行）
+## 12. Worktree 分配（2026-10-01 更新 base 并进入实施）
 
 - 分支：`feature/preproc-c17-increment-target`
 - 目录：`.worktrees/preproc-c17-increment-target`
-- base：`953293b9`（已核实存在：`docs: update doc base commit`）；**实现前先在该 worktree 内合入 C15 分支**（feature/preproc-c15-checked-unchecked），再开始 M0——C15 未合入时 `NumericBoundary/` 根层与适配器尚不存在。
-- 创建命令（在仓库根、PowerShell 下执行；**本设计阶段不执行，原样记录**）：
+- base：**`0ba86416`**（`docs: C40 worktree base 重选为 dev-3.x 最新提交 28ae4594`，dev-3.x HEAD @ 2026-10-01，完整 SHA `0ba86416b2fc3aa49551616208ec1b90f65c76bb`，已 `git rev-parse --verify` 校验存在）。~~原 base `953293b9`~~（完整 SHA `953293b908e9143437c45f287fb4277e890c398e`，2026-10-01 前移）。
+- **前置现状（2026-10-01 基线核实，原「实现前先合入 C15 分支」要求已满足，无需再合）**：
+  1. C15 已合入 dev-3.x：`NumericBoundary/` 根层（[NumericBoundaryPreprocessor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/NumericBoundary/NumericBoundaryPreprocessor.cs)、Analyzer/Models/SyntaxFacts/CheckedExprRewriter）与适配器存在，pass 已 **Implemented 且 defaultEnabled=true**；
+  2. C34 已合入：`NumericBoundary/Rules/DecimalOps/` 七文件在树，descriptor catalogItems 真值为 `"C15, C34"`，本任务单行加宽为 `"C15, C34, C17"`；C34 既已落地，按开放问题**裁决 2，CS2J5334 直接以 Info 级别实施**（不再经 Warning 过渡）；
+  3. fixture `tests/SampleNumericBoundarySolution/`（Lib/App/sln，含 DecimalOps 子目录）与测试工程 `tests/CSharpToJava.ProjectTests/`（含 NumericBoundary* 用例）均在树，本任务按 §7 追加，不新建 sln/工程。
+- 创建命令（在仓库根、PowerShell 下执行；2026-10-01 实施时实际执行；base 文档更新提交落在 dev-3.x 的 `0ba86416` 之上，故分支从更新后的 dev-3.x HEAD 切出，内容 = `0ba86416` + 本文档修订）：
 
 ```powershell
-git worktree add .worktrees/preproc-c17-increment-target -b feature/preproc-c17-increment-target 953293b9
+git worktree add .worktrees/preproc-c17-increment-target -b feature/preproc-c17-increment-target dev-3.x
 ```
 
-- worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core 仅新增 `NumericBoundary/Rules/IncrementTargets/`（+ §4.5 授权的根层小接缝与适配器一行收口）、Core 单测 + SampleNumericBoundarySolution 追加 + Release build/test + residual 闸门 + CLI 断言；不新建支撑工程、不新增支撑库方法；注册表除 CatalogItems 单行外零改动；不触转换器代码（§6 消费清单为后续 PR 输入）。
+- worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core 仅新增 `NumericBoundary/Rules/IncrementTargets/`（+ §4.5 授权的根层小接缝与适配器一行收口）、Core 单测 + SampleNumericBoundarySolution 追加 + Release build/test + residual 闸门 + CLI 断言；不新建支撑工程、不新增支撑库方法；注册表除 CatalogItems 单行外零改动；不触转换器代码（§6 消费清单为后续 PR 输入）。按 §9 里程碑逐提交（M0→M2，实现一部分提交一部分）；M3 为默认开评审/数据采集门，随 C15 §8 总门槛统一持有，无独立生产代码。
 
 ---
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。【2026-10-01 实施更新：base 直接前移至 dev-3.x HEAD `0ba86416`，命令见 §12；C15 锚点与 C34 均已合入（pass 已 Implemented、默认开），无需再合分支，catalogItems 按真值登记 `"C15, C34" → "C15, C34, C17"`】
 
 **裁决（按原题号）：**
 
 1. **运算符命名契约与共享渲染器**：`Increment/Decrement`（含 checked 变体）去糖命名由 C14 owner 在 `OperatorNames.cs` 冻结，作为 C17 M1 开工的**阻塞前置**；跨族「运算符应用/转换链渲染器」与共享 TempLifter 上收到 `Core/Preprocessing/Expressions/`，时点定为 C17 M2（第三套同构实现出现即收口，不等待）；CS2J5338 维持至契约冻结。
-2. **decimal 站点（C34 落地前）**：展开为 `±1m` + CS2J5334 Warning（strict 下 Error），不走 C15 式整体 CS2J5334 Error 阻断；C34 合入后该诊断降 Info。
+2. **decimal 站点（C34 落地前）**：展开为 `±1m` + CS2J5334 Warning（strict 下 Error），不走 C15 式整体 CS2J5334 Error 阻断；C34 合入后该诊断降 Info。【2026-10-01 实施更新：C34 已合入 dev-3.x（`ec882491`，`Rules/DecimalOps/` 在树），CS2J5334 直接按 **Info** 实施，不再经 Warning 过渡】
 3. **条件位后缀值用 `x++`**：v1 CS2J5339 显式失败；**终态做条件提取/语句求值序列线性化收编**（sdk 出现真实命中即 M3 立项）；ref 形参 PostInc helper 路线否决（不引 C01 Java ref 依赖），CS2J5339 不作为永久拒绝。
 4. **规则开关粒度**：`EnableIncrementTargets` 默认 true 随 pass，仅保留 pass 级 kill-switch；不暴露 CLI、不按目标种类细分。
 5. **链序终局**：加显式 RunAfter 边固化 member-desugar → numeric-boundary（由本 pass PR 写入 numeric-boundary descriptor；若 C15 翻转 PR 已先写则核对一致），不靠声明序 tiebreak；foundation plan Stub 表声明序（NB 先于 MD）与实际序背离处在计划文档回填说明。
