@@ -1,5 +1,6 @@
 using SampleNumericBoundaryLib;
 using SampleNumericBoundaryLib.DecimalOps;
+using SampleNumericBoundaryLib.IncrementTargets;
 
 var failures = 0;
 
@@ -166,6 +167,76 @@ CheckThrows<DivideByZeroException>("DecimalDivideByZero",
     () => DecimalArithmetic.Divide(1m, 0m));
 CheckThrows<DivideByZeroException>("DecimalRemainderByZero",
     () => DecimalArithmetic.Remainder(1m, 0m));
+
+// ── C17 M1 increment-targets: single-evaluation read-modify-write ──
+var standaloneProbe = new SideEffectProbe();
+Check("IncPropertyStandaloneResult", standaloneProbe.PropertyStandaloneResult() == 1);
+Check("IncPropertyStandaloneCounters",
+    standaloneProbe.IntPropGets == 1 && standaloneProbe.IntPropSets == 1);
+
+var postfixProbe = new SideEffectProbe();
+var (postfixOld, postfixNow) = postfixProbe.PostfixConsumedProperty();
+Check("IncPostfixOldValue", postfixOld == 0 && postfixNow == 1);
+Check("IncPostfixCounters",
+    postfixProbe.IntPropGets == 1 && postfixProbe.IntPropSets == 1);
+
+var prefixProbe = new SideEffectProbe();
+Check("IncPrefixReturned", prefixProbe.PrefixReturnedProperty() == 1);
+Check("IncPrefixCounters",
+    prefixProbe.IntPropGets == 1 && prefixProbe.IntPropSets == 1);
+
+var effectfulProbe = new SideEffectProbe();
+Check("IncEffectfulReceiverResult", effectfulProbe.EffectfulReceiverProperty() == 1);
+Check("IncEffectfulReceiverOnce",
+    effectfulProbe.FactoryCalls == 1
+    && effectfulProbe.IntPropGets == 1
+    && effectfulProbe.IntPropSets == 1);
+
+var prefixEffectfulProbe = new SideEffectProbe();
+Check("IncPrefixEffectfulReceiverResult", prefixEffectfulProbe.PrefixEffectfulReceiver() == 1);
+Check("IncPrefixEffectfulReceiverOnce", prefixEffectfulProbe.FactoryCalls == 1);
+
+var incIndexerProbe = new SideEffectProbe();
+incIndexerProbe.IndexerIncrementOnce();
+Check("IncIndexerArgOnce", incIndexerProbe.NextCalls == 1);
+Check("IncIndexerAccessOnce",
+    incIndexerProbe.IndexerGets == 1
+    && incIndexerProbe.IndexerSets == 1
+    && incIndexerProbe.IndexArgEvaluations == 2);
+Check("IncIndexerStoredValue", incIndexerProbe.IndexStoredValue(1) == 1);
+
+var uintProbe = new SideEffectProbe();
+Check("IncUIntProperty", uintProbe.UIntPropertyIncrement() == 1u);
+
+var byteProbe = new SideEffectProbe();
+Check("IncByteProperty", byteProbe.BytePropertyIncrement() == 1);
+Check("IncBytePropertyCounters",
+    byteProbe.BytePropGets == 1 && byteProbe.BytePropSets == 1);
+
+var checkedColorProbe = new SideEffectProbe();
+Check("IncCheckedColorProperty",
+    checkedColorProbe.CheckedColorPropertyIncrement() == IncrementColor.Green);
+Check("IncCheckedColorCounters",
+    checkedColorProbe.ColorPropGets == 1 && checkedColorProbe.ColorPropSets == 1);
+
+Check("IncSimpleEnumLocal", EnumIncrementSamples.SimpleEnumLocal() == IncrementRank.Two);
+Check("IncByteEnumWraps", EnumIncrementSamples.ByteEnumWraps() == IncrementColor.Red);
+
+var enumArray = new[] { IncrementColor.Red, IncrementColor.Green };
+Check("IncEnumArrayPostfixOld",
+    EnumIncrementSamples.EnumArrayElementPostfix(enumArray, 1) == IncrementColor.Green);
+Check("IncEnumArrayPostfixNew", enumArray[1] == IncrementColor.Blue);
+
+var enumArrayPrefix = new[] { IncrementColor.Red, IncrementColor.Green };
+Check("IncEnumArrayPrefix",
+    EnumIncrementSamples.EnumArrayElementPrefix(enumArrayPrefix, 0) == IncrementColor.Green);
+
+Check("IncUIntResidualRoundTrip", EnumIncrementSamples.UIntResidualRoundTrip(42u) == 42u);
+Check("IncULongResidualIncrement", EnumIncrementSamples.ULongResidualIncrement(42ul) == 43ul);
+Check("IncByteResidualIncrement", EnumIncrementSamples.ByteResidualIncrement(200) == 201);
+Check("IncUShortResidualIncrement", EnumIncrementSamples.UShortResidualIncrement(200) == 201);
+Check("IncByteResidualWraps", EnumIncrementSamples.ByteResidualWraps() == 0);
+Check("IncUIntResidualWraps", EnumIncrementSamples.UIntResidualWraps() == 0u);
 
 if (failures > 0)
 {

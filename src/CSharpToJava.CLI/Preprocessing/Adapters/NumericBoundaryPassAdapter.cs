@@ -138,7 +138,8 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
             + _statistics.CheckedConversionSites
             + _statistics.CheckedIncrementSites
             + _statistics.CompoundAssignments;
-        if (checkedHelperSites == 0)
+        var incrementHelperSites = _statistics.IncrementTargets.UnsignedMathCallSites;
+        if (checkedHelperSites == 0 && incrementHelperSites == 0)
         {
             // Pure stripping pass: no support library needed.
             return;
@@ -289,6 +290,22 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
                     $"{d.TotalTemps} temp(s), {d.TotalDeferred} deferred";
         }
 
+        var it = _statistics.IncrementTargets;
+        if (it.TotalSites != 0 || it.UnsignedMathCallSites != 0
+            || it.PrefixInlineSites != 0 || it.EventSites != 0)
+        {
+            var tempCount = it.TempsByRole.Values.Sum();
+            var deferredCount = it.DeferredByReason.Values.Sum();
+            line += $"; increment-targets: {it.PropertySites} property/" +
+                    $"{it.IndexerSites} indexer/" +
+                    $"{it.SpecialArrayElementSites} enum-array/" +
+                    $"{it.EnumCastSites + it.UnsignedResidualSites} simple site(s), " +
+                    $"{it.UnsignedMathCallSites} unsigned helper call(s), " +
+                    $"{it.PostfixLiftedSites} postfix lifted/" +
+                    $"{it.PrefixInlineSites} prefix inlined, " +
+                    $"{tempCount} temp(s), {deferredCount} deferred";
+        }
+
         return line;
     }
 
@@ -348,6 +365,26 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         targetDecimal.ToDecimalUInt64PromotionSites += sourceDecimal.ToDecimalUInt64PromotionSites;
         targetDecimal.ConstantsDowngraded += sourceDecimal.ConstantsDowngraded;
         targetDecimal.ResidualDecimalOperators += sourceDecimal.ResidualDecimalOperators;
+
+        // ── C17 increment-targets buckets ──
+        var sourceIncrement = source.IncrementTargets;
+        var targetIncrement = _statistics.IncrementTargets;
+        targetIncrement.PropertySites += sourceIncrement.PropertySites;
+        targetIncrement.IndexerSites += sourceIncrement.IndexerSites;
+        targetIncrement.SpecialArrayElementSites += sourceIncrement.SpecialArrayElementSites;
+        targetIncrement.EnumCastSites += sourceIncrement.EnumCastSites;
+        targetIncrement.EnumFromValueSites += sourceIncrement.EnumFromValueSites;
+        targetIncrement.DecimalSites += sourceIncrement.DecimalSites;
+        targetIncrement.UnsignedResidualSites += sourceIncrement.UnsignedResidualSites;
+        targetIncrement.CustomOperatorSites += sourceIncrement.CustomOperatorSites;
+        targetIncrement.RefAliasSites += sourceIncrement.RefAliasSites;
+        targetIncrement.UnsignedMathCallSites += sourceIncrement.UnsignedMathCallSites;
+        targetIncrement.PrefixInlineSites += sourceIncrement.PrefixInlineSites;
+        targetIncrement.PostfixStandaloneSites += sourceIncrement.PostfixStandaloneSites;
+        targetIncrement.PostfixLiftedSites += sourceIncrement.PostfixLiftedSites;
+        targetIncrement.EventSites += sourceIncrement.EventSites;
+        MergeCounter(sourceIncrement.TempsByRole, targetIncrement.TempsByRole);
+        MergeCounter(sourceIncrement.DeferredByReason, targetIncrement.DeferredByReason);
     }
 
     private static void MergeCounter(IReadOnlyDictionary<string, int> source, Dictionary<string, int> target)

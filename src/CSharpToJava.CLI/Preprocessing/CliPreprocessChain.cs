@@ -65,6 +65,13 @@ internal sealed class CliChainRequest
     /// Dormant default (false); tests and M3 flip it explicitly.
     /// </summary>
     public bool EnableDecimalOps { get; init; }
+
+    /// <summary>
+    /// C17: increment-targets read-modify-write normalization inside
+    /// numeric-boundary. Enabled by default; set false to exercise the
+    /// family kill-switch.
+    /// </summary>
+    public bool EnableIncrementTargets { get; init; } = true;
 }
 
 /// <summary>
@@ -144,6 +151,7 @@ internal static class CliPreprocessChain
             StructValueSemanticsOptionsFactory = request.StructValueSemanticsOptionsFactory,
             EnumDeclarationOptionsFactory = request.EnumDeclarationOptionsFactory,
             EnableDecimalOps = request.EnableDecimalOps,
+            EnableIncrementTargets = request.EnableIncrementTargets,
             EqualityConcatOptionsFactory = request.EqualityConcatOptionsFactory,
         };
 
