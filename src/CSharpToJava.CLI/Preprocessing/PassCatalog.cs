@@ -262,6 +262,19 @@ internal static class PassCatalog
             description: "Make struct copy/mutation/readonly boundaries explicit with defensive clones.",
             catalogItems: "C07"),
         new(
+            PassStubCatalog.Ids.UnsafeFfm,
+            "Unsafe to FFM",
+            ".cs2j-unsafe-ffm-src",
+            PassStage.Abi,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.StructValueSemantics },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Strip unsafe blocks and unsafe modifiers from types/members/local functions " +
+                "(C06 M0; fixed buffers, stackalloc, pointers and extern normalization follow in later milestones).",
+            catalogItems: "C06"),
+        new(
             PassStubCatalog.Ids.IteratorLowering,
             "Iterator lowering",
             ".cs2j-iterator-lowering-src",

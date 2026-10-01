@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using CSharpToJava.CLI.Preprocessing;
 using CSharpToJava.CLI;
+using CSharpToJava.Core.Preprocessing;
 
 namespace CSharpToJava.Tests;
 
@@ -151,6 +152,25 @@ public class ProjectPreprocessorsConsistentTests
             Assert.Equal(".cs2j-struct-value-semantics-src",
                 PassCatalog.ImplementedById(PassIds.StructValueSemantics).IntermediateDirectoryName);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.StructValueSemanticsPassAdapter));
+
+            // unsafe-ffm (C06)：无门面类（设计决定），目录常量挂在注册表描述符上；
+            // 默认关，经 --enable-pass unsafe-ffm / --pass unsafe-ffm 开启；
+            // 无支撑库（PassSupportLibrary.None）。
+            var unsafeFfmDescriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.UnsafeFfm);
+            Assert.Equal(".cs2j-unsafe-ffm-src",
+                unsafeFfmDescriptor.IntermediateDirectoryName);
+            Assert.False(unsafeFfmDescriptor.DefaultEnabled);
+            Assert.Equal(PassStatus.Implemented, unsafeFfmDescriptor.Status);
+            Assert.Equal(PassStage.Abi, unsafeFfmDescriptor.Stage);
+            Assert.Equal(PassSupportLibrary.None, unsafeFfmDescriptor.SupportLibrary);
+            Assert.True(unsafeFfmDescriptor.NeedsSemanticModel);
+            Assert.True(unsafeFfmDescriptor.VerifyBuildByDefault);
+            Assert.True(unsafeFfmDescriptor.VerifyTestsByDefault);
+            Assert.Equal("C06", unsafeFfmDescriptor.CatalogItems);
+            Assert.Equal(
+                new[] { PassIds.StructValueSemantics },
+                unsafeFfmDescriptor.RunAfterIds);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.UnsafeFfmPassAdapter));
 
             // index-range (C31)：无门面类（设计决定），目录常量挂在 CLI 适配器上；
             // 默认开（defaultEnabled: true），经 --pass index-range 隔离/ --enable-pass 追加。
