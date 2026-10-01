@@ -2,8 +2,9 @@ namespace CSharpToJava.Core.UnsafeFfm;
 
 /// <summary>
 /// C06 统计计数器（设计 §4「按规则命中数、拒绝数、residual 数」）。
-/// M0 仅 unsafe 段有账：unsafe 块剥除数与各位置 unsafe 修饰符剥除数；
-/// 拒绝/residual/隐式 stackalloc 等计数器为后续里程碑预留。
+/// M0 记 unsafe 段（unsafe 块与各位置 unsafe 修饰符剥除数）；M1 追加
+/// R2 fixed 字段改写字段数、R3 fixed 语句数（按初始式五类分类）以及
+/// UF020/UF030/UF031 拒绝数；隐式 stackalloc 等计数器为后续里程碑预留。
 /// </summary>
 public sealed class UnsafeFfmStatistics
 {
@@ -47,13 +48,55 @@ public sealed class UnsafeFfmStatistics
         + UnsafeLocalFunctionModifiersStripped
         + UnsafeOtherModifiersStripped;
 
-    // ---- 后续里程碑预留 ----
+    // ---- R2：fixed 字段缓冲区 → 数组字段 ----
 
-    /// <summary>Error 拒绝数（M0 仅可能来自 UF010）。</summary>
+    /// <summary>fixed 字段缓冲区改写数（按 VariableDeclarator 计）。</summary>
+    public int FixedBufferFieldsRewritten { get; set; }
+
+    // ---- R3：fixed 语句 ----
+
+    /// <summary>fixed 语句数（按 FixedStatementSyntax 节点计）。</summary>
+    public int FixedStatementsCount { get; set; }
+
+    /// <summary>初始式=数组（含 R2 改写后的 fixed 字段）的固定指针数。</summary>
+    public int FixedVariablesArray { get; set; }
+
+    /// <summary>初始式=&arr[k]（带偏移取址）的固定指针数。</summary>
+    public int FixedVariablesOffset { get; set; }
+
+    /// <summary>初始式=指针别名（tracked pointer）的固定指针数。</summary>
+    public int FixedVariablesAlias { get; set; }
+
+    /// <summary>初始式=null 的固定指针数。</summary>
+    public int FixedVariablesNull { get; set; }
+
+    /// <summary>初始式=string 的固定指针数。</summary>
+    public int FixedVariablesString { get; set; }
+
+    /// <summary>初始式=&scalar（标量单槽）的固定指针数。</summary>
+    public int FixedVariablesScalar { get; set; }
+
+    /// <summary>固定指针变量总数（一个 fixed 语句可声明多个）。</summary>
+    public int FixedVariablesTotal =>
+        FixedVariablesArray + FixedVariablesOffset + FixedVariablesAlias
+        + FixedVariablesNull + FixedVariablesString + FixedVariablesScalar;
+
+    // ---- 拒绝 / residual ----
+
+    /// <summary>Error 拒绝总数（M0：UF010；M1 起含 UF020/UF030/UF031 等）。</summary>
     public int Rejections { get; set; }
 
     /// <summary>residual 闸门命中数。</summary>
     public int ResidualCount { get; set; }
+
+    /// <summary>UF020 拒绝数（指针不可静态证明/逃逸）。</summary>
+    public int Uf020Rejections { get; set; }
+
+    /// <summary>UF030 拒绝数（fixed 字符串缓冲写入）。</summary>
+    public int Uf030Rejections { get; set; }
+
+    /// <summary>UF031 拒绝数（fixed 字段所在类型布局锁且与 extern 关联）。</summary>
+    public int Uf031Rejections { get; set; }
 
     /// <summary>隐式 stackalloc 收编数（M2）。</summary>
     public int ImplicitStackAllocCollected { get; set; }

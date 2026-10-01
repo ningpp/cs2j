@@ -8,8 +8,10 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// <summary>
 /// C06 unsafe-ffm 预处理 pass 公共门面（C#→C#，设计 §4）。单次 parse：
 /// 直接使用调用方已解析树的 <see cref="SemanticModel"/>，规则在内存中顺序
-/// 合批（M0 仅链 R1 <see cref="UnsafeContextStripper"/>；后续里程碑在此
-/// 追加 R2–R8），R1 输出经 unsafe 上下文残留自检后格式化并做本地解析校验。
+/// 合批：R1 <see cref="UnsafeContextStripper"/> 始终先跑；M1 起 EnableFixed
+/// 时同树合批 R2 <see cref="FixedBufferFieldRewriter"/> → R3
+/// <see cref="FixedStatementRewriter"/>（字段先改数组，使 fixed(byte* p=字段)
+/// 走数组路径），随后做 fixed 段 residual 自检，最后格式化并做本地解析校验。
 /// 拒绝优先：任一 Error 即文件 <see cref="UnsafeFfmResult.Changed"/>=false、
 /// 原文保留；输出可被自身二次安全驱动（幂等）。
 /// </summary>
@@ -37,11 +39,10 @@ public sealed class UnsafeFfmPreprocessor
         var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
         var filePath = semanticModel.SyntaxTree.FilePath;
 
-        // M0：仅 R1。R2–R8 在后续里程碑按序接入同一棵树（单次 parse 合批）。
+        // R1 始终先跑（unsafe 基座，无独立开关）。
         var newRoot = (CompilationUnitSyntax)new UnsafeContextStripper(statistics).Visit(root)!;
 
-        // R1 残留自检（M0 只查 unsafe 块/unsafe 修饰符；pointer/fixed/stackalloc
-        // 全量 residual 闸门随后续里程碑激活）：命中即规则缺口，UF010 拒绝。
+        // R1 残留自检：unsafe 块/unsafe 修饰符残留即规则缺口，UF010 拒绝。
         if (HasUnsafeContextResidual(newRoot))
         {
             statistics.ResidualCount++;
@@ -52,25 +53,60 @@ public sealed class UnsafeFfmPreprocessor
                 "unsafe-context residual gate: the rewritten tree still contains an unsafe block " +
                 "or unsafe modifier after R1 (internal rule gap); the original file was preserved.",
                 filePath, 0, 0));
-            return new UnsafeFfmResult
+            return Rollback(sourceCode, statistics, diagnostics);
+        }
+
+        // M1：R2→R3 同树合批，仅在 EnableFixed 时执行。
+        if (_options.EnableFixed)
+        {
+            var fieldResolver = new OriginalSyntaxResolver(root, newRoot);
+            var fieldRewriter = new FixedBufferFieldRewriter(
+                semanticModel, statistics, fieldResolver);
+            newRoot = (CompilationUnitSyntax)fieldRewriter.Visit(newRoot)!;
+            foreach (var diagnostic in fieldRewriter.Diagnostics)
             {
-                OutputCode = sourceCode,
-                Changed = false,
-                Statistics = statistics,
-                Diagnostics = diagnostics,
-            };
+                diagnostics.Add(diagnostic);
+            }
+
+            if (fieldRewriter.HasErrors)
+            {
+                return Rollback(sourceCode, statistics, diagnostics);
+            }
+
+            var statementResolver = new OriginalSyntaxResolver(root, newRoot);
+            var statementRewriter = new FixedStatementRewriter(
+                semanticModel, fieldRewriter.RewrittenFields, statistics, statementResolver);
+            newRoot = (CompilationUnitSyntax)statementRewriter.Visit(newRoot)!;
+            foreach (var diagnostic in statementRewriter.Diagnostics)
+            {
+                diagnostics.Add(diagnostic);
+            }
+
+            if (statementRewriter.HasErrors)
+            {
+                return Rollback(sourceCode, statistics, diagnostics);
+            }
+
+            // fixed 段 residual 自检：输出树不得残留 fixed 语句、fixed 字段
+            // 以及由 fixed 块根生出的指针节点；命中即内部规则缺口 UF010。
+            if (HasFixedResidual(newRoot, out var residualReason))
+            {
+                statistics.ResidualCount++;
+                statistics.Rejections++;
+                diagnostics.Add(new UnsafeFfmDiagnostic(
+                    UnsafeFfmSeverity.Error,
+                    UnsafeFfmDiagnosticCode.UF010,
+                    "fixed residual gate: " + residualReason +
+                    " (internal rule gap); the original file was preserved.",
+                    filePath, 0, 0));
+                return Rollback(sourceCode, statistics, diagnostics);
+            }
         }
 
         if (newRoot.IsEquivalentTo(root))
         {
             statistics.FilesSkippedClean++;
-            return new UnsafeFfmResult
-            {
-                OutputCode = sourceCode,
-                Changed = false,
-                Statistics = statistics,
-                Diagnostics = diagnostics,
-            };
+            return Rollback(sourceCode, statistics, diagnostics);
         }
 
         var outputCode = FormatAndValidate(newRoot);
@@ -83,13 +119,7 @@ public sealed class UnsafeFfmPreprocessor
                 "unsafe-ffm rewrite failed local parse validation; the original file was preserved " +
                 "pending whole-tree build/test verification.",
                 filePath, 0, 0));
-            return new UnsafeFfmResult
-            {
-                OutputCode = sourceCode,
-                Changed = false,
-                Statistics = statistics,
-                Diagnostics = diagnostics,
-            };
+            return Rollback(sourceCode, statistics, diagnostics);
         }
 
         statistics.FilesTransformed++;
@@ -111,6 +141,85 @@ public sealed class UnsafeFfmPreprocessor
         if (root.DescendantNodes().OfType<UnsafeStatementSyntax>().Any()) return true;
         return root.DescendantTokens().Any(t => t.IsKind(SyntaxKind.UnsafeKeyword));
     }
+
+    /// <summary>
+    /// fixed 段 residual 扫描（EnableFixed 时）：
+    /// <list type="bullet">
+    /// <item>全树不得残留 <see cref="FixedStatementSyntax"/> 或带 fixed 修饰符的字段；</item>
+    /// <item>每个被 R3 改写（带注释）的成员范围内不得残留指针类型、取址/解引用、
+    /// 指针成员访问等由 fixed 块根生出的指针节点。</item>
+    /// </list>
+    /// </summary>
+    private static bool HasFixedResidual(CompilationUnitSyntax root, out string reason)
+    {
+        if (root.DescendantNodes().OfType<FixedStatementSyntax>().Any())
+        {
+            reason = "the rewritten tree still contains a fixed statement";
+            return true;
+        }
+
+        if (root.DescendantNodes().OfType<FieldDeclarationSyntax>()
+            .Any(f => f.Modifiers.Any(SyntaxKind.FixedKeyword)))
+        {
+            reason = "the rewritten tree still contains a fixed-keyword field declaration";
+            return true;
+        }
+
+        foreach (var annotated in root.GetAnnotatedNodes(
+                     FixedStatementRewriter.FixedReplacedAnnotation))
+        {
+            var member = annotated.Ancestors().OfType<MemberDeclarationSyntax>().FirstOrDefault();
+            if (member == null) continue;
+
+            foreach (var node in member.DescendantNodes())
+            {
+                if (node is PointerTypeSyntax)
+                {
+                    reason = $"member '{member}' still contains a pointer type after fixed lowering";
+                    return true;
+                }
+
+                if (node is PrefixUnaryExpressionSyntax prefix
+                    && (prefix.Kind() == SyntaxKind.AddressOfExpression
+                        || prefix.Kind() == SyntaxKind.PointerIndirectionExpression))
+                {
+                    reason = $"member '{member}' still contains an address-of/indirection expression " +
+                             "after fixed lowering";
+                    return true;
+                }
+
+                if (node is MemberAccessExpressionSyntax memberAccess
+                    && memberAccess.Kind() == SyntaxKind.PointerMemberAccessExpression)
+                {
+                    reason = $"member '{member}' still contains a pointer member access (p->m) " +
+                             "after fixed lowering";
+                    return true;
+                }
+            }
+
+            if (member.DescendantTokens().Any(t => t.IsKind(SyntaxKind.FixedKeyword)))
+            {
+                reason = $"member '{member}' still contains a fixed keyword after fixed lowering";
+                return true;
+            }
+        }
+
+        reason = string.Empty;
+        return false;
+    }
+
+    /// <summary>原文回滚：Changed=false，OutputCode 即原始源码。</summary>
+    private static UnsafeFfmResult Rollback(
+        string sourceCode,
+        UnsafeFfmStatistics statistics,
+        IReadOnlyList<UnsafeFfmDiagnostic> diagnostics)
+        => new()
+        {
+            OutputCode = sourceCode,
+            Changed = false,
+            Statistics = statistics,
+            Diagnostics = diagnostics,
+        };
 
     /// <summary>整树格式化 → 原文候选，每个候选重新解析零 Error 才返回。</summary>
     private static string? FormatAndValidate(CompilationUnitSyntax root)

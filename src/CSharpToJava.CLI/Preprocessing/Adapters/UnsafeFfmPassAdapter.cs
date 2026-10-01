@@ -22,7 +22,7 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
     private readonly bool _verifyBuild;
     private readonly bool _verifyTests;
 
-    private readonly UnsafeFfmPreprocessor _preprocessor = new();
+    private readonly UnsafeFfmPreprocessor _preprocessor;
     private readonly List<UnsafeFfmDiagnostic> _diagnostics = new();
     private readonly UnsafeFfmStatistics _statistics = new();
 
@@ -40,6 +40,8 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
         _compatNamespacePrefixes = compatNamespacePrefixes;
         _verifyBuild = verifyBuild;
         _verifyTests = verifyTests;
+
+        _preprocessor = new UnsafeFfmPreprocessor(_options);
     }
 
     public override PassDescriptor Descriptor =>
@@ -114,7 +116,18 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
            $"{_statistics.UnsafeMethodModifiersStripped} method, " +
            $"{_statistics.UnsafeFieldModifiersStripped} field, " +
            $"{_statistics.UnsafeConstructorModifiersStripped} ctor, " +
-           $"{_statistics.UnsafeLocalFunctionModifiersStripped} local function), " +
+           $"{_statistics.UnsafeLocalFunctionModifiersStripped} local function); " +
+           $"{_statistics.FixedBufferFieldsRewritten} fixed buffer field(s), " +
+           $"{_statistics.FixedStatementsCount} fixed statement(s) " +
+           $"({_statistics.FixedVariablesTotal} pointer(s): " +
+           $"{_statistics.FixedVariablesArray} array, " +
+           $"{_statistics.FixedVariablesOffset} offset, " +
+           $"{_statistics.FixedVariablesAlias} alias, " +
+           $"{_statistics.FixedVariablesNull} null, " +
+           $"{_statistics.FixedVariablesString} string, " +
+           $"{_statistics.FixedVariablesScalar} scalar); " +
+           $"{_statistics.Rejections} rejection(s) (UF020={_statistics.Uf020Rejections}, " +
+           $"UF030={_statistics.Uf030Rejections}, UF031={_statistics.Uf031Rejections}), " +
            $"{_statistics.FilesTransformed} file(s)";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -138,5 +151,16 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
         _statistics.Rejections += source.Rejections;
         _statistics.ResidualCount += source.ResidualCount;
         _statistics.ImplicitStackAllocCollected += source.ImplicitStackAllocCollected;
+        _statistics.FixedBufferFieldsRewritten += source.FixedBufferFieldsRewritten;
+        _statistics.FixedStatementsCount += source.FixedStatementsCount;
+        _statistics.FixedVariablesArray += source.FixedVariablesArray;
+        _statistics.FixedVariablesOffset += source.FixedVariablesOffset;
+        _statistics.FixedVariablesAlias += source.FixedVariablesAlias;
+        _statistics.FixedVariablesNull += source.FixedVariablesNull;
+        _statistics.FixedVariablesString += source.FixedVariablesString;
+        _statistics.FixedVariablesScalar += source.FixedVariablesScalar;
+        _statistics.Uf020Rejections += source.Uf020Rejections;
+        _statistics.Uf030Rejections += source.Uf030Rejections;
+        _statistics.Uf031Rejections += source.Uf031Rejections;
     }
 }
