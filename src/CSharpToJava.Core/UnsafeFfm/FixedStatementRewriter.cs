@@ -38,6 +38,7 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
     private readonly SemanticModel _model;
     private readonly HashSet<IFieldSymbol> _rewrittenFields;
+    private readonly HashSet<ISymbol> _pointerRewritten;
     private readonly UnsafeFfmStatistics _statistics;
     private readonly OriginalSyntaxResolver _resolver;
 
@@ -48,11 +49,13 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     public FixedStatementRewriter(
         SemanticModel model,
         HashSet<IFieldSymbol> rewrittenFields,
+        HashSet<ISymbol> pointerRewritten,
         UnsafeFfmStatistics statistics,
         OriginalSyntaxResolver resolver)
     {
         _model = model;
         _rewrittenFields = rewrittenFields;
+        _pointerRewritten = pointerRewritten;
         _statistics = statistics;
         _resolver = resolver;
     }
@@ -61,6 +64,12 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
     public bool HasErrors =>
         Diagnostics.Any(d => d.Severity == UnsafeFfmSeverity.Error);
+
+    /// <summary>
+    /// 被 R3 降级为「数组局部 + int 索引」的原始指针符号集合（fixed 变量与
+    /// 被转换的指针局部）。R6 据此把这些符号的体内使用识别为 int，不误判为指针。
+    /// </summary>
+    public IReadOnlyCollection<ISymbol> LoweredSymbols => _infos.Keys;
 
     // ---- fixed 节点 ----
 
@@ -250,6 +259,19 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             return (InitKind.Array, e);
         }
 
+        // R5 已把指针形参/局部改写为数组（模型仍为旧指针类型）→ 数组路径。
+        if (GetIdentifierSymbol(e) is { } rewrittenSymbol
+            && _pointerRewritten.Contains(rewrittenSymbol))
+        {
+            return (InitKind.Array, e);
+        }
+
+        // R5 改写符号的简单指针偏移（p + k / p - k）→ 数组 + 偏移索引。
+        if (TryClassifyRewrittenOffset(e, out var rewrittenOffset))
+        {
+            return (InitKind.Offset, rewrittenOffset);
+        }
+
         var type = TypeInfoFor(e).Type;
         if (type?.SpecialType == SpecialType.System_String)
             return (InitKind.String, e);
@@ -264,12 +286,74 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         return (InitKind.Error, null);
     }
 
+    /// <summary>
+    /// 识别「R5 改写符号 ± 简单偏移」：<c>fixed(T* q = p + 2)</c> 中 p 已被
+    /// R5 改写为数组，语义等价于「数组 p、索引 2」（减法索引取负）。
+    /// </summary>
+    private bool TryClassifyRewrittenOffset(
+        ExpressionSyntax raw, out OffsetPayload? payload)
+    {
+        payload = null;
+        if (raw is not BinaryExpressionSyntax binary) return false;
+        if (!binary.IsKind(SyntaxKind.AddExpression)
+            && !binary.IsKind(SyntaxKind.SubtractExpression))
+        {
+            return false;
+        }
+
+        var leftType = TypeInfoFor(binary.Left).Type;
+        var rightType = TypeInfoFor(binary.Right).Type;
+
+        ExpressionSyntax pointerSide;
+        ExpressionSyntax offsetSide;
+        var subtract = false;
+
+        if (leftType is IPointerTypeSymbol)
+        {
+            pointerSide = binary.Left;
+            offsetSide = binary.Right;
+            subtract = binary.IsKind(SyntaxKind.SubtractExpression);
+        }
+        else if (rightType is IPointerTypeSymbol && binary.IsKind(SyntaxKind.AddExpression))
+        {
+            pointerSide = binary.Right;
+            offsetSide = binary.Left;
+        }
+        else
+        {
+            return false;
+        }
+
+        if (GetIdentifierSymbol(pointerSide) is { } sourceSymbol
+            && _pointerRewritten.Contains(sourceSymbol))
+        {
+            ExpressionSyntax index = offsetSide;
+            if (subtract)
+            {
+                index = PrefixUnaryExpression(
+                    SyntaxKind.UnaryMinusExpression, offsetSide);
+            }
+
+            payload = new OffsetPayload(pointerSide, index);
+            return true;
+        }
+
+        return false;
+    }
+
     // ---- 块体表达式 ----
 
     public override SyntaxNode? VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
     {
         if (node.Kind() == SyntaxKind.PointerIndirectionExpression)
         {
+            // R5 已把操作数改写为数组：使用点归 R6 索引化，本规则不拦截。
+            if (GetIdentifierSymbol(node.Operand) is { } rewrittenOperand
+                && _pointerRewritten.Contains(rewrittenOperand))
+            {
+                return node;
+            }
+
             if (TryResolvePointer(node.Operand, out var array, out var index, out var readOnly))
             {
                 if (readOnly && IsWriteTarget(node))
@@ -317,6 +401,13 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
             // R2 已改写为数组字段的 fixed 缓冲区：buf[i] 语法对数组天然合法，保持原样。
             if (GetIdentifierSymbol(node.Expression) is IFieldSymbol rewrittenReceiver
                 && _rewrittenFields.Contains(rewrittenReceiver))
+            {
+                return base.VisitElementAccessExpression(node);
+            }
+
+            // R5 已改写为数组的指针形参/局部：p[i] 归 R6 处理，保持节点原样。
+            if (GetIdentifierSymbol(node.Expression) is { } rewrittenPointerReceiver
+                && _pointerRewritten.Contains(rewrittenPointerReceiver))
             {
                 return base.VisitElementAccessExpression(node);
             }
@@ -431,6 +522,14 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitArgument(ArgumentSyntax node)
     {
         var expression = UnwrapParenthesized(node.Expression);
+
+        // R5 已改写为数组的标识符实参：数组实参是正常托管调用，不逃逸。
+        if (GetIdentifierSymbol(expression) is { } rewrittenArgument
+            && _pointerRewritten.Contains(rewrittenArgument))
+        {
+            return base.VisitArgument(node);
+        }
+
         if (TypeInfoFor(node.Expression).Type is IPointerTypeSymbol
             && !(expression is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.AddressOfExpression })
             // 可解析为「数组+int 索引」的 tracked 指针：归一后实参是 int，不是逃逸。
@@ -448,14 +547,25 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitReturnStatement(ReturnStatementSyntax node)
     {
-        if (node.Expression != null
-            && TypeInfoFor(node.Expression).Type is IPointerTypeSymbol)
+        if (node.Expression != null)
         {
-            AddError(
-                UnsafeFfmDiagnosticCode.UF020,
-                $"pointer expression '{node.Expression}' is returned and escapes the fixed block; " +
-                "the original file was preserved.",
-                node);
+            var expression = UnwrapParenthesized(node.Expression);
+
+            // R5 已改写为数组的标识符返回：数组返回是正常托管返回。
+            if (GetIdentifierSymbol(expression) is { } rewrittenReturn
+                && _pointerRewritten.Contains(rewrittenReturn))
+            {
+                return base.VisitReturnStatement(node);
+            }
+
+            if (TypeInfoFor(node.Expression).Type is IPointerTypeSymbol)
+            {
+                AddError(
+                    UnsafeFfmDiagnosticCode.UF020,
+                    $"pointer expression '{node.Expression}' is returned and escapes the fixed " +
+                    "block; the original file was preserved.",
+                    node);
+            }
         }
 
         return base.VisitReturnStatement(node);
@@ -465,6 +575,13 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     {
         if (TypeInfoFor(node.Expression).Type is IPointerTypeSymbol)
         {
+            // R5 改写符号上的指针强转：归 R6 诊断（UF021），本规则不前置 UF020。
+            if (GetIdentifierSymbol(node.Expression) is { } rewrittenCast
+                && _pointerRewritten.Contains(rewrittenCast))
+            {
+                return base.VisitCastExpression(node);
+            }
+
             AddError(
                 UnsafeFfmDiagnosticCode.UF020,
                 $"cast involving pointer expression '{node.Expression}' escapes the fixed model; " +
@@ -487,6 +604,14 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
 
         if (!entries.Any(e => e.sym?.Type is IPointerTypeSymbol))
             return base.VisitLocalDeclarationStatement(node);
+
+        // R5 已改写的声明（当前树已是 byte[] q = p 形态）：其指针符号全部在
+        // R5 集合内，本规则不能再按旧符号类型降级，否则会误报 UF020。
+        if (entries.Where(e => e.sym?.Type is IPointerTypeSymbol)
+                   .All(e => _pointerRewritten.Contains(e.sym!)))
+        {
+            return base.VisitLocalDeclarationStatement(node);
+        }
 
         TypeSyntax elementTypeSyntax = node.Declaration.Type is PointerTypeSyntax pointer
             ? pointer.ElementType

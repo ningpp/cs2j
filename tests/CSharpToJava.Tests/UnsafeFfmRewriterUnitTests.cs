@@ -409,9 +409,14 @@ public class UnsafeFfmRewriterUnitTests
             }
             """;
 
-        // M1 起 EnableFixed 默认开启会接管 fixed 构造；本用例意图验证 M0/R1
-        // 面不处理普通指针形参，显式关 EnableFixed 保持 M0 语义。
-        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+        // M1 起 EnableFixed 默认开启会接管 fixed 构造，M3a 起 EnablePointer
+        // 默认开启会归一指针形参；本用例意图验证 M0/R1 面不处理普通指针形参，
+        // 显式关 EnableFixed/EnablePointer 保持 M0 语义。
+        var result = Rewrite(src, new UnsafeFfmOptions
+        {
+            EnableFixed = false,
+            EnablePointer = false,
+        });
 
         Assert.True(result.Changed);
         Assert.Equal(1, result.Statistics.UnsafeMethodModifiersStripped);
@@ -1228,5 +1233,537 @@ public class UnsafeFfmRewriterUnitTests
         Assert.Equal(0, result.Statistics.ExplicitStackAllocCollected);
         Assert.Equal(0, result.Statistics.ImplicitStackAllocCollected);
         Assert.Equal(0, result.Statistics.Uf040Rejections);
+    }
+
+    // ==================================================================
+    // M3a / R5：指针签名白名单 → 数组
+    // ==================================================================
+
+    [Theory]
+    [InlineData("byte")]
+    [InlineData("sbyte")]
+    [InlineData("short")]
+    [InlineData("ushort")]
+    [InlineData("int")]
+    [InlineData("uint")]
+    [InlineData("long")]
+    [InlineData("ulong")]
+    [InlineData("char")]
+    [InlineData("float")]
+    [InlineData("double")]
+    [InlineData("bool")]
+    public void M3a_PointerParameter_WhitelistElement_NormalizedToArray(string element)
+    {
+        var src = $$"""
+            unsafe class C
+            {
+                static void M({{element}}* p)
+                {
+                    System.Console.Write(1);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains($"{element}[] p", result.OutputCode);
+        Assert.DoesNotContain($"{element}*", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerParametersRewritten);
+        Assert.Equal(1, result.Statistics.PointerSignaturesRewritten);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3a_MultiplePointerParameters_AllNormalized()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* a, int* b, char* c)
+                {
+                    System.Console.Write(1);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("byte[] a", result.OutputCode);
+        Assert.Contains("int[] b", result.OutputCode);
+        Assert.Contains("char[] c", result.OutputCode);
+        Assert.Equal(3, result.Statistics.PointerParametersRewritten);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3a_PointerParameter_MixedWithOutRef_OnlyPointerNormalized()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p, out int x, ref long y)
+                {
+                    x = 0;
+                    System.Console.Write(y);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("byte[] p", result.OutputCode);
+        Assert.Contains("out int x", result.OutputCode);
+        Assert.Contains("ref long y", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerParametersRewritten);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3a_PointerReturn_NormalizedToArray()
+    {
+        var src = """
+            unsafe class C
+            {
+                static byte* M() => null;
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("static byte[] M()", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerReturnsRewritten);
+        Assert.Equal(0, result.Statistics.PointerParametersRewritten);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3a_PointerPlusLengthAdjacentParameters_LengthPatternCounted()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p, int len)
+                {
+                    System.Console.Write(1);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("byte[] p", result.OutputCode);
+        Assert.Contains("int len", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerParametersRewritten);
+        Assert.Equal(1, result.Statistics.PointerLengthPatterns);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3a_PointerLocalFromRewrittenParameter_NormalizedAndFlowInherited()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p)
+                {
+                    byte* q = p;
+                    System.Console.Write(*q);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("byte[] q = p;", result.OutputCode);
+        // q 的 flow 继承 p（ParamArray），*q 在参数源上索引化为 p[0]。
+        Assert.Contains("p[0]", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerParametersRewritten);
+        Assert.Equal(1, result.Statistics.PointerLocalsRewritten);
+        Assert.Equal(1, result.Statistics.PointerExprsIndexized);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3a_FixedOnRewrittenParameter_ArrayPathNoPointerResidual()
+    {
+        // probe 实证（CS8385）：R5 必须先把 p 改为 byte[]，R3 的 fixed 才能走数组路径。
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p)
+                {
+                    fixed (byte* q = p)
+                    {
+                        System.Console.Write(*q);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain("fixed", result.OutputCode);
+        Assert.DoesNotContain("byte*", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3a_FixedOnRewrittenParameterWithOffset_OffsetPath()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p)
+                {
+                    fixed (byte* q = p + 2)
+                    {
+                        System.Console.Write(*q);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain("fixed", result.OutputCode);
+        Assert.Equal(1, result.Statistics.FixedVariablesOffset);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ==================================================================
+    // M3a / R6：指针表达式索引化（基础族）
+    // ==================================================================
+
+    [Fact]
+    public void M3a_Dereference_IndexizedOnParameterArray()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p)
+                {
+                    byte a = *p;
+                    System.Console.Write(a);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("byte a = p[0];", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerExprsIndexized);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3a_PointerSubscript_AlreadyArrayShape_KeptNotCounted()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p, int i)
+                {
+                    byte a = *p;
+                    byte b = p[i];
+                    System.Console.Write(a + b);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("p[0]", result.OutputCode);
+        Assert.Contains("p[i]", result.OutputCode);
+        // *p 计 1；p[i] 偏移 0、数组名即接收者，同构不计。
+        Assert.Equal(1, result.Statistics.PointerExprsIndexized);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3a_PointerMemberAccess_Rejected_UF020()
+    {
+        var src = """
+            unsafe class C
+            {
+                struct S { public int M; }
+
+                static void F()
+                {
+                    S s = default;
+                    fixed (S* p = &s)
+                    {
+                        System.Console.Write(p->M);
+                    }
+                }
+            }
+            """;
+
+        // R6 的 p->m 分支只在 R3 未运行时成为首发诊断（默认链 R3 先拦截）。
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
+    }
+
+    [Fact]
+    public void M3a_VoidPointerParameter_Rejected_UF021()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(void* p)
+                {
+                    System.Console.Write(1);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF021);
+        Assert.Equal(1, result.Statistics.Uf021Rejections);
+    }
+
+    [Fact]
+    public void M3a_FunctionPointerParameter_Rejected_UF021()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(delegate*<int, int> p)
+                {
+                    System.Console.Write(1);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF021);
+        Assert.Equal(1, result.Statistics.Uf021Rejections);
+    }
+
+    [Fact]
+    public void M3a_GenericPointerParameter_Rejected_UF021()
+    {
+        var src = """
+            unsafe class C<T>
+            {
+                void M(T* p)
+                {
+                    System.Console.Write(1);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF021);
+        Assert.Equal(1, result.Statistics.Uf021Rejections);
+    }
+
+    [Fact]
+    public void M3a_PointerToIntegerCast_Rejected_UF021()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p)
+                {
+                    int x = (int)p;
+                    System.Console.Write(x);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF021);
+        Assert.Equal(1, result.Statistics.Uf021Rejections);
+    }
+
+    [Fact]
+    public void M3a_IntegerToPointerCast_Rejected_UF021()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(int i)
+                {
+                    byte* p = (byte*)i;
+                    System.Console.Write(1);
+                }
+            }
+            """;
+
+        // 本地指针声明归 R3（默认链发 UF020）；关 EnableFixed 后由 R6 发 UF021。
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF021);
+    }
+
+    [Fact]
+    public void M3a_PointerArithmetic_Rejected_UF022()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p)
+                {
+                    p + 1;
+                }
+            }
+            """;
+
+        // R3 域在 fixed 块内；块外指针算术经 R6（关 EnableFixed 直达）UF022。
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF022);
+        Assert.Equal(1, result.Statistics.Uf022Rejections);
+    }
+
+    [Fact]
+    public void M3a_PointerComparison_Rejected_UF022()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* a, byte* b)
+                {
+                    bool x = a < b;
+                    System.Console.Write(x);
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF022);
+    }
+
+    [Fact]
+    public void M3a_PointerIncrement_Rejected_UF022()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p)
+                {
+                    p++;
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF022);
+    }
+
+    [Fact]
+    public void M3a_PointerDifference_Rejected_UF022()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* a, byte* b)
+                {
+                    a - b;
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF022);
+    }
+
+    [Fact]
+    public void M3a_OutputIsIdempotent_SecondPassCleanNoDiagnostics()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p, int i)
+                {
+                    byte a = *p;
+                    byte b = p[i];
+                    System.Console.Write(a + b);
+                }
+            }
+            """;
+
+        var first = Rewrite(src);
+        Assert.True(first.Changed);
+
+        var second = Rewrite(first.OutputCode);
+
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+        Assert.Equal(0, second.Statistics.PointerParametersRewritten);
+        Assert.Equal(0, second.Statistics.PointerExprsIndexized);
+        Assert.Equal(1, second.Statistics.FilesSkippedClean);
+    }
+
+    [Fact]
+    public void M3a_EnablePointerFalse_PointerSignaturesUntouched()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M(byte* p)
+                {
+                    System.Console.Write(1);
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnablePointer = false });
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("byte* p", result.OutputCode);
+        Assert.Equal(0, result.Statistics.PointerParametersRewritten);
+        Assert.Equal(0, result.Statistics.PointerExprsIndexized);
     }
 }

@@ -6,8 +6,10 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// 剥除（unsafe 段是 pass 基座，无独立开关）；M1 交付 fixed 规则段
 /// （R2 fixed 字段缓冲区、R3 fixed 语句），EnableFixed 默认开启，
 /// 随 pass 开启；M2 已交付 stackalloc 规则段（R4 显式/隐式 stackalloc
-/// 统一堆化），EnableStackAlloc 默认开启；pointer/extern 规则属后续
-/// 里程碑，仍关闭。
+/// 统一堆化），EnableStackAlloc 默认开启；M3a 已交付 pointer 规则段
+/// 第一部分（R5 指针签名白名单 + R6 局部数组源/参数源基础表达式族），
+/// EnablePointer 默认开启；算术/比较/++-- 等复杂表达式族仍属 M3b，
+/// 在 R6 内遇之显式失败（UF022），不静默透传。extern 规则属 M4，仍关闭。
 /// </summary>
 public sealed class UnsafeFfmOptions
 {
@@ -17,10 +19,14 @@ public sealed class UnsafeFfmOptions
     /// <summary>M2 已交付，随 pass 开启：R4 显式/隐式 stackalloc 统一堆化。</summary>
     public bool EnableStackAlloc { get; init; } = true;
 
-    /// <summary>M3：指针签名/指针表达式归一（M0 未交付）。</summary>
-    public bool EnablePointer { get; init; }
+    /// <summary>
+    /// M3a 已交付，随 pass 开启：R5 指针签名（白名单元素→数组）+
+    /// R6 局部数组源/参数源表达式索引化；复杂表达式族（算术/比较/++--）
+    /// 在 M3b 交付前显式拒绝。
+    /// </summary>
+    public bool EnablePointer { get; init; } = true;
 
-    /// <summary>M4：extern/DllImport/LibraryImport 白名单归一（M0 未交付）。</summary>
+    /// <summary>M4：extern/DllImport/LibraryImport 白名单归一（未交付）。</summary>
     public bool EnableExtern { get; init; }
 
     /// <summary>M4：extern FFM 白名单配置路径（null = 无白名单，extern 全部 UF060）。</summary>

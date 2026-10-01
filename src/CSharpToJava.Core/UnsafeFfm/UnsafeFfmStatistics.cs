@@ -5,7 +5,9 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// M0 记 unsafe 段（unsafe 块与各位置 unsafe 修饰符剥除数）；M1 追加
 /// R2 fixed 字段改写字段数、R3 fixed 语句数（按初始式五类分类）以及
 /// UF020/UF030/UF031 拒绝数；M2 追加 R4 显式 stackalloc 收编数、隐式
-/// stackalloc 收编数与 UF040 拒绝数。
+/// stackalloc 收编数与 UF040 拒绝数；M3a 追加 R5 签名改写数（形参/
+/// 返回/局部，含指针+长度模式）、R6 指针表达式索引化数与 UF021/UF022
+/// 拒绝数。
 /// </summary>
 public sealed class UnsafeFfmStatistics
 {
@@ -109,4 +111,36 @@ public sealed class UnsafeFfmStatistics
 
     /// <summary>UF040 拒绝数（stackalloc 目标为裸指针或元素类型不可堆化）。</summary>
     public int Uf040Rejections { get; set; }
+
+    // ---- R5：指针签名白名单 → 数组 ----
+
+    /// <summary>指针形参改写数（按 ParameterSyntax 计，含「指针+长度」模式的指针）。</summary>
+    public int PointerParametersRewritten { get; set; }
+
+    /// <summary>指针返回类型改写数（按成员计）。</summary>
+    public int PointerReturnsRewritten { get; set; }
+
+    /// <summary>指针局部变量改写数（源自 R5 改写参数/局部或 R2 改写字段，按变量计）。</summary>
+    public int PointerLocalsRewritten { get; set; }
+
+    /// <summary>「指针+长度」相邻参数模式命中数（指针仍按形参改写计数，此为模式旁证计数）。</summary>
+    public int PointerLengthPatterns { get; set; }
+
+    /// <summary>R5 签名改写总数：形参 + 返回。</summary>
+    public int PointerSignaturesRewritten =>
+        PointerParametersRewritten + PointerReturnsRewritten;
+
+    // ---- R6：指针表达式索引化 ----
+
+    /// <summary>
+    /// 指针表达式索引化数：<c>*p</c>→<c>arr[idx]</c>、<c>p[i]</c>→<c>arr[idx+i]</c>
+    /// （按重写表达式节点计；文本不变的同构节点不计）。
+    /// </summary>
+    public int PointerExprsIndexized { get; set; }
+
+    /// <summary>UF021 拒绝数（void*/delegate*/泛型指针/非基元 struct 指针/指针↔整数转换）。</summary>
+    public int Uf021Rejections { get; set; }
+
+    /// <summary>UF022 拒绝数（M3b 前不可回填的指针算术/差值/比较/++--）。</summary>
+    public int Uf022Rejections { get; set; }
 }

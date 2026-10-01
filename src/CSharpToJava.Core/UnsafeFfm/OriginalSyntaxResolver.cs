@@ -11,7 +11,12 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// 旧 SemanticModel 的 SyntaxTree（GetDeclaredSymbol/GetSymbolInfo 抛
 /// 「语法节点不在语法树中」）；但不可变绿节点结构保持不变。
 /// 映射方法：沿新树记录每层「第几个节点子节点」的路径，再从原始根按同路径
-/// 回放，最后做结构等价校验（新生成节点无原始对应，返回 null）。
+/// 回放，做结构等价校验（新生成节点无原始对应，返回 null）。R3 会在块内
+/// 插入新语句并以 Block 替换 FixedStatement，使后续兄弟的索引整体漂移且
+/// 路径深度错位：索引回放失配时按「逐层扩大回放作用域 + 跨深度等价搜索」
+/// 在受限作用域（最近可回放祖先子树）内找回等价原始节点——硬性要求候选
+/// 父节点种类与当前父节点相同，并按相对子节点索引路径评分取最优，不做
+/// 无差别的全树搜索；另有 StripUnsafe 归一退路（R1 剥 unsafe 修饰符）。
 /// </summary>
 internal sealed class OriginalSyntaxResolver
 {
@@ -44,7 +49,7 @@ internal sealed class OriginalSyntaxResolver
 
     private SyntaxNode? ResolveCore(SyntaxNode node)
     {
-        var path = new List<int>();
+        var chain = new List<(SyntaxNode Part, int Index)>();
         var current = node;
 
         while (current != null && !ReferenceEquals(current, _currentRoot))
@@ -52,54 +57,131 @@ internal sealed class OriginalSyntaxResolver
             var parent = current.Parent;
             if (parent == null) return null;
 
-            var index = 0;
-            var found = false;
-            foreach (var child in parent.ChildNodes())
-            {
-                if (ReferenceEquals(child, current))
-                {
-                    found = true;
-                    break;
-                }
-
-                index++;
-            }
-
-            if (!found) return null;
-            path.Add(index);
+            var index = IndexAmongChildren(parent, current);
+            if (index < 0) return null;
+            chain.Add((current, index));
             current = parent;
         }
 
         if (current == null) return null;
 
-        var original = _originalRoot;
-        for (var i = path.Count - 1; i >= 0; i--)
+        // 1) 纯索引回放（无插入/删除时最精确）。
+        var indexed = ReplayByIndices(chain, chain.Count);
+        if (indexed != null && EquivalentCore(indexed, node)) return indexed;
+
+        // 2) 逐层扩大作用域的等价搜索。固定深度回放失配时（R3 以 Block 替换
+        // FixedStatement 且块内插入语句，当前路径与原始路径深度错位——嵌套
+        // || 还使同一名字的不同用法处在不同深度），不再只搜单一固定深度：
+        // 在每个回放作用域内枚举其全部后代等价节点，硬性要求候选父节点种类
+        // 与当前节点父节点种类相同，并按「相对子节点索引路径」评分，取最
+        // 高分（同分时取深度更接近者）。作用域从窄到宽，命中即返回。
+        var currentParentKind = node.Parent?.Kind();
+        var currentIndices = chain.Select(c => c.Index).ToArray();
+
+        for (var backtrack = 0; backtrack < chain.Count; backtrack++)
         {
-            var children = original.ChildNodes();
-            var index = path[i];
-            var found = false;
-            foreach (var child in children)
+            var prefixLength = chain.Count - backtrack - 1;
+            var scope = ReplayByIndices(chain, prefixLength);
+            if (scope == null) continue;
+
+            var requiredDepth = chain.Count - prefixLength;
+
+            SyntaxNode? best = null;
+            var bestScore = 0;
+            var bestDepthDelta = int.MaxValue;
+
+            foreach (var candidate in scope.DescendantNodes())
+            {
+                if (candidate.Parent?.Kind() != currentParentKind) continue;
+                if (!EquivalentCore(candidate, node)) continue;
+
+                var candidateIndices = RelativeIndices(candidate, scope);
+                var score = 0;
+                var compared = Math.Min(candidateIndices.Count, requiredDepth);
+                for (var p = 0; p < compared; p++)
+                {
+                    if (candidateIndices[p] == currentIndices[p]) score++;
+                }
+
+                var depthDelta = Math.Abs(candidateIndices.Count - requiredDepth);
+                if (score > bestScore
+                    || (score == bestScore && (score == 0 || depthDelta < bestDepthDelta)))
+                {
+                    best = candidate;
+                    bestScore = score;
+                    bestDepthDelta = depthDelta;
+                }
+            }
+
+            if (best != null) return best;
+        }
+
+        return null;
+    }
+
+    /// <summary>节点在父节点子节点序列中的索引；非父节点直接子节点返回 -1。</summary>
+    private static int IndexAmongChildren(SyntaxNode parent, SyntaxNode child)
+    {
+        var index = 0;
+        foreach (var node in parent.ChildNodes())
+        {
+            if (ReferenceEquals(node, child)) return index;
+            index++;
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// 候选节点相对作用域的索引路径（候选自身在父节点中的索引在前，逐层
+    /// 向上直到作用域直接子节点），与 chain 的取向一致。
+    /// </summary>
+    private static List<int> RelativeIndices(SyntaxNode candidate, SyntaxNode scope)
+    {
+        var indices = new List<int>();
+        var current = candidate;
+        while (current != null && !ReferenceEquals(current, scope))
+        {
+            var parent = current.Parent;
+            if (parent == null) break;
+            indices.Add(IndexAmongChildren(parent, current));
+            current = parent;
+        }
+
+        return indices;
+    }
+
+    private SyntaxNode? ReplayByIndices(List<(SyntaxNode Part, int Index)> chain, int prefixLength)
+    {
+        var original = (SyntaxNode)_originalRoot;
+        for (var i = chain.Count - 1; i >= chain.Count - prefixLength; i--)
+        {
+            SyntaxNode? next = null;
+            var index = chain[i].Index;
+            foreach (var child in original.ChildNodes())
             {
                 if (index == 0)
                 {
-                    original = child;
-                    found = true;
+                    next = child;
                     break;
                 }
 
                 index--;
             }
 
-            if (!found) return null;
+            if (next == null) return null;
+            original = next;
         }
 
-        if (original.IsEquivalentTo(node)) return original;
+        return original;
+    }
+
+    private static bool EquivalentCore(SyntaxNode original, SyntaxNode current)
+    {
+        if (original.IsEquivalentTo(current)) return true;
 
         // R1 会剥掉 unsafe 修饰符：当前树与原始树在该 token 上必然不等价。
-        // 退路：两边同时移除 unsafe keyword 后再做结构等价。
-        var normalizedOriginal = StripUnsafe(original);
-        var normalizedCurrent = StripUnsafe(node);
-        return normalizedOriginal.IsEquivalentTo(normalizedCurrent) ? original : null;
+        return StripUnsafe(original).IsEquivalentTo(StripUnsafe(current));
     }
 
     private static SyntaxNode StripUnsafe(SyntaxNode node)

@@ -9,7 +9,8 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// <see cref="ProjectPassAdapter"/> spine: the runner parses/compiles the whole
 /// tree (compilation options keep allowUnsafe=true), this adapter rewrites each
 /// file through <see cref="UnsafeFfmPreprocessor"/> (R1 unsafe-context stripping,
-/// M1 R2/R3 fixed lowering, M2 R4 stackalloc heap-allocating), and the runner
+/// M1 R2/R3 fixed lowering, M2 R4 stackalloc heap-allocating, M3a R5 pointer
+/// signature whitelist and R6 pointer-expression indexization), and the runner
 /// restores and verifies build/tests. There is no support library to release
 /// (PassSupportLibrary.None) and no csproj injection; AfterFiles needs no extra work.
 /// </summary>
@@ -128,7 +129,14 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
            $"{_statistics.FixedVariablesScalar} scalar); " +
            $"{_statistics.ExplicitStackAllocCollected} explicit stackalloc(s), " +
            $"{_statistics.ImplicitStackAllocCollected} implicit stackalloc(s) heap-allocated; " +
+           $"{_statistics.PointerSignaturesRewritten} pointer signature(s) " +
+           $"({_statistics.PointerParametersRewritten} parameter(s), " +
+           $"{_statistics.PointerReturnsRewritten} return(s); " +
+           $"{_statistics.PointerLocalsRewritten} local(s), " +
+           $"{_statistics.PointerLengthPatterns} pointer+length pattern(s)), " +
+           $"{_statistics.PointerExprsIndexized} pointer expression(s) indexized; " +
            $"{_statistics.Rejections} rejection(s) (UF020={_statistics.Uf020Rejections}, " +
+           $"UF021={_statistics.Uf021Rejections}, UF022={_statistics.Uf022Rejections}, " +
            $"UF030={_statistics.Uf030Rejections}, UF031={_statistics.Uf031Rejections}, " +
            $"UF040={_statistics.Uf040Rejections}), " +
            $"{_statistics.FilesTransformed} file(s)";
@@ -167,5 +175,12 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
         _statistics.Uf030Rejections += source.Uf030Rejections;
         _statistics.Uf031Rejections += source.Uf031Rejections;
         _statistics.Uf040Rejections += source.Uf040Rejections;
+        _statistics.PointerParametersRewritten += source.PointerParametersRewritten;
+        _statistics.PointerReturnsRewritten += source.PointerReturnsRewritten;
+        _statistics.PointerLocalsRewritten += source.PointerLocalsRewritten;
+        _statistics.PointerLengthPatterns += source.PointerLengthPatterns;
+        _statistics.PointerExprsIndexized += source.PointerExprsIndexized;
+        _statistics.Uf021Rejections += source.Uf021Rejections;
+        _statistics.Uf022Rejections += source.Uf022Rejections;
     }
 }

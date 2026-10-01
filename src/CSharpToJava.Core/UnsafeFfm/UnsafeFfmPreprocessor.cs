@@ -67,7 +67,42 @@ public sealed class UnsafeFfmPreprocessor
             return Rollback(sourceCode, statistics, diagnostics);
         }
 
+        // R5 指针签名白名单（M3a）：链位在 R1 之后、R2 之前。probe 实测
+        // CS8385 证明参数必须先由 byte* 改为 byte[]，R3 的 fixed 才能走数组路径。
+        var flowModel = new PointerFlowModel();
+        var pointerRewritten = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
+        var loweredPointerSymbols = Array.Empty<ISymbol>();
+
+        if (_options.EnablePointer)
+        {
+            var signatureResolver = new OriginalSyntaxResolver(root, newRoot);
+            var signatureRewriter = new PointerSignatureRewriter(
+                semanticModel,
+                new HashSet<IFieldSymbol>(SymbolEqualityComparer.Default),
+                flowModel,
+                statistics,
+                signatureResolver);
+            newRoot = (CompilationUnitSyntax)signatureRewriter.Visit(newRoot)!;
+            foreach (var diagnostic in signatureRewriter.Diagnostics)
+            {
+                diagnostics.Add(diagnostic);
+            }
+
+            if (signatureRewriter.HasErrors)
+            {
+                return Rollback(sourceCode, statistics, diagnostics);
+            }
+
+            foreach (var symbol in signatureRewriter.RewrittenSymbols)
+            {
+                pointerRewritten.Add(symbol);
+            }
+        }
+
         // M1：R2→R3 同树合批，仅在 EnableFixed 时执行。
+        // fixed residual 闸门：R6（EnablePointer 时）会继续索引化 R5 域内
+        // 的解引用/下标，闸门必须延后到 R6 之后，否则 *p 会被误判为 R3 残留。
+        var fixedGatePending = false;
         if (_options.EnableFixed)
         {
             var fieldResolver = new OriginalSyntaxResolver(root, newRoot);
@@ -86,7 +121,11 @@ public sealed class UnsafeFfmPreprocessor
 
             var statementResolver = new OriginalSyntaxResolver(root, newRoot);
             var statementRewriter = new FixedStatementRewriter(
-                semanticModel, fieldRewriter.RewrittenFields, statistics, statementResolver);
+                semanticModel,
+                fieldRewriter.RewrittenFields,
+                pointerRewritten,
+                statistics,
+                statementResolver);
             newRoot = (CompilationUnitSyntax)statementRewriter.Visit(newRoot)!;
             foreach (var diagnostic in statementRewriter.Diagnostics)
             {
@@ -98,19 +137,28 @@ public sealed class UnsafeFfmPreprocessor
                 return Rollback(sourceCode, statistics, diagnostics);
             }
 
-            // fixed 段 residual 自检：输出树不得残留 fixed 语句、fixed 字段
-            // 以及由 fixed 块根生出的指针节点；命中即内部规则缺口 UF010。
-            if (HasFixedResidual(newRoot, out var residualReason))
+            loweredPointerSymbols = statementRewriter.LoweredSymbols.ToArray();
+
+            if (!_options.EnablePointer)
             {
-                statistics.ResidualCount++;
-                statistics.Rejections++;
-                diagnostics.Add(new UnsafeFfmDiagnostic(
-                    UnsafeFfmSeverity.Error,
-                    UnsafeFfmDiagnosticCode.UF010,
-                    "fixed residual gate: " + residualReason +
-                    " (internal rule gap); the original file was preserved.",
-                    filePath, 0, 0));
-                return Rollback(sourceCode, statistics, diagnostics);
+                // fixed 段 residual 自检：输出树不得残留 fixed 语句、fixed 字段
+                // 以及由 fixed 块根生出的指针节点；命中即内部规则缺口 UF010。
+                if (HasFixedResidual(newRoot, out var residualReason))
+                {
+                    statistics.ResidualCount++;
+                    statistics.Rejections++;
+                    diagnostics.Add(new UnsafeFfmDiagnostic(
+                        UnsafeFfmSeverity.Error,
+                        UnsafeFfmDiagnosticCode.UF010,
+                        "fixed residual gate: " + residualReason +
+                        " (internal rule gap); the original file was preserved.",
+                        filePath, 0, 0));
+                    return Rollback(sourceCode, statistics, diagnostics);
+                }
+            }
+            else
+            {
+                fixedGatePending = true;
             }
         }
 
@@ -141,6 +189,58 @@ public sealed class UnsafeFfmPreprocessor
                     UnsafeFfmSeverity.Error,
                     UnsafeFfmDiagnosticCode.UF010,
                     "stackalloc residual gate: " + residualReason +
+                    " (internal rule gap); the original file was preserved.",
+                    filePath, 0, 0));
+                return Rollback(sourceCode, statistics, diagnostics);
+            }
+        }
+
+        // R6 指针表达式索引化（M3a 基础族）：消费 R5 的 flowModel 与
+        // R3 降级符号集，链位在 R4 之后。
+        if (_options.EnablePointer)
+        {
+            var exprResolver = new OriginalSyntaxResolver(root, newRoot);
+            var exprRewriter = new PointerExprRewriter(
+                semanticModel,
+                flowModel,
+                loweredPointerSymbols,
+                statistics,
+                exprResolver);
+            newRoot = (CompilationUnitSyntax)exprRewriter.Visit(newRoot)!;
+            foreach (var diagnostic in exprRewriter.Diagnostics)
+            {
+                diagnostics.Add(diagnostic);
+            }
+
+            if (exprRewriter.HasErrors)
+            {
+                return Rollback(sourceCode, statistics, diagnostics);
+            }
+
+            // 延后的 fixed residual 闸门：R6 已收编 R5 域指针使用，剩余即真缺口。
+            if (fixedGatePending && HasFixedResidual(newRoot, out var fixedReason))
+            {
+                statistics.ResidualCount++;
+                statistics.Rejections++;
+                diagnostics.Add(new UnsafeFfmDiagnostic(
+                    UnsafeFfmSeverity.Error,
+                    UnsafeFfmDiagnosticCode.UF010,
+                    "fixed residual gate: " + fixedReason +
+                    " (internal rule gap); the original file was preserved.",
+                    filePath, 0, 0));
+                return Rollback(sourceCode, statistics, diagnostics);
+            }
+
+            // pointer residual 闸门：输出树指针语法节点必须归零（指针类型/
+            // function pointer/取址/解引用/指针成员访问）；命中即 UF010。
+            if (HasPointerResidual(newRoot, out var pointerReason))
+            {
+                statistics.ResidualCount++;
+                statistics.Rejections++;
+                diagnostics.Add(new UnsafeFfmDiagnostic(
+                    UnsafeFfmSeverity.Error,
+                    UnsafeFfmDiagnosticCode.UF010,
+                    "pointer residual gate: " + pointerReason +
                     " (internal rule gap); the original file was preserved.",
                     filePath, 0, 0));
                 return Rollback(sourceCode, statistics, diagnostics);
@@ -363,6 +463,48 @@ public sealed class UnsafeFfmPreprocessor
         if (root.DescendantNodes().OfType<ImplicitStackAllocArrayCreationExpressionSyntax>().Any())
         {
             reason = "the rewritten tree still contains an implicit stackalloc expression";
+            return true;
+        }
+
+        reason = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    /// pointer 段 residual 扫描（EnablePointer 时）：R5/R6 之后全树不得残留
+    /// <list type="bullet">
+    /// <item><see cref="PointerTypeSyntax"/> 或 <see cref="FunctionPointerTypeSyntax"/>；</item>
+    /// <item>取址/解引用 <see cref="PrefixUnaryExpressionSyntax"/>；</item>
+    /// <item>指针成员访问（p-&gt;m）。</item>
+    /// </list>
+    /// 命中即内部规则缺口 UF010。
+    /// </summary>
+    private static bool HasPointerResidual(CompilationUnitSyntax root, out string reason)
+    {
+        if (root.DescendantNodes().OfType<PointerTypeSyntax>().Any())
+        {
+            reason = "the rewritten tree still contains a pointer type";
+            return true;
+        }
+
+        if (root.DescendantNodes().OfType<FunctionPointerTypeSyntax>().Any())
+        {
+            reason = "the rewritten tree still contains a function pointer type";
+            return true;
+        }
+
+        if (root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>()
+            .Any(p => p.Kind() is SyntaxKind.AddressOfExpression
+                or SyntaxKind.PointerIndirectionExpression))
+        {
+            reason = "the rewritten tree still contains an address-of or pointer indirection expression";
+            return true;
+        }
+
+        if (root.DescendantNodes().OfType<MemberAccessExpressionSyntax>()
+            .Any(m => m.Kind() == SyntaxKind.PointerMemberAccessExpression))
+        {
+            reason = "the rewritten tree still contains a pointer member access (p->m)";
             return true;
         }
 
