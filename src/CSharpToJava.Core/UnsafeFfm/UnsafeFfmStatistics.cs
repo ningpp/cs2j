@@ -7,7 +7,7 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// UF020/UF030/UF031 拒绝数；M2 追加 R4 显式 stackalloc 收编数、隐式
 /// stackalloc 收编数与 UF040 拒绝数；M3a 追加 R5 签名改写数（形参/
 /// 返回/局部，含指针+长度模式）、R6 指针表达式索引化数与 UF021/UF022
-/// 拒绝数。
+/// 拒绝数；M3b 追加算术传播数、自增数、比较数、差值数。
 /// </summary>
 public sealed class UnsafeFfmStatistics
 {
@@ -143,4 +143,21 @@ public sealed class UnsafeFfmStatistics
 
     /// <summary>UF022 拒绝数（M3b 前不可回填的指针算术/差值/比较/++--）。</summary>
     public int Uf022Rejections { get; set; }
+
+    // ---- R6 / M3b：指针算术偏移传播 ----
+
+    /// <summary>
+    /// 算术传播数：<c>p+n</c>/<c>n+p</c>/<c>p-n</c>（含 <c>p+=n</c>/<c>p-=n</c>）
+    /// 在模型内传播为同源 int 偏移表达式（按最终物化点的节点计）。
+    /// </summary>
+    public int PointerArithmeticPropagated { get; set; }
+
+    /// <summary>自增数：<c>p++</c>/<c>++p</c>/<c>p--</c>/<c>--p</c>（索引局部自增，按节点计）。</summary>
+    public int PointerIncrements { get; set; }
+
+    /// <summary>比较数：同源指针 <c>&lt; &gt; &lt;= &gt;= == !=</c> → int 索引比较（按节点计）。</summary>
+    public int PointerComparisons { get; set; }
+
+    /// <summary>差值数：同源 <c>p-q</c> → int 索引差（按节点计；异源不计，发 UF020）。</summary>
+    public int PointerDifferences { get; set; }
 }

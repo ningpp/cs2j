@@ -241,6 +241,32 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
                 return (InitKind.Error, null);
             }
 
+            // &MemoryMarshal.GetReference(span)：probe 实测 invocation 返回 T、
+            // 外层 & 产生 T*。span 底层可溯源到数组时归一（R3 默认地址分支会
+            // 把 &invocation 误判为 Scalar，故在此专门拦截）。
+            if (address.Operand is InvocationExpressionSyntax getReference
+                && IsMemoryMarshalGetReference(getReference, out var spanArgument))
+            {
+                if (TryResolveSpanBacking(
+                        spanArgument, out var backingArray, out var backingIndex))
+                {
+                    if (IsZeroLiteralExpression(backingIndex))
+                        return (InitKind.Array, backingArray);
+
+                    return (InitKind.Offset,
+                        new OffsetPayload(backingArray, backingIndex));
+                }
+
+                AddError(
+                    UnsafeFfmDiagnosticCode.UF020,
+                    $"fixed pointer initializer '{raw}' takes MemoryMarshal.GetReference of a span " +
+                    "whose backing array cannot be proven (only spans constructed from an array, " +
+                    "array.AsSpan(...), MemoryMarshal.CreateSpan over an array element, or a " +
+                    "stackalloc span are supported); the original file was preserved.",
+                    raw);
+                return (InitKind.Error, null);
+            }
+
             // &scalar：局部/字段标量单槽。
             return (InitKind.Scalar, address.Operand);
         }
@@ -341,12 +367,217 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         return false;
     }
 
+    // ---- GetReference(span) 数组源溯源 ----
+
+    /// <summary>
+    /// 是否 <c>System.Runtime.InteropServices.MemoryMarshal.GetReference</c> 单参调用；
+    /// 命中则返回其 span 参数。
+    /// </summary>
+    private bool IsMemoryMarshalGetReference(
+        InvocationExpressionSyntax invocation, out ExpressionSyntax spanArgument)
+    {
+        spanArgument = null!;
+
+        if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Name.Identifier.ValueText != "GetReference")
+        {
+            return false;
+        }
+
+        if (SymbolInfoFor(memberAccess).Symbol is not IMethodSymbol method
+            || method.ContainingType.ToDisplayString()
+                != "System.Runtime.InteropServices.MemoryMarshal")
+        {
+            return false;
+        }
+
+        if (invocation.ArgumentList.Arguments.Count != 1) return false;
+
+        spanArgument = invocation.ArgumentList.Arguments[0].Expression;
+        return true;
+    }
+
+    /// <summary>
+    /// 把 span 值溯源到「数组表达式 + 起始索引」。支持：数组直传（隐式转换）、
+    /// <c>new Span/RReadOnlySpan(arr[, start])</c>、数组直接赋值给 span 局部、
+    /// <c>arr.AsSpan([start])</c>、<c>MemoryMarshal.CreateSpan(ref arr[i], n)</c>、
+    /// stackalloc span 局部（R4 随后把该局部变为数组，名字保留）。
+    /// 参数/字段 span 与不可证构造返回 false。
+    /// </summary>
+    private bool TryResolveSpanBacking(
+        ExpressionSyntax rawSpan,
+        out ExpressionSyntax backingArray,
+        out ExpressionSyntax backingIndex)
+    {
+        backingArray = null!;
+        backingIndex = null!;
+
+        var span = UnwrapParenthesized(rawSpan);
+
+        // 数组直传（含隐式转换）。
+        if (TypeInfoFor(span).Type is IArrayTypeSymbol)
+        {
+            backingArray = span;
+            backingIndex = ZeroLiteral();
+            return true;
+        }
+
+        // 内联 new Span<T>(arr[, start]) / AsSpan() / CreateSpan()。
+        if (TryResolveSpanValue(span, out backingArray, out backingIndex))
+            return true;
+
+        // span 局部：看其声明初始式。
+        if (GetIdentifierSymbol(span) is ILocalSymbol localSymbol)
+        {
+            var declarator = localSymbol.DeclaringSyntaxReferences
+                .FirstOrDefault()?.GetSyntax() as VariableDeclaratorSyntax;
+            if (declarator?.Initializer?.Value is { } initializer)
+            {
+                // stackalloc span 局部：R4 链位在后，会把它变为同名数组局部。
+                var unwrappedInitializer = UnwrapParenthesized(initializer);
+                if (unwrappedInitializer is StackAllocArrayCreationExpressionSyntax
+                    or ImplicitStackAllocArrayCreationExpressionSyntax)
+                {
+                    backingArray = IdentifierName(localSymbol.Name);
+                    backingIndex = ZeroLiteral();
+                    return true;
+                }
+
+                // 数组直接赋值（Span<T> s = arr;）。
+                if (TypeInfoFor(unwrappedInitializer).Type is IArrayTypeSymbol)
+                {
+                    backingArray = unwrappedInitializer;
+                    backingIndex = ZeroLiteral();
+                    return true;
+                }
+
+                if (TryResolveSpanValue(
+                        unwrappedInitializer, out backingArray, out backingIndex))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>解析「直接产生 span 的值表达式」：ctor/AsSpan/CreateSpan。</summary>
+    private bool TryResolveSpanValue(
+        ExpressionSyntax value,
+        out ExpressionSyntax backingArray,
+        out ExpressionSyntax backingIndex)
+    {
+        backingArray = null!;
+        backingIndex = null!;
+
+        if (value is ObjectCreationExpressionSyntax creation)
+        {
+            var arguments = creation.ArgumentList?.Arguments
+                .Select(a => a.Expression).ToArray() ?? Array.Empty<ExpressionSyntax>();
+
+            switch (arguments.Length)
+            {
+                case 1 when TypeInfoFor(arguments[0]).Type is IArrayTypeSymbol:
+                    backingArray = arguments[0];
+                    backingIndex = ZeroLiteral();
+                    return true;
+
+                case 2 when TypeInfoFor(arguments[0]).Type is IArrayTypeSymbol:
+                    backingArray = arguments[0];
+                    backingIndex = arguments[1];
+                    return true;
+            }
+
+            return false;
+        }
+
+        if (value is InvocationExpressionSyntax invocation
+            && invocation.Expression is MemberAccessExpressionSyntax invokedMember)
+        {
+            // arr.AsSpan([start])
+            if (invokedMember.Name.Identifier.ValueText == "AsSpan"
+                && TypeInfoFor(invokedMember.Expression).Type is IArrayTypeSymbol)
+            {
+                var args = invocation.ArgumentList.Arguments;
+                if (args.Count == 0)
+                {
+                    backingArray = invokedMember.Expression;
+                    backingIndex = ZeroLiteral();
+                    return true;
+                }
+
+                if (args.Count == 1)
+                {
+                    backingArray = invokedMember.Expression;
+                    backingIndex = args[0].Expression;
+                    return true;
+                }
+            }
+
+            // MemoryMarshal.CreateSpan(ref arr[i], length)
+            if (invokedMember.Name.Identifier.ValueText == "CreateSpan"
+                && SymbolInfoFor(invokedMember).Symbol is IMethodSymbol createMethod
+                && createMethod.ContainingType.ToDisplayString()
+                    == "System.Runtime.InteropServices.MemoryMarshal"
+                && invocation.ArgumentList.Arguments.Count >= 1)
+            {
+                var first = UnwrapParenthesized(
+                    invocation.ArgumentList.Arguments[0].Expression);
+                if (first is PrefixUnaryExpressionSyntax {
+                        RawKind: (int)SyntaxKind.AddressOfExpression } address
+                    && address.Operand is ElementAccessExpressionSyntax elementAccess
+                    && elementAccess.ArgumentList.Arguments.Count == 1
+                    && TypeInfoFor(elementAccess.Expression).Type is IArrayTypeSymbol)
+                {
+                    backingArray = elementAccess.Expression;
+                    backingIndex = elementAccess.ArgumentList.Arguments[0].Expression;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsZeroLiteralExpression(ExpressionSyntax expression)
+        => UnwrapParenthesized(expression)
+            is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal
+            && literal.Token.ValueText == "0";
+
     // ---- 块体表达式 ----
 
     public override SyntaxNode? VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
     {
         if (node.Kind() == SyntaxKind.PointerIndirectionExpression)
         {
+            // *p++ / *++p / *p-- / *--p：剥掉自增层，操作数为 R5 改写符号时
+            // 整体交 R6（在索引局部上原地自增，保持短路），R3 不前置 UF020。
+            var mutationInner = UnwrapParenthesized(node.Operand);
+            var isMutation = false;
+            switch (mutationInner)
+            {
+                case PostfixUnaryExpressionSyntax post
+                    when post.Kind() is SyntaxKind.PostIncrementExpression
+                        or SyntaxKind.PostDecrementExpression:
+                    mutationInner = UnwrapParenthesized(post.Operand);
+                    isMutation = true;
+                    break;
+                case PrefixUnaryExpressionSyntax pre
+                    when pre.Kind() is SyntaxKind.PreIncrementExpression
+                        or SyntaxKind.PreDecrementExpression:
+                    mutationInner = UnwrapParenthesized(pre.Operand);
+                    isMutation = true;
+                    break;
+            }
+
+            if (isMutation
+                && GetIdentifierSymbol(mutationInner) is { } mutatedSymbol
+                && _pointerRewritten.Contains(mutatedSymbol))
+            {
+                return node;
+            }
+
             // R5 已把操作数改写为数组：使用点归 R6 索引化，本规则不拦截。
             if (GetIdentifierSymbol(node.Operand) is { } rewrittenOperand
                 && _pointerRewritten.Contains(rewrittenOperand))
@@ -575,21 +806,63 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
     {
         if (TypeInfoFor(node.Expression).Type is IPointerTypeSymbol)
         {
-            // R5 改写符号上的指针强转：归 R6 诊断（UF021），本规则不前置 UF020。
-            if (GetIdentifierSymbol(node.Expression) is { } rewrittenCast
-                && _pointerRewritten.Contains(rewrittenCast))
-            {
+            // R5 改写符号上的强转：归一后操作数是数组，强转交给 R6 按
+            // UF021 规则判定，本规则不前置拒绝。
+            var castSymbol = GetIdentifierSymbol(node.Expression);
+            if (castSymbol != null && _pointerRewritten.Contains(castSymbol))
                 return base.VisitCastExpression(node);
-            }
 
+            // R3 已降级 fixed 指针局部（含其别名局部）：归一后 p 只是 int 索引，
+            // 对其取整等于把相对索引当绝对地址（HexConverter (IntPtr)p 场景），
+            // 显式 UF021，不放行无意义强转。
             AddError(
-                UnsafeFfmDiagnosticCode.UF020,
-                $"cast involving pointer expression '{node.Expression}' escapes the fixed model; " +
-                "the original file was preserved.",
+                UnsafeFfmDiagnosticCode.UF021,
+                $"cast involving pointer expression '{node.Expression}' takes an absolute pointer " +
+                "address (or changes its pointer kind); only a same-array pointer difference is " +
+                "supported, and the cast is never passed through unchanged.",
                 node);
         }
 
         return base.VisitCastExpression(node);
+    }
+
+    // ---- 从 fixed 指针重建 Span：逃逸，UF022 ----
+
+    public override SyntaxNode? VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
+    {
+        var createdType = TypeInfoFor(node).Type;
+        if (createdType is INamedTypeSymbol created
+            && node.ArgumentList is { Arguments.Count: >= 1 } argumentList
+            && IsSpanLikeType(created))
+        {
+            var firstArg = UnwrapParenthesized(argumentList.Arguments[0].Expression);
+            var sourceSymbol = firstArg is CastExpressionSyntax castFromPointer
+                ? GetIdentifierSymbol(UnwrapParenthesized(castFromPointer.Expression))
+                : GetIdentifierSymbol(firstArg);
+
+            // fixed 降级域内从指针（或指针强转）重建 Span/ReadOnlySpan：
+            // 相对索引被当成地址跨结构逃逸，UF022 显式拒绝。
+            if (sourceSymbol is ILocalSymbol reconstructedLocal
+                && _infos.ContainsKey(reconstructedLocal))
+            {
+                AddError(
+                    UnsafeFfmDiagnosticCode.UF022,
+                    $"span reconstruction '{node.ToString().Replace("\n", " ")}' rebuilds a " +
+                    $"{created.Name} from a fixed pointer (index); the normalized pointer is only " +
+                    "a relative array index and cannot be re-interpreted as an address outside " +
+                    "the fixed block; the original file was preserved.",
+                    node);
+                return node;
+            }
+        }
+
+        return base.VisitObjectCreationExpression(node);
+    }
+
+    private static bool IsSpanLikeType(INamedTypeSymbol type)
+    {
+        var display = type.ConstructedFrom.ToDisplayString();
+        return display is "System.Span<T>" or "System.ReadOnlySpan<T>";
     }
 
     // ---- 块内指针局部声明 ----
@@ -886,16 +1159,30 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         };
     }
 
-    // 语义查询统一经原始节点映射（重建红包装不属于旧模型树）。
+    // 语义查询：节点属于原始模型树（未变更节点或
+    // DeclaringSyntaxReferences 取出的原始声明节点）直接查模型；重建红包装
+    // 节点先经 resolver 映射。
     private TypeInfo TypeInfoFor(ExpressionSyntax expression)
-        => _resolver.Resolve(expression) is { } originalTypeNode
+    {
+        expression = UnwrapParenthesized(expression);
+        if (expression.SyntaxTree == _model.SyntaxTree)
+            return _model.GetTypeInfo(expression);
+
+        return _resolver.Resolve(expression) is { } originalTypeNode
             ? _model.GetTypeInfo(originalTypeNode)
             : default;
+    }
 
     private SymbolInfo SymbolInfoFor(ExpressionSyntax expression)
-        => _resolver.Resolve(expression) is { } originalSymbolNode
+    {
+        expression = UnwrapParenthesized(expression);
+        if (expression.SyntaxTree == _model.SyntaxTree)
+            return _model.GetSymbolInfo(expression);
+
+        return _resolver.Resolve(expression) is { } originalSymbolNode
             ? _model.GetSymbolInfo(originalSymbolNode)
             : default;
+    }
 
     private static bool IsWriteTarget(ExpressionSyntax node)
     {
@@ -991,6 +1278,8 @@ internal sealed class FixedStatementRewriter : CSharpSyntaxRewriter
         switch (code)
         {
             case UnsafeFfmDiagnosticCode.UF020: _statistics.Uf020Rejections++; break;
+            case UnsafeFfmDiagnosticCode.UF021: _statistics.Uf021Rejections++; break;
+            case UnsafeFfmDiagnosticCode.UF022: _statistics.Uf022Rejections++; break;
             case UnsafeFfmDiagnosticCode.UF030: _statistics.Uf030Rejections++; break;
         }
     }

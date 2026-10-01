@@ -1658,7 +1658,7 @@ public class UnsafeFfmRewriterUnitTests
     }
 
     [Fact]
-    public void M3a_PointerComparison_Rejected_UF022()
+    public void M3b_PointerComparison_DifferentParams_Rejected_UF020()
     {
         var src = """
             unsafe class C
@@ -1673,13 +1673,14 @@ public class UnsafeFfmRewriterUnitTests
 
         var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
 
+        // M3b：两参数 flow 各自数组表达式不同源 → UF020（非 M3a 的 UF022）。
         Assert.False(result.Changed);
         Assert.True(result.HasErrors);
-        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF022);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
     }
 
     [Fact]
-    public void M3a_PointerIncrement_Rejected_UF022()
+    public void M3b_PointerIncrement_Statement_NormalizesToIndexLocal()
     {
         var src = """
             unsafe class C
@@ -1693,13 +1694,16 @@ public class UnsafeFfmRewriterUnitTests
 
         var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
 
-        Assert.False(result.Changed);
-        Assert.True(result.HasErrors);
-        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF022);
+        // M3b：参数可承载索引局部，块外自增归一成功。
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("int _p_index = 0;", result.OutputCode);
+        Assert.Contains("_p_index++;", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerIncrements);
     }
 
     [Fact]
-    public void M3a_PointerDifference_Rejected_UF022()
+    public void M3b_PointerDifference_DifferentParams_Rejected_UF020()
     {
         var src = """
             unsafe class C
@@ -1713,9 +1717,10 @@ public class UnsafeFfmRewriterUnitTests
 
         var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
 
+        // M3b：异参数差值不可证同源 → UF020（语句丢弃 UF022 不再是首要原因）。
         Assert.False(result.Changed);
         Assert.True(result.HasErrors);
-        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF022);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF020);
     }
 
     [Fact]
@@ -1765,5 +1770,221 @@ public class UnsafeFfmRewriterUnitTests
         Assert.Contains("byte* p", result.OutputCode);
         Assert.Equal(0, result.Statistics.PointerParametersRewritten);
         Assert.Equal(0, result.Statistics.PointerExprsIndexized);
+    }
+
+    // ==================================================================
+    // M3b：指针算术偏移传播（同源、元素单位、使用点物化）
+    // ==================================================================
+
+    [Fact]
+    public void M3b_PointerPlusInt_MaterializesAtUse_AsArrayIndex()
+    {
+        var src = """
+            unsafe class C
+            {
+                static byte M(byte* p)
+                {
+                    return *(p + 2);
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("return p[2];", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerArithmeticPropagated);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3b_IntPlusPointer_AlsoNormalizes()
+    {
+        var src = """
+            unsafe class C
+            {
+                static byte M(byte* p)
+                {
+                    return *(2 + p);
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.True(result.Changed);
+        Assert.Contains("return p[2];", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerArithmeticPropagated);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3b_PointerMinusInt_Normalizes()
+    {
+        var src = """
+            unsafe class C
+            {
+                static byte M(byte* p)
+                {
+                    return *(p - 1);
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.True(result.Changed);
+        Assert.Contains("p[-1]", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerArithmeticPropagated);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3b_ChainedArithmetic_CombinesOffsets()
+    {
+        var src = """
+            unsafe class C
+            {
+                static byte M(byte* p)
+                {
+                    return *(p + 1 + 2);
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.True(result.Changed);
+        Assert.Contains("p[3]", result.OutputCode);
+        Assert.Equal(2, result.Statistics.PointerArithmeticPropagated);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3b_CompoundAssignment_NormalizesToIndexLocal()
+    {
+        var src = """
+            unsafe class C
+            {
+                static byte M(byte* p)
+                {
+                    p += 3;
+                    return *p;
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.True(result.Changed);
+        Assert.Contains("_p_index += 3;", result.OutputCode);
+        Assert.Contains("p[_p_index]", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerArithmeticPropagated);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3b_Comparison_SameSource_NormalizesToIndexComparison()
+    {
+        var src = """
+            unsafe class C
+            {
+                static bool M(byte* p)
+                {
+                    byte* q = p;
+                    return q == p;
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("0 == 0", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerComparisons);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3b_Difference_CastInt_CountsDifference()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M(byte* p)
+                {
+                    return (int)(p - p);
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.True(result.Changed);
+        Assert.Contains("return 0;", result.OutputCode);
+        Assert.Equal(1, result.Statistics.PointerDifferences);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M3b_LoweredIndexArithmetic_IsIdempotent_SecondPassClean()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M(byte* p)
+                {
+                    byte x = *(p + 1);
+                    return x;
+                }
+            }
+            """;
+
+        var first = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+        Assert.True(first.Changed);
+        AssertOutputCompiles(first.OutputCode);
+
+        // lowered 的 int 索引参与算术按 int 处理：二次跑零变化零诊断。
+        var second = Rewrite(first.OutputCode, new UnsafeFfmOptions { EnableFixed = false });
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+    }
+
+    [Fact]
+    public void M3b_ArithmeticStoredToField_Escapes_Rejected_UF022()
+    {
+        var src = """
+            unsafe class C
+            {
+                byte[] f;
+                static void M(byte* p, C c)
+                {
+                    c.f = p + 1;
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF022);
+    }
+
+    [Fact]
+    public void M3b_IncrementInExpressionBody_NoBlock_Rejected_UF022()
+    {
+        var src = """
+            unsafe class C
+            {
+                static int M(byte* p) => p++;
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableFixed = false });
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF022);
     }
 }

@@ -205,7 +205,8 @@ public sealed class UnsafeFfmPreprocessor
                 flowModel,
                 loweredPointerSymbols,
                 statistics,
-                exprResolver);
+                exprResolver,
+                newRoot);
             newRoot = (CompilationUnitSyntax)exprRewriter.Visit(newRoot)!;
             foreach (var diagnostic in exprRewriter.Diagnostics)
             {

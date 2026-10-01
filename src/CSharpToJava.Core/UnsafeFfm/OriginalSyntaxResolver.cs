@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.UnsafeFfm;
 
@@ -186,6 +187,18 @@ internal sealed class OriginalSyntaxResolver
 
     private static SyntaxNode StripUnsafe(SyntaxNode node)
     {
+        // UnsafeStatement 的 unsafe 关键字不能用 default token 替换
+        // （ArgumentException: unsafeKeyword）：先把 UnsafeStatement 节点
+        // 降为其内嵌 block，再处理声明/修饰符上的剩余 unsafe 关键字。
+        var unsafeStatements = node.DescendantNodes()
+            .OfType<UnsafeStatementSyntax>().ToArray();
+        if (unsafeStatements.Length > 0)
+        {
+            node = node.ReplaceNodes(
+                unsafeStatements,
+                (statement, _) => statement.Block);
+        }
+
         var unsafeTokens = node.DescendantTokens()
             .Where(t => t.IsKind(SyntaxKind.UnsafeKeyword))
             .ToList();
