@@ -71,13 +71,17 @@ internal sealed class FinalizerRule : IMemberDesugarRule
 
             var span = method.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0;
 
+            var (action, refusalCode) = Decide(
+                context.Options.Finalizers, typeFqn, isCritical,
+                bodyKind, pairing, sites.ReRegister > 0);
+
             builder.Add(new FinalizerPlan
             {
                 Id = FinalizerPlan.BuildId(method, typeFqn, span),
                 Kind = MemberDesugarKind.Finalizer,
                 Symbol = method,
-                // M1 统一 Planned：C39 全部诊断由 FinalizerRewriter 自行发射，
-                // 避免框架 EmitSkipDiagnostics 双发。
+                // 统一 Planned：C39 全部诊断由 FinalizerRewriter 自行发射，
+                // 避免框架 EmitSkipDiagnostics 双发（M2 决策落在自有 Action 字段）。
                 Outcome = MemberDesugarOutcome.Planned,
                 TouchedFiles = touched,
                 Destructor = method,
@@ -93,8 +97,49 @@ internal sealed class FinalizerRule : IMemberDesugarRule
                 ReRegisterSiteCount = sites.ReRegister,
                 WaitForPendingFinalizersSiteCount = sites.WaitForPending,
                 BodyText = syntax.Body?.ToFullString(),
+                Action = action,
+                RefusalCode = refusalCode,
             });
         }
+    }
+
+    // ---- FN-6/FN-7 + 决策 7：Policy=Remove 决策矩阵（plan 期定案）----
+
+    private static (FinalizerAction Action, MemberDesugarDiagnosticCode? RefusalCode) Decide(
+        FinalizerOptions options, string typeFqn, bool isCritical,
+        FinalizerBodyKind bodyKind, SuppressFinalizePairing pairing, bool hasResurrectionSite)
+    {
+        if (options.Policy != FinalizerPolicy.Remove)
+        {
+            // A 档（Reject）/CleanerGuide：全部 Reported，主报码由 rewriter 按 policy 发
+            // （5200/5208）；critical 的 5205 同样在 rewriter 期发，两档一致。
+            return (FinalizerAction.Reported, null);
+        }
+
+        // 5205：CriticalFinalizerObject 派生，ForceRemoveTypes 不可解除（决策 7）。
+        if (isCritical)
+            return (FinalizerAction.Refused, MemberDesugarDiagnosticCode.FinalizerCriticalBlocked);
+
+        // force 白名单按含类型 FQN 精确匹配（Ordinal），仅解除 5204 类拒绝。
+        var forced = options.ForceRemoveTypes.Contains(typeFqn);
+
+        // 5204：resurrection 站点（FN-7）。
+        if (!forced && hasResurrectionSite)
+            return (FinalizerAction.Refused, MemberDesugarDiagnosticCode.FinalizerRemoveRefused);
+
+        // 5204：非安全体分类（单文件降级时 SafeHandle/Native 已保守退化为 Other）。
+        if (!forced && bodyKind is FinalizerBodyKind.NativeRelease
+                or FinalizerBodyKind.Other or FinalizerBodyKind.Extern)
+            return (FinalizerAction.Refused, MemberDesugarDiagnosticCode.FinalizerRemoveRefused);
+
+        // 5204：DisposePattern 必须配对 GC.SuppressFinalize(this)，否则保守拒绝。
+        if (!forced && bodyKind == FinalizerBodyKind.DisposePattern
+            && pairing != SuppressFinalizePairing.Paired)
+            return (FinalizerAction.Refused, MemberDesugarDiagnosticCode.FinalizerRemoveRefused);
+
+        return forced
+            ? (FinalizerAction.ForceRemoved, null)
+            : (FinalizerAction.Removed, null);
     }
 
     // ---- FN-3：Dispose/SuppressFinalize 配对 ----

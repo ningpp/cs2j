@@ -178,6 +178,20 @@ public sealed class MemberDesugarStatistics
     public int FinalizerOther { get; set; }
     public int FinalizerExtern { get; set; }
 
+    // ---- C39 finalizers M2（B 档删除，设计 §5.3）----
+    /// <summary>B 档实际删除数（含 force；CS2J5201 条数 == sidecar 条目数）。</summary>
+    public int FinalizersRemoved { get; set; }
+    /// <summary>其中经 ForceRemoveTypes 强制删除数。</summary>
+    public int FinalizersForceRemoved { get; set; }
+    /// <summary>B 档拒绝删除数（CS2J5204，成员保留；5205 另计 FinalizerCriticalBlocked）。</summary>
+    public int FinalizersRefused { get; set; }
+    /// <summary>sidecar 条目数（恒等于 FinalizersRemoved）。</summary>
+    public int FinalizerSidecarEntries { get; set; }
+    /// <summary>residual 闸门 CS2J5210 条数（FN-10，正常恒为 0）。</summary>
+    public int FinalizerResidual { get; set; }
+    /// <summary>实际 sidecar 文件绝对路径（无删除/内存模式为 null；摘要行取此值）。</summary>
+    public string? FinalizerSidecarPath { get; set; }
+
     /// <summary>按诊断码分桶的跳过数（设计 §6：按原因分组）。</summary>
     public Dictionary<MemberDesugarDiagnosticCode, int> SkippedByReason { get; } = new();
 }

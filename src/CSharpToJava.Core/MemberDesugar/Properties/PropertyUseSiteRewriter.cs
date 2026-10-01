@@ -11,8 +11,10 @@ namespace CSharpToJava.Core.MemberDesugar.Properties;
 internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 {
     private readonly SemanticModel _model;
-    private readonly Dictionary<IPropertySymbol, PropertyPlan> _active;
-    private readonly HashSet<IPropertySymbol> _knownSymbols;
+    // 键为 PropertyPlan.SiteKey（跨编译稳定）：本改写器可能在 finalizer B 档删除后的
+    // 重解析模型上运行，不能直接用 ISymbol 引用相等（与 IndexerUseSiteRewriter 同因）。
+    private readonly Dictionary<string, PropertyPlan> _active;
+    private readonly HashSet<string> _knownKeys;
     private readonly HashSet<string> _candidateNames;
     private readonly MemberDesugarOptions _options;
     private readonly MemberDesugarStatistics _stats;
@@ -30,10 +32,10 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         string filePath)
     {
         _model = model;
-        _active = new Dictionary<IPropertySymbol, PropertyPlan>(SymbolEqualityComparer.Default);
-        foreach (var p in plannedPlans) _active[p.Property] = p;
-        _knownSymbols = new HashSet<IPropertySymbol>(SymbolEqualityComparer.Default);
-        foreach (var p in allPlans) _knownSymbols.Add(p.Property);
+        _active = new Dictionary<string, PropertyPlan>(StringComparer.Ordinal);
+        foreach (var p in plannedPlans) _active[PropertyPlan.SiteKey(p.Property)] = p;
+        _knownKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var p in allPlans) _knownKeys.Add(PropertyPlan.SiteKey(p.Property));
         _candidateNames = plannedPlans.Select(p => p.DeclName).ToHashSet(StringComparer.Ordinal);
         _options = options;
         _stats = stats;
@@ -117,7 +119,7 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         {
             if (member is PropertyDeclarationSyntax propDecl
                 && _model.GetDeclaredSymbol(propDecl) is { } prop
-                && _active.TryGetValue(prop, out var plan))
+                && _active.TryGetValue(PropertyPlan.SiteKey(prop), out var plan))
             {
                 // 先在使用点改写器内改写访问器体（计算属性可能引用同族去糖属性，
                 // 如 FullName => FirstName + ..），再展开。展开产物是脱离语法树的
@@ -132,7 +134,7 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
 
             if (member is PropertyDeclarationSyntax residual
                 && _model.GetDeclaredSymbol(residual) is { } residualProp
-                && !_knownSymbols.Contains(residualProp))
+                && !_knownKeys.Contains(PropertyPlan.SiteKey(residualProp)))
             {
                 _diagnostics.Add(new MemberDesugarDiagnostic(
                     _options.Strict ? MemberDesugarSeverity.Error : MemberDesugarSeverity.Warning,
@@ -566,7 +568,7 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         if (_model.GetSymbolInfo(node).Symbol is not IPropertySymbol p) return false;
         // 构造泛型（Box<string>.Value）归一到定义符号（Box<T>.Value）命中计划。
         if (!p.IsDefinition) p = p.OriginalDefinition;
-        return _active.TryGetValue(p, out plan);
+        return _active.TryGetValue(PropertyPlan.SiteKey(p), out plan);
     }
 
     /// <summary>方法组上下文：转换目标是委托而表达式本身类型不是委托（如 Func&lt;int&gt; f = c.X）。</summary>
@@ -607,7 +609,10 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     {
         if (_model.GetEnclosingSymbol(node.SpanStart) is not IMethodSymbol m
             || m.MethodKind != MethodKind.Constructor
-            || !SymbolEqualityComparer.Default.Equals(m.ContainingType, plan.Property.ContainingType)
+            // 含入类型按显示串比较：finalizer 重解析后两侧符号来自不同编译，
+            // SymbolEqualityComparer 不相等（构造泛型归一 OriginalDefinition）。
+            || m.ContainingType?.OriginalDefinition.ToDisplayString()
+                != plan.Property.ContainingType?.OriginalDefinition.ToDisplayString()
             || m.IsStatic != plan.Property.IsStatic)
             return false;
         return node.Left switch

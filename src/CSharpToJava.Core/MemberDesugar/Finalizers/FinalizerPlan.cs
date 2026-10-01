@@ -49,6 +49,13 @@ internal sealed class FinalizerPlan : MemberDesugarPlan
     /// <summary>终结器体原文（M2 sidecar 留痕使用；M1 仅承载）。</summary>
     public string? BodyText { get; init; }
 
+    /// <summary>plan 期定案的处置动作（M2，FN-6/FN-7 + 决策 7）。A 档全部 Reported。</summary>
+    public required FinalizerAction Action { get; init; }
+
+    /// <summary>拒绝原因码：Action==Refused 时为 <see cref="MemberDesugarDiagnosticCode.FinalizerRemoveRefused"/>
+    /// （5204）或 <see cref="MemberDesugarDiagnosticCode.FinalizerCriticalBlocked"/>（5205）；其余 null。</summary>
+    public MemberDesugarDiagnosticCode? RefusalCode { get; init; }
+
     public override bool OwnsTouch(string filePath, string? typeName, string? memberName)
     {
         if (!TouchedFiles.Contains(filePath)) return false;

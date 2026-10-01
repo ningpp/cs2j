@@ -328,14 +328,18 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                "{_statistics.IncrementDecrementDeferred} deferred(++/--), " +
                "{_statistics.MetadataOperatorSitesUntouched} metadata-only, " +
                "{residualOp} operator-residual" +
-               // C39（M1，设计 §5.3）：finalizers 段追加在末尾，不破坏既有字段。
-               " | finalizers: {_statistics.FinalizersDetected} detected " +
-               "(empty {_statistics.FinalizerEmpty}/dispose-pattern {_statistics.FinalizerDisposePattern}/" +
-               "safe-handle {_statistics.FinalizerSafeHandleOnly}/native {_statistics.FinalizerNativeRelease}/" +
-               "other {_statistics.FinalizerOther}/extern {_statistics.FinalizerExtern}), " +
-               "{_statistics.FinalizersReported} reported, " +
-               "{_statistics.FinalizerCriticalBlocked} critical-blocked, " +
-               "{_statistics.FinalizerResurrectionSites} resurrection-site(s)";
+               // C39（M2，设计 §5.3）：finalizers 段追加在末尾，不破坏既有字段。
+               $" | finalizers: {_statistics.FinalizersDetected} detected " +
+               $"(empty {_statistics.FinalizerEmpty}/dispose-pattern {_statistics.FinalizerDisposePattern}/" +
+               $"safe-handle {_statistics.FinalizerSafeHandleOnly}/native {_statistics.FinalizerNativeRelease}/" +
+               $"other {_statistics.FinalizerOther}/extern {_statistics.FinalizerExtern}), " +
+               $"{_statistics.FinalizersReported} reported, " +
+               $"{_statistics.FinalizersRemoved} removed " +
+               $"({_statistics.FinalizersForceRemoved} forced; sidecar: " +
+               $"{_statistics.FinalizerSidecarPath ?? "none"}), " +
+               $"{_statistics.FinalizersRefused + _statistics.FinalizerCriticalBlocked} blocked, " +
+               $"{_statistics.FinalizerResidual} residual, " +
+               $"{_statistics.FinalizerResurrectionSites} resurrection-site(s)";
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)

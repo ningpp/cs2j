@@ -17,6 +17,10 @@ public sealed partial class MemberDesugarPreprocessor
     private Dictionary<string, int>? _metadataSitesByFile;
     private readonly HashSet<string> _excludedPlanIds = new(StringComparer.Ordinal);
 
+    /// <summary>C39 FN-8：本 run 的 sidecar（懒创建；适配器每轮迭代新建 preprocessor，
+    /// 首次实际删除时重置旧文件）。定位不到 .cs2j-member-desugar-src 段时为内存模式。</summary>
+    private Finalizers.FinalizerSidecarReport? _finalizerSidecar;
+
     public MemberDesugarPreprocessor(MemberDesugarOptions? options = null)
         => _options = options ?? new MemberDesugarOptions();
 
@@ -84,19 +88,51 @@ public sealed partial class MemberDesugarPreprocessor
         // 语义查询必须绑定自有模型）；索引器最后。事件 plan 归属键使用「含类型::事件名」显示串，
         // 运算符 plan 归属键使用「含类型::op 名(参数):返回」（设计 §4.6）。
         var workingRoot = root;
+        // 随重写链推进的活动模型：finalizer B 档删除会重建编译单元（同文件内未改动类型的
+        // 红节点包装也被重物化并脱离原树），其后任何语义查询都必须绑定重解析后的新鲜模型。
+        var activeModel = semanticModel;
         // C39（M1）：在属性阶段之前，基于原始 root + 原始 semanticModel 先跑 finalizer rewriter。
         // M1 只发诊断、树不变（Changed=false）；M2 将在此顺序上删除成员。
         if (hasDestructorDecls)
         {
+            // 懒定位中间树根（首个含终结器文件的路径决定 sidecar 落点；无中间树段 → 内存模式）。
+            _finalizerSidecar ??= Finalizers.FinalizerSidecarReport.CreateFor(filePath);
+            // FN-10：全量 finalizer plans（含 ExcludePlans 回退项）传入 known 集合，
+            // 被排除成员保留且不计 residual。
+            var allFinalizerPlansForFile = _plans!
+                .OfType<Finalizers.FinalizerPlan>()
+                .Where(p => p.TouchedFiles.Contains(filePath))
+                .ToList();
             var finalizerRewriter = new Finalizers.FinalizerRewriter(
-                semanticModel, finalizerPlans,
-                _options, statistics, diagnostics, filePath);
+                semanticModel, finalizerPlans, allFinalizerPlansForFile,
+                _options, _finalizerSidecar, statistics, diagnostics, filePath);
             workingRoot = (CompilationUnitSyntax)finalizerRewriter.Visit(workingRoot)!;
+            finalizerRewriter.ReconcileResidual(workingRoot);
+
+            // B 档删除后树已重建：格式化 + 重解析换取可绑定的活动模型（与 operator/indexer
+            // 阶段同形）。原 finalizer 输出含成员删除处的紧凑 trivia，格式化同时规整间距。
+            if (!ReferenceEquals(workingRoot, root))
+            {
+                var finalizerIntermediate = FormatAndValidate(workingRoot);
+                if (finalizerIntermediate == null)
+                {
+                    statistics.FilesSkippedClean++;
+                    diagnostics.Add(new MemberDesugarDiagnostic(
+                        MemberDesugarSeverity.Warning, MemberDesugarDiagnosticCode.PlanRolledBack,
+                        "member-desugar rewrite failed local parse validation; the original file was " +
+                        "preserved pending whole-tree validation.", filePath, 0, 0, null));
+                    return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
+                }
+                var (replacementModel, replacementRoot) =
+                    ParseReplacement(semanticModel, finalizerIntermediate);
+                activeModel = replacementModel;
+                workingRoot = replacementRoot;
+            }
         }
         if (plannedProperties.Count > 0)
         {
             var rewriter = new Properties.PropertyUseSiteRewriter(
-                semanticModel, plannedProperties, propertyPlans,
+                activeModel, plannedProperties, propertyPlans,
                 _options, statistics, diagnostics, filePath);
             workingRoot = (CompilationUnitSyntax)rewriter.Visit(workingRoot)!;
         }
@@ -107,14 +143,15 @@ public sealed partial class MemberDesugarPreprocessor
             using (var workspace = new AdhocWorkspace())
                 workingRoot = (CompilationUnitSyntax)Formatter.Format(workingRoot, workspace);
             var eventTree = CSharpSyntaxTree.ParseText(
-                workingRoot.ToFullString(), (CSharpParseOptions)semanticModel.SyntaxTree.Options, path: filePath);
-            var eventCompilation = ((CSharpCompilation)semanticModel.Compilation)
-                .ReplaceSyntaxTree(semanticModel.SyntaxTree, eventTree);
+                workingRoot.ToFullString(), (CSharpParseOptions)activeModel.SyntaxTree.Options, path: filePath);
+            var eventCompilation = ((CSharpCompilation)activeModel.Compilation)
+                .ReplaceSyntaxTree(activeModel.SyntaxTree, eventTree);
             var eventModel = eventCompilation.GetSemanticModel(eventTree);
             var eventRewriter = new Events.EventUseSiteRewriter(
                 eventModel, plannedEvents, eventPlans,
                 _options, statistics, diagnostics, filePath);
             workingRoot = (CompilationUnitSyntax)eventRewriter.Visit(eventTree.GetRoot())!;
+            activeModel = eventModel;
         }
         if (plannedOperators.Count > 0 || hasOperatorDecls)
         {
@@ -148,8 +185,36 @@ public sealed partial class MemberDesugarPreprocessor
         }
         if (plannedIndexers.Count > 0)
         {
+            // 与 operator 阶段同形：前置 finalizer/property/event 阶段可能已重建树
+            // （C39 B 档删除成员或属性使用点改写都会产生红色节点；事件阶段还会重解析），
+            // 索引器在使用点文件（plan TouchedFiles 含跨文件使用点）上用旧模型做
+            // GetSymbolInfo 会抛「语法节点不在语法树中」。树已变则先格式化+重解析
+            // 换新鲜模型，再跑索引器重写。
+            SemanticModel indexerModel;
+            if (ReferenceEquals(workingRoot, root))
+            {
+                indexerModel = semanticModel;
+            }
+            else
+            {
+                var indexerIntermediate = FormatAndValidate(workingRoot);
+                if (indexerIntermediate == null)
+                {
+                    statistics.FilesSkippedClean++;
+                    diagnostics.Add(new MemberDesugarDiagnostic(
+                        MemberDesugarSeverity.Warning, MemberDesugarDiagnosticCode.PlanRolledBack,
+                        "member-desugar rewrite failed local parse validation; the original file was " +
+                        "preserved pending whole-tree validation.", filePath, 0, 0, null));
+                    return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
+                }
+                var (replacementModel, replacementRoot) =
+                    ParseReplacement(semanticModel, indexerIntermediate);
+                indexerModel = replacementModel;
+                workingRoot = replacementRoot;
+            }
+
             var indexerRewriter = new Indexers.IndexerUseSiteRewriter(
-                semanticModel, plannedIndexers, indexerPlans,
+                indexerModel, plannedIndexers, indexerPlans,
                 _options, statistics, diagnostics, filePath);
             workingRoot = (CompilationUnitSyntax)indexerRewriter.Visit(workingRoot)!;
         }
@@ -199,6 +264,15 @@ public sealed partial class MemberDesugarPreprocessor
     internal IReadOnlyList<MemberDesugarPlan> Plans
         => _plans ?? throw new InvalidOperationException(
             "Preprocessor has not analyzed a compilation yet.");
+
+    /// <summary>C39 FN-8：本 run 内存 sidecar 条目（无删除时为空；供单测断言）。</summary>
+    internal IReadOnlyList<Finalizers.FinalizerSidecarEntry> FinalizerSidecarEntries
+        => _finalizerSidecar?.Entries
+           ?? (IReadOnlyList<Finalizers.FinalizerSidecarEntry>)
+               Array.Empty<Finalizers.FinalizerSidecarEntry>();
+
+    /// <summary>C39 FN-8：sidecar 文件实际落盘路径（内存模式/无删除时为 null）。</summary>
+    internal string? FinalizerSidecarPath => _finalizerSidecar?.Path;
 
     internal void ExcludePlans(IEnumerable<string> planIds)
     {

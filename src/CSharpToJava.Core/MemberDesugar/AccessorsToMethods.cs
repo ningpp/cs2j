@@ -47,7 +47,10 @@ internal static class AccessorsToMethods
                 : SyntaxFactory.TokenList();
 
         var mods = new List<SyntaxToken>();
-        var accessorAccessibility = accessor.Modifiers.FirstOrDefault(IsAccessibility);
+        // 表达式体属性（无 AccessorList）经 Expand 传 null accessor：只有属性级可访问性。
+        var accessorAccessibility = accessor != null
+            ? accessor.Modifiers.FirstOrDefault(IsAccessibility)
+            : default;
         var chosen = accessorAccessibility != default
             ? accessorAccessibility
             : property.Modifiers.FirstOrDefault(IsAccessibility);

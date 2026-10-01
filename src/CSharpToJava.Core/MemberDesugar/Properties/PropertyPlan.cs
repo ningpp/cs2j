@@ -34,4 +34,10 @@ internal sealed class PropertyPlan : MemberDesugarPlan
         var span = prop.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0;
         return $"MD:{prop.ContainingType?.ToDisplayString()}::{prop.Name}@{span}";
     }
+
+    /// <summary>跨编译稳定键（与 IndexerPlan.SiteKey 同因）：finalizer/event/operator
+    /// 阶段重解析后，符号来自新的 CSharpCompilation，SymbolEqualityComparer 判不相等，
+    /// 必须用「类型全名::元数据名」字符串键（普通属性无参数；类型内不可同名重载）。</summary>
+    public static string SiteKey(IPropertySymbol prop)
+        => $"{prop.ContainingType?.ToDisplayString()}::{prop.MetadataName}";
 }

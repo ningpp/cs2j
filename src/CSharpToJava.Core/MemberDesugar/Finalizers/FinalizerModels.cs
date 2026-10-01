@@ -36,6 +36,24 @@ public enum FinalizerBodyKind
     Extern,
 }
 
+/// <summary>plan 期定案的处置动作（M2：决策从 rewriter 期前移到 FinalizerRule.Analyze）。
+/// A 档（Reject/CleanerGuide）全部 <see cref="Reported"/>；B 档（Remove）按 FN-6/FN-7
+/// 与决策 7 分流 <see cref="Removed"/>/<see cref="ForceRemoved"/>/<see cref="Refused"/>。</summary>
+public enum FinalizerAction
+{
+    /// <summary>A 档：成员保留，发 CS2J5200（或配置错误 5208 / critical 5205）。</summary>
+    Reported,
+
+    /// <summary>B 档：判定可自动删（Empty/SafeHandleOnly/DisposePattern+Paired），已执行删除。</summary>
+    Removed,
+
+    /// <summary>B 档：命中 ForceRemoveTypes，解除 CS2J5204 后强制删除（不解除 5205）。</summary>
+    ForceRemoved,
+
+    /// <summary>B 档：拒绝删除（5204 保守拒绝或 5205 critical），成员保留并发码。</summary>
+    Refused,
+}
+
 /// <summary>GC.SuppressFinalize 配对结论（FN-3，设计 §2 决策 5）。</summary>
 public enum SuppressFinalizePairing
 {
