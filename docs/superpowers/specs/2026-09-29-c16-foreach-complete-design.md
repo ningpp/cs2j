@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-29
 **范围**: 新增 CLI 级 C#→C# 预处理器 `foreach-source`（Core 新目录 `ForeachSource/` + CLI 单适配器），把字符串 foreach 归一为 `ToCharArray()` 后 foreach，并收口 E07 未覆盖的 Tuple/Other 残余解构 foreach；本特性不改任何 C#→Java 转换代码
-**状态**: 设计已确认，实施中（worktree `feature/preproc-c16-foreach-complete` @ `8eb657b3`，2026-10-01 启动）
+**状态**: M1+M2 已实施（worktree `feature/preproc-c16-foreach-complete`，提交 ab7e6e0b / 628e7d57），保持默认关；§8 门槛 1-5 证据见 §13，剩余门槛 6（README/ROADMAP/plan + 人工评审 + 翻默认开）
 **族属**: catalog P2「控制流去糖族」（[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1081-L1081)：C03 + C37 + C16 + C40 + 部分 C05）。注册表 stub `foreach-source` 的 `catalogItems = "C16, C40"`、`RunAfter = foreach-deconstruction`、`Stage = ControlFlow`（[PassStubCatalog.cs:90-99](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L90-L99)）。**C16 是该 pass 的锚点任务**：完成 stub→Implemented 翻转、`catalogItems` 先收窄为 `"C16"`；姊妹任务 C40（枚举器适配 / ref foreach）后续在同一 pass 内增量扩展。
 
 > **校订（2026-09-29）**：本次仅做证据核对式手术修订，改动枚举——① 行号漂移订正：PassStubCatalog stub 条目 L102-111→**L90-99**、`Ids.ForeachSource` L27→**L26**；PassCatalog E07 的 `{ tuple }` 锚边 L107→**L109**、E07 描述符 L100-108→**L102-110**；PassChainFactory E07 适配器分支 L148-152→**L153-157**、BuildLegacyToggles L60-80→**L64-85**；PassChainOrderTests LockedChain L18-38→**L18-40**、EnabledByDefault L40-55→**L42-57**、toggle 覆盖测试 L169-182→**L172-185**；PassStubCatalogTests「默认关不进计划」佐证 L50-57→**L62-69**；ProjectPreprocessorsConsistentTests L129-132→**L129-138**（member-desugar 段已在其后）；Program.cs ConvertProjectOptions L4632→**L4696**；ProjectPassRunner spine 回调 L231-350→**L218-350**；ForeachDeconstructionRewriter 嵌套解包 L254-310→**L254-313**；catalog C16 段 L446-457→**L488-501**（ToCharArray 行 L451→**L493**）、§3.3 L903→**L1081**、§4 风险 10/11/12 L929-931→**L1108-1110**、C40 段 L750→**L824**；C11 §6 L250→**L251**、C15 §4.5 L239→**L238**。② 链位订正：E10 之后链已插入 **pattern-desugar**（默认关）与 **member-desugar**（默认关），拓扑序列与 LockedChain 已按当前顺序重列，foreach-source 插在 E07 与 pattern-desugar 之间。③ 翻转策略订正：按 **IteratorLowering 先例**，`Ids.ForeachSource` 常量**保留**在 PassStubCatalog.Ids（不在 PassIds 重复定义），描述符与链工厂统一引用 `PassStubCatalog.Ids.ForeachSource`。④ 现状订正：**C15 尚未实施**（numeric-boundary 仍是 stub、Core 下无 NumericBoundary/ 目录），「新 pass→新目录」范式改引 IteratorLowering/PatternDesugar/MemberDesugar；stub 实际 **21** 条而计数断言仍写 22（member-desugar 翻转提交 26ea367c 漏改），C16 翻转后实际 20 条；§12 worktree base 953293b9 仍存在但已非 HEAD（当前 HEAD 2d25700e）。⑤ 六次补全语义补入规则/fixture：null 源 NRE 显式论证 + 夹具钉死、显式迭代变量类型的逐次转换与 InvalidCastException 归属边界、扩展方法 GetEnumerator 明确归 C40、break/continue 保持。⑥ 新增开放问题 6（显式非 char 迭代变量的 Java 半区映射）、7（worktree base 重选）与 stub 计数断言漂移说明。
@@ -456,3 +456,55 @@ git worktree add .worktrees/preproc-c16-foreach-complete -b feature/preproc-c16-
 5. **是否需要索引循环形态选项**：FS-1 统一 `ToCharArray()` 有一次数组分配；若热点扫描命中显著，是否增加 `ForeachSourceOptions.StringForm = ToCharArray | IndexLoop`（后者产 `for (int __i = 0; __i < s.Length; __i++) { char c = s[__i]; … }`，Java 侧走 `length()/charAt()`）？默认形态不变。
 6. **显式非 char 迭代变量在 Java 半区的映射归属**：C# 对 string 的 foreach 允许 `foreach (int c in s)`（char→int 逐次数值转换）、`foreach (object c in s)`（装箱）等合法显式目标，FS-1 原样保留类型、不插 cast，C# 运行时无异常；但 Java 侧 `for (int c : s.toCharArray())` 的逐元素隐式窄化是否成立、现有转换器是否/应否插 cast，本设计无法从静态证据证实，列为 §7.4 冒烟观察项。结论归属（转换器侧 cast 生成 / C16 插入显式转换 / 诊断拒绝）待冒烟后评审拍板；注意 C# 语义面 string foreach **不存在**运行时 InvalidCastException（ICE 仅可能出现在 C40 的引用类型元素面），六次补全所述 ICE 风险对 string 面不适用。
 7. **worktree base 重选**：原 base `953293b9` 仍存在但已落后于当前 HEAD `2d25700e`（其间 member-desugar、pattern-desugar 等翻转已落地，并带来 §3.4-6 的 stub 计数漂移）。实施阶段以哪个提交为 base、以及是否先修复 PassStubCatalogTests 的既存计数红灯，需实施者在开工时确认。
+
+---
+
+## 13. 实施记录与验收证据（2026-10-01）
+
+> M1 提交 `ab7e6e0b`、M2 提交 `628e7d57`（分支 `feature/preproc-c16-foreach-complete`，base `8eb657b3`，含文档提交 `472705eb`）。本节为 §8 门槛的实测证据与登记项，**默认开仍未翻**。
+
+### 13.1 §7.4 Java 半区冒烟（已执行，JDK 28-ea / javac）
+
+样本：string 上的 `foreach (var c …)`、`foreach (int code …)`、`foreach (object o …)`、代理对 `"a\uD83D\uDE00b"`，经 `preprocess --pass foreach-source` → 单文件 `convert` → javac 编译 → 运行，与 C# 参考输出逐字对比：
+
+| 观察项 | 结果 |
+|---|---|
+| char/var 站点 | 产物 `for (char c : s.toCharArray())`，javac 通过 |
+| 裁决 6·int 显式变量 | C# 中间树 `int code = (int)__cs2jFsCh;` → Java `int code = __cs2jFsCh;`（char→int 宽化合法，转换器消去恒等强转），运行时数字序列一致 |
+| 裁决 6·object 装箱 | Java `Object o = (Object)(__cs2jFsCh1);` 合法装箱，`o.toString()` 一致 |
+| 代理对 | 双端均 4 个 UTF-16 码元，输出 `4:a😀b` 一致 |
+| 抛点不可达性 | 未包裹样本直转仍抛 `CS2J normalization required: foreach over a string must be lowered (e.g. toCharArray())…`；经本 pass 后不再到达 [Loops.cs:118-122](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Statement/StatementTransformer.Loops.cs#L118-L122) |
+| 运行时总对比 | C# 与 Java 均输出 `a😀b97553575683298a😀b` / `4:a😀b`，零差异 |
+
+冒烟中发现的**转换器侧既存缺口（非本 pass 引入，登记独立项）**：① 基本类型接收者 `int.ToString()` 被直译为非法的 `code.toString()`；② `(char)(objectVar)` 直译为 `(char)(o)`，Java 需先 `(Character)`；③ 单文件 convert 模式不补 import/`System.` 前缀（`out.println`、裸 `List`），项目模式不受影响。
+
+### 13.2 §8-4 sdk 扫描（D:\csharp-sdk，1301 个参与编译的 .cs）
+
+命令：`preprocess --pass tuple,foreach-deconstruction,foreach-source -s D:\csharp-sdk …`（E06→E07→C16 锁序；verify build 仍执行——见 13.4 观察项）。
+
+- **string foreach：2 个站点、包裹 2/2（100%），零误伤**：
+  - `xml-tiny\tests\XmlDocument\XmlNodeTests\NormalizeTests.cs:16` `foreach (var c in inString)`（StringBuilder 逐字符）；
+  - `uri\tests\FunctionalTests\UriRelativeResolutionTest.cs:720` `foreach (var c in input)`（IRI 转义；同文件两处 `byte[]` foreach 正确未动）。
+- **ForEachVariable 残余：四族全 0**——CS2J5420/5421/5422/5423/5440 均 0；ref/await 计数 CS2J5441/5442 为 0（sdk 源码 `await foreach` 文本抽查亦为 0）。E06+E07 在该语料上已实现完全收口。
+- 人工定性项：无 Warning/Error 命中，无需定性。
+
+### 13.3 §8-5 基线不退化（错误集逐项对比）
+
+对同一 sdk 分别构建「E06+E07 基线树」与「再加 C16 树」（Release）：编译错误码分布**完全相同**——CS0122×12、CS0191×34、CS0192×4、CS1061×10（摘要均为 30 errors），C16 **新增失败为零**；失败点全部在 tuple pass 生成的 `_Cs2jTupleTypes.*.cs`（访问 internal `XmlTextReaderImpl.EntityType`）与 sdk 自身的只读字段元组用例，属 E06/语料既存问题。C16 仅改写 2 个文件且 verify 失败后整树回滚，不产生半改写残留。
+
+### 13.4 门槛状态与登记项
+
+| §8 门槛 | 状态 | 证据 |
+|---|---|---|
+| 1 slnx build/test | build 0 错误；C16 相关测试全绿（Core 30/30、项目级+CLI 10/10、ConversionTests 671/671）。6 个失败已在**无 C16 改动的基线 472705eb 复现**：Maven/XML 环境类 3（CSharpXmlCompileRegressionTests×2、SystemPrivateXmlRuntimeResourceTests×1）、EnumDeclarationRewriterUnitTests×2（long.TryParse 环境行为）、NumericBoundaryProjectTests×1（跨沙箱僵尸进程 PID 26316 锁 dll，本会话无权结束，仅 finally 清理失败、业务断言全过） |
+| 2 fixture 运行时 | 通过：求值一次、代理对 4 码元、null→NRE / 空串零迭代双分支、幂等、BOM、字节复制 |
+| 3 Java 半区 | 通过，见 13.1 |
+| 4 sdk 扫描 | 完成，见 13.2 |
+| 5 sdk 不退化 | 零新增失败，见 13.3；耗时增量为常数级语法替换 |
+| 6 文档/评审 | **未做（人工评审项）**：README/ROADMAP 条目、plan 文档定稿、默认开单行翻转待评审拍板 |
+
+登记给后续工单（均不阻塞 C16 锚点合入）：
+1. **tuple pass（E06）两类既存问题**：a) 生成 struct 可访问性/只读字段导致 sdk 既有 30 errors；b) 部分 fixture 下 `_Cs2jTupleTypes.*.cs` 落项目根 + 显式 `<Compile Include>` 在 SDK 10.0.300 触发 NETSDK1022（根因位置：[TuplePassAdapter.cs EnsureCompileItem](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/TuplePassAdapter.cs#L315-L319)）。
+2. `preprocess --pass` 单选模式下 `--no-verify-build/--no-verify-tests` 未生效（全 pass 通用的既有接线问题，非 C16 独有）。
+3. 转换器三个既存直译缺口（13.1 末）。
+4. 裁决 4 的扩展方法 Deconstruct 编译级 reduction：sdk 命中为 0，按裁决排在 C19 后；CS2J5421 保留。
