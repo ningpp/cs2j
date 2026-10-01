@@ -396,8 +396,10 @@ internal sealed class FinalizerRewriter : CSharpSyntaxRewriter
         }
     }
 
-    /// <summary>纯语法构造含入类型 FQN（命名空间.外层类型.内层类型，泛型补元数据 arity 后缀）。
-    /// 与符号 ToDisplayString 在终结器场景（任意嵌套/泛型类）同形；不依赖语义模型，
+    /// <summary>纯语法构造含入类型 FQN（命名空间.外层类型.内层类型）。必须与
+    /// <see cref="INamedTypeSymbol.ToDisplayString()"/> 的默认源码形完全一致——泛型定义渲染
+    /// 类型参数名 <c>C&lt;T&gt;</c>（而非 MetadataName 的 <c>C`1</c> arity 形，嵌套定义形如
+    /// <c>Outer&lt;T&gt;.Inner</c>），否则跨编译 FQN 键对不上会误发 CS2J5210。不依赖语义模型，
     /// 可安全用于脱离语法树的输出节点。</summary>
     private static string SynthesizeTypeFqn(DestructorDeclarationSyntax node)
     {
@@ -408,8 +410,14 @@ internal sealed class FinalizerRewriter : CSharpSyntaxRewriter
             switch (current)
             {
                 case TypeDeclarationSyntax type:
-                    var arity = type.TypeParameterList?.Parameters.Count ?? 0;
-                    types.Add(arity > 0 ? type.Identifier.Text + "`" + arity : type.Identifier.Text);
+                    var name = type.Identifier.Text;
+                    if (type.TypeParameterList is { Parameters.Count: > 0 } typeParameters)
+                    {
+                        // ToDisplayString 源码形：<T, U>（参数标识符，逗号后带空格）。
+                        name += "<" + string.Join(", ",
+                            typeParameters.Parameters.Select(p => p.Identifier.Text)) + ">";
+                    }
+                    types.Add(name);
                     break;
                 case BaseNamespaceDeclarationSyntax ns:
                     // FileScopedNamespaceDeclarationSyntax 亦派生自 BaseNamespaceDeclarationSyntax。

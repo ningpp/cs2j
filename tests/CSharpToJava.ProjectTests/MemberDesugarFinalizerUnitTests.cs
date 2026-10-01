@@ -1149,4 +1149,72 @@ public class MemberDesugarFinalizerUnitTests
         Assert.Equal(0, stats.FinalizersRemoved);
         Assert.Equal(0, stats.FinalizerResidual);
     }
+
+    // ---- B8) 泛型/嵌套泛型类型：纯语法 FQN 必须与 ToDisplayString 源码形同形 ----
+    // 回归：SynthesizeTypeFqn 曾输出 C`1 arity 形而符号键为 C<T>，导致泛型类终结器
+    // 在 A/B 两档都被 FN-10 误报 CS2J5210。
+
+    [Fact]
+    public void GenericClass_Finalizer_APolicy_NoResidual5210()
+    {
+        var src = """
+            namespace Ns;
+
+            class Box<T>
+            {
+                ~Box() { }
+            }
+
+            class Outer<T, U>
+            {
+                class Inner
+                {
+                    ~Inner() { }
+                }
+            }
+            """;
+        var (output, changed, _, diags, _) = RewriteFn(src, null, ExtraFile);
+
+        Assert.False(changed, "A 档零树改动");
+        Assert.Contains("~Box()", output);
+        Assert.False(HasCode(diags, MemberDesugarDiagnosticCode.FinalizerResidual),
+            "泛型类型 FQN 键不一致导致误报 5210: "
+            + string.Join("; ", diags.Where(d => d.Code == MemberDesugarDiagnosticCode.FinalizerResidual)
+                .Select(d => d.Message)));
+        Assert.Equal(2, diags.Count(d => d.Code == MemberDesugarDiagnosticCode.FinalizerRejected));
+    }
+
+    [Fact]
+    public void GenericClass_Finalizer_BPolicy_Removed_NoResidual5210()
+    {
+        var src = """
+            namespace Ns;
+
+            class Box<T>
+            {
+                ~Box() { }
+            }
+
+            class Outer<T>
+            {
+                class Inner
+                {
+                    ~Inner() { }
+                }
+            }
+            """;
+        var (output, changed, stats, diags, plans) = RewriteFn(src, RemoveOptions(), ExtraFile);
+
+        Assert.True(changed, "B 档 Empty 终结器必须改树");
+        Assert.DoesNotContain("~Box(", output);
+        Assert.DoesNotContain("~Inner(", output);
+        Assert.False(HasCode(diags, MemberDesugarDiagnosticCode.FinalizerResidual),
+            "泛型类型删除后 FN-10 误报 5210: "
+            + string.Join("; ", diags.Where(d => d.Code == MemberDesugarDiagnosticCode.FinalizerResidual)
+                .Select(d => d.Message)));
+        Assert.Equal(2, stats.FinalizersRemoved);
+        Assert.All(plans.OfType<FinalizerPlan>(),
+            p => Assert.Equal(FinalizerAction.Removed, p.Action));
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output, ExtraFile);
+    }
 }
