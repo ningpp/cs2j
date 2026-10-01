@@ -3,15 +3,25 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 using CSharpToJava.Core.NumericBoundary.Rules.DecimalOps;
+using CSharpToJava.Core.NumericBoundary.Rules.IncrementTargets;
 using CSharpToJava.Core.Preprocessing;
 
 namespace CSharpToJava.Core.NumericBoundary;
 
 /// <summary>
-/// Public per-file entry for the numeric-boundary pass (C15). Mirrors
+/// Public per-file entry for the numeric-boundary family (C15 anchor; C34 and
+/// C17 co-located as family rules). Mirrors
 /// <see cref="UnsignedTypeRewriter.UnsignedTypeRewriter"/>: one semantic-model
 /// traversal per file, span formatting with reparsing validation, byte-identical
 /// passthrough for clean files.
+/// <para>
+/// 2026-10-01 (C17 M0): the file pipeline is rule-driven
+/// (<see cref="INumericBoundaryRule"/>, explicit ordered list, no reflection):
+/// C17 IncrementTargets(Order=10) runs first so its expansions are seen by the
+/// C15 checked sweep (Order=20); C34 DecimalOps runs last (Order=30). Tree
+/// changes between rules trigger a semantic-model rebind through the shared
+/// context (design §4.5 implementation correction / decision 17).
+/// </para>
 /// </summary>
 public sealed class NumericBoundaryPreprocessor
 {
@@ -34,71 +44,58 @@ public sealed class NumericBoundaryPreprocessor
 
         var c15Dirty = IsDirty(root, projectDefaultChecked);
 
-        // EnableDecimalOps=true keeps the pipeline alive on keyword-free files so
-        // decimal sites (which live outside checked scopes too) get normalized;
-        // while false the gate and all statistics stay byte-identical to C15.
-        if (!options.EnableDecimalOps && !c15Dirty)
+        // Family-level early gate: keep the pipeline alive when any family rule
+        // is enabled — EnableDecimalOps (C34) and EnableIncrementTargets (C17)
+        // both own sites outside checked scopes, so keyword-free files must still
+        // be traversed. While every rule is dormant the gate and statistics stay
+        // byte-identical to C15.
+        if (!c15Dirty && !options.EnableDecimalOps && !options.EnableIncrementTargets)
         {
             stats.FilesSkippedClean = 1;
             return new NumericBoundaryFileResult(sourceCode, false, diagnostics, stats);
         }
 
-        var analyzer = new NumericBoundaryAnalyzer(semanticModel, projectDefaultChecked);
-        var rewriter = new CheckedExprRewriter(analyzer, stats, diagnostics, options.EnableDecimalOps);
-        var visitedRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
-        var newRoot = (CompilationUnitSyntax)rewriter.ApplyHoists(visitedRoot);
+        var context = new NumericBoundaryRuleContext(
+            root, semanticModel, projectDefaultChecked, options, stats, diagnostics);
 
-        // NB-13 residual gate on the rewritten tree (M2/M3: both checked and
-        // unchecked keyword nodes must be gone from user code).
-        ApplyResidualGate(newRoot, options, stats, diagnostics);
-
-        var decimalMadeChanges = false;
-        var downgradeMadeChanges = false;
-
-        // ── C34 decimal-ops pipeline (dormant unless explicitly enabled) ──
-        if (options.EnableDecimalOps && semanticModel != null)
+        // Explicit ordered rule list (no reflection discovery); Order ascending.
+        var rules = new INumericBoundaryRule[]
         {
-            // C15 produced a new tree: rebuild a semantic model before C34 can
-            // classify operator bindings on the post-hoist intermediate form.
-            // The model is bound to a freshly parsed tree, so every subsequent
-            // operation uses that tree's own root.
-            var postCheckedModel = RebuildSemanticModel(semanticModel, newRoot);
-            if (postCheckedModel != null)
+            new IncrementTargetRule(),
+            new CheckedArithmeticRule(),
+            new DecimalOpsRule(),
+        };
+
+        var finalRoot = root;
+        var anyMadeChanges = false;
+
+        foreach (var rule in rules.OrderBy(rule => rule.Order))
+        {
+            if (!rule.IsEnabled(options))
             {
-                var reboundRoot = (CompilationUnitSyntax)postCheckedModel.SyntaxTree.GetRoot();
-                var downgradeTargets = DecimalOpAnalyzer.PlanConstDowngrades(postCheckedModel, reboundRoot);
-
-                var decimalRewriter = new DecimalOpRewriter(
-                    postCheckedModel, options, stats.DecimalOps, diagnostics, downgradeTargets);
-                var decimalRoot = (CompilationUnitSyntax)decimalRewriter.Visit(reboundRoot)!;
-                decimalRoot = (CompilationUnitSyntax)decimalRewriter.ApplyHoists(decimalRoot);
-
-                var downgrader = new DecimalOpConstDowngrader(stats.DecimalOps);
-                decimalRoot = (CompilationUnitSyntax)downgrader.Visit(decimalRoot)!;
-                decimalMadeChanges = decimalRewriter.MadeChanges;
-                downgradeMadeChanges = downgrader.MadeChanges;
-
-                // DC-13: rescan the final output tree for surviving built-in
-                // decimal operators (lifted/user-operator sites whitelisted).
-                var finalModel = RebuildSemanticModel(postCheckedModel, decimalRoot);
-                if (finalModel != null)
-                {
-                    var finalRoot = (CompilationUnitSyntax)finalModel.SyntaxTree.GetRoot();
-                    DecimalOpRewriter.ApplyResidualGate(
-                        finalModel, finalRoot, options, stats.DecimalOps, diagnostics);
-                }
-
-                newRoot = decimalRoot;
+                continue;
             }
-        }
 
-        // Mirror C34 error codes into the C15 error buckets so adapters that only
-        // merge ErrorsByReason still see them.
-        foreach (var errorCode in diagnostics
-                     .Where(d => d.Severity == NumericBoundarySeverity.Error && d.Code.StartsWith("CS2J536", StringComparison.Ordinal))
-                     .Select(d => d.Code))
-        {
-            stats.ErrorsByReason[errorCode] = stats.ErrorsByReason.GetValueOrDefault(errorCode) + 1;
+            var result = rule.Execute(context);
+            finalRoot = result.Root;
+            anyMadeChanges |= result.MadeChanges;
+
+            // A rule changed the tree: rebind before the next rule classifies
+            // bindings on the intermediate form. A failed reparse can never yield
+            // a valid output, so record the family build-failed error and let the
+            // whole-file rollback path below preserve the original bytes.
+            if (result.MadeChanges && context.SemanticModel != null
+                && context.RebindModel(result.Root) == null)
+            {
+                diagnostics.Add(new NumericBoundaryDiagnostic(
+                    NumericBoundarySeverity.Error,
+                    PreprocessDiagnosticCodes.NumericBoundaryBuildFailed,
+                    $"numeric-boundary rule '{rule.Id}' produced a tree that fails to reparse while " +
+                    "rebinding the semantic model; the original file was preserved " +
+                    $"({PreprocessDiagnosticCodes.NumericBoundaryBuildFailed})."));
+                stats.ErrorsByReason[PreprocessDiagnosticCodes.NumericBoundaryBuildFailed] = 1;
+                break;
+            }
         }
 
         // NB-12: any error diagnostic rolls the whole file back to the original
@@ -109,10 +106,10 @@ public sealed class NumericBoundaryPreprocessor
             return new NumericBoundaryFileResult(sourceCode, false, diagnostics, stats);
         }
 
-        if (!rewriter.MadeChanges && !decimalMadeChanges && !downgradeMadeChanges)
+        if (!anyMadeChanges)
         {
             // Nothing rewrote. A keyword-/checked-dirty input counts as dirty;
-            // a decimal-enabled clean pass counts as skipped-clean.
+            // a rule-enabled clean pass counts as skipped-clean.
             if (c15Dirty)
             {
                 stats.FilesDirtyNoRewrite = 1;
@@ -125,7 +122,7 @@ public sealed class NumericBoundaryPreprocessor
             return new NumericBoundaryFileResult(sourceCode, false, diagnostics, stats);
         }
 
-        var outputCode = FormatAndValidate(newRoot);
+        var outputCode = FormatAndValidate(finalRoot);
         if (outputCode == null)
         {
             stats.FilesDirtyNoRewrite = 1;
@@ -141,24 +138,6 @@ public sealed class NumericBoundaryPreprocessor
         return new NumericBoundaryFileResult(outputCode, true, diagnostics, stats);
     }
 
-    /// <summary>
-    /// Rebind a freshly produced tree by replacing the source tree inside the
-    /// previous compilation. Returns null when the new text fails to parse.
-    /// </summary>
-    private static SemanticModel? RebuildSemanticModel(SemanticModel previousModel, SyntaxNode newRoot)
-    {
-        var text = Microsoft.CodeAnalysis.Text.SourceText.From(newRoot.ToFullString());
-        var oldTree = (CSharpSyntaxTree)previousModel.SyntaxTree;
-        var newTree = (CSharpSyntaxTree)CSharpSyntaxTree.ParseText(text, oldTree.Options);
-        if (newTree.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error))
-        {
-            return null;
-        }
-
-        var compilation = previousModel.Compilation.ReplaceSyntaxTree(previousModel.SyntaxTree, newTree);
-        return compilation.GetSemanticModel(newTree);
-    }
-
     internal static bool IsDirty(CompilationUnitSyntax root, bool projectDefaultChecked)
     {
         if (projectDefaultChecked)
@@ -170,109 +149,6 @@ public sealed class NumericBoundaryPreprocessor
 
         return root.DescendantNodes().Any(static node =>
             node is CheckedExpressionSyntax or CheckedStatementSyntax);
-    }
-
-    /// <summary>
-    /// NB-13: scan the output tree for surviving checked/unchecked nodes.
-    /// Unchecked survivors are always an error. Surviving checked EXPRESSION
-    /// shells are exactly the user-defined <c>op_Checked*</c> vouchers kept for
-    /// member-desugar (their count is tracked during the traversal); they are
-    /// exempt only while member-desugar co-runs (decision 4 / open question 6).
-    /// Any mismatch (or a surviving checked BLOCK) is CS2J5327 (strict → Error).
-    /// </summary>
-    private static void ApplyResidualGate(
-        SyntaxNode root,
-        NumericBoundaryOptions options,
-        NumericBoundaryStatistics stats,
-        List<NumericBoundaryDiagnostic> diagnostics)
-    {
-        var memberDesugarCoRunning =
-            options.EnabledPassIds?.Contains(NumericBoundaryOptions.MemberDesugarPassId) == true;
-
-        var residualUnchecked = 0;
-        var residualCheckedExpressions = 0;
-        var residualCheckedBlocks = 0;
-
-        foreach (var node in root.DescendantNodes())
-        {
-            switch (node)
-            {
-                case CheckedExpressionSyntax expression:
-                    if (expression.IsKind(SyntaxKind.UncheckedExpression))
-                    {
-                        residualUnchecked++;
-                    }
-                    else
-                    {
-                        residualCheckedExpressions++;
-                    }
-
-                    break;
-                case CheckedStatementSyntax statement:
-                    if (statement.IsKind(SyntaxKind.UncheckedStatement))
-                    {
-                        residualUnchecked++;
-                    }
-                    else
-                    {
-                        residualCheckedBlocks++;
-                    }
-
-                    break;
-            }
-        }
-
-        stats.ResidualUncheckedNodes = residualUnchecked;
-        stats.ResidualCheckedNodes = residualCheckedExpressions + residualCheckedBlocks;
-
-        // Every surviving checked expression must be one kept voucher.
-        var unexpectedChecked = residualCheckedBlocks
-            + Math.Max(0, residualCheckedExpressions - stats.CheckedUserOpShellsDeferred);
-        var voucherChecked = Math.Min(residualCheckedExpressions, stats.CheckedUserOpShellsDeferred);
-
-        void AddResidual(int count, string message)
-        {
-            if (count == 0)
-            {
-                return;
-            }
-
-            var severity = options.Strict
-                ? NumericBoundarySeverity.Error
-                : NumericBoundarySeverity.Warning;
-            diagnostics.Add(new NumericBoundaryDiagnostic(
-                severity, PreprocessDiagnosticCodes.NumericBoundaryResidualNode, message));
-            if (severity == NumericBoundarySeverity.Error)
-            {
-                stats.ErrorsByReason[PreprocessDiagnosticCodes.NumericBoundaryResidualNode] =
-                    stats.ErrorsByReason.GetValueOrDefault(PreprocessDiagnosticCodes.NumericBoundaryResidualNode) + count;
-            }
-        }
-
-        if (residualUnchecked > 0)
-        {
-            AddResidual(
-                residualUnchecked,
-                $"{residualUnchecked} residual unchecked node(s) remain after numeric-boundary " +
-                "preprocessing; user code must not keep unchecked expressions/blocks.");
-        }
-
-        if (voucherChecked > 0 && !memberDesugarCoRunning)
-        {
-            AddResidual(
-                voucherChecked,
-                $"{voucherChecked} checked expression shell(s) wrapping user-defined checked operators " +
-                "(op_Checked*) remain, but the member-desugar pass is not enabled in this chain; " +
-                "enable member-desugar alongside numeric-boundary.");
-        }
-
-        if (unexpectedChecked > 0)
-        {
-            AddResidual(
-                unexpectedChecked,
-                $"{unexpectedChecked} residual checked node(s) remain after numeric-boundary preprocessing; " +
-                "user code must not keep checked expressions/blocks.");
-        }
     }
 
     /// <summary>

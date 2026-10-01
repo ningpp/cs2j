@@ -1,4 +1,5 @@
 using CSharpToJava.Core.NumericBoundary.Rules.DecimalOps;
+using CSharpToJava.Core.NumericBoundary.Rules.IncrementTargets;
 using CSharpToJava.Core.Preprocessing;
 
 namespace CSharpToJava.Core.NumericBoundary;
@@ -41,6 +42,15 @@ public sealed record NumericBoundaryOptions
     /// never runs and leaves zero trace; flips to default-on after M3.
     /// </summary>
     public bool EnableDecimalOps { get; init; }
+
+    /// <summary>
+    /// C17: normalize complex <c>++/--</c> targets (property/indexer/enum/
+    /// decimal/unsigned-residual/nint/custom-operator) to explicit read-modify-
+    /// write statements. Ships as a family rule kill-switch that is on by
+    /// default together with the pass (no CLI toggle, design §5/开放问题 4);
+    /// M0 only runs the read-only classifier and never rewrites.
+    /// </summary>
+    public bool EnableIncrementTargets { get; init; } = true;
 }
 
 public enum NumericBoundarySeverity
@@ -118,6 +128,10 @@ public sealed class NumericBoundaryStatistics
     // ── C34 decimal-ops buckets (all zero while EnableDecimalOps=false) ──
 
     public DecimalOpStatistics DecimalOps { get; } = new();
+
+    // ── C17 increment-target buckets (M0: classifier only; all zero) ──
+
+    public IncrementTargetStatistics IncrementTargets { get; } = new();
 }
 
 public sealed record NumericBoundaryFileResult(

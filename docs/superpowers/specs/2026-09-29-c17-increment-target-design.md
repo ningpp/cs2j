@@ -233,6 +233,8 @@ src\CSharpToJava.Core\NumericBoundary\Rules\IncrementTargets\
 C15 [§4.1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md#L187-L187) 授权「共享组件不够用时先扩根层并补 C15 回归」。本规则需要的最小接缝（由本任务在 C15 合入基上实施，携带 C15 回归更新）：
 
 1. **规则发现与顺序**：`NumericBoundary/` 根层增 internal `INumericBoundaryRule`（`int Order`、文件级 `Analyze` 上下文注册、`RewriteNode` 钩子、`RuleFragment`（统计桶/诊断/摘要片段/是否需要支撑库）），CheckedArithmetic 以 Order=10 注册、IncrementTargets Order=20；保证「C17 先展开站点、C15 后扫新节点」的文件内顺序（决策 17）。若 C15 落地版已内置等价管线则零接缝，仅挂规则。
+
+   > **2026-10-01 实施校订（M0 落地面）**：C15 落地版未内置规则管线（C34 以硬编码段接在 C15 之后）。决策 17 的执行序（IncrementTargets → 重绑模型 → CheckedArithmetic → 重绑模型 → DecimalOps）与本条「CheckedArithmetic=10、IncrementTargets=20」的登记数字相反；**以决策 17 的语义执行序为准**：`INumericBoundaryRule.Order` 按执行序赋值（IncrementTargets=10、CheckedArithmetic=20、DecimalOps=30），驱动方按 Order 升序调用、规则间树变更即 `RebuildSemanticModel`。C15/C34 既有 rewriter 内部代码零改动，仅以薄包装规则接入（携带 C15/C34 全量回归）；早期返回闸门族化为「!c15Dirty && !EnableDecimalOps && !EnableIncrementTargets → Clean」。
 2. **共享 Analyzer 只读复用**：checked 上下文查询、工程 `/checked` 种子、表达式树/dynamic 谓词、支撑工程目录跳过谓词、FormatAndValidate 三候选。
 3. **注入判定族化（一行适配器收口）**：C15 适配器的支撑库释放条件从「checked helper 计数 > 0」改为「族级 UnsignedMath 调用需求（含 C17 的 IT-6 残余站点）> 0」；该计数经 RuleFragment 聚合，[NumericBoundaryPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters) 仅改判定表达式一处，并补「仅 C17 无符号站点也引库」回归。除此外适配器文件不新增本规则专属代码。
 4. Options/Statistics：根 `NumericBoundaryOptions` 经规则节扩展 `rules.incrementTargets`（`EnableIncrementTargets` 默认 **true**：规则随 pass 启停，不新增 CLI 开关；另留 `strict` 复用族值）；族 Statistics 增规则段（§4.6）。
