@@ -39,12 +39,14 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
             Statistics = stats,
             Diagnostics = diagnostics,
         };
-        // Ordered dispatch: M1 ships FS-1 only. M2 inserts the residual
-        // deconstruction rules after the string rule; C40 will append its
-        // EnumeratorAdapter/RefForeach rules at the reserved slots.
+        // Ordered dispatch. M2 rules for deconstruction residuals; C40 will
+        // append its EnumeratorAdapter/RefForeach rules at the reserved slots.
         _rules = new IForeachSourceRule[]
         {
             new StringSourceRule(),
+            new TupleResidualRule(),
+            new DeconstructResidualRule(),
+            new OtherResidualRule(),
         };
     }
 
@@ -139,12 +141,48 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
             return visited;
         }
 
-        // M1 does not yet handle deconstruction residuals (M2 closes them);
-        // keep the node untouched and pass it through.
         if (_model == null)
         {
             _stats.SitesPassedThrough++;
             return visited;
+        }
+
+        var expressionType = ForeachSourceAnalyzer.GetExpressionType(_model, visited.Expression);
+        if (expressionType == null
+            || ForeachSourceAnalyzer.IsErrorType(expressionType)
+            || ForeachSourceAnalyzer.IsDynamic(expressionType))
+        {
+            _stats.SitesPassedThrough++;
+            return visited;
+        }
+
+        var elementType = ForeachSourceAnalyzer.TryGetForEachElementType(_model, visited);
+        if (elementType == null)
+        {
+            _stats.SitesPassedThrough++;
+            return visited;
+        }
+
+        var family = ForeachSourceAnalyzer.ClassifyFamily(elementType);
+        var site = new ForeachSourceSite
+        {
+            Node = visited,
+            Model = _model,
+            Options = _options,
+            ExpressionType = expressionType,
+            ElementType = elementType,
+            Family = family,
+        };
+
+        foreach (var rule in _rules)
+        {
+            var outcome = rule.TryHandle(site, _context, visited);
+            if (outcome == null)
+                continue;
+
+            // Deconstruction rules either rewrite (instance Deconstruct) or
+            // terminate dispatch with the node kept (residual diagnostics).
+            return outcome.Output ?? visited;
         }
 
         _stats.SitesPassedThrough++;
