@@ -211,6 +211,10 @@ public class Program
                     Strict = opts.LocalFunctionStrict,
                     ReportInfo = opts.Verbose,
                 },
+                EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions
+                {
+                    Strict = opts.LocalFunctionStrict,
+                },
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
@@ -3615,6 +3619,10 @@ public class Program
                     Strict = opts.LocalFunctionStrict,
                     ReportInfo = opts.Verbose,
                 },
+                EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions
+                {
+                    Strict = opts.LocalFunctionStrict,
+                },
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
@@ -4922,6 +4930,10 @@ class ConvertProjectOptions
         HelpText = "Path to MemberDesugarOverrides.json (default: config/MemberDesugarOverrides.json)")]
     public string? MemberDesugarOverrides { get; set; }
 
+    [Option("no-equality-concat", Default = false,
+        HelpText = "Disable the equality/concat call-site materialization step (C47; opt-in pass, enable with --enable-pass equality-concat)")]
+    public bool NoEqualityConcat { get; set; }
+
     [Option("struct-value-semantics", Default = false,
         HelpText = "Enable the struct-value-semantics pass (defensive Clone insertion for residual mutable structs)")]
     public bool StructValueSemantics { get; set; }
@@ -4973,6 +4985,12 @@ class ConvertProjectOptions
     public bool RecordReadOnly => !NoRecordReadOnly;
     public bool JavaKeywords => !NoJavaKeywords;
     public bool MemberDesugar => !NoMemberDesugar;
+    /// <summary>Pass switch, default OFF; enable with --enable-pass equality-concat.</summary>
+    public bool EqualityConcat { get; set; }
+
+    /// <summary>Effective legacy toggle: the explicit --no-equality-concat stays authoritative.</summary>
+    public bool EqualityConcatEffective => EqualityConcat && !NoEqualityConcat;
+
     public bool ArrayMethod => !NoArrayMethod;
     public bool IteratorLowering => !NoIteratorLowering;
 

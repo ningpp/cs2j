@@ -1,3 +1,4 @@
+using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
@@ -44,6 +45,9 @@ internal sealed class CliChainRequest
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
 
+    /// <summary>Invoked only when equality-concat is enabled (keeps override loading lazy).</summary>
+    public required Func<EqualityConcatOptions> EqualityConcatOptionsFactory { get; init; }
+
     /// <summary>
     /// Per-id on/off state from legacy flags. Null means "use descriptor defaults";
     /// the standalone verb passes an all-disabled map together with explicit ids.
@@ -55,6 +59,12 @@ internal sealed class CliChainRequest
 
     /// <summary>Explicit --disable-pass overrides.</summary>
     public IEnumerable<string>? DisablePassIds { get; init; }
+
+    /// <summary>
+    /// C34: opt-in decimal operator normalization inside numeric-boundary.
+    /// Dormant default (false); tests and M3 flip it explicitly.
+    /// </summary>
+    public bool EnableDecimalOps { get; init; }
 }
 
 /// <summary>
@@ -133,6 +143,8 @@ internal static class CliPreprocessChain
             MemberDesugarOptionsFactory = request.MemberDesugarOptionsFactory,
             StructValueSemanticsOptionsFactory = request.StructValueSemanticsOptionsFactory,
             EnumDeclarationOptionsFactory = request.EnumDeclarationOptionsFactory,
+            EnableDecimalOps = request.EnableDecimalOps,
+            EqualityConcatOptionsFactory = request.EqualityConcatOptionsFactory,
         };
 
         var sourcePath = request.SourcePath;

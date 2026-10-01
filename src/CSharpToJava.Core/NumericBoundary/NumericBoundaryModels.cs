@@ -1,3 +1,4 @@
+using CSharpToJava.Core.NumericBoundary.Rules.DecimalOps;
 using CSharpToJava.Core.Preprocessing;
 
 namespace CSharpToJava.Core.NumericBoundary;
@@ -33,6 +34,13 @@ public sealed record NumericBoundaryOptions
     /// co-runs and strips it downstream.
     /// </summary>
     public IReadOnlySet<string>? EnabledPassIds { get; init; }
+
+    /// <summary>
+    /// C34: reduce built-in <see cref="decimal"/> operator sites to explicit
+    /// BCL calls. Ships dormant (<c>false</c>): while false the decimal pipeline
+    /// never runs and leaves zero trace; flips to default-on after M3.
+    /// </summary>
+    public bool EnableDecimalOps { get; init; }
 }
 
 public enum NumericBoundarySeverity
@@ -106,6 +114,10 @@ public sealed class NumericBoundaryStatistics
 
     /// <summary>Error diagnostics grouped by code.</summary>
     public Dictionary<string, int> ErrorsByReason { get; } = new(StringComparer.Ordinal);
+
+    // ── C34 decimal-ops buckets (all zero while EnableDecimalOps=false) ──
+
+    public DecimalOpStatistics DecimalOps { get; } = new();
 }
 
 public sealed record NumericBoundaryFileResult(

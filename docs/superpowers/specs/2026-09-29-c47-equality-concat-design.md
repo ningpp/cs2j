@@ -4,7 +4,7 @@
 **范围**: 新增 C#→C# 预处理器 `equality-concat`（Core `EqualityConcat/` + CLI 薄适配器），按 **SemanticModel/IOperation 判定的操作数语义类别**（而非语法形态）把编译器隐式绑定的相等/拼接调用点物化为显式 BCL 调用：string `==`/`!=` → `string.Equals`、object 静态类型同一性（含 `(object)` 逃逸）→ `object.ReferenceEquals`、string `+`/`+=` 链 → `string.Concat`、委托 `==` → `Cs2jPrelude.DelegateOps.Equals`、record 合成 `==` → `object.Equals`。`bool?`/`T?` 提升相等划归 C22，元组 `==` 已归 E06，本 pass 只做边界 residual 策略。不改任何 C#→Java 转换代码；Java 半区缺口（compat/TypeMappings）以依赖清单形式登记，由独立 Java 半区 PR 收口
 **状态**: 设计稿，待评审
 **注册表**: 拟新增 stub `equality-concat`（实施期在 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 注册；本设计只提案不落地，§3.2 给完整字段）
-**base**: `9b99c60b`（`docs: C46 成员签名显式化设计`，已 `git cat-file -t` 核为 commit；只读核实，未执行任何 git 写操作）
+**base**: `8eb657b3`（`feat(preprocessing): C05 enum-declaration 落地（Core + CLI 适配器 + 注册 + 测试，默认关）`，已 `git cat-file -t` 核为 commit；只读核实，未执行任何 git 写操作）
 
 ---
 

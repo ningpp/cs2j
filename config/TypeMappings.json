@@ -3911,6 +3911,13 @@
             ]
         },
         {
+            "csharp": "System.Environment",
+            "java": "Environment",
+            "imports": [
+                "io.github.ningpp.compat.Environment"
+            ]
+        },
+        {
             "csharp": "System.Globalization.NumberStyles",
             "java": "NumberStyles",
             "imports": [
@@ -6107,14 +6114,44 @@
     ],
     "methodMappings": [
         {
+            "type": "Cs2jByRef.ByRef",
+            "method": "get_Value",
+            "javaMethod": "getValue",
+            "signature": "0"
+        },
+        {
+            "type": "Cs2jByRef.ByRef",
+            "method": "set_Value",
+            "javaMethod": "setValue",
+            "signature": "1"
+        },
+        {
             "type": "Cs2jPrelude.CsPrelude",
             "method": "Combine",
-            "javaMethod": "combine"
+            "javaMethod": "DelegateHelper.combine"
         },
         {
             "type": "Cs2jPrelude.CsPrelude",
             "method": "Remove",
-            "javaMethod": "remove"
+            "javaMethod": "DelegateHelper.remove"
+        },
+        {
+            "type": "Cs2jPrelude.DelegateOps",
+            "method": "Equals",
+            "javaMethod": "DelegateHelper.delegateEquals",
+            "signature": "2"
+        },
+        {
+            "type": "System.Object",
+            "method": "Equals",
+            "javaMethod": "Objects.equals",
+            "signature": "2"
+        },
+        {
+            "type": "System.Object",
+            "method": "ReferenceEquals",
+            "javaMethod": "ObjectHelper.referenceEquals",
+            "signature": "2"
         },
         {
             "type": "System.Buffer",
@@ -6260,6 +6297,12 @@
             "type": "System.String",
             "method": "Equals",
             "javaMethod": "equals"
+        },
+        {
+            "type": "System.String",
+            "method": "Equals",
+            "javaMethod": "Objects.equals",
+            "signature": "2"
         },
         {
             "type": "System.String",
@@ -7591,6 +7634,12 @@
             "type": "System.Environment",
             "method": "NewLine",
             "javaMethod": "System.lineSeparator()"
+        },
+        {
+            "type": "System.Environment",
+            "method": "Exit",
+            "javaMethod": "Environment.exit",
+            "signature": "1"
         },
         {
             "type": "System.Environment",

@@ -193,8 +193,9 @@ internal static class PassCatalog
             supportLibrary: PassSupportLibrary.Cs2jUnsignedMath,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Explicitize checked/unchecked integer arithmetic (overflow checks and stripping).",
-            catalogItems: "C15"),
+            description: "Explicitize checked/unchecked integer arithmetic (overflow checks and stripping); " +
+                         "C34 decimal operator normalization is co-located (opt-in via EnableDecimalOps).",
+            catalogItems: "C15, C34"),
         new(
             PassIds.Generic,
             "Generic",
@@ -307,6 +308,21 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Desugar properties (C11), indexers (C12), events (C13) and operators (C14) into backing fields plus explicit get_X/set_X/get_Item/add_X/remove_X methods.",
             catalogItems: "C11, C12, C13, C14"),
+        new(
+            PassStubCatalog.Ids.EqualityConcat,
+            "Equality/concat call-site materialization",
+            ".cs2j-equality-concat-src",
+            PassStage.Expression,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            // Design §3.2: anchored right after tuple; opt-in only until J1-J6 land.
+            runAfterIds: new[] { PassIds.Tuple },
+            supportLibrary: PassSupportLibrary.Cs2jPrelude,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Materialize string ==/!= and + call sites, (object) escapes, delegate value equality and record == by symbol-bound semantics.",
+            catalogItems: "C47"),
         new(
             PassIds.JavaKeywords,
             "Java reserved words",

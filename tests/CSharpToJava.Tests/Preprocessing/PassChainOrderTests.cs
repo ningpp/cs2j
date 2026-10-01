@@ -37,21 +37,23 @@ public sealed class PassChainOrderTests
         PassIds.RecordReadOnly,
         PassIds.ArrayMethod,
         PassIds.IndexRange,
-    PassIds.MakeReadonly,
-    PassIds.StructValueSemantics,
-    PassStubCatalog.Ids.IteratorLowering,
-    PassIds.EliminateGoto,
-    PassIds.MemberDesugar,
+        PassIds.MakeReadonly,
+        PassIds.StructValueSemantics,
+        PassStubCatalog.Ids.IteratorLowering,
+        PassIds.EliminateGoto,
+        PassStubCatalog.Ids.EqualityConcat,
+        PassIds.MemberDesugar,
         PassIds.JavaKeywords,
     ];
 
-    // C15 M4 起 numeric-boundary 默认开；C07 struct-value-semantics、C05
-    // enum-declaration 与 C16 foreach-source 已落地但暂保持 opt-in（各自设计
-    // §8 default-enablement 闸门未放行），故默认启用列表显式排除这三个 id。
+    // C15 M4 起 numeric-boundary 默认开；C07 struct-value-semantics、C05 enum-declaration、
+    // C16 foreach-source 与 C47 equality-concat 已落地但暂保持 opt-in（各自设计 §8
+    // default-enablement 闸门未放行），故默认启用列表显式排除这四个 id。
     private static readonly string[] EnabledByDefault =
         LockedChain.Where(id => id != PassIds.StructValueSemantics
             && id != PassIds.EnumDeclaration
-            && id != PassStubCatalog.Ids.ForeachSource).ToArray();
+            && id != PassStubCatalog.Ids.ForeachSource
+            && id != PassStubCatalog.Ids.EqualityConcat).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -156,12 +158,13 @@ public sealed class PassChainOrderTests
         Assert.Equal("C02", byId[PassIds.GenericDeepen].CatalogItems);
         Assert.Equal("C03, C37", byId[PassIds.PatternDesugar].CatalogItems);
         Assert.Equal("C04", byId[PassStubCatalog.Ids.IteratorLowering].CatalogItems);
-        Assert.Equal("C15", byId[PassStubCatalog.Ids.NumericBoundary].CatalogItems);
+        Assert.Equal("C15, C34", byId[PassStubCatalog.Ids.NumericBoundary].CatalogItems);
         Assert.Equal("C07", byId[PassIds.StructValueSemantics].CatalogItems);
         Assert.Equal("C05", byId[PassIds.EnumDeclaration].CatalogItems);
         Assert.Equal("C11, C12, C13, C14", byId[PassIds.MemberDesugar].CatalogItems);
         Assert.Equal("C16", byId[PassStubCatalog.Ids.ForeachSource].CatalogItems);
         Assert.False(byId[PassStubCatalog.Ids.ForeachSource].DefaultEnabled);
+        Assert.Equal("C47", byId[PassStubCatalog.Ids.EqualityConcat].CatalogItems);
     }
 
     [Fact]
@@ -175,6 +178,7 @@ public sealed class PassChainOrderTests
             MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
             StructValueSemanticsOptionsFactory = () => new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
             EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
+            EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
         };
 
         foreach (var descriptor in PassCatalog.BuildRegistry().Ordered
@@ -219,6 +223,31 @@ public sealed class PassChainOrderTests
             .Where(id => baselineIds.Contains(id) || id == PassIds.StructValueSemantics)
             .ToArray();
         Assert.Equal(expected, viaExplicit.Enabled.Select(p => p.Id).ToArray());
+    }
+
+    [Fact]
+    public void EqualityConcat_legacy_flag_and_explicit_enable_are_equivalent()
+    {
+        var registry = PassCatalog.BuildRegistry();
+        var baselineToggles = PassChainFactory.BuildLegacyToggles(new ConvertProjectOptions());
+
+        // convert-project: legacy property enabled (future default-on flip path).
+        var viaLegacy = PassPlanResolver.Resolve(
+            registry,
+            PassChainFactory.BuildLegacyToggles(
+                new ConvertProjectOptions { EqualityConcat = true }));
+
+        // generic: --enable-pass equality-concat.
+        var viaExplicit = PassPlanResolver.Resolve(
+            registry,
+            baselineToggles,
+            enablePassIds: new[] { PassStubCatalog.Ids.EqualityConcat });
+
+        Assert.True(viaLegacy.IsValid);
+        Assert.True(viaExplicit.IsValid);
+        Assert.Equal(
+            viaLegacy.Enabled.Select(p => p.Id).ToArray(),
+            viaExplicit.Enabled.Select(p => p.Id).ToArray());
     }
 
     [Fact]

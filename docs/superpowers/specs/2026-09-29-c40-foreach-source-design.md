@@ -392,14 +392,17 @@ C40 无独立开关，随 foreach-source 一起默认开；除锚点 C16 §8 全
 
 - 分支：`feature/preproc-c40-foreach-source`
 - 目录：`.worktrees/preproc-c40-foreach-source`
-- base：`953293b9`（`docs: update doc base commit`；**实施前先合入 C16 锚点分支**——含 `ForeachSource/` 骨架、适配器、注册表翻转与 SampleForeachSourceSolution；合并完成后在 C16 合入产物上创建本 worktree）
-- 创建命令（仓库根、PowerShell；**设计阶段不执行，实施阶段由执行者运行**）：
+- base：**`28ae4594`**（dev-3.x 最新提交 `fix(test): restore C34 unsupported site in SampleNumericBoundaryUnsupportedApp`；2026-10-01 校订，原记录 base `953293b9`）。校订时 C16 锚点（`feature/preproc-c16-foreach-complete`，tip `2996edee`，含 `ForeachSource/` 骨架、适配器、注册表翻转与 SampleForeachSourceSolution）**尚未合入 dev-3.x**：dev-3.x 自 C16 基点 `8eb657b3` 后另进 3 提交（`ec882491` C34、`340cb475` C47、`28ae4594` 测试修复），故按下方备注以「C16 合入后的等价基点」开工。
+- 创建命令（仓库根、PowerShell；2026-10-01 实施时实际执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c40-foreach-source -b feature/preproc-c40-foreach-source 953293b9
+# 1) 从 C16 锚点 tip 拉分支（带入完整 ForeachSource/ 骨架）
+git worktree add .worktrees/preproc-c40-foreach-source -b feature/preproc-c40-foreach-source 2996edee
+# 2) 在新 worktree 内合入 dev-3.x 最新提交，得到等价基点（C16 ∪ dev-3.x@28ae4594）
+git -C .worktrees/preproc-c40-foreach-source merge --no-ff 28ae4594
 ```
 
-> 注：若创建时 C16 尚未合入 `953293b9` 所在主线，应先按 C16 任务的 worktree/合入流程完成合并，再以「C16 合入后的等价基点」执行同一命令（基点哈希以合入实际结果为准并回填本文件）。
+> 注（2026-10-01 更新）：C16 尚未合入 `28ae4594` 所在主线，按原注「C16 合入后的等价基点」执行——文档回填的 base 为 dev-3.x `28ae4594`，实际分支起点 = C16 tip `2996edee` 合并 `28ae4594` 产生的合并提交；C16 后续随本分支一并合入主线。原 `953293b9` 命令仅作历史记录。
 - 交付面遵循 foundation plan 交付包模板（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core 两规则目录六个文件 + 根层扩展、适配器两行注册 + catalogItems 一行追加、Core 单测 + fixture 追加 + Release build/test + residual 两桶闸门 + CLI 测试、plan 文档 `docs/superpowers/plans/2026-09-29-c40-foreach-source.md`；
 - 不新建支撑工程；不触转换器；不创建 git 标签、不做 push；实施授权以任务书为准。
 

@@ -63,10 +63,40 @@ public static class PreprocessDiagnosticCodes
     // M2 supports that setting fully, so the code is retired (never emitted).
     // public const string NumericBoundaryProjectCheckedOverflow = "CS2J5326";
 
-
-
     /// <summary>numeric-boundary: residual unchecked/checked node survived in user-scope output (NB-13).</summary>
     public const string NumericBoundaryResidualNode = "CS2J5327";
+
+    // ── CS2J5360-5379: C34 decimal-ops normalization (design §6) ──
+
+    /// <summary>C34: decimal operator site reduction count (verbose-only aggregated info).</summary>
+    public const string DecimalOpsSiteInfo = "CS2J5360";
+
+    /// <summary>C34: operand type cannot be classified/promoted safely (non-integer domain, unknown wrapper).</summary>
+    public const string DecimalOpsUnsupportedOperand = "CS2J5361";
+
+    /// <summary>C34: dynamically bound decimal operation.</summary>
+    public const string DecimalOpsDynamic = "CS2J5362";
+
+    /// <summary>C34: decimal operation inside an expression-tree lambda (Expression&lt;TDelegate&gt;).</summary>
+    public const string DecimalOpsExpressionTree = "CS2J5363";
+
+    // CS2J5364 reserved: Nullable<decimal> lifted sites belong to C22; they are
+    // skipped silently and never diagnosed on the normal path.
+
+    /// <summary>C34: complex-target decimal compound assignment with no safe hoist anchor.</summary>
+    public const string DecimalOpsNoAnchor = "CS2J5365";
+
+    /// <summary>C34: ToDecimalUInt32/64 emitted but the E09 support surface is unavailable.</summary>
+    public const string DecimalOpsUnsignedSupportMissing = "CS2J5366";
+
+    /// <summary>C34: DC-13 residual gate — a built-in decimal operator survived in user output.</summary>
+    public const string DecimalOpsResidualOperator = "CS2J5367";
+
+    /// <summary>C34: const decimal downgraded to static readonly / plain local (verbose-only info).</summary>
+    public const string DecimalOpsConstDowngradedInfo = "CS2J5368";
+
+    // CS2J5369 reserved: compat method-surface verification (CI test level).
+    // CS2J5370-5379 reserved.
 
     // ── CS2J54xx foreach-source family (C16 string foreach / residual deconstruction) ──
     // CS2J5400-5409: family-shared (restore/build/test gates).

@@ -31,12 +31,16 @@ internal sealed class CheckedExprRewriter : CSharpSyntaxRewriter
     public CheckedExprRewriter(
         NumericBoundaryAnalyzer analyzer,
         NumericBoundaryStatistics stats,
-        List<NumericBoundaryDiagnostic> diagnostics)
+        List<NumericBoundaryDiagnostic> diagnostics,
+        bool enableDecimalOps = false)
     {
         _analyzer = analyzer;
         _stats = stats;
         _diagnostics = diagnostics;
+        _enableDecimalOps = enableDecimalOps;
     }
+
+    private readonly bool _enableDecimalOps;
 
     /// <summary>True when at least one node was structurally replaced/rewritten.</summary>
     public bool MadeChanges { get; private set; }
@@ -593,9 +597,22 @@ internal sealed class CheckedExprRewriter : CSharpSyntaxRewriter
             return visited;
         }
 
-        if (NB.IsFloatingPointOrDecimalType(targetType) || targetType.TypeKind == TypeKind.Enum)
+        if (NB.IsFloatingPointOrDecimalType(targetType))
         {
-            // decimal compound: C34 owns it; enum += E does not compile.
+            // C34 (decimal-ops) owns decimal compound sites once enabled; the
+            // checked shell is stripped above and the bare site reaches C34.
+            if (_enableDecimalOps && targetType.SpecialType == SpecialType.System_Decimal)
+            {
+                return visited;
+            }
+
+            ReportError(node, PreprocessDiagnosticCodes.NumericBoundaryComplexIncrement);
+            return visited;
+        }
+
+        if (targetType.TypeKind == TypeKind.Enum)
+        {
+            // enum += E does not compile.
             ReportError(node, PreprocessDiagnosticCodes.NumericBoundaryComplexIncrement);
             return visited;
         }

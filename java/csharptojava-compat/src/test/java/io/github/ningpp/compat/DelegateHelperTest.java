@@ -1,6 +1,8 @@
 package io.github.ningpp.compat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -59,5 +61,62 @@ class DelegateHelperTest {
         remaining.run();
 
         assertEquals(2, calls.get());
+    }
+
+    // ---- delegateEquals: C# invocation-list equality (J4) ----
+
+    @Test
+    void delegateEquals_sameMulticastList_returnsTrue() {
+        Runnable a = () -> { };
+        Runnable left = DelegateHelper.combine(a, a);
+        Runnable right = DelegateHelper.combine(a, a);
+
+        // Distinct proxy instances, but identical invocation lists.
+        assertFalse(left == right);
+        assertTrue(DelegateHelper.delegateEquals(left, right));
+    }
+
+    @Test
+    void delegateEquals_differentInvocationOrder_returnsFalse() {
+        Runnable first = () -> { };
+        Runnable second = () -> { };
+
+        Runnable left = DelegateHelper.combine(first, second);
+        Runnable right = DelegateHelper.combine(second, first);
+
+        assertFalse(DelegateHelper.delegateEquals(left, right));
+    }
+
+    @Test
+    void delegateEquals_nullMatrix() {
+        Runnable a = () -> { };
+
+        assertTrue(DelegateHelper.delegateEquals(null, null));
+        assertFalse(DelegateHelper.delegateEquals(null, a));
+        assertFalse(DelegateHelper.delegateEquals(a, null));
+        assertTrue(DelegateHelper.delegateEquals(a, a));
+    }
+
+    @Test
+    void delegateEquals_multicastVsSingleItem_returnsFalse() {
+        Runnable a = () -> { };
+
+        assertFalse(DelegateHelper.delegateEquals(DelegateHelper.combine(a, a), a));
+        assertFalse(DelegateHelper.delegateEquals(a, DelegateHelper.combine(a, a)));
+    }
+
+    @Test
+    void multicastProxy_equals_followsInvocationList() {
+        Runnable a = () -> { };
+        Runnable firstProxy = DelegateHelper.combine(a, a);
+        Runnable equalProxy = DelegateHelper.combine(a, a);
+
+        // The proxy's Object.equals override is routed through delegateEquals.
+        assertTrue(firstProxy.equals(equalProxy));
+        assertFalse(firstProxy.equals(null));
+        assertTrue(firstProxy.equals(firstProxy));
+
+        // Equal proxies must share a hashCode (Object contract).
+        assertEquals(firstProxy.hashCode(), equalProxy.hashCode());
     }
 }

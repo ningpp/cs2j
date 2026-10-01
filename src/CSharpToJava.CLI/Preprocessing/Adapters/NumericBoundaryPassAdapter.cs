@@ -267,7 +267,7 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
     public override string BuildChainSummaryLine()
     {
         var errorCount = _diagnostics.Count(d => d.Severity == NumericBoundarySeverity.Error);
-        return $"numeric-boundary: {_statistics.FilesScanned} file(s), " +
+        var line = $"numeric-boundary: {_statistics.FilesScanned} file(s), " +
                $"{_statistics.CheckedBinarySites} binary/" +
                $"{_statistics.CheckedUnarySites} unary/" +
                $"{_statistics.CheckedConversionSites} conversion/" +
@@ -276,6 +276,20 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
                $"{_statistics.UncheckedBlocksUnwrapped} block(s) stripped, " +
                $"{_statistics.ConstantsMaterialized} constant(s) materialized, " +
                $"{errorCount} error(s)";
+
+        if (_options.EnableDecimalOps)
+        {
+            var d = _statistics.DecimalOps;
+            line += $"; decimal-ops: {d.TotalBinarySites} binary/" +
+                    $"{d.TotalComparisonSites} comparison/" +
+                    $"{d.TotalUnarySites} unary/" +
+                    $"{d.TotalCompoundSites} compound site(s), " +
+                    $"{d.TotalPromotionSites} promotion(s), " +
+                    $"{d.ConstantsDowngraded} const downgraded, " +
+                    $"{d.TotalTemps} temp(s), {d.TotalDeferred} deferred";
+        }
+
+        return line;
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -315,6 +329,32 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         {
             _statistics.ErrorsByReason[pair.Key] =
                 _statistics.ErrorsByReason.GetValueOrDefault(pair.Key) + pair.Value;
+        }
+
+        // ── C34 decimal-ops buckets ──
+        var sourceDecimal = source.DecimalOps;
+        var targetDecimal = _statistics.DecimalOps;
+        MergeCounter(sourceDecimal.BinarySitesByOp, targetDecimal.BinarySitesByOp);
+        MergeCounter(sourceDecimal.TempsByRole, targetDecimal.TempsByRole);
+        MergeCounter(sourceDecimal.DeferredByReason, targetDecimal.DeferredByReason);
+        targetDecimal.EqualityComparisonSites += sourceDecimal.EqualityComparisonSites;
+        targetDecimal.RelationalComparisonSites += sourceDecimal.RelationalComparisonSites;
+        targetDecimal.UnaryNegateSites += sourceDecimal.UnaryNegateSites;
+        targetDecimal.UnaryPlusStrippedSites += sourceDecimal.UnaryPlusStrippedSites;
+        targetDecimal.SimpleCompoundSites += sourceDecimal.SimpleCompoundSites;
+        targetDecimal.ComplexCompoundSites += sourceDecimal.ComplexCompoundSites;
+        targetDecimal.CastPromotionSites += sourceDecimal.CastPromotionSites;
+        targetDecimal.ToDecimalUInt32PromotionSites += sourceDecimal.ToDecimalUInt32PromotionSites;
+        targetDecimal.ToDecimalUInt64PromotionSites += sourceDecimal.ToDecimalUInt64PromotionSites;
+        targetDecimal.ConstantsDowngraded += sourceDecimal.ConstantsDowngraded;
+        targetDecimal.ResidualDecimalOperators += sourceDecimal.ResidualDecimalOperators;
+    }
+
+    private static void MergeCounter(IReadOnlyDictionary<string, int> source, Dictionary<string, int> target)
+    {
+        foreach (var pair in source)
+        {
+            target[pair.Key] = target.GetValueOrDefault(pair.Key) + pair.Value;
         }
     }
 

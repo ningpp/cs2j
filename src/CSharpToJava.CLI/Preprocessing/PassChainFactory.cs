@@ -2,6 +2,7 @@ using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
+using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ForeachDeconstruction;
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.GenericPreprocess;
@@ -68,6 +69,12 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
+
+    /// <summary>C34 decimal-ops opt-in (dormant default false).</summary>
+    public bool EnableDecimalOps { get; init; }
+
+    /// <summary>Invoked only when equality-concat is enabled (keeps override loading lazy).</summary>
+    public required Func<EqualityConcatOptions> EqualityConcatOptionsFactory { get; init; }
 }
 
 /// <summary>
@@ -106,6 +113,9 @@ internal static class PassChainFactory
             [PassIds.EliminateGoto] = opts.EliminateGoto,
             [PassIds.MemberDesugar] = opts.MemberDesugar,
             [PassIds.JavaKeywords] = opts.JavaKeywords,
+            // C47 equality-concat is registered but default OFF; enable with
+            // --enable-pass equality-concat, disable explicitly when enabled.
+            [PassStubCatalog.Ids.EqualityConcat] = opts.EqualityConcatEffective,
         };
 
     /// <summary>
@@ -228,7 +238,11 @@ internal static class PassChainFactory
                 config.CompatNamespacePrefixes),
 
             PassStubCatalog.Ids.NumericBoundary => new NumericBoundaryPassAdapter(
-                new NumericBoundaryOptions { EnabledPassIds = config.EnabledPassIds },
+                new NumericBoundaryOptions
+                {
+                    EnabledPassIds = config.EnabledPassIds,
+                    EnableDecimalOps = config.EnableDecimalOps,
+                },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
@@ -315,6 +329,15 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
+
+            PassStubCatalog.Ids.EqualityConcat => new EqualityConcatPassAdapter(
+                config.EqualityConcatOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests,
+                config.Strict),
 
             _ => throw new KeyNotFoundException($"No chain adapter is registered for pass id '{passId}'."),
         };

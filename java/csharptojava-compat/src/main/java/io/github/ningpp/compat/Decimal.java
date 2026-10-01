@@ -291,7 +291,8 @@ public final class Decimal implements Comparable<Decimal> {
         try {
             return checked(value.divide(divisor.value));
         } catch (ArithmeticException ex) {
-            return checked(value.divide(divisor.value, MAX_SCALE, RoundingMode.HALF_UP));
+            // C# decimal division rounds to nearest, ties to even (bankers rounding).
+            return checked(value.divide(divisor.value, MAX_SCALE, RoundingMode.HALF_EVEN));
         }
     }
 
@@ -419,6 +420,14 @@ public final class Decimal implements Comparable<Decimal> {
     @Override
     public int compareTo(Decimal other) {
         return value.compareTo(require(other).value);
+    }
+
+    /**
+     * Static comparison surface used by the C34 decimal-ops normalization
+     * ({@code decimal.Compare(a, b)} in C# maps here).
+     */
+    public static int compare(Decimal left, Decimal right) {
+        return require(left).compareTo(right);
     }
 
     @Override

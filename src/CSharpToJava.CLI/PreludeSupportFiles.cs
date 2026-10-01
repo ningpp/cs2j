@@ -12,9 +12,12 @@ internal static class PreludeSupportFiles
     public const string SingleFileHelperFileName = "_Cs2jPrelude.cs";
 
     private const string SourceResourceName = "Cs2jPrelude.CsPrelude.cs";
+    private const string DelegateOpsResourceName = "Cs2jPrelude.DelegateOps.cs";
     private const string ProjectResourceName = "Cs2jPrelude.Cs2jPrelude.csproj";
 
     public static string GetCsPreludeFileContent() => ReadResource(SourceResourceName);
+
+    public static string GetDelegateOpsFileContent() => ReadResource(DelegateOpsResourceName);
 
     public static string GetProjectFileContent() => ReadResource(ProjectResourceName);
 
@@ -25,6 +28,10 @@ internal static class PreludeSupportFiles
         await File.WriteAllTextAsync(
             Path.Combine(destinationDirectory, "CsPrelude.cs"),
             GetCsPreludeFileContent(),
+            new System.Text.UTF8Encoding(false));
+        await File.WriteAllTextAsync(
+            Path.Combine(destinationDirectory, "DelegateOps.cs"),
+            GetDelegateOpsFileContent(),
             new System.Text.UTF8Encoding(false));
         await File.WriteAllTextAsync(
             Path.Combine(destinationDirectory, "Cs2jPrelude.csproj"),

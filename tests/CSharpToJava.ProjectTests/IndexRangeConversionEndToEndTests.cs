@@ -70,6 +70,9 @@ public class IndexRangeConversionEndToEndTests
                 EnumDeclarationOptionsFactory = () =>
                     new CSharpToJava.Core.EnumDeclaration
                         .EnumDeclarationOptions(),
+                EqualityConcatOptionsFactory = () =>
+                    new CSharpToJava.Core.EqualityConcat
+                        .EqualityConcatOptions(),
                 LegacyToggles = PassCatalog.BuildRegistry().Ordered
                     .Select(d => d.Id)
                     .ToDictionary(

@@ -1,4 +1,5 @@
 using SampleNumericBoundaryLib;
+using SampleNumericBoundaryLib.DecimalOps;
 
 var failures = 0;
 
@@ -95,6 +96,77 @@ catch (OverflowException)
 
 Check("CheckedBlockThrows", blockThrew);
 
+// ── C34 decimal-ops: BCL calls preserve decimal arithmetic ──
+Check("DecimalAdd", DecimalArithmetic.Add(1.25m, 2.5m) == 3.75m);
+Check("DecimalSubtract", DecimalArithmetic.Subtract(10m, 4m) == 6m);
+Check("DecimalMultiply", DecimalArithmetic.Multiply(3m, 2.5m) == 7.5m);
+Check("DecimalDivide", DecimalArithmetic.Divide(10m, 4m) == 2.5m);
+Check("DecimalRemainder", DecimalArithmetic.Remainder(10m, 3m) == 1m);
+Check("DecimalNegate", DecimalArithmetic.Negate(42m) == -42m);
+Check("DecimalPlusStripped", DecimalArithmetic.PlusStripped(42m) == 42m);
+Check("DecimalChained", DecimalArithmetic.ChainedArithmetic(2m, 4m, 3m) == 17.5m);
+
+// Equality normalizes scale through decimal.Compare.
+Check("DecimalScaleEquality", DecimalArithmetic.DifferentScalesCompareEqual());
+Check("DecimalEqualsOp", DecimalArithmetic.EqualsOp(1.0m, 1.00m));
+Check("DecimalNotEqualsOp", !DecimalArithmetic.NotEqualsOp(1.0m, 1.00m));
+Check("DecimalRelational", DecimalArithmetic.LessThan(1m, 2m)
+    && DecimalArithmetic.LessThanOrEqual(1m, 1m)
+    && DecimalArithmetic.GreaterThan(2m, 1m)
+    && DecimalArithmetic.GreaterThanOrEqual(1m, 1m));
+
+// Decimal mixed operands.
+Check("DecimalMixedIntegers", DecimalMixedOperands.SignedAndNarrowIntegers(
+    1m, 1, 1, 1, (char)1, 1L, 1, 1) == 8m);
+Check("DecimalMixedLiterals", DecimalMixedOperands.IntegerLiteralsSymmetric(10m) == 44m);
+Check("DecimalRealUInt32", DecimalMixedOperands.RealUInt32(1m, 42u) == 43m);
+Check("DecimalRealUInt64", DecimalMixedOperands.RealUInt64(10m, 42ul) == 420m);
+Check("DecimalMixedAccumulation",
+    DecimalMixedOperands.MixedAccumulation(10m, 42u, 40) == 470m);
+
+// DC-12 const downgrade keeps values.
+Check("DecimalConstantsPure", DecimalConstants.Pure == 1.5m);
+Check("DecimalConstantsLocalMix", DecimalConstants.LocalMix() == 25.75m);
+Check("DecimalConstantsCascade",
+    DecimalConstants.Seeded == 6m
+    && DecimalConstants.CascadedFromSeeded == 6m
+    && DecimalConstants.CascadedFromFactor == 3m);
+
+// DC-11 single evaluation: getter/setter/receiver/argument each once.
+var propertyProbe = new DecimalProbe();
+DecimalCompoundSamples.PropertyCompound(propertyProbe, 5m);
+Check("DecimalPropertyCompoundResult", propertyProbe.P == 5m);
+// One getter for the compound read, one inside PropertyCompound's return,
+// one for the result comparison above; the setter runs exactly once.
+Check("DecimalPropertyGetterCount", propertyProbe.PropertyGets == 3);
+Check("DecimalPropertySetterOnce", propertyProbe.PropertySets == 1);
+
+var fieldProbe = new DecimalProbe();
+DecimalCompoundSamples.FieldCompound(fieldProbe, 3m);
+Check("DecimalFieldCompoundResult", fieldProbe.F == -3m);
+
+var receiverProbe = new DecimalProbe();
+receiverProbe.CompoundOnPropertyViaMethodReceiver(7m);
+Check("DecimalReceiverOnce", receiverProbe.ReceiverEvaluations == 1);
+Check("DecimalReceiverPropertySetterOnce", receiverProbe.PropertySets == 1);
+
+var indexerProbe = new DecimalProbe();
+DecimalCompoundSamples.IndexerCompound(indexerProbe, 6m);
+Check("DecimalIndexArgOnce", indexerProbe.IndexArgEvaluations == 1);
+Check("DecimalIndexGetterOnce", indexerProbe.IndexerGets == 1);
+Check("DecimalIndexSetterOnce", indexerProbe.IndexerSets == 1);
+Check("DecimalIndexValue", indexerProbe[1] == 0m);
+
+// Decimal arithmetic overflow and division-by-zero stay runtime exceptions.
+CheckThrows<OverflowException>("DecimalAddOverflow",
+    () => DecimalArithmetic.Add(decimal.MaxValue, 1m));
+CheckThrows<OverflowException>("DecimalMultiplyOverflow",
+    () => DecimalArithmetic.Multiply(decimal.MaxValue, 2m));
+CheckThrows<DivideByZeroException>("DecimalDivideByZero",
+    () => DecimalArithmetic.Divide(1m, 0m));
+CheckThrows<DivideByZeroException>("DecimalRemainderByZero",
+    () => DecimalArithmetic.Remainder(1m, 0m));
+
 if (failures > 0)
 {
     Console.Error.WriteLine($"{failures} numeric-boundary sample failure(s).");
@@ -103,3 +175,17 @@ if (failures > 0)
 
 Console.WriteLine("numeric-boundary sample OK");
 return 0;
+
+void CheckThrows<TException>(string name, Action action) where TException : Exception
+{
+    try
+    {
+        action();
+        Console.Error.WriteLine($"FAIL: {name} (expected {typeof(TException).Name})");
+        failures++;
+    }
+    catch (TException)
+    {
+        // Expected.
+    }
+}

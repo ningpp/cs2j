@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
+using CSharpToJava.Core.NumericBoundary.Rules.DecimalOps;
 using CSharpToJava.Core.Preprocessing;
 
 namespace CSharpToJava.Core.NumericBoundary;
@@ -31,20 +32,74 @@ public sealed class NumericBoundaryPreprocessor
             options.SourceFilePath,
             options.CheckForOverflowUnderflowByProjectDirectory) ?? false;
 
-        if (!IsDirty(root, projectDefaultChecked))
+        var c15Dirty = IsDirty(root, projectDefaultChecked);
+
+        // EnableDecimalOps=true keeps the pipeline alive on keyword-free files so
+        // decimal sites (which live outside checked scopes too) get normalized;
+        // while false the gate and all statistics stay byte-identical to C15.
+        if (!options.EnableDecimalOps && !c15Dirty)
         {
             stats.FilesSkippedClean = 1;
             return new NumericBoundaryFileResult(sourceCode, false, diagnostics, stats);
         }
 
         var analyzer = new NumericBoundaryAnalyzer(semanticModel, projectDefaultChecked);
-        var rewriter = new CheckedExprRewriter(analyzer, stats, diagnostics);
+        var rewriter = new CheckedExprRewriter(analyzer, stats, diagnostics, options.EnableDecimalOps);
         var visitedRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
         var newRoot = (CompilationUnitSyntax)rewriter.ApplyHoists(visitedRoot);
 
         // NB-13 residual gate on the rewritten tree (M2/M3: both checked and
         // unchecked keyword nodes must be gone from user code).
         ApplyResidualGate(newRoot, options, stats, diagnostics);
+
+        var decimalMadeChanges = false;
+        var downgradeMadeChanges = false;
+
+        // ── C34 decimal-ops pipeline (dormant unless explicitly enabled) ──
+        if (options.EnableDecimalOps && semanticModel != null)
+        {
+            // C15 produced a new tree: rebuild a semantic model before C34 can
+            // classify operator bindings on the post-hoist intermediate form.
+            // The model is bound to a freshly parsed tree, so every subsequent
+            // operation uses that tree's own root.
+            var postCheckedModel = RebuildSemanticModel(semanticModel, newRoot);
+            if (postCheckedModel != null)
+            {
+                var reboundRoot = (CompilationUnitSyntax)postCheckedModel.SyntaxTree.GetRoot();
+                var downgradeTargets = DecimalOpAnalyzer.PlanConstDowngrades(postCheckedModel, reboundRoot);
+
+                var decimalRewriter = new DecimalOpRewriter(
+                    postCheckedModel, options, stats.DecimalOps, diagnostics, downgradeTargets);
+                var decimalRoot = (CompilationUnitSyntax)decimalRewriter.Visit(reboundRoot)!;
+                decimalRoot = (CompilationUnitSyntax)decimalRewriter.ApplyHoists(decimalRoot);
+
+                var downgrader = new DecimalOpConstDowngrader(stats.DecimalOps);
+                decimalRoot = (CompilationUnitSyntax)downgrader.Visit(decimalRoot)!;
+                decimalMadeChanges = decimalRewriter.MadeChanges;
+                downgradeMadeChanges = downgrader.MadeChanges;
+
+                // DC-13: rescan the final output tree for surviving built-in
+                // decimal operators (lifted/user-operator sites whitelisted).
+                var finalModel = RebuildSemanticModel(postCheckedModel, decimalRoot);
+                if (finalModel != null)
+                {
+                    var finalRoot = (CompilationUnitSyntax)finalModel.SyntaxTree.GetRoot();
+                    DecimalOpRewriter.ApplyResidualGate(
+                        finalModel, finalRoot, options, stats.DecimalOps, diagnostics);
+                }
+
+                newRoot = decimalRoot;
+            }
+        }
+
+        // Mirror C34 error codes into the C15 error buckets so adapters that only
+        // merge ErrorsByReason still see them.
+        foreach (var errorCode in diagnostics
+                     .Where(d => d.Severity == NumericBoundarySeverity.Error && d.Code.StartsWith("CS2J536", StringComparison.Ordinal))
+                     .Select(d => d.Code))
+        {
+            stats.ErrorsByReason[errorCode] = stats.ErrorsByReason.GetValueOrDefault(errorCode) + 1;
+        }
 
         // NB-12: any error diagnostic rolls the whole file back to the original
         // bytes — a half-rewritten file must never reach the intermediate tree.
@@ -54,10 +109,19 @@ public sealed class NumericBoundaryPreprocessor
             return new NumericBoundaryFileResult(sourceCode, false, diagnostics, stats);
         }
 
-        if (!rewriter.MadeChanges)
+        if (!rewriter.MadeChanges && !decimalMadeChanges && !downgradeMadeChanges)
         {
-            // Dirty input (keyword or project /checked) but nothing rewrote.
-            stats.FilesDirtyNoRewrite = 1;
+            // Nothing rewrote. A keyword-/checked-dirty input counts as dirty;
+            // a decimal-enabled clean pass counts as skipped-clean.
+            if (c15Dirty)
+            {
+                stats.FilesDirtyNoRewrite = 1;
+            }
+            else
+            {
+                stats.FilesSkippedClean = 1;
+            }
+
             return new NumericBoundaryFileResult(sourceCode, false, diagnostics, stats);
         }
 
@@ -75,6 +139,24 @@ public sealed class NumericBoundaryPreprocessor
 
         stats.FilesTransformed = 1;
         return new NumericBoundaryFileResult(outputCode, true, diagnostics, stats);
+    }
+
+    /// <summary>
+    /// Rebind a freshly produced tree by replacing the source tree inside the
+    /// previous compilation. Returns null when the new text fails to parse.
+    /// </summary>
+    private static SemanticModel? RebuildSemanticModel(SemanticModel previousModel, SyntaxNode newRoot)
+    {
+        var text = Microsoft.CodeAnalysis.Text.SourceText.From(newRoot.ToFullString());
+        var oldTree = (CSharpSyntaxTree)previousModel.SyntaxTree;
+        var newTree = (CSharpSyntaxTree)CSharpSyntaxTree.ParseText(text, oldTree.Options);
+        if (newTree.GetDiagnostics().Any(d => d.Severity == DiagnosticSeverity.Error))
+        {
+            return null;
+        }
+
+        var compilation = previousModel.Compilation.ReplaceSyntaxTree(previousModel.SyntaxTree, newTree);
+        return compilation.GetSemanticModel(newTree);
     }
 
     internal static bool IsDirty(CompilationUnitSyntax root, bool projectDefaultChecked)

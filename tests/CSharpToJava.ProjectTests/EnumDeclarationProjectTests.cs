@@ -37,6 +37,8 @@ public class EnumDeclarationProjectTests
             RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
             MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
             EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
+            EqualityConcatOptionsFactory = () =>
+                new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             StructValueSemanticsOptionsFactory = () =>
                 new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),

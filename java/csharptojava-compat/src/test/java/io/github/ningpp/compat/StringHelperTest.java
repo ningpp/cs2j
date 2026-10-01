@@ -96,6 +96,50 @@ class StringHelperTest {
         assertEquals("12", StringHelper.concat(1, 2));
     }
 
+    // ---- concat: C# string.Concat null/value text semantics (J5) ----
+
+    @Test
+    void concat_nullString_becomesEmpty() {
+        assertEquals("a", StringHelper.concat((Object) null, "a"));
+        assertEquals("a", StringHelper.concat("a", (Object) null));
+        assertEquals("", StringHelper.concat((Object) null, (Object) null));
+    }
+
+    @Test
+    void concat_nullMixedWithValues() {
+        // null + 'c' -> "c"; 1 + null -> "1".
+        assertEquals("c", StringHelper.concat((Object) null, 'c'));
+        assertEquals("1", StringHelper.concat(1, (Object) null));
+    }
+
+    @Test
+    void concat_doublePrintsCSharpText() {
+        // 1.0 -> "1" (trailing .0 trimmed), not "1.0".
+        assertEquals("1", StringHelper.concat(1.0));
+        assertEquals("x1", StringHelper.concat("x", 1.0));
+        assertEquals("1.5", StringHelper.concat(1.5));
+    }
+
+    @Test
+    void concat_floatPrintsCSharpText() {
+        assertEquals("1", StringHelper.concat(1.0f));
+        assertEquals("1.5", StringHelper.concat(1.5f));
+    }
+
+    @Test
+    void concat_booleanPrintsTrueFalse() {
+        assertEquals("True", StringHelper.concat(true));
+        assertEquals("False", StringHelper.concat(false));
+        assertEquals("TrueFalse", StringHelper.concat(true, false));
+    }
+
+    @Test
+    void concat_neverPrintsLiteralNull() {
+        String result = StringHelper.concat("a", (Object) null, true, 1.0, (Object) null);
+        assertEquals("aTrue1", result);
+        assertFalse(result.contains("null"));
+    }
+
     // ---- join ----
 
     @Test

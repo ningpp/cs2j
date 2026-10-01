@@ -198,4 +198,13 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- C47 equality-concat fixture (bin/obj excluded). -->
+    <Content Include="..\SampleEqualityConcatSolution\**\*.*"
+              Exclude="..\SampleEqualityConcatSolution\**\bin\**;..\SampleEqualityConcatSolution\**\obj\**">
+      <Link>SampleEqualityConcatSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
