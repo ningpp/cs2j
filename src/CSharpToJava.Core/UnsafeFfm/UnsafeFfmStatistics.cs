@@ -7,7 +7,11 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// UF020/UF030/UF031 拒绝数；M2 追加 R4 显式 stackalloc 收编数、隐式
 /// stackalloc 收编数与 UF040 拒绝数；M3a 追加 R5 签名改写数（形参/
 /// 返回/局部，含指针+长度模式）、R6 指针表达式索引化数与 UF021/UF022
-/// 拒绝数；M3b 追加算术传播数、自增数、比较数、差值数。
+/// 拒绝数；M3b 追加算术传播数、自增数、比较数、差值数；M4 追加
+/// UF050（用户 ref struct 声明）、UF051（InlineArray）、UF055
+/// （非白名单 ref struct using）、UF060（extern-like）、UF070
+/// （Marshal/NativeLibrary/SafeHandle/HandleRef）计数与 Span using
+/// 空操作归一数。
 /// </summary>
 public sealed class UnsafeFfmStatistics
 {
@@ -160,4 +164,27 @@ public sealed class UnsafeFfmStatistics
 
     /// <summary>差值数：同源 <c>p-q</c> → int 索引差（按节点计；异源不计，发 UF020）。</summary>
     public int PointerDifferences { get; set; }
+
+    // ---- M4：ref struct / InlineArray / extern ----
+
+    /// <summary>UF050 拒绝数（用户自定义 ref struct/readonly ref struct 声明）。</summary>
+    public int Uf050Rejections { get; set; }
+
+    /// <summary>UF051 拒绝数（[InlineArray] 标注 struct）。</summary>
+    public int Uf051Rejections { get; set; }
+
+    /// <summary>UF055 拒绝数（非白名单 ref struct 的 using 站点）。</summary>
+    public int Uf055Rejections { get; set; }
+
+    /// <summary>UF060 拒绝数（extern/DllImport/LibraryImport 非白名单）。</summary>
+    public int Uf060Rejections { get; set; }
+
+    /// <summary>UF070 拒绝数（Marshal/NativeLibrary/SafeHandle/HandleRef 站点）。</summary>
+    public int Uf070Rejections { get; set; }
+
+    /// <summary>
+    /// Span using 空操作归一数：<c>using Span<T>/ReadOnlySpan<T></c>
+    /// （using declaration/block）剥除 using 的站点数（无资源释放语义）。
+    /// </summary>
+    public int SpanUsingNoOps { get; set; }
 }

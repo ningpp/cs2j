@@ -182,30 +182,77 @@ internal sealed class OriginalSyntaxResolver
         if (original.IsEquivalentTo(current)) return true;
 
         // R1 会剥掉 unsafe 修饰符：当前树与原始树在该 token 上必然不等价。
-        return StripUnsafe(original).IsEquivalentTo(StripUnsafe(current));
+        // R9 会剥掉 ref struct using（LocalDeclarationStatement/UsingStatement
+        // 的 UsingKeyword）：比较前对两侧统一归一。
+        return NormalizeForCompare(original).IsEquivalentTo(NormalizeForCompare(current));
     }
 
-    private static SyntaxNode StripUnsafe(SyntaxNode node)
+    private static SyntaxNode NormalizeForCompare(SyntaxNode node)
     {
         // UnsafeStatement 的 unsafe 关键字不能用 default token 替换
-        // （ArgumentException: unsafeKeyword）：先把 UnsafeStatement 节点
-        // 降为其内嵌 block，再处理声明/修饰符上的剩余 unsafe 关键字。
-        var unsafeStatements = node.DescendantNodes()
-            .OfType<UnsafeStatementSyntax>().ToArray();
-        if (unsafeStatements.Length > 0)
+        // （ArgumentException: unsafeKeyword）：把 UnsafeStatement 节点
+        // 降为其内嵌 block。嵌套 unsafe 语句无法在单次 ReplaceNodes 中全
+        // 收敛（外层 compute 返回原始 Block，内层节点仍在其中），故迭代。
+        while (true)
         {
+            var unsafeStatements = node.DescendantNodes()
+                .OfType<UnsafeStatementSyntax>().ToArray();
+            if (unsafeStatements.Length == 0) break;
             node = node.ReplaceNodes(
                 unsafeStatements,
                 (statement, _) => statement.Block);
         }
 
-        var unsafeTokens = node.DescendantTokens()
-            .Where(t => t.IsKind(SyntaxKind.UnsafeKeyword))
+        // UsingStatement 的 UsingKeyword 同样不能以 default 替换
+        // （ArgumentException: usingKeyword）：整节点降为普通 Block，
+        // 声明/表达式站点提到块首，与 R9 的归一形态保持同构；同样迭代。
+        while (true)
+        {
+            var usingStatements = node.DescendantNodes()
+                .OfType<UsingStatementSyntax>().ToArray();
+            if (usingStatements.Length == 0) break;
+            node = node.ReplaceNodes(
+                usingStatements,
+                (usingNode, _) =>
+                {
+                    var statements = new List<StatementSyntax>();
+                    if (usingNode.Declaration != null)
+                    {
+                        statements.Add(SyntaxFactory.LocalDeclarationStatement(
+                            default, default, default,
+                            usingNode.Declaration,
+                            SyntaxFactory.Token(SyntaxKind.SemicolonToken)));
+                    }
+                    else if (usingNode.Expression != null)
+                    {
+                        statements.Add(SyntaxFactory.ExpressionStatement(usingNode.Expression));
+                    }
+
+                    if (usingNode.Statement is BlockSyntax innerBlock)
+                    {
+                        statements.AddRange(innerBlock.Statements);
+                    }
+                    else
+                    {
+                        statements.Add(usingNode.Statement);
+                    }
+
+                    return SyntaxFactory.Block(statements);
+                });
+        }
+
+        // 剩余 unsafe 关键字（class/method/field 等声明修饰符）与 using
+        // declaration 的 UsingKeyword（LocalDeclarationStatement 允许 default）
+        // 可直接以 default 替换；此时树中已无 UnsafeStatement，不会触发异常。
+        var replaceableTokens = node.DescendantTokens()
+            .Where(t => t.IsKind(SyntaxKind.UnsafeKeyword)
+                || (t.IsKind(SyntaxKind.UsingKeyword)
+                    && t.Parent is LocalDeclarationStatementSyntax))
             .ToList();
-        if (unsafeTokens.Count == 0) return node;
+        if (replaceableTokens.Count == 0) return node;
 
         return node.ReplaceTokens(
-            unsafeTokens,
+            replaceableTokens,
             (_, _) => default);
     }
 }

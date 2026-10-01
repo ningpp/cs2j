@@ -8,12 +8,19 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// <summary>
 /// C06 unsafe-ffm 预处理 pass 公共门面（C#→C#，设计 §4）。单次 parse：
 /// 直接使用调用方已解析树的 <see cref="SemanticModel"/>，规则在内存中顺序
-/// 合批：R1 <see cref="UnsafeContextStripper"/> 始终先跑；M1 起 EnableFixed
-/// 时同树合批 R2 <see cref="FixedBufferFieldRewriter"/> → R3
+/// 合批：R1 <see cref="UnsafeContextStripper"/> 始终先跑；随后 M4 的 pass
+/// 基座规则 R7 <see cref="RefStructDeclRewriter"/>（用户 ref struct 声明
+/// UF050）、<see cref="InlineArrayDetector"/>（UF051）、R9
+/// <see cref="RefStructUsingRewriter"/>（Span using 空操作归一/UF055）
+/// 随 pass 生效；M1 起 EnableFixed 时同树合批 R2
+/// <see cref="FixedBufferFieldRewriter"/> → R3
 /// <see cref="FixedStatementRewriter"/>（字段先改数组，使 fixed(byte* p=字段)
 /// 走数组路径），随后做 fixed 段 residual 自检；M2 起 EnableStackAlloc 时
 /// R4 <see cref="StackAllocRewriter"/> 在 R3 之后合批并做 stackalloc 段
-/// residual 自检；最后格式化并做本地解析校验。
+/// residual 自检；M3 起 EnablePointer 时 R5 签名白名单 → R6
+/// <see cref="PointerExprRewriter"/> 表达式索引化；M4 起 EnableExtern 时
+/// R8 <see cref="ExternInteropRewriter"/> 诊断 extern/互操作站点
+/// （UF060/UF070）；末端 D14 residual 闸门按段扩展。
 /// 拒绝优先：任一 Error 即文件 <see cref="UnsafeFfmResult.Changed"/>=false、
 /// 原文保留；输出可被自身二次安全驱动（幂等）。
 /// </summary>
@@ -64,6 +71,51 @@ public sealed class UnsafeFfmPreprocessor
                 "unsafe-context residual gate: the rewritten tree still contains an unsafe block " +
                 "or unsafe modifier after R1 (internal rule gap); the original file was preserved.",
                 filePath, 0, 0));
+            return Rollback(sourceCode, statistics, diagnostics);
+        }
+
+        // R7 + InlineArray + R9（M4 pass 基座，随 pass 生效，与 R1 同级
+        // 语义；不挂 EnableExtern）。声明判定先于 using 站点：同文件内
+        // 非白名单 ref struct 声明先以 UF050 拒绝。
+        var refStructResolver = new OriginalSyntaxResolver(root, newRoot);
+        var refStructRewriter = new RefStructDeclRewriter(
+            semanticModel, statistics, refStructResolver);
+        newRoot = (CompilationUnitSyntax)refStructRewriter.Visit(newRoot)!;
+        foreach (var diagnostic in refStructRewriter.Diagnostics)
+        {
+            diagnostics.Add(diagnostic);
+        }
+
+        if (refStructRewriter.HasErrors)
+        {
+            return Rollback(sourceCode, statistics, diagnostics);
+        }
+
+        var inlineResolver = new OriginalSyntaxResolver(root, newRoot);
+        var inlineDetector = new InlineArrayDetector(
+            semanticModel, statistics, inlineResolver);
+        newRoot = (CompilationUnitSyntax)inlineDetector.Visit(newRoot)!;
+        foreach (var diagnostic in inlineDetector.Diagnostics)
+        {
+            diagnostics.Add(diagnostic);
+        }
+
+        if (inlineDetector.HasErrors)
+        {
+            return Rollback(sourceCode, statistics, diagnostics);
+        }
+
+        var usingResolver = new OriginalSyntaxResolver(root, newRoot);
+        var usingRewriter = new RefStructUsingRewriter(
+            semanticModel, statistics, usingResolver);
+        newRoot = (CompilationUnitSyntax)usingRewriter.Visit(newRoot)!;
+        foreach (var diagnostic in usingRewriter.Diagnostics)
+        {
+            diagnostics.Add(diagnostic);
+        }
+
+        if (usingRewriter.HasErrors)
+        {
             return Rollback(sourceCode, statistics, diagnostics);
         }
 
@@ -246,6 +298,43 @@ public sealed class UnsafeFfmPreprocessor
                     filePath, 0, 0));
                 return Rollback(sourceCode, statistics, diagnostics);
             }
+        }
+
+        // R8 extern 互操作显式拒绝（M4，EnableExtern）：extern-like 方法
+        // UF060；Marshal/NativeLibrary/SafeHandle/HandleRef 站点 UF070。
+        // 白名单 facade 归一时段未到，本规则只诊断不改写。
+        if (_options.EnableExtern)
+        {
+            var externResolver = new OriginalSyntaxResolver(root, newRoot);
+            var externRewriter = new ExternInteropRewriter(
+                semanticModel, statistics, externResolver);
+            newRoot = (CompilationUnitSyntax)externRewriter.Visit(newRoot)!;
+            foreach (var diagnostic in externRewriter.Diagnostics)
+            {
+                diagnostics.Add(diagnostic);
+            }
+
+            if (externRewriter.HasErrors)
+            {
+                return Rollback(sourceCode, statistics, diagnostics);
+            }
+        }
+
+        // D14 residual 闸门 M4 扩展（pass 开启即扫）：ref struct 声明与
+        // InlineArray 特性属基座始终扫描；EnableExtern 时另扫 extern 修饰符、
+        // DllImport/LibraryImport 特性。命中即规则缺口 UF010。
+        if (HasM4Residual(newRoot, semanticModel, root,
+                _options.EnableExtern, out var m4Reason))
+        {
+            statistics.ResidualCount++;
+            statistics.Rejections++;
+            diagnostics.Add(new UnsafeFfmDiagnostic(
+                UnsafeFfmSeverity.Error,
+                UnsafeFfmDiagnosticCode.UF010,
+                "M4 residual gate: " + m4Reason +
+                " (internal rule gap); the original file was preserved.",
+                filePath, 0, 0));
+            return Rollback(sourceCode, statistics, diagnostics);
         }
 
         if (newRoot.IsEquivalentTo(root))
@@ -507,6 +596,66 @@ public sealed class UnsafeFfmPreprocessor
         {
             reason = "the rewritten tree still contains a pointer member access (p->m)";
             return true;
+        }
+
+        reason = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    /// M4 residual 闸门（D14 扩展）：
+    /// <list type="bullet">
+    /// <item>ref struct 声明残留（struct modifiers 带 RefKeyword，语法明确）；</item>
+    /// <item><paramref name="scanExtern"/> 时成员声明带 extern 修饰符
+    /// （extern alias 是 ExternAliasDirect，不是成员声明，不命中）；</item>
+    /// <item>特性经 resolver 映射回原始树做全名称判定：InlineArray 始终扫；
+    /// DllImport/LibraryImport 仅 <paramref name="scanExtern"/> 时扫。</item>
+    /// </list>
+    /// 命中即规则缺口 UF010。
+    /// </summary>
+    private static bool HasM4Residual(
+        CompilationUnitSyntax newRoot,
+        SemanticModel semanticModel,
+        CompilationUnitSyntax originalRoot,
+        bool scanExtern,
+        out string reason)
+    {
+        if (newRoot.DescendantNodes().OfType<StructDeclarationSyntax>()
+            .Any(s => s.Modifiers.Any(SyntaxKind.RefKeyword)))
+        {
+            reason = "the rewritten tree still contains a ref struct declaration";
+            return true;
+        }
+
+        if (scanExtern && newRoot.DescendantNodes().OfType<MemberDeclarationSyntax>()
+                .Any(m => m.Modifiers.Any(SyntaxKind.ExternKeyword)))
+        {
+            reason = "the rewritten tree still contains an extern member modifier";
+            return true;
+        }
+
+        var resolver = new OriginalSyntaxResolver(originalRoot, newRoot);
+        foreach (var attribute in newRoot.DescendantNodes().OfType<AttributeSyntax>())
+        {
+            var original = resolver.Resolve(attribute);
+            var symbol = original == null
+                ? null
+                : semanticModel.GetSymbolInfo(original).Symbol;
+            var attributeName = (symbol as IMethodSymbol)?.ContainingType.ToDisplayString();
+
+            if (attributeName == "System.Runtime.CompilerServices.InlineArrayAttribute")
+            {
+                reason = "the rewritten tree still contains an InlineArray attribute";
+                return true;
+            }
+
+            if (scanExtern
+                && attributeName is "System.Runtime.InteropServices.DllImportAttribute"
+                    or "System.Runtime.InteropServices.LibraryImportAttribute")
+            {
+                reason = $"the rewritten tree still contains a {attributeName} attribute";
+                return true;
+            }
         }
 
         reason = string.Empty;

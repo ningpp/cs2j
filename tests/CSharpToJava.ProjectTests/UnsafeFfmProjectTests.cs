@@ -89,6 +89,11 @@ public class UnsafeFfmProjectTests
             Assert.Contains("int[] offsets = new int[8];", text);
             Assert.Contains("int[] widened = new int[4];", text);
             Assert.Contains("int[] chunk = new int[8];", text);
+
+            // M4/R9：using declaration on Span<int>（文本解析暂存槽）→
+            // 空操作归一：using 剥除、局部保留（无 Dispose）；中间树 build 绿。
+            Assert.DoesNotContain("using Span<int>", text);
+            Assert.Contains("Span<int> digitSlots = new int[4];", text);
         }
         finally
         {
@@ -130,6 +135,35 @@ public class UnsafeFfmProjectTests
             Assert.False(HasGotoOrLabelSyntax(text));
             Assert.False(HasStackAllocSyntax(text));
             Assert.Contains("chunk = new int[8];", text);
+        }
+        finally
+        {
+            if (Directory.Exists(outputRoot))
+                Directory.Delete(outputRoot, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task M4_NativeMethodsExtern_Rejected_UF060_NoHardCrash()
+    {
+        var outputRoot = Path.Combine(Path.GetTempPath(),
+            "cs2j-test-output-extern-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            // 独立最小互操作工程（未纳入 sln，且位于 sln 目录之外，不影响
+            // 成功 fixture）：非白名单 [DllImport] extern 必须显式收 UF060
+            // ——取代设计 §1.2 的两层不一致/项目管线 NotSupportedException。
+            var externDir = Path.Combine(AppContext.BaseDirectory, "SampleUnsafeFfmExtern");
+            var interopProject = Path.Combine(externDir, "SampleUnsafeFfmExtern.csproj");
+
+            var (result, chainErrors) = await RunPassCapturingErrors(
+                interopProject, outputRoot, new[] { PassId });
+
+            Assert.False(result.Success, "extern project unexpectedly passed the pass");
+            Assert.Contains("UF060", chainErrors);
+            Assert.Contains("Beep", chainErrors);
+            Assert.Contains("平台隔离通道（C42）", chainErrors);
+            Assert.DoesNotContain("NotSupportedException", chainErrors);
         }
         finally
         {

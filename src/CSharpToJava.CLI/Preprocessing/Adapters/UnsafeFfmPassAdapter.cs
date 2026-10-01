@@ -9,10 +9,14 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// <see cref="ProjectPassAdapter"/> spine: the runner parses/compiles the whole
 /// tree (compilation options keep allowUnsafe=true), this adapter rewrites each
 /// file through <see cref="UnsafeFfmPreprocessor"/> (R1 unsafe-context stripping,
-/// M1 R2/R3 fixed lowering, M2 R4 stackalloc heap-allocating, M3a R5 pointer
-/// signature whitelist and R6 pointer-expression indexization), and the runner
-/// restores and verifies build/tests. There is no support library to release
-/// (PassSupportLibrary.None) and no csproj injection; AfterFiles needs no extra work.
+/// M4 base rules R7 ref struct declaration rejection / InlineArray detection /
+/// R9 ref struct using normalization, M1 R2/R3 fixed lowering, M2 R4 stackalloc
+/// heap-allocating, M3 R5 pointer signature whitelist and R6 pointer-expression
+/// indexization, M4 R8 extern/interop site rejection UF060/UF070), and the
+/// runner restores and verifies build/tests. There is no support library to
+/// release (PassSupportLibrary.None) and no csproj injection; AfterFiles needs
+/// no extra work. The FFM whitelist facade and Java FFM emission channel are a
+/// later independent opt-in sub-segment; ExternWhitelistPath is not consumed.
 /// </summary>
 internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
 {
@@ -135,10 +139,13 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
            $"{_statistics.PointerLocalsRewritten} local(s), " +
            $"{_statistics.PointerLengthPatterns} pointer+length pattern(s)), " +
            $"{_statistics.PointerExprsIndexized} pointer expression(s) indexized; " +
+           $"{_statistics.SpanUsingNoOps} Span using(s) no-op normalized; " +
            $"{_statistics.Rejections} rejection(s) (UF020={_statistics.Uf020Rejections}, " +
            $"UF021={_statistics.Uf021Rejections}, UF022={_statistics.Uf022Rejections}, " +
            $"UF030={_statistics.Uf030Rejections}, UF031={_statistics.Uf031Rejections}, " +
-           $"UF040={_statistics.Uf040Rejections}), " +
+           $"UF040={_statistics.Uf040Rejections}, UF050={_statistics.Uf050Rejections}, " +
+           $"UF051={_statistics.Uf051Rejections}, UF055={_statistics.Uf055Rejections}, " +
+           $"UF060={_statistics.Uf060Rejections}, UF070={_statistics.Uf070Rejections}), " +
            $"{_statistics.FilesTransformed} file(s)";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -182,5 +189,11 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
         _statistics.PointerExprsIndexized += source.PointerExprsIndexized;
         _statistics.Uf021Rejections += source.Uf021Rejections;
         _statistics.Uf022Rejections += source.Uf022Rejections;
+        _statistics.Uf050Rejections += source.Uf050Rejections;
+        _statistics.Uf051Rejections += source.Uf051Rejections;
+        _statistics.Uf055Rejections += source.Uf055Rejections;
+        _statistics.Uf060Rejections += source.Uf060Rejections;
+        _statistics.Uf070Rejections += source.Uf070Rejections;
+        _statistics.SpanUsingNoOps += source.SpanUsingNoOps;
     }
 }

@@ -1987,4 +1987,628 @@ public class UnsafeFfmRewriterUnitTests
         Assert.False(result.Changed);
         Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF022);
     }
+
+    // ==================================================================
+    // M4 / R7：用户自定义 ref struct 声明 → UF050
+    // ==================================================================
+
+    /// <summary>
+    /// 双文件编译辅助：被处理文件可引用兄弟文件中声明的 ref struct
+    /// （单文件站点规则测试需要，避免 R7 先对同文件声明发 UF050）。
+    /// </summary>
+    private static UnsafeFfmResult RewriteWithSibling(
+        string mainSrc, string siblingSrc, UnsafeFfmOptions? options = null)
+    {
+        var mainTree = CSharpSyntaxTree.ParseText(mainSrc, ParseOptions);
+        var siblingTree = CSharpSyntaxTree.ParseText(siblingSrc, ParseOptions);
+        var compilation = CSharpCompilation.Create(
+            "uffm-test",
+            new[] { mainTree, siblingTree },
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var model = compilation.GetSemanticModel(mainTree);
+        return new UnsafeFfmPreprocessor(options ?? new UnsafeFfmOptions())
+            .RewriteFile(mainSrc, model);
+    }
+
+    [Fact]
+    public void M4_UserRefStructDecl_Rejected_UF050()
+    {
+        var src = """
+            namespace P;
+            public ref struct MyBuf { public int X; }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        var diag = Assert.Single(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF050);
+        Assert.Contains("stack-only", diag.Message);
+        Assert.Contains("Java", diag.Message);
+        Assert.Equal(1, result.Statistics.Uf050Rejections);
+    }
+
+    [Fact]
+    public void M4_ReadOnlyRefStructDecl_Rejected_UF050()
+    {
+        var src = """
+            namespace P;
+            public readonly ref struct RoBuf { public int X { get; } }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF050);
+        Assert.Equal(1, result.Statistics.Uf050Rejections);
+    }
+
+    [Fact]
+    public void M4_SpanUseSite_IsUnchanged_NoUF050()
+    {
+        var src = """
+            class C
+            {
+                static int M(System.Span<byte> data) => data[0];
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF050);
+    }
+
+    // ==================================================================
+    // M4 / InlineArray → UF051
+    // ==================================================================
+
+    [Fact]
+    public void M4_InlineArray_Rejected_UF051()
+    {
+        var src = """
+            using System.Runtime.CompilerServices;
+            namespace P;
+            [InlineArray(16)]
+            struct Block16 { private byte _e0; }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF051);
+        Assert.Equal(1, result.Statistics.Uf051Rejections);
+    }
+
+    // ==================================================================
+    // M4 / R9：ref struct using 站点（Span 空操作 / UF055）
+    // ==================================================================
+
+    [Fact]
+    public void M4_UsingDeclaration_Span_NoOpNormalized()
+    {
+        var src = """
+            class C
+            {
+                static void M(byte[] data)
+                {
+                    using System.Span<byte> s = data;
+                    System.Console.WriteLine(s.Length);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("System.Span<byte> s = data;", result.OutputCode);
+        Assert.DoesNotContain("using", result.OutputCode);
+        Assert.Equal(1, result.Statistics.SpanUsingNoOps);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_UsingDeclaration_ReadOnlySpan_NoOpNormalized()
+    {
+        var src = """
+            class C
+            {
+                static void M(System.ReadOnlySpan<char> text)
+                {
+                    using System.ReadOnlySpan<char> s = text;
+                    System.Console.WriteLine(s.Length);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("System.ReadOnlySpan<char> s = text;", result.OutputCode);
+        Assert.DoesNotContain("using", result.OutputCode);
+        Assert.Equal(1, result.Statistics.SpanUsingNoOps);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_UsingBlock_Span_NoOpNormalized()
+    {
+        var src = """
+            class C
+            {
+                static void M(byte[] data)
+                {
+                    using (System.Span<byte> s = data)
+                    {
+                        System.Console.WriteLine(s.Length);
+                    }
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("System.Span<byte> s = data;", result.OutputCode);
+        Assert.Contains("System.Console.WriteLine(s.Length);", result.OutputCode);
+        Assert.DoesNotContain("using", result.OutputCode);
+        Assert.Equal(1, result.Statistics.SpanUsingNoOps);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_UsingDeclaration_NonWhitelistRefStruct_UF055()
+    {
+        var sibling = """
+            namespace P;
+            public ref struct MyBuf { public int X; }
+            """;
+        var main = """
+            using P;
+            class C
+            {
+                static void M(MyBuf b)
+                {
+                    using MyBuf x = b;
+                    System.Console.Write(x.X);
+                }
+            }
+            """;
+
+        var result = RewriteWithSibling(main, sibling);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF055);
+        Assert.Equal(1, result.Statistics.Uf055Rejections);
+    }
+
+    [Fact]
+    public void M4_UsingBlock_NonWhitelistRefStruct_UF055()
+    {
+        var sibling = """
+            namespace P;
+            public ref struct MyBuf { public int X; }
+            """;
+        var main = """
+            using P;
+            class C
+            {
+                static void M(MyBuf b)
+                {
+                    using (MyBuf x = b)
+                    {
+                        System.Console.Write(x.X);
+                    }
+                }
+            }
+            """;
+
+        var result = RewriteWithSibling(main, sibling);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF055);
+        Assert.Equal(1, result.Statistics.Uf055Rejections);
+    }
+
+    [Fact]
+    public void M4_AwaitUsing_IsNotTouched_NoDiagnostic()
+    {
+        var src = """
+            using System;
+            using System.Threading.Tasks;
+            sealed class Cx : IAsyncDisposable
+            {
+                public ValueTask DisposeAsync() => default;
+            }
+            class C
+            {
+                static async Task M()
+                {
+                    await using var x = new Cx();
+                    System.Console.Write(1);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF055);
+        Assert.Contains("await using", result.OutputCode);
+    }
+
+    [Fact]
+    public void M4_RegularDisposableUsing_IsNotTouched_NoUF055()
+    {
+        var src = """
+            using System.IO;
+            class C
+            {
+                static void M()
+                {
+                    using var ms = new MemoryStream();
+                    System.Console.Write(ms.Length);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF055);
+        Assert.Contains("using var ms", result.OutputCode);
+    }
+
+    // ==================================================================
+    // M4 / R8：extern-like → UF060
+    // ==================================================================
+
+    [Fact]
+    public void M4_ExternMethod_Rejected_UF060_MessageGuidesC42()
+    {
+        var src = """
+            class C
+            {
+                public static extern int Plain();
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        var diag = Assert.Single(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF060);
+        Assert.Contains("平台隔离通道（C42）", diag.Message);
+        Assert.Equal(1, result.Statistics.Uf060Rejections);
+    }
+
+    [Fact]
+    public void M4_DllImportMethod_Rejected_UF060()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                [DllImport("x")]
+                public static extern int M();
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF060);
+        Assert.Equal(1, result.Statistics.Uf060Rejections);
+    }
+
+    [Fact]
+    public void M4_LibraryImportMethod_Rejected_UF060()
+    {
+        // LibraryImport 为 partial 定义（源生成器在真实工程提供实现部分）；
+        // 本测试无生成器、编译有 CS8795，但符号绑定完整、UF060 仍应发出。
+        var src = """
+            using System.Runtime.InteropServices;
+            partial class C
+            {
+                [LibraryImport("x")]
+                public static partial int M();
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF060);
+        Assert.Equal(1, result.Statistics.Uf060Rejections);
+    }
+
+    // ==================================================================
+    // M4 / R8：Marshal/NativeLibrary/SafeHandle/HandleRef → UF070
+    // ==================================================================
+
+    [Fact]
+    public void M4_MarshalCall_Rejected_UF070()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                static void M()
+                {
+                    System.Console.WriteLine(Marshal.SizeOf<int>());
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF070);
+        Assert.Equal(1, result.Statistics.Uf070Rejections);
+    }
+
+    [Fact]
+    public void M4_NativeLibraryCall_Rejected_UF070()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                static void M()
+                {
+                    System.Console.WriteLine(NativeLibrary.Load("x"));
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF070);
+        Assert.Equal(1, result.Statistics.Uf070Rejections);
+    }
+
+    [Fact]
+    public void M4_SafeHandleTypeUse_Rejected_UF070()
+    {
+        var src = """
+            class C
+            {
+                System.Runtime.InteropServices.SafeHandle? handle;
+                static void M(C c)
+                {
+                    System.Console.Write(c.handle != null);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF070);
+        Assert.Equal(1, result.Statistics.Uf070Rejections);
+    }
+
+    [Fact]
+    public void M4_HandleRefTypeUse_Rejected_UF070()
+    {
+        var src = """
+            class C
+            {
+                static void M()
+                {
+                    System.Runtime.InteropServices.HandleRef hr = default;
+                    System.Console.Write(hr);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF070);
+        Assert.Equal(1, result.Statistics.Uf070Rejections);
+    }
+
+    [Fact]
+    public void M4_SafeHandleDerivationConstruction_Rejected_UF070()
+    {
+        var src = """
+            using System;
+            using System.Runtime.InteropServices;
+            sealed class MyHandle : SafeHandle
+            {
+                public MyHandle() : base(IntPtr.Zero, ownsHandle: true) { }
+                public override bool IsInvalid => false;
+                protected override bool ReleaseHandle() => true;
+            }
+            class C
+            {
+                static void M()
+                {
+                    var h = new MyHandle();
+                    System.Console.Write(h);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF070);
+    }
+
+    [Fact]
+    public void M4_EnableExternFalse_ExternUntouched_NoRejection()
+    {
+        var src = """
+            class C
+            {
+                public static extern int Plain();
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableExtern = false });
+
+        Assert.False(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Equal(0, result.Statistics.Uf060Rejections);
+        Assert.Equal(0, result.Statistics.Uf070Rejections);
+    }
+
+    // ==================================================================
+    // M4：UF061 布局骨架单测（pass 不触发，仅冻结骨架）
+    // ==================================================================
+
+    private static IMethodSymbol GetMethodSymbol(string source, string methodName)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source, ParseOptions);
+        var compilation = CSharpCompilation.Create(
+            "uffm-layout", new[] { tree }, GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        return EnumerateTypes(compilation.GlobalNamespace)
+            .SelectMany(t => t.GetMembers(methodName))
+            .OfType<IMethodSymbol>()
+            .Single();
+    }
+
+    private static IEnumerable<INamedTypeSymbol> EnumerateTypes(INamespaceSymbol ns)
+    {
+        foreach (var type in ns.GetTypeMembers())
+        {
+            yield return type;
+            foreach (var nested in EnumerateTypes(type))
+            {
+                yield return nested;
+            }
+        }
+
+        foreach (var child in ns.GetNamespaceMembers())
+        {
+            foreach (var type in EnumerateTypes(child))
+            {
+                yield return type;
+            }
+        }
+    }
+
+    private static IEnumerable<INamedTypeSymbol> EnumerateTypes(INamedTypeSymbol type)
+    {
+        foreach (var nested in type.GetTypeMembers())
+        {
+            yield return nested;
+            foreach (var deeper in EnumerateTypes(nested))
+            {
+                yield return deeper;
+            }
+        }
+    }
+
+    [Fact]
+    public void M4_LayoutSkeleton_RefParameter_Blocker()
+    {
+        var method = GetMethodSymbol(
+            "class C { static void M(ref int x) { x = 1; } }", "M");
+
+        Assert.True(MarshalLayoutSkeleton.TryGetLayoutBlocker(method, out var blocker));
+        Assert.Contains("ref", blocker);
+    }
+
+    [Fact]
+    public void M4_LayoutSkeleton_CleanMethod_NoBlocker()
+    {
+        var method = GetMethodSymbol(
+            "class C { static int M(int x) => x; }", "M");
+
+        Assert.False(MarshalLayoutSkeleton.TryGetLayoutBlocker(method, out var blocker));
+        Assert.Equal(string.Empty, blocker);
+    }
+
+    [Fact]
+    public void M4_LayoutSkeleton_ExplicitLayoutUnion_Blocker()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            [StructLayout(LayoutKind.Explicit)]
+            struct U
+            {
+                [FieldOffset(0)] public int A;
+                [FieldOffset(0)] public int B;
+            }
+            class C
+            {
+                static void M(U u) { System.Console.Write(u.A); }
+            }
+            """;
+        var method = GetMethodSymbol(src, "M");
+
+        Assert.True(MarshalLayoutSkeleton.TryGetLayoutBlocker(method, out var blocker));
+        Assert.Contains("Explicit", blocker);
+    }
+
+    [Fact]
+    public void M4_LayoutSkeleton_FrozenWidthConstants()
+    {
+        Assert.Equal(1, MarshalLayoutSkeleton.BoolWidthBytes);
+        Assert.Equal(2, MarshalLayoutSkeleton.CharWidthBytes);
+    }
+
+    // ==================================================================
+    // M4：幂等 / 统计
+    // ==================================================================
+
+    [Fact]
+    public void M4_SpanUsingNormalized_Idempotent_SecondPassClean()
+    {
+        var src = """
+            class C
+            {
+                static void M(byte[] data)
+                {
+                    using System.Span<byte> s = data;
+                    System.Console.WriteLine(s.Length);
+                }
+            }
+            """;
+
+        var first = Rewrite(src);
+        Assert.True(first.Changed);
+        AssertOutputCompiles(first.OutputCode);
+
+        var second = Rewrite(first.OutputCode);
+
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+        Assert.Equal(0, second.Statistics.SpanUsingNoOps);
+        Assert.Equal(1, second.Statistics.FilesSkippedClean);
+    }
+
+    [Fact]
+    public void M4_Stats_MultipleSites_CountersAddUp()
+    {
+        var src = """
+            using System.Runtime.InteropServices;
+            class C
+            {
+                SafeHandle? a;
+                static void M()
+                {
+                    System.Console.WriteLine(Marshal.SizeOf<long>());
+                    System.Console.WriteLine(NativeLibrary.Load("y"));
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(3, result.Statistics.Uf070Rejections);
+        Assert.Equal(3, result.Diagnostics.Count(d => d.Code == UnsafeFfmDiagnosticCode.UF070));
+    }
 }

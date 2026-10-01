@@ -156,5 +156,28 @@ public static class FrameText
         i += Math.Max(1, stride);
         goto restart;
     }
+
+    /// <summary>
+    /// M4/R9：using declaration on Span&lt;int&gt;（文本解析暂存槽）。
+    /// 真实 csc 报 CS1674（Span 不实现 IDisposable），故本 fixture 项目
+    /// 设计上在 pass 前不单独 build；R9 空操作归一剥除 using、局部保留
+    /// （Span 无资源释放语义），归一后中间树 build 绿。
+    /// </summary>
+    public static int CountDigitsClamp(ReadOnlySpan<char> text)
+    {
+        using Span<int> digitSlots = new int[4];
+        var count = 0;
+
+        foreach (var c in text)
+        {
+            if (c is >= '0' and <= '9')
+            {
+                digitSlots[count % digitSlots.Length] = c;
+                count++;
+            }
+        }
+
+        return count;
+    }
 }
 
