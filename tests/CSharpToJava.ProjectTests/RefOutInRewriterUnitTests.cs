@@ -675,15 +675,38 @@ public class C
         MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
     };
 
+    private static (MetadataReference Reference, byte[] Image) CompilePeerToMetadata(string peerSrc)
+    {
+        // Peer types model *external/metadata* members (their ref indexers
+        // are NOT rewritten by the pass under test), so the accessor/Scoped
+        // classifications stay in effect. Source-defined members living in
+        // the processed tree are holder-to-holder flow and are covered by
+        // the ForeachSourceC40ProjectTests M3 chain.
+        var peerCompilation = CSharpCompilation.Create(
+            "refout-declsite-peer-" + Guid.NewGuid().ToString("N"),
+            new[] { CSharpSyntaxTree.ParseText(peerSrc) },
+            DeclSiteRefs,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        using var stream = new MemoryStream();
+        var peerEmit = peerCompilation.Emit(stream);
+        Assert.True(peerEmit.Success, string.Join("\n",
+            peerEmit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)
+                .Select(d => d.ToString())));
+        var image = stream.ToArray();
+        return (MetadataReference.CreateFromImage(image), image);
+    }
+
     private static (RefOutInRewriterResult result, string errorText) RewriteAndCompile(
         string src, string? peerSrc = null)
     {
+        (MetadataReference Reference, byte[] Image)? peer =
+            peerSrc == null ? null : CompilePeerToMetadata(peerSrc);
+        var refs = peer == null
+            ? DeclSiteRefs
+            : DeclSiteRefs.Append(peer.Value.Reference).ToArray();
         var srcTree = CSharpSyntaxTree.ParseText(src);
-        var modelTrees = peerSrc == null
-            ? new[] { srcTree }
-            : new[] { srcTree, CSharpSyntaxTree.ParseText(peerSrc) };
         var modelCompilation = CSharpCompilation.Create("refout-declsite-model",
-            modelTrees, DeclSiteRefs,
+            new[] { srcTree }, refs,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
         var result = new RefOutInRewriter().Rewrite(src, modelCompilation.GetSemanticModel(srcTree));
 
@@ -694,10 +717,8 @@ public class C
             CSharpSyntaxTree.ParseText(result.OutputCode),
             supportTree,
         };
-        if (peerSrc != null)
-            outTrees.Add(CSharpSyntaxTree.ParseText(peerSrc));
         var compilation = CSharpCompilation.Create("refout-declsite",
-            outTrees, DeclSiteRefs,
+            outTrees, refs,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
         var errors = compilation.GetDiagnostics()
             .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
@@ -707,6 +728,11 @@ public class C
     private static int RewriteCompileAndRun(string src, string? peerSrc = null)
     {
         var (result, errorText) = RewriteAndCompile(src, peerSrc);
+        (MetadataReference Reference, byte[] Image)? peer =
+            peerSrc == null ? null : CompilePeerToMetadata(peerSrc);
+        var refs = peer == null
+            ? DeclSiteRefs
+            : DeclSiteRefs.Append(peer.Value.Reference).ToArray();
         var supportTree = CSharpSyntaxTree.ParseText(
             File.ReadAllText(FindRepoRoot("src/Cs2jRefOutIn/ByRef.cs")));
         var outTrees = new List<SyntaxTree>
@@ -714,10 +740,8 @@ public class C
             CSharpSyntaxTree.ParseText(result.OutputCode),
             supportTree,
         };
-        if (peerSrc != null)
-            outTrees.Add(CSharpSyntaxTree.ParseText(peerSrc));
         var compilation = CSharpCompilation.Create("refout-declsite-run",
-            outTrees, DeclSiteRefs,
+            outTrees, refs,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
         using var stream = new MemoryStream();
         var emit = compilation.Emit(stream);
@@ -725,10 +749,24 @@ public class C
             emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)
                 .Select(d => d.ToString())) + "\n" + errorText + "\n===== OUTPUT =====\n" + result.OutputCode);
 
-        var assembly = Assembly.Load(stream.ToArray());
-        var method = assembly.GetType("C", throwOnError: true)!
-            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
-        return (int)method.Invoke(null, null)!;
+        var peerAssembly = peer == null ? null : Assembly.Load(peer.Value.Image);
+        ResolveEventHandler? peerResolver = peerAssembly == null
+            ? null
+            : (_, e) => e.Name == peerAssembly.FullName ? peerAssembly : null;
+        if (peerResolver != null)
+            AppDomain.CurrentDomain.AssemblyResolve += peerResolver;
+        try
+        {
+            var assembly = Assembly.Load(stream.ToArray());
+            var method = assembly.GetType("C", throwOnError: true)!
+                .GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+            return (int)method.Invoke(null, null)!;
+        }
+        finally
+        {
+            if (peerResolver != null)
+                AppDomain.CurrentDomain.AssemblyResolve -= peerResolver;
+        }
     }
 
     [Fact]

@@ -166,7 +166,7 @@ internal static class PassCatalog
             PassStage.Abi,
             PassStatus.Implemented,
             defaultEnabled: true,
-            runAfterIds: new[] { PassIds.StripDefault },
+            runAfterIds: new[] { PassIds.StripDefault, PassStubCatalog.Ids.ForeachSource },
             supportLibrary: PassSupportLibrary.Cs2jRefOutIn,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,

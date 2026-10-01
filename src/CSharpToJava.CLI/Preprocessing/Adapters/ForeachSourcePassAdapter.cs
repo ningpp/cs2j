@@ -117,6 +117,22 @@ internal sealed class ForeachSourcePassAdapter : ProjectPassAdapter
                 "enumerator binding that no rule lowered)."));
         }
 
+        // M3 FS-5 ref bucket (CS2J5495): defensive only — every unbindable
+        // ref site is normally terminated inside the pass with CS2J5485, and
+        // that terminal already keeps the node in the tree; count here only
+        // ref sites that escaped BOTH an FR rewrite and a terminal diagnostic.
+        if (_statistics.ResidualRefSites > 0)
+        {
+            var severity = _options.Strict
+                ? ForeachSourceSeverity.Error
+                : ForeachSourceSeverity.Warning;
+            _diagnostics.Add(new ForeachSourceDiagnostic(
+                severity,
+                PreprocessDiagnosticCodes.ForeachSourceResidualRefGate,
+                $"{_statistics.ResidualRefSites} ref/ref-readonly foreach site(s) escaped the FR rules " +
+                "without a CS2J5485 terminal; the nodes survive unlowered."));
+        }
+
         return Task.CompletedTask;
     }
 
@@ -158,6 +174,12 @@ internal sealed class ForeachSourcePassAdapter : ProjectPassAdapter
                $"[boxed {_statistics.DisposeBoxedStructSites}], no-dispose {_statistics.NoDisposeSites}, " +
                $"dynamic {_statistics.DynamicForeachSites}), " +
                $"{_statistics.SpanIndexLoopSites} span index loop(s), " +
+               $"{_statistics.RefIndexLoopSites} ref index loop(s), " +
+               $"{_statistics.RefReadonlySites} ref-readonly index loop(s), " +
+               $"{_statistics.RefCurrentEnumeratorSites} ref-Current enumerator(s) " +
+               $"[5485 {_statistics.ErrorsByCode.GetValueOrDefault(PreprocessDiagnosticCodes.ForeachSourceRefForeachUnsupported)}, " +
+               $"5486 {_statistics.ErrorsByCode.GetValueOrDefault(PreprocessDiagnosticCodes.ForeachSourceRefIterationCapture)}, " +
+               $"residual ref {_statistics.ResidualRefSites}], " +
                $"{_statistics.UnresolvedForeachSites} unresolved site(s), " +
                $"{_statistics.ResidualEnumeratorSites} residual enumerator site(s), " +
                $"{errorCount} error(s)";

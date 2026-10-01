@@ -169,4 +169,24 @@ public static class PreprocessDiagnosticCodes
 
     /// <summary>C40 FS-5 residual gate: a non-array/non-string/non-IEnumerable plain foreach with a valid pattern enumerator binding survived unlowered (Warning; Error in strict mode).</summary>
     public const string ForeachSourceResidualEnumeratorGate = "CS2J5470";
+
+    // ── CS2J5480-5495 C40 M3 RefForeach (design §6, FR-1/2/3/4) ──
+
+    /// <summary>C40 FR-1/2: ref foreach lowered to an index loop over an array/Span/custom Length+ref-indexer source (Info).</summary>
+    public const string ForeachSourceRefIndexLoop = "CS2J5480";
+
+    /// <summary>C40 FR-1/2: ref-readonly foreach lowered to an index loop (Info).</summary>
+    public const string ForeachSourceRefReadonlyIndexLoop = "CS2J5481";
+
+    /// <summary>C40 FR-3: ref/ref-readonly foreach over a ref-Current enumerator lowered to the enumerator skeleton with <c>ref T item = ref __cs2jFaE.Current</c> (Info).</summary>
+    public const string ForeachSourceRefCurrentEnumerator = "CS2J5482";
+
+    /// <summary>C40 FR-4: ref foreach source is neither indexable nor has a ref-returning Current; node left unchanged (Error).</summary>
+    public const string ForeachSourceRefForeachUnsupported = "CS2J5485";
+
+    /// <summary>C40: lowered ref foreach body captures the iteration variable inside a lambda/anonymous method/local function (the lowered ref/ref-struct local cannot cross that boundary; Warning, Error in strict mode).</summary>
+    public const string ForeachSourceRefIterationCapture = "CS2J5486";
+
+    /// <summary>C40 FS-5 residual gate: a foreach site carrying RefKind != None survived unlowered without a terminal CS2J5485 (Warning; Error in strict mode; defensive bucket).</summary>
+    public const string ForeachSourceResidualRefGate = "CS2J5495";
 }

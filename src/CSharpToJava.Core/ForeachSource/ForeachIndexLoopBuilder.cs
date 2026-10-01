@@ -92,7 +92,7 @@ internal static class ForeachIndexLoopBuilder
         ForEachStatementSyntax node,
         string sourceName,
         string indexName,
-        ISymbol lengthMember,
+        ISymbol? lengthMember,
         RefKind elementRefKind,
         ITypeSymbol? elementType,
         bool needsCast)
@@ -140,10 +140,10 @@ internal static class ForeachIndexLoopBuilder
         if (elementRefKind is RefKind.Ref or RefKind.RefReadOnly)
         {
             var refType = SyntaxFactory.RefType(
+                SyntaxFactory.Token(SyntaxKind.RefKeyword),
                 elementRefKind == RefKind.RefReadOnly
                     ? SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)
                     : default,
-                SyntaxFactory.Token(SyntaxKind.RefKeyword),
                 declaredTypeSyntax);
             itemValue = SyntaxFactory.RefExpression(
                 SyntaxFactory.Token(SyntaxKind.RefKeyword),
@@ -177,7 +177,7 @@ internal static class ForeachIndexLoopBuilder
     private static ForStatementSyntax BuildFor(
         string indexName,
         IdentifierNameSyntax sourceAccess,
-        ISymbol lengthMember,
+        ISymbol? lengthMember,
         StatementSyntax body)
     {
         var indexAccess = SyntaxFactory.IdentifierName(indexName);
@@ -190,11 +190,15 @@ internal static class ForeachIndexLoopBuilder
                             SyntaxKind.NumericLiteralExpression,
                             SyntaxFactory.Literal(0))))));
 
+        // FR-1 arrays carry a null LengthMember: the built-in array `.Length`
+        // is rendered directly. Span/custom sources use the resolved member's
+        // name (Length or Count) verbatim.
+        var lengthName = lengthMember?.Name ?? "Length";
         var lengthAccess = SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
             sourceAccess,
             SyntaxFactory.Token(SyntaxKind.DotToken),
-            SyntaxFactory.IdentifierName(lengthMember.Name));
+            SyntaxFactory.IdentifierName(lengthName));
 
         var condition = SyntaxFactory.BinaryExpression(
             SyntaxKind.LessThanExpression,

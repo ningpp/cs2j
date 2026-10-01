@@ -18,6 +18,7 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
     private readonly ForeachSourceStatistics _stats;
     private readonly List<ForeachSourceDiagnostic> _diagnostics;
     private readonly IReadOnlyList<IForeachSourceRule> _rules;
+    private readonly IReadOnlyList<IForeachSourceRule> _refRules;
     private readonly ForeachSourceRewriteContext _context;
 
     public bool Changed => _context.Changed;
@@ -41,8 +42,8 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
         };
         // Ordered dispatch (design §3.2): C16 rules first, then C40 FA rules;
         // EnumeratorAdapterRule explicitly excludes Span sources so the
-        // following SpanIndexLoopRule owns them. FR rules take the reserved
-        // tail slots in M3.
+        // following SpanIndexLoopRule owns them. M3 adds the FR tail for
+        // ref/ref-readonly sites (ref sites never reach the plain rules).
         _rules = new IForeachSourceRule[]
         {
             new StringSourceRule(),
@@ -52,6 +53,15 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
             new EnumeratorAdapterRule(),
             new SpanIndexLoopRule(),
         };
+        // M3 FR chain: indexable sources (arrays/Span/custom) win over the
+        // ref-Current enumerator form — RefIndexLoopRule also terminates
+        // unbindable ref sites with CS2J5485, deferring only FR-3-eligible
+        // sites to RefCurrentEnumeratorRule.
+        _refRules = new IForeachSourceRule[]
+        {
+            new RefIndexLoopRule(),
+            new RefCurrentEnumeratorRule(),
+        };
     }
 
     public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
@@ -60,18 +70,11 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
         if (visited == null)
             return visited;
 
-        // FS-4 syntactic guards (C40/C38 surfaces): count and leave untouched.
-        // RefKeyword only exists on the plain form; ref deconstruction foreach is not legal.
-        if (ForeachSourceAnalyzer.HasRefKeyword(visited))
-        {
-            _stats.RefForeachSeen++;
-            _context.Report(
-                ForeachSourceSeverity.Info,
-                PreprocessDiagnosticCodes.ForeachSourceRefForeach,
-                "[FS-4] ref/ref-readonly foreach is not lowered by foreach-source (reserved for C40).",
-                visited);
-            return visited;
-        }
+        // FS-4 syntactic guards (C40/C38 surfaces): await sites are counted
+        // and left untouched. Ref/ref-readonly foreach is M3 FR territory —
+        // it flows through the semantic FR chain below instead of the old
+        // CS2J5441 early return. RefKeyword only exists on the plain form;
+        // ref deconstruction foreach is not legal.
         if (ForeachSourceAnalyzer.HasAwaitKeyword(visited))
         {
             _stats.AwaitForeachSeen++;
@@ -117,6 +120,41 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
             RefKind = binding?.RefKind ?? Microsoft.CodeAnalysis.RefKind.None,
             Binding = binding,
         };
+
+        // M3: ref/ref-readonly sites dispatch through the FR chain only —
+        // string/deconstruction/FA rules must never see them.
+        if (site.RefKind != Microsoft.CodeAnalysis.RefKind.None)
+        {
+            foreach (var rule in _refRules)
+            {
+                var outcome = rule.TryHandle(site, _context, visited);
+                if (outcome == null)
+                {
+                    continue;
+                }
+
+                if (!outcome.Changed || outcome.Output == null)
+                {
+                    // Diagnose-only termination (CS2J5485 Error, CS2J5456
+                    // dynamic): the node intentionally survives; the terminal
+                    // diagnostic already recorded the site, so no 5495 double
+                    // count.
+                    return visited;
+                }
+
+                // CS2J5486 conservative pre-scan on the ORIGINAL body: a
+                // lambda/anonymous method/local function referencing the
+                // iteration variable cannot survive the lowering (the
+                // per-iteration local becomes ref/ref-struct-scoped).
+                ReportRefIterationCaptureIfAny(node);
+                return outcome.Output;
+            }
+
+            // Defensive escape (every unbindable shape is normally terminated
+            // by CS2J5485): keeps the FS-5 ref gate honest.
+            _stats.ResidualRefSites++;
+            return visited;
+        }
 
         foreach (var rule in _rules)
         {
@@ -229,5 +267,69 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
     {
         if (ForeachSourceAnalyzer.IsString(expressionType))
             _stats.ResidualStringSites++;
+    }
+
+    /// <summary>
+    /// CS2J5486 conservative capture scan (design FR notes): after an FR
+    /// lowering, the iteration variable is a per-iteration ref/ref-struct
+    /// local, which cannot be captured by a lambda, anonymous method or a
+    /// local function that gets converted to a delegate. The scan runs on the
+    /// ORIGINAL body (semantic queries need the model-bound tree) and matches
+    /// identifier references that bind to the foreach iteration local symbol,
+    /// so shadowed names inside lambdas do not false-positive. One diagnostic
+    /// per site; Warning by default, Error in strict mode.
+    /// </summary>
+    private void ReportRefIterationCaptureIfAny(ForEachStatementSyntax originalNode)
+    {
+        if (_model == null)
+        {
+            return;
+        }
+
+        var iterationLocal = _model.GetDeclaredSymbol(originalNode) as Microsoft.CodeAnalysis.ILocalSymbol;
+        if (iterationLocal == null)
+        {
+            return;
+        }
+
+        foreach (var root in originalNode.Statement.DescendantNodesAndSelf())
+        {
+            if (root is not (LambdaExpressionSyntax
+                or AnonymousMethodExpressionSyntax
+                or LocalFunctionStatementSyntax))
+            {
+                continue;
+            }
+
+            foreach (var id in root.DescendantNodes().OfType<IdentifierNameSyntax>())
+            {
+                Microsoft.CodeAnalysis.ISymbol? referenced;
+                try
+                {
+                    referenced = _model.GetSymbolInfo(id).Symbol;
+                }
+                catch (ArgumentException)
+                {
+                    continue;
+                }
+
+                if (referenced != null
+                    && Microsoft.CodeAnalysis.SymbolEqualityComparer.Default.Equals(
+                        referenced, iterationLocal))
+                {
+                    var severity = _options.Strict
+                        ? ForeachSourceSeverity.Error
+                        : ForeachSourceSeverity.Warning;
+                    _context.Report(
+                        severity,
+                        PreprocessDiagnosticCodes.ForeachSourceRefIterationCapture,
+                        "[FR] lowered ref/ref-readonly foreach body references the iteration variable " +
+                        $"'{iterationLocal.Name}' inside a lambda/anonymous method/local function; the lowered " +
+                        "per-iteration ref/ref-struct local cannot cross that boundary.",
+                        root);
+                    return;
+                }
+            }
+        }
     }
 }

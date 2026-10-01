@@ -99,9 +99,31 @@
 - CSharpToJava.ConversionTests：**671 通过 / 0 失败**。
 - 零误伤四件套：25/25；C40 单测：29/29；C40 project 测试（含 fixture verify build/test）：2/2。
 
-## M3 — ref / ref readonly（待办）
+## M3 — ref / ref readonly
 
-- [ ] **Task 1**: FR-1/2/3/4 规则实现 + CS2J5480-5495 诊断族；ref 迭代变量写回语义。
-- [ ] **Task 2（硬前置，开放问题 1 裁决）**：C01 升级元素访问声明站点为访问器代理 `ByRef<T>.Create(() => span[i], v => span[i] = v)`，独立 PR 先合；ref readonly 用无 setter 代理（开放问题 3）。
-- [ ] **Task 3**: foreach-source ↔ C01 联合链路打通（spec 风险 3 关闭）+ Java 半区冒烟（Span.get/set 缝合）。
-- [ ] **Task 4**: csharp-sdk ref/ref-struct 站点分桶报表（5485 人工定性）+ §8 附加门槛 + 随锚点评审翻转默认开。
+- [x] **Task 1**: FR-1/2/3/4 规则实现 + CS2J5480-5495 诊断族；ref 迭代变量写回语义。
+- [x] **Task 2（硬前置，开放问题 1 裁决）**：C01 升级元素访问声明站点为访问器代理（数组 `ByRef.Create(arr,i)`；Span/自定义 ref struct 接收器因 CS8175/CS9108 不可闭包，落 ScopedByRef/ReadOnlyScopedByRef ref 字段形态，Java 半区仍映射既有 ByRef/ReadOnlyByRef 工厂），独立提交 53cf4304 先合；ref readonly 用无 setter 代理（开放问题 3）。
+- [x] **Task 3**: foreach-source ↔ C01 联合链路打通（spec 风险 3 关闭）+ Java 半区冒烟（ByRef.create(span,i) / ReadOnlyByRef.create(span,i) / 数组 ByRef.create(arr,i) / 鸭子 moveNext-getCurrent-try/finally-dispose）。
+- [ ] **Task 4**: csharp-sdk ref/ref-struct 站点分桶报表（5485 人工定性）+ §8 附加门槛 + 随锚点评审翻转默认开。**M3 保持 opt-in（`PassCatalog.cs` foreach-source `defaultEnabled: false`）不翻默认；§8 sdk 训练集扫描属评审期活动，本里程碑不做。**
+
+### M3 偏差表（实施实测）
+
+| 事项 | 原计划/假设 | 实际落地 | 证据 |
+|---|---|---|---|
+| FR-1 一维数组 ref foreach 可达性 | 假设有合法用户输入 | Roslyn 5.0 csc 对数组 ref foreach 一律 **CS1510**（ref/out 参数与局部皆然），fixture 无法放入该形态；pass 仍防御性降级，覆盖只在 Core 单测（lowered 输出可独立编译运行，Emit=20） | 探针目录 `%TEMP%\cs2j-m3-arrayprobe`（已删）；`ForeachSourceC40RewriterUnitTests.FR1_*` |
+| 自定义 Count+ref 索引器源 | 仅有索引器即可 foreach | csc 要求同时具备 ref-Current `GetEnumerator()` 才合法（否则 CS1579）；pass 仍优先走索引路径（Resolver 先判 IsIndexPattern） | fixture `RefCollections.cs` CountIndexBag |
+| `SyntaxFactory.RefType` 参数顺序 | （M2 代码错放）readonly token 在第一参 | 签名为 `(refKeyword, readOnlyKeyword, type)`，错放运行时 ArgumentException；ForeachIndexLoopBuilder/EnumeratorLoweringBuilder 两处修正 | 产品代码修复 |
+| C01 与源码内 ref 返回成员联动 | ref 局部站点按接收器四分類即可 | C01 同 pass 会把**源码内** `ref int this[]/Current` 重写为 ByRef 返回形态；ref 局部站点对源码定义的 ref 属性/索引器必须 holder 透传 `ByRef<T> local = access;`（数组/Span 等元数据成员仍走原四形态）。`IsSourceDefinedRefReturningMember` 以符号 `Locations.IsInSource` 判定 | RefOutInSyntaxRewriter.cs；链 fixture verify build/test 35/35 |
+| ProjectTests 双跑隔离 | 同一暂存根内连跑两次 RunPassAsync | spine 枚举把首跑的中间树也编入导致重复类型（5485=2 等假象）；改为单跑/链跑各用独立 `StagePrivateFixture()` 副本 | ForeachSourceC40ProjectTests.cs |
+| Cs2jByRef 支持类型随源转换 | 追加 ByRef.cs 仅用于符号解析 | 提交1 新增 ScopedByRef/ReadOnlyScopedByRef（ref struct）后，支持类型声明随转换会撞 ref-struct 守卫；转换器新增「Cs2jByRef 映射类型声明跳过」（支持类型由 Java compat 库提供）；TypeMappings 补 ScopedByRef.Create(2 参)→`ByRef.create`、ReadOnlyScopedByRef.Create(2 参)→`ReadOnlyByRef.create` | CSharpToJavaVisitor.cs；TypeMappings.json；ConversionTests 675/0 |
+| 提交1 peer 测试语义 | peer 树作为源码树参与编译 | holder 透传口径下，peer 模拟的是**外部/元数据**成员（其 ref 索引器不被本 pass 重写）；harness 改为先把 peer 发射为内存 DLL 元数据引用（运行期 AssemblyResolve 桥接） | RefOutInRewriterUnitTests.cs |
+| PassCatalog 排序 | — | RefOutIn `runAfterIds` 显式追加 foreach-source，保证串联顺序 | PassCatalog.cs |
+
+### M3 验收实跑（本机，.NET SDK 10 / Roslyn 5.0.0，Release）
+
+- `dotnet build CSharpToJavaConverter.slnx -c Release`：**0 error**。
+- CSharpToJava.Tests：**2256 通过 / 5 失败**（总 2261）；5 个失败与白名单逐一点名一致：2 `EnumDeclarationRewriterUnitTests`（unsigned token）、2 `CSharpXmlCompileRegressionTests`、1 `SystemPrivateXmlRuntimeResourceTests`。
+- CSharpToJava.ProjectTests：**805 通过 / 1 失败**（总 806）；唯一失败 `EqualityConcatProjectTests`（javac 缺 io.github.ningpp.compat，Java 环境族白名单）。
+- CSharpToJava.ConversionTests：**675 通过 / 0 失败**（M2 基线 671 + M3 新增 4 冒烟）。
+- foreach/RefOut/preprocessing 过滤：Tests 352/352、ProjectTests 99/99。
+- C40 Core 单测 59/59；fixture 运行时 35/35；C40 project 测试 3/3（含链 verify build+test）。

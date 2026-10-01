@@ -168,11 +168,12 @@ public class ForeachSourceRewriterUnitTests
     }
 
     // ===================================================================
-    // §7.1-4 FS-4 guards
+    // §7.1-4 FS-4 guards (await; ref sites moved to the M3 FR chain —
+    // CS2J5480/5481 replace the old CS2J5441 counted-untouched behavior)
     // ===================================================================
 
     [Fact]
-    public void FS4_ref_foreach_is_counted_and_left_untouched()
+    public void FS4_ref_foreach_is_lowered_to_index_loop_under_5480()
     {
         var src = """
             using System;
@@ -184,15 +185,18 @@ public class ForeachSourceRewriterUnitTests
             """;
         var result = Preprocess(src);
 
-        Assert.False(result.Changed);
-        Assert.Equal(1, result.Statistics.RefForeachSeen);
-        Assert.Equal(0, result.Statistics.StringForeachWrapped);
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.RefIndexLoopSites);
+        Assert.Equal(0, result.Statistics.RefForeachSeen);
+        Assert.Contains("__cs2jFrSrc", result.OutputCode);
+        Assert.Contains("ref int x = ref __cs2jFrSrc", result.OutputCode);
         Assert.Contains(result.Diagnostics,
-            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceRefForeach);
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceRefIndexLoop);
+        AssertNoErrors(result);
     }
 
     [Fact]
-    public void FS4_ref_readonly_foreach_is_counted_and_left_untouched()
+    public void FS4_ref_readonly_foreach_is_lowered_to_index_loop_under_5481()
     {
         var src = """
             using System;
@@ -205,8 +209,13 @@ public class ForeachSourceRewriterUnitTests
             """;
         var result = Preprocess(src);
 
-        Assert.False(result.Changed);
-        Assert.Equal(1, result.Statistics.RefForeachSeen);
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.RefReadonlySites);
+        Assert.Equal(0, result.Statistics.RefForeachSeen);
+        Assert.Contains("ref readonly int x = ref __cs2jFrSrc", result.OutputCode);
+        Assert.Contains(result.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceRefReadonlyIndexLoop);
+        AssertNoErrors(result);
     }
 
     [Fact]

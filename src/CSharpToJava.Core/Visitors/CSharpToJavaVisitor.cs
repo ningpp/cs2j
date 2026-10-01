@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Comments;
@@ -360,6 +360,15 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
     /// </summary>
     public virtual JavaSyntaxNode? VisitTypeDeclaration(TypeDeclarationSyntax node)
     {
+        // The Cs2jByRef support family ships as a prebuilt Java compat
+        // library (io.github.ningpp.compat.*). Its declarations can appear
+        // in source when the support source is appended along a
+        // preprocessed -> convert pipeline; they must never be re-emitted —
+        // the ref struct proxies (ScopedByRef/ReadOnlyScopedByRef) would
+        // otherwise trip the struct transformer's ref-struct guard.
+        if (IsMappedCs2jByRefSupportDeclaration(node))
+            return null;
+
         ITypeTransformer? transformer = node.Kind() switch
         {
             SyntaxKind.ClassDeclaration => _factory.CreateClassTransformer(),
@@ -378,6 +387,28 @@ public class CSharpToJavaVisitor : CSharpSyntaxVisitor<JavaSyntaxNode?>
 
         _context.Diagnostics.Warning($"Unsupported type declaration: {node.Kind()}", node.GetLocation());
         return null;
+    }
+
+    private bool IsMappedCs2jByRefSupportDeclaration(TypeDeclarationSyntax node)
+    {
+        try
+        {
+            var model = _context.GetSemanticModelForTree(node.SyntaxTree);
+            if (model?.GetDeclaredSymbol(node) is not INamedTypeSymbol symbol
+                || symbol.ContainingNamespace?.ToDisplayString() != "Cs2jByRef")
+            {
+                return false;
+            }
+
+            var key = symbol.TypeParameters.Length > 0
+                ? $"Cs2jByRef.{symbol.Name}`{symbol.TypeParameters.Length}"
+                : $"Cs2jByRef.{symbol.Name}";
+            return _context.TypeMappings.HasTypeMapping(key);
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     /// <summary>

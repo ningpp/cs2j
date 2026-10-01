@@ -1141,6 +1141,23 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
            && (named.MetadataName == "Span`1" || named.MetadataName == "ReadOnlySpan`1");
 
     /// <summary>
+    /// True when the bound member of an element/member access is a
+    /// ref/ref-readonly-returning property or indexer DECLARED IN SOURCE.
+    /// This pass rewrites those very declarations to ByRef&lt;T&gt;-returning
+    /// members (VisitPropertyDeclaration/VisitIndexerDeclaration), so a
+    /// ref-local initializer over one of them is holder-to-holder flow:
+    /// <c>ByRef&lt;T&gt; local = access;</c>. Framework/metadata members
+    /// (arrays, Span&lt;T&gt; indexers) keep their ref form and are classified
+    /// via the array/ScopedByRef/accessor shapes below instead.
+    /// </summary>
+    private bool IsSourceDefinedRefReturningMember(ExpressionSyntax expr)
+    {
+        return GetSymbol(expr) is IPropertySymbol property
+            && (property.RefKind == RefKind.Ref || property.RefKind == RefKind.RefReadOnly)
+            && property.Locations.Any(static l => l.IsInSource);
+    }
+
+    /// <summary>
     /// True when the expression cannot be textually embedded in a lambda:
     /// uses a ref struct local/parameter/field (CS8175/CS9108), a ref/out/in
     /// parameter or a ref local (CS8175/CS1628), or <c>this</c> of a ref struct
@@ -1219,6 +1236,14 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
     {
         var typeDisplay = ResolveTypeDisplayName(declaredInnerType, expr);
         var blocking = HasLambdaBlockingCapture(expr);
+
+        // Source-defined ref-returning property/indexer: the declaration
+        // itself is rewritten in this same pass to a ByRef<T>-returning
+        // member, so the access expression already yields a holder.
+        if (IsSourceDefinedRefReturningMember(expr))
+        {
+            return ("ByRef", InjectSlotValues(expr));
+        }
 
         if (expr is ElementAccessExpressionSyntax elem)
         {

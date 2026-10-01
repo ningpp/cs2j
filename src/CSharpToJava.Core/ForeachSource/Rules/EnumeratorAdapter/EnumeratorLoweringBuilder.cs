@@ -32,7 +32,8 @@ internal static class EnumeratorLoweringBuilder
         ForEachStatementSyntax semanticNode,
         ForeachBinding binding,
         SemanticModel model,
-        ForeachSourceRewriteContext context)
+        ForeachSourceRewriteContext context,
+        RefKind elementRefKind = RefKind.None)
     {
         var sourceName = context.FreshName(ForeachSourceSyntaxFacts.FaSourceName, node);
         var enumeratorName = context.FreshName(ForeachSourceSyntaxFacts.FaEnumeratorName, node);
@@ -77,19 +78,24 @@ internal static class EnumeratorLoweringBuilder
         var declaredLocal = model.GetDeclaredSymbol(semanticNode) as ILocalSymbol;
         var elementType = declaredLocal?.Type ?? binding.ElementType;
         var isVar = node.Type is IdentifierNameSyntax { Identifier.Text: "var" };
-        var needsCast = elementType != null
+        var needsCast = elementRefKind == RefKind.None
+                        && elementType != null
                         && binding.CurrentProperty != null
                         && !SymbolEqualityComparer.Default.Equals(binding.CurrentProperty.Type, elementType);
 
         var itemIdentifier = node.Identifier.WithoutTrivia();
         TypeSyntax declaredTypeSyntax;
         ExpressionSyntax itemInitializer = currentAccess;
-        if (isVar && !needsCast)
+        if (elementRefKind == RefKind.None && isVar && !needsCast)
         {
             declaredTypeSyntax = SyntaxFactory.IdentifierName("var");
         }
         else
         {
+            // FR-3 (ref/ref-readonly Current) and explicit/cast cases always
+            // render the fully qualified concrete type; var is illegal in a
+            // ref local declaration and ref casts do not exist, so FR-3 callers
+            // guarantee type identity before reaching here.
             var rendered = elementType!.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             declaredTypeSyntax = SyntaxFactory.ParseTypeName(rendered);
             if (needsCast)
@@ -100,8 +106,28 @@ internal static class EnumeratorLoweringBuilder
             }
         }
 
+        VariableDeclarationSyntax itemVariableDeclaration;
+        if (elementRefKind is RefKind.Ref or RefKind.RefReadOnly)
+        {
+            // FR-3: ref T item = ref __cs2jFaE.Current;  (readonly token when RefReadOnly)
+            var refType = SyntaxFactory.RefType(
+                SyntaxFactory.Token(SyntaxKind.RefKeyword),
+                elementRefKind == RefKind.RefReadOnly
+                    ? SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)
+                    : default,
+                declaredTypeSyntax);
+            itemInitializer = SyntaxFactory.RefExpression(
+                SyntaxFactory.Token(SyntaxKind.RefKeyword),
+                currentAccess);
+            itemVariableDeclaration = SyntaxFactory.VariableDeclaration(refType);
+        }
+        else
+        {
+            itemVariableDeclaration = SyntaxFactory.VariableDeclaration(declaredTypeSyntax);
+        }
+
         var itemDecl = SyntaxFactory.LocalDeclarationStatement(
-            SyntaxFactory.VariableDeclaration(declaredTypeSyntax)
+            itemVariableDeclaration
                 .WithVariables(SyntaxFactory.SingletonSeparatedList(
                     SyntaxFactory.VariableDeclarator(itemIdentifier)
                         .WithInitializer(SyntaxFactory.EqualsValueClause(itemInitializer)))));

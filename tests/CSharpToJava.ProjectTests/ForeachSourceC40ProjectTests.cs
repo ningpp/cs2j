@@ -21,6 +21,8 @@ namespace CSharpToJava.ProjectTests;
 public class ForeachSourceC40ProjectTests
 {
     private const string PassId = "foreach-source";
+    private const string RefOutInPassId = "ref-out-in";
+    private const string RefOutInIntermediateDir = ".cs2j-refoutin-src";
     private const string IntermediateDir = ".cs2j-foreach-source-src";
 
     private static string FixtureDir =>
@@ -65,8 +67,12 @@ public class ForeachSourceC40ProjectTests
         }
     }
 
-    private static async Task<CliChainResult> RunPassAsync(
+    private static Task<CliChainResult> RunPassAsync(
         string fixtureRoot, string outputRoot)
+        => RunPassAsync(fixtureRoot, outputRoot, new[] { PassId });
+
+    private static async Task<CliChainResult> RunPassAsync(
+        string fixtureRoot, string outputRoot, IReadOnlyList<string> enablePassIds)
     {
         var registry = PassCatalog.BuildRegistry();
         var toggles = PassChainFactory.BuildAllDisabledToggles(registry);
@@ -84,7 +90,7 @@ public class ForeachSourceC40ProjectTests
             EqualityConcatOptionsFactory = () =>
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             LegacyToggles = toggles,
-            EnablePassIds = new[] { PassId },
+            EnablePassIds = enablePassIds,
             VerifyBuild = true,
             VerifyTests = true,
             Strict = false,
@@ -267,6 +273,126 @@ public class ForeachSourceC40ProjectTests
             if (Directory.Exists(fixtureRoot))
             {
                 Directory.Delete(fixtureRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task M3_Fixture_RefForeachSites_AreLoweredAndChainIntoRefOutIn()
+    {
+        // Each CLI-style invocation gets its own private fixture copy: the
+        // spine's tree walk only skips its OWN destination root, so a second
+        // invocation beside the first run's intermediate tree would see its
+        // lowered sources and compile duplicate user types.
+        var singleRoot = StagePrivateFixture();
+        try
+        {
+            var result = await RunPassAsync(
+                singleRoot,
+                Path.Combine(singleRoot, ".test-output-foreach-source-c40-m3"));
+
+            Assert.True(result.Success,
+                "foreach-source pass failed (see chain diagnostics above)");
+
+            var libFile = Path.Combine(
+                singleRoot, ".test-output-foreach-source-c40-m3",
+                IntermediateDir, "SampleForeachSourceLib", "RefCollections.cs");
+            Assert.True(File.Exists(libFile), $"missing lowered file: {libFile}");
+            var text = await File.ReadAllTextAsync(libFile);
+
+            // FR-2 writable Span: first ref site in this file takes base names.
+            var doubleSpan = MethodBody(text, "DoubleSpan");
+            Assert.Contains("var __cs2jFrSrc = values;", doubleSpan);
+            Assert.Contains(
+                "__cs2jFrI < __cs2jFrSrc.Length", doubleSpan);
+            Assert.Contains(
+                "ref int value = ref __cs2jFrSrc[__cs2jFrI]", doubleSpan);
+            Assert.DoesNotContain("GetEnumerator", doubleSpan);
+
+            // FR-2 ReadOnlySpan: second site -> suffix 1, ref-readonly item.
+            var sumReadOnly = MethodBody(text, "SumReadOnlySpanRef");
+            Assert.Contains(
+                "ref readonly int value = ref __cs2jFrSrc1[__cs2jFrI1]", sumReadOnly);
+
+            // FR-2 custom Count + ref indexer ref struct: index path, .Count.
+            var doubleBag = MethodBody(text, "DoubleCountIndexBag");
+            Assert.Contains("__cs2jFrSrc2.Count", doubleBag);
+            Assert.Contains(
+                "ref int value = ref __cs2jFrSrc2[__cs2jFrI2]", doubleBag);
+            Assert.DoesNotContain("GetEnumerator", doubleBag);
+
+            // FR-3 ref-Current enumerator: while skeleton, ref Current, no Dispose.
+            var doubleCollection = MethodBody(text, "DoubleRefReadCollection");
+            Assert.Contains(
+                "var __cs2jFaE = __cs2jFaSrc.GetEnumerator();", doubleCollection);
+            Assert.Contains("while (__cs2jFaE.MoveNext())", doubleCollection);
+            Assert.Contains("ref int value = ref __cs2jFaE.Current;", doubleCollection);
+            Assert.DoesNotContain("try", doubleCollection);
+            Assert.DoesNotContain("Dispose", doubleCollection);
+        }
+        finally
+        {
+            if (Directory.Exists(singleRoot))
+            {
+                Directory.Delete(singleRoot, recursive: true);
+            }
+        }
+
+        // ---- Two-pass chain on a fresh fixture: foreach-source -> ref-out-in ----
+        var chainFixtureRoot = StagePrivateFixture();
+        var chainRoot = Path.Combine(
+            chainFixtureRoot, ".test-output-foreach-source-c40-m3-chain");
+        try
+        {
+            var chain = await RunPassAsync(
+                chainFixtureRoot, chainRoot, new[] { PassId, RefOutInPassId });
+
+            Assert.True(chain.Success,
+                "foreach-source + ref-out-in chain failed (see chain diagnostics above)");
+            Assert.Contains(IntermediateDir, chain.ExecutedIntermediateDirectoryNames);
+            Assert.Contains(RefOutInIntermediateDir, chain.ExecutedIntermediateDirectoryNames);
+
+            var chainedFile = Path.Combine(
+                chainRoot, RefOutInIntermediateDir,
+                "SampleForeachSourceLib", "RefCollections.cs");
+            Assert.True(File.Exists(chainedFile), $"missing chained file: {chainedFile}");
+            var chained = await File.ReadAllTextAsync(chainedFile);
+
+            // Writable Span ref alias -> ScopedByRef span/index factory; body
+            // reads/writes route through .Value.
+            var chainedDoubleSpan = MethodBody(chained, "DoubleSpan");
+            Assert.Contains(
+                "ScopedByRef<int> value = ScopedByRef<int>.Create(__cs2jFrSrc, __cs2jFrI)",
+                chainedDoubleSpan);
+            Assert.Contains("value.Value *= 2;", chainedDoubleSpan);
+
+            // ReadOnlySpan alias -> ReadOnlyScopedByRef span/index factory.
+            var chainedSumReadOnly = MethodBody(chained, "SumReadOnlySpanRef");
+            Assert.Contains(
+                "ReadOnlyScopedByRef<int> value = ReadOnlyScopedByRef<int>.Create(__cs2jFrSrc1, __cs2jFrI1)",
+                chainedSumReadOnly);
+            Assert.Contains("sum += value.Value;", chainedSumReadOnly);
+
+            // Source-defined ref indexer is itself rewritten by C01 to a
+            // ByRef<int>-returning indexer, so the element alias binds
+            // holder-to-holder (writes propagate through the holder).
+            var chainedDoubleBag = MethodBody(chained, "DoubleCountIndexBag");
+            Assert.Contains(
+                "ByRef<int> value = __cs2jFrSrc2[__cs2jFrI2];",
+                chainedDoubleBag);
+
+            // FR-3 source-defined ref-Current property is rewritten to a
+            // ByRef<int>-returning property -> holder-to-holder binding.
+            var chainedDoubleCollection = MethodBody(chained, "DoubleRefReadCollection");
+            Assert.Contains(
+                "ByRef<int> value = __cs2jFaE.Current;",
+                chainedDoubleCollection);
+        }
+        finally
+        {
+            if (Directory.Exists(chainFixtureRoot))
+            {
+                Directory.Delete(chainFixtureRoot, recursive: true);
             }
         }
     }

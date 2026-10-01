@@ -1,3 +1,4 @@
+using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.Pipeline;
 using CSharpToJava.Core.RefOutInPreprocessor;
 using Microsoft.CodeAnalysis;
@@ -58,6 +59,150 @@ public class RefOutInByRefPathTests : ConversionTestBase
                 "\n--- Diagnostics ---\n" + string.Join("\n", converted.Diagnostics));
         }
         return converted;
+    }
+
+    private static readonly MetadataReference[] ChainMetadataReferences =
+    {
+        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(System.Memory<>).Assembly.Location),
+    };
+
+    /// <summary>
+    /// C40 M3 chain: foreach-source lowers a ref foreach, then C01 binds the
+    /// ref local to a ByRef-family proxy; the rewritten C# (plus the support
+    /// namespace body) is converted to Java.
+    /// </summary>
+    private static ConversionResult ConvertForeachRewritten(string userSource)
+    {
+        var fsTree = CSharpSyntaxTree.ParseText(userSource);
+        var fsCompilation = CSharpCompilation.Create("foreach-m3-pre",
+            new[] { fsTree },
+            ChainMetadataReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var fsResult = new ForeachSourcePreprocessor().Preprocess(
+            userSource, fsCompilation.GetSemanticModel(fsTree), new ForeachSourceOptions());
+        Assert.True(fsResult.Changed,
+            "expected foreach-source to rewrite the input\n" +
+            string.Join("\n", fsResult.Diagnostics));
+
+        var c01Tree = CSharpSyntaxTree.ParseText(fsResult.OutputCode);
+        var c01Compilation = CSharpCompilation.Create("foreach-m3-c01",
+            new[] { c01Tree },
+            ChainMetadataReferences,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var c01Result = new RefOutInRewriter().Rewrite(
+            fsResult.OutputCode, c01Compilation.GetSemanticModel(c01Tree));
+
+        var combined = "using System;\n" + c01Result.OutputCode + "\n" + ByRefNamespaceBody;
+        var converted = Convert(combined);
+        if (!converted.Success)
+        {
+            Assert.True(converted.Success,
+                "Conversion failed.\n--- Foreach-source output ---\n" + fsResult.OutputCode +
+                "\n--- C01 output ---\n" + c01Result.OutputCode +
+                "\n--- Diagnostics ---\n" + string.Join("\n", converted.Diagnostics));
+        }
+        return converted;
+    }
+
+    [Fact]
+    public void M3_RefForeach_SpanChain_MapsToByRefSpanFactory()
+    {
+        var result = ConvertForeachRewritten(@"
+using System;
+public class Calc
+{
+    public static void Double(Span<int> values)
+    {
+        foreach (ref int x in values) { x *= 2; }
+    }
+}");
+        AssertSuccess(result);
+        // ScopedByRef<T>.Create(span, i) maps to the existing compat
+        // ByRef.create(Span, int) factory (get/set closure lives in the
+        // Java compat library); Span.Length -> getLength().
+        AssertJavaContains(result, "ByRef.create(__cs2jFrSrc, __cs2jFrI)", "span/index factory");
+        AssertJavaContains(result, ".getLength()", "Span length accessor");
+        AssertJavaContains(result, "x.setValue(x.getValue() * 2)", "write through holder");
+        AssertJavaDoesNotContain(result, "ScopedByRef");
+        AssertJavaDoesNotContain(result, "IntHolder");
+    }
+
+    [Fact]
+    public void M3_RefReadonlyForeach_ReadOnlySpanChain_MapsToReadOnlyByRef()
+    {
+        var result = ConvertForeachRewritten(@"
+using System;
+public class Calc
+{
+    public static int Sum(ReadOnlySpan<int> values)
+    {
+        int sum = 0;
+        foreach (ref readonly int x in values) { sum += x; }
+        return sum;
+    }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result,
+            "ReadOnlyByRef.create(__cs2jFrSrc, __cs2jFrI)", "readonly span/index factory");
+        AssertJavaContains(result, "sum += x.getValue()", "read-only holder read");
+        AssertJavaDoesNotContain(result, "ReadOnlyScopedByRef");
+    }
+
+    [Fact]
+    public void M3_RefForeach_ArrayChain_MapsToByRefArrayFactory()
+    {
+        // C# source cannot legally spell `foreach (ref int x in array)`
+        // (CS1510), but foreach-source lowers it defensively and C01 binds
+        // the array element alias to ByRef.Create(array, index).
+        var result = ConvertForeachRewritten(@"
+public class Calc
+{
+    public static void Double(int[] values)
+    {
+        foreach (ref int x in values) { x *= 2; }
+    }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result, "ByRef.create(__cs2jFrSrc, __cs2jFrI)", "array/index factory");
+        AssertJavaContains(result, "doubleValue(int[] values)", "array parameter kept");
+    }
+
+    [Fact]
+    public void M3_Foreach_DuckEnumeratorWithDispose_MapsToMoveNextGetCurrentTryFinally()
+    {
+        var result = ConvertForeachRewritten(@"
+using System;
+public class Calc
+{
+    public struct En : IDisposable
+    {
+        private int[] _a;
+        private int _i;
+        public En(int[] a) { _a = a; _i = -1; }
+        public bool MoveNext() { ++_i; return _i < _a.Length; }
+        public int Current { get { return _a[_i]; } }
+        public void Dispose() { }
+    }
+    public sealed class Col
+    {
+        private readonly int[] _a;
+        public Col(int[] a) { _a = a; }
+        public En GetEnumerator() { return new En(_a); }
+    }
+    public static int Sum(Col c)
+    {
+        int sum = 0;
+        foreach (int x in c) { sum += x; }
+        return sum;
+    }
+}");
+        AssertSuccess(result);
+        AssertJavaContains(result, ".moveNext()", "duck MoveNext");
+        AssertJavaContains(result, ".getCurrent()", "duck Current");
+        AssertJavaContains(result, "finally", "Dispose try/finally");
+        AssertJavaContains(result, ".dispose()", "duck Dispose");
     }
 
     [Fact]

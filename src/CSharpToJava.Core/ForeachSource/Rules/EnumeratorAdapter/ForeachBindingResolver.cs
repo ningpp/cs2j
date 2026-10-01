@@ -129,17 +129,28 @@ internal static class ForeachBindingResolver
         // collection TypeKind is the equivalent classification.
         var isDynamic = collectionType is { TypeKind: TypeKind.Dynamic };
 
-        // FA-5 (M2): Span<T>/ReadOnlySpan<T> sources always lower to an index
-        // loop (decision 9), so resolve the Length member + int indexer here.
-        // M3 (FR-1/2) extends the same lookup to arrays and custom Length/Count
-        // + indexer sources.
+        // Index-pattern classification (FA-5 M2 + FR-1/2 M3):
+        //   * rank-1 arrays: IsIndexPattern with null LengthMember/Indexer —
+        //     the builder renders the built-in `.Length` and `src[i]`;
+        //   * System.Span<T>/ReadOnlySpan<T>: Length + this[int] symbols;
+        //   * M3 custom sources: any type exposing a public Length/Count
+        //     property or field plus a single-public-int indexer (the FR rule
+        //     additionally checks the indexer's RefKind against the foreach's
+        //     ref kind — a by-value indexer cannot back a ref foreach).
+        // Multi-dimensional arrays are NOT an index pattern (FR-4 CS2J5485;
+        // C# itself rejects ref foreach over them with CS1579).
         var isIndexPattern = false;
         ISymbol? lengthMember = null;
         IPropertySymbol? indexer = null;
-        if (collectionType != null && ForeachSourceAnalyzer.IsSpanType(collectionType))
+        if (collectionType is IArrayTypeSymbol { Rank: 1 })
         {
-            isIndexPattern = ForeachIndexLoopBuilder.TryFindIndexMembers(
-                collectionType, out lengthMember, out indexer);
+            isIndexPattern = true;
+        }
+        else if (collectionType != null
+                 && ForeachIndexLoopBuilder.TryFindIndexMembers(
+                     collectionType, out lengthMember, out indexer))
+        {
+            isIndexPattern = true;
         }
 
         return new ForeachBinding

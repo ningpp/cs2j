@@ -6165,10 +6165,22 @@
             "signature": "1"
         },
         {
+            "type": "Cs2jByRef.ScopedByRef",
+            "method": "Create",
+            "javaMethod": "ByRef.create",
+            "signature": "2"
+        },
+        {
             "type": "Cs2jByRef.ReadOnlyScopedByRef",
             "method": "get_Value",
             "javaMethod": "getValue",
             "signature": "0"
+        },
+        {
+            "type": "Cs2jByRef.ReadOnlyScopedByRef",
+            "method": "Create",
+            "javaMethod": "ReadOnlyByRef.create",
+            "signature": "2"
         },
         {
             "type": "Cs2jPrelude.CsPrelude",

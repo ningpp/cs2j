@@ -1,5 +1,6 @@
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.Preprocessing;
+using CSharpToJava.Core.RefOutInPreprocessor;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -1052,8 +1053,414 @@ public class ForeachSourceC40RewriterUnitTests
     }
 
     // ===================================================================
+    // §7.1-11..17 M3 FR-1/FR-2/FR-3/FR-4 + CS2J5480-5495
+    // ===================================================================
+
+    [Fact]
+    public void FR1_array_ref_foreach_lowered_and_doubles_at_runtime()
+    {
+        var src = """
+            class C
+            {
+                public static int Run()
+                {
+                    int[] a = { 1, 2, 3, 4 };
+                    foreach (ref int x in a) { x *= 2; }
+                    int sum = 0;
+                    foreach (int p in a) { sum += p; }
+                    return sum;
+                }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.RefIndexLoopSites);
+        Assert.Contains("var __cs2jFrSrc = a;", result.OutputCode);
+        Assert.Contains("__cs2jFrI < __cs2jFrSrc.Length", result.OutputCode);
+        Assert.Contains("ref int x = ref __cs2jFrSrc[__cs2jFrI]", result.OutputCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == "CS2J5480");
+        AssertNoErrors(result);
+        Assert.Equal(20, EmitRunInt(result.OutputCode));
+    }
+
+    [Fact]
+    public void FR2_span_ref_foreach_explicit_and_var_lowered()
+    {
+        var src = """
+            using System;
+            class C
+            {
+                public static int Run()
+                {
+                    Span<int> s = new int[] { 1, 2, 3, 4 };
+                    foreach (ref int x in s) { x *= 2; }
+                    int sum = 0;
+                    foreach (ref var y in s) { y += 10; sum += y; }
+                    return sum;
+                }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.RefIndexLoopSites);
+        Assert.Contains("ref int x = ref __cs2jFrSrc[__cs2jFrI]", result.OutputCode);
+        Assert.Contains("ref int y = ref __cs2jFrSrc1[__cs2jFrI1]", result.OutputCode);
+        Assert.DoesNotContain("ref var", result.OutputCode);
+        AssertNoErrors(result);
+        // doubled once, then +10 on each: (2,4,6,8) -> (12,14,16,18) = 60
+        Assert.Equal(60, EmitRunInt(result.OutputCode));
+    }
+
+    [Fact]
+    public void FR2_readonly_span_foreach_lowered_under_5481()
+    {
+        var src = """
+            using System;
+            class C
+            {
+                public static int Run()
+                {
+                    ReadOnlySpan<int> s = new int[] { 1, 2, 3 };
+                    int sum = 0;
+                    foreach (ref readonly int x in s) { sum += x; }
+                    return sum;
+                }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.RefReadonlySites);
+        Assert.Equal(0, result.Statistics.RefIndexLoopSites);
+        Assert.Contains("ref readonly int x = ref __cs2jFrSrc[__cs2jFrI]", result.OutputCode);
+        Assert.Contains(result.Diagnostics, d => d.Code == "CS2J5481");
+        AssertNoErrors(result);
+        Assert.Equal(6, EmitRunInt(result.OutputCode));
+    }
+
+    [Fact]
+    public void FR4_multidimensional_array_ref_foreach_reports_5485()
+    {
+        var src = """
+            class C
+            {
+                void M(int[,] g)
+                {
+                    foreach (ref int x in g) { x = 1; }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.RefIndexLoopSites);
+        Assert.Equal(0, result.Statistics.ResidualRefSites);
+        Assert.Contains(result.Diagnostics,
+            d => d.Code == "CS2J5485" && d.Severity == ForeachSourceSeverity.Error);
+    }
+
+    [Fact]
+    public void FR2_custom_refstruct_count_and_ref_indexer_uses_count_and_doubles()
+    {
+        var src = """
+            class C
+            {
+                public ref struct Bag
+                {
+                    private int[] _a;
+                    public Bag(int[] a) { _a = a; }
+                    public int Count { get { return _a.Length; } }
+                    public ref int this[int i] { get { return ref _a[i]; } }
+                }
+                public static int Run()
+                {
+                    Bag col = new Bag(new[] { 1, 2, 3 });
+                    foreach (ref int x in col) { x *= 2; }
+                    int sum = 0;
+                    for (int i = 0; i < col.Count; i++) { sum += col[i]; }
+                    return sum;
+                }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.RefIndexLoopSites);
+        Assert.Contains("__cs2jFrSrc.Count", result.OutputCode);
+        Assert.Contains("ref int x = ref __cs2jFrSrc[__cs2jFrI]", result.OutputCode);
+        AssertNoErrors(result);
+        Assert.Equal(12, EmitRunInt(result.OutputCode));
+    }
+
+    [Fact]
+    public void FR3_ref_current_enumerator_lowered_to_skeleton_with_ref_Current()
+    {
+        var src = """
+            class C
+            {
+                public struct ReadEnumerator
+                {
+                    private int[] _a;
+                    private int _i;
+                    public ReadEnumerator(int[] a) { _a = a; _i = -1; }
+                    public ref int Current { get { return ref _a[_i]; } }
+                    public bool MoveNext() { ++_i; return _i < _a.Length; }
+                }
+                public sealed class ReadCollection
+                {
+                    private readonly int[] _a;
+                    public ReadCollection(int[] a) { _a = a; }
+                    public ReadEnumerator GetEnumerator() => new ReadEnumerator(_a);
+                }
+                public static int Run()
+                {
+                    var col = new ReadCollection(new[] { 1, 2, 3 });
+                    foreach (ref int x in col) { x *= 2; }
+                    int sum = 0;
+                    foreach (int v in col) { sum += v; }
+                    return sum;
+                }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.RefCurrentEnumeratorSites);
+        Assert.Equal(0, result.Statistics.RefIndexLoopSites);
+        Assert.Contains("var __cs2jFaE = __cs2jFaSrc.GetEnumerator();", result.OutputCode);
+        Assert.Contains("while (__cs2jFaE.MoveNext())", result.OutputCode);
+        Assert.Contains("ref int x = ref __cs2jFaE.Current;", result.OutputCode);
+        Assert.DoesNotContain("try", result.OutputCode);   // no Dispose on this enumerator
+        Assert.Contains(result.Diagnostics, d => d.Code == "CS2J5482");
+        AssertNoErrors(result);
+        Assert.Equal(12, EmitRunInt(result.OutputCode));
+    }
+
+    [Fact]
+    public void FR4_list_ref_foreach_reports_5485_byvalue_indexer()
+    {
+        var src = """
+            using System.Collections.Generic;
+            class C
+            {
+                void M(List<int> l)
+                {
+                    foreach (ref int x in l) { x = 1; }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Contains(result.Diagnostics,
+            d => d.Code == "CS2J5485" && d.Severity == ForeachSourceSeverity.Error);
+        Assert.Equal(0, result.Statistics.ResidualRefSites);
+    }
+
+    [Fact]
+    public void FR4_dynamic_ref_foreach_reports_5456_warning_and_errors_in_strict()
+    {
+        var src = """
+            class C
+            {
+                void M(object o)
+                {
+                    dynamic d = o;
+                    foreach (ref int x in d) { x = 1; }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(1, result.Statistics.DynamicForeachSites);
+        Assert.Contains(result.Diagnostics,
+            d => d.Code == "CS2J5456" && d.Severity == ForeachSourceSeverity.Warning);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "CS2J5485");
+
+        var strict = Preprocess(src, strict: true);
+        Assert.Contains(strict.Diagnostics,
+            d => d.Code == "CS2J5456" && d.Severity == ForeachSourceSeverity.Error);
+    }
+
+    [Fact]
+    public void FR_buckets_do_not_cross_in_one_method()
+    {
+        var src = """
+            using System;
+            using System.Collections.Generic;
+            class C
+            {
+                public struct ReadEnumerator
+                {
+                    private int[] _a;
+                    private int _i;
+                    public ReadEnumerator(int[] a) { _a = a; _i = -1; }
+                    public ref int Current { get { return ref _a[_i]; } }
+                    public bool MoveNext() { ++_i; return _i < _a.Length; }
+                }
+                public sealed class ReadCollection
+                {
+                    private readonly int[] _a;
+                    public ReadCollection(int[] a) { _a = a; }
+                    public ReadEnumerator GetEnumerator() => new ReadEnumerator(_a);
+                }
+                void M(Span<int> s, ReadOnlySpan<int> rs, ReadCollection col, List<int> l)
+                {
+                    foreach (ref int a in s) { a = 1; }
+                    foreach (ref readonly int b in rs) { Use(b); }
+                    foreach (ref int c in col) { c = 2; }
+                    foreach (ref int d in l) { d = 3; }
+                    foreach (int e in s) { Use(e); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.RefIndexLoopSites);      // 5480 span writable
+        Assert.Equal(1, result.Statistics.RefReadonlySites);       // 5481 span readonly
+        Assert.Equal(1, result.Statistics.RefCurrentEnumeratorSites); // 5482 FR-3
+        Assert.Equal(1, result.Statistics.SpanIndexLoopSites);     // 5460 plain span
+        Assert.Equal(1, result.Statistics.ErrorsByCode["CS2J5485"]);
+        Assert.Equal(0, result.Statistics.ResidualRefSites);
+    }
+
+    [Fact]
+    public void FR5486_lambda_capture_of_iteration_variable_warns_but_shadowed_name_does_not()
+    {
+        var src = """
+            using System;
+            class C
+            {
+                void Capture(Span<int> s)
+                {
+                    foreach (ref int x in s)
+                    {
+                        System.Action a = () => { x = 1; };
+                    }
+                }
+                void Shadow(Span<int> s)
+                {
+                    foreach (ref int x in s)
+                    {
+                        System.Action<int> a = (x) => { x++; };
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains(result.Diagnostics, d => d.Code == "CS2J5486");
+        Assert.Single(result.Diagnostics, d => d.Code == "CS2J5486");
+
+        var strict = Preprocess(src, strict: true);
+        Assert.Contains(strict.Diagnostics,
+            d => d.Code == "CS2J5486" && d.Severity == ForeachSourceSeverity.Error);
+    }
+
+    [Fact]
+    public void FR_then_C01_span_array_forms_chain_and_run()
+    {
+        var src = """
+            using System;
+            class C
+            {
+                public static int SpanWrite()
+                {
+                    Span<int> s = new int[] { 1, 2, 3, 4 };
+                    foreach (ref int x in s) { x *= 2; }
+                    int sum = 0;
+                    for (int i = 0; i < s.Length; i++) { sum += s[i]; }
+                    return sum;
+                }
+                public static int SpanRead()
+                {
+                    ReadOnlySpan<int> s = new int[] { 1, 2, 3 };
+                    int sum = 0;
+                    foreach (ref readonly int x in s) { sum += x; }
+                    return sum;
+                }
+                public static int ArrayWrite()
+                {
+                    int[] a = { 5, 6 };
+                    foreach (ref int x in a) { x *= 2; }
+                    return a[0] + a[1];
+                }
+            }
+            """;
+        var fs = Preprocess(src);
+        AssertNoErrors(fs);
+
+        var chained = ChainC01(fs.OutputCode);
+        Assert.Contains("ScopedByRef<int> x = ScopedByRef<int>.Create(__cs2jFrSrc, __cs2jFrI)", chained);
+        Assert.Contains("ReadOnlyScopedByRef<int> x = ReadOnlyScopedByRef<int>.Create(__cs2jFrSrc1, __cs2jFrI1)", chained);
+        Assert.Contains("ByRef<int> x = ByRef<int>.Create(__cs2jFrSrc2, __cs2jFrI2)", chained);
+
+        Assert.Equal(20, EmitRunInt(chained, withByRefSupport: true, method: "SpanWrite"));
+        Assert.Equal(6, EmitRunInt(chained, withByRefSupport: true, method: "SpanRead"));
+        Assert.Equal(22, EmitRunInt(chained, withByRefSupport: true, method: "ArrayWrite"));
+    }
+
+    // ===================================================================
     // Helpers
     // ===================================================================
+
+    private static int EmitRunInt(string code, bool withByRefSupport = false, string method = "Run")
+    {
+        var trees = new List<SyntaxTree> { CSharpSyntaxTree.ParseText(code) };
+        if (withByRefSupport)
+        {
+            var byRefPath = FindRepoRootFromBaseDirectory("src/Cs2jRefOutIn/ByRef.cs");
+            trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(byRefPath)));
+        }
+        var compilation = CSharpCompilation.Create(
+            "foreach-source-c40-emit",
+            trees,
+            RuntimeReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        using var stream = new MemoryStream();
+        var emit = compilation.Emit(stream);
+        Assert.True(emit.Success,
+            string.Join("\n", emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
+        var assembly = System.Reflection.Assembly.Load(stream.ToArray());
+        var m = assembly.GetType("C", throwOnError: true)!
+            .GetMethod(method, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)!;
+        return (int)m.Invoke(null, null)!;
+    }
+
+    private static string FindRepoRootFromBaseDirectory(string relative)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, relative)))
+        {
+            dir = dir.Parent;
+        }
+        if (dir == null)
+        {
+            throw new InvalidOperationException($"repo root with '{relative}' not found");
+        }
+        return Path.Combine(dir.FullName, relative);
+    }
+
+    private static string ChainC01(string foreachSourceOutput)
+    {
+        var tree = CSharpSyntaxTree.ParseText(foreachSourceOutput);
+        var compilation = CSharpCompilation.Create(
+            "foreach-source-to-c01-model",
+            new[] { tree },
+            RuntimeReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var rewriter = new RefOutInRewriter();
+        var result = rewriter.Rewrite(foreachSourceOutput, compilation.GetSemanticModel(tree));
+        // The model compilation only binds the foreach-source output; the
+        // rewrite result is the contract under test.
+        Assert.True(result.Changed, "C01 rewriter must rewrite the FR ref locals");
+        return result.OutputCode;
+    }
 
     private static int CountOccurrences(string text, string value)
     {
