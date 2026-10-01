@@ -145,6 +145,12 @@
       <Link>SampleEnumDeclarationSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Include SampleForeachSourceSolution (C16) as content; bin/obj excluded. -->
+    <Content Include="..\SampleForeachSourceSolution\**\*.*"
+              Exclude="..\SampleForeachSourceSolution\**\bin\**;..\SampleForeachSourceSolution\**\obj\**">
+      <Link>SampleForeachSourceSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

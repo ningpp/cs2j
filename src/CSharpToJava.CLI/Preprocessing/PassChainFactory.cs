@@ -3,6 +3,7 @@ using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.ForeachDeconstruction;
+using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.GenericPreprocess;
 using CSharpToJava.Core.IndexRange;
 using CSharpToJava.Core.IteratorLowering;
@@ -88,6 +89,7 @@ internal static class PassChainFactory
             [PassIds.Delegate] = opts.DelegatePreprocess,
             [PassIds.Tuple] = opts.TupleToStruct,
             [PassIds.ForeachDeconstruction] = opts.ForeachDeconstruction,
+            [PassStubCatalog.Ids.ForeachSource] = opts.ForeachSource,
             [PassIds.StripDefault] = opts.StripDefault,
             [PassIds.RefOutIn] = opts.RefOutIn,
             [PassIds.Unsigned] = opts.UnsignedType,
@@ -186,6 +188,13 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
+
+            PassStubCatalog.Ids.ForeachSource => new ForeachSourcePassAdapter(
+                new ForeachSourceOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.Strict),
 
             PassIds.PatternDesugar => new PatternDesugarPassAdapter(
                 new PatternDesugarOptions(),

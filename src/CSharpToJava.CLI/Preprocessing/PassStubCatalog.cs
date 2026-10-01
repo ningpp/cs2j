@@ -66,16 +66,8 @@ internal static class PassStubCatalog
             needsSemanticModel: false,
             description: "Merge partial type declarations across the tree before the semantic passes.",
             catalogItems: "C20"),
-        new(
-            Ids.ForeachSource,
-            "Foreach source rewrite",
-            ".cs2j-foreach-source-src",
-            PassStage.ControlFlow,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.ForeachDeconstruction },
-            description: "Normalize foreach iteration sources and ref/ref-struct enumerators.",
-            catalogItems: "C16, C40"),
+        // Ids.ForeachSource flipped to Implemented in PassCatalog (C16);
+        // the id constant stays here by the iterator-lowering precedent (§3.4).
         new(
             Ids.ClosedMetadata,
             "Closed-type metadata",

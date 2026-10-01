@@ -163,6 +163,15 @@ public class ProjectPreprocessorsConsistentTests
             Assert.Equal(".cs2j-numeric-boundary-src",
                 PassCatalog.ImplementedById(PassStubCatalog.Ids.NumericBoundary).IntermediateDirectoryName);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.NumericBoundaryPassAdapter));
+
+            // foreach-source (C16)：无门面类（设计决定），目录常量挂注册表描述符；
+            // 默认关，经 --foreach-source / --enable-pass foreach-source / --pass 开启。
+            var foreachSourceDescriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.ForeachSource);
+            Assert.Equal(".cs2j-foreach-source-src",
+                foreachSourceDescriptor.IntermediateDirectoryName);
+            Assert.False(foreachSourceDescriptor.DefaultEnabled);
+            Assert.Equal("C16", foreachSourceDescriptor.CatalogItems);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.ForeachSourcePassAdapter));
         }
         finally
         {

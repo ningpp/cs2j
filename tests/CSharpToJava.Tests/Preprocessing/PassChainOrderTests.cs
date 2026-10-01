@@ -26,6 +26,7 @@ public sealed class PassChainOrderTests
         PassIds.Delegate,
         PassIds.Tuple,
         PassIds.ForeachDeconstruction,
+        PassStubCatalog.Ids.ForeachSource,
         PassIds.PatternDesugar,
         PassIds.StripDefault,
         PassIds.RefOutIn,
@@ -44,12 +45,13 @@ public sealed class PassChainOrderTests
         PassIds.JavaKeywords,
     ];
 
-    // C15 M4 起 numeric-boundary 默认开；C07 struct-value-semantics 与 C05 enum-declaration
-    // 已落地但暂保持 opt-in（各自设计 §8 default-enablement 闸门未放行），故默认启用
-    // 列表显式排除这两个 id。
+    // C15 M4 起 numeric-boundary 默认开；C07 struct-value-semantics、C05
+    // enum-declaration 与 C16 foreach-source 已落地但暂保持 opt-in（各自设计
+    // §8 default-enablement 闸门未放行），故默认启用列表显式排除这三个 id。
     private static readonly string[] EnabledByDefault =
         LockedChain.Where(id => id != PassIds.StructValueSemantics
-            && id != PassIds.EnumDeclaration).ToArray();
+            && id != PassIds.EnumDeclaration
+            && id != PassStubCatalog.Ids.ForeachSource).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -158,6 +160,8 @@ public sealed class PassChainOrderTests
         Assert.Equal("C07", byId[PassIds.StructValueSemantics].CatalogItems);
         Assert.Equal("C05", byId[PassIds.EnumDeclaration].CatalogItems);
         Assert.Equal("C11, C12, C13, C14", byId[PassIds.MemberDesugar].CatalogItems);
+        Assert.Equal("C16", byId[PassStubCatalog.Ids.ForeachSource].CatalogItems);
+        Assert.False(byId[PassStubCatalog.Ids.ForeachSource].DefaultEnabled);
     }
 
     [Fact]

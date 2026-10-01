@@ -4926,6 +4926,10 @@ class ConvertProjectOptions
         HelpText = "Enable the struct-value-semantics pass (defensive Clone insertion for residual mutable structs)")]
     public bool StructValueSemantics { get; set; }
 
+    [Option("foreach-source", Default = false,
+        HelpText = "Enable the foreach-source pass (wrap foreach over string with ToCharArray() and close residual deconstruction forms)")]
+    public bool ForeachSource { get; set; }
+
     [Option("struct-value-semantics-overrides", Required = false,
         HelpText = "Path to StructValueSemanticsOverrides.json (default: config/StructValueSemanticsOverrides.json)")]
     public string? StructValueSemanticsOverrides { get; set; }

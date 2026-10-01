@@ -67,4 +67,41 @@ public static class PreprocessDiagnosticCodes
 
     /// <summary>numeric-boundary: residual unchecked/checked node survived in user-scope output (NB-13).</summary>
     public const string NumericBoundaryResidualNode = "CS2J5327";
+
+    // ── CS2J54xx foreach-source family (C16 string foreach / residual deconstruction) ──
+    // CS2J5400-5409: family-shared (restore/build/test gates).
+    // CS2J5410-5419: string source (FS-1).
+    // CS2J5420-5439: residual deconstruction (FS-2/FS-3).
+    // CS2J5440-5449: residual gate / ref / await counters (FS-4/FS-5).
+    // CS2J5450-5499: reserved for C40 (EnumeratorAdapter / RefForeach).
+
+    /// <summary>foreach-source: intermediate-tree <c>dotnet restore</c> failed.</summary>
+    public const string ForeachSourceRestoreFailed = "CS2J5402";
+
+    /// <summary>foreach-source: intermediate-tree <c>dotnet build</c> failed.</summary>
+    public const string ForeachSourceBuildFailed = "CS2J5403";
+
+    /// <summary>foreach-source: intermediate-tree <c>dotnet test</c> failed.</summary>
+    public const string ForeachSourceTestsFailed = "CS2J5404";
+
+    /// <summary>foreach-source: string foreach wrapped with ToCharArray() (verbose-only aggregated info).</summary>
+    public const string ForeachSourceStringWrapped = "CS2J5410";
+
+    /// <summary>foreach-source: tuple-family deconstruction residual reached this pass (E06 should have handled it).</summary>
+    public const string ForeachSourceTupleResidual = "CS2J5420";
+
+    /// <summary>foreach-source: other-family deconstruction residual cannot be normalized (extension Deconstruct, …).</summary>
+    public const string ForeachSourceOtherResidual = "CS2J5421";
+
+    /// <summary>foreach-source: KeyValuePair deconstruction residual (foreach-deconstruction should have handled it).</summary>
+    public const string ForeachSourceKvResidual = "CS2J5422";
+
+    /// <summary>foreach-source: residual gate found bare string foreach or tuple/other deconstruction sites in the output tree.</summary>
+    public const string ForeachSourceResidualGate = "CS2J5440";
+
+    /// <summary>foreach-source: ref/ref readonly foreach site left untouched (belongs to C40; verbose-only info).</summary>
+    public const string ForeachSourceRefForeach = "CS2J5441";
+
+    /// <summary>foreach-source: await foreach site left untouched (belongs to C38; verbose-only info).</summary>
+    public const string ForeachSourceAwaitForeach = "CS2J5442";
 }
