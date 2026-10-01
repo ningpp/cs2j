@@ -155,4 +155,91 @@ dotnet test -c Release tests/CSharpToJava.ConversionTests/CSharpToJava.Conversio
 
 ## 6. M0 探针记录
 
-（M0 实施时追加：API 外形、接口具体类核实表、builder 绑定外形、CS9175/9176 复现结论）
+环境：.NET 10 / `Microsoft.CodeAnalysis.CSharp` 5.0.x；探针固定在
+`tests/CSharpToJava.Tests/CollectionExprDesugarUnitTests.cs`（12 个 Fact）。
+集合表达式需 `LanguageVersion >= CSharp12`；实测**不指定 ParseOptions 的默认版本**
+（LatestMajor）即可解析并绑定集合表达式，探针与 M0 行为测试显式使用 `LanguageVersion.Preview`。
+
+### 6.1 IOperation 运行时外形（5 类目标 + 元素路径）
+
+- `model.GetOperation(CollectionExpressionSyntax)` 对所有目标（数组 / `List<int>` /
+  `IEnumerable<int>` / `Span<byte>` / 自定义 builder 类）统一返回公共具体类型
+  **`Microsoft.CodeAnalysis.Operations.CollectionExpressionOperation`**，实现
+  `ICollectionExpressionOperation`；元素取 **`.Elements`**（`ImmutableArray<IOperation>`）。
+- 同型元素为裸 **`Microsoft.CodeAnalysis.Operations.LiteralOperation`**
+  （`Kind=Literal`，`Type=int`），无转换包裹；`int -> byte` 收窄元素为
+  **`Microsoft.CodeAnalysis.Operations.ConversionOperation`**（`Type=byte`，
+  `.Operand` 为 int 字面量）。
+- spread 元素为 **`Microsoft.CodeAnalysis.Operations.SpreadOperation`**
+  （`Kind=Spread`，**自身 `Type` 为 null**），实现 `ISpreadOperation`；
+  源表达式取 **`.Operand`**。实测 `.Operand` **无隐式转换包裹**，直接是
+  `ParameterReferenceOperation`（`Microsoft.CodeAnalysis.Operations.ParameterReferenceOperation`），
+  `Type` 为源实参的自然类型。六类源实测：
+
+  | 源实参 | Operand.Type（ToDisplayString） |
+  | --- | --- |
+  | `int[]` | `int[]` |
+  | `List<int>` | `System.Collections.Generic.List<int>` |
+  | `IEnumerable<int>` | `System.Collections.Generic.IEnumerable<int>` |
+  | `Span<int>` | `System.Span<int>` |
+  | `ReadOnlySpan<int>` | `System.ReadOnlySpan<int>` |
+  | `string`（目标 `char[]`） | `string` |
+
+  → M1 元素类型必须从 `ISpreadOperation.Operand.Type` 自行分类
+  （数组取 `IArrayTypeSymbol.ElementType`、Span 取类型实参、string→char、
+  IEnumerable\<T\> 取类型实参），不能依赖转换节点。
+
+### 6.2 ConvertedType 形态
+
+| 目标 | `GetTypeInfo(site).ConvertedType.ToDisplayString()` |
+| --- | --- |
+| `int[]` | `int[]` |
+| `List<int>` | `System.Collections.Generic.List<int>` |
+| `Span<byte>` | `System.Span<byte>` |
+| 自定义 `[CollectionBuilder]` 类 | `MyCollection`（自身名，非 builder 类型） |
+
+### 6.3 CollectionBuilder 外形与 Create 绑定位置
+
+- 属性读取：`INamedTypeSymbol.GetAttributes()` 取
+  `System.Runtime.CompilerServices.CollectionBuilderAttribute`，**2 个构造参数**：
+  - `ConstructorArguments[0]`：`TypedConstantKind.Type`，`Type` 显示名 **`System.Type`**
+    （注意 `SpecialType` 不含 System_Type），`Value` 为 builder 的 `INamedTypeSymbol`；
+  - `ConstructorArguments[1]`：`TypedConstantKind.Primitive`，`SpecialType.System_String`，
+    值为工厂方法名（`"Create"`）。
+- **`CollectionExpressionOperation` 子树内不存在任何 `IInvocationOperation`**
+  （探针实测计数 0）：builder 的 Create 绑定**不暴露在 IOperation 树中**。
+  → M1 只能依据特性元数据（builder 类型符号 + 方法名 + ReadOnlySpan 形参元素类型）
+  自行解析，`CollectionBuilderAnalyzer.FindBoundFactoryInvocation` 的
+  IOperation 扫描路径在 5.0 上不可用，M1 改走符号解析。
+- 合成 builder 类若未声明元素类型，编译给 **CS9188**（"具有 CollectionBuilderAttribute，
+  但没有元素类型"）Warning，不影响特性读取；M1 fixture 需让集合实现
+  IEnumerable\<T\> 以保持干净编译。
+
+### 6.4 接口目标核实表 + CS9174
+
+| 声明目标 | ConvertedType 全名 | 集合表达式可否构造 |
+| --- | --- | --- |
+| `IEnumerable<int>` | `System.Collections.Generic.IEnumerable<int>` | 可 |
+| `IList<int>` | `System.Collections.Generic.IList<int>` | 可 |
+| `ICollection<int>` | `System.Collections.Generic.ICollection<int>` | 可 |
+| `IReadOnlyList<int>` | `System.Collections.Generic.IReadOnlyList<int>` | 可 |
+| `IReadOnlyCollection<int>` | `System.Collections.Generic.IReadOnlyCollection<int>` | 可 |
+| `IDictionary<int,string>` | `System.Collections.Generic.IDictionary<int, string>` | **CS9174 不可构造** |
+| 非泛型 `IEnumerable` | `System.Collections.IEnumerable` | **CS9174 不可构造** |
+
+CS9174 消息："无法使用集合表达式初始化类型 X，因为该类型不可构造。"
+→ M1 对 IDictionary / 非泛型 IEnumerable 站点走 skip 诊断（0570 系），不得生成构造。
+
+### 6.5 CS9175 / CS9176 实测
+
+- `var x = [];` → **CS9176** "集合表达式没有目标类型。"（语义错误，语法仍解析为
+  `CollectionExpressionSyntax`）。
+- `Expression<Func<int[]>> e = () => [1];` → **CS9175** "表达式树不能包含集合表达式。"
+
+### 6.6 M0 行为锁定（同测试文件）
+
+clean 文件 `Changed=false` + `FilesSkippedClean=1` 且字节不变；dirty 文件
+（含 `[1,2,3]`）M0 空转：`Changed=false` + `FilesDirtyNoRewrite=1`，
+`CollectionSites/ByTargetArray` 等计数正确，输出原样；`SemanticModel=null` 时
+dirty 文件不崩，返回 **CS2J0571 Warning**；仅含 CE-GUARD 语法（接口
+`static abstract` 成员）的文件同样判 dirty 但站点数为 0。

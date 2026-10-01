@@ -91,6 +91,7 @@ public sealed class PassStubCatalogTests
                 EnumDeclarationOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 EqualityConcatOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 UnsafeFfmOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
+                ExpressionDesugarOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 LegacyToggles = PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
                 EnablePassIds = new[] { PassStubCatalog.Ids.ClosureLift },
             });

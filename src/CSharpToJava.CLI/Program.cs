@@ -219,6 +219,13 @@ public class Program
                 {
                     Strict = opts.LocalFunctionStrict,
                 },
+                ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions
+                {
+                    CollectionExpr = new CSharpToJava.Core.ExpressionDesugar.CollectionExpr.CollectionExprOptions
+                    {
+                        Strict = opts.LocalFunctionStrict,
+                    },
+                },
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
@@ -3630,6 +3637,13 @@ public class Program
                 UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions
                 {
                     Strict = opts.LocalFunctionStrict,
+                },
+                ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions
+                {
+                    CollectionExpr = new CSharpToJava.Core.ExpressionDesugar.CollectionExpr.CollectionExprOptions
+                    {
+                        Strict = opts.LocalFunctionStrict,
+                    },
                 },
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,

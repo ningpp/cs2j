@@ -76,6 +76,9 @@ public class IndexRangeConversionEndToEndTests
                 UnsafeFfmOptionsFactory = () =>
                     new CSharpToJava.Core.UnsafeFfm
                         .UnsafeFfmOptions(),
+                ExpressionDesugarOptionsFactory = () =>
+                    new CSharpToJava.Core.ExpressionDesugar
+                        .ExpressionDesugarOptions(),
                 LegacyToggles = PassCatalog.BuildRegistry().Ordered
                     .Select(d => d.Id)
                     .ToDictionary(

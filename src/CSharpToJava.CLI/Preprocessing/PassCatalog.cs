@@ -70,6 +70,22 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Rewrite ?? / ??= expressions into Java-compatible forms."),
         new(
+            PassStubCatalog.Ids.ExpressionDesugar,
+            "Expression desugaring",
+            ".cs2j-expression-desugar-src",
+            PassStage.Expression,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            // Physical placement right after null-coalesce plus declaration-order
+            // tiebreak keeps this pass immediately after null-coalesce (C36 plan §2).
+            runAfterIds: new[] { PassIds.NullCoalesce },
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Desugar expression sugar into explicit statements; M0 registers only the C36 " +
+                         "collection-expression analysis skeleton (site counting, no rewrite).",
+            catalogItems: "C36"),
+        new(
             PassIds.Enum,
             "Enum",
             ProjectEnumPreprocessor.IntermediateDirectoryName,

@@ -171,16 +171,10 @@ internal static class PassStubCatalog
             runAfterIds: new[] { Ids.ClosureLift },
             description: "Normalize async/await, async streams and async disposal into explicit state/bridge forms.",
             catalogItems: "C18, C38 (C44 subtopic)"),
-        new(
-            Ids.ExpressionDesugar,
-            "Expression desugaring",
-            ".cs2j-expression-desugar-src",
-            PassStage.Expression,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.NullCoalesce },
-            description: "Desugar expression/collection sugar into explicit statements with single-evaluation temporaries.",
-            catalogItems: "C23, C24, C35, C36"),
+        // Ids.ExpressionDesugar flipped to Implemented in PassCatalog (C36 M0:
+        // only the collection-expression analysis skeleton is registered,
+        // default-off / no rewrite); the id constant stays here by the
+        // iterator-lowering / equality-concat precedent (§3.4).
         new(
             Ids.AnonymousTypeLift,
             "Anonymous type lift",

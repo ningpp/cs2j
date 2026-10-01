@@ -21,6 +21,7 @@ public sealed class PassChainOrderTests
         PassIds.Conditional,
         PassIds.LocalFunctionLift,
         PassIds.NullCoalesce,
+        PassStubCatalog.Ids.ExpressionDesugar,
         PassIds.Enum,
         PassIds.EnumDeclaration,
         PassIds.Delegate,
@@ -48,15 +49,17 @@ public sealed class PassChainOrderTests
     ];
 
     // Opt-in passes stay excluded from the default chain: C07 struct-value-semantics,
-    // C05 enum-declaration, C16/C40 foreach-source, C47 equality-concat and
-    // C06 unsafe-ffm (each design's §8 default-enablement gate has not released
-    // them); every other implemented id defaults on.
+    // C05 enum-declaration, C16/C40 foreach-source, C47 equality-concat,
+    // C06 unsafe-ffm and C36 expression-desugar (each design's §8
+    // default-enablement gate has not released them); every other implemented
+    // id defaults on.
     private static readonly string[] EnabledByDefault =
         LockedChain.Where(id => id != PassIds.StructValueSemantics
             && id != PassIds.EnumDeclaration
             && id != PassStubCatalog.Ids.ForeachSource
             && id != PassStubCatalog.Ids.EqualityConcat
-            && id != PassStubCatalog.Ids.UnsafeFfm).ToArray();
+            && id != PassStubCatalog.Ids.UnsafeFfm
+            && id != PassStubCatalog.Ids.ExpressionDesugar).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -213,6 +216,7 @@ public sealed class PassChainOrderTests
         Assert.Equal("C16, C40", byId[PassStubCatalog.Ids.ForeachSource].CatalogItems);
         Assert.False(byId[PassStubCatalog.Ids.ForeachSource].DefaultEnabled);
         Assert.Equal("C47", byId[PassStubCatalog.Ids.EqualityConcat].CatalogItems);
+        Assert.Equal("C36", byId[PassStubCatalog.Ids.ExpressionDesugar].CatalogItems);
     }
 
     [Fact]
@@ -228,6 +232,7 @@ public sealed class PassChainOrderTests
             EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
             EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
+            ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
         };
 
         foreach (var descriptor in PassCatalog.BuildRegistry().Ordered
@@ -306,13 +311,15 @@ public sealed class PassChainOrderTests
         var toggles = PassChainFactory.BuildLegacyToggles(options);
 
         // Legacy flags only exist for the historical implemented passes; stubs and
-        // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm) are
-        // reachable solely through their descriptor default plus
+        // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
+        // C36 expression-desugar) are reachable solely through their descriptor
+        // default plus
         // --enable-pass/--pass.
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
-                && id != PassStubCatalog.Ids.UnsafeFfm)
+                && id != PassStubCatalog.Ids.UnsafeFfm
+                && id != PassStubCatalog.Ids.ExpressionDesugar)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

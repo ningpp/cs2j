@@ -3,6 +3,7 @@ using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.EqualityConcat;
+using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ForeachDeconstruction;
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.GenericPreprocess;
@@ -82,6 +83,8 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Invoked only when unsafe-ffm is enabled (keeps construction lazy).</summary>
     public required Func<UnsafeFfmOptions> UnsafeFfmOptionsFactory { get; init; }
+    /// <summary>Invoked only when expression-desugar is enabled (keeps override loading lazy).</summary>
+    public required Func<ExpressionDesugarOptions> ExpressionDesugarOptionsFactory { get; init; }
 }
 
 /// <summary>
@@ -354,6 +357,17 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests,
                 config.Strict),
+
+            // C36: registered but default OFF; reachable only through its
+            // descriptor default plus --enable-pass expression-desugar (no
+            // convert-project legacy toggle, enum-declaration precedent).
+            PassStubCatalog.Ids.ExpressionDesugar => new ExpressionDesugarPassAdapter(
+                config.ExpressionDesugarOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
 
             _ => throw new KeyNotFoundException($"No chain adapter is registered for pass id '{passId}'."),
         };
