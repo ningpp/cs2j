@@ -146,22 +146,52 @@ internal static class CollectionExprDiagnostics
         "Target type carries [CollectionBuilder(builderType: {0}, methodName: {1})]; v1 " +
         "cannot emit builder factory calls. Site left unchanged (M2 emits via IOperation).";
 
+    /// <summary>
+    /// M2 CS2J0580: the builder attribute was read but no unique factory
+    /// could be resolved; {2} carries the concrete symbol-resolution reason.
+    /// </summary>
+    public const string BuilderUnresolvedMessage =
+        "Target type carries [CollectionBuilder(builderType: {0}, methodName: {1})] " +
+        "but the factory call cannot be emitted: {2}. Site left unchanged.";
+
     public const string TableOutMessage =
         "No known concrete construction form for collection target '{0}' (table-out " +
         "interface/abstract class/multidimensional array). Site left unchanged.";
+
+    /// <summary>
+    /// M2 CS2J0581 variant for interface targets the C# compiler itself
+    /// rejects (CS9174): {0} target display, {1} baseline note.
+    /// </summary>
+    public const string TableOutBaselineMessage =
+        "No known concrete construction form for collection target '{0}' ({1}). " +
+        "Site left unchanged.";
 
     public const string SpreadNotEnumerableMessage =
         "Spread source is not enumerable or its static type cannot be determined; no " +
         "AddRange/foreach expansion is possible. Site left unchanged.";
 
     public const string RefStructElementMessage =
-        "ref struct elements / Span stack-allocated form is outside the v1 array " +
-        "boundary (see C06 for stackalloc/Span lowering). Site left unchanged.";
+        "Collection element type '{0}' is a ref struct; a Span<{0}> target cannot " +
+        "be built as a heap array (baseline CS9244/CS0611; stackalloc/Span " +
+        "lowering is owned by C06). Site left unchanged.";
 
     public const string NotLiftableMessage =
         "A collection expression containing a spread sits in a position that cannot " +
         "be statement-lifted ({0}: field/property initializer, attribute argument, " +
         "default parameter value or query clause). Site left unchanged.";
+
+    /// <summary>
+    /// M2 CS2J0583 (CE-10/E): spread-bearing site on a <c>?:</c> branch or as
+    /// the right operand of <c>??</c>. Prefix-hoisting would eagerly evaluate
+    /// the not-taken branch; context lowering is tightened when the C24
+    /// conditional guard / context lowering merges.
+    /// </summary>
+    public const string NotLiftableConditionalMessage =
+        "A collection expression containing a spread is used as a " +
+        "conditional-expression ('?:') branch or as the right operand of '??'; " +
+        "statement pre-hoisting would evaluate the not-taken branch, so the site " +
+        "is left unchanged (tightened in M2; context-sensitive lowering lands " +
+        "with the C24 conditional-guard/context-lowering work).";
 
     public const string SpanArrayMessage =
         "Span/ReadOnlySpan target constructed as a heap array (stack-to-heap semantic " +

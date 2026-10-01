@@ -141,17 +141,20 @@ internal static class SpreadExpander
     /// <param name="kind">classified source kind.</param>
     /// <param name="source">visited (already-lowered) source expression; inlined once.</param>
     /// <param name="tempReceiver">the __ed_n collection temp.</param>
-    /// <param name="loopVariable">foreach variable from the file allocator.</param>
+    /// <param name="loopVariable">
+    /// Analyze-phase pre-allocated foreach variable (CE-8); used when
+    /// <paramref name="addRangeAvailable"/> is false.
+    /// </param>
     /// <param name="addRangeAvailable">
-    /// array target temps (List&lt;T&gt;) always have AddRange; concrete targets
-    /// only when a compatible AddRange exists.
+    /// AddRange decided at Analyze: List&lt;T&gt; temps (array/Span/interface/
+    /// builder targets) or concrete temps with a symbol-compatible AddRange.
     /// </param>
     public static (IReadOnlyList<StatementSyntax> Statements, SpreadExpansion Expansion)
         BuildExpansion(
             SpreadSourceKind kind,
             ExpressionSyntax source,
             ExpressionSyntax tempReceiver,
-            Func<string> allocateLoopVariable,
+            string loopVariable,
             bool addRangeAvailable)
     {
         // String and Span can never use AddRange: List<char>.AddRange(string)
@@ -167,7 +170,6 @@ internal static class SpreadExpander
             return (new StatementSyntax[] { addRange }, SpreadExpansion.AddRange);
         }
 
-        var loopVariable = allocateLoopVariable();
         var loopAdd = SyntaxFactory.ExpressionStatement(
             MemberInvoke(
                 tempReceiver, "Add",

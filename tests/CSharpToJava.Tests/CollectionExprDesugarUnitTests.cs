@@ -42,6 +42,17 @@ public class CollectionExprDesugarUnitTests
         MetadataReference.CreateFromFile(typeof(System.Collections.IEnumerable).Assembly.Location),
         MetadataReference.CreateFromFile(
             typeof(System.Runtime.CompilerServices.RuntimeFeature).Assembly.Location),
+        // System.Collections.Immutable ships in the shared .NET 10 runtime;
+        // the generic-builder factory test resolves ImmutableArray.Create<T>.
+        MetadataReference.CreateFromFile(
+            typeof(System.Collections.Immutable.ImmutableArray<>).Assembly.Location),
+        // LINQ runtime + the facade used by runtime probes that call .Select/.Count.
+        MetadataReference.CreateFromFile(
+            typeof(System.Linq.Enumerable).Assembly.Location),
+        MetadataReference.CreateFromFile(
+            Path.Combine(
+                Path.GetDirectoryName(typeof(object).Assembly.Location)!,
+                "System.Runtime.dll")),
     };
 
     private static (CSharpCompilation compilation, SemanticModel model, List<CollectionExpressionSyntax> sites)
@@ -445,7 +456,7 @@ public class CollectionExprDesugarUnitTests
     }
 
     [Fact]
-    public void M1_TargetBucketAndShapeCounters_FollowSemanticClassification_StrictAbort()
+    public void M2_TargetBucketAndShapeCounters_FollowSemanticClassification_AllSitesRewrite()
     {
         const string source = """
             using System;
@@ -473,18 +484,26 @@ public class CollectionExprDesugarUnitTests
             """;
         var preprocessor = new ExpressionDesugarPreprocessor();
 
-        // Strict (default): the interface (0581) and builder (0580) sites are
-        // Errors, so the whole file is atomically preserved.
+        // M2: interface sites construct List<T> (0574) and builder sites emit
+        // the resolved factory, so a legal file rewrites end to end; the Span
+        // site carries the CS2J0578 stack->heap Info.
         var result = preprocessor.Preprocess(source, BuildModel(source));
 
-        Assert.False(result.Changed);
-        Assert.Equal(source, result.OutputCode);
-        Assert.Equal(1, result.Statistics.FilesDirtyNoRewrite);
-        var codes = result.Diagnostics.Select(d => d.Code).ToHashSet();
-        Assert.Contains(CollectionExprDiagnosticCodes.CS2J0580, codes);
-        Assert.Contains(CollectionExprDiagnosticCodes.CS2J0581, codes);
-        Assert.All(result.Diagnostics, d =>
-            Assert.Equal(ExpressionDesugarSeverity.Error, d.Severity));
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal(1, result.Statistics.FilesTransformed);
+        Assert.DoesNotContain(
+            CollectionExprDiagnosticCodes.CS2J0580,
+            result.Diagnostics.Select(d => d.Code));
+        Assert.DoesNotContain(
+            CollectionExprDiagnosticCodes.CS2J0581,
+            result.Diagnostics.Select(d => d.Code));
+        Assert.Contains(
+            CollectionExprDiagnosticCodes.CS2J0578,
+            result.Diagnostics.Select(d => d.Code));
+        Assert.All(
+            result.Diagnostics.Where(d => d.Code == CollectionExprDiagnosticCodes.CS2J0578),
+            d => Assert.Equal(ExpressionDesugarSeverity.Info, d.Severity));
 
         var stats = result.Statistics.CollectionExpr;
         Assert.Equal(9, stats.CollectionSites);
@@ -497,15 +516,19 @@ public class CollectionExprDesugarUnitTests
         Assert.Equal(5, stats.ByTargetArray);
         Assert.Equal(1, stats.SpanArraySites);
         Assert.Equal(1, stats.BuilderSites);
+        Assert.Equal(1, stats.BuilderFactoryEmitted);
+        Assert.Equal(1, stats.InterfaceConstructSites);
         Assert.Equal(1, stats.EmptySites);              // []
         Assert.Equal(1, stats.NestedSites);             // inner [1] inside [[1]]
         Assert.Equal(1, stats.SpreadElements);          // .. src
-        Assert.Equal(1, stats.SkippedByReason[CollectionExprDiagnosticCodes.CS2J0580]);
-        Assert.Equal(1, stats.SkippedByReason[CollectionExprDiagnosticCodes.CS2J0581]);
+        Assert.False(stats.SkippedByReason
+            .ContainsKey(CollectionExprDiagnosticCodes.CS2J0580));
+        Assert.False(stats.SkippedByReason
+            .ContainsKey(CollectionExprDiagnosticCodes.CS2J0581));
     }
 
     [Fact]
-    public void M1_NonStrict_WarnedSitesPreserved_SiblingSitesRewrite()
+    public void M2_NonStrict_InterfaceAndBuilderSitesRewrite_WithSiblingArray()
     {
         const string source = """
             using System;
@@ -539,20 +562,21 @@ public class CollectionExprDesugarUnitTests
 
         var result = preprocessor.Preprocess(source, BuildModel(source), options);
 
-        Assert.True(result.Changed); // array sibling rewrites
+        Assert.True(result.Changed); // all three sites rewrite under M2
         Assert.Equal(1, result.Statistics.FilesTransformed);
         var normalized = Normalize(result.OutputCode);
         Assert.Contains("new int[] { 1 }", normalized);
-        // Interface and builder sites are preserved verbatim (Warnings).
-        Assert.Contains("IEnumerable<int> c = [2];", normalized);
-        Assert.Contains("MyCollection e = [3];", normalized);
-        Assert.All(result.Diagnostics, d =>
-            Assert.Equal(ExpressionDesugarSeverity.Warning, d.Severity));
-        Assert.Equal(1, result.Statistics.CollectionExpr
-            .SkippedByReason[CollectionExprDiagnosticCodes.CS2J0580]);
-        Assert.Equal(1, result.Statistics.CollectionExpr
-            .SkippedByReason[CollectionExprDiagnosticCodes.CS2J0581]);
-        Assert.Equal(0, result.Statistics.CollectionExpr.ResidualCollectionCount);
+        // Interface -> List<int> collection initializer; builder -> B.Create.
+        Assert.Contains("List<int>() { 2 }", normalized);
+        Assert.Contains(".Create(", normalized);
+        Assert.Empty(result.Diagnostics);
+        Assert.False(result.Statistics.CollectionExpr.SkippedByReason
+            .ContainsKey(CollectionExprDiagnosticCodes.CS2J0580));
+        Assert.False(result.Statistics.CollectionExpr.SkippedByReason
+            .ContainsKey(CollectionExprDiagnosticCodes.CS2J0581));
+        Assert.Equal(1, result.Statistics.CollectionExpr.InterfaceConstructSites);
+        Assert.Equal(1, result.Statistics.CollectionExpr.BuilderFactoryEmitted);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     // ------------------------------------------------------------------
@@ -1186,7 +1210,7 @@ public class CollectionExprDesugarUnitTests
     }
 
     [Fact]
-    public void M1_Spread_TernaryAndArgument_SafeWhenOnlyLiteralsIdentifiersBefore()
+    public void M2_Spread_TernaryBranches_0583_ArgumentStillLifts_NonStrict()
     {
         const string source = """
             public class C
@@ -1199,14 +1223,65 @@ public class CollectionExprDesugarUnitTests
             }
             """;
 
+        // M2 (E): prefix-hoisting a spread-bearing '?:' branch would evaluate
+        // the not-taken branch, so both branches stay on 0583; the argument
+        // site remains a safe statement-lift position. Non-strict keeps the
+        // ternary sites (Warnings) while still rewriting the argument site.
+        var options = new ExpressionDesugarOptions
+        {
+            CollectionExpr = new CollectionExprOptions { Strict = false },
+        };
+        var result = Preprocess(source, options);
+
+        Assert.True(result.Changed); // argument site rewrites
+        var ternaryDiagnostics = result.Diagnostics
+            .Where(d => d.Code == CollectionExprDiagnosticCodes.CS2J0583)
+            .ToList();
+        Assert.Equal(2, ternaryDiagnostics.Count);
+        Assert.All(ternaryDiagnostics,
+            d => Assert.Equal(ExpressionDesugarSeverity.Warning, d.Severity));
+        Assert.Contains("conditional", ternaryDiagnostics[0].Message);
+        Assert.Equal(1, result.Statistics.CollectionExpr.StatementLiftedSites);
+        Assert.Equal(2, result.Statistics.CollectionExpr
+            .SkippedByReason[CollectionExprDiagnosticCodes.CS2J0583]);
+
+        var residualSites = CSharpSyntaxTree.ParseText(
+                result.OutputCode,
+                new CSharpParseOptions(LanguageVersion.Preview))
+            .GetCompilationUnitRoot()
+            .DescendantNodes().OfType<CollectionExpressionSyntax>().Count();
+        Assert.Equal(2, residualSites); // the preserved ternary branches only
+        AssertOutputCompiles(result.OutputCode);
+
+        // Strict mode: both branch sites are Errors and abort the whole file.
+        var strict = Preprocess(source);
+        Assert.False(strict.Changed);
+        Assert.Equal(source, strict.OutputCode);
+        Assert.All(strict.Diagnostics, d =>
+        {
+            Assert.Equal(ExpressionDesugarSeverity.Error, d.Severity);
+            Assert.Equal(CollectionExprDiagnosticCodes.CS2J0583, d.Code);
+        });
+        Assert.Equal(2, strict.Diagnostics.Count);
+    }
+
+    [Fact]
+    public void M2_Spread_NullCoalescingRightOperand_0583()
+    {
+        const string source = """
+            public class C
+            {
+                int[] M(int[]? a, int[] b) => a ?? [.. b];
+            }
+            """;
+
         var result = Preprocess(source);
 
-        Assert.True(result.Changed);
-        Assert.DoesNotContain(
-            CollectionExprDiagnosticCodes.CS2J0583,
-            result.Diagnostics.Select(d => d.Code));
-        Assert.Equal(3, result.Statistics.CollectionExpr.StatementLiftedSites);
-        AssertOutputCompiles(result.OutputCode);
+        Assert.False(result.Changed);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(ExpressionDesugarSeverity.Error, diagnostic.Severity);
+        Assert.Equal(CollectionExprDiagnosticCodes.CS2J0583, diagnostic.Code);
+        Assert.Contains("right operand of '??'", diagnostic.Message);
     }
 
     [Fact]
@@ -1346,7 +1421,7 @@ public class CollectionExprDesugarUnitTests
     }
 
     [Fact]
-    public void M1_BuilderV1_0580MessageNamesBuilderAndFactory()
+    public void M2_BuilderUnresolved_0580MessageNamesBuilderFactoryAndReason()
     {
         const string source = """
             using System;
@@ -1360,7 +1435,9 @@ public class CollectionExprDesugarUnitTests
                 public IEnumerator<int> GetEnumerator() => throw new NotImplementedException();
                 IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
             }
-            public static class B { public static MyCollection Create(ReadOnlySpan<int> x) => new(); }
+            // No Create(ReadOnlySpan<int>)/Create(int[]) factory: the symbol
+            // resolver finds zero candidates (baseline CS9187 shape).
+            public static class B { public static MyCollection Create(int x) => new(); }
 
             public class C
             {
@@ -1376,9 +1453,14 @@ public class CollectionExprDesugarUnitTests
         Assert.False(result.Changed);
         var diagnostic = Assert.Single(result.Diagnostics);
         Assert.Equal(CollectionExprDiagnosticCodes.CS2J0580, diagnostic.Code);
+        Assert.Equal(ExpressionDesugarSeverity.Error, diagnostic.Severity);
         Assert.Contains("B", diagnostic.Message);
         Assert.Contains("Create", diagnostic.Message);
-        Assert.Equal(1, result.Statistics.CollectionExpr.BuilderSites);
+        Assert.Contains("no accessible static method", diagnostic.Message);
+        var stats = result.Statistics.CollectionExpr;
+        Assert.Equal(1, stats.BuilderSites);
+        Assert.Equal(0, stats.BuilderFactoryEmitted);
+        Assert.Equal(1, stats.SkippedByReason[CollectionExprDiagnosticCodes.CS2J0580]);
     }
 
     // ------------------------------------------------------------------
@@ -1430,5 +1512,659 @@ public class CollectionExprDesugarUnitTests
 
         Assert.False(second.Changed);
         Assert.Equal(first.OutputCode, second.OutputCode);
+    }
+
+    // ==================================================================
+    // M2 CE-4: interface targets -> List<T> concrete construction (0574).
+    // ==================================================================
+
+    private const string AllFiveInterfacesSource = """
+        using System.Collections.Generic;
+        public static class C
+        {
+            public static void M()
+            {
+                IEnumerable<int> a = [1];
+                ICollection<int> b = [2];
+                IList<int> c = [3];
+                IReadOnlyCollection<int> d = [4];
+                IReadOnlyList<int> e = [5];
+            }
+        }
+        """;
+
+    [Fact]
+    public void M2_InterfaceTargets_AllFive_EmitZeroTempList_AndCount0574()
+    {
+        var result = Preprocess(AllFiveInterfacesSource);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var stats = result.Statistics.CollectionExpr;
+        Assert.Equal(5, stats.ByTargetInterface);
+        Assert.Equal(5, stats.InterfaceConstructSites);
+        Assert.Equal(0, stats.MutableConstructSites); // interfaces are not the T3 bucket
+        Assert.False(stats.SkippedByReason.ContainsKey(
+            CollectionExprDiagnosticCodes.CS2J0581));
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Equal(5, Regex.Matches(
+            normalized,
+            @"new global::System\.Collections\.Generic\.List<(int|global::System\.Int32)>\(\) \{ \d \}").Count);
+        Assert.DoesNotContain("=[", normalized.Replace(" ", ""));
+    }
+
+    [Fact]
+    public void M2_IListTarget_ZeroTempList_MutableAtRuntime_DoubleRun()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    IList<int> e = [1, 2];
+                    e.Add(3);
+                    return e.Count + "," + e[2];
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal(1, result.Statistics.CollectionExpr.InterfaceConstructSites);
+        Assert.Equal("3,3", RunStaticMethod(source, "Probe"));
+        Assert.Equal("3,3", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    [Fact]
+    public void M2_InterfaceTarget_WithSpread_ListTempStatement_DoubleRun()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    int[] a = [1, 2];
+                    IEnumerable<int> e = [.. a, 4];
+                    return string.Join(",", e);
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        var normalized = Normalize(result.OutputCode);
+        // List<int> temp + AddRange; the interface local takes the temp
+        // directly (no ToArray — List<int> converts to IEnumerable<int>).
+        Assert.Contains(
+            "new global::System.Collections.Generic.List<int>()", normalized);
+        Assert.Contains("AddRange(a)", normalized);
+        Assert.DoesNotContain(".ToArray()", normalized);
+        Assert.Equal(1, result.Statistics.CollectionExpr.InterfaceConstructSites);
+        Assert.Equal(1, result.Statistics.CollectionExpr.StatementLiftedSites);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal("1,2,4", RunStaticMethod(source, "Probe"));
+        Assert.Equal("1,2,4", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    [Fact]
+    public void M2_IDictionaryAndNongenericEnumerable_0581_MessageNamesCS9174()
+    {
+        const string source = """
+            using System.Collections;
+            using System.Collections.Generic;
+            public static class C
+            {
+                public static void Go()
+                {
+                    IDictionary<int, string> f = [new KeyValuePair<int, string>(1, "x")];
+                    IEnumerable g = [1];
+                }
+            }
+            """;
+
+        // Baseline CS9174 sites are unreachable from compilable input; the
+        // defensive rule keeps them on 0581 and names the baseline error.
+        var result = Preprocess(source);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Equal(2, result.Diagnostics.Count);
+        Assert.All(result.Diagnostics, d =>
+        {
+            Assert.Equal(ExpressionDesugarSeverity.Error, d.Severity);
+            Assert.Equal(CollectionExprDiagnosticCodes.CS2J0581, d.Code);
+            Assert.Contains("CS9174", d.Message);
+        });
+        Assert.Equal(2,
+            result.Statistics.CollectionExpr.SkippedByReason[
+                CollectionExprDiagnosticCodes.CS2J0581]);
+        Assert.Equal(0, result.Statistics.CollectionExpr.InterfaceConstructSites);
+    }
+
+    [Fact]
+    public void M2_InterfaceTarget_Empty_ZeroTempList_EverywhereIncludingField()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            using System.Linq;
+            public class Holder { public IEnumerable<int> Values = []; }
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    IEnumerable<int> local = [];
+                    return new Holder().Values.Count() + "," + local.Count();
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal(2, result.Statistics.CollectionExpr.EmptySites);
+        Assert.DoesNotContain("List<int>() { }", Normalize(result.OutputCode));
+        Assert.Equal("0,0", RunStaticMethod(source, "Probe"));
+        Assert.Equal("0,0", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    // ==================================================================
+    // M2 CE-8: deterministic nested temp/loop numbering + mixed dispatch.
+    // ==================================================================
+
+    [Fact]
+    public void M2_NestedStatementSites_SiblingsSourceOrder_InnerBeforeOuter()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            using System.Linq;
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    var a = new List<int> { 1 };
+                    var b = new List<int> { 2 };
+                    var c = new List<List<int>> { new() { 9 } };
+                    List<List<int>> nested = [.. c, [.. a], [.. b]];
+                    return string.Join("|", nested.Select(l => string.Join(",", l)));
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+
+        // Two inner sibling sites (source order) before the enclosing site.
+        var firstInner = normalized.IndexOf("var __ed_0 =", StringComparison.Ordinal);
+        var secondInner = normalized.IndexOf("var __ed_1 =", StringComparison.Ordinal);
+        var outer = normalized.IndexOf("var __ed_2 =", StringComparison.Ordinal);
+        Assert.True(firstInner >= 0 && secondInner > firstInner && outer > secondInner,
+            normalized);
+
+        var stats = result.Statistics.CollectionExpr;
+        Assert.Equal(3, stats.StatementLiftedSites);
+        Assert.Equal(2, stats.NestedSites); // two inner sites
+        Assert.Equal(3, stats.TempsLifted);
+        Assert.Equal("9|1|2", RunStaticMethod(source, "Probe"));
+        Assert.Equal("9|1|2", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    [Fact]
+    public void M2_NestedSpreadAtBothLevels_InnerDeclaredBeforeOuter_DoubleRun()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            using System.Linq;
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    var lists = new List<List<int>> { new() { 10 }, new() { 20 } };
+                    var inner = new List<int> { 1, 2 };
+                    List<List<int>> outer = [.. lists, [.. inner]];
+                    return string.Join(";", outer.Select(l => string.Join(",", l)));
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+        var innerDecl = normalized.IndexOf("var __ed_0 =", StringComparison.Ordinal);
+        var outerDecl = normalized.IndexOf("var __ed_1 =", StringComparison.Ordinal);
+        Assert.True(innerDecl >= 0 && outerDecl > innerDecl, normalized);
+        // The outer list receives the inner temp as a plain element.
+        Assert.Contains(".Add(__ed_0)", normalized);
+        Assert.Equal("10;20;1,2", RunStaticMethod(source, "Probe"));
+        Assert.Equal("10;20;1,2", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    [Fact]
+    public void M2_MixedNesting_ZeroTempForms_CollectionOfArray_ArrayOfCollection_InterfaceInner()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            using System.Linq;
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    List<int[]> cols = [[1, 2], [3]];
+                    List<int>[] arrs = [new List<int> { 4 }, [5, 6]];
+                    List<IEnumerable<int>> ifaces = [[7, 8]];
+                    return cols.Count + "," + cols[0].Length + "|"
+                        + arrs.Length + "," + arrs[1].Count + "|"
+                        + ifaces[0].Count();
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+        // Zero-temp forms all around: no statement temps.
+        Assert.DoesNotContain("__ed_", normalized);
+        // Inner interface site dispatches independently to List<int>.
+        Assert.Contains(
+            "new global::System.Collections.Generic.List<int>() { 7, 8 }",
+            normalized);
+        Assert.Equal("2,2|2,2|2", RunStaticMethod(source, "Probe"));
+        Assert.Equal("2,2|2,2|2", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    // ==================================================================
+    // M2 CE-9: Span targets -> heap array + CS2J0578 Info; ref struct 0582.
+    // ==================================================================
+
+    [Fact]
+    public void M2_SpanTargets_EmitHeapArray_Report0578Info_AndCount()
+    {
+        const string source = """
+            using System;
+            public static class C
+            {
+                public static void M()
+                {
+                    Span<byte> s = [1, 2];
+                    ReadOnlySpan<int> r = [3];
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var infos = result.Diagnostics
+            .Where(d => d.Code == CollectionExprDiagnosticCodes.CS2J0578)
+            .ToList();
+        Assert.Equal(2, infos.Count);
+        Assert.All(infos, d => Assert.Equal(ExpressionDesugarSeverity.Info, d.Severity));
+        Assert.Contains("heap array", infos[0].Message);
+        Assert.Equal(2, result.Statistics.CollectionExpr.SpanArraySites);
+        Assert.Contains("new byte[] { 1, 2 }", Normalize(result.OutputCode));
+    }
+
+    [Fact]
+    public void M2_SpanTarget_IndexEquality_DoubleRun()
+    {
+        const string source = """
+            using System;
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    Span<int> s = [1, 2, 3];
+                    ReadOnlySpan<int> r = [4, 5];
+                    return s[0] + "," + s[2] + "," + r[1];
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal(2, result.Diagnostics
+            .Count(d => d.Code == CollectionExprDiagnosticCodes.CS2J0578));
+        Assert.Equal(2, result.Statistics.CollectionExpr.SpanArraySites);
+        Assert.Equal("1,3,5", RunStaticMethod(source, "Probe"));
+        Assert.Equal("1,3,5", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    [Fact]
+    public void M2_SpanRefStructElement_0582_StrictError_NonStrictWarning()
+    {
+        const string source = """
+            using System;
+
+            public readonly ref struct Tiny
+            {
+                public readonly int V;
+                public Tiny(int v) { V = v; }
+            }
+
+            public static class C
+            {
+                public static void M()
+                {
+                    Span<Tiny> s = [new Tiny(1)];
+                }
+            }
+            """;
+
+        // Strict: Error and the file is atomically preserved.
+        var strict = Preprocess(source);
+        Assert.False(strict.Changed);
+        Assert.Equal(source, strict.OutputCode);
+        var error = Assert.Single(strict.Diagnostics);
+        Assert.Equal(ExpressionDesugarSeverity.Error, error.Severity);
+        Assert.Equal(CollectionExprDiagnosticCodes.CS2J0582, error.Code);
+        Assert.Contains("Tiny", error.Message);
+
+        // Non-strict: Warning and the site is preserved (residual-gate paired).
+        var nonStrict = Preprocess(source, new ExpressionDesugarOptions
+        {
+            CollectionExpr = new CollectionExprOptions { Strict = false },
+        });
+        Assert.False(nonStrict.Changed);
+        var warning = Assert.Single(nonStrict.Diagnostics);
+        Assert.Equal(ExpressionDesugarSeverity.Warning, warning.Severity);
+        Assert.Equal(CollectionExprDiagnosticCodes.CS2J0582, warning.Code);
+        Assert.Equal(0, nonStrict.Statistics.CollectionExpr.ResidualCollectionCount);
+    }
+
+    // ==================================================================
+    // M2 CE-10: CollectionBuilder generic factory emission.
+    // ==================================================================
+
+    private const string CustomBuilderSourcePrefix = """
+        using System;
+        using System.Collections;
+        using System.Collections.Generic;
+        using System.Runtime.CompilerServices;
+
+        [CollectionBuilder(typeof(B), "Create")]
+        public sealed class MyBuilt : IEnumerable<int>
+        {
+            private readonly int[] _items;
+            public MyBuilt(int[] items) { _items = items; }
+            public int Count => _items.Length;
+            public int this[int i] => _items[i];
+            public IEnumerator<int> GetEnumerator() => ((IEnumerable<int>)_items).GetEnumerator();
+            IEnumerator IEnumerable.GetEnumerator() => _items.GetEnumerator();
+        }
+
+        public static class B
+        {
+            public static MyBuilt Create(ReadOnlySpan<int> items) => new MyBuilt(items.ToArray());
+        }
+
+        """;
+
+    [Fact]
+    public void M2_BuilderFactory_NoSpread_EmitsGlobalFactoryCall_DoubleRun()
+    {
+        var source = CustomBuilderSourcePrefix + """
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    MyBuilt x = [1, 2, 3];
+                    return x.Count + ":" + string.Join(",", x);
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("global::B.Create(", normalized);
+        Assert.Contains("new int[] { 1, 2, 3 }", normalized);
+        Assert.Equal(1, result.Statistics.CollectionExpr.BuilderFactoryEmitted);
+        Assert.Equal(0, result.Statistics.CollectionExpr.StatementLiftedSites);
+        Assert.Equal("3:1,2,3", RunStaticMethod(source, "Probe"));
+        Assert.Equal("3:1,2,3", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    [Fact]
+    public void M2_BuilderFactory_Empty_EmitsEmptyArrayArgument_DoubleRun()
+    {
+        var source = CustomBuilderSourcePrefix + """
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    MyBuilt empty = [];
+                    return empty.Count.ToString();
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("global::B.Create(new int[] { })", normalized);
+        Assert.Equal(1, result.Statistics.CollectionExpr.EmptySites);
+        Assert.Equal("0", RunStaticMethod(source, "Probe"));
+        Assert.Equal("0", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    [Fact]
+    public void M2_BuilderFactory_WithSpread_ListTempThenToArray_DoubleRun()
+    {
+        var source = CustomBuilderSourcePrefix + """
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    int[] src = [1, 2];
+                    MyBuilt y = [.. src, 7];
+                    return string.Join(",", y);
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+        // List<int> temp accumulates, then the factory wraps ToArray().
+        Assert.Contains("new global::System.Collections.Generic.List<int>()", normalized);
+        Assert.Contains("global::B.Create(__ed_", normalized);
+        Assert.Contains(".ToArray())", normalized);
+        Assert.Equal(1, result.Statistics.CollectionExpr.BuilderFactoryEmitted);
+        Assert.Equal(1, result.Statistics.CollectionExpr.StatementLiftedSites);
+        Assert.Equal("1,2,7", RunStaticMethod(source, "Probe"));
+        Assert.Equal("1,2,7", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    [Fact]
+    public void M2_BuilderFactory_KeyValuePairElement_DoubleRun()
+    {
+        const string source = """
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+            using System.Runtime.CompilerServices;
+
+            [CollectionBuilder(typeof(DictB), "Create")]
+            public sealed class MyDict : IEnumerable<KeyValuePair<string, int>>
+            {
+                private readonly KeyValuePair<string, int>[] _items;
+                public MyDict(KeyValuePair<string, int>[] items) { _items = items; }
+                public IEnumerator<KeyValuePair<string, int>> GetEnumerator()
+                    => ((IEnumerable<KeyValuePair<string, int>>)_items).GetEnumerator();
+                IEnumerator IEnumerable.GetEnumerator() => _items.GetEnumerator();
+            }
+
+            public static class DictB
+            {
+                public static MyDict Create(ReadOnlySpan<KeyValuePair<string, int>> items)
+                    => new MyDict(items.ToArray());
+            }
+
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    MyDict d = [new KeyValuePair<string, int>("a", 1)];
+                    foreach (var pair in d) return pair.Key + pair.Value;
+                    return "none";
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Contains(
+            "global::System.Collections.Generic.KeyValuePair",
+            Normalize(result.OutputCode));
+        Assert.Equal(1, result.Statistics.CollectionExpr.BuilderFactoryEmitted);
+        Assert.Equal("a1", RunStaticMethod(source, "Probe"));
+        Assert.Equal("a1", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    [Fact]
+    public void M2_BuilderFactory_AmbiguousCandidates_0580()
+    {
+        const string source = """
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+            using System.Runtime.CompilerServices;
+
+            [CollectionBuilder(typeof(B), "Create")]
+            public sealed class MyBuilt : IEnumerable<int>
+            {
+                public IEnumerator<int> GetEnumerator() => throw new NotImplementedException();
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+
+            public static class B
+            {
+                public static MyBuilt Create(ReadOnlySpan<int> items) => new MyBuilt();
+                public static MyBuilt Create<T>(ReadOnlySpan<T> items) => new MyBuilt();
+            }
+
+            public static class C
+            {
+                public static void M()
+                {
+                    MyBuilt x = [1, 2];
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.False(result.Changed);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(CollectionExprDiagnosticCodes.CS2J0580, diagnostic.Code);
+        Assert.Equal(ExpressionDesugarSeverity.Error, diagnostic.Severity);
+        Assert.Contains("ambiguous", diagnostic.Message);
+        Assert.Equal(1,
+            result.Statistics.CollectionExpr.SkippedByReason[
+                CollectionExprDiagnosticCodes.CS2J0580]);
+        Assert.Equal(0, result.Statistics.CollectionExpr.BuilderFactoryEmitted);
+    }
+
+    [Fact]
+    public void M2_BuilderFactory_GenericFactory_ImmutableArray_DoubleRun()
+    {
+        const string source = """
+            using System.Collections.Immutable;
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    ImmutableArray<int> a = [1, 2, 3];
+                    ImmutableArray<int> b = [];
+                    return string.Join(",", a) + "|" + b.Length;
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains(
+            "global::System.Collections.Immutable.ImmutableArray.Create<int>(",
+            normalized);
+        Assert.Equal(2, result.Statistics.CollectionExpr.BuilderFactoryEmitted);
+        Assert.Equal("1,2,3|0", RunStaticMethod(source, "Probe"));
+        Assert.Equal("1,2,3|0", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    // ==================================================================
+    // M2 F: empty-collection matrix + empty-spread.
+    // ==================================================================
+
+    [Fact]
+    public void M2_EmptyMatrix_ArrayListInterfaceSpan_ZeroLengthOrCount_DoubleRun()
+    {
+        const string source = """
+            using System;
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class Holder
+            {
+                public IEnumerable<int> InterfaceField = [];
+                public static ReadOnlySpan<int> SpanProperty => [];
+            }
+
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    int[] a = [];
+                    List<int> b = [];
+                    IEnumerable<int> c = [];
+                    Span<int> d = [];
+                    int[] empty = [];
+                    int[] spreadOnly = [.. empty];
+                    var holder = new Holder();
+                    return string.Join(",",
+                        a.Length, b.Count, c.Count(), d.Length,
+                        spreadOnly.Length, holder.InterfaceField.Count(),
+                        Holder.SpanProperty.Length);
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal(7, result.Statistics.CollectionExpr.EmptySites);
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("new int[] { }", normalized);
+        Assert.Contains("new global::System.Collections.Generic.List<int>()",
+            normalized);
+        Assert.Equal("0,0,0,0,0,0,0", RunStaticMethod(source, "Probe"));
+        Assert.Equal("0,0,0,0,0,0,0", RunStaticMethod(result.OutputCode, "Probe"));
     }
 }

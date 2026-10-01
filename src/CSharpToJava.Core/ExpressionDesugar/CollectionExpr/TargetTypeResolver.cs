@@ -15,7 +15,11 @@ internal sealed record TargetResolution(
     IMethodSymbol? AddMethod = null,
     INamedTypeSymbol? BuilderType = null,
     string? BuilderFactoryMethod = null,
-    int ArrayRank = 0);
+    int ArrayRank = 0,
+    INamedTypeSymbol? ConstructedType = null,
+    IMethodSymbol? BuilderFactory = null,
+    string? BuilderResolveError = null,
+    string? BaselineNote = null);
 
 /// <summary>
 /// Classifies a collection-expression site by
@@ -35,6 +39,25 @@ internal sealed record TargetResolution(
 /// </summary>
 internal static class TargetTypeResolver
 {
+    private const string ListOfTMetadataName = "System.Collections.Generic.List`1";
+
+    /// <summary>
+    /// The five generic interfaces the C# compiler itself constructs via a
+    /// collection expression (locked by the M0/M2 Roslyn 5.0 probe, plan
+    /// §6.4): every other interface (IDictionary&lt;K,V&gt;,
+    /// IReadOnlyDictionary&lt;K,V&gt;, ISet&lt;T&gt;, the non-generic
+    /// System.Collections interfaces, ...) is baseline CS9174
+    /// "not constructible" and unreachable from compilable input.
+    /// </summary>
+    private static readonly string[] ConstructibleInterfaceMetadataNames =
+    {
+        "System.Collections.Generic.IEnumerable<T>",
+        "System.Collections.Generic.ICollection<T>",
+        "System.Collections.Generic.IList<T>",
+        "System.Collections.Generic.IReadOnlyCollection<T>",
+        "System.Collections.Generic.IReadOnlyList<T>",
+    };
+
     public static TargetResolution Resolve(
         SemanticModel model,
         CollectionExpressionSyntax node,
@@ -62,8 +85,8 @@ internal static class TargetTypeResolver
         // T2: Span<T>/ReadOnlySpan<T> (symbol full name, never source text).
         if (converted is INamedTypeSymbol spanNamed && IsSpanLike(spanNamed))
         {
-            var elementType = spanNamed.TypeArguments is { Length: 1 } args
-                ? args[0]
+            var elementType = spanNamed.TypeArguments is { Length: 1 } spanArgs
+                ? spanArgs[0]
                 : null;
             return new TargetResolution(
                 TargetKind.Span, converted, false, TargetElementType: elementType);
@@ -71,19 +94,43 @@ internal static class TargetTypeResolver
 
         if (converted is INamedTypeSymbol named)
         {
-            // T5: [CollectionBuilder(typeof(B), "Create")].
+            // T5: [CollectionBuilder(typeof(B), "Create")]. M2 resolves the
+            // unique static factory from attribute metadata + symbols (the
+            // bound Create call never enters the IOperation tree, plan §6.3).
             if (CollectionBuilderAnalyzer.TryGetBuilder(
                     named, out var builderType, out var factoryMethod))
             {
+                var builderResolved = CollectionBuilderAnalyzer.TryResolveFactory(
+                    (CSharpCompilation)model.Compilation,
+                    named, builderType!, factoryMethod!,
+                    elementFedTypes,
+                    out var factory, out var resolveError);
+
                 return new TargetResolution(
                     TargetKind.CollectionBuilder, converted, false,
-                    BuilderType: builderType, BuilderFactoryMethod: factoryMethod);
+                    TargetElementType: factory?.ElementType,
+                    BuilderType: builderType,
+                    BuilderFactoryMethod: factoryMethod,
+                    BuilderFactory: factory?.Factory,
+                    BuilderResolveError: builderResolved ? null : resolveError);
             }
 
-            // T4: interface targets. M1 skips them all (0581); M2 owns the
-            // specification-concrete-type table. No List.of-style fallback.
+            // T4: interface targets. Only the five constructible generic
+            // interfaces map to List<T>; all others are baseline CS9174 and
+            // unreachable from legal input (defensive 0581 skip).
             if (named.TypeKind == TypeKind.Interface)
-                return new TargetResolution(TargetKind.Interface, converted, false);
+            {
+                var concrete = TrySelectInterfaceConcreteType(model.Compilation, named);
+                var concreteValue = concrete.GetValueOrDefault();
+                return concrete != null
+                    ? new TargetResolution(
+                        TargetKind.Interface, converted, false,
+                        TargetElementType: concreteValue.ElementType,
+                        ConstructedType: concreteValue.ListType)
+                    : new TargetResolution(
+                        TargetKind.Interface, converted, false,
+                        BaselineNote: InterfaceBaselineNote);
+            }
 
             // T3: concrete addable class/struct only. The classic collection
             // initializer emitted by the zero-temp form (and the native
@@ -109,6 +156,43 @@ internal static class TargetTypeResolver
         }
 
         return new TargetResolution(TargetKind.Unknown, converted, false);
+    }
+
+    /// <summary>
+    /// CS9174 note appended to the defensive 0581 message for interface
+    /// targets the C# compiler itself cannot construct (unreachable in legal
+    /// input; no Dictionary/List&lt;object?&gt; emission is invented).
+    /// </summary>
+    public const string InterfaceBaselineNote =
+        "baseline C# reports CS9174 (collection expressions cannot construct " +
+        "this interface); the site is unreachable from compilable input";
+
+    /// <summary>
+    /// CE-4 (design §2.2): maps one of the five constructible generic
+    /// collection interfaces to <c>List&lt;T&gt;</c>, where T is the
+    /// interface's single type argument (the element type). Null for every
+    /// other interface.
+    /// </summary>
+    public static (INamedTypeSymbol ListType, ITypeSymbol ElementType)?
+        TrySelectInterfaceConcreteType(Compilation compilation, INamedTypeSymbol iface)
+    {
+        if (!iface.IsGenericType
+            || iface.TypeArguments is not { Length: 1 } typeArguments
+            || !ConstructibleInterfaceMetadataNames.Contains(
+                iface.OriginalDefinition.ToDisplayString()))
+        {
+            return null;
+        }
+
+        var elementType = typeArguments[0];
+        if (elementType.Kind == SymbolKind.ErrorType)
+            return null;
+
+        var listDefinition = compilation.GetTypeByMetadataName(ListOfTMetadataName);
+        if (listDefinition == null)
+            return null;
+
+        return (listDefinition.Construct(elementType), elementType);
     }
 
     /// <summary>

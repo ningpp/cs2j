@@ -41,6 +41,14 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
             plans[node] = plan;
         }
 
+        // CE-8 (M2): deterministic file-wide pre-allocation of temp names,
+        // foreach variables and lift orders for every statement-sequence site
+        // (post-order: inner sites before enclosing sites; siblings in source
+        // order). The rewriter consumes the pre-allocated values instead of
+        // numbering during its bottom-up visit.
+        if (model != null)
+            AllocateStatementSequenceNames(context, plans.Values);
+
         // CE-GUARD semantic inventory (0584-0588) lands in M3; the syntax-only
         // dirty scan in NewSyntaxGuardAnalyzer already participates.
         return new CollectionExprRulePlan(context, plans);
@@ -201,21 +209,28 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
         {
             switch (resolution.Kind)
             {
-                case TargetKind.CollectionBuilder:
+                // CE-10: a uniquely resolved factory is emitted; every other
+                // builder situation (missing/ambiguous/open generic) stays on
+                // 0580 with the concrete symbol-resolution reason.
+                case TargetKind.CollectionBuilder
+                    when resolution.BuilderFactory == null:
                     skipCode = CollectionExprDiagnosticCodes.CS2J0580;
                     skipMessage = string.Format(
-                        CollectionExprDiagnostics.BuilderV1Message,
+                        CollectionExprDiagnostics.BuilderUnresolvedMessage,
                         resolution.BuilderType?.ToDisplayString() ?? "?",
-                        resolution.BuilderFactoryMethod ?? "?");
+                        resolution.BuilderFactoryMethod ?? "?",
+                        resolution.BuilderResolveError ?? "unknown resolution failure");
                     break;
 
-                case TargetKind.Interface:
-                    // M1: every interface target is skipped (M2 owns the
-                    // specification-concrete-type table). No List.of fallback.
+                // CE-4: the five constructible interfaces map to List<T>;
+                // every other interface is baseline CS9174 and unreachable
+                // from compilable input (defensive skip, no invented type).
+                case TargetKind.Interface when resolution.ConstructedType == null:
                     skipCode = CollectionExprDiagnosticCodes.CS2J0581;
                     skipMessage = string.Format(
-                        CollectionExprDiagnostics.TableOutMessage,
-                        resolution.ConvertedType!.ToDisplayString());
+                        CollectionExprDiagnostics.TableOutBaselineMessage,
+                        resolution.ConvertedType!.ToDisplayString(),
+                        resolution.BaselineNote ?? TargetTypeResolver.InterfaceBaselineNote);
                     break;
 
                 case TargetKind.Unknown:
@@ -225,6 +240,18 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
                         resolution.ConvertedType!.ToDisplayString());
                     break;
             }
+        }
+
+        // CE-9: ref struct elements can never reach a heap array (baseline
+        // CS9244/CS0611; defensive 0582 locked by a custom ref struct fixture).
+        if (skipCode == null
+            && resolution.Kind == TargetKind.Span
+            && TryFindRefStructElement(resolution.TargetElementType, elements) is { } refStructElement)
+        {
+            skipCode = CollectionExprDiagnosticCodes.CS2J0582;
+            skipMessage = string.Format(
+                CollectionExprDiagnostics.RefStructElementMessage,
+                refStructElement.ToDisplayString());
         }
 
         // Element-level problems (0576 non-enumerable spread / unsupported kind).
@@ -238,8 +265,10 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
             if (!liftable)
             {
                 skipCode = CollectionExprDiagnosticCodes.CS2J0583;
-                skipMessage = string.Format(
-                    CollectionExprDiagnostics.NotLiftableMessage, reason);
+                skipMessage = reason == CollectionContextLowering.ConditionalBranchReason
+                    ? CollectionExprDiagnostics.NotLiftableConditionalMessage
+                    : string.Format(
+                        CollectionExprDiagnostics.NotLiftableMessage, reason);
             }
         }
 
@@ -250,6 +279,8 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
             ConvertedType = resolution.ConvertedType,
             BuilderType = resolution.BuilderType,
             BuilderFactoryMethod = resolution.BuilderFactoryMethod,
+            BuilderFactory = resolution.BuilderFactory,
+            ConstructedType = resolution.ConstructedType,
             TargetElementType = resolution.TargetElementType,
             AddMethod = resolution.AddMethod,
             Elements = elements,
@@ -269,25 +300,191 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
             return plan;
         }
 
+        // M2 success buckets (counted before shape dispatch, so both zero-temp
+        // and statement-sequence forms land in the same target bucket).
+        if (resolution.Kind == TargetKind.Interface)
+            stats.InterfaceConstructSites++;
+        if (resolution.Kind == TargetKind.CollectionBuilder)
+            stats.BuilderFactoryEmitted++;
+
+        // CE-9: every Span site actually rewritten to a heap array gets the
+        // stack->heap Info (C06 owns the true stack form).
+        if (resolution.Kind == TargetKind.Span)
+        {
+            context.Report(
+                ExpressionDesugarSeverity.Info,
+                CollectionExprDiagnosticCodes.CS2J0578,
+                CollectionExprDiagnostics.SpanArrayMessage,
+                node);
+        }
+
         if (containsSpread)
         {
             plan.Outcome = CollectionExprOutcome.StatementSequence;
             if (resolution.Kind == TargetKind.MutableConcrete)
                 stats.MutableConstructSites++;
-        }
-        else if (resolution.Kind == TargetKind.MutableConcrete)
-        {
-            plan.Outcome = CollectionExprOutcome.ZeroTempMutableCollection;
-            stats.MutableConstructSites++;
+
+            // Decide AddRange vs foreach-Add at Analyze time (same symbol rule
+            // the M1 emitter applied) so loop variables can be pre-allocated.
+            DecideSpreadShapes(model, plan);
         }
         else
         {
-            // Array and Span targets both emit the array form in M1 (T[] has an
-            // implicit conversion to Span<T>; 0578/0582 land in M2).
-            plan.Outcome = CollectionExprOutcome.ZeroTempArray;
+            switch (resolution.Kind)
+            {
+                case TargetKind.MutableConcrete:
+                    plan.Outcome = CollectionExprOutcome.ZeroTempMutableCollection;
+                    stats.MutableConstructSites++;
+                    break;
+
+                // CE-4: interface target -> new List<T>(){...} / new List<T>().
+                case TargetKind.Interface:
+                    plan.Outcome = CollectionExprOutcome.ZeroTempMutableCollection;
+                    break;
+
+                // CE-10: global::Builder.Create<...>(new TElem[]{...});
+                // empty site -> Create(new TElem[]{}).
+                case TargetKind.CollectionBuilder:
+                    plan.Outcome = CollectionExprOutcome.ZeroTempBuilderFactory;
+                    break;
+
+                default:
+                    // Array and Span targets both emit the array form; T[] has
+                    // an implicit conversion to Span<T> (0578 Info above).
+                    plan.Outcome = CollectionExprOutcome.ZeroTempArray;
+                    break;
+            }
         }
 
         return plan;
+    }
+
+    /// <summary>
+    /// Returns the first ref-struct type carried by a Span site: the target
+    /// element T itself or any fed element (ordinary fed type or a spread
+    /// source element type).
+    /// </summary>
+    private static ITypeSymbol? TryFindRefStructElement(
+        ITypeSymbol? targetElementType,
+        IReadOnlyList<ElementPlan> elements)
+    {
+        if (targetElementType is { IsRefLikeType: true })
+            return targetElementType;
+
+        foreach (var element in elements)
+        {
+            if (element.FedType is { IsRefLikeType: true } refLike)
+                return refLike;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Sets <see cref="SpreadPlan.UseAddRange"/> for every spread of a
+    /// statement-sequence plan using the same symbol rule as M1: List&lt;T&gt;
+    /// temps (array/Span/interface/builder targets) and T3 concrete temps use
+    /// AddRange only when an accessible compatible single-parameter AddRange
+    /// exists; Span/string sources always lower to foreach-Add.
+    /// </summary>
+    private static void DecideSpreadShapes(SemanticModel model, CollectionExprPlan plan)
+    {
+        INamedTypeSymbol? receiverType;
+        if (plan.UsesListTemp)
+        {
+            if (plan.TargetElementType == null)
+                return;
+            var listDefinition = model.Compilation
+                .GetTypeByMetadataName("System.Collections.Generic.List`1");
+            if (listDefinition == null)
+                return;
+            receiverType = listDefinition.Construct(plan.TargetElementType);
+        }
+        else
+        {
+            receiverType = plan.ConvertedType as INamedTypeSymbol;
+        }
+
+        if (receiverType == null)
+            return;
+
+        foreach (var element in plan.Elements)
+        {
+            if (element is not { Kind: CollectionElementKind.Spread, Spread: { } spread })
+                continue;
+
+            if (spread.SourceKind is not (SpreadSourceKind.Array or SpreadSourceKind.Enumerable))
+                continue;
+
+            var sourceInfo = model.GetTypeInfo(spread.Syntax.Expression);
+            var sourceType = sourceInfo.ConvertedType ?? sourceInfo.Type;
+            if (sourceType != null
+                && SpreadExpander.HasCompatibleAddRange(model, receiverType, sourceType))
+            {
+                spread.UseAddRange = true;
+            }
+        }
+    }
+
+    /// <summary>
+    /// CE-8 deterministic pre-allocation. Statement-sequence sites are visited
+    /// in post-order (an enclosing site is ordered AFTER every site it
+    /// contains; disjoint sites follow source order) so inner temps are
+    /// declared before outer sequences reference them. Each site receives its
+    /// <c>__ed_n</c> temp, its lift order, and one foreach variable per spread
+    /// that does not lower to AddRange — all from one file-wide numbering space
+    /// seeded from existing local names.
+    /// </summary>
+    private static void AllocateStatementSequenceNames(
+        RuleAnalysisContext context,
+        IEnumerable<CollectionExprPlan> allPlans)
+    {
+        var sequencePlans = allPlans
+            .Where(p => p.Outcome == CollectionExprOutcome.StatementSequence)
+            .ToList();
+        if (sequencePlans.Count == 0)
+            return;
+
+        sequencePlans.Sort(ComparePostOrder);
+
+        var allocator = new ExpressionDesugarTempNameAllocator(context.Root);
+
+        var order = 0;
+        foreach (var plan in sequencePlans)
+        {
+            plan.TempName = allocator.Allocate();
+            plan.LiftOrder = order++;
+
+            foreach (var element in plan.Elements)
+            {
+                if (element is { Kind: CollectionElementKind.Spread, Spread: { } spread }
+                    && !spread.UseAddRange)
+                {
+                    spread.LoopVariable = allocator.Allocate();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Post-order comparison: the contained of two nested sites sorts first;
+    /// disjoint sites sort by source position (SpanStart). Ties keep the stable
+    /// sort order.
+    /// </summary>
+    private static int ComparePostOrder(CollectionExprPlan left, CollectionExprPlan right)
+    {
+        if (ReferenceEquals(left, right))
+            return 0;
+
+        var leftNode = left.Node;
+        var rightNode = right.Node;
+
+        if (leftNode.Span.Contains(rightNode.Span))
+            return 1;  // right is inside left → right (inner) first
+        if (rightNode.Span.Contains(leftNode.Span))
+            return -1; // left is inside right → left (inner) first
+
+        return leftNode.SpanStart.CompareTo(rightNode.SpanStart);
     }
 
     /// <summary>

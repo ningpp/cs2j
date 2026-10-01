@@ -127,6 +127,6 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         => _diagnostics.Select(d =>
         {
             var prefix = d.FilePath != null ? $"{d.FilePath}: " : "";
-            return $"[expression-desugar] [{d.Severity}] {prefix}{d.Message}";
+            return $"[expression-desugar] [{d.Severity}] {prefix}{d.Code}: {d.Message}";
         }).ToList();
 }

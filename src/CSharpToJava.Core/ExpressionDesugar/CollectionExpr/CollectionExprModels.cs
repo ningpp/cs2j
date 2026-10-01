@@ -76,7 +76,10 @@ public enum CollectionExprOutcome
     /// <summary>new C&lt;T&gt;(){...} zero-temp mutable collection.</summary>
     ZeroTempMutableCollection,
 
-    /// <summary>__ed_n temp + Add/AddRange/foreach statement sequence (+ ToArray for array/Span targets).</summary>
+    /// <summary>global::Builder.Create&lt;...&gt;(new TElem[]{...}) zero-temp builder factory call.</summary>
+    ZeroTempBuilderFactory,
+
+    /// <summary>__ed_n temp + Add/AddRange/foreach statement sequence (+ ToArray for array/Span/builder targets).</summary>
     StatementSequence,
 
     /// <summary>Site intentionally kept, paired with a diagnostic.</summary>
@@ -92,6 +95,19 @@ public sealed class SpreadPlan
 
     /// <summary>Element type of the spread source (char for string; null when undecidable).</summary>
     public ITypeSymbol? ElementType { get; init; }
+
+    /// <summary>
+    /// M2: pre-allocated foreach variable name (Analyze phase, deterministic
+    /// post-order/source-order numbering). Null when the spread lowers to a
+    /// single AddRange call (no loop variable needed).
+    /// </summary>
+    public string? LoopVariable { get; set; }
+
+    /// <summary>
+    /// M2: decided at Analyze — true lowers to <c>tmp.AddRange(src)</c>,
+    /// false to the foreach-Add loop. Drives the pre-allocation of loop names.
+    /// </summary>
+    public bool UseAddRange { get; set; }
 }
 
 /// <summary>Plan for one element of a collection expression (every syntax kind covered).</summary>
@@ -126,6 +142,20 @@ public sealed class CollectionExprPlan
     /// <summary>T5: builder factory method name ("Create").</summary>
     public string? BuilderFactoryMethod { get; init; }
 
+    /// <summary>
+    /// T5 M2: uniquely resolved builder factory (already constructed when
+    /// generic); null keeps the site on the CS2J0580 rejection path.
+    /// </summary>
+    public IMethodSymbol? BuilderFactory { get; init; }
+
+    /// <summary>
+    /// T4 (M2): concrete type selected for an interface target
+    /// (e.g. <c>List&lt;T&gt;</c> for <c>IEnumerable&lt;T&gt;</c>). Null for
+    /// every other kind; the emitter then constructs <see cref="ConvertedType"/>
+    /// itself (T3).
+    /// </summary>
+    public INamedTypeSymbol? ConstructedType { get; init; }
+
     /// <summary>Target element type symbol (array/Span element; Add(P) for concrete targets).</summary>
     public ITypeSymbol? TargetElementType { get; init; }
 
@@ -146,7 +176,34 @@ public sealed class CollectionExprPlan
 
     public CollectionExprOutcome Outcome { get; set; } = CollectionExprOutcome.Pending;
 
-    /// <summary>True for T1 arrays and T2 Span targets (both emit array forms in M1).</summary>
+    /// <summary>
+    /// M2 CE-8: file-unique <c>__ed_n</c> temp name pre-allocated at Analyze
+    /// in deterministic post-order (inner sites before enclosing sites,
+    /// siblings in source order). Only set for statement-sequence sites.
+    /// </summary>
+    public string? TempName { get; set; }
+
+    /// <summary>
+    /// M2 CE-8: deterministic statement-insertion order at a shared anchor
+    /// (inner anchors before outer anchors; sibling sites by source order).
+    /// </summary>
+    public int LiftOrder { get; set; }
+
+    /// <summary>True for T1 arrays and T2 Span targets (both emit array forms).</summary>
     public bool EmitsArrayForm =>
         TargetKind is TargetKind.Array or TargetKind.Span;
+
+    /// <summary>
+    /// True when a spread-bearing site builds a <c>List&lt;TElem&gt;</c> temp
+    /// (array/Span finalize with ToArray; interface (T4) and collection-builder
+    /// (T5) sites likewise accumulate in List&lt;TElem&gt;). T3 concrete sites
+    /// build the concrete type itself (M1 behavior).
+    /// </summary>
+    public bool UsesListTemp =>
+        EmitsArrayForm
+        || TargetKind is TargetKind.Interface or TargetKind.CollectionBuilder;
+
+    /// <summary>The type actually constructed (T4 selection; otherwise the converted type).</summary>
+    public INamedTypeSymbol? EffectiveConstructedType =>
+        ConstructedType ?? ConvertedType as INamedTypeSymbol;
 }

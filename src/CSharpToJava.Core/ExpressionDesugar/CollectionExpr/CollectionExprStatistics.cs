@@ -43,6 +43,20 @@ public sealed class CollectionExprStatistics
     public int SpanArraySites;
     public int MutableConstructSites;
     public int BuilderSites;
+
+    /// <summary>
+    /// M2 CE-4: constructible interface targets lowered to List&lt;T&gt;
+    /// (CS2J0574 bucket; ByTargetInterface counts the target kind, this
+    /// counts sites that actually received the concrete form).
+    /// </summary>
+    public int InterfaceConstructSites;
+
+    /// <summary>
+    /// M2 CE-10: [CollectionBuilder] sites emitted via a uniquely resolved
+    /// factory call (the 0580-retained bucket is tracked in SkippedByReason).
+    /// </summary>
+    public int BuilderFactoryEmitted;
+
     public int StatementLiftedSites;
 
     /// <summary>Sites skipped/kept by diagnostic code (code -> count).</summary>
@@ -103,6 +117,8 @@ public sealed class CollectionExprStatistics
         SpanArraySites += other.SpanArraySites;
         MutableConstructSites += other.MutableConstructSites;
         BuilderSites += other.BuilderSites;
+        InterfaceConstructSites += other.InterfaceConstructSites;
+        BuilderFactoryEmitted += other.BuilderFactoryEmitted;
         StatementLiftedSites += other.StatementLiftedSites;
         GuardStaticAbstractDeclarations += other.GuardStaticAbstractDeclarations;
         GuardStaticAbstractCallSites += other.GuardStaticAbstractCallSites;

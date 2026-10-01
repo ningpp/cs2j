@@ -20,8 +20,6 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
 {
     private readonly RuleAnalysisContext _context;
     private readonly IReadOnlyDictionary<CollectionExpressionSyntax, CollectionExprPlan> _plans;
-    private readonly ExpressionDesugarTempNameAllocator _names;
-    private int _order;
 
     public CollectionExprRewriter(
         RuleAnalysisContext context,
@@ -29,7 +27,6 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
     {
         _context = context;
         _plans = plans;
-        _names = new ExpressionDesugarTempNameAllocator(context.Root);
     }
 
     /// <summary>Statement sequences collected for the family TempLifter.</summary>
@@ -67,8 +64,17 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
 
             case CollectionExprOutcome.ZeroTempMutableCollection:
                 RewriteCount++;
+                // T4 interface plans carry the selected List<T> here; T3
+                // plans carry the converted concrete type itself.
                 return CollectionExprEmitter.BuildZeroTempCollection(
-                    (INamedTypeSymbol)plan.ConvertedType!,
+                    plan.EffectiveConstructedType!,
+                    CollectionExprEmitter.ExtractExpressions(visited.Elements));
+
+            case CollectionExprOutcome.ZeroTempBuilderFactory:
+                RewriteCount++;
+                return CollectionExprEmitter.BuildBuilderFactory(
+                    plan.BuilderFactory!,
+                    plan.TargetElementType!,
                     CollectionExprEmitter.ExtractExpressions(visited.Elements));
 
             case CollectionExprOutcome.StatementSequence:
@@ -112,17 +118,13 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                 ExpressionDesugarSyntaxFacts.ExplainedAnnotation);
         }
 
-        var tempName = _names.Allocate();
         var emission = CollectionExprEmitter.BuildStatementSequence(
             _context.SemanticModel!,
             plan,
-            visited.Elements,
-            tempName,
-            () => _names.Allocate());
+            visited.Elements);
 
-        _order++;
         Pending.Add(new ExpressionDesugarTempLifter.PendingTemp(
-            emission.Statements, anchor, _order));
+            emission.Statements, anchor, plan.LiftOrder));
 
         if (!AnchorAnnotations.ContainsKey(anchor))
         {

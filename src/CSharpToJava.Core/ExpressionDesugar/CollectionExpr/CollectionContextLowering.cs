@@ -24,6 +24,41 @@ namespace CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 internal static class CollectionContextLowering
 {
     /// <summary>
+    /// Reason sentinel for the M2 conditional-branch guard: the rule emits the
+    /// dedicated CS2J0583 message (not the generic liftable-context template).
+    /// </summary>
+    public const string ConditionalBranchReason =
+        "conditional-expression branch or null-coalescing right operand";
+
+    /// <summary>
+    /// True when, on the parent chain from <paramref name="site"/> up to
+    /// <paramref name="anchor"/> (exclusive), the path child is the WhenTrue/
+    /// WhenFalse branch of a <c>?:</c> expression or the Right operand of a
+    /// <c>??</c> expression. Branches nested through other expressions are
+    /// covered by the chain walk.
+    /// </summary>
+    private static bool IsInGuardedConditionalBranch(
+        CollectionExpressionSyntax site, SyntaxNode anchor)
+    {
+        var child = (SyntaxNode)site;
+        for (var current = site.Parent;
+             current != null && current != anchor;
+             child = current, current = current.Parent)
+        {
+            switch (current)
+            {
+                case ConditionalExpressionSyntax conditional
+                    when child == conditional.WhenTrue || child == conditional.WhenFalse:
+                case BinaryExpressionSyntax { RawKind: (int)SyntaxKind.CoalesceExpression } coalesce
+                    when child == coalesce.Right:
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Decides whether a spread-bearing site can be lifted at its position.
     /// Returns true when safe; otherwise false and <paramref name="reason"/>
     /// carries the (invariant) phrase embedded in the CS2J0583 message.
@@ -40,6 +75,16 @@ internal static class CollectionContextLowering
         }
 
         var anchor = ExpressionDesugarTempLifter.FindAnchor(site);
+
+        // M2 CE-10/E: a spread-bearing site used as a '?:' branch or on the
+        // right side of '??' must never be pre-hoisted: eager temp building
+        // forces evaluation of the not-taken branch. Context-sensitive
+        // lowering lands with C24; until then the site is preserved.
+        if (anchor != null && IsInGuardedConditionalBranch(site, anchor))
+        {
+            reason = ConditionalBranchReason;
+            return false;
+        }
 
         // Arrow clause (expression-bodied method/local function/property/...):
         // TempLifter expands it to a block inside the member — statements stay
