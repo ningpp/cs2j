@@ -55,6 +55,12 @@ internal sealed class CliChainRequest
 
     /// <summary>Explicit --disable-pass overrides.</summary>
     public IEnumerable<string>? DisablePassIds { get; init; }
+
+    /// <summary>
+    /// C34: opt-in decimal operator normalization inside numeric-boundary.
+    /// Dormant default (false); tests and M3 flip it explicitly.
+    /// </summary>
+    public bool EnableDecimalOps { get; init; }
 }
 
 /// <summary>
@@ -133,6 +139,7 @@ internal static class CliPreprocessChain
             MemberDesugarOptionsFactory = request.MemberDesugarOptionsFactory,
             StructValueSemanticsOptionsFactory = request.StructValueSemanticsOptionsFactory,
             EnumDeclarationOptionsFactory = request.EnumDeclarationOptionsFactory,
+            EnableDecimalOps = request.EnableDecimalOps,
         };
 
         var sourcePath = request.SourcePath;

@@ -106,6 +106,29 @@ class DecimalTest {
     }
 
     @Test
+    void divide_tieAtScaleBoundary_roundsHalfEven() {
+        // 1e-28 / 2 = 5e-29, an exact tie between 0 and 1e-28. C# decimal
+        // rounds ties to even, so the result is 0 (HALF_UP would give 1e-28).
+        assertEquals(0,
+            Decimal.parse("0.0000000000000000000000000001")
+                .divide(Decimal.parse("2")).compareTo(Decimal.ZERO));
+        assertEquals(0,
+            Decimal.parse("-0.0000000000000000000000000001")
+                .divide(Decimal.parse("2")).compareTo(Decimal.ZERO));
+        // 3e-28 / 2 = 1.5e-28: the even neighbour 2e-28 wins.
+        assertEquals("0.0000000000000000000000000002",
+            Decimal.parse("0.0000000000000000000000000003")
+                .divide(Decimal.parse("2")).toStringPlain());
+    }
+
+    @Test
+    void staticCompare_matchesInstanceCompareTo_andIgnoresScale() {
+        assertEquals(0, Decimal.compare(Decimal.parse("1.0"), Decimal.parse("1.00")));
+        assertTrue(Decimal.compare(Decimal.parse("1.0"), Decimal.parse("2")) < 0);
+        assertTrue(Decimal.compare(Decimal.parse("2"), Decimal.parse("1.00")) > 0);
+    }
+
+    @Test
     void roundingAndIntegralOperations_matchCSharpStyle() {
         assertEquals("2", Decimal.parse("2.5").round().toString());
         assertEquals("4", Decimal.parse("3.5").round().toString());

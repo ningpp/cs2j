@@ -30,6 +30,14 @@ internal static class PassListFormatter
                 .Append(pass.Status.ToString().PadRight(14))
                 .Append((pass.DefaultEnabled ? "on" : "off").PadRight(9))
                 .Append(runAfter);
+
+            // Co-located catalog rules (e.g. numeric-boundary hosts C15 and C34)
+            // are surfaced so --list-passes stays the single inventory surface.
+            if (!string.IsNullOrEmpty(pass.CatalogItems))
+            {
+                line.Append("  rules=").Append(pass.CatalogItems);
+            }
+
             lines.Add(line.ToString());
         }
 

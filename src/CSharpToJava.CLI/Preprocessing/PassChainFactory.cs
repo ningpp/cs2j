@@ -67,6 +67,9 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
+
+    /// <summary>C34 decimal-ops opt-in (dormant default false).</summary>
+    public bool EnableDecimalOps { get; init; }
 }
 
 /// <summary>
@@ -219,7 +222,11 @@ internal static class PassChainFactory
                 config.CompatNamespacePrefixes),
 
             PassStubCatalog.Ids.NumericBoundary => new NumericBoundaryPassAdapter(
-                new NumericBoundaryOptions { EnabledPassIds = config.EnabledPassIds },
+                new NumericBoundaryOptions
+                {
+                    EnabledPassIds = config.EnabledPassIds,
+                    EnableDecimalOps = config.EnableDecimalOps,
+                },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

@@ -180,8 +180,9 @@ internal static class PassCatalog
             supportLibrary: PassSupportLibrary.Cs2jUnsignedMath,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Explicitize checked/unchecked integer arithmetic (overflow checks and stripping).",
-            catalogItems: "C15"),
+            description: "Explicitize checked/unchecked integer arithmetic (overflow checks and stripping); " +
+                         "C34 decimal operator normalization is co-located (opt-in via EnableDecimalOps).",
+            catalogItems: "C15, C34"),
         new(
             PassIds.Generic,
             "Generic",

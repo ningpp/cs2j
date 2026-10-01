@@ -80,6 +80,9 @@ public class PreprocessVerbCLITests
         Assert.Contains("Stub", stdout);
         Assert.Contains("off", stdout);
         Assert.Contains("on", stdout);
+        // C34 (decimal-ops) is co-located with the numeric-boundary pass; the
+        // catalog inventory must surface it even though it ships default-off.
+        Assert.Contains("rules=C15, C34", stdout);
     }
 
     [Fact]
