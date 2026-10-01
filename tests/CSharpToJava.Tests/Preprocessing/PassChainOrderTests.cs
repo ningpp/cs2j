@@ -159,7 +159,7 @@ public sealed class PassChainOrderTests
         Assert.Equal("C15, C34", byId[PassStubCatalog.Ids.NumericBoundary].CatalogItems);
         Assert.Equal("C07", byId[PassIds.StructValueSemantics].CatalogItems);
         Assert.Equal("C05", byId[PassIds.EnumDeclaration].CatalogItems);
-        Assert.Equal("C11, C12, C13, C14", byId[PassIds.MemberDesugar].CatalogItems);
+        Assert.Equal("C11, C12, C13, C14, C39", byId[PassIds.MemberDesugar].CatalogItems);
         Assert.Equal("C47", byId[PassStubCatalog.Ids.EqualityConcat].CatalogItems);
     }
 

@@ -351,6 +351,17 @@ public class ClassTransformer : ITypeTransformer
                 foreach (var jm in MethodResults(factory.CreateMethodTransformer().Transform(md, context)))
                     AddMethodIfNotDuplicateInternal(javaClass, jm);
                 break;
+            case DestructorDeclarationSyntax dtor:
+                // FN-9（C39）：终结器 ~T() 在 Java 无对应构造，必须先由 member-desugar
+                // 终结器规则（C39）诊断/处置后才能进入 Java 转换；漏网即快速失败。
+                throw new NotSupportedException(
+                    $"CS2J normalization required: finalizer '~{dtor.Identifier.Text}' must be handled by the member-desugar finalizer rule (C39) before Java conversion.");
+            case IncompleteMemberSyntax incomplete:
+                // 不完整成员（通常源于 C# 解析错误的占位节点）：不静默丢弃，显式 Warning。
+                context.Diagnostics.Warning(
+                    $"Incomplete member declaration skipped (likely a C# parse error): {incomplete.ToString().Trim()}",
+                    incomplete.GetLocation(), code: "CS2J1007", category: "IncompleteMember");
+                break;
             case ConstructorDeclarationSyntax cd:
                 Add(factory.CreateConstructorTransformer().Transform(cd, context));
                 break;
