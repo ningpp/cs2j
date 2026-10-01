@@ -237,6 +237,12 @@
       <Link>SampleExpressionDesugarUnsupportedSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- C36 M3 CE-GUARD static-abstract strict-rejection fixture (bin/obj excluded). -->
+    <Content Include="..\SampleExpressionDesugarGuardSolution\**\*.*"
+              Exclude="..\SampleExpressionDesugarGuardSolution\**\bin\**;..\SampleExpressionDesugarGuardSolution\**\obj\**">
+      <Link>SampleExpressionDesugarGuardSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>

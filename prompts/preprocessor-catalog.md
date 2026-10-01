@@ -776,7 +776,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 同上；测试仅 `LinqRewriterVariableCaptureTests.cs:11`（变量捕获形态）一处 |
 | 与现有通道关系 | primary constructor 已由 E08 覆盖（`DefaultParameterDeclarationRewriter.cs:165,178-204`、`DefaultParameterOverloadBuilder.cs:140`），不列入；C# 11/12 其余新语法（`static abstract` interface members、`scoped`、泛型 attribute）无任何专项处理证据——本通道兼任「新版本语法盘点 + 显式拒绝」防线（见 §4.13） |
 | 优先级 | **P3**（spread 丢失是数据级 bug，置于 P3 首位） |
-| 状态 | 部分（窄规则已有；spread/可变语义缺口） |
+| 状态 | **已实施（默认关，M0-M3，2026-10-01 核实）**：`expression-desugar` pass 已翻转（catalogItems `C36`，默认 off），集合表达式按 ConvertedType 数组/List/接口具体类/Span 数组/CollectionBuilder 工厂全矩阵去糖，spread→AddRange/语句序列，AfterFiles 全树 residual 复扫闸门（CS2J0589）；新语法防线 0585（static abstract 声明 strict Error/调用站点 Warning）、0586（scoped）、0587（泛型 attribute）、0588（表达式树）同遍语义盘点，0584 汇总；CollectionExprDesugarUnitTests 72 例 + SampleExpressionDesugarGuardSolution 项目级 fixture + CLI 进程/--list-passes 测试钉死。遗留：Java 半区核查（设计 §8-3）、sdk 画像复核另立 PR |
 | 验证 | 中间树 build/test；fixture：`List<int> l = [1,2]; l.Add(3)`、`[.. a, x]`、嵌套 `[[1],[2]]`、空 `[]`、IEnumerable 目标 |
 | 三次补全追加 | 盘点时已核实**不在本通道**的同族语法：空宽容 `x!` 已被透明剥离（`UnaryExpressionTransformer.cs:54`，无需前置）；`#nullable`/`#pragma` 活动指令由 E01 **保留**（白名单口径见 E01 目标模式行）。原列「the C# 11/12 新语法防线」职责保持不变（`static abstract`/`scoped`/泛型 attribute 全仓 grep 无命中，维持「先盘点 + 显式拒绝」）；成员级静默丢弃（终结器 `~T()`）单列 **C39** |
 | 四次补全追加 | 「cs2j 仓 grep 无命中」只说明本转换器源码不使用，**不代表输入不使用**：sdk 画像中 json/json-codegen 已使用接口 `static abstract/virtual` 成员（方向性输入 Layer 1，Java 无此特性，需 companion 模式，是独立难点而非仅拒绝项）；EF Core 画像扫描（§5.1）后须复核本防线优先级。另：`scoped` 与 C06 的 ref struct 子项同族 |

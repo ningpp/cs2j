@@ -439,10 +439,13 @@ public class CollectionExprDesugarUnitTests
     }
 
     [Fact]
-    public void M0_GuardSyntaxOnlyFile_IsDirtyNoRewrite_WithoutCollectionSites()
+    public void M3_GuardSyntaxOnlyFile_IsDirtyNoRewrite_AndEmits0585ErrorDiagnostic()
     {
-        // static abstract interface member is CE-GUARD syntax (M3 inventory):
-        // it makes the file dirty even with zero collection-expression sites.
+        // static abstract interface member is CE-GUARD syntax: it makes the
+        // file dirty even with zero collection-expression sites, and M3 emits
+        // the symbol-verified CS2J0585 declaration diagnostic. Strict default
+        // makes it an Error -> atomic Changed=false, but the diagnostic is
+        // still surfaced (dirty-no-rewrite path preserves diagnostics).
         const string source = """
             public interface IGuard { static abstract void M(); }
             """;
@@ -451,8 +454,21 @@ public class CollectionExprDesugarUnitTests
         var result = preprocessor.Preprocess(source, BuildModel(source));
 
         Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
         Assert.Equal(1, result.Statistics.FilesDirtyNoRewrite);
         Assert.Equal(0, result.Statistics.CollectionExpr.CollectionSites);
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(CollectionExprDiagnosticCodes.CS2J0585, diagnostic.Code);
+        Assert.Equal(ExpressionDesugarSeverity.Error, diagnostic.Severity);
+        Assert.Contains("IGuard.M()", diagnostic.Message);
+        Assert.Contains("independent workstream", diagnostic.Message);
+        Assert.Equal(
+            1,
+            result.Statistics.CollectionExpr.GuardStaticAbstractDeclarations);
+        Assert.Equal(
+            0,
+            result.Statistics.CollectionExpr.GuardStaticAbstractCallSites);
     }
 
     [Fact]
@@ -2166,5 +2182,428 @@ public class CollectionExprDesugarUnitTests
             normalized);
         Assert.Equal("0,0,0,0,0,0,0", RunStaticMethod(source, "Probe"));
         Assert.Equal("0,0,0,0,0,0,0", RunStaticMethod(result.OutputCode, "Probe"));
+    }
+
+    // ==================================================================
+    // M3 CE-GUARD: 0585/0586/0587/0588 semantic inventory.
+    // ==================================================================
+
+    private const string StaticAbstractKindsSource = """
+        using System;
+
+        public interface IGuard
+        {
+            static virtual int VirtualProperty => 1;
+            static abstract int AbstractProperty { get; set; }
+            static abstract event Action Happened;
+            static abstract IGuard operator +(IGuard left, IGuard right);
+        }
+        """;
+
+    [Fact]
+    public void M3_0585_StaticAbstractKinds_Declarations_StrictError_SymbolVerified()
+    {
+        var result = Preprocess(StaticAbstractKindsSource);
+
+        Assert.False(result.Changed);
+        Assert.Equal(StaticAbstractKindsSource, result.OutputCode);
+
+        var diagnostics = result.Diagnostics
+            .Where(d => d.Code == CollectionExprDiagnosticCodes.CS2J0585)
+            .ToList();
+        Assert.Equal(4, diagnostics.Count);
+        Assert.All(diagnostics, d =>
+        {
+            Assert.Equal(ExpressionDesugarSeverity.Error, d.Severity);
+            Assert.Contains("IGuard", d.Message);
+            Assert.Contains("independent workstream", d.Message);
+        });
+
+        // Member kinds named in the messages.
+        var joined = string.Join("|", diagnostics.Select(d => d.Message));
+        Assert.Contains("property", joined);
+        Assert.Contains("event", joined);
+        Assert.Contains("operator", joined);
+
+        var stats = result.Statistics.CollectionExpr;
+        Assert.Equal(4, stats.GuardStaticAbstractDeclarations);
+        Assert.Equal(0, stats.GuardStaticAbstractCallSites);
+    }
+
+    [Fact]
+    public void M3_0585_StaticAbstractKinds_Declarations_NonStrictWarning()
+    {
+        var result = Preprocess(StaticAbstractKindsSource, new ExpressionDesugarOptions
+        {
+            CollectionExpr = new CollectionExprOptions { Strict = false },
+        });
+
+        Assert.False(result.Changed); // guard-only file, nothing to rewrite
+        var diagnostics = result.Diagnostics
+            .Where(d => d.Code == CollectionExprDiagnosticCodes.CS2J0585)
+            .ToList();
+        Assert.Equal(4, diagnostics.Count);
+        Assert.All(diagnostics, d =>
+            Assert.Equal(ExpressionDesugarSeverity.Warning, d.Severity));
+    }
+
+    [Fact]
+    public void M3_0585_GenericMathCallSites_AreWarnings_NotErrors_SymbolVerified()
+    {
+        // Uses the BCL generic-math interface (no static-abstract declaration
+        // in this file): a + b resolves to IAdditionOperators<...>.op_Addition,
+        // an interface static abstract operator -> Warning inventory. Call-site
+        // inventory runs in files the cheap scan already marked dirty, so a
+        // sibling collection site carries the semantic pass; the Warning never
+        // blocks the sibling rewrite.
+        const string source = """
+            using System.Numerics;
+
+            public static class MathProbe
+            {
+                public static T Add<T>(T a, T b) where T : INumber<T> => a + b;
+                public static int[] Values() => [1, 2];
+            }
+            """;
+
+        var strict = Preprocess(source);
+
+        Assert.True(strict.Changed); // sibling collection site still rewrites
+        Assert.DoesNotContain(
+            strict.Diagnostics,
+            d => d.Severity == ExpressionDesugarSeverity.Error);
+        var call = Assert.Single(
+            strict.Diagnostics,
+            d => d.Code == CollectionExprDiagnosticCodes.CS2J0585);
+        Assert.Equal(ExpressionDesugarSeverity.Warning, call.Severity);
+        Assert.Contains("operator", call.Message);
+        Assert.Contains("IAdditionOperators", call.Message);
+        var stats = strict.Statistics.CollectionExpr;
+        Assert.Equal(0, stats.GuardStaticAbstractDeclarations);
+        Assert.Equal(1, stats.GuardStaticAbstractCallSites);
+        AssertOutputCompiles(strict.OutputCode);
+    }
+
+    [Fact]
+    public void M3_0585_GuardDisabled_SkipsInventoryEntirely()
+    {
+        var result = Preprocess(StaticAbstractKindsSource, new ExpressionDesugarOptions
+        {
+            CollectionExpr = new CollectionExprOptions
+            {
+                Strict = true,
+                EnableGuard = false,
+            },
+        });
+
+        Assert.False(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Code == CollectionExprDiagnosticCodes.CS2J0585);
+        Assert.Equal(
+            0,
+            result.Statistics.CollectionExpr.GuardStaticAbstractDeclarations);
+    }
+
+    [Fact]
+    public void M3_0586_ScopedParameterIsInfo_ScopedLocalIsWarning()
+    {
+        const string source = """
+            using System;
+
+            public class C
+            {
+                void M(scoped ReadOnlySpan<int> p)
+                {
+                    scoped ReadOnlySpan<int> local = p;
+                }
+            }
+            """;
+
+        var strict = Preprocess(source);
+
+        Assert.False(strict.Changed);
+        var byCode = strict.Diagnostics
+            .Where(d => d.Code == CollectionExprDiagnosticCodes.CS2J0586)
+            .ToList();
+        Assert.Equal(2, byCode.Count);
+        Assert.Contains(
+            byCode,
+            d => d.Severity == ExpressionDesugarSeverity.Info
+                 && d.Message.Contains("parameter"));
+        Assert.Contains(
+            byCode,
+            d => d.Severity == ExpressionDesugarSeverity.Warning
+                 && d.Message.Contains("local/other-form"));
+
+        var stats = strict.Statistics.CollectionExpr;
+        Assert.Equal(1, stats.GuardScopedParameterSites);
+        Assert.Equal(1, stats.GuardScopedLocalSites);
+    }
+
+    [Fact]
+    public void M3_0587_GenericAttribute_DeclarationError_ApplicationWarning()
+    {
+        const string source = """
+            using System;
+
+            [GenericAttr<int>()]
+            public class Target { }
+
+            public class GenericAttr<T> : Attribute { }
+            """;
+
+        // Strict: declaration is Error (atomic preserve); application Warning.
+        var strict = Preprocess(source);
+
+        Assert.False(strict.Changed);
+        Assert.Equal(source, strict.OutputCode);
+        var strictAttrs = strict.Diagnostics
+            .Where(d => d.Code == CollectionExprDiagnosticCodes.CS2J0587)
+            .ToList();
+        Assert.Equal(2, strictAttrs.Count);
+        Assert.Contains(
+            strictAttrs,
+            d => d.Severity == ExpressionDesugarSeverity.Error
+                 && d.Message.Contains("GenericAttr<T>"));
+        Assert.Contains(
+            strictAttrs,
+            d => d.Severity == ExpressionDesugarSeverity.Warning
+                 && d.Message.Contains("GenericAttr<int>"));
+
+        var stats = strict.Statistics.CollectionExpr;
+        Assert.Equal(1, stats.GuardGenericAttributeDeclarations);
+        Assert.Equal(1, stats.GuardGenericAttributeApplications);
+
+        // Non-strict: both downgrade to Warning.
+        var nonStrict = Preprocess(source, new ExpressionDesugarOptions
+        {
+            CollectionExpr = new CollectionExprOptions { Strict = false },
+        });
+        Assert.All(
+            nonStrict.Diagnostics.Where(d =>
+                d.Code == CollectionExprDiagnosticCodes.CS2J0587),
+            d => Assert.Equal(ExpressionDesugarSeverity.Warning, d.Severity));
+    }
+
+    [Fact]
+    public void M3_0587_NonGenericAttribute_IsNotInventoried()
+    {
+        const string source = """
+            using System;
+
+            [Plain]
+            public class Target { }
+
+            public class PlainAttribute : Attribute { }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.False(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Code == CollectionExprDiagnosticCodes.CS2J0587);
+        Assert.Equal(
+            0,
+            result.Statistics.CollectionExpr.GuardGenericAttributeDeclarations);
+        Assert.Equal(
+            0,
+            result.Statistics.CollectionExpr.GuardGenericAttributeApplications);
+    }
+
+    [Fact]
+    public void M3_0588_CollectionInsideExpressionTree_InfoSkip_PreservedAndPaired()
+    {
+        // Baseline CS9175 territory (normally uncompilable): the defensive
+        // 0588 check fires before target resolution and pairs the residual.
+        const string source = """
+            using System;
+            using System.Linq.Expressions;
+
+            public class C
+            {
+                public static Expression<Func<int[]>> Make() => () => [1];
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        var diagnostic = Assert.Single(result.Diagnostics
+            .Where(d => d.Code == CollectionExprDiagnosticCodes.CS2J0588));
+        Assert.Equal(ExpressionDesugarSeverity.Info, diagnostic.Severity);
+        Assert.Equal(
+            1,
+            result.Statistics.CollectionExpr
+                .SkippedByReason[CollectionExprDiagnosticCodes.CS2J0588]);
+        Assert.Equal(1, result.Statistics.CollectionExpr.CollectionSites);
+    }
+
+    // ==================================================================
+    // M3 CE-12 whole-tree residual gate (white-box algorithm tests).
+    // ==================================================================
+
+    [Fact]
+    public void M3_TreeGate_CountPairedNodes_SkipSitesPlusPreservedSpreads()
+    {
+        var stats = new CollectionExprStatistics();
+        stats.AddSkip(CollectionExprDiagnosticCodes.CS2J0571);
+        stats.AddSkip(CollectionExprDiagnosticCodes.CS2J0583);
+        stats.AddSkip(CollectionExprDiagnosticCodes.CS2J0588);
+        stats.SkippedSpreadElements = 2;
+
+        // 3 paired sites + 2 carried spread nodes = 5 paired residuals.
+        Assert.Equal(5, CollectionExprTreeGate.CountPairedNodes(stats));
+        Assert.Equal(
+            7,
+            CollectionExprTreeGate.PairedSkipCodes.Length);
+        Assert.Contains(
+            CollectionExprDiagnosticCodes.CS2J0588,
+            CollectionExprTreeGate.PairedSkipCodes);
+    }
+
+    [Fact]
+    public void M3_TreeGate_Reconcile_BalancedAndUnbalanced_PerFile()
+    {
+        var residual = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["a.cs"] = 3,
+            ["b.cs"] = 1,
+        };
+        var paired = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["a.cs"] = 3,
+            ["b.cs"] = 1,
+        };
+
+        var balanced = CollectionExprTreeGate.Reconcile(residual, paired);
+        Assert.True(balanced.Balanced);
+        Assert.Equal(4, balanced.ResidualNodes);
+        Assert.Equal(4, balanced.PairedNodes);
+        Assert.Empty(balanced.UnpairedFiles);
+
+        var broken = CollectionExprTreeGate.Reconcile(
+            new Dictionary<string, int>(StringComparer.Ordinal) { ["a.cs"] = 3 },
+            new Dictionary<string, int>(StringComparer.Ordinal) { ["a.cs"] = 2 });
+        Assert.False(broken.Balanced);
+        var file = Assert.Single(broken.UnpairedFiles);
+        Assert.Equal("a.cs", file.File);
+
+        var message = string.Format(
+            CollectionExprDiagnostics.TreeResidualMessage,
+            broken.ResidualNodes,
+            broken.PairedNodes,
+            string.Join(", ", broken.UnpairedFiles
+                .Select(f => $"{f.File} ({f.ResidualNodes} residual/{f.PairedNodes} paired)")));
+        Assert.Contains("3", message);
+        Assert.Contains("2", message);
+        Assert.Contains("a.cs", message);
+    }
+
+    [Fact]
+    public void M3_0584_InventorySummaryMessage_CarriesAllBuckets()
+    {
+        var message = string.Format(
+            CollectionExprDiagnostics.InventorySummaryMessage,
+            1, 2, 3, 4, 5, 6, 7, 8);
+
+        Assert.Contains("new-syntax inventory", message);
+        Assert.Contains("static-abstract 1 declaration(s)/2 call site(s)", message);
+        Assert.Contains("generic-attribute 3 declaration(s)/4 application(s)", message);
+        Assert.Contains("scoped 5 parameter site(s)/6 local/other site(s)", message);
+        Assert.Contains("7 residual node(s) = 8 paired", message);
+    }
+
+    // ==================================================================
+    // M3 E09 linkage observation (E09 = UnsignedTypeSyntaxRewriter byte
+    // narrowing). E09 wraps constants 128..255 ONLY when the literal's parent
+    // is InitializerExpressionSyntax/CollectionExpressionSyntax/
+    // ExpressionElementSyntax and ConvertedType is byte. These tests pin the
+    // parent-node shapes C36 emits; they do not modify E09.
+    // ==================================================================
+
+    [Fact]
+    public void M3_E09Observation_ZeroTempByteArray_HighLiteralsSitInArrayInitializer()
+    {
+        const string source = """
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    byte[] b = [128, 200, 127];
+                    return b[0] + "," + b[1] + "," + b[2];
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal("128,200,127", RunStaticMethod(source, "Probe"));
+        Assert.Equal("128,200,127", RunStaticMethod(result.OutputCode, "Probe"));
+
+        // Observation: the zero-temp form is new byte[]{ 128, 200, 127 }; each
+        // high literal's parent is the array InitializerExpressionSyntax, so
+        // E09 IsByteArrayInitializerElement matches and wraps 128/200 in
+        // (byte) — no C36 change required on this path.
+        var outputTree = CSharpSyntaxTree.ParseText(
+            result.OutputCode, new CSharpParseOptions(LanguageVersion.Preview));
+        var literals = outputTree.GetCompilationUnitRoot().DescendantNodes()
+            .OfType<LiteralExpressionSyntax>()
+            .Where(l => l is { RawKind: (int)SyntaxKind.NumericLiteralExpression })
+            .Where(l => l.Token.ValueText is "128" or "200" or "127")
+            .ToList();
+        Assert.Equal(3, literals.Count);
+        Assert.All(literals, l => Assert.IsType<InitializerExpressionSyntax>(l.Parent));
+        Assert.All(literals, l =>
+            Assert.Equal(SyntaxKind.ArrayInitializerExpression, l.Parent!.Kind()));
+    }
+
+    [Fact]
+    public void M3_E09Observation_StatementSequence_HighLiteralSitsInAddArgument_NotInitializer()
+    {
+        const string source = """
+            public static class Probe
+            {
+                public static string Run()
+                {
+                    byte[] prefix = new byte[] { 1 };
+                    byte[] b = [.. prefix, 200];
+                    return string.Join(",", b);
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal("1,200", RunStaticMethod(source, "Probe"));
+        Assert.Equal("1,200", RunStaticMethod(result.OutputCode, "Probe"));
+
+        var outputRoot = CSharpSyntaxTree.ParseText(
+                result.OutputCode, new CSharpParseOptions(LanguageVersion.Preview))
+            .GetCompilationUnitRoot();
+
+        // Observation 1: statement-lifted Add(200) — the high literal's parent
+        // is an ArgumentSyntax. E09's initializer-only predicate does NOT
+        // match argument position, so E09 leaves it unwrapped today.
+        var highLiteral = outputRoot.DescendantNodes()
+            .OfType<LiteralExpressionSyntax>()
+            .Single(l => l.Token.ValueText == "200");
+        Assert.IsType<ArgumentSyntax>(highLiteral.Parent);
+        var addCall = Assert.IsType<InvocationExpressionSyntax>(
+            highLiteral.Parent!.Parent!.Parent);
+        Assert.Contains(".Add(", addCall.ToString());
+
+        // Observation 2: the .ToArray() reference carries no element
+        // literals at all (elements were statement-added to the temp).
+        var toArray = outputRoot.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Single(i => i.Expression
+                .ToString()
+                .EndsWith(".ToArray", StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            toArray.DescendantNodes().OfType<LiteralExpressionSyntax>(),
+            l => l.Token.ValueText is "128" or "200");
     }
 }

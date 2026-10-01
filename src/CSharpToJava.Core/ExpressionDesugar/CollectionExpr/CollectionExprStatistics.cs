@@ -62,6 +62,14 @@ public sealed class CollectionExprStatistics
     /// <summary>Sites skipped/kept by diagnostic code (code -> count).</summary>
     public readonly Dictionary<string, int> SkippedByReason = new();
 
+    /// <summary>
+    /// M3 CE-12: spread elements carried by skip-paired (preserved)
+    /// collection sites. A preserved site with N spreads leaves 1 + N
+    /// residual nodes on disk; the CLI whole-tree gate pairs the N spread
+    /// nodes through this counter alongside the per-site skip counts.
+    /// </summary>
+    public int SkippedSpreadElements;
+
     // ---- CE-GUARD (M3 inventory) ----
 
     public int GuardStaticAbstractDeclarations;
@@ -120,6 +128,7 @@ public sealed class CollectionExprStatistics
         InterfaceConstructSites += other.InterfaceConstructSites;
         BuilderFactoryEmitted += other.BuilderFactoryEmitted;
         StatementLiftedSites += other.StatementLiftedSites;
+        SkippedSpreadElements += other.SkippedSpreadElements;
         GuardStaticAbstractDeclarations += other.GuardStaticAbstractDeclarations;
         GuardStaticAbstractCallSites += other.GuardStaticAbstractCallSites;
         GuardGenericAttributeDeclarations += other.GuardGenericAttributeDeclarations;

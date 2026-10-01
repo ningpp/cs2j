@@ -198,12 +198,25 @@ internal static class CollectionExprDiagnostics
         "note; full stack form is owned by C06).";
 
     public const string StaticAbstractMessage =
-        "Interface static abstract/virtual {0} '{1}'; Java has no equivalent feature " +
-        "(future companion mode = companion-class static methods plus monomorphization).";
+        "Interface static abstract/virtual {0} declaration '{1}': Java has no equivalent " +
+        "feature; the future companion mode (companion-class static methods plus " +
+        "monomorphized dispatch) is an independent workstream.";
+
+    /// <summary>
+    /// CS2J0585 call/use site (Warning inventory): the member was reached
+    /// through an interface type (symbol-verified). {0}=member kind,
+    /// {1}=member signature.
+    /// </summary>
+    public const string StaticAbstractCallMessage =
+        "Call site reaches interface static abstract/virtual {0} '{1}' through an " +
+        "interface type; inventoried, not silenced (Java has no equivalent feature; " +
+        "the future companion mode = companion-class static methods plus " +
+        "monomorphized dispatch, an independent workstream).";
 
     public const string ScopedMessage =
-        "'scoped' {0} site inventoried; parameter stripping is owned by the C01 pass; " +
-        "residual local shapes await C06/C01 completion.";
+        "'scoped' {0} site inventoried and counted only (not stripped/rewritten); " +
+        "parameter stripping is owned by the downstream C01 pass; residual local " +
+        "shapes await C06/C01 completion.";
 
     public const string GenericAttributeMessage =
         "Generic attribute '{0}'; Java annotations cannot carry type parameters " +
@@ -216,4 +229,24 @@ internal static class CollectionExprDiagnostics
     public const string ResidualMessage =
         "{0} unaccounted collection-expression/spread node(s) remain after " +
         "expression-desugar processing.";
+
+    /// <summary>
+    /// CS2J0584 (M3, Info, verbose): whole-run CE-GUARD inventory. Buckets:
+    /// static-abstract decl/call, generic-attr decl/app, scoped param/local,
+    /// plus the whole-tree residual gate result.
+    /// </summary>
+    public const string InventorySummaryMessage =
+        "new-syntax inventory: static-abstract {0} declaration(s)/{1} call site(s), " +
+        "generic-attribute {2} declaration(s)/{3} application(s), " +
+        "scoped {4} parameter site(s)/{5} local/other site(s); " +
+        "whole-tree residual gate balanced ({6} residual node(s) = {7} paired).";
+
+    /// <summary>
+    /// CS2J0589 (M3 CLI whole-tree gate): {0}=residual nodes on disk,
+    /// {1}=paired skip sites, {2}=unpaired file list.
+    /// </summary>
+    public const string TreeResidualMessage =
+        "whole-tree residual gate failed: {0} collection-expression/spread node(s) " +
+        "found in the intermediate tree but {1} are paired with skip diagnostics " +
+        "(CS2J0571/0576/0580/0581/0582/0583/0588); unpaired files: {2}.";
 }

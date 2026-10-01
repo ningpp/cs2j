@@ -119,19 +119,23 @@ tests/SampleExpressionDesugarSolution/（M2/M3，仿 SampleEqualityConcatSolutio
 - 验收：Release build + 三工程 test 全绿。
 - 提交：`feat(preprocessing): C36 M2 接口具体类/嵌套/Span 数组形态/CollectionBuilder 工厂发射`
 
-### M3 新语法防线 + 画像收口 + 交付
+### M3 新语法防线 + 画像收口 + 交付（✅ 2026-10-01 完成，见 §7 收口记录）
 
-- CE-11：static abstract/virtual 接口成员声明 0585 strict Error（调用站点 Warning 盘点）；
+- ✅ CE-11：static abstract/virtual 接口成员声明 0585 strict Error（调用站点 Warning 盘点）；
   scoped 参数 0586 Info / 局部 Warning；泛型 attribute 声明 0587 Error / 应用 Warning；
   表达式树内集合表达式 0588 防御 Info；0584 汇总。
-- §5 CLI 收口：摘要 coll 段 + new-syntax inventory 小节；AfterFiles residual 全树复扫（按两类语法配对）；
-  strict 报错不留半成品目录（沿用 runner 语义，加测试钉）。
-- fixture 补 builder 报错 sln/static-abstract 拒绝用例；ProjectTests：Success/诊断/退出码/零 residual；
-  BOM 字节复制；`--list-passes` catalogItems 含 C36（以实际输出测试钉）。
-- prompts/preprocessor-catalog.md C36 状态按实际更新（只增状态字段，沿用既有条目格式）。
+- ✅ §5 CLI 收口：摘要 guard 段 + verbose new-syntax inventory 小节；AfterFiles residual
+  全树复扫闸门（0589，residual 与配对 skip/直接 spread 数对账）；strict 报错保留已准备
+  中间目录但文件字节级原样（runner 实测语义，项目级测试钉死）。
+- ✅ fixture：SampleExpressionDesugarGuardSolution（IMonoid\<T\> 4 个 static abstract/virtual
+  声明 + Vec2 零误报对照，原生 Release build 0 错误）；ProjectTests：进程内链 Success=false/
+  0585/字节一致、CLI 进程退出非零、`--list-passes` 输出 `rules=C36` 且默认 off。
+- ✅ E09 byte 衔接只观察不改 E09（结论见 §7.3）。
+- ✅ prompts/preprocessor-catalog.md C36 状态 + 设计文档状态行已更新。
 - 验收门槛：设计 §8 第 1/2/4/6 项（Java 半区核查 §8-3 与 sdk 画像属后续 PR，本文登记不做）。
 - 全量：`dotnet build -c Release CSharpToJavaConverter.slnx`；
-  `dotnet test -c release` 三个测试工程（Tests / ProjectTests / ConversionTests）全绿。
+  `dotnet test -c release` 三个测试工程（Tests / ProjectTests / ConversionTests）除 6 个
+  仓库存量基线失败外全绿（清单见 §7.4）。
 - 提交：`feat(preprocessing): C36 M3 新语法防线+residual 全树闸门+fixture/CLI 收口（默认关）`
 
 ## 4. 跨阶段硬纪律
@@ -243,3 +247,74 @@ clean 文件 `Changed=false` + `FilesSkippedClean=1` 且字节不变；dirty 文
 `CollectionSites/ByTargetArray` 等计数正确，输出原样；`SemanticModel=null` 时
 dirty 文件不崩，返回 **CS2J0571 Warning**；仅含 CE-GUARD 语法（接口
 `static abstract` 成员）的文件同样判 dirty 但站点数为 0。
+
+## 7. M3 收口记录（2026-10-01）
+
+### 7.1 新语法防线（guard）级别矩阵
+
+全部判定走 SemanticModel 符号，绝不文本匹配；`EnableGuard=false` 时整段不跑。
+
+| 码 | 对象 | strict | 非 strict | 计数 |
+| --- | --- | --- | --- | --- |
+| 0585 声明 | 接口内 `static abstract/virtual` 成员（method/property/indexer/event/operator/conversion，event field 逐变量） | Error | Warning | GuardStaticAbstractDeclarations |
+| 0585 调用 | MemberAccess/ElementAccess/Binary/Assignment/PrefixUnary/PostfixUnary/Cast 站点（含 CandidateSymbols；Assignment 仅 IMethodSymbol 避开 event hookup） | Warning（声明才 Error） | Warning | GuardStaticAbstractCallSites |
+| 0586 | `scoped` 参数（含 parameterShape 信息） | Info | Info | GuardScopedParameterSites |
+| 0586 | `scoped` 局部/其余 | Warning | Warning | GuardScopedLocalSites |
+| 0587 声明 | 泛型 class/record 声明且 BaseType 链含 System.Attribute | Error | Warning | GuardGenericAttributeDeclarations |
+| 0587 应用 | AttributeSyntax 内含 GenericName（nameInfo→attributeInfo→CandidateSymbols→GetTypeInfo 级联解析） | Warning | Warning | GuardGenericAttributeApplications |
+| 0588 | 表达式树内集合表达式（IsInExpressionTree） | Info + skip 0588 | Info + skip 0588 | SpreadElements/SkippedSpreadElements |
+| 0584 | verbose inventory 汇总（六桶 + gate 平衡行 + claimed exclusions） | Info | — | — |
+
+注意：泛型 attribute 声明处符号显示定义名 `GenericAttr<T>`（Error 消息），
+应用处才是 `GenericAttr<int>`（Warning 消息）；纯调用站点文件若不含集合/guard
+语法则 IsPotentiallyDirty=false、不进入 Analyze（测试用例须加兄弟集合站点）。
+
+### 7.2 AfterFiles 全树 residual 闸门（0589）实测
+
+- 算法（`CollectionExprTreeGate`）：配对码 0571/0576/0580/0581/0582/0583/0588
+  七码 skip 数 + `SkippedSpreadElements`（直接 spread）= paired；AfterFilesAsync
+  对中间树逐文件 Preview parse 计数 `IsResidualNode`（CollectionExpressionSyntax /
+  SpreadElementSyntax）= residual；Reconcile 按文件并集对账，Balanced 要求总量
+  与每文件各自平衡。
+- 排除：Cs2j* 段文件、原子门已报 Error 的文件；错误文件沿用 preprocessor 既有
+  原子门（diagnostics 已在逐文件阶段产出，rewriteCount==0 保留诊断）。
+- 不平衡 → Error **CS2J0589**（`{file} (R residual/P paired)` 逐文件清单），链失败；
+  平衡 + verbose → Info 0584 inventory。
+- 项目级实测：SampleExpressionDesugarGuardSolution（strict 0585 失败）CLI 进程
+  退出码非零、输出含 CS2J0585 且闸门自身无误报；通过路径（SampleExpressionDesugarSolution
+  等既有 fixture）residual=paired，闸门不误伤。
+
+### 7.3 E09 byte 衔接观察结论（E09 未改）
+
+E09（`UnsignedTypeSyntaxRewriter.IsByteArrayInitializerElement`）只在字面量父节点为
+`InitializerExpressionSyntax / CollectionExpressionSyntax / ExpressionElementSyntax`
+且 ConvertedType=byte 时把 128..255 常量包 `(byte)`。两个观察测试钉死 C36 产物形态：
+
+1. **零临时数组路径**：`byte[] b = [128,200,127]` → `new byte[]{128,200,127}`，
+   三个字面量父节点均为 ArrayInitializerExpressionSyntax → **E09 现状覆盖**，
+   无需 C36 动作。
+2. **语句序列路径**（含 spread 强制 List 临时）：`[.. prefix, 200]` →
+   `var __ed_0 = new List<byte>(){}; __ed_0.AddRange(prefix); __ed_0.Add(200);
+   byte[] b = __ed_0.ToArray();`。200 的父节点链是
+   Literal→Argument→ArgumentList→Invocation(`.Add`)，`.ToArray()` 下无元素字面量
+   → **E09 现状不覆盖 Add 实参位置**。C# 侧靠常量隐式收窄编译合法（运行时值正确，
+   观察测试双跑验证 200 不丢值），但 Java 侧 `List.add((int)200)` 对 `List<Byte>`
+   存在收窄/装箱缺口。
+
+   **遗留处置（登记不做）**：C36 语句化发射在 byte（及 sbyte？）元素 128..255
+   常量实参位置自带 `(byte)` 包装，或扩展 E09 谓词纳入 ArgumentSyntax 且
+   ConvertedType=byte——列入后续 PR；pass 默认关期间无现网输入。
+
+### 7.4 runner 中间目录语义 + 验证基线
+
+- strict 失败时 runner **保留已准备的** `.cs2j-expression-desugar-src/` 目录
+  （Prepare 复制发生在逐文件改写之前），但因原子门每文件 Changed=false，
+  目录内全部用户 .cs 与源字节一致（项目级测试字节数组断言钉死，含 BOM 路径）。
+- 最终验证（2026-10-01）：Debug + Release `CSharpToJavaConverter.slnx` build
+  0 错误；三测试工程除 6 个仓库存量基线失败外全绿——Tests 5 个：
+  SystemPrivateXmlRuntimeResource ×1、CSharpXmlCompileRegression ×2、
+  EnumDeclaration UnsignedNumericToken ×2；ProjectTests 1 个：
+  EqualityConcat e2e（缺 compat jar）；ConversionTests 0。均与 C36 无关、
+  M0 开工前基线即存在。
+- grep 三禁：无 `OfType<ExpressionElementSyntax>` 元素过滤、无 `List.of` 发射、
+  产物无 System.Linq 发射。

@@ -41,6 +41,13 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
             plans[node] = plan;
         }
 
+        // CE-GUARD (M3): semantic inventory 0585/0586/0587 runs in the SAME
+        // Analyze pass; 0588 is defended per collection site below. Guard
+        // Errors flow into the family's ordinary atomic gate (a guard Error
+        // makes the whole file Changed=false even when sibling sites rewrite).
+        if (context.Options.CollectionExpr.EnableGuard)
+            NewSyntaxGuardAnalyzer.Analyze(context);
+
         // CE-8 (M2): deterministic file-wide pre-allocation of temp names,
         // foreach variables and lift orders for every statement-sequence site
         // (post-order: inner sites before enclosing sites; siblings in source
@@ -49,8 +56,6 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
         if (model != null)
             AllocateStatementSequenceNames(context, plans.Values);
 
-        // CE-GUARD semantic inventory (0584-0588) lands in M3; the syntax-only
-        // dirty scan in NewSyntaxGuardAnalyzer already participates.
         return new CollectionExprRulePlan(context, plans);
     }
 
@@ -79,6 +84,34 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
             stats.NestedSites++;
         var containsSpread = node.Elements
             .Any(CollectionExprSyntaxFacts.IsSpread);
+
+        // CE-GUARD 0588 (defensive; baseline CS9175 makes this unreachable in
+        // compilable input): a collection expression inside an expression tree
+        // is never lowered. Paired skip so the per-file and whole-tree
+        // residual gates see one explained site (+ its spreads).
+        if (ExpressionDesugarSyntaxFacts.IsInExpressionTree(model, node))
+        {
+            var preservedSpreads = node.Elements
+                .Count(CollectionExprSyntaxFacts.IsSpread);
+            stats.SpreadElements += preservedSpreads;
+            stats.SkippedSpreadElements += preservedSpreads;
+
+            context.Report(
+                ExpressionDesugarSeverity.Info,
+                CollectionExprDiagnosticCodes.CS2J0588,
+                CollectionExprDiagnostics.ExpressionTreeMessage,
+                node);
+            stats.AddSkip(CollectionExprDiagnosticCodes.CS2J0588);
+
+            return new CollectionExprPlan
+            {
+                Node = node,
+                TargetKind = TargetKind.Unknown,
+                Outcome = CollectionExprOutcome.SkippedDiagnostic,
+                Depth = depth,
+                ContainsSpread = containsSpread,
+            };
+        }
 
         // ---- Elements (exhaustive; OfType filtering is forbidden) ----
         var collectionOperation = model.GetOperation(node) as ICollectionExpressionOperation;
@@ -297,6 +330,13 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
                 CollectionExprDiagnostics.ResolveSeverity(skipCode, strict),
                 skipCode, skipMessage!, node);
             stats.AddSkip(skipCode);
+
+            // M3 whole-tree gate pairing: the preserved site leaves 1 node
+            // (paired by the skip count) plus one residual node per spread it
+            // carries (paired here). SpreadElement stats were already counted
+            // during element analysis.
+            stats.SkippedSpreadElements += node.Elements
+                .Count(CollectionExprSyntaxFacts.IsSpread);
             return plan;
         }
 

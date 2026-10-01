@@ -114,6 +114,12 @@ internal sealed class CollectionExprRewriter : CSharpSyntaxRewriter
                     "a position with no statement anchor"),
                 plan.Node);
             stats.AddSkip(CollectionExprDiagnosticCodes.CS2J0583);
+
+            // M3 whole-tree gate pairing: preserved statement site (1, via the
+            // skip) plus the direct spread nodes it keeps on disk.
+            stats.SkippedSpreadElements += plan.Node.Elements
+                .Count(CollectionExprSyntaxFacts.IsSpread);
+
             return visited.WithAdditionalAnnotations(
                 ExpressionDesugarSyntaxFacts.ExplainedAnnotation);
         }

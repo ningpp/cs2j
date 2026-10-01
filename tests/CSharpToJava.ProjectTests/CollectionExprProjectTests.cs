@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using CSharpToJava.CLI;
 using CSharpToJava.CLI.Preprocessing;
 using CSharpToJava.Core.EnumDeclaration;
@@ -14,6 +15,20 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.ProjectTests;
 
 /// <summary>
+/// Classes in this collection swap the process-global Console.Out/Error to
+/// capture in-process chain diagnostics. xUnit parallelizes test classes by
+/// default, so two capturing classes overlapping would clobber each other's
+/// writers; the collection forbids parallelization between its members.
+/// Non-capturing classes may still run alongside them — foreign output lines
+/// landing in a capture are harmless (assertions use Contains).
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public static class ConsoleChainTestCollection
+{
+    public const string Name = "console-chain";
+}
+
+/// <summary>
 /// Project-level gate for C36 M2 (collection-expression desugaring). The
 /// SampleExpressionDesugarSolution fixture exercises interface targets
 /// (CE-4), deterministic nested temp allocation (CE-8), Span heap-array
@@ -23,6 +38,7 @@ namespace CSharpToJava.ProjectTests;
 /// VerifyBuild/VerifyTests prove the intermediate tree builds and keeps its
 /// runtime behavior (native vs desugared double run).
 /// </summary>
+[Collection(ConsoleChainTestCollection.Name)]
 public class CollectionExprProjectTests
 {
     private const string PassId = "expression-desugar";
@@ -33,6 +49,48 @@ public class CollectionExprProjectTests
 
     private static string UnsupportedFixtureDir =>
         Path.Combine(AppContext.BaseDirectory, "SampleExpressionDesugarUnsupportedSolution");
+
+    private static string GuardFixtureDir =>
+        Path.Combine(AppContext.BaseDirectory, "SampleExpressionDesugarGuardSolution");
+
+    private static string CliPath
+    {
+        get
+        {
+            var dir = AppContext.BaseDirectory;
+            while (dir is not null)
+            {
+                var candidate = Path.Combine(
+                    dir, "src", "CSharpToJava.CLI", "bin", "Debug", "net10.0",
+                    "CSharpToJava.CLI.dll");
+                if (File.Exists(candidate)) return candidate;
+                dir = Path.GetDirectoryName(dir);
+            }
+
+            throw new FileNotFoundException("Could not locate CSharpToJava.CLI.dll from test output directory.");
+        }
+    }
+
+    private static async Task<(int ExitCode, string Output)> RunCliAsync(params string[] args)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"\"{CliPath}\" {string.Join(' ', args.Select(a => $"\"{a}\""))}",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        startInfo.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+        startInfo.Environment["DOTNET_CLI_USE_MSBUILD_SERVER"] = "0";
+
+        using var process = Process.Start(startInfo)!;
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        return (process.ExitCode, await stdoutTask + await stderrTask);
+    }
 
     private static Task<CliChainResult> RunChainAsync(
         string sourcePath, string outputRoot, bool verify)
@@ -196,6 +254,126 @@ public class CollectionExprProjectTests
                 Directory.Delete(outputRoot, recursive: true);
             }
         }
+    }
+
+    // ------------------------------------------------------------------
+    // M3 CE-GUARD: project-level static-abstract strict rejection.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public async Task StaticAbstract_FailsStrict_With0585_IntermediateTreeKeepsOriginalFiles()
+    {
+        var outputRoot = Path.Combine(
+            Path.GetTempPath(), "cs2j-c36-guard-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var capture = new StringWriter();
+            var oldOut = Console.Out;
+            var oldError = Console.Error;
+            Console.SetOut(capture);
+            Console.SetError(capture);
+
+            CliChainResult result;
+            try
+            {
+                // The fixture is legal C# 11 (it natively builds), so this
+                // gate is the pass' own CS2J0585 — not a baseline compiler
+                // error; verification stays off to assert that distinction.
+                result = await RunChainAsync(
+                    Path.Combine(
+                        GuardFixtureDir, "SampleExpressionDesugarGuardSolution.sln"),
+                    outputRoot,
+                    verify: false);
+            }
+            finally
+            {
+                Console.SetOut(oldOut);
+                Console.SetError(oldError);
+            }
+
+            Assert.False(
+                result.Success,
+                "static abstract declarations must fail the strict guard chain");
+
+            // 4 interface declarations: abstract property/method/operator and
+            // the virtual Describe method.
+            var output = capture.ToString();
+            Assert.Contains("CS2J0585", output);
+            var codeOccurrences = System.Text.RegularExpressions.Regex
+                .Matches(output, "CS2J0585").Count;
+            Assert.True(codeOccurrences >= 4, $"expected >=4 CS2J0585 lines, got {codeOccurrences}");
+
+            // Runner semantics (pinned, see M3 plan): on strict failure the
+            // intermediate directory is PREPARED (copied) and retained, but
+            // every user .cs file is the byte-identical original — the atomic
+            // gate rewrote nothing.
+            var intermediate = Path.Combine(outputRoot, IntermediateDirName);
+            Assert.True(
+                Directory.Exists(intermediate),
+                "the prepared intermediate tree is retained on strict failure");
+
+            var intermediateFile = Path.Combine(
+                intermediate, "SampleExpressionDesugarGuardLib", "GuardSites.cs");
+            Assert.True(File.Exists(intermediateFile));
+            Assert.Equal(
+                await File.ReadAllBytesAsync(Path.Combine(
+                    GuardFixtureDir, "SampleExpressionDesugarGuardLib", "GuardSites.cs")),
+                await File.ReadAllBytesAsync(intermediateFile));
+            var intermediateText = await File.ReadAllTextAsync(intermediateFile);
+            Assert.Contains("static abstract", intermediateText);
+            Assert.Contains("static virtual", intermediateText);
+            Assert.DoesNotContain("__ed_", intermediateText);
+        }
+        finally
+        {
+            if (Directory.Exists(outputRoot))
+            {
+                Directory.Delete(outputRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task StaticAbstract_CliProcess_ExitsNonZero_AndReports0585()
+    {
+        var outputRoot = Path.Combine(
+            Path.GetTempPath(), "cs2j-c36-guard-cli-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var (exit, output) = await RunCliAsync(
+                "preprocess",
+                "--pass", PassId,
+                "-s", Path.Combine(
+                    GuardFixtureDir, "SampleExpressionDesugarGuardSolution.sln"),
+                "-d", outputRoot);
+
+            Assert.NotEqual(0, exit);
+            Assert.Contains("CS2J0585", output);
+            Assert.Contains(
+                "expression-desugar",
+                output,
+                StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(outputRoot))
+            {
+                Directory.Delete(outputRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ListPasses_IncludesExpressionDesugar_WithC36CatalogItem()
+    {
+        var (exit, stdout) = await RunCliAsync("preprocess", "--list-passes");
+
+        Assert.Equal(0, exit);
+        var row = Assert.Single(
+            stdout.Split('\n', '\r')
+                .Where(line => line.Contains(PassId, StringComparison.OrdinalIgnoreCase)));
+        Assert.Contains("rules=C36", row);
+        Assert.Contains("off", row, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string StripWhitespace(string text)
