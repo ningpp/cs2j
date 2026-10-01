@@ -2,10 +2,12 @@
 
 **日期**: 2026-09-29
 **范围**: 新增 CLI 级 C#→C# 预处理器 `foreach-source`（Core 新目录 `ForeachSource/` + CLI 单适配器），把字符串 foreach 归一为 `ToCharArray()` 后 foreach，并收口 E07 未覆盖的 Tuple/Other 残余解构 foreach；本特性不改任何 C#→Java 转换代码
-**状态**: 设计已确认，待实施
+**状态**: 设计已确认，实施中（worktree `feature/preproc-c16-foreach-complete` @ `8eb657b3`，2026-10-01 启动）
 **族属**: catalog P2「控制流去糖族」（[preprocessor-catalog.md §3.3](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1081-L1081)：C03 + C37 + C16 + C40 + 部分 C05）。注册表 stub `foreach-source` 的 `catalogItems = "C16, C40"`、`RunAfter = foreach-deconstruction`、`Stage = ControlFlow`（[PassStubCatalog.cs:90-99](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L90-L99)）。**C16 是该 pass 的锚点任务**：完成 stub→Implemented 翻转、`catalogItems` 先收窄为 `"C16"`；姊妹任务 C40（枚举器适配 / ref foreach）后续在同一 pass 内增量扩展。
 
 > **校订（2026-09-29）**：本次仅做证据核对式手术修订，改动枚举——① 行号漂移订正：PassStubCatalog stub 条目 L102-111→**L90-99**、`Ids.ForeachSource` L27→**L26**；PassCatalog E07 的 `{ tuple }` 锚边 L107→**L109**、E07 描述符 L100-108→**L102-110**；PassChainFactory E07 适配器分支 L148-152→**L153-157**、BuildLegacyToggles L60-80→**L64-85**；PassChainOrderTests LockedChain L18-38→**L18-40**、EnabledByDefault L40-55→**L42-57**、toggle 覆盖测试 L169-182→**L172-185**；PassStubCatalogTests「默认关不进计划」佐证 L50-57→**L62-69**；ProjectPreprocessorsConsistentTests L129-132→**L129-138**（member-desugar 段已在其后）；Program.cs ConvertProjectOptions L4632→**L4696**；ProjectPassRunner spine 回调 L231-350→**L218-350**；ForeachDeconstructionRewriter 嵌套解包 L254-310→**L254-313**；catalog C16 段 L446-457→**L488-501**（ToCharArray 行 L451→**L493**）、§3.3 L903→**L1081**、§4 风险 10/11/12 L929-931→**L1108-1110**、C40 段 L750→**L824**；C11 §6 L250→**L251**、C15 §4.5 L239→**L238**。② 链位订正：E10 之后链已插入 **pattern-desugar**（默认关）与 **member-desugar**（默认关），拓扑序列与 LockedChain 已按当前顺序重列，foreach-source 插在 E07 与 pattern-desugar 之间。③ 翻转策略订正：按 **IteratorLowering 先例**，`Ids.ForeachSource` 常量**保留**在 PassStubCatalog.Ids（不在 PassIds 重复定义），描述符与链工厂统一引用 `PassStubCatalog.Ids.ForeachSource`。④ 现状订正：**C15 尚未实施**（numeric-boundary 仍是 stub、Core 下无 NumericBoundary/ 目录），「新 pass→新目录」范式改引 IteratorLowering/PatternDesugar/MemberDesugar；stub 实际 **21** 条而计数断言仍写 22（member-desugar 翻转提交 26ea367c 漏改），C16 翻转后实际 20 条；§12 worktree base 953293b9 仍存在但已非 HEAD（当前 HEAD 2d25700e）。⑤ 六次补全语义补入规则/fixture：null 源 NRE 显式论证 + 夹具钉死、显式迭代变量类型的逐次转换与 InvalidCastException 归属边界、扩展方法 GetEnumerator 明确归 C40、break/continue 保持。⑥ 新增开放问题 6（显式非 char 迭代变量的 Java 半区映射）、7（worktree base 重选）与 stub 计数断言漂移说明。
+
+> **更新（2026-10-01）**：实施前 base 重选完成——离线环境 origin 不可达（本地 dev-3.x 领先 origin/dev-3.x 310 个提交），以本地 dev-3.x 最新提交 `8eb657b3`（`feat(preprocessing): C05 enum-declaration 落地…`，2026-09-30）为 worktree 直接 base，原 `953293b9` +「创建后 rebase」口径作废；§12、统一口径⑧、开放问题裁决 7 已同步。另注：C05 翻转已落在 8eb657b3，§3.4/§11 的 stub 计数「真值 21、断言 22、C16 后 20」已过时，实施时以实测真值收口（若无其他翻转，C16 后应为 19）。
 
 ---
 
@@ -417,11 +419,11 @@ MSBuild 格式：`文件(行,列): warning/error CS2J54xx: [FS-x] 描述`。
 
 - 分支：`feature/preproc-c16-foreach-complete`
 - 目录：`.worktrees/preproc-c16-foreach-complete`
-- base：`953293b9`（`docs: update doc base commit`，已用只读 `git rev-parse` 核实存在；**但校订日它已不是当前工作区 HEAD**——当前 HEAD 为 `2d25700e`，且 member-desugar 翻转 26ea367c 等已落在其后；**实施前必须重新选定 base**（建议重选时的最新主干），下列命令中的哈希仅作记录，见开放问题 7）
-- 创建命令（在仓库根、PowerShell 下执行；**本设计阶段不执行，实施阶段由执行者以重选后的 base 运行**）：
+- base：`8eb657b3`（`feat(preprocessing): C05 enum-declaration 落地（Core + CLI 适配器 + 注册 + 测试，默认关）`，2026-09-30；**2026-10-01 重选定稿**——离线环境 origin 不可达，本地 dev-3.x 领先 origin/dev-3.x 310 个提交，以**本地 dev-3.x 最新提交**为准；原 base `953293b9` 与「创建后 rebase 到当时 HEAD」口径作废，直接从该提交创建即可，见开放问题裁决 7）
+- 创建命令（在仓库根、PowerShell 下执行；2026-10-01 起进入实施阶段，base 已定稿，直接运行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c16-foreach-complete -b feature/preproc-c16-foreach-complete <重选后的 base 哈希>
+git worktree add .worktrees/preproc-c16-foreach-complete -b feature/preproc-c16-foreach-complete 8eb657b3
 ```
 
 - worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `ForeachSource/`（含 Rules 接口与三条 C16 规则）、CLI 单适配器 + 注册表翻转（§3.4 清单）、本设计文档与后续 plan 文档（`docs/superpowers/plans/2026-09-29-c16-foreach-complete.md`）、Core 单测 + fixture sln + Release build/test + residual 闸门 + CLI/链序测试；
@@ -431,7 +433,7 @@ git worktree add .worktrees/preproc-c16-foreach-complete -b feature/preproc-c16-
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree base 已于 2026-10-01 重选为当时 dev-3.x 最新提交 `8eb657b3`，直接从该提交创建、不再「953293b9 创建后 rebase」；stub 计数断言由 C16 翻转按实施时实测真值收口（C05 已落地，校订日「真值 21」过时）。
 
 **裁决（按原题号）：**
 
@@ -441,7 +443,7 @@ git worktree add .worktrees/preproc-c16-foreach-complete -b feature/preproc-c16-
 4. **扩展方法 Deconstruct**：终态**收编**（正确性项，不以命中率否决），排在 C19 合入后复用其扩展候选解析实现编译级 reduction；CS2J5421 v1 保留至该规则落地。
 5. **索引循环形态选项：拒绝**。`ToCharArray()` 一次数组分配属无画像证据的优化，双形态会增加下游分叉；记录为已否决备选，不再进里程碑。
 6. **显式非 char 迭代变量**：由 C16 在中间树插入显式数值转换（如 `foreach (int c in s)` 逐元素 `(int)c`），下游转换器零猜测；§7.4 冒烟仍为启用该规则前的 M1 前置（先取证 Java 侧现状）；源语言不可隐式转换的本就是基线错误，不特殊处理。
-7. **base 重选**：按统一口径⑧——仍从 `953293b9` 创建 worktree，创建后 rebase 到当时 dev-3.x HEAD；§3.4 的 stub 计数漂移由首个锚点翻转 PR 按真值一并收口，本 pass 翻转时接续真值、不单独修。
+7. **base 重选（2026-10-01 更新）**：base 直接重选为当时 dev-3.x 最新提交 `8eb657b3`（C05 enum-declaration 落地提交），worktree 直接从该提交创建，**取消「953293b9 创建后 rebase」步骤**；§3.4 的 stub 计数断言按 C16 翻转时实测真值一次性收口（C05 已在 8eb657b3 落地，校订日「真值 21、C16 后 20」过时，实施时重新计数）。
 
 ---
 
