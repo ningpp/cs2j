@@ -291,20 +291,20 @@ C39 **不改 Program.cs、不增适配器、不增开关/verb**，全部经 C11 
 
 - 分支：`feature/preproc-c39-finalizer-strip`
 - 目录：`.worktrees/preproc-c39-finalizer-strip`
-- base：`953293b9`（`docs: update doc base commit`，已用 `git cat-file -t` 核实存在；**实施前先合入 C11 锚点分支**，实际开工 base = C11 合入后的主干/rebase 点）
-- 创建命令（仓库根、PowerShell；本设计阶段不执行）：
+- base：`28ae4594`（`fix(test): restore C34 unsupported site in SampleNumericBoundaryUnsupportedApp`，dev-3.x 2026-10-01 最新提交，已用 `git cat-file -t` 核实为 commit；C11–C14 锚点已合入该基线，`MemberDesugar/` 共享基建在场，直接开工，无需再 rebase；历史 base `953293b9` 与裁决时 HEAD `ef70e5a2` 已被本基线取代）
+- 创建命令（仓库根、PowerShell；2026-10-01 实施时执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c39-finalizer-strip -b feature/preproc-c39-finalizer-strip 953293b9
+git worktree add .worktrees/preproc-c39-finalizer-strip -b feature/preproc-c39-finalizer-strip 28ae4594
 ```
 
-实施约束（交实施 worktree，本文档不执行任何 git 写操作、不建 worktree、不 build/test）：仅在该 worktree 内改码；C11 合入后 rebase 到含 `MemberDesugar/` 共享基建的基线；按 §9 里程碑逐提交；不注册/翻转任何 pass、不动 RunAfterIds/注册表描述符/Program.cs；转换器 FN-9 改动走独立同期 PR；族 pass 默认开启与严重级翻转以 §8 门槛为准，不抢跑；交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）。
+实施约束（交实施 worktree）：仅在该 worktree 内改码；base 已含 `MemberDesugar/` 共享基建（C11–C14），无需 rebase；按 §9 里程碑逐提交；不注册/翻转任何 pass、不动 RunAfterIds/注册表描述符/Program.cs；转换器 FN-9 改动走独立同期 PR；族 pass 默认开启与严重级翻转以 §8 门槛为准，不抢跑；交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）。
 
 ---
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。**【2026-10-01 实施更新】** C11–C14 锚点已由维护者合入主干，worktree base 前移到 dev-3.x 最新提交 `28ae4594`（已含 `MemberDesugar/` 共享基建），直接从该 base 创建分支、无需 rebase；本条历史裁决原文（`953293b9`/`ef70e5a2`）保留以备追溯。
 
 **裁决（按原题号）：**
 
