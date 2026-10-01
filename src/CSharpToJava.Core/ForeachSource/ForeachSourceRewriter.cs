@@ -39,9 +39,10 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
             Statistics = stats,
             Diagnostics = diagnostics,
         };
-        // Ordered dispatch. M2 rules for deconstruction residuals; C40 appends
-        // its EnumeratorAdapter rules after the C16 residual rules (FR rules
-        // take the reserved tail slots in M3).
+        // Ordered dispatch (design §3.2): C16 rules first, then C40 FA rules;
+        // EnumeratorAdapterRule explicitly excludes Span sources so the
+        // following SpanIndexLoopRule owns them. FR rules take the reserved
+        // tail slots in M3.
         _rules = new IForeachSourceRule[]
         {
             new StringSourceRule(),
@@ -49,6 +50,7 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
             new DeconstructResidualRule(),
             new OtherResidualRule(),
             new EnumeratorAdapterRule(),
+            new SpanIndexLoopRule(),
         };
     }
 
@@ -87,7 +89,12 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
             return visited;
         }
 
-        var expressionType = ForeachSourceAnalyzer.GetExpressionType(_model, visited.Expression);
+        // Semantic classification always goes through the ORIGINAL node:
+        // children were rewritten first, so `visited` may be a rebuilt,
+        // detached node on which model lookups return empty bindings (nested
+        // foreach, e.g. outer duck / inner span). Code generation in the rules
+        // uses the visited node so already-lowered children are kept.
+        var expressionType = ForeachSourceAnalyzer.GetExpressionType(_model, node.Expression);
         if (expressionType == null
             || ForeachSourceAnalyzer.IsErrorType(expressionType))
         {
@@ -98,11 +105,12 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
         // C40: dynamic sites are no longer filtered here — EnumeratorAdapterRule
         // emits CS2J5456 and keeps the node (decision 11). Only error types and
         // missing bindings pass through early.
-        var binding = ForeachBindingResolver.Resolve(visited, _model);
+        var binding = ForeachBindingResolver.Resolve(node, _model);
 
         var site = new ForeachSourceSite
         {
             Node = visited,
+            OriginalNode = node,
             Model = _model,
             Options = _options,
             ExpressionType = expressionType,
@@ -118,7 +126,8 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
 
             if (!outcome.Changed || outcome.Output == null)
             {
-                // Matched but intentionally kept (diagnose-only rules land here).
+                // Matched but intentionally kept (diagnose-only rules land here:
+                // dynamic CS2J5456, unresolved CS2J5457, C16 residuals).
                 RecordPlainResidual(visited, expressionType);
                 return visited;
             }
@@ -126,8 +135,22 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
             return outcome.Output;
         }
 
-        // No rule claimed the site: ordinary non-string source — out of scope.
-        _stats.SitesPassedThrough++;
+        // No rule claimed the site. FS-5 CS2J5470 escape bucket: a
+        // non-array/non-string/non-IEnumerable plain foreach with a valid
+        // pattern-enumerator binding that still went unlowered. Counting here
+        // (same discipline as C16 FS-5 — the output tree is never parsed a
+        // second time) keeps the gate honest even if a future rule gap lets a
+        // valid site through; ordinary converter-owned sources (arrays,
+        // List/Dictionary, …) stay plain pass-throughs.
+        if (ForeachSourceAnalyzer.IsResidualEnumeratorCandidate(
+                expressionType, binding, _model.Compilation))
+        {
+            _stats.ResidualEnumeratorSites++;
+        }
+        else
+        {
+            _stats.SitesPassedThrough++;
+        }
         return visited;
     }
 

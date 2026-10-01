@@ -37,11 +37,20 @@ internal sealed class ForeachBinding
     public IPropertySymbol? CurrentProperty { get; init; }
 
     /// <summary>
-    /// ForEachStatementInfo.DisposeMethod, kept for cross-checking only. M1
-    /// probes proved it is NOT a disposal decision signal on Roslyn 5.0: it
-    /// reports IDisposable.Dispose for merely-convertible types (non-sealed
-    /// classes, pattern-only Dispose()) and is null on structs. The builder
-    /// classifies disposal from EnumeratorType/AllInterfaces instead.
+    /// ForEachStatementInfo.DisposeMethod. Interpretation (M1 + M2 probes,
+    /// see spec backfills 2026-10-01):
+    /// <list type="bullet">
+    /// <item>ref struct enumerator (<see cref="ITypeSymbol.IsRefLikeType"/>):
+    /// this IS the authoritative pattern-dispose signal — non-null it is the
+    /// accessible parameterless void Dispose() declared on the enumerator
+    /// type itself and foreach emits a direct (unboxed) call; null means no
+    /// finally. Ref structs cannot implement IDisposable.</item>
+    /// <item>class/struct enumerator: NOT a decision signal — it reports
+    /// IDisposable.Dispose for merely-convertible types (unsealed classes
+    /// with a pattern-only Dispose()) and is null for plain structs with a
+    /// public Dispose(). The builder decides via EnumeratorType/AllInterfaces
+    /// and only cross-checks this symbol.</item>
+    /// </list>
     /// </summary>
     public IMethodSymbol? DisposeMethod { get; init; }
 
@@ -58,15 +67,15 @@ internal sealed class ForeachBinding
     /// </summary>
     public required bool DirectEnumerator { get; init; }
 
-    // ── Index pattern (arrays / Length+indexer sources); declared now, filled in M3 ──
+    // ── Index pattern (arrays / Length+indexer sources) ──
 
-    /// <summary>M3 (FA-5/FR-1/2): array or Length/Count + single-int-argument indexer source. Always false in M1.</summary>
+    /// <summary>FA-5 (M2): System.Span&lt;T&gt;/ReadOnlySpan&lt;T&gt; source with a resolved Length member and single-int indexer. FR-1/2 extend this in M3.</summary>
     public bool IsIndexPattern { get; init; }
 
-    /// <summary>M3: the Length/Count property or field used by the index loop. Null in M1.</summary>
+    /// <summary>The Length/Count property or field used by the index loop (FA-5: Span.Length; M3 adds Count/custom sources).</summary>
     public ISymbol? LengthMember { get; init; }
 
-    /// <summary>M3: the <c>this[int]</c> indexer used by the index loop. Null in M1.</summary>
+    /// <summary>The <c>this[int]</c> indexer used by the index loop (may return by ref; RefKind is on the property symbol).</summary>
     public IPropertySymbol? Indexer { get; init; }
 }
 
@@ -120,6 +129,19 @@ internal static class ForeachBindingResolver
         // collection TypeKind is the equivalent classification.
         var isDynamic = collectionType is { TypeKind: TypeKind.Dynamic };
 
+        // FA-5 (M2): Span<T>/ReadOnlySpan<T> sources always lower to an index
+        // loop (decision 9), so resolve the Length member + int indexer here.
+        // M3 (FR-1/2) extends the same lookup to arrays and custom Length/Count
+        // + indexer sources.
+        var isIndexPattern = false;
+        ISymbol? lengthMember = null;
+        IPropertySymbol? indexer = null;
+        if (collectionType != null && ForeachSourceAnalyzer.IsSpanType(collectionType))
+        {
+            isIndexPattern = ForeachIndexLoopBuilder.TryFindIndexMembers(
+                collectionType, out lengthMember, out indexer);
+        }
+
         return new ForeachBinding
         {
             RefKind = refKind,
@@ -132,9 +154,9 @@ internal static class ForeachBindingResolver
             DisposeMethod = info.DisposeMethod,
             EnumeratorType = getEnumerator?.ReturnType ?? collectionType,
             DirectEnumerator = getEnumerator == null && moveNext != null,
-            IsIndexPattern = false,
-            LengthMember = null,
-            Indexer = null,
+            IsIndexPattern = isIndexPattern,
+            LengthMember = lengthMember,
+            Indexer = indexer,
         };
     }
 }

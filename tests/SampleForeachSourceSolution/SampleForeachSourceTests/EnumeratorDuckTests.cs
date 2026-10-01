@@ -120,4 +120,68 @@ public class EnumeratorDuckTests
 
         Assert.Equal(new[] { 1, 2, 3 }, values);
     }
+
+    // ----- M2: value-type / ref-struct Dispose matrix -----
+
+    [Fact]
+    public void StatefulStructEnumerator_EnumeratesAllValues_Unboxed()
+    {
+        Assert.Equal(new[] { 1, 2, 3, 4 },
+            EnumeratorDuckSamples.CollectStatefulStruct(
+                new StatefulStructDuck(4)));
+    }
+
+    [Fact]
+    public void StatefulStructEnumerator_Break_YieldsPrefixOnly()
+    {
+        Assert.Equal(new[] { 1, 2 },
+            EnumeratorDuckSamples.BreakStatefulStruct(
+                new StatefulStructDuck(5), stopAt: 3));
+    }
+
+    [Fact]
+    public void ExplicitInterfaceStructEnumerator_NormalCompletion_DisposesOnceViaBox()
+    {
+        var duck = new ExplicitDisposeStructDuck(3);
+
+        var values = EnumeratorDuckSamples.CollectExplicitDisposeStruct(duck);
+
+        Assert.Equal(new[] { 1, 2, 3 }, values);
+        Assert.Equal(1, duck.Probe.Count);
+    }
+
+    [Fact]
+    public void ExplicitInterfaceStructEnumerator_Break_DisposesOnceViaBox()
+    {
+        var duck = new ExplicitDisposeStructDuck(5);
+
+        var values = EnumeratorDuckSamples.BreakExplicitDisposeStruct(duck);
+
+        Assert.Equal(new[] { 1, 2 }, values);
+        Assert.Equal(1, duck.Probe.Count);
+    }
+
+    [Fact]
+    public void RefStructPatternDispose_NormalCompletion_CalledOnceWithoutBoxing()
+    {
+        Assert.Equal(1,
+            EnumeratorDuckSamples.RefStructPatternDisposeNormalCount(3));
+    }
+
+    [Fact]
+    public void RefStructPatternDispose_Break_CalledOnceWithPrefixSeen()
+    {
+        var (disposeCount, seen) =
+            EnumeratorDuckSamples.RefStructPatternDisposeBreakCount(5, stopAt: 3);
+
+        Assert.Equal(1, disposeCount);
+        Assert.Equal(new[] { 1, 2, 3 }, seen);
+    }
+
+    [Fact]
+    public void RefStructPatternDispose_BodyException_CalledOnce()
+    {
+        Assert.Equal(1,
+            EnumeratorDuckSamples.RefStructPatternDisposeThrowCount(4));
+    }
 }

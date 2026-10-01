@@ -72,12 +72,32 @@
 
 ---
 
-## M2 — struct/非 Dispose 细节与收口（待办）
+## M2 — struct/非 Dispose 细节与收口（已完成）
 
-- [ ] **Task 1**: FA 决策 5 struct 枚举器全形态——硬 `var` 接收、显式接口 Dispose 装箱点 CS2J5455 计数与 sdk 列名；pattern Dispose struct 不生成 finally（M1 探针已锁判定，补 fixture/单测矩阵）。
-- [ ] **Task 2**: FA-5 Span 索引循环（`Length` + ref/非 ref 索引器 → 索引 while），CS2J5457/5470 闸门。
-- [ ] **Task 3**: 闭包捕获/break/continue/嵌套/标签夹具扩面；迭代器方法（C04 产物）内鸭子 foreach + break 的 try/finally 时序串链 build/test（spec 风险 4）。
-- [ ] **Task 4**: CS2J5455-5457 统计闸门 + §7.3 Release 配置全量 build/test + 零误伤回归（csharp-sdk 只读扫描报表分桶：鸭子/直接枚举器/Span/ref 站点）。
+- [x] **Task 1**: FA 决策 5 struct 枚举器全形态——硬 `var` 接收、显式接口 Dispose 装箱点 CS2J5455 计数与 sdk 列名；pattern Dispose 矩阵按 M2 探针修正：**ref struct** 枚举器（IsRefLikeType + 可访问无参 void pattern Dispose()）直接生成 pattern 调用 finally（不装箱）；class/普通 struct 的 pattern Dispose 仍不生成（M1 结论不变）。fixture/单测矩阵补齐（5 形态）。
+- [x] **Task 2**: FA-5 Span 索引循环（`Length`/`Count` + int 单参索引器 → 索引 for），CS2J5457 unresolved 闸门 + CS2J5470 residual 闸门；ref 形态参数经共享 builder 的 RefKind 透传，规则实现留 M3。
+- [x] **Task 3（部分）**: 闭包捕获/break/continue/嵌套/非块体/try 内 continue 夹具与单测扩面（D10 四例 + fixture 运行时 break/continue/异常/嵌套断言）。**偏差**：迭代器方法（C04 产物）串链 build/test 不在 M2 任务书（A-K）内，未做，留后续里程碑。
+- [x] **Task 4**: CS2J5455/5457/5460/5470 统计闸门 + Release 全量 build（0 error）+ 三个测试工程实跑 + 零误伤回归四件套全绿；链摘要行补 boxed/span/unresolved/residual 分桶。
+
+### M2 偏差汇总（相对设计原案 / M1）
+
+| 项 | 设计原案 | 实际实现 | 证据 |
+|---|---|---|---|
+| Dispose 充要条件 | 实现 IDisposable 才 finally | IDisposable **或** IsRefLikeType + 可访问无参 void pattern Dispose()（ContainingType 为枚举器自身） | Roslyn 5.0 探针：ref struct 有/无 Dispose → info.DisposeMethod 为具体 pattern 符号/null；普通 struct/class pattern Dispose → null/误报接口符号，均不采信 |
+| FA-5 循环合成位置 | EnumeratorAdapter 规则目录内 | 抽到根层 `ForeachSource/ForeachIndexLoopBuilder.cs`（TryFindIndexMembers + Build(RefKind)），供 M3 FR 规则复用 ref 修饰/长度成员/索引器参数化 | 代码结构 |
+| 显式接口 Dispose cast | `(IDisposable)e.Dispose()` 直排 | `((global::System.IDisposable)e).Dispose()` 外层 ParenthesizedExpression（M1 潜伏语义 bug：无括号被解析为对 Dispose() 返回值强转） | 新增 M2_FS5 显式 struct 用例暴露 |
+| 嵌套 C40 站点 | 未明确 detached 节点处理 | 子 foreach 先改写后外层节点脱离原模型树；ForeachSourceSite 新增 OriginalNode，所有语义查询（GetForEachStatementInfo/GetDeclaredSymbol/表达式类型）走原节点，代码生成走 visited 节点；StringSourceRule 同步防御 | D10 外鸭子内 Span 单测 + fixture 外 Span 内鸭子运行时 |
+| ProjectTests MethodBody | 硬编码 LF 行尾 | 行尾归一化（CRLF 检出兼容；该潜伏问题对 M1 测试同样存在） | autocrlf=true 工作树实跑 |
+| ProjectTests fixture 隔离 | 输出目录在共享部署 FixtureDir 内 | C40 两个测试改为在 TEMP 私有 fixture 副本（排除 `.test-output*`/bin/obj）内运行与清理；规避与 C16 ForeachSourceProjectTests/CLITests 跨类并行时的树发现-清理竞态（File.Copy 命中半删除中间树） | 全量并行实跑复现，隔离后 793/793（除 C47 环境红灯外） |
+| Task 3 C04 迭代器串链 | M2 内 | 不在 M2 任务书 A-K，延后 | — |
+
+### M2 验收实跑（本机，.NET SDK 10.0.300 / Roslyn 5.0.0）
+
+- `dotnet build CSharpToJavaConverter.slnx -c Release`：**0 error**。
+- CSharpToJava.Tests：**2245 通过 / 5 失败**，5 个失败与白名单逐一点名一致（2 EnumDeclarationRewriterUnitTests unsigned token + 2 CSharpXmlCompileRegressionTests + 1 SystemPrivateXmlRuntimeResourceTests，均 Java/环境基线）。
+- CSharpToJava.ProjectTests：**793 通过 / 1 失败**。唯一失败 `EqualityConcatProjectTests.Fixture_Converts_Compiles_RunsAllRuntimeAssertions`（javac：`io.github.ningpp.compat` 包不存在，Java 支持库环境族）——经 M1 HEAD（ab34272b）临时 worktree 复现为**既有基线红灯**，与 C40 无关，属白名单外发现的第 6 个环境基线（未修改 C47 代码）。
+- CSharpToJava.ConversionTests：**671 通过 / 0 失败**。
+- 零误伤四件套：25/25；C40 单测：29/29；C40 project 测试（含 fixture verify build/test）：2/2。
 
 ## M3 — ref / ref readonly（待办）
 

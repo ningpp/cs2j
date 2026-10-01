@@ -81,7 +81,10 @@ internal sealed class StringSourceRule : IForeachSourceRule
         if (node.Type is IdentifierNameSyntax { Identifier.Text: "var" })
             return false;
 
-        var declared = site.Model.GetDeclaredSymbol(node) as ILocalSymbol;
+        // Use the original model-tree node when nested foreach children were
+        // rewritten first (declared-symbol lookup on the rebuilt node fails).
+        var declaredNode = site.OriginalNode as ForEachStatementSyntax ?? node;
+        var declared = site.Model.GetDeclaredSymbol(declaredNode) as ILocalSymbol;
         var element = declared?.Type;
         if (element == null || element.SpecialType == SpecialType.System_Char)
             return false;

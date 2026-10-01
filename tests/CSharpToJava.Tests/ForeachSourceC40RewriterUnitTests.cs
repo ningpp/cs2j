@@ -456,6 +456,602 @@ public class ForeachSourceC40RewriterUnitTests
     }
 
     // ===================================================================
+    // M2 §7.1-4 stateful struct enumerator stays concrete (no boxing)
+    //
+    // MoveNext mutates an internal state field; receiving the enumerator in
+    // an IEnumerator local would copy/box the state. The lowering must keep
+    // `var __cs2jFaE` of the concrete struct type. List<int> implements
+    // IEnumerable and is excluded entirely (decision 3).
+    // ===================================================================
+
+    [Fact]
+    public void M2_FS4_stateful_struct_enumerator_is_kept_concrete_and_List_not_rewritten()
+    {
+        var src = """
+            using System.Collections.Generic;
+            struct StatefulEnumerator
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 3;
+            }
+            class StatefulDuck
+            {
+                public StatefulEnumerator GetEnumerator() => default;
+            }
+            class C
+            {
+                void M(StatefulDuck d, List<int> list)
+                {
+                    foreach (var x in d) { Use(x); }
+                    foreach (var y in list) { Use(y); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        // The duck site keeps the concrete struct type via var and never
+        // declares an IEnumerator-typed receiver.
+        Assert.Contains("var __cs2jFaE = __cs2jFaSrc.GetEnumerator();", result.OutputCode);
+        Assert.DoesNotContain("IEnumerator __cs2jFaE", result.OutputCode);
+        Assert.DoesNotContain("(IEnumerator)", result.OutputCode);
+        Assert.Equal(1, result.Statistics.StructEnumeratorSites);
+        Assert.Equal(1, result.Statistics.DuckEnumeratorSitesLowered);
+        // List<int> is IEnumerable: zero FA/FA-5 sites, no synthesized names.
+        Assert.DoesNotContain("__cs2jFaSrc1", result.OutputCode);
+        Assert.Equal(0, result.Statistics.SpanIndexLoopSites);
+        AssertNoErrors(result);
+    }
+
+    // ===================================================================
+    // M2 §7.1-5 Dispose matrix (four shapes)
+    // ===================================================================
+
+    [Fact]
+    public void M2_FS5_IDisposable_class_gets_direct_Dispose_without_cast()
+    {
+        var src = """
+            using System;
+            class ClassDisposableEnumerator : IDisposable
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 2;
+                public void Dispose() { }
+            }
+            class ClassDisposableDuck
+            {
+                public ClassDisposableEnumerator GetEnumerator() => new ClassDisposableEnumerator();
+            }
+            class C
+            {
+                void M(ClassDisposableDuck d)
+                {
+                    foreach (var x in d) { Use(x); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("try", result.OutputCode);
+        Assert.Contains("finally", result.OutputCode);
+        Assert.Contains("__cs2jFaE.Dispose();", result.OutputCode);
+        Assert.DoesNotContain("(System.IDisposable)", result.OutputCode);
+        Assert.Equal(1, result.Statistics.DisposePatternCallSites);
+        Assert.Equal(0, result.Statistics.DisposeBoxedStructSites);
+        AssertNoErrors(result);
+    }
+
+    [Fact]
+    public void M2_FS5_struct_with_only_explicit_IDispose_boxes_with_CS2J5455()
+    {
+        var src = """
+            using System;
+            struct ExplicitDisposeEnumerator : IDisposable
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 2;
+                void IDisposable.Dispose() { }
+            }
+            class ExplicitDisposeDuck
+            {
+                public ExplicitDisposeEnumerator GetEnumerator() => default;
+            }
+            class C
+            {
+                void M(ExplicitDisposeDuck d)
+                {
+                    foreach (var x in d) { Use(x); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("finally", result.OutputCode);
+        // FullyQualifiedFormat renders global::System.IDisposable; the cast is
+        // parenthesized so the member access binds on the boxed receiver.
+        Assert.Contains("((global::System.IDisposable)__cs2jFaE).Dispose();", result.OutputCode);
+        Assert.DoesNotContain("__cs2jFaE.Dispose();", result.OutputCode);
+        Assert.Contains("(global::System.IDisposable)", result.OutputCode);
+        Assert.Equal(1, result.Statistics.DisposePatternCallSites);
+        Assert.Equal(1, result.Statistics.DisposeBoxedStructSites);
+        var diag = Assert.Single(result.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceBoxedStructDispose);
+        Assert.Equal(ForeachSourceSeverity.Info, diag.Severity);
+        Assert.Contains("[FA-4]", diag.Message);
+        Assert.NotNull(diag.Line);
+        AssertNoErrors(result);
+
+        // Strict upgrades CS2J5455 to Warning (it never fails the gate by itself).
+        var strict = Preprocess(src, strict: true);
+        var strictDiag = Assert.Single(strict.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceBoxedStructDispose);
+        Assert.Equal(ForeachSourceSeverity.Warning, strictDiag.Severity);
+    }
+
+    [Fact]
+    public void M2_FS5_plain_struct_with_pattern_Dispose_but_no_IDisposable_gets_no_finally()
+    {
+        var src = """
+            struct StructPatternDisposeEnumerator
+            {
+                public int DisposeCount;
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 2;
+                public void Dispose() => ++DisposeCount;
+            }
+            class StructPatternDisposeDuck
+            {
+                public StructPatternDisposeEnumerator GetEnumerator() => default;
+            }
+            class C
+            {
+                void M(StructPatternDisposeDuck d)
+                {
+                    foreach (var x in d) { Use(x); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("while (__cs2jFaE.MoveNext())", result.OutputCode);
+        Assert.DoesNotContain("finally", result.OutputCode);
+        Assert.DoesNotContain("__cs2jFaE.Dispose", result.OutputCode);
+        Assert.DoesNotContain("(System.IDisposable)", result.OutputCode);
+        Assert.Equal(0, result.Statistics.DisposePatternCallSites);
+        Assert.Equal(0, result.Statistics.DisposeBoxedStructSites);
+        Assert.Equal(1, result.Statistics.NoDisposeSites);
+        AssertNoErrors(result);
+    }
+
+    // M2 probe-pinned rule (see spec backfill): a ref struct enumerator
+    // (ITypeSymbol.IsRefLikeType) with an accessible parameterless void
+    // Dispose() and no IDisposable IS disposed by foreach — directly,
+    // unboxed. info.DisposeMethod returns the concrete pattern symbol.
+    [Fact]
+    public void M2_FS5_ref_struct_enumerator_pattern_Dispose_gets_direct_unboxed_finally()
+    {
+        var src = """
+            ref struct RefStructEnumerator
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 2;
+                public void Dispose() { }
+            }
+            class RefStructDuck
+            {
+                public RefStructEnumerator GetEnumerator() => default;
+            }
+            class C
+            {
+                void M(RefStructDuck d)
+                {
+                    foreach (var x in d) { Use(x); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("try", result.OutputCode);
+        Assert.Contains("finally", result.OutputCode);
+        Assert.Contains("__cs2jFaE.Dispose();", result.OutputCode);
+        Assert.DoesNotContain("(System.IDisposable)", result.OutputCode);
+        Assert.DoesNotContain("IDisposable", result.OutputCode);
+        Assert.Equal(1, result.Statistics.DisposePatternCallSites);
+        Assert.Equal(0, result.Statistics.DisposeBoxedStructSites);
+        AssertNoErrors(result);
+    }
+
+    [Fact]
+    public void M2_FS5_ref_struct_enumerator_without_Dispose_gets_no_finally()
+    {
+        var src = """
+            ref struct RefStructNoDisposeEnumerator
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 2;
+            }
+            class RefStructNoDisposeDuck
+            {
+                public RefStructNoDisposeEnumerator GetEnumerator() => default;
+            }
+            class C
+            {
+                void M(RefStructNoDisposeDuck d)
+                {
+                    foreach (var x in d) { Use(x); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("finally", result.OutputCode);
+        // The type name itself contains "Dispose"; only a generated call is forbidden.
+        Assert.DoesNotContain("__cs2jFaE.Dispose", result.OutputCode);
+        Assert.Equal(0, result.Statistics.DisposePatternCallSites);
+        Assert.Equal(1, result.Statistics.NoDisposeSites);
+        AssertNoErrors(result);
+    }
+
+    // ===================================================================
+    // M2 §7.1-6 FA-5: Span<int>/ReadOnlySpan<int> plain foreach → index loop
+    // ===================================================================
+
+    [Fact]
+    public void M2_FS6_Span_and_ReadOnlySpan_plain_foreach_lower_to_index_loops()
+    {
+        var src = """
+            using System;
+            class C
+            {
+                void M(Span<int> s, ReadOnlySpan<int> r)
+                {
+                    int sum = 0;
+                    foreach (var x in s) { sum += x; }
+                    foreach (int y in r) { sum += y; }
+                    Use(sum);
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.SpanIndexLoopSites);
+        Assert.Equal(0, result.Statistics.DuckEnumeratorSitesLowered);
+        Assert.Equal(2, result.Diagnostics.Count(
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceSpanIndexLoop));
+
+        // for(...) index skeleton, source cached once per site.
+        Assert.Equal(2, CountOccurrences(result.OutputCode, "for ("));
+        Assert.Contains("var __cs2jFrSrc = s;", result.OutputCode);
+        Assert.Contains("int __cs2jFrI = 0; __cs2jFrI < __cs2jFrSrc.Length; __cs2jFrI++", result.OutputCode);
+        Assert.Contains("var x = __cs2jFrSrc[__cs2jFrI];", result.OutputCode);
+        Assert.Contains("var __cs2jFrSrc1 = r;", result.OutputCode);
+        Assert.Contains("int __cs2jFrI1 = 0; __cs2jFrI1 < __cs2jFrSrc1.Length; __cs2jFrI1++", result.OutputCode);
+        // Explicit element type stays explicit (identical symbols, no cast).
+        Assert.Contains("int y = __cs2jFrSrc1[__cs2jFrI1];", result.OutputCode);
+        // No enumerator skeleton anywhere.
+        Assert.DoesNotContain("GetEnumerator", result.OutputCode);
+        Assert.DoesNotContain("MoveNext", result.OutputCode);
+        Assert.DoesNotContain("__cs2jFa", result.OutputCode);
+        Assert.DoesNotContain("finally", result.OutputCode);
+        AssertNoErrors(result);
+    }
+
+    // ===================================================================
+    // M2 §7.1-7 zero collateral damage
+    // ===================================================================
+
+    [Theory]
+    [InlineData("void M(int[] a) { foreach (var x in a) { Use(x); } }", false)]
+    [InlineData("void M(string s) { foreach (var x in s) { Use(x); } }", true)]  // FS-1 wraps string
+    [InlineData("using System.Collections.Generic; void M(List<int> a) { foreach (var x in a) { Use(x); } }", false)]
+    [InlineData("using System.Collections.Generic; void M(IEnumerable<int> a) { foreach (var x in a) { Use(x); } }", false)]
+    [InlineData("using System.Collections.Generic; void M(Dictionary<string,int> a) { foreach (var x in a) { Use(x); } }", false)]
+    public void M2_FS7_converter_owned_sources_are_not_hit_by_FA_or_FA5(string member, bool fs1MayChange)
+    {
+        var src = $$"""
+            {{member}}
+            void Use(object x) { }
+            """;
+        var result = Preprocess(src);
+
+        Assert.Equal(fs1MayChange, result.Changed);
+        Assert.Equal(0, result.Statistics.DuckEnumeratorSitesLowered);
+        Assert.Equal(0, result.Statistics.StructEnumeratorSites);
+        Assert.Equal(0, result.Statistics.SpanIndexLoopSites);
+        Assert.Equal(0, result.Statistics.UnresolvedForeachSites);
+        Assert.Equal(0, result.Statistics.ResidualEnumeratorSites);
+        Assert.DoesNotContain("__cs2jFa", result.OutputCode);
+        Assert.DoesNotContain("__cs2jFr", result.OutputCode);
+    }
+
+    // ===================================================================
+    // M2 decision 10: body shapes, nesting, labels, break/continue
+    // ===================================================================
+
+    [Fact]
+    public void M2_D10_non_block_body_is_wrapped_and_compiles()
+    {
+        var src = """
+            class PlainDuckEnumerator
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 3;
+            }
+            class PlainDuck
+            {
+                public PlainDuckEnumerator GetEnumerator() => new PlainDuckEnumerator();
+            }
+            class C
+            {
+                void M(PlainDuck d)
+                {
+                    foreach (var x in d) Use(x);
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("var x = __cs2jFaE.Current;", result.OutputCode);
+        Assert.Contains("Use(x);", result.OutputCode);
+        AssertNoErrors(result);
+    }
+
+    [Fact]
+    public void M2_D10_nested_outer_duck_inner_span_lowers_both()
+    {
+        var src = """
+            using System;
+            class PlainDuckEnumerator
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 2;
+            }
+            class PlainDuck
+            {
+                public PlainDuckEnumerator GetEnumerator() => new PlainDuckEnumerator();
+            }
+            class C
+            {
+                void M(PlainDuck d, Span<int> s)
+                {
+                    int sum = 0;
+                    foreach (var x in d)
+                        foreach (var y in s)
+                            sum += x + y;
+                    Use(sum);
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        // Inner span site is visited first; FreshName counters are per base
+        // name, so the outer duck's FA basenames carry no numeric suffix.
+        Assert.Contains("var __cs2jFrSrc = s;", result.OutputCode);
+        Assert.Contains("for (int __cs2jFrI = 0;", result.OutputCode);
+        Assert.Contains("var y = __cs2jFrSrc[__cs2jFrI];", result.OutputCode);
+        Assert.Contains("var __cs2jFaSrc = d;", result.OutputCode);
+        Assert.Contains("while (__cs2jFaE.MoveNext())", result.OutputCode);
+        // The index loop sits inside the while body (nesting preserved).
+        var whilePos = result.OutputCode.IndexOf("while (__cs2jFaE.MoveNext())", StringComparison.Ordinal);
+        var forPos = result.OutputCode.IndexOf("for (int __cs2jFrI = 0;", StringComparison.Ordinal);
+        Assert.True(whilePos >= 0 && forPos > whilePos);
+        Assert.Equal(1, result.Statistics.DuckEnumeratorSitesLowered);
+        Assert.Equal(1, result.Statistics.SpanIndexLoopSites);
+        AssertNoErrors(result);
+    }
+
+    [Fact]
+    public void M2_D10_labeled_continue_break_and_body_labels_are_preserved()
+    {
+        var src = """
+            using System;
+            class FlaggedEnumerator : IDisposable
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 4;
+                public void Dispose() { }
+            }
+            class FlaggedDuck
+            {
+                public FlaggedEnumerator GetEnumerator() => new FlaggedEnumerator();
+            }
+            class C
+            {
+                void M(FlaggedDuck d)
+                {
+                    int seen = 0;
+                    foreach (var x in d)
+                    {
+                    again:
+                        seen += x;
+                        if (x == 1) continue;
+                        if (x == 3) break;
+                        if (x == 2) goto again;
+                    }
+                    Use(seen);
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("continue;", result.OutputCode);
+        Assert.Contains("break;", result.OutputCode);
+        Assert.Contains("again:", result.OutputCode);
+        Assert.Contains("goto again;", result.OutputCode);
+        // Single synthesized try/finally; break/continue target the while.
+        Assert.Equal(1, CountOccurrences(result.OutputCode, "finally"));
+        AssertNoErrors(result);
+    }
+
+    [Fact]
+    public void M2_D10_continue_inside_body_try_compiles_with_two_finallys()
+    {
+        var src = """
+            using System;
+            class FlaggedEnumerator : IDisposable
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 3;
+                public void Dispose() { }
+            }
+            class FlaggedDuck
+            {
+                public FlaggedEnumerator GetEnumerator() => new FlaggedEnumerator();
+            }
+            class C
+            {
+                int _side;
+                void M(FlaggedDuck d)
+                {
+                    foreach (var x in d)
+                    {
+                        try
+                        {
+                            if (x == 1) continue;
+                            _side += x;
+                        }
+                        finally
+                        {
+                            _side++;
+                        }
+                    }
+                }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        // Body try/finally + synthesized enumerator try/finally both present;
+        // continue stays inside the synthesized try (Dispose not triggered
+        // mid-loop — verified at runtime by the fixture).
+        Assert.Equal(2, CountOccurrences(result.OutputCode, "finally"));
+        Assert.Contains("continue;", result.OutputCode);
+        AssertNoErrors(result);
+    }
+
+    // ===================================================================
+    // M2 CS2J5457: incomplete binding on a non-IEnumerable source
+    // ===================================================================
+
+    [Fact]
+    public void M2_CS5457_non_enumerable_source_without_binding_warns_and_keeps_node()
+    {
+        var src = """
+            class NotEnumerable { }
+            class C
+            {
+                void M(NotEnumerable n)
+                {
+                    foreach (var x in n) { Use(x); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(1, result.Statistics.UnresolvedForeachSites);
+        Assert.Equal(0, result.Statistics.ResidualEnumeratorSites);
+        var diag = Assert.Single(result.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceUnresolvedForeach);
+        Assert.Equal(ForeachSourceSeverity.Warning, diag.Severity);
+        Assert.NotNull(diag.Line);
+        Assert.DoesNotContain("__cs2jFa", result.OutputCode);
+
+        var strict = Preprocess(src, strict: true);
+        var strictDiag = Assert.Single(strict.Diagnostics,
+            d => d.Code == PreprocessDiagnosticCodes.ForeachSourceUnresolvedForeach);
+        Assert.Equal(ForeachSourceSeverity.Error, strictDiag.Severity);
+    }
+
+    // ===================================================================
+    // M2 CS2J5470: residual gate stays at zero for every handled shape.
+    // A genuine escape site cannot be produced from compilable C# (FA claims
+    // every valid non-IEnumerable binding, FA-5 claims spans), so the gate is
+    // asserted as a safety invariant here rather than constructed artificially.
+    // ===================================================================
+
+    [Fact]
+    public void M2_CS5470_residual_enumerator_counter_is_zero_across_handled_shapes()
+    {
+        var src = """
+            using System;
+            using System.Collections.Generic;
+            class PlainDuckEnumerator
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 2;
+            }
+            class PlainDuck
+            {
+                public PlainDuckEnumerator GetEnumerator() => new PlainDuckEnumerator();
+            }
+            ref struct RefE
+            {
+                private int _i;
+                public int Current => _i;
+                public bool MoveNext() => ++_i <= 2;
+                public void Dispose() { }
+            }
+            class RefD
+            {
+                public RefE GetEnumerator() => default;
+            }
+            class C
+            {
+                void M(PlainDuck d, RefD r, Span<int> s, int[] a, List<int> l, string str)
+                {
+                    foreach (var x in d) { Use(x); }
+                    foreach (var y in r) { Use(y); }
+                    foreach (var z in s) { Use(z); }
+                    foreach (var p in a) { Use(p); }
+                    foreach (var q in l) { Use(q); }
+                    foreach (var ch in str) { Use(ch); }
+                }
+                void Use(int x) { }
+            }
+            """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.ResidualEnumeratorSites);
+        Assert.Equal(0, result.Statistics.UnresolvedForeachSites);
+        Assert.Equal(2, result.Statistics.DuckEnumeratorSitesLowered);
+        Assert.Equal(1, result.Statistics.SpanIndexLoopSites);
+        AssertNoErrors(result);
+    }
+
+    // ===================================================================
     // Helpers
     // ===================================================================
 
@@ -471,7 +1067,7 @@ public class ForeachSourceC40RewriterUnitTests
         return count;
     }
 
-    private static ForeachSourceResult Preprocess(string source)
+    private static ForeachSourceResult Preprocess(string source, bool strict = false)
     {
         var tree = CSharpSyntaxTree.ParseText(source);
         var compilation = CSharpCompilation.Create(
@@ -480,7 +1076,8 @@ public class ForeachSourceC40RewriterUnitTests
             RuntimeReferences(),
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
         var preprocessor = new ForeachSourcePreprocessor();
-        return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree));
+        var options = new ForeachSourceOptions { Strict = strict };
+        return preprocessor.Preprocess(source, compilation.GetSemanticModel(tree), options);
     }
 
     private static MetadataReference[] RuntimeReferences() => new[]
@@ -492,6 +1089,8 @@ public class ForeachSourceC40RewriterUnitTests
         MetadataReference.CreateFromFile(typeof(System.Threading.Tasks.Task).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(System.Runtime.CompilerServices.ITuple).Assembly.Location),
+        // FA-5: System.Span<T>/ReadOnlySpan<T> (System.Memory facade on net10).
+        MetadataReference.CreateFromFile(typeof(System.Memory<>).Assembly.Location),
     };
 
     private static void AssertNoErrors(ForeachSourceResult result)

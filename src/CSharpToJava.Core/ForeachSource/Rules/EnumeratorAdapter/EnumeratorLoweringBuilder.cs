@@ -14,7 +14,8 @@ internal sealed record EnumeratorLowering(
     bool ExtensionGetEnumerator,
     bool StructEnumerator,
     bool DisposeGenerated,
-    bool DisposeBoxed);
+    bool DisposeBoxed,
+    bool RefStructPatternDispose);
 
 /// <summary>
 /// C40 FA skeleton builder: caches the source in <c>__cs2jFaSrc</c>, binds the
@@ -28,6 +29,7 @@ internal static class EnumeratorLoweringBuilder
 {
     public static EnumeratorLowering Lower(
         ForEachStatementSyntax node,
+        ForEachStatementSyntax semanticNode,
         ForeachBinding binding,
         SemanticModel model,
         ForeachSourceRewriteContext context)
@@ -70,7 +72,9 @@ internal static class EnumeratorLoweringBuilder
             SyntaxFactory.Token(SyntaxKind.DotToken),
             SyntaxFactory.IdentifierName("Current"));
 
-        var declaredLocal = model.GetDeclaredSymbol(node) as ILocalSymbol;
+        // Original tree node (nested-foreach case): the declared-symbol query
+        // must not run against the rebuilt visited node.
+        var declaredLocal = model.GetDeclaredSymbol(semanticNode) as ILocalSymbol;
         var elementType = declaredLocal?.Type ?? binding.ElementType;
         var isVar = node.Type is IdentifierNameSyntax { Identifier.Text: "var" };
         var needsCast = elementType != null
@@ -114,49 +118,58 @@ internal static class EnumeratorLoweringBuilder
             SyntaxFactory.ArgumentList());
         StatementSyntax loopStatement = SyntaxFactory.WhileStatement(moveNextCall, body);
 
-        // Dispose classification (M1 probe-pinned on the actually referenced
-        // Roslyn 5.0 / net10 surface — see design backfill 2026-10-01):
-        //   * ForEachStatementInfo.DisposeMethod is NOT a reliable "needs
-        //     dispose" signal: it reports IDisposable.Dispose for any type
-        //     convertible to IDisposable (non-sealed classes, types with a
-        //     mere pattern Dispose()), and is null for structs.
-        //   * Runtime foreach semantics call Dispose only when the enumerator
-        //     type actually implements System.IDisposable. A public
-        //     parameterless Dispose() WITHOUT IDisposable is never invoked by
-        //     foreach (verified with emitted-assembly probes), and on net10
-        //     the non-generic IEnumerator no longer lists IDisposable either.
-        // Hard invariant 4: non-IDisposable enumerators get no try/finally.
+        // Dispose classification (M1 + M2 probes on the referenced Roslyn
+        // 5.0 / net10 surface — see spec backfills 2026-10-01). A finally is
+        // emitted iff either:
+        //   (a) the enumerator type actually implements System.IDisposable
+        //       (class/plain-struct case). ForEachStatementInfo.DisposeMethod
+        //       is NOT a reliable signal here: it reports IDisposable.Dispose
+        //       for merely-convertible types (unsealed classes with a
+        //       pattern-only Dispose()) and is null for plain structs with a
+        //       public Dispose(); a public parameterless Dispose() WITHOUT
+        //       IDisposable is never invoked by foreach for these shapes.
+        //   (b) the enumerator type is a ref struct (IsRefLikeType) and the
+        //       binding gives an accessible parameterless void Dispose()
+        //       pattern method (M2 probe-pinned: for ref structs
+        //       info.DisposeMethod IS the compiler-selected pattern symbol;
+        //       foreach calls it directly, without boxing — ref structs
+        //       cannot implement IDisposable at all).
+        // On net10 the non-generic IEnumerator no longer lists IDisposable.
+        // Hard invariant 4: every other enumerator gets no try/finally.
+        var implementsDisposable =
+            EnumeratorImplementsDisposable(binding.EnumeratorType, model.Compilation);
+        var refStructPatternDispose = !implementsDisposable
+                                      && IsRefStructPatternDispose(binding.EnumeratorType, binding.DisposeMethod);
+
         var disposeGenerated = false;
         var disposeBoxed = false;
-        if (EnumeratorImplementsDisposable(binding.EnumeratorType, model.Compilation))
+        if (implementsDisposable)
         {
             ExpressionSyntax disposeReceiver = enumeratorAccess;
             if (!TryGetDirectDisposeAccess(binding.EnumeratorType!, out _))
             {
                 // Explicit interface implementation (or an interface-typed
                 // enumerator handled above by TryGetDirectDisposeAccess): go
-                // through the interface cast.
+                // through the interface cast. Value types box here (CS2J5455,
+                // risk 1 observable point).
                 var disposableType = model.Compilation.GetSpecialType(SpecialType.System_IDisposable);
                 var disposableSyntax = SyntaxFactory.ParseTypeName(
                     disposableType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
-                disposeReceiver = SyntaxFactory.CastExpression(disposableSyntax, enumeratorAccess);
+                // Parenthesize the cast: without the outer pair the member
+                // access would parse as ((IDisposable)(e.Dispose())).
+                disposeReceiver = SyntaxFactory.ParenthesizedExpression(
+                    SyntaxFactory.CastExpression(disposableSyntax, enumeratorAccess));
                 disposeBoxed = binding.EnumeratorType?.IsValueType == true;
-                // TODO(M2): CS2J5455 boxed-struct Dispose counter/strict warning.
             }
 
-            var disposeCall = SyntaxFactory.ExpressionStatement(
-                SyntaxFactory.InvocationExpression(
-                    SyntaxFactory.MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        disposeReceiver,
-                        SyntaxFactory.Token(SyntaxKind.DotToken),
-                        SyntaxFactory.IdentifierName("Dispose")),
-                    SyntaxFactory.ArgumentList()));
-
-            loopStatement = SyntaxFactory.TryStatement(
-                SyntaxFactory.Block(loopStatement),
-                SyntaxFactory.List<CatchClauseSyntax>(),
-                SyntaxFactory.FinallyClause(SyntaxFactory.Block(disposeCall)));
+            loopStatement = WrapTryFinally(loopStatement, disposeReceiver);
+            disposeGenerated = true;
+        }
+        else if (refStructPatternDispose)
+        {
+            // Pattern Dispose on a ref struct: direct, unboxed invocation of
+            // the compiler-resolved accessible Dispose() method.
+            loopStatement = WrapTryFinally(loopStatement, enumeratorAccess);
             disposeGenerated = true;
         }
 
@@ -175,7 +188,55 @@ internal static class EnumeratorLoweringBuilder
             ExtensionGetEnumerator: binding.GetEnumeratorMethod is { IsExtensionMethod: true },
             StructEnumerator: binding.EnumeratorType?.IsValueType == true,
             DisposeGenerated: disposeGenerated,
-            DisposeBoxed: disposeBoxed);
+            DisposeBoxed: disposeBoxed,
+            RefStructPatternDispose: refStructPatternDispose);
+    }
+
+    private static StatementSyntax WrapTryFinally(
+        StatementSyntax loopStatement,
+        ExpressionSyntax disposeReceiver)
+    {
+        var disposeCall = SyntaxFactory.ExpressionStatement(
+            SyntaxFactory.InvocationExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    disposeReceiver,
+                    SyntaxFactory.Token(SyntaxKind.DotToken),
+                    SyntaxFactory.IdentifierName("Dispose")),
+                SyntaxFactory.ArgumentList()));
+
+        return SyntaxFactory.TryStatement(
+            SyntaxFactory.Block(loopStatement),
+            SyntaxFactory.List<CatchClauseSyntax>(),
+            SyntaxFactory.FinallyClause(SyntaxFactory.Block(disposeCall)));
+    }
+
+    /// <summary>
+    /// Ref-struct pattern-Dispose predicate (M2 probe-pinned): the enumerator
+    /// type is ref-like and the binding's DisposeMethod is the compiler-
+    /// selected accessible parameterless void instance Dispose() declared on
+    /// that type itself. The compiler only produces this symbol when it would
+    /// emit the pattern call (ref structs cannot implement IDisposable), so
+    /// the lowered direct <c>__cs2jFaE.Dispose()</c> binds identically.
+    /// </summary>
+    private static bool IsRefStructPatternDispose(
+        ITypeSymbol? enumeratorType,
+        IMethodSymbol? disposeMethod)
+    {
+        if (enumeratorType is not { IsRefLikeType: true })
+        {
+            return false;
+        }
+
+        return disposeMethod is
+        {
+            IsStatic: false,
+            Parameters.Length: 0,
+            DeclaredAccessibility: Accessibility.Public,
+        }
+               && disposeMethod.ReturnsVoid
+               && SymbolEqualityComparer.Default.Equals(
+                   disposeMethod.ContainingType, enumeratorType);
     }
 
     /// <summary>

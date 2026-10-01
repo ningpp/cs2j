@@ -97,7 +97,7 @@ public sealed class ForeachSourceStatistics
     /// <summary>Lowered duck-enumerator sites without any Dispose method (no try/finally generated).</summary>
     public int NoDisposeSites;
 
-    /// <summary>FA-5: Span/ReadOnlySpan plain foreach lowered to index loops (M3).</summary>
+    /// <summary>FA-5: Span/ReadOnlySpan plain foreach lowered to index loops (CS2J5460).</summary>
     public int SpanIndexLoopSites;
 
     /// <summary>FR-1/2: ref foreach sites lowered to index loops (CS2J5480 bucket; M3).</summary>

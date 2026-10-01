@@ -82,11 +82,13 @@ internal sealed class ForeachSourcePassAdapter : ProjectPassAdapter
 
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
-        // FS-5 residual gate. Per-file residual counters come straight from
+        // FS-5 residual gates. Per-file residual counters come straight from
         // the rewriter output bookkeeping — the intermediate tree is never
         // parsed a second time here (the spine's verify build is the semantic
         // safety net). ref/await/KV/lowered-deconstruct sites never enter the
-        // failing buckets.
+        // failing buckets. The C16 gate (CS2J5440, string/deconstruction) and
+        // the C40 gate (CS2J5470, pattern enumerator escape bucket) are
+        // counted and reported separately.
         var residualFailures = _statistics.ResidualStringSites
             + _statistics.ResidualDeconstructionSites;
         if (residualFailures > 0)
@@ -100,6 +102,19 @@ internal sealed class ForeachSourcePassAdapter : ProjectPassAdapter
                 $"{residualFailures} residual foreach site(s) remaining after foreach-source " +
                 $"({_statistics.ResidualStringSites} bare string, " +
                 $"{_statistics.ResidualDeconstructionSites} tuple/other deconstruction)."));
+        }
+
+        if (_statistics.ResidualEnumeratorSites > 0)
+        {
+            var severity = _options.Strict
+                ? ForeachSourceSeverity.Error
+                : ForeachSourceSeverity.Warning;
+            _diagnostics.Add(new ForeachSourceDiagnostic(
+                severity,
+                PreprocessDiagnosticCodes.ForeachSourceResidualEnumeratorGate,
+                $"{_statistics.ResidualEnumeratorSites} residual pattern-enumerator foreach site(s) " +
+                "remaining after foreach-source (non-array/non-string/non-IEnumerable source with a valid " +
+                "enumerator binding that no rule lowered)."));
         }
 
         return Task.CompletedTask;
@@ -139,8 +154,12 @@ internal sealed class ForeachSourcePassAdapter : ProjectPassAdapter
                $"{_statistics.DeconstructResidualLowered} deconstruct(s) lowered, " +
                $"{_statistics.DuckEnumeratorSitesLowered} duck enumerator(s) lowered " +
                $"(ext {_statistics.ExtensionGetEnumeratorSites}, direct {_statistics.DirectEnumeratorSites}, " +
-               $"struct {_statistics.StructEnumeratorSites}, dispose {_statistics.DisposePatternCallSites}, " +
-               $"no-dispose {_statistics.NoDisposeSites}, dynamic {_statistics.DynamicForeachSites}), " +
+               $"struct {_statistics.StructEnumeratorSites}, dispose {_statistics.DisposePatternCallSites} " +
+               $"[boxed {_statistics.DisposeBoxedStructSites}], no-dispose {_statistics.NoDisposeSites}, " +
+               $"dynamic {_statistics.DynamicForeachSites}), " +
+               $"{_statistics.SpanIndexLoopSites} span index loop(s), " +
+               $"{_statistics.UnresolvedForeachSites} unresolved site(s), " +
+               $"{_statistics.ResidualEnumeratorSites} residual enumerator site(s), " +
                $"{errorCount} error(s)";
     }
 

@@ -37,6 +37,15 @@ internal sealed class ForeachSourceSite
 
     /// <summary>C40: normalized foreach binding from <see cref="ForeachBindingResolver"/> (null when unresolved).</summary>
     public ForeachBinding? Binding { get; init; }
+
+    /// <summary>
+    /// The node as it existed in the original model tree, before child sites
+    /// were rewritten. Children are visited first (nested foreach lower
+    /// bottom-up), so the dispatched node can be a detached rebuilt node on
+    /// which semantic-model lookups return empty; all symbol queries must use
+    /// this original node, while generated syntax uses the visited node.
+    /// </summary>
+    public CommonForEachStatementSyntax? OriginalNode { get; init; }
 }
 
 /// <summary>

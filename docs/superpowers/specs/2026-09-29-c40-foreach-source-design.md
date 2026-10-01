@@ -446,3 +446,14 @@ git -C .worktrees/preproc-c40-foreach-source merge --no-ff 28ae4594
 6. **net10 接口层次**：非泛型 `System.Collections.IEnumerator` 在 net10 **不再列入 IDisposable**（枚举器符号 AllInterfaces=[]，SpecialType=`System_Collections_IEnumerator`；手写 `class X : IEnumerator` 不提供 Dispose 也能编译，运行时 `x as IDisposable == null`，与接口方法表一致）。`IEnumerator<T>` 仍继承 IDisposable（AllInterfaces 含之）。fixture `EnumeratorDuckSamples.CollectNonGenericBoxed` 锁定非泛型盒子站点**不**生成 finally；`CollectGenericBoxed` 锁定泛型站点生成 finally + Dispose。
 7. **while 骨架捕获等价性（确认决策 12）**：手写 `var e = src.GetEnumerator(); while (e.MoveNext()) { var item = e.Current; actions.Add(() => item); }` 后统一 invoke，捕获值序列 `[1,2,3]`，与原生 foreach 逐元素一致——while 体内每轮新建块级局部，lambda 闭包语义不变。fixture `CaptureActions` 锁定。
 8. **落地约束**：子串计数陷阱（`__cs2jFaE` 是 `__cs2jFaE1` 的前缀）在单测中以 `.MoveNext()` 完整调用串或分别 Contains 规避；FreshName 计数器为 context（单文件处理）级，同一文件多站点按出现顺序 `__cs2jFaSrc`/`__cs2jFaSrc1`/…，ProjectTests 按站点序号断言。
+9. **M2 探针补正（2026 运行时证据）——ref struct 枚举器例外，修正第 3 条/④的过度概括**：第 3 条「pattern Dispose 即使存在也绝不调用」仅对**普通 class / 普通 struct** 成立。M2 对 Roslyn 5.0 补测 ref-like 枚举器分桶：
+
+   | 枚举器形态 | IsRefLikeType | `info.DisposeMethod` | 原生 foreach 是否调用 Dispose |
+   |---|---|---|---|
+   | ref struct + public 无参 void `Dispose()` | true | **具体 pattern 方法符号**（Public/无参/void，ContainingType = 枚举器自身） | **调用，直接 pattern 调用，不装箱** |
+   | ref struct 无 Dispose | true | null | 不调用 |
+   | 普通 struct + public Dispose() 无接口 | false | null | 不调用（M1 结论不变） |
+   | class + public Dispose() 无接口 | false | `System.IDisposable.Dispose`（误报，不可用） | 不调用（M1 结论不变） |
+   | struct/class 显式 IDisposable | false | `System.IDisposable.Dispose` | 经接口调用（struct 装箱） |
+
+   即 **finally 充要条件 = 实现 IDisposable，或 IsRefLikeType + 可访问无参 void pattern `Dispose()`（声明类型为枚举器自身）**。ref struct 分支直接信任 `info.DisposeMethod` 并复核上述形态谓词，生成无 cast 的 `__cs2jFaE.Dispose()`；class/普通 struct 仍只按 AllInterfaces 判定。fixture `RefStructPatternDisposeEnumerator`（Normal/Break/Throw 三路径旗标各恰好一次）与 `ExplicitDisposeStructEnumerator`（共享引用探针验证装箱副本上 Dispose 恰好一次，CS2J5455）锁定。

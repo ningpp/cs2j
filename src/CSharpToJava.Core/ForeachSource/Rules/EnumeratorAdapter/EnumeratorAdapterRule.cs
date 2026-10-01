@@ -13,16 +13,17 @@ namespace CSharpToJava.Core.ForeachSource;
 /// <list type="bullet">
 /// <item>plain <see cref="ForEachStatementSyntax"/> (deconstruction foreach
 /// is owned by E07/C16; await/ref sites are stopped by the rewriter guards);</item>
-/// <item>collection static type is not an array and implements neither
-/// <c>System.Collections.IEnumerable</c> nor <c>IEnumerable&lt;T&gt;</c> on the
-/// type itself or any of its interfaces (List&lt;T&gt;/Dictionary/… therefore
-/// stay with the converter path);</item>
+/// <item>collection static type is not an array, not Span/ReadOnlySpan (FA-5,
+/// decision 9) and implements neither <c>System.Collections.IEnumerable</c>
+/// nor <c>IEnumerable&lt;T&gt;</c> on the type itself or any of its
+/// interfaces (List&lt;T&gt;/Dictionary/… therefore stay with the converter
+/// path);</item>
 /// <item>the semantic binding provides an enumerator: a GetEnumerator method
 /// (instance or extension) or the direct collection-is-enumerator pattern.</item>
 /// </list>
 /// A dynamic-dispatch site is diagnosed CS2J5456 and left untouched; an
-/// incomplete binding on a non-IEnumerable source keeps passing through in M1
-/// (CS2J5457 is reserved for M2).
+/// incomplete binding on a non-IEnumerable, non-span source is diagnosed
+/// CS2J5457 and left untouched (decision 11).
 /// </summary>
 internal sealed class EnumeratorAdapterRule : IForeachSourceRule
 {
@@ -56,7 +57,15 @@ internal sealed class EnumeratorAdapterRule : IForeachSourceRule
         {
             return null;
         }
-        if (ImplementsIEnumerable(collectionType, site.Model.Compilation))
+        if (ForeachSourceAnalyzer.ImplementsIEnumerable(collectionType, site.Model.Compilation))
+        {
+            return null;
+        }
+
+        // Decision 9: Span<T>/ReadOnlySpan<T> always lower to an index loop;
+        // SpanIndexLoopRule is registered immediately after this rule. The two
+        // rules are mutually exclusive via this explicit exclusion.
+        if (ForeachSourceAnalyzer.IsSpanType(collectionType))
         {
             return null;
         }
@@ -81,16 +90,33 @@ internal sealed class EnumeratorAdapterRule : IForeachSourceRule
 
         // A usable enumerator binding is required: either GetEnumerator
         // (instance/extension) or the direct collection-is-enumerator pattern.
-        // Odd incomplete-binding states stay pass-through in M1 (5457 in M2).
+        // A non-array/non-string/non-IEnumerable/non-span site without one is
+        // CS2J5457: the node survives (usually the source itself fails to
+        // compile), but the gap is now an explicit signal instead of a silent
+        // pass-through. Error-type/no-model sites returned earlier and do not
+        // reach here.
         if (binding == null
             || binding.MoveNextMethod == null
             || binding.CurrentProperty == null
             || (binding.GetEnumeratorMethod == null && !binding.DirectEnumerator))
         {
-            return null;
+            context.Statistics.UnresolvedForeachSites++;
+            var severity = site.Options.Strict
+                ? ForeachSourceSeverity.Error
+                : ForeachSourceSeverity.Warning;
+            context.Report(
+                severity,
+                PreprocessDiagnosticCodes.ForeachSourceUnresolvedForeach,
+                "[FA] foreach over a non-array/non-string/non-IEnumerable source has an incomplete " +
+                "enumerator binding (no usable GetEnumerator/MoveNext/Current symbols); the node at " +
+                "this site is left unchanged.",
+                node);
+            return ForeachSourceRuleOutcome.KeepUnchanged;
         }
 
-        var lowering = EnumeratorLoweringBuilder.Lower(node, binding, site.Model, context);
+        var semanticNode = site.OriginalNode as ForEachStatementSyntax ?? node;
+        var lowering = EnumeratorLoweringBuilder.Lower(
+            node, semanticNode, binding, site.Model, context);
 
         context.Changed = true;
 
@@ -135,15 +161,32 @@ internal sealed class EnumeratorAdapterRule : IForeachSourceRule
         if (lowering.DisposeGenerated)
         {
             context.Statistics.DisposePatternCallSites++;
-            if (lowering.DisposeBoxed)
-            {
-                context.Statistics.DisposeBoxedStructSites++;
-            }
             context.Report(
                 ForeachSourceSeverity.Info,
                 PreprocessDiagnosticCodes.ForeachSourceDisposeGenerated,
-                "[FA-4] pattern/IDisposable Dispose call generated in finally.",
+                lowering.RefStructPatternDispose
+                    ? "[FA-4] ref struct pattern Dispose call generated directly (unboxed) in finally."
+                    : "[FA-4] pattern/IDisposable Dispose call generated in finally.",
                 node);
+
+            if (lowering.DisposeBoxed)
+            {
+                // Risk 1 observable point: explicit-interface-only Dispose on a
+                // value type forces ((System.IDisposable)e).Dispose() and boxes
+                // the enumerator. Info by default, Warning under strict; the
+                // emitted call site/line comes from node.
+                context.Statistics.DisposeBoxedStructSites++;
+                var boxedSeverity = site.Options.Strict
+                    ? ForeachSourceSeverity.Warning
+                    : ForeachSourceSeverity.Info;
+                context.Report(
+                    boxedSeverity,
+                    PreprocessDiagnosticCodes.ForeachSourceBoxedStructDispose,
+                    "[FA-4] value-type enumerator at this foreach site is boxed because Dispose() is " +
+                    "available only through an explicit IDisposable implementation; the lowered site " +
+                    "calls ((global::System.IDisposable)__cs2jFaE).Dispose().",
+                    node);
+            }
         }
         else
         {
@@ -151,43 +194,5 @@ internal sealed class EnumeratorAdapterRule : IForeachSourceRule
         }
 
         return new ForeachSourceRuleOutcome(lowering.Block, Changed: true);
-    }
-
-    /// <summary>
-    /// Decision 3: the type itself (it may be the interface) or any of its
-    /// implemented interfaces is <c>System.Collections.IEnumerable</c> or
-    /// <c>IEnumerable&lt;T&gt;</c>. Arrays are excluded by the caller.
-    /// </summary>
-    private static bool ImplementsIEnumerable(ITypeSymbol type, Compilation compilation)
-    {
-        var genericIEnumerable = compilation.GetTypeByMetadataName(
-            "System.Collections.Generic.IEnumerable`1");
-
-        if (IsIEnumerable(type, genericIEnumerable))
-        {
-            return true;
-        }
-
-        foreach (var iface in type.AllInterfaces)
-        {
-            if (IsIEnumerable(iface, genericIEnumerable))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool IsIEnumerable(ITypeSymbol type, INamedTypeSymbol? genericIEnumerable)
-    {
-        if (type.SpecialType == SpecialType.System_Collections_IEnumerable)
-        {
-            return true;
-        }
-
-        return genericIEnumerable != null
-               && type is INamedTypeSymbol named
-               && SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, genericIEnumerable);
     }
 }

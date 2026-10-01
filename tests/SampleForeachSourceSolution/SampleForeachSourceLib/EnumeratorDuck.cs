@@ -161,6 +161,131 @@ public sealed class NonGenericBoxedEnumerable
     public IEnumerator GetEnumerator() => _values.GetEnumerator();
 }
 
+// =====================================================================
+// C40 M2 fixtures.
+// =====================================================================
+
+// Shared reference-type sink: struct enumerators copied onto the heap by an
+// IDisposable interface cast still mutate the same probe target, so the
+// exactly-once Dispose observation survives value-type copying.
+public sealed class DisposeProbe
+{
+    public int Count;
+}
+
+// M2 FA-4 matrix: stateful value-type enumerator without IDisposable. The
+// enumeration state lives in the struct local; a lowering that went through
+// an interface box would drive a frozen copy (dead loop / constant values),
+// so the bare unboxed while skeleton is the only correct shape.
+public struct StatefulStructEnumerator
+{
+    private int _current;
+    private readonly int _limit;
+
+    internal StatefulStructEnumerator(int limit)
+    {
+        _limit = limit;
+        _current = 0;
+    }
+
+    public int Current => _current;
+
+    public bool MoveNext() => ++_current <= _limit;
+}
+
+public sealed class StatefulStructDuck
+{
+    private readonly int _limit;
+
+    public StatefulStructDuck(int limit = 3)
+    {
+        _limit = limit;
+    }
+
+    public StatefulStructEnumerator GetEnumerator()
+        => new StatefulStructEnumerator(_limit);
+}
+
+// M2 CS2J5455: value-type enumerator whose only Dispose is an explicit
+// IDisposable implementation. The pattern Dispose is privately inaccessible,
+// so the lowered site boxes through ((global::System.IDisposable)e).Dispose();
+// the probe is a shared reference so the boxed copy is still observable.
+public struct ExplicitDisposeStructEnumerator : IDisposable
+{
+    private int _current;
+    private readonly int _limit;
+    private readonly DisposeProbe _probe;
+
+    internal ExplicitDisposeStructEnumerator(int limit, DisposeProbe probe)
+    {
+        _limit = limit;
+        _probe = probe;
+        _current = 0;
+    }
+
+    public int Current => _current;
+
+    public bool MoveNext() => ++_current <= _limit;
+
+    void IDisposable.Dispose() => _probe.Count++;
+}
+
+public sealed class ExplicitDisposeStructDuck
+{
+    private readonly int _limit;
+
+    public ExplicitDisposeStructDuck(int limit = 3)
+    {
+        _limit = limit;
+        Probe = new DisposeProbe();
+    }
+
+    public DisposeProbe Probe { get; }
+
+    public ExplicitDisposeStructEnumerator GetEnumerator()
+        => new ExplicitDisposeStructEnumerator(_limit, Probe);
+}
+
+// M2 ref-struct exception (design §M2): a ref-like enumerator with an
+// accessible parameterless void Dispose() is invoked directly by foreach
+// WITHOUT boxing (Roslyn 5.0 probe-pinned); the lowering emits a direct
+// __cs2jFaE.Dispose() pattern call in finally. The container is ref struct
+// as well, and the shared probe keeps the exactly-once signal observable.
+public ref struct RefStructPatternDisposeEnumerator
+{
+    private int _current;
+    private readonly int _limit;
+    private readonly DisposeProbe _probe;
+
+    internal RefStructPatternDisposeEnumerator(int limit, DisposeProbe probe)
+    {
+        _limit = limit;
+        _probe = probe;
+        _current = 0;
+    }
+
+    public int Current => _current;
+
+    public bool MoveNext() => ++_current <= _limit;
+
+    public void Dispose() => _probe.Count++;
+}
+
+public ref struct RefStructPatternDisposeDuck
+{
+    private readonly int _limit;
+    private readonly DisposeProbe _probe;
+
+    public RefStructPatternDisposeDuck(int limit, DisposeProbe probe)
+    {
+        _limit = limit;
+        _probe = probe;
+    }
+
+    public RefStructPatternDisposeEnumerator GetEnumerator()
+        => new RefStructPatternDisposeEnumerator(_limit, _probe);
+}
+
 /// <summary>
 /// Foreach entry points exercised by EnumeratorDuckTests. The chain runs the
 /// test project on the lowered intermediate tree, so every assertion here
@@ -289,5 +414,119 @@ public static class EnumeratorDuckSamples
         }
 
         return values;
+    }
+
+    // ----- M2 entry points -----
+
+    /// <summary>M2: stateful struct enumerator stays unboxed; all values arrive.</summary>
+    public static List<int> CollectStatefulStruct(StatefulStructDuck duck)
+    {
+        var result = new List<int>();
+        foreach (var item in duck)
+        {
+            result.Add(item);
+        }
+
+        return result;
+    }
+
+    /// <summary>M2: break on a stateful struct enumerator yields the prefix only.</summary>
+    public static List<int> BreakStatefulStruct(StatefulStructDuck duck, int stopAt)
+    {
+        var result = new List<int>();
+        foreach (var item in duck)
+        {
+            if (item == stopAt)
+            {
+                break;
+            }
+
+            result.Add(item);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// M2 CS2J5455: explicit-interface struct Dispose runs exactly once on
+    /// normal completion (observable through the shared probe).
+    /// </summary>
+    public static List<int> CollectExplicitDisposeStruct(ExplicitDisposeStructDuck duck)
+    {
+        var result = new List<int>();
+        foreach (var item in duck)
+        {
+            result.Add(item);
+        }
+
+        return result;
+    }
+
+    /// <summary>M2 CS2J5455: break path also disposes the boxed struct once.</summary>
+    public static List<int> BreakExplicitDisposeStruct(ExplicitDisposeStructDuck duck)
+    {
+        var result = new List<int>();
+        foreach (var item in duck)
+        {
+            result.Add(item);
+            if (item == 2)
+            {
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>M2: ref struct pattern Dispose runs once, never boxed.</summary>
+    public static int RefStructPatternDisposeNormalCount(int limit)
+    {
+        var probe = new DisposeProbe();
+        foreach (var item in new RefStructPatternDisposeDuck(limit, probe))
+        {
+            GC.KeepAlive(item);
+        }
+
+        return probe.Count;
+    }
+
+    /// <summary>M2: ref struct break disposes once and only the prefix is seen.</summary>
+    public static (int DisposeCount, List<int> Seen) RefStructPatternDisposeBreakCount(
+        int limit, int stopAt)
+    {
+        var probe = new DisposeProbe();
+        var seen = new List<int>();
+        foreach (var item in new RefStructPatternDisposeDuck(limit, probe))
+        {
+            seen.Add(item);
+            if (item == stopAt)
+            {
+                break;
+            }
+        }
+
+        return (probe.Count, seen);
+    }
+
+    /// <summary>M2: a body exception still triggers the ref struct pattern Dispose.</summary>
+    public static int RefStructPatternDisposeThrowCount(int limit)
+    {
+        var probe = new DisposeProbe();
+        try
+        {
+            foreach (var item in new RefStructPatternDisposeDuck(limit, probe))
+            {
+                if (item == 2)
+                {
+                    throw new InvalidOperationException("ref-struct boom");
+                }
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Swallow so the probe count can be observed by the caller.
+        }
+
+        return probe.Count;
     }
 }

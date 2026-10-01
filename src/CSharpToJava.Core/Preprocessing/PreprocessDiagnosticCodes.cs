@@ -136,9 +136,9 @@ public static class PreprocessDiagnosticCodes
     public const string ForeachSourceAwaitForeach = "CS2J5442";
 
     // ── CS2J5450-5479 C40 EnumeratorAdapter (design §6) ──
-    // M1 owns 5450-5454 and 5456; CS2J5455 (boxed struct Dispose),
-    // CS2J5457 (incomplete non-IEnumerable binding) and CS2J5470 (residual
-    // gate) land in M2; CS2J5480-5495 are reserved for M3 RefForeach.
+    // M1 owns 5450-5454 and 5456; M2 adds 5455 (boxed struct Dispose),
+    // 5457 (incomplete non-IEnumerable binding), 5460 (FA-5 span index loop)
+    // and 5470 (residual enumerator gate); CS2J5480-5495 are M3 RefForeach.
 
     /// <summary>C40 FA: duck-typed enumerator foreach lowered to GetEnumerator + while(MoveNext) + Current (verbose aggregated info).</summary>
     public const string ForeachSourceDuckEnumeratorLowered = "CS2J5450";
@@ -155,6 +155,18 @@ public static class PreprocessDiagnosticCodes
     /// <summary>C40 FA-4: pattern Dispose / IDisposable call generated in a finally block.</summary>
     public const string ForeachSourceDisposeGenerated = "CS2J5454";
 
+    /// <summary>C40 FA-4: explicit-interface-only Dispose forces a value-type enumerator to be boxed at this site (Info; Warning in strict mode).</summary>
+    public const string ForeachSourceBoxedStructDispose = "CS2J5455";
+
     /// <summary>C40: dynamically dispatched foreach cannot be statically lowered (Warning; Error in strict mode; belongs to C25).</summary>
     public const string ForeachSourceDynamicForeach = "CS2J5456";
+
+    /// <summary>C40: non-array/non-string/non-IEnumerable foreach site whose binding is too incomplete to lower (Warning; Error in strict mode).</summary>
+    public const string ForeachSourceUnresolvedForeach = "CS2J5457";
+
+    /// <summary>C40 FA-5: plain foreach over Span&lt;T&gt;/ReadOnlySpan&lt;T&gt; lowered to an index loop (Info).</summary>
+    public const string ForeachSourceSpanIndexLoop = "CS2J5460";
+
+    /// <summary>C40 FS-5 residual gate: a non-array/non-string/non-IEnumerable plain foreach with a valid pattern enumerator binding survived unlowered (Warning; Error in strict mode).</summary>
+    public const string ForeachSourceResidualEnumeratorGate = "CS2J5470";
 }

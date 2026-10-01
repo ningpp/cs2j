@@ -50,6 +50,85 @@ internal static class ForeachSourceAnalyzer
         => type is { TypeKind: TypeKind.Dynamic };
 
     /// <summary>
+    /// Decision 9/FA-5: <c>System.Span&lt;T&gt;</c> /
+    /// <c>System.ReadOnlySpan&lt;T&gt;</c> by metadata name (ref structs can
+    /// never appear under an interface/alias the way IEnumerable sources do).
+    /// </summary>
+    public static bool IsSpanType(ITypeSymbol? type)
+        => type is INamedTypeSymbol named
+           && named.TypeArguments.Length == 1
+           && named.ContainingNamespace?.ToDisplayString() == "System"
+           && (named.MetadataName == "Span`1" || named.MetadataName == "ReadOnlySpan`1");
+
+    /// <summary>
+    /// Decision 3: the type itself (it may be the interface) or any of its
+    /// implemented interfaces is <c>System.Collections.IEnumerable</c> or
+    /// <c>IEnumerable&lt;T&gt;</c>. Arrays are excluded by the callers.
+    /// </summary>
+    public static bool ImplementsIEnumerable(ITypeSymbol type, Compilation compilation)
+    {
+        var genericIEnumerable = compilation.GetTypeByMetadataName(
+            "System.Collections.Generic.IEnumerable`1");
+
+        if (IsIEnumerable(type, genericIEnumerable))
+        {
+            return true;
+        }
+
+        foreach (var iface in type.AllInterfaces)
+        {
+            if (IsIEnumerable(iface, genericIEnumerable))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsIEnumerable(ITypeSymbol type, INamedTypeSymbol? genericIEnumerable)
+    {
+        if (type.SpecialType == SpecialType.System_Collections_IEnumerable)
+        {
+            return true;
+        }
+
+        return genericIEnumerable != null
+               && type is INamedTypeSymbol named
+               && SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, genericIEnumerable);
+    }
+
+    /// <summary>
+    /// FS-5 CS2J5470 residual-bucket predicate: a plain (non-ref, non-await)
+    /// foreach whose source is not an array/string/IEnumerable, where the
+    /// semantic binding provides a usable pattern enumerator. Such a site
+    /// must never survive unlowered — if every rule declines it, the rewriter
+    /// counts it for the residual gate instead of a silent pass-through.
+    /// </summary>
+    public static bool IsResidualEnumeratorCandidate(
+        ITypeSymbol expressionType,
+        ForeachBinding? binding,
+        Compilation compilation)
+    {
+        if (expressionType is IArrayTypeSymbol
+            || IsString(expressionType)
+            || IsDynamic(expressionType)
+            || ImplementsIEnumerable(expressionType, compilation))
+        {
+            return false;
+        }
+
+        if (binding == null || binding.RefKind != RefKind.None)
+        {
+            return false;
+        }
+
+        return binding.MoveNextMethod != null
+               && binding.CurrentProperty != null
+               && (binding.GetEnumeratorMethod != null || binding.DirectEnumerator);
+    }
+
+    /// <summary>
     /// Element type behind a <c>foreach (var (…) in …)</c> site; null when the
     /// node is detached from the model or the binding is unavailable.
     /// </summary>

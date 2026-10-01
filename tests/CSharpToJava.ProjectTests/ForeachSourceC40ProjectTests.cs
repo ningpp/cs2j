@@ -26,13 +26,53 @@ public class ForeachSourceC40ProjectTests
     private static string FixtureDir =>
         Path.Combine(AppContext.BaseDirectory, "SampleForeachSourceSolution");
 
-    private static async Task<CliChainResult> RunPassAsync(string outputRoot)
+    /// <summary>
+    /// Stage a private copy of the deployed fixture in the temp directory.
+    /// Other test classes (C16 ForeachSourceProjectTests, ForeachSourceCLITests)
+    /// run concurrently (xUnit parallelizes across classes) and write their
+    /// intermediate trees INSIDE the shared deployed fixture directory; tree
+    /// discovery over that directory would otherwise race with their cleanup
+    /// (File.Copy on a half-deleted staged tree). The private copy excludes
+    /// every <c>.test-output*</c> staging root plus bin/obj.
+    /// </summary>
+    private static string StagePrivateFixture()
+    {
+        var staging = Path.Combine(
+            Path.GetTempPath(),
+            "cs2j-c40-fixture-" + Guid.NewGuid().ToString("N"));
+        CopyFixtureTree(FixtureDir, staging);
+        return staging;
+    }
+
+    private static void CopyFixtureTree(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var directory in Directory.GetDirectories(source))
+        {
+            var name = Path.GetFileName(directory);
+            if (name.StartsWith(".test-output", StringComparison.Ordinal)
+                || name is "bin" or "obj" or ".vs")
+            {
+                continue;
+            }
+
+            CopyFixtureTree(directory, Path.Combine(destination, name));
+        }
+
+        foreach (var file in Directory.GetFiles(source))
+        {
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
+        }
+    }
+
+    private static async Task<CliChainResult> RunPassAsync(
+        string fixtureRoot, string outputRoot)
     {
         var registry = PassCatalog.BuildRegistry();
         var toggles = PassChainFactory.BuildAllDisabledToggles(registry);
         return await CliPreprocessChain.RunAsync(new CliChainRequest
         {
-            SourcePath = Path.Combine(FixtureDir, "SampleForeachSourceSolution.sln"),
+            SourcePath = Path.Combine(fixtureRoot, "SampleForeachSourceSolution.sln"),
             DestinationRoot = outputRoot,
             MakerOptionsFactory = () => new ReadOnlyStructMakerOptions(),
             RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
@@ -54,10 +94,11 @@ public class ForeachSourceC40ProjectTests
     [Fact]
     public async Task Fixture_LowersDuckEnumerators_AndIntermediateTreeBuildsAndTestsClean()
     {
-        var outputRoot = Path.Combine(FixtureDir, ".test-output-foreach-source-c40");
+        var fixtureRoot = StagePrivateFixture();
+        var outputRoot = Path.Combine(fixtureRoot, ".test-output-foreach-source-c40");
         try
         {
-            var result = await RunPassAsync(outputRoot);
+            var result = await RunPassAsync(fixtureRoot, outputRoot);
 
             Assert.True(result.Success,
                 "foreach-source pass failed (see chain diagnostics above)");
@@ -126,9 +167,106 @@ public class ForeachSourceC40ProjectTests
         }
         finally
         {
-            if (Directory.Exists(outputRoot))
+            if (Directory.Exists(fixtureRoot))
             {
-                Directory.Delete(outputRoot, recursive: true);
+                Directory.Delete(fixtureRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task M2_Fixture_DisposeMatrixAndSpanIndexLoops_AreLoweredCorrectly()
+    {
+        var fixtureRoot = StagePrivateFixture();
+        var outputRoot = Path.Combine(fixtureRoot, ".test-output-foreach-source-c40-m2");
+        try
+        {
+            var result = await RunPassAsync(fixtureRoot, outputRoot);
+
+            Assert.True(result.Success,
+                "foreach-source pass failed (see chain diagnostics above)");
+
+            var libDir = Path.Combine(outputRoot, IntermediateDir, "SampleForeachSourceLib");
+
+            // ---- Dispose matrix in EnumeratorDuck.cs ----
+            var duckFile = Path.Combine(libDir, "EnumeratorDuck.cs");
+            Assert.True(File.Exists(duckFile), $"missing lowered file: {duckFile}");
+            var duck = await File.ReadAllTextAsync(duckFile);
+
+            // Stateful struct, no IDisposable: bare unboxed while, no finally.
+            var stateful = MethodBody(duck, "CollectStatefulStruct");
+            Assert.Contains("var __cs2jFaSrc10 = duck;", stateful);
+            Assert.Contains("while (__cs2jFaE10.MoveNext())", stateful);
+            Assert.DoesNotContain("finally", stateful);
+            Assert.DoesNotContain("IDisposable", stateful);
+
+            // Explicit-interface struct Dispose: boxed interface cast in
+            // finally (CS2J5455 shape).
+            var explicitStruct = MethodBody(duck, "CollectExplicitDisposeStruct");
+            Assert.Contains("finally", explicitStruct);
+            Assert.Contains(
+                "((global::System.IDisposable)__cs2jFaE12).Dispose();",
+                explicitStruct);
+            // The pattern method is private (explicit impl): never called direct.
+            Assert.DoesNotContain("__cs2jFaE12.Dispose();", explicitStruct);
+
+            var explicitBreak = MethodBody(duck, "BreakExplicitDisposeStruct");
+            Assert.Contains(
+                "((global::System.IDisposable)__cs2jFaE13).Dispose();",
+                explicitBreak);
+
+            // Ref struct pattern Dispose: direct pattern call, no cast, box-free.
+            var refStructNormal = MethodBody(duck, "RefStructPatternDisposeNormalCount");
+            Assert.Contains("finally", refStructNormal);
+            Assert.Contains("__cs2jFaE14.Dispose();", refStructNormal);
+            Assert.DoesNotContain("IDisposable", refStructNormal);
+
+            var refStructThrow = MethodBody(duck, "RefStructPatternDisposeThrowCount");
+            Assert.Contains("__cs2jFaE16.Dispose();", refStructThrow);
+            Assert.DoesNotContain("IDisposable", refStructThrow);
+
+            // ---- FA-5 Span index loops in the new fixture file ----
+            var spanFile = Path.Combine(libDir, "SpanIndexLoopSamples.cs");
+            Assert.True(File.Exists(spanFile), $"missing lowered file: {spanFile}");
+            var span = await File.ReadAllTextAsync(spanFile);
+
+            var sumSpan = MethodBody(span, "SumSpan");
+            Assert.Contains("var __cs2jFrSrc = values;", sumSpan);
+            Assert.Contains(
+                "for (int __cs2jFrI = 0; __cs2jFrI < __cs2jFrSrc.Length; __cs2jFrI++)",
+                sumSpan);
+            Assert.Contains("__cs2jFrSrc[__cs2jFrI]", sumSpan);
+            Assert.DoesNotContain("GetEnumerator", sumSpan);
+            Assert.DoesNotContain("MoveNext", sumSpan);
+
+            var sumReadOnly = MethodBody(span, "SumReadOnlySpan");
+            Assert.Contains("var __cs2jFrSrc1 = values;", sumReadOnly);
+            Assert.Contains(
+                "__cs2jFrI1 < __cs2jFrSrc1.Length", sumReadOnly);
+            Assert.Contains("__cs2jFrSrc1[__cs2jFrI1]", sumReadOnly);
+
+            // break/continue survive inside the index loop unchanged.
+            var conditional = MethodBody(span, "AccumulatePositiveUntilSentinel");
+            Assert.Contains("__cs2jFrSrc2[__cs2jFrI2]", conditional);
+            Assert.Contains("break;", conditional);
+            Assert.Contains("continue;", conditional);
+            Assert.DoesNotContain("GetEnumerator", conditional);
+
+            // Nested: outer span index loop (4th FR site => suffix 3) wraps the
+            // inner stateful-struct duck while (first FA basename in this file).
+            var nested = MethodBody(span, "NestedSpanOuterDuckInner");
+            Assert.Contains("var __cs2jFaSrc = duck;", nested);
+            Assert.Contains("while (__cs2jFaE.MoveNext())", nested);
+            Assert.Contains(
+                "for (int __cs2jFrI3 = 0; __cs2jFrI3 < __cs2jFrSrc3.Length; __cs2jFrI3++)",
+                nested);
+            Assert.Contains("__cs2jFrSrc3[__cs2jFrI3]", nested);
+        }
+        finally
+        {
+            if (Directory.Exists(fixtureRoot))
+            {
+                Directory.Delete(fixtureRoot, recursive: true);
             }
         }
     }
@@ -139,6 +277,9 @@ public class ForeachSourceC40ProjectTests
     /// </summary>
     private static string MethodBody(string text, string methodName)
     {
+        // The pass preserves the source file's line endings, which can be
+        // CRLF on Windows checkouts; normalize before region extraction.
+        text = text.Replace("\r\n", "\n").Replace('\r', '\n');
         var marker = methodName + "(";
         var start = text.IndexOf(marker, StringComparison.Ordinal);
         Assert.True(start >= 0, $"method not found: {methodName}");
