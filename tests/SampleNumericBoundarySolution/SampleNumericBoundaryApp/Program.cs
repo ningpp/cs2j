@@ -238,6 +238,22 @@ Check("IncUShortResidualIncrement", EnumIncrementSamples.UShortResidualIncrement
 Check("IncByteResidualWraps", EnumIncrementSamples.ByteResidualWraps() == 0);
 Check("IncUIntResidualWraps", EnumIncrementSamples.UIntResidualWraps() == 0u);
 
+// ── C17 M2 IT-7: decimal ++/-- expanded to old ± 1m ──
+var decimalProbe = new DecimalIncrementSamples();
+Check("IncDecimalProperty", decimalProbe.DecimalPropertyIncrement() == 1m);
+Check("IncDecimalPropertyCounters",
+    decimalProbe.DecimalPropGets == 1 && decimalProbe.DecimalPropSets == 1);
+Check("DecDecimalProperty", decimalProbe.DecimalPropertyDecrement() == 2m);
+Check("DecDecimalPropertyCounters",
+    decimalProbe.DecimalPropGets == 2 && decimalProbe.DecimalPropSets == 2);
+
+decimalProbe.DecimalArrayIncrementOnce();
+Check("IncDecimalArrayValue", decimalProbe.DecimalArrayStoredValue() == 1m);
+Check("IncDecimalArrayIndexOnce", decimalProbe.DecimalIndexEvaluations == 1);
+
+Check("IncDecimalPrecisionTiny", DecimalIncrementSamples.PrecisionTinySurvives());
+Check("IncDecimalPrecisionIncrement", DecimalIncrementSamples.PrecisionIncrement() == 2m);
+
 if (failures > 0)
 {
     Console.Error.WriteLine($"{failures} numeric-boundary sample failure(s).");

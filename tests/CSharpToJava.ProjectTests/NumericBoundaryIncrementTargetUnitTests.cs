@@ -180,19 +180,16 @@ public class NumericBoundaryIncrementTargetUnitTests
         AssertOutputCompiles(result.OutputCode);
     }
 
-    // ── (b) M1: owned shapes expand to read-modify-write, M2 shapes stay untouched ──
+    // ── (b) M1: owned shapes expand to read-modify-write ──
 
     [Fact]
-    public void OwnedSites_M1_ExpandRmw_M2SitesUntouched()
+    public void OwnedSites_M1_ExpandRmw()
     {
+        // M2 (C17 milestone 2) owns decimal/nint/nullable/custom-op sites and
+        // reports/rolls them back, so this M1 cross-product keeps only M1
+        // shapes; M2 categories have dedicated tests below.
         var src = """
             public enum Color { Red, Green, Blue }
-
-            public struct Counting
-            {
-                public static Counting operator ++(Counting v) => default;
-                public static Counting operator --(Counting v) => default;
-            }
 
             public class C
             {
@@ -210,15 +207,6 @@ public class NumericBoundaryIncrementTargetUnitTests
                     this[0]++; --this[1];
                     Color e = Color.Red;
                     e++; e--;
-                    decimal d = 0m;
-                    d++; d--;
-                    nint n = 0;
-                    nuint un = 0;
-                    n++; un--;
-                    int? x = 1;
-                    x++; x--;
-                    Counting k = default;
-                    k++; k--;
                 }
             }
             """;
@@ -247,14 +235,6 @@ public class NumericBoundaryIncrementTargetUnitTests
         Assert.Contains("(ushort)(us+1)", compact);
         Assert.Contains("(global::Color)(int)((int)e+1)", compact);
         Assert.Contains("(global::Color)(int)((int)e-1)", compact);
-
-        // M2 categories survive as literal ++/-- and were not rewritten.
-        Assert.Contains("d++;d--;", compact);
-        Assert.Contains("n++;un--;", compact);
-        Assert.Contains("x++;x--;", compact);
-        Assert.Contains("k++;k--;", compact);
-        Assert.Equal(0, stats.DecimalSites);
-        Assert.Equal(0, stats.CustomOperatorSites);
     }
 
     // ── (c) family gate ──
@@ -528,11 +508,13 @@ public class NumericBoundaryIncrementTargetUnitTests
         var first = Run(src);
         var second = Run(first.OutputCode);
 
-        // Owned ++/-- are gone after run one (decimal stays and is M2-owned).
+        // All owned ++/-- (including decimal, owned since M2) are gone after
+        // run one; the expanded assignment form is itself a fixed point.
         Assert.True(first.Changed);
         // All sites here are standalone statements, so no temps are needed;
         // the fixed-point signature is the expanded assignment form instead.
         Assert.Contains("P=P+1", Compact(first.OutputCode));
+        Assert.Contains("d=d+1M", Compact(first.OutputCode));
         Assert.False(second.Changed);
         Assert.Equal(1, second.Statistics.FilesSkippedClean);
         Assert.Equal(first.OutputCode, second.OutputCode);
@@ -1006,6 +988,573 @@ public class NumericBoundaryIncrementTargetUnitTests
 
         Assert.True(result.Changed);
         Assert.DoesNotContain(result.OutputCode, "__cs2j_inc_r");
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ── (j) M2 IT-7: decimal expands to old ± 1m (CS2J5334 Info, C34 owns Java) ──
+
+    [Fact]
+    public void M2_Decimal_Local_PrefixAndPostfix_ExpandsToOneMLiteral()
+    {
+        var src = """
+            public class C
+            {
+                void M()
+                {
+                    decimal d = 0m;
+                    d++; --d;
+                }
+            }
+            """;
+
+        var result = Run(src);
+        var stats = result.Statistics.IncrementTargets;
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == NumericBoundarySeverity.Error);
+        Assert.Equal(2, stats.DecimalSites);
+        Assert.Equal(2, stats.TotalSites);
+        Assert.Equal(0, stats.PropertySites + stats.IndexerSites + stats.SpecialArrayElementSites);
+
+        var compact = Compact(result.OutputCode);
+        // Roslyn normalizes the generated literal token to an uppercase M.
+        Assert.Contains("d=d+1M", compact);
+        Assert.Contains("d=d-1M", compact);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_Decimal_PropertyAndIndexer_CountCoreAndShapeBuckets()
+    {
+        var src = """
+            public class C
+            {
+                public decimal DP { get; set; }
+                public decimal this[int i] { get => 0m; set { } }
+
+                void M()
+                {
+                    DP++;
+                    this[0]--;
+                }
+            }
+            """;
+
+        var result = Run(src);
+        var stats = result.Statistics.IncrementTargets;
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, stats.DecimalSites);
+        Assert.Equal(1, stats.PropertySites);
+        Assert.Equal(1, stats.IndexerSites);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("DP=DP+1M", compact);
+        Assert.Contains("-1M", compact);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_Decimal_ArrayElement_HoistsIndex_ExpandsToOneM()
+    {
+        var src = """
+            public class C
+            {
+                void M(decimal[] a, int i)
+                {
+                    a[i]++;
+                    a[1]--;
+                }
+            }
+            """;
+
+        var result = Run(src);
+        var stats = result.Statistics.IncrementTargets;
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, stats.DecimalSites);
+        Assert.Equal(2, stats.SpecialArrayElementSites);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("var__cs2j_inc_i1_0=i;", compact);
+        Assert.Contains("a[__cs2j_inc_i1_0]=a[__cs2j_inc_i1_0]+1M", compact);
+        Assert.Contains("-1M", compact);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_Decimal_PostfixValueConsumed_LiftsOldValueTemp()
+    {
+        var src = """
+            public class C
+            {
+                void M()
+                {
+                    decimal d = 0m;
+                    object o = d++;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("var__cs2j_inc_o1=d;", compact);
+        Assert.Contains("d=__cs2j_inc_o1+1M", compact);
+        Assert.Contains("objecto=__cs2j_inc_o1", compact);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_Decimal_PrecisionProbeLiteral_28FractionalDigits_PreservedThroughRewrite()
+    {
+        // Task-book precision probe: 27 zeros then 1 (1e-28m). A 2026-10-01
+        // compile/run probe verified the value is preserved and survives
+        // (1m + 1e-28m); runtime equality is exercised by the sample fixture.
+        var src = """
+            public class C
+            {
+                void M()
+                {
+                    decimal tiny = 0.0000000000000000000000000001m;
+                    decimal one = 1m;
+                    one = one + tiny;
+                    one++;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Contains("0.0000000000000000000000000001m", result.OutputCode);
+        Assert.Contains("one=one+1M", Compact(result.OutputCode));
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_Decimal_5334_OneAggregatedInfoPerFile_NoneWithoutDecimalSites()
+    {
+        var withDecimal = Run("public class C { void M() { decimal d = 0m; d++; d--; } }");
+
+        var info5334 = withDecimal.Diagnostics
+            .Where(d => d.Severity == NumericBoundarySeverity.Info
+                && d.Code == PreprocessDiagnosticCodes.IncrementTargetDecimalInfo)
+            .ToList();
+        Assert.Single(info5334);
+        Assert.Contains("2 decimal increment/decrement site(s)", info5334[0].Message);
+
+        var withoutDecimal = Run(PropertyIncrementSource);
+        Assert.DoesNotContain(withoutDecimal.Diagnostics, d =>
+            d.Code == PreprocessDiagnosticCodes.IncrementTargetDecimalInfo);
+    }
+
+    [Fact]
+    public void M2_Decimal_SecondRun_IsIdempotentFixedPoint()
+    {
+        var first = Run("public class C { void M() { decimal d = 0m; d++; } }");
+        var second = Run(first.OutputCode);
+
+        Assert.True(first.Changed);
+        Assert.Equal(1, first.Statistics.IncrementTargets.DecimalSites);
+        Assert.False(second.Changed);
+        Assert.Equal(first.OutputCode, second.OutputCode);
+        Assert.Equal(0, second.Statistics.IncrementTargets.DecimalSites);
+    }
+
+    [Fact]
+    public void M2_Decimal_C34Off_LeavesBinaryAddOneM_C34On_ReducesToDecimalAdd()
+    {
+        var src = "public class C { void M() { decimal d = 0m; d++; } }";
+
+        var off = Run(src, new NumericBoundaryOptions
+        {
+            EnableIncrementTargets = true,
+            EnableDecimalOps = false,
+            Strict = true,
+        });
+        var offCompact = Compact(off.OutputCode);
+        Assert.Contains("d=d+1M", offCompact);
+        Assert.DoesNotContain("decimal.Add", offCompact);
+        AssertOutputCompiles(off.OutputCode);
+
+        var on = Run(src, new NumericBoundaryOptions
+        {
+            EnableIncrementTargets = true,
+            EnableDecimalOps = true,
+            Strict = true,
+        });
+        var onCompact = Compact(on.OutputCode);
+        // C34 (Order=30, rebound model) sees the normal binary + decimal
+        // binding and reduces it to the static call, parenthesized.
+        Assert.Contains("(decimal.Add(d,1M))", onCompact);
+        Assert.DoesNotContain("d=d+1M", onCompact);
+        // The IT-7 site counting and CS2J5334 Info still come from rule 10.
+        Assert.Equal(1, on.Statistics.IncrementTargets.DecimalSites);
+        Assert.Contains(on.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Info
+            && d.Code == PreprocessDiagnosticCodes.IncrementTargetDecimalInfo);
+        AssertOutputCompiles(on.OutputCode);
+    }
+
+    // ── (k) M2 IT-8/10: owned-but-unsupported cores — Error + NB-12 rollback ──
+
+    [Fact]
+    public void M2_NativeInt_LocalAndProperty_5333_Error_RollsBack()
+    {
+        var src = """
+            using System;
+
+            public class C
+            {
+                public nint NP { get; set; }
+
+                void M()
+                {
+                    nint n = 0;
+                    nuint un = 0;
+                    IntPtr p = 0;
+                    UIntPtr up = 0;
+                    n++; un--; p++; up++;
+                    NP++;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        var errors = result.Diagnostics
+            .Where(d => d.Severity == NumericBoundarySeverity.Error
+                && d.Code == PreprocessDiagnosticCodes.IncrementTargetNativeInt)
+            .ToList();
+        Assert.Equal(5, errors.Count);
+    }
+
+    [Fact]
+    public void M2_NullableLifted_5335_Error_RollsBack()
+    {
+        var src = """
+            public enum Color { Red, Green }
+            public class C
+            {
+                void M()
+                {
+                    int? x = 1;
+                    Color? e = Color.Red;
+                    x++;
+                    e--;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(2, result.Diagnostics.Count(d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.IncrementTargetNullableLifted));
+    }
+
+    [Fact]
+    public void M2_Dynamic_LocalAndMember_5336_Error_RollsBack()
+    {
+        var src = """
+            public class C2 { }
+            public class C
+            {
+                void M()
+                {
+                    dynamic d = 1;
+                    d++;
+                    dynamic o = new C2();
+                    o.Foo++;
+                }
+            }
+            """;
+
+        var result = Run(src, fullFrameworkReferences: true);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(2, result.Diagnostics.Count(d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.IncrementTargetDynamic));
+    }
+
+    [Fact]
+    public void M2_ExpressionTree_5337_Error_RollsBack()
+    {
+        // Baseline CS0832 makes this unreachable from compilable input; the
+        // branch is defensive and the erroneous tree still classifies.
+        var src = """
+            using System;
+            using System.Linq.Expressions;
+            public class C
+            {
+                int x;
+
+                void M()
+                {
+                    Expression<Func<int>> e = () => x++;
+                }
+            }
+            """;
+
+        var result = Run(src, fullFrameworkReferences: true);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.IncrementTargetExpressionTree);
+    }
+
+    [Fact]
+    public void M2_CustomOperator_LocalPropertyIndexer_5338_Error_RollsBackAndCountsSites()
+    {
+        var src = """
+            public struct K
+            {
+                public static K operator ++(K v) => default;
+                public static K operator --(K v) => default;
+            }
+            public class C
+            {
+                public K KP { get; set; }
+                public K this[int i] { get => default; set { } }
+
+                void M()
+                {
+                    K k = default;
+                    k++; k--;
+                    KP++;
+                    this[0]++;
+                }
+            }
+            """;
+
+        var result = Run(src);
+        var stats = result.Statistics.IncrementTargets;
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(4, result.Diagnostics.Count(d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.IncrementTargetCustomOperator));
+        // The hit counter increments on the true site even though NB-12
+        // rolls the whole file back (same convention as EventSites).
+        Assert.Equal(4, stats.CustomOperatorSites);
+    }
+
+    [Fact]
+    public void M2_CustomOperator_DesugaredContractHook_IsAlwaysUnavailable()
+    {
+        // Decision 11 extension point: a 2026-10-01 probe proved hand-authored
+        // static Increment/Decrement methods never bind ++/--, so no desugared
+        // method can ever be resolved until C14 freezes the naming contract.
+        Assert.False(IncrementTargetAnalyzer.TryGetDesugaredIncrementContract(null, out var resolved));
+        Assert.Null(resolved);
+    }
+
+    [Fact]
+    public void M2_EnumFromValue_FingerprintHook_ClassifiesButIsNotOwnedAndPassesThrough()
+    {
+        var src = """
+            public struct Money
+            {
+                public int Value { get; }
+                public static Money FromValue(int value) => default;
+            }
+            public class C
+            {
+                void M()
+                {
+                    Money v = default;
+                    v++;
+                }
+            }
+            """;
+
+        var classification = SingleClassification(src);
+        Assert.Equal(ArithmeticCore.EnumFromValue, classification.Core);
+        Assert.Equal(TargetKind.SimpleDirect, classification.Target);
+        Assert.False(IncrementTargetAnalyzer.IsOwnedByRule(classification));
+
+        var result = Run(src);
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == NumericBoundarySeverity.Error);
+    }
+
+    // ── (l) M2 IT-9: ref-returning targets — non-strict alias rewrite / strict rollback ──
+
+    private const string RefReturningSource = """
+        public class C
+        {
+            private int _x;
+            private static int _s;
+            private int[] _a = new int[4];
+
+            public ref int P => ref _x;
+            public static ref int SP => ref _s;
+            public ref int this[int i] => ref _a[i];
+            public ref int Get() => ref _x;
+            public ref int GetAt(int i) => ref _a[i];
+            public int Next() => 0;
+
+            void M()
+            {
+                P++;
+                SP++;
+                this[Next()]++;
+                Get()++;
+                GetAt(Next())--;
+            }
+        }
+        """;
+
+    [Fact]
+    public void M2_RefReturning_NonStrict_AllShapes_RewrittenViaRefAlias_With5340Warning()
+    {
+        var result = Run(RefReturningSource, RuleOptions(strict: false));
+        var stats = result.Statistics.IncrementTargets;
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == NumericBoundarySeverity.Error);
+        Assert.Equal(5, stats.RefAliasSites);
+        Assert.Equal(5, stats.TempsByRole[IncrementTargetDiagnostics.TempRoleRefAlias]);
+
+        var warnings = result.Diagnostics
+            .Where(d => d.Severity == NumericBoundarySeverity.Warning
+                && d.Code == PreprocessDiagnosticCodes.IncrementTargetRefReturn)
+            .ToList();
+        Assert.Equal(5, warnings.Count);
+
+        var compact = Compact(result.OutputCode);
+        // Implicit/static ref properties: alias over the bare invocation shape.
+        Assert.Contains("refint__cs2j_inc_f1=refP;", compact);
+        Assert.Contains("refint__cs2j_inc_f2=refSP;", compact);
+        // Ref indexer: index arg hoisted first, alias evaluated exactly once.
+        Assert.Contains("var__cs2j_inc_a3_0=Next();", compact);
+        Assert.Contains("refint__cs2j_inc_f3=refthis[__cs2j_inc_a3_0];", compact);
+        // Ref method with no args / with an effectful by-value arg.
+        Assert.Contains("refint__cs2j_inc_f4=refGet();", compact);
+        Assert.Contains("var__cs2j_inc_a5_0=Next();", compact);
+        Assert.Contains("refint__cs2j_inc_f5=refGetAt(__cs2j_inc_a5_0);", compact);
+        Assert.Contains("__cs2j_inc_f5=__cs2j_inc_f5-1", compact);
+        // Each Next() call is evaluated once: one declaration plus the two
+        // call sites, both hoisted into temps — three textual occurrences.
+        Assert.Equal(3, Regex.Matches(result.OutputCode, "\\bNext\\(\\)").Count);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_RefReturning_NonStrict_PostfixValueConsumed_LiftsOldValueAfterAlias()
+    {
+        var src = """
+            public class C
+            {
+                private int _x;
+                public ref int P => ref _x;
+
+                void M()
+                {
+                    int v = P++;
+                }
+            }
+            """;
+
+        var result = Run(src, RuleOptions(strict: false));
+
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("refint__cs2j_inc_f1=refP;", compact);
+        Assert.Contains("var__cs2j_inc_o1=__cs2j_inc_f1;", compact);
+        Assert.Contains("__cs2j_inc_f1=__cs2j_inc_o1+1;", compact);
+        Assert.Contains("intv=__cs2j_inc_o1;", compact);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_RefReturning_Strict_5340_Error_RollsBack()
+    {
+        var src = """
+            public class C
+            {
+                private int _x;
+                public ref int P => ref _x;
+
+                void M()
+                {
+                    P++;
+                }
+            }
+            """;
+
+        var result = Run(src, RuleOptions(strict: true));
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.IncrementTargetRefReturn);
+        Assert.Equal(0, result.Statistics.IncrementTargets.RefAliasSites);
+    }
+
+    [Fact]
+    public void M2_RefReadonly_PropertyIndexerMethod_5332_Error_RollsBack()
+    {
+        var src = """
+            public class C
+            {
+                private int _x;
+                private int[] _a = new int[2];
+
+                public ref readonly int P => ref _x;
+                public ref readonly int this[int i] => ref _a[i];
+                public ref readonly int Get() => ref _x;
+
+                void M()
+                {
+                    P++;
+                    this[0]++;
+                    Get()++;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(3, result.Diagnostics.Count(d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.IncrementTargetIllegalTarget));
+        Assert.Equal(0, result.Statistics.IncrementTargets.RefAliasSites);
+    }
+
+    [Fact]
+    public void M2_RefReturning_AliasTempNameCollision_AddsNumericSuffix()
+    {
+        var src = """
+            public class C
+            {
+                private int _x;
+                public ref int P => ref _x;
+
+                void M()
+                {
+                    int __cs2j_inc_f1 = 0;
+                    P++;
+                }
+            }
+            """;
+
+        var result = Run(src, RuleOptions(strict: false));
+
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("refint__cs2j_inc_f1_1=refP;", compact);
+        Assert.Contains("__cs2j_inc_f1_1=__cs2j_inc_f1_1+1", compact);
         AssertOutputCompiles(result.OutputCode);
     }
 }

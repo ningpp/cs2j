@@ -87,6 +87,20 @@ public class NumericBoundaryIncrementTargetProjectTests
             Assert.DoesNotContain("colors[index]++", samples);
             Assert.DoesNotContain("u++;", samples.Replace(" ", ""));
 
+            // M2 IT-7: decimal sites expand to 'old ± 1M' (literal normalizes
+            // to uppercase M); EnableDecimalOps stays off in the default chain,
+            // so no decimal.Add reduction appears here.
+            var decimalSamples = await File.ReadAllTextAsync(
+                Path.Combine(incrementDir, "DecimalIncrementSamples.cs"));
+            Assert.Contains("+ 1M", decimalSamples);
+            Assert.Contains("- 1M", decimalSamples);
+            Assert.DoesNotContain("decimal.Add", decimalSamples);
+            Assert.DoesNotContain("DecimalProp++", decimalSamples);
+            Assert.DoesNotContain("DecimalProp--", decimalSamples);
+            Assert.DoesNotContain("]++;", decimalSamples.Replace(" ", ""));
+            // The 1e-28m precision probe literal is copied through untouched.
+            Assert.Contains("0.0000000000000000000000000001m", decimalSamples);
+
             // Runtime evidence: single evaluation, enum/unsigned semantics.
             var appProject = Path.Combine(
                 intermediate, "SampleNumericBoundaryApp", "SampleNumericBoundaryApp.csproj");
