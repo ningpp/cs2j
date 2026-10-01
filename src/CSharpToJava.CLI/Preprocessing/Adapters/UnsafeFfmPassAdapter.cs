@@ -8,10 +8,10 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// Adapter for the C06 unsafe-ffm pass. Reuses the standard
 /// <see cref="ProjectPassAdapter"/> spine: the runner parses/compiles the whole
 /// tree (compilation options keep allowUnsafe=true), this adapter rewrites each
-/// file through <see cref="UnsafeFfmPreprocessor"/> (M0: R1 unsafe-context
-/// stripping only), and the runner restores and verifies build/tests. There is
-/// no support library to release (PassSupportLibrary.None) and no csproj
-/// injection; AfterFiles needs no extra work.
+/// file through <see cref="UnsafeFfmPreprocessor"/> (R1 unsafe-context stripping,
+/// M1 R2/R3 fixed lowering, M2 R4 stackalloc heap-allocating), and the runner
+/// restores and verifies build/tests. There is no support library to release
+/// (PassSupportLibrary.None) and no csproj injection; AfterFiles needs no extra work.
 /// </summary>
 internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
 {
@@ -126,8 +126,11 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
            $"{_statistics.FixedVariablesNull} null, " +
            $"{_statistics.FixedVariablesString} string, " +
            $"{_statistics.FixedVariablesScalar} scalar); " +
+           $"{_statistics.ExplicitStackAllocCollected} explicit stackalloc(s), " +
+           $"{_statistics.ImplicitStackAllocCollected} implicit stackalloc(s) heap-allocated; " +
            $"{_statistics.Rejections} rejection(s) (UF020={_statistics.Uf020Rejections}, " +
-           $"UF030={_statistics.Uf030Rejections}, UF031={_statistics.Uf031Rejections}), " +
+           $"UF030={_statistics.Uf030Rejections}, UF031={_statistics.Uf031Rejections}, " +
+           $"UF040={_statistics.Uf040Rejections}), " +
            $"{_statistics.FilesTransformed} file(s)";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -150,6 +153,7 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
         _statistics.UnsafeOtherModifiersStripped += source.UnsafeOtherModifiersStripped;
         _statistics.Rejections += source.Rejections;
         _statistics.ResidualCount += source.ResidualCount;
+        _statistics.ExplicitStackAllocCollected += source.ExplicitStackAllocCollected;
         _statistics.ImplicitStackAllocCollected += source.ImplicitStackAllocCollected;
         _statistics.FixedBufferFieldsRewritten += source.FixedBufferFieldsRewritten;
         _statistics.FixedStatementsCount += source.FixedStatementsCount;
@@ -162,5 +166,6 @@ internal sealed class UnsafeFfmPassAdapter : ProjectPassAdapter
         _statistics.Uf020Rejections += source.Uf020Rejections;
         _statistics.Uf030Rejections += source.Uf030Rejections;
         _statistics.Uf031Rejections += source.Uf031Rejections;
+        _statistics.Uf040Rejections += source.Uf040Rejections;
     }
 }

@@ -4,7 +4,8 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// C06 统计计数器（设计 §4「按规则命中数、拒绝数、residual 数」）。
 /// M0 记 unsafe 段（unsafe 块与各位置 unsafe 修饰符剥除数）；M1 追加
 /// R2 fixed 字段改写字段数、R3 fixed 语句数（按初始式五类分类）以及
-/// UF020/UF030/UF031 拒绝数；隐式 stackalloc 等计数器为后续里程碑预留。
+/// UF020/UF030/UF031 拒绝数；M2 追加 R4 显式 stackalloc 收编数、隐式
+/// stackalloc 收编数与 UF040 拒绝数。
 /// </summary>
 public sealed class UnsafeFfmStatistics
 {
@@ -81,9 +82,17 @@ public sealed class UnsafeFfmStatistics
         FixedVariablesArray + FixedVariablesOffset + FixedVariablesAlias
         + FixedVariablesNull + FixedVariablesString + FixedVariablesScalar;
 
+    // ---- R4：stackalloc 统一堆化 ----
+
+    /// <summary>显式 stackalloc（StackAllocArrayCreationExpressionSyntax）收编数。</summary>
+    public int ExplicitStackAllocCollected { get; set; }
+
+    /// <summary>隐式 stackalloc（ImplicitStackAllocArrayCreationExpressionSyntax）收编数。</summary>
+    public int ImplicitStackAllocCollected { get; set; }
+
     // ---- 拒绝 / residual ----
 
-    /// <summary>Error 拒绝总数（M0：UF010；M1 起含 UF020/UF030/UF031 等）。</summary>
+    /// <summary>Error 拒绝总数（M0：UF010；M1 起含 UF020/UF030/UF031；M2 起含 UF040 等）。</summary>
     public int Rejections { get; set; }
 
     /// <summary>residual 闸门命中数。</summary>
@@ -98,6 +107,6 @@ public sealed class UnsafeFfmStatistics
     /// <summary>UF031 拒绝数（fixed 字段所在类型布局锁且与 extern 关联）。</summary>
     public int Uf031Rejections { get; set; }
 
-    /// <summary>隐式 stackalloc 收编数（M2）。</summary>
-    public int ImplicitStackAllocCollected { get; set; }
+    /// <summary>UF040 拒绝数（stackalloc 目标为裸指针或元素类型不可堆化）。</summary>
+    public int Uf040Rejections { get; set; }
 }

@@ -833,4 +833,400 @@ public class UnsafeFfmRewriterUnitTests
         Assert.Equal(0, result.Statistics.FixedBufferFieldsRewritten);
         Assert.Equal(0, result.Statistics.FixedStatementsCount);
     }
+
+    // ==================================================================
+    // M2 / R4：stackalloc 统一堆化
+    // ==================================================================
+
+    [Fact]
+    public void StackAlloc_ExplicitNoInitializer_HeapArrayLocal()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M()
+                {
+                    Span<int> x = stackalloc int[8];
+                    System.Console.Write(x[0]);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("int[] x = new int[8];", result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        Assert.Equal(1, result.Statistics.ExplicitStackAllocCollected);
+        Assert.Equal(0, result.Statistics.ImplicitStackAllocCollected);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_ExplicitWithInitializer_HeapArrayKeepsElements()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M()
+                {
+                    Span<int> x = stackalloc int[] { 1, 2, 3 };
+                    System.Console.Write(x[2]);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("int[] x = new int[]", result.OutputCode);
+        Assert.Contains("1, 2, 3", result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        Assert.Equal(1, result.Statistics.ExplicitStackAllocCollected);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_ReadOnlySpanTarget_ArrayLocal()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M()
+                {
+                    ReadOnlySpan<byte> x = stackalloc byte[3];
+                    System.Console.Write(x[1]);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("byte[] x = new byte[3];", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_ImplicitElementForm_HeapArrayWithInferredType()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M()
+                {
+                    Span<int> x = stackalloc[] { 1, 2 };
+                    System.Console.Write(x[1]);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("int[] x = new int[]", result.OutputCode);
+        Assert.Contains("1, 2", result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        Assert.Equal(1, result.Statistics.ImplicitStackAllocCollected);
+        Assert.Equal(0, result.Statistics.ExplicitStackAllocCollected);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_DimensionOmittedInExplicitForm_LengthInferred()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M()
+                {
+                    Span<long> x = stackalloc long[] { 4L, 5L, 6L };
+                    System.Console.Write(x.Length);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("long[] x = new long[]", result.OutputCode);
+        Assert.Contains("4L, 5L, 6L", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_InConditional_BranchesReplaced_ConvertsToSpan()
+    {
+        var src = """
+            using System;
+            unsafe class C
+            {
+                static void M(bool flag)
+                {
+                    Span<int> x = flag ? stackalloc int[1] : stackalloc int[2];
+                    Console.Write(x.Length);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("flag ? new int[1] : new int[2]", result.OutputCode);
+        Assert.DoesNotContain("stackalloc", result.OutputCode);
+        Assert.Equal(2, result.Statistics.ExplicitStackAllocCollected);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_AsArgument_ReplacedByHeapArray()
+    {
+        var src = """
+            using System;
+            unsafe class C
+            {
+                static void Take(Span<int> s) => Console.Write(s.Length);
+
+                static void M()
+                {
+                    Take(stackalloc int[2]);
+                    Take(stackalloc[] { 1, 2 });
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("Take(new int[2]);", result.OutputCode);
+        Assert.Contains("new int[]", result.OutputCode);
+        Assert.Equal(1, result.Statistics.ExplicitStackAllocCollected);
+        Assert.Equal(1, result.Statistics.ImplicitStackAllocCollected);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_AssignmentToSpan_HeapArrayAssignment()
+    {
+        var src = """
+            using System;
+            unsafe class C
+            {
+                static void M()
+                {
+                    Span<int> x;
+                    x = stackalloc int[2];
+                    Console.Write(x[0]);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("x = new int[2];", result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_BarePointerTarget_Rejected_UF040_OriginalPreserved()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M()
+                {
+                    int* p = stackalloc int[8];
+                    System.Console.Write(p[0]);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF040);
+        Assert.Equal(1, result.Statistics.Uf040Rejections);
+        // 原文回滚。
+        Assert.Contains("int* p = stackalloc int[8];", result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_VarTarget_IsPointerSite_Rejected_UF040()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M()
+                {
+                    var x = stackalloc int[4];
+                    System.Console.Write(x[0]);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF040);
+        Assert.Equal(1, result.Statistics.Uf040Rejections);
+        Assert.Contains("var x = stackalloc int[4];", result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_GenericElement_Rejected_UF040()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void G<T>() where T : unmanaged
+                {
+                    Span<T> x = stackalloc T[4];
+                    System.Console.Write(x.Length);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF040);
+        Assert.Equal(1, result.Statistics.Uf040Rejections);
+    }
+
+    [Fact]
+    public void StackAlloc_NonBlittableStruct_Rejected_UF040()
+    {
+        var src = """
+            unsafe class C
+            {
+                struct Flag { public bool B; }
+
+                static void M()
+                {
+                    Span<Flag> x = stackalloc Flag[2];
+                    System.Console.Write(x.Length);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.False(result.Changed);
+        Assert.True(result.HasErrors);
+        Assert.Contains(result.Diagnostics, d => d.Code == UnsafeFfmDiagnosticCode.UF040);
+        Assert.Equal(1, result.Statistics.Uf040Rejections);
+    }
+
+    [Fact]
+    public void StackAlloc_BlittableStruct_RewrittenNormally()
+    {
+        var src = """
+            unsafe class C
+            {
+                struct Point { public int X; public int Y; }
+
+                static void M()
+                {
+                    Span<Point> x = stackalloc Point[2];
+                    System.Console.Write(x.Length);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("Point[] x = new Point[2];", result.OutputCode);
+        Assert.Equal(0, result.Statistics.Uf040Rejections);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void StackAlloc_OutputIsIdempotent_SecondPassCleanNoDiagnostics()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M()
+                {
+                    Span<int> x = stackalloc int[8];
+                    Span<int> y = stackalloc[] { 1, 2 };
+                    System.Console.Write(x.Length + y.Length);
+                }
+            }
+            """;
+
+        var first = Rewrite(src);
+        Assert.True(first.Changed);
+
+        var second = Rewrite(first.OutputCode);
+
+        Assert.False(second.Changed);
+        Assert.Empty(second.Diagnostics);
+        Assert.Equal(0, second.Statistics.ExplicitStackAllocCollected);
+        Assert.Equal(0, second.Statistics.ImplicitStackAllocCollected);
+        Assert.Equal(1, second.Statistics.FilesSkippedClean);
+    }
+
+    [Fact]
+    public void StackAlloc_MixedCounters_AllRecorded()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M()
+                {
+                    Span<int> a = stackalloc int[2];
+                    Span<int> b = stackalloc[] { 1 };
+                    Span<byte> c = stackalloc byte[] { 2, 3 };
+                    System.Console.Write(a.Length + b.Length + c.Length);
+                }
+            }
+            """;
+
+        var result = Rewrite(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.ExplicitStackAllocCollected);
+        Assert.Equal(1, result.Statistics.ImplicitStackAllocCollected);
+        Assert.Equal(0, result.Statistics.Uf040Rejections);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void EnableStackAllocFalse_StackAllocUntouched_OnlyEarlierRulesRun()
+    {
+        var src = """
+            unsafe class C
+            {
+                static void M()
+                {
+                    Span<int> x = stackalloc int[8];
+                    System.Console.Write(x.Length);
+                }
+            }
+            """;
+
+        var result = Rewrite(src, new UnsafeFfmOptions { EnableStackAlloc = false });
+
+        Assert.True(result.Changed);
+        Assert.False(result.HasErrors);
+        Assert.Contains("Span<int> x = stackalloc int[8];", result.OutputCode);
+        Assert.Equal(0, result.Statistics.ExplicitStackAllocCollected);
+        Assert.Equal(0, result.Statistics.ImplicitStackAllocCollected);
+        Assert.Equal(0, result.Statistics.Uf040Rejections);
+    }
 }

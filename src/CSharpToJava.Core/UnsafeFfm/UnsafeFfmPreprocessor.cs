@@ -11,7 +11,9 @@ namespace CSharpToJava.Core.UnsafeFfm;
 /// 合批：R1 <see cref="UnsafeContextStripper"/> 始终先跑；M1 起 EnableFixed
 /// 时同树合批 R2 <see cref="FixedBufferFieldRewriter"/> → R3
 /// <see cref="FixedStatementRewriter"/>（字段先改数组，使 fixed(byte* p=字段)
-/// 走数组路径），随后做 fixed 段 residual 自检，最后格式化并做本地解析校验。
+/// 走数组路径），随后做 fixed 段 residual 自检；M2 起 EnableStackAlloc 时
+/// R4 <see cref="StackAllocRewriter"/> 在 R3 之后合批并做 stackalloc 段
+/// residual 自检；最后格式化并做本地解析校验。
 /// 拒绝优先：任一 Error 即文件 <see cref="UnsafeFfmResult.Changed"/>=false、
 /// 原文保留；输出可被自身二次安全驱动（幂等）。
 /// </summary>
@@ -38,6 +40,15 @@ public sealed class UnsafeFfmPreprocessor
 
         var root = (CompilationUnitSyntax)semanticModel.SyntaxTree.GetRoot();
         var filePath = semanticModel.SyntaxTree.FilePath;
+
+        // M2 拒绝预检（拒绝优先，先于 R1/R2/R3）：stackalloc 站点为裸指针
+        // （含 var）或元素不可安全堆化时直接 UF040，避免 R3 先以 UF020
+        // 拦截同一构造。判定走 StackAllocElementSafety 共享事实。
+        if (_options.EnableStackAlloc && TryRejectStackAllocSites(
+                root, semanticModel, filePath, statistics, out var prescanDiagnostics))
+        {
+            return Rollback(sourceCode, statistics, prescanDiagnostics);
+        }
 
         // R1 始终先跑（unsafe 基座，无独立开关）。
         var newRoot = (CompilationUnitSyntax)new UnsafeContextStripper(statistics).Visit(root)!;
@@ -103,6 +114,39 @@ public sealed class UnsafeFfmPreprocessor
             }
         }
 
+        // M2：R4 仅在 EnableStackAlloc 时执行，链位在 R3 之后。
+        if (_options.EnableStackAlloc)
+        {
+            var stackAllocResolver = new OriginalSyntaxResolver(root, newRoot);
+            var stackAllocRewriter = new StackAllocRewriter(
+                semanticModel, statistics, stackAllocResolver);
+            newRoot = (CompilationUnitSyntax)stackAllocRewriter.Visit(newRoot)!;
+            foreach (var diagnostic in stackAllocRewriter.Diagnostics)
+            {
+                diagnostics.Add(diagnostic);
+            }
+
+            if (stackAllocRewriter.HasErrors)
+            {
+                return Rollback(sourceCode, statistics, diagnostics);
+            }
+
+            // stackalloc 段 residual 自检：输出树不得残留任何显式/隐式
+            // stackalloc 节点；命中即内部规则缺口 UF010。
+            if (HasStackAllocResidual(newRoot, out var residualReason))
+            {
+                statistics.ResidualCount++;
+                statistics.Rejections++;
+                diagnostics.Add(new UnsafeFfmDiagnostic(
+                    UnsafeFfmSeverity.Error,
+                    UnsafeFfmDiagnosticCode.UF010,
+                    "stackalloc residual gate: " + residualReason +
+                    " (internal rule gap); the original file was preserved.",
+                    filePath, 0, 0));
+                return Rollback(sourceCode, statistics, diagnostics);
+            }
+        }
+
         if (newRoot.IsEquivalentTo(root))
         {
             statistics.FilesSkippedClean++;
@@ -130,6 +174,101 @@ public sealed class UnsafeFfmPreprocessor
             Statistics = statistics,
             Diagnostics = diagnostics,
         };
+    }
+
+    /// <summary>
+    /// stackalloc 拒绝预检：扫描原始树全部显式/隐式 stackalloc 站点，
+    /// 站点为裸指针（含 var 自然类型）或元素不可安全堆化即收集 UF040。
+    /// 返回 true 表示存在拒绝（调用方整文回滚）。
+    /// </summary>
+    private static bool TryRejectStackAllocSites(
+        CompilationUnitSyntax root,
+        SemanticModel semanticModel,
+        string filePath,
+        UnsafeFfmStatistics statistics,
+        out List<UnsafeFfmDiagnostic> rejected)
+    {
+        rejected = new List<UnsafeFfmDiagnostic>();
+
+        foreach (var node in root.DescendantNodes()
+                     .OfType<StackAllocArrayCreationExpressionSyntax>())
+        {
+            var siteType = StackAllocElementSafety.GetSiteType(semanticModel, node);
+            if (siteType is IPointerTypeSymbol)
+            {
+                rejected.Add(MakeUf040(
+                    $"stackalloc expression '{node.ToString().Replace("\n", " ")}' is assigned to a " +
+                    "bare pointer target (including 'var', whose natural type for stackalloc is T*); " +
+                    "it cannot be converted to a Span/array local without changing pointer-only usages. " +
+                    "Rewrite it as 'Span<T> x = stackalloc T[n];' (or an array form) manually.",
+                    node, statistics));
+                continue;
+            }
+
+            var element = StackAllocElementSafety.GetExplicitElement(semanticModel, node);
+            var reason = string.Empty;
+            if (element == null || !StackAllocElementSafety.IsSafeElement(element, out reason))
+            {
+                rejected.Add(MakeUf040(
+                    $"stackalloc element type '{element?.ToDisplayString() ?? "?"}' cannot be safely " +
+                    "heap-allocated: " + reason + " Rewrite the allocation manually or route it through " +
+                    "a supported form.",
+                    node, statistics));
+            }
+        }
+
+        foreach (var node in root.DescendantNodes()
+                     .OfType<ImplicitStackAllocArrayCreationExpressionSyntax>())
+        {
+            var siteType = StackAllocElementSafety.GetSiteType(semanticModel, node);
+            if (siteType is IPointerTypeSymbol)
+            {
+                rejected.Add(MakeUf040(
+                    $"implicit stackalloc expression '{node}' is used at a bare pointer site (including " +
+                    "'var', whose natural type for stackalloc is T*); it cannot be converted to a " +
+                    "Span/array form without changing pointer-only usages. Rewrite it manually with an " +
+                    "explicit 'Span<T>' target.",
+                    node, statistics));
+                continue;
+            }
+
+            var element = StackAllocElementSafety.GetImplicitElement(semanticModel, node);
+            var reason = string.Empty;
+            if (element == null || !StackAllocElementSafety.IsSafeElement(element, out reason))
+            {
+                rejected.Add(MakeUf040(
+                    $"implicit stackalloc element type '{element?.ToDisplayString() ?? "?"}' cannot be " +
+                    "safely heap-allocated: " + reason + " Rewrite the allocation manually.",
+                    node, statistics));
+            }
+        }
+
+        return rejected.Count > 0;
+    }
+
+    private static UnsafeFfmDiagnostic MakeUf040(
+        string message, SyntaxNode node, UnsafeFfmStatistics statistics)
+    {
+        var line = 1;
+        var character = 1;
+        try
+        {
+            var span = node.GetLocation().GetLineSpan();
+            line = span.StartLinePosition.Line + 1;
+            character = span.StartLinePosition.Character + 1;
+        }
+        catch
+        {
+            // 行号不可用时退回 (1,1)。
+        }
+
+        statistics.Rejections++;
+        statistics.Uf040Rejections++;
+        return new UnsafeFfmDiagnostic(
+            UnsafeFfmSeverity.Error,
+            UnsafeFfmDiagnosticCode.UF040,
+            message,
+            null, line, character);
     }
 
     /// <summary>
@@ -202,6 +341,29 @@ public sealed class UnsafeFfmPreprocessor
                 reason = $"member '{member}' still contains a fixed keyword after fixed lowering";
                 return true;
             }
+        }
+
+        reason = string.Empty;
+        return false;
+    }
+
+    /// <summary>
+    /// stackalloc 段 residual 扫描（EnableStackAlloc 时）：全树不得残留
+    /// <see cref="StackAllocArrayCreationExpressionSyntax"/> 或
+    /// <see cref="ImplicitStackAllocArrayCreationExpressionSyntax"/>。
+    /// </summary>
+    private static bool HasStackAllocResidual(CompilationUnitSyntax root, out string reason)
+    {
+        if (root.DescendantNodes().OfType<StackAllocArrayCreationExpressionSyntax>().Any())
+        {
+            reason = "the rewritten tree still contains an explicit stackalloc expression";
+            return true;
+        }
+
+        if (root.DescendantNodes().OfType<ImplicitStackAllocArrayCreationExpressionSyntax>().Any())
+        {
+            reason = "the rewritten tree still contains an implicit stackalloc expression";
+            return true;
         }
 
         reason = string.Empty;
