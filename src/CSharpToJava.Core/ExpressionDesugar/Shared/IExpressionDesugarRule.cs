@@ -45,9 +45,44 @@ internal sealed class RuleAnalysisContext
 }
 
 /// <summary>
-/// Minimal contract of an expression-desugar family rule. M0 rules only
-/// analyze (count/classify); later milestones attach plans and a rewriter
-/// while keeping this interface append-only.
+/// Per-file product of a rule's Analyze pass (design §4.1): owns the plan data
+/// and can run the single bottom-up rewrite, expose collected
+/// <c>__ed_</c> pending statements for the family TempLifter and run the
+/// post-lift residual gate. The family entry calls every rule in fixed order;
+/// TempLifter.Apply runs exactly once after all rules have rewritten.
+/// </summary>
+internal abstract class ExpressionDesugarRulePlan
+{
+    /// <summary>
+    /// Runs the rule's bottom-up rewriter against <paramref name="root"/>
+    /// (semantic decisions are taken on original nodes; rendering uses the
+    /// already-visited children). Returns the rewritten root.
+    /// </summary>
+    public abstract CompilationUnitSyntax Rewrite(CompilationUnitSyntax root);
+
+    /// <summary>Statement sequences collected during <see cref="Rewrite"/>.</summary>
+    public abstract IReadOnlyList<ExpressionDesugarTempLifter.PendingTemp> PendingTemps { get; }
+
+    /// <summary>Original anchor node -> annotation map used by TempLifter.Apply.</summary>
+    public abstract IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> AnchorAnnotations { get; }
+
+    /// <summary>Number of sites actually rewritten (0 keeps the file byte-identical).</summary>
+    public abstract int RewriteCount { get; }
+
+    /// <summary>
+    /// Post-lift residual gate: every trigger node left in the tree must be
+    /// paired with an explicit skip (explained annotation/node-diagnostic
+    /// mapping). Returns the number of unpaired residuals and reports the
+    /// gate diagnostic (strict Error / non-strict Warning) when non-zero.
+    /// </summary>
+    public abstract int CheckResiduals(RuleAnalysisContext context, CompilationUnitSyntax root);
+}
+
+/// <summary>
+/// Minimal contract of an expression-desugar family rule. Analyze runs first
+/// for every rule (plans + diagnostics; strict errors abort the file atomically
+/// before any rewrite); the returned plan then drives one bottom-up rewrite.
+/// The interface stays append-only for the future C23/C24/C35 rules.
 /// </summary>
 internal interface IExpressionDesugarRule
 {
@@ -62,8 +97,8 @@ internal interface IExpressionDesugarRule
 
     /// <summary>
     /// File-level analysis: classify sites, accumulate statistics, emit
-    /// diagnostics. M0 does not rewrite; later phases consume the plans
-    /// produced here in a single bottom-up rewrite pass.
+    /// diagnostics and produce the rewrite plan. Under strict options any
+    /// Error diagnostic makes the family entry return the file unchanged.
     /// </summary>
-    void Analyze(RuleAnalysisContext context);
+    ExpressionDesugarRulePlan Analyze(RuleAnalysisContext context);
 }

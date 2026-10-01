@@ -19,6 +19,8 @@ internal static class ExpressionDesugarRuleSet
         // new InterpolationsRule(),   // C23 — append first when it lands
         // new InitializersRule(),     // C24 — append second
         // new NullConditionalRule(),  // C35 — append third
-        new CollectionExprRule(),     // C36 — M0 anchor (analysis only, no rewrite)
+        // C36 — M1: analyze + zero-temp array/mutable forms + spread
+        // statement lowering + residual gate (CE-1/2/3/5/6/7/12).
+        new CollectionExprRule(),
     };
 }

@@ -5,12 +5,11 @@ using CSharpToJava.Core.Preprocessing;
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
 /// <summary>
-/// Adapter for the expression-desugar family pass. M0 registers the pass with
-/// only the C36 collection-expression analysis skeleton: dirty files are
-/// analyzed for site counts but byte-preserved (no rewrite, no support
-/// library, no AfterFiles project references). Later milestones light up
-/// rewriting through <see cref="ExpressionDesugarPreprocessor"/> without
-/// changing the adapter wiring.
+/// Adapter for the expression-desugar family pass. M1 drives the C36
+/// collection-expression pipeline: analyze (per-site plans/diagnostics; strict
+/// errors atomically preserve the file), bottom-up rewrite, family
+/// TempLifter statement insertion, CE-12 residual gate and formatting. No
+/// support library, no AfterFiles project references.
 /// </summary>
 internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
 {
@@ -106,11 +105,23 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         => _diagnostics.Any(d => d.Severity == ExpressionDesugarSeverity.Error);
 
     public override string BuildChainSummaryLine()
-        => $"expression-desugar: {_statistics.FilesTransformed} transformed, " +
-           $"{_statistics.FilesSkippedClean} clean, " +
-           $"{_statistics.FilesDirtyNoRewrite} dirty-no-rewrite; " +
-           $"coll: {_statistics.CollectionExpr.CollectionSites} sites " +
-           "(pass skeleton; no rewrite)";
+    {
+        var c = _statistics.CollectionExpr;
+        var skipped = c.SkippedByReason.Values.Sum();
+        return $"expression-desugar: {_statistics.FilesTransformed} transformed, " +
+               $"{_statistics.FilesSkippedClean} clean, " +
+               $"{_statistics.FilesDirtyNoRewrite} dirty-no-rewrite; " +
+               $"coll: {c.CollectionSites} sites " +
+               $"(array {c.ByTargetArray}/mutable {c.ByTargetMutableConcrete}" +
+               $"/iface {c.ByTargetInterface}/span {c.ByTargetSpan}" +
+               $"/builder {c.ByTargetCollectionBuilder}/unknown {c.ByTargetUnknown}), " +
+               $"spread {c.SpreadElements} " +
+               $"(addrange {c.SpreadAddRange}/span-foreach {c.SpreadSpanForeach}" +
+               $"/enum-foreach {c.SpreadEnumerableForeach}), " +
+               $"empty {c.EmptySites}, nested {c.NestedSites}, " +
+               $"lifted {c.StatementLiftedSites}, skipped {skipped}, " +
+               $"residual {c.ResidualCollectionCount}";
+    }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => _diagnostics.Select(d =>

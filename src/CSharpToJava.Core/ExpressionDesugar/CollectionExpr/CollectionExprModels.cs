@@ -8,7 +8,7 @@ namespace CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 /// </summary>
 public enum TargetKind
 {
-    /// <summary>T1: <c>T[]</c> (v1 rank-1; multidimensional is rejected 0581 in M1/M2).</summary>
+    /// <summary>T1: <c>T[]</c> (v1 rank-1; multidimensional is rejected 0581).</summary>
     Array,
 
     /// <summary>T2: System.Span&lt;T&gt; / System.ReadOnlySpan&lt;T&gt; (symbol full name, never text).</summary>
@@ -17,7 +17,7 @@ public enum TargetKind
     /// <summary>T3: concrete addable collection without [CollectionBuilder] (List&lt;T&gt;, ...).</summary>
     MutableConcrete,
 
-    /// <summary>T4: interface target mapped to a specification concrete type (T5 table).</summary>
+    /// <summary>T4: interface target mapped to a specification concrete type (M2; M1 skips 0581).</summary>
     Interface,
 
     /// <summary>T5: type carrying [CollectionBuilder] (v1 rejects 0580; M2 emits the factory).</summary>
@@ -32,13 +32,13 @@ public enum TargetKind
 /// </summary>
 public enum SpreadSourceKind
 {
+    /// <summary>Array source (AddRange-capable target temp).</summary>
+    Array,
+
     /// <summary>System.Collections.Generic.IEnumerable&lt;T&gt; source (custom collections).</summary>
     Enumerable,
 
-    /// <summary>Array source.</summary>
-    Array,
-
-    /// <summary>string source (char elements).</summary>
+    /// <summary>string source (char elements; foreach-Add — string is not IEnumerable&lt;char&gt;).</summary>
     StringChars,
 
     /// <summary>Span&lt;T&gt;/ReadOnlySpan&lt;T&gt; source (ref struct; foreach expansion).</summary>
@@ -56,31 +56,31 @@ public enum CollectionElementKind
 
     /// <summary><see cref="SpreadElementSyntax"/> (<c>..e</c>).</summary>
     Spread,
+
+    /// <summary>
+    /// Any future/unknown <see cref="CollectionElementSyntax"/> kind. The rule
+    /// has no silent-drop arm: such a kind is an explicit error (0581).
+    /// </summary>
+    Unsupported,
 }
 
-/// <summary>Decided lowering outcome for one site (populated from M1 on).</summary>
+/// <summary>Decided lowering outcome for one site.</summary>
 public enum CollectionExprOutcome
 {
-    /// <summary>M0: analyzed but no rewrite decision yet.</summary>
+    /// <summary>Analyzed but not yet decided.</summary>
     Pending,
 
     /// <summary>new T[]{...} zero-temp array.</summary>
     ZeroTempArray,
 
-    /// <summary>new C&lt;T&gt;(){...} zero-temp mutable collection / interface concrete type.</summary>
+    /// <summary>new C&lt;T&gt;(){...} zero-temp mutable collection.</summary>
     ZeroTempMutableCollection,
 
-    /// <summary>__ed_n temp + Add/AddRange/foreach statement sequence (+ ToArray for array targets).</summary>
+    /// <summary>__ed_n temp + Add/AddRange/foreach statement sequence (+ ToArray for array/Span targets).</summary>
     StatementSequence,
-
-    /// <summary>Span target constructed as a heap array (0578).</summary>
-    SpanAsArray,
 
     /// <summary>Site intentionally kept, paired with a diagnostic.</summary>
     SkippedDiagnostic,
-
-    /// <summary>[CollectionBuilder] v1 rejection (0580).</summary>
-    BuilderV1Reject,
 }
 
 /// <summary>Spread-specific plan (source expression, its static kind and the element type).</summary>
@@ -89,10 +89,9 @@ public sealed class SpreadPlan
     public required SpreadElementSyntax Syntax { get; init; }
     public required ExpressionSyntax Source { get; init; }
     public SpreadSourceKind SourceKind { get; init; } = SpreadSourceKind.Unknown;
-    public ITypeSymbol? ElementType { get; init; }
 
-    /// <summary>Chosen expansion: AddRange / span-foreach / enumerable-foreach (M1).</summary>
-    public string? Expansion { get; init; }
+    /// <summary>Element type of the spread source (char for string; null when undecidable).</summary>
+    public ITypeSymbol? ElementType { get; init; }
 }
 
 /// <summary>Plan for one element of a collection expression (every syntax kind covered).</summary>
@@ -102,13 +101,17 @@ public sealed class ElementPlan
     public required CollectionElementKind Kind { get; init; }
     public ExpressionSyntax? Expression { get; init; }
     public SpreadPlan? Spread { get; init; }
+
+    /// <summary>
+    /// The value type actually fed to the target (normal elements: the bound
+    /// collection-element operation type, matching compiler-inserted
+    /// conversions such as int-literal -> byte; spread elements: the source
+    /// element type). Used for the T3 Add(P) compatibility check.
+    /// </summary>
+    public ITypeSymbol? FedType { get; init; }
 }
 
-/// <summary>
-/// Full per-site plan (design §4 CollectionExprModels). M0 fills only the
-/// node/target/type/counting fields; emission and statement-lift fields are
-/// consumed from M1 on.
-/// </summary>
+/// <summary>Full per-site plan (design §4 CollectionExprModels) produced by Analyze.</summary>
 public sealed class CollectionExprPlan
 {
     public required CollectionExpressionSyntax Node { get; init; }
@@ -123,8 +126,11 @@ public sealed class CollectionExprPlan
     /// <summary>T5: builder factory method name ("Create").</summary>
     public string? BuilderFactoryMethod { get; init; }
 
-    /// <summary>T4: selected specification concrete type (List&lt;T&gt;/Dictionary&lt;,&gt;/List&lt;object?&gt;).</summary>
-    public INamedTypeSymbol? SelectedConcreteType { get; init; }
+    /// <summary>Target element type symbol (array/Span element; Add(P) for concrete targets).</summary>
+    public ITypeSymbol? TargetElementType { get; init; }
+
+    /// <summary>T3: selected accessible single-parameter Add method (collection initializer pattern).</summary>
+    public IMethodSymbol? AddMethod { get; init; }
 
     /// <summary>Element plans in source order (every CollectionElementSyntax represented).</summary>
     public List<ElementPlan> Elements { get; init; } = new();
@@ -135,8 +141,12 @@ public sealed class CollectionExprPlan
     /// <summary>True when the site contains at least one spread (statement lowering needed).</summary>
     public bool ContainsSpread { get; init; }
 
-    /// <summary>True when the site is in a position where statements cannot be lifted.</summary>
-    public bool RequiresStatementLift { get; init; }
+    /// <summary>True when a spread-bearing site was proven statement-liftable at its position.</summary>
+    public bool Liftable { get; init; }
 
     public CollectionExprOutcome Outcome { get; set; } = CollectionExprOutcome.Pending;
+
+    /// <summary>True for T1 arrays and T2 Span targets (both emit array forms in M1).</summary>
+    public bool EmitsArrayForm =>
+        TargetKind is TargetKind.Array or TargetKind.Span;
 }
