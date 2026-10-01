@@ -16,6 +16,13 @@ internal static class ForeachSourceSyntaxFacts
     public const string InnerName = "__cs2jFsInner";
     public const string CharTempName = "__cs2jFsCh";
 
+    // C40 synthetic temporary base names (design §4.1; distinct from C16/E07).
+    public const string FaSourceName = "__cs2jFaSrc";
+    public const string FaEnumeratorName = "__cs2jFaE";
+    public const string FrSourceName = "__cs2jFrSrc";
+    public const string FrIndexName = "__cs2jFrI";
+    public const string FrCurrentName = "__cs2jFrCur";
+
     /// <summary>
     /// Build <c>expression.ToCharArray()</c> without any elastic trivia: the
     /// invocation slots into the existing foreach <c>in</c> clause, so all

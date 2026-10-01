@@ -170,7 +170,8 @@ public class ProjectPreprocessorsConsistentTests
             Assert.Equal(".cs2j-foreach-source-src",
                 foreachSourceDescriptor.IntermediateDirectoryName);
             Assert.False(foreachSourceDescriptor.DefaultEnabled);
-            Assert.Equal("C16", foreachSourceDescriptor.CatalogItems);
+            // C16 锚点描述符；C40 鸭子枚举器规则在同一 pass 内注册。
+            Assert.Equal("C16, C40", foreachSourceDescriptor.CatalogItems);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.ForeachSourcePassAdapter));
         }
         finally

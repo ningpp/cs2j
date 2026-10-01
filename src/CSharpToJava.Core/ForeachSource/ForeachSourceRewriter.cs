@@ -39,14 +39,16 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
             Statistics = stats,
             Diagnostics = diagnostics,
         };
-        // Ordered dispatch. M2 rules for deconstruction residuals; C40 will
-        // append its EnumeratorAdapter/RefForeach rules at the reserved slots.
+        // Ordered dispatch. M2 rules for deconstruction residuals; C40 appends
+        // its EnumeratorAdapter rules after the C16 residual rules (FR rules
+        // take the reserved tail slots in M3).
         _rules = new IForeachSourceRule[]
         {
             new StringSourceRule(),
             new TupleResidualRule(),
             new DeconstructResidualRule(),
             new OtherResidualRule(),
+            new EnumeratorAdapterRule(),
         };
     }
 
@@ -87,12 +89,16 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
 
         var expressionType = ForeachSourceAnalyzer.GetExpressionType(_model, visited.Expression);
         if (expressionType == null
-            || ForeachSourceAnalyzer.IsErrorType(expressionType)
-            || ForeachSourceAnalyzer.IsDynamic(expressionType))
+            || ForeachSourceAnalyzer.IsErrorType(expressionType))
         {
             _stats.SitesPassedThrough++;
             return visited;
         }
+
+        // C40: dynamic sites are no longer filtered here — EnumeratorAdapterRule
+        // emits CS2J5456 and keeps the node (decision 11). Only error types and
+        // missing bindings pass through early.
+        var binding = ForeachBindingResolver.Resolve(visited, _model);
 
         var site = new ForeachSourceSite
         {
@@ -100,6 +106,8 @@ internal sealed class ForeachSourceRewriter : CSharpSyntaxRewriter
             Model = _model,
             Options = _options,
             ExpressionType = expressionType,
+            RefKind = binding?.RefKind ?? Microsoft.CodeAnalysis.RefKind.None,
+            Binding = binding,
         };
 
         foreach (var rule in _rules)

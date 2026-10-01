@@ -42,6 +42,8 @@ public class ForeachSourceProjectTests
             StructValueSemanticsOptionsFactory = () =>
                 new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
+            EqualityConcatOptionsFactory = () =>
+                new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             LegacyToggles = toggles,
             EnablePassIds = new[] { PassId },
             VerifyBuild = verify,
@@ -173,6 +175,8 @@ public class ForeachSourceProjectTests
                 StructValueSemanticsOptionsFactory = () =>
                     new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
                 JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
+            EqualityConcatOptionsFactory = () =>
+                new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
                 LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
                 EnablePassIds = Array.Empty<string>(),
                 VerifyBuild = false,

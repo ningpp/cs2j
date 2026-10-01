@@ -130,12 +130,17 @@ internal sealed class ForeachSourcePassAdapter : ProjectPassAdapter
     public override string BuildChainSummaryLine()
     {
         var errorCount = _diagnostics.Count(d => d.Severity == ForeachSourceSeverity.Error);
+        // C40 enumerator adapter segment follows the C16 counters.
         return $"foreach-source: {_statistics.FilesTransformed} transformed, " +
                $"{_statistics.FilesSkippedClean} clean, " +
                $"{_statistics.StringForeachWrapped} string site(s) wrapped, " +
                $"{_statistics.TupleResidualSeen} tuple residual(s), " +
                $"{_statistics.OtherResidualDiagnosed + _statistics.KvResidualSeen} other/KV residual(s), " +
                $"{_statistics.DeconstructResidualLowered} deconstruct(s) lowered, " +
+               $"{_statistics.DuckEnumeratorSitesLowered} duck enumerator(s) lowered " +
+               $"(ext {_statistics.ExtensionGetEnumeratorSites}, direct {_statistics.DirectEnumeratorSites}, " +
+               $"struct {_statistics.StructEnumeratorSites}, dispose {_statistics.DisposePatternCallSites}, " +
+               $"no-dispose {_statistics.NoDisposeSites}, dynamic {_statistics.DynamicForeachSites}), " +
                $"{errorCount} error(s)";
     }
 
@@ -168,6 +173,23 @@ internal sealed class ForeachSourcePassAdapter : ProjectPassAdapter
         _statistics.SitesPassedThrough += source.SitesPassedThrough;
         _statistics.ResidualStringSites += source.ResidualStringSites;
         _statistics.ResidualDeconstructionSites += source.ResidualDeconstructionSites;
+
+        // C40 enumerator adapter buckets (design §5.3).
+        _statistics.DuckEnumeratorSitesLowered += source.DuckEnumeratorSitesLowered;
+        _statistics.ExtensionGetEnumeratorSites += source.ExtensionGetEnumeratorSites;
+        _statistics.DirectEnumeratorSites += source.DirectEnumeratorSites;
+        _statistics.StructEnumeratorSites += source.StructEnumeratorSites;
+        _statistics.DisposePatternCallSites += source.DisposePatternCallSites;
+        _statistics.DisposeBoxedStructSites += source.DisposeBoxedStructSites;
+        _statistics.NoDisposeSites += source.NoDisposeSites;
+        _statistics.SpanIndexLoopSites += source.SpanIndexLoopSites;
+        _statistics.RefIndexLoopSites += source.RefIndexLoopSites;
+        _statistics.RefReadonlySites += source.RefReadonlySites;
+        _statistics.RefCurrentEnumeratorSites += source.RefCurrentEnumeratorSites;
+        _statistics.DynamicForeachSites += source.DynamicForeachSites;
+        _statistics.UnresolvedForeachSites += source.UnresolvedForeachSites;
+        _statistics.ResidualEnumeratorSites += source.ResidualEnumeratorSites;
+        _statistics.ResidualRefSites += source.ResidualRefSites;
 
         foreach (var pair in source.ErrorsByCode)
         {

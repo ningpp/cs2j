@@ -113,10 +113,19 @@ public class ForeachSourceRewriterUnitTests
             """;
         var result = Preprocess(src);
 
-        Assert.False(result.Changed);
+        // C40: the duck instance site and the extension GetEnumerator site are
+        // now FA-1/FA-2 lowered (5 collection sites still pass through;
+        // arrays/List/IEnumerable stay with the converter path).
+        Assert.True(result.Changed);
         Assert.DoesNotContain("ToCharArray()", result.OutputCode);
-        Assert.Equal(7, result.Statistics.SitesPassedThrough);
+        Assert.Equal(5, result.Statistics.SitesPassedThrough);
         Assert.Equal(0, result.Statistics.StringForeachWrapped);
+        Assert.Equal(2, result.Statistics.DuckEnumeratorSitesLowered);
+        Assert.Equal(1, result.Statistics.ExtensionGetEnumeratorSites);
+        // DuckEnumerator implements only the non-generic IEnumerator (which on
+        // net10 does not list IDisposable) and has no Dispose() ⇒ bare while.
+        Assert.Equal(2, result.Statistics.NoDisposeSites);
+        Assert.DoesNotContain("finally", result.OutputCode);
         AssertNoErrors(result);
     }
 

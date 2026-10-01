@@ -37,6 +37,8 @@ public class NumericBoundaryDecimalOpsProjectTests
             EnumDeclarationOptionsFactory = () =>
                 new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
+            EqualityConcatOptionsFactory = () =>
+                new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
             EnablePassIds = new[] { PassId },
             EnableDecimalOps = enableDecimalOps,

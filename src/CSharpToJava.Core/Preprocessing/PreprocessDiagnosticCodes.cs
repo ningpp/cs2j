@@ -134,4 +134,27 @@ public static class PreprocessDiagnosticCodes
 
     /// <summary>foreach-source: await foreach site left untouched (belongs to C38; verbose-only info).</summary>
     public const string ForeachSourceAwaitForeach = "CS2J5442";
+
+    // ── CS2J5450-5479 C40 EnumeratorAdapter (design §6) ──
+    // M1 owns 5450-5454 and 5456; CS2J5455 (boxed struct Dispose),
+    // CS2J5457 (incomplete non-IEnumerable binding) and CS2J5470 (residual
+    // gate) land in M2; CS2J5480-5495 are reserved for M3 RefForeach.
+
+    /// <summary>C40 FA: duck-typed enumerator foreach lowered to GetEnumerator + while(MoveNext) + Current (verbose aggregated info).</summary>
+    public const string ForeachSourceDuckEnumeratorLowered = "CS2J5450";
+
+    /// <summary>C40 FA-2: foreach bound through an extension GetEnumerator method.</summary>
+    public const string ForeachSourceExtensionGetEnumerator = "CS2J5451";
+
+    /// <summary>C40 FA-3: foreach iterating an enumerator variable directly (collection-is-enumerator pattern).</summary>
+    public const string ForeachSourceDirectEnumerator = "CS2J5452";
+
+    /// <summary>C40 FA: value-type enumerator kept concrete via var (no upfront boxing; probe counter).</summary>
+    public const string ForeachSourceStructEnumerator = "CS2J5453";
+
+    /// <summary>C40 FA-4: pattern Dispose / IDisposable call generated in a finally block.</summary>
+    public const string ForeachSourceDisposeGenerated = "CS2J5454";
+
+    /// <summary>C40: dynamically dispatched foreach cannot be statically lowered (Warning; Error in strict mode; belongs to C25).</summary>
+    public const string ForeachSourceDynamicForeach = "CS2J5456";
 }

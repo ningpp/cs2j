@@ -31,6 +31,12 @@ internal sealed class ForeachSourceSite
 
     /// <summary>Element family for <see cref="ForEachVariableStatementSyntax"/> sites (M2); null for plain foreach.</summary>
     public ForeachSourceFamily? Family { get; init; }
+
+    /// <summary>C40: RefKind of the iteration local (None/Ref/RefReadOnly; authoritative, design §4.1/decision 1).</summary>
+    public RefKind RefKind { get; init; }
+
+    /// <summary>C40: normalized foreach binding from <see cref="ForeachBindingResolver"/> (null when unresolved).</summary>
+    public ForeachBinding? Binding { get; init; }
 }
 
 /// <summary>

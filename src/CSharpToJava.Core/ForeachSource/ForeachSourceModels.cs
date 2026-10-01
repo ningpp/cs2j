@@ -74,6 +74,53 @@ public sealed class ForeachSourceStatistics
     /// <summary>FS-5 input: tuple/other-family deconstruction sites that survive in this file's output.</summary>
     public int ResidualDeconstructionSites;
 
+    // ── C40 counters (design §5.3; M1 owns the FA buckets, FR fields are reserved for M3) ──
+
+    /// <summary>FA-1/2/3: duck-typed enumerator sites lowered to while(MoveNext()) skeletons (CS2J5450).</summary>
+    public int DuckEnumeratorSitesLowered;
+
+    /// <summary>FA-2: lowered sites whose GetEnumerator is an extension method (CS2J5451).</summary>
+    public int ExtensionGetEnumeratorSites;
+
+    /// <summary>FA-3: sites iterating an enumerator variable directly, no GetEnumerator call (CS2J5452).</summary>
+    public int DirectEnumeratorSites;
+
+    /// <summary>Lowered sites whose enumerator is a value type (var keeps it concrete, no boxing; CS2J5453).</summary>
+    public int StructEnumeratorSites;
+
+    /// <summary>FA-4: sites with a pattern/IDisposable Dispose call generated in finally (CS2J5454).</summary>
+    public int DisposePatternCallSites;
+
+    /// <summary>Sites where explicit-interface-only Dispose forces a value-type enumerator to box (CS2J5455 bucket; M2 diagnostics).</summary>
+    public int DisposeBoxedStructSites;
+
+    /// <summary>Lowered duck-enumerator sites without any Dispose method (no try/finally generated).</summary>
+    public int NoDisposeSites;
+
+    /// <summary>FA-5: Span/ReadOnlySpan plain foreach lowered to index loops (M3).</summary>
+    public int SpanIndexLoopSites;
+
+    /// <summary>FR-1/2: ref foreach sites lowered to index loops (CS2J5480 bucket; M3).</summary>
+    public int RefIndexLoopSites;
+
+    /// <summary>FR: ref-readonly foreach sites (CS2J5481; M3).</summary>
+    public int RefReadonlySites;
+
+    /// <summary>FR-3: ref/ref-readonly Current enumerator sites (CS2J5482; M3).</summary>
+    public int RefCurrentEnumeratorSites;
+
+    /// <summary>dynamic-dispatched foreach sites left untouched with CS2J5456.</summary>
+    public int DynamicForeachSites;
+
+    /// <summary>Non-IEnumerable foreach sites whose binding is too incomplete to lower (CS2J5457; M2).</summary>
+    public int UnresolvedForeachSites;
+
+    /// <summary>FS-5 residual: bare non-array/non-string/non-IEnumerable plain foreach with a valid binding (CS2J5470; M2 gate).</summary>
+    public int ResidualEnumeratorSites;
+
+    /// <summary>FS-5 residual: foreach sites carrying RefKind != None (CS2J5495; M3 gate).</summary>
+    public int ResidualRefSites;
+
     /// <summary>Diagnostics grouped by code (errors and warnings both recorded for sdk bucket reports).</summary>
     public Dictionary<string, int> ErrorsByCode { get; } = new(StringComparer.Ordinal);
 }

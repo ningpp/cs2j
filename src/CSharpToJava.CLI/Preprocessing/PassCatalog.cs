@@ -134,8 +134,8 @@ internal static class PassCatalog
             needsSemanticModel: true,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Lower foreach over string (ToCharArray) and residual deconstruction forms.",
-            catalogItems: "C16"),
+            description: "Lower foreach over string (ToCharArray), residual deconstruction forms, enumerator adapters and ref foreach.",
+            catalogItems: "C16, C40"),
         new(
             PassIds.PatternDesugar,
             "Pattern desugaring",
