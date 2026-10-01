@@ -367,6 +367,27 @@
             ]
         },
         {
+            "csharp": "Cs2jByRef.ReadOnlyByRef`1",
+            "java": "ReadOnlyByRef",
+            "imports": [
+                "io.github.ningpp.compat.ReadOnlyByRef"
+            ]
+        },
+        {
+            "csharp": "Cs2jByRef.ScopedByRef`1",
+            "java": "ByRef",
+            "imports": [
+                "io.github.ningpp.compat.ByRef"
+            ]
+        },
+        {
+            "csharp": "Cs2jByRef.ReadOnlyScopedByRef`1",
+            "java": "ReadOnlyByRef",
+            "imports": [
+                "io.github.ningpp.compat.ReadOnlyByRef"
+            ]
+        },
+        {
             "csharp": "System.Text.Json.JsonSerializerOptions",
             "java": "JsonSerializerOptions",
             "imports": [
@@ -6124,6 +6145,30 @@
             "method": "set_Value",
             "javaMethod": "setValue",
             "signature": "1"
+        },
+        {
+            "type": "Cs2jByRef.ReadOnlyByRef",
+            "method": "get_Value",
+            "javaMethod": "getValue",
+            "signature": "0"
+        },
+        {
+            "type": "Cs2jByRef.ScopedByRef",
+            "method": "get_Value",
+            "javaMethod": "getValue",
+            "signature": "0"
+        },
+        {
+            "type": "Cs2jByRef.ScopedByRef",
+            "method": "set_Value",
+            "javaMethod": "setValue",
+            "signature": "1"
+        },
+        {
+            "type": "Cs2jByRef.ReadOnlyScopedByRef",
+            "method": "get_Value",
+            "javaMethod": "getValue",
+            "signature": "0"
         },
         {
             "type": "Cs2jPrelude.CsPrelude",

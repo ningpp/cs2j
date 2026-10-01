@@ -18,6 +18,8 @@ public sealed class RefOutInRewriterStatistics
     public int CallSitesLifted;
     public int HoldersInjected;
     public int AccessorProxies;
+    public int ScopedElementProxies;
+    public int ReadOnlyProxies;
     public int LockedContractMembers;
     public int InOverloadKept;
     public int ExternalRefArgumentsKept;

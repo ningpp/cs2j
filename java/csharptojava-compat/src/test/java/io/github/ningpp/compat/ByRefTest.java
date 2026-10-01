@@ -83,4 +83,39 @@ class ByRefTest {
         RefStructByRef<Integer> scratch = RefStructByRef.create();
         assertNull(scratch.getValue());
     }
+
+    @Test
+    void readOnlyAccessorGetOnly() {
+        Integer[] arr = { 1, 2, 3 };
+        ReadOnlyByRef<Integer> ro = ReadOnlyByRef.create(() -> arr[1]);
+        assertEquals(2, ro.getValue());
+        arr[1] = 20;
+        assertEquals(20, ro.getValue());   // read passes through
+    }
+
+    @Test
+    void readOnlySpanAndReadOnlySpanAliases() {
+        Span<Integer> span = new Span<>(new Integer[] { 5, 6, 7 });
+        ReadOnlyByRef<Integer> ro = ReadOnlyByRef.create(span, 2);
+        assertEquals(7, ro.getValue());
+
+        ReadOnlySpan<Integer> ros = new ReadOnlySpan<>(new Integer[] { 8, 9 });
+        ReadOnlyByRef<Integer> rro = ReadOnlyByRef.create(ros, 1);
+        assertEquals(9, rro.getValue());
+    }
+
+    @Test
+    void byRefSpanElementPassesThroughAndAliases() {
+        Span<Integer> span = new Span<>(new Integer[] { 1, 2, 3 });
+        ByRef<Integer> a = ByRef.create(span, 0);
+        a.setValue(10);
+        assertEquals(10, span.get(0).intValue());
+        span.set(1, 20);
+        assertEquals(20, a.getValue() == null ? null : a.getValue().intValue());
+
+        // two proxies on the same span element stay aliased
+        ByRef<Integer> b = ByRef.create(span, 2);
+        b.setValue(30);
+        assertEquals(30, ByRef.create(span, 2).getValue().intValue());
+    }
 }

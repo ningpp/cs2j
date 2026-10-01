@@ -29,6 +29,16 @@ public abstract class ByRef<T> {
         return new AccessorByRef<>(getter, setter);
     }
 
+    /**
+     * Aliases a {@link Span} element: reads/writes pass through span.get/set.
+     * Mirrors the C# {@code Cs2jByRef.ScopedByRef<T>} support type (ref-struct
+     * receivers cannot be captured by closures — CS8175/CS9108 — so the C# side
+     * aliases through a ref field; the Java mapping target is this factory).
+     */
+    public static <T> ByRef<T> create(Span<T> span, int index) {
+        return create(() -> span.get(index), v -> span.set(index, v));
+    }
+
     // Primitive-array specializations: Java generics cannot bind int[] to T[]
     // (spec §5.2 #5 — primitive types accept boxing), so each primitive array
     // element position gets a dedicated overload producing ByRef<Boxed>.

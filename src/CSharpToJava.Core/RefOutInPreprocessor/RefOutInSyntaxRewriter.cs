@@ -748,7 +748,15 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
         if (node.Declaration.Type is RefTypeSyntax refType)
         {
             var innerType = refType.Type;
-            var newDeclarators = new List<VariableDeclaratorSyntax>();
+            var isReadOnly = refType.ReadOnlyKeyword.IsKind(SyntaxKind.ReadOnlyKeyword);
+
+            // One entry per declarator: the proxy type can differ per
+            // initializer shape (ByRef / ReadOnlyByRef / ScopedByRef /
+            // ReadOnlyScopedByRef), so each declarator becomes its own
+            // declaration statement.
+            var proxiedDeclarators =
+                new List<(string ProxyTypeName, string TypeArg, VariableDeclaratorSyntax Declarator)>();
+
             foreach (var declarator in node.Declaration.Variables)
             {
                 if (declarator.Initializer is EqualsValueClauseSyntax init)
@@ -756,13 +764,16 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                     var expr = init.Value;
                     if (expr is RefExpressionSyntax refExpr)
                         expr = refExpr.Expression;
-
-                    var typeName = innerType.ToString();
+                    var typeArgText = ResolveTypeDisplayName(innerType, expr);
 
                     ExpressionSyntax proxyExpr;
+                    string proxyTypeName;
+
                     if (expr is IdentifierNameSyntax id && IsHolderName(id.Identifier.Text))
                     {
+                        // holder-to-holder flow: keep the proxy reference itself
                         proxyExpr = expr;
+                        proxyTypeName = "ByRef";
                     }
                     else if (expr is InvocationExpressionSyntax)
                     {
@@ -772,48 +783,43 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                         {
                             var declStatement = SyntaxFactory.LocalDeclarationStatement(
                                 SyntaxFactory.VariableDeclaration(
-                                    SyntaxFactory.GenericName(
-                                        SyntaxFactory.Identifier("ByRef"),
-                                        SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(innerType))),
+                                    SyntaxFactory.ParseTypeName($"ByRef<{typeArgText}>"),
                                     SyntaxFactory.SingletonSeparatedList(
                                         declarator.WithInitializer(SyntaxFactory.EqualsValueClause(InjectSlotValues(liftedCall))))));
                             return SyntaxFactory.Block(
                                 hCall.Append(declStatement));
                         }
                         proxyExpr = liftedCall;
-                    }
-                    else if (expr is ElementAccessExpressionSyntax elem)
-                    {
-                        var (arr, indices) = DecomposeElementAccess(elem);
-                        proxyExpr = SyntaxFactory.ParseExpression(
-                            $"ByRef<{typeName}>.Create({arr}, {string.Join(", ", indices)})");
-                        _stats.ArrayElementProxies++;
+                        proxyTypeName = "ByRef";
                     }
                     else
                     {
-                        var varName = expr.ToString();
-                        proxyExpr = SyntaxFactory.ParseExpression(
-                            $"ByRef<{typeName}>.Create(() => {varName}, v => {varName} = v)");
-                        _stats.AccessorProxies++;
+                        (proxyTypeName, proxyExpr) =
+                            BuildRefLocalAlias(expr, innerType, isReadOnly);
                     }
 
-                    newDeclarators.Add(declarator.WithInitializer(
-                        SyntaxFactory.EqualsValueClause(proxyExpr)));
+                    proxiedDeclarators.Add((proxyTypeName, typeArgText,
+                        declarator.WithInitializer(SyntaxFactory.EqualsValueClause(proxyExpr))));
                 }
                 else
                 {
-                    newDeclarators.Add(declarator);
+                    proxiedDeclarators.Add(("ByRef", innerType.ToString(), declarator));
                 }
             }
 
-            var newDecl = SyntaxFactory.VariableDeclaration(
-                SyntaxFactory.GenericName(
-                    SyntaxFactory.Identifier("ByRef"),
-                    SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(innerType))),
-                SyntaxFactory.SeparatedList(newDeclarators));
-
             UsedHolder = true;
-            return SyntaxFactory.LocalDeclarationStatement(newDecl);
+
+            if (proxiedDeclarators.Count == 1)
+            {
+                return BuildProxyLocalDeclaration(
+                    proxiedDeclarators[0].ProxyTypeName, proxiedDeclarators[0].TypeArg,
+                    SyntaxFactory.SingletonSeparatedList(proxiedDeclarators[0].Declarator));
+            }
+
+            return SyntaxFactory.Block(proxiedDeclarators.Select(pair =>
+                BuildProxyLocalDeclaration(
+                    pair.ProxyTypeName, pair.TypeArg,
+                    SyntaxFactory.SingletonSeparatedList(pair.Declarator))));
         }
 
         // C1: non-ref local initializers containing internal ref/out calls
@@ -1094,6 +1100,225 @@ internal sealed class RefOutInSyntaxRewriter : CSharpSyntaxRewriter
                 .WithRight(BuildReturnProxy(inner));
         }
         return base.VisitAssignmentExpression(node);
+    }
+
+    private static LocalDeclarationStatementSyntax BuildProxyLocalDeclaration(
+        string proxyTypeName,
+        string typeArgumentDisplay,
+        SeparatedSyntaxList<VariableDeclaratorSyntax> declarators) =>
+        SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(
+                SyntaxFactory.ParseTypeName($"{proxyTypeName}<{typeArgumentDisplay}>"),
+                declarators));
+
+    // ── ref-local declaration-site proxies (C40 M3, decisions 1/3) ───────────
+
+    private string ResolveTypeDisplayName(TypeSyntax declaredInnerType, ExpressionSyntax value)
+    {
+        // `ref var x = ref location` — the element type comes from the bound
+        // initializer; the proxy generic argument must never render as `var`.
+        // Holder/call initializers are themselves proxies (ByRef<T>), so peel
+        // one proxy layer.
+        if (declaredInnerType is IdentifierNameSyntax id && id.IsVar)
+        {
+            var resolved = GetTypeOf(value);
+            if (resolved is INamedTypeSymbol namedProxy
+                && namedProxy.ContainingNamespace?.ToDisplayString() == "Cs2jByRef"
+                && namedProxy.TypeArguments is [{ } proxyArg])
+            {
+                resolved = proxyArg;
+            }
+            if (resolved != null)
+                return TypeDisplay(resolved);
+        }
+        return declaredInnerType.ToString();
+    }
+
+    private static bool IsSpanLikeType(ITypeSymbol? type)
+        => type is INamedTypeSymbol named
+           && named.TypeArguments.Length == 1
+           && named.ContainingNamespace?.ToDisplayString() == "System"
+           && (named.MetadataName == "Span`1" || named.MetadataName == "ReadOnlySpan`1");
+
+    /// <summary>
+    /// True when the expression cannot be textually embedded in a lambda:
+    /// uses a ref struct local/parameter/field (CS8175/CS9108), a ref/out/in
+    /// parameter or a ref local (CS8175/CS1628), or <c>this</c> of a ref struct
+    /// (CS9108). Holder names are evaluated against their *rewritten* storage —
+    /// ByRef holders are heap classes (safe to capture), RefStructByRef holders
+    /// stay ref-like (still blocking).
+    /// </summary>
+    private bool HasLambdaBlockingCapture(ExpressionSyntax expr)
+    {
+        var enclosingMethod = expr.FirstAncestorOrSelf<BaseMethodDeclarationSyntax>();
+        var enclosingType = enclosingMethod != null
+            ? _semanticModel.GetDeclaredSymbol(enclosingMethod)?.ContainingType
+            : null;
+        if (enclosingType?.IsRefLikeType == true
+            && expr.DescendantNodesAndSelf().OfType<ThisExpressionSyntax>().Any())
+            return true;
+
+        foreach (var id in expr.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>())
+        {
+            var sym = GetSymbol(id);
+            ITypeSymbol? type;
+            bool byRef;
+            bool isHolder;
+            switch (sym)
+            {
+                case ILocalSymbol l:
+                    type = l.Type;
+                    byRef = l.RefKind != RefKind.None;
+                    isHolder = IsHolderName(id.Identifier.Text);
+                    break;
+                case IParameterSymbol p:
+                    type = p.Type;
+                    byRef = p.RefKind != RefKind.None;
+                    isHolder = _annotator.HolderSymbols.Contains(p);
+                    break;
+                case IFieldSymbol f:
+                    type = f.Type;
+                    byRef = false;
+                    isHolder = false;
+                    break;
+                default:
+                    continue;
+            }
+
+            if (type != null && type.IsRefLikeType)
+                return true;
+            // A holder is rewritten to a heap ByRef unless its carried type is
+            // itself ref-like (handled above) — raw ref-ness is irrelevant
+            // for holders.
+            if (byRef && !isHolder)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Builds the proxy factory for a <c>ref</c>/<c>ref readonly</c> local
+    /// initializer. Receiver classification (C40 M3 hard prerequisite;
+    /// decision 1's lambda form is refined because ref struct receivers make
+    /// closures uncompilable — CS8175/CS9108, probe-pinned):
+    ///
+    /// rank-1 array → ByRef.Create(receiver, index) (unchanged);
+    /// Span/ReadOnlySpan receiver → ScopedByRef/ReadOnlyScopedByRef
+    /// .Create(receiver, index) (ref field alias, no closure; Java maps to
+    /// existing ByRef/ReadOnlyByRef create(span, i) factories);
+    /// other ref-like receiver or lambda-blocking capture →
+    /// ScopedByRef/ReadOnlyScopedByRef.Create(ref/in location);
+    /// heap receivers → accessor closures ByRef/ReadOnlyByRef.Create(getter…).
+    /// Read-only forms expose a get-only Value, so a write fails at compile
+    /// time (CS0200) in the intermediate tree.
+    /// </summary>
+    private (string ProxyTypeName, ExpressionSyntax Proxy) BuildRefLocalAlias(
+        ExpressionSyntax expr,
+        TypeSyntax declaredInnerType,
+        bool isReadOnly)
+    {
+        var typeDisplay = ResolveTypeDisplayName(declaredInnerType, expr);
+        var blocking = HasLambdaBlockingCapture(expr);
+
+        if (expr is ElementAccessExpressionSyntax elem)
+        {
+            var receiverType = GetTypeOf(elem.Expression);
+            var injected = (ElementAccessExpressionSyntax)InjectSlotValues(elem);
+            var elemText = injected.ToString();
+            var receiverText = injected.Expression.ToString();
+            var indices = injected.ArgumentList.Arguments.Select(a => a.Expression).ToList();
+            var singleIndex = indices.Count == 1 ? indices[0].ToString() : null;
+
+            if (receiverType is IArrayTypeSymbol arrayType)
+            {
+                if (arrayType.Rank != 1)
+                {
+                    Report3303(elem,
+                        $"multi-dimensional array element ref (rank {arrayType.Rank}); " +
+                        "only rank-1 array proxies are supported");
+                    _stats.ArrayElementProxies++;
+                    return ("ByRef", SyntaxFactory.ParseExpression(
+                        $"ByRef<{typeDisplay}>.Create({receiverText}, {string.Join(", ", indices)})"));
+                }
+
+                if (isReadOnly)
+                {
+                    if (blocking)
+                    {
+                        _stats.ScopedElementProxies++;
+                        return ("ReadOnlyScopedByRef", SyntaxFactory.ParseExpression(
+                            $"ReadOnlyScopedByRef<{typeDisplay}>.Create(in {elemText})"));
+                    }
+                    _stats.ReadOnlyProxies++;
+                    return ("ReadOnlyByRef", SyntaxFactory.ParseExpression(
+                        $"ReadOnlyByRef<{typeDisplay}>.Create(() => {elemText})"));
+                }
+
+                _stats.ArrayElementProxies++;
+                return ("ByRef", SyntaxFactory.ParseExpression(
+                    $"ByRef<{typeDisplay}>.Create({receiverText}, {singleIndex})"));
+            }
+
+            if (singleIndex != null && IsSpanLikeType(receiverType))
+            {
+                if (isReadOnly)
+                {
+                    _stats.ScopedElementProxies++;
+                    return ("ReadOnlyScopedByRef", SyntaxFactory.ParseExpression(
+                        $"ReadOnlyScopedByRef<{typeDisplay}>.Create({receiverText}, {singleIndex})"));
+                }
+                _stats.ScopedElementProxies++;
+                return ("ScopedByRef", SyntaxFactory.ParseExpression(
+                    $"ScopedByRef<{typeDisplay}>.Create({receiverText}, {singleIndex})"));
+            }
+
+            if (receiverType?.IsRefLikeType == true || blocking)
+            {
+                if (isReadOnly)
+                {
+                    _stats.ScopedElementProxies++;
+                    return ("ReadOnlyScopedByRef", SyntaxFactory.ParseExpression(
+                        $"ReadOnlyScopedByRef<{typeDisplay}>.Create(in {elemText})"));
+                }
+                _stats.ScopedElementProxies++;
+                return ("ScopedByRef", SyntaxFactory.ParseExpression(
+                    $"ScopedByRef<{typeDisplay}>.Create(ref {elemText})"));
+            }
+
+            if (isReadOnly)
+            {
+                _stats.ReadOnlyProxies++;
+                return ("ReadOnlyByRef", SyntaxFactory.ParseExpression(
+                    $"ReadOnlyByRef<{typeDisplay}>.Create(() => {elemText})"));
+            }
+            _stats.AccessorProxies++;
+            return ("ByRef", SyntaxFactory.ParseExpression(
+                $"ByRef<{typeDisplay}>.Create(() => {elemText}, v => {elemText} = v)"));
+        }
+
+        // identifier / member chain / other lvalue shapes
+        var nameText = InjectSlotValues(expr).ToString();
+        if (isReadOnly)
+        {
+            if (blocking)
+            {
+                _stats.ScopedElementProxies++;
+                return ("ReadOnlyScopedByRef", SyntaxFactory.ParseExpression(
+                    $"ReadOnlyScopedByRef<{typeDisplay}>.Create(in {nameText})"));
+            }
+            _stats.ReadOnlyProxies++;
+            return ("ReadOnlyByRef", SyntaxFactory.ParseExpression(
+                $"ReadOnlyByRef<{typeDisplay}>.Create(() => {nameText})"));
+        }
+        if (blocking)
+        {
+            _stats.ScopedElementProxies++;
+            return ("ScopedByRef", SyntaxFactory.ParseExpression(
+                $"ScopedByRef<{typeDisplay}>.Create(ref {nameText})"));
+        }
+        _stats.AccessorProxies++;
+        return ("ByRef", SyntaxFactory.ParseExpression(
+            $"ByRef<{typeDisplay}>.Create(() => {nameText}, v => {nameText} = v)"));
     }
 
     private static ExpressionSyntax Negate(ExpressionSyntax e) =>

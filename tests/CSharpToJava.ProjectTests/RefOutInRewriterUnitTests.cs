@@ -1,3 +1,4 @@
+using System.Reflection;
 using CSharpToJava.Core.RefOutInPreprocessor;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -659,5 +660,361 @@ public class C
         var result = RewriteAndAssertCompiles(src);
         Assert.Contains("ByRef<int> __out", result);
         Assert.Contains("return __cond", result);
+    }
+
+    // ── C40 M3 hard prerequisite: declaration-site receiver classification ──
+    // Probe evidence (Temp/cs2j-m3-probe): closures over Span locals fail
+    // CS8175 (local) / CS9108 (parameter); writing a readonly proxy fails
+    // CS0200. Four classes: array -> ByRef.Create(arr,i); Span-like / other
+    // ref-struct receiver -> ScopedByRef (ref field, no closure); heap
+    // receiver -> accessor lambdas; readonly forms -> ReadOnly* types.
+
+    private static readonly MetadataReference[] DeclSiteRefs =
+    {
+        MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+    };
+
+    private static (RefOutInRewriterResult result, string errorText) RewriteAndCompile(
+        string src, string? peerSrc = null)
+    {
+        var srcTree = CSharpSyntaxTree.ParseText(src);
+        var modelTrees = peerSrc == null
+            ? new[] { srcTree }
+            : new[] { srcTree, CSharpSyntaxTree.ParseText(peerSrc) };
+        var modelCompilation = CSharpCompilation.Create("refout-declsite-model",
+            modelTrees, DeclSiteRefs,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var result = new RefOutInRewriter().Rewrite(src, modelCompilation.GetSemanticModel(srcTree));
+
+        var supportTree = CSharpSyntaxTree.ParseText(
+            File.ReadAllText(FindRepoRoot("src/Cs2jRefOutIn/ByRef.cs")));
+        var outTrees = new List<SyntaxTree>
+        {
+            CSharpSyntaxTree.ParseText(result.OutputCode),
+            supportTree,
+        };
+        if (peerSrc != null)
+            outTrees.Add(CSharpSyntaxTree.ParseText(peerSrc));
+        var compilation = CSharpCompilation.Create("refout-declsite",
+            outTrees, DeclSiteRefs,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        return (result, string.Join("\n", errors.Select(d => d.ToString())));
+    }
+
+    private static int RewriteCompileAndRun(string src, string? peerSrc = null)
+    {
+        var (result, errorText) = RewriteAndCompile(src, peerSrc);
+        var supportTree = CSharpSyntaxTree.ParseText(
+            File.ReadAllText(FindRepoRoot("src/Cs2jRefOutIn/ByRef.cs")));
+        var outTrees = new List<SyntaxTree>
+        {
+            CSharpSyntaxTree.ParseText(result.OutputCode),
+            supportTree,
+        };
+        if (peerSrc != null)
+            outTrees.Add(CSharpSyntaxTree.ParseText(peerSrc));
+        var compilation = CSharpCompilation.Create("refout-declsite-run",
+            outTrees, DeclSiteRefs,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        using var stream = new MemoryStream();
+        var emit = compilation.Emit(stream);
+        Assert.True(emit.Success, string.Join("\n",
+            emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)
+                .Select(d => d.ToString())) + "\n" + errorText + "\n===== OUTPUT =====\n" + result.OutputCode);
+
+        var assembly = Assembly.Load(stream.ToArray());
+        var method = assembly.GetType("C", throwOnError: true)!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!;
+        return (int)method.Invoke(null, null)!;
+    }
+
+    [Fact]
+    public void RefLocal_ArrayElement_KeepsArrayFactory()
+    {
+        var src = @"
+public class C
+{
+    public static int Run()
+    {
+        int[] arr = { 1, 2, 3 };
+        ref int x = ref arr[0];
+        x = 9;
+        return arr[0] * 100 + x;
+    }
+}";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new RefOutInRewriter().Rewrite(src, model);
+        Assert.Contains("ByRef<int> x = ByRef<int>.Create(arr, 0);", result.OutputCode);
+        Assert.Equal(1, result.Statistics.ArrayElementProxies);
+        Assert.Equal(909, RewriteCompileAndRun(src));
+    }
+
+    [Fact]
+    public void RefLocal_SpanElement_UsesScopedByRefFactory_AndWritesThrough()
+    {
+        var src = @"
+using System;
+public class C
+{
+    public static int Run()
+    {
+        Span<int> span = new int[] { 1, 2, 3 };
+        ref int x = ref span[1];
+        x = 9;
+        return span[1] * 100 + x;
+    }
+}";
+        var (result, errorText) = RewriteAndCompile(src);
+        Assert.Equal("", errorText);
+        Assert.Contains("ScopedByRef<int> x = ScopedByRef<int>.Create(span, 1);", result.OutputCode);
+        Assert.DoesNotContain("() => span", result.OutputCode);   // no closure over span
+        Assert.Equal(1, result.Statistics.ScopedElementProxies);
+        Assert.Equal(909, RewriteCompileAndRun(src));
+    }
+
+    [Fact]
+    public void RefLocal_SpanElement_InsideForLoop_EachIterationDoubles()
+    {
+        var src = @"
+using System;
+public class C
+{
+    public static int Run()
+    {
+        Span<int> span = new int[] { 1, 2, 3, 4 };
+        for (int i = 0; i < span.Length; i++)
+        {
+            ref int x = ref span[i];
+            x = x * 2;
+        }
+        int sum = 0;
+        for (int i = 0; i < span.Length; i++) sum += span[i];
+        return sum;
+    }
+}";
+        var (result, errorText) = RewriteAndCompile(src);
+        Assert.Equal("", errorText);
+        Assert.Contains("ScopedByRef<int>.Create(span, i)", result.OutputCode);
+        Assert.Equal(20, RewriteCompileAndRun(src));
+    }
+
+    [Fact]
+    public void RefLocal_RefVarOverSpan_ResolvesConcreteTypeArgument()
+    {
+        var src = @"
+using System;
+public class C
+{
+    public static int Run()
+    {
+        Span<int> span = new int[] { 1, 2, 3 };
+        ref var x = ref span[1];
+        x = 9;
+        return span[1];
+    }
+}";
+        var (result, errorText) = RewriteAndCompile(src);
+        Assert.Equal("", errorText);
+        Assert.Contains("ScopedByRef<int>", result.OutputCode);
+        Assert.DoesNotContain("ScopedByRef<var>", result.OutputCode);
+        Assert.Equal(9, RewriteCompileAndRun(src));
+    }
+
+    [Fact]
+    public void RefReadonlyLocal_SpanElement_UsesReadOnlyScopedByRef()
+    {
+        var src = @"
+using System;
+public class C
+{
+    public static int Run()
+    {
+        Span<int> span = new int[] { 1, 2, 33 };
+        ref readonly int x = ref span[2];
+        return x;
+    }
+}";
+        var (result, errorText) = RewriteAndCompile(src);
+        Assert.Equal("", errorText);
+        Assert.Contains("ReadOnlyScopedByRef<int> x = ReadOnlyScopedByRef<int>.Create(span, 2);",
+            result.OutputCode);
+        Assert.Equal(1, result.Statistics.ScopedElementProxies);
+        Assert.Equal(0, result.Statistics.ReadOnlyProxies);
+        Assert.Equal(33, RewriteCompileAndRun(src));
+    }
+
+    [Fact]
+    public void RefReadonlyLocal_ReadOnlySpanElement_UsesRosOverload()
+    {
+        var src = @"
+using System;
+public class C
+{
+    public static int Run()
+    {
+        ReadOnlySpan<int> span = new int[] { 1, 2, 34 };
+        ref readonly int x = ref span[2];
+        return x;
+    }
+}";
+        var (result, errorText) = RewriteAndCompile(src);
+        Assert.Equal("", errorText);
+        Assert.Contains("ReadOnlyScopedByRef<int>.Create(span, 2)", result.OutputCode);
+        Assert.Equal(1, result.Statistics.ScopedElementProxies);
+        Assert.Equal(34, RewriteCompileAndRun(src));
+    }
+
+    [Fact]
+    public void RefReadonlyLocal_ArrayElement_UsesReadOnlyAccessor()
+    {
+        var src = @"
+public class C
+{
+    public static int Run()
+    {
+        int[] arr = { 1, 2, 35 };
+        ref readonly int x = ref arr[2];
+        return x;
+    }
+}";
+        var (result, errorText) = RewriteAndCompile(src);
+        Assert.Equal("", errorText);
+        Assert.Contains("ReadOnlyByRef<int> x = ReadOnlyByRef<int>.Create(() => arr[2]);",
+            result.OutputCode);
+        Assert.Equal(1, result.Statistics.ReadOnlyProxies);
+        Assert.Equal(35, RewriteCompileAndRun(src));
+    }
+
+    [Fact]
+    public void RefLocal_HeapIndexer_UsesAccessorLambdaProxy()
+    {
+        var peer = @"
+public sealed class Box
+{
+    private readonly int[] _data = new int[4];
+    public ref int this[int i] { get { return ref _data[i]; } }
+}";
+        var src = @"
+public class C
+{
+    public static int Run()
+    {
+        var box = new Box();
+        ref int x = ref box[0];
+        x = 41;
+        return box[0] + 1;
+    }
+}";
+        var (result, errorText) = RewriteAndCompile(src, peer);
+        Assert.Equal("", errorText);
+        Assert.Contains("ByRef<int>.Create(() => box[0], v => box[0] = v)", result.OutputCode);
+        Assert.Equal(1, result.Statistics.AccessorProxies);
+        Assert.Equal(42, RewriteCompileAndRun(src, peer));
+    }
+
+    [Fact]
+    public void RefLocal_CustomRefStructIndexer_UsesRefScopedForm()
+    {
+        var peer = @"
+public ref struct CustomList
+{
+    private int[] _a;
+    public CustomList(int[] a) { _a = a; }
+    public ref int this[int i] { get { return ref _a[i]; } }
+    public int Count => _a.Length;
+}";
+        var src = @"
+public class C
+{
+    public static int Run()
+    {
+        CustomList col = new CustomList(new[] { 1, 2, 3 });
+        ref int x = ref col[1];
+        x = 77;
+        int sum = 0;
+        for (int i = 0; i < col.Count; i++) sum += col[i];
+        return sum;
+    }
+}";
+        var (result, errorText) = RewriteAndCompile(src, peer);
+        Assert.Equal("", errorText);
+        Assert.Contains("ScopedByRef<int> x = ScopedByRef<int>.Create(ref col[1]);",
+            result.OutputCode);
+        Assert.Equal(81, RewriteCompileAndRun(src, peer));
+    }
+
+    [Fact]
+    public void RefLocal_MultiDimArrayElement_ReportsCS2J3303()
+    {
+        var src = @"
+public class C
+{
+    public static int Run()
+    {
+        int[,] grid = new int[2, 2];
+        ref int x = ref grid[0, 1];
+        x = 5;
+        return grid[0, 1];
+    }
+}";
+        var (tree, model) = ParseWithSemantics(src);
+        var result = new RefOutInRewriter().Rewrite(src, model);
+        Assert.Contains(result.Diagnostics, d => d.Id == "CS2J3303");
+    }
+
+    [Fact]
+    public void ReadOnlyProxies_CannotBeWritten_CompilerReportsCS0200()
+    {
+        // Span receiver: ReadOnlyScopedByRef.Value is get-only.
+        var spanSrc = @"
+using System;
+public class C
+{
+    public static int Run()
+    {
+        Span<int> span = new int[] { 1, 2, 33 };
+        ref readonly int x = ref span[2];
+        return x;
+    }
+}";
+        var (spanResult, _) = RewriteAndCompile(spanSrc);
+        var injected = spanResult.OutputCode.Replace("return x.Value;", "x.Value = 9; return x.Value;");
+        var supportTree = CSharpSyntaxTree.ParseText(
+            File.ReadAllText(FindRepoRoot("src/Cs2jRefOutIn/ByRef.cs")));
+        var compilation = CSharpCompilation.Create("refout-readonly-lock",
+            new[] { CSharpSyntaxTree.ParseText(injected), supportTree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "CS0200");
+
+        // Heap receiver: ReadOnlyByRef.Value is get-only as well.
+        var heapSrc = @"
+public class C
+{
+    public static int Run()
+    {
+        int[] arr = { 1, 2, 35 };
+        ref readonly int x = ref arr[2];
+        return x;
+    }
+}";
+        var (heapResult, _) = RewriteAndCompile(heapSrc);
+        var heapInjected = heapResult.OutputCode.Replace("return x.Value;", "x.Value = 9; return x.Value;");
+        var heapCompilation = CSharpCompilation.Create("refout-readonly-lock-heap",
+            new[] { CSharpSyntaxTree.ParseText(heapInjected), supportTree },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+            },
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        Assert.Contains(heapCompilation.GetDiagnostics(), d => d.Id == "CS0200");
     }
 }

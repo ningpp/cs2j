@@ -250,6 +250,8 @@ internal sealed class RefOutInPassAdapter : ProjectPassAdapter
         _statistics.CallSitesLifted += source.CallSitesLifted;
         _statistics.HoldersInjected += source.HoldersInjected;
         _statistics.AccessorProxies += source.AccessorProxies;
+        _statistics.ScopedElementProxies += source.ScopedElementProxies;
+        _statistics.ReadOnlyProxies += source.ReadOnlyProxies;
         _statistics.LockedContractMembers += source.LockedContractMembers;
         _statistics.InOverloadKept += source.InOverloadKept;
         _statistics.ExternalRefArgumentsKept += source.ExternalRefArgumentsKept;

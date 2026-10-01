@@ -51,3 +51,76 @@ internal sealed class AccessorByRef<T> : ByRef<T>
         set => _setter(value);
     }
 }
+
+// ref readonly 局部/形参的只读代理（C40 M3 裁决 3）：只暴露 get，对 Value
+// 写入在 C# 中间树编译期即 CS0200，只读约束不靠注释维持。堆接收器（数组、
+// class/普通 struct 索引器等不被 lambda 捕获限制的位置）用 Func 访问器。
+public abstract class ReadOnlyByRef<T>
+{
+    public abstract T Value { get; }
+
+    // 字段/静态字段/值参成员链只读别名：访问器闭包，读穿透
+    public static ReadOnlyByRef<T> Create(Func<T> getter) => new ReadOnlyAccessorByRef<T>(getter);
+}
+
+internal sealed class ReadOnlyAccessorByRef<T> : ReadOnlyByRef<T>
+{
+    private readonly Func<T> _getter;
+    public ReadOnlyAccessorByRef(Func<T> getter) { _getter = getter; }
+    public override T Value => _getter();
+}
+
+// ref struct 接收器（Span<T>/ReadOnlySpan<T>/自定义 ref struct）的「可写元素
+// 别名」代理（C40 M3，CS8175 偏差，见 c40-foreach-source-design.md 实施证据节）：
+// ref struct 局部/形参不能被 lambda 捕获（CS8175/CS9108），访问器闭包形态
+// ByRef<T>.Create(() => span[i], v => span[i] = v) 对 Span 接收器不可编译；
+// 本类型以 ref 字段直持元素存储，读/写/透传语义与原生 ref 局部一致，且不引入闭包。
+// Java 半区映射到既有 io.github.ningpp.compat.ByRef（Create(Span,int) 工厂内部
+// 以 get/set 闭包缝合），不新增 Java 类、不改转换器。
+public ref struct ScopedByRef<T>
+{
+    private ref T _value;
+
+    private ScopedByRef(ref T value) { _value = ref value; }
+
+    public T Value
+    {
+        get => _value;
+        set => _value = value;
+    }
+
+    // 通用形态：自定义 ref struct 集合的 ref 索引器等（C# 调用点保留 ref 表达式）
+    public static ScopedByRef<T> Create(ref T value) => new ScopedByRef<T>(ref value);
+
+    // Span 形态：调用点无 ref 表达式，Java 可直译为 ByRef.create(span, i)
+    public static ScopedByRef<T> Create(Span<T> span, int index) =>
+        new ScopedByRef<T>(ref span[index]);
+}
+
+// ref struct 接收器的「只读元素别名」代理（ref readonly 局部）：readonly ref
+// 字段只暴露 get，对 Value 写入 CS0200。安全 C# 无法把 ref readonly 位置灌入
+// readonly ref 字段（CS8331/CS8329），构造点仅此一次 Unsafe.AsRef 强制；字段
+// 本身 readonly ref，类型层面不存在写回路径。
+public ref struct ReadOnlyScopedByRef<T>
+{
+    private readonly ref T _value;
+
+    private ReadOnlyScopedByRef(ref readonly T value)
+    {
+        _value = ref System.Runtime.CompilerServices.Unsafe.AsRef(in value);
+    }
+
+    public T Value => _value;
+
+    // 通用形态：ref readonly/ref 索引器（调用点 in 传递，两种返回都接受）
+    public static ReadOnlyScopedByRef<T> Create(in T value) =>
+        new ReadOnlyScopedByRef<T>(in value);
+
+    // Span/ReadOnlySpan 形态：调用点无 ref 表达式，Java 直译为
+    // ReadOnlyByRef.create(span, i)
+    public static ReadOnlyScopedByRef<T> Create(Span<T> span, int index) =>
+        new ReadOnlyScopedByRef<T>(in span[index]);
+
+    public static ReadOnlyScopedByRef<T> Create(ReadOnlySpan<T> span, int index) =>
+        new ReadOnlyScopedByRef<T>(in span[index]);
+}
