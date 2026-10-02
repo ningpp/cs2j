@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 using CSharpToJava.Core.NumericBoundary.Rules.DecimalOps;
 using CSharpToJava.Core.NumericBoundary.Rules.IncrementTargets;
+using CSharpToJava.Core.NumericBoundary.Rules.Nullable;
 using CSharpToJava.Core.Preprocessing;
 
 namespace CSharpToJava.Core.NumericBoundary;
@@ -21,6 +22,9 @@ namespace CSharpToJava.Core.NumericBoundary;
 /// C15 checked sweep (Order=20); C34 DecimalOps runs last (Order=30). Tree
 /// changes between rules trigger a semantic-model rebind through the shared
 /// context (design §4.5 implementation correction / decision 17).
+/// 2026-10-02 (C22 M0): NullableLift joins at Order=15 (between C17 and C15;
+/// the design's Order=30 was a pre-C15 assumption) — guard expansion precedes
+/// the C15/C34 sweeps so checked helpers and decimal intake land inside guards.
 /// </para>
 /// </summary>
 public sealed class NumericBoundaryPreprocessor
@@ -45,11 +49,12 @@ public sealed class NumericBoundaryPreprocessor
         var c15Dirty = IsDirty(root, projectDefaultChecked);
 
         // Family-level early gate: keep the pipeline alive when any family rule
-        // is enabled — EnableDecimalOps (C34) and EnableIncrementTargets (C17)
-        // both own sites outside checked scopes, so keyword-free files must still
-        // be traversed. While every rule is dormant the gate and statistics stay
-        // byte-identical to C15.
-        if (!c15Dirty && !options.EnableDecimalOps && !options.EnableIncrementTargets)
+        // is enabled — EnableDecimalOps (C34), EnableIncrementTargets (C17) and
+        // EnableNullable (C22) all own sites outside checked scopes, so
+        // keyword-free files must still be traversed. While every rule is
+        // dormant the gate and statistics stay byte-identical to C15.
+        if (!c15Dirty && !options.EnableDecimalOps && !options.EnableIncrementTargets
+            && !options.EnableNullable)
         {
             stats.FilesSkippedClean = 1;
             return new NumericBoundaryFileResult(sourceCode, false, diagnostics, stats);
@@ -58,10 +63,20 @@ public sealed class NumericBoundaryPreprocessor
         var context = new NumericBoundaryRuleContext(
             root, semanticModel, projectDefaultChecked, options, stats, diagnostics);
 
-        // Explicit ordered rule list (no reflection discovery); Order ascending.
+        // Explicit ordered rule list (no reflection discovery); execution is
+        // Order ascending via OrderBy. Written in execution order with the
+        // 2026-10-02 C22 correction noted:
+        //   C17 IncrementTargets (10): site expansion
+        //   C22 NullableLift    (15): guard expansion BEFORE the sweeps so the
+        //                            C15 post-sweep inserts checked helpers
+        //                            inside guards (decision 18) and C34 takes
+        //                            decimal inner ops (decision 19)
+        //   C15 CheckedArithmetic (20): checked post-sweep
+        //   C34 DecimalOps      (30): decimal intake
         var rules = new INumericBoundaryRule[]
         {
             new IncrementTargetRule(),
+            new NullableLiftRule(),
             new CheckedArithmeticRule(),
             new DecimalOpsRule(),
         };

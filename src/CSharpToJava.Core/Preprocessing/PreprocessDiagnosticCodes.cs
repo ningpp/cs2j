@@ -107,6 +107,36 @@ public static class PreprocessDiagnosticCodes
     /// <summary>C17: IT-13 residual gate — an owned ++/-- node survived in the output tree (strict → Error).</summary>
     public const string IncrementTargetResidual = "CS2J5341";
 
+    // CS2J5342-5349: C17 reserved.
+
+    // ── CS2J5350-5359: C22 Nullable<T> lifted-operator explicitization (design §6) ──
+
+    /// <summary>C22: lifted Nullable&lt;T&gt; site explicitized (verbose-only aggregated info, §4.7 buckets).</summary>
+    public const string NullableLiftSiteInfo = "CS2J5350";
+
+    /// <summary>C22: guard temporary hoisted (verbose-only aggregated info, by role a/b/o/d).</summary>
+    public const string NullableLiftTempInfo = "CS2J5351";
+
+    /// <summary>C22: dynamically bound lifted Nullable&lt;T&gt; site (force cannot clear).</summary>
+    public const string NullableLiftDynamic = "CS2J5352";
+
+    /// <summary>C22: user-defined lifted operator — target form waits for C14 member-desugar.</summary>
+    public const string NullableLiftUserDefinedOperator = "CS2J5353";
+
+    /// <summary>C22: lifted site inside an expression-tree lambda (force cannot clear).</summary>
+    public const string NullableLiftExpressionTree = "CS2J5354";
+
+    /// <summary>C22: complex read-modify-write lifted target — M2 C17 RMW seam.</summary>
+    public const string NullableLiftComplexTarget = "CS2J5355";
+
+    /// <summary>C22: C41 special-numeric nullable domain (Half/Int128/UInt128/nint/…).</summary>
+    public const string NullableLiftSpecialNumeric = "CS2J5356";
+
+    /// <summary>C22: NL-14 residual gate — a built-in lifted site survived in user-scope output (strict → Error).</summary>
+    public const string NullableLiftResidual = "CS2J5357";
+
+    // CS2J5358-5359: C22 reserved.
+
     // ── CS2J5360-5379: C34 decimal-ops normalization (design §6) ──
 
     /// <summary>C34: decimal operator site reduction count (verbose-only aggregated info).</summary>

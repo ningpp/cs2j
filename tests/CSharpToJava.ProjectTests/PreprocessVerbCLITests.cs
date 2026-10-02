@@ -83,7 +83,8 @@ public class PreprocessVerbCLITests
         // C34 (decimal-ops) is co-located with the numeric-boundary pass; the
         // catalog inventory must surface it even though it ships default-off.
         // C17 (increment-targets) is a co-located family rule as well (M0 skeleton).
-        Assert.Contains("rules=C15, C34, C17", stdout);
+        // C22 (nullable-lift) joined the family at rule Order=15 (2026-10-02).
+        Assert.Contains("rules=C15, C34, C17, C22", stdout);
     }
 
     [Fact]

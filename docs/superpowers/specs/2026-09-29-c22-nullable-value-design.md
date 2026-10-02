@@ -132,6 +132,8 @@
 
 ### 3.2 规则顺序与文件内交互
 
+> **实施校订（2026-10-02，M0）**：本节下文写于 C15 落地前，假设的 Order 为 C15=10、C17=20、C22=30。落地后真值为 **C17 IncrementTargets=10（站点展开）→ C15 CheckedArithmetic=20（checked 后扫）→ C34 DecimalOps=30（decimal 收编）**。C22 守卫展开后，守卫内层裸 `T` 算术必须能被 C15 后扫插入 checked helper（决策 18）、`decimal` 内层必须被 C34 收编（决策 19），展开者必须排在两个清扫者之前；又因 C17=10 先跑且其分类器对 LiftedNullable 站点目前发 CS2J5335（M2 再做交接），故 **`NullableLiftRule` 取中间槽 Order=15**（C17=10 → C22=15 → C15=20 → C34=30）。规则 XML 注释与 `NumericBoundaryPreprocessor` 规则数组注释均已标注本理由。下文「Order=30」叙述保留为历史，以本条为准。
+
 - `NullableLiftRule` 注册 `Order = 30`（C15 CheckedArithmetic=10，C17 IncrementTargets=20，[C17 §4.5-1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c17-increment-target-design.md#L235-L235)）。文件内共享一个 `NumericBoundaryAnalyzer`：
   - **C15 后扫新内层节点**：本规则展开守卫后，内层 `T` 裸算术/转换在 checked 上下文由 C15 规则后扫插 helper（决策 18）；
   - **C17 站点交接**：C17 分类器对 `LiftedNullable` 站点不发 CS2J5335 当本规则已注册且可处理；简单目标由本规则 NL-10/11 处理，复杂目标由本规则发 CS2J5355（M2 前）或经 RMW 接缝处理（M2 后）；

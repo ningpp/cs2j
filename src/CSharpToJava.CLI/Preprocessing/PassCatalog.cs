@@ -240,7 +240,7 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Explicitize checked/unchecked integer arithmetic (overflow checks and stripping); " +
                          "C34 decimal operator normalization is co-located (default on; kill-switch --no-decimal-ops).",
-            catalogItems: "C15, C34, C17"),
+            catalogItems: "C15, C34, C17, C22"),
         new(
             PassIds.Generic,
             "Generic",

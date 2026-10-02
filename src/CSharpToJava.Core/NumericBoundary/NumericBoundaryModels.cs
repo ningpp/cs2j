@@ -1,5 +1,6 @@
 using CSharpToJava.Core.NumericBoundary.Rules.DecimalOps;
 using CSharpToJava.Core.NumericBoundary.Rules.IncrementTargets;
+using CSharpToJava.Core.NumericBoundary.Rules.Nullable;
 using CSharpToJava.Core.Preprocessing;
 
 namespace CSharpToJava.Core.NumericBoundary;
@@ -52,6 +53,16 @@ public sealed record NumericBoundaryOptions
     /// M0 only runs the read-only classifier and never rewrites.
     /// </summary>
     public bool EnableIncrementTargets { get; init; } = true;
+
+    /// <summary>
+    /// C22: explicitize lifted <c>Nullable&lt;T&gt;</c> operators/comparisons/
+    /// three-valued logic/GOV/conversions/increments as HasValue-guarded C#.
+    /// Family rule kill-switch that is on by default together with the pass
+    /// (no standalone CLI toggle, design §3.1/§4.7 — the rule starts/stops with
+    /// the numeric-boundary pass); M0 only runs the read-only classifier and
+    /// never rewrites.
+    /// </summary>
+    public bool EnableNullable { get; init; } = true;
 }
 
 public enum NumericBoundarySeverity
@@ -133,6 +144,10 @@ public sealed class NumericBoundaryStatistics
     // ── C17 increment-target buckets (M0: classifier only; all zero) ──
 
     public IncrementTargetStatistics IncrementTargets { get; } = new();
+
+    // ── C22 nullable-lift buckets (M0: classifier only; all zero) ──
+
+    public NullableLiftStatistics Nullable { get; } = new();
 }
 
 public sealed record NumericBoundaryFileResult(
