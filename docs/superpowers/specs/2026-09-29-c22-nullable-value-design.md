@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-29
 **范围**: 在 C15 锚点翻转后合入的 `numeric-boundary` 族 pass 内新增规则子目录 `Rules/Nullable/`（当前该 pass 仍是 stub，本任务不翻转），把 `T?`（值类型）上的 lifted 算术/一元运算、关系/相等比较、`bool?` 三值逻辑、`GetValueOrDefault()`/`.Value`/`.HasValue`、可空枚举位运算兜底、可空类型转换、lifted 自增/复合赋值显式化为守卫形态的合法 C#（`HasValue`/`Value`/三元/临时变量）。本任务**不注册新 pass、不翻转 stub、不改链位**，不改任何 C#→Java 转换代码
-**状态**: 设计已确认，待实施（硬前置：C15 分支合入主干）
+**状态**: 2026-10-02 进入实施（worktree base 前移至 dev-3.x `10aae03f`；该基线 C15 锚点/C17/C34 均已合入、pass 已 Implemented 且默认开，见 §12）；原状态：设计已确认，待实施（硬前置：C15 分支合入主干）
 **族属**: catalog P3「数值边界族」（[preprocessor-catalog.md:571-583](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L571-L583) C22 条目；[§3.3 合并建议：数值边界族 L1084](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1084-L1084) / [enum 族 L1092](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1092-L1092)）。注册表**无 C22 独立 stub**：归合并 stub `numeric-boundary`（[PassStubCatalog.cs:150-159](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L150-L159)，CatalogItems `"C15, C17, C22, C34, C41"`，RunAfter=`unsigned`，Stage=`Expression`）；**C15 是锚点任务**（负责族 pass 的 stub→Implemented 翻转），本任务是该 pass 内的族规则，C15 合入后以 `INumericBoundaryRule`（Order=30）增量挂接，不翻转、不注册
 
 > **校订（2026-09-29）**：本次仅做证据核对式手术修订，改动枚举——① **行号漂移订正**：PassStubCatalog stub 条目 L163-171→**L150-159**；catalog C22 段 L520-530→**L571-583**、§3.3 L906-914→**L1076-1093**（数值边界族 **L1084**、enum 族 **L1092**）、§4 风险 8 L927→**L1106**、风险 12 L931→**L1110**；TypeMappingService L408-434→**L408-440**；TypeMappings.json L8234-8240→**L8233-8240**；StructTransformerTests L449-455→**L249-285**（`Struct_NullableComparisonAgainstNull_StaysReferenceCheck`）；EnumSyntaxRewriter L365-456→**L366-457**、lifted `~` L480-521→**L480-522**、不稳定跳过臂 L374-384→**L375-385**、IsStableReference L146-170→**L146-173**、窄类型回绕 L497-500→**L498-501**；UnsignedTypeSyntaxRewriter L891→**L890**；TypeOperationTransformer L132-153→**L132-154**；C15 链接 L22-26→**L23-27**、§3.4-9 L160→**L163**、§4.1 L182→**L182-188**（NullableNumeric 行 L185）、§4.5 L246→**L249**、§6 L281-303→**L284-305**、CS2J5325 L299→**L302**；C17 链接 §4.5-1 L230→**L235**、§4.5-3 L232→**L237**、§4.2 L193→**L198**（LiftedNullable 行）、§6 L265→**L270**；C05 R10 L470→**L473**、§11 C22 行 L481→**L484**；foundation plan L108-117→**L107-116**。② **注册表叙述订正**：numeric-boundary 描述符当前**仅存在于** PassStubCatalog（PassCatalog.Implemented 无此条，C15 尚未实施——Core 下无 `NumericBoundary/` 目录），其 CatalogItems 串**当前已含 C22**；§3.5/§5 原「PassCatalog.cs 单行追加 C22」改为条件化时序（锚点翻转按 IteratorLowering 先例整体搬迁，本任务零注册表结构改动）。③ **六次补全真值表落文档/fixture**：§1.1 新增三张官方真值表（`bool?` 的 `&`/`|` 例外、关系运算 null→false 含 `null>=null=false`、相等双 null→true/单 null→false）并标注与 C47④ 调用点物化同源；§7.1 fixture 矩阵补钉反直觉格。④ **存在性核对**：四个命名测试文件（NullableBoolComparisonTests/NullableGetUnderlyingTypeTests/NullableBaseTypeRuntimeClassTests/GetValueOrDefaultMappingTests）与 ConversionTests 的 NullableTests、StructTransformerTests 均在 tests/ 树当前磁盘位置；GetValueOrDefaultMappingTests 确为零测试方法类壳；EnumPreprocessorStatistics.cs:15 `NullableLiftedRewritten` 已核；compat 全树无 `Nullable*.java`，仅 TypeHelper.java、xunit Assert.java（及 TypeHelper 自身测试）命中 Nullable 字样。⑤ §11 新增 C47 协调项（真值表同源、不重复物化）。⑥ **无法证实项**：当前磁盘 PassStubCatalog.Stubs 实有 **21** 条、Ids 常量 **22** 个（IteratorLowering 已翻转，先例 [PassCatalog.cs:210-219](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L210-L219) + [PassChainFactory.cs:227-234](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L227-L234)）；但 PassStubCatalogTests 当前**不存在 22 条计数断言**（C15 设计 [L160](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md#L160-L160) 所述红灯断言在磁盘上已无，疑被外部改动移除），红灯状态无法证实，列开放问题 6。
@@ -426,24 +426,28 @@ MSBuild 格式：`文件(行,列): warning/error CS2J53xx: [NL-x/分类] 描述`
 
 ---
 
-## 12. Worktree 分配（只写不执行）
+## 12. Worktree 分配（2026-10-02 更新 base 并进入实施）
 
 - 分支：`feature/preproc-c22-nullable-value`
 - 目录：`.worktrees/preproc-c22-nullable-value`
-- base：`953293b9`（`docs: update doc base commit`，已核实存在；**2026-09-29 注：该 base 已非 HEAD**，[C16 校订](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c16-foreach-complete-design.md#L8-L8) 记录当时 HEAD 为 2d25700e，实施前需重选 base 或 rebase）；**实现前先把 C15 分支（`feature/preproc-c15-checked-unchecked`）合入所选 base 或在其合入主干后 rebase**——本任务硬依赖 C15 的 `NumericBoundary/` 根层与规则管线
-- 创建命令（仓库根、PowerShell；本设计阶段不执行，实施者按 C15 合入时序执行）：
+- base：**`10aae03f`**（`Update c32 capture lift spec and add implementation plan`，dev-3.x HEAD @ 2026-10-02，完整 SHA `10aae03f11c2dd579acbc4d8d7e331b14cfddae8`，已 `git rev-parse --verify` 校验存在）。~~原 base `953293b9`~~（完整 SHA `953293b908e9143437c45f287fb4277e890c398e`，2026-10-02 前移；2026-09-29 校订注记的「该 base 已非 HEAD、实施前需重选 base 或 rebase」由本次更新收口）。
+- **前置现状（2026-10-02 基线核实，原「实现前先合入 C15 分支」要求已满足，无需再合）**：
+  1. C15 已合入 dev-3.x：`NumericBoundary/` 根层（[NumericBoundaryPreprocessor.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/NumericBoundary/NumericBoundaryPreprocessor.cs)、`INumericBoundaryRule`、Analyzer/Models/SyntaxFacts/CheckedExprRewriter）与适配器存在，pass 已 **Implemented 且 defaultEnabled=true**（[PassCatalog.cs:227-240](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L227-L240)，RunAfter=`{ Unsigned }`，Stage=`Expression`，中间目录 `.cs2j-numeric-boundary-src`）；
+  2. C17、C34 已合入：`NumericBoundary/Rules/IncrementTargets/` 七文件与 `Rules/DecimalOps/` 八文件在树，descriptor catalogItems 真值为 `"C15, C34, C17"`，本任务按 §3.5 单行加宽为 `"C15, C34, C17, C22"`；C17 已落地意味着 NL-10/11 的简单目标交接面（CS2J5335 `LiftedNullable` 分类）以共处单测钉死，M3 复杂目标可经其 RMW 接缝评估收编；
+  3. fixture `tests/SampleNumericBoundarySolution/`（Lib/App/sln，含 DecimalOps、IncrementTargets 子目录）与测试工程 `tests/CSharpToJava.ProjectTests/`（NumericBoundary* 六个用例文件）均在树，本任务按 §7 追加 `Nullable/` 子目录与对应用例，不新建 sln/工程。
+- 创建命令（在仓库根、PowerShell 下执行；2026-10-02 实施时实际执行；base 文档更新提交落在 dev-3.x 的 `10aae03f` 之上，故分支从更新后的 dev-3.x HEAD 切出，内容 = `10aae03f` + 本文档修订）：
 
 ```powershell
-git worktree add .worktrees/preproc-c22-nullable-value -b feature/preproc-c22-nullable-value 953293b9
+git worktree add .worktrees/preproc-c22-nullable-value -b feature/preproc-c22-nullable-value dev-3.x
 ```
 
-- worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:107-116](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L107-L116)）：Core `NumericBoundary/Rules/Nullable/` 八个文件 + C15 根层接缝（如需，带回归）+ 注册表零行或 CatalogItems 一行（时序见 §3.5）+ 本设计文档与后续 plan（`docs/superpowers/plans/2026-09-29-c22-nullable-value.md`）+ Core 单测 + fixture `Nullable/` 子目录 + 原生预言机矩阵 + Release build/test + residual 闸门 + CLI 一致性；不新建支撑工程/compat 类；不触转换器代码；不做任何 git 写操作由设计阶段承诺（实施阶段的提交遵循仓库常规评审流程）。
+- worktree 内交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:107-116](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L107-L116)）：Core 仅新增 `NumericBoundary/Rules/Nullable/` 八个文件 + §4.2 授权的 C15 根层小接缝（如需，带 C15/C17 回归）+ CatalogItems 单行（`"C15, C34, C17" → "C15, C34, C17, C22"`）+ 本设计文档与后续 plan（`docs/superpowers/plans/2026-10-02-c22-nullable-value.md`）+ Core 单测 + fixture `Nullable/` 子目录 + 原生预言机矩阵 + Release build/test + residual 闸门 + CLI 一致性；不新建支撑工程/compat 类；不触转换器代码。按 §9 里程碑逐提交（M0→M3，实现一部分提交一部分）；M4 为默认开评审/数据采集门，随 C15 §8 总门槛统一持有，无独立生产代码。
 
 ---
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。【2026-10-02 实施更新：base 直接前移至 dev-3.x HEAD `10aae03f`，命令见 §12；C15 锚点与 C17、C34 均已合入（pass 已 Implemented、默认开），无需再合分支，catalogItems 按真值登记 `"C15, C34, C17" → "C15, C34, C17, C22"`；原 stub 计数开放问题已随锚点翻转历史收口】
 
 **裁决（按原题号）：**
 

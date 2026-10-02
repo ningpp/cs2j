@@ -2,10 +2,10 @@
 
 **日期**: 2026-09-29
 **范围**: 在 C23 锚点合入后的 `src/CSharpToJava.Core/ExpressionDesugar/` 共享族基建上新增 `Initializers/` 规则集，在 C# 层把对象初始化器（`new C { A = 1 }`，含嵌套创建/嵌套成员初始化、init 属性赋值）、集合初始化器（`new List<int> { 1, 2 }`，含多参/扩展/fluent `Add`、IEnumerable 模式）、字典索引初始化器（`new D { [k] = v }`）、target-typed `new()`（含可空目标）统一归一为「构造调用 + 逐成员 set/赋值/Add/索引赋值」的语句序列，严格保持构造实参→初始化器、成员按源码序的求值顺序与单次求值。本任务**不注册/不翻转 pass、不新增 pass id/中间目录/适配器、不改任何 C#→Java 转换器代码**
-**状态**: 设计待评审；实现硬前置 C23 锚点分支合入（见 §3、§12）
+**状态**: **实施中（2026-10-02 进入 worktree 实施）**：C23 锚点未合入，C36 已按独立落地先例翻转 `expression-desugar`（Implemented、默认关、catalogItems `"C36"`）并落地最小族基建，C24 沿同一先例在其上只增落地（M0→M3 逐里程碑提交；M4 sdk 画像/评审不在本次交付面）。原状态：设计待评审；实现硬前置 C23 锚点分支合入（见 §3、§12）
 **Catalog**: C24（P3，分类 1.8 表达式，名称 `InitializerDesugar`）[preprocessor-catalog.md L599-L609](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L599-L609)；族归属「表达式/集合形态归一」（[§3.3 L1087](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1087-L1087)：C23+C24+C35+C36（该族行另含 C51/C48/C31 使用点），共用单次求值临时变量提升基建）；C36 边界（集合表达式 `[...]`/spread/target-typed 边界）[L764-L780](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L764-L780)；横切约束（禁止静默错误输出，[catalog §4 风险 12 L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)；表达式树共享判定，[风险 8 L1106](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1106-L1106)）
 **注册表现状**: 合并 stub `expression-desugar`（[PassStubCatalog.cs L217-L226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，`runAfterIds: new[] { PassIds.NullCoalesce }`，目录 `.cs2j-expression-desugar-src`；id 常量 [Ids.ExpressionDesugar L39](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L39-L39)，`Stubs` 2026-09-29 实测 21 个；C24 **无独立 id/描述符**）。stub 翻转与族基建由 **C23 锚点**完成（翻转时收窄 catalogItems 为 `"C23"`）；C24 只在翻转后的同一 pass 内追加 `Initializers/` 规则，合入时 catalogItems 加宽为 `"C23, C24"`（该字符串属锚点侧文件，由锚点侧统一登记，见 §3）
-**base**: `953293b9`（`docs: update doc base commit`，C23 设计已校验存在）；实际开工 base = C23 分支合入后的 rebase 点
+**base**: `10aae03f`（`Update c32 capture lift spec and add implementation plan`，dev-3.x HEAD @ 2026-10-02，完整 SHA `10aae03f11c2dd579acbc4d8d7e331b14cfddae8`，已 `git rev-parse --verify` 校验存在）；~~原 base `953293b9`~~（完整 SHA `953293b908e9143437c45f287fb4277e890c398e`，2026-10-02 前移）。**开工方式（2026-10-02 更新）**：C23 锚点未合入，但 C36 已按独立落地先例翻转 `expression-desugar` stub（Implemented、默认关、catalogItems `"C36"`）并落地最小族基建（`src/CSharpToJava.Core/ExpressionDesugar/Shared/` + `CollectionExpr/`，`ExpressionDesugarRuleSet` 已按固定序为 Initializers 预留第二追加位）；C24 沿同一先例在其上只增落地（见 §12），无需等 C23 即可开工
 
 > **校订（2026-09-29）**：仅证据核对，不改设计结论。① 全部 file:/// 链接按当前磁盘重算：catalog C24 段实为 [L599-L609](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L599-L609)、§3.3 表达式/集合形态族 [L1087](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1087-L1087)、C36 段 [L764-L780](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L764-L780)、§4 风险 8 [L1106](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1106-L1106)/风险 12 [L1110](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1110-L1110)；expression-desugar stub 实为 [PassStubCatalog.cs L217-L226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)（旧文误引 L239-L248），`Stubs` 当前共 **21** 个；② 登记事实对齐：C24 无独立 pass id，归合并 stub `expression-desugar`（Stage.Expression、RunAfter=`null-coalesce`、catalogItems `"C23, C24, C35, C36"`），翻转按 iterator-lowering 先例（id 常量留 `PassStubCatalog.Ids`）；③ 作废不实断言：ObjectInitializerMethodChainTests 全文 80 行仅 1 个用例（旧引「L116/L150 getter 链断言」不存在），TernaryObjectInitializerNullGuardTests 与 ObjectInitializerArrayToIListTests 两个类当前均为 **0 个 `[Fact]`** 的空类（仅注释 + helper）；`ArrayHelper.toList` 包裹仅见于实参 coercion 路径 [ArgumentTransformer.Coercion.cs L247-L266](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Coercion.cs#L247-L266)，初始化器 set 路径是否经过未证实；④ 决策 8/IN-7 补 params Add、扩展 Add、IEnumerable 资格的官方语义要点；⑤ 新增开放问题 Q6（缺失的 Java 侧护栏）/Q7（适配器前向引用）。
 
@@ -331,24 +331,24 @@ M0–M4 全程族 pass `DefaultEnabled=false`；每里程碑自身 Release build
 | **C08 java-keywords（链尾）** | `__ed_*` 临时名非 Java 保留字 | 撞名由 C08 改名链统一覆盖，C24 不内联逃逸 |
 | 公共热文件 | `ExpressionDesugarRuleSet.cs`（一行）、Options（一个属性）、catalogItems（一个字符串）、族统计聚合 | 合并门禁 = rebase 最新主干 + 注册表校验/链序断言全绿；C24 不改任何既有规则行；本设计阶段不触碰其中任何文件 |
 
-## 12. Worktree 分配（只写不执行）
+## 12. Worktree 分配（2026-10-02 更新 base 并进入实施）
 
 - 分支：`feature/preproc-c24-initializer-desugar`
 - 目录：`.worktrees/preproc-c24-initializer-desugar`
-- base：`953293b9`（`docs: update doc base commit`）；**实现前先合入 C23 锚点分支**，实际开工 base = C23 合入后含 `ExpressionDesugar/` 共享骨架的 rebase 点
-- 创建命令（在仓库根、PowerShell 下执行；本设计任务只产出本文档，**不执行**）：
+- base：`10aae03f`（`Update c32 capture lift spec and add implementation plan`，dev-3.x HEAD @ 2026-10-02，完整 SHA `10aae03f11c2dd579acbc4d8d7e331b14cfddae8`，已校验存在）；~~原 base `953293b9`~~。**基线事实（2026-10-02 磁盘核实）**：C23 锚点未合入，但 C36 已按独立落地先例翻转 `expression-desugar` stub（Implemented、默认关、catalogItems `"C36"`）并在 dev-3.x 落地最小族基建（`ExpressionDesugar/Shared/` + `CollectionExpr/`）。C24 沿同一先例只增落地：`ExpressionDesugarRuleSet` 加 Initializers 一行（第二位，锚点已预留）、族 Options 加 `Initializers` 子节、族 Statistics 加 `Initializers` 段与 `MergeFrom` 一行、族 Preprocessor/CLI 适配器按语法种类追加（不改既有 C36 行为）、catalogItems 加宽为 `"C36, C24"`（合入登记）；**不翻转 stub、不新增 pass id/适配器/verb/中间目录、不改 RunAfterIds**（沿用 `null-coalesce`）
+- 创建命令（在仓库根、PowerShell 下执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c24-initializer-desugar -b feature/preproc-c24-initializer-desugar 953293b9
+git worktree add .worktrees/preproc-c24-initializer-desugar -b feature/preproc-c24-initializer-desugar 10aae03f
 ```
 
-实施约束（交实施 worktree）：仅在上述 worktree 内改码；等 C23 合入后 rebase 到含族基建的基线再开工；按 §9 里程碑逐提交；不注册/翻转任何 stub、不动 RunAfterIds、不新增 pass/适配器/中间目录/verb；转换器代码改动（§8-3）留后续 PR；交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md L108-L117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `ExpressionDesugar/Initializers/`、Core 单测 + 族共享 fixture + Release build/test + residual 零初始化器闸门 + CLI 测试、本设计与 plan 文档（`docs/superpowers/plans/2026-09-29-c24-initializer-desugar.md`）；不新建支撑工程。
+实施约束（交实施 worktree）：仅在该 worktree 内改码；按 §9 里程碑逐提交（M0→M3，实现一部分提交一部分；M4 为 sdk 画像/评审里程碑，需只读训练集，不在本次 worktree 交付面，登记为后续证据 PR）；M0 探针结论以仓内实际 Roslyn 5.0.0 为准（设计正文按 4.12 写的 API 外形一律以探针实物收口）；不改任何 C#→Java 转换器代码、不改 C11/C12/C36 已落地规则行为；交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md L108-L117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `ExpressionDesugar/Initializers/`、Core 单测 + 族共享 fixture（`tests/SampleExpressionDesugarSolution/`，`Initializers*` 前缀夹具）+ Release build/test + residual 零初始化器闸门 + CLI 测试、本设计与 plan 文档（`docs/superpowers/plans/2026-09-29-c24-initializer-desugar.md`）；不新建支撑工程。
 
 ---
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。【2026-10-02 实施更新：base 直接前移至 dev-3.x HEAD `10aae03f`，命令见 §12；C23 锚点未合入，C36 已独立落地族基建并翻转 stub（Implemented、默认关），C24 沿同一先例只增落地，`catalogItems` 按真值加宽为 `"C36, C24"`】
 
 **裁决（按原题号）：**
 
