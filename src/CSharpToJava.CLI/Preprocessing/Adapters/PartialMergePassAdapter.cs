@@ -55,6 +55,42 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
     public override CSharpParseOptions CreateParseOptions(PassTreeContext tree)
         => new(LanguageVersion.Latest, preprocessorSymbols: new[] { "NETCOREAPP" });
 
+    /// <summary>
+    /// ImplicitUsings=enable projects rely on SDK-generated global usings;
+    /// synthesize them so semantic analysis and the candidate recompile resolve
+    /// names identically to the real build (mirrors TuplePassAdapter).
+    /// </summary>
+    public override IReadOnlyList<SyntaxTree> CreateAdditionalSyntaxTrees(PassTreeContext tree)
+    {
+        var globalUsings = new StringBuilder();
+        foreach (var projectFile in tree.Layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            var intermediateProjectFile = Path.Combine(
+                tree.IntermediateRoot, Path.GetRelativePath(tree.Layout.SourceRoot, projectFile));
+            var projectUsings = ImplicitGlobalUsings.BuildForProject(
+                intermediateProjectFile, tree.IntermediateRoot);
+            if (projectUsings != null)
+            {
+                globalUsings.AppendLine(projectUsings);
+            }
+        }
+
+        if (globalUsings.Length == 0)
+        {
+            return Array.Empty<SyntaxTree>();
+        }
+
+        const string syntheticPath = "__cs2j_global_usings.g.cs";
+        return new[]
+        {
+            CSharpSyntaxTree.ParseText(
+                globalUsings.ToString(),
+                new CSharpParseOptions(LanguageVersion.Latest),
+                path: syntheticPath),
+        };
+    }
+
     public override async Task ExecuteAsync(PassExecutionContext context)
     {
         var tree = context.Tree;
