@@ -44,7 +44,8 @@ internal static class ProjectDiscovery
         {
             var extension = Path.GetExtension(source);
             if (extension.Equals(".csproj", StringComparison.OrdinalIgnoreCase)
-                || extension.Equals(".sln", StringComparison.OrdinalIgnoreCase))
+                || extension.Equals(".sln", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".slnx", StringComparison.OrdinalIgnoreCase))
             {
                 projectFilePath = Path.GetFullPath(source);
                 return true;
@@ -56,7 +57,9 @@ internal static class ProjectDiscovery
             return false;
         }
 
-        var topLevelSolutions = Directory.GetFiles(source, "*.sln", SearchOption.TopDirectoryOnly);
+        var topLevelSolutions = Directory.GetFiles(source, "*.sln", SearchOption.TopDirectoryOnly)
+            .Concat(Directory.GetFiles(source, "*.slnx", SearchOption.TopDirectoryOnly))
+            .ToArray();
         if (topLevelSolutions.Length == 1)
         {
             projectFilePath = Path.GetFullPath(topLevelSolutions[0]);
@@ -106,7 +109,9 @@ internal static class ProjectDiscovery
         var resolvedRootPath = Path.GetFullPath(rootProjectPath);
         var projectMap = new Dictionary<string, DiscoveredProject>(StringComparer.OrdinalIgnoreCase);
 
-        if (Path.GetExtension(resolvedRootPath).Equals(".sln", StringComparison.OrdinalIgnoreCase))
+        var extension = Path.GetExtension(resolvedRootPath);
+        if (extension.Equals(".sln", StringComparison.OrdinalIgnoreCase)
+            || extension.Equals(".slnx", StringComparison.OrdinalIgnoreCase))
         {
             foreach (var projectPath in GetSolutionProjectPaths(resolvedRootPath))
             {
@@ -137,6 +142,31 @@ internal static class ProjectDiscovery
         var solutionDir = Path.GetDirectoryName(solutionPath) ?? string.Empty;
         var projectPaths = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (Path.GetExtension(solutionPath).Equals(".slnx", StringComparison.OrdinalIgnoreCase))
+        {
+            // slnx is XML; <Project> entries may be nested inside <Folder> nodes.
+            var document = XDocument.Load(solutionPath);
+            foreach (var projectElement in document.Descendants("Project"))
+            {
+                var pathAttribute = projectElement.Attribute("Path")?.Value;
+                if (string.IsNullOrWhiteSpace(pathAttribute))
+                {
+                    continue;
+                }
+
+                var relativeProjectPath = pathAttribute
+                    .Replace('\\', Path.DirectorySeparatorChar)
+                    .Replace('/', Path.DirectorySeparatorChar);
+                var fullProjectPath = Path.GetFullPath(Path.Combine(solutionDir, relativeProjectPath));
+                if (File.Exists(fullProjectPath) && seen.Add(fullProjectPath))
+                {
+                    projectPaths.Add(fullProjectPath);
+                }
+            }
+
+            return projectPaths;
+        }
 
         foreach (var line in File.ReadLines(solutionPath))
         {

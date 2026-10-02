@@ -27,7 +27,9 @@ internal static class ProjectPreprocessSource
     {
         var fullSourcePath = Path.GetFullPath(sourcePath);
 
-        if (File.Exists(fullSourcePath) && Path.GetExtension(fullSourcePath).Equals(".sln", StringComparison.OrdinalIgnoreCase))
+        if (File.Exists(fullSourcePath)
+            && (Path.GetExtension(fullSourcePath).Equals(".sln", StringComparison.OrdinalIgnoreCase)
+                || Path.GetExtension(fullSourcePath).Equals(".slnx", StringComparison.OrdinalIgnoreCase)))
         {
             var graph = ProjectDiscovery.LoadProjectGraph(fullSourcePath);
             var sourceRoot = GetCommonRoot(
@@ -67,7 +69,9 @@ internal static class ProjectPreprocessSource
                     .Select(p => p.ProjectFilePath)
                     .ToList();
 
-                if (Path.GetExtension(entryProjectPath).Equals(".sln", StringComparison.OrdinalIgnoreCase))
+                var entryExtension = Path.GetExtension(entryProjectPath);
+                if (entryExtension.Equals(".sln", StringComparison.OrdinalIgnoreCase)
+                    || entryExtension.Equals(".slnx", StringComparison.OrdinalIgnoreCase))
                 {
                     projectFiles.Add(entryProjectPath);
                 }
@@ -77,7 +81,9 @@ internal static class ProjectPreprocessSource
                     foreach (var searchDir in slnDirs)
                     {
                         if (!Directory.Exists(searchDir)) continue;
-                        var slnInDir = Directory.GetFiles(searchDir, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                        var slnInDir = Directory.GetFiles(searchDir, "*.sln", SearchOption.TopDirectoryOnly)
+                            .Concat(Directory.GetFiles(searchDir, "*.slnx", SearchOption.TopDirectoryOnly))
+                            .FirstOrDefault();
                         if (slnInDir != null)
                         {
                             projectFiles.Add(slnInDir);
@@ -335,6 +341,7 @@ internal static class ProjectPreprocessSource
         var preprocessedPath = MapToIntermediate(layout, intermediateRoot);
         if (File.Exists(preprocessedPath) &&
             (preprocessedPath.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) ||
+             preprocessedPath.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase) ||
              preprocessedPath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
         {
             return preprocessedPath;
@@ -342,7 +349,9 @@ internal static class ProjectPreprocessSource
 
         if (Directory.Exists(preprocessedPath))
         {
-            var sln = Directory.GetFiles(preprocessedPath, "*.sln", SearchOption.TopDirectoryOnly).FirstOrDefault();
+            var sln = Directory.GetFiles(preprocessedPath, "*.sln", SearchOption.TopDirectoryOnly)
+                .Concat(Directory.GetFiles(preprocessedPath, "*.slnx", SearchOption.TopDirectoryOnly))
+                .FirstOrDefault();
             if (sln != null) return sln;
 
             var csproj = Directory.GetFiles(preprocessedPath, "*.csproj", SearchOption.TopDirectoryOnly).FirstOrDefault();

@@ -53,6 +53,17 @@ internal sealed record RemoveTypeEdit : FileEdit
     public required string Comment { get; init; }
 }
 
+/// <summary>
+/// Primary file: zero-length insertion of usings gathered from all part files so
+/// merged attributes/member bodies resolve. Span owns the primary declaration
+/// (adapter edit filter); the actual insertion point is InsertionPosition.
+/// </summary>
+internal sealed record InsertUsingsEdit : FileEdit
+{
+    public required int InsertionPosition { get; init; }
+    public required string UsingsText { get; init; }
+}
+
 /// <summary>Whole-tree analysis result handed to the rewriter/adapter.</summary>
 internal sealed record PartialMergePlan
 {

@@ -358,7 +358,8 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         foreach (var asset in tree.SourceFiles)
         {
             if (asset.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
-                || asset.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+                || asset.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
+                || asset.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

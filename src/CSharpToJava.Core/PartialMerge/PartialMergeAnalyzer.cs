@@ -141,6 +141,73 @@ internal sealed class PartialMergeAnalyzer
             }
         }
 
+        // Usings must follow the merged declaration: part-file attributes and
+        // member bodies resolve through directives the primary file may lack.
+        // Accumulate every built group's parts per primary file (nested groups
+        // included — their parts may contribute directives) and emit one
+        // zero-length insertion. Explicit global/static/alias forms are
+        // preserved verbatim.
+        foreach (var primaryFile in groups
+                     .Where(g => g.MergedDeclaration is not null)
+                     .GroupBy(g => g.Primary.SourceFilePath, StringComparer.OrdinalIgnoreCase))
+        {
+            var filePath = primaryFile.Key;
+            var primaryUnit = primaryFile.First().Primary.Declaration
+                .FirstAncestorOrSelf<CompilationUnitSyntax>()!;
+
+            var existing = new HashSet<string>(
+                primaryUnit.Usings.Select(UsingKey), StringComparer.Ordinal);
+            var missing = new List<UsingDirectiveSyntax>();
+
+            foreach (var group in primaryFile)
+            {
+                foreach (var part in group.Parts)
+                {
+                    var unit = part.Declaration.FirstAncestorOrSelf<CompilationUnitSyntax>()!;
+                    foreach (var directive in unit.Usings)
+                    {
+                        if (existing.Add(UsingKey(directive)))
+                        {
+                            missing.Add(directive);
+                        }
+                    }
+                }
+            }
+
+            if (missing.Count == 0)
+            {
+                continue;
+            }
+
+            var lines = string.Concat(missing.Select(directive =>
+                directive.WithoutTrivia().ToFullString().TrimEnd() + "\r\n"));
+
+            SyntaxNode? anchor = (SyntaxNode?)primaryUnit.Usings.LastOrDefault()
+                ?? primaryUnit.Externs.LastOrDefault();
+            int insertionPosition;
+            string prefix;
+            if (anchor is not null)
+            {
+                // Immediately after the last existing directive, start a new line.
+                insertionPosition = anchor.Span.End;
+                prefix = "\r\n";
+            }
+            else
+            {
+                // No directives at all: insert before the first member (namespace).
+                insertionPosition = primaryUnit.Members.First().FullSpan.Start;
+                prefix = string.Empty;
+            }
+
+            edits.Add(new InsertUsingsEdit
+            {
+                FilePath = filePath,
+                Span = primaryFile.First().Primary.Declaration.FullSpan,
+                InsertionPosition = insertionPosition,
+                UsingsText = prefix + lines,
+            });
+        }
+
         // CS2J2017: heuristic analyzer/source-generator reference detection
         // (Info; only surfaced in verbose output).
         foreach (var projectFile in EnumerateProjectFiles(sourceRoot))
@@ -165,6 +232,16 @@ internal sealed class PartialMergeAnalyzer
             EditsByFile = edits.ToLookup(edit => edit.FilePath, StringComparer.OrdinalIgnoreCase),
             Diagnostics = diagnostics,
         };
+    }
+
+    private static string UsingKey(UsingDirectiveSyntax directive)
+    {
+        var kind = (directive.GlobalKeyword != default ? "g" : string.Empty)
+            + (directive.StaticKeyword != default ? "s" : string.Empty);
+        var alias = directive.Alias is null
+            ? string.Empty
+            : directive.Alias.Name.Identifier.Text + "=";
+        return kind + alias + directive.Name.ToFullString().Trim();
     }
 
     private static IEnumerable<string> EnumerateProjectFiles(string sourceRoot)

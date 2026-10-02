@@ -19,15 +19,17 @@ internal sealed class PartialMergeRewriter
 
         var changes = edits
             .OrderByDescending(edit => edit.Span.Start)
-            .Select(edit => new TextChange(
-                new TextSpan(edit.Span.Start, edit.Span.Length),
-                edit switch
-                {
-                    ReplaceTypeEdit replace => replace.Replacement,
-                    RemoveTypeEdit remove => remove.Comment + "\n",
-                    _ => throw new InvalidOperationException(
-                        $"Unknown edit kind: {edit.GetType().Name}"),
-                }))
+            .Select(edit => edit switch
+            {
+                ReplaceTypeEdit replace => new TextChange(
+                    new TextSpan(replace.Span.Start, replace.Span.Length), replace.Replacement),
+                RemoveTypeEdit remove => new TextChange(
+                    new TextSpan(remove.Span.Start, remove.Span.Length), remove.Comment + "\n"),
+                InsertUsingsEdit insert => new TextChange(
+                    new TextSpan(insert.InsertionPosition, 0), insert.UsingsText),
+                _ => throw new InvalidOperationException(
+                    $"Unknown edit kind: {edit.GetType().Name}"),
+            })
             .ToList();
 
         return syntaxTree.GetText().WithChanges(changes).ToString();
