@@ -10,9 +10,10 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// <summary>
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
-/// the topological sort must keep producing this exact order. As of 2026-09-30
-/// every implemented pass is default-on ("default enablement 收口"); the legacy
-/// flags survive as --no-xxx negations.
+/// the topological sort must keep producing this exact order. Every
+/// implemented pass is default-on except the gated lexical-normalize,
+/// partial-merge and the M2 closure-lift (default-off pending M3 review);
+/// the legacy flags survive as --no-xxx negations.
 /// </summary>
 public sealed class PassChainOrderTests
 {
@@ -43,18 +44,24 @@ public sealed class PassChainOrderTests
         PassIds.MakeReadonly,
         PassIds.StructValueSemantics,
         PassStubCatalog.Ids.UnsafeFfm,
+        PassStubCatalog.Ids.ClosureLift,
         PassStubCatalog.Ids.IteratorLowering,
         PassIds.EliminateGoto,
-        PassStubCatalog.Ids.EqualityConcat,
+        // C32 翻转的拓扑副作用：member-desugar 的 RunAfter closure-lift 进入
+        // implemented 区后，它与只依赖 tuple 的 equality-concat 在 Kahn
+        // 声明序破平中先后对调（两者无相互依赖；三工程回归全绿即行为无外溢）。
         PassIds.MemberDesugar,
+        PassStubCatalog.Ids.EqualityConcat,
         PassIds.JavaKeywords,
     ];
 
-    // lexical-normalize and partial-merge land Implemented/default-off (gated).
+    // lexical-normalize / partial-merge land Implemented/default-off (gated);
+    // closure-lift ships M2 default-off pending the M3 enable-by-default review.
     private static readonly string[] EnabledByDefault =
         LockedChain.Where(id =>
             id != PassStubCatalog.Ids.LexicalNormalize
-            && id != PassStubCatalog.Ids.PartialMerge).ToArray();
+            && id != PassStubCatalog.Ids.PartialMerge
+            && id != PassStubCatalog.Ids.ClosureLift).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -169,6 +176,37 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
+    public void ClosureLift_when_enabled_runs_in_its_locked_slot_after_ref_out_in_before_iterator()
+    {
+        var registry = PassCatalog.BuildRegistry();
+        var allOff = LockedChain.ToDictionary(id => id, _ => false);
+
+        // Default-off: absent from the default plan even with every legacy
+        // toggle at its baseline.
+        var baseline = PassPlanResolver.Resolve(registry);
+        Assert.DoesNotContain(baseline.Enabled, p => p.Id == PassStubCatalog.Ids.ClosureLift);
+
+        // Isolated slot: ref-out-in → closure-lift → iterator-lowering.
+        var isolatedToggles = new Dictionary<string, bool>(allOff)
+        {
+            [PassIds.RefOutIn] = true,
+            [PassStubCatalog.Ids.IteratorLowering] = true,
+        };
+        var plan = PassPlanResolver.Resolve(
+            registry,
+            isolatedToggles,
+            enablePassIds: new[] { PassStubCatalog.Ids.ClosureLift });
+
+        Assert.True(plan.IsValid);
+        Assert.Equal(new[]
+        {
+            PassIds.RefOutIn,
+            PassStubCatalog.Ids.ClosureLift,
+            PassStubCatalog.Ids.IteratorLowering,
+        }, plan.Enabled.Select(p => p.Id).ToArray());
+    }
+
+    [Fact]
     public void Resolver_legacy_toggles_can_disable_and_enable_any_pass()
     {
         var toggles = LockedChain.ToDictionary(id => id, _ => false);
@@ -243,6 +281,8 @@ public sealed class PassChainOrderTests
         Assert.Equal("C36", byId[PassStubCatalog.Ids.ExpressionDesugar].CatalogItems);
         Assert.Equal("C20", byId[PassStubCatalog.Ids.PartialMerge].CatalogItems);
         Assert.False(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
+        Assert.Equal("C32", byId[PassStubCatalog.Ids.ClosureLift].CatalogItems);
+        Assert.False(byId[PassStubCatalog.Ids.ClosureLift].DefaultEnabled);
     }
 
     [Fact]
@@ -366,7 +406,8 @@ public sealed class PassChainOrderTests
                 && id != PassStubCatalog.Ids.UnsafeFfm
                 && id != PassStubCatalog.Ids.ExpressionDesugar
                 && id != PassStubCatalog.Ids.LexicalNormalize
-                && id != PassStubCatalog.Ids.PartialMerge)
+                && id != PassStubCatalog.Ids.PartialMerge
+                && id != PassStubCatalog.Ids.ClosureLift)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

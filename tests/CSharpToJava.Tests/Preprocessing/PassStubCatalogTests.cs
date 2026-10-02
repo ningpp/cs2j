@@ -60,11 +60,11 @@ public sealed class PassStubCatalogTests
         var plan = PassPlanResolver.Resolve(
             PassCatalog.BuildRegistry(),
             legacyToggles: PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
-            enablePassIds: new[] { PassStubCatalog.Ids.ClosureLift });
+            enablePassIds: new[] { PassStubCatalog.Ids.AsyncNormalize });
 
         Assert.True(plan.IsValid);
         var enabled = Assert.Single(plan.Enabled);
-        Assert.Equal(PassStubCatalog.Ids.ClosureLift, enabled.Id);
+        Assert.Equal(PassStubCatalog.Ids.AsyncNormalize, enabled.Id);
         Assert.Equal(PassStatus.Stub, enabled.Status);
     }
 
@@ -94,7 +94,7 @@ public sealed class PassStubCatalogTests
                 UnsafeFfmOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 ExpressionDesugarOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 LegacyToggles = PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
-                EnablePassIds = new[] { PassStubCatalog.Ids.ClosureLift },
+                EnablePassIds = new[] { PassStubCatalog.Ids.AsyncNormalize },
             });
 
             captured = errorWriter.ToString();
@@ -106,7 +106,7 @@ public sealed class PassStubCatalogTests
         }
 
         Assert.Contains(PreprocessDiagnosticCodes.StubNotImplemented, captured);
-        Assert.Contains(PassStubCatalog.Ids.ClosureLift, captured);
+        Assert.Contains(PassStubCatalog.Ids.AsyncNormalize, captured);
         Assert.False(Directory.Exists(destinationRoot), "an enabled stub must not create any output directory");
     }
 }
