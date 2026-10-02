@@ -108,9 +108,12 @@ internal static class PassCatalog
             needsSemanticModel: true,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Desugar expression sugar into explicit statements; the C36 " +
-                         "collection-expression rules rewrite collection expressions into explicit allocation/factory calls.",
-            catalogItems: "C36"),
+            description: "Desugar expression sugar into explicit statements; the C23 " +
+                         "interpolation rule rewrites interpolated strings into string.Concat/string.Format " +
+                         "(opt-in via --interpolation-expand) and the C36 collection-expression rules " +
+                         "rewrite collection expressions into explicit allocation/factory calls " +
+                         "(C24/C35 rules pending in this same family).",
+            catalogItems: "C23, C36"),
         new(
             PassIds.Enum,
             "Enum",

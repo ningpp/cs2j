@@ -246,6 +246,20 @@ public class Program
                     {
                         Strict = opts.LocalFunctionStrict,
                     },
+                    // C23 rule-level opt-in: default off keeps pre-C23
+                    // byte-identical behavior; the family pass itself (C36)
+                    // stays default-on. HandlerPolicy=Error (Q1: Error/Keep
+                    // only), FormattableString preserved (0511), expression-
+                    // tree canonical lowering deferred (M4/Q4).
+                    Interpolations = new CSharpToJava.Core.ExpressionDesugar.Interpolations.InterpolationOptions
+                    {
+                        Enabled = opts.InterpolationExpand,
+                        Strict = opts.LocalFunctionStrict,
+                        HandlerPolicy = CSharpToJava.Core.ExpressionDesugar.Interpolations.HandlerUnsupportedPolicy.Error,
+                        KeepFormattableString = true,
+                        RewriteInExpressionTrees = false,
+                        FoldConstants = true,
+                    },
                 },
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
@@ -3722,6 +3736,20 @@ public class Program
                     {
                         Strict = opts.LocalFunctionStrict,
                     },
+                    // C23 rule-level opt-in: default off keeps pre-C23
+                    // byte-identical behavior; the family pass itself (C36)
+                    // stays default-on. HandlerPolicy=Error (Q1: Error/Keep
+                    // only), FormattableString preserved (0511), expression-
+                    // tree canonical lowering deferred (M4/Q4).
+                    Interpolations = new CSharpToJava.Core.ExpressionDesugar.Interpolations.InterpolationOptions
+                    {
+                        Enabled = opts.InterpolationExpand,
+                        Strict = opts.LocalFunctionStrict,
+                        HandlerPolicy = CSharpToJava.Core.ExpressionDesugar.Interpolations.HandlerUnsupportedPolicy.Error,
+                        KeepFormattableString = true,
+                        RewriteInExpressionTrees = false,
+                        FoldConstants = true,
+                    },
                 },
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
@@ -4739,6 +4767,11 @@ class PreprocessVerbOptions
         HelpText = "Report residual local functions as warnings instead of failing the conversion")]
     public bool NoLocalFunctionStrict { get; set; }
 
+    [Option("interpolation-expand", Default = false,
+        HelpText = "Enable C23 interpolation expansion inside expression-desugar " +
+                   "(rewrite interpolated strings to string.Concat/string.Format; default off)")]
+    public bool InterpolationExpand { get; set; }
+
     [Option("no-filter-projects", Default = false,
         HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
     public bool NoFilterProjects { get; set; }
@@ -5101,6 +5134,11 @@ class ConvertProjectOptions
     [Option("no-local-function-strict", Default = false,
         HelpText = "Report residual local functions as warnings instead of failing the conversion")]
     public bool NoLocalFunctionStrict { get; set; }
+
+    [Option("interpolation-expand", Default = false,
+        HelpText = "Enable C23 interpolation expansion inside expression-desugar " +
+                   "(rewrite interpolated strings to string.Concat/string.Format; default off)")]
+    public bool InterpolationExpand { get; set; }
 
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
     public string? ExtraDependencies { get; set; }

@@ -367,7 +367,7 @@ public class CollectionExprProjectTests
     }
 
     [Fact]
-    public async Task ListPasses_IncludesExpressionDesugar_WithC36CatalogItem()
+    public async Task ListPasses_IncludesExpressionDesugar_WithC23AndC36CatalogItems()
     {
         var (exit, stdout) = await RunCliAsync("preprocess", "--list-passes");
 
@@ -375,7 +375,7 @@ public class CollectionExprProjectTests
         var row = Assert.Single(
             stdout.Split('\n', '\r')
                 .Where(line => line.Contains(PassId, StringComparison.OrdinalIgnoreCase)));
-        Assert.Contains("rules=C36", row);
+        Assert.Contains("rules=C23, C36", row);
         Assert.Contains(" on ", row, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(" off ", row, StringComparison.OrdinalIgnoreCase);
     }

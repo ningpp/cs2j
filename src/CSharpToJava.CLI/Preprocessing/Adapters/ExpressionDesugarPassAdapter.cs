@@ -1,7 +1,9 @@
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
@@ -41,6 +43,9 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         new(StringComparer.OrdinalIgnoreCase);
 
     private CollectionExprTreeGateResult? _gateResult;
+
+    /// <summary>C23 whole-tree gate result; null when the C23 rule is disabled.</summary>
+    private InterpolationTreeGateResult? _interpolationGateResult;
 
     public ExpressionDesugarPassAdapter(
         ExpressionDesugarOptions options,
@@ -111,6 +116,15 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
     {
         var residualByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var pairedByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        // C23 (only populated when the interpolation rule is enabled): keeps
+        // Enabled=false byte-for-byte identical — no interpolation nodes are
+        // ever counted when the rule is off (design §7.5 zero-interpolation
+        // 口径 applies to opt-in runs only).
+        var interpolationEnabled = _options.Interpolations.Enabled;
+        var interpResidualByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var interpPairedByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
         var parseOptions = new CSharpParseOptions(LanguageVersion.Preview);
 
         // Strict-Error files were atomically byte-preserved by the family
@@ -140,6 +154,11 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
             {
                 pairedByFile[relativePath] =
                     CollectionExprTreeGate.CountPairedNodes(fileStats.CollectionExpr);
+                if (interpolationEnabled)
+                {
+                    interpPairedByFile[relativePath] =
+                        fileStats.Interpolations.CountPairedNodes();
+                }
             }
             else
             {
@@ -152,9 +171,21 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                 .Count(CollectionExprSyntaxFacts.IsResidualNode);
             if (residual > 0)
                 residualByFile[relativePath] = residual;
+
+            if (interpolationEnabled)
+            {
+                var interpResidual = root.DescendantNodes()
+                    .Count(InterpolationSyntaxFacts.IsResidualNode);
+                if (interpResidual > 0)
+                    interpResidualByFile[relativePath] = interpResidual;
+            }
         }
 
         _gateResult = CollectionExprTreeGate.Reconcile(residualByFile, pairedByFile);
+
+        if (interpolationEnabled)
+            _interpolationGateResult =
+                InterpolationTreeGate.Reconcile(interpResidualByFile, interpPairedByFile);
 
         if (!_gateResult.Balanced)
         {
@@ -187,6 +218,37 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                     c.GuardScopedLocalSites,
                     _gateResult.ResidualNodes,
                     _gateResult.PairedNodes)));
+        }
+
+        // ---- C23 whole-tree gate (opt-in runs only; never runs when off) ----
+        var interpGate = _interpolationGateResult;
+        if (interpGate is { Balanced: false })
+        {
+            // Always Error at tree level (like CS2J0589): an unpaired
+            // interpolation on disk means some site silently escaped both
+            // expansion and the explained-preserve accounting.
+            var unpaired = string.Join(
+                ", ",
+                interpGate.UnpairedFiles.Select(f =>
+                    $"{f.File} ({f.ResidualNodes} residual/{f.PairedNodes} paired)"));
+            _diagnostics.Add(new ExpressionDesugarDiagnostic(
+                ExpressionDesugarSeverity.Error,
+                InterpolationDiagnosticCodes.CS2J0516,
+                string.Format(
+                    InterpolationDiagnostics.TreeResidualMessage,
+                    interpGate.ResidualNodes,
+                    interpGate.PairedNodes,
+                    unpaired.Length == 0 ? "?" : unpaired)));
+        }
+        else if (_verbose && interpGate != null)
+        {
+            _diagnostics.Add(new ExpressionDesugarDiagnostic(
+                ExpressionDesugarSeverity.Info,
+                InterpolationDiagnosticCodes.CS2J0517,
+                string.Format(
+                    InterpolationDiagnostics.TreeInventoryMessage,
+                    interpGate.ResidualNodes,
+                    interpGate.PairedNodes)));
         }
 
         return Task.CompletedTask;
@@ -230,7 +292,7 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
     {
         var c = _statistics.CollectionExpr;
         var skipped = c.SkippedByReason.Values.Sum();
-        return $"expression-desugar: {_statistics.FilesTransformed} transformed, " +
+        var line = $"expression-desugar: {_statistics.FilesTransformed} transformed, " +
                $"{_statistics.FilesSkippedClean} clean, " +
                $"{_statistics.FilesDirtyNoRewrite} dirty-no-rewrite; " +
                $"coll: {c.CollectionSites} sites " +
@@ -248,6 +310,40 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                $"{c.GuardGenericAttributeDeclarations} decl/" +
                $"{c.GuardGenericAttributeApplications} app, scoped " +
                $"{c.GuardScopedParameterSites} param/{c.GuardScopedLocalSites} local";
+
+        // C23 segment is appended ONLY when the rule was enabled: the opt-in
+        // red line is zero observable change (incl. this line's text) while
+        // the rule stays off.
+        if (_options.Interpolations.Enabled)
+            line += "; " + BuildInterpolationSummarySegment();
+
+        return line;
+    }
+
+    /// <summary>
+    /// C23 summary segment (design §5.5): sites/concat/format (with the
+    /// alignment/formatClause/iformattable sub-buckets)/fold/formattable-kept/
+    /// exprtree-skip/handler err|keep/temps (expected 0)/residual.
+    /// </summary>
+    private string BuildInterpolationSummarySegment()
+    {
+        var i = _statistics.Interpolations;
+        var handlerErrors = _diagnostics.Count(
+            d => d.Code == InterpolationDiagnosticCodes.CS2J0510
+                 && d.Severity == ExpressionDesugarSeverity.Error);
+        var handlerKept = _diagnostics.Count(
+            d => d.Code == InterpolationDiagnosticCodes.CS2J0510
+                 && d.Severity != ExpressionDesugarSeverity.Error);
+
+        return $"interp: {i.InterpolationSites} sites, concat {i.ConcatExpansions}, " +
+               $"format {i.FormatExpansions} (align {i.FormatByAlignment}" +
+               $"/fmt {i.FormatByFormatClause}" +
+               $"/iformattable {i.FormatByIFormattableUpgrade}), " +
+               $"fold {i.ConstantsFolded}, " +
+               $"formattable-kept {i.KeptFormattableStringSites}, " +
+               $"exprtree-skip {i.ExpressionTreeSitesSkipped}, " +
+               $"handler err{handlerErrors}|keep{handlerKept}, " +
+               $"temps {i.TempsLifted}, residual {i.ResidualInterpolationCount}";
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)

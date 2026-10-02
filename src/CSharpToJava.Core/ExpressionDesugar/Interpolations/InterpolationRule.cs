@@ -55,9 +55,19 @@ internal sealed class InterpolationRule : IExpressionDesugarRule
                     .OfType<InterpolatedStringExpressionSyntax>()
                     .FirstOrDefault(preservedEnclosures.Contains);
 
-                var plan = enclosing != null
-                    ? BuildEnclosedPlan(node, plans[enclosing])
-                    : AnalyzeSite(context, model, node);
+                InterpolationPlan plan;
+                if (enclosing != null)
+                {
+                    plan = BuildEnclosedPlan(node, plans[enclosing]);
+                    // Each nested node under a preserved outer stays on disk
+                    // inside that subtree; the tree-level gate pairs it via
+                    // this counter (the outer alone pairs via its skip code).
+                    context.Statistics.Interpolations.NestedPreservedSites++;
+                }
+                else
+                {
+                    plan = AnalyzeSite(context, model, node);
+                }
 
                 plans[node] = plan;
 
@@ -107,10 +117,15 @@ internal sealed class InterpolationRule : IExpressionDesugarRule
             Depth = depth,
         };
 
-        // IE-5 expression-tree exemption runs before binding (Q4: keep until
-        // compiler-canonical lowering is proven in a later milestone).
-        if (!options.RewriteInExpressionTrees
-            && ExpressionDesugarSyntaxFacts.IsInExpressionTree(model, node))
+        // IE-5 expression-tree exemption runs before binding.
+        // M4/Q4 DEFERRED: RewriteInExpressionTrees=true is accepted (the
+        // option exists and binds from the CLI) but compiler-canonical
+        // lowering is NOT implemented yet — sites inside Expression<T>
+        // lambdas are preserved with CS2J0515 regardless of the switch, so
+        // the option can never cause semantically wrong code to reach a query
+        // provider. When canonical lowering lands (handler-free Concat/Format
+        // forms only), gate the branch on options.RewriteInExpressionTrees.
+        if (ExpressionDesugarSyntaxFacts.IsInExpressionTree(model, node))
         {
             plan.BindingKind = InterpolationBindingKind.DefaultString;
             plan.Path = InterpolationPath.SkippedExpressionTree;

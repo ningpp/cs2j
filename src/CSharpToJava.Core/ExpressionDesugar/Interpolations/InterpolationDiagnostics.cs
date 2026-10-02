@@ -38,6 +38,9 @@ internal static class InterpolationDiagnosticCodes
 
     /// <summary>Error(strict)/Warning: residual gate — leftover interpolation without a paired explanation.</summary>
     public const string CS2J0516 = "CS2J0516";
+
+    /// <summary>Info: AfterFiles whole-tree interpolation residual gate balanced (verbose inventory).</summary>
+    public const string CS2J0517 = "CS2J0517";
 }
 
 /// <summary>How a code's severity is decided (design §6 level column).</summary>
@@ -67,6 +70,7 @@ internal static class InterpolationDiagnostics
         InterpolationDiagnosticCodes.CS2J0514 => InterpolationSeverityClass.StrictError,
         InterpolationDiagnosticCodes.CS2J0515 => InterpolationSeverityClass.Info,
         InterpolationDiagnosticCodes.CS2J0516 => InterpolationSeverityClass.StrictError,
+        InterpolationDiagnosticCodes.CS2J0517 => InterpolationSeverityClass.Info,
         _ => InterpolationSeverityClass.Info,
     };
 
@@ -148,4 +152,18 @@ internal static class InterpolationDiagnostics
     public const string ResidualMessage =
         "{0} unaccounted interpolated string node(s) remain after expression-desugar " +
         "processing without a paired skip diagnostic.";
+
+    /// <summary>
+    /// CS2J0516 at the AfterFiles whole-tree gate: {0}=residual nodes on
+    /// disk, {1}=paired preserved nodes, {2}=unpaired file list.
+    /// </summary>
+    public const string TreeResidualMessage =
+        "whole-tree interpolation residual gate failed: {0} interpolated string " +
+        "node(s) found in the intermediate tree but {1} are paired with preserve " +
+        "diagnostics (CS2J0510/0511/0512/0513/0514/0515); unpaired files: {2}.";
+
+    /// <summary>CS2J0517 verbose balance line: {0}=residual, {1}=paired.</summary>
+    public const string TreeInventoryMessage =
+        "interpolation whole-tree residual gate balanced ({0} residual node(s) " +
+        "= {1} paired).";
 }

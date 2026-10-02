@@ -50,6 +50,15 @@ public sealed class InterpolationStatistics
     /// <summary>Sites nested inside another interpolation (depth &gt; 0).</summary>
     public int NestedInterpolationSites;
 
+    /// <summary>
+    /// Nested interpolation nodes carried verbatim by a preserved outer site
+    /// (handler/FormattableString/expression-tree/…): the outer's explained
+    /// annotation covers the whole subtree in the in-memory gate, and each
+    /// such node stays on disk as an interpolation node the tree-level gate
+    /// (CS2J0516) must be able to pair.
+    /// </summary>
+    public int NestedPreservedSites;
+
     // ---- Hole wrapping ----
 
     /// <summary>Holes wrapped for unsigned semantics (x.ToString()/((uint)x).ToString()).</summary>
@@ -84,6 +93,44 @@ public sealed class InterpolationStatistics
         SkippedByReason[code] = count + 1;
     }
 
+    /// <summary>
+    /// Skip codes that legitimately leave an interpolation node in the
+    /// output tree (design §7.5 pairing list): handler Keep/non-strict
+    /// (0510), FormattableString (0511), unknown binding (0512), ref
+    /// struct/pointer (0513), non-constant alignment (0514) and
+    /// expression-tree exemption (0515). Strict-Error files never reach the
+    /// tree-level reconciliation (they are atomically byte-preserved and the
+    /// run fails on their Error diagnostic), so summing these per-file
+    /// counts only pairs sites actually present on disk.
+    /// </summary>
+    private static readonly string[] PairedSkipCodes =
+    {
+        InterpolationDiagnosticCodes.CS2J0510,
+        InterpolationDiagnosticCodes.CS2J0511,
+        InterpolationDiagnosticCodes.CS2J0512,
+        InterpolationDiagnosticCodes.CS2J0513,
+        InterpolationDiagnosticCodes.CS2J0514,
+        InterpolationDiagnosticCodes.CS2J0515,
+    };
+
+    /// <summary>
+    /// Sums the paired skip sites of one file (each preserved outer counts
+    /// once) plus the nested interpolation nodes those preserved outers
+    /// carry verbatim. Mirrors <c>CollectionExprTreeGate.CountPairedNodes</c>
+    /// (CE-12) for the C23 AfterFiles whole-tree gate.
+    /// </summary>
+    public int CountPairedNodes()
+    {
+        var sites = 0;
+        foreach (var code in PairedSkipCodes)
+        {
+            SkippedByReason.TryGetValue(code, out var count);
+            sites += count;
+        }
+
+        return sites + NestedPreservedSites;
+    }
+
     public void MergeFrom(InterpolationStatistics other)
     {
         FilesScanned += other.FilesScanned;
@@ -100,6 +147,7 @@ public sealed class InterpolationStatistics
         FormatByFormatClause += other.FormatByFormatClause;
         FormatByIFormattableUpgrade += other.FormatByIFormattableUpgrade;
         NestedInterpolationSites += other.NestedInterpolationSites;
+        NestedPreservedSites += other.NestedPreservedSites;
         UnsignedHoleWraps += other.UnsignedHoleWraps;
         RefStructToStringWraps += other.RefStructToStringWraps;
         CustomHandlerSites += other.CustomHandlerSites;
