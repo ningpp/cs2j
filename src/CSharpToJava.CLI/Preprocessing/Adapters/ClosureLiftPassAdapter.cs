@@ -9,8 +9,9 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// flip is Task 16. The descriptor is file-private so the Stub entry in
 /// PassStubCatalog stays the single registry truth until then; ProjectPassRunner
 /// never consults PassStatus (verified), so the SDK harness / tests can already
-/// drive this adapter directly. M1 processing is audit-only: every file is
-/// copied verbatim and CS2J3207 rows land in Diagnostics.
+/// drive this adapter directly. M2 processing performs the real holder-lift
+/// rewrite (Changed files return PassFileRewrite); AuditOnly keeps every file
+/// verbatim with CS2J3207 rows, and AfterFilesAsync runs the residual gate.
 /// </summary>
 internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
 {
@@ -24,7 +25,7 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         runAfterIds: new[] { PassIds.RefOutIn },
         verifyBuildByDefault: true,
         verifyTestsByDefault: true,
-        description: "M1 audit-only: report mutable lambda captures and prospective holder names; no rewrite yet.",
+        description: "M2 holder-lift: rewrite mutably captured locals/parameters into private holder classes before lambdas (C32).",
         catalogItems: "C32");
 
     private readonly ClosureLiftOptions _options;
@@ -78,18 +79,61 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
 
         if (_verbose)
         {
-            var auditRows = result.Diagnostics.Count(d => d.Code == ClosureLiftCodes.AuditRow);
-            Console.WriteLine(
-                $"[closure-lift] audit: {auditRows} candidate capture(s): {context.RelativePath}");
+            string status;
+            if (_options.AuditOnly)
+                status = "audit";
+            else if (result.Changed)
+                status = "transformed";
+            else if (result.Diagnostics.Any(d => d.Code != ClosureLiftCodes.AuditRow))
+                status = "blocked (copy)";
+            else
+                status = "clean (copy)";
+            Console.WriteLine($"[closure-lift] {status}: {context.RelativePath}");
         }
 
-        // M1: always verbatim. Task 12 returns a PassFileRewrite once rewriting exists.
-        return Task.FromResult<PassFileRewrite?>(null);
+        return Task.FromResult(result.Changed
+            ? new PassFileRewrite { OutputCode = result.OutputCode, Changed = true, PreserveBom = true }
+            : (PassFileRewrite?)null);
     }
 
-    // M1: the tree is a verbatim copy, so there is no residual gate yet.
-    // Task 15 adds re-parse + residual mutable-capture counting here.
-    public override Task AfterFilesAsync(PassTreeContext tree) => Task.CompletedTask;
+    public override Task AfterFilesAsync(PassTreeContext tree)
+    {
+        // Design §7.3 gate: re-parse every .cs under the intermediate tree in
+        // audit terms. Transformed files are 0 by construction; frozen files
+        // (any CS2J3201-3206 row) keep their original captures and are owned
+        // by their per-file rows — M3 gate §8.4 excludes such owned Warning
+        // rows when judging the tree.
+        var residual = 0;
+        foreach (var csFile in Directory.EnumerateFiles(
+                     tree.IntermediateRoot, "*.cs", SearchOption.AllDirectories))
+        {
+            var fileCount = _preprocessor.CountResidualMutableCaptures(File.ReadAllText(csFile));
+            if (fileCount > 0 && _verbose)
+            {
+                Console.WriteLine(
+                    $"[closure-lift] residual gate: {fileCount} capture(s) in {Path.GetRelativePath(tree.IntermediateRoot, csFile)}");
+            }
+            residual += fileCount;
+        }
+
+        // Measured in the intermediate tree (same '=' discipline as E02's
+        // LocalFunctionsResidual), never added on top of per-file statistics.
+        _statistics.ResidualMutableCaptures = residual;
+
+        if (residual > 0)
+        {
+            var severity = _strict
+                ? ClosureLiftSeverity.Error
+                : ClosureLiftSeverity.Warning;
+            _diagnostics.Add(new ClosureLiftDiagnostic(
+                severity,
+                ClosureLiftCodes.UnresolvableSymbol,
+                $"C32 residual gate: {residual} mutable lambda capture(s) remain in the intermediate tree; " +
+                "the complete capture-site set cannot be guaranteed for those file(s)."));
+        }
+
+        return Task.CompletedTask;
+    }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)
         => _diagnostics.Add(new ClosureLiftDiagnostic(
@@ -114,12 +158,13 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
 
     public override string? BuildChainSummaryLine()
     {
-        var candidates = _statistics.CapturesByReason.Values.Sum();
         var blocked = _statistics.SkippedByReason.Values.Sum();
-        // M1 wording; Task 15 switches to the transform/holders/residual line.
-        return $"closure-lift (audit): {_statistics.FilesScanned} scanned, " +
-               $"{candidates} mutable captures reported, {blocked} blocked, " +
-               $"{_statistics.ForeachPerIterationGroups} foreach group(s)";
+        return $"closure-lift: {_statistics.FilesTransformed} transformed, " +
+               $"{_statistics.FilesSkippedClean} clean, " +
+               $"{_statistics.HolderClassesGenerated} holder class(es), " +
+               $"{_statistics.CapturesLifted} capture(s) lifted, " +
+               $"{blocked} blocked, " +
+               $"{_statistics.ResidualMutableCaptures} residual";
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
