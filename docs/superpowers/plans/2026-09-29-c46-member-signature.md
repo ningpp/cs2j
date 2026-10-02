@@ -35,18 +35,18 @@
 - Create: `src/CSharpToJava.Core/MemberDesugar/Signatures/SignatureAuditRule.cs`
 - Create: `tests/CSharpToJava.ProjectTests/MemberDesugarSignatureUnitTests.cs`
 
-- [ ] **Task 1: 共享模型追加**
-  - [ ] 1.1 `MemberDesugarDiagnosticCode` 追加 5190-5199（设计 §6：PlanCreated/DivergentInterfaceBodies/NameReservationConflict/ReflectionContract/ExpressionTreeOrDynamic/ValueTypeCovariant/GenericBridgeInfeasible/SlotAmbiguous/StaticAbstractInfo/Residual）
-  - [ ] 1.2 `MemberDesugarStatistics` 追加 C46 计数器（设计 §5.2 特有计数清单）
-  - [ ] 1.3 `MemberDesugarOptions` 追加 `SignatureOptions Signatures { get; init; } = new()`
-- [ ] **Task 2: CLI 选项透传**：`Program.cs` `MemberDesugarOverrideSets` 增 `Signatures` 子节（`Enabled/Strict/ReportInfo/SkipSignatures/AllowDivergentInterfaceBodies`），`BuildMemberDesugarOptions` 接线（缺失/非法回退默认；Enabled 默认 false）
-- [ ] **Task 3: `SignatureModels.cs`**：`SignatureOptions`（Enabled=false、Strict=true、ReportInfo、SkipSignatures、AllowDivergentInterfaceBodies=false/v1 强制 false）、`SignatureStatistics`、`SignatureKind`、审计载体（按文件分桶，供 RewriteFile 并入族统计）
-- [ ] **Task 4: `SignatureDiagnostics.cs`**：CS2J5190-5199 常量与消息模板；Warning 经 `SignatureOptions.Strict`（默认 true）升 Error
-- [ ] **Task 5: `SignatureSyntaxFacts.cs`**：调用点五分类（决策 4）、nameof/反射/表达式树/dynamic 判定、体等价比较（决策 2）、强转最小化辅助（M2 消费；M1 建能力）
-- [ ] **Task 6: 四索引分析器**：`SignatureExplicitizationAnalyzer`（整树一次，Enabled=false 时完全不执行）+ `InterfaceMappingIndex`（类型→接口→槽→实现符号；重新实现/菱形/泛型构造双轨；候选歧义清单）/`HideGroupResolver`（IsHideByName、`new virtual` 槽链成组、纯 base 委托白名单判定）/`CovariantChainAnalyzer`（override 返回类型链 + Java 映射后子类化/擦除判定；C27 `Cs2jWithClone` 固定 CR-1）
-- [ ] **Task 7: 审计规则与统计并入**：`SignatureAuditRule`（Kind=Signature、Order=30；Enabled 时输出三类计数 + CS2J5190 Info，不产 plan）；预处理器把审计计数按文件并入 `MemberDesugarStatistics`（镜像 `MetadataOperatorSitesByFile`）
-- [ ] **Task 8: 单测**：`MemberDesugarSignatureUnitTests.cs`——默认关零 diff/零诊断/零计数（含显式实现+隐藏+协变样例）；Enabled 审计计数矩阵（显式实现按四成员种类、隐藏按 new/隐式/newslot/静态、协变 Retained/Bridged/ValueType）；二次运行零 diff
-- [ ] **Task 9: 收口**：`PassCatalog.cs` catalogItems `"C11, C12, C13, C14, C39"` → `"C11, C12, C13, C14, C39, C46"`（勿回退 C12–C14/C39）；`dotnet build -c Release CSharpToJavaConverter.slnx`；`dotnet test tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj -c Release --filter "FullyQualifiedName~MemberDesugar"`；提交
+- [x] **Task 1: 共享模型追加**
+  - [x] 1.1 `MemberDesugarDiagnosticCode` 追加 5190-5199（设计 §6：PlanCreated/DivergentInterfaceBodies/NameReservationConflict/ReflectionContract/ExpressionTreeOrDynamic/ValueTypeCovariant/GenericBridgeInfeasible/SlotAmbiguous/StaticAbstractInfo/Residual）
+  - [x] 1.2 `MemberDesugarStatistics` 追加 C46 计数器（设计 §5.2 特有计数清单）
+  - [x] 1.3 `MemberDesugarOptions` 追加 `SignatureOptions Signatures { get; init; } = new()`
+- [x] **Task 2: CLI 选项透传**：`Program.cs` `MemberDesugarOverrideSets` 增 `Signatures` 子节（`Enabled/Strict/ReportInfo/SkipSignatures/AllowDivergentInterfaceBodies`），`BuildMemberDesugarOptions` 接线（缺失/非法回退默认；Enabled 默认 false）
+- [x] **Task 3: `SignatureModels.cs`**：`SignatureOptions`（Enabled=false、Strict=true、ReportInfo、SkipSignatures、AllowDivergentInterfaceBodies=false/v1 强制 false）、`SignatureStatistics`、`SignatureKind`、审计载体（按文件分桶，供 RewriteFile 并入族统计）
+- [x] **Task 4: `SignatureDiagnostics.cs`**：CS2J5190-5199 常量与消息模板；Warning 经 `SignatureOptions.Strict`（默认 true）升 Error
+- [x] **Task 5: `SignatureSyntaxFacts.cs`**：调用点五分类（决策 4）、nameof/反射/表达式树/dynamic 判定、体等价比较（决策 2）、强转最小化辅助（M2 消费；M1 建能力）
+- [x] **Task 6: 四索引分析器**：`SignatureExplicitizationAnalyzer`（整树一次，Enabled=false 时完全不执行）+ `InterfaceMappingIndex`（类型→接口→槽→实现符号；重新实现/菱形/泛型构造双轨；候选歧义清单）/`HideGroupResolver`（IsHideByName、`new virtual` 槽链成组、纯 base 委托白名单判定）/`CovariantChainAnalyzer`（override 返回类型链 + Java 映射后子类化/擦除判定；C27 `Cs2jWithClone` 固定 CR-1）
+- [x] **Task 7: 审计规则与统计并入**：`SignatureAuditRule`（Kind=Signature、Order=30；Enabled 时输出三类计数 + CS2J5190 Info，不产 plan）；预处理器把审计计数按文件并入 `MemberDesugarStatistics`（镜像 `MetadataOperatorSitesByFile`）
+- [x] **Task 8: 单测**：`MemberDesugarSignatureUnitTests.cs`——默认关零 diff/零诊断/零计数（含显式实现+隐藏+协变样例）；Enabled 审计计数矩阵（显式实现按四成员种类、隐藏按 new/隐式/newslot/静态、协变 Retained/Bridged/ValueType）；二次运行零 diff
+- [x] **Task 9: 收口**：`PassCatalog.cs` catalogItems `"C11, C12, C13, C14, C39"` → `"C11, C12, C13, C14, C39, C46"`（勿回退 C12–C14/C39）；`dotnet build -c Release CSharpToJavaConverter.slnx`；`dotnet test tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj -c Release --filter "FullyQualifiedName~MemberDesugar"`；提交
 
 ---
 

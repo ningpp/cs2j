@@ -3350,6 +3350,18 @@ public class Program
         public string[]? Skip { get; set; }
         /// <summary>C39 rules.finalizers 子节（缺省整节 → Reject 默认）。</summary>
         public FinalizerSets? Finalizers { get; set; }
+        /// <summary>C46 rules.signatures 子节（缺省整节 → Enabled=false，零执行）。</summary>
+        public SignatureSets? Signatures { get; set; }
+    }
+
+    /// <summary>rules.signatures 配置形态（C46 设计 §5/§12）。Enabled 默认 false（主闸门）。</summary>
+    private sealed class SignatureSets
+    {
+        public bool? Enabled { get; set; }
+        public bool? Strict { get; set; }
+        public bool? ReportInfo { get; set; }
+        public string[]? SkipSignatures { get; set; }
+        public bool? AllowDivergentInterfaceBodies { get; set; }
     }
 
     /// <summary>rules.finalizers 配置形态（C39 设计 §2 决策 9）。M1 仅 Policy 生效；
@@ -3411,6 +3423,25 @@ public class Program
             SkipQualifiedNames = skip,
             Strict = strict,
             Finalizers = BuildFinalizerOptions(parsed?.Finalizers, path),
+            Signatures = BuildSignatureOptions(parsed?.Signatures),
+        };
+    }
+
+    /// <summary>映射 rules.signatures 子节（C46）：缺失/非法 → 默认（Enabled=false、Strict=true、
+    /// ReportInfo=true、空 SkipSignatures、AllowDivergentInterfaceBodies=false），不致命。</summary>
+    private static CSharpToJava.Core.MemberDesugar.Signatures.SignatureOptions BuildSignatureOptions(
+        SignatureSets? sets)
+    {
+        var skip = new HashSet<string>(StringComparer.Ordinal);
+        if (sets?.SkipSignatures != null) skip.UnionWith(sets.SkipSignatures);
+
+        return new CSharpToJava.Core.MemberDesugar.Signatures.SignatureOptions
+        {
+            Enabled = sets?.Enabled ?? false,
+            Strict = sets?.Strict ?? true,
+            ReportInfo = sets?.ReportInfo ?? true,
+            SkipSignatures = skip,
+            AllowDivergentInterfaceBodies = sets?.AllowDivergentInterfaceBodies ?? false,
         };
     }
 

@@ -15,6 +15,7 @@ public sealed partial class MemberDesugarPreprocessor
     private readonly MemberDesugarOptions _options;
     private IReadOnlyList<MemberDesugarPlan>? _plans;
     private Dictionary<string, int>? _metadataSitesByFile;
+    private Dictionary<string, Signatures.SignatureStatistics>? _signatureAuditByFile;
     private readonly HashSet<string> _excludedPlanIds = new(StringComparer.Ordinal);
 
     /// <summary>C39 FN-8：本 run 的 sidecar（懒创建；适配器每轮迭代新建 preprocessor，
@@ -45,6 +46,20 @@ public sealed partial class MemberDesugarPreprocessor
         if (_metadataSitesByFile != null
             && _metadataSitesByFile.TryGetValue(filePath, out var metadataSites))
             statistics.MetadataOperatorSitesUntouched += metadataSites;
+
+        // C46：签名审计计数并入族统计 + 每文件一条 CS2J5190 Info（仅 ReportInfo）。
+        // 必须早于本方法末尾的 FilesSkippedClean 提前返回——干净文件（M1 无 plan）也要计入。
+        if (_signatureAuditByFile != null
+            && _signatureAuditByFile.TryGetValue(filePath, out var signatureAudit))
+        {
+            signatureAudit.ApplyTo(statistics);
+            if (_options.Signatures.ReportInfo && signatureAudit.HasAny)
+                diagnostics.Add(new MemberDesugarDiagnostic(
+                    MemberDesugarSeverity.Info,
+                    MemberDesugarDiagnosticCode.SignaturePlanCreated,
+                    Signatures.SignatureDiagnostics.AuditSummary(signatureAudit),
+                    filePath, 0, 0, null));
+        }
 
         var active = _plans!
             .Where(p => !_excludedPlanIds.Contains(p.Id) && p.TouchedFiles.Contains(filePath))
@@ -377,6 +392,7 @@ public sealed partial class MemberDesugarPreprocessor
         var (context, plans) = MemberDesugarAnalyzer.Analyze(compilation, _options);
         _plans = plans;
         _metadataSitesByFile = context.MetadataOperatorSitesByFile;
+        _signatureAuditByFile = context.SignatureAuditByFile;
     }
 
     private static bool IsFirstDeclarationFile(MemberDesugarPlan plan, string filePath)

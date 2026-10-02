@@ -62,5 +62,14 @@ internal sealed class MemberDesugarAnalysisContext
     public Dictionary<string, int> MetadataOperatorSitesByFile { get; }
         = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>C46：签名审计计数按文件键（重写期并入族统计并发 CS2J5190 Info，镜像
+    /// <see cref="MetadataOperatorSitesByFile"/>）。<c>Signatures.Enabled=false</c> 时恒空。</summary>
+    public Dictionary<string, Signatures.SignatureStatistics> SignatureAuditByFile { get; }
+        = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>C46：整树签名分析结果（四索引），由 <c>SignatureAuditRule</c> 在启用时建立一次；
+    /// M2+ 的 SI/NH/CR 规则只读复用。</summary>
+    public Signatures.SignatureAnalysisResult? SignatureAnalysis { get; set; }
+
     public SemanticModel ModelFor(SyntaxTree tree) => Compilation.GetSemanticModel(tree);
 }

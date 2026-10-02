@@ -73,7 +73,17 @@ public enum MemberDesugarDiagnosticCode
     IncrementDecrementDeferred = 5181, // Info：移交 C17
     MetadataOnlyOperatorSite = 5182,   // Info：元数据-only 站点不动
     ResidualOperator = 5183,           // Warning（strict Error）：residual 闸门（OC-9）
-    // 5190-5199 预留给 C46，C39 禁止占用。
+    // 5190-5199 signature rules (C46, 设计 §6)。C46 独占，C39 禁占。
+    SignaturePlanCreated = 5190,            // Info，仅 verbose：签名 plan/审计建立
+    SignatureDivergentInterfaceBodies = 5191, // Warning（strict Error）：同名不同接口实现体分歧（SI-3）
+    SignatureNameReservationConflict = 5192,  // Warning（strict Error）：命名预留/让位者不可确定，plan 跳过
+    SignatureReflectionContract = 5193,       // Warning（非阻断）：反射/字符串契约风险站点，站点保留不改
+    SignatureExpressionTreeOrDynamic = 5194,  // Warning（strict Error）：表达式树（force 不解除）/dynamic 站点不可判定
+    SignatureValueTypeCovariant = 5195,       // Warning（strict Error）：值类型/不可证 Java 可表达协变（CR-3）
+    SignatureGenericBridgeInfeasible = 5196,  // Warning（strict Error）：泛型擦除协变桥接 v1 不可行
+    SignatureSlotAmbiguous = 5197,            // Warning（strict Error）：接口槽位映射候选不唯一（SI-4）
+    SignatureStaticAbstractInfo = 5198,       // Info：命中 static abstract/virtual 接口成员，归 C36/CS2J0585
+    SignatureResidual = 5199,                 // Warning（strict Error）：residual 闸门（SI-7/NH-5/CR-4）
     // 5200-5211 finalizer rules (C39, 设计 §6)。M1 仅 A 档显式诊断；
     // 5201/5204/5210 为 M2 删除模式/residual 预留码位（本阶段不发射）。
     FinalizerRejected = 5200,              // Warning（strict Error）：A 档显式拒绝，成员保留
@@ -192,6 +202,25 @@ public sealed class MemberDesugarStatistics
     /// <summary>实际 sidecar 文件绝对路径（无删除/内存模式为 null；摘要行取此值）。</summary>
     public string? FinalizerSidecarPath { get; set; }
 
+    // ---- C46 signatures（M1 审计计数，设计 §5.2/§9）。改写计数由后续里程碑追加。----
+    /// <summary>显式接口实现成员总数（按方法/属性/索引器/事件分桶的合计）。</summary>
+    public int SignatureExplicitMembersDetected { get; set; }
+    public int SignatureExplicitMethods { get; set; }
+    public int SignatureExplicitProperties { get; set; }
+    public int SignatureExplicitIndexers { get; set; }
+    public int SignatureExplicitEvents { get; set; }
+    /// <summary>new 隐藏成员总数（按 new/隐式/newslot/静态分桶的合计）。</summary>
+    public int SignatureHidingDetected { get; set; }
+    public int SignatureHidingNew { get; set; }       // 显式 new 令牌（非 virtual）
+    public int SignatureHidingImplicit { get; set; }  // 无 new 令牌（CS0108 隐式隐藏）
+    public int SignatureHidingNewSlot { get; set; }   // new virtual/abstract（另开虚槽链）
+    public int SignatureHidingStatic { get; set; }    // 静态成员隐藏
+    /// <summary>协变返回 override 链总数（按 retained/bridged/valueTypeSkipped 分桶的合计）。</summary>
+    public int SignatureCovariantChains { get; set; }
+    public int SignatureCovariantRetained { get; set; }        // CR-1 直映保留
+    public int SignatureCovariantBridged { get; set; }         // CR-2 擦除冲突待桥接
+    public int SignatureCovariantValueTypeSkipped { get; set; } // CR-3 值类型/不可判
+
     /// <summary>按诊断码分桶的跳过数（设计 §6：按原因分组）。</summary>
     public Dictionary<MemberDesugarDiagnosticCode, int> SkippedByReason { get; } = new();
 }
@@ -220,6 +249,10 @@ public sealed class MemberDesugarOptions
     /// <summary>C39 终结器规则子节（rules.finalizers，设计 §2 决策 9）。Strict 沿用族级
     /// <see cref="Strict"/>，不在子节内重复。</summary>
     public Finalizers.FinalizerOptions Finalizers { get; init; } = new();
+
+    /// <summary>C46 签名规则子节（rules.signatures，设计 §5/§12）。族 pass 已 defaultEnabled=true，
+    /// 由本子节 <see cref="Signatures.SignatureOptions.Enabled"/>（默认 false）承接「不显式启用即零执行」。</summary>
+    public Signatures.SignatureOptions Signatures { get; init; } = new();
 }
 
 /// <summary>事件生成访问器的订阅线程安全模式（C13 D5）。Simple 与 Roslyn（C# 3.0+）
