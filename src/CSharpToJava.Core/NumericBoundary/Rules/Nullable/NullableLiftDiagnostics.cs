@@ -14,6 +14,7 @@ internal static class NullableLiftDiagnostics
     public const string ReasonUserDefinedOperator = "user-defined-operator";
     public const string ReasonExpressionTree = "expression-tree";
     public const string ReasonComplexTarget = "complex-target";
+    public const string ReasonUnliftableContext = "unliftable-context";
     public const string ReasonSpecialNumeric = "special-numeric";
     public const string ReasonResidual = "residual";
 
@@ -54,6 +55,12 @@ internal static class NullableLiftDiagnostics
         $"[NL-10] lifted increment/compound target '{siteDescription}' is a property/indexer/" +
         "conditional/anchor-free read-modify-write site; single-evaluation expansion waits for the " +
         $"C17 RMW seam (M2) ({PreprocessDiagnosticCodes.NullableLiftComplexTarget})";
+
+    /// <summary>CS2J5355 unstable lifted operand in an un-hoistable context (M1; decision 2).</summary>
+    public static string UnliftableContext(string siteDescription) =>
+        $"[NL-2] lifted Nullable<T> site '{siteDescription}' has an unstable operand but sits in an " +
+        "anchor-free or conditional/short-circuit/initializer context where a single-evaluation " +
+        $"temporary cannot be hoisted ({PreprocessDiagnosticCodes.NullableLiftComplexTarget})";
 
     /// <summary>CS2J5356 C41 special-numeric nullable domain (decision 20).</summary>
     public static string SpecialNumeric(string siteDescription) =>

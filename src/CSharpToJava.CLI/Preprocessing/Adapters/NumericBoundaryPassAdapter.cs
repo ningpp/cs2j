@@ -326,6 +326,21 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
                     $"{tempCount} temp(s), {deferredCount} deferred";
         }
 
+        var nl = _statistics.Nullable;
+        var nullableDeferred = nl.DeferredByReason.Values.Sum();
+        var nullableActive = nl.LiftedBinarySites + nl.LiftedUnarySites
+            + nl.LiftedRelationalSites + nl.LiftedEqualitySites
+            + nl.LiftedBoolLogicSites + nl.TempsLifted + nullableDeferred;
+        if (nullableActive != 0)
+        {
+            line += $"; nullable-lift: {nl.LiftedBinarySites} arith/" +
+                    $"{nl.LiftedUnarySites} unary/" +
+                    $"{nl.LiftedRelationalSites} rel/" +
+                    $"{nl.LiftedEqualitySites} eq/" +
+                    $"{nl.LiftedBoolLogicSites} bool site(s), " +
+                    $"{nl.TempsLifted} temp(s), {nullableDeferred} deferred";
+        }
+
         return line;
     }
 
@@ -405,6 +420,30 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         targetIncrement.EventSites += sourceIncrement.EventSites;
         MergeCounter(sourceIncrement.TempsByRole, targetIncrement.TempsByRole);
         MergeCounter(sourceIncrement.DeferredByReason, targetIncrement.DeferredByReason);
+
+        // ── C22 nullable-lift buckets ──
+        var sourceNullable = source.Nullable;
+        var targetNullable = _statistics.Nullable;
+        targetNullable.LiftedBinarySites += sourceNullable.LiftedBinarySites;
+        targetNullable.LiftedUnarySites += sourceNullable.LiftedUnarySites;
+        targetNullable.LiftedRelationalSites += sourceNullable.LiftedRelationalSites;
+        targetNullable.LiftedEqualityNullLiteralSites += sourceNullable.LiftedEqualityNullLiteralSites;
+        targetNullable.LiftedEqualityOneSidedSites += sourceNullable.LiftedEqualityOneSidedSites;
+        targetNullable.LiftedEqualityBothNullableSites += sourceNullable.LiftedEqualityBothNullableSites;
+        targetNullable.LiftedBoolLogicAndSites += sourceNullable.LiftedBoolLogicAndSites;
+        targetNullable.LiftedBoolLogicOrSites += sourceNullable.LiftedBoolLogicOrSites;
+        targetNullable.LiftedBoolLogicXorSites += sourceNullable.LiftedBoolLogicXorSites;
+        targetNullable.LiftedBoolLogicNotSites += sourceNullable.LiftedBoolLogicNotSites;
+        targetNullable.GetValueOrDefaultSites += sourceNullable.GetValueOrDefaultSites;
+        targetNullable.UnwrapConversions += sourceNullable.UnwrapConversions;
+        targetNullable.LiftedConversions += sourceNullable.LiftedConversions;
+        targetNullable.LiftedIncrementPrefixSites += sourceNullable.LiftedIncrementPrefixSites;
+        targetNullable.LiftedIncrementPostfixSites += sourceNullable.LiftedIncrementPostfixSites;
+        targetNullable.LiftedIncrementCompoundSites += sourceNullable.LiftedIncrementCompoundSites;
+        targetNullable.NullableEnumBackstopSites += sourceNullable.NullableEnumBackstopSites;
+        targetNullable.GuardedCheckedInnerSites += sourceNullable.GuardedCheckedInnerSites;
+        targetNullable.TempsLifted += sourceNullable.TempsLifted;
+        MergeCounter(sourceNullable.DeferredByReason, targetNullable.DeferredByReason);
     }
 
     private static void MergeCounter(IReadOnlyDictionary<string, int> source, Dictionary<string, int> target)

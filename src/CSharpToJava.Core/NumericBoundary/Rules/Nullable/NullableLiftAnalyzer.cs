@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using NBOp = Microsoft.CodeAnalysis.Operations;
 
@@ -128,6 +129,15 @@ internal sealed record LiftedUnaryClassification(
 {
     public bool IsBuiltInLifted => IsLifted && Flavor != LiftedUnaryFlavor.UserDefined;
 }
+
+/// <summary>
+/// The non-lifted raw <c>x == null</c> / <c>x != null</c> shape over a
+/// <c>Nullable&lt;T&gt;</c> value-type receiver (Roslyn binds these WITHOUT
+/// <see cref="NBOp.IBinaryOperation.IsLifted"/>, so <see cref="ClassifyBinary"/>
+/// returns null for them; M1 recognizes the shape with this dedicated
+/// semantic+syntactic predicate). Reference-type null comparisons never match.
+/// </summary>
+internal sealed record NullLiteralEqualityClassification(bool IsNotEquals, ExpressionSyntax NullableSide);
 
 /// <summary>Classification of one nullable conversion site.</summary>
 internal sealed record NullableConversionClassification(
@@ -558,6 +568,23 @@ internal sealed class NullableLiftAnalyzer
     {
         expression = NullableLiftSyntaxFacts.UnwrapParens(expression);
 
+        // During the bottom-up rewrite a visited operand can be a freshly
+        // synthesized node (e.g. an inner site's guard conditional) that is
+        // detached from the original tree this model is bound to; semantic
+        // queries throw on it, and such a node is definitionally unstable and
+        // must be hoisted (decision 14).
+        if (expression.SyntaxTree != _model.SyntaxTree)
+        {
+            return false;
+        }
+
+        // Constants are side-effect-free and need no temp regardless of the
+        // number of times the guard evaluates them.
+        if (expression is LiteralExpressionSyntax or DefaultExpressionSyntax)
+        {
+            return true;
+        }
+
         if (expression is IdentifierNameSyntax)
         {
             return _model.GetSymbolInfo(expression).Symbol is ILocalSymbol
@@ -806,6 +833,66 @@ internal sealed class NullableLiftAnalyzer
     private static bool IsNullLiteralOperation(IOperation? operation) =>
         operation is NBOp.ILiteralOperation { ConstantValue.HasValue: true } literal
         && literal.ConstantValue.Value is null;
+
+    /// <summary>
+    /// True when the operation ultimately evaluates to a null constant,
+    /// looking THROUGH injected conversions — <c>(int?)null</c> binds as a
+    /// conversion wrapping a null literal and behaves like the null operand
+    /// of a lifted site.
+    /// </summary>
+    public static bool IsNullConstant(IOperation? operation)
+    {
+        while (operation is NBOp.IConversionOperation conversion)
+        {
+            operation = conversion.Operand;
+        }
+
+        return IsNullLiteralOperation(operation);
+    }
+
+    /// <summary>
+    /// Classify the dedicated raw null-literal equality shape
+    /// (<c>x == null</c>, <c>null != x</c>): an ==/!= binary that Roslyn
+    /// binds NON-lifted, one syntactic side is a bare <c>null</c> literal and
+    /// the other side's static type is <c>Nullable&lt;T&gt;</c>. Returns null
+    /// for lifted cast-null forms (<c>x == (int?)null</c> — those flow
+    /// through <see cref="ClassifyBinary"/>) and for reference-type null
+    /// comparisons (<c>string? s; s == null</c>).
+    /// </summary>
+    public NullLiteralEqualityClassification? ClassifyNullLiteralEquality(BinaryExpressionSyntax node)
+    {
+        if (node.Kind() is not (SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression))
+        {
+            return null;
+        }
+
+        if (_model.GetOperation(node) is not NBOp.IBinaryOperation operation || operation.IsLifted)
+        {
+            return null;
+        }
+
+        var leftIsNull = IsRawNullLiteralSyntax(node.Left) && IsNullLiteralOperation(operation.LeftOperand);
+        var rightIsNull = IsRawNullLiteralSyntax(node.Right) && IsNullLiteralOperation(operation.RightOperand);
+        if (leftIsNull == rightIsNull)
+        {
+            return null;
+        }
+
+        var nullableSide = leftIsNull ? node.Right : node.Left;
+        var sideType = _model.GetTypeInfo(nullableSide).Type;
+        if (!IsNullableType(sideType))
+        {
+            return null;
+        }
+
+        return new NullLiteralEqualityClassification(
+            node.IsKind(SyntaxKind.NotEqualsExpression), nullableSide);
+    }
+
+    private static bool IsRawNullLiteralSyntax(ExpressionSyntax expression) =>
+        NullableLiftSyntaxFacts.UnwrapParens(expression)
+            is LiteralExpressionSyntax literal
+        && literal.IsKind(SyntaxKind.NullLiteralExpression);
 }
 
 /// <summary>Tree-wide potential-site tally (M0 local-only; never written to stats).</summary>
