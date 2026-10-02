@@ -51,7 +51,7 @@ internal sealed class HideGroupResolver
     public static HideGroupResolver Build(MemberDesugarAnalysisContext context)
     {
         var hidden = new List<HiddenMember>();
-        var allMethods = new List<IMethodSymbol>();
+        var overridable = new List<ISymbol>();
         var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
 
         foreach (var model in context.Models)
@@ -63,9 +63,8 @@ internal sealed class HideGroupResolver
                 {
                     if (symbol is null) continue;
 
-                    if (symbol is IMethodSymbol method
-                        && method.MethodKind == MethodKind.Ordinary && method.IsOverride)
-                        allMethods.Add(method);
+                    // 收集全部 override 成员（方法/属性/索引器/事件），供 newslot 链成组（NH-2）。
+                    if (IsOverrideMember(symbol)) overridable.Add(symbol);
 
                     if (!seen.Add(symbol)) continue;
                     if (symbol.IsOverride) continue; // override 不是隐藏
@@ -73,15 +72,20 @@ internal sealed class HideGroupResolver
 
                     var baseMember = FindHiddenBase(symbol);
                     if (baseMember is null) continue;
+                    // 隐式接口实现（含接口重新实现槽）：改名会破坏接口映射（设计决策 6/风险 7），
+                    // 不认领为隐藏改名目标——否则 SI 提升产物运行第二遍会被 NH 误改名（破坏幂等）。
+                    if (ImplementsInterfaceMember(symbol)) continue;
 
                     var modifiers = GetModifiers(node);
                     var hasNew = modifiers.Any(m => m.IsKind(SyntaxKind.NewKeyword));
                     var isVirtual = modifiers.Any(m =>
                         m.IsKind(SyntaxKind.VirtualKeyword) || m.IsKind(SyntaxKind.AbstractKeyword));
 
+                    // 虚/抽象隐藏成员无论有无 new 令牌均另开虚槽（显式 new virtual/abstract 与
+                    // 隐式隐藏虚成员 CS0114 同语义）→ NewSlot（NH-2）；否则实例→New/Implicit（NH-1）。
                     var flavor = symbol.IsStatic
                         ? HideFlavor.Static
-                        : hasNew && isVirtual ? HideFlavor.NewSlot
+                        : isVirtual ? HideFlavor.NewSlot
                         : hasNew ? HideFlavor.New
                         : HideFlavor.Implicit;
 
@@ -103,14 +107,14 @@ internal sealed class HideGroupResolver
         return new HideGroupResolver
         {
             HiddenMembers = hidden,
-            Groups = BuildNewSlotGroups(hidden, allMethods),
+            Groups = BuildNewSlotGroups(hidden, overridable),
         };
     }
 
     // ---- new virtual/abstract newslot 链成组（NH-2）----
 
     private static IReadOnlyList<HideGroup> BuildNewSlotGroups(
-        IReadOnlyList<HiddenMember> hidden, IReadOnlyList<IMethodSymbol> allMethods)
+        IReadOnlyList<HiddenMember> hidden, IReadOnlyList<ISymbol> overridable)
     {
         var newSlots = hidden.Where(h => h.Flavor == HideFlavor.NewSlot).ToList();
         if (newSlots.Count == 0) return Array.Empty<HideGroup>();
@@ -121,19 +125,20 @@ internal sealed class HideGroupResolver
         foreach (var h in newSlots)
             members[h.GroupId] = new List<ISymbol> { h.Member };
 
-        foreach (var method in allMethods)
+        foreach (var candidate in overridable)
         {
-            for (var ov = method.OverriddenMethod; ov != null; ov = ov.OverriddenMethod)
+            // 沿 override 链（方法 OverriddenMethod / 属性 OverriddenProperty / 事件 OverriddenEvent）
+            // 回溯至 newslot 声明；命中即把该 override 并入同组（链上全部派生 override 一网打尽）。
+            for (var ov = Overridden(candidate); ov != null; ov = Overridden(ov))
             {
                 // newslot 声明的符号与原定义比较（构造/开放定义差异靠 OriginalDefinition 归一）。
                 var key = ov.OriginalDefinition;
                 var match = byMember.Keys.FirstOrDefault(k =>
-                    SymbolEqualityComparer.Default.Equals(
-                        ((ISymbol)k).OriginalDefinition, key));
+                    SymbolEqualityComparer.Default.Equals(k.OriginalDefinition, key));
                 if (match == null) continue;
                 var groupId = byMember[match];
-                if (!members[groupId].Contains(method, SymbolEqualityComparer.Default))
-                    members[groupId].Add(method);
+                if (!members[groupId].Contains(candidate, SymbolEqualityComparer.Default))
+                    members[groupId].Add(candidate);
                 break;
             }
         }
@@ -143,6 +148,40 @@ internal sealed class HideGroupResolver
             GroupId = kv.Key,
             Members = kv.Value,
         }).ToList();
+    }
+
+    /// <summary>成员自身的 override 目标（方法/属性/事件三类链，设计 §4.2-3 NH-2）。</summary>
+    internal static ISymbol? Overridden(ISymbol symbol) => symbol switch
+    {
+        IMethodSymbol m => m.OverriddenMethod,
+        IPropertySymbol p => p.OverriddenProperty,
+        IEventSymbol e => e.OverriddenEvent,
+        _ => null,
+    };
+
+    private static bool IsOverrideMember(ISymbol symbol) => symbol switch
+    {
+        IMethodSymbol m => m.MethodKind == MethodKind.Ordinary && m.IsOverride,
+        IPropertySymbol p => p.IsOverride,
+        IEventSymbol e => e.IsOverride,
+        _ => false,
+    };
+
+    /// <summary>成员是否为其含入类型某接口槽的实现（隐式实现或重新实现槽）。属性/事件按所属符号归一。</summary>
+    private static bool ImplementsInterfaceMember(ISymbol member)
+    {
+        var type = member.ContainingType;
+        if (type == null) return false;
+        var owner = member is IMethodSymbol m ? m.AssociatedSymbol : null;
+        foreach (var iface in type.AllInterfaces)
+            foreach (var ifaceMember in iface.GetMembers())
+            {
+                var impl = type.FindImplementationForInterfaceMember(ifaceMember);
+                if (impl == null) continue;
+                if (SymbolEqualityComparer.Default.Equals(impl, member)) return true;
+                if (owner != null && SymbolEqualityComparer.Default.Equals(impl, owner)) return true;
+            }
+        return false;
     }
 
     // ---- IsHideByName 语义 ----

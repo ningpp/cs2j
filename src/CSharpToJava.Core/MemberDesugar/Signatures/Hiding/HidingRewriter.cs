@@ -5,38 +5,53 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.MemberDesugar.Signatures.Hiding;
 
 /// <summary>
-/// C46 NH 逐文件重写器（设计 §4.4 NH-4）：显式 <c>new</c> 的字段/静态方法改名
-/// <c>{Name}_cs2jNew</c>、移除 <c>new</c> 令牌、全站点按符号绑定（含静态绑定）改名。
-/// 声明与站点绑定一律取本轮 <c>_model</c>，符号匹配走跨 Compilation 稳定键
-/// <see cref="NhPlan.SiteKey"/>。NH-3 桥接（Bridged）不改名，故不会出现在本重写器的改名表中。
+/// C46 NH 逐文件重写器（设计 §4.4 NH-1/NH-2/NH-4）：隐藏成员改名 <c>{Name}_cs2jNew</c>、
+/// 移除 <c>new</c> 令牌、全站点按符号绑定（含静态/虚分派静态绑定）改名。
+/// <list type="bullet">
+/// <item>NH-1：实例化石隐藏；属性/索引器/事件经 C11–C13 方法化后落到访问器方法对，按配对改名。</item>
+/// <item>NH-2：newslot 链整组改名（声明 + 派生 override 一并在 <see cref="NhPlan.RenameByKey"/> 内）。</item>
+/// <item>NH-4：字段/静态方法改名。</item>
+/// <item>nameof：绑定改成员 → 字面量化原名（决策 15）；反射字符串站点命中 → CS2J5193（站点保留）。</item>
+/// </list>
+/// 声明与站点绑定一律取本轮 <c>_model</c>，符号匹配走跨 Compilation 稳定键 <see cref="NhPlan.SiteKey"/>。
+/// NH-3 桥接（Bridged）与 NH-5 residual（Infeasible）不改名，故不会出现在本重写器的改名表中。
 /// </summary>
 internal sealed class HidingRewriter : CSharpSyntaxRewriter
 {
     private readonly SemanticModel _model;
     private readonly Dictionary<string, string> _rename;
+    private readonly Dictionary<string, string> _original;
     private readonly HashSet<string> _primaryKeys;
+    private readonly MemberDesugarOptions _options;
     private readonly MemberDesugarStatistics _stats;
+    private readonly List<MemberDesugarDiagnostic> _diagnostics;
     private readonly string _filePath;
 
     public HidingRewriter(
         SemanticModel model,
         IReadOnlyList<NhPlan> plannedPlans,
+        MemberDesugarOptions options,
         MemberDesugarStatistics stats,
+        List<MemberDesugarDiagnostic> diagnostics,
         string filePath)
     {
         _model = model;
         _rename = new Dictionary<string, string>(StringComparer.Ordinal);
+        _original = new Dictionary<string, string>(StringComparer.Ordinal);
         _primaryKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var plan in plannedPlans)
         {
             foreach (var (key, name) in plan.RenameByKey) _rename[key] = name;
-            if (plan.PrimaryKey != null) _primaryKeys.Add(plan.PrimaryKey);
+            foreach (var (key, name) in plan.OriginalNameByKey) _original[key] = name;
+            foreach (var key in plan.PrimaryKeys) _primaryKeys.Add(key);
         }
+        _options = options;
         _stats = stats;
+        _diagnostics = diagnostics;
         _filePath = filePath;
     }
 
-    // ---- 声明侧（NH-4）----
+    // ---- 声明侧（NH-1/NH-2/NH-4）----
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
@@ -78,7 +93,28 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
             .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
     }
 
-    // ---- 站点侧（NH-4 静态绑定改名）----
+    // ---- 站点侧（NH-1/NH-2/NH-4 静态绑定改名 + 决策 15 闸门）----
+
+    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        // nameof(绑定改成员) → 字面量化原名（决策 15）。
+        if (SignatureSyntaxFacts.IsNameofSite(node) && node.ArgumentList.Arguments.Count == 1
+            && SignatureSyntaxFacts.BoundSymbol(_model, node.ArgumentList.Arguments[0].Expression)
+                is { } named
+            && _rename.ContainsKey(NhPlan.SiteKey(named)))
+        {
+            _stats.SignatureCallSitesRewritten++;
+            return SyntaxFactory.LiteralExpression(
+                    SyntaxKind.StringLiteralExpression,
+                    SyntaxFactory.Literal(_original[NhPlan.SiteKey(named)]))
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+
+        // 反射/字符串契约站点命中被改名成员 → CS2J5193（Warning，非阻断，站点保留）。
+        if (SignatureSyntaxFacts.IsReflectionContractSite(node, _model)) ReportReflection(node);
+
+        return base.VisitInvocationExpression(node);
+    }
 
     public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
@@ -103,6 +139,29 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
     }
 
     // ---- 小工具 ----
+
+    private void ReportReflection(InvocationExpressionSyntax node)
+    {
+        var api = (SignatureSyntaxFacts.BoundSymbol(_model, node) as IMethodSymbol)?.Name ?? "reflection";
+        foreach (var arg in node.ArgumentList.Arguments)
+        {
+            if (arg.Expression is not LiteralExpressionSyntax { Token.Value: string text }) continue;
+            foreach (var original in _original.Values.Distinct(StringComparer.Ordinal))
+            {
+                if (!MatchesReflectionName(text, original)) continue;
+                var span = node.GetLocation().GetLineSpan().StartLinePosition;
+                _diagnostics.Add(SignatureDiagnostics.Create(
+                    MemberDesugarDiagnosticCode.SignatureReflectionContract,
+                    SignatureDiagnostics.ReflectionContract(original, api),
+                    _options.Signatures, original, _filePath, span.Line + 1, span.Character + 1));
+                _stats.SignatureReflectionWarnings++;
+            }
+        }
+    }
+
+    private static bool MatchesReflectionName(string text, string memberName)
+        => string.Equals(text, memberName, StringComparison.Ordinal)
+           || text.EndsWith("." + memberName, StringComparison.Ordinal);
 
     private static SyntaxTokenList RemoveNew(SyntaxTokenList modifiers)
         => SyntaxFactory.TokenList(modifiers.Where(m => !m.IsKind(SyntaxKind.NewKeyword)));

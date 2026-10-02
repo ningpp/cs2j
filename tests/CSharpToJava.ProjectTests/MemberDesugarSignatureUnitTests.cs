@@ -763,7 +763,7 @@ public class GenDerived<T> : GenBase where T : class
     }
 
     [Fact]
-    public void Nh2_NewVirtual_LeftUntouched_ForM4()
+    public void Nh2_NewVirtual_NewSlotChainRenamed_ForM4a()
     {
         const string src = """
             public class Base { public virtual void Ping() { } }
@@ -771,10 +771,264 @@ public class GenDerived<T> : GenBase where T : class
             """;
         var (output, changed, stats, diags) = Rewrite(src, Enabled());
 
-        Assert.Equal(src, output);   // newslot 链整组改名归 M4；M3 不动
-        Assert.False(changed);
-        Assert.Equal(0, stats.SignatureHideRenamed);
+        Assert.True(changed);   // M4a：newslot 链整组改名
+        AssertContains(output, "public virtual void Ping_cs2jNew()");
+        AssertNotContains(output, "new virtual");
+        Assert.Equal(1, stats.SignatureHideRenamed);
         Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    // ---- M4a：NH-1 实例化石隐藏改名（显式 new / 隐式 CS0108）----
+
+    [Fact]
+    public void Nh1_Method_ExplicitNew_BaseSitesUntouched_DerivedRenamed_Idempotent()
+    {
+        const string src = """
+            public class Base { public string Name() => "base"; }
+            public class Derived : Base { public new string Name() => "derived"; }
+            public class Use { public string Call(Base b, Derived d) => b.Name() + d.Name(); }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "public string Name_cs2jNew() => \"derived\"");
+        AssertNotContains(output, "new string Name()");
+        // 静态绑定：基类静态类型站点绑定基槽 → 不动；派生静态类型站点 → 新名。
+        AssertContains(output, "b.Name() + d.Name_cs2jNew()");
+        Assert.Equal(1, stats.SignatureHideRenamed);
+        Assert.Equal(1, stats.SignatureCallSitesRewritten);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);   // 二次运行零 diff
+    }
+
+    [Fact]
+    public void Nh1_Method_ImplicitHiding_NoToken_Renamed()
+    {
+        const string src = """
+            public class Base { public string Name() => "base"; }
+            public class Derived : Base { public string Name() => "derived"; }
+            public class Use { public string Call(Base b, Derived d) => b.Name() + d.Name(); }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "public string Name_cs2jNew() => \"derived\"");
+        AssertContains(output, "d.Name_cs2jNew()");
+        AssertContains(output, "b.Name()");
+        Assert.Equal(1, stats.SignatureHideRenamed);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void Nh1_Property_AccessorPairRenamed_ClassTypedSitesRenamed_BaseUntouched()
+    {
+        const string src = """
+            public class Base { public string Name { get; set; } = ""; }
+            public class Derived : Base { public new string Name { get; set; } = ""; }
+            public class Use { public void U(Base b, Derived d) { b.Name = "x"; var y = d.Name; } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        // C11–C13 方法化后按 get_/set_ 配对改名（保留配对）。
+        AssertContains(output, "public string get_Name_cs2jNew()");
+        AssertContains(output, "public void set_Name_cs2jNew(string value)");
+        AssertContains(output, "public string get_Name()");          // 基类同名槽保留
+        AssertNotContains(output, "new string get_Name");
+        // 基类静态类型站点不动、派生静态类型站点改名。
+        AssertContains(output, "b.set_Name(\"x\")");
+        AssertContains(output, "d.get_Name_cs2jNew()");
+        Assert.Equal(2, stats.SignatureHideRenamed);                 // get_ + set_ 两条声明
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void Nh1_Indexer_AccessorPairRenamed_ClassTypedSiteRenamed()
+    {
+        const string src = """
+            public class IBase { public int this[int i] => i; }
+            public class IDerived : IBase { public new int this[int i] => i * 2; }
+            public class Use { public int U(IBase b, IDerived d) => b[0] + d[0]; }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "get_Item_cs2jNew");
+        AssertNotContains(output, "new int this");
+        AssertContains(output, "b.get_Item(0) + d.get_Item_cs2jNew(0)");
+        Assert.Equal(1, stats.SignatureHideRenamed);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    // ---- M4a：NH-2 newslot 链整组改名 ----
+
+    [Fact]
+    public void Nh2_ThreeLevelChain_NewVirtual_GroupRenamed_BaseChainUntouched()
+    {
+        const string src = """
+            public class A { public virtual void Foo() { } }
+            public class B : A { public new virtual void Foo() { } }
+            public class C : B { public override void Foo() { } }
+            public class Use { public void U(A a, B b, C c) { a.Foo(); b.Foo(); c.Foo(); } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        // B 的 newslot 与 C 的 override 整组改名；A 基槽不动。
+        AssertContains(output, "public virtual void Foo_cs2jNew()");
+        AssertContains(output, "public override void Foo_cs2jNew()");
+        AssertContains(output, "public virtual void Foo()");     // A 保留
+        AssertNotContains(output, "new virtual");
+        // 静态类型 A 绑定基槽不动；B/C 绑定新槽链改名（两条虚链独立）。
+        AssertContains(output, "a.Foo(); b.Foo_cs2jNew(); c.Foo_cs2jNew();");
+        Assert.Equal(2, stats.SignatureHideRenamed);
+        Assert.Equal(2, stats.SignatureCallSitesRewritten);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void Nh2_NewAbstract_GroupRenamed_KeepsAbstractAndOverride()
+    {
+        const string src = """
+            public class A { public virtual void Foo() { } }
+            public abstract class B : A { public new abstract void Foo(); }
+            public class C : B { public override void Foo() { } }
+            public class Use { public void U(A a, C c) { a.Foo(); c.Foo(); } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "public abstract void Foo_cs2jNew();");
+        AssertContains(output, "public override void Foo_cs2jNew()");
+        AssertNotContains(output, "new abstract");
+        AssertContains(output, "a.Foo(); c.Foo_cs2jNew();");
+        Assert.Equal(2, stats.SignatureHideRenamed);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void Nh2_ImplicitVirtualHiding_NoToken_NewSlotRenamed()
+    {
+        const string src = """
+            public class A { public virtual void Foo() { } }
+            public class B : A { public virtual void Foo() { } }
+            public class Use { public void U(A a, B b) { a.Foo(); b.Foo(); } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "public virtual void Foo_cs2jNew()");
+        AssertContains(output, "a.Foo(); b.Foo_cs2jNew();");
+        Assert.Equal(1, stats.SignatureHideRenamed);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    // ---- M4a：NH-5 闸门/对账 ----
+
+    [Fact]
+    public void Nh5_UnclaimedHidingNew_CS2J5199_ReportedAndCounted()
+    {
+        // 静态属性隐藏不在 NH-1/NH-2/NH-4 认领范围（设计裁决 14 只覆盖方法/字段）→ NH-5 residual 对账。
+        const string src = """
+            public class Base { public static string Name { get; set; } = ""; }
+            public class Derived : Base { public static new string Name { get; set; } = ""; }
+            """;
+        var (output, _, stats, diags) = Rewrite(src, Enabled());
+
+        var residual = diags.SingleOrDefault(d =>
+            d.Code == MemberDesugarDiagnosticCode.SignatureResidual);
+        Assert.NotNull(residual);
+        Assert.Equal(MemberDesugarSeverity.Error, residual!.Severity);   // strict 默认 true
+        Assert.Equal(1, stats.SignatureResidual);
+        Assert.Equal(0, stats.SignatureHideRenamed);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+    }
+
+    [Fact]
+    public void Nh5_ExpressionTreeSite_CS2J5194_Atomic_DeclarationUntouched()
+    {
+        const string src = """
+            using System;
+            using System.Linq.Expressions;
+            public class Base { public string Name() => "base"; }
+            public class Derived : Base { public new string Name() => "derived"; }
+            public class Use { public void U(Derived d) { Expression<Func<string>> e = () => d.Name(); } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.Equal(src, output);   // plan 原子不动（含声明）
+        Assert.False(changed);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.SignatureExpressionTreeOrDynamic);
+        Assert.Equal(0, stats.SignatureHideRenamed);
+    }
+
+    [Fact]
+    public void Nh5_DynamicSite_CS2J5194_Atomic_DeclarationUntouched()
+    {
+        const string src = """
+            public class Base { public string Name() => "base"; }
+            public class Derived : Base { public new string Name() => "derived"; }
+            public class Use { public void U(dynamic d) { var x = d.Name(); } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.Equal(src, output);
+        Assert.False(changed);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.SignatureExpressionTreeOrDynamic
+            && d.Message.Contains("dynamic"));
+        Assert.Equal(0, stats.SignatureHideRenamed);
+    }
+
+    [Fact]
+    public void Nh5_ReflectionStringSite_CS2J5193_NonBlocking_SiteUntouched()
+    {
+        const string src = """
+            using System;
+            using System.Reflection;
+            public class Base { public string Name() => "base"; }
+            public class Derived : Base { public new string Name() => "derived"; }
+            public class Use { public MethodInfo? R() => typeof(Derived).GetMethod("Name"); }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "public string Name_cs2jNew() => \"derived\"");
+        AssertContains(output, "GetMethod(\"Name\")");   // 反射站点文本保留
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.SignatureReflectionContract
+            && d.Severity == MemberDesugarSeverity.Warning);   // 非阻断，不升 Error
+        Assert.Equal(1, stats.SignatureReflectionWarnings);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
     }
 
     // ---- 多文件重写（跨文件 plan TouchedFiles 闭合）----

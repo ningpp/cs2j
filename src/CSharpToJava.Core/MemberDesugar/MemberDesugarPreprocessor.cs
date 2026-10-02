@@ -270,7 +270,7 @@ public sealed partial class MemberDesugarPreprocessor
                 var (hideRoot, hideModel) = ResolveSignatureStage(sigRoot);
                 if (hideRoot == null) return RollbackSignatureStage();
                 var hidingRewriter = new Signatures.Hiding.HidingRewriter(
-                    hideModel!, plannedHiding, statistics, filePath);
+                    hideModel!, plannedHiding, _options, statistics, diagnostics, filePath);
                 sigRoot = (CompilationUnitSyntax)hidingRewriter.Visit(hideRoot)!;
             }
             workingRoot = sigRoot;
@@ -533,6 +533,8 @@ public sealed partial class MemberDesugarPreprocessor
 
         if (!IsFirstDeclarationFile(p, filePath)) return;
         var code = p.FailCode ?? MemberDesugarDiagnosticCode.SignatureResidual;
+        // C46 NH-5/SI-7：residual 对账码（输出树残留无归属的隐藏性 new/显式接口）单独计数。
+        if (code == MemberDesugarDiagnosticCode.SignatureResidual) statistics.SignatureResidual++;
         var line = 0;
         var col = 0;
         var loc = p.Symbol.Locations.FirstOrDefault(l => l.IsInSource);

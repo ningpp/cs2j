@@ -83,15 +83,26 @@
 
 ---
 
-## M4 new 隐藏全量与协变桥接（NH-2/4、CR-1/2/3，commit 4）
+## M4a new 隐藏收口（NH-1 + NH-2 + NH-5，commit 4a）
 
-- [ ] T1 NH-2 `new virtual/abstract` newslot 链整组改名（决策 9 矩阵）
-- [ ] T2 CR-1 直映审计（决策 10）+ C27 `Cs2jWithClone` 不重复桥
-- [ ] T3 CR-2 擦除冲突桥接合成（决策 11）：bridge 基槽 + `M_cs2jCovariant` 改名方法；派生静态类型绑定点改写；sealed 形态
-- [ ] T4 CR-3 值类型/不可判 CS2J5195；CS2J5196 保守桥（裁决 4）
-- [ ] T5 residual 闸门三面（SI-7/NH-5/CR-4）与回退演练；幂等/BOM
-- [ ] T6 fixture 双端分派矩阵（.NET 预言机）+ sdk 画像/§8 门槛评审材料（**并入 M3 T5 移交的访问器面/NH fixture**：SampleMemberDesugarSolution 场景文件与项目级 `MemberDesugarSignatureProjectTests`）
-- [ ] T7 收口验证 + 提交
+> **计划勘误（2026-10-02）**：设计 §9 里程碑表 M4 仅列 `NH-2/4、CR-1/2/3`，**遗漏 NH-1**。经 M4a 审视，NH-1（实例化石/隐式隐藏改名）与 NH-2 同属 new 隐藏面，且 M3 的 NH-4 只覆盖字段/静态方法，实例 new 方法在 M2/M3 一直是「不产 plan」的缺口。故把 **M4 拆分为 M4a（NH 隐藏补偿：NH-1 + NH-2 + NH-5）与 M4b（CR 协变 + fixture/项目测试）**；本提交为 M4a。NH 相位序维持 SI → NH → CR（设计 §4.3-1）。
+
+- [x] T1 NH-1 实例化石/隐式（CS0108）隐藏改名 `{Name}_cs2jNew`、去 `new` 令牌、全站点按静态绑定改写；属性/索引器/事件经 C11–C13 方法化后按 `get_/set_`、`add_/remove_` 配对改名（预留表防撞，二撞 `_2`）
+- [x] T2 NH-2 `new virtual/abstract` 及隐式虚隐藏（CS0114）newslot 链**整组**改名：沿 `OverriddenMethod/OverriddenProperty/OverriddenEvent` 收集 newslot 声明 + 全部编译内派生 override；基槽链不动，两链调用点各绑两名
+- [x] T3 NH-5 residual/闸门：无 plan 认领的隐藏 `new` → CS2J5199（strict→Error）并计入 `SignatureResidual`；隐藏 plan 触及文件的表达式树/dynamic 站点 → CS2J5194 原子跳过；反射字符串契约 → CS2J5193 非阻断告警站点保留
+- [x] T4 幂等/不重复认领：`ImplementsInterfaceMember` 排除接口实现槽（SI-4 重新实现产物二次运行不被 NH 误改名）；符号键匹配天然幂等；二次运行零 diff
+- [x] T5 单测（`MemberDesugarSignatureUnitTests.cs`）：NH-1 方法（显式/隐式）+ 属性/索引器访问器配对；NH-2 三层链/`new abstract`/隐式虚隐藏；NH-5 residual 5199 + 表达式树/dynamic 5194 + 反射 5193；翻转 M3 的 `new virtual`「留 M4」测试
+- [x] T6 收口验证：`dotnet build -c Release CSharpToJavaConverter.slnx` + `--filter MemberDesugar` 全绿；提交
+
+---
+
+## M4b 协变返回 + fixture（CR-1/2/3，commit 4b，未完成）
+
+- [ ] T1 CR-1 直映审计（决策 10）+ C27 `Cs2jWithClone` 不重复桥
+- [ ] T2 CR-2 擦除冲突桥接合成（决策 11）：bridge 基槽 + `M_cs2jCovariant` 改名方法；派生静态类型绑定点改写；sealed 形态
+- [ ] T3 CR-3 值类型/不可判 CS2J5195；CS2J5196 保守桥（裁决 4）
+- [ ] T4 CR-4 residual 闸门（协变链归宿）与回退演练；幂等/BOM
+- [ ] T5 fixture 双端分派矩阵（.NET 预言机）+ sdk 画像/§8 门槛评审材料（**并入 M3 T5 移交的访问器面/NH fixture**：SampleMemberDesugarSolution 场景文件与项目级 `MemberDesugarSignatureProjectTests`）
 
 ---
 
