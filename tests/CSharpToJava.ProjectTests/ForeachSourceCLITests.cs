@@ -4,7 +4,7 @@ namespace CSharpToJava.ProjectTests;
 
 /// <summary>
 /// End-to-end CLI coverage for the foreach-source pass (C16): catalog
-/// listing, default-off behavior, --pass/--enable-pass equivalence, FS-1
+/// listing, default-on behavior, --pass/--enable-pass equivalence, FS-1
 /// wrapping through the preprocess verb, and the M2 residual diagnostics /
 /// FS-5 gate (CS2J5420/5421/5440) including strict escalation. These tests
 /// execute the Debug CLI dll.
@@ -72,20 +72,21 @@ public class ForeachSourceCLITests
     }
 
     [Fact]
-    public async Task ListPasses_ShowsForeachSource_Implemented_Off_C16()
+    public async Task ListPasses_ShowsForeachSource_Implemented_On_C16()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
 
         Assert.Equal(0, exit);
         var line = stdout.Split('\n').First(l => l.Contains("foreach-source"));
         Assert.Contains("Implemented", line);
-        Assert.Contains("off", line);
+        Assert.Contains(" on ", line);
+        Assert.DoesNotContain(" off ", line);
         // The list renders runAfter, not catalog item ids; the C16 mapping is
         // asserted at registry level in PassChainOrderTests.
     }
 
     [Fact]
-    public async Task DefaultChain_DoesNotCreate_ForeachSource_IntermediateTree()
+    public async Task DefaultChain_Creates_ForeachSource_IntermediateTree_AndDisablePass_SuppressesIt()
     {
         var sourceDir = CreateTempWorkspace("""
             public static class C {
@@ -100,13 +101,29 @@ public class ForeachSourceCLITests
 
         try
         {
-            var (exit, _, stderr) = await RunCliAsync(
+            var (exit, stdout, stderr) = await RunCliAsync(
                 "preprocess", "-s", sourceDir, "-d", destDir);
 
             Assert.True(exit == 0, stderr);
+            var treeDir = Path.Combine(destDir, IntermediateDir);
+            Assert.True(
+                Directory.Exists(treeDir),
+                "foreach-source is default-on and must run in the default chain");
+
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(treeDir, "Class1.cs"));
+            Assert.Contains("s.ToCharArray()", rewritten);
+            Assert.Contains("foreach-source:", stdout);
+
+            // The universal kill switch suppresses it again.
+            var disabledDest = Path.Combine(sourceDir, "out-off");
+            var (offExit, _, offStderr) = await RunCliAsync(
+                "preprocess", "-s", sourceDir, "-d", disabledDest,
+                "--disable-pass", "foreach-source");
+            Assert.True(offExit == 0, offStderr);
             Assert.False(
-                Directory.Exists(Path.Combine(destDir, IntermediateDir)),
-                "foreach-source is default-off and must not run without an explicit flag");
+                Directory.Exists(Path.Combine(disabledDest, IntermediateDir)),
+                "foreach-source must not run when --disable-pass foreach-source is given");
         }
         finally
         {

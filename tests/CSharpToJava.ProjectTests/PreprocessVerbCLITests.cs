@@ -241,18 +241,19 @@ public static class Lists
     // ───────────────────────── C07 struct-value-semantics（设计 §7.6）─────────────────────────
 
     [Fact]
-    public async Task ListPasses_ShowsStructValueSemantics_ImplementedAndOffByDefault()
+    public async Task ListPasses_ShowsStructValueSemantics_ImplementedAndOnByDefault()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
 
         Assert.Equal(0, exit);
         var line = stdout.Split('\n').First(l => l.Contains("struct-value-semantics"));
         Assert.Contains("Implemented", line);
-        Assert.Contains("off", line); // 默认关（M6 不翻转）
+        Assert.Contains(" on ", line); // 默认开（M6 翻转）
+        Assert.DoesNotContain(" off ", line);
     }
 
     [Fact]
-    public async Task DefaultChain_DoesNotCreate_StructValueSemantics_IntermediateTree()
+    public async Task DefaultChain_Creates_StructValueSemantics_IntermediateTree_AndDisablePass_SuppressesIt()
     {
         var sourceDir = CreateTempWorkspace("Lib.csproj", """
 namespace SvsDefault;
@@ -271,9 +272,18 @@ public static class Calc
 
             Assert.Equal(0, exit);
             Assert.True(Directory.Exists(destDir), stderr);
-            Assert.False(
+            Assert.True(
                 Directory.Exists(Path.Combine(destDir, ".cs2j-struct-value-semantics-src")),
-                "struct-value-semantics is default-off and must not run without an explicit flag");
+                "struct-value-semantics is default-on and must run in the default chain");
+
+            var disabledDest = Path.Combine(sourceDir, "out-off");
+            var (offExit, _, offStderr) = await RunCliAsync(
+                "preprocess", "-s", sourceDir, "-d", disabledDest,
+                "--disable-pass", "struct-value-semantics");
+            Assert.Equal(0, offExit);
+            Assert.False(
+                Directory.Exists(Path.Combine(disabledDest, ".cs2j-struct-value-semantics-src")),
+                "struct-value-semantics must not run when --disable-pass struct-value-semantics is given");
         }
         finally
         {
@@ -336,18 +346,19 @@ public static class Runner
     // ───────────────────────── C06 unsafe-ffm（设计 §7.6/§9 M0）─────────────────────────
 
     [Fact]
-    public async Task ListPasses_ShowsUnsafeFfm_ImplementedAndOffByDefault()
+    public async Task ListPasses_ShowsUnsafeFfm_ImplementedAndOnByDefault()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
 
         Assert.Equal(0, exit);
         var line = stdout.Split('\n').First(l => l.Contains("unsafe-ffm"));
         Assert.Contains("Implemented", line);
-        Assert.Contains("off", line); // M0 默认关
+        Assert.Contains(" on ", line); // M0 默认开
+        Assert.DoesNotContain(" off ", line);
     }
 
     [Fact]
-    public async Task DefaultChain_DoesNotCreate_UnsafeFfm_IntermediateTree()
+    public async Task DefaultChain_Creates_UnsafeFfm_IntermediateTree_AndDisablePass_SuppressesIt()
     {
         var sourceDir = CreateTempWorkspace("Lib.csproj", """
 namespace UffmDefault;
@@ -366,9 +377,18 @@ public static class Calc
 
             Assert.Equal(0, exit);
             Assert.True(Directory.Exists(destDir), stderr);
-            Assert.False(
+            Assert.True(
                 Directory.Exists(Path.Combine(destDir, ".cs2j-unsafe-ffm-src")),
-                "unsafe-ffm is default-off and must not run without an explicit flag");
+                "unsafe-ffm is default-on and must run in the default chain");
+
+            var disabledDest = Path.Combine(sourceDir, "out-off");
+            var (offExit, _, offStderr) = await RunCliAsync(
+                "preprocess", "-s", sourceDir, "-d", disabledDest,
+                "--disable-pass", "unsafe-ffm");
+            Assert.Equal(0, offExit);
+            Assert.False(
+                Directory.Exists(Path.Combine(disabledDest, ".cs2j-unsafe-ffm-src")),
+                "unsafe-ffm must not run when --disable-pass unsafe-ffm is given");
         }
         finally
         {

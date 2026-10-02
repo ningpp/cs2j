@@ -123,8 +123,8 @@ internal static class PassChainFactory
             [PassIds.EliminateGoto] = opts.EliminateGoto,
             [PassIds.MemberDesugar] = opts.MemberDesugar,
             [PassIds.JavaKeywords] = opts.JavaKeywords,
-            // C47 equality-concat is registered but default OFF; enable with
-            // --enable-pass equality-concat, disable explicitly when enabled.
+            // C47 equality-concat defaults ON in the open gate;
+            // disable explicitly with --no-equality-concat / --disable-pass.
             [PassStubCatalog.Ids.EqualityConcat] = opts.EqualityConcatEffective,
         };
 
@@ -358,9 +358,9 @@ internal static class PassChainFactory
                 config.VerifyTests,
                 config.Strict),
 
-            // C36: registered but default OFF; reachable only through its
-            // descriptor default plus --enable-pass expression-desugar (no
-            // convert-project legacy toggle, enum-declaration precedent).
+            // C36 expression-desugar has no convert-project legacy toggle; the
+            // descriptor default (on) drives it and --disable-pass opts out
+            // (enum-declaration precedent).
             PassStubCatalog.Ids.ExpressionDesugar => new ExpressionDesugarPassAdapter(
                 config.ExpressionDesugarOptionsFactory(),
                 config.Verbose,

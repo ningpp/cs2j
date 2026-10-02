@@ -46,6 +46,8 @@ public class ForeachSourceProjectTests
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             UnsafeFfmOptionsFactory = () =>
                 new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
+            ExpressionDesugarOptionsFactory = () =>
+                new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
             LegacyToggles = toggles,
             EnablePassIds = new[] { PassId },
             VerifyBuild = verify,
@@ -160,8 +162,11 @@ public class ForeachSourceProjectTests
     }
 
     [Fact]
-    public async Task Pass_Is_DisabledByDefault_InTheChain()
+    public async Task Pass_Is_Absent_WhenAllLegacyTogglesExplicitlyDisabled()
     {
+        // foreach-source is default-on now; this test pins the universal kill
+        // switch: an all-disabled legacy toggle map with no explicit enablement
+        // must keep the pass (and every other one) out of the plan.
         var outputRoot = Path.Combine(FixtureDir, ".test-output-foreach-source-off");
         try
         {
@@ -181,6 +186,8 @@ public class ForeachSourceProjectTests
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             UnsafeFfmOptionsFactory = () =>
                 new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
+            ExpressionDesugarOptionsFactory = () =>
+                new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
                 LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
                 EnablePassIds = Array.Empty<string>(),
                 VerifyBuild = false,

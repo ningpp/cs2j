@@ -128,11 +128,11 @@ public class ProjectPreprocessorsConsistentTests
                 ProjectEnumPreprocessor.IntermediateDirectoryName);
 
             // enum-declaration (C05)：无门面类（设计决定），目录常量挂在注册表描述符上；
-            // 默认关，经 --enable-pass enum-declaration / --pass enum-declaration 开启。
+            // 默认开，可经 --disable-pass enum-declaration 关闭。
             var enumDeclarationDescriptor = PassCatalog.ImplementedById(PassIds.EnumDeclaration);
             Assert.Equal(".cs2j-enum-declaration-src",
                 enumDeclarationDescriptor.IntermediateDirectoryName);
-            Assert.False(enumDeclarationDescriptor.DefaultEnabled);
+            Assert.True(enumDeclarationDescriptor.DefaultEnabled);
             Assert.Equal("C05", enumDeclarationDescriptor.CatalogItems);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.EnumDeclarationPassAdapter));
 
@@ -148,18 +148,18 @@ public class ProjectPreprocessorsConsistentTests
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.MemberDesugarPassAdapter));
 
             // struct-value-semantics (C07)：无门面类（设计决定），目录常量挂在注册表描述符上；
-            // 默认关，经 --struct-value-semantics / --enable-pass struct-value-semantics / --pass 开启。
+            // 默认开，可经 --disable-pass struct-value-semantics 关闭。
             Assert.Equal(".cs2j-struct-value-semantics-src",
                 PassCatalog.ImplementedById(PassIds.StructValueSemantics).IntermediateDirectoryName);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.StructValueSemanticsPassAdapter));
 
             // unsafe-ffm (C06)：无门面类（设计决定），目录常量挂在注册表描述符上；
-            // 默认关，经 --enable-pass unsafe-ffm / --pass unsafe-ffm 开启；
+            // 默认开，可经 --disable-pass unsafe-ffm 关闭；
             // 无支撑库（PassSupportLibrary.None）。
             var unsafeFfmDescriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.UnsafeFfm);
             Assert.Equal(".cs2j-unsafe-ffm-src",
                 unsafeFfmDescriptor.IntermediateDirectoryName);
-            Assert.False(unsafeFfmDescriptor.DefaultEnabled);
+            Assert.True(unsafeFfmDescriptor.DefaultEnabled);
             Assert.Equal(PassStatus.Implemented, unsafeFfmDescriptor.Status);
             Assert.Equal(PassStage.Abi, unsafeFfmDescriptor.Stage);
             Assert.Equal(PassSupportLibrary.None, unsafeFfmDescriptor.SupportLibrary);
@@ -185,11 +185,11 @@ public class ProjectPreprocessorsConsistentTests
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.NumericBoundaryPassAdapter));
 
             // foreach-source (C16)：无门面类（设计决定），目录常量挂注册表描述符；
-            // 默认关，经 --foreach-source / --enable-pass foreach-source / --pass 开启。
+            // 默认开，可经 --disable-pass foreach-source 关闭。
             var foreachSourceDescriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.ForeachSource);
             Assert.Equal(".cs2j-foreach-source-src",
                 foreachSourceDescriptor.IntermediateDirectoryName);
-            Assert.False(foreachSourceDescriptor.DefaultEnabled);
+            Assert.True(foreachSourceDescriptor.DefaultEnabled);
             // C16 锚点描述符；C40 鸭子枚举器规则在同一 pass 内注册。
             Assert.Equal("C16, C40", foreachSourceDescriptor.CatalogItems);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.ForeachSourcePassAdapter));

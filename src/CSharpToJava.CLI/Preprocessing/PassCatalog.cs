@@ -75,15 +75,15 @@ internal static class PassCatalog
             ".cs2j-expression-desugar-src",
             PassStage.Expression,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             // Physical placement right after null-coalesce plus declaration-order
             // tiebreak keeps this pass immediately after null-coalesce (C36 plan §2).
             runAfterIds: new[] { PassIds.NullCoalesce },
             needsSemanticModel: true,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Desugar expression sugar into explicit statements; M0 registers only the C36 " +
-                         "collection-expression analysis skeleton (site counting, no rewrite).",
+            description: "Desugar expression sugar into explicit statements; the C36 " +
+                         "collection-expression rules rewrite collection expressions into explicit allocation/factory calls.",
             catalogItems: "C36"),
         new(
             PassIds.Enum,
@@ -102,11 +102,11 @@ internal static class PassCatalog
             ".cs2j-enum-declaration-src",
             PassStage.Declarative,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.Enum },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Normalize [Flags]/non-int/explicit-value enums into enum-like sealed classes and rewrite every use site tree-wide; opt-in only.",
+            description: "Normalize [Flags]/non-int/explicit-value enums into enum-like sealed classes and rewrite every use site tree-wide.",
             catalogItems: "C05"),
         new(
             PassIds.Delegate,
@@ -145,7 +145,7 @@ internal static class PassCatalog
             ".cs2j-foreach-source-src",
             PassStage.ControlFlow,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.ForeachDeconstruction },
             needsSemanticModel: true,
             verifyBuildByDefault: true,
@@ -284,7 +284,7 @@ internal static class PassCatalog
             ".cs2j-struct-value-semantics-src",
             PassStage.Declarative,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.MakeReadonly },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
@@ -296,7 +296,7 @@ internal static class PassCatalog
             ".cs2j-unsafe-ffm-src",
             PassStage.Abi,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.StructValueSemantics },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
@@ -343,8 +343,8 @@ internal static class PassCatalog
             ".cs2j-equality-concat-src",
             PassStage.Expression,
             PassStatus.Implemented,
-            defaultEnabled: false,
-            // Design §3.2: anchored right after tuple; opt-in only until J1-J6 land.
+            defaultEnabled: true,
+            // Design §3.2: anchored right after tuple.
             runAfterIds: new[] { PassIds.Tuple },
             supportLibrary: PassSupportLibrary.Cs2jPrelude,
             needsSemanticModel: true,

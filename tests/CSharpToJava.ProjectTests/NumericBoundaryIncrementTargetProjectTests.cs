@@ -42,6 +42,8 @@ public class NumericBoundaryIncrementTargetProjectTests
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             UnsafeFfmOptionsFactory = () =>
                 new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
+            ExpressionDesugarOptionsFactory = () =>
+                new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
             EnablePassIds = new[] { PassId },

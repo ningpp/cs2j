@@ -4996,16 +4996,16 @@ class ConvertProjectOptions
     public string? MemberDesugarOverrides { get; set; }
 
     [Option("no-equality-concat", Default = false,
-        HelpText = "Disable the equality/concat call-site materialization step (C47; opt-in pass, enable with --enable-pass equality-concat)")]
+        HelpText = "Disable the default equality/concat call-site materialization step (C47)")]
     public bool NoEqualityConcat { get; set; }
 
-    [Option("struct-value-semantics", Default = false,
-        HelpText = "Enable the struct-value-semantics pass (defensive Clone insertion for residual mutable structs)")]
-    public bool StructValueSemantics { get; set; }
+    [Option("struct-value-semantics", Default = true,
+        HelpText = "Enable the struct-value-semantics pass (defensive Clone insertion for residual mutable structs); disable with --disable-pass struct-value-semantics")]
+    public bool StructValueSemantics { get; set; } = true;
 
-    [Option("foreach-source", Default = false,
-        HelpText = "Enable the foreach-source pass (wrap foreach over string with ToCharArray() and close residual deconstruction forms)")]
-    public bool ForeachSource { get; set; }
+    [Option("foreach-source", Default = true,
+        HelpText = "Enable the foreach-source pass (wrap foreach over string with ToCharArray() and close residual deconstruction forms); disable with --disable-pass foreach-source")]
+    public bool ForeachSource { get; set; } = true;
 
     [Option("struct-value-semantics-overrides", Required = false,
         HelpText = "Path to StructValueSemanticsOverrides.json (default: config/StructValueSemanticsOverrides.json)")]
@@ -5050,8 +5050,8 @@ class ConvertProjectOptions
     public bool RecordReadOnly => !NoRecordReadOnly;
     public bool JavaKeywords => !NoJavaKeywords;
     public bool MemberDesugar => !NoMemberDesugar;
-    /// <summary>Pass switch, default OFF; enable with --enable-pass equality-concat.</summary>
-    public bool EqualityConcat { get; set; }
+    /// <summary>Pass switch, default ON; disable with --no-equality-concat / --disable-pass equality-concat.</summary>
+    public bool EqualityConcat { get; set; } = true;
 
     /// <summary>Effective legacy toggle: the explicit --no-equality-concat stays authoritative.</summary>
     public bool EqualityConcatEffective => EqualityConcat && !NoEqualityConcat;

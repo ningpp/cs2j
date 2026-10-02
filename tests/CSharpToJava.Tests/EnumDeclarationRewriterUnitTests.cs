@@ -436,8 +436,8 @@ public class EnumDeclarationRewriterUnitTests
         AssertOutputCompiles(code);
         Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
         // 形状：先 long.TryParse（覆盖负数），再 ulong.TryParse（覆盖 >long.MaxValue）。
-        Assert.Contains("long.TryParse(token, out n)", code);
-        Assert.Contains("ulong.TryParse(token, out un)", code);
+        Assert.Contains("long.TryParse(token, out long n)", code);
+        Assert.Contains("ulong.TryParse(token, out ulong un)", code);
         Assert.Contains("unchecked((byte)n)", code);
         Assert.Contains("unchecked((byte)un)", code);
 
@@ -485,8 +485,8 @@ public class EnumDeclarationRewriterUnitTests
         Assert.True(changed);
         AssertOutputCompiles(code);
         Assert.DoesNotContain(diags, d => d.Severity == EnumDeclarationSeverity.Error);
-        Assert.Contains("long.TryParse(token, out n)", code);
-        Assert.Contains("ulong.TryParse(token, out un)", code);
+        Assert.Contains("long.TryParse(token, out long n)", code);
+        Assert.Contains("ulong.TryParse(token, out ulong un)", code);
         Assert.Contains("unchecked((ulong)un)", code);
 
         var asm = EmitAssembly(code, "ed-emit-parse-ulong-" + Guid.NewGuid().ToString("N"));

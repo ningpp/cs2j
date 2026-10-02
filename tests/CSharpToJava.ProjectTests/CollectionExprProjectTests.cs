@@ -34,7 +34,7 @@ public static class ConsoleChainTestCollection
 /// (CE-4), deterministic nested temp allocation (CE-8), Span heap-array
 /// lowering (CE-9) and CollectionBuilder factory emission (CE-10) across a
 /// library plus an xUnit runtime project. The chain runs the DEFAULT
-/// preprocess chain with <c>--enable-pass expression-desugar</c>;
+/// preprocess chain (expression-desugar is default-on);
 /// VerifyBuild/VerifyTests prove the intermediate tree builds and keeps its
 /// runtime behavior (native vs desugared double run).
 /// </summary>
@@ -104,6 +104,8 @@ public class CollectionExprProjectTests
             EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
             EqualityConcatOptionsFactory = () => new EqualityConcatOptions(),
             ExpressionDesugarOptionsFactory = () => new ExpressionDesugarOptions(),
+            UnsafeFfmOptionsFactory = () =>
+                new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
             StructValueSemanticsOptionsFactory = () => new StructValueSemanticsOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             EnablePassIds = new[] { PassId },
@@ -373,7 +375,8 @@ public class CollectionExprProjectTests
             stdout.Split('\n', '\r')
                 .Where(line => line.Contains(PassId, StringComparison.OrdinalIgnoreCase)));
         Assert.Contains("rules=C36", row);
-        Assert.Contains("off", row, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(" on ", row, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(" off ", row, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string StripWhitespace(string text)

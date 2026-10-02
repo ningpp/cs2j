@@ -32,7 +32,14 @@ public class Runner {
         var repoRoot = FindRepoRoot();
         var compatProject = Path.Combine(repoRoot, "java", "csharptojava-compat", "pom.xml");
         var compatClasses = Path.Combine(repoRoot, "java", "csharptojava-compat", "target", "classes");
-        var mvn = RunProcess(FindRequiredExecutable("mvn"), $"-q -f \"{compatProject}\" -DskipTests package");
+        // The compat module compiles with --release 28; Maven honors JAVA_HOME
+        // (which may point at an older JDK). Align Maven with the javac/java
+        // resolved from PATH so the build uses a JDK that actually supports 28.
+        var jdkHome = TryGetJdkHomeFromPath("javac");
+        var mvn = RunProcess(
+            FindRequiredExecutable("mvn"),
+            $"-q -f \"{compatProject}\" -DskipTests package",
+            jdkHome == null ? null : new Dictionary<string, string?> { ["JAVA_HOME"] = jdkHome });
         Assert.True(mvn.ExitCode == 0, mvn.Output);
 
         var sources = string.Join(" ", new[] { xmlWriterPath, runnerPath }.Select(path => $"\"{path}\""));
@@ -87,7 +94,50 @@ public class Runner {
         throw new FileNotFoundException($"{name} is required for this test.");
     }
 
-    private static (int ExitCode, string Output) RunProcess(string fileName, string arguments)
+    private static string? TryGetJdkHomeFromPath(string executable)
+    {
+        // Search PATH the same way FindRequiredExecutable does, then derive the
+        // JDK home from <home>/bin/<executable>[.exe].
+        var path = Environment.GetEnvironmentVariable("PATH") ?? "";
+        var extensions = OperatingSystem.IsWindows()
+            ? new[] { ".exe", ".cmd", ".bat", "" }
+            : new[] { "" };
+
+        string? resolved = null;
+        foreach (var dir in path.Split(Path.PathSeparator))
+        {
+            if (string.IsNullOrWhiteSpace(dir))
+            {
+                continue;
+            }
+
+            foreach (var ext in extensions)
+            {
+                var candidate = Path.Combine(dir.Trim(), executable + ext);
+                if (File.Exists(candidate))
+                {
+                    resolved = candidate;
+                    break;
+                }
+            }
+
+            if (resolved != null)
+            {
+                break;
+            }
+        }
+
+        if (resolved == null)
+        {
+            return null;
+        }
+
+        var binDir = Path.GetDirectoryName(resolved);
+        return binDir == null ? null : Directory.GetParent(binDir)?.FullName;
+    }
+
+    private static (int ExitCode, string Output) RunProcess(
+        string fileName, string arguments, IReadOnlyDictionary<string, string?>? environmentOverrides = null)
     {
         var psi = new ProcessStartInfo(fileName, arguments)
         {
@@ -96,6 +146,14 @@ public class Runner {
             UseShellExecute = false,
             CreateNoWindow = true,
         };
+
+        if (environmentOverrides != null)
+        {
+            foreach (var pair in environmentOverrides)
+            {
+                psi.Environment[pair.Key] = pair.Value;
+            }
+        }
 
         using var process = Process.Start(psi) ?? throw new InvalidOperationException($"Could not start {fileName}.");
         var stdout = process.StandardOutput.ReadToEnd();

@@ -59,8 +59,11 @@ public class NumericBoundaryProjectTests
     {
         var fixtureDir = Path.Combine(AppContext.BaseDirectory, "SampleNumericBoundarySolution");
         // Keep the output root in TEMP: nesting under the test bin directory makes
-        // the built app's exe path exceed MAX_PATH on Windows.
-        var outputRoot = Path.Combine(Path.GetTempPath(), "cs2j-nb-m2-positive");
+        // the built app's exe path exceed MAX_PATH on Windows. A per-run suffix
+        // keeps a locked leftover (e.g. a crashing app still holding its output
+        // DLLs) from poisoning the next run's tree preparation/cleanup.
+        var outputRoot = Path.Combine(Path.GetTempPath(),
+            "cs2j-nb-m2-positive-" + Guid.NewGuid().ToString("N"));
         try
         {
             var result = await RunPassAsync(
@@ -152,7 +155,9 @@ public class NumericBoundaryProjectTests
     {
         var fixtureDir = Path.Combine(AppContext.BaseDirectory, "SampleNumericBoundaryCheckedSolution");
         // TEMP root: a fixture-local output makes the built exe path exceed MAX_PATH.
-        var outputRoot = Path.Combine(Path.GetTempPath(), "cs2j-nb-checked-overflow");
+        // GUID suffix: a leftover process locking the old tree must not poison reruns.
+        var outputRoot = Path.Combine(Path.GetTempPath(),
+            "cs2j-nb-checked-overflow-" + Guid.NewGuid().ToString("N"));
         try
         {
             var result = await RunPassAsync(
@@ -209,7 +214,8 @@ public class NumericBoundaryProjectTests
     public async Task DynamicCheckedConversion_FailsChain_FileRolledBack()
     {
         var fixtureDir = Path.Combine(AppContext.BaseDirectory, "SampleNumericBoundaryUnsupportedSolution");
-        var outputRoot = Path.Combine(Path.GetTempPath(), "cs2j-nb-unsupported");
+        var outputRoot = Path.Combine(Path.GetTempPath(),
+            "cs2j-nb-unsupported-" + Guid.NewGuid().ToString("N"));
         try
         {
             var result = await RunPassAsync(
@@ -249,6 +255,14 @@ public class NumericBoundaryProjectTests
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+        // The checked-overflow fixture is EXPECTED to crash with an unhandled
+        // OverflowException. On machines with a managed JIT debugger registered,
+        // the runtime parks the crashing process waiting for a debugger attach
+        // (an invisible, un-killable orphan when launched from a non-interactive
+        // test runner), which then locks its build-output DLLs and poisons every
+        // later run's temp-tree cleanup. Launch setting 0 = terminate directly.
+        psi.Environment["DOTNET_DbgJITDebugLaunchSetting"] = "0";
+        psi.Environment["COMPlus_DbgJITDebugLaunchSetting"] = "0";
 
         using var process = Process.Start(psi)!;
         var stdout = await process.StandardOutput.ReadToEndAsync();

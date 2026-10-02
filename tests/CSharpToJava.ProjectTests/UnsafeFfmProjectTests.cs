@@ -38,6 +38,8 @@ public class UnsafeFfmProjectTests
             MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
             EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
             UnsafeFfmOptionsFactory = () => new Core.UnsafeFfm.UnsafeFfmOptions(),
+            ExpressionDesugarOptionsFactory = () =>
+                new Core.ExpressionDesugar.ExpressionDesugarOptions(),
             EqualityConcatOptionsFactory = () => new Core.EqualityConcat.EqualityConcatOptions(),
             StructValueSemanticsOptionsFactory = () =>
                 new Core.StructValueSemantics.StructValueSemanticsOptions(),

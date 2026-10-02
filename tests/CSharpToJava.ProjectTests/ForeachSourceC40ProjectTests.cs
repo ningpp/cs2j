@@ -91,6 +91,8 @@ public class ForeachSourceC40ProjectTests
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             UnsafeFfmOptionsFactory = () =>
                 new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
+            ExpressionDesugarOptionsFactory = () =>
+                new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
             LegacyToggles = toggles,
             EnablePassIds = enablePassIds,
             VerifyBuild = true,
