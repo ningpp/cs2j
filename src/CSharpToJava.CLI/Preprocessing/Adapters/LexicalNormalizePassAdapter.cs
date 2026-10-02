@@ -23,6 +23,15 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
     private int _lineRemoved;
     private int _fileScoped;
     private int _externSites;
+    private int _raw;
+    private int _rawMulti;
+    private int _u8;
+    private int _u8Bytes;
+    private int _verbatim;
+    private int _esc;
+    private int _interpolated;
+    private int _interpolatedVerbatim;
+    private int _interpolatedRaw;
 
     public LexicalNormalizePassAdapter(
         LexicalNormalizeOptions options,
@@ -61,6 +70,19 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
         _fileScoped += result.Statistics.FileScopedNamespacesNormalized;
         _externSites += result.Statistics.ExternAliasDirectives
             + result.Statistics.ExternAliasQualifiedSites;
+
+        var literalStats = result.Statistics;
+        _raw += literalStats.RawLiteralsSingleLine + literalStats.RawLiteralsMultiLine;
+        _rawMulti += literalStats.RawLiteralsMultiLine;
+        _u8 += literalStats.Utf8LiteralsExpanded;
+        _u8Bytes += literalStats.Utf8BytesEmitted;
+        _verbatim += literalStats.VerbatimLiteralsNormalized;
+        _esc += literalStats.EscEscapesNormalized;
+        _interpolated += literalStats.InterpolatedRegularSkipped
+            + literalStats.InterpolatedVerbatimSkipped
+            + literalStats.InterpolatedRawSkipped;
+        _interpolatedVerbatim += literalStats.InterpolatedVerbatimSkipped;
+        _interpolatedRaw += literalStats.InterpolatedRawSkipped;
 
         foreach (var globalUsing in result.GlobalUsings)
         {
@@ -136,7 +158,11 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
     public override string BuildChainSummaryLine()
         => $"lexical-normalize: {_filesTransformed} transformed, {_filesClean} clean, " +
            $"{_lineRemoved} #line removed, {_externSites} extern-alias site(s), " +
-           $"{_globalUsings.Count} global using(s), {_fileScoped} file-scoped normalized";
+           $"{_globalUsings.Count} global using(s), {_fileScoped} file-scoped normalized, " +
+           $"{_raw} raw ({_rawMulti} multi), {_u8} u8 ({_u8Bytes} bytes), " +
+           $"{_verbatim} verbatim, {_esc} esc, {_interpolated} interpolated skipped " +
+           $"(r {_interpolatedRaw}/v {_interpolatedVerbatim}/i " +
+           $"{_interpolated - _interpolatedRaw - _interpolatedVerbatim})";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => verbose

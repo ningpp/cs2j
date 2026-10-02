@@ -128,4 +128,84 @@ public sealed class LexicalNormalizeCLITests
             Directory.Delete(sourceDir, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task LiteralRules_DefaultWithinPass_RawAndVerbatimNormalized_ExitZero()
+    {
+        var sourceDir = CreateProject(
+            "public class C { public string A => \"\"\"x\"\"\"; public string B => @\"y\"; }\n");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, _, _) = await RunCliAsync(
+                "preprocess", "--pass", "lexical-normalize",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(0, exit);
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-lexical-normalize-src", "C.cs"));
+            Assert.DoesNotContain("\"\"\"", rewritten);
+            Assert.DoesNotContain("@\"", rewritten);
+            Assert.Contains("\"x\"", rewritten);
+            Assert.Contains("\"y\"", rewritten);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task LnNoRawSwitch_LeavesRaw_ButStillNormalizesVerbatim()
+    {
+        var sourceDir = CreateProject(
+            "public class C { public string A => \"\"\"x\"\"\"; public string B => @\"y\"; }\n");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, _, _) = await RunCliAsync(
+                "preprocess", "--pass", "lexical-normalize", "--ln-no-raw",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(0, exit);
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-lexical-normalize-src", "C.cs"));
+            Assert.Contains("\"\"\"x\"\"\"", rewritten);
+            Assert.DoesNotContain("@\"", rewritten);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Utf8_AsSpanArgument_BuildsAfterExpansion()
+    {
+        var sourceDir = CreateProject(
+            "public class C { public void M() { "
+            + "System.ReadOnlySpan<byte> s = \"abc\"u8; "
+            + "System.Console.WriteLine(s.Length); } }\n");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, _, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "lexical-normalize",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(0, exit);
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-lexical-normalize-src", "C.cs"));
+            Assert.DoesNotContain("\"u8", rewritten);
+            Assert.Contains("(byte)0x61", rewritten);
+            Assert.DoesNotContain("CS2J", stderr);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
 }

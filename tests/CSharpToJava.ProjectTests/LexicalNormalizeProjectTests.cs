@@ -149,4 +149,60 @@ public sealed class LexicalNormalizeProjectTests
             Directory.Delete(tempRoot, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task Fixture_LiteralSamples_Normalized_InterpolationKept_AndTreeVerifies()
+    {
+        var outputRoot = Path.Combine(Path.GetTempPath(),
+            "cs2j-c43-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var result = await RunPassAsync(
+                Path.Combine(FixtureDir, "SampleLexicalNormalizeSolution.sln"),
+                outputRoot);
+
+            Assert.True(result.Success, "C43 literal pass failed (see chain diagnostics)");
+
+            var intermediate = Path.Combine(outputRoot, ".cs2j-lexical-normalize-src");
+            var text = await File.ReadAllTextAsync(Path.Combine(
+                intermediate, "SampleLexicalNormalizeLib", "LiteralSamples.cs"));
+
+            // LL-1: single/multi-line raw gone; multiline opening quote-newline absent.
+            Assert.DoesNotContain("\"\"\"hello", text);
+            Assert.DoesNotContain("\"\"\"\r\n", text);
+            Assert.DoesNotContain("\"\"\"\n", text);
+
+            // LL-2: u8 suffix gone, byte array emitted.
+            Assert.DoesNotContain("\"u8", text);
+            Assert.Contains("(byte)0x", text);
+            Assert.Contains("new byte[]", text);
+
+            // LL-3: no non-interpolated verbatim. The bare @" substring would also
+            // match the LL-4-exempt $@" interpolation, so anchor the declaration
+            // shape " = @" instead (Sql is the only non-interpolated verbatim).
+            Assert.DoesNotContain(" = @\"", text);
+
+            // LL-6: no bare \e (regular \u001b escapes instead).
+            Assert.DoesNotContain("\\e", text);
+            Assert.Contains("\\u001b", text);
+
+            // LL-4: interpolated forms remain verbatim for C23.
+            Assert.Contains("$\"\"\"raw {x}\"\"\"", text);
+            Assert.Contains("$$\"\"\"{{x}}\"\"\"", text);
+            Assert.Contains("$@\"a\"\"{x}\"", text);
+
+            // Idempotence over the intermediate tree.
+            var second = await RunPassAsync(
+                Path.Combine(intermediate, "SampleLexicalNormalizeSolution.sln"),
+                Path.Combine(outputRoot, "second"));
+            Assert.True(second.Success);
+        }
+        finally
+        {
+            if (Directory.Exists(outputRoot))
+            {
+                Directory.Delete(outputRoot, recursive: true);
+            }
+        }
+    }
 }

@@ -3685,6 +3685,10 @@ public class Program
                     ReportInfo = opts.Verbose,
                     NormalizeFileScopedNamespaces = opts.LnNormalizeFileScoped,
                     ExternAliasSeverity = opts.LnExternAliasSeverityEffective,
+                    NormalizeRawLiterals = !opts.LnNoRaw,
+                    NormalizeUtf8Literals = !opts.LnNoU8,
+                    NormalizeVerbatimLiterals = !opts.LnNoVerbatim,
+                    NormalizeEscEscapes = !opts.LnNoEsc,
                 },
                 EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions
                 {
@@ -4693,6 +4697,22 @@ class PreprocessVerbOptions
     public CSharpToJava.Core.LexicalNormalize.LexicalNormalizeSeverity LnExternAliasSeverityEffective =>
         Enum.Parse<CSharpToJava.Core.LexicalNormalize.LexicalNormalizeSeverity>(
             LnExternAliasSeverity, ignoreCase: true);
+
+    [Option("ln-no-raw", Default = false,
+        HelpText = "lexical-normalize: disable raw string literal normalization (LL-1)")]
+    public bool LnNoRaw { get; set; }
+
+    [Option("ln-no-u8", Default = false,
+        HelpText = "lexical-normalize: disable u8 literal expansion to byte[] (LL-2)")]
+    public bool LnNoU8 { get; set; }
+
+    [Option("ln-no-verbatim", Default = false,
+        HelpText = "lexical-normalize: disable verbatim string normalization (LL-3)")]
+    public bool LnNoVerbatim { get; set; }
+
+    [Option("ln-no-esc", Default = false,
+        HelpText = "lexical-normalize: disable \\e to \\u001B rewrite in regular strings/chars (LL-6)")]
+    public bool LnNoEsc { get; set; }
 
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
