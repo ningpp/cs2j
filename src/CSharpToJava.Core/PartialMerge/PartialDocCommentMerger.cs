@@ -76,7 +76,8 @@ internal static class PartialDocCommentMerger
 
         return declaration.SyntaxTree.GetText()
             .Lines
-            .Where(line => trivia.Any(t => t.Span.Contains(line.Span.Start)))
+            // Structured trivia Span excludes the '///' marker; FullSpan covers it.
+            .Where(line => trivia.Any(t => t.FullSpan.Contains(line.Span.Start)))
             .Select(line => line.ToString().Trim())
             .ToList();
     }

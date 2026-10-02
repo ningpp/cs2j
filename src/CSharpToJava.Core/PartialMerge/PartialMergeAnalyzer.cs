@@ -16,7 +16,8 @@ internal sealed class PartialMergeAnalyzer
     public PartialMergePlan Analyze(
         CSharpCompilation compilation,
         PartialMergeOptions options,
-        string sourceRoot)
+        string sourceRoot,
+        IReadOnlyList<Action<TypeGroupPlan>>? groupMutators = null)
     {
         var diagnostics = new List<PartialMergeDiagnostic>();
         var (groups, topLevelSkipped) = PartialTypePartCollector.Collect(compilation, sourceRoot);
@@ -75,6 +76,16 @@ internal sealed class PartialMergeAnalyzer
         {
             var merged = PartialTypeMergeBuilder.Build(compilation, group);
             group.MergedDeclaration = merged;
+
+            // Test-only injection hook (InternalsVisibleTo); production callers
+            // always pass null. Runs before edit serialization on purpose.
+            if (groupMutators != null)
+            {
+                foreach (var mutator in groupMutators)
+                {
+                    mutator(group);
+                }
+            }
 
             foreach (var part in group.Parts)
             {
