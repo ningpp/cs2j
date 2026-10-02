@@ -49,6 +49,13 @@ internal static class SignatureDiagnostics
         => $"a covariant erasure bridge for '{member}' on [{typeFqn}] is infeasible in this version (the bridge "
            + "signature would collide with an existing overload); deferred to the C02 generic-deepen review.";
 
+    /// <summary>CS2J5192（NH-3 白名单外）：纯 base 委托的隐藏成员不可保留同名桥接。
+/// 复用 5192（plan 跳过/无法确定改名归宿），消息显式给出 NH-3 白名单理由（设计裁决 5）。</summary>
+    public static string HidingBridgeNotWhitelisted(string typeFqn, string member)
+        => $"hidden member '{member}' on [{typeFqn}] delegates purely to base but is outside the NH-3 whitelist "
+           + "(the base type is not in the compilation, or the slot is not sealed and has overrides on the base "
+           + "chain); a same-name public bridge is not provably equivalent, so the member is left untouched.";
+
     /// <summary>CS2J5197：接口槽位映射候选不唯一（SI-4 泛型构造/菱形/重新实现）。</summary>
     public static string SlotAmbiguous(string typeFqn, string member, int candidateCount)
         => $"interface slot '{member}' on [{typeFqn}] maps to {candidateCount} candidate implementations "

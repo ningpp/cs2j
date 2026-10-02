@@ -72,12 +72,14 @@
 
 ## M3 属性/索引器/事件显式实现 + 泛型/重实现（SI 全量 + NH-3/4 访问器面，commit 3）
 
-- [ ] T1 消费 C11–C13 产物（`IFoo.get_X`/`get_Item`/`add_Xxx` 方法对）做 SI-1/2/5；索引器/事件方法对联动
-- [ ] T2 SI-4 泛型构造映射（决策 5）+ 重新实现槽位重算（决策 6）；候选歧义 CS2J5197
-- [ ] T3 NH-3 纯 base 委托白名单桥接（决策 8 + 裁决 5）；NH-4 字段/静态隐藏改名
-- [ ] T4 事件后备存储不重复发射（对齐 InterfaceEventListenerNamingTests）；未启用访问器规则时仅登记不产 plan
-- [ ] T5 单测（§7.1-2/3 子集）+ fixture 场景文件（SampleMemberDesugarSolution 追加）
-- [ ] T6 收口验证 + 提交
+> **口径调整（实施时，2026-10-02）**：T5 的 fixture/项目级场景文件（SampleMemberDesugarSolution 追加、项目级 `MemberDesugarSignatureProjectTests`）移交 **M4 T6** 一并交付；M3 只交付 Core 实现 + Core 单测（`MemberDesugarSignatureUnitTests.cs` M3 矩阵）。理由：访问器面与 NH 的项目级 fixture 与 M4 的 newslot/协变双端分派矩阵同属「.NET 预言机 + 双端对照」，合并到 M4 一次成型避免 fixture 二次返工。
+
+- [x] T1 消费 C11–C13 产物（`IFoo.get_X`/`get_Item`/`add_Xxx` 方法对）做 SI-1/2/5；索引器/事件方法对联动
+- [x] T2 SI-4 泛型构造映射（决策 5）+ 重新实现槽位重算（决策 6）；候选歧义 CS2J5197
+- [x] T3 NH-3 纯 base 委托白名单桥接（决策 8 + 裁决 5）；NH-4 字段/静态隐藏改名
+- [x] T4 事件后备存储不重复发射（对齐 InterfaceEventListenerNamingTests）；未启用访问器规则时仅登记不产 plan
+- [x] T5 单测（§7.1-2/3 子集）——**fixture 场景文件移交 M4 T6**（见上方口径调整）
+- [x] T6 收口验证 + 提交
 
 ---
 
@@ -88,7 +90,7 @@
 - [ ] T3 CR-2 擦除冲突桥接合成（决策 11）：bridge 基槽 + `M_cs2jCovariant` 改名方法；派生静态类型绑定点改写；sealed 形态
 - [ ] T4 CR-3 值类型/不可判 CS2J5195；CS2J5196 保守桥（裁决 4）
 - [ ] T5 residual 闸门三面（SI-7/NH-5/CR-4）与回退演练；幂等/BOM
-- [ ] T6 fixture 双端分派矩阵（.NET 预言机）+ sdk 画像/§8 门槛评审材料
+- [ ] T6 fixture 双端分派矩阵（.NET 预言机）+ sdk 画像/§8 门槛评审材料（**并入 M3 T5 移交的访问器面/NH fixture**：SampleMemberDesugarSolution 场景文件与项目级 `MemberDesugarSignatureProjectTests`）
 - [ ] T7 收口验证 + 提交
 
 ---

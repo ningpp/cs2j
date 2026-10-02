@@ -57,8 +57,10 @@ internal sealed class ExplicitInterfaceRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
     {
-        if (_model.GetDeclaredSymbol(node) is IMethodSymbol method
-            && method.ExplicitInterfaceImplementations.Length > 0)
+        // 显式实现判定用语法事实（ExplicitInterfaceSpecifier）：C11–C13 方法化后事件访问器
+        // 方法符号的 ExplicitInterfaceImplementations 可能为空，符号判定会漏；键仍由符号派生。
+        if (node.ExplicitInterfaceSpecifier != null
+            && _model.GetDeclaredSymbol(node) is IMethodSymbol method)
         {
             var key = SiPlan.SiteKey(method);
             if (_active.TryGetValue(key, out var plan))
@@ -74,7 +76,8 @@ internal sealed class ExplicitInterfaceRewriter : CSharpSyntaxRewriter
             }
 
             // 未被任何 plan 认领的残留（源接口）→ CS2J5199；带跳过诊断/extern 的显式实现不在此列。
-            if (!_owned.Contains(key) && HasInSourceSlot(method)) ReportResidual(node, method);
+            if (!_owned.Contains(key) && HasInSourceExplicitInterface(node, method))
+                ReportResidual(node, method);
             return base.VisitMethodDeclaration(node);
         }
 
@@ -160,9 +163,17 @@ internal sealed class ExplicitInterfaceRewriter : CSharpSyntaxRewriter
     private static SyntaxToken IdentifierWithTrivia(SyntaxToken original, string newName)
         => SyntaxFactory.Identifier(original.LeadingTrivia, newName, original.TrailingTrivia);
 
-    private static bool HasInSourceSlot(IMethodSymbol method)
-        => method.ExplicitInterfaceImplementations
-            .Any(slot => slot.Locations.Any(l => l.IsInSource));
+    /// <summary>残留判定：显式实现的接口槽或限定名类型在源内（源接口才纳入 SI-7 对账；
+/// 元数据接口的显式实现由转换器侧兜底，不在本 pass 归属）。</summary>
+    private bool HasInSourceExplicitInterface(MethodDeclarationSyntax node, IMethodSymbol method)
+    {
+        if (method.ExplicitInterfaceImplementations.Any(slot => slot.Locations.Any(l => l.IsInSource)))
+            return true;
+        if (node.ExplicitInterfaceSpecifier?.Name is { } name
+            && _model.GetTypeInfo(name).Type is { } iface)
+            return iface.Locations.Any(l => l.IsInSource);
+        return false;
+    }
 
     // ---- 诊断 ----
 

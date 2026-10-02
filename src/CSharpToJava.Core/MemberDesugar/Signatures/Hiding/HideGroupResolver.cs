@@ -23,6 +23,12 @@ internal sealed class HiddenMember
     public required string DeclaringFile { get; init; }
     /// <summary>newslot 链组键（NH-2）；非 newslot 为成员自身键。</summary>
     public required string GroupId { get; init; }
+    /// <summary>声明是否带显式 <c>new</c> 令牌（NH-4 只改名显式 new 的字段/静态成员）。</summary>
+    public bool HasNewToken { get; init; }
+    /// <summary>被隐藏的基类槽位符号（NH-3 白名单判定用：基类型在编译内 + sealed/无覆写）。</summary>
+    public ISymbol? BaseMember { get; init; }
+    /// <summary>是否为字段（NH-4 字段直接改名；字段不经 C11–C14 方法化）。</summary>
+    public bool IsField { get; init; }
 }
 
 /// <summary>newslot 虚槽链组（NH-2）：组内= new virtual/abstract 声明 + 全部派生 override 其槽的方法。</summary>
@@ -53,39 +59,44 @@ internal sealed class HideGroupResolver
             var root = model.SyntaxTree.GetRoot();
             foreach (var node in root.DescendantNodes())
             {
-                var symbol = ResolveDeclaredSymbol(node, model);
-                if (symbol is null) continue;
-
-                if (symbol is IMethodSymbol method
-                    && method.MethodKind == MethodKind.Ordinary && method.IsOverride)
-                    allMethods.Add(method);
-
-                if (!seen.Add(symbol)) continue;
-                if (symbol.IsOverride) continue; // override 不是隐藏
-                if (IsExcludedKind(symbol)) continue;
-
-                var baseMember = FindHiddenBase(symbol);
-                if (baseMember is null) continue;
-
-                var modifiers = GetModifiers(node);
-                var hasNew = modifiers.Any(m => m.IsKind(SyntaxKind.NewKeyword));
-                var isVirtual = modifiers.Any(m =>
-                    m.IsKind(SyntaxKind.VirtualKeyword) || m.IsKind(SyntaxKind.AbstractKeyword));
-
-                var flavor = symbol.IsStatic
-                    ? HideFlavor.Static
-                    : hasNew && isVirtual ? HideFlavor.NewSlot
-                    : hasNew ? HideFlavor.New
-                    : HideFlavor.Implicit;
-
-                hidden.Add(new HiddenMember
+                foreach (var symbol in ResolveDeclaredSymbols(node, model))
                 {
-                    Member = symbol,
-                    Flavor = flavor,
-                    IsPureBaseDelegation = IsPureBaseDelegation(symbol, node),
-                    DeclaringFile = SignatureExplicitizationAnalyzer.FirstSourceFile(symbol),
-                    GroupId = GroupIdFor(symbol),
-                });
+                    if (symbol is null) continue;
+
+                    if (symbol is IMethodSymbol method
+                        && method.MethodKind == MethodKind.Ordinary && method.IsOverride)
+                        allMethods.Add(method);
+
+                    if (!seen.Add(symbol)) continue;
+                    if (symbol.IsOverride) continue; // override 不是隐藏
+                    if (IsExcludedKind(symbol)) continue;
+
+                    var baseMember = FindHiddenBase(symbol);
+                    if (baseMember is null) continue;
+
+                    var modifiers = GetModifiers(node);
+                    var hasNew = modifiers.Any(m => m.IsKind(SyntaxKind.NewKeyword));
+                    var isVirtual = modifiers.Any(m =>
+                        m.IsKind(SyntaxKind.VirtualKeyword) || m.IsKind(SyntaxKind.AbstractKeyword));
+
+                    var flavor = symbol.IsStatic
+                        ? HideFlavor.Static
+                        : hasNew && isVirtual ? HideFlavor.NewSlot
+                        : hasNew ? HideFlavor.New
+                        : HideFlavor.Implicit;
+
+                    hidden.Add(new HiddenMember
+                    {
+                        Member = symbol,
+                        Flavor = flavor,
+                        IsPureBaseDelegation = IsPureBaseDelegation(symbol, node),
+                        DeclaringFile = SignatureExplicitizationAnalyzer.FirstSourceFile(symbol),
+                        GroupId = GroupIdFor(symbol),
+                        HasNewToken = hasNew,
+                        BaseMember = baseMember,
+                        IsField = symbol is IFieldSymbol,
+                    });
+                }
             }
         }
 
@@ -160,6 +171,8 @@ internal sealed class HideGroupResolver
             return ParametersMatch(pa.Parameters, pb.Parameters);
         if (member is IPropertySymbol && candidate is IPropertySymbol) return true;
         if (member is IEventSymbol && candidate is IEventSymbol) return true;
+        // 字段隐藏按名（类型无关，CS0108 语义）；基链上同名同静态性的字段即隐藏目标。
+        if (member is IFieldSymbol && candidate is IFieldSymbol) return true;
         return false;
     }
 
@@ -243,16 +256,32 @@ internal sealed class HideGroupResolver
         _ => false,
     };
 
-    private static ISymbol? ResolveDeclaredSymbol(SyntaxNode node, SemanticModel model) => node switch
+    private static IEnumerable<ISymbol> ResolveDeclaredSymbols(SyntaxNode node, SemanticModel model)
     {
-        MethodDeclarationSyntax m => model.GetDeclaredSymbol(m),
-        PropertyDeclarationSyntax p => model.GetDeclaredSymbol(p),
-        IndexerDeclarationSyntax i => model.GetDeclaredSymbol(i),
-        EventDeclarationSyntax e => model.GetDeclaredSymbol(e),
-        EventFieldDeclarationSyntax ef when ef.Declaration.Variables.Count > 0
-            => model.GetDeclaredSymbol(ef.Declaration.Variables[0]),
-        _ => null,
-    };
+        switch (node)
+        {
+            case MethodDeclarationSyntax m:
+                if (model.GetDeclaredSymbol(m) is { } ms) yield return ms;
+                yield break;
+            case PropertyDeclarationSyntax p:
+                if (model.GetDeclaredSymbol(p) is { } ps) yield return ps;
+                yield break;
+            case IndexerDeclarationSyntax i:
+                if (model.GetDeclaredSymbol(i) is { } isym) yield return isym;
+                yield break;
+            case EventDeclarationSyntax e:
+                if (model.GetDeclaredSymbol(e) is { } es) yield return es;
+                yield break;
+            case EventFieldDeclarationSyntax ef:
+                foreach (var v in ef.Declaration.Variables)
+                    if (model.GetDeclaredSymbol(v) is { } evs) yield return evs;
+                yield break;
+            case FieldDeclarationSyntax f:
+                foreach (var v in f.Declaration.Variables)
+                    if (model.GetDeclaredSymbol(v) is { } fs) yield return fs;
+                yield break;
+        }
+    }
 
     private static SyntaxTokenList GetModifiers(SyntaxNode node) => node switch
     {
@@ -261,6 +290,7 @@ internal sealed class HideGroupResolver
         IndexerDeclarationSyntax i => i.Modifiers,
         EventDeclarationSyntax e => e.Modifiers,
         EventFieldDeclarationSyntax ef => ef.Modifiers,
+        FieldDeclarationSyntax f => f.Modifiers,
         _ => default,
     };
 

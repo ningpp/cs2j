@@ -140,6 +140,8 @@ internal static class SignatureSyntaxFacts
         return syntax switch
         {
             MethodDeclarationSyntax m => m.Body?.ToFullString() ?? m.ExpressionBody?.ToFullString(),
+            // C11–C13 方法化前，属性/索引器/事件的显式实现是访问器符号：体在 AccessorDeclarationSyntax。
+            AccessorDeclarationSyntax a => a.Body?.ToFullString() ?? a.ExpressionBody?.ToFullString(),
             PropertyDeclarationSyntax p => p.AccessorList?.ToFullString()
                 ?? p.ExpressionBody?.ToFullString(),
             IndexerDeclarationSyntax i => i.AccessorList?.ToFullString()
@@ -159,6 +161,10 @@ internal static class SignatureSyntaxFacts
                 => (m.Body!.Statements[0] as ReturnStatementSyntax)?.Expression
                    ?? (m.Body.Statements[0] as ExpressionStatementSyntax)?.Expression,
             MethodDeclarationSyntax m => m.ExpressionBody?.Expression,
+            AccessorDeclarationSyntax { Body.Statements.Count: 1 } a
+                => (a.Body!.Statements[0] as ReturnStatementSyntax)?.Expression
+                   ?? (a.Body.Statements[0] as ExpressionStatementSyntax)?.Expression,
+            AccessorDeclarationSyntax a => a.ExpressionBody?.Expression,
             PropertyDeclarationSyntax { ExpressionBody: { } eb } => eb.Expression,
             _ => null,
         };

@@ -45,6 +45,10 @@ internal sealed class SiPlan : MemberDesugarPlan
     /// <summary>让位成员的原名（nameof 字面量化目标，设计决策 15）。</summary>
     public string? DisplacedOriginalName { get; init; }
 
+    /// <summary>让位成员的归属键集合：访问器方法键 + 所属属性/事件符号键（SI-5 站点按符号分类时，
+    /// 原件仍绑到 <c>IPropertySymbol/IEventSymbol</c>，须据此纳入 TouchedFiles）。</summary>
+    public IReadOnlyList<string> DisplacedOwnerKeys { get; init; } = Array.Empty<string>();
+
     /// <summary>本 plan 覆盖的全部显式实现稳定键（residual 归属判定）。</summary>
     public IReadOnlyList<string> ImplementationKeys { get; init; } = Array.Empty<string>();
 
@@ -65,12 +69,16 @@ internal sealed class SiPlan : MemberDesugarPlan
         return $"MD:{containingTypeFqn}::{promotedName}({parameterSignature})@{span}";
     }
 
-    /// <summary>方法/成员的跨 Compilation 稳定键：类型全名::元数据名(参数类型)。</summary>
+    /// <summary>方法/成员的跨 Compilation 稳定键：类型全名::元数据名(参数类型)。
+    /// 方法/索引器带参数签名；属性/事件/字段用元数据名（索引器参数即其 Parameters）。</summary>
     public static string SiteKey(ISymbol symbol)
     {
         if (symbol is IMethodSymbol m)
             return $"{m.ContainingType?.ToDisplayString()}::{m.MetadataName}" +
                    $"({string.Join(",", m.Parameters.Select(p => p.Type.ToDisplayString()))})";
+        if (symbol is IPropertySymbol { IsIndexer: true } p)
+            return $"{p.ContainingType?.ToDisplayString()}::{p.MetadataName}" +
+                   $"({string.Join(",", p.Parameters.Select(x => x.Type.ToDisplayString()))})";
         return $"{symbol.ContainingType?.ToDisplayString()}::{symbol.MetadataName}";
     }
 }

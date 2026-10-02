@@ -235,6 +235,12 @@ public sealed class MemberDesugarStatistics
     /// <summary>反射/字符串契约风险站点告警数（CS2J5193，非阻断）。</summary>
     public int SignatureReflectionWarnings { get; set; }
 
+    // ---- C46 signatures（M3 隐藏改写计数，设计 §5.2）----
+    /// <summary>NH-4 改名的隐藏成员数（字段/new static 方法，<c>{Name}_cs2jNew</c>）。</summary>
+    public int SignatureHideRenamed { get; set; }
+    /// <summary>NH-3 保留的同名 public 桥接数（纯 base 委托白名单，记 Bridged）。</summary>
+    public int SignatureHideBridged { get; set; }
+
     /// <summary>按诊断码分桶的跳过数（设计 §6：按原因分组）。</summary>
     public Dictionary<MemberDesugarDiagnosticCode, int> SkippedByReason { get; } = new();
 }

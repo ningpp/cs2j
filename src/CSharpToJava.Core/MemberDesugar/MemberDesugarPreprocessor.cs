@@ -74,6 +74,7 @@ public sealed partial class MemberDesugarPreprocessor
         var operatorPlans = active.OfType<Operators.OperatorPlan>().ToList();
         var finalizerPlans = active.OfType<Finalizers.FinalizerPlan>().ToList();
         var signaturePlans = active.OfType<Signatures.ExplicitInterface.SiPlan>().ToList();
+        var hidingPlans = active.OfType<Signatures.Hiding.NhPlan>().ToList();
         var plannedProperties = propertyPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         var plannedEvents = eventPlans
@@ -83,6 +84,8 @@ public sealed partial class MemberDesugarPreprocessor
         var plannedOperators = operatorPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         var plannedSignatures = signaturePlans
+            .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
+        var plannedHiding = hidingPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         // C46 SI-7：本文件全部签名 plan（含被回退/跳过项）传给重写器作 residual 归属集合。
         var allSignaturePlansForFile = _plans!
@@ -96,7 +99,7 @@ public sealed partial class MemberDesugarPreprocessor
         var hasDestructorDecls = root.DescendantNodes().OfType<DestructorDeclarationSyntax>().Any();
         if (plannedProperties.Count == 0 && plannedEvents.Count == 0
             && plannedIndexers.Count == 0 && plannedOperators.Count == 0
-            && plannedSignatures.Count == 0 && !hasOperatorDecls
+            && plannedSignatures.Count == 0 && plannedHiding.Count == 0 && !hasOperatorDecls
             && !hasDestructorDecls)
         {
             statistics.FilesSkippedClean++;
@@ -106,6 +109,9 @@ public sealed partial class MemberDesugarPreprocessor
         statistics.EventsPlanned += plannedEvents.Count(p => IsFirstDeclarationFile(p, filePath));
         statistics.IndexersPlanned += plannedIndexers.Count(p => IsFirstDeclarationFile(p, filePath));
         statistics.OperatorsPlanned += plannedOperators.Count(p => IsFirstDeclarationFile(p, filePath));
+        // C46 NH-3：保留同名桥接的 plan 不改树（无重写器动作），计数在此并入。
+        statistics.SignatureHideBridged += plannedHiding.Count(p =>
+            p is Signatures.Hiding.NhPlan { Bridged: true } && IsFirstDeclarationFile(p, filePath));
 
         // 四级 dispatch：属性->事件(重解析)->运算符(重解析)->索引器
         // 属性改写器在原始树上运行；事件/运算符改写器经替换树运行（属性产物是红色节点，
@@ -242,37 +248,52 @@ public sealed partial class MemberDesugarPreprocessor
                 _options, statistics, diagnostics, filePath);
             workingRoot = (CompilationUnitSyntax)indexerRewriter.Visit(workingRoot)!;
         }
-        if (plannedSignatures.Count > 0)
+        if (plannedSignatures.Count > 0 || plannedHiding.Count > 0)
         {
             // C46 签名分相晚于索引器：前置阶段可能已重建树（红色节点/重解析），
             // 与 operator/indexer 同形——树已变先格式化+重解析换可绑定的新鲜模型。
-            SemanticModel signatureModel;
-            if (ReferenceEquals(workingRoot, root))
+            var (sigRoot, sigModel) = ResolveSignatureStage(workingRoot);
+            if (sigRoot == null) return RollbackSignatureStage();
+
+            // SI（Order 40）先于 NH（Order 50）。
+            if (plannedSignatures.Count > 0)
             {
-                signatureModel = semanticModel;
-            }
-            else
-            {
-                var signatureIntermediate = FormatAndValidate(workingRoot);
-                if (signatureIntermediate == null)
-                {
-                    statistics.FilesSkippedClean++;
-                    diagnostics.Add(new MemberDesugarDiagnostic(
-                        MemberDesugarSeverity.Warning, MemberDesugarDiagnosticCode.PlanRolledBack,
-                        "member-desugar rewrite failed local parse validation; the original file was " +
-                        "preserved pending whole-tree validation.", filePath, 0, 0, null));
-                    return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
-                }
-                var (replacementModel, replacementRoot) =
-                    ParseReplacement(semanticModel, signatureIntermediate);
-                signatureModel = replacementModel;
-                workingRoot = replacementRoot;
+                var signatureRewriter = new Signatures.ExplicitInterface.ExplicitInterfaceRewriter(
+                    sigModel!, plannedSignatures, allSignaturePlansForFile,
+                    _options, statistics, diagnostics, filePath);
+                sigRoot = (CompilationUnitSyntax)signatureRewriter.Visit(sigRoot)!;
             }
 
-            var signatureRewriter = new Signatures.ExplicitInterface.ExplicitInterfaceRewriter(
-                signatureModel, plannedSignatures, allSignaturePlansForFile,
-                _options, statistics, diagnostics, filePath);
-            workingRoot = (CompilationUnitSyntax)signatureRewriter.Visit(workingRoot)!;
+            if (plannedHiding.Count > 0)
+            {
+                // SI 已改树则重新取新鲜模型（NH 绑定不得使用脱离语法树的红节点）。
+                var (hideRoot, hideModel) = ResolveSignatureStage(sigRoot);
+                if (hideRoot == null) return RollbackSignatureStage();
+                var hidingRewriter = new Signatures.Hiding.HidingRewriter(
+                    hideModel!, plannedHiding, statistics, filePath);
+                sigRoot = (CompilationUnitSyntax)hidingRewriter.Visit(hideRoot)!;
+            }
+            workingRoot = sigRoot;
+
+            // 重解析前的树变更：树已变先格式化+重解析换可绑定的新鲜模型。
+            (CompilationUnitSyntax? Root, SemanticModel? Model) ResolveSignatureStage(CompilationUnitSyntax working)
+            {
+                if (ReferenceEquals(working, root)) return (working, semanticModel);
+                var intermediate = FormatAndValidate(working);
+                if (intermediate == null) return (null, null);
+                var (model, replacementRoot) = ParseReplacement(semanticModel, intermediate);
+                return (replacementRoot, model);
+            }
+
+            MemberDesugarFileResult RollbackSignatureStage()
+            {
+                statistics.FilesSkippedClean++;
+                diagnostics.Add(new MemberDesugarDiagnostic(
+                    MemberDesugarSeverity.Warning, MemberDesugarDiagnosticCode.PlanRolledBack,
+                    "member-desugar rewrite failed local parse validation; the original file was " +
+                    "preserved pending whole-tree validation.", filePath, 0, 0, null));
+                return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
+            }
         }
         if (workingRoot.IsEquivalentTo(root))
         {
@@ -448,7 +469,7 @@ public sealed partial class MemberDesugarPreprocessor
         MemberDesugarStatistics statistics, List<MemberDesugarDiagnostic> diagnostics)
     {
         // C46 签名 plan：属性/事件专用兜底码与文案会误标（5199 兜底，级别按 SignatureOptions）。
-        if (p is Signatures.ExplicitInterface.SiPlan)
+        if (p is Signatures.ExplicitInterface.SiPlan or Signatures.Hiding.NhPlan)
         {
             EmitSignatureSkipDiagnostic(p, filePath, statistics, diagnostics);
             return;

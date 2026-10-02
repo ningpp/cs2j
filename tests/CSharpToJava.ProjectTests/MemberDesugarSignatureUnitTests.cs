@@ -490,6 +490,293 @@ public class GenDerived<T> : GenBase where T : class
         MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
     }
 
+    // ---- M3：属性/索引器/事件显式实现（SI-1/2/5 访问器面）----
+
+    [Fact]
+    public void ExplicitProperty_Promoted_ClassOwnedAccessorsDisplaced_SitesRenamed()
+    {
+        const string src = """
+            public interface IFoo { string Name { get; set; } }
+            public class C : IFoo
+            {
+                public string Name { get; set; } = "";
+                string IFoo.Name { get; set; } = "";
+                public void Use(IFoo i, C c) { i.Name = "a"; c.Name = "b"; var x = c.Name; }
+            }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        // 接口实现体占规范名（public get_Set_Name），类自有访问器对让位改名（get_/set_ 配对保留）。
+        AssertContains(output, "string get_Name();");
+        AssertContains(output, "void set_Name(string value);");
+        AssertContains(output, "public string get_Name_cs2jClass()");
+        AssertContains(output, "public void set_Name_cs2jClass(string value)");
+        AssertContains(output, "public string get_Name()");
+        AssertContains(output, "public void set_Name(string value)");
+        AssertNotContains(output, "IFoo.get_Name");
+        AssertNotContains(output, "IFoo.set_Name");
+        // 接口分派站点不动；类静态类型站点改名。
+        AssertContains(output, "i.set_Name(\"a\");");
+        AssertContains(output, "c.set_Name_cs2jClass(\"b\")");
+        AssertContains(output, "c.get_Name_cs2jClass()");
+
+        Assert.Equal(2, stats.SignaturePlansPromoted);
+        Assert.Equal(2, stats.SignatureDisplacedRenamed);
+        Assert.Equal(2, stats.SignatureCallSitesRewritten);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void ExplicitIndexer_Promoted_ItemSlot_SitesClassifiedByReceiverType()
+    {
+        const string src = """
+            public interface IFoo { int this[int i] { get; } }
+            public class C : IFoo
+            {
+                int IFoo.this[int i] => i + 1;
+                public void Use(IFoo i) { var x = i[0]; }
+            }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "int get_Item(int i);");
+        AssertContains(output, "public int get_Item(int i)");
+        AssertNotContains(output, "IFoo.get_Item");
+        AssertContains(output, "i.get_Item(0)");
+        Assert.Equal(1, stats.SignaturePlansPromoted);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void ExplicitEvent_Promoted_ExternalSitesRenamed_NoDuplicateBackingStore()
+    {
+        const string src = """
+            using System;
+            public interface IFoo { event Action E; }
+            public class C : IFoo
+            {
+                public event Action E;
+                event Action IFoo.E { add { } remove { } }
+            }
+            public class Use2
+            {
+                public void Use(C c, IFoo f) { c.E += () => { }; c.E -= () => { }; f.E += () => { }; }
+            }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "void add_E(Action value);");
+        AssertContains(output, "void remove_E(Action value);");
+        AssertContains(output, "public void add_E_cs2jClass(Action value)");
+        AssertContains(output, "public void remove_E_cs2jClass(Action value)");
+        AssertContains(output, "public void add_E(Action value)");
+        AssertNotContains(output, "IFoo.add_E");
+        AssertNotContains(output, "IFoo.remove_E");
+        // 事件外部订阅站点（C13 已降为方法调用）按接收者静态类型改名。
+        AssertContains(output, "c.add_E_cs2jClass(() => { })");
+        AssertContains(output, "c.remove_E_cs2jClass(() => { })");
+        AssertContains(output, "f.add_E(() => { })");
+
+        // 不得重复发射后备存储：类自有事件仅一个后备字段，显式实现体不生成字段/事件声明。
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(Normalize(output), "privateActionE;")
+            .Cast<System.Text.RegularExpressions.Match>());
+        AssertNotContains(output, "event Action E;");
+        AssertNotContains(output, "event Action IFoo.E");
+
+        Assert.Equal(2, stats.SignaturePlansPromoted);
+        Assert.Equal(2, stats.SignatureDisplacedRenamed);
+        Assert.Equal(2, stats.SignatureCallSitesRewritten);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    // ---- M3：SI-4 泛型构造 / 接口重新实现 / 候选歧义 ----
+
+    [Fact]
+    public void GenericConstructions_EquivalentBodies_MergeToOnePublicMethod()
+    {
+        const string src = """
+            public interface IFoo<T> { void Bar(); }
+            public class C : IFoo<int>, IFoo<string>
+            {
+                void IFoo<int>.Bar() { }
+                void IFoo<string>.Bar() { }
+                public void Use(IFoo<int> a, IFoo<string> b) { a.Bar(); b.Bar(); }
+            }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertNotContains(output, "IFoo<int>.Bar");
+        AssertNotContains(output, "IFoo<string>.Bar");
+        AssertContains(output, "public void Bar()");
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(Normalize(output), "publicvoidBar()")
+            .Cast<System.Text.RegularExpressions.Match>());
+        AssertContains(output, "a.Bar(); b.Bar();");
+        Assert.Equal(1, stats.SignaturePlansPromoted);
+        Assert.Equal(1, stats.SignatureDualInterfaceMerged);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void Reimplementation_RellstInterface_NewImplementationPromoted()
+    {
+        const string src = """
+            public interface IFoo { void Bar(); }
+            public class B : IFoo { void IFoo.Bar() { System.Console.WriteLine("b"); } }
+            public class D : B, IFoo { void IFoo.Bar() { System.Console.WriteLine("d"); } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertNotContains(output, "IFoo.Bar");
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(Normalize(output), "publicvoidBar()").Count);
+        Assert.Equal(2, stats.SignaturePlansPromoted);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void AmbiguousSlotMapping_CS2J5197_PlanSkipped()
+    {
+        const string src = """
+            public interface IFoo<T> { void Bar(); }
+            public class Base : IFoo<int> { void IFoo<int>.Bar() { } }
+            public class Derived : Base, IFoo<string> { void IFoo<string>.Bar() { } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        // Base 的槽位不歧义（被提升）；Derived 的槽位跨类型多候选 → CS2J5197 原子跳过（声明不动）。
+        Assert.True(changed);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.SignatureSlotAmbiguous);
+        AssertContains(output, "public void Bar()");                 // Base 提升
+        AssertContains(output, "void IFoo<string>.Bar()");           // Derived 原样保留
+        Assert.Equal(1, stats.SignaturePlansPromoted);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Info
+            && d.Code == MemberDesugarDiagnosticCode.SignatureResidual);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    // ---- M3：NH-3 纯 base 委托白名单桥接 ----
+
+    [Fact]
+    public void Nh3_WhitelistedPureBaseDelegation_SameNameBridgeRetained_SitesUntouched()
+    {
+        const string src = """
+            public class Base { protected virtual string Name { get { return "b"; } } }
+            public class Derived : Base { public new string Name { get { return base.Name; } } }
+            public class Use { public string Get(Derived d) => d.Name; }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        // NH-3：白名单内保留同名 public 桥接（不改名/不改站点）；C11 仍将属性方法化。
+        AssertContains(output, "public new string get_Name()");
+        AssertContains(output, "return base.get_Name()");
+        AssertContains(output, "d.get_Name()");
+        AssertNotContains(output, "_cs2jNew");
+        AssertNotContains(output, "_cs2jClass");
+        Assert.Equal(1, stats.SignatureHideBridged);
+        Assert.Equal(0, stats.SignatureHideRenamed);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void Nh3_NonWhitelisted_CS2J5192_OutputByteIdentical()
+    {
+        const string src = """
+            public class MyEx : System.Exception
+            {
+                public new string ToString() => base.ToString();
+            }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.Equal(src, output);   // 成员原样保留、字节一致
+        Assert.False(changed);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.SignatureNameReservationConflict
+            && d.Severity == MemberDesugarSeverity.Error);
+        Assert.Equal(0, stats.SignatureHideBridged);
+        Assert.Equal(0, stats.SignatureHideRenamed);
+    }
+
+    // ---- M3：NH-4 字段/静态方法隐藏改名；new virtual 留 M4 ----
+
+    [Fact]
+    public void Nh4_NewField_And_NewStaticMethod_Renamed_StaticSitesResolved()
+    {
+        const string src = """
+            public class Base { public int F = 1; public static void Stat() { } }
+            public class Derived : Base
+            {
+                public new int F = 2;
+                public new static void Stat() { }
+                public int Use(Base b, Derived d) { return b.F + d.F; }
+                public void Go() { Base.Stat(); Derived.Stat(); }
+            }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "public int F_cs2jNew = 2;");
+        AssertContains(output, "public static void Stat_cs2jNew()");
+        AssertNotContains(output, "new int F");
+        AssertNotContains(output, "new static");
+        // 静态绑定按接收者静态类型解析：Base.Stat 不动、Derived.Stat 改名；字段同理。
+        AssertContains(output, "Base.Stat();");
+        AssertContains(output, "Derived.Stat_cs2jNew();");
+        AssertContains(output, "b.F + d.F_cs2jNew");
+        Assert.Equal(2, stats.SignatureHideRenamed);
+        Assert.Equal(2, stats.SignatureCallSitesRewritten);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void Nh2_NewVirtual_LeftUntouched_ForM4()
+    {
+        const string src = """
+            public class Base { public virtual void Ping() { } }
+            public class Derived : Base { public new virtual void Ping() { } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.Equal(src, output);   // newslot 链整组改名归 M4；M3 不动
+        Assert.False(changed);
+        Assert.Equal(0, stats.SignatureHideRenamed);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+    }
+
     // ---- 多文件重写（跨文件 plan TouchedFiles 闭合）----
 
     private static (string[] Outputs, MemberDesugarStatistics Stats, List<MemberDesugarDiagnostic> Diags)

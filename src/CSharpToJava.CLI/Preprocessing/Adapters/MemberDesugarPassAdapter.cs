@@ -345,6 +345,8 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                $"{_statistics.SignatureDisplacedRenamed} displaced renamed, " +
                $"{_statistics.SignatureDualInterfaceMerged} dual-interface merged, " +
                $"{_statistics.SignatureCallSitesRewritten} call-site(s) rewritten, " +
+               $"{_statistics.SignatureHideRenamed} hide renamed, " +
+               $"{_statistics.SignatureHideBridged} hide bridged, " +
                $"{_statistics.SignatureReflectionWarnings} reflection-warned, " +
                $"{_statistics.SignatureResidual} residual";
     }
