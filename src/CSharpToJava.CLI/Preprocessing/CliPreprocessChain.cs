@@ -4,6 +4,7 @@ using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
 using CSharpToJava.Core.StructValueSemantics;
+using CSharpToJava.Core.UnsafeFfm;
 
 namespace CSharpToJava.CLI.Preprocessing;
 
@@ -47,6 +48,9 @@ internal sealed class CliChainRequest
 
     /// <summary>Invoked only when equality-concat is enabled (keeps override loading lazy).</summary>
     public required Func<EqualityConcatOptions> EqualityConcatOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when unsafe-ffm is enabled (keeps construction lazy).</summary>
+    public required Func<UnsafeFfmOptions> UnsafeFfmOptionsFactory { get; init; }
 
     /// <summary>
     /// Per-id on/off state from legacy flags. Null means "use descriptor defaults";
@@ -153,6 +157,7 @@ internal static class CliPreprocessChain
             EnableDecimalOps = request.EnableDecimalOps,
             EnableIncrementTargets = request.EnableIncrementTargets,
             EqualityConcatOptionsFactory = request.EqualityConcatOptionsFactory,
+            UnsafeFfmOptionsFactory = request.UnsafeFfmOptionsFactory,
         };
 
         var sourcePath = request.SourcePath;

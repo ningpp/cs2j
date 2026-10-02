@@ -372,9 +372,18 @@ internal static class BoundaryAnalysisHelpers
 
     /// <summary>
     /// NativeMethods.cs is the conventional .NET container for P/Invoke extern
-    /// declarations. The class transformer already emits stub bodies (throwing
-    /// UnsupportedOperationException) for extern/DllImport methods, so the
-    /// native-interop check skips these files instead of blocking the project.
+    /// declarations. Measured behavior (design §1.2): the converter NEVER emits
+    /// stub bodies for extern/DllImport methods on any path. In the project
+    /// pipeline a file named exactly NativeMethods.cs skips these native-interop
+    /// checks, reaches emit and then hard-fails in the class transformer with
+    /// NotSupportedException ("CS2J normalization required: extern/DllImport
+    /// method … must be lowered by a preprocessor"); no NativeMethods.java is
+    /// produced. In the single-file pipeline the exemption used to never apply
+    /// because ConversionPipeline parsed the source without its file name; that
+    /// was fixed by passing the path into ParseText, after which single-file
+    /// conversions behave like the project pipeline (checks skipped, hard
+    /// failure downstream). C06 later milestones replace both outcomes with an
+    /// explicit UF060 rejection or a whitelisted interop facade.
     /// </summary>
     public static bool IsPInvokeContainerFile(string? filePath)
         => !string.IsNullOrWhiteSpace(filePath)

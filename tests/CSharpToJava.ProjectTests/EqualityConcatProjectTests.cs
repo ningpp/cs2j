@@ -52,6 +52,8 @@ public class EqualityConcatProjectTests
             EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
             EqualityConcatOptionsFactory = () =>
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
+            UnsafeFfmOptionsFactory = () =>
+                new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
             StructValueSemanticsOptionsFactory = () =>
                 new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),

@@ -38,6 +38,8 @@ public class NumericBoundaryDecimalOpsProjectTests
                 new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
             EqualityConcatOptionsFactory = () =>
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
+            UnsafeFfmOptionsFactory = () =>
+                new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
             EnablePassIds = new[] { PassId },

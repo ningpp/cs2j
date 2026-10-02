@@ -148,6 +148,24 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- C06: include SampleUnsafeFfmSolution as content; bin/obj excluded. -->
+    <Content Include="..\SampleUnsafeFfmSolution\**\*.*"
+              Exclude="..\SampleUnsafeFfmSolution\**\bin\**;..\SampleUnsafeFfmSolution\**\obj\**">
+      <Link>SampleUnsafeFfmSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- C06 M4: 独立互操作工程（非白名单 extern → UF060）。 -->
+    <Content Include="..\SampleUnsafeFfmExtern\**\*.*"
+              Exclude="..\SampleUnsafeFfmExtern\**\bin\**;..\SampleUnsafeFfmExtern\**\obj\**">
+      <Link>SampleUnsafeFfmExtern\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Include SampleGenericDeepenSolution as content so it's available at test runtime.
          bin/obj are excluded: the fixture may have been built locally. -->
     <Content Include="..\SampleGenericDeepenSolution\**\*.*"

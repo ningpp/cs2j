@@ -54,6 +54,9 @@ public class ConversionContext
     // this maps "p" → "__base_p" so that p.asSlice(-N) can use __base_p.asSlice(p.address() - __base_p.address() - N)
     private readonly Dictionary<string, string> _pointerBaseSegments = new(StringComparer.Ordinal);
     public bool IsInFixedScope => _fixedScopeStack.Count > 0;
+    // 【C06 退役评估 M3b】fixed scope 注册零调用：PushFixedScope/PopFixedScope
+    // 已无任何调用方（fixed 语句在预处理阶段归一，不再经转换器维护 scope）；
+    // 暂保留 API 作为直连安全网，不删除、不改行为。
     public void PushFixedScope(List<FixedPointerInfo> pointers) => _fixedScopeStack.Push(pointers);
     public void PopFixedScope() => _fixedScopeStack.Pop();
     public FixedPointerInfo? FindPointerInfo(string varName)

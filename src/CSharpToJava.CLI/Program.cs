@@ -215,6 +215,10 @@ public class Program
                 {
                     Strict = opts.LocalFunctionStrict,
                 },
+                UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions
+                {
+                    Strict = opts.LocalFunctionStrict,
+                },
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
@@ -3620,6 +3624,10 @@ public class Program
                     ReportInfo = opts.Verbose,
                 },
                 EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions
+                {
+                    Strict = opts.LocalFunctionStrict,
+                },
+                UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions
                 {
                     Strict = opts.LocalFunctionStrict,
                 },
