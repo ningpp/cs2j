@@ -71,12 +71,8 @@ internal static class FieldKeywordBodyRewriter
     /// <summary>把 field token 的 trivia 平移到普通标识符（@field 不会走到这里）。</summary>
     private static IdentifierNameSyntax BuildFieldIdentifier(FieldExpressionSyntax node, string fieldName)
     {
-        var token = SyntaxFactory.Token(
-            node.Token.LeadingTrivia,
-            SyntaxKind.IdentifierToken,
-            fieldName,
-            fieldName,
-            node.Token.TrailingTrivia);
+        var token = SyntaxFactory.Identifier(
+            node.Token.LeadingTrivia, fieldName, node.Token.TrailingTrivia);
         return SyntaxFactory.IdentifierName(token)
             .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
     }
@@ -91,16 +87,13 @@ internal static class FieldKeywordBodyRewriter
                 SyntaxFactory.IdentifierName(fieldName),
                 SyntaxFactory.IdentifierName("value"));
 
-        var arrow = SyntaxFactory.ArrowExpressionClause(
-                SyntaxFactory.Token(SyntaxKind.MinusGreaterThanToken)
-                    .WithLeadingTrivia(SyntaxFactory.ElasticSpace)
-                    .WithTrailingTrivia(SyntaxFactory.ElasticSpace),
-                rhs)
+        var arrow = SyntaxFactory.ArrowExpressionClause(rhs)
             .WithLeadingTrivia(SyntaxFactory.ElasticSpace);
 
         var semicolon = acc.SemicolonToken.IsKind(SyntaxKind.SemicolonToken)
             ? acc.SemicolonToken
-            : SyntaxFactory.Token(SyntaxKind.SemicolonToken);
+            : SyntaxFactory.Token(SyntaxKind.SemicolonToken)
+                .WithLeadingTrivia(SyntaxFactory.ElasticSpace);
 
         return acc
             .WithExpressionBody(arrow)

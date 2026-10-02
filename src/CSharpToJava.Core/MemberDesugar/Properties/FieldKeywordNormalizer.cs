@@ -17,9 +17,13 @@ internal static class FieldKeywordNormalizer
                 SymbolDisplayFormat.MinimallyQualifiedFormat.MiscellaneousOptions
                 | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
+    /// <param name="visitedDecl">已过使用点改写器的属性声明（其内部未改写节点仍是原始
+    /// 树引用，FieldExpression 节点引用得以保留，供结构化替换）。</param>
+    /// <param name="bindingDecl">原始树内声明，语义绑定/定位一律走它（红节点不可绑定）。</param>
     /// <returns>true=归一成功（normalized/field 产出）；false=已发跳过诊断，调用方原样保留。</returns>
     public static bool TryNormalize(
-        PropertyDeclarationSyntax decl,
+        PropertyDeclarationSyntax visitedDecl,
+        PropertyDeclarationSyntax bindingDecl,
         PropertyPlan plan,
         SemanticModel model,
         MemberDesugarOptions options,
@@ -32,8 +36,8 @@ internal static class FieldKeywordNormalizer
         normalized = null!;
         field = null!;
 
-        // 改写期重解析后再判一次（与分析期同算法，防止跨阶段漂移）。
-        var resolve = FieldKeywordResolver.Resolve(decl, plan.Property, model, options);
+        // 改写期重解析后再判一次（绑定走原始树，与分析期同算法，防止跨阶段漂移）。
+        var resolve = FieldKeywordResolver.Resolve(bindingDecl, plan.Property, model, options);
         if (!resolve.Success)
         {
             diagnostics.Add(new MemberDesugarDiagnostic(
@@ -41,8 +45,8 @@ internal static class FieldKeywordNormalizer
                 resolve.FailCode!.Value,
                 resolve.FailReason!,
                 filePath,
-                decl.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
-                decl.GetLocation().GetLineSpan().StartLinePosition.Character + 1,
+                bindingDecl.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                bindingDecl.GetLocation().GetLineSpan().StartLinePosition.Character + 1,
                 plan.SymbolName));
             return false;
         }
@@ -52,7 +56,7 @@ internal static class FieldKeywordNormalizer
             ?? throw new InvalidOperationException(
                 $"C50: field-backed property '{plan.SymbolName}' has no backing field name.");
 
-        var body = FieldKeywordBodyRewriter.Rewrite(decl, fieldName);
+        var body = FieldKeywordBodyRewriter.Rewrite(visitedDecl, fieldName);
 
         // FK-7 接缝（决策 8）：commit c 接入 [field:] 特性整组迁移。
         var fieldAttributeLists = Array.Empty<AttributeListSyntax>();
@@ -60,7 +64,7 @@ internal static class FieldKeywordNormalizer
         var strippedDecl = body.Declaration;
 
         var fieldDecl = BuildField(
-            decl, plan, info, fieldName, body.MovedInitializer, fieldAttributeLists, model);
+            bindingDecl, plan, info, fieldName, body.MovedInitializer, fieldAttributeLists, model);
 
         normalized = strippedDecl;
         field = fieldDecl;
@@ -119,9 +123,8 @@ internal static class FieldKeywordNormalizer
             model, decl.SpanStart, MinimalNullableFormat);
         var typeSyntax = SyntaxFactory.ParseTypeName(typeText);
 
-        var declarator = SyntaxFactory.VariableDeclarator(SyntaxFactory.Token(
-            SyntaxTriviaList.Empty, SyntaxKind.IdentifierToken, fieldName, fieldName,
-            SyntaxTriviaList.Empty));
+        var declarator = SyntaxFactory.VariableDeclarator(
+            SyntaxFactory.Identifier(SyntaxTriviaList.Empty, fieldName, SyntaxTriviaList.Empty));
         if (initializer != null)
             declarator = declarator.WithInitializer(initializer);
 

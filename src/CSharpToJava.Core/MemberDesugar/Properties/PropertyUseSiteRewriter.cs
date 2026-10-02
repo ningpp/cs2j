@@ -121,29 +121,30 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 && _model.GetDeclaredSymbol(propDecl) is { } prop
                 && _active.TryGetValue(PropertyPlan.SiteKey(prop), out var plan))
             {
-                // C50：Expand 之前先把 field 形态归一为「显式字段 + 普通 full 属性」，
-                // 字段节点预制，Expander 复用不重复发；失败（跨阶段漂移）已发跳过诊断，
-                // 原样保留该成员（整树将由编译回滚闭环兜底）。
-                PropertyDeclarationSyntax expandInput = propDecl;
+                // 先在使用点改写器内改写访问器体（计算属性可能引用同族去糖属性，
+                // 如 FullName => FirstName + ..；语义绑定全部走原始树节点）。
+                var visitedDecl = (PropertyDeclarationSyntax)Visit(propDecl)!;
+
+                // C50：Expand 之前再把 field 形态归一为「显式字段 + 普通 full 属性」。
+                // 归一在 Visit 之后：未改写节点（含 FieldExpression）仍是原始树引用，
+                // 结构化替换可命中；字段节点预制，Expander 复用不重复发。
+                // 失败（跨阶段漂移）已发跳过诊断，原样保留该成员（整树由编译回滚闭环兜底）。
                 FieldDeclarationSyntax? prebuiltField = null;
                 if (plan.FieldKeyword != null)
                 {
                     if (!FieldKeywordNormalizer.TryNormalize(
-                            propDecl, plan, _model, _options, _stats, _diagnostics, _filePath,
+                            visitedDecl, propDecl, plan, _model, _options, _stats,
+                            _diagnostics, _filePath,
                             out var normalized, out var synthesized))
                     {
-                        if (Visit(member) is MemberDeclarationSyntax untouched)
-                            newMembers.Add(untouched);
+                        newMembers.Add(visitedDecl);
                         continue;
                     }
-                    expandInput = normalized;
+                    visitedDecl = normalized;
                     prebuiltField = synthesized;
                 }
 
-                // 先在使用点改写器内改写访问器体（计算属性可能引用同族去糖属性，
-                // 如 FullName => FirstName + ..），再展开。展开产物是脱离语法树的
-                // 拷贝，无法再绑定 —— 语义绑定（特性路由）一律走原始声明。
-                var visitedDecl = (PropertyDeclarationSyntax)Visit(expandInput)!;
+                // 展开产物是脱离语法树的拷贝，无法再绑定 —— 特性路由一律走原始声明。
                 var expander = new PropertyDeclarationExpander(
                     _model, _options, _stats, _diagnostics, _filePath);
                 foreach (var expanded in expander.Expand(visitedDecl, plan, propDecl, prebuiltField))
