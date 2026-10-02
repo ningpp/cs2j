@@ -166,7 +166,7 @@ class Derived : Base {
 
 ### 3.1 现状（已核实）
 
-member-desugar 现为 Implemented 描述符：[PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)，id `member-desugar`、Stage=`Declarative`、Status=`Implemented`、默认关、RunAfter=`{struct-value-semantics, closure-lift}`、`catalogItems="C11"`——**C46 不在当前字符串中**（撰写时该 stub 位于 PassStubCatalog.cs、catalogItems 含 C46；C11 翻转后 stub 删除、CatalogItems 收窄为 `"C11"`，与 C11 §3.3 一致），本任务不编辑该文件；C46 合入时追加 `"C46"`（一行字符串，预期协调点）。**2026-09-30 勘误**：catalogItems 当前真值已变为 `"C11, C12, C13, C14"`（维护者合并 C12–C14 后已对齐），C46 合入时须在此真值上追加为 `"C11, C12, C13, C14, C46"`，勿回退 C12–C14。
+member-desugar 现为 Implemented 描述符：[PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)，id `member-desugar`、Stage=`Declarative`、Status=`Implemented`、默认关、RunAfter=`{struct-value-semantics, closure-lift}`、`catalogItems="C11"`——**C46 不在当前字符串中**（撰写时该 stub 位于 PassStubCatalog.cs、catalogItems 含 C46；C11 翻转后 stub 删除、CatalogItems 收窄为 `"C11"`，与 C11 §3.3 一致），本任务不编辑该文件；C46 合入时追加 `"C46"`（一行字符串，预期协调点）。**2026-09-30 勘误**：catalogItems 当前真值已变为 `"C11, C12, C13, C14"`（维护者合并 C12–C14 后已对齐），C46 合入时须在此真值上追加为 `"C11, C12, C13, C14, C46"`，勿回退 C12–C14。**2026-10-02 复核**：真值现为 `"C11, C12, C13, C14, C39"`（C39 已合入，[PassCatalog.cs:355-365](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L355-L365)），C46 合入时追加为 `"C11, C12, C13, C14, C39, C46"`，勿回退 C12–C14/C39。
 
 ### 3.2 本任务的注册姿态
 
@@ -186,6 +186,8 @@ catalog 要求「C46 须晚于 C20（partial 合并后签名才完整）」。�
 ### 3.4 不翻转期间的行为
 
 族 pass 默认关 → 本规则完全不执行（无目录、无耗时、链行为零变化）；族 pass 启用但本规则全部 skip 时输出与仅 C11–C14 一致（零 diff 有计数）。转换器侧 §1.1 三个补丁在消费 PR 前原样保留，是默认关期的安全网。
+
+**2026-10-02 实施口径更新（前提变化）**：族 pass 已 Implemented 且 defaultEnabled=true（§12 前置现状 3），「默认关 → 本规则完全不执行」的前提不再成立；改由 Signatures 子集闸门 `rules.signatures.enabled`（默认 **false**）承接——族 pass 默认开但 Signatures 零执行零 diff，显式启用后才参与分析/改写；§8 门槛完成前不翻默认值。该选项经 `rules.finalizers` 同款子节透传（Program.cs 解析，不新增 verb/开关/描述符）。
 
 ---
 
@@ -390,15 +392,19 @@ src\CSharpToJava.Core\MemberDesugar\
 
 ---
 
-## 12. Worktree 分配（只写不执行）
+## 12. Worktree 分配（2026-10-02 更新 base 并进入实施）
 
 - 分支：`feature/preproc-c46-member-signature`
 - 目录：`.worktrees/preproc-c46-member-signature`
-- base：`953293b9`（`docs: update doc base commit`，已核实存在；**实现前先合入 C11 分支**，M3 前再依次 rebase C12/C13 合入点）
-- 创建命令（仓库根、PowerShell；本设计阶段不执行）：
+- base：**`4ea50d44`**（`docs: C24 设计文档 worktree base 前移至 dev-3.x HEAD 10aae03f`，dev-3.x HEAD @ 2026-10-02，完整 SHA `4ea50d44232c44982dbb39660a88257d7ce74158`，已 `git rev-parse --verify` 校验存在）。~~原 base `953293b9`~~（`docs: update doc base commit`，2026-10-02 前移）；原校订注记「实现前先合入 C11 分支」的要求已由前置现状核实收口（无需再合）。
+- **前置现状（2026-10-02 基线核实，硬前置全部满足）**：
+  1. C11（及 C12/C13/C14）已合入 dev-3.x：`MemberDesugar/{Properties,Indexers,Events,Operators}/` 与八文件共享根均在树；`member-desugar` pass 已 **Implemented 且 defaultEnabled=true**（[PassCatalog.cs:355-365](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L355-L365)，RunAfter=`{struct-value-semantics, closure-lift}`，Stage=Declarative，目录 `.cs2j-member-desugar-src`），catalogItems 真值 `"C11, C12, C13, C14, C39"`，本任务合入时追加为 `"C11, C12, C13, C14, C39, C46"`（§3.1 勘误）。
+  2. 码位与枚举已预留：`MemberDesugarKind.Signature`（[MemberDesugarPlan.cs:12](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarPlan.cs#L12)，位于 Operator 之后、Finalizer 之前，规则发现按 Kind 排序天然晚于访问器四类）；CS2J5190-5199 段位注释已留（[MemberDesugarModels.cs:76](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarModels.cs#L76-L76)）。
+  3. **族 pass 默认开 → 设计前提变化**：§3.4 的「默认关期零执行」改由 `rules.signatures.enabled`（默认 false）子集闸门承接（§3.4 更新、§5 选项子节）；选项解析沿用 C39 `rules.finalizers` 同款子节透传（Program.cs，不新增 verb/开关/描述符）。
+- 创建命令（在仓库根、PowerShell 下执行；2026-10-02 实施时实际执行；base 文档更新提交落在 dev-3.x 的 `4ea50d44` 之上，故分支从更新后的 dev-3.x HEAD 切出，内容 = `4ea50d44` + 本文档修订）：
 
 ```powershell
-git worktree add .worktrees/preproc-c46-member-signature -b feature/preproc-c46-member-signature 953293b9
+git worktree add .worktrees/preproc-c46-member-signature -b feature/preproc-c46-member-signature dev-3.x
 ```
 
 - 交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `MemberDesugar/Signatures/`（SI/NH/CR 三组规则 + 整树分析器）、**零 CLI 新增**（族规则自动发现 + `rules.signatures` 选项透传）、本设计文档与后续 plan（`docs/superpowers/plans/2026-09-29-c46-member-signature.md`）、Core 单测 + fixture 场景文件 + Release build/test + residual 闸门；不新建支撑工程；不触转换器代码；不做任何注册表翻转。
@@ -407,7 +413,7 @@ git worktree add .worktrees/preproc-c46-member-signature -b feature/preproc-c46-
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。【2026-10-02 实施更新：base 直接前移至 dev-3.x HEAD `4ea50d44`，命令见 §12；C11–C14 均已合入（pass 已 Implemented、默认开），无需再合分支；族 pass 默认开前提下 Signatures 子集以 `rules.signatures.enabled`（默认 false）承接「零执行零 diff」，catalogItems 按真值 `"C11, C12, C13, C14, C39" → "C11, C12, C13, C14, C39, C46"`；原 stub 计数开放问题已随锚点翻转历史收口】
 
 **裁决（按原题号）：**
 
