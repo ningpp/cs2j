@@ -308,24 +308,29 @@ M0 探针清单（每条以「可编译性 + SemanticModel 符号形状 + 反射
 
 ---
 
-## 12. Worktree 分配（只写不执行；本设计阶段不创建）
+## 12. Worktree 分配（2026-10-03 更新 base，与 C27 共用同一 worktree 进入实施）
 
-- 分支：`feature/preproc-c50-field-keyword`
-- 目录：`.worktrees/preproc-c50-field-keyword`
-- base：`9b99c60b`（`docs: C46 成员签名显式化设计`，已核实存在）；**实现前先把 C11 锚点分支合入本分支**（C11 未合主干前不合入、不翻转任何 stub）
-- 创建命令（在仓库根、PowerShell 下执行；本任务阶段禁止执行）：
+- 分支：`feature/preproc-c27-c50-record-with-field-keyword`（**C27 record-with 与本特性 C50 共用同一分支/worktree**：两 preprocessor 在同一 worktree 内同批实施、按各自里程碑分别提交；建议先落 C50（建立 PropertyRule 前置 normalizer 钩子），再落 C27）
+- 目录：`.worktrees/preproc-c27-c50-record-with-field-keyword`
+- base：**`840010e2`**（`docs: C46 设计文档 worktree base 前移至 dev-3.x HEAD 4ea50d44`，dev-3.x HEAD @ 2026-10-03，完整 SHA `840010e2c1d6311424c89e8c597f5147abec2fbc`，已 `git rev-parse --verify` 校验存在；worktree 切出后基线 `dotnet build CSharpToJavaConverter.slnx` 退出码 0）。~~原 base `9b99c60b`~~（`docs: C46 成员签名显式化设计`，2026-10-03 前移；原校订注记「实现前先把 C11 锚点分支合入本分支」已随 C11–C14 合入收口，无需再合）。
+- 创建命令（在仓库根、PowerShell 下执行；2026-10-03 实施时已实际执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c50-field-keyword -b feature/preproc-c50-field-keyword 9b99c60b
+git worktree add .worktrees/preproc-c27-c50-record-with-field-keyword -b feature/preproc-c27-c50-record-with-field-keyword dev-3.x
 ```
 
-- worktree 内交付面：M0 探针结论回填本文档；Core 仅在 `MemberDesugar/Properties/` 增加 FieldKeyword* 文件（C11 合入后）；Core 单测 + fixture `FieldKeyword*` 前缀文件 + Release build/test + residual 闸门；零适配器/开关/注册表改动；不触转换器代码；不新建支撑工程。
+- **前置现状（2026-10-03 基线核实，硬前提变化）**：
+  1. **Roslyn 版本先决已满足**：`Microsoft.CodeAnalysis.CSharp`/`.CSharp.Workspaces`/`Workspaces.MSBuild` 已由 4.12.0 升级到 **5.0.0**（`src/CSharpToJava.Core/CSharpToJava.Core.csproj:12-14`），Core TFM `net10.0`、SDK 10.0.300、全仓 parse options 仍统一 `LanguageVersion.Latest`（`src/CSharpToJava.Core/Pipeline/ProjectCompilationBuilder.cs:30`）——C#14 `field` 上下文关键字 GA 绑定可用。§1.3「4.12 拿不到 backing field、须等 C52 升到 ≥4.14」的阻塞消解，M0 **FK-P0 版本探针由本基线复核替代**（不再有升级动作）；FK-P1~P6 的符号形状/反射/语言边界探针仍保留为实现期单测基线。
+  2. **族 pass 已默认开**：member-desugar 为 Implemented 且 **defaultEnabled=true**（`src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs:355-365`，Stage=Declarative，RunAfter=`{struct-value-semantics, closure-lift}`，目录 `.cs2j-member-desugar-src`），catalogItems 真值 **`"C11, C12, C13, C14, C39"`**（C39 已合入；§3.2 的 `"C11, C12, C13, C14"` 勘误再次过期）。本特性合入时在该真值上追加 `C50`；与同分支 C27 一并落地后的终值为 `"C11, C12, C13, C14, C39, C50, C27"`（最终顺序以合入时 PassCatalog 真值为准，**勿回退 C12–C14/C39**）。
+  3. **默认开口径变化（不抢跑）**：§5/§8/附裁决 2 撰写于「族 pass 默认关、field 规则恒在无独立开关、只受版本门+门槛门控制」的前提；现族 pass 已默认开，field 归一在 §8 门槛（§7 全部单测/fixture/反射断言/FK-9 residual/.NET 10 扫描）全绿前不得以默认行为改写输出。实施时仿 C39 `rules.finalizers`（`Program.cs:3321`）与 C46 `rules.signatures.enabled` 的子集闸门口子，为 field 归一加一个默认 **false** 的子集开关（经 Program.cs 配置透传到 `MemberDesugarOptions`，**不新增 pass/适配器/verb/描述符**）；关闭时 field 规则零执行零 diff，显式启用才参与分析/改写，门槛通过后随 C11 翻默认值。
+  4. `MemberDesugar/Properties/` 六文件在盘（PropertyDeclarationRewriter/PropertyFacts/PropertyPlan/PropertyRule/PropertyUseSiteRewriter/PropertyDiagnostics），全树无任何 FieldKeyword* 文件；C50 全部新增代码落 `MemberDesugar/Properties/`，§4.4 四个接缝（PropertyPlan 挂载点、PropertyRule「字段已提供」钩子、BackingFieldNaming 预留入口、声明管线 normalizer 相位）向现有形状适配，只增不改既有行为。
+- worktree 内交付面：M0 FK-P1~P6 探针结论回填本文档；Core 仅在 `MemberDesugar/Properties/` 增加 FieldKeyword* 文件（含 PropertyRule 前置 normalizer 钩子与默认关子集开关）；Core 单测（`tests/CSharpToJava.ProjectTests/MemberDesugarFieldKeywordUnitTests.cs`）+ fixture `FieldKeyword*` 前缀文件（并入既有 `tests/SampleMemberDesugarSolution`，不建第二套 sln）+ Release build/test + FK-9 residual 闸门；零 pass/适配器/注册表结构改动（仅 catalogItems 一行 + 子集开关透传）；不触转换器代码；不新建支撑工程。
 
 ---
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持本文 §12 登记的自有 base `9b99c60b`（不改动），创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持本文 §12 登记的自有 base `9b99c60b`（不改动），创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。【2026-10-03 实施更新：base 直接前移至 dev-3.x HEAD `840010e2`，并与 C27 共用同一 worktree/分支（名见 §12），命令见 §12 且已执行；Roslyn 已 5.0.0（版本先决满足，FK-P0 取消）；member-desugar 已 Implemented 且 **defaultEnabled=true**，catalogItems 真值 `"C11, C12, C13, C14, C39"`，本特性合入追加 `C50`；族 pass 既已默认开，field 归一在 §8 门槛全绿前以默认 **false** 的子集开关承接「零执行零 diff」，不抢跑，详见 §12 前置现状】
 
 **裁决（按原题号）：**
 

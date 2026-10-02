@@ -398,24 +398,30 @@ C11-C14 已落地，C27 直接开工，建议四段：
 
 ---
 
-## 12. Worktree 分配（只写不执行；本设计阶段不创建）
+## 12. Worktree 分配（2026-10-03 更新 base，与 C50 共用同一 worktree 进入实施）
 
-- 分支：`feature/preproc-c27-record-with`
-- 目录：`.worktrees/preproc-c27-record-with`
-- base（校订）：裁决时锚点 `953293b9`（`docs: update doc base commit`）与 dev-3.x HEAD `ef70e5a2` 均经 `git cat-file` 核实存在；**C11-C14 已合入主干**（member-desugar Implemented、`MemberDesugar/` 四规则在盘），实际开工 base 直接取**开工当日主干 HEAD** 即可，无需再等锚点合入或先行 rebase。
-- 创建命令（在仓库根、PowerShell 下执行；本任务只产出本文档，**不执行**；base 位以下令为例，实施时换当日主干 HEAD）：
+- 分支：`feature/preproc-c27-c50-record-with-field-keyword`（**C50 field-keyword 与本特性 C27 共用同一分支/worktree**：两 preprocessor 在同一 worktree 内同批实施、按 §9 里程碑各自分别提交；实施序为先 C50（建立 Properties 前置 normalizer 钩子）后 C27（新增 Records 规则 + Properties 归属挂点），降低同改 PropertyRule 的冲突）
+- 目录：`.worktrees/preproc-c27-c50-record-with-field-keyword`
+- base：**`840010e2`**（`docs: C46 设计文档 worktree base 前移至 dev-3.x HEAD 4ea50d44`，dev-3.x HEAD @ 2026-10-03，完整 SHA `840010e2c1d6311424c89e8c597f5147abec2fbc`，已 `git rev-parse --verify` 校验存在；worktree 切出后基线 `dotnet build CSharpToJavaConverter.slnx` 退出码 0）。~~原校订 base 锚点 `953293b9`（`docs: update doc base commit`）/ dev-3.x `ef70e5a2`~~（2026-10-03 前移；原校订「实际开工 base 直接取开工当日主干 HEAD」即落在此值，无需再等锚点合入或先行 rebase）。
+- 创建命令（在仓库根、PowerShell 下执行；2026-10-03 实施时已实际执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c27-record-with -b feature/preproc-c27-record-with <当日主干 HEAD>
+git worktree add .worktrees/preproc-c27-c50-record-with-field-keyword -b feature/preproc-c27-c50-record-with-field-keyword dev-3.x
 ```
 
-实施约束（交实施 worktree）：仅在上述 worktree 内改码；按 §9 里程碑逐提交；不注册/翻转任何 stub、不动 RunAfterIds、不新增 pass/适配器/verb；共享文件仅 [MemberDesugarPlan.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/MemberDesugar/MemberDesugarPlan.cs) 枚举一行 + 可能的 Properties 归属挂点（开放问题 6），注册表仅 CatalogItems 一行；转换器代码改动（§5.4）留后续 PR；族 pass 默认开启以 §8 门槛为准，不抢跑；交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md L108-L117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `MemberDesugar/Records/`、Core 单测 + fixture（并入已存在的族共享 sln）+ Release build/test + residual 零 with 闸门 + CLI 测试、本设计与 plan 文档（`docs/superpowers/plans/2026-09-29-c27-record-with.md`）；不新建支撑工程。
+- **前置现状（2026-10-03 基线核实）**：
+  1. **族 pass 已默认开**：member-desugar 为 Implemented 且 **defaultEnabled=true**（`src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs:355-365`，Stage=Declarative，RunAfter=`{struct-value-semantics, closure-lift}`，目录 `.cs2j-member-desugar-src`），catalogItems 真值 **`"C11, C12, C13, C14, C39"`**（C39 已合入；C46 尚在其独立 worktree、枚举位 `Signature` 已预留但规则未在盘）。本特性合入时在该真值上追加 `C27`；与同分支 C50 一并落地后的终值为 `"C11, C12, C13, C14, C39, C50, C27"`（最终顺序以合入时 PassCatalog 真值为准，**勿回退 C12–C14/C39**）。
+  2. `MemberDesugarKind` 枚举现值 `Property, Indexer, Event, Operator, Signature(C46 预留), Finalizer(C39, 置最后)`（`src/CSharpToJava.Core/MemberDesugar/MemberDesugarPlan.cs:6-14`）；规则发现排序为 `OrderBy(Kind).ThenBy(Order)`（`MemberDesugarRules.cs:32`）。本任务按 §3.2-1 追加 `Record`；Records「声明 reshape 先于 Properties、使用点 WithExpressionRewriter 先于 Properties 使用点」的次序，以「reshape 直产终形字段+方法、不产新 PropertyDeclarationSyntax」＋开放问题 6 的 plan 归属互斥挂点共同保证，不靠文件遍历巧合；`Record` 的枚举插入位与规则 Order 在实现时以不扰动 Finalizer「置最后」语义确定。
+  3. `MemberDesugar/Records/` 目录尚不存在（本任务新建）；Properties 三处 CS2J5123/5124 闸门挂点仍在 `PropertyRule.cs`（开放问题 6 由本任务以最小共享面钩子收口，候选①kind 查询钩子优先）。
+  4. **默认开口径变化（不抢跑）**：§8 门槛（尤其 §5.4 Java 半区第 1 项「复制构造 Java 发射」与第 3 项「with 旧路径不可达」两项硬门禁）未完成前，Records 规则不得以默认行为改写输出。实施时仿 C39 `rules.finalizers`（`Program.cs:3321`）与 C46 `rules.signatures.enabled` 子集闸门口子，为 Records 加一个默认 **false** 的子集开关（`rules.records` 形态，Program.cs 配置透传到 `MemberDesugarOptions`，**不新增 pass/适配器/verb/描述符**）；关闭时 Records 零执行零 diff，显式启用才参与分析/改写，§8 门槛通过后再翻默认值。
+
+实施约束（交实施 worktree）：仅在上述（与 C50 共用的）worktree 内改码；按 §9 里程碑逐提交；不注册/翻转任何 stub、不动 RunAfterIds、不新增 pass/适配器/verb；共享文件仅 `MemberDesugarPlan.cs` 枚举一行 + Properties 归属挂点（开放问题 6）+ 子集开关透传，注册表仅 CatalogItems 一行；转换器代码改动（§5.4）留后续 PR；族 pass 已默认开，Records 子集默认关、不抢跑（前置现状 4）；交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md L108-L117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `MemberDesugar/Records/`、Core 单测（`tests/CSharpToJava.ProjectTests/MemberDesugarRecordWithUnitTests.cs`）+ fixture（`Records*` 前缀，并入已存在的族共享 sln `tests/SampleMemberDesugarSolution`）+ Release build/test + residual 零 with 闸门 + CLI 测试、本设计与 plan 文档（`docs/superpowers/plans/2026-09-29-c27-record-with.md`）；不新建支撑工程。
 
 ---
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（**单下划线后缀**）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。**（校订注：该收口已完成——member-desugar 已翻转为 Implemented，PassStubCatalog 现为 21 个 stub；两 commit 均核实存在，见 §12。）**
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（**单下划线后缀**）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。**（校订注：该收口已完成——member-desugar 已翻转为 Implemented，PassStubCatalog 现为 21 个 stub；两 commit 均核实存在，见 §12。）【2026-10-03 实施更新：base 前移至 dev-3.x HEAD `840010e2`，并与 C50 共用同一 worktree/分支（名见 §12），命令见 §12 且已执行；member-desugar 已 **defaultEnabled=true**、catalogItems 真值 `"C11, C12, C13, C14, C39"`，本特性合入追加 `C27`；枚举现值含 Signature/Finalizer 而无 Record；族 pass 既已默认开，Records 在 §8（含 §5.4 Java 硬门禁）达标前以默认 **false** 的 `rules.records` 子集开关承接「零执行零 diff」，不抢跑，详见 §12 前置现状】**
 
 **裁决（按原题号）：**
 
