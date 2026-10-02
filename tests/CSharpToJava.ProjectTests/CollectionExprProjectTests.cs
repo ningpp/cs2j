@@ -102,6 +102,7 @@ public class CollectionExprProjectTests
             RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
             MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
             EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
+            LexicalNormalizeOptionsFactory = () => new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
             EqualityConcatOptionsFactory = () => new EqualityConcatOptions(),
             ExpressionDesugarOptionsFactory = () => new ExpressionDesugarOptions(),
             UnsafeFfmOptionsFactory = () =>

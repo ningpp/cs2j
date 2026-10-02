@@ -51,6 +51,7 @@ public class EqualityConcatProjectTests
             RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
             MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
             EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
+            LexicalNormalizeOptionsFactory = () => new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
             EqualityConcatOptionsFactory = () =>
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             UnsafeFfmOptionsFactory = () =>

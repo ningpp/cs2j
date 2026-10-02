@@ -54,7 +54,7 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
                 : diagnostic.Severity == LexicalNormalizeSeverity.Warning ? "Warning"
                 : "Info";
             _diagnostics.Add(
-                $"[{severity}] {context.RelativePath}:{diagnostic.Line ?? 0}: {diagnostic.Message}");
+                $"[{severity}] {context.RelativePath}:{diagnostic.Line ?? 0}: {diagnostic.Code}: {diagnostic.Message}");
         }
 
         _lineRemoved += result.Statistics.LineDirectivesRemoved;
@@ -112,7 +112,7 @@ internal sealed class LexicalNormalizePassAdapter : ProjectPassAdapter
 
             _diagnostics.Add(
                 $"[{(severity == LexicalNormalizeSeverity.Error ? "Error" : "Warning")}] :0: " +
-                $"[LN-5] duplicate global using '{group.Key}' at {locations}");
+                $"CS2J5521: [LN-5] duplicate global using '{group.Key}' at {locations}");
         }
 
         return Task.CompletedTask;

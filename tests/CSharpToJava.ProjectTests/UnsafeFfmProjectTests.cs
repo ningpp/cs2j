@@ -37,6 +37,7 @@ public class UnsafeFfmProjectTests
             RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
             MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
             EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
+            LexicalNormalizeOptionsFactory = () => new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
             UnsafeFfmOptionsFactory = () => new Core.UnsafeFfm.UnsafeFfmOptions(),
             ExpressionDesugarOptionsFactory = () =>
                 new Core.ExpressionDesugar.ExpressionDesugarOptions(),

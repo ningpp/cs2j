@@ -39,6 +39,7 @@ public class ForeachSourceProjectTests
             RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
             MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
             EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
+            LexicalNormalizeOptionsFactory = () => new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
             StructValueSemanticsOptionsFactory = () =>
                 new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
@@ -179,6 +180,7 @@ public class ForeachSourceProjectTests
                 RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
                 MemberDesugarOptionsFactory = () => new MemberDesugarOptions(),
                 EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
+                LexicalNormalizeOptionsFactory = () => new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
                 StructValueSemanticsOptionsFactory = () =>
                     new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
                 JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),

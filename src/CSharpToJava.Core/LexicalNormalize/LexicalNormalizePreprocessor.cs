@@ -73,7 +73,7 @@ public sealed class LexicalNormalizePreprocessor
             stats.FileScopedNamespacesNormalized += namespaceRewriter.NormalizedCount;
         }
 
-        var output = working.ToFullString();
+        var output = UnifyLineEndings(sourceCode, working.ToFullString());
         var changed = !string.Equals(sourceCode, output, StringComparison.Ordinal);
 
         if (!changed)
@@ -108,6 +108,54 @@ public sealed class LexicalNormalizePreprocessor
             Materialize(diagnostics, options),
             stats.Build(),
             scan.GlobalUsings);
+    }
+
+    /// <summary>
+    /// Unifies the rewritten text to the input's dominant line ending. The
+    /// Formatter introduces <see cref="Environment.NewLine"/> trivia, which would
+    /// otherwise mix endings; files without any newline default to LF.
+    /// </summary>
+    private static string UnifyLineEndings(string original, string output)
+    {
+        if (output.Length == 0 || (!output.Contains('\r') && !output.Contains('\n')))
+        {
+            return output;
+        }
+
+        var crlf = 0;
+        var bareLf = 0;
+        var bareCr = 0;
+        for (var i = 0; i < original.Length; i++)
+        {
+            if (original[i] == '\r')
+            {
+                if (i + 1 < original.Length && original[i + 1] == '\n')
+                {
+                    crlf++;
+                    i++;
+                }
+                else
+                {
+                    bareCr++;
+                }
+            }
+            else if (original[i] == '\n')
+            {
+                bareLf++;
+            }
+        }
+
+        if (crlf == 0 && bareLf == 0 && bareCr == 0)
+        {
+            return output.Replace("\r\n", "\n").Replace("\r", "\n");
+        }
+
+        if (crlf >= bareLf && crlf >= bareCr)
+        {
+            return output.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", "\r\n");
+        }
+
+        return output.Replace("\r\n", "\n").Replace("\r", "\n");
     }
 
     private static LexicalNormalizeSeverity EffectiveSeverity(

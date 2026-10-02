@@ -245,4 +245,13 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- C28 lexical-normalize fixture (bin/obj excluded). -->
+    <Content Include="..\SampleLexicalNormalizeSolution\**\*.*"
+              Exclude="..\SampleLexicalNormalizeSolution\**\bin\**;..\SampleLexicalNormalizeSolution\**\obj\**">
+      <Link>SampleLexicalNormalizeSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

@@ -38,6 +38,8 @@ public class NumericBoundaryIncrementTargetProjectTests
                 new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
             EnumDeclarationOptionsFactory = () =>
                 new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
+            LexicalNormalizeOptionsFactory = () =>
+                new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
             EqualityConcatOptionsFactory = () =>
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             UnsafeFfmOptionsFactory = () =>
