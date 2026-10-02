@@ -5,7 +5,7 @@
 **状态**: 设计待评审；硬前置 M0 Roslyn 探针（§9）；M1 不阻塞开工（自带最小发射；助手复用待 C24/C36 合入，见 §3.4/§11）
 **Catalog**: C48（P2，分类 1.4 成员/调用点）[preprocessor-catalog.md L939-L951](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L939-L951)；E08 两遍范式 [L166-L174](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L166-L174)；C36 边界 [L764-L779](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L764-L779)；C06 Span 选型 [L348-L361](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L348-L361)；C52 隐式 Span 转换交界 [L997-L1010](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L997-L1010)
 **注册表现状**: `strip-default` 已在 [PassCatalog.cs L123-L133](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L123-L133) 登记（Status=Implemented、defaultEnabled=true、Stage=Declarative、RunAfter=`[foreach-deconstruction]`、目录 `.cs2j-strip-default-src`）；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 21 个 stub **无任何 params 条目**（已逐行核实）。C48 不新增 pass id；规则门控仅存在于 `DefaultParameterStripperOptions`，**默认关（opt-in）**
-**base**: `9b99c60b`（`docs: C46 成员签名显式化设计（显式接口实现 / new 隐藏 / 协变返回）`，已 `git rev-parse --verify` 校验存在，完整 SHA `9b99c60b33980c3c351b70d6b99e6b4bf57b30ae`）
+**base**: `10aae03f`（`Update c32 capture lift spec and add implementation plan`，已 `git rev-parse --verify` 校验存在，完整 SHA `10aae03f11c2dd579acbc4d8d7e331b14cfddae8`，2026-10-02 更新至 dev-3.x 最新提交）
 
 ---
 
@@ -385,11 +385,11 @@ M0–M3 全程规则 `Enabled=false`（pass 仍默认开、规则短路）；每
 
 - 分支：`feature/preproc-c48-params-collections`
 - 目录：`.worktrees/preproc-c48-params-collections`
-- base：`9b99c60b`（完整 SHA `9b99c60b33980c3c351b70d6b99e6b4bf57b30ae`，已 `git rev-parse --verify` 校验）
+- base：`10aae03f`（完整 SHA `10aae03f11c2dd579acbc4d8d7e331b14cfddae8`，已 `git rev-parse --verify` 校验，2026-10-02 更新至 dev-3.x 最新提交）
 - 创建命令（在仓库根、PowerShell 下执行；本设计任务只产出本文档，**不执行**）：
 
 ```powershell
-git worktree add .worktrees/preproc-c48-params-collections -b feature/preproc-c48-params-collections 9b99c60b
+git worktree add .worktrees/preproc-c48-params-collections -b feature/preproc-c48-params-collections 10aae03f
 ```
 
 实施约束（交实施 worktree）：仅在该 worktree 内改码；不新增 pass/stub/id/中间目录/适配器/verb、不动 RunAfterIds、不翻转任何注册表状态；E08 既有测试零改动；转换器代码改动（§8-7）留后续 PR；交付面遵循 foundation plan「并行开发交付包模板」（[preprocessor-foundation_plan.md L108-L117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core `DefaultParameterStripper/ParamsCollections/`、Core 单测 + 项目级 fixture（并入 SampleStripDefaultSolution）+ Release build/test + residual「零非数组 params」闸门 + CLI 测试、plan 文档 `docs/superpowers/plans/2026-09-29-c48-params-collections.md`；不新建支撑工程；M0 探针先于一切实现代码。
