@@ -29,9 +29,12 @@ internal sealed class PropertyDeclarationExpander
     }
 
     /// <summary>展开属性声明。<paramref name="bindingDecl"/> 是语义绑定（特性路由）用的
-    /// 原始树内声明；<paramref name="decl"/> 的访问器体已过使用点改写（脱离语法树的拷贝）。</summary>
+    /// 原始树内声明；<paramref name="decl"/> 的访问器体已过使用点改写（脱离语法树的拷贝）。
+    /// C50：<paramref name="prebuiltField"/> 非空时字段已由 FieldKeywordNormalizer 合成，
+    /// Expander 直接复用、不重复 BuildField。</summary>
     public IReadOnlyList<MemberDeclarationSyntax> Expand(
-        PropertyDeclarationSyntax decl, PropertyPlan plan, PropertyDeclarationSyntax? bindingDecl = null)
+        PropertyDeclarationSyntax decl, PropertyPlan plan, PropertyDeclarationSyntax? bindingDecl = null,
+        FieldDeclarationSyntax? prebuiltField = null)
     {
         bindingDecl ??= decl;
         var prop = plan.Property;
@@ -41,7 +44,9 @@ internal sealed class PropertyDeclarationExpander
         var isAuto = PropertyFacts.IsAutoProperty(decl, prop);
 
         var members = new List<MemberDeclarationSyntax>();
-        if (fieldGenerated)
+        if (prebuiltField != null)
+            members.Add(prebuiltField); // C50：字段已由 normalizer 合成并计数
+        else if (fieldGenerated)
             members.Add(BuildField(decl, plan, bindingDecl));
 
         var accessors = decl.AccessorList != null

@@ -121,13 +121,32 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
                 && _model.GetDeclaredSymbol(propDecl) is { } prop
                 && _active.TryGetValue(PropertyPlan.SiteKey(prop), out var plan))
             {
+                // C50：Expand 之前先把 field 形态归一为「显式字段 + 普通 full 属性」，
+                // 字段节点预制，Expander 复用不重复发；失败（跨阶段漂移）已发跳过诊断，
+                // 原样保留该成员（整树将由编译回滚闭环兜底）。
+                PropertyDeclarationSyntax expandInput = propDecl;
+                FieldDeclarationSyntax? prebuiltField = null;
+                if (plan.FieldKeyword != null)
+                {
+                    if (!FieldKeywordNormalizer.TryNormalize(
+                            propDecl, plan, _model, _options, _stats, _diagnostics, _filePath,
+                            out var normalized, out var synthesized))
+                    {
+                        if (Visit(member) is MemberDeclarationSyntax untouched)
+                            newMembers.Add(untouched);
+                        continue;
+                    }
+                    expandInput = normalized;
+                    prebuiltField = synthesized;
+                }
+
                 // 先在使用点改写器内改写访问器体（计算属性可能引用同族去糖属性，
                 // 如 FullName => FirstName + ..），再展开。展开产物是脱离语法树的
                 // 拷贝，无法再绑定 —— 语义绑定（特性路由）一律走原始声明。
-                var visitedDecl = (PropertyDeclarationSyntax)Visit(propDecl)!;
+                var visitedDecl = (PropertyDeclarationSyntax)Visit(expandInput)!;
                 var expander = new PropertyDeclarationExpander(
                     _model, _options, _stats, _diagnostics, _filePath);
-                foreach (var expanded in expander.Expand(visitedDecl, plan, propDecl))
+                foreach (var expanded in expander.Expand(visitedDecl, plan, propDecl, prebuiltField))
                     newMembers.Add(expanded);
                 continue;
             }
@@ -151,7 +170,53 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             if (Visit(member) is MemberDeclarationSyntax visited)
                 newMembers.Add(visited);
         }
-        return node.WithMembers(SyntaxFactory.List(newMembers));
+
+        var rewritten = node.WithMembers(SyntaxFactory.List(newMembers));
+
+        // C50 FK-9（仅开关开启）：输出树中仍残留 FieldExpression 且归属属性没有任何
+        // plan/skip 诊断 → CS2J5122。嵌套类型只在其自身 VisitTypeLike 扫描，这里按
+        // 「最近类型声明 == 当前节点」去重。
+        if (_options.FieldKeyword.Enabled)
+            EmitFieldKeywordResiduals(node, rewritten);
+
+        return rewritten;
+    }
+
+    /// <summary>FK-9 residual 闸门：枚举输出成员里的 FieldExpressionSyntax，
+    /// 仅统计直接声明在当前类型上的属性（嵌套类型归各自的扫描）。</summary>
+    private void EmitFieldKeywordResiduals(
+        TypeDeclarationSyntax originalNode, TypeDeclarationSyntax rewritten)
+    {
+        foreach (var fe in rewritten.DescendantNodes().OfType<FieldExpressionSyntax>())
+        {
+            var enclosingType = fe.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+            if (enclosingType == null || enclosingType != rewritten) continue;
+            if (fe.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault() is not { } propSyntax)
+                continue;
+
+            var residualProp = _model.GetDeclaredSymbol(propSyntax);
+            if (residualProp != null
+                && _knownKeys.Contains(PropertyPlan.SiteKey(residualProp)))
+            {
+                // 有 plan 或 infeasible 记录：漂移失败路径已发 5126/5127 等 skip 诊断。
+                continue;
+            }
+
+            var lineSpan = fe.GetLocation().GetLineSpan();
+            _diagnostics.Add(new MemberDesugarDiagnostic(
+                _options.Strict ? MemberDesugarSeverity.Error : MemberDesugarSeverity.Warning,
+                MemberDesugarDiagnosticCode.FieldKeywordAccessor,
+                FieldKeywordDiagnostics.Residual(residualProp?.Name),
+                _filePath,
+                lineSpan.StartLinePosition.Line + 1,
+                lineSpan.StartLinePosition.Character + 1,
+                residualProp?.Name));
+            _stats.FieldKeywordResidualTokens++;
+            _stats.PlansSkipped++;
+            _stats.SkippedByReason.TryGetValue(
+                MemberDesugarDiagnosticCode.FieldKeywordAccessor, out var n);
+            _stats.SkippedByReason[MemberDesugarDiagnosticCode.FieldKeywordAccessor] = n + 1;
+        }
     }
 
     // ---- 语句级：复杂接收者复合赋值/自增自减 + 对象初始化器提升（PD-8/决策 7）----

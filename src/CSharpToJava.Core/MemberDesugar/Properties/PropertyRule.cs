@@ -23,6 +23,9 @@ internal sealed class PropertyRule : IMemberDesugarRule
         // ---- 阶段 1：声明收集 + 声明级闸门 ----
         var candidates = new Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, SemanticModel Model)>(
             SymbolEqualityComparer.Default);
+        // C50：候选属性 → FK 语义信息（仅 field-backed 命中；开关关闭时永远为空）。
+        var fieldKeywordInfos = new Dictionary<IPropertySymbol, FieldKeywordInfo>(
+            SymbolEqualityComparer.Default);
         var failures = new Dictionary<IPropertySymbol, (PropertyDeclarationSyntax? Decl, string DeclName,
             MemberDesugarDiagnosticCode Code, string Reason)>(SymbolEqualityComparer.Default);
         var userSkipped = new Dictionary<IPropertySymbol, PropertyDeclarationSyntax>(
@@ -43,13 +46,14 @@ internal sealed class PropertyRule : IMemberDesugarRule
                     continue;
                 }
 
-                var gate = DeclarationGate(decl, prop, model);
+                var gate = DeclarationGate(decl, prop, model, options, out var fieldKeyword);
                 if (gate != null)
                 {
                     failures[prop] = (decl, decl.Identifier.ValueText, gate.Value.Code, gate.Value.Reason);
                     continue;
                 }
                 candidates[prop] = (decl, model);
+                if (fieldKeyword != null) fieldKeywordInfos[prop] = fieldKeyword;
             }
 
             // 位置 record 参数没有 PropertyDeclarationSyntax 节点：隐式属性统一 5123。
@@ -139,9 +143,12 @@ internal sealed class PropertyRule : IMemberDesugarRule
         }
 
         // ---- 阶段 3：后备字段命名 + plan 产出 ----
+        // C50：field-backed 属性（IsAutoProperty=false）也必须进命名分配，名字与
+        // 「同一属性若写成 auto 属性」逐字符相同（设计决策 2）。
         var fieldNames = BackingFieldNaming.Assign(
             candidates.Where(kv => siteFailures.ContainsKey(kv.Key) == false
-                                   && PropertyFacts.NeedsBackingField(kv.Value.Decl, kv.Key))
+                                   && (PropertyFacts.NeedsBackingField(kv.Value.Decl, kv.Key)
+                                       || fieldKeywordInfos.ContainsKey(kv.Key)))
                 .Select(kv => (kv.Key, kv.Value.Decl.Identifier.ValueText)));
 
         foreach (var (prop, declModel) in candidates)
@@ -180,6 +187,7 @@ internal sealed class PropertyRule : IMemberDesugarRule
             }
 
             fieldNames.TryGetValue(prop, out var fieldName);
+            fieldKeywordInfos.TryGetValue(prop, out var fkInfo);
             builder.Add(new PropertyPlan
             {
                 Id = PropertyPlan.BuildId(prop),
@@ -190,6 +198,7 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 Property = prop,
                 DeclName = declName,
                 BackingFieldName = fieldName,
+                FieldKeyword = fkInfo,
                 GetterMethodName = AccessorsToMethods.GetterName(declName),
                 SetterMethodName = AccessorsToMethods.SetterName(declName),
                 HasSetter = prop.SetMethod != null,
@@ -240,11 +249,13 @@ internal sealed class PropertyRule : IMemberDesugarRule
         }
     }
 
-    // ---- 声明级闸门（确定性顺序：5114 → 5115 → 5116 → 5122 → 5123 → 5113）----
+    // ---- 声明级闸门（确定性顺序：5114 → 5115 → 5116 → 5122/FK → 5123 → 5113）----
 
     private static (MemberDesugarDiagnosticCode Code, string Reason)? DeclarationGate(
-        PropertyDeclarationSyntax decl, IPropertySymbol prop, SemanticModel model)
+        PropertyDeclarationSyntax decl, IPropertySymbol prop, SemanticModel model,
+        MemberDesugarOptions options, out FieldKeywordInfo? fieldKeyword)
     {
+        fieldKeyword = null;
         if (PropertyFacts.IsPartial(decl))
             return (MemberDesugarDiagnosticCode.PartialProperty, PropertyDiagnostics.PartialProperty(prop.Name));
         if (PropertyFacts.ReturnsByRef(prop))
@@ -252,14 +263,33 @@ internal sealed class PropertyRule : IMemberDesugarRule
         if (PropertyFacts.IsStaticAbstractInterfaceMember(prop))
             return (MemberDesugarDiagnosticCode.StaticAbstractInterfaceProperty,
                 PropertyDiagnostics.StaticAbstractInterface(prop.Name));
-        if (PropertyFacts.UsesFieldKeyword(decl))
-            return (MemberDesugarDiagnosticCode.FieldKeywordAccessor, PropertyDiagnostics.FieldKeyword(prop.Name));
+
+        // C50：开关开启时，FieldExpression 形态走 FK-1 语义判定（含属性级表达式体）；
+        // 开关关闭时保持 C11 v1 原样（UsesFieldKeyword 现状只扫 AccessorList）→ CS2J5122。
+        if (options.FieldKeyword.Enabled
+            && FieldKeywordResolver.HasFieldKeywordSyntax(decl))
+        {
+            var resolved = FieldKeywordResolver.Resolve(decl, prop, model, options);
+            if (!resolved.Success)
+                return (resolved.FailCode!.Value, resolved.FailReason!);
+            fieldKeyword = resolved.Info;
+        }
+        else if (PropertyFacts.UsesFieldKeyword(decl))
+        {
+            return (MemberDesugarDiagnosticCode.FieldKeywordAccessor,
+                PropertyDiagnostics.FieldKeyword(prop.Name));
+        }
+
         if (PropertyFacts.IsPositionalRecordProperty(prop))
             return (MemberDesugarDiagnosticCode.PositionalRecordProperty,
                 PropertyDiagnostics.PositionalRecord(prop.Name));
 
-        // 特性路由闸门（PD-10 / 决策 14）
-        var fieldGenerated = PropertyFacts.NeedsBackingField(decl, prop) && !prop.IsAbstract;
+        // 特性路由闸门（PD-10 / 决策 14）。C50：FK 属性归一后必有显式字段，
+        // [field:] 目标列表按 fieldGenerated=true 路由（关闭时 fieldKeyword 恒 null，
+        // 表达式与 C11 现状逐字节一致）。
+        var fieldGenerated =
+            (PropertyFacts.NeedsBackingField(decl, prop) || fieldKeyword != null)
+            && !prop.IsAbstract;
         foreach (var list in decl.AttributeLists)
         {
             if (AttributeRouting.RouteList(list, model, fieldGenerated)

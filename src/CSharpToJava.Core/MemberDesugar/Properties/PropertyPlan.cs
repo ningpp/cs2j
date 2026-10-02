@@ -17,6 +17,10 @@ internal sealed class PropertyPlan : MemberDesugarPlan
     public required bool HasInitAccessor { get; init; }
     public required bool IsRequired { get; init; }
 
+    /// <summary>C50：field-backed 属性的语义挂载（null=普通 auto/full 属性）。
+    /// 挂载时 <see cref="BackingFieldName"/> 必已分配（与 auto 属性同契约命名）。</summary>
+    public FieldKeywordInfo? FieldKeyword { get; init; }
+
     public override bool OwnsTouch(string filePath, string? typeName, string? memberName)
     {
         if (!TouchedFiles.Contains(filePath)) return false;
