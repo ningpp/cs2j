@@ -115,6 +115,26 @@ tests/SampleExpressionDesugarSolution/                            # M2/M3 增 In
 - 验收：Release build + Tests 全绿。
 - 提交：`feat(preprocessing): C24 initializers M1 对象初始化器+Add 主路径（CS2J0530-0536）`
 
+#### M1 落地记录（2026-10-02 回填）
+
+**文件**（全部在允许面内）：
+- 改：`src/CSharpToJava.Core/ExpressionDesugar/Initializers/{InitializerBindingAnalyzer, InitializerContextLowering, InitializerSyntaxFacts, InitializerModels, ObjectInitRewriter, CollectionInitRewriter, TargetTypedNewRewriter, InitializersRule}.cs`；
+- 增：`src/CSharpToJava.Core/ExpressionDesugar/Initializers/InitializerRewriter.cs`（自底向上 `CSharpSyntaxRewriter`，M0 骨架中无对应文件）；
+- 改：`tests/CSharpToJava.Tests/InitializerDesugarUnitTests.cs`（29 个 Fact：7 探针 + 1 注册 + 21 M1 行为）；
+- 未改：`CollectionExpr/*`、`Shared/*`、CLI、其它测试文件（**C36 测试文件零改动**）。
+
+**实现语义**：`IOperation` 逐项分类——对象项 `ISimpleAssignmentOperation` 的 `Target` 为 `IPropertyReferenceOperation`（保留属性写 `tmp.P = v`）/`IFieldReferenceOperation`（直写），严格源码序；构造实参原样保留（IN-3，`new List<int>(8){1,2}` 保 `(8)`）；集合项仅实例单参 `Add`（`Arguments.Length==1 && !IsExtensionMethod && !IsParams`，非 void fluent 同发 `Add` 丢弃返回值）；裸 `new()` 零临时显式化为 `new T(…)`（target-typed 类型用 `FullyQualifiedFormat` 渲染，可空目标天然取底层）；临时名 Analyze 预分配（`ExpressionDesugarTempNameAllocator`，post-order 内层先于外层），Rewrite 消费并经族 `TempLifter` 单次 Apply。基础上下文：局部/using 声明 RHS、return/yield、throw、赋值语句 RHS、表达式语句、表达式体成员。诊断 0530/0532/0536 Info；0531/0533/0535 strict Error（整文件原子不动）/非 strict Warning + 站点保留且兄弟站点照常改写；0531 仅在解析到 init-only/read-only/静态/不可解析成员时命中。
+
+**测试与验证**：`dotnet build -c Release CSharpToJavaConverter.slnx` = **0 错误**；`dotnet test -c Release tests/CSharpToJava.Tests` = **2565 通过 / 0 失败**（§7 列出的 5 个基线失败未复现）；`CollectionExprDesugarUnitTests` 72/72 全绿。M0 行为锁定事实按 M1 行为更新（探针事实不变）。
+
+**偏差与阻塞**：
+1. **跨规则节点身份（族级技术债，已上报）**：族入口按规则顺序在**同一工作树**上渐进改写，而 C36 的 rewriter 以**原始 `SyntaxNode` 引用**为 plan key；红节点身份只在「被改节点→根」这条链上被重建（`WithAdditionalAnnotations`/`ReplaceNode` 同理），故 **C24 只要改写/注解某个节点，若该节点是某个 C36 站点的祖先，则 C36 的 plan 查找即 miss**（C36 留下语法 → CS2J0589 → 整文件回退）；**兄弟/无关站点不受影响**（Roslyn 复用未变子树实例）。**M1 收口（窄化，2026-10-02 复核修正）**：仅**嵌套在 `CollectionExpressionSyntax` 之内**的 C24 站点让位——`InitializerOutcome.DeferredForCoexistence`，不计入 rewriter map、不加注解、不产码，只计入 `CoexistenceDeferredSites`（供 M3 闸门配对）；**同文件内与 C36 站点不相交的 C24 站点照常改写**（红节点身份保持）。实测依据：C36 测试含两处「集合表达式内含对象/集合初始化器」站点（`[new Point { X = 1, Y = 2 }]`、`[new List<int> { 4 }, [5, 6]]`）；两个方向均已用例锁定——`M1_C36Coexistence_DisjointSitesBothRewriteInOnePass`（同轮双改）与 `M1_C36Coexistence_NestedSiteDefers_OuterStillRewrites`（外层 C36 照改、内层让位后下一轮收敛）。**建议族级修复**：C36 plan 改按 `(Span, SyntaxTree)` 或稳定注解取键，随后可移除本让位；属 `CollectionExpr/*`/`Shared/*` 修改，不在本 worktree 允许面内。
+2. **空初始化器**：`new C { }` 折为 `new C()`（零临时，0530 Info）；`new T { }` 若 T 实现 `System.Collections.IEnumerable` 视为空集合初始化器而**保留**（C36 语句化临时即发射 `new List<T>(){}`，折写会破坏其二次运行字节稳定性）。
+3. **诊断消息按站点计数**：0530/0532 消息使用本站点成员/Add 计数（非累计族统计）。
+4. **默认关落地口径（重要修正）**：实测 `PassCatalog` 中 `expression-desugar` 为 `defaultEnabled: true`（§0-1「默认关」只对 C36 之前成立）。若 C24 永远激活，默认链上的既有工程夹具会被改写/被 0531 拒绝（实测 `SamplePartial...` 的 init-only 对象初始化器直接 Error，6 个 ProjectTests 失败）。M1 故以 **`ExpressionDesugarOptions.Initializers` 子节存在**为启用闸门：缺省时规则完全惰性、保持 M0 行为（仅计 dirty、字节不变、零诊断），与设计 §9「M0–M4 全程族 pass `DefaultEnabled=false`」一致；M4 默认开启时再评估 init-only 与 C11 链序。单测经 `C24Enabled` 显式开启。
+   **遗留（M3 处理，勿忘）**：CLI 工厂（`Program.cs` 两处 `ExpressionDesugarOptionsFactory`）当前不构造 `Initializers` 子节，故 M1 的 C24 只有 Core 直调可达、经 CLI 不可达。M3「CLI 收口」须给出可用的灰度开关路径（沿用既有 options/配置面，不新增 pass/verb；设计 §5-1），并在 `--list-passes`/摘要中体现；在该路径落地前，C24 不参与任何默认链。
+5. **M1 未做**（按计划留给 M2/M3）：CS2J0537/0538/0539/0540/0541/0545 与 residual 闸门；不支持的上下文与 M2 形状站点静默保留（带 explained 注解），M1 不产这几类码。
+
 ### M2 嵌套 + 字典 + 上下文语句化 + Add 变体
 
 - IN-4/5/7/8/10/11：嵌套创建自底向上（内层临时先于外层成员赋值）；嵌套成员初始化 getter

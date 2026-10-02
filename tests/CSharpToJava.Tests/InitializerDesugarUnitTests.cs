@@ -10,13 +10,14 @@ using Xunit;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// C24 object/collection-initializer M0 probes and behavior lock against
-/// Roslyn 5.0.0 (Microsoft.CodeAnalysis.CSharp 5.0.x). The facts pin the
-/// runtime IOperation shapes that M1/M2 lowering will depend on; conclusions
-/// are mirrored in docs/superpowers/plans/2026-09-29-c24-initializer-desugar.md §6.
-/// The behavior facts lock the M0 transparent contract: dirty files are left
-/// byte-identical and Initializers emits no diagnostics, so existing C36
-/// behavior is untouched.
+/// C24 object/collection-initializer probes and behavior tests against
+/// Roslyn 5.0.0 (Microsoft.CodeAnalysis.CSharp 5.0.x). The probe facts pin the
+/// runtime IOperation shapes M1 lowering depends on; conclusions are mirrored
+/// in docs/superpowers/plans/2026-09-29-c24-initializer-desugar.md §6.
+/// The M1 facts lock the main-path desugaring (object sequence, single-arg
+/// Add, bare <c>new()</c> explicitization), the CS2J0530/0531/0532/0533/0535/
+/// 0536/0542 diagnostics and the preserved-site boundaries (M2 shapes, C36
+/// coexistence deferral).
 /// </summary>
 public class InitializerDesugarUnitTests
 {
@@ -27,6 +28,7 @@ public class InitializerDesugarUnitTests
         MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(System.Collections.IEnumerable).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(System.Linq.Enumerable).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression).Assembly.Location),
         MetadataReference.CreateFromFile(Path.Combine(
             Path.GetDirectoryName(typeof(object).Assembly.Location)!, "System.Runtime.dll")),
     };
@@ -535,11 +537,51 @@ public class InitializerDesugarUnitTests
 
     private static SemanticModel BuildModel(string source) => Compile(source).Model;
 
-    private static ExpressionDesugarResult Preprocess(string source)
-        => new ExpressionDesugarPreprocessor().Preprocess(source, BuildModel(source));
+    /// <summary>
+    /// Opt-in options: the C24 rule is inert unless the
+    /// <see cref="ExpressionDesugarOptions.Initializers"/> subsection is present
+    /// (rollout gate, design §9), so the M1 facts activate it explicitly.
+    /// </summary>
+    private static readonly ExpressionDesugarOptions C24Enabled = new()
+    {
+        Initializers = new InitializerOptions(),
+    };
+
+    private static ExpressionDesugarResult Preprocess(
+        string source, ExpressionDesugarOptions? options = null)
+        => new ExpressionDesugarPreprocessor().Preprocess(
+            source, BuildModel(source), options ?? C24Enabled);
 
     private static string Normalize(string code)
         => Regex.Replace(code, @"\s+", " ");
+
+    private static void AssertOutputCompiles(string output)
+    {
+        var tree = CSharpSyntaxTree.ParseText(
+            output, new CSharpParseOptions(LanguageVersion.Preview));
+        var compilation = CSharpCompilation.Create(
+            "c24-out-" + Guid.NewGuid().ToString("N"),
+            new[] { tree },
+            References,
+            new CSharpCompilationOptions(
+                OutputKind.DynamicallyLinkedLibrary,
+                allowUnsafe: true,
+                nullableContextOptions: NullableContextOptions.Enable));
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+        Assert.True(
+            errors.Count == 0,
+            "preprocessed output does not compile: " +
+            string.Join("; ", errors.Select(e => e.ToString())));
+    }
+
+    private static int IndexOf(string normalized, string fragment)
+        => normalized.IndexOf(fragment, StringComparison.Ordinal);
+
+    private static bool HasDiagnostic(
+        ExpressionDesugarResult result, string code, ExpressionDesugarSeverity severity)
+        => result.Diagnostics.Any(d => d.Code == code && d.Severity == severity);
 
     [Fact]
     public void M0_CleanFile_Unchanged_AndCountedAsSkippedClean()
@@ -557,7 +599,26 @@ public class InitializerDesugarUnitTests
     }
 
     [Fact]
-    public void M0_InitializerOnlyFile_IsDirtyNoRewrite_CountedAndBytesPreserved()
+    public void M1_RolloutGate_InertWithoutOptionsSubsection()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C { public static void M() { var d = new Dto { A = 1 }; } }
+            """;
+
+        // No Initializers subsection -> the rule stays inert (design §9
+        // DefaultEnabled=false equivalent for C24); M0 behaviour preserved.
+        var result = new ExpressionDesugarPreprocessor()
+            .Preprocess(source, BuildModel(source));
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(1, result.Statistics.Initializers.FilesDirtyNoRewrite);
+    }
+
+    [Fact]
+    public void M1_ObjectInitializer_PropertyFieldMixed_SourceOrder()
     {
         const string source = """
             public class Dto { public int Prop { get; set; } public int Field; }
@@ -572,20 +633,137 @@ public class InitializerDesugarUnitTests
 
         var result = Preprocess(source);
 
-        // No C36 syntax: the file is dirty for Initializers only, and M0 leaves
-        // it byte-identical (dirty-no-rewrite), emitting no diagnostics.
-        Assert.False(result.Changed);
-        Assert.Equal(source, result.OutputCode);
-        Assert.Empty(result.Diagnostics);
-        Assert.Equal(1, result.Statistics.FilesDirtyNoRewrite);
-        Assert.Equal(0, result.Statistics.FilesTransformed);
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        var construct = IndexOf(normalized, "var __ed_0 = new Dto()");
+        var propWrite = IndexOf(normalized, "__ed_0.Prop = 1");
+        var fieldWrite = IndexOf(normalized, "__ed_0.Field = 2");
+        var alias = IndexOf(normalized, "var d = __ed_0");
+        Assert.True(
+            construct >= 0 && propWrite > construct && fieldWrite > propWrite
+            && alias > fieldWrite, normalized);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0530, ExpressionDesugarSeverity.Info));
 
         var init = result.Statistics.Initializers;
-        Assert.Equal(1, init.FilesDirtyNoRewrite);
         Assert.Equal(1, init.ObjectInitializerSites);
         Assert.Equal(0, init.CollectionInitializerSites);
         Assert.Equal(2, init.MemberAssignments);
+        Assert.Equal(1, init.MemberPropertyAssignments);
+        Assert.Equal(1, init.MemberFieldAssignments);
         Assert.Equal(0, init.AddCalls);
+        Assert.Equal(1, init.ContextLoweredSites);
+        Assert.Equal(1, init.TempsLifted);
+    }
+
+    [Fact]
+    public void M1_ObjectInitializer_WithCtorArgs_Preserved()
+    {
+        const string source = """
+            public class Point
+            {
+                public int X;
+                public int Y;
+                public Point(int x, int y) { X = x; Y = y; }
+            }
+            public static class C
+            {
+                public static void M()
+                {
+                    var p = new Point(1, 2) { X = 3 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        var construct = IndexOf(normalized, "var __ed_0 = new Point(1, 2);");
+        var write = IndexOf(normalized, "__ed_0.X = 3");
+        Assert.True(construct >= 0 && write > construct, normalized);
+    }
+
+    [Fact]
+    public void M1_ObjectInitializer_CtorArgumentsEvaluatedBeforeMemberValues()
+    {
+        const string source = """
+            public class Dto
+            {
+                public int P { get; set; }
+                public Dto(int seed) { }
+            }
+            public static class C
+            {
+                static int Next() => 1;
+                public static void M()
+                {
+                    var d = new Dto(Next()) { P = Next() };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        var construct = IndexOf(normalized, "var __ed_0 = new Dto(Next())");
+        var write = IndexOf(normalized, "__ed_0.P = Next()");
+        Assert.True(construct >= 0 && write > construct, normalized);
+    }
+
+    [Fact]
+    public void M1_ObjectInitializer_Empty_FoldsToConstructorCall()
+    {
+        const string source = """
+            public class Dto { public int P { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    var d = new Dto { };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("new Dto()", normalized);
+        Assert.DoesNotContain("{ }", normalized);
+        Assert.Equal(1, result.Statistics.Initializers.ObjectInitializerSites);
+    }
+
+    [Fact]
+    public void M1_ObjectInitializer_SecondRunByteIdentical()
+    {
+        const string source = """
+            public class Dto { public int Prop { get; set; } public int Field; }
+            public static class C
+            {
+                public static void M()
+                {
+                    var d = new Dto { Prop = 1, Field = 2 };
+                }
+            }
+            """;
+
+        var first = Preprocess(source);
+        Assert.True(first.Changed);
+        AssertOutputCompiles(first.OutputCode);
+
+        var second = Preprocess(first.OutputCode);
+        Assert.False(second.Changed, string.Join("; ", second.Diagnostics));
+        Assert.Equal(first.OutputCode, second.OutputCode);
     }
 
     [Fact]
@@ -610,25 +788,28 @@ public class InitializerDesugarUnitTests
 
         var result = Preprocess(source);
 
-        Assert.False(result.Changed);
-        Assert.Equal(source, result.OutputCode);
-        Assert.Empty(result.Diagnostics);
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
 
         var init = result.Statistics.Initializers;
         Assert.Equal(3, init.ObjectInitializerSites);        // a, b, and new(){ [1]=.. }
         Assert.Equal(1, init.CollectionInitializerSites);    // new List<int>(8) { 3, 4 }
         Assert.Equal(1, init.DictionaryIndexInitializerSites);
         Assert.Equal(3, init.MemberAssignments);             // a.Prop, b.Prop, [1]
-        Assert.Equal(1, init.MemberIndexerAssignments);
+        Assert.Equal(2, init.MemberPropertyAssignments);     // a.Prop, b.Prop
+        Assert.Equal(1, init.MemberIndexerAssignments);      // [1]
         Assert.Equal(2, init.TargetTypedNewSites);           // new() { ... }, new()
         Assert.Equal(1, init.TargetTypedNewBareSites);
         Assert.Equal(1, init.TargetTypedNewWithInitializerSites);
         Assert.Equal(2, init.AddCalls);                      // 3, 4
         Assert.Equal(2, init.AddSingle);
+
+        // The dictionary-index site is an M2 shape: preserved verbatim.
+        Assert.Contains("[1] = \"x\"", Normalize(result.OutputCode));
     }
 
     [Fact]
-    public void M0_C36Sibling_StillRewrites_InitializersDoNotInterfere()
+    public void M1_C36Coexistence_DisjointSitesBothRewriteInOnePass()
     {
         const string source = """
             public class Dto { public int A { get; set; } }
@@ -642,25 +823,61 @@ public class InitializerDesugarUnitTests
             }
             """;
 
-        var result = Preprocess(source);
+        var first = Preprocess(source);
 
-        // C36 still rewrites its collection-expression site exactly as before;
-        // the C24-dirty object initializer is left untouched and silent.
-        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
-        Assert.Contains("new int[] { 1, 2 }", Normalize(result.OutputCode));
-        Assert.Equal(1, result.Statistics.CollectionExpr.CollectionSites);
-        Assert.Equal(1, result.Statistics.CollectionExpr.ByTargetArray);
-        Assert.Equal(1, result.Statistics.FilesTransformed);
+        // Disjoint C24/C36 sites both lower in the same family pass: C36's
+        // original-node-keyed plans stay valid because no C36 ancestor is
+        // rebuilt by the C24 rewrite.
+        Assert.True(first.Changed, string.Join("; ", first.Diagnostics));
+        Assert.Contains("new int[] { 1, 2 }", Normalize(first.OutputCode));
+        Assert.Contains("__ed_0.A = 1", Normalize(first.OutputCode));
+        Assert.DoesNotContain("new Dto { A = 1 }", Normalize(first.OutputCode));
+        Assert.Empty(first.Diagnostics);
+        Assert.Equal(1, first.Statistics.CollectionExpr.CollectionSites);
+        Assert.Equal(1, first.Statistics.CollectionExpr.ByTargetArray);
+        Assert.Equal(1, first.Statistics.Initializers.ObjectInitializerSites);
+        Assert.Equal(0, first.Statistics.Initializers.CoexistenceDeferredSites);
+        AssertOutputCompiles(first.OutputCode);
 
-        Assert.Empty(result.Diagnostics);
-        Assert.Equal(1, result.Statistics.Initializers.ObjectInitializerSites);
-        Assert.Equal(1, result.Statistics.Initializers.FilesTransformed);
+        var second = Preprocess(first.OutputCode);
+        Assert.False(second.Changed, string.Join("; ", second.Diagnostics));
+        Assert.Equal(first.OutputCode, second.OutputCode);
+    }
 
-        // Idempotence: the C24 site makes the output dirty again, but M0 leaves
-        // it byte-identical on the second run.
-        var second = Preprocess(result.OutputCode);
-        Assert.False(second.Changed);
-        Assert.Equal(result.OutputCode, second.OutputCode);
+    [Fact]
+    public void M1_C36Coexistence_NestedSiteDefers_OuterStillRewrites()
+    {
+        const string source = """
+            public class Point { public int X { get; set; } public int Y { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    Point[] c = [new Point { X = 1, Y = 2 }];
+                }
+            }
+            """;
+
+        var first = Preprocess(source);
+
+        // The object initializer is nested INSIDE the collection expression:
+        // the enclosing C36 site must keep its plan identity, so the inner C24
+        // site is deferred (counted) and stays verbatim while C36 lowers.
+        Assert.True(first.Changed, string.Join("; ", first.Diagnostics));
+        Assert.Contains("new Point[] { new Point { X = 1, Y = 2 } }",
+            Normalize(first.OutputCode));
+        Assert.Equal(1, first.Statistics.Initializers.CoexistenceDeferredSites);
+        AssertOutputCompiles(first.OutputCode);
+
+        // With the C36 syntax gone, the deferred site lowers on the next run.
+        var second = Preprocess(first.OutputCode);
+        Assert.True(second.Changed, string.Join("; ", second.Diagnostics));
+        Assert.Contains("__ed_0.X = 1", Normalize(second.OutputCode));
+        AssertOutputCompiles(second.OutputCode);
+
+        var third = Preprocess(second.OutputCode);
+        Assert.False(third.Changed, string.Join("; ", third.Diagnostics));
+        Assert.Equal(second.OutputCode, third.OutputCode);
     }
 
     [Fact]
@@ -677,5 +894,364 @@ public class InitializerDesugarUnitTests
         Assert.False(result.Changed);
         Assert.Equal(source, result.OutputCode);
         Assert.Equal(1, result.Statistics.Initializers.FilesDirtyNoRewrite);
+    }
+
+    // ------------------------------------------------------------------
+    // M1: collection initializers (IN-3/IN-6).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M1_CollectionInitializer_CtorArgsPreserved_OrderedAdds_NoPut()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            public static class C
+            {
+                public static void M()
+                {
+                    var xs = new List<int>(8) { 1, 2 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        var construct = IndexOf(normalized, "var __ed_0 = new List<int>(8);");
+        var add1 = IndexOf(normalized, "__ed_0.Add(1)");
+        var add2 = IndexOf(normalized, "__ed_0.Add(2)");
+        var alias = IndexOf(normalized, "var xs = __ed_0");
+        Assert.True(construct >= 0 && add1 > construct && add2 > add1
+            && alias > add2, normalized);
+        Assert.DoesNotContain("put", normalized);
+        Assert.DoesNotContain("{ 1, 2 }", normalized);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0532, ExpressionDesugarSeverity.Info));
+
+        var init = result.Statistics.Initializers;
+        Assert.Equal(1, init.CollectionInitializerSites);
+        Assert.Equal(0, init.ObjectInitializerSites);
+        Assert.Equal(2, init.AddCalls);
+        Assert.Equal(2, init.AddSingle);
+        Assert.Equal(0, init.AddMulti);
+        Assert.Equal(1, init.TempsLifted);
+    }
+
+    [Fact]
+    public void M1_CollectionInitializer_FluentAdd_ValueDiscarded()
+    {
+        const string source = """
+            using System.Collections;
+            using System.Collections.Generic;
+            public class FluentBag : IEnumerable
+            {
+                public FluentBag Add(int x) => this;
+                public IEnumerator GetEnumerator() => null!;
+            }
+            public static class C
+            {
+                public static void M()
+                {
+                    var b = new FluentBag { 1, 2 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("__ed_0.Add(1)", normalized);
+        Assert.Contains("__ed_0.Add(2)", normalized);
+
+        var init = result.Statistics.Initializers;
+        Assert.Equal(2, init.AddSingle);
+        Assert.Equal(2, init.AddFluent);
+    }
+
+    // ------------------------------------------------------------------
+    // M1: bare target-typed new() (IN-9).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M1_BareTargetTypedNew_LocalReturnNullable_ExpressionBodied()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            public class TT
+            {
+                public List<int> Local() { List<int> a = new(); return new(); }
+                public List<int>? Nullable() => new();
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+        Assert.DoesNotContain("new()", normalized);
+        Assert.Contains("new global::System.Collections.Generic.List<int>()", normalized);
+
+        Assert.Equal(3, result.Diagnostics
+            .Count(d => d.Code == InitializerDiagnosticCodes.CS2J0536
+                        && d.Severity == ExpressionDesugarSeverity.Info));
+        Assert.Equal(3, result.Statistics.Initializers.TargetTypedNewBareSites);
+    }
+
+    [Fact]
+    public void M1_TargetTypedNew_WithInitializer_SequenceUsesExplicitType()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    Dto d = new() { A = 1 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("new global::Dto()", normalized);
+        Assert.Contains("__ed_0.A = 1", normalized);
+        Assert.Equal(1, result.Statistics.Initializers.TargetTypedNewWithInitializerSites);
+    }
+
+    [Fact]
+    public void M1_BareTargetTypedNew_UninferrableTarget_CS2J0535_AtomicUnchanged()
+    {
+        const string source = """
+            public static class C
+            {
+                public static void M()
+                {
+                    var x = new();
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0535, ExpressionDesugarSeverity.Error));
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Equal(1, result.Statistics.FilesDirtyNoRewrite);
+    }
+
+    // ------------------------------------------------------------------
+    // M1: boundaries and diagnostics.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M1_InitOnlyProperty_CS2J0531_FileAtomicallyUnchanged()
+    {
+        const string source = """
+            public class InitOnly { public int P { get; init; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    var a = new InitOnly { P = 1 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0531, ExpressionDesugarSeverity.Error));
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Equal(1, result.Statistics.Initializers.ObjectInitializerSites);
+    }
+
+    [Fact]
+    public void M1_ReadonlyField_CS2J0531()
+    {
+        const string source = """
+            public class ReadOnlyDto
+            {
+                public readonly int F;
+                public ReadOnlyDto(int f) { F = f; }
+            }
+            public static class C
+            {
+                public static void M()
+                {
+                    var a = new ReadOnlyDto(0) { F = 1 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0531, ExpressionDesugarSeverity.Error));
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+    }
+
+    [Fact]
+    public void M1_UnresolvedAdd_CS2J0533()
+    {
+        const string source = """
+            using System.Collections;
+            public class NoAdd : IEnumerable
+            {
+                public IEnumerator GetEnumerator() => null!;
+            }
+            public static class C
+            {
+                public static void M()
+                {
+                    var n = new NoAdd { 1 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0533, ExpressionDesugarSeverity.Error));
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+    }
+
+    [Fact]
+    public void M1_NonStrict_DowngradesAndPreservesBadSite_WhileSiblingsRewrite()
+    {
+        const string source = """
+            public class InitOnly { public int P { get; init; } }
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    var a = new InitOnly { P = 1 };
+                    var b = new Dto { A = 2 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source, new ExpressionDesugarOptions
+        {
+            Initializers = new InitializerOptions { Strict = false },
+        });
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0531, ExpressionDesugarSeverity.Warning));
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("new InitOnly { P = 1 }", normalized);
+        Assert.Contains("var __ed_0 = new Dto(); __ed_0.A = 2; var b = __ed_0;", normalized);
+    }
+
+    [Fact]
+    public void M1_ExpressionTree_CS2J0542_SkippedAndUnchanged()
+    {
+        const string source = """
+            using System;
+            using System.Linq.Expressions;
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    Expression<Func<Dto>> e = () => new Dto { A = 1 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0542, ExpressionDesugarSeverity.Info));
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+    }
+
+    [Fact]
+    public void M1_ArraysAndAnonymousObjects_AreNotTouched()
+    {
+        const string source = """
+            public static class C
+            {
+                public static void M()
+                {
+                    int[] a = new int[] { 1, 2 };
+                    int[] b = new[] { 1 };
+                    var anon = new { A = 1 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Equal(1, result.Statistics.FilesSkippedClean);
+        Assert.Equal(0, result.Statistics.Initializers.ObjectInitializerSites);
+        Assert.Equal(0, result.Statistics.Initializers.CollectionInitializerSites);
+    }
+
+    [Fact]
+    public void M1_M2ShapeSites_ArePreservedByteStable()
+    {
+        const string source = """
+            using System.Collections;
+            using System.Collections.Generic;
+            public class Dto
+            {
+                public int A { get; set; }
+                public Dto Inner { get; set; } = new Dto();
+            }
+            public class Pairs : IEnumerable
+            {
+                public void Add(int a, int b) { }
+                public IEnumerator GetEnumerator() => null!;
+            }
+            public static class C
+            {
+                public static void M()
+                {
+                    var a = new Dto { A = 1, Inner = new Dto { A = 2 } };
+                    var b = new Dto { Inner = { A = 3 } };
+                    Dictionary<int, string> d = new() { [1] = "x" };
+                    var p = new Pairs { { 1, 2 } };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.False(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Equal(source, result.OutputCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(1, result.Statistics.Initializers.DictionaryIndexInitializerSites);
+    }
+
+    [Fact]
+    public void M1_CleanFileWithBom_BytePreserved()
+    {
+        const string source = "\uFEFFpublic class C { void M() { int x = 1; } }\n";
+
+        var result = Preprocess(source);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
     }
 }

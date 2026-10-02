@@ -80,7 +80,17 @@ internal static class InitializerSyntaxFacts
         };
 
     /// <summary>
-    /// True when <paramref name="node"/> itself or any ancestor carries the
+    /// True when <paramref name="node"/> is nested inside a C36-owned
+    /// <see cref="CollectionExpressionSyntax"/>. The two syntax faces are
+    /// disjoint (design §1.4); a creation-with-initializer used as a collection
+    /// element belongs to C36's element emission, and rewriting it first would
+    /// invalidate C36's original-node plan keys (rewriters run rule after rule
+    /// on the shared tree), so M1 preserves such sites.
+    /// </summary>
+    public static bool IsInsideCollectionExpression(SyntaxNode node)
+        => node.Ancestors().Any(static a => a is CollectionExpressionSyntax);
+
+    /// <summary>True when <paramref name="node"/> itself or any ancestor carries the
     /// family explained annotation: a preserved site accounts for the whole
     /// subtree.
     /// </summary>

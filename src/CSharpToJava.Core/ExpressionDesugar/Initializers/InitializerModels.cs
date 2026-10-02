@@ -76,8 +76,22 @@ public enum InitializerOutcome
     /// <summary>Bare target-typed <c>new()</c> explicitized to <c>new T(…)</c>.</summary>
     TargetTypedNewExplicit,
 
+    /// <summary>
+    /// Zero-temp explicitization: the initializer carries no members, so it is
+    /// folded into <c>new T(args)</c> (covers <c>new C { }</c> and drops the
+    /// empty initializer syntax).
+    /// </summary>
+    ZeroTempExplicit,
+
     /// <summary>Site intentionally kept, paired with a diagnostic.</summary>
     SkippedDiagnostic,
+
+    /// <summary>
+    /// Site nested inside a C36 collection-expression site: kept byte-identical
+    /// and left out of the rewriter map so no ancestor is rebuilt (C36 looks its
+    /// plans up by original node reference). Paired by the deferred counter.
+    /// </summary>
+    DeferredForCoexistence,
 
     /// <summary>Site in a v1-unsupported/not-liftable position (CS2J0537/0538).</summary>
     UnsupportedContext,
@@ -217,4 +231,22 @@ public sealed class InitializerPlan
 
     /// <summary>True when the creation carries a (object/collection) initializer.</summary>
     public bool HasInitializer => Node.Initializer != null;
+
+    /// <summary>True for a bare target-typed <c>new()</c> without an initializer (IN-9).</summary>
+    public bool IsBareTargetTypedNew => IsTargetTyped && !HasInitializer;
+
+    /// <summary>
+    /// Pre-allocated <c>__ed_n</c> receiver temp (M1 sequence sites only;
+    /// allocated deterministically in Analyze, consumed in Rewrite).
+    /// </summary>
+    public string? TempName { get; set; }
+
+    /// <summary>Statement-lift order inside the anchor (post-order, inner first).</summary>
+    public int LiftOrder { get; set; }
+
+    /// <summary>
+    /// Skip bookkeeping: a real CS2J05xx code for diagnostic-paired skips, the
+    /// M2 sentinel for shape/context deferrals, null when the site is handled.
+    /// </summary>
+    public string? SkipCode { get; set; }
 }

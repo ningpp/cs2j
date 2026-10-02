@@ -70,6 +70,13 @@ public sealed class InitializerStatistics
     /// <summary>Nested member-initializer sites (<c>P = { … }</c>).</summary>
     public int NestedMemberInitSites;
 
+    /// <summary>
+    /// Sites left byte-identical because they sit inside a C36 collection
+    /// expression (the enclosing site is owned by C36 in the same pass). Counted
+    /// as paired by the residual gate.
+    /// </summary>
+    public int CoexistenceDeferredSites;
+
     // ---- Context lowering (bucket by context name) ----
 
     /// <summary>Statement-lowered sites bucketed by <see cref="InitializerContextKind"/> name.</summary>
@@ -125,6 +132,7 @@ public sealed class InitializerStatistics
         EnumerableFallback += other.EnumerableFallback;
         NestedCreateSites += other.NestedCreateSites;
         NestedMemberInitSites += other.NestedMemberInitSites;
+        CoexistenceDeferredSites += other.CoexistenceDeferredSites;
         ContextLoweredSites += other.ContextLoweredSites;
         ResidualInitializerCount += other.ResidualInitializerCount;
         MergeBuckets(ContextLowered, other.ContextLowered);
