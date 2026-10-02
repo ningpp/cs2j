@@ -132,5 +132,8 @@ internal sealed class HolderSyntaxGenerator
                         SyntaxFactory.Literal(0))))));
 
     private static IdentifierNameSyntax VarType()
-        => SyntaxFactory.IdentifierName(SyntaxFactory.Token(SyntaxKind.VarKeyword));
+        // IdentifierName requires an IdentifierToken; SyntaxKind.VarKeyword is a
+        // contextual-keyword token and throws ArgumentException("identifier").
+        // Spelling the identifier "var" parses as var in an implicit local.
+        => SyntaxFactory.IdentifierName("var");
 }

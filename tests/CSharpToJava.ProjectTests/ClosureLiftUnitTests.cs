@@ -434,5 +434,9 @@ class C {
         ClosureLiftPreprocessor preprocessor,
         string src,
         ClosureLiftOptions? options = null)
-        => preprocessor.Preprocess(src, ParseWithSemantics(src), options);
+        // M2: Audit() means audit mode. The M1 facade always audited regardless
+        // of options; the M2 stage honors AuditOnly, so default it explicitly.
+        // Explicit options (e.g. Strict:false) pass through untouched.
+        => preprocessor.Preprocess(
+            src, ParseWithSemantics(src), options ?? new ClosureLiftOptions(AuditOnly: true));
 }
