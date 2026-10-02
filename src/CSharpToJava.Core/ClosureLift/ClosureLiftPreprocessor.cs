@@ -42,6 +42,11 @@ public sealed class ClosureLiftPreprocessor
         var tree = resolvedModel.SyntaxTree;
         var root = (CompilationUnitSyntax)tree.GetRoot();
 
+        // Open the per-file naming session: different files continue the host's
+        // class-name index; re-entering the same file (same path + contents) is
+        // idempotent instead of advancing it (M1 repeated-run / M2 round-trip).
+        _naming.BeginFile(tree.FilePath + "\0" + sourceCode);
+
         // Fast path: no lambdas and no residual anonymous methods (E05 output).
         if (!root.DescendantNodes().Any(n =>
                 n is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax))

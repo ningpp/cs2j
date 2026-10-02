@@ -247,7 +247,12 @@ internal sealed class CaptureAnalyzer
 
         ParameterSyntax? parameter = declaringNode as ParameterSyntax;
         VariableDeclaratorSyntax? declarator = declaringNode as VariableDeclaratorSyntax;
-        if (parameter == null && declarator == null)
+        // Classic foreach iteration variables expose the ForEachStatementSyntax
+        // itself as their declaring syntax (no VariableDeclarator exists in the
+        // tree). Deconstructing foreach (ForEachVariableStatementSyntax) is a
+        // different node type and stays unrecognized in M1 (plan Task 10 note).
+        ForEachStatementSyntax? foreachDirect = declaringNode as ForEachStatementSyntax;
+        if (parameter == null && declarator == null && foreachDirect == null)
             return null;
 
         // D6: by-ref parameter (RefKind != None; C01 ByRef<T> has RefKind.None and is ordinary).
@@ -295,6 +300,12 @@ internal sealed class CaptureAnalyzer
                     // in baseline-valid code; treat conservatively as no trigger below.
                     break;
             }
+        }
+
+        if (foreachDirect != null)
+        {
+            foreachLoop = foreachDirect;
+            scopeBlock = foreachDirect.Statement as BlockSyntax;
         }
 
         if (parameter != null)

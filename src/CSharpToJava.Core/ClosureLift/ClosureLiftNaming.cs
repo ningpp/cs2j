@@ -16,24 +16,58 @@ namespace CSharpToJava.Core.ClosureLift;
 /// </summary>
 internal sealed class ClosureLiftNaming
 {
-    // hostTypeKey (fully qualified display) -> reserved class names across files.
-    private readonly Dictionary<string, HashSet<string>> _classNamesByHost = new(StringComparer.Ordinal);
+    // hostTypeKey (fully qualified display) -> fileKey -> class names reserved by that file.
+    // Buckets are per file so that (a) partial parts of one host type in different
+    // files share the union of reservations (continuation), while (b) re-entering the
+    // same file (idempotent second pass / text round-trip) replaces that file's bucket
+    // and yields the same names instead of advancing the index.
+    private readonly Dictionary<string, Dictionary<string, HashSet<string>>> _classNamesByHostByFile =
+        new(StringComparer.Ordinal);
+
+    private string _currentFileKey = string.Empty;
+
+    /// <summary>
+    /// Begin processing one file. Re-entering the same file key drops its previous
+    /// reservation buckets across every host; reservations from other files persist.
+    /// The key should distinguish files (path) and contents (round-trip identity):
+    /// callers pass <c>tree.FilePath + '\0' + sourceCode</c>.
+    /// </summary>
+    public void BeginFile(string fileKey)
+    {
+        _currentFileKey = fileKey;
+        foreach (var perFile in _classNamesByHostByFile.Values)
+            perFile.Remove(fileKey);
+    }
 
     /// <summary>Reserve Cs2jDisplayClass_&lt;member&gt;_&lt;n&gt; for one group inside a host type.</summary>
     public string ReserveClassName(string hostTypeKey, string hostMemberName)
     {
-        if (!_classNamesByHost.TryGetValue(hostTypeKey, out var used))
+        if (!_classNamesByHostByFile.TryGetValue(hostTypeKey, out var perFile))
         {
-            used = new HashSet<string>(StringComparer.Ordinal);
-            _classNamesByHost[hostTypeKey] = used;
+            perFile = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            _classNamesByHostByFile[hostTypeKey] = perFile;
         }
+
+        if (!perFile.TryGetValue(_currentFileKey, out var currentFileUsed))
+        {
+            currentFileUsed = new HashSet<string>(StringComparer.Ordinal);
+            perFile[_currentFileKey] = currentFileUsed;
+        }
+
+        // Union across every file: partial parts and this file's fresh bucket.
+        var usedAcrossFiles = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var bucket in perFile.Values)
+            usedAcrossFiles.UnionWith(bucket);
 
         var memberPart = SanitizeMemberName(hostMemberName);
         for (var n = 0; ; n++)
         {
             var candidate = $"Cs2jDisplayClass_{memberPart}_{n}";
-            if (used.Add(candidate))
+            if (usedAcrossFiles.Add(candidate))
+            {
+                currentFileUsed.Add(candidate);
                 return candidate;
+            }
         }
     }
 
