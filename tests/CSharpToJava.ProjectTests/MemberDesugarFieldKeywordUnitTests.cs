@@ -500,6 +500,182 @@ public class MemberDesugarFieldKeywordUnitTests
         Assert.False(fieldInfo.IsInitOnly);
     }
 
+    // ---- FK 矩阵补充（设计 §7.1）----
+
+    [Fact]
+    public void Enabled_SetOnlyProperty_Normalizes()
+    {
+        var src = """
+            public class C
+            {
+                public int P
+                {
+                    set => field = value;
+                }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNotContains(output, "field");
+        AssertContains(output, "public void set_P(int value)");
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+    }
+
+    [Fact]
+    public void Enabled_NewAndSealedOverride_ModifiersHandled()
+    {
+        var src = """
+            public class Base
+            {
+                public virtual int P
+                {
+                    get => field;
+                    set => field = value;
+                }
+            }
+            public class Derived : Base
+            {
+                public sealed override int P
+                {
+                    get => field;
+                    set => field = value;
+                }
+            }
+            public class Hider : Base
+            {
+                public new int P
+                {
+                    get => field;
+                    set => field = value;
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNotContains(output, "field");
+        Assert.Equal(3, stats.FieldKeywordProperties);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+    }
+
+    [Fact]
+    public void Enabled_ExplicitInterfaceImplementation_Normalizes()
+    {
+        var src = """
+            public interface I
+            {
+                int P { get; set; }
+            }
+            public class C : I
+            {
+                int I.P
+                {
+                    get => field;
+                    set => field = value;
+                }
+            }
+            """;
+        var (output, _, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNotContains(output, "field");
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+    }
+
+    [Fact]
+    public void Enabled_ReadOnlyStruct_Normalizes()
+    {
+        var src = """
+            public readonly struct S
+            {
+                public int P => field;
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNotContains(output, "field");
+        Assert.Equal(1, stats.FieldKeywordProperties);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+    }
+
+    [Fact]
+    public void Enabled_FieldPassedAsRefArgument_RewrittenAndBehaviorPreserved()
+    {
+        var src = """
+            public class C
+            {
+                private static void Set(ref int target, int v) => target = v;
+                public int P
+                {
+                    get => field;
+                    set => Set(ref field, value);
+                }
+            }
+            """;
+        var (output, _, _) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertContains(output, "Set(ref p, value)");
+
+        var type = CompileToAssembly(output).GetType("C")!;
+        var instance = System.Activator.CreateInstance(type)!;
+        type.GetMethod("set_P", BindingFlags.Public | BindingFlags.Instance)!
+            .Invoke(instance, new object[] { 42 });
+        var got = type.GetMethod("get_P", BindingFlags.Public | BindingFlags.Instance)!
+            .Invoke(instance, null);
+        Assert.Equal(42, got);
+    }
+
+    [Fact]
+    public void Enabled_UserMemberNamedField_KeywordStillBindsSyntheticField()
+    {
+        // Roslyn 5.0 实证（CS9258 仅警告）：用户虽声明了 private int field，
+        // 未转义 field 仍是 FieldExpression 且绑编译器合成后备字段；语义归一必须
+        // 跟随符号（动合成字段 p），用户字段 field 原样保留，严禁按文本替换。
+        var src = """
+            public class C
+            {
+                private int field;
+                public int P
+                {
+                    get => field;
+                    set => field = value;
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        Assert.Equal(1, stats.FieldKeywordProperties);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        // 用户字段原样保留；访问器引用被改写到合成字段 p。
+        AssertContains(output, "private int field;");
+        AssertContains(output, "=> p;");
+        AssertContains(output, "=> p = value;");
+    }
+
+    [Fact]
+    public void Enabled_InterfaceStaticFieldProperty_Normalized()
+    {
+        // 附裁决 4 M2：接口静态 field-backed 属性合法（接口可含静态字段），直接收编。
+        var src = """
+            public interface I
+            {
+                public static int P
+                {
+                    get => field;
+                    set => field = value;
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNotContains(output, "field");
+        Assert.Equal(1, stats.FieldKeywordProperties);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+
+        var fieldInfo = CompileToAssembly(output).GetType("I")!
+            .GetFields(BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance)
+            .Single(f => f.FieldType == typeof(int));
+        Assert.True(fieldInfo.IsStatic);
+    }
+
     /// <summary>编译去糖产物并内存加载（TPA 引用），供反射断言字段/方法形态。</summary>
     private static Assembly CompileToAssembly(string output)
     {
