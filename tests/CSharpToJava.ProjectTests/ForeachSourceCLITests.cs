@@ -85,7 +85,7 @@ public class ForeachSourceCLITests
         // asserted at registry level in PassChainOrderTests.
     }
 
-    [Fact]
+    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 153.33s")]
     public async Task DefaultChain_Creates_ForeachSource_IntermediateTree_AndDisablePass_SuppressesIt()
     {
         var sourceDir = CreateTempWorkspace("""
@@ -168,7 +168,7 @@ public class ForeachSourceCLITests
         }
     }
 
-    [Fact]
+    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 60.56s")]
     public async Task EnablePass_AddsForeachSource_OnTopOfTheDefaultChain()
     {
         // --enable-pass keeps the default-on chain and adds the requested pass

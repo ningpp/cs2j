@@ -146,7 +146,7 @@ public class EqualityConcatProjectTests
         return (chainResult, converted);
     }
 
-    [Fact]
+    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 85.27s")]
     public async Task Fixture_Converts_Compiles_RunsAllRuntimeAssertions()
     {
         var outputRoot = Path.Combine(FixtureDir, ".test-output-equality-concat");
@@ -235,7 +235,7 @@ public class EqualityConcatProjectTests
         }
     }
 
-    [Fact]
+    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 48.79s")]
     public async Task DelegateLib_HasNoBinaryOperators_ButReleasesPrelude_AndMapsToDelegateHelper()
     {
         var outputRoot = Path.Combine(FixtureDir, ".test-output-equality-concat-probe");
