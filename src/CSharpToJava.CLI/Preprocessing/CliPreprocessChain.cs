@@ -1,6 +1,7 @@
 using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.JavaKeywords;
+using CSharpToJava.Core.LexicalNormalize;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
@@ -46,6 +47,9 @@ internal sealed class CliChainRequest
 
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when lexical-normalize is enabled.</summary>
+    public required Func<LexicalNormalizeOptions> LexicalNormalizeOptionsFactory { get; init; }
 
     /// <summary>Invoked only when equality-concat is enabled (keeps override loading lazy).</summary>
     public required Func<EqualityConcatOptions> EqualityConcatOptionsFactory { get; init; }
@@ -157,6 +161,7 @@ internal static class CliPreprocessChain
             MemberDesugarOptionsFactory = request.MemberDesugarOptionsFactory,
             StructValueSemanticsOptionsFactory = request.StructValueSemanticsOptionsFactory,
             EnumDeclarationOptionsFactory = request.EnumDeclarationOptionsFactory,
+            LexicalNormalizeOptionsFactory = request.LexicalNormalizeOptionsFactory,
             EnableDecimalOps = request.EnableDecimalOps,
             EnableIncrementTargets = request.EnableIncrementTargets,
             EqualityConcatOptionsFactory = request.EqualityConcatOptionsFactory,

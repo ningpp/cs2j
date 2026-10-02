@@ -19,6 +19,7 @@ public sealed class PassChainOrderTests
     private static readonly string[] LockedChain =
     [
         PassIds.Conditional,
+        PassStubCatalog.Ids.LexicalNormalize,
         PassIds.LocalFunctionLift,
         PassIds.NullCoalesce,
         PassStubCatalog.Ids.ExpressionDesugar,
@@ -48,10 +49,9 @@ public sealed class PassChainOrderTests
         PassIds.JavaKeywords,
     ];
 
-    // As of 2026-10-02 every implemented pass is default-on ("default
-    // enablement 收口"); the legacy flags survive as --no-xxx negations and
-    // --disable-pass remains the universal kill switch.
-    private static readonly string[] EnabledByDefault = LockedChain.ToArray();
+    // lexical-normalize lands Implemented/default-off (M3 gate flips it on).
+    private static readonly string[] EnabledByDefault =
+        LockedChain.Where(id => id != PassStubCatalog.Ids.LexicalNormalize).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -63,6 +63,14 @@ public sealed class PassChainOrderTests
         Assert.Equal(
             LockedChain,
             registry.Ordered.Where(p => p.Status == PassStatus.Implemented).Select(p => p.Id).ToArray());
+
+        var ordered = registry.Ordered.Where(p => p.Status == PassStatus.Implemented).ToList();
+        Assert.True(
+            ordered.FindIndex(p => p.Id == PassIds.Conditional)
+                < ordered.FindIndex(p => p.Id == PassStubCatalog.Ids.LexicalNormalize)
+                && ordered.FindIndex(p => p.Id == PassStubCatalog.Ids.LexicalNormalize)
+                < ordered.FindIndex(p => p.Id == PassIds.LocalFunctionLift),
+            "expected conditional < lexical-normalize < local-function-lift");
     }
 
     [Fact]
@@ -236,6 +244,7 @@ public sealed class PassChainOrderTests
             MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
             StructValueSemanticsOptionsFactory = () => new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
             EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
+            LexicalNormalizeOptionsFactory = () => new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
             EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
             ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
@@ -343,7 +352,8 @@ public sealed class PassChainOrderTests
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
                 && id != PassStubCatalog.Ids.UnsafeFfm
-                && id != PassStubCatalog.Ids.ExpressionDesugar)
+                && id != PassStubCatalog.Ids.ExpressionDesugar
+                && id != PassStubCatalog.Ids.LexicalNormalize)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

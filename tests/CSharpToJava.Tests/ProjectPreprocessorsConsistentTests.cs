@@ -136,6 +136,15 @@ public class ProjectPreprocessorsConsistentTests
             Assert.Equal("C05", enumDeclarationDescriptor.CatalogItems);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.EnumDeclarationPassAdapter));
 
+            // lexical-normalize (C28): no facade; descriptor carries the directory;
+            // default-off, enabled via --enable-pass lexical-normalize.
+            var lexicalDescriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.LexicalNormalize);
+            Assert.Equal(".cs2j-lexical-normalize-src",
+                lexicalDescriptor.IntermediateDirectoryName);
+            Assert.False(lexicalDescriptor.DefaultEnabled);
+            Assert.Equal("C28", lexicalDescriptor.CatalogItems);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.LexicalNormalizePassAdapter));
+
             // generic-deepen (C02)：无门面类（设计决定），目录常量挂在 CLI 适配器上；
             // 默认关，经 --enable-pass generic-deepen / --pass generic-deepen 开启。
             Assert.Equal(".cs2j-generic-deepen-src",

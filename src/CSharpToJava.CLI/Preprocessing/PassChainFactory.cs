@@ -10,6 +10,7 @@ using CSharpToJava.Core.GenericPreprocess;
 using CSharpToJava.Core.IndexRange;
 using CSharpToJava.Core.IteratorLowering;
 using CSharpToJava.Core.JavaKeywords;
+using CSharpToJava.Core.LexicalNormalize;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 using CSharpToJava.Core.MemberDesugar;
 using CSharpToJava.Core.NullCoalesceRewriter;
@@ -71,6 +72,9 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when lexical-normalize is enabled.</summary>
+    public required Func<LexicalNormalizeOptions> LexicalNormalizeOptionsFactory { get; init; }
 
     /// <summary>C34 decimal-ops kill-switch (enabled by default; false = --no-decimal-ops).</summary>
     public bool EnableDecimalOps { get; init; } = true;
@@ -151,6 +155,12 @@ internal static class PassChainFactory
                 configuration: "Release",
                 tfm: null,
                 removeRegions: false),
+
+            PassStubCatalog.Ids.LexicalNormalize => new LexicalNormalizePassAdapter(
+                config.LexicalNormalizeOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes),
 
             PassIds.LocalFunctionLift => new LocalFunctionLiftPassAdapter(
                 new CoreLocalFunctionLiftOptions(),

@@ -46,17 +46,8 @@ internal static class PassStubCatalog
 
     public static IReadOnlyList<PassDescriptor> Stubs { get; } = new List<PassDescriptor>
     {
-        new(
-            Ids.LexicalNormalize,
-            "Lexical normalization",
-            ".cs2j-lexical-normalize-src",
-            PassStage.Lexical,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.Conditional },
-            needsSemanticModel: false,
-            description: "Normalize file-scoped namespaces, global/static usings, extern aliases and raw/u8/verbatim literals; pure-syntax idempotent batching pilot.",
-            catalogItems: "C28, C43 (observation)"),
+        // Ids.LexicalNormalize flipped to Implemented in PassCatalog (C28);
+        // the id constant stays here by the iterator-lowering precedent (§3.4).
         new(
             Ids.PartialMerge,
             "Partial type merge",

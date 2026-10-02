@@ -211,6 +211,11 @@ public class Program
                     Strict = opts.LocalFunctionStrict,
                     ReportInfo = opts.Verbose,
                 },
+                LexicalNormalizeOptionsFactory = () =>
+                    new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions
+                {
+                    ReportInfo = opts.Verbose,
+                },
                 EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions
                 {
                     Strict = opts.LocalFunctionStrict,
@@ -3674,6 +3679,13 @@ public class Program
                     Strict = opts.LocalFunctionStrict,
                     ReportInfo = opts.Verbose,
                 },
+                LexicalNormalizeOptionsFactory = () =>
+                    new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions
+                {
+                    ReportInfo = opts.Verbose,
+                    NormalizeFileScopedNamespaces = opts.LnNormalizeFileScoped,
+                    ExternAliasSeverity = opts.LnExternAliasSeverityEffective,
+                },
                 EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions
                 {
                     Strict = opts.LocalFunctionStrict,
@@ -4669,6 +4681,18 @@ class PreprocessVerbOptions
     [Option("no-decimal-ops", Default = false,
         HelpText = "Disable the default decimal operator normalization inside numeric-boundary (C34)")]
     public bool NoDecimalOps { get; set; }
+
+    [Option("ln-normalize-file-scoped", Default = false,
+        HelpText = "lexical-normalize: rewrite file-scoped namespaces into block namespaces (LN-7)")]
+    public bool LnNormalizeFileScoped { get; set; }
+
+    [Option("ln-extern-alias-severity", Default = "Error",
+        HelpText = "lexical-normalize: severity for extern alias sites, one of Error|Warning|Info (LN-4)")]
+    public string LnExternAliasSeverity { get; set; } = "Error";
+
+    public CSharpToJava.Core.LexicalNormalize.LexicalNormalizeSeverity LnExternAliasSeverityEffective =>
+        Enum.Parse<CSharpToJava.Core.LexicalNormalize.LexicalNormalizeSeverity>(
+            LnExternAliasSeverity, ignoreCase: true);
 
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
