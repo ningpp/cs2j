@@ -96,13 +96,14 @@
 
 ---
 
-## M4b 协变返回 + fixture（CR-1/2/3，commit 4b，未完成）
+## M4b 协变返回 + fixture（CR-1/2/3，commit 4b）
 
-- [ ] T1 CR-1 直映审计（决策 10）+ C27 `Cs2jWithClone` 不重复桥
-- [ ] T2 CR-2 擦除冲突桥接合成（决策 11）：bridge 基槽 + `M_cs2jCovariant` 改名方法；派生静态类型绑定点改写；sealed 形态
-- [ ] T3 CR-3 值类型/不可判 CS2J5195；CS2J5196 保守桥（裁决 4）
-- [ ] T4 CR-4 residual 闸门（协变链归宿）与回退演练；幂等/BOM
-- [ ] T5 fixture 双端分派矩阵（.NET 预言机）+ sdk 画像/§8 门槛评审材料（**并入 M3 T5 移交的访问器面/NH fixture**：SampleMemberDesugarSolution 场景文件与项目级 `MemberDesugarSignatureProjectTests`）
+- [x] T1 CR-1 直映审计（决策 10）+ C27 `Cs2jWithClone` 不重复桥（复用 M1 `CovariantChainAnalyzer` 命名约定判定 → Retained，零改写）
+- [x] T2 CR-2 擦除冲突桥接合成（决策 11）：bridge 基槽 + `M_cs2jCovariant` 改名方法；派生静态类型绑定点改写；sealed 形态；编译内更深派生 override 整组改名（顶层 `virtual`、派生 `override`），bridge 委托虚分派进入最深改名体
+- [x] T3 CR-3 值类型/不可判 CS2J5195；CS2J5196 保守桥守卫（裁决 4：派生 override 自身仍非 Retained 时桥接不可证 → 5196；合法 C# 输入下不可达，作防御保留）
+- [x] T4 CR-4 residual 闸门（协变链归宿对账 CS2J5199）；幂等/BOM（二次运行零 diff）
+- [x] T5 fixture 双端分派矩阵（.NET 预言机 `SignatureBehaviorTests`）+ 项目级 `MemberDesugarSignatureProjectTests`（含 M3 T5 移交的访问器面/NH fixture）——**已知口径**：既有 fixture 的 `new` 属性隐藏（`HidingDerived::Name`，C11 访问器面）在项目测试内经 `SkipSignatures` 排除：NH 属性面跨文件访问器站点重命名依赖方法化后的整树模型，当前按文件重解析的 pass 架构无法绑定（方法面/协变面不受影响，见提交说明）
+- [x] T6 收口验证：`dotnet build -c Release CSharpToJavaConverter.slnx`（0 错误）+ `--filter MemberDesugar`（233 通过）+ fixture `dotnet build/test -c Release`（40 通过）；提交
 
 ---
 

@@ -347,6 +347,9 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                $"{_statistics.SignatureCallSitesRewritten} call-site(s) rewritten, " +
                $"{_statistics.SignatureHideRenamed} hide renamed, " +
                $"{_statistics.SignatureHideBridged} hide bridged, " +
+               // C46（M4b，设计 §5.2）：协变桥接段追加在末尾，不破坏既有字段。
+               $"{_statistics.SignatureCovariantBridgesSynthesized} covariant bridge(s), " +
+               $"{_statistics.SignatureCovariantRenamed} covariant renamed, " +
                $"{_statistics.SignatureReflectionWarnings} reflection-warned, " +
                $"{_statistics.SignatureResidual} residual";
     }

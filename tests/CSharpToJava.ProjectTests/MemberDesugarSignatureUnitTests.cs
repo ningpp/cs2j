@@ -1031,6 +1031,183 @@ public class GenDerived<T> : GenBase where T : class
         MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
     }
 
+    // ---- M4b：CR 协变返回（CR-1/2/3）----
+
+    [Fact]
+    public void Cr1_ReferenceCovariant_Retained_ByteIdentical_Counters()
+    {
+        const string src = """
+            public class Animal { }
+            public class Dog : Animal { }
+            public class Base { public virtual Animal Create() => new Animal(); }
+            public class Derived : Base { public override Dog Create() => new Dog(); }
+            public class Use { public string U(Base b, Derived d) => d.Create().GetType().Name; }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.Equal(src, output);   // CR-1 直映保留：零改写、字节一致
+        Assert.False(changed);
+        AssertNotContains(output, "_cs2jCovariant");
+        Assert.Equal(1, stats.SignatureCovariantChains);
+        Assert.Equal(1, stats.SignatureCovariantRetained);
+        Assert.Equal(0, stats.SignatureCovariantBridgesSynthesized);
+        Assert.Equal(0, stats.SignatureCovariantRenamed);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+    }
+
+    [Fact]
+    public void Cr1_C27ClonePair_NeverBridged_ByteIdentical()
+    {
+        // C27 Cs2jWithClone 合成对（命名约定识别）固定归 CR-1，不重复桥接（设计决策 10/§11）。
+        const string src = """
+            using System.Collections.Generic;
+            public class B { public virtual IEnumerable<object> Cs2jWithClone() => new List<object>(); }
+            public class D : B { public override IEnumerable<string> Cs2jWithClone() => new List<string>(); }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.Equal(src, output);   // 不桥接、字节一致
+        Assert.False(changed);
+        AssertNotContains(output, "_cs2jCovariant");
+        Assert.Equal(1, stats.SignatureCovariantRetained);
+        Assert.Equal(0, stats.SignatureCovariantBridgesSynthesized);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+    }
+
+    [Fact]
+    public void Cr2_ErasureConflict_BridgeAndRename_BaseSiteUntouched_DerivedSiteRenamed()
+    {
+        const string src = """
+            using System.Collections.Generic;
+            public class Base { public virtual IEnumerable<object> Items() => new List<object>(); }
+            public class Derived : Base { public override IEnumerable<string> Items() => new List<string>(); }
+            public class Use { public void U(Base b, Derived d) { var x = b.Items(); var y = d.Items(); } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        // bridge：基槽签名 override，体委托改名方法。
+        AssertContains(output, "public override IEnumerable<object> Items() => Items_cs2jCovariant();");
+        // 原体改名方法（无更深派生 → 非虚独立 newslot）。
+        AssertContains(output, "public IEnumerable<string> Items_cs2jCovariant() => new List<string>();");
+        // 基类静态类型站点不动（虚分派进 bridge）；派生静态类型站点改新名。
+        AssertContains(output, "var x = b.Items();");
+        AssertContains(output, "var y = d.Items_cs2jCovariant();");
+        Assert.Equal(1, stats.SignatureCovariantBridgesSynthesized);
+        Assert.Equal(1, stats.SignatureCovariantRenamed);
+        Assert.Equal(1, stats.SignatureCallSitesRewritten);
+        Assert.Equal(0, stats.SignatureResidual);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);   // 二次运行零 diff
+    }
+
+    [Fact]
+    public void Cr2_DeepDerivedChain_GroupRenamed_KeepsVirtualOverride_BothPaths()
+    {
+        const string src = """
+            using System.Collections.Generic;
+            public class Base { public virtual IEnumerable<object> Items() => new List<object>(); }
+            public class Derived : Base { public override IEnumerable<string> Items() => new List<string>(); }
+            public class More : Derived { public override IEnumerable<string> Items() => new List<string>(); }
+            public class Use
+            {
+                public void U(Base b, Derived d, More m)
+                {
+                    var a = b.Items(); var c = d.Items(); var e = m.Items();
+                }
+            }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        // bridge 委托虚分派进入最深改名体；sub-chain 整组改名，顶层保留 virtual、派生保留 override。
+        AssertContains(output, "public override IEnumerable<object> Items() => Items_cs2jCovariant();");
+        AssertContains(output, "public virtual IEnumerable<string> Items_cs2jCovariant() => new List<string>();");
+        AssertContains(output, "public override IEnumerable<string> Items_cs2jCovariant() => new List<string>();");
+        // 三条调用路径：基类静态类型不动，Derived/More 均改同名（虚分派保全）。
+        AssertContains(output, "var a = b.Items();");
+        AssertContains(output, "var c = d.Items_cs2jCovariant();");
+        AssertContains(output, "var e = m.Items_cs2jCovariant();");
+        Assert.Equal(1, stats.SignatureCovariantBridgesSynthesized);
+        Assert.Equal(2, stats.SignatureCovariantRenamed);   // bridge 点 + 更深派生
+        Assert.Equal(2, stats.SignatureCallSitesRewritten);
+        Assert.Equal(0, stats.SignatureResidual);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);   // 二次运行零 diff
+    }
+
+    [Fact]
+    public void Cr2_SealedOverride_BridgeCarriesSealed_RenamedNonVirtual()
+    {
+        const string src = """
+            using System.Collections.Generic;
+            public class Base { public virtual IEnumerable<object> Items() => new List<object>(); }
+            public class Derived : Base { public sealed override IEnumerable<string> Items() => new List<string>(); }
+            public class Use { public void U(Derived d) { var y = d.Items(); } }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.True(changed);
+        AssertContains(output, "public sealed override IEnumerable<object> Items() => Items_cs2jCovariant();");
+        AssertContains(output, "public IEnumerable<string> Items_cs2jCovariant() => new List<string>();");
+        AssertNotContains(output, "virtual IEnumerable<string> Items_cs2jCovariant");
+        AssertContains(output, "var y = d.Items_cs2jCovariant();");
+        Assert.Equal(1, stats.SignatureCovariantBridgesSynthesized);
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(output);
+
+        var (second, _, _, _) = Rewrite(output, Enabled());
+        Assert.Equal(output, second);
+    }
+
+    [Fact]
+    public void Cr3_UnprovableCovariant_CS2J5195_AtomicByteIdentical()
+    {
+        const string src = """
+            public class GenBase { public virtual object Make() => new object(); }
+            public class GenDerived<T> : GenBase where T : class
+            {
+                public override T Make() => default!;
+            }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.Equal(src, output);   // plan 原子不动、字节一致
+        Assert.False(changed);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.SignatureValueTypeCovariant
+            && d.Severity == MemberDesugarSeverity.Error);   // strict 默认 true
+        Assert.Equal(0, stats.SignatureCovariantBridgesSynthesized);
+        Assert.Equal(0, stats.SignatureCovariantRenamed);
+    }
+
+    [Fact]
+    public void Cr2_ExpressionTreeSite_CS2J5194_Atomic_DeclarationUntouched()
+    {
+        const string src = """
+            using System;
+            using System.Collections.Generic;
+            using System.Linq.Expressions;
+            public class Base { public virtual IEnumerable<object> Items() => new List<object>(); }
+            public class Derived : Base { public override IEnumerable<string> Items() => new List<string>(); }
+            public class Use
+            {
+                public void U(Derived d) { Expression<Func<IEnumerable<string>>> e = () => d.Items(); }
+            }
+            """;
+        var (output, changed, stats, diags) = Rewrite(src, Enabled());
+
+        Assert.Equal(src, output);   // plan 原子不动（含声明）
+        Assert.False(changed);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.SignatureExpressionTreeOrDynamic);
+        Assert.Equal(0, stats.SignatureCovariantBridgesSynthesized);
+    }
+
     // ---- 多文件重写（跨文件 plan TouchedFiles 闭合）----
 
     private static (string[] Outputs, MemberDesugarStatistics Stats, List<MemberDesugarDiagnostic> Diags)

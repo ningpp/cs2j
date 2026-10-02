@@ -242,6 +242,12 @@ public sealed class MemberDesugarStatistics
     /// <summary>NH-3 保留的同名 public 桥接数（纯 base 委托白名单，记 Bridged）。</summary>
     public int SignatureHideBridged { get; set; }
 
+    // ---- C46 signatures（M4b 协变桥接改写计数，设计 §5.2）----
+    /// <summary>CR-2 合成的擦除冲突协变 bridge 数（基槽签名 override 壳）。</summary>
+    public int SignatureCovariantBridgesSynthesized { get; set; }
+    /// <summary>CR-2 改名的协变声明数（bridge 点 + 编译内派生 sub-chain）。</summary>
+    public int SignatureCovariantRenamed { get; set; }
+
     /// <summary>按诊断码分桶的跳过数（设计 §6：按原因分组）。</summary>
     public Dictionary<MemberDesugarDiagnosticCode, int> SkippedByReason { get; } = new();
 }

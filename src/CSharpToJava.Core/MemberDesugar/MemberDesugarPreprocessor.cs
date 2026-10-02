@@ -75,6 +75,7 @@ public sealed partial class MemberDesugarPreprocessor
         var finalizerPlans = active.OfType<Finalizers.FinalizerPlan>().ToList();
         var signaturePlans = active.OfType<Signatures.ExplicitInterface.SiPlan>().ToList();
         var hidingPlans = active.OfType<Signatures.Hiding.NhPlan>().ToList();
+        var covariantPlans = active.OfType<Signatures.Covariant.CrPlan>().ToList();
         var plannedProperties = propertyPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         var plannedEvents = eventPlans
@@ -87,9 +88,16 @@ public sealed partial class MemberDesugarPreprocessor
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         var plannedHiding = hidingPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
+        var plannedCovariant = covariantPlans
+            .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         // C46 SI-7：本文件全部签名 plan（含被回退/跳过项）传给重写器作 residual 归属集合。
         var allSignaturePlansForFile = _plans!
             .OfType<Signatures.ExplicitInterface.SiPlan>()
+            .Where(p => p.TouchedFiles.Contains(filePath))
+            .ToList();
+        // C46 CR-4：本文件全部协变 plan（含 Retained/Skipped）作 residual 归属集合。
+        var allCovariantPlansForFile = _plans!
+            .OfType<Signatures.Covariant.CrPlan>()
             .Where(p => p.TouchedFiles.Contains(filePath))
             .ToList();
         // Info 级白名单（inc/dec、门控 &/|）在重写期计数：文件含 operator 声明时
@@ -99,7 +107,8 @@ public sealed partial class MemberDesugarPreprocessor
         var hasDestructorDecls = root.DescendantNodes().OfType<DestructorDeclarationSyntax>().Any();
         if (plannedProperties.Count == 0 && plannedEvents.Count == 0
             && plannedIndexers.Count == 0 && plannedOperators.Count == 0
-            && plannedSignatures.Count == 0 && plannedHiding.Count == 0 && !hasOperatorDecls
+            && plannedSignatures.Count == 0 && plannedHiding.Count == 0
+            && plannedCovariant.Count == 0 && !hasOperatorDecls
             && !hasDestructorDecls)
         {
             statistics.FilesSkippedClean++;
@@ -248,14 +257,14 @@ public sealed partial class MemberDesugarPreprocessor
                 _options, statistics, diagnostics, filePath);
             workingRoot = (CompilationUnitSyntax)indexerRewriter.Visit(workingRoot)!;
         }
-        if (plannedSignatures.Count > 0 || plannedHiding.Count > 0)
+        if (plannedSignatures.Count > 0 || plannedHiding.Count > 0 || plannedCovariant.Count > 0)
         {
             // C46 签名分相晚于索引器：前置阶段可能已重建树（红色节点/重解析），
             // 与 operator/indexer 同形——树已变先格式化+重解析换可绑定的新鲜模型。
             var (sigRoot, sigModel) = ResolveSignatureStage(workingRoot);
             if (sigRoot == null) return RollbackSignatureStage();
 
-            // SI（Order 40）先于 NH（Order 50）。
+            // SI（Order 40）先于 NH（Order 50）先于 CR（Order 60）。
             if (plannedSignatures.Count > 0)
             {
                 var signatureRewriter = new Signatures.ExplicitInterface.ExplicitInterfaceRewriter(
@@ -272,6 +281,17 @@ public sealed partial class MemberDesugarPreprocessor
                 var hidingRewriter = new Signatures.Hiding.HidingRewriter(
                     hideModel!, plannedHiding, _options, statistics, diagnostics, filePath);
                 sigRoot = (CompilationUnitSyntax)hidingRewriter.Visit(hideRoot)!;
+            }
+
+            if (plannedCovariant.Count > 0)
+            {
+                // CR 桥接晚于 NH：SI/NH 已改树则重新取新鲜模型（CR 绑定同样不得使用红节点）。
+                var (covRoot, covModel) = ResolveSignatureStage(sigRoot);
+                if (covRoot == null) return RollbackSignatureStage();
+                var covariantRewriter = new Signatures.Covariant.CovariantBridgeRewriter(
+                    covModel!, plannedCovariant, allCovariantPlansForFile,
+                    _options, statistics, diagnostics, filePath);
+                sigRoot = covariantRewriter.Rewrite(covRoot);
             }
             workingRoot = sigRoot;
 
@@ -469,7 +489,8 @@ public sealed partial class MemberDesugarPreprocessor
         MemberDesugarStatistics statistics, List<MemberDesugarDiagnostic> diagnostics)
     {
         // C46 签名 plan：属性/事件专用兜底码与文案会误标（5199 兜底，级别按 SignatureOptions）。
-        if (p is Signatures.ExplicitInterface.SiPlan or Signatures.Hiding.NhPlan)
+        if (p is Signatures.ExplicitInterface.SiPlan or Signatures.Hiding.NhPlan
+            or Signatures.Covariant.CrPlan)
         {
             EmitSignatureSkipDiagnostic(p, filePath, statistics, diagnostics);
             return;
