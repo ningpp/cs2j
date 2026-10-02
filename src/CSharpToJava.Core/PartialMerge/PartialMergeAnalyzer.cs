@@ -1,3 +1,4 @@
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -20,6 +21,46 @@ internal sealed class PartialMergeAnalyzer
         var diagnostics = new List<PartialMergeDiagnostic>();
         var (groups, topLevelSkipped) = PartialTypePartCollector.Collect(compilation, sourceRoot);
 
+        // Baseline-first (design §4.1): groups already covered by a compiler error
+        // are marked skip — the pass does not compete with compiler diagnostics.
+        var baselineErrors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error
+                && d.Location.SourceTree != null)
+            .ToList();
+
+        foreach (var group in groups)
+        {
+            if (baselineErrors.Any(error =>
+                    group.Parts.Any(part =>
+                        string.Equals(part.Declaration.SyntaxTree.FilePath,
+                            error.Location.SourceTree!.FilePath, StringComparison.OrdinalIgnoreCase)
+                        && part.Declaration.FullSpan.Contains(error.Location.SourceSpan.Start))))
+            {
+                group.SkipBaseline = true;
+            }
+        }
+
+        // Shape gate (CS2J2016): a record primary-constructor parameter list may
+        // appear on at most one part; multiple parts with a parameter list is a
+        // baseline CS error and an explicitly unsupported merge shape (§4.5).
+        foreach (var group in groups)
+        {
+            var parameterLists = group.Parts
+                .Select(part => part.Declaration)
+                .OfType<RecordDeclarationSyntax>()
+                .Count(record => record.ParameterList != null);
+            if (parameterLists > 1)
+            {
+                group.SkipUnsupportedShape = true;
+                diagnostics.Add(new PartialMergeDiagnostic(
+                    PartialMergeSeverity.Error,
+                    PartialMergeCodes.UnsupportedShape,
+                    "record primary-constructor parameter list appears on " + parameterLists +
+                    " parts; group left untouched",
+                    TypeFullName: group.TypeFullName));
+            }
+        }
+
         // Static lookup is per-analysis; reset so successive runs in one process
         // never see a previous tree's aliases.
         PartialMemberMerge.NestedOverrides.Clear();
@@ -29,6 +70,7 @@ internal sealed class PartialMergeAnalyzer
         // replace the nested part members. Switch to annotation keys if real
         // fixtures produce text-key collisions.
         foreach (var group in groups
+                     .Where(g => !g.SkipBaseline && !g.SkipUnsupportedShape)
                      .OrderByDescending(g => g.TypeFullName.Count(c => c == '.')))
         {
             var merged = PartialTypeMergeBuilder.Build(compilation, group);
@@ -88,11 +130,43 @@ internal sealed class PartialMergeAnalyzer
             }
         }
 
+        // CS2J2017: heuristic analyzer/source-generator reference detection
+        // (Info; only surfaced in verbose output).
+        foreach (var projectFile in EnumerateProjectFiles(sourceRoot))
+        {
+            var text = File.ReadAllText(projectFile);
+            if (text.Contains("<Analyzer Include", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("OutputItemType=\"Analyzer\"", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("SourceGenerator", StringComparison.OrdinalIgnoreCase))
+            {
+                diagnostics.Add(new PartialMergeDiagnostic(
+                    PartialMergeSeverity.Info,
+                    PartialMergeCodes.AnalyzerSeen,
+                    "analyzer/source-generator reference detected; merged declaration keeps partial " +
+                    "so generated parts remain valid (verify build is the semantic oracle)",
+                    FilePath: projectFile));
+            }
+        }
+
         return new PartialMergePlan
         {
             Groups = groups,
             EditsByFile = edits.ToLookup(edit => edit.FilePath, StringComparer.OrdinalIgnoreCase),
             Diagnostics = diagnostics,
         };
+    }
+
+    private static IEnumerable<string> EnumerateProjectFiles(string sourceRoot)
+    {
+        if (!Directory.Exists(sourceRoot))
+        {
+            yield break;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(
+                     sourceRoot, "*.csproj", SearchOption.AllDirectories))
+        {
+            yield return file;
+        }
     }
 }

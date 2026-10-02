@@ -10,7 +10,8 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// Adapter for partial-merge (C20). Drives its own whole-tree execution like
 /// JavaKeywordsPassAdapter (design §5): prepare/copy → whole-tree semantic
 /// analysis → per-file deterministic rewrites → restore → build/test verify.
-/// M1 has no rollback replay (M2 adds baseline/diff/rollback/residual).
+/// Replays from originals each round: baseline snapshot, recompile-diff,
+/// per-group/whole-tree rollback, residual gate.
 /// </summary>
 internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 {
@@ -21,7 +22,7 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
     private readonly bool _verifyBuild;
     private readonly bool _verifyTests;
 
-    private readonly List<string> _diagnostics = new();
+    private readonly List<PartialMergeDiagnostic> _diagnostics = new();
 
     public PartialMergePassAdapter(
         PartialMergeOptions options,
@@ -43,6 +44,8 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         PassCatalog.ImplementedById(PassStubCatalog.Ids.PartialMerge);
 
     public override bool Verbose => _verbose;
+    public override bool HasErrors
+        => _diagnostics.Any(d => d.Severity == PartialMergeSeverity.Error);
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes => _compatNamespacePrefixes;
     public override bool VerifyBuild => _verifyBuild;
@@ -63,6 +66,7 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         var preprocessor = new PartialMergePreprocessor(_options);
         var excludedGroups = new HashSet<string>(StringComparer.Ordinal);
         PartialMergePlan? acceptedPlan = null;
+        PartialMergePlan? lastPlan = null;
         var success = true;
         const int maxIterations = 1024;
 
@@ -73,18 +77,27 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 
             var analysisCompilation = context.BuildStandardCompilation();
             var plan = preprocessor.Analyze(analysisCompilation, tree.SourceRoot);
+            lastPlan = plan;
             foreach (var group in plan.Groups
                          .Where(g => excludedGroups.Contains(g.TypeFullName)))
             {
                 group.RolledBack = true;
             }
 
-            // 3. Per-file rewrites; files with no active edit are already copied.
+            // 3. Per-file rewrites; filter at edit granularity (part spans), so a
+            // file shared by an active and a rolled-back group only replays the
+            // active edits. Files with no active edit are already copied.
             var rewriter = new PartialMergeRewriter();
             foreach (var csFile in tree.CsFiles)
             {
+                var activePartSpans = plan.ActiveGroups
+                    .SelectMany(g => g.Parts)
+                    .Where(p => string.Equals(
+                        p.SourceFilePath, csFile, StringComparison.OrdinalIgnoreCase))
+                    .Select(p => p.Declaration.FullSpan)
+                    .ToHashSet();
                 var edits = plan.EditsByFile[csFile]
-                    .Where(e => plan.ActiveGroups.Any(g => g.TouchedFiles.Contains(csFile)))
+                    .Where(e => activePartSpans.Contains(e.Span))
                     .ToList();
                 if (edits.Count == 0)
                 {
@@ -129,10 +142,12 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
                 // Zero/multi attribution → whole-tree rollback (CS2J2002).
                 CopyInputs(tree);
                 var first = newErrors[0];
-                _diagnostics.Add(
-                    $"[Error] {PartialMergeCodes.WholeTreeRolledBack}: whole-tree validation failed and " +
-                    $"the new error ({first.Descriptor.Id}: {first.GetMessage()}) could not be " +
-                    "attributed to a single group; all changes were rolled back.");
+                _diagnostics.Add(new PartialMergeDiagnostic(
+                    PartialMergeSeverity.Error,
+                    PartialMergeCodes.WholeTreeRolledBack,
+                    "whole-tree validation failed and the new error (" +
+                    first.Descriptor.Id + ": " + first.GetMessage() +
+                    ") could not be attributed to a single group; all changes were rolled back."));
                 success = false;
                 break;
             }
@@ -142,10 +157,13 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             {
                 group.RolledBack = true;
                 excludedGroups.Add(group.TypeFullName);
-                _diagnostics.Add(
-                    $"[Warning] {PartialMergeCodes.GroupRolledBack}: group '{group.TypeFullName}' and all " +
-                    "its touched files were rolled back; the group stays multi-part and the " +
-                    "main converter will pick it up. Resolve the conflict and retry.");
+                _diagnostics.Add(new PartialMergeDiagnostic(
+                    PartialMergeSeverity.Warning,
+                    PartialMergeCodes.GroupRolledBack,
+                    "group '" + group.TypeFullName + "' and all its touched files were rolled " +
+                    "back; the group stays multi-part and the main converter will pick it " +
+                    "up. Resolve the conflict and retry.",
+                    TypeFullName: group.TypeFullName));
 
                 foreach (var touched in group.TouchedFiles)
                 {
@@ -162,13 +180,23 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
             }
         }
 
+        // Surface analyzer diagnostics from the final round exactly once; Info
+        // lines (CS2J2017) only appear in verbose output.
+        if (lastPlan != null)
+        {
+            foreach (var diagnostic in lastPlan.Diagnostics)
+            {
+                _diagnostics.Add(diagnostic);
+            }
+        }
+
         // 7. Residual gate: multi-part types must be whitelisted (rollback/skip).
         if (acceptedPlan != null && success)
         {
             var finalTree = BuildIntermediateCompilation(tree);
             foreach (var residual in preprocessor.CheckResidual(finalTree, acceptedPlan))
             {
-                _diagnostics.Add(residual.ToMsBuildString());
+                _diagnostics.Add(residual);
             }
         }
 
@@ -189,26 +217,31 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
         => throw new NotSupportedException("PartialMergePassAdapter drives the file loop itself.");
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)
-        => _diagnostics.Add(
-            $"[Warning] dotnet restore failed with exit code {exitCode} for {restoreTarget}.");
+        => _diagnostics.Add(new PartialMergeDiagnostic(
+            PartialMergeSeverity.Warning,
+            string.Empty,
+            $"dotnet restore failed with exit code {exitCode} for {restoreTarget}."));
 
     public override void OnBuildFailed(int exitCode)
-        => _diagnostics.Add(
-            $"[Error] {PartialMergeCodes.BuildFailed}: dotnet build failed with exit code {exitCode} after partial-merge.");
+        => _diagnostics.Add(new PartialMergeDiagnostic(
+            PartialMergeSeverity.Error,
+            PartialMergeCodes.BuildFailed,
+            $"dotnet build failed with exit code {exitCode} after partial-merge."));
 
     public override void OnTestsFailed(int exitCode)
-        => _diagnostics.Add(
-            $"[Error] {PartialMergeCodes.TestsFailed}: dotnet test failed with exit code {exitCode} after partial-merge.");
-
-    public override bool HasErrors
-        => _diagnostics.Any(d => d.Contains("error CS2J", StringComparison.OrdinalIgnoreCase)
-                                 || d.StartsWith("[Error]", StringComparison.OrdinalIgnoreCase));
+        => _diagnostics.Add(new PartialMergeDiagnostic(
+            PartialMergeSeverity.Error,
+            PartialMergeCodes.TestsFailed,
+            $"dotnet test failed with exit code {exitCode} after partial-merge."));
 
     public override string? BuildChainSummaryLine()
         => "partial-merge: see verbose diagnostics";
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
-        => verbose ? _diagnostics.ToList() : _diagnostics;
+        => _diagnostics
+            .Where(d => verbose || d.Severity != PartialMergeSeverity.Info)
+            .Select(d => d.ToMsBuildString())
+            .ToList();
 
     private static List<TypeGroupPlan> AttributeToGroups(Diagnostic error, PartialMergePlan plan)
     {
