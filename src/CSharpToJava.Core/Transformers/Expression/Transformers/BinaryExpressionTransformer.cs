@@ -66,6 +66,9 @@ public class BinaryExpressionTransformer : IIRExpressionTransformer
         // Span<T> / System.Type define == as value equality; Java classes use identity.
         if (op.Cat == BinOpCat.Equality && TryTransformSpanOrTypeEquality(node, op.Java, ctx) is { } special)
             return special;
+        // 【C06 退役评估 M3b】C06 归一后仅服务直连安全网：指针算术/比较在
+        // UnsafeFfmPreprocessor(EnablePointer) 阶段已归为 int 索引运算；
+        // 语句级 FFM 直翻（FfmHelper.TryTransformPointerBinary）已退役。
         if (FfmHelper.TryTransformPointerBinary(node, op.Java, ctx) is { } ptr) return ptr;
         if (op.Cat == BinOpCat.Equality && TryTransformEventNull(node, op.Java, ctx) is { } evt) return evt;
 

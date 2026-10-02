@@ -144,8 +144,9 @@ public class ConversionPipeline
 
         try
         {
-            // 解析阶段
-            var syntaxTree = CSharpSyntaxTree.ParseText(request.SourceCode);
+            // 解析阶段。传入 FileName：单文件管线的路径敏感判定
+            // （IsPInvokeContainerFile 等）与项目管线保持一致。
+            var syntaxTree = CSharpSyntaxTree.ParseText(request.SourceCode, path: request.FileName);
             if (syntaxTree.GetDiagnostics().Any(d => d.Severity == DiagSeverity.Error))
             {
                 foreach (var diag in syntaxTree.GetDiagnostics())

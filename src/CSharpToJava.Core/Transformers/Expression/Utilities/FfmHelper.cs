@@ -19,6 +19,11 @@ public class FixedPointerInfo
 
 public static class FfmHelper
 {
+    // 【C06 退役评估 M3b】本类的语句级指针 FFM 直翻（MemorySegment 生成、
+    // 指针读/写、TryTransformPointerBinary 等）在 UnsafeFfmPreprocessor
+    // (EnablePointer) 归一管线落地后已退役：fixed 语句、指针算术/自增/比较/
+    // 差值在进入转换器前已归为托管数组 + int 索引。此处仅服务未走预处理的
+    // 直连安全网；保留全部实现，不删除、不改转换器行为。
     public static string GetValueLayoutName(string csharpElementType) => csharpElementType switch
     {
         "byte" or "Byte" or "System.Byte" => "JAVA_BYTE",

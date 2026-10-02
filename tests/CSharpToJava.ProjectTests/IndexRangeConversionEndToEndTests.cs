@@ -73,6 +73,9 @@ public class IndexRangeConversionEndToEndTests
                 EqualityConcatOptionsFactory = () =>
                     new CSharpToJava.Core.EqualityConcat
                         .EqualityConcatOptions(),
+                UnsafeFfmOptionsFactory = () =>
+                    new CSharpToJava.Core.UnsafeFfm
+                        .UnsafeFfmOptions(),
                 LegacyToggles = PassCatalog.BuildRegistry().Ordered
                     .Select(d => d.Id)
                     .ToDictionary(

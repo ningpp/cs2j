@@ -24,6 +24,8 @@ internal static class PassStubCatalog
         public const string ForeachSource = "foreach-source";
         public const string ClosedMetadata = "closed-metadata";
         public const string VarianceAudit = "variance-audit";
+        // Ids.UnsafeFfm flipped to Implemented in PassCatalog (C06 M0);
+        // the id constant stays here by the iterator-lowering precedent (§3.4).
         public const string UnsafeFfm = "unsafe-ffm";
         public const string ClosureLift = "closure-lift";
         public const string IteratorLowering = "iterator-lowering";
@@ -88,16 +90,8 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.Generic },
             description: "Audit out/in variance and struct/new() constraints; report usage sites needing rewrite (P3).",
             catalogItems: "C33"),
-        new(
-            Ids.UnsafeFfm,
-            "Unsafe to FFM",
-            ".cs2j-unsafe-ffm-src",
-            PassStage.Abi,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.StructValueSemantics },
-            description: "Lower pointers/stackalloc/fixed buffers/extern to index, Span and FFM forms.",
-            catalogItems: "C06"),
+        // Ids.UnsafeFfm flipped to Implemented in PassCatalog (C06 M0);
+        // the descriptor lives there and no stub entry remains.
         new(
             Ids.ClosureLift,
             "Closure/display class lift",

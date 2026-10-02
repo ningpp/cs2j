@@ -66,6 +66,47 @@ public static class PreprocessDiagnosticCodes
     /// <summary>numeric-boundary: residual unchecked/checked node survived in user-scope output (NB-13).</summary>
     public const string NumericBoundaryResidualNode = "CS2J5327";
 
+    // ── CS2J5330-5341: C17 complex increment/decrement normalization (design §6) ──
+
+    /// <summary>C17: increment/decrement site expanded (verbose-only aggregated info, by target/core).</summary>
+    public const string IncrementTargetSiteInfo = "CS2J5330";
+
+    /// <summary>C17: read-modify-write temporary hoisted (verbose-only aggregated info, by role).</summary>
+    public const string IncrementTargetTempInfo = "CS2J5331";
+
+    /// <summary>C17: event/pointer/other illegal or unowned increment target (event → C13; pointer → C06; read-only property baseline-illegal).</summary>
+    public const string IncrementTargetIllegalTarget = "CS2J5332";
+
+    /// <summary>C17: nint/nuint/IntPtr/UIntPtr increment target — arithmetic core belongs to C41.</summary>
+    public const string IncrementTargetNativeInt = "CS2J5333";
+
+    /// <summary>
+    /// C17: decimal increment expanded as <c>old ± 1m</c>; the Java half is owned
+    /// by C34. C34 已合入，2026-10-01 裁决降 Info，不再经 Warning（开放问题 2 裁决更新）。
+    /// </summary>
+    public const string IncrementTargetDecimalInfo = "CS2J5334";
+
+    /// <summary>C17: nullable numeric/enum lifted increment — belongs to C22.</summary>
+    public const string IncrementTargetNullableLifted = "CS2J5335";
+
+    /// <summary>C17: dynamically bound increment target (force cannot clear).</summary>
+    public const string IncrementTargetDynamic = "CS2J5336";
+
+    /// <summary>C17: increment inside an expression-tree lambda changes the tree shape (force cannot clear).</summary>
+    public const string IncrementTargetExpressionTree = "CS2J5337";
+
+    /// <summary>C17: user-defined op_Increment/op_Decrement site; C14 defers ++/-- and the naming contract is not frozen.</summary>
+    public const string IncrementTargetCustomOperator = "CS2J5338";
+
+    /// <summary>C17: value-consumed postfix / read-modify-write with no safe hoist anchor (condition/query/lambda/initializer/attribute/?.).</summary>
+    public const string IncrementTargetNoAnchor = "CS2J5339";
+
+    /// <summary>C17: ref-returning target expanded via ref alias; the Java half depends on C01 (strict → Error).</summary>
+    public const string IncrementTargetRefReturn = "CS2J5340";
+
+    /// <summary>C17: IT-13 residual gate — an owned ++/-- node survived in the output tree (strict → Error).</summary>
+    public const string IncrementTargetResidual = "CS2J5341";
+
     // ── CS2J5360-5379: C34 decimal-ops normalization (design §6) ──
 
     /// <summary>C34: decimal operator site reduction count (verbose-only aggregated info).</summary>

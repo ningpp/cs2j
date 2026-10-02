@@ -21,6 +21,7 @@ using CSharpToJava.Core.RefOutInPreprocessor;
 using CSharpToJava.Core.StructValueSemantics;
 using CSharpToJava.Core.TupleToStruct;
 using CSharpToJava.Core.UnsignedTypeRewriter;
+using CSharpToJava.Core.UnsafeFfm;
 using CSharpToJava.CLI.Preprocessing.Adapters;
 using CoreGenericPreprocessOptions = CSharpToJava.Core.GenericPreprocess.GenericPreprocessOptions;
 using CoreTupleToStructOptions = CSharpToJava.Core.TupleToStruct.TupleToStructOptions;
@@ -73,8 +74,14 @@ internal sealed class PassChainConfiguration
     /// <summary>C34 decimal-ops opt-in (dormant default false).</summary>
     public bool EnableDecimalOps { get; init; }
 
+    /// <summary>C17 increment-targets kill-switch (enabled by default).</summary>
+    public bool EnableIncrementTargets { get; init; } = true;
+
     /// <summary>Invoked only when equality-concat is enabled (keeps override loading lazy).</summary>
     public required Func<EqualityConcatOptions> EqualityConcatOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when unsafe-ffm is enabled (keeps construction lazy).</summary>
+    public required Func<UnsafeFfmOptions> UnsafeFfmOptionsFactory { get; init; }
 }
 
 /// <summary>
@@ -242,6 +249,7 @@ internal static class PassChainFactory
                 {
                     EnabledPassIds = config.EnabledPassIds,
                     EnableDecimalOps = config.EnableDecimalOps,
+                    EnableIncrementTargets = config.EnableIncrementTargets,
                 },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -301,6 +309,14 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
+
+            PassStubCatalog.Ids.UnsafeFfm => new UnsafeFfmPassAdapter(
+                config.UnsafeFfmOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
 
             PassStubCatalog.Ids.IteratorLowering => new IteratorLoweringPassAdapter(
                 new IteratorLoweringOptions(),

@@ -195,7 +195,7 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Explicitize checked/unchecked integer arithmetic (overflow checks and stripping); " +
                          "C34 decimal operator normalization is co-located (opt-in via EnableDecimalOps).",
-            catalogItems: "C15, C34"),
+            catalogItems: "C15, C34, C17"),
         new(
             PassIds.Generic,
             "Generic",
@@ -274,6 +274,19 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Make struct copy/mutation/readonly boundaries explicit with defensive clones.",
             catalogItems: "C07"),
+        new(
+            PassStubCatalog.Ids.UnsafeFfm,
+            "Unsafe to FFM",
+            ".cs2j-unsafe-ffm-src",
+            PassStage.Abi,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.StructValueSemantics },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Strip unsafe blocks and unsafe modifiers from types/members/local functions " +
+                "(C06 M0; fixed buffers, stackalloc, pointers and extern normalization follow in later milestones).",
+            catalogItems: "C06"),
         new(
             PassStubCatalog.Ids.IteratorLowering,
             "Iterator lowering",

@@ -82,7 +82,8 @@ public class PreprocessVerbCLITests
         Assert.Contains("on", stdout);
         // C34 (decimal-ops) is co-located with the numeric-boundary pass; the
         // catalog inventory must surface it even though it ships default-off.
-        Assert.Contains("rules=C15, C34", stdout);
+        // C17 (increment-targets) is a co-located family rule as well (M0 skeleton).
+        Assert.Contains("rules=C15, C34, C17", stdout);
     }
 
     [Fact]
@@ -325,6 +326,99 @@ public static class Runner
                 Path.Combine(destDir, ".cs2j-struct-value-semantics-src", "Class1.cs"));
             Assert.Contains("Clone()", rewritten);
             Assert.Contains("struct-value-semantics:", stdout);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    // ───────────────────────── C06 unsafe-ffm（设计 §7.6/§9 M0）─────────────────────────
+
+    [Fact]
+    public async Task ListPasses_ShowsUnsafeFfm_ImplementedAndOffByDefault()
+    {
+        var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
+
+        Assert.Equal(0, exit);
+        var line = stdout.Split('\n').First(l => l.Contains("unsafe-ffm"));
+        Assert.Contains("Implemented", line);
+        Assert.Contains("off", line); // M0 默认关
+    }
+
+    [Fact]
+    public async Task DefaultChain_DoesNotCreate_UnsafeFfm_IntermediateTree()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace UffmDefault;
+
+public static class Calc
+{
+    public static int Add(int a, int b) => a + b;
+}
+""");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, _, stderr) = await RunCliAsync(
+                "preprocess", "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(0, exit);
+            Assert.True(Directory.Exists(destDir), stderr);
+            Assert.False(
+                Directory.Exists(Path.Combine(destDir, ".cs2j-unsafe-ffm-src")),
+                "unsafe-ffm is default-off and must not run without an explicit flag");
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ExplicitPassSelection_RunsUnsafeFfm()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace UffmSample;
+
+public class C
+{
+    unsafe int field;
+
+    public static void Go()
+    {
+        unsafe
+        {
+            System.Console.WriteLine(1);
+        }
+    }
+}
+""");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "unsafe-ffm",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.True(exit == 0,
+                $"preprocess --pass unsafe-ffm failed (exit {exit}).\nstderr: {stderr}\nstdout: {stdout}");
+
+            var intermediateDirs = Directory
+                .GetDirectories(destDir, ".cs2j-*", SearchOption.TopDirectoryOnly)
+                .Select(Path.GetFileName)
+                .ToArray();
+            Assert.Single(intermediateDirs);
+            Assert.Equal(".cs2j-unsafe-ffm-src", intermediateDirs[0]);
+
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-unsafe-ffm-src", "Class1.cs"));
+            Assert.DoesNotContain("unsafe", rewritten);
+            Assert.Contains("System.Console.WriteLine(1);", rewritten);
+            Assert.Contains("int field;", rewritten);
+            Assert.Contains("unsafe-ffm:", stdout);
         }
         finally
         {
