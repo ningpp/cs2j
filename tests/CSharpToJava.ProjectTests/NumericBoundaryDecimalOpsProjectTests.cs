@@ -9,12 +9,12 @@ namespace CSharpToJava.ProjectTests;
 
 /// <summary>
 /// Project-level gate for C34 (decimal-ops normalization), co-located with
-/// the C15 numeric-boundary pass and enabled explicitly through
-/// <see cref="CliChainRequest.EnableDecimalOps"/>. The decimal fixture is
-/// reduced to BCL static calls, downgrades const-decimal sites, keeps
-/// single-evaluation semantics and still builds and runs; with the flag left
-/// at its default the same fixture passes through byte-identical; a 536x
-/// unsupported site fails the chain with the file rolled back.
+/// the C15 numeric-boundary pass and enabled by default in the product chain
+/// (<see cref="CliChainRequest.EnableDecimalOps"/> kill-switch). The decimal
+/// fixture is reduced to BCL static calls, downgrades const-decimal sites,
+/// keeps single-evaluation semantics and still builds and runs; with the
+/// family switch pinned off the same fixture passes through byte-identical;
+/// a 536x unsupported site fails the chain with the file rolled back.
 /// </summary>
 public class NumericBoundaryDecimalOpsProjectTests
 {

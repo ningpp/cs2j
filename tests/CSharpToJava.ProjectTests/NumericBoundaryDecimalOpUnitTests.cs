@@ -10,11 +10,12 @@ namespace CSharpToJava.ProjectTests;
 
 /// <summary>
 /// Unit tests for C34 (decimal-ops normalization), co-located inside the C15
-/// numeric-boundary pass and dormant unless <see cref="NumericBoundaryOptions.EnableDecimalOps"/>
-/// is explicitly set. Covers DC-1~DC-13: arithmetic/comparison/unary/compound
-/// reduction, operand promotion, single-evaluation hoisting, const downgrade,
-/// expression-tree/dynamic/anchor errors, zero-harm surfaces, idempotency,
-/// the dormant default and the compat Java surface.
+/// numeric-boundary pass and enabled by default
+/// (<see cref="NumericBoundaryOptions.EnableDecimalOps"/> family kill-switch).
+/// Covers DC-1~DC-13: arithmetic/comparison/unary/compound reduction, operand
+/// promotion, single-evaluation hoisting, const downgrade, expression-tree/
+/// dynamic/anchor errors, zero-harm surfaces, idempotency, the kill-switch
+/// path and the compat Java surface.
 /// </summary>
 public class NumericBoundaryDecimalOpUnitTests
 {
@@ -660,10 +661,10 @@ public class NumericBoundaryDecimalOpUnitTests
         Assert.Contains("decimal.Add(a,b)", Compact(result.OutputCode));
     }
 
-    // ── dormant default / idempotency / collisions ──
+    // ── kill-switch / idempotency / collisions ──
 
     [Fact]
-    public void DefaultDisabled_LeavesZeroTrace_ByteIdentical()
+    public void Disabled_LeavesZeroTrace_ByteIdentical()
     {
         var src = """
             public class C
@@ -676,7 +677,7 @@ public class NumericBoundaryDecimalOpUnitTests
             }
             """;
 
-        var result = Run(src, new NumericBoundaryOptions());
+        var result = Run(src, new NumericBoundaryOptions { EnableDecimalOps = false });
 
         Assert.False(result.Changed);
         Assert.Equal(1, result.Statistics.FilesSkippedClean);

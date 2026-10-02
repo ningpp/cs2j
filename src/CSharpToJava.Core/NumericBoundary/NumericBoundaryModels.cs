@@ -38,10 +38,11 @@ public sealed record NumericBoundaryOptions
 
     /// <summary>
     /// C34: reduce built-in <see cref="decimal"/> operator sites to explicit
-    /// BCL calls. Ships dormant (<c>false</c>): while false the decimal pipeline
-    /// never runs and leaves zero trace; flips to default-on after M3.
+    /// BCL calls. Family kill-switch that is on by default together with the
+    /// pass (CLI <c>--no-decimal-ops</c>); while false the decimal pipeline
+    /// never runs and leaves zero trace.
     /// </summary>
-    public bool EnableDecimalOps { get; init; }
+    public bool EnableDecimalOps { get; init; } = true;
 
     /// <summary>
     /// C17: normalize complex <c>++/--</c> targets (property/indexer/enum/

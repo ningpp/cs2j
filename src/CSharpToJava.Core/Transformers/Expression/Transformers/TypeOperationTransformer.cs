@@ -75,6 +75,34 @@ public class TypeOperationTransformer : IIRExpressionTransformer
         if (srcSym?.TypeKind == TypeKind.Enum)
             e = $"{e}.ordinal()";
 
+        // C# numeric-to-decimal conversions (C34 DC-9 operand promotion emits
+        // them explicitly): Java has no primitive->reference cast, so they must
+        // become factory calls against the compat Decimal. valueOf(int)/(long)/
+        // (double) cover the signed and narrow sources (char/short/byte widen to
+        // the int overload); real uint/ulong keep their magnitude through the
+        // unsigned helpers (the Java int/long bit pattern is reinterpreted there).
+        // An identity (decimal)d cast is dropped.
+        if (sym?.SpecialType == SpecialType.System_Decimal)
+        {
+            if (srcSym?.SpecialType == SpecialType.System_Decimal)
+                return e;
+            if (srcSym?.SpecialType is SpecialType.System_UInt32)
+            {
+                c.AddImport("io.github.ningpp.compat.UnsignedMath");
+                return $"UnsignedMath.toDecimalUInt32({e})";
+            }
+            if (srcSym?.SpecialType is SpecialType.System_UInt64)
+            {
+                c.AddImport("io.github.ningpp.compat.UnsignedMath");
+                return $"UnsignedMath.toDecimalUInt64({e})";
+            }
+            if (srcSym is null || IsNumericPromotableToDecimal(srcSym))
+            {
+                c.AddImport("io.github.ningpp.compat.Decimal");
+                return $"Decimal.valueOf({e})";
+            }
+        }
+
         return sym?.SpecialType switch
         {
             SpecialType.System_Int32 => e,
@@ -84,6 +112,23 @@ public class TypeOperationTransformer : IIRExpressionTransformer
             _ => $"({Map(n.Type, c)})({e})"
         };
     }
+
+    /// <summary>
+    /// Numeric sources whose rendered Java primitive converts losslessly through
+    /// <c>Decimal.valueOf</c> (and enums via ordinal). Real uint/ulong are handled
+    /// separately via the unsigned-magnitude helpers and must not appear here.
+    /// </summary>
+    private static bool IsNumericPromotableToDecimal(ITypeSymbol source)
+        => source.SpecialType is SpecialType.System_SByte
+            or SpecialType.System_Byte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16
+            or SpecialType.System_Int32
+            or SpecialType.System_Int64
+            or SpecialType.System_Char
+            or SpecialType.System_Single
+            or SpecialType.System_Double
+            || source.TypeKind == TypeKind.Enum;
     private static string Is(BinaryExpressionSyntax n, ConversionContext c)
     {
         var left = Expr(c, n.Left);

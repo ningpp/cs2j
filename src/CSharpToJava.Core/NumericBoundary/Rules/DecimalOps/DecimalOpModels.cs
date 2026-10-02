@@ -1,9 +1,9 @@
 namespace CSharpToJava.Core.NumericBoundary.Rules.DecimalOps;
 
 /// <summary>
-/// C34 per-file statistics buckets (design §4.5). Every bucket stays zero while
-/// <see cref="NumericBoundaryOptions.EnableDecimalOps"/> is false (dormant
-/// landing): the decimal pipeline does not run and leaves no trace.
+/// C34 per-file statistics buckets (design §4.5). Every bucket stays zero when
+/// <see cref="NumericBoundaryOptions.EnableDecimalOps"/> is false (family
+/// kill-switch): the decimal pipeline does not run and leaves no trace.
 /// </summary>
 public sealed class DecimalOpStatistics
 {

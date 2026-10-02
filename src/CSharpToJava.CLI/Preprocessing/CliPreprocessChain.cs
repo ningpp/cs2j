@@ -68,10 +68,10 @@ internal sealed class CliChainRequest
     public IEnumerable<string>? DisablePassIds { get; init; }
 
     /// <summary>
-    /// C34: opt-in decimal operator normalization inside numeric-boundary.
-    /// Dormant default (false); tests and M3 flip it explicitly.
+    /// C34: decimal operator normalization inside numeric-boundary. Enabled by
+    /// default; set false for the family kill-switch (<c>--no-decimal-ops</c>).
     /// </summary>
-    public bool EnableDecimalOps { get; init; }
+    public bool EnableDecimalOps { get; init; } = true;
 
     /// <summary>
     /// C17: increment-targets read-modify-write normalization inside

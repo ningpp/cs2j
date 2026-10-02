@@ -351,6 +351,8 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
             {
                 if (parseHelper.StartsWith("MathHelper.", StringComparison.Ordinal))
                     context.AddImport("io.github.ningpp.compat.MathHelper");
+                else if (parseHelper.StartsWith("Decimal.", StringComparison.Ordinal))
+                    context.AddImport("io.github.ningpp.compat.Decimal");
                 rendered = $"{parseHelper}({arguments})";
                 return true;
             }
@@ -416,6 +418,13 @@ public class InvocationExpressionTransformer : IIRExpressionTransformer
                 _ => primTypeSyntax.Keyword.Text
             };
         var mappedMethod = MapPrimitiveStaticMethodName(keyword, originalMethodName);
+
+        // C34 normalization emits decimal.Add/Subtract/Multiply/Divide/Remainder/
+        // Negate/Compare static calls; they land on the compat Decimal surface.
+        // The import is normally carried by the configured System.Decimal type
+        // mapping, but assert it here too so a decimal-call-only file still closes.
+        if (keyword == "decimal")
+            context.AddImport("io.github.ningpp.compat.Decimal");
 
         // char.ConvertFromUtf32 returns string in C# but Character.toChars returns char[].
         rendered = keyword == "char" && originalMethodName == "ConvertFromUtf32"

@@ -339,7 +339,9 @@ public class NumericBoundaryRewriterUnitTests
     public void NB9_CheckedDecimalArithmetic_ShellStrippedOperationUntouched()
     {
         var src = "public class C { public decimal M(decimal a, decimal b) => checked(a + b); }";
-        var result = Run(src);
+        // Family isolation: this asserts the C15 non-integer shell strip only;
+        // C34 (default on) would reduce the inner decimal site, so pin it off.
+        var result = Run(src, new NumericBoundaryOptions { EnableDecimalOps = false });
 
         Assert.True(result.Changed);
         Assert.DoesNotContain("checked", result.OutputCode);

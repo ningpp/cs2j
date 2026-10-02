@@ -72,8 +72,8 @@ internal sealed class PassChainConfiguration
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
 
-    /// <summary>C34 decimal-ops opt-in (dormant default false).</summary>
-    public bool EnableDecimalOps { get; init; }
+    /// <summary>C34 decimal-ops kill-switch (enabled by default; false = --no-decimal-ops).</summary>
+    public bool EnableDecimalOps { get; init; } = true;
 
     /// <summary>C17 increment-targets kill-switch (enabled by default).</summary>
     public bool EnableIncrementTargets { get; init; } = true;

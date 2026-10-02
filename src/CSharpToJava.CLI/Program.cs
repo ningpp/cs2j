@@ -229,6 +229,7 @@ public class Program
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
+                EnableDecimalOps = opts.DecimalOpsEffective,
             });
 
             if (!chain.Success)
@@ -3691,6 +3692,7 @@ public class Program
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
+                EnableDecimalOps = opts.DecimalOpsEffective,
             });
 
             if (!chain.Success)
@@ -4664,10 +4666,15 @@ class PreprocessVerbOptions
         HelpText = "Path to StructValueSemanticsOverrides.json (default: config/StructValueSemanticsOverrides.json)")]
     public string? StructValueSemanticsOverrides { get; set; }
 
+    [Option("no-decimal-ops", Default = false,
+        HelpText = "Disable the default decimal operator normalization inside numeric-boundary (C34)")]
+    public bool NoDecimalOps { get; set; }
+
     public bool LocalFunctionStrict => !NoLocalFunctionStrict;
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
     public bool VerifyTests => !NoVerifyTests;
+    public bool DecimalOpsEffective => !NoDecimalOps;
 }
 
 [Verb("ref-out-in", HelpText = "Rewrite ref/out/in parameters to ByRef<T> proxy model (C# → C# source rewrite)")]
@@ -4999,6 +5006,10 @@ class ConvertProjectOptions
         HelpText = "Disable the default equality/concat call-site materialization step (C47)")]
     public bool NoEqualityConcat { get; set; }
 
+    [Option("no-decimal-ops", Default = false,
+        HelpText = "Disable the default decimal operator normalization inside numeric-boundary (C34): decimal operators stay as-is in the intermediate tree")]
+    public bool NoDecimalOps { get; set; }
+
     [Option("struct-value-semantics", Default = true,
         HelpText = "Enable the struct-value-semantics pass (defensive Clone insertion for residual mutable structs); disable with --disable-pass struct-value-semantics")]
     public bool StructValueSemantics { get; set; } = true;
@@ -5055,6 +5066,9 @@ class ConvertProjectOptions
 
     /// <summary>Effective legacy toggle: the explicit --no-equality-concat stays authoritative.</summary>
     public bool EqualityConcatEffective => EqualityConcat && !NoEqualityConcat;
+
+    /// <summary>C34 family switch, default ON; kill with --no-decimal-ops (or --disable-pass numeric-boundary).</summary>
+    public bool DecimalOpsEffective => !NoDecimalOps;
 
     public bool ArrayMethod => !NoArrayMethod;
     public bool IteratorLowering => !NoIteratorLowering;

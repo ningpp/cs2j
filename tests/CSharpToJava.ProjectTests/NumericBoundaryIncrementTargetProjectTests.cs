@@ -48,6 +48,11 @@ public class NumericBoundaryIncrementTargetProjectTests
             LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
             EnablePassIds = new[] { PassId },
             EnableIncrementTargets = enableIncrementTargets,
+            // Family isolation: this gate asserts the C17 expanded shape
+            // ('old ± 1M'); C34 decimal reduction is gated by its own project
+            // test (NumericBoundaryDecimalOpsProjectTests) and is default-on in
+            // the product chain.
+            EnableDecimalOps = false,
             VerifyBuild = verify,
             VerifyTests = verify,
         });
@@ -92,8 +97,9 @@ public class NumericBoundaryIncrementTargetProjectTests
             Assert.DoesNotContain("u++;", samples.Replace(" ", ""));
 
             // M2 IT-7: decimal sites expand to 'old ± 1M' (literal normalizes
-            // to uppercase M); EnableDecimalOps stays off in the default chain,
-            // so no decimal.Add reduction appears here.
+            // to uppercase M); this gate runs with the C34 family switch pinned
+            // off, so no decimal.Add reduction appears here (composition with
+            // C34 is covered in the default product chain / DecimalOps gates).
             var decimalSamples = await File.ReadAllTextAsync(
                 Path.Combine(incrementDir, "DecimalIncrementSamples.cs"));
             Assert.Contains("+ 1M", decimalSamples);

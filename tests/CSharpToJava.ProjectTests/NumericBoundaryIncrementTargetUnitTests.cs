@@ -18,8 +18,11 @@ namespace CSharpToJava.ProjectTests;
 /// </summary>
 public class NumericBoundaryIncrementTargetUnitTests
 {
+    // Family isolation: these tests assert the C17 expanded shape (e.g. decimal
+    // sites become 'old ± 1M'); C34 reduction is a separate rule exercised by
+    // NumericBoundaryDecimalOpUnitTests (including the C17→C34 composition case).
     private static NumericBoundaryOptions RuleOptions(bool enabled = true, bool strict = true) =>
-        new() { EnableIncrementTargets = enabled, Strict = strict };
+        new() { EnableIncrementTargets = enabled, EnableDecimalOps = false, Strict = strict };
 
     private static (SyntaxTree tree, SemanticModel model) ParseWithSemantics(
         string src,
