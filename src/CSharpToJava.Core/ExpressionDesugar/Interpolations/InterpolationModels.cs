@@ -47,8 +47,11 @@ public enum InterpolationPath
     /// <summary>Replaced by string.Concat(...) (IE-CONCAT).</summary>
     Concat,
 
-    /// <summary>Part A bridge: needs IE-FORMAT, preserved + explained (Part B emits).</summary>
-    PreservedNeedsFormat,
+    /// <summary>Replaced by one string.Format(composite, h0, …) (IE-FORMAT).</summary>
+    Format,
+
+    /// <summary>Alignment clause is not a compile-time constant (CS2J0514; preserved).</summary>
+    FormatNonConstantAlignment,
 
     /// <summary>FormattableString/IFormattable binding preserved (CS2J0511).</summary>
     KeptFormattableString,

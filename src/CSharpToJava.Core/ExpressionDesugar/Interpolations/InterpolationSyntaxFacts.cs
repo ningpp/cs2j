@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.ExpressionDesugar.Interpolations;
@@ -128,9 +129,34 @@ internal static class InterpolationSyntaxFacts
         return false;
     }
 
-    /// <summary>Decoded ValueText of a literal text token (raw normalization is not done in Part A).</summary>
+    /// <summary>
+    /// Decoded literal text of an interpolation text segment.
+    /// <para>
+    /// <c>ValueText</c> already resolves ordinary character escapes
+    /// (<c>\" \\ \n</c> …) and raw-string normalization, but probed against
+    /// Roslyn it keeps the lexical brace doubling of regular/verbatim
+    /// interpolations (source <c>{{a}}</c> stays the two-character sequences
+    /// <c>{{a}}</c>, whereas the runtime value is a single <c>{a}</c>);
+    /// raw interpolations instead carry literal braces verbatim because
+    /// their brace grammar is delimiter-count based, so those are returned
+    /// untouched (Part C raw matrix keeps using this same path).
+    /// </para>
+    /// </summary>
     public static string GetTextValue(InterpolatedStringTextSyntax text)
-        => text.TextToken.ValueText;
+    {
+        var value = text.TextToken.ValueText;
+        if (text.Parent is InterpolatedStringExpressionSyntax owner && IsRaw(owner))
+            return value;
+
+        return value.Replace("{{", "{").Replace("}}", "}");
+    }
+
+    private static bool IsRaw(InterpolatedStringExpressionSyntax interpolation)
+    {
+        var kind = interpolation.StringStartToken.Kind();
+        return kind is SyntaxKind.InterpolatedSingleLineRawStringStartToken
+            or SyntaxKind.InterpolatedMultiLineRawStringStartToken;
+    }
 
     public static bool HasAlignment(InterpolationSyntax hole)
         => hole.AlignmentClause != null;

@@ -12,7 +12,7 @@ internal static class InterpolationDiagnosticCodes
     /// <summary>Info: interpolation site explicitly expanded to string.Concat (IE-CONCAT).</summary>
     public const string CS2J0501 = "CS2J0501";
 
-    /// <summary>Info: site routed to the Format path (IE-FORMAT; Part B emitter, Part A bridge).</summary>
+    /// <summary>Info: interpolation site explicitly expanded to string.Format (IE-FORMAT).</summary>
     public const string CS2J0502 = "CS2J0502";
 
     /// <summary>Info: fully constant interpolation folded to a string literal (IE-FOLD).</summary>
@@ -29,6 +29,9 @@ internal static class InterpolationDiagnosticCodes
 
     /// <summary>Error(strict)/Warning: ref struct (no provable non-virtual ToString override) or pointer hole.</summary>
     public const string CS2J0513 = "CS2J0513";
+
+    /// <summary>Error(strict)/Warning: interpolation alignment component (',n') is not a compile-time constant.</summary>
+    public const string CS2J0514 = "CS2J0514";
 
     /// <summary>Info: interpolation inside an expression tree is skipped per options (Q4).</summary>
     public const string CS2J0515 = "CS2J0515";
@@ -61,6 +64,7 @@ internal static class InterpolationDiagnostics
         InterpolationDiagnosticCodes.CS2J0511 => InterpolationSeverityClass.Warning,
         InterpolationDiagnosticCodes.CS2J0512 => InterpolationSeverityClass.StrictError,
         InterpolationDiagnosticCodes.CS2J0513 => InterpolationSeverityClass.StrictError,
+        InterpolationDiagnosticCodes.CS2J0514 => InterpolationSeverityClass.StrictError,
         InterpolationDiagnosticCodes.CS2J0515 => InterpolationSeverityClass.Info,
         InterpolationDiagnosticCodes.CS2J0516 => InterpolationSeverityClass.StrictError,
         _ => InterpolationSeverityClass.Info,
@@ -83,14 +87,26 @@ internal static class InterpolationDiagnostics
         "Interpolated string site explicitly expanded to string.Concat (IE-CONCAT).";
 
     /// <summary>
-    /// Part A bridge (CS2J0502): the site needs IE-FORMAT (alignment/format
-    /// clause or a non-whitelist IFormattable hole); it is preserved with an
-    /// explained annotation until the Format emitter lands in Part B.
+    /// CS2J0502 (IE-FORMAT): the site was explicitly expanded to one
+    /// string.Format(composite, h0, …) call — alignment/format clauses pass
+    /// into the composite and non-whitelist IFormattable holes keep current-
+    /// culture provider dispatch.
     /// </summary>
-    public const string FormatDeferredMessage =
-        "Interpolated string site requires the format/alignment path " +
-        "(alignment or format clause, or a non-whitelist IFormattable hole); " +
-        "format/alignment path preserved until the Format emitter lands.";
+    public const string FormatMessage =
+        "Interpolated string site explicitly expanded to string.Format " +
+        "(IE-FORMAT): alignment/format clauses pass through into the composite " +
+        "format and holes format with the current culture.";
+
+    /// <summary>
+    /// CS2J0514: the C# language requires an interpolation alignment
+    /// component (<c>,n</c>) to be a compile-time constant (the baseline
+    /// compiler rejects this shape); the defensive mirror leaves the site
+    /// unchanged instead of guessing a width.
+    /// </summary>
+    public const string NonConstantAlignmentMessage =
+        "Interpolation alignment component must be a compile-time constant " +
+        "integer expression; the site is left unchanged rather than emitted " +
+        "with a runtime alignment width.";
 
     public const string FoldMessage =
         "Fully constant interpolation folded to a string literal (IE-FOLD).";

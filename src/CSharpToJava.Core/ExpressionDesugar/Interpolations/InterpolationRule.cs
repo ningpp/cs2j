@@ -10,11 +10,10 @@ namespace CSharpToJava.Core.ExpressionDesugar.Interpolations;
 /// Analyze walks every <see cref="InterpolatedStringExpressionSyntax"/> site:
 /// expression-tree exemption (CS2J0515) first, then the IE-1 five-way handler
 /// binding (hard gate G0), then hole classification for default-string sites.
-/// Part A emits IE-FOLD (0503) and IE-CONCAT (0501); sites that require
-/// IE-FORMAT take the explained-preservation bridge (0502) until the Part B
-/// Format emitter lands. Strict Error diagnostics abort the whole file in the
-/// family entry; non-strict/Keep degrade them to Warnings and preserve the
-/// affected sites while siblings rewrite.
+/// Emits IE-FOLD (0503), IE-CONCAT (0501) and IE-FORMAT (0502); sites with a
+/// non-constant alignment component take CS2J0514. Strict Error diagnostics
+/// abort the whole file in the family entry; non-strict/Keep degrade them to
+/// Warnings and preserve the affected sites while siblings rewrite.
 /// </summary>
 internal sealed class InterpolationRule : IExpressionDesugarRule
 {
@@ -42,11 +41,11 @@ internal sealed class InterpolationRule : IExpressionDesugarRule
         {
             // DescendantNodes is pre-order, so an enclosing interpolation is
             // decided before its nested sites. Sites nested inside a PRESERVED
-            // outer (handler/Format bridge/expression tree/...) must not be
-            // rewritten on their own: they inherit the outer disposition
+            // outer (handler/non-constant-alignment/expression tree/...) must
+            // not be rewritten on their own: they inherit the outer disposition
             // silently (no duplicate diagnostics/counters). Nested sites
-            // inside Fold/Concat outers are analyzed normally because the
-            // bottom-up rewriter independently expands them first.
+            // inside Fold/Concat/Format outers are analyzed normally because
+            // the bottom-up rewriter independently expands them first.
             var preservedEnclosures = new HashSet<InterpolatedStringExpressionSyntax>();
 
             foreach (var node in context.Root.DescendantNodes()
@@ -63,7 +62,8 @@ internal sealed class InterpolationRule : IExpressionDesugarRule
                 plans[node] = plan;
 
                 if (plan.Path is not (InterpolationPath.Fold
-                        or InterpolationPath.Concat))
+                        or InterpolationPath.Concat
+                        or InterpolationPath.Format))
                     preservedEnclosures.Add(node);
             }
         }
@@ -198,9 +198,12 @@ internal sealed class InterpolationRule : IExpressionDesugarRule
         // DefaultString (and Constant with folding disabled): analyze holes.
         BuildSegments(model, plan);
 
-        var badHole = plan.Segments
+        var holes = plan.Segments
             .OfType<InterpolationSegment.Hole>()
             .Select(s => s.Info)
+            .ToList();
+
+        var badHole = holes
             .FirstOrDefault(h =>
                 h.IsPointer || (h.IsRefStructLike && !h.HasSafeRefStructToString));
 
@@ -221,24 +224,56 @@ internal sealed class InterpolationRule : IExpressionDesugarRule
             return plan;
         }
 
-        var needsFormat = plan.Segments
-            .OfType<InterpolationSegment.Hole>()
-            .Any(h => h.Info.HasAlignmentClause
-                      || h.Info.HasFormatClause
-                      || h.Info.NeedsFormatUpgrade);
-
-        if (needsFormat)
+        // CS2J0514: C# requires the alignment component (',n') to be a
+        // compile-time constant; a missing constant can only reach here in
+        // source the baseline compiler already rejects. Mirror it as a
+        // strict Error and leave the site atomically unchanged (non-strict
+        // degrades to Warning and preserves just this site).
+        var nonConstantAlignment = holes
+            .FirstOrDefault(h => h.HasAlignmentClause && h.ConstantAlignment == null);
+        if (nonConstantAlignment != null)
         {
-            // Part A bridge: keep compilable, pair the residual with this
-            // explanation. Part B emits real string.Format here.
-            plan.Path = InterpolationPath.PreservedNeedsFormat;
+            plan.Path = InterpolationPath.FormatNonConstantAlignment;
+            plan.DiagnosticCodes.Add(InterpolationDiagnosticCodes.CS2J0514);
+            stats.AddSkip(InterpolationDiagnosticCodes.CS2J0514);
+            context.Report(
+                InterpolationDiagnostics.ResolveSeverity(
+                    InterpolationDiagnosticCodes.CS2J0514, options.Strict),
+                InterpolationDiagnosticCodes.CS2J0514,
+                InterpolationDiagnostics.NonConstantAlignmentMessage,
+                node);
+            return plan;
+        }
+
+        // Whole-site Format upgrade (design §2.2): any alignment clause, any
+        // format clause, or any non-whitelist IFormattable hole sends the
+        // ENTIRE site through one string.Format — every hole becomes an
+        // argument in text order, even whitelist siblings.
+        var byAlignment = holes.Any(h => h.HasAlignmentClause);
+        var byFormatClause = holes.Any(h => h.HasFormatClause);
+        var byIFormattableUpgrade = holes.Any(h => h.NeedsFormatUpgrade);
+
+        if (byAlignment || byFormatClause || byIFormattableUpgrade)
+        {
+            plan.Path = InterpolationPath.Format;
             plan.DiagnosticCodes.Add(InterpolationDiagnosticCodes.CS2J0502);
-            stats.FormatDeferredSites++;
-            stats.AddSkip(InterpolationDiagnosticCodes.CS2J0502);
+            stats.FormatExpansions++;
+            if (byAlignment)
+                stats.FormatByAlignment++;
+            if (byFormatClause)
+                stats.FormatByFormatClause++;
+            if (byIFormattableUpgrade)
+                stats.FormatByIFormattableUpgrade++;
+            foreach (var hole in holes)
+            {
+                if (hole.HasSafeRefStructToString)
+                    stats.RefStructToStringWraps++;
+            }
+
             context.Report(
                 ExpressionDesugarSeverity.Info,
                 InterpolationDiagnosticCodes.CS2J0502,
-                InterpolationDiagnostics.FormatDeferredMessage,
+                InterpolationDiagnostics.FormatMessage,
                 node);
             return plan;
         }
@@ -246,8 +281,7 @@ internal sealed class InterpolationRule : IExpressionDesugarRule
         plan.Path = InterpolationPath.Concat;
         plan.DiagnosticCodes.Add(InterpolationDiagnosticCodes.CS2J0501);
         stats.ConcatExpansions++;
-        foreach (var hole in plan.Segments.OfType<InterpolationSegment.Hole>()
-                     .Select(s => s.Info))
+        foreach (var hole in holes)
         {
             if (hole.IsUnsignedNumeric)
                 stats.UnsignedHoleWraps++;

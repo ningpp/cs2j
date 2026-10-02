@@ -12,9 +12,9 @@ namespace CSharpToJava.Core.ExpressionDesugar.Interpolations;
 /// keyed by ORIGINAL nodes; rendering uses the already-visited children, so
 /// hole expressions are zero-copied and appear exactly once.
 ///
-/// Every preserved path (Format bridge / FormattableString / expression tree
-/// / Keep / errors) keeps the node and tags it with the shared explained
-/// annotation so the residual gate can pair it.
+/// Every preserved path (non-constant alignment / FormattableString /
+/// expression tree / Keep / errors) keeps the node and tags it with the
+/// shared explained annotation so the residual gate can pair it.
 /// </summary>
 internal sealed class InterpolationRewriter : CSharpSyntaxRewriter
 {
@@ -26,7 +26,7 @@ internal sealed class InterpolationRewriter : CSharpSyntaxRewriter
         _plans = plans;
     }
 
-    /// <summary>Number of sites actually rewritten (Fold/Concat; drives the dirty gate).</summary>
+    /// <summary>Number of sites actually rewritten (Fold/Concat/Format; drives the dirty gate).</summary>
     public int RewriteCount { get; private set; }
 
     public override SyntaxNode? VisitInterpolatedStringExpression(
@@ -51,6 +51,13 @@ internal sealed class InterpolationRewriter : CSharpSyntaxRewriter
             {
                 RewriteCount++;
                 return ConcatEmitter.EmitConcat(visited, plan)
+                    .WithTriviaFrom(visited);
+            }
+
+            case InterpolationPath.Format:
+            {
+                RewriteCount++;
+                return FormatEmitter.EmitFormat(visited, plan)
                     .WithTriviaFrom(visited);
             }
 

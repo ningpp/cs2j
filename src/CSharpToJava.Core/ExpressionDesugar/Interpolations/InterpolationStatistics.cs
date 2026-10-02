@@ -28,11 +28,24 @@ public sealed class InterpolationStatistics
     /// <summary>Sites folded to a bare literal (CS2J0503).</summary>
     public int ConstantsFolded;
 
+    /// <summary>Sites expanded to one string.Format call (CS2J0502, IE-FORMAT).</summary>
+    public int FormatExpansions;
+
     /// <summary>
-    /// Sites needing IE-FORMAT but preserved by the Part A bridge (CS2J0502);
-    /// Part B replaces the bridge with real string.Format emission.
+    /// Format sub-bucket: at least one hole carried an alignment clause
+    /// (one expansion may increment several sub-buckets).
     /// </summary>
-    public int FormatDeferredSites;
+    public int FormatByAlignment;
+
+    /// <summary>Format sub-bucket: at least one hole carried a format clause.</summary>
+    public int FormatByFormatClause;
+
+    /// <summary>
+    /// Format sub-bucket: at least one hole statically implements
+    /// System.IFormattable and is NOT on the Concat whitelist (whole-site
+    /// upgrade so current-culture provider dispatch is preserved).
+    /// </summary>
+    public int FormatByIFormattableUpgrade;
 
     /// <summary>Sites nested inside another interpolation (depth &gt; 0).</summary>
     public int NestedInterpolationSites;
@@ -82,7 +95,10 @@ public sealed class InterpolationStatistics
         InterpolationSites += other.InterpolationSites;
         ConcatExpansions += other.ConcatExpansions;
         ConstantsFolded += other.ConstantsFolded;
-        FormatDeferredSites += other.FormatDeferredSites;
+        FormatExpansions += other.FormatExpansions;
+        FormatByAlignment += other.FormatByAlignment;
+        FormatByFormatClause += other.FormatByFormatClause;
+        FormatByIFormattableUpgrade += other.FormatByIFormattableUpgrade;
         NestedInterpolationSites += other.NestedInterpolationSites;
         UnsignedHoleWraps += other.UnsignedHoleWraps;
         RefStructToStringWraps += other.RefStructToStringWraps;
