@@ -55,7 +55,7 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
             RegisterGroup(group);
 
         BuildLocalDeclarationReplacements();
-        BuildForLoopExpansions();
+        ValidateForLoopBoundaries();
     }
 
     /// <summary>Number of identifier sites actually replaced during <see cref="Visit"/>.</summary>
@@ -154,6 +154,16 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
         var result = new List<StatementSyntax>();
         foreach (var statement in statements)
         {
+            // D9 for side: the expansion is built AROUND the original-loop
+            // traversal (sites resolve against original identities); the
+            // declaration strip happens after that single Visit.
+            if (statement is ForStatementSyntax forLoop
+                && _liftedForDeclarators.ContainsKey(forLoop))
+            {
+                result.AddRange(ExpandForLoop(forLoop));
+                continue;
+            }
+
             if (_statementReplacements.TryGetValue(statement, out var replaced))
             {
                 foreach (var candidate in replaced)
@@ -435,84 +445,97 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// D9 for side. Builds the statement-list expansion per lifted for-loop:
-    /// [group instance?][field/array initializers…][rebuilt for]. The rebuilt
-    /// for keeps its ORIGINAL condition/incrementors/body nodes, so their site
-    /// identifiers rewrite in place when the expansion is visited; the loop
-    /// declaration only loses lifted declarators.
+    /// D9 for side. Precondition contract: planner must diagnose CS2J3204
+    /// earlier for for-loops anchored outside a block/switch section. Fail
+    /// loud — dropping the instance here would silently split state.
     /// </summary>
-    private void BuildForLoopExpansions()
+    private void ValidateForLoopBoundaries()
     {
-        foreach (var (loop, lifted) in _liftedForDeclarators)
+        foreach (var loop in _liftedForDeclarators.Keys)
         {
-            // Precondition contract #1: planner must diagnose CS2J3204 earlier.
-            // Fail loud — dropping the instance here would silently split state.
             if (loop.Parent is not (BlockSyntax or SwitchSectionSyntax))
                 throw new InvalidOperationException(
                     "C32: a for-loop with a lifted induction variable anchored " +
                     "outside a block/switch section must be rejected with " +
                     "CS2J3204 before rewriting (D9 boundary).");
-
-            var ordered = lifted
-                .OrderBy(s => s.Declarator!.SpanStart)
-                .ToList();
-
-            var generated = new List<StatementSyntax>();
-
-            // Instance before the loop ONLY when this loop is the group's earliest
-            // anchor. Parameter groups anchor at body top; local-anchor groups are
-            // handled by BuildLocalDeclarationReplacements; array groups have no
-            // holder instance.
-            foreach (var group in ordered.Select(GroupOf).Distinct())
-            {
-                if (group.ArrayForm || GroupHasParameters(group))
-                    continue;
-                if (EarliestAnchorStatement(group) == loop)
-                    generated.Add(_generator.BuildHolderInstanceDeclaration(group));
-            }
-
-            // Initializers relocate verbatim (original node identity → sites in
-            // the table still rewrite after the move). No initializer: the field
-            // zero-inits, matching a declarator-less for iteration variable.
-            foreach (var symbol in ordered)
-            {
-                if (symbol.Declarator!.Initializer is { Value: var init })
-                    generated.Add(BuildInitialization(GroupOf(symbol), symbol, init));
-            }
-
-            generated.Add(StripForDeclaration(loop, ordered));
-
-            _statementReplacements[loop] = generated;
         }
     }
 
     /// <summary>
-    /// Remove lifted declarators from the for declaration. All declarators in one
-    /// for declaration share its type token: surviving declarators keep it; when
-    /// none survive the declaration becomes null (for (; cond; incr)).
+    /// D9 for side, built at traversal time:
+    /// [group instance?][field/array initializers…][rebuilt for].
+    /// The ORIGINAL for-loop is visited exactly once first, so every frozen
+    /// site identity (condition, incrementors, body, initializer expressions)
+    /// resolves; lifted initializers are then relocated verbatim out of the
+    /// VISITED declaration into field/array assignments, and the visited loop
+    /// declaration loses the lifted declarators (all declarators share one
+    /// type token; none surviving → for (; cond; incr)).
     /// </summary>
-    private static ForStatementSyntax StripForDeclaration(
-        ForStatementSyntax loop,
-        IReadOnlyCollection<CapturedSymbolPlan> lifted)
+    private List<StatementSyntax> ExpandForLoop(ForStatementSyntax loop)
     {
-        if (loop.Declaration is not { } declaration)
-            return loop; // Expression-form initializers carry no declarator.
-
-        var liftedSet = new HashSet<VariableDeclaratorSyntax>(
-            lifted.Select(s => s.Declarator!));
-
-        var remaining = declaration.Variables
-            .Where(d => !liftedSet.Contains(d))
+        var ordered = _liftedForDeclarators[loop]
+            .OrderBy(s => s.Declarator!.SpanStart)
             .ToList();
 
-        if (remaining.Count == declaration.Variables.Count)
-            return loop; // Defensive: nothing to strip.
+        // 1. Visit the original loop once: sites inside condition/incrementors/
+        //    body AND initializer expressions all rewrite by original identity.
+        var visitedLoop = (ForStatementSyntax)Visit(loop)!;
 
-        VariableDeclarationSyntax? rebuiltDeclaration = remaining.Count == 0
-            ? null
-            : declaration.WithVariables(SyntaxFactory.SeparatedList(remaining));
+        var generated = new List<StatementSyntax>();
 
-        return loop.WithDeclaration(rebuiltDeclaration);
+        // 2. Instance before the loop ONLY when this loop is the group's
+        //    earliest anchor. Parameter groups anchor at body top;
+        //    local-anchor groups are handled by BuildLocalDeclarationReplacements;
+        //    array groups have no holder instance.
+        foreach (var group in ordered.Select(GroupOf).Distinct())
+        {
+            if (group.ArrayForm || GroupHasParameters(group))
+                continue;
+            if (EarliestAnchorStatement(group) == loop)
+                generated.Add(_generator.BuildHolderInstanceDeclaration(group));
+        }
+
+        // 3. Relocate initializers from the VISITED declaration (rewritten
+        //    exactly once) and strip the lifted declarators from the visited
+        //    loop. Declarator order is preserved by the syntax walker, so
+        //    positional pairing against the original declaration is exact.
+        if (loop.Declaration is { } originalDeclaration
+            && visitedLoop.Declaration is { } visitedDeclaration)
+        {
+            var liftedOriginal = new HashSet<VariableDeclaratorSyntax>(
+                ordered.Select(s => s.Declarator!));
+            var symbolByOriginal = ordered.ToDictionary(s => s.Declarator!);
+
+            var remaining = new List<VariableDeclaratorSyntax>();
+            var originalVariables = originalDeclaration.Variables;
+            var visitedVariables = visitedDeclaration.Variables;
+            for (var i = 0; i < originalVariables.Count; i++)
+            {
+                var originalDeclarator = originalVariables[i];
+                var visitedDeclarator = visitedVariables[i];
+
+                if (!liftedOriginal.Contains(originalDeclarator))
+                {
+                    remaining.Add(visitedDeclarator);
+                    continue;
+                }
+
+                var symbol = symbolByOriginal[originalDeclarator];
+                if (visitedDeclarator.Initializer is { Value: var init })
+                    generated.Add(BuildInitialization(GroupOf(symbol), symbol, init));
+                // No initializer: field zero-init matches the definite-assignment
+                // rules every legal input already obeys.
+            }
+
+            visitedLoop = remaining.Count == 0
+                ? visitedLoop.WithDeclaration(null)
+                : visitedLoop.WithDeclaration(
+                    visitedDeclaration.WithVariables(SyntaxFactory.SeparatedList(remaining)));
+        }
+
+        // 4. The stripped loop follows its own pre-statements.
+        generated.Add(visitedLoop);
+        return generated;
     }
 
     private IEnumerable<HolderGroupPlan> GroupsWithLocalAnchor() => _groupBySymbol.Values.Distinct();

@@ -603,6 +603,314 @@ class C {
         AssertOutputCompiles(r.OutputCode);
     }
 
+    // ── M2 transform tests: loops / interop / boundaries (design §7.1 10-19) ──
+
+    [Fact]
+    public void Transform_ForInduction_InstanceBeforeLoop_ConditionAndIncrementFieldBacked()
+    {
+        var src = @"
+class C {
+    void M(int n, System.Collections.Generic.List<System.Action> acts) {
+        for (int i = 0; i < n; i++)
+            acts.Add(() => System.Console.WriteLine(i));
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Equal(0, r.Statistics.ForeachPerIterationGroups);
+        Assert.Contains("for (; __cs2jClosure0._cs2jCap_i < n; __cs2jClosure0._cs2jCap_i++)", r.OutputCode);
+        Assert.Contains("acts.Add(() => System.Console.WriteLine(__cs2jClosure0._cs2jCap_i))", r.OutputCode);
+        Assert.DoesNotContain("int i", r.OutputCode);
+
+        var initIndex = r.OutputCode.IndexOf("__cs2jClosure0._cs2jCap_i = 0;", StringComparison.Ordinal);
+        var forIndex = r.OutputCode.IndexOf("for (;", StringComparison.Ordinal);
+        Assert.True(initIndex >= 0 && initIndex < forIndex);
+        Assert.Empty(BareIdentifiers(r.OutputCode, "i"));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_ForeachIteration_InstanceFirstInBody_AndEmbeddedBodyWrapped()
+    {
+        var src = @"
+class C {
+    void M(System.Collections.Generic.List<System.Action> acts) {
+        foreach (var item in new[] { 1, 2, 3 })
+        {
+            acts.Add(() => System.Console.WriteLine(item));
+        }
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Equal(1, r.Statistics.ForeachPerIterationGroups);
+
+        var root = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(r.OutputCode, ParseOptions).GetRoot();
+        var loop = Assert.Single(root.DescendantNodes().OfType<ForEachStatementSyntax>());
+        var body = Assert.IsType<BlockSyntax>(loop.Statement);
+        Assert.Equal(3, body.Statements.Count);
+        Assert.Equal("__cs2jClosure0",
+            ((LocalDeclarationStatementSyntax)body.Statements[0]).Declaration.Variables[0].Identifier.Text);
+        var snapshot = Assert.IsType<ExpressionStatementSyntax>(body.Statements[1]);
+        Assert.IsType<AssignmentExpressionSyntax>(snapshot.Expression);
+        Assert.Equal("item",
+            ((IdentifierNameSyntax)((AssignmentExpressionSyntax)snapshot.Expression).Right).Identifier.Text);
+
+        // The snapshot RHS is the single surviving bare 'item'; lambda + body sites are fields.
+        Assert.Single(BareIdentifiers(r.OutputCode, "item"));
+        AssertOutputCompiles(r.OutputCode);
+
+        // Non-block embedded body: wrapped with instance + snapshot + original statement.
+        var embedded = @"
+class C {
+    void M(System.Collections.Generic.List<System.Action> acts) {
+        foreach (var v in new[] { 1, 2 }) acts.Add(() => System.Console.WriteLine(v));
+    }
+}";
+        var r2 = Transform(embedded);
+        var root2 = (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(r2.OutputCode, ParseOptions).GetRoot();
+        var loop2 = Assert.Single(root2.DescendantNodes().OfType<ForEachStatementSyntax>());
+        var wrapped = Assert.IsType<BlockSyntax>(loop2.Statement);
+        Assert.Equal(3, wrapped.Statements.Count);
+        AssertOutputCompiles(r2.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_StaticAndCapturelessLambdas_NoHolder()
+    {
+        var src = @"
+class C {
+    void M() {
+        System.Action a = static () => System.Console.WriteLine(1);
+        System.Func<int> b = () => 42;
+        a();
+        System.Console.WriteLine(b());
+    }
+}";
+        var r = Transform(src);
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Empty(HolderClassNames(r.OutputCode));
+        Assert.Equal(0, r.Statistics.CapturesLifted);
+    }
+
+    [Fact]
+    public void Transform_AsyncLambdaMutableCapture_AwaitPreservedAndCompiles()
+    {
+        var src = @"
+class C {
+    async System.Threading.Tasks.Task M() {
+        int x = 0;
+        System.Func<System.Threading.Tasks.Task> f = async () => {
+            await System.Threading.Tasks.Task.Yield();
+            x++;
+        };
+        await f();
+        System.Console.WriteLine(x);
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Contains("await System.Threading.Tasks.Task.Yield();", r.OutputCode);
+        Assert.Contains("__cs2jClosure0._cs2jCap_x++", r.OutputCode);
+        Assert.Empty(BareIdentifiers(r.OutputCode, "x"));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_ExpressionTree_PureUnchanged_MixFreezesFile()
+    {
+        var pure = @"
+using System;
+using System.Linq.Expressions;
+class C {
+    void M() {
+        Expression<Func<int, int>> e = x => x + 1;
+    }
+}";
+        var rp = Transform(pure);
+        Assert.False(rp.Changed);
+        Assert.Equal(pure, rp.OutputCode);
+
+        var mix = @"
+using System;
+using System.Linq.Expressions;
+class C {
+    void M() {
+        int x = 0;
+        Expression<Func<int>> q = () => x;
+        Action a = () => { x++; };
+    }
+}";
+        var rm = Transform(mix);
+        Assert.False(rm.Changed);
+        Assert.Equal(mix, rm.OutputCode);
+        Assert.Contains(rm.Diagnostics, d =>
+            d.Code == "CS2J3206" && d.Severity == ClosureLiftSeverity.Error);
+        Assert.DoesNotContain(rm.Diagnostics, d => d.Code == "CS2J3207");
+    }
+
+    [Fact]
+    public void Transform_RefArgument_FieldBacked_RefKindsFreeze()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => { x = 2; };
+        Mutate(ref x);
+        a();
+    }
+    static void Mutate(ref int z) { z++; }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Contains("Mutate(ref __cs2jClosure0._cs2jCap_x)", r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+
+        var byRefParameter = @"
+class C {
+    void M(ref int p) {
+        System.Action a = () => { p++; };
+    }
+}";
+        var rp = Transform(byRefParameter);
+        Assert.False(rp.Changed);
+        Assert.Equal(byRefParameter, rp.OutputCode);
+        Assert.Contains(rp.Diagnostics, d => d.Code == "CS2J3201");
+
+        var refLocal = @"
+class C {
+    void M() {
+        int z = 0;
+        ref int p = ref z;
+        System.Action a = () => { p++; };
+    }
+}";
+        var rl = Transform(refLocal);
+        Assert.False(rl.Changed);
+        Assert.Equal(refLocal, rl.OutputCode);
+        Assert.Contains(rl.Diagnostics, d => d.Code == "CS2J3201");
+    }
+
+    [Theory]
+    [InlineData("CS2J3203", @"
+class C {
+    void M() {
+        System.Comparison<int> c = delegate(int a, int b) { return a - b; };
+    }
+}")]
+    [InlineData("CS2J3204", @"
+class C {
+    void M() {
+        void Local() {
+            System.Action a = () => { System.Console.WriteLine(1); };
+        }
+        Local();
+    }
+}")]
+    [InlineData("CS2J3205", @"
+unsafe class C {
+    void M() {
+        int* p = null;
+        System.Action a = () => { var z = p; };
+    }
+}")]
+    public void Transform_BlockingDiagnostic_FileVerbatim(string code, string src)
+    {
+        var r = Transform(src);
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Empty(HolderClassNames(r.OutputCode));
+        Assert.Contains(r.Diagnostics, d =>
+            d.Code == code && d.Severity == ClosureLiftSeverity.Error);
+    }
+
+    [Fact]
+    public void Transform_E02LiftedShape_CaptureParameterLiftsNormally()
+    {
+        var src = @"
+class C {
+    static void M_cs2jLifted(C @this, int _cs2jCap_count) {
+        System.Action a = () => { _cs2jCap_count++; };
+        a();
+        System.Console.WriteLine(_cs2jCap_count);
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Contains("(C @this, int _cs2jCap_count)", r.OutputCode); // 签名不动
+        // 唯二裸名扫描：快照 RHS 一处；另两处（lambda/WriteLine）已是字段访问。
+        Assert.Single(BareIdentifiers(r.OutputCode, "_cs2jCap_count"));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_E05OutputShape_NoResidualRow_StatsCorrect()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => { x++; };
+        System.Func<int> b = () => 42;
+        a();
+        System.Console.WriteLine(x + b());
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code == "CS2J3203");
+        // x 的引用站点恰为两处：lambda 内的 x++ 与提升后的 x + b()（声明符不是引用站点）。
+        Assert.True(r.Statistics.SitesRewritten >= 2);
+        Assert.Equal(1, r.Statistics.CapturesLifted);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_LockExpressionFieldBacked_UsingAndConstNotLifted()
+    {
+        var src = @"
+class C {
+    private readonly object _gate = new object();
+    void M() {
+        object locker = new object();
+        System.Action a = () => { System.Console.WriteLine(locker); };
+        lock (locker) { System.Console.WriteLine(locker); }
+        locker = _gate;
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Contains("lock (__cs2jClosure0._cs2jCap_locker)", r.OutputCode);
+        Assert.Contains("System.Console.WriteLine(__cs2jClosure0._cs2jCap_locker)", r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+
+        var readOnly = @"
+using System.IO;
+class C {
+    void M(MemoryStream u) {
+        const int c = 3;
+        System.Func<int> f = () => c + (int)u.Length;
+        System.Console.WriteLine(f());
+    }
+}";
+        var rr = Transform(readOnly);
+        Assert.False(rr.Changed);
+        Assert.Equal(readOnly, rr.OutputCode);
+        Assert.DoesNotContain("_cs2jCap_c", rr.OutputCode);
+    }
+
     // ── Helpers (mirror IteratorLoweringUnitTests L465-514) ──
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
