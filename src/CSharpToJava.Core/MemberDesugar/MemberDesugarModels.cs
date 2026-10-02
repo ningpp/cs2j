@@ -32,9 +32,17 @@ public enum MemberDesugarDiagnosticCode
     NonLiftableInitializer = 5119,  // 对象初始化器/复合赋值不可提升
     InitWidened = 5120,             // Info
     RequiredDropped = 5121,         // Info
+    // C11 v1 语义为「field 访问器不收编，plan 跳过」；C50 落地后重定义为 FK-9 residual
+    // 闸门码：输出树残留未归一 field token 且无对应 skip 诊断（strict 升 Error）。
+    // C50 子集开关关闭时仍以此码承担声明级跳过（零 diff 行为不变）。
     FieldKeywordAccessor = 5122,
     PositionalRecordProperty = 5123,
     WithSite = 5124,
+    // ---- C50 field keyword（C# 14 half-implemented properties，设计 §6）----
+    FieldKeywordNormalized = 5125,       // Info：field-backed 属性归一留痕（verbose）
+    FieldKeywordSafetyNet = 5126,        // Warning（strict Error）：field 文本在但绑不到隐式后备字段
+    FieldKeywordUnsupportedContainer = 5127, // Warning（strict Error）：不收编容器（接口实例 DIM 等）
+    FieldKeywordAttributeFailed = 5128,  // Warning（strict Error）：[field:] 特性迁移失败
     // 5130-5141 indexer rules (C12, 设计 §6)。
     IndexerPlanCreated = 5130,        // Info，仅 verbose
     IndexerNameAdopted = 5131,        // Info：[IndexerName] 自定义名采用（特性已移除）
@@ -199,6 +207,21 @@ public sealed class MemberDesugarStatistics
     public int FinalizerSidecarEntries { get; set; }
     /// <summary>residual 闸门 CS2J5210 条数（FN-10，正常恒为 0）。</summary>
     public int FinalizerResidual { get; set; }
+
+    // ---- C50 field keyword（设计 §5 摘要字段）----
+    /// <summary>归一的 field-backed 属性数。</summary>
+    public int FieldKeywordProperties { get; set; }
+    /// <summary>展开的无体 auto 访问器数（get;/set;/init;）。</summary>
+    public int FieldKeywordAutoAccessorsExpanded { get; set; }
+    /// <summary>替换为契约字段名的 field 标识符（FieldExpression）节点数。</summary>
+    public int FieldReferencesRewritten { get; set; }
+    /// <summary>迁移到合成字段的 [field:] 特性数。</summary>
+    public int FieldTargetAttributesMigrated { get; set; }
+    /// <summary>平移到合成字段的属性初始化器数。</summary>
+    public int FieldInitializersMoved { get; set; }
+    /// <summary>FK-9 residual：无对应 skip 诊断的残留 field token 数（正常恒为 0）。</summary>
+    public int FieldKeywordResidualTokens { get; set; }
+
     /// <summary>实际 sidecar 文件绝对路径（无删除/内存模式为 null；摘要行取此值）。</summary>
     public string? FinalizerSidecarPath { get; set; }
 
@@ -280,6 +303,11 @@ public sealed class MemberDesugarOptions
     /// <summary>C46 签名规则子节（rules.signatures，设计 §5/§12）。族 pass 已 defaultEnabled=true，
     /// 由本子节 <see cref="Signatures.SignatureOptions.Enabled"/>（默认 false）承接「不显式启用即零执行」。</summary>
     public Signatures.SignatureOptions Signatures { get; init; } = new();
+
+    /// <summary>C50 field 关键字归一子节（rules.fieldKeyword，设计 §12 默认关子集开关）。
+    /// 默认 <see cref="Properties.FieldKeywordOptions.Enabled"/>=false：field 规则零执行，
+    /// 输出与现状逐字节一致；显式启用后才做声明侧归一。</summary>
+    public Properties.FieldKeywordOptions FieldKeyword { get; init; } = new();
 }
 
 /// <summary>事件生成访问器的订阅线程安全模式（C13 D5）。Simple 与 Roslyn（C# 3.0+）

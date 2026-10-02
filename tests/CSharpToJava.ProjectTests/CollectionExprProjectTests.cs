@@ -375,11 +375,7 @@ public class CollectionExprProjectTests
         var row = Assert.Single(
             stdout.Split('\n', '\r')
                 .Where(line => line.Contains(PassId, StringComparison.OrdinalIgnoreCase)));
-<<<<<<< HEAD
-        Assert.Contains("rules=C23, C36", row);
-=======
-        Assert.Contains("rules=C36, C24", row);
->>>>>>> 14a349c6 (feat(preprocessing): C24 initializers M0 探针+规则骨架+注册登记（默认关、空转）)
+        Assert.Contains("rules=C23, C24, C36", row);
         Assert.Contains(" on ", row, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(" off ", row, StringComparison.OrdinalIgnoreCase);
     }

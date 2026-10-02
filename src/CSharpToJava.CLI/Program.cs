@@ -3352,6 +3352,9 @@ public class Program
         public FinalizerSets? Finalizers { get; set; }
         /// <summary>C46 rules.signatures 子节（缺省整节 → Enabled=false，零执行）。</summary>
         public SignatureSets? Signatures { get; set; }
+
+        /// <summary>C50 rules.fieldKeyword 子节（缺省整节 → Enabled=false 默认关）。</summary>
+        public FieldKeywordSets? FieldKeyword { get; set; }
     }
 
     /// <summary>rules.signatures 配置形态（C46 设计 §5/§12）。Enabled 默认 false（主闸门）。</summary>
@@ -3362,6 +3365,12 @@ public class Program
         public bool? ReportInfo { get; set; }
         public string[]? SkipSignatures { get; set; }
         public bool? AllowDivergentInterfaceBodies { get; set; }
+    }
+
+    /// <summary>rules.fieldKeyword 配置形态（C50，设计 §12 默认关子集开关）。</summary>
+    private sealed class FieldKeywordSets
+    {
+        public bool? Enabled { get; set; }
     }
 
     /// <summary>rules.finalizers 配置形态（C39 设计 §2 决策 9）。M1 仅 Policy 生效；
@@ -3424,6 +3433,7 @@ public class Program
             Strict = strict,
             Finalizers = BuildFinalizerOptions(parsed?.Finalizers, path),
             Signatures = BuildSignatureOptions(parsed?.Signatures),
+            FieldKeyword = BuildFieldKeywordOptions(parsed?.FieldKeyword),
         };
     }
 
@@ -3444,6 +3454,15 @@ public class Program
             AllowDivergentInterfaceBodies = sets?.AllowDivergentInterfaceBodies ?? false,
         };
     }
+
+    /// <summary>映射 rules.fieldKeyword 子节（C50）：Enabled 缺省为 false（默认关、不抢跑）。
+    /// 配置缺失/解析失败按 false 继续（沿用族惯例）。</summary>
+    private static CSharpToJava.Core.MemberDesugar.Properties.FieldKeywordOptions
+        BuildFieldKeywordOptions(FieldKeywordSets? sets)
+        => new()
+        {
+            Enabled = sets?.Enabled ?? false,
+        };
 
     /// <summary>映射 rules.finalizers 子节（C39）：Policy 大小写不敏感映射 Reject/Remove/CleanerGuide，
     /// 缺失/非法值回退 Reject；沿用族惯例（配置缺失/解析失败 → Warning 空集继续，不致命）。</summary>

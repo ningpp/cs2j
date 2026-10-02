@@ -351,7 +351,14 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                $"{_statistics.SignatureCovariantBridgesSynthesized} covariant bridge(s), " +
                $"{_statistics.SignatureCovariantRenamed} covariant renamed, " +
                $"{_statistics.SignatureReflectionWarnings} reflection-warned, " +
-               $"{_statistics.SignatureResidual} residual";
+               $"{_statistics.SignatureResidual} residual" +
+               // C50（设计 §5）：field-keyword 片段追加在末尾，关闭时全 0。
+               $" | field-keyword: {_statistics.FieldKeywordProperties} properties normalized, " +
+               $"{_statistics.FieldKeywordAutoAccessorsExpanded} auto accessor(s) expanded, " +
+               $"{_statistics.FieldReferencesRewritten} reference(s), " +
+               $"{_statistics.FieldTargetAttributesMigrated} field-attribute(s), " +
+               $"{_statistics.FieldInitializersMoved} initializer(s), " +
+               $"{_statistics.FieldKeywordResidualTokens} residual";
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)

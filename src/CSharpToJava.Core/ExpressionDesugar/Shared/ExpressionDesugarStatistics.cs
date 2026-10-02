@@ -1,9 +1,6 @@
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
-<<<<<<< HEAD
-using CSharpToJava.Core.ExpressionDesugar.Interpolations;
-=======
 using CSharpToJava.Core.ExpressionDesugar.Initializers;
->>>>>>> 14a349c6 (feat(preprocessing): C24 initializers M0 探针+规则骨架+注册登记（默认关、空转）)
+using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 
 namespace CSharpToJava.Core.ExpressionDesugar;
 
@@ -39,13 +36,7 @@ public sealed class ExpressionDesugarStatistics
     public InitializerStatistics Initializers { get; } = new();
 
     // Future sections:
-<<<<<<< HEAD
-    //   public InitializerStatistics   Initializers  { get; init; } = new();  // C24
-    //   public NullConditionalStatistics NullConditional { get; } = ...;       // C35
-=======
-    //   public InterpolationStatistics Interpolations { get; } = new();  // C23
-    //   public NullConditionalStatistics NullConditional { get; } = ...; // C35
->>>>>>> 14a349c6 (feat(preprocessing): C24 initializers M0 探针+规则骨架+注册登记（默认关、空转）)
+    //   public NullConditionalStatistics NullConditional { get; } = ...;  // C35
 
     /// <summary>Merges a per-file result into an accumulating run total.</summary>
     public void MergeFrom(ExpressionDesugarStatistics other)
