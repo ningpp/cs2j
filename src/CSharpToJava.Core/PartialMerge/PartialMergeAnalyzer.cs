@@ -44,10 +44,26 @@ internal sealed class PartialMergeAnalyzer
             }
         }
 
+        // Nested groups emit no file-level edits: their merged nodes live inside
+        // the containing merged declaration (member merge), and whole containing
+        // declarations in other part files are removed anyway. Emitting edits for
+        // them too would overlap the containing group's spans.
+        var allPartNodes = groups
+            .SelectMany(group => group.Parts.Select(part => part.Declaration))
+            .ToHashSet();
+
         var edits = new List<FileEdit>();
         foreach (var group in groups)
         {
             if (group.MergedDeclaration is null)
+            {
+                continue;
+            }
+
+            var isNested = group.Primary.Declaration.Ancestors()
+                .OfType<TypeDeclarationSyntax>()
+                .Any(allPartNodes.Contains);
+            if (isNested)
             {
                 continue;
             }
