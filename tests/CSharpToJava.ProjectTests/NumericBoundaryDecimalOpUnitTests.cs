@@ -582,8 +582,12 @@ public class NumericBoundaryDecimalOpUnitTests
     }
 
     [Fact]
-    public void NullableDecimal_LiftedSites_DeferredUntouched()
+    public void NullableDecimal_LiftedSites_GuardedByC22_InnerSweptByC34_CompoundStillDeferred()
     {
+        // C22 M1 (Order=15, decision 19) explicitizes lifted decimal? sites
+        // first: the HasValue guard wraps a BARE inner decimal op which C34
+        // (Order=30) then sweeps on the re-bound tree. The lifted compound
+        // a += 1m stays M2-owned and is the only site still deferred here.
         var src = """
             public class C
             {
@@ -599,9 +603,19 @@ public class NumericBoundaryDecimalOpUnitTests
 
         var result = Run(src, EnabledOptions());
 
-        Assert.False(result.Changed);
-        // a + b, a == b and the lifted compound a += 1m are all deferred to C22.
-        Assert.Equal(3, result.Statistics.DecimalOps.DeferredByReason["lifted"]);
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var compact = Compact(result.OutputCode);
+        // Guarded arithmetic with the inner bare op swept to decimal.Add.
+        Assert.Contains("a.HasValue&&b.HasValue?(decimal?)((decimal.Add(a.Value,b.Value))):(decimal?)null", compact);
+        // Guarded both-nullable equality with the inner compare swept.
+        Assert.Contains("a.HasValue?(b.HasValue&&(decimal.Compare(a.Value,b.Value)==0)):!b.HasValue", compact);
+        // Lifted compound is NL-11 (M2): passes through and stays deferred.
+        Assert.Contains("a+=1m", compact);
+        Assert.Equal(1, result.Statistics.DecimalOps.DeferredByReason["lifted"]);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedBinarySites);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedEqualityBothNullableSites);
+        Assert.Equal(0, result.Statistics.Nullable.LiftedIncrementCompoundSites);
     }
 
     [Fact]
