@@ -28,7 +28,7 @@ public sealed class LexicalNormalizeTests
 
         Assert.True(result.Changed);
         Assert.Equal(3, result.Statistics.LineDirectivesRemoved);
-        Assert.DoesNotContain(result.OutputCode, "#line");
+        Assert.DoesNotContain("#line", result.OutputCode);
         Assert.Equal(1, result.Statistics.FilesTransformed);
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
     }
@@ -114,7 +114,7 @@ public sealed class LexicalNormalizeTests
         });
 
         Assert.True(result.Changed);
-        Assert.DoesNotContain(result.OutputCode, "#line");
+        Assert.DoesNotContain("#line", result.OutputCode);
         Assert.Contains(result.Diagnostics, d => d.Code == LexicalNormalizeCodes.ExternAlias
             && d.Severity == LexicalNormalizeSeverity.Warning);
     }
@@ -153,5 +153,101 @@ public sealed class LexicalNormalizeTests
         Assert.False(result.Changed);
         Assert.Contains(result.Diagnostics, d => d.Severity == LexicalNormalizeSeverity.Error);
         Assert.Equal(source, result.OutputCode);
+    }
+
+    [Fact]
+    public void LN5_GlobalUsingClassification_PlainStaticAlias_CountsAndRecords()
+    {
+        const string source = """
+            global using System;
+            global using static System.Math;
+            global using A = System.Collections;
+            using System.Linq;
+            """;
+
+        var result = Run(source, new LexicalNormalizeOptions { StripLineDirectives = false });
+
+        Assert.Equal(1, result.Statistics.GlobalUsingsPlain);
+        Assert.Equal(1, result.Statistics.GlobalUsingsStatic);
+        Assert.Equal(1, result.Statistics.GlobalUsingsAlias);
+        Assert.Equal(3, result.GlobalUsings.Count);
+        Assert.Equal(1, result.Statistics.StaticUsings);
+    }
+
+    [Fact]
+    public void LN5_GlobalUsingGlobalColon_AndPlainForm_AreDistinctTexts()
+    {
+        const string source = "global using global::System;\nglobal using System;\n";
+
+        var result = Run(source, new LexicalNormalizeOptions { StripLineDirectives = false });
+
+        Assert.Equal(2, result.GlobalUsings.Select(g => g.NormalizedText).Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public void LN6_StaticUsing_IsCountedAndNotRewritten()
+    {
+        const string source = "using static System.Math;\npublic class C { public int X => Abs(-1); }\n";
+
+        var result = Run(source);
+
+        Assert.Equal(1, result.Statistics.StaticUsings);
+        Assert.Contains("using static System.Math;", result.OutputCode);
+    }
+
+    [Fact]
+    public void LN7_FileScopedNamespace_BecomesBlock_UsingsPlacedInside()
+    {
+        const string source = """
+            namespace A.B;
+
+            using System;
+
+            public class C { public int X; }
+            """;
+
+        var result = Run(source, new LexicalNormalizeOptions
+        {
+            NormalizeFileScopedNamespaces = true,
+        });
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain("namespace A.B;", result.OutputCode);
+        Assert.Contains("namespace A.B", result.OutputCode);
+        Assert.Contains("{", result.OutputCode);
+        Assert.Equal(1, result.Statistics.FileScopedNamespacesNormalized);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
+    }
+
+    [Fact]
+    public void LN7_UsingsBeforeDeclaration_StayOutsideBlock()
+    {
+        const string source = """
+            using System;
+            namespace A.B;
+            public class C { }
+            """;
+
+        var result = Run(source, new LexicalNormalizeOptions
+        {
+            NormalizeFileScopedNamespaces = true,
+        });
+
+        Assert.True(result.Changed);
+        var outsideUsing = result.OutputCode.IndexOf("using System;", StringComparison.Ordinal);
+        var namespaceIndex = result.OutputCode.IndexOf("namespace A.B", StringComparison.Ordinal);
+        Assert.True(outsideUsing >= 0 && outsideUsing < namespaceIndex);
+    }
+
+    [Fact]
+    public void LN7_Idempotent_SecondRunClean()
+    {
+        const string source = "namespace A.B;\npublic class C { }\n";
+
+        var first = Run(source, new LexicalNormalizeOptions { NormalizeFileScopedNamespaces = true });
+        Assert.True(first.Changed);
+
+        var second = Run(first.OutputCode, new LexicalNormalizeOptions { NormalizeFileScopedNamespaces = true });
+        Assert.False(second.Changed);
     }
 }
