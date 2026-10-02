@@ -1884,7 +1884,7 @@ Expected: `0 个错误`。
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --nologo --filter "FullyQualifiedName~LexicalLiteralNormalizeTests"`
 Expected: `失败: 0`（M1 16 个用例 + M2 新增 10 个 Fact，本类共 26 个用例；代理项测试按 M0 只保留一个分支）。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/LexicalNormalize/Literals tests/CSharpToJava.Tests/LexicalLiteralNormalizeTests.cs
@@ -1897,7 +1897,7 @@ git commit -m "feat(preprocessing): C43 M2 LL-2 u8 展开与 LL-3 verbatim 归�
 - Modify: `src/CSharpToJava.CLI/Preprocessing/Adapters/LexicalNormalizePassAdapter.cs`
 - Modify: `src/CSharpToJava.CLI/Program.cs`
 
-- [ ] **Step 1: 适配器增加累加字段**
+- [x] **Step 1: 适配器增加累加字段**
 
 在 `LexicalNormalizePassAdapter` 的字段区（`_externSites;` L25 之后）加：
 
@@ -1930,7 +1930,7 @@ git commit -m "feat(preprocessing): C43 M2 LL-2 u8 展开与 LL-3 verbatim 归�
         _interpolatedRaw += literalStats.InterpolatedRawSkipped;
 ```
 
-- [ ] **Step 2: 摘要行追加字面量段**
+- [x] **Step 2: 摘要行追加字面量段**
 
 把 `BuildChainSummaryLine`（L136-139）整体替换为：
 
@@ -1947,7 +1947,7 @@ git commit -m "feat(preprocessing): C43 M2 LL-2 u8 展开与 LL-3 verbatim 归�
 
 适配器构造函数**不变**（四子选项随 `LexicalNormalizeOptions` 整体传入）。
 
-- [ ] **Step 3: Program.cs preprocess factory 透传四开关**
+- [x] **Step 3: Program.cs preprocess factory 透传四开关**
 
 把 preprocess verb 的 options factory（L3682-3688）：
 
@@ -1979,7 +1979,7 @@ git commit -m "feat(preprocessing): C43 M2 LL-2 u8 展开与 LL-3 verbatim 归�
 
 convert-project factory（L214-218）**不动**：不新增 convert-project 开关，子规则默认值 true 随 pass opt-in 生效。
 
-- [ ] **Step 4: Program.cs 增加四个 verb 参数**
+- [x] **Step 4: Program.cs 增加四个 verb 参数**
 
 在 `LnExternAliasSeverityEffective` 计算属性（L4693-4695）之后插入：
 
@@ -2001,7 +2001,7 @@ convert-project factory（L214-218）**不动**：不新增 convert-project 开�
     public bool LnNoEsc { get; set; }
 ```
 
-- [ ] **Step 5: 编译确认**
+- [x] **Step 5: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.CLI/CSharpToJava.CLI.csproj --nologo -v q`
 Expected: `0 个错误`。
@@ -2012,7 +2012,7 @@ Expected: `0 个错误`。
 - Create: `tests/SampleLexicalNormalizeSolution/SampleLexicalNormalizeLib/LiteralSamples.cs`
 - Create: `tests/SampleLexicalNormalizeSolution/SampleLexicalNormalizeLiteralTests/`（脚手架后覆盖）
 
-- [ ] **Step 1: Lib 新增 LiteralSamples.cs**
+- [x] **Step 1: Lib 新增 LiteralSamples.cs**
 
 ```csharp
 namespace SampleLexicalNormalizeLib;
@@ -2051,7 +2051,7 @@ WHERE id = 1";
 
 （`ReadOnlySpan<>` 经现有 `GlobalUsings.cs` 的 `global using System;` 解析。）
 
-- [ ] **Step 2: 脚手架生成新 xUnit 工程并入 sln**
+- [x] **Step 2: 脚手架生成新 xUnit 工程并入 sln**
 
 Run（PowerShell，仓库根）：
 
@@ -2063,7 +2063,7 @@ dotnet sln tests/SampleLexicalNormalizeSolution/SampleLexicalNormalizeSolution.s
 
 Expected: 三条命令成功退出；生成的 `UnitTest1.cs` 在 Step 4 删除。
 
-- [ ] **Step 3: 覆盖 csproj（对齐 SampleForeachSourceTests 版本）**
+- [x] **Step 3: 覆盖 csproj（对齐 SampleForeachSourceTests 版本）**
 
 覆盖 `SampleLexicalNormalizeLiteralTests.csproj` 为：
 
@@ -2086,7 +2086,7 @@ Expected: 三条命令成功退出；生成的 `UnitTest1.cs` 在 Step 4 删除�
 </Project>
 ```
 
-- [ ] **Step 4: 删除脚手架测试，写 LiteralSamplesTests.cs**
+- [x] **Step 4: 删除脚手架测试，写 LiteralSamplesTests.cs**
 
 删除 `UnitTest1.cs`，新建 `LiteralSamplesTests.cs`：
 
@@ -2142,7 +2142,7 @@ public sealed class LiteralSamplesTests
 }
 ```
 
-- [ ] **Step 5: fixture 基线 build/test（归一前必须先绿）**
+- [x] **Step 5: fixture 基线 build/test（归一前必须先绿）**
 
 Run: `dotnet test tests/SampleLexicalNormalizeSolution/SampleLexicalNormalizeLiteralTests/SampleLexicalNormalizeLiteralTests.csproj --nologo`
 Expected: `失败: 0，通过: 6`。
@@ -2153,7 +2153,7 @@ Expected: `失败: 0，通过: 6`。
 - Modify: `tests/CSharpToJava.ProjectTests/LexicalNormalizeProjectTests.cs`
 - Modify: `tests/CSharpToJava.ProjectTests/LexicalNormalizeCLITests.cs`
 
-- [ ] **Step 1: LexicalNormalizeProjectTests 追加 fixture 字面量验收 Fact**
+- [x] **Step 1: LexicalNormalizeProjectTests 追加 fixture 字面量验收 Fact**
 
 在文件末尾最后一个 `}` 之前追加：
 
@@ -2185,8 +2185,10 @@ Expected: `失败: 0，通过: 6`。
             Assert.Contains("(byte)0x", text);
             Assert.Contains("new byte[]", text);
 
-            // LL-3: no non-interpolated verbatim.
-            Assert.DoesNotContain("@\"", text);
+            // LL-3: no non-interpolated verbatim. The bare @" substring would also
+            // match the LL-4-exempt $@" interpolation, so anchor the declaration
+            // shape " = @" instead (Sql is the only non-interpolated verbatim).
+            Assert.DoesNotContain(" = @\"", text);
 
             // LL-6: no bare \e (regular \u001b escapes instead).
             Assert.DoesNotContain("\\e", text);
@@ -2213,7 +2215,7 @@ Expected: `失败: 0，通过: 6`。
     }
 ```
 
-- [ ] **Step 2: LexicalNormalizeCLITests 追加三个 Fact**
+- [x] **Step 2: LexicalNormalizeCLITests 追加三个 Fact**
 
 在文件末尾最后一个 `}` 之前追加：
 
@@ -2301,7 +2303,7 @@ Expected: `失败: 0，通过: 6`。
 
 （`--list-passes` 中 `C28, C43` 的断言已由 Task 10 Step 2 人工目视；如需自动化，复用本文件 `RunCliAsync("preprocess", "--list-passes")` 自行补一条，不阻断 M2。）
 
-- [ ] **Step 3: build Debug 并运行项目级测试**
+- [x] **Step 3: build Debug 并运行项目级测试**
 
 Run:
 
@@ -2312,7 +2314,7 @@ dotnet test tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj --n
 
 Expected: build `0 个错误`；test `失败: 0`（C28 既有 6 个 + C43 新增 4 个；verify build/tests 会真实还原并执行新 xUnit 工程，耗时较长）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src/CSharpToJava.CLI/Preprocessing/Adapters/LexicalNormalizePassAdapter.cs src/CSharpToJava.CLI/Program.cs tests/SampleLexicalNormalizeSolution tests/CSharpToJava.ProjectTests/LexicalNormalizeProjectTests.cs tests/CSharpToJava.ProjectTests/LexicalNormalizeCLITests.cs
