@@ -155,7 +155,8 @@ public class Program
             var hasDirectorySource = Directory.Exists(opts.Source);
             var hasProjectSource = File.Exists(opts.Source)
                 && (Path.GetExtension(opts.Source).Equals(".csproj", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetExtension(opts.Source).Equals(".sln", StringComparison.OrdinalIgnoreCase));
+                    || Path.GetExtension(opts.Source).Equals(".sln", StringComparison.OrdinalIgnoreCase)
+                    || Path.GetExtension(opts.Source).Equals(".slnx", StringComparison.OrdinalIgnoreCase));
             if (!hasDirectorySource && !hasProjectSource)
             {
                 Console.Error.WriteLine($"Error: Source not found: {opts.Source}");
@@ -3609,7 +3610,8 @@ public class Program
             var hasDirectorySource = Directory.Exists(opts.Source);
             var hasProjectSource = File.Exists(opts.Source)
                 && (Path.GetExtension(opts.Source).Equals(".csproj", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetExtension(opts.Source).Equals(".sln", StringComparison.OrdinalIgnoreCase));
+                    || Path.GetExtension(opts.Source).Equals(".sln", StringComparison.OrdinalIgnoreCase)
+                    || Path.GetExtension(opts.Source).Equals(".slnx", StringComparison.OrdinalIgnoreCase));
             if (!hasDirectorySource && !hasProjectSource)
             {
                 Console.Error.WriteLine($"Error: Source not found: {opts.Source}");

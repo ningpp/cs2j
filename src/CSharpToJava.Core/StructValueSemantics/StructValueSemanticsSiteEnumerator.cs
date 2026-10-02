@@ -254,10 +254,17 @@ internal sealed class StructValueSemanticsSiteEnumerator
         // dynamic 绑定调用（实参为残余 struct）→ SV014 登记，不插。
         if (method == null)
         {
-            var invocationType = model.GetTypeInfo((InvocationExpressionSyntax)invocation).Type;
-            var receiverType = invocation is InvocationExpressionSyntax ie
-                ? model.GetTypeInfo((ie.Expression as MemberAccessExpressionSyntax)?.Expression ?? ie.Expression).Type
-                : null;
+            // Constructor initializers (this(...)/base(...)) and other argument
+            // parents are never dynamic invocation sites this branch tracks.
+            if (invocation is not InvocationExpressionSyntax actualInvocation)
+            {
+                return;
+            }
+
+            var invocationType = model.GetTypeInfo(actualInvocation).Type;
+            var receiverType = model.GetTypeInfo(
+                (actualInvocation.Expression as MemberAccessExpressionSyntax)?.Expression
+                ?? actualInvocation.Expression).Type;
             if ((invocationType?.TypeKind == TypeKind.Dynamic || receiverType?.TypeKind == TypeKind.Dynamic)
                 && ActivePlanForType(model.GetTypeInfo(value).Type) != null)
             {
