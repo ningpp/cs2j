@@ -120,7 +120,7 @@ if ($LASTEXITCODE -eq 0) { dotnet run --project (Join-Path $probe "Probe.csproj"
 
 - [x] **Step 3: 按结果二选一拍板，并把结论写进设计文档 D5 行尾注记**
 
-> **M0 探针结论（2026-10-02 实测，分支 B 成立）**：`dotnet build` 失败，`error CS9026: 无法将输入字符串转换为等效的 UTF-8 字节表示形式。 Unable to translate Unicode character \uD800 at index 0 to specified code page.`（成对代理未及验证——孤立代理已先失败，分支判定只依赖孤立项）。裁决：编译器拒绝孤立代理 u8，生产代码**不加特判**，该输入经本 pass 既有 parse Error 路径整文件原样透传/Changed=false；CS2J5583 保持预留常量、全代码不引用；Task 13 的 `LL2_Utf8_LoneSurrogate_FollowsM0ProbeDecision` 采用**报错透传变体**（已回填至 Task 13 代码块）。设计文档 D5 行尾注记已同步。
+> **M0 探针结论（2026-10-02 实测，分支 B 成立）**：`dotnet build` 失败，`error CS9026: 无法将输入字符串转换为等效的 UTF-8 字节表示形式。 Unable to translate Unicode character \uD800 at index 0 to specified code page.`（成对代理未及验证——孤立代理已先失败，分支判定只依赖孤立项）。裁决：编译器拒绝孤立代理 u8，生产代码**不加特判**，该输入经本 pass 既有 parse Error 路径整文件原样透传/Changed=false；CS2J5583 保持预留常量、全代码不引用；Task 13 的 `LL2_Utf8_LoneSurrogate_FollowsM0ProbeDecision` 采用**报错透传变体**（已回填至 Task 13 代码块）。设计文档 D5 行尾注记已同步。**二次勘误（2026-10-02，M2 落地时探针复测）**：CS9026 是编译期（binding）诊断，纯语法 pass（无 Compilation）的 `SyntaxTree.GetDiagnostics()` 感知不到——该输入语法树零错误，分支 B 的「经 parse Error 路径整文件透传」在本 pass 内不存在；管线实际行为为**分支 A**：`Encoding.UTF8` 默认替换策略（U+FFFD → `EF BF BD`），改写成立、LL-5 多重集自洽。生产代码仍不加特判，CS2J5583 仍预留不引用，Task 13 代理项测试已改钉分支 A 口径（`LL2_Utf8_LoneSurrogate_NetReplacement_EmitsFffdBlob`），设计 D5 行尾注记已同步二次勘误。
 
 **分支 A（构建成功）**：记录孤立代理的输出字节。
 - 若为 `239,191,189`（EF BF BD）：D5 口径确认为「UTF-8 替换字节」；Task 13 的代理项测试用**替换字节变体**；CS2J5583 保持预留常量、全代码不引用。
@@ -1381,7 +1381,7 @@ Expected: lexical-normalize 行含 `rules=C28, C43`，状态仍为 `off`。
 - Modify: `src/CSharpToJava.Core/LexicalNormalize/Literals/LiteralRewriter.cs`
 - Modify: `src/CSharpToJava.Core/LexicalNormalize/Literals/LiteralNormalizationVerifier.cs`
 
-- [ ] **Step 1: 写 ByteLiteralFactory.cs**
+- [x] **Step 1: 写 ByteLiteralFactory.cs**
 
 ```csharp
 using Microsoft.CodeAnalysis.CSharp;
@@ -1425,7 +1425,9 @@ internal static class ByteLiteralFactory
 }
 ```
 
-- [ ] **Step 2: 写 Utf8SuffixLiteralRewriter.cs**
+> **实测注记（2026-10-02 探针复测）**：Roslyn 5.0.0 的 `SyntaxFactory.ArrayCreationExpression(type, initializer)` 便捷重载自动补的 `new` 关键字**不带尾随空白**，序列化为 `newbyte[]`，重解析即语法错误（触发 CS2J5542 整文件回退）。本 pass 从不运行 Formatter，故实现改为显式构造带 `WithTrailingTrivia(SyntaxFactory.ElasticWhitespace(" "))` 的 `new` 关键字并传入三参重载；`LL2_ByteLiteralFactory_EmitsExpectedCastSyntax` 已加 `ToFullString` 回归钉子。
+
+- [x] **Step 2: 写 Utf8SuffixLiteralRewriter.cs**
 
 ```csharp
 using System.Text;
@@ -1458,7 +1460,7 @@ internal static class Utf8SuffixLiteralRewriter
 }
 ```
 
-- [ ] **Step 3: 编排件挂 LL-2**
+- [x] **Step 3: 编排件挂 LL-2**
 
 在 `LiteralRewriter.VisitLiteralExpression` 中，把：
 
@@ -1481,7 +1483,7 @@ internal static class Utf8SuffixLiteralRewriter
         return (SyntaxNode?)replacement ?? node;
 ```
 
-- [ ] **Step 4: Verifier 增加 u8 blob 多重集校验**
+- [x] **Step 4: Verifier 增加 u8 blob 多重集校验**
 
 在 `LiteralNormalizationVerifier.Verify` 中，把占位注释 `// M2 inserts the u8 blob subset block here.` 替换为：
 
@@ -1567,7 +1569,7 @@ internal static class Utf8SuffixLiteralRewriter
     }
 ```
 
-- [ ] **Step 5: 编译确认**
+- [x] **Step 5: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
@@ -1579,7 +1581,7 @@ Expected: `0 个错误`。
 - Modify: `src/CSharpToJava.Core/LexicalNormalize/Literals/LiteralRewriter.cs`
 - Modify: `src/CSharpToJava.Core/LexicalNormalize/Literals/LiteralNormalizationVerifier.cs`
 
-- [ ] **Step 1: 写 VerbatimLiteralRewriter.cs**
+- [x] **Step 1: 写 VerbatimLiteralRewriter.cs**
 
 ```csharp
 using Microsoft.CodeAnalysis.CSharp;
@@ -1618,7 +1620,7 @@ internal static class VerbatimLiteralRewriter
 }
 ```
 
-- [ ] **Step 2: 编排件挂 LL-3**
+- [x] **Step 2: 编排件挂 LL-3**
 
 在 `LiteralRewriter.VisitLiteralExpression` 中，把：
 
@@ -1639,7 +1641,7 @@ internal static class VerbatimLiteralRewriter
         return (SyntaxNode?)replacement ?? node;
 ```
 
-- [ ] **Step 3: Verifier 打开 verbatim 口径**
+- [x] **Step 3: Verifier 打开 verbatim 口径**
 
 字符串子集门（M1 注释为 `// M2 additionally gates this block on NormalizeVerbatimLiterals.` 的那行）：
 
@@ -1668,7 +1670,7 @@ internal static class VerbatimLiteralRewriter
 
 注意：esc 分支已显式排除 `@"` 前缀，两分支互斥。
 
-- [ ] **Step 4: 编译确认**
+- [x] **Step 4: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
@@ -1678,7 +1680,7 @@ Expected: `0 个错误`。
 **Files:**
 - Modify: `tests/CSharpToJava.Tests/LexicalLiteralNormalizeTests.cs`
 
-- [ ] **Step 1: 在文件末尾最后一个 `}` 之前追加 M2 测试**
+- [x] **Step 1: 在文件末尾最后一个 `}` 之前追加 M2 测试**
 
 ```csharp
     [Fact]
@@ -1750,18 +1752,26 @@ Expected: `0 个错误`。
     }
 
     [Fact]
-    public void LL2_Utf8_LoneSurrogate_FollowsM0ProbeDecision()
+    public void LL2_Utf8_LoneSurrogate_NetReplacement_EmitsFffdBlob()
     {
         var source = "public class C { object x = \"\uD800\"u8; }\n";
 
-        // M0 probe (Task 1) decided branch B: the compiler rejects lone
-        // surrogates in u8 literals (CS9026), surfaced by the pass's
-        // existing parse-error path — the file rolls back unchanged.
-        var errorResult = Run(source);
-        Assert.False(errorResult.Changed);
-        Assert.Equal(source, errorResult.OutputCode);
-        Assert.Contains(errorResult.Diagnostics,
-            d => d.Severity == LexicalNormalizeSeverity.Error);
+        // M0 probe follow-up (2026-10-02): CS9026 is a compilation-time
+        // diagnostic that this pure-syntax pass (no Compilation) never sees —
+        // the syntax tree parses clean, so the D5 branch-B mapping "parse
+        // errors roll the file back" does not exist. The pipeline behavior is
+        // therefore D5 branch A: Encoding.UTF8's default replacement strategy
+        // maps the lone surrogate to U+FFFD (EF BF BD) and the rewrite stands.
+        // Production code keeps no special case (CS2J5583 stays reserved).
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Utf8LiteralsExpanded);
+        Assert.Equal(3, result.Statistics.Utf8BytesEmitted);
+        Assert.Contains("(byte)0xEF", result.OutputCode);
+        Assert.Contains("(byte)0xBF", result.OutputCode);
+        Assert.Contains("(byte)0xBD", result.OutputCode);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
     }
 
     [Fact]
@@ -1869,7 +1879,7 @@ Expected: `0 个错误`。
     }
 ```
 
-- [ ] **Step 2: 运行全部 C43 Core 单测**
+- [x] **Step 2: 运行全部 C43 Core 单测**
 
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --nologo --filter "FullyQualifiedName~LexicalLiteralNormalizeTests"`
 Expected: `失败: 0`（M1 16 个用例 + M2 新增 10 个 Fact，本类共 26 个用例；代理项测试按 M0 只保留一个分支）。
