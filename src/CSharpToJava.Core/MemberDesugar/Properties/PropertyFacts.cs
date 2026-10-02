@@ -40,7 +40,9 @@ internal static class PropertyFacts
         => prop.IsStatic && (prop.IsAbstract || prop.IsVirtual)
            && prop.ContainingType is { TypeKind: TypeKind.Interface };
 
-    /// <summary>访问器体使用 C#13 field 关键字（CS2J5122；FieldExpression + 标识符文本双判）。</summary>
+    /// <summary>访问器体使用 C# 14 field 关键字。C50 子集开关关闭时走声明级跳过
+    /// （CS2J5122）；开关启用时改由 <see cref="FieldKeywordResolver"/> 语义解析，
+    /// 本判定仅作关闭路径与 FK-9 residual 兜底（FieldExpression + 标识符文本双判）。</summary>
     public static bool UsesFieldKeyword(PropertyDeclarationSyntax decl)
         => decl.AccessorList?.Accessors.Any(UsesFieldKeyword) == true;
 

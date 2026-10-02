@@ -58,21 +58,33 @@ internal static class FieldKeywordNormalizer
 
         var body = FieldKeywordBodyRewriter.Rewrite(visitedDecl, fieldName);
 
-        // FK-7 接缝（决策 8）：commit c 接入 [field:] 特性整组迁移。
-        var fieldAttributeLists = Array.Empty<AttributeListSyntax>();
-        const int attributeCount = 0;
-        var strippedDecl = body.Declaration;
+        // FK-7（决策 8）：[field:] 整组迁字段；[get:]/[set:]/[init:] 挂对应访问器；
+        // 默认/property 目标原位保留交 C11 PD-10。
+        var migration = FieldKeywordAttributeMigration.Migrate(body.Declaration, plan.DeclName);
+        if (migration.FailCode != null)
+        {
+            diagnostics.Add(new MemberDesugarDiagnostic(
+                options.Strict ? MemberDesugarSeverity.Error : MemberDesugarSeverity.Warning,
+                migration.FailCode.Value,
+                migration.FailReason!,
+                filePath,
+                bindingDecl.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                bindingDecl.GetLocation().GetLineSpan().StartLinePosition.Character + 1,
+                plan.SymbolName));
+            return false;
+        }
 
         var fieldDecl = BuildField(
-            bindingDecl, plan, info, fieldName, body.MovedInitializer, fieldAttributeLists, model);
+            bindingDecl, plan, info, fieldName, body.MovedInitializer,
+            migration.FieldAttributeLists, model);
 
-        normalized = strippedDecl;
+        normalized = migration.Declaration;
         field = fieldDecl;
 
         stats.FieldKeywordProperties++;
         stats.FieldKeywordAutoAccessorsExpanded += body.AutoAccessorsExpanded;
         stats.FieldReferencesRewritten += body.ReferencesRewritten;
-        stats.FieldTargetAttributesMigrated += attributeCount;
+        stats.FieldTargetAttributesMigrated += migration.MigratedAttributeCount;
         if (body.MovedInitializer != null) stats.FieldInitializersMoved++;
         // 字段由 C50 合成、C11 Expander 复用：计入族级「字段生成」口径。
         stats.BackingFieldsGenerated++;
