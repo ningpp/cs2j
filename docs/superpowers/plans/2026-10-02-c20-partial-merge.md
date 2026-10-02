@@ -79,7 +79,7 @@ tests/SamplePartialSolution/     # 新建 fixture（Lib + App + Tests + .sln）
 **Files:**
 - Create: `src/CSharpToJava.Core/PartialMerge/PartialMergeModels.cs`
 
-- [ ] **Step 1: 写入 Models 文件**
+- [x] **Step 1: 写入 Models 文件**
 
 ```csharp
 namespace CSharpToJava.Core.PartialMerge;
@@ -203,12 +203,12 @@ internal static class PartialMergeCodes
 }
 ```
 
-- [ ] **Step 2: 编译确认**
+- [x] **Step 2: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`（警告可既有）。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialMergeModels.cs
@@ -220,7 +220,7 @@ git commit -m "feat(preprocessing): C20 partial-merge Models/Options/Statistics/
 **Files:**
 - Create: `src/CSharpToJava.Core/PartialMerge/PartialMergePlan.cs`
 
-- [ ] **Step 1: 写入 Plan 文件**
+- [x] **Step 1: 写入 Plan 文件**
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -289,12 +289,12 @@ internal sealed record PartialMergePlan
 }
 ```
 
-- [ ] **Step 2: 编译确认**
+- [x] **Step 2: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialMergePlan.cs
@@ -306,7 +306,7 @@ git commit -m "feat(preprocessing): C20 partial-merge Plan/TypeGroup/FileEdit �
 **Files:**
 - Create: `src/CSharpToJava.Core/PartialMerge/PartialTypePartCollector.cs`
 
-- [ ] **Step 1: 写入 Collector**
+- [x] **Step 1: 写入 Collector**
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -407,12 +407,12 @@ internal static class PartialTypePartCollector
 }
 ```
 
-- [ ] **Step 2: 编译确认**
+- [x] **Step 2: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialTypePartCollector.cs
@@ -424,7 +424,7 @@ git commit -m "feat(preprocessing): C20 partial-merge PartCollector 符号分组
 **Files:**
 - Create: `src/CSharpToJava.Core/PartialMerge/PartialMemberMerge.cs`
 
-- [ ] **Step 1: 写入 MemberMerge**
+- [x] **Step 1: 写入 MemberMerge**
 
 ```csharp
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -470,12 +470,12 @@ internal static class PartialMemberMerge
 }
 ```
 
-- [ ] **Step 2: 编译确认**
+- [x] **Step 2: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialMemberMerge.cs
@@ -487,7 +487,7 @@ git commit -m "feat(preprocessing): C20 partial-merge 成员部件序拼接（M1
 **Files:**
 - Create: `src/CSharpToJava.Core/PartialMerge/PartialTypeMergeBuilder.cs`
 
-- [ ] **Step 1: 写入 MergeBuilder**
+- [x] **Step 1: 写入 MergeBuilder**
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -625,12 +625,12 @@ internal static class PartialTypeMergeBuilder
 }
 ```
 
-- [ ] **Step 2: 编译确认**
+- [x] **Step 2: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialTypeMergeBuilder.cs
@@ -642,7 +642,7 @@ git commit -m "feat(preprocessing): C20 partial-merge MergeBuilder 合并声明�
 **Files:**
 - Create: `src/CSharpToJava.Core/PartialMerge/PartialMergeRewriter.cs`
 
-- [ ] **Step 1: 写入 Rewriter**
+- [x] **Step 1: 写入 Rewriter**
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -681,12 +681,12 @@ internal sealed class PartialMergeRewriter
 }
 ```
 
-- [ ] **Step 2: 编译确认**
+- [x] **Step 2: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialMergeRewriter.cs
@@ -698,7 +698,7 @@ git commit -m "feat(preprocessing): C20 partial-merge Rewriter 逐文件确定�
 **Files:**
 - Create: `src/CSharpToJava.Core/PartialMerge/PartialMergeAnalyzer.cs`
 
-- [ ] **Step 1: 写入 Analyzer**
+- [x] **Step 1: 写入 Analyzer**
 
 ```csharp
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -777,12 +777,12 @@ internal sealed class PartialMergeAnalyzer
 }
 ```
 
-- [ ] **Step 2: 编译确认**
+- [x] **Step 2: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialMergeAnalyzer.cs
@@ -794,7 +794,7 @@ git commit -m "feat(preprocessing): C20 partial-merge Analyzer 整树分析产 p
 **Files:**
 - Create: `src/CSharpToJava.Core/PartialMerge/PartialMergePreprocessor.cs`
 
-- [ ] **Step 1: 写入门面**
+- [x] **Step 1: 写入门面**
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -893,12 +893,12 @@ internal static class PartialMergeSymbolExtensions
 }
 ```
 
-- [ ] **Step 2: 编译确认**
+- [x] **Step 2: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialMergePreprocessor.cs
@@ -910,7 +910,7 @@ git commit -m "feat(preprocessing): C20 partial-merge Preprocessor 门面与 res
 **Files:**
 - Create: `tests/CSharpToJava.ProjectTests/PartialMergeUnitTests.cs`
 
-- [ ] **Step 1: 先写失败测试**（M1 矩阵，设计 §7.1 组 1-3、12-13）
+- [x] **Step 1: 先写失败测试**（M1 矩阵，设计 §7.1 组 1-3、12-13）
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -1083,12 +1083,12 @@ public sealed class PartialMergeUnitTests
 
 注意：上面的 helper（`CrossPlatformRoot`/路径拼装）实施时允许就地调整为与测试文件真实临时根一致的写法，但**测试名称与断言意图不得删减**。
 
-- [ ] **Step 2: 跑测试（期望全绿）**
+- [x] **Step 2: 跑测试（期望全绿）**
 
 Run: `dotnet test tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj --filter PartialMergeUnitTests --nologo`
 Expected: `失败: 0`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add tests/CSharpToJava.ProjectTests/PartialMergeUnitTests.cs
@@ -1100,7 +1100,7 @@ git commit -m "test(preprocessing): C20 partial-merge M1 组1-3/12-13 Core 单�
 **Files:**
 - Create: `src/CSharpToJava.CLI/Preprocessing/Adapters/PartialMergePassAdapter.cs`
 
-- [ ] **Step 1: 写入适配器（M1 版）**
+- [x] **Step 1: 写入适配器（M1 版）**
 
 ```csharp
 using CSharpToJava.Core.PartialMerge;
@@ -1268,12 +1268,12 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 }
 ```
 
-- [ ] **Step 2: 编译确认（此时 CreateAdapter 尚未接线）**
+- [x] **Step 2: 编译确认（此时 CreateAdapter 尚未接线）**
 
 Run: `dotnet build src/CSharpToJava.CLI/CSharpToJava.CLI.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.CLI/Preprocessing/Adapters/PartialMergePassAdapter.cs
@@ -1287,7 +1287,7 @@ git commit -m "feat(preprocessing): C20 partial-merge CLI 适配器 M1（复制�
 - Modify: `src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs`
 - Modify: `src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs`
 
-- [ ] **Step 1: PassStubCatalog —— 删 stub 条目、留常量**
+- [x] **Step 1: PassStubCatalog —— 删 stub 条目、留常量**
 
 删除整个 partial-merge 条目块（当前 L51-61：从 `new(` 到 `catalogItems: "C20"),`），原位替换为注释：
 
@@ -1298,7 +1298,7 @@ git commit -m "feat(preprocessing): C20 partial-merge CLI 适配器 M1（复制�
 
 `Ids.PartialMerge`（L23）**保留不动**。
 
-- [ ] **Step 2: PassCatalog —— lexical-normalize 之后插入描述符**
+- [x] **Step 2: PassCatalog —— lexical-normalize 之后插入描述符**
 
 在 lexical-normalize 描述符块（L50-62）结束之后、local-function-lift（L63）之前插入：
 
@@ -1318,7 +1318,7 @@ git commit -m "feat(preprocessing): C20 partial-merge CLI 适配器 M1（复制�
             catalogItems: "C20"),
 ```
 
-- [ ] **Step 3: PassCatalog —— local-function-lift 追加 RunAfter 边**
+- [x] **Step 3: PassCatalog —— local-function-lift 追加 RunAfter 边**
 
 把 local-function-lift 的 `runAfterIds`（当前 L70）由
 
@@ -1334,7 +1334,7 @@ git commit -m "feat(preprocessing): C20 partial-merge CLI 适配器 M1（复制�
 
 （设计 §3.3：仿 eliminate-goto 补 iterator 边先例 L338；partial-merge 默认关时启用子集过滤消解该边，local-function-lift 不被阻塞。）
 
-- [ ] **Step 4: PassChainFactory —— CreateAdapter 加臂（不动 config/toggles）**
+- [x] **Step 4: PassChainFactory —— CreateAdapter 加臂（不动 config/toggles）**
 
 在 iterator-lowering 臂（L334-341）之前插入：
 
@@ -1356,12 +1356,12 @@ using CSharpToJava.Core.PartialMerge;
 
 `PassChainConfiguration`（L38-92）与 `BuildLegacyToggles`（L103-133）**均不动**（无专属开关、无 options factory，构造形态照 iterator 臂 L334-335）。
 
-- [ ] **Step 5: 构建确认**
+- [x] **Step 5: 构建确认**
 
 Run: `dotnet build src/CSharpToJava.CLI/CSharpToJava.CLI.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 6: 提交（逐文件 add）**
+- [x] **Step 6: 提交（逐文件 add）**
 
 ```powershell
 git add src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs
@@ -1375,7 +1375,7 @@ git commit -m "feat(preprocessing): C20 partial-merge 翻转 Implemented（默�
 **Files:**
 - Modify: `tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs`
 
-- [ ] **Step 1: LockedChain 插入 partial-merge**
+- [x] **Step 1: LockedChain 插入 partial-merge**
 
 在 `LockedChain` 的 lexical-normalize（L22）之后、local-function-lift（L23）之前插入一行：
 
@@ -1383,7 +1383,7 @@ git commit -m "feat(preprocessing): C20 partial-merge 翻转 Implemented（默�
         PassStubCatalog.Ids.PartialMerge,
 ```
 
-- [ ] **Step 2: EnabledByDefault 追加排除**
+- [x] **Step 2: EnabledByDefault 追加排除**
 
 把 L52-54
 
@@ -1403,7 +1403,7 @@ git commit -m "feat(preprocessing): C20 partial-merge 翻转 Implemented（默�
             && id != PassStubCatalog.Ids.PartialMerge).ToArray();
 ```
 
-- [ ] **Step 3: 顺序断言扩展（设计 §3.3）**
+- [x] **Step 3: 顺序断言扩展（设计 §3.3）**
 
 把 `Registry_order_matches_the_locked_historical_chain` 中 L67-73 的断言块追加为：
 
@@ -1424,7 +1424,7 @@ git commit -m "feat(preprocessing): C20 partial-merge 翻转 Implemented（默�
             "expected partial-merge < member-desugar (catalog: C46 after C20)");
 ```
 
-- [ ] **Step 4: catalog 映射断言补 C20**
+- [x] **Step 4: catalog 映射断言补 C20**
 
 在 `Implemented_catalog_passes_carry_their_catalog_item_mappings`（L216-234）末尾加：
 
@@ -1435,7 +1435,7 @@ git commit -m "feat(preprocessing): C20 partial-merge 翻转 Implemented（默�
 
 （适配器全覆盖用例 L236-259 **无需改动**：新臂不依赖 config factory。）
 
-- [ ] **Step 5: 跑链序与 stub 测试**
+- [x] **Step 5: 跑链序与 stub 测试**
 
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --filter PassChainOrderTests --nologo`
 Expected: `失败: 0`。
@@ -1443,14 +1443,14 @@ Expected: `失败: 0`。
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --filter PassStubCatalogTests --nologo`
 Expected: `失败: 0`（stub 计数动态化，翻转后自动为 13 条）。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```powershell
 git add tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs
 git commit -m "test(preprocessing): C20 partial-merge 链序/默认关/catalog 断言翻转"
 ```
 
-- [ ] **Step 7: M1 里程碑全量验证**
+- [x] **Step 7: M1 里程碑全量验证**
 
 Run: `dotnet build CSharpToJavaConverter.slnx -c Release --nologo -v q`
 Expected: `0 个错误`。
@@ -1475,7 +1475,7 @@ Expected: `partial-merge  Lexical  Implemented  off  conditional, lexical-normal
 **Files:**
 - Modify: `src/CSharpToJava.CLI/Preprocessing/Adapters/PartialMergePassAdapter.cs`
 
-- [ ] **Step 1: 用下方完整版替换 M1 的 `ExecuteAsync`**
+- [x] **Step 1: 用下方完整版替换 M1 的 `ExecuteAsync`**
 
 ```csharp
     public override async Task ExecuteAsync(PassExecutionContext context)
@@ -1612,7 +1612,7 @@ Expected: `partial-merge  Lexical  Implemented  off  conditional, lexical-normal
     }
 ```
 
-- [ ] **Step 2: 在同一文件追加私有 helper（镜像 JavaKeywords L293-375）**
+- [x] **Step 2: 在同一文件追加私有 helper（镜像 JavaKeywords L293-375）**
 
 ```csharp
     private static List<TypeGroupPlan> AttributeToGroups(Diagnostic error, PartialMergePlan plan)
@@ -1684,12 +1684,12 @@ Expected: `partial-merge  Lexical  Implemented  off  conditional, lexical-normal
 
 文件头 using 追加 `using System.Text;`。
 
-- [ ] **Step 3: 构建确认**
+- [x] **Step 3: 构建确认**
 
 Run: `dotnet build src/CSharpToJava.CLI/CSharpToJava.CLI.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git add src/CSharpToJava.CLI/Preprocessing/Adapters/PartialMergePassAdapter.cs
@@ -1701,7 +1701,7 @@ git commit -m "feat(preprocessing): C20 partial-merge 基线快照/recompile-dif
 **Files:**
 - Modify: `src/CSharpToJava.Core/PartialMerge/PartialMergeAnalyzer.cs`
 
-- [ ] **Step 1: Analyze 开头加基线快照与组标记**
+- [x] **Step 1: Analyze 开头加基线快照与组标记**
 
 在 `Analyze` 中 `PartialTypePartCollector.Collect(...)` 之后插入：
 
@@ -1728,7 +1728,7 @@ git commit -m "feat(preprocessing): C20 partial-merge 基线快照/recompile-dif
 
 实现顺序：collect → 本步标记 `SkipBaseline`/`SkipUnsupportedShape` → 仅对未标记组调用 MergeBuilder（跳过组 `MergedDeclaration` 保持 null、不产编辑），统计计 `SkippedBaseline`。
 
-- [ ] **Step 2: CS2J2016 不受支持形态闸门**
+- [x] **Step 2: CS2J2016 不受支持形态闸门**
 
 在同一循环中追加 record 参数表检查：
 
@@ -1752,7 +1752,7 @@ git commit -m "feat(preprocessing): C20 partial-merge 基线快照/recompile-dif
             }
 ```
 
-- [ ] **Step 3: CS2J2017 analyzer/source-generator 引用探测（Info，仅 verbose）**
+- [x] **Step 3: CS2J2017 analyzer/source-generator 引用探测（Info，仅 verbose）**
 
 在 `Analyze` 返回前加：
 
@@ -1776,12 +1776,12 @@ git commit -m "feat(preprocessing): C20 partial-merge 基线快照/recompile-dif
 
 （启发式探测，仅 verbose 可见；实施时补 `EnumerateIntermediateProjectFiles` 为对源根下 `*.csproj` 的枚举。）
 
-- [ ] **Step 4: 构建确认**
+- [x] **Step 4: 构建确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialMergeAnalyzer.cs
@@ -1793,7 +1793,7 @@ git commit -m "feat(preprocessing): C20 partial-merge 基线闸门/CS2J2016/CS2J
 **Files:**
 - Create: `src/CSharpToJava.Core/PartialMerge/PartialDocCommentMerger.cs`
 
-- [ ] **Step 1: 写入 DocCommentMerger**
+- [x] **Step 1: 写入 DocCommentMerger**
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -1884,7 +1884,7 @@ internal static class PartialDocCommentMerger
 }
 ```
 
-- [ ] **Step 2: MergeBuilder 接线文档合并**
+- [x] **Step 2: MergeBuilder 接线文档合并**
 
 把 `PartialTypeMergeBuilder.Build` 中构造 `leading` 的部分改为：
 
@@ -1902,12 +1902,12 @@ internal static class PartialDocCommentMerger
 
 （文档在前、溯源 banner 在后；顺序字节由组 9 单测锁定。）
 
-- [ ] **Step 3: 构建确认**
+- [x] **Step 3: 构建确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialDocCommentMerger.cs
@@ -1920,7 +1920,7 @@ git commit -m "feat(preprocessing): C20 partial-merge XML 文档确定性合并�
 **Files:**
 - Modify: `src/CSharpToJava.CLI/Preprocessing/Adapters/PartialMergePassAdapter.cs`
 
-- [ ] **Step 1: 追加 override（代码镜像 TuplePassAdapter L59-88）**
+- [x] **Step 1: 追加 override（代码镜像 TuplePassAdapter L59-88）**
 
 ```csharp
     public override IReadOnlyList<SyntaxTree> CreateAdditionalSyntaxTrees(PassTreeContext tree)
@@ -1955,12 +1955,12 @@ git commit -m "feat(preprocessing): C20 partial-merge XML 文档确定性合并�
     }
 ```
 
-- [ ] **Step 2: 构建确认**
+- [x] **Step 2: 构建确认**
 
 Run: `dotnet build src/CSharpToJava.CLI/CSharpToJava.CLI.csproj --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.CLI/Preprocessing/Adapters/PartialMergePassAdapter.cs
@@ -1972,7 +1972,7 @@ git commit -m "feat(preprocessing): C20 partial-merge global using 合成树（M
 **Files:**
 - Modify: `tests/CSharpToJava.ProjectTests/PartialMergeUnitTests.cs`
 
-- [ ] **Step 1: 追加 M2 矩阵（测试名称即需求，不得删减）**
+- [x] **Step 1: 追加 M2 矩阵（测试名称即需求，不得删减）**
 
 ```csharp
     // Group 6: modifier union semantics and ordering.
@@ -2021,12 +2021,12 @@ git commit -m "feat(preprocessing): C20 partial-merge global using 合成树（M
 3. 组 10 需两套 compilation 对照：含/不含 `CreateAdditionalSyntaxTrees` 各跑一次；
 4. 组 9 的字节稳定：同输入连跑 Analyze 两次，`MergedDeclaration.ToFullString()` 相等。
 
-- [ ] **Step 2: 跑测试**
+- [x] **Step 2: 跑测试**
 
 Run: `dotnet test tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj --filter PartialMergeUnitTests --nologo`
 Expected: `失败: 0`（M1 + M2 全部用例）。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add src/CSharpToJava.Core/PartialMerge/PartialMergeAnalyzer.cs
@@ -2039,7 +2039,7 @@ git commit -m "test(preprocessing): C20 partial-merge M2 组6-11/14-15 单测与
 **Files:**
 - Create: `tests/SamplePartialSolution/`（Lib + App + Tests + sln）
 
-- [ ] **Step 1: 脚手架（非交互）**
+- [x] **Step 1: 脚手架（非交互）**
 
 ```powershell
 dotnet new sln -n SamplePartialSolution -o tests/SamplePartialSolution
@@ -2055,7 +2055,7 @@ dotnet add tests/SamplePartialSolution/SamplePartialTests/SamplePartialTests.csp
 
 删除脚手架自带 `Class1.cs`/模板测试文件。
 
-- [ ] **Step 2: 写入 Lib 场景文件（设计 §7.2）**
+- [x] **Step 2: 写入 Lib 场景文件（设计 §7.2）**
 
 ```
 SamplePartialLib/
@@ -2120,7 +2120,7 @@ public partial class OrderService
 
 其余文件按文件头注释的场景意图写齐；C#13 文件须能在 `LanguageVersion.Latest` 下编译。
 
-- [ ] **Step 3: 写入 .NET 半区行为测试**
+- [x] **Step 3: 写入 .NET 半区行为测试**
 
 `SamplePartialTests/BehaviorTests.cs`（合并前后行为等价闸门，测试在中间树与原树都必须通过）：
 
@@ -2150,7 +2150,7 @@ public sealed class BehaviorTests
 
 按 fixture 实际成员补全覆盖；`SamplePartialApp/Program.cs` 调一次 Lib 确认控制台半区。
 
-- [ ] **Step 4: fixture 本地 build/test 确认**
+- [x] **Step 4: fixture 本地 build/test 确认**
 
 Run: `dotnet build tests/SamplePartialSolution/SamplePartialSolution.sln --nologo -v q`
 Expected: `0 个错误`。
@@ -2158,7 +2158,7 @@ Expected: `0 个错误`。
 Run: `dotnet test tests/SamplePartialSolution/SamplePartialSolution.sln --nologo`
 Expected: `失败: 0`。
 
-- [ ] **Step 5: 提交（逐文件 add fixture 全部文件；bin/obj 不 add）**
+- [x] **Step 5: 提交（逐文件 add fixture 全部文件；bin/obj 不 add）**
 
 ```powershell
 git add tests/SamplePartialSolution/SamplePartialSolution.sln
@@ -2174,7 +2174,7 @@ git commit -m "test(preprocessing): C20 SamplePartialSolution fixture（两半�
 - Modify: `tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj`
 - Create: `tests/CSharpToJava.ProjectTests/PartialMergeProjectTests.cs`
 
-- [ ] **Step 1: csproj 追加 Content（插 L257 `</Project>` 之前，紧邻 L248-255 C28 ItemGroup 之后）**
+- [x] **Step 1: csproj 追加 Content（插 L257 `</Project>` 之前，紧邻 L248-255 C28 ItemGroup 之后）**
 
 ```xml
   <ItemGroup>
@@ -2188,7 +2188,7 @@ git commit -m "test(preprocessing): C20 SamplePartialSolution fixture（两半�
   </ItemGroup>
 ```
 
-- [ ] **Step 2: 写 PartialMergeProjectTests（形态仿 MemberDesugarProjectTests）**
+- [x] **Step 2: 写 PartialMergeProjectTests（形态仿 MemberDesugarProjectTests）**
 
 ```csharp
 using CSharpToJava.CLI.Preprocessing;
@@ -2257,12 +2257,12 @@ public sealed class PartialMergeProjectTests
 
 `Disabled_Path_Is_Byte_Identical_To_Input` 实施时补成与 MemberDesugar 同款字节比对（空 body 仅为占位标记，不得保留空实现）。
 
-- [ ] **Step 3: 跑项目级验收**
+- [x] **Step 3: 跑项目级验收**
 
 Run: `dotnet test tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj --filter PartialMergeProjectTests --nologo`
 Expected: `失败: 0`。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```powershell
 git add tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj
@@ -2275,7 +2275,7 @@ git commit -m "test(preprocessing): C20 partial-merge 项目级验收与 csproj 
 **Files:**
 - Create: `tests/CSharpToJava.ProjectTests/PartialMergeCLITests.cs`
 
-- [ ] **Step 1: 写 CLI 端到端（Process 启动 CLI dll）**
+- [x] **Step 1: 写 CLI 端到端（Process 启动 CLI dll）**
 
 ```csharp
 using System.Diagnostics;
@@ -2371,12 +2371,12 @@ public sealed class PartialMergeCLITests
 
 注意：`--dry-run`/真实动词与参数名实施时以 Program.cs 实际定义为准修正（参数意图不变：默认排除、显式启用执行、独立 verb 可达）；`CSharpToJava.CLI.dll` 的输出拷贝由 ProjectTests csproj 既有机制保证（若缺则参照其他 CLITests 的路径解析）。
 
-- [ ] **Step 2: 跑 CLI 测试**
+- [x] **Step 2: 跑 CLI 测试**
 
 Run: `dotnet test tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj --filter PartialMergeCLITests --nologo`
 Expected: `失败: 0`。
 
-- [ ] **Step 3: 提交**
+- [x] **Step 3: 提交**
 
 ```powershell
 git add tests/CSharpToJava.ProjectTests/PartialMergeCLITests.cs
