@@ -1,4 +1,5 @@
 using CSharpToJava.Core.DefaultParameterStripper;
+using CSharpToJava.Core.DefaultParameterStripper.ParamsCollections;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -23,6 +24,15 @@ internal sealed class StripDefaultPassAdapter : ProjectPassAdapter
     private readonly List<DefaultParameterStripDiagnostic> _diagnostics = new();
     private readonly DefaultParameterStripperStatistics _statistics = new();
     private CSharpParseOptions? _parseOptions;
+
+    /// <summary>
+    /// C48 params-collections statistics. The Core stripper accumulates them on
+    /// a single shared <see cref="ParamsCollectionsResult"/> instance (one per
+    /// stripper, spanning Collect and every Strip call), so the merge flow keeps
+    /// a reference to that live instance instead of adding per-file counters —
+    /// adding them per file would double-count. Null while the rule set is off.
+    /// </summary>
+    private ParamsStatistics? _paramsStatistics;
 
     public StripDefaultPassAdapter(
         DefaultParameterStripperOptions options,
@@ -75,7 +85,10 @@ internal sealed class StripDefaultPassAdapter : ProjectPassAdapter
                 continue;
             }
 
-            _preprocessor.Collect(tree, compilation.GetSemanticModel(tree));
+            // C48: the options also gate the params-collections signature
+            // collection; with the rule off (default) this call behaves exactly
+            // as before (catalog collection only).
+            _preprocessor.Collect(tree, compilation.GetSemanticModel(tree), _options);
         }
 
         return Task.CompletedTask;
@@ -148,10 +161,33 @@ internal sealed class StripDefaultPassAdapter : ProjectPassAdapter
         => _diagnostics.Any(d => d.Severity == DefaultParameterStripSeverity.Error);
 
     public override string BuildChainSummaryLine()
-        => $"strip-default: {_statistics.FilesTransformed} transformed, " +
-           $"{_statistics.FilesSkippedClean} clean, " +
-           $"{_statistics.DeclarationsStripped} declarations stripped, " +
-           $"{_statistics.OverloadsGenerated} overloads generated";
+    {
+        var line = $"strip-default: {_statistics.FilesTransformed} transformed, " +
+                   $"{_statistics.FilesSkippedClean} clean, " +
+                   $"{_statistics.DeclarationsStripped} declarations stripped, " +
+                   $"{_statistics.OverloadsGenerated} overloads generated";
+
+        // C48 params segment: appended only while the rule set is enabled.
+        if (_options.ParamsCollections is not { Enabled: true })
+        {
+            return line;
+        }
+
+        var paramsStats = _paramsStatistics ?? new ParamsStatistics();
+        var decl = paramsStats.ParamsSites.Values.Sum();
+        paramsStats.ParamsSites.TryGetValue("Span", out var span);
+        paramsStats.ParamsSites.TryGetValue("Builder", out var builder);
+        paramsStats.ParamsSites.TryGetValue("Initializable", out var init);
+        paramsStats.ParamsSites.TryGetValue("Interface", out var iface);
+        var skipped = paramsStats.SkippedByReason.Values.Sum();
+
+        return line +
+            $"; params: {decl} decl (span {span}/builder {builder}/init {init}/iface {iface}), " +
+            $"calls expanded {paramsStats.ParamsCallSitesExpanded}/empty {paramsStats.ParamsCallSitesEmpty}/" +
+            $"passthrough {paramsStats.ParamsCallSitesPassthrough}, " +
+            $"materialized {paramsStats.ParamsDeclarationsMaterialized}, " +
+            $"skipped {skipped}, residual {paramsStats.ResidualCount}";
+    }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => _diagnostics.Select(d => $"[{d.Severity}] {d.Message}").ToList();
@@ -234,5 +270,10 @@ internal sealed class StripDefaultPassAdapter : ProjectPassAdapter
         _statistics.SkippedConflict += source.SkippedConflict;
         _statistics.SkippedHidesAbstract += source.SkippedHidesAbstract;
         _statistics.SkippedUnsupported += source.SkippedUnsupported;
+
+        // C48: the params statistics live on the stripper's shared
+        // ParamsCollectionsResult (already accumulated across Collect + Strip),
+        // so the merge tracks the live instance rather than adding counters.
+        _paramsStatistics = _preprocessor.ParamsResult?.Statistics;
     }
 }

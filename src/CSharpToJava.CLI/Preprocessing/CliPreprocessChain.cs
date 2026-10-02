@@ -7,6 +7,7 @@ using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
 using CSharpToJava.Core.StructValueSemantics;
 using CSharpToJava.Core.UnsafeFfm;
+using ParamsCollectionsOptions = CSharpToJava.Core.DefaultParameterStripper.ParamsCollections.ParamsCollectionsOptions;
 
 namespace CSharpToJava.CLI.Preprocessing;
 
@@ -83,6 +84,12 @@ internal sealed class CliChainRequest
     /// family kill-switch.
     /// </summary>
     public bool EnableIncrementTargets { get; init; } = true;
+
+    /// <summary>
+    /// C48 params-collections rule set inside strip-default. Null (default,
+    /// rules off) keeps the pass byte-for-byte identical to its pre-C48 behavior.
+    /// </summary>
+    public ParamsCollectionsOptions? ParamsCollections { get; init; }
 }
 
 /// <summary>
@@ -167,6 +174,7 @@ internal static class CliPreprocessChain
             EqualityConcatOptionsFactory = request.EqualityConcatOptionsFactory,
             UnsafeFfmOptionsFactory = request.UnsafeFfmOptionsFactory,
             ExpressionDesugarOptionsFactory = request.ExpressionDesugarOptionsFactory,
+            ParamsCollections = request.ParamsCollections,
         };
 
         var sourcePath = request.SourcePath;

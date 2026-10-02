@@ -29,6 +29,7 @@ using CSharpToJava.Core.UnsafeFfm;
 using CSharpToJava.CLI.Preprocessing.Adapters;
 using CoreGenericPreprocessOptions = CSharpToJava.Core.GenericPreprocess.GenericPreprocessOptions;
 using CoreTupleToStructOptions = CSharpToJava.Core.TupleToStruct.TupleToStructOptions;
+using ParamsCollectionsOptions = CSharpToJava.Core.DefaultParameterStripper.ParamsCollections.ParamsCollectionsOptions;
 
 namespace CSharpToJava.CLI.Preprocessing;
 
@@ -91,6 +92,12 @@ internal sealed class PassChainConfiguration
     public required Func<UnsafeFfmOptions> UnsafeFfmOptionsFactory { get; init; }
     /// <summary>Invoked only when expression-desugar is enabled (keeps override loading lazy).</summary>
     public required Func<ExpressionDesugarOptions> ExpressionDesugarOptionsFactory { get; init; }
+
+    /// <summary>
+    /// C48 params-collections rule set inside strip-default. Null (default, rules
+    /// off) keeps the pass byte-for-byte identical to its pre-C48 behavior.
+    /// </summary>
+    public ParamsCollectionsOptions? ParamsCollections { get; init; }
 }
 
 /// <summary>
@@ -238,7 +245,7 @@ internal static class PassChainFactory
                 config.Strict),
 
             PassIds.StripDefault => new StripDefaultPassAdapter(
-                new DefaultParameterStripperOptions(),
+                new DefaultParameterStripperOptions(ParamsCollections: config.ParamsCollections),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

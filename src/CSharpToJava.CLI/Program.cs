@@ -9,6 +9,9 @@ using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.LocalFunctionLift;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
+using ParamsCollectionsOptions = CSharpToJava.Core.DefaultParameterStripper.ParamsCollections.ParamsCollectionsOptions;
+using ParamsCollectionsScope = CSharpToJava.Core.DefaultParameterStripper.ParamsCollections.ParamsCollectionsScope;
+using CollectionBuilderPolicy = CSharpToJava.Core.DefaultParameterStripper.ParamsCollections.CollectionBuilderPolicy;
 using CSharpToJava.Core.NullCoalesceRewriter;
 using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.DelegatePreprocessor;
@@ -178,6 +181,18 @@ public class Program
 
             opts.ParsedExtraDependencies = ParseExtraDependencies(opts.ExtraDependencies);
 
+            var paramsCollectionsOptions = BuildParamsCollectionsOptions(
+                opts.EnableParamsCollections,
+                opts.ParamsCollectionsScope,
+                opts.ParamsCollectionsExpandArrays,
+                opts.LocalFunctionStrict,
+                out var paramsScopeError);
+            if (paramsScopeError != null)
+            {
+                Console.Error.WriteLine($"Error: {paramsScopeError}");
+                return 1;
+            }
+
             // ---- Unified preprocess chain -------------------------------------
             // The registry is the single source of truth for pass identity,
             // ordering (locked via RunAfter) and defaults; legacy --no-xxx/enable
@@ -236,6 +251,7 @@ public class Program
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
                 EnableDecimalOps = opts.DecimalOpsEffective,
+                ParamsCollections = paramsCollectionsOptions,
             });
 
             if (!chain.Success)
@@ -4158,11 +4174,24 @@ public class Program
 
     private static async Task<int> StripDefault(StripDefaultOptions opts)
     {
+        var paramsCollectionsOptions = BuildParamsCollectionsOptions(
+            opts.EnableParamsCollections,
+            opts.ParamsCollectionsScope,
+            opts.ParamsCollectionsExpandArrays,
+            opts.Strict,
+            out var paramsScopeError);
+        if (paramsScopeError != null)
+        {
+            Console.Error.WriteLine($"Error: {paramsScopeError}");
+            return 1;
+        }
+
         var rewriterOptions = new DefaultParameterStripperOptions(
             Verbose: opts.Verbose,
             Strict: opts.Strict,
             GenerateOverloads: !opts.NoOverloads,
-            PreserveDefaultMetadata: !opts.NoDefaultMetadata);
+            PreserveDefaultMetadata: !opts.NoDefaultMetadata,
+            ParamsCollections: paramsCollectionsOptions);
 
         // A solution / project file (or a directory) passed to --input must be
         // routed to project mode instead of being parsed as a single C# file.
@@ -4186,6 +4215,13 @@ public class Program
                 new Microsoft.CodeAnalysis.CSharp.CSharpCompilationOptions(
                     Microsoft.CodeAnalysis.OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
             var stripper = new DefaultParameterStripper();
+            // C48: the params-collections rule needs a Collect pass to build its
+            // declaration plans; skipped entirely while the rule is off so the
+            // single-file output stays byte-for-byte identical.
+            if (rewriterOptions.ParamsCollections is { Enabled: true })
+            {
+                stripper.Collect(tree, compilation.GetSemanticModel(tree), rewriterOptions);
+            }
             var result = stripper.Strip(sourceCode, compilation.GetSemanticModel(tree), rewriterOptions);
             if (opts.Output != null)
             {
@@ -4253,6 +4289,43 @@ public class Program
             || extension.Equals(".csproj", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".vbproj", StringComparison.OrdinalIgnoreCase)
             || extension.Equals(".fsproj", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Builds the C48 params-collections options from the CLI flags. Returns
+    /// null while the rule is disabled (zero behavior change); reports an error
+    /// for an unrecognized --params-collections-scope value. The kebab-case
+    /// scope spellings (all|span|mutable-collection|interface|collection-builder)
+    /// and the PascalCase enum names are both accepted, case-insensitively.
+    /// </summary>
+    private static ParamsCollectionsOptions? BuildParamsCollectionsOptions(
+        bool enabled,
+        string? scope,
+        bool expandArrayCallSites,
+        bool strict,
+        out string? error)
+    {
+        error = null;
+        if (!enabled)
+        {
+            return null;
+        }
+
+        var normalized = (scope ?? "all").Replace("-", string.Empty);
+        if (!Enum.TryParse<ParamsCollectionsScope>(normalized, ignoreCase: true, out var parsedScope)
+            || !Enum.IsDefined(parsedScope))
+        {
+            error = "Invalid --params-collections-scope value '" + scope + "'. " +
+                    "Expected all|span|mutable-collection|interface|collection-builder.";
+            return null;
+        }
+
+        return new ParamsCollectionsOptions(
+            Enabled: true,
+            Strict: strict,
+            Scope: parsedScope,
+            ExpandArrayCallSites: expandArrayCallSites,
+            Builder: CollectionBuilderPolicy.Error);
     }
 
     private static async Task<int> MakeReadonly(MakeReadOnlyOptions opts)
@@ -4585,6 +4658,18 @@ class StripDefaultOptions
 
     [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after strip-default preprocessing")]
     public bool NoVerifyTests { get; set; }
+
+    [Option("enable-params-collections", Default = false,
+        HelpText = "Enable the C48 params-collections rule (non-array params declarations are materialized and params call sites are explicitized; default off)")]
+    public bool EnableParamsCollections { get; set; }
+
+    [Option("params-collections-scope", Default = "all",
+        HelpText = "C48 params-collections scope gate: all|span|mutable-collection|interface|collection-builder (default all)")]
+    public string ParamsCollectionsScope { get; set; } = "all";
+
+    [Option("params-collections-expand-arrays", Default = false,
+        HelpText = "C48 params-collections sub-switch (D8): explicitize classic params T[] call sites as array creations (default off)")]
+    public bool ParamsCollectionsExpandArrays { get; set; }
 
     public bool FilterUnsupportedProjects => !NoFilterProjects;
     public bool VerifyBuild => !NoVerifyBuild;
@@ -4968,6 +5053,18 @@ class ConvertProjectOptions
     [Option("no-strip-default", Default = false,
         HelpText = "Disable the default strip-default-parameter preprocessing step")]
     public bool NoStripDefault { get; set; }
+
+    [Option("enable-params-collections", Default = false,
+        HelpText = "Enable the C48 params-collections rule inside strip-default (non-array params declarations are materialized and params call sites are explicitized; default off)")]
+    public bool EnableParamsCollections { get; set; }
+
+    [Option("params-collections-scope", Default = "all",
+        HelpText = "C48 params-collections scope gate: all|span|mutable-collection|interface|collection-builder (default all)")]
+    public string ParamsCollectionsScope { get; set; } = "all";
+
+    [Option("params-collections-expand-arrays", Default = false,
+        HelpText = "C48 params-collections sub-switch (D8): explicitize classic params T[] call sites as array creations (default off)")]
+    public bool ParamsCollectionsExpandArrays { get; set; }
 
     [Option("no-tuple-to-struct", Default = false,
         HelpText = "Disable the default tuple-to-struct preprocessing step (C# value tuples to generated readonly structs)")]
