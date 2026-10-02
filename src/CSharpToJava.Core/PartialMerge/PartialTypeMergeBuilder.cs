@@ -53,17 +53,17 @@ internal static class PartialTypeMergeBuilder
                 : primary.CloseBraceToken)
             .WithSemicolonToken(default);
 
-        // Deterministic provenance banner on the merged declaration.
+        // Documentation first (D6 deterministic XML merge), then the provenance
+        // banner; byte ordering is locked by the group 9 unit test.
+        var docTrivia = PartialDocCommentMerger.BuildTypeLeadingTrivia(group);
         var banner = SyntaxFactory.Comment(
             "// cs2j-partial-merge: merged from " + group.Parts.Count + " part(s): " +
             string.Join(", ", group.Parts.Select(part => part.RelativePath)));
-
-        var leading = primary.GetLeadingTrivia();
-        return merged.WithLeadingTrivia(leading.InsertRange(0,
-        [
-            banner,
-            SyntaxFactory.CarriageReturnLineFeed,
-        ]));
+        return merged.WithLeadingTrivia(
+            SyntaxFactory.TriviaList(docTrivia)
+                .Add(SyntaxFactory.CarriageReturnLineFeed)
+                .Add(banner)
+                .Add(SyntaxFactory.CarriageReturnLineFeed));
     }
 
     private static SyntaxTokenList BuildMergedModifiers(TypeGroupPlan group)
