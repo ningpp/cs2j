@@ -3,6 +3,8 @@
 > 通道锚点：注册表 stub `closure-lift`（catalogItems `C32, C45`，Stage=StateMachine，RunAfter=`ref-out-in`）。
 > 本任务翻转该 stub 的**第一阶段**：只把「被 lambda 捕获且可变」的局部/参数提升为显式 holder，catalogItems 收窄为 `C32`；C45（lambda → display class + 命名方法的全量 Roslyn lowering）在同一 pass 内以新阶段接续，不改 RunAfter。
 > 本文证据核实时间 2026-09-29，工作树 dev-3.x HEAD=`5e3e796d`；第 12 章指定 base `953293b9`，两处注册表/共享谓词状态已用 `git show 953293b9:*` 核对一致。
+>
+> **2026-10-02 第二次校订（以本节为准）**：开工基线改为 dev-3.x HEAD=`ff63b20f`；① **worktree 分配整体废止**——用户强制要求「在 dev-3.x 中执行、禁止使用 worktree」，§12 已重写，文末开放问题裁决第⑧条同步修正；② 注册表现状已大变：C05/C06/C07/C16/C17/C31/C36/C39/C40/C47 与 C28 相继落地，HEAD `e5e7773a` 把全部已实现 pass 默认开启收口，现网 **29 个 Implemented（仅 lexical-normalize 默认关）、14 个 Stub**；closure-lift 仍为 stub、`ClosureLift/` 与 `Analysis/CaptureClassification.cs` 仍未落树（与 09-29 同）；③ §3.1/§3.2/§3.3/§11 的事实与行号锚点已按 `ff63b20f` 重核，**§2 决策表正文中的旧行号链接仅留作证据，引用时以校订节锚点为准**；④ 依据 [preprocessor-completion-audit-and-order.md](file:///d:/code/cs2j/prompts/preprocessor-completion-audit-and-order.md) §7 核实，C32 是剩余实现顺序的咽喉项（顺位 4，C45/C18/C38 的硬前置）；⑤ 实施任务拆解见同日计划 [2026-10-02-c32-capture-lift.md](file:///d:/code/cs2j/docs/superpowers/plans/2026-10-02-c32-capture-lift.md)。
 
 ## 1. 背景与目标
 
@@ -69,14 +71,18 @@ catalog 四次补全已定调（[preprocessor-catalog.md:708-720](file:///d:/cod
 
 ## 3. 注册表与链位契约
 
-### 3.1 现状（stub，已在 base 与 HEAD 双重点核实）
+### 3.1 现状（stub；2026-10-02 按 HEAD `ff63b20f` 重新核实）
 
-[PassStubCatalog.cs:152-161](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L152-L161)：id `closure-lift`，DisplayName "Closure/display class lift"，目录 `.cs2j-closure-lift-src`，`PassStage.StateMachine`，`PassStatus.Stub`，`defaultEnabled: false`，`runAfterIds: ["ref-out-in"]`，`needsSemanticModel=true`（默认），catalogItems `C32, C45`。禁用时不进计划；显式启用报 CS2J9001（[PassStubCatalogTests.cs:59-106](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L59-L106)，现用例正以 `ClosureLift` 为靶子）。
+[PassStubCatalog.cs:86-95](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L86-L95)：id `closure-lift`，DisplayName "Closure/display class lift"，目录 `.cs2j-closure-lift-src`，`PassStage.StateMachine`，`PassStatus.Stub`，`defaultEnabled: false`，`runAfterIds: ["ref-out-in"]`，`needsSemanticModel=true`（默认），catalogItems `C32, C45`。禁用时不进计划；显式启用报 CS2J9001（[PassStubCatalogTests.cs:57-111](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L57-L111)，L63/L67 启用计划用例与 L97/L109 CS2J9001 用例现以 `ClosureLift` 为靶子，翻转时须换靶子）。全表现 **14 条 stub**（本 pass 翻转后 13 条；无计数断言需改）。
 
-两处链位事实（与 [c04 设计 §3.3](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c04-iterator-lowering-design.md) 的预期不同，按现状定案）：
+链位事实（2026-10-02 版；相对 09-29 文本的变化已并入）：
 
-- **C04 已翻转为 Implemented**（[PassCatalog.cs:196-205](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L196-L205)，默认关），其 RunAfter 锚的是 `make-readonly` 而非 `closure-lift`；`eliminate-goto` 已带 `iterator-lifting` 边（[:206-215](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L206-L215)）。
-- stub 中 `async-normalize` RunAfter=`closure-lift`（[PassStubCatalog.cs:229-238](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L229-L238)）、`member-desugar` 的 RunAfter 含 `closure-lift`（[:192-201](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L192-L201)）。
+- **C04 iterator-lowering 为 Implemented 且默认开**（`e5e7773a` 收口）：[PassCatalog.cs:319-330](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L319-L330)，RunAfter 仍只锚 `make-readonly`（L326）；`eliminate-goto` [L331-340](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L331-L340) 带 `make-readonly, iterator-lowering` 两边（L338）。
+- **member-desugar 为 Implemented 且默认开**：[PassCatalog.cs:341-352](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L341-L352)，RunAfter=`struct-value-semantics, closure-lift`（L348）——**closure 边已在描述符上**，本 pass 翻转即生效，无需改 member-desugar。
+- **async-normalize 仍为 stub**，RunAfter=`closure-lift`（[PassStubCatalog.cs:155-164](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L155-L164)）。
+- **新前置在链**：lexical-normalize（C28）已翻转 Implemented、**默认关**（[PassCatalog.cs:50-62](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L50-L62)，提交 `0a5372ae`），位于 conditional 与 local-function-lift 之间；不影响 StateMachine 段。
+- **排序守门已收敛为单文件** [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs)：`LockedChain`（29 id 全序数组，L19-50）、`EnabledByDefault`（=LockedChain 去除 lexical-normalize，L53-54）、catalog 映射（L216-234）、适配器全覆盖（L236-259）——本 pass 翻转只改这一个排序测试文件（§3.2）。
+- `ClosureLift/` 目录、`Analysis/CaptureClassification.cs` 至 `ff63b20f` 仍未落树（git 核）；E02 捕获分析原语位置与 09-29 基本一致（`CollectCaptures` L405-465、`IsCapturedVariableWritten` L491-529、`IsUnsupportedCaptureType` L787、`IsInsideNameOf` L750、`PropagateCaptures` L531）。
 
 ### 3.2 Stub→Implemented 翻转清单
 
@@ -86,17 +92,17 @@ catalog 四次补全已定调（[preprocessor-catalog.md:708-720](file:///d:/cod
 | 新建 | `src/CSharpToJava.Core/Analysis/CaptureClassification.cs` | M2 从 E02 提取的共享捕获分类原语（§4.2） |
 | 新建 | [Adapters/ClosureLiftPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters) | 仿 [LocalFunctionLiftPassAdapter.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/Adapters/LocalFunctionLiftPassAdapter.cs)：整树语义、verify build/test、residual 闸门（§5） |
 | 改 | [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) | 删除 closure-lift 条目；**保留 `Ids.ClosureLift` 常量**（PassCatalog/排序边/其他 stub 引用） |
-| 改 | [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | `Implemented` 表在 make-readonly 之后、iterator-lowering 之前插入 descriptor：Status=Implemented、`defaultEnabled:false`（M3 门槛后再议翻 true）、verifyBuild/Tests=true、runAfterIds=`["ref-out-in"]`、catalogItems=`"C32"`、无支撑库；**同时给 iterator-lowering 的 runAfterIds 追加 `PassStubCatalog.Ids.ClosureLift`**（拓扑锁死 closure→iterator） |
-| 改 | [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) | `CreateAdapter` switch 加 `PassStubCatalog.Ids.ClosureLift => new ClosureLiftPassAdapter(...)`；`BuildLegacyToggles` 加 `[ClosureLift] = false`（仿 iterator [:81](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L81)，无 legacy 开关，仅通用 `--enable-pass`） |
-| 改 | [PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) | （计数断言已不存在：`Assert.Equal(23,…)` 在 C03 翻转时删除；现树 21 条 stub，本 pass 翻后 20 条，无计数断言需改）两处 ClosureLift 靶子用例（启用计划 :57-69、CS2J9001 :71-105，靶子行 :63、:91）改用仍为 stub 的 id（建议 `async-normalize`——它同样语义默认关且无副作用） |
-| 新建 | `tests/.../Preprocessing/ClosureLiftOrderingTests.cs` | 全序断言：`index(ref-out-in) < index(closure-lift) < index(iterator-lowering) < index(eliminate-goto)`；默认计划不含 closure-lift；全启用计划含且相邻关系成立 |
-| 不改 | Program.cs / 指纹 / 保留目录 | 通用链 descriptor 驱动，目录集合经执行结果自动回填；指纹令牌按注册表全集 `pass:<id>=on/off` 自动纳入；无支撑库、不重指指纹源 |
+| 改 | [PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) | `Implemented` 表在 **unsafe-ffm（L306-318）之后、iterator-lowering（L319-330）之前**插入 descriptor：Status=Implemented、`defaultEnabled:false`（M3 门槛后再议翻 true）、verifyBuild/Tests=true、runAfterIds=`["ref-out-in"]`、catalogItems=`"C32"`、无支撑库；**同时给 iterator-lowering 的 runAfterIds（L326）追加 `PassStubCatalog.Ids.ClosureLift`**（拓扑锁死 closure→iterator；声明位 + 边双保险，得唯一序 unsafe-ffm → closure-lift → iterator-lowering） |
+| 改 | [PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs) | `CreateAdapter` switch 在 iterator 臂（L334）之前加 `PassStubCatalog.Ids.ClosureLift => new ClosureLiftPassAdapter(new ClosureLiftOptions(), …)`（options 内联 new，同 iterator 臂 L334-341 形态，**PassChainConfiguration 不加字段**）；**`BuildLegacyToggles` 不加键**（沿 unsafe-ffm/expression-desugar/lexical-normalize 新先例，见 PassChainOrderTests L351-356 排除清单），仅通用 `--enable-pass closure-lift` 可达 |
+| 改 | [PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) | 两处 ClosureLift 靶子用例（启用计划 L57-69，靶子行 L63/L67；CS2J9001 L71-111，靶子行 L97/L109）改用仍为 stub 的 id（**`async-normalize`**——同为 StateMachine、默认关、无副作用）；本 pass 翻后全表 13 条 stub，无计数断言需改 |
+| 改 | [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) | ① `LockedChain`（L19-50）在 `UnsafeFfm` 与 `IteratorLowering` 之间插 `PassStubCatalog.Ids.ClosureLift`（30 项）；② `EnabledByDefault`（L53-54）排除项加 `&& id != PassStubCatalog.Ids.ClosureLift`（默认关）；③ catalog 映射用例（L216-234）加 `Assert.Equal("C32", byId[PassStubCatalog.Ids.ClosureLift].CatalogItems)`；④ 新增隔离槽位用例（仿 L113-159 UnsafeFfm 形态）：all-off + enable closure-lift 时其位于 ref-out-in 之后；全默认链 + enable closure-lift 时邻接关系 unsafe-ffm → closure-lift → iterator-lowering 成立；⑤ 默认计划不含 closure-lift 由既有 resolver 用例自动覆盖 |
+| 不改 | Program.cs / 指纹 / 保留目录 / `PassChainConfiguration` | 通用链 descriptor 驱动，目录集合经执行结果自动回填；指纹令牌按注册表全集 `pass:<id>=on/off` 自动纳入；无支撑库、不重指指纹源 |
 
 ### 3. 链位语义（默认关期与开启后）
 
 1. closure-lift 默认关：启用计划是全序过滤（[PassRegistry.cs:95-133](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassRegistry.cs#L95-L133) 声明序兜底），现有链一字节不变。
-2. 开启后目标全序：`… → ref-out-in → … → make-readonly → closure-lift → iterator-lowering → eliminate-goto → …`。closure-lift 与 make-readonly 的先后无数据依赖，但 descriptor **声明位置**放在 make-readonly 与 iterator 之间 + iterator 补边，得到唯一确定序，不靠人工约定。
-3. C04 当前自承捕获存储（其 `_cs2jCap_` 字段）；closure-lift 默认关期两形态不相遇。未来两者同开时，「先 holder 显式化、后迭代器状态机」保证 C04 deferred 的 CS2J0405 形态（体内 lambda 捕获）有显式字段可收编。
+2. 开启后目标全序（2026-10-02 链）：`… → ref-out-in → unsigned → … → make-readonly → struct-value-semantics → unsafe-ffm → closure-lift → iterator-lowering → eliminate-goto → equality-concat → member-desugar → java-keywords`。closure-lift 与 make-readonly 段无数据依赖，靠 descriptor **声明位置**（unsafe-ffm 与 iterator 之间）＋ iterator 补边得到唯一确定序，不靠 Kahn 兜底巧合。
+3. C04 现已默认开并自承捕获存储（其 `_cs2jCap_` 字段）；closure-lift 默认关期两形态不相遇（默认链不含本 pass）。两者同开时，「先 holder 显式化、后迭代器状态机」保证 C04 deferred 的 CS2J0405 形态（体内 lambda 捕获）有显式字段可收编——M3 默认化评审必须实测该联合开关（§8-5）。
 
 ### 3.4 ★为 C45 预留：阶段接口与演进约束
 
@@ -407,28 +413,27 @@ internal interface IClosureLiftStage
 
 ## 11. 并行协调
 
-1. **C01（前置，已在链默认开）**：RunAfter=`ref-out-in` 已满足；C01 产物 `ByRef<T>` 形参是普通对象，捕获其形参不再触发 CS2J3201（字段/属性访问不构成对参数的写）。C01 worktree（`.worktrees/preproc-c01-refout-finish`）若后合改变 ByRef 形态，需复跑 7.1-15；holder 命名不与 C01 Java 侧 holder 族（ByRef/RefStructByRef）耦合——本 pass 只产 C#。
+1. **C01（前置，已落地默认开）**：RunAfter=`ref-out-in` 已满足；C01 产物 `ByRef<T>` 形参是普通对象，捕获其形参不再触发 CS2J3201（字段/属性访问不构成对参数的写）。ByRef 形态已随 C01 M5 前版本稳定，M2 仍须复跑 7.1-15 守门；holder 命名不与 C01 Java 侧 holder 族（ByRef/RefStructByRef）耦合——本 pass 只产 C#。
 2. **E02（资产复用不复制）**：M2 提取 `Analysis/CaptureClassification.cs` 是硬纪律；E02 gate/命名表/skip 原因不外借；E02 测试是提取的零行为回归门。E02 提升后的私有方法是 C32 的正常分析根（7.1-17）。
 3. **E05（前置）**：匿名方法→lambda 已默认在链；C32 只消费 lambda，CS2J3203 是防线不是常态。
 4. **C04 iterator-lowering（下游，已落地）**：现状锚 `make-readonly`；本 pass 翻转时**补边** `iterator-lowering.RunAfter += closure-lift`（§3.2），锁死「捕获先显式、状态机后保存」；默认关期 C04 自承 `_cs2jCap_` 字段，两形态不相遇；同开时共跑交界 fixture。
-5. **C18 async-normalize（下游 stub）**：其 RunAfter 已含 closure-lift（[PassStubCatalog.cs:214](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L214)），翻转时无需改拓扑；async lambda 内 holder（D13）是其前置输入。
+5. **C18 async-normalize（下游 stub）**：其 RunAfter 已含 closure-lift（[PassStubCatalog.cs:162](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L162)），翻转时无需改拓扑；async lambda 内 holder（D13）是其前置输入。
 6. **C45（同 pass 超集）**：严格按 §3.4/§4.8 接口接阶段；同日设计引用本文件命名/形状/诊断段，不另起 id、不另建目录。
 7. **C26/C25（表达式树/dynamic 共享判定）**：[ExpressionTreeFacts.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs) 已在主树（`Analysis/`，C02 提取，base `953293b9` 已存在），C32 直接引用；C25 设计的 `DynamicSiteFacts` 落地后本 pass 不重复 dynamic 判定（dynamic 站点本就可经 SemanticModel 分析，D15）。
-8. **member-desugar（已翻转为 Implemented，默认关）**：RunAfter 仍含 closure-lift（[PassCatalog.cs:230-241](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L230-L241)）；访问器内 lambda 的 holder 宿主在成员去糖前后都是类型成员，无文本冲突预期，仅注册表热文件协同（见风险 4）。
-9. **热文件清单**（冲突只允许在这些点）：[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)（删一条）、[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)（加一条 + iterator 边）、[PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)（case + toggle 两行）、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs)（计数与靶子）；新增 Core/适配器/测试文件均为本 pass 独占，与所有在途 worktree 不重叠。
+8. **member-desugar（已落地，默认开）**：RunAfter 已含 closure-lift（[PassCatalog.cs:348](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L348)），翻转即生效；访问器内 lambda 的 holder 宿主在成员去糖前后都是类型成员，无文本冲突预期，仅注册表热文件协同（见风险 4）。
+9. **热文件清单**（冲突只允许在这些点）：[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)（删一条 L86-95）、[PassCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs)（插一条 L318/L319 之间 + iterator 边 L326）、[PassChainFactory.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs)（仅 case 一臂，L334 前）、[PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs)（两处靶子换 async-normalize）、[PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs)（LockedChain/EnabledByDefault/catalog/隔离槽位四处）；新增 Core/适配器/测试文件均为本 pass 独占。执行纪律：**直接在 dev-3.x 提交、禁止 worktree**（§12），逐文件 add，不裹挟无关在途改动。
 
-## 12. Worktree 分配（只写不执行；本设计文档在主工作区编写）
+## 12. 执行方式（2026-10-02 第二次校订：dev-3.x 直接执行，禁止 worktree）
 
-- 分支：`feature/preproc-c32-capture-lift`
-- 目录：`.worktrees/preproc-c32-capture-lift`（`.worktrees/` 已被 .gitignore 忽略，与现存 6 个 worktree 同级）
-- base：`953293b9`（已核实存在："docs: update doc base commit"；该 base 下 closure-lift 仍为 stub（23 条）、C04 已 Implemented 且锚 make-readonly、ExpressionTreeFacts 已在 `Analysis/`，与本文证据一致）
-- 创建命令（PowerShell，开工时执行者手动运行；本任务未执行任何 git 写操作）：
+> 09-29 版的 worktree 分配（分支 `feature/preproc-c32-capture-lift`、目录 `.worktrees/preproc-c32-capture-lift`、base `953293b9`）**整体废止**。用户 2026-10-02 强制约束：在 `dev-3.x` 中执行、禁止使用 worktree。历史 `.worktrees/preproc-*` 目录（既往各 pass 遗留）一律不得作为本任务工作区，也不 rebase 其中任何分支。
 
-```powershell
-git worktree add .worktrees/preproc-c32-capture-lift -b feature/preproc-c32-capture-lift 953293b9
-```
-
-- 开工顺序提示：M1 第一步先做 `CaptureClassification` 提取并让 E02 测试全绿，再开 C32 规则；每独立提交跑相关测试，禁止在未验证提取零行为变化前叠加 holder 重写。
+- **分支**：`dev-3.x`。开工第一步 `git branch --show-current`，输出必须为 `dev-3.x`，否则停止。
+- **base**：开工时 dev-3.x HEAD（本文校订时为 `ff63b20f`）。先 `git pull --ff-only`；非 fast-forward 一律停止回报，不 rebase、不 merge。
+- **提交纪律**：逐文件 `git add <本任务文件>`，严禁 `git add -A` / `git add .`；提交前 `git status` 复核暂存内容仅含本特性文件；不裹挟在途无关改动（校订时在途：`M docs/superpowers/specs/2026-09-29-c20-partial-merge-design.md`、`?? docs/superpowers/plans/2026-10-02-c20-partial-merge.md`、`?? prompts/preprocessor-completion-audit-and-order.md`）。不 push、不建标签，除非用户另行授权。
+- **节奏**：M1（分析＋审计，树零改动）→ M2（holder 提升＋stub 翻转，默认关）→ M3（默认关稳定＋默认化评审）；每个 Task 结束可提交，里程碑末必须全仓 `dotnet build/test -c Release` 验证。
+- **开工顺序硬约束**：M1 第一步先做 `CaptureClassification` 提取并让 E02 全量测试绿，再开 C32 规则；禁止在未验证提取零行为变化前叠加 holder 重写。
+- 任务级步骤、完整代码骨架与逐行命令见实施计划：[2026-10-02-c32-capture-lift.md](file:///d:/code/cs2j/docs/superpowers/plans/2026-10-02-c32-capture-lift.md)。
+- C45 开工时，其设计 §12 的 worktree 分配同按本条约束废止（同 pass、同分支、直接提交）。
 
 ---
 
@@ -444,7 +449,7 @@ git worktree add .worktrees/preproc-c32-capture-lift -b feature/preproc-c32-capt
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。**【2026-10-02 修正案：本条整体废止】** 用户强制要求全部预处理开发在 `dev-3.x` 直接执行、禁止 worktree；base 改为开工时 dev-3.x HEAD（修正当时 `ff63b20f`），不创建特性分支、不 rebase 历史 worktree 分支；stub 计数按翻转时真值收口（现 14 条，C32 翻后 13 条）。
 
 **裁决（散见决策表/里程碑门的悬置项，按主题收口）：**
 
