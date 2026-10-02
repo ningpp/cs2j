@@ -90,7 +90,7 @@ tests/
 
 **Files:** 无（临时目录探针，用后删除；结论回填设计 D5/§6 与本计划 Task 13）
 
-- [ ] **Step 1: 在临时目录创建探针工程**
+- [x] **Step 1: 在临时目录创建探针工程**
 
 Run（PowerShell）：
 
@@ -109,7 +109,7 @@ System.Console.WriteLine(string.Join(",", paired.ToArray()));
 
 here-string 全为 ASCII 字面文本，无需手工替换：C# 源码中的两个探针字面量即 `"\uD800"u8`（孤立高代理）与 `"\uD83D\uDE00"u8`（成对代理，sanity 基线，期望 F0 9F 98 80）；PowerShell 单引号 here-string 不做转义，反斜杠会原样写入 Program.cs。
 
-- [ ] **Step 2: 编译并运行**
+- [x] **Step 2: 编译并运行**
 
 Run：
 
@@ -118,7 +118,9 @@ dotnet build (Join-Path $probe "Probe.csproj") --nologo -v q
 if ($LASTEXITCODE -eq 0) { dotnet run --project (Join-Path $probe "Probe.csproj") }
 ```
 
-- [ ] **Step 3: 按结果二选一拍板，并把结论写进设计文档 D5 行尾注记**
+- [x] **Step 3: 按结果二选一拍板，并把结论写进设计文档 D5 行尾注记**
+
+> **M0 探针结论（2026-10-02 实测，分支 B 成立）**：`dotnet build` 失败，`error CS9026: 无法将输入字符串转换为等效的 UTF-8 字节表示形式。 Unable to translate Unicode character \uD800 at index 0 to specified code page.`（成对代理未及验证——孤立代理已先失败，分支判定只依赖孤立项）。裁决：编译器拒绝孤立代理 u8，生产代码**不加特判**，该输入经本 pass 既有 parse Error 路径整文件原样透传/Changed=false；CS2J5583 保持预留常量、全代码不引用；Task 13 的 `LL2_Utf8_LoneSurrogate_FollowsM0ProbeDecision` 采用**报错透传变体**（已回填至 Task 13 代码块）。设计文档 D5 行尾注记已同步。
 
 **分支 A（构建成功）**：记录孤立代理的输出字节。
 - 若为 `239,191,189`（EF BF BD）：D5 口径确认为「UTF-8 替换字节」；Task 13 的代理项测试用**替换字节变体**；CS2J5583 保持预留常量、全代码不引用。
@@ -129,7 +131,7 @@ if ($LASTEXITCODE -eq 0) { dotnet run --project (Join-Path $probe "Probe.csproj"
 - 结论：编译器拒绝孤立代理 u8；生产代码**不加特判**——真实输入经本 pass 的既有 parse Error 路径即整文件原样透传/Changed=false（preprocessor 现有 `tree.GetDiagnostics()` 分支）；CS2J5583 保持预留常量、全代码不引用（设计 §6 已写明该码条件性，报错口径下不需要 pass 自行报错）。
 - Task 13 的代理项测试用**报错透传变体**。
 
-- [ ] **Step 4: 删除探针，确认工作区零痕迹**
+- [x] **Step 4: 删除探针，确认工作区零痕迹**
 
 Run：
 
@@ -150,7 +152,7 @@ Expected：`git status --short` 无探针相关文件（探针本就在 TEMP，�
 - Modify: `src/CSharpToJava.Core/LexicalNormalize/LexicalNormalizeModels.cs`
 - Modify: `src/CSharpToJava.Core/LexicalNormalize/MutableLexicalStats.cs`
 
-- [ ] **Step 1: Options 追加四个 bool**
+- [x] **Step 1: Options 追加四个 bool**
 
 在 `LexicalNormalizeOptions` 的 `AuditGlobalUsingDuplicates` 属性（L30）之后插入：
 
@@ -168,7 +170,7 @@ Expected：`git status --short` 无探针相关文件（探针本就在 TEMP，�
     public bool NormalizeEscEscapes { get; init; } = true;
 ```
 
-- [ ] **Step 2: Statistics 追加十个字段**
+- [x] **Step 2: Statistics 追加十个字段**
 
 在 `LexicalNormalizeStatistics` 的 `FileScopedNamespacesNormalized`（L56）之后、`ErrorsByCode` 之前插入：
 
@@ -185,7 +187,7 @@ Expected：`git status --short` 无探针相关文件（探针本就在 TEMP，�
     public required int LiteralResidualCount { get; init; }
 ```
 
-- [ ] **Step 3: Codes 追加十个常量**
+- [x] **Step 3: Codes 追加十个常量**
 
 在 `LexicalNormalizeCodes` 的 `StructuralCheck`（L80）之后插入：
 
@@ -203,7 +205,7 @@ Expected：`git status --short` 无探针相关文件（探针本就在 TEMP，�
     public const string Utf8LongArrayInfo = "CS2J5590";
 ```
 
-- [ ] **Step 4: MutableLexicalStats 追加字段与 Build 映射**
+- [x] **Step 4: MutableLexicalStats 追加字段与 Build 映射**
 
 在 `MutableLexicalStats` 的 `FileScopedNamespacesNormalized;`（L20）之后插入：
 
@@ -235,7 +237,7 @@ Expected：`git status --short` 无探针相关文件（探针本就在 TEMP，�
         LiteralResidualCount = LiteralResidualCount,
 ```
 
-- [ ] **Step 5: 编译确认**
+- [x] **Step 5: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`（警告可既有）。
@@ -247,7 +249,7 @@ Expected: `0 个错误`（警告可既有）。
 - Create: `src/CSharpToJava.Core/LexicalNormalize/Literals/LiteralSyntaxFacts.cs`
 - Create: `src/CSharpToJava.Core/LexicalNormalize/Literals/LiteralRewriteRecorder.cs`
 
-- [ ] **Step 1: 写 LiteralKinds.cs**
+- [x] **Step 1: 写 LiteralKinds.cs**
 
 ```csharp
 namespace CSharpToJava.Core.LexicalNormalize.Literals;
@@ -266,7 +268,7 @@ internal enum LiteralKind
 }
 ```
 
-- [ ] **Step 2: 写 LiteralSyntaxFacts.cs**
+- [x] **Step 2: 写 LiteralSyntaxFacts.cs**
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -362,7 +364,7 @@ internal static class LiteralSyntaxFacts
 }
 ```
 
-- [ ] **Step 3: 写 LiteralRewriteRecorder.cs**
+- [x] **Step 3: 写 LiteralRewriteRecorder.cs**
 
 ```csharp
 namespace CSharpToJava.Core.LexicalNormalize.Literals;
@@ -497,7 +499,7 @@ internal sealed class LiteralRewriteRecorder
 }
 ```
 
-- [ ] **Step 4: 编译确认**
+- [x] **Step 4: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
@@ -508,7 +510,7 @@ Expected: `0 个错误`。
 - Create: `src/CSharpToJava.Core/LexicalNormalize/Literals/RawStringLiteralRewriter.cs`
 - Create: `src/CSharpToJava.Core/LexicalNormalize/Literals/EscEscapeLiteralRewriter.cs`
 
-- [ ] **Step 1: 写 RawStringLiteralRewriter.cs**
+- [x] **Step 1: 写 RawStringLiteralRewriter.cs**
 
 ```csharp
 using Microsoft.CodeAnalysis.CSharp;
@@ -546,7 +548,7 @@ internal static class RawStringLiteralRewriter
 }
 ```
 
-- [ ] **Step 2: 写 EscEscapeLiteralRewriter.cs**
+- [x] **Step 2: 写 EscEscapeLiteralRewriter.cs**
 
 ```csharp
 using Microsoft.CodeAnalysis.CSharp;
@@ -599,7 +601,7 @@ internal static class EscEscapeLiteralRewriter
 }
 ```
 
-- [ ] **Step 3: 编译确认**
+- [x] **Step 3: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
@@ -609,7 +611,7 @@ Expected: `0 个错误`。
 **Files:**
 - Create: `src/CSharpToJava.Core/LexicalNormalize/Literals/LiteralRewriter.cs`
 
-- [ ] **Step 1: 写 LiteralRewriter.cs（M1 形态）**
+- [x] **Step 1: 写 LiteralRewriter.cs（M1 形态）**
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -677,7 +679,7 @@ internal sealed class LiteralRewriter : CSharpSyntaxRewriter
 }
 ```
 
-- [ ] **Step 2: 编译确认**
+- [x] **Step 2: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
@@ -687,7 +689,7 @@ Expected: `0 个错误`。
 **Files:**
 - Create: `src/CSharpToJava.Core/LexicalNormalize/Literals/LiteralNormalizationVerifier.cs`
 
-- [ ] **Step 1: 写 LiteralNormalizationVerifier.cs（M1 形态；M2 在 Task 12 局部追加 u8/verbatim）**
+- [x] **Step 1: 写 LiteralNormalizationVerifier.cs（M1 形态；M2 在 Task 12 局部追加 u8/verbatim）**
 
 ```csharp
 using Microsoft.CodeAnalysis;
@@ -857,7 +859,7 @@ internal static class LiteralNormalizationVerifier
 }
 ```
 
-- [ ] **Step 2: 编译确认**
+- [x] **Step 2: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
@@ -868,7 +870,7 @@ Expected: `0 个错误`。
 - Modify: `src/CSharpToJava.Core/LexicalNormalize/LexicalNormalizePreprocessor.cs`
 - Modify: `src/CSharpToJava.Core/LexicalNormalize/LexicalNormalizeVerifier.cs`
 
-- [ ] **Step 1: LexicalNormalizeVerifier 增加 literalRewritesApplied 形参**
+- [x] **Step 1: LexicalNormalizeVerifier 增加 literalRewritesApplied 形参**
 
 把 `Verify` 签名（L17-21）改为：
 
@@ -897,7 +899,7 @@ Expected: `0 个错误`。
 
 即：豁免**只认 recorder 实际改写计数 > 0**（由调用方传入），与 LL 选项开关无关——纯 LN-1 场景（零字面量命中）该安全网照常生效（设计风险 8）。
 
-- [ ] **Step 2: Preprocessor 顶部加 using**
+- [x] **Step 2: Preprocessor 顶部加 using**
 
 在 `LexicalNormalizePreprocessor.cs` 现有 using 区（L1-2）加：
 
@@ -905,7 +907,7 @@ Expected: `0 个错误`。
 using CSharpToJava.Core.LexicalNormalize.Literals;
 ```
 
-- [ ] **Step 3: 在 LN-7 块之后插入 LL 追加位**
+- [x] **Step 3: 在 LN-7 块之后插入 LL 追加位**
 
 在 `Normalize` 的 LN-7 块（L69-74）之后、`var output = UnifyLineEndings(...)`（L76）之前插入：
 
@@ -927,7 +929,7 @@ using CSharpToJava.Core.LexicalNormalize.Literals;
         }
 ```
 
-- [ ] **Step 4: LN verifier 调用传入改写位，并在其后追加 LL-5**
+- [x] **Step 4: LN verifier 调用传入改写位，并在其后追加 LL-5**
 
 把 LN verifier 调用（L90）：
 
@@ -974,7 +976,7 @@ using CSharpToJava.Core.LexicalNormalize.Literals;
         }
 ```
 
-- [ ] **Step 5: 编译确认**
+- [x] **Step 5: 编译确认**
 
 Run: `dotnet build src/CSharpToJava.Core/CSharpToJava.Core.csproj --nologo -v q`
 Expected: `0 个错误`。
@@ -985,7 +987,7 @@ Expected: `0 个错误`。
 - Modify: `src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs`
 - Modify: `tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs`
 
-- [ ] **Step 1: PassCatalog 两行文本更新**
+- [x] **Step 1: PassCatalog 两行文本更新**
 
 把描述符（L61-62）：
 
@@ -1003,7 +1005,7 @@ Expected: `0 个错误`。
 
 其余字段（Id/Stage/Status/defaultEnabled:false/RunAfter/verify 开关/目录名）一律不动。
 
-- [ ] **Step 2: ProjectPreprocessorsConsistentTests 断言改值**
+- [x] **Step 2: ProjectPreprocessorsConsistentTests 断言改值**
 
 把 L145：
 
@@ -1019,7 +1021,7 @@ Expected: `0 个错误`。
 
 链序 LockedChain/EnabledByDefault（PassChainOrderTests）**不动**：pass id 未变。
 
-- [ ] **Step 3: 运行一致性测试**
+- [x] **Step 3: 运行一致性测试**
 
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --nologo --filter "FullyQualifiedName~ProjectPreprocessorsConsistentTests"`
 Expected: `失败: 0`。
@@ -1029,7 +1031,7 @@ Expected: `失败: 0`。
 **Files:**
 - Create: `tests/CSharpToJava.Tests/LexicalLiteralNormalizeTests.cs`
 
-- [ ] **Step 1: 写 M1 测试文件**
+- [x] **Step 1: 写 M1 测试文件**
 
 ```csharp
 using CSharpToJava.Core.LexicalNormalize;
@@ -1094,7 +1096,7 @@ public sealed class LexicalLiteralNormalizeTests
 
         Assert.True(result.Changed);
         Assert.Equal(1, result.Statistics.RawLiteralsMultiLine);
-        Assert.Contains("\"a\\n\"", result.OutputCode);
+        Assert.Contains("\"a\"", result.OutputCode);
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
     }
 
@@ -1107,7 +1109,7 @@ public sealed class LexicalLiteralNormalizeTests
 
         Assert.True(result.Changed);
         Assert.Equal(1, result.Statistics.RawLiteralsMultiLine);
-        Assert.Contains("\"x\\n  y\\n\"", result.OutputCode);
+        Assert.Contains("\"x\\n  y\"", result.OutputCode);
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
     }
 
@@ -1120,7 +1122,7 @@ public sealed class LexicalLiteralNormalizeTests
 
         Assert.True(result.Changed);
         Assert.Equal(1, result.Statistics.RawLiteralsMultiLine);
-        Assert.Contains("\"p\\n\"", result.OutputCode);
+        Assert.Contains("\"p\"", result.OutputCode);
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
     }
 
@@ -1133,7 +1135,7 @@ public sealed class LexicalLiteralNormalizeTests
 
         Assert.True(result.Changed);
         Assert.Equal(1, result.Statistics.RawLiteralsMultiLine);
-        Assert.Contains("\"t\\n\"", result.OutputCode);
+        Assert.Contains("\"t\"", result.OutputCode);
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
     }
 
@@ -1146,7 +1148,7 @@ public sealed class LexicalLiteralNormalizeTests
 
         Assert.True(result.Changed);
         Assert.Equal(1, result.Statistics.RawLiteralsMultiLine);
-        Assert.Contains("\"a\\n\\nb\\n\"", result.OutputCode);
+        Assert.Contains("\"a\\n\\nb\"", result.OutputCode);
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
     }
 
@@ -1163,7 +1165,7 @@ public sealed class LexicalLiteralNormalizeTests
 
         Assert.True(result.Changed);
         Assert.Equal(1, result.Statistics.RawLiteralsMultiLine);
-        Assert.Contains("\"a\\n\"", result.OutputCode);
+        Assert.Contains("\"a\"", result.OutputCode);
         Assert.DoesNotContain("a\\r", result.OutputCode);
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
     }
@@ -1207,8 +1209,8 @@ public sealed class LexicalLiteralNormalizeTests
         });
 
         Assert.True(result.Changed);
-        Assert.Contains("\"a\\u001Bb\"", result.OutputCode);
-        Assert.Contains("'\\u001B'", result.OutputCode);
+        Assert.Contains("\"a\\u001bb\"", result.OutputCode);
+        Assert.Contains("'\\u001b'", result.OutputCode);
         Assert.Equal(2, result.Statistics.EscEscapesNormalized);
         Assert.Contains("\"\\\\e\"", result.OutputCode);
         Assert.Contains("@\"\\e\"", result.OutputCode);
@@ -1277,7 +1279,7 @@ public sealed class LexicalLiteralNormalizeTests
         Assert.Equal(0, escOnly.Statistics.RawLiteralsSingleLine);
         Assert.Equal(1, escOnly.Statistics.EscEscapesNormalized);
         Assert.Contains("\"\"\"x\"\"\"", escOnly.OutputCode);
-        Assert.Contains("\"a\\u001Bb\"", escOnly.OutputCode);
+        Assert.Contains("\"a\\u001bb\"", escOnly.OutputCode);
     }
 
     [Fact]
@@ -1329,19 +1331,20 @@ public sealed class LexicalLiteralNormalizeTests
 
 说明（实施者注意，不是占位符）：
 - 五个多行 raw 用例全部用字符串拼接（`"\n"`、空格、`"\t"`）确定性构造源码，规避「把多行 raw 嵌进外层 raw」的定界符歧义；闭合引号列分别为 0/2/4/tab，另加一条全空白行豁免用例，每条只含 1 个多行 raw、各断言 `RawLiteralsMultiLine == 1`。
-- `LL1_LL6_DisableSwitches` 验证两个单向闸门：`rawOnly`（只关 `\e`）断言 raw 已归一成 `"x"`、`"a\eb"` 原样保留；`escOnly`（只关 raw）断言 `"""x"""` 原样保留、`\e` 已归一成 `"a\u001Bb"`。
+- `LL1_LL6_DisableSwitches` 验证两个单向闸门：`rawOnly`（只关 `\e`）断言 raw 已归一成 `"x"`、`"a\eb"` 原样保留；`escOnly`（只关 raw）断言 `"""x"""` 原样保留、`\e` 已归一成 `"a\u001bb"`。
+- **2026-10-02 M1 实测修正**（Roslyn 5.0.0 探针）：① 多行 raw 闭定界符前的最后换行**不进值**（`"""\na\n"""` 的 ValueText 为 `a`），6 个多行 raw 用例期望值不含尾 `\n`（设计 D2④ 已同步勘误）；② `SyntaxFactory.Literal` 对控制字符发射**小写** hex 转义（ESC → `\u001b`），LL-6 断言用小写 b。
 
-- [ ] **Step 2: 运行新测试，确认全绿**
+- [x] **Step 2: 运行新测试，确认全绿**
 
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --nologo --filter "FullyQualifiedName~LexicalLiteralNormalizeTests"`
 Expected: `失败: 0`（14 个测试方法；含 1 个 Theory 的 3 行 InlineData 展开，共 16 个用例）。
 
-- [ ] **Step 3: C28 既有 16 个单测零改动回归**
+- [x] **Step 3: C28 既有 16 个单测零改动回归**
 
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --nologo --filter "FullyQualifiedName~LexicalNormalizeTests"`
 Expected: `失败: 0`（C28 既有 16 个全绿；追加式集成的硬要求）。
 
-- [ ] **Step 4: 提交**
+- [x] **Step 4: 提交**
 
 ```bash
 git add src/CSharpToJava.Core/LexicalNormalize tests/CSharpToJava.Tests/LexicalLiteralNormalizeTests.cs src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs
@@ -1350,7 +1353,7 @@ git commit -m "feat(preprocessing): C43 M1 LL-1 raw/LL-6 \\e 归一骨架、接�
 
 ## Task 10: M1 里程碑验证
 
-- [ ] **Step 1: Debug 全量 build + Tests**
+- [x] **Step 1: Debug 全量 build + Tests**
 
 Run:
 
@@ -1361,7 +1364,7 @@ dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj --nologo
 
 Expected: build `0 个错误`；Tests `失败: 0`。
 
-- [ ] **Step 2: `--list-passes` 文本确认**
+- [x] **Step 2: `--list-passes` 文本确认**
 
 Run: `dotnet src/CSharpToJava.CLI/bin/Debug/net10.0/CSharpToJava.CLI.dll preprocess --list-passes`
 Expected: lexical-normalize 行含 `rules=C28, C43`，状态仍为 `off`。
@@ -1749,28 +1752,16 @@ Expected: `0 个错误`。
     [Fact]
     public void LL2_Utf8_LoneSurrogate_FollowsM0ProbeDecision()
     {
-        var node = ParseLiteralExpression("\"\uD800\"u8");
         var source = "public class C { object x = \"\uD800\"u8; }\n";
 
-        // M0 (Task 1) decides which branch is authoritative. Keep exactly one.
-
-        // BRANCH A — probe said U+FFFD replacement bytes (EF BF BD):
-        var recorder = new LiteralRewriteRecorder();
-        var rewritten = Utf8SuffixLiteralRewriter.TryRewrite(node, recorder);
-        Assert.NotNull(rewritten);
-        Assert.Equal(new byte[] { 0xEF, 0xBF, 0xBD }, recorder.ExpectedUtf8Blobs[0]);
-        var result = Run(source);
-        Assert.True(result.Changed);
-        Assert.Contains("(byte)0xEF", result.OutputCode);
-
-        // BRANCH B — probe said compiler error: replace the four assertions
-        // above with the following and delete BRANCH A:
-        //
-        // var errorResult = Run(source);
-        // Assert.False(errorResult.Changed);
-        // Assert.Equal(source, errorResult.OutputCode);
-        // Assert.Contains(errorResult.Diagnostics,
-        //     d => d.Severity == LexicalNormalizeSeverity.Error);
+        // M0 probe (Task 1) decided branch B: the compiler rejects lone
+        // surrogates in u8 literals (CS9026), surfaced by the pass's
+        // existing parse-error path — the file rolls back unchanged.
+        var errorResult = Run(source);
+        Assert.False(errorResult.Changed);
+        Assert.Equal(source, errorResult.OutputCode);
+        Assert.Contains(errorResult.Diagnostics,
+            d => d.Severity == LexicalNormalizeSeverity.Error);
     }
 
     [Fact]
@@ -2108,8 +2099,8 @@ public sealed class LiteralSamplesTests
         => Assert.Equal("hello", LiteralSamples.Single);
 
     [Fact]
-    public void RawMultiLine_StripsIndentationAndEndsWithLf()
-        => Assert.Equal("line1\nline2\n", LiteralSamples.Multi);
+    public void RawMultiLine_StripsIndentation_ExcludesClosingNewline()
+        => Assert.Equal("line1\nline2", LiteralSamples.Multi);
 
     [Fact]
     public void Utf8_MatchesUtf8EncodingOfValue()
@@ -2187,9 +2178,9 @@ Expected: `失败: 0，通过: 6`。
             // LL-3: no non-interpolated verbatim.
             Assert.DoesNotContain("@\"", text);
 
-            // LL-6: no bare \e (regular \u001B escapes instead).
+            // LL-6: no bare \e (regular \u001b escapes instead).
             Assert.DoesNotContain("\\e", text);
-            Assert.Contains("\\u001B", text);
+            Assert.Contains("\\u001b", text);
 
             // LL-4: interpolated forms remain verbatim for C23.
             Assert.Contains("$\"\"\"raw {x}\"\"\"", text);
