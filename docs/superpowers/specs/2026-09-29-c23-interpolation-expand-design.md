@@ -4,7 +4,7 @@
 **范围**: 新建 `src/CSharpToJava.Core/ExpressionDesugar/` 表达式族共享基建（表达式→语句临时提升、单次求值、共享 Options/Statistics/Diagnostic/规则接口）与 `expression-desugar` pass 脚手架，落地首个规则 C23：在 C# 层把插值字符串 `$"..."`（含对齐 `,n`、格式 `:fmt`、嵌套插值、verbatim/raw 插值的插值部分）显式展开为 `string.Concat` / `string.Format` / 常量折叠；**必须**经 SemanticModel 判定插值绑定的 handler，自定义 `InterpolatedStringHandler` 默认显式报错。不改任何 C#→Java 转换代码（Java 侧大 transformer 的下掉为默认开启后的独立 PR）
 **状态**: 设计已确认，待实施
 **注册表**: stub `expression-desugar`（[PassStubCatalog.cs:217-226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，RunAfter=`null-coalesce`，中间目录 `.cs2j-expression-desugar-src`；2026-09-29 复核 `PassStubCatalog.Stubs` 现值 **21** 个）。本特性是该 pass 的**族内规则**（无独立 pass id）：翻转 stub 并把 catalogItems 收窄为 `"C23"`；C24 初始化器 / C35 空条件 / C36 集合表达式后续在同一 pass 内扩展（预留规则目录 `Interpolations/`、`Initializers/`、`NullConditional/`、`CollectionExpr/` 与码段）
-**base**: `953293b9`（`docs: update doc base commit`，已校验存在）
+**base**: `10aae03f`（`Update c32 capture lift spec and add implementation plan`，dev-3.x 最新提交，2026-10-02 校验）
 
 > **校订（2026-09-29）**：本文件按当前磁盘做证据核对，仅改本文件，未触任何代码/测试，未运行构建测试。改动枚举：① 注册表锚点更正——`expression-desugar` stub 条目实为 [PassStubCatalog.cs:217-226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)（原引 L239-248 已漂移到 `platform-isolation` 条目），Stubs 现 21 个，翻转后 20；id 常量保留在 `PassStubCatalog.Ids`（iterator-lowering 先例：常量 [PassStubCatalog.cs:32](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L32) 仍在、Stubs 无条目）；② 全部 file:/// 链接按实测重锚（PassCatalog L209-219/L58-68、PassChainFactory L227-234/L81、PassChainOrderTests L18-40/L42-57/L172-185、Program.cs L1767-1776、NullCoalescePassAdapter L73-91、StringExpressionTransformer S4/S6 区段）；③ §2.1 新增**硬门 G0**（handler 绑定判定先于一切展开），IE-1 标注为门，四次补全的 handler 三差异（追加语义/求值次数/条件构造）入主规则；④ 补入五次补全子规则（C# 10 const 内插的编译期折叠 + Java 侧 `static final` 常量性）与 C47 ③（string `+`→`string.Concat` 物化）同源交叉引用；⑤ raw 插值 `$"""..."""` 与 C43 的词法边界改写清晰（R9 所引 catalog C43 行号 784-795 更正为 [preprocessor-catalog.md:867-879](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L867-L879)）；⑥ 测试面按磁盘真改正：`PassStubCatalogTests.cs` **无硬编码 stub 总数断言**，翻转先例是同文件 `PatternDesugar_IsImplemented_AndNotAStub`（L19-28）；Glob 无 `StringConcat*` 同名测试，既有拼接回归为 `DoubleStringConcatenationTests.cs`。
 
@@ -471,10 +471,10 @@ M0–M4 全程 `DefaultEnabled=false`；每个里程碑自身 Release build/test
 
 - 分支：`feature/preproc-c23-interpolation`
 - 目录：`.worktrees/preproc-c23-interpolation`
-- base：`953293b9`（`docs: update doc base commit`，已 `git rev-parse --verify` 校验存在）
+- base：`10aae03f`（`Update c32 capture lift spec and add implementation plan`，dev-3.x 最新提交；2026-10-02 已 `git rev-parse --verify` 校验，worktree 已基于此提交创建）
 
 ```powershell
-git worktree add .worktrees/preproc-c23-interpolation -b feature/preproc-c23-interpolation 953293b9
+git worktree add .worktrees/preproc-c23-interpolation -b feature/preproc-c23-interpolation 10aae03f
 ```
 
 实施在该 worktree 内进行；本设计文档产出于主工作区，不创建 worktree、不执行任何 git 写操作。
@@ -483,7 +483,7 @@ git worktree add .worktrees/preproc-c23-interpolation -b feature/preproc-c23-int
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree base 已于 2026-10-02 更新为当时 dev-3.x 最新提交 `10aae03f`（`Update c32 capture lift spec and add implementation plan`），worktree 直接基于该提交创建、无需再 rebase；stub 计数红灯由首个锚点翻转 PR 按真值收口。
 
 **裁决（按原题号）：**
 
