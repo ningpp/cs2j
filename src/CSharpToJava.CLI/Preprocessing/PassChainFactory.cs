@@ -16,6 +16,7 @@ using CSharpToJava.Core.MemberDesugar;
 using CSharpToJava.Core.NullCoalesceRewriter;
 using CSharpToJava.Core.NumericBoundary;
 using CSharpToJava.Core.PatternDesugar;
+using CSharpToJava.Core.PartialMerge;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
@@ -325,6 +326,14 @@ internal static class PassChainFactory
 
             PassStubCatalog.Ids.UnsafeFfm => new UnsafeFfmPassAdapter(
                 config.UnsafeFfmOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
+            PassStubCatalog.Ids.PartialMerge => new PartialMergePassAdapter(
+                new PartialMergeOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

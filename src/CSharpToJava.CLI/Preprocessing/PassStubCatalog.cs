@@ -48,17 +48,8 @@ internal static class PassStubCatalog
     {
         // Ids.LexicalNormalize flipped to Implemented in PassCatalog (C28);
         // the id constant stays here by the iterator-lowering precedent (§3.4).
-        new(
-            Ids.PartialMerge,
-            "Partial type merge",
-            ".cs2j-partial-merge-src",
-            PassStage.Lexical,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.Conditional },
-            needsSemanticModel: false,
-            description: "Merge partial type declarations across the tree before the semantic passes.",
-            catalogItems: "C20"),
+        // Ids.PartialMerge flipped to Implemented in PassCatalog (C20);
+        // the id constant stays here by the iterator-lowering precedent (§3.4).
         // Ids.ForeachSource flipped to Implemented in PassCatalog (C16);
         // the id constant stays here by the iterator-lowering precedent (§3.4).
         new(
