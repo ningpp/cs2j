@@ -31,6 +31,10 @@ public class InterpolationExpandUnitTests
         MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(Console).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(System.Linq.Expressions.Expression).Assembly.Location),
+        MetadataReference.CreateFromFile(
+            Path.Combine(
+                Path.GetDirectoryName(typeof(object).Assembly.Location)!,
+                "System.Linq.dll")),
         MetadataReference.CreateFromFile(typeof(System.Collections.Generic.List<>).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(System.Span<>).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(System.FormattableString).Assembly.Location),
@@ -1440,5 +1444,511 @@ public class InterpolationExpandUnitTests
         Assert.Empty(result.Diagnostics);
         Assert.Equal(1, result.Statistics.FilesSkippedClean);
         Assert.Equal(0, result.Statistics.Interpolations.InterpolationSites);
+    }
+
+    // ==================================================================
+    // Part C — verbatim ($@ / @$) matrix with the reflection runtime oracle.
+    // Products are REGULAR literals: no '@' delimiter survives; embedded ""
+    // escapes and physical line breaks become ordinary factory escapes.
+    // ==================================================================
+
+    [Fact]
+    public void Verbatim_EmbeddedDoubledQuotes_Concat_RegularLiteral_RuntimeEqual()
+    {
+        // $@"x=""y""-{1}" — the doubled quotes decode to one quote each.
+        var source = "public static class P { public static string Run() " +
+                     "=> $@\"x=\"\"y\"\"-{1}\"; }";
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "x=\"y\"-1");
+        Assert.DoesNotContain("@\"", output);
+        // The quote now lives in a regular literal escape.
+        Assert.Contains("\\\"y\\\"", output);
+    }
+
+    [Fact]
+    public void Verbatim_AtDollarPrefixOrder_PureText_FoldsToRegularLiteral()
+    {
+        // @$"" prefix order is the lexical twin of $@""; a text-only site folds.
+        var source = "public static class P { public static string Run() " +
+                     "=> @$\"hello\"; }";
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed);
+        Assert.Contains("=> \"hello\"", Normalize(result.OutputCode));
+        Assert.DoesNotContain("@$\"", result.OutputCode);
+        Assert.Equal(1, result.Statistics.Interpolations.ConstantsFolded);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Verbatim_Multiline_NewlineAndQuotes_BecomeRegularEscapes_RuntimeEqual()
+    {
+        // A physical line break and an embedded "" inside a verbatim
+        // interpolation; the product must carry \n and \" in a regular
+        // literal and keep runtime equality.
+        var source =
+            "public static class P\n" +
+            "{\n" +
+            "    public static string Run()\n" +
+            "    {\n" +
+            "        var x = 7;\n" +
+            "        return $@\"line1-{x}\n" +
+            "line2 \"\"q\"\"\";\n" +
+            "    }\n" +
+            "}\n";
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "P", expected: "line1-7\nline2 \"q\"");
+        Assert.DoesNotContain("@\"", output);
+        Assert.Contains(@"\n", output);
+        Assert.Contains("\\\"q\\\"", output);
+    }
+
+    [Fact]
+    public void Verbatim_DoubledBraces_AreUnescaped_RuntimeEqual()
+    {
+        // Verbatim keeps the regular brace-doubling grammar (raw does not).
+        var source = "public static class P { public static string Run() " +
+                     "=> $@\"{{a}}-{42}\"; }";
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "{a}-42");
+        Assert.DoesNotContain("@\"", output);
+    }
+
+    // ==================================================================
+    // Part C — raw interpolations: single/multi-line, multi-dollar holes,
+    // indentation stripping, quotes/newlines/literal braces. Runtime oracle
+    // throughout; products carry no raw lexicon (""" delimiters).
+    // ==================================================================
+
+    [Fact]
+    public void Raw_SingleLine_QuotesAndHole_ProductHasNoRawLexicon_RuntimeEqual()
+    {
+        // $"""a"{1}b""" — quotes need no escaping inside the raw literal.
+        var source = "public static class P { public static string Run() " +
+                     "=> $\"\"\"a\"{1}b\"\"\"; }";
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "a\"1b");
+        Assert.DoesNotContain("\"\"\"", output);
+        Assert.DoesNotContain("$\"", output);
+        Assert.Contains("string.Concat", Normalize(output));
+    }
+
+    [Fact]
+    public void Raw_PureText_FoldsToBareRegularLiteral()
+    {
+        var source = "public static class P { public static string Run() " +
+                     "=> $\"\"\"hello\"\"\"; }";
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed);
+        Assert.Contains("=> \"hello\"", Normalize(result.OutputCode));
+        Assert.DoesNotContain("\"\"\"", result.OutputCode);
+        Assert.Equal(1, result.Statistics.Interpolations.ConstantsFolded);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Raw_MultiLine_IndentationStripped_NewlinesKept_RuntimeEqual()
+    {
+        // Closing-delimiter column decides the common leading whitespace,
+        // which is stripped from every content line. The newline immediately
+        // after the opening delimiter and the newline immediately before the
+        // closing line are BOTH removed; interior newlines survive.
+        var source =
+            "public static class P\n" +
+            "{\n" +
+            "    public static string Run()\n" +
+            "    {\n" +
+            "        var x = 7;\n" +
+            "        return $\"\"\"\n" +
+            "            line1 {x}\n" +
+            "            line2\n" +
+            "            \"\"\";\n" +
+            "    }\n" +
+            "}\n";
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "P", expected: "line1 7\nline2");
+        Assert.DoesNotContain("\"\"\"", output);
+        Assert.Contains(@"\n", output);
+    }
+
+    [Fact]
+    public void Raw_DoubleDollar_HolesNeedDoubleBraces_SingleBracesStayLiteral_RuntimeEqual()
+    {
+        // $$: {{x}} is the hole; lone { and } are literal text verbatim.
+        var source =
+            "public static class P\n" +
+            "{\n" +
+            "    public static string Run()\n" +
+            "    {\n" +
+            "        var x = 7;\n" +
+            "        return $$\"\"\"\n" +
+            "            {a={{x}}} {\n" +
+            "            \"\"\";\n" +
+            "    }\n" +
+            "}\n";
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "P", expected: "{a=7} {");
+        Assert.DoesNotContain("\"\"\"", output);
+        // Literal braces reach the Concat text segments un-doubled.
+        Assert.Contains("{a=", output);
+    }
+
+    [Fact]
+    public void Raw_TripleDollar_HoleLayersThreeBraces_RuntimeEqual()
+    {
+        // $$$: holes need {{{x}}}; runs below three braces stay literal.
+        var source = "public static class P { public static string Run() " +
+                     "=> $$$\"\"\"v={{{7}}}\"\"\"; }";
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "v=7");
+        Assert.DoesNotContain("\"\"\"", output);
+        Assert.Contains("string.Concat", Normalize(output));
+    }
+
+    [Fact]
+    public void Raw_DoubleDollar_FormatClause_LiteralBracesDoubledInComposite_RuntimeEqual()
+    {
+        // {{7:X2}} routes to Format; literal { } text must be doubled in the
+        // composite ({ -> {{) while the raw braces themselves stayed verbatim.
+        var source =
+            "public static class P\n" +
+            "{\n" +
+            "    public static string Run()\n" +
+            "    {\n" +
+            "        return $$\"\"\"\n" +
+            "            { {{7:X2}} }\n" +
+            "            \"\"\";\n" +
+            "    }\n" +
+            "}\n";
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "P", expected: "{ 07 }");
+        Assert.Contains("{{ {0:X2} }}", output);
+        Assert.Equal(1, Preprocess(source, Enabled).Statistics.Interpolations.FormatExpansions);
+    }
+
+    // ==================================================================
+    // Part C — C43 boundary: non-interpolated raw/u8/verbatim literals are
+    // owned by the lexical rules; IsPotentiallyDirty keys off
+    // InterpolatedStringExpressionSyntax alone, so the C23 rule must never
+    // touch them.
+    // ==================================================================
+
+    [Fact]
+    public void Boundary_NonInterpolatedRawLiteral_IsNotTouched()
+    {
+        // Raw literal WITHOUT the leading $: braces are ordinary characters.
+        var source =
+            "public static class C\n" +
+            "{\n" +
+            "    public static void M()\n" +
+            "    {\n" +
+            "        var s = \"\"\"{not a hole}\"\"\";\n" +
+            "        System.Console.Write(s);\n" +
+            "    }\n" +
+            "}\n";
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(0, result.Statistics.Interpolations.InterpolationSites);
+    }
+
+    [Fact]
+    public void Boundary_Utf8Literal_IsNotTouched()
+    {
+        var source =
+            "public static class C\n" +
+            "{\n" +
+            "    public static void M()\n" +
+            "    {\n" +
+            "        var b = \"abc\"u8;\n" +
+            "        System.Console.Write(b.Length);\n" +
+            "    }\n" +
+            "}\n";
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(0, result.Statistics.Interpolations.InterpolationSites);
+    }
+
+    [Fact]
+    public void Boundary_PlainVerbatimLiteral_IsNotTouched()
+    {
+        var source =
+            "public static class C\n" +
+            "{\n" +
+            "    public static void M()\n" +
+            "    {\n" +
+            "        var v = @\"C:\\x{{\";\n" +
+            "        System.Console.Write(v);\n" +
+            "    }\n" +
+            "}\n";
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(0, result.Statistics.Interpolations.InterpolationSites);
+    }
+
+    // ==================================================================
+    // Part C — expression trees vs ordinary LINQ. M4/Q4: canonical
+    // expression-tree lowering is deferred this milestone, so
+    // RewriteInExpressionTrees=true still preserves (never emits wrong code).
+    // ==================================================================
+
+    [Fact]
+    public void ExprTree_ObjectReturn_Interpolated_Preserved_0515_No0516_AndRuns()
+    {
+        const string source = """
+            using System;
+            using System.Linq.Expressions;
+            public static class C
+            {
+                public static string Run()
+                {
+                    Expression<Func<object>> e = () => $"n={1}";
+                    return (string)e.Compile()()!;
+                }
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(InterpolationDiagnosticCodes.CS2J0515, diagnostic.Code);
+        Assert.DoesNotContain(
+            InterpolationDiagnosticCodes.CS2J0516,
+            result.Diagnostics.Select(d => d.Code));
+        Assert.Equal(0, result.Statistics.Interpolations.ResidualInterpolationCount);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal("n=1", RunStaticMethod(source, "C"));
+        Assert.Equal("n=1", RunStaticMethod(result.OutputCode, "C"));
+    }
+
+    [Fact]
+    public void ExprTree_RewriteOptionTrue_StillPreserved_M4_Q4_Deferred()
+    {
+        const string source = """
+            using System;
+            using System.Linq.Expressions;
+            public static class C
+            {
+                public static Expression<Func<string>> M() => () => $"n={1}";
+            }
+            """;
+        var options = new InterpolationOptions
+        {
+            Enabled = true,
+            RewriteInExpressionTrees = true,
+        };
+
+        var result = Preprocess(source, options);
+
+        // M4/Q4: the option is accepted but compiler-canonical lowering is
+        // not implemented, so the site is preserved exactly as with the
+        // default false — no semantically wrong emission can escape.
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal(InterpolationDiagnosticCodes.CS2J0515, diagnostic.Code);
+        Assert.Equal(1, result.Statistics.Interpolations.ExpressionTreeSitesSkipped);
+        Assert.Equal(0, result.Statistics.Interpolations.ConcatExpansions);
+    }
+
+    [Fact]
+    public void Linq_MethodChain_DelegateLambda_InterpolationExpands_RuntimeEqual()
+    {
+        const string source = """
+            using System.Linq;
+            public static class P
+            {
+                public static string Run()
+                    => string.Join(",", new[] { 1, 2 }.Select(x => $"n={x}"));
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "n=1,n=2");
+        Assert.Contains("string.Concat(\"n=\", x)", Normalize(output));
+        Assert.Equal(0, Preprocess(source, Enabled).Statistics.Interpolations.ExpressionTreeSitesSkipped);
+    }
+
+    [Fact]
+    public void Linq_QueryComprehension_DelegateLambda_InterpolationExpands_RuntimeEqual()
+    {
+        const string source = """
+            using System.Linq;
+            public static class P
+            {
+                public static string Run()
+                {
+                    var q = from x in new[] { 1, 2 }
+                            select $"[{x}]";
+                    return string.Join(",", q);
+                }
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "[1],[2]");
+        Assert.Contains("string.Concat(\"[\", x, \"]\")", Normalize(output));
+    }
+
+    // ==================================================================
+    // Part C — FormattableString at a parameter position; second run stable.
+    // ==================================================================
+
+    [Fact]
+    public void Gate_FormattableString_ParameterPosition_Preserved_SecondRunStable()
+    {
+        const string source = """
+            using System;
+            public static class C
+            {
+                public static string Take(FormattableString fs) => fs.Format;
+                public static string Run() => Take($"y={2}");
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Equal(
+            InterpolationDiagnosticCodes.CS2J0511,
+            Assert.Single(result.Diagnostics).Code);
+        Assert.Equal(1, result.Statistics.Interpolations.KeptFormattableStringSites);
+
+        var second = Preprocess(result.OutputCode, Enabled);
+        Assert.False(second.Changed);
+        Assert.Equal(source, second.OutputCode);
+        Assert.Equal(
+            InterpolationDiagnosticCodes.CS2J0511,
+            Assert.Single(second.Diagnostics).Code);
+        Assert.Equal("y={0}", RunStaticMethod(source, "C"));
+    }
+
+    // ==================================================================
+    // Part C — nested nodes carried by preserved outers pair in BOTH gates.
+    // ==================================================================
+
+    private const string NestedHandlerFixture = """
+        using System;
+        using System.Runtime.CompilerServices;
+
+        public static class Logger
+        {
+            // A by-value handler parameter (the standard handler argument
+            // shape); no [InterpolatedStringHandlerArgument] is needed because
+            // the handler ctor takes only (int, int, out bool). A 'ref'
+            // parameter would reject the interpolation outright (CS1620).
+            public static void Log(MyHandler handler) { }
+        }
+
+        [InterpolatedStringHandler]
+        public ref struct MyHandler
+        {
+            public MyHandler(int literalLength, int formattedCount, out bool append)
+            {
+                append = true;
+            }
+            public void AppendLiteral(string s) { }
+            public void AppendFormatted<T>(T value) { }
+        }
+
+        public static class C
+        {
+            public static void M() { Logger.Log($"h{$"x{1}"}"); }
+        }
+        """;
+
+    [Fact]
+    public void Keep_HandlerOuter_CarriesNestedNode_BothPairViaAccounting()
+    {
+        var options = new InterpolationOptions
+        {
+            Enabled = true,
+            HandlerPolicy = HandlerUnsupportedPolicy.Keep,
+        };
+
+        var result = Preprocess(NestedHandlerFixture, options);
+
+        Assert.False(result.Changed);
+        Assert.Equal(NestedHandlerFixture, result.OutputCode);
+        var stats = result.Statistics.Interpolations;
+        // Only the outer disposition site is counted: the inner site inherits
+        // the preserved disposition silently (no duplicate diagnostics), but
+        // it is carried as NestedPreservedSites for tree-gate pairing.
+        Assert.Equal(1, stats.InterpolationSites);
+        Assert.Equal(1, stats.CustomHandlerSites);
+        Assert.Equal(1, stats.NestedPreservedSites);
+        Assert.Equal(0, stats.ResidualInterpolationCount);
+        // Outer (0510 keep) + one nested node carried verbatim.
+        Assert.Equal(2, stats.CountPairedNodes());
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void FormattableString_Outer_CarriesNestedNode_BothPairViaAccounting()
+    {
+        const string source = """
+            using System;
+            public static class C
+            {
+                public static string M()
+                {
+                    FormattableString fs = $"a{$"b{1}"}";
+                    return fs.Format;
+                }
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        var stats = result.Statistics.Interpolations;
+        // Outer is the only disposition site; the inner interpolation is
+        // carried verbatim by the preserved FormattableString subtree and
+        // counted solely as a nested preserved site.
+        Assert.Equal(1, stats.InterpolationSites);
+        Assert.Equal(1, stats.KeptFormattableStringSites);
+        Assert.Equal(1, stats.NestedPreservedSites);
+        Assert.Equal(0, stats.ResidualInterpolationCount);
+        Assert.Equal(2, stats.CountPairedNodes());
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void CountPairedNodes_SumsPreserveCodes_AndNestedCarry()
+    {
+        var stats = new InterpolationStatistics();
+        stats.AddSkip(InterpolationDiagnosticCodes.CS2J0511);
+        stats.AddSkip(InterpolationDiagnosticCodes.CS2J0515);
+        stats.AddSkip(InterpolationDiagnosticCodes.CS2J0510);
+        stats.NestedPreservedSites = 2;
+
+        Assert.Equal(5, stats.CountPairedNodes());
+
+        // Expansion codes never pair a residual node.
+        var expanded = new InterpolationStatistics();
+        expanded.AddSkip(InterpolationDiagnosticCodes.CS2J0501);
+        expanded.AddSkip(InterpolationDiagnosticCodes.CS2J0502);
+        expanded.AddSkip(InterpolationDiagnosticCodes.CS2J0503);
+        Assert.Equal(0, expanded.CountPairedNodes());
     }
 }

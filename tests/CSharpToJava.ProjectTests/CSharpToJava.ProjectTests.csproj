@@ -280,4 +280,18 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- C23 interpolation-expand fixtures (bin/obj excluded). -->
+    <Content Include="..\SampleInterpolationSolution\**\*.*"
+              Exclude="..\SampleInterpolationSolution\**\bin\**;..\SampleInterpolationSolution\**\obj\**">
+      <Link>SampleInterpolationSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\SampleInterpolationUnsupportedSolution\**\*.*"
+              Exclude="..\SampleInterpolationUnsupportedSolution\**\bin\**;..\SampleInterpolationUnsupportedSolution\**\obj\**">
+      <Link>SampleInterpolationUnsupportedSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>
