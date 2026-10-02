@@ -272,4 +272,12 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- C48 params-collections fixture (bin/obj excluded: may have been built locally). -->
+    <Content Include="..\SampleParamsCollectionsSolution\**\*.*"
+              Exclude="..\SampleParamsCollectionsSolution\**\bin\**;..\SampleParamsCollectionsSolution\**\obj\**">
+      <Link>SampleParamsCollectionsSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

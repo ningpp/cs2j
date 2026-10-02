@@ -217,6 +217,7 @@ internal sealed class ParamsSignatureCollector
                     classification.ParameterType.ToDisplayString(), builderType, factoryName),
                 options.Strict));
             result.Statistics.RecordSkipped(ParamsDiagnostics.CollectionBuilderBlocked);
+            result.Statistics.BuilderSitesBlocked++;
             return ParamsDeclStrategy.KeepParams;
         }
 
