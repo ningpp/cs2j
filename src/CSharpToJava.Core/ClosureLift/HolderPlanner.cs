@@ -44,6 +44,7 @@ internal static class HolderPlanner
         {
             var hostKey = HostTypeKey(model, member.HostType);
             var routineNames = CollectRoutineLocalNames(member.Routine);
+            var methodTypeParameters = CollectMethodTypeParameters(member.Routine);
 
             var grouped = liftable
                 .GroupBy(BuildGroupKey)
@@ -69,6 +70,7 @@ internal static class HolderPlanner
                     PerIterationLoop = group
                         .Select(s => s.ForeachLoop)
                         .FirstOrDefault(loop => loop != null),
+                    MethodTypeParameters = methodTypeParameters,
                 };
 
                 var usedFieldNames = new HashSet<string>(StringComparer.Ordinal);
@@ -281,6 +283,19 @@ internal static class HolderPlanner
             }
         }
     }
+
+    /// <summary>
+    /// Method type parameter names in declaration order; empty for non-generic
+    /// routines and accessors (holders nested at class level cannot see method
+    /// arity, so they redeclare these names as their own).
+    /// </summary>
+    internal static IReadOnlyList<string> CollectMethodTypeParameters(SyntaxNode routine)
+        => routine is MethodDeclarationSyntax { TypeParameterList: { } typeParameters }
+            ? typeParameters.Parameters
+                .Select(p => p.Identifier.Text)
+                .Where(t => t.Length > 0)
+                .ToArray()
+            : Array.Empty<string>();
 
     /// <summary>
     /// Seed set for per-routine instance reservation (M1 shape, unchanged):

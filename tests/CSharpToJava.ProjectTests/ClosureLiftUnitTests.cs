@@ -1057,6 +1057,73 @@ class C {
         AssertOutputCompiles(r.OutputCode);
     }
 
+    // ── Generic arity (fixture M2: holder nested at class level) ──
+
+    [Fact]
+    public void Transform_GenericMethodCapture_HolderRedeclaresMethodArity()
+    {
+        var src = @"
+class C {
+    public T[] Pick<T>(T first, T second) {
+        var current = first;
+        System.Func<T> get = () => current;
+        System.Action swap = () => current = second;
+        swap();
+        return new[] { first, get() };
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Contains("private sealed class Cs2jDisplayClass_Pick_0<T>", r.OutputCode);
+        Assert.Contains("public T _cs2jCap_current;", r.OutputCode);
+        Assert.Contains("new Cs2jDisplayClass_Pick_0<T>()", r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_GenericHostTypeCapture_HolderReusesOuterTypeParameter()
+    {
+        var src = @"
+class C<T> {
+    public T Pick(T first, T second) {
+        var current = first;
+        System.Func<T> get = () => current;
+        System.Action swap = () => current = second;
+        swap();
+        return get();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        // A nested class sees the outer type parameter; the holder must not
+        // redeclare its own arity (that would shadow and bind fields wrong).
+        Assert.Contains("private sealed class Cs2jDisplayClass_Pick_0", r.OutputCode);
+        Assert.DoesNotContain("Cs2jDisplayClass_Pick_0<", r.OutputCode);
+        Assert.Contains("new Cs2jDisplayClass_Pick_0()", r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_CapturelessStaticLambdaInFieldInitializer_StaysClean()
+    {
+        var src = @"
+class C {
+    private static readonly System.Func<int, int> Square = static x => x * x;
+    public static int Run(int x) {
+        System.Func<int, int> addOne = static v => v + 1;
+        return addOne(x) + Square(x);
+    }
+}";
+        var r = Transform(src);
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Severity == ClosureLiftSeverity.Error);
+        Assert.Empty(HolderClassNames(r.OutputCode));
+    }
+
     // ── M2 residual gate (design §7.3) ──
 
     [Fact]

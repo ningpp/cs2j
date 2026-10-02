@@ -119,19 +119,9 @@ internal sealed class CaptureAnalyzer
 
         foreach (var lambda in lambdas)
         {
-            var routine = ResolveRoutine(lambda, out var boundaryCode, out var boundaryNode);
-            if (routine == null)
-            {
-                if (boundaryCode != null)
-                    Emit(boundaryCode, BoundaryMessage(boundaryCode), boundaryNode!.GetLocation());
-                continue;
-            }
-
-            // D11: quoted lambdas contribute no mutable candidates of their own.
-            if (quoted.Contains(lambda))
-                continue;
-
-            // D12: static lambdas capture nothing.
+            // D12: static lambdas capture nothing — where they live (field
+            // initializer included) is irrelevant to the lift and must not be
+            // reported as a D14/D16 boundary.
             if (lambda.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword)))
                 continue;
 
@@ -141,6 +131,22 @@ internal sealed class CaptureAnalyzer
                     ? block2
                     : ((SimpleLambdaExpressionSyntax)lambda).ExpressionBody;
             if (lambdaBody == null)
+                continue;
+
+            var routine = ResolveRoutine(lambda, out var boundaryCode, out var boundaryNode);
+            if (routine == null)
+            {
+                // v1 conservative boundary (design D14/D16): even a captureless
+                // non-static lambda in an unmappable site freezes the file —
+                // the transform cannot reason about `this`/scope there. D12
+                // static lambdas were already skipped above.
+                if (boundaryCode != null)
+                    Emit(boundaryCode, BoundaryMessage(boundaryCode), boundaryNode!.GetLocation());
+                continue;
+            }
+
+            // D11: quoted lambdas contribute no mutable candidates of their own.
+            if (quoted.Contains(lambda))
                 continue;
 
             // The synthesized anonymous-function method symbol (its parameter
@@ -216,7 +222,11 @@ internal sealed class CaptureAnalyzer
         }
 
         // Deterministic order: routines by first symbol span; symbols by declaring span (§4.3).
+        // Routines entered with candidates that AnalyzeSymbol rejected wholesale
+        // (e.g. a captureless lambda's locals) carry zero symbols and drop out —
+        // they have no analysis to report or plan.
         var members = byRoutine.Values
+            .Where(w => w.Symbols.Count > 0)
             .Select(w => new MemberCaptureAnalysis(
                 w.HostType, w.Routine, w.RoutineName,
                 w.Symbols.OrderBy(s => s.DeclaringReference.Span.Start).ToList()))

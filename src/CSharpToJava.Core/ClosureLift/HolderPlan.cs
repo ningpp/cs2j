@@ -49,6 +49,18 @@ internal sealed class HolderGroupPlan
     /// <summary>The foreach loop when <see cref="PerIteration"/>; null otherwise.</summary>
     public ForEachStatementSyntax? PerIterationLoop { get; init; }
 
+    /// <summary>
+    /// Method type parameter names (declaration order) a holder nested at class
+    /// level must redeclare as its own arity. Host-type parameters are already
+    /// in scope inside a nested class (C# scopes outer type parameters through
+    /// nested types); only method arity is missing there.
+    /// </summary>
+    public IReadOnlyList<string> MethodTypeParameters { get; init; } = Array.Empty<string>();
+
+    /// <summary>Generic suffix for the holder class name ("&lt;T1,T2&gt;"), or "".</summary>
+    public string TypeArgumentSuffix =>
+        MethodTypeParameters.Count == 0 ? string.Empty : "<" + string.Join(",", MethodTypeParameters) + ">";
+
     /// <summary>Lifted symbols in deterministic order (DeclaringNode.SpanStart), Task 11 freezes it.</summary>
     public List<CapturedSymbolPlan> Symbols { get; } = new();
 }

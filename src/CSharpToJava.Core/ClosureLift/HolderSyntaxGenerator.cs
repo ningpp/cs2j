@@ -46,19 +46,31 @@ internal sealed class HolderSyntaxGenerator
                         SyntaxFactory.VariableDeclarator(s.FieldName)))))
             .ToArray();
 
-        return SyntaxFactory.ClassDeclaration(group.ClassName)
+        var declaration = SyntaxFactory.ClassDeclaration(group.ClassName)
             .AddModifiers(
                 SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
                 SyntaxFactory.Token(SyntaxKind.SealedKeyword))
             .WithMembers(SyntaxFactory.List(fields))
             .WithAdditionalAnnotations(ClosureLiftAnnotations.HolderClass(group.ClassName));
+
+        // Generic method capture: the nested holder cannot see method arity from
+        // its class-level nesting position, so redeclare the same parameters.
+        if (group.MethodTypeParameters.Count > 0)
+        {
+            declaration = declaration.WithTypeParameterList(
+                SyntaxFactory.TypeParameterList(
+                    SyntaxFactory.SeparatedList(
+                        group.MethodTypeParameters.Select(SyntaxFactory.TypeParameter))));
+        }
+
+        return declaration;
     }
 
     /// <summary>var __cs2jClosureN = new Cs2jDisplayClass_&lt;member&gt;_&lt;n&gt;();</summary>
     public LocalDeclarationStatementSyntax BuildHolderInstanceDeclaration(HolderGroupPlan group)
     {
         var objectCreation = SyntaxFactory.ObjectCreationExpression(
-                SyntaxFactory.ParseTypeName(group.ClassName))
+                SyntaxFactory.ParseTypeName(group.ClassName + group.TypeArgumentSuffix))
             .WithArgumentList(SyntaxFactory.ArgumentList());
 
         var declarator = SyntaxFactory.VariableDeclarator(group.InstanceName)
