@@ -26,6 +26,7 @@ internal static class PartialTypeMergeBuilder
         SyntaxKind.AbstractKeyword,
         SyntaxKind.SealedKeyword,
         SyntaxKind.ReadOnlyKeyword,
+        SyntaxKind.RefKeyword,
         SyntaxKind.VirtualKeyword,
         SyntaxKind.PartialKeyword,
     ];
@@ -40,7 +41,17 @@ internal static class PartialTypeMergeBuilder
             .WithBaseList(BuildMergedBaseList(compilation, group))
             .WithAttributeLists(BuildMergedAttributes(group))
             .WithConstraintClauses(BuildMergedConstraints(group))
-            .WithTypeParameterList(primary.TypeParameterList);
+            .WithTypeParameterList(primary.TypeParameterList)
+            // A bodyless primary ("record R(...);") has missing braces and a
+            // semicolon; once members are added synthesize the body (CS1514).
+            .WithOpenBraceToken(primary.OpenBraceToken.Kind() != SyntaxKind.OpenBraceToken
+                ? SyntaxFactory.Token(SyntaxKind.OpenBraceToken)
+                    .WithLeadingTrivia(SyntaxFactory.Space)
+                : primary.OpenBraceToken)
+            .WithCloseBraceToken(primary.CloseBraceToken.Kind() != SyntaxKind.CloseBraceToken
+                ? SyntaxFactory.Token(SyntaxKind.CloseBraceToken)
+                : primary.CloseBraceToken)
+            .WithSemicolonToken(default);
 
         // Deterministic provenance banner on the merged declaration.
         var banner = SyntaxFactory.Comment(
@@ -62,7 +73,9 @@ internal static class PartialTypeMergeBuilder
             .Select(token => token.Kind())
             .Distinct()
             .OrderBy(kind => Array.IndexOf(ModifierOrder, kind))
-            .Select(SyntaxFactory.Token)
+            // Manually built tokens carry no trivia; add the separating space.
+            .Select(kind => SyntaxFactory.Token(kind)
+                .WithTrailingTrivia(SyntaxFactory.Space))
             .ToList();
 
         return SyntaxFactory.TokenList(kinds);
