@@ -4,30 +4,15 @@ using CSharpToJava.Core.Preprocessing;
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
 /// <summary>
-/// Adapter for the closure-lift pass.
-/// M1 (this task): deliberately NOT wired into PassChainFactory — the registry
-/// flip is Task 16. The descriptor is file-private so the Stub entry in
-/// PassStubCatalog stays the single registry truth until then; ProjectPassRunner
-/// never consults PassStatus (verified), so the SDK harness / tests can already
-/// drive this adapter directly. M2 processing performs the real holder-lift
-/// rewrite (Changed files return PassFileRewrite); AuditOnly keeps every file
-/// verbatim with CS2J3207 rows, and AfterFilesAsync runs the residual gate.
+/// Adapter for the closure-lift pass (C32 M2): registered as Implemented but
+/// default-off (reachable via `preprocess --pass closure-lift` /
+/// `--enable-pass closure-lift`); the default plan never includes it.
+/// Processing performs the real holder-lift rewrite (Changed files return
+/// PassFileRewrite); AuditOnly keeps every file verbatim with CS2J3207 rows,
+/// and AfterFilesAsync runs the intermediate-tree residual gate.
 /// </summary>
 internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
 {
-    private static readonly PassDescriptor M1Descriptor = new(
-        PassStubCatalog.Ids.ClosureLift,
-        "Closure/display class lift",
-        ".cs2j-closure-lift-src",
-        PassStage.StateMachine,
-        PassStatus.Implemented,
-        defaultEnabled: false,
-        runAfterIds: new[] { PassIds.RefOutIn },
-        verifyBuildByDefault: true,
-        verifyTestsByDefault: true,
-        description: "M2 holder-lift: rewrite mutably captured locals/parameters into private holder classes before lambdas (C32).",
-        catalogItems: "C32");
-
     private readonly ClosureLiftOptions _options;
     private readonly bool _verbose;
     private readonly bool _filterUnsupportedProjects;
@@ -58,7 +43,8 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         _strict = strict;
     }
 
-    public override PassDescriptor Descriptor => M1Descriptor;
+    public override PassDescriptor Descriptor
+        => PassCatalog.ImplementedById(PassStubCatalog.Ids.ClosureLift);
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes => _compatNamespacePrefixes;

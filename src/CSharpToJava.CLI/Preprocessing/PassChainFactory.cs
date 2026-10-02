@@ -1,4 +1,5 @@
 using CSharpToJava.Core.ArrayMethodRewriter;
+using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
@@ -339,6 +340,15 @@ internal static class PassChainFactory
                 config.CompatNamespacePrefixes,
                 config.VerifyBuild,
                 config.VerifyTests),
+
+            PassStubCatalog.Ids.ClosureLift => new ClosureLiftPassAdapter(
+                new ClosureLiftOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests,
+                config.Strict),
 
             PassStubCatalog.Ids.IteratorLowering => new IteratorLoweringPassAdapter(
                 new IteratorLoweringOptions(),

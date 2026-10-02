@@ -74,16 +74,8 @@ internal static class PassStubCatalog
             catalogItems: "C33"),
         // Ids.UnsafeFfm flipped to Implemented in PassCatalog (C06 M0);
         // the descriptor lives there and no stub entry remains.
-        new(
-            Ids.ClosureLift,
-            "Closure/display class lift",
-            ".cs2j-closure-lift-src",
-            PassStage.StateMachine,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.RefOutIn },
-            description: "Lift lambda/anonymous-method captures into deterministic display classes.",
-            catalogItems: "C32, C45"),
+        // Ids.ClosureLift flipped to Implemented in PassCatalog (C32 M2);
+        // the descriptor lives there and no stub entry remains.
         // Ids.NumericBoundary flipped to Implemented in PassCatalog (C15);
         // the id constant stays here by the iterator-lowering precedent (§3.4).
         new(
