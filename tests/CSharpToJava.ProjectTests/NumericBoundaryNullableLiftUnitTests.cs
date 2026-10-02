@@ -324,7 +324,7 @@ public class NumericBoundaryNullableLiftUnitTests
         """;
 
     [Fact]
-    public void M2_AllLiftedShapes_M1AndM2SitesExplicitized_IncrementCompoundStillPassThrough()
+    public void M2_AllLiftedShapes_M1AndM2SitesExplicitized_IncrementCompoundGuarded()
     {
         var result = Run(LiftedCrossProductSource);
 
@@ -366,13 +366,18 @@ public class NumericBoundaryNullableLiftUnitTests
             "enot=(e1.HasValue?(global::Color?)((global::Color)((int)(~((int)(e1.Value))))):(global::Color?)null)",
             compact);
 
-        // NL-10/11 increment/compound are commit 2 — still pass through and
-        // never trip the staged NL-14 residual gate.
-        Assert.Contains("x++", compact);
-        Assert.Contains("++x", compact);
-        Assert.Contains("x-=1", compact);
+        // NL-10/11 increment/compound are explicitized: postfix keeps the old
+        // value in an `o` temp and splices the write before the anchor;
+        // prefix and compound render as plain assignments.
+        Assert.Contains("var__cs2j_n_o1=x", compact);
+        Assert.Contains("x=(__cs2j_n_o1.HasValue?(int?)(__cs2j_n_o1.Value+1):(int?)null)", compact);
+        Assert.Contains("x=(x.HasValue?(int?)(x.Value+1):(int?)null)", compact);
+        Assert.Contains("x=(x.HasValue?(int?)(x.Value-1):(int?)null)", compact);
+        Assert.DoesNotContain("x++", compact);
+        Assert.DoesNotContain("++x", compact);
+        Assert.DoesNotContain("x-=1", compact);
 
-        // Every operand here is a stable local/literal → zero temps.
+        // The postfix old-value temp is the only hoisted temp in this file.
         var stats = result.Statistics.Nullable;
         Assert.Equal(5, stats.LiftedBinarySites);
         Assert.Equal(2, stats.LiftedUnarySites);
@@ -388,19 +393,21 @@ public class NumericBoundaryNullableLiftUnitTests
         Assert.Equal(1, stats.UnwrapConversions);
         Assert.Equal(1, stats.LiftedConversions);
         Assert.Equal(2, stats.NullableEnumBackstopSites);
-        Assert.Equal(0, stats.TempsLifted);
-        Assert.Equal(0, stats.LiftedIncrementSites);
+        Assert.Equal(1, stats.LiftedIncrementPostfixSites);
+        Assert.Equal(1, stats.LiftedIncrementPrefixSites);
+        Assert.Equal(1, stats.LiftedIncrementCompoundSites);
+        Assert.Equal(1, stats.TempsLifted);
         Assert.False(stats.DeferredByReason.Keys.Any(k =>
             k.StartsWith(PreprocessDiagnosticCodes.NullableLiftResidual, StringComparison.Ordinal)));
         Assert.Equal(1, result.Statistics.FilesTransformed);
     }
 
     [Fact]
-    public void M1_DecimalNullable_ArithmeticGuarded_BareInnerKept_CompoundPassesThrough()
+    public void M2_DecimalNullable_ArithmeticGuarded_BareInnerKept_CompoundGuarded()
     {
-        // Decision 19: decimal? arithmetic gets the HasValue guard in M1 while
+        // Decision 19: decimal? arithmetic gets the HasValue guard while
         // the INNER bare decimal op stays for the C34 downstream sweep;
-        // lifted compound assignment is NL-11 (M2) and passes through.
+        // NL-11 lifted compound assignment gets the same guard treatment.
         var src = """
             public class C
             {
@@ -420,9 +427,9 @@ public class NumericBoundaryNullableLiftUnitTests
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity != NumericBoundarySeverity.Info);
         var compact = Compact(result.OutputCode);
         Assert.Contains("a.HasValue&&b.HasValue?(decimal?)(a.Value+b.Value):(decimal?)null", compact);
-        Assert.Contains("c*=3m", compact);
+        Assert.Contains("c=(c.HasValue?(decimal?)(c.Value*3m):(decimal?)null)", compact);
         Assert.Equal(1, result.Statistics.Nullable.LiftedBinarySites);
-        Assert.Equal(0, result.Statistics.Nullable.LiftedIncrementCompoundSites);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementCompoundSites);
     }
 
     [Fact]
@@ -1158,11 +1165,10 @@ public class NumericBoundaryNullableLiftUnitTests
     }
 
     [Fact]
-    public void Coexist_LiftedIncrement_C17Handoff_CS2J5335_StillFires_UntilM2()
+    public void Coexist_LiftedIncrement_C22OwnsSite_WhenEnabled_C17StaysSilent()
     {
-        // M2 hands the simple lifted increment from C17 to NL-10; in M0 the
-        // established CS2J5335 error + NB-12 rollback behavior is unchanged,
-        // and C22 never rewrites (so output bytes stay identical).
+        // M2 handoff (decisions 15/17): with C22 enabled a simple lifted
+        // increment is explicitized by NL-10 and C17 never raises CS2J5335.
         var src = """
             public class C
             {
@@ -1176,6 +1182,41 @@ public class NumericBoundaryNullableLiftUnitTests
         var options = new NumericBoundaryOptions
         {
             EnableNullable = true,
+            EnableIncrementTargets = true,
+            EnableDecimalOps = false,
+            Strict = true,
+        };
+        var result = Run(src, options);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Code == PreprocessDiagnosticCodes.IncrementTargetNullableLifted);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("var__cs2j_n_o1=x", compact);
+        Assert.Contains("x=(__cs2j_n_o1.HasValue?(int?)(__cs2j_n_o1.Value+1):(int?)null)", compact);
+        Assert.DoesNotContain("x++", compact);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementPostfixSites);
+    }
+
+    [Fact]
+    public void Coexist_LiftedIncrement_C17StillRaises5335_WhenC22Disabled()
+    {
+        // C22 switched off: the established C17 CS2J5335 error + NB-12
+        // rollback behavior is unchanged.
+        var src = """
+            public class C
+            {
+                void M()
+                {
+                    int? x = 1;
+                    x++;
+                }
+            }
+            """;
+        var options = new NumericBoundaryOptions
+        {
+            EnableNullable = false,
             EnableIncrementTargets = true,
             EnableDecimalOps = false,
             Strict = true,
@@ -2522,6 +2563,638 @@ public class NumericBoundaryNullableLiftUnitTests
             var actual = InvokeStatic(notRewritten, "F", System.Enum.ToObject(newColor, v.Value));
             Assert.Equal(expected!.ToString(), actual!.ToString());
         }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // M2: NL-10 lifted increment/decrement (decision 15)
+    // ════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void M2_NL10_PostfixStandalone_GuardedWrite_AnchorConsumed_RuntimeEquivalence()
+    {
+        var src = """
+            public class C
+            {
+                public static int? F(int? a)
+                {
+                    int? x = a;
+                    x++;
+                    return x;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains(
+            "var__cs2j_n_o1=x;x=(__cs2j_n_o1.HasValue?(int?)(__cs2j_n_o1.Value+1):(int?)null);",
+            compact);
+        Assert.DoesNotContain("x++", compact);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementPostfixSites);
+        Assert.Equal(1, result.Statistics.Nullable.TempsLifted);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? v in new int?[] { null, 0, 41 })
+        {
+            Assert.Equal(
+                InvokeStatic(original, "F", v),
+                InvokeStatic(rewritten, "F", v));
+        }
+
+        // The explicitized form carries no lifted increment anymore.
+        var second = Run(result.OutputCode);
+        Assert.False(second.Changed);
+    }
+
+    [Fact]
+    public void M2_NL10_PostfixValueContext_SiteBecomesOldTemp_RuntimeEquivalence()
+    {
+        var src = """
+            public class C
+            {
+                public static int? Old(int? a)
+                {
+                    int? x = a;
+                    var z = x++;
+                    return z;
+                }
+
+                public static int? Stored(int? a)
+                {
+                    int? x = a;
+                    var z = x++;
+                    return x;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("var__cs2j_n_o1=x", compact);
+        Assert.Contains("varz=__cs2j_n_o1", compact);
+        Assert.Contains(
+            "x=(__cs2j_n_o1.HasValue?(int?)(__cs2j_n_o1.Value+1):(int?)null)",
+            compact);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? v in new int?[] { null, 5 })
+        {
+            Assert.Equal(
+                InvokeStatic(original, "Old", v),
+                InvokeStatic(rewritten, "Old", v));
+            Assert.Equal(
+                InvokeStatic(original, "Stored", v),
+                InvokeStatic(rewritten, "Stored", v));
+        }
+    }
+
+    [Fact]
+    public void M2_NL10_Prefix_StandaloneAndValueContext_RuntimeEquivalence()
+    {
+        var src = """
+            public class C
+            {
+                public static int? Stored(int? a)
+                {
+                    int? x = a;
+                    ++x;
+                    return x;
+                }
+
+                public static int? Value(int? a)
+                {
+                    int? x = a;
+                    var z = ++x;
+                    return z;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("x=(x.HasValue?(int?)(x.Value+1):(int?)null)", compact);
+        // Value-position prefix is a parenthesized assignment.
+        Assert.Contains("z=(x=(x.HasValue?(int?)(x.Value+1):(int?)null))", compact);
+        Assert.DoesNotContain("++x", compact);
+        Assert.Equal(2, result.Statistics.Nullable.LiftedIncrementPrefixSites);
+        Assert.Equal(0, result.Statistics.Nullable.TempsLifted);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? v in new int?[] { null, 5 })
+        {
+            Assert.Equal(
+                InvokeStatic(original, "Stored", v),
+                InvokeStatic(rewritten, "Stored", v));
+            Assert.Equal(
+                InvokeStatic(original, "Value", v),
+                InvokeStatic(rewritten, "Value", v));
+        }
+    }
+
+    [Fact]
+    public void M2_NL10_Decrement_PrefixAndPostfix_NullPropagates_RuntimeEquivalence()
+    {
+        var src = """
+            public class C
+            {
+                public static int? Post(int? a)
+                {
+                    int? x = a;
+                    x--;
+                    return x;
+                }
+
+                public static int? Pre(int? a)
+                {
+                    int? x = a;
+                    var z = --x;
+                    return z;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains(
+            "x=(__cs2j_n_o1.HasValue?(int?)(__cs2j_n_o1.Value-1):(int?)null)",
+            compact);
+        Assert.Contains(
+            "z=(x=(x.HasValue?(int?)(x.Value-1):(int?)null))",
+            compact);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementPostfixSites);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementPrefixSites);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? v in new int?[] { null, 5 })
+        {
+            Assert.Equal(
+                InvokeStatic(original, "Post", v),
+                InvokeStatic(rewritten, "Post", v));
+            Assert.Equal(
+                InvokeStatic(original, "Pre", v),
+                InvokeStatic(rewritten, "Pre", v));
+        }
+    }
+
+    [Fact]
+    public void M2_NL10_EnumPostfixAndPrefix_CastShape_RuntimeEquivalence()
+    {
+        var src = """
+            public enum Color { Red = 1, Green = 2, Blue = 4 }
+            public enum Small : byte { A = 1, B = 2 }
+            public class C
+            {
+                public static string? Post(Color? a)
+                {
+                    Color? x = a;
+                    x++;
+                    return x.HasValue ? x.Value.ToString() : null;
+                }
+
+                public static string? Pre(Color? a)
+                {
+                    Color? x = a;
+                    var z = ++x;
+                    return z.HasValue ? z.Value.ToString() : null;
+                }
+
+                public static string? Narrow(Small? a)
+                {
+                    Small? x = a;
+                    x++;
+                    return x.HasValue ? x.Value.ToString() : null;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains(
+            "x=(__cs2j_n_o1.HasValue?(global::Color?)((global::Color)((int)(__cs2j_n_o1.Value)+1)):(global::Color?)null)",
+            compact);
+        Assert.Contains(
+            "z=(x=(x.HasValue?(global::Color?)((global::Color)((int)(x.Value)+1)):(global::Color?)null))",
+            compact);
+        // Narrow is the file's second postfix site → the o2 temp.
+        Assert.Contains(
+            "x=(__cs2j_n_o2.HasValue?(global::Small?)((global::Small)((byte)(__cs2j_n_o2.Value)+1)):(global::Small?)null)",
+            compact);
+        Assert.Equal(2, result.Statistics.Nullable.LiftedIncrementPostfixSites);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementPrefixSites);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? v in new int?[] { null, 1, 4 })
+        {
+            var colorValue = v is int iv ? System.Enum.ToObject(original.GetType("Color")!, iv) : null;
+            var rewrittenColor = v is int rv ? System.Enum.ToObject(rewritten.GetType("Color")!, rv) : null;
+            Assert.Equal(
+                InvokeStatic(original, "Post", colorValue)?.ToString(),
+                InvokeStatic(rewritten, "Post", rewrittenColor)?.ToString());
+            Assert.Equal(
+                InvokeStatic(original, "Pre", colorValue)?.ToString(),
+                InvokeStatic(rewritten, "Pre", rewrittenColor)?.ToString());
+        }
+
+        foreach (byte v in new byte?[] { 1, 2 })
+        {
+            var smallValue = System.Enum.ToObject(original.GetType("Small")!, v);
+            var rewrittenSmall = System.Enum.ToObject(rewritten.GetType("Small")!, v);
+            Assert.Equal(
+                InvokeStatic(original, "Narrow", smallValue)?.ToString(),
+                InvokeStatic(rewritten, "Narrow", rewrittenSmall)?.ToString());
+        }
+
+        Assert.Null(InvokeStatic(rewritten, "Narrow",
+            new object?[] { null }));
+    }
+
+    [Fact]
+    public void M2_NL10_StandalonePostfix_EmbeddedSlot_WrappedInBlock_RuntimeEquivalence()
+    {
+        var src = """
+            public class C
+            {
+                public static int? F(bool c, int? a)
+                {
+                    int? x = a;
+                    if (c) x++;
+                    return x;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Contains("if(c){var__cs2j_n_o1=x;x=(__cs2j_n_o1.HasValue?", Compact(result.OutputCode));
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (var c in new[] { false, true })
+        {
+            foreach (int? v in new int?[] { null, 41 })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, "F", c, v),
+                    InvokeStatic(rewritten, "F", c, v));
+            }
+        }
+    }
+
+    [Fact]
+    public void M2_NL10_ComplexPropertyTarget_PostfixAndCompound_5355_Rollback()
+    {
+        var src = """
+            public class C
+            {
+                public int? P { get; set; }
+                public void M()
+                {
+                    P++;
+                    P += 1;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Equal(2, result.Diagnostics.Count(d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.NullableLiftComplexTarget));
+    }
+
+    [Fact]
+    public void M2_NL10_PostfixInExpressionBody_NoAnchor_5355_Rollback()
+    {
+        var src = """
+            public class C
+            {
+                public static int? F(int? x) => x++;
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        Assert.Contains(result.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.NullableLiftComplexTarget);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // M2: NL-11 lifted compound assignment (decision 16)
+    // ════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void M2_NL11_ArithmeticCompound_RuntimeTruthTable()
+    {
+        int?[] values = [null, 3, 7];
+        foreach (var op in new[] { "+", "-", "*", "%" })
+        {
+            var src = $$"""
+                public class C
+                {
+                    public static int? F(int? a, int? b)
+                    {
+                        int? x = a;
+                        x {{op}}= b;
+                        return x;
+                    }
+                }
+                """;
+
+            var result = Run(src);
+            Assert.True(result.Changed);
+            Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementCompoundSites);
+            AssertOutputCompiles(result.OutputCode);
+            Assert.Contains(
+                "x=(x.HasValue&&b.HasValue?(int?)(x.Value" + op + "b.Value):(int?)null)",
+                Compact(result.OutputCode));
+
+            var original = CompileAndLoad(src);
+            var rewritten = CompileAndLoad(result.OutputCode);
+            foreach (var a in values)
+            {
+                foreach (var b in values)
+                {
+                    Assert.Equal(
+                        InvokeStatic(original, "F", a, b),
+                        InvokeStatic(rewritten, "F", a, b));
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void M2_NL11_OneSidedLiteralCompound_GuardDropsRhsHasValue_RuntimeEquivalence()
+    {
+        var src = """
+            public class C
+            {
+                public static int? F(int? a)
+                {
+                    int? x = a;
+                    x -= 1;
+                    return x;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("x=(x.HasValue?(int?)(x.Value-1):(int?)null)", compact);
+        Assert.DoesNotContain("1.HasValue", compact);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementCompoundSites);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? v in new int?[] { null, 5 })
+        {
+            Assert.Equal(
+                InvokeStatic(original, "F", v),
+                InvokeStatic(rewritten, "F", v));
+        }
+    }
+
+    [Fact]
+    public void M2_NL11_UnstableRhs_HoistedOnce_EvaluatedEvenWhenTargetNull()
+    {
+        var src = """
+            public class C
+            {
+                public static int Calls;
+                public static int? R() { Calls++; return 10; }
+
+                public static int? F(int? a)
+                {
+                    int? x = a;
+                    x += R();
+                    return x;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Nullable.TempsLifted);
+        AssertOutputCompiles(result.OutputCode);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("var__cs2j_n_b1=R()", compact);
+        Assert.Contains(
+            "x=(x.HasValue&&__cs2j_n_b1.HasValue?(int?)(x.Value+__cs2j_n_b1.Value):(int?)null)",
+            compact);
+
+        var asm = CompileAndLoad(result.OutputCode);
+        var type = asm.GetType("C")!;
+        Assert.Null(InvokeStatic(asm, "F", new object?[] { null }));
+        Assert.Equal(1, type.GetField("Calls")!.GetValue(null));
+        Assert.Equal(15, InvokeStatic(asm, "F", (object?)5));
+        Assert.Equal(2, type.GetField("Calls")!.GetValue(null));
+    }
+
+    [Fact]
+    public void M2_NL11_BoolCompound_AndOrXor_RuntimeTruthTable()
+    {
+        bool?[] values = [null, true, false];
+        foreach (var (op, kind) in new[]
+        {
+            ("&", SyntaxKind.AmpersandToken),
+            ("|", SyntaxKind.BarToken),
+            ("^", SyntaxKind.CaretToken),
+        })
+        {
+            var src = $$"""
+                public class C
+                {
+                    public static bool? F(bool? a, bool? b)
+                    {
+                        bool? x = a;
+                        x {{op}}= b;
+                        return x;
+                    }
+                }
+                """;
+
+            var result = Run(src);
+            Assert.True(result.Changed);
+            Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementCompoundSites);
+            AssertOutputCompiles(result.OutputCode);
+
+            var original = CompileAndLoad(src);
+            var rewritten = CompileAndLoad(result.OutputCode);
+            foreach (var a in values)
+            {
+                foreach (var b in values)
+                {
+                    Assert.Equal(
+                        InvokeStatic(original, "F", a, b),
+                        InvokeStatic(rewritten, "F", a, b));
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void M2_NL11_EnumBitCompound_BackstopShape_RuntimeTruthTable()
+    {
+        int?[] values = [null, 1, 2, 4];
+        foreach (var op in new[] { "&", "|", "^" })
+        {
+            var src = $$"""
+                public enum Color { Red = 1, Green = 2, Blue = 4 }
+                public class C
+                {
+                    public static string? F(Color? a, Color? b)
+                    {
+                        Color? x = a;
+                        x {{op}}= b;
+                        return x.HasValue ? x.Value.ToString() : null;
+                    }
+                }
+                """;
+
+            var result = Run(src);
+            Assert.True(result.Changed);
+            Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementCompoundSites);
+            AssertOutputCompiles(result.OutputCode);
+            Assert.Contains(
+                "x=(x.HasValue&&b.HasValue?(global::Color?)((global::Color)((int)(x.Value)" + op
+                + "(int)(b.Value))):(global::Color?)null)",
+                Compact(result.OutputCode));
+
+            var original = CompileAndLoad(src);
+            var rewritten = CompileAndLoad(result.OutputCode);
+            var originalEnum = original.GetType("Color")!;
+            var rewrittenEnum = rewritten.GetType("Color")!;
+            foreach (var a in values)
+            {
+                foreach (var b in values)
+                {
+                    var ea = a is int av ? System.Enum.ToObject(originalEnum, av) : null;
+                    var eb = b is int bv ? System.Enum.ToObject(originalEnum, bv) : null;
+                    var ra = a is int av2 ? System.Enum.ToObject(rewrittenEnum, av2) : null;
+                    var rb = b is int bv2 ? System.Enum.ToObject(rewrittenEnum, bv2) : null;
+                    Assert.Equal(
+                        InvokeStatic(original, "F", ea, eb)?.ToString(),
+                        InvokeStatic(rewritten, "F", ra, rb)?.ToString());
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void M2_NL11_ValueUsedCompound_SiteValueIsNewValue_RuntimeEquivalence()
+    {
+        var src = """
+            public class C
+            {
+                public static int? Site(int? a, int? b)
+                {
+                    int? x = a;
+                    var z = x += b;
+                    return z;
+                }
+
+                public static int? Stored(int? a, int? b)
+                {
+                    int? x = a;
+                    var z = x += b;
+                    return x;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Contains(
+            "z=(x=(x.HasValue&&b.HasValue?(int?)(x.Value+b.Value):(int?)null))",
+            Compact(result.OutputCode));
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? a in new int?[] { null, 3 })
+        {
+            foreach (int? b in new int?[] { null, 4 })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, "Site", a, b),
+                    InvokeStatic(rewritten, "Site", a, b));
+                Assert.Equal(
+                    InvokeStatic(original, "Stored", a, b),
+                    InvokeStatic(rewritten, "Stored", a, b));
+            }
+        }
+    }
+
+    [Fact]
+    public void M2_NL10_11_CheckedContext_InnerOpsGetCheckedHelpers_NullBranchBare()
+    {
+        // Decision 18: C15 post-sweeps the guarded increment/compound live
+        // branches to AddChecked helpers; the null branches stay bare.
+        var src = """
+            public class C
+            {
+                public static int? Inc(int? a)
+                {
+                    int? x = a;
+                    checked { x++; }
+                    return x;
+                }
+
+                public static int? Add(int? a)
+                {
+                    int? x = a;
+                    checked { x += 2; }
+                    return x;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error);
+        AssertOutputCompiles(result.OutputCode);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains(
+            "__cs2j_n_o1.HasValue?(int?)(Cs2jUnsigned.UnsignedMath.AddCheckedInt32(__cs2j_n_o1.Value,1)):(int?)null",
+            compact);
+        Assert.Contains(
+            "x.HasValue?(int?)(Cs2jUnsigned.UnsignedMath.AddCheckedInt32(x.Value,2)):(int?)null",
+            compact);
+        // Exactly two helper calls — none in a null branch.
+        Assert.Equal(2, compact.Split("UnsignedMath").Length - 1);
     }
 
     // ════════════════════════════════════════════════════════════════════

@@ -582,12 +582,13 @@ public class NumericBoundaryDecimalOpUnitTests
     }
 
     [Fact]
-    public void NullableDecimal_LiftedSites_GuardedByC22_InnerSweptByC34_CompoundStillDeferred()
+    public void NullableDecimal_LiftedSites_GuardedByC22_InnerSweptByC34_CompoundOwnedByM2()
     {
-        // C22 M1 (Order=15, decision 19) explicitizes lifted decimal? sites
-        // first: the HasValue guard wraps a BARE inner decimal op which C34
-        // (Order=30) then sweeps on the re-bound tree. The lifted compound
-        // a += 1m stays M2-owned and is the only site still deferred here.
+        // C22 (Order=15, decision 19) explicitizes lifted decimal? sites
+        // first: the HasValue guards wrap BARE inner decimal ops which C34
+        // (Order=30) then sweeps on the re-bound tree. From M2 the lifted
+        // compound a += 1m is itself owned by C22, so C34 sweeps its inner
+        // decimal op too and nothing remains in the lifted bucket.
         var src = """
             public class C
             {
@@ -610,12 +611,14 @@ public class NumericBoundaryDecimalOpUnitTests
         Assert.Contains("a.HasValue&&b.HasValue?(decimal?)((decimal.Add(a.Value,b.Value))):(decimal?)null", compact);
         // Guarded both-nullable equality with the inner compare swept.
         Assert.Contains("a.HasValue?(b.HasValue&&(decimal.Compare(a.Value,b.Value)==0)):!b.HasValue", compact);
-        // Lifted compound is NL-11 (M2): passes through and stays deferred.
-        Assert.Contains("a+=1m", compact);
-        Assert.Equal(1, result.Statistics.DecimalOps.DeferredByReason["lifted"]);
+        // Lifted compound owned by C22 M2; its one-sided guard's inner op is
+        // itself swept to decimal.Add by C34.
+        Assert.Contains("a=(a.HasValue?(decimal?)((decimal.Add(a.Value,1m))):(decimal?)null)", compact);
+        result.Statistics.DecimalOps.DeferredByReason.TryGetValue("lifted", out var liftedDeferred);
+        Assert.Equal(0, liftedDeferred);
         Assert.Equal(1, result.Statistics.Nullable.LiftedBinarySites);
         Assert.Equal(1, result.Statistics.Nullable.LiftedEqualityBothNullableSites);
-        Assert.Equal(0, result.Statistics.Nullable.LiftedIncrementCompoundSites);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedIncrementCompoundSites);
     }
 
     [Fact]

@@ -457,6 +457,65 @@ internal static class NullableLiftExpansion
     private static TypeSyntax EnumUnderlyingSyntax(INamedTypeSymbol enumType) =>
         UnderlyingTypeSyntax(enumType.EnumUnderlyingType!);
 
+    // ── NL-10 lifted increment/decrement (decision 15) ──
+
+    /// <summary>
+    /// NL-10 numeric lifted increment RHS guard (decision 15):
+    /// <c>s.HasValue ? (T?)(s.Value + 1) : (T?)null</c> (decrement uses
+    /// <c>- 1</c>). <paramref name="source"/> is the once-read value carrier:
+    /// the postfix old-value temp <c>__cs2j_n_oN</c> or the prefix target.
+    /// In a checked context the inner <c>+1</c> is swept to a C15 helper.
+    /// </summary>
+    public static ParenthesizedExpressionSyntax IncrementGuard(
+        OperandAccess source, bool isDecrement, ITypeSymbol underlying)
+    {
+        var nullableType = NullableTypeSyntax(underlying);
+        var valueType = UnderlyingTypeSyntax(underlying);
+        var inner = BinaryExpression(
+            isDecrement ? SyntaxKind.SubtractExpression : SyntaxKind.AddExpression,
+            source.ValueExpression(valueType),
+            Token(isDecrement ? SyntaxKind.MinusToken : SyntaxKind.PlusToken),
+            OneLiteral());
+        var conditional = Guard(ConditionalExpression(
+            source.HasValueExpression(),
+            CastNullable(nullableType, ParenthesizedExpression(inner)),
+            CastNull(nullableType)));
+        return ParenthesizedExpression(conditional);
+    }
+
+    /// <summary>
+    /// NL-10 enum-domain lifted increment RHS guard (decision 15, same cast
+    /// family as <see cref="EnumBackstopBinary"/>):
+    /// <c>s.HasValue ? (E?)(E)((U)s.Value + 1) : (E?)null</c>. The
+    /// <c>(U)</c> cast is required because enum + integer is not an
+    /// operator C# binds; the integer literal promotes to <c>U</c>.
+    /// </summary>
+    public static ParenthesizedExpressionSyntax EnumIncrementGuard(
+        OperandAccess source, bool isDecrement, INamedTypeSymbol enumType)
+    {
+        var underlyingSyntax = EnumUnderlyingSyntax(enumType);
+        var nullableEnum = NullableTypeSyntax(enumType);
+
+        var castedValue = CastExpression(
+            underlyingSyntax, ParenthesizedExpression(source.ValueExpression(underlyingSyntax)));
+        var inner = BinaryExpression(
+            isDecrement ? SyntaxKind.SubtractExpression : SyntaxKind.AddExpression,
+            castedValue,
+            Token(isDecrement ? SyntaxKind.MinusToken : SyntaxKind.PlusToken),
+            OneLiteral());
+        var enumCast = CastExpression(
+            UnderlyingTypeSyntax(enumType), ParenthesizedExpression(inner));
+
+        var conditional = Guard(ConditionalExpression(
+            source.HasValueExpression(),
+            CastNullable(nullableEnum, ParenthesizedExpression(enumCast)),
+            CastNull(nullableEnum)));
+        return ParenthesizedExpression(conditional);
+    }
+
+    private static LiteralExpressionSyntax OneLiteral() =>
+        LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(1));
+
     private static bool IsNarrowEnumUnderlying(SpecialType specialType) =>
         specialType is SpecialType.System_Byte
             or SpecialType.System_SByte

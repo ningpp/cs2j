@@ -1234,8 +1234,10 @@ public class NumericBoundaryIncrementTargetUnitTests
     }
 
     [Fact]
-    public void M2_NullableLifted_5335_Error_RollsBack()
+    public void M2_NullableLifted_5335_Error_RollsBack_WhenC22Disabled()
     {
+        // The C22 NL-10/11 handoff owns lifted RMW sites when EnableNullable;
+        // CS2J5335 remains the C17 behavior only with C22 switched off.
         var src = """
             public enum Color { Red, Green }
             public class C
@@ -1249,8 +1251,15 @@ public class NumericBoundaryIncrementTargetUnitTests
                 }
             }
             """;
+        var options = new NumericBoundaryOptions
+        {
+            EnableNullable = false,
+            EnableIncrementTargets = true,
+            EnableDecimalOps = false,
+            Strict = true,
+        };
 
-        var result = Run(src);
+        var result = Run(src, options);
 
         Assert.False(result.Changed);
         Assert.Equal(src, result.OutputCode);

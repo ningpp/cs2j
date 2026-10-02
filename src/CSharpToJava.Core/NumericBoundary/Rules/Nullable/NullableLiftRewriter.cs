@@ -12,13 +12,19 @@ namespace CSharpToJava.Core.NumericBoundary.Rules.Nullable;
 /// One hoisted site: the marker carried by the placeholder expression in the
 /// post-Pass1 tree, the bottom-up visit order (inner sites first — the
 /// execution order of the hoisted initializers), the anchor in the ORIGINAL
-/// tree, and the <c>var</c> declarations Pass2 splices in.
+/// tree, the <c>var</c> declarations Pass2 splices in, and (NL-10 postfix)
+/// the write statements spliced after the declarations. When
+/// <see cref="ConsumesAnchor"/> is set the site IS a standalone postfix
+/// expression statement: Pass2 replaces the whole anchor with the spliced
+/// statements instead of keeping the placeholder statement.
 /// </summary>
 internal sealed record PendingNullableLift(
     SyntaxAnnotation Marker,
     int Order,
     StatementSyntax OriginalAnchor,
-    List<LocalDeclarationStatementSyntax> Declarations);
+    List<LocalDeclarationStatementSyntax> Declarations,
+    List<StatementSyntax>? WriteStatements = null,
+    bool ConsumesAnchor = false);
 
 /// <summary>
 /// C22 M1 Pass 1 (design §4.3-4.5 / decisions 2-8): bottom-up syntax rewriter
@@ -176,6 +182,21 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
     {
         var visited = (PrefixUnaryExpressionSyntax)base.VisitPrefixUnaryExpression(node)!;
 
+        // NL-10: ++x / --x bind as IIncrementOrDecrementOperation (NOT an
+        // IUnaryOperation); the IUnary path below handles - + ~ ! only.
+        if (_model.GetOperation(node) is NBOp.IIncrementOrDecrementOperation { IsPostfix: false } prefixIncrement)
+        {
+            var targetClassification = ClassifyGatedRmwSite(node);
+            if (targetClassification == null)
+            {
+                return visited;
+            }
+
+            return RewriteIncrement(
+                node, visited, visited.Operand, prefixIncrement, targetClassification, isPostfix: false)
+                ?? visited;
+        }
+
         if (_model.GetOperation(node) is not NBOp.IUnaryOperation operation)
         {
             return visited;
@@ -280,6 +301,367 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         }
 
         return FinalizeSite(node, rewritten, _currentHoist);
+    }
+
+    public override SyntaxNode? VisitPostfixUnaryExpression(PostfixUnaryExpressionSyntax node)
+    {
+        var visited = (PostfixUnaryExpressionSyntax)base.VisitPostfixUnaryExpression(node)!;
+
+        if (_model.GetOperation(node) is not NBOp.IIncrementOrDecrementOperation { IsPostfix: true } postfixIncrement)
+        {
+            return visited;
+        }
+
+        var targetClassification = ClassifyGatedRmwSite(node);
+        if (targetClassification == null)
+        {
+            return visited;
+        }
+
+        return RewriteIncrement(
+            node, visited, visited.Operand, postfixIncrement, targetClassification, isPostfix: true)
+            ?? visited;
+    }
+
+    // ── NL-11 lifted compound assignment (decision 16) ──
+
+    public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
+    {
+        var visited = (AssignmentExpressionSyntax)base.VisitAssignmentExpression(node)!;
+
+        if (_model.GetOperation(node) is not NBOp.ICompoundAssignmentOperation compound)
+        {
+            return visited;
+        }
+
+        var targetClassification = ClassifyGatedRmwSite(node);
+        if (targetClassification == null)
+        {
+            return visited;
+        }
+
+        return RewriteCompound(node, visited, compound, targetClassification) ?? visited;
+    }
+
+    // ── NL-10/11 site rendering ──
+
+    /// <summary>
+    /// Shared error gate for lifted <c>++/--</c> and compound-assignment
+    /// sites (decisions 15-17/20-22). Returns the classification for a
+    /// C22-owned site, null for pass-through; site errors are reported here
+    /// (the whole file then rolls back via NB-12).
+    /// </summary>
+    private LiftedTargetClassification? ClassifyGatedRmwSite(ExpressionSyntax node)
+    {
+        var classification = _analyzer.ClassifyLiftedTarget(node);
+        if (classification is not { IsLifted: true })
+        {
+            return null;
+        }
+
+        if (_analyzer.IsWithinExpressionTree(node))
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftExpressionTree,
+                NullableLiftDiagnostics.ReasonExpressionTree,
+                NullableLiftDiagnostics.ExpressionTree(NullableLiftSyntaxFacts.SiteText(node)));
+            return null;
+        }
+
+        if (_model.GetOperation(node) is { } bound && NullableLiftAnalyzer.IsDynamicOperation(bound))
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftDynamic,
+                NullableLiftDiagnostics.ReasonDynamic,
+                NullableLiftDiagnostics.Dynamic(NullableLiftSyntaxFacts.SiteText(node)));
+            return null;
+        }
+
+        if (classification.Domain == NullableValueDomain.SpecialNumeric)
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftSpecialNumeric,
+                NullableLiftDiagnostics.ReasonSpecialNumeric,
+                NullableLiftDiagnostics.SpecialNumeric(NullableLiftSyntaxFacts.SiteText(node)));
+            return null;
+        }
+
+        if (classification.IsUserDefined)
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftUserDefinedOperator,
+                NullableLiftDiagnostics.ReasonUserDefinedOperator,
+                NullableLiftDiagnostics.UserDefinedOperator(NullableLiftSyntaxFacts.SiteText(node)));
+            return null;
+        }
+
+        // Decision 17: properties/indexers/events/?. /qualified non-field
+        // targets cannot be re-evaluated; v1 fails loudly until the C17 RMW
+        // read/write seam consumes the classification.
+        if (classification.TargetShape == NumericBoundaryAnalyzer.TargetShape.Complex)
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftComplexTarget,
+                NullableLiftDiagnostics.ReasonUnliftableContext,
+                NullableLiftDiagnostics.UnliftableContext(NullableLiftSyntaxFacts.SiteText(node)));
+            return null;
+        }
+
+        // Custom-struct (non-enum) built-in shapes are not reachable for
+        // lifted RMW; stay defensive and pass them through untouched.
+        if (classification.Domain is NullableValueDomain.Other
+            or NullableValueDomain.NotNullable)
+        {
+            return null;
+        }
+
+        return classification;
+    }
+
+    /// <summary>
+    /// NL-10 lifted <c>++/--</c> on a simple target (decision 15):
+    /// <list type="bullet">
+    /// <item>postfix always reads the old value once into
+    /// <c>__cs2j_n_oN</c>, splices the write before the anchor, and the
+    /// site expression becomes the old-value temp;</item>
+    /// <item>prefix renders an assignment expression
+    /// <c>x = x.HasValue ? (T?)(x.Value + 1) : (T?)null</c> — parenthesized
+    /// in value position, bare as a standalone statement;</item>
+    /// <item>enum targets add the E04 cast family <c>(E?)(E)((U)s.Value + 1)</c>.</item>
+    /// </list>
+    /// </summary>
+    private ExpressionSyntax? RewriteIncrement(
+        ExpressionSyntax original,
+        ExpressionSyntax visited,
+        ExpressionSyntax visitedTarget,
+        NBOp.IIncrementOrDecrementOperation increment,
+        LiftedTargetClassification classification,
+        bool isPostfix)
+    {
+        var underlying = ResolveUnderlying(increment.Target?.Type, increment.Type);
+        if (underlying == null)
+        {
+            return null;
+        }
+
+        _currentHoist = null;
+        var standalone = original.Parent is ExpressionStatementSyntax expressionStatement
+            && expressionStatement.Expression == original;
+        var isDecrement = original.Kind() is SyntaxKind.PreDecrementExpression
+            or SyntaxKind.PostDecrementExpression;
+
+        string? oldName = null;
+        OperandAccess sourceAccess;
+        HoistState? hoist = null;
+
+        if (isPostfix)
+        {
+            // The old value is read exactly once even in a standalone
+            // statement: one uniform shape keeps target evaluation honest
+            // (fields included) and matches decision 15's spelling.
+            hoist = EnsureHoist(original);
+            if (hoist == null)
+            {
+                return null;
+            }
+
+            oldName = _names.Old(hoist.SiteNumber);
+            hoist.Declarations.Add(VarDeclaration(oldName, visitedTarget));
+            sourceAccess = OperandAccess.Direct(IdentifierName(oldName), isNullablePosition: true);
+        }
+        else
+        {
+            sourceAccess = OperandAccess.Direct(visitedTarget, isNullablePosition: true);
+        }
+
+        var guard = classification.Domain == NullableValueDomain.Enum
+                && underlying is INamedTypeSymbol enumType
+            ? NullableLiftExpansion.EnumIncrementGuard(sourceAccess, isDecrement, enumType)
+            : NullableLiftExpansion.IncrementGuard(sourceAccess, isDecrement, underlying);
+
+        var assignment = AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            visitedTarget,
+            Token(SyntaxKind.EqualsToken),
+            guard);
+
+        if (isPostfix)
+        {
+            hoist!.WriteStatements.Add(ExpressionStatement(assignment)
+                .WithAdditionalAnnotations(
+                    NB.RewriteAnnotation,
+                    new SyntaxAnnotation(NullableLiftSyntaxFacts.RewriteAnnotationKind)));
+            hoist.ConsumesAnchor = standalone;
+            _stats.LiftedIncrementPostfixSites++;
+
+            // The postfix expression's value is the OLD nullable value.
+            var placeholder = IdentifierName(oldName!);
+            return FinalizeSite(original, placeholder, hoist);
+        }
+
+        _stats.LiftedIncrementPrefixSites++;
+        ExpressionSyntax rewritten = standalone
+            ? assignment
+            : ParenthesizedExpression(assignment);
+        return FinalizeSite(original, rewritten, hoist);
+    }
+
+    /// <summary>
+    /// NL-11 lifted compound assignment on a simple target (decision 16):
+    /// <c>x = (x.HasValue &amp;&amp; __y.HasValue ? (T?)(x.Value op __y.Value) : (T?)null)</c>.
+    /// An unstable RHS is read once via the ordinary b-role hoist; the simple
+    /// target's repeated reads are legal. <c>bool? &amp;= |=</c> reuse the
+    /// three-valued guards, <c>^=</c> is plain null propagation and
+    /// <c>E?</c> bit compounds reuse the NL-9 backstop.
+    /// </summary>
+    private ExpressionSyntax? RewriteCompound(
+        AssignmentExpressionSyntax original,
+        AssignmentExpressionSyntax visited,
+        NBOp.ICompoundAssignmentOperation compound,
+        LiftedTargetClassification classification)
+    {
+        if (!TryGetCompoundOperators(original.Kind(), out var binaryKind, out var operatorKind))
+        {
+            return null;
+        }
+
+        var underlying = ResolveUnderlying(compound.Target?.Type, compound.Type);
+        if (underlying == null)
+        {
+            return null;
+        }
+
+        _currentHoist = null;
+
+        var targetAccess = OperandAccess.Direct(visited.Left, isNullablePosition: true);
+
+        var (rightOk, rightAccess) = PrepareOperand(
+            original, original.Right, visited.Right, compound.Value,
+            sideNullable: RightSideIsNullable(original, compound), isLeft: false);
+        if (!rightOk)
+        {
+            return null;
+        }
+
+        ExpressionSyntax guard;
+        switch (classification.Domain)
+        {
+            case NullableValueDomain.Bool when binaryKind == SyntaxKind.BitwiseAndExpression:
+                guard = NullableLiftExpansion.LiftedBoolAnd(targetAccess, rightAccess);
+                break;
+            case NullableValueDomain.Bool when binaryKind == SyntaxKind.BitwiseOrExpression:
+                guard = NullableLiftExpansion.LiftedBoolOr(targetAccess, rightAccess);
+                break;
+            case NullableValueDomain.Bool when binaryKind == SyntaxKind.ExclusiveOrExpression:
+                // Decision 8: bool? ^ is plain lifted null propagation.
+                guard = NullableLiftExpansion.LiftedBinaryGuard(
+                    SyntaxKind.ExclusiveOrExpression, SyntaxKind.CaretToken,
+                    targetAccess, rightAccess, underlying);
+                break;
+            case NullableValueDomain.Enum when underlying is INamedTypeSymbol enumType:
+                guard = NullableLiftExpansion.EnumBackstopBinary(
+                    binaryKind, operatorKind, targetAccess, rightAccess, enumType);
+                break;
+            case NullableValueDomain.Integer
+                or NullableValueDomain.Unsigned
+                or NullableValueDomain.Floating
+                or NullableValueDomain.Decimal:
+                guard = NullableLiftExpansion.LiftedBinaryGuard(
+                    binaryKind, operatorKind, targetAccess, rightAccess, underlying);
+                break;
+            default:
+                return null;
+        }
+
+        _stats.LiftedIncrementCompoundSites++;
+
+        var assignment = AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            visited.Left,
+            Token(SyntaxKind.EqualsToken),
+            guard);
+
+        var standalone = original.Parent is ExpressionStatementSyntax expressionStatement
+            && expressionStatement.Expression == original;
+        ExpressionSyntax rewritten = standalone
+            ? assignment
+            : ParenthesizedExpression(assignment);
+        return FinalizeSite(original, rewritten, _currentHoist);
+    }
+
+    /// <summary>
+    /// Nullable position of a compound's RHS as WRITTEN in source: a null
+    /// constant or an expression whose natural type is <c>T?</c> participates
+    /// in the two-nullable guard; a bare RHS whose natural type is the
+    /// underlying <c>T</c> (e.g. <c>x -= 1</c>) is a non-nullable one-sided
+    /// position. The bound <see cref="NBOp.ICompoundAssignmentOperation.Value"/>
+    /// already carries the lifted in-conversion (<c>1</c> types as <c>int?</c>),
+    /// so the operation type alone cannot distinguish the two.
+    /// </summary>
+    private bool RightSideIsNullable(
+        AssignmentExpressionSyntax original,
+        NBOp.ICompoundAssignmentOperation compound)
+    {
+        if (NullableLiftAnalyzer.IsNullConstant(compound.Value))
+        {
+            return true;
+        }
+
+        return NullableLiftAnalyzer.IsNullableType(_model.GetTypeInfo(original.Right).Type);
+    }
+
+    private static bool TryGetCompoundOperators(
+        SyntaxKind assignmentKind,
+        out SyntaxKind binaryKind,
+        out SyntaxKind operatorKind)
+    {
+        switch (assignmentKind)
+        {
+            case SyntaxKind.AddAssignmentExpression:
+                binaryKind = SyntaxKind.AddExpression;
+                operatorKind = SyntaxKind.PlusToken;
+                return true;
+            case SyntaxKind.SubtractAssignmentExpression:
+                binaryKind = SyntaxKind.SubtractExpression;
+                operatorKind = SyntaxKind.MinusToken;
+                return true;
+            case SyntaxKind.MultiplyAssignmentExpression:
+                binaryKind = SyntaxKind.MultiplyExpression;
+                operatorKind = SyntaxKind.AsteriskToken;
+                return true;
+            case SyntaxKind.DivideAssignmentExpression:
+                binaryKind = SyntaxKind.DivideExpression;
+                operatorKind = SyntaxKind.SlashToken;
+                return true;
+            case SyntaxKind.ModuloAssignmentExpression:
+                binaryKind = SyntaxKind.ModuloExpression;
+                operatorKind = SyntaxKind.PercentToken;
+                return true;
+            case SyntaxKind.LeftShiftAssignmentExpression:
+                binaryKind = SyntaxKind.LeftShiftExpression;
+                operatorKind = SyntaxKind.LessThanLessThanToken;
+                return true;
+            case SyntaxKind.RightShiftAssignmentExpression:
+                binaryKind = SyntaxKind.RightShiftExpression;
+                operatorKind = SyntaxKind.GreaterThanGreaterThanToken;
+                return true;
+            case SyntaxKind.AndAssignmentExpression:
+                binaryKind = SyntaxKind.BitwiseAndExpression;
+                operatorKind = SyntaxKind.AmpersandToken;
+                return true;
+            case SyntaxKind.OrAssignmentExpression:
+                binaryKind = SyntaxKind.BitwiseOrExpression;
+                operatorKind = SyntaxKind.BarToken;
+                return true;
+            case SyntaxKind.ExclusiveOrAssignmentExpression:
+                binaryKind = SyntaxKind.ExclusiveOrExpression;
+                operatorKind = SyntaxKind.CaretToken;
+                return true;
+            default:
+                binaryKind = default;
+                operatorKind = default;
+                return false;
+        }
     }
 
     // ── site rendering ──
@@ -802,7 +1184,9 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         if (hoist != null)
         {
             _pending.Add(new PendingNullableLift(
-                hoist.Marker, hoist.SiteNumber, hoist.Anchor, hoist.Declarations));
+                hoist.Marker, hoist.SiteNumber, hoist.Anchor, hoist.Declarations,
+                hoist.WriteStatements.Count == 0 ? null : hoist.WriteStatements,
+                hoist.ConsumesAnchor));
             _stats.TempsLifted += hoist.Declarations.Count;
             rewritten = rewritten.WithAdditionalAnnotations(
                 hoist.Marker,
@@ -904,5 +1288,11 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         SyntaxAnnotation Marker)
     {
         public List<LocalDeclarationStatementSyntax> Declarations { get; } = new();
+
+        /// <summary>NL-10 postfix: read-modify-write statements spliced after <see cref="Declarations"/>.</summary>
+        public List<StatementSyntax> WriteStatements { get; } = new();
+
+        /// <summary>NL-10 standalone postfix: Pass2 drops the placeholder anchor statement.</summary>
+        public bool ConsumesAnchor { get; set; }
     }
 }

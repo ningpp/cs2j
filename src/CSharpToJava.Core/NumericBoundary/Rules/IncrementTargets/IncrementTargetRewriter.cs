@@ -107,6 +107,17 @@ internal sealed class IncrementTargetRewriter : CSharpSyntaxRewriter
                         IncrementTargetDiagnostics.NativeInt(IncrementTargetSyntaxFacts.SiteText(node)));
                     continue;
                 case ArithmeticCore.LiftedNullable:
+                    // C22 NL-10/11 handoff (decisions 15-17): when the
+                    // nullable-lift family rule is enabled it owns lifted
+                    // ++/--/compound sites — simple targets get explicit
+                    // HasValue guards, complex targets CS2J5355. C17 leaves
+                    // the node untouched (no plan = no rewrite); CS2J5335
+                    // only fires when C22 is switched off.
+                    if (_options.EnableNullable)
+                    {
+                        continue;
+                    }
+
                     ReportSiteError(node,
                         PreprocessDiagnosticCodes.IncrementTargetNullableLifted,
                         IncrementTargetDiagnostics.ReasonLifted,
