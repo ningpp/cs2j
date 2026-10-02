@@ -22,7 +22,9 @@ public sealed class ClosureLiftSdkAuditHarness
     private const string ReportFileName = "2026-10-02-c32-sdk-capture-hitrate.md";
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
-    private static readonly ClosureLiftOptions AuditOptions = new(Strict: false);
+    // M2 起门面默认执行真实改写；本 harness 的契约是审计画像（逐字不改名），
+    // 故显式 AuditOnly（M1 时改写能力尚不存在，该位曾被忽略）。
+    private static readonly ClosureLiftOptions AuditOptions = new(Strict: false, AuditOnly: true);
 
     private readonly ITestOutputHelper _output;
 

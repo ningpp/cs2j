@@ -911,6 +911,152 @@ class C {
         Assert.DoesNotContain("_cs2jCap_c", rr.OutputCode);
     }
 
+    // ── M2 transform tests: final group (design §7.1 20-25) ──
+
+    [Fact]
+    public void Transform_ThisAndFieldCapture_Unchanged()
+    {
+        var src = @"
+class C {
+    private int _n;
+    void Use() { }
+    void M() {
+        System.Action a = () => { Use(); _n++; };
+        a();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Empty(HolderClassNames(r.OutputCode));
+    }
+
+    [Fact]
+    public void Transform_MultiDeclarator_OnlyLiftedSymbolRemoved()
+    {
+        var src = @"
+class C {
+    void M() {
+        int a = 1, b = 2;
+        System.Action w = () => a++;
+        System.Console.WriteLine(b);
+        w();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Contains("int b = 2;", r.OutputCode);
+        Assert.DoesNotContain("int a =", r.OutputCode);
+        Assert.Empty(BareIdentifiers(r.OutputCode, "a"));
+        Assert.Single(BareIdentifiers(r.OutputCode, "b")); // WriteLine(b) 原样保留
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_Idempotent_SecondRunUnchangedByteIdentical()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => x++;
+        x = 1;
+        a();
+    }
+}";
+        var r1 = Transform(src);
+        Assert.True(r1.Changed);
+
+        // Fresh preprocessor + freshly parsed semantic model: reentry relies on
+        // the reserved name prefixes only, exactly like the project pipeline.
+        var r2 = new ClosureLiftPreprocessor().Preprocess(
+            r1.OutputCode, ParseWithSemantics(r1.OutputCode), new ClosureLiftOptions());
+
+        Assert.False(r2.Changed);
+        Assert.Equal(r1.OutputCode, r2.OutputCode);
+        Assert.Equal(0, r2.Statistics.HolderClassesGenerated);
+        Assert.DoesNotContain("CS2J3207", string.Join("\n", r2.Diagnostics.Select(d => d.Code)));
+    }
+
+    [Fact]
+    public void Transform_AuditOnly_StillVerbatimWithRows()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => x++;
+    }
+}";
+        var r = Transform(src, new ClosureLiftOptions(AuditOnly: true));
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Equal(0, r.Statistics.FilesTransformed);
+        var row = Assert.Single(r.Diagnostics.Where(d => d.Code == "CS2J3207"));
+        Assert.Equal("x", row.SymbolName);
+        Assert.Contains("Cs2jDisplayClass_M_0", row.Message);
+    }
+
+    [Fact]
+    public void Transform_SingleElementArrayForm_SlotShapeCompilesAndIsIdempotent()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => { System.Console.WriteLine(x); };
+        x = 1;
+        a();
+    }
+}";
+        var options = new ClosureLiftOptions(HolderForm: HolderForm.SingleElementArray);
+        var r = Transform(src, options);
+
+        Assert.True(r.Changed);
+        Assert.DoesNotContain("Cs2jDisplayClass", r.OutputCode);
+        Assert.Contains("var __cs2jArr_x = new int[1];", r.OutputCode);
+        Assert.Contains("__cs2jArr_x[0] = 0;", r.OutputCode);
+        Assert.Contains("__cs2jArr_x[0] = 1;", r.OutputCode);
+        Assert.Contains("System.Console.WriteLine(__cs2jArr_x[0])", r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+
+        var r2 = new ClosureLiftPreprocessor().Preprocess(
+            r.OutputCode, ParseWithSemantics(r.OutputCode), options);
+        Assert.False(r2.Changed);
+        Assert.Equal(r.OutputCode, r2.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_NameOfAttributeAndXmlDoc_SameNameIdentifiersPreserved()
+    {
+        var src = @"
+class C {
+    /// <param name=""seed"">documented</param>
+    [System.Obsolete(nameof(seed))]
+    void M(int seed) {
+        seed = 1;
+        System.Action a = () => seed++;
+        var n = nameof(seed);
+        System.Console.WriteLine(n);
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Contains("/// <param name=\"seed\">documented</param>", r.OutputCode);
+        Assert.Contains("[System.Obsolete(nameof(seed))]", r.OutputCode);
+        Assert.Contains("var n = nameof(seed);", r.OutputCode);
+        Assert.DoesNotContain("nameof(__cs2jClosure", r.OutputCode);
+
+        // Snapshot RHS (1) + the two nameof(seed) IdentifierNames (2) = 3;
+        // every other seed site is field-backed.
+        Assert.Equal(3, BareIdentifiers(r.OutputCode, "seed").Count);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
     // ── Helpers (mirror IteratorLoweringUnitTests L465-514) ──
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
