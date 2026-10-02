@@ -42,7 +42,8 @@ internal static class LiteralNormalizationVerifier
         var root = tree.GetCompilationUnitRoot();
 
         // M2 additionally gates this block on NormalizeVerbatimLiterals.
-        if (options.NormalizeRawLiterals || options.NormalizeEscEscapes)
+        if (options.NormalizeRawLiterals || options.NormalizeEscEscapes
+            || options.NormalizeVerbatimLiterals)
         {
             var actualStrings = Multiset(
                 root.DescendantTokens()
@@ -70,7 +71,24 @@ internal static class LiteralNormalizationVerifier
             }
         }
 
-        // M2 inserts the u8 blob subset block here.
+        if (options.NormalizeUtf8Literals && recorder.ExpectedUtf8Blobs.Count > 0)
+        {
+            var actualBlobs = Multiset(
+                root.DescendantNodes()
+                    .OfType<ArrayCreationExpressionSyntax>()
+                    .Select(TryExtractByteBlob)
+                    .Where(blob => blob is not null)
+                    .Select(blob => BlobKey(blob!)),
+                StringComparer.Ordinal);
+
+            var expectedBlobs = recorder.ExpectedUtf8Blobs.Select(BlobKey).ToList();
+            if (!ContainsAll(actualBlobs, expectedBlobs))
+            {
+                diagnostics.Add(Fatal(
+                    LexicalNormalizeCodes.Utf8ValueFidelity,
+                    "[LL-2] UTF-8 byte blob multiset is missing expected sequence(s); file rolled back"));
+            }
+        }
 
         recorder.ResidualCount = CountResidual(root, options);
         if (recorder.ResidualCount > 0)
@@ -113,6 +131,21 @@ internal static class LiteralNormalizationVerifier
             }
 
             // M2 inserts the u8 and verbatim residual branches here.
+
+            if (options.NormalizeUtf8Literals
+                && token.IsKind(SyntaxKind.Utf8StringLiteralToken))
+            {
+                residual++;
+                continue;
+            }
+
+            if (options.NormalizeVerbatimLiterals
+                && token.IsKind(SyntaxKind.StringLiteralToken)
+                && token.Text.StartsWith("@\"", StringComparison.Ordinal))
+            {
+                residual++;
+                continue;
+            }
 
             if (options.NormalizeEscEscapes
                 && ((token.IsKind(SyntaxKind.StringLiteralToken)
@@ -160,6 +193,52 @@ internal static class LiteralNormalizationVerifier
         }
 
         return true;
+    }
+
+    private static string BlobKey(IReadOnlyList<byte> bytes)
+        => string.Concat(bytes.Select(b => b.ToString("X2")));
+
+    /// <summary>
+    /// Recognizes only arrays shaped exactly like ByteLiteralFactory output:
+    /// byte[] with omitted rank size and an initializer whose elements are all
+    /// (byte) numeric constants. Anything else is a pre-existing array and is
+    /// ignored (multiset subset allows extra same-shaped arrays).
+    /// </summary>
+    private static byte[]? TryExtractByteBlob(ArrayCreationExpressionSyntax array)
+    {
+        if (array.Type.ElementType is not PredefinedTypeSyntax elementType
+            || !elementType.Keyword.IsKind(SyntaxKind.ByteKeyword))
+        {
+            return null;
+        }
+
+        if (array.Type.RankSpecifiers.Count != 1
+            || array.Type.RankSpecifiers[0].Sizes.Count != 1
+            || array.Type.RankSpecifiers[0].Sizes[0] is not OmittedArraySizeExpressionSyntax
+            || array.Initializer is null)
+        {
+            return null;
+        }
+
+        var bytes = new List<byte>();
+        foreach (var expression in array.Initializer.Expressions)
+        {
+            if (expression is not CastExpressionSyntax cast
+                || cast.Type is not PredefinedTypeSyntax castType
+                || !castType.Keyword.IsKind(SyntaxKind.ByteKeyword)
+                || cast.Expression is not LiteralExpressionSyntax numeric
+                || !numeric.IsKind(SyntaxKind.NumericLiteralExpression)
+                || numeric.Token.Value is not int value
+                || value < 0
+                || value > 255)
+            {
+                return null;
+            }
+
+            bytes.Add((byte)value);
+        }
+
+        return bytes.ToArray();
     }
 
     private static LexicalNormalizeDiagnostic Fatal(string code, string message)

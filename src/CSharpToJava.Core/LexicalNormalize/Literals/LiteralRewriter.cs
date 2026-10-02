@@ -36,7 +36,15 @@ internal sealed class LiteralRewriter : CSharpSyntaxRewriter
             replacement = EscEscapeLiteralRewriter.TryRewrite(node, _recorder);
         }
 
-        // M2 inserts the LL-2 and LL-3 branches immediately before this return.
+        if (replacement is null && _options.NormalizeUtf8Literals)
+        {
+            replacement = Utf8SuffixLiteralRewriter.TryRewrite(node, _recorder);
+        }
+
+        if (replacement is null && _options.NormalizeVerbatimLiterals)
+        {
+            replacement = VerbatimLiteralRewriter.TryRewrite(node, _recorder);
+        }
 
         return (SyntaxNode?)replacement ?? node;
     }

@@ -290,4 +290,203 @@ public sealed class LexicalLiteralNormalizeTests
 
         return (passes, failure);
     }
+
+    [Fact]
+    public void LL2_Utf8_AsciiAndEmpty_EmitHexCasts_WithExactByteCounts()
+    {
+        const string source = """
+            public class C
+            {
+                public void M()
+                {
+                    System.ReadOnlySpan<byte> a = "abc"u8;
+                    System.ReadOnlySpan<byte> e = ""u8;
+                    System.Console.WriteLine(a.Length + e.Length);
+                }
+            }
+            """;
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.Utf8LiteralsExpanded);
+        Assert.Equal(3, result.Statistics.Utf8BytesEmitted);
+        Assert.Contains("(byte)0x61", result.OutputCode);
+        Assert.Contains("(byte)0x62", result.OutputCode);
+        Assert.Contains("(byte)0x63", result.OutputCode);
+        Assert.Contains("new byte[]", result.OutputCode);
+        Assert.DoesNotContain("\"u8", result.OutputCode);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
+    }
+
+    [Fact]
+    public void LL2_ByteLiteralFactory_EmitsExpectedCastSyntax()
+    {
+        var array = ByteLiteralFactory.Create(new byte[] { 0x61, 0xFF });
+
+        // Regression pin (2026-10-02 probe): the convenience factory's
+        // auto-supplied `new` keyword serializes without a separator space
+        // (`newbyte[]`), which reparses as a syntax error.
+        Assert.StartsWith("new byte[]", array.ToFullString());
+        Assert.Equal(2, array.Initializer!.Expressions.Count);
+        Assert.Equal("(byte)0x61", array.Initializer.Expressions[0].ToString());
+        Assert.Equal("(byte)0xFF", array.Initializer.Expressions[1].ToString());
+        Assert.Empty(ByteLiteralFactory.Create(System.Array.Empty<byte>()).Initializer!.Expressions);
+    }
+
+    [Fact]
+    public void LL2_Utf8_ChineseAndEmoji_MatchEncoding_AndEmitNoBom()
+    {
+        var chinese = ParseLiteralExpression("\"中\"u8");
+        var emoji = ParseLiteralExpression("\"😀\"u8");
+        var recorder = new LiteralRewriteRecorder();
+
+        var chineseArray = Utf8SuffixLiteralRewriter.TryRewrite(chinese, recorder)!;
+        var emojiArray = Utf8SuffixLiteralRewriter.TryRewrite(emoji, recorder)!;
+
+        Assert.Equal(new byte[] { 0xE4, 0xB8, 0xAD }, recorder.ExpectedUtf8Blobs[0]);
+        Assert.Equal(new byte[] { 0xF0, 0x9F, 0x98, 0x80 }, recorder.ExpectedUtf8Blobs[1]);
+        Assert.Equal(2, recorder.Utf8Expanded);
+        Assert.Equal(7, recorder.Utf8Bytes);
+        Assert.DoesNotContain("0xEF", chineseArray.ToString());
+        Assert.DoesNotContain("0xEF", emojiArray.ToString());
+    }
+
+    [Fact]
+    public void LL2_Utf8_HalfRangeBytes_7F_80_FF_ArePreserved()
+    {
+        var node = ParseLiteralExpression("\"\u007F\u0080\u00FF\"u8");
+        var recorder = new LiteralRewriteRecorder();
+
+        Utf8SuffixLiteralRewriter.TryRewrite(node, recorder);
+
+        Assert.Equal(new byte[] { 0x7F, 0xC2, 0x80, 0xC3, 0xBF }, recorder.ExpectedUtf8Blobs[0]);
+    }
+
+    [Fact]
+    public void LL2_Utf8_LoneSurrogate_NetReplacement_EmitsFffdBlob()
+    {
+        var source = "public class C { object x = \"\uD800\"u8; }\n";
+
+        // M0 probe follow-up (2026-10-02): CS9026 is a compilation-time
+        // diagnostic that this pure-syntax pass (no Compilation) never sees —
+        // the syntax tree parses clean, so the D5 branch-B mapping "parse
+        // errors roll the file back" does not exist. The pipeline behavior is
+        // therefore D5 branch A: Encoding.UTF8's default replacement strategy
+        // maps the lone surrogate to U+FFFD (EF BF BD) and the rewrite stands.
+        // Production code keeps no special case (CS2J5583 stays reserved).
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Utf8LiteralsExpanded);
+        Assert.Equal(3, result.Statistics.Utf8BytesEmitted);
+        Assert.Contains("(byte)0xEF", result.OutputCode);
+        Assert.Contains("(byte)0xBF", result.OutputCode);
+        Assert.Contains("(byte)0xBD", result.OutputCode);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
+    }
+
+    [Fact]
+    public void LL5_MissingExpectedUtf8Blob_FailsFidelity_With5581()
+    {
+        var recorder = new LiteralRewriteRecorder();
+        recorder.RecordUtf8(new byte[] { 0x01, 0x02 });
+
+        var outcome = LiteralNormalizationVerifier.Verify(
+            "public class C { }",
+            new LexicalNormalizeOptions(),
+            recorder);
+
+        Assert.True(outcome.Fatal);
+        Assert.Contains(outcome.Diagnostics, d => d.Code == "CS2J5581");
+    }
+
+    [Fact]
+    public void LL3_Verbatim_DoubledQuotes_Crlf_AndBackslashes_AreRegularStrings()
+    {
+        var source = "public class C {\n"
+            + "public string A = @\"a\"\"b\";\n"
+            + "public string B = @\"line1\r\nline2\";\n"
+            + "public string P = @\"C:\\path\";\n}";
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        Assert.Equal(3, result.Statistics.VerbatimLiteralsNormalized);
+        Assert.Contains("\"a\\\"b\"", result.OutputCode);
+        Assert.Contains("\"line1\\r\\nline2\"", result.OutputCode);
+        Assert.Contains("\"C:\\\\path\"", result.OutputCode);
+        Assert.DoesNotContain("@\"", result.OutputCode);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
+    }
+
+    [Fact]
+    public void LL4_InterpolatedForms_SkippedAndBucketed_HoleLiteralsStillRewritten()
+    {
+        const string source = """"
+            public class C
+            {
+                public string A(int x) => $"x{x}";
+                public string B(int x) => $@"a""{x}";
+                public string C(int x) => @$"{x}";
+                public string D(int x) => $"""raw {x}""";
+                public string E(int x) => $$"""{{x}}""";
+                public string F() => $"{("""inner""")}";
+            }
+            """";
+
+        var result = Run(source);
+
+        Assert.True(result.Changed);
+        // A `$"x{x}"` 与 F `$"{(...)}"` 的外层各一个常规插值串；F 洞内的 raw 仍被改写。
+        Assert.Equal(2, result.Statistics.InterpolatedRegularSkipped);
+        Assert.Equal(2, result.Statistics.InterpolatedVerbatimSkipped);
+        Assert.Equal(2, result.Statistics.InterpolatedRawSkipped);
+        Assert.Equal(1, result.Statistics.RawLiteralsSingleLine);
+        Assert.Contains("$\"x{x}\"", result.OutputCode);
+        Assert.Contains("$@\"a\"\"{x}\"", result.OutputCode);
+        Assert.Contains("@$\"{x}\"", result.OutputCode);
+        Assert.Contains("$\"\"\"raw {x}\"\"\"", result.OutputCode);
+        Assert.Contains("$$\"\"\"{{x}}\"\"\"", result.OutputCode);
+        Assert.Contains("\"inner\"", result.OutputCode);
+        Assert.DoesNotContain("(\"\"\"inner\"\"\")", result.OutputCode);
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == LexicalNormalizeSeverity.Error));
+    }
+
+    [Fact]
+    public void LL_AllRules_SecondRunIsClean_AndByteIdempotent()
+    {
+        var source = "public class C { public void M() {\n"
+            + "string r = \"\"\"\nx\n\"\"\";\n"
+            + "System.ReadOnlySpan<byte> u = \"ab\"u8;\n"
+            + "string v = @\"a\r\nb\";\n"
+            + "string e = \"\\e\";\n} }\n";
+
+        var first = Run(source);
+        Assert.True(first.Changed);
+
+        var second = Run(first.OutputCode);
+        Assert.False(second.Changed);
+        Assert.Equal(1, second.Statistics.FilesSkippedClean);
+        Assert.Equal(first.OutputCode, second.OutputCode);
+    }
+
+    [Fact]
+    public void LL2_LL3_DisableSwitches_OnlyTargetedRulesAreSuppressed()
+    {
+        var source = "public class C { public void M() { "
+            + "System.ReadOnlySpan<byte> u = \"a\"u8; string v = @\"b\"; } }\n";
+
+        var u8Off = Run(source, new LexicalNormalizeOptions { NormalizeUtf8Literals = false });
+        Assert.True(u8Off.Changed);
+        Assert.Equal(0, u8Off.Statistics.Utf8LiteralsExpanded);
+        Assert.Equal(1, u8Off.Statistics.VerbatimLiteralsNormalized);
+        Assert.Contains("\"a\"u8", u8Off.OutputCode);
+
+        var verbatimOff = Run(source, new LexicalNormalizeOptions { NormalizeVerbatimLiterals = false });
+        Assert.True(verbatimOff.Changed);
+        Assert.Equal(1, verbatimOff.Statistics.Utf8LiteralsExpanded);
+        Assert.Equal(0, verbatimOff.Statistics.VerbatimLiteralsNormalized);
+        Assert.Contains("@\"b\"", verbatimOff.OutputCode);
+    }
 }
