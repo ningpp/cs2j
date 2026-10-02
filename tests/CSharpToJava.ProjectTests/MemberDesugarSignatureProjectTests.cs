@@ -53,13 +53,6 @@ public class MemberDesugarSignatureProjectTests
                 {
                     Enabled = true,
                     Strict = false,
-                    // 既有 fixture 的 `new` 属性隐藏（C11 已拥有的访问器面）在此按 C46 口径跳过：
-                    // NH 属性面的跨文件访问器站点重命名依赖 C11 方法化后的整树模型，当前 pass
-                    // 架构按文件重解析，跨文件属性访问器无法绑定（M4a 遗留口径；方法面不受影响）。
-                    SkipSignatures = new HashSet<string>(StringComparer.Ordinal)
-                    {
-                        "SampleMemberDesugarLib.HidingDerived::Name",
-                    },
                 },
             };
             var adapter = new MemberDesugarPassAdapter(
@@ -133,6 +126,17 @@ public class MemberDesugarSignatureProjectTests
             AssertContainsNormalized(app, "d.Tag_cs2jNew()");             // 隐藏成员派生静态类型站点
             AssertContainsNormalized(app, "d.Items_cs2jCovariant()");     // 协变派生静态类型站点
             AssertContainsNormalized(app, "b.Items()");                   // 基类静态类型站点不动
+
+            // ---- M4c：访问器面跨文件站点（声明在 Lib/DtoSamples.cs，站点在 App/Program.cs）----
+            var dto = await File.ReadAllTextAsync(Path.Combine(libRoot, "DtoSamples.cs"));
+            AssertDoesNotContainNormalized(dto, "new string Name");
+            AssertContainsNormalized(dto, "public string get_Name_cs2jNew()");
+            AssertContainsNormalized(dto, "public void set_Name_cs2jNew(string value)");
+
+            var program = await File.ReadAllTextAsync(
+                Path.Combine(run.IntermediateRoot, "SampleMemberDesugarApp", "Program.cs"));
+            AssertContainsNormalized(program, "hd.get_Name_cs2jNew()");    // 派生静态类型站点改名（回退绑定）
+            AssertContainsNormalized(program, "hb.get_Name()");            // 基类静态类型站点不动
         }
         finally
         {

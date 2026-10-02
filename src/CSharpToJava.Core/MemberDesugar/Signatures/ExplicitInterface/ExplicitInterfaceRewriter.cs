@@ -21,6 +21,7 @@ internal sealed class ExplicitInterfaceRewriter : CSharpSyntaxRewriter
     private readonly SemanticModel _model;
     private readonly Dictionary<string, SiPlan> _active;
     private readonly Dictionary<string, SiPlan> _displaced;
+    private readonly Dictionary<(string Type, string Name, int Arity), string> _displacedAccessor;
     private readonly HashSet<string> _owned;
     private readonly MemberDesugarOptions _options;
     private readonly MemberDesugarStatistics _stats;
@@ -39,10 +40,18 @@ internal sealed class ExplicitInterfaceRewriter : CSharpSyntaxRewriter
         _model = model;
         _active = new Dictionary<string, SiPlan>(StringComparer.Ordinal);
         _displaced = new Dictionary<string, SiPlan>(StringComparer.Ordinal);
+        _displacedAccessor = new Dictionary<(string, string, int), string>();
         foreach (var plan in plannedPlans)
         {
             foreach (var key in plan.ImplementationKeys) _active[key] = plan;
-            if (plan.DisplacedKey != null) _displaced[plan.DisplacedKey] = plan;
+            if (plan.DisplacedKey != null)
+            {
+                _displaced[plan.DisplacedKey] = plan;
+                // M4c：从让位成员键派生访问器回退项（含入类型 + 访问器原始名 + 参数个数 → 新名）。
+                if (plan.DisplacedName != null)
+                    SignatureSyntaxFacts.AddAccessorRename(
+                        _displacedAccessor, plan.DisplacedKey, plan.DisplacedName);
+            }
         }
         _owned = new HashSet<string>(StringComparer.Ordinal);
         foreach (var plan in allPlansForFile)
@@ -99,11 +108,38 @@ internal sealed class ExplicitInterfaceRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
         var visited = (MemberAccessExpressionSyntax)base.VisitMemberAccessExpression(node)!;
-        if (SignatureSyntaxFacts.BoundSymbol(_model, node) is IMethodSymbol method
-            && _displaced.TryGetValue(SiPlan.SiteKey(method), out var plan))
+        var info = _model.GetSymbolInfo(node);
+        if (info.Symbol is { } bound)
+        {
+            if (bound is IMethodSymbol method && _displaced.TryGetValue(SiPlan.SiteKey(method), out var plan))
+            {
+                _stats.SignatureCallSitesRewritten++;
+                return visited.WithName(Rename(visited.Name, plan.DisplacedName!));
+            }
+            return visited;   // 真实绑定到非让位成员 → 不动
+        }
+
+        // 绑定失败（Symbol 为 null，可能带错误恢复候选）：候选符号（如 nameof/方法组）若命中让位表则沿用。
+        var candidate = SignatureSyntaxFacts.BoundSymbol(_model, node);
+        if (candidate is IMethodSymbol candMethod
+            && _displaced.TryGetValue(SiPlan.SiteKey(candMethod), out var candPlan))
         {
             _stats.SignatureCallSitesRewritten++;
-            return visited.WithName(Rename(visited.Name, plan.DisplacedName!));
+            return visited.WithName(Rename(visited.Name, candPlan.DisplacedName!));
+        }
+
+        // M4c 回退：C11–C13 在跨文件使用点合成的访问器调用（c.get_Name()/c.set_Name(...)）在本轮重解析
+        // 模型中因声明文件仍是原始形态而无法绑定；以接收者静态类型 + 访问器原始名 + 参数个数查 plan 派生
+        // 回退表（most-derived-first）。接口/基类型接收者不在表内 → 接口分派点与基槽调用保持不动。
+        if (node.Parent is InvocationExpressionSyntax invocation
+            && SignatureSyntaxFacts.IsAccessorMethodName(node.Name.Identifier.ValueText)
+            && _model.GetTypeInfo(node.Expression).Type is { } receiver
+            && SignatureSyntaxFacts.TryLookupAccessorRename(
+                _displacedAccessor, receiver, node.Name.Identifier.ValueText,
+                invocation.ArgumentList.Arguments.Count, out var fallbackName))
+        {
+            _stats.SignatureCallSitesRewritten++;
+            return visited.WithName(Rename(visited.Name, fallbackName));
         }
         return visited;
     }

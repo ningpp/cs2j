@@ -102,8 +102,23 @@
 - [x] T2 CR-2 擦除冲突桥接合成（决策 11）：bridge 基槽 + `M_cs2jCovariant` 改名方法；派生静态类型绑定点改写；sealed 形态；编译内更深派生 override 整组改名（顶层 `virtual`、派生 `override`），bridge 委托虚分派进入最深改名体
 - [x] T3 CR-3 值类型/不可判 CS2J5195；CS2J5196 保守桥守卫（裁决 4：派生 override 自身仍非 Retained 时桥接不可证 → 5196；合法 C# 输入下不可达，作防御保留）
 - [x] T4 CR-4 residual 闸门（协变链归宿对账 CS2J5199）；幂等/BOM（二次运行零 diff）
-- [x] T5 fixture 双端分派矩阵（.NET 预言机 `SignatureBehaviorTests`）+ 项目级 `MemberDesugarSignatureProjectTests`（含 M3 T5 移交的访问器面/NH fixture）——**已知口径**：既有 fixture 的 `new` 属性隐藏（`HidingDerived::Name`，C11 访问器面）在项目测试内经 `SkipSignatures` 排除：NH 属性面跨文件访问器站点重命名依赖方法化后的整树模型，当前按文件重解析的 pass 架构无法绑定（方法面/协变面不受影响，见提交说明）
+- [x] T5 fixture 双端分派矩阵（.NET 预言机 `SignatureBehaviorTests`）+ 项目级 `MemberDesugarSignatureProjectTests`（含 M3 T5 移交的访问器面/NH fixture）——**M4b 遗留口径**（已由 M4c 修复）：既有 fixture 的 `new` 属性隐藏（`HidingDerived::Name`，C11 访问器面）一度以 `SkipSignatures` 排除，因 NH 属性面跨文件访问器站点在方法化后无法绑定
 - [x] T6 收口验证：`dotnet build -c Release CSharpToJavaConverter.slnx`（0 错误）+ `--filter MemberDesugar`（233 通过）+ fixture `dotnet build/test -c Release`（40 通过）；提交
+
+---
+
+## M4c 访问器面跨文件站点按接收者静态类型回退绑定（commit 4c）
+
+> **缺口**：SI-2 让位 / NH-1 隐藏的**访问器面**（property/indexer/event）使用点若在**另一文件**，签名分相时该文件已被 C11–C13 方法化（`d.Name → d.get_Name()`）并重解析进编译，而编译中**声明文件仍是原始形态**（属性 `Name` 而非 `get_Name` 方法），故 `d.get_Name()` 无法绑定符号（`GetSymbolInfo` 返回 `Symbol=null`、带错误恢复候选）→ 稳定键匹配落空、站点漏改（M4b 项目测试以 `SkipSignatures` 绕行）。
+
+- [x] T1 回退机制（`SignatureSyntaxFacts`）：`IsAccessorMethodName`（`get_/set_/add_/remove_` 前缀）+ `TryParseSiteKey`（解析 plan 稳定键 `{类型}::{元数据名}({参数类型,…})` 为三元组）+ `AddAccessorRename`/`TryLookupAccessorRename`（按接收者静态类型沿基链 most-derived-first 查表，镜像 C# 成员查找）；**仅解析 plan 自带结构化键，不做源码文本推测**
+- [x] T2 SI 重写器（`ExplicitInterfaceRewriter`）：绑定优先（真实符号 → 让位表；错误恢复候选 → 候选命中）；`Symbol=null` 时回退按 (接收者静态类型, 访问器原始名, 参数个数) 查 `_displacedAccessor`；接口/基类型接收者不在表内 → 不动
+- [x] T3 NH 重写器（`HidingRewriter`）：同构回退查 `_accessorRename`（由 `NhPlan.RenameByKey` 派生，覆盖 get_/set_/add_/remove_ 与 indexer 参数个数）
+- [x] T4 单测（跨文件多源 harness）：NH 属性隐藏（读+写双向、基类型不动）、SI 属性让位（接口分派不动/类静态类型改名）、NH 事件隐藏（`+=`/`-=` → `add_E_cs2jNew`/`remove_E_cs2jNew`）；均 `AssertOutputCompiles` + 二次运行零 diff
+- [x] T5 fixture 清理：移除 `MemberDesugarSignatureProjectTests` 的 `SkipSignatures` 绕行，新增 `DtoSamples.cs`/`Program.cs` 中间树断言；`.NET` 行为预言机 `BehaviorTests.Hiding_properties_dispatch_on_static_type` 原样守门（跨工程引用）
+- [x] T6 收口验证：`dotnet build -c Release CSharpToJavaConverter.slnx`（0 错误）+ `--filter MemberDesugar`（236 通过）+ fixture `dotnet build/test -c Release`（40 通过）；提交
+
+> **残留限制（已记录）**：回退仅在**符号绑定失败**时启用，且要求站点已呈 C11–C13 方法化调用形（`recv.get_/set_/add_/remove_X(...)`）。若某使用点文件在本轮未被 C11–C13 方法化（例如该文件的声明未产生访问器 plan），站点仍是属性/事件语法 `d.Name`/`d.E += h`，回退不适用——该情形本 pass 架构下不产生跨文件访问器站点（C11–C13 的 plan TouchedFiles 与本规则站点闭合一致），故当前无未覆盖用例。
 
 ---
 

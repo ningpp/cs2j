@@ -132,6 +132,90 @@ internal static class SignatureSyntaxFacts
             : cast;
     }
 
+    // ---- M4c：访问器面跨文件站点的「接收者静态类型锚定」回退 ----
+    //
+    // 背景（设计 §4.3-3/风险 3）：签名分相晚于 C11–C13 方法化。使用点所在文件在本轮被
+    // C11–C13 方法化（d.Name → d.get_Name()）后重解析进编译，但编译中其余文件（声明文件）
+    // 仍是原始形态（属性 Name 而非 get_Name 方法），故 d.get_Name() 无法绑定符号
+    // （GetSymbolInfo 返回 null）。此时以「接收者静态类型 + 访问器原始名 + 参数个数」查
+    // plan 派生的回退表即可恢复改名。该回退严格仅在符号绑定失败时启用，符号绑定成功一律优先。
+
+    /// <summary>访问器方法名前缀（C11–C13 方法化产物：property get_/set_、indexer get_/set_、event add_/remove_）。</summary>
+    internal static bool IsAccessorMethodName(string name)
+        => name.StartsWith("get_", StringComparison.Ordinal)
+           || name.StartsWith("set_", StringComparison.Ordinal)
+           || name.StartsWith("add_", StringComparison.Ordinal)
+           || name.StartsWith("remove_", StringComparison.Ordinal);
+
+    /// <summary>解析稳定键 <c>{类型显示名}::{元数据名}({参数类型,…})</c> 为
+    /// (类型显示名, 成员名, 参数个数)（非方法键——无参括号——参数个数为 -1）。
+    /// 仅解析 plan 自带的结构化键，不做源码文本推测。</summary>
+    internal static bool TryParseSiteKey(
+        string key, out string typeDisplay, out string memberName, out int arity)
+    {
+        typeDisplay = string.Empty;
+        memberName = string.Empty;
+        arity = -1;
+        var sep = key.IndexOf("::", StringComparison.Ordinal);
+        if (sep < 0) return false;
+        typeDisplay = key.Substring(0, sep);
+        var rest = key.Substring(sep + 2);
+        var open = rest.IndexOf('(');
+        if (open < 0)
+        {
+            memberName = rest;
+            return true;
+        }
+        var close = rest.LastIndexOf(')');
+        if (close < open) return false;
+        memberName = rest.Substring(0, open);
+        arity = CountTopLevelArguments(rest.Substring(open + 1, close - open - 1));
+        return true;
+    }
+
+    private static int CountTopLevelArguments(string parameters)
+    {
+        if (string.IsNullOrWhiteSpace(parameters)) return 0;
+        var depth = 0;
+        var count = 1;
+        foreach (var ch in parameters)
+        {
+            switch (ch)
+            {
+                case '<' or '(': depth++; break;
+                case '>' or ')': depth--; break;
+                case ',' when depth == 0: count++; break;
+            }
+        }
+        return count;
+    }
+
+    /// <summary>把一条 (含入类型显示名, 访问器原始名, 参数个数) → 新名 的回退项并入表；
+    /// 非访问器名或非方法键跳过。</summary>
+    internal static void AddAccessorRename(
+        Dictionary<(string Type, string Name, int Arity), string> map, string siteKey, string newName)
+    {
+        if (!TryParseSiteKey(siteKey, out var type, out var name, out var arity)) return;
+        if (arity < 0 || !IsAccessorMethodName(name)) return;
+        map[(type, name, arity)] = newName;
+    }
+
+    /// <summary>按接收者静态类型沿基链 most-derived-first 查回退表（镜像 C# 成员查找）；
+    /// 接收者为接口/类型参数时不命中（接口分派点不动）。</summary>
+    internal static bool TryLookupAccessorRename(
+        IReadOnlyDictionary<(string Type, string Name, int Arity), string> map,
+        ITypeSymbol receiverType, string accessorName, int arity, out string newName)
+    {
+        newName = string.Empty;
+        for (var type = receiverType as INamedTypeSymbol; type != null; type = type.BaseType)
+            if (map.TryGetValue((type.ToDisplayString(), accessorName, arity), out var found))
+            {
+                newName = found;
+                return true;
+            }
+        return false;
+    }
+
     // ---- 内部 ----
 
     private static string? BodyText(ISymbol symbol)

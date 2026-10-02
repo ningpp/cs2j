@@ -439,6 +439,120 @@ public class GenDerived<T> : GenBase where T : class
         MemberDesugarPropertyUnitTests.AssertOutputCompiles(outputs[1], outputs[0], outputs[2]);
     }
 
+    // ---- M4c：访问器面跨文件站点按接收者静态类型回退绑定 ----
+
+    [Fact]
+    public void CrossFile_NhPropertyHiding_AccessorSitesRenamed_BothDirections()
+    {
+        // 声明在 file1（C11 方法化后为 get_/set_），站点在 file2：绑定失败 → 回退按接收者静态类型改名。
+        const string decl = """
+            public class Base { public string Name { get; set; } = ""; }
+            public class Derived : Base { public new string Name { get; set; } = ""; }
+            """;
+        const string use = """
+            public class Use
+            {
+                public void U(Base b, Derived d)
+                {
+                    d.Name = "x";
+                    var y = d.Name;
+                    b.Name = "y";
+                    var z = b.Name;
+                }
+            }
+            """;
+        var (outputs, stats, diags) = RewriteAll(Enabled(),
+            ("Decl.cs", decl), ("Use.cs", use));
+
+        // 声明侧：派生属性方法化后配对改名（去 new）。
+        AssertContains(outputs[0], "public string get_Name_cs2jNew()");
+        AssertContains(outputs[0], "public void set_Name_cs2jNew(string value)");
+        AssertNotContains(outputs[0], "new string get_Name");
+        // 站点侧：派生静态类型站点改名（get_/set_ 配对），基类静态类型站点不动。
+        AssertContains(outputs[1], "d.set_Name_cs2jNew(\"x\")");
+        AssertContains(outputs[1], "d.get_Name_cs2jNew()");
+        AssertContains(outputs[1], "b.set_Name(\"y\")");
+        AssertContains(outputs[1], "b.get_Name()");
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(outputs[0], outputs[1]);
+
+        // 二次运行零 diff。
+        var (second, _, _) = RewriteAll(Enabled(), ("Decl.cs", outputs[0]), ("Use.cs", outputs[1]));
+        Assert.Equal(outputs[0], second[0]);
+        Assert.Equal(outputs[1], second[1]);
+    }
+
+    [Fact]
+    public void CrossFile_SiPropertyDisplacement_ClassTypedSiteRenamed_InterfaceTypedUntouched()
+    {
+        const string iface = "public interface IFoo { string Name { get; set; } }";
+        const string impl = """
+            public class C : IFoo
+            {
+                public string Name { get; set; } = "";
+                string IFoo.Name { get; set; } = "";
+            }
+            """;
+        const string use = """
+            public class Use { public void U(IFoo i, C c) { i.Name = "a"; var x = c.Name; } }
+            """;
+        var (outputs, stats, diags) = RewriteAll(Enabled(),
+            ("IFoo.cs", iface), ("C.cs", impl), ("Use.cs", use));
+
+        // 让位类自有访问器对改名 get_/set_ 配对；接口实现体占规范名。
+        AssertContains(outputs[1], "public string get_Name_cs2jClass()");
+        AssertContains(outputs[1], "public void set_Name_cs2jClass(string value)");
+        AssertContains(outputs[1], "public string get_Name()");
+        // 站点侧：接口分派点不动；类静态类型站点（绑定失败）经回退改名。
+        AssertContains(outputs[2], "i.set_Name(\"a\")");
+        AssertContains(outputs[2], "c.get_Name_cs2jClass()");
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(outputs[0], outputs[1], outputs[2]);
+
+        var (second, _, _) = RewriteAll(Enabled(),
+            ("IFoo.cs", outputs[0]), ("C.cs", outputs[1]), ("Use.cs", outputs[2]));
+        Assert.Equal(outputs[0], second[0]);
+        Assert.Equal(outputs[1], second[1]);
+        Assert.Equal(outputs[2], second[2]);
+    }
+
+    [Fact]
+    public void CrossFile_NhEventHiding_AddRemoveSitesRenamed()
+    {
+        const string decl = """
+            using System;
+            public class EBase { public event Action? E; }
+            public class EDerived : EBase { public new event Action? E; }
+            """;
+        const string use = """
+            using System;
+            public class Use
+            {
+                public void U(EBase b, EDerived d)
+                {
+                    Action h = () => { };
+                    d.E += h;
+                    d.E -= h;
+                    b.E += h;
+                }
+            }
+            """;
+        var (outputs, stats, diags) = RewriteAll(Enabled(),
+            ("Decl.cs", decl), ("Use.cs", use));
+
+        AssertContains(outputs[0], "add_E_cs2jNew");
+        AssertContains(outputs[0], "remove_E_cs2jNew");
+        AssertContains(outputs[1], "d.add_E_cs2jNew(h)");
+        AssertContains(outputs[1], "d.remove_E_cs2jNew(h)");
+        AssertContains(outputs[1], "b.add_E(h)");
+        Assert.DoesNotContain(diags, d => d.Severity == MemberDesugarSeverity.Error);
+        MemberDesugarPropertyUnitTests.AssertOutputCompiles(outputs[0], outputs[1]);
+
+        var (second, _, _) = RewriteAll(Enabled(), ("Decl.cs", outputs[0]), ("Use.cs", outputs[1]));
+        Assert.Equal(outputs[0], second[0]);
+        Assert.Equal(outputs[1], second[1]);
+    }
+
     [Fact]
     public void ExpressionTreeSite_CS2J5194_DeclarationNotRewritten()
     {

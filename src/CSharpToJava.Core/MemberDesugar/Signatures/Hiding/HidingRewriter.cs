@@ -21,6 +21,7 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
     private readonly SemanticModel _model;
     private readonly Dictionary<string, string> _rename;
     private readonly Dictionary<string, string> _original;
+    private readonly Dictionary<(string Type, string Name, int Arity), string> _accessorRename;
     private readonly HashSet<string> _primaryKeys;
     private readonly MemberDesugarOptions _options;
     private readonly MemberDesugarStatistics _stats;
@@ -38,10 +39,16 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
         _model = model;
         _rename = new Dictionary<string, string>(StringComparer.Ordinal);
         _original = new Dictionary<string, string>(StringComparer.Ordinal);
+        _accessorRename = new Dictionary<(string, string, int), string>();
         _primaryKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var plan in plannedPlans)
         {
-            foreach (var (key, name) in plan.RenameByKey) _rename[key] = name;
+            foreach (var (key, name) in plan.RenameByKey)
+            {
+                _rename[key] = name;
+                // M4c：从 plan 键派生访问器回退项（含入类型 + 访问器原始名 + 参数个数 → 新名）。
+                SignatureSyntaxFacts.AddAccessorRename(_accessorRename, key, name);
+            }
             foreach (var (key, name) in plan.OriginalNameByKey) _original[key] = name;
             foreach (var key in plan.PrimaryKeys) _primaryKeys.Add(key);
         }
@@ -119,11 +126,45 @@ internal sealed class HidingRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
         var visited = (MemberAccessExpressionSyntax)base.VisitMemberAccessExpression(node)!;
-        if (_model.GetSymbolInfo(node).Symbol is not { } bound) return visited;
-        if (!_rename.TryGetValue(NhPlan.SiteKey(bound), out var newName)) return visited;
+        var info = _model.GetSymbolInfo(node);
+        if (info.Symbol is { } bound)
+        {
+            if (_rename.TryGetValue(NhPlan.SiteKey(bound), out var newName))
+                return Rename(visited, newName);
+            return visited;   // 真实绑定到非改名成员 → 不动
+        }
+
+        // 绑定失败（Symbol 为 null，可能带错误恢复候选）：候选符号（如 nameof/方法组）若命中改名表则沿用。
+        var candidate = SignatureSyntaxFacts.BoundSymbol(_model, node);
+        if (candidate != null && _rename.TryGetValue(NhPlan.SiteKey(candidate), out var candidateName))
+            return Rename(visited, candidateName);
+
+        // M4c 回退：C11–C13 在跨文件使用点合成的访问器调用（d.get_Name()/d.set_Name(...) 等）
+        // 在本轮重解析模型中因声明文件仍是原始形态而无法绑定；以接收者静态类型 + 访问器原始名 +
+        // 参数个数查 plan 派生回退表（most-derived-first）。仅在符号绑定失败时启用。
+        if (TryFallbackAccessorRename(visited, out var fallbackName))
+            return Rename(visited, fallbackName);
+        return visited;
+    }
+
+    private SyntaxNode? Rename(MemberAccessExpressionSyntax node, string newName)
+    {
         _stats.SignatureCallSitesRewritten++;
-        return visited.WithName(visited.Name.WithIdentifier(
-            IdentifierWithTrivia(visited.Name.Identifier, newName)));
+        return node.WithName(node.Name.WithIdentifier(
+            IdentifierWithTrivia(node.Name.Identifier, newName)));
+    }
+
+    /// <summary>M4c 接收者静态类型锚定回退：仅当节点为 <c>recv.get_/set_/add_/remove_X(...)</c>
+    /// 调用形且命中 plan 回退表时返回新名。</summary>
+    private bool TryFallbackAccessorRename(MemberAccessExpressionSyntax node, out string newName)
+    {
+        newName = string.Empty;
+        var name = node.Name.Identifier.ValueText;
+        if (!SignatureSyntaxFacts.IsAccessorMethodName(name)) return false;
+        if (node.Parent is not InvocationExpressionSyntax invocation) return false;
+        if (_model.GetTypeInfo(node.Expression).Type is not { } receiver) return false;
+        return SignatureSyntaxFacts.TryLookupAccessorRename(
+            _accessorRename, receiver, name, invocation.ArgumentList.Arguments.Count, out newName);
     }
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
