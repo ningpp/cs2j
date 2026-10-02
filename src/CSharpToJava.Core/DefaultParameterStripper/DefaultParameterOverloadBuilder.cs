@@ -1,3 +1,4 @@
+using CSharpToJava.Core.DefaultParameterStripper.ParamsCollections;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -29,7 +30,8 @@ internal static class DefaultParameterOverloadBuilder
     public static List<MethodDeclarationSyntax> BuildOverloads(
         MethodDeclarationSyntax method, SemanticModel model,
         DefaultParameterStripperStatistics stats,
-        DefaultParameterCatalog? catalog = null)
+        DefaultParameterCatalog? catalog = null,
+        ParamsOverloadContext? paramsContext = null)
     {
         var result = new List<MethodDeclarationSyntax>();
         var parameters = method.ParameterList.Parameters;
@@ -50,7 +52,7 @@ internal static class DefaultParameterOverloadBuilder
             }
 
             var retained = BuildRetainedParams(parameters, cutAt);
-            var args = BuildForwardingArgs(parameters, cutAt);
+            var args = BuildForwardingArgs(parameters, cutAt, model, paramsContext);
 
             var overload = SyntaxFactory.MethodDeclaration(method.ReturnType, method.Identifier)
                 .WithModifiers(filteredModifiers)
@@ -70,7 +72,8 @@ internal static class DefaultParameterOverloadBuilder
     public static List<ConstructorDeclarationSyntax> BuildOverloads(
         ConstructorDeclarationSyntax ctor, SemanticModel model,
         DefaultParameterStripperStatistics stats,
-        bool isStruct = false, DefaultParameterCatalog? catalog = null)
+        bool isStruct = false, DefaultParameterCatalog? catalog = null,
+        ParamsOverloadContext? paramsContext = null)
     {
         var result = new List<ConstructorDeclarationSyntax>();
         var parameters = ctor.ParameterList.Parameters;
@@ -99,7 +102,7 @@ internal static class DefaultParameterOverloadBuilder
                 continue;
             }
 
-            var overload = BuildCtorOverload(ctor, parameters, cutAt, isStruct);
+            var overload = BuildCtorOverload(ctor, parameters, cutAt, isStruct, model, paramsContext);
             if (overload != null)
             {
                 result.Add(overload);
@@ -112,7 +115,8 @@ internal static class DefaultParameterOverloadBuilder
 
     public static List<LocalFunctionStatementSyntax> BuildOverloads(
         LocalFunctionStatementSyntax localFunc, SemanticModel model,
-        DefaultParameterStripperStatistics stats)
+        DefaultParameterStripperStatistics stats,
+        ParamsOverloadContext? paramsContext = null)
     {
         var result = new List<LocalFunctionStatementSyntax>();
         var parameters = localFunc.ParameterList.Parameters;
@@ -122,7 +126,7 @@ internal static class DefaultParameterOverloadBuilder
         var isVoid = IsVoidType(localFunc.ReturnType);
         foreach (var cutAt in cutPoints)
         {
-            var overload = BuildLocalFuncOverload(localFunc, parameters, cutAt, isVoid);
+            var overload = BuildLocalFuncOverload(localFunc, parameters, cutAt, isVoid, model, paramsContext);
             if (overload != null)
             {
                 result.Add(overload);
@@ -139,7 +143,8 @@ internal static class DefaultParameterOverloadBuilder
     /// </summary>
     public static List<ConstructorDeclarationSyntax> BuildPrimaryConstructorOverloads(
         TypeDeclarationSyntax type, SemanticModel model,
-        DefaultParameterStripperStatistics stats, bool isStruct)
+        DefaultParameterStripperStatistics stats, bool isStruct,
+        ParamsOverloadContext? paramsContext = null)
     {
         var result = new List<ConstructorDeclarationSyntax>();
         var parameterList = type.ParameterList;
@@ -161,7 +166,7 @@ internal static class DefaultParameterOverloadBuilder
             }
 
             var retained = BuildRetainedParams(parameters, cutAt);
-            var args = BuildForwardingArgs(parameters, cutAt);
+            var args = BuildForwardingArgs(parameters, cutAt, model, paramsContext);
             var initializer = SyntaxFactory.ConstructorInitializer(
                 SyntaxKind.ThisConstructorInitializer,
                 SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args)));
@@ -224,10 +229,12 @@ internal static class DefaultParameterOverloadBuilder
     private static ConstructorDeclarationSyntax? BuildCtorOverload(
         ConstructorDeclarationSyntax original,
         SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt,
-        bool isStruct)
+        bool isStruct,
+        SemanticModel? model = null,
+        ParamsOverloadContext? paramsContext = null)
     {
         var retained = BuildRetainedParams(parameters, cutAt);
-        var args = BuildForwardingArgs(parameters, cutAt);
+        var args = BuildForwardingArgs(parameters, cutAt, model, paramsContext);
         var initializer = SyntaxFactory.ConstructorInitializer(
             SyntaxKind.ThisConstructorInitializer,
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args)));
@@ -246,10 +253,12 @@ internal static class DefaultParameterOverloadBuilder
 
     private static LocalFunctionStatementSyntax? BuildLocalFuncOverload(
         LocalFunctionStatementSyntax original,
-        SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt, bool isVoid)
+        SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt, bool isVoid,
+        SemanticModel? model = null,
+        ParamsOverloadContext? paramsContext = null)
     {
         var retained = BuildRetainedParams(parameters, cutAt);
-        var args = BuildForwardingArgs(parameters, cutAt);
+        var args = BuildForwardingArgs(parameters, cutAt, model, paramsContext);
         var invocation = SyntaxFactory.InvocationExpression(
             SyntaxFactory.IdentifierName(original.Identifier),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(args)));
@@ -338,7 +347,9 @@ internal static class DefaultParameterOverloadBuilder
     }
 
     private static List<ArgumentSyntax> BuildForwardingArgs(
-        SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt)
+        SeparatedSyntaxList<ParameterSyntax> parameters, int cutAt,
+        SemanticModel? model = null,
+        ParamsOverloadContext? paramsContext = null)
     {
         var args = new List<ArgumentSyntax>(parameters.Count);
         for (var i = 0; i < parameters.Count; i++)
@@ -370,6 +381,18 @@ internal static class DefaultParameterOverloadBuilder
                                     SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression,
                                         SyntaxFactory.Literal(0)))))),
                         null)));
+            }
+            else if (IsParams(parameters[i]) && paramsContext != null && model != null)
+            {
+                // C48 (PC-7): non-array params slot — forward the
+                // kind-appropriate empty-collection shape; builder/unsupported
+                // kinds omit the argument and emit their skip diagnostic.
+                var expression = ParamsOverloadForwarding.BuildEmptySlotExpression(
+                    parameters[i], model, paramsContext);
+                if (expression != null)
+                {
+                    args.Add(SyntaxFactory.Argument(expression));
+                }
             }
         }
         return args;

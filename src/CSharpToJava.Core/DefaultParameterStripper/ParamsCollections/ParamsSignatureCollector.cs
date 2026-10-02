@@ -116,16 +116,27 @@ internal sealed class ParamsSignatureCollector
             return;
         }
 
-        var parameters = type.ParameterList!.Parameters;
-        var ctor = typeSymbol.InstanceConstructors.FirstOrDefault(c =>
-            c.Parameters.Length == parameters.Count
-            && (parameters.Count == 0 || c.Parameters[0].Name == parameters[0].Identifier.ValueText));
+        var ctor = ResolvePrimaryConstructorSymbol(typeSymbol, type.ParameterList!.Parameters);
         if (ctor == null)
         {
             return;
         }
 
         RegisterSymbol(ctor, type, model.Compilation, options, result);
+    }
+
+    /// <summary>
+    /// Resolves the instance constructor symbol declared by a record / class /
+    /// struct primary constructor. Shared with the declaration materializer so
+    /// both phases map the same syntax node onto the same symbol.
+    /// </summary>
+    internal static IMethodSymbol? ResolvePrimaryConstructorSymbol(
+        INamedTypeSymbol typeSymbol,
+        SeparatedSyntaxList<ParameterSyntax> parameters)
+    {
+        return typeSymbol.InstanceConstructors.FirstOrDefault(c =>
+            c.Parameters.Length == parameters.Count
+            && (parameters.Count == 0 || c.Parameters[0].Name == parameters[0].Identifier.ValueText));
     }
 
     private static void RegisterSymbol(
@@ -149,16 +160,7 @@ internal sealed class ParamsSignatureCollector
         var classification = ParamsTargetClassifier.Classify(lastParameter.Type, compilation);
         result.Statistics.RecordSite(classification.Kind);
 
-        var strategy = classification.Kind == ParamsParamKind.Array
-            ? ParamsDeclStrategy.KeepParams
-            : ParamsDeclStrategy.Materialize;
-
-        if (classification.SkipReason is string skipReason)
-        {
-            result.Diagnostics.Add(
-                ParamsDiagnostics.Create(skipReason, SkipMessage(classification, symbol), options.Strict));
-            result.Statistics.RecordSkipped(skipReason);
-        }
+        var strategy = DecideStrategy(classification, symbol, options, result);
 
         result.AddDeclaration(new ParamsDeclPlan(
             declaration,
@@ -168,6 +170,93 @@ internal sealed class ParamsSignatureCollector
             classification,
             CollectVirtualFamily(symbol)));
     }
+
+    // ------------------------------------------------------------------
+    // Strategy decision (declaration side; call sites gate off the strategy)
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Decides the declaration-side strategy. K1 arrays keep the params
+    /// modifier (strategy A). Everything that cannot — or must not, in v1 — be
+    /// materialized also keeps the modifier, with its skip diagnostic emitted
+    /// here exactly once per declaration: unsupported types (0601),
+    /// [CollectionBuilder] types (0607), ref-struct elements (0608), scope
+    /// exclusions (0601) and the ReadOnlySpan&lt;char&gt; char face (0601,
+    /// C52 boundary). Call sites of these declarations stay untouched.
+    /// </summary>
+    private static ParamsDeclStrategy DecideStrategy(
+        ParamsTargetClassification classification,
+        IMethodSymbol symbol,
+        ParamsCollectionsOptions options,
+        ParamsCollectionsResult result)
+    {
+        if (classification.Kind == ParamsParamKind.Array)
+        {
+            return ParamsDeclStrategy.KeepParams;
+        }
+
+        if (classification.SkipReason is string skipReason)
+        {
+            result.Diagnostics.Add(ParamsDiagnostics.Create(
+                skipReason,
+                ParamsDiagnostics.BuildSkipMessage(classification, symbol.ToDisplayString()),
+                options.Strict));
+            result.Statistics.RecordSkipped(skipReason);
+            return ParamsDeclStrategy.KeepParams;
+        }
+
+        if (classification.Kind == ParamsParamKind.Builder)
+        {
+            // v1 blocks every builder site (adjudication 4: the K3 emission
+            // path follows C36 CE-10 in M2).
+            var builderType = classification.BuilderInfo?.BuilderType.ToDisplayString() ?? "<unknown>";
+            var factoryName = classification.BuilderInfo?.FactoryMethodName ?? "<unknown>";
+            result.Diagnostics.Add(ParamsDiagnostics.Create(
+                ParamsDiagnostics.CollectionBuilderBlocked,
+                string.Format(ParamsDiagnostics.CollectionBuilderBlockedMessage,
+                    classification.ParameterType.ToDisplayString(), builderType, factoryName),
+                options.Strict));
+            result.Statistics.RecordSkipped(ParamsDiagnostics.CollectionBuilderBlocked);
+            return ParamsDeclStrategy.KeepParams;
+        }
+
+        if (classification.Kind == ParamsParamKind.Span
+            && classification.ElementType?.SpecialType == SpecialType.System_Char)
+        {
+            result.Diagnostics.Add(ParamsDiagnostics.Create(
+                ParamsDiagnostics.UnsupportedType,
+                string.Format(ParamsDiagnostics.CharFaceExcludedMessage,
+                    classification.ParameterType.ToDisplayString()),
+                options.Strict));
+            result.Statistics.RecordSkipped(ParamsDiagnostics.UnsupportedType);
+            return ParamsDeclStrategy.KeepParams;
+        }
+
+        if (!IsKindInScope(classification.Kind, options.Scope))
+        {
+            result.Diagnostics.Add(ParamsDiagnostics.Create(
+                ParamsDiagnostics.UnsupportedType,
+                string.Format(ParamsDiagnostics.ScopeExcludedMessage,
+                    classification.ParameterType.ToDisplayString()),
+                options.Strict));
+            result.Statistics.RecordSkipped(ParamsDiagnostics.UnsupportedType);
+            return ParamsDeclStrategy.KeepParams;
+        }
+
+        return ParamsDeclStrategy.Materialize;
+    }
+
+    /// <summary>Per-kind gray-release gate (design §2.4 Scope; default All).</summary>
+    public static bool IsKindInScope(ParamsParamKind kind, ParamsCollectionsScope scope)
+        => scope switch
+        {
+            ParamsCollectionsScope.All => true,
+            ParamsCollectionsScope.Span => kind == ParamsParamKind.Span,
+            ParamsCollectionsScope.MutableCollection => kind == ParamsParamKind.Initializable,
+            ParamsCollectionsScope.Interface => kind == ParamsParamKind.Interface,
+            ParamsCollectionsScope.CollectionBuilder => kind == ParamsParamKind.Builder,
+            _ => true,
+        };
 
     // ------------------------------------------------------------------
     // Virtual slot family (probe Q10)
@@ -239,26 +328,5 @@ internal sealed class ParamsSignatureCollector
         }
 
         return family.ToImmutableArray();
-    }
-
-    // ------------------------------------------------------------------
-    // Diagnostics
-    // ------------------------------------------------------------------
-
-    private static string SkipMessage(ParamsTargetClassification classification, IMethodSymbol symbol)
-    {
-        var typeName = classification.ParameterType.ToDisplayString();
-        return classification.SkipReason switch
-        {
-            ParamsDiagnostics.RefStructElement when classification.ElementType != null
-                => string.Format(
-                    ParamsDiagnostics.RefStructElementMessage,
-                    typeName,
-                    classification.ElementType.ToDisplayString()),
-            ParamsDiagnostics.InitializerPatternBroken
-                => string.Format(ParamsDiagnostics.InitializerPatternBrokenMessage, typeName),
-            _
-                => string.Format(ParamsDiagnostics.UnsupportedTypeMessage, typeName, symbol.ToDisplayString()),
-        };
     }
 }

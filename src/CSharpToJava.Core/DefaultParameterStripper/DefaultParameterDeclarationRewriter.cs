@@ -1,3 +1,4 @@
+using CSharpToJava.Core.DefaultParameterStripper.ParamsCollections;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -50,6 +51,13 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
     private bool _typeHasJsonConstructor;
     private bool _typeAddedJsonConstructor;
 
+    // C48 params-collections hooks (T16). Null unless the rule set is enabled
+    // in the options AND a collect-phase plan catalog was provided — with both
+    // null the rewriter behaves exactly as before C48.
+    private readonly ParamsDeclarationMaterializer? _paramsMaterializer;
+    private readonly ParamsArgumentRewriter? _paramsRewriter;
+    private readonly ParamsOverloadContext? _paramsOverloadContext;
+
     public bool Changed { get; private set; }
 
     public DefaultParameterDeclarationRewriter(
@@ -58,7 +66,9 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         DefaultParameterStripperStatistics stats,
         List<DefaultParameterStripDiagnostic> diagnostics,
         DefaultParameterCatalog catalog,
-        bool hasDefaults = true)
+        bool hasDefaults = true,
+        ParamsCollectionsResult? paramsCollections = null,
+        HashSet<string>? toleratedParamsResiduals = null)
     {
         _model = model;
         _options = options;
@@ -66,6 +76,16 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         _diagnostics = diagnostics;
         _catalog = catalog;
         _hasDefaults = hasDefaults;
+
+        if (paramsCollections != null && options.ParamsCollections is { Enabled: true } paramsOptions)
+        {
+            _paramsMaterializer = new ParamsDeclarationMaterializer(
+                model!, paramsOptions, paramsCollections, diagnostics, toleratedParamsResiduals!);
+            _paramsRewriter = new ParamsArgumentRewriter(
+                model!, paramsOptions, paramsCollections, diagnostics);
+            _paramsOverloadContext = new ParamsOverloadContext(
+                paramsOptions, diagnostics, paramsCollections.Statistics);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -74,7 +94,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitClassDeclaration(ClassDeclarationSyntax node)
     {
-        if (!HasDirtyMembers(node.Members) && !HasPrimaryDefaults(node))
+        if (!HasDirtyMembers(node.Members) && !HasPrimaryDefaults(node) && !HasC48ParamsCandidate(node))
         {
             return base.VisitClassDeclaration(node);
         }
@@ -83,7 +103,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitStructDeclaration(StructDeclarationSyntax node)
     {
-        if (!HasDirtyMembers(node.Members) && !HasPrimaryDefaults(node))
+        if (!HasDirtyMembers(node.Members) && !HasPrimaryDefaults(node) && !HasC48ParamsCandidate(node))
         {
             return base.VisitStructDeclaration(node);
         }
@@ -92,7 +112,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitInterfaceDeclaration(InterfaceDeclarationSyntax node)
     {
-        if (!HasDirtyMembers(node.Members))
+        if (!HasDirtyMembers(node.Members) && !HasC48ParamsCandidate(node))
         {
             return base.VisitInterfaceDeclaration(node);
         }
@@ -101,7 +121,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitRecordDeclaration(RecordDeclarationSyntax node)
     {
-        if (!HasDirtyMembers(node.Members) && !HasPrimaryDefaults(node))
+        if (!HasDirtyMembers(node.Members) && !HasPrimaryDefaults(node) && !HasC48ParamsCandidate(node))
         {
             return base.VisitRecordDeclaration(node);
         }
@@ -180,7 +200,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         var parameterList = node.ParameterList;
         if (parameterList == null || !HasDefaults(parameterList.Parameters))
         {
-            return node;
+            return MaterializeParams(node, node);
         }
 
         if (HasCallerAttribute(parameterList))
@@ -197,12 +217,12 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
 
         if (!_options.GenerateOverloads || _model == null)
         {
-            return stripped;
+            return MaterializeParams(node, stripped);
         }
 
         var members = new List<MemberDeclarationSyntax>(stripped.Members);
         foreach (var overload in DefaultParameterOverloadBuilder.BuildPrimaryConstructorOverloads(
-                     node, _model, _stats, isStruct))
+                     node, _model, _stats, isStruct, _paramsOverloadContext))
         {
             if (!TryRegisterTypeSignature(overload))
             {
@@ -212,7 +232,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
             members.Add(overload);
         }
 
-        return (T)stripped.WithMembers(SyntaxFactory.List(members));
+        return MaterializeParams(node, (T)stripped.WithMembers(SyntaxFactory.List(members)));
     }
 
     // -----------------------------------------------------------------------
@@ -228,7 +248,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
 
         if (!HasDefaults(method.ParameterList.Parameters))
         {
-            output.Add(visited);
+            output.Add(MaterializeParams(method, visited));
             return;
         }
 
@@ -236,7 +256,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         if (HasCallerAttribute(method.ParameterList))
         {
             _stats.SkippedUnsupported++;
-            output.Add(visited);
+            output.Add(MaterializeParams(method, visited));
             return;
         }
 
@@ -245,7 +265,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         if (IsTestMethod(method))
         {
             _stats.SkippedUnsupported++;
-            output.Add(visited);
+            output.Add(MaterializeParams(method, visited));
             return;
         }
 
@@ -259,7 +279,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         _stats.DeclarationsStripped++;
         CountStrippedParameters(method.ParameterList.Parameters);
 
-        output.Add(visited.WithParameterList(StripDefaults(method.ParameterList)));
+        output.Add(MaterializeParams(method, visited.WithParameterList(StripDefaults(method.ParameterList))));
 
         if (stripOnly || !_options.GenerateOverloads || _model == null)
         {
@@ -267,7 +287,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         }
 
         foreach (var overload in DefaultParameterOverloadBuilder.BuildOverloads(
-                     method, _model, _stats, _catalog))
+                     method, _model, _stats, _catalog, _paramsOverloadContext))
         {
             if (!TryRegisterTypeSignature(overload))
             {
@@ -292,14 +312,14 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         if (ctor.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword))
             || !HasDefaults(ctor.ParameterList.Parameters))
         {
-            output.Add(visited);
+            output.Add(MaterializeParams(ctor, visited));
             return;
         }
 
         if (HasCallerAttribute(ctor.ParameterList))
         {
             _stats.SkippedUnsupported++;
-            output.Add(visited);
+            output.Add(MaterializeParams(ctor, visited));
             return;
         }
 
@@ -330,7 +350,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
             }
         }
 
-        output.Add(strippedCtor);
+        output.Add(MaterializeParams(ctor, strippedCtor));
 
         if (!_options.GenerateOverloads || _model == null)
         {
@@ -338,7 +358,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         }
 
         foreach (var overload in DefaultParameterOverloadBuilder.BuildOverloads(
-                     ctor, _model, _stats, isStruct, _catalog))
+                     ctor, _model, _stats, isStruct, _catalog, _paramsOverloadContext))
         {
             if (!TryRegisterTypeSignature(overload))
             {
@@ -408,14 +428,14 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
 
         if (function.ParameterList == null || !HasDefaults(function.ParameterList.Parameters))
         {
-            output.Add(visited);
+            output.Add(MaterializeParams(function, visited));
             return;
         }
 
         if (HasCallerAttribute(function.ParameterList))
         {
             _stats.SkippedUnsupported++;
-            output.Add(visited);
+            output.Add(MaterializeParams(function, visited));
             return;
         }
 
@@ -423,14 +443,14 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         _stats.DeclarationsStripped++;
         CountStrippedParameters(function.ParameterList.Parameters);
 
-        output.Add(visited.WithParameterList(StripDefaults(function.ParameterList)));
+        output.Add(MaterializeParams(function, visited.WithParameterList(StripDefaults(function.ParameterList))));
 
         if (!_options.GenerateOverloads || _model == null)
         {
             return;
         }
 
-        foreach (var overload in DefaultParameterOverloadBuilder.BuildOverloads(function, _model, _stats))
+        foreach (var overload in DefaultParameterOverloadBuilder.BuildOverloads(function, _model, _stats, _paramsOverloadContext))
         {
             var key = BuildLocalSignatureKey(overload);
             if (!_localFunctionSignatures.Add(key))
@@ -448,15 +468,21 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitDelegateDeclaration(DelegateDeclarationSyntax node)
     {
+        var visited = base.VisitDelegateDeclaration(node);
+        if (visited == null)
+        {
+            return null;
+        }
+
         if (node.ParameterList == null || !HasDefaults(node.ParameterList.Parameters))
         {
-            return base.VisitDelegateDeclaration(node);
+            return MaterializeParams(node, visited);
         }
 
         if (HasCallerAttribute(node.ParameterList))
         {
             _stats.SkippedUnsupported++;
-            return base.VisitDelegateDeclaration(node);
+            return MaterializeParams(node, visited);
         }
 
         Changed = true;
@@ -464,7 +490,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
         CountStrippedParameters(node.ParameterList.Parameters);
 
         var stripped = node.WithParameterList(StripDefaults(node.ParameterList));
-        return base.VisitDelegateDeclaration(stripped);
+        return MaterializeParams(node, base.VisitDelegateDeclaration(stripped) ?? visited);
     }
 
     // -----------------------------------------------------------------------
@@ -475,10 +501,21 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
     {
         if (_model != null && node.ArgumentList != null)
         {
+            var original = node;
             var completed = TryComplete(node, node.ArgumentList, TryGetInvocationName(node));
             if (completed != null)
             {
                 node = node.WithArgumentList(completed);
+                Changed = true;
+            }
+
+            // C48 R-b: params argument rewriting runs after E08 completion on
+            // the same argument list; the operation is resolved from the
+            // pre-rewrite node.
+            var paramsRewritten = _paramsRewriter?.RewriteCallSite(original, node.ArgumentList);
+            if (paramsRewritten != null)
+            {
+                node = node.WithArgumentList(paramsRewritten);
                 Changed = true;
             }
         }
@@ -490,10 +527,18 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
     {
         if (_model != null && node.ArgumentList != null)
         {
+            var original = node;
             var completed = TryComplete(node, node.ArgumentList, TryGetSimpleTypeName(node.Type));
             if (completed != null)
             {
                 node = node.WithArgumentList(completed);
+                Changed = true;
+            }
+
+            var paramsRewritten = _paramsRewriter?.RewriteCallSite(original, node.ArgumentList);
+            if (paramsRewritten != null)
+            {
+                node = node.WithArgumentList(paramsRewritten);
                 Changed = true;
             }
         }
@@ -505,10 +550,18 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
     {
         if (_model != null && node.ArgumentList != null)
         {
+            var original = node;
             var completed = TryComplete(node, node.ArgumentList, null);
             if (completed != null)
             {
                 node = node.WithArgumentList(completed);
+                Changed = true;
+            }
+
+            var paramsRewritten = _paramsRewriter?.RewriteCallSite(original, node.ArgumentList);
+            if (paramsRewritten != null)
+            {
+                node = node.WithArgumentList(paramsRewritten);
                 Changed = true;
             }
         }
@@ -530,10 +583,18 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
     {
         if (_model != null && node.ArgumentList != null)
         {
+            var original = node;
             var completed = TryComplete(node, node.ArgumentList, ".ctor");
             if (completed != null)
             {
                 node = node.WithArgumentList(completed);
+                Changed = true;
+            }
+
+            var paramsRewritten = _paramsRewriter?.RewriteCallSite(original, node.ArgumentList);
+            if (paramsRewritten != null)
+            {
+                node = node.WithArgumentList(paramsRewritten);
                 Changed = true;
             }
         }
@@ -545,10 +606,18 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
     {
         if (_model != null && node.ArgumentList != null)
         {
+            var original = node;
             var completed = TryComplete(node, node.ArgumentList, ".ctor");
             if (completed != null)
             {
                 node = node.WithArgumentList(completed);
+                Changed = true;
+            }
+
+            var paramsRewritten = _paramsRewriter?.RewriteCallSite(original, node.ArgumentList);
+            if (paramsRewritten != null)
+            {
+                node = node.WithArgumentList(paramsRewritten);
                 Changed = true;
             }
         }
@@ -1224,6 +1293,77 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
     private static bool HasPrimaryDefaults(TypeDeclarationSyntax node)
         => node.ParameterList != null && HasDefaults(node.ParameterList.Parameters);
 
+    // -----------------------------------------------------------------------
+    // C48 params-collections hooks (T16, R-a)
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Runs the C48 declaration materializer on an E08-processed declaration.
+    /// No-op (returns the target unchanged) when the rule set is disabled.
+    /// </summary>
+    private T MaterializeParams<T>(SyntaxNode originalDeclaration, T target)
+        where T : SyntaxNode
+    {
+        if (_paramsMaterializer == null)
+        {
+            return target;
+        }
+
+        var result = _paramsMaterializer.Materialize(originalDeclaration, target);
+        if (_paramsMaterializer.Changed)
+        {
+            Changed = true;
+        }
+
+        return result is T typed ? typed : target;
+    }
+
+    /// <summary>
+    /// C48 additive dirty check for type declarations (consulted only when the
+    /// rule is enabled): true when the type's own primary constructor or any
+    /// (recursively nested) member declares a last-position parameter with the
+    /// params keyword — the exact set ProcessMethod/ProcessConstructor/
+    /// ProcessLocalFunction/ProcessPrimaryConstructor can materialize. Classic
+    /// array params declarations are included only because their call sites
+    /// may need rewriting when ExpandArrayCallSites is on; a false positive
+    /// merely routes the type through the normal processing loop, which leaves
+    /// untouched declarations byte-identical.
+    /// </summary>
+    private bool HasC48ParamsCandidate(TypeDeclarationSyntax node)
+    {
+        if (_paramsMaterializer == null)
+        {
+            return false;
+        }
+
+        if (HasParamsCandidateInParameterList(node.ParameterList))
+        {
+            return true;
+        }
+
+        foreach (var member in node.Members)
+        {
+            switch (member)
+            {
+                case MethodDeclarationSyntax method when HasParamsCandidateInParameterList(method.ParameterList):
+                    return true;
+                case ConstructorDeclarationSyntax ctor when HasParamsCandidateInParameterList(ctor.ParameterList):
+                    return true;
+                case DelegateDeclarationSyntax delegateDeclaration when HasParamsCandidateInParameterList(delegateDeclaration.ParameterList):
+                    return true;
+                case TypeDeclarationSyntax nested when HasC48ParamsCandidate(nested):
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Syntax-level params scan: any parameter carrying the params keyword.</summary>
+    private static bool HasParamsCandidateInParameterList(ParameterListSyntax? parameterList)
+        => parameterList != null
+            && parameterList.Parameters.Any(p => p.Modifiers.Any(m => m.IsKind(SyntaxKind.ParamsKeyword)));
+
     private static bool HasDirtyMembers(SyntaxList<MemberDeclarationSyntax> members)
     {
         foreach (var member in members)
@@ -1553,7 +1693,7 @@ internal sealed class DefaultParameterDeclarationRewriter : CSharpSyntaxRewriter
     private static bool HasCallerAttribute(ParameterListSyntax parameterList)
         => parameterList.Parameters.Any(HasCallerAttribute);
 
-    private static bool IsTestMethod(MethodDeclarationSyntax method)
+    internal static bool IsTestMethod(MethodDeclarationSyntax method)
     {
         foreach (var attributeList in method.AttributeLists)
         {

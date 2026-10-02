@@ -81,6 +81,48 @@ public static class ParamsDiagnostics
     public const string VirtualFamilyIncompleteMessage =
         "virtual slot family for '{0}' could not be resolved completely; the declaration was not materialized";
 
+    public const string SymbolResolutionFailedMessage =
+        "call site target '{0}' has no registered params declaration plan; the site is kept unchanged (no guessing)";
+
+    public const string ScopeExcludedMessage =
+        "params type '{0}' is excluded by the current scope/rollout policy; site kept unchanged";
+
+    public const string CharFaceExcludedMessage =
+        "params type '{0}' is excluded in v1 (ReadOnlySpan<char> char face, C52 implicit span conversion boundary); site kept unchanged";
+
+    public const string SlotConflictMessage =
+        "IOperation and syntax slot conclusions conflict for call site '{0}'; site kept unchanged";
+
+    public const string OverloadEmptySlotFilledMessage =
+        "forwarding overload fills the empty params slot '{0}' with explicit shape '{1}'";
+
+    public const string ResidualGateMessage =
+        "non-array params modifier remains on '{0}' without a matching skip pairing; residual/idempotency gate failed";
+
+    // ------------------------------------------------------------------
+    // Message builders
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Builds the message for a declaration-side skip: ref-struct element,
+    /// broken initializer pattern, or a type outside the legal params set.
+    /// Shared by the signature collector (collect phase) and the declaration
+    /// materializer (strip phase) so both phases report identical text.
+    /// </summary>
+    public static string BuildSkipMessage(ParamsTargetClassification classification, string memberDisplay)
+    {
+        var typeName = classification.ParameterType.ToDisplayString();
+        return classification.SkipReason switch
+        {
+            RefStructElement when classification.ElementType != null
+                => string.Format(RefStructElementMessage, typeName, classification.ElementType.ToDisplayString()),
+            InitializerPatternBroken
+                => string.Format(InitializerPatternBrokenMessage, typeName),
+            _
+                => string.Format(UnsupportedTypeMessage, typeName, memberDisplay),
+        };
+    }
+
     // ------------------------------------------------------------------
     // Severity policy
     // ------------------------------------------------------------------

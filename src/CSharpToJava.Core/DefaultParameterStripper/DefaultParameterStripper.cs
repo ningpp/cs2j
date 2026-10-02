@@ -12,6 +12,14 @@ public sealed class DefaultParameterStripper
     private readonly ParamsSignatureCollector _paramsCollector = new();
 
     /// <summary>
+    /// Number of collect-phase params diagnostics already surfaced into a Strip
+    /// result. The adapter collects across the whole compilation and then
+    /// strips per file; the first Strip call surfaces every declaration-side
+    /// diagnostic emitted during Collect exactly once.
+    /// </summary>
+    private int _surfacedParamsDiagnostics;
+
+    /// <summary>
     /// C48 params-collections Collect result. Populated by <see cref="Collect"/>
     /// when the rule set is enabled in the options; null (zero behavior)
     /// otherwise. The declaration materializer and call-site rewriter (the
@@ -45,12 +53,31 @@ public sealed class DefaultParameterStripper
             : CSharpSyntaxTree.ParseText(sourceCode);
         var root = (CompilationUnitSyntax)tree.GetRoot();
 
+        // C48 effective options: the rule needs both an enabled options record
+        // and the collect-phase plan catalog (built with a semantic model).
+        var paramsOptions = options.ParamsCollections is { Enabled: true } enabled && ParamsResult != null && model != null
+            ? enabled
+            : null;
+
+        // Surface declaration-side diagnostics emitted during Collect (skip
+        // family: unsupported types, builder blocks, ref-struct elements,
+        // scope/char-face exclusions) exactly once per stripper instance.
+        if (paramsOptions != null && ParamsResult != null)
+        {
+            for (var i = _surfacedParamsDiagnostics; i < ParamsResult.Diagnostics.Count; i++)
+            {
+                diagnostics.Add(ParamsResult.Diagnostics[i]);
+            }
+
+            _surfacedParamsDiagnostics = ParamsResult.Diagnostics.Count;
+        }
+
         // Always run the rewriter — it handles both declaration stripping
         // and call-site rewriting (fixing named arguments that skip default
         // parameters). The IsDirty check only skips files with no defaults,
         // but call sites in such files may still need rewriting.
         var hasDefaults = IsDirty(root);
-        if (!hasDefaults && options.ParamsCollections is { Enabled: true } paramsOptions)
+        if (!hasDefaults && paramsOptions != null)
         {
             // C48 additive dirty scan — only ever turns a clean file dirty,
             // never weakens the default-value verdict above. Short-circuited
@@ -58,14 +85,28 @@ public sealed class DefaultParameterStripper
             hasDefaults = HasParamsCollectionsCandidate(root, paramsOptions.ExpandArrayCallSites);
         }
 
+        var toleratedParamsResiduals = new HashSet<string>(StringComparer.Ordinal);
         var rewriter = new DefaultParameterDeclarationRewriter(
-            model, options, stats, diagnostics, _catalog, hasDefaults);
+            model, options, stats, diagnostics, _catalog, hasDefaults,
+            paramsOptions != null ? ParamsResult : null,
+            paramsOptions != null ? toleratedParamsResiduals : null);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
         if (!rewriter.Changed)
         {
             stats.FilesSkippedClean = 1;
             return new DefaultParameterStripperResult(sourceCode, false, diagnostics, stats);
+        }
+
+        // C48 (PC-10): residual gate — every non-array params modifier left in
+        // the output must pair with an explicit skip decision.
+        if (paramsOptions != null && ParamsResult != null)
+        {
+            foreach (var residual in ParamsResidualVerifier.Verify(newRoot, toleratedParamsResiduals, paramsOptions.Strict))
+            {
+                diagnostics.Add(residual);
+                ParamsResult.Statistics.ResidualCount++;
+            }
         }
 
         using var workspace = new AdhocWorkspace();
