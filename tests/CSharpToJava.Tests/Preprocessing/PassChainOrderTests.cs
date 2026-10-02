@@ -20,6 +20,7 @@ public sealed class PassChainOrderTests
     [
         PassIds.Conditional,
         PassStubCatalog.Ids.LexicalNormalize,
+        PassStubCatalog.Ids.PartialMerge,
         PassIds.LocalFunctionLift,
         PassIds.NullCoalesce,
         PassStubCatalog.Ids.ExpressionDesugar,
@@ -49,9 +50,11 @@ public sealed class PassChainOrderTests
         PassIds.JavaKeywords,
     ];
 
-    // lexical-normalize lands Implemented/default-off (M3 gate flips it on).
+    // lexical-normalize and partial-merge land Implemented/default-off (gated).
     private static readonly string[] EnabledByDefault =
-        LockedChain.Where(id => id != PassStubCatalog.Ids.LexicalNormalize).ToArray();
+        LockedChain.Where(id =>
+            id != PassStubCatalog.Ids.LexicalNormalize
+            && id != PassStubCatalog.Ids.PartialMerge).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -69,8 +72,15 @@ public sealed class PassChainOrderTests
             ordered.FindIndex(p => p.Id == PassIds.Conditional)
                 < ordered.FindIndex(p => p.Id == PassStubCatalog.Ids.LexicalNormalize)
                 && ordered.FindIndex(p => p.Id == PassStubCatalog.Ids.LexicalNormalize)
+                < ordered.FindIndex(p => p.Id == PassStubCatalog.Ids.PartialMerge)
+                && ordered.FindIndex(p => p.Id == PassStubCatalog.Ids.PartialMerge)
                 < ordered.FindIndex(p => p.Id == PassIds.LocalFunctionLift),
-            "expected conditional < lexical-normalize < local-function-lift");
+            "expected conditional < lexical-normalize < partial-merge < local-function-lift");
+
+        Assert.True(
+            ordered.FindIndex(p => p.Id == PassStubCatalog.Ids.PartialMerge)
+                < ordered.FindIndex(p => p.Id == PassIds.MemberDesugar),
+            "expected partial-merge < member-desugar (catalog: C46 after C20)");
     }
 
     [Fact]
@@ -231,6 +241,8 @@ public sealed class PassChainOrderTests
         Assert.True(byId[PassStubCatalog.Ids.ForeachSource].DefaultEnabled);
         Assert.Equal("C47", byId[PassStubCatalog.Ids.EqualityConcat].CatalogItems);
         Assert.Equal("C36", byId[PassStubCatalog.Ids.ExpressionDesugar].CatalogItems);
+        Assert.Equal("C20", byId[PassStubCatalog.Ids.PartialMerge].CatalogItems);
+        Assert.False(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
     }
 
     [Fact]
@@ -353,7 +365,8 @@ public sealed class PassChainOrderTests
                 && id != PassIds.EnumDeclaration
                 && id != PassStubCatalog.Ids.UnsafeFfm
                 && id != PassStubCatalog.Ids.ExpressionDesugar
-                && id != PassStubCatalog.Ids.LexicalNormalize)
+                && id != PassStubCatalog.Ids.LexicalNormalize
+                && id != PassStubCatalog.Ids.PartialMerge)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }
