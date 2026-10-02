@@ -10,12 +10,15 @@ using Xunit;
 namespace CSharpToJava.Tests;
 
 /// <summary>
-/// C23 interpolation-expansion Part A unit tests (design
+/// C23 interpolation-expansion Part A + Part B unit tests (design
 /// docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md §4):
-/// IE-FOLD (CS2J0503), IE-CONCAT (CS2J0501), handler five-way hard gate G0
-/// and the Part A Format-preservation bridge (CS2J0502). All API shapes were
-/// locked against Roslyn 5.0.0 by earlier probes; the load-bearing deviations
-/// from the paper design are asserted here:
+/// IE-FOLD (CS2J0503), IE-CONCAT (CS2J0501), IE-FORMAT (CS2J0502 — composite
+/// escaping, alignment/format passthrough, non-whitelist IFormattable upgrade,
+/// CS2J0514), handler five-way hard gate G0 and the de-DE/custom-provider
+/// runtime oracle (native interpolation vs preprocessed product emitted and
+/// invoked via reflection). All API shapes were locked against Roslyn 5.0.0 by
+/// earlier probes; the load-bearing deviations from the paper design are
+/// asserted here:
 /// (a) handler/FormattableString binding gates run BEFORE the constant
 /// short-circuit (GetConstantValue lies for handler-bound text-only sites);
 /// (b) only string-constant holes fold — <c>$"{1}"</c> is CS0133-as-constant
@@ -417,11 +420,35 @@ public class InterpolationExpandUnitTests
     }
 
     // ------------------------------------------------------------------
-    // CS2J0502 — Part A Format/alignment preservation bridge.
+    // IE-FORMAT (CS2J0502) — real string.Format emission (Part B).
     // ------------------------------------------------------------------
 
+    /// <summary>
+    /// Runs <paramref name="methodName"/> on the ORIGINAL source and on the
+    /// preprocessed output (both emitted and invoked via reflection), and
+    /// asserts the two results are string-equal — the .NET-side culture/
+    /// alignment/format/null oracle (design §7.3). Returns the output code for
+    /// further textual assertions.
+    /// </summary>
+    private static string AssertNativeEqualsPreprocessed(
+        string source,
+        string typeName,
+        string methodName = "Run",
+        string? expected = null)
+    {
+        var native = RunStaticMethod(source, typeName, methodName);
+        var result = Preprocess(source, Enabled);
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        var preprocessed = RunStaticMethod(result.OutputCode, typeName, methodName);
+        Assert.Equal(native, preprocessed);
+        if (expected != null)
+            Assert.Equal(expected, preprocessed);
+        return result.OutputCode;
+    }
+
     [Fact]
-    public void Bridge_FormatAlignmentAndNonWhitelistIFormattable_Preserved_0502_NoResidual()
+    public void Format_MixedTriggers_OneStringFormat_AllThreeSubBuckets()
     {
         const string source = """
             using System;
@@ -434,17 +461,26 @@ public class InterpolationExpandUnitTests
 
         var result = Preprocess(source, Enabled);
 
-        Assert.False(result.Changed);
-        Assert.Equal(source, result.OutputCode);
-        var diagnostic = Assert.Single(result.Diagnostics);
-        Assert.Equal(InterpolationDiagnosticCodes.CS2J0502, diagnostic.Code);
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Contains(
+            "string.Format(\"{0:D2}|{1,5}|{2:yyyy-MM-dd}|{3}\", x, x, dt, dt)",
+            Normalize(result.OutputCode));
+        var stats = result.Statistics.Interpolations;
+        Assert.Equal(1, stats.FormatExpansions);
+        Assert.Equal(1, stats.FormatByAlignment);
+        Assert.Equal(1, stats.FormatByFormatClause);
+        Assert.Equal(1, stats.FormatByIFormattableUpgrade);
+        Assert.Equal(0, stats.ConcatExpansions);
+        Assert.Equal(0, stats.TempsLifted);
+        var diagnostic = result.Diagnostics.Single(d =>
+            d.Code == InterpolationDiagnosticCodes.CS2J0502);
         Assert.Equal(ExpressionDesugarSeverity.Info, diagnostic.Severity);
-        Assert.Equal(1, result.Statistics.Interpolations.FormatDeferredSites);
-        Assert.Equal(0, result.Statistics.Interpolations.ResidualInterpolationCount);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.DoesNotContain("InvariantCulture", result.OutputCode);
     }
 
     [Fact]
-    public void Bridge_SiblingConcatSiteStillRewrites_AndSecondRunIsStable()
+    public void Format_SiblingConcatSiteRewrites_AndSecondRunIsZeroDiff()
     {
         const string source = """
             using System;
@@ -464,24 +500,683 @@ public class InterpolationExpandUnitTests
         Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
         var normalized = Normalize(result.OutputCode);
         Assert.Contains("string.Concat(\"n\", x)", normalized);
-        Assert.Contains("$\"{dt:u}\"", normalized); // bridge site kept verbatim
-        var codes = result.Diagnostics.Select(d => d.Code).ToHashSet();
-        Assert.Contains(InterpolationDiagnosticCodes.CS2J0501, codes);
-        Assert.Contains(InterpolationDiagnosticCodes.CS2J0502, codes);
-        Assert.Equal(1, result.Statistics.Interpolations.ConcatExpansions);
-        Assert.Equal(1, result.Statistics.Interpolations.FormatDeferredSites);
-        Assert.Equal(0, result.Statistics.Interpolations.ResidualInterpolationCount);
+        Assert.Contains("string.Format(\"{0:u}\", dt)", normalized);
+        Assert.DoesNotContain("$\"", normalized);
+        var stats = result.Statistics.Interpolations;
+        Assert.Equal(1, stats.ConcatExpansions);
+        Assert.Equal(1, stats.FormatExpansions);
+        Assert.Equal(1, stats.FormatByFormatClause);
+        Assert.Equal(0, stats.ResidualInterpolationCount);
         AssertOutputCompiles(result.OutputCode);
 
-        // Second run: only the preserved site remains -> dirty-no-rewrite,
-        // byte-identical output, no residual 0516.
+        // Second run: no interpolation nodes remain -> clean skip, byte
+        // identical output, zero diagnostics.
         var second = Preprocess(result.OutputCode, Enabled);
         Assert.False(second.Changed);
         Assert.Equal(result.OutputCode, second.OutputCode);
-        Assert.Equal(0, second.Statistics.Interpolations.ResidualInterpolationCount);
+        Assert.Empty(second.Diagnostics);
+        Assert.Equal(1, second.Statistics.FilesSkippedClean);
+    }
+
+    // ------------------------------------------------------------------
+    // IE-FORMAT selection — clause triggers and the IFormattable upgrade.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Format_FormatClauseOnly_RoutesToFormat_FormatClauseBucket()
+    {
+        const string source = """
+            public static class C { public static string M(int x) => $"{x:D2}"; }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed);
+        Assert.Contains("string.Format(\"{0:D2}\", x)", Normalize(result.OutputCode));
+        var stats = result.Statistics.Interpolations;
+        Assert.Equal(1, stats.FormatExpansions);
+        Assert.Equal(1, stats.FormatByFormatClause);
+        Assert.Equal(0, stats.FormatByAlignment);
+        Assert.Equal(0, stats.FormatByIFormattableUpgrade);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Format_AlignmentOnly_RoutesToFormat_AlignmentBucket()
+    {
+        const string source = """
+            public static class C { public static string M(int x) => $"{x,5}"; }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed);
+        Assert.Contains("string.Format(\"{0,5}\", x)", Normalize(result.OutputCode));
+        var stats = result.Statistics.Interpolations;
+        Assert.Equal(1, stats.FormatExpansions);
+        Assert.Equal(1, stats.FormatByAlignment);
+        Assert.Equal(0, stats.FormatByFormatClause);
+        Assert.Equal(0, stats.FormatByIFormattableUpgrade);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Format_AlignmentAndFormat_BothBuckets_SingleExpansion()
+    {
+        const string source = """
+            public static class C { public static string M(int x) => $"{x,-8:X}"; }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed);
+        Assert.Contains("string.Format(\"{0,-8:X}\", x)", Normalize(result.OutputCode));
+        var stats = result.Statistics.Interpolations;
+        Assert.Equal(1, stats.FormatExpansions);
+        Assert.Equal(1, stats.FormatByAlignment);
+        Assert.Equal(1, stats.FormatByFormatClause);
+        Assert.Equal(0, stats.FormatByIFormattableUpgrade);
+        Assert.Equal(0, stats.TempsLifted);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Format_ExplicitIFormattable_UpgradesWholeSite_AndDispatchesViaProvider()
+    {
+        // Explicit interface implementation: parameterless ToString() and
+        // IFormattable.ToString(null, provider) return DIFFERENT strings. The
+        // default handler (and string.Format) dispatch via the provider;
+        // string.Concat would call the parameterless one. Whitelist siblings
+        // in the same site still become Format arguments.
+        const string source = """
+            using System;
+            public sealed class ProviderProbe : IFormattable
+            {
+                public override string ToString() => "PLAIN";
+                string IFormattable.ToString(string? format, IFormatProvider? provider)
+                    => format == null ? "PROVIDED" : "PROVIDED:" + format;
+            }
+            public static class P
+            {
+                public static string Run() => $"p={new ProviderProbe()}|n={1}";
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "p=PROVIDED|n=1");
         Assert.Contains(
-            InterpolationDiagnosticCodes.CS2J0502,
-            second.Diagnostics.Select(d => d.Code));
+            "string.Format(\"p={0}|n={1}\", new ProviderProbe(), 1)",
+            Normalize(output));
+        var stats = Preprocess(source, Enabled).Statistics.Interpolations;
+        Assert.Equal(1, stats.FormatExpansions);
+        Assert.Equal(1, stats.FormatByIFormattableUpgrade);
+        Assert.Equal(0, stats.FormatByFormatClause);
+        Assert.Equal(0, stats.FormatByAlignment);
+    }
+
+    [Fact]
+    public void Format_DateTimeGuidTimeSpan_Upgrade_CharAndPrimitivesStayConcat()
+    {
+        const string source = """
+            using System;
+            public static class C
+            {
+                public static string Fmt(DateTime dt, Guid g, TimeSpan ts)
+                    => $"{dt}|{g}|{ts}";
+                public static string Ch(char c, bool b, double d) => $"{c}-{b}-{d}";
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("string.Format(\"{0}|{1}|{2}\", dt, g, ts)", normalized);
+        Assert.Contains("string.Concat(c, \"-\", b, \"-\", d)", normalized);
+        var stats = result.Statistics.Interpolations;
+        Assert.Equal(1, stats.FormatExpansions);
+        Assert.Equal(1, stats.FormatByIFormattableUpgrade);
+        Assert.Equal(1, stats.ConcatExpansions);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    // ------------------------------------------------------------------
+    // IE-FORMAT composite escaping — braces, percent, quotes, escapes.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Concat_LiteralBraces_AreUnescaped_RuntimeEqual()
+    {
+        // Shared text decoding: on regular interpolations ValueText keeps the
+        // lexical brace doubling, so the Concat literals must unescape it or
+        // the runtime string gains an extra pair of braces.
+        const string source = """
+            public static class P
+            {
+                public static string Run() => $"{{a}}-{42}-}}{{";
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "{a}-42-}{");
+        Assert.Contains("string.Concat(\"{a}-\", 42, \"-}{\")", Normalize(output));
+        Assert.Equal(1, Preprocess(source, Enabled).Statistics.Interpolations.ConcatExpansions);
+    }
+
+    [Fact]
+    public void Format_LiteralBraces_AreDoubled_PercentStaysUntouched()
+    {
+        const string source = """
+            public static class P
+            {
+                public static string Run(int x, int p) => $"{{not}}: {x:D2} ({p}%)";
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed);
+        Assert.Contains(
+            "string.Format(\"{{not}}: {0:D2} ({1}%)\", x, p)",
+            Normalize(result.OutputCode));
+        Assert.Equal(1, result.Statistics.Interpolations.FormatExpansions);
+        AssertOutputCompiles(result.OutputCode);
+
+        var runnable = """
+            public static class P
+            {
+                public static string Run() => $"{{not}}: {7:D2} ({50}%)";
+            }
+            """;
+        AssertNativeEqualsPreprocessed(runnable, "P", expected: "{not}: 07 (50%)");
+    }
+
+    [Fact]
+    public void Format_QuoteBackslashNewlineText_FactoryEscapes_RuntimeEqual()
+    {
+        const string source = """
+            public static class P
+            {
+                public static string Run() => $"a\"b\\c\n{7:D2}";
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "a\"b\\c\n07");
+        // SyntaxFactory re-escaped the composite literal (no hand-rolled
+        // escaping): quote, backslash and newline all appear as escapes.
+        Assert.Contains(@"a\""b\\c\n{0:D2}", output);
+        Assert.DoesNotContain("TODO", output);
+    }
+
+    [Fact]
+    public void Format_MultipleHoles_SequentialIndices_RuntimeEqual()
+    {
+        const string source = """
+            public static class P
+            {
+                public static string Run() => $"{1}-{2}-{3:00}";
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "1-2-03");
+        Assert.Contains(
+            "string.Format(\"{0}-{1}-{2:00}\", 1, 2, 3)",
+            Normalize(output));
+    }
+
+    // ------------------------------------------------------------------
+    // IE-FORMAT alignment — directions, zero, folded constant width; CS2J0514.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Format_Alignment_PositiveNegativeZero_AndFoldedWidth_RuntimeEqual()
+    {
+        const string source = """
+            public static class P
+            {
+                public static string Run()
+                    => $"[{42,5}][{42,-5}][{123,1}][{1,0}][{1,2 + 3}]|";
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "P", expected: "[   42][42   ][123][1][    1]|");
+        Assert.Contains("{0,5}", output);
+        Assert.Contains("{1,-5}", output);
+        Assert.Contains("{2,1}", output);
+        Assert.Contains("{3,0}", output);
+        // The compile-time constant 2 + 3 folds to the width 5 (no runtime
+        // expression is emitted into the composite).
+        Assert.Contains("{4,5}", output);
+        Assert.Equal(0, Preprocess(source, Enabled).Statistics.Interpolations.TempsLifted);
+    }
+
+    [Fact]
+    public void Format_NonConstantAlignment_Strict0514_AtomicPreserve()
+    {
+        const string source = """
+            public static class C
+            {
+                public static string M(int w) => $"{1,w}";
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        var diagnostic = result.Diagnostics
+            .Single(d => d.Code == InterpolationDiagnosticCodes.CS2J0514);
+        Assert.Equal(ExpressionDesugarSeverity.Error, diagnostic.Severity);
+        Assert.Equal(1, result.Statistics.Interpolations.SkippedByReason[
+            InterpolationDiagnosticCodes.CS2J0514]);
+        Assert.Equal(0, result.Statistics.Interpolations.FormatExpansions);
+        Assert.Equal(0, result.Statistics.Interpolations.ResidualInterpolationCount);
+    }
+
+    [Fact]
+    public void Format_NonConstantAlignment_NonStrict_Warns_SiblingSiteStillRewrites()
+    {
+        const string source = """
+            public static class C
+            {
+                public static string M(int w)
+                {
+                    var bad = $"{1,w}";
+                    var ok = $"n{1}";
+                    return bad + ok;
+                }
+            }
+            """;
+        var options = new InterpolationOptions { Enabled = true, Strict = false };
+
+        var result = Preprocess(source, options);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("string.Concat(\"n\", 1)", normalized);
+        Assert.Contains("$\"{1,w}\"", normalized); // baseline-illegal site kept
+        var diagnostic = result.Diagnostics
+            .Single(d => d.Code == InterpolationDiagnosticCodes.CS2J0514);
+        Assert.Equal(ExpressionDesugarSeverity.Warning, diagnostic.Severity);
+        Assert.Equal(0, result.Statistics.Interpolations.ResidualInterpolationCount);
+        Assert.Equal(1, result.Statistics.Interpolations.ConcatExpansions);
+    }
+
+    // ------------------------------------------------------------------
+    // IE-FORMAT specifier passthrough + unknown specifiers (no TODO/printf).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Format_AllSpecifierFamilies_PassThroughCompositeVerbatim_EnUsOracle()
+    {
+        const string source = """
+            using System;
+            using System.Globalization;
+            public static class P
+            {
+                public static string Run()
+                {
+                    var old = CultureInfo.CurrentCulture;
+                    try
+                    {
+                        CultureInfo.CurrentCulture = new CultureInfo("en-US");
+                        int x = 42;
+                        double d = 1234.567;
+                        decimal m = 1234.5m;
+                        var dt = new DateTime(2026, 3, 4, 13, 5, 7, DateTimeKind.Utc);
+                        return $"{x:D4}|{d:F2}|{d:E2}|{d:e2}|{x:X8}|{m:N2}|{d:G4}|{0.36:P0}|{dt:MM/dd/yyyy}|{dt:R}|{dt:M}";
+                    }
+                    finally { CultureInfo.CurrentCulture = old; }
+                }
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(source, "P");
+        foreach (var placeholder in new[]
+                 {
+                     "{0:D4}", "{1:F2}", "{2:E2}", "{3:e2}", "{4:X8}",
+                     "{5:N2}", "{6:G4}", "{7:P0}", "{8:MM/dd/yyyy}",
+                     "{9:R}", "{10:M}",
+                 })
+        {
+            Assert.Contains(placeholder, output);
+        }
+        Assert.DoesNotContain("TODO", output);
+        Assert.DoesNotContain("InvariantCulture", output);
+    }
+
+    [Fact]
+    public void Format_UnknownSpecifier_Q2_ProbeAndNumeric_PassThrough_NoTodo()
+    {
+        // The probe distinguishes the parameterless ToString() (what Concat
+        // would call) from the IFormattable interface path the default
+        // handler and string.Format both take (the handler may pass a null
+        // provider meaning "current culture"; the format text is what proves
+        // passthrough). The numeric 'qq' custom specifier is made of literal
+        // characters, so the BCL echoes it for both native and preprocessed.
+        const string source = """
+            using System;
+            public sealed class ProviderProbe : IFormattable
+            {
+                public override string ToString() => "PLAIN";
+                string IFormattable.ToString(string? format, IFormatProvider? provider)
+                    => "VIA:" + (format ?? "<null>");
+            }
+            public static class P
+            {
+                public static string Run()
+                    => $"{new ProviderProbe():Q2}|{1.5:qq}";
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "P", expected: "VIA:Q2|qq");
+        Assert.Contains("{0:Q2}", output);
+        Assert.Contains("{1:qq}", output);
+        Assert.DoesNotContain("TODO", output);
+        Assert.DoesNotContain("%s", output);
+    }
+
+    // ------------------------------------------------------------------
+    // IE-FORMAT culture — de-DE fixed culture; never invariant.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Format_Culture_DeDe_NativeEqualsPreprocessed_NoInvariant()
+    {
+        const string source = """
+            using System;
+            using System.Globalization;
+            public static class Cul
+            {
+                public static string Run()
+                {
+                    var old = CultureInfo.CurrentCulture;
+                    try
+                    {
+                        CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+                        var dt = new DateTime(2026, 3, 4, 13, 5, 7);
+                        return $"{1.5}|{dt}|{1.5:F2}|{1234.567:N2}|{0.36:P0}|{42,6}|{true}";
+                    }
+                    finally { CultureInfo.CurrentCulture = old; }
+                }
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(source, "Cul");
+        // The culture really switched (decimal comma, German date/time,
+        // thousands dot, percent spacing) AND the product names no invariant.
+        var value = RunStaticMethod(output, "Cul");
+        Assert.StartsWith("1,5|04.03.2026 13:05:07|1,50|1.234,57|36 %|    42|True", value);
+        Assert.DoesNotContain("InvariantCulture", output);
+        Assert.DoesNotContain("FormattableString.Invariant", output);
+    }
+
+    // ------------------------------------------------------------------
+    // IE-FORMAT nesting — inner expands first; no Format flattening.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Format_Nested_InnerFormat_OuterConcat_RuntimeEqual()
+    {
+        const string source = """
+            using System;
+            using System.Globalization;
+            public static class P
+            {
+                public static string Run()
+                {
+                    var old = CultureInfo.CurrentCulture;
+                    try
+                    {
+                        CultureInfo.CurrentCulture = new CultureInfo("en-US");
+                        return $"a{$"{1.5:f2}"}b";
+                    }
+                    finally { CultureInfo.CurrentCulture = old; }
+                }
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(source, "P", expected: "a1.50b");
+        Assert.Contains(
+            "string.Concat(\"a\", string.Format(\"{0:f2}\", 1.5), \"b\")",
+            Normalize(output));
+        var stats = Preprocess(source, Enabled).Statistics.Interpolations;
+        Assert.Equal(1, stats.FormatExpansions);
+        Assert.Equal(1, stats.ConcatExpansions);
+        Assert.Equal(1, stats.NestedInterpolationSites);
+    }
+
+    [Fact]
+    public void Format_Nested_ThreeLevels_AndConcatInsideFormat_RuntimeEqual()
+    {
+        const string source = """
+            public static class P
+            {
+                public static string Run()
+                    => $"{ $"n{1}" ,6}|" + $"[{$"({$"{1:000}"})"}]";
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "P", expected: "    n1|[(001)]");
+        // No Format flattening: the outer Format keeps an inner Concat call,
+        // and the three-level chain stays nested.
+        Assert.Contains("string.Format(\"{0,6}|\", string.Concat(\"n\", 1))",
+            Normalize(output));
+        Assert.Contains("{0:000}", output);
+        var stats = Preprocess(source, Enabled).Statistics.Interpolations;
+        Assert.Equal(5, stats.InterpolationSites);
+        Assert.Equal(2, stats.FormatExpansions);
+        Assert.Equal(3, stats.ConcatExpansions);
+    }
+
+    [Fact]
+    public void Format_Nested_SideEffects_InnerOuter_EachHoleOnce_InOrder()
+    {
+        const string source = """
+            public static class Probe
+            {
+                public static int Calls;
+                public static int Next() { Calls++; return Calls; }
+                public static string Run()
+                {
+                    Calls = 0;
+                    var s = $"{Next():D2}-{$"{Next()}-{Next()}"}";
+                    return s + "|" + Calls;
+                }
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "Probe", expected: "01-2-3|3");
+        // Method declaration + three hole call sites = three arguments, each
+        // evaluated exactly once (a temp/duplication would show 4+).
+        Assert.Equal(4, Regex.Matches(Normalize(output), "Next\\(\\)").Count);
+        Assert.Equal(0, Preprocess(source, Enabled).Statistics.Interpolations.TempsLifted);
+    }
+
+    // ------------------------------------------------------------------
+    // IE-FORMAT side effects — assignment/postfix/ternary/conditional access.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Format_SideEffects_ArgsOnce_ZeroTemps_AssignmentPostfixTernaryConditional()
+    {
+        const string source = """
+            public static class Probe
+            {
+                public static int Calls;
+                public static int Next() { Calls++; return 7; }
+                public static string Run()
+                {
+                    Calls = 0;
+                    int x = 0;
+                    string? s = null;
+                    bool b = true;
+                    var r = $"{Next():D2}|{(x = 9):D2}|{x++:D2}|{(b ? 1 : 2):D2}|{(s?.Length),5}|{Next(),3}";
+                    return r + "|" + Calls + "|" + x;
+                }
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "Probe", expected: "07|09|09|01|     |  7|2|10");
+        var normalized = Normalize(output);
+        Assert.Contains(
+            "string.Format(\"{0:D2}|{1:D2}|{2:D2}|{3:D2}|{4,5}|{5,3}\", " +
+            "Next(), (x = 9), x++, (b ? 1 : 2), (s?.Length), Next())",
+            normalized);
+        // Method declaration + two Next() holes only.
+        Assert.Equal(3, Regex.Matches(normalized, "Next\\(\\)").Count);
+        Assert.Equal(0, Preprocess(source, Enabled).Statistics.Interpolations.TempsLifted);
+        Assert.DoesNotContain("__ed_", output);
+    }
+
+    // ------------------------------------------------------------------
+    // IE-FORMAT null semantics — BCL supplies "", no ?? / ToString wraps.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Format_NullHoles_StringObjectNullableInt_RuntimeEqual_NoCoalescing()
+    {
+        const string source = """
+            public static class P
+            {
+                public static string Run()
+                {
+                    int? ni = null;
+                    object? o = null;
+                    return $"{1:D2}|{(string)null}|{o}|{ni}|{ni,3}";
+                }
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "P", expected: "01||||   ");
+        var normalized = Normalize(output);
+        Assert.DoesNotContain("??", normalized);
+        Assert.DoesNotContain("ToString", normalized);
+        Assert.Contains(
+            "string.Format(\"{0:D2}|{1}|{2}|{3}|{4,3}\", 1, (string)null, o, ni, ni)",
+            normalized);
+    }
+
+    // ------------------------------------------------------------------
+    // IE-FORMAT unsigned holes stay raw (no ToString wrapping).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Format_UnsignedHoles_WithFormat_StayRaw_RuntimeEqual()
+    {
+        const string source = """
+            public static class P
+            {
+                public static string Run()
+                {
+                    byte b = 255;
+                    ushort us = 65535;
+                    uint u = 4294967295u;
+                    ulong ul = 18446744073709551615ul;
+                    return $"{b:X2}-{us:X4}-{u:X8}-{ul:X16}";
+                }
+            }
+            """;
+
+        var output = AssertNativeEqualsPreprocessed(
+            source, "P", expected: "FF-FFFF-FFFFFFFF-FFFFFFFFFFFFFFFF");
+        var normalized = Normalize(output);
+        Assert.Contains(
+            "string.Format(\"{0:X2}-{1:X4}-{2:X8}-{3:X16}\", b, us, u, ul)",
+            normalized);
+        Assert.DoesNotContain("ToString", normalized);
+        Assert.Equal(0, Preprocess(source, Enabled).Statistics.Interpolations.UnsignedHoleWraps);
+    }
+
+    // ------------------------------------------------------------------
+    // IE-FORMAT idempotency + Enabled=false zero-regression.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void Format_Output_Recompiles_AndSecondRunIsZeroDiff()
+    {
+        const string source = """
+            public static class C { public static string M(int x) => $"{x:D2}|{x,5:X}"; }
+            """;
+
+        var result = Preprocess(source, Enabled);
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+
+        var second = Preprocess(result.OutputCode, Enabled);
+        Assert.False(second.Changed);
+        Assert.Equal(result.OutputCode, second.OutputCode);
+        Assert.Empty(second.Diagnostics);
+    }
+
+    [Fact]
+    public void Format_RefStructSafeToStringHole_OnFormatPath_WrapsToString()
+    {
+        // Format site (the int hole carries a format clause) that also has a
+        // proven-safe ref-struct hole: the span cannot be boxed, so it is the
+        // single wrapping the Format emitter permits (x.ToString()).
+        const string source = """
+            using System;
+            public static class C
+            {
+                public static string M(ReadOnlySpan<char> sp) => $"{sp}|{1:D2}";
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Contains(
+            "string.Format(\"{0}|{1:D2}\", sp.ToString(), 1)",
+            Normalize(result.OutputCode));
+        Assert.Equal(1, result.Statistics.Interpolations.FormatExpansions);
+        Assert.Equal(1, result.Statistics.Interpolations.RefStructToStringWraps);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void Disabled_FormatInterpolation_IsInert_BytesIdentical_SectionZero()
+    {
+        const string source = """
+            public static class C { public static string M(int x) => $"{x:D2}"; }
+            """;
+        var (_, model) = BuildCompilation(source);
+
+        var result = new ExpressionDesugarPreprocessor()
+            .Preprocess(source, model, new ExpressionDesugarOptions());
+
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        Assert.Empty(result.Diagnostics);
+        Assert.Equal(0, result.Statistics.Interpolations.InterpolationSites);
+        Assert.Equal(0, result.Statistics.Interpolations.FormatExpansions);
+    }
+
+    [Fact]
+    public void Concat_BoolEnumDouble_WithoutClauses_StaysConcat_NotFormat()
+    {
+        const string source = """
+            public enum Color { Red, Green }
+            public static class C
+            {
+                public static string M(bool b, Color e, double d) => $"{b}-{e}-{d}";
+            }
+            """;
+
+        var result = Preprocess(source, Enabled);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.Contains(
+            "string.Concat(b, \"-\", e, \"-\", d)",
+            Normalize(result.OutputCode));
+        var stats = result.Statistics.Interpolations;
+        Assert.Equal(1, stats.ConcatExpansions);
+        Assert.Equal(0, stats.FormatExpansions);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     // ------------------------------------------------------------------
