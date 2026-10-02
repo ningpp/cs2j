@@ -61,16 +61,26 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
     /// <summary>Number of identifier sites actually replaced during <see cref="Visit"/>.</summary>
     public int SitesRewritten { get; private set; }
 
-    /// <summary>Step A: insert every holder class into its host type.</summary>
-    public CompilationUnitSyntax InsertHolderClasses(CompilationUnitSyntax root)
-    {
-        if (_holderClasses.Count == 0)
-            return root;
+    // Holder classes are appended DURING the single traversal (not via a prior
+    // ReplaceNodes step): replacing the host type first would allocate new
+    // wrappers for the whole host subtree and invalidate the frozen identity
+    // tables (mirrors E02's one-Visit shape). The three host kinds are exactly
+    // the insertable host types the analyzer accepts (class/struct/record).
+    public override SyntaxNode? VisitClassDeclaration(ClassDeclarationSyntax node)
+        => AppendHolderClasses(node, (TypeDeclarationSyntax?)base.VisitClassDeclaration(node));
 
-        return root.ReplaceNodes(
-            _holderClasses.Keys,
-            (original, _) => original.WithMembers(
-                original.Members.AddRange(_holderClasses[original])));
+    public override SyntaxNode? VisitStructDeclaration(StructDeclarationSyntax node)
+        => AppendHolderClasses(node, (TypeDeclarationSyntax?)base.VisitStructDeclaration(node));
+
+    public override SyntaxNode? VisitRecordDeclaration(RecordDeclarationSyntax node)
+        => AppendHolderClasses(node, (TypeDeclarationSyntax?)base.VisitRecordDeclaration(node));
+
+    private TypeDeclarationSyntax? AppendHolderClasses(
+        TypeDeclarationSyntax original, TypeDeclarationSyntax? visited)
+    {
+        if (visited is null || !_holderClasses.TryGetValue(original, out var added))
+            return visited;
+        return visited.WithMembers(visited.Members.AddRange(added));
     }
 
     public override SyntaxNode? VisitIdentifierName(IdentifierNameSyntax node)
@@ -129,7 +139,9 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
         if (!_blockPrepends.TryGetValue(original, out var prepend))
         {
             var rebuilt = attach(original, original.WithStatements(SyntaxFactory.List(visitedStatements)));
-            return ReferenceEquals(rebuilt, original) ? null : rebuilt;
+            // Returning null from a Visit override would DELETE the block; an
+            // unchanged block must come back as its original node.
+            return ReferenceEquals(rebuilt, original) ? original : rebuilt;
         }
 
         var all = new List<StatementSyntax>(prepend);

@@ -49,12 +49,13 @@ internal sealed class HolderLiftStage : IClosureLiftStage
             return new ClosureStageResult(root, false);
         }
 
-        // 5. Generate + Rewrite. Holder classes first (ReplaceNodes preserves
-        //    every unrelated node identity, so the frozen site/statement keys
-        //    still resolve), then the single bottom-up site traversal.
+        // 5. Generate + Rewrite. One bottom-up traversal: statement splices and
+        //    identifier sites resolve against ORIGINAL node identities, and
+        //    holder classes are appended into host types during that same
+        //    traversal (a separate ReplaceNodes step would rebuild the host
+        //    subtree wrappers and invalidate the frozen identity tables).
         var rewriter = new CaptureSiteRewriter(groups, statistics);
-        var withHolderClasses = rewriter.InsertHolderClasses(root);
-        var rewritten = (CompilationUnitSyntax)rewriter.Visit(withHolderClasses)!;
+        var rewritten = (CompilationUnitSyntax)rewriter.Visit(root)!;
 
         // Fail loud rather than emitting an unreferenced holder class.
         if (rewriter.SitesRewritten == 0)

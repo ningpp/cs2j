@@ -1,6 +1,7 @@
 using CSharpToJava.Core.ClosureLift;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
 namespace CSharpToJava.ProjectTests;
@@ -397,6 +398,211 @@ class C {
         Assert.Empty(r.Diagnostics);
     }
 
+    // ── M2 transform tests (design §7.1) ──
+
+    [Fact]
+    public void Transform_ReadOnlyCapture_UnchangedAndClean()
+    {
+        var src = @"
+class C {
+    int M() {
+        int x = 41;
+        System.Func<int> f = () => x + 1;
+        return f();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Equal(1, r.Statistics.FilesSkippedClean);
+        Assert.Equal(0, r.Statistics.FilesTransformed);
+    }
+
+    [Fact]
+    public void Transform_ExternalWrite_AllSitesFieldBacked_NoBareName()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => { System.Console.WriteLine(x); };
+        x = 1;
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Equal(1, r.Statistics.HolderClassesGenerated);
+        Assert.Equal(1, r.Statistics.HolderInstancesGenerated);
+        Assert.Equal(1, r.Statistics.CapturesLifted);
+        Assert.Equal(1, r.Statistics.CapturesByReason[TriggerReason.ExternalWrite]);
+
+        Assert.Contains("private sealed class Cs2jDisplayClass_M_0", r.OutputCode);
+        Assert.Contains("public int _cs2jCap_x;", r.OutputCode);
+        Assert.Contains("var __cs2jClosure0 = new Cs2jDisplayClass_M_0();", r.OutputCode);
+        Assert.Contains("__cs2jClosure0._cs2jCap_x = 0;", r.OutputCode);
+        Assert.Contains("__cs2jClosure0._cs2jCap_x = 1;", r.OutputCode);
+        Assert.DoesNotContain("int x =", r.OutputCode);
+        Assert.Empty(BareIdentifiers(r.OutputCode, "x"));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_InsideLambdaWrite_ExternalRead_OneHolderOneField()
+    {
+        var src = @"
+class C {
+    void M() {
+        int count = 0;
+        System.Action inc = () => count++;
+        inc();
+        System.Console.WriteLine(count);
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Contains("public int _cs2jCap_count;", r.OutputCode);
+        Assert.Contains("() => __cs2jClosure0._cs2jCap_count++", r.OutputCode);
+        Assert.Contains("System.Console.WriteLine(__cs2jClosure0._cs2jCap_count)", r.OutputCode);
+        Assert.Empty(BareIdentifiers(r.OutputCode, "count"));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_InternalAndExternalWrites_SingleHolder()
+    {
+        var src = @"
+class C {
+    void M() {
+        int count = 0;
+        System.Action inc = () => count += 2;
+        count = 5;
+        inc();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Single(HolderClassNames(r.OutputCode).Where(n => n == "Cs2jDisplayClass_M_0"));
+        Assert.Contains("__cs2jClosure0._cs2jCap_count = 5;", r.OutputCode);
+        Assert.Contains("() => __cs2jClosure0._cs2jCap_count += 2", r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_MultipleLambdas_ShareOneInstanceAndField()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action reader = () => System.Console.WriteLine(x);
+        System.Action writer = () => { x = 9; };
+        reader(); writer();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Equal(1, r.Statistics.HolderInstancesGenerated);
+        Assert.Contains("() => System.Console.WriteLine(__cs2jClosure0._cs2jCap_x)", r.OutputCode);
+        Assert.Contains("() => { __cs2jClosure0._cs2jCap_x = 9; }", r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_TwoSymbolsSameScope_OneHolderOrderedFields_Deterministic()
+    {
+        var src = @"
+class C {
+    void M() {
+        int a = 1, b = 2;
+        System.Action t = () => { a++; b += a; };
+        t();
+    }
+}";
+        var r1 = Transform(src);
+        var r2 = Transform(src);
+
+        Assert.True(r1.Changed);
+        Assert.Equal(r1.OutputCode, r2.OutputCode);
+        Assert.Single(HolderClassNames(r1.OutputCode));
+        Assert.Equal(1, r1.Statistics.HolderInstancesGenerated);
+        Assert.Equal(2, r1.Statistics.CapturesLifted);
+
+        var holderIndex = r1.OutputCode.IndexOf("class Cs2jDisplayClass_M_0", StringComparison.Ordinal);
+        var fieldA = r1.OutputCode.IndexOf("public int _cs2jCap_a;", StringComparison.Ordinal);
+        var fieldB = r1.OutputCode.IndexOf("public int _cs2jCap_b;", StringComparison.Ordinal);
+        Assert.True(holderIndex >= 0 && fieldA > holderIndex && fieldB > fieldA);
+
+        // Cross-reference inside the initializer-free world: b += a reads the field.
+        Assert.Contains("__cs2jClosure0._cs2jCap_b += __cs2jClosure0._cs2jCap_a", r1.OutputCode);
+        Assert.Empty(BareIdentifiers(r1.OutputCode, "a"));
+        Assert.Empty(BareIdentifiers(r1.OutputCode, "b"));
+        AssertOutputCompiles(r1.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_ParameterCapture_BodyFirstSnapshot_SignatureUnchanged()
+    {
+        var src = @"
+class C {
+    void Run(int seed, System.Action trigger) {
+        seed++;
+        System.Action a = () => seed += 2;
+        a(); trigger();
+        System.Console.WriteLine(seed);
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Contains("void Run(int seed, System.Action trigger)", r.OutputCode);
+        var bodyIndex = r.OutputCode.IndexOf("void Run", StringComparison.Ordinal);
+        var instanceIndex = r.OutputCode.IndexOf(
+            "var __cs2jClosure0 = new Cs2jDisplayClass_Run_0();", StringComparison.Ordinal);
+        var snapshotIndex = r.OutputCode.IndexOf(
+            "__cs2jClosure0._cs2jCap_seed = seed;", StringComparison.Ordinal);
+        var incrementIndex = r.OutputCode.IndexOf(
+            "__cs2jClosure0._cs2jCap_seed++", StringComparison.Ordinal);
+        Assert.True(instanceIndex > bodyIndex);
+        Assert.True(snapshotIndex > instanceIndex && incrementIndex > snapshotIndex);
+
+        // Exactly one bare 'seed': the one-time snapshot RHS (parameter token
+        // in the signature is a parameter syntax, not an IdentifierName).
+        Assert.Single(BareIdentifiers(r.OutputCode, "seed"));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_NestedLambdas_SingleHolderLayer()
+    {
+        var src = @"
+class C {
+    void M() {
+        int outer = 0;
+        System.Action a = () => {
+            System.Action b = () => { outer++; };
+            b();
+        };
+        a();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Equal(1, r.Statistics.HolderClassesGenerated);
+        Assert.Contains("() => { __cs2jClosure0._cs2jCap_outer++; }", r.OutputCode);
+        Assert.Empty(BareIdentifiers(r.OutputCode, "outer"));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
     // ── Helpers (mirror IteratorLoweringUnitTests L465-514) ──
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
@@ -439,4 +645,45 @@ class C {
         // Explicit options (e.g. Strict:false) pass through untouched.
         => preprocessor.Preprocess(
             src, ParseWithSemantics(src), options ?? new ClosureLiftOptions(AuditOnly: true));
+
+    // ── M2 transform helpers ──
+
+    private static ClosureLiftResult Transform(string src, ClosureLiftOptions? options = null)
+        => new ClosureLiftPreprocessor().Preprocess(
+            src, ParseWithSemantics(src), options ?? new ClosureLiftOptions());
+
+    /// <summary>Design §7.1: every transformed tree must compile (LanguageVersion.Latest, unsafe allowed).</summary>
+    private static void AssertOutputCompiles(string code)
+    {
+        var tree = CSharpSyntaxTree.ParseText(code, ParseOptions);
+        var compilation = CSharpCompilation.Create(
+            "closure-transformed",
+            new[] { tree },
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+        var errors = compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error).ToList();
+        Assert.True(
+            errors.Count == 0,
+            "Transformed output failed to compile:\n" + string.Join("\n", errors.Select(e => e.GetMessage())));
+    }
+
+    /// <summary>All IdentifierName nodes spelling <paramref name="name"/> (declarators/parameters are NOT included).</summary>
+    private static IReadOnlyList<IdentifierNameSyntax> BareIdentifiers(string code, string name)
+    {
+        var root = (SyntaxNode)CSharpSyntaxTree.ParseText(code, ParseOptions).GetRoot();
+        return root.DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Where(id => id.Identifier.Text == name)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> HolderClassNames(string code)
+    {
+        var root = (SyntaxNode)CSharpSyntaxTree.ParseText(code, ParseOptions).GetRoot();
+        return root.DescendantNodes().OfType<ClassDeclarationSyntax>()
+            .Where(c => c.Identifier.Text.StartsWith("Cs2jDisplayClass_", StringComparison.Ordinal))
+            .Select(c => c.Identifier.Text)
+            .ToList();
+    }
 }
