@@ -81,6 +81,29 @@ public sealed class ClosureLiftPreprocessor
         return new ClosureLiftResult(code, true, diagnostics, stats);
     }
 
+    /// <summary>
+    /// Tree residual gate (design §7.3): re-runs the read-only capture
+    /// analysis on an intermediate-tree file WITHOUT a project compilation
+    /// (standalone trusted-assembly model, same construction as the single
+    /// file path). Returns the number of mutably captured locals/parameters
+    /// still present; holder-lift output is 0 by construction (holder
+    /// instances are effectively-final reserved names and field accesses are
+    /// member expressions, never candidates).
+    /// Parse-broken files are the pass fast-path family and return 0: the
+    /// pass never edits them, so they cannot own a closure-lift residual.
+    /// </summary>
+    public int CountResidualMutableCaptures(string code)
+    {
+        var model = BuildStandaloneModel(code, out var parseError);
+        if (parseError != null)
+            return 0;
+
+        var discarded = new List<ClosureLiftDiagnostic>();
+        var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
+        var analysis = new CaptureAnalyzer(model, new ClosureLiftOptions(), discarded).Analyze(root);
+        return analysis.AllSymbols.Count;
+    }
+
     private static SemanticModel BuildStandaloneModel(string sourceCode, out string? parseError)
     {
         parseError = null;

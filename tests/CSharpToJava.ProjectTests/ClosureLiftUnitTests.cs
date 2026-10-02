@@ -1057,6 +1057,41 @@ class C {
         AssertOutputCompiles(r.OutputCode);
     }
 
+    // ── M2 residual gate (design §7.3) ──
+
+    [Fact]
+    public void ResidualGate_TransformedOutput_Zero()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => x++;
+        x = 1;
+        a();
+    }
+}";
+        var r = Transform(src);
+        Assert.True(r.Changed);
+
+        var gate = new ClosureLiftPreprocessor().CountResidualMutableCaptures(r.OutputCode);
+        Assert.Equal(0, gate);
+    }
+
+    [Fact]
+    public void ResidualGate_RawMutableCapture_Counted()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => x++;
+    }
+}";
+        var gate = new ClosureLiftPreprocessor().CountResidualMutableCaptures(src);
+        Assert.Equal(1, gate);
+    }
+
     // ── Helpers (mirror IteratorLoweringUnitTests L465-514) ──
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
