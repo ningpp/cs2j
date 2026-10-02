@@ -73,6 +73,7 @@ public sealed partial class MemberDesugarPreprocessor
         var indexerPlans = active.OfType<Indexers.IndexerPlan>().ToList();
         var operatorPlans = active.OfType<Operators.OperatorPlan>().ToList();
         var finalizerPlans = active.OfType<Finalizers.FinalizerPlan>().ToList();
+        var signaturePlans = active.OfType<Signatures.ExplicitInterface.SiPlan>().ToList();
         var plannedProperties = propertyPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         var plannedEvents = eventPlans
@@ -81,13 +82,21 @@ public sealed partial class MemberDesugarPreprocessor
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         var plannedOperators = operatorPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
+        var plannedSignatures = signaturePlans
+            .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
+        // C46 SI-7：本文件全部签名 plan（含被回退/跳过项）传给重写器作 residual 归属集合。
+        var allSignaturePlansForFile = _plans!
+            .OfType<Signatures.ExplicitInterface.SiPlan>()
+            .Where(p => p.TouchedFiles.Contains(filePath))
+            .ToList();
         // Info 级白名单（inc/dec、门控 &/|）在重写期计数：文件含 operator 声明时
         // 即使无任何 plan 也过一遍 operator rewriter（树不变 → 计数后按 clean 跳过）。
         var hasOperatorDecls = root.DescendantNodes().OfType<OperatorDeclarationSyntax>().Any();
         // C39：含终结器声明的文件绝不能被 clean 跳过，否则 A 档零诊断（FN-5 信号真空）。
         var hasDestructorDecls = root.DescendantNodes().OfType<DestructorDeclarationSyntax>().Any();
         if (plannedProperties.Count == 0 && plannedEvents.Count == 0
-            && plannedIndexers.Count == 0 && plannedOperators.Count == 0 && !hasOperatorDecls
+            && plannedIndexers.Count == 0 && plannedOperators.Count == 0
+            && plannedSignatures.Count == 0 && !hasOperatorDecls
             && !hasDestructorDecls)
         {
             statistics.FilesSkippedClean++;
@@ -232,6 +241,38 @@ public sealed partial class MemberDesugarPreprocessor
                 indexerModel, plannedIndexers, indexerPlans,
                 _options, statistics, diagnostics, filePath);
             workingRoot = (CompilationUnitSyntax)indexerRewriter.Visit(workingRoot)!;
+        }
+        if (plannedSignatures.Count > 0)
+        {
+            // C46 签名分相晚于索引器：前置阶段可能已重建树（红色节点/重解析），
+            // 与 operator/indexer 同形——树已变先格式化+重解析换可绑定的新鲜模型。
+            SemanticModel signatureModel;
+            if (ReferenceEquals(workingRoot, root))
+            {
+                signatureModel = semanticModel;
+            }
+            else
+            {
+                var signatureIntermediate = FormatAndValidate(workingRoot);
+                if (signatureIntermediate == null)
+                {
+                    statistics.FilesSkippedClean++;
+                    diagnostics.Add(new MemberDesugarDiagnostic(
+                        MemberDesugarSeverity.Warning, MemberDesugarDiagnosticCode.PlanRolledBack,
+                        "member-desugar rewrite failed local parse validation; the original file was " +
+                        "preserved pending whole-tree validation.", filePath, 0, 0, null));
+                    return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
+                }
+                var (replacementModel, replacementRoot) =
+                    ParseReplacement(semanticModel, signatureIntermediate);
+                signatureModel = replacementModel;
+                workingRoot = replacementRoot;
+            }
+
+            var signatureRewriter = new Signatures.ExplicitInterface.ExplicitInterfaceRewriter(
+                signatureModel, plannedSignatures, allSignaturePlansForFile,
+                _options, statistics, diagnostics, filePath);
+            workingRoot = (CompilationUnitSyntax)signatureRewriter.Visit(workingRoot)!;
         }
         if (workingRoot.IsEquivalentTo(root))
         {
@@ -406,6 +447,13 @@ public sealed partial class MemberDesugarPreprocessor
         MemberDesugarPlan p, string filePath,
         MemberDesugarStatistics statistics, List<MemberDesugarDiagnostic> diagnostics)
     {
+        // C46 签名 plan：属性/事件专用兜底码与文案会误标（5199 兜底，级别按 SignatureOptions）。
+        if (p is Signatures.ExplicitInterface.SiPlan)
+        {
+            EmitSignatureSkipDiagnostic(p, filePath, statistics, diagnostics);
+            return;
+        }
+
         if (p.Outcome == MemberDesugarOutcome.UserSkipped)
         {
             // 只在声明文件发一次（Info）。
@@ -444,6 +492,41 @@ public sealed partial class MemberDesugarPreprocessor
         diagnostics.Add(new MemberDesugarDiagnostic(
             severity, code, p.FailReason ?? "property plan infeasible",
             filePath, line, col, p.SymbolName));
+    }
+
+    /// <summary>C46 签名 plan 的跳过诊断（UserSkipped Info / Infeasible 带码；兜底 CS2J5199），
+    /// 级别按 <see cref="Signatures.SignatureOptions"/>（5198 恒 Info，5193 非阻断）。</summary>
+    private void EmitSignatureSkipDiagnostic(
+        MemberDesugarPlan p, string filePath,
+        MemberDesugarStatistics statistics, List<MemberDesugarDiagnostic> diagnostics)
+    {
+        if (p.Outcome == MemberDesugarOutcome.UserSkipped)
+        {
+            if (!IsFirstDeclarationFile(p, filePath)) return;
+            diagnostics.Add(new MemberDesugarDiagnostic(
+                MemberDesugarSeverity.Info, MemberDesugarDiagnosticCode.SignaturePlanCreated,
+                "signature plan skipped by overrides.skip configuration",
+                filePath, 0, 0, p.SymbolName));
+            return;
+        }
+
+        if (!IsFirstDeclarationFile(p, filePath)) return;
+        var code = p.FailCode ?? MemberDesugarDiagnosticCode.SignatureResidual;
+        var line = 0;
+        var col = 0;
+        var loc = p.Symbol.Locations.FirstOrDefault(l => l.IsInSource);
+        if (loc != null)
+        {
+            var span = loc.GetLineSpan();
+            line = span.StartLinePosition.Line + 1;
+            col = span.StartLinePosition.Character + 1;
+        }
+        statistics.PlansSkipped++;
+        statistics.SkippedByReason.TryGetValue(code, out var count);
+        statistics.SkippedByReason[code] = count + 1;
+        diagnostics.Add(Signatures.SignatureDiagnostics.Create(
+            code, p.FailReason ?? "signature plan infeasible", _options.Signatures,
+            p.SymbolName, filePath, line, col));
     }
 }
 

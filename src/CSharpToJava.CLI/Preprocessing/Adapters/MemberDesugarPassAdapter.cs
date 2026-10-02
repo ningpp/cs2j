@@ -339,7 +339,14 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                $"{_statistics.FinalizerSidecarPath ?? "none"}), " +
                $"{_statistics.FinalizersRefused + _statistics.FinalizerCriticalBlocked} blocked, " +
                $"{_statistics.FinalizerResidual} residual, " +
-               $"{_statistics.FinalizerResurrectionSites} resurrection-site(s)";
+               $"{_statistics.FinalizerResurrectionSites} resurrection-site(s)" +
+               // C46（M2，设计 §5.2）：signatures 段追加在末尾，不破坏既有字段。
+               $" | signatures: {_statistics.SignaturePlansPromoted} explicit promoted, " +
+               $"{_statistics.SignatureDisplacedRenamed} displaced renamed, " +
+               $"{_statistics.SignatureDualInterfaceMerged} dual-interface merged, " +
+               $"{_statistics.SignatureCallSitesRewritten} call-site(s) rewritten, " +
+               $"{_statistics.SignatureReflectionWarnings} reflection-warned, " +
+               $"{_statistics.SignatureResidual} residual";
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)

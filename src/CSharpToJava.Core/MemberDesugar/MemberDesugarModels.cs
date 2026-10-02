@@ -221,6 +221,20 @@ public sealed class MemberDesugarStatistics
     public int SignatureCovariantBridged { get; set; }         // CR-2 擦除冲突待桥接
     public int SignatureCovariantValueTypeSkipped { get; set; } // CR-3 值类型/不可判
 
+    // ---- C46 signatures（M2 改写计数，设计 §5.2）----
+    /// <summary>已提升的显式接口实现数（去限定名 + 提 public，SI-1）。</summary>
+    public int SignaturePlansPromoted { get; set; }
+    /// <summary>被让位改名的类自有同槽成员数（SI-2）。</summary>
+    public int SignatureDisplacedRenamed { get; set; }
+    /// <summary>同名多接口体等价合并数（SI-3）。</summary>
+    public int SignatureDualInterfaceMerged { get; set; }
+    /// <summary>重写的调用点数（含 nameof 字面量化，SI-5）。</summary>
+    public int SignatureCallSitesRewritten { get; set; }
+    /// <summary>residual 对账 CS2J5199 条数（SI-7，正常恒为 0）。</summary>
+    public int SignatureResidual { get; set; }
+    /// <summary>反射/字符串契约风险站点告警数（CS2J5193，非阻断）。</summary>
+    public int SignatureReflectionWarnings { get; set; }
+
     /// <summary>按诊断码分桶的跳过数（设计 §6：按原因分组）。</summary>
     public Dictionary<MemberDesugarDiagnosticCode, int> SkippedByReason { get; } = new();
 }

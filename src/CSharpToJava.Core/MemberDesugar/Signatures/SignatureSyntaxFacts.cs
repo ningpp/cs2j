@@ -27,6 +27,17 @@ internal enum SignatureCallSiteClass
 /// </summary>
 internal static class SignatureSyntaxFacts
 {
+    /// <summary>
+    /// 绑定符号（<c>Symbol</c> 优先，否则唯一 <c>CandidateSymbols</c> 兜底）。
+    /// Roslyn 对 <c>nameof(M)</c> 的方法组实参常把符号放入候选而非 <c>Symbol</c>；
+    /// 一律按绑定结果判定，禁止文本匹配。
+    /// </summary>
+    public static ISymbol? BoundSymbol(SemanticModel model, SyntaxNode node)
+    {
+        var info = model.GetSymbolInfo(node);
+        return info.Symbol ?? (info.CandidateSymbols.Length == 1 ? info.CandidateSymbols[0] : null);
+    }
+
     /// <summary>调用点五分类（决策 4）。</summary>
     public static SignatureCallSiteClass ClassifyCallSite(ExpressionSyntax node, SemanticModel model)
     {

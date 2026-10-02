@@ -55,18 +55,18 @@
 **产物**：方法形态显式接口实现全链路改写（去限定名/提 public、让位改名、双接口同源合并/报码、五类调用点），residual 方法面。
 
 **Files:**
-- Create: `Signatures/ExplicitInterface/SiPlan.cs`、`SiPlanBuilder.cs`、`ExplicitInterfaceDeclarationRewriter.cs`、`ExplicitInterfaceCallSiteRewriter.cs`
-- Modify: `Signatures/SignatureExplicitizationAnalyzer.cs`（SI 规则接入：`[MemberDesugarRule(Signature, 40)]`）
-- Modify: `MemberDesugarPreprocessor.cs`（签名字段分相：晚于索引器阶段；树变更→格式化+重解析换新鲜模型，同 operator/indexer 阶段形态）
-- Modify: `Signatures/SignatureModels.cs`（SI 统计并入）
+- Create: `Signatures/ExplicitInterface/SiPlan.cs`、`SiPlanBuilder.cs`、`ExplicitInterfaceRewriter.cs`（声明侧 SI-1/2/3 + 调用点侧 SI-5 合并单遍，替代原拟 `ExplicitInterfaceDeclarationRewriter.cs`+`ExplicitInterfaceCallSiteRewriter.cs` 两文件）、`Signatures/SiRule.cs`（`[MemberDesugarRule(Signature, 40)]`）
+- Modify: `Signatures/SignatureSyntaxFacts.cs`（追加 `BoundSymbol`：nameof 方法组实参候选符号兜底）
+- Modify: `MemberDesugarPreprocessor.cs`（签名字段分相：晚于索引器阶段；树变更→格式化+重解析换新鲜模型；EmitSkipDiagnostics 签名分支）
+- Modify: `MemberDesugarModels.cs`（M2 改写计数器）、`MemberDesugarPassAdapter.cs`（summary 追加 signatures 段）
 - Extend: `tests/CSharpToJava.ProjectTests/MemberDesugarSignatureUnitTests.cs`
 
-- [ ] **Task 1: SiPlan/SiPlanBuilder**：「实现符号 × 接口槽」粒度；TouchedFiles = 声明部件 + 全部分类站点文件（含接口声明联动）；确定性排序；不可行项 Infeasible + 码
-- [ ] **Task 2: 声明侧重写（SI-1/2/3）**：SI-1 去 `ExplicitInterfaceSpecifier` + 提 public + 规范槽位名；SI-2 类自有同槽成员让位改名 `{Name}_cs2jClass`（预留表防撞，二撞 `_2`）；SI-3 同名双接口体等价合并 / 分歧 CS2J5191 整组跳过（决策 2/3）
-- [ ] **Task 3: 调用点重写（SI-5）**：决策 4 五分类（接口静态类型/泛型约束/强转-is-as/绑定让位成员/`base.`）；方法组/委托绑定；强转最小化；表达式树 CS2J5194、dynamic CS2J5194、反射字符串 CS2J5193、`nameof` 字面量化、静态抽象 CS2J5198（决策 13/15）
-- [ ] **Task 4: 预处理器分相与 residual（SI-7）**：签名阶段晚于索引器；输出树残余 `ExplicitInterfaceSpecifier` 对账（strict 下 CS2J5199）；幂等谓词防回环
-- [ ] **Task 5: 单测（设计 §7.1-1 方法子集）**：无碰撞提升；显式+类自有同名两体各归各位；同名双接口体等价合并/分歧 5191；泛型接口 `IFoo<int>.Bar`；多接口一次实现；五类接收者；方法组；跨文件三文件联动；`AssertOutputCompiles` + 二次执行零 diff
-- [ ] **Task 6: 收口**：summary 追加 signatures 段（adapter，追加式）；全量 `--filter MemberDesugar` 绿；提交
+- [x] **Task 1: SiPlan/SiPlanBuilder**：「实现符号 × 接口槽」粒度（同名多接口体等价合组）；TouchedFiles = 声明部件 + 绑定让位成员的全部调用点文件；确定性排序；不可行项 Infeasible + 码；跨 Compilation `SiteKey` 稳定键
+- [x] **Task 2: 声明侧重写（SI-1/2/3）**：SI-1 去 `ExplicitInterfaceSpecifier` + 提 public + 规范槽位名；SI-2 类自有同槽成员让位改名 `{Name}_cs2jClass`（按类型预留表防撞，二撞 `_2`；同槽多候选/无法确定让位者 CS2J5192）；SI-3 同名双接口体等价合并（删除冗余显式声明）/分歧 CS2J5191 整组跳过（决策 2/3）
+- [x] **Task 3: 调用点重写（SI-5）**：决策 4 五分类（接口静态类型/泛型约束/强转-is-as/绑定让位成员/`base.`）；方法组/委托绑定改名；表达式树/dynamic CS2J5194 整 plan 原子不动；反射字符串 CS2J5193 告警留站点；`nameof` 字面量化；静态抽象 CS2J5198 Info（决策 13/15）
+- [x] **Task 4: 预处理器分相与 residual（SI-7）**：签名阶段晚于索引器；输出树残余无归属 `ExplicitInterfaceSpecifier` 对账（CS2J5199）；幂等谓词防回环；调用点-only 文件不 clean 跳过
+- [x] **Task 5: 单测（设计 §7.1-1 方法子集）**：无碰撞提升（含无修饰符）；显式+类自有同名两体各归各位；同名双接口体等价合并/分歧 5191 字节一致；泛型接口 `IFoo<int>.Bar`；多接口一次实现；五类接收者 + 方法组 + `base.`；跨文件三文件联动；表达式树 5194 声明不动；nameof 字面量化 + 反射 5193 站点原样；`AssertOutputCompiles` + 二次执行零 diff
+- [x] **Task 6: 收口**：summary 追加 signatures 段（adapter，追加式）；全量 `--filter MemberDesugar` 绿；提交
 
 ---
 
