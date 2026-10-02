@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 
 namespace CSharpToJava.Core.ExpressionDesugar;
 
@@ -44,8 +45,13 @@ public sealed class ExpressionDesugarPreprocessor
             : (CompilationUnitSyntax)CSharpSyntaxTree.ParseText(sourceCode).GetRoot();
 
         var activeRules = ExpressionDesugarRuleSet.Rules
-            .Where(rule => rule.IsPotentiallyDirty(root))
+            .Where(rule => rule.IsPotentiallyDirty(root, options))
             .ToList();
+
+        // File-level section mirroring is gated per rule so a disabled rule
+        // produces zero statistics/output differences (C23 is opt-in).
+        var interpolationActive = activeRules
+            .Any(static rule => rule.Id == "Interpolations");
 
         if (activeRules.Count == 0)
         {
@@ -55,6 +61,9 @@ public sealed class ExpressionDesugarPreprocessor
                 sourceCode, false, Array.Empty<ExpressionDesugarDiagnostic>(), stats);
         }
 
+        if (interpolationActive)
+            stats.Interpolations.FilesScanned = 1;
+
         if (semanticModel == null)
         {
             // The family dispatches on SemanticModel ConvertedType; without a
@@ -62,6 +71,8 @@ public sealed class ExpressionDesugarPreprocessor
             // explicit diagnostic (non-strict Warning) and unchanged bytes.
             stats.FilesDirtyNoRewrite = 1;
             stats.CollectionExpr.FilesDirtyNoRewrite = 1;
+            if (interpolationActive)
+                stats.Interpolations.FilesDirtyNoRewrite = 1;
             diagnostics.Add(new ExpressionDesugarDiagnostic(
                 ExpressionDesugarSeverity.Warning,
                 CollectionExprDiagnosticCodes.CS2J0571,
@@ -91,6 +102,8 @@ public sealed class ExpressionDesugarPreprocessor
         {
             stats.FilesDirtyNoRewrite = 1;
             stats.CollectionExpr.FilesDirtyNoRewrite = 1;
+            if (interpolationActive)
+                stats.Interpolations.FilesDirtyNoRewrite = 1;
             return new ExpressionDesugarResult(sourceCode, false, diagnostics, stats);
         }
 
@@ -116,6 +129,8 @@ public sealed class ExpressionDesugarPreprocessor
             // the source bytes.
             stats.FilesDirtyNoRewrite = 1;
             stats.CollectionExpr.FilesDirtyNoRewrite = 1;
+            if (interpolationActive)
+                stats.Interpolations.FilesDirtyNoRewrite = 1;
             return new ExpressionDesugarResult(sourceCode, false, diagnostics, stats);
         }
 
@@ -124,12 +139,17 @@ public sealed class ExpressionDesugarPreprocessor
             currentRoot, allPending, allAnnotations);
         stats.TempsLifted = allPending.Count;
         stats.CollectionExpr.TempsLifted = allPending.Count;
+        if (interpolationActive)
+            stats.Interpolations.TempsLifted = allPending.Count;
 
-        // ---- CE-12 residual gates (per rule, post-lift tree) ----
+        // ---- Per-rule residual gates (post-lift tree) ----
         var residualCount = 0;
         foreach (var plan in plans)
             residualCount += plan.CheckResiduals(context, currentRoot);
         stats.ResidualCount = residualCount;
+        stats.CollectionExpr.ResidualCount = residualCount;
+        if (interpolationActive)
+            stats.Interpolations.ResidualCount = residualCount;
 
         // A strict residual gate failure is also atomic: no formatted output
         // leaves the pass. Non-strict keeps the other rewrites (Warning only).
@@ -137,6 +157,8 @@ public sealed class ExpressionDesugarPreprocessor
         {
             stats.FilesDirtyNoRewrite = 1;
             stats.CollectionExpr.FilesDirtyNoRewrite = 1;
+            if (interpolationActive)
+                stats.Interpolations.FilesDirtyNoRewrite = 1;
             return new ExpressionDesugarResult(sourceCode, false, diagnostics, stats);
         }
 
@@ -146,6 +168,8 @@ public sealed class ExpressionDesugarPreprocessor
 
         stats.FilesTransformed = 1;
         stats.CollectionExpr.FilesTransformed = 1;
+        if (interpolationActive)
+            stats.Interpolations.FilesTransformed = 1;
         return new ExpressionDesugarResult(code, true, diagnostics, stats);
     }
 }

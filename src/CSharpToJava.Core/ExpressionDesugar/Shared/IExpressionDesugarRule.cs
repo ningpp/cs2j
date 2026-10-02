@@ -92,8 +92,11 @@ internal interface IExpressionDesugarRule
     /// <summary>
     /// Cheap syntax-only dirty gate. When no rule reports a dirty file the
     /// family entry performs a byte-level clean copy without semantic work.
+    /// <paramref name="options"/> lets rule-level gray-release switches (C23
+    /// is opt-in inside the default-enabled family) report clean while staying
+    /// syntax-only.
     /// </summary>
-    bool IsPotentiallyDirty(CompilationUnitSyntax root);
+    bool IsPotentiallyDirty(CompilationUnitSyntax root, ExpressionDesugarOptions options);
 
     /// <summary>
     /// File-level analysis: classify sites, accumulate statistics, emit

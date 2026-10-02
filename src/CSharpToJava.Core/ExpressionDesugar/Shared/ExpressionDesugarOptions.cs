@@ -1,4 +1,5 @@
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 
 namespace CSharpToJava.Core.ExpressionDesugar;
 
@@ -12,11 +13,13 @@ namespace CSharpToJava.Core.ExpressionDesugar;
 /// </summary>
 public sealed class ExpressionDesugarOptions
 {
+    /// <summary>C23 interpolation-expansion subsection (rule-level opt-in, default off).</summary>
+    public InterpolationOptions Interpolations { get; init; } = new();
+
     /// <summary>C36 collection-expression desugaring subsection.</summary>
     public CollectionExprOptions CollectionExpr { get; init; } = new();
 
-    // Future append positions (C23 anchor / C24 / C35 land later):
-    //   public InterpolationOptions? Interpolations { get; init; }   // C23
+    // Future append positions (C24 / C35 land later):
     //   public InitializerOptions?    Initializers  { get; init; }   // C24
     //   public NullConditionalOptions? NullConditional { get; init; }// C35
 

@@ -22,7 +22,9 @@ internal sealed class CollectionExprRule : IExpressionDesugarRule
 {
     public string Id => "CollectionExpr";
 
-    public bool IsPotentiallyDirty(CompilationUnitSyntax root)
+    public bool IsPotentiallyDirty(
+        CompilationUnitSyntax root,
+        ExpressionDesugarOptions options)
         => root.DescendantNodes().Any(static node => node is CollectionExpressionSyntax)
            || NewSyntaxGuardAnalyzer.ContainsGuardSyntax(root);
 
