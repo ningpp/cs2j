@@ -80,6 +80,31 @@ internal static class InitializerSyntaxFacts
         };
 
     /// <summary>
+    /// True when <paramref name="node"/> is a creation consumed inside an
+    /// enclosing object/collection initializer item (nested create / collection
+    /// element): the enclosing site lowers it inline rather than independently.
+    /// Array initializer expressions do not nest C24 sites.
+    /// </summary>
+    public static bool IsNestedInInitializer(SyntaxNode node)
+    {
+        var child = node;
+        for (var parent = node.Parent; parent != null; child = parent, parent = parent.Parent)
+        {
+            switch (parent)
+            {
+                case InitializerExpressionSyntax initializer:
+                    return IsOwnedInitializer(initializer);
+                case AnonymousFunctionExpressionSyntax:
+                case LocalFunctionStatementSyntax:
+                case StatementSyntax:
+                    return false;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// True when <paramref name="node"/> is nested inside a C36-owned
     /// <see cref="CollectionExpressionSyntax"/>. The two syntax faces are
     /// disjoint (design §1.4); a creation-with-initializer used as a collection

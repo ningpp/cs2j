@@ -5,39 +5,43 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.ExpressionDesugar.Initializers;
 
 /// <summary>
-/// C24 object-initializer emission (design §4 IN-2): the ordered
-/// property/field assignment statements applied to the receiver temp. Property
-/// writes stay property writes (<c>__ed_n.P = v</c>), field writes are direct
-/// (<c>__ed_n.F = v</c>); member RHS expressions are reused verbatim (zero
-/// copies) in strict source order. Nested create / nested member-init / index
-/// items are M2 and never reach this emitter.
+/// C24 emission helpers (design §4 IN-2/IN-4/IN-5/IN-8): construction
+/// expression, member-access receiver and the ordered property/field/index
+/// assignment statements applied to a receiver temp. Member RHS expressions are
+/// reused verbatim (zero copies); nested creation / nested member-init /
+/// collection items are dispatched by <see cref="InitializerRewriter"/>.
 /// </summary>
 internal static class ObjectInitRewriter
 {
-    /// <summary>
-    /// Builds the assignment statement for one object-initializer member plan,
-    /// using the (already visited) initializer item for the RHS.
-    /// </summary>
-    public static StatementSyntax BuildMemberStatement(
-        string temp,
-        InitializerMemberPlan member,
-        ExpressionSyntax visitedElement)
+    /// <summary>Builds <c>receiver.Name</c>.</summary>
+    public static ExpressionSyntax MemberAccess(string receiver, string name)
+        => SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.IdentifierName(receiver),
+            SyntaxFactory.IdentifierName(name));
+
+    /// <summary>Builds <c>receiver.Name = value;</c>.</summary>
+    public static StatementSyntax BuildMemberAssignment(
+        string receiver, string name, ExpressionSyntax value)
+        => SyntaxFactory.ExpressionStatement(
+            SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                MemberAccess(receiver, name),
+                value));
+
+    /// <summary>Builds <c>receiver[k1, k2] = value;</c> from the item's left-hand side.</summary>
+    public static StatementSyntax BuildIndexAssignment(
+        string receiver, ExpressionSyntax visitedLeft, ExpressionSyntax value)
     {
-        var memberName = member switch
+        var arguments = visitedLeft switch
         {
-            PropertySetPlan property => property.Property?.Name,
-            FieldSetPlan field => field.Field?.Name,
-            _ => null,
+            ImplicitElementAccessSyntax implicitElement => implicitElement.ArgumentList,
+            ElementAccessExpressionSyntax element => element.ArgumentList,
+            _ => SyntaxFactory.BracketedArgumentList(),
         };
 
-        var value = visitedElement is AssignmentExpressionSyntax assignment
-            ? assignment.Right
-            : visitedElement;
-
-        var target = SyntaxFactory.MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            SyntaxFactory.IdentifierName(temp),
-            SyntaxFactory.IdentifierName(memberName ?? "_"));
+        var target = SyntaxFactory.ElementAccessExpression(
+            SyntaxFactory.IdentifierName(receiver), arguments);
 
         return SyntaxFactory.ExpressionStatement(
             SyntaxFactory.AssignmentExpression(

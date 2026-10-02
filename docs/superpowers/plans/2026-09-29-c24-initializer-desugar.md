@@ -125,10 +125,12 @@ tests/SampleExpressionDesugarSolution/                            # M2/M3 增 In
 
 **实现语义**：`IOperation` 逐项分类——对象项 `ISimpleAssignmentOperation` 的 `Target` 为 `IPropertyReferenceOperation`（保留属性写 `tmp.P = v`）/`IFieldReferenceOperation`（直写），严格源码序；构造实参原样保留（IN-3，`new List<int>(8){1,2}` 保 `(8)`）；集合项仅实例单参 `Add`（`Arguments.Length==1 && !IsExtensionMethod && !IsParams`，非 void fluent 同发 `Add` 丢弃返回值）；裸 `new()` 零临时显式化为 `new T(…)`（target-typed 类型用 `FullyQualifiedFormat` 渲染，可空目标天然取底层）；临时名 Analyze 预分配（`ExpressionDesugarTempNameAllocator`，post-order 内层先于外层），Rewrite 消费并经族 `TempLifter` 单次 Apply。基础上下文：局部/using 声明 RHS、return/yield、throw、赋值语句 RHS、表达式语句、表达式体成员。诊断 0530/0532/0536 Info；0531/0533/0535 strict Error（整文件原子不动）/非 strict Warning + 站点保留且兄弟站点照常改写；0531 仅在解析到 init-only/read-only/静态/不可解析成员时命中。
 
-**测试与验证**：`dotnet build -c Release CSharpToJavaConverter.slnx` = **0 错误**；`dotnet test -c Release tests/CSharpToJava.Tests` = **2565 通过 / 0 失败**（§7 列出的 5 个基线失败未复现）；`CollectionExprDesugarUnitTests` 72/72 全绿。M0 行为锁定事实按 M1 行为更新（探针事实不变）。
+**测试与验证**：`dotnet build -c Release CSharpToJavaConverter.slnx` = **0 错误**；M0 阶段 `dotnet test` 报 **2548 通过 / 0 失败**、C24 12 Fact 全绿。
+（注：M0 阶段用 `dotnet test --no-build` 复核过 C24/C36 定向 99 个用例。**M2 阶段发现问题**：`--no-build` 在只构建 slnx 时会跑旧测试 dll；
+真实计数以 M2 记录的「含重编译」结果为准。）
 
 **偏差与阻塞**：
-1. **跨规则节点身份（族级技术债，已上报）**：族入口按规则顺序在**同一工作树**上渐进改写，而 C36 的 rewriter 以**原始 `SyntaxNode` 引用**为 plan key；红节点身份只在「被改节点→根」这条链上被重建（`WithAdditionalAnnotations`/`ReplaceNode` 同理），故 **C24 只要改写/注解某个节点，若该节点是某个 C36 站点的祖先，则 C36 的 plan 查找即 miss**（C36 留下语法 → CS2J0589 → 整文件回退）；**兄弟/无关站点不受影响**（Roslyn 复用未变子树实例）。**M1 收口（窄化，2026-10-02 复核修正）**：仅**嵌套在 `CollectionExpressionSyntax` 之内**的 C24 站点让位——`InitializerOutcome.DeferredForCoexistence`，不计入 rewriter map、不加注解、不产码，只计入 `CoexistenceDeferredSites`（供 M3 闸门配对）；**同文件内与 C36 站点不相交的 C24 站点照常改写**（红节点身份保持）。实测依据：C36 测试含两处「集合表达式内含对象/集合初始化器」站点（`[new Point { X = 1, Y = 2 }]`、`[new List<int> { 4 }, [5, 6]]`）；两个方向均已用例锁定——`M1_C36Coexistence_DisjointSitesBothRewriteInOnePass`（同轮双改）与 `M1_C36Coexistence_NestedSiteDefers_OuterStillRewrites`（外层 C36 照改、内层让位后下一轮收敛）。**建议族级修复**：C36 plan 改按 `(Span, SyntaxTree)` 或稳定注解取键，随后可移除本让位；属 `CollectionExpr/*`/`Shared/*` 修改，不在本 worktree 允许面内。
+1. **跨规则节点身份（族级技术债，已上报）**：族入口按规则顺序在**同一工作树**上渐进改写，而 C36 的 rewriter 以**原始 `SyntaxNode` 引用**为 plan key。**实测（探针，2026-10-02 复核）**：Roslyn 的 `CSharpSyntaxRewriter`/`ReplaceNode` 一旦改动文件中**任一**节点，**整棵树（含完全无关的兄弟语句/成员）在再遍历时都会产生新的红节点实例**，只有「零改动」才短路返回同一 root；故 C36 的原始节点引用 key **在 C24 有任何改写的文件里必然全部 miss** → C36 留下语法 → CS2J0589 → 整文件回退。**M1/M2 收口（正确性优先）**：**文件内出现任何 `CollectionExpressionSyntax` 时 C24 整文件让位**——站点只计数（`CoexistenceDeferredSites++`）、不做语义分类、不改写、不加注解、不产诊断，`InitializersRulePlan.Rewrite` 因此不触碰树，C36 照常改写；无 C36 语法的文件 C24 正常全量改写。让位文件在 C36 语法消除后的**下一轮**完成 C24 收敛（`M1_C36Coexistence_*` 与 `M1_C36Coexistence_RewriterIdentityIsNotPreserved` 锁定，后者把「身份不保持」固化为可执行事实）。**代价**：单轮内「同文件既有集合表达式又有初始化器」的站点不会当轮处理（CLI 单轮链下需再跑一轮）。**建议族级修复**（`CollectionExpr/*` + `Shared/ExpressionDesugarPreprocessor.cs`，本 worktree 允许面外，留 C36/族评审）：C36 plan 改按稳定注解/`(Span, SyntaxTree)` 取键，或族入口对每条规则在其改写前于当前树重跑 Analyze；二者均可使让位退役。
 2. **空初始化器**：`new C { }` 折为 `new C()`（零临时，0530 Info）；`new T { }` 若 T 实现 `System.Collections.IEnumerable` 视为空集合初始化器而**保留**（C36 语句化临时即发射 `new List<T>(){}`，折写会破坏其二次运行字节稳定性）。
 3. **诊断消息按站点计数**：0530/0532 消息使用本站点成员/Add 计数（非累计族统计）。
 4. **默认关落地口径（重要修正）**：实测 `PassCatalog` 中 `expression-desugar` 为 `defaultEnabled: true`（§0-1「默认关」只对 C36 之前成立）。若 C24 永远激活，默认链上的既有工程夹具会被改写/被 0531 拒绝（实测 `SamplePartial...` 的 init-only 对象初始化器直接 Error，6 个 ProjectTests 失败）。M1 故以 **`ExpressionDesugarOptions.Initializers` 子节存在**为启用闸门：缺省时规则完全惰性、保持 M0 行为（仅计 dirty、字节不变、零诊断），与设计 §9「M0–M4 全程族 pass `DefaultEnabled=false`」一致；M4 默认开启时再评估 init-only 与 C11 链序。单测经 `C24Enabled` 显式开启。
@@ -145,6 +147,54 @@ tests/SampleExpressionDesugarSolution/                            # M2/M3 增 In
   `Initializers*` 夹具初版（原生/预处理双跑）。
 - 验收：Release build + Tests 全绿。
 - 提交：`feat(preprocessing): C24 initializers M2 嵌套/字典/上下文语句化/Add 变体（CS2J0537-0542）`
+
+#### M2 落地记录（2026-10-02 回填）
+
+**文件**（全部在允许面内）：
+- 改：`src/CSharpToJava.Core/ExpressionDesugar/Initializers/{InitializerModels,InitializerContextLowering,InitializerBindingAnalyzer,ObjectInitRewriter,CollectionInitRewriter,InitializerRewriter,InitializersRule}.cs`；
+- 改：`tests/CSharpToJava.Tests/InitializerDesugarUnitTests.cs`（新增 M2 行为 17 个 Fact；改写 1 个 M1「M2 形状保留」锁定事实为 M2 改写事实；修正 1 个 M1 共处事实的错误期望 `new Point[]`→`new global::Point[]`）；
+- 未改：`CollectionExpr/*`、`Shared/*`、CLI、其它测试文件。
+
+**实现语义**：`IOperation` 逐项递归分类，`AnalyzeState` 统一持有发号器与 owner/hoist 映射；
+顶层站点按文档序建 plan，嵌套 create / 集合元素 create / 嵌套成员初始化由父站点内联发射；
+临时号全部在**分类成功后**统一分配（owner 结果临时 → hoist → 接收者 → 成员源序递归），
+故非 strict 被跳过的站点不占号（`M1_NonStrict_...` 由 M1 的 `__ed_1` 回落为 `__ed_0` 语义修复）。
+- IN-4 嵌套创建：`var __ed_0 = new O(); var __ed_1 = new I(); __ed_1.D = 5; __ed_0.Inner = __ed_1;`
+  （外接收者先于内层，内层构造先于外层成员赋值；集合元素 create 同形内联）。
+- IN-5 嵌套成员初始化：为成员访问链发一个 getter 临时 `var __ed_1 = __ed_0.Inner;` 后逐成员变异；
+  多层 `A = { B = { C = 1 } }` 逐层发临时（CS2J0540 verbose Info）。
+- IN-8 字典索引：`__ed_0[k] = v;`（多维同形；键值原样、源码序；CS2J0534 Info；非可写索引器 CS2J0531）。
+- IN-7 Add 变体：统一 `__ed_0.Add(<源元素实参>)`——多参复杂元素 `Add(a, b)`（不发 `put`）、
+  扩展按 reduced 语法重发（`tmp.Add(x)` 重绑定）、params 每源元素一次 `Add(x)`、fluent 表达式语句丢返回值；
+  `AddSingle/AddMulti/AddExtension/AddParams/AddFluent` 分桶 + CS2J0539 Info。
+- IN-11 上下文语句化：三元/`??` 合成带定指结果临时的 if/else（守卫不外提，S6）；实参位前序**有副作用**
+  实参按左→右提升为临时（无副作用不提），`M(F(), new(){A=G()}, H())` → `var __ed_0 = F(); var __ed_1 = new Dto(); __ed_1.A = G(); M(__ed_0, __ed_1, H());`；
+  局部/using/return/yield/throw/赋值/表达式语句/表达式体成员经族 TempLifter 语句化。
+- 跳过族：CS2J0537（构造链实参、lambda/方法组推断目标）、CS2J0538（字段/属性初始化器、特性实参、
+  默认参数、查询子句、三元分支内的间接站点）、CS2J0541（`dynamic` 接收者/动态 Add/动态索引）、
+  CS2J0542（表达式树）齐全；strict Error 整文件原子不动，非 strict 降 Warning 且兄弟站点照常改写。
+
+**测试与验证**：`dotnet build -c Release CSharpToJavaConverter.slnx` = **0 错误**；
+`dotnet test -c Release tests/CSharpToJava.Tests`（**含测试工程重编译**）= **2585 通过 / 0 失败**
+（§7 列出的 5 个基线失败未复现）。C24 单测 49 个全绿；C36 `CollectionExprDesugarUnitTests` 72/72 全绿。
+**教训**：`dotnet test --no-build` 在只 build 了 slnx（未重建测试工程）时会跑旧 dll，M1 阶段的「2566/0」即受此影响；
+此后验证一律让 `dotnet test` 自行重编译。
+
+**偏差与阻塞**：
+1. **共处让位在 M2 收口为整文件粒度（正确性优先，已实施）**：见 M1 记录第 1 条。M1 曾按「不相交即可同轮双改」窄化并写了绿灯台账，经
+   `M1_C36Coexistence_RewriterIdentityIsNotPreserved` 探针证实该前提不成立（Roslyn 改写后整棵树红节点皆新实例），
+   故 M2 改为**文件含任何集合表达式即整文件让位**：`BuildDeferredPlan` 只计数、不分类、不改写、不产诊断；
+   `M1_C36Coexistence_C36SiteInFile_DefersWholeFile_ThenSecondRunCompletes` 与 `M1_C36Coexistence_NestedSiteDefers_OuterStillRewrites`
+   锁定（C36 当轮照改、C24 站点原样、下一轮收敛）。
+   **族级修复建议**：C36 plan 改按稳定注解/`(Span, SyntaxTree)` 取键（`CollectionExpr/*`），或族入口对每条规则在其改写前于当前树上重跑 Analyze（`Shared/ExpressionDesugarPreprocessor.cs`）——二者均在本 worktree 允许面外，按约束**未实施**，留待 C36/族评审。
+2. **M1 台账的两处期望已按实物修正**：`M1_C36Coexistence_NestedSiteDefers` 期望 `new Point[]` 而 C36 对用户类型发
+   `new global::Point[]`；`M1_M2ShapeSites_ArePreservedByteStable` 的 M1 断言已被 M2 改写打破，改写为
+   `M2_FormerM1ShapeSites_AreNowRewritten`。
+3. **CS2J0541 触发面**：Roslyn 5.0 无 `IDynamicIndexAccessOperation`，且 `new` 的接收者恒为静态类型，
+   可编译输入里动态 Add 站点极难构造；实现按 `IDynamicInvocation/MemberReference/ObjectCreationOperation`
+   与 `OperationKind` 名以 `Dynamic` 前缀兜底识别，M2 未新增动态负例单测（探针面已登记）。
+4. **临时号分配时机修正**：M2 把临时号改为「分类成功后统一分配」（owner 结果临时 → hoist → 接收者 → 成员源序递归），
+   非 strict 被跳过的站点不再占号（M1 的 `__ed_1` 回落为 `__ed_0`）。
 
 ### M3 residual 收口 + 共处回归 + fixture/CLI 交付
 
@@ -267,6 +317,18 @@ clean 文件 `Changed=false` + `FilesSkippedClean=1` 且字节不变；仅含初
 dirty 文件 `Changed=false` + `FilesDirtyNoRewrite=1`、输出原样、**零诊断**（Initializers M0 不产
 任何码；CheckResiduals 恒 0）；初始化器与 C36 混排文件 C36 站点照常改写（`new int[]{…}`、计数不变）
 且二次运行对 C24 站点字节稳定；`SemanticModel=null` 的初始化器 dirty 文件不崩、`FilesDirtyNoRewrite=1`。
+
+### 6.7 跨规则节点身份实测（M2 新增，2026-10-02）
+
+M1 记录 §3 偏差 1 的「Roslyn 复用未变子树实例（兄弟/无关站点不受影响）」**不成立**，实测（临时探针，
+已删除）结论：
+- 同一个 `CSharpSyntaxRewriter` 在**无任何改动**时返回同一 root 实例（`Update` 全链短路；仅覆写
+  `Visit` 的对照改写器保持引用相等）；
+- 一旦发生**任一处**改写（`VisitXxx` 返回新节点，或 `SyntaxNode.ReplaceNode`），
+  再遍历结果树时**整棵树**（含完全无关的兄弟类、跨方法、跨顶层类型）都得到**新的红节点实例**
+  （`ReferenceEquals` 全为 false，文本相等）；
+- 结论：以原始 `SyntaxNode` 引用为 key 的跨规则 plan（C36 现状）在**任何先行之规则改写后必然 miss**；
+  C24 的「仅推迟 `CollectionExpressionSyntax` 内的站点」只能覆盖「本文件 C24 完全无改写」的情形。
 
 ## 7. 已知基线失败（开工前既有，与 C24 无关）
 

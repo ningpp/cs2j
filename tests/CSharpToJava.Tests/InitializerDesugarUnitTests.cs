@@ -809,7 +809,7 @@ public class InitializerDesugarUnitTests
     }
 
     [Fact]
-    public void M1_C36Coexistence_DisjointSitesBothRewriteInOnePass()
+    public void M1_C36Coexistence_C36SiteInFile_DefersWholeFile_ThenSecondRunCompletes()
     {
         const string source = """
             public class Dto { public int A { get; set; } }
@@ -825,23 +825,70 @@ public class InitializerDesugarUnitTests
 
         var first = Preprocess(source);
 
-        // Disjoint C24/C36 sites both lower in the same family pass: C36's
-        // original-node-keyed plans stay valid because no C36 ancestor is
-        // rebuilt by the C24 rewrite.
+        // Verified empirically (see M1_C36Coexistence_RewriterIdentityIsNotPreserved):
+        // a Roslyn rewrite of ANY node yields fresh instances for untouched
+        // siblings too, so C36's original-node-keyed plan lookup breaks as soon
+        // as C24 rewrites anything in the file. C24 therefore defers the WHOLE
+        // file while C36 collection-expression syntax is present: C36 lowers its
+        // site, the C24 site stays verbatim, and no diagnostic is produced.
         Assert.True(first.Changed, string.Join("; ", first.Diagnostics));
         Assert.Contains("new int[] { 1, 2 }", Normalize(first.OutputCode));
-        Assert.Contains("__ed_0.A = 1", Normalize(first.OutputCode));
-        Assert.DoesNotContain("new Dto { A = 1 }", Normalize(first.OutputCode));
+        Assert.Contains("new Dto { A = 1 }", Normalize(first.OutputCode));
         Assert.Empty(first.Diagnostics);
         Assert.Equal(1, first.Statistics.CollectionExpr.CollectionSites);
         Assert.Equal(1, first.Statistics.CollectionExpr.ByTargetArray);
         Assert.Equal(1, first.Statistics.Initializers.ObjectInitializerSites);
-        Assert.Equal(0, first.Statistics.Initializers.CoexistenceDeferredSites);
-        AssertOutputCompiles(first.OutputCode);
+        Assert.Equal(1, first.Statistics.Initializers.CoexistenceDeferredSites);
 
+        // The C36 syntax is gone after the first run, so the second run lowers
+        // the deferred initializer; a third run is byte-stable.
         var second = Preprocess(first.OutputCode);
-        Assert.False(second.Changed, string.Join("; ", second.Diagnostics));
-        Assert.Equal(first.OutputCode, second.OutputCode);
+        Assert.True(second.Changed, string.Join("; ", second.Diagnostics));
+        Assert.Contains("__ed_0.A = 1", Normalize(second.OutputCode));
+        AssertOutputCompiles(second.OutputCode);
+
+        var third = Preprocess(second.OutputCode);
+        Assert.False(third.Changed, string.Join("; ", third.Diagnostics));
+        Assert.Equal(second.OutputCode, third.OutputCode);
+    }
+
+    [Fact]
+    public void M1_C36Coexistence_RewriterIdentityIsNotPreserved()
+    {
+        // Ground truth for the whole-file deferral above: Roslyn's rewriter
+        // returns a DIFFERENT instance for an untouched sibling whenever some
+        // other node in the file is replaced, so node identity cannot key a plan
+        // across progressive rule rewrites in the same family pass.
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    int[] a = [1, 2];
+                    var d = new Dto { A = 1 };
+                }
+            }
+            """;
+        var root = CSharpSyntaxTree
+            .ParseText(source, new CSharpParseOptions(LanguageVersion.Preview))
+            .GetCompilationUnitRoot();
+        var collectionExpression = root.DescendantNodes()
+            .OfType<CollectionExpressionSyntax>().Single();
+
+        var rewritten =
+            (CompilationUnitSyntax)new MinimalReplaceRewriter().Visit(root)!;
+        var after = rewritten.DescendantNodes()
+            .OfType<CollectionExpressionSyntax>().Single();
+
+        Assert.NotSame(collectionExpression, after);
+    }
+
+    private sealed class MinimalReplaceRewriter : CSharpSyntaxRewriter
+    {
+        public override SyntaxNode? VisitObjectCreationExpression(
+            ObjectCreationExpressionSyntax node)
+            => SyntaxFactory.IdentifierName("__replaced");
     }
 
     [Fact]
@@ -860,11 +907,11 @@ public class InitializerDesugarUnitTests
 
         var first = Preprocess(source);
 
-        // The object initializer is nested INSIDE the collection expression:
-        // the enclosing C36 site must keep its plan identity, so the inner C24
-        // site is deferred (counted) and stays verbatim while C36 lowers.
+        // Whole-file deferral: C36 lowers the enclosing collection expression
+        // while the nested object initializer stays verbatim (counted as a
+        // deferred site), so C36's plan identity is never disturbed.
         Assert.True(first.Changed, string.Join("; ", first.Diagnostics));
-        Assert.Contains("new Point[] { new Point { X = 1, Y = 2 } }",
+        Assert.Contains("new global::Point[] { new Point { X = 1, Y = 2 } }",
             Normalize(first.OutputCode));
         Assert.Equal(1, first.Statistics.Initializers.CoexistenceDeferredSites);
         AssertOutputCompiles(first.OutputCode);
@@ -1209,7 +1256,7 @@ public class InitializerDesugarUnitTests
     }
 
     [Fact]
-    public void M1_M2ShapeSites_ArePreservedByteStable()
+    public void M2_FormerM1ShapeSites_AreNowRewritten()
     {
         const string source = """
             using System.Collections;
@@ -1238,10 +1285,28 @@ public class InitializerDesugarUnitTests
 
         var result = Preprocess(source);
 
-        Assert.False(result.Changed, string.Join("; ", result.Diagnostics));
-        Assert.Equal(source, result.OutputCode);
-        Assert.Empty(result.Diagnostics);
+        // M2 handles the shapes M1 preserved: nested creation, nested member
+        // init, dictionary index and multi-arg Add all desugar now.
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.DoesNotContain("new Dto { A = 2 }", normalized);
+        Assert.DoesNotContain("{ A = 3 }", normalized);
+        Assert.DoesNotContain("{ [1] = \"x\" }", normalized);
+        Assert.DoesNotContain("{ { 1, 2 } }", normalized);
+        Assert.Contains(".Add(1, 2);", normalized);
+
+        var init = result.Statistics.Initializers;
         Assert.Equal(1, result.Statistics.Initializers.DictionaryIndexInitializerSites);
+        Assert.Equal(1, init.AddMulti);
+        Assert.Equal(1, init.NestedCreateSites);
+        Assert.Equal(1, init.NestedMemberInitSites);
+
+        // Idempotent on the second run.
+        var second = Preprocess(result.OutputCode);
+        Assert.False(second.Changed, string.Join("; ", second.Diagnostics));
+        Assert.Equal(result.OutputCode, second.OutputCode);
     }
 
     [Fact]
@@ -1253,5 +1318,529 @@ public class InitializerDesugarUnitTests
 
         Assert.False(result.Changed);
         Assert.Equal(source, result.OutputCode);
+    }
+
+    // ------------------------------------------------------------------
+    // M2: nested creation (IN-4).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M2_NestedCreate_TwoLevels_InnerBeforeOuterAssignment()
+    {
+        const string source = """
+            public class I { public int D { get; set; } }
+            public class O { public I Inner { get; set; } = new I(); }
+            public static class C
+            {
+                public static void M() { var o = new O { Inner = new I { D = 5 } }; }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        var outer = IndexOf(normalized, "var __ed_0 = new O();");
+        var inner = IndexOf(normalized, "var __ed_1 = new I();");
+        var write = IndexOf(normalized, "__ed_1.D = 5;");
+        var assign = IndexOf(normalized, "__ed_0.Inner = __ed_1;");
+        Assert.True(outer >= 0 && inner > outer && write > inner && assign > write,
+            normalized);
+
+        var init = result.Statistics.Initializers;
+        Assert.Equal(1, init.NestedCreateSites);
+    }
+
+    [Fact]
+    public void M2_NestedCreate_ThreeLevels_BottomUp()
+    {
+        const string source = """
+            public class C3 { public int X { get; set; } }
+            public class B3 { public C3 C { get; set; } = new C3(); }
+            public class A3 { public B3 B { get; set; } = new B3(); }
+            public static class C
+            {
+                public static void M() { var a = new A3 { B = new B3 { C = new C3 { X = 1 } } }; }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.True(
+            IndexOf(normalized, "var __ed_0 = new A3();")
+            < IndexOf(normalized, "var __ed_1 = new B3();")
+            && IndexOf(normalized, "var __ed_1 = new B3();")
+            < IndexOf(normalized, "var __ed_2 = new C3();")
+            && IndexOf(normalized, "var __ed_2 = new C3();")
+            < IndexOf(normalized, "__ed_2.X = 1;")
+            && IndexOf(normalized, "__ed_2.X = 1;")
+            < IndexOf(normalized, "__ed_1.C = __ed_2;")
+            && IndexOf(normalized, "__ed_1.C = __ed_2;")
+            < IndexOf(normalized, "__ed_0.B = __ed_1;"), normalized);
+
+        Assert.Equal(2, result.Statistics.Initializers.NestedCreateSites);
+    }
+
+    [Fact]
+    public void M2_NestedCreate_InsideCollectionElement_InlineLowered()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M() { var l = new List<Dto> { new Dto { A = 1 } }; }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.True(
+            IndexOf(normalized, "var __ed_0 = new List<Dto>();")
+            < IndexOf(normalized, "var __ed_1 = new Dto();")
+            && IndexOf(normalized, "var __ed_1 = new Dto();")
+            < IndexOf(normalized, "__ed_1.A = 1;")
+            && IndexOf(normalized, "__ed_1.A = 1;")
+            < IndexOf(normalized, "__ed_0.Add(__ed_1);"), normalized);
+        Assert.DoesNotContain("new Dto { A = 1 }", normalized);
+    }
+
+    // ------------------------------------------------------------------
+    // M2: nested member initializer (IN-5).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M2_NestedMemberInit_GetterTempEvaluatedOnce()
+    {
+        const string source = """
+            public class I { public int D { get; set; } }
+            public class O { public I Inner { get; set; } = new I(); }
+            public static class C
+            {
+                public static void M() { var o = new O { Inner = { D = 5 } }; }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.True(
+            IndexOf(normalized, "var __ed_0 = new O();")
+            < IndexOf(normalized, "var __ed_1 = __ed_0.Inner;")
+            && IndexOf(normalized, "var __ed_1 = __ed_0.Inner;")
+            < IndexOf(normalized, "__ed_1.D = 5;"), normalized);
+        Assert.DoesNotContain("__ed_0.Inner =", normalized);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0540, ExpressionDesugarSeverity.Info));
+        Assert.Equal(1, result.Statistics.Initializers.NestedMemberInitSites);
+    }
+
+    [Fact]
+    public void M2_NestedMemberInit_MultiLevel_ChainsLayerByLayer()
+    {
+        const string source = """
+            public class C3 { public int X { get; set; } }
+            public class B3 { public C3 C { get; set; } = new C3(); }
+            public class A3 { public B3 B { get; set; } = new B3(); }
+            public static class C
+            {
+                public static void M() { var a = new A3 { B = { C = { X = 1 } } }; }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.True(
+            IndexOf(normalized, "var __ed_1 = __ed_0.B;")
+            < IndexOf(normalized, "var __ed_2 = __ed_1.C;")
+            && IndexOf(normalized, "var __ed_2 = __ed_1.C;")
+            < IndexOf(normalized, "__ed_2.X = 1;"), normalized);
+    }
+
+    // ------------------------------------------------------------------
+    // M2: dictionary index initializer (IN-8).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M2_DictionaryIndex_SingleAndMultiKey_IndexAssignments()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            public class MyDict
+            {
+                private readonly int[,] _grid = new int[2, 2];
+                public int this[int a, int b] { get => _grid[a, b]; set => _grid[a, b] = value; }
+            }
+            public static class C
+            {
+                public static void M()
+                {
+                    var d = new Dictionary<int, string> { [1] = "a", [2] = "b" };
+                    var g = new MyDict { [0, 1] = 7 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("__ed_0[1] = \"a\";", normalized);
+        Assert.Contains("__ed_0[2] = \"b\";", normalized);
+        Assert.Contains("[0, 1] = 7", normalized);
+
+        var init = result.Statistics.Initializers;
+        Assert.Equal(2, init.DictionaryIndexInitializerSites);
+        Assert.Equal(3, init.MemberIndexerAssignments);
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0534, ExpressionDesugarSeverity.Info));
+    }
+
+    [Fact]
+    public void M2_DictionaryIndex_NonWritableIndexer_CS2J0531()
+    {
+        const string source = """
+            public class RO
+            {
+                public int this[int k] => k;
+            }
+            public static class C
+            {
+                public static void M() { var d = new RO { [1] = 2 }; }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0531, ExpressionDesugarSeverity.Error));
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+    }
+
+    // ------------------------------------------------------------------
+    // M2: Add variants (IN-7).
+    // ------------------------------------------------------------------
+
+    private const string M2AddShapes = """
+        using System;
+        using System.Collections;
+        using System.Collections.Generic;
+        public class Pairs : IEnumerable { public void Add(int a, int b) { } public IEnumerator GetEnumerator() => null!; }
+        public class FluentBag : IEnumerable { public FluentBag Add(int x) => this; public IEnumerator GetEnumerator() => null!; }
+        public class ParamsBag : IEnumerable { public void Add(params int[] xs) { } public IEnumerator GetEnumerator() => null!; }
+        public class GenBag : IEnumerable<int> { public IEnumerator<int> GetEnumerator() => null!; IEnumerator IEnumerable.GetEnumerator() => GetEnumerator(); }
+        public static class GenExt { public static void Add(this GenBag b, int x) { } }
+        public class C
+        {
+            public void M()
+            {
+                var p = new Pairs { { 1, 2 } };
+                var f = new FluentBag { 1 };
+                var pa = new ParamsBag { 1, 2, 3 };
+                var g = new GenBag { 1, 2 };
+            }
+        }
+        """;
+
+    [Fact]
+    public void M2_AddVariants_MultiExtensionParamsFluent_Classified()
+    {
+        var result = Preprocess(M2AddShapes);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("__ed_0.Add(1, 2);", normalized);   // multi-arg, never put(...)
+        Assert.DoesNotContain("put", normalized);
+        Assert.Contains("__ed_1.Add(1);", normalized);       // fluent, value discarded
+        Assert.Contains("__ed_2.Add(1);", normalized);       // params: one call per element
+        Assert.Contains("__ed_2.Add(2);", normalized);
+        Assert.Contains("__ed_2.Add(3);", normalized);
+        Assert.Contains("__ed_3.Add(1);", normalized);       // extension reduced re-emission
+        Assert.Contains("__ed_3.Add(2);", normalized);
+
+        var init = result.Statistics.Initializers;
+        Assert.Equal(1, init.AddMulti);
+        Assert.Equal(3, init.AddParams);
+        Assert.Equal(1, init.AddFluent);
+        Assert.Equal(2, init.AddExtension);
+        Assert.Equal(1, init.AddSingle);   // fluent single-arg instance Add
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0539, ExpressionDesugarSeverity.Info));
+    }
+
+    // ------------------------------------------------------------------
+    // M2: condition guards (S6).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M2_Ternary_GuardNotHoisted_BothBranchesAssign()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static int F() => 1;
+                public static void M(bool cond) { var a = cond ? new Dto { A = F() } : null; }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("global::Dto __ed_0;", normalized);
+        Assert.Contains("if (cond)", normalized);
+        Assert.True(
+            IndexOf(normalized, "if (cond)")
+            < IndexOf(normalized, "var __ed_1 = new Dto();")
+            && IndexOf(normalized, "var __ed_1 = new Dto();")
+            < IndexOf(normalized, "else")
+            && IndexOf(normalized, "else") < IndexOf(normalized, "__ed_0 = null;"),
+            normalized);
+    }
+
+    [Fact]
+    public void M2_NullCoalescing_GuardNotHoisted()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static int F() => 1;
+                public static void M(Dto x) { var a = x ?? new Dto { A = F() }; }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("var __ed_0 = x;", normalized);
+        Assert.Contains("if (__ed_0 == null)", normalized);
+        Assert.True(
+            IndexOf(normalized, "if (__ed_0 == null)")
+            < IndexOf(normalized, "var __ed_1 = new Dto();"), normalized);
+    }
+
+    // ------------------------------------------------------------------
+    // M2: argument interleaving (IN-11).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M2_Argument_HoistsPrecedingSideEffectArguments()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static int F() => 1;
+                public static int H() => 2;
+                public static void M(int a, Dto d, int h) { }
+                public static void M2() { M(F(), new Dto { A = F() }, H()); }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.True(
+            IndexOf(normalized, "var __ed_0 = F();")
+            < IndexOf(normalized, "var __ed_1 = new Dto();")
+            && IndexOf(normalized, "var __ed_1 = new Dto();")
+            < IndexOf(normalized, "M(__ed_0, __ed_1, H());"), normalized);
+    }
+
+    [Fact]
+    public void M2_Argument_NoSideEffectPreceding_NotHoisted()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M(int a, Dto d) { }
+                public static void M2() { int x = 1; M(x, new Dto { A = 2 }); }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("M(x, __ed_0", normalized);
+        Assert.DoesNotContain("var __ed_0 = x", normalized);
+    }
+
+    // ------------------------------------------------------------------
+    // M2: statement-lowered target-typed new + return/yield/throw/using.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M2_ReturnYieldThrowUsing_StatementLowered()
+    {
+        const string source = """
+            using System.Collections;
+            using System.Collections.Generic;
+            public class Bag : IEnumerable<int>, System.IDisposable
+            {
+                public void Add(int x) { }
+                public IEnumerator<int> GetEnumerator() => null!;
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+                public void Dispose() { }
+            }
+            public static class C
+            {
+                public static List<int> R() { return new List<int> { 1, 2 }; }
+                public static void M() { using var x = new Bag { 3 }; }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+
+        var normalized = Normalize(result.OutputCode);
+        Assert.True(
+            IndexOf(normalized, "var __ed_0 = new List<int>();")
+            < IndexOf(normalized, "__ed_0.Add(1);")
+            && IndexOf(normalized, "__ed_0.Add(2);")
+            < IndexOf(normalized, "return __ed_0;"), normalized);
+        Assert.Contains("using var x = __ed_1;", normalized);
+        Assert.Contains("__ed_1.Add(3);", normalized);
+    }
+
+    // ------------------------------------------------------------------
+    // M2: unsupported / skip family.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M2_ConstructorChainArgument_CS2J0537_AtomicUnchanged()
+    {
+        const string source = """
+            public class Dto
+            {
+                public int A { get; set; }
+                public Dto() { }
+                public Dto(Dto other) { }
+            }
+            public class Sub : Dto
+            {
+                public Sub() : base(new Dto { A = 1 }) { }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0537, ExpressionDesugarSeverity.Error));
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_FieldInitializerWithStatements_CS2J0538_AtomicUnchanged()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public class Holder { private readonly Dto _d = new Dto { A = 1 }; }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0538, ExpressionDesugarSeverity.Error));
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_NonStrict_UnsupportedSitePreserved_SiblingsRewrite()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public class Holder { private readonly Dto _d = new Dto { A = 1 }; }
+            public static class C
+            {
+                public static void M() { var d = new Dto { A = 2 }; }
+            }
+            """;
+
+        var result = Preprocess(source, new ExpressionDesugarOptions
+        {
+            Initializers = new InitializerOptions { Strict = false },
+        });
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.True(HasDiagnostic(
+            result, InitializerDiagnosticCodes.CS2J0538, ExpressionDesugarSeverity.Warning));
+        Assert.Contains("new Dto { A = 1 }", Normalize(result.OutputCode));
+        Assert.Contains("__ed_0.A = 2", Normalize(result.OutputCode));
+    }
+
+    [Fact]
+    public void M2_M2Shapes_CompileAndIdempotent()
+    {
+        const string source = """
+            using System.Collections;
+            using System.Collections.Generic;
+            public class I { public int D { get; set; } }
+            public class O { public I Inner { get; set; } = new I(); }
+            public class Pairs : IEnumerable { public void Add(int a, int b) { } public IEnumerator GetEnumerator() => null!; }
+            public static class C
+            {
+                public static void M()
+                {
+                    var a = new O { Inner = new I { D = 1 } };
+                    var b = new O { Inner = { D = 2 } };
+                    Dictionary<int, string> d = new() { [1] = "x" };
+                    var p = new Pairs { { 1, 2 } };
+                }
+            }
+            """;
+
+        var first = Preprocess(source);
+        Assert.True(first.Changed, string.Join("; ", first.Diagnostics));
+        AssertOutputCompiles(first.OutputCode);
+        Assert.DoesNotContain("new I { D = 1 }", Normalize(first.OutputCode));
+        Assert.DoesNotContain("{ D = 2 }", Normalize(first.OutputCode));
+        Assert.DoesNotContain("{ [1] = \"x\" }", Normalize(first.OutputCode));
+        Assert.DoesNotContain("{ { 1, 2 } }", Normalize(first.OutputCode));
+
+        var second = Preprocess(first.OutputCode);
+        Assert.False(second.Changed, string.Join("; ", second.Diagnostics));
+        Assert.Equal(first.OutputCode, second.OutputCode);
     }
 }

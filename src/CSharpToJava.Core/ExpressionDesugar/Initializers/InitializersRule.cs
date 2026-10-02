@@ -40,10 +40,14 @@ internal sealed class InitializersRule : IExpressionDesugarRule
     {
         // Rollout gate: the C24 subsection must be present (see class remarks).
         if (context.Options.Initializers is null)
-            return new InitializersRulePlan(Array.Empty<InitializerPlan>());
+            return new InitializersRulePlan(context, new InitializerAnalysis
+            {
+                Plans = Array.Empty<InitializerPlan>(),
+                OwnerTemps = new Dictionary<SyntaxNode, string>(),
+                HoistedArguments = new Dictionary<ArgumentSyntax, string>(),
+            });
 
-        var plans = InitializerBindingAnalyzer.Analyze(context);
-        return new InitializersRulePlan(plans);
+        return new InitializersRulePlan(context, InitializerBindingAnalyzer.Analyze(context));
     }
 
     /// <summary>
@@ -51,31 +55,22 @@ internal sealed class InitializersRule : IExpressionDesugarRule
     /// Sites deferred for C36 coexistence (nested inside a collection
     /// expression) stay out of the rewriter map, so no ancestor is rebuilt and
     /// C36's original-node-keyed plans keep resolving. Residual checking is
-    /// deferred to M3 (the three-kind gate needs the M2 skip pairing); M1
-    /// returns 0 so the family gate stays truthful.
-    /// </summary>
+    /// deferred to M3.</summary>
     private sealed class InitializersRulePlan : ExpressionDesugarRulePlan
     {
-        private readonly IReadOnlyList<InitializerPlan> _plans;
+        private readonly RuleAnalysisContext _context;
+        private readonly InitializerAnalysis _analysis;
         private InitializerRewriter? _rewriter;
 
-        public InitializersRulePlan(IReadOnlyList<InitializerPlan> plans)
+        public InitializersRulePlan(RuleAnalysisContext context, InitializerAnalysis analysis)
         {
-            _plans = plans;
+            _context = context;
+            _analysis = analysis;
         }
 
         public override CompilationUnitSyntax Rewrite(CompilationUnitSyntax root)
         {
-            var byNode = new Dictionary<BaseObjectCreationExpressionSyntax, InitializerPlan>();
-            foreach (var plan in _plans)
-            {
-                if (plan.Outcome == InitializerOutcome.DeferredForCoexistence)
-                    continue;
-
-                byNode[plan.Node] = plan;
-            }
-
-            _rewriter = new InitializerRewriter(byNode);
+            _rewriter = new InitializerRewriter(_analysis, _context.SemanticModel!);
             return (CompilationUnitSyntax)_rewriter.Visit(root)!;
         }
 

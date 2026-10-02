@@ -180,15 +180,27 @@ public sealed class IndexSetPlan : InitializerMemberPlan
 /// <summary>Nested object-creation member plan (<c>P = new T { … }</c>).</summary>
 public sealed class NestedCreatePlan : InitializerMemberPlan
 {
+    /// <summary>Member receiving the inner receiver temp (<c>__ed_o.P = __ed_i</c>).</summary>
+    public string? MemberName { get; init; }
+
     public required InitializerPlan Nested { get; init; }
 }
 
 /// <summary>Nested member-initializer plan (<c>P = { … }</c>, mutates the existing member).</summary>
 public sealed class NestedMemberInitPlan : InitializerMemberPlan
 {
+    /// <summary>Member whose getter chain is evaluated once into <see cref="GetterTempName"/>.</summary>
+    public string? MemberName { get; init; }
+
+    /// <summary>Pre-allocated getter temp for the member access chain.</summary>
+    public string? GetterTempName { get; set; }
+
     public IReadOnlyList<InitializerMemberPlan> Members { get; init; } =
         Array.Empty<InitializerMemberPlan>();
 }
+
+/// <summary>One preceding argument hoisted into a temp to keep left-to-right order.</summary>
+public sealed record HoistedArgument(int Index, string TempName, bool Declare);
 
 /// <summary>Collection element Add member plan (<c>AddMethod</c> bound by the compiler).</summary>
 public sealed class CollectionAddPlan : InitializerMemberPlan
@@ -197,6 +209,9 @@ public sealed class CollectionAddPlan : InitializerMemberPlan
     public AddKind AddKind { get; init; } = AddKind.Unresolved;
     public IReadOnlyList<ExpressionSyntax> Arguments { get; init; } =
         Array.Empty<ExpressionSyntax>();
+
+    /// <summary>Nested creation plans appearing as Add arguments (lowered inline).</summary>
+    public List<InitializerPlan> NestedPlans { get; } = new();
 }
 
 /// <summary>Full per-site plan (design §4 InitializerModels) produced by Analyze.</summary>
@@ -206,7 +221,7 @@ public sealed class InitializerPlan
     public required BaseObjectCreationExpressionSyntax Node { get; init; }
 
     /// <summary>Resolved created type (explicit type or target-typed ConvertedType).</summary>
-    public ITypeSymbol? CreatedType { get; init; }
+    public ITypeSymbol? CreatedType { get; set; }
 
     /// <summary>True for <see cref="ImplicitObjectCreationExpressionSyntax"/> (<c>new()</c>).</summary>
     public bool IsTargetTyped { get; init; }
@@ -216,13 +231,16 @@ public sealed class InitializerPlan
         Array.Empty<ExpressionSyntax>();
 
     /// <summary>Target-typed inference result; null for explicit creations.</summary>
-    public TargetTypeInfo? TargetType { get; init; }
+    public TargetTypeInfo? TargetType { get; set; }
 
     /// <summary>Member plans in source order (every initializer item represented).</summary>
     public List<InitializerMemberPlan> Members { get; init; } = new();
 
     /// <summary>Source-context classification.</summary>
-    public InitializerContextKind Context { get; init; } = InitializerContextKind.Unknown;
+    public InitializerContextKind Context { get; set; } = InitializerContextKind.Unknown;
+
+    /// <summary>Owning conditional/coalesce root temp (ternary/coalesce sites).</summary>
+    public string? ResultTempName { get; set; }
 
     public InitializerOutcome Outcome { get; set; } = InitializerOutcome.Pending;
 
@@ -243,6 +261,34 @@ public sealed class InitializerPlan
 
     /// <summary>Statement-lift order inside the anchor (post-order, inner first).</summary>
     public int LiftOrder { get; set; }
+
+    /// <summary>
+    /// True when this plan is a creation consumed inline by an enclosing plan's
+    /// initializer (nested create / collection element): the rewriter leaves it
+    /// in place for the parent emission instead of lowering it independently.
+    /// </summary>
+    public bool IsNested { get; set; }
+
+    /// <summary>
+    /// True when the site's replacement is driven by a conditional/coalesce
+    /// owner (the whole <c>?:</c>/<c>??</c> is rewritten to <c>__ed_n</c>).
+    /// </summary>
+    public bool IsOwnerHandled { get; set; }
+
+    /// <summary>The conditional/coalesce node that owns this site (innermost).</summary>
+    public SyntaxNode? ContextOwner { get; set; }
+
+    /// <summary>Full enclosing <c>?:</c>/<c>??</c> owner chain (outermost first).</summary>
+    public List<SyntaxNode> OwnerChain { get; } = new();
+
+    /// <summary>Owner argument list when the site sits in an argument position.</summary>
+    public ArgumentListSyntax? ArgumentList { get; set; }
+
+    /// <summary>Preceding arguments hoisted into temps (argument position only).</summary>
+    public List<HoistedArgument> HoistedArguments { get; } = new();
+
+    /// <summary>Raw hoist requests recorded in Analyze before temp allocation.</summary>
+    internal List<(int Index, ArgumentSyntax Argument, bool Declare)> HoistRequests { get; } = new();
 
     /// <summary>
     /// Skip bookkeeping: a real CS2J05xx code for diagnostic-paired skips, the
