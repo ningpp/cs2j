@@ -19,9 +19,16 @@ internal static class PartialMemberMerge
             {
                 // Nested partial types that are themselves groups are replaced by
                 // their merged node (lookup supplied by the analyzer, depth-first).
-                if (NestedOverrides.TryGetValue(member.ToFullString().Trim(), out var replacement))
+                if (NestedOverrides.TryGetValue(member.ToFullString().Trim(), out var nested))
                 {
-                    yield return replacement;
+                    // Non-primary part of a nested group: the merged node is emitted
+                    // once at the nested primary's slot; this member disappears.
+                    if (nested.Remove)
+                    {
+                        continue;
+                    }
+
+                    yield return nested.Merged;
                 }
                 else
                 {
@@ -36,6 +43,12 @@ internal static class PartialMemberMerge
     /// it depth-first. If collisions appear in real fixtures, switch to an
     /// annotation-based key before M2.
     /// </summary>
-    public static Dictionary<string, TypeDeclarationSyntax> NestedOverrides { get; }
+    public static Dictionary<string, NestedOverride> NestedOverrides { get; }
         = new(StringComparer.Ordinal);
 }
+
+/// <summary>
+/// What to do with a member that is a part of a nested partial group.
+/// Remove marks the non-primary parts (merged node is emitted at the primary slot).
+/// </summary>
+internal sealed record NestedOverride(TypeDeclarationSyntax Merged, bool Remove);
