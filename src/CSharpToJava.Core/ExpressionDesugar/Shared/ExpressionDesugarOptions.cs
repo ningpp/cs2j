@@ -1,4 +1,5 @@
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 
 namespace CSharpToJava.Core.ExpressionDesugar;
@@ -19,8 +20,13 @@ public sealed class ExpressionDesugarOptions
     /// <summary>C36 collection-expression desugaring subsection.</summary>
     public CollectionExprOptions CollectionExpr { get; init; } = new();
 
-    // Future append positions (C24 / C35 land later):
-    //   public InitializerOptions?    Initializers  { get; init; }   // C24
+    /// <summary>
+    /// C24 object/collection-initializer desugaring subsection (nullable;
+    /// absent is treated as <see cref="InitializerOptions.Default"/>).
+    /// </summary>
+    public InitializerOptions? Initializers { get; init; }
+
+    // Future append positions (C35 lands later):
     //   public NullConditionalOptions? NullConditional { get; init; }// C35
 
     /// <summary>Default options instance.</summary>

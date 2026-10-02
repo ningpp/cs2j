@@ -57,6 +57,7 @@ public sealed class ExpressionDesugarPreprocessor
         {
             stats.FilesSkippedClean = 1;
             stats.CollectionExpr.FilesSkippedClean = 1;
+            stats.Initializers.FilesSkippedClean = 1;
             return new ExpressionDesugarResult(
                 sourceCode, false, Array.Empty<ExpressionDesugarDiagnostic>(), stats);
         }
@@ -73,6 +74,7 @@ public sealed class ExpressionDesugarPreprocessor
             stats.CollectionExpr.FilesDirtyNoRewrite = 1;
             if (interpolationActive)
                 stats.Interpolations.FilesDirtyNoRewrite = 1;
+            stats.Initializers.FilesDirtyNoRewrite = 1;
             diagnostics.Add(new ExpressionDesugarDiagnostic(
                 ExpressionDesugarSeverity.Warning,
                 CollectionExprDiagnosticCodes.CS2J0571,
@@ -104,6 +106,7 @@ public sealed class ExpressionDesugarPreprocessor
             stats.CollectionExpr.FilesDirtyNoRewrite = 1;
             if (interpolationActive)
                 stats.Interpolations.FilesDirtyNoRewrite = 1;
+            stats.Initializers.FilesDirtyNoRewrite = 1;
             return new ExpressionDesugarResult(sourceCode, false, diagnostics, stats);
         }
 
@@ -131,6 +134,7 @@ public sealed class ExpressionDesugarPreprocessor
             stats.CollectionExpr.FilesDirtyNoRewrite = 1;
             if (interpolationActive)
                 stats.Interpolations.FilesDirtyNoRewrite = 1;
+            stats.Initializers.FilesDirtyNoRewrite = 1;
             return new ExpressionDesugarResult(sourceCode, false, diagnostics, stats);
         }
 
@@ -141,6 +145,7 @@ public sealed class ExpressionDesugarPreprocessor
         stats.CollectionExpr.TempsLifted = allPending.Count;
         if (interpolationActive)
             stats.Interpolations.TempsLifted = allPending.Count;
+        stats.Initializers.TempsLifted = allPending.Count;
 
         // ---- Per-rule residual gates (post-lift tree) ----
         var residualCount = 0;
@@ -159,6 +164,7 @@ public sealed class ExpressionDesugarPreprocessor
             stats.CollectionExpr.FilesDirtyNoRewrite = 1;
             if (interpolationActive)
                 stats.Interpolations.FilesDirtyNoRewrite = 1;
+            stats.Initializers.FilesDirtyNoRewrite = 1;
             return new ExpressionDesugarResult(sourceCode, false, diagnostics, stats);
         }
 
@@ -170,6 +176,7 @@ public sealed class ExpressionDesugarPreprocessor
         stats.CollectionExpr.FilesTransformed = 1;
         if (interpolationActive)
             stats.Interpolations.FilesTransformed = 1;
+        stats.Initializers.FilesTransformed = 1;
         return new ExpressionDesugarResult(code, true, diagnostics, stats);
     }
 }

@@ -161,10 +161,92 @@ dotnet test -c Release tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests
 dotnet test -c Release tests/CSharpToJava.ConversionTests/CSharpToJava.ConversionTests.csproj
 ```
 
-## 6. M0 探针记录
+## 6. M0 探针记录（2026-10-02 回填）
 
-（M0 完成后回填；格式同 C36 计划 §6：IOperation 运行时外形、ConvertedType 形态、基线报错码、
-行为锁定。）
+环境：.NET 10 / `Microsoft.CodeAnalysis.CSharp` **5.0.0**（`CSharpToJava.Core.csproj`）；
+探针固定在 `tests/CSharpToJava.Tests/InitializerDesugarUnitTests.cs`（7 个探针 Fact + 5 个 M0
+行为 Fact，共 12 个，全绿）。设计正文按 4.12 记录的 API 外形有一处**实质偏差**（见 6.2），
+以本节实测为准。
+
+### 6.1 对象初始化器成员项分类（`IObjectCreationOperation.Initializer`）
+
+- `ObjectCreationOperation.Initializer` 的运行时具体类型是
+  **`Microsoft.CodeAnalysis.Operations.ObjectOrCollectionInitializerOperation`**
+  （`Kind=ObjectOrCollectionInitializer`，实现 `IObjectOrCollectionInitializerOperation`）；
+  对象/集合/字典索引初始化器**共用同一类型**。成员项集合是 **`IEnumerable<IOperation>`**
+  （5.0.0 实测；用 `foreach`/`Count()`，**不是** `ImmutableArray` 的 `.Length`）。
+- 逐项外形（`new Dto { Prop = 1, Field = 2, Inner = { Prop = 3 }, Items = { 4, 5 } }`）：
+
+  | 源码项 | Item 具体类型（FullName） | 关键成员 |
+  | --- | --- | --- |
+  | 属性写 `Prop = 1` | `SimpleAssignmentOperation`（`ISimpleAssignmentOperation`） | `.Target` = `PropertyReferenceOperation`（`IPropertyReferenceOperation`），`.Property.Name="Prop"`、`.Property.SetMethod.Name="set_Prop"`、`IsInitOnly=false`、`.Arguments` 空 |
+  | 字段写 `Field = 2` | `SimpleAssignmentOperation` | `.Target` = `FieldReferenceOperation`（`IFieldReferenceOperation`），`.Field.Name="Field"`、`.Field.IsReadOnly=false` |
+  | 嵌套成员初始化 `Inner = { … }` | **`MemberInitializerOperation`**（`IMemberInitializerOperation`） | `.InitializedMember` = `PropertyReferenceOperation`；`.Initializer.Initializers` = 内层项 |
+  | 集合成员初始化 `Items = { 4, 5 }` | `MemberInitializerOperation` | `.Initializer.Initializers` 为 2 个 Add 项（见 6.2） |
+  | 嵌套创建 RHS `P = new I { … }` | `SimpleAssignmentOperation`，`.Value` = `ObjectCreationOperation`（自带 `.Initializer`） | — |
+
+- **字典索引初始化器** `new D { [k] = v }`：item 也是 `SimpleAssignmentOperation`，`.Target`
+  = `PropertyReferenceOperation`，`Property.IsIndexer=true`、`Property.Name="this[]"`、
+  `SetMethod.Name="set_Item"`、`.Arguments` 含键实参（多维同形）。**不存在**
+  `ImplicitElementAccessOperation` 类型的成员项；消费端按 `IPropertyReferenceOperation.IsIndexer`
+  识别（设计 §4 决策 9 的"ImplicitElementAccessOperation 或实际类型"以实测收口为属性引用）。
+
+### 6.2 Add 绑定外形（重大 API 变化：`ICollectionElementInitializerOperation` 已废弃）
+
+- **`ICollectionElementInitializerOperation` 在 Roslyn 5.0.0 已标记 `[Obsolete]`（使用即
+  CS0619 编译错误）**，替代物为 **`IInvocationOperation` / `IDynamicInvocationOperation`**。
+  设计 §2 决策 8/§4 表格中"`AddMethod`/`Arguments`"的引用对象**改为
+  `IInvocationOperation.TargetMethod` / `.Arguments`**（`IArgumentOperation`）。
+- 集合初始化器元素项实测（含顶层集合初始化器与成员集合初始化器，形状一致）：
+
+  | 形态 | Item 具体类型 | `TargetMethod` 观测 |
+  | --- | --- | --- |
+  | 单参 `new List<int> { 1, 2 }` | `InvocationOperation`（`Kind=Invocation`） | `List<int>.Add(int)`，`ReturnsVoid=true`，`ReducedFrom=null`，`Arguments.Length=1`，`ArgumentKind=Explicit` |
+  | 多参 `new Pairs { { 1, 2 } }` | `InvocationOperation` | `Pairs.Add(int, int)`，`Arguments.Length=2`（**不**发射 `put`） |
+  | 扩展 Add（泛型集合 + 扩展方法） | `InvocationOperation` | `GenExt.Add(GenBag, int)`，`IsExtensionMethod=true`、**`ReducedFrom=null`**（**非** reduced 形式），`Arguments[0].Value.Type=GenBag` 为接收器；重发 reduced 语法 `tmp.Add(x)` 即可复现绑定 |
+  | fluent（非 void 返回） | `InvocationOperation` | `FluentBag.Add(int)`，`ReturnsVoid=false`；表达式语句丢弃返回值 |
+  | params Add `Add(params int[])` 配 `{1,2,3}` | **3 个** `InvocationOperation`（每个源码元素一次调用） | 每次 `Arguments.Length=1`，`Parameter.IsParams=true`、`ArgumentKind=ParamArray`、实参值类型 `int[]`（**展开为单元素数组调用**，非一次 `Add(a,b,c)`）——设计 §2 决策 8⑦ 的"展开形式"以实测为准 |
+  | IEnumerable 无 Add `new NoAdd { 1 }` | **`InvalidOperation`**（`IInvalidOperation`） | 基线报错 **CS1929**（"不包含 Add 的定义"，CS1922/CS0117 族）；M2 映射 CS2J0533 |
+
+  （注：扩展 Add 的最小合法夹具需集合实现 `IEnumerable<T>` 的空洞实现；非泛型空 `IEnumerable`
+  夹具会因无绑定 Add 报 CS1950，不构成扩展 Add 探针。）
+
+### 6.3 init / readonly 基线
+
+- init-only 属性：初始化器内合法；`IPropertyReferenceOperation.Property.SetMethod.IsInitOnly
+  == true`（`ISimpleAssignmentOperation.Target`）。C11 放宽后输入树为普通 `set`（`IsInitOnly=false`）
+  + 字段，探针以对照输入确认。
+- readonly 字段 / get-only 属性出现在初始化器：基线 **CS0191**（只读字段）/**CS0200**（只读属性），
+  且该初始化器项的左侧 `GetSymbolInfo(...).Symbol == null`（绑定失败）——M1 无法依赖符号做
+  防御性 CS2J0531 分类，只能按语法 + 基线错误位置归因。
+
+### 6.4 target-typed `new()` 的 ConvertedType
+
+- 全部上下文（字段初始化器 / 属性初始化器 / `: this(...)` 实参 / 局部声明 / `return` /
+  实参位 / 三元双支 / 可空 `return`）实测 `GetTypeInfo(node).ConvertedType` 均为
+  `System.Collections.Generic.List<int>`（`NullableAnnotation=NotAnnotated`，可空目标亦取底层 T，
+  **无** `List<int>?` 注解串）；`GetOperation` 统一为 `ObjectCreationOperation`。
+- 因此决策 10 的"可空目标剥注解"在 ConvertedType 层已天然成立（UnderlyingType == ConvertedType）。
+
+### 6.5 dirty 门 / residual 谓词
+
+- trigger：`ObjectCreationExpressionSyntax{Initializer:not null}` 或
+  `ImplicitObjectCreationExpressionSyntax`（裸 `new()` 与带初始化器均算）。
+- **零误伤**：`new int[]{…}`、`new[]{…}`（`ArrayInitializerExpression`）、裸 `new C()`、
+  匿名对象 `new { A = 1 }` 均不触发。
+- residual 三类节点：`ObjectInitializerExpression`、`CollectionInitializerExpression`
+  （含 `ComplexElementInitializerExpression` 元素）、`ImplicitObjectCreationExpressionSyntax`；
+  `ArrayInitializerExpression` 排除；配对用共享 `ExpressionDesugarSyntaxFacts.ExplainedAnnotation`
+  （祖先链查询）。
+- 模板：`new Dto { A = 1 }` 源码的 trigger 计数=4（a/b/`new(){…}`/`new()`）；
+  `new { A = 1 }` 若计入会与匿名对象冲突，实测排除。
+
+### 6.6 M0 行为锁定（同测试文件）
+
+clean 文件 `Changed=false` + `FilesSkippedClean=1` 且字节不变；仅含初始化器（无 C36 语法）的
+dirty 文件 `Changed=false` + `FilesDirtyNoRewrite=1`、输出原样、**零诊断**（Initializers M0 不产
+任何码；CheckResiduals 恒 0）；初始化器与 C36 混排文件 C36 站点照常改写（`new int[]{…}`、计数不变）
+且二次运行对 C24 站点字节稳定；`SemanticModel=null` 的初始化器 dirty 文件不崩、`FilesDirtyNoRewrite=1`。
 
 ## 7. 已知基线失败（开工前既有，与 C24 无关）
 
@@ -174,3 +256,15 @@ dotnet test -c Release tests/CSharpToJava.ConversionTests/CSharpToJava.Conversio
 - ConversionTests 0。
 
 （依据 C36 计划 §7.4 终验记录；每阶段提交前以实际失败清单复核，只增不掩盖。）
+
+**M0 实际复跑（2026-10-02，Release）**：`dotnet build -c Release CSharpToJavaConverter.slnx`
+= **0 错误**；`dotnet test -c Release tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj`
+= **2548 通过 / 0 失败**（§7 列出的 5 个基线失败在本基线未复现，未新增任何失败）；
+`CollectionExprProjectTests` 4/4 通过、`ListPasses_IncludesExpressionDesugar_WithC36CatalogItem`
+（断言已更新为 `rules=C36, C24`）通过。
+ProjectTests 全量复跑：959 通过 / 5 失败，均为**与 C24 无关的既有/环境失败**——
+3 例 `LexicalNormalizeProjectTests` 系 `SampleLexicalNormalizeLiteralTests` 的 CRLF/LF
+行尾断言（`Expected "line1\nline2" / Actual "line1\r\nline2"`，Windows checkout 环境面，隔离复跑
+稳定复现），2 例（StripDefault `Rerun_DoesNotLeaveOldArtifacts`、ForeachSource
+`Fixture_WrapsStringSites`）在隔离复跑通过（全量并发下的构建/临时目录资源争用）。C24 不触碰
+lexical-normalize/foreach-source/strip-default 任一 pass。

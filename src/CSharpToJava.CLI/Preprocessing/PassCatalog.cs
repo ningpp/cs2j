@@ -110,10 +110,10 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Desugar expression sugar into explicit statements; the C23 " +
                          "interpolation rule rewrites interpolated strings into string.Concat/string.Format " +
-                         "(opt-in via --interpolation-expand) and the C36 collection-expression rules " +
-                         "rewrite collection expressions into explicit allocation/factory calls " +
-                         "(C24/C35 rules pending in this same family).",
-            catalogItems: "C23, C36"),
+                         "(opt-in via --interpolation-expand), the C36 collection-expression rules " +
+                         "rewrite collection expressions into explicit allocation/factory calls, " +
+                         "and the C24 initializer rules desugar object/collection initializers into explicit statements.",
+            catalogItems: "C23, C24, C36"),
         new(
             PassIds.Enum,
             "Enum",

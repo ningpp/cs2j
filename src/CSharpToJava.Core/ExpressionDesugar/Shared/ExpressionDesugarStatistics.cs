@@ -1,5 +1,9 @@
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+<<<<<<< HEAD
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
+=======
+using CSharpToJava.Core.ExpressionDesugar.Initializers;
+>>>>>>> 14a349c6 (feat(preprocessing): C24 initializers M0 探针+规则骨架+注册登记（默认关、空转）)
 
 namespace CSharpToJava.Core.ExpressionDesugar;
 
@@ -31,9 +35,17 @@ public sealed class ExpressionDesugarStatistics
     /// <summary>C36 collection-expression section.</summary>
     public CollectionExprStatistics CollectionExpr { get; } = new();
 
+    /// <summary>C24 object/collection-initializer section.</summary>
+    public InitializerStatistics Initializers { get; } = new();
+
     // Future sections:
+<<<<<<< HEAD
     //   public InitializerStatistics   Initializers  { get; init; } = new();  // C24
     //   public NullConditionalStatistics NullConditional { get; } = ...;       // C35
+=======
+    //   public InterpolationStatistics Interpolations { get; } = new();  // C23
+    //   public NullConditionalStatistics NullConditional { get; } = ...; // C35
+>>>>>>> 14a349c6 (feat(preprocessing): C24 initializers M0 探针+规则骨架+注册登记（默认关、空转）)
 
     /// <summary>Merges a per-file result into an accumulating run total.</summary>
     public void MergeFrom(ExpressionDesugarStatistics other)
@@ -46,5 +58,6 @@ public sealed class ExpressionDesugarStatistics
         TempsLifted += other.TempsLifted;
         Interpolations.MergeFrom(other.Interpolations);
         CollectionExpr.MergeFrom(other.CollectionExpr);
+        Initializers.MergeFrom(other.Initializers);
     }
 }

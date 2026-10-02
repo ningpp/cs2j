@@ -278,7 +278,11 @@ public sealed class PassChainOrderTests
         Assert.Equal("C16, C40", byId[PassStubCatalog.Ids.ForeachSource].CatalogItems);
         Assert.True(byId[PassStubCatalog.Ids.ForeachSource].DefaultEnabled);
         Assert.Equal("C47", byId[PassStubCatalog.Ids.EqualityConcat].CatalogItems);
+<<<<<<< HEAD
         Assert.Equal("C23, C36", byId[PassStubCatalog.Ids.ExpressionDesugar].CatalogItems);
+=======
+        Assert.Equal("C36, C24", byId[PassStubCatalog.Ids.ExpressionDesugar].CatalogItems);
+>>>>>>> 14a349c6 (feat(preprocessing): C24 initializers M0 探针+规则骨架+注册登记（默认关、空转）)
         Assert.Equal("C20", byId[PassStubCatalog.Ids.PartialMerge].CatalogItems);
         Assert.False(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
         Assert.Equal("C32", byId[PassStubCatalog.Ids.ClosureLift].CatalogItems);
