@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.MemberDesugar.Operators;
+using CSharpToJava.Core.NumericBoundary.Rules.Nullable;
 using CSharpToJava.Core.Preprocessing;
 using NB = CSharpToJava.Core.NumericBoundary.NumericBoundarySyntaxFacts;
 using NBOp = Microsoft.CodeAnalysis.Operations;
@@ -240,6 +241,14 @@ internal sealed class CheckedExprRewriter : CSharpSyntaxRewriter
         }
 
         var errorCode = _analyzer.ClassifyCheckedSiteError(node, binary, binary.Type);
+        if (errorCode == PreprocessDiagnosticCodes.NumericBoundaryNullableLifted
+            && IsWithinGuardLiveBranch(node))
+        {
+            // C22 guard live-branch inner arithmetic is a bare-T op after the
+            // guard expansion (decision 18), never a residual lifted site.
+            errorCode = null;
+        }
+
         if (errorCode != null)
         {
             ReportError(node, errorCode);
@@ -271,6 +280,11 @@ internal sealed class CheckedExprRewriter : CSharpSyntaxRewriter
             visitedBinary.Right);
 
         _stats.CheckedBinarySites++;
+        if (IsWithinGuardLiveBranch(node))
+        {
+            _stats.Nullable.GuardedCheckedInnerSites++;
+        }
+
         RecordHelper(domain);
         return Finalize(node, call);
     }
@@ -319,6 +333,12 @@ internal sealed class CheckedExprRewriter : CSharpSyntaxRewriter
         }
 
         var errorCode = _analyzer.ClassifyCheckedSiteError(node, unary, unary.Type);
+        if (errorCode == PreprocessDiagnosticCodes.NumericBoundaryNullableLifted
+            && IsWithinGuardLiveBranch(node))
+        {
+            errorCode = null;
+        }
+
         if (errorCode != null)
         {
             ReportError(node, errorCode);
@@ -348,6 +368,11 @@ internal sealed class CheckedExprRewriter : CSharpSyntaxRewriter
             ((PrefixUnaryExpressionSyntax)visited).Operand);
 
         _stats.CheckedUnarySites++;
+        if (IsWithinGuardLiveBranch(node))
+        {
+            _stats.Nullable.GuardedCheckedInnerSites++;
+        }
+
         RecordHelper(domain);
         return Finalize(node, call);
     }
@@ -697,9 +722,83 @@ internal sealed class CheckedExprRewriter : CSharpSyntaxRewriter
 
     // ── NB-7: checked explicit integer conversions; NB-6 constant casts ──
 
+    /// <summary>
+    /// Decision 18 seam shape: a <c>cond ? (T?)… : (T?)null</c> conditional.
+    /// C22 guards are re-parsed when the semantic model rebounds between
+    /// rules, so syntax annotations do not survive to this sweep — the guard
+    /// is recognized structurally instead. Hand-written user guards of the
+    /// same shape are treated identically (their inner arithmetic must be
+    /// checked and the wrap cast is never an overflow site).
+    /// </summary>
+    private static bool IsNullableGuardConditional(ConditionalExpressionSyntax conditional) =>
+        conditional.WhenFalse is CastExpressionSyntax falseCast
+        && falseCast.Type is NullableTypeSyntax
+        && falseCast.Expression.IsKind(SyntaxKind.NullLiteralExpression);
+
+    /// <summary>
+    /// Decision 18 seam: true when <paramref name="node"/> is the direct
+    /// <c>(T?)…</c> live-branch cast or the <c>(T?)null</c> null-branch cast
+    /// of a C22-shaped guard conditional.
+    /// </summary>
+    private static bool IsGuardBranchCast(CastExpressionSyntax node)
+    {
+        if (node.Parent is not ConditionalExpressionSyntax conditional
+            || !IsNullableGuardConditional(conditional)
+            || (conditional.WhenTrue != node && conditional.WhenFalse != node))
+        {
+            return false;
+        }
+
+        var falseCast = (CastExpressionSyntax)conditional.WhenFalse;
+        return node.Type.IsEquivalentTo(falseCast.Type);
+    }
+
+    /// <summary>
+    /// Decision 18 seam: true when <paramref name="node"/> sits inside the
+    /// live (<c>HasValue</c>) branch of the nearest C22-shaped guard
+    /// conditional, without crossing a local-function/lambda boundary. Inner
+    /// bare-T arithmetic and narrowing conversions there are regular checked
+    /// sites (and are tallied as <c>GuardedCheckedInnerSites</c> when
+    /// helper-ized).
+    /// </summary>
+    private static bool IsWithinGuardLiveBranch(SyntaxNode node)
+    {
+        var current = node;
+        while (current.Parent is { } parent)
+        {
+            if (parent is AnonymousFunctionExpressionSyntax
+                or LocalFunctionStatementSyntax)
+            {
+                return false;
+            }
+
+            if (parent is ConditionalExpressionSyntax conditional
+                && IsNullableGuardConditional(conditional))
+            {
+                return conditional.WhenTrue == current
+                    || conditional.WhenTrue.DescendantNodes().Contains(current);
+            }
+
+            current = parent;
+        }
+
+        return false;
+    }
+
     public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
     {
         var visited = (ExpressionSyntax)base.VisitCastExpression(node)!;
+
+        // Decision 18 C22 seam: `(T?)…` / `(T?)null` casts that are the direct
+        // branches of a C22-rendered HasValue guard are the guard's own wrap
+        // conversions — never CS2J5325 and never helper calls themselves. The
+        // base visit above already descended into the live branch, so any inner
+        // bare-T arithmetic/conversion was swept there.
+        if (IsGuardBranchCast(node))
+        {
+            return visited;
+        }
+
         if (!_analyzer.IsInCheckedContext
             && !_analyzer.IsWithinExplicitNumericScope
             && !_analyzer.ProjectDefaultChecked)
@@ -737,6 +836,15 @@ internal sealed class CheckedExprRewriter : CSharpSyntaxRewriter
         }
 
         var errorCode = _analyzer.ClassifyCheckedConversionError(node, conversion);
+        if (errorCode == PreprocessDiagnosticCodes.NumericBoundaryNullableLifted
+            && IsWithinGuardLiveBranch(node))
+        {
+            // A bare-T conversion inside a C22 guard's live branch is not a
+            // lifted site after C22's rewrite (decision 18); the outer wrap
+            // cast was already recognized above.
+            errorCode = null;
+        }
+
         if (errorCode != null)
         {
             ReportError(node, errorCode);
@@ -757,6 +865,11 @@ internal sealed class CheckedExprRewriter : CSharpSyntaxRewriter
 
         var call = NB.HelperCall(name, ((CastExpressionSyntax)visited).Expression);
         _stats.CheckedConversionSites++;
+        if (IsWithinGuardLiveBranch(node))
+        {
+            _stats.Nullable.GuardedCheckedInnerSites++;
+        }
+
         RecordHelper(NB.SourceDomain(source.SpecialType));
         return Finalize(node, call);
     }

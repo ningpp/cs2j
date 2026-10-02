@@ -42,10 +42,10 @@ internal static class NullableLiftExpansion
             left.ValueExpression(valueType),
             Token(operatorKind),
             right.ValueExpression(valueType));
-        var conditional = ConditionalExpression(
+        var conditional = Guard(ConditionalExpression(
             condition,
             CastNullable(nullableType, ParenthesizedExpression(inner)),
-            CastNull(nullableType));
+            CastNull(nullableType)));
         return ParenthesizedExpression(conditional);
     }
 
@@ -62,10 +62,10 @@ internal static class NullableLiftExpansion
         var nullableType = NullableTypeSyntax(underlying);
         var valueType = UnderlyingTypeSyntax(underlying);
         var inner = PrefixUnaryExpression(unaryKind, Token(operatorKind), operand.ValueExpression(valueType));
-        var conditional = ConditionalExpression(
+        var conditional = Guard(ConditionalExpression(
             operand.HasValueExpression(),
             CastNullable(nullableType, ParenthesizedExpression(inner)),
-            CastNull(nullableType));
+            CastNull(nullableType)));
         return ParenthesizedExpression(conditional);
     }
 
@@ -120,13 +120,13 @@ internal static class NullableLiftExpansion
             SyntaxKind.LogicalAndExpression,
             right.HasValueExpression(),
             equality);
-        var conditional = ConditionalExpression(
+        var conditional = Guard(ConditionalExpression(
             left.HasValueExpression(),
             ParenthesizedExpression(bothHaveValue),
             PrefixUnaryExpression(
                 SyntaxKind.LogicalNotExpression,
                 Token(SyntaxKind.ExclamationToken),
-                right.HasValueExpression()));
+                right.HasValueExpression())));
         var expression = isNotEquals
             ? PrefixUnaryExpression(
                 SyntaxKind.LogicalNotExpression,
@@ -220,14 +220,14 @@ internal static class NullableLiftExpansion
                 SyntaxKind.LogicalNotExpression,
                 Token(SyntaxKind.ExclamationToken),
                 right.HasValueExpression()));
-        var nullOrTrue = ConditionalExpression(
+        var nullOrTrue = Guard(ConditionalExpression(
             eitherNull,
             CastNull(boolNullable),
-            CastNullable(boolNullable, LiteralExpression(SyntaxKind.TrueLiteralExpression)));
-        var whole = ConditionalExpression(
+            CastNullable(boolNullable, LiteralExpression(SyntaxKind.TrueLiteralExpression))));
+        var whole = Guard(ConditionalExpression(
             absorbsFalse,
             LiteralExpression(SyntaxKind.FalseLiteralExpression),
-            nullOrTrue);
+            nullOrTrue));
         return ParenthesizedExpression(whole);
     }
 
@@ -261,14 +261,14 @@ internal static class NullableLiftExpansion
                 SyntaxKind.LogicalNotExpression,
                 Token(SyntaxKind.ExclamationToken),
                 right.HasValueExpression()));
-        var nullOrFalse = ConditionalExpression(
+        var nullOrFalse = Guard(ConditionalExpression(
             eitherNull,
             CastNull(boolNullable),
-            CastNullable(boolNullable, LiteralExpression(SyntaxKind.FalseLiteralExpression)));
-        var whole = ConditionalExpression(
+            CastNullable(boolNullable, LiteralExpression(SyntaxKind.FalseLiteralExpression))));
+        var whole = Guard(ConditionalExpression(
             absorbsTrue,
             LiteralExpression(SyntaxKind.TrueLiteralExpression),
-            nullOrFalse);
+            nullOrFalse));
         return ParenthesizedExpression(whole);
     }
 
@@ -284,12 +284,184 @@ internal static class NullableLiftExpansion
             SyntaxKind.LogicalNotExpression,
             Token(SyntaxKind.ExclamationToken),
             operand.ValueExpression(boolType));
-        var conditional = ConditionalExpression(
+        var conditional = Guard(ConditionalExpression(
             operand.HasValueExpression(),
             CastNullable(boolNullable, ParenthesizedExpression(inner)),
-            CastNull(boolNullable));
+            CastNull(boolNullable)));
         return ParenthesizedExpression(conditional);
     }
+
+    // ── NL-6 GetValueOrDefault (decision 10) ──
+
+    /// <summary>
+    /// NL-6 zero-argument GOV (decision 10):
+    /// <c>x.GetValueOrDefault() → (x.HasValue ? x.Value : default(T))</c>.
+    /// An unstable receiver is read once by the caller through
+    /// <see cref="OperandAccess"/> hoisting.
+    /// </summary>
+    public static ParenthesizedExpressionSyntax GetValueOrDefault(
+        OperandAccess receiver, ITypeSymbol underlying)
+    {
+        var valueType = UnderlyingTypeSyntax(underlying);
+        var conditional = Guard(ConditionalExpression(
+            receiver.HasValueExpression(),
+            receiver.ValueExpression(valueType),
+            DefaultExpression(valueType)));
+        return ParenthesizedExpression(conditional);
+    }
+
+    /// <summary>
+    /// NL-6 one-argument GOV (decision 10):
+    /// <c>x.GetValueOrDefault(d) → (x.HasValue ? x.Value : __cs2j_n_d)</c>;
+    /// the default argument (and an unstable receiver) are evaluated once.
+    /// </summary>
+    public static ParenthesizedExpressionSyntax GetValueOrDefault(
+        OperandAccess receiver, OperandAccess defaultValue, ITypeSymbol underlying)
+    {
+        var valueType = UnderlyingTypeSyntax(underlying);
+        var conditional = Guard(ConditionalExpression(
+            receiver.HasValueExpression(),
+            receiver.ValueExpression(valueType),
+            defaultValue.ValueExpression(valueType)));
+        return ParenthesizedExpression(conditional);
+    }
+
+    // ── NL-7/NL-8 conversions (decision 13) ──
+
+    /// <summary>
+    /// NL-7 unwrap ② <c>(T)x</c> with <c>x: T?</c> → <c>x.Value</c>, and the
+    /// ④ <c>S? → T</c> unwrap-and-convert family → <c>(T)x.Value</c>: a null
+    /// operand reaches <c>.Value</c> and throws
+    /// <see cref="InvalidOperationException"/>, exactly like the source cast.
+    /// </summary>
+    public static ExpressionSyntax UnwrapValue(
+        OperandAccess source, ITypeSymbol target, ITypeSymbol? sourceUnderlying)
+    {
+        var valueExpression = source.ValueExpression(UnderlyingTypeSyntax(sourceUnderlying ?? target));
+        if (SymbolEqualityComparer.Default.Equals(sourceUnderlying, target))
+        {
+            return valueExpression;
+        }
+
+        return ParenthesizedExpression(
+            CastExpression(UnderlyingTypeSyntax(target), valueExpression));
+    }
+
+    /// <summary>
+    /// NL-8 lifted conversion ③ <c>(T?)x</c> with <c>x: S?</c> (S≠T):
+    /// <c>(x.HasValue ? (T?)(T)x.Value : (T?)null)</c>. A non-nullable source
+    /// <c>S → T?</c> binds the same lifted conversion family but can never be
+    /// null, so it renders <c>(T?)(T)x</c> without a guard.
+    /// </summary>
+    public static ParenthesizedExpressionSyntax LiftedConversionGuard(
+        OperandAccess source,
+        ITypeSymbol sourceUnderlying,
+        ITypeSymbol targetUnderlying,
+        bool sourceNullable)
+    {
+        var nullableType = NullableTypeSyntax(targetUnderlying);
+        var targetValueType = UnderlyingTypeSyntax(targetUnderlying);
+
+        var sourceValue = source.ValueExpression(UnderlyingTypeSyntax(sourceUnderlying));
+        var live = SymbolEqualityComparer.Default.Equals(sourceUnderlying, targetUnderlying)
+            ? sourceValue
+            : CastExpression(targetValueType, ParenthesizedExpression(sourceValue));
+
+        // A non-nullable position (HasValue contribution is the literal true)
+        // never takes the null branch: drop the guard and keep the wrap only.
+        if (!sourceNullable || source.HasValueExpression().IsKind(SyntaxKind.TrueLiteralExpression))
+        {
+            return ParenthesizedExpression(
+                CastNullable(nullableType, ParenthesizedExpression(live)));
+        }
+
+        var conditional = Guard(ConditionalExpression(
+            source.HasValueExpression(),
+            CastNullable(nullableType, ParenthesizedExpression(live)),
+            CastNull(nullableType)));
+        return ParenthesizedExpression(conditional);
+    }
+
+    // ── NL-9 nullable-enum backstop (decision 12) ──
+
+    /// <summary>
+    /// NL-9 lifted enum bitwise binary backstop (<c>&amp; | ^</c>), the same
+    /// cast shape E04 emits for stable operands:
+    /// <c>(a.HasValue &amp;&amp; b.HasValue ? (E?)(E)((U)a.Value op (U)b.Value) : (E?)null)</c>.
+    /// Unstable operands are hoisted by the rewriter (instead of E04's
+    /// warning-and-skip). Bitwise results of two U-width values always fit U,
+    /// so unlike <see cref="EnumBackstopNot"/> no <c>unchecked</c> wrap is
+    /// needed even for narrow underlying types (mirrors E04).
+    /// </summary>
+    public static ParenthesizedExpressionSyntax EnumBackstopBinary(
+        SyntaxKind binaryKind,
+        SyntaxKind operatorKind,
+        OperandAccess left,
+        OperandAccess right,
+        INamedTypeSymbol enumType)
+    {
+        var underlyingSyntax = EnumUnderlyingSyntax(enumType);
+        var nullableEnum = NullableTypeSyntax(enumType);
+
+        var leftInner = CastExpression(
+            underlyingSyntax, ParenthesizedExpression(left.ValueExpression(underlyingSyntax)));
+        var rightInner = CastExpression(
+            underlyingSyntax, ParenthesizedExpression(right.ValueExpression(underlyingSyntax)));
+        var inner = BinaryExpression(binaryKind, leftInner, Token(operatorKind), rightInner);
+        var enumCast = CastExpression(
+            UnderlyingTypeSyntax(enumType), ParenthesizedExpression(inner));
+
+        var conditional = Guard(ConditionalExpression(
+            AllHaveValues(left, right),
+            CastNullable(nullableEnum, ParenthesizedExpression(enumCast)),
+            CastNull(nullableEnum)));
+        return ParenthesizedExpression(conditional);
+    }
+
+    /// <summary>
+    /// NL-9 lifted enum <c>~</c> backstop:
+    /// <c>(x.HasValue ? (E?)(E)(~(U)x.Value) : (E?)null)</c>. Narrow
+    /// underlying types (byte/sbyte/short/ushort) keep E04's
+    /// <c>unchecked((U)(~(U)x.Value))</c> inner wrap because the promoted
+    /// complement does not fit U; the NB-1 pass strips the unchecked shell
+    /// outside checked scopes.
+    /// </summary>
+    public static ParenthesizedExpressionSyntax EnumBackstopNot(
+        OperandAccess operand, INamedTypeSymbol enumType)
+    {
+        var underlying = enumType.EnumUnderlyingType!;
+        var underlyingSyntax = UnderlyingTypeSyntax(underlying);
+
+        var castedValue = CastExpression(
+            underlyingSyntax, ParenthesizedExpression(operand.ValueExpression(underlyingSyntax)));
+        var complement = PrefixUnaryExpression(
+            SyntaxKind.BitwiseNotExpression,
+            Token(SyntaxKind.TildeToken),
+            ParenthesizedExpression(castedValue));
+        ExpressionSyntax narrowed = IsNarrowEnumUnderlying(underlying.SpecialType)
+            ? CheckedExpression(
+                SyntaxKind.UncheckedExpression,
+                CastExpression(underlyingSyntax, ParenthesizedExpression(complement)))
+            : CastExpression(underlyingSyntax, ParenthesizedExpression(complement));
+
+        var nullableEnum = NullableTypeSyntax(enumType);
+        var enumCast = CastExpression(
+            UnderlyingTypeSyntax(enumType), ParenthesizedExpression(narrowed));
+        var conditional = Guard(ConditionalExpression(
+            operand.HasValueExpression(),
+            CastNullable(nullableEnum, ParenthesizedExpression(enumCast)),
+            CastNull(nullableEnum)));
+        return ParenthesizedExpression(conditional);
+    }
+
+    private static TypeSyntax EnumUnderlyingSyntax(INamedTypeSymbol enumType) =>
+        UnderlyingTypeSyntax(enumType.EnumUnderlyingType!);
+
+    private static bool IsNarrowEnumUnderlying(SpecialType specialType) =>
+        specialType is SpecialType.System_Byte
+            or SpecialType.System_SByte
+            or SpecialType.System_Int16
+            or SpecialType.System_UInt16;
 
     // ── shared rendering primitives ──
 
@@ -320,6 +492,10 @@ internal static class NullableLiftExpansion
 
     private static CastExpressionSyntax CastNull(TypeSyntax nullableType) =>
         CastExpression(nullableType, LiteralExpression(SyntaxKind.NullLiteralExpression));
+
+    /// <summary>Tag a synthesized guard conditional for the C15 seam (decision 18).</summary>
+    private static ConditionalExpressionSyntax Guard(ConditionalExpressionSyntax conditional) =>
+        conditional.WithAdditionalAnnotations(NullableLiftSyntaxFacts.GuardAnnotation);
 
     /// <summary>Non-nullable underlying type syntax (keyword or fully-qualified name).</summary>
     public static TypeSyntax UnderlyingTypeSyntax(ITypeSymbol underlying) =>

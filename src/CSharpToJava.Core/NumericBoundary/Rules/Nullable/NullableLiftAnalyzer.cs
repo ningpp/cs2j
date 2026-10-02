@@ -426,9 +426,19 @@ internal sealed class NullableLiftAnalyzer
         }
         else if (sourceNullable && !targetNullable)
         {
-            quadrant = SymbolEqualityComparer.Default.Equals(sourceUnderlying, target)
-                ? NullableConversionQuadrant.Unwrap
-                : NullableConversionQuadrant.UnwrapAndConvert;
+            // Boxing a T? to object/interface (or any reference target) is a
+            // nullable boxing conversion, not an NL-7 unwrap: null must remain
+            // null instead of forcing a .Value read.
+            if (target is not { IsValueType: true })
+            {
+                quadrant = NullableConversionQuadrant.None;
+            }
+            else
+            {
+                quadrant = SymbolEqualityComparer.Default.Equals(sourceUnderlying, target)
+                    ? NullableConversionQuadrant.Unwrap
+                    : NullableConversionQuadrant.UnwrapAndConvert;
+            }
         }
         else if (sourceNullable && targetNullable)
         {

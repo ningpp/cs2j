@@ -154,13 +154,19 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return visited;
         }
 
-        // M2 domains: enum bit-operation backstop (NL-9) and any other
-        // custom-struct binding — no rewrite, no diagnostic, no residual.
-        if (classification.Domain is NullableValueDomain.Enum
-            or NullableValueDomain.Other
+        // NL-9 (decision 12): enum-domain built-in lifted bit operations and
+        // equality get the E04-shaped backstop here (E04 only handles stable
+        // operands; unstable ones reach this rule). Custom-struct bindings
+        // (Other) stay untouched.
+        if (classification.Domain is NullableValueDomain.Other
             or NullableValueDomain.NotNullable)
         {
             return visited;
+        }
+
+        if (classification.Domain == NullableValueDomain.Enum)
+        {
+            return RewriteEnumBinary(node, visited, classification, operation) ?? visited;
         }
 
         return RewriteOwnedBinary(node, visited, classification, operation) ?? visited;
@@ -230,12 +236,17 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return visited;
         }
 
-        // NL-9 enum `~` backstop is M2.
-        if (classification.Domain is NullableValueDomain.Enum
-            or NullableValueDomain.Other
+        // NL-9 enum `~` backstop (decision 12); Other custom-struct unary
+        // operators stay untouched.
+        if (classification.Domain is NullableValueDomain.Other
             or NullableValueDomain.NotNullable)
         {
             return visited;
+        }
+
+        if (classification.Domain == NullableValueDomain.Enum)
+        {
+            return RewriteEnumUnary(node, visited, operation) ?? visited;
         }
 
         _currentHoist = null;
@@ -347,33 +358,9 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
                 break;
 
             case LiftedBinaryFlavor.Equality:
-            {
-                var leftPositionNullable =
-                    classification.LeftNullable
-                    || NullableLiftAnalyzer.IsNullConstant(operation.LeftOperand);
-                var rightPositionNullable =
-                    classification.RightNullable
-                    || NullableLiftAnalyzer.IsNullConstant(operation.RightOperand);
-
-                if (leftPositionNullable && rightPositionNullable)
-                {
-                    rewritten = NullableLiftExpansion.LiftedEqualityBothNullable(
-                        original.IsKind(SyntaxKind.NotEqualsExpression),
-                        leftAccess, rightAccess, underlying);
-                    _stats.LiftedEqualityBothNullableSites++;
-                }
-                else
-                {
-                    var nullableAccess = leftPositionNullable ? leftAccess : rightAccess;
-                    var otherAccess = leftPositionNullable ? rightAccess : leftAccess;
-                    rewritten = NullableLiftExpansion.LiftedEqualityOneSided(
-                        original.IsKind(SyntaxKind.NotEqualsExpression),
-                        nullableAccess, otherAccess, underlying);
-                    _stats.LiftedEqualityOneSidedSites++;
-                }
-
+                rewritten = BuildLiftedEquality(
+                    original, operation, classification, leftAccess, rightAccess, underlying);
                 break;
-            }
 
             case LiftedBinaryFlavor.BoolAnd:
                 rewritten = NullableLiftExpansion.LiftedBoolAnd(leftAccess, rightAccess);
@@ -400,6 +387,313 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         return FinalizeSite(original, rewritten, _currentHoist);
     }
 
+    /// <summary>
+    /// Shared NL-4 equality rendering for numeric and enum domains: selects
+    /// the two-nullable vs one-sided form and fills the matching buckets.
+    /// </summary>
+    private ExpressionSyntax BuildLiftedEquality(
+        BinaryExpressionSyntax original,
+        NBOp.IBinaryOperation operation,
+        LiftedBinaryClassification classification,
+        OperandAccess leftAccess,
+        OperandAccess rightAccess,
+        ITypeSymbol underlying)
+    {
+        var leftPositionNullable =
+            classification.LeftNullable
+            || NullableLiftAnalyzer.IsNullConstant(operation.LeftOperand);
+        var rightPositionNullable =
+            classification.RightNullable
+            || NullableLiftAnalyzer.IsNullConstant(operation.RightOperand);
+
+        if (leftPositionNullable && rightPositionNullable)
+        {
+            var expression = NullableLiftExpansion.LiftedEqualityBothNullable(
+                original.IsKind(SyntaxKind.NotEqualsExpression),
+                leftAccess, rightAccess, underlying);
+            _stats.LiftedEqualityBothNullableSites++;
+            return expression;
+        }
+
+        var nullableAccess = leftPositionNullable ? leftAccess : rightAccess;
+        var otherAccess = leftPositionNullable ? rightAccess : leftAccess;
+        var oneSided = NullableLiftExpansion.LiftedEqualityOneSided(
+            original.IsKind(SyntaxKind.NotEqualsExpression),
+            nullableAccess, otherAccess, underlying);
+        _stats.LiftedEqualityOneSidedSites++;
+        return oneSided;
+    }
+
+    /// <summary>
+    /// NL-9 enum-domain lifted binary: bitwise <c>&amp; | ^</c> renders the
+    /// E04-shaped double cast backstop (counted as
+    /// <see cref="NullableLiftStatistics.NullableEnumBackstopSites"/>); lifted
+    /// enum <c>== !=</c> uses the regular NL-4 equality formula over the enum
+    /// underlying. Relational flavors do not bind on enums in compilable input.
+    /// </summary>
+    private ExpressionSyntax? RewriteEnumBinary(
+        BinaryExpressionSyntax original,
+        BinaryExpressionSyntax visited,
+        LiftedBinaryClassification classification,
+        NBOp.IBinaryOperation operation)
+    {
+        var enumType = ResolveBinaryUnderlying(operation) as INamedTypeSymbol;
+        if (enumType is not { TypeKind: TypeKind.Enum })
+        {
+            return null;
+        }
+
+        _currentHoist = null;
+
+        var (leftOk, leftAccess) = PrepareOperand(
+            original, original.Left, visited.Left, operation.LeftOperand,
+            sideNullable: classification.LeftNullable, isLeft: true);
+        if (!leftOk)
+        {
+            return null;
+        }
+
+        var (rightOk, rightAccess) = PrepareOperand(
+            original, original.Right, visited.Right, operation.RightOperand,
+            sideNullable: classification.RightNullable, isLeft: false);
+        if (!rightOk)
+        {
+            return null;
+        }
+
+        ExpressionSyntax rewritten;
+        if (classification.Flavor == LiftedBinaryFlavor.Arithmetic)
+        {
+            rewritten = NullableLiftExpansion.EnumBackstopBinary(
+                original.Kind(), original.OperatorToken.Kind(),
+                leftAccess, rightAccess, enumType);
+            _stats.NullableEnumBackstopSites++;
+        }
+        else if (classification.Flavor == LiftedBinaryFlavor.Equality)
+        {
+            rewritten = BuildLiftedEquality(
+                original, operation, classification, leftAccess, rightAccess, enumType);
+        }
+        else
+        {
+            return null;
+        }
+
+        return FinalizeSite(original, rewritten, _currentHoist);
+    }
+
+    /// <summary>NL-9 lifted enum unary <c>~</c> backstop.</summary>
+    private ExpressionSyntax? RewriteEnumUnary(
+        PrefixUnaryExpressionSyntax original,
+        PrefixUnaryExpressionSyntax visited,
+        NBOp.IUnaryOperation operation)
+    {
+        var enumType = ResolveUnderlying(operation.Operand?.Type, operation.Type) as INamedTypeSymbol;
+        if (enumType is not { TypeKind: TypeKind.Enum }
+            || original.Kind() != SyntaxKind.BitwiseNotExpression)
+        {
+            return null;
+        }
+
+        _currentHoist = null;
+
+        var (ok, access) = PrepareOperand(
+            original, original.Operand, visited.Operand, operation.Operand,
+            sideNullable: true, isLeft: true);
+        if (!ok)
+        {
+            return null;
+        }
+
+        var rewritten = NullableLiftExpansion.EnumBackstopNot(access, enumType);
+        _stats.NullableEnumBackstopSites++;
+        return FinalizeSite(original, rewritten, _currentHoist);
+    }
+
+    // ── NL-6 GetValueOrDefault (decision 10) ──
+
+    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        var visited = (InvocationExpressionSyntax)base.VisitInvocationExpression(node)!;
+
+        if (!_analyzer.IsGetValueOrDefault(node, out var hasDefaultArgument))
+        {
+            return visited;
+        }
+
+        if (_model.GetOperation(node) is not NBOp.IInvocationOperation invocation)
+        {
+            return visited;
+        }
+
+        if (_analyzer.IsWithinExpressionTree(node))
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftExpressionTree,
+                NullableLiftDiagnostics.ReasonExpressionTree,
+                NullableLiftDiagnostics.ExpressionTree(NullableLiftSyntaxFacts.SiteText(node)));
+            return visited;
+        }
+
+        if (NullableLiftAnalyzer.IsDynamicOperation(invocation))
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftDynamic,
+                NullableLiftDiagnostics.ReasonDynamic,
+                NullableLiftDiagnostics.Dynamic(NullableLiftSyntaxFacts.SiteText(node)));
+            return visited;
+        }
+
+        var underlying = (invocation.TargetMethod.ContainingType as INamedTypeSymbol)
+            ?.TypeArguments.FirstOrDefault();
+        if (underlying == null || node.Expression is not MemberAccessExpressionSyntax memberAccess)
+        {
+            return visited;
+        }
+
+        _currentHoist = null;
+        var visitedMember = (MemberAccessExpressionSyntax)visited.Expression;
+        var (receiverOk, receiverAccess) = PrepareOperand(
+            node, memberAccess.Expression, visitedMember.Expression, invocation.Instance,
+            sideNullable: true, isLeft: true);
+        if (!receiverOk)
+        {
+            return visited;
+        }
+
+        ExpressionSyntax rewritten;
+        if (!hasDefaultArgument)
+        {
+            rewritten = NullableLiftExpansion.GetValueOrDefault(receiverAccess, underlying);
+        }
+        else
+        {
+            var originalArgument = node.ArgumentList.Arguments[0].Expression;
+            var visitedArgument = visited.ArgumentList.Arguments[0].Expression;
+            var argumentOperation = invocation.Arguments.FirstOrDefault().Value;
+            var (argumentOk, argumentAccess) = PrepareOperand(
+                node, originalArgument, visitedArgument, argumentOperation,
+                sideNullable: false, isLeft: false, defaultRole: true);
+            if (!argumentOk)
+            {
+                return visited;
+            }
+
+            rewritten = NullableLiftExpansion.GetValueOrDefault(receiverAccess, argumentAccess, underlying);
+        }
+
+        _stats.GetValueOrDefaultSites++;
+        return FinalizeSite(node, rewritten, _currentHoist);
+    }
+
+    // ── NL-7/NL-8 nullable conversions (decision 13) ──
+
+    public override SyntaxNode? VisitCastExpression(CastExpressionSyntax node)
+    {
+        var visited = (CastExpressionSyntax)base.VisitCastExpression(node)!;
+
+        var classification = _analyzer.ClassifyConversion(node);
+        if (classification.Quadrant is NullableConversionQuadrant.None
+            or NullableConversionQuadrant.Wrap)
+        {
+            return visited;
+        }
+
+        if (_analyzer.IsWithinExpressionTree(node))
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftExpressionTree,
+                NullableLiftDiagnostics.ReasonExpressionTree,
+                NullableLiftDiagnostics.ExpressionTree(NullableLiftSyntaxFacts.SiteText(node)));
+            return visited;
+        }
+
+        if (_model.GetOperation(node) is NBOp.IConversionOperation conversion
+            && NullableLiftAnalyzer.IsDynamicOperation(conversion))
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftDynamic,
+                NullableLiftDiagnostics.ReasonDynamic,
+                NullableLiftDiagnostics.Dynamic(NullableLiftSyntaxFacts.SiteText(node)));
+            return visited;
+        }
+
+        // C41 special numerics route to CS2J5356 ahead of the user-defined gate.
+        if (NullableLiftAnalyzer.ClassifyUnderlying(classification.SourceUnderlying)
+                == NullableValueDomain.SpecialNumeric
+            || NullableLiftAnalyzer.ClassifyUnderlying(classification.TargetUnderlying)
+                == NullableValueDomain.SpecialNumeric)
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftSpecialNumeric,
+                NullableLiftDiagnostics.ReasonSpecialNumeric,
+                NullableLiftDiagnostics.SpecialNumeric(NullableLiftSyntaxFacts.SiteText(node)));
+            return visited;
+        }
+
+        if (classification.Quadrant == NullableConversionQuadrant.UserDefined)
+        {
+            ReportSiteError(node,
+                PreprocessDiagnosticCodes.NullableLiftUserDefinedOperator,
+                NullableLiftDiagnostics.ReasonUserDefinedOperator,
+                NullableLiftDiagnostics.UserDefinedOperator(NullableLiftSyntaxFacts.SiteText(node)));
+            return visited;
+        }
+
+        if (_model.GetOperation(node) is not NBOp.IConversionOperation boundConversion)
+        {
+            return visited;
+        }
+
+        _currentHoist = null;
+        var (ok, sourceAccess) = PrepareOperand(
+            node, node.Expression, visited.Expression, boundConversion.Operand,
+            sideNullable: classification.SourceNullable, isLeft: true);
+        if (!ok)
+        {
+            return visited;
+        }
+
+        ExpressionSyntax rewritten;
+        switch (classification.Quadrant)
+        {
+            case NullableConversionQuadrant.Unwrap:
+            case NullableConversionQuadrant.UnwrapAndConvert:
+                // ② T?→T becomes .Value; ④ S?→T becomes (T)x.Value (null throws).
+                rewritten = NullableLiftExpansion.UnwrapValue(
+                    sourceAccess, boundConversion.Type!, classification.SourceUnderlying);
+                _stats.UnwrapConversions++;
+                break;
+
+            case NullableConversionQuadrant.Lifted:
+            {
+                // For an S → T? (non-nullable source) lifted conversion the
+                // classifier's SourceUnderlying is null (S is not T?); the
+                // bound conversion operand carries S itself.
+                var sourceUnderlying = classification.SourceNullable
+                    ? classification.SourceUnderlying
+                    : boundConversion.Operand?.Type;
+                if (sourceUnderlying == null)
+                {
+                    return visited;
+                }
+
+                rewritten = NullableLiftExpansion.LiftedConversionGuard(
+                    sourceAccess,
+                    sourceUnderlying,
+                    classification.TargetUnderlying!,
+                    classification.SourceNullable);
+                _stats.LiftedConversions++;
+                break;
+            }
+
+            default:
+                return visited;
+        }
+
+        return FinalizeSite(node, rewritten, _currentHoist);
+    }
+
     // ── single-evaluation operand hoisting (decision 2) ──
 
     private (bool Ok, OperandAccess Access) PrepareOperand(
@@ -408,7 +702,8 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         ExpressionSyntax visitedOperand,
         IOperation? operandOperation,
         bool sideNullable,
-        bool isLeft)
+        bool isLeft,
+        bool defaultRole = false)
     {
         if (NullableLiftAnalyzer.IsNullConstant(operandOperation))
         {
@@ -431,9 +726,11 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return (false, default);
         }
 
-        var name = isLeft
-            ? _names.Left(hoist.SiteNumber)
-            : _names.Right(hoist.SiteNumber);
+        var name = defaultRole
+            ? _names.Default(hoist.SiteNumber)
+            : isLeft
+                ? _names.Left(hoist.SiteNumber)
+                : _names.Right(hoist.SiteNumber);
         hoist.Declarations.Add(VarDeclaration(name, visitedOperand));
         return (true, OperandAccess.Direct(IdentifierName(name), sideNullable));
     }

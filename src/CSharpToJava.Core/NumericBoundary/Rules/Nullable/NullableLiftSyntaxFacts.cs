@@ -18,8 +18,18 @@ internal static class NullableLiftSyntaxFacts
     /// <summary>Per-site hoist marker: lifted temporary declarations carry it.</summary>
     public const string HoistAnnotationKind = "Cs2jNullableLiftHoist";
 
+    /// <summary>
+    /// C22 guard marker (decision 18): every synthesized <c>?:</c> guard
+    /// conditional carries it inside this rule's own trees. The downstream
+    /// C15 checked sweep runs on a re-parsed model (annotations do not survive
+    /// <c>RebindModel</c>), so it recognizes the guard structurally; the
+    /// marker is kept for in-tree identification and diagnostics.
+    /// </summary>
+    public const string GuardAnnotationKind = "Cs2jNullableLiftGuard";
+
     public static readonly SyntaxAnnotation RewriteAnnotation = new(RewriteAnnotationKind);
     public static readonly SyntaxAnnotation HoistAnnotation = new(HoistAnnotationKind);
+    public static readonly SyntaxAnnotation GuardAnnotation = new(GuardAnnotationKind);
 
     /// <summary>Common prefix of every C22 hoisted temporary (design §4.5).</summary>
     public const string TempNamePrefix = "__cs2j_n_";

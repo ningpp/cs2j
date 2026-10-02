@@ -1004,10 +1004,32 @@ public class NumericBoundaryRewriterUnitTests
     }
 
     [Fact]
-    public void CS2J5325_NullableLiftedArithmetic_Error()
+    public void CS2J5325_NullableLiftedArithmetic_C22GuardFirst_CheckedHelperInLiveBranch()
     {
+        // C22 M2 (decision 18): with the nullable-lift rule enabled (default),
+        // the lifted site is explicitized BEFORE this sweep; the checked sweep
+        // then inserts AddCheckedInt32 inside the guard's live branch instead
+        // of rejecting the site with CS2J5325.
         var src = "public class C { public int? M(int? a, int? b) => checked(a + b); }";
         var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.NumericBoundaryNullableLifted);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains(
+            "a.HasValue&&b.HasValue?(int?)(Cs2jUnsigned.UnsignedMath.AddCheckedInt32(a.Value,b.Value)):(int?)null",
+            compact);
+        // The null branch carries no helper call:
+        Assert.Equal(1, compact.Split("UnsignedMath").Length - 1);
+    }
+
+    [Fact]
+    public void CS2J5325_NullableLiftedArithmetic_Error_WhenNullableRuleDisabled()
+    {
+        var src = "public class C { public int? M(int? a, int? b) => checked(a + b); }";
+        var result = Run(src, new NumericBoundaryOptions { EnableNullable = false });
 
         Assert.False(result.Changed);
         Assert.Equal(src, result.OutputCode);

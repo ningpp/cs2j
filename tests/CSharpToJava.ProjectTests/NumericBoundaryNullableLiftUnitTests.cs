@@ -324,7 +324,7 @@ public class NumericBoundaryNullableLiftUnitTests
         """;
 
     [Fact]
-    public void M1_AllLiftedShapes_M1OwnedSitesGuarded_M2ShapesPassThrough()
+    public void M2_AllLiftedShapes_M1AndM2SitesExplicitized_IncrementCompoundStillPassThrough()
     {
         var result = Run(LiftedCrossProductSource);
 
@@ -349,14 +349,25 @@ public class NumericBoundaryNullableLiftUnitTests
         Assert.Contains("b1.HasValue&&!b1.Value||b2.HasValue&&!b2.Value", compact);
         Assert.Contains("(bool?)(b1.Value^b2.Value)", compact);
 
-        // M2 shapes pass through untouched: enum bit ops/~, GOV, conversions,
-        // increment/compound, and never trip the staged NL-14 residual gate.
-        Assert.Contains("eand=e1&e2", compact);
-        Assert.Contains("enot=~e1", compact);
-        Assert.Contains("ni.GetValueOrDefault()", compact);
-        Assert.Contains("ni.GetValueOrDefault(5)", compact);
-        Assert.Contains("y=(int)x", compact);
-        Assert.Contains("z=(int?)nl", compact);
+        // NL-6 GetValueOrDefault (both shapes):
+        Assert.Contains("g1=(ni.HasValue?ni.Value:default(int))", compact);
+        Assert.Contains("g2=(ni.HasValue?ni.Value:5)", compact);
+        Assert.DoesNotContain("GetValueOrDefault", compact);
+
+        // NL-7/8 conversions:
+        Assert.Contains("y=x.Value", compact);
+        Assert.Contains("z=(nl.HasValue?(int?)((int)(nl.Value)):(int?)null)", compact);
+
+        // NL-9 enum backstop (int underlying, so no unchecked wrap):
+        Assert.Contains(
+            "eand=(e1.HasValue&&e2.HasValue?(global::Color?)((global::Color)((int)(e1.Value)&(int)(e2.Value))):(global::Color?)null)",
+            compact);
+        Assert.Contains(
+            "enot=(e1.HasValue?(global::Color?)((global::Color)((int)(~((int)(e1.Value))))):(global::Color?)null)",
+            compact);
+
+        // NL-10/11 increment/compound are commit 2 — still pass through and
+        // never trip the staged NL-14 residual gate.
         Assert.Contains("x++", compact);
         Assert.Contains("++x", compact);
         Assert.Contains("x-=1", compact);
@@ -373,10 +384,12 @@ public class NumericBoundaryNullableLiftUnitTests
         Assert.Equal(1, stats.LiftedBoolLogicOrSites);
         Assert.Equal(1, stats.LiftedBoolLogicXorSites);
         Assert.Equal(1, stats.LiftedBoolLogicNotSites);
+        Assert.Equal(2, stats.GetValueOrDefaultSites);
+        Assert.Equal(1, stats.UnwrapConversions);
+        Assert.Equal(1, stats.LiftedConversions);
+        Assert.Equal(2, stats.NullableEnumBackstopSites);
         Assert.Equal(0, stats.TempsLifted);
-        Assert.Equal(0, stats.GetValueOrDefaultSites + stats.UnwrapConversions
-            + stats.LiftedConversions + stats.LiftedIncrementSites
-            + stats.NullableEnumBackstopSites);
+        Assert.Equal(0, stats.LiftedIncrementSites);
         Assert.False(stats.DeferredByReason.Keys.Any(k =>
             k.StartsWith(PreprocessDiagnosticCodes.NullableLiftResidual, StringComparison.Ordinal)));
         Assert.Equal(1, result.Statistics.FilesTransformed);
@@ -1959,18 +1972,15 @@ public class NumericBoundaryNullableLiftUnitTests
     }
 
     [Fact]
-    public void M1_CoexistsWith_C15Checked_C22GuardFirst_C15NullableWrapCastRejected_M2SeamRollback()
+    public void M2_CoexistsWith_C15Checked_C22GuardFirst_C15HelperInsideLiveBranch_NullBranchUntouched()
     {
-        // M1/M2 seam (decision 18 implementation is deferred to M2): C22 runs
-        // at Order=15 and explicitizes the lifted site into
+        // Decision 18 seam (M2): C22 runs at Order=15 and explicitizes the
+        // lifted site into
         // `a.HasValue && b.HasValue ? (int?)(a.Value + b.Value) : (int?)null`.
-        // C15 (Order=20) then sweeps checked arithmetic, but its cast visitor
-        // still classifies the guard's nullable-wrapping conversion `(int?)…`
-        // as a lifted-checked site (CS2J5325 "nullable lifted checked
-        // arithmetic cannot be translated yet") — it does not yet descend into
-        // the guard's WhenTrue branch to emit AddCheckedInt32. Per NB-12 the
-        // whole file rolls back. M2 flips this into a successful helper sweep
-        // inside the live branch with the null branch untouched.
+        // C15 (Order=20) recognizes the guard's `(int?)…`/`(int?)null` branch
+        // casts (guard annotation) and, instead of CS2J5325, descends into the
+        // live branch and inserts AddCheckedInt32 there; the null branch keeps
+        // no helper. The co-run tally GuardedCheckedInnerSites moves.
         var src = """
             public class C
             {
@@ -1994,13 +2004,524 @@ public class NumericBoundaryNullableLiftUnitTests
 
         var result = Run(src, options);
 
-        // C22 did classify and count its site before the family rollback.
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == NumericBoundarySeverity.Error);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Code == PreprocessDiagnosticCodes.NumericBoundaryNullableLifted);
+
+        var compact = Compact(result.OutputCode);
+        // Helper lands in the live branch, right next to the .Value reads:
+        Assert.Contains(
+            "a.HasValue&&b.HasValue?(int?)(Cs2jUnsigned.UnsignedMath.AddCheckedInt32(a.Value,b.Value)):(int?)null",
+            compact);
+        // The null branch carries no helper call — exactly one helper call in
+        // the whole document, already pinned to the live branch above, and the
+        // declaration ends with the bare null branch:
+        Assert.Contains(":(int?)null);", compact);
+        Assert.Equal(1, compact.Split("UnsignedMath").Length - 1);
+
         Assert.Equal(1, result.Statistics.Nullable.LiftedBinarySites);
+        Assert.Equal(1, result.Statistics.Nullable.GuardedCheckedInnerSites);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_CoexistsWith_C15Checked_LiftedConversionGuard_InnerNarrowCastHelperized()
+    {
+        // NL-8 inside checked: (int?)x with x: long? renders a guard whose
+        // live branch wraps (int)x.Value; C15 turns the narrowing inner cast
+        // into a checked conversion helper while the wrap casts pass through.
+        var src = """
+            public class C
+            {
+                public static int? F(long? x)
+                {
+                    checked
+                    {
+                        int? r = (int?)x;
+                        return r;
+                    }
+                }
+            }
+            """;
+
+        var result = Run(src, new NumericBoundaryOptions
+        {
+            EnableNullable = true,
+            EnableIncrementTargets = false,
+            EnableDecimalOps = false,
+            Strict = true,
+        });
+
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Severity == NumericBoundarySeverity.Error);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("x.HasValue?(int?)(Cs2jUnsigned.UnsignedMath.ToInt32CheckedInt64((x.Value))):(int?)null",
+            compact);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedConversions);
+        Assert.Equal(1, result.Statistics.Nullable.GuardedCheckedInnerSites);
+        AssertOutputCompiles(result.OutputCode);
+    }
+
+    [Fact]
+    public void M2_C15Checked_LiftedSiteWithoutNullableRule_StillCS2J5325()
+    {
+        // With EnableNullable=false the C22 guard never exists, so a lifted
+        // arithmetic site directly in checked scope keeps the established
+        // CS2J5325 rejection + NB-12 whole-file rollback.
+        var src = """
+            public class C
+            {
+                public static int? F(int? a, int? b)
+                {
+                    checked
+                    {
+                        int? r = a + b;
+                        return r;
+                    }
+                }
+            }
+            """;
+        var options = new NumericBoundaryOptions
+        {
+            EnableNullable = false,
+            EnableIncrementTargets = false,
+            EnableDecimalOps = false,
+            Strict = true,
+        };
+
+        var result = Run(src, options);
+
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
         Assert.Contains(result.Diagnostics, d =>
             d.Severity == NumericBoundarySeverity.Error
             && d.Code == PreprocessDiagnosticCodes.NumericBoundaryNullableLifted);
-        Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // M2: NL-6 GetValueOrDefault explicitization (decision 10)
+    // ════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void M2_NL6_GetValueOrDefault_BothShapes_RuntimeEquivalence()
+    {
+        var src = """
+            public class C
+            {
+                public static int Zero(int? a) => a.GetValueOrDefault();
+                public static int One(int? a, int d) => a.GetValueOrDefault(d);
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.Nullable.GetValueOrDefaultSites);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("(a.HasValue?a.Value:default(int))", compact);
+        Assert.Contains("(a.HasValue?a.Value:d)", compact);
+        Assert.DoesNotContain("GetValueOrDefault", compact);
+        AssertOutputCompiles(result.OutputCode);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? a in new int?[] { 7, 0, null })
+        {
+            Assert.Equal(
+                InvokeStatic(original, "Zero", a),
+                InvokeStatic(rewritten, "Zero", a));
+            Assert.Equal(
+                InvokeStatic(original, "One", a, 5),
+                InvokeStatic(rewritten, "One", a, 5));
+        }
+    }
+
+    [Fact]
+    public void M2_NL6_UnstableDefaultArgument_HoistedOnce_SingleEvaluation()
+    {
+        var src = """
+            public class C
+            {
+                public static int Calls;
+                public static int D() { Calls++; return 9; }
+                public static int F(int? a)
+                {
+                    return a.GetValueOrDefault(D());
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Nullable.GetValueOrDefaultSites);
+        Assert.Equal(1, result.Statistics.Nullable.TempsLifted);
+        var compact = Compact(result.OutputCode);
+        // The d role gets its own __cs2j_n_d* temp, evaluated before the guard:
+        Assert.Contains("var__cs2j_n_d1=D()", compact);
+        Assert.Contains("(a.HasValue?a.Value:__cs2j_n_d1)", compact);
+        AssertOutputCompiles(result.OutputCode);
+
+        var asm = CompileAndLoad(result.OutputCode);
+        var type = asm.GetType("C")!;
+        // Default expression evaluates eagerly even when HasValue is true
+        // (matches the real GOV call's argument evaluation), exactly once.
+        Assert.Equal(7, InvokeStatic(asm, "F", (object?)7));
+        Assert.Equal(1, type.GetField("Calls")!.GetValue(null));
+        Assert.Equal(9, InvokeStatic(asm, "F", new object?[] { null }));
+        Assert.Equal(2, type.GetField("Calls")!.GetValue(null));
+    }
+
+    [Fact]
+    public void M2_NL6_UnstableReceiver_HoistedOnce_SingleEvaluation()
+    {
+        var src = """
+            public class C
+            {
+                public static int Calls;
+                public static int? R() { Calls++; return 11; }
+                public static int F()
+                {
+                    return R().GetValueOrDefault();
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Nullable.GetValueOrDefaultSites);
+        Assert.Equal(1, result.Statistics.Nullable.TempsLifted);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("var__cs2j_n_a1=R()", compact);
+        Assert.Contains("(__cs2j_n_a1.HasValue?__cs2j_n_a1.Value:default(int))", compact);
+        AssertOutputCompiles(result.OutputCode);
+
+        var asm = CompileAndLoad(result.OutputCode);
+        Assert.Equal(11, InvokeStatic(asm, "F"));
+        Assert.Equal(1, asm.GetType("C")!.GetField("Calls")!.GetValue(null));
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // M2: NL-7 unwrap / unwrap-and-convert (decision 13)
+    // ════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void M2_NL7_UnwrapSameType_RendersValue_RuntimeEquivalence()
+    {
+        var src = """
+            public enum Color { Red, Green, Blue }
+            public class C
+            {
+                public static int Num(int? a) => (int)a;
+                public static Color En(Color? e) => (Color)e;
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.Nullable.UnwrapConversions);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("=>a.Value", compact);
+        Assert.Contains("=>e.Value", compact);
+        AssertOutputCompiles(result.OutputCode);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        Assert.Equal(
+            InvokeStatic(original, "Num", (object?)5),
+            InvokeStatic(rewritten, "Num", (object?)5));
+        Assert.Equal(
+            InvokeStatic(original, "En", System.Enum.Parse(
+                original.GetType("Color")!, "Green"))!.ToString(),
+            InvokeStatic(rewritten, "En", System.Enum.Parse(
+                rewritten.GetType("Color")!, "Green"))!.ToString());
+    }
+
+    [Fact]
+    public void M2_NL7_UnwrapAndConvert_DifferentUnderlying_NullThrowsInvalidOperationException()
+    {
+        var src = """
+            public class C
+            {
+                public static byte F(long? a) => (byte)a;
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Nullable.UnwrapConversions);
+        Assert.Contains("((byte)a.Value)", Compact(result.OutputCode));
+        AssertOutputCompiles(result.OutputCode);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        Assert.Equal((byte)8, InvokeStatic(original, "F", (object?)8L));
+        Assert.Equal((byte)8, InvokeStatic(rewritten, "F", (object?)8L));
+        Assert.Throws<InvalidOperationException>(
+            () => InvokeStatic(original, "F", new object?[] { null }));
+        Assert.Throws<InvalidOperationException>(
+            () => InvokeStatic(rewritten, "F", new object?[] { null }));
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // M2: NL-8 lifted S?→T? and S→T? conversions (decision 13)
+    // ════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void M2_NL8_LiftedConversion_WideningAndNarrowing_RuntimeEquivalence()
+    {
+        var src = """
+            public class C
+            {
+                public static long? Widen(int? a) => (long?)a;
+                public static byte? Narrow(int? a) => (byte?)a;
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(2, result.Statistics.Nullable.LiftedConversions);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("(a.HasValue?(long?)((long)(a.Value)):(long?)null)", compact);
+        Assert.Contains("(a.HasValue?(byte?)((byte)(a.Value)):(byte?)null)", compact);
+        AssertOutputCompiles(result.OutputCode);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? a in new int?[] { 5, 300, null })
+        {
+            Assert.Equal(
+                InvokeStatic(original, "Widen", a),
+                InvokeStatic(rewritten, "Widen", a));
+            Assert.Equal(
+                InvokeStatic(original, "Narrow", a),
+                InvokeStatic(rewritten, "Narrow", a));
+        }
+    }
+
+    [Fact]
+    public void M2_NL8_LiftedEnumConversion_RuntimeEquivalence()
+    {
+        var src = """
+            public enum Color { Red, Green, Blue }
+            public enum Mark { A, B, C }
+            public class C
+            {
+                public static Mark? F(Color? c) => (Mark?)c;
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedConversions);
+        // Distinct enum types always carry the explicit (Mark) cast even when
+        // their shared underlying is int; null propagates through the guard.
+        Assert.Contains(
+            "(c.HasValue?(global::Mark?)((global::Mark)(c.Value)):(global::Mark?)null)",
+            Compact(result.OutputCode));
+        AssertOutputCompiles(result.OutputCode);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        var originalColor = original.GetType("Color")!;
+        var rewrittenColor = rewritten.GetType("Color")!;
+        foreach (var name in new[] { "Red", "Green", "Blue" })
+        {
+            var expected = InvokeStatic(original, "F",
+                System.Enum.Parse(originalColor, name));
+            var actual = InvokeStatic(rewritten, "F",
+                System.Enum.Parse(rewrittenColor, name));
+            Assert.Equal(expected!.ToString(), actual!.ToString());
+        }
+
+        Assert.Null(InvokeStatic(original, "F", new object?[] { null }));
+        Assert.Null(InvokeStatic(rewritten, "F", new object?[] { null }));
+    }
+
+    [Fact]
+    public void M2_NL8_NonNullableSource_WrapConvert_NoGuardBranch()
+    {
+        // S → T? (non-nullable source) can never take the null branch: the
+        // guard conditional is dropped and only the wrap cast stays.
+        var src = """
+            public class C
+            {
+                public static int? F(long x) => (int?)x;
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Nullable.LiftedConversions);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("(int?)((int)(x))", compact);
+        Assert.DoesNotContain("HasValue", compact);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal(5, InvokeStatic(CompileAndLoad(result.OutputCode), "F", 5L));
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // M2: NL-9 nullable-enum backstop (decision 12)
+    // ════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void M2_NL9_UnstableEnumOperands_BackstopHoists_InsteadOfE04Skip()
+    {
+        // E04 only rewrites stable enum operands; an E? property access used
+        // in a lifted bit op is the unstable face C22 must own (hoist + guard,
+        // both getter reads evaluated once).
+        var src = """
+            public enum Color { Red = 1, Green = 2, Blue = 4 }
+            public class C
+            {
+                public static int Gets;
+                public Color? P
+                {
+                    get { Gets++; return Color.Red; }
+                }
+
+                public static object? F(C c)
+                {
+                    return (object?)(c.P & c.P);
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Nullable.NullableEnumBackstopSites);
+        Assert.Equal(2, result.Statistics.Nullable.TempsLifted);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("var__cs2j_n_a1=c.P", compact);
+        Assert.Contains("var__cs2j_n_b1=c.P", compact);
+        Assert.Contains(
+            "(__cs2j_n_a1.HasValue&&__cs2j_n_b1.HasValue?(global::Color?)((global::Color)((int)(__cs2j_n_a1.Value)&(int)(__cs2j_n_b1.Value))):(global::Color?)null)",
+            compact);
+        AssertOutputCompiles(result.OutputCode);
+
+        var asm = CompileAndLoad(result.OutputCode);
+        var type = asm.GetType("C")!;
+        var instance = Activator.CreateInstance(type);
+        Assert.Equal(System.Enum.Parse(asm.GetType("Color")!, "Red"),
+            InvokeStatic(asm, "F", instance));
+        Assert.Equal(2, type.GetField("Gets")!.GetValue(null));
+    }
+
+    [Fact]
+    public void M2_NL9_NarrowByteEnum_Not_UncheckedShellStrippedOutsideChecked_RuntimeEquivalence()
+    {
+        var src = """
+            public enum SmallEnum : byte { A = 1, B = 2 }
+            public class C
+            {
+                public static SmallEnum? F(SmallEnum? e) => ~e;
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(1, result.Statistics.Nullable.NullableEnumBackstopSites);
+        var compact = Compact(result.OutputCode);
+        // NB-1 strips the unchecked shell outside checked scopes:
+        Assert.DoesNotContain("unchecked", compact);
+        Assert.Contains(
+            "(e.HasValue?(global::SmallEnum?)((global::SmallEnum)((byte)(~((byte)(e.Value))))):(global::SmallEnum?)null)",
+            compact);
+        AssertOutputCompiles(result.OutputCode);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        var originalEnum = original.GetType("SmallEnum")!;
+        var rewrittenEnum = rewritten.GetType("SmallEnum")!;
+        Assert.Equal((byte)254, (byte)InvokeStatic(rewritten, "F",
+            System.Enum.Parse(rewrittenEnum, "A"))!);
+        Assert.Equal(
+            ((byte)InvokeStatic(original, "F", System.Enum.Parse(originalEnum, "B"))!).ToString(),
+            ((byte)InvokeStatic(rewritten, "F", System.Enum.Parse(rewrittenEnum, "B"))!).ToString());
+        Assert.Null(InvokeStatic(original, "F", new object?[] { null }));
+        Assert.Null(InvokeStatic(rewritten, "F", new object?[] { null }));
+    }
+
+    [Fact]
+    public void M2_NL9_BackstopOperators_RuntimeTruthTable()
+    {
+        var enumDecl = "public enum Color { Red = 1, Green = 2, Blue = 4 }";
+        var values = new int?[] { null, 1, 2, 4 };
+
+        foreach (var op in new[] { "&", "|", "^" })
+        {
+            var src = $$"""
+                {{enumDecl}}
+                public class C
+                {
+                    public static object? F(Color? a, Color? b)
+                    {
+                        return (object?)(a {{op}} b);
+                    }
+                }
+                """;
+
+            var result = Run(src);
+            Assert.True(result.Changed);
+            Assert.Equal(1, result.Statistics.Nullable.NullableEnumBackstopSites);
+            AssertOutputCompiles(result.OutputCode);
+
+            var original = CompileAndLoad(src);
+            var rewritten = CompileAndLoad(result.OutputCode);
+            var enumType = original.GetType("Color")!;
+            var rewrittenEnumType = rewritten.GetType("Color")!;
+            foreach (var a in values)
+            {
+                foreach (var b in values)
+                {
+                    var expected = InvokeStatic(original, "F",
+                        a is int av2 ? System.Enum.ToObject(enumType, av2) : null,
+                        b is int bv2 ? System.Enum.ToObject(enumType, bv2) : null);
+                    var actual = InvokeStatic(rewritten, "F",
+                        a is int av3 ? System.Enum.ToObject(rewrittenEnumType, av3) : null,
+                        b is int bv3 ? System.Enum.ToObject(rewrittenEnumType, bv3) : null);
+                    Assert.Equal(expected?.ToString(), actual?.ToString());
+                }
+            }
+        }
+
+        var notSrc = $$"""
+            {{enumDecl}}
+            public class C
+            {
+                public static object? F(Color? a) => (object?)(~a);
+            }
+            """;
+        var notResult = Run(notSrc);
+        Assert.True(notResult.Changed);
+        Assert.Equal(1, notResult.Statistics.Nullable.NullableEnumBackstopSites);
+        AssertOutputCompiles(notResult.OutputCode);
+
+        var notOriginal = CompileAndLoad(notSrc);
+        var notRewritten = CompileAndLoad(notResult.OutputCode);
+        var origColor = notOriginal.GetType("Color")!;
+        var newColor = notRewritten.GetType("Color")!;
+        Assert.Null(InvokeStatic(notRewritten, "F", new object?[] { null }));
+        foreach (var v in values)
+        {
+            if (v == null)
+            {
+                continue;
+            }
+
+            var expected = InvokeStatic(notOriginal, "F", System.Enum.ToObject(origColor, v.Value));
+            var actual = InvokeStatic(notRewritten, "F", System.Enum.ToObject(newColor, v.Value));
+            Assert.Equal(expected!.ToString(), actual!.ToString());
+        }
     }
 
     // ════════════════════════════════════════════════════════════════════
