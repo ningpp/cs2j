@@ -38,6 +38,13 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
     // Original host type → holder classes appended to its members.
     private readonly Dictionary<TypeDeclarationSyntax, List<ClassDeclarationSyntax>> _holderClasses = new();
 
+    // for-statement (original node) → lifted induction symbols, declarator order.
+    private readonly Dictionary<ForStatementSyntax, List<CapturedSymbolPlan>> _liftedForDeclarators = new();
+
+    // foreach loops whose embedded statement is NOT a block: the loop is rebuilt
+    // with a block opening with the per-iteration instance + snapshot (D9).
+    private readonly Dictionary<ForEachStatementSyntax, List<StatementSyntax>> _foreachWraps = new();
+
     public CaptureSiteRewriter(
         IEnumerable<HolderGroupPlan> groups,
         ClosureLiftStatistics? statistics = null)
@@ -48,6 +55,7 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
             RegisterGroup(group);
 
         BuildLocalDeclarationReplacements();
+        BuildForLoopExpansions();
     }
 
     /// <summary>Number of identifier sites actually replaced during <see cref="Visit"/>.</summary>
@@ -87,6 +95,29 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
     {
         var statements = VisitStatementList(node.Statements);
         return node.WithStatements(SyntaxFactory.List(statements));
+    }
+
+    public override SyntaxNode? VisitForEachStatement(ForEachStatementSyntax node)
+    {
+        if (!_foreachWraps.TryGetValue(node, out var prepend))
+            return base.VisitForEachStatement(node);
+
+        // Bottom-up: visit the original loop (embedded statement + all site
+        // hits) first, then wrap the VISITED embedded statement in a block that
+        // opens with the per-iteration instance + snapshot.
+        var visited = (ForEachStatementSyntax)base.VisitForEachStatement(node)!;
+
+        var wrapped = new List<StatementSyntax>();
+        foreach (var statement in prepend)
+        {
+            if (Visit(statement) is StatementSyntax visitedPrepend)
+                wrapped.Add(visitedPrepend);
+        }
+        wrapped.Add(visited.Statement);
+
+        // Trivia/indentation is canonicalized by the Formatter pass (Task 11,
+        // same AdhocWorkspace shape as E02).
+        return visited.WithStatement(SyntaxFactory.Block(SyntaxFactory.List(wrapped)));
     }
 
     private BlockSyntax? RebuildStatementList(
@@ -130,6 +161,9 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
 
     private void RegisterGroup(HolderGroupPlan group)
     {
+        if (group.PerIteration && _statistics != null)
+            _statistics.ForeachPerIterationGroups += 1;
+
         if (!group.ArrayForm && !_holderClasses.ContainsKey(group.HostType))
             _holderClasses[group.HostType] = new List<ClassDeclarationSyntax>();
 
@@ -146,9 +180,11 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
             // assignments; the RHS identifier is a FRESH node, so it reads the
             // original parameter once and is never itself site-rewritten.
             var body = (group.HostMember as BaseMethodDeclarationSyntax)?.Body
-                ?? (group.HostMember as AccessorDeclarationSyntax)?.Body;
-            // Planner (Task 11) guarantees a block body; expression-bodied
-            // routines with mutable captures are rejected there (CS2J3204).
+                ?? (group.HostMember as AccessorDeclarationSyntax)?.Body
+                ?? throw new InvalidOperationException(
+                    "C32: parameter capture in a routine without a block body must be " +
+                    "rejected with CS2J3204 before rewriting (expression-bodied/D16 boundary).");
+
             var prepend = new List<StatementSyntax>();
             if (!group.ArrayForm)
                 prepend.Add(_generator.BuildHolderInstanceDeclaration(group));
@@ -160,15 +196,66 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
                     SyntaxFactory.IdentifierName(parameter.OriginalName)));
             }
 
-            if (body != null)
+            if (!_blockPrepends.TryGetValue(body, out var list))
             {
-                if (!_blockPrepends.TryGetValue(body, out var list))
-                {
-                    list = new List<StatementSyntax>();
-                    _blockPrepends[body] = list;
-                }
-                list.AddRange(prepend);
+                list = new List<StatementSyntax>();
+                _blockPrepends[body] = list;
             }
+            list.AddRange(prepend);
+        }
+
+        if (group.PerIteration && group.PerIterationLoop is { } foreachLoop)
+            RegisterForeachSnapshot(group, foreachLoop);
+    }
+
+    /// <summary>
+    /// D9 foreach side: every iteration opens with a fresh holder instance (or
+    /// fresh array storage) snapshotted from THIS iteration's value. The RHS
+    /// identifier is a FRESH SyntaxFactory node — identity-based site lookup can
+    /// never match it, so it reads the original iteration variable exactly once;
+    /// every body/lambda reference of the symbol is still in the frozen site
+    /// table and rewrites to the field/element.
+    /// </summary>
+    private void RegisterForeachSnapshot(HolderGroupPlan group, ForEachStatementSyntax loop)
+    {
+        var prepend = new List<StatementSyntax>();
+
+        if (group.ArrayForm)
+        {
+            foreach (var symbol in group.Symbols)
+            {
+                prepend.Add(_generator.BuildArrayStorageDeclaration(symbol));
+                prepend.Add(_generator.BuildArrayAssignment(
+                    symbol.StorageName,
+                    SyntaxFactory.IdentifierName(symbol.OriginalName)));
+            }
+        }
+        else
+        {
+            prepend.Add(_generator.BuildHolderInstanceDeclaration(group));
+            foreach (var symbol in group.Symbols)
+            {
+                prepend.Add(BuildInitialization(
+                    group,
+                    symbol,
+                    SyntaxFactory.IdentifierName(symbol.OriginalName)));
+            }
+        }
+
+        if (loop.Statement is BlockSyntax block)
+        {
+            // Block body: reuse the Task 9 prepend channel; VisitBlock splices.
+            if (!_blockPrepends.TryGetValue(block, out var list))
+            {
+                list = new List<StatementSyntax>();
+                _blockPrepends[block] = list;
+            }
+            list.AddRange(prepend);
+        }
+        else
+        {
+            // Embedded non-block body: VisitForEachStatement wraps it in a block.
+            _foreachWraps[loop] = prepend;
         }
     }
 
@@ -189,6 +276,16 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
 
         if (symbol.Declarator != null)
             _liftedDeclarators[symbol.Declarator] = symbol;
+
+        if (symbol.ForLoop is { } forLoop)
+        {
+            if (!_liftedForDeclarators.TryGetValue(forLoop, out var forList))
+            {
+                forList = new List<CapturedSymbolPlan>();
+                _liftedForDeclarators[forLoop] = forList;
+            }
+            forList.Add(symbol);
+        }
     }
 
     /// <summary>
@@ -232,7 +329,7 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
             {
                 if (group.ArrayForm || GroupHasParameters(group))
                     continue;
-                if (EarliestLocalStatement(group) == statement)
+                if (EarliestAnchorStatement(group) == statement)
                     generated.Add(_generator.BuildHolderInstanceDeclaration(group));
             }
 
@@ -300,12 +397,111 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
     private static bool GroupHasParameters(HolderGroupPlan group)
         => group.Symbols.Any(s => s.Parameter != null);
 
-    private LocalDeclarationStatementSyntax? EarliestLocalStatement(HolderGroupPlan group)
-        => group.Symbols
+    /// <summary>
+    /// Instance anchor of a non-parameter group: the earliest source statement
+    /// among lifted local declarations (Task 9) and enclosing for-loops (D9).
+    /// Parameter groups anchor at routine body top and never query this.
+    /// </summary>
+    private StatementSyntax? EarliestAnchorStatement(HolderGroupPlan group)
+    {
+        StatementSyntax? earliest = group.Symbols
             .Where(s => s.Declarator?.Parent?.Parent is LocalDeclarationStatementSyntax)
             .OrderBy(s => s.Declarator!.SpanStart)
-            .Select(s => (LocalDeclarationStatementSyntax)s.Declarator!.Parent!.Parent!)
+            .Select(s => (StatementSyntax)s.Declarator!.Parent!.Parent!)
             .FirstOrDefault();
+
+        foreach (var loop in group.Symbols
+                     .Where(s => s.ForLoop != null)
+                     .Select(s => s.ForLoop!)
+                     .Distinct())
+        {
+            if (earliest is null || loop.SpanStart < earliest.SpanStart)
+                earliest = loop;
+        }
+
+        return earliest;
+    }
+
+    /// <summary>
+    /// D9 for side. Builds the statement-list expansion per lifted for-loop:
+    /// [group instance?][field/array initializers…][rebuilt for]. The rebuilt
+    /// for keeps its ORIGINAL condition/incrementors/body nodes, so their site
+    /// identifiers rewrite in place when the expansion is visited; the loop
+    /// declaration only loses lifted declarators.
+    /// </summary>
+    private void BuildForLoopExpansions()
+    {
+        foreach (var (loop, lifted) in _liftedForDeclarators)
+        {
+            // Precondition contract #1: planner must diagnose CS2J3204 earlier.
+            // Fail loud — dropping the instance here would silently split state.
+            if (loop.Parent is not (BlockSyntax or SwitchSectionSyntax))
+                throw new InvalidOperationException(
+                    "C32: a for-loop with a lifted induction variable anchored " +
+                    "outside a block/switch section must be rejected with " +
+                    "CS2J3204 before rewriting (D9 boundary).");
+
+            var ordered = lifted
+                .OrderBy(s => s.Declarator!.SpanStart)
+                .ToList();
+
+            var generated = new List<StatementSyntax>();
+
+            // Instance before the loop ONLY when this loop is the group's earliest
+            // anchor. Parameter groups anchor at body top; local-anchor groups are
+            // handled by BuildLocalDeclarationReplacements; array groups have no
+            // holder instance.
+            foreach (var group in ordered.Select(GroupOf).Distinct())
+            {
+                if (group.ArrayForm || GroupHasParameters(group))
+                    continue;
+                if (EarliestAnchorStatement(group) == loop)
+                    generated.Add(_generator.BuildHolderInstanceDeclaration(group));
+            }
+
+            // Initializers relocate verbatim (original node identity → sites in
+            // the table still rewrite after the move). No initializer: the field
+            // zero-inits, matching a declarator-less for iteration variable.
+            foreach (var symbol in ordered)
+            {
+                if (symbol.Declarator!.Initializer is { Value: var init })
+                    generated.Add(BuildInitialization(GroupOf(symbol), symbol, init));
+            }
+
+            generated.Add(StripForDeclaration(loop, ordered));
+
+            _statementReplacements[loop] = generated;
+        }
+    }
+
+    /// <summary>
+    /// Remove lifted declarators from the for declaration. All declarators in one
+    /// for declaration share its type token: surviving declarators keep it; when
+    /// none survive the declaration becomes null (for (; cond; incr)).
+    /// </summary>
+    private static ForStatementSyntax StripForDeclaration(
+        ForStatementSyntax loop,
+        IReadOnlyCollection<CapturedSymbolPlan> lifted)
+    {
+        if (loop.Declaration is not { } declaration)
+            return loop; // Expression-form initializers carry no declarator.
+
+        var liftedSet = new HashSet<VariableDeclaratorSyntax>(
+            lifted.Select(s => s.Declarator!));
+
+        var remaining = declaration.Variables
+            .Where(d => !liftedSet.Contains(d))
+            .ToList();
+
+        if (remaining.Count == declaration.Variables.Count)
+            return loop; // Defensive: nothing to strip.
+
+        VariableDeclarationSyntax? rebuiltDeclaration = remaining.Count == 0
+            ? null
+            : declaration.WithVariables(SyntaxFactory.SeparatedList(remaining));
+
+        return loop.WithDeclaration(rebuiltDeclaration);
+    }
 
     private IEnumerable<HolderGroupPlan> GroupsWithLocalAnchor() => _groupBySymbol.Values.Distinct();
 }
