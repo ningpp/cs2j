@@ -1,3 +1,4 @@
+using System.Text;
 using CSharpToJava.Core.PartialMerge;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
@@ -55,60 +56,133 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
     {
         var tree = context.Tree;
 
-        // 1. Explicit 1:1 copy of .cs inputs and non-.cs assets (mirror
-        // JavaKeywords L56-85: intermediate input graph can be empty).
+        // 1. Explicit 1:1 copy; baseline error set reads ORIGINAL content at dest paths.
         CopyInputs(tree);
+        var baseline = BuildErrorSet(tree);
 
-        // 2. Whole-tree semantic compilation and analysis.
-        var compilation = context.BuildStandardCompilation();
         var preprocessor = new PartialMergePreprocessor(_options);
-        var plan = preprocessor.Analyze(compilation, tree.SourceRoot);
+        var excludedGroups = new HashSet<string>(StringComparer.Ordinal);
+        PartialMergePlan? acceptedPlan = null;
+        var success = true;
+        const int maxIterations = 1024;
 
-        foreach (var diagnostic in plan.Diagnostics)
+        for (var iteration = 0; iteration < maxIterations; iteration++)
         {
-            _diagnostics.Add(diagnostic.ToMsBuildString());
-        }
+            // 2. Every round starts from originals (replay, like JavaKeywords L101-103).
+            CopyInputs(tree);
 
-        // 3. Per-file rewrite (edits) or verbatim copy (no edits).
-        var rewriter = new PartialMergeRewriter();
-        foreach (var sourceFile in tree.SourceFiles)
-        {
-            var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile).Replace('\\', '/');
-            var edits = plan.EditsByFile[sourceFile].ToList();
-            if (edits.Count == 0)
+            var analysisCompilation = context.BuildStandardCompilation();
+            var plan = preprocessor.Analyze(analysisCompilation, tree.SourceRoot);
+            foreach (var group in plan.Groups
+                         .Where(g => excludedGroups.Contains(g.TypeFullName)))
             {
-                context.CopyVerbatim(sourceFile, relativePath);
-                continue;
+                group.RolledBack = true;
             }
 
-            var source = await File.ReadAllTextAsync(sourceFile);
-            var output = rewriter.Apply(source, edits);
-            var fileContext = new PassFileContext
+            // 3. Per-file rewrites; files with no active edit are already copied.
+            var rewriter = new PartialMergeRewriter();
+            foreach (var csFile in tree.CsFiles)
             {
-                SourceCode = source,
-                SourceFilePath = sourceFile,
-                RelativePath = relativePath,
-                DestinationFilePath = Path.Combine(tree.IntermediateRoot, relativePath),
-            };
-            await context.WriteRewrittenAsync(fileContext, new PassFileRewrite
-            {
-                OutputCode = output,
-                Changed = true,
-                PreserveBom = true,
-            });
+                var edits = plan.EditsByFile[csFile]
+                    .Where(e => plan.ActiveGroups.Any(g => g.TouchedFiles.Contains(csFile)))
+                    .ToList();
+                if (edits.Count == 0)
+                {
+                    continue;
+                }
 
-            if (_verbose)
+                var source = await File.ReadAllTextAsync(csFile);
+                var output = rewriter.Apply(source, edits);
+                var destination = Path.Combine(
+                    tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, csFile));
+                File.WriteAllText(destination, output,
+                    FileStartsWithBom(csFile) ? new UTF8Encoding(true) : new UTF8Encoding(false));
+            }
+
+            // 4. Candidate recompile + baseline diff.
+            var candidate = BuildIntermediateCompilation(tree);
+            var newErrors = DiffErrors(baseline, candidate, tree.IntermediateRoot);
+
+            if (newErrors.Count == 0)
             {
-                Console.WriteLine($"[partial-merge] transformed: {relativePath}");
+                acceptedPlan = plan;
+                break;
+            }
+
+            // 5. Attribute every new error to exactly one active group (design D9).
+            var groupsToRollback = new HashSet<TypeGroupPlan>();
+            var attributable = true;
+            foreach (var error in newErrors)
+            {
+                var hits = AttributeToGroups(error, plan);
+                if (hits.Count != 1)
+                {
+                    attributable = false;
+                    break;
+                }
+
+                groupsToRollback.Add(hits[0]);
+            }
+
+            if (!attributable || groupsToRollback.Count == 0)
+            {
+                // Zero/multi attribution → whole-tree rollback (CS2J2002).
+                CopyInputs(tree);
+                var first = newErrors[0];
+                _diagnostics.Add(
+                    $"[Error] {PartialMergeCodes.WholeTreeRolledBack}: whole-tree validation failed and " +
+                    $"the new error ({first.Descriptor.Id}: {first.GetMessage()}) could not be " +
+                    "attributed to a single group; all changes were rolled back.");
+                success = false;
+                break;
+            }
+
+            // 6. Group rollback (CS2J2001): restore every touched file to original bytes.
+            foreach (var group in groupsToRollback)
+            {
+                group.RolledBack = true;
+                excludedGroups.Add(group.TypeFullName);
+                _diagnostics.Add(
+                    $"[Warning] {PartialMergeCodes.GroupRolledBack}: group '{group.TypeFullName}' and all " +
+                    "its touched files were rolled back; the group stays multi-part and the " +
+                    "main converter will pick it up. Resolve the conflict and retry.");
+
+                foreach (var touched in group.TouchedFiles)
+                {
+                    var destination = Path.Combine(
+                        tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, touched));
+                    File.Copy(touched, destination, overwrite: true);
+                }
+            }
+
+            if (iteration == maxIterations - 1)
+            {
+                CopyInputs(tree);
+                success = false;
             }
         }
 
-        // M1: no candidate recompile / rollback replay — added in Task 13.
+        // 7. Residual gate: multi-part types must be whitelisted (rollback/skip).
+        if (acceptedPlan != null && success)
+        {
+            var finalTree = BuildIntermediateCompilation(tree);
+            foreach (var residual in preprocessor.CheckResidual(finalTree, acceptedPlan))
+            {
+                _diagnostics.Add(residual.ToMsBuildString());
+            }
+        }
 
-        // 4. Restore + build/test double verify (descriptor defaults both on).
-        context.Restore();
-        var verified = await context.VerifyBuildAndTestsAsync();
-        context.Success = verified && !HasErrors;
+        // 8. Restore + build/test double verify on the accepted tree.
+        if (success && !HasErrors)
+        {
+            context.Restore();
+            var verified = await context.VerifyBuildAndTestsAsync();
+            context.Success = verified && !HasErrors;
+        }
+        else
+        {
+            context.Success = false;
+        }
     }
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
@@ -135,6 +209,72 @@ internal sealed class PartialMergePassAdapter : ProjectPassAdapter
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
         => verbose ? _diagnostics.ToList() : _diagnostics;
+
+    private static List<TypeGroupPlan> AttributeToGroups(Diagnostic error, PartialMergePlan plan)
+    {
+        var file = error.Location.SourceTree?.FilePath;
+        if (file == null)
+        {
+            return [];
+        }
+
+        return plan.ActiveGroups
+            .Where(group => group.TouchedFiles
+                .Any(touched => string.Equals(touched, file, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+    }
+
+    private CSharpCompilation BuildIntermediateCompilation(PassTreeContext tree)
+    {
+        var parseOptions = CreateParseOptions(tree);
+        var trees = tree.CsFiles
+            .Select(file =>
+            {
+                var destination = Path.Combine(
+                    tree.IntermediateRoot, Path.GetRelativePath(tree.SourceRoot, file));
+                return CSharpSyntaxTree.ParseText(
+                    File.ReadAllText(destination), parseOptions, path: destination);
+            })
+            .ToList();
+        trees.AddRange(CreateAdditionalSyntaxTrees(tree));
+
+        return CSharpCompilation.Create(
+            Descriptor.Id + "-candidate", trees, GetMetadataReferences(), CreateCompilationOptions());
+    }
+
+    /// <summary>(relative intermediate path, error id, message) set over ORIGINAL sources.</summary>
+    private HashSet<(string File, string Id, string Message)> BuildErrorSet(PassTreeContext tree)
+        => new(BuildIntermediateCompilation(tree)
+            .GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error && d.Location.SourceTree != null)
+            .Select(d => (
+                NormalizePath(d.Location.SourceTree!.FilePath, tree.IntermediateRoot),
+                d.Descriptor.Id,
+                d.GetMessage())));
+
+    private static List<Diagnostic> DiffErrors(
+        HashSet<(string File, string Id, string Message)> baseline,
+        CSharpCompilation candidate,
+        string intermediateRoot)
+        => candidate.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error
+                && d.Location.SourceTree != null
+                && !baseline.Contains((
+                    NormalizePath(d.Location.SourceTree!.FilePath, intermediateRoot),
+                    d.Descriptor.Id,
+                    d.GetMessage())))
+            .ToList();
+
+    private static string NormalizePath(string path, string intermediateRoot)
+        => Path.GetRelativePath(intermediateRoot, Path.GetFullPath(path)).Replace('\\', '/');
+
+    private static bool FileStartsWithBom(string path)
+    {
+        using var stream = File.OpenRead(path);
+        Span<byte> prefix = stackalloc byte[3];
+        var read = stream.Read(prefix);
+        return read >= 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF;
+    }
 
     private static void CopyInputs(PassTreeContext tree)
     {
