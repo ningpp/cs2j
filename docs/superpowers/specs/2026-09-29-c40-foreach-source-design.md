@@ -392,14 +392,17 @@ C40 无独立开关，随 foreach-source 一起默认开；除锚点 C16 §8 全
 
 - 分支：`feature/preproc-c40-foreach-source`
 - 目录：`.worktrees/preproc-c40-foreach-source`
-- base：`953293b9`（`docs: update doc base commit`；**实施前先合入 C16 锚点分支**——含 `ForeachSource/` 骨架、适配器、注册表翻转与 SampleForeachSourceSolution；合并完成后在 C16 合入产物上创建本 worktree）
-- 创建命令（仓库根、PowerShell；**设计阶段不执行，实施阶段由执行者运行**）：
+- base：**`28ae4594`**（dev-3.x 最新提交 `fix(test): restore C34 unsupported site in SampleNumericBoundaryUnsupportedApp`；2026-10-01 校订，原记录 base `953293b9`）。校订时 C16 锚点（`feature/preproc-c16-foreach-complete`，tip `2996edee`，含 `ForeachSource/` 骨架、适配器、注册表翻转与 SampleForeachSourceSolution）**尚未合入 dev-3.x**：dev-3.x 自 C16 基点 `8eb657b3` 后另进 3 提交（`ec882491` C34、`340cb475` C47、`28ae4594` 测试修复），故按下方备注以「C16 合入后的等价基点」开工。
+- 创建命令（仓库根、PowerShell；2026-10-01 实施时实际执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c40-foreach-source -b feature/preproc-c40-foreach-source 953293b9
+# 1) 从 C16 锚点 tip 拉分支（带入完整 ForeachSource/ 骨架）
+git worktree add .worktrees/preproc-c40-foreach-source -b feature/preproc-c40-foreach-source 2996edee
+# 2) 在新 worktree 内合入 dev-3.x 最新提交，得到等价基点（C16 ∪ dev-3.x@28ae4594）
+git -C .worktrees/preproc-c40-foreach-source merge --no-ff 28ae4594
 ```
 
-> 注：若创建时 C16 尚未合入 `953293b9` 所在主线，应先按 C16 任务的 worktree/合入流程完成合并，再以「C16 合入后的等价基点」执行同一命令（基点哈希以合入实际结果为准并回填本文件）。
+> 注（2026-10-01 更新）：C16 尚未合入 `28ae4594` 所在主线，按原注「C16 合入后的等价基点」执行——文档回填的 base 为 dev-3.x `28ae4594`，实际分支起点 = C16 tip `2996edee` 合并 `28ae4594` 产生的合并提交；C16 后续随本分支一并合入主线。原 `953293b9` 命令仅作历史记录。
 - 交付面遵循 foundation plan 交付包模板（[preprocessor-foundation_plan.md:108-117](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md#L108-L117)）：Core 两规则目录六个文件 + 根层扩展、适配器两行注册 + catalogItems 一行追加、Core 单测 + fixture 追加 + Release build/test + residual 两桶闸门 + CLI 测试、plan 文档 `docs/superpowers/plans/2026-09-29-c40-foreach-source.md`；
 - 不新建支撑工程；不触转换器；不创建 git 标签、不做 push；实施授权以任务书为准。
 
@@ -417,6 +420,8 @@ git worktree add .worktrees/preproc-c40-foreach-source -b feature/preproc-c40-fo
 4. **自定义鸭子枚举器验收深度**：M3 冒烟只覆盖常规 MoveNext/Current/Dispose 转换；**非泛型枚举器 + 值类型元素的 cast/装箱对照**按冒烟实测反馈决定是否扩 fixture——发现可观察差异即扩，不预防性铺满。
 5. **`IForEachLoopOperation.IsRef` 可用性**：M1 第一步用最小编译探针确认 Roslyn 4.12 下属性可取；**不可取则全程使用 `ILocalSymbol.RefKind`**（已确认可靠），设计其余部分不回退，探针结论回填本文。
 
+> **【M1 探针结论 2026-10-01】**（编译+反射+内存程序集运行时探针钉死，详见文末同名校验节）：① 仓库实际引用 **Roslyn 5.0.0**（非设计假设的 4.12）；② `IForEachLoopOperation.IsRef` 在 5.0.0 **不存在**（反射取属性为 null）→ 按预案全程使用 `(model.GetDeclaredSymbol(node) as ILocalSymbol)?.RefKind`；`ForEachStatementInfo.IsDynamicallyDispatched` 同样不存在 → dynamic 按集合表达式类型 `TypeKind.Dynamic` 判定；③ **C# 不存在「直接枚举器变量 foreach」**：`foreach (var x in enumeratorVariable)` 对 `IEnumerator`/`IEnumerator<T>`/鸭子枚举器类型一律 **CS1579**，`GetForEachStatementInfo` 返回全空符号——决策 4 的 FA-3「直接枚举器复制源」对合法源码**不可达**，实现中 `DirectEnumerator`/CS2J5452 分支仅作防御性保留；④ **Dispose 语义与原设计决策 6 相反**：foreach **仅当枚举器类型真正实现 `System.IDisposable` 时**才在 finally 调用 Dispose——判定信号是枚举器类型自身 SpecialType 或 `AllInterfaces` 含 `System.IDisposable`（实现中 `EnumeratorImplementsDisposable`，含 metadata-name 兜底），而非 `ForEachStatementInfo.DisposeMethod`（该属性对仅可转换类型/pattern Dispose 会误报 `IDisposable.Dispose`，对 struct 又返回 null，仅可作交叉校验）；有 public `Dispose()` 但**不实现接口**的枚举器（class/struct 均然）绝不被调用，运行时日志 `[ipub;iexplicit;sexplicit;]` 为证；⑤ **net10 关键事实**：非泛型 `System.Collections.IEnumerator` **不再继承 IDisposable**（符号 AllInterfaces 为空、SpecialType=System_Collections_IEnumerator；`class X : IEnumerator` 不写 Dispose 也能编译但运行时 `x as IDisposable == null`），`IEnumerator<T>` 仍继承 IDisposable——非泛型盒子站点不生成 finally；⑥ 决策 12 捕获等价性已验证：`var e=...GetEnumerator(); while(e.MoveNext()){ var item=e.Current; list.Add(()=>item); }` 与原生 foreach 捕获行为一致（块级局部每轮新建，lambda 取值 `[1,2,3]`）。
+
 ---
 
 ### 原问题记录（裁决前）
@@ -426,3 +431,47 @@ git worktree add .worktrees/preproc-c40-foreach-source -b feature/preproc-c40-fo
 3. **ref readonly 经 C01 的产物**：无 setter 访问器代理 vs 统一双参代理（仅 C# 侧约束差异）；需与 C01 设计 Q 系列对齐后定形态，fixture 先锁「不可写」在 C# 中间树编译期成立。
 4. **自定义鸭子枚举器 Java 半区验收深度**：用户类型的 MoveNext/Current/Dispose 走常规转换，理论无坑，但非泛型枚举器 + 值类型元素的 cast/装箱在 Java 侧的行为对照做多深，随 M3 冒烟反馈决定是否扩 fixture。
 5. **`IForEachLoopOperation.IsRef` 在 Roslyn 4.12 的运行时可用性**：包元数据已见 `get_IsRef`，但 M1 需用最小编译探针确认属性可取；不可取时全程使用 `ILocalSymbol.RefKind`（已确认可靠），不影响设计其余部分。
+
+---
+
+## 附：M1 探针结论校验节（2026-10-01 运行时证据）
+
+> 方法：在 worktree `feature/preproc-c40-foreach-source` 内以最小 C# 文件经 Roslyn 编译，通过反射检查 API 表面，并将探针类型经 `Assembly.Load(byte[])` 内存加载后实际执行 foreach 路径记录行为。探针为临时代码（C40TempProbe.cs），结论固化后已删除。仓库 `Microsoft.CodeAnalysis.CSharp` 实际版本 = **5.0.0**。
+
+1. **API 表面（反射）**：`IForEachLoopOperation.IsRef` 属性在 5.0.0 不存在（反射为 null）；改用 `(model.GetDeclaredSymbol(node) as ILocalSymbol)?.RefKind`（`None`/`Ref`/`RefReadOnly`）。`ForEachStatementInfo.IsDynamicallyDispatched` 不存在；dynamic foreach 以集合表达式推断类型 `TypeKind.Dynamic` 判定。
+2. **直接枚举器 foreach 不可达（修正决策 4/FA-3）**：对 `IEnumerator`、`IEnumerator<T>`、以及具 MoveNext/Current 的鸭子枚举器实例变量写 `foreach (var x in e)` 全部编译报 **CS1579**；`SemanticModel.GetForEachStatementInfo` 对这些节点返回全空默认符号。唯一合法近邻形态是「pattern GetEnumerator 的返回类型静态声明为 `IEnumerator`/`IEnumerator<T>`」（见 fixture `GenericBoxedEnumerable`/`NonGenericBoxedEnumerable`）。故 FA-3 的「源是枚举器变量、仅复制源」分支对可编译源码不可达，实现保留 `DirectEnumerator`/CS2J5452 仅为诊断防御。
+3. **Dispose 触发条件（修正决策 6）**：探针枚举器分桶——sealed class 无 Dispose；class 有 public `Dispose()` 但不实现 IDisposable；class 以 public/显式实现 IDisposable；struct 有 pattern `Dispose()` 无接口；struct 显式实现 IDisposable。对各类型执行原生 foreach 并记录 Dispose 调用，结果日志 `[ipub;iexplicit;sexplicit;]`：**仅真实实现 IDisposable 的三种形态被调用**（class public 实现、class explicit、struct explicit）；pattern Dispose（class/struct）即使存在 public `Dispose()` 也绝不调用。据此 M1 判定函数为 `EnumeratorImplementsDisposable(enumeratorType, compilation)`：类型自身 SpecialType == `System_IDisposable` 或 `AllInterfaces` 含之（metadata-name `System.IDisposable` 兜底）。
+4. **`ForEachStatementInfo.DisposeMethod` 非判定信号**：同一探针记录该属性——sealed class 无 Dispose → null；class pattern Dispose 无接口 → 错误报告 `IDisposable.Dispose`（误导）；class 实现 IDisposable（public/explicit）→ `IDisposable.Dispose`；struct pattern 无接口 → null；struct explicit IDisposable → `IDisposable.Dispose`；枚举器类型为接口 `IEnumerator`/`IEnumerator<T>` → `IDisposable.Dispose`。与真实行为不一致，仅留作交叉校验注释。
+5. **各形态绑定结果汇总**：枚举器类型的 Dispose 生成策略——① 接口类型（IEnumerator<T>）：成员直接可访问，直接 `e.Dispose()`；② 具体类型沿 BaseType 链存在 public 无参 void 实例 `Dispose()`：直接调用（显式实现接口时该查找落空，落到③）；③ 否则生成 `((System.IDisposable)e).Dispose()`（struct 枚举器时发生装箱，标记 DisposeBoxed，对应裁决 2 的 CS2J5455 计数场景）。
+6. **net10 接口层次**：非泛型 `System.Collections.IEnumerator` 在 net10 **不再列入 IDisposable**（枚举器符号 AllInterfaces=[]，SpecialType=`System_Collections_IEnumerator`；手写 `class X : IEnumerator` 不提供 Dispose 也能编译，运行时 `x as IDisposable == null`，与接口方法表一致）。`IEnumerator<T>` 仍继承 IDisposable（AllInterfaces 含之）。fixture `EnumeratorDuckSamples.CollectNonGenericBoxed` 锁定非泛型盒子站点**不**生成 finally；`CollectGenericBoxed` 锁定泛型站点生成 finally + Dispose。
+7. **while 骨架捕获等价性（确认决策 12）**：手写 `var e = src.GetEnumerator(); while (e.MoveNext()) { var item = e.Current; actions.Add(() => item); }` 后统一 invoke，捕获值序列 `[1,2,3]`，与原生 foreach 逐元素一致——while 体内每轮新建块级局部，lambda 闭包语义不变。fixture `CaptureActions` 锁定。
+8. **落地约束**：子串计数陷阱（`__cs2jFaE` 是 `__cs2jFaE1` 的前缀）在单测中以 `.MoveNext()` 完整调用串或分别 Contains 规避；FreshName 计数器为 context（单文件处理）级，同一文件多站点按出现顺序 `__cs2jFaSrc`/`__cs2jFaSrc1`/…，ProjectTests 按站点序号断言。
+9. **M2 探针补正（2026 运行时证据）——ref struct 枚举器例外，修正第 3 条/④的过度概括**：第 3 条「pattern Dispose 即使存在也绝不调用」仅对**普通 class / 普通 struct** 成立。M2 对 Roslyn 5.0 补测 ref-like 枚举器分桶：
+
+   | 枚举器形态 | IsRefLikeType | `info.DisposeMethod` | 原生 foreach 是否调用 Dispose |
+   |---|---|---|---|
+   | ref struct + public 无参 void `Dispose()` | true | **具体 pattern 方法符号**（Public/无参/void，ContainingType = 枚举器自身） | **调用，直接 pattern 调用，不装箱** |
+   | ref struct 无 Dispose | true | null | 不调用 |
+   | 普通 struct + public Dispose() 无接口 | false | null | 不调用（M1 结论不变） |
+   | class + public Dispose() 无接口 | false | `System.IDisposable.Dispose`（误报，不可用） | 不调用（M1 结论不变） |
+   | struct/class 显式 IDisposable | false | `System.IDisposable.Dispose` | 经接口调用（struct 装箱） |
+
+   即 **finally 充要条件 = 实现 IDisposable，或 IsRefLikeType + 可访问无参 void pattern `Dispose()`（声明类型为枚举器自身）**。ref struct 分支直接信任 `info.DisposeMethod` 并复核上述形态谓词，生成无 cast 的 `__cs2jFaE.Dispose()`；class/普通 struct 仍只按 AllInterfaces 判定。fixture `RefStructPatternDisposeEnumerator`（Normal/Break/Throw 三路径旗标各恰好一次）与 `ExplicitDisposeStructEnumerator`（共享引用探针验证装箱副本上 Dispose 恰好一次，CS2J5455）锁定。
+
+---
+
+## 附：C40 M3 实施证据（2026 运行时/编译证据）
+
+> 方法：worktree `feature/preproc-c40-foreach-source`，.NET SDK 10 / Roslyn **5.0.0**。提交序列：M1 `ab34272b` → M2 `11fa52f4` → C01 硬前置（M3 Task 2）`53cf4304` → M3 本体（FR-1/2/3/4 + 5480-5495 闸门与 C01 联调）。foreach-source 全期保持 **opt-in 不翻默认**（`PassCatalog.cs` `defaultEnabled: false`）。
+
+1. **数组 ref foreach CS1510（FR-1 不可达输入，pass 防御保留）**：最小探针（`%TEMP%\cs2j-m3-arrayprobe`，结论固化后删除）对一维 `int[]` 写 `foreach (ref int x in a)` / `foreach (ref readonly int x in a)`，集合为局部、ref/out 参数、实例字段三种位置，csc 一律 **CS1510「ref 或 out 值必须是可赋值变量」**；Roslyn 5.0 下无任何可编译源能产出该形态。pass 仍按 FR-1 防御性降级（`IArrayTypeSymbol { Rank: 1 }` → 内建 `.Length` 索引循环 + `ref` 元素局部），正确性由 Core 单测锁定：lowered 输出可独立编译并反射运行（Emit=20），多维数组走 CS2J5485 Error（verify build 兜底）。
+2. **FR-2/FR-3 合法形态探针**：①`Span<T>`/`ReadOnlySpan<T>` 显式类型与 `ref var` 均合法，运行时结果 60/6；②自定义 span-like 类型仅给 Count + ref 索引器时 foreach 本身 **CS1579**（无枚举器），必须同时提供 ref-Current 的 `GetEnumerator()` 才编译——pass 排序上 Resolver 先判 IsIndexPattern，故双形态类型仍走低分配索引路径（运行时 12）；③普通 `List<T>` 的 by-value 索引器不满足 ref 索引循环 → CS2J5485。
+3. **CS8175/CS9108 与代理形态更正（开放问题 1 最终形态）**：原设计「Span 元素也用访问器闭包 `ByRef.Create(() => span[i], v => span[i] = v)`」经探针不可编译——ref struct 局部被 lambda 捕获报 **CS8175**，ref struct 参数（含 `this` of ref struct）报 **CS9108**。最终四形态：一维数组→`ByRef<T>.Create(receiver, index)`（堆类，数组工厂）；System.Span\`1/ReadOnlySpan\`1 单 int 索引→`ScopedByRef/ReadOnlyScopedByRef.Create(receiver, index)`（ref 字段持有，零闭包）；其他 ref-like 接收器或 blocking 捕获→`ScopedByRef/ReadOnlyScopedByRef.Create(ref/in location)`；堆接收器→`ByRef/ReadOnlyByRef.Create` 访问器 lambda。
+4. **只读代理与 CS0200**：`ReadOnlyScopedByRef<T>`/`ReadOnlyByRef<T>` 只暴露 get；对只读代理 Value 写入在中间树编译期即 **CS0200**，只读约束不靠注释。安全 C# 无法把 `ref readonly` 位置灌入 readonly ref 字段（**CS8331/CS8329**），`ReadOnlyScopedByRef` 构造点仅此一次 `System.Runtime.CompilerServices.Unsafe.AsRef(in value)` 强制；字段本身 readonly ref，类型层面无写回路径。
+5. **Scoped C#→Java 与 RefStructByRef 同构（不新增 Java 类）**：Java 半区不新增 Scoped 类型：TypeMappings 将 `Cs2jByRef.ScopedByRef\`1`→`io.github.ningpp.compat.ByRef`、`ReadOnlyScopedByRef\`1`→`ReadOnlyByRef`；2 参工厂映射 `ScopedByRef.Create`→`ByRef.create`、`ReadOnlyScopedByRef.Create`→`ReadOnlyByRef.create`，复用既有 compat `ByRef.create(Span,int)`（Java 工厂内部以 span get/set 缝合）与数组工厂。冒烟锁定：可写 Span→`ByRef.create(src, i)` + getValue/setValue；ReadOnlySpan→`ReadOnlyByRef.create(src, i)` 仅 getValue；数组→`ByRef.create(arr, i)`；鸭子枚举器（IDisposable struct）→`moveNext()`/`getCurrent()`/`finally`/`dispose()`（converter 常规命名映射 Dispose→close 之外的 C01 链文本断言以实际发射为准）。
+6. **C01 同 pass 联动——源码内 ref 返回成员的 holder 透传**：C01（C4）会把**源码内声明**的 `ref/ref readonly T` 属性/索引器重写为 `ByRef<T>` 返回（getter 体改 ByRef 工厂）。因此 foreach-source 降级产出的 `ref int v = ref bag[i]`/`ref int v = ref e.Current` 在 C01 站点必须按成员符号是否 `Locations.IsInSource` 分类：源码成员→holder-to-holder `ByRef<T> v = access;`（写透传由持有者工厂承担）；元数据成员（数组、System.Span 索引器）维持第 3 条四形态。方法调用形 ref 返回（`ref-returning method`）既有 holder 透传不变。
+7. **Cs2jByRef 支持类型不随用户转换发射**：追加 ByRef.cs 供符号解析时，支持类型声明由 Java compat 库提供；转换器跳过有外部类型映射的 Cs2jByRef 声明（否则 ScopedByRef 的 ref struct 声明撞「must be lowered by a preprocessor」守卫）。未映射 Cs2jByRef 手写形态仍 CS2J3320 fail-fast。
+8. **FR-4 闸门口径**：多维数组、by-value 索引器等不兼容 ref 迭代 = **CS2J5485 Error 站点**（不计 ResidualRefSites，verify build 兜底）；dynamic = **CS2J5456** Warning/strict Error（让路动态分派）；5486 在 foreach-source 阶段扫**原 foreach body** 的迭代变量 lambda 捕获（GetSymbolInfo 符号绑定，`(x) =>` 参数遮蔽不误报），Warning/strict Error；适配器 AfterFiles 聚合 CS2J5495（strict 下 5486 残留升级 Error 的桶）。
+9. **Java 环境限制（本机不可运行 javac/maven）**：Java 半区仅做文本断言；`EqualityConcatProjectTests` 因本机缺 io.github.ningpp.compat 包为既有环境白名单红灯，与本改动无关。
+10. **验收计数（Release，Roslyn 5.0.0）**：sln 构建 0 error；CSharpToJava.Tests 2256 通过/5 白名单失败（2 unsigned-token enum、2 CSharpXmlCompileRegression、1 SystemPrivateXmlRuntimeResource）；CSharpToJava.ProjectTests 805 通过/1 白名单失败（EqualityConcat）；CSharpToJava.ConversionTests **675/0**；foreach/RefOut/preprocessing 过滤 Tests 352、ProjectTests 99 全绿；C40 Core 单测 59/59、fixture 运行时 35/35、C40 project 3/3（foreach-source verify build+test 与两 pass 链 verify build+test 双绿）。
+11. **§8 sdk 训练集扫描**：属评审期活动，M3 不执行；默认开翻转随锚点评审。

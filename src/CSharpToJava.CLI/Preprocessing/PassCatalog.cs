@@ -70,6 +70,22 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Rewrite ?? / ??= expressions into Java-compatible forms."),
         new(
+            PassStubCatalog.Ids.ExpressionDesugar,
+            "Expression desugaring",
+            ".cs2j-expression-desugar-src",
+            PassStage.Expression,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            // Physical placement right after null-coalesce plus declaration-order
+            // tiebreak keeps this pass immediately after null-coalesce (C36 plan §2).
+            runAfterIds: new[] { PassIds.NullCoalesce },
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Desugar expression sugar into explicit statements; M0 registers only the C36 " +
+                         "collection-expression analysis skeleton (site counting, no rewrite).",
+            catalogItems: "C36"),
+        new(
             PassIds.Enum,
             "Enum",
             ProjectEnumPreprocessor.IntermediateDirectoryName,
@@ -124,6 +140,19 @@ internal static class PassCatalog
             runAfterIds: new[] { PassIds.Tuple },
             description: "Desugar foreach deconstruction into indexer loops."),
         new(
+            PassStubCatalog.Ids.ForeachSource,
+            "Foreach source rewrite",
+            ".cs2j-foreach-source-src",
+            PassStage.ControlFlow,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.ForeachDeconstruction },
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Lower foreach over string (ToCharArray), residual deconstruction forms, enumerator adapters and ref foreach.",
+            catalogItems: "C16, C40"),
+        new(
             PassIds.PatternDesugar,
             "Pattern desugaring",
             ".cs2j-pattern-desugar-src",
@@ -153,7 +182,7 @@ internal static class PassCatalog
             PassStage.Abi,
             PassStatus.Implemented,
             defaultEnabled: true,
-            runAfterIds: new[] { PassIds.StripDefault },
+            runAfterIds: new[] { PassIds.StripDefault, PassStubCatalog.Ids.ForeachSource },
             supportLibrary: PassSupportLibrary.Cs2jRefOutIn,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
@@ -182,7 +211,7 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Explicitize checked/unchecked integer arithmetic (overflow checks and stripping); " +
                          "C34 decimal operator normalization is co-located (opt-in via EnableDecimalOps).",
-            catalogItems: "C15, C34"),
+            catalogItems: "C15, C34, C17"),
         new(
             PassIds.Generic,
             "Generic",
@@ -261,6 +290,19 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Make struct copy/mutation/readonly boundaries explicit with defensive clones.",
             catalogItems: "C07"),
+        new(
+            PassStubCatalog.Ids.UnsafeFfm,
+            "Unsafe to FFM",
+            ".cs2j-unsafe-ffm-src",
+            PassStage.Abi,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.StructValueSemantics },
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Strip unsafe blocks and unsafe modifiers from types/members/local functions " +
+                "(C06 M0; fixed buffers, stackalloc, pointers and extern normalization follow in later milestones).",
+            catalogItems: "C06"),
         new(
             PassStubCatalog.Ids.IteratorLowering,
             "Iterator lowering",

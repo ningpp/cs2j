@@ -956,8 +956,12 @@ public class NumericBoundaryRewriterUnitTests
             && d.Code == PreprocessDiagnosticCodes.NumericBoundaryExpressionTree);
     }
 
+    // C17 M1 (decision 17): complex targets in checked regions are now expanded
+    // by the increment-targets rule (Order=10) BEFORE this C15 sweep runs, so
+    // the postfix never reaches RewriteIncrement as a complex target. The bare
+    // int arithmetic of the expanded assignment is still helperized here.
     [Fact]
-    public void CS2J5324_PropertyPostfix_Error()
+    public void CS2J5324_PropertyPostfix_C17ExpandsFirst_C15HelperizesArithmetic()
     {
         var src = """
             public class C
@@ -968,10 +972,14 @@ public class NumericBoundaryRewriterUnitTests
             """;
         var result = Run(src);
 
-        Assert.False(result.Changed);
-        Assert.Contains(result.Diagnostics, d =>
+        Assert.True(result.Changed);
+        Assert.DoesNotContain(result.Diagnostics, d =>
             d.Severity == NumericBoundarySeverity.Error
             && d.Code == PreprocessDiagnosticCodes.NumericBoundaryComplexIncrement);
+        // The postfix on a standalone statement needs no temps; M1 rewrites it
+        // as an assignment and the C15 sweep helperizes the bare int arithmetic.
+        Assert.DoesNotContain("P++", result.OutputCode.Replace(" ", "").Replace("\r", "").Replace("\n", ""));
+        AssertContainsHelper(result, "AddCheckedInt32");
     }
 
     [Fact]

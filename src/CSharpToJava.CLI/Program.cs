@@ -215,6 +215,17 @@ public class Program
                 {
                     Strict = opts.LocalFunctionStrict,
                 },
+                UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions
+                {
+                    Strict = opts.LocalFunctionStrict,
+                },
+                ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions
+                {
+                    CollectionExpr = new CSharpToJava.Core.ExpressionDesugar.CollectionExpr.CollectionExprOptions
+                    {
+                        Strict = opts.LocalFunctionStrict,
+                    },
+                },
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
@@ -3666,6 +3677,17 @@ public class Program
                 {
                     Strict = opts.LocalFunctionStrict,
                 },
+                UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions
+                {
+                    Strict = opts.LocalFunctionStrict,
+                },
+                ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions
+                {
+                    CollectionExpr = new CSharpToJava.Core.ExpressionDesugar.CollectionExpr.CollectionExprOptions
+                    {
+                        Strict = opts.LocalFunctionStrict,
+                    },
+                },
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
@@ -4980,6 +5002,10 @@ class ConvertProjectOptions
     [Option("struct-value-semantics", Default = false,
         HelpText = "Enable the struct-value-semantics pass (defensive Clone insertion for residual mutable structs)")]
     public bool StructValueSemantics { get; set; }
+
+    [Option("foreach-source", Default = false,
+        HelpText = "Enable the foreach-source pass (wrap foreach over string with ToCharArray() and close residual deconstruction forms)")]
+    public bool ForeachSource { get; set; }
 
     [Option("struct-value-semantics-overrides", Required = false,
         HelpText = "Path to StructValueSemanticsOverrides.json (default: config/StructValueSemanticsOverrides.json)")]

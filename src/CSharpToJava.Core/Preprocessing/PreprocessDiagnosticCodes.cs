@@ -66,6 +66,47 @@ public static class PreprocessDiagnosticCodes
     /// <summary>numeric-boundary: residual unchecked/checked node survived in user-scope output (NB-13).</summary>
     public const string NumericBoundaryResidualNode = "CS2J5327";
 
+    // ── CS2J5330-5341: C17 complex increment/decrement normalization (design §6) ──
+
+    /// <summary>C17: increment/decrement site expanded (verbose-only aggregated info, by target/core).</summary>
+    public const string IncrementTargetSiteInfo = "CS2J5330";
+
+    /// <summary>C17: read-modify-write temporary hoisted (verbose-only aggregated info, by role).</summary>
+    public const string IncrementTargetTempInfo = "CS2J5331";
+
+    /// <summary>C17: event/pointer/other illegal or unowned increment target (event → C13; pointer → C06; read-only property baseline-illegal).</summary>
+    public const string IncrementTargetIllegalTarget = "CS2J5332";
+
+    /// <summary>C17: nint/nuint/IntPtr/UIntPtr increment target — arithmetic core belongs to C41.</summary>
+    public const string IncrementTargetNativeInt = "CS2J5333";
+
+    /// <summary>
+    /// C17: decimal increment expanded as <c>old ± 1m</c>; the Java half is owned
+    /// by C34. C34 已合入，2026-10-01 裁决降 Info，不再经 Warning（开放问题 2 裁决更新）。
+    /// </summary>
+    public const string IncrementTargetDecimalInfo = "CS2J5334";
+
+    /// <summary>C17: nullable numeric/enum lifted increment — belongs to C22.</summary>
+    public const string IncrementTargetNullableLifted = "CS2J5335";
+
+    /// <summary>C17: dynamically bound increment target (force cannot clear).</summary>
+    public const string IncrementTargetDynamic = "CS2J5336";
+
+    /// <summary>C17: increment inside an expression-tree lambda changes the tree shape (force cannot clear).</summary>
+    public const string IncrementTargetExpressionTree = "CS2J5337";
+
+    /// <summary>C17: user-defined op_Increment/op_Decrement site; C14 defers ++/-- and the naming contract is not frozen.</summary>
+    public const string IncrementTargetCustomOperator = "CS2J5338";
+
+    /// <summary>C17: value-consumed postfix / read-modify-write with no safe hoist anchor (condition/query/lambda/initializer/attribute/?.).</summary>
+    public const string IncrementTargetNoAnchor = "CS2J5339";
+
+    /// <summary>C17: ref-returning target expanded via ref alias; the Java half depends on C01 (strict → Error).</summary>
+    public const string IncrementTargetRefReturn = "CS2J5340";
+
+    /// <summary>C17: IT-13 residual gate — an owned ++/-- node survived in the output tree (strict → Error).</summary>
+    public const string IncrementTargetResidual = "CS2J5341";
+
     // ── CS2J5360-5379: C34 decimal-ops normalization (design §6) ──
 
     /// <summary>C34: decimal operator site reduction count (verbose-only aggregated info).</summary>
@@ -97,4 +138,96 @@ public static class PreprocessDiagnosticCodes
 
     // CS2J5369 reserved: compat method-surface verification (CI test level).
     // CS2J5370-5379 reserved.
+
+    // ── CS2J54xx foreach-source family (C16 string foreach / residual deconstruction) ──
+    // CS2J5400-5409: family-shared (restore/build/test gates).
+    // CS2J5410-5419: string source (FS-1).
+    // CS2J5420-5439: residual deconstruction (FS-2/FS-3).
+    // CS2J5440-5449: residual gate / ref / await counters (FS-4/FS-5).
+    // CS2J5450-5499: reserved for C40 (EnumeratorAdapter / RefForeach).
+
+    /// <summary>foreach-source: intermediate-tree <c>dotnet restore</c> failed.</summary>
+    public const string ForeachSourceRestoreFailed = "CS2J5402";
+
+    /// <summary>foreach-source: intermediate-tree <c>dotnet build</c> failed.</summary>
+    public const string ForeachSourceBuildFailed = "CS2J5403";
+
+    /// <summary>foreach-source: intermediate-tree <c>dotnet test</c> failed.</summary>
+    public const string ForeachSourceTestsFailed = "CS2J5404";
+
+    /// <summary>foreach-source: string foreach wrapped with ToCharArray() (verbose-only aggregated info).</summary>
+    public const string ForeachSourceStringWrapped = "CS2J5410";
+
+    /// <summary>foreach-source: tuple-family deconstruction residual reached this pass (E06 should have handled it).</summary>
+    public const string ForeachSourceTupleResidual = "CS2J5420";
+
+    /// <summary>foreach-source: other-family deconstruction residual cannot be normalized (extension Deconstruct, …).</summary>
+    public const string ForeachSourceOtherResidual = "CS2J5421";
+
+    /// <summary>foreach-source: KeyValuePair deconstruction residual (foreach-deconstruction should have handled it).</summary>
+    public const string ForeachSourceKvResidual = "CS2J5422";
+
+    /// <summary>foreach-source: residual gate found bare string foreach or tuple/other deconstruction sites in the output tree.</summary>
+    public const string ForeachSourceResidualGate = "CS2J5440";
+
+    /// <summary>foreach-source: ref/ref readonly foreach site left untouched (belongs to C40; verbose-only info).</summary>
+    public const string ForeachSourceRefForeach = "CS2J5441";
+
+    /// <summary>foreach-source: await foreach site left untouched (belongs to C38; verbose-only info).</summary>
+    public const string ForeachSourceAwaitForeach = "CS2J5442";
+
+    // ── CS2J5450-5479 C40 EnumeratorAdapter (design §6) ──
+    // M1 owns 5450-5454 and 5456; M2 adds 5455 (boxed struct Dispose),
+    // 5457 (incomplete non-IEnumerable binding), 5460 (FA-5 span index loop)
+    // and 5470 (residual enumerator gate); CS2J5480-5495 are M3 RefForeach.
+
+    /// <summary>C40 FA: duck-typed enumerator foreach lowered to GetEnumerator + while(MoveNext) + Current (verbose aggregated info).</summary>
+    public const string ForeachSourceDuckEnumeratorLowered = "CS2J5450";
+
+    /// <summary>C40 FA-2: foreach bound through an extension GetEnumerator method.</summary>
+    public const string ForeachSourceExtensionGetEnumerator = "CS2J5451";
+
+    /// <summary>C40 FA-3: foreach iterating an enumerator variable directly (collection-is-enumerator pattern).</summary>
+    public const string ForeachSourceDirectEnumerator = "CS2J5452";
+
+    /// <summary>C40 FA: value-type enumerator kept concrete via var (no upfront boxing; probe counter).</summary>
+    public const string ForeachSourceStructEnumerator = "CS2J5453";
+
+    /// <summary>C40 FA-4: pattern Dispose / IDisposable call generated in a finally block.</summary>
+    public const string ForeachSourceDisposeGenerated = "CS2J5454";
+
+    /// <summary>C40 FA-4: explicit-interface-only Dispose forces a value-type enumerator to be boxed at this site (Info; Warning in strict mode).</summary>
+    public const string ForeachSourceBoxedStructDispose = "CS2J5455";
+
+    /// <summary>C40: dynamically dispatched foreach cannot be statically lowered (Warning; Error in strict mode; belongs to C25).</summary>
+    public const string ForeachSourceDynamicForeach = "CS2J5456";
+
+    /// <summary>C40: non-array/non-string/non-IEnumerable foreach site whose binding is too incomplete to lower (Warning; Error in strict mode).</summary>
+    public const string ForeachSourceUnresolvedForeach = "CS2J5457";
+
+    /// <summary>C40 FA-5: plain foreach over Span&lt;T&gt;/ReadOnlySpan&lt;T&gt; lowered to an index loop (Info).</summary>
+    public const string ForeachSourceSpanIndexLoop = "CS2J5460";
+
+    /// <summary>C40 FS-5 residual gate: a non-array/non-string/non-IEnumerable plain foreach with a valid pattern enumerator binding survived unlowered (Warning; Error in strict mode).</summary>
+    public const string ForeachSourceResidualEnumeratorGate = "CS2J5470";
+
+    // ── CS2J5480-5495 C40 M3 RefForeach (design §6, FR-1/2/3/4) ──
+
+    /// <summary>C40 FR-1/2: ref foreach lowered to an index loop over an array/Span/custom Length+ref-indexer source (Info).</summary>
+    public const string ForeachSourceRefIndexLoop = "CS2J5480";
+
+    /// <summary>C40 FR-1/2: ref-readonly foreach lowered to an index loop (Info).</summary>
+    public const string ForeachSourceRefReadonlyIndexLoop = "CS2J5481";
+
+    /// <summary>C40 FR-3: ref/ref-readonly foreach over a ref-Current enumerator lowered to the enumerator skeleton with <c>ref T item = ref __cs2jFaE.Current</c> (Info).</summary>
+    public const string ForeachSourceRefCurrentEnumerator = "CS2J5482";
+
+    /// <summary>C40 FR-4: ref foreach source is neither indexable nor has a ref-returning Current; node left unchanged (Error).</summary>
+    public const string ForeachSourceRefForeachUnsupported = "CS2J5485";
+
+    /// <summary>C40: lowered ref foreach body captures the iteration variable inside a lambda/anonymous method/local function (the lowered ref/ref-struct local cannot cross that boundary; Warning, Error in strict mode).</summary>
+    public const string ForeachSourceRefIterationCapture = "CS2J5486";
+
+    /// <summary>C40 FS-5 residual gate: a foreach site carrying RefKind != None survived unlowered without a terminal CS2J5485 (Warning; Error in strict mode; defensive bucket).</summary>
+    public const string ForeachSourceResidualRefGate = "CS2J5495";
 }

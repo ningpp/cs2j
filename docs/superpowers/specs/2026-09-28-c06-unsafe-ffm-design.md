@@ -2,7 +2,7 @@
 
 - 日期：2026-09-28（2026-09-29 核订：证据行号/路径重定位、C01-C04 与 C11-C14 落地状态同步、RefStructByRef holder 形态纠错）
 - 范围：C#→C# 预处理 pass `unsafe-ffm`（catalog C06，P1）从 stub 翻转为分规则可实施的实现设计；不含编码
-- 状态：已核订（2026-09-29 对照 dev-3.x@2d25700e 逐条核验全部代码证据并修正：§1.1 表逐行实测，1 处**路径错误**（TypeMappingService 在 `Context/` 而非 `Services/`）、1 处**产物形态错误**（C01 已落地的 ref struct holder 是泛型 `RefStructByRef<T>` 而非 `RefStructByRef_<Mangled>`）、Span 映射区间重定位；§3 契约表 9 处行号漂移与 2 处错误落点（CS2J9001 产出点、启用判定点）已改正；C01-C04/C11-C14 落地现状写入 §11；实测红灯计数为 2026-09-28 快照未重测；仍待实施）
+- 状态：**已实施（2026-10-01）**：R1–R9 随 M0–M4 全部落地于分支 `feature/preproc-c06-unsafe-ffm`（worktree `.worktrees/preproc-c06-unsafe-ffm`，base 472705eb，提交 653e1e55→53613b53→50195e1a→bf28539a→29edf794→1c902b41），pass 已翻转 Implemented、仍**默认关**。历史核订记录（2026-09-29）：对照 dev-3.x@2d25700e 逐条核验代码证据并修正 1 处路径错误、1 处产物形态错误、§3 契约表行号漂移与错误落点；当时红灯计数仍为 2026-09-28 快照。遗留后续项：白名单 facade 归一（ExternWhitelistPath）与 Java FFM 发射通道作为独立 opt-in 子段未交付、UF061 仅骨架、C42 消费 InteropBoundaryFacts 共享谓词
 - 链位：`PassStage.Abi`，`RunAfter = struct-value-semantics`，中间目录 `.cs2j-unsafe-ffm-src`
 - 证据基准：[f68a783c](file:///d:/code/cs2j)（`feat(preprocessing): register 23 merged-family stub passes`；原文记「当前 HEAD」，**2026-09-29 核订：主干已推进至 2d25700e，f68a783c 现为 HEAD 的祖先**）；除标注「2026-09-29 核订」的条目外，全部测试数与 CLI 行为均为 2026-09-28 Release 实测
 

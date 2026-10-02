@@ -97,6 +97,8 @@ public class ElementAccessTransformer : IIRExpressionTransformer
                 }
 
                 // Pointer type → FFM MemorySegment.get(ValueLayout, offset)
+                // 【C06 退役评估 M3b】UnsafeFfmPreprocessor(EnablePointer) 已把指针
+                // 元素访问在归一阶段消除；本分支仅服务直连安全网，语句级 FFM 直翻已退役。
                 if (exprType is IPointerTypeSymbol)
                 {
                     return new JavaRawExpression(Transform(node, context));
@@ -127,6 +129,8 @@ public class ElementAccessTransformer : IIRExpressionTransformer
             var targetType = context.GetTypeInfo(node.Expression).Type;
             if (targetType is IPointerTypeSymbol pointerType)
             {
+                // 【C06 退役评估 M3b】C06 归一后仅服务直连安全网；fixed scope
+                // 注册零调用（见 ConversionContext.PushFixedScope），语句级 FFM 直翻已退役。
                 var pointeeType = pointerType.PointedAtType;
                 var elementTypeName = GetPointeeTypeName(pointeeType);
                 var pointerInfo = context.FindPointerInfo(targetExpr.Trim());

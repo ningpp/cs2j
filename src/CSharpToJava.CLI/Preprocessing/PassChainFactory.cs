@@ -3,7 +3,9 @@ using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.EqualityConcat;
+using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ForeachDeconstruction;
+using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.GenericPreprocess;
 using CSharpToJava.Core.IndexRange;
 using CSharpToJava.Core.IteratorLowering;
@@ -20,6 +22,7 @@ using CSharpToJava.Core.RefOutInPreprocessor;
 using CSharpToJava.Core.StructValueSemantics;
 using CSharpToJava.Core.TupleToStruct;
 using CSharpToJava.Core.UnsignedTypeRewriter;
+using CSharpToJava.Core.UnsafeFfm;
 using CSharpToJava.CLI.Preprocessing.Adapters;
 using CoreGenericPreprocessOptions = CSharpToJava.Core.GenericPreprocess.GenericPreprocessOptions;
 using CoreTupleToStructOptions = CSharpToJava.Core.TupleToStruct.TupleToStructOptions;
@@ -72,8 +75,16 @@ internal sealed class PassChainConfiguration
     /// <summary>C34 decimal-ops opt-in (dormant default false).</summary>
     public bool EnableDecimalOps { get; init; }
 
+    /// <summary>C17 increment-targets kill-switch (enabled by default).</summary>
+    public bool EnableIncrementTargets { get; init; } = true;
+
     /// <summary>Invoked only when equality-concat is enabled (keeps override loading lazy).</summary>
     public required Func<EqualityConcatOptions> EqualityConcatOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when unsafe-ffm is enabled (keeps construction lazy).</summary>
+    public required Func<UnsafeFfmOptions> UnsafeFfmOptionsFactory { get; init; }
+    /// <summary>Invoked only when expression-desugar is enabled (keeps override loading lazy).</summary>
+    public required Func<ExpressionDesugarOptions> ExpressionDesugarOptionsFactory { get; init; }
 }
 
 /// <summary>
@@ -95,6 +106,7 @@ internal static class PassChainFactory
             [PassIds.Delegate] = opts.DelegatePreprocess,
             [PassIds.Tuple] = opts.TupleToStruct,
             [PassIds.ForeachDeconstruction] = opts.ForeachDeconstruction,
+            [PassStubCatalog.Ids.ForeachSource] = opts.ForeachSource,
             [PassIds.StripDefault] = opts.StripDefault,
             [PassIds.RefOutIn] = opts.RefOutIn,
             [PassIds.Unsigned] = opts.UnsignedType,
@@ -197,6 +209,13 @@ internal static class PassChainFactory
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
 
+            PassStubCatalog.Ids.ForeachSource => new ForeachSourcePassAdapter(
+                new ForeachSourceOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.Strict),
+
             PassIds.PatternDesugar => new PatternDesugarPassAdapter(
                 new PatternDesugarOptions(),
                 config.Verbose,
@@ -233,6 +252,7 @@ internal static class PassChainFactory
                 {
                     EnabledPassIds = config.EnabledPassIds,
                     EnableDecimalOps = config.EnableDecimalOps,
+                    EnableIncrementTargets = config.EnableIncrementTargets,
                 },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
@@ -293,6 +313,14 @@ internal static class PassChainFactory
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
 
+            PassStubCatalog.Ids.UnsafeFfm => new UnsafeFfmPassAdapter(
+                config.UnsafeFfmOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
             PassStubCatalog.Ids.IteratorLowering => new IteratorLoweringPassAdapter(
                 new IteratorLoweringOptions(),
                 config.Verbose,
@@ -329,6 +357,17 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests,
                 config.Strict),
+
+            // C36: registered but default OFF; reachable only through its
+            // descriptor default plus --enable-pass expression-desugar (no
+            // convert-project legacy toggle, enum-declaration precedent).
+            PassStubCatalog.Ids.ExpressionDesugar => new ExpressionDesugarPassAdapter(
+                config.ExpressionDesugarOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
 
             _ => throw new KeyNotFoundException($"No chain adapter is registered for pass id '{passId}'."),
         };

@@ -21,6 +21,7 @@ namespace CSharpToJava.ProjectTests;
 /// javac against the compat target/classes and RUNS the assertion app — the
 /// runtime values are the gate, not text snapshots.
 /// </summary>
+[Collection(ConsoleChainTestCollection.Name)]
 public class EqualityConcatProjectTests
 {
     private const string PassId = "equality-concat";
@@ -52,6 +53,10 @@ public class EqualityConcatProjectTests
             EnumDeclarationOptionsFactory = () => new EnumDeclarationOptions(),
             EqualityConcatOptionsFactory = () =>
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
+            UnsafeFfmOptionsFactory = () =>
+                new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
+            ExpressionDesugarOptionsFactory = () =>
+                new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
             StructValueSemanticsOptionsFactory = () =>
                 new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),

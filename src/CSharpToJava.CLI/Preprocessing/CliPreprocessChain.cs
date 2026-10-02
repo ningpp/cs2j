@@ -1,9 +1,11 @@
 using CSharpToJava.Core.EqualityConcat;
+using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
 using CSharpToJava.Core.StructValueSemantics;
+using CSharpToJava.Core.UnsafeFfm;
 
 namespace CSharpToJava.CLI.Preprocessing;
 
@@ -48,6 +50,11 @@ internal sealed class CliChainRequest
     /// <summary>Invoked only when equality-concat is enabled (keeps override loading lazy).</summary>
     public required Func<EqualityConcatOptions> EqualityConcatOptionsFactory { get; init; }
 
+    /// <summary>Invoked only when unsafe-ffm is enabled (keeps construction lazy).</summary>
+    public required Func<UnsafeFfmOptions> UnsafeFfmOptionsFactory { get; init; }
+    /// <summary>Invoked only when expression-desugar is enabled (keeps override loading lazy).</summary>
+    public required Func<ExpressionDesugarOptions> ExpressionDesugarOptionsFactory { get; init; }
+
     /// <summary>
     /// Per-id on/off state from legacy flags. Null means "use descriptor defaults";
     /// the standalone verb passes an all-disabled map together with explicit ids.
@@ -65,6 +72,13 @@ internal sealed class CliChainRequest
     /// Dormant default (false); tests and M3 flip it explicitly.
     /// </summary>
     public bool EnableDecimalOps { get; init; }
+
+    /// <summary>
+    /// C17: increment-targets read-modify-write normalization inside
+    /// numeric-boundary. Enabled by default; set false to exercise the
+    /// family kill-switch.
+    /// </summary>
+    public bool EnableIncrementTargets { get; init; } = true;
 }
 
 /// <summary>
@@ -144,7 +158,10 @@ internal static class CliPreprocessChain
             StructValueSemanticsOptionsFactory = request.StructValueSemanticsOptionsFactory,
             EnumDeclarationOptionsFactory = request.EnumDeclarationOptionsFactory,
             EnableDecimalOps = request.EnableDecimalOps,
+            EnableIncrementTargets = request.EnableIncrementTargets,
             EqualityConcatOptionsFactory = request.EqualityConcatOptionsFactory,
+            UnsafeFfmOptionsFactory = request.UnsafeFfmOptionsFactory,
+            ExpressionDesugarOptionsFactory = request.ExpressionDesugarOptionsFactory,
         };
 
         var sourcePath = request.SourcePath;

@@ -145,6 +145,30 @@
       <Link>SampleEnumDeclarationSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Include SampleForeachSourceSolution (C16) as content; bin/obj excluded. -->
+    <Content Include="..\SampleForeachSourceSolution\**\*.*"
+              Exclude="..\SampleForeachSourceSolution\**\bin\**;..\SampleForeachSourceSolution\**\obj\**">
+      <Link>SampleForeachSourceSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- C06: include SampleUnsafeFfmSolution as content; bin/obj excluded. -->
+    <Content Include="..\SampleUnsafeFfmSolution\**\*.*"
+              Exclude="..\SampleUnsafeFfmSolution\**\bin\**;..\SampleUnsafeFfmSolution\**\obj\**">
+      <Link>SampleUnsafeFfmSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- C06 M4: 独立互操作工程（非白名单 extern → UF060）。 -->
+    <Content Include="..\SampleUnsafeFfmExtern\**\*.*"
+              Exclude="..\SampleUnsafeFfmExtern\**\bin\**;..\SampleUnsafeFfmExtern\**\obj\**">
+      <Link>SampleUnsafeFfmExtern\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -197,6 +221,26 @@
     <Content Include="..\SampleEqualityConcatSolution\**\*.*"
               Exclude="..\SampleEqualityConcatSolution\**\bin\**;..\SampleEqualityConcatSolution\**\obj\**">
       <Link>SampleEqualityConcatSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- C36 M2 collection-expression desugar fixtures (bin/obj excluded). -->
+    <Content Include="..\SampleExpressionDesugarSolution\**\*.*"
+              Exclude="..\SampleExpressionDesugarSolution\**\bin\**;..\SampleExpressionDesugarSolution\**\obj\**">
+      <Link>SampleExpressionDesugarSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\SampleExpressionDesugarUnsupportedSolution\**\*.*"
+              Exclude="..\SampleExpressionDesugarUnsupportedSolution\**\bin\**;..\SampleExpressionDesugarUnsupportedSolution\**\obj\**">
+      <Link>SampleExpressionDesugarUnsupportedSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- C36 M3 CE-GUARD static-abstract strict-rejection fixture (bin/obj excluded). -->
+    <Content Include="..\SampleExpressionDesugarGuardSolution\**\*.*"
+              Exclude="..\SampleExpressionDesugarGuardSolution\**\bin\**;..\SampleExpressionDesugarGuardSolution\**\obj\**">
+      <Link>SampleExpressionDesugarGuardSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
