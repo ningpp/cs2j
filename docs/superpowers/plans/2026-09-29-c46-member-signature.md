@@ -46,7 +46,7 @@
 - [x] **Task 6: 四索引分析器**：`SignatureExplicitizationAnalyzer`（整树一次，Enabled=false 时完全不执行）+ `InterfaceMappingIndex`（类型→接口→槽→实现符号；重新实现/菱形/泛型构造双轨；候选歧义清单）/`HideGroupResolver`（IsHideByName、`new virtual` 槽链成组、纯 base 委托白名单判定）/`CovariantChainAnalyzer`（override 返回类型链 + Java 映射后子类化/擦除判定；C27 `Cs2jWithClone` 固定 CR-1）
 - [x] **Task 7: 审计规则与统计并入**：`SignatureAuditRule`（Kind=Signature、Order=30；Enabled 时输出三类计数 + CS2J5190 Info，不产 plan）；预处理器把审计计数按文件并入 `MemberDesugarStatistics`（镜像 `MetadataOperatorSitesByFile`）
 - [x] **Task 8: 单测**：`MemberDesugarSignatureUnitTests.cs`——默认关零 diff/零诊断/零计数（含显式实现+隐藏+协变样例）；Enabled 审计计数矩阵（显式实现按四成员种类、隐藏按 new/隐式/newslot/静态、协变 Retained/Bridged/ValueType）；二次运行零 diff
-- [x] **Task 9: 收口**：`PassCatalog.cs` catalogItems `"C11, C12, C13, C14, C39"` → `"C11, C12, C13, C14, C39, C46"`（勿回退 C12–C14/C39）；`dotnet build -c Release CSharpToJavaConverter.slnx`；`dotnet test tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj -c Release --filter "FullyQualifiedName~MemberDesugar"`；提交
+- [x] **Task 9: 收口**：`PassCatalog.cs` catalogItems `"C11, C12, C13, C14, C39"` → `"C11, C12, C13, C14, C39, C46"`（勿回退 C12–C14/C39）；`dotnet build -c Release CSharpToJavaConverter.slnx`；`dotnet test tests/CSharpToJava.ProjectTests/CSharpToJava.ProjectTests.csproj -c Release --filter "FullyQualifiedName~MemberDesugar"`；提交（**2026-10-03 补**：注册表锁 `tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs` 的 MemberDesugar CatalogItems 断言同步为 `"C11, C12, C13, C14, C39, C46"`，`--filter FullyQualifiedName~Preprocessing` 39 通过）
 
 ---
 
