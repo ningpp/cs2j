@@ -2385,12 +2385,12 @@ git commit -m "test(preprocessing): C20 partial-merge CLI 端到端（启用/独
 
 ## Task 21: M2 里程碑全量验证 + sdk partial 命中率清单
 
-- [ ] **Step 1: 全仓 Release build**
+- [x] **Step 1: 全仓 Release build**
 
 Run: `dotnet build CSharpToJavaConverter.slnx -c Release --nologo -v q`
 Expected: `0 个错误`。
 
-- [ ] **Step 2: 三个测试工程全量 Release test**
+- [x] **Step 2: 三个测试工程全量 Release test**
 
 Run: `dotnet test tests/CSharpToJava.Tests/CSharpToJava.Tests.csproj -c Release --nologo`
 Expected: `失败: 0`。
