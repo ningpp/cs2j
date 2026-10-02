@@ -18,6 +18,16 @@ internal sealed class MutableLexicalStats
     public int StaticUsings;
     public int DuplicateGlobalUsings;
     public int FileScopedNamespacesNormalized;
+    public int RawLiteralsSingleLine;
+    public int RawLiteralsMultiLine;
+    public int Utf8LiteralsExpanded;
+    public int Utf8BytesEmitted;
+    public int VerbatimLiteralsNormalized;
+    public int EscEscapesNormalized;
+    public int InterpolatedRegularSkipped;
+    public int InterpolatedVerbatimSkipped;
+    public int InterpolatedRawSkipped;
+    public int LiteralResidualCount;
 
     private readonly Dictionary<string, int> _errorsByCode = new(StringComparer.Ordinal);
 
@@ -42,6 +52,16 @@ internal sealed class MutableLexicalStats
         StaticUsings = StaticUsings,
         DuplicateGlobalUsings = DuplicateGlobalUsings,
         FileScopedNamespacesNormalized = FileScopedNamespacesNormalized,
+        RawLiteralsSingleLine = RawLiteralsSingleLine,
+        RawLiteralsMultiLine = RawLiteralsMultiLine,
+        Utf8LiteralsExpanded = Utf8LiteralsExpanded,
+        Utf8BytesEmitted = Utf8BytesEmitted,
+        VerbatimLiteralsNormalized = VerbatimLiteralsNormalized,
+        EscEscapesNormalized = EscEscapesNormalized,
+        InterpolatedRegularSkipped = InterpolatedRegularSkipped,
+        InterpolatedVerbatimSkipped = InterpolatedVerbatimSkipped,
+        InterpolatedRawSkipped = InterpolatedRawSkipped,
+        LiteralResidualCount = LiteralResidualCount,
         ErrorsByCode = new Dictionary<string, int>(_errorsByCode, StringComparer.Ordinal),
     };
 }

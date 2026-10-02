@@ -142,7 +142,7 @@ public class ProjectPreprocessorsConsistentTests
             Assert.Equal(".cs2j-lexical-normalize-src",
                 lexicalDescriptor.IntermediateDirectoryName);
             Assert.False(lexicalDescriptor.DefaultEnabled);
-            Assert.Equal("C28", lexicalDescriptor.CatalogItems);
+            Assert.Equal("C28, C43", lexicalDescriptor.CatalogItems);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.LexicalNormalizePassAdapter));
 
             // generic-deepen (C02)：无门面类（设计决定），目录常量挂在 CLI 适配器上；

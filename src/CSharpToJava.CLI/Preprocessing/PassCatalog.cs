@@ -58,8 +58,8 @@ internal static class PassCatalog
             needsSemanticModel: false,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Strip #line directives, audit #error/extern-alias/global-using forms and optionally normalize file-scoped namespaces; pure-syntax idempotent.",
-            catalogItems: "C28"),
+            description: "Strip #line directives, audit #error/extern-alias/global-using forms and optionally normalize file-scoped namespaces; pure-syntax idempotent; normalize raw/u8/verbatim/\\e literals to regular C# lexical forms.",
+            catalogItems: "C28, C43"),
         new(
             PassStubCatalog.Ids.PartialMerge,
             "Partial type merge",

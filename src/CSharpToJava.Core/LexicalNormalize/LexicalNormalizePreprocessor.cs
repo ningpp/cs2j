@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using CSharpToJava.Core.LexicalNormalize.Literals;
 
 namespace CSharpToJava.Core.LexicalNormalize;
 
@@ -73,6 +74,22 @@ public sealed class LexicalNormalizePreprocessor
             stats.FileScopedNamespacesNormalized += namespaceRewriter.NormalizedCount;
         }
 
+        var anyLiteralRule = options.NormalizeRawLiterals
+            || options.NormalizeUtf8Literals
+            || options.NormalizeVerbatimLiterals
+            || options.NormalizeEscEscapes;
+
+        LiteralRewriteRecorder? literalRecorder = null;
+        if (anyLiteralRule)
+        {
+            var literalRewriter = new LiteralRewriter(options);
+            working = (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)
+                literalRewriter.Visit(working);
+            literalRecorder = literalRewriter.Recorder;
+            literalRecorder.CopyTo(stats);
+            diagnostics.AddRange(literalRecorder.BuildAggregatedInfo());
+        }
+
         var output = UnifyLineEndings(sourceCode, working.ToFullString());
         var changed = !string.Equals(sourceCode, output, StringComparison.Ordinal);
 
@@ -87,7 +104,10 @@ public sealed class LexicalNormalizePreprocessor
                 scan.GlobalUsings);
         }
 
-        if (!LexicalNormalizeVerifier.Verify(output, root, options, out var failure)
+        var literalRewrote = literalRecorder is not null && literalRecorder.TotalRewrites > 0;
+
+        if (!LexicalNormalizeVerifier.Verify(
+                output, root, options, literalRewrote, out var failure)
             && failure != null)
         {
             stats.AddError(failure.Code);
@@ -99,6 +119,30 @@ public sealed class LexicalNormalizePreprocessor
                 Materialize(diagnostics, options),
                 stats.Build(),
                 scan.GlobalUsings);
+        }
+
+        if (literalRecorder is not null)
+        {
+            var literalOutcome = LiteralNormalizationVerifier.Verify(
+                output, options, literalRecorder);
+            diagnostics.AddRange(literalOutcome.Diagnostics);
+
+            if (literalOutcome.Fatal)
+            {
+                foreach (var error in literalOutcome.Diagnostics
+                             .Where(d => d.Severity == LexicalNormalizeSeverity.Error))
+                {
+                    stats.AddError(error.Code);
+                }
+
+                stats.FilesDirtyNoRewrite = 1;
+                return new LexicalNormalizeResult(
+                    sourceCode,
+                    Changed: false,
+                    Materialize(diagnostics, options),
+                    stats.Build(),
+                    scan.GlobalUsings);
+            }
         }
 
         stats.FilesTransformed = 1;

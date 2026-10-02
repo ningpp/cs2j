@@ -18,6 +18,7 @@ internal static class LexicalNormalizeVerifier
         string output,
         CompilationUnitSyntax originalRoot,
         LexicalNormalizeOptions options,
+        bool literalRewritesApplied,
         out LexicalNormalizeDiagnostic? failure)
     {
         failure = null;
@@ -67,7 +68,9 @@ internal static class LexicalNormalizeVerifier
                 return false;
             }
         }
-        else if (options.StripLineDirectives && !TokenSequenceEqual(originalRoot, outputRoot))
+        else if (options.StripLineDirectives
+            && !literalRewritesApplied
+            && !TokenSequenceEqual(originalRoot, outputRoot))
         {
             failure = new LexicalNormalizeDiagnostic(
                 LexicalNormalizeSeverity.Error,

@@ -29,6 +29,18 @@ public sealed record LexicalNormalizeOptions
     /// <summary>LN-5: cross-file duplicate global using audit (AfterFilesAsync).</summary>
     public bool AuditGlobalUsingDuplicates { get; init; } = true;
 
+    /// <summary>LL-1: normalize non-interpolated raw string literals (default on).</summary>
+    public bool NormalizeRawLiterals { get; init; } = true;
+
+    /// <summary>LL-2: expand "x"u8 into new byte[]{ (byte)0xXX, … } (default on).</summary>
+    public bool NormalizeUtf8Literals { get; init; } = true;
+
+    /// <summary>LL-3: normalize non-interpolated verbatim @"…" strings (default on).</summary>
+    public bool NormalizeVerbatimLiterals { get; init; } = true;
+
+    /// <summary>LL-6: rewrite bare \e to \u001B in regular strings/chars (default on).</summary>
+    public bool NormalizeEscEscapes { get; init; } = true;
+
     /// <summary>Upgrade every Warning to Error.</summary>
     public bool Strict { get; init; } = false;
 
@@ -54,6 +66,16 @@ public sealed record LexicalNormalizeStatistics
     public required int StaticUsings { get; init; }
     public required int DuplicateGlobalUsings { get; init; }
     public required int FileScopedNamespacesNormalized { get; init; }
+    public required int RawLiteralsSingleLine { get; init; }
+    public required int RawLiteralsMultiLine { get; init; }
+    public required int Utf8LiteralsExpanded { get; init; }
+    public required int Utf8BytesEmitted { get; init; }
+    public required int VerbatimLiteralsNormalized { get; init; }
+    public required int EscEscapesNormalized { get; init; }
+    public required int InterpolatedRegularSkipped { get; init; }
+    public required int InterpolatedVerbatimSkipped { get; init; }
+    public required int InterpolatedRawSkipped { get; init; }
+    public required int LiteralResidualCount { get; init; }
     public required IReadOnlyDictionary<string, int> ErrorsByCode { get; init; }
 }
 
@@ -78,4 +100,16 @@ internal static class LexicalNormalizeCodes
     public const string Residual = "CS2J5540";
     public const string FileScopedInfo = "CS2J5541";
     public const string StructuralCheck = "CS2J5542";
+
+    // C43 literal normalization (design §6): CS2J5570-5599 reservation.
+    public const string RawLiteralInfo = "CS2J5570";
+    public const string EscEscapeInfo = "CS2J5571";
+    public const string Utf8LiteralInfo = "CS2J5572";
+    public const string VerbatimLiteralInfo = "CS2J5573";
+    public const string InterpolatedSkipInfo = "CS2J5574";
+    public const string StringValueFidelity = "CS2J5580";
+    public const string Utf8ValueFidelity = "CS2J5581";
+    public const string LiteralResidualCode = "CS2J5582";
+    public const string SurrogateUtf8 = "CS2J5583";
+    public const string Utf8LongArrayInfo = "CS2J5590";
 }
