@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -410,82 +411,31 @@ internal sealed class LocalFunctionLiftAnalyzer
         if (isStatic)
             return new List<CapturePlan>();
 
-        var captures = new List<CapturePlan>();
-        var seen = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
         var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
         if (body == null)
-            return captures;
+            return new List<CapturePlan>();
 
+        // C32 §4.2: capture discovery is the single shared primitive.
         var capParamNames = new HashSet<string>(StringComparer.Ordinal);
-
-        foreach (var identifier in body
-            .DescendantNodes(d => d is not LocalFunctionStatementSyntax)
-            .OfType<IdentifierNameSyntax>())
-        {
-            if (identifier.Parent is NameColonSyntax)
-                continue;
-
-            var symbol = _model.GetSymbolInfo(identifier).Symbol;
-            switch (symbol)
+        return CaptureClassification.CollectCapturedSymbols(
+                _model,
+                body,
+                localFnSymbol,
+                d => d is not LocalFunctionStatementSyntax)
+            .Select(info =>
             {
-                case ILocalSymbol or IParameterSymbol or IRangeVariableSymbol:
-                    if (SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, localFnSymbol))
-                        break;
-                    // Skip symbols declared inside the local function's own body
-                    // (e.g., lambda parameters, variables declared in nested blocks)
-                    if (IsDeclaredInsideLocalFunction(symbol, localFn))
-                        break;
-                    if (!seen.Add(symbol))
-                        break;
-
-                    var name = symbol.Name;
-                    var symbolType = symbol switch
-                    {
-                        ILocalSymbol ls => ls.Type,
-                        IParameterSymbol ps => ps.Type,
-                        _ => null
-                    };
-
-                    if (symbolType == null || symbolType.TypeKind == TypeKind.Error)
-                        break;
-
-                    var typeDisplay = symbolType.ToDisplayString(
-                        SymbolDisplayFormat.FullyQualifiedFormat);
-                    var isWritten = IsCapturedVariableWritten(localFn, symbol);
-                    var capName = LocalFunctionLiftNaming.GetCaptureParameterName(
-                        name, capParamNames);
-
-                    captures.Add(new CapturePlan(
-                        symbol, name, capName, typeDisplay, isWritten, isWritten));
-                    break;
-            }
-        }
-
-        return captures;
-    }
-
-    /// <summary>
-    /// Checks if a symbol is declared inside the local function's body
-    /// (e.g., lambda parameters, local variables in nested blocks).
-    /// Such symbols should not be treated as captures from the enclosing scope.
-    /// </summary>
-    private static bool IsDeclaredInsideLocalFunction(
-        ISymbol symbol, LocalFunctionStatementSyntax localFn)
-    {
-        var body = (SyntaxNode?)localFn.Body ?? localFn.ExpressionBody;
-        if (body == null)
-            return false;
-
-        foreach (var syntaxRef in symbol.DeclaringSyntaxReferences)
-        {
-            var location = syntaxRef.GetSyntax().GetLocation();
-            if (body.SpanStart <= location.SourceSpan.Start &&
-                location.SourceSpan.Start < body.Span.End)
-            {
-                return true;
-            }
-        }
-        return false;
+                var isWritten = IsCapturedVariableWritten(localFn, info.Symbol);
+                var capName = LocalFunctionLiftNaming.GetCaptureParameterName(
+                    info.Name, capParamNames);
+                return new CapturePlan(
+                    info.Symbol,
+                    info.Name,
+                    capName,
+                    info.TypeDisplayFullyQualified,
+                    isWritten,
+                    isWritten);
+            })
+            .ToList();
     }
 
     private bool IsCapturedVariableWritten(
@@ -496,36 +446,13 @@ internal sealed class LocalFunctionLiftAnalyzer
         if (body == null)
             return false;
 
-        foreach (var identifier in body
-            .DescendantNodes(d => d is not LocalFunctionStatementSyntax)
-            .OfType<IdentifierNameSyntax>())
-        {
-            if (identifier.Parent is NameColonSyntax)
-                continue;
-            var resolved = _model.GetSymbolInfo(identifier).Symbol;
-            if (!SymbolEqualityComparer.Default.Equals(resolved, symbol))
-                continue;
-
-            var parent = identifier.Parent;
-            if (parent is AssignmentExpressionSyntax assignment
-                && assignment.Left == identifier)
-                return true;
-            if (parent is PrefixUnaryExpressionSyntax prefix
-                && prefix.Operand == identifier
-                && (prefix.IsKind(SyntaxKind.PreIncrementExpression)
-                    || prefix.IsKind(SyntaxKind.PreDecrementExpression)))
-                return true;
-            if (parent is PostfixUnaryExpressionSyntax postfix
-                && postfix.Operand == identifier
-                && (postfix.IsKind(SyntaxKind.PostIncrementExpression)
-                    || postfix.IsKind(SyntaxKind.PostDecrementExpression)))
-                return true;
-            if (parent is ArgumentSyntax argument
-                && (argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
-                    || argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)))
-                return true;
-        }
-        return false;
+        // C32 §4.2: write-site discovery is the single shared primitive.
+        return CaptureClassification.FindWriteSites(
+                _model,
+                symbol,
+                body,
+                d => d is not LocalFunctionStatementSyntax)
+            .Count > 0;
     }
 
     private void PropagateCaptures(List<LiftPlan> plans)
@@ -740,23 +667,9 @@ internal sealed class LocalFunctionLiftAnalyzer
             if (id.Parent is InvocationExpressionSyntax invocation
                 && invocation.Expression == id)
                 continue;
-            if (IsInsideNameOf(id))
+            if (CaptureClassification.IsInsideNameOf(id))
                 continue;
             return true;
-        }
-        return false;
-    }
-
-    private static bool IsInsideNameOf(SyntaxNode node)
-    {
-        SyntaxNode? current = node.Parent;
-        while (current != null)
-        {
-            if (current is InvocationExpressionSyntax invocation
-                && invocation.Expression is IdentifierNameSyntax id
-                && id.Identifier.Text == "nameof")
-                return true;
-            current = current.Parent;
         }
         return false;
     }
@@ -785,16 +698,8 @@ internal sealed class LocalFunctionLiftAnalyzer
     }
 
     private static bool IsUnsupportedCaptureType(CapturePlan cap)
-    {
-        var typeDisplay = cap.TypeDisplay;
-        if (typeDisplay.Contains("<anonymous"))
-            return true;
-        if (typeDisplay.Contains("*"))
-            return true;
-        if (typeDisplay.StartsWith("ref "))
-            return true;
-        return false;
-    }
+        // C32 §4.2: unsupported-kind classification is the single shared primitive.
+        => CaptureClassification.IsUnsupportedCaptureKind(cap.TypeDisplay);
 
     private static bool HasParamsOrOptional(LocalFunctionStatementSyntax localFn)
     {
