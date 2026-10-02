@@ -52,6 +52,9 @@ internal static class InitializerDiagnosticCodes
 
     /// <summary>Error(strict)/Warning: residual gate — leftover initializer node without a paired diagnostic.</summary>
     public const string CS2J0545 = "CS2J0545";
+
+    /// <summary>Info (verbose): whole-tree initializer residual gate balanced (CLI AfterFiles).</summary>
+    public const string CS2J0546 = "CS2J0546";
 }
 
 /// <summary>How a code's severity is decided (design §6 level column).</summary>
@@ -82,6 +85,7 @@ internal static class InitializerDiagnostics
         InitializerDiagnosticCodes.CS2J0541 => InitializerSeverityClass.StrictError,
         InitializerDiagnosticCodes.CS2J0542 => InitializerSeverityClass.Info,
         InitializerDiagnosticCodes.CS2J0545 => InitializerSeverityClass.StrictError,
+        InitializerDiagnosticCodes.CS2J0546 => InitializerSeverityClass.Info,
         _ => InitializerSeverityClass.Info,
     };
 
@@ -155,4 +159,22 @@ internal static class InitializerDiagnostics
     public const string ResidualMessage =
         "{0} unaccounted object/collection/complex-element initializer or bare " +
         "'new()' node(s) remain after expression-desugar processing.";
+
+    /// <summary>
+    /// CS2J0545 (M3 CLI whole-tree gate): {0}=residual nodes on disk,
+    /// {1}=paired nodes, {2}=unpaired file list.
+    /// </summary>
+    public const string TreeResidualMessage =
+        "whole-tree residual gate failed: {0} object/collection/complex-element " +
+        "initializer or bare 'new()' node(s) found in the intermediate tree but " +
+        "{1} are paired with the per-file accounting (explained preserved sites + " +
+        "coexistence-deferred sites); unpaired files: {2}.";
+
+    /// <summary>
+    /// CS2J0546 (M3, Info, verbose): whole-tree initializer residual gate
+    /// balanced summary.
+    /// </summary>
+    public const string InventorySummaryMessage =
+        "whole-tree residual gate balanced ({0} residual node(s) = {1} paired " +
+        "node(s)).";
 }

@@ -86,6 +86,56 @@ internal sealed class InitializersRule : IExpressionDesugarRule
 
         public override int CheckResiduals(
             RuleAnalysisContext context, CompilationUnitSyntax root)
-            => 0; // M3: the three-kind residual gate lands there.
+        {
+            // Rollout gate: without the C24 subsection the rule is inert, so it
+            // must not police residual initializer syntax (which in the default
+            // chain may be C36's emitted zero-temp `new List<T>(){…}`).
+            if (context.Options.Initializers is null)
+                return 0;
+
+            // Whole-file C36-coexistence deferral: C24 rewrote nothing, so the
+            // only residual nodes are the deferred C24 sites (paired by count)
+            // and C36-emitted initializer syntax (owned by C36's own CS2J0589
+            // gate). Reporting here would be a false positive.
+            if (_analysis.Plans.Any(
+                    p => p.Outcome == InitializerOutcome.DeferredForCoexistence))
+            {
+                return 0;
+            }
+
+            var unpaired = 0;
+            SyntaxNode? firstResidual = null;
+
+            foreach (var node in root.DescendantNodes())
+            {
+                if (!InitializerSyntaxFacts.IsResidualNode(node))
+                    continue;
+
+                // Preserved sites (M2-shape/diagnostic skips and lowered
+                // subtrees) carry the explained annotation; array/anonymous
+                // nodes are excluded by IsResidualNode itself.
+                if (InitializerSyntaxFacts.IsExplained(node))
+                    continue;
+
+                unpaired++;
+                firstResidual ??= node;
+            }
+
+            var stats = context.Statistics.Initializers;
+            stats.ResidualInitializerCount = unpaired;
+
+            if (unpaired > 0)
+            {
+                var strict = (context.Options.Initializers ?? InitializerOptions.Default).Strict;
+                context.Report(
+                    InitializerDiagnostics.ResolveSeverity(
+                        InitializerDiagnosticCodes.CS2J0545, strict),
+                    InitializerDiagnosticCodes.CS2J0545,
+                    string.Format(InitializerDiagnostics.ResidualMessage, unpaired),
+                    firstResidual);
+            }
+
+            return unpaired;
+        }
     }
 }

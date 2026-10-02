@@ -102,6 +102,17 @@ internal static class InitializerBindingAnalyzer
             {
                 AllocateTemps(plan, state);
             }
+
+            // Whole-tree pairing accounting: a site kept byte-identical
+            // (diagnostic skip / unsupported context / zero-temp enumerable
+            // empty form) leaves its residual nodes on disk without lowering;
+            // record them so the AfterFiles gate can pair by count. Lowered
+            // outcomes emit no initializer syntax at all.
+            if (!IsLoweredOutcome(plan.Outcome) && plan.Outcome != InitializerOutcome.DeferredForCoexistence)
+            {
+                context.Statistics.Initializers.PreservedResidualNodes +=
+                    InitializerSyntaxFacts.CountResidualNodes(creation);
+            }
         }
 
         AssignLiftOrders(state.All);
@@ -134,9 +145,17 @@ internal static class InitializerBindingAnalyzer
         CountSite(stats, node, isImplicit);
         stats.AddSkip(UnsupportedSentinel);
         stats.CoexistenceDeferredSites++;
+        stats.DeferredResidualNodes += InitializerSyntaxFacts.CountResidualNodes(node);
         plan.Outcome = InitializerOutcome.DeferredForCoexistence;
         return plan;
     }
+
+    /// <summary>Outcomes that replace the creation and emit no initializer syntax.</summary>
+    private static bool IsLoweredOutcome(InitializerOutcome outcome)
+        => outcome is InitializerOutcome.ObjectSequence
+            or InitializerOutcome.CollectionSequence
+            or InitializerOutcome.TargetTypedNewExplicit
+            or InitializerOutcome.ZeroTempExplicit;
 
     // ------------------------------------------------------------------
     // Core per-site plan builder (recursive for nested creations).

@@ -1843,4 +1843,275 @@ public class InitializerDesugarUnitTests
         Assert.False(second.Changed, string.Join("; ", second.Diagnostics));
         Assert.Equal(first.OutputCode, second.OutputCode);
     }
+
+    // ------------------------------------------------------------------
+    // M3: IN-13 residual gate, coexistence matrix, idempotency/BOM.
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void M3_ResidualGate_DeferredOnlyFile_NoCs2j0545()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    int[] a = [1, 2];
+                    var d = new Dto { A = 1 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        // Whole-file C36-coexistence deferral: C24 rewrote nothing and the
+        // deferred residual nodes are paired by count, so no CS2J0545.
+        Assert.DoesNotContain(
+            result.Diagnostics, d => d.Code == InitializerDiagnosticCodes.CS2J0545);
+        var init = result.Statistics.Initializers;
+        Assert.Equal(0, init.ResidualInitializerCount);
+        Assert.Equal(1, init.CoexistenceDeferredSites);
+        Assert.Equal(1, init.DeferredResidualNodes);
+        Assert.Equal(0, init.PreservedResidualNodes);
+    }
+
+    [Fact]
+    public void M3_ResidualGate_SyntheticUnpairedResidual_StrictError_NonStrictWarning()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C { public static void M() { var d = new Dto { A = 1 }; } }
+            """;
+        var (_, model) = Compile(source);
+        var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
+
+        // Synthetic unpaired residual: the plan exists but the root was never
+        // rewritten, so the residual node carries no explained annotation. This
+        // is exactly the CS2J0545 condition the gate exists to catch.
+        var strictStats = new ExpressionDesugarStatistics();
+        var strictDiags = new List<ExpressionDesugarDiagnostic>();
+        var strictCtx = BuildContext(root, model, C24Enabled, strictStats, strictDiags);
+        var strictPlan = new InitializersRule().Analyze(strictCtx);
+        var strictUnpaired = strictPlan.CheckResiduals(strictCtx, root);
+
+        Assert.True(strictUnpaired > 0);
+        Assert.Equal(strictUnpaired, strictStats.Initializers.ResidualInitializerCount);
+        Assert.Contains(strictDiags, d =>
+            d.Code == InitializerDiagnosticCodes.CS2J0545
+            && d.Severity == ExpressionDesugarSeverity.Error);
+
+        // Non-strict: the same leftover degrades to a Warning and the node is
+        // kept verbatim (no rewrite happened).
+        var looseOptions = new ExpressionDesugarOptions
+        {
+            Initializers = new InitializerOptions { Strict = false },
+        };
+        var looseStats = new ExpressionDesugarStatistics();
+        var looseDiags = new List<ExpressionDesugarDiagnostic>();
+        var looseCtx = BuildContext(root, model, looseOptions, looseStats, looseDiags);
+        var loosePlan = new InitializersRule().Analyze(looseCtx);
+        var looseUnpaired = loosePlan.CheckResiduals(looseCtx, root);
+
+        Assert.Equal(strictUnpaired, looseUnpaired);
+        Assert.Contains(looseDiags, d =>
+            d.Code == InitializerDiagnosticCodes.CS2J0545
+            && d.Severity == ExpressionDesugarSeverity.Warning);
+        Assert.Contains(root.DescendantNodes(),
+            n => n is InitializerExpressionSyntax i
+                 && i.IsKind(SyntaxKind.ObjectInitializerExpression));
+    }
+
+    [Fact]
+    public void M3_ResidualGate_InertWithoutOptionsSubsection_NoCs2j0545()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C { public static void M() { var d = new Dto { A = 1 }; } }
+            """;
+        var (_, model) = Compile(source);
+        var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
+
+        // Without the Initializers subsection the rule must not police residual
+        // syntax at all (the default chain emits C36 collection-initializer
+        // forms that C24 does not own).
+        var stats = new ExpressionDesugarStatistics();
+        var diags = new List<ExpressionDesugarDiagnostic>();
+        var ctx = BuildContext(root, model, new ExpressionDesugarOptions(), stats, diags);
+        var plan = new InitializersRule().Analyze(ctx);
+
+        Assert.Equal(0, plan.CheckResiduals(ctx, root));
+        Assert.DoesNotContain(diags, d => d.Code == InitializerDiagnosticCodes.CS2J0545);
+    }
+
+    private static RuleAnalysisContext BuildContext(
+        CompilationUnitSyntax root,
+        SemanticModel model,
+        ExpressionDesugarOptions options,
+        ExpressionDesugarStatistics statistics,
+        List<ExpressionDesugarDiagnostic> diagnostics)
+        => new()
+        {
+            Root = root,
+            SemanticModel = model,
+            Options = options,
+            Statistics = statistics,
+            Diagnostics = diagnostics,
+        };
+
+    [Fact]
+    public void M3_ArrayInitializerAndAnonymousObject_ResidualExcluded()
+    {
+        const string source = """
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    var d = new Dto { A = 1 };
+                    int[] a = new int[] { 1, 2 };
+                    int[] b = new[] { 3 };
+                    var anon = new { A = 1 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.DoesNotContain(
+            result.Diagnostics, d => d.Code == InitializerDiagnosticCodes.CS2J0545);
+        Assert.Equal(0, result.Statistics.Initializers.ResidualInitializerCount);
+        Assert.Equal(0, result.Statistics.Initializers.PreservedResidualNodes);
+
+        // Array initializer expressions and anonymous objects are never touched
+        // (decision 15 excludes them from the residual口径).
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("new int[] { 1, 2 }", normalized);
+        Assert.Contains("new[] { 3 }", normalized);
+        Assert.Contains("new { A = 1 }", normalized);
+    }
+
+    [Fact]
+    public void M3_C11ProductTreeInput_PlainSetMethodsAndFields_WorksNormally()
+    {
+        // Hand-written equivalent of member-desugar (C11/C27) output: properties
+        // become plain set_X methods plus backing fields. C24 must classify the
+        // residual general shapes by the runtime-tree symbols and rewrite them
+        // normally (no CS2J0531 for the writable field/member).
+        const string source = """
+            using System.Collections.Generic;
+            public class C11Dto
+            {
+                private int _p;
+                public int F;
+                public int get_P() => _p;
+                public void set_P(int v) { _p = v; }
+            }
+            public static class C
+            {
+                public static void M()
+                {
+                    var d = new C11Dto { F = 1 };
+                    var l = new List<int> { 2, 3 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        AssertOutputCompiles(result.OutputCode);
+        Assert.DoesNotContain(
+            result.Diagnostics, d => d.Code == InitializerDiagnosticCodes.CS2J0531);
+        var normalized = Normalize(result.OutputCode);
+        Assert.Contains("__ed_0.F = 1", normalized);
+        Assert.Contains(".Add(2)", normalized);
+        Assert.Contains(".Add(3)", normalized);
+    }
+
+    [Fact]
+    public void M3_Coexistence_C36Rewrites_C24Defers_NoDamage_SecondRunConverges()
+    {
+        // C24 + C36 coexist in one file: C36 lowers its collection expression
+        // (including an emitted collection-initializer form), C24 defers whole
+        // and reports no CS2J0545. The C36 face is gone on the next run, so C24
+        // converges; a third run is byte-stable (no numbering/annotation clash).
+        const string source = """
+            using System.Collections.Generic;
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    List<int> xs = [1, 2];
+                    var d = new Dto { A = 1 };
+                }
+            }
+            """;
+
+        var first = Preprocess(source);
+
+        Assert.True(first.Changed, string.Join("; ", first.Diagnostics));
+        AssertOutputCompiles(first.OutputCode);
+        Assert.DoesNotContain(
+            first.Diagnostics, d => d.Code == InitializerDiagnosticCodes.CS2J0545);
+        Assert.Equal(0, first.Statistics.Initializers.ResidualInitializerCount);
+        Assert.True(first.Statistics.Initializers.CoexistenceDeferredSites >= 1);
+        // C24 site stayed verbatim while C36 rewrote its own syntax.
+        Assert.Contains("new Dto { A = 1 }", Normalize(first.OutputCode));
+        Assert.DoesNotContain("[1, 2]", Normalize(first.OutputCode));
+
+        var second = Preprocess(first.OutputCode);
+        Assert.True(second.Changed, string.Join("; ", second.Diagnostics));
+        AssertOutputCompiles(second.OutputCode);
+        Assert.DoesNotContain(
+            second.Diagnostics, d => d.Code == InitializerDiagnosticCodes.CS2J0545);
+        Assert.DoesNotContain("new Dto { A = 1 }", Normalize(second.OutputCode));
+
+        var third = Preprocess(second.OutputCode);
+        Assert.False(third.Changed, string.Join("; ", third.Diagnostics));
+        Assert.Equal(second.OutputCode, third.OutputCode);
+    }
+
+    [Fact]
+    public void M3_DirtyFileWithBom_SecondRunByteStable()
+    {
+        const string source =
+            "\uFEFFpublic class Dto { public int A { get; set; } }\n" +
+            "public static class C { public static void M() { var d = new Dto { A = 1 }; } }\n";
+
+        var first = Preprocess(source);
+        Assert.True(first.Changed, string.Join("; ", first.Diagnostics));
+        AssertOutputCompiles(first.OutputCode);
+
+        var second = Preprocess(first.OutputCode);
+        Assert.False(second.Changed, string.Join("; ", second.Diagnostics));
+        Assert.Equal(first.OutputCode, second.OutputCode);
+    }
+
+    [Fact]
+    public void M3_ResidualGate_NoListOfAndNoLinqEmission()
+    {
+        const string source = """
+            using System.Collections.Generic;
+            public class Dto { public int A { get; set; } }
+            public static class C
+            {
+                public static void M()
+                {
+                    var d = new Dto { A = 1 };
+                    var l = new List<int>(4) { 1, 2 };
+                }
+            }
+            """;
+
+        var result = Preprocess(source);
+
+        Assert.True(result.Changed, string.Join("; ", result.Diagnostics));
+        Assert.DoesNotContain("List.of", result.OutputCode);
+        Assert.DoesNotContain("System.Linq", result.OutputCode);
+    }
 }

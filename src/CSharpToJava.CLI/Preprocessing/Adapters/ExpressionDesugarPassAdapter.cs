@@ -1,5 +1,6 @@
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
+using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis.CSharp;
@@ -43,6 +44,9 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         new(StringComparer.OrdinalIgnoreCase);
 
     private CollectionExprTreeGateResult? _gateResult;
+
+    /// <summary>C24 whole-tree gate result; null when the C24 rule is disabled.</summary>
+    private InitializerTreeGateResult? _initializerGateResult;
 
     /// <summary>C23 whole-tree gate result; null when the C23 rule is disabled.</summary>
     private InterpolationTreeGateResult? _interpolationGateResult;
@@ -251,7 +255,83 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                     interpGate.PairedNodes)));
         }
 
+        // C24 (IN-13) additive whole-tree gate: only runs when the Initializers
+        // subsection is present (the CLI factory does not construct it yet, so
+        // this is inert on every default chain and never changes C36).
+        if (_options.Initializers is not null)
+            RunInitializerGate(tree, parseOptions, atomicErrorFiles);
+
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// C24 IN-13 whole-tree gate: re-parse each intermediate .cs as written,
+    /// count the three residual node kinds and reconcile against the per-file
+    /// pairing accounting (explained preserved sites + coexistence-deferred
+    /// sites). Mismatch -> CS2J0545 Error fails the chain; balanced + verbose
+    /// emits CS2J0546 Info. Additive: the C36 gate above is untouched.
+    /// </summary>
+    private void RunInitializerGate(
+        PassTreeContext tree,
+        CSharpParseOptions parseOptions,
+        HashSet<string> atomicErrorFiles)
+    {
+        var residualByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var pairedByFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var sourceFile in tree.CsFiles)
+        {
+            var relativePath = Path.GetRelativePath(tree.SourceRoot, sourceFile);
+            if (HasCs2jOwnedSegment(relativePath)
+                || atomicErrorFiles.Contains(relativePath))
+            {
+                continue;
+            }
+
+            var intermediateFile = Path.Combine(tree.IntermediateRoot, relativePath);
+            if (!File.Exists(intermediateFile))
+                continue;
+
+            pairedByFile[relativePath] =
+                _fileStatistics.TryGetValue(relativePath, out var fileStats)
+                    ? InitializerTreeGate.CountPairedNodes(fileStats.Initializers)
+                    : 0;
+
+            var source = File.ReadAllText(intermediateFile);
+            var root = CSharpSyntaxTree.ParseText(source, parseOptions).GetCompilationUnitRoot();
+            var residual = root.DescendantNodes()
+                .Count(InitializerSyntaxFacts.IsResidualNode);
+            if (residual > 0)
+                residualByFile[relativePath] = residual;
+        }
+
+        _initializerGateResult = InitializerTreeGate.Reconcile(residualByFile, pairedByFile);
+
+        if (!_initializerGateResult.Balanced)
+        {
+            var unpaired = string.Join(
+                ", ",
+                _initializerGateResult.UnpairedFiles.Select(f =>
+                    $"{f.File} ({f.ResidualNodes} residual/{f.PairedNodes} paired)"));
+            _diagnostics.Add(new ExpressionDesugarDiagnostic(
+                ExpressionDesugarSeverity.Error,
+                InitializerDiagnosticCodes.CS2J0545,
+                string.Format(
+                    InitializerDiagnostics.TreeResidualMessage,
+                    _initializerGateResult.ResidualNodes,
+                    _initializerGateResult.PairedNodes,
+                    unpaired.Length == 0 ? "?" : unpaired)));
+        }
+        else if (_verbose)
+        {
+            _diagnostics.Add(new ExpressionDesugarDiagnostic(
+                ExpressionDesugarSeverity.Info,
+                InitializerDiagnosticCodes.CS2J0546,
+                string.Format(
+                    InitializerDiagnostics.InventorySummaryMessage,
+                    _initializerGateResult.ResidualNodes,
+                    _initializerGateResult.PairedNodes)));
+        }
     }
 
     /// <summary>
@@ -317,6 +397,12 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         if (_options.Interpolations.Enabled)
             line += "; " + BuildInterpolationSummarySegment();
 
+        // C24 (IN-13) additive init segment: emitted only when the rule is
+        // active (Initializers subsection present), keeping the C36-only
+        // summary byte-identical on default chains.
+        if (_options.Initializers is not null)
+            line += "; " + BuildInitializerSummarySegment();
+
         return line;
     }
 
@@ -344,7 +430,47 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                $"exprtree-skip {i.ExpressionTreeSitesSkipped}, " +
                $"handler err{handlerErrors}|keep{handlerKept}, " +
                $"temps {i.TempsLifted}, residual {i.ResidualInterpolationCount}";
+
+    /// <summary>
+    /// C24 summary segment (design §5-2): site/Add/nesting/lowering buckets plus
+    /// the whole-tree gate residual. Non-strict preserved sites (Error-class
+    /// codes downgraded to Warning) are listed distinctly so a dual-track
+    /// consumer never mistakes them for lowered ones (design §6 / 裁决 5).
+    /// </summary>
+    private string BuildInitializerSummarySegment()
+    {
+        var i = _statistics.Initializers;
+        var skipped = i.SkippedByReason.Values.Sum();
+        var nonStrictKept = 0;
+        foreach (var code in NonStrictKeptCodes)
+        {
+            i.SkippedByReason.TryGetValue(code, out var count);
+            nonStrictKept += count;
+        }
+
+        var residual = _initializerGateResult?.ResidualNodes ?? i.ResidualInitializerCount;
+        return $"init: {i.ObjectInitializerSites} obj, " +
+               $"{i.CollectionInitializerSites} coll " +
+               $"(single {i.AddSingle}/multi {i.AddMulti}/ext {i.AddExtension}" +
+               $"/params {i.AddParams}/fluent {i.AddFluent}), " +
+               $"{i.DictionaryIndexInitializerSites} dict-index, " +
+               $"{i.TargetTypedNewSites} target-new, " +
+               $"{i.NestedCreateSites}/{i.NestedMemberInitSites} nested, " +
+               $"{i.ContextLoweredSites} ctx-stmts, {i.TempsLifted} temps, " +
+               $"{skipped} skipped ({nonStrictKept} non-strict kept), " +
+               $"{residual} residual";
     }
+
+    /// <summary>Error-class codes whose non-strict downgrade keeps the node.</summary>
+    private static readonly string[] NonStrictKeptCodes =
+    {
+        InitializerDiagnosticCodes.CS2J0531,
+        InitializerDiagnosticCodes.CS2J0533,
+        InitializerDiagnosticCodes.CS2J0535,
+        InitializerDiagnosticCodes.CS2J0537,
+        InitializerDiagnosticCodes.CS2J0538,
+        InitializerDiagnosticCodes.CS2J0541,
+    };
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
     {
@@ -391,6 +517,19 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                 "primary constructors (C15); raw string literals and 'u8' UTF8 string " +
                 "literals; finalizers",
         };
+
+        if (_options.Initializers is not null)
+        {
+            var initGate = _initializerGateResult;
+            lines.Add(
+                initGate == null
+                    ? "[expression-desugar]   init whole-tree residual gate: not run"
+                    : $"[expression-desugar]   init whole-tree residual gate: " +
+                      $"{initGate.ResidualNodes} residual node(s) vs " +
+                      $"{initGate.PairedNodes} paired (balanced={initGate.Balanced})");
+            lines.Add("[expression-desugar]   " + BuildInitializerSummarySegment());
+        }
+
         return lines;
     }
 }

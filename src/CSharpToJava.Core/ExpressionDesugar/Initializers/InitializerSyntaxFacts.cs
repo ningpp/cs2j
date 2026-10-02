@@ -115,17 +115,30 @@ internal static class InitializerSyntaxFacts
     public static bool IsInsideCollectionExpression(SyntaxNode node)
         => node.Ancestors().Any(static a => a is CollectionExpressionSyntax);
 
+    /// <summary>
+    /// Counts the residual nodes (three kinds, decision 15) carried by
+    /// <paramref name="node"/> and its whole subtree. Used both by the per-file
+    /// gate and by the whole-tree gate's pairing accounting.
+    /// </summary>
+    public static int CountResidualNodes(SyntaxNode node)
+        => node.DescendantNodesAndSelf().Count(IsResidualNode);
+
     /// <summary>True when <paramref name="node"/> itself or any ancestor carries the
-    /// family explained annotation: a preserved site accounts for the whole
-    /// subtree.
+    /// family explained annotation (site or emitted-subtree marker): a preserved
+    /// site accounts for the whole subtree.
     /// </summary>
     public static bool IsExplained(SyntaxNode node)
     {
         var current = node;
         while (current != null)
         {
-            if (current.HasAnnotation(ExpressionDesugarSyntaxFacts.ExplainedAnnotation))
+            if (current.HasAnnotation(ExpressionDesugarSyntaxFacts.ExplainedAnnotation)
+                || current.HasAnnotation(
+                    ExpressionDesugarSyntaxFacts.ExplainedSubtreeAnnotation))
+            {
                 return true;
+            }
+
             current = current.Parent;
         }
 

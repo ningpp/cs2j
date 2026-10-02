@@ -208,6 +208,89 @@ tests/SampleExpressionDesugarSolution/                            # M2/M3 增 In
 - 验收：全量 build + 三测试工程（除 §7 已知基线失败外）全绿 + 高价值 grep 三禁。
 - 提交：`feat(preprocessing): C24 initializers M3 residual 全树闸门+共处回归+fixture/CLI 收口（默认关）`
 
+#### M3 落地记录（2026-10-02 回填）
+
+**文件**（全部在允许面内）：
+- 增（Core）：`src/CSharpToJava.Core/ExpressionDesugar/Initializers/InitializerTreeGate.cs`
+  （`InitializerTreeGateFile/Result` + `CountPairedNodes`/`Reconcile`，镜像 C36 `CollectionExprTreeGate`）；
+- 改（Core `Initializers/`）：`InitializerStatistics.cs`（`PreservedResidualNodes`/`DeferredResidualNodes`/
+  `PairedResidualNodes` + `MergeFrom`）、`InitializerSyntaxFacts.cs`（`CountResidualNodes`；
+  `IsExplained` 兼认 `ExplainedSubtreeAnnotation`）、`InitializerBindingAnalyzer.cs`（配对计数 +
+  `IsLoweredOutcome`）、`InitializersRule.cs`（`CheckResiduals` 落地）、`InitializerDiagnostics.cs`
+  （新增 `CS2J0546` Info + `TreeResidualMessage`/`InventorySummaryMessage`）;
+- 改（CLI）：`ExpressionDesugarPassAdapter.cs`（摘要 `init:` 段 + 只增的 C24 AfterFiles 全树闸门
+  `RunInitializerGate` + verbose init 行；C36 闸门/计数/摘要段零改动）；
+- 改（Tests）：`InitializerDesugarUnitTests.cs` 新增 M3 行为 8 个 Fact；
+- 增（ProjectTests）：`InitializerDesugarProjectTests.cs`（2 Fact，Core 直调双跑）；
+- 增（fixture）：`SampleExpressionDesugarLib/{InitializersDto,InitializersCollections,InitializersNested,
+  InitializersTargetTyped}.cs` + `SampleExpressionDesugarTests/InitializerSemanticsTests.cs`（4 Fact）。
+- 未改：`CollectionExpr/*`、`Shared/*`、`PassCatalog.cs`、`PassChainFactory.cs`、`Program.cs`、
+  `Transformers/**`、既有 fixture 文件、其它测试文件（**C36 测试零改动**）。
+
+**residual 闸门设计（IN-13）**：
+- **per-file（`InitializersRulePlan.CheckResiduals`）**：`Options.Initializers is null` → 直接返回 0
+  （规则惰性，且避免误伤 C36 默认链产出的 `new List<T>(){…}`）；文件含任一 `DeferredForCoexistence`
+  站点 → 返回 0（整文件让位，C24 未改写，剩余节点只能是「让位站点」或「C36 发射的子节点」，均由
+  让位计数/C36 自身 CS2J0589 配对）；否则统计三类 residual 中**未带 explained 注解**的节点数
+  （数组初始化器/匿名对象由 `IsResidualNode` 直接排除），>0 → CS2J0545（strict Error / 非 strict Warning），
+  写入 `ResidualInitializerCount`。
+- **配对口径（计数式，供 AfterFiles 复扫）**：Analyze 时对每个**非嵌套顶层站点**按结果记账——
+  被保留（`SkippedDiagnostic`/`UnsupportedContext`/空枚举集合形态）的站点把其子树 residual 节点数记入
+  `PreservedResidualNodes`；整文件让位站点记入 `DeferredResidualNodes`；被 lower 的站点
+  （`ObjectSequence`/`CollectionSequence`/`TargetTypedNewExplicit`/`ZeroTempExplicit`）不产初始化器语法，
+  贡献 0。`PairedResidualNodes = Preserved + Deferred`。`IsExplained` 走 explained 注解（含 subtree 变体），
+  故 M2 形态/诊断跳过站点天然配对；**只含让位站点的文件不报 0545**。
+- **AfterFiles 全树闸门（CLI，只增）**：仅当 `Options.Initializers` 存在时运行（CLI 工厂当前不构造该子节，
+  故默认链完全惰性、C36 行为/计数不变）；逐中间 `.cs` 重解析、按三类节点计数，与每文件
+  `PairedResidualNodes` 对账，失衡 → CS2J0545 Error 使链失败，平衡 + verbose → CS2J0546 Info。
+- **幂等/BOM**：M3 单测锁定 dirty 文件二次运行 `Changed=false` 字节稳定、含 BOM 干净文件字节保真、
+  含 BOM dirty 文件二次运行字节稳定；`M2_*` 既有幂等事实保持。
+
+**测试与验证（编排侧复核，2026-10-02）**：`dotnet build -c Release CSharpToJavaConverter.slnx` = **0 错误**；
+C24+C36+注册表定向（`InitializerDesugarUnitTests`+`CollectionExprDesugarUnitTests`+`PassChainOrderTests`）= **144/144 通过**；
+C24 项目级 `InitializerDesugarProjectTests` = **2/2 通过**。
+`dotnet test tests/CSharpToJava.Tests`（含重编译）= **2592 通过 / 0 断言失败**，但运行末尾被
+**既有环境缺陷**中止：`ConvertProjectGotoIntegrationTests`（`ConvertProjectGotoIntegrationTests.cs:249` 故意传入畸形
+Maven 坐标 `org.example::1.0.0`）触发**测试宿主进程崩溃**（`Unsupported Maven coordinate ... Expected non-empty groupId`），
+该类隔离复跑可确定性复现（1 通过后宿主中止）——**与 C24 无关**（C24 不涉及 Maven/依赖解析），子代理另一轮曾完整跑完 2593/0，
+属环境/宿主不稳。§7 的 5 个基线失败本轮未复现。
+
+**测试与验证（子代理记录）**：`dotnet build -c Release CSharpToJavaConverter.slnx` = **0 错误**；
+`dotnet test -c Release tests/CSharpToJava.Tests`（含测试工程重编译）= **2593 通过 / 0 失败**
+（§7 列出的 5 个基线失败未复现）；C24 单测 **57** 个全绿（49 + 8）。
+ProjectTests 全量 = **959 通过 / 7 失败 / 10 跳过（976）**：其中 3 例 `LexicalNormalizeProjectTests`
+为**已知 CRLF/LF 环境失败**（隔离复跑稳定复现 `Expected "line1\nline2" / Actual "line1\r\nline2"`），
+另 4 例（`PatternDesugarProjectTests`、`PartialMergeProjectTests`、`FinalizerProjectTests`、
+`ForeachSourceC40ProjectTests` 各一并发/临时目录资源争用的 e2e）**隔离复跑全部通过**；7 例均与 C24 无关
+（C24 CLI 路径未启用，适配器改动在无 `Initializers` 子节时完全惰性）。fixture 原生 `dotnet test`
+（SampleExpressionDesugarSolution）= **10 通过 / 0 失败**；C24 ProjectTests 2/2 通过（原生 vs 预处理
+行为逐项相等、预处理产物 residual 为零、二次幂等）。grep 三禁复核：`Initializers/` 无 `List.of`、
+无按语法种类 `OfType` 静默过滤初始化器项（既有 `OfType` 仅用于深度计数与统计分桶）、产物无 `System.Linq`。
+
+**偏差与阻塞**：
+1. **residual 计数按节点、摘要按站点**：`CoexistenceDeferredSites` 保持站点计数（M1/M2 事实依赖），
+   新增 `DeferredResidualNodes`/`PreservedResidualNodes` 为**节点计数**供全树对账（一个保留站点可含
+   多个嵌套 residual 节点）。
+2. **per-file 闸门对「C36 发射集合初始化器语法」的依赖**：非让位文件不会出现 C36 发射（有 C36 语法即整文件
+   让位），故 per-file 只需 explained + 让位计数即闭合；AfterFiles 闸门在「C36 发射 collection-initializer
+   且文件同时有 C24 让位站点」这一组合下依赖让位计数已覆盖，未新增 C36 侧标记（见缺口 b）。
+3. **测试口径修正**：`M3_C11ProductTreeInput_*` 以「普通 `set_X` + 公开字段」手写模拟 C11 产物树，
+   覆盖 `F = 1` 字段写正常发射（无 CS2J0531）；`M3_Coexistence_*` 显式断言 C36 当轮改写、C24 留位、
+   无 0545、二轮收敛、三轮字节稳定。
+
+#### 已知缺口/后续（M3 收口后仍开放）
+
+1. **CLI 启用路径未接线**：`Initializers` 子节仅由 Core 直调可达；CLI 工厂
+   （`Program.cs` 两处 `ExpressionDesugarOptionsFactory`）尚未构造该子节，故默认链上 C24 仍惰性。
+   本里程碑按约束**未新增 CLI 开关/pass**；M4 默认开前须补一条灰度 options 路径（沿用既有 options/配置面）
+   并在 `--list-passes`/摘要中体现，届时 `RunInitializerGate` 才会在 CLI 生效。
+2. **族级 C36 plan 取键修复（退役整文件让位）**：C36 仍按原始 `SyntaxNode` 引用取 plan key，
+   先行规则一旦改写即整树红节点皆新实例（M2 §6.7 实证），故 C24 对「同文件含集合表达式」整文件让位。
+   建议族评审在 `CollectionExpr/*` 改按稳定注解/`(Span, SyntaxTree)` 取键，或族入口对每条规则
+   在改写前于当前树重跑 Analyze；二者均在本 worktree 允许面外，**未实施**。
+3. **M4（sdk 画像/默认开/构造函数迁移）不在本次交付面**：CS2J0531/0537/0538 的 sdk 命中率 triage、
+   字段/属性初始化器位置的构造函数迁移、Java 半区初始化器特判下掉 PR 均登记为后续证据/消费 PR。
+
 ## 4. 跨阶段硬纪律
 
 1. 判定一律走全编译 SemanticModel/IOperation（Add 符号、init 标记、索引器 set、target-typed

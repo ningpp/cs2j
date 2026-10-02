@@ -77,6 +77,26 @@ public sealed class InitializerStatistics
     /// </summary>
     public int CoexistenceDeferredSites;
 
+    /// <summary>
+    /// Residual nodes (three kinds, decision 15) carried by sites preserved
+    /// with the explained annotation (M2-shape/diagnostic skips). Counted at
+    /// Analyze time; the whole-tree gate pairs on-disk residuals with this.
+    /// </summary>
+    public int PreservedResidualNodes;
+
+    /// <summary>
+    /// Residual nodes carried by whole-file C36-coexistence-deferred sites
+    /// (they have no annotation by design but are accounted for by count).
+    /// </summary>
+    public int DeferredResidualNodes;
+
+    /// <summary>
+    /// Total residual nodes the rule legitimately leaves on disk: explained
+    /// preserved sites plus coexistence-deferred sites. Lowered sites emit no
+    /// initializer syntax, so they contribute zero.
+    /// </summary>
+    public int PairedResidualNodes => PreservedResidualNodes + DeferredResidualNodes;
+
     // ---- Context lowering (bucket by context name) ----
 
     /// <summary>Statement-lowered sites bucketed by <see cref="InitializerContextKind"/> name.</summary>
@@ -133,6 +153,8 @@ public sealed class InitializerStatistics
         NestedCreateSites += other.NestedCreateSites;
         NestedMemberInitSites += other.NestedMemberInitSites;
         CoexistenceDeferredSites += other.CoexistenceDeferredSites;
+        PreservedResidualNodes += other.PreservedResidualNodes;
+        DeferredResidualNodes += other.DeferredResidualNodes;
         ContextLoweredSites += other.ContextLoweredSites;
         ResidualInitializerCount += other.ResidualInitializerCount;
         MergeBuckets(ContextLowered, other.ContextLowered);
