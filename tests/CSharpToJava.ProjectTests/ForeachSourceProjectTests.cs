@@ -44,6 +44,8 @@ public class ForeachSourceProjectTests
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             EqualityConcatOptionsFactory = () =>
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
+            UnsafeFfmOptionsFactory = () =>
+                new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
             LegacyToggles = toggles,
             EnablePassIds = new[] { PassId },
             VerifyBuild = verify,
@@ -177,6 +179,8 @@ public class ForeachSourceProjectTests
                 JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             EqualityConcatOptionsFactory = () =>
                 new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
+            UnsafeFfmOptionsFactory = () =>
+                new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
                 LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
                 EnablePassIds = Array.Empty<string>(),
                 VerifyBuild = false,

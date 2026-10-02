@@ -41,8 +41,6 @@ public class NumericBoundaryDecimalOpsProjectTests
             UnsafeFfmOptionsFactory = () =>
                 new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
-            EqualityConcatOptionsFactory = () =>
-                new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             LegacyToggles = PassChainFactory.BuildAllDisabledToggles(registry),
             EnablePassIds = new[] { PassId },
             EnableDecimalOps = enableDecimalOps,
