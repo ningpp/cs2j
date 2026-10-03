@@ -196,6 +196,26 @@ public static class CaptureScenarios
         inc();
         return _cs2jCap_count;
     }
+
+    // D13 self recursion: the delegate cell becomes a display-class field;
+    // the field is assigned before the first entry, so recursive calls resolve.
+    public static int RecursiveFactorial(int n)
+    {
+        Func<int, int> fact = null;
+        fact = x => x <= 1 ? 1 : x * fact(x - 1);
+        return fact(n); // 5 -> 120
+    }
+
+    // D13 mutual recursion state machine (is-even/is-odd): every delegate is
+    // assigned before either can be entered; both cells share one holder.
+    public static int MutualParity(int n)
+    {
+        Func<int, int> isEven = null;
+        Func<int, int> isOdd = null;
+        isEven = x => x == 0 ? 1 : isOdd(x - 1);
+        isOdd = x => x == 0 ? 0 : isEven(x - 1);
+        return isOdd(n); // 7 -> 1, 4 -> 0
+    }
 }
 
 /// <summary>

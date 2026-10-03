@@ -68,6 +68,9 @@ internal static class ClosureLiftCodes
     /// <summary>Lambda ConvertedType is not a resolvable delegate type; the named-method signature cannot be synthesized (D8/D12).</summary>
     public const string UnresolvableDelegateType = "CS2J4509";
 
+    /// <summary>Recursive delegate group (self or mutual recursion) cannot be proven assigned before its first reachable invocation (D13); strict Error keeps the file verbatim, downgraded to Warning when non-strict.</summary>
+    public const string RecursiveLambdaUnprovable = "CS2J4508";
+
     /// <summary>Residual gate (§7.3): statement lambdas remain in the output beyond the accounted skip buckets (M2 strict Error).</summary>
     public const string ResidualStatementGate = "CS2J4510";
 }

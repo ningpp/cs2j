@@ -49,6 +49,9 @@ public sealed class ClosureLiftStatistics
     /// <summary>Display classes carrying a parent reference (D4; always 0 until M3).</summary>
     public int NestedDisplayClasses;
 
+    /// <summary>Lambdas participating in a proven self/mutually recursive delegate group (D13).</summary>
+    public int RecursiveLambdas;
+
     /// <summary>Quoted Expression&lt;TDelegate&gt; lambdas skipped whole (D18; counted, not residual).</summary>
     public int ExpressionTreeLambdasSkipped;
 

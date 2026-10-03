@@ -61,6 +61,16 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         if (plan.Lambdas.Count == 0)
             return new ClosureStageResult(root, false);
 
+        // D13: recursive delegate groups ride the ordinary field lowering, but
+        // only when the assignment-before-entry ordering is provable; an
+        // unprovable group trips CS2J4508 and the facade keeps the file
+        // verbatim (the gate runs before any edit of this stage).
+        if (!RecursiveLambdaHandler.Validate(
+                analysisRoot, model, plan, options, diagnostics, statistics))
+        {
+            return new ClosureStageResult(root, false);
+        }
+
         // Model-tree → received-tree pairing (M1 discipline; the C32+M1 edit
         // vocabulary preserves lambda order and member-spine structure).
         if (!NamedMethodLiftStage.TryPairTrees(

@@ -45,6 +45,17 @@ public sealed class RuntimeBehaviorTests
         => Assert.Equal(4, new NestedThisHost().NestedThisWrites());
 
     [Fact]
+    public void RecursiveFactorial_ReachesSelfThroughDisplayField()
+        => Assert.Equal(120, CaptureScenarios.RecursiveFactorial(5));
+
+    [Fact]
+    public void MutualParity_BothDelegatesRecurseThroughSharedHolder()
+    {
+        Assert.Equal(1, CaptureScenarios.MutualParity(7));
+        Assert.Equal(0, CaptureScenarios.MutualParity(4));
+    }
+
+    [Fact]
     public void ForInduction_IsOneSharedCell()
         => Assert.Equal(new[] { 3, 3, 3 }, CaptureScenarios.ForRoundValues(3));
 
