@@ -1,3 +1,4 @@
+using System.Text;
 using CSharpToJava.Core.ClosedMetadata;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
@@ -6,10 +7,11 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
 /// <summary>
-/// Adapter for the closed-metadata (C30) pass. M2' skeleton: the standard spine
-/// runs (whole-tree analyze once, per-file rewrite), but the registration plan is
-/// empty so every file stays a clean byte-level copy, no files are generated and
-/// the residual scan reports zero findings (M3/M4 deliverables).
+/// Adapter for the closed-metadata (C30) pass. M3 (design §10): the collector fills
+/// the closed-type record set, the registration generator emits one
+/// <c>_Cs2jClosedTypes.&lt;ProjectName&gt;.cs</c> per owning project (A1 declaration-driven
+/// bootstrap) distributed like the generic-deepen holders, and the minimal residual
+/// gate runs. Per-file rewrites stay a clean byte-level copy (consumer linking is M4).
 /// </summary>
 internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 {
@@ -74,9 +76,12 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 
         _preprocessor.BindCompilation(compilation);
         _preprocessor.Analyze(_options);
+        _statistics.Merge(_preprocessor.Analysis.Statistics);
         if (_verbose)
         {
-            Console.WriteLine("[closed-metadata] analysis skeleton: 0 closed types registered (M2')");
+            Console.WriteLine(
+                $"[closed-metadata] analysis: {_preprocessor.Analysis.ClosedTypes.Count} closed type(s) registered, " +
+                $"{_preprocessor.Analysis.Statistics.DynamicSitesSkipped} dynamic site(s) skipped");
         }
 
         return Task.CompletedTask;
@@ -84,8 +89,8 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
-        // M2' skeleton: zero rewrites — the runner performs the clean byte-level
-        // copy for every file (BOM and line endings preserved verbatim).
+        // M3: zero rewrites — the runner performs the clean byte-level copy for every
+        // file (BOM and line endings preserved verbatim). Consumer linking is M4.
         if (_verbose)
         {
             Console.WriteLine($"[closed-metadata] clean (copy): {context.RelativePath}");
@@ -96,9 +101,117 @@ internal sealed class ClosedMetadataPassAdapter : ProjectPassAdapter
 
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
-        // M2' skeleton: no generated registration files to distribute and no
-        // residual findings yet — both land with the M3/M4 wiring (design §5.3).
+        DistributeRegistrationFiles(tree);
+        RunResidualGate();
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Registration-file ownership = declaring project (design D6): the project that
+    /// compiles the file containing the discovery site gets the registration file;
+    /// every other usage reaches the closed types through project references.
+    /// </summary>
+    private void DistributeRegistrationFiles(PassTreeContext tree)
+    {
+        var records = _preprocessor.Analysis.ClosedTypes;
+        if (records.Count == 0)
+        {
+            return;
+        }
+
+        var layout = tree.Layout;
+        var intermediateRoot = tree.IntermediateRoot;
+        var sourceRoot = tree.SourceRoot;
+        var exclusionInfo = tree.Exclusion;
+
+        var projectFiles = layout.ProjectFiles
+            .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+            .Where(file => !SupportedProjectFiltering.IsUnderExcludedProject(file, exclusionInfo))
+            .ToList();
+
+        var recordsByProject = new Dictionary<string, IReadOnlyList<ClosedTypeRecord>>(StringComparer.OrdinalIgnoreCase);
+        var projectFilePathByProject = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var projectFile in projectFiles)
+        {
+            var intermediateProjectFile = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, projectFile));
+            var compiled = ProjectCompileSet.ComputeCompiledFiles(intermediateProjectFile, intermediateRoot);
+            if (compiled == null)
+            {
+                continue;
+            }
+
+            foreach (var record in records)
+            {
+                var recordPath = GeneratedFileWiring.ToIntermediatePath(
+                    record.DeclaringFilePath, sourceRoot, intermediateRoot);
+                if (!compiled.Contains(recordPath))
+                {
+                    continue;
+                }
+
+                var projectName = Path.GetFileNameWithoutExtension(projectFile);
+                if (recordsByProject.TryGetValue(projectName, out var owned))
+                {
+                    recordsByProject[projectName] = owned.Append(record).ToList();
+                }
+                else
+                {
+                    recordsByProject[projectName] = [record];
+                    projectFilePathByProject[projectName] = projectFile;
+                }
+            }
+        }
+
+        if (recordsByProject.Count == 0)
+        {
+            _diagnostics.Add(new ClosedMetadataDiagnostic(
+                ClosedMetadataSeverity.Warning,
+                ClosedMetadataRule.Enumeration,
+                ClosedMetadataCodes.PlanNotSelfContained,
+                $"{records.Count} closed type(s) could not be mapped to a declaring project; no registration file was generated.",
+                sourceRoot));
+            return;
+        }
+
+        var files = _preprocessor.GenerateRegistrationFiles(recordsByProject);
+        foreach (var file in files)
+        {
+            var projectFile = projectFilePathByProject[file.ProjectName];
+            var intermediateProjectFile = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, projectFile));
+            var rootPath = Path.Combine(intermediateRoot, file.FileName);
+            File.WriteAllText(rootPath, file.Content, new UTF8Encoding(false));
+            GeneratedFileWiring.EnsureCompileItem(
+                intermediateProjectFile,
+                file.FileName,
+                Path.GetDirectoryName(intermediateProjectFile)!,
+                rootPath);
+            _statistics.RegisterFilesGenerated++;
+
+            if (_verbose)
+            {
+                Console.WriteLine($"[closed-metadata] {file.ProjectName}: {file.FileName} generated");
+            }
+        }
+    }
+
+    /// <summary>M3 minimal residual gate: duplicate/conflicting registration keys in the generated files (§5.4 rules 2/5).</summary>
+    private void RunResidualGate()
+    {
+        var files = _preprocessor.GeneratedFileSpecs;
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        var residual = _preprocessor.ResidualScan(files);
+        foreach (var (rule, count) in residual.Counts)
+        {
+            _statistics.ResidualsByRule[rule] = count;
+        }
+
+        _diagnostics.AddRange(residual.Diagnostics);
     }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)

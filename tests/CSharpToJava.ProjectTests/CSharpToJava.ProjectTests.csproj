@@ -179,6 +179,12 @@
       <Link>SampleGenericDeepenSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- C30 closed-metadata fixture (bin/obj excluded: may have been built locally). -->
+    <Content Include="..\SampleClosedMetadataSolution\**\*.*"
+              Exclude="..\SampleClosedMetadataSolution\**\bin\**;..\SampleClosedMetadataSolution\**\obj\**">
+      <Link>SampleClosedMetadataSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
