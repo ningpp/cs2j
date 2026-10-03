@@ -398,10 +398,11 @@ VarianceAudit/
 
 - 分支：`feature/preproc-c33-variance-audit`
 - 目录：`.worktrees/preproc-c33-variance-audit`（`.worktrees/` 已在 [.gitignore#L77-L85](file:///d:/code/cs2j/.gitignore#L77-L85) 忽略）
-- base：`953293b9`（`docs: update doc base commit`，已只读核验存在：`953293b908e9143437c45f287fb4277e890c398e`）
+- base：`d2b835a7`（2026-10-03 更新为 dev-3.x-26100311 最新提交，`docs(c29): worktree base 更新至 dev-3.x-26100311 HEAD=dcda0151（worktree 已按此 base 直接创建）`；已只读核验存在：`d2b835a7eb9cb38dd72dae0cd435997196b61858`；worktree 按此 base 直接创建，无需建树后 rebase——附录⑧原「base `953293b9` + 建树后 rebase 到当时 dev-3.x HEAD」流程由本次直接建树替代）
+- 创建命令（更新后）：
 
 ```powershell
-git worktree add .worktrees/preproc-c33-variance-audit -b feature/preproc-c33-variance-audit 953293b9
+git worktree add .worktrees/preproc-c33-variance-audit -b feature/preproc-c33-variance-audit d2b835a7
 ```
 
 ---
