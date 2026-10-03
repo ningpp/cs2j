@@ -156,6 +156,15 @@ public class ProjectPreprocessorsConsistentTests
                 PassCatalog.ImplementedById(PassIds.MemberDesugar).IntermediateDirectoryName);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.MemberDesugarPassAdapter));
 
+            // extension-methods (C19) M0：无门面类，目录常量挂在 CLI 适配器上；
+            // 默认关（M0 空转骨架），经 --enable-pass extension-methods 开启。
+            Assert.Equal(".cs2j-extension-methods-src",
+                CSharpToJava.CLI.Preprocessing.Adapters.ExtensionMethodResolvePassAdapter.IntermediateDirectoryName);
+            Assert.Equal(".cs2j-extension-methods-src",
+                PassCatalog.ImplementedById(PassIds.ExtensionMethods).IntermediateDirectoryName);
+            Assert.False(PassCatalog.ImplementedById(PassIds.ExtensionMethods).DefaultEnabled);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.ExtensionMethodResolvePassAdapter));
+
             // struct-value-semantics (C07)：无门面类（设计决定），目录常量挂在注册表描述符上；
             // 默认开，可经 --disable-pass struct-value-semantics 关闭。
             Assert.Equal(".cs2j-struct-value-semantics-src",

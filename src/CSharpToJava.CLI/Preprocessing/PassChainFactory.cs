@@ -5,6 +5,7 @@ using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ExpressionDesugar;
+using CSharpToJava.Core.ExtensionMethodResolve;
 using CSharpToJava.Core.ForeachDeconstruction;
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.GenericPreprocess;
@@ -365,6 +366,16 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests,
                 config.Strict),
+
+            // C19 has no convert-project legacy toggle; the descriptor default
+            // (off) drives it and --enable-pass extension-methods opts in.
+            PassIds.ExtensionMethods => new ExtensionMethodResolvePassAdapter(
+                new ExtensionMethodResolveOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
 
             // convert-project historically ran goto with Strict=false.
             PassIds.EliminateGoto => new GotoPassAdapter(

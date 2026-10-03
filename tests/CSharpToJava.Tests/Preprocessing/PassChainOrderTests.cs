@@ -46,6 +46,10 @@ public sealed class PassChainOrderTests
         PassStubCatalog.Ids.UnsafeFfm,
         PassStubCatalog.Ids.ClosureLift,
         PassStubCatalog.Ids.IteratorLowering,
+        // C19 M0：extension-methods 翻转 Implemented 但默认关；七锚（delegate/
+        // tuple/ref-out-in/unsigned/array-method/make-readonly/iterator-lowering）
+        // 保证它在 iterator-lowering 之后、eliminate-goto 之前的固定槽位。
+        PassIds.ExtensionMethods,
         PassIds.EliminateGoto,
         // C32 翻转的拓扑副作用：member-desugar 的 RunAfter closure-lift 进入
         // implemented 区后，它与只依赖 tuple 的 equality-concat 在 Kahn
@@ -56,12 +60,15 @@ public sealed class PassChainOrderTests
     ];
 
     // lexical-normalize / partial-merge land Implemented/default-off (gated);
-    // closure-lift ships M2 default-off pending the M3 enable-by-default review.
+    // closure-lift ships M2 default-off pending the M3 enable-by-default review;
+    // extension-methods (C19) ships M0 as a verified no-op kept default-off until
+    // the M3 enable-by-default gate (design §8).
     private static readonly string[] EnabledByDefault =
         LockedChain.Where(id =>
             id != PassStubCatalog.Ids.LexicalNormalize
             && id != PassStubCatalog.Ids.PartialMerge
-            && id != PassStubCatalog.Ids.ClosureLift).ToArray();
+            && id != PassStubCatalog.Ids.ClosureLift
+            && id != PassIds.ExtensionMethods).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -407,7 +414,8 @@ public sealed class PassChainOrderTests
                 && id != PassStubCatalog.Ids.ExpressionDesugar
                 && id != PassStubCatalog.Ids.LexicalNormalize
                 && id != PassStubCatalog.Ids.PartialMerge
-                && id != PassStubCatalog.Ids.ClosureLift)
+                && id != PassStubCatalog.Ids.ClosureLift
+                && id != PassIds.ExtensionMethods)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

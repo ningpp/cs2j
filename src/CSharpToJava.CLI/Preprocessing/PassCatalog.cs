@@ -27,6 +27,7 @@ internal static class PassIds
     public const string EliminateGoto = "eliminate-goto";
     public const string MemberDesugar = "member-desugar";
     public const string JavaKeywords = "java-keywords";
+    public const string ExtensionMethods = "extension-methods";
 }
 
 /// <summary>
@@ -358,6 +359,32 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Lower C# iterator methods into explicit state machine classes.",
             catalogItems: "C04"),
+        new(
+            PassIds.ExtensionMethods,
+            "Extension method explicitness",
+            Adapters.ExtensionMethodResolvePassAdapter.IntermediateDirectoryName,
+            PassStage.Expression,
+            PassStatus.Implemented,
+            // Opt-in for the initial implementation; flips to default-on after design §8 gates.
+            defaultEnabled: false,
+            // Five support-visibility anchors (delegate/tuple/ref-out-in/unsigned/array-method)
+            // plus EM-ORDER (appendix ruling 1): make-readonly and iterator-lowering both
+            // consume reduced sugar shapes and must run before this pass.
+            runAfterIds: new[]
+            {
+                PassIds.Delegate,
+                PassIds.Tuple,
+                PassIds.RefOutIn,
+                PassIds.Unsigned,
+                PassIds.ArrayMethod,
+                PassIds.MakeReadonly,
+                PassStubCatalog.Ids.IteratorLowering,
+            },
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Explicitize extension method calls to static host calls (x.M(a) -> global::Host.M(x, a)); LINQ hosts excluded.",
+            catalogItems: "C19"),
         new(
             PassIds.EliminateGoto,
             "Eliminate goto",

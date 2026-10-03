@@ -32,7 +32,8 @@ internal static class PassStubCatalog
         public const string NumericBoundary = "numeric-boundary";
         public const string ThreadStatic = "thread-static";
         public const string AttributeNormalize = "attribute-normalize";
-        public const string ExtensionMethods = "extension-methods";
+        // Ids.ExtensionMethods flipped to Implemented in PassCatalog (C19 M0);
+        // the id constant moved to PassIds (generic-deepen/member-desugar precedent).
         public const string ExtensionMembers = "extension-members";
         public const string EqualityConcat = "equality-concat";
         public const string LinqChannel = "linq-channel";
@@ -98,23 +99,9 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.GenericDeepen },
             description: "Normalize attributes including the Caller* info family and P/Invoke annotations.",
             catalogItems: "C10"),
-        new(
-            Ids.ExtensionMethods,
-            "Extension method rewrite",
-            ".cs2j-extension-methods-src",
-            PassStage.Expression,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[]
-            {
-                PassIds.Delegate,
-                PassIds.Tuple,
-                PassIds.RefOutIn,
-                PassIds.Unsigned,
-                PassIds.ArrayMethod,
-            },
-            description: "Rewrite extension methods after every support-library-injecting pass.",
-            catalogItems: "C19"),
+        // Ids.ExtensionMethods flipped to Implemented in PassCatalog (C19 M0);
+        // the descriptor (five anchors + make-readonly + iterator-lowering)
+        // lives there and no stub entry remains.
         new(
             Ids.ExtensionMembers,
             "C# 14 extension member rewrite",
@@ -122,7 +109,7 @@ internal static class PassStubCatalog
             PassStage.Declarative,
             PassStatus.Stub,
             defaultEnabled: false,
-            runAfterIds: new[] { Ids.ExtensionMethods },
+            runAfterIds: new[] { PassIds.ExtensionMethods },
             description: "Rewrite C# 14 extension blocks (extension properties/operators/static extensions) back to classic static classes with explicit static members.",
             catalogItems: "C49"),
         new(
@@ -132,7 +119,7 @@ internal static class PassStubCatalog
             PassStage.ControlFlow,
             PassStatus.Stub,
             defaultEnabled: false,
-            runAfterIds: new[] { Ids.ExtensionMethods, Ids.AnonymousTypeLift },
+            runAfterIds: new[] { PassIds.ExtensionMethods, Ids.AnonymousTypeLift },
             description: "Channel LINQ usage, including the IQueryable three-way routing acceptance gate.",
             catalogItems: "C26"),
         new(
