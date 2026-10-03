@@ -326,45 +326,7 @@ public static class PlatformIsolationReportBuilder
     }
 
     private static PlatformIsolationSuppressEntry? FindSuppressEntry(PlatformIsolationConfig? config, BoundarySite site)
-    {
-        if (config?.Suppress == null)
-        {
-            return null;
-        }
-
-        foreach (var entry in config.Suppress)
-        {
-            if (Matches(entry, site))
-            {
-                return entry;
-            }
-        }
-
-        return null;
-    }
-
-    private static bool Matches(PlatformIsolationSuppressEntry entry, BoundarySite site)
-    {
-        if (!string.IsNullOrEmpty(entry.File) && !string.Equals(entry.File, site.File, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (entry.Span is { Length: 2 }
-            && (entry.Span[0] != site.SpanStart || entry.Span[1] != site.SpanEnd))
-        {
-            return false;
-        }
-
-        if (!string.IsNullOrEmpty(entry.Family)
-            && !string.Equals(entry.Family, site.Family.ToString(), StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(entry.Family, ToCamelCase(site.Family.ToString()), StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        return true;
-    }
+        => PlatformIsolationConfigMatcher.FindSuppressEntry(config, site);
 
     private static PlatformIsolationDiagnostic BuildSuppressedDiagnostic(
         BoundarySite site,
@@ -383,11 +345,68 @@ public static class PlatformIsolationReportBuilder
     }
 
     private static string SuppressKey(PlatformIsolationSuppressEntry entry)
+        => PlatformIsolationConfigMatcher.SuppressKey(entry);
+
+    internal static string ToCamelCase(string value)
+        => string.IsNullOrEmpty(value) ? value : char.ToLowerInvariant(value[0]) + value[1..];
+}
+
+/// <summary>
+/// Config suppress 键匹配（设计 §4.4/§4.6）：(file, span, family) 三元组。
+/// Report 构建与 apply 计划共用，避免口径漂移（C42 M2）。
+/// </summary>
+internal static class PlatformIsolationConfigMatcher
+{
+    public static PlatformIsolationSuppressEntry? FindSuppressEntry(
+        PlatformIsolationConfig? config,
+        BoundarySite site)
+    {
+        if (config?.Suppress == null)
+        {
+            return null;
+        }
+
+        foreach (var entry in config.Suppress)
+        {
+            if (Matches(entry, site))
+            {
+                return entry;
+            }
+        }
+
+        return null;
+    }
+
+    public static bool Matches(PlatformIsolationSuppressEntry entry, BoundarySite site)
+    {
+        if (!string.IsNullOrEmpty(entry.File)
+            && !string.Equals(entry.File, site.File, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (entry.Span is { Length: 2 }
+            && (entry.Span[0] != site.SpanStart || entry.Span[1] != site.SpanEnd))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrEmpty(entry.Family)
+            && !string.Equals(entry.Family, site.Family.ToString(), StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(entry.Family, Camel(site.Family.ToString()), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static string SuppressKey(PlatformIsolationSuppressEntry entry)
     {
         var span = entry.Span is { Length: 2 } ? $"{entry.Span[0]}-{entry.Span[1]}" : "*";
         return $"{entry.File ?? "*"}|{span}|{entry.Family ?? "*"}";
     }
 
-    internal static string ToCamelCase(string value)
+    private static string Camel(string value)
         => string.IsNullOrEmpty(value) ? value : char.ToLowerInvariant(value[0]) + value[1..];
 }

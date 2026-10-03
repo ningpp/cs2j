@@ -75,9 +75,10 @@ internal static class PlatformIsolationActionResolver
 {
     public static PlatformIsolationAction Resolve(
         BoundarySite site,
-        PlatformIsolationDefaultAction? policyOverride = null)
+        PlatformIsolationDefaultAction? policyOverride = null,
+        bool suppressedByConfig = false)
     {
-        if (site.Exemption == BoundaryExemption.CompatMapping)
+        if (suppressedByConfig || site.Exemption == BoundaryExemption.CompatMapping)
         {
             return PlatformIsolationAction.Suppressed;
         }

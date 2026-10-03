@@ -211,17 +211,18 @@ public class PlatformIsolationUnitTests
     }
 
     [Fact]
-    public void Inventory_SkipsGeneratedAssemblyInfoFile_ForGuardAttributes()
+    public void Inventory_RegistersAssemblyInfoGuardAttributes_AsAssemblyInfoExemption()
     {
         var inventory = BuildInventory(
             "obj/Debug/net8.0-windows/Test.AssemblyInfo.cs",
             "using System.Runtime.Versioning; [assembly: SupportedOSPlatform(\"windows\")] class Test { }");
 
-        Assert.DoesNotContain(inventory.Sites, site => site.Code == "CS2J3101");
+        var site = Assert.Single(inventory.Sites, s => s.Code == "CS2J3101");
+        Assert.Equal(BoundaryExemption.AssemblyInfo, site.Exemption);
     }
 
     [Fact]
-    public void Inventory_SkipsNativeMethodsFile_ForNativeInterop()
+    public void Inventory_RegistersNativeMethodsFile_AsNativeMethodsExemption()
     {
         var inventory = BuildInventory("NativeMethods.cs", """
             using System.Runtime.InteropServices;
@@ -231,7 +232,10 @@ public class PlatformIsolationUnitTests
             }
             """);
 
-        Assert.DoesNotContain(inventory.Sites, site => site.Category == "native-interop");
+        Assert.Contains(inventory.Sites, site => site.Category == "native-interop");
+        Assert.All(
+            inventory.Sites.Where(site => site.Category == "native-interop"),
+            site => Assert.Equal(BoundaryExemption.NativeMethods, site.Exemption));
     }
 
     [Fact]
@@ -390,7 +394,9 @@ public class PlatformIsolationUnitTests
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "PI001");
         Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "PI070");
 
-        Assert.Null(preprocessor.RewriteFile("P.cs", "class C { }"));
+        var rewrite = preprocessor.RewriteFile("P.cs", "class C { }");
+        Assert.False(rewrite.Changed);
+        Assert.Equal("class C { }", rewrite.OutputCode);
     }
 
     [Fact]

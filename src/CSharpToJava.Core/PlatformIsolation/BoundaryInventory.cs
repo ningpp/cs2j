@@ -143,56 +143,56 @@ internal static class BoundaryInventoryBuilder
                     confidence);
             }
 
-            // 平台服务 / OS 探针：AssemblyInfo 整文件跳过 CS2J3101（现状语义）。
-            if (!BoundaryAnalysisHelpers.IsGeneratedAssemblyInfoFile(filePath))
+            // 平台服务 / OS 探针。M2：AssemblyInfo 文件由「跳过」改为「登记」
+            // （Exemption=AssemblyInfo，供 apply 档擦除），CheckPass 的现状跳过不变。
+            var isAssemblyInfo = BoundaryAnalysisHelpers.IsGeneratedAssemblyInfoFile(filePath);
+            foreach (var diagnostic in PlatformBoundaryAnalyzer.AnalyzeSyntaxTree(
+                         syntaxTree,
+                         semanticModel,
+                         shouldDowngradeTestPlatformProbes: isTestProject))
             {
-                foreach (var diagnostic in PlatformBoundaryAnalyzer.AnalyzeSyntaxTree(
-                             syntaxTree,
-                             semanticModel,
-                             shouldDowngradeTestPlatformProbes: isTestProject))
-                {
-                    var identity = ExtractQuotedIdentity(diagnostic.Message);
-                    var family = ClassifyPlatformFamily(diagnostic.Code, diagnostic.Message, identity);
-                    var exemption = diagnostic.Severity == CoreDiagnosticSeverity.Warning
+                var identity = ExtractQuotedIdentity(diagnostic.Message);
+                var family = ClassifyPlatformFamily(diagnostic.Code, diagnostic.Message, identity);
+                var exemption = isAssemblyInfo
+                    ? BoundaryExemption.AssemblyInfo
+                    : diagnostic.Severity == CoreDiagnosticSeverity.Warning
                         ? BoundaryExemption.TestProbeWarning
                         : BoundaryExemption.None;
-                    AddSite(
-                        sites,
-                        seen,
-                        syntaxTree,
-                        root,
-                        diagnostic,
-                        filePath,
-                        family,
-                        exemption,
-                        DefaultActionFor(family),
-                        confidence);
-                }
+                AddSite(
+                    sites,
+                    seen,
+                    syntaxTree,
+                    root,
+                    diagnostic,
+                    filePath,
+                    family,
+                    exemption,
+                    DefaultActionFor(family),
+                    confidence);
             }
 
-            // 原生互操作：NativeMethods.cs 整文件跳过（现状语义）。
-            if (!BoundaryAnalysisHelpers.IsPInvokeContainerFile(filePath))
+            // 原生互操作。M2：NativeMethods.cs 文件豁免不再伪装成跳过，登记为
+            // Exemption=NativeMethods 的 Reject 站点（D8/§7.4 不允许文件名逃生口）。
+            var isNativeMethods = BoundaryAnalysisHelpers.IsPInvokeContainerFile(filePath);
+            foreach (var diagnostic in NativeInteropAnalyzer.AnalyzeSyntaxTree(syntaxTree, semanticModel))
             {
-                foreach (var diagnostic in NativeInteropAnalyzer.AnalyzeSyntaxTree(syntaxTree, semanticModel))
+                var family = diagnostic.Code switch
                 {
-                    var family = diagnostic.Code switch
-                    {
-                        "CS2J3201" => BoundaryFamily.NativeAttribute,
-                        "CS2J3203" => BoundaryFamily.ExternMethod,
-                        _ => BoundaryFamily.NativeType,
-                    };
-                    AddSite(
-                        sites,
-                        seen,
-                        syntaxTree,
-                        root,
-                        diagnostic,
-                        filePath,
-                        family,
-                        BoundaryExemption.None,
-                        DefaultActionFor(family),
-                        confidence);
-                }
+                    "CS2J3201" => BoundaryFamily.NativeAttribute,
+                    "CS2J3203" => BoundaryFamily.ExternMethod,
+                    _ => BoundaryFamily.NativeType,
+                };
+                AddSite(
+                    sites,
+                    seen,
+                    syntaxTree,
+                    root,
+                    diagnostic,
+                    filePath,
+                    family,
+                    isNativeMethods ? BoundaryExemption.NativeMethods : BoundaryExemption.None,
+                    DefaultActionFor(family),
+                    confidence);
             }
         }
 

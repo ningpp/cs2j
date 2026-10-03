@@ -1,13 +1,35 @@
+using CSharpToJava.Core.Context;
+using CSharpToJava.Core.Pipeline;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using CoreDiagnosticSeverity = CSharpToJava.Core.Context.DiagnosticSeverity;
 
 namespace CSharpToJava.Core.PlatformIsolation;
 
+/// <summary>单文件 apply 结果（Changed=false 即字节复制）。</summary>
+public sealed class PlatformIsolationFileResult
+{
+    public required string FilePath { get; init; }
+    public required bool Changed { get; init; }
+    public required string OutputCode { get; init; }
+    public required IReadOnlyList<PlatformIsolationDiagnostic> Diagnostics { get; init; }
+}
+
+/// <summary>批量 apply 结果（含生成文件元组与 residual 闸门，设计 §3.4）。</summary>
+public sealed class PlatformIsolationApplyResult
+{
+    public required IReadOnlyList<PlatformIsolationFileResult> Files { get; init; }
+    public required IReadOnlyList<GeneratedFile> GeneratedFiles { get; init; }
+    public required IReadOnlyList<PlatformIsolationDiagnostic> Diagnostics { get; init; }
+    public required PlatformIsolationStatistics Statistics { get; init; }
+    public required int ResidualCount { get; init; }
+    public required bool HasErrors { get; init; }
+}
+
 /// <summary>
-/// platform-isolation 门面（设计 §4 组件表）。M1 只做审计：<see cref="BindCompilation"/>
-/// 绑定整树，<see cref="BuildInventory"/> 整树一次缓存，<see cref="BuildReport"/>
-/// 产出报告模型 + PI0xx 诊断 + 统计。apply 相关钩子（<see cref="RewriteFile"/>/
-/// <see cref="CloseReport"/>）保留最小接口，Report 模式不产生任何字节改写
-/// （M1 零行为变化；M2/M3 的 IsolationPlan/StubGenerator/FacadeGenerator 未实现）。
+/// platform-isolation 门面（设计 §4 组件表）。Report 模式只审计；M2 apply 模式
+/// （Reject/Stub/Facade）走 IsolationPlan + StubGenerator + residual 闸门。<see cref="RewriteFile"/>
+/// 供适配器标准 spine 逐文件调用，<see cref="RewriteAll"/> 供整树内存批处理与单测。
 /// </summary>
 public sealed class PlatformIsolationPreprocessor
 {
@@ -18,6 +40,9 @@ public sealed class PlatformIsolationPreprocessor
     private PlatformIsolationConfig? _config;
     private bool _configLoaded;
     private BoundaryInventory? _inventory;
+    private IsolationPlan? _plan;
+    private readonly List<GeneratedFile> _generatedFiles = [];
+    private bool _probeShimEmitted;
 
     public Compilation? Compilation => _compilation;
 
@@ -33,6 +58,9 @@ public sealed class PlatformIsolationPreprocessor
         }
     }
 
+    /// <summary>已累积的生成文件元组（相对路径, 文本）。</summary>
+    public IReadOnlyList<GeneratedFile> GeneratedFiles => _generatedFiles;
+
     public void BindCompilation(
         Compilation compilation,
         PlatformIsolationOptions? options = null,
@@ -44,8 +72,11 @@ public sealed class PlatformIsolationPreprocessor
         _isTestProject = isTestProject;
         _compatNamespacePrefixes = compatNamespacePrefixes;
         _inventory = null;
+        _plan = null;
         _config = null;
         _configLoaded = false;
+        _generatedFiles.Clear();
+        _probeShimEmitted = false;
     }
 
     /// <summary>整树一次缓存构建清单（含配置 allowlist 合并后的 compat 前缀）。</summary>
@@ -68,7 +99,20 @@ public sealed class PlatformIsolationPreprocessor
         return _inventory;
     }
 
-    /// <summary>构建报告（应用配置 policy/suppress；发射 PI001/060/061/070/090）。</summary>
+    /// <summary>整树一次缓存裁决动作表（设计 §4.7）。</summary>
+    public IsolationPlan BuildIsolationPlan()
+    {
+        if (_plan != null)
+        {
+            return _plan;
+        }
+
+        EnsureConfigLoaded();
+        _plan = IsolationPlanner.Build(BuildInventory(), _options, _config);
+        return _plan;
+    }
+
+    /// <summary>Report 模式报告（应用配置 policy/suppress；发射 PI001/060/061/070/090）。</summary>
     public PlatformIsolationReportBuildResult BuildReport()
     {
         EnsureConfigLoaded();
@@ -76,19 +120,213 @@ public sealed class PlatformIsolationPreprocessor
     }
 
     /// <summary>
-    /// M1 Report 模式恒返回 null（字节复制）。M2/M3 apply 模式在此接入
-    /// IsolationPlan + Generator 链；本里程碑不实现。
+    /// 单文件 apply（供适配器逐文件调用）。Report 模式恒不变；Reject 模式不改写、
+    /// 对每个 Reject/Facade 站点发 PI030 Error；Stub/Facade 模式执行桩生成。
     /// </summary>
-    public string? RewriteFile(string filePath, string sourceText)
+    public PlatformIsolationFileResult RewriteFile(
+        string filePath,
+        string sourceText,
+        SemanticModel? semanticModel = null)
     {
-        _ = filePath;
-        _ = sourceText;
-        return null;
+        EnsureConfigLoaded();
+        var plan = BuildIsolationPlan();
+        var actions = plan.ForFile(filePath).ToList();
+        var diagnostics = new List<PlatformIsolationDiagnostic>();
+
+        if (_options.Mode == PlatformIsolationMode.Report || actions.Count == 0)
+        {
+            return Unchanged(filePath, sourceText, diagnostics);
+        }
+
+        foreach (var action in actions)
+        {
+            if (action.Action == PlatformIsolationAction.Reject)
+            {
+                diagnostics.Add(BuildRejectDiagnostic(action, filePath));
+            }
+            else if (action.Action == PlatformIsolationAction.Facade)
+            {
+                diagnostics.Add(new PlatformIsolationDiagnostic(
+                    PlatformIsolationDiagnosticCodes.RejectExecuted,
+                    CoreDiagnosticSeverity.Error,
+                    $"Facade isolation for '{action.Site.Identity}' at " +
+                    $"{filePath}({action.Site.Line + 1},{action.Site.Column}) is not implemented until C42 M3.",
+                    filePath));
+            }
+            else if (action.Action == PlatformIsolationAction.Suppressed && action.ConfigMatch != null)
+            {
+                diagnostics.Add(new PlatformIsolationDiagnostic(
+                    PlatformIsolationDiagnosticCodes.ConfigSuppressed,
+                    _options.Strict ? CoreDiagnosticSeverity.Warning : CoreDiagnosticSeverity.Info,
+                    $"Platform boundary site '{action.Site.Identity}' at " +
+                    $"{filePath}({action.Site.Line + 1},{action.Site.Column}) suppressed by config.",
+                    filePath));
+            }
+        }
+
+        if (_options.Mode == PlatformIsolationMode.Reject)
+        {
+            return Unchanged(filePath, sourceText, diagnostics);
+        }
+
+        var isAssemblyInfo = BoundaryAnalysisHelpers.IsGeneratedAssemblyInfoFile(filePath);
+        var rewrite = StubGenerator.Rewrite(filePath, sourceText, semanticModel, plan, isAssemblyInfo);
+        diagnostics.AddRange(rewrite.Diagnostics);
+
+        if (rewrite.ProbeRedirected)
+        {
+            EnsureProbeShim();
+        }
+
+        return new PlatformIsolationFileResult
+        {
+            FilePath = filePath,
+            Changed = rewrite.Changed,
+            OutputCode = rewrite.OutputCode,
+            Diagnostics = diagnostics,
+        };
     }
 
-    /// <summary>M1 无跨文件产物可收口；M2/M3 在此分发 generated/ 文件。</summary>
-    public void CloseReport()
+    /// <summary>
+    /// 整树内存批处理（单测 + 适配器批处理入口）：逐树 apply → residual 闸门。
+    /// </summary>
+    public PlatformIsolationApplyResult RewriteAll()
     {
+        if (_compilation == null)
+        {
+            throw new InvalidOperationException(
+                "BindCompilation must be called before RewriteAll.");
+        }
+
+        EnsureConfigLoaded();
+        var plan = BuildIsolationPlan();
+        var files = new List<PlatformIsolationFileResult>();
+        var diagnostics = new List<PlatformIsolationDiagnostic>();
+
+        foreach (var tree in _compilation.SyntaxTrees)
+        {
+            var text = tree.GetText().ToString();
+            var model = _compilation.GetSemanticModel(tree);
+            var result = RewriteFile(tree.FilePath ?? string.Empty, text, model);
+            files.Add(result);
+            diagnostics.AddRange(result.Diagnostics);
+        }
+
+        foreach (var stale in plan.StaleConfigEntries)
+        {
+            diagnostics.Add(new PlatformIsolationDiagnostic(
+                PlatformIsolationDiagnosticCodes.StaleConfigEntry,
+                CoreDiagnosticSeverity.Warning,
+                $"Stale platform-isolation config entry (no matching site): {stale}."));
+        }
+
+        var residualCount = 0;
+        if (_options.Mode is PlatformIsolationMode.Stub or PlatformIsolationMode.Facade)
+        {
+            var outputCompilation = BuildOutputCompilation(files);
+            var gate = PlatformResidualGate.Scan(outputCompilation, IsGeneratedPath, _config);
+            residualCount = gate.ResidualCount;
+            diagnostics.AddRange(gate.Diagnostics);
+        }
+
+        var hasErrors = diagnostics.Any(d => d.Severity == CoreDiagnosticSeverity.Error)
+                        || residualCount > 0;
+
+        return new PlatformIsolationApplyResult
+        {
+            Files = files,
+            GeneratedFiles = _generatedFiles.ToList(),
+            Diagnostics = diagnostics,
+            Statistics = plan.Statistics,
+            ResidualCount = residualCount,
+            HasErrors = hasErrors,
+        };
+    }
+
+    /// <summary>M2 收口：返回累积的生成文件（供适配器 AfterFiles 分发）。</summary>
+    public IReadOnlyList<GeneratedFile> CloseReport() => _generatedFiles.ToList();
+
+    public bool HasErrors { get; private set; }
+
+    private PlatformIsolationFileResult Unchanged(
+        string filePath,
+        string sourceText,
+        IReadOnlyList<PlatformIsolationDiagnostic> diagnostics)
+    {
+        MarkErrors(diagnostics);
+        return new PlatformIsolationFileResult
+        {
+            FilePath = filePath,
+            Changed = false,
+            OutputCode = sourceText,
+            Diagnostics = diagnostics,
+        };
+    }
+
+    private void MarkErrors(IReadOnlyList<PlatformIsolationDiagnostic> diagnostics)
+    {
+        if (diagnostics.Any(d => d.Severity == CoreDiagnosticSeverity.Error))
+        {
+            HasErrors = true;
+        }
+    }
+
+    private static PlatformIsolationDiagnostic BuildRejectDiagnostic(IsolationAction action, string filePath)
+        => new(
+            PlatformIsolationDiagnosticCodes.RejectExecuted,
+            CoreDiagnosticSeverity.Error,
+            $"Reject {action.Site.Code} '{action.Site.Identity}' at " +
+            $"{filePath}({action.Site.Line + 1},{action.Site.Column}): {action.Reason}; " +
+            "provide a compat mapping, a manual port, or a config suppress entry " +
+            "(interop whitelist belongs to C06).",
+            filePath);
+
+    private void EnsureProbeShim()
+    {
+        if (_probeShimEmitted)
+        {
+            return;
+        }
+
+        _probeShimEmitted = true;
+        _generatedFiles.Add(new GeneratedFile
+        {
+            RelativePath = "generated/" + StubGenerator.ProbeShimFileName,
+            Content = StubGenerator.BuildProbeShim(),
+        });
+    }
+
+    private static bool IsGeneratedPath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return false;
+        }
+
+        var normalized = path.Replace('\\', '/');
+        return normalized.Contains("/generated/", StringComparison.Ordinal)
+               || normalized.EndsWith(".g.cs", StringComparison.Ordinal);
+    }
+
+    private CSharpCompilation BuildOutputCompilation(IReadOnlyList<PlatformIsolationFileResult> files)
+    {
+        var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Latest);
+        var trees = new List<SyntaxTree>();
+        foreach (var file in files)
+        {
+            trees.Add(CSharpSyntaxTree.ParseText(file.OutputCode, parseOptions, path: file.FilePath));
+        }
+
+        foreach (var generated in _generatedFiles)
+        {
+            trees.Add(CSharpSyntaxTree.ParseText(generated.Content, parseOptions, path: generated.RelativePath));
+        }
+
+        return CSharpCompilation.Create(
+            "platform-isolation-output",
+            trees,
+            ProjectCompilationBuilder.GetMetadataReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
     }
 
     private void EnsureConfigLoaded()
