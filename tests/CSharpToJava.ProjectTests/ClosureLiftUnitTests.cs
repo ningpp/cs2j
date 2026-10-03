@@ -401,7 +401,7 @@ class C {
     // ── M2 transform tests (design §7.1) ──
 
     [Fact]
-    public void Transform_ReadOnlyCapture_UnchangedAndClean()
+    public void Transform_ReadOnlyCapture_NewDisplayClass_FieldSnapshot_ExternalLocalKept()
     {
         var src = @"
 class C {
@@ -413,10 +413,23 @@ class C {
 }";
         var r = Transform(src);
 
-        Assert.False(r.Changed);
-        Assert.Equal(src, r.OutputCode);
-        Assert.Equal(1, r.Statistics.FilesSkippedClean);
-        Assert.Equal(0, r.Statistics.FilesTransformed);
+        // D5: a zero-write-site capture gets a fresh display class; the lambda
+        // body reads the snapshot field while external sites keep the local.
+        Assert.True(r.Changed);
+        Assert.Equal(1, r.Statistics.DisplayClassesGenerated);
+        Assert.Equal(1, r.Statistics.HolderInstancesGenerated);
+        Assert.Equal(0, r.Statistics.CapturesLifted); // read-only is not a C32 mutable lift
+        Assert.Contains("int x = 41;", r.OutputCode);
+        Assert.Contains("var __cs2jClosure0 = new Cs2jDisplayClass_M_0();", r.OutputCode);
+        Assert.Contains("__cs2jClosure0._cs2jCap_x = x;", r.OutputCode);
+        Assert.Contains("public int _cs2jCap_x;", r.OutputCode);
+        Assert.Contains("System.Func<int> f = new global::System.Func<int>(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("internal int Lambda_0() => _cs2jCap_x + 1;", r.OutputCode);
+        // The single surviving bare x is the snapshot RHS (external read kept).
+        Assert.Single(BareIdentifiers(r.OutputCode, "x"));
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        Assert.Equal(1, r.Statistics.FilesTransformed);
+        AssertOutputCompiles(r.OutputCode);
     }
 
     [Fact]
@@ -465,7 +478,12 @@ class C {
         Assert.True(r.Changed);
         Assert.Single(HolderClassNames(r.OutputCode));
         Assert.Contains("public int _cs2jCap_count;", r.OutputCode);
-        Assert.Contains("() => __cs2jClosure0._cs2jCap_count++", r.OutputCode);
+        // C45 M2: the lambda node is gone — its body is the class's Lambda_0
+        // instance method (field accesses implicit-this) and the site is an
+        // explicit delegate creation (D8). External sites stay C32-shaped (D2).
+        Assert.Contains("System.Action inc = new global::System.Action(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("internal void Lambda_0() => _cs2jCap_count++;", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
         Assert.Contains("System.Console.WriteLine(__cs2jClosure0._cs2jCap_count)", r.OutputCode);
         Assert.Empty(BareIdentifiers(r.OutputCode, "count"));
         AssertOutputCompiles(r.OutputCode);
@@ -488,8 +506,12 @@ class C {
         Assert.True(r.Changed);
         Assert.Single(HolderClassNames(r.OutputCode));
         Assert.Single(HolderClassNames(r.OutputCode).Where(n => n == "Cs2jDisplayClass_M_0"));
+        // External write keeps the C32 shape verbatim (D2 red line)…
         Assert.Contains("__cs2jClosure0._cs2jCap_count = 5;", r.OutputCode);
-        Assert.Contains("() => __cs2jClosure0._cs2jCap_count += 2", r.OutputCode);
+        // …while the in-lambda write now lives in the migrated instance method.
+        Assert.Contains("System.Action inc = new global::System.Action(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("internal void Lambda_0() => _cs2jCap_count += 2;", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
         AssertOutputCompiles(r.OutputCode);
     }
 
@@ -510,8 +532,16 @@ class C {
         Assert.True(r.Changed);
         Assert.Single(HolderClassNames(r.OutputCode));
         Assert.Equal(1, r.Statistics.HolderInstancesGenerated);
-        Assert.Contains("() => System.Console.WriteLine(__cs2jClosure0._cs2jCap_x)", r.OutputCode);
-        Assert.Contains("() => { __cs2jClosure0._cs2jCap_x = 9; }", r.OutputCode);
+        // M2 (D3): disjoint capture-set lambdas still share one class/instance;
+        // both nodes migrate to Lambda_0/Lambda_1 and their sites become
+        // explicit delegate constructions over the SAME receiver (D8/D9).
+        Assert.Contains("System.Action reader = new global::System.Action(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("System.Action writer = new global::System.Action(__cs2jClosure0.Lambda_1);", r.OutputCode);
+        Assert.Contains("internal void Lambda_0() => System.Console.WriteLine(_cs2jCap_x);", r.OutputCode);
+        Assert.Contains("internal void Lambda_1()", r.OutputCode);
+        Assert.Contains("_cs2jCap_x = 9;", r.OutputCode);
+        Assert.Equal(2, r.Statistics.LambdaMethodsLifted - r.Statistics.StaticLambdaMethods);
+        Assert.Empty(LambdaNodes(r.OutputCode));
         AssertOutputCompiles(r.OutputCode);
     }
 
@@ -540,10 +570,14 @@ class C {
         var fieldB = r1.OutputCode.IndexOf("public int _cs2jCap_b;", StringComparison.Ordinal);
         Assert.True(holderIndex >= 0 && fieldA > holderIndex && fieldB > fieldA);
 
-        // Cross-reference inside the initializer-free world: b += a reads the field.
-        Assert.Contains("__cs2jClosure0._cs2jCap_b += __cs2jClosure0._cs2jCap_a", r1.OutputCode);
+        // M2: the cross-reference lives in the migrated instance method, where
+        // holder field accesses collapse to implicit-this (D2 field order kept).
+        Assert.Contains("System.Action t = new global::System.Action(__cs2jClosure0.Lambda_0);", r1.OutputCode);
+        Assert.Contains("_cs2jCap_b += _cs2jCap_a", r1.OutputCode);
+        Assert.DoesNotContain("__cs2jClosure0._cs2jCap_b += __cs2jClosure0._cs2jCap_a", r1.OutputCode);
         Assert.Empty(BareIdentifiers(r1.OutputCode, "a"));
         Assert.Empty(BareIdentifiers(r1.OutputCode, "b"));
+        Assert.Empty(LambdaNodes(r1.OutputCode));
         AssertOutputCompiles(r1.OutputCode);
     }
 
@@ -619,14 +653,19 @@ class C {
 
         Assert.True(r.Changed);
         Assert.Equal(0, r.Statistics.ForeachPerIterationGroups);
+        // C32 external shapes (for condition/increment, initializer, order) byte-kept (D2).
         Assert.Contains("for (; __cs2jClosure0._cs2jCap_i < n; __cs2jClosure0._cs2jCap_i++)", r.OutputCode);
-        Assert.Contains("acts.Add(() => System.Console.WriteLine(__cs2jClosure0._cs2jCap_i))", r.OutputCode);
+        // M2: the Add-site lambda becomes a delegate creation; its body is the
+        // class's Lambda_0 with the field read implicit-this.
+        Assert.Contains("acts.Add(new global::System.Action(__cs2jClosure0.Lambda_0));", r.OutputCode);
+        Assert.Contains("internal void Lambda_0() => System.Console.WriteLine(_cs2jCap_i);", r.OutputCode);
         Assert.DoesNotContain("int i", r.OutputCode);
 
         var initIndex = r.OutputCode.IndexOf("__cs2jClosure0._cs2jCap_i = 0;", StringComparison.Ordinal);
         var forIndex = r.OutputCode.IndexOf("for (;", StringComparison.Ordinal);
         Assert.True(initIndex >= 0 && initIndex < forIndex);
         Assert.Empty(BareIdentifiers(r.OutputCode, "i"));
+        Assert.Empty(LambdaNodes(r.OutputCode));
         AssertOutputCompiles(r.OutputCode);
     }
 
@@ -722,9 +761,16 @@ class C {
         var r = Transform(src);
 
         Assert.True(r.Changed);
+        // D17: async migrates through the instance-method path; await/body
+        // structure is carried verbatim, the in-lambda write is an
+        // implicit-this field, and the site is an explicit Func<Task> creation.
         Assert.Contains("await System.Threading.Tasks.Task.Yield();", r.OutputCode);
-        Assert.Contains("__cs2jClosure0._cs2jCap_x++", r.OutputCode);
+        Assert.Contains("internal async global::System.Threading.Tasks.Task Lambda_0()", r.OutputCode);
+        Assert.Contains("System.Func<System.Threading.Tasks.Task> f = new global::System.Func<global::System.Threading.Tasks.Task>(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("_cs2jCap_x++;", r.OutputCode);
+        Assert.Contains("System.Console.WriteLine(__cs2jClosure0._cs2jCap_x)", r.OutputCode);
         Assert.Empty(BareIdentifiers(r.OutputCode, "x"));
+        Assert.Empty(LambdaNodes(r.OutputCode));
         AssertOutputCompiles(r.OutputCode);
     }
 
@@ -899,10 +945,19 @@ class C {
         var r = Transform(src);
 
         Assert.True(r.Changed);
+        // External lock/write sites keep the C32 field shape verbatim (D2/D22)…
         Assert.Contains("lock (__cs2jClosure0._cs2jCap_locker)", r.OutputCode);
         Assert.Contains("System.Console.WriteLine(__cs2jClosure0._cs2jCap_locker)", r.OutputCode);
+        Assert.Contains("__cs2jClosure0._cs2jCap_locker = _gate;", r.OutputCode);
+        // …while the lambda referencing locker migrates (M2).
+        Assert.Contains("new global::System.Action(__cs2jClosure0.Lambda_0)", r.OutputCode);
+        Assert.Contains("System.Console.WriteLine(_cs2jCap_locker);", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
         AssertOutputCompiles(r.OutputCode);
 
+        // D22/D5: const and a read-only parameter referenced by a lambda now
+        // snapshot into read-only display-class fields; the lambda migrates and
+        // the const declaration itself stays at its external site.
         var readOnly = @"
 using System.IO;
 class C {
@@ -913,15 +968,23 @@ class C {
     }
 }";
         var rr = Transform(readOnly);
-        Assert.False(rr.Changed);
-        Assert.Equal(readOnly, rr.OutputCode);
-        Assert.DoesNotContain("_cs2jCap_c", rr.OutputCode);
+        Assert.True(rr.Changed);
+        Assert.Contains("const int c = 3;", rr.OutputCode);
+        Assert.Contains("__cs2jClosure0._cs2jCap_c = c;", rr.OutputCode);
+        Assert.Contains("__cs2jClosure0._cs2jCap_u = u;", rr.OutputCode);
+        Assert.Contains("public int _cs2jCap_c;", rr.OutputCode);
+        Assert.Contains("public global::System.IO.MemoryStream _cs2jCap_u;", rr.OutputCode);
+        Assert.Contains("internal int Lambda_0() => _cs2jCap_c + (int)_cs2jCap_u.Length;", rr.OutputCode);
+        Assert.Single(BareIdentifiers(rr.OutputCode, "c")); // snapshot RHS only
+        Assert.Single(BareIdentifiers(rr.OutputCode, "u")); // snapshot RHS only
+        Assert.Empty(LambdaNodes(rr.OutputCode));
+        AssertOutputCompiles(rr.OutputCode);
     }
 
     // ── M2 transform tests: final group (design §7.1 20-25) ──
 
     [Fact]
-    public void Transform_ThisAndFieldCapture_Unchanged()
+    public void Transform_ThisAndFieldCapture_ThisBackedDisplayClass_Compiles()
     {
         var src = @"
 class C {
@@ -934,9 +997,20 @@ class C {
 }";
         var r = Transform(src);
 
-        Assert.False(r.Changed);
-        Assert.Equal(src, r.OutputCode);
-        Assert.Empty(HolderClassNames(r.OutputCode));
+        // D7: implicit-this member references force the display class to carry
+        // `_cs2jThis`; the creation passes `this` and the migrated method
+        // reaches host members through the field.
+        Assert.True(r.Changed);
+        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Contains("var __cs2jClosure0 = new Cs2jDisplayClass_M_0(this);", r.OutputCode);
+        Assert.Contains("private readonly C _cs2jThis;", r.OutputCode);
+        Assert.Contains("public Cs2jDisplayClass_M_0(C @this)", r.OutputCode);
+        Assert.Contains("_cs2jThis = @this;", r.OutputCode);
+        Assert.Contains("System.Action a = new global::System.Action(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("_cs2jThis.Use(); _cs2jThis._n++;", r.OutputCode);
+        Assert.Equal(1, r.Statistics.ThisOnlyLambdas);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
     }
 
     [Fact]
@@ -1254,4 +1328,9 @@ class C {
             .Select(c => c.Identifier.Text)
             .ToList();
     }
+
+    /// <summary>All surviving lambda nodes (design §7.3 residual gate view at text level).</summary>
+    private static IReadOnlyList<LambdaExpressionSyntax> LambdaNodes(string code)
+        => ((SyntaxNode)CSharpSyntaxTree.ParseText(code, ParseOptions).GetRoot())
+            .DescendantNodes().OfType<LambdaExpressionSyntax>().ToList();
 }

@@ -183,11 +183,20 @@ class C {
         var r = Transform(src);
 
         Assert.True(r.Changed);
-        // C32 part: mutable capture is holder-backed.
+        // C32/M2 part: mutable capture is the evolved display class; the
+        // capturing lambda becomes its Lambda_0 instance method (D2/D9).
         Assert.Contains("private sealed class Cs2jDisplayClass_M_0", r.OutputCode);
-        Assert.Contains("() => { __cs2jClosure0._cs2jCap_x++; }", r.OutputCode);
-        // C45 part: the zero-capture lambda lifts (k counts lifted lambdas only).
+        Assert.Contains("new global::System.Action(__cs2jClosure0.Lambda_0)", r.OutputCode);
+        Assert.Contains("internal void Lambda_0()", r.OutputCode);
+        Assert.Contains("_cs2jCap_x++;", r.OutputCode);
+        // M1 part: the zero-capture lambda in the SAME file lifts to a host
+        // static method and its site is rewritten even though C32 inserted
+        // statements before it (dual-span anchor; §4.1 plan bag sharing).
         Assert.Contains("new global::System.Func<int>(Cs2jLambda_M_0)", r.OutputCode);
+        Assert.Contains("private static int Cs2jLambda_M_0()", r.OutputCode);
+        Assert.Equal(1, r.Statistics.StaticLambdaMethods);
+        Assert.Equal(1, r.Statistics.LambdaMethodsLifted - r.Statistics.StaticLambdaMethods);
+        Assert.Empty(LambdaNodes(r.OutputCode));
         Assert.Equal(0, r.Statistics.FilesSkippedClean);
         Assert.Equal(1, r.Statistics.FilesTransformed);
         AssertOutputCompiles(r.OutputCode);
@@ -215,7 +224,7 @@ class C {
     }
 
     [Fact]
-    public void M1_ThisCapture_NotLifted()
+    public void M2_ThisCapture_LiftsToThisBackedDisplayClass()
     {
         var src = @"
 class C {
@@ -228,9 +237,44 @@ class C {
 }";
         var r = Transform(src);
 
-        Assert.False(r.Changed);
-        Assert.Equal(src, r.OutputCode);
+        // D7 (§7.1-3): this-only capture now lifts — one fresh display class
+        // carrying `_cs2jThis`; both lambdas become Lambda_0/Lambda_1 on the
+        // same instance whether the body uses implicit or explicit `this`.
+        Assert.True(r.Changed);
+        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Contains("var __cs2jClosure0 = new Cs2jDisplayClass_M_0(this);", r.OutputCode);
+        Assert.Contains("private readonly C _cs2jThis;", r.OutputCode);
+        Assert.Contains("public Cs2jDisplayClass_M_0(C @this)", r.OutputCode);
+        Assert.Contains("new global::System.Func<int>(__cs2jClosure0.Lambda_0)", r.OutputCode);
+        Assert.Contains("new global::System.Func<int>(__cs2jClosure0.Lambda_1)", r.OutputCode);
+        Assert.Contains("internal int Lambda_0() => _cs2jThis._n + 1;", r.OutputCode);
+        Assert.Contains("internal int Lambda_1() => _cs2jThis._n + 1;", r.OutputCode);
+        Assert.Equal(2, r.Statistics.ThisOnlyLambdas);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M2_StaticMemberLambda_NoThisField_StaysStaticPath()
+    {
+        var src = @"
+class C {
+    static int S() => 1;
+    static void M() {
+        System.Func<int> f = () => S() + 1;
+        System.Console.WriteLine(f());
+    }
+}";
+        // Note: a zero-capture static-context lambda is an M1 case; a lambda
+        // referencing a STATIC member captures neither this nor state, so it
+        // must NOT gain a _cs2jThis field (D7 tail).
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.DoesNotContain("_cs2jThis", r.OutputCode);
         Assert.Empty(HolderClassNames(r.OutputCode));
+        Assert.Contains("new global::System.Func<int>(Cs2jLambda_M_0)", r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
     }
 
     [Fact]
@@ -594,6 +638,328 @@ class C {
 
         Assert.Equal(0, statementLambdas);
         Assert.Equal(0, anonymousMethods);
+    }
+
+    // ── §7.1 C45 M2: this / read-only / mixed paths (design §7.1 3/4/6/12/…) ──
+
+    [Fact]
+    public void M2_ReadOnlyParameter_ExternalReadKept_SnapshotField()
+    {
+        var src = @"
+class C {
+    int M(int extra) {
+        System.Func<int> f = () => extra + 1;
+        int kept = extra;
+        return f() + kept;
+    }
+}";
+        var r = Transform(src);
+
+        // D5 on a parameter: field snapshot at the site boundary; the external
+        // read (`int kept = extra;`) keeps the parameter name.
+        Assert.True(r.Changed);
+        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Contains("int kept = extra;", r.OutputCode);
+        Assert.Contains("__cs2jClosure0._cs2jCap_extra = extra;", r.OutputCode);
+        Assert.Contains("public int _cs2jCap_extra;", r.OutputCode);
+        Assert.Contains("new global::System.Func<int>(__cs2jClosure0.Lambda_0)", r.OutputCode);
+        Assert.Contains("internal int Lambda_0() => _cs2jCap_extra + 1;", r.OutputCode);
+        Assert.Equal(0, r.Statistics.CapturesLifted);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M2_EventSubscription_CapturingLambdaMigrates()
+    {
+        var src = @"
+class C {
+    event System.Action E;
+    void M() {
+        int x = 1;
+        E += () => { x++; };
+        E?.Invoke();
+        System.Console.WriteLine(x);
+    }
+}";
+        var r = Transform(src);
+
+        // D16 (§7.1-12): += event subscription is an ordinary delegate site;
+        // the lambda migrates, the external read stays C32 field-backed.
+        Assert.True(r.Changed);
+        Assert.Contains("E += new global::System.Action(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("internal void Lambda_0()", r.OutputCode);
+        Assert.Contains("_cs2jCap_x++;", r.OutputCode);
+        Assert.Contains("System.Console.WriteLine(__cs2jClosure0._cs2jCap_x);", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M2_Multicast_TwoCapturingLambdas_SameInstanceSequence()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 1;
+        System.Action d = null;
+        d += () => { x++; };
+        d += () => System.Console.WriteLine(x);
+        d();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Contains("d += new global::System.Action(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("d += new global::System.Action(__cs2jClosure0.Lambda_1);", r.OutputCode);
+        Assert.Contains("internal void Lambda_1() => System.Console.WriteLine(_cs2jCap_x);", r.OutputCode);
+        Assert.Equal(2, r.Statistics.LambdaMethodsLifted - r.Statistics.StaticLambdaMethods);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M2_CustomDelegate_CapturingLambda_KeepsParamsAndRendersSourceName()
+    {
+        var src = @"
+class C {
+    delegate int MyD(int p);
+    void M() {
+        int x = 10;
+        MyD d = (p) => x + p;
+        System.Console.WriteLine(d(2));
+    }
+}";
+        var r = Transform(src);
+
+        // D8/D12 on the instance path: fully-qualified source delegate name;
+        // the synthesized method keeps the lambda's parameter list.
+        Assert.True(r.Changed);
+        Assert.Contains("MyD d = new global::C.MyD(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("internal int Lambda_0(int p) => _cs2jCap_x + p;", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M2_QuotedLambda_ReadOnlyMix_QuotedStaysInstanceMigrates()
+    {
+        var src = @"
+using System;
+using System.Linq.Expressions;
+class C {
+    void M() {
+        int r = 7;
+        Expression<Func<int>> e = () => r + 1;
+        Func<int> f = () => r + 2;
+        System.Console.WriteLine(f() + e.Compile()());
+    }
+}";
+        var r = Transform(src);
+
+        // D18②: a read-only symbol shared with a quoted lambda is allowed
+        // (only MUTABLE mixed capture is the CS2J3206 freeze). The quoted node
+        // stays verbatim; the statement lambda takes the M2 path.
+        Assert.True(r.Changed);
+        Assert.Contains("Expression<Func<int>> e = () => r + 1;", r.OutputCode);
+        Assert.Contains("Func<int> f = new global::System.Func<int>(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("internal int Lambda_0() => _cs2jCap_r + 2;", r.OutputCode);
+        Assert.Equal(1, r.Statistics.ExpressionTreeLambdasSkipped);
+        Assert.Single(LambdaNodes(r.OutputCode)); // the quoted node alone
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M2_NestedZeroCaptureInsideCapturing_InnerStaticSiteRewrittenInMethod()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => {
+            x++;
+            System.Func<int> b = () => 42;
+            System.Console.WriteLine(b());
+        };
+        a();
+    }
+}";
+        var r = Transform(src);
+
+        // The outer capturing lambda becomes Lambda_0; the inner zero-capture
+        // lambda still takes the M1 static path and its site is rewritten
+        // INSIDE the migrated body (received-tree span anchor after C32/M2
+        // statement insertions).
+        Assert.True(r.Changed);
+        Assert.Contains("System.Action a = new global::System.Action(__cs2jClosure0.Lambda_0);", r.OutputCode);
+        Assert.Contains("System.Func<int> b = new global::System.Func<int>(Cs2jLambda_M_0);", r.OutputCode);
+        Assert.Contains("private static int Cs2jLambda_M_0() => 42;", r.OutputCode);
+        Assert.Equal(1, r.Statistics.StaticLambdaMethods);
+        Assert.Equal(1, r.Statistics.LambdaMethodsLifted - r.Statistics.StaticLambdaMethods);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M2_MixedStaticAndInstance_Idempotent_SecondRunClean()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => { x++; };
+        System.Func<int> b = () => 42;
+        a();
+        System.Console.WriteLine(x + b());
+    }
+}";
+        var r1 = Transform(src);
+        Assert.True(r1.Changed);
+        Assert.Contains("new global::System.Action(__cs2jClosure0.Lambda_0)", r1.OutputCode);
+        Assert.Contains("new global::System.Func<int>(Cs2jLambda_M_0)", r1.OutputCode);
+        AssertOutputCompiles(r1.OutputCode);
+
+        // Regression for the dual-span anchor bug: re-entering the mixed file
+        // must not re-pair the already-rewritten static site (CS0111).
+        var r2 = new ClosureLiftPreprocessor().Preprocess(
+            r1.OutputCode, ParseWithSemantics(r1.OutputCode), new ClosureLiftOptions());
+
+        Assert.False(r2.Changed);
+        Assert.Equal(r1.OutputCode, r2.OutputCode);
+        Assert.Equal(0, r2.Statistics.StaticLambdaMethods);
+        Assert.Empty(r2.Diagnostics.Where(d => d.Severity == ClosureLiftSeverity.Error));
+    }
+
+    [Fact]
+    public void M2_RefArgumentInsideMigratedBody_FieldBackedThroughThis()
+    {
+        var src = @"
+class C {
+    void Mutate(ref int v) => v += 10;
+    void M() {
+        int x = 1;
+        System.Action a = () => Mutate(ref x);
+        a();
+        System.Console.WriteLine(x);
+    }
+}";
+        var r = Transform(src);
+
+        // D21 through the instance path: the ref site references the holder
+        // field (`ref _cs2jCap_x`) and the host method via `_cs2jThis`; the
+        // external read stays C32 field-backed.
+        Assert.True(r.Changed);
+        Assert.Contains("var __cs2jClosure0 = new Cs2jDisplayClass_M_0(this);", r.OutputCode);
+        Assert.Contains("internal void Lambda_0() => _cs2jThis.Mutate(ref _cs2jCap_x);", r.OutputCode);
+        Assert.Contains("System.Console.WriteLine(__cs2jClosure0._cs2jCap_x);", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M2_NestedCapturingChain_AccountedResidual_C32ShapeKept()
+    {
+        var src = @"
+class C {
+    void M() {
+        int outer = 0;
+        System.Action a = () => {
+            System.Action b = () => { outer++; };
+            b();
+        };
+        a();
+    }
+}";
+        var r = Transform(src);
+
+        // M3 bucket (D4): a capturing ancestor/descendant pair stays residual
+        // and accounted; C32 flat-holder lifting still happens and no
+        // CS2J4510 row is emitted.
+        Assert.True(r.Changed);
+        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Contains("__cs2jClosure0._cs2jCap_outer = 0;", r.OutputCode);
+        Assert.Contains("() => { __cs2jClosure0._cs2jCap_outer++; }", r.OutputCode);
+        Assert.DoesNotContain("internal void Lambda_0", r.OutputCode);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code == "CS2J4510");
+        Assert.Equal(2, r.Statistics.AccountedResidualLambdas);
+        var (statementLambdas, _) = new ClosureLiftPreprocessor().CountResidualLambdas(r.OutputCode);
+        Assert.Equal(2, statementLambdas);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M2_TransformedTree_ResidualCensusZero()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => { x++; };
+        System.Func<int> b = () => 42;
+        a();
+        System.Console.WriteLine(x + b());
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Equal(0, r.Statistics.ResidualMutableCaptures);
+        var (statementLambdas, anonymousMethods) =
+            new ClosureLiftPreprocessor().CountResidualLambdas(r.OutputCode);
+        Assert.Equal(0, statementLambdas);
+        Assert.Equal(0, anonymousMethods);
+    }
+
+    [Fact]
+    public void M2_AuditOnly_ThisAndReadOnlyCapture_StaysVerbatim()
+    {
+        var src = @"
+class C {
+    private int _n;
+    void M(int extra) {
+        System.Func<int> f = () => _n + extra;
+        System.Console.WriteLine(f());
+    }
+}";
+        var r = Transform(src, new ClosureLiftOptions(AuditOnly: true));
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Severity == ClosureLiftSeverity.Error);
+        Assert.Equal(0, r.Statistics.DisplayClassesGenerated);
+        Assert.Equal(0, r.Statistics.LambdaMethodsLifted);
+    }
+
+    [Fact]
+    public void M2_ResidualGateFaultInjection_CS2J4510_FileVerbatim()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => { x++; };
+        a();
+    }
+}";
+        DisplayClassPlanner.ForcedUnaccountedForTests = 1;
+        try
+        {
+            var r = Transform(src);
+
+            // §7.3: an unaccounted residual is a strict Error; the facade
+            // rolls the whole file back even though earlier stages edited it.
+            Assert.False(r.Changed);
+            Assert.Equal(src, r.OutputCode);
+            var row = Assert.Single(r.Diagnostics.Where(d => d.Code == "CS2J4510"));
+            Assert.Equal(ClosureLiftSeverity.Error, row.Severity);
+            Assert.Equal(0, r.Statistics.FilesTransformed);
+        }
+        finally
+        {
+            DisplayClassPlanner.ForcedUnaccountedForTests = null;
+        }
     }
 
     // ── Helpers (mirror ClosureLiftUnitTests) ──
