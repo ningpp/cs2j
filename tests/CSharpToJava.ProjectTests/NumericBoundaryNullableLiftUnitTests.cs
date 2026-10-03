@@ -3236,7 +3236,7 @@ public class NumericBoundaryNullableLiftUnitTests
     }
 
     [Fact]
-    public void M1_ResidualOwnershipPredicate_OnlyM1ShapesOwned()
+    public void M2_ResidualOwnershipPredicate_FullScope_AllBuiltInShapesOwned()
     {
         var src = """
             public enum Color { Red, Green }
@@ -3258,26 +3258,28 @@ public class NumericBoundaryNullableLiftUnitTests
             """;
 
         var h = BuildHarness(src);
-        var shared = new NumericBoundaryAnalyzer(h.Model, projectDefaultChecked: false);
-        var analyzer = new NullableLiftAnalyzer(h.Model, RuleOptions(), shared);
 
-        var owned = new List<string>();
-        foreach (var node in h.Root.DescendantNodes())
-        {
-            if (h.Model.GetOperation(node) is { } operation
-                && NullableLiftRule.IsM1OwnedResidual(analyzer, node, operation))
-            {
-                owned.Add(node.ToString());
-            }
-        }
+        // M2 full scope: binary (incl. enum backstop), unary, increment,
+        // GOV and unwrap/lifted conversions are all owned residuals.
+        var residuals = NullableLiftRule.ScanResiduals(h.Model, h.Root);
+        var owned = residuals.Select(r => r.Node.ToString()).ToList();
+        var kinds = residuals.Select(r => r.Kind).ToList();
 
-        Assert.Equal(2, owned.Count);
         Assert.Contains("a + b", owned);
         Assert.Contains("-a", owned);
+        Assert.Contains("e1 & e2", owned);
+        Assert.Contains("x++", owned);
+        Assert.Contains("a.GetValueOrDefault()", owned);
+        Assert.Contains("(int)a", owned);
+        Assert.Contains(kinds, k => k == "binary");
+        Assert.Contains(kinds, k => k == "unary");
+        Assert.Contains(kinds, k => k == "increment");
+        Assert.Contains(kinds, k => k == "get-value-or-default");
+        Assert.Contains(kinds, k => k.StartsWith("conversion-", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void M1_ResidualGate_SeverityFollowsStrictFlag()
+    public void M2_ResidualGate_FullScope_SeverityFollowsStrictFlag()
     {
         var src = """
             public class C
@@ -3300,10 +3302,9 @@ public class NumericBoundaryNullableLiftUnitTests
         {
             var stats = new NullableLiftStatistics();
             var diagnostics = new List<NumericBoundaryDiagnostic>();
-            var shared = new NumericBoundaryAnalyzer(h.Model, projectDefaultChecked: false);
             gate!.Invoke(null,
             [
-                h.Model, h.Root, options, stats, diagnostics, shared,
+                h.Model, h.Root, options, stats, diagnostics,
             ]);
             return Assert.Single(diagnostics);
         }

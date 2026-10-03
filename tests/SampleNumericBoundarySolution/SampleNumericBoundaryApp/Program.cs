@@ -1,6 +1,7 @@
 using SampleNumericBoundaryLib;
 using SampleNumericBoundaryLib.DecimalOps;
 using SampleNumericBoundaryLib.IncrementTargets;
+using SampleNumericBoundaryLib.Nullable;
 
 var failures = 0;
 
@@ -253,6 +254,281 @@ Check("IncDecimalArrayIndexOnce", decimalProbe.DecimalIndexEvaluations == 1);
 
 Check("IncDecimalPrecisionTiny", DecimalIncrementSamples.PrecisionTinySurvives());
 Check("IncDecimalPrecisionIncrement", DecimalIncrementSamples.PrecisionIncrement() == 2m);
+
+// ════════════════════════════════════════════════════════════════════
+// C22 M2 nullable-lift: Native (compiler lifted truth) vs Guarded
+// (hand-written explicit shape) agree on the full null/value grids.
+// Comparisons go through EqualityComparer so this driver itself emits no
+// lifted Nullable<T> operator sites.
+// ════════════════════════════════════════════════════════════════════
+
+void CheckPair<TResult>(string name, TResult native, TResult guarded) =>
+    Check(name, EqualityComparer<TResult>.Default.Equals(native, guarded));
+
+void CheckGrid1<TArg, TResult>(
+    string name,
+    Func<TArg?, TResult> native,
+    Func<TArg?, TResult> guarded,
+    TArg?[] values)
+    where TArg : struct
+{
+    foreach (var a in values)
+    {
+        CheckPair($"{name}({GridLabel(a)})", native(a), guarded(a));
+    }
+}
+
+void CheckGrid2<TArg, TResult>(
+    string name,
+    Func<TArg?, TArg?, TResult> native,
+    Func<TArg?, TArg?, TResult> guarded,
+    TArg?[] values)
+    where TArg : struct
+{
+    foreach (var a in values)
+    {
+        foreach (var b in values)
+        {
+            CheckPair($"{name}({GridLabel(a)},{GridLabel(b)})", native(a, b), guarded(a, b));
+        }
+    }
+}
+
+static string GridLabel<T>(T? v) where T : struct =>
+    v.HasValue ? v.Value.ToString() ?? "?" : "null";
+
+// ── NL-1/NL-2 arithmetic and unary (boundary wraps in unchecked context) ──
+CheckGrid2("NullableAdd",
+    NullableArithmeticSamples.NativeAdd, NullableArithmeticSamples.GuardedAdd,
+    new int?[] { null, int.MaxValue, 2 });
+foreach (var a in new int?[] { null, 1, int.MaxValue })
+{
+    foreach (var b in new[] { 1, -2 })
+    {
+        CheckPair($"NullableAddOneSided({GridLabel(a)},{b})",
+            NullableArithmeticSamples.NativeAddOneSided(a, b),
+            NullableArithmeticSamples.GuardedAddOneSided(a, b));
+    }
+}
+
+CheckGrid2("NullableSubtract",
+    NullableArithmeticSamples.NativeSubtract, NullableArithmeticSamples.GuardedSubtract,
+    new long?[] { null, long.MaxValue, 5L });
+foreach (var a in new double?[] { null, 1.5, -2.0 })
+{
+    foreach (var b in new[] { 2.0, -3.0 })
+    {
+        CheckPair($"NullableMultiply({GridLabel(a)},{b})",
+            NullableArithmeticSamples.NativeMultiply(a, b),
+            NullableArithmeticSamples.GuardedMultiply(a, b));
+    }
+}
+
+CheckGrid1("NullableNegate",
+    NullableArithmeticSamples.NativeNegate, NullableArithmeticSamples.GuardedNegate,
+    new int?[] { null, -7, 42 });
+CheckGrid1("NullableUnaryPlus",
+    NullableArithmeticSamples.NativeUnaryPlus, NullableArithmeticSamples.GuardedUnaryPlus,
+    new long?[] { null, 42L, -9L });
+CheckPair("NullableAddBoundaryWrap",
+    NullableArithmeticSamples.NativeAdd(int.MaxValue, int.MaxValue),
+    NullableArithmeticSamples.GuardedAdd(int.MaxValue, int.MaxValue));
+
+// ── NL-3 relational: null>=null is false (pinned counter-intuitive cell) ──
+var relationalValues = new int?[] { null, 1, 2 };
+CheckGrid2("NullableGe",
+    NullableRelationalSamples.NativeGreaterThanOrEqual,
+    NullableRelationalSamples.GuardedGreaterThanOrEqual, relationalValues);
+CheckGrid2("NullableGt",
+    NullableRelationalSamples.NativeGreaterThan,
+    NullableRelationalSamples.GuardedGreaterThan, relationalValues);
+CheckGrid2("NullableLe",
+    NullableRelationalSamples.NativeLessThanOrEqual,
+    NullableRelationalSamples.GuardedLessThanOrEqual, relationalValues);
+CheckGrid2("NullableLt",
+    NullableRelationalSamples.NativeLessThan,
+    NullableRelationalSamples.GuardedLessThan, relationalValues);
+CheckPair("NullableNullGeNull",
+    NullableRelationalSamples.NativeGreaterThanOrEqual(null, null),
+    NullableRelationalSamples.GuardedGreaterThanOrEqual(null, null));
+foreach (var a in relationalValues)
+{
+    CheckPair($"NullableGeOneSided({GridLabel(a)})",
+        NullableRelationalSamples.NativeGreaterThanOrEqualOneSided(a, 1),
+        NullableRelationalSamples.GuardedGreaterThanOrEqualOneSided(a, 1));
+    CheckPair($"NullableLtOneSided({GridLabel(a)})",
+        NullableRelationalSamples.NativeLessThanOneSided(a, 1),
+        NullableRelationalSamples.GuardedLessThanOneSided(a, 1));
+}
+
+// ── NL-4 equality nine-cell grids; double null == null is true ──
+var equalityValues = new int?[] { null, 0, 1 };
+CheckGrid2("NullableEq",
+    NullableEqualitySamples.NativeEqual, NullableEqualitySamples.GuardedEqual,
+    equalityValues);
+CheckGrid2("NullableNe",
+    NullableEqualitySamples.NativeNotEqual, NullableEqualitySamples.GuardedNotEqual,
+    equalityValues);
+CheckPair("NullableNullEqNull",
+    NullableEqualitySamples.NativeEqual(null, null),
+    NullableEqualitySamples.GuardedEqual(null, null));
+foreach (var a in equalityValues)
+{
+    CheckPair($"NullableEqOneSided({GridLabel(a)})",
+        NullableEqualitySamples.NativeEqualOneSided(a, 0),
+        NullableEqualitySamples.GuardedEqualOneSided(a, 0));
+    CheckPair($"NullableNeOneSided({GridLabel(a)})",
+        NullableEqualitySamples.NativeNotEqualOneSided(a, 0),
+        NullableEqualitySamples.GuardedNotEqualOneSided(a, 0));
+}
+
+CheckGrid1("NullableBoolEqTrue",
+    NullableEqualitySamples.NativeBoolEqualTrue,
+    NullableEqualitySamples.GuardedBoolEqualTrue,
+    new bool?[] { null, false, true });
+CheckGrid1("NullableIsNull",
+    NullableEqualitySamples.NativeIsNull, NullableEqualitySamples.GuardedIsNull,
+    equalityValues);
+CheckGrid1("NullableIsNotNull",
+    NullableEqualitySamples.NativeIsNotNull, NullableEqualitySamples.GuardedIsNotNull,
+    equalityValues);
+
+// ── NL-5 bool? three-valued logic full table (absorption cells pinned) ──
+var boolValues = new bool?[] { null, false, true };
+CheckGrid2("NullableBoolAnd",
+    NullableBoolLogicSamples.NativeAnd, NullableBoolLogicSamples.GuardedAnd, boolValues);
+CheckGrid2("NullableBoolOr",
+    NullableBoolLogicSamples.NativeOr, NullableBoolLogicSamples.GuardedOr, boolValues);
+CheckGrid2("NullableBoolXor",
+    NullableBoolLogicSamples.NativeXor, NullableBoolLogicSamples.GuardedXor, boolValues);
+CheckGrid1("NullableBoolNot",
+    NullableBoolLogicSamples.NativeNot, NullableBoolLogicSamples.GuardedNot, boolValues);
+CheckPair("NullableFalseAndNull",
+    NullableBoolLogicSamples.NativeAnd(false, null),
+    NullableBoolLogicSamples.GuardedAnd(false, null));
+CheckPair("NullableTrueOrNull",
+    NullableBoolLogicSamples.NativeOr(true, null),
+    NullableBoolLogicSamples.GuardedOr(true, null));
+CheckPair("NullableNullAndNull",
+    NullableBoolLogicSamples.NativeAnd(null, null),
+    NullableBoolLogicSamples.GuardedAnd(null, null));
+
+// ── NL-6 GetValueOrDefault (default argument evaluates exactly once) ──
+CheckGrid1("NullableGov",
+    NullableGetValueOrDefaultSamples.NativeGov,
+    NullableGetValueOrDefaultSamples.GuardedGov,
+    new int?[] { null, 0, 42 });
+foreach (var a in new int?[] { null, 0, 42 })
+{
+    CheckPair($"NullableGovDefault({GridLabel(a)})",
+        NullableGetValueOrDefaultSamples.NativeGovDefault(a, 5),
+        NullableGetValueOrDefaultSamples.GuardedGovDefault(a, 5));
+}
+
+var nativeProbeHasValue = new NullableDefaultProbe();
+Check("NullableGovSideEffectHasValue",
+    NullableGetValueOrDefaultSamples.NativeGovSideEffect(42, nativeProbeHasValue) == 42
+    && nativeProbeHasValue.Evaluations == 1);
+var nativeProbeNull = new NullableDefaultProbe();
+Check("NullableGovSideEffectNull",
+    NullableGetValueOrDefaultSamples.NativeGovSideEffect(null, nativeProbeNull) == 7
+    && nativeProbeNull.Evaluations == 1);
+var guardedProbeHasValue = new NullableDefaultProbe();
+Check("NullableGuardedGovSideEffectHasValue",
+    NullableGetValueOrDefaultSamples.GuardedGovSideEffect(42, guardedProbeHasValue) == 42
+    && guardedProbeHasValue.Evaluations == 1);
+var guardedProbeNull = new NullableDefaultProbe();
+Check("NullableGuardedGovSideEffectNull",
+    NullableGetValueOrDefaultSamples.GuardedGovSideEffect(null, guardedProbeNull) == 7
+    && guardedProbeNull.Evaluations == 1);
+
+// ── NL-7 unwrap: .Value and unwrap cast both throw on null ──
+Check("NullableUnwrapCastValue",
+    NullableConversionSamples.NativeUnwrapCast(42) == 42
+    && NullableConversionSamples.GuardedUnwrapCast(42) == 42
+    && NullableConversionSamples.NativeUnwrapMember(42) == 42
+    && NullableConversionSamples.GuardedUnwrapMember(42) == 42);
+CheckThrows<InvalidOperationException>("NullableUnwrapCastNull",
+    () => NullableConversionSamples.NativeUnwrapCast(null));
+CheckThrows<InvalidOperationException>("NullableUnwrapMemberNull",
+    () => NullableConversionSamples.NativeUnwrapMember(null));
+CheckThrows<InvalidOperationException>("NullableGuardedUnwrapCastNull",
+    () => NullableConversionSamples.GuardedUnwrapCast(null));
+CheckThrows<InvalidOperationException>("NullableGuardedUnwrapMemberNull",
+    () => NullableConversionSamples.GuardedUnwrapMember(null));
+
+// ── NL-8 lifted conversions (256 narrows to 0 unchecked) ──
+CheckGrid1("NullableToLong",
+    NullableConversionSamples.NativeToLong, NullableConversionSamples.GuardedToLong,
+    new int?[] { null, 42, -1 });
+CheckGrid1("NullableToByte",
+    NullableConversionSamples.NativeToByte, NullableConversionSamples.GuardedToByte,
+    new int?[] { null, 255, 256, 1 });
+CheckPair("NullableNarrowWrap",
+    NullableConversionSamples.NativeToByte(256),
+    NullableConversionSamples.GuardedToByte(256));
+CheckGrid1("NullableToInt",
+    NullableConversionSamples.NativeToInt, NullableConversionSamples.GuardedToInt,
+    new double?[] { null, 2.9, -3.7 });
+
+// ── NL-9 nullable enum backstop bit operations and ~ ──
+var enumValues = new NullableLiftColor?[]
+{
+    null, NullableLiftColor.Red, NullableLiftColor.Green, NullableLiftColor.Mask,
+};
+CheckGrid2("NullableEnumBitAnd",
+    NullableEnumBackstopSamples.NativeBitAnd,
+    NullableEnumBackstopSamples.GuardedBitAnd, enumValues);
+CheckGrid2("NullableEnumBitOr",
+    NullableEnumBackstopSamples.NativeBitOr,
+    NullableEnumBackstopSamples.GuardedBitOr, enumValues);
+CheckGrid1("NullableEnumBitNot",
+    NullableEnumBackstopSamples.NativeBitNot,
+    NullableEnumBackstopSamples.GuardedBitNot, enumValues);
+CheckGrid1("NullableEnumToInt",
+    NullableEnumBackstopSamples.NativeEnumToInt,
+    NullableEnumBackstopSamples.GuardedEnumToInt, enumValues);
+
+// ── NL-10/NL-11 lifted increment and compound ──
+void CheckIncrementPair(string name, int? start)
+{
+    var np = NullableIncrementSamples.NativePrefix(start);
+    var gp = NullableIncrementSamples.GuardedPrefix(start);
+    CheckPair($"{name}.prefix", np, gp);
+
+    var no = NullableIncrementSamples.NativePostfix(start);
+    var go = NullableIncrementSamples.GuardedPostfix(start);
+    CheckPair($"{name}.postfixOld", no.oldValue, go.oldValue);
+    CheckPair($"{name}.postfixNew", no.newValue, go.newValue);
+
+    var nd = NullableIncrementSamples.NativePostfixDecrement(start);
+    var gd = NullableIncrementSamples.GuardedPostfixDecrement(start);
+    CheckPair($"{name}.postfixDecOld", nd.oldValue, gd.oldValue);
+    CheckPair($"{name}.postfixDecNew", nd.newValue, gd.newValue);
+}
+
+CheckIncrementPair("IncNull", null);
+CheckIncrementPair("IncValue", 41);
+CheckIncrementPair("IncBoundary", int.MaxValue);
+var boundaryPostfix = NullableIncrementSamples.NativePostfix(int.MaxValue);
+CheckPair("IncBoundaryPostfixOldWrap", boundaryPostfix.oldValue, (int?)int.MaxValue);
+CheckPair("IncBoundaryPostfixNewWrap", boundaryPostfix.newValue, (int?)int.MinValue);
+var boundaryGuarded = NullableIncrementSamples.GuardedPostfix(int.MaxValue);
+CheckPair("IncBoundaryGuardedPostfixWrap", boundaryPostfix.newValue, boundaryGuarded.newValue);
+
+foreach (var x in new int?[] { null, 1, 40 })
+{
+    foreach (var y in new int?[] { null, 2 })
+    {
+        CheckPair($"NullableCompound({GridLabel(x)},{GridLabel(y)})",
+            NullableIncrementSamples.NativeCompound(x, y),
+            NullableIncrementSamples.GuardedCompound(x, y));
+    }
+
+    CheckPair($"NullableCompoundOneSided({GridLabel(x)})",
+        NullableIncrementSamples.NativeCompoundOneSided(x, 2),
+        NullableIncrementSamples.GuardedCompoundOneSided(x, 2));
+}
 
 if (failures > 0)
 {
