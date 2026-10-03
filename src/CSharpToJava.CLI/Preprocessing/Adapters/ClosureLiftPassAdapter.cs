@@ -218,17 +218,27 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         // stays byte-identical whenever the pass runs idle for M1 (design §5).
         var c45Work = _statistics.LambdaMethodsLifted
                       + _statistics.DelegateSitesRewritten
-                      + _statistics.ResidualStatementLambdas;
+                      + _statistics.ResidualStatementLambdas
+                      + _statistics.NestedDisplayClasses
+                      + _statistics.RecursiveLambdas
+                      + _statistics.DiscardParametersNormalized;
         if (c45Work > 0)
         {
             var displayClasses = _statistics.DisplayClassesGenerated > _statistics.HolderClassesGenerated
                 ? _statistics.DisplayClassesGenerated
                 : _statistics.HolderClassesGenerated;
-            summary += $", {displayClasses} display class(es), " +
-                       $"{_statistics.LambdaMethodsLifted} lambda method(s) " +
-                       $"({_statistics.StaticLambdaMethods} static, {_statistics.ThisOnlyLambdas} this-only), " +
-                       $"{_statistics.DelegateSitesRewritten} delegate site(s), " +
-                       $"{_statistics.ExpressionTreeLambdasSkipped} quoted skipped, " +
+            summary += $", {displayClasses} display class(es)";
+            if (_statistics.NestedDisplayClasses > 0)
+                summary += $" ({_statistics.NestedDisplayClasses} nested)";
+            summary += $", {_statistics.LambdaMethodsLifted} lambda method(s) " +
+                       $"({_statistics.StaticLambdaMethods} static, {_statistics.ThisOnlyLambdas} this-only";
+            if (_statistics.RecursiveLambdas > 0)
+                summary += $", {_statistics.RecursiveLambdas} recursive";
+            summary += "), " +
+                       $"{_statistics.DelegateSitesRewritten} delegate site(s), ";
+            if (_statistics.DiscardParametersNormalized > 0)
+                summary += $"{_statistics.DiscardParametersNormalized} discard parameter(s) normalized, ";
+            summary += $"{_statistics.ExpressionTreeLambdasSkipped} quoted skipped, " +
                        $"{_statistics.ResidualStatementLambdas} stmt lambda(s) residual " +
                        $"({_statistics.AccountedResidualLambdas} accounted)";
         }
@@ -263,6 +273,8 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         _statistics.DisplayClassesGenerated += source.DisplayClassesGenerated;
         _statistics.ThisOnlyLambdas += source.ThisOnlyLambdas;
         _statistics.NestedDisplayClasses += source.NestedDisplayClasses;
+        _statistics.RecursiveLambdas += source.RecursiveLambdas;
+        _statistics.DiscardParametersNormalized += source.DiscardParametersNormalized;
         _statistics.ExpressionTreeLambdasSkipped += source.ExpressionTreeLambdasSkipped;
 
         foreach (var kvp in source.CapturesByReason)
