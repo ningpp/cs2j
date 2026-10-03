@@ -721,8 +721,16 @@ public sealed class ExtensionMethodResolveM1Tests
     }
 
     [Fact]
-    public void UserExtensionInsideLinqChain_OnlyUserNodeRewritten()
+    public void UserExtensionInsideLinqChain_WholeChainConservativelySkipped_M4()
     {
+        // M4 finalization (design M4 §1): the M1 provisional behavior rewrote
+        // only the user node. The M0④ probe / M4 probe lock proved that an
+        // isolated explicitization inserts a non-member-access child into the
+        // fluent chain, where LinqRewriter's receiver backtracking stops
+        // (TryVisitInvocationExpression cast + `while (c.Expression is
+        // MemberAccessExpressionSyntax)`), silently changing LINQ processing.
+        // Final strategy: conservatively keep the WHOLE chain as sugar and
+        // leave an EM001 Info trace (mixed-linq-chain-conservative-skip).
         const string source = """
             using System.Linq;
             using System.Collections.Generic;
@@ -745,13 +753,22 @@ public sealed class ExtensionMethodResolveM1Tests
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         var (result, _) = RunRewrite(compilation, model);
 
-        Assert.True(result.Changed);
-        Assert.Equal(1, result.Statistics.CallsitesRewritten);
+        Assert.False(result.Changed);
+        Assert.Equal(0, result.Statistics.CallsitesRewritten);
         Assert.Equal(3, result.Statistics.LinqOwnedSkipped);
+        Assert.Equal(1, result.Statistics.MixedLinqChainSites);
+        Assert.Equal(1, result.Statistics.SitesSkippedByReason[
+            ExtensionCallBinder.MixedLinqChainReason]);
+        Assert.Contains(
+            result.Diagnostics,
+            d => d.Severity == ExtensionSeverity.Info
+                && d.Code == "EM001"
+                && d.Message.Contains("mixed", StringComparison.OrdinalIgnoreCase)
+                && d.Message.Contains("MyUser", StringComparison.Ordinal));
         var compact = Compact(result.OutputCode);
-        Assert.Contains("global::UserChain.MyUser(src.Where(x=>x>0))", compact);
-        // LINQ sugar stays reduced around the explicitized user node.
-        Assert.Contains(".Select(x=>x+1).Count()", compact);
+        // The user node stays sugar; nothing is explicitized.
+        Assert.DoesNotContain("global::UserChain.MyUser", compact);
+        Assert.Contains(".MyUser().Select(x=>x+1).Count()", compact);
         Recompile(result.OutputCode);
     }
 
