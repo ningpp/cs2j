@@ -691,10 +691,17 @@ class C {
 }";
         var r = Transform(src);
 
-        Assert.False(r.Changed);
-        Assert.Equal(src, r.OutputCode);
+        // C45 M1: zero-capture / static lambdas lift to host static named
+        // methods and their sites become explicit delegate creations. The C32
+        // core invariant still holds — no holder class, no capture lifting.
+        Assert.True(r.Changed);
+        Assert.Contains("new global::System.Action(Cs2jLambda_M_0)", r.OutputCode);
+        Assert.Contains("new global::System.Func<int>(Cs2jLambda_M_1)", r.OutputCode);
         Assert.Empty(HolderClassNames(r.OutputCode));
         Assert.Equal(0, r.Statistics.CapturesLifted);
+        Assert.Equal(2, r.Statistics.StaticLambdaMethods);
+        Assert.Equal(2, r.Statistics.DelegateSitesRewritten);
+        AssertOutputCompiles(r.OutputCode);
     }
 
     [Fact]
@@ -1118,10 +1125,15 @@ class C {
 }";
         var r = Transform(src);
 
-        Assert.False(r.Changed);
-        Assert.Equal(src, r.OutputCode);
+        // C45 M1: the method-body static lambda lifts; the field-initializer
+        // lambda stays verbatim (D18③/D21 — fields are not analysis roots),
+        // so no holder class and no error rows for this file.
+        Assert.True(r.Changed);
+        Assert.Contains("static x => x * x", r.OutputCode);
+        Assert.Contains("new global::System.Func<int, int>(Cs2jLambda_Run_0)", r.OutputCode);
         Assert.DoesNotContain(r.Diagnostics, d => d.Severity == ClosureLiftSeverity.Error);
         Assert.Empty(HolderClassNames(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
     }
 
     // ── M2 residual gate (design §7.3) ──
