@@ -29,24 +29,18 @@ public enum UseFlow
     Both,
 }
 
-/// <summary>A variant type-parameter declaration site (out/in on an interface/delegate).</summary>
-public sealed record VarianceDeclarationSite(
-    VarianceContainer Container,
-    string TypeName,
-    string TypeParameterName,
-    VarianceKind Kind,
-    VarianceOrigin Origin,
-    string? FilePath = null,
-    int Line = 0,
-    int Column = 0);
+/// <summary>Cross-cutting labels attached to a use site (design D2).</summary>
+[Flags]
+public enum UseTag
+{
+    None = 0,
 
-/// <summary>A use site of a variant closed type, with its flow classification (design §4.3).</summary>
-public sealed record VarianceUseSite(
-    UseFlow Flow,
-    string MappedTypeName,
-    string? FilePath = null,
-    int Line = 0,
-    int Column = 0);
+    /// <summary>The site depends on a C# variance implicit conversion (filled in batch 3, D3a).</summary>
+    VarianceConversion = 1,
+
+    /// <summary>Nested generic variance composition; see <c>CompositionChain</c> (design D7).</summary>
+    NestedComposition = 2,
+}
 
 /// <summary>A constraint on a type parameter and its semantic dependency profile (design D5a).</summary>
 public sealed record VarianceConstraintSite(
@@ -58,11 +52,12 @@ public sealed record VarianceConstraintSite(
 
 /// <summary>
 /// Whole-tree inventory produced by one <see cref="VarianceAuditPreprocessor.Analyze"/>
-/// call. Batch 1 (M1a) ships the skeleton with empty lists; batches 2/3 populate them.
+/// call. Batch 1 (M1a) shipped the empty skeleton; batch 2 populates declaration and
+/// use sites, batch 3 fills constraints and safety classification.
 /// </summary>
 public sealed class VarianceAuditAnalysis
 {
-    public List<VarianceDeclarationSite> DeclarationSites { get; } = new();
-    public List<VarianceUseSite> UseSites { get; } = new();
+    public List<VariantDeclarationRecord> DeclarationSites { get; } = new();
+    public List<VarianceUseRecord> UseSites { get; } = new();
     public List<VarianceConstraintSite> ConstraintSites { get; } = new();
 }
