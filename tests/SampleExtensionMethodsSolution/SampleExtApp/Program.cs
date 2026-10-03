@@ -26,4 +26,8 @@ if (joined != "x,y") return 6;
 var linq = new[] { 1, 2, 3 }.Where(n => n > 1).Select(n => n * 2).Sum();
 if (linq != 10) return 7;
 
+// C19 M2 scenarios (ref Span, null-safe receivers, ?. lifting, method group).
+var m2 = M2Scenarios.Run();
+if (m2 != 0) return m2;
+
 return 0;

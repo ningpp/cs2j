@@ -1,5 +1,8 @@
 using SampleExtLib.Collections;
+using SampleExtLib.Delegates;
+using SampleExtLib.NullGuards;
 using SampleExtLib.Shapes;
+using SampleExtLib.Spans;
 using SampleExtLib.Text;
 using Xunit;
 
@@ -57,5 +60,41 @@ public sealed class RuntimeBehaviorTests
         var items = new[] { "a", "b", "c" }.RequireNonEmpty();
         Assert.Equal("a-b-c", items.JoinWith("-"));
         Assert.Throws<ArgumentException>(() => Array.Empty<string>().RequireNonEmpty().ToList());
+    }
+
+    [Fact]
+    public void NullReceiver_ExtensionWithoutDereference_DoesNotThrow()
+    {
+        string? missing = null;
+        Assert.True(missing.IsNull());
+        Assert.False("value".IsNull());
+    }
+
+    [Fact]
+    public void RefSpanExtension_MutatesCallerSpan()
+    {
+        Span<int> values = stackalloc int[2];
+        values[0] = 1;
+        values.IncrementFirst();
+        Assert.Equal(2, values[0]);
+        Assert.Equal(2, values.Sum());
+    }
+
+    [Fact]
+    public void NullConditionalExtension_LiftsAndEvaluatesOnce()
+    {
+        string? missing = null;
+        Assert.Null(missing?.LengthOrNull());
+        Assert.Equal(3, "abc"?.LengthOrNull());
+    }
+
+    [Fact]
+    public void MethodGroupExtension_CapturesReceiverInLambda()
+    {
+        var name = "x";
+        Action greet = name.Greet;
+        var before = GreetingExtensions.GreetingCount;
+        greet();
+        Assert.Equal(before + 1, GreetingExtensions.GreetingCount);
     }
 }

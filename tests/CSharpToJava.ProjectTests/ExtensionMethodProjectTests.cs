@@ -126,6 +126,39 @@ public class ExtensionMethodProjectTests
                 intermediateBytes.Length >= 3
                 && intermediateBytes[0] == 0xEF && intermediateBytes[1] == 0xBB && intermediateBytes[2] == 0xBF,
                 "CleanMarker.cs must keep its UTF-8 BOM after the byte-copy path");
+
+            // C19 M2: ref/scoped-ref Span receivers, null-safe receivers,
+            // null-conditional lifting temps, and method-group capture live in
+            // a dedicated file (lift/temp files use whole-file normalization).
+            var m2Scenarios = await File.ReadAllTextAsync(
+                Directory.GetFiles(intermediateRoot, "M2Scenarios.cs", SearchOption.AllDirectories)
+                    .Single(p => p.Contains("SampleExtApp", StringComparison.OrdinalIgnoreCase)));
+
+            // EM-REF: ref keyword emitted for both 'this ref' and
+            // 'this scoped ref' (scoped itself is metadata-only).
+            Assert.Contains(
+                "global::SampleExtLib.Spans.SpanExtensions.IncrementFirst(ref values)",
+                m2Scenarios);
+            Assert.Contains(
+                "global::SampleExtLib.Spans.SpanExtensions.Sum(ref values)",
+                m2Scenarios);
+
+            // Nullable receiver call: no ref keyword, ordinary static form.
+            Assert.Contains(
+                "global::SampleExtLib.NullGuards.NullGuardExtensions.IsNull(missing)",
+                m2Scenarios);
+
+            // EM-COND: single-evaluation temps around the lifted spine.
+            Assert.Contains("_cs2j_emc", m2Scenarios);
+            Assert.Contains(
+                "global::SampleExtLib.NullGuards.NullGuardExtensions.LengthOrNull(_cs2j_emc",
+                m2Scenarios);
+            Assert.Contains("default(int?", m2Scenarios);
+
+            // EM-GROUP: direct receiver capture lambda.
+            Assert.Contains(
+                "() => global::SampleExtLib.Delegates.GreetingExtensions.Greet(name)",
+                m2Scenarios);
         }
         finally
         {
