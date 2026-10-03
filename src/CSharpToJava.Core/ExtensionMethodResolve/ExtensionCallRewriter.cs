@@ -5,18 +5,31 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.ExtensionMethodResolve;
 
 /// <summary>
-/// Bottom-up rewriter (EM-CALL/EM-GEN/EM-GEN-HOST): for each bound node
-/// replaces <c>r.M(args)</c> with <c>global::Host.M[&lt;ta&gt;](r, args)</c>.
-///
-/// Trivia policy (design §4.1): the receiver moves into the first argument
-/// position and is reused as the SAME node (evaluation order/side effects
-/// preserved, chains converge via bottom-up traversal); the member-access
-/// leading trivia moves to the new invocation's first token. Method type
-/// arguments are copied only when the source supplied them (EM-GEN): the
-/// source <c>Name</c> node is either an IdentifierName (omitted — inference
-/// gets re-run by the compiler on the explicit first parameter) or a
-/// GenericName carrying exactly the source argument list. ref/in argument
-/// modifiers are NOT emitted in M1 (EM-REF, M2).
+/// One expression-tree site marked for the post-rewrite identity assertion:
+/// the marker annotation tracks the emitted invocation across later tree
+/// edits; <see cref="OriginalInvocation"/> identifies the sugar node to roll
+/// back when the assertion fails.
+/// </summary>
+internal sealed record ExpressionTreeSiteMarker(
+    SyntaxAnnotation Annotation,
+    IMethodSymbol Unreduced,
+    InvocationExpressionSyntax OriginalInvocation);
+
+/// <summary>
+/// Bottom-up rewriter (EM-CALL/EM-GEN/EM-GEN-HOST/EM-REF/EM-GROUP):
+/// <list type="bullet">
+/// <item>bound reduced calls <c>r.M(args)</c> →
+/// <c>global::Host.M[&lt;ta&gt;]([ref/in] r, args)</c>, reusing the source
+/// receiver and name nodes (evaluation order/trivia preserved, EM-CHAIN);</item>
+/// <item>rewritable reduced method groups <c>r.M</c> →
+/// <c>(p...) =&gt; global::Host.M(r[, p...])</c> capture lambdas (EM-GROUP).
+/// The receiver is either captured directly (local/parameter/this) or read
+/// from a single-evaluation temp inserted by the orchestrator;</item>
+/// </list>
+/// Null-conditional chains are NOT handled here: the orchestrator lowers them
+/// after this pass (their spine nodes must stay identifiable up to that
+/// point). Expression-tree sites carry a per-site marker annotation for the
+/// identity assertion/rollback loop.
 /// </summary>
 internal sealed class ExtensionCallRewriter : CSharpSyntaxRewriter
 {
@@ -24,52 +37,197 @@ internal sealed class ExtensionCallRewriter : CSharpSyntaxRewriter
     public static readonly SyntaxAnnotation RewrittenAnnotation = new("C19", "ExtensionMethodRewrittenSite");
 
     private readonly IReadOnlyDictionary<SyntaxNode, ExtensionCallBinding> _bindingsByNode;
+    private readonly IReadOnlyDictionary<SyntaxNode, ExtensionGroupPlan> _groupsByNode;
+    private readonly HashSet<SyntaxNode>? _rolledBackSites;
+    private readonly IReadOnlyDictionary<SyntaxAnnotation, ExtensionCallBinding> _bindingsByAnnotation;
+    private readonly IReadOnlyDictionary<SyntaxAnnotation, ExtensionGroupPlan> _groupsByAnnotation;
 
-    public ExtensionCallRewriter(IReadOnlyDictionary<SyntaxNode, ExtensionCallBinding> bindingsByNode)
+    private readonly List<ExpressionTreeSiteMarker> _expressionTreeSites = new();
+    private readonly Dictionary<ExtensionGroupPlan, ExpressionSyntax> _groupReceivers = new();
+
+    public ExtensionCallRewriter(
+        IReadOnlyDictionary<SyntaxNode, ExtensionCallBinding> bindingsByNode,
+        IReadOnlyDictionary<SyntaxNode, ExtensionGroupPlan> groupsByNode,
+        HashSet<SyntaxNode>? rolledBackSites = null,
+        IReadOnlyDictionary<SyntaxAnnotation, ExtensionCallBinding>? bindingsByAnnotation = null,
+        IReadOnlyDictionary<SyntaxAnnotation, ExtensionGroupPlan>? groupsByAnnotation = null)
     {
         _bindingsByNode = bindingsByNode;
+        _groupsByNode = groupsByNode;
+        _rolledBackSites = rolledBackSites;
+        _bindingsByAnnotation = bindingsByAnnotation
+            ?? new Dictionary<SyntaxAnnotation, ExtensionCallBinding>();
+        _groupsByAnnotation = groupsByAnnotation
+            ?? new Dictionary<SyntaxAnnotation, ExtensionGroupPlan>();
     }
+
+    public IReadOnlyList<ExpressionTreeSiteMarker> ExpressionTreeSites => _expressionTreeSites;
+
+    /// <summary>Visited receiver expressions per temp-captured group (moved out of the old subtree).</summary>
+    public IReadOnlyDictionary<ExtensionGroupPlan, ExpressionSyntax> GroupReceivers => _groupReceivers;
 
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
         var visited = (InvocationExpressionSyntax?)base.VisitInvocationExpression(node) ?? node;
 
-        if (!_bindingsByNode.TryGetValue(node, out var binding))
+        if (!TryGetBinding(node, out var binding)
+            || _rolledBackSites?.Contains(binding.Invocation) == true)
         {
             return visited;
         }
 
-        // M1 bindings are ordinary member-access reduced calls only
-        // (null-conditional MemberBinding sites are deferred to M2).
-        var originalAccess = (MemberAccessExpressionSyntax)node.Expression;
         var visitedAccess = (MemberAccessExpressionSyntax)visited.Expression;
-
-        // Take the receiver from the VISITED form: an inner extension call has
-        // already been rewritten to its explicit static shape (EM-CHAIN).
         var receiver = visitedAccess.Expression;
+        var firstParameter = binding.Unreduced.Parameters.Length > 0
+            ? binding.Unreduced.Parameters[0]
+            : null;
 
-        // The member-access leading trivia (trivia before the receiver, i.e.
-        // indentation/start position) moves to the new invocation first token.
-        var leadingTrivia = node.GetLeadingTrivia();
+        var annotations = new List<SyntaxAnnotation> { RewrittenAnnotation };
+        ExpressionTreeSiteMarker? etMarker = null;
+        if (binding.IsInExpressionTree)
+        {
+            etMarker = new ExpressionTreeSiteMarker(
+                new SyntaxAnnotation("C19", "ExtensionExprTreeSite"),
+                binding.Unreduced,
+                binding.Invocation);
+            annotations.Add(etMarker.Annotation);
+            _expressionTreeSites.Add(etMarker);
+        }
 
-        // EM-GEN: reuse the source name node verbatim — IdentifierName when
-        // type arguments were omitted, GenericName when they were explicit.
-        var methodName = originalAccess.Name.WithoutTrivia();
+        var invocation = ExtensionStaticCallFactory.Build(
+            binding.Unreduced,
+            node.GetMemberAccessName(),
+            receiver,
+            binding.ReceiverRefKind,
+            firstParameter?.ScopedKind ?? ScopedKind.None,
+            visited.ArgumentList.Arguments,
+            annotations);
 
-        var hostName = ExtensionHostSyntaxFactory.BuildHostName(binding.Unreduced);
-        var qualifiedMemberAccess = SyntaxFactory.MemberAccessExpression(
-            SyntaxKind.SimpleMemberAccessExpression,
-            hostName,
-            SyntaxFactory.Token(SyntaxKind.DotToken),
-            methodName);
-
-        var receiverArgument = SyntaxFactory.Argument(receiver.WithoutLeadingTrivia());
-        var newArguments = visited.ArgumentList.Arguments.Insert(0, receiverArgument);
-        var newArgumentList = SyntaxFactory.ArgumentList(newArguments);
-
-        return SyntaxFactory.InvocationExpression(qualifiedMemberAccess, newArgumentList)
-            .WithLeadingTrivia(leadingTrivia)
-            .WithTrailingTrivia(node.GetTrailingTrivia())
-            .WithAdditionalAnnotations(RewrittenAnnotation);
+        return invocation
+            .WithLeadingTrivia(node.GetLeadingTrivia())
+            .WithTrailingTrivia(node.GetTrailingTrivia());
     }
+
+    public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
+    {
+        var visited = (MemberAccessExpressionSyntax?)base.VisitMemberAccessExpression(node) ?? node;
+
+        if (!TryGetGroup(node, out var plan) || !plan.Rewritable)
+        {
+            return visited;
+        }
+
+        var receiver = plan is { DirectCapture: true }
+            ? visited.Expression
+            : SyntaxFactory.IdentifierName(plan.TempName!);
+        if (!plan.DirectCapture)
+        {
+            _groupReceivers[plan] = visited.Expression;
+        }
+
+        var invoke = plan.DelegateType.DelegateInvokeMethod!;
+        var parameters = new List<ParameterSyntax>();
+        var delegateArguments = new List<ArgumentSyntax>();
+        for (var i = 0; i < invoke.Parameters.Length; i++)
+        {
+            var delegateParameter = invoke.Parameters[i];
+            var parameterName = plan.LambdaParameterNames[i];
+            var parameterType = (TypeSyntax)SyntaxFactory.ParseTypeName(
+                delegateParameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat
+                    .WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Included)));
+            var parameter = SyntaxFactory.Parameter(
+                default,
+                BuildParameterModifiers(delegateParameter.RefKind),
+                parameterType.WithTrailingTrivia(SyntaxFactory.ElasticSpace),
+                SyntaxFactory.Identifier(parameterName),
+                null);
+            parameters.Add(parameter);
+
+            delegateArguments.Add(SyntaxFactory
+                .Argument(SyntaxFactory.IdentifierName(parameterName))
+                .WithRefKindKeyword(BuildArgumentModifier(delegateParameter.RefKind)));
+        }
+
+        var body = ExtensionStaticCallFactory.Build(
+            plan.Unreduced,
+            node.Name.WithoutTrivia(),
+            receiver,
+            RefKind.None,
+            ScopedKind.None,
+            SyntaxFactory.SeparatedList(delegateArguments),
+            new SyntaxAnnotation[] { RewrittenAnnotation });
+
+        var lambda = SyntaxFactory.ParenthesizedLambdaExpression(
+            default,
+            SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters)),
+            SyntaxFactory.Token(SyntaxKind.EqualsGreaterThanToken),
+            body)
+            .WithLeadingTrivia(node.GetLeadingTrivia())
+            .WithTrailingTrivia(node.GetTrailingTrivia());
+
+        return lambda;
+    }
+
+    private bool TryGetBinding(InvocationExpressionSyntax node, out ExtensionCallBinding binding)
+    {
+        if (_bindingsByNode.TryGetValue(node, out binding!))
+        {
+            return true;
+        }
+
+        foreach (var annotation in node.GetAnnotations("C19"))
+        {
+            if (_bindingsByAnnotation.TryGetValue(annotation, out binding!))
+            {
+                return true;
+            }
+        }
+
+        binding = default!;
+        return false;
+    }
+
+    private bool TryGetGroup(MemberAccessExpressionSyntax node, out ExtensionGroupPlan plan)
+    {
+        if (_groupsByNode.TryGetValue(node, out plan!))
+        {
+            return true;
+        }
+
+        foreach (var annotation in node.GetAnnotations("C19"))
+        {
+            if (_groupsByAnnotation.TryGetValue(annotation, out plan!))
+            {
+                return true;
+            }
+        }
+
+        plan = default!;
+        return false;
+    }
+
+    private static SyntaxTokenList BuildParameterModifiers(RefKind refKind)
+        => refKind switch
+        {
+            RefKind.Ref or RefKind.Out => SyntaxFactory.TokenList(
+                SyntaxFactory.Token(default(SyntaxTriviaList), SyntaxKind.RefKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticSpace))),
+            RefKind.In => SyntaxFactory.TokenList(
+                SyntaxFactory.Token(default(SyntaxTriviaList), SyntaxKind.InKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticSpace))),
+            _ => default,
+        };
+
+    private static SyntaxToken BuildArgumentModifier(RefKind refKind)
+        => refKind switch
+        {
+            RefKind.Ref or RefKind.Out => SyntaxFactory.Token(SyntaxKind.RefKeyword),
+            RefKind.In => SyntaxFactory.Token(SyntaxKind.InKeyword),
+            _ => SyntaxFactory.Token(SyntaxKind.None),
+        };
+}
+
+internal static class ExtensionInvocationSyntaxExtensions
+{
+    /// <summary>Source method name node (IdentifierName or explicit GenericName).</summary>
+    public static SimpleNameSyntax GetMemberAccessName(this InvocationExpressionSyntax invocation)
+        => ((MemberAccessExpressionSyntax)invocation.Expression).Name;
 }

@@ -5,43 +5,46 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.ExtensionMethodResolve;
 
 /// <summary>
-/// Single-file analysis (EM-BIND): enumerates invocation nodes, consumes
-/// <see cref="SemanticModel.GetSymbolInfo"/> and classifies the ones bound as
-/// <c>MethodKind.ReducedExtension</c>; no candidate resolution is rebuilt here
-/// (SemanticModel is the single source of truth, design §2 EM-BIND).
+/// Single-file analysis (EM-BIND): consumes <see cref="SemanticModel"/>
+/// facts and classifies reduced extension sites. SemanticModel is the single
+/// source of truth (design §2); syntax shape never selects a site, it only
+/// classifies the proven bound symbol.
 ///
-/// M1 coverage:
-/// - ordinary member-access reduced calls (<c>r.M(a)</c>) are selected and
-///   rewritten; LINQ hosts (Enumerable/Queryable) are counted and left alone;
-/// - <c>CandidateReason.Ambiguous</c> → CS2J1201 (candidate hosts + namespaces);
-/// - <c>None</c>/<c>OverloadResolutionFailure</c> receiver-style calls → CS2J1202
-///   (Warning when an extension method is among the candidates, Info trace
-///   otherwise; strict promotes the Warning to Error);
-/// - C# 14 <c>extension</c> blocks are a SYNTAX gate (EM-EXT14, CS2J1206 Error,
-///   never graded): under Roslyn 5 / LanguageVersion.Latest the block members
-///   are MethodKind.Ordinary inside a TypeKind.Extension container and call
-///   sites bind directly to them (ReducedFrom == null), so the
-///   ReducedExtension key below would silently miss every block site — the
-///   syntax scan is the mandatory correctness door (M0 probe conclusion ②).
-///
-/// Deferred to later milestones (traced, never silent):
-/// - null-conditional reduced calls (<c>r?.M()</c>, MemberBinding shape; M2);
-/// - <c>this ref</c>/<c>this in</c> receivers (EM-REF; M2).
+/// M2 coverage:
+/// - ordinary member-access reduced calls, including <c>this ref</c>/<c>this
+/// /// in</c> receivers (EM-REF: ref/in argument emission, CS2J1204 only when
+///   the argument lvalue cannot be proven);
+/// - null-conditional reduced chains (<c>r?.M()</c>/<c>r?.Go()?.Chain()</c>):
+///   EM-COND lift plans (single-evaluation temps + conditional static calls);
+///   CS2J1205 for shapes proven not safely liftable; assert-only inside
+///   expression trees;
+/// - non-call member access reduced method groups (EM-GROUP): capture-lambda
+///   plans when the delegate target and safe receiver capture are provable;
+///   CS2J1207 for ambiguous/unmatched/interleaved shapes;
+/// - expression-tree flag for the identity assertion in the rewriter;
+/// - C#14 extension blocks stay an unconditional syntax gate (CS2J1206).
 /// </summary>
 internal sealed class ExtensionCallBinder
 {
-    public const string NullConditionalDeferredReason = "null-conditional-deferred-m2";
-    public const string RefReceiverDeferredReason = "ref-receiver-deferred-m2";
     public const string ExternalRewriteDisabledReason = "external-metadata-rewrite-disabled";
+    public const string ExprTreeReportOnlyReason = "expression-tree-report-only";
+    public const string NullConditionalInExpressionTreeReason = "null-conditional-in-expression-tree";
+    public const string NullConditionalLinqOwnedReason = "null-conditional-linq-owned";
 
     private readonly List<ExtensionCallBinding> _bindings = new();
+    private readonly List<ExtensionConditionalPlan> _conditionalPlans = new();
+    private readonly List<ExtensionGroupPlan> _groupPlans = new();
+    private readonly List<InvocationExpressionSyntax> _refMismatchSites = new();
+    private readonly List<InvocationExpressionSyntax> _exprTreeReportOnlySites = new();
     private readonly List<ExtensionDiagnostic> _diagnostics = new();
     private readonly ExtensionMethodResolveStatistics _statistics = new();
+    private readonly ExtensionTempAllocator _allocator;
 
     public ExtensionCallBinder(SemanticModel model, ExtensionMethodResolveOptions options)
     {
         Model = model;
         Options = options;
+        _allocator = new ExtensionTempAllocator(model.SyntaxTree.GetCompilationUnitRoot());
     }
 
     public SemanticModel Model { get; }
@@ -49,9 +52,11 @@ internal sealed class ExtensionCallBinder
     public ExtensionMethodResolveOptions Options { get; }
 
     public IReadOnlyList<ExtensionCallBinding> Bindings => _bindings;
-
+    public IReadOnlyList<ExtensionConditionalPlan> ConditionalPlans => _conditionalPlans;
+    public IReadOnlyList<ExtensionGroupPlan> GroupPlans => _groupPlans;
+    public IReadOnlyList<InvocationExpressionSyntax> RefMismatchSites => _refMismatchSites;
+    public IReadOnlyList<InvocationExpressionSyntax> ExprTreeReportOnlySites => _exprTreeReportOnlySites;
     public IReadOnlyList<ExtensionDiagnostic> Diagnostics => _diagnostics;
-
     public ExtensionMethodResolveStatistics Statistics => _statistics;
 
     /// <summary>Analyze one syntax tree (bindings/diagnostics sorted by span).</summary>
@@ -59,11 +64,9 @@ internal sealed class ExtensionCallBinder
     {
         var root = Model.SyntaxTree.GetCompilationUnitRoot();
 
-        // EM-EXT14: syntax-driven. LanguageVersion.Latest ships C#14 extension
-        // blocks with zero compiler diagnostics on the block itself, so binding
-        // diagnostics cannot detect them. Every block is an unconditional Error
-        // (classic this-parameter form is the only v1-supported shape; C49 owns
-        // block lowering).
+        // EM-EXT14: syntax-driven (see M1 probe ②): block members bind as
+        // Ordinary inside a TypeKind.Extension container, so binding alone
+        // would silently miss every block site.
         foreach (var block in root.DescendantNodes()
                      .Where(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration)))
         {
@@ -81,11 +84,22 @@ internal sealed class ExtensionCallBinder
         foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
         {
             var info = Model.GetSymbolInfo(invocation);
-            if (info.Symbol is IMethodSymbol { MethodKind: MethodKind.ReducedExtension } reduced
-                && reduced.ReducedFrom is { } unreduced)
+            if (info.Symbol is IMethodSymbol
+                {
+                    MethodKind: MethodKind.ReducedExtension,
+                    ReducedFrom: { } unreducedSymbol,
+                } reducedSymbol)
             {
                 _statistics.CallsitesBoundReduced++;
-                ClassifyBound(invocation, reduced, unreduced);
+
+                // EM-COND owns every invocation inside a WhenNotNull segment
+                // (spine and argument-position calls alike).
+                if (IsNullConditionalReducedSite(invocation))
+                {
+                    continue;
+                }
+
+                ClassifyBound(invocation, reducedSymbol, unreducedSymbol);
                 continue;
             }
 
@@ -95,56 +109,74 @@ internal sealed class ExtensionCallBinder
             }
         }
 
+        // EM-COND: outermost conditionals only; nested ?. chains are segments
+        // of the outer plan.
+        foreach (var conditional in root.DescendantNodes()
+                     .OfType<ConditionalAccessExpressionSyntax>()
+                     .Where(c => !c.Ancestors().OfType<ConditionalAccessExpressionSyntax>().Any()))
+        {
+            AnalyzeConditionalChain(conditional);
+        }
+
+        // EM-GROUP: member accesses that are not the callee of an invocation.
+        foreach (var memberAccess in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
+        {
+            if (memberAccess.Parent is InvocationExpressionSyntax parentInvocation
+                && parentInvocation.Expression == memberAccess)
+            {
+                continue;
+            }
+
+            AnalyzeMethodGroup(memberAccess);
+        }
+
         _bindings.Sort((a, b) => a.Invocation.SpanStart.CompareTo(b.Invocation.SpanStart));
+        _conditionalPlans.Sort((a, b) => a.SpanStart.CompareTo(b.SpanStart));
+        _groupPlans.Sort((a, b) => a.SpanStart.CompareTo(b.SpanStart));
         _diagnostics.Sort((a, b) => (a.Line ?? 0).CompareTo(b.Line ?? 0));
     }
+
+    // ── Ordinary reduced invocations (EM-CALL/EM-REF/EM-EXPRTREE) ───────────
 
     private void ClassifyBound(
         InvocationExpressionSyntax invocation,
         IMethodSymbol reduced,
         IMethodSymbol unreduced)
     {
-        // Host always comes from the UNREDUCED symbol (constructed, so nested
-        // generic host type arguments are included; M0 probe conclusion ③).
         var host = unreduced.ContainingType;
         var hostDisplayName = host.ToDisplayString();
 
         if (Options.LinqHostSet.Contains(hostDisplayName))
         {
-            // EM-LINQ: Enumerable/Queryable sugar stays reduced for E16/C26.
             _statistics.LinqOwnedSkipped++;
             return;
         }
 
-        // M0 probe conclusion ①: r?.M() is legal and still binds
-        // ReducedExtension, but the tree is ConditionalAccess/MemberBinding.
-        // M1 does not select the site; M2 owns the temp-lift rewrite.
-        if (IsNullConditionalReducedSite(invocation))
-        {
-            AddSkipReason(NullConditionalDeferredReason);
-            AddDiagnostic(
-                ExtensionSeverity.Info,
-                ExtensionRule.Cond,
-                ExtensionMethodCodes.Info,
-                $"Null-conditional extension call '{invocation.ToString()}' is deferred to M2 (temporary-variable lifting); site unchanged.",
-                invocation.GetLocation());
-            return;
-        }
+        var receiver = (invocation.Expression as MemberAccessExpressionSyntax)?.Expression;
+        var firstParameter = unreduced.Parameters.Length > 0 ? unreduced.Parameters[0] : null;
+        var receiverRefKind = firstParameter?.RefKind ?? RefKind.None;
 
-        // EM-REF lands in M2: without the ref/in argument modifier a rewrite
-        // would not compile, so leave the site untouched but trace it.
-        var receiverRefKind = unreduced.Parameters.Length > 0 ? unreduced.Parameters[0].RefKind : RefKind.None;
         if (receiverRefKind != RefKind.None)
         {
             _statistics.RefReceiverSites++;
-            AddSkipReason(RefReceiverDeferredReason);
-            AddDiagnostic(
-                ExtensionSeverity.Info,
-                ExtensionRule.Ref,
-                ExtensionMethodCodes.Info,
-                $"Extension call '{invocation.ToString()}' has a '{receiverRefKind.ToString().ToLowerInvariant()}' receiver parameter; ref/in emission lands in M2.",
-                invocation.GetLocation());
-            return;
+
+            // in accepts every expression (rvalues included); ref/scoped-ref
+            // needs a provably writable lvalue the source itself compiled with.
+            var provable = receiverRefKind == RefKind.In
+                || (receiver is not null
+                    && ExtensionRefReceiverFacts.IsProvableWritableRefReceiver(receiver, Model));
+            if (!provable)
+            {
+                _refMismatchSites.Add(invocation);
+                AddDiagnostic(
+                    WarningOrError(),
+                    ExtensionRule.Ref,
+                    ExtensionMethodCodes.RefMismatch,
+                    $"Extension call '{invocation.ToString()}' takes a '{receiverRefKind.ToString().ToLowerInvariant()}' receiver but the argument cannot be proven a writable variable; site left unchanged.",
+                    invocation.GetLocation());
+                AddSkipReason(ExtensionMethodCodes.RefMismatch);
+                return;
+            }
         }
 
         var classification = host.Locations.Length > 0 && host.Locations[0].IsInSource
@@ -157,24 +189,52 @@ internal sealed class ExtensionCallBinder
             if (!Options.RewriteExternalMetadataHosts)
             {
                 AddSkipReason(ExternalRewriteDisabledReason);
-                AddDiagnostic(
-                    ExtensionSeverity.Info,
-                    ExtensionRule.External,
-                    ExtensionMethodCodes.Info,
-                    $"Metadata-host extension call '{invocation.ToString()}' (host {hostDisplayName}) skipped because RewriteExternalMetadataHosts=false.",
-                    invocation.GetLocation());
+                if (Options.ReportInfo)
+                {
+                    AddDiagnostic(
+                        ExtensionSeverity.Info,
+                        ExtensionRule.External,
+                        ExtensionMethodCodes.Info,
+                        $"Metadata-host extension call '{invocation.ToString()}' (host {hostDisplayName}) skipped because RewriteExternalMetadataHosts=false.",
+                        invocation.GetLocation());
+                }
+
                 return;
             }
         }
         else
         {
-            // M1 folds InCompilationSupport into the in-compilation bucket;
-            // support-library split lands in M3.
             _statistics.InCompilationHostSites++;
         }
 
-        var explicitTypeArguments = invocation.Expression is MemberAccessExpressionSyntax { Name: GenericNameSyntax genericName }
-            && genericName.TypeArgumentList.Arguments.Count > 0;
+        var isInExpressionTree = ExtensionExpressionTreeFacts
+            .IsInExpressionTreeLambda(invocation, Model);
+        if (isInExpressionTree)
+        {
+            _statistics.ExpressionTreeSitesChecked++;
+
+            if (Options.ExpressionTreePolicy == ExpressionTreeRewritePolicy.ReportOnly)
+            {
+                _exprTreeReportOnlySites.Add(invocation);
+                AddSkipReason(ExprTreeReportOnlyReason);
+                if (Options.ReportInfo)
+                {
+                    AddDiagnostic(
+                        ExtensionSeverity.Info,
+                        ExtensionRule.ExprTree,
+                        ExtensionMethodCodes.Info,
+                        $"Expression-tree extension call '{invocation.ToString()}' left as sugar (ExpressionTreePolicy=ReportOnly).",
+                        invocation.GetLocation());
+                }
+
+                return;
+            }
+        }
+
+        var explicitTypeArguments = invocation.Expression is MemberAccessExpressionSyntax
+            {
+                Name: GenericNameSyntax genericName,
+            } && genericName.TypeArgumentList.Arguments.Count > 0;
 
         _bindings.Add(new ExtensionCallBinding(
             invocation,
@@ -182,27 +242,19 @@ internal sealed class ExtensionCallBinder
             unreduced,
             classification,
             receiverRefKind,
-            IsInExpressionTree: false,
+            isInExpressionTree,
             explicitTypeArguments));
     }
 
     private void ClassifyUnbound(InvocationExpressionSyntax invocation, SymbolInfo info)
     {
-        // Dynamic dispatch never binds extension methods (design §2): no
-        // diagnostic at all — the call is not extension-sugar.
+        // Dynamic dispatch never binds extension methods.
         if (TryGetReceiverExpression(invocation) is { } receiverExpression
             && Model.GetTypeInfo(receiverExpression).Type?.TypeKind == TypeKind.Dynamic)
         {
             return;
         }
 
-        // Empirical Roslyn shape (M1 probe): a CS0121 ambiguity between two
-        // reduced extension candidates (e.g. equally applicable methods in two
-        // imported namespaces) is reported as CandidateReason.Ambiguous for
-        // member/instance ties but as OverloadResolutionFailure for
-        // extension-vs-extension ties, with both reduced methods present in
-        // CandidateSymbols. Treat either shape with >=2 distinct extension
-        // candidates as ambiguity (CS2J1201).
         var extensionCandidates = info.CandidateSymbols
             .OfType<IMethodSymbol>()
             .Where(m => m.IsExtensionMethod || m.MethodKind == MethodKind.ReducedExtension)
@@ -216,9 +268,8 @@ internal sealed class ExtensionCallBinder
                 .Select(DescribeCandidateHost)
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
-            var severity = Options.Strict ? ExtensionSeverity.Error : ExtensionSeverity.Warning;
             AddDiagnostic(
-                severity,
+                WarningOrError(),
                 ExtensionRule.Bind,
                 ExtensionMethodCodes.Ambiguous,
                 $"Ambiguous extension call '{invocation.ToString()}': candidates [{string.Join("; ", candidates)}]; site left unchanged.",
@@ -227,15 +278,10 @@ internal sealed class ExtensionCallBinder
             return;
         }
 
-        // None / OverloadResolutionFailure. Warning when an extension method is
-        // among the candidates (genuine extension sugar we could not bind —
-        // incomplete references etc.); plain unbound ordinary calls get an Info
-        // trace (verbose) and strict never promotes them.
         if (extensionCandidates.Count > 0)
         {
-            var severity = Options.Strict ? ExtensionSeverity.Error : ExtensionSeverity.Warning;
             AddDiagnostic(
-                severity,
+                WarningOrError(),
                 ExtensionRule.Bind,
                 ExtensionMethodCodes.Unbound,
                 $"Extension-like call '{invocation.ToString()}' failed to bind ({info.CandidateReason}); references may be incomplete. Site left unchanged.",
@@ -253,6 +299,549 @@ internal sealed class ExtensionCallBinder
         }
     }
 
+    // ── EM-COND ──────────────────────────────────────────────────────────────
+
+    private void AnalyzeConditionalChain(ConditionalAccessExpressionSyntax outer)
+    {
+        var segments = BuildSegments(outer);
+        if (segments.Count == 0 || segments[0].SpineCalls.Count == 0)
+        {
+            return;
+        }
+
+        var spineCalls = segments.SelectMany(s => s.SpineCalls).ToList();
+        var plan = new ExtensionConditionalPlan
+        {
+            OuterConditional = outer,
+            Segments = segments,
+            SiteAnnotation = new SyntaxAnnotation("C19", "ExtensionConditionalSite"),
+            AnchorAnnotation = new SyntaxAnnotation("C19", "ExtensionConditionalAnchor"),
+            TempNames = Array.Empty<string>(),
+            Liftable = true,
+            ResultType = null,
+            IsVoid = false,
+            Anchor = ExtensionAnchor.None,
+        };
+
+        // LINQ-owned spine: mixed or pure LINQ chains stay sugar for E16/C26;
+        // gate 1 exempts them via the host set, no CS2J1205.
+        if (spineCalls.Any(c => Options.LinqHostSet.Contains(c.Unreduced.ContainingType.ToDisplayString())))
+        {
+            _statistics.LinqOwnedSkipped++;
+            AddSkipReason(NullConditionalLinqOwnedReason);
+            if (Options.ReportInfo)
+            {
+                AddDiagnostic(
+                    ExtensionSeverity.Info,
+                    ExtensionRule.Linq,
+                    ExtensionMethodCodes.Info,
+                    $"Null-conditional extension chain '{outer.ToString()}' contains a LINQ host; site left unchanged.",
+                    outer.GetLocation());
+            }
+
+            return;
+        }
+
+        // Foreign reduced call inside an owned segment (e.g. in an argument):
+        // lifting only the spine would not converge the segment, and temp
+        // hoisting across argument positions would reorder evaluation. Each
+        // segment owns exactly its segmentRoot subtree (segment roots are
+        // disjoint siblings along the nested WhenNotNull chain), so the check
+        // runs per segment to catch foreign calls in deeper segments too.
+        // Segment roots are disjoint siblings (nested conditional's Expression
+        // vs WhenNotNull), so segmentRoot.DescendantNodesAndSelf is exactly the
+        // physical region owned by the segment.
+        var spineSet = spineCalls.Select(c => c.Invocation).ToHashSet();
+        var foreign = segments
+            .SelectMany(segment => segment.Root.DescendantNodesAndSelf()
+                .OfType<InvocationExpressionSyntax>()
+                .Where(i => !spineSet.Contains(i)))
+            .FirstOrDefault(i => Model.GetSymbolInfo(i).Symbol
+                is IMethodSymbol { MethodKind: MethodKind.ReducedExtension });
+        if (foreign is not null)
+        {
+            MarkConditionalDeferred(
+                plan,
+                "a nested extension call inside the chain is not on its spine (argument position)",
+                outer);
+            _conditionalPlans.Add(plan);
+            return;
+        }
+
+        // ref/in receiver on a ?. chain (probe: such sources don't compile in
+        // the legal shapes, but bind facts may still surface under errors).
+        var refSpineCall = spineCalls.FirstOrDefault(c => c.ReceiverRefKind != RefKind.None);
+        if (refSpineCall is not null)
+        {
+            MarkConditionalDeferred(
+                plan,
+                $"spine call requires a '{refSpineCall.ReceiverRefKind.ToString().ToLowerInvariant()}' receiver",
+                outer);
+            _conditionalPlans.Add(plan);
+            return;
+        }
+
+        var resultType = segments[^1].ResultType;
+        var isVoid = resultType is null || resultType.SpecialType == SpecialType.System_Void;
+        if (isVoid)
+        {
+            resultType = null;
+        }
+
+        // Expression tree: assertion-only zone (no new locals, no lift).
+        if (ExtensionExpressionTreeFacts.IsInExpressionTreeLambda(outer, Model))
+        {
+            _statistics.ConditionalChainsDeferred++;
+            AddSkipReason(NullConditionalInExpressionTreeReason);
+            if (Options.ReportInfo)
+            {
+                AddDiagnostic(
+                    ExtensionSeverity.Info,
+                    ExtensionRule.ExprTree,
+                    ExtensionMethodCodes.Info,
+                    $"Null-conditional extension chain '{outer.ToString()}' is inside an expression tree; assert-only, site unchanged.",
+                    outer.GetLocation());
+            }
+
+            _conditionalPlans.Add(plan with
+            {
+                Liftable = false,
+                SkipCode = NullConditionalInExpressionTreeReason,
+                IsVoid = isVoid,
+                ResultType = resultType,
+            });
+            return;
+        }
+
+        var anchor = ExtensionTempLift.ResolveAnchor(outer, Model);
+        var dominant = ExtensionTempLift.IsAtDominantExpressionPosition(outer);
+        var voidContext = isVoid && (anchor.Kind == ExtensionAnchorKind.Statement && dominant
+            || anchor.Kind == ExtensionAnchorKind.ArrowClause && anchor.ReturnsVoid
+            || anchor.Kind == ExtensionAnchorKind.ExpressionLambda && anchor.ReturnsVoid);
+        var valueContext = !isVoid && dominant
+            && anchor.Kind is ExtensionAnchorKind.Statement
+                or ExtensionAnchorKind.ArrowClause
+                or ExtensionAnchorKind.ExpressionLambda;
+
+        if (anchor.Kind == ExtensionAnchorKind.None)
+        {
+            MarkConditionalDeferred(
+                plan,
+                "no statement anchor (field/property initializer, query clause, attribute, ...)",
+                outer);
+            _conditionalPlans.Add(plan with { IsVoid = isVoid, ResultType = resultType });
+            return;
+        }
+
+        if (!voidContext && !valueContext)
+        {
+            MarkConditionalDeferred(
+                plan,
+                "site is not the dominant expression of its statement (argument/interleaved position)",
+                outer);
+            _conditionalPlans.Add(plan with { IsVoid = isVoid, ResultType = resultType, Anchor = anchor });
+            return;
+        }
+
+        var tempCount = 1 + Math.Max(0, segments.Count - 1);
+        var tempNames = Enumerable.Range(0, tempCount)
+            .Select(_ => _allocator.Allocate("c"))
+            .ToList();
+
+        _conditionalPlans.Add(plan with
+        {
+            IsVoid = isVoid,
+            ResultType = resultType,
+            Anchor = anchor,
+            TempNames = tempNames,
+        });
+        _statistics.ConditionalChainsLifted++;
+    }
+
+    /// <summary>
+    /// Build the ordered segment list of an outermost conditional. Segment
+    /// walking rule: <c>r?.Go()?.Chain()</c> is outer conditional with
+    /// WhenNotNull = inner conditional; the outer segment's branch root is the
+    /// inner conditional's Expression (the member-binding origin invocation).
+    /// </summary>
+    private List<ExtensionConditionalSegment> BuildSegments(ConditionalAccessExpressionSyntax outer)
+    {
+        var segments = new List<ExtensionConditionalSegment>();
+        var conditional = outer;
+        while (true)
+        {
+            ExpressionSyntax segmentRoot;
+            ConditionalAccessExpressionSyntax? next = null;
+            if (conditional.WhenNotNull is ConditionalAccessExpressionSyntax nested)
+            {
+                segmentRoot = nested.Expression;
+                next = nested;
+            }
+            else
+            {
+                segmentRoot = conditional.WhenNotNull;
+            }
+
+            var origin = FindOriginInvocation(segmentRoot);
+            if (origin is null)
+            {
+                break;
+            }
+
+            var spine = BuildSpineCalls(segmentRoot, origin);
+            var segmentType = Model.GetTypeInfo(conditional).Type
+                ?? Model.GetTypeInfo(conditional).ConvertedType;
+            segments.Add(new ExtensionConditionalSegment(conditional, segmentRoot, origin, spine, segmentType));
+
+            if (next is null)
+            {
+                break;
+            }
+
+            conditional = next;
+        }
+
+        return segments;
+    }
+
+    /// <summary>The member-binding invocation of a segment (<c>.M()</c>; deepest in <c>.Go().N()</c>).</summary>
+    private static InvocationExpressionSyntax? FindOriginInvocation(ExpressionSyntax segmentRoot)
+    {
+        if (segmentRoot is InvocationExpressionSyntax self
+            && self.Expression is MemberBindingExpressionSyntax)
+        {
+            return self;
+        }
+
+        return segmentRoot.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .FirstOrDefault(i => i.Expression is MemberBindingExpressionSyntax);
+    }
+
+    private List<ConditionalSpineCall> BuildSpineCalls(
+        ExpressionSyntax segmentRoot,
+        InvocationExpressionSyntax origin)
+    {
+        var calls = new List<ConditionalSpineCall>();
+        var current = origin;
+        while (true)
+        {
+            if (Model.GetSymbolInfo(current).Symbol is IMethodSymbol
+                {
+                    MethodKind: MethodKind.ReducedExtension,
+                } reduced
+                && reduced.ReducedFrom is { } unreduced)
+            {
+                calls.Add(new ConditionalSpineCall(
+                    current,
+                    reduced,
+                    unreduced,
+                    unreduced.Parameters.Length > 0 ? unreduced.Parameters[0].RefKind : RefKind.None,
+                    current == origin));
+            }
+
+            if (current == segmentRoot)
+            {
+                break;
+            }
+
+            if (current.Parent is MemberAccessExpressionSyntax { Expression: { } prefix } memberAccess
+                && prefix == current
+                && memberAccess.Parent is InvocationExpressionSyntax nextInvocation
+                && nextInvocation.Expression == memberAccess)
+            {
+                current = nextInvocation;
+                continue;
+            }
+
+            break;
+        }
+
+        return calls;
+    }
+
+    /// <summary>
+    /// Physical segment ownership: an invocation belongs to the outermost
+    /// chain when it is within its span and NOT inside any descendant
+    /// conditional's WhenNotNull (the next segment).
+    /// </summary>
+    private static bool BelongsToChain(ConditionalAccessExpressionSyntax outer, SyntaxNode node)
+    {
+        if (!outer.Span.Contains(node.Span))
+        {
+            return false;
+        }
+
+        foreach (var descendant in outer.DescendantNodes().OfType<ConditionalAccessExpressionSyntax>())
+        {
+            if (descendant.WhenNotNull.Span.Contains(node.Span))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void MarkConditionalDeferred(
+        ExtensionConditionalPlan plan,
+        string detail,
+        ConditionalAccessExpressionSyntax site)
+    {
+        _statistics.ConditionalChainsDeferred++;
+        AddDiagnostic(
+            WarningOrError(),
+            ExtensionRule.Cond,
+            ExtensionMethodCodes.NullConditional,
+            $"Null-conditional extension call '{site.ToString()}' is not lifted in v1 ({detail}); site left unchanged.",
+            site.GetLocation());
+        AddSkipReason(ExtensionMethodCodes.NullConditional);
+        plan.SkipCode = ExtensionMethodCodes.NullConditional;
+        plan.SkipDetail = detail;
+        plan.Liftable = false;
+    }
+
+    // ── EM-GROUP ─────────────────────────────────────────────────────────────
+
+    private void AnalyzeMethodGroup(MemberAccessExpressionSyntax memberAccess)
+    {
+        var info = Model.GetSymbolInfo(memberAccess);
+
+        IMethodSymbol? chosenReduced = info.Symbol as IMethodSymbol;
+        List<IMethodSymbol> reducedCandidates;
+
+        if (chosenReduced is { MethodKind: MethodKind.ReducedExtension })
+        {
+            reducedCandidates = new List<IMethodSymbol> { chosenReduced };
+        }
+        else
+        {
+            chosenReduced = null;
+
+            // nameof(r.M) and other non-conversion contexts: no rewrite, no
+            // CS2J1207 — there is no delegate conversion taking place.
+            if (info.CandidateReason == CandidateReason.MemberGroup)
+            {
+                return;
+            }
+
+            // A failed delegate conversion (CS0123/CS1113) exposes the
+            // extension either as a ReducedExtension candidate or as its
+            // ordinary static extension form.
+            reducedCandidates = info.CandidateSymbols
+                .OfType<IMethodSymbol>()
+                .Where(m => (m.MethodKind == MethodKind.ReducedExtension && m.ReducedFrom is not null)
+                    || (m.MethodKind == MethodKind.Ordinary && m.IsExtensionMethod))
+                .ToList();
+            if (reducedCandidates.Count == 0)
+            {
+                return;
+            }
+        }
+
+        var distinct = reducedCandidates
+            .Select(m => (m.ReducedFrom ?? m).OriginalDefinition.ToDisplayString())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+        var chosen = reducedCandidates[0];
+        var unreduced = chosen.ReducedFrom ?? chosen;
+
+        var isInExpressionTree = ExtensionExpressionTreeFacts
+            .IsInExpressionTreeLambda(memberAccess, Model);
+
+        var basePlan = new ExtensionGroupPlan
+        {
+            MemberAccess = memberAccess,
+            Reduced = chosen,
+            Unreduced = unreduced,
+            DelegateType = null!,
+            IsInExpressionTree = isInExpressionTree,
+            DirectCapture = false,
+            Anchor = null,
+            LambdaParameterNames = Array.Empty<string>(),
+        };
+
+        // Multiple distinct extension candidates: CS0121 ambiguity.
+        if (distinct.Count >= 2)
+        {
+            AddDeferredGroup(
+                basePlan,
+                "ambiguous extension method group: candidates [" +
+                string.Join("; ", reducedCandidates.Select(c => (c.ReducedFrom ?? c).ContainingType.ToDisplayString())) + "]");
+            return;
+        }
+
+        if (Options.LinqHostSet.Contains(unreduced.ContainingType.ToDisplayString()))
+        {
+            _statistics.LinqOwnedSkipped++;
+            return;
+        }
+
+        // Unresolved conversion (CS0123/CS1113/...): Roslyn could not bind the
+        // group to one delegate — never guess.
+        if (chosenReduced is null)
+        {
+            AddDeferredGroup(
+                basePlan,
+                $"extension method group failed delegate conversion ({info.CandidateReason})");
+            return;
+        }
+
+        if (unreduced.Parameters.Length > 0 && unreduced.Parameters[0].RefKind != RefKind.None)
+        {
+            AddDeferredGroup(
+                basePlan,
+                "extension method group with a ref/in receiver cannot be captured by a value lambda");
+            return;
+        }
+
+        if (isInExpressionTree)
+        {
+            AddDeferredGroup(
+                basePlan,
+                "extension method groups are not supported inside expression trees");
+            return;
+        }
+
+        var delegateType = Model.GetTypeInfo(memberAccess).ConvertedType as INamedTypeSymbol;
+        var invoke = delegateType?.DelegateInvokeMethod;
+        if (delegateType is null || invoke is null || delegateType.TypeKind != TypeKind.Delegate)
+        {
+            AddDeferredGroup(
+                basePlan,
+                "no unique delegate target type is available at the conversion site");
+            return;
+        }
+
+        if (!MatchesDelegateSignature(unreduced, invoke))
+        {
+            AddDeferredGroup(
+                basePlan,
+                $"extension method '{unreduced.Name}' signature does not match delegate {delegateType.ToDisplayString()}");
+            return;
+        }
+
+        var receiver = memberAccess.Expression;
+        var direct = ExtensionTempLift.IsDirectCaptureReceiver(receiver, Model);
+
+        ExtensionAnchor? anchor = null;
+        string? tempName = null;
+        SyntaxAnnotation? anchorAnnotation = null;
+
+        if (!direct)
+        {
+            // Hoisting the receiver is interleaved with other evaluations in
+            // argument/event/conditional positions; only dominant positions
+            // preserve evaluation order.
+            if (!ExtensionTempLift.IsAtDominantExpressionPosition(memberAccess))
+            {
+                AddDeferredGroup(
+                    basePlan with { DelegateType = delegateType },
+                    "receiver requires a single-evaluation temp but the site is not the dominant expression of its statement");
+                return;
+            }
+
+            anchor = ExtensionTempLift.ResolveAnchor(memberAccess, Model);
+            if (anchor.Kind == ExtensionAnchorKind.None)
+            {
+                AddDeferredGroup(
+                    basePlan with { DelegateType = delegateType },
+                    "no statement anchor for the single-evaluation receiver temp (field initializer/query/...)");
+                return;
+            }
+
+            // A hoisted group inside a liftable conditional would evaluate its
+            // receiver unconditionally before the null guard.
+            var enclosingConditional = memberAccess.Ancestors()
+                .OfType<ConditionalAccessExpressionSyntax>()
+                .FirstOrDefault(c => _conditionalPlans.Any(p =>
+                    p.Liftable && p.OuterConditional == c && BelongsToChain(c, memberAccess)));
+            if (enclosingConditional is not null)
+            {
+                var enclosingPlan = _conditionalPlans.First(p =>
+                    p.Liftable && p.OuterConditional == enclosingConditional && BelongsToChain(enclosingConditional, memberAccess));
+                enclosingPlan.Liftable = false;
+                enclosingPlan.SkipCode = ExtensionMethodCodes.NullConditional;
+                enclosingPlan.SkipDetail = "a hoisted method-group receiver shares its evaluation scope";
+                _statistics.ConditionalChainsLifted--;
+                _statistics.ConditionalChainsDeferred++;
+                AddDiagnostic(
+                    WarningOrError(),
+                    ExtensionRule.Cond,
+                    ExtensionMethodCodes.NullConditional,
+                    $"Null-conditional extension call '{enclosingConditional.ToString()}' is not lifted ({enclosingPlan.SkipDetail}); site left unchanged.",
+                    enclosingConditional.GetLocation());
+                AddSkipReason(ExtensionMethodCodes.NullConditional);
+
+                AddDeferredGroup(
+                    basePlan with { DelegateType = delegateType },
+                    "receiver temp would be hoisted across a null-conditional guard");
+                return;
+            }
+
+            tempName = _allocator.Allocate("g");
+            anchorAnnotation = new SyntaxAnnotation("C19", "ExtensionGroupAnchor");
+        }
+
+        var parameterNames = invoke.Parameters
+            .Select(_ => _allocator.Allocate("p"))
+            .ToList();
+
+        _groupPlans.Add(basePlan with
+        {
+            DelegateType = delegateType,
+            DirectCapture = direct,
+            Anchor = anchor,
+            TempName = tempName,
+            AnchorAnnotation = anchorAnnotation,
+            LambdaParameterNames = parameterNames,
+        });
+        _statistics.GroupSitesRewritten++;
+    }
+
+    private void AddDeferredGroup(ExtensionGroupPlan plan, string detail)
+    {
+        _statistics.GroupSitesDeferred++;
+        AddDiagnostic(
+            WarningOrError(),
+            ExtensionRule.Group,
+            ExtensionMethodCodes.ReducedMethodGroup,
+            $"Reduced extension method group '{plan.MemberAccess.ToString()}' is not rewritten in v1 ({detail}); site left unchanged.",
+            plan.MemberAccess.GetLocation());
+        AddSkipReason(ExtensionMethodCodes.ReducedMethodGroup);
+        _groupPlans.Add(plan with { SkipCode = ExtensionMethodCodes.ReducedMethodGroup, SkipDetail = detail });
+    }
+
+    private static bool MatchesDelegateSignature(IMethodSymbol unreduced, IMethodSymbol invoke)
+    {
+        if (unreduced.Parameters.Length - 1 != invoke.Parameters.Length)
+        {
+            return false;
+        }
+
+        for (var i = 1; i < unreduced.Parameters.Length; i++)
+        {
+            var methodParameter = unreduced.Parameters[i];
+            var delegateParameter = invoke.Parameters[i - 1];
+            if (methodParameter.RefKind != delegateParameter.RefKind)
+            {
+                return false;
+            }
+
+            if (!SymbolEqualityComparer.Default.Equals(methodParameter.Type, delegateParameter.Type))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // ── Shared helpers ───────────────────────────────────────────────────────
+
+    private ExtensionSeverity WarningOrError()
+        => Options.Strict ? ExtensionSeverity.Error : ExtensionSeverity.Warning;
+
     private string DescribeCandidateHost(IMethodSymbol candidate)
     {
         var host = (candidate.ReducedFrom ?? candidate).ContainingType;
@@ -269,10 +858,9 @@ internal sealed class ExtensionCallBinder
         => (invocation.Expression as MemberAccessExpressionSyntax)?.Expression;
 
     /// <summary>
-    /// True when the invocation belongs to a null-conditional chain
-    /// (<c>r?.M()</c> / <c>r?.M().N()</c>): its span is inside some
-    /// ConditionalAccess' WhenNotNull branch. <c>(r?.M()).N()</c> is NOT inside
-    /// the branch and stays a normal M1 site.
+    /// True when the invocation belongs to a null-conditional WhenNotNull
+    /// segment (<c>r?.M()</c> / <c>r?.M().N()</c>); <c>(r?.M()).N()</c> stays
+    /// a normal site.
     /// </summary>
     private static bool IsNullConditionalReducedSite(InvocationExpressionSyntax invocation)
     {

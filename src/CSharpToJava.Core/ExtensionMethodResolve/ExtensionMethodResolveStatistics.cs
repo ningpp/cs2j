@@ -4,7 +4,7 @@ namespace CSharpToJava.Core.ExtensionMethodResolve;
 
 /// <summary>
 /// Counters for the extension-method-resolve pass (adapter merges per-file
-/// results; design §4.1). Every counter stays 0 in M0 (rules are empty).
+/// results; design §4.1).
 /// </summary>
 public sealed class ExtensionMethodResolveStatistics
 {
@@ -24,6 +24,21 @@ public sealed class ExtensionMethodResolveStatistics
     /// <summary>Sites whose receiver parameter carried ref/in (EM-REF).</summary>
     public int RefReceiverSites;
 
+    /// <summary>ref/in receiver sites for which the ref/in argument modifier was actually emitted.</summary>
+    public int RefReceiverSitesEmitted;
+
+    /// <summary>Null-conditional chains (<c>r?.M()</c>) lifted into temps + conditional static calls (EM-COND).</summary>
+    public int ConditionalChainsLifted;
+
+    /// <summary>Null-conditional chains left on CS2J1205/assert-only (EM-COND).</summary>
+    public int ConditionalChainsDeferred;
+
+    /// <summary>Reduced method groups rewritten into capture lambdas (EM-GROUP).</summary>
+    public int GroupSitesRewritten;
+
+    /// <summary>Reduced method groups left on CS2J1207 (EM-GROUP).</summary>
+    public int GroupSitesDeferred;
+
     /// <summary>Reduced LINQ-host sites skipped untouched (EM-LINQ).</summary>
     public int LinqOwnedSkipped;
 
@@ -35,6 +50,9 @@ public sealed class ExtensionMethodResolveStatistics
 
     /// <summary>Rewritten sites located inside an Expression&lt;&gt; lambda (EM-EXPRTREE).</summary>
     public int ExpressionTreeSitesChecked;
+
+    /// <summary>Expression-tree sites rolled back to the sugar after the identity assertion failed (CS2J1210).</summary>
+    public int ExpressionTreeRollbacks;
 
     /// <summary>Skip/undecidable sites bucketed by reason code (1201-1207/1210...).</summary>
     public Dictionary<string, int> SitesSkippedByReason { get; } = new(StringComparer.Ordinal);
@@ -51,10 +69,16 @@ public sealed class ExtensionMethodResolveStatistics
         CallsitesRewritten += source.CallsitesRewritten;
         GenericHostQualified += source.GenericHostQualified;
         RefReceiverSites += source.RefReceiverSites;
+        RefReceiverSitesEmitted += source.RefReceiverSitesEmitted;
+        ConditionalChainsLifted += source.ConditionalChainsLifted;
+        ConditionalChainsDeferred += source.ConditionalChainsDeferred;
+        GroupSitesRewritten += source.GroupSitesRewritten;
+        GroupSitesDeferred += source.GroupSitesDeferred;
         LinqOwnedSkipped += source.LinqOwnedSkipped;
         ExternalHostSites += source.ExternalHostSites;
         InCompilationHostSites += source.InCompilationHostSites;
         ExpressionTreeSitesChecked += source.ExpressionTreeSitesChecked;
+        ExpressionTreeRollbacks += source.ExpressionTreeRollbacks;
         MergeCounters(SitesSkippedByReason, source.SitesSkippedByReason);
         MergeCounters(ResidualsByRule, source.ResidualsByRule);
     }
@@ -63,7 +87,9 @@ public sealed class ExtensionMethodResolveStatistics
         => $"extension-methods: {CallsitesRewritten} rewritten, {FilesClean} clean " +
            $"({CallsitesBoundReduced} reduced bound, {LinqOwnedSkipped} LINQ-owned skipped, " +
            $"{InCompilationHostSites} in-compilation, {ExternalHostSites} external hosts, " +
-           $"{RefReceiverSites} ref/in receivers, {ExpressionTreeSitesChecked} in expression trees, " +
+           $"{RefReceiverSitesEmitted}/{RefReceiverSites} ref/in receivers, " +
+           $"{ConditionalChainsLifted} null-conditional lifted, {GroupSitesRewritten} groups rewritten, " +
+           $"{ExpressionTreeSitesChecked} in expression trees, {ExpressionTreeRollbacks} ET rollbacks, " +
            $"{SitesSkippedByReason.Values.Sum()} skipped, " +
            $"{ResidualsByRule.Values.Sum()} residuals)";
 
