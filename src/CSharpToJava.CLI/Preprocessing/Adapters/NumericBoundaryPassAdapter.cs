@@ -327,18 +327,91 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         }
 
         var nl = _statistics.Nullable;
+        var nullableConvSites = nl.UnwrapConversions + nl.LiftedConversions;
+        var nullableIncSites = nl.LiftedIncrementPrefixSites
+            + nl.LiftedIncrementPostfixSites
+            + nl.LiftedIncrementCompoundSites;
         var nullableDeferred = nl.DeferredByReason.Values.Sum();
         var nullableActive = nl.LiftedBinarySites + nl.LiftedUnarySites
             + nl.LiftedRelationalSites + nl.LiftedEqualitySites
-            + nl.LiftedBoolLogicSites + nl.TempsLifted + nullableDeferred;
+            + nl.LiftedBoolLogicSites + nl.GetValueOrDefaultSites
+            + nullableConvSites + nullableIncSites
+            + nl.NullableEnumBackstopSites + nl.GuardedCheckedInnerSites
+            + nl.TempsLifted + nullableDeferred;
         if (nullableActive != 0)
         {
-            line += $"; nullable-lift: {nl.LiftedBinarySites} arith/" +
-                    $"{nl.LiftedUnarySites} unary/" +
-                    $"{nl.LiftedRelationalSites} rel/" +
-                    $"{nl.LiftedEqualitySites} eq/" +
-                    $"{nl.LiftedBoolLogicSites} bool site(s), " +
-                    $"{nl.TempsLifted} temp(s), {nullableDeferred} deferred";
+            // Design §5-3 chain summary: fixed order arith/unary/rel/eq/bool/
+            // gov/conv/inc (+ co-run checked-inner), each segment appended
+            // only when its bucket is nonzero, then enum backstop / temps /
+            // deferred as separate comma clauses.
+            var nullableSiteParts = new List<string>();
+            if (nl.LiftedBinarySites != 0)
+            {
+                nullableSiteParts.Add($"{nl.LiftedBinarySites} arith");
+            }
+
+            if (nl.LiftedUnarySites != 0)
+            {
+                nullableSiteParts.Add($"{nl.LiftedUnarySites} unary");
+            }
+
+            if (nl.LiftedRelationalSites != 0)
+            {
+                nullableSiteParts.Add($"{nl.LiftedRelationalSites} rel");
+            }
+
+            if (nl.LiftedEqualitySites != 0)
+            {
+                nullableSiteParts.Add($"{nl.LiftedEqualitySites} eq");
+            }
+
+            if (nl.LiftedBoolLogicSites != 0)
+            {
+                nullableSiteParts.Add($"{nl.LiftedBoolLogicSites} bool");
+            }
+
+            if (nl.GetValueOrDefaultSites != 0)
+            {
+                nullableSiteParts.Add($"{nl.GetValueOrDefaultSites} gov");
+            }
+
+            if (nullableConvSites != 0)
+            {
+                nullableSiteParts.Add($"{nullableConvSites} conv");
+            }
+
+            if (nullableIncSites != 0)
+            {
+                nullableSiteParts.Add($"{nullableIncSites} inc");
+            }
+
+            if (nl.GuardedCheckedInnerSites != 0)
+            {
+                nullableSiteParts.Add($"{nl.GuardedCheckedInnerSites} checked-inner");
+            }
+
+            var nullableClauses = new List<string>();
+            if (nullableSiteParts.Count > 0)
+            {
+                nullableClauses.Add(string.Join("/", nullableSiteParts) + " site(s)");
+            }
+
+            if (nl.NullableEnumBackstopSites != 0)
+            {
+                nullableClauses.Add($"{nl.NullableEnumBackstopSites} enum backstop");
+            }
+
+            if (nl.TempsLifted != 0)
+            {
+                nullableClauses.Add($"{nl.TempsLifted} temp(s)");
+            }
+
+            if (nullableDeferred != 0)
+            {
+                nullableClauses.Add($"{nullableDeferred} deferred");
+            }
+
+            line += "; nullable-lift: " + string.Join(", ", nullableClauses);
         }
 
         return line;
@@ -442,6 +515,10 @@ internal sealed class NumericBoundaryPassAdapter : ProjectPassAdapter
         targetNullable.LiftedIncrementCompoundSites += sourceNullable.LiftedIncrementCompoundSites;
         targetNullable.NullableEnumBackstopSites += sourceNullable.NullableEnumBackstopSites;
         targetNullable.GuardedCheckedInnerSites += sourceNullable.GuardedCheckedInnerSites;
+        targetNullable.TempsLeftRole += sourceNullable.TempsLeftRole;
+        targetNullable.TempsRightRole += sourceNullable.TempsRightRole;
+        targetNullable.TempsOldRole += sourceNullable.TempsOldRole;
+        targetNullable.TempsDefaultRole += sourceNullable.TempsDefaultRole;
         targetNullable.TempsLifted += sourceNullable.TempsLifted;
         MergeCounter(sourceNullable.DeferredByReason, targetNullable.DeferredByReason);
     }

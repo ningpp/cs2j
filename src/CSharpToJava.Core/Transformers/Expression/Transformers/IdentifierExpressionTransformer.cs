@@ -61,11 +61,68 @@ public class IdentifierExpressionTransformer : IIRExpressionTransformer
         var symbol = context.GetSymbolInfo(node).Symbol;
         var member = ConversionContext.EscapeJavaKeyword(node.Name.Identifier.Text);
         // Property (read) → getXxx()
-        if (symbol is IPropertySymbol
+        if (symbol is IPropertySymbol property
             && !(node.Parent is AssignmentExpressionSyntax a && a.Left == node))
+        {
+            // C22: System.Nullable<T> surfaces — HasValue is a reference null
+            // check and Value is a guarded unbox on the Java wrapper (the C22
+            // preprocessor only leaves .Value inside a HasValue guard).
+            if (TryTransformNullableMember(property, receiver, out var nullableMember))
+            {
+                return nullableMember;
+            }
+
             return $"{receiver}.get{member.Substring(0, 1).ToUpperInvariant()}{member.Substring(1)}()";
+        }
+
         return $"{receiver}.{member}";
     }
+
+    // ── System.Nullable<T> member surface (C22) ─────────────────────────────
+
+    /// <summary>
+    /// Maps <c>Nullable&lt;T&gt;.HasValue</c> to a reference null check and
+    /// <c>.Value</c> to the guarded primitive unbox accessor. Enum/struct
+    /// underlying types are reference types in Java, so <c>.Value</c> is the
+    /// receiver itself.
+    /// </summary>
+    private static bool TryTransformNullableMember(
+        IPropertySymbol property, string receiver, out string mapped)
+    {
+        mapped = "";
+        var owner = property.ContainingType;
+        if (owner is null || owner.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T)
+        {
+            return false;
+        }
+
+        switch (property.Name)
+        {
+            case "HasValue":
+                mapped = $"({receiver} != null)";
+                return true;
+            case "Value":
+                mapped = UnboxNullableValue(owner.TypeArguments[0], receiver);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static string UnboxNullableValue(ITypeSymbol underlying, string receiver) =>
+        underlying.SpecialType switch
+        {
+            SpecialType.System_Boolean => $"{receiver}.booleanValue()",
+            SpecialType.System_Byte => $"{receiver}.byteValue()",
+            SpecialType.System_Char => $"{receiver}.charValue()",
+            SpecialType.System_Int16 => $"{receiver}.shortValue()",
+            SpecialType.System_Int32 => $"{receiver}.intValue()",
+            SpecialType.System_Int64 => $"{receiver}.longValue()",
+            SpecialType.System_Single => $"{receiver}.floatValue()",
+            SpecialType.System_Double => $"{receiver}.doubleValue()",
+            // Enums and other value types are Java reference types already.
+            _ => receiver,
+        };
 
     // ── Generic name ────────────────────────────────────────────────────────
 

@@ -224,9 +224,12 @@ internal static class NullableLiftExpansion
             eitherNull,
             CastNull(boolNullable),
             CastNullable(boolNullable, LiteralExpression(SyntaxKind.TrueLiteralExpression))));
+        // The absorption literal carries the explicit (bool?) cast: without it
+        // the Java translation emits a primitive/boxed mixed ternary whose
+        // null branch is unboxed and NPEs.
         var whole = Guard(ConditionalExpression(
             absorbsFalse,
-            LiteralExpression(SyntaxKind.FalseLiteralExpression),
+            CastNullable(boolNullable, LiteralExpression(SyntaxKind.FalseLiteralExpression)),
             nullOrTrue));
         return ParenthesizedExpression(whole);
     }
@@ -265,9 +268,12 @@ internal static class NullableLiftExpansion
             eitherNull,
             CastNull(boolNullable),
             CastNullable(boolNullable, LiteralExpression(SyntaxKind.FalseLiteralExpression))));
+        // The absorption literal carries the explicit (bool?) cast (see
+        // LiftedBoolAnd): keeps the Java ternary on a single boxed type so the
+        // null branch is never unboxed.
         var whole = Guard(ConditionalExpression(
             absorbsTrue,
-            LiteralExpression(SyntaxKind.TrueLiteralExpression),
+            CastNullable(boolNullable, LiteralExpression(SyntaxKind.TrueLiteralExpression)),
             nullOrFalse));
         return ParenthesizedExpression(whole);
     }

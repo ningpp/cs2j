@@ -466,7 +466,8 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             }
 
             oldName = _names.Old(hoist.SiteNumber);
-            hoist.Declarations.Add(VarDeclaration(oldName, visitedTarget));
+            AddTempDeclaration(
+                hoist, VarDeclaration(oldName, visitedTarget), NullableLiftSyntaxFacts.RoleOld);
             sourceAccess = OperandAccess.Direct(IdentifierName(oldName), isNullablePosition: true);
         }
         else
@@ -1113,7 +1114,12 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             : isLeft
                 ? _names.Left(hoist.SiteNumber)
                 : _names.Right(hoist.SiteNumber);
-        hoist.Declarations.Add(VarDeclaration(name, visitedOperand));
+        var role = defaultRole
+            ? NullableLiftSyntaxFacts.RoleDefault
+            : isLeft
+                ? NullableLiftSyntaxFacts.RoleLeft
+                : NullableLiftSyntaxFacts.RoleRight;
+        AddTempDeclaration(hoist, VarDeclaration(name, visitedOperand), role);
         return (true, OperandAccess.Direct(IdentifierName(name), sideNullable));
     }
 
@@ -1251,6 +1257,24 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         }
 
         return NullableLiftAnalyzer.TryUnwrapNullable(second, out underlying) ? underlying : null;
+    }
+
+    /// <summary>
+    /// Adds one hoisted declaration and tallies its role (a/b/o/d) in the
+    /// per-rule statistics; the total <see cref="NullableLiftStatistics.TempsLifted"/>
+    /// moves once per declaration in <see cref="FinalizeSite"/>.
+    /// </summary>
+    private void AddTempDeclaration(
+        HoistState hoist, LocalDeclarationStatementSyntax declaration, string role)
+    {
+        hoist.Declarations.Add(declaration);
+        switch (role)
+        {
+            case NullableLiftSyntaxFacts.RoleLeft: _stats.TempsLeftRole++; break;
+            case NullableLiftSyntaxFacts.RoleRight: _stats.TempsRightRole++; break;
+            case NullableLiftSyntaxFacts.RoleOld: _stats.TempsOldRole++; break;
+            case NullableLiftSyntaxFacts.RoleDefault: _stats.TempsDefaultRole++; break;
+        }
     }
 
     private static LocalDeclarationStatementSyntax VarDeclaration(

@@ -84,6 +84,23 @@ public sealed class NullableLiftStatistics
     /// </summary>
     public int GuardedCheckedInnerSites;
 
+    /// <summary>
+    /// Temporaries hoisted by Pass2 (unstable operands / postfix old values /
+    /// GOV defaults), split by role (design §4.5): <c>a</c> left operand /
+    /// receiver, <c>b</c> right operand, <c>o</c> postfix old value,
+    /// <c>d</c> GOV default argument.
+    /// </summary>
+    public int TempsLeftRole;
+
+    /// <summary>Hoisted right-operand temporaries (role <c>b</c>).</summary>
+    public int TempsRightRole;
+
+    /// <summary>Hoisted postfix old-value temporaries (role <c>o</c>).</summary>
+    public int TempsOldRole;
+
+    /// <summary>Hoisted GOV default-argument temporaries (role <c>d</c>).</summary>
+    public int TempsDefaultRole;
+
     /// <summary>Temporaries hoisted by Pass2 (unstable operands / postfix old values / GOV defaults).</summary>
     public int TempsLifted;
 

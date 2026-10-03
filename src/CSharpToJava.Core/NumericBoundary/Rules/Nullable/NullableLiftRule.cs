@@ -13,16 +13,16 @@ namespace CSharpToJava.Core.NumericBoundary.Rules.Nullable;
 /// C15 CheckedArithmetic=20 → C34 DecimalOps=30: C22 expands HasValue guards
 /// whose inner bare <c>T</c> arithmetic must then be post-swept by C15
 /// (checked helpers, decision 18) and whose <c>decimal</c> inner ops are
-/// taken by C34 (decision 19). C17 still reports LiftedNullable increment
-/// sites as CS2J5335 until the NL-10/NL-11 handoff lands in M2.
+/// taken by C34 (decision 19). C17 hands LiftedNullable increment sites
+/// silently over to this rule when EnableNullable is on (NL-10/NL-11).
 /// </para>
 /// <para>
 /// M1 owns NL-1…NL-5 (lifted arithmetic/unary/relational/equality/bool-logic
-/// on numeric and bool domains) plus the Pass2 temporary hoist. The NL-14
-/// residual gate is staged: only M1-owned shapes can trigger CS2J5357.
-/// Increment/compound (NL-10/11), GetValueOrDefault (NL-6), conversions
-/// (NL-7/8) and enum-domain bit operations (NL-9) are left for M2 and pass
-/// through untouched and undiagnosed.
+/// on numeric and bool domains) plus the Pass2 temporary hoist; M2 completes
+/// NL-6…NL-11 (GetValueOrDefault, unwrap/lifted conversions, enum backstop,
+/// lifted increment/compound) and flips the NL-14 gate to full scope: every
+/// built-in lifted Nullable&lt;T&gt; shape surviving in the rebound output is
+/// a CS2J5357 violation (design §1.5 invariant 1 / §4.3 NL-14 / §7.5-1).
 /// </para>
 /// </summary>
 internal sealed class NullableLiftRule : INumericBoundaryRule
@@ -85,67 +85,51 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
             return new NumericBoundaryRuleResult(context.Root, MadeChanges: false);
         }
 
-        var reboundRoot = context.Root;
         ApplyResidualGate(
             reboundModel,
-            reboundRoot,
+            context.Root,
             context.Options,
             context.Stats.Nullable,
-            context.Diagnostics,
-            context.GetSharedAnalyzer());
+            context.Diagnostics);
 
         EmitInfo(context.Stats.Nullable, context.Diagnostics);
 
-        return new NumericBoundaryRuleResult(reboundRoot, MadeChanges: true);
+        return new NumericBoundaryRuleResult(context.Root, MadeChanges: true);
     }
 
     /// <summary>
-    /// NL-14 staged M1 residual gate: rescan the rebound OUTPUT tree and
-    /// report CS2J5357 (strict → Error, otherwise Warning) only for lifted
-    /// built-in shapes M1 actually owns — binary/unary lifted sites on the
-    /// integer/unsigned/floating/decimal/bool domains in the arithmetic,
-    /// relational, equality or three-valued-logic flavors. The raw
-    /// <c>x == null</c> shape cannot survive (it rewrites to HasValue).
-    /// Explicitly NOT gated in M1: increment/compound (NL-10/11),
-    /// GetValueOrDefault (NL-6), nullable conversions (NL-7/8), enum-domain
-    /// bit operations/<c>~</c> (NL-9), C41 special numerics (their own
-    /// CS2J5356 class) and support-project fingerprints.
+    /// NL-14 full-scope residual gate (M2): rescan the rebound OUTPUT tree and
+    /// report CS2J5357 (strict → Error, otherwise Warning) for every surviving
+    /// built-in lifted <c>Nullable&lt;T&gt;</c> shape — binary/unary (NL-1…5),
+    /// increment/compound (NL-10/11), <c>GetValueOrDefault</c> (NL-6) and
+    /// unwrap/lifted conversions (NL-7/8). Aggregation text keeps at most five
+    /// site samples. Not owned (hence not gated): E04 guard conditionals
+    /// (conditional product, not a lifted binding), wrapping conversions
+    /// (Quadrant.Wrap), <c>.HasValue/.Value</c> member access,
+    /// <c>Nullable.GetUnderlyingType</c>, <c>typeof(T?)</c>, user-defined
+    /// lifted operators/conversions (rolled back via CS2J5353), C41 special
+    /// numerics (CS2J5356) and released support-project fingerprints
+    /// (<c>Cs2jUnsigned.*</c>/<c>dotnet.System.*</c>). The gate runs only on
+    /// rewritten trees, so fully clean files are never scanned.
     /// </summary>
     private static void ApplyResidualGate(
         SemanticModel model,
         CompilationUnitSyntax root,
         NumericBoundaryOptions options,
         NullableLiftStatistics stats,
-        List<NumericBoundaryDiagnostic> diagnostics,
-        NumericBoundaryAnalyzer sharedAnalyzer)
+        List<NumericBoundaryDiagnostic> diagnostics)
     {
-        var reboundAnalyzer = new NullableLiftAnalyzer(model, options, sharedAnalyzer);
-
-        var residualSites = new List<string>();
-        var seen = new HashSet<IOperation>();
-        foreach (var node in root.DescendantNodes())
-        {
-            if (model.GetOperation(node) is not { } operation || !seen.Add(operation))
-            {
-                continue;
-            }
-
-            if (!IsM1OwnedResidual(reboundAnalyzer, node, operation)
-                || IsSupportFingerprintExempt(node))
-            {
-                continue;
-            }
-
-            if (residualSites.Count < 5)
-            {
-                residualSites.Add(NullableLiftSyntaxFacts.SiteText(node));
-            }
-        }
+        var residualSites = ScanResiduals(model, root);
 
         if (residualSites.Count == 0)
         {
             return;
         }
+
+        var sampleTexts = residualSites
+            .Take(5)
+            .Select(site => NullableLiftSyntaxFacts.SiteText(site.Node))
+            .ToList();
 
         var severity = options.Strict
             ? NumericBoundarySeverity.Error
@@ -153,7 +137,7 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
         diagnostics.Add(new NumericBoundaryDiagnostic(
             severity,
             PreprocessDiagnosticCodes.NullableLiftResidual,
-            NullableLiftDiagnostics.Residual(string.Join(", ", residualSites))));
+            NullableLiftDiagnostics.Residual(string.Join(", ", sampleTexts))));
         var key = PreprocessDiagnosticCodes.NullableLiftResidual;
         stats.DeferredByReason[key] = stats.DeferredByReason.TryGetValue(key, out var count)
             ? count + 1
@@ -161,76 +145,30 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
     }
 
     /// <summary>
-    /// M1 NL-14 ownership predicate: a residual lifted built-in binary/unary
-    /// on an M1-owned domain/flavor. Pure over the bound model so it can be
-    /// unit-tested directly (§7.1-12).
+    /// CS2J5350/CS2J5351 aggregated, verbose-only Info diagnostics (design
+    /// §5-3): the site breakdown lists every nonzero M1+M2 bucket in fixed
+    /// order <c>arith/unary/rel/eq/bool/gov/conv/inc</c> plus enum-backstop
+    /// and co-run checked-inner context; the temp breakdown names only the
+    /// hoisted roles (<c>a</c>/<c>b</c>/<c>o</c>/<c>d</c>) that occurred.
     /// </summary>
-    internal static bool IsM1OwnedResidual(
-        NullableLiftAnalyzer analyzer, SyntaxNode node, IOperation operation)
-    {
-        switch (operation)
-        {
-            case NBOp.IBinaryOperation binary when binary.IsLifted
-                && NullableLiftAnalyzer.IsBuiltInLiftedOperator(binary.OperatorMethod)
-                && node is BinaryExpressionSyntax binarySyntax:
-            {
-                var classification = analyzer.ClassifyBinary(binarySyntax);
-                if (classification == null
-                    || classification.Flavor == LiftedBinaryFlavor.UserDefined
-                    || !IsM1OwnedDomain(classification.Domain))
-                {
-                    return false;
-                }
-
-                return classification.Flavor is
-                    LiftedBinaryFlavor.Arithmetic
-                    or LiftedBinaryFlavor.Relational
-                    or LiftedBinaryFlavor.Equality
-                    or LiftedBinaryFlavor.BoolAnd
-                    or LiftedBinaryFlavor.BoolOr
-                    or LiftedBinaryFlavor.BoolXor;
-            }
-
-            case NBOp.IUnaryOperation unary when unary.IsLifted
-                && NullableLiftAnalyzer.IsBuiltInLiftedOperator(unary.OperatorMethod)
-                && node is PrefixUnaryExpressionSyntax unarySyntax:
-            {
-                var classification = analyzer.ClassifyUnary(unarySyntax);
-                if (classification == null
-                    || classification.Flavor == LiftedUnaryFlavor.UserDefined
-                    || !IsM1OwnedDomain(classification.Domain))
-                {
-                    return false;
-                }
-
-                return classification.Flavor is
-                    LiftedUnaryFlavor.Arithmetic
-                    or LiftedUnaryFlavor.BoolNot;
-            }
-
-            default:
-                return false;
-        }
-    }
-
-    /// <summary>M1 owns numeric and bool domains; Enum/SpecialNumeric/Other are deferred.</summary>
-    private static bool IsM1OwnedDomain(NullableValueDomain domain) =>
-        domain is NullableValueDomain.Integer
-            or NullableValueDomain.Unsigned
-            or NullableValueDomain.Floating
-            or NullableValueDomain.Decimal
-            or NullableValueDomain.Bool;
-
-    /// <summary>CS2J5350/CS2J5351 aggregated, verbose-only Info diagnostics.</summary>
     private static void EmitInfo(
         NullableLiftStatistics stats,
         List<NumericBoundaryDiagnostic> diagnostics)
     {
+        var convSites = stats.UnwrapConversions + stats.LiftedConversions;
+        var incrementSites = stats.LiftedIncrementPrefixSites
+            + stats.LiftedIncrementPostfixSites
+            + stats.LiftedIncrementCompoundSites;
         var totalSites = stats.LiftedBinarySites
             + stats.LiftedUnarySites
             + stats.LiftedRelationalSites
             + stats.LiftedEqualitySites
-            + stats.LiftedBoolLogicSites;
+            + stats.LiftedBoolLogicSites
+            + stats.GetValueOrDefaultSites
+            + convSites
+            + incrementSites
+            + stats.NullableEnumBackstopSites
+            + stats.GuardedCheckedInnerSites;
         if (totalSites == 0)
         {
             return;
@@ -262,6 +200,31 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
             breakdown.Add($"{stats.LiftedBoolLogicSites} bool");
         }
 
+        if (stats.GetValueOrDefaultSites > 0)
+        {
+            breakdown.Add($"{stats.GetValueOrDefaultSites} gov");
+        }
+
+        if (convSites > 0)
+        {
+            breakdown.Add($"{convSites} conv");
+        }
+
+        if (incrementSites > 0)
+        {
+            breakdown.Add($"{incrementSites} inc");
+        }
+
+        if (stats.NullableEnumBackstopSites > 0)
+        {
+            breakdown.Add($"{stats.NullableEnumBackstopSites} enum backstop");
+        }
+
+        if (stats.GuardedCheckedInnerSites > 0)
+        {
+            breakdown.Add($"{stats.GuardedCheckedInnerSites} checked-inner");
+        }
+
         diagnostics.Add(new NumericBoundaryDiagnostic(
             NumericBoundarySeverity.Info,
             PreprocessDiagnosticCodes.NullableLiftSiteInfo,
@@ -269,16 +232,36 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
 
         if (stats.TempsLifted > 0)
         {
+            var roles = new List<string>();
+            if (stats.TempsLeftRole > 0)
+            {
+                roles.Add($"{stats.TempsLeftRole} a");
+            }
+
+            if (stats.TempsRightRole > 0)
+            {
+                roles.Add($"{stats.TempsRightRole} b");
+            }
+
+            if (stats.TempsOldRole > 0)
+            {
+                roles.Add($"{stats.TempsOldRole} o");
+            }
+
+            if (stats.TempsDefaultRole > 0)
+            {
+                roles.Add($"{stats.TempsDefaultRole} d");
+            }
+
             diagnostics.Add(new NumericBoundaryDiagnostic(
                 NumericBoundarySeverity.Info,
                 PreprocessDiagnosticCodes.NullableLiftTempInfo,
-                NullableLiftDiagnostics.TempInfo(
-                    stats.TempsLifted, "single-evaluation operand hoist")));
+                NullableLiftDiagnostics.TempInfo(stats.TempsLifted, string.Join(", ", roles))));
         }
     }
 
-    // ── M0 NL-14 full-scope residual scanner (retained for the M0 probes;
-    // the live M1 gate is the staged IsM1OwnedResidual predicate above) ──
+    // ── NL-14 full-scope residual scanner; the live M2 gate above consumes
+    // the same predicate, and M0 probe tests exercise it directly ──
 
     /// <summary>
     /// Text fingerprints of released support projects: generated calls
@@ -293,10 +276,11 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
     }
 
     /// <summary>
-    /// NL-14 full-scope predicate across every M1+M2 lifted shape (M0 probe):
+    /// NL-14 full-scope predicate across every built-in lifted shape:
     /// lifted binary/unary/increment/compound with a built-in operator, a
     /// <c>Nullable&lt;T&gt;.GetValueOrDefault</c> call, or a T?→T unwrap /
-    /// S?→T? lifted conversion.
+    /// S?→T? lifted conversion. The live M2 gate and the probe tests share
+    /// this predicate.
     /// </summary>
     internal static bool IsResidualBuiltInLifted(IOperation operation, out string kind)
     {
@@ -343,7 +327,7 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
         }
     }
 
-    /// <summary>Full-scope M0 residual scan (kept for the M0 probe tests).</summary>
+    /// <summary>Full-scope residual scan used by the live NL-14 gate and probe tests.</summary>
     internal static IReadOnlyList<(SyntaxNode Node, string Kind)> ScanResiduals(
         SemanticModel model, SyntaxNode root)
     {
