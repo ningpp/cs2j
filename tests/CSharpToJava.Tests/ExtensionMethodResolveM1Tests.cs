@@ -947,7 +947,7 @@ public sealed class ExtensionMethodResolveM1Tests
     }
 
     [Fact]
-    public void NullConditionalReducedSite_DeferredToM2_TracedNotError()
+    public void NullConditionalReducedSite_M2_LiftedToSingleEvaluationTemps()
     {
         const string source = """
             public static class Ext
@@ -962,13 +962,24 @@ public sealed class ExtensionMethodResolveM1Tests
             """;
         var (compilation, model, _) = CompileOne(source);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
-        var (result, _) = RunRewrite(compilation, model);
+        var (result, preprocessor) = RunRewrite(compilation, model);
 
-        Assert.False(result.Changed);
+        // M2 lifts the chain: receiver temp + null-guarded static call.
+        Assert.True(result.Changed,
+            string.Join("\n", result.Diagnostics) + "\n---\n" + result.OutputCode
+            + "\nstats lifted=" + result.Statistics.ConditionalChainsLifted
+            + " rewritten=" + result.Statistics.CallsitesRewritten);
         Assert.DoesNotContain(result.Diagnostics, d => d.Severity == ExtensionSeverity.Error);
-        Assert.Equal(
-            1,
-            result.Statistics.SitesSkippedByReason[ExtensionCallBinder.NullConditionalDeferredReason]);
-        Assert.Equal(0, result.Statistics.CallsitesRewritten);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == ExtensionMethodCodes.NullConditional);
+        Assert.Equal(1, result.Statistics.ConditionalChainsLifted);
+        Assert.Equal(0, result.Statistics.ConditionalChainsDeferred);
+        Assert.Equal(1, result.Statistics.CallsitesRewritten);
+        Assert.Contains("_cs2j_emc", result.OutputCode);
+        Assert.Contains("global::Ext.Shout", Compact(result.OutputCode));
+        Assert.Contains("default(int?)", Compact(result.OutputCode));
+
+        var rewritten = Recompile(result.OutputCode);
+        var residuals = preprocessor.ResidualScan(rewritten);
+        Assert.DoesNotContain(ExtensionMethodResidualScanner.RuleRemainingReducedInvocation, residuals.Keys);
     }
 }
