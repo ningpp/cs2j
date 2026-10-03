@@ -2862,28 +2862,635 @@ public class NumericBoundaryNullableLiftUnitTests
         }
     }
 
+    // ════════════════════════════════════════════════════════════════════
+    // M3: NL-10/11 decision 17 — complex RMW targets (get/set properties,
+    // get/set indexers and true array elements) are now explicitized with
+    // target/receiver/index temporaries instead of CS2J5355.
+    // ════════════════════════════════════════════════════════════════════
+
+    private static object NewBox(Assembly assembly, string typeName, params object?[] args) =>
+        assembly.GetType(typeName)!
+            .GetConstructors()
+            .Single(c => c.GetParameters().Length == args.Length)
+            .Invoke(args);
+
     [Fact]
-    public void M2_NL10_ComplexPropertyTarget_PostfixAndCompound_5355_Rollback()
+    public void M3_NL10_ComplexProperty_GetterSetterEachOnce_StatsAndCounters()
     {
         var src = """
+            public class Box
+            {
+                private int? _p;
+                public int gets;
+                public int sets;
+                public Box(int? p) { _p = p; }
+                public int? P
+                {
+                    get { gets++; return _p; }
+                    set { sets++; _p = value; }
+                }
+            }
             public class C
             {
-                public int? P { get; set; }
-                public void M()
+                public static (int? p, int gets, int sets) Post(Box b)
                 {
-                    P++;
-                    P += 1;
+                    b.P++;
+                    return (b.P, b.gets, b.sets);
+                }
+                public static (int? p, int gets, int sets) Pre(Box b)
+                {
+                    ++b.P;
+                    return (b.P, b.gets, b.sets);
+                }
+                public static (int? p, int gets, int sets) Compound(Box b, int? y)
+                {
+                    b.P += y;
+                    return (b.P, b.gets, b.sets);
                 }
             }
             """;
 
         var result = Run(src);
 
-        Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
-        Assert.Equal(2, result.Diagnostics.Count(d =>
-            d.Severity == NumericBoundarySeverity.Error
-            && d.Code == PreprocessDiagnosticCodes.NullableLiftComplexTarget));
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var stats = result.Statistics.Nullable;
+        Assert.Equal(3, stats.ComplexRmwSites);
+        Assert.Equal(1, stats.LiftedIncrementPostfixSites);
+        Assert.Equal(1, stats.LiftedIncrementPrefixSites);
+        Assert.Equal(1, stats.LiftedIncrementCompoundSites);
+        Assert.Equal(3, stats.TempsTargetRole);
+        Assert.Equal(0, stats.TempsReceiverRole);
+        Assert.Equal(0, stats.TempsIndexRole);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? init in new int?[] { null, 7, -3 })
+        {
+            foreach (var method in new[] { "Post", "Pre" })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, method, NewBox(original, "Box", init))?.ToString(),
+                    InvokeStatic(rewritten, method, NewBox(rewritten, "Box", init))?.ToString());
+            }
+
+            foreach (int? y in new int?[] { null, 5 })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, "Compound", NewBox(original, "Box", init), y)?.ToString(),
+                    InvokeStatic(rewritten, "Compound", NewBox(rewritten, "Box", init), y)?.ToString());
+            }
+        }
+    }
+
+    [Fact]
+    public void M3_NL10_ComplexProperty_ValuePosition_RuntimeTruthTable()
+    {
+        var src = """
+            public class Box
+            {
+                private int? _p;
+                public Box(int? p) { _p = p; }
+                public int? P
+                {
+                    get { return _p; }
+                    set { _p = value; }
+                }
+            }
+            public class C
+            {
+                // All three sites sit in VALUE positions (declarator
+                // initializers / return value): postfix yields the old value,
+                // prefix and compound yield the new nullable.
+                public static (int? old, int? afterPost, int? pre, int? final) F(Box b, int? y)
+                {
+                    var z = b.P++;
+                    var afterPost = b.P;
+                    var q = ++b.P;
+                    var f = b.P += y;
+                    return (z, afterPost, q, f);
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var stats = result.Statistics.Nullable;
+        Assert.Equal(3, stats.ComplexRmwSites);
+        Assert.Equal(1, stats.LiftedIncrementPostfixSites);
+        Assert.Equal(1, stats.LiftedIncrementPrefixSites);
+        Assert.Equal(1, stats.LiftedIncrementCompoundSites);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? init in new int?[] { null, 1, 40 })
+        {
+            foreach (int? y in new int?[] { null, 2 })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, "F", NewBox(original, "Box", init), y)?.ToString(),
+                    InvokeStatic(rewritten, "F", NewBox(rewritten, "Box", init), y)?.ToString());
+            }
+        }
+    }
+
+    [Fact]
+    public void M3_ComplexProperty_EffectfulReceiverOnce_StableChainNotHoisted()
+    {
+        var src = """
+            public class Box
+            {
+                private int? _p;
+                public int receiverEvals;
+                public Box(int? p) { _p = p; }
+                public int? P
+                {
+                    get { return _p; }
+                    set { _p = value; }
+                }
+                public Box Self()
+                {
+                    receiverEvals++;
+                    return this;
+                }
+            }
+            public class Holder
+            {
+                public Box Box;
+                public Holder(Box b) { Box = b; }
+            }
+            public class C
+            {
+                public static (int? p, int receiverEvals) Effectful(Box b)
+                {
+                    b.Self().P++;
+                    return (b.P, b.receiverEvals);
+                }
+                public static int? StableQualifiedChain(Holder h, int? y)
+                {
+                    h.Box.P += y;
+                    return h.Box.P;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var compact = Compact(result.OutputCode);
+        // The effectful receiver is read once into an r temp; the stable
+        // qualified chain (h.Box) is rebuilt per access with no r temp.
+        Assert.Contains("var__cs2j_n_r1=b.Self();", compact);
+        Assert.Equal(1, result.Statistics.Nullable.TempsReceiverRole);
+        Assert.Contains("var__cs2j_n_t2=h.Box.P;h.Box.P=", compact);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? init in new int?[] { null, 9 })
+        {
+            Assert.Equal(
+                InvokeStatic(original, "Effectful", NewBox(original, "Box", init))?.ToString(),
+                InvokeStatic(rewritten, "Effectful", NewBox(rewritten, "Box", init))?.ToString());
+
+            foreach (int? y in new int?[] { null, 3 })
+            {
+                static object? Holder(Assembly a, object? box)
+                {
+                    return a.GetType("Holder")!
+                        .GetConstructor(new[] { a.GetType("Box")! })!
+                        .Invoke(new[] { box });
+                }
+
+                Assert.Equal(
+                    InvokeStatic(original, "StableQualifiedChain",
+                        Holder(original, NewBox(original, "Box", init)), y)?.ToString(),
+                    InvokeStatic(rewritten, "StableQualifiedChain",
+                        Holder(rewritten, NewBox(rewritten, "Box", init)), y)?.ToString());
+            }
+        }
+    }
+
+    [Fact]
+    public void M3_NL10_ComplexIndexer_ReceiverAndIndicesEachOnce_RuntimeEquivalence()
+    {
+        var src = """
+            public class Box
+            {
+                private int? _v;
+                public int gets;
+                public int sets;
+                public int receiverEvals;
+                public int indexEvals;
+                public Box(int? v) { _v = v; }
+                public Box Self()
+                {
+                    receiverEvals++;
+                    return this;
+                }
+                public int At(int i)
+                {
+                    indexEvals++;
+                    return i;
+                }
+                public int? this[int i]
+                {
+                    get { gets++; return _v; }
+                    set { sets++; _v = value; }
+                }
+                public int? this[int i, int j]
+                {
+                    get { return _v; }
+                    set { _v = value; }
+                }
+            }
+            public class C
+            {
+                public static (int? v, int gets, int sets, int receiverEvals, int indexEvals) Post(Box b)
+                {
+                    b.Self()[b.At(0)]++;
+                    return (b[0], b.gets, b.sets, b.receiverEvals, b.indexEvals);
+                }
+                public static (int? v, int gets, int sets, int receiverEvals, int indexEvals) Pre(Box b)
+                {
+                    ++b.Self()[b.At(0)];
+                    return (b[0], b.gets, b.sets, b.receiverEvals, b.indexEvals);
+                }
+                public static (int? v, int gets, int sets, int receiverEvals, int indexEvals) Compound(Box b, int? y)
+                {
+                    b.Self()[b.At(0)] += y;
+                    return (b[0], b.gets, b.sets, b.receiverEvals, b.indexEvals);
+                }
+                public static int? TwoDimensional(Box b)
+                {
+                    b[0, 1]++;
+                    return b[0, 0];
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var stats = result.Statistics.Nullable;
+        Assert.Equal(4, stats.ComplexRmwSites);
+        Assert.Equal(3, stats.TempsReceiverRole);
+        Assert.Equal(5, stats.TempsIndexRole); // 0/1/2 single-arg sites + 2 for the 2D site
+        Assert.Contains("var__cs2j_n_i04=0;var__cs2j_n_i14=1;", Compact(result.OutputCode));
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? init in new int?[] { null, 11 })
+        {
+            foreach (var method in new[] { "Post", "Pre" })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, method, NewBox(original, "Box", init))?.ToString(),
+                    InvokeStatic(rewritten, method, NewBox(rewritten, "Box", init))?.ToString());
+            }
+
+            Assert.Equal(
+                InvokeStatic(original, "TwoDimensional", NewBox(original, "Box", init))?.ToString(),
+                InvokeStatic(rewritten, "TwoDimensional", NewBox(rewritten, "Box", init))?.ToString());
+
+            foreach (int? y in new int?[] { null, 4 })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, "Compound", NewBox(original, "Box", init), y)?.ToString(),
+                    InvokeStatic(rewritten, "Compound", NewBox(rewritten, "Box", init), y)?.ToString());
+            }
+        }
+    }
+
+    [Fact]
+    public void M3_NL10_ComplexArrayElement_IndexEachOnce_RuntimeEquivalence()
+    {
+        var src = """
+            public class IndexProbe
+            {
+                public int calls;
+                public int At(int i)
+                {
+                    calls++;
+                    return i;
+                }
+            }
+            public class C
+            {
+                public static (int? v, int calls) Post(int?[] arr, IndexProbe ix)
+                {
+                    arr[ix.At(0)]++;
+                    return (arr[0], ix.calls);
+                }
+                public static (int? v, int calls) Pre(int?[] arr, IndexProbe ix)
+                {
+                    ++arr[ix.At(0)];
+                    return (arr[0], ix.calls);
+                }
+                public static (int? v, int calls) Compound(int?[] arr, IndexProbe ix, int? y)
+                {
+                    arr[ix.At(0)] += y;
+                    return (arr[0], ix.calls);
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var stats = result.Statistics.Nullable;
+        Assert.Equal(3, stats.ComplexRmwSites);
+        Assert.Equal(3, stats.TempsIndexRole);
+        Assert.Equal(0, stats.TempsReceiverRole); // arrays are not materialized
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? init in new int?[] { null, 21 })
+        {
+            foreach (var method in new[] { "Post", "Pre" })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, method,
+                        new int?[] { init }, NewBox(original, "IndexProbe"))?.ToString(),
+                    InvokeStatic(rewritten, method,
+                        new int?[] { init }, NewBox(rewritten, "IndexProbe"))?.ToString());
+            }
+
+            foreach (int? y in new int?[] { null, 7 })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, "Compound",
+                        new int?[] { init }, NewBox(original, "IndexProbe"), y)?.ToString(),
+                    InvokeStatic(rewritten, "Compound",
+                        new int?[] { init }, NewBox(rewritten, "IndexProbe"), y)?.ToString());
+            }
+        }
+    }
+
+    [Fact]
+    public void M3_NL11_ComplexTargets_BoolAndEnumCompounds_RuntimeEquivalence()
+    {
+        var src = """
+            public enum Color { Red, Green, Blue }
+            public class Box
+            {
+                public bool? B { get; set; }
+                public Color? E { get; set; }
+            }
+            public class C
+            {
+                // Enum arguments arrive as int (-1 == null) to keep reflection
+                // invocation independent of emitted-assembly type identity.
+                public static (bool?, bool?, bool?, Color?, Color?, Color?) F(
+                    Box b, bool? init, bool? x, int eInit, int y)
+                {
+                    Color? ev = y < 0 ? null : (Color?)y;
+                    b.B = init;
+                    b.B &= x;
+                    var bAnd = b.B;
+                    b.B = init;
+                    b.B |= x;
+                    var bOr = b.B;
+                    b.B = init;
+                    b.B ^= x;
+                    var bXor = b.B;
+                    b.E = eInit < 0 ? null : (Color?)eInit;
+                    b.E &= ev;
+                    var eAnd = b.E;
+                    b.E = eInit < 0 ? null : (Color?)eInit;
+                    b.E |= ev;
+                    var eOr = b.E;
+                    b.E = eInit < 0 ? null : (Color?)eInit;
+                    b.E ^= ev;
+                    var eXor = b.E;
+                    return (bAnd, bOr, bXor, eAnd, eOr, eXor);
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.Equal(6, result.Statistics.Nullable.ComplexRmwSites);
+        Assert.Equal(6, result.Statistics.Nullable.TempsTargetRole);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (bool? init in new bool?[] { null, false, true })
+        {
+            foreach (bool? x in new bool?[] { null, false, true })
+            {
+                foreach (int eInit in new[] { -1, 0, 1, 2 })
+                {
+                    foreach (int y in new[] { -1, 0, 1, 2 })
+                    {
+                        Assert.Equal(
+                            InvokeStatic(original, "F",
+                                NewBox(original, "Box"), init, x, eInit, y)?.ToString(),
+                            InvokeStatic(rewritten, "F",
+                                NewBox(rewritten, "Box"), init, x, eInit, y)?.ToString());
+                    }
+                }
+            }
+        }
+    }
+
+    [Fact]
+    public void M3_ComplexStaticProperty_NoReceiverTemp_RuntimeEquivalence()
+    {
+        var src = """
+            public class C
+            {
+                private static int? _sp;
+                public static int? SP
+                {
+                    get { return _sp; }
+                    set { _sp = value; }
+                }
+                public static int? F(int? init, int? y)
+                {
+                    SP = init;
+                    SP++;
+                    ++SP;
+                    return SP += y;
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var stats = result.Statistics.Nullable;
+        Assert.Equal(3, stats.ComplexRmwSites);
+        Assert.Equal(0, stats.TempsReceiverRole);
+        Assert.DoesNotContain("__cs2j_n_r", Compact(result.OutputCode));
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? init in new int?[] { null, 100 })
+        {
+            foreach (int? y in new int?[] { null, -5 })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, "F", init, y),
+                    InvokeStatic(rewritten, "F", init, y));
+            }
+        }
+    }
+
+    [Fact]
+    public void M3_ComplexTargets_TwoValuePostfixSites_SharedAnchor_Ordering()
+    {
+        var src = """
+            public class Box
+            {
+                private int? _p;
+                public Box(int? p) { _p = p; }
+                public int? P
+                {
+                    get { return _p; }
+                    set { _p = value; }
+                }
+            }
+            public class C
+            {
+                // Two value-position complex postfix sites share one anchor
+                // statement; neither consumes the anchor, so both hoists
+                // splice in visit (inner-to-outer) order.
+                public static (int? old1, int? old2, int? after1, int? after2) F(Box x, Box y)
+                {
+                    var t = (x.P++, y.P++);
+                    return (t.Item1, t.Item2, x.P, y.P);
+                }
+            }
+            """;
+
+        var result = Run(src);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        var stats = result.Statistics.Nullable;
+        Assert.Equal(2, stats.ComplexRmwSites);
+        Assert.Equal(2, stats.LiftedIncrementPostfixSites);
+        Assert.Equal(2, stats.TempsTargetRole);
+
+        var original = CompileAndLoad(src);
+        var rewritten = CompileAndLoad(result.OutputCode);
+        foreach (int? x in new int?[] { null, 1 })
+        {
+            foreach (int? y in new int?[] { null, 2 })
+            {
+                Assert.Equal(
+                    InvokeStatic(original, "F",
+                        NewBox(original, "Box", x), NewBox(original, "Box", y))?.ToString(),
+                    InvokeStatic(rewritten, "F",
+                        NewBox(rewritten, "Box", x), NewBox(rewritten, "Box", y))?.ToString());
+            }
+        }
+    }
+
+    [Fact]
+    public void M3_ComplexTargets_RefReturning_InitOnly_QualifiedField_NamedArgument_Still5355()
+    {
+        var sources = new[]
+        {
+            // ref-returning property: the write would alias storage, not an
+            // invokable get/set pair.
+            """
+            public class Box
+            {
+                private int? _p = 1;
+                public ref int? RefP { get { return ref _p; } }
+            }
+            public class C
+            {
+                public static void F(Box b) { b.RefP++; }
+            }
+            """,
+            // init-only setter inside the constructor: get/init is not a
+            // get/set RMW pair.
+            """
+            public class C
+            {
+                public int? P { get; init; }
+                public C()
+                {
+                    P++;
+                }
+            }
+            """,
+            // qualified field stays a simple-target handoff (C17), not a
+            // property accessor expansion.
+            """
+            public class Box { public int? F; }
+            public class C
+            {
+                public static void M(Box b) { b.F++; }
+            }
+            """,
+            // named indexer arguments cannot be rebuilt positionally.
+            """
+            public class Box
+            {
+                public int? this[int i] { get => 0; set { } }
+            }
+            public class C
+            {
+                public static void M(Box b) { b[i: 0]++; }
+            }
+            """,
+            """
+            using System.Linq;
+            using System.Collections.Generic;
+            public class C
+            {
+                public int? P { get; set; }
+                public static IEnumerable<int?> F(IEnumerable<C> xs)
+                    => from c in xs select c.P++;
+            }
+            """,
+            """
+            public class C
+            {
+                public int? P { get; set; }
+                public static System.Func<int?> F(C c) => () => c.P++;
+            }
+            """,
+            // Attribute named argument: input itself is CS0655 (nullable
+            // named attribute arguments are illegal), yet the lifted binary
+            // still binds and must be reported rather than half-rewritten.
+            """
+            using System;
+            public class AAttribute : Attribute { public int? X { get; set; } }
+            public class C
+            {
+                public static int? Get() => 1;
+                [A(X = Get() + 1)]
+                public void M() { }
+            }
+            """,
+        };
+
+        foreach (var src in sources)
+        {
+            var result = Run(src, fullFrameworkReferences: true);
+
+            Assert.False(result.Changed);
+            Assert.Equal(src, result.OutputCode);
+            var error = Assert.Single(result.Diagnostics, d =>
+                d.Severity == NumericBoundarySeverity.Error
+                && d.Code == PreprocessDiagnosticCodes.NullableLiftComplexTarget);
+            Assert.True(error.Line > 0 && error.Column > 0);
+            Assert.Contains(
+                result.Statistics.Nullable.DeferredByReason,
+                kv => kv.Key == "CS2J5355:unliftable-context" && kv.Value == 1);
+        }
     }
 
     [Fact]
@@ -3486,5 +4093,431 @@ public class NumericBoundaryNullableLiftUnitTests
         Assert.Contains(result.Diagnostics, d =>
             d.Severity == NumericBoundarySeverity.Error
             && d.Code == PreprocessDiagnosticCodes.NullableLiftSpecialNumeric);
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // M3 B-block: CS2J5352-5356 error-site polish. Every site error carries
+    // a non-zero line/column, a DeferredByReason key, rolls back the whole
+    // file byte-for-byte, and never pairs with a CS2J5357 residual.
+    // ════════════════════════════════════════════════════════════════════
+
+    private static void AssertSiteError(
+        NumericBoundaryFileResult result,
+        string src,
+        string code,
+        string reasonKey,
+        int expectedCount = 1)
+    {
+        Assert.False(result.Changed);
+        Assert.Equal(src, result.OutputCode);
+        var errors = result.Diagnostics.Where(d =>
+            d.Severity == NumericBoundarySeverity.Error && d.Code == code).ToList();
+        Assert.Equal(expectedCount, errors.Count);
+        Assert.All(errors, error => Assert.True(error.Line > 0 && error.Column > 0,
+            $"{code} must report a non-zero position"));
+        Assert.Contains(
+            result.Statistics.Nullable.DeferredByReason,
+            kv => kv.Key == reasonKey && kv.Value >= expectedCount);
+        // A rolled-back site never also trips the residual gate.
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Code == PreprocessDiagnosticCodes.NullableLiftResidual);
+    }
+
+    [Fact]
+    public void M3_Error_DynamicNullableCompound_BothDirections_5352_Rollback()
+    {
+        var rhs = """
+            public class C
+            {
+                public static void F()
+                {
+                    int? a = 2;
+                    dynamic d = 1;
+                    a += d;
+                }
+            }
+            """;
+
+        var rhsResult = Run(rhs, fullFrameworkReferences: true);
+        AssertSiteError(rhsResult, rhs,
+            PreprocessDiagnosticCodes.NullableLiftDynamic, "CS2J5352:dynamic");
+
+        var lhs = """
+            public class C
+            {
+                public static void F()
+                {
+                    dynamic d = 1;
+                    int? a = 2;
+                    d += a;
+                }
+            }
+            """;
+
+        var lhsResult = Run(lhs, fullFrameworkReferences: true);
+        AssertSiteError(lhsResult, lhs,
+            PreprocessDiagnosticCodes.NullableLiftDynamic, "CS2J5352:dynamic");
+
+        // Non-nullable dynamic RMW is owned by other families: pass-through,
+        // zero false positives from the nullable rule.
+        var plain = Run("""
+            public class C
+            {
+                public static void F()
+                {
+                    int a = 1;
+                    dynamic d = 1;
+                    a += d;
+                }
+            }
+            """, fullFrameworkReferences: true);
+        Assert.False(plain.Changed);
+        Assert.DoesNotContain(plain.Diagnostics, d =>
+            d.Code == PreprocessDiagnosticCodes.NullableLiftDynamic);
+    }
+
+    [Fact]
+    public void M3_Error_UserDefinedLiftedUnaryAndConversion_5353_Rollback()
+    {
+        var unary = """
+            public struct Vec
+            {
+                public int X;
+                public static Vec operator -(Vec a) => default;
+            }
+            public class C
+            {
+                public static void F()
+                {
+                    Vec? a = default;
+                    var x = -a;
+                }
+            }
+            """;
+
+        var unaryResult = Run(unary);
+        AssertSiteError(unaryResult, unary,
+            PreprocessDiagnosticCodes.NullableLiftUserDefinedOperator,
+            "CS2J5353:user-defined-operator");
+
+        var conversion = """
+            public struct Src
+            {
+                public static implicit operator Dst(Src s) => default;
+            }
+            public struct Dst
+            {
+                public int X;
+            }
+            public class C
+            {
+                public static void F()
+                {
+                    Src? s = default;
+                    var x = (Dst?)s;
+                }
+            }
+            """;
+
+        var conversionResult = Run(conversion);
+        AssertSiteError(conversionResult, conversion,
+            PreprocessDiagnosticCodes.NullableLiftUserDefinedOperator,
+            "CS2J5353:user-defined-operator");
+    }
+
+    [Fact]
+    public void M3_Error_ExpressionTreeLiftedSite_5354_PositionAndKey()
+    {
+        // A lifted ++ inside an expression tree is CS0832 at the language
+        // level; the compilable lifted shape inside a tree is the binary
+        // below (source CS0832 inputs never reach a buildable pipeline).
+        var src = """
+            using System;
+            using System.Linq.Expressions;
+            public class C
+            {
+                public static Expression<Func<int?>> F(int? a) => () => a + 1;
+            }
+            """;
+
+        var result = Run(src, fullFrameworkReferences: true);
+        AssertSiteError(result, src,
+            PreprocessDiagnosticCodes.NullableLiftExpressionTree,
+            "CS2J5354:expression-tree");
+    }
+
+    [Fact]
+    public void M3_Error_SpecialNumericNullable_FourDomains_5356_Rollback()
+    {
+        var sources = new (string Src, int Count)[]
+        {
+            ("""
+            public class C
+            {
+                public static void F()
+                {
+                    System.Int128? a = 1;
+                    var x = a + 1;
+                }
+            }
+            """, 1),
+            ("""
+            public class C
+            {
+                public static void F()
+                {
+                    System.UInt128? a = 1;
+                    var x = a + 1;
+                }
+            }
+            """, 1),
+            ("""
+            public class C
+            {
+                public static void F()
+                {
+                    System.Half? h = (System.Half)1;
+                    System.Half one = (System.Half)1;
+                    var x = h + one;
+                }
+            }
+            """, 1),
+            ("""
+            public class C
+            {
+                public static void F()
+                {
+                    nint? a = 1;
+                    var neg = -a;
+                    var add = a + 1;
+                }
+            }
+            """, 2),
+            ("""
+            public class C
+            {
+                public static nint? P { get; set; }
+                public static void F()
+                {
+                    P++;
+                    P += 1;
+                }
+            }
+            """, 2),
+        };
+
+        foreach (var (src, count) in sources)
+        {
+            var result = Run(src, fullFrameworkReferences: true);
+            AssertSiteError(result, src,
+                PreprocessDiagnosticCodes.NullableLiftSpecialNumeric,
+                "CS2J5356:special-numeric", count);
+        }
+    }
+
+    [Fact]
+    public void M3_BuiltInNullableDomains_AllComplexShapes_ZeroErrorAudit()
+    {
+        var src = """
+            public enum Color { Red, Blue }
+            public class Box
+            {
+                public int? P { get; set; }
+                public bool? B { get; set; }
+                public Color? E { get; set; }
+                public decimal? D { get; set; }
+                public int? this[int i] { get => 0; set { } }
+            }
+            public class C
+            {
+                public static void F(Box b, int?[] arr, int? x, bool? q, Color? e, decimal? d)
+                {
+                    int? a = 1;
+                    a += 2;
+                    a++;
+                    --a;
+                    var z = a + x;
+                    bool? bb = true;
+                    bb &= q;
+                    bb |= q;
+                    bb ^= q;
+                    bb = !bb;
+                    Color? ee = Color.Red;
+                    ee &= e;
+                    ee++;
+                    decimal? dd = 1m;
+                    dd += d;
+                    b.P += x;
+                    b.P++;
+                    ++b.P;
+                    b.B &= q;
+                    b.E |= e;
+                    b.D += d;
+                    b[0]++;
+                    b[0] += x;
+                    arr[0] += x;
+                    arr[0]++;
+                }
+            }
+            """;
+
+        var result = Run(src, fullFrameworkReferences: true);
+
+        Assert.True(result.Changed);
+        AssertOutputCompiles(result.OutputCode);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error);
+        foreach (var code in new[]
+        {
+            PreprocessDiagnosticCodes.NullableLiftDynamic,
+            PreprocessDiagnosticCodes.NullableLiftUserDefinedOperator,
+            PreprocessDiagnosticCodes.NullableLiftExpressionTree,
+            PreprocessDiagnosticCodes.NullableLiftComplexTarget,
+            PreprocessDiagnosticCodes.NullableLiftSpecialNumeric,
+        })
+        {
+            Assert.DoesNotContain(result.Diagnostics, d => d.Code == code);
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    // M3 C-block: residual gate boundary counterexamples.
+    // ════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void M3_ResidualScan_BoundaryCounterexamples_NoResiduals()
+    {
+        var src = """
+            using System;
+            public class C
+            {
+                public static void F(int? a)
+                {
+                    var underlying = Nullable.GetUnderlyingType(typeof(int?));
+                    var t = typeof(int?);
+                    int? wrap = (int?)1;
+                    var hasValue = a.HasValue;
+                    var value = a.Value;
+                    // Lifted binary whose text carries a support fingerprint:
+                    // emitted by another family's support layer, exempt.
+                    var fp = Cs2jUnsigned.UnsignedMath.AddCheckedInt32(1, 2) + a;
+                }
+            }
+            """;
+
+        var references = new[]
+        {
+            MetadataReference.CreateFromFile(typeof(Cs2jUnsigned.UnsignedMath).Assembly.Location),
+        };
+        var (tree, model) = ParseWithSemantics(
+            src, fullFrameworkReferences: true, extraReferences: references);
+        AssertNoCompileErrors(model);
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+
+        var residuals = NullableLiftRule.ScanResiduals(model, root);
+
+        Assert.Empty(residuals);
+    }
+
+    [Fact]
+    public void M3_ResidualScan_ConditionalAccessHiddenInvocation_EnumeratedOnce()
+    {
+        // `T? x; x?.GetValueOrDefault()` does not compile (CS1061: the
+        // conditional access exposes the UNDERLYING T's members), but the
+        // bound WhenNotNull invocation hides inside the conditional-access
+        // operation and shares its syntax node. The scanner must still
+        // enumerate it (defense for malformed/partial trees), exactly once.
+        var src = """
+            public class C
+            {
+                public static int? Get() => 1;
+                public static int? F() => Get()?.GetValueOrDefault();
+            }
+            """;
+
+        var (tree, model) = ParseWithSemantics(src);
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+
+        var residuals = NullableLiftRule.ScanResiduals(model, root);
+
+        // The CS1061 error binding surfaces the shared-syntax node as a
+        // lifted conversion rather than a resolvable GOV invocation; what
+        // matters is that the hidden subtree is enumerated exactly once.
+        var hidden = residuals
+            .Where(r => r.Node.ToString() == "Get()?.GetValueOrDefault()")
+            .ToList();
+        Assert.Single(hidden);
+    }
+
+    [Fact]
+    public void M3_ResidualGate_ImplicitLiftedConversion_PipelineDualState()
+    {
+        // NL-7/8 own explicit cast conversions only; an implicit lifted
+        // S?→T? conversion at a declarator is an unowned (M4-class) shape:
+        // relaxed runs warn and still emit, strict runs roll the file back.
+        var src = """
+            public class C
+            {
+                public static void F()
+                {
+                    int? a = 1;
+                    var g = a + 2;
+                    long? t = a;
+                }
+            }
+            """;
+
+        var relaxed = Run(src, RuleOptions(strict: false));
+        Assert.True(relaxed.Changed);
+        var warning = Assert.Single(relaxed.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Warning
+            && d.Code == PreprocessDiagnosticCodes.NullableLiftResidual);
+        Assert.True(warning.Line == 0); // whole-file residual summary
+        Assert.Contains("long?t=a", Compact(relaxed.OutputCode));
+        Assert.Contains(relaxed.Statistics.Nullable.DeferredByReason,
+            kv => kv.Key == PreprocessDiagnosticCodes.NullableLiftResidual);
+
+        var strict = Run(src, RuleOptions(strict: true));
+        Assert.False(strict.Changed);
+        Assert.Equal(src, strict.OutputCode);
+        Assert.Contains(strict.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.NullableLiftResidual);
+    }
+
+    [Fact]
+    public void M3_ResidualGate_HiddenConditionalGov_MalformedInput_DualState()
+    {
+        // Malformed input (CS1061, see above) exercising the conditional-
+        // access penetration through the whole pipeline: the owned lifted
+        // binary is rewritten while the hidden GOV survives to the gate.
+        var src = """
+            public class C
+            {
+                public static int? Get() => 1;
+                public static int? F()
+                {
+                    int? a = 1;
+                    var g = a + 2;
+                    return Get()?.GetValueOrDefault();
+                }
+            }
+            """;
+
+        var relaxed = Run(src, RuleOptions(strict: false));
+        Assert.True(relaxed.Changed);
+        Assert.Contains(relaxed.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Warning
+            && d.Code == PreprocessDiagnosticCodes.NullableLiftResidual);
+        var compact = Compact(relaxed.OutputCode);
+        Assert.Contains("(a.HasValue?(int?)(a.Value+2):(int?)null)", compact);
+        Assert.Contains("Get()?.GetValueOrDefault()", compact);
+
+        var strict = Run(src, RuleOptions(strict: true));
+        Assert.False(strict.Changed);
+        Assert.Equal(src, strict.OutputCode);
+        Assert.Contains(strict.Diagnostics, d =>
+            d.Severity == NumericBoundarySeverity.Error
+            && d.Code == PreprocessDiagnosticCodes.NullableLiftResidual);
     }
 }
