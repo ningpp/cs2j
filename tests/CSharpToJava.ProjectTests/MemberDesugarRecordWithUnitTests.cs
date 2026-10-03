@@ -1360,6 +1360,569 @@ public class MemberDesugarRecordWithUnitTests
     }
 
     [Fact]
+    public void WR4_PositionalStruct_ParameterlessCtorAndDeconstruct_Run()
+    {
+        var src = """
+            public record struct Point(int X, int Y);
+            public static class P
+            {
+                public static (int, int, int, int) Run()
+                {
+                    var a = new Point();
+                    var b = new Point(3, 4) with { X = 5 };
+                    b.Deconstruct(out var bx, out var by);
+                    return (a.X, a.Y, bx, by);
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 干净的位置 struct 场景不得误记任何跳过原因（5220 reshape 闸门、5223 等）。
+        Assert.Empty(stats.SkippedByReason);
+
+        var asm = CompileToAssembly(output);
+        var tuple = (System.Runtime.CompilerServices.ITuple)asm.GetType("P")!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, null)!;
+        Assert.Equal(0, tuple[0]);
+        Assert.Equal(0, tuple[1]);
+        Assert.Equal(5, tuple[2]);
+        Assert.Equal(4, tuple[3]);
+    }
+
+    [Fact]
+    public void WR4_CleanClassSite_NoSkipReason()
+    {
+        var src = """
+            public record class R
+            {
+                public int X { get; set; }
+            }
+            public static class P
+            {
+                public static R Run(R r) => r with { X = 1 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        Assert.Equal(1, stats.WithSitesClass);
+        Assert.Equal(1, stats.CloneFactoriesSynthesized);
+        Assert.Equal(0, stats.ResidualWithCount);
+        Assert.Empty(stats.SkippedByReason);
+    }
+
+    // ---- WR-4：with 位于表达式体成员/表达式 lambda（箭头体 → 块体提升）----
+
+    [Fact]
+    public void WR4_ExpressionBodiedMethod_BlockedShape_AndRuns()
+    {
+        var src = """
+            public record class R
+            {
+                public int X { get; set; }
+                public static R Run(R r) => r with { X = 1 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 箭头体方法块化：保留签名与 static，体为克隆序列 + 显式 return。
+        AssertContains(output, "public static R Run(R r)");
+        AssertContains(output, """
+            {
+                var __cs2j_wclone0 = r.Cs2jWithClone();
+                __cs2j_wclone0.set_X(1);
+                return __cs2j_wclone0;
+            }
+            """);
+        AssertNotContains(output, " with ");
+        var asm = CompileToAssembly(output);
+        var t = asm.GetType("R")!;
+        var r = System.Activator.CreateInstance(t)!;
+        t.GetMethod("set_X")!.Invoke(r, new object[] { 4 });
+        var q = t.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { r })!;
+        Assert.Equal(1, t.GetMethod("get_X")!.Invoke(q, null));
+        Assert.Equal(4, t.GetMethod("get_X")!.Invoke(r, null));
+        Assert.Equal(1, stats.WithSitesClass);
+        Assert.Equal(1, stats.CloneFactoriesSynthesized);
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void WR4_ExpressionBodiedOperator_Blocked_ReturnClone_Runs()
+    {
+        var src = """
+            public record class R
+            {
+                public int X { get; set; }
+                public static R operator +(R r, int x) => r with { X = x };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 运算符阶段把 operator+ 落名为 Add；Records 阶段先把箭头体块化并保留 return clone。
+        AssertContains(output, "public static R Add(R r, int x)");
+        AssertContains(output, "var __cs2j_wclone0 = r.Cs2jWithClone();");
+        AssertContains(output, "__cs2j_wclone0.set_X(x);");
+        AssertContains(output, "return __cs2j_wclone0;");
+        AssertNotContains(output, " with ");
+        var asm = CompileToAssembly(output);
+        var t = asm.GetType("R")!;
+        var r = System.Activator.CreateInstance(t)!;
+        t.GetMethod("set_X")!.Invoke(r, new object[] { 1 });
+        var q = t.GetMethod("Add", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { r, (object)7 })!;
+        Assert.Equal(7, t.GetMethod("get_X")!.Invoke(q, null));
+        Assert.Equal(1, t.GetMethod("get_X")!.Invoke(r, null));
+        Assert.Equal(1, stats.WithSitesClass);
+        Assert.Equal(0, stats.ResidualWithCount);
+        Assert.Empty(stats.SkippedByReason);
+    }
+
+    [Fact]
+    public void WR4_ExpressionBodiedConversionOperator_Blocked_EvenWhenOperatorStageSkips()
+    {
+        // 转换运算符箭头体由 Records 阶段块化；转换目标不在运算符命名镜像表时运算符阶段
+        // 单独跳计划（既有 ConversionMirrorMiss 闸门，非本修复引入），块体仍合法保留。
+        var src = """
+            public record class R
+            {
+                public int X { get; set; }
+                public static explicit operator R(int x) => new R() with { X = x };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        AssertCompiles(output);
+        Assert.DoesNotContain(diags, d => d.Code == MemberDesugarDiagnosticCode.NonLiftableWithContext);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.ConversionMirrorMiss);
+        AssertContains(output, """
+            public static explicit operator R(int x)
+            {
+            """);
+        AssertContains(output, "var __cs2j_wclone1 = __cs2j_wsrc0.Cs2jWithClone();");
+        AssertContains(output, "__cs2j_wclone1.set_X(x);");
+        AssertContains(output, "return __cs2j_wclone1;");
+        AssertNotContains(output, " with ");
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void WR4_ExpressionBodiedLocalFunction_Blocked_EmptyWithInlined_Runs()
+    {
+        var src = """
+            using System;
+            public record class R
+            {
+                public int X { get; set; }
+                public static R ViaLocal(R r)
+                {
+                    R Bump(R q) => q with { X = q.X + 5 };
+                    R Clone(R q) => q with { };
+                    return Clone(Bump(r));
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 非空 with：本地函数箭头体 → 块体（含 q.X 读点降形为 get_X()）。
+        AssertContains(output, "R Bump(R q) {");
+        AssertContains(output, "var __cs2j_wclone0 = q.Cs2jWithClone();");
+        AssertContains(output, "__cs2j_wclone0.set_X(q.get_X() + 5);");
+        AssertContains(output, "return __cs2j_wclone0;");
+        // 空 with（class）不进提升闸门：箭头体保留，仅内联工厂调用。
+        AssertContains(output, "R Clone(R q) => q.Cs2jWithClone();");
+        AssertNotContains(output, " with ");
+        var asm = CompileToAssembly(output);
+        var t = asm.GetType("R")!;
+        var r = System.Activator.CreateInstance(t)!;
+        t.GetMethod("set_X")!.Invoke(r, new object[] { 1 });
+        var q = t.GetMethod("ViaLocal", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { r })!;
+        Assert.Equal(6, t.GetMethod("get_X")!.Invoke(q, null));
+        Assert.Equal(1, t.GetMethod("get_X")!.Invoke(r, null));
+        Assert.Equal(2, stats.WithSitesClass);
+        Assert.Equal(1, stats.WithSitesEmpty);
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void WR4_ExpressionLambdas_BecomeStatementLambdas_Runs()
+    {
+        var src = """
+            using System;
+            public record class R
+            {
+                public int X { get; set; }
+                public static R Apply(R r, Func<R, R> f) => f(r);
+                public static R Simple(R r) => Apply(r, q => q with { X = 9 });
+                public static R Paren(R r)
+                {
+                    Func<R, R> f = (R q) => q with { X = 4 };
+                    return f(r);
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 表达式 lambda → 语句 lambda：=> 保留，体换块；外层成员不被拆语句。
+        AssertContains(output, "q => {");
+        AssertContains(output, "(R q) => {");
+        AssertContains(output, "__cs2j_wclone0.set_X(9);");
+        AssertContains(output, "__cs2j_wclone1.set_X(4);");
+        AssertNotContains(output, " with ");
+        var asm = CompileToAssembly(output);
+        var t = asm.GetType("R")!;
+        var r = System.Activator.CreateInstance(t)!;
+        t.GetMethod("set_X")!.Invoke(r, new object[] { 1 });
+        var rs = t.GetMethod("Simple", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { r })!;
+        var rp = t.GetMethod("Paren", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { r })!;
+        Assert.Equal(9, t.GetMethod("get_X")!.Invoke(rs, null));
+        Assert.Equal(4, t.GetMethod("get_X")!.Invoke(rp, null));
+        Assert.Equal(1, t.GetMethod("get_X")!.Invoke(r, null));
+        Assert.Equal(2, stats.WithSitesClass);
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void WR4_PolymorphicWith_InsideExpressionBody_KeepsRuntimeType()
+    {
+        var src = """
+            public record class Base
+            {
+                public int X { get; set; }
+            }
+            public record class Derived : Base { }
+            public static class P
+            {
+                public static Base Run(Base b) => b with { X = 5 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        AssertContains(output, "public virtual Base Cs2jWithClone() => new Base(this);");
+        AssertContains(output, "public override Derived Cs2jWithClone() => new Derived(this);");
+        AssertNotContains(output, " with ");
+        var asm = CompileToAssembly(output);
+        var derived = System.Activator.CreateInstance(asm.GetType("Derived")!)!;
+        var result = asm.GetType("P")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { derived })!;
+        Assert.Equal("Derived", result.GetType().Name);
+        Assert.Equal(5, asm.GetType("Base")!.GetMethod("get_X")!.Invoke(result, null));
+        Assert.Equal(1, stats.WithSitesClass);
+        Assert.Equal(2, stats.CloneFactoriesSynthesized);
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void WR4_ExpressionBodiedProperty_AndGetAccessor_ExpandWithBlock_Runs()
+    {
+        var src = """
+            public record class R
+            {
+                public int X { get; set; }
+                public R Self => this with { X = 6 };
+                public R Also { get => this with { X = 7 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 声明级箭头属性与 get 箭头访问器先块化为访问器块，C11 再展开成带块 get_X()。
+        AssertContains(output, """
+            public R get_Self()
+            {
+                var __cs2j_wclone0 = this.Cs2jWithClone();
+                __cs2j_wclone0.set_X(6);
+                return __cs2j_wclone0;
+            }
+            """);
+        AssertContains(output, """
+            public R get_Also()
+            {
+                var __cs2j_wclone1 = this.Cs2jWithClone();
+                __cs2j_wclone1.set_X(7);
+                return __cs2j_wclone1;
+            }
+            """);
+        AssertNotContains(output, " with ");
+        var asm = CompileToAssembly(output);
+        var t = asm.GetType("R")!;
+        var r = System.Activator.CreateInstance(t)!;
+        Assert.Equal(6, t.GetMethod("get_X")!.Invoke(t.GetMethod("get_Self")!.Invoke(r, null), null));
+        Assert.Equal(7, t.GetMethod("get_X")!.Invoke(t.GetMethod("get_Also")!.Invoke(r, null), null));
+        Assert.Equal(0, t.GetMethod("get_X")!.Invoke(r, null));
+        Assert.Equal(2, stats.WithSitesClass);
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void WR4_ExpressionBodiedIndexer_GetAccessorBlocked_SetBlockCarried_Runs()
+    {
+        var src = """
+            public record class R
+            {
+                public int X { get; set; }
+                public R[] Items = new R[3];
+                public R this[int i]
+                {
+                    get => Items[i] with { X = 8 };
+                    set { Items[i] = value; }
+                }
+                public void Seed()
+                {
+                    Items[0] = new R();
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // get 箭头访问器块化（数组元素接收者走 wsrc 单求值）；set 块由 C12 原样携带。
+        AssertContains(output, """
+            public R get_Item(int i)
+            {
+                var __cs2j_wsrc0 = Items[i];
+                var __cs2j_wclone1 = __cs2j_wsrc0.Cs2jWithClone();
+                __cs2j_wclone1.set_X(8);
+                return __cs2j_wclone1;
+            }
+            """);
+        AssertContains(output, "public void set_Item(int i, R value)");
+        AssertContains(output, "Items[i] = value;");
+        AssertNotContains(output, " with ");
+        var asm = CompileToAssembly(output);
+        var t = asm.GetType("R")!;
+        var r = System.Activator.CreateInstance(t)!;
+        t.GetMethod("Seed")!.Invoke(r, null);
+        var item = t.GetMethod("get_Item")!.Invoke(r, new object[] { 0 })!;
+        Assert.Equal(8, t.GetMethod("get_X")!.Invoke(item, null));
+        // 克隆是独立对象：后备数组元素保持 X=0，第二次取仍生成新克隆。
+        var items = (object[])t.GetField("Items")!.GetValue(r)!;
+        Assert.False(ReferenceEquals(item, items[0]));
+        Assert.Equal(0, t.GetMethod("get_X")!.Invoke(items[0], null));
+        Assert.Equal(1, stats.WithSitesClass);
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void WR4_GetArrowAndSetBlockWithSites_BothVisited_Runs()
+    {
+        // 红节点纪律：同一属性的 get 箭头命中块化后，set 块内的局部声明站点
+        // 仍必须被游历到，不能随红属性节点整体漏改。
+        var src = """
+            public record class R
+            {
+                public int X { get; set; }
+                private R _other;
+                public void Seed(R other)
+                {
+                    _other = other;
+                }
+                public R Pair
+                {
+                    get => _other with { X = 8 };
+                    set
+                    {
+                        var q = value with { X = 2 };
+                        _other = q;
+                    }
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        AssertContains(output, "var __cs2j_wclone0 = _other.Cs2jWithClone();");
+        AssertContains(output, "__cs2j_wclone0.set_X(8);");
+        AssertContains(output, "var __cs2j_wclone1 = value.Cs2jWithClone();");
+        AssertContains(output, "__cs2j_wclone1.set_X(2);");
+        AssertNotContains(output, " with ");
+        var asm = CompileToAssembly(output);
+        var t = asm.GetType("R")!;
+        var r = System.Activator.CreateInstance(t)!;
+        var seed = System.Activator.CreateInstance(t)!;
+        var arg = System.Activator.CreateInstance(t)!;
+        t.GetMethod("set_X")!.Invoke(arg, new object[] { 1 });
+        t.GetMethod("Seed")!.Invoke(r, new[] { seed });
+        t.GetMethod("set_Pair")!.Invoke(r, new[] { arg });
+        var got = t.GetMethod("get_Pair")!.Invoke(r, null)!;
+        Assert.Equal(8, t.GetMethod("get_X")!.Invoke(got, null));
+        // get 每次克隆独立对象；改一份不影响另一份（且 _other 本体保持 X=2 不被写 8）。
+        var got2 = t.GetMethod("get_Pair")!.Invoke(r, null)!;
+        Assert.False(ReferenceEquals(got, got2));
+        t.GetMethod("set_X")!.Invoke(got, new object[] { 99 });
+        Assert.Equal(8, t.GetMethod("get_X")!.Invoke(
+            t.GetMethod("get_Pair")!.Invoke(r, null), null));
+        Assert.Equal(2, stats.WithSitesClass);
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void WR4_PositionalRecord_ArrowMethod_BlockedAndReshaped_Runs()
+    {
+        // 箭头体方法提升必须与位置 record reshape 的 ParseReplacement 重解析次序兼容。
+        var src = """
+            public record Point(int X, int Y)
+            {
+                public Point Bump() => this with { X = 1 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        AssertContains(output, """
+            public Point Bump()
+            {
+                var __cs2j_wclone0 = this.Cs2jWithClone();
+                __cs2j_wclone0.set_X(1);
+                return __cs2j_wclone0;
+            }
+            """);
+        AssertNotContains(output, "record Point(int X, int Y)");
+        AssertNotContains(output, " with ");
+        var asm = CompileToAssembly(output);
+        var t = asm.GetType("Point")!;
+        var p = t.GetConstructor(new[] { typeof(int), typeof(int) })!.Invoke(new object[] { 0, 2 });
+        var q = t.GetMethod("Bump")!.Invoke(p, null)!;
+        Assert.Equal(1, t.GetMethod("get_X")!.Invoke(q, null));
+        Assert.Equal(2, t.GetMethod("get_Y")!.Invoke(q, null));
+        Assert.Equal(0, t.GetMethod("get_X")!.Invoke(p, null));
+        Assert.Equal(1, stats.WithSitesClass);
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void WR4_Gate5223_FieldAndPropertyInitializer_AtomicPlanSkip_Untouched()
+    {
+        var src = """
+            public record class R
+            {
+                public int X { get; set; }
+                public static R Template = new R();
+                public int Z = (Template with { X = 1 }).X;
+                public R Prototype { get; } = new R() with { X = 1 };
+                public static R Run(R r) => r with { X = 2 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        AssertCompiles(output);
+        // 整 plan 闸门：三个站点（字段初始化器/属性初始化器/本可提升的箭头方法）各报一条
+        // 5223 且全部原样不动；工厂按 FactoryRequired 独立仍合成（与 GateAtomicity 既定语义一致）。
+        Assert.Equal(3, diags.Count(d => d.Code == MemberDesugarDiagnosticCode.NonLiftableWithContext));
+        AssertContains(output, "public static R Run(R r) => r with { X = 2 };");
+        AssertContains(output, "public int Z = (Template with { X = 1 }).X;");
+        AssertContains(output, "= new R() with { X = 1 };");
+        AssertContains(output, "Cs2jWithClone");
+        Assert.Equal(3, stats.SkippedByReason[MemberDesugarDiagnosticCode.NonLiftableWithContext]);
+        Assert.Equal(1, stats.CloneFactoriesSynthesized);
+        Assert.Equal(0, stats.WithSitesTotal);
+    }
+
+    [Fact]
+    public void WR4_Gate5223_QueryClause_Untouched()
+    {
+        var src = """
+            using System.Linq;
+            public record class R
+            {
+                public int X { get; set; }
+            }
+            public static class P
+            {
+                public static R[] Run(R[] rs)
+                {
+                    return (from r in rs select r with { X = 1 }).ToArray();
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        AssertCompiles(output);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.NonLiftableWithContext);
+        AssertContains(output, "select r with { X = 1 }");
+        AssertNotContains(output, "Cs2jWithClone");
+        Assert.Equal(0, stats.CloneFactoriesSynthesized);
+    }
+
+    [Fact]
+    public void WR4_Gate5223_AttributeArgument_Untouched()
+    {
+        // 特性实参本身要求常量表达式（CS0182，输入即非法）；本用例只验证预处理在该位
+        // 给 5223 且不改动声明/站点，不做产物编译断言。
+        var src = """
+            using System;
+            public record R
+            {
+                public int X { get; set; }
+            }
+            [AttributeUsage(AttributeTargets.All)]
+            public class AAttribute : Attribute
+            {
+                public AAttribute(R r) { }
+            }
+            [A((R)null! with { X = 1 })]
+            public class C { }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.NonLiftableWithContext);
+        AssertContains(output, "[A((R)null! with { X = 1 })]");
+        AssertNotContains(output, "Cs2jWithClone");
+        Assert.Equal(0, stats.CloneFactoriesSynthesized);
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void WR4_ArrowLift_SecondRun_IsZeroDiff()
+    {
+        var src = """
+            using System;
+            public record class R
+            {
+                public int X { get; set; }
+                public static R Run(R r) => r with { X = 1 };
+                public static R Via(R r) => Apply(r, q => q with { X = 2 });
+                public static R Apply(R r, Func<R, R> f) => f(r);
+            }
+            """;
+        var (first, _, diags1) = Rewrite(src, Enabled());
+        AssertCompiles(first);
+        AssertNoErrors(diags1);
+        var (second, stats2, diags2) = Rewrite(first, Enabled());
+        AssertCompiles(second);
+        Assert.Equal(Normalize(first), Normalize(second));
+        Assert.Equal(0, stats2.CloneFactoriesSynthesized);
+        Assert.Equal(0, stats2.WithSitesTotal);
+        AssertNoErrors(diags2);
+    }
+
+    [Fact]
+    public void WR4_Disabled_ArrowSite_ZeroPlanZeroDiff()
+    {
+        var src = """
+            public record class R
+            {
+                public int X { get; set; }
+                public static R Run(R r) => r with { X = 1 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, new MemberDesugarOptions());
+        Assert.Equal(Normalize(src), Normalize(output));
+        Assert.Equal(0, stats.CloneFactoriesSynthesized);
+        Assert.Equal(0, stats.WithSitesTotal);
+        Assert.Equal(0, stats.RecordPlans);
+        Assert.Equal(0, stats.ResidualWithCount);
+        Assert.All(diags, d => Assert.NotEqual(MemberDesugarDiagnosticCode.ResidualWith, d.Code));
+    }
+
+    [Fact]
     public void M2_PositionalStruct_Reshape_FinalShapeAloneCompilesAndRuns()
     {
         // 不带 with 的纯验证：手工取终形片段编译，确认 struct 终形成员自身合法
