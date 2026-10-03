@@ -63,8 +63,16 @@ internal sealed class HolderLiftStage : IClosureLiftStage
                 "C32: plans were frozen but no capture site was rewritten; " +
                 "refusing to emit a dangling holder class.");
 
+        // C45 M2 (design §4.1): publish the frozen groups so the consolidation
+        // stage merges read-only/this captures into the SAME classes instead of
+        // re-deriving the mutable classification (single FindWriteSites口径).
+        if (input.PlanBag is { } bag)
+            bag.HolderGroups.AddRange(groups);
+
         statistics.HolderClassesGenerated += groups.Count(g => !g.ArrayForm);
         statistics.HolderInstancesGenerated += groups.Count(g => !g.ArrayForm);
+        // C45 M2: same-value alias (display class = the evolved C32 holder).
+        statistics.DisplayClassesGenerated += groups.Count(g => !g.ArrayForm);
         statistics.CapturesLifted += groups.Sum(g => g.Symbols.Count);
 
         foreach (var reason in groups.SelectMany(g => g.Symbols).Select(s => s.Reason))

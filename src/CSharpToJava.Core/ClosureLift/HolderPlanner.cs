@@ -6,14 +6,14 @@ namespace CSharpToJava.Core.ClosureLift;
 
 /// <summary>
 /// Design §4.3 frozen planner. Pure (never edits trees): turns the read-only
-/// ClosureAnalysisResult into the ordered HolderGroupPlan set, freezing group
+/// ClosureAnalysisResult into the ordered DisplayClassPlan set, freezing group
 /// keys, class/instance/field/storage names and the Task 10 rewriter
 /// precondition boundaries. CS2J3207 prospective rows run through the SAME
 /// key/naming calls, so audit names equal generated names.
 /// </summary>
 internal static class HolderPlanner
 {
-    public static IReadOnlyList<HolderGroupPlan> BuildPlans(
+    public static IReadOnlyList<DisplayClassPlan> BuildPlans(
         ClosureAnalysisResult analysis,
         SemanticModel model,
         ClosureLiftOptions options,
@@ -34,10 +34,10 @@ internal static class HolderPlanner
                 blocked = true;
         }
         if (blocked)
-            return Array.Empty<HolderGroupPlan>();
+            return Array.Empty<DisplayClassPlan>();
 
         // Pass 2: group + freeze names.
-        var plans = new List<HolderGroupPlan>();
+        var plans = new List<DisplayClassPlan>();
         var arrayForm = options.HolderForm == HolderForm.SingleElementArray;
 
         foreach (var (member, liftable) in liftableByMember)
@@ -58,7 +58,7 @@ internal static class HolderPlanner
                 var instanceName = ClosureLiftNaming.ReserveInstanceName(groupIndex, routineNames);
                 groupIndex++;
 
-                var plan = new HolderGroupPlan
+                var plan = new DisplayClassPlan
                 {
                     HostType = member.HostType,
                     HostMember = member.Routine,

@@ -53,9 +53,21 @@ internal static class ClosureLiftCodes
     /// <summary>Lambda (own or delegate) parameter carries ref/out/in/ref readonly, or delegate returns ref (D6②/D23).</summary>
     public const string RefLambdaParameter = "CS2J4501";
 
+    /// <summary>Captured symbol cannot be resolved to a supported declarator (D5/D15; C45 read-only path mirror of CS2J3202).</summary>
+    public const string UnresolvableCapture = "CS2J4502";
+
     /// <summary>Residual anonymous-method node counted by the tree residual gate (E05 output missing; design §6).</summary>
     public const string ResidualAnonymousMethodGate = "CS2J4503";
 
+    /// <summary>Unsupported lambda host: static lambda in a field/property initializer (D18③/D21, M2 explicit row).</summary>
+    public const string UnsupportedHost = "CS2J4504";
+
+    /// <summary>Captured symbol of an unspeakable kind reached the C45 read-only path (defensive mirror of CS2J3205, design §6).</summary>
+    public const string UnsupportedCaptureKindGate = "CS2J4505";
+
     /// <summary>Lambda ConvertedType is not a resolvable delegate type; the named-method signature cannot be synthesized (D8/D12).</summary>
     public const string UnresolvableDelegateType = "CS2J4509";
+
+    /// <summary>Residual gate (§7.3): statement lambdas remain in the output beyond the accounted skip buckets (M2 strict Error).</summary>
+    public const string ResidualStatementGate = "CS2J4510";
 }

@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -41,6 +42,16 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         }
 
         var analysisRoot = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
+
+        // M2 defense line (D18③/D21, task §9-7): static initializer lambdas were
+        // silently skipped in M1 (residual count only); they now carry an explicit
+        // CS2J4504 boundary row. The row does NOT freeze the file: the lambda is
+        // capture-free by construction (D12) and the legacy converter path still
+        // handles it, so only the initializer stays verbatim while the rest of
+        // the file lifts. Non-static initializer lambdas remain owned by the C32
+        // analyzer's CS2J3204 (Error → file rollback).
+        EmitStaticInitializerRows(model, analysisRoot, diagnostics);
+
         var sites = LambdaSiteIndex.CollectSites(analysisRoot, model);
         if (sites.Count == 0)
             return new ClosureStageResult(root, false);
@@ -76,8 +87,12 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
             memberOrdinal[memberKey] = index + 1;
 
             var methodName = naming.ReserveMethodName(hostKey, site.RoutineName, index);
+            // Model span is the cross-stage pairing anchor (planner census +
+            // delegate-site order pairing); received span addresses nested
+            // sites inside to-be-moved bodies (C32 inserts shift positions).
             var plan = new StaticLambdaPlan(
-                receivedLambda.SpanStart, receivedLambda.RawKind,
+                site.SpanStart, site.Lambda.RawKind,
+                receivedLambda.SpanStart,
                 methodName, signature.DelegateTypeDisplay);
 
             var receivedHost = receivedTypeByModelType[site.HostType];
@@ -90,8 +105,11 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         // Phase 2: build the methods. The body comes from the received lambda —
         // C32 site rewrites inside it (field accesses for captured symbols)
         // travel with the move — with nested planned sites substituted.
+        // Nested-site substitution walks RECEIVED-tree bodies, so this map
+        // keys on the received span (C32 statement inserts shift it away from
+        // the model span carried on SiteSpanStart).
         var planByPosition = pending.ToDictionary(
-            t => (t.Plan.SiteSpanStart, t.Plan.SiteRawKind),
+            t => (t.Plan.ReceivedSpanStart, t.Plan.SiteRawKind),
             t => t.Plan);
         var plans = new List<StaticLambdaPlan>();
         var methodsByReceivedHost = new Dictionary<TypeDeclarationSyntax, List<MethodDeclarationSyntax>>();
@@ -101,7 +119,7 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
             var method = StaticLambdaHandler.BuildMethod(plan.MethodName, signature, receivedLambda, planByPosition);
             var built = plan with { Method = method };
             plans.Add(built);
-            planByPosition[(built.SiteSpanStart, built.SiteRawKind)] = built;
+            planByPosition[(built.ReceivedSpanStart, built.SiteRawKind)] = built;
 
             if (!methodsByReceivedHost.TryGetValue(receivedHost, out var list))
             {
@@ -180,11 +198,41 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
     /// lambda's SpanStart (unique per source occurrence; C32 edits preserve
     /// lambda count and order). Type declarations pair by their member-list
     /// paths (C32 appends holder classes at member-list ends only).
+    /// M2 consolidation reuses the exact same pairing discipline.
     /// </summary>
-    private static bool TryBuildPairings(
+    internal static bool TryBuildPairings(
         CompilationUnitSyntax analysisRoot,
         CompilationUnitSyntax receivedRoot,
         IReadOnlyList<StaticLambdaSite> sites,
+        out Dictionary<int, LambdaExpressionSyntax> receivedLambdaBySpanStart,
+        out Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> receivedTypeByModelType)
+    {
+        if (!TryPairTrees(analysisRoot, receivedRoot, out receivedLambdaBySpanStart, out var fullTypeMap))
+        {
+            receivedTypeByModelType = new Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax>();
+            return false;
+        }
+
+        receivedTypeByModelType = new Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax>();
+        foreach (var site in sites)
+        {
+            if (!fullTypeMap.TryGetValue(site.HostType, out var receivedType))
+                return false;
+            receivedTypeByModelType[site.HostType] = receivedType;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Shared model↔received pairing (M1 + M2): every lambda pairs by SpanStart
+    /// and every type declaration pairs through the member-spine zip. A mismatch
+    /// means an unexpected edit vocabulary — callers skip the file instead of
+    /// guessing (fail-clean).
+    /// </summary>
+    internal static bool TryPairTrees(
+        CompilationUnitSyntax analysisRoot,
+        CompilationUnitSyntax receivedRoot,
         out Dictionary<int, LambdaExpressionSyntax> receivedLambdaBySpanStart,
         out Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> receivedTypeByModelType)
     {
@@ -198,23 +246,7 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         for (var i = 0; i < analysisLambdas.Count; i++)
             receivedLambdaBySpanStart[analysisLambdas[i].SpanStart] = receivedLambdas[i];
 
-        var modelTypeByAnalysis = new Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax>();
-        if (!PairTypeMembers(analysisRoot.Members, receivedRoot.Members, modelTypeByAnalysis))
-            return false;
-
-        foreach (var site in sites)
-        {
-            if (!receivedLambdaBySpanStart.TryGetValue(site.SpanStart, out var receivedLambda)
-                || !modelTypeByAnalysis.TryGetValue(site.HostType, out var receivedType))
-            {
-                return false;
-            }
-
-            receivedLambdaBySpanStart[site.SpanStart] = receivedLambda;
-            receivedTypeByModelType[site.HostType] = receivedType;
-        }
-
-        return true;
+        return PairTypeMembers(analysisRoot.Members, receivedRoot.Members, receivedTypeByModelType);
     }
 
     /// <summary>
@@ -223,7 +255,7 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
     /// at member-list ends and carry the cs2j_closure_lift annotation, so
     /// filtering them out restores exact count parity with the analysis tree.
     /// </summary>
-    private static bool PairTypeMembers(
+    internal static bool PairTypeMembers(
         SyntaxList<MemberDeclarationSyntax> analysisMembers,
         SyntaxList<MemberDeclarationSyntax> receivedMembers,
         Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> map)
@@ -262,9 +294,10 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
     /// unique across the parameter list (a single `_` discard is a legal name;
     /// duplicated `_` or unnamed C# 10 parameters are deferred to M3).
     /// Parameter attributes migrate with the parameter in M3 (D12④) — a
-    /// lambda carrying them is left in place here.
+    /// lambda carrying them is left in place here. The M2 consolidation
+    /// applies the same gate to the instance-method path.
     /// </summary>
-    private static bool HasUsableParameterNames(
+    internal static bool HasUsableParameterNames(
         LambdaExpressionSyntax lambda,
         ResolvedLambdaSignature signature)
     {
@@ -290,5 +323,63 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// M2 defense line (D18③/D21): static lambdas whose host is a field or
+    /// property initializer. The C32 analyzer already reports CS2J3204 (Error,
+    /// strict) for every NON-static initializer lambda, so this covers the
+    /// remaining silent population with an explicit CS2J4504 row (Warning —
+    /// the lambda is capture-free by construction and the legacy converter
+    /// path still handles it; the row exists so the boundary is no longer
+    /// invisible in reports).
+    /// </summary>
+    private static void EmitStaticInitializerRows(
+        SemanticModel model,
+        CompilationUnitSyntax root,
+        List<ClosureLiftDiagnostic> diagnostics)
+    {
+        foreach (var lambda in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
+        {
+            if (ClosureLiftAnnotations.IsAnnotated(lambda)
+                || ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda)
+                || !lambda.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
+            {
+                continue;
+            }
+
+            if (ResolveInitializerHost(lambda) is { } host)
+            {
+                diagnostics.Add(new ClosureLiftDiagnostic(
+                    ClosureLiftSeverity.Warning,
+                    ClosureLiftCodes.UnsupportedHost,
+                    "Static lambda in a field or property initializer is not lifted by closure-lift v1 " +
+                    "(unsupported host boundary; the initializer stays verbatim).",
+                    null,
+                    lambda.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                    host.Identifier.Text));
+            }
+        }
+    }
+
+    /// <summary>The field/property declaration hosting an initializer lambda, or null.</summary>
+    private static TypeDeclarationSyntax? ResolveInitializerHost(LambdaExpressionSyntax lambda)
+    {
+        for (var current = lambda.Parent; current != null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case AccessorDeclarationSyntax:
+                case BaseMethodDeclarationSyntax:
+                case LocalFunctionStatementSyntax:
+                    return null;
+                case BaseFieldDeclarationSyntax:
+                case PropertyDeclarationSyntax:
+                case IndexerDeclarationSyntax:
+                    return current.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
+            }
+        }
+
+        return null;
     }
 }

@@ -55,8 +55,9 @@ public sealed class ClosureLiftPreprocessor
                 sourceCode, false, Array.Empty<ClosureLiftDiagnostic>(), stats);
         }
 
-        // C45 M1 stage table (design §4.1): HolderLiftStage (C32) is followed by
-        // the named-method lift (static path only) and the delegate-site
+        // C45 M2 stage table (design §4.1): HolderLiftStage (C32) → the
+        // named-method lift (static path) → the display-class consolidation
+        // (this/read-only captures, body migration) → the delegate-site
         // rewrite. Every stage receives the same per-file plan bag; plans are
         // frozen once and consumed downstream.
         var bag = new ClosureLiftPlanBag();
@@ -64,6 +65,7 @@ public sealed class ClosureLiftPreprocessor
         {
             new HolderLiftStage(),
             new NamedMethodLiftStage(),
+            new DisplayClassConsolidationStage(),
             new DelegateSiteRewriteStage(),
         };
 
@@ -86,11 +88,21 @@ public sealed class ClosureLiftPreprocessor
             changed |= stageResult.Changed;
         }
 
-        // Analyzer/planner own CS2J3201-3206 rows; bucket them for statistics.
+        // Analyzer/planner own CS2J3201-3206 + CS2J45xx rows; bucket them.
         foreach (var d in diagnostics)
         {
             if (d.Code != ClosureLiftCodes.AuditRow)
                 stats.AddSkipped(d.Code);
+        }
+
+        // Plan-level rollback (design §4.1): an Error row anywhere in the file
+        // keeps the file verbatim. C32/M1 stages freeze themselves before their
+        // own edits; M2's consolidation rows can land after the earlier stages
+        // already appended members, so the facade enforces the file-wide
+        // discipline once, after all stages ran (禁止半提升).
+        if (changed && diagnostics.Any(d => d.Severity == ClosureLiftSeverity.Error))
+        {
+            return new ClosureLiftResult(sourceCode, false, diagnostics, stats);
         }
 
         if (!changed)

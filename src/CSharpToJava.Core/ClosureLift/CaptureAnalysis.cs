@@ -155,8 +155,14 @@ internal sealed class CaptureAnalyzer
             // anonymous-function syntax.
             var lambdaSymbol = _model.GetSymbolInfo(lambda).Symbol as IMethodSymbol;
 
+            // C45 M2 fix: the LAMBDA node is the walk root. A bare expression
+            // body (`() => x`) hides its own root identifier from
+            // DescendantNodes(), so the previous body-root walk silently missed
+            // mutable captures of that shape (the same note M1's LambdaSiteIndex
+            // carries); the boundaryMethod check still skips the lambda's own
+            // parameter references.
             foreach (var info in CaptureClassification.CollectCapturedSymbols(
-                _model, lambdaBody, lambdaSymbol, DescendNotIntoLocalFunctions))
+                _model, lambda, lambdaSymbol, DescendNotIntoLocalFunctions))
             {
                 if (!candidateByRoutine.TryGetValue(routine, out var map))
                 {

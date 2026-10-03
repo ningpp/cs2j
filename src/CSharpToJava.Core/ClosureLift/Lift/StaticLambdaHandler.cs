@@ -31,7 +31,7 @@ internal static class StaticLambdaHandler
         LambdaExpressionSyntax lambda,
         IReadOnlyDictionary<(int Start, int Kind), StaticLambdaPlan> plans)
     {
-        var parameters = syntaxParameters(lambda, signature);
+        var parameters = BuildSyntaxParameters(lambda, signature);
 
         var modifiers = new List<SyntaxToken>
         {
@@ -158,9 +158,10 @@ internal static class StaticLambdaHandler
     /// Parameter pairing: the lambda's own parameter supplies the name (D12
     /// unnamed/discard synthesis is M3 — the stage refuses nameless or
     /// colliding `_` parameters before reaching here), the delegate's
-    /// InvokeMethod supplies the explicit type.
+    /// InvokeMethod supplies the explicit type. Shared with the M2 instance
+    /// path (same signature contract).
     /// </summary>
-    private static List<ParameterSyntax> syntaxParameters(
+    internal static List<ParameterSyntax> BuildSyntaxParameters(
         LambdaExpressionSyntax lambda,
         ResolvedLambdaSignature signature)
     {
@@ -185,8 +186,8 @@ internal static class StaticLambdaHandler
         return result;
     }
 
-    /// <summary>Pointer usage must keep an unsafe context after the move.</summary>
-    private static bool UsesPointerSyntax(LambdaExpressionSyntax lambda)
+    /// <summary>Pointer usage must keep an unsafe context after the move. Shared with the M2 instance path.</summary>
+    internal static bool UsesPointerSyntax(LambdaExpressionSyntax lambda)
     {
         var body = lambda switch
         {

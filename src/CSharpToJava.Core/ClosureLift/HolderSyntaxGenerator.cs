@@ -46,7 +46,7 @@ internal sealed class HolderSyntaxGenerator
     ///     public &lt;T&gt; _cs2jCap_&lt;name&gt;;
     /// }
     /// </summary>
-    public ClassDeclarationSyntax BuildHolderClass(HolderGroupPlan group)
+    public ClassDeclarationSyntax BuildHolderClass(DisplayClassPlan group)
     {
         var fields = group.Symbols
             .Select(s => (MemberDeclarationSyntax)SyntaxFactory.FieldDeclaration(
@@ -79,7 +79,7 @@ internal sealed class HolderSyntaxGenerator
     }
 
     /// <summary>var __cs2jClosureN = new Cs2jDisplayClass_&lt;member&gt;_&lt;n&gt;();</summary>
-    public LocalDeclarationStatementSyntax BuildHolderInstanceDeclaration(HolderGroupPlan group)
+    public LocalDeclarationStatementSyntax BuildHolderInstanceDeclaration(DisplayClassPlan group)
     {
         var objectCreation = SyntaxFactory.ObjectCreationExpression(
                 SyntaxFactory.ParseTypeName(group.ClassName + group.TypeArgumentSuffix))

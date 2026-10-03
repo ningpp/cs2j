@@ -160,6 +160,9 @@ internal sealed class ClosureLiftNaming
     public static string GetArrayLocalName(string originalName)
         => "__cs2jArr_" + TrimEscape(originalName);
 
+    /// <summary>C45 M2 this-capture field/ctor-parameter contract name (D7; C04 §4.3/C18 D12 family).</summary>
+    public const string ThisFieldName = "_cs2jThis";
+
     /// <summary>
     /// The class-name segment keeps the Pascal spelling of the host member.
     /// A member literally named with a C# reserved keyword (e.g. <c>@class</c>)

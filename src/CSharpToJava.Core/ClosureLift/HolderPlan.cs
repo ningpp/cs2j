@@ -10,16 +10,29 @@ public enum TriggerReason
     InsideLambdaWrite,
     RefOutArgument,
     ForeachIteration,
+
+    /// <summary>C45 M2 (D5): zero-write-site symbol lifted to a read-only display
+    /// class field; lambda-body reads are field-backed, external sites keep the
+    /// original local/parameter, and the field is snapshot-initialized at the
+    /// instance creation point.</summary>
+    ReadOnlyValue,
 }
 
 /// <summary>
-/// One frozen lift unit (design §4.3): all symbols sharing one holder class
+/// One frozen lift unit (design §4.3): all symbols sharing one display class
 /// (or one array-form storage set) and one instance. Group key is
 /// (host member, declaration scope, foreach-per-iteration loop). Built by
 /// HolderPlanner (Task 11) from CapturedSymbolAnalysis; the audit tail and
 /// the transform path consume the SAME plans, so audit names == generated names.
+/// <para>
+/// C45 M2 evolution (design §4.1.1, D2 — additive only): this is the former
+/// <c>HolderGroupPlan</c> renamed to <see cref="DisplayClassPlan"/> with every
+/// C32 member kept verbatim; the trailing C45 members default to inert values,
+/// so C32 consumers reading only the leading members produce byte-identical
+/// output whenever the C45 fields are unset (M2 regression red line).
+/// </para>
 /// </summary>
-internal sealed class HolderGroupPlan
+internal sealed class DisplayClassPlan
 {
     /// <summary>Type declaration the nested holder class is inserted into.</summary>
     public required TypeDeclarationSyntax HostType { get; init; }
@@ -63,9 +76,88 @@ internal sealed class HolderGroupPlan
 
     /// <summary>Lifted symbols in deterministic order (DeclaringNode.SpanStart), Task 11 freezes it.</summary>
     public List<CapturedSymbolPlan> Symbols { get; } = new();
+
+    // ── C45 (design §4.1.1): additive members below; default values keep the
+    //    C32 output byte-identical (D2 red line). ──
+
+    /// <summary>D7: lambdas of this group reference host instance members/`this`;
+    /// the class gains `private readonly THost _cs2jThis;` plus a constructor.</summary>
+    public bool CapturesThis { get; set; }
+
+    /// <summary>D19 informational environment: host-type parameter names first
+    /// (already in nested-class scope, never redeclared), then the method
+    /// parameters of <see cref="MethodTypeParameters"/> (the declared arity).</summary>
+    public IReadOnlyList<string> ClassTypeParameters { get; init; } = Array.Empty<string>();
+
+    /// <summary>D4 (M3): enclosing display class; null = top-level (always null in M2).</summary>
+    public DisplayClassPlan? Parent { get; init; }
+
+    /// <summary>D4 (M3): the `_cs2jParent` field name on this class (null in M2).</summary>
+    public string? ParentFieldName { get; init; }
+
+    /// <summary>D9: migrated lambda bodies as instance methods `Lambda_&lt;k&gt;`.</summary>
+    public List<LambdaMethodPlan> Methods { get; } = new();
+
+    /// <summary>D10: zero-capture host-level static methods (M2 keeps them in the
+    /// plan bag; this member is the D2 contract slot, populated from M3 on).</summary>
+    public List<StaticLambdaPlan> HostStaticMethods { get; } = new();
+
+    /// <summary>D8: lambda nodes replaced by explicit delegate creations.</summary>
+    public List<DelegateSitePlan> Sites { get; } = new();
+
+    /// <summary>Field names already present in the emitted class (C32 mutable
+    /// fields first); read-only field reservation continues this set.</summary>
+    public HashSet<string> UsedFieldNames { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>True when the class shape grew beyond the C32 field-only holder
+    /// (this field, read-only fields or lambda methods) — i.e. the emitted class
+    /// needs a consolidation edit; false keeps the emitted class untouched.</summary>
+    public bool NeedsConsolidation =>
+        CapturesThis
+        || Symbols.Any(s => s.Reason == TriggerReason.ReadOnlyValue)
+        || Methods.Count > 0;
 }
 
-/// <summary>One lifted symbol within a <see cref="HolderGroupPlan"/>.</summary>
+/// <summary>
+/// C45 M2 (design §4.1.1 <c>LambdaMethodPlan</c>): one capturing lambda lifted
+/// to an instance method `Lambda_&lt;k&gt;` on its display class. Anchored by the
+/// received-tree SpanStart + raw kind (same pairing discipline as
+/// <see cref="StaticLambdaPlan"/>) so <see cref="DelegateSiteRewriteStage"/>
+/// resolves every occurrence — the original site and any body copy relocated
+/// into a migrated enclosing method — without re-analysis. Signature and body
+/// rewrite maps live on the stage-side <c>PendingInstanceLambda</c>; this plan
+/// is the durable, per-class fact.
+/// </summary>
+/// <param name="SiteSpanStart">Absolute SpanStart of the planned lambda node.</param>
+/// <param name="SiteRawKind">RawKind of the planned lambda node (defensive pairing).</param>
+/// <param name="ClassName">Home display class (Cs2jDisplayClass_&lt;member&gt;_&lt;n&gt;).</param>
+/// <param name="InstanceName">Receiver of the method group at delegate sites (D8).</param>
+/// <param name="MethodName">Lambda_&lt;k&gt;, k per class in SpanStart order (D9).</param>
+/// <param name="IsAsync">D17: async modifier carried over verbatim.</param>
+/// <param name="DelegateTypeDisplay">Symbol-rendered target delegate (D8).</param>
+internal sealed record LambdaMethodPlan(
+    int SiteSpanStart,
+    int SiteRawKind,
+    string ClassName,
+    string InstanceName,
+    string MethodName,
+    bool IsAsync,
+    string DelegateTypeDisplay);
+
+/// <summary>
+/// C45 M2 (design §4.1.1 <c>DelegateSitePlan</c>, D8/D16): one capturing lambda
+/// site rewritten to `new &lt;DelType&gt;(&lt;instance&gt;.Lambda_&lt;k&gt;)`. Span-anchored like
+/// <see cref="StaticLambdaPlan"/> (single site vocabulary across the stage).
+/// </summary>
+internal sealed record DelegateSitePlan(
+    int SiteSpanStart,
+    int SiteRawKind,
+    string DelegateTypeDisplay,
+    string ReceiverExpression,
+    string MethodName,
+    bool IsStatic);
+
+/// <summary>One lifted symbol within a <see cref="DisplayClassPlan"/>.</summary>
 internal sealed record CapturedSymbolPlan(
     ISymbol Symbol,
     string OriginalName,

@@ -113,6 +113,7 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         // by their per-file rows — M3 gate §8.4 excludes such owned Warning
         // rows when judging the tree.
         var residual = 0;
+        var treeStatementLambdas = 0;
         foreach (var csFile in Directory.EnumerateFiles(
                      tree.IntermediateRoot, "*.cs", SearchOption.AllDirectories))
         {
@@ -126,12 +127,13 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
             }
             residual += fileCount;
 
-            // C45 M1 (design §5-4): statement-lambda residual is COUNTED, not
-            // enforced (holder scenarios keep statement lambdas until M2/M4);
-            // each residual anonymous method is a CS2J4503 row (E05 output
-            // missing, §6).
+            // C45 M2 (design §5-4): statement-lambda residual is measured
+            // tree-wide for visibility; the per-file CS2J4510 gate inside the
+            // preprocessor owns the ENFORCEMENT (unaccounted residuals freeze
+            // their file), so no duplicate gate row is emitted here. Each
+            // residual anonymous method is a CS2J4503 row (E05 output missing).
             var (statementLambdas, anonymousMethods) = _preprocessor.CountResidualLambdas(text);
-            _statistics.ResidualStatementLambdas += statementLambdas;
+            treeStatementLambdas += statementLambdas;
             if (anonymousMethods > 0)
             {
                 var relative = Path.GetRelativePath(tree.IntermediateRoot, csFile);
@@ -150,6 +152,9 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         // Measured in the intermediate tree (same '=' discipline as E02's
         // LocalFunctionsResidual), never added on top of per-file statistics.
         _statistics.ResidualMutableCaptures = residual;
+        // Tree-wide measurement replaces (never adds on top of) the per-file
+        // merge so the summary shows exactly one residual statement count.
+        _statistics.ResidualStatementLambdas = treeStatementLambdas;
 
         if (residual > 0)
         {
@@ -216,10 +221,16 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
                       + _statistics.ResidualStatementLambdas;
         if (c45Work > 0)
         {
-            summary += $", {_statistics.LambdaMethodsLifted} lambda method(s) " +
-                       $"({_statistics.StaticLambdaMethods} static), " +
+            var displayClasses = _statistics.DisplayClassesGenerated > _statistics.HolderClassesGenerated
+                ? _statistics.DisplayClassesGenerated
+                : _statistics.HolderClassesGenerated;
+            summary += $", {displayClasses} display class(es), " +
+                       $"{_statistics.LambdaMethodsLifted} lambda method(s) " +
+                       $"({_statistics.StaticLambdaMethods} static, {_statistics.ThisOnlyLambdas} this-only), " +
                        $"{_statistics.DelegateSitesRewritten} delegate site(s), " +
-                       $"{_statistics.ResidualStatementLambdas} stmt lambda(s) residual";
+                       $"{_statistics.ExpressionTreeLambdasSkipped} quoted skipped, " +
+                       $"{_statistics.ResidualStatementLambdas} stmt lambda(s) residual " +
+                       $"({_statistics.AccountedResidualLambdas} accounted)";
         }
 
         return summary;
@@ -245,7 +256,14 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         _statistics.StaticLambdaMethods += source.StaticLambdaMethods;
         _statistics.LambdaMethodsLifted += source.LambdaMethodsLifted;
         _statistics.DelegateSitesRewritten += source.DelegateSitesRewritten;
-        _statistics.ResidualStatementLambdas += source.ResidualStatementLambdas;
+        // ResidualStatementLambdas is merged per-file into AccountedResidual (the
+        // tree-wide count lands in ResidualStatementLambdas via AfterFilesAsync);
+        // keeping the two buckets disjoint avoids double counting.
+        _statistics.AccountedResidualLambdas += source.AccountedResidualLambdas;
+        _statistics.DisplayClassesGenerated += source.DisplayClassesGenerated;
+        _statistics.ThisOnlyLambdas += source.ThisOnlyLambdas;
+        _statistics.NestedDisplayClasses += source.NestedDisplayClasses;
+        _statistics.ExpressionTreeLambdasSkipped += source.ExpressionTreeLambdasSkipped;
 
         foreach (var kvp in source.CapturesByReason)
         {

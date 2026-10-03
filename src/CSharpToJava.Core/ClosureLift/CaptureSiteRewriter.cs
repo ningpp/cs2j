@@ -46,7 +46,7 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<ForEachStatementSyntax, List<StatementSyntax>> _foreachWraps = new();
 
     public CaptureSiteRewriter(
-        IEnumerable<HolderGroupPlan> groups,
+        IEnumerable<DisplayClassPlan> groups,
         ClosureLiftStatistics? statistics = null)
     {
         _statistics = statistics;
@@ -181,7 +181,7 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
         return result;
     }
 
-    private void RegisterGroup(HolderGroupPlan group)
+    private void RegisterGroup(DisplayClassPlan group)
     {
         if (group.PerIteration && _statistics != null)
             _statistics.ForeachPerIterationGroups += 1;
@@ -238,7 +238,7 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
     /// every body/lambda reference of the symbol is still in the frozen site
     /// table and rewrites to the field/element.
     /// </summary>
-    private void RegisterForeachSnapshot(HolderGroupPlan group, ForEachStatementSyntax loop)
+    private void RegisterForeachSnapshot(DisplayClassPlan group, ForEachStatementSyntax loop)
     {
         var prepend = new List<StatementSyntax>();
 
@@ -281,7 +281,7 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
         }
     }
 
-    private void RegisterSites(HolderGroupPlan group, CapturedSymbolPlan symbol)
+    private void RegisterSites(DisplayClassPlan group, CapturedSymbolPlan symbol)
     {
         _groupBySymbol[symbol] = group;
 
@@ -340,7 +340,7 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
 
         // Anchor: holder instance goes before the earliest lifted local
         // declaration of each non-parameter group (Task 10 adds for-loops).
-        var anchoredGroups = new HashSet<HolderGroupPlan>(GroupsWithLocalAnchor());
+        var anchoredGroups = new HashSet<DisplayClassPlan>(GroupsWithLocalAnchor());
 
         foreach (var (statement, lifted) in liftedByStatement)
         {
@@ -403,7 +403,7 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
     }
 
     private StatementSyntax BuildInitialization(
-        HolderGroupPlan group,
+        DisplayClassPlan group,
         CapturedSymbolPlan symbol,
         ExpressionSyntax value)
         => group.ArrayForm
@@ -412,11 +412,11 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
 
     // Group lookup helpers. Registration order is the plan order; a symbol
     // belongs to exactly one group.
-    private readonly Dictionary<CapturedSymbolPlan, HolderGroupPlan> _groupBySymbol = new();
+    private readonly Dictionary<CapturedSymbolPlan, DisplayClassPlan> _groupBySymbol = new();
 
-    private HolderGroupPlan GroupOf(CapturedSymbolPlan symbol) => _groupBySymbol[symbol];
+    private DisplayClassPlan GroupOf(CapturedSymbolPlan symbol) => _groupBySymbol[symbol];
 
-    private static bool GroupHasParameters(HolderGroupPlan group)
+    private static bool GroupHasParameters(DisplayClassPlan group)
         => group.Symbols.Any(s => s.Parameter != null);
 
     /// <summary>
@@ -424,7 +424,7 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
     /// among lifted local declarations (Task 9) and enclosing for-loops (D9).
     /// Parameter groups anchor at routine body top and never query this.
     /// </summary>
-    private StatementSyntax? EarliestAnchorStatement(HolderGroupPlan group)
+    private StatementSyntax? EarliestAnchorStatement(DisplayClassPlan group)
     {
         StatementSyntax? earliest = group.Symbols
             .Where(s => s.Declarator?.Parent?.Parent is LocalDeclarationStatementSyntax)
@@ -538,5 +538,5 @@ internal sealed class CaptureSiteRewriter : CSharpSyntaxRewriter
         return generated;
     }
 
-    private IEnumerable<HolderGroupPlan> GroupsWithLocalAnchor() => _groupBySymbol.Values.Distinct();
+    private IEnumerable<DisplayClassPlan> GroupsWithLocalAnchor() => _groupBySymbol.Values.Distinct();
 }
