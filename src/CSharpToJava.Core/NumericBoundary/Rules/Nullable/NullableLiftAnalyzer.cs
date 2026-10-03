@@ -155,6 +155,26 @@ internal sealed record NullableConversionClassification(
         && Quadrant != NullableConversionQuadrant.UserDefined;
 }
 
+/// <summary>
+/// M3 decision 17: the C22-owned complex RMW target kinds. A lifted
+/// <c>++/--</c>/compound site on one of these shapes is expanded in-rule with
+/// the single-evaluation target-temp seam. Everything else classified
+/// <see cref="NumericBoundaryAnalyzer.TargetShape.Complex"/> (events,
+/// conditional <c>?.</c>/<c>?[]</c>, ref-returning accessors, qualified
+/// fields, named/ref indexer arguments) stays CS2J5355.
+/// </summary>
+internal enum RmwComplexKind
+{
+    /// <summary>Get/set property (identifier-bound implicit receiver, qualified instance, or static).</summary>
+    Property,
+
+    /// <summary>Get/set non-ref indexer (<c>b[i]</c>).</summary>
+    Indexer,
+
+    /// <summary>True array element (<c>arr[i]</c>, incl. multidimensional/jagged receivers).</summary>
+    ArrayElement,
+}
+
 /// <summary>Classification of a lifted increment/compound-assignment target (NL-10/NL-11/decision 15/17).</summary>
 internal sealed record LiftedTargetClassification(
     bool IsIncrement,
@@ -164,7 +184,8 @@ internal sealed record LiftedTargetClassification(
     bool IsUserDefined,
     NullableValueDomain Domain,
     NumericBoundaryAnalyzer.TargetShape TargetShape,
-    ExpressionSyntax Target);
+    ExpressionSyntax Target,
+    RmwComplexKind? ComplexKind = null);
 
 /// <summary>
 /// Read-only semantic classifier for C22 (design §4.2). Every decision comes
@@ -462,8 +483,10 @@ internal sealed class NullableLiftAnalyzer
     /// Classify a lifted <c>++/--</c> or compound-assignment site. Returns null
     /// for non-lifted nodes. The simple/complex target decision reuses the
     /// shared C15/C17 <see cref="NumericBoundaryAnalyzer.ClassifyTarget"/>
-    /// (LocalOrParameter/Field are NL-10/11 simple targets; Complex is
-    /// CS2J5355 until the C17 RMW seam lands in M2).
+    /// (LocalOrParameter/Field are NL-10/11 simple targets). A Complex target
+    /// is refined by <see cref="ClassifyComplexRmwTarget"/> in M3: owned
+    /// property/indexer/array shapes carry a <see cref="RmwComplexKind"/>,
+    /// every other complex shape stays CS2J5355 (decision 17 closure).
     /// </summary>
     public LiftedTargetClassification? ClassifyLiftedTarget(ExpressionSyntax node)
     {
@@ -481,7 +504,8 @@ internal sealed class NullableLiftAnalyzer
                         is { MethodKind: MethodKind.UserDefinedOperator },
                     Domain: ClassifyDomain(increment.Target?.Type),
                     TargetShape: _shared.ClassifyTarget(targetSyntax),
-                    Target: targetSyntax);
+                    Target: targetSyntax,
+                    ComplexKind: ClassifyComplexRmwTarget(targetSyntax));
             }
 
             case NBOp.ICompoundAssignmentOperation compound when compound.IsLifted:
@@ -498,10 +522,85 @@ internal sealed class NullableLiftAnalyzer
                         is { MethodKind: MethodKind.UserDefinedOperator },
                     Domain: ClassifyDomain(compound.Target?.Type),
                     TargetShape: _shared.ClassifyTarget(targetSyntax),
-                    Target: targetSyntax);
+                    Target: targetSyntax,
+                    ComplexKind: ClassifyComplexRmwTarget(targetSyntax));
             }
 
             default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// M3 decision 17: refine a <see cref="NumericBoundaryAnalyzer.TargetShape.Complex"/>
+    /// lifted RMW target into a C22-owned <see cref="RmwComplexKind"/>
+    /// (get/set non-ref property incl. static, get/set non-ref positional
+    /// indexer, true array element) or null when the site must stay
+    /// CS2J5355 — events, conditional-access (<c>?.</c>/<c>?[]</c>) targets,
+    /// ref-returning accessors, qualified fields, invocations and indexers
+    /// with named/<c>ref</c>/<c>out</c>/<c>in</c> arguments.
+    /// </summary>
+    public RmwComplexKind? ClassifyComplexRmwTarget(ExpressionSyntax target)
+    {
+        target = NullableLiftSyntaxFacts.UnwrapParens(target);
+
+        switch (target)
+        {
+            case IdentifierNameSyntax:
+            case MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression }:
+            {
+                var symbol = _model.GetSymbolInfo(target).Symbol;
+                if (symbol is IEventSymbol)
+                {
+                    return null;
+                }
+
+                if (symbol is IPropertySymbol property
+                    && !property.IsIndexer
+                    && property.RefKind == RefKind.None
+                    && property.GetMethod != null
+                    && property.SetMethod is { IsInitOnly: false })
+                {
+                    return RmwComplexKind.Property;
+                }
+
+                // Qualified fields and any other member shape stay CS2J5355.
+                return null;
+            }
+
+            case ElementAccessExpressionSyntax elementAccess:
+            {
+                // Named/ref-style index arguments cannot be replayed
+                // positionally from hoisted temps; stay CS2J5355.
+                foreach (var argument in elementAccess.ArgumentList.Arguments)
+                {
+                    if (argument.NameColon != null
+                        || argument.RefKindKeyword.Kind() != SyntaxKind.None)
+                    {
+                        return null;
+                    }
+                }
+
+                var symbol = _model.GetSymbolInfo(target).Symbol;
+                if (symbol is IPropertySymbol indexer
+                    && indexer is { IsIndexer: true, RefKind: RefKind.None }
+                    && indexer.GetMethod != null
+                    && indexer.SetMethod is { IsInitOnly: false })
+                {
+                    return RmwComplexKind.Indexer;
+                }
+
+                if (_model.GetTypeInfo(elementAccess.Expression).Type is IArrayTypeSymbol)
+                {
+                    return RmwComplexKind.ArrayElement;
+                }
+
+                return null;
+            }
+
+            default:
+                // ConditionalAccess/MemberBinding (?., ?[]), invocations and
+                // every other storage shape stay CS2J5355.
                 return null;
         }
     }
@@ -615,7 +714,13 @@ internal sealed class NullableLiftAnalyzer
         return false;
     }
 
-    private bool IsStableReceiver(ExpressionSyntax expression)
+    /// <summary>
+    /// Side-effect-free receiver predicate (M3 decision 17): <c>this</c>/
+    /// <c>base</c>, a local/parameter/field/type identifier, or a field/type
+    /// member chain — safe to repeat as a property/indexer receiver without a
+    /// single-evaluation temp.
+    /// </summary>
+    public bool IsStableReceiver(ExpressionSyntax expression)
     {
         expression = NullableLiftSyntaxFacts.UnwrapParens(expression);
 

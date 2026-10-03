@@ -48,6 +48,15 @@ internal static class NullableLiftSyntaxFacts
     /// <summary>Get-value-or-default default argument (<c>__cs2j_n_d&lt;N&gt;</c>, decision 10).</summary>
     public const string RoleDefault = "d";
 
+    /// <summary>M3 decision 17: complex RMW target value read once (<c>__cs2j_n_t&lt;N&gt;</c>).</summary>
+    public const string RoleTarget = "t";
+
+    /// <summary>M3 decision 17: effectful RMW receiver read once (<c>__cs2j_n_r&lt;N&gt;</c>).</summary>
+    public const string RoleReceiver = "r";
+
+    /// <summary>M3 decision 17: indexer/array index argument read once (<c>__cs2j_n_i&lt;N&gt;_&lt;k&gt;</c>).</summary>
+    public const string RoleIndex = "i";
+
     /// <summary>Parentheses-stripped view of an expression.</summary>
     public static ExpressionSyntax UnwrapParens(ExpressionSyntax expression)
     {
@@ -169,6 +178,15 @@ internal static class NullableLiftSyntaxFacts
 
         /// <summary>GOV default-argument temporary (<c>__cs2j_n_d&lt;site&gt;</c>).</summary>
         public string Default(int site) => Allocate(RoleDefault, site);
+
+        /// <summary>Complex RMW target-value temporary (<c>__cs2j_n_t&lt;site&gt;</c>, M3 decision 17).</summary>
+        public string Target(int site) => Allocate(RoleTarget, site);
+
+        /// <summary>Complex RMW receiver temporary (<c>__cs2j_n_r&lt;site&gt;</c>, M3 decision 17).</summary>
+        public string Receiver(int site) => Allocate(RoleReceiver, site);
+
+        /// <summary>Complex RMW index-argument temporary (<c>__cs2j_n_i&lt;k&gt;&lt;site&gt;</c>, M3 decision 17).</summary>
+        public string Index(int site, int argument) => Allocate(RoleIndex + argument, site);
 
         /// <summary>Role-qualified allocation for tests/other roles.</summary>
         public string Allocate(string role, int site)

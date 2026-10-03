@@ -68,6 +68,14 @@ public sealed class NullableLiftStatistics
     /// <summary>NL-11 lifted arithmetic/bit compound assignment sites (<c>x += y</c> …).</summary>
     public int LiftedIncrementCompoundSites;
 
+    /// <summary>
+    /// M3 decision 17 subset of the NL-10/11 buckets: lifted RMW sites whose
+    /// target is a get/set property (incl. static), an indexer or an array
+    /// element, expanded with the single-evaluation target-temp seam
+    /// (<c>__cs2j_n_t</c> plus <c>r</c>/<c>i</c> receiver/index temps).
+    /// </summary>
+    public int ComplexRmwSites;
+
     // ── NL-9 / co-run / lifting ──
 
     /// <summary>
@@ -100,6 +108,15 @@ public sealed class NullableLiftStatistics
 
     /// <summary>Hoisted GOV default-argument temporaries (role <c>d</c>).</summary>
     public int TempsDefaultRole;
+
+    /// <summary>Hoisted complex-RMW target read temporaries (role <c>t</c>, M3 decision 17).</summary>
+    public int TempsTargetRole;
+
+    /// <summary>Hoisted complex-RMW effectful-receiver temporaries (role <c>r</c>, M3 decision 17).</summary>
+    public int TempsReceiverRole;
+
+    /// <summary>Hoisted complex-RMW indexer/array index-argument temporaries (role <c>i</c>, M3 decision 17).</summary>
+    public int TempsIndexRole;
 
     /// <summary>Temporaries hoisted by Pass2 (unstable operands / postfix old values / GOV defaults).</summary>
     public int TempsLifted;

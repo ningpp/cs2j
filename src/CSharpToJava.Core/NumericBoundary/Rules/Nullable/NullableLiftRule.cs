@@ -149,7 +149,8 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
     /// §5-3): the site breakdown lists every nonzero M1+M2 bucket in fixed
     /// order <c>arith/unary/rel/eq/bool/gov/conv/inc</c> plus enum-backstop
     /// and co-run checked-inner context; the temp breakdown names only the
-    /// hoisted roles (<c>a</c>/<c>b</c>/<c>o</c>/<c>d</c>) that occurred.
+    /// hoisted roles (<c>a</c>/<c>b</c>/<c>o</c>/<c>d</c> plus the M3
+    /// decision-17 <c>t</c>/<c>r</c>/<c>i</c> complex-RMW roles) that occurred.
     /// </summary>
     private static void EmitInfo(
         NullableLiftStatistics stats,
@@ -253,6 +254,21 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
                 roles.Add($"{stats.TempsDefaultRole} d");
             }
 
+            if (stats.TempsTargetRole > 0)
+            {
+                roles.Add($"{stats.TempsTargetRole} t");
+            }
+
+            if (stats.TempsReceiverRole > 0)
+            {
+                roles.Add($"{stats.TempsReceiverRole} r");
+            }
+
+            if (stats.TempsIndexRole > 0)
+            {
+                roles.Add($"{stats.TempsIndexRole} i");
+            }
+
             diagnostics.Add(new NumericBoundaryDiagnostic(
                 NumericBoundarySeverity.Info,
                 PreprocessDiagnosticCodes.NullableLiftTempInfo,
@@ -336,15 +352,40 @@ internal sealed class NullableLiftRule : INumericBoundaryRule
 
         foreach (var node in root.DescendantNodes())
         {
-            if (model.GetOperation(node) is not { } operation || !seen.Add(operation))
+            if (model.GetOperation(node) is not { } operation)
             {
                 continue;
             }
 
-            if (IsResidualBuiltInLifted(operation, out var kind)
-                && !IsSupportFingerprintExempt(node))
+            // Enumerate the whole bound operation subtree, not just the
+            // operation returned for the syntax node: operations hidden inside
+            // a conditional access (e.g. the GetValueOrDefault invocation of
+            // `Get()?.GetValueOrDefault()` — its WhenNotNull invocation shares
+            // the conditional-access syntax node and is never returned by
+            // GetOperation) would otherwise survive the gate unscanned.
+            var pending = new Stack<IOperation>();
+            pending.Push(operation);
+            while (pending.Count > 0)
             {
-                residuals.Add((node, kind));
+                var descendant = pending.Pop();
+                if (!seen.Add(descendant) || descendant.Syntax == null)
+                {
+                    continue;
+                }
+
+                if (IsResidualBuiltInLifted(descendant, out var kind)
+                    && !IsSupportFingerprintExempt(descendant.Syntax))
+                {
+                    residuals.Add((descendant.Syntax, kind));
+                }
+
+                foreach (var child in descendant.ChildOperations)
+                {
+                    if (child != null)
+                    {
+                        pending.Push(child);
+                    }
+                }
             }
         }
 

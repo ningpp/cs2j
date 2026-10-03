@@ -50,11 +50,12 @@ internal static class NullableLiftDiagnostics
         "rewriting it would change the expression tree shape " +
         $"({PreprocessDiagnosticCodes.NullableLiftExpressionTree})";
 
-    /// <summary>CS2J5355 complex read-modify-write target (decision 17; M2 C17 RMW seam).</summary>
+    /// <summary>CS2J5355 complex read-modify-write target not owned after M3 decision 17.</summary>
     public static string ComplexTarget(string siteDescription) =>
-        $"[NL-10] lifted increment/compound target '{siteDescription}' is a property/indexer/" +
-        "conditional/anchor-free read-modify-write site; single-evaluation expansion waits for the " +
-        $"C17 RMW seam (M2) ({PreprocessDiagnosticCodes.NullableLiftComplexTarget})";
+        $"[NL-10] lifted increment/compound target '{siteDescription}' is an event, conditional " +
+        "(?./?[]), ref-returning, qualified-field or named/ref-argument read-modify-write site; " +
+        "get/set properties, positional indexers and array elements were explicitized in M3, this " +
+        $"remaining shape cannot be single-evaluation expanded yet ({PreprocessDiagnosticCodes.NullableLiftComplexTarget})";
 
     /// <summary>CS2J5355 unstable lifted operand in an un-hoistable context (M1; decision 2).</summary>
     public static string UnliftableContext(string siteDescription) =>

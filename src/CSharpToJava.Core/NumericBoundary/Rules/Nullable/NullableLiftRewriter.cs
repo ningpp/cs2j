@@ -349,16 +349,18 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
     /// Shared error gate for lifted <c>++/--</c> and compound-assignment
     /// sites (decisions 15-17/20-22). Returns the classification for a
     /// C22-owned site, null for pass-through; site errors are reported here
-    /// (the whole file then rolls back via NB-12).
+    /// (the whole file then rolls back via NB-12). M3: the expression-tree
+    /// and dynamic gates run BEFORE the lifted short-circuit because a
+    /// nullable-involved dynamic compound (<c>int? a; a += d;</c>) binds a
+    /// non-lifted <see cref="NBOp.ICompoundAssignmentOperation"/>.
     /// </summary>
     private LiftedTargetClassification? ClassifyGatedRmwSite(ExpressionSyntax node)
     {
-        var classification = _analyzer.ClassifyLiftedTarget(node);
-        if (classification is not { IsLifted: true })
-        {
-            return null;
-        }
+        var bound = _model.GetOperation(node);
 
+        // Expression-tree / dynamic dispatch must be caught even when the
+        // operation binds non-lifted (decision 22): gate order mirrors the
+        // binary/unary visitors — expression tree, then dynamic.
         if (_analyzer.IsWithinExpressionTree(node))
         {
             ReportSiteError(node,
@@ -368,12 +370,18 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return null;
         }
 
-        if (_model.GetOperation(node) is { } bound && NullableLiftAnalyzer.IsDynamicOperation(bound))
+        if (bound is { } && IsDynamicNullableRmwSite(bound, node))
         {
             ReportSiteError(node,
                 PreprocessDiagnosticCodes.NullableLiftDynamic,
                 NullableLiftDiagnostics.ReasonDynamic,
                 NullableLiftDiagnostics.Dynamic(NullableLiftSyntaxFacts.SiteText(node)));
+            return null;
+        }
+
+        var classification = _analyzer.ClassifyLiftedTarget(node);
+        if (classification is not { IsLifted: true })
+        {
             return null;
         }
 
@@ -395,10 +403,13 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return null;
         }
 
-        // Decision 17: properties/indexers/events/?. /qualified non-field
-        // targets cannot be re-evaluated; v1 fails loudly until the C17 RMW
-        // read/write seam consumes the classification.
-        if (classification.TargetShape == NumericBoundaryAnalyzer.TargetShape.Complex)
+        // Decision 17 (M3 closure): get/set properties (incl. static),
+        // positional get/set indexers and true array elements are owned via
+        // the single-evaluation target-temp seam; events, conditional ?.
+        // targets, ref-returning accessors, qualified fields and named/ref
+        // indexer arguments stay CS2J5355.
+        if (classification.TargetShape == NumericBoundaryAnalyzer.TargetShape.Complex
+            && classification.ComplexKind == null)
         {
             ReportSiteError(node,
                 PreprocessDiagnosticCodes.NullableLiftComplexTarget,
@@ -416,6 +427,41 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
         }
 
         return classification;
+    }
+
+    /// <summary>
+    /// Decision 22 at an RMW site: dynamic dispatch with Nullable&lt;T&gt;
+    /// involvement. A nullable-involved compound binds non-lifted when either
+    /// side is <c>dynamic</c> (<c>a += d</c>/<c>d += a</c>); pure
+    /// non-nullable dynamic RMW belongs to other families and stays
+    /// pass-through here.
+    /// </summary>
+    private bool IsDynamicNullableRmwSite(IOperation operation, ExpressionSyntax node)
+    {
+        if (!NullableLiftAnalyzer.IsDynamicOperation(operation))
+        {
+            return false;
+        }
+
+        static bool IsNullableType(ITypeSymbol? type) => NullableLiftAnalyzer.IsNullableType(type);
+
+        switch (operation)
+        {
+            case NBOp.ICompoundAssignmentOperation compound:
+                return IsNullableType(compound.Target?.Type)
+                    || IsNullableType(compound.Value?.Type)
+                    || node is AssignmentExpressionSyntax assignment
+                        && (IsNullableType(_model.GetTypeInfo(assignment.Left).Type)
+                            || IsNullableType(_model.GetTypeInfo(assignment.Right).Type));
+            case NBOp.IIncrementOrDecrementOperation increment:
+                return IsNullableType(increment.Target?.Type)
+                    || IsNullableType(_model.GetTypeInfo(
+                        node is PrefixUnaryExpressionSyntax pre ? pre.Operand
+                        : node is PostfixUnaryExpressionSyntax post ? post.Operand
+                        : node).Type);
+            default:
+                return false;
+        }
     }
 
     /// <summary>
@@ -449,6 +495,13 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             && expressionStatement.Expression == original;
         var isDecrement = original.Kind() is SyntaxKind.PreDecrementExpression
             or SyntaxKind.PostDecrementExpression;
+
+        if (classification.ComplexKind is { } complexKind)
+        {
+            return RewriteComplexIncrement(
+                original, visitedTarget, classification, complexKind,
+                underlying, isPostfix, isDecrement, standalone);
+        }
 
         string? oldName = null;
         OperandAccess sourceAccess;
@@ -534,6 +587,16 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
 
         _currentHoist = null;
 
+        var standalone = original.Parent is ExpressionStatementSyntax expressionStatement
+            && expressionStatement.Expression == original;
+
+        if (classification.ComplexKind is { } complexKind)
+        {
+            return RewriteComplexCompound(
+                original, visited, compound, classification, complexKind,
+                underlying, binaryKind, operatorKind, standalone);
+        }
+
         var targetAccess = OperandAccess.Direct(visited.Left, isNullablePosition: true);
 
         var (rightOk, rightAccess) = PrepareOperand(
@@ -544,34 +607,12 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             return null;
         }
 
-        ExpressionSyntax guard;
-        switch (classification.Domain)
+        var guard = BuildCompoundGuard(
+            binaryKind, operatorKind, targetAccess, rightAccess,
+            classification.Domain, underlying);
+        if (guard == null)
         {
-            case NullableValueDomain.Bool when binaryKind == SyntaxKind.BitwiseAndExpression:
-                guard = NullableLiftExpansion.LiftedBoolAnd(targetAccess, rightAccess);
-                break;
-            case NullableValueDomain.Bool when binaryKind == SyntaxKind.BitwiseOrExpression:
-                guard = NullableLiftExpansion.LiftedBoolOr(targetAccess, rightAccess);
-                break;
-            case NullableValueDomain.Bool when binaryKind == SyntaxKind.ExclusiveOrExpression:
-                // Decision 8: bool? ^ is plain lifted null propagation.
-                guard = NullableLiftExpansion.LiftedBinaryGuard(
-                    SyntaxKind.ExclusiveOrExpression, SyntaxKind.CaretToken,
-                    targetAccess, rightAccess, underlying);
-                break;
-            case NullableValueDomain.Enum when underlying is INamedTypeSymbol enumType:
-                guard = NullableLiftExpansion.EnumBackstopBinary(
-                    binaryKind, operatorKind, targetAccess, rightAccess, enumType);
-                break;
-            case NullableValueDomain.Integer
-                or NullableValueDomain.Unsigned
-                or NullableValueDomain.Floating
-                or NullableValueDomain.Decimal:
-                guard = NullableLiftExpansion.LiftedBinaryGuard(
-                    binaryKind, operatorKind, targetAccess, rightAccess, underlying);
-                break;
-            default:
-                return null;
+            return null;
         }
 
         _stats.LiftedIncrementCompoundSites++;
@@ -582,12 +623,345 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             Token(SyntaxKind.EqualsToken),
             guard);
 
-        var standalone = original.Parent is ExpressionStatementSyntax expressionStatement
-            && expressionStatement.Expression == original;
         ExpressionSyntax rewritten = standalone
             ? assignment
             : ParenthesizedExpression(assignment);
         return FinalizeSite(original, rewritten, _currentHoist);
+    }
+
+    /// <summary>
+    /// Domain dispatch shared by simple and complex (M3 decision 17) lifted
+    /// compound guards.
+    /// </summary>
+    private ExpressionSyntax? BuildCompoundGuard(
+        SyntaxKind binaryKind,
+        SyntaxKind operatorKind,
+        OperandAccess targetAccess,
+        OperandAccess rightAccess,
+        NullableValueDomain domain,
+        ITypeSymbol underlying)
+    {
+        switch (domain)
+        {
+            case NullableValueDomain.Bool when binaryKind == SyntaxKind.BitwiseAndExpression:
+                return NullableLiftExpansion.LiftedBoolAnd(targetAccess, rightAccess);
+            case NullableValueDomain.Bool when binaryKind == SyntaxKind.BitwiseOrExpression:
+                return NullableLiftExpansion.LiftedBoolOr(targetAccess, rightAccess);
+            case NullableValueDomain.Bool when binaryKind == SyntaxKind.ExclusiveOrExpression:
+                // Decision 8: bool? ^ is plain lifted null propagation.
+                return NullableLiftExpansion.LiftedBinaryGuard(
+                    SyntaxKind.ExclusiveOrExpression, SyntaxKind.CaretToken,
+                    targetAccess, rightAccess, underlying);
+            case NullableValueDomain.Enum when underlying is INamedTypeSymbol enumType:
+                return NullableLiftExpansion.EnumBackstopBinary(
+                    binaryKind, operatorKind, targetAccess, rightAccess, enumType);
+            case NullableValueDomain.Integer
+                or NullableValueDomain.Unsigned
+                or NullableValueDomain.Floating
+                or NullableValueDomain.Decimal:
+                return NullableLiftExpansion.LiftedBinaryGuard(
+                    binaryKind, operatorKind, targetAccess, rightAccess, underlying);
+            default:
+                return null;
+        }
+    }
+
+    // ── M3 decision 17: complex RMW targets (property/indexer/array) ──
+
+    /// <summary>
+    /// One C22-owned complex target: two fresh access builders — the READ
+    /// (getter/element load, emitted once into the <c>t</c> initializer) and
+    /// the WRITE LHS (setter/element store of the guard result). Receiver and
+    /// index expressions have already been materialized into <c>r</c>/<c>i</c>
+    /// temporaries, so every builder call is side-effect free.
+    /// </summary>
+    private sealed record ComplexTargetAccess(
+        Func<ExpressionSyntax> BuildRead,
+        Func<ExpressionSyntax> BuildWrite);
+
+    /// <summary>
+    /// NL-10 lifted <c>++/--</c> on a complex target (M3 decision 17): the
+    /// target is read exactly once into <c>__cs2j_n_t&lt;N&gt;</c>, the guard
+    /// runs over the temp, and the getter result is written back through a
+    /// freshly built setter access. Postfix yields the temp (the old value)
+    /// and splices the write before the anchor; prefix is a parenthesized
+    /// assignment expression whose value is the new nullable.
+    /// </summary>
+    private ExpressionSyntax? RewriteComplexIncrement(
+        ExpressionSyntax original,
+        ExpressionSyntax visitedTarget,
+        LiftedTargetClassification classification,
+        RmwComplexKind complexKind,
+        ITypeSymbol underlying,
+        bool isPostfix,
+        bool isDecrement,
+        bool standalone)
+    {
+        var hoist = EnsureHoist(original);
+        if (hoist == null)
+        {
+            return null;
+        }
+
+        var access = BuildComplexTargetAccess(
+            hoist, classification.Target, visitedTarget, complexKind);
+        if (access == null)
+        {
+            return null;
+        }
+
+        var targetName = _names.Target(hoist.SiteNumber);
+        AddTempDeclaration(
+            hoist, VarDeclaration(targetName, access.BuildRead()),
+            NullableLiftSyntaxFacts.RoleTarget);
+        var sourceAccess = OperandAccess.Direct(IdentifierName(targetName), isNullablePosition: true);
+
+        var guard = classification.Domain == NullableValueDomain.Enum
+                && underlying is INamedTypeSymbol enumType
+            ? NullableLiftExpansion.EnumIncrementGuard(sourceAccess, isDecrement, enumType)
+            : NullableLiftExpansion.IncrementGuard(sourceAccess, isDecrement, underlying);
+
+        var assignment = AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            access.BuildWrite(),
+            Token(SyntaxKind.EqualsToken),
+            guard);
+
+        _stats.ComplexRmwSites++;
+
+        if (isPostfix)
+        {
+            hoist.WriteStatements.Add(ExpressionStatement(assignment)
+                .WithAdditionalAnnotations(
+                    NB.RewriteAnnotation,
+                    new SyntaxAnnotation(NullableLiftSyntaxFacts.RewriteAnnotationKind)));
+            hoist.ConsumesAnchor = standalone;
+            _stats.LiftedIncrementPostfixSites++;
+            return FinalizeSite(original, IdentifierName(targetName), hoist);
+        }
+
+        _stats.LiftedIncrementPrefixSites++;
+        ExpressionSyntax rewritten = standalone ? assignment : ParenthesizedExpression(assignment);
+        return FinalizeSite(original, rewritten, hoist);
+    }
+
+    /// <summary>
+    /// NL-11 lifted compound assignment on a complex target (M3 decision 17).
+    /// Evaluation order matches the C# spec for property/indexer/array
+    /// compounds: instance temp (<c>r</c>) → index-argument temps (<c>i</c>) →
+    /// RHS temp (<c>b</c>) → single getter read (<c>t</c>) → guard → setter.
+    /// </summary>
+    private ExpressionSyntax? RewriteComplexCompound(
+        AssignmentExpressionSyntax original,
+        AssignmentExpressionSyntax visited,
+        NBOp.ICompoundAssignmentOperation compound,
+        LiftedTargetClassification classification,
+        RmwComplexKind complexKind,
+        ITypeSymbol underlying,
+        SyntaxKind binaryKind,
+        SyntaxKind operatorKind,
+        bool standalone)
+    {
+        var hoist = EnsureHoist(original);
+        if (hoist == null)
+        {
+            return null;
+        }
+
+        var access = BuildComplexTargetAccess(
+            hoist, classification.Target, visited.Left, complexKind);
+        if (access == null)
+        {
+            return null;
+        }
+
+        var (rightOk, rightAccess) = PrepareOperand(
+            original, original.Right, visited.Right, compound.Value,
+            sideNullable: RightSideIsNullable(original, compound), isLeft: false);
+        if (!rightOk)
+        {
+            return null;
+        }
+
+        var targetName = _names.Target(hoist.SiteNumber);
+        AddTempDeclaration(
+            hoist, VarDeclaration(targetName, access.BuildRead()),
+            NullableLiftSyntaxFacts.RoleTarget);
+        var targetAccess = OperandAccess.Direct(IdentifierName(targetName), isNullablePosition: true);
+
+        var guard = BuildCompoundGuard(
+            binaryKind, operatorKind, targetAccess, rightAccess,
+            classification.Domain, underlying);
+        if (guard == null)
+        {
+            return null;
+        }
+
+        _stats.LiftedIncrementCompoundSites++;
+        _stats.ComplexRmwSites++;
+
+        var assignment = AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression,
+            access.BuildWrite(),
+            Token(SyntaxKind.EqualsToken),
+            guard);
+
+        ExpressionSyntax rewritten = standalone ? assignment : ParenthesizedExpression(assignment);
+        return FinalizeSite(original, rewritten, hoist);
+    }
+
+    /// <summary>
+    /// Materialize a complex RMW target (decision 17): effectful receivers and
+    /// every indexer/array index argument are read once into <c>r</c>/<c>i</c>
+    /// temps in source order; the returned builders emit fresh getter/setter
+    /// access expressions over those temps.
+    /// </summary>
+    private ComplexTargetAccess? BuildComplexTargetAccess(
+        HoistState hoist,
+        ExpressionSyntax originalTarget,
+        ExpressionSyntax visitedTarget,
+        RmwComplexKind complexKind)
+    {
+        originalTarget = NullableLiftSyntaxFacts.UnwrapParens(originalTarget);
+        visitedTarget = UnwrapVisitedParens(visitedTarget);
+
+        switch (complexKind)
+        {
+            case RmwComplexKind.Property:
+            {
+                if (originalTarget is IdentifierNameSyntax originalId)
+                {
+                    // Implicit-receiver property (instance or static): the
+                    // identifier names the property itself.
+                    var name = originalId.Identifier.Text;
+                    return new ComplexTargetAccess(
+                        () => IdentifierName(name),
+                        () => IdentifierName(name));
+                }
+
+                if (originalTarget is MemberAccessExpressionSyntax originalMember
+                    && visitedTarget is MemberAccessExpressionSyntax visitedMember
+                    && originalMember.Kind() == SyntaxKind.SimpleMemberAccessExpression)
+                {
+                    var property = _model.GetSymbolInfo(originalMember).Symbol as IPropertySymbol;
+                    var receiver = BuildReceiverMaterializer(
+                        hoist,
+                        originalMember.Expression,
+                        visitedMember.Expression,
+                        property?.IsStatic == true);
+                    if (receiver == null)
+                    {
+                        return null;
+                    }
+
+                    var name = property?.Name ?? originalMember.Name.Identifier.Text;
+                    return new ComplexTargetAccess(
+                        () => BuildPropertyAccess(receiver(), name),
+                        () => BuildPropertyAccess(receiver(), name));
+                }
+
+                return null;
+            }
+
+            case RmwComplexKind.Indexer:
+            case RmwComplexKind.ArrayElement:
+            {
+                if (originalTarget is not ElementAccessExpressionSyntax originalAccess
+                    || visitedTarget is not ElementAccessExpressionSyntax visitedAccess)
+                {
+                    return null;
+                }
+
+                var receiver = BuildReceiverMaterializer(
+                    hoist,
+                    originalAccess.Expression,
+                    visitedAccess.Expression,
+                    isStatic: false);
+                if (receiver == null)
+                {
+                    return null;
+                }
+
+                var indexNames = new List<string>();
+                for (var i = 0; i < originalAccess.ArgumentList.Arguments.Count; i++)
+                {
+                    var visitedArgument = visitedAccess.ArgumentList.Arguments[i].Expression;
+                    var indexName = _names.Index(hoist.SiteNumber, i);
+                    AddTempDeclaration(
+                        hoist, VarDeclaration(indexName, visitedArgument),
+                        NullableLiftSyntaxFacts.RoleIndex);
+                    indexNames.Add(indexName);
+                }
+
+                return new ComplexTargetAccess(
+                    () => BuildElementAccess(receiver(), indexNames),
+                    () => BuildElementAccess(receiver(), indexNames));
+            }
+
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>
+    /// Receiver materializer for complex targets: static type receivers and
+    /// side-effect-free receiver chains are rebuilt per access; an effectful
+    /// receiver is hoisted once into <c>__cs2j_n_r&lt;N&gt;</c>.
+    /// </summary>
+    private Func<ExpressionSyntax>? BuildReceiverMaterializer(
+        HoistState hoist,
+        ExpressionSyntax originalReceiver,
+        ExpressionSyntax visitedReceiver,
+        bool isStatic)
+    {
+        if (isStatic || _analyzer.IsStableReceiver(originalReceiver))
+        {
+            static ExpressionSyntax CopyTrivial(ExpressionSyntax expression) => expression switch
+            {
+                ThisExpressionSyntax => ThisExpression(),
+                BaseExpressionSyntax => BaseExpression(),
+                IdentifierNameSyntax identifier => IdentifierName(identifier.Identifier.Text),
+                // Qualified/type/field chains are side-effect free; reuse the
+                // bound green node (fresh red wrappers are created per access).
+                _ => expression,
+            };
+
+            return () => CopyTrivial(visitedReceiver);
+        }
+
+        var receiverName = _names.Receiver(hoist.SiteNumber);
+        AddTempDeclaration(
+            hoist, VarDeclaration(receiverName, visitedReceiver),
+            NullableLiftSyntaxFacts.RoleReceiver);
+        return () => IdentifierName(receiverName);
+    }
+
+    private static MemberAccessExpressionSyntax BuildPropertyAccess(
+        ExpressionSyntax receiver, string name) =>
+        MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression,
+            receiver,
+            Token(SyntaxKind.DotToken),
+            IdentifierName(name));
+
+    private static ElementAccessExpressionSyntax BuildElementAccess(
+        ExpressionSyntax receiver, IReadOnlyList<string> indexNames)
+    {
+        var arguments = SeparatedList(
+            indexNames.Select(name => Argument(IdentifierName(name))));
+        return ElementAccessExpression(
+            receiver,
+            BracketedArgumentList(arguments));
+    }
+
+    private static ExpressionSyntax UnwrapVisitedParens(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+        {
+            expression = parenthesized.Expression;
+        }
+
+        return expression;
     }
 
     /// <summary>
@@ -1260,9 +1634,10 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
     }
 
     /// <summary>
-    /// Adds one hoisted declaration and tallies its role (a/b/o/d) in the
-    /// per-rule statistics; the total <see cref="NullableLiftStatistics.TempsLifted"/>
-    /// moves once per declaration in <see cref="FinalizeSite"/>.
+    /// Adds one hoisted declaration and tallies its role (a/b/o/d plus the
+    /// M3 decision-17 t/r/i complex-RMW roles) in the per-rule statistics;
+    /// the total <see cref="NullableLiftStatistics.TempsLifted"/> moves once
+    /// per declaration in <see cref="FinalizeSite"/>.
     /// </summary>
     private void AddTempDeclaration(
         HoistState hoist, LocalDeclarationStatementSyntax declaration, string role)
@@ -1274,6 +1649,11 @@ internal sealed class NullableLiftRewriter : CSharpSyntaxRewriter
             case NullableLiftSyntaxFacts.RoleRight: _stats.TempsRightRole++; break;
             case NullableLiftSyntaxFacts.RoleOld: _stats.TempsOldRole++; break;
             case NullableLiftSyntaxFacts.RoleDefault: _stats.TempsDefaultRole++; break;
+            case NullableLiftSyntaxFacts.RoleTarget: _stats.TempsTargetRole++; break;
+            case NullableLiftSyntaxFacts.RoleReceiver: _stats.TempsReceiverRole++; break;
+            case string r when r.StartsWith(NullableLiftSyntaxFacts.RoleIndex, StringComparison.Ordinal):
+                _stats.TempsIndexRole++;
+                break;
         }
     }
 
