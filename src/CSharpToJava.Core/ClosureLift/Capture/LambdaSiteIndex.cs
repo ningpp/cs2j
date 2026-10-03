@@ -129,6 +129,14 @@ internal static class LambdaSiteIndex
             return false;
         }
 
+        // D4 (M3): the lambda's OWN parameters and locals that a NESTED lambda
+        // references are invisible to step 1 (they belong to this lambda), but
+        // a static host method cannot host the nested capturing lambda — the
+        // value only exists during this lambda's invocation. Such an ancestor
+        // lambda must take the display-class instance path.
+        if (CaptureClassification.OwnsStateForNestedLambda(model, lambda))
+            return false;
+
         foreach (var node in lambda.DescendantNodes())
         {
             // 2. this / base capture: explicit forms (D7 is M2).

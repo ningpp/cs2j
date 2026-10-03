@@ -73,12 +73,11 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         // 1. Build the instance methods (received bodies, rewrites applied).
         var pendingBySpan = plan.Lambdas.ToDictionary(
             static p => (p.SpanStart, p.RawKind), static p => p);
-        // The lifter substitutes nested static sites inside RECEIVED-tree
-        // bodies: key on the received span (SiteSpanStart is the model anchor
-        // consumed by the planner and the delegate-site stage).
-        var staticPlansBySpan = bag.StaticLambdas.ToDictionary(
+        // Nested PLANNED-STATIC sites are substituted while building received
+        // bodies: key on the received span (SiteSpanStart is the model anchor).
+        var staticPlansByReceivedSpan = bag.StaticLambdas.ToDictionary(
             static p => (p.ReceivedSpanStart, p.SiteRawKind), static p => p);
-        var methodsByClassName = new Dictionary<string, List<MethodDeclarationSyntax>>(StringComparer.Ordinal);
+        var methodsByGroup = new Dictionary<DisplayClassPlan, List<MethodDeclarationSyntax>>();
         var methodCount = 0;
 
         foreach (var group in plan.EvolvedGroups.Concat(plan.NewGroups))
@@ -97,15 +96,44 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
                     return new ClosureStageResult(root, false);
                 }
 
-                var method = LambdaMethodLifter.BuildMethod(
-                    methodPlan, pending.Signature, receivedLambda,
-                    pending.ReadOnlyFieldByOriginalName, pending.InstanceMemberNames,
-                    pending.CapturesThis, group.UsedFieldNames, staticPlansBySpan);
+                // D4: nested child sites move with the parent's received body;
+                // re-anchor their model span onto the received tree.
+                var childSites = new Dictionary<(int Start, int Kind), NestedDelegateSite>();
+                foreach (var nested in pending.NestedSites)
+                {
+                    if (!receivedLambdaBySpanStart.TryGetValue(nested.SpanStart, out var nestedReceived)
+                        || nestedReceived.RawKind != nested.RawKind)
+                    {
+                        return new ClosureStageResult(root, false);
+                    }
 
-                if (!methodsByClassName.TryGetValue(group.ClassName, out var list))
+                    childSites[(nestedReceived.SpanStart, nestedReceived.RawKind)] = nested;
+                }
+
+                var context = new LambdaMigrationContext
+                {
+                    Plan = methodPlan,
+                    Signature = pending.Signature,
+                    ReceivedLambda = receivedLambda,
+                    FieldAccessByName = pending.FieldAccessByName,
+                    CollapseByInstanceField = pending.CollapseByInstanceField,
+                    InstanceMemberNames = pending.InstanceMemberNames,
+                    CapturesThis = pending.CapturesThis,
+                    HasHostThis = pending.HasHostThis,
+                    HostThisPath = pending.HostThisPath,
+                    PromotedParameterNames = pending.PromotedParameterNames,
+                    PromotedLocalNames = pending.PromotedLocalNames,
+                    ChildSites = childSites,
+                    ChildTypeByInstance = pending.ChildTypeByInstance,
+                    StaticPlans = staticPlansByReceivedSpan,
+                };
+
+                var method = LambdaMethodLifter.BuildMethod(context);
+
+                if (!methodsByGroup.TryGetValue(group, out var list))
                 {
                     list = new List<MethodDeclarationSyntax>();
-                    methodsByClassName[group.ClassName] = list;
+                    methodsByGroup[group] = list;
                 }
 
                 list.Add(method);
@@ -114,43 +142,76 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         }
 
         statistics.LambdaMethodsLifted += methodCount;
-        statistics.DisplayClassesGenerated += plan.NewGroups.Count;
         var emitter = new DisplayClassSyntaxEmitter();
 
         // 2. Class members: additive edits on emitted holder classes + fresh
         //    display classes on their hosts (member-spine append, M1 shape).
+        //    D4 nested classes are appended into their parent display classes.
         //    This runs BEFORE the statement edits: the spine append rebuilds type
         //    wrappers (so anchor/creation lookups must run against ITS nodes),
         //    while method bodies keep node identity and absolute positions.
-        var classEdits = new Dictionary<string, List<MemberDeclarationSyntax>>(StringComparer.Ordinal);
+        //
+        //    Holder class names derive from the routine name, so two sibling
+        //    host types with an identically named routine legitimately emit
+        //    holders with the same local class name. Edits are therefore keyed
+        //    by (received host type, nested-holder chain), never by bare class
+        //    name — a bare-name map cross-wires every holder of the same name.
+        var classEdits = new Dictionary<(TypeDeclarationSyntax Host, string Chain), List<MemberDeclarationSyntax>>();
         foreach (var group in plan.EvolvedGroups)
         {
+            if (!receivedTypeByModelType.TryGetValue(group.HostType, out _))
+                return new ClosureStageResult(root, false);
+
             var edits = new List<MemberDeclarationSyntax>();
             edits.AddRange(group.Symbols
-                .Where(static s => s.Reason == TriggerReason.ReadOnlyValue)
+                .Where(static s => s.Reason is TriggerReason.ReadOnlyValue
+                    or TriggerReason.PromotedLambdaParameter
+                    or TriggerReason.LambdaLocalMutable)
                 .Select(emitter.BuildCaptureField));
-            if (group.CapturesThis)
+            if (group.Parent != null)
+            {
+                edits.Add(emitter.BuildParentField(group.Parent.QualifiedClassName));
+                edits.Add(emitter.BuildParentConstructor(group.ClassName, group.Parent.QualifiedClassName));
+            }
+            else if (group.CapturesThis)
             {
                 edits.Add(emitter.BuildThisField(HostTypeDisplay(group.HostType)));
                 edits.Add(emitter.BuildThisConstructor(group.ClassName, HostTypeDisplay(group.HostType)));
             }
 
-            if (methodsByClassName.TryGetValue(group.ClassName, out var methods))
+            if (methodsByGroup.TryGetValue(group, out var methods))
                 edits.AddRange(methods);
 
             if (edits.Count > 0)
-                classEdits[group.ClassName] = edits;
+                classEdits[(group.HostType, SelfChain(group))] = edits;
         }
 
         var newClassesByHost = new Dictionary<TypeDeclarationSyntax, List<ClassDeclarationSyntax>>();
+        var nestedClassesByParent = new Dictionary<(TypeDeclarationSyntax Host, string Chain), List<ClassDeclarationSyntax>>();
+        var topLevelNewGroupCount = 0;
         foreach (var group in plan.NewGroups)
         {
-            if (!receivedTypeByModelType.TryGetValue(group.HostType, out var receivedHost))
-                return new ClosureStageResult(root, false);
-
-            methodsByClassName.TryGetValue(group.ClassName, out var methods);
+            methodsByGroup.TryGetValue(group, out var methods);
             var declaration = emitter.BuildDisplayClass(
                 group, HostTypeDisplay(group.HostType), methods ?? Enumerable.Empty<MethodDeclarationSyntax>());
+
+            if (group.Parent != null)
+            {
+                // Attach into the parent's member list: keyed by the parent's
+                // own chain (host + path including its class name).
+                var key = (group.HostType, SelfChain(group.Parent));
+                if (!nestedClassesByParent.TryGetValue(key, out var nested))
+                {
+                    nested = new List<ClassDeclarationSyntax>();
+                    nestedClassesByParent[key] = nested;
+                }
+
+                nested.Add(declaration);
+                continue;
+            }
+
+            if (!receivedTypeByModelType.TryGetValue(group.HostType, out var receivedHost))
+                return new ClosureStageResult(root, false);
 
             if (!newClassesByHost.TryGetValue(receivedHost, out var classes))
             {
@@ -159,10 +220,23 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             }
 
             classes.Add(declaration);
+            topLevelNewGroupCount += 1;
         }
 
+        statistics.DisplayClassesGenerated += topLevelNewGroupCount;
+        statistics.HolderInstancesGenerated += topLevelNewGroupCount;
+        statistics.NestedDisplayClasses += plan.NewGroups.Count - topLevelNewGroupCount;
+
+        // Reverse the model-node → received-node host map so the spine walk
+        // can key (host, chain) edits while visiting received-tree nodes.
+        var modelHostByReceivedHost =
+            new Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax>(
+                System.Collections.Generic.ReferenceEqualityComparer.Instance);
+        foreach (var pair in receivedTypeByModelType)
+            modelHostByReceivedHost[pair.Value] = pair.Key;
         var withClasses = root.WithMembers(AppendDisplayMembers(
-            root.Members, newClassesByHost, classEdits));
+            root.Members, modelHostByReceivedHost, newClassesByHost,
+            nestedClassesByParent, classEdits, enclosingHost: null, chain: string.Empty));
 
         // 3. Ctor-argument edit for evolved groups that captured `this` (D7): the
         //    C32-emitted `new Class()` creations gain the `this` argument.
@@ -202,27 +276,63 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         // 4. Statement insertions (D14②): new-group instance declarations and
         //    read-only snapshots, each at the nearest statement boundary before
         //    its anchor lambda site (after it when that statement declares the
-        //    captured symbol). Anchors are RECEIVED-tree spans — model spans
-        //    shift once C32 inserted its instance statements — re-anchored here
-        //    through the pairing map, and looked up against `withClasses` so the
-        //    rewriter's node identities match exactly.
+        //    captured symbol). `withClasses` appends members along the type
+        //    spine: Roslyn red nodes get fresh wrappers (so reference identity
+        //    does NOT survive) and, for a later sibling type, absolute spans
+        //    shift by the inserted members. Anchors therefore re-pair the
+        //    RECEIVED lambdas with the `withClasses` lambdas by descendant
+        //    ORDER (same ordinal discipline as the model↔received pairing;
+        //    generated display classes are excluded) and then climb that live
+        //    node's parents to its statement-list membership.
+        var liveLambdas = withClasses
+            .DescendantNodes(static n =>
+                n is not TypeDeclarationSyntax t || !ClosureLiftAnnotations.IsAnnotated(t))
+            .OfType<LambdaExpressionSyntax>()
+            .ToList();
+        var receivedLambdas = root
+            .DescendantNodes()
+            .OfType<LambdaExpressionSyntax>()
+            .ToList();
         StatementSyntax? AnchorStatementOf(int modelSpan)
         {
             if (!receivedLambdaBySpanStart.TryGetValue(modelSpan, out var receivedLambda))
                 return null;
-            return FindStatementInStatementList(withClasses, receivedLambda.SpanStart);
+
+            var ordinal = receivedLambdas.FindIndex(l => ReferenceEquals(l, receivedLambda));
+            if (ordinal < 0 || ordinal >= liveLambdas.Count
+                || liveLambdas[ordinal].RawKind != receivedLambda.RawKind)
+            {
+                return null;
+            }
+
+            var current = liveLambdas[ordinal].Parent;
+            while (current is not null and not StatementSyntax)
+                current = current.Parent;
+            if (current is not StatementSyntax statement)
+                return null;
+
+            while (statement.Parent is not (BlockSyntax or SwitchSectionSyntax or null))
+            {
+                if (statement.Parent is StatementSyntax parentStatement)
+                    statement = parentStatement;
+                else
+                    break;
+            }
+
+            return statement;
         }
 
         var insertBefore = new Dictionary<SyntaxNode, List<StatementSyntax>>();
         var insertAfter = new Dictionary<SyntaxNode, List<StatementSyntax>>();
 
-        foreach (var group in plan.NewGroups)
+        // D4: child groups instantiate inside migrated parent methods (the
+        // lifter spliced those declarations); only chain-top fresh groups take
+        // routine-scope instance declarations + read-only snapshots here.
+        foreach (var group in plan.NewGroups.Where(static g => g.Parent == null))
         {
             var anchorSpan = group.Methods.Count > 0 ? group.Methods[0].SiteSpanStart : -1;
             if (anchorSpan < 0 || AnchorStatementOf(anchorSpan) is not { } anchor)
-            {
                 return new ClosureStageResult(root, false);
-            }
 
             AddInsertion(insertBefore, anchor, emitter.BuildInstanceDeclaration(group));
 
@@ -264,10 +374,14 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         //    carry MODEL spans on purpose: DelegateSiteRewriteStage re-anchors
         //    them onto the final tree by order-based pairing, because the
         //    statement edits above shift absolute positions.
+        //    D4 child sites are included deliberately: the received main tree
+        //    still physically contains the nested lambda nodes (BuildMethod
+        //    only produced migrated COPIES), so the model/main-tree lambda
+        //    counts stay equal. The stage replaces each chain-top site as a
+        //    whole subtree, which drops the nested child nodes before their
+        //    own entries are ever visited — child plans are inert there.
         foreach (var group in plan.EvolvedGroups.Concat(plan.NewGroups))
             bag.InstanceLambdas.AddRange(group.Sites);
-
-        statistics.HolderInstancesGenerated += plan.NewGroups.Count;
 
         return new ClosureStageResult(rewritten, true);
     }
@@ -304,34 +418,6 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         }
 
         list.Add(inserted);
-    }
-
-    /// <summary>
-    /// The innermost statement whose span contains <paramref name="spanStart"/>,
-    /// lifted to its enclosing statement-list membership (embedded statements of
-    /// if/for/while/… hoist to the loop/selection statement — the nearest valid
-    /// boundary before the site, D14②). Lambda bodies never contain anchors
-    /// (nested capturing lambdas stay residual), so the walk excludes them.
-    /// </summary>
-    private static StatementSyntax? FindStatementInStatementList(
-        CompilationUnitSyntax root,
-        int spanStart)
-    {
-        var innermost = root.DescendantNodes(static n => n is not LambdaExpressionSyntax)
-            .OfType<StatementSyntax>()
-            .Where(s => s.Span.Contains(spanStart))
-            .OrderBy(static s => s.Span.Length)
-            .FirstOrDefault();
-
-        while (innermost?.Parent is not (BlockSyntax or SwitchSectionSyntax or null))
-        {
-            if (innermost.Parent is StatementSyntax parent)
-                innermost = parent;
-            else
-                break;
-        }
-
-        return innermost;
     }
 
     /// <summary>`C` / `C&lt;T, U&gt;` — the display class's receiver type for `_cs2jThis` (D7).</summary>
@@ -376,13 +462,25 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
     /// <summary>
     /// Member-spine append (M1 <c>AppendMethods</c> shape): only the member lists
     /// that gain members are rebuilt; annotated holder classes gain their
-    /// additive edits; untouched positions keep identity, so
+    /// additive edits; D4 nested display classes are appended to the annotated
+    /// parent class; untouched positions keep identity, so
     /// DelegateSiteRewriteStage's SpanStart anchors resolve as frozen.
+    /// <para>
+    /// Edit dictionaries are scoped by <c>(host type, holder chain)</c>: the
+    /// same local holder name is legal in different host types (and at
+    /// different nesting depths), so the walk tracks the enclosing non-holder
+    /// host type plus the <c>/a/b</c> chain of annotated holder names leading
+    /// to the current member list.
+    /// </para>
     /// </summary>
     private static SyntaxList<MemberDeclarationSyntax> AppendDisplayMembers(
         SyntaxList<MemberDeclarationSyntax> members,
+        Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax> modelHostByReceivedHost,
         Dictionary<TypeDeclarationSyntax, List<ClassDeclarationSyntax>> newClassesByHost,
-        Dictionary<string, List<MemberDeclarationSyntax>> classEdits)
+        Dictionary<(TypeDeclarationSyntax Host, string Chain), List<ClassDeclarationSyntax>> nestedClassesByParent,
+        Dictionary<(TypeDeclarationSyntax Host, string Chain), List<MemberDeclarationSyntax>> classEdits,
+        TypeDeclarationSyntax? enclosingHost,
+        string chain)
     {
         List<MemberDeclarationSyntax>? buffer = null;
 
@@ -394,17 +492,56 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             if (member is TypeDeclarationSyntax type)
             {
                 var newType = type;
+                var holderName = GetHolderClassName(type);
 
-                var className = GetHolderClassName(type);
-                if (className != null && classEdits.TryGetValue(className, out var edits))
-                    newType = newType.WithMembers(newType.Members.AddRange(edits));
+                if (holderName != null)
+                {
+                    // Annotated holder (or freshly attached nested holder):
+                    // edits and children are scoped by the enclosing host and
+                    // the holder chain leading HERE.
+                    if (enclosingHost != null)
+                    {
+                        // Edits target THIS holder (keyed by the chain including
+                        // its own name); children attach into THIS holder (keyed
+                        // by the chain leading to it).
+                        var selfChain = chain.Length == 0
+                            ? "/" + holderName
+                            : chain + "/" + holderName;
+                        // Edits for THIS holder and children attaching INTO it
+                        // share the same key: host + this holder's self chain.
+                        if (classEdits.TryGetValue((enclosingHost, selfChain), out var edits))
+                            newType = newType.WithMembers(newType.Members.AddRange(edits));
 
-                if (newClassesByHost.TryGetValue(type, out var classes))
-                    newType = newType.WithMembers(newType.Members.AddRange(classes));
+                        // Children are attached before the recursive descent so
+                        // grandchildren find their freshly attached parent nodes.
+                        if (nestedClassesByParent.TryGetValue((enclosingHost, selfChain), out var nested))
+                            newType = newType.WithMembers(newType.Members.AddRange(nested));
+                    }
 
-                var nestedMembers = AppendDisplayMembers(newType.Members, newClassesByHost, classEdits);
-                if (nestedMembers != newType.Members)
-                    newType = newType.WithMembers(nestedMembers);
+                    var childChain = chain.Length == 0
+                        ? "/" + holderName
+                        : chain + "/" + holderName;
+                    var nestedMembers = AppendDisplayMembers(
+                        newType.Members, modelHostByReceivedHost, newClassesByHost,
+                        nestedClassesByParent, classEdits, enclosingHost, childChain);
+                    if (nestedMembers != newType.Members)
+                        newType = newType.WithMembers(nestedMembers);
+                }
+                else
+                {
+                    // Non-annotated type = host boundary. Fresh top-level
+                    // display classes key off the received node; its model
+                    // symbol scopes holder edits encountered while descending.
+                    var hostNode = modelHostByReceivedHost.TryGetValue(type, out var host) ? host : null;
+                    if (newClassesByHost.TryGetValue(type, out var classes))
+                        newType = newType.WithMembers(newType.Members.AddRange(classes));
+
+                    var nestedMembers = AppendDisplayMembers(
+                        newType.Members, modelHostByReceivedHost, newClassesByHost,
+                        nestedClassesByParent, classEdits, hostNode, string.Empty);
+                    if (nestedMembers != newType.Members)
+                        newType = newType.WithMembers(nestedMembers);
+                }
 
                 if (!ReferenceEquals(newType, type))
                     replacement = newType;
@@ -412,7 +549,8 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
             else if (member is BaseNamespaceDeclarationSyntax namespaceDeclaration)
             {
                 var namespaceMembers = AppendDisplayMembers(
-                    namespaceDeclaration.Members, newClassesByHost, classEdits);
+                    namespaceDeclaration.Members, modelHostByReceivedHost, newClassesByHost,
+                    nestedClassesByParent, classEdits, enclosingHost, chain);
                 if (namespaceMembers != namespaceDeclaration.Members)
                     replacement = namespaceDeclaration.WithMembers(namespaceMembers);
             }
@@ -428,6 +566,43 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
         }
 
         return buffer == null ? members : SyntaxFactory.List(buffer);
+    }
+
+    /// <summary>
+    /// Chain identifying the holder itself (its parent path + its own class
+    /// name), e.g. <c>/Cs2jDisplayClass_M_0/Cs2jDisplayClass_M_1</c>.
+    /// </summary>
+    private static string SelfChain(DisplayClassPlan group)
+    {
+        var parentChain = ParentChain(group);
+        return parentChain.Length == 0
+            ? "/" + group.ClassName
+            : parentChain + "/" + group.ClassName;
+    }
+
+    /// <summary>
+    /// <c>/Outer/.../DirectParent</c> chain of holder class names above
+    /// <paramref name="group"/> (<c>""</c> for a top-level group).
+    /// </summary>
+    private static string ParentChain(DisplayClassPlan group)
+    {
+        var current = group.Parent;
+        if (current == null)
+            return string.Empty;
+
+        var depth = 0;
+        for (var node = current; node != null; node = node.Parent)
+            depth += 1;
+
+        var parts = new string[depth];
+        var cursor = current;
+        for (var i = depth - 1; i >= 0; i--)
+        {
+            parts[i] = cursor!.ClassName;
+            cursor = cursor.Parent;
+        }
+
+        return "/" + string.Join("/", parts);
     }
 
     private static string? GetHolderClassName(TypeDeclarationSyntax type)

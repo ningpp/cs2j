@@ -226,4 +226,73 @@ public static class CaptureClassification
         }
         return false;
     }
+
+    /// <summary>
+    /// D4 (C45 M3): true when a NESTED lambda inside <paramref name="lambda"/>
+    /// references a parameter of this lambda or a local/range variable
+    /// declared directly in this lambda's body (not inside a deeper nested
+    /// lambda). Such state exists only while this lambda is invoked, so the
+    /// nested lambda cannot be hosted by a static host method or a
+    /// routine-scoped display instance — its display class must hang off this
+    /// lambda's display class.
+    /// </summary>
+    public static bool OwnsStateForNestedLambda(
+        SemanticModel model,
+        LambdaExpressionSyntax lambda)
+    {
+        var lambdaSymbol = model.GetSymbolInfo(lambda).Symbol as IMethodSymbol;
+        SyntaxNode? bodyRoot = lambda switch
+        {
+            ParenthesizedLambdaExpressionSyntax p => (SyntaxNode?)p.Block ?? p.ExpressionBody,
+            SimpleLambdaExpressionSyntax s => (SyntaxNode?)s.Block ?? s.ExpressionBody,
+            _ => null,
+        };
+        if (bodyRoot == null)
+            return false;
+
+        var descend = (Func<SyntaxNode, bool>?)(static d => d is not LocalFunctionStatementSyntax);
+
+        foreach (var identifier in lambda.DescendantNodes(descend)
+                     .OfType<IdentifierNameSyntax>())
+        {
+            // The use site must be inside a nested lambda, not this lambda's
+            // own direct body (its own parameter/local use is ordinary).
+            var enclosingLambda = identifier.Ancestors()
+                .OfType<LambdaExpressionSyntax>()
+                .FirstOrDefault();
+            if (enclosingLambda == null || enclosingLambda == lambda)
+                continue;
+            if (identifier.Parent is NameColonSyntax || IsInsideNameOf(identifier))
+                continue;
+
+            var symbol = model.GetSymbolInfo(identifier).Symbol;
+
+            if (symbol is IParameterSymbol
+                && lambdaSymbol != null
+                && SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, lambdaSymbol))
+            {
+                return true;
+            }
+
+            if (symbol is ILocalSymbol or IRangeVariableSymbol)
+            {
+                foreach (var reference in symbol.DeclaringSyntaxReferences)
+                {
+                    var declaring = reference.GetSyntax();
+                    if (declaring.SpanStart < bodyRoot.SpanStart || declaring.SpanStart >= bodyRoot.Span.End)
+                        continue;
+
+                    // Declared inside a deeper nested lambda → that lambda's
+                    // own state, not ours (span containment alone is too broad).
+                    var ownerLambda = declaring.Ancestors()
+                        .OfType<LambdaExpressionSyntax>()
+                        .FirstOrDefault();
+                    if (ownerLambda == lambda)
+                        return true;
+                }
+            }
+        }
+
+        return false;
+    }
 }

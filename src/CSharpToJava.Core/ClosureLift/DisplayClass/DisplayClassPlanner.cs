@@ -6,25 +6,37 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.Core.ClosureLift;
 
 /// <summary>
-/// One capturing lambda the M2 consolidation plans to migrate (design §9 M2).
+/// One capturing lambda the M2/M3 consolidation plans to migrate (design §9).
 /// Model-tree facts only; the stage pairs <see cref="SpanStart"/> to the
 /// received tree and builds the method via <see cref="LambdaMethodLifter"/>.
 /// </summary>
 /// <param name="SpanStart">Absolute model-tree SpanStart of the lambda node.</param>
 /// <param name="RawKind">RawKind (defensive pairing).</param>
-/// <param name="Group">Home display class (evolved C32 group or new pure group).</param>
+/// <param name="Group">Home display class (evolved C32 group or new pure/nested group).</param>
 /// <param name="IsNewGroup">True when <see cref="Group"/> must be emitted fresh.</param>
 /// <param name="Signature">Delegate-derived explicit signature (D12/D23).</param>
 /// <param name="IsAsync">D17.</param>
 /// <param name="DelegateTypeDisplay">Symbol-rendered target delegate (D8).</param>
-/// <param name="ReadOnlyFieldByOriginalName">D5: original capture name → its
-/// read-only field in the home class. The lifter rewrites RECEIVED-body
-/// identifier READS by original name (CS0136 guarantees a captured name is
-/// never shadowed inside the lambda body, so name matching is exact; C32
-/// rebuilt nodes shift absolute spans, making span maps unusable).</param>
-/// <param name="InstanceMemberNames">D7: implicit-this instance-member names
-/// referenced by the body; reads rewrite to `_cs2jThis.&lt;name&gt;`.</param>
-/// <param name="CapturesThis">D7: explicit `this` expressions rewrite to `_cs2jThis`.</param>
+/// <param name="FieldAccessByName">Original capture/own-state name → the field
+/// access expression relative to the migrated method: a bare field for the
+/// home class, `_cs2jParent._cs2jCap_x` (possibly chained) for ancestor
+/// classes (D4/D5).</param>
+/// <param name="CollapseByInstanceField">Received-tree C32 accesses
+/// `__cs2jClosure&lt;n&gt;._cs2jCap_x` → the same relative field expression.</param>
+/// <param name="InstanceMemberNames">Host instance-member names referenced by
+/// the body; reads rewrite to `&lt;hostThisPath&gt;_cs2jThis.&lt;name&gt;` (D7/D4).</param>
+/// <param name="CapturesThis">Explicit `this` in the lambda's own body.</param>
+/// <param name="HasHostThis">The chain-top class carries the `_cs2jThis` field.</param>
+/// <param name="HostThisPath">`_cs2jParent.` repetitions from the home class
+/// to the chain top ("" at chain top).</param>
+/// <param name="PromotedParameterNames">Own parameters promoted to home-class
+/// fields for nested lambdas (entry-assigned, D4).</param>
+/// <param name="PromotedLocalNames">Own-body locals promoted to home-class
+/// fields for nested lambdas (declaration site becomes an assignment, D4).</param>
+/// <param name="NestedSites">Direct child-group lambda sites substituted while
+/// the enclosing method body is built (model-span coordinates).</param>
+/// <param name="ChildTypeByInstance">Direct child group instance name →
+/// chain-qualified child type display (per-block instantiation).</param>
 internal sealed record PendingInstanceLambda(
     int SpanStart,
     int RawKind,
@@ -33,20 +45,36 @@ internal sealed record PendingInstanceLambda(
     ResolvedLambdaSignature Signature,
     bool IsAsync,
     string DelegateTypeDisplay,
-    IReadOnlyDictionary<string, string> ReadOnlyFieldByOriginalName,
+    IReadOnlyDictionary<string, string> FieldAccessByName,
+    IReadOnlyDictionary<(string Instance, string Field), string> CollapseByInstanceField,
     IReadOnlyCollection<string> InstanceMemberNames,
-    bool CapturesThis);
+    bool CapturesThis,
+    bool HasHostThis,
+    string HostThisPath,
+    IReadOnlySet<string> PromotedParameterNames,
+    IReadOnlySet<string> PromotedLocalNames,
+    IReadOnlyList<NestedDelegateSite> NestedSites,
+    IReadOnlyDictionary<string, string> ChildTypeByInstance);
+
+/// <summary>D4: one nested instance-lambda site replaced inside a migrated parent method.</summary>
+internal sealed record NestedDelegateSite(
+    int SpanStart,
+    int RawKind,
+    string InstanceName,
+    string MethodName,
+    string DelegateTypeDisplay);
 
 /// <summary>
-/// Frozen M2 plan for one CompilationUnit (design §4.1 Plan step).
+/// Frozen M2/M3 plan for one CompilationUnit (design §4.1 Plan step).
 /// </summary>
 /// <param name="EvolvedGroups">C32 groups that gain methods/fields/this; the
 /// emitted holder classes receive additive member edits only (D2).</param>
-/// <param name="NewGroups">Pure read-only/this groups emitted as fresh classes (D3/D5/D7).</param>
+/// <param name="NewGroups">Pure read-only/this groups and D4 nested child
+/// groups emitted as fresh classes (D3/D4/D5/D7).</param>
 /// <param name="Lambdas">Capturing lambdas to migrate, SpanStart order (D9 k sequence).</param>
 /// <param name="SnapshotAnchors">Per read-only symbol plan → SpanStart of its earliest
 /// capturing lambda site (D14② snapshot placement).</param>
-/// <param name="AccountedSkips">Deliberately-kept statement lambdas (M3 buckets).</param>
+/// <param name="AccountedSkips">Deliberately-kept statement lambdas (documented buckets).</param>
 internal sealed record ConsolidationPlan(
     IReadOnlyList<DisplayClassPlan> EvolvedGroups,
     IReadOnlyList<DisplayClassPlan> NewGroups,
@@ -55,14 +83,15 @@ internal sealed record ConsolidationPlan(
     int AccountedSkips);
 
 /// <summary>
-/// C45 M2 planner (design §4: DisplayClass/DisplayClassPlanner; D3/D5/D7/D19).
+/// C45 M2/M3 planner (design §4: DisplayClass/DisplayClassPlanner; D3/D4/D5/D7/D19).
 /// Pure (never edits trees). Consumes the C32 bag groups as the single mutable
 /// classification (C32 裁决 4: bag membership IS the shared FindWriteSites
 /// verdict — no second口径), merges every capturing statement lambda of one
 /// (routine, scope block) into one class + one instance even when capture sets
 /// are disjoint (D3/§4.2), and freezes: group membership, `Lambda_&lt;k&gt;` names,
-/// read-only fields, this capture, body rewrite maps and the accounted-residual
-/// census. Blocking rows (CS2J4501/4502/4505/4509) freeze the file via the stage.
+/// read-only fields, this capture, body rewrite maps, the D4 nested
+/// parent-chain groups and the accounted-residual census. Blocking rows
+/// (CS2J4501/4502/4505/4509) freeze the file via the stage.
 /// </summary>
 internal static class DisplayClassPlanner
 {
@@ -104,6 +133,8 @@ internal static class DisplayClassPlanner
         statistics.ExpressionTreeLambdasSkipped += quoted.Count;
 
         // Mutable classification: bag membership IS the C32 FindWriteSites verdict.
+        // C32 no longer owns lambda-scoped symbols (M3 D4), so bag entries here
+        // are routine-scoped mutable cells only.
         var groupBySymbol = new Dictionary<ISymbol, DisplayClassPlan>(SymbolEqualityComparer.Default);
         foreach (var group in holderGroups)
         {
@@ -111,8 +142,7 @@ internal static class DisplayClassPlanner
                 groupBySymbol.TryAdd(symbol.Symbol, group);
         }
 
-        // Pass 1: classify every statement lambda. No plans are built yet — the
-        // nested-subtree rule (M3) needs the whole map before any planning.
+        // Pass 1: classify every statement lambda.
         var facts = new Dictionary<LambdaExpressionSyntax, LambdaFacts>();
         foreach (var lambda in statementLambdas)
         {
@@ -122,26 +152,52 @@ internal static class DisplayClassPlanner
             facts[lambda] = f;
         }
 
-        // Pass 2: nested-subtree skip (D4 chain is M3): a capturing lambda with a
-        // capturing ancestor OR capturing statement-lambda descendant stays, and
-        // its capturing descendants stay with it (C32 flat-holder output intact).
+        var statementSet = statementLambdas.ToHashSet();
+
+        // Pass 2 (D4): nearest enclosing statement lambda + promotion map. An
+        // outer lambda's own parameter/local captured by a nested lambda is
+        // promoted to a field of the declaring lambda's home group (the value
+        // only exists during that invocation). Capture transitivity guarantees
+        // every promoted symbol is seen at each chain level (each ancestor's
+        // subtree walk includes the use site).
+        foreach (var lambda in statementLambdas)
+        {
+            facts[lambda].OwnerLambda = lambda.Ancestors()
+                .OfType<LambdaExpressionSyntax>()
+                .FirstOrDefault(statementSet.Contains);
+        }
+
+        foreach (var lambda in statementLambdas)
+        {
+            foreach (var capture in facts[lambda].AllCaptures)
+            {
+                var declaring = capture.Symbol.DeclaringSyntaxReferences
+                    .Select(static r => r.GetSyntax())
+                    .FirstOrDefault();
+                var declaredOwner = declaring?.Ancestors()
+                    .OfType<LambdaExpressionSyntax>()
+                    .FirstOrDefault(statementSet.Contains);
+                if (declaredOwner != null)
+                    facts[declaredOwner].PromotedCaptures.TryAdd(capture.Symbol, capture);
+            }
+        }
+
         foreach (var lambda in statementLambdas)
         {
             var f = facts[lambda];
-            if (!f.IsCapturing)
+            if (f.PromotedCaptures.Count == 0)
                 continue;
 
-            f.HasCapturingAncestor = statementLambdas.Any(other =>
-                other != lambda && facts[other].IsCapturing
-                && other.SpanStart < lambda.SpanStart && lambda.Span.End <= other.Span.End);
-            f.HasCapturingDescendant = statementLambdas.Any(other =>
-                other != lambda && facts[other].IsCapturing
-                && lambda.SpanStart < other.SpanStart && other.Span.End <= lambda.Span.End);
+            f.IsCapturing = true;
+            if (f.PromotedCaptures.Values.Any(info => IsLoopScopedWithin(lambda, info.Symbol)))
+                f.PromotionBlocked = true;
         }
 
-        // Pass 3: freeze plans (SpanStart order ⇒ Lambda_<k> sequence, D9).
+        // Pass 3: freeze groups, methods and sites (SpanStart order ⇒ Lambda_<k>).
         var registry = new PureGroupRegistry();
-        var pending = new List<PendingInstanceLambda>();
+        var groupOfLambda = new Dictionary<LambdaExpressionSyntax, DisplayClassPlan>();
+        var isNewByLambda = new Dictionary<LambdaExpressionSyntax, bool>();
+        var signatureByLambda = new Dictionary<LambdaExpressionSyntax, ResolvedLambdaSignature>();
         var snapshotAnchors = new Dictionary<CapturedSymbolPlan, int>();
         var accountedSkips = 0;
         var plannedStaticSpans = staticPlans.Select(static p => p.SiteSpanStart).ToHashSet();
@@ -150,20 +206,28 @@ internal static class DisplayClassPlanner
         {
             var f = facts[lambda];
 
-            if (Environment.GetEnvironmentVariable("CS2J_M2_TRACE") == "1")
-                Console.WriteLine($"[M2] lambda@{lambda.SpanStart} capturing={f.IsCapturing} skip={f.SkipReason ?? "-"} anc={f.HasCapturingAncestor} desc={f.HasCapturingDescendant} mutableGroups={f.MutableGroups.Count} readOnly={f.ReadOnlyCaptures.Count} thisOnly={f.IsThisOnly}");
-
             if (!f.IsCapturing)
             {
                 // Zero-capture lambdas belong to the M1 static path: planned spans
-                // were lifted; everything else is an M3-bucket residual (no M2 edit).
+                // were lifted; everything else is an accounted residual (no edit).
                 if (!plannedStaticSpans.Contains(lambda.SpanStart))
                     accountedSkips += 1;
                 continue;
             }
 
-            if (f.HasCapturingAncestor || f.HasCapturingDescendant || f.SkipReason != null)
+            if (f.SkipReason != null || f.PromotionBlocked)
             {
+                accountedSkips += 1;
+                continue;
+            }
+
+            var owner = f.OwnerLambda;
+            DisplayClassPlan? ownerGroup = null;
+            if (owner != null
+                && (!groupOfLambda.TryGetValue(owner, out ownerGroup) || ownerGroup == null))
+            {
+                // Nested lambda whose enclosing lambda stayed residual
+                // (signature/host/quoted bucket): cannot plan it alone.
                 accountedSkips += 1;
                 continue;
             }
@@ -174,54 +238,82 @@ internal static class DisplayClassPlanner
             {
                 if (diagnostics.Count > before)
                     return null; // CS2J4501/4509: file stays verbatim (D12 fail-loud).
-                accountedSkips += 1; // ConvertedType null: generic-inference position (D20/E16 territory).
+                accountedSkips += 1; // ConvertedType null: generic-inference position (D20/E16).
                 continue;
             }
+
+            signatureByLambda[lambda] = signature;
 
             if (!NamedMethodLiftStage.HasUsableParameterNames(lambda, signature))
             {
-                accountedSkips += 1; // discard/unnamed/attribute parameters: M3 (D12①).
+                accountedSkips += 1; // discard/unnamed/attribute parameters: D12 (feat③).
                 continue;
             }
 
-            // Multi-group mutable captures need the D4 parent chain (M3).
-            if (f.MutableGroups.Count > 1)
+            DisplayClassPlan? group;
+            bool isNewGroup;
+            if (owner != null)
             {
-                accountedSkips += 1;
-                continue;
+                // D4: every nested lambda gets its own child group keyed at its
+                // site block; inherited cells (routine C32 groups, read-only
+                // outer captures, the enclosing lambda's promoted state) are
+                // reached through the single `_cs2jParent` chain — never copied.
+                group = ResolveChildGroup(
+                    f, ownerGroup!, model, naming, holderGroups, registry);
+                isNewGroup = true;
             }
-
-            var (group, isNewGroup) = ResolveHomeGroup(
-                f, model, naming, holderGroups, registry);
-            if (group == null)
+            else
             {
-                accountedSkips += 1;
-                continue;
+                // Multi-group routine captures (cross-block C32 holders) keep
+                // their documented narrow bucket until a multi-parent shape lands.
+                if (f.MutableGroups.Count > 1)
+                {
+                    accountedSkips += 1;
+                    continue;
+                }
+
+                var (resolved, resolvedNew) = ResolveHomeGroup(
+                    f, model, naming, holderGroups, registry);
+                if (resolved == null)
+                {
+                    accountedSkips += 1; // array comparator form: no host class (D1).
+                    continue;
+                }
+
+                group = resolved;
+                isNewGroup = resolvedNew;
             }
 
-            // D7: ANY migrated lambda that touches the host instance — an
-            // explicit `this` OR a bare instance-member reference (the lifter
-            // unconditionally rewrites the latter to `_cs2jThis.Member`) —
-            // forces the home class to carry the `_cs2jThis` field, the
-            // constructor parameter and the `new Class(this)` argument. The
-            // flag is group-level (one class serves every lambda of the
-            // group); the per-lambda PendingInstanceLambda keeps the narrower
-            // explicit-this fact used by the body rewriter.
-            if (f.HasExplicitThis || f.InstanceMemberNames.Count > 0)
+            // D7: host `this` is always carried by the CHAIN TOP (a child class
+            // reaches it through `_cs2jParent`). The top lambda's fact scan
+            // covers its whole subtree, so every descendant host-member use is
+            // seen here.
+            if (owner == null && (f.HasExplicitThis || f.InstanceMemberNames.Count > 0))
                 group.CapturesThis = true;
 
-            // D5: read-only captures become fields of the home class; D7: this
-            // capture adds `_cs2jThis`. The lifter applies both by ORIGINAL NAME
-            // on the received body (CS0136 forbids shadowing a captured name, so
-            // name matching is exact even over C32-rebuilt nodes).
-            var readOnlyFieldByOriginalName = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var capture in f.ReadOnlyCaptures)
+            // D4: own parameters/locals captured by nested lambdas become fields
+            // of THIS group (entry-assigned for parameters; declaration-site
+            // assigned for locals).
+            foreach (var capture in f.PromotedCaptures.Values)
             {
-                var plan = GetOrAddReadOnlyPlan(group, capture);
-                readOnlyFieldByOriginalName[capture.Name] = plan.FieldName;
+                var reason = capture.Symbol.DeclaringSyntaxReferences
+                    .Select(static r => r.GetSyntax())
+                    .FirstOrDefault() is ParameterSyntax
+                    ? TriggerReason.PromotedLambdaParameter
+                    : TriggerReason.LambdaLocalMutable;
+                GetOrAddPromotedPlan(group, capture, reason);
+            }
 
-                if (!snapshotAnchors.TryGetValue(plan, out var anchor) || lambda.SpanStart < anchor)
-                    snapshotAnchors[plan] = lambda.SpanStart;
+            // D5 (chain top only): routine-scope read-only captures become
+            // fields of the home class. Nested lambdas route through parents.
+            if (owner == null)
+            {
+                foreach (var capture in f.ReadOnlyCaptures)
+                {
+                    var plan = GetOrAddReadOnlyPlan(group, capture);
+                    if (!snapshotAnchors.TryGetValue(plan, out var anchor) || lambda.SpanStart < anchor)
+                        snapshotAnchors[plan] = lambda.SpanStart;
+                }
             }
 
             var methodPlan = new LambdaMethodPlan(
@@ -239,17 +331,115 @@ internal static class DisplayClassPlanner
             if (f.IsThisOnly)
                 statistics.ThisOnlyLambdas += 1;
 
+            groupOfLambda[lambda] = group;
+            isNewByLambda[lambda] = isNewGroup;
+        }
+
+        // Freeze per-lambda rewrite maps from the complete group chain.
+        var depthByGroup = new Dictionary<DisplayClassPlan, int>();
+        foreach (var group in registry.Evolved.Concat(registry.Fresh))
+            depthByGroup[group] = ChainDepth(group);
+
+        var planBySymbol = new Dictionary<ISymbol, (CapturedSymbolPlan Plan, DisplayClassPlan Group)>(
+            SymbolEqualityComparer.Default);
+        foreach (var group in registry.Evolved.Concat(registry.Fresh))
+        {
+            foreach (var symbol in group.Symbols)
+                planBySymbol[symbol.Symbol] = (symbol, group);
+        }
+
+        var pending = new List<PendingInstanceLambda>();
+        foreach (var lambda in statementLambdas.OrderBy(static l => l.SpanStart))
+        {
+            if (!groupOfLambda.TryGetValue(lambda, out var group))
+                continue;
+
+            var f = facts[lambda];
+            var depth = depthByGroup[group];
+
+            var fieldAccessByName = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var capture in f.AllCaptures)
+            {
+                if (!planBySymbol.TryGetValue(capture.Symbol, out var routed))
+                    return null; // structural inconsistency: fail-loud, no half lift.
+
+                var hops = depth - depthByGroup[routed.Group];
+                if (hops < 0)
+                    return null;
+                fieldAccessByName[capture.Name] = ParentPath(hops) + routed.Plan.FieldName;
+            }
+
+            var promotedParameters = new HashSet<string>(StringComparer.Ordinal);
+            var promotedLocals = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var capture in f.PromotedCaptures.Values)
+            {
+                if (!group.Symbols.Any(s => SymbolEqualityComparer.Default.Equals(s.Symbol, capture.Symbol)))
+                    return null;
+                var fieldName = group.Symbols.First(s =>
+                        SymbolEqualityComparer.Default.Equals(s.Symbol, capture.Symbol))
+                    .FieldName;
+                fieldAccessByName[capture.Name] = fieldName;
+
+                var declaring = capture.Symbol.DeclaringSyntaxReferences
+                    .Select(static r => r.GetSyntax())
+                    .FirstOrDefault();
+                if (declaring is ParameterSyntax)
+                    promotedParameters.Add(capture.Name);
+                else
+                    promotedLocals.Add(capture.Name);
+            }
+
+            var collapse = new Dictionary<(string, string), string>();
+            for (var ancestor = group; ancestor != null; ancestor = ancestor.Parent)
+            {
+                var ancestorPath = ParentPath(depth - depthByGroup[ancestor]);
+                foreach (var symbol in ancestor.Symbols)
+                    collapse[(ancestor.InstanceName, symbol.FieldName)] = ancestorPath + symbol.FieldName;
+            }
+
+            var chainTop = group;
+            while (chainTop.Parent != null)
+                chainTop = chainTop.Parent;
+            var hostThisPath = ParentPath(depth);
+
+            var nestedSites = new List<NestedDelegateSite>();
+            var childTypes = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var pair in groupOfLambda)
+            {
+                if (!ReferenceEquals(pair.Value.Parent, group))
+                    continue;
+
+                var child = pair.Value;
+                childTypes[child.InstanceName] = child.QualifiedClassName;
+                foreach (var site in child.Sites)
+                {
+                    nestedSites.Add(new NestedDelegateSite(
+                        site.SiteSpanStart, site.SiteRawKind,
+                        child.InstanceName, site.MethodName, site.DelegateTypeDisplay));
+                }
+            }
+
+            var resolvedSignature = signatureByLambda[lambda];
+
             pending.Add(new PendingInstanceLambda(
-                lambda.SpanStart, lambda.RawKind, group, isNewGroup,
-                signature, methodPlan.IsAsync, signature.DelegateTypeDisplay,
-                readOnlyFieldByOriginalName,
+                lambda.SpanStart, lambda.RawKind, group, isNewByLambda[lambda],
+                resolvedSignature, lambda.AsyncKeyword.IsKind(SyntaxKind.AsyncKeyword),
+                resolvedSignature.DelegateTypeDisplay,
+                fieldAccessByName,
+                collapse,
                 f.InstanceMemberNames.ToArray(),
-                f.HasExplicitThis));
+                f.HasExplicitThis,
+                chainTop.CapturesThis,
+                hostThisPath,
+                promotedParameters,
+                promotedLocals,
+                nestedSites,
+                childTypes));
         }
 
         // §7.3 residual census: every statement lambda is either planned (static or
-        // instance), an accounted M3-bucket skip, or an unexpected residual that
-        // trips the CS2J4510 gate (fail-loud instead of silent half-lifting).
+        // instance), an accounted documented-bucket skip, or an unexpected residual
+        // that trips the CS2J4510 gate (fail-loud instead of silent half-lifting).
         var unaccounted = statementLambdas.Count
                           - plannedStaticSpans.Count
                           - pending.Count
@@ -275,6 +465,46 @@ internal static class DisplayClassPlanner
 
         return new ConsolidationPlan(
             registry.Evolved, registry.Fresh, pending, snapshotAnchors, accountedSkips);
+    }
+
+    private static string ParentPath(int hops)
+        => hops <= 0 ? string.Empty : string.Concat(Enumerable.Repeat(ClosureLiftNaming.ParentFieldName + ".", hops));
+
+    private static int ChainDepth(DisplayClassPlan group)
+    {
+        var depth = 0;
+        for (var current = group.Parent; current != null; current = current.Parent)
+            depth += 1;
+        return depth;
+    }
+
+    /// <summary>
+    /// True when the symbol's declaration lives inside a loop body of the
+    /// owner lambda (foreach/for/while/do): a single promoted field cannot
+    /// preserve the per-iteration cell identity C# gives such locals.
+    /// </summary>
+    private static bool IsLoopScopedWithin(LambdaExpressionSyntax owner, ISymbol symbol)
+    {
+        var declaring = symbol.DeclaringSyntaxReferences
+            .Select(static r => r.GetSyntax())
+            .FirstOrDefault();
+        if (declaring == null)
+            return false;
+        if (declaring is ForEachStatementSyntax or ForStatementSyntax)
+            return true;
+
+        for (var current = declaring.Parent; current != null; current = current.Parent)
+        {
+            if (ReferenceEquals(current, owner))
+                return false;
+            if (current is ForStatementSyntax
+                or ForEachStatementSyntax
+                or WhileStatementSyntax
+                or DoStatementSyntax)
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -313,6 +543,45 @@ internal static class DisplayClassPlanner
         return plan;
     }
 
+    /// <summary>
+    /// D4 field plan for an outer lambda's own parameter/local captured by a
+    /// nested lambda. The field is an ordinary public mutable field (parameter
+    /// values are entry-assigned; locals at their declaration site).
+    /// </summary>
+    private static CapturedSymbolPlan GetOrAddPromotedPlan(
+        DisplayClassPlan group,
+        CapturedSymbolInfo capture,
+        TriggerReason reason)
+    {
+        var existing = group.Symbols.FirstOrDefault(s =>
+            (s.Reason == TriggerReason.PromotedLambdaParameter || s.Reason == TriggerReason.LambdaLocalMutable)
+            && SymbolEqualityComparer.Default.Equals(s.Symbol, capture.Symbol));
+        if (existing != null)
+            return existing;
+
+        var fieldName = ClosureLiftNaming.GetFieldName(capture.Name, group.UsedFieldNames);
+        var declaringNode = capture.Symbol.DeclaringSyntaxReferences
+            .Select(static r => r.GetSyntax())
+            .First();
+
+        var plan = new CapturedSymbolPlan(
+            capture.Symbol,
+            capture.Name,
+            fieldName,
+            fieldName,
+            capture.TypeDisplayFullyQualified,
+            declaringNode,
+            reason,
+            IsForeachIteration: false,
+            ForeachLoop: null,
+            ForLoop: null,
+            Declarator: declaringNode as VariableDeclaratorSyntax,
+            Parameter: declaringNode as ParameterSyntax,
+            Sites: Array.Empty<ClosureSiteRef>());
+        group.Symbols.Add(plan);
+        return plan;
+    }
+
     private static (DisplayClassPlan? Group, bool IsNewGroup) ResolveHomeGroup(
         LambdaFacts f,
         SemanticModel model,
@@ -326,7 +595,7 @@ internal static class DisplayClassPlanner
         {
             var original = f.MutableGroups[0];
             if (original.ArrayForm)
-                return (null, false); // array comparator mode: M2 does not migrate.
+                return (null, false); // array comparator mode: no migration.
 
             return (registry.GetOrAddEvolved(original), false);
         }
@@ -353,12 +622,55 @@ internal static class DisplayClassPlanner
             return (absorbed, false);
         }
 
-        var nextIndex = NextInstanceIndex(holderGroups, f.Routine!, registry.ByKey.Values.Select(static e => e.Group));
+        var group = CreateFreshGroup(f, model, naming, holderGroups, registry);
+        registry.ByKey[key] = (group, true);
+        return (group, true);
+    }
+
+    /// <summary>D4: the fresh child display group of one nested-lambda block.</summary>
+    private static DisplayClassPlan ResolveChildGroup(
+        LambdaFacts f,
+        DisplayClassPlan parent,
+        SemanticModel model,
+        ClosureLiftNaming naming,
+        IReadOnlyList<DisplayClassPlan> holderGroups,
+        PureGroupRegistry registry)
+    {
+        // Sibling lambdas in the same block of the same parent lambda share one
+        // class + one instance (D3). Expression-bodied owner lambdas use the
+        // owner lambda node itself as the scope anchor.
+        var anchor = (SyntaxNode?)f.ScopeBlock ?? f.OwnerLambda!;
+        var key = (f.Routine!, anchor, parent);
+        if (registry.ChildByKey.TryGetValue(key, out var existing))
+            return existing;
+
+        var group = CreateFreshGroup(f, model, naming, holderGroups, registry);
+        group.Parent = parent;
+        group.ParentFieldName = ClosureLiftNaming.ParentFieldName;
+        group.ScopeAnchor = anchor;
+        registry.ChildByKey[key] = group;
+        return group;
+    }
+
+    /// <summary>Reserves a fresh group (class + instance names) without keying it.</summary>
+    private static DisplayClassPlan CreateFreshGroup(
+        LambdaFacts f,
+        SemanticModel model,
+        ClosureLiftNaming naming,
+        IReadOnlyList<DisplayClassPlan> holderGroups,
+        PureGroupRegistry registry)
+    {
+        var nextIndex = NextInstanceIndex(
+            holderGroups, f.Routine!,
+            registry.Evolved.Concat(registry.Fresh));
         var routineNames = HolderPlanner.CollectRoutineLocalNames(f.Routine!);
-        foreach (var holder in holderGroups.Where(h => ReferenceEquals(h.HostMember, f.Routine)))
+        foreach (var holder in holderGroups.Where(h => ReferenceEquals(h.HostMember, f.Routine!)))
             routineNames.Add(holder.InstanceName);
-        foreach (var created in registry.ByKey.Values.Select(static e => e.Group).Where(g => ReferenceEquals(g.HostMember, f.Routine)))
+        foreach (var created in registry.Evolved.Concat(registry.Fresh)
+                     .Where(g => ReferenceEquals(g.HostMember, f.Routine!)))
+        {
             routineNames.Add(created.InstanceName);
+        }
 
         var methodTypeParameters = HolderPlanner.CollectMethodTypeParameters(f.Routine!);
         var group = new DisplayClassPlan
@@ -372,20 +684,22 @@ internal static class DisplayClassPlanner
             ArrayForm = false,
             MethodTypeParameters = methodTypeParameters,
             ClassTypeParameters = CollectClassTypeParameters(f.HostType!, methodTypeParameters),
+            ScopeAnchor = f.ScopeBlock,
         };
-        registry.ByKey[key] = (group, true);
         registry.Fresh.Add(group);
-        return (group, true);
+        return group;
     }
 
     /// <summary>
     /// Per-file home-group registry: evolved copies of C32 groups and fresh pure
     /// groups stay in DISJOINT lists (the stage iterates both), while the key
-    /// map unifies the pure-lambda merge lookup over either shape.
+    /// maps unify the merge lookups.
     /// </summary>
     private sealed class PureGroupRegistry
     {
         public Dictionary<(SyntaxNode Routine, SyntaxNode Block), (DisplayClassPlan Group, bool IsNew)> ByKey { get; }
+            = new();
+        public Dictionary<(SyntaxNode Routine, SyntaxNode Anchor, DisplayClassPlan Parent), DisplayClassPlan> ChildByKey { get; }
             = new();
         public List<DisplayClassPlan> Fresh { get; } = new();
 
@@ -431,8 +745,10 @@ internal static class DisplayClassPlanner
 
         var parameter = holder.Symbols.FirstOrDefault(static s => s.Parameter != null);
         if (parameter != null)
+        {
             return (holder.HostMember as BaseMethodDeclarationSyntax)?.Body
                    ?? (holder.HostMember as AccessorDeclarationSyntax)?.Body;
+        }
 
         foreach (var symbol in holder.Symbols)
         {
@@ -523,6 +839,7 @@ internal static class DisplayClassPlanner
             TypeDeclarationSyntax? hostType,
             BlockSyntax? scopeBlock,
             List<DisplayClassPlan> mutableGroups,
+            List<CapturedSymbolInfo> allCaptures,
             List<CapturedSymbolInfo> readOnlyCaptures,
             HashSet<string> instanceMemberNames,
             bool hasExplicitThis)
@@ -534,26 +851,37 @@ internal static class DisplayClassPlanner
             HostType = hostType;
             ScopeBlock = scopeBlock;
             MutableGroups = mutableGroups;
+            AllCaptures = allCaptures;
             ReadOnlyCaptures = readOnlyCaptures;
             InstanceMemberNames = instanceMemberNames;
             HasExplicitThis = hasExplicitThis;
         }
 
-        public bool IsCapturing { get; }
+        public bool IsCapturing { get; set; }
         public bool IsThisOnly => ReadOnlyCaptures.Count == 0
                                   && MutableGroups.Count == 0
+                                  && PromotedCaptures.Count == 0
                                   && (InstanceMemberNames.Count > 0 || HasExplicitThis);
-        public bool HasCapturingAncestor { get; set; }
-        public bool HasCapturingDescendant { get; set; }
         public string? SkipReason { get; }
         public SyntaxNode? Routine { get; }
         public string RoutineName { get; }
         public TypeDeclarationSyntax? HostType { get; }
         public BlockSyntax? ScopeBlock { get; }
         public List<DisplayClassPlan> MutableGroups { get; }
+        public List<CapturedSymbolInfo> AllCaptures { get; }
         public List<CapturedSymbolInfo> ReadOnlyCaptures { get; }
         public HashSet<string> InstanceMemberNames { get; }
         public bool HasExplicitThis { get; }
+
+        /// <summary>D4: nearest enclosing statement lambda (pass 2).</summary>
+        public LambdaExpressionSyntax? OwnerLambda { get; set; }
+
+        /// <summary>D4: own parameters/locals captured by nested lambdas (pass 2).</summary>
+        public Dictionary<ISymbol, CapturedSymbolInfo> PromotedCaptures { get; }
+            = new(SymbolEqualityComparer.Default);
+
+        /// <summary>D4: promotion blocked by per-iteration loop scoping (documented bucket).</summary>
+        public bool PromotionBlocked { get; set; }
 
         public static LambdaFacts Skipped(
             string reason,
@@ -562,8 +890,11 @@ internal static class DisplayClassPlanner
             TypeDeclarationSyntax? hostType,
             BlockSyntax? scopeBlock)
             => new(false, reason, routine, routineName, hostType, scopeBlock,
-                new List<DisplayClassPlan>(), new List<CapturedSymbolInfo>(),
-                new HashSet<string>(StringComparer.Ordinal), hasExplicitThis: false);
+                new List<DisplayClassPlan>(),
+                new List<CapturedSymbolInfo>(),
+                new List<CapturedSymbolInfo>(),
+                new HashSet<string>(StringComparer.Ordinal),
+                hasExplicitThis: false);
     }
 
     /// <summary>
@@ -590,11 +921,11 @@ internal static class DisplayClassPlanner
         var lambdaSymbol = model.GetSymbolInfo(lambda).Symbol as IMethodSymbol;
         // The LAMBDA node is the walk root: a bare expression body (`() => x`)
         // would hide its own root identifier from DescendantNodes() (M1 note).
-        var captures = CaptureClassification.CollectCapturedSymbols(
-            model, lambda, lambdaSymbol, DescendNotIntoLocalFunctions);
+        List<CapturedSymbolInfo> captures = CaptureClassification.CollectCapturedSymbols(
+            model, lambda, lambdaSymbol, DescendNotIntoLocalFunctions).ToList();
 
         // Idempotency (C32 §4.1 mirror): already-lifted instance/array locals are
-        // never capture candidates for M2 either.
+        // never capture candidates for M2/M3 either.
         captures = captures
             .Where(static c => !c.Name.StartsWith("__cs2jClosure", StringComparison.Ordinal)
                                && !c.Name.StartsWith("__cs2jArr_", StringComparison.Ordinal))
@@ -624,7 +955,7 @@ internal static class DisplayClassPlanner
             readOnlyCaptures.Add(capture);
         }
 
-        var readOnlyBySymbol = readOnlyCaptures.ToDictionary(
+        var readOnlyBySymbol = captures.ToDictionary(
             static c => c.Symbol, static c => c, SymbolEqualityComparer.Default);
 
         var quotedSet = new HashSet<LambdaExpressionSyntax>(lambda
@@ -726,6 +1057,7 @@ internal static class DisplayClassPlanner
             hostType,
             NearestBlock(lambda),
             mutableGroups,
+            captures,
             readOnlyCaptures,
             instanceMemberNames,
             hasExplicitThis);

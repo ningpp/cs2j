@@ -36,6 +36,18 @@ internal sealed class DisplayClassSyntaxEmitter
                     SyntaxFactory.SingletonSeparatedList(
                         SyntaxFactory.VariableDeclarator(ClosureLiftNaming.ThisFieldName))));
 
+    /// <summary>D4: `private readonly &lt;ParentClass&gt; _cs2jParent;`.</summary>
+    public FieldDeclarationSyntax BuildParentField(string parentTypeDisplay)
+        => SyntaxFactory.FieldDeclaration(
+                SyntaxFactory.List<AttributeListSyntax>(),
+                SyntaxFactory.TokenList(
+                    SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
+                    SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)),
+                SyntaxFactory.VariableDeclaration(
+                    SyntaxFactory.ParseTypeName(parentTypeDisplay),
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.VariableDeclarator(ClosureLiftNaming.ParentFieldName))));
+
     /// <summary>`public &lt;Class&gt;(&lt;THost&gt; @this) { _cs2jThis = @this; }` (D7).</summary>
     public ConstructorDeclarationSyntax BuildThisConstructor(
         string className,
@@ -55,6 +67,25 @@ internal sealed class DisplayClassSyntaxEmitter
                         SyntaxFactory.IdentifierName("@this")))),
                 SyntaxFactory.Token(SyntaxKind.None));
 
+    /// <summary>D4: `public &lt;Class&gt;(&lt;ParentClass&gt; parent) { _cs2jParent = parent; }`.</summary>
+    public ConstructorDeclarationSyntax BuildParentConstructor(
+        string className,
+        string parentTypeDisplay)
+        => SyntaxFactory.ConstructorDeclaration(
+                SyntaxFactory.List<AttributeListSyntax>(),
+                SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)),
+                SyntaxFactory.Identifier(className),
+                SyntaxFactory.ParameterList(SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.Parameter(SyntaxFactory.Identifier("parent"))
+                        .WithType(SyntaxFactory.ParseTypeName(parentTypeDisplay)))),
+                initializer: null,
+                SyntaxFactory.Block(SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        SyntaxFactory.IdentifierName(ClosureLiftNaming.ParentFieldName),
+                        SyntaxFactory.IdentifierName("parent")))),
+                SyntaxFactory.Token(SyntaxKind.None));
+
     /// <summary>`internal &lt;ret&gt; Lambda_&lt;k&gt;(...)` — built by the lifter; only the
     /// deterministic modifiers/order contract lives here.</summary>
     public ClassDeclarationSyntax BuildDisplayClass(
@@ -64,7 +95,14 @@ internal sealed class DisplayClassSyntaxEmitter
     {
         var members = new List<MemberDeclarationSyntax>();
         members.AddRange(group.Symbols.Select(BuildCaptureField));
-        if (group.CapturesThis)
+        if (group.Parent != null)
+        {
+            // D4 nested class: the parent display instance is the only ctor
+            // input; host `this` (if any) is reached via the parent chain.
+            members.Add(BuildParentField(group.Parent.QualifiedClassName));
+            members.Add(BuildParentConstructor(group.ClassName, group.Parent.QualifiedClassName));
+        }
+        else if (group.CapturesThis)
         {
             members.Add(BuildThisField(hostTypeDisplay));
             members.Add(BuildThisConstructor(group.ClassName, hostTypeDisplay));
@@ -125,6 +163,42 @@ internal sealed class DisplayClassSyntaxEmitter
                     SyntaxFactory.IdentifierName(group.InstanceName),
                     SyntaxFactory.IdentifierName(symbol.FieldName)),
                 value));
+
+    /// <summary>
+    /// D4: `var __cs2jClosureN = new &lt;OuterQual&gt;.&lt;Child&gt;(this);` created at the
+    /// entry of a migrated parent method's block (foreach bodies naturally make
+    /// this per-iteration).
+    /// </summary>
+    public static LocalDeclarationStatementSyntax BuildNestedInstanceDeclaration(
+        string instanceName,
+        string qualifiedChildType)
+    {
+        var objectCreation = SyntaxFactory.ObjectCreationExpression(
+                SyntaxFactory.ParseTypeName(qualifiedChildType))
+            .WithArgumentList(SyntaxFactory.ArgumentList(
+                SyntaxFactory.SingletonSeparatedList(
+                    SyntaxFactory.Argument(SyntaxFactory.ThisExpression()))));
+
+        var declarator = SyntaxFactory.VariableDeclarator(instanceName)
+            .WithInitializer(SyntaxFactory.EqualsValueClause(objectCreation));
+
+        return SyntaxFactory.LocalDeclarationStatement(
+            SyntaxFactory.VariableDeclaration(VarType(), SyntaxFactory.SingletonSeparatedList(declarator)));
+    }
+
+    /// <summary>D4/D8: `new &lt;DelType&gt;(__cs2jClosureN.Lambda_k)` for a nested site.</summary>
+    public static ObjectCreationExpressionSyntax BuildNestedDelegateCreation(
+        string delegateTypeDisplay,
+        string instanceName,
+        string methodName)
+        => SyntaxFactory.ObjectCreationExpression(
+                SyntaxFactory.ParseTypeName(delegateTypeDisplay))
+            .WithArgumentList(SyntaxFactory.ArgumentList(
+                SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName(instanceName),
+                        SyntaxFactory.IdentifierName(methodName))))));
 
     private static IdentifierNameSyntax VarType()
         // Same spelling rule as HolderSyntaxGenerator (contextual keyword token).

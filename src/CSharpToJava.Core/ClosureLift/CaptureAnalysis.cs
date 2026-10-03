@@ -261,6 +261,15 @@ internal sealed class CaptureAnalyzer
 
         var declaringNode = declaringRef.GetSyntax();
 
+        // C45 M3 (D4): lambda-owned symbols — a lambda's own parameters and
+        // locals/foreach variables declared inside a lambda body — are owned by
+        // the nested display-class lowering. A routine-scoped C32 holder
+        // instance cannot reach the invocation scope of an enclosing lambda
+        // (emitting the snapshot at routine start references names that do not
+        // exist there), so C32 leaves the whole symbol family to M3.
+        if (declaringNode.Ancestors().OfType<LambdaExpressionSyntax>().Any())
+            return null;
+
         ParameterSyntax? parameter = declaringNode as ParameterSyntax;
         VariableDeclaratorSyntax? declarator = declaringNode as VariableDeclaratorSyntax;
         // Classic foreach iteration variables expose the ForEachStatementSyntax

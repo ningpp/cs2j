@@ -163,6 +163,15 @@ internal sealed class ClosureLiftNaming
     /// <summary>C45 M2 this-capture field/ctor-parameter contract name (D7; C04 §4.3/C18 D12 family).</summary>
     public const string ThisFieldName = "_cs2jThis";
 
+    /// <summary>C45 M3 parent-link field name on nested display classes (D4).</summary>
+    public const string ParentFieldName = "_cs2jParent";
+
+    /// <summary>C45 M3 synthesized lambda parameter name prefix (D12 discard/unnamed normalization).</summary>
+    public const string SynthesizedArgPrefix = "_cs2jArg_";
+
+    /// <summary>D12: deterministic synthesized parameter name for slot <paramref name="index"/>.</summary>
+    public static string GetSynthesizedArgName(int index) => SynthesizedArgPrefix + index;
+
     /// <summary>
     /// The class-name segment keeps the Pascal spelling of the host member.
     /// A member literally named with a C# reserved keyword (e.g. <c>@class</c>)

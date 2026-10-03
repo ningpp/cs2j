@@ -16,6 +16,16 @@ public enum TriggerReason
     /// original local/parameter, and the field is snapshot-initialized at the
     /// instance creation point.</summary>
     ReadOnlyValue,
+
+    /// <summary>C45 M3 (D4): an outer lambda's own parameter captured by a nested
+    /// lambda; the parameter becomes a field of the outer lambda's home display
+    /// class, entry-assigned when the migrated method starts.</summary>
+    PromotedLambdaParameter,
+
+    /// <summary>C45 M3 (D4): a local declared inside a migrated lambda body and
+    /// mutably captured by a nested lambda; the cell becomes a field of the
+    /// display group keyed at the local's declaration block.</summary>
+    LambdaLocalMutable,
 }
 
 /// <summary>
@@ -74,6 +84,23 @@ internal sealed class DisplayClassPlan
     public string TypeArgumentSuffix =>
         MethodTypeParameters.Count == 0 ? string.Empty : "<" + string.Join(",", MethodTypeParameters) + ">";
 
+    /// <summary>
+    /// D4 (M3): chain-qualified type name for construction sites inside parent
+    /// methods: `Cs2jDisplayClass_M_0&lt;T&gt;.Cs2jDisplayClass_M_1&lt;T&gt;`. Each
+    /// display class redeclares the routine method arity independently.
+    /// </summary>
+    public string QualifiedClassName
+    {
+        get
+        {
+            var chain = new List<DisplayClassPlan> { this };
+            for (var current = Parent; current != null; current = current.Parent)
+                chain.Add(current);
+            chain.Reverse();
+            return string.Join(".", chain.Select(static g => g.ClassName + g.TypeArgumentSuffix));
+        }
+    }
+
     /// <summary>Lifted symbols in deterministic order (DeclaringNode.SpanStart), Task 11 freezes it.</summary>
     public List<CapturedSymbolPlan> Symbols { get; } = new();
 
@@ -89,11 +116,19 @@ internal sealed class DisplayClassPlan
     /// parameters of <see cref="MethodTypeParameters"/> (the declared arity).</summary>
     public IReadOnlyList<string> ClassTypeParameters { get; init; } = Array.Empty<string>();
 
-    /// <summary>D4 (M3): enclosing display class; null = top-level (always null in M2).</summary>
-    public DisplayClassPlan? Parent { get; init; }
+    /// <summary>
+    /// D4 (M3): group scope anchor — the statement block the group instance
+    /// belongs to (routine/block nesting), or the enclosing lambda node when
+    /// the group lives in an expression-bodied lambda (block-wrapped at lift
+    /// time). Registry key input (routine + anchor).
+    /// </summary>
+    public SyntaxNode? ScopeAnchor { get; set; }
 
-    /// <summary>D4 (M3): the `_cs2jParent` field name on this class (null in M2).</summary>
-    public string? ParentFieldName { get; init; }
+    /// <summary>D4 (M3): enclosing display class; null = chain top.</summary>
+    public DisplayClassPlan? Parent { get; set; }
+
+    /// <summary>D4 (M3): the `_cs2jParent` field name on this class (null at chain top).</summary>
+    public string? ParentFieldName { get; set; }
 
     /// <summary>D9: migrated lambda bodies as instance methods `Lambda_&lt;k&gt;`.</summary>
     public List<LambdaMethodPlan> Methods { get; } = new();
@@ -110,11 +145,15 @@ internal sealed class DisplayClassPlan
     public HashSet<string> UsedFieldNames { get; } = new(StringComparer.Ordinal);
 
     /// <summary>True when the class shape grew beyond the C32 field-only holder
-    /// (this field, read-only fields or lambda methods) — i.e. the emitted class
-    /// needs a consolidation edit; false keeps the emitted class untouched.</summary>
+    /// (this field, read-only fields, lambda methods or a parent link) — i.e.
+    /// the emitted class needs a consolidation edit; false keeps the emitted
+    /// class untouched.</summary>
     public bool NeedsConsolidation =>
         CapturesThis
-        || Symbols.Any(s => s.Reason == TriggerReason.ReadOnlyValue)
+        || Parent != null
+        || Symbols.Any(s => s.Reason is TriggerReason.ReadOnlyValue
+            or TriggerReason.PromotedLambdaParameter
+            or TriggerReason.LambdaLocalMutable)
         || Methods.Count > 0;
 }
 
