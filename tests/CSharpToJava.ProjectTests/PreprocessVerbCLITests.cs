@@ -488,4 +488,78 @@ public class C
             Directory.Delete(sourceDir, recursive: true);
         }
     }
+
+    // ───────────────────────── C29 concurrency-normalize（设计 §7.5）─────────────────────────
+
+    [Fact]
+    public async Task ListPasses_ShowsConcurrencyNormalize_ImplementedAndOffByDefault()
+    {
+        var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
+
+        Assert.Equal(0, exit);
+        var line = stdout.Split('\n').First(l => l.Contains("concurrency-normalize"));
+        Assert.Contains("Implemented", line);
+        Assert.Contains(" off ", line); // 长期 opt-in（设计 §3.4/§8），默认关
+        Assert.DoesNotContain(" on ", line);
+        // Late anchor + catalog inventory surface.
+        Assert.Contains("eliminate-goto", line);
+        Assert.Contains("rules=C29", line);
+    }
+
+    [Fact]
+    public async Task ExplicitPassSelection_RunsConcurrencyNormalize()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace ConcSample;
+
+public static class Gate
+{
+    private static readonly object _lock = new();
+
+    public static int Value;
+
+    public static void Bump()
+    {
+        System.Threading.Monitor.Enter(_lock);
+        try
+        {
+            Value++;
+        }
+        finally
+        {
+            System.Threading.Monitor.Exit(_lock);
+        }
+    }
+}
+""");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "concurrency-normalize",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.True(exit == 0,
+                $"preprocess --pass concurrency-normalize failed (exit {exit}).\nstderr: {stderr}\nstdout: {stdout}");
+
+            var intermediateDirs = Directory
+                .GetDirectories(destDir, ".cs2j-*", SearchOption.TopDirectoryOnly)
+                .Select(Path.GetFileName)
+                .ToArray();
+            Assert.Single(intermediateDirs);
+            Assert.Equal(".cs2j-concurrency-normalize-src", intermediateDirs[0]);
+
+            // CN-2 form B: the hand-written Enter/Exit pair normalizes to lock.
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-concurrency-normalize-src", "Class1.cs"));
+            Assert.Contains("lock (_lock)", rewritten);
+            Assert.DoesNotContain("Monitor.Enter", rewritten);
+            Assert.Contains("concurrency-normalize:", stdout);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
 }

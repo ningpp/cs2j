@@ -55,6 +55,9 @@ public sealed class PassChainOrderTests
         // implemented 区后，它与只依赖 tuple 的 equality-concat 在 Kahn
         // 声明序破平中先后对调（两者无相互依赖；三工程回归全绿即行为无外溢）。
         PassIds.MemberDesugar,
+        // C29 翻转（默认关，长期 opt-in）：描述符置于 member-desugar 之后，
+        // 与 equality-concat 互无 RunAfter 约束，相对次序由注册表声明序锁定。
+        PassStubCatalog.Ids.ConcurrencyNormalize,
         PassStubCatalog.Ids.EqualityConcat,
         PassIds.JavaKeywords,
     ];
@@ -63,12 +66,14 @@ public sealed class PassChainOrderTests
     // closure-lift ships M2 default-off pending the M3 enable-by-default review;
     // extension-methods (C19) ships M0 as a verified no-op kept default-off until
     // the M3 enable-by-default gate (design §8).
+    // concurrency-normalize is Implemented but a long-term opt-in (design §3.4/§8).
     private static readonly string[] EnabledByDefault =
         LockedChain.Where(id =>
             id != PassStubCatalog.Ids.LexicalNormalize
             && id != PassStubCatalog.Ids.PartialMerge
             && id != PassStubCatalog.Ids.ClosureLift
-            && id != PassIds.ExtensionMethods).ToArray();
+            && id != PassIds.ExtensionMethods
+            && id != PassStubCatalog.Ids.ConcurrencyNormalize).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -290,6 +295,9 @@ public sealed class PassChainOrderTests
         Assert.False(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
         Assert.Equal("C32", byId[PassStubCatalog.Ids.ClosureLift].CatalogItems);
         Assert.False(byId[PassStubCatalog.Ids.ClosureLift].DefaultEnabled);
+        Assert.Equal("C29", byId[PassStubCatalog.Ids.ConcurrencyNormalize].CatalogItems);
+        Assert.False(byId[PassStubCatalog.Ids.ConcurrencyNormalize].DefaultEnabled);
+        Assert.Equal(".cs2j-concurrency-normalize-src", byId[PassStubCatalog.Ids.ConcurrencyNormalize].IntermediateDirectoryName);
     }
 
     [Fact]
@@ -404,9 +412,8 @@ public sealed class PassChainOrderTests
 
         // Legacy flags only exist for the historical implemented passes; stubs and
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
-        // C36 expression-desugar) are reachable solely through their descriptor
-        // default plus
-        // --enable-pass/--pass.
+        // C36 expression-desugar, C29 concurrency-normalize) are reachable solely
+        // through their descriptor default plus --enable-pass/--pass.
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
@@ -415,8 +422,34 @@ public sealed class PassChainOrderTests
                 && id != PassStubCatalog.Ids.LexicalNormalize
                 && id != PassStubCatalog.Ids.PartialMerge
                 && id != PassStubCatalog.Ids.ClosureLift
-                && id != PassIds.ExtensionMethods)
+                && id != PassIds.ExtensionMethods
+                && id != PassStubCatalog.Ids.ConcurrencyNormalize)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
+    }
+
+    [Fact]
+    public void ConcurrencyNormalize_is_default_off_and_explicit_enable_resolves_its_locked_slot()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        // Default-off (long-term opt-in, design §3.4/§8): absent from the
+        // default plan and from the legacy-toggle map.
+        var baseline = PassPlanResolver.Resolve(registry);
+        Assert.DoesNotContain(baseline.Enabled, p => p.Id == PassStubCatalog.Ids.ConcurrencyNormalize);
+
+        // Explicit enable (--enable-pass / --pass) resolves the pass; with
+        // every legacy toggle off it runs alone (its eliminate-goto anchor
+        // stays disabled), which pins its resolver slot.
+        var allOff = LockedChain.ToDictionary(id => id, _ => false);
+        var isolated = PassPlanResolver.Resolve(
+            registry,
+            allOff,
+            enablePassIds: new[] { PassStubCatalog.Ids.ConcurrencyNormalize });
+
+        Assert.True(isolated.IsValid);
+        Assert.Equal(
+            new[] { PassStubCatalog.Ids.ConcurrencyNormalize },
+            isolated.Enabled.Select(p => p.Id).ToArray());
     }
 }
