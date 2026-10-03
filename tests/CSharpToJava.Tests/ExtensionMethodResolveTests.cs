@@ -71,14 +71,13 @@ public sealed class ExtensionMethodResolveTests
     }
 
     [Fact]
-    public void M0_RewriteFile_IsByteEquivalentNoOp_AndReportsClean()
+    public void M1_RewriteFile_ExplicitizesUserHost_AndLeavesLinqSugarUntouched()
     {
         var (compilation, model) = Compile(ExtensionSource);
         Assert.Empty(compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
 
-        // Sanity: the test input genuinely contains a reduced extension call
-        // (Shout) plus reduced LINQ calls — the M0 binder deliberately ignores
-        // all of them.
+        // The input contains one user reduced call (Shout) plus reduced LINQ
+        // calls (Select/Count): M1 rewrites only the user site.
         var reduced = model.SyntaxTree.GetCompilationUnitRoot().DescendantNodes()
             .OfType<InvocationExpressionSyntax>()
             .Select(n => model.GetSymbolInfo(n).Symbol)
@@ -93,15 +92,21 @@ public sealed class ExtensionMethodResolveTests
 
         var result = preprocessor.RewriteFile(model);
 
-        Assert.False(result.Changed);
+        Assert.True(result.Changed);
         Assert.Empty(result.Diagnostics);
         Assert.Equal(1, result.Statistics.FilesScanned);
-        Assert.Equal(1, result.Statistics.FilesClean);
-        Assert.Equal(0, result.Statistics.FilesTransformed);
-        Assert.Equal(0, result.Statistics.CallsitesBoundReduced);
-        Assert.Equal(0, result.Statistics.CallsitesRewritten);
+        Assert.Equal(1, result.Statistics.FilesTransformed);
+        Assert.Equal(0, result.Statistics.FilesClean);
+        // Shout + Select + Count are all bound reduced; only Shout is rewritten.
+        Assert.Equal(3, result.Statistics.CallsitesBoundReduced);
+        Assert.Equal(1, result.Statistics.CallsitesRewritten);
+        Assert.Equal(2, result.Statistics.LinqOwnedSkipped);
+        Assert.Equal(1, result.Statistics.InCompilationHostSites);
+        Assert.Contains("global::StringExt.Shout(\"x\")", Compact(result.OutputCode));
+        // LINQ sugar keeps its reduced member-access shape.
+        Assert.Contains(".Select(i=>i+1).Count()", Compact(result.OutputCode));
 
-        // Unchanged helper keeps the same no-op shape (runner performs the
+        // Unchanged helper keeps the no-op shape (runner performs the
         // byte-level File.Copy; BOM is preserved there, not via this text).
         var helper = ExtensionFileResult.Unchanged("source");
         Assert.False(helper.Changed);
@@ -109,8 +114,10 @@ public sealed class ExtensionMethodResolveTests
     }
 
     [Fact]
-    public void M0_ResidualScan_IsEmpty_EvenWithReducedCallsPresent()
+    public void M1_ResidualScan_FlagsUnrewrittenReducedCall_ButExemptsLinqHosts()
     {
+        // With no sites rewritten, the original tree shows one non-LINQ
+        // residual (Shout); Select/Count are LINQ-exempt.
         var (compilation, _) = Compile(ExtensionSource);
         var preprocessor = new ExtensionMethodResolvePreprocessor();
         preprocessor.BindCompilation(compilation);
@@ -118,8 +125,11 @@ public sealed class ExtensionMethodResolveTests
 
         var residuals = preprocessor.ResidualScan(compilation);
 
-        Assert.Empty(residuals);
+        Assert.Equal(1, residuals[ExtensionMethodResidualScanner.RuleRemainingReducedInvocation]);
     }
+
+    private static string Compact(string code)
+        => string.Concat(code.Where(c => !char.IsWhiteSpace(c)));
 
     [Fact]
     public void Statistics_MergeAndSummaryLine_BehaveInM0()
