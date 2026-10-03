@@ -22,7 +22,7 @@ internal sealed class RecordClaimIndex
     //   PositionalClassReshapeEnabled：RC-3（位置 record class reshape）
     //   PositionalStructReshapeEnabled：RC-4（位置 record struct / 普通 struct 值拷贝）
     //   NestedWithEnabled：WR-5（嵌套 with 后序重写）
-    internal const bool PositionalClassReshapeEnabled = false;
+    internal const bool PositionalClassReshapeEnabled = true;
     internal const bool PositionalStructReshapeEnabled = false;
     internal const bool NestedWithEnabled = false;
 
@@ -141,14 +141,33 @@ internal sealed class RecordClaimIndex
             .Where(CloneCtorResolver.IsRecordClass)
             .ToHashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
 
-        // ---- 3b. 位置候选 reshape 物料 + 5220 闸门（仅当存在非空可行站点才需要 reshape；
-        // 纯空站点走原工厂/值拷贝即可，声明不动）。----
+        // 继承链闭包（组件成员 = class 候选 + record 祖先 + 源内 record 派生）。位置 class
+        // 即便自身无 with 站点，也可能因派生站点而必须连带 reshape（复制 ctor base(other)
+        // 链 + Deconstruct 的 get_X + 5123 认领都以基类终形就位为前提），故 shape 分析面
+        // 是整个源内闭包，而非仅候选。
+        var classClosure = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (var candidate in classCandidates)
+        {
+            classClosure.Add(candidate);
+            foreach (var a in CloneCtorResolver.RecordAncestors(candidate))
+                classClosure.Add(a.OriginalDefinition);
+            foreach (var d in CloneCtorResolver.SourceRecordDescendants(candidate, sourceRecords))
+                classClosure.Add(d.OriginalDefinition);
+        }
+
+        // ---- 3b. 位置类型 reshape 物料 + 5220 闸门。
+        // ① struct 候选：仅非空可行站点需要（RC-4 前由临时闸门维持 M1）；
+        // ② class 闭包内全部源内位置 record（含纯工厂/基类角色，连带 reshape 才合法）。----
         var shapeGates = new Dictionary<INamedTypeSymbol, ShapeGate>(
             SymbolEqualityComparer.Default);
-        foreach (var type in candidates.Where(CloneCtorResolver.IsPositional))
+        var structShapeTargets = candidates
+            .Where(t => !CloneCtorResolver.IsRecordClass(t)
+                && CloneCtorResolver.IsPositional(t)
+                && sitesByType[t].Any(s => s.IsLocallyRewritable && !s.IsEmpty));
+        var classShapeTargets = classClosure
+            .Where(t => CloneCtorResolver.IsInSource(t) && CloneCtorResolver.IsPositional(t));
+        foreach (var type in structShapeTargets.Concat(classShapeTargets).Distinct())
         {
-            var hasNonEmptySite = sitesByType[type].Any(s => s.IsLocallyRewritable && !s.IsEmpty);
-            if (!hasNonEmptySite) continue;
             var (shape, gate) = PositionalRecordShapeAnalyzer.Analyze(type, compilation);
             if (shape != null) index._shapes[type] = shape;
             else if (gate != null) shapeGates[type] = gate;
@@ -249,6 +268,24 @@ internal sealed class RecordClaimIndex
             }
 
             index._typeClaims[type] = new TypeClaim(true, null, null, componentRoot);
+        }
+
+        // ---- 6b. 闭包内自身无站点的 record class 成员（连带 reshape/纯工厂角色）定案 ----
+        // 组件闸门已在第 5 步统一聚合：闸门组件给不可行（5123 不让位、plan gate 兜底），
+        // 其余给可行（PropertyRule 据其 shape 认领位置属性，RecordRule 为其挂 reshape）。
+        foreach (var type in classClosure)
+        {
+            if (index._typeClaims.ContainsKey(type)) continue;
+            var root = dsu.Find(type);
+            if (components.TryGetValue(root, out var comp) && comp.GateCode is { } gateCode)
+            {
+                index._typeClaims[type] = new TypeClaim(
+                    false, gateCode, comp.GateReason!, root);
+            }
+            else
+            {
+                index._typeClaims[type] = new TypeClaim(true, null, null, root);
+            }
         }
 
         return index;

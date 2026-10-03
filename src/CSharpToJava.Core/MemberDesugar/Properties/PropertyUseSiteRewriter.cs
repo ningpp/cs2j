@@ -16,6 +16,9 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<string, PropertyPlan> _active;
     private readonly HashSet<string> _knownKeys;
     private readonly HashSet<string> _candidateNames;
+    // C27 M2：reshape 后位置属性在重解析模型里已不存在，其残余使用点靠
+    // 「名 + 接收者类型显示串」回退认领（仅对 IsPositionalRecordMember plan）。
+    private readonly Dictionary<string, List<PropertyPlan>> _positionalByName;
     private readonly MemberDesugarOptions _options;
     private readonly MemberDesugarStatistics _stats;
     private readonly List<MemberDesugarDiagnostic> _diagnostics;
@@ -37,6 +40,10 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         _knownKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (var p in allPlans) _knownKeys.Add(PropertyPlan.SiteKey(p.Property));
         _candidateNames = plannedPlans.Select(p => p.DeclName).ToHashSet(StringComparer.Ordinal);
+        _positionalByName = plannedPlans
+            .Where(p => p.IsPositionalRecordMember)
+            .GroupBy(p => p.DeclName)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
         _options = options;
         _stats = stats;
         _diagnostics = diagnostics;
@@ -630,10 +637,72 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
             return false;
         }
 
-        if (_model.GetSymbolInfo(node).Symbol is not IPropertySymbol p) return false;
-        // 构造泛型（Box<string>.Value）归一到定义符号（Box<T>.Value）命中计划。
-        if (!p.IsDefinition) p = p.OriginalDefinition;
-        return _active.TryGetValue(PropertyPlan.SiteKey(p), out plan);
+        var symbolInfo = _model.GetSymbolInfo(node);
+        if (symbolInfo.Symbol is IPropertySymbol p)
+        {
+            // 构造泛型（Box<string>.Value）归一到定义符号（Box<T>.Value）命中计划。
+            if (!p.IsDefinition) p = p.OriginalDefinition;
+            return _active.TryGetValue(PropertyPlan.SiteKey(p), out plan);
+        }
+
+        // C27 M2 回退：reshape 终形里位置属性已降形为字段/get_X/set_X，重解析模型对
+        // 残余 X/p.X 不再给出属性符号。仅当该处「什么都没绑定到」（参数/局部/方法等
+        // 真实绑定一律不拦——含新发主 ctor 的 : base(X)）时，按名 + 接收者类型链回退。
+        if (symbolInfo.Symbol != null || symbolInfo.CandidateSymbols.Length > 0)
+            return false;
+        return TryPositionalFallback(node, out plan);
+    }
+
+    /// <summary>
+    /// 位置属性残余使用点回退认领：IdentifierName 取其所在类型为接收者；
+    /// MemberAccess 取左接收者静态类型；MemberBinding 取条件接收表达式类型。
+    /// 类型比较走 OriginalDefinition 显示串（跨编译稳定，构造泛型归一），
+    /// 沿基类链匹配 plan 属性所属类型。
+    /// </summary>
+    private bool TryPositionalFallback(ExpressionSyntax node, out PropertyPlan plan)
+    {
+        plan = null!;
+        var name = node switch
+        {
+            IdentifierNameSyntax id => id.Identifier.ValueText,
+            MemberAccessExpressionSyntax ma => ma.Name.Identifier.ValueText,
+            MemberBindingExpressionSyntax mb => mb.Name.Identifier.ValueText,
+            _ => null,
+        };
+        if (name == null || !_positionalByName.TryGetValue(name, out var candidates))
+            return false;
+
+        INamedTypeSymbol? receiverType = null;
+        switch (node)
+        {
+            case IdentifierNameSyntax:
+                receiverType = _model.GetEnclosingSymbol(node.SpanStart)?.ContainingType;
+                break;
+            case MemberAccessExpressionSyntax ma:
+                receiverType = _model.GetTypeInfo(ma.Expression).Type as INamedTypeSymbol;
+                break;
+            case MemberBindingExpressionSyntax:
+                var cond = node.Ancestors().OfType<ConditionalAccessExpressionSyntax>().FirstOrDefault();
+                if (cond != null)
+                    receiverType = _model.GetTypeInfo(cond.Expression).Type as INamedTypeSymbol;
+                break;
+        }
+        if (receiverType == null) return false;
+
+        foreach (var candidate in candidates)
+        {
+            var ownerFqn = candidate.Property.ContainingType?.OriginalDefinition.ToDisplayString();
+            if (ownerFqn == null) continue;
+            for (var b = receiverType.OriginalDefinition; b != null; b = b.BaseType)
+            {
+                if (b.ToDisplayString() == ownerFqn)
+                {
+                    plan = candidate;
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /// <summary>方法组上下文：转换目标是委托而表达式本身类型不是委托（如 Func&lt;int&gt; f = c.X）。</summary>

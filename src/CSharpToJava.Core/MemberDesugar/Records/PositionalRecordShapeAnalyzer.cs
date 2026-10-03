@@ -22,8 +22,14 @@ internal sealed class PositionalShapeMember
     /// 其 Type 节点在字段/get/set 签名处复用——绿节点不可变，可多处复用）。</summary>
     public required ParameterSyntax Parameter { get; init; }
 
-    /// <summary>终形后备字段名（经 BackingFieldNaming 与 C11 契约逐字同名）。</summary>
+    /// <summary>终形后备字段名（经 BackingFieldNaming 与 C11 契约逐字同名）。
+    /// 基类转发参数（<see cref="IsInherited"/>）不发字段，此值为空串。</summary>
     public required string FieldName { get; init; }
+
+    /// <summary>true=该参数在本类型不合成新属性（Roslyn 对与可继承位置属性同名的派生
+    /// 位置参数复用基类属性）：不发字段/get/set，主 ctor 仅经 base(...) 转发；
+    /// Deconstruct 仍以继承来的 get_X() 读它。</summary>
+    public required bool IsInherited { get; init; }
 }
 
 /// <summary>一个可 reshape 的源内位置 record 的完整物料（终形发射所需的一切，重写期零语义查询）。</summary>
@@ -81,8 +87,10 @@ internal static class PositionalRecordShapeAnalyzer
             return Gate(type, "the record struct is readonly, so its materialized set_X "
                 + "methods and backing fields would themselves be readonly");
 
-        // ---- 位置参数 → 合成属性；手动实现/特性/非普通参数一律闸门 ----
-        var members = new List<(IPropertySymbol Prop, ParameterSyntax Param)>();
+        // ---- 位置参数 → 合成/继承属性；手动实现/特性/非普通参数一律闸门 ----
+        // 派生 record 与基类位置属性同名的参数不再合成新属性（Roslyn 复用基类属性），
+        // 记为基类转发参数：本部件不为其发字段/get/set，只经 : base(...) 转发。
+        var members = new List<(IPropertySymbol Prop, ParameterSyntax Param, bool IsInherited)>();
         var paramSymbols = new HashSet<IParameterSymbol>(SymbolEqualityComparer.Default);
         foreach (var param in part.ParameterList!.Parameters)
         {
@@ -95,9 +103,7 @@ internal static class PositionalRecordShapeAnalyzer
                 return Gate(type, $"positional parameter '{param.Identifier.ValueText}' uses a "
                     + "ref/in/out modifier that cannot be represented as a record member");
 
-            var prop = type.GetMembers(param.Identifier.ValueText)
-                .OfType<IPropertySymbol>()
-                .FirstOrDefault(p => !p.IsIndexer);
+            var prop = ResolvePositionalProperty(type, param.Identifier.ValueText);
             if (prop == null)
                 return Gate(type, $"positional parameter '{param.Identifier.ValueText}' does not "
                     + "bind to a property of the record");
@@ -105,7 +111,9 @@ internal static class PositionalRecordShapeAnalyzer
                 return Gate(type, $"positional member '{prop.Name}' is manually implemented "
                     + "(explicit property declaration); mixing manual positional members with "
                     + "synthesized field/get_X/set_X materialization is not reshaped in M2");
-            members.Add((prop, param));
+            var isInherited = !SymbolEqualityComparer.Default.Equals(
+                prop.ContainingType?.OriginalDefinition, type.OriginalDefinition);
+            members.Add((prop, param, isInherited));
 
             if (model.GetDeclaredSymbol(param) is { } ps) paramSymbols.Add(ps);
         }
@@ -149,9 +157,11 @@ internal static class PositionalRecordShapeAnalyzer
                 + "and cannot be merged with the materialized protected copy constructor");
         }
 
-        // ---- 闸门④：get_X/set_X 发射名与既有显式成员冲突 ----
-        foreach (var (prop, _) in members)
+        // ---- 闸门④：get_X/set_X 发射名与既有显式成员冲突（仅本类型新发的成员；
+        // 基类转发参数的访问器由基类 reshape 发射，本类型不重复发、不参与撞名）----
+        foreach (var (prop, _, isInherited) in members)
         {
+            if (isInherited) continue;
             foreach (var accessorName in new[]
                          { AccessorsToMethods.GetterName(prop.Name),
                            AccessorsToMethods.SetterName(prop.Name) })
@@ -162,15 +172,18 @@ internal static class PositionalRecordShapeAnalyzer
             }
         }
 
-        // ---- 后备字段名（与 C11 同一确定性算法；撞名/value/reserved 由其消歧）----
+        // ---- 后备字段名（与 C11 同一确定性算法；只给本类型新发字段的自有属性算；
+        // 撞名/value/reserved 由其消歧）。基类转发参数 FieldName 留空。----
+        var ownMembers = members.Where(m => !m.IsInherited).ToList();
         var fieldNames = BackingFieldNaming.Assign(
-            members.Select(m => (m.Prop, DeclName: m.Prop.Name)));
+            ownMembers.Select(m => (m.Prop, DeclName: m.Prop.Name)));
         var material = members
             .Select(m => new PositionalShapeMember
             {
                 Property = m.Prop,
                 Parameter = m.Param,
-                FieldName = fieldNames[m.Prop],
+                FieldName = m.IsInherited ? "" : fieldNames[m.Prop],
+                IsInherited = m.IsInherited,
             })
             .ToList();
 
@@ -227,6 +240,19 @@ internal static class PositionalRecordShapeAnalyzer
             }
         }
         return false;
+    }
+
+    /// <summary>位置参数 → 属性解析：先本类型自有，再沿基类链找同名实例属性
+    /// （Roslyn 对派生 record 与可继承位置属性同名的参数不重复合成属性）。</summary>
+    private static IPropertySymbol? ResolvePositionalProperty(INamedTypeSymbol type, string name)
+    {
+        for (var t = type; t != null; t = t.BaseType)
+        {
+            var prop = t.GetMembers(name).OfType<IPropertySymbol>()
+                .FirstOrDefault(p => !p.IsIndexer && !p.IsStatic);
+            if (prop != null) return prop;
+        }
+        return null;
     }
 
     private static (PositionalShape?, ShapeGate) Gate(INamedTypeSymbol type, string reason)

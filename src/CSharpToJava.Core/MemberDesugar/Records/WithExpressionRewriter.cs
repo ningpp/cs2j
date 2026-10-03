@@ -91,11 +91,21 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
         if (!_planByInjectSpan.TryGetValue(node.Identifier.SpanStart, out var plan))
             return visited;
 
+        // RC-3/RC-4：先在同部件发射 reshape 终形（去 ParameterList + 字段/get/set/ctor/
+        // Deconstruct），再在终形上注入克隆工厂（同一 Visit 遍次，同改同不改）。
+        // 注意：部件身份/跨度判定一律用绿色原节点 node；visited 是 base.Visit 产出的红色
+        // 脱离节点，其 SpanStart 只是「子树相对偏移」（脱离红节点挂在合成子树上），有
+        // using/前文时与文件绝对跨度不一致，不能拿它跟 plan/shape 的锚点跨度比。
+        var reshaped = RecordDeclarationRewriter.TryApplyReshape(
+                node, visited, plan, _options, _stats, _diagnostics, _filePath)
+            ?? visited;
+        if (!ReferenceEquals(reshaped, visited)) Changed = true;
+
         var factory = RecordDeclarationRewriter.TryBuildFactory(
-            node, plan, _options, _stats, _diagnostics, _filePath);
-        if (factory == null) return visited;
+            reshaped, plan, _options, _stats, _diagnostics, _filePath);
+        if (factory == null) return reshaped;
         Changed = true;
-        return visited.AddMembers(factory);
+        return reshaped.AddMembers(factory);
     }
 
     // ---- 语句拼接：提升产物块拆入外层作用域（与 C11 同形，临时变量须对后续语句可见）----

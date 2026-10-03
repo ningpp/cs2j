@@ -75,6 +75,7 @@ internal sealed class RecordRule : IMemberDesugarRule
             if (component.Members.Any(t => nestedPending.Contains(t))) continue;
             if (component.Members.Any(t =>
                     CloneCtorResolver.IsRecordClass(t)
+                    && CloneCtorResolver.IsInSource(t)
                     && CloneCtorResolver.IsPositional(t)
                     && (!index.TryGetShape(t, out var pendingShape)
                         || !RecordClaimIndex.IsEmissionReady(t, pendingShape))))
@@ -201,7 +202,8 @@ internal sealed class RecordRule : IMemberDesugarRule
             });
         }
 
-        // ---- 5. 纯工厂角色的闭包成员（自身无 with 站点，派生链/虚分派需要其工厂）----
+        // ---- 5. 纯工厂角色的闭包成员（自身无 with 站点，派生链/虚分派需要其工厂；
+        // M2 起也含连带 reshape 的位置基类：注入点锚到带参数表部件的标识符）----
         foreach (var (type, factory) in factoryByType)
         {
             if (sitesByType.ContainsKey(type)) continue;
@@ -209,19 +211,27 @@ internal sealed class RecordRule : IMemberDesugarRule
                 .Select(l => l.SourceTree!.FilePath)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var span = type.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0;
+            PositionalShape? shape = null;
+            if (index.TryGetTypeClaim(type, out var closureClaim)
+                && closureClaim.Feasible)
+            {
+                index.TryGetShape(type, out shape);
+            }
+            var insertSpan = shape?.Part.Identifier.SpanStart ?? span;
             builder.Add(new RecordClonePlan
             {
-                Id = RecordClonePlan.BuildId(type, span),
+                Id = RecordClonePlan.BuildId(type, insertSpan),
                 Kind = MemberDesugarKind.Record,
                 Symbol = type,
                 Outcome = MemberDesugarOutcome.Planned,
                 TouchedFiles = touched.ToList(),
                 RecordType = type,
                 IsOrphan = false,
+                Reshape = shape,
                 FactoryForm = factory.Form,
                 FactoryName = factory.Name,
                 FactoryAlreadyExists = factory.AlreadyExists,
-                FactoryInsertSpanStart = span,
+                FactoryInsertSpanStart = insertSpan,
                 FactoryRequired = true,
                 Sites = Array.Empty<WithSite>(),
             });

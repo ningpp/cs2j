@@ -565,14 +565,14 @@ public class MemberDesugarRecordWithUnitTests
     }
 
     [Fact]
-    public void Gate5220_RecordStructAndPositionalRecord_Untouched()
+    public void Gate5220_RecordStruct_Untouched_M2()
     {
+        // RC-4（record struct 值拷贝/reshape）落地前，record struct with 维持 5220 跳过。
         var src = """
             public record struct S
             {
                 public int X { get; set; }
             }
-            public record Point(int X, int Y);
             public static class P
             {
                 public static S RunS(S s)
@@ -580,16 +580,11 @@ public class MemberDesugarRecordWithUnitTests
                     var t = s with { X = 1 };
                     return t;
                 }
-                public static Point RunP(Point p)
-                {
-                    var q = p with { X = 2 };
-                    return q;
-                }
             }
             """;
         var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
         Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
-        Assert.Equal(2, stats.SkippedByReason[MemberDesugarDiagnosticCode.PositionalReshapeGate]);
+        Assert.Equal(1, stats.SkippedByReason[MemberDesugarDiagnosticCode.PositionalReshapeGate]);
         Assert.Contains("with", output);
         AssertNotContains(output, "Cs2jWithClone");
         Assert.Equal(0, stats.CloneFactoriesSynthesized);
@@ -833,6 +828,238 @@ public class MemberDesugarRecordWithUnitTests
         AssertCompiles(output);
         Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.WithSiteRewritten);
         Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.CloneFactorySynthesized);
+    }
+
+    // ---- C27 M2 RC-3：位置 record class reshape ----
+
+    [Fact]
+    public void M2_PositionalClass_Reshape_FinalShape_AndWith()
+    {
+        var src = """
+            public record Point(int X, int Y);
+            public static class P
+            {
+                public static Point Run(Point p)
+                {
+                    var q = p with { X = 2 };
+                    return q;
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(info: true));
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        // 参数表移除；字段 + get/set + 主 ctor + 复制 ctor + Deconstruct 全量发射。
+        AssertNotContains(output, "record Point(int X, int Y)");
+        AssertContains(output, "private int x;");
+        AssertContains(output, "private int y;");
+        AssertContains(output, "public int get_X()");
+        AssertContains(output, "public void set_X(int value)");
+        AssertContains(output, "public Point(int X, int Y)");
+        AssertContains(output, "protected Point(Point other)");
+        AssertContains(output, "public Point()");
+        AssertContains(output, "public void Deconstruct(out int X, out int Y)");
+        AssertContains(output, "public virtual Point Cs2jWithClone() => new Point(this);");
+        AssertContains(output, "__cs2j_wclone0.set_X(2)");
+        Assert.NotEqual(0, stats.PositionalRecordsReshaped);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshaped);
+    }
+
+    [Fact]
+    public void M2_PositionalClass_BareUseSitesInMethod_FallbackToAccessors()
+    {
+        // 方法体内残余的裸 X / p.X 在重解析模型上已无属性符号，靠回退绑定降形。
+        var src = """
+            using System;
+            public record Point(int X, int Y)
+            {
+                public int Sum() { return X + Y; }
+                public static int ReadOther(Point p) { return p.X + p.Y; }
+                public void Print() { Console.Write(X); }
+                public static string Name() { return nameof(X); }
+            }
+            public static class P
+            {
+                public static Point Run(Point p) { return p with { X = 2 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        AssertContains(output, "return get_X() + get_Y();");
+        AssertContains(output, "return p.get_X() + p.get_Y();");
+        AssertContains(output, "Console.Write(get_X());");
+        AssertContains(output, "return \"X\";");
+        Assert.NotEqual(0, stats.PositionalRecordsReshaped);
+    }
+
+    [Fact]
+    public void M2_PositionalClass_Derived_PrimaryBaseArgs_Preserved()
+    {
+        var src = """
+            public record Point(int X, int Y);
+            public record ColoredPoint(int X, int Y, int Color) : Point(X, Y);
+            public static class P
+            {
+                public static ColoredPoint Run(ColoredPoint p) { return p with { Color = 3 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        // 基部件降级为无参普通基类（继承保留），主 ctor 承载 : base(X, Y)。
+        AssertContains(output, "public record ColoredPoint : Point");
+        AssertContains(output, "public ColoredPoint(int X, int Y, int Color) : base(X, Y)");
+        AssertContains(output, "this.color = Color;");
+        AssertContains(output, "protected ColoredPoint(ColoredPoint other) : base(other)");
+        // 转发参数不发字段/访问器；派生 Deconstruct 含基类全部 out 参数并 new 隐藏。
+        AssertContains(output,
+            "public new void Deconstruct(out int X, out int Y, out int Color)");
+        AssertContains(output, "X = get_X();");
+        AssertContains(output, "Color = get_Color();");
+        AssertContains(output, "public override ColoredPoint Cs2jWithClone() => new ColoredPoint(this);");
+        AssertContains(output, "__cs2j_wclone0.set_Color(3)");
+        Assert.Equal(2, stats.PositionalRecordsReshaped);
+    }
+
+    [Fact]
+    public void M2_PositionalClass_Derived_RuntimeSemantics_ChainCopyAndDeconstruct()
+    {
+        var src = """
+            public record Point(int X, int Y);
+            public record ColoredPoint(int X, int Y, int Color) : Point(X, Y);
+            public static class P
+            {
+                public static ColoredPoint Run(ColoredPoint p) { return p with { Color = 3 }; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        var asm = CompileToAssembly(output);
+        var cpType = asm.GetType("ColoredPoint")!;
+        var c1 = Activator.CreateInstance(cpType, 1, 2, 9)!;
+        Assert.Equal(1, cpType.GetMethod("get_X")!.Invoke(c1, null));
+        Assert.Equal(9, cpType.GetMethod("get_Color")!.Invoke(c1, null));
+        var dec = new object?[3];
+        cpType.GetMethods().First(m => m.Name == "Deconstruct"
+            && m.GetParameters().Length == 3).Invoke(c1, dec);
+        Assert.Equal(new object?[] { 1, 2, 9 }, dec);
+        var programType = asm.GetType("P")!;
+        var c2 = programType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { c1 })!;
+        Assert.NotSame(c1, c2);
+        Assert.Equal(3, cpType.GetMethod("get_Color")!.Invoke(c2, null));
+        Assert.Equal(1, cpType.GetMethod("get_X")!.Invoke(c2, null));
+        Assert.Equal(9, cpType.GetMethod("get_Color")!.Invoke(c1, null));
+    }
+
+    [Fact]
+    public void M2_PositionalClass_Generic_ReshapeAndWith()
+    {
+        var src = """
+            public record Box<T>(T Value, int Count);
+            public static class P
+            {
+                public static Box<T> Run<T>(Box<T> b) { return b with { Count = 9 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        // Value 的 camelCase 与 set_X 形参名 value 撞，BackingFieldNaming 确定性消歧。
+        AssertContains(output, "private T valueValue;");
+        AssertContains(output, "public T get_Value()");
+        AssertContains(output, "protected Box(Box<T> other)");
+        AssertContains(output, "public virtual Box<T> Cs2jWithClone() => new Box<T>(this);");
+        Assert.NotEqual(0, stats.PositionalRecordsReshaped);
+    }
+
+    [Fact]
+    public void M2_PositionalClass_RuntimeSemantics_CtorAccessorsDeconstruct_CloneIndependence()
+    {
+        var src = """
+            public record Point(int X, int Y);
+            public static class P
+            {
+                public static Point Bump(Point p) { return p with { X = p.X + 10 }; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        var asm = CompileToAssembly(output);
+        var pointType = asm.GetType("Point")!;
+        var p1 = Activator.CreateInstance(pointType, 3, 4)!;
+        Assert.Equal(3, pointType.GetMethod("get_X")!.Invoke(p1, null));
+        Assert.Equal(4, pointType.GetMethod("get_Y")!.Invoke(p1, null));
+        var deconstructed = new object?[2];
+        pointType.GetMethod("Deconstruct")!.Invoke(p1, deconstructed);
+        Assert.Equal(3, deconstructed[0]);
+        Assert.Equal(4, deconstructed[1]);
+        var programType = asm.GetType("P")!;
+        var p2 = programType
+            .GetMethod("Bump", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { p1 })!;
+        Assert.NotSame(p1, p2);
+        Assert.Equal(13, pointType.GetMethod("get_X")!.Invoke(p2, null));
+        Assert.Equal(3, pointType.GetMethod("get_X")!.Invoke(p1, null));
+    }
+
+    [Fact]
+    public void M2_PositionalClass_SecondRun_BytesStable()
+    {
+        var src = """
+            public record Point(int X, int Y);
+            public static class P
+            {
+                public static Point Run(Point p) { return p with { X = 2 }; }
+            }
+            """;
+        var (first, _, _) = Rewrite(src, Enabled());
+        var (second, stats2, diags2) = Rewrite(first, Enabled());
+        AssertCompiles(second);
+        AssertNoErrors(diags2);
+        Assert.Equal(first, second);
+        Assert.Equal(0, stats2.WithSitesTotal);
+        Assert.Equal(0, stats2.PositionalRecordsReshaped);
+    }
+
+    [Fact]
+    public void M2_PositionalClass_Gate_FieldInitializerCapturesParameter_5220()
+    {
+        // 闸门①：字段初始化器捕获位置参数；reshape 后参数消失会 CS0103，整类型不碰。
+        var src = """
+            public record P(int X)
+            {
+                private int _z = X;
+            }
+            public static class Q
+            {
+                public static P Run(P p) { return p with { X = 2 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
+        AssertNotContains(output, "Cs2jWithClone");
+        Assert.Equal(0, stats.PositionalRecordsReshaped);
+    }
+
+    [Fact]
+    public void M2_PositionalClass_Gate_UserDeconstruct_5220()
+    {
+        var src = """
+            public record Point(int X, int Y)
+            {
+                public void Deconstruct(out int x, out int y) { x = X; y = Y; }
+            }
+            public static class P
+            {
+                public static Point Run(Point p) { return p with { X = 2 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
+        AssertNotContains(output, "Cs2jWithClone");
+        Assert.Equal(0, stats.PositionalRecordsReshaped);
     }
 
     /// <summary>编译去糖产物并内存加载（TPA 引用），供反射行为断言。</summary>
