@@ -94,6 +94,33 @@ internal sealed class RecordRule : IMemberDesugarRule
             index.TryGetTypeClaim(type, out var claim);
             factoryByType.TryGetValue(type, out var factory);
 
+            // 类型闸门码：认领结论不可行（5220/5221/缺复制 ctor 等）直接采用；
+            // 无认领结论（位置 record/struct/非 record class 等形态排除，或本站点全部
+            // 本地失败 5223/5224/…）时取首个失败站点码作整 plan 门码——否则站点会被
+            // 重写期误当可行站点改写（原子性铁律：门码非 null，声明与站点全不动）。
+            MemberDesugarDiagnosticCode? gateCode = null;
+            string? gateReason = null;
+            if (claim is { Feasible: false } bad)
+            {
+                gateCode = bad.FailCode;
+                gateReason = bad.FailReason;
+            }
+            else if (claim is not { Feasible: true })
+            {
+                var firstBad = sites.FirstOrDefault(s => s.FailCode != null);
+                if (firstBad != null)
+                {
+                    gateCode = firstBad.FailCode;
+                    gateReason = firstBad.FailReason;
+                }
+                else
+                {
+                    gateCode = MemberDesugarDiagnosticCode.NonRecordClassWith;
+                    gateReason = RecordDiagnostics.NonRecordClassWith(type.ToDisplayString(),
+                        "no feasible record claim was produced for the with receiver type");
+                }
+            }
+
             builder.Add(new RecordClonePlan
             {
                 Id = RecordClonePlan.BuildId(type, span),
@@ -107,9 +134,10 @@ internal sealed class RecordRule : IMemberDesugarRule
                 FactoryForm = factory.Form,
                 FactoryName = factory.Name,
                 FactoryAlreadyExists = factory.AlreadyExists,
+                FactoryInsertSpanStart = span,
                 FactoryRequired = factory.Name != null,
-                GateCode = claim is { Feasible: false } ? claim.FailCode : null,
-                GateReason = claim is { Feasible: false } ? claim.FailReason : null,
+                GateCode = gateCode,
+                GateReason = gateReason,
                 Sites = sites,
             });
         }
@@ -152,6 +180,7 @@ internal sealed class RecordRule : IMemberDesugarRule
                 FactoryForm = factory.Form,
                 FactoryName = factory.Name,
                 FactoryAlreadyExists = factory.AlreadyExists,
+                FactoryInsertSpanStart = span,
                 FactoryRequired = true,
                 Sites = Array.Empty<WithSite>(),
             });

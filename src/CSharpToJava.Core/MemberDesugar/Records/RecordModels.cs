@@ -85,6 +85,10 @@ internal sealed class RecordClonePlan : MemberDesugarPlan
     /// <summary>幂等：同签名工厂已存在（首轮产物或用户手写），不重复注入。</summary>
     public bool FactoryAlreadyExists { get; init; }
 
+    /// <summary>工厂注入目标声明部件的 SpanStart（partial 多部件/多文件只在此部件注入一次；
+    /// 重写期按原始树节点 SpanStart 精确匹配，禁止每个部件各发一份）。</summary>
+    public int? FactoryInsertSpanStart { get; init; }
+
     /// <summary>派生链闭包要求本类型必须带工厂（即使自身无 with 站点）。</summary>
     public required bool FactoryRequired { get; init; }
 
