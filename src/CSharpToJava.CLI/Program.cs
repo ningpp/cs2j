@@ -266,6 +266,7 @@ public class Program
                 DisablePassIds = opts.DisablePasses,
                 EnableDecimalOps = opts.DecimalOpsEffective,
                 ParamsCollections = paramsCollectionsOptions,
+                ExtensionMappingConfigPath = opts.MappingConfig,
             });
 
             if (!chain.Success)
@@ -316,14 +317,22 @@ public class Program
             if (workspaceProjects != null && workspaceProjects.Count > 0)
             {
                 workspaceProjects = NormalizeWorkspaceProjects(workspaceProjects, opts.Verbose);
-                // 各 pass 注入的内部支撑库（Cs2jUnsignedMath/Cs2jArray/Cs2jRefOutIn）：
+                // 各 pass 注入的内部支撑库（Cs2jUnsignedMath/Cs2jArray/Cs2jRefOutIn/Cs2jPrelude）：
                 // 仅作符号来源，不为其规划 Maven 模块、不转换其源文件。
                 // 按本次实际执行的 pass 集合过滤；放在指纹快照之前——helper 文件不再
                 // 进入 Java 输出，不应参与缓存键。
-                workspaceProjects = workspaceProjects
+                // C19 M3（附录裁决 7）：仅当过滤后仍有用户工程存活时才剔除支撑库。
+                // 松散 .cs 输入（无用户 csproj）的 MSBuild 入口只可能解析到注入的
+                // Cs2jPrelude 工程，保持其遗留入口行为不变（ConvertProjectGotoIntegrationTests
+                // 锁定）；真实 sln/多工程图必有用户工程存活，支撑库照常剔除。
+                var supportFilteredWorkspaceProjects = workspaceProjects
                     .Where(p => !PassChainFactory.IsExecutedSupportLibraryProject(
                         executedSupportLibraries, p.FilePath))
                     .ToList();
+                if (supportFilteredWorkspaceProjects.Count > 0)
+                {
+                    workspaceProjects = supportFilteredWorkspaceProjects;
+                }
                 var inputFingerprintSnapshot = BuildWorkspaceInputFingerprintSnapshot(opts, workspaceProjects);
                 if (!opts.NoCache && TryReusePreviousProjectOutputs(opts.Destination, inputFingerprintSnapshot, opts.Verbose))
                 {
@@ -3824,6 +3833,7 @@ public class Program
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
                 EnableDecimalOps = opts.DecimalOpsEffective,
+                ExtensionMappingConfigPath = opts.MappingConfig,
             });
 
             if (!chain.Success)

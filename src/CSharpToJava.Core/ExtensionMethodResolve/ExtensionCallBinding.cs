@@ -20,6 +20,26 @@ public enum ReceiverClassification
 }
 
 /// <summary>
+/// M3 host-mapping grade for an <see cref="ReceiverClassification.ExternalMetadata"/>
+/// host. Core only carries the label; the actual TypeMappings lookup is injected
+/// by the CLI adapter (design §4.2-3: Core never depends on TypeMappings).
+/// </summary>
+public enum ExternalHostMappingKind
+{
+    /// <summary>
+    /// A Java landing exists for the host itself or at least one of its extension
+    /// methods; the rewritten static call is expected to resolve downstream.
+    /// </summary>
+    Mapped,
+
+    /// <summary>
+    /// No Java landing found in TypeMappings; CS2J1203 is reported
+    /// (Warning, Error under strict) while the rewrite still happens.
+    /// </summary>
+    Unknown,
+}
+
+/// <summary>
 /// One resolved reduced extension call site (EM-BIND). Produced solely from
 /// <c>SemanticModel.GetSymbolInfo</c>; syntax shapes never participate in
 /// selection. M0 declares the contract; the binder does not produce bindings yet.

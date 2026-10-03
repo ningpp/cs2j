@@ -1,3 +1,5 @@
+using Microsoft.CodeAnalysis;
+
 namespace CSharpToJava.Core.ExtensionMethodResolve;
 
 /// <summary>
@@ -21,6 +23,13 @@ public sealed record ExtensionMethodResolveOptions
 
     /// <summary>Emit Info-level diagnostics (EM001 per-site detail is verbose-only anyway).</summary>
     public bool ReportInfo { get; init; } = true;
+
+    /// <summary>
+    /// Emit the EM001 per-bound-site triage line (host full name,
+    /// classification, mapping grade, generic/ref/expression-tree flags).
+    /// Default off; the CLI adapter turns it on in verbose runs.
+    /// </summary>
+    public bool ReportSiteDetail { get; init; }
 
     /// <summary>Run the post-rewrite residual scan (strict turns findings into errors).</summary>
     public bool RunResidualScan { get; init; } = true;
@@ -53,4 +62,31 @@ public sealed record ExtensionMethodResolveOptions
     /// Empty in M0; every skip performed via overrides leaves an Info trace.
     /// </summary>
     public string? OverridesPath { get; init; }
+
+    /// <summary>
+    /// M3 (EM-EXTERNAL, design §4.2-3): grades an external (metadata-only)
+    /// extension host for Java-landing availability. The CLI adapter supplies
+    /// a TypeMappings-backed implementation; Core never loads TypeMappings.
+    /// Null means "grading unavailable" — no CS2J1203 is emitted and the site
+    /// is rewritten silently (keeps the M1/M2 behavior for Core-only tests).
+    /// </summary>
+    public Func<INamedTypeSymbol, ExternalHostMappingKind>? ExternalHostMapper { get; init; }
+
+    /// <summary>
+    /// M3: decides whether a host whose symbol lives in source inside the
+    /// merged compilation is an injected support library
+    /// (Cs2jPrelude/Cs2jRefOutIn/Cs2jUnsignedMath/Cs2jArray) rather than user
+    /// code. The CLI adapter builds this from the reserved support-library
+    /// directory/project-name contract. Null classifies every source host as
+    /// <see cref="ReceiverClassification.InCompilationUser"/>.
+    /// </summary>
+    public Func<INamedTypeSymbol, bool>? IsSupportLibraryHost { get; init; }
+
+    /// <summary>
+    /// M3 (CS2J1290, design §4.2-5): true in single-file/loose-directory mode
+    /// where no project graph (and therefore no restore/NuGet reference set) is
+    /// available. Extension-like calls that fail to bind are conservatively
+    /// left unchanged and reported as CS2J1290 Warning instead of CS2J1202.
+    /// </summary>
+    public bool SingleFileIncompleteReferences { get; init; }
 }

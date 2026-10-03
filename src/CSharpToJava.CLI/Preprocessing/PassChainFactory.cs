@@ -28,6 +28,7 @@ using CSharpToJava.Core.TupleToStruct;
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using CSharpToJava.Core.UnsafeFfm;
 using CSharpToJava.CLI.Preprocessing.Adapters;
+using Microsoft.CodeAnalysis;
 using CoreGenericPreprocessOptions = CSharpToJava.Core.GenericPreprocess.GenericPreprocessOptions;
 using CoreTupleToStructOptions = CSharpToJava.Core.TupleToStruct.TupleToStructOptions;
 using ParamsCollectionsOptions = CSharpToJava.Core.DefaultParameterStripper.ParamsCollections.ParamsCollectionsOptions;
@@ -99,6 +100,12 @@ internal sealed class PassChainConfiguration
     /// off) keeps the pass byte-for-byte identical to its pre-C48 behavior.
     /// </summary>
     public ParamsCollectionsOptions? ParamsCollections { get; init; }
+
+    /// <summary>
+    /// M3: external-host mapping grader for the extension-methods pass
+    /// (TypeMappings-backed; null when the pass is not enabled).
+    /// </summary>
+    public Func<INamedTypeSymbol, ExternalHostMappingKind>? ExtensionExternalHostMapper { get; init; }
 }
 
 /// <summary>
@@ -375,7 +382,8 @@ internal static class PassChainFactory
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
                 config.VerifyBuild,
-                config.VerifyTests),
+                config.VerifyTests,
+                config.ExtensionExternalHostMapper),
 
             // convert-project historically ran goto with Strict=false.
             PassIds.EliminateGoto => new GotoPassAdapter(
@@ -424,6 +432,11 @@ internal static class PassChainFactory
     /// Whether a workspace project path is an injected support library belonging to
     /// a pass that actually ran. Such projects are symbol sources only and must not
     /// be planned as Maven modules or enter the Java conversion.
+    ///
+    /// C19 M3 (appendix ruling 7): Cs2jPrelude (delegate/equality-concat
+    /// injection) is recognized the same way as the other three support
+    /// projects. Cs2jTuples has no project of its own — its generated struct
+    /// files are distributed into user projects and stay user-owned.
     /// </summary>
     public static bool IsExecutedSupportLibraryProject(
         IReadOnlySet<PassSupportLibrary> executedLibraries,
@@ -434,6 +447,8 @@ internal static class PassChainFactory
             || (executedLibraries.Contains(PassSupportLibrary.Cs2jArray)
                 && Cs2jArrayProject.IsCs2jArrayProject(projectFilePath))
             || (executedLibraries.Contains(PassSupportLibrary.Cs2jRefOutIn)
-                && Cs2jRefOutInProject.IsCs2jRefOutInProject(projectFilePath));
+                && Cs2jRefOutInProject.IsCs2jRefOutInProject(projectFilePath))
+            || (executedLibraries.Contains(PassSupportLibrary.Cs2jPrelude)
+                && Cs2jPreludeProject.IsCs2jPreludeProject(projectFilePath));
     }
 }

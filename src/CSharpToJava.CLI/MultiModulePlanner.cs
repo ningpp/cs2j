@@ -32,6 +32,9 @@ internal static class MultiModulePlanner
 
         var productionProjects = graph.ProjectsInTopologicalOrder
             .Where(p => p.Kind == ProjectKind.Production)
+            // C19 M3 (appendix ruling 7): Cs2jPrelude joins the injected
+            // support-library filter (delegate/equality-concat injection).
+            .Where(p => !Cs2jPreludeProject.IsCs2jPreludeProject(p.ProjectFilePath))
             .Where(p => !Cs2jUnsignedMathProject.IsCs2jUnsignedMathProject(p.ProjectFilePath))
             .Where(p => !Cs2jArrayProject.IsCs2jArrayProject(p.ProjectFilePath))
             .Where(p => !Cs2jRefOutInProject.IsCs2jRefOutInProject(p.ProjectFilePath))

@@ -179,13 +179,52 @@ internal sealed class ExtensionCallBinder
             }
         }
 
-        var classification = host.Locations.Length > 0 && host.Locations[0].IsInSource
-            ? ReceiverClassification.InCompilationUser
-            : ReceiverClassification.ExternalMetadata;
+        var isSourceHost = host.Locations.Length > 0 && host.Locations[0].IsInSource;
+        ReceiverClassification classification;
+        ExternalHostMappingKind? mappingKind = null;
 
-        if (classification == ReceiverClassification.ExternalMetadata)
+        if (isSourceHost)
         {
+            classification = Options.IsSupportLibraryHost?.Invoke(host) == true
+                ? ReceiverClassification.InCompilationSupport
+                : ReceiverClassification.InCompilationUser;
+            _statistics.InCompilationHostSites++;
+            if (classification == ReceiverClassification.InCompilationSupport)
+            {
+                _statistics.InCompilationSupportHostSites++;
+            }
+            else
+            {
+                _statistics.InCompilationUserHostSites++;
+            }
+        }
+        else
+        {
+            classification = ReceiverClassification.ExternalMetadata;
             _statistics.ExternalHostSites++;
+
+            // EM-EXTERNAL grading (M3): the CLI adapter injects a
+            // TypeMappings-backed grader; Core only consumes the label. A null
+            // grader means grading is unavailable (Core-only tests), so the M1/M2
+            // silent-rewrite behavior is preserved.
+            mappingKind = Options.ExternalHostMapper?.Invoke(host);
+            if (mappingKind == ExternalHostMappingKind.Mapped)
+            {
+                _statistics.ExternalHostMappedSites++;
+            }
+            else if (mappingKind == ExternalHostMappingKind.Unknown)
+            {
+                _statistics.ExternalHostUnmappedSites++;
+                AddDiagnostic(
+                    WarningOrError(),
+                    ExtensionRule.External,
+                    ExtensionMethodCodes.ExternalHostNoMapping,
+                    $"External metadata extension host '{hostDisplayName}' has no Java landing in TypeMappings; "
+                    + $"call site '{invocation.ToString()}' is still rewritten to an explicit static call, "
+                    + "but the downstream Java conversion has no mapped target (CS2J_EXT001 successor at preprocess time).",
+                    invocation.GetLocation());
+            }
+
             if (!Options.RewriteExternalMetadataHosts)
             {
                 AddSkipReason(ExternalRewriteDisabledReason);
@@ -201,10 +240,6 @@ internal sealed class ExtensionCallBinder
 
                 return;
             }
-        }
-        else
-        {
-            _statistics.InCompilationHostSites++;
         }
 
         var isInExpressionTree = ExtensionExpressionTreeFacts
@@ -232,9 +267,26 @@ internal sealed class ExtensionCallBinder
         }
 
         var explicitTypeArguments = invocation.Expression is MemberAccessExpressionSyntax
-            {
-                Name: GenericNameSyntax genericName,
-            } && genericName.TypeArgumentList.Arguments.Count > 0;
+        {
+            Name: GenericNameSyntax genericName,
+        } && genericName.TypeArgumentList.Arguments.Count > 0;
+
+        // EM001 per-site triage detail (verbose-only at the CLI surface):
+        // host full name, classification, mapping grade, generic/ref/ET flags.
+        if (Options.ReportInfo && Options.ReportSiteDetail)
+        {
+            var mappingText = classification == ReceiverClassification.ExternalMetadata
+                ? (mappingKind?.ToString() ?? "grading-unavailable")
+                : "-";
+            AddDiagnostic(
+                ExtensionSeverity.Info,
+                ExtensionRule.Bind,
+                ExtensionMethodCodes.Info,
+                $"EM001 '{invocation.ToString()}': host={hostDisplayName}, classification={classification}, "
+                + $"mapping={mappingText}, explicitTypeArgs={explicitTypeArguments}, genericHost={host.IsGenericType}, "
+                + $"receiverRef={receiverRefKind.ToString().ToLowerInvariant()}, inExpressionTree={isInExpressionTree}.",
+                invocation.GetLocation());
+        }
 
         _bindings.Add(new ExtensionCallBinding(
             invocation,
@@ -280,6 +332,26 @@ internal sealed class ExtensionCallBinder
 
         if (extensionCandidates.Count > 0)
         {
+            // CS2J1290 (design §4.2-5): in single-file/loose-directory mode the
+            // compilation has no project/NuGet reference set, so a failed bind
+            // with extension candidates cannot be distinguished from a true
+            // reference gap. Conservatively leave the site unchanged and warn;
+            // this code is never strict-escalated (design §6).
+            if (Options.SingleFileIncompleteReferences)
+            {
+                _statistics.SingleFileDeferredSites++;
+                AddDiagnostic(
+                    ExtensionSeverity.Warning,
+                    ExtensionRule.Bind,
+                    ExtensionMethodCodes.SingleFileIncompleteBinding,
+                    $"Single-file mode: extension-like call '{invocation.ToString()}' cannot be conclusively bound "
+                    + $"({info.CandidateReason}) because project/NuGet references are unavailable; "
+                    + "site conservatively left unchanged. Run via a project/solution to enable full binding.",
+                    invocation.GetLocation());
+                AddSkipReason(ExtensionMethodCodes.SingleFileIncompleteBinding);
+                return;
+            }
+
             AddDiagnostic(
                 WarningOrError(),
                 ExtensionRule.Bind,

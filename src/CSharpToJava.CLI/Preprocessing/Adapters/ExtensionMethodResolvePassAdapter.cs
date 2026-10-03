@@ -18,16 +18,36 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
 {
     public const string IntermediateDirectoryName = ".cs2j-extension-methods-src";
 
+    /// <summary>
+    /// Reserved intermediate-tree directory names of the five-anchor injected
+    /// support libraries (design §4.2-2). A source symbol declared under one of
+    /// these segments is classified InCompilationSupport rather than user code.
+    /// Cs2jTuples intentionally has no entry: its products are struct files
+    /// distributed into user projects and stay user-owned.
+    /// </summary>
+    private static readonly HashSet<string> SupportLibraryDirectoryNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ArrayHelperSupportFiles.LibDirectoryName,
+        PreludeSupportFiles.LibDirectoryName,
+        RefOutInSupportFiles.LibDirectoryName,
+        UnsignedMathSupportFiles.LibDirectoryName,
+    };
+
     private readonly ExtensionMethodResolveOptions _options;
     private readonly bool _verbose;
     private readonly bool _filterUnsupportedProjects;
     private readonly IReadOnlyCollection<string>? _compatNamespacePrefixes;
     private readonly bool _verifyBuild;
     private readonly bool _verifyTests;
+    private readonly Func<INamedTypeSymbol, ExternalHostMappingKind>? _externalHostMapper;
 
     private readonly ExtensionMethodResolvePreprocessor _preprocessor = new();
     private readonly List<ExtensionDiagnostic> _diagnostics = new();
     private readonly ExtensionMethodResolveStatistics _statistics = new();
+
+    private ExtensionMethodResolveOptions _effectiveOptions = new();
+    private IReadOnlyList<MetadataReference> _enhancedReferences = Array.Empty<MetadataReference>();
+    private bool _prepared;
 
     public ExtensionMethodResolvePassAdapter(
         ExtensionMethodResolveOptions options,
@@ -35,7 +55,8 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         bool filterUnsupportedProjects,
         IReadOnlyCollection<string>? compatNamespacePrefixes,
         bool verifyBuild,
-        bool verifyTests)
+        bool verifyTests,
+        Func<INamedTypeSymbol, ExternalHostMappingKind>? externalHostMapper = null)
     {
         _options = options;
         _verbose = verbose;
@@ -43,6 +64,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         _compatNamespacePrefixes = compatNamespacePrefixes;
         _verifyBuild = verifyBuild;
         _verifyTests = verifyTests;
+        _externalHostMapper = externalHostMapper;
     }
 
     public override PassDescriptor Descriptor => PassCatalog.ImplementedById(PassIds.ExtensionMethods);
@@ -96,10 +118,115 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     public ExtensionMethodResolveStatistics Statistics => _statistics;
     public IReadOnlyList<ExtensionDiagnostic> Diagnostics => _diagnostics;
 
+    /// <summary>
+    /// M3 (design §4.2-4/5, appendix ruling 2): the binding compilation needs
+    /// the restored NuGet assemblies, but the standard spine only restores
+    /// after per-file rewrites. Run the tree's restore here (the later spine
+    /// restore is an incremental no-op) and enumerate the per-project compile
+    /// assemblies for <see cref="GetMetadataReferences"/>. Also freezes the
+    /// effective options, including the single-file/loose-directory flag.
+    /// </summary>
+    public override Task OnTreePreparedAsync(PassTreeContext tree)
+    {
+        if (_prepared)
+        {
+            return Task.CompletedTask;
+        }
+
+        _prepared = true;
+
+        var singleFile = tree.Layout.ProjectFiles.Count == 0;
+        _effectiveOptions = _options with
+        {
+            ExternalHostMapper = _externalHostMapper,
+            IsSupportLibraryHost = _options.IsSupportLibraryHost ?? IsSupportLibraryHostSymbol,
+            SingleFileIncompleteReferences = singleFile,
+            ReportSiteDetail = _options.ReportSiteDetail || _verbose,
+        };
+
+        // No project graph → nothing to restore; unbound extension-like sites
+        // take the conservative CS2J1290 path.
+        if (!singleFile)
+        {
+            var restoreExitCode = ProjectPassRunner.Restore(this, tree);
+            if (restoreExitCode == 0)
+            {
+                _enhancedReferences = RestorePackageReferenceEnumerator.Enumerate(
+                    tree.IntermediateRoot, out var addedCount);
+                if (_verbose && addedCount > 0)
+                {
+                    Console.WriteLine($"[extension-methods] binding with {addedCount} restored package reference(s)");
+                }
+            }
+        }
+        else if (_verbose)
+        {
+            Console.WriteLine("[extension-methods] single-file/loose-directory layout: CS2J1290 conservative mode armed");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>TPA basics plus the restored NuGet compile assemblies (M3 ruling 2).</summary>
+    public override IReadOnlyCollection<MetadataReference> GetMetadataReferences()
+    {
+        var references = ProjectUnsignedTypePreprocessor.GetBasicReferences();
+        if (_enhancedReferences.Count > 0)
+        {
+            references.AddRange(_enhancedReferences);
+        }
+
+        return references;
+    }
+
+    private static bool IsSupportLibraryHostSymbol(INamedTypeSymbol host)
+    {
+        foreach (var reference in host.DeclaringSyntaxReferences)
+        {
+            if (IsUnderSupportLibraryDirectory(reference.SyntaxTree.FilePath))
+            {
+                return true;
+            }
+        }
+
+        foreach (var location in host.Locations)
+        {
+            if (location.IsInSource
+                && location.SourceTree is { } tree
+                && IsUnderSupportLibraryDirectory(tree.FilePath))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsUnderSupportLibraryDirectory(string? filePath)
+    {
+        if (string.IsNullOrEmpty(filePath))
+        {
+            return false;
+        }
+
+        foreach (var segment in filePath.Split(
+                     Path.DirectorySeparatorChar,
+                     Path.AltDirectorySeparatorChar,
+                     StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (SupportLibraryDirectoryNames.Contains(segment))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public override Task CompilationReadyAsync(CSharpCompilation compilation)
     {
         _preprocessor.BindCompilation(compilation);
-        _preprocessor.Analyze(_options);
+        _preprocessor.Analyze(_effectiveOptions);
         return Task.CompletedTask;
     }
 
@@ -131,7 +258,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     /// <summary>Post-rewrite gate (design §4.5): recompile the intermediate tree and count leftover shapes.</summary>
     private void RunResidualScan(PassTreeContext tree)
     {
-        if (!_options.RunResidualScan)
+        if (!_effectiveOptions.RunResidualScan)
         {
             return;
         }

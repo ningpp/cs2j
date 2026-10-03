@@ -1,5 +1,6 @@
 using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ExpressionDesugar;
+using CSharpToJava.Core.ExtensionMethodResolve;
 using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.LexicalNormalize;
 using CSharpToJava.Core.Preprocessing;
@@ -7,6 +8,7 @@ using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
 using CSharpToJava.Core.StructValueSemantics;
 using CSharpToJava.Core.UnsafeFfm;
+using Microsoft.CodeAnalysis;
 using ParamsCollectionsOptions = CSharpToJava.Core.DefaultParameterStripper.ParamsCollections.ParamsCollectionsOptions;
 
 namespace CSharpToJava.CLI.Preprocessing;
@@ -90,6 +92,13 @@ internal sealed class CliChainRequest
     /// rules off) keeps the pass byte-for-byte identical to its pre-C48 behavior.
     /// </summary>
     public ParamsCollectionsOptions? ParamsCollections { get; init; }
+
+    /// <summary>
+    /// M3: TypeMappings config path used to build the extension-methods
+    /// external-host grader (null/empty → the registry's default config path).
+    /// Only consumed when the extension-methods pass is enabled.
+    /// </summary>
+    public string? ExtensionMappingConfigPath { get; init; }
 }
 
 /// <summary>
@@ -152,6 +161,15 @@ internal static class CliPreprocessChain
             .Select(pass => pass.SupportLibrary)
             .ToHashSet();
 
+        // M3: build the TypeMappings-backed external host grader only when C19
+        // actually runs (keeps registry load out of every unrelated chain run).
+        Func<INamedTypeSymbol, ExternalHostMappingKind>? extensionExternalHostMapper = null;
+        if (plan.Enabled.Any(pass => pass.Id == PassIds.ExtensionMethods))
+        {
+            extensionExternalHostMapper = ExtensionHostMappingResolver.TryCreate(
+                request.ExtensionMappingConfigPath);
+        }
+
         var config = new PassChainConfiguration
         {
             Verbose = request.Verbose,
@@ -175,6 +193,7 @@ internal static class CliPreprocessChain
             UnsafeFfmOptionsFactory = request.UnsafeFfmOptionsFactory,
             ExpressionDesugarOptionsFactory = request.ExpressionDesugarOptionsFactory,
             ParamsCollections = request.ParamsCollections,
+            ExtensionExternalHostMapper = extensionExternalHostMapper,
         };
 
         var sourcePath = request.SourcePath;

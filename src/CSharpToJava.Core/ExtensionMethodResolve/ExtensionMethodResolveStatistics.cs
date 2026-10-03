@@ -45,8 +45,23 @@ public sealed class ExtensionMethodResolveStatistics
     /// <summary>Bound reduced sites whose host comes from metadata (EM-EXTERNAL).</summary>
     public int ExternalHostSites;
 
-    /// <summary>Bound reduced sites whose host is source inside the merged compilation.</summary>
+    /// <summary>External-host sites with a known Java landing (TypeMappings hit, silent).</summary>
+    public int ExternalHostMappedSites;
+
+    /// <summary>External-host sites without a Java landing (CS2J1203 reported).</summary>
+    public int ExternalHostUnmappedSites;
+
+    /// <summary>Bound reduced sites whose host is source inside the merged compilation (user + support).</summary>
     public int InCompilationHostSites;
+
+    /// <summary>Subset of <see cref="InCompilationHostSites"/> hosted by injected support libraries.</summary>
+    public int InCompilationSupportHostSites;
+
+    /// <summary>User-host subset (<see cref="InCompilationHostSites"/> minus support).</summary>
+    public int InCompilationUserHostSites;
+
+    /// <summary>Extension-like sites conservatively skipped in single-file mode (CS2J1290).</summary>
+    public int SingleFileDeferredSites;
 
     /// <summary>Rewritten sites located inside an Expression&lt;&gt; lambda (EM-EXPRTREE).</summary>
     public int ExpressionTreeSitesChecked;
@@ -76,7 +91,12 @@ public sealed class ExtensionMethodResolveStatistics
         GroupSitesDeferred += source.GroupSitesDeferred;
         LinqOwnedSkipped += source.LinqOwnedSkipped;
         ExternalHostSites += source.ExternalHostSites;
+        ExternalHostMappedSites += source.ExternalHostMappedSites;
+        ExternalHostUnmappedSites += source.ExternalHostUnmappedSites;
         InCompilationHostSites += source.InCompilationHostSites;
+        InCompilationSupportHostSites += source.InCompilationSupportHostSites;
+        InCompilationUserHostSites += source.InCompilationUserHostSites;
+        SingleFileDeferredSites += source.SingleFileDeferredSites;
         ExpressionTreeSitesChecked += source.ExpressionTreeSitesChecked;
         ExpressionTreeRollbacks += source.ExpressionTreeRollbacks;
         MergeCounters(SitesSkippedByReason, source.SitesSkippedByReason);
@@ -86,10 +106,12 @@ public sealed class ExtensionMethodResolveStatistics
     public string SummaryLine()
         => $"extension-methods: {CallsitesRewritten} rewritten, {FilesClean} clean " +
            $"({CallsitesBoundReduced} reduced bound, {LinqOwnedSkipped} LINQ-owned skipped, " +
-           $"{InCompilationHostSites} in-compilation, {ExternalHostSites} external hosts, " +
+           $"{InCompilationUserHostSites} user + {InCompilationSupportHostSites} support in-compilation, " +
+           $"{ExternalHostSites} external hosts [{ExternalHostMappedSites} mapped/{ExternalHostUnmappedSites} unmapped], " +
            $"{RefReceiverSitesEmitted}/{RefReceiverSites} ref/in receivers, " +
            $"{ConditionalChainsLifted} null-conditional lifted, {GroupSitesRewritten} groups rewritten, " +
            $"{ExpressionTreeSitesChecked} in expression trees, {ExpressionTreeRollbacks} ET rollbacks, " +
+           $"{SingleFileDeferredSites} single-file deferred, " +
            $"{SitesSkippedByReason.Values.Sum()} skipped, " +
            $"{ResidualsByRule.Values.Sum()} residuals)";
 
