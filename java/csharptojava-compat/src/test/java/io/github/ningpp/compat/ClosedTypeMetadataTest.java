@@ -315,4 +315,86 @@ class ClosedTypeMetadataTest {
             TypeHelper.getGenericArguments(CSharpDictionary.class),
             "a session registering the same raw afterwards must not be affected");
     }
+
+    // ------------------------------------------------------------------ registerClosedType / resolveClosedType
+    // (C30 closed-metadata registration surface, design D3: process-wide ConcurrentHashMap,
+    // zero ThreadLocal involvement.)
+
+    @Test
+    void registerClosedType_isIdempotentForEqualClosures() {
+        TypeHelper.clearClosedTypes();
+        Type first = closed(CSharpList.class, closed(CSharpList.class, Short.class));
+        Type second = closed(CSharpList.class, closed(CSharpList.class, Short.class));
+
+        TypeHelper.registerClosedType(first);
+        TypeHelper.registerClosedType(second);
+
+        assertSame(first,
+            TypeHelper.resolveClosedType(CSharpList.class, closed(CSharpList.class, Short.class)),
+            "the first registration wins; an equal closure registered later must not replace it");
+    }
+
+    @Test
+    void resolveClosedType_distinguishesDistinctClosuresOfOneRaw() {
+        TypeHelper.clearClosedTypes();
+        Type listOfListOfShort = closed(CSharpList.class, closed(CSharpList.class, Short.class));
+        Type listOfString = closed(CSharpList.class, String.class);
+        TypeHelper.registerClosedType(listOfListOfShort);
+        TypeHelper.registerClosedType(listOfString);
+
+        assertSame(listOfListOfShort,
+            TypeHelper.resolveClosedType(CSharpList.class, closed(CSharpList.class, Short.class)),
+            "the nested short closure must not answer for the string closure of the same raw");
+        assertSame(listOfString, TypeHelper.resolveClosedType(CSharpList.class, String.class));
+        assertNull(TypeHelper.resolveClosedType(CSharpList.class, Integer.class),
+            "an unregistered closure of the same raw stays unresolved");
+    }
+
+    @Test
+    void closedTypeRegistrationAndResolve_neverTouchAnyThreadLocalRegistry() throws Exception {
+        TypeHelper.clearClosedTypes();
+        TypeHelper.clearThreadRegistrations();
+        Type closed = closed(CSharpDictionary.class, String.class, closed(CSharpList.class, Short.class));
+
+        TypeHelper.registerClosedType(closed);
+        Type resolved = TypeHelper.resolveClosedType(
+            CSharpDictionary.class, String.class, closed(CSharpList.class, Short.class));
+
+        assertSame(closed, resolved);
+
+        for (String field : List.of("TYPE_ARGUMENTS", "CONSUMED_ARGUMENTS", "MEMBER_ARGUMENTS",
+                "WRAPPER_LAYER_TAKEN", "CALLSITE_ARGUMENTS")) {
+            java.lang.reflect.Field f = TypeHelper.class.getDeclaredField(field);
+            f.setAccessible(true);
+            Map<?, ?> map = ((ThreadLocal<Map<?, ?>>) f.get(null)).get();
+            assertTrue(map.isEmpty(), field + " must stay empty across register/resolve");
+        }
+
+        java.lang.reflect.Field subtypes = TypeHelper.class.getDeclaredField("CONCRETE_SUBTYPES");
+        subtypes.setAccessible(true);
+        assertTrue(((java.util.List<?>) ((ThreadLocal<?>) subtypes.get(null)).get()).isEmpty(),
+            "CONCRETE_SUBTYPES must stay empty across register/resolve");
+
+        java.lang.reflect.Field depth = TypeHelper.class.getDeclaredField("REGISTRATION_DEPTH");
+        depth.setAccessible(true);
+        assertEquals(0, ((int[]) ((ThreadLocal<?>) depth.get(null)).get())[0],
+            "REGISTRATION_DEPTH must stay at zero across register/resolve");
+    }
+
+    @Test
+    void registerClosedType_nullAndBareClassInputsBehaveExplicitly() {
+        TypeHelper.clearClosedTypes();
+
+        assertDoesNotThrow(() -> TypeHelper.registerClosedType(null), "null registration is a no-op");
+        assertNull(TypeHelper.resolveClosedType(null), "null raw never resolves");
+        assertNull(TypeHelper.resolveClosedType(null, String.class), "null raw never resolves, even with args");
+
+        TypeHelper.registerClosedType(String.class);
+        assertSame(String.class, TypeHelper.resolveClosedType(String.class),
+            "a bare class registers under itself and resolves back");
+        assertNull(TypeHelper.resolveClosedType(String.class, (Type) null),
+            "an explicit null argument does not form a closure key");
+        assertNull(TypeHelper.resolveClosedType(Integer.class),
+            "an unregistered bare class stays unresolved");
+    }
 }

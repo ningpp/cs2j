@@ -1205,6 +1205,58 @@ public final class TypeHelper {
         }
     }
 
+    // -------------------------------------------------------------------
+    // Closed-type registration surface (specs/2026-09-29-c30-closed-metadata-design.md,
+    // decision D3): a process-wide registry of explicit closed types, published by the
+    // generated bootstrap registration code and consulted by consumers that hold only a
+    // raw class plus the type arguments they observed at the consumption site.
+    //
+    // Deliberately thread-free: the map is a plain ConcurrentHashMap keyed by
+    // closedCacheKey structural keys, so registration and resolution are pure functions
+    // of their inputs. None of the legacy session-chain ThreadLocal registries
+    // (TYPE_ARGUMENTS/CONSUMED_ARGUMENTS/MEMBER_ARGUMENTS/REGISTRATION_DEPTH/
+    // WRAPPER_LAYER_TAKEN/CALLSITE_ARGUMENTS/CONCRETE_SUBTYPES) is read or written.
+    // -------------------------------------------------------------------
+
+    private static final java.util.concurrent.ConcurrentHashMap<Object, java.lang.reflect.Type> _closedTypes =
+        new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Test hook: empties the closed-type registry (package-private, JUnit-only). */
+    static void clearClosedTypes() {
+        _closedTypes.clear();
+    }
+
+    /**
+     * Registers a closed type under its structural cache key. Idempotent: the FIRST
+     * registration of an equal closure wins and later equal closures are ignored
+     * (putIfAbsent semantics via {@link ConcurrentHashMapHelper#putIfAbsentUntyped}).
+     * A {@code null} input is a no-op; a bare (non-generic) Class registers under itself.
+     */
+    public static void registerClosedType(java.lang.reflect.Type closed) {
+        if (closed == null) {
+            return;
+        }
+        ConcurrentHashMapHelper.putIfAbsentUntyped(_closedTypes, closedCacheKey(closed), closed);
+    }
+
+    /**
+     * Resolves the registered closed type for a raw class plus the type arguments
+     * observed at the consumption site. The query builds
+     * {@code parameterized(raw, observedArgs)} and looks its structural key up in the
+     * registration table; with no observed arguments it degenerates to a bare-raw
+     * lookup. Returns the registered closed Type, or null when nothing was registered
+     * for that key.
+     */
+    public static java.lang.reflect.Type resolveClosedType(Class<?> raw, java.lang.reflect.Type... observedArgs) {
+        if (raw == null) {
+            return null;
+        }
+        Object key = observedArgs == null || observedArgs.length == 0
+            ? closedCacheKey(raw)
+            : closedCacheKey(parameterized(raw, observedArgs));
+        return _closedTypes.get(key);
+    }
+
     /**
      * Runs a converter factory for a CLOSED type: prefers the factory's closed-aware
      * {@code createConverter(Class, Map, JsonSerializerOptions)} entry (typed as Object here —
