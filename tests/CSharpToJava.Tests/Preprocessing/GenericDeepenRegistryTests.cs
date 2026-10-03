@@ -41,24 +41,25 @@ public sealed class GenericDeepenRegistryTests
     }
 
     [Fact]
-    public void Registry_PlacesGenericDeepen_BetweenGenericAndRecordReadOnly()
+    public void Registry_PlacesGenericDeepen_BeforeClosedMetadataAndRecordReadOnly()
     {
         var ordered = PassCatalog.BuildRegistry().Ordered.Select(p => p.Id).ToList();
         var gd = ordered.IndexOf(PassIds.GenericDeepen);
         Assert.True(gd > 0, "generic-deepen must be registered");
         Assert.Equal(PassIds.Generic, ordered[gd - 1]);
-        // C33 M1a flipped variance-audit to Implemented in the locked topo slot
-        // between generic-deepen and record-readonly (design §3.4, §5.5).
-        Assert.Equal(PassIds.VarianceAudit, ordered[gd + 1]);
-        Assert.Equal(PassIds.RecordReadOnly, ordered[gd + 2]);
+        // C30 M2' + C33 M1a: closed-metadata and variance-audit both flipped
+        // to Implemented, slotting in after generic-deepen (design §3.4/§4.3/§5.5).
+        Assert.Equal(PassIds.ClosedMetadata, ordered[gd + 1]);
+        Assert.Equal(PassIds.VarianceAudit, ordered[gd + 2]);
+        Assert.Equal(PassIds.RecordReadOnly, ordered[gd + 3]);
     }
 
     [Fact]
-    public void C30_StaysStub_WhileC33VarianceAuditIsImplemented()
+    public void C30_AndC33_AreImplemented_AfterGenericDeepen()
     {
         var registry = PassCatalog.BuildRegistry();
-        var closed = registry.Require(PassStubCatalog.Ids.ClosedMetadata);
-        Assert.Equal(PassStatus.Stub, closed.Status);
+        var closed = registry.Require(PassIds.ClosedMetadata);
+        Assert.Equal(PassStatus.Implemented, closed.Status);
         Assert.Equal("C30", closed.CatalogItems);
         Assert.Contains(PassIds.GenericDeepen, closed.RunAfterIds);
 

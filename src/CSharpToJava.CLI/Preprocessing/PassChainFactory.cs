@@ -1,6 +1,7 @@
 using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.ConcurrencyNormalize;
+using CSharpToJava.Core.ClosedMetadata;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
@@ -334,6 +335,14 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
+
+            PassIds.ClosedMetadata => new ClosedMetadataPassAdapter(
+                new ClosedMetadataOptions { EnabledPassIds = config.EnabledPassIds },
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
 
             PassIds.RecordReadOnly => new RecordReadOnlyPassAdapter(
                 config.RecordReadOnlyOptionsFactory(),

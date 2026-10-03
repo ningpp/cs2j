@@ -38,6 +38,9 @@ public sealed class PassChainOrderTests
         PassStubCatalog.Ids.NumericBoundary,
         PassIds.Generic,
         PassIds.GenericDeepen,
+        // C30 M2' + C33 M1a: closed-metadata and variance-audit both flipped
+        // to Implemented; they slot in after generic-deepen (design §3.4/§4.3/§5.5).
+        PassIds.ClosedMetadata,
         PassIds.VarianceAudit,
         PassIds.RecordReadOnly,
         PassIds.ArrayMethod,
@@ -72,6 +75,7 @@ public sealed class PassChainOrderTests
     // the M3 enable-by-default gate (design §8).
     // concurrency-normalize is Implemented but a long-term opt-in (design §3.4/§8).
     // variance-audit lands Implemented/default-off (audit-only skeleton).
+    // closed-metadata ships M2' default-off (opt-in no-op skeleton, §9 gate).
     private static readonly string[] EnabledByDefault =
         LockedChain.Where(id =>
             id != PassStubCatalog.Ids.LexicalNormalize
@@ -80,7 +84,8 @@ public sealed class PassChainOrderTests
             && id != PassIds.ExtensionMethods
             && id != PassStubCatalog.Ids.ConcurrencyNormalize
             && id != PassIds.VarianceAudit
-            && id != PassStubCatalog.Ids.PlatformIsolation).ToArray();
+            && id != PassStubCatalog.Ids.PlatformIsolation
+            && id != PassIds.ClosedMetadata).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -360,6 +365,7 @@ public sealed class PassChainOrderTests
         Assert.True(byId[PassStubCatalog.Ids.ForeachSource].DefaultEnabled);
         Assert.Equal("C47", byId[PassStubCatalog.Ids.EqualityConcat].CatalogItems);
         Assert.Equal("C23, C24, C36", byId[PassStubCatalog.Ids.ExpressionDesugar].CatalogItems);
+        Assert.Equal("C30", byId[PassIds.ClosedMetadata].CatalogItems);
         Assert.Equal("C20", byId[PassStubCatalog.Ids.PartialMerge].CatalogItems);
         Assert.False(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
         Assert.Equal("C32", byId[PassStubCatalog.Ids.ClosureLift].CatalogItems);
@@ -484,8 +490,9 @@ public sealed class PassChainOrderTests
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
         // Legacy flags only exist for the historical implemented passes; stubs and
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
-        // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation)
-        // are reachable solely through their descriptor default plus --enable-pass/--pass.
+        // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation,
+        // C30 closed-metadata) are reachable solely through their descriptor default
+        // plus --enable-pass/--pass.
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
@@ -497,7 +504,8 @@ public sealed class PassChainOrderTests
                 && id != PassIds.ExtensionMethods
                 && id != PassStubCatalog.Ids.ConcurrencyNormalize
                 && id != PassIds.VarianceAudit
-                && id != PassStubCatalog.Ids.PlatformIsolation)
+                && id != PassStubCatalog.Ids.PlatformIsolation
+                && id != PassIds.ClosedMetadata)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

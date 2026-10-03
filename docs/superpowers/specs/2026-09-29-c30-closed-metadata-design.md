@@ -3,6 +3,7 @@
 **日期**: 2026-09-29
 **范围**: 注册表 stub `closed-metadata`（catalog C30，P2）的路线决策与实施设计；本文档只做只读代码考古与设计定稿，不改动任何代码
 **状态**: 设计稿（M1 考古收口 + 路线评审为强制门，见 §10）
+**状态（M2' 更新）**: M2' 骨架已落地——Core `ClosedMetadata/` 五文件 + CLI 适配器 + 注册表翻转（Implemented、默认关、opt-in，`--enable-pass closed-metadata` 空转字节复制，CS2J1205 链位校验生效）；M1 下游 dotnet-text-json 核实仍开放。
 **对应基线**: `953293b9`（2026-09-29，`docs: update doc base commit`；= HEAD 往前 2 个提交，均为 docs-only）
 **关联资料**: `prompts/preprocessor-catalog.md` C30（L680-691）/C02（L289-302）/§3.3 泛型擦除补偿族（L1086）/§4 风险 6（L1104）；旧设计 [2026-09-22-closed-type-metadata-chain-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-22-closed-type-metadata-chain-design.md) 与实施记录 [2026-09-22-closed-type-metadata-chain-plan.md](file:///d:/code/cs2j/docs/superpowers/plans/2026-09-22-closed-type-metadata-chain-plan.md)；C02 设计 [2026-09-28-c02-generic-deepen-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c02-generic-deepen-design.md)；`.trae/documents/preprocessor-foundation_plan.md` L60-139；ROADMAP #10
 
@@ -515,11 +516,11 @@ CatalogItems                = "C30"
 
 - 分支：`feature/preproc-c30-closed-metadata`
 - 目录：`.worktrees/preproc-c30-closed-metadata`
-- base：`a190d17c`（2026-10-03 更新为 dev-3.x-26100311 最新提交，`docs(c33): worktree base 更新至 dev-3.x-26100311 HEAD=d2b835a7（按此 base 直接建树，无需建树后 rebase）`；已只读核验存在：`a190d17cab53c25c73bfc2de8adbe53c1ca4dab5`；worktree 按此 base 直接创建，无需建树后 rebase——附录⑧原「base `953293b9` + 建树后 rebase 到当时 dev-3.x HEAD」流程由本次直接建树替代）
-- 创建命令（更新后）：
+- base：`953293b9`（2026-09-29 `docs: update doc base commit`，HEAD 祖先，距 HEAD 2 个 docs-only 提交）
+- 创建命令（实施期执行，非本文档执行）：
 
-```powershell
-git worktree add .worktrees/preproc-c30-closed-metadata -b feature/preproc-c30-closed-metadata a190d17c
+```bash
+git worktree add .worktrees/preproc-c30-closed-metadata -b feature/preproc-c30-closed-metadata 953293b9
 ```
 
 实施约束：仅在该 worktree 内改码；路线 C 落地时只允许文档/stub 描述/审计器类改动；路线 A 按 §10 里程碑逐提交、默认关先行；compat 改动与 C# 改动分提交；转换器改动留独立后续 PR；未过 §9 门槛不得翻默认开。

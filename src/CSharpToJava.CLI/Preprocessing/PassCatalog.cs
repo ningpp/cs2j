@@ -20,6 +20,7 @@ internal static class PassIds
     public const string Generic = "generic";
     public const string GenericDeepen = "generic-deepen";
     public const string VarianceAudit = "variance-audit";
+    public const string ClosedMetadata = "closed-metadata";
     public const string RecordReadOnly = "record-readonly";
     public const string ArrayMethod = "array-method";
     public const string IndexRange = "index-range";
@@ -267,6 +268,7 @@ internal static class PassCatalog
             description: "Make reified generic runtime information explicit for Java type erasure (typeof(T)/is-as T/static generic fields).",
             catalogItems: "C02"),
         new(
+        new(
             PassIds.VarianceAudit,
             "Variance and constraint audit",
             ".cs2j-variance-audit-src",
@@ -280,6 +282,24 @@ internal static class PassCatalog
             supportLibrary: PassSupportLibrary.None,
             description: "Read-only audit of out/in variance and struct/unmanaged/new()/notnull/default/class constraints; writes variance-audit-report.json.",
             catalogItems: "C33"),
+        new(
+            PassIds.ClosedMetadata,
+            "Closed-type metadata registration",
+            Adapters.ClosedMetadataPassAdapter.IntermediateDirectoryName,
+            PassStage.Abi,
+            PassStatus.Implemented,
+            // C30 M2' skeleton: opt-in no-op (analyze produces an empty
+            // registration plan, every file stays a byte copy); the collector/
+            // generator land in M3 and the enable-by-default review waits for
+            // the §9 gates (C02 default-on first).
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.GenericDeepen },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Register closed generic types as explicit System.Type construction trees consumed by the Java reflection side (M2' skeleton: zero rewrites pending the M3 collector/generator).",
+            catalogItems: "C30"),
         new(
             PassIds.RecordReadOnly,
             "Record readonly",
