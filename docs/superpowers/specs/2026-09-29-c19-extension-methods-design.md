@@ -387,11 +387,11 @@ Description                 = "Explicitize extension method calls to static host
 
 - 分支：`feature/preproc-c19-extension-methods`
 - 目录：`.worktrees/preproc-c19-extension-methods`
-- base：`953293b9`（dev-3.x HEAD；完整 SHA `953293b908e9143437c45f287fb4277e890c398e`，"docs: update doc base commit"；2026-09-29 只读核验工作区干净）
+- base：`46bdeeca`（dev-3.x-26100311 HEAD；完整 SHA `46bdeeca200d240e589627410ad0e07ab8bf2121`，"test(preprocessing): C46 注册表锁 CatalogItems 断言对齐（C11, C12, C13, C14, C39, C46）"；2026-10-03 核验工作区干净）
 - 创建命令（**交实施环节执行，本文档不执行、不代为创建**）：
 
 ```bash
-git worktree add .worktrees/preproc-c19-extension-methods -b feature/preproc-c19-extension-methods 953293b9
+git worktree add .worktrees/preproc-c19-extension-methods -b feature/preproc-c19-extension-methods 46bdeeca
 ```
 
 实施约束（写入实施 plan，不在本设计任务执行）：仅在该 worktree 内改码；按 §9 里程碑逐提交；默认关先行，过 §8 门槛才翻默认开；转换器代码改动留 M5 后续 PR；探针结论先回填本设计再写规则代码。
@@ -400,7 +400,7 @@ git worktree add .worktrees/preproc-c19-extension-methods -b feature/preproc-c19
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令 base 已更新为 `dev-3.x-26100311` 当时 HEAD `46bdeeca`（完整 SHA `46bdeeca200d240e589627410ad0e07ab8bf2121`，2026-10-03 核验；原裁决为维持 base `953293b9` 后第一步 rebase 到 `ef70e5a2`，现直接以分支最新提交为 base，不再需要 rebase），stub 计数红灯由首个锚点翻转 PR 按真值收口。
 
 **裁决（按原题号）：**
 
