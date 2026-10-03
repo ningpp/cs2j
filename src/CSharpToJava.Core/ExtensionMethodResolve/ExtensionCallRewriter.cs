@@ -41,16 +41,21 @@ internal sealed class ExtensionCallRewriter : CSharpSyntaxRewriter
     private readonly HashSet<SyntaxNode>? _rolledBackSites;
     private readonly IReadOnlyDictionary<SyntaxAnnotation, ExtensionCallBinding> _bindingsByAnnotation;
     private readonly IReadOnlyDictionary<SyntaxAnnotation, ExtensionGroupPlan> _groupsByAnnotation;
+    private readonly Func<InvocationExpressionSyntax, IMethodSymbol, bool>? _forceBrokenRewrite;
 
     private readonly List<ExpressionTreeSiteMarker> _expressionTreeSites = new();
     private readonly Dictionary<ExtensionGroupPlan, ExpressionSyntax> _groupReceivers = new();
+
+    /// <summary>Expression emitted by the M4 rollback drill hook (unresolvable host → CS0246 at the site).</summary>
+    private const string BrokenRewriteExpressionText = "global::__CS2J_M4_ROLLBACK_PROBE__.ProbeBroken()";
 
     public ExtensionCallRewriter(
         IReadOnlyDictionary<SyntaxNode, ExtensionCallBinding> bindingsByNode,
         IReadOnlyDictionary<SyntaxNode, ExtensionGroupPlan> groupsByNode,
         HashSet<SyntaxNode>? rolledBackSites = null,
         IReadOnlyDictionary<SyntaxAnnotation, ExtensionCallBinding>? bindingsByAnnotation = null,
-        IReadOnlyDictionary<SyntaxAnnotation, ExtensionGroupPlan>? groupsByAnnotation = null)
+        IReadOnlyDictionary<SyntaxAnnotation, ExtensionGroupPlan>? groupsByAnnotation = null,
+        Func<InvocationExpressionSyntax, IMethodSymbol, bool>? forceBrokenRewrite = null)
     {
         _bindingsByNode = bindingsByNode;
         _groupsByNode = groupsByNode;
@@ -59,6 +64,7 @@ internal sealed class ExtensionCallRewriter : CSharpSyntaxRewriter
             ?? new Dictionary<SyntaxAnnotation, ExtensionCallBinding>();
         _groupsByAnnotation = groupsByAnnotation
             ?? new Dictionary<SyntaxAnnotation, ExtensionGroupPlan>();
+        _forceBrokenRewrite = forceBrokenRewrite;
     }
 
     public IReadOnlyList<ExpressionTreeSiteMarker> ExpressionTreeSites => _expressionTreeSites;
@@ -103,10 +109,23 @@ internal sealed class ExtensionCallRewriter : CSharpSyntaxRewriter
             visited.ArgumentList.Arguments,
             annotations);
 
+        // M4 rollback drill seam: deterministic non-compiling replacement at
+        // the selected site (CS0246 location attributes to this file).
+        if (_forceBrokenRewrite?.Invoke(binding.Invocation, binding.Unreduced) == true)
+        {
+            return ParseBrokenRewrite()
+                .WithLeadingTrivia(node.GetLeadingTrivia())
+                .WithTrailingTrivia(node.GetTrailingTrivia());
+        }
+
         return invocation
             .WithLeadingTrivia(node.GetLeadingTrivia())
             .WithTrailingTrivia(node.GetTrailingTrivia());
     }
+
+    private static InvocationExpressionSyntax ParseBrokenRewrite()
+        => (InvocationExpressionSyntax)SyntaxFactory.ParseExpression(BrokenRewriteExpressionText)
+            .WithAdditionalAnnotations(RewrittenAnnotation);
 
     public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {

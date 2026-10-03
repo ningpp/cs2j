@@ -31,11 +31,19 @@ internal sealed class ExtensionCallBinder
     public const string NullConditionalInExpressionTreeReason = "null-conditional-in-expression-tree";
     public const string NullConditionalLinqOwnedReason = "null-conditional-linq-owned";
 
+    /// <summary>M4 EM-LINQ: user extension site shares a fluent chain with a LINQ-owned call.</summary>
+    public const string MixedLinqChainReason = "mixed-linq-chain-conservative-skip";
+
+    /// <summary>M4: site not selected because its host is overridden to skip.</summary>
+    public const string HostOverrideSkipReason = "host-override-skip";
+
     private readonly List<ExtensionCallBinding> _bindings = new();
     private readonly List<ExtensionConditionalPlan> _conditionalPlans = new();
     private readonly List<ExtensionGroupPlan> _groupPlans = new();
     private readonly List<InvocationExpressionSyntax> _refMismatchSites = new();
     private readonly List<InvocationExpressionSyntax> _exprTreeReportOnlySites = new();
+    private readonly List<InvocationExpressionSyntax> _mixedChainSkippedSites = new();
+    private readonly List<InvocationExpressionSyntax> _overrideSkippedSites = new();
     private readonly List<ExtensionDiagnostic> _diagnostics = new();
     private readonly ExtensionMethodResolveStatistics _statistics = new();
     private readonly ExtensionTempAllocator _allocator;
@@ -56,6 +64,8 @@ internal sealed class ExtensionCallBinder
     public IReadOnlyList<ExtensionGroupPlan> GroupPlans => _groupPlans;
     public IReadOnlyList<InvocationExpressionSyntax> RefMismatchSites => _refMismatchSites;
     public IReadOnlyList<InvocationExpressionSyntax> ExprTreeReportOnlySites => _exprTreeReportOnlySites;
+    public IReadOnlyList<InvocationExpressionSyntax> MixedChainSkippedSites => _mixedChainSkippedSites;
+    public IReadOnlyList<InvocationExpressionSyntax> OverrideSkippedSites => _overrideSkippedSites;
     public IReadOnlyList<ExtensionDiagnostic> Diagnostics => _diagnostics;
     public ExtensionMethodResolveStatistics Statistics => _statistics;
 
@@ -152,6 +162,64 @@ internal sealed class ExtensionCallBinder
             return;
         }
 
+        var hostOverride = Options.HostOverrides?.TryGetAction(hostDisplayName);
+
+        // M4 overrides (skip): the reduced site is never selected; an EM001
+        // Info trace always records who asked for the skip.
+        if (hostOverride == ExtensionHostOverrideAction.Skip)
+        {
+            _overrideSkippedSites.Add(invocation);
+            _statistics.HostOverrideSitesSkipped++;
+            AddSkipReason(HostOverrideSkipReason);
+            if (Options.ReportInfo)
+            {
+                AddDiagnostic(
+                    ExtensionSeverity.Info,
+                    ExtensionRule.Linq,
+                    ExtensionMethodCodes.Info,
+                    $"Extension call '{invocation.ToString()}' (host {hostDisplayName}) skipped by host overrides (action=skip); site left unchanged.",
+                    invocation.GetLocation());
+            }
+
+            return;
+        }
+
+        // M4 EM-LINQ mixed-chain finalization: a user extension node on a
+        // fluent member-access chain that also contains a LINQ-owned call is
+        // conservatively left as sugar together with the whole chain. An
+        // isolated explicitization turns the node into a non-member-access
+        // child; LinqRewriter's receiver backtracking
+        // (LinqRewriter.TryVisitInvocationExpression: member-access cast + the
+        // `while (c.Expression is MemberAccessExpressionSyntax)` chain walk)
+        // stops there, silently changing LINQ processing. Force overrides.
+        var inMixedLinqChain = IsInMixedLinqChain(invocation);
+        if (inMixedLinqChain)
+        {
+            if (hostOverride == ExtensionHostOverrideAction.Force)
+            {
+                _statistics.HostOverrideSitesForced++;
+            }
+            else
+            {
+                _mixedChainSkippedSites.Add(invocation);
+                _statistics.MixedLinqChainSites++;
+                AddSkipReason(MixedLinqChainReason);
+                if (Options.ReportInfo)
+                {
+                    AddDiagnostic(
+                        ExtensionSeverity.Info,
+                        ExtensionRule.Linq,
+                        ExtensionMethodCodes.Info,
+                        $"User extension call '{invocation.ToString()}' shares a member-access chain with a LINQ-owned call; "
+                        + "the whole chain is conservatively left as sugar (mixed-linq-chain-conservative-skip; design M4 §1). "
+                        + "Use a host force override to rewrite this site explicitly.",
+                        invocation.GetLocation());
+                }
+
+                return;
+            }
+        }
+
         var receiver = (invocation.Expression as MemberAccessExpressionSyntax)?.Expression;
         var firstParameter = unreduced.Parameters.Length > 0 ? unreduced.Parameters[0] : null;
         var receiverRefKind = firstParameter?.RefKind ?? RefKind.None;
@@ -227,18 +295,26 @@ internal sealed class ExtensionCallBinder
 
             if (!Options.RewriteExternalMetadataHosts)
             {
-                AddSkipReason(ExternalRewriteDisabledReason);
-                if (Options.ReportInfo)
+                // M4 force override explicitly opts this metadata host back in.
+                if (hostOverride == ExtensionHostOverrideAction.Force)
                 {
-                    AddDiagnostic(
-                        ExtensionSeverity.Info,
-                        ExtensionRule.External,
-                        ExtensionMethodCodes.Info,
-                        $"Metadata-host extension call '{invocation.ToString()}' (host {hostDisplayName}) skipped because RewriteExternalMetadataHosts=false.",
-                        invocation.GetLocation());
+                    _statistics.HostOverrideSitesForced++;
                 }
+                else
+                {
+                    AddSkipReason(ExternalRewriteDisabledReason);
+                    if (Options.ReportInfo)
+                    {
+                        AddDiagnostic(
+                            ExtensionSeverity.Info,
+                            ExtensionRule.External,
+                            ExtensionMethodCodes.Info,
+                            $"Metadata-host extension call '{invocation.ToString()}' (host {hostDisplayName}) skipped because RewriteExternalMetadataHosts=false.",
+                            invocation.GetLocation());
+                    }
 
-                return;
+                    return;
+                }
             }
         }
 
@@ -907,6 +983,83 @@ internal sealed class ExtensionCallBinder
         }
 
         return true;
+    }
+
+    // ── M4 EM-LINQ mixed chains ──────────────────────────────────────────────
+
+    /// <summary>
+    /// True when <paramref name="invocation"/> (a bound reduced call whose
+    /// host is NOT in the LINQ host set) is linked through fluent
+    /// member-access receivers to at least one LINQ-owned reduced call.
+    /// Argument-position calls (e.g. inside lambdas) are not on the receiver
+    /// spine and therefore do not mix.
+    /// </summary>
+    private bool IsInMixedLinqChain(InvocationExpressionSyntax invocation)
+    {
+        // Upward: `a.B().C()` — walk fluent continuations whose receiver is
+        // the current invocation (parenthesized receivers are transparent).
+        SyntaxNode current = invocation;
+        while (true)
+        {
+            var probe = current;
+            while (probe.Parent is ParenthesizedExpressionSyntax)
+            {
+                probe = probe.Parent;
+            }
+
+            if (probe.Parent is not MemberAccessExpressionSyntax memberUp
+                || memberUp.Expression != probe
+                || memberUp.Parent is not InvocationExpressionSyntax next
+                || next.Expression != memberUp)
+            {
+                break;
+            }
+
+            if (IsReducedLinqHost(next))
+            {
+                return true;
+            }
+
+            current = next;
+        }
+
+        // Downward: follow the receiver chain of member-access invocations.
+        var receiver = (invocation.Expression as MemberAccessExpressionSyntax)?.Expression;
+        while (receiver is not null)
+        {
+            while (receiver is ParenthesizedExpressionSyntax parenthesized)
+            {
+                receiver = parenthesized.Expression;
+            }
+
+            if (receiver is not InvocationExpressionSyntax inner)
+            {
+                break;
+            }
+
+            if (IsReducedLinqHost(inner))
+            {
+                return true;
+            }
+
+            receiver = (inner.Expression as MemberAccessExpressionSyntax)?.Expression;
+        }
+
+        return false;
+    }
+
+    private bool IsReducedLinqHost(InvocationExpressionSyntax invocation)
+    {
+        if (Model.GetSymbolInfo(invocation).Symbol is IMethodSymbol
+            {
+                MethodKind: MethodKind.ReducedExtension,
+                ReducedFrom: { } reducedFrom,
+            })
+        {
+            return Options.LinqHostSet.Contains(reducedFrom.ContainingType.ToDisplayString());
+        }
+
+        return false;
     }
 
     // ── Shared helpers ───────────────────────────────────────────────────────

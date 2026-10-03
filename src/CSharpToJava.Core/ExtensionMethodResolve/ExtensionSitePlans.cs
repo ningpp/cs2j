@@ -159,6 +159,12 @@ public enum ExtensionExemptKind
 
     /// <summary>Expression-tree site rolled back to the sugar (CS2J1210).</summary>
     ExprTreeRollback,
+
+    /// <summary>M4 EM-LINQ: user extension site on a chain mixed with LINQ-owned calls; chain kept sugar.</summary>
+    MixedLinqChain,
+
+    /// <summary>M4: host overridden to skip; the reduced site is intentionally left sugar.</summary>
+    HostOverrideSkip,
 }
 
 /// <summary>

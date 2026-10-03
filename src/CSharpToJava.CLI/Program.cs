@@ -267,6 +267,8 @@ public class Program
                 EnableDecimalOps = opts.DecimalOpsEffective,
                 ParamsCollections = paramsCollectionsOptions,
                 ExtensionMappingConfigPath = opts.MappingConfig,
+                ExtensionMethodStrict = opts.ExtensionMethodStrict,
+                ExtensionOverridesPath = opts.ExtensionOverridesPath,
             });
 
             if (!chain.Success)
@@ -3834,6 +3836,8 @@ public class Program
                 DisablePassIds = opts.DisablePasses,
                 EnableDecimalOps = opts.DecimalOpsEffective,
                 ExtensionMappingConfigPath = opts.MappingConfig,
+                ExtensionMethodStrict = opts.ExtensionMethodStrict,
+                ExtensionOverridesPath = opts.ExtensionOverridesPath,
             });
 
             if (!chain.Success)
@@ -4881,6 +4885,14 @@ class PreprocessVerbOptions
         HelpText = "Path to StructValueSemanticsOverrides.json (default: config/StructValueSemanticsOverrides.json)")]
     public string? StructValueSemanticsOverrides { get; set; }
 
+    [Option("extension-methods-strict", Default = false,
+        HelpText = "extension-methods pass (C19): escalate CS2J1201-1207/1210/1220 warnings to errors (default off; M4)")]
+    public bool ExtensionMethodStrict { get; set; }
+
+    [Option("extension-methods-overrides", Required = false,
+        HelpText = "Path to extension-methods host overrides JSON: {\"hosts\":{\"Full.Host\":\"skip|force\"},\"additionalLinqHosts\":[...]} (C19 M4)")]
+    public string? ExtensionOverridesPath { get; set; }
+
     [Option("no-decimal-ops", Default = false,
         HelpText = "Disable the default decimal operator normalization inside numeric-boundary (C34)")]
     public bool NoDecimalOps { get; set; }
@@ -5281,6 +5293,14 @@ class ConvertProjectOptions
     [Option("struct-value-semantics-overrides", Required = false,
         HelpText = "Path to StructValueSemanticsOverrides.json (default: config/StructValueSemanticsOverrides.json)")]
     public string? StructValueSemanticsOverrides { get; set; }
+
+    [Option("extension-methods-strict", Default = false,
+        HelpText = "extension-methods pass (C19): escalate CS2J1201-1207/1210/1220 warnings to errors (default off; M4)")]
+    public bool ExtensionMethodStrict { get; set; }
+
+    [Option("extension-methods-overrides", Required = false,
+        HelpText = "Path to extension-methods host overrides JSON: {\"hosts\":{\"Full.Host\":\"skip|force\"},\"additionalLinqHosts\":[...]} (C19 M4)")]
+    public string? ExtensionOverridesPath { get; set; }
 
     [Option("no-array-method", Default = false,
         HelpText = "Disable the default array-method preprocessing step")]

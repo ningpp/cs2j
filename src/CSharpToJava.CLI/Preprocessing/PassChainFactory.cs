@@ -106,6 +106,17 @@ internal sealed class PassChainConfiguration
     /// (TypeMappings-backed; null when the pass is not enabled).
     /// </summary>
     public Func<INamedTypeSymbol, ExternalHostMappingKind>? ExtensionExternalHostMapper { get; init; }
+
+    /// <summary>
+    /// M4: C19-specific strict flag (design §7; default false in M4 — the pass
+    /// ships off, and when explicitly enabled the Warning codes 1201-1207/
+    /// 1210/1220 stay warnings unless this is set). Deliberately separate from
+    /// the historical shared <see cref="Strict"/> (--no-local-function-strict).
+    /// </summary>
+    public bool ExtensionMethodStrict { get; init; }
+
+    /// <summary>M4: path to the extension-methods host overrides JSON (null = none).</summary>
+    public string? ExtensionOverridesPath { get; init; }
 }
 
 /// <summary>
@@ -376,14 +387,17 @@ internal static class PassChainFactory
 
             // C19 has no convert-project legacy toggle; the descriptor default
             // (off) drives it and --enable-pass extension-methods opts in.
+            // M4: strict is a C19-dedicated flag (default false); overrides
+            // load lazily only when the pass runs.
             PassIds.ExtensionMethods => new ExtensionMethodResolvePassAdapter(
-                new ExtensionMethodResolveOptions(),
+                new ExtensionMethodResolveOptions { Strict = config.ExtensionMethodStrict },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
                 config.VerifyBuild,
                 config.VerifyTests,
-                config.ExtensionExternalHostMapper),
+                config.ExtensionExternalHostMapper,
+                ExtensionHostOverridesFile.Load(config.ExtensionOverridesPath)),
 
             // convert-project historically ran goto with Strict=false.
             PassIds.EliminateGoto => new GotoPassAdapter(

@@ -40,6 +40,10 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     private readonly bool _verifyBuild;
     private readonly bool _verifyTests;
     private readonly Func<INamedTypeSymbol, ExternalHostMappingKind>? _externalHostMapper;
+    private readonly ExtensionHostOverrides? _hostOverrides;
+
+    /// <summary>M4 drill seam: force selected sites to emit non-compiling code (tests only).</summary>
+    private readonly Func<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax, IMethodSymbol, bool>? _forceBrokenRewrite;
 
     private readonly ExtensionMethodResolvePreprocessor _preprocessor = new();
     private readonly List<ExtensionDiagnostic> _diagnostics = new();
@@ -47,6 +51,8 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
 
     private ExtensionMethodResolveOptions _effectiveOptions = new();
     private IReadOnlyList<MetadataReference> _enhancedReferences = Array.Empty<MetadataReference>();
+    private HashSet<ExtensionRewriteErrorKey> _baselineErrorKeys = new();
+    private PassTreeContext? _tree;
     private bool _prepared;
 
     public ExtensionMethodResolvePassAdapter(
@@ -56,7 +62,9 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         IReadOnlyCollection<string>? compatNamespacePrefixes,
         bool verifyBuild,
         bool verifyTests,
-        Func<INamedTypeSymbol, ExternalHostMappingKind>? externalHostMapper = null)
+        Func<INamedTypeSymbol, ExternalHostMappingKind>? externalHostMapper = null,
+        ExtensionHostOverrides? hostOverrides = null,
+        Func<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax, IMethodSymbol, bool>? forceBrokenRewrite = null)
     {
         _options = options;
         _verbose = verbose;
@@ -65,6 +73,9 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         _verifyBuild = verifyBuild;
         _verifyTests = verifyTests;
         _externalHostMapper = externalHostMapper;
+        _hostOverrides = hostOverrides ?? options.HostOverrides;
+        _forceBrokenRewrite = forceBrokenRewrite;
+        _preprocessor.ForceBrokenRewrite = forceBrokenRewrite;
     }
 
     public override PassDescriptor Descriptor => PassCatalog.ImplementedById(PassIds.ExtensionMethods);
@@ -134,11 +145,13 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         }
 
         _prepared = true;
+        _tree = tree;
 
         var singleFile = tree.Layout.ProjectFiles.Count == 0;
         _effectiveOptions = _options with
         {
             ExternalHostMapper = _externalHostMapper,
+            HostOverrides = _hostOverrides,
             IsSupportLibraryHost = _options.IsSupportLibraryHost ?? IsSupportLibraryHostSymbol,
             SingleFileIncompleteReferences = singleFile,
             ReportSiteDetail = _options.ReportSiteDetail || _verbose,
@@ -227,6 +240,13 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     {
         _preprocessor.BindCompilation(compilation);
         _preprocessor.Analyze(_effectiveOptions);
+
+        // M4 rollback gate baseline (design §4.4-4): error keys of the ORIGINAL
+        // tree compiled with the same references/options the candidate uses.
+        // Location paths are remapped into the intermediate layout so the
+        // triples diff directly against candidate diagnostics.
+        _baselineErrorKeys = new HashSet<ExtensionRewriteErrorKey>(
+            BuildErrorKeys(compilation, remapToIntermediate: true));
         return Task.CompletedTask;
     }
 
@@ -251,18 +271,114 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
 
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
-        RunResidualScan(tree);
+        if (!_effectiveOptions.RunResidualScan)
+        {
+            return Task.CompletedTask;
+        }
+
+        var candidate = BuildIntermediateCompilation(tree);
+
+        // M4 §4.4-4: candidate-vs-baseline compile-error diff with file
+        // attribution; unique rewritten file → replay that file; otherwise
+        // whole-tree rollback + CS2J1200.
+        var candidateKeys = BuildErrorKeys(candidate, remapToIntermediate: false);
+        var rewrittenDest = MapRewrittenToDestination(tree);
+        var rollbackPlan = ExtensionRewriteRollback.Plan(
+            _baselineErrorKeys, candidateKeys, rewrittenDest);
+
+        HashSet<string>? excludedFiles = null;
+        if (rollbackPlan.Verdict == ExtensionRollbackVerdict.ExcludeFiles)
+        {
+            excludedFiles = RevertFiles(tree, rollbackPlan.FilesToRevert, rollbackPlan.NewErrors);
+            candidate = BuildIntermediateCompilation(tree);
+        }
+        else if (rollbackPlan.Verdict == ExtensionRollbackVerdict.WholeTreeRollback)
+        {
+            RevertFiles(tree, rewrittenDest, rollbackPlan.NewErrors);
+            EmitWholeTreeRollback(rollbackPlan.NewErrors, tree.IntermediateRoot);
+            return Task.CompletedTask;
+        }
+
+        RunResidualScan(tree, candidate, excludedFiles);
         return Task.CompletedTask;
     }
 
-    /// <summary>Post-rewrite gate (design §4.5): recompile the intermediate tree and count leftover shapes.</summary>
-    private void RunResidualScan(PassTreeContext tree)
+    /// <summary>Byte-exact replay of the given intermediate files from their original copies.</summary>
+    private HashSet<string> RevertFiles(
+        PassTreeContext tree,
+        IReadOnlyCollection<string> intermediateFiles,
+        IReadOnlyList<ExtensionRewriteErrorKey> newErrors)
     {
-        if (!_effectiveOptions.RunResidualScan)
+        var reverted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var errorSummary = string.Join("; ", newErrors
+            .Select(e => $"{Path.GetFileName(e.File)}({e.Id})")
+            .Distinct(StringComparer.Ordinal));
+
+        foreach (var dest in intermediateFiles)
         {
-            return;
+            var relative = Path.GetRelativePath(tree.IntermediateRoot, dest);
+            var source = Path.Combine(tree.SourceRoot, relative);
+            File.Copy(source, dest, overwrite: true);
+            reverted.Add(dest);
+
+            Console.WriteLine(
+                $"[extension-methods] rollback: reverted {relative} (new compile error(s) vs baseline: {errorSummary}); "
+                + "file replayed byte-for-byte from the original.");
+
+            _diagnostics.Add(new ExtensionDiagnostic(
+                ExtensionSeverity.Info,
+                ExtensionRule.Infra,
+                ExtensionMethodCodes.Info,
+                $"EM001 build-failure rollback: file '{relative}' reverted to the original copy because the rewritten "
+                + $"candidate added compile error(s) vs the baseline tree [{errorSummary}].",
+                relative));
         }
 
+        _statistics.FilesRolledBack += reverted.Count;
+        return reverted;
+    }
+
+    private void EmitWholeTreeRollback(IReadOnlyList<ExtensionRewriteErrorKey> newErrors, string root)
+    {
+        var detail = string.Join("; ", newErrors
+            .Take(5)
+            .Select(e => $"{Path.GetFileName(e.File)}({e.Id}): {e.Message}"));
+        Console.Error.WriteLine(
+            "[extension-methods] whole-tree rollback (CS2J1200): new compile error(s) could not be attributed to a "
+            + $"single rewritten file; every rewritten file was replayed from the originals. First errors: {detail}");
+
+        _diagnostics.Add(new ExtensionDiagnostic(
+            ExtensionSeverity.Error,
+            ExtensionRule.Infra,
+            ExtensionMethodCodes.WholeTreeRollback,
+            "The rewritten candidate introduced compile error(s) that could not be attributed uniquely to one rewritten "
+            + $"file [{detail}]; all changes from this run were rolled back to the original inputs (CS2J1200).",
+            root));
+    }
+
+    /// <summary>Post-rewrite gate (design §4.5): recompile the intermediate tree and count leftover shapes.</summary>
+    private void RunResidualScan(PassTreeContext tree, CSharpCompilation compilation, HashSet<string>? excludedFiles)
+    {
+        _statistics.ThisModifierBaseline = _preprocessor.ThisModifierBaseline;
+        _statistics.ThisModifierPreserved = compilation.SyntaxTrees
+            .Where(t => excludedFiles is null || !excludedFiles.Contains(t.FilePath))
+            .Sum(ExtensionMethodResidualScanner.CountExtensionThisModifiers);
+
+        foreach (var (rule, count) in _preprocessor.ResidualScan(compilation, excludedFiles))
+        {
+            _statistics.ResidualsByRule.TryGetValue(rule, out var existing);
+            _statistics.ResidualsByRule[rule] = existing + count;
+            _diagnostics.Add(new ExtensionDiagnostic(
+                ExtensionMethodResolvePolicy.ResidualSeverity(_effectiveOptions.Strict),
+                ExtensionRule.Residual,
+                ExtensionMethodCodes.ResidualFound,
+                $"{count} residual site(s) of rule '{rule}' remain after extension-methods; the rewrite did not cover them (design §4.5).",
+                tree.IntermediateRoot));
+        }
+    }
+
+    private CSharpCompilation BuildIntermediateCompilation(PassTreeContext tree)
+    {
         var parseOptions = CreateParseOptions(tree);
         var trees = new List<SyntaxTree>();
         foreach (var file in Directory.EnumerateFiles(tree.IntermediateRoot, "*.cs", SearchOption.AllDirectories))
@@ -280,26 +396,57 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         // Mirror the SDK implicit global usings for gate binding as well.
         trees.AddRange(CreateAdditionalSyntaxTrees(tree));
 
-        if (trees.Count == 0)
-        {
-            return;
-        }
-
-        var compilation = CSharpCompilation.Create(
+        return CSharpCompilation.Create(
             CompilationName ?? "cs2j-extension-methods-residual",
             trees, GetMetadataReferences(), CreateCompilationOptions());
-        foreach (var (rule, count) in _preprocessor.ResidualScan(compilation))
-        {
-            _statistics.ResidualsByRule.TryGetValue(rule, out var existing);
-            _statistics.ResidualsByRule[rule] = existing + count;
-            _diagnostics.Add(new ExtensionDiagnostic(
-                _options.Strict ? ExtensionSeverity.Error : ExtensionSeverity.Warning,
-                ExtensionRule.Residual,
-                ExtensionMethodCodes.ResidualFound,
-                $"{count} residual site(s) of rule '{rule}' remain after extension-methods; the rewrite did not cover them (design §4.5).",
-                tree.IntermediateRoot));
-        }
     }
+
+    private List<ExtensionRewriteErrorKey> BuildErrorKeys(
+        CSharpCompilation compilation,
+        bool remapToIntermediate)
+    {
+        var tree = _tree;
+        var keys = new List<ExtensionRewriteErrorKey>();
+        foreach (var diagnostic in compilation.GetDiagnostics())
+        {
+            if (diagnostic.Severity != DiagnosticSeverity.Error)
+            {
+                continue;
+            }
+
+            var file = diagnostic.Location.SourceTree?.FilePath;
+            if (file is not null && remapToIntermediate && tree is not null)
+            {
+                file = RemapSourceToIntermediate(file, tree);
+            }
+
+            keys.Add(new ExtensionRewriteErrorKey(
+                file ?? string.Empty,
+                diagnostic.Descriptor.Id,
+                diagnostic.GetMessage()));
+        }
+
+        return keys;
+    }
+
+    private static string RemapSourceToIntermediate(string sourcePath, PassTreeContext tree)
+    {
+        var normalizedSource = sourcePath.Replace('\\', '/');
+        var normalizedRoot = tree.SourceRoot.Replace('\\', '/');
+        if (!normalizedSource.StartsWith(normalizedRoot + "/", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(normalizedSource, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            return sourcePath;
+        }
+
+        var relative = Path.GetRelativePath(tree.SourceRoot, sourcePath);
+        return Path.Combine(tree.IntermediateRoot, relative);
+    }
+
+    private HashSet<string> MapRewrittenToDestination(PassTreeContext tree)
+        => new(
+            _preprocessor.RewrittenFiles.Select(f => RemapSourceToIntermediate(f, tree)),
+            StringComparer.OrdinalIgnoreCase);
 
     // Design §6: CS2J1230 is Error for both restore and build failures; CS2J1231 for test failures.
 

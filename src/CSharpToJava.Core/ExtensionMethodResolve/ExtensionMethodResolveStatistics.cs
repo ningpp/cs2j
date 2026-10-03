@@ -69,6 +69,28 @@ public sealed class ExtensionMethodResolveStatistics
     /// <summary>Expression-tree sites rolled back to the sugar after the identity assertion failed (CS2J1210).</summary>
     public int ExpressionTreeRollbacks;
 
+    /// <summary>
+    /// M4 EM-LINQ: user-extension sites on a member-access chain that also
+    /// contains a LINQ-owned call; the whole chain is conservatively left as
+    /// sugar (EM001 per site).
+    /// </summary>
+    public int MixedLinqChainSites;
+
+    /// <summary>M4: bound reduced sites not selected because the host is overridden to skip.</summary>
+    public int HostOverrideSitesSkipped;
+
+    /// <summary>M4: sites explicitly rewritten because the host is overridden to force.</summary>
+    public int HostOverrideSitesForced;
+
+    /// <summary>M4 §4.4-4: files whose whole rewrite set was replayed from the original copy.</summary>
+    public int FilesRolledBack;
+
+    /// <summary>M4 gate 5 (§4.5): extension-method declarations carrying the <c>this</c> modifier before the pass.</summary>
+    public int ThisModifierBaseline;
+
+    /// <summary>M4 gate 5: <c>this</c>-modified first parameters still present in the post-rewrite tree.</summary>
+    public int ThisModifierPreserved;
+
     /// <summary>Skip/undecidable sites bucketed by reason code (1201-1207/1210...).</summary>
     public Dictionary<string, int> SitesSkippedByReason { get; } = new(StringComparer.Ordinal);
 
@@ -99,6 +121,12 @@ public sealed class ExtensionMethodResolveStatistics
         SingleFileDeferredSites += source.SingleFileDeferredSites;
         ExpressionTreeSitesChecked += source.ExpressionTreeSitesChecked;
         ExpressionTreeRollbacks += source.ExpressionTreeRollbacks;
+        MixedLinqChainSites += source.MixedLinqChainSites;
+        HostOverrideSitesSkipped += source.HostOverrideSitesSkipped;
+        HostOverrideSitesForced += source.HostOverrideSitesForced;
+        FilesRolledBack += source.FilesRolledBack;
+        ThisModifierBaseline += source.ThisModifierBaseline;
+        ThisModifierPreserved += source.ThisModifierPreserved;
         MergeCounters(SitesSkippedByReason, source.SitesSkippedByReason);
         MergeCounters(ResidualsByRule, source.ResidualsByRule);
     }
@@ -112,6 +140,9 @@ public sealed class ExtensionMethodResolveStatistics
            $"{ConditionalChainsLifted} null-conditional lifted, {GroupSitesRewritten} groups rewritten, " +
            $"{ExpressionTreeSitesChecked} in expression trees, {ExpressionTreeRollbacks} ET rollbacks, " +
            $"{SingleFileDeferredSites} single-file deferred, " +
+           $"{MixedLinqChainSites} mixed-LINQ chain sites conservatively skipped, " +
+           $"{HostOverrideSitesSkipped}/{HostOverrideSitesForced} host override skip/force, " +
+           $"{FilesRolledBack} files rolled back, " +
            $"{SitesSkippedByReason.Values.Sum()} skipped, " +
            $"{ResidualsByRule.Values.Sum()} residuals)";
 

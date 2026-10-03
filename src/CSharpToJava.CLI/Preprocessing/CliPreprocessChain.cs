@@ -99,6 +99,12 @@ internal sealed class CliChainRequest
     /// Only consumed when the extension-methods pass is enabled.
     /// </summary>
     public string? ExtensionMappingConfigPath { get; init; }
+
+    /// <summary>M4: C19-dedicated strict (default false; Warning codes stay warnings).</summary>
+    public bool ExtensionMethodStrict { get; init; }
+
+    /// <summary>M4: extension-methods host overrides JSON path (null = none).</summary>
+    public string? ExtensionOverridesPath { get; init; }
 }
 
 /// <summary>
@@ -194,6 +200,8 @@ internal static class CliPreprocessChain
             ExpressionDesugarOptionsFactory = request.ExpressionDesugarOptionsFactory,
             ParamsCollections = request.ParamsCollections,
             ExtensionExternalHostMapper = extensionExternalHostMapper,
+            ExtensionMethodStrict = request.ExtensionMethodStrict,
+            ExtensionOverridesPath = request.ExtensionOverridesPath,
         };
 
         var sourcePath = request.SourcePath;

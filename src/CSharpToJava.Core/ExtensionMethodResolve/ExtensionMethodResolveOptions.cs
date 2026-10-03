@@ -44,7 +44,10 @@ public sealed record ExtensionMethodResolveOptions
     /// <summary>
     /// LINQ host full names whose reduced sugar is NEVER touched (EM-LINQ):
     /// E16/C26 structurally depend on the reduced member-access shape.
-    /// Extendable only (overrides may add hosts, never remove these two;
+    /// Extendable only (M4 enforcement in
+    /// <see cref="ExtensionMethodResolvePreprocessor.Analyze"/>: a set missing
+    /// either protected host throws <see cref="InvalidOperationException"/>;
+    /// additional hosts may be supplied via <see cref="HostOverrides"/>;
     /// design §10 risk 1).
     /// </summary>
     public IReadOnlySet<string> LinqHostSet { get; init; } = new HashSet<string>(StringComparer.Ordinal)
@@ -59,9 +62,17 @@ public sealed record ExtensionMethodResolveOptions
 
     /// <summary>
     /// Path to an overrides file keyed by host full name (force/skip per host).
-    /// Empty in M0; every skip performed via overrides leaves an Info trace.
+    /// M4: the CLI adapter loads this into <see cref="HostOverrides"/>; Core
+    /// callers may set <see cref="HostOverrides"/> directly. Every skip
+    /// performed via overrides leaves an EM001 Info trace.
     /// </summary>
     public string? OverridesPath { get; init; }
+
+    /// <summary>
+    /// M4: parsed host-keyed force/skip overrides plus extend-only LINQ host
+    /// additions. Null (default) means no overrides.
+    /// </summary>
+    public ExtensionHostOverrides? HostOverrides { get; init; }
 
     /// <summary>
     /// M3 (EM-EXTERNAL, design §4.2-3): grades an external (metadata-only)

@@ -36,7 +36,10 @@ public sealed record ExtensionRewrittenSiteKey(
 ///     (rollback/report-only/ET-conditional), and global::-qualified ordinary
 ///     calls inside must pair with rewritten keys;
 /// (6) orphan static calls: a <c>global::</c>-qualified call whose host name
-///     does not resolve in the new compilation — must be 0.
+/// does not resolve in the new compilation — must be 0.
+/// (5, M4) extension <c>this</c> modifiers: the post-rewrite tree must carry
+/// exactly the same number of <c>this</c>-modified first parameters as the
+/// input (the pass never touches declarations) — must be 0.
 /// </summary>
 public static class ExtensionMethodResidualScanner
 {
@@ -45,6 +48,7 @@ public static class ExtensionMethodResidualScanner
     public const string RuleRewriteIdentity = "rewrite-identity";
     public const string RuleUnresolvedStaticHost = "unresolved-static-host";
     public const string RuleExpressionTreeShape = "expression-tree-shape";
+    public const string RuleThisModifierPreserved = "extension-this-modifier-preserved";
 
     private static readonly Regex Whitespace = new(@"\s+", RegexOptions.Compiled);
 
@@ -59,21 +63,51 @@ public static class ExtensionMethodResidualScanner
         IReadOnlyList<ExtensionRewrittenSiteKey> rewrittenSites,
         ExtensionMethodResolveOptions options,
         IReadOnlyList<ExtensionExemptSite> exemptSites)
+        => Scan(rewritten, rewrittenSites, options, exemptSites, null, 0);
+
+    public static Dictionary<string, int> Scan(
+        Compilation rewritten,
+        IReadOnlyList<ExtensionRewrittenSiteKey> rewrittenSites,
+        ExtensionMethodResolveOptions options,
+        IReadOnlyList<ExtensionExemptSite> exemptSites,
+        IReadOnlyCollection<string>? excludedFiles,
+        int baselineThisModifierCount)
     {
         ArgumentNullException.ThrowIfNull(rewritten);
         ArgumentNullException.ThrowIfNull(rewrittenSites);
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(exemptSites);
 
+        var excluded = NormalizeExcluded(excludedFiles);
         var residuals = new Dictionary<string, int>(StringComparer.Ordinal);
         var exemptionIndex = new ExemptionIndex(exemptSites);
 
-        ScanCallShapes(rewritten, options, exemptionIndex, residuals);
-        ScanExpressionTreeShapes(rewritten, options, exemptionIndex, rewrittenSites, residuals);
-        ScanRewriteIdentity(rewritten, rewrittenSites, residuals);
+        ScanCallShapes(rewritten, options, exemptionIndex, residuals, excluded);
+        ScanExpressionTreeShapes(rewritten, options, exemptionIndex, rewrittenSites, residuals, excluded);
+        ScanRewriteIdentity(rewritten, rewrittenSites, residuals, excluded);
+        ScanThisModifierPreservation(rewritten, baselineThisModifierCount, residuals, excluded);
 
         return residuals;
     }
+
+    private static HashSet<string> NormalizeExcluded(IReadOnlyCollection<string>? excludedFiles)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (excludedFiles is null)
+        {
+            return result;
+        }
+
+        foreach (var file in excludedFiles)
+        {
+            result.Add(NormalizePath(file));
+        }
+
+        return result;
+    }
+
+    private static bool IsExcluded(string treeFilePath, HashSet<string> excluded)
+        => excluded.Contains(NormalizePath(treeFilePath));
 
     /// <summary>All whitespace removed; exempt nodes replay byte-for-byte otherwise.</summary>
     public static string CompactSource(string text) => Whitespace.Replace(text, string.Empty);
@@ -82,10 +116,16 @@ public static class ExtensionMethodResidualScanner
         Compilation compilation,
         ExtensionMethodResolveOptions options,
         ExemptionIndex exemptions,
-        Dictionary<string, int> residuals)
+        Dictionary<string, int> residuals,
+        HashSet<string> excluded)
     {
         foreach (var tree in compilation.SyntaxTrees)
         {
+            if (IsExcluded(tree.FilePath, excluded))
+            {
+                continue;
+            }
+
             var model = compilation.GetSemanticModel(tree);
             var root = tree.GetCompilationUnitRoot();
             var filePath = tree.FilePath;
@@ -163,12 +203,18 @@ public static class ExtensionMethodResidualScanner
         ExtensionMethodResolveOptions options,
         ExemptionIndex exemptions,
         IReadOnlyList<ExtensionRewrittenSiteKey> rewrittenSites,
-        Dictionary<string, int> residuals)
+        Dictionary<string, int> residuals,
+        HashSet<string> excluded)
     {
         var sitesRoot = LongestCommonDirectory(rewrittenSites.Select(s => s.FilePath));
 
         foreach (var tree in compilation.SyntaxTrees)
         {
+            if (IsExcluded(tree.FilePath, excluded))
+            {
+                continue;
+            }
+
             var model = compilation.GetSemanticModel(tree);
             var root = tree.GetCompilationUnitRoot();
             var filePath = tree.FilePath;
@@ -287,7 +333,8 @@ public static class ExtensionMethodResidualScanner
     private static void ScanRewriteIdentity(
         Compilation compilation,
         IReadOnlyList<ExtensionRewrittenSiteKey> sites,
-        Dictionary<string, int> residuals)
+        Dictionary<string, int> residuals,
+        HashSet<string> excluded)
     {
         if (sites.Count == 0)
         {
@@ -306,6 +353,14 @@ public static class ExtensionMethodResidualScanner
             var relativePath = RelativeToRoot(NormalizePath(fileGroup.Key), commonRoot);
             var tree = compilation.SyntaxTrees.FirstOrDefault(t =>
                 MatchesRelative(NormalizePath(t.FilePath), relativePath));
+
+            // M4: the file was reverted byte-for-byte by the build-failure
+            // rollback; its rewrite keys are no longer owed by the candidate.
+            if (tree is not null && IsExcluded(tree.FilePath, excluded))
+            {
+                continue;
+            }
+
             if (tree is null)
             {
                 Add(residuals, RuleRewriteIdentity, fileGroup.Count());
@@ -371,6 +426,65 @@ public static class ExtensionMethodResidualScanner
         }
     }
 
+    private static void ScanThisModifierPreservation(
+        Compilation compilation,
+        int baselineCount,
+        Dictionary<string, int> residuals,
+        HashSet<string> excluded)
+    {
+        var preserved = 0;
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            if (IsExcluded(tree.FilePath, excluded))
+            {
+                continue;
+            }
+
+            preserved += CountExtensionThisModifiers(tree);
+        }
+
+        // Rolled-back files replay byte-for-byte, so their this modifiers are
+        // present on BOTH sides and must be excluded from both counts.
+        if (baselineCount > 0 || preserved > 0)
+        {
+            // Baseline passed in was computed over the ORIGINAL full tree;
+            // subtract the share living in excluded (reverted) trees.
+            var excludedShare = excluded.Count == 0
+                ? 0
+                : compilation.SyntaxTrees
+                    .Where(t => IsExcluded(t.FilePath, excluded))
+                    .Sum(CountExtensionThisModifiers);
+            var delta = Math.Abs((baselineCount - excludedShare) - preserved);
+            if (delta > 0)
+            {
+                Add(residuals, RuleThisModifierPreserved, delta);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Count extension-method first parameters carrying the <c>this</c>
+    /// modifier in one syntax tree. Classic extension form only (a static
+    /// class method whose first parameter has the <c>this</c> token); C# 14
+    /// extension blocks are a CS2J1206 hard gate and never reach here.
+    /// </summary>
+    public static int CountExtensionThisModifiers(SyntaxTree tree)
+    {
+        var root = tree.GetCompilationUnitRoot();
+        var count = 0;
+        foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
+        {
+            var parameters = method.ParameterList.Parameters;
+            if (parameters.Count > 0
+                && parameters[0].Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.ThisKeyword)))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     /// <summary>
     /// Exemption pairing: chain-region exempts (1205/ET-conditional) cover
     /// every residual node within their source span; exact-site exempts
@@ -432,7 +546,9 @@ public static class ExtensionMethodResidualScanner
             return ClaimExact(normalized, ExtensionExemptKind.RefReceiverMismatch, node)
                    || ClaimExact(normalized, ExtensionExemptKind.ExprTreeRollback, node)
                    || ClaimExact(normalized, ExtensionExemptKind.NullConditionalUnliftable, node)
-                   || ClaimExact(normalized, ExtensionExemptKind.ExprTreeNullConditional, node);
+                   || ClaimExact(normalized, ExtensionExemptKind.ExprTreeNullConditional, node)
+                   || ClaimExact(normalized, ExtensionExemptKind.MixedLinqChain, node)
+                   || ClaimExact(normalized, ExtensionExemptKind.HostOverrideSkip, node);
         }
 
         public bool ClaimsMethodGroup(string treeFilePath, MemberAccessExpressionSyntax node)

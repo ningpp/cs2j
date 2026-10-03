@@ -28,6 +28,8 @@ public sealed class ExtensionMethodResolvePreprocessor
         public required IReadOnlyList<ExtensionGroupPlan> GroupPlans { get; init; }
         public required IReadOnlyList<InvocationExpressionSyntax> RefMismatchSites { get; init; }
         public required IReadOnlyList<InvocationExpressionSyntax> ExprTreeReportOnlySites { get; init; }
+        public required IReadOnlyList<InvocationExpressionSyntax> MixedChainSkippedSites { get; init; }
+        public required IReadOnlyList<InvocationExpressionSyntax> OverrideSkippedSites { get; init; }
         public required IReadOnlyList<ExtensionDiagnostic> Diagnostics { get; init; }
         public required ExtensionMethodResolveStatistics Statistics { get; init; }
     }
@@ -35,11 +37,27 @@ public sealed class ExtensionMethodResolvePreprocessor
     private Compilation? _compilation;
     private ExtensionMethodResolveOptions _options = new();
     private readonly Dictionary<SyntaxTree, FilePlan> _plans = new();
+    private readonly HashSet<string> _rewrittenFiles = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<ExtensionRewrittenSiteKey> _rewrittenSites = Array.Empty<ExtensionRewrittenSiteKey>();
     private IReadOnlyList<ExtensionExemptSite> _exemptSites = Array.Empty<ExtensionExemptSite>();
+    private int _thisModifierBaseline;
 
     /// <summary>Test hook: force an identity mismatch for a rewritten expression-tree site.</summary>
     internal Func<InvocationExpressionSyntax, IMethodSymbol, bool>? ForceExpressionTreeMismatch { get; set; }
+
+    /// <summary>
+    /// M4 test/drill hook (design §4.4-4): force the given ORIGINAL bound
+    /// invocation to be replaced by an expression guaranteed not to compile,
+    /// so the adapter-level candidate-error attribution + file rollback can
+    /// be exercised deterministically.
+    /// </summary>
+    internal Func<InvocationExpressionSyntax, IMethodSymbol, bool>? ForceBrokenRewrite { get; set; }
+
+    /// <summary>Absolute paths of files whose rewrite output was Changed=true in the last Analyze/Rewrite cycle.</summary>
+    public IReadOnlyCollection<string> RewrittenFiles => _rewrittenFiles;
+
+    /// <summary>M4 gate 5: extension-method <c>this</c> modifiers counted in the original compilation.</summary>
+    public int ThisModifierBaseline => _thisModifierBaseline;
 
     public void BindCompilation(Compilation compilation)
     {
@@ -51,14 +69,18 @@ public sealed class ExtensionMethodResolvePreprocessor
     public void Analyze(ExtensionMethodResolveOptions options)
     {
         ArgumentNullException.ThrowIfNull(_compilation);
-        _options = options;
+        _options = BuildEffectiveOptions(options);
         _plans.Clear();
+        _rewrittenFiles.Clear();
+        _thisModifierBaseline = 0;
 
         foreach (var tree in _compilation.SyntaxTrees.OrderBy(t => t.FilePath, StringComparer.OrdinalIgnoreCase))
         {
             var model = _compilation.GetSemanticModel(tree);
             var binder = new ExtensionCallBinder(model, _options);
             binder.Analyze();
+
+            _thisModifierBaseline += ExtensionMethodResidualScanner.CountExtensionThisModifiers(tree);
 
             _plans[tree] = new FilePlan
             {
@@ -67,6 +89,8 @@ public sealed class ExtensionMethodResolvePreprocessor
                 GroupPlans = binder.GroupPlans,
                 RefMismatchSites = binder.RefMismatchSites,
                 ExprTreeReportOnlySites = binder.ExprTreeReportOnlySites,
+                MixedChainSkippedSites = binder.MixedChainSkippedSites,
+                OverrideSkippedSites = binder.OverrideSkippedSites,
                 Diagnostics = binder.Diagnostics,
                 Statistics = binder.Statistics,
             };
@@ -74,6 +98,35 @@ public sealed class ExtensionMethodResolvePreprocessor
 
         _rewrittenSites = Array.Empty<ExtensionRewrittenSiteKey>();
         _exemptSites = Array.Empty<ExtensionExemptSite>();
+    }
+
+    /// <summary>
+    /// M4 EM-LINQ invariant: the protected LINQ hosts cannot be removed from
+    /// <see cref="ExtensionMethodResolveOptions.LinqHostSet"/>; extra hosts
+    /// registered via <see cref="ExtensionHostOverrides.AdditionalLinqHosts"/>
+    /// are unioned in (extend-only).
+    /// </summary>
+    private static ExtensionMethodResolveOptions BuildEffectiveOptions(ExtensionMethodResolveOptions options)
+    {
+        foreach (var protectedHost in ExtensionHostOverrides.ProtectedLinqHosts)
+        {
+            if (!options.LinqHostSet.Contains(protectedHost))
+            {
+                throw new InvalidOperationException(
+                    "Extension-methods LinqHostSet is extend-only: protected host '" + protectedHost
+                    + "' (System.Linq.Enumerable/System.Linq.Queryable, E16/C26 ownership) cannot be removed.");
+            }
+        }
+
+        var additions = options.HostOverrides?.AdditionalLinqHosts;
+        if (additions is null || additions.Count == 0)
+        {
+            return options;
+        }
+
+        var effective = new HashSet<string>(options.LinqHostSet, StringComparer.Ordinal);
+        effective.UnionWith(additions);
+        return options with { LinqHostSet = effective };
     }
 
     /// <summary>Rewrite the syntax tree backing <paramref name="model"/> (the same tree analyzed in <see cref="Analyze"/>).</summary>
@@ -173,6 +226,7 @@ public sealed class ExtensionMethodResolvePreprocessor
 
         var needsWholeFileFormat = liftableConditions.Count > 0 || tempGroups.Count > 0;
         var outputCode = Format(newRoot!, needsWholeFileFormat);
+        _rewrittenFiles.Add(model.SyntaxTree.FilePath);
         return new ExtensionFileResult(
             outputCode,
             Changed: true,
@@ -261,7 +315,7 @@ public sealed class ExtensionMethodResolvePreprocessor
 
         var rewriter = new ExtensionCallRewriter(
             bindingsByNode, groupsByNode, rollback,
-            bindingAnnotations, groupAnnotations);
+            bindingAnnotations, groupAnnotations, ForceBrokenRewrite);
         var rootAfterRewrite = (CompilationUnitSyntax?)rewriter.Visit(annotatedRoot) ?? annotatedRoot;
 
         // 3) Null-conditional chain lowering (spine static calls + temps).
@@ -463,6 +517,16 @@ public sealed class ExtensionMethodResolvePreprocessor
             AddExempt(exempts, tree, site, ExtensionExemptKind.ExprTreeRollback, site.ToString());
         }
 
+        foreach (var site in plan.MixedChainSkippedSites)
+        {
+            AddExempt(exempts, tree, site, ExtensionExemptKind.MixedLinqChain, site.ToString());
+        }
+
+        foreach (var site in plan.OverrideSkippedSites)
+        {
+            AddExempt(exempts, tree, site, ExtensionExemptKind.HostOverrideSkip, site.ToString());
+        }
+
         foreach (var invocation in rollback.Cast<InvocationExpressionSyntax>())
         {
             AddExempt(exempts, tree, invocation, ExtensionExemptKind.ExprTreeRollback, invocation.ToString());
@@ -531,9 +595,22 @@ public sealed class ExtensionMethodResolvePreprocessor
         return count;
     }
 
-    /// <summary>Post-rewrite residual scan over the recompiled intermediate tree (gates 1/2/3/4/6).</summary>
+    /// <summary>Post-rewrite residual scan over the recompiled intermediate tree (gates 1/2/3/4/5/6).</summary>
     public Dictionary<string, int> ResidualScan(Compilation rewritten)
-        => ExtensionMethodResidualScanner.Scan(rewritten, _rewrittenSites, _options, _exemptSites);
+        => ResidualScan(rewritten, null);
+
+    /// <summary>
+    /// Post-rewrite residual scan; <paramref name="excludedFiles"/> are files
+    /// reverted byte-for-byte by the M4 build-failure rollback (full absolute
+    /// paths, ordinal-ignore compare) — their sugar is owned by the rollback,
+    /// not by this pass.
+    /// </summary>
+    public Dictionary<string, int> ResidualScan(
+        Compilation rewritten,
+        IReadOnlyCollection<string>? excludedFiles)
+        => ExtensionMethodResidualScanner.Scan(
+            rewritten, _rewrittenSites, _options, _exemptSites,
+            excludedFiles, _thisModifierBaseline);
 
     /// <summary>
     /// Three-level formatting: (1) NormalizeWhitespace on the outermost
