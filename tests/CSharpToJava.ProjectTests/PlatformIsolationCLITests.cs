@@ -222,7 +222,58 @@ public static class OsInfo
     }
 
     [Fact]
-    public async Task NonReportMode_FailsLoudlyWithM2Message()
+    public async Task FacadeMode_FailsLoudlyWithM3Message()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", ProbeSource);
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "platform-isolation", "--platform-mode", "Facade",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(1, exit);
+            var output = stdout + stderr;
+            Assert.Contains("Facade", output);
+            Assert.Contains("not implemented", output);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RejectMode_FailsWithPI030_AndCopiesSourcesVerbatim()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", ProbeSource);
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "platform-isolation", "--platform-mode", "Reject",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(1, exit);
+            var output = stdout + stderr;
+            Assert.Contains("PI030", output);
+            Assert.Contains("CS2J3102", output);
+
+            // Sources are never rewritten in Reject mode; the intermediate dir is preserved.
+            var copied = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-platform-isolation-src", "Class1.cs"));
+            Assert.Equal(await File.ReadAllTextAsync(Path.Combine(sourceDir, "Class1.cs")), copied);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StubMode_RedirectsProbeAndDistributesGeneratedShim()
     {
         var sourceDir = CreateTempWorkspace("Lib.csproj", ProbeSource);
         var destDir = Path.Combine(sourceDir, "out");
@@ -233,17 +284,101 @@ public static class OsInfo
                 "preprocess", "--pass", "platform-isolation", "--platform-mode", "Stub",
                 "-s", sourceDir, "-d", destDir);
 
-            Assert.Equal(1, exit);
             var output = stdout + stderr;
-            Assert.Contains("Stub", output);
-            Assert.Contains("not implemented", output);
-            Assert.False(File.Exists(ReportPath(destDir)),
-                "an unimplemented mode must not silently degrade to Report");
+            Assert.True(exit == 0, output);
+
+            var intermediateRoot = Path.Combine(destDir, ".cs2j-platform-isolation-src");
+            var rewritten = await File.ReadAllTextAsync(Path.Combine(intermediateRoot, "Class1.cs"));
+            Assert.Contains("Cs2j.Platform.Cs2jPlatformProbe.IsWindows()", rewritten);
+            Assert.DoesNotContain("System.OperatingSystem.IsWindows()", rewritten);
+
+            var shim = Path.Combine(intermediateRoot, "generated", "Cs2jPlatformProbe.g.cs");
+            Assert.True(File.Exists(shim), $"shim not found at {shim}");
+
+            Assert.Contains("mode=Stub", output);
+
+            using var document = JsonDocument.Parse(File.ReadAllBytes(ReportPath(destDir)));
+            var site = Assert.Single(document.RootElement.GetProperty("sites").EnumerateArray(),
+                s => s.GetProperty("identity").GetString() == "System.OperatingSystem.IsWindows");
+            Assert.Equal("probeRedirect", site.GetProperty("action").GetString());
         }
         finally
         {
             Directory.Delete(sourceDir, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task StubMode_WithNoVerify_CreatesNoBuildOutput()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", ProbeSource);
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "platform-isolation", "--platform-mode", "Stub",
+                "--no-verify-build", "--no-verify-tests",
+                "-s", sourceDir, "-d", destDir);
+
+            var output = stdout + stderr;
+            Assert.True(exit == 0, output);
+            Assert.False(Directory.Exists(
+                Path.Combine(destDir, ".cs2j-platform-isolation-src", "bin")));
+            Assert.True(File.Exists(
+                Path.Combine(destDir, ".cs2j-platform-isolation-src", "generated", "Cs2jPlatformProbe.g.cs")));
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task StubMode_IsIdempotentAcrossRuns()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", ProbeSource);
+        var firstDest = Path.Combine(Path.GetTempPath(), "cs2j-pi-stub-a-" + Guid.NewGuid().ToString("N"));
+        var secondDest = Path.Combine(Path.GetTempPath(), "cs2j-pi-stub-b-" + Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            var first = await RunCliAsync(
+                "preprocess", "--pass", "platform-isolation", "--platform-mode", "Stub",
+                "--no-verify-build", "--no-verify-tests",
+                "-s", sourceDir, "-d", firstDest);
+            var second = await RunCliAsync(
+                "preprocess", "--pass", "platform-isolation", "--platform-mode", "Stub",
+                "--no-verify-build", "--no-verify-tests",
+                "-s", sourceDir, "-d", secondDest);
+
+            Assert.Equal(0, first.ExitCode);
+            Assert.Equal(0, second.ExitCode);
+
+            var firstCode = await File.ReadAllTextAsync(
+                Path.Combine(firstDest, ".cs2j-platform-isolation-src", "Class1.cs"));
+            var secondCode = await File.ReadAllTextAsync(
+                Path.Combine(secondDest, ".cs2j-platform-isolation-src", "Class1.cs"));
+            Assert.Equal(firstCode, secondCode);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+            if (Directory.Exists(firstDest)) Directory.Delete(firstDest, recursive: true);
+            if (Directory.Exists(secondDest)) Directory.Delete(secondDest, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ListPasses_ShowsPlatformIsolationImplemented_DefaultOff()
+    {
+        var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
+
+        Assert.Equal(0, exit);
+        var line = stdout.Split('\n').First(l => l.Contains("platform-isolation"));
+        Assert.Contains("Implemented", line);
+        Assert.Contains(" off ", line);
+        Assert.Contains("C42", line);
     }
 
     private static string ReadSitesJson(string reportPath)

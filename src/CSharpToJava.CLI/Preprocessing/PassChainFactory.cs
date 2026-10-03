@@ -476,7 +476,9 @@ internal static class PassChainFactory
                 config.PlatformIsolationOptionsFactory(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
-                config.CompatNamespacePrefixes),
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
 
             _ => throw new KeyNotFoundException($"No chain adapter is registered for pass id '{passId}'."),
         };

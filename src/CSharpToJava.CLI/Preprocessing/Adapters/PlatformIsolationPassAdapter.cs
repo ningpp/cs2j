@@ -8,17 +8,21 @@ using CoreDiagnosticSeverity = CSharpToJava.Core.Context.DiagnosticSeverity;
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
 /// <summary>
-/// Adapter for the C42 platform-isolation pass, M1 Report mode (design §5).
-/// The standard <see cref="ProjectPassAdapter"/> spine parses/compiles the whole
-/// tree; this adapter binds the Core <see cref="PlatformIsolationPreprocessor"/>,
-/// builds the whole-tree boundary inventory once, and writes
-/// <c>platform-isolation-report.json</c> into the intermediate tree root. Source
-/// files are copied verbatim (<see cref="RewriteFileAsync"/> is always null), no
-/// restore/build/test verification runs (<see cref="VerifyBuild"/>/<see cref="VerifyTests"/>
-/// are false), and <c>DeleteBuildOutputsAfterRestore</c> is false.
-///
-/// Non-Report modes (Reject/Stub/Facade) are M2/M3; enabling one in M1 fails
-/// loudly instead of silently degrading to Report.
+/// Adapter for the C42 platform-isolation pass (design §3.5/§5). The standard
+/// <see cref="ProjectPassAdapter"/> spine parses/compiles the whole tree; this
+/// adapter binds the Core <see cref="PlatformIsolationPreprocessor"/> and drives
+/// one of four modes:
+/// <list type="bullet">
+/// <item><b>Report</b> (default): byte-copy + <c>platform-isolation-report.json</c>, no verify;</item>
+/// <item><b>Reject</b>: no source change; every Reject/Facade site emits PI030 Error
+/// (original CS2J3xxx code + identity + suggestion) → the chain fails, exit != 0;</item>
+/// <item><b>Stub</b>: whole-tree apply via Core (probe redirect / PNSE stubs / guard strip),
+/// generated files distributed under <c>generated/</c>, intermediate-tree build/test
+/// verification dual-on (gated by the global <c>--no-verify-*</c>);</item>
+/// <item><b>Facade</b>: explicit "M3 not implemented" failure (never silently degrades).</item>
+/// </list>
+/// "拒绝优先、不交付部分改写"(§3.5): any PI040/PI031 Error makes the whole run fail
+/// (<see cref="HasErrors"/>), so no partial-isolation tree is delivered.
 /// </summary>
 internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
 {
@@ -31,6 +35,8 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
     private readonly bool _verbose;
     private readonly bool _filterUnsupportedProjects;
     private readonly IReadOnlyCollection<string>? _compatNamespacePrefixes;
+    private readonly bool _verifyBuild;
+    private readonly bool _verifyTests;
 
     private readonly PlatformIsolationPreprocessor _preprocessor = new();
     private readonly PlatformIsolationReportSerializer _serializer = new();
@@ -40,18 +46,23 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
     private BoundaryInventory? _inventory;
     private PlatformIsolationReportBuildResult? _report;
     private PlatformIsolationReport? _outputReport;
+    private PlatformIsolationApplyResult? _applyResult;
     private bool _modeUnsupported;
 
     public PlatformIsolationPassAdapter(
         PlatformIsolationOptions options,
         bool verbose,
         bool filterUnsupportedProjects,
-        IReadOnlyCollection<string>? compatNamespacePrefixes)
+        IReadOnlyCollection<string>? compatNamespacePrefixes,
+        bool verifyBuild,
+        bool verifyTests)
     {
         _options = options;
         _verbose = verbose;
         _filterUnsupportedProjects = filterUnsupportedProjects;
         _compatNamespacePrefixes = compatNamespacePrefixes;
+        _verifyBuild = verifyBuild;
+        _verifyTests = verifyTests;
     }
 
     public override PassDescriptor Descriptor =>
@@ -61,11 +72,11 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes =>
         _compatNamespacePrefixes;
 
-    // M1 Report mode: no intermediate-tree restore/build/test verification and no
-    // bin cleanup. The descriptor dual-on default applies to M2 Stub/Facade.
-    public override bool VerifyBuild => false;
-    public override bool VerifyTests => false;
-    public override bool DeleteBuildOutputsAfterRestore => false;
+    // Verification dual-on applies only to the Stub/Facade apply modes (§3.1/§5);
+    // Report/Reject never restore-build the intermediate tree.
+    public override bool VerifyBuild => ModeUsesVerify && _verifyBuild;
+    public override bool VerifyTests => ModeUsesVerify && _verifyTests;
+    public override bool DeleteBuildOutputsAfterRestore => ModeUsesVerify;
 
     public override CSharpParseOptions CreateParseOptions(PassTreeContext tree)
         => new(LanguageVersion.Latest, preprocessorSymbols: new[] { "NETCOREAPP" });
@@ -73,7 +84,11 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
     public override string CompilationName => "platform-isolation-preprocess";
 
     public PlatformIsolationStatistics? Statistics => _report?.Statistics;
-    public IReadOnlyList<BoundarySite> Sites => _inventory?.Sites ?? (IReadOnlyList<BoundarySite>)Array.Empty<BoundarySite>();
+    public IReadOnlyList<BoundarySite> Sites =>
+        _inventory?.Sites ?? (IReadOnlyList<BoundarySite>)Array.Empty<BoundarySite>();
+
+    private bool ModeUsesVerify =>
+        _options.Mode is PlatformIsolationMode.Stub or PlatformIsolationMode.Facade;
 
     public override Task OnTreePreparedAsync(PassTreeContext tree)
     {
@@ -88,15 +103,15 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
         _preprocessor.BindCompilation(
             compilation, _options, isTestProject, _compatNamespacePrefixes);
 
-        if (_options.Mode != PlatformIsolationMode.Report)
+        if (_options.Mode == PlatformIsolationMode.Facade)
         {
-            // 禁止静默降级为 Report：M1 只交付 Report 模式。
+            // 禁止静默降级：Facade 端口生成属 C42 M3。
             _modeUnsupported = true;
             _diagnostics.Add(new ChainDiagnostic(
                 "error",
                 PreprocessDiagnosticCodes.StubNotImplemented,
-                $"platform-isolation mode '{_options.Mode}' is not implemented until C42 M2/M3; " +
-                "only Report mode is available in M1."));
+                "platform-isolation Facade mode is not implemented until C42 M3; " +
+                "use Stub or Reject."));
             return Task.CompletedTask;
         }
 
@@ -104,41 +119,75 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
         _report = _preprocessor.BuildReport();
         _outputReport = RelativizeReport(_report.Report);
 
-        EmitSiteDiagnostics();
-        EmitCoreDiagnostics(_report.Diagnostics);
+        if (_options.Mode == PlatformIsolationMode.Report)
+        {
+            EmitSiteDiagnostics();
+            EmitCoreDiagnostics(_report.Diagnostics);
+        }
+        else
+        {
+            // Reject / Stub：整树一次 apply，动作码 + residual 闸门由 Core 产出。
+            _applyResult = _preprocessor.RewriteAll();
+            foreach (var diagnostic in _applyResult.Diagnostics)
+            {
+                _diagnostics.Add(new ChainDiagnostic(
+                    LevelOf(diagnostic.Severity),
+                    diagnostic.Code,
+                    diagnostic.Message,
+                    diagnostic.FilePath is null ? null : ToSourceRelative(diagnostic.FilePath)));
+            }
+        }
 
         return Task.CompletedTask;
     }
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
-        // Report mode is a byte-for-byte copy: no source is ever rewritten.
-        _ = context;
+        // Report/Reject: byte-copy. Stub/Facade: serve the precomputed Core rewrite.
+        if (_applyResult == null)
+        {
+            return Task.FromResult<PassFileRewrite?>(null);
+        }
+
+        var file = _applyResult.Files.FirstOrDefault(f =>
+            string.Equals(f.FilePath, context.SourceFilePath, StringComparison.OrdinalIgnoreCase));
+        if (file is { Changed: true })
+        {
+            return Task.FromResult<PassFileRewrite?>(new PassFileRewrite
+            {
+                OutputCode = file.OutputCode,
+                Changed = true,
+            });
+        }
+
         return Task.FromResult<PassFileRewrite?>(null);
     }
 
     public override async Task AfterFilesAsync(PassTreeContext tree)
     {
-        if (_modeUnsupported || _report is null || _outputReport is null)
+        if (_outputReport != null)
         {
-            return;
+            var reportPath = Path.Combine(tree.IntermediateRoot, ReportFileName);
+            await File.WriteAllTextAsync(
+                reportPath,
+                _serializer.Serialize(_outputReport),
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+            var statistics = _report!.Statistics;
+            _diagnostics.Add(new ChainDiagnostic(
+                "info",
+                PlatformIsolationDiagnosticCodes.ReportWritten,
+                $"platform-isolation report written: {reportPath}; {statistics.TotalSites} site(s); " +
+                $"reject={statistics.Rejected}, stub={statistics.Stubbed}, facade={statistics.Facaded}, " +
+                $"suppressed={statistics.Suppressed}, residual={statistics.Residual}; " +
+                $"reconciled={statistics.InvariantHolds}",
+                reportPath));
         }
 
-        var reportPath = Path.Combine(tree.IntermediateRoot, ReportFileName);
-        await File.WriteAllTextAsync(
-            reportPath,
-            _serializer.Serialize(_outputReport),
-            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-
-        var statistics = _report.Statistics;
-        _diagnostics.Add(new ChainDiagnostic(
-            "info",
-            PlatformIsolationDiagnosticCodes.ReportWritten,
-            $"platform-isolation report written: {reportPath}; {statistics.TotalSites} site(s); " +
-            $"reject={statistics.Rejected}, stub={statistics.Stubbed}, facade={statistics.Facaded}, " +
-            $"suppressed={statistics.Suppressed}, residual={statistics.Residual}; " +
-            $"reconciled={statistics.InvariantHolds}",
-            reportPath));
+        if (_applyResult != null)
+        {
+            await DistributeGeneratedFilesAsync(tree, _applyResult.GeneratedFiles);
+        }
     }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)
@@ -157,13 +206,14 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
             "error", TestsFailedCode,
             $"dotnet test failed with exit code {exitCode} after platform-isolation preprocessing."));
 
-    public override bool HasErrors => _diagnostics.Any(d => d.Level == "error");
+    public override bool HasErrors =>
+        _modeUnsupported || _diagnostics.Any(d => d.Level == "error");
 
     public override string? BuildChainSummaryLine()
     {
         if (_modeUnsupported)
         {
-            return $"platform-isolation: mode '{_options.Mode}' not implemented (M2/M3); no report written";
+            return $"platform-isolation: mode '{_options.Mode}' not implemented (M3)";
         }
 
         if (_report is null)
@@ -192,6 +242,22 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
             .Where(d => d.Level != "info" || verbose)
             .Select(d => d.ToMsBuildString())
             .ToList();
+
+    private static async Task DistributeGeneratedFilesAsync(
+        PassTreeContext tree,
+        IReadOnlyList<GeneratedFile> generatedFiles)
+    {
+        foreach (var generated in generatedFiles)
+        {
+            var destination = Path.Combine(
+                tree.IntermediateRoot,
+                generated.RelativePath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            await File.WriteAllTextAsync(
+                destination, generated.Content,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        }
+    }
 
     private void EmitSiteDiagnostics()
     {
