@@ -28,6 +28,11 @@ internal sealed class RecordRule : IMemberDesugarRule
         var index = RecordClaimIndex.For(compilation);
         if (index.IsEmpty) return;
 
+        // 单文件模式（同 finalizer 族 5211 先例）：编译仅含一个源树时，非密封 record
+        // 的同项目源派生无法枚举，虚工厂不能保证运行时类型 → CS2J5290 整 plan 跳过。
+        var singleFile = compilation.SyntaxTrees.Count() == 1;
+        var forceMetadataFallback = context.Options.Records.AllowMetadataDerivedCloneFallback;
+
         // ---- 1. 源内有接收者类型的站点按类型分组（含 struct/位置/非 record 跳过族）----
         var sitesByType = new Dictionary<INamedTypeSymbol, List<WithSite>>(
             SymbolEqualityComparer.Default);
@@ -94,9 +99,16 @@ internal sealed class RecordRule : IMemberDesugarRule
 
             index.TryGetTypeClaim(type, out var claim);
             factoryByType.TryGetValue(type, out var factory);
-            // 仅可行类型携带 reshape 物料（闸门类型 TryGetShape 必为 false）。
+            // 仅可行类型携带 reshape 物料；5221 force 放行的不可行认领也取 shape
+            // （位置属性 reshape 终形需就位，with 站点才能调 set_X）。
             PositionalShape? shape = null;
-            if (claim is { Feasible: true }) index.TryGetShape(type, out shape);
+            if (claim is { Feasible: true }
+                || (claim is { Feasible: false } f
+                    && f.FailCode == MemberDesugarDiagnosticCode.MetadataDerivedRisk
+                    && forceMetadataFallback))
+            {
+                index.TryGetShape(type, out shape);
+            }
 
             // 类型闸门码：认领结论不可行（5220/5221/缺复制 ctor 等）直接采用；
             // 无认领结论（位置 record/struct/非 record class 等形态排除，或本站点全部
@@ -106,8 +118,18 @@ internal sealed class RecordRule : IMemberDesugarRule
             string? gateReason = null;
             if (claim is { Feasible: false } bad)
             {
-                gateCode = bad.FailCode;
-                gateReason = bad.FailReason;
+                // 5221 force：用户书面接受树外派生克隆退化时放行（仍可在 rewriter 期发
+                // Info 风险提示）；其余不可行认领（5220/缺复制 ctor 等）不受 force 影响。
+                if (bad.FailCode == MemberDesugarDiagnosticCode.MetadataDerivedRisk
+                    && forceMetadataFallback)
+                {
+                    // 放行：不设 gateCode；类型按可行处理，工厂正常合成。
+                }
+                else
+                {
+                    gateCode = bad.FailCode;
+                    gateReason = bad.FailReason;
+                }
             }
             else if (claim is not { Feasible: true })
             {
@@ -124,6 +146,14 @@ internal sealed class RecordRule : IMemberDesugarRule
                         "no feasible record claim was produced for the with receiver type");
                 }
             }
+
+            // 5290 单文件降级（同 finalizer 族 5211 模式）：非密封 record class 在单文件
+            // 模式下无法枚举同项目其它源文件中的派生 record，虚工厂不能绝对保证运行时类型。
+            // 不设 gateCode（plan 仍执行，虚工厂对编译内派生正确），仅在 plan 上标记降级，
+            // 由 rewriter 期 emit CS2J5290 Warning。密封 record 无派生洞、struct 隐式密封、
+            // abstract record 由派生覆盖工厂，均不降级。
+            var singleFileDegraded = gateCode == null && singleFile
+                && CloneCtorResolver.IsRecordClass(type) && !type.IsSealed && !type.IsAbstract;
 
             // reshape 类型的工厂/reshape 注入点统一锚定带 ParameterList 的部件标识符
             // （partial 多部件中唯一），保证同遍同部件完成。
@@ -146,6 +176,7 @@ internal sealed class RecordRule : IMemberDesugarRule
                 GateCode = gateCode,
                 GateReason = gateReason,
                 Sites = sites,
+                SingleFileDegraded = singleFileDegraded,
             });
         }
 
@@ -176,10 +207,14 @@ internal sealed class RecordRule : IMemberDesugarRule
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var span = type.Locations.FirstOrDefault(l => l.IsInSource)?.SourceSpan.Start ?? 0;
             PositionalShape? shape = null;
-            if (index.TryGetTypeClaim(type, out var closureClaim)
-                && closureClaim.Feasible)
+            if (index.TryGetTypeClaim(type, out var closureClaim))
             {
-                index.TryGetShape(type, out shape);
+                if (closureClaim.Feasible
+                    || (closureClaim.FailCode == MemberDesugarDiagnosticCode.MetadataDerivedRisk
+                        && forceMetadataFallback))
+                {
+                    index.TryGetShape(type, out shape);
+                }
             }
             var insertSpan = shape?.Part.Identifier.SpanStart ?? span;
             builder.Add(new RecordClonePlan

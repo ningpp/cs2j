@@ -108,6 +108,11 @@ internal sealed class RecordClonePlan : MemberDesugarPlan
     /// <summary>静态接收者为本类型的全部 with 站点（含被闸门站点）。</summary>
     public required IReadOnlyList<WithSite> Sites { get; init; }
 
+    /// <summary>5290 单文件降级标记：单文件模式下非密封 record class 无法枚举同项目
+    /// 其它源文件派生，虚工厂不能绝对保证运行时类型。plan 仍执行，rewriter 期 emit
+    /// CS2J5290 Warning（同 finalizer 5211 降级模式）。</summary>
+    public bool SingleFileDegraded { get; init; }
+
     public override bool OwnsTouch(string filePath, string? typeName, string? memberName)
     {
         if (!TouchedFiles.Contains(filePath)) return false;

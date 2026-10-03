@@ -23,7 +23,8 @@ internal static class RecordWithClaim
     {
         if (!options.Records.Enabled) return false;
         if (model.Compilation is not CSharpCompilation compilation) return false;
-        return RecordClaimIndex.For(compilation).IsAssignmentClaimed(assign, model);
+        return RecordClaimIndex.For(compilation).IsAssignmentClaimed(
+            assign, model, options.Records.AllowMetadataDerivedCloneFallback);
     }
 
     /// <summary>
@@ -36,6 +37,7 @@ internal static class RecordWithClaim
         IPropertySymbol property, CSharpCompilation compilation, MemberDesugarOptions options)
     {
         if (!options.Records.Enabled) return false;
-        return RecordClaimIndex.For(compilation).IsPositionalPropertyClaimed(property);
+        return RecordClaimIndex.For(compilation).IsPositionalPropertyClaimed(
+            property, options.Records.AllowMetadataDerivedCloneFallback);
     }
 }

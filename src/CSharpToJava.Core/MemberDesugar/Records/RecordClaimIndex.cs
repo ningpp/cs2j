@@ -253,7 +253,8 @@ internal sealed class RecordClaimIndex
         => CloneCtorResolver.IsRecordClass(type) || type.TypeKind == TypeKind.Struct;
 
     /// <summary>5124 让位钩（只回答：这个 with 初始化器直接赋值会不会被 Records 改写）。</summary>
-    public bool IsAssignmentClaimed(AssignmentExpressionSyntax assign, SemanticModel model)
+    public bool IsAssignmentClaimed(
+        AssignmentExpressionSyntax assign, SemanticModel model, bool forceMetadataFallback = false)
     {
         if (assign.Parent is not InitializerExpressionSyntax init
             || init.Parent is not WithExpressionSyntax w
@@ -265,7 +266,13 @@ internal sealed class RecordClaimIndex
         if (!site.IsLocallyRewritable || site.ReceiverType == null) return false;
         if (!_typeClaims.TryGetValue(site.ReceiverType.OriginalDefinition, out var claim)
             || !claim.Feasible)
-            return false;
+        {
+            // 5221 force：认领不可行但 force 放行时，with 赋值仍由 Records 接管
+            // （C11 5124 不让位会导致初始化器被当对象初始化器二次处理）。
+            if (!forceMetadataFallback
+                || claim is not { FailCode: MemberDesugarDiagnosticCode.MetadataDerivedRisk })
+                return false;
+        }
 
         // 只对可写属性让位（字段不走 C11，5124 与字段无关）。
         if (model.GetSymbolInfo(assign.Left).Symbol is not IPropertySymbol prop) return false;
@@ -273,18 +280,24 @@ internal sealed class RecordClaimIndex
         // 位置属性仅当其类型有可行 reshape 物料（set_X 终形会发射）时才让位；
         // 未被 reshape 的位置属性仍走 5123/5124 原路径。
         if (PropertyFacts.IsPositionalRecordProperty(prop))
-            return IsPositionalPropertyClaimed(prop);
+            return IsPositionalPropertyClaimed(prop, forceMetadataFallback);
         return true;
     }
 
     /// <summary>5123 让位钩（M2）：该位置属性是否属于本 run 可行 reshape 的位置 record
     /// （终形会发字段+get_X/set_X，PropertyRule 据此产 Planned PropertyPlan 而非 5123）。</summary>
-    public bool IsPositionalPropertyClaimed(IPropertySymbol prop)
+    public bool IsPositionalPropertyClaimed(IPropertySymbol prop, bool forceMetadataFallback = false)
     {
         var type = prop.ContainingType?.OriginalDefinition;
         if (type == null || !_shapes.TryGetValue(type, out var shape)) return false;
-        // 原子性：类型认领不可行（任意站点命中闸门）时声明不 reshape，位置属性不认领。
-        if (!_typeClaims.TryGetValue(type, out var claim) || !claim.Feasible) return false;
+        // 原子性：类型认领不可行（任意站点命中闸门）时声明不 reshape，位置属性不认领；
+        // 5221 force 例外：force 放行后位置属性仍走 reshape 终形。
+        if (!_typeClaims.TryGetValue(type, out var claim) || !claim.Feasible)
+        {
+            if (!forceMetadataFallback
+                || claim is not { FailCode: MemberDesugarDiagnosticCode.MetadataDerivedRisk })
+                return false;
+        }
         var target = prop.OriginalDefinition;
         return shape.Members.Any(m => SymbolEqualityComparer.Default.Equals(
             m.Property.OriginalDefinition, target));

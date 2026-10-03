@@ -117,6 +117,20 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
             reshaped, plan, _options, _stats, _diagnostics, _filePath);
         if (factory == null) return reshaped;
         Changed = true;
+        // 5290 单文件降级：非密封 record 在单文件模式下 emit Warning（同 finalizer 5211）。
+        if (plan.SingleFileDegraded)
+        {
+            var span = node.Identifier.GetLocation().GetLineSpan();
+            _diagnostics.Add(new MemberDesugarDiagnostic(
+                MemberDesugarSeverity.Warning,
+                MemberDesugarDiagnosticCode.RecordSingleFileNotSelfContained,
+                RecordDiagnostics.SingleFileNotSelfContained(
+                    plan.RecordType?.ToDisplayString() ?? node.Identifier.ValueText),
+                _filePath,
+                span.StartLinePosition.Line + 1,
+                span.StartLinePosition.Character + 1,
+                plan.RecordType?.Name));
+        }
         // 无体 record（record R; / record class D : Base;）必须先补花括号才能 AddMembers。
         return RecordDeclarationRewriter.EnsureBodyBraces(reshaped).AddMembers(factory);
     }

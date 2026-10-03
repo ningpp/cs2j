@@ -2247,6 +2247,82 @@ public class MemberDesugarRecordWithUnitTests
         Assert.Equal("Derived", result!.GetType().Name);
     }
 
+    // ---- 5290 单文件模式 + 5221 force ----
+
+    [Fact]
+    public void Gate5290_SingleFile_NonSealedRecord_WarningEmitted_PlanProceeds()
+    {
+        // 单文件编译（Rewrite 默认单树）：非密封 record emit 5290 Warning（降级），
+        // 但 plan 仍执行——虚工厂对编译内派生正确（同 finalizer 5211 降级模式）。
+        var src = """
+            public record R
+            {
+                public int X { get; set; }
+            }
+            public static class P
+            {
+                public static R Run(R r) => r with { X = 1 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.RecordSingleFileNotSelfContained);
+        // plan 仍执行：工厂注入 + with 改写。
+        AssertContains(output, "Cs2jWithClone");
+        AssertNotContains(output, " with ");
+        Assert.Equal(1, stats.CloneFactoriesSynthesized);
+        Assert.Equal(1, stats.WithSitesTotal);
+    }
+
+    [Fact]
+    public void Gate5290_SingleFile_SealedRecord_NoWarning()
+    {
+        // 密封 record 无派生洞，5290 不触发。
+        var src = """
+            public sealed record R
+            {
+                public int X { get; set; }
+            }
+            public static class P
+            {
+                public static R Run(R r) => r with { X = 1 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.DoesNotContain(diags, d => d.Code == MemberDesugarDiagnosticCode.RecordSingleFileNotSelfContained);
+        AssertContains(output, "Cs2jWithClone");
+        AssertNotContains(output, " with ");
+        Assert.Equal(1, stats.CloneFactoriesSynthesized);
+    }
+
+    [Fact]
+    public void Gate5221_Force_DoesNotBreakNormalRecords()
+    {
+        // force 开启：普通 record（无元数据派生）正常处理，5221 不触发。
+        var src = """
+            public record R
+            {
+                public int X { get; set; }
+            }
+            public static class P
+            {
+                public static R Run(R r) => r with { X = 1 };
+            }
+            """;
+        var options = new MemberDesugarOptions
+        {
+            Strict = false,
+            ReportInfo = true,
+            Records = new RecordOptions { Enabled = true, AllowMetadataDerivedCloneFallback = true },
+        };
+        var (output, stats, diags) = Rewrite(src, options);
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        AssertContains(output, "Cs2jWithClone");
+        AssertNotContains(output, " with ");
+        Assert.Equal(1, stats.CloneFactoriesSynthesized);
+        Assert.Equal(1, stats.WithSitesTotal);
+    }
+
     /// <summary>编译去糖产物并内存加载（TPA 引用），供反射行为断言。</summary>
     private static Assembly CompileToAssembly(string output)
     {

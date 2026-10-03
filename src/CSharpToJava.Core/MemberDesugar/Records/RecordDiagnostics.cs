@@ -122,4 +122,13 @@ internal static class RecordDiagnostics
     public static string ResidualWith(int line, int column)
         => "a with-expression remains in the output without a registered rewrite or skip "
          + $"(residual gate WR-8) at ({line},{column}).";
+
+    /// <summary>CS2J5290：单文件模式下非密封 record 的派生闭包不可证明（同 finalizer 族
+    /// 5211 降级模式）。单文件编译看不到同项目其它源文件中的派生 record，虚工厂无法保证
+    /// 运行时类型；整 plan 原子跳过。</summary>
+    public static string SingleFileNotSelfContained(string typeFqn)
+        => $"record '{typeFqn}' is non-sealed and the preprocessor is running in single-file "
+         + "mode: source-derived records in other project files cannot be enumerated, so the "
+         + "virtual clone factory cannot be guaranteed to preserve the runtime type; the plan "
+         + "and all of its with sites were left unchanged.";
 }
