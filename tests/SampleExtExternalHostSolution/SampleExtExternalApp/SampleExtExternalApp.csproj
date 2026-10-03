@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- C19 M3: external metadata host consumed as a restored NuGet package
+         (SampleExtMetadataHost 1.0.0, produced into ./local-feed by the test
+         harness). It is NOT a project reference, so the host sources never
+         enter the merged compilation. -->
+    <PackageReference Include="SampleExtMetadataHost" Version="1.0.0" />
+  </ItemGroup>
+
+</Project>

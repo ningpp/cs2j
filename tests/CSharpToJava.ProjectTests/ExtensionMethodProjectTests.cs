@@ -165,4 +165,41 @@ public class ExtensionMethodProjectTests
             Directory.Delete(workDir, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task Solution_Statistics_SplitInCompilationUserFromExternal()
+    {
+        // M3 (design §4.2-1/2): every host in this fixture is source inside the
+        // merged compilation, so the summary must report user in-compilation
+        // sites, zero support-library sites and zero external hosts.
+        var fixture = Path.Combine(AppContext.BaseDirectory, "SampleExtensionMethodsSolution");
+        var solutionPath = Path.Combine(fixture, "SampleExtensionMethodsSolution.sln");
+        var workDir = Path.Combine(Path.GetTempPath(),
+            "cs2j-em-stats-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workDir);
+        var destination = Path.Combine(workDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "-s", solutionPath, "-d", destination,
+                "--pass", "extension-methods", "--verbose");
+
+            Assert.True(exit == 0,
+                $"preprocess failed (exit {exit}).\nstderr: {stderr}");
+
+            var match = System.Text.RegularExpressions.Regex.Match(
+                stdout,
+                @"(?<user>\d+) user \+ 0 support in-compilation, 0 external hosts \[0 mapped/0 unmapped\]");
+            Assert.True(match.Success,
+                $"summary must show user-only in-compilation split. stdout tail: {stdout[^Math.Min(1000, stdout.Length)..]}");
+            Assert.True(int.Parse(match.Groups["user"].Value) > 0,
+                "cross-project Lib/App sites must be counted as user in-compilation");
+            Assert.DoesNotContain("CS2J1203", stderr);
+        }
+        finally
+        {
+            Directory.Delete(workDir, recursive: true);
+        }
+    }
 }

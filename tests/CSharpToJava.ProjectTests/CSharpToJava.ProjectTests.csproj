@@ -288,6 +288,12 @@
       <Link>SampleExtensionMethodsSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- C19 M3 external metadata-host fixture (bin/obj excluded). -->
+    <Content Include="..\SampleExtExternalHostSolution\**\*.*"
+              Exclude="..\SampleExtExternalHostSolution\**\bin\**;..\SampleExtExternalHostSolution\**\obj\**">
+      <Link>SampleExtExternalHostSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
