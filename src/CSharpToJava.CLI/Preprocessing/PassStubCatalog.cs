@@ -157,18 +157,8 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.EliminateGoto },
             description: "Isolate or reject external platform contracts (P/Invoke, extern) at the boundary.",
             catalogItems: "C42"),
-        new(
-            Ids.ConcurrencyNormalize,
-            "Concurrency normalization",
-            ".cs2j-concurrency-normalize-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            // No strong functional dependency; the late anchor keeps the naming
-            // pass last and makes --list-passes placement deterministic.
-            runAfterIds: new[] { PassIds.EliminateGoto },
-            description: "Normalize concurrency primitives and synchronization constructs.",
-            catalogItems: "C29"),
+        // Ids.ConcurrencyNormalize flipped to Implemented in PassCatalog (C29 M2c);
+        // the id constant stays here by the iterator-lowering precedent (§3.4).
         new(
             Ids.DynamicDesugar,
             "Dynamic desugaring",

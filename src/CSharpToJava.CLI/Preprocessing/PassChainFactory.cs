@@ -1,5 +1,6 @@
 using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.ClosureLift;
+using CSharpToJava.Core.ConcurrencyNormalize;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.DelegatePreprocessor;
 using CSharpToJava.Core.EnumPreprocessor;
@@ -417,6 +418,18 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
+
+            // C29 has no convert-project legacy toggle; the descriptor default
+            // (off, long-term opt-in) drives it and --enable-pass/--pass opts in
+            // (expression-desugar precedent).
+            PassStubCatalog.Ids.ConcurrencyNormalize => new ConcurrencyNormalizePassAdapter(
+                new ConcurrencyOptions { Strict = config.Strict },
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests,
+                config.Strict),
 
             PassStubCatalog.Ids.EqualityConcat => new EqualityConcatPassAdapter(
                 config.EqualityConcatOptionsFactory(),

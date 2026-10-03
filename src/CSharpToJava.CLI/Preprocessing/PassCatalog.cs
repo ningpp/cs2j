@@ -408,6 +408,25 @@ internal static class PassCatalog
             description: "Desugar properties (C11), indexers (C12), events (C13) and operators (C14) into backing fields plus explicit get_X/set_X/get_Item/add_X/remove_X methods.",
             catalogItems: "C11, C12, C13, C14, C39, C50, C27"),
         new(
+            PassStubCatalog.Ids.ConcurrencyNormalize,
+            "Concurrency normalization",
+            ".cs2j-concurrency-normalize-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            // C29 ships Implemented but default-off: the lock/volatile direct
+            // mappings already cover the main path and the normalization value
+            // only closes once the Java-side Monitor bridge lands (design
+            // §3.4/§8; long-term opt-in).
+            defaultEnabled: false,
+            // No strong functional dependency; the late anchor keeps the naming
+            // pass last and makes --list-passes placement deterministic.
+            runAfterIds: new[] { PassIds.EliminateGoto },
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Normalize explicit Monitor enter/try-enter/wait/pulse calls into canonical lock-based C# forms; lock/volatile direct mapping untouched.",
+            catalogItems: "C29"),
+        new(
             PassStubCatalog.Ids.EqualityConcat,
             "Equality/concat call-site materialization",
             ".cs2j-equality-concat-src",
