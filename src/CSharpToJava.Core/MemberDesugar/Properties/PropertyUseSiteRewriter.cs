@@ -175,34 +175,33 @@ internal sealed class PropertyUseSiteRewriter : CSharpSyntaxRewriter
         var rewritten = node.WithMembers(SyntaxFactory.List(newMembers));
 
         // C50 FK-9（仅开关开启）：输出树中仍残留 FieldExpression 且归属属性没有任何
-        // plan/skip 诊断 → CS2J5122。嵌套类型只在其自身 VisitTypeLike 扫描，这里按
-        // 「最近类型声明 == 当前节点」去重。
+        // plan/skip 记录 → CS2J5122。扫描必须走原始（在树）节点：rewritten 是
+        // WithMembers 产生的离树红根，其后代节点无法再做语义绑定。
         if (_options.FieldKeyword.Enabled)
-            EmitFieldKeywordResiduals(node, rewritten);
+            EmitFieldKeywordResiduals(node);
 
         return rewritten;
     }
 
-    /// <summary>FK-9 residual 闸门：枚举输出成员里的 FieldExpressionSyntax，
-    /// 仅统计直接声明在当前类型上的属性（嵌套类型归各自的扫描）。</summary>
-    private void EmitFieldKeywordResiduals(
-        TypeDeclarationSyntax originalNode, TypeDeclarationSyntax rewritten)
+    /// <summary>FK-9 residual 闸门：枚举当前类型直接属性成员中的 FieldExpressionSyntax。
+    /// 归一/跳过的属性在分析期都留有 plan key（_knownKeys），命中即排除；嵌套类型
+    /// 归各自 VisitTypeLike 扫描。</summary>
+    private void EmitFieldKeywordResiduals(TypeDeclarationSyntax originalNode)
     {
-        foreach (var fe in rewritten.DescendantNodes().OfType<FieldExpressionSyntax>())
+        foreach (var propSyntax in originalNode.Members
+                     .OfType<PropertyDeclarationSyntax>()
+                     .Where(p => p.DescendantNodes().OfType<FieldExpressionSyntax>().Any()))
         {
-            var enclosingType = fe.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
-            if (enclosingType == null || enclosingType != rewritten) continue;
-            if (fe.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault() is not { } propSyntax)
-                continue;
-
             var residualProp = _model.GetDeclaredSymbol(propSyntax);
             if (residualProp != null
                 && _knownKeys.Contains(PropertyPlan.SiteKey(residualProp)))
             {
-                // 有 plan 或 infeasible 记录：漂移失败路径已发 5126/5127 等 skip 诊断。
+                // 有 plan 或 infeasible 记录：成功归一，或漂移失败路径已发 5126/5127
+                // 等 skip 诊断。
                 continue;
             }
 
+            var fe = propSyntax.DescendantNodes().OfType<FieldExpressionSyntax>().First();
             var lineSpan = fe.GetLocation().GetLineSpan();
             _diagnostics.Add(new MemberDesugarDiagnostic(
                 _options.Strict ? MemberDesugarSeverity.Error : MemberDesugarSeverity.Warning,
