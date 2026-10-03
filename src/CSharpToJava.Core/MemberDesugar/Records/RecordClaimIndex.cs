@@ -17,25 +17,16 @@ internal sealed class RecordClaimIndex
     private static readonly ConditionalWeakTable<Compilation, RecordClaimIndex> _cache = new();
 
     // M2 分步发射闸门（随提交翻开，最终随 WR-5 一并删除）：分析/物料/认领计算全部先行，
-    // 但 reshape 终形发射（RC-3 class / RC-4 struct）与嵌套 with（WR-5）落地前，运行期
-    // 维持 M1 站点跳过行为，保证每个中间提交 Enabled=true 输出也合法且与 M1 一致。
-    //   PositionalClassReshapeEnabled：RC-3（位置 record class reshape）
-    //   PositionalStructReshapeEnabled：RC-4（位置 record struct / 普通 struct 值拷贝）
+    // 但嵌套 with（WR-5）落地前，运行期维持 M1 站点跳过行为，保证每个中间提交
+    // Enabled=true 输出也合法且与 M1 一致。RC-3（位置 record class reshape）与
+    // RC-4（位置 record struct reshape）均已翻开；struct with 站点值拷贝（WR-4）
+    // 在 RecordRule 按 TypeKind.Struct 临时维持 5220。
     //   NestedWithEnabled：WR-5（嵌套 with 后序重写）
-    internal const bool PositionalClassReshapeEnabled = true;
-    internal const bool PositionalStructReshapeEnabled = false;
     internal const bool NestedWithEnabled = false;
 
-    /// <summary>该类型的 M2 新路径发射是否已随提交就位（RecordRule 临时闸门 / 5123 认领共用）。</summary>
-    internal static bool IsEmissionReady(INamedTypeSymbol type, PositionalShape? shape)
-    {
-        if (shape != null)
-        {
-            return shape.IsStruct ? PositionalStructReshapeEnabled : PositionalClassReshapeEnabled;
-        }
-        // 非位置 record struct / 普通 struct 的 with 值拷贝（WR-4）随 struct reshape 同批。
-        return type.TypeKind != TypeKind.Struct || PositionalStructReshapeEnabled;
-    }
+    /// <summary>该类型的 M2 新路径发射是否已随提交就位（RecordRule 临时闸门 / 5123 认领共用）。
+    /// RC-3/RC-4 均已翻开故恒真；保留方法壳与 NestedWithEnabled 同批于 WR-5 删除。</summary>
+    internal static bool IsEmissionReady(INamedTypeSymbol type, PositionalShape? shape) => true;
 
     private readonly Dictionary<string, SiteClaim> _sitesByKey = new(StringComparer.Ordinal);
     private readonly Dictionary<INamedTypeSymbol, TypeClaim> _typeClaims =

@@ -115,10 +115,14 @@ internal static class RecordDeclarationRewriter
     // ---- RC-3：位置 record class reshape（决策 8a/8c/6）----
 
     /// <summary>
-    /// 将带 ParameterList 的位置 record class 部件降形为终形：去参数表（基部件搬入主 ctor
-    /// 的 <c>: base(...)</c>），每位置成员发字段/get_X/set_X，补发主 ctor、protected 复制
-    /// ctor、可选 public 无参 ctor、Deconstruct。全部物料来自 plan 期 shape，运行期零语义
-    /// 查询。非形状部件 / struct（RC-4）/ 已无参数表（幂等）返回 null。
+    /// 将带 ParameterList 的位置 record 部件降形为终形：去参数表，每位置成员发
+    /// 字段/get_X/set_X，补发主 ctor、Deconstruct。
+    /// class（RC-3）：基部件实参搬入主 ctor 的 <c>: base(...)</c>（BaseList 主 ctor 基部件
+    /// 降级为无参普通基类保留继承），另发 protected 复制 ctor、可选 public 无参 ctor；
+    /// struct（RC-4）：无继承/无复制 ctor/不发克隆工厂，public 无参 ctor 必发（物料判
+    /// 用户已显式声明时不发），Deconstruct 无 new 隐藏。
+    /// 全部物料来自 plan 期 shape，运行期零语义查询。非形状部件 / 已无参数表（幂等）
+    /// 返回 null。
     /// </summary>
     public static RecordDeclarationSyntax? TryApplyReshape(
         RecordDeclarationSyntax anchor,
@@ -130,7 +134,7 @@ internal static class RecordDeclarationRewriter
         string filePath)
     {
         var shape = plan.Reshape;
-        if (shape is null or { IsStruct: true }) return null;
+        if (shape == null) return null;
         // 部件身份用绿色锚节点的文件绝对跨度（decl 是红色脱离节点，其跨度为子树相对值）。
         if (anchor.Identifier.SpanStart != shape.Part.Identifier.SpanStart) return null;
         if (decl.ParameterList is not { Parameters.Count: > 0 }) return null; // 幂等：已降形
@@ -204,36 +208,42 @@ internal static class RecordDeclarationRewriter
             .WithInitializer(primaryInitializer)
             .WithBody(primaryBody));
 
-        // protected 复制 ctor：基类是 record（合成/显式复制 ctor 保证存在且可从派生访问）
-        // 时强制 : base(other)；object 基类不发 initializer。
-        var baseType = shape.Type.BaseType;
-        var hasRecordBase = baseType is { IsRecord: true }
-            && baseType.SpecialType != SpecialType.System_Object;
-        // 复制 ctor 体只拷贝本类型自有字段；基类成员由 : base(other) 链式拷贝。
-        var copyBody = SyntaxFactory.Block(ownMembers.Select(m =>
-            SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
-                SyntaxKind.SimpleAssignmentExpression,
-                ThisField(m.FieldName),
-                SyntaxFactory.MemberAccessExpression(
-                    SyntaxKind.SimpleMemberAccessExpression,
-                    SyntaxFactory.IdentifierName("other"),
-                    SyntaxFactory.Token(SyntaxKind.DotToken),
-                    SyntaxFactory.IdentifierName(m.FieldName))))));
-        var copyCtor = SyntaxFactory.ConstructorDeclaration(ctorName)
-            .WithModifiers(SyntaxFactory.TokenList(
-                SyntaxFactory.Token(SyntaxKind.ProtectedKeyword)))
-            .WithParameterList(SyntaxFactory.ParameterList(
-                SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.Parameter(SyntaxFactory.Identifier("other")).WithType(self))))
-            .WithBody(copyBody);
-        if (hasRecordBase)
+        // protected 复制 ctor 仅 class 发射（RC-3）：struct 值拷贝不需要（WR-4 直接
+        // 逐字段复制），且 record struct 语言本身不合成复制 ctor。
+        var hasRecordBase = false;
+        if (!shape.IsStruct)
         {
-            copyCtor = copyCtor.WithInitializer(SyntaxFactory.ConstructorInitializer(
-                SyntaxKind.BaseConstructorInitializer,
-                SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.Argument(SyntaxFactory.IdentifierName("other"))))));
+            // 基类是 record（合成/显式复制 ctor 保证存在且可从派生访问）时强制
+            // : base(other)；object 基类不发 initializer。
+            var baseType = shape.Type.BaseType;
+            hasRecordBase = baseType is { IsRecord: true }
+                && baseType.SpecialType != SpecialType.System_Object;
+            // 复制 ctor 体只拷贝本类型自有字段；基类成员由 : base(other) 链式拷贝。
+            var copyBody = SyntaxFactory.Block(ownMembers.Select(m =>
+                SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression,
+                    ThisField(m.FieldName),
+                    SyntaxFactory.MemberAccessExpression(
+                        SyntaxKind.SimpleMemberAccessExpression,
+                        SyntaxFactory.IdentifierName("other"),
+                        SyntaxFactory.Token(SyntaxKind.DotToken),
+                        SyntaxFactory.IdentifierName(m.FieldName))))));
+            var copyCtor = SyntaxFactory.ConstructorDeclaration(ctorName)
+                .WithModifiers(SyntaxFactory.TokenList(
+                    SyntaxFactory.Token(SyntaxKind.ProtectedKeyword)))
+                .WithParameterList(SyntaxFactory.ParameterList(
+                    SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.Parameter(SyntaxFactory.Identifier("other")).WithType(self))))
+                .WithBody(copyBody);
+            if (hasRecordBase)
+            {
+                copyCtor = copyCtor.WithInitializer(SyntaxFactory.ConstructorInitializer(
+                    SyntaxKind.BaseConstructorInitializer,
+                    SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
+                        SyntaxFactory.Argument(SyntaxFactory.IdentifierName("other"))))));
+            }
+            newMembers.Add(copyCtor);
         }
-        newMembers.Add(copyCtor);
 
         // public R() {}（基类无可访问无参 ctor 时物料已判不发）。
         if (shape.EmitParameterlessCtor)
@@ -268,8 +278,8 @@ internal static class RecordDeclarationRewriter
                     SyntaxFactory.InvocationExpression(
                         SyntaxFactory.IdentifierName(AccessorsToMethods.GetterName(m.Property.Name)))))))));
 
-        // 去 ParameterList；PrimaryConstructorBaseTypeSyntax 搬入 ctor initializer 后从
-        // BaseList 移除（其余接口/基类保留；BaseList 空了则整删）。
+        // 去 ParameterList；class 的 PrimaryConstructorBaseTypeSyntax 实参已搬入 ctor
+        // initializer，基部件就地降级为无参普通基类（继承保留）；struct 无基部件。
         var reshaped = decl.WithParameterList(null);
         if (shape.PrimaryBase != null)
         {

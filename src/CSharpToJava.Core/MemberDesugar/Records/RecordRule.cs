@@ -151,6 +151,15 @@ internal sealed class RecordRule : IMemberDesugarRule
                     gateReason = RecordDiagnostics.UnsupportedNestedInitializer(
                         type.ToDisplayString(), "a nested 'with' expression");
                 }
+                // RC-4 已翻开位置 record struct 的声明 reshape，但 struct/record struct/
+                // tuple 的 with 站点值拷贝（WR-4）下一批才落地：站点维持 5220 跳过，
+                // 声明终形仍随本 plan 同遍发射（plan.Reshape 已挂物料）。
+                else if (type.TypeKind == TypeKind.Struct)
+                {
+                    gateCode = MemberDesugarDiagnosticCode.PositionalReshapeGate;
+                    gateReason = RecordDiagnostics.PositionalReshapeBlocked(type.ToDisplayString(),
+                        "value-copy rewriting for struct 'with' sites is staged in this milestone");
+                }
                 else if (!RecordClaimIndex.IsEmissionReady(type, shape))
                 {
                     gateCode = MemberDesugarDiagnosticCode.PositionalReshapeGate;

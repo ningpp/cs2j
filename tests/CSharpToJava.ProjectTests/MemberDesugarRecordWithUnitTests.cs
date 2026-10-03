@@ -1062,6 +1062,172 @@ public class MemberDesugarRecordWithUnitTests
         Assert.Equal(0, stats.PositionalRecordsReshaped);
     }
 
+    // ---- RC-4：位置 record struct reshape（WR-4 站点值拷贝下一批落地）----
+
+    [Fact]
+    public void M2_PositionalStruct_ReshapeFinalShape_SiteStaging5220()
+    {
+        // RC-4：声明终形同遍发射；with 站点在 WR-4 落地前维持 5220 原子跳过。
+        var src = """
+            public record struct Point(int X, int Y);
+            public static class P
+            {
+                public static Point Run(Point p) { return p with { X = 2 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+
+        // 终形：去参数表；字段/get/set；public 主 ctor + 必发 public 无参 ctor；Deconstruct。
+        AssertContains(output, "public record struct Point");
+        AssertNotContains(output, "record struct Point(");
+        AssertContains(output, "private int x;");
+        AssertContains(output, "public int get_X()");
+        AssertContains(output, "public void set_X(int value)");
+        AssertContains(output, "public Point(int X, int Y)");
+        AssertContains(output, "this.x = X;");
+        AssertContains(output, "public Point()");
+        AssertContains(output, "public void Deconstruct(out int X, out int Y)");
+        // struct 不发复制 ctor、不发克隆工厂、Deconstruct 不 new 隐藏。
+        AssertNotContains(output, "protected Point(Point other)");
+        AssertNotContains(output, "Cs2jWithClone");
+        AssertNotContains(output, "public new void Deconstruct");
+
+        // 站点维持原样（WR-4 前终形尚无 X 属性，产物按 5220 不保证独立可编译——与
+        // 所有闸门跳过族同语义：strict 下即编译期错误，禁止部分改写）。
+        AssertContains(output, "p with { X = 2 }");
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
+        Assert.Equal(1, stats.SkippedByReason[MemberDesugarDiagnosticCode.PositionalReshapeGate]);
+        Assert.Equal(1, stats.PositionalRecordsReshaped);
+        Assert.Equal(0, stats.CloneFactoriesSynthesized);
+        Assert.Equal(0, stats.ResidualWithCount);
+    }
+
+    [Fact]
+    public void M2_PositionalStruct_Reshape_FinalShapeAloneCompilesAndRuns()
+    {
+        // 不带 with 的纯验证：手工取终形片段编译，确认 struct 终形成员自身合法
+        // （主 ctor 赋值、无参 ctor、get/set、Deconstruct）。
+        var src = """
+            public record struct Point(int X, int Y);
+            public static class P
+            {
+                public static Point Run(Point p) { return p with { X = 2 }; }
+            }
+            """;
+        var (output, _, _) = Rewrite(src, Enabled());
+        var finalShape = output[..output.IndexOf("public static class P", StringComparison.Ordinal)];
+        var probe = finalShape + """
+            public static class Probe
+            {
+                public static int Go()
+                {
+                    var p = new Point(1, 2);
+                    var d = new Point();
+                    d.set_Y(5);
+                    p.Deconstruct(out var x, out var y);
+                    return p.get_X() + y + d.get_Y();
+                }
+            }
+            """;
+        var asm = CompileToAssembly(probe);
+        var result = asm.GetType("Probe")!
+            .GetMethod("Go", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, null);
+        Assert.Equal(1 + 2 + 5, result);
+    }
+
+    [Fact]
+    public void M2_PositionalStruct_Gate_ReadOnly_5220()
+    {
+        var src = """
+            public readonly record struct S(int X);
+            public static class P
+            {
+                public static S Run(S s) { return s with { X = 1 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
+        AssertContains(output, "readonly record struct S(int X)");
+        AssertNotContains(output, "private int x;");
+        Assert.Equal(0, stats.PositionalRecordsReshaped);
+        Assert.Equal(1, stats.SkippedByReason[MemberDesugarDiagnosticCode.PositionalReshapeGate]);
+        AssertCompiles(output);
+    }
+
+    [Fact]
+    public void M2_PositionalStruct_Gate_ParameterAttributes_5220()
+    {
+        var src = """
+            public record struct S(int X, [System.Runtime.CompilerServices.CallerMemberName] string Y = null);
+            public static class P
+            {
+                public static S Run(S s) { return s with { X = 1 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
+        AssertContains(output, "CallerMemberName] string Y = null");
+        Assert.Equal(0, stats.PositionalRecordsReshaped);
+        AssertCompiles(output);
+    }
+
+    [Fact]
+    public void M2_PositionalStruct_Gate_UserDeconstruct_5220()
+    {
+        var src = """
+            public record struct Point(int X)
+            {
+                public void Deconstruct(out int x) { x = X; }
+            }
+            public static class P
+            {
+                public static Point Run(Point p) { return p with { X = 2 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
+        Assert.Equal(0, stats.PositionalRecordsReshaped);
+        AssertCompiles(output);
+    }
+
+    [Fact]
+    public void M2_PositionalStruct_Gate_FieldInitializerCapturesParameter_5220()
+    {
+        var src = """
+            public record struct S(int X)
+            {
+                private int _z = X;
+            }
+            public static class Q
+            {
+                public static S Run(S s) { return s with { X = 2 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
+        Assert.Equal(0, stats.PositionalRecordsReshaped);
+        AssertCompiles(output);
+    }
+
+    [Fact]
+    public void M2_PositionalStruct_Gate_MultipleParameterListParts_5220()
+    {
+        // 输入本身非法（多个部件携带参数表）；预处理器仍原子不动并发 5220。
+        var src = """
+            public partial record struct S(int X);
+            public partial record struct S(int Y);
+            public static class Q
+            {
+                public static S Run(S s) { return s with { X = 2 }; }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
+        AssertContains(output, "record struct S(int X)");
+        Assert.Equal(0, stats.PositionalRecordsReshaped);
+    }
+
     /// <summary>编译去糖产物并内存加载（TPA 引用），供反射行为断言。</summary>
     private static Assembly CompileToAssembly(string output)
     {
