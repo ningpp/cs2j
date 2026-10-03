@@ -294,6 +294,12 @@
       <Link>SampleExtExternalHostSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- C29 concurrency-normalize fixture (bin/obj excluded: may have been built locally). -->
+    <Content Include="..\SampleConcurrencySolution\**\*.*"
+              Exclude="..\SampleConcurrencySolution\**\bin\**;..\SampleConcurrencySolution\**\obj\**">
+      <Link>SampleConcurrencySolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
