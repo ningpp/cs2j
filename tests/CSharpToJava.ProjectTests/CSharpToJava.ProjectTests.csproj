@@ -324,4 +324,18 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- C42 M2 platform-isolation fixtures (bin/obj excluded). -->
+    <Content Include="..\SamplePlatformIsolationSolution\**\*.*"
+              Exclude="..\SamplePlatformIsolationSolution\**\bin\**;..\SamplePlatformIsolationSolution\**\obj\**">
+      <Link>SamplePlatformIsolationSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\SamplePlatformIsolationInteropSolution\**\*.*"
+              Exclude="..\SamplePlatformIsolationInteropSolution\**\bin\**;..\SamplePlatformIsolationInteropSolution\**\obj\**">
+      <Link>SamplePlatformIsolationInteropSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

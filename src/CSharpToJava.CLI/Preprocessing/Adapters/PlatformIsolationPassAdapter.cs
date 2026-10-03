@@ -184,10 +184,43 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
                 reportPath));
         }
 
-        if (_applyResult != null)
+        if (_applyResult != null && _applyResult.GeneratedFiles.Count > 0)
         {
+            // 名字碰撞保护（design §7.2）：手写源已声明 Cs2jPlatformProbe → fail-fast，
+            // 不覆盖、不产出（沿用适配器既有 fail-fast 口径）。
+            var collision = FindProbeNameCollision(tree);
+            if (collision != null)
+            {
+                _diagnostics.Add(new ChainDiagnostic(
+                    "error",
+                    PreprocessDiagnosticCodes.StubNotImplemented,
+                    $"Generated probe shim collides with an existing declaration of " +
+                    $"'{StubGenerator.ProbeClassName}' in '{collision}'; refusing to overwrite."));
+                return;
+            }
+
             await DistributeGeneratedFilesAsync(tree, _applyResult.GeneratedFiles);
         }
+    }
+
+    private static string? FindProbeNameCollision(PassTreeContext tree)
+    {
+        foreach (var sourceFile in tree.CsFiles)
+        {
+            if (!File.Exists(sourceFile))
+            {
+                continue;
+            }
+
+            var text = File.ReadAllText(sourceFile);
+            if (text.Contains("class " + StubGenerator.ProbeClassName, StringComparison.Ordinal)
+                || text.Contains("struct " + StubGenerator.ProbeClassName, StringComparison.Ordinal))
+            {
+                return Path.GetFileName(sourceFile);
+            }
+        }
+
+        return null;
     }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)
@@ -256,8 +289,31 @@ internal sealed class PlatformIsolationPassAdapter : ProjectPassAdapter
             await File.WriteAllTextAsync(
                 destination, generated.Content,
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+            // The probe shim must live INSIDE each project directory, otherwise the
+            // project's default Compile glob never sees it and the redirected call
+            // sites fail to compile. The tree-root copy above stays for audit (§3.4).
+            if (generated.RelativePath.EndsWith(StubGenerator.ProbeShimFileName, StringComparison.Ordinal))
+            {
+                foreach (var projectDirectory in EnumerateProjectDirectories(tree.IntermediateRoot))
+                {
+                    var projectCopy = Path.Combine(
+                        projectDirectory, "generated", StubGenerator.ProbeShimFileName);
+                    Directory.CreateDirectory(Path.GetDirectoryName(projectCopy)!);
+                    await File.WriteAllTextAsync(
+                        projectCopy, generated.Content,
+                        new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                }
+            }
         }
     }
+
+    private static IEnumerable<string> EnumerateProjectDirectories(string intermediateRoot)
+        => Directory
+            .EnumerateFiles(intermediateRoot, "*.csproj", SearchOption.AllDirectories)
+            .Select(Path.GetDirectoryName)
+            .Where(directory => directory != null)
+            .Distinct(StringComparer.OrdinalIgnoreCase)!;
 
     private void EmitSiteDiagnostics()
     {

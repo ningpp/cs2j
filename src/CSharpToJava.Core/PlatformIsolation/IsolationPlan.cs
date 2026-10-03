@@ -133,8 +133,12 @@ public static class IsolationPlanner
                 => requested == PlatformIsolationDefaultAction.Reject ? requested : null,
             BoundaryFamily.PlatformType => requested switch
             {
-                PlatformIsolationDefaultAction.Stub when options.EnableThrowStub => requested,
-                PlatformIsolationDefaultAction.Facade when options.EnableFacade => requested,
+                // A Stub/Facade run implies the corresponding generation switch; the
+                // explicit Enable* flags remain available for Report-mode planning.
+                PlatformIsolationDefaultAction.Stub when options.EnableThrowStub
+                    || options.Mode == PlatformIsolationMode.Stub => requested,
+                PlatformIsolationDefaultAction.Facade when options.EnableFacade
+                    || options.Mode == PlatformIsolationMode.Facade => requested,
                 PlatformIsolationDefaultAction.Reject => requested,
                 _ => null,
             },
