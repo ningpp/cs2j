@@ -496,6 +496,21 @@ public sealed class ExtensionMethodProbeTests
                         }
                     }
 
+                    // Overall binding health bucket (design appendix ruling 2:
+                    // reduced-site binding rate <99% forces M3 reference work).
+                    if (info.Symbol is null)
+                    {
+                        measurement.TotalInvocationsUnbound++;
+                        if (info.CandidateReason == CandidateReason.OverloadResolutionFailure)
+                        {
+                            measurement.UnboundOverloadResolution++;
+                        }
+                        else if (info.CandidateReason == CandidateReason.None)
+                        {
+                            measurement.UnboundNone++;
+                        }
+                    }
+
                     if (invocation.Ancestors().OfType<ConditionalAccessExpressionSyntax>().Any()
                         && info.Symbol is IMethodSymbol { MethodKind: MethodKind.ReducedExtension })
                     {
@@ -584,6 +599,9 @@ public sealed class ExtensionMethodProbeTests
         public int AmbiguousSites;
         public int ReducedMethodGroups;
         public int NullConditionalReducedSites;
+        public int TotalInvocationsUnbound;
+        public int UnboundOverloadResolution;
+        public int UnboundNone;
 
         public void Add(SdkMeasurement other)
         {
@@ -595,12 +613,17 @@ public sealed class ExtensionMethodProbeTests
             AmbiguousSites += other.AmbiguousSites;
             ReducedMethodGroups += other.ReducedMethodGroups;
             NullConditionalReducedSites += other.NullConditionalReducedSites;
+            TotalInvocationsUnbound += other.TotalInvocationsUnbound;
+            UnboundOverloadResolution += other.UnboundOverloadResolution;
+            UnboundNone += other.UnboundNone;
         }
 
         public override string ToString()
             => $"files={FilesParsed}, reducedCalls={ReducedExtensionCalls} " +
                $"(linqOwned={LinqOwnedSites}, inCompilation={InCompilationHostSites}, " +
                $"externalMetadata={ExternalMetadataHostSites}), ambiguous={AmbiguousSites}, " +
-               $"reducedMethodGroups={ReducedMethodGroups}, nullConditionalReduced={NullConditionalReducedSites}";
+               $"reducedMethodGroups={ReducedMethodGroups}, nullConditionalReduced={NullConditionalReducedSites}, " +
+               $"unboundInvocations={TotalInvocationsUnbound} " +
+               $"(overloadResolutionFailure={UnboundOverloadResolution}, none={UnboundNone})";
     }
 }

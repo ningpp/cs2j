@@ -66,10 +66,10 @@ catalog C19 记录「Java 侧静态方法分派与 C# 扩展接收者语义在�
 | 泛型扩展：嵌套泛型 host | 扩展方法的宿主静态类自身可因**嵌套在泛型类型中**而是泛型（`Outer<T>.Ext`）：从 `ReducedFrom.ContainingType` 取**已构造**宿主符号，发射 `global::Ns.Outer<TArgs>.Ext.M(r, a)`；顶层非泛型静态类是常见形，嵌套泛型是必须覆盖的非常见形，fixture 双覆盖 | EM-GEN-HOST；`ContainingType.IsGenericType == true` 时才发射类型实参表 |
 | 方法链 | `a.M().N()` 由 `CSharpSyntaxRewriter` 自底向上遍历天然收敛：内层先改为 `H1.M(a)`，外层 N 若同为扩展则改为 `H2.N(H1.M(a))`；混合链（实例方法/属性夹杂）只改绑定为 reduced 的节点，其余原样 | EM-CHAIN；专项覆盖「用户扩展夹在 LINQ 链中」（§3.4） |
 | null 接收者 | 静态首参形态天然保留「null receiver 不抛」语义，这是本 pass 的核心正确性收益之一；fixture 在中间树 xUnit 里对 null receiver 调用断言不抛 | §1.2-1 |
-| null 条件扩展 `r?.M(a)` | **M0 探针任务**：用最小 Roslyn 编译确认当前语言版本下该形态是否合法、绑定是否仍为 ReducedExtension（资料不确定，禁止凭记忆写规则）。合法则 v1 候选形为临时变量提升 + 条件静态调用（复用表达式族「单次求值临时变量」基建口径）；v1 若不落地则该站点 **CS2J1205 显式报告并跳过**（strict Error），禁止静默透传 | EM-COND；与 C24/C35（expression-desugar）的所有权边界：本 pass 只出报码，临时提升基建落地后再收编 |
+| null 条件扩展 `r?.M(a)` | ~~**M0 探针任务**~~ **M0 探针已闭环（2026-10-03，见文末「M0 探针结论」①）**：Roslyn 5.0.0 下该形态在 Latest/Preview 均合法，调用点仍绑 `MethodKind.ReducedExtension`、`ReducedFrom` 非空，树形态为 `ConditionalAccessExpression` + `WhenNotNull` 内 `InvocationExpression`（表达式为 `MemberBindingExpressionSyntax`）。按附录裁决 3，v1 **收编**（临时变量提升 + 条件静态调用，复用表达式族「单次求值临时变量」基建口径）；CS2J1205 仅保留给经实现期确认无法提升的形态（strict Error），禁止静默透传 | EM-COND；与 C24/C35（expression-desugar）的所有权边界：本 pass 只出报码，临时提升基建落地后再收编；sdk 1296 文件仅 2 个此类站点（regular-expressions 样本），低频但真实 |
 | `this ref` / `this in` / `this scoped` 接收者 | 按首参 `RefKind` 发射实参修饰：`this ref Span<T>` → `Host.M(ref r, a)`、`this in`/`ref readonly` → `in r`；`scoped` 是逃逸元数据不进调用语法；普通值接收者不加修饰 | EM-REF；`ArgumentSyntax` 复用源实参节点，仅替换 `RefOrOutKeyword`/`InKeyword` |
 | 实例方法同名优先 | 不做任何特殊处理：适用实例方法存在时 Roslyn 不绑 reduced，节点自然不被选中；另出 Core 单测锁死「实例/扩展同名同适用度」两类样本 | 防止任何「按名字找扩展」的回退路径破坏该规则 |
-| 扩展属性 / C# 14 扩展成员块 | **v1 仅支持经典 `static class` + 首个 `this` 形参的扩展方法**；C# 14 `extension` 块的**扩展属性、扩展运算符、静态扩展成员**已在 catalog 单列 **C49**（[catalog L952-965](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L952-L965)；注册表当前无对应 stub），**扩展索引器为 C# 15 预览、归 C52 防线**（catalog L957、L965）；M0 探针确认 `LanguageVersion.Latest` 下 extension 块的语法/符号形态；分析器一旦发现该块（无论何种成员）即 **CS2J1206 显式报错**（strict 前也为 Error：无法等价改写的构造不得静默）；是否为 C49 注册观察 stub / 排紧邻批次 M5 评审 | EM-EXT14；对齐 catalog §4 风险 13（L1111）「新语法防线」与风险 20（L1118）口径；与 C49 共用索引与接收者绑定基建（catalog C19 五次补全，L541） |
+| 扩展属性 / C# 14 扩展成员块 | **v1 仅支持经典 `static class` + 首个 `this` 形参的扩展方法**；C# 14 `extension` 块的**扩展属性、扩展运算符、静态扩展成员**已在 catalog 单列 **C49**（[catalog L952-965](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L952-L965)；注册表已有 `extension-members` stub 锚定本 pass），**扩展索引器为 C# 15 预览、归 C52 防线**（catalog L957、L965）；~~M0 探针确认形态~~ **M0 探针已闭环（2026-10-03，见文末「M0 探针结论」②）**：extension 块在 Roslyn 5.0.0 是**已发布 C#14 特性**（`LanguageVersion.Latest` 下 parse/编译/绑定全部生效，无版本门、无 Preview 要求）；语法为无名称 `extension(R receiver)` 块（`SyntaxKind.ExtensionBlockDeclaration`，`ExtensionBlockDeclarationSyntax`），必须嵌在**顶层非泛型静态类**内，块本身不可带访问修饰符（CS9283/CS0106），成员默认可带 `public`（不带则私有不可达）；符号模型把块呈现为 `TypeKind.Extension` 合成容器（显示名形如 `N.Holder.extension(int)`），成员为 `MethodKind.Ordinary`、`IsExtensionMethod=false`，**调用点直接绑该 Ordinary 方法（`ReducedFrom == null`）——不是 ReducedExtension**。因此：①CS2J1206 的检测必须是**语法驱动**（`ExtensionBlockDeclaration` 节点存在即报，不依赖编译诊断——Latest 下对块本身零诊断）；②residual/统计对块站点的分类须用 `ContainingType.TypeKind == Extension`，ReducedExtension 键控绑定器会**静默漏掉**全部块站点，这一事实写入 M1 binder 注释与 M2 residual 门 | 分析器一旦发现该块（无论何种成员）即 **CS2J1206 显式报错**（strict 前也为 Error：无法等价改写的构造不得静默）；EM-EXT14；对齐 catalog §4 风险 13（L1111）「新语法防线」与风险 20（L1118）口径；与 C49 共用索引与接收者绑定基建（catalog C19 五次补全，L541） |
 | 表达式树 `Expression<Func<...>>` 内站点 | **照常改写**（与多数改名 pass 不同）：C# 编译器对扩展糖在表达式树中本就发射为静态方法的 `MethodCallExpression`（receiver 是首参），显式化前后表达式树节点同形、同 `MethodInfo`；但必须过 **EM-EXPRTREE 同一性断言**：改写后重新编译，对比前后 `GetSymbolInfo` 的 `OriginalDefinition` 与参数序列，不一致则 CS2J1210 回退该站点。lambda 体内改写不得引入新局部/语句 | catalog §4 风险 8 的共同禁区在本 pass 的特化结论；C02 提取的 `ExpressionTreeFacts` 若已落地则复用，否则本 pass 自带最小判定 |
 | 方法组形态 `var f = r.M;`（非调用） | reduced 扩展方法也可经成员访问以方法组形式出现在委托转换/`nameof` 之外的位置；v1 检测「成员访问绑定为 ReducedExtension 但父节点不是调用」的站点 → **CS2J1207 显式报告**（候选降级形 `(x) => Host.M(x)` 留 M2 评审，禁止 v1 悄悄插 lambda） | EM-GROUP |
 | `nameof` / 反射 | `nameof(r.M)` 取的是标识符文本且不是调用，不经过本 pass 选择器，保持原样；本 pass **不改声明、不改任何成员名**，不新增 catalog §4 风险 7 的反射/JSON/XAML 按名面（显式静态调用在 CLR 与原糖是同一个 MethodInfo） | 风险面显著小于改名族 pass |
@@ -132,6 +132,8 @@ Description                 = "Explicitize extension method calls to static host
 | 测试 | ① [PassChainOrderTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassChainOrderTests.cs) `LockedChain` **20 → 21** id（现链 20 个 implemented id，末尾 ArrayMethod→MakeReadonly(L35)→IteratorLowering(L36)→EliminateGoto(L37)→MemberDesugar(L38)→JavaKeywords(L39)；本 pass 插在 L36 与 L37 之间；`EnabledByDefault` 现 13 项不变——本 pass 默认关）；② [PassStubCatalogTests.cs:24](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs#L24) stub 计数：**当前实现 21 条而断言 22（基线红灯，member-desugar 翻转提交 `26ea367c` 删条未同步断言）**；本 pass 删 `extension-methods` 后为 **20 条，断言直接改 20（顺带转绿）**，不补继任 stub；C#14 extension 块归 C49/C52（见 EM-EXT14），C49 是否注册观察条目 M5 定；③ [ProjectPreprocessorsConsistentTests.cs:131-132](file:///d:/code/cs2j/tests/CSharpToJava.Tests/ProjectPreprocessorsConsistentTests.cs#L131-L132) 仿 generic-deepen/member-desugar 段（L129-138 区域，新断言追加在现有段之后）加 `IntermediateDirectoryName == ".cs2j-extension-methods-src"` 断言；④ Core 单测/fixture/residual/CLI（§7） |
 
 不需要改：`Program.cs` 指纹逻辑（已按注册表全集自动生成 `pass:extension-methods=on/off` 令牌，见 Program.cs:1767-1776；翻转造成一次性缓存失效，符合预期）、preserve 目录（由实际执行 pass 的描述符驱动）、通用 verb（`preprocess --pass extension-methods` 自动可达；stub 期启用即 CS2J9001 的路径翻转后自然消失）、`ProjectPassRunner`（标准 spine + AfterFiles 够用）。
+
+> **M0 实测更新（2026-10-03，翻转已实施，commit `1aa1205e`）**：上表测试行的数字按基线漂移收口为真值——`LockedChain` 翻转前实为 **31 项**（非本文旧稿的 20/21），插入本 pass 后为 **32 项**，位置在 iterator-lowering 与 eliminate-goto 之间；`EnabledByDefault` 排除清单与 `BuildLegacyToggles_covers_every_registered_pass` 排除清单各加 `PassIds.ExtensionMethods` 一处。`PassStubCatalogTests` **已无 stub 计数硬编码断言**（旧稿所称 L24 断言 22 不在基线），未改该文件；stub 条目删除 1 条（11 条剩余，extension-members/linq-channel 两 RunAfter 引用先改指 `PassIds.ExtensionMethods` 再删条与常量）。另：base `46bdeeca` 的 C24 提交带入未解决合并冲突标记（7 文件 CS8300），已由前置提交 `392fd1d6` 按 union 解决并回归 2666 测试全绿，与本 pass 无关但属基线事实。
 
 ### 3.4 与 `linq-channel`（C26）相对次序：复核结论（对照 catalog L632）
 
@@ -329,9 +331,9 @@ Description                 = "Explicitize extension method calls to static host
 1. **中间树正确性**：fixture sln 与 sdk 预处理树 `dotnet build -c Release` 零错误、含测试工程时 `dotnet test -c Release` 全绿；sdk 相对基线新增失败为零。
 2. **残余闸门**：§4.5 六项在 fixture 全 0；sdk 残余只出现在显式 CS2J12xx 报告站点，且全部站点分类有主，无「未知残余」。
 3. **全仓测试不回归**：`CSharpToJavaConverter.slnx` Release build + 三个测试工程 Release test 全绿（含已登记红灯不增加）；两份既有 ExtensionMethodTests 与 LINQ 测试簇零 diff/零新增失败。
-4. **转换器协同冒烟**：图内用户 host 的显式静态调用被现有静态限定路径正确消费（代表性场景：null guard 扩展、泛型扩展、链式、跨项目）；开启本 pass 后 `ProjectExtensionMethodCheckPass` 对图内站点零告警；外部 host 的 1203 报告集经 triage 与 CS2J_EXT001 历史告警集对账（不新增未知 host 类）。
-5. **LINQ 零影响证据**：E16 两种模式（procedural 重写 / prefer-stream）下 LINQ 簇结果开/关本 pass 逐字节或逐语义比对一致；C26 未来 host 集无需改动（契约冻结在 EM-LINQ）。
-6. **诊断可运维 + 文档**：sdk Warning/Error 清单 triage 完毕，overrides skip/force 验证；本设计与 plan（`docs/superpowers/plans/2026-09-29-c19-extension-methods.md`）定稿；探针结论（`?.`/C#14/metadata 绑定率）回填本文。
+4. **转换器协同冒烟**：图内用户 host 的显式静态调用被现有静态限定路径正确消费（代表性场景：null guard 扩展、泛型扩展、链式、跨项目）；开启本 pass 后 `ProjectExtensionMethodCheckPass` 对图内站点零告警；外部 host 的 1203 报告集经 triage 与 CS2J_EXT001 历史告警集对账（不新增未知 host 类）。**M0 画像（2026-10-03，文末③）**：已绑定 reduced 站点中外部 metadata host 占 626/1801 ≈ 34.8%（json 样本 611，高度集中），M3 的 1203 triage 不是边角工作；图内用户 host 878（48.8%）、LINQ 297（16.5%）。
+5. **LINQ 零影响证据**：E16 两种模式（procedural 重写 / prefer-stream）下 LINQ 簇结果开/关本 pass 逐字节或逐语义比对一致；C26 未来 host 集无需改动（契约冻结在 EM-LINQ）。M0 探针④已固化 LinqRewriter 对显式静态形态的失配复现（reduced 命中归约表并改写，静态形态零命中不改写），EM-LINQ 排除为强制项的证据闭环。
+6. **诊断可运维 + 文档**：sdk Warning/Error 清单 triage 完毕，overrides skip/force 验证；本设计与 plan（`docs/superpowers/plans/2026-09-29-c19-extension-methods.md`）定稿；探针结论（`?.`/C#14/metadata 绑定率/LINQ 失配）~~回填本文~~ **已于 2026-10-03 回填（文末「M0 探针结论」）**。附录裁决 2 的「reduced 站点绑定率 <99%」闸门无法由 TPA-only 探针直接测得（方法论语义见文末③），由 M1 在 runner merged compilation 内补测。
 
 不满足时任保持 opt-in（catalog §4 风险 10）。
 
@@ -425,3 +427,77 @@ git worktree add .worktrees/preproc-c19-extension-methods -b feature/preproc-c19
 6. **member-desugar 后置交互**（2026-09-29 新增）：member-desugar 已 Implemented 且链位在本 pass 之后（goto 后、java-keywords 前，默认关）；M4 用「成员去糖 + 用户扩展调用」混合 fixture 复核两 pass 串行结果（重点：属性/事件/索引器/运算符使用点改写是否遇到扩展形态、改写后节点是否被后续 pass 再触碰）；结论不绿则在 member-desugar 翻默认开前补交互用例。
 7. **支撑工程 Java 侧过滤覆盖面**（2026-09-29 新增）：`IsExecutedSupportLibraryProject` 现仅识别 UnsignedMath/Array/RefOutIn 三工程，`Cs2jPreludeProject.IsCs2jPreludeProject` 零调用方、Cs2jTuples 无工程类——prelude/tuple 注入产物在 Java 转换/指纹侧的确切排除路径实施前核实（不影响本 pass 的中间树可见性结论，见 §4.2-2）。
 8. **现存基线红灯**：PassStubCatalogTests L24 断言 22 与实现 21 不符（`member-desugar` 翻转提交 `26ea367c` 引入），属基线事实而非本设计缺陷；本 pass 翻转 PR 直接把断言改为 20，不单独修。
+
+---
+
+## M0 探针结论（2026-10-03）
+
+环境：dotnet SDK 10.0.300，`Microsoft.CodeAnalysis.CSharp` 5.0.0（Roslyn 5.0），xUnit 固化于 [ExtensionMethodProbeTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.Tests/Preprocessing/ExtensionMethodProbeTests.cs)（探针①②④为常规 Fact；③为 `CS2J_RUN_SDK_PROBE=1` 环境门控，未设门控时通过性 no-op）。
+
+### ① null 条件扩展调用（EM-COND）——合法，仍绑 ReducedExtension
+
+`"abc"?.Shout()`（`public static int Shout(this string s)`）在 `LanguageVersion.Latest` 与 `Preview` 下 parse/编译零诊断，事实：
+
+- 树形态：`ConditionalAccessExpressionSyntax`（Expression=`"abc"`）→ `WhenNotNull` 内 `InvocationExpressionSyntax`，其 Expression 为 **`MemberBindingExpressionSyntax`**（`.Shout()`），不是普通 `MemberAccessExpressionSyntax`。**M1 binder 枚举调用点时不能只按 `Invocation.Expression is MemberAccessExpression` 取符号，须以 `model.GetSymbolInfo(invocation)` 直取（与 §2「唯一真相」一致），否则会漏掉 null 条件站点**。
+- 符号：`GetSymbolInfo(invocation).Symbol` 为 `IMethodSymbol`，`MethodKind == ReducedExtension`，`Name=="Shout"`，`ReducedFrom != null` 且其 `MethodKind == Ordinary`、容器为原静态类；`OriginalDefinition.MethodKind == ReducedExtension`。
+- 结论：附录裁决 3 的 v1 收编（临时变量提升 + 条件静态调用）在绑定层面无阻断；CS2J1205 仅留给实现期确认无法提升的残余形态。sdk 实测该形态仅 **2 个站点**（见③，全在 regular-expressions 样本）。
+
+### ② C# 14 extension 块（EM-EXT14）——已发布特性，语法门在语法树、符号形态不是 ReducedExtension
+
+语法候选实测（Preview parse + 语义编译；Latest 对各候选的 parse 结论相同）：
+
+| 候选形态 | parse | 语义编译 | 结论 |
+|---|---|---|---|
+| `namespace N; public extension E { ... }`（**带名称**） | CS9281 Extension declarations may not have a name + CS1003/1031/1026 | CS9283 Extensions must be declared in a top-level, non-generic, **static class** | 名称不合法 |
+| `namespace N; public extension { ... }`（无名称无接收者） | CS1003/1031/1026 | CS9283 | 接收者参数表不可省 |
+| `namespace N; public extension(int value) { ... }`（块带 public） | 零错误 | CS0106 修饰符 public 无效 + CS9283 | 块必须在静态类内、块不可带修饰符 |
+| `namespace N { public static class Holder { extension(int value) { int Double() ... } } }`（成员无修饰符） | 零错误 | 零错误但成员**私有**，外部 `3.Double()` → CS1061 | 成员默认私有 |
+| 同上但成员 `public int Double()` | 零错误 | **零错误，`3.Double()` 可调用** | ✅ 合法形态 |
+
+合法形态的符号事实（Latest 与 Preview **逐字一致**）：
+
+- 语法节点：`SyntaxKind.ExtensionBlockDeclaration` / `ExtensionBlockDeclarationSyntax`，在 Latest 语法集中已存在（parse 不要求 Preview）。
+- 语言版本门：**不存在**。`LanguageVersion.Latest`（= C#14 RTM）下 parse、语义编译、调用点绑定全部生效；对块本身零诊断（不发 CS8026 类 preview 诊断）。因此 CS2J1206 检测**只能语法驱动**（遍历 `ExtensionBlockDeclaration` 节点），不能靠编译诊断抓取。
+- 容器：成员的 `ContainingType` 是 `TypeKind.Extension` 合成类型，显示名形如 `N.Holder.extension(int)`（嵌在用户静态类 Holder 内）。
+- 成员：`MethodKind.Ordinary`、`IsExtensionMethod == false`、`ReducedFrom == null`。
+- **调用点 `3.Double()` 直接绑该 Ordinary 方法**：`MethodKind.Ordinary`、`ReducedFrom == null`、`IsExtensionMethod == false`，仅 `ContainingType.TypeKind == Extension` 可辨识。
+
+对 C19 的直接约束（已记入 §2 EM-EXT14）：以 `MethodKind.ReducedExtension` 为唯一选择键的 M1 binder 会**静默漏掉全部 extension 块站点**；v1 的行为是：语法扫描发现块声明 → 该文件/站点 CS2J1206 Error（不分级），并把「TypeKind.Extension 容器的 Ordinary 调用」登记进 residual 分类（M2 闸门用），声明归 C49 lowering。M1 代码注释须写明该事实，防止后续按「reduced 键覆盖全部扩展糖」做推断。另：本次探针仅覆盖「带接收者的实例成员块」；扩展属性/扩展运算符/静态成员块的节点子形态在 C49 启动时用同款探针补录。
+
+### ③ D:\csharp-sdk 测量轮（EM-EXTERNAL / EM-LINQ / 绑定率画像）
+
+门控命令：`$env:CS2J_RUN_SDK_PROBE='1'; dotnet test ... --filter ExtensionMethodProbeTests.Probe3`（全量约 23 秒，4 样本 1296 文件，无需抽代表子集）。方法：每样本目录一个 compilation，`CSharpParseOptions(LanguageVersion.Latest, preprocessorSymbols: NETCOREAPP)`，引用取 `AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")` 全量 TPA（不 restore、无项目间/NuGet 引用）；逐 `InvocationExpressionSyntax` 取 `GetSymbolInfo`，`MethodKind.ReducedExtension` 站点按 `ReducedFrom.ContainingType` 分类；另计 reduced 方法组（非调用的成员访问）与 null 条件 reduced 站点。
+
+| 样本 | 文件 | reduced 调用 | LINQ 保有 | 图内 host | 外部 metadata host | null 条件 reduced | 未绑定调用（None / OverloadResolutionFailure） |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| json | 392 | 980 | 220 | 149 | **611** | 0 | 335（334 / 1） |
+| regular-expressions | 78 | 49 | 37 | 3 | 9 | 2 | 607（441 / 166） |
+| uri | 52 | 14 | 14 | 0 | 0 | 0 | 236（149 / 87） |
+| xml-tiny | 774 | 758 | 26 | 726 | 6 | 0 | 5674（3030 / 2644） |
+| **合计** | **1296** | **1801** | **297（16.5%）** | **878（48.8%）** | **626（34.8%）** | **2** | **6852（3954 / 2898）** |
+
+全程 `CandidateReason.Ambiguous` = 0、reduced 方法组 = 0。
+
+结论与方法论限制（影响附录裁决 2、M3 排期）：
+
+1. **EM-EXTERNAL 是主路径之一而非边角**：已绑定 reduced 站点中 34.8% 的 host 来自 metadata，且 611/626 集中在 json 样本（System.Text.Json 等 BCL 扩展面）。M3 的 TypeMappings 落点分级与 CS2J1203 triage 按此画像排工作量；默认改写外部 host（Options 默认值 `RewriteExternalMetadataHosts=true`）的方向被数据支持。
+2. **EM-LINQ 16.5%**：297 个 Enumerable/Queryable 站点分布于全部样本（json 220 最多），排除白名单 `System.Linq.Enumerable + System.Linq.Queryable` 覆盖全部实测 LINQ host，无需扩集；白名单不可删项的设计（§2 Options）有效。
+3. **EM-GROUP 在该代码库零出现**：reduced 方法组计数 0，v1 保持 CS2J1207 报告不实现 lambda 收编，无现场压力。
+4. **附录裁决 2 的「reduced 绑定率 <99%」闸门本次不能直接判定**：TPA-only 编译缺项目间引用与 NuGet 程序集，未绑定调用 6852 个主要是引用缺失（普通调用占多数；OverloadResolutionFailure 2898 中可能混有扩展查找失败，但无法在不猜 host 的前提下分离——本 pass 禁止按名字猜扩展）。已绑定侧 1801 个 reduced 站点 0 歧义。**行动项：M1 binder 落地后在 runner 的 merged compilation（真实 restore 引用）内对同样 4 样本重测「reduced 候选中 None/OverloadResolutionFailure 占比」，<99% 才触发 M3 补引用**；探针③的分桶代码已就位（`UnboundNone`/`UnboundOverloadResolution`），M1 仅需换成 merged compilation 引用集。
+5. xml 目录仍为空壳（src/tests 无 .cs），有效样本维持 4 个；样本清单与排除规则（bin/obj）固化在测试中。
+
+### ④ LinqRewriter 静态形态失配（EM-LINQ 强制项复现）
+
+同一 Where/Select/Count 链的两种形态喂入 [LinqRewriter](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs)（反射调私有的 `GetMethodFullName`，并全量 `Visit(root)`）：
+
+- reduced 形态（`src.Where(x => x > 0).Select(x => x + 1)`）：`GetSymbolInfo(invocation.Expression).Symbol` 为 ReducedExtension，`OriginalDefinition.ToDisplayString()` 归约显示为 `System.Collections.Generic.IEnumerable<TSource>.Where<TSource>(...)`，**命中** `KnownMethods` 归约表；`RewrittenLinqQueries = 2`（整链被过程式展开）。
+- 显式静态形态（`Enumerable.Select(Enumerable.Where(src, ...), ...)`，即 C19 的目标产物）：符号为 `MethodKind.Ordinary`，显示字符串为 `System.Linq.Enumerable.Where<TSource>(IEnumerable<TSource>, Func<...>)` 未归约形，**不命中任何 KnownMethods 字面量**（L581 `IsSupportedMethod(string)` 返回 false；L126 cast/L212 回溯虽仍识别 MemberAccess，链在表查找处即断）；`RewrittenLinqQueries = 0`。
+
+结论：C19 一旦改写 Enumerable/Queryable 站点，E16 链识别静默失效（能编译、不报错），与设计 §10 风险 1 判断一致；EM-LINQ host 白名单为正确性强制项且不可经选项删空，C26 未来通道化必须复用同一 host 集。LinqRewriter 若未来要消费静态形态，须改键控方式（归约表改为按 unreduced 定义+receiver 位置识别），属 C26 范围，不在 C19 内。
+
+### M0 验证结果与 M1 遗留
+
+- `dotnet build CSharpToJavaConverter.slnx -c Release`：0 错误（仅基线既有警告：NU1510、LinqRewrite/LinqStep CS8625、LiteralString CS8765、SolutionLoader CS0618）。
+- `dotnet test tests/CSharpToJava.Tests -c Release`：**2683 全绿**（基线 2666 + 新增 17 个 Fact：ExtensionMethodResolveTests 5、ExtensionMethodRegistryTests 7、ExtensionMethodProbeTests 5（①1 + ②Discovery/主断言 2 + ④1 + ③env 门控 1）；PassChainOrderTests 与 ProjectPreprocessorsConsistentTests 为既有测试内改/追加断言，不计新增数）。
+- M0 骨架空转：`Analyze` 不选站点、`RewriteFile` 恒 `Changed=false`（runner 字节复制保 BOM）、residual 扫描空；默认关，`--enable-pass extension-methods` 可启用且槽位锁定在 iterator-lowering 后。
+- **M1 开跑前必读的探针约束**：①binder 对 null 条件调用用 GetSymbolInfo 直取（MemberBinding 形态）；②binder 选择键维持 ReducedExtension 但须在注释/测试中显式声明「TypeKind.Extension 块站点不在内、由 CS2J1206 门处理」；③宿主名从 `ReducedFrom.ContainingType` 取（非 Reduced.ContainingType）；④M1 完成后用 merged compilation 在 4 样本上重测绑定率（裁决 2 闸门）；⑤EM-EXTERNAL 分级按 34.8% 画像排 M3 工作量。
