@@ -379,7 +379,7 @@ internal static class PassCatalog
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Desugar properties (C11), indexers (C12), events (C13) and operators (C14) into backing fields plus explicit get_X/set_X/get_Item/add_X/remove_X methods.",
-            catalogItems: "C11, C12, C13, C14, C39, C50"),
+            catalogItems: "C11, C12, C13, C14, C39, C50, C27"),
         new(
             PassStubCatalog.Ids.EqualityConcat,
             "Equality/concat call-site materialization",

@@ -274,7 +274,7 @@ public sealed class PassChainOrderTests
         Assert.Equal("C07", byId[PassIds.StructValueSemantics].CatalogItems);
         Assert.Equal("C05", byId[PassIds.EnumDeclaration].CatalogItems);
         Assert.Equal("C06", byId[PassStubCatalog.Ids.UnsafeFfm].CatalogItems);
-        Assert.Equal("C11, C12, C13, C14, C39, C50", byId[PassIds.MemberDesugar].CatalogItems);
+        Assert.Equal("C11, C12, C13, C14, C39, C50, C27", byId[PassIds.MemberDesugar].CatalogItems);
         Assert.Equal("C16, C40", byId[PassStubCatalog.Ids.ForeachSource].CatalogItems);
         Assert.True(byId[PassStubCatalog.Ids.ForeachSource].DefaultEnabled);
         Assert.Equal("C47", byId[PassStubCatalog.Ids.EqualityConcat].CatalogItems);

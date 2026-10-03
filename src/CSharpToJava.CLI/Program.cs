@@ -3355,6 +3355,8 @@ public class Program
 
         /// <summary>C50 rules.fieldKeyword 子节（缺省整节 → Enabled=false 默认关）。</summary>
         public FieldKeywordSets? FieldKeyword { get; set; }
+        /// <summary>C27 rules.records 子节（缺省整节 → Enabled=false 默认关）。</summary>
+        public RecordSets? Records { get; set; }
     }
 
     /// <summary>rules.signatures 配置形态（C46 设计 §5/§12）。Enabled 默认 false（主闸门）。</summary>
@@ -3369,6 +3371,13 @@ public class Program
 
     /// <summary>rules.fieldKeyword 配置形态（C50，设计 §12 默认关子集开关）。</summary>
     private sealed class FieldKeywordSets
+    {
+        public bool? Enabled { get; set; }
+    }
+
+    /// <summary>rules.records 配置形态（C27，设计 §12 默认关子集开关）。JSON PascalCase 大小写敏感，
+    /// 形态 <c>{"Records":{"Enabled":true}}</c>。</summary>
+    private sealed class RecordSets
     {
         public bool? Enabled { get; set; }
     }
@@ -3434,6 +3443,7 @@ public class Program
             Finalizers = BuildFinalizerOptions(parsed?.Finalizers, path),
             Signatures = BuildSignatureOptions(parsed?.Signatures),
             FieldKeyword = BuildFieldKeywordOptions(parsed?.FieldKeyword),
+            Records = BuildRecordOptions(parsed?.Records),
         };
     }
 
@@ -3459,6 +3469,15 @@ public class Program
     /// 配置缺失/解析失败按 false 继续（沿用族惯例）。</summary>
     private static CSharpToJava.Core.MemberDesugar.Properties.FieldKeywordOptions
         BuildFieldKeywordOptions(FieldKeywordSets? sets)
+        => new()
+        {
+            Enabled = sets?.Enabled ?? false,
+        };
+
+    /// <summary>映射 rules.records 子节（C27）：Enabled 缺省为 false（默认关、不抢跑，设计 §12）。
+    /// 配置缺失/解析失败按 false 继续（沿用族惯例）。</summary>
+    private static CSharpToJava.Core.MemberDesugar.Records.RecordOptions
+        BuildRecordOptions(RecordSets? sets)
         => new()
         {
             Enabled = sets?.Enabled ?? false,

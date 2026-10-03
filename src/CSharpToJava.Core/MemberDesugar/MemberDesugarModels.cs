@@ -105,6 +105,25 @@ public enum MemberDesugarDiagnosticCode
     FinalizerCleanerGuideUnsupported = 5208, // Error：Policy=CleanerGuide v1 未实现
     FinalizerResidual = 5210,              // Warning（strict Error）：residual 对账不平（M2）
     FinalizerSingleFileDegraded = 5211,    // Warning：单文件模式分析降级
+    // 5212-5230 record `with` rules (C27, 设计 §6)。M1 落地 RC-1/RC-2 + WR-1/2/3/6/7 主体；
+    // 标注 M2 的码位本阶段仅作登记/占位（struct 值拷贝、位置 reshape、嵌套 with 等）。
+    WithSiteRewritten = 5212,              // Info，仅 verbose：with 站点已改写
+    CloneFactorySynthesized = 5213,        // Info，仅 verbose：克隆工厂已合成
+    PositionalReshaped = 5214,             // Info：位置 record reshape 完成（M2）
+    RequiredRecordTouched = 5215,          // Info：record 面 required/SetsRequiredMembers（M2/M3）
+    PositionalReshapeGate = 5220,          // Warning（strict Error）：位置 reshape 闸门（M2）；
+                                           // M1 兼作「留待 M2 形态」的统一门码（位置 record/
+                                           // struct 值拷贝/init-only 未放宽等），消息逐形注明
+    MetadataDerivedRisk = 5221,            // Warning（strict Error）：树外派生 record 虚分派洞
+    MetadataRecordReceiver = 5222,         // Warning（strict Error）：元数据 record 接收者
+    NonLiftableWithContext = 5223,         // Warning（strict Error）：with 位于不可提升上下文
+    UnsupportedNestedInitializer = 5224,   // Warning（strict Error）：嵌套对象/集合初始化器/嵌套 with（M2）
+    AnonymousTypeWith = 5225,              // Warning（strict Error）：匿名类型 with
+    ExpressionTreeWith = 5226,             // Warning（strict Error）：表达式树内 with
+    DynamicWith = 5227,                    // Warning（strict Error）：dynamic 接收者 with
+    NonRecordClassWith = 5228,             // Warning（strict Error）：非 record class 接收者 with
+    ResidualWith = 5230,                   // Warning（strict Error）：residual 零 with 闸门（WR-8）
+    RecordSingleFileNotSelfContained = 5290, // Warning：单文件模式 record plan 非自包含
 }
 
 public sealed record MemberDesugarDiagnostic(
@@ -222,6 +241,28 @@ public sealed class MemberDesugarStatistics
     /// <summary>FK-9 residual：无对应 skip 诊断的残留 field token 数（正常恒为 0）。</summary>
     public int FieldKeywordResidualTokens { get; set; }
 
+    // ---- C27 record `with`（M1：显式成员 record class，设计 §5.3）----
+    /// <summary>检出的 record 克隆 plan 总数（含 Infeasible；仅首个声明文件计入）。</summary>
+    public int RecordPlans { get; set; }
+    /// <summary>其中 record class（可发克隆工厂）plan 数。</summary>
+    public int RecordClassPlans { get; set; }
+    /// <summary>实际合成的克隆工厂方法数（abstract/virtual/override/sealed 全形态）。</summary>
+    public int CloneFactoriesSynthesized { get; set; }
+    /// <summary>重写的 with 站点总数。</summary>
+    public int WithSitesTotal { get; set; }
+    /// <summary>其中 record class 工厂形态站点数（含多态 WR-2、类型内 WR-6）。</summary>
+    public int WithSitesClass { get; set; }
+    /// <summary>其中空初始化器站点数（WR-3，纯工厂内联）。</summary>
+    public int WithSitesEmpty { get; set; }
+    /// <summary>提升的源/克隆临时变量数（__cs2j_wsrc/__cs2j_wclone）。</summary>
+    public int TemporariesPromoted { get; set; }
+    /// <summary>with 覆写中经 set_X 发射的属性赋值数（M2 位置 reshape/5124 退役后为主路径）。</summary>
+    public int PropertyAssignments { get; set; }
+    /// <summary>with 覆写中直写字段的赋值数。</summary>
+    public int FieldAssignments { get; set; }
+    /// <summary>WR-8 residual：输出树残留应被认领却未重写的 with 数（正常恒为 0）。</summary>
+    public int ResidualWithCount { get; set; }
+
     /// <summary>实际 sidecar 文件绝对路径（无删除/内存模式为 null；摘要行取此值）。</summary>
     public string? FinalizerSidecarPath { get; set; }
 
@@ -308,6 +349,11 @@ public sealed class MemberDesugarOptions
     /// 默认 <see cref="Properties.FieldKeywordOptions.Enabled"/>=false：field 规则零执行，
     /// 输出与现状逐字节一致；显式启用后才做声明侧归一。</summary>
     public Properties.FieldKeywordOptions FieldKeyword { get; init; } = new();
+
+    /// <summary>C27 record <c>with</c> 去糖子节（rules.records，设计 §12 默认关子集开关）。
+    /// 默认 <see cref="Records.RecordOptions.Enabled"/>=false：Records 规则零分析/零 plan/零改写；
+    /// 显式启用后才合成克隆工厂并改写 with 站点。</summary>
+    public Records.RecordOptions Records { get; init; } = new();
 }
 
 /// <summary>事件生成访问器的订阅线程安全模式（C13 D5）。Simple 与 Roslyn（C# 3.0+）

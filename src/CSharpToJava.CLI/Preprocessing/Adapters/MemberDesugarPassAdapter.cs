@@ -358,7 +358,17 @@ internal sealed class MemberDesugarPassAdapter : ProjectPassAdapter
                $"{_statistics.FieldReferencesRewritten} reference(s), " +
                $"{_statistics.FieldTargetAttributesMigrated} field-attribute(s), " +
                $"{_statistics.FieldInitializersMoved} initializer(s), " +
-               $"{_statistics.FieldKeywordResidualTokens} residual";
+               $"{_statistics.FieldKeywordResidualTokens} residual" +
+               // C27（M1，设计 §5.3）：records 段追加在末尾，Records 子集关闭时全 0。
+               $" | records: {_statistics.RecordPlans} plan(s) " +
+               $"({_statistics.RecordClassPlans} record class), " +
+               $"{_statistics.CloneFactoriesSynthesized} clone factor(ies), " +
+               $"{_statistics.WithSitesTotal} with-site(s) " +
+               $"({_statistics.WithSitesClass} class/{_statistics.WithSitesEmpty} empty), " +
+               $"{_statistics.PropertyAssignments} property/{_statistics.FieldAssignments} field " +
+               "assignment(s), " +
+               $"{_statistics.TemporariesPromoted} temp(s), " +
+               $"{_statistics.ResidualWithCount} residual";
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)

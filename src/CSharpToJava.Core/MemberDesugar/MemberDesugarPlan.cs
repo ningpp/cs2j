@@ -10,6 +10,7 @@ internal enum MemberDesugarKind
     Event,     // C13
     Operator,  // C14
     Signature, // C46 预留
+    Record,    // C27 record `with` 去糖（M1：显式成员 record class；规则 Order=5）
     Finalizer, // C39：置于最后，保证程序集发现排序中终结器规则最后运行
 }
 
