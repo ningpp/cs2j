@@ -106,4 +106,50 @@ public class RecordWithBehaviorTests
         Assert.Equal(5, q.X);
         Assert.Equal(2, q.Y);
     }
+
+    [Fact]
+    public void Empty_initializer_with_returns_equal_copy()
+    {
+        var p = new PositionPoint(1, 2, "p");
+        var q = RecordWithUsage.Reclone(p);
+
+        Assert.NotSame(p, q); // 空 with 仍经克隆工厂生成独立实例
+        Assert.Equal(p.X, q.X);
+        Assert.Equal(p.Y, q.Y);
+        Assert.Equal(p.Label, q.Label);
+    }
+
+    [Fact]
+    public void Tuple_with_copies_and_updates_component()
+    {
+        var t = (A: 1, B: "x");
+        var t2 = RecordWithUsage.Retag(t);
+
+        Assert.Equal(2, t2.A);
+        Assert.Equal("x", t2.B);
+
+        // 原值不变（值拷贝）
+        Assert.Equal(1, t.A);
+        Assert.Equal("x", t.B);
+    }
+
+    [Fact]
+    public void Required_record_with_keeps_other_members()
+    {
+        var n = new RequiredNote("id-1") { Note = "first" };
+        var n2 = RecordWithUsage.ReNote(n, "second");
+
+        Assert.Equal("id-1", n2.Id);
+        Assert.Equal("second", n2.Note);
+
+        // 原值不变
+        Assert.Equal("first", n.Note);
+    }
+
+    [Fact]
+    public void Skip_form_in_field_initializer_runs_natively_on_both_tiers()
+    {
+        // 字段初始化器中的 with 命中 5223 不提升，B 档中间树保留原生 with，行为与 A 档一致。
+        Assert.Equal(1, SkipCarrier.Probe());
+    }
 }
