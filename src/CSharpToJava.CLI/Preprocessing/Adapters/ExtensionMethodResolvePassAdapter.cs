@@ -1,3 +1,4 @@
+using System.Text;
 using CSharpToJava.Core.ExtensionMethodResolve;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
@@ -56,6 +57,42 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     public override CSharpParseOptions CreateParseOptions(PassTreeContext tree)
         => new(LanguageVersion.Latest);
 
+    /// <summary>
+    /// ImplicitUsings=enable projects rely on SDK-generated GlobalUsings.g.cs;
+    /// the one-shot binding compilation must mirror them, otherwise extension
+    /// lookups whose receivers live in System.Collections.Generic / System.Linq
+    /// fail overload resolution and the sites are falsely reported unbound.
+    /// </summary>
+    public override IReadOnlyList<SyntaxTree> CreateAdditionalSyntaxTrees(PassTreeContext tree)
+    {
+        var globalUsings = new StringBuilder();
+        foreach (var projectFile in tree.Layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            var intermediateProjectFile = Path.Combine(
+                tree.IntermediateRoot, Path.GetRelativePath(tree.Layout.SourceRoot, projectFile));
+            var projectUsings = ImplicitGlobalUsings.BuildForProject(
+                intermediateProjectFile, tree.IntermediateRoot);
+            if (projectUsings != null)
+            {
+                globalUsings.AppendLine(projectUsings);
+            }
+        }
+
+        if (globalUsings.Length == 0)
+        {
+            return Array.Empty<SyntaxTree>();
+        }
+
+        return new[]
+        {
+            CSharpSyntaxTree.ParseText(
+                globalUsings.ToString(),
+                new CSharpParseOptions(LanguageVersion.Latest),
+                path: "__cs2j_global_usings.g.cs"),
+        };
+    }
+
     public ExtensionMethodResolveStatistics Statistics => _statistics;
     public IReadOnlyList<ExtensionDiagnostic> Diagnostics => _diagnostics;
 
@@ -112,6 +149,9 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
 
             trees.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(file), parseOptions, path: file));
         }
+
+        // Mirror the SDK implicit global usings for gate binding as well.
+        trees.AddRange(CreateAdditionalSyntaxTrees(tree));
 
         if (trees.Count == 0)
         {
