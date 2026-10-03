@@ -294,13 +294,7 @@ internal static class RecordDeclarationRewriter
                 SyntaxFactory.SeparatedList<BaseTypeSyntax>(remaining)));
         }
         // 无体 record（record R(...);）补花括号后才能 AddMembers。
-        if (!reshaped.OpenBraceToken.IsKind(SyntaxKind.OpenBraceToken))
-        {
-            reshaped = reshaped
-                .WithSemicolonToken(default)
-                .WithOpenBraceToken(SyntaxFactory.Token(SyntaxKind.OpenBraceToken))
-                .WithCloseBraceToken(SyntaxFactory.Token(SyntaxKind.CloseBraceToken));
-        }
+        reshaped = EnsureBodyBraces(reshaped);
         reshaped = reshaped.AddMembers(newMembers
             .Select(m => m.NormalizeWhitespace()
                 .WithLeadingTrivia(SyntaxFactory.TriviaList(
@@ -324,6 +318,122 @@ internal static class RecordDeclarationRewriter
 
     private static SyntaxTokenList PublicModifiers()
         => SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword));
+
+    // ---- RC-5：record 面 required / [SetsRequiredMembers] 剥离（决策 7b/7c）----
+
+    /// <summary>
+    /// 对有 plan 的 record 声明（位置/显式成员均覆盖）做 required 约束剥离：
+    /// ① 字段声明去 <c>required</c> 修饰符（属性面 required 归 C11，此处不重复）；
+    /// ② 移除 record 类型声明与构造器上的 <c>[SetsRequiredMembers]</c> 特性。
+    /// 补发的合成 ctor（reshape 路径）从不挂该特性，无需处理。
+    /// 计数 <see cref="MemberDesugarStatistics.RequiredConstraintsDropped"/>（与 C11 属性面
+    /// 共用同一统计桶，CS2J5121 语义），并按 record 聚合 emit CS2J5215 Info。
+    /// 返回剥离后的声明；无任何 required/SetsRequiredMembers 时原样返回（零 diff）。
+    /// </summary>
+    public static RecordDeclarationSyntax StripRequiredConstraints(
+        RecordDeclarationSyntax decl,
+        MemberDesugarOptions options,
+        MemberDesugarStatistics stats,
+        List<MemberDesugarDiagnostic> diagnostics,
+        string filePath)
+    {
+        var requiredFields = 0;
+        var setsRemoved = 0;
+        var members = new List<MemberDeclarationSyntax>(decl.Members.Count);
+        foreach (var member in decl.Members)
+        {
+            var m = member;
+
+            // 字段：去 required 修饰符。
+            if (m is FieldDeclarationSyntax field)
+            {
+                var mods = field.Modifiers;
+                if (mods.Any(SyntaxKind.RequiredKeyword))
+                {
+                    var stripped = SyntaxFactory.TokenList(
+                        mods.Where(t => !t.IsKind(SyntaxKind.RequiredKeyword)));
+                    m = field.WithModifiers(stripped);
+                    requiredFields++;
+                }
+            }
+
+            // 构造器：去 [SetsRequiredMembers]。
+            if (m is ConstructorDeclarationSyntax ctor)
+                m = StripSetsRequiredMembers(ctor, ref setsRemoved);
+
+            members.Add(m);
+        }
+
+        // 类型声明级 [SetsRequiredMembers]。
+        var withStrippedType = StripSetsRequiredMembers(decl, ref setsRemoved);
+        if (!ReferenceEquals(withStrippedType, decl))
+            decl = withStrippedType;
+
+        if (requiredFields == 0 && setsRemoved == 0) return decl;
+
+        decl = decl.WithMembers(SyntaxFactory.List(members));
+        // 保留 XML doc/trivia；新挂 RewriteAnnotation 便于格式化。
+        stats.RequiredConstraintsDropped += requiredFields + setsRemoved;
+        if (options.ReportInfo)
+        {
+            diagnostics.Add(new MemberDesugarDiagnostic(
+                MemberDesugarSeverity.Info,
+                MemberDesugarDiagnosticCode.RequiredRecordTouched,
+                RecordDiagnostics.RequiredRecordTouched(
+                    decl.Identifier.ValueText, requiredFields, setsRemoved),
+                filePath,
+                decl.Identifier.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                0,
+                decl.Identifier.ValueText));
+        }
+        return decl;
+    }
+
+    /// <summary>从成员声明的特性列表中移除 <c>[SetsRequiredMembers]</c>（短名或完全限定名）。
+    /// 无该特性时原样返回；setsRemoved 按移除条数递增。</summary>
+    private static T StripSetsRequiredMembers<T>(T member, ref int setsRemoved)
+        where T : MemberDeclarationSyntax
+    {
+        if (member.AttributeLists.Count == 0) return member;
+        var kept = new List<AttributeListSyntax>();
+        foreach (var list in member.AttributeLists)
+        {
+            var surviving = list.Attributes.Where(a =>
+                !IsSetsRequiredMembers(a)).ToList();
+            if (surviving.Count == list.Attributes.Count)
+            {
+                kept.Add(list);
+                continue;
+            }
+            setsRemoved += list.Attributes.Count - surviving.Count;
+            if (surviving.Count > 0)
+                kept.Add(list.WithAttributes(
+                    SyntaxFactory.SeparatedList(surviving)));
+            // 全空列表整体丢弃。
+        }
+        if (kept.Count == member.AttributeLists.Count) return member;
+        return (T)member.WithAttributeLists(SyntaxFactory.List(kept));
+    }
+
+    private static bool IsSetsRequiredMembers(AttributeSyntax attr)
+    {
+        var name = attr.Name.ToString();
+        return name == "SetsRequiredMembers"
+            || name == "System.Runtime.CompilerServices.SetsRequiredMembers"
+            || name == "SetsRequiredMembersAttribute"
+            || name == "System.Runtime.CompilerServices.SetsRequiredMembersAttribute";
+    }
+
+    /// <summary>无体 record（<c>record R(...);</c> 或 <c>record R;</c>）补花括号，
+    /// 使后续 <c>AddMembers</c> 合法。已有花括号时原样返回。</summary>
+    public static RecordDeclarationSyntax EnsureBodyBraces(RecordDeclarationSyntax decl)
+    {
+        if (decl.OpenBraceToken.IsKind(SyntaxKind.OpenBraceToken)) return decl;
+        return decl
+            .WithSemicolonToken(default)
+            .WithOpenBraceToken(SyntaxFactory.Token(SyntaxKind.OpenBraceToken))
+            .WithCloseBraceToken(SyntaxFactory.Token(SyntaxKind.CloseBraceToken));
+    }
 
     private static PredefinedTypeSyntax PredefinedVoid()
         => SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword));

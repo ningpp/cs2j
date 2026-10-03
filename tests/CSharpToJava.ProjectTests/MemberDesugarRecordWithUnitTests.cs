@@ -2048,6 +2048,205 @@ public class MemberDesugarRecordWithUnitTests
         Assert.Equal(0, stats.PositionalRecordsReshaped);
     }
 
+    // ---- RC-5：record 面 required / [SetsRequiredMembers] 剥离 ----
+
+    [Fact]
+    public void RC5_RequiredField_Stripped_And5215Emitted()
+    {
+        var src = """
+            public record R
+            {
+                public required int F;
+                public int X { get; set; }
+            }
+            public static class P
+            {
+                public static R Run(R r) => r with { X = 1 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(info: true));
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        AssertNotContains(output, "required int F");
+        AssertContains(output, "public int F;");
+        Assert.Equal(1, stats.RequiredConstraintsDropped);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.RequiredRecordTouched);
+    }
+
+    [Fact]
+    public void RC5_SetsRequiredMembers_OnTypeAndCtor_Removed()
+    {
+        var src = """
+            [System.Runtime.CompilerServices.SetsRequiredMembers]
+            public record R
+            {
+                public required int F;
+                [System.Runtime.CompilerServices.SetsRequiredMembers]
+                public R(int f) { F = f; }
+                public int X { get; set; }
+            }
+            public static class P
+            {
+                public static R Run(R r) => r with { X = 1 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(info: true));
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        AssertNotContains(output, "SetsRequiredMembers");
+        AssertNotContains(output, "required int F");
+        // 1 required field + 2 SetsRequiredMembers (type + ctor) = 3
+        Assert.Equal(3, stats.RequiredConstraintsDropped);
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.RequiredRecordTouched);
+    }
+
+    [Fact]
+    public void RC5_NoRequiredConstraints_NoChange_No5215()
+    {
+        var src = """
+            public record R
+            {
+                public int F;
+                public int X { get; set; }
+            }
+            public static class P
+            {
+                public static R Run(R r) => r with { X = 1 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(info: true));
+        AssertCompiles(output);
+        Assert.Equal(0, stats.RequiredConstraintsDropped);
+        Assert.DoesNotContain(diags, d => d.Code == MemberDesugarDiagnosticCode.RequiredRecordTouched);
+    }
+
+    [Fact]
+    public void RC5_PositionalRecord_RequiredExplicitField_Stripped()
+    {
+        // 位置 record 的显式 required 字段（非位置参数）应在 reshape 后剥离。
+        var src = """
+            public record R(int X)
+            {
+                public required int F;
+            }
+            public static class P
+            {
+                public static R Run(R r) => r with { X = 1 };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(info: true));
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        AssertNotContains(output, "required");
+        Assert.Equal(1, stats.PositionalRecordsReshaped);
+        Assert.Equal(1, stats.RequiredConstraintsDropped);
+    }
+
+    // ---- 无体 record 工厂收口 ----
+
+    [Fact]
+    public void NoBody_RecordClass_FactoryInjected()
+    {
+        var src = """
+            public record R;
+            public static class P
+            {
+                public static R Run(R r) => r with { };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        AssertContains(output, "public virtual R Cs2jWithClone() => new R(this);");
+        AssertContains(output, "r.Cs2jWithClone()");
+        AssertNotContains(output, " with ");
+        Assert.Equal(1, stats.CloneFactoriesSynthesized);
+    }
+
+    [Fact]
+    public void NoBody_SealedRecord_SealedFactory()
+    {
+        var src = """
+            public sealed record R;
+            public static class P
+            {
+                public static R Run(R r) => r with { };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        AssertContains(output, "public R Cs2jWithClone() => new R(this);");
+        AssertNotContains(output, "virtual");
+        AssertNotContains(output, "override");
+        Assert.Equal(1, stats.CloneFactoriesSynthesized);
+    }
+
+    [Fact]
+    public void NoBody_AbstractRecord_AbstractFactory()
+    {
+        var src = """
+            public abstract record R;
+            public sealed record D : R;
+            public static class P
+            {
+                public static R Run(R r) => r with { };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        AssertContains(output, "public abstract R Cs2jWithClone();");
+        AssertContains(output, "public override D Cs2jWithClone() => new D(this);");
+        Assert.Equal(2, stats.CloneFactoriesSynthesized);
+    }
+
+    [Fact]
+    public void NoBody_DerivedRecord_OverrideFactory()
+    {
+        var src = """
+            public record Base;
+            public record Derived : Base;
+            public static class P
+            {
+                public static Base Run(Base b) => b with { };
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        AssertContains(output, "public virtual Base Cs2jWithClone() => new Base(this);");
+        AssertContains(output, "public override Derived Cs2jWithClone() => new Derived(this);");
+        Assert.Equal(2, stats.CloneFactoriesSynthesized);
+    }
+
+    [Fact]
+    public void NoBody_PolymorphicWith_RuntimeTypePreserved()
+    {
+        var src = """
+            public record Base;
+            public record Derived : Base;
+            public static class P
+            {
+                public static Base Run()
+                {
+                    Base b = new Derived();
+                    return b with { };
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertCompiles(output);
+        AssertNoErrors(diags);
+        AssertContains(output, "Cs2jWithClone()");
+        // 虚工厂保证运行时类型为 Derived
+        var asm = CompileToAssembly(output);
+        var pType = asm.GetType("P")!;
+        var result = pType.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, null);
+        Assert.Equal("Derived", result!.GetType().Name);
+    }
+
     /// <summary>编译去糖产物并内存加载（TPA 引用），供反射行为断言。</summary>
     private static Assembly CompileToAssembly(string output)
     {

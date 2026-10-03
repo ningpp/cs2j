@@ -102,11 +102,23 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
             ?? visited;
         if (!ReferenceEquals(reshaped, visited)) Changed = true;
 
+        // RC-5：record 面 required 字段修饰符与 [SetsRequiredMembers] 剥离（位置/显式
+        // 成员均覆盖）。位置 reshape 已重建字段（无 required），此处主要处理显式成员
+        // record 的 required 字段与构造器/类型级 SetsRequiredMembers。
+        var stripped = RecordDeclarationRewriter.StripRequiredConstraints(
+            reshaped, _options, _stats, _diagnostics, _filePath);
+        if (!ReferenceEquals(stripped, reshaped))
+        {
+            reshaped = stripped;
+            Changed = true;
+        }
+
         var factory = RecordDeclarationRewriter.TryBuildFactory(
             reshaped, plan, _options, _stats, _diagnostics, _filePath);
         if (factory == null) return reshaped;
         Changed = true;
-        return reshaped.AddMembers(factory);
+        // 无体 record（record R; / record class D : Base;）必须先补花括号才能 AddMembers。
+        return RecordDeclarationRewriter.EnsureBodyBraces(reshaped).AddMembers(factory);
     }
 
     // ---- 语句拼接：提升产物块拆入外层作用域（与 C11 同形，临时变量须对后续语句可见）----

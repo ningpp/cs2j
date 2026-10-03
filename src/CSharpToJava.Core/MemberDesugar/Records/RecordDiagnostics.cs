@@ -102,6 +102,22 @@ internal static class RecordDiagnostics
          + $"positional member(s) materialized as fields with get_X/set_X methods "
          + $"({(isStruct ? "RC-4 record struct" : "RC-3 record class")} final form).";
 
+    /// <summary>CS2J5215：record 面 required 关键字 / [SetsRequiredMembers] 已剥离（RC-5）。
+    /// 仅 verbose Info；属性面 required 经 C11 CS2J5121 计数，此处只报 record 字段与
+    /// 构造器/类型级 SetsRequiredMembers。</summary>
+    public static string RequiredRecordTouched(string typeFqn, int requiredFields, int setsRemoved)
+    {
+        var parts = new List<string>();
+        if (requiredFields > 0)
+            parts.Add($"{requiredFields} required field modifier(s) dropped");
+        if (setsRemoved > 0)
+            parts.Add($"{setsRemoved} [SetsRequiredMembers] attribute usage(s) removed");
+        var detail = parts.Count > 0 ? string.Join("; ", parts) : "required constraints audited";
+        return $"record '{typeFqn}': {detail} (RC-5; compile-time required constraints are "
+             + "not expressible on the desugared members; with-clone semantics already copies "
+             + "all members from the source).";
+    }
+
     /// <summary>CS2J5230：residual 零 with 闸门。</summary>
     public static string ResidualWith(int line, int column)
         => "a with-expression remains in the output without a registered rewrite or skip "
