@@ -2,7 +2,7 @@
 
 > 通道锚点：注册表 stub `closure-lift`（catalogItems `C32, C45`，Stage=StateMachine，RunAfter=`ref-out-in`）。
 > C32（第一阶段 CaptureHolder）设计已定稿（[2026-09-29-c32-capture-lift-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c32-capture-lift-design.md)，提交 `50ec565b`），其实现按 [§12](#12-worktree-分配只写不执行本设计文档在主工作区编写) worktree 分工独立推进；**本任务不注册、不翻转 pass**，只在 C32 合入后把 holder 阶段扩展为全量 Roslyn lowering：lambda/匿名方法 → display class 字段 + 命名方法 + 显式委托构造。
-> 本文证据核实时间 2026-09-29，主工作区分支 `dev-3.x`，HEAD=`55d9d109`；base 提交 `953293b9` 存在（C32/C45 共同实现基线，[§12](#12-worktree-分配只写不执行本设计文档在主工作区编写)）。主工作区现状：closure-lift 仍为 stub（23 条 stub 之一）、`ClosureLift/` 目录与 `Analysis/CaptureClassification.cs` 尚未落树——本文一切「C32 已有」均指 C32 设计冻结的契约，实现前以 C32 分支合入为硬前置。
+> 本文证据核实时间 2026-09-29，主工作区分支 `dev-3.x`，HEAD=`55d9d109`；base 提交原定 `953293b9`，**2026-10-03 更新为 `46bdeeca`（`dev-3.x-26100311` HEAD）**——C32（`41049d41`）已合入该分支，C45 直接建立在含 C32 全绿 ClosureLift 骨架的基线上（[§12](#12-worktree-分配只写不执行本设计文档在主工作区编写)）。主工作区现状（2026-10-03 复核）：closure-lift 已随 C32 翻转为 Implemented（默认关），`ClosureLift/` 目录与 `Analysis/CaptureClassification.cs` 已落树，C32 全量测试绿——本文一切「C32 已有」均指该已合入实现，C45 在其上做加性演进。
 
 ## 1. 背景与目标
 
@@ -486,14 +486,14 @@ void Subscribe(int outer)
 
 - 分支：`feature/preproc-c45-closure-lift`
 - 目录：`.worktrees/preproc-c45-closure-lift`（`.worktrees/` 已被 .gitignore 忽略，与 C32 及其余在途 worktree 同级）
-- base：`953293b9`（与 C32 同基；**实现前先合入 C32 分支** `feature/preproc-c32-capture-lift`——C45 的第一个提交必须建立在 C32 全绿的 ClosureLift 骨架上，禁止在本分支重复实现 holder 阶段）
+- base：`46bdeeca`（**2026-10-03 更新**：`dev-3.x-26100311` HEAD，原定 `953293b9`；C32 分支 `feature/preproc-c32-capture-lift`（`41049d41`）已完整合入该分支——C45 的第一个提交即建立在 C32 全绿的 ClosureLift 骨架上，禁止在本分支重复实现 holder 阶段，无需再执行合入 C32 步骤）
 - 创建命令（PowerShell，开工时执行者手动运行；本任务未执行任何 git 写操作）：
 
 ```powershell
-git worktree add .worktrees/preproc-c45-closure-lift -b feature/preproc-c45-closure-lift 953293b9
+git worktree add .worktrees/preproc-c45-closure-lift -b feature/preproc-c45-closure-lift 46bdeeca
 ```
 
-- 开工顺序提示：合入 C32 → 跑 C32 既有测试取得绿基线 → M1 静态路径（不动 holder 代码）→ M2 做 HolderPlan→DisplayClassPlan 加性演进（D2 零返工为该里程碑审查红线）→ M3/M4；catalogItems 单行文本放到 M4 随默认化评审一起改，M1-M3 期间保持 `C32`。
+- 开工顺序提示：跑 C32 既有测试取得绿基线 → M1 静态路径（不动 holder 代码）→ M2 做 HolderPlan→DisplayClassPlan 加性演进（D2 零返工为该里程碑审查红线）→ M3/M4；catalogItems 单行文本放到 M4 随默认化评审一起改，M1-M3 期间保持 `C32`。
 
 ---
 
