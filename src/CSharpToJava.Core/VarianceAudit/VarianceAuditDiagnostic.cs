@@ -46,6 +46,16 @@ public static class VarianceCodes
 
     // 070 report written
     public const string ReportWritten = "VA070";
+
+    /// <summary>
+    /// Codes escalated from Warning to Error under <c>--variance-strict</c> (design §6/D10):
+    /// VA010/011/012/015/020/021/023/027. VA013/014/016/022/024/025/026/028 stay Info and
+    /// VA001/VA070 stay Info in both modes, so an Info-only project never produces an Error.
+    /// </summary>
+    public static bool IsStrictGated(string code) => code is
+        CovariantConversionSite or ContravariantConversionSite or MappedMutabilityExpansion
+        or BothConversionSite or StructConstraint or UnmanagedConstraint
+        or ResidualNewTSite or DefaultOnValueTypeConstraint;
 }
 
 /// <summary>One variance-audit diagnostic in MSBuild-parseable form.</summary>

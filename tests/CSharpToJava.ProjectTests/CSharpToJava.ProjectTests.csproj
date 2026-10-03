@@ -192,6 +192,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- C33 variance-audit fixture; bin/obj excluded (may have been built locally). -->
+    <Content Include="..\SampleVarianceAuditSolution\**\*.*"
+              Exclude="..\SampleVarianceAuditSolution\**\bin\**;..\SampleVarianceAuditSolution\**\obj\**">
+      <Link>SampleVarianceAuditSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- C15 numeric-boundary fixtures (bin/obj excluded). -->
     <Content Include="..\SampleNumericBoundarySolution\**\*.*"
               Exclude="..\SampleNumericBoundarySolution\**\bin\**;..\SampleNumericBoundarySolution\**\obj\**">

@@ -107,20 +107,21 @@ public sealed class VarianceAuditPreprocessor
         foreach (var conversion in conversions)
         {
             audit.Diagnostics.Add(new VarianceAuditDiagnostic(
-                VarianceSeverity.Warning, conversion.Code, conversion.Message,
+                Gate(conversion.Code, VarianceSeverity.Warning), conversion.Code, conversion.Message,
                 path, conversion.Line, conversion.Column));
         }
 
         foreach (var dependent in dependents)
         {
             audit.Diagnostics.Add(new VarianceAuditDiagnostic(
-                VarianceSeverity.Warning, dependent.Code, dependent.Message,
+                Gate(dependent.Code, VarianceSeverity.Warning), dependent.Code, dependent.Message,
                 path, dependent.Line, dependent.Column));
         }
 
         foreach (var constraint in constraints)
         {
             var (code, severity) = ConstraintCode(constraint.Kind);
+            severity = Gate(code, severity);
             if (severity == VarianceSeverity.Info && !_options.ReportInfo)
             {
                 continue;
@@ -148,7 +149,7 @@ public sealed class VarianceAuditPreprocessor
             if (use.MemberResolutionIncomplete)
             {
                 audit.Diagnostics.Add(new VarianceAuditDiagnostic(
-                    VarianceSeverity.Warning,
+                    Gate(VarianceCodes.BothConversionSite, VarianceSeverity.Warning),
                     VarianceCodes.BothConversionSite,
                     $"use site '{use.TypeDisplayName}' has member accesses that could not be resolved "
                     + "(dynamic/error symbol); conservatively classified Both; redesign the boundary",
@@ -190,9 +191,9 @@ public sealed class VarianceAuditPreprocessor
         return audit;
     }
 
-    private static void AddMutabilityDiagnostic(VarianceFileAudit audit, VarianceUseRecord use, string path)
+    private void AddMutabilityDiagnostic(VarianceFileAudit audit, VarianceUseRecord use, string path)
         => audit.Diagnostics.Add(new VarianceAuditDiagnostic(
-            VarianceSeverity.Warning,
+            Gate(VarianceCodes.MappedMutabilityExpansion, VarianceSeverity.Warning),
             VarianceCodes.MappedMutabilityExpansion,
             $"use site '{use.TypeDisplayName}' is Producer-classified and its Java mapping "
             + $"{use.MappedJavaType ?? "(unmapped metadata variant type)"} exposes mutating member(s) the C# "
@@ -201,6 +202,15 @@ public sealed class VarianceAuditPreprocessor
             path,
             use.Line,
             use.Column));
+
+    /// <summary>
+    /// Severity gate (design D10/§6): under <c>--variance-strict</c> the unsafe codes become
+    /// Error, everything else keeps its audit-mode severity (Info stays Info).
+    /// </summary>
+    private VarianceSeverity Gate(string code, VarianceSeverity severity)
+        => _options.Strict && VarianceCodes.IsStrictGated(code)
+            ? VarianceSeverity.Error
+            : severity;
 
     private static (string Code, VarianceSeverity Severity) ConstraintCode(string kind) => kind switch
     {

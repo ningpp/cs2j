@@ -114,6 +114,27 @@ internal sealed class VarianceAuditPassAdapter : ProjectPassAdapter
 
         // VA070 (Info): report written, with the run's headline counts (design §6).
         _diagnostics.Add(_preprocessor.BuildReportWrittenDiagnostic(reportPath));
+
+        // VA030 (M2 strict aggregate): one Error that a CI job can match on a single
+        // code. Only unsafe categories escalated to Error under Strict are counted, so
+        // an Info-only project never trips the gate (design §5.1/D10/§6).
+        if (_options.Strict)
+        {
+            var errors = _diagnostics.Where(d => d.Severity == VarianceSeverity.Error).ToList();
+            if (errors.Count > 0)
+            {
+                var breakdown = string.Join(", ", errors
+                    .GroupBy(d => d.Code)
+                    .OrderBy(group => group.Key, StringComparer.Ordinal)
+                    .Select(group => $"{group.Key}={group.Count()}"));
+                _diagnostics.Add(new VarianceAuditDiagnostic(
+                    VarianceSeverity.Error,
+                    VarianceCodes.StrictGate,
+                    $"strict variance gate: {errors.Count} unsafe site(s) [{breakdown}]; no source was rewritten "
+                    + "(the audit is read-only); redesign the flagged boundaries or rerun without --variance-strict"));
+            }
+        }
+
         return Task.CompletedTask;
     }
 
@@ -137,8 +158,8 @@ internal sealed class VarianceAuditPassAdapter : ProjectPassAdapter
             VarianceCodes.TestsFailed,
             $"dotnet test failed with exit code {exitCode} after variance-audit preprocessing."));
 
-    // Batch 1 emits no Error diagnostics, so this is always false; strict keeps the
-    // M2 gate wired for batches 2/3.
+    // Strict only aborts when an Error was actually recorded (M2 gate): audit mode is
+    // non-blocking, and an Info-only project stays successful even under Strict.
     public override bool HasErrors
         => _options.Strict && _diagnostics.Any(d => d.Severity == VarianceSeverity.Error);
 
