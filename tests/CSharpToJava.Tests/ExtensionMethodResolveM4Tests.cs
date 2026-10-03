@@ -655,6 +655,77 @@ public sealed class ExtensionMethodResolveM4Tests
             ExtensionMethodCodes.ExpressionTreeIdentityFailed,
             pp => pp.ForceExpressionTreeMismatch = (_, _) => true);
 
+    // ── 3b. Interpolation hole: `global::` at the hole's left edge is a
+    // Roslyn parse error (CS0103 "global"); explicitization must parenthesize
+    // exactly those sites. Found by Probe6 on D:\csharp-sdk\json
+    // (valueSequence.ToArray() inside an interpolated assertion). ──────────
+
+    [Theory]
+    // left edge: bare / postfix chains / binary left / unary prefix / alignment / format
+    [InlineData("$\"{x.Tick()}\"", "(global::Hole.Hole.Tick(x))", true)]
+    [InlineData("$\"{x.Tick().ToString()}\"", "(global::Hole.Hole.Tick(x)).ToString()", true)]
+    [InlineData("$\"{x.Tick().ToString()[0]}\"", "(global::Hole.Hole.Tick(x)).ToString()[0]", true)]
+    [InlineData("$\"{x.Tick() + 1}\"", "(global::Hole.Hole.Tick(x))+1", true)]
+    [InlineData("$\"{-x.Tick()}\"", "-(global::Hole.Hole.Tick(x))", true)]
+    [InlineData("$\"{x.Tick() == 1}\"", "(global::Hole.Hole.Tick(x))==1", true)]
+    [InlineData("$\"{x.Tick(),5}\"", "(global::Hole.Hole.Tick(x)),5", true)]
+    [InlineData("$\"{x.Tick():x}\"", "(global::Hole.Hole.Tick(x)):x", true)]
+    // not at the left edge: argument / conditional arm
+    [InlineData("$\"{string.Concat(x.Tick())}\"", "string.Concat(global::Hole.Hole.Tick(x))", false)]
+    [InlineData("$\"{(x == 1 ? x.Tick() : 0)}\"", "?global::Hole.Hole.Tick(x):0", false)]
+    public void Rewrite_InterpolationHoleLeftEdge_ParenthesizedAndCompiles(
+        string expression, string expectedCompact, bool wrapped)
+    {
+        var source = $$"""
+            using System;
+
+            namespace Hole
+            {
+                public static class Hole
+                {
+                    public static int Tick(this int x) => x;
+                }
+
+                public class Program
+                {
+                    public string Run(int x) => {{expression}};
+                }
+            }
+            """;
+        var (compilation, model, _) = CompileOne(source);
+        var (result, _) = Rewrite(compilation, model);
+        Assert.True(result.Changed);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains(expectedCompact, compact);
+
+        Recompile(result.OutputCode);
+    }
+
+    [Fact]
+    public void Rewrite_PlainStatementCall_NotParenthesized()
+    {
+        const string source = """
+            using System;
+
+            namespace Hole2
+            {
+                public static class Hole2
+                {
+                    public static int Tick(this int x) => x;
+                }
+
+                public class Program
+                {
+                    public int Run(int x) => x.Tick();
+                }
+            }
+            """;
+        var (compilation, model, _) = CompileOne(source);
+        var (result, _) = Rewrite(compilation, model);
+        Assert.Contains("=>global::Hole2.Hole2.Tick(x);", Compact(result.OutputCode));
+        Recompile(result.OutputCode);
+    }
+
     [Fact]
     public void Strict_PolicyTable_IsComplete()
     {

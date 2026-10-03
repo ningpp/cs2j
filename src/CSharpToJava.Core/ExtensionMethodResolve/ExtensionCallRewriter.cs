@@ -118,9 +118,57 @@ internal sealed class ExtensionCallRewriter : CSharpSyntaxRewriter
                 .WithTrailingTrivia(node.GetTrailingTrivia());
         }
 
-        return invocation
+        var rewritten = invocation
             .WithLeadingTrivia(node.GetLeadingTrivia())
             .WithTrailingTrivia(node.GetTrailingTrivia());
+
+        // Roslyn parser quirk: an alias-qualified name (`global::…`) at the
+        // left edge of an interpolation hole expression is rejected with
+        // CS0103 ("global" not found), including through postfix chains,
+        // binary/unary prefixes, casts and awaits. Parentheses are the
+        // supported surface: `{(global::Host.M(r, args))}`.
+        if (IsAtInterpolationHoleLeftEdge(node))
+        {
+            return SyntaxFactory.ParenthesizedExpression(rewritten.WithoutTrivia())
+                .WithLeadingTrivia(rewritten.GetLeadingTrivia())
+                .WithTrailingTrivia(rewritten.GetTrailingTrivia());
+        }
+
+        return rewritten;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="node"/> starts (possibly through postfix/unary
+    /// chains where it stays the leading subexpression) an enclosing
+    /// interpolation hole expression.
+    /// </summary>
+    private static bool IsAtInterpolationHoleLeftEdge(ExpressionSyntax node)
+    {
+        var current = node;
+        while (true)
+        {
+            var parent = current.Parent;
+            switch (parent)
+            {
+                case null:
+                    return false;
+                case InterpolationSyntax interpolation when interpolation.Expression == current:
+                    return true;
+                case InvocationExpressionSyntax invocation when invocation.Expression == current:
+                case MemberAccessExpressionSyntax memberAccess when memberAccess.Expression == current:
+                case ElementAccessExpressionSyntax elementAccess when elementAccess.Expression == current:
+                case ConditionalAccessExpressionSyntax conditional when conditional.WhenNotNull == current:
+                case PostfixUnaryExpressionSyntax postfix when postfix.Operand == current:
+                case PrefixUnaryExpressionSyntax prefix when prefix.Operand == current:
+                case CastExpressionSyntax cast when cast.Expression == current:
+                case AwaitExpressionSyntax awaited when awaited.Expression == current:
+                case BinaryExpressionSyntax binary when binary.Left == current:
+                    current = (ExpressionSyntax)parent;
+                    continue;
+                default:
+                    return false;
+            }
+        }
     }
 
     private static InvocationExpressionSyntax ParseBrokenRewrite()
