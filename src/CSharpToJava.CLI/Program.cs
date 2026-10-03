@@ -263,6 +263,8 @@ public class Program
                         FoldConstants = true,
                     },
                 },
+                PlatformIsolationOptionsFactory = () => BuildPlatformIsolationOptions(
+                    opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
@@ -1601,6 +1603,29 @@ public class Program
         {
             return null;
         }
+    }
+
+    /// <summary>
+    /// Build the C42 platform-isolation options from the CLI flags. Report mode
+    /// is the M1 default; <c>--platform-report-only</c> forces it. Non-Report
+    /// modes are parsed here and rejected by the adapter until M2/M3.
+    /// </summary>
+    private static CSharpToJava.Core.PlatformIsolation.PlatformIsolationOptions BuildPlatformIsolationOptions(
+        bool reportOnly,
+        string mode,
+        bool strict,
+        string? configPath)
+    {
+        var effectiveMode = reportOnly
+            ? CSharpToJava.Core.PlatformIsolation.PlatformIsolationMode.Report
+            : Enum.Parse<CSharpToJava.Core.PlatformIsolation.PlatformIsolationMode>(mode, ignoreCase: true);
+
+        return new CSharpToJava.Core.PlatformIsolation.PlatformIsolationOptions
+        {
+            Mode = effectiveMode,
+            Strict = strict,
+            ConfigPath = configPath,
+        };
     }
 
     private static ProjectGraph FilterUnsupportedProjectGraph(
@@ -3844,6 +3869,8 @@ public class Program
                         FoldConstants = true,
                     },
                 },
+                PlatformIsolationOptionsFactory = () => BuildPlatformIsolationOptions(
+                    opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
@@ -4878,6 +4905,22 @@ class PreprocessVerbOptions
     [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after passes that verify by default")]
     public bool NoVerifyTests { get; set; }
 
+    [Option("platform-report-only", Default = false,
+        HelpText = "Force the C42 platform-isolation pass into Report mode (audit only; the M1 default)")]
+    public bool PlatformReportOnly { get; set; }
+
+    [Option("platform-mode", Default = "Report",
+        HelpText = "C42 platform-isolation mode: Report|Reject|Stub|Facade (Reject/Stub/Facade fail until M2/M3)")]
+    public string PlatformMode { get; set; } = "Report";
+
+    [Option("platform-strict", Default = false,
+        HelpText = "C42 platform-isolation strict: Error-class sites are reported as errors and fail the run")]
+    public bool PlatformStrict { get; set; }
+
+    [Option("platform-config", Required = false,
+        HelpText = "Path to Cs2jPlatformIsolation.json (default: search upward from the working directory)")]
+    public string? PlatformConfig { get; set; }
+
     [Option("readonly-overrides", Required = false,
         HelpText = "Path to JSON config listing qualified type names to force as readonly structs (default: config/ReadOnlyStructOverrides.json)")]
     public string? ReadOnlyOverrides { get; set; }
@@ -5381,6 +5424,22 @@ class ConvertProjectOptions
 
     public bool ArrayMethod => !NoArrayMethod;
     public bool IteratorLowering => !NoIteratorLowering;
+
+    [Option("platform-report-only", Default = false,
+        HelpText = "Force the C42 platform-isolation pass into Report mode (audit only; the M1 default)")]
+    public bool PlatformReportOnly { get; set; }
+
+    [Option("platform-mode", Default = "Report",
+        HelpText = "C42 platform-isolation mode: Report|Reject|Stub|Facade (Reject/Stub/Facade fail until M2/M3)")]
+    public string PlatformMode { get; set; } = "Report";
+
+    [Option("platform-strict", Default = false,
+        HelpText = "C42 platform-isolation strict: Error-class sites are reported as errors and fail the run")]
+    public bool PlatformStrict { get; set; }
+
+    [Option("platform-config", Required = false,
+        HelpText = "Path to Cs2jPlatformIsolation.json (default: search upward from the working directory)")]
+    public string? PlatformConfig { get; set; }
 
     /// <summary>Resolve PreferStreamApi: explicit flags override, otherwise null (version-based default).</summary>
     public bool? PreferStreamApi => PreferStreamApiFlag ? true : PreferProceduralFlag ? false : null;

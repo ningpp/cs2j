@@ -457,6 +457,25 @@ internal static class PassCatalog
             description: "Materialize string ==/!= and + call sites, (object) escapes, delegate value equality and record == by symbol-bound semantics.",
             catalogItems: "C47"),
         new(
+            PassStubCatalog.Ids.PlatformIsolation,
+            "Platform boundary isolation",
+            ".cs2j-platform-isolation-src",
+            PassStage.Abi,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            // M1/M2 anchor eliminate-goto only (M3 adds unsafe-ffm, §3.2).
+            // Declaration order here keeps platform -> concurrency -> dynamic
+            // (the late stubs) and stays before java-keywords.
+            runAfterIds: new[] { PassIds.EliminateGoto },
+            needsSemanticModel: true,
+            // The adapter closes verification in Report mode (M1); the dual-on
+            // default applies to the M2 Stub/Facade apply modes (§3.1).
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Audit platform / interop boundaries into a machine-readable inventory and report " +
+                         "before Java conversion (C42 M1: Report mode only; no source rewrite).",
+            catalogItems: "C42"),
+        new(
             PassIds.JavaKeywords,
             "Java reserved words",
             ProjectJavaReservedWordPreprocessor.IntermediateDirectoryName,

@@ -28,6 +28,18 @@ public sealed class PassStubCatalogTests
     }
 
     [Fact]
+    public void PlatformIsolation_IsImplemented_AndNotAStub()
+    {
+        var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.PlatformIsolation);
+
+        Assert.Equal(PassStatus.Implemented, descriptor.Status);
+        Assert.False(descriptor.DefaultEnabled);
+        Assert.Equal(".cs2j-platform-isolation-src", descriptor.IntermediateDirectoryName);
+        Assert.Equal("C42", descriptor.CatalogItems);
+        Assert.DoesNotContain(Stubs, stub => stub.Id == PassStubCatalog.Ids.PlatformIsolation);
+    }
+
+    [Fact]
     public void Every_stub_is_disabled_by_default()
     {
         Assert.All(Stubs, stub => Assert.False(

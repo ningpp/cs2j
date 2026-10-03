@@ -60,6 +60,9 @@ public sealed class PassChainOrderTests
         // 与 equality-concat 互无 RunAfter 约束，相对次序由注册表声明序锁定。
         PassStubCatalog.Ids.ConcurrencyNormalize,
         PassStubCatalog.Ids.EqualityConcat,
+        // C42 M1 flipped platform-isolation to Implemented/default-off; it
+        // anchors eliminate-goto and stays before java-keywords (§3.3).
+        PassStubCatalog.Ids.PlatformIsolation,
         PassIds.JavaKeywords,
     ];
 
@@ -76,7 +79,8 @@ public sealed class PassChainOrderTests
             && id != PassStubCatalog.Ids.ClosureLift
             && id != PassIds.ExtensionMethods
             && id != PassStubCatalog.Ids.ConcurrencyNormalize
-            && id != PassIds.VarianceAudit).ToArray();
+            && id != PassIds.VarianceAudit
+            && id != PassStubCatalog.Ids.PlatformIsolation).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -219,6 +223,66 @@ public sealed class PassChainOrderTests
             PassStubCatalog.Ids.ClosureLift,
             PassStubCatalog.Ids.IteratorLowering,
         }, plan.Enabled.Select(p => p.Id).ToArray());
+    }
+
+    [Fact]
+    public void PlatformIsolation_is_default_off_absent_from_the_default_plan_and_not_a_stub()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        // The stub entry is gone; the id lives in the Implemented catalog only.
+        Assert.DoesNotContain(
+            registry.Ordered,
+            pass => pass.Id == PassStubCatalog.Ids.PlatformIsolation && pass.Status == PassStatus.Stub);
+
+        var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.PlatformIsolation);
+        Assert.Equal(PassStatus.Implemented, descriptor.Status);
+        Assert.False(descriptor.DefaultEnabled);
+
+        var plan = PassPlanResolver.Resolve(registry);
+        Assert.True(plan.IsValid);
+        Assert.DoesNotContain(plan.Enabled, pass => pass.Id == PassStubCatalog.Ids.PlatformIsolation);
+    }
+
+    [Fact]
+    public void PlatformIsolation_when_enabled_runs_after_eliminate_goto_before_java_keywords()
+    {
+        var registry = PassCatalog.BuildRegistry();
+        var allOff = PassChainFactory.BuildAllDisabledToggles(registry);
+
+        var plan = PassPlanResolver.Resolve(
+            registry,
+            allOff,
+            enablePassIds: new[]
+            {
+                PassIds.EliminateGoto,
+                PassStubCatalog.Ids.PlatformIsolation,
+                PassIds.JavaKeywords,
+            });
+
+        Assert.True(plan.IsValid);
+        Assert.Equal(
+            new[]
+            {
+                PassIds.EliminateGoto,
+                PassStubCatalog.Ids.PlatformIsolation,
+                PassIds.JavaKeywords,
+            },
+            plan.Enabled.Select(pass => pass.Id).ToArray());
+    }
+
+    [Fact]
+    public void PlatformIsolation_precedes_the_concurrency_and_dynamic_stubs()
+    {
+        var ordered = PassCatalog.BuildRegistry().Ordered.ToList();
+
+        var platform = ordered.FindIndex(pass => pass.Id == PassStubCatalog.Ids.PlatformIsolation);
+        var concurrency = ordered.FindIndex(pass => pass.Id == PassStubCatalog.Ids.ConcurrencyNormalize);
+        var dynamic = ordered.FindIndex(pass => pass.Id == PassStubCatalog.Ids.DynamicDesugar);
+
+        Assert.True(platform >= 0 && concurrency >= 0 && dynamic >= 0);
+        Assert.True(platform < concurrency, "platform-isolation must precede concurrency-normalize");
+        Assert.True(concurrency < dynamic, "concurrency-normalize must precede dynamic-desugar");
     }
 
     [Fact]
@@ -418,8 +482,10 @@ public sealed class PassChainOrderTests
 
         // Legacy flags only exist for the historical implemented passes; stubs and
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
-        // C36 expression-desugar, C29 concurrency-normalize) are reachable solely
-        // through their descriptor default plus --enable-pass/--pass.
+        // Legacy flags only exist for the historical implemented passes; stubs and
+        // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
+        // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation)
+        // are reachable solely through their descriptor default plus --enable-pass/--pass.
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
@@ -430,7 +496,8 @@ public sealed class PassChainOrderTests
                 && id != PassStubCatalog.Ids.ClosureLift
                 && id != PassIds.ExtensionMethods
                 && id != PassStubCatalog.Ids.ConcurrencyNormalize
-                && id != PassIds.VarianceAudit)
+                && id != PassIds.VarianceAudit
+                && id != PassStubCatalog.Ids.PlatformIsolation)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

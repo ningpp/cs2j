@@ -41,6 +41,9 @@ internal static class PassStubCatalog
         public const string AsyncNormalize = "async-normalize";
         public const string ExpressionDesugar = "expression-desugar";
         public const string AnonymousTypeLift = "anonymous-type-lift";
+        // Ids.PlatformIsolation flipped to Implemented in PassCatalog (C42 M1:
+        // Report-mode audit only, default-off); the id constant stays here by
+        // the iterator-lowering / unsafe-ffm precedent (§3.4).
         public const string PlatformIsolation = "platform-isolation";
         public const string ConcurrencyNormalize = "concurrency-normalize";
         public const string DynamicDesugar = "dynamic-desugar";
@@ -140,6 +143,7 @@ internal static class PassStubCatalog
             description: "Lift anonymous types into named generated types before the LINQ channel.",
             catalogItems: "C21"),
         // Ids.EqualityConcat flipped to Implemented in PassCatalog (C47).
+        // Ids.EqualityConcat flipped to Implemented in PassCatalog (C47).
         new(
             Ids.PlatformIsolation,
             "Platform boundary isolation",
@@ -150,8 +154,18 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.EliminateGoto },
             description: "Isolate or reject external platform contracts (P/Invoke, extern) at the boundary.",
             catalogItems: "C42"),
-        // Ids.ConcurrencyNormalize flipped to Implemented in PassCatalog (C29 M2c);
-        // the id constant stays here by the iterator-lowering precedent (§3.4).
+        new(
+            Ids.ConcurrencyNormalize,
+            "Concurrency normalization",
+            ".cs2j-concurrency-normalize-src",
+            PassStage.Declarative,
+            PassStatus.Stub,
+            defaultEnabled: false,
+            // No strong functional dependency; the late anchor keeps the naming
+            // pass last and makes --list-passes placement deterministic.
+            runAfterIds: new[] { PassIds.EliminateGoto },
+            description: "Normalize concurrency primitives and synchronization constructs.",
+            catalogItems: "C29"),
         new(
             Ids.DynamicDesugar,
             "Dynamic desugaring",

@@ -3,6 +3,7 @@ using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExtensionMethodResolve;
 using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.LexicalNormalize;
+using CSharpToJava.Core.PlatformIsolation;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
@@ -69,6 +70,14 @@ internal sealed class CliChainRequest
     public required Func<UnsafeFfmOptions> UnsafeFfmOptionsFactory { get; init; }
     /// <summary>Invoked only when expression-desugar is enabled (keeps override loading lazy).</summary>
     public required Func<ExpressionDesugarOptions> ExpressionDesugarOptionsFactory { get; init; }
+
+    /// <summary>
+    /// Invoked only when platform-isolation is enabled (keeps construction lazy).
+    /// Optional so existing chain-request constructors stay source-compatible;
+    /// the default is Report mode.
+    /// </summary>
+    public Func<PlatformIsolationOptions> PlatformIsolationOptionsFactory { get; init; } =
+        static () => new PlatformIsolationOptions();
 
     /// <summary>
     /// Per-id on/off state from legacy flags. Null means "use descriptor defaults";
@@ -219,6 +228,7 @@ internal static class CliPreprocessChain
             EqualityConcatOptionsFactory = request.EqualityConcatOptionsFactory,
             UnsafeFfmOptionsFactory = request.UnsafeFfmOptionsFactory,
             ExpressionDesugarOptionsFactory = request.ExpressionDesugarOptionsFactory,
+            PlatformIsolationOptionsFactory = request.PlatformIsolationOptionsFactory,
             ParamsCollections = request.ParamsCollections,
             ExtensionExternalHostMapper = extensionExternalHostMapper,
             ExtensionMethodStrict = request.ExtensionMethodStrict,

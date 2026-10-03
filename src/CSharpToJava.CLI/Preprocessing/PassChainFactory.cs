@@ -20,6 +20,7 @@ using CSharpToJava.Core.NullCoalesceRewriter;
 using CSharpToJava.Core.NumericBoundary;
 using CSharpToJava.Core.PatternDesugar;
 using CSharpToJava.Core.PartialMerge;
+using CSharpToJava.Core.PlatformIsolation;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
@@ -99,6 +100,14 @@ internal sealed class PassChainConfiguration
     public required Func<UnsafeFfmOptions> UnsafeFfmOptionsFactory { get; init; }
     /// <summary>Invoked only when expression-desugar is enabled (keeps override loading lazy).</summary>
     public required Func<ExpressionDesugarOptions> ExpressionDesugarOptionsFactory { get; init; }
+
+    /// <summary>
+    /// Invoked only when platform-isolation is enabled (keeps construction lazy).
+    /// Optional so existing chain-configuration constructors stay source-compatible;
+    /// the default is Report mode.
+    /// </summary>
+    public Func<PlatformIsolationOptions> PlatformIsolationOptionsFactory { get; init; } =
+        static () => new PlatformIsolationOptions();
 
     /// <summary>
     /// C48 params-collections rule set inside strip-default. Null (default, rules
@@ -460,6 +469,14 @@ internal static class PassChainFactory
                 config.CompatNamespacePrefixes,
                 config.VerifyBuild,
                 config.VerifyTests),
+
+            // C42 platform-isolation has no convert-project legacy toggle; the
+            // descriptor default (off) drives it and --enable-pass opts in.
+            PassStubCatalog.Ids.PlatformIsolation => new PlatformIsolationPassAdapter(
+                config.PlatformIsolationOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes),
 
             _ => throw new KeyNotFoundException($"No chain adapter is registered for pass id '{passId}'."),
         };

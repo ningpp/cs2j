@@ -105,6 +105,7 @@ probe-out/
 .cs2j-iterator-lowering-src/
 .cs2j-member-desugar-src/
 .cs2j-java-keywords-src/
+.cs2j-platform-isolation-src/
 .cs2j-test-output/
 
 snapshots/
