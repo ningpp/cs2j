@@ -1,0 +1,9 @@
+# Build results
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Test output / concurrency-normalize intermediate
+.test-output*/
