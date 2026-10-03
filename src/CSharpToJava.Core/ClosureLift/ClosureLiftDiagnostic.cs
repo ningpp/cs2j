@@ -47,4 +47,15 @@ internal static class ClosureLiftCodes
 
     /// <summary>AuditOnly report row: member/symbol/reason/site count/foreach/prospective names.</summary>
     public const string AuditRow = "CS2J3207";
+
+    // ── C45 (design §6): the named-method / delegate-site stages use CS2J45xx. ──
+
+    /// <summary>Lambda (own or delegate) parameter carries ref/out/in/ref readonly, or delegate returns ref (D6②/D23).</summary>
+    public const string RefLambdaParameter = "CS2J4501";
+
+    /// <summary>Residual anonymous-method node counted by the tree residual gate (E05 output missing; design §6).</summary>
+    public const string ResidualAnonymousMethodGate = "CS2J4503";
+
+    /// <summary>Lambda ConvertedType is not a resolvable delegate type; the named-method signature cannot be synthesized (D8/D12).</summary>
+    public const string UnresolvableDelegateType = "CS2J4509";
 }

@@ -24,6 +24,10 @@ internal sealed class ClosureLiftNaming
     private readonly Dictionary<string, Dictionary<string, HashSet<string>>> _classNamesByHostByFile =
         new(StringComparer.Ordinal);
 
+    // Same table shape for C45 host-level method names (Cs2jLambda_<member>_<k>, D9).
+    private readonly Dictionary<string, Dictionary<string, HashSet<string>>> _methodNamesByHostByFile =
+        new(StringComparer.Ordinal);
+
     private string _currentFileKey = string.Empty;
 
     /// <summary>
@@ -36,6 +40,8 @@ internal sealed class ClosureLiftNaming
     {
         _currentFileKey = fileKey;
         foreach (var perFile in _classNamesByHostByFile.Values)
+            perFile.Remove(fileKey);
+        foreach (var perFile in _methodNamesByHostByFile.Values)
             perFile.Remove(fileKey);
     }
 
@@ -102,6 +108,51 @@ internal sealed class ClosureLiftNaming
             var suffixed = $"{candidate}_{suffix}";
             if (usedFieldNames.Add(suffixed))
                 return suffixed;
+        }
+    }
+
+    /// <summary>
+    /// Reserve the C45 host-level static method name Cs2jLambda_&lt;member&gt;_&lt;k&gt;
+    /// (design D9/D10). <paramref name="index"/> is the per-host-member SpanStart
+    /// sequence number of the lambda; a collision with another reservation (or a
+    /// same-shaped prior name) appends _2, _3 ... (ResolveUniqueName shape).
+    /// Uses the same per-host/per-file cross-file table as
+    /// <see cref="ReserveClassName"/> so partial parts share the union.
+    /// </summary>
+    public string ReserveMethodName(string hostTypeKey, string hostMemberName, int index)
+    {
+        if (!_methodNamesByHostByFile.TryGetValue(hostTypeKey, out var perFile))
+        {
+            perFile = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            _methodNamesByHostByFile[hostTypeKey] = perFile;
+        }
+
+        if (!perFile.TryGetValue(_currentFileKey, out var currentFileUsed))
+        {
+            currentFileUsed = new HashSet<string>(StringComparer.Ordinal);
+            perFile[_currentFileKey] = currentFileUsed;
+        }
+
+        var usedAcrossFiles = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var bucket in perFile.Values)
+            usedAcrossFiles.UnionWith(bucket);
+
+        var memberPart = SanitizeMemberName(hostMemberName);
+        var candidate = $"Cs2jLambda_{memberPart}_{index}";
+        if (usedAcrossFiles.Add(candidate))
+        {
+            currentFileUsed.Add(candidate);
+            return candidate;
+        }
+
+        for (var suffix = 2; ; suffix++)
+        {
+            var suffixed = $"{candidate}_{suffix}";
+            if (usedAcrossFiles.Add(suffixed))
+            {
+                currentFileUsed.Add(suffixed);
+                return suffixed;
+            }
         }
     }
 

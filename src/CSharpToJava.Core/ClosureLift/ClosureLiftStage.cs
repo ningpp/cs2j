@@ -15,7 +15,27 @@ internal sealed record ClosureStageInput(
     ClosureLiftOptions Options,
     ClosureLiftNaming Naming,
     ClosureLiftStatistics Statistics,
-    List<ClosureLiftDiagnostic> Diagnostics);
+    List<ClosureLiftDiagnostic> Diagnostics)
+{
+    /// <summary>
+    /// Cross-stage plan transport (design §4.1/§4.1.1): NamedMethodLiftStage
+    /// freezes the static-lambda plans (M1) and DelegateSiteRewriteStage
+    /// consumes them. Non-positional on purpose — the C32 positional
+    /// deconstruction in existing stages stays untouched. One bag per
+    /// Preprocess call; never carried across files or runs.
+    /// </summary>
+    public ClosureLiftPlanBag? PlanBag { get; init; }
+}
+
+/// <summary>
+/// Per-file shared plan bag handed to every stage of one Preprocess run.
+/// Mutable container by design: plans are frozen once (NamedMethodLiftStage)
+/// and read-only afterwards (DelegateSiteRewriteStage).
+/// </summary>
+internal sealed class ClosureLiftPlanBag
+{
+    public List<StaticLambdaPlan> StaticLambdas { get; } = new();
+}
 
 internal sealed record ClosureStageResult(
     CompilationUnitSyntax Root,

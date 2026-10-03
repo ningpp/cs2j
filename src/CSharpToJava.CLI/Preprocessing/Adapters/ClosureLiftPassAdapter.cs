@@ -1,5 +1,7 @@
 using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.Preprocessing;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
@@ -55,6 +57,27 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
     public ClosureLiftStatistics Statistics => _statistics;
     public IReadOnlyList<ClosureLiftDiagnostic> Diagnostics => _diagnostics;
 
+    // Standard .NET (net6+) ImplicitUsings set. The spine compilation parses
+    // source files directly, so the SDK-generated global usings are absent and
+    // bare `Func<int, int>`-style references surface as error types — the
+    // named-method stage resolves lambda target delegates through the semantic
+    // model and would freeze otherwise liftable files (design D8). Files that
+    // already `using` these namespaces are unaffected; the tree mirrors the
+    // real project build closely enough for delegate-type resolution.
+    private const string ImplicitGlobalUsings =
+        """
+        global using System;
+        global using System.Collections.Generic;
+        global using System.IO;
+        global using System.Linq;
+        global using System.Net.Http;
+        global using System.Threading;
+        global using System.Threading.Tasks;
+        """;
+
+    public override IReadOnlyList<SyntaxTree> CreateAdditionalSyntaxTrees(PassTreeContext tree)
+        => new[] { CSharpSyntaxTree.ParseText(ImplicitGlobalUsings, CreateParseOptions(tree)) };
+
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
     {
         var result = _preprocessor.Preprocess(context.SourceCode, context.SemanticModel!, _options);
@@ -93,13 +116,35 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         foreach (var csFile in Directory.EnumerateFiles(
                      tree.IntermediateRoot, "*.cs", SearchOption.AllDirectories))
         {
-            var fileCount = _preprocessor.CountResidualMutableCaptures(File.ReadAllText(csFile));
+            var text = File.ReadAllText(csFile);
+
+            var fileCount = _preprocessor.CountResidualMutableCaptures(text);
             if (fileCount > 0 && _verbose)
             {
                 Console.WriteLine(
                     $"[closure-lift] residual gate: {fileCount} capture(s) in {Path.GetRelativePath(tree.IntermediateRoot, csFile)}");
             }
             residual += fileCount;
+
+            // C45 M1 (design §5-4): statement-lambda residual is COUNTED, not
+            // enforced (holder scenarios keep statement lambdas until M2/M4);
+            // each residual anonymous method is a CS2J4503 row (E05 output
+            // missing, §6).
+            var (statementLambdas, anonymousMethods) = _preprocessor.CountResidualLambdas(text);
+            _statistics.ResidualStatementLambdas += statementLambdas;
+            if (anonymousMethods > 0)
+            {
+                var relative = Path.GetRelativePath(tree.IntermediateRoot, csFile);
+                foreach (var line in CountAnonymousMethodLines(text))
+                {
+                    _diagnostics.Add(new ClosureLiftDiagnostic(
+                        ClosureLiftSeverity.Error,
+                        ClosureLiftCodes.ResidualAnonymousMethodGate,
+                        $"Residual anonymous method in the intermediate tree; delegate pass output expected (design §6).",
+                        relative,
+                        line));
+                }
+            }
         }
 
         // Measured in the intermediate tree (same '=' discipline as E02's
@@ -119,6 +164,18 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>1-based line numbers of anonymous-method nodes (gate rows).</summary>
+    private static IEnumerable<int> CountAnonymousMethodLines(string text)
+    {
+        var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(text);
+        foreach (var anonymous in tree.GetRoot()
+                     .DescendantNodes()
+                     .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.AnonymousMethodExpressionSyntax>())
+        {
+            yield return anonymous.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+        }
     }
 
     public override void OnRestoreFailed(int exitCode, string restoreTarget)
@@ -145,12 +202,27 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
     public override string? BuildChainSummaryLine()
     {
         var blocked = _statistics.SkippedByReason.Values.Sum();
-        return $"closure-lift: {_statistics.FilesTransformed} transformed, " +
-               $"{_statistics.FilesSkippedClean} clean, " +
-               $"{_statistics.HolderClassesGenerated} holder class(es), " +
-               $"{_statistics.CapturesLifted} capture(s) lifted, " +
-               $"{blocked} blocked, " +
-               $"{_statistics.ResidualMutableCaptures} residual";
+        var summary = $"closure-lift: {_statistics.FilesTransformed} transformed, " +
+                      $"{_statistics.FilesSkippedClean} clean, " +
+                      $"{_statistics.HolderClassesGenerated} holder class(es), " +
+                      $"{_statistics.CapturesLifted} capture(s) lifted, " +
+                      $"{blocked} blocked, " +
+                      $"{_statistics.ResidualMutableCaptures} residual";
+
+        // C45 segment appears only when C45 work happened, so the C32 summary
+        // stays byte-identical whenever the pass runs idle for M1 (design §5).
+        var c45Work = _statistics.LambdaMethodsLifted
+                      + _statistics.DelegateSitesRewritten
+                      + _statistics.ResidualStatementLambdas;
+        if (c45Work > 0)
+        {
+            summary += $", {_statistics.LambdaMethodsLifted} lambda method(s) " +
+                       $"({_statistics.StaticLambdaMethods} static), " +
+                       $"{_statistics.DelegateSitesRewritten} delegate site(s), " +
+                       $"{_statistics.ResidualStatementLambdas} stmt lambda(s) residual";
+        }
+
+        return summary;
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -170,6 +242,10 @@ internal sealed class ClosureLiftPassAdapter : ProjectPassAdapter
         _statistics.SitesRewritten += source.SitesRewritten;
         _statistics.ForeachPerIterationGroups += source.ForeachPerIterationGroups;
         _statistics.ResidualMutableCaptures += source.ResidualMutableCaptures;
+        _statistics.StaticLambdaMethods += source.StaticLambdaMethods;
+        _statistics.LambdaMethodsLifted += source.LambdaMethodsLifted;
+        _statistics.DelegateSitesRewritten += source.DelegateSitesRewritten;
+        _statistics.ResidualStatementLambdas += source.ResidualStatementLambdas;
 
         foreach (var kvp in source.CapturesByReason)
         {

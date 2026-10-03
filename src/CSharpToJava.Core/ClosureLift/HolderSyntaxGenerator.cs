@@ -17,6 +17,18 @@ internal static class ClosureLiftAnnotations
     public static SyntaxAnnotation HolderClass(string className) => new(Kind, "class:" + className);
 
     public static SyntaxAnnotation HolderInstance(string instanceName) => new(Kind, "instance:" + instanceName);
+
+    // ── C45 (design §3.2 idempotence / §4.3 rewrite scope) ──
+
+    /// <summary>Marks a synthesized host-level static method (Cs2jLambda_&lt;member&gt;_&lt;k&gt;).</summary>
+    public static SyntaxAnnotation LiftedMethod(string methodName) => new(Kind, "method:" + methodName);
+
+    /// <summary>Marks a lambda node replaced by an explicit delegate creation (D8).</summary>
+    public static SyntaxAnnotation LiftedSite(string methodName) => new(Kind, "site:" + methodName);
+
+    /// <summary>True when the node (or its kind) carries any cs2j_closure_lift annotation (§3.2).</summary>
+    public static bool IsAnnotated(SyntaxNode node)
+        => node.GetAnnotations(Kind).Any();
 }
 
 /// <summary>
