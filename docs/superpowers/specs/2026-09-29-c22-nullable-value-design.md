@@ -2,7 +2,7 @@
 
 **日期**: 2026-09-29
 **范围**: 在 C15 锚点翻转后合入的 `numeric-boundary` 族 pass 内新增规则子目录 `Rules/Nullable/`（当前该 pass 仍是 stub，本任务不翻转），把 `T?`（值类型）上的 lifted 算术/一元运算、关系/相等比较、`bool?` 三值逻辑、`GetValueOrDefault()`/`.Value`/`.HasValue`、可空枚举位运算兜底、可空类型转换、lifted 自增/复合赋值显式化为守卫形态的合法 C#（`HasValue`/`Value`/三元/临时变量）。本任务**不注册新 pass、不翻转 stub、不改链位**，不改任何 C#→Java 转换代码
-**状态**: 2026-10-02 进入实施（worktree base 前移至 dev-3.x `10aae03f`；该基线 C15 锚点/C17/C34 均已合入、pass 已 Implemented 且默认开，见 §12）；原状态：设计已确认，待实施（硬前置：C15 分支合入主干）
+**状态**: 2026-10-02 进入实施（worktree base 前移至 dev-3.x `10aae03f`；该基线 C15 锚点/C17/C34 均已合入、pass 已 Implemented 且默认开，见 §12）；原状态：设计已确认，待实施（硬前置：C15 分支合入主干）。**M0-M3 已实施并随 `numeric-boundary` pass 默认开（M3 完成于 2026-10-02，见 §9/§13）；M4（sdk 全量扫描与默认开评审）未做，§8 门槛 4 保持未满足**
 **族属**: catalog P3「数值边界族」（[preprocessor-catalog.md:571-583](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L571-L583) C22 条目；[§3.3 合并建议：数值边界族 L1084](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1084-L1084) / [enum 族 L1092](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1092-L1092)）。注册表**无 C22 独立 stub**：归合并 stub `numeric-boundary`（[PassStubCatalog.cs:150-159](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L150-L159)，CatalogItems `"C15, C17, C22, C34, C41"`，RunAfter=`unsigned`，Stage=`Expression`）；**C15 是锚点任务**（负责族 pass 的 stub→Implemented 翻转），本任务是该 pass 内的族规则，C15 合入后以 `INumericBoundaryRule`（Order=30）增量挂接，不翻转、不注册
 
 > **校订（2026-09-29）**：本次仅做证据核对式手术修订，改动枚举——① **行号漂移订正**：PassStubCatalog stub 条目 L163-171→**L150-159**；catalog C22 段 L520-530→**L571-583**、§3.3 L906-914→**L1076-1093**（数值边界族 **L1084**、enum 族 **L1092**）、§4 风险 8 L927→**L1106**、风险 12 L931→**L1110**；TypeMappingService L408-434→**L408-440**；TypeMappings.json L8234-8240→**L8233-8240**；StructTransformerTests L449-455→**L249-285**（`Struct_NullableComparisonAgainstNull_StaysReferenceCheck`）；EnumSyntaxRewriter L365-456→**L366-457**、lifted `~` L480-521→**L480-522**、不稳定跳过臂 L374-384→**L375-385**、IsStableReference L146-170→**L146-173**、窄类型回绕 L497-500→**L498-501**；UnsignedTypeSyntaxRewriter L891→**L890**；TypeOperationTransformer L132-153→**L132-154**；C15 链接 L22-26→**L23-27**、§3.4-9 L160→**L163**、§4.1 L182→**L182-188**（NullableNumeric 行 L185）、§4.5 L246→**L249**、§6 L281-303→**L284-305**、CS2J5325 L299→**L302**；C17 链接 §4.5-1 L230→**L235**、§4.5-3 L232→**L237**、§4.2 L193→**L198**（LiftedNullable 行）、§6 L265→**L270**；C05 R10 L470→**L473**、§11 C22 行 L481→**L484**；foundation plan L108-117→**L107-116**。② **注册表叙述订正**：numeric-boundary 描述符当前**仅存在于** PassStubCatalog（PassCatalog.Implemented 无此条，C15 尚未实施——Core 下无 `NumericBoundary/` 目录），其 CatalogItems 串**当前已含 C22**；§3.5/§5 原「PassCatalog.cs 单行追加 C22」改为条件化时序（锚点翻转按 IteratorLowering 先例整体搬迁，本任务零注册表结构改动）。③ **六次补全真值表落文档/fixture**：§1.1 新增三张官方真值表（`bool?` 的 `&`/`|` 例外、关系运算 null→false 含 `null>=null=false`、相等双 null→true/单 null→false）并标注与 C47④ 调用点物化同源；§7.1 fixture 矩阵补钉反直觉格。④ **存在性核对**：四个命名测试文件（NullableBoolComparisonTests/NullableGetUnderlyingTypeTests/NullableBaseTypeRuntimeClassTests/GetValueOrDefaultMappingTests）与 ConversionTests 的 NullableTests、StructTransformerTests 均在 tests/ 树当前磁盘位置；GetValueOrDefaultMappingTests 确为零测试方法类壳；EnumPreprocessorStatistics.cs:15 `NullableLiftedRewritten` 已核；compat 全树无 `Nullable*.java`，仅 TypeHelper.java、xunit Assert.java（及 TypeHelper 自身测试）命中 Nullable 字样。⑤ §11 新增 C47 协调项（真值表同源、不重复物化）。⑥ **无法证实项**：当前磁盘 PassStubCatalog.Stubs 实有 **21** 条、Ids 常量 **22** 个（IteratorLowering 已翻转，先例 [PassCatalog.cs:210-219](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L210-L219) + [PassChainFactory.cs:227-234](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L227-L234)）；但 PassStubCatalogTests 当前**不存在 22 条计数断言**（C15 设计 [L160](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md#L160-L160) 所述红灯断言在磁盘上已无，疑被外部改动移除），红灯状态无法证实，列开放问题 6。
@@ -111,7 +111,7 @@
 | 14 | 链式/嵌套 lifted | 自底向上重写：内层 lifted 先变三元；外层把「三元形态的 `T?` 操作数」判为**不稳定**，提升为临时后再做外层守卫。`a + b + c`（均 `T?`）→ 内层一临时、外层一临时的嵌套链 | 临时数 = 不稳定 nullable 中间点数，线性膨胀；嵌套真值（`null + 1 + 2 → null`）由 C# 三元短路天然保持；fixture 覆盖三层嵌套与混合 `bool?` |
 | 15 | lifted 自增/自减（简单目标） | 独立后缀 `x++;`：`var __o = x; x = __o.HasValue ? (T?)(__o.Value + 1) : (T?)null;`；值用后缀以 `__o`（类型 `T?`，即旧值）原地替换；前缀 `++x`：`(x = x.HasValue ? (T?)(x.Value + 1) : (T?)null)`；`--` 同形。简单目标 = 局部/参数/无副作用接收者字段 | 收口 C17 的 CS2J5335（[C17 §6 L270](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c17-increment-target-design.md#L270-L270)）；lifted 后缀旧值为 null 时表达式值即 null，`__o` 直接承载；checked 区内层 `+1` 由 C15 后扫为 `AddChecked*`（null 路径不检查，符合 lifted checked 规范） |
 | 16 | lifted 复合赋值（简单目标） | `x op= y` → `x = (x.HasValue && __y.HasValue ? (T?)(x.Value op __y.Value) : (T?)null)`；`y` 不稳定则提升；目标为简单目标时 x 两次读访问合法 | 与决策 3 同真值表；`bool?` 的 `&= \|=`、`E?` 位运算复合同形（enum 复合先看 E04 是否已处理）；属性/索引器目标 v1 走决策 17 |
-| 17 | 复杂读-改-写目标 | v1：属性/索引器/事件/`?.`/数组特殊元素等 nullable 目标的 lifted `++/--`/复合赋值 → **CS2J5355 Error**；M2 经 C17 RMW 渲染接缝（`IncrementTargetRule` 的 READ/WRITE 展开）支持 | 不允许生成重复求值的半成品；C17 的 LiftedNullable 分类（[C17 §4.2 L198](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c17-increment-target-design.md#L198-L198)）与本规则在同一 Analyzer 上按站点交接 |
+| 17 | 复杂读-改-写目标 | v1：属性/索引器/事件/`?.`/数组特殊元素等 nullable 目标的 lifted `++/--`/复合赋值 → **CS2J5355 Error**；M2 经 C17 RMW 渲染接缝（`IncrementTargetRule` 的 READ/WRITE 展开）支持。**M3 校订（2026-10-02 落地，见 §13-1）**：经评估 C17 RMW 接缝是语句级 READ/WRITE 展开、不适合表达式位的 lifted 守卫，M3 改由 `NullableLiftRewriter` **自持 t/r/i 单次物化接缝**收编——get/set 非 ref 属性（含静态/隐式接收者）、get/set 非 ref 位置索引器（含多维）、真数组元素上的 lifted `++/--`/复合全部显式化，形态 `var __t = obj.Prop; obj.Prop = __t.HasValue && __y.HasValue ? (int?)(__t.Value+__y.Value) : (int?)null;`；event、`?.`/`?[]`、ref-returning 访问器、qualified field、init-only setter、命名/ref 实参索引器、调用形目标**保持 CS2J5355**；物化顺序 **r（副作用接收者）→ i（索引实参）→ b（复合右值）→ t（目标单次读）→ 守卫 → setter**，稳定接收者链不提升 r | 不允许生成重复求值的半成品；C17 的 LiftedNullable 分类（[C17 §4.2 L198](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c17-increment-target-design.md#L198-L198)）与本规则在同一 Analyzer 上按站点交接；M3 实测 `b?.P++` 源程序即 CS1059 不编译，`?.` 目标无合法 lifted RMW 形态；dynamic 复合（`a += d`/`d += a`）绑定 IsLifted=false，门序在 lifted 短路**之前**（表达式树→dynamic→IsLifted→5356→5353→Complex），见 §13-1 |
 | 18 | checked 上下文组合 | lifted checked 不单独造 helper：守卫内的 `T` 裸算术/转换由 C15 checked 后扫统一插入 `AddCheckedXxx/ToXxxCheckedYyy`。形态 `a.HasValue && b.HasValue ? (int?)UnsignedMath.AddCheckedInt32(a.Value, b.Value) : null` | 精确对应 C# lifted checked：仅双方有值时做溢出检查，null 直接传播；C15 的 CS2J5325（[C15 §6 L302](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md#L302-L302)）在本规则合入后对可解站点停用（码位保留不复用） |
 | 19 | `decimal?` | 守卫照产，内层 `decimal` 运算保持裸 `+ - * …`（归 C34 compat `Decimal` 方法面）；本规则不为 decimal 发任何 helper、不报错 | 守卫与算术核解耦使两族可独立落地；C34 落地后内层被其规则收编，外层守卫零改动。未启用 C34 时 Java 半区 decimal 正确性不保证——同 C17 CS2J5334 的既有立场，本规则不重复发码 |
 | 20 | 特殊数值可空（C41 面） | `nint?/nuint?/Int16?` 以外的 C41 域（`Half?/Int128?/UInt128?` 等）上的 lifted 站点 → **CS2J5356 Error**，归 C41 | nint 平台位宽问题在 lifted 形态同样成立；不静默透传 |
@@ -308,10 +308,12 @@ MSBuild 格式：`文件(行,列): warning/error CS2J53xx: [NL-x/分类] 描述`
 | CS2J5352 | Error | dynamic 绑定的 lifted 站点，无法静态定域（force 不解除，决策 22） |
 | CS2J5353 | Error | 用户自定义 lifted 运算符（`OperatorMethod != null`）——目标形态待 C14，v1 响亮失败（决策 21） |
 | CS2J5354 | Error | 表达式树 lambda 内 lifted 站点（改写改变树形态；force 不解除） |
-| CS2J5355 | Error | 复杂目标（属性/索引器/事件/`?.`/不可提升表达式位）的 lifted 自增/复合赋值——M2 经 C17 RMW 接缝收编（决策 17、§4.5） |
+| CS2J5355 | Error | 复杂目标 lifted 自增/复合赋值的**残余形状**：event、`?.`/`?[]`、ref-returning 访问器、qualified field、init-only setter、命名/ref 实参索引器、无可提升锚点位——get/set 属性（含静态）、位置索引器、数组元素已于 M3 由规则自持 t/r/i 接缝收编，不再发本码（决策 17 M3 校订、§13-1） |
 | CS2J5356 | Error | C41 特殊数值域的 lifted 站点（Half/Int128/UInt128/nint 等） |
 | CS2J5357 | Warning（strict 即 Error） | residual 闸门：输出仍存在未显式化的 lifted 内置运算/GOV/解包 cast（NL-14） |
 | CS2J5358-5359 | — | 预留 |
+
+> **码段边界注记（M3）**：本族诊断码为 **CS2J5350-5357**（C22）。同文件族内 **CS2J5366/CS2J5367 属 C34 DecimalOps**（[PreprocessDiagnosticCodes.cs:161-164](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PreprocessDiagnosticCodes.cs#L161-L164)：`DecimalOpsUnsignedSupportMissing`/`DecimalOpsResidualOperator`），与 C22 无重叠：`decimal?` lifted 站点由 C22 产守卫、不发码（决策 19），守卫内层裸 `decimal` 运算的残余归 C34 的 5367。M3 错误站点打磨确认 5352-5356 均带**非零行列 + DeferredByReason 键**（`CS2J53xx:<reason>`），任何站点 Error 触发整文件回滚（NB-12）；residual 5357 为整文件汇总（0:0、裸键 `CS2J5357`），strict=false 为 Warning 且产物保留、strict=true 升 Error 并回滚。
 
 原则同 C15 [§6](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md#L284-L305)：无法等价表达即显式报错，**禁止注释/占位/原样透传流入 Java 产物**。转换器侧既有 nullable 特判（`Objects.equals` 臂、null 字面量比较臂）在本规则随默认开生效后对「经预处理的项目」成为不可达路径；删除/保留属后续 PR，直连 ConversionPipeline 的单文件入口继续以其为安全网，[NullableBoolComparisonTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/NullableBoolComparisonTests.cs) 等既有测试一行不改。C15 CS2J5325 与 C17 CS2J5335 在本规则合入后对可解站点停用（码位保留），停用条件以共处单测钉死。
 
@@ -391,7 +393,7 @@ MSBuild 格式：`文件(行,列): warning/error CS2J53xx: [NL-x/分类] 描述`
 | M0 族内接缝（C15 合入基上） | 规则发现注册（Order=30）、`Rules/Nullable/` 骨架（Models/Analyzer/SyntaxFacts/Rule）、T? 解包与 lifted 分类谓词、注册表零行（§3.5 条件：仅当 C15 锚点收窄 CatalogItems 时补回 C22 一行）、空树端到端跑通 + residual 扫描器骨架 | Core ~250 行 |
 | M1 核心守卫 | NL-1/2/3/4/5 + Pass2 临时提升（算术/一元/关系/相等/三值 bool?）+ 稳定性谓词 + §7.1-1/2/3/9/10/12 单测；E03/E04/unsigned 共处回归 | ~550 行 |
 | M2 成员面/转换/enum 兜底/自增 | NL-6/7/8/9/10/11 + fixture 原生预言机矩阵（§7.2）+ CS2J5325/CS2J5335 简单目标停用共处测试 + checked 组合（GuardedCheckedInnerSites）+ §7.4 Java 冒烟 | ~500 行 + fixture |
-| M3 复杂目标接缝与闸门打磨 | 经 C17 RMW 接缝收编 CS2J5355（若 C17 已合入）+ CS2J5352-5356 错误站点打磨 + residual 全语义扫描 + Release build/test 全绿 + sdk 试扫 | ~300 行 |
+| M3 复杂目标接缝与闸门打磨 ✅ **已完成（2026-10-02）** | **实际落地与原计划的偏差**：复杂目标**未经 C17 RMW 接缝**，而由 `NullableLiftRewriter` 自持 t/r/i 单次物化接缝收编属性/索引器/数组（决策 17 M3 校订、§13-1）；CS2J5352-5356 错误站点打磨（dynamic 复合双向门序前置、5353 UD 一元/转换、5354 表达式树、5355 残余七位置、5356 四域八站点）+ residual 扫描器重写为自包含栈遍历（穿透 `?.GOV` 隐藏 IInvocation）+ 边界反例 + Release build/test 全绿；sdk 试扫经调查**仓内无扫描入口**，登记 M4（§8 门槛 4 保持未满足、§13-3） | 实测生产 6 文件 **+610/-48**（Rewriter 复杂目标 +446 区段、Analyzer +117、Rule 扫描器/摘要 +51、Models/SyntaxFacts/Diagnostics +44）；单测 1 文件 **+1047/-14，新增 18 个 M3 用例**（全量 NumericBoundaryNullableLift 255/255 绿） |
 | M4 默认开评审 | sdk 全量扫描与 DeferredByReason 报表、开放问题拍板（NullableHelper/异常类型/自定义 lifted）、本设计定稿与 plan 文档；门槛汇入 C15 族级默认开评审 | 文档/数据 |
 
 ---
@@ -454,7 +456,7 @@ git worktree add .worktrees/preproc-c22-nullable-value -b feature/preproc-c22-nu
 **裁决（按原题号）：**
 
 1. **不建 `NullableHelper`/`Cs2jNullable` 支撑库**：长期走纯内联守卫（决策 23），lifted 运算符按决策 21 内联临时收编；仅当画像证明独立 helper 能消除 >5% 站点临时且内联确实无法表达时才重新评审，默认不新增支撑工程接线。
-2. **复杂 nullable 读-改-写目标**：等 C17 RMW 接缝（M2），本规则不自持重复属性/索引器渲染；CS2J5355 v1 保留到接缝落地。
+2. **复杂 nullable 读-改-写目标**：等 C17 RMW 接缝（M2），本规则不自持重复属性/索引器渲染；CS2J5355 v1 保留到接缝落地。**【M3 收口，2026-10-02】** 实施时核实 C17 RMW 接缝为语句级 READ/WRITE 展开，不适合 lifted 守卫的表达式位形态；M3 改为本规则自持 t/r/i 单次物化接缝，属性/索引器/数组三类目标已收编（决策 17 M3 校订、§13-1），event/`?.`/ref-returning/qualified-field/init-only/命名实参等残余形状继续持 CS2J5355，不属本批收编。
 3. **手写 `.Value`/解包异常类型**：v1 接受 Java 拆箱 NPE 近似、零 compat 新增；`InvalidOperationException` 与 NPE 的异常类型差异登记进 **compat 异常语义统一批次**（与 C44 addSuppressed 差异同批收口），诊断文档列明差异。
 4. **`bool?` 的 `Objects.equals` 转换器特判退役节奏**：在 C22 默认开的**同一里程碑**由族级消费 PR 删除（硬门，不留双轨）；本 pass 不直接改转换器。
 5. **E04 纪律**：维持「E04 稳定直取 + C22 兜底」双轨，不改 E04 本体；M2 以命中率复核，E04 Warning-skip 升级不在本族范围。
@@ -471,4 +473,55 @@ git worktree add .worktrees/preproc-c22-nullable-value -b feature/preproc-c22-nu
 4. **`bool?` 既有 `Objects.equals` 特判的退役节奏**：本规则默认开后该转换器臂对预处理项目不可达；是随 C22 同 PR 删除转换器特判（违反「不改转换器」边界），还是严格留待族级消费 PR（推荐后者，同 C15 §6 模式）。
 5. **E04「不稳定即跳过」纪律是否同步升级**：NL-9 只兜底 E04 残留在枚举位运算面；E04 本体的 Warning-skip 是否在本任务顺手改为临时提升（跨 pass 改 E04 代码与测试），还是长期维持「E04 稳定直取 + C22 兜底」双轨（推荐后者，隔离改动半径，M2 以命中率复核）。
 6. **stub 计数断言漂移状态无法证实（2026-09-29 核对）**：当前磁盘 [PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs) 的 `Stubs` 实有 **21** 条（numeric-boundary 在 L150-159）、`Ids` 有 **22** 个常量（IteratorLowering 翻转后常量保留、stub 条目移除）；[C15 §3.4-7（L160）](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-c15-checked-unchecked-design.md#L160-L160) 记载「PassStubCatalogTests 断言仍写 22 的已知红灯」，但当前磁盘 [PassStubCatalogTests.cs](file:///d:/code/cs2j/tests/CSharpToJava.Tests/Preprocessing/PassStubCatalogTests.cs) **已不存在任何 stub 总数断言**（工作区 tests/ 正被外部进程改动，断言可能已被移除或改写）——红灯是否仍在无法证实；本任务不碰测试，实施前需重新人工核对该断言现状并与 C15 锚点任务的计数修正计划对齐。
-7. **C47 核实结论的反向影响**：C47 当前为「待核实」（[catalog L934](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L934-L934)）；若其核实结论是在转换器内联层直接物化 Nullable 提升比较（而非留调用点），需评审该内联臂与本规则守卫产物的优先级/退役顺序（同开放问题 4 的退役节奏，真值表仍以 §1.1 同源表为准）。
+7. **C47 核实结论的反向影响**：C47 当前状态「待核实」（[catalog L934](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L934-L934)）；若其核实结论是在转换器内联层直接物化 Nullable 提升比较（而非留调用点），需评审该内联臂与本规则守卫产物的优先级/退役顺序（同开放问题 4 的退役节奏，真值表仍以 §1.1 同源表为准）。
+
+---
+
+## 13. M3 实施记录（2026-10-02）
+
+> 本节为 M3 里程碑完成后的证据回填，**追加不重写**；与 §2/§6/§9/附录的 M3 校订注记同源。worktree `d:\code\cs2j\.worktrees\preproc-c22-nullable-value`，分支 `feature/preproc-c22-nullable-value`，基线 HEAD `bbd51f27`（M2）。
+
+### 13.1 决策 17 收口：自持 t/r/i 接缝（不经 C17 RMW）
+
+M3 开工时复核 C17 `IncrementTargetRule` 的 RMW 展开：其 READ/WRITE 接缝面向**语句级**简单目标展开（局部/字段），而 lifted 复杂目标需要「目标值读入 `T?` 临时 → 在临时上跑 lifted 守卫 → 新鲜 setter 访问写回」的**表达式位**形态，复用 C17 接缝会产生重复的属性/索引器渲染。M3 因此选择原问题记录 2 的备选方案——规则内自持最小展开，范围严格限定三类语义可回放形状（[NullableLiftAnalyzer.ClassifyComplexRmwTarget](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/src/CSharpToJava.Core/NumericBoundary/Rules/Nullable/NullableLiftAnalyzer.cs#L543-L606)）：
+
+- **Property**：get/set 齐备、`RefKind.None`、setter 非 init-only 的非索引器属性（标识符绑定的隐式接收者实例/静态属性、限定实例属性、静态属性）；
+- **Indexer**：get/set 齐备、`RefKind.None`、setter 非 init-only，且全部实参**无命名冒号、无 ref/out/in 关键字**的位置索引器（含多参/2D）；
+- **ArrayElement**：接收者静态类型为真数组（含多维/交错）。
+
+物化协议（[NullableLiftRewriter.cs L669-965](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/src/CSharpToJava.Core/NumericBoundary/Rules/Nullable/NullableLiftRewriter.cs#L669-L965)）：① `r`——仅副作用接收者（`b.Self().P++`）提升一次；静态接收者与稳定链（this/base/局部/参数/字段链）每次访问重建绿节点、不提升；② `i`——每个索引/数组下标实参按源序各提升一次（2D 索引器为 `i0/i1`）；③ `b`——复合右值沿用既有 PrepareOperand 不稳定提升；④ `t`——目标 getter/元素 load 恰好一次读入 `__cs2j_n_t<N>`；⑤ 守卫在 `t` 上运算（int?/bool?/enum? 各走既有 IncrementGuard/BuildCompoundGuard/Enum 家族），写回经**新鲜构建**的 setter/元素访问。后缀站点写语句拼在锚点前、站点表达式值为 `t`（旧值）；前缀与复合在独立语句位发裸赋值、值用位发括号赋值。统计：新增 `ComplexRmwSites` 桶与 `TempsTargetRole(t)/TempsReceiverRole(r)/TempsIndexRole(i)` 三个角色计数，汇入 5351 verbose 摘要行。
+
+残余形状（event、`?./?[]`、ref-returning 属性/索引器、qualified field、init-only setter、命名/ref 实参、无锚点表达式位）继续发 **CS2J5355**（`CS2J5355:unliftable-context`），消息文案已更新为「残余形状」口径。探针事实：`b?.P++` 源程序即 **CS1059** 不编译，条件访问目标不存在合法 lifted RMW，5355 的 `?.` 分支属防御性保留。
+
+### 13.2 错误站点门序与打磨（CS2J5352-5356）
+
+RMW 站点分类门序（[ClassifyGatedRmwSite L357-430](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/src/CSharpToJava.Core/NumericBoundary/Rules/Nullable/NullableLiftRewriter.cs#L357-L430)）重排为：**表达式树（5354）→ dynamic（5352）→ IsLifted 短路 → SpecialNumeric（5356）→ UserDefined（5353）→ Complex 且 ComplexKind==null（5355）**。修复的漏报：dynamic 复合赋值 `a += d`/`d += a` 绑定 `IsLifted == false`（dynamic 不产生 lifted 绑定），旧门序在 IsLifted 短路处直接放行；新增 `IsDynamicNullableRmwSite`（[L439-465](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/src/CSharpToJava.Core/NumericBoundary/Rules/Nullable/NullableLiftRewriter.cs#L439-L465)）按 Target/Value 双侧类型判 nullable 参与，纯 `int` dynamic RMW 零误伤。全部站点错误经统一 `ReportSiteError`：行列非零（站点语法位）、DeferredByReason 键 `CS2J53xx:<reason>`、Error 即整文件回滚（NB-12 管线既有行为）。测试钉死的站点数：5352 双向 2 站点 + 纯 dynamic 零误报审计；5353 用户定义一元（`Vec operator -` 提升）与隐式 lifted 转换（`(Dst?)s`）2 站点；5354 表达式树 1 站点（位置与 reason 键）；5355 残余 7 个源码用例（ref-returning 属性、init-only setter、qualified field、命名索引器实参、query、lambda expr body、attribute 命名参数）；5356 五个用例共 8 站点（Int128?/UInt128?/Half?/nint? 局部 2 站点 + nint? 属性 2 站点——一元与复合各自独立报）。零误报审计 `M3_BuiltInNullableDomains_AllComplexShapes_ZeroErrorAudit` 覆盖全部内建域复杂形态零诊断。
+
+### 13.3 residual 扫描器穿透重写与边界反例
+
+M2 的 `ScanResiduals` 依赖 `model.GetOperation(syntaxNode)` 逐语法节点取 operation，会漏掉**藏在条件访问 WhenNotNull 内、与 ConditionalAccess 共享 Syntax 节点的隐藏 IInvocation**——`Get()?.GetValueOrDefault()`（对 `T?` 接收者，探针实测源程序报 **CS1061**：`?.` 暴露的是底层 T 的成员，属 malformed 输入，但错误绑定下隐藏 operation 仍被语义模型枚举为 `conversion-lifted`，节点文本恰为整段 `?.GOV`）。M3 将扫描器重写为**自包含栈遍历**（[NullableLiftRule.ScanResiduals L347-393](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/src/CSharpToJava.Core/NumericBoundary/Rules/Nullable/NullableLiftRule.cs#L347-L393)）：对每个语法节点取到的根 operation，以 `Stack<IOperation>` + `HashSet<IOperation>` 经 `ChildOperations` 遍历全绑定子树，豁免指纹（`Cs2jUnsigned`/`dotnet.System`）按 `descendant.Syntax` 文本判定；seen 去重保证共享语法的隐藏节点仅枚举一次。注意：`IOperation` 无 `DescendantsAndSelf()` 扩展（CS1061 编译错误实证），不可套用 SyntaxNode 习惯。
+
+边界反例测试钉死零误伤：`Nullable.GetUnderlyingType(typeof(int?))`、`typeof(int?)`、包装转换、手写 `.HasValue`/`.Value`、`Cs2jUnsigned*` 指纹均无 residual；管线双态：**strict=false → Warning + Changed=true 且产物保留**（可改写站点照改写、残余留诊断），**strict=true → Error + Changed=false + 原文回滚**。
+
+**隐式 lifted 数值转换**（`long? t = int? a;`——声明符/实参/return 位，无 cast 语法）不被 NL-7/8 收编（NL-8 仅收编显式 cast 形态），由 residual 闸门按 `conversion-lifted` kind 以 5357 兜底；该行为 M2 基线已有（M2 ScanResiduals 即枚举 IConversionOperation），M3 测试 `M3_ResidualGate_ImplicitLiftedConversion_PipelineDualState` 将其钉为 valid 双态形态，并登记为 **M4 收编候选**（NL-8 从「仅显式 cast」扩到隐式转换三位置）。
+
+### 13.4 Java 半区范围事实（M3 登记，不改转换器）
+
+转换器侧现状核对（2026-10-02 树）：[IdentifierExpressionTransformer.cs L64-95](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs#L64-L95) 的 `TryTransformNullableMember`（调用点 [L70](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs#L70-L70)、定义 [L89](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/src/CSharpToJava.Core/Transformers/Expression/Transformers/IdentifierExpressionTransformer.cs#L89-L89)）只对 **identifier 绑定的属性访问**（`x.HasValue`/`x.Value`，排除赋值左值）做最小映射：HasValue→引用 null 检查、Value→守卫后拆箱（enum/struct 底层为 Java 引用类型时即接收者本身）。限定成员访问（`obj.Prop.Value`）等其他形状不在该臂内，靠 C22 守卫产物（`.Value` 仅出现在 HasValue 守卫内）使拆箱不落空；直连管道的既有特判（Objects.equals 等）仍为安全网。转换器侧旧臂退役仍按附录裁决 4 留族级消费 PR（M4 同门），本里程碑零转换器改动。
+
+### 13.5 sdk 试扫调查结论（门槛 4 状态）
+
+仓内**不存在** sdk/AGL 批量扫描入口：`tools/` 目录全部为一次性 .py 探针与独立 reflection 小工程；NumericBoundary 仅能经 CLI `NumericBoundaryPassAdapter` 逐项目执行。M3 不新造扫描轮子（超出本任务边界且无只读训练集接线），结论：**§8 门槛 4（csharp-sdk 只读训练集启用扫描、5352-5356 命中清单与人工定性）保持未满足**，连同 DeferredByReason 报表整体移入 **M4**；M0-M3 的默认开状态是「随 C15 族级 pass 默认开」既有事实，不构成门槛 4 关闭。
+
+### 13.6 M3 测试清单（新增 18 用例，全量 255/255 绿）
+
+- **A 决策 17（9 个，[L2878-3500 区段](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/tests/CSharpToJava.ProjectTests/NumericBoundaryNullableLiftUnitTests.cs#L2878-L3500)）**：属性 getter/setter 各一次+统计与 t/r/i 计数桩、属性值用位 null/有值真值表运行时对照、副作用接收者 r=1 与稳定链不提升 r（`h.Box.P` 复用绿节点）、索引器接收者与索引各一次（含 2D：r+2i）、数组元素仅提升 i、bool?/enum? 复合（`&= |= ^=`，反射传 enum? 用 int 参数 -1 表 null 规避 Nullable 装箱限制）、静态属性无 r 临时、双后缀站点共享锚点与源序、残余 7 位置持 5355。
+- **B 错误站点（5 个，[L4127-4380 区段](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/tests/CSharpToJava.ProjectTests/NumericBoundaryNullableLiftUnitTests.cs#L4127-L4380)）**：5352 双向+零误报、5353 UD 一元/转换、5354 位置与键、5356 四域八站点、全内建域复杂形态零误报审计。helper `AssertSiteError(result, src, code, reasonKey, expectedCount)`。
+- **C residual 闸门（4 个，[L4388+ 区段](file:///d:/code/cs2j/.worktrees/preproc-c22-nullable-value/tests/CSharpToJava.ProjectTests/NumericBoundaryNullableLiftUnitTests.cs#L4388-L4530)）**：指纹/豁免边界零 residual、条件访问隐藏 invocation 仅枚举一次、隐式 lifted 转换管线双态、隐藏 conditional GOV malformed 输入双态。
+
+### 13.7 开放事项（移交 M4/后续 PR）
+
+1. **隐式 lifted 转换收编**：NL-8 扩到声明符/实参/return 隐式 `S?→T?`，消灭当前由 5357 兜底的 valid residual（M4 候选，§13.3）。
+2. **`?.GOV` malformed 防御**：扫描器穿透已保证不漏枚举；是否对 CS10xx 错误输入提前短路属 M4 输质评审项（当前双态行为正确：strict=false 保留产物+Warning，strict=true 回滚）。
+3. **转换器侧退役 PR**：附录裁决 4 的 `Objects.equals`/null 字面量特判与 C47④ 内联臂退役，随 M4 族级消费 PR 一次完成；`TryTransformNullableMember` 的 identifier-only 范围是否扩到限定成员访问同批评审（§13.4）。
+4. **sdk 全量扫描**：§8 门槛 4 + 5352-5357 DeferredByReason 命中率报表（§13.5）。
