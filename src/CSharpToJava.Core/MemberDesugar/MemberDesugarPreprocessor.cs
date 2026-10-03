@@ -76,6 +76,9 @@ public sealed partial class MemberDesugarPreprocessor
         var signaturePlans = active.OfType<Signatures.ExplicitInterface.SiPlan>().ToList();
         var hidingPlans = active.OfType<Signatures.Hiding.NhPlan>().ToList();
         var covariantPlans = active.OfType<Signatures.Covariant.CrPlan>().ToList();
+        // C27：Records 全部 plan 恒为 Planned（跳过诊断由重写阶段按站点自发射，框架
+        // EmitSkipDiagnostics 无法表达逐站点位置），不能按 Outcome 过滤。
+        var recordPlans = active.OfType<Records.RecordClonePlan>().ToList();
         var plannedProperties = propertyPlans
             .Where(p => p.Outcome == MemberDesugarOutcome.Planned).ToList();
         var plannedEvents = eventPlans
@@ -105,11 +108,15 @@ public sealed partial class MemberDesugarPreprocessor
         var hasOperatorDecls = root.DescendantNodes().OfType<OperatorDeclarationSyntax>().Any();
         // C39：含终结器声明的文件绝不能被 clean 跳过，否则 A 档零诊断（FN-5 信号真空）。
         var hasDestructorDecls = root.DescendantNodes().OfType<DestructorDeclarationSyntax>().Any();
+        // C27：本文件含 Records plan 触点（声明部件或 with 站点，含跳过族站点）时绝不
+        // clean 早退——逐站点 52xx 诊断与 WR-8 residual 对账都在重写阶段发射；开关关闭
+        // 时分析层零 plan，此处恒 false（默认关零行为铁律）。
+        var hasRecordClaim = recordPlans.Count > 0;
         if (plannedProperties.Count == 0 && plannedEvents.Count == 0
             && plannedIndexers.Count == 0 && plannedOperators.Count == 0
             && plannedSignatures.Count == 0 && plannedHiding.Count == 0
             && plannedCovariant.Count == 0 && !hasOperatorDecls
-            && !hasDestructorDecls)
+            && !hasDestructorDecls && !hasRecordClaim)
         {
             statistics.FilesSkippedClean++;
             return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
@@ -130,7 +137,54 @@ public sealed partial class MemberDesugarPreprocessor
         // 随重写链推进的活动模型：finalizer B 档删除会重建编译单元（同文件内未改动类型的
         // 红节点包装也被重物化并脱离原树），其后任何语义查询都必须绑定重解析后的新鲜模型。
         var activeModel = semanticModel;
-        // C39（M1）：在属性阶段之前，基于原始 root + 原始 semanticModel 先跑 finalizer rewriter。
+
+        // C27 record `with`：阶段序在 finalizer/property 之前。plan.Sites 持有原始
+        // WithExpressionSyntax 引用，声明注入与站点改写必须同遍在原始树上完成；且
+        // PropertyRule 的 5124 让位钩使被认领属性的 PropertyPlan 正常生成，整个 with
+        // 节点必须在 property 阶段之前消除，避免初始化器被当对象初始化器二次处理。
+        if (recordPlans.Count > 0)
+        {
+            statistics.RecordPlans += recordPlans.Count(p =>
+                !p.IsOrphan && IsFirstDeclarationFile(p, filePath));
+            statistics.RecordClassPlans += recordPlans.Count(p =>
+                !p.IsOrphan
+                && p.RecordType is { IsRecord: true, TypeKind: TypeKind.Class }
+                && IsFirstDeclarationFile(p, filePath));
+
+            var allRecordPlansForFile = _plans!
+                .OfType<Records.RecordClonePlan>()
+                .Where(p => p.TouchedFiles.Contains(filePath))
+                .ToList();
+            var recordRewriter = new Records.WithExpressionRewriter(
+                recordPlans, allRecordPlansForFile,
+                _options, statistics, diagnostics, filePath);
+            workingRoot = (CompilationUnitSyntax)recordRewriter.Visit(workingRoot)!;
+            // WR-8 residual 对账必须在重解析前：跳过标注挂在保留不动的 with 节点上，
+            // 重解析会丢失标注。已重写站点已离树，未登记残留发 5230。
+            recordRewriter.ReconcileResidual(workingRoot);
+
+            // Changed=false 但根已因跳过标注重挂时也要重解析：后续 finalizer/property
+            // 阶段的语义查询不能落到不在原语法树中的红色节点上。
+            if (recordRewriter.Changed || !ReferenceEquals(workingRoot, root))
+            {
+                var recordIntermediate = FormatAndValidate(workingRoot);
+                if (recordIntermediate == null)
+                {
+                    statistics.FilesSkippedClean++;
+                    diagnostics.Add(new MemberDesugarDiagnostic(
+                        MemberDesugarSeverity.Warning, MemberDesugarDiagnosticCode.PlanRolledBack,
+                        "member-desugar rewrite failed local parse validation; the original file was " +
+                        "preserved pending whole-tree validation.", filePath, 0, 0, null));
+                    return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
+                }
+                var (replacementModel, replacementRoot) =
+                    ParseReplacement(activeModel, recordIntermediate);
+                activeModel = replacementModel;
+                workingRoot = replacementRoot;
+            }
+        }
+
+        // C39（M1）：在属性阶段之前，基于当前活动 root/模型先跑 finalizer rewriter。
         // M1 只发诊断、树不变（Changed=false）；M2 将在此顺序上删除成员。
         if (hasDestructorDecls)
         {
@@ -143,7 +197,7 @@ public sealed partial class MemberDesugarPreprocessor
                 .Where(p => p.TouchedFiles.Contains(filePath))
                 .ToList();
             var finalizerRewriter = new Finalizers.FinalizerRewriter(
-                semanticModel, finalizerPlans, allFinalizerPlansForFile,
+                activeModel, finalizerPlans, allFinalizerPlansForFile,
                 _options, _finalizerSidecar, statistics, diagnostics, filePath);
             workingRoot = (CompilationUnitSyntax)finalizerRewriter.Visit(workingRoot)!;
             finalizerRewriter.ReconcileResidual(workingRoot);
@@ -163,7 +217,7 @@ public sealed partial class MemberDesugarPreprocessor
                     return new MemberDesugarFileResult { OutputCode = sourceCode, Changed = false };
                 }
                 var (replacementModel, replacementRoot) =
-                    ParseReplacement(semanticModel, finalizerIntermediate);
+                    ParseReplacement(activeModel, finalizerIntermediate);
                 activeModel = replacementModel;
                 workingRoot = replacementRoot;
             }
