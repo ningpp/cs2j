@@ -184,7 +184,7 @@ public class MemberDesugarRecordWithUnitTests
         AssertCompiles(output);
         AssertNoErrors(diags);
         AssertContains(output, "var __cs2j_wsrc0 = R.Get();");
-        AssertContains(output, "var __cs2j_wclone1 = __cs2j_wsrc0.Cs2jWithClone();");
+        AssertContains(output, "R __cs2j_wclone1 = __cs2j_wsrc0.Cs2jWithClone();");
         Assert.Equal(2, stats.TemporariesPromoted);
 
         var asm = CompileToAssembly(output);
@@ -255,7 +255,8 @@ public class MemberDesugarRecordWithUnitTests
         AssertCompiles(output);
         AssertNoErrors(diags);
         // this 是简单接收者，不发 wsrc；克隆后 RHS 的属性读留给 property 阶段 get_X。
-        AssertContains(output, "var __cs2j_wclone0 = this.Cs2jWithClone();");
+        // 克隆局部显式标注闭合类型 R（跨文件 var 推断回退）。
+        AssertContains(output, "R __cs2j_wclone0 = this.Cs2jWithClone();");
         AssertNotContains(output, "__cs2j_wsrc");
         AssertContains(output, "__cs2j_wclone0.set_X(");
     }
@@ -560,9 +561,9 @@ public class MemberDesugarRecordWithUnitTests
         AssertCompiles(output);
         // 外层克隆先建；构造 set_Next 的 RHS 时先提升内层，内层赋值先于外层 set_Next，
         // RHS 最终替换为内层克隆标识符。
-        AssertContains(output, "var __cs2j_wclone0 = r.Cs2jWithClone();");
+        AssertContains(output, "R __cs2j_wclone0 = r.Cs2jWithClone();");
         AssertContains(output, "__cs2j_wclone0.set_X(1);");
-        AssertContains(output, "var __cs2j_wclone1 = r.Cs2jWithClone();");
+        AssertContains(output, "R __cs2j_wclone1 = r.Cs2jWithClone();");
         AssertContains(output, "__cs2j_wclone1.set_X(2);");
         AssertContains(output, "__cs2j_wclone0.set_Next(__cs2j_wclone1);");
         Assert.Equal(0, stats.ResidualWithCount);
@@ -628,7 +629,7 @@ public class MemberDesugarRecordWithUnitTests
         AssertCompiles(output);
         // 无工厂：克隆局部直接按值复制源；Records 发属性直写，C11 归一为 set_X，
         // 但绝不出现克隆工厂。
-        AssertContains(output, "var __cs2j_wclone0 = s;");
+        AssertContains(output, "S __cs2j_wclone0 = s;");
         AssertContains(output, "__cs2j_wclone0.set_X(1);");
         AssertNotContains(output, "Cs2jWithClone");
         Assert.Equal(0, stats.CloneFactoriesSynthesized);
@@ -661,7 +662,8 @@ public class MemberDesugarRecordWithUnitTests
         AssertNoErrors(diags);
         AssertCompiles(output);
         // 元组接收者在树外（orphan plan）：双局部值拷贝，ItemN 直写，无工厂/无 set_X。
-        AssertContains(output, "var __cs2j_wclone0 = t;");
+        // 克隆局部显式标注闭合元组类型（含可读成分名），非开放定义态 (T1, T2)。
+        AssertContains(output, "(int A, string B) __cs2j_wclone0 = t;");
         AssertContains(output, "__cs2j_wclone0.Item1 = 2;");
         AssertNotContains(output, "Cs2jWithClone");
         AssertNotContains(output, "set_Item1");
@@ -699,9 +701,9 @@ public class MemberDesugarRecordWithUnitTests
         var (output, stats, diags) = Rewrite(src, Enabled());
         AssertNoErrors(diags);
         AssertCompiles(output);
-        AssertContains(output, "var __cs2j_wclone0 = s;");
+        AssertContains(output, "S __cs2j_wclone0 = s;");
         AssertContains(output, "var __cs2j_wsrc1 = S.Make();");
-        AssertContains(output, "var __cs2j_wclone2 = __cs2j_wsrc1;");
+        AssertContains(output, "S __cs2j_wclone2 = __cs2j_wsrc1;");
         AssertNotContains(output, "Cs2jWithClone");
         Assert.Equal(2, stats.WithSitesStruct);
         Assert.Equal(2, stats.WithSitesEmpty);
@@ -737,10 +739,10 @@ public class MemberDesugarRecordWithUnitTests
         var (output, stats, diags) = Rewrite(src, Enabled());
         AssertNoErrors(diags);
         AssertCompiles(output);
-        AssertContains(output, "var __cs2j_wclone0 = r.Cs2jWithClone();");
+        AssertContains(output, "R __cs2j_wclone0 = r.Cs2jWithClone();");
         AssertContains(output, "__cs2j_wclone0.set_X(1);");
         // 外层源直接取内层克隆，不再读 r，也不发 wsrc。
-        AssertContains(output, "var __cs2j_wclone1 = __cs2j_wclone0.Cs2jWithClone();");
+        AssertContains(output, "R __cs2j_wclone1 = __cs2j_wclone0.Cs2jWithClone();");
         AssertContains(output, "__cs2j_wclone1.set_X(3);");
         AssertNotContains(output, "__cs2j_wsrc");
         Assert.Equal(2, stats.WithSitesTotal);
@@ -776,8 +778,8 @@ public class MemberDesugarRecordWithUnitTests
         AssertCompiles(output);
         // 外层克隆局部先声明（wclone0），构造 RHS 时内层 struct 值拷贝再提升（wclone1），
         // 二者独立，次序不影响语义；外层 set_B 的 RHS 最终为内层克隆标识符。
-        AssertContains(output, "var __cs2j_wclone0 = h.Cs2jWithClone();");
-        AssertContains(output, "var __cs2j_wclone1 = b;");
+        AssertContains(output, "Holder __cs2j_wclone0 = h.Cs2jWithClone();");
+        AssertContains(output, "Box __cs2j_wclone1 = b;");
         AssertContains(output, "__cs2j_wclone1.set_N(7);");
         AssertContains(output, "__cs2j_wclone0.set_B(__cs2j_wclone1);");
         Assert.Equal(1, stats.WithSitesStruct);
@@ -1339,8 +1341,8 @@ public class MemberDesugarRecordWithUnitTests
         AssertNotContains(output, "Cs2jWithClone");
         AssertNotContains(output, "public new void Deconstruct");
 
-        // WR-4 站点：克隆局部按值复制，位置属性走终形 set_X。
-        AssertContains(output, "var __cs2j_wclone0 = p;");
+        // WR-4 站点：克隆局部按值复制（显式闭合类型 Point），位置属性走终形 set_X。
+        AssertContains(output, "Point __cs2j_wclone0 = p;");
         AssertContains(output, "__cs2j_wclone0.set_X(2);");
         AssertNotContains(output, " with ");
         Assert.Equal(1, stats.PositionalRecordsReshaped);
@@ -1432,7 +1434,7 @@ public class MemberDesugarRecordWithUnitTests
         AssertContains(output, "public static R Run(R r)");
         AssertContains(output, """
             {
-                var __cs2j_wclone0 = r.Cs2jWithClone();
+                R __cs2j_wclone0 = r.Cs2jWithClone();
                 __cs2j_wclone0.set_X(1);
                 return __cs2j_wclone0;
             }
@@ -1466,7 +1468,7 @@ public class MemberDesugarRecordWithUnitTests
         AssertCompiles(output);
         // 运算符阶段把 operator+ 落名为 Add；Records 阶段先把箭头体块化并保留 return clone。
         AssertContains(output, "public static R Add(R r, int x)");
-        AssertContains(output, "var __cs2j_wclone0 = r.Cs2jWithClone();");
+        AssertContains(output, "R __cs2j_wclone0 = r.Cs2jWithClone();");
         AssertContains(output, "__cs2j_wclone0.set_X(x);");
         AssertContains(output, "return __cs2j_wclone0;");
         AssertNotContains(output, " with ");
@@ -1503,7 +1505,7 @@ public class MemberDesugarRecordWithUnitTests
             public static explicit operator R(int x)
             {
             """);
-        AssertContains(output, "var __cs2j_wclone1 = __cs2j_wsrc0.Cs2jWithClone();");
+        AssertContains(output, "R __cs2j_wclone1 = __cs2j_wsrc0.Cs2jWithClone();");
         AssertContains(output, "__cs2j_wclone1.set_X(x);");
         AssertContains(output, "return __cs2j_wclone1;");
         AssertNotContains(output, " with ");
@@ -1531,7 +1533,7 @@ public class MemberDesugarRecordWithUnitTests
         AssertCompiles(output);
         // 非空 with：本地函数箭头体 → 块体（含 q.X 读点降形为 get_X()）。
         AssertContains(output, "R Bump(R q) {");
-        AssertContains(output, "var __cs2j_wclone0 = q.Cs2jWithClone();");
+        AssertContains(output, "R __cs2j_wclone0 = q.Cs2jWithClone();");
         AssertContains(output, "__cs2j_wclone0.set_X(q.get_X() + 5);");
         AssertContains(output, "return __cs2j_wclone0;");
         // 空 with（class）不进提升闸门：箭头体保留，仅内联工厂调用。
@@ -1640,7 +1642,7 @@ public class MemberDesugarRecordWithUnitTests
         AssertContains(output, """
             public R get_Self()
             {
-                var __cs2j_wclone0 = this.Cs2jWithClone();
+                R __cs2j_wclone0 = this.Cs2jWithClone();
                 __cs2j_wclone0.set_X(6);
                 return __cs2j_wclone0;
             }
@@ -1648,7 +1650,7 @@ public class MemberDesugarRecordWithUnitTests
         AssertContains(output, """
             public R get_Also()
             {
-                var __cs2j_wclone1 = this.Cs2jWithClone();
+                R __cs2j_wclone1 = this.Cs2jWithClone();
                 __cs2j_wclone1.set_X(7);
                 return __cs2j_wclone1;
             }
@@ -1691,7 +1693,7 @@ public class MemberDesugarRecordWithUnitTests
             public R get_Item(int i)
             {
                 var __cs2j_wsrc0 = Items[i];
-                var __cs2j_wclone1 = __cs2j_wsrc0.Cs2jWithClone();
+                R __cs2j_wclone1 = __cs2j_wsrc0.Cs2jWithClone();
                 __cs2j_wclone1.set_X(8);
                 return __cs2j_wclone1;
             }
@@ -1741,9 +1743,9 @@ public class MemberDesugarRecordWithUnitTests
         var (output, stats, diags) = Rewrite(src, Enabled());
         AssertNoErrors(diags);
         AssertCompiles(output);
-        AssertContains(output, "var __cs2j_wclone0 = _other.Cs2jWithClone();");
+        AssertContains(output, "R __cs2j_wclone0 = _other.Cs2jWithClone();");
         AssertContains(output, "__cs2j_wclone0.set_X(8);");
-        AssertContains(output, "var __cs2j_wclone1 = value.Cs2jWithClone();");
+        AssertContains(output, "R __cs2j_wclone1 = value.Cs2jWithClone();");
         AssertContains(output, "__cs2j_wclone1.set_X(2);");
         AssertNotContains(output, " with ");
         var asm = CompileToAssembly(output);
@@ -1782,7 +1784,7 @@ public class MemberDesugarRecordWithUnitTests
         AssertContains(output, """
             public Point Bump()
             {
-                var __cs2j_wclone0 = this.Cs2jWithClone();
+                Point __cs2j_wclone0 = this.Cs2jWithClone();
                 __cs2j_wclone0.set_X(1);
                 return __cs2j_wclone0;
             }
@@ -2321,6 +2323,57 @@ public class MemberDesugarRecordWithUnitTests
         AssertNotContains(output, " with ");
         Assert.Equal(1, stats.CloneFactoriesSynthesized);
         Assert.Equal(1, stats.WithSitesTotal);
+    }
+
+    [Fact]
+    public void WR4_MultiFile_CloneLocalsUseClosedReceiverTypes_TupleAndGenericRecord()
+    {
+        // 跨文件（编译含多语法树）克隆局部必须显式标注站点【闭合】接收者类型：
+        // 元组显示 (int,string) 闭合 ITuple（非定义态 ValueTuple<T1,T2>），
+        // 泛型 record 为构造实例 Box<int>（非 plan 的开放 OriginalDefinition Box<T>），
+        // 泛型容器内元组成分保留站点可见的 T 形参。显式类型保证重解析模型中
+        // 工厂未绑定（声明文件尚未处理）时 clone.set_X 接收者仍可解析。
+        var src = """
+            public record Box<T>(T Value);
+            public class Bag<T>
+            {
+                public (T First, string Tag) TupleField;
+                public (T First, string Tag) TupleInGeneric()
+                    => TupleField with { Tag = "x" };
+            }
+            public static class P
+            {
+                public static (int A, string B) TupleCrossFile((int A, string B) t)
+                    => t with { Item1 = 2 };
+                public static Box<int> GenericClosed(Box<int> b)
+                    => b with { Value = 9 };
+            }
+            """;
+        var extra = """
+            public class ExtraFile { public int Dummy; }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(), extra);
+        AssertNoErrors(diags);
+        AssertCompiles(output, extra);
+        Assert.Contains("(int A, string B) __cs2j_wclone1 = t;", output, StringComparison.Ordinal);
+        Assert.Contains("Box<int> __cs2j_wclone2 = b.Cs2jWithClone();", output, StringComparison.Ordinal);
+        Assert.Contains("(T First, string Tag) __cs2j_wclone0 = TupleField;", output, StringComparison.Ordinal);
+        // 禁止把开放定义形参名发射到产物。
+        Assert.DoesNotContain("(T1, T2)", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("Box<T> __cs2j_wclone", output, StringComparison.Ordinal);
+        Assert.Equal(3, stats.WithSitesTotal);
+        Assert.Equal(0, stats.ResidualWithCount);
+
+        var asm = CompileToAssembly(output);
+        var tupleResult = ((int A, string B))asm.GetType("P")!
+            .GetMethod("TupleCrossFile", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new object[] { (1, "x") })!;
+        Assert.Equal((2, "x"), tupleResult);
+        var boxResult = asm.GetType("P")!
+            .GetMethod("GenericClosed", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { Activator.CreateInstance(asm.GetType("Box`1")!
+                .MakeGenericType(typeof(int)), 7)! })!;
+        Assert.Equal(9, boxResult.GetType().GetMethod("get_Value")!.Invoke(boxResult, null));
     }
 
     /// <summary>编译去糖产物并内存加载（TPA 引用），供反射行为断言。</summary>

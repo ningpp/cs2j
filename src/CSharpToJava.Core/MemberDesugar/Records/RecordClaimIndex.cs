@@ -450,6 +450,18 @@ internal sealed class RecordClaimIndex
                 RecordDiagnostics.ReadonlyValueCopyBlocked(named.ToDisplayString()),
                 receiverType: named);
 
+        // 克隆局部显式类型自检（跨文件 var 推断回退）：重写期克隆局部一律显式标注
+        // 站点闭合接收者类型。非泛型定义（PositionPoint 等，IsDefinition=true 但
+        // 无类型形参）与构造实例（Box<int>、(int,string) 元组、Bag<T> 内含在站
+        // 点可见 T 的构造类型）ToDisplayString 后均可在站点 ParseTypeName 绑定；
+        // 开放泛型定义（形参为类型自身 T1/T2，如定义态 ValueTuple<T1,T2>）在站点
+        // 不可命名 → 整站点走既有 5223 门，禁止产出半残。
+        if (named.IsDefinition && named.TypeParameters.Length > 0)
+            return SiteClaim.Fail(w, filePath, span,
+                MemberDesugarDiagnosticCode.NonLiftableWithContext,
+                RecordDiagnostics.UnboundGenericCloneType(named.ToDisplayString()),
+                receiverType: named);
+
         // 6) 初始化器逐成员绑定（空初始化器 WR-3 直接通过）。
         var assignments = new List<WithAssignment>();
         if (w.Initializer is { Expressions.Count: > 0 } init)
@@ -532,6 +544,7 @@ internal sealed class RecordClaimIndex
             FilePath = filePath,
             SpanStart = span,
             ReceiverType = named,
+            CloneTypeDisplay = named.ToDisplayString(),
             IsEmpty = isEmpty,
             IsValueCopy = isValueCopy,
             Assignments = assignments,
@@ -583,6 +596,7 @@ internal sealed class RecordClaimIndex
         public required string FilePath { get; init; }
         public required int SpanStart { get; init; }
         public INamedTypeSymbol? ReceiverType { get; init; }
+        public string? CloneTypeDisplay { get; init; }
         public required bool IsEmpty { get; init; }
         public bool IsValueCopy { get; init; }
         public required IReadOnlyList<WithAssignment> Assignments { get; init; }
@@ -614,6 +628,7 @@ internal sealed class RecordClaimIndex
                 FilePath = FilePath,
                 SpanStart = SpanStart,
                 ReceiverType = ReceiverType,
+                CloneTypeDisplay = CloneTypeDisplay,
                 ReceiverInSource = ReceiverType != null
                     && CloneCtorResolver.IsInSource(ReceiverType),
                 IsEmpty = IsEmpty,

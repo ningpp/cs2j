@@ -48,6 +48,14 @@ internal static class RecordDiagnostics
          + "operand or call argument); the single-evaluation clone sequence cannot be emitted "
          + "there; the with site was left unchanged.";
 
+    /// <summary>CS2J5223（克隆局部类型面）：接收者仅解析为开放泛型定义，站点无法发射
+    /// 可绑定的显式闭合克隆类型（跨文件 var 推断回退亦不可得），原子不改。</summary>
+    public static string UnboundGenericCloneType(string typeFqn)
+        => $"'with' receiver '{typeFqn}' resolved to an unbound generic definition; the clone "
+         + "local requires a closed type name at the use site, but no closed receiver type can "
+         + "be named there (cross-file explicit-clone fallback unavailable); the with site was "
+         + "left unchanged.";
+
     /// <summary>CS2J5224：M1 不收编的嵌套形态（嵌套 with 是 WR-5/M2；嵌套对象/集合初始化器 M2）。</summary>
     public static string UnsupportedNestedInitializer(string? typeFqn, string what)
         => $"'with' initializer{(typeFqn != null ? $" on '{typeFqn}'" : null)} contains {what}, "

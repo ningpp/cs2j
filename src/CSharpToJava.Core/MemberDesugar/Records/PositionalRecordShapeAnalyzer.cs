@@ -217,7 +217,8 @@ internal static class PositionalRecordShapeAnalyzer
     }
 
     /// <summary>class 无参 ctor 可行性：基类存在从本类型可访问的无参 ctor
-    /// （object 恒有；未 reshape 的位置基类只有主 ctor/复制 ctor → 不发）。</summary>
+    /// （object 恒有；未 reshape 的位置基类只有主 ctor/复制 ctor → 不发）。
+    /// 位置基类在 reshape 后会补发无参 ctor，故派生类也需补发。</summary>
     private static bool BaseHasAccessibleParameterless(INamedTypeSymbol type)
     {
         var baseType = type.BaseType;
@@ -237,6 +238,19 @@ internal static class PositionalRecordShapeAnalyzer
                             c.ContainingAssembly, type.ContainingAssembly))
                         return true;
                     break;
+            }
+        }
+        // 基类是同编译内的位置 record：reshape 后会补发无参 ctor，
+        // 派生类必须同步补发否则 base() 链断。
+        if (baseType.IsRecord
+            && SymbolEqualityComparer.Default.Equals(
+                baseType.ContainingAssembly, type.ContainingAssembly))
+        {
+            foreach (var syntaxRef in baseType.DeclaringSyntaxReferences)
+            {
+                if (syntaxRef.GetSyntax() is RecordDeclarationSyntax recordDecl
+                    && recordDecl.ParameterList is { Parameters.Count: > 0 })
+                    return true;
             }
         }
         return false;

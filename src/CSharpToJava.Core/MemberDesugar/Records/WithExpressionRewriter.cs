@@ -218,10 +218,17 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
             && TryGetRewritable(w, out var plan, out var site))
         {
             var (block, cloneName) = BuildLiftedBlock(w, plan!, site!, tail: null);
+            // 克隆局部改用显式闭合接收者类型替换 var：跨文件改写时克隆工厂声明文件
+            // 尚未处理，重解析模型里 Cs2jWithClone 未绑定，var 推断失败会使后续
+            // clone.set_X 接收者失绑；显式类型由分析期站点闭合类型给定（元组/泛型
+            // 构造实例同样闭合），回退保留原声明类型。
+            var cloneType = CloneTypeSyntax(site!, plan!, node.Declaration.Type);
             var declarator = node.Declaration.Variables[0]
                 .WithInitializer(SyntaxFactory.EqualsValueClause(Identifier(cloneName)));
             var final = node.WithDeclaration(
-                node.Declaration.WithVariables(SyntaxFactory.SingletonSeparatedList(declarator)));
+                node.Declaration
+                    .WithType(cloneType.WithTrailingTrivia(SyntaxFactory.Space))
+                    .WithVariables(SyntaxFactory.SingletonSeparatedList(declarator)));
             return block.AddStatements(final)
                 .WithLeadingTrivia(node.GetLeadingTrivia())
                 .WithTrailingTrivia(node.GetTrailingTrivia());
@@ -592,7 +599,13 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
             cloneInit = SyntaxFactory.InvocationExpression(
                 FactoryAccess(source, plan.FactoryName!), SyntaxFactory.ArgumentList());
         }
-        stmts.Add(DeclVar(cloneName, cloneInit));
+        // 克隆变量显式标注站点闭合接收者类型（分析期已自检可解析）：跨文件场景下
+        // Cs2jWithClone 可能不在重解析模型中（声明文件尚未处理），var 推断会失败
+        // 导致后续 clone.set_X 接收者无法走 TryPositionalFallback 降形。元组为闭合
+        // ITuple（(int, string)），泛型为构造实例（Box<int>），均来自站点
+        // SemanticModel 的 ReceiverType 而非 plan 的开放泛型 OriginalDefinition。
+        var cloneType = CloneTypeSyntax(site, plan, SyntaxFactory.IdentifierName("var"));
+        stmts.Add(DeclVar(cloneName, cloneInit, cloneType));
         _stats.TemporariesPromoted++;
         var clone = Identifier(cloneName);
 
@@ -823,10 +836,29 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
         => SyntaxFactory.IdentifierName(name);
 
     private static LocalDeclarationStatementSyntax DeclVar(string name, ExpressionSyntax value)
+        => DeclVar(name, value, SyntaxFactory.IdentifierName("var"));
+
+    /// <summary>
+    /// 克隆局部的显式类型语法：优先取分析期校验过的站点闭合类型显示串
+    /// （<see cref="WithSite.CloneTypeDisplay"/>，元组含可读成分名）；无该串时
+    /// 仅当 plan 接收者为非泛型定义/构造实例才采用其显示串（开放泛型定义的形参
+    /// T 在站点不可解析，绝不能发射）；否则回退 <paramref name="fallback"/>。
+    /// </summary>
+    private static TypeSyntax CloneTypeSyntax(WithSite site, RecordClonePlan plan, TypeSyntax fallback)
+    {
+        if (site.CloneTypeDisplay is { } closed)
+            return SyntaxFactory.ParseTypeName(closed);
+        var recordType = plan.RecordType;
+        if (recordType != null && !(recordType.IsDefinition && recordType.TypeParameters.Length > 0))
+            return SyntaxFactory.ParseTypeName(recordType.ToDisplayString());
+        return fallback;
+    }
+
+    private static LocalDeclarationStatementSyntax DeclVar(string name, ExpressionSyntax value, TypeSyntax type)
         => SyntaxFactory.LocalDeclarationStatement(
             SyntaxFactory.VariableDeclaration(
                 // "var" 与标识符间必须显式留白，避免无 trivia 相邻 token 融合。
-                SyntaxFactory.IdentifierName("var").WithTrailingTrivia(SyntaxFactory.Space),
+                type.WithTrailingTrivia(SyntaxFactory.Space),
                 SyntaxFactory.SingletonSeparatedList(
                     SyntaxFactory.VariableDeclarator(SyntaxFactory.Identifier(name))
                         .WithInitializer(SyntaxFactory.EqualsValueClause(value)))));

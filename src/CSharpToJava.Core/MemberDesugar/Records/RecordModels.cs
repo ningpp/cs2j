@@ -45,6 +45,12 @@ internal sealed class WithSite
     /// <summary>接收者类型声明是否在本编译源树内（false→orphan 载体 plan）。</summary>
     public required bool ReceiverInSource { get; init; }
 
+    /// <summary>克隆局部显式类型显示串：分析期取自站点 SemanticModel 的闭合接收者
+    /// 类型（元组为 <c>(int, string)</c> 等闭合 ITuple、泛型为 <c>Box&lt;int&gt;</c>
+    /// 构造实例），重写期 ParseTypeName 即可在站点绑定。开放泛型定义/类型不可在
+    /// 站点解析时为 null——该站点在分析期已走 52xx 闸门，不会成为可改写站点。</summary>
+    public string? CloneTypeDisplay { get; init; }
+
     /// <summary>WR-3：空初始化器（record class 纯工厂内联；struct/tuple 仍保守发一次值拷贝）。</summary>
     public required bool IsEmpty { get; init; }
 
