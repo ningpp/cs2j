@@ -282,6 +282,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- C19 M1 extension-methods fixture (bin/obj excluded). -->
+    <Content Include="..\SampleExtensionMethodsSolution\**\*.*"
+              Exclude="..\SampleExtensionMethodsSolution\**\bin\**;..\SampleExtensionMethodsSolution\**\obj\**">
+      <Link>SampleExtensionMethodsSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- C23 interpolation-expand fixtures (bin/obj excluded). -->
     <Content Include="..\SampleInterpolationSolution\**\*.*"
               Exclude="..\SampleInterpolationSolution\**\bin\**;..\SampleInterpolationSolution\**\obj\**">
