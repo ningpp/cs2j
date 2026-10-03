@@ -396,21 +396,22 @@ C06 §2 开放问题首项（白名单配置格式，[C06:108](file:///d:/code/c
 
 ## 12. Worktree 分配
 
-只写不执行：本设计全程仅做只读调研与本文档写入，**未执行任何 git 写操作**（无 commit/add/worktree/checkout/branch，未运行 dotnet build/test）；以下命令在实施 PR 中由执行者运行。
+只写不执行：本设计全程仅做只读调研与本文档写入，**未执行任何 git 写操作**（无 commit/add/worktree/checkout/branch，未运行 dotnet build/test）；以下命令已于 2026-10-03 在实施中由执行者运行。
 
 - 分支：`feature/preproc-c42-platform-isolation`
 - 目录：`.worktrees/preproc-c42-platform-isolation`（`.worktrees/` 已在 .gitignore 忽略）
-- base：`953293b9`（`docs: update doc base commit`，已只读核验：`953293b908e9143437c45f287fb4277e890c398e`）
+- base：`d2b835a7`（dev-3.x-26100311 HEAD，2026-10-03 更新，已核验：`d2b835a7eb9cb38dd72dae0cd435997196b61858`，主题 `docs(c29): worktree base 更新至 dev-3.x-26100311 HEAD=dcda0151（worktree 已按此 base 直接创建）`；worktree 已按此 base 直接创建，无需建树后 rebase，附录⑧原「base `953293b9` + 建树后 rebase」流程由本次直接建树替代）
+- 创建命令（已执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c42-platform-isolation -b feature/preproc-c42-platform-isolation 953293b9
+git worktree add .worktrees/preproc-c42-platform-isolation -b feature/preproc-c42-platform-isolation d2b835a7
 ```
 
 ---
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令原定 base `953293b9` + 建树后 rebase；2026-10-03 已改为直接以 dev-3.x-26100311 HEAD `d2b835a7` 建树（§12），stub 计数红灯由首个锚点翻转 PR 按真值收口。
 
 **裁决（散见决策表/里程碑门的悬置项，按主题收口）：**
 
