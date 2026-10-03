@@ -222,6 +222,8 @@ public class Program
                     opts.MemberDesugarOverrides, strict: false),
                 StructValueSemanticsOptionsFactory = () => BuildStructValueSemanticsOptions(
                     opts.StructValueSemanticsOverrides),
+                VarianceAuditOptionsFactory = () => BuildVarianceAuditOptions(
+                    opts.VarianceStrict, opts.VarianceNoReportInfo),
                 EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions
                 {
                     Strict = opts.LocalFunctionStrict,
@@ -3355,6 +3357,15 @@ public class Program
         };
     }
 
+    private static CSharpToJava.Core.VarianceAudit.VarianceAuditOptions BuildVarianceAuditOptions(
+        bool strict,
+        bool noReportInfo)
+        => new()
+        {
+            Strict = strict,
+            ReportInfo = !noReportInfo,
+        };
+
     private sealed class MemberDesugarOverrideSets
     {
         public string[]? Force { get; set; }
@@ -3786,6 +3797,8 @@ public class Program
                     opts.MemberDesugarOverrides, strict: false),
                 StructValueSemanticsOptionsFactory = () => BuildStructValueSemanticsOptions(
                     opts.StructValueSemanticsOverrides),
+                VarianceAuditOptionsFactory = () => BuildVarianceAuditOptions(
+                    opts.VarianceStrict, opts.VarianceNoReportInfo),
                 EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions
                 {
                     Strict = opts.LocalFunctionStrict,
@@ -4897,6 +4910,14 @@ class PreprocessVerbOptions
         HelpText = "Disable the default decimal operator normalization inside numeric-boundary (C34)")]
     public bool NoDecimalOps { get; set; }
 
+    [Option("variance-strict", Default = false,
+        HelpText = "variance-audit: escalate unsafe audit sites to errors and abort the chain (M2 gate; default off)")]
+    public bool VarianceStrict { get; set; }
+
+    [Option("variance-no-report-info", Default = false,
+        HelpText = "variance-audit: suppress Info-level diagnostics in the chain stream (the report JSON always keeps every level)")]
+    public bool VarianceNoReportInfo { get; set; }
+
     [Option("ln-normalize-file-scoped", Default = false,
         HelpText = "lexical-normalize: rewrite file-scoped namespaces into block namespaces (LN-7)")]
     public bool LnNormalizeFileScoped { get; set; }
@@ -5281,6 +5302,14 @@ class ConvertProjectOptions
     [Option("no-decimal-ops", Default = false,
         HelpText = "Disable the default decimal operator normalization inside numeric-boundary (C34): decimal operators stay as-is in the intermediate tree")]
     public bool NoDecimalOps { get; set; }
+
+    [Option("variance-strict", Default = false,
+        HelpText = "variance-audit: escalate unsafe audit sites to errors and abort the chain (M2 gate; default off)")]
+    public bool VarianceStrict { get; set; }
+
+    [Option("variance-no-report-info", Default = false,
+        HelpText = "variance-audit: suppress Info-level diagnostics in the chain stream (the report JSON always keeps every level)")]
+    public bool VarianceNoReportInfo { get; set; }
 
     [Option("struct-value-semantics", Default = true,
         HelpText = "Enable the struct-value-semantics pass (defensive Clone insertion for residual mutable structs); disable with --disable-pass struct-value-semantics")]

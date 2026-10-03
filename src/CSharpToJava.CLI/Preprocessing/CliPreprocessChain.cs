@@ -9,6 +9,7 @@ using CSharpToJava.Core.RecordReadOnly;
 using CSharpToJava.Core.StructValueSemantics;
 using CSharpToJava.Core.UnsafeFfm;
 using Microsoft.CodeAnalysis;
+using CSharpToJava.Core.VarianceAudit;
 using ParamsCollectionsOptions = CSharpToJava.Core.DefaultParameterStripper.ParamsCollections.ParamsCollectionsOptions;
 
 namespace CSharpToJava.CLI.Preprocessing;
@@ -47,6 +48,13 @@ internal sealed class CliChainRequest
 
     /// <summary>Invoked only when struct-value-semantics is enabled (keeps override loading lazy).</summary>
     public required Func<StructValueSemanticsOptions> StructValueSemanticsOptionsFactory { get; init; }
+
+    /// <summary>
+    /// Invoked only when variance-audit is enabled. Defaulted so callers that never
+    /// enable the pass (and existing standalone verbs) need not supply one.
+    /// </summary>
+    public Func<VarianceAuditOptions> VarianceAuditOptionsFactory { get; init; }
+        = () => new VarianceAuditOptions();
 
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
@@ -175,6 +183,12 @@ internal static class CliPreprocessChain
             extensionExternalHostMapper = ExtensionHostMappingResolver.TryCreate(
                 request.ExtensionMappingConfigPath);
         }
+        // passPresent bits for the audit report (design D13): whether E10 (generic)
+        // and C02 (generic-deepen) are on the running chain. Injected into the audit
+        // options here; a standalone `preprocess --pass variance-audit` run sees
+        // neither and reports both bits false.
+        var chainHasGeneric = plan.Enabled.Any(pass => pass.Id == PassIds.Generic);
+        var chainHasGenericDeepen = plan.Enabled.Any(pass => pass.Id == PassIds.GenericDeepen);
 
         var config = new PassChainConfiguration
         {
@@ -191,6 +205,13 @@ internal static class CliPreprocessChain
             JavaKeywordOptionsFactory = request.JavaKeywordOptionsFactory,
             MemberDesugarOptionsFactory = request.MemberDesugarOptionsFactory,
             StructValueSemanticsOptionsFactory = request.StructValueSemanticsOptionsFactory,
+            VarianceAuditOptionsFactory = () =>
+            {
+                var options = request.VarianceAuditOptionsFactory();
+                options.ChainHasGeneric = chainHasGeneric;
+                options.ChainHasGenericDeepen = chainHasGenericDeepen;
+                return options;
+            },
             EnumDeclarationOptionsFactory = request.EnumDeclarationOptionsFactory,
             LexicalNormalizeOptionsFactory = request.LexicalNormalizeOptionsFactory,
             EnableDecimalOps = request.EnableDecimalOps,

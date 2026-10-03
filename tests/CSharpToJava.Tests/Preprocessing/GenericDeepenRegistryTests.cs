@@ -22,6 +22,7 @@ public sealed class GenericDeepenRegistryTests
         EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
         UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
         ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
+        VarianceAuditOptionsFactory = () => new CSharpToJava.Core.VarianceAudit.VarianceAuditOptions(),
     };
 
     [Fact]
@@ -46,20 +47,33 @@ public sealed class GenericDeepenRegistryTests
         var gd = ordered.IndexOf(PassIds.GenericDeepen);
         Assert.True(gd > 0, "generic-deepen must be registered");
         Assert.Equal(PassIds.Generic, ordered[gd - 1]);
-        Assert.Equal(PassIds.RecordReadOnly, ordered[gd + 1]);
+        // C33 M1a flipped variance-audit to Implemented in the locked topo slot
+        // between generic-deepen and record-readonly (design §3.4, §5.5).
+        Assert.Equal(PassIds.VarianceAudit, ordered[gd + 1]);
+        Assert.Equal(PassIds.RecordReadOnly, ordered[gd + 2]);
     }
 
     [Fact]
-    public void C30_C33_HaveIndependentStubs()
+    public void C30_StaysStub_WhileC33VarianceAuditIsImplemented()
     {
         var registry = PassCatalog.BuildRegistry();
         var closed = registry.Require(PassStubCatalog.Ids.ClosedMetadata);
-        var variance = registry.Require(PassStubCatalog.Ids.VarianceAudit);
         Assert.Equal(PassStatus.Stub, closed.Status);
         Assert.Equal("C30", closed.CatalogItems);
         Assert.Contains(PassIds.GenericDeepen, closed.RunAfterIds);
-        Assert.Equal(PassStatus.Stub, variance.Status);
+
+        var variance = PassCatalog.ImplementedById(PassIds.VarianceAudit);
+        Assert.Equal(PassStatus.Implemented, variance.Status);
         Assert.Equal("C33", variance.CatalogItems);
+        Assert.Equal(".cs2j-variance-audit-src", variance.IntermediateDirectoryName);
+        Assert.Equal(PassStage.Declarative, variance.Stage);
+        Assert.False(variance.DefaultEnabled);
+        Assert.Equal(new[] { PassIds.Generic }, variance.RunAfterIds);
+        Assert.Equal(PassSupportLibrary.None, variance.SupportLibrary);
+        Assert.True(variance.NeedsSemanticModel);
+        Assert.False(variance.VerifyBuildByDefault);
+        Assert.False(variance.VerifyTestsByDefault);
+        Assert.DoesNotContain(registry.WhereStatus(PassStatus.Stub), stub => stub.Id == PassIds.VarianceAudit);
     }
 
     [Fact]

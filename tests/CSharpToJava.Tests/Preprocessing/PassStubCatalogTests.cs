@@ -88,6 +88,7 @@ public sealed class PassStubCatalogTests
                 JavaKeywordOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 MemberDesugarOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 StructValueSemanticsOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
+                VarianceAuditOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 EnumDeclarationOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 LexicalNormalizeOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 EqualityConcatOptionsFactory = () => throw new InvalidOperationException("stub must run first"),

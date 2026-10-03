@@ -23,7 +23,8 @@ internal static class PassStubCatalog
         public const string PartialMerge = "partial-merge";
         public const string ForeachSource = "foreach-source";
         public const string ClosedMetadata = "closed-metadata";
-        public const string VarianceAudit = "variance-audit";
+        // Ids.VarianceAudit flipped to Implemented in PassCatalog (C33 M1a:
+        // audit-only skeleton, default-off); the id constant moved there.
         // Ids.UnsafeFfm flipped to Implemented in PassCatalog (C06 M0);
         // the id constant stays here by the iterator-lowering precedent (§3.4).
         public const string UnsafeFfm = "unsafe-ffm";
@@ -63,16 +64,8 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.GenericDeepen },
             description: "Consume closed java.lang.reflect.Type metadata keyed by generic-deepen tokens (P2; blocked on PatchClosed* archaeology).",
             catalogItems: "C30"),
-        new(
-            Ids.VarianceAudit,
-            "Variance and constraint audit",
-            ".cs2j-variance-audit-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.Generic },
-            description: "Audit out/in variance and struct/new() constraints; report usage sites needing rewrite (P3).",
-            catalogItems: "C33"),
+        // Ids.VarianceAudit flipped to Implemented in PassCatalog (C33 M1a:
+        // audit-only skeleton); the descriptor lives there and no stub entry remains.
         // Ids.UnsafeFfm flipped to Implemented in PassCatalog (C06 M0);
         // the descriptor lives there and no stub entry remains.
         // Ids.ClosureLift flipped to Implemented in PassCatalog (C32 M2);

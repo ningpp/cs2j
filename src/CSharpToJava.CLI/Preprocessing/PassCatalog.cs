@@ -19,6 +19,7 @@ internal static class PassIds
     public const string Unsigned = "unsigned";
     public const string Generic = "generic";
     public const string GenericDeepen = "generic-deepen";
+    public const string VarianceAudit = "variance-audit";
     public const string RecordReadOnly = "record-readonly";
     public const string ArrayMethod = "array-method";
     public const string IndexRange = "index-range";
@@ -265,6 +266,20 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Make reified generic runtime information explicit for Java type erasure (typeof(T)/is-as T/static generic fields).",
             catalogItems: "C02"),
+        new(
+            PassIds.VarianceAudit,
+            "Variance and constraint audit",
+            ".cs2j-variance-audit-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.Generic },
+            needsSemanticModel: true,
+            verifyBuildByDefault: false,
+            verifyTestsByDefault: false,
+            supportLibrary: PassSupportLibrary.None,
+            description: "Read-only audit of out/in variance and struct/unmanaged/new()/notnull/default/class constraints; writes variance-audit-report.json.",
+            catalogItems: "C33"),
         new(
             PassIds.RecordReadOnly,
             "Record readonly",

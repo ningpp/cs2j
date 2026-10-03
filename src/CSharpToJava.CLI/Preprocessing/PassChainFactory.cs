@@ -28,6 +28,7 @@ using CSharpToJava.Core.StructValueSemantics;
 using CSharpToJava.Core.TupleToStruct;
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using CSharpToJava.Core.UnsafeFfm;
+using CSharpToJava.Core.VarianceAudit;
 using CSharpToJava.CLI.Preprocessing.Adapters;
 using Microsoft.CodeAnalysis;
 using CoreGenericPreprocessOptions = CSharpToJava.Core.GenericPreprocess.GenericPreprocessOptions;
@@ -75,6 +76,9 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Invoked only when struct-value-semantics is enabled (keeps override loading lazy).</summary>
     public required Func<StructValueSemanticsOptions> StructValueSemanticsOptionsFactory { get; init; }
+
+    /// <summary>Invoked only when variance-audit is enabled (keeps override loading lazy).</summary>
+    public required Func<VarianceAuditOptions> VarianceAuditOptionsFactory { get; init; }
 
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
@@ -315,6 +319,12 @@ internal static class PassChainFactory
                 config.CompatNamespacePrefixes,
                 config.VerifyBuild,
                 config.VerifyTests),
+
+            PassIds.VarianceAudit => new VarianceAuditPassAdapter(
+                config.VarianceAuditOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes),
 
             PassIds.RecordReadOnly => new RecordReadOnlyPassAdapter(
                 config.RecordReadOnlyOptionsFactory(),

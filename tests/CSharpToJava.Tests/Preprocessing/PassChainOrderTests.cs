@@ -38,6 +38,7 @@ public sealed class PassChainOrderTests
         PassStubCatalog.Ids.NumericBoundary,
         PassIds.Generic,
         PassIds.GenericDeepen,
+        PassIds.VarianceAudit,
         PassIds.RecordReadOnly,
         PassIds.ArrayMethod,
         PassIds.IndexRange,
@@ -67,13 +68,15 @@ public sealed class PassChainOrderTests
     // extension-methods (C19) ships M0 as a verified no-op kept default-off until
     // the M3 enable-by-default gate (design §8).
     // concurrency-normalize is Implemented but a long-term opt-in (design §3.4/§8).
+    // variance-audit lands Implemented/default-off (audit-only skeleton).
     private static readonly string[] EnabledByDefault =
         LockedChain.Where(id =>
             id != PassStubCatalog.Ids.LexicalNormalize
             && id != PassStubCatalog.Ids.PartialMerge
             && id != PassStubCatalog.Ids.ClosureLift
             && id != PassIds.ExtensionMethods
-            && id != PassStubCatalog.Ids.ConcurrencyNormalize).ToArray();
+            && id != PassStubCatalog.Ids.ConcurrencyNormalize
+            && id != PassIds.VarianceAudit).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -280,6 +283,8 @@ public sealed class PassChainOrderTests
 
         Assert.Equal("C01", byId[PassIds.RefOutIn].CatalogItems);
         Assert.Equal("C02", byId[PassIds.GenericDeepen].CatalogItems);
+        Assert.Equal("C33", byId[PassIds.VarianceAudit].CatalogItems);
+        Assert.False(byId[PassIds.VarianceAudit].DefaultEnabled);
         Assert.Equal("C03, C37", byId[PassIds.PatternDesugar].CatalogItems);
         Assert.Equal("C04", byId[PassStubCatalog.Ids.IteratorLowering].CatalogItems);
         Assert.Equal("C15, C34, C17, C22", byId[PassStubCatalog.Ids.NumericBoundary].CatalogItems);
@@ -310,6 +315,7 @@ public sealed class PassChainOrderTests
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
             MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
             StructValueSemanticsOptionsFactory = () => new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
+            VarianceAuditOptionsFactory = () => new CSharpToJava.Core.VarianceAudit.VarianceAuditOptions(),
             EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
             LexicalNormalizeOptionsFactory = () => new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
             EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
@@ -423,7 +429,8 @@ public sealed class PassChainOrderTests
                 && id != PassStubCatalog.Ids.PartialMerge
                 && id != PassStubCatalog.Ids.ClosureLift
                 && id != PassIds.ExtensionMethods
-                && id != PassStubCatalog.Ids.ConcurrencyNormalize)
+                && id != PassStubCatalog.Ids.ConcurrencyNormalize
+                && id != PassIds.VarianceAudit)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

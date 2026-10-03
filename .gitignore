@@ -99,6 +99,7 @@ probe-out/
 .cs2j-enum-src/
 .cs2j-enum-declaration-src/
 .cs2j-record-readonly-src/
+.cs2j-variance-audit-src/
 .cs2j-array-src/
 .cs2j-pattern-desugar-src/
 .cs2j-iterator-lowering-src/

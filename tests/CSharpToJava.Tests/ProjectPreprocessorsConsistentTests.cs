@@ -211,6 +211,21 @@ public class ProjectPreprocessorsConsistentTests
             // C16 锚点描述符；C40 鸭子枚举器规则在同一 pass 内注册。
             Assert.Equal("C16, C40", foreachSourceDescriptor.CatalogItems);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.ForeachSourcePassAdapter));
+
+            // variance-audit (C33)：无门面类（设计决定），目录常量挂注册表描述符；
+            // 只读审计，默认关，经 --enable-pass variance-audit / --pass variance-audit 开启；
+            // 从不 verify build/tests（输出树与输入字节一致），无支撑库。
+            var varianceAuditDescriptor = PassCatalog.ImplementedById(PassIds.VarianceAudit);
+            Assert.Equal(".cs2j-variance-audit-src",
+                varianceAuditDescriptor.IntermediateDirectoryName);
+            Assert.Equal(PassStatus.Implemented, varianceAuditDescriptor.Status);
+            Assert.Equal(PassStage.Declarative, varianceAuditDescriptor.Stage);
+            Assert.False(varianceAuditDescriptor.DefaultEnabled);
+            Assert.False(varianceAuditDescriptor.VerifyBuildByDefault);
+            Assert.False(varianceAuditDescriptor.VerifyTestsByDefault);
+            Assert.Equal(PassSupportLibrary.None, varianceAuditDescriptor.SupportLibrary);
+            Assert.Equal("C33", varianceAuditDescriptor.CatalogItems);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.VarianceAuditPassAdapter));
         }
         finally
         {
