@@ -430,6 +430,7 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                $"exprtree-skip {i.ExpressionTreeSitesSkipped}, " +
                $"handler err{handlerErrors}|keep{handlerKept}, " +
                $"temps {i.TempsLifted}, residual {i.ResidualInterpolationCount}";
+    }
 
     /// <summary>
     /// C24 summary segment (design §5-2): site/Add/nesting/lowering buckets plus
