@@ -220,6 +220,227 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
         return base.VisitReturnStatement(node);
     }
 
+    // ---- 箭头体提升：表达式体成员/表达式 lambda 的 with 整体把 ArrowExpressionClause
+    // 换成「提升序列 + return clone」块（决策 10 扩展；站点直接性与可提升性已在分析期
+    // IsLiftableSite 闸门保证）。访问全程只读绿色原始节点，红块直接返回不重入 Visit。----
+
+    public override SyntaxNode? VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        if (TryGetArrowSite(node.ExpressionBody, node.Body,
+                out var w, out var plan, out var site))
+        {
+            var body = BuildArrowBodyBlock(w, plan!, site!);
+            return node.WithExpressionBody(null)
+                .WithSemicolonToken(default)
+                .WithBody(body)
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitMethodDeclaration(node);
+    }
+
+    public override SyntaxNode? VisitOperatorDeclaration(OperatorDeclarationSyntax node)
+    {
+        if (TryGetArrowSite(node.ExpressionBody, node.Body,
+                out var w, out var plan, out var site))
+        {
+            var body = BuildArrowBodyBlock(w, plan!, site!);
+            return node.WithExpressionBody(null)
+                .WithSemicolonToken(default)
+                .WithBody(body)
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitOperatorDeclaration(node);
+    }
+
+    public override SyntaxNode? VisitConversionOperatorDeclaration(ConversionOperatorDeclarationSyntax node)
+    {
+        if (TryGetArrowSite(node.ExpressionBody, node.Body,
+                out var w, out var plan, out var site))
+        {
+            var body = BuildArrowBodyBlock(w, plan!, site!);
+            return node.WithExpressionBody(null)
+                .WithSemicolonToken(default)
+                .WithBody(body)
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitConversionOperatorDeclaration(node);
+    }
+
+    public override SyntaxNode? VisitLocalFunctionStatement(LocalFunctionStatementSyntax node)
+    {
+        if (TryGetArrowSite(node.ExpressionBody, node.Body,
+                out var w, out var plan, out var site))
+        {
+            var body = BuildArrowBodyBlock(w, plan!, site!);
+            // 本地函数是语句：块是函数自有作用域，不拆入外层（外层 SpliceStatements
+            // 仅拆 BlockSyntax 产物，本节点保持 LocalFunctionStatement 原位）。
+            return node.WithExpressionBody(null)
+                .WithSemicolonToken(default)
+                .WithBody(body)
+                .WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitLocalFunctionStatement(node);
+    }
+
+    public override SyntaxNode? VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
+    {
+        // lambda 的 ExpressionBody 直接是表达式（无 ArrowExpressionClause 包裹）。
+        if (node.Block == null
+            && node.ExpressionBody is { } lambdaBody
+            && StripParens(lambdaBody) is WithExpressionSyntax w
+            && TryGetRewritable(w, out var plan, out var site))
+        {
+            var body = BuildArrowBodyBlock(w, plan!, site!);
+            // 表达式 lambda → 语句 lambda：operatorToken（=>）保留，仅把 ExpressionBody
+            // 换成 Block；块是 lambda 自有作用域，绝不拆入外层语句序列。
+            return node.WithExpressionBody(null)
+                .WithBlock(body)
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitParenthesizedLambdaExpression(node);
+    }
+
+    public override SyntaxNode? VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
+    {
+        if (node.Block == null
+            && node.ExpressionBody is { } lambdaBody
+            && StripParens(lambdaBody) is WithExpressionSyntax w
+            && TryGetRewritable(w, out var plan, out var site))
+        {
+            var body = BuildArrowBodyBlock(w, plan!, site!);
+            return node.WithExpressionBody(null)
+                .WithBlock(body)
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitSimpleLambdaExpression(node);
+    }
+
+    public override SyntaxNode? VisitPropertyDeclaration(PropertyDeclarationSyntax node)
+    {
+        // 声明级箭头属性 public T P => r with {...}; → { get { 提升; return clone; } }，
+        // 下游 C11 PropertyDeclarationExpander 按带块访问器展成 get_P()。
+        if (TryGetArrowSite(node.ExpressionBody, null,
+                out var w, out var plan, out var site))
+        {
+            var updated = node
+                .WithExpressionBody(null)
+                .WithSemicolonToken(default)
+                .WithAccessorList(SyntaxFactory.AccessorList(
+                    SyntaxFactory.SingletonList(
+                        SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                            .WithBody(BuildArrowBodyBlock(w, plan!, site!)))));
+            return updated.WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        if (node.AccessorList != null
+            && TryLiftAccessorArrows(node.AccessorList, out var newAccessors))
+        {
+            return node.WithAccessorList(newAccessors)
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitPropertyDeclaration(node);
+    }
+
+    public override SyntaxNode? VisitIndexerDeclaration(IndexerDeclarationSyntax node)
+    {
+        // 声明级箭头索引器 T this[...] => r with {...}; → { get { ...; return clone; } }，
+        // 下游 C12 IndexerDeclarationExpander 按 getAccessor.Body 原样携带。
+        if (TryGetArrowSite(node.ExpressionBody, null,
+                out var w, out var plan, out var site))
+        {
+            var updated = node
+                .WithExpressionBody(null)
+                .WithSemicolonToken(default)
+                .WithAccessorList(SyntaxFactory.AccessorList(
+                    SyntaxFactory.SingletonList(
+                        SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)
+                            .WithBody(BuildArrowBodyBlock(w, plan!, site!)))));
+            return updated.WithTrailingTrivia(node.GetTrailingTrivia())
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        if (node.AccessorList != null
+            && TryLiftAccessorArrows(node.AccessorList, out var newAccessors))
+        {
+            return node.WithAccessorList(newAccessors)
+                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+        }
+        return base.VisitIndexerDeclaration(node);
+    }
+
+    /// <summary>箭头体 with 站点识别：宿主无块体、箭头表达式剥括号后恰为可改写站点。
+    /// 闸门站点/非 with 箭头（含 with 埋在实参/运算子内）一律 false，走默认游历。</summary>
+    private bool TryGetArrowSite(
+        ArrowExpressionClauseSyntax? arrow,
+        BlockSyntax? blockBody,
+        out WithExpressionSyntax w,
+        out RecordClonePlan? plan,
+        out WithSite? site)
+    {
+        if (arrow != null
+            && blockBody == null
+            && StripParens(arrow.Expression) is WithExpressionSyntax ww
+            && TryGetRewritable(ww, out plan, out site))
+        {
+            w = ww;
+            return true;
+        }
+        w = null!;
+        plan = null;
+        site = null;
+        return false;
+    }
+
+    /// <summary>访问器列表内 get 箭头体逐个块化（set/init/add/remove 直接放 with 不合法，
+    /// 分析期不认领）。只替换命中访问器，其余原样。</summary>
+    private bool TryLiftAccessorArrows(
+        AccessorListSyntax accessorList,
+        out AccessorListSyntax rewritten)
+    {
+        var any = false;
+        var accessors = new List<AccessorDeclarationSyntax>();
+        foreach (var acc in accessorList.Accessors)
+        {
+            if (TryGetArrowSite(acc.ExpressionBody, acc.Body,
+                    out var w, out var plan, out var site))
+            {
+                accessors.Add(acc
+                    .WithExpressionBody(null)
+                    .WithSemicolonToken(default)
+                    .WithBody(BuildArrowBodyBlock(w, plan!, site!)));
+                any = true;
+            }
+            else
+            {
+                // 未命中访问器（块体 set/get，或箭头体非 with 站点）必须继续默认游历，
+                // 否则其中的语句位 with 会随红属性节点整体漏改。
+                accessors.Add((AccessorDeclarationSyntax)base.VisitAccessorDeclaration(acc)!);
+            }
+        }
+        rewritten = any
+            ? SyntaxFactory.AccessorList(SyntaxFactory.List(accessors))
+            : accessorList;
+        return any;
+    }
+
+    /// <summary>箭头体提升块：复用 <see cref="BuildLiftedBlock"/> 的 wsrc/wclone 单次求值
+    /// 与 set_X/字段直写发射，末尾 return 克隆体（箭头体在可编译输入中必为值返回位：
+    /// void 成员直接放 with 触发 CS0201；return clone 与原箭头返回语义等价）。</summary>
+    private BlockSyntax BuildArrowBodyBlock(
+        WithExpressionSyntax w,
+        RecordClonePlan plan,
+        WithSite site)
+    {
+        var (block, cloneName) = BuildLiftedBlock(w, plan, site, tail: null);
+        // return 与结果标识符间显式留白（同 VisitReturnStatement 的 token 融合教训）。
+        var @return = SyntaxFactory.ReturnStatement(
+            Identifier(cloneName).WithLeadingTrivia(SyntaxFactory.Space));
+        return block.AddStatements(@return);
+    }
+
     // ---- 表达式级：空初始化器内联（WR-3）；闸门站点挂跳过标注 ----
 
     public override SyntaxNode? VisitWithExpression(WithExpressionSyntax node)

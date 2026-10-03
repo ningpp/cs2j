@@ -194,8 +194,14 @@ internal static class CloneCtorResolver
 
     /// <summary>
     /// with 站点可提升性（决策 10，照抄 C11 PD-8 语句位纪律）：剥括号后必须直接位于
-    /// 表达式语句（块/switch 节/全局语句）、单变量局部声明、块/switch 节内 return。
+    /// 表达式语句（块/switch 节/全局语句）、单变量局部声明、块/switch 节内 return，
+    /// 或可整体改写成块形态的箭头体（表达式体方法/运算符/转换运算符/本地函数、表达式
+    /// lambda、属性/索引器 get 箭头体——重写期把 ArrowExpressionClause 换成含提升序列
+    /// 与 return clone 的 Block，下游 C11/C12 声明展开本就携带块体）。
     /// 空初始化器由调用方先行豁免（WR-3 纯内联）。
+    /// 仍不可提升：字段/属性初始化器（EqualsValueClause 挂 FieldDeclaration/
+    /// PropertyDeclaration）、特性实参、查询子句、埋在运算/实参等非语句表达式位——
+    /// 一律保持 CS2J5223。
     /// </summary>
     public static bool IsLiftableSite(WithExpressionSyntax withExpression)
     {
@@ -222,6 +228,51 @@ internal static class CloneCtorResolver
             case ReturnStatementSyntax r when r.Parent is BlockSyntax or SwitchSectionSyntax:
                 return true;
 
+            // with 是箭头表达式子句的整个表达式（剥括号停止位即 clause.Expression）：宿主
+            // 仅有 ExpressionBody（无 Block）时由重写期把箭头体换成块体。set/add/remove
+            // 等无值箭头体直接放 with 不合法（CS0201）；埋在箭头内其他表达式位的 with
+            // 父节点不是箭头子句，落 default 保持 5223。
+            case ArrowExpressionClauseSyntax arrow when arrow.Expression == node:
+                return IsLiftableArrowOwner(arrow.Parent);
+
+            // 表达式 lambda 无 ArrowExpressionClause 包裹：with 直接就是 lambda 体。
+            // 重写期改成语句 lambda（块为 lambda 自有作用域）。
+            case ParenthesizedLambdaExpressionSyntax pl when pl.Block == null
+                && pl.ExpressionBody == node:
+                return true;
+            case SimpleLambdaExpressionSyntax sl when sl.Block == null
+                && sl.ExpressionBody == node:
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>箭头子句宿主可提升性：值返回成员（表达式体方法/二元与一元运算符/转换运算符/
+    /// 本地函数）改块体后末尾 return clone；属性/索引器声明级箭头与 get 访问器箭头改
+    /// 访问器块体，下游 C11/C12 声明展开按 acc.Body 原样携带。表达式 lambda 体不挂
+    /// ArrowExpressionClause（在 <see cref="IsLiftableSite"/> 主 switch 直接认领）；
+    /// 构造器/终结器箭头体为语句上下文，直接放 with 不合法（CS0201），不认领。</summary>
+    private static bool IsLiftableArrowOwner(SyntaxNode? owner)
+    {
+        switch (owner)
+        {
+            case MethodDeclarationSyntax m:
+                return m.Body == null && m.ExpressionBody != null;
+            case OperatorDeclarationSyntax o:
+                return o.Body == null && o.ExpressionBody != null;
+            case ConversionOperatorDeclarationSyntax c:
+                return c.Body == null && c.ExpressionBody != null;
+            case LocalFunctionStatementSyntax l:
+                return l.Body == null && l.ExpressionBody != null;
+            case PropertyDeclarationSyntax p:
+                return p.ExpressionBody != null;
+            case IndexerDeclarationSyntax i:
+                return i.ExpressionBody != null;
+            case AccessorDeclarationSyntax a:
+                return a.Body == null && a.ExpressionBody != null
+                    && a.IsKind(SyntaxKind.GetAccessorDeclaration);
             default:
                 return false;
         }

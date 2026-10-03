@@ -43,10 +43,10 @@ internal static class RecordDiagnostics
     /// <summary>CS2J5223：with 位于不可临时提升的表达式上下文。</summary>
     public static string NonLiftableContext(string? typeFqn)
         => $"'with' expression{(typeFqn != null ? $" on '{typeFqn}'" : null)} sits in a context "
-         + "that cannot be lifted to statements (field/property initializer, expression-bodied "
-         + "member, attribute argument, query clause, non-statement expression position); the "
-         + "single-evaluation clone sequence cannot be emitted there; the with site was left "
-         + "unchanged.";
+         + "that cannot be lifted to statements (field/property initializer, attribute "
+         + "argument, query clause, non-statement expression position such as an operator "
+         + "operand or call argument); the single-evaluation clone sequence cannot be emitted "
+         + "there; the with site was left unchanged.";
 
     /// <summary>CS2J5224：M1 不收编的嵌套形态（嵌套 with 是 WR-5/M2；嵌套对象/集合初始化器 M2）。</summary>
     public static string UnsupportedNestedInitializer(string? typeFqn, string what)
