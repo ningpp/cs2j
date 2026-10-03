@@ -37,11 +37,10 @@ public sealed class ConcurrencyPreprocessor
     public void Analyze()
     {
         if (_analysis != null) return;
-        _ = _compilation
+        var compilation = _compilation
             ?? throw new InvalidOperationException(
                 "Preprocessor has not bound a compilation; call BindCompilation first.");
-        // M2a 骨架：分析/改写实现随后续提交接入（MonitorRewriteAnalyzer/LockRewriter）。
-        _analysis = new ConcurrencyAnalysis();
+        _analysis = new MonitorRewriteAnalyzer(_options).Analyze(compilation);
     }
 
     /// <summary>方法级 region plan（确定性排序）。</summary>
@@ -110,10 +109,35 @@ public sealed class ConcurrencyPreprocessor
             return null;
         }
 
-        // M2a 骨架：plan 已就位但改写管线随后续提交接入（LockRewriter），
-        // plan 方法保持原样 → 视为无改动。
-        statistics.FilesSkippedClean++;
-        return null;
+        var rewriter = new LockRewriter(_options, filePlans, filePath, statistics, diagnostics);
+        var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
+        rewriter.FinalizeCounters();
+
+        var changed = !newRoot.IsEquivalentTo(root);
+        if (!changed)
+        {
+            statistics.FilesSkippedClean++;
+            return null;
+        }
+
+        var outputCode = FormatAndValidate(newRoot);
+        if (outputCode == null)
+        {
+            // 单文件预筛失败保留原文；真正裁决在整树重编译（CLI 驱动），同 RR。
+            statistics.FilesSkippedClean++;
+            diagnostics.Add(new ConcurrencyDiagnostic(
+                ConcurrencySeverity.Warning,
+                ConcurrencyRule.CN2,
+                ConcurrencyDiagnosticCodes.PlanRollback,
+                "concurrency-normalize rewrite failed local parse validation; the original " +
+                "file was preserved pending whole-tree validation.",
+                filePath));
+            return null;
+        }
+
+        EmitRegionRewrittenInfos(rewriter.RewriteCountsByPlan, diagnostics, filePath);
+        statistics.FilesTransformed++;
+        return new ConcurrencyFileResult { OutputCode = outputCode, Changed = true };
     }
 
     /// <summary>
@@ -125,9 +149,10 @@ public sealed class ConcurrencyPreprocessor
         ConcurrencyStatistics? statistics = null)
     {
         ArgumentNullException.ThrowIfNull(compilation);
-        // M2a 骨架：对账实现随后续提交接入（ConcurrencyResidualScanner）。
-        if (statistics != null) statistics.ResidualMonitorCalls = 0;
-        return Array.Empty<ConcurrencyDiagnostic>();
+        return ConcurrencyResidualScanner.Scan(
+            compilation,
+            _analysis?.Plans ?? new List<ConcurrencyRegionPlan>(),
+            statistics);
     }
 
     /// <summary>仅格式化改动区间→整文件格式化→原文候选，每个候选重新解析零错误才返回（三候选，同 JK/RR/C09）。</summary>
@@ -174,6 +199,31 @@ public sealed class ConcurrencyPreprocessor
         });
     }
 
+    private static void EmitRegionRewrittenInfos(
+        IReadOnlyDictionary<string, (int Pairs, int TryEnters, int Waits)> rewriteCountsByPlan,
+        List<ConcurrencyDiagnostic> diagnostics,
+        string filePath)
+    {
+        foreach (var (planId, counts) in rewriteCountsByPlan.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            if (counts.Pairs == 0 && counts.TryEnters == 0 && counts.Waits == 0) continue;
+            var qualifiedName = planId.StartsWith("CN:", StringComparison.Ordinal)
+                ? planId[3..]
+                : planId;
+            diagnostics.Add(new ConcurrencyDiagnostic(
+                ConcurrencySeverity.Info,
+                ConcurrencyRule.CN2,
+                ConcurrencyDiagnosticCodes.RegionRewritten,
+                $"rewrote {counts.Pairs} Enter/Exit pair(s) into lock statements, " +
+                $"{counts.TryEnters} TryEnter site(s) into the canonical lockTaken form and " +
+                $"{counts.Waits} Wait overload(s).",
+                filePath,
+                0,
+                0,
+                qualifiedName));
+        }
+    }
+
     private static void CountLockStatements(CompilationUnitSyntax root, ConcurrencyStatistics statistics)
     {
         var locks = root.DescendantNodes().OfType<LockStatementSyntax>().ToList();
@@ -204,6 +254,13 @@ public sealed class ConcurrencyPreprocessor
         statistics.VolatileStaticApiSites += _analysis.VolatileStaticApiSites;
         statistics.OwnershipWarnings += _analysis.OwnershipWarnings;
         statistics.InfeasibleSites += _analysis.InfeasibleSites;
+        statistics.WaitSites += _analysis.WaitSites;
+        statistics.WaitSitesNoTimeout += _analysis.WaitSitesNoTimeout;
+        statistics.WaitSitesIntMs += _analysis.WaitSitesIntMs;
+        statistics.WaitSitesTimeSpan += _analysis.WaitSitesTimeSpan;
+        statistics.WaitSitesExitContext += _analysis.WaitSitesExitContext;
+        statistics.PulseSites += _analysis.PulseSites;
+        statistics.PulseAllSites += _analysis.PulseAllSites;
 
         // 跳过痕迹按诊断码分桶（2910/2921/2930：区域原样不动的站点）。
         foreach (var diagnostic in _analysis.Diagnostics)

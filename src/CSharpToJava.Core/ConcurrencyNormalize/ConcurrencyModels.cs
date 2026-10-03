@@ -96,8 +96,8 @@ internal sealed class EnterExitPairUnit
     public LocalDeclarationStatementSyntax? TakenDeclaration { get; init; }
     public ILocalSymbol? TakenLocal { get; init; }
 
-    /// <summary>锚语句（taken 声明或 Enter 语句，即首个被消费的语句）。</summary>
-    public required StatementSyntax AnchorStatement { get; init; }
+    /// <summary>锚节点（taken 声明或 Enter 语句，即首个被消费语句；无语句宿主时为调用节点本身）。</summary>
+    public required SyntaxNode AnchorStatement { get; init; }
     public required TextSpan AnchorSpan { get; init; }
     public required int ConsumedStatements { get; init; }
     public required bool Feasible { get; init; }
@@ -105,6 +105,9 @@ internal sealed class EnterExitPairUnit
 
     /// <summary>LockRewriter 状态：本单元已被消费。</summary>
     public bool Handled;
+
+    /// <summary>LockRewriter 状态：本单元已被实际改写（区别于仅消费/已规范 noop）。</summary>
+    public bool Rewritten;
 }
 
 /// <summary>CN-3 改写单元：一个 TryEnter 站点到规范形的归一。</summary>
@@ -138,7 +141,7 @@ internal sealed class TryEnterUnit
     public InvocationExpressionSyntax? ExitInvocation { get; init; }
     public StatementSyntax? ElseStatement { get; init; }
 
-    public required StatementSyntax AnchorStatement { get; init; }
+    public required SyntaxNode AnchorStatement { get; init; }
     public required TextSpan AnchorSpan { get; init; }
     public required int ConsumedStatements { get; init; }
     public required bool Feasible { get; init; }
@@ -150,8 +153,14 @@ internal sealed class TryEnterUnit
     public bool IsLockTaken { get; init; }
     public bool IsBareBool { get; init; }
 
+    /// <summary>lockTaken 语句形中包含 TryEnter 调用的语句（ref 形改写时替换该语句）。</summary>
+    public ExpressionStatementSyntax? CallStatement { get; init; }
+
     /// <summary>LockRewriter 状态：本单元已被消费。</summary>
     public bool Handled;
+
+    /// <summary>LockRewriter 状态：本单元已被实际改写（区别于仅消费/已规范 noop）。</summary>
+    public bool Rewritten;
 }
 
 /// <summary>CN-4 单站点改写单元：一个 Wait 调用的重载归一（独立于配对类原子性）。</summary>
@@ -168,12 +177,12 @@ internal sealed class WaitUnit
     public int ExitContextArgumentIndex { get; init; } = -1;
 
     /// <summary>exitContext 为常量 false → 折叠为 int 重载。</summary>
-    public bool ExitContextFoldable { get; init; }
+    public bool ExitContextFoldable { get; set; }
 
     /// <summary>exitContext 常量 true/变量 → CS2J2921，站点原样。</summary>
-    public bool SkipRewrite { get; init; }
+    public bool SkipRewrite { get; set; }
 
-    public required StatementSyntax AnchorStatement { get; init; }
+    public required SyntaxNode AnchorStatement { get; init; }
     public required TextSpan AnchorSpan { get; init; }
 
     /// <summary>LockRewriter 状态：本单元已被消费。</summary>
@@ -242,13 +251,20 @@ public sealed class ConcurrencyRegionPlan
     }
 }
 
-/// <summary>整树一次分析的结果：plan 集 + 全局审计诊断/计数（CN-6/7/9/10/11）。</summary>
+/// <summary>整树一次分析的结果：plan 集 + 全局审计诊断/计数（CN-4/5/6/7/9/10/11）。</summary>
 internal sealed class ConcurrencyAnalysis
 {
     public List<ConcurrencyRegionPlan> Plans { get; } = new();
     public List<ConcurrencyDiagnostic> Diagnostics { get; } = new();
     public Dictionary<string, int> IdentityAuditsByKind { get; } = new();
     public Dictionary<string, int> OutOfScopeSitesByType { get; } = new();
+    public int WaitSites;
+    public int WaitSitesNoTimeout;
+    public int WaitSitesIntMs;
+    public int WaitSitesTimeSpan;
+    public int WaitSitesExitContext;
+    public int PulseSites;
+    public int PulseAllSites;
     public int VolatileFieldsPrimitive;
     public int VolatileFieldsNonPrimitive;
     public int VolatileStaticApiSites;
