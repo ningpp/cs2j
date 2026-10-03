@@ -95,7 +95,7 @@ internal sealed class PropertyRule : IMemberDesugarRule
                 {
                     case AssignmentExpressionSyntax assign when assign.Parent is InitializerExpressionSyntax:
                         HandleInitializerAssignment(assign, model, filePath, candidates,
-                            siteFiles, siteFailures, liftableMemo);
+                            siteFiles, siteFailures, liftableMemo, options);
                         break;
 
                     case AssignmentExpressionSyntax assign:
@@ -310,15 +310,21 @@ internal sealed class PropertyRule : IMemberDesugarRule
         Dictionary<IPropertySymbol, (PropertyDeclarationSyntax Decl, SemanticModel Model)> candidates,
         Dictionary<IPropertySymbol, HashSet<string>> siteFiles,
         Dictionary<IPropertySymbol, (MemberDesugarDiagnosticCode Code, string Reason)> siteFailures,
-        Dictionary<SyntaxNode, bool> liftableMemo)
+        Dictionary<SyntaxNode, bool> liftableMemo,
+        MemberDesugarOptions options)
     {
         if (!TryCandidate(assign.Left, model, candidates, out var prop)) return;
 
         if (assign.Ancestors().OfType<WithExpressionSyntax>().Any())
         {
             Record(siteFiles, prop, filePath);
-            MarkFailure(siteFailures, prop, MemberDesugarDiagnosticCode.WithSite,
-                PropertyDiagnostics.WithSite(prop.Name));
+            // C27 5124 让位钩（开放问题 6 最小收口）：Records 子集开启且该 with 站点会被
+            // Records 规则改写成克隆体 set_X 时，本属性正常进候选（声明可展开为 set_X），
+            // 不再判 CS2J5124。谓词与 RecordRule 共用 RecordClaimIndex，禁两侧分歧；
+            // Records 关闭或站点属跳过族/嵌套初始化器时行为逐字节不变。
+            if (!RecordWithClaim.IsClaimedByRecords(assign, model, options))
+                MarkFailure(siteFailures, prop, MemberDesugarDiagnosticCode.WithSite,
+                    PropertyDiagnostics.WithSite(prop.Name));
             return;
         }
 
