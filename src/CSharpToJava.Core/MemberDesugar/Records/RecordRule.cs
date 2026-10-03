@@ -61,25 +61,10 @@ internal sealed class RecordRule : IMemberDesugarRule
         // ---- 2. 继承链组件 → 统一工厂定名（决策 2）----
         var factoryByType = new Dictionary<INamedTypeSymbol, FactoryDecision>(
             SymbolEqualityComparer.Default);
-        var nestedPending = new HashSet<INamedTypeSymbol>(
-            index.PendingNestedTypes, SymbolEqualityComparer.Default);
         foreach (var component in index.Components)
         {
             // 组件闸门（含位置 reshape 闸门）时不发任何工厂；候选类型以 GateCode 留诊断。
             if (component.GateCode != null) continue;
-
-            // M2 分步发射临时行为（RC-3/WR-5 翻开后条件自然恒 false）：
-            // ① 组件含嵌套 with 待 WR-5 放行的类型——按 M1 不发工厂；
-            // ② 组件中还有终形未就位的位置 record class——整个组件按 M1 不发工厂
-            //   （避免向未 reshape 声明注入工厂，中间提交输出与 M1 一致）。
-            if (component.Members.Any(t => nestedPending.Contains(t))) continue;
-            if (component.Members.Any(t =>
-                    CloneCtorResolver.IsRecordClass(t)
-                    && CloneCtorResolver.IsInSource(t)
-                    && CloneCtorResolver.IsPositional(t)
-                    && (!index.TryGetShape(t, out var pendingShape)
-                        || !RecordClaimIndex.IsEmissionReady(t, pendingShape))))
-                continue;
 
             var members = component.Members
                 .Where(CloneCtorResolver.IsRecordClass)
@@ -137,36 +122,6 @@ internal sealed class RecordRule : IMemberDesugarRule
                     gateCode = MemberDesugarDiagnosticCode.NonRecordClassWith;
                     gateReason = RecordDiagnostics.NonRecordClassWith(type.ToDisplayString(),
                         "no feasible record claim was produced for the with receiver type");
-                }
-            }
-
-            // M2 分步发射临时闸门（随 RC-3/RC-4/WR-5 提交翻开，全部翻开后删本段）：
-            // 分析已判可行的位置/struct/嵌套站点，在终形发射落地前维持 M1 的站点跳过
-            // 行为（沿用同码 5220/5224），保证每个中间提交 Enabled=true 的输出也合法。
-            if (gateCode == null && claim is { Feasible: true })
-            {
-                if (nestedPending.Contains(type))
-                {
-                    gateCode = MemberDesugarDiagnosticCode.UnsupportedNestedInitializer;
-                    gateReason = RecordDiagnostics.UnsupportedNestedInitializer(
-                        type.ToDisplayString(), "a nested 'with' expression");
-                }
-                // RC-4 已翻开位置 record struct 的声明 reshape，但 struct/record struct/
-                // tuple 的 with 站点值拷贝（WR-4）下一批才落地：站点维持 5220 跳过，
-                // 声明终形仍随本 plan 同遍发射（plan.Reshape 已挂物料）。
-                else if (type.TypeKind == TypeKind.Struct)
-                {
-                    gateCode = MemberDesugarDiagnosticCode.PositionalReshapeGate;
-                    gateReason = RecordDiagnostics.PositionalReshapeBlocked(type.ToDisplayString(),
-                        "value-copy rewriting for struct 'with' sites is staged in this milestone");
-                }
-                else if (!RecordClaimIndex.IsEmissionReady(type, shape))
-                {
-                    gateCode = MemberDesugarDiagnosticCode.PositionalReshapeGate;
-                    gateReason = RecordDiagnostics.PositionalReshapeBlocked(type.ToDisplayString(),
-                        shape != null
-                            ? "emission of its positional final form is staged in this milestone"
-                            : "value-copy rewriting for struct receivers is staged in this milestone");
                 }
             }
 

@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.MemberDesugar.Properties;
 
 namespace CSharpToJava.Core.MemberDesugar.Records;
 
@@ -241,19 +242,17 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
             return AnnotateSkipped(node);
         }
 
-        if (site.IsEmpty)
+        if (site.IsEmpty && !site.IsValueCopy)
         {
-            // WR-3：纯克隆，单次求值，无语句。
+            // WR-3：class 空 with 纯克隆，单次求值，无语句。
+            // struct/tuple 空 with 也要值拷贝局部（WR-4）——交给语句级提升，
+            // 落到这里（不可提升位）由分类期 IsLiftableSite 闸门与 residual 兜底。
             Changed = true;
             _stats.WithSitesTotal++;
             _stats.WithSitesClass++;
             _stats.WithSitesEmpty++;
-            if (_options.ReportInfo)
-                ReportInfo(plan, site);
-            return SyntaxFactory.InvocationExpression(
-                    FactoryAccess(MaybeParenthesize(node.Expression), plan.FactoryName!),
-                    SyntaxFactory.ArgumentList())
-                .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+            if (_options.ReportInfo) ReportInfo(plan, site);
+            return BuildEmptyCloneExpression(node.Expression, plan.FactoryName!);
         }
 
         // 非空站点由语句级提升接管；若意外落到这里（不可提升位），原样保留，
@@ -309,36 +308,73 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
     {
         var stmts = new List<StatementSyntax>();
 
-        // WR-1/决策 10：简单接收者（标识符/this）可直接重读零副作用观察；其余一律先提升，
-        // 保证源接收者只求值一次（方法返回、属性、数组元素、对象创建等）。
-        ExpressionSyntax source;
-        if (IsSafeReceiver(w.Expression))
+        // WR-5 接收者链（(a with {...}) with {...}）：先提升内层，外层源直接取内层克隆，
+        // 内层源只求值一次，内层赋值整体先于外层克隆构造。
+        var sourceExpression = w.Expression;
+        if (StripParens(sourceExpression) is WithExpressionSyntax receiverInner
+            && TryConsumeNestedWith(receiverInner, out var nestedStmts, out var nestedSource))
         {
-            source = w.Expression;
+            stmts.AddRange(nestedStmts);
+            sourceExpression = nestedSource;
+        }
+
+        // WR-1/决策 10：简单接收者（标识符/this/内层克隆标识符）可直接重读零副作用观察；
+        // 其余一律先提升，保证源接收者只求值一次（方法返回、属性、数组元素、对象创建等）。
+        ExpressionSyntax source;
+        if (IsSafeReceiver(sourceExpression))
+        {
+            source = sourceExpression;
         }
         else
         {
             var sourceName = MemberDesugarSyntaxFacts.TempName(ref _tempCounter, "wsrc");
-            stmts.Add(DeclVar(sourceName, w.Expression));
+            stmts.Add(DeclVar(sourceName, sourceExpression));
             _stats.TemporariesPromoted++;
             source = Identifier(sourceName);
         }
 
         var cloneName = MemberDesugarSyntaxFacts.TempName(ref _tempCounter, "wclone");
-        stmts.Add(DeclVar(cloneName, SyntaxFactory.InvocationExpression(
-            FactoryAccess(source, plan.FactoryName!), SyntaxFactory.ArgumentList())));
+        ExpressionSyntax cloneInit;
+        if (site.IsValueCopy)
+        {
+            // WR-4：struct/tuple 按值拷贝——克隆局部直接复制源局部，无工厂调用。
+            cloneInit = source;
+        }
+        else
+        {
+            cloneInit = SyntaxFactory.InvocationExpression(
+                FactoryAccess(source, plan.FactoryName!), SyntaxFactory.ArgumentList());
+        }
+        stmts.Add(DeclVar(cloneName, cloneInit));
         _stats.TemporariesPromoted++;
         var clone = Identifier(cloneName);
 
         foreach (var assignment in site.Assignments)
         {
+            var rhs = assignment.Syntax.Right;
+
+            // WR-5 右值链（a with { B = a.B with {...} }）：内层先提升，RHS 换内层克隆。
+            if (StripParens(rhs) is WithExpressionSyntax rhsInner
+                && TryConsumeNestedWith(rhsInner, out var rhsStmts, out var rhsReplacement))
+            {
+                stmts.AddRange(rhsStmts);
+                rhs = rhsReplacement;
+            }
+
+            // WR-4 左值形态：位置 record struct 的合成位置属性经 reshape 终形走 set_X；
+            // 普通 struct 属性/字段与元组 ItemN 对可变克隆局部一律直写。
+            var usePositionalSetter = site.IsValueCopy
+                && assignment is { IsProperty: true, Member: IPropertySymbol vp }
+                && site.ReceiverType is { IsRecord: true }
+                && PropertyFacts.IsPositionalRecordProperty(vp);
+
             ExpressionSyntax expression;
-            if (assignment.IsProperty)
+            if (assignment.IsProperty && (!site.IsValueCopy || usePositionalSetter))
             {
                 expression = SyntaxFactory.InvocationExpression(
                     FactoryAccess(clone, AccessorsToMethods.SetterName(assignment.MemberName)),
                     SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(
-                        SyntaxFactory.Argument(assignment.Syntax.Right))));
+                        SyntaxFactory.Argument(rhs))));
                 _stats.PropertyAssignments++;
             }
             else
@@ -346,7 +382,7 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
                 expression = SyntaxFactory.AssignmentExpression(
                     SyntaxKind.SimpleAssignmentExpression,
                     FactoryAccess(clone, assignment.MemberName),
-                    assignment.Syntax.Right);
+                    rhs);
                 _stats.FieldAssignments++;
             }
             stmts.Add(SyntaxFactory.ExpressionStatement(expression)
@@ -356,13 +392,95 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
         if (tail != null) stmts.Add(tail);
 
         _stats.WithSitesTotal++;
-        _stats.WithSitesClass++;
+        if (site.IsValueCopy)
+        {
+            _stats.WithSitesStruct++;
+            if (site.IsEmpty) _stats.WithSitesEmpty++;
+        }
+        else
+        {
+            _stats.WithSitesClass++;
+        }
         if (_options.ReportInfo) ReportInfo(plan, site);
 
         Changed = true;
         var block = SyntaxFactory.Block(stmts)
             .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
         return (block, cloneName);
+    }
+
+    /// <summary>
+    /// WR-5：消费直挂在接收者/RHS 位的内层 with。可行内层——class 空 with 内联为工厂
+    /// 调用（零语句），其余递归构造内层提升块，RHS/源替换为内层克隆标识符；闸门/豁免
+    /// 内层——整子树原子保留并给每个 with 挂跳过标注（防 residual 误报 5230）。
+    /// </summary>
+    private bool TryConsumeNestedWith(
+        WithExpressionSyntax inner,
+        out List<StatementSyntax> statements,
+        out ExpressionSyntax replacement)
+    {
+        statements = new List<StatementSyntax>();
+        if (_siteMap.TryGetValue(inner, out var hit))
+        {
+            var (nestedPlan, nestedSite) = hit;
+            if (nestedPlan.GateCode != null || !nestedSite.IsRewritable)
+            {
+                replacement = (ExpressionSyntax)new NestedSkipAnnotator(this).Visit(inner)!;
+                return true;
+            }
+            if (nestedSite.IsEmpty && !nestedSite.IsValueCopy)
+            {
+                Changed = true;
+                _stats.WithSitesTotal++;
+                _stats.WithSitesClass++;
+                _stats.WithSitesEmpty++;
+                if (_options.ReportInfo) ReportInfo(nestedPlan, nestedSite);
+                replacement = BuildEmptyCloneExpression(inner.Expression, nestedPlan.FactoryName!);
+                return true;
+            }
+            var (block, cloneName) = BuildLiftedBlock(inner, nestedPlan, nestedSite, tail: null);
+            statements.AddRange(block.Statements);
+            replacement = Identifier(cloneName);
+            return true;
+        }
+        if (_exemptSites.Contains(inner))
+        {
+            replacement = (ExpressionSyntax)new NestedSkipAnnotator(this).Visit(inner)!;
+            return true;
+        }
+        // 未登记的残余：原样返回，ReconcileResidual 以 5230 兜底。
+        replacement = inner;
+        return false;
+    }
+
+    /// <summary>WR-3 内联克隆表达式：<c>recv.Cs2jWithClone()</c>（复杂接收者加括号）。</summary>
+    private static InvocationExpressionSyntax BuildEmptyCloneExpression(
+        ExpressionSyntax receiver, string factoryName)
+        => SyntaxFactory.InvocationExpression(
+                FactoryAccess(MaybeParenthesize(receiver), factoryName),
+                SyntaxFactory.ArgumentList())
+            .WithAdditionalAnnotations(MemberDesugarSyntaxFacts.RewriteAnnotation);
+
+    /// <summary>
+    /// 嵌套消费中遇到闸门/豁免子树：给子树内全部 with 站点登记跳过并挂 SkipAnnotation，
+    /// 不做任何改写（原子保留）。只遍历挂标，不查跨度，红节点相对跨度问题不适用。
+    /// </summary>
+    private sealed class NestedSkipAnnotator : CSharpSyntaxRewriter
+    {
+        private readonly WithExpressionRewriter _owner;
+
+        public NestedSkipAnnotator(WithExpressionRewriter owner) => _owner = owner;
+
+        public override SyntaxNode? VisitWithExpression(WithExpressionSyntax node)
+        {
+            var visited = (WithExpressionSyntax?)base.VisitWithExpression(node);
+            if (visited == null) return null;
+            if (_owner._siteMap.TryGetValue(node, out var hit))
+                _owner.RegisterSkip(hit.Plan, hit.Site, node);
+            else if (!_owner._exemptSites.Contains(node))
+                return visited;
+            return visited.WithAdditionalAnnotations(SkipAnnotation);
+        }
     }
 
     private void ReportInfo(RecordClonePlan plan, WithSite site)
@@ -403,7 +521,8 @@ internal sealed class WithExpressionRewriter : CSharpSyntaxRewriter
         out WithSite? site)
     {
         if (_siteMap.TryGetValue(w, out var hit)
-            && hit.Plan.GateCode == null && hit.Site.IsRewritable && !hit.Site.IsEmpty)
+            && hit.Plan.GateCode == null && hit.Site.IsRewritable
+            && (!hit.Site.IsEmpty || hit.Site.IsValueCopy))
         {
             plan = hit.Plan;
             site = hit.Site;

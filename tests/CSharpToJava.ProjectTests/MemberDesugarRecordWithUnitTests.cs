@@ -538,7 +538,7 @@ public class MemberDesugarRecordWithUnitTests
     }
 
     [Fact]
-    public void Gate5224_NestedWith_OuterAndInnerUntouched()
+    public void WR5_NestedWith_RhsChain_PostOrderLift()
     {
         var src = """
             public record R
@@ -555,19 +555,60 @@ public class MemberDesugarRecordWithUnitTests
                 }
             }
             """;
-        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
-        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.UnsupportedNestedInitializer);
-        Assert.Equal(2, diags.Count(d => d.Code == MemberDesugarDiagnosticCode.UnsupportedNestedInitializer));
-        Assert.Contains("with", output);
-        AssertNotContains(output, "Cs2jWithClone");
-        Assert.Equal(0, stats.CloneFactoriesSynthesized);
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 外层克隆先建；构造 set_Next 的 RHS 时先提升内层，内层赋值先于外层 set_Next，
+        // RHS 最终替换为内层克隆标识符。
+        AssertContains(output, "var __cs2j_wclone0 = r.Cs2jWithClone();");
+        AssertContains(output, "__cs2j_wclone0.set_X(1);");
+        AssertContains(output, "var __cs2j_wclone1 = r.Cs2jWithClone();");
+        AssertContains(output, "__cs2j_wclone1.set_X(2);");
+        AssertContains(output, "__cs2j_wclone0.set_Next(__cs2j_wclone1);");
         Assert.Equal(0, stats.ResidualWithCount);
+        Assert.Equal(2, stats.WithSitesTotal);
+
+        var asm = CompileToAssembly(output);
+        var rType = asm.GetType("R")!;
+        var r1 = Activator.CreateInstance(rType)!;
+        var q = asm.GetType("P")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { r1 })!;
+        Assert.Equal(1, rType.GetMethod("get_X")!.Invoke(q, null));
+        var next = rType.GetMethod("get_Next")!.Invoke(q, null)!;
+        Assert.Equal(2, rType.GetMethod("get_X")!.Invoke(next, null));
+        Assert.NotSame(r1, q);
+        Assert.NotSame(r1, next);
     }
 
     [Fact]
-    public void Gate5220_RecordStruct_Untouched_M2()
+    public void Gate5224_NestedWith_NotDirectPosition_Untouched()
     {
-        // RC-4（record struct 值拷贝/reshape）落地前，record struct with 维持 5220 跳过。
+        // 内层 with 埋在 RHS 成员访问的接收者位（非外层接收者/非整个右值）→ 5224 原子跳过。
+        var src = """
+            public record R
+            {
+                public int X { get; set; }
+                public R? Next { get; set; }
+            }
+            public static class P
+            {
+                public static int Run(R r)
+                {
+                    var q = r with { X = (r with { X = 2 }).X };
+                    return q.X;
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.UnsupportedNestedInitializer);
+        Assert.Contains("with", output);
+        Assert.Equal(0, stats.ResidualWithCount);
+        AssertCompiles(output);
+    }
+
+    [Fact]
+    public void WR4_PlainRecordStruct_ValueCopy_DirectPropertyWrite()
+    {
         var src = """
             public record struct S
             {
@@ -582,13 +623,219 @@ public class MemberDesugarRecordWithUnitTests
                 }
             }
             """;
-        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
-        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
-        Assert.Equal(1, stats.SkippedByReason[MemberDesugarDiagnosticCode.PositionalReshapeGate]);
-        Assert.Contains("with", output);
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 无工厂：克隆局部直接按值复制源；Records 发属性直写，C11 归一为 set_X，
+        // 但绝不出现克隆工厂。
+        AssertContains(output, "var __cs2j_wclone0 = s;");
+        AssertContains(output, "__cs2j_wclone0.set_X(1);");
         AssertNotContains(output, "Cs2jWithClone");
         Assert.Equal(0, stats.CloneFactoriesSynthesized);
+        Assert.Equal(1, stats.WithSitesStruct);
+        Assert.Equal(0, stats.WithSitesClass);
         Assert.Equal(0, stats.ResidualWithCount);
+
+        var asm = CompileToAssembly(output);
+        var sType = asm.GetType("S")!;
+        var s1 = Activator.CreateInstance(sType)!;
+        var s2 = asm.GetType("P")!.GetMethod("RunS", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { s1 })!;
+        Assert.Equal(1, sType.GetMethod("get_X")!.Invoke(s2, null));
+        Assert.Equal(0, sType.GetMethod("get_X")!.Invoke(s1, null));
+    }
+
+    [Fact]
+    public void WR4_Tuple_ItemNDirectWrite()
+    {
+        var src = """
+            public static class P
+            {
+                public static (int A, string B) Run((int A, string B) t)
+                {
+                    return t with { Item1 = 2 };
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 元组接收者在树外（orphan plan）：双局部值拷贝，ItemN 直写，无工厂/无 set_X。
+        AssertContains(output, "var __cs2j_wclone0 = t;");
+        AssertContains(output, "__cs2j_wclone0.Item1 = 2;");
+        AssertNotContains(output, "Cs2jWithClone");
+        AssertNotContains(output, "set_Item1");
+        Assert.Equal(1, stats.WithSitesStruct);
+        Assert.Equal(0, stats.ResidualWithCount);
+
+        var asm = CompileToAssembly(output);
+        var result = asm.GetType("P")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new object[] { (1, "x") })!;
+        var tuple = ((int A, string B))result;
+        Assert.Equal((2, "x"), tuple);
+    }
+
+    [Fact]
+    public void WR4_EmptyStruct_AlwaysLifts_AndSourceEvaluatedOnce()
+    {
+        // 空 with：struct 也保守发双局部；非安全接收者先提升 wsrc，保证只求值一次。
+        var src = """
+            public record struct S
+            {
+                public int X { get; set; }
+                public static int Calls;
+                public static S Make() { Calls++; return new S(); }
+            }
+            public static class P
+            {
+                public static (S, S, int) Run(S s)
+                {
+                    var a = s with { };
+                    var b = S.Make() with { };
+                    return (a, b, S.Calls);
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        AssertContains(output, "var __cs2j_wclone0 = s;");
+        AssertContains(output, "var __cs2j_wsrc1 = S.Make();");
+        AssertContains(output, "var __cs2j_wclone2 = __cs2j_wsrc1;");
+        AssertNotContains(output, "Cs2jWithClone");
+        Assert.Equal(2, stats.WithSitesStruct);
+        Assert.Equal(2, stats.WithSitesEmpty);
+
+        var asm = CompileToAssembly(output);
+        var sType = asm.GetType("S")!;
+        var s0 = Activator.CreateInstance(sType)!;
+        var tuple = (System.Runtime.CompilerServices.ITuple)asm.GetType("P")!
+            .GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { s0 })!;
+        Assert.Equal(1, tuple[2]);
+        Assert.NotSame(tuple[0], s0);
+        Assert.NotSame(tuple[1], s0);
+    }
+
+    [Fact]
+    public void WR5_NestedWith_ReceiverChain_PostOrder()
+    {
+        var src = """
+            public record R
+            {
+                public int X { get; set; }
+            }
+            public static class P
+            {
+                public static R Run(R r)
+                {
+                    var q = (r with { X = 1 }) with { X = 3 };
+                    return q;
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        AssertContains(output, "var __cs2j_wclone0 = r.Cs2jWithClone();");
+        AssertContains(output, "__cs2j_wclone0.set_X(1);");
+        // 外层源直接取内层克隆，不再读 r，也不发 wsrc。
+        AssertContains(output, "var __cs2j_wclone1 = __cs2j_wclone0.Cs2jWithClone();");
+        AssertContains(output, "__cs2j_wclone1.set_X(3);");
+        AssertNotContains(output, "__cs2j_wsrc");
+        Assert.Equal(2, stats.WithSitesTotal);
+
+        var asm = CompileToAssembly(output);
+        var rType = asm.GetType("R")!;
+        var r1 = Activator.CreateInstance(rType)!;
+        var q = asm.GetType("P")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { r1 })!;
+        Assert.Equal(3, rType.GetMethod("get_X")!.Invoke(q, null));
+        Assert.Equal(0, rType.GetMethod("get_X")!.Invoke(r1, null));
+    }
+
+    [Fact]
+    public void WR5_NestedWith_OuterClass_InnerStruct_Mixed()
+    {
+        var src = """
+            public record struct Box(int N);
+            public record class Holder
+            {
+                public Box B { get; set; }
+            }
+            public static class P
+            {
+                public static Holder Run(Holder h, Box b)
+                {
+                    return h with { B = b with { N = 7 } };
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 外层克隆局部先声明（wclone0），构造 RHS 时内层 struct 值拷贝再提升（wclone1），
+        // 二者独立，次序不影响语义；外层 set_B 的 RHS 最终为内层克隆标识符。
+        AssertContains(output, "var __cs2j_wclone0 = h.Cs2jWithClone();");
+        AssertContains(output, "var __cs2j_wclone1 = b;");
+        AssertContains(output, "__cs2j_wclone1.set_N(7);");
+        AssertContains(output, "__cs2j_wclone0.set_B(__cs2j_wclone1);");
+        Assert.Equal(1, stats.WithSitesStruct);
+        Assert.Equal(1, stats.WithSitesClass);
+
+        var asm = CompileToAssembly(output);
+        var holderType = asm.GetType("Holder")!;
+        var boxType = asm.GetType("Box")!;
+        var h0 = Activator.CreateInstance(holderType)!;
+        var b0 = Activator.CreateInstance(boxType, 0)!;
+        var h1 = asm.GetType("P")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { h0, b0 })!;
+        var b1 = holderType.GetMethod("get_B")!.Invoke(h1, null)!;
+        Assert.Equal(7, boxType.GetMethod("get_N")!.Invoke(b1, null));
+        Assert.Equal(0, boxType.GetMethod("get_N")!.Invoke(b0, null));
+    }
+
+    [Fact]
+    public void WR5_NestedWith_ThreeLevels_PostOrder()
+    {
+        var src = """
+            public record R
+            {
+                public int X { get; set; }
+                public R? Next { get; set; }
+            }
+            public static class P
+            {
+                public static R Run(R r)
+                {
+                    var q = r with { Next = r with { Next = r with { X = 9 } } };
+                    return q;
+                }
+            }
+            """;
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
+        AssertCompiles(output);
+        // 最内层最先，逐层向外，每层 RHS 都是内层克隆标识符。
+        AssertContains(output, "__cs2j_wclone2.set_X(9);");
+        AssertContains(output, "__cs2j_wclone1.set_Next(__cs2j_wclone2);");
+        AssertContains(output, "__cs2j_wclone0.set_Next(__cs2j_wclone1);");
+        var normalized = Normalize(output);
+        Assert.True(normalized.IndexOf("__cs2j_wclone2.set_X(9)", StringComparison.Ordinal)
+            < normalized.IndexOf("__cs2j_wclone1.set_Next(__cs2j_wclone2)", StringComparison.Ordinal));
+        Assert.True(normalized.IndexOf("__cs2j_wclone1.set_Next(__cs2j_wclone2)", StringComparison.Ordinal)
+            < normalized.IndexOf("__cs2j_wclone0.set_Next(__cs2j_wclone1)", StringComparison.Ordinal));
+        Assert.Equal(3, stats.WithSitesTotal);
+        Assert.Equal(0, stats.ResidualWithCount);
+
+        var asm = CompileToAssembly(output);
+        var rType = asm.GetType("R")!;
+        var r1 = Activator.CreateInstance(rType)!;
+        var q = asm.GetType("P")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { r1 })!;
+        var lvl1 = rType.GetMethod("get_Next")!.Invoke(q, null)!;
+        var lvl2 = rType.GetMethod("get_Next")!.Invoke(lvl1, null)!;
+        Assert.Equal(9, rType.GetMethod("get_X")!.Invoke(lvl2, null));
     }
 
     [Fact]
@@ -1065,9 +1312,8 @@ public class MemberDesugarRecordWithUnitTests
     // ---- RC-4：位置 record struct reshape（WR-4 站点值拷贝下一批落地）----
 
     [Fact]
-    public void M2_PositionalStruct_ReshapeFinalShape_SiteStaging5220()
+    public void M2_PositionalStruct_ReshapeAndWith_ValueCopySetX()
     {
-        // RC-4：声明终形同遍发射；with 站点在 WR-4 落地前维持 5220 原子跳过。
         var src = """
             public record struct Point(int X, int Y);
             public static class P
@@ -1075,7 +1321,8 @@ public class MemberDesugarRecordWithUnitTests
                 public static Point Run(Point p) { return p with { X = 2 }; }
             }
             """;
-        var (output, stats, diags) = Rewrite(src, Enabled(strict: false));
+        var (output, stats, diags) = Rewrite(src, Enabled());
+        AssertNoErrors(diags);
 
         // 终形：去参数表；字段/get/set；public 主 ctor + 必发 public 无参 ctor；Deconstruct。
         AssertContains(output, "public record struct Point");
@@ -1092,14 +1339,24 @@ public class MemberDesugarRecordWithUnitTests
         AssertNotContains(output, "Cs2jWithClone");
         AssertNotContains(output, "public new void Deconstruct");
 
-        // 站点维持原样（WR-4 前终形尚无 X 属性，产物按 5220 不保证独立可编译——与
-        // 所有闸门跳过族同语义：strict 下即编译期错误，禁止部分改写）。
-        AssertContains(output, "p with { X = 2 }");
-        Assert.Contains(diags, d => d.Code == MemberDesugarDiagnosticCode.PositionalReshapeGate);
-        Assert.Equal(1, stats.SkippedByReason[MemberDesugarDiagnosticCode.PositionalReshapeGate]);
+        // WR-4 站点：克隆局部按值复制，位置属性走终形 set_X。
+        AssertContains(output, "var __cs2j_wclone0 = p;");
+        AssertContains(output, "__cs2j_wclone0.set_X(2);");
+        AssertNotContains(output, " with ");
         Assert.Equal(1, stats.PositionalRecordsReshaped);
+        Assert.Equal(1, stats.WithSitesStruct);
         Assert.Equal(0, stats.CloneFactoriesSynthesized);
         Assert.Equal(0, stats.ResidualWithCount);
+        AssertCompiles(output);
+
+        var asm = CompileToAssembly(output);
+        var pType = asm.GetType("Point")!;
+        var p1 = Activator.CreateInstance(pType, 1, 9)!;
+        var p2 = asm.GetType("P")!.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!
+            .Invoke(null, new[] { p1 })!;
+        Assert.Equal(2, pType.GetMethod("get_X")!.Invoke(p2, null));
+        Assert.Equal(9, pType.GetMethod("get_Y")!.Invoke(p2, null));
+        Assert.Equal(1, pType.GetMethod("get_X")!.Invoke(p1, null));
     }
 
     [Fact]

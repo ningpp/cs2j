@@ -16,18 +16,6 @@ internal sealed class RecordClaimIndex
 {
     private static readonly ConditionalWeakTable<Compilation, RecordClaimIndex> _cache = new();
 
-    // M2 分步发射闸门（随提交翻开，最终随 WR-5 一并删除）：分析/物料/认领计算全部先行，
-    // 但嵌套 with（WR-5）落地前，运行期维持 M1 站点跳过行为，保证每个中间提交
-    // Enabled=true 输出也合法且与 M1 一致。RC-3（位置 record class reshape）与
-    // RC-4（位置 record struct reshape）均已翻开；struct with 站点值拷贝（WR-4）
-    // 在 RecordRule 按 TypeKind.Struct 临时维持 5220。
-    //   NestedWithEnabled：WR-5（嵌套 with 后序重写）
-    internal const bool NestedWithEnabled = false;
-
-    /// <summary>该类型的 M2 新路径发射是否已随提交就位（RecordRule 临时闸门 / 5123 认领共用）。
-    /// RC-3/RC-4 均已翻开故恒真；保留方法壳与 NestedWithEnabled 同批于 WR-5 删除。</summary>
-    internal static bool IsEmissionReady(INamedTypeSymbol type, PositionalShape? shape) => true;
-
     private readonly Dictionary<string, SiteClaim> _sitesByKey = new(StringComparer.Ordinal);
     private readonly Dictionary<INamedTypeSymbol, TypeClaim> _typeClaims =
         new(SymbolEqualityComparer.Default);
@@ -36,13 +24,6 @@ internal sealed class RecordClaimIndex
     // M2：通过 5220 闸门、本 run 实际要 reshape 的位置 record 物料（键归 OriginalDefinition）。
     private readonly Dictionary<INamedTypeSymbol, PositionalShape> _shapes =
         new(SymbolEqualityComparer.Default);
-    // M2 临时（WR-5 翻开前）：含嵌套 with 的接收者类型集合——plan 维持 5224 站点跳过、
-    // 所属组件不发工厂（M1 行为）。NestedWithEnabled 翻开后恒空。
-    private readonly HashSet<INamedTypeSymbol> _nestedPendingTypes =
-        new(SymbolEqualityComparer.Default);
-
-    /// <summary>临时闸门：含嵌套 with、WR-5 落地前整 plan 跳过且不发工厂的类型。</summary>
-    public IReadOnlyCollection<INamedTypeSymbol> PendingNestedTypes => _nestedPendingTypes;
 
     public bool IsEmpty => _sitesByKey.Count == 0;
     public IReadOnlyCollection<SiteClaim> Sites => _sitesByKey.Values;
@@ -70,20 +51,6 @@ internal sealed class RecordClaimIndex
 
         foreach (var site in rawSites)
             index._sitesByKey[SiteKey(site.FilePath, site.SpanStart)] = site;
-
-        // M2 临时（WR-5 翻开后本段恒空）：嵌套 with 双方接收者类型登记，供 RecordRule
-        // 维持 M1 的 5224 整 plan 跳过 + 组件不发工厂。
-        if (!NestedWithEnabled)
-        {
-            foreach (var site in rawSites)
-            {
-                if (site.FailCode != null || site.ReceiverType is not { } nestedReceiver) continue;
-                var isNested = site.Syntax.Ancestors().OfType<WithExpressionSyntax>().Any()
-                    || site.Syntax.DescendantNodes().OfType<WithExpressionSyntax>().Any();
-                if (isNested)
-                    index._nestedPendingTypes.Add(nestedReceiver.OriginalDefinition);
-            }
-        }
 
         // ---- 2. 源内 record 全集 + 元数据 record 全集（树外派生探测）----
         // 全部归一 OriginalDefinition（构造形 Box<int> 与定义形 Box<T> 去重）。
@@ -318,8 +285,6 @@ internal sealed class RecordClaimIndex
         if (type == null || !_shapes.TryGetValue(type, out var shape)) return false;
         // 原子性：类型认领不可行（任意站点命中闸门）时声明不 reshape，位置属性不认领。
         if (!_typeClaims.TryGetValue(type, out var claim) || !claim.Feasible) return false;
-        // reshape 终形未发射的中间提交不认领（PropertyRule 维持 5123，输出与 M1 一致）。
-        if (!IsEmissionReady(type, shape)) return false;
         var target = prop.OriginalDefinition;
         return shape.Members.Any(m => SymbolEqualityComparer.Default.Equals(
             m.Property.OriginalDefinition, target));
@@ -450,6 +415,19 @@ internal sealed class RecordClaimIndex
                 receiverType: named);
         }
 
+        // WR-5 嵌套形态（v1 只收编直挂链）：内层 with 必须是外层接收者本身
+        // （(a with {...}) with {...} 链式）或外层某个初始化器赋值的整个右值
+        // （a with { B = a.B with {...} }）；埋在更深表达式内（方法实参、成员访问
+        // 接收者、运算子等）的内层 with 无法只靠局部提升保序，整站点 5224 跳过。
+        var parentWith = w.Ancestors().OfType<WithExpressionSyntax>().FirstOrDefault();
+        if (parentWith != null && !IsDirectNestedPosition(w, parentWith))
+            return SiteClaim.Fail(w, filePath, span,
+                MemberDesugarDiagnosticCode.UnsupportedNestedInitializer,
+                RecordDiagnostics.UnsupportedNestedInitializer(named.ToDisplayString(),
+                    "a nested 'with' expression is neither the outer receiver nor the "
+                    + "entire right-value of an outer initializer assignment"),
+                receiverType: named);
+
         // readonly 值类型非空 with：克隆局部的字段/属性仍只读（CS8340/CS8341），
         // set_X/字段直写无合法发射面 → 5220；空 with 纯值拷贝不受限。
         var hasInitializer = w.Initializer is { Expressions.Count: > 0 };
@@ -547,6 +525,24 @@ internal sealed class RecordClaimIndex
             FailCode = null,
             FailReason = null,
         };
+    }
+
+    /// <summary>WR-5：内层 with 是否处在外层的直挂可提升位（外层接收者或某赋值整个右值）。</summary>
+    private static bool IsDirectNestedPosition(
+        WithExpressionSyntax inner, WithExpressionSyntax outer)
+    {
+        if (StripParens(outer.Expression) == inner) return true;
+        return outer.Initializer is { } init
+            && init.Expressions.OfType<AssignmentExpressionSyntax>()
+                .Any(a => a.IsKind(SyntaxKind.SimpleAssignmentExpression)
+                    && StripParens(a.Right) == inner);
+    }
+
+    private static ExpressionSyntax StripParens(ExpressionSyntax expression)
+    {
+        while (expression is ParenthesizedExpressionSyntax parenthesized)
+            expression = parenthesized.Expression;
+        return expression;
     }
 
     private static SiteClaim FailInitializer(
