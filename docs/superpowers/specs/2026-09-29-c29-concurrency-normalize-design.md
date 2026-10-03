@@ -412,11 +412,11 @@ fixture 与合成样本断言：输出树 Monitor 绑定站点数 = active 改�
 
 - 分支：`feature/preproc-c29-concurrency-normalize`
 - 目录：`.worktrees/preproc-c29-concurrency-normalize`
-- base：`953293b9`（`docs: update doc base commit`，2026-09-29 校订已核仍存在；**当前 HEAD `ef70e5a2`**，文首附录⑧原即要求建树后 rebase 到当时 dev-3.x HEAD `ef70e5a2`，两者现已一致）
-- 创建命令（**只写不执行——由实施 worktree 执行，本设计任务不执行任何 git 写操作**）：
+- base：`dcda0151`（dev-3.x-26100311 HEAD，2026-10-03 更新；worktree 已按此 base 直接创建，无需建树后 rebase，附录⑧原「base `953293b9` + 建树后 rebase」流程由本次直接建树替代）
+- 创建命令（已执行）：
 
 ```powershell
-git worktree add .worktrees/preproc-c29-concurrency-normalize -b feature/preproc-c29-concurrency-normalize 953293b9
+git worktree add .worktrees/preproc-c29-concurrency-normalize -b feature/preproc-c29-concurrency-normalize dcda0151
 ```
 
 实施约束：仅在上述 worktree 内改码；按 §9 里程碑逐提交；M2 翻转即 Implemented + 默认关；FrontLoadLock/FrontLoadVolatile 不接实现；转换器与 compat 改动（§5.4）留后续 PR；默认开评审前必须先有 M1/M3 频率与 Java 半区证据。
@@ -425,7 +425,7 @@ git worktree add .worktrees/preproc-c29-concurrency-normalize -b feature/preproc
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令原定 base `953293b9` + 建树后 rebase；2026-10-03 已改为直接以 dev-3.x-26100311 HEAD `dcda0151` 建树（§12），stub 计数红灯由首个锚点翻转 PR 按真值收口。
 
 **裁决（散见决策表/里程碑门的悬置项，按主题收口）：**
 
