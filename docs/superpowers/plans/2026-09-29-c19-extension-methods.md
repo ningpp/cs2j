@@ -114,6 +114,8 @@ EM-LINQ 混合链策略定稿（探针④基础上：用户扩展夹 LINQ 链的
 
 **验证**：设计 §8 六门槛证据齐备；三测试工程 Release 全绿；fixture/sdk 零新增失败。
 
+> **M4 完成（2026-10-03，commits `c6df52e5`/`1e8d26de`/`4348241a`/`74ee97bd` + docs 门槛 commit）**：六门槛逐项证据、sdk Probe5/Probe6 数据、转换器 M5 缺口清单与「不翻 DefaultEnabled」结论见设计文档「M4 实施记录（2026-10-03）」M4-1～M4-7（含提交 SHA 全表）。Probe6 实证修复插值洞左缘 `global::` CS0103（Core 11 例锁定）。
+
 ---
 
 ## M5 默认开 + 旧资产退役（后续 PR，本特性 PR 不含代码）

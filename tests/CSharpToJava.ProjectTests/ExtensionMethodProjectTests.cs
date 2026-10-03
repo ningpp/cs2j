@@ -112,9 +112,16 @@ public class ExtensionMethodProjectTests
             var runtimeTests = await File.ReadAllTextAsync(
                 Directory.GetFiles(intermediateRoot, "RuntimeBehaviorTests.cs", SearchOption.AllDirectories).Single());
             Assert.Contains("global::SampleExtLib.Text.TextExtensions.Shout(\"a\")", runtimeTests);
+            // M4 mixed-LINQ policy: user-host sites chained with LINQ
+            // (RequireNonEmpty().ToList()) are conservatively kept as sugar
+            // (2 sites, EM001 + summary counter); the non-LINQ user sites in
+            // the same file are still explicitized.
+            Assert.Contains("missing.RequireNonEmpty().ToList()", runtimeTests);
+            Assert.Contains("Array.Empty<string>().RequireNonEmpty().ToList()", runtimeTests);
             Assert.Contains(
-                "global::SampleExtLib.Collections.CollectionExtensions.RequireNonEmpty(missing)",
+                "global::SampleExtLib.Collections.CollectionExtensions.RequireNonEmpty(new[] { \"a\", \"b\", \"c\" })",
                 runtimeTests);
+            Assert.Contains("2 mixed-LINQ chain sites conservatively skipped", stdout);
 
             // Clean file (no sugar): byte-copied including its UTF-8 BOM.
             var sourceClean = Path.Combine(fixture, "SampleExtApp", "CleanMarker.cs");

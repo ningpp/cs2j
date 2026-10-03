@@ -183,7 +183,7 @@ Description                 = "Explicitize extension method calls to static host
 ### 4.2 跨项目 / 元数据边界
 
 1. **图内用户 host（含多工程）**：merged compilation 把所有未排除工程的 .cs 合编，Lib 声明/App 调用是同编译内绑定，`ContainingType.Locations[0].IsInSource == true`、`DeclaringSyntaxReferences` 非空 → `InCompilationUser`，无条件改写。
-2. **注入的支撑工程**：支撑工程源码由其注入 pass 复制进中间树且**不被 pass 自身排除**（merged compilation 直接可见），同样是源码符号 → `InCompilationSupport`；改写为对支撑 C# 类型的全限定静态调用，中间树 build/test 直接验证，Java 侧交转换器映射到 compat 对应物。Java 侧/指纹侧过滤的**现机制**（2026-09-29 复核）：描述符 `SupportLibrary` 字段（[PassDescriptor.cs:96](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassDescriptor.cs#L96)）经 [CliPreprocessChain.cs:108-111](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs#L108-L111) 汇总为 executedSupportLibraries，[Program.cs:264-267](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L264-L267) 在指纹快照前调 [PassChainFactory.IsExecutedSupportLibraryProject](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L264-L274) 过滤；**该函数现仅识别 Cs2jUnsignedMath/Cs2jArray/Cs2jRefOutIn 三类工程**（虽 `PassSupportLibrary` 枚举五值齐全）。Prelude/Tuples 的 Java 侧排除路径不经此函数（`Cs2jPreludeProject.IsCs2jPreludeProject` 当前零调用方），列为开放问题 Q7，实施前核实——本 pass 不改动该机制（描述符 `SupportLibrary=None`）。**【M3 已闭环 2026-10-06：prelude 两条排除路径均已补齐，见文末「M3 实施记录」M3-4】**
+2. **注入的支撑工程**：支撑工程源码由其注入 pass 复制进中间树且**不被 pass 自身排除**（merged compilation 直接可见），同样是源码符号 → `InCompilationSupport`；改写为对支撑 C# 类型的全限定静态调用，中间树 build/test 直接验证，Java 侧交转换器映射到 compat 对应物。Java 侧/指纹侧过滤的**现机制**（2026-09-29 复核）：描述符 `SupportLibrary` 字段（[PassDescriptor.cs:96](file:///d:/code/cs2j/src/CSharpToJava.Core/Preprocessing/PassDescriptor.cs#L96)）经 [CliPreprocessChain.cs:108-111](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/CliPreprocessChain.cs#L108-L111) 汇总为 executedSupportLibraries，[Program.cs:264-267](file:///d:/code/cs2j/src/CSharpToJava.CLI/Program.cs#L264-L267) 在指纹快照前调 [PassChainFactory.IsExecutedSupportLibraryProject](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassChainFactory.cs#L264-L274) 过滤；**该函数现仅识别 Cs2jUnsignedMath/Cs2jArray/Cs2jRefOutIn 三类工程**（虽 `PassSupportLibrary` 枚举五值齐全）。Prelude/Tuples 的 Java 侧排除路径不经此函数（`Cs2jPreludeProject.IsCs2jPreludeProject` 当前零调用方），列为开放问题 Q7，实施前核实——本 pass 不改动该机制（描述符 `SupportLibrary=None`）。**【M3 已闭环 2026-10-03：prelude 两条排除路径均已补齐，见文末「M3 实施记录」M3-4】**
 3. **metadata host（BCL/NuGet）**：符号来自 `MetadataReference`，无源码位置 → `ExternalMetadata`；默认改写（决策 EM-EXTERNAL），是否「有 Java 落点」由适配器结合 TypeMappings 查表做**诊断分级**（Core 不依赖 CLI 的映射表——Core 只打分类标签，host→是否可映射的判定函数由适配器注入，保持 Core 无 TypeMappings 依赖）。
 4. **已知边界**：runner 的 `GetBasicReferences()` 只含基础引用，不含中间树 restore 出来的 NuGet 程序集；这些程序集提供的扩展方法可能绑定失败（Info→CS2J1202）或错误绑定。**M0 在 sdk 上测量 reduced 站点的绑定成功率**；若不可绑比例可观，M3 增强适配器 `GetMetadataReferences()`：经 ProjectGraph 枚举 restore 输出目录程序集补充引用（按工程分组、构建 per-project compilation 是更重的备选，非必要不做）。见开放问题 Q2。
 5. **单文件 verb 模式**：本 pass 无跨文件计划，但绑定依赖编译引用完整性；引用不全导致的非 reduced 结论与真「非扩展」无法区分时保守不改 + CS2J1290 Warning（仿 JK090/C02-1190 口径）。
@@ -425,7 +425,7 @@ git worktree add .worktrees/preproc-c19-extension-methods -b feature/preproc-c19
 4. **C#14 扩展成员块/扩展属性**：探针确认形态后，CS2J1206 长期报错是否足够；与 catalog 已立条目 **C49**（扩展属性/扩展运算符/静态扩展，L952-965）的排期协作——是否为 C49 注册观察 stub 或排紧邻批次；扩展索引器（C#15 预览）随 C52 防线跟踪（§2 EM-EXT14、M5⑤）。
 5. **方法组 reduced 站点（EM-GROUND）** 与**旧资产退役顺序**（索引/校验 pass/逐 host 补丁/实验选项，M5 清单）的排期。
 6. **member-desugar 后置交互**（2026-09-29 新增）：member-desugar 已 Implemented 且链位在本 pass 之后（goto 后、java-keywords 前，默认关）；M4 用「成员去糖 + 用户扩展调用」混合 fixture 复核两 pass 串行结果（重点：属性/事件/索引器/运算符使用点改写是否遇到扩展形态、改写后节点是否被后续 pass 再触碰）；结论不绿则在 member-desugar 翻默认开前补交互用例。
-7. **支撑工程 Java 侧过滤覆盖面**（2026-09-29 新增；**M3 已闭环 2026-10-06，见文末「M3 实施记录」M3-4**）：`IsExecutedSupportLibraryProject` 现仅识别 UnsignedMath/Array/RefOutIn 三工程，`Cs2jPreludeProject.IsCs2jPreludeProject` 零调用方、Cs2jTuples 无工程类——prelude/tuple 注入产物在 Java 转换/指纹侧的确切排除路径实施前核实（不影响本 pass 的中间树可见性结论，见 §4.2-2）。
+7. **支撑工程 Java 侧过滤覆盖面**（2026-09-29 新增；**M3 已闭环 2026-10-03，见文末「M3 实施记录」M3-4**）：`IsExecutedSupportLibraryProject` 现仅识别 UnsignedMath/Array/RefOutIn 三工程，`Cs2jPreludeProject.IsCs2jPreludeProject` 零调用方、Cs2jTuples 无工程类——prelude/tuple 注入产物在 Java 转换/指纹侧的确切排除路径实施前核实（不影响本 pass 的中间树可见性结论，见 §4.2-2）。
 8. **现存基线红灯**：PassStubCatalogTests L24 断言 22 与实现 21 不符（`member-desugar` 翻转提交 `26ea367c` 引入），属基线事实而非本设计缺陷；本 pass 翻转 PR 直接把断言改为 20，不单独修。
 
 ---
@@ -504,7 +504,7 @@ git worktree add .worktrees/preproc-c19-extension-methods -b feature/preproc-c19
 
 ---
 
-## M3 实施记录（2026-10-06）
+## M3 实施记录（2026-10-03）
 
 ### M3-1 交付清单（§9 M3 九项范围）
 
@@ -590,4 +590,98 @@ M1 binder 落地后，用真实 restore 引用的 merged compilation（全部 .c
 - Core：[ExtensionMethodResolveM3Tests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.Tests/ExtensionMethodResolveM3Tests.cs) 12 例（metadata host Unknown→1203 Warning 仍改写 / strict Error / Mapped 静默计数 / 无 grader 静默兼容 / RewriteExternalMetadataHosts=false 不改写+1203+skip / support 分类需 `using Cs2jArray;` / 默认 user / 单文件 1290 不 strict / 项目模式 1202 strict Error / EM001 双门明细 / SummaryLine 子串）。
 - ProjectTests：[ExtensionMethodSdkBindingProbeTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.ProjectTests/ExtensionMethodSdkBindingProbeTests.cs)（Probe5，门控）、[ExtensionMethodExternalHostProjectTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.ProjectTests/ExtensionMethodExternalHostProjectTests.cs)（temp 内 `dotnet pack` 合成 host → local-feed，nuget.config 替换绝对 feed 路径；断言两站点分别 1203/静默 mapped、summary `2 external hosts [1 mapped/1 unmapped]`、stderr EM001 classification=ExternalMetadata）、[ExtensionMethodSingleFileProjectTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.ProjectTests/ExtensionMethodSingleFileProjectTests.cs)（1290 + `1 single-file deferred`，站点不变）、[ExtensionMethodSupportLibrarySerialProjectTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.ProjectTests/ExtensionMethodSupportLibrarySerialProjectTests.cs)（array/unsigned/refoutin 三样本串行；array 样本按既有 array-method 链不可独立编译的事实加 `--no-verify-build/--no-verify-tests`，unsigned/refoutin 全量 build/test；均断言无 1201/1202/1203/1220 且 stdout 含 `0 residuals)`）、`ExtensionMethodProjectTests` 追加 user/external 统计拆分 Fact。
 - residual 六项闸门：serial 三样本 + M1/M2 fixture 全量断言 `0 residuals)`；五规则常量在 [ExtensionMethodResidualScanner.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/ExtensionMethodResolve/ExtensionMethodResidualScanner.cs)（remaining-reduced-invocation / -method-group / rewrite-identity / unresolved-static-host / expression-tree-shape；第 5 项 this 修饰由中间树 build 互证）。
-- 最终验证（2026-10-06）：`dotnet build CSharpToJavaConverter.slnx -c Release` 0 错误；Core 全量 Release **2747 通过 0 失败**（2735 + M3 新增 12）；ProjectTests Debug：ExtensionMethod* + MultiModulePlanner 过滤 **12 绿**（external-host dotnet pack fixture、single-file 1290、serial 三样本、stats 拆分、planner prelude 4），支撑库三族（Array/RefOutIn/Unsigned）**15 绿**；裁决 7 修复一度触发 `ConvertProject_NoEliminateGoto_SkipsNoGotoSourceProject` 回归（松散 .cs 经 prelude 注入工程解析的遗留路径），经 Program.cs 存活守卫修复后 `ConvertProjectGotoIntegrationTests` 5 例全绿。
+- 最终验证（2026-10-03）：`dotnet build CSharpToJavaConverter.slnx -c Release` 0 错误；Core 全量 Release **2747 通过 0 失败**（2735 + M3 新增 12）；ProjectTests Debug：ExtensionMethod* + MultiModulePlanner 过滤 **12 绿**（external-host dotnet pack fixture、single-file 1290、serial 三样本、stats 拆分、planner prelude 4），支撑库三族（Array/RefOutIn/Unsigned）**15 绿**；裁决 7 修复一度触发 `ConvertProject_NoEliminateGoto_SkipsNoGotoSourceProject` 回归（松散 .cs 经 prelude 注入工程解析的遗留路径），经 Program.cs 存活守卫修复后 `ConvertProjectGotoIntegrationTests` 5 例全绿。
+
+---
+
+## M4 实施记录（2026-10-03）
+
+### M4-1 交付清单（§9 M4 七项范围）
+
+**Core（`src/CSharpToJava.Core/ExtensionMethodResolve/`，commit `c6df52e5` + `74ee97bd`）**
+
+- 新建 [ExtensionHostOverrides.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/ExtensionMethodResolve/ExtensionHostOverrides.cs)：host 级 `skip`（站点留糖 + skip reason，计 `HostOverrideSitesSkipped`）/`force`（解除混合链保守跳过）+ `additionalLinqHosts`（扩 EM-LINQ 集，不可删空规则不变）；`ProtectedLinqHosts`（Enumerable/Queryable）对 skip/force 恒不可变，与 additionalLinqHosts 重叠或空 action 抛 ArgumentException；`Empty` 单例零行为。
+- 新建 [ExtensionMethodResolvePolicy.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/ExtensionMethodResolve/ExtensionMethodResolvePolicy.cs)：strict 升级表 **8 码**（1201/1202/1203/1204/1205/1207/1210/1220）；1206/1230/1231 恒 Error、1290 恒 Warning、EM001 恒 Info。
+- 新建 [ExtensionRewriteRollback.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/ExtensionMethodResolve/ExtensionRewriteRollback.cs)：纯规划器，按 verify-build 错误键（文件+CS 码+归一化消息）把错误归因到改写文件——命中即文件级排除（字节重放 + residual 复核），归因交集为空/跨文件即全树回退。
+- [ExtensionCallBinder.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/ExtensionMethodResolve/ExtensionCallBinder.cs)：两朝向（用户节点上/下方任一）LINQ 混合链判定 → EM001 Info（reason `mixed-linq-chain-conservative-skip`，计 `MixedLinqChainSites`）整条保糖；force override 可解除；host skip reason `host-override-skip`。
+- [ExtensionMethodResidualScanner.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/ExtensionMethodResolve/ExtensionMethodResidualScanner.cs)：第 5 门 this 修饰基线复核（`ThisModifierBaseline`）+ 回退文件豁免（`ExcludeFiles`）。
+- [ExtensionMethodResolveStatistics.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/ExtensionMethodResolve/ExtensionMethodResolveStatistics.cs)：新增 `MixedLinqChainSites`/`HostOverrideSitesSkipped`/`Forced`/`FilesRolledBack`/`ThisModifierBaseline`，全部参与 Merge/summary。
+- [ExtensionCallRewriter.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/ExtensionMethodResolve/ExtensionCallRewriter.cs)：**Probe6 实证修复**（见 M4-4③）——插值洞左缘的显式调用括号化。
+
+**CLI（`src/CSharpToJava.CLI/`）**
+
+- 新建 [ExtensionHostOverridesFile.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.CLI/Preprocessing/ExtensionHostOverridesFile.cs)：JSON `{"hosts":{"Full.Name":"skip|force"},"additionalLinqHosts":[...]}` 加载；坏 JSON/未知 action/保护 host 均报错拒载。
+- [Program.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.CLI/Program.cs)：preprocess 与 convert-project 两 verb 各加 `--extension-methods-strict`（8 码 Warning→Error）与 `--extension-methods-overrides <path>`。
+- [ExtensionMethodResolvePassAdapter.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.CLI/Preprocessing/Adapters/ExtensionMethodResolvePassAdapter.cs)：AfterFiles 阶段 verify-build 错误归因 → 文件级回退（stdout `[extension-methods] rollback: reverted <rel>...` + residual 复核）/ 全树回退（全部字节重放 + **CS2J1200 Error** 到 stderr，跳过 residual）；internal hook（`ForceBrokenRewrite`/`ForceExpressionTreeMismatch`，InternalsVisibleTo）供回退演练。
+
+**约束遵守**：`DefaultEnabled` 保持 **false**（[PassCatalog.cs:369](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs#L369) `defaultEnabled: false`，本里程碑不翻）；`LinqRewrite/*`、`ProjectPasses.cs`、`ExtensionMethodIndex.cs`、`Transformers/*` 零改动；`D:\csharp-sdk` 只读（Probe 只写 TEMP）。
+
+### M4-2 sdk 测量：Probe5 M4 轮 + Probe6 门控（§8 门槛①）
+
+门控测试 [ExtensionMethodSdkBindingProbeTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.ProjectTests/ExtensionMethodSdkBindingProbeTests.cs)（`CS2J_RUN_SDK_PROBE=1` + `D:\csharp-sdk` 双门控，否则 skip）。Probe6 把候选树物化到 `%TEMP%\cs2j-probe6-<guid>\<sample>\{baseline,candidate}`（排除 /bin/ /obj/），逐项目 Release baseline-vs-candidate build/test；错误键归一化（去尾挂 csproj 路径括号、去 TEMP 根），要求**新增编译错误 0、新增失败测试 0**。
+
+**Probe5（M4 轮，与 M3 同 4 样本同 merged compilation）**
+
+| 样本 | 文件 | bound（rewritten / user / external mapped / unmapped / LINQ） | mixedChains | 1203 | 绑定率 |
+|---|---:|---|---:|---:|---:|
+| json | 392 | 980（759 / 149 / 565 / 45 / 220） | 1 | 45 | 100% |
+| regular-expressions | 78 | 49（12 / 3 / 6 / 3 / 36） | 0 | 3 | 100% |
+| uri | 52 | 14（0 / 0 / 0 / 0 / 14） | 0 | 0 | 100% |
+| xml-tiny | 774 | 759（733 / 726 / 7 / 0 / 26） | 0 | 0 | 100% |
+| **合计** | **1296** | **1802（1504 / 878 / 578 / 48 / 296）** | **1** | **48** | **100.00%** |
+
+与 M3 轮差异仅 json 的 rewritten 760→759、externalMapped 566→565：M4 混合链策略把 1 个含 LINQ 朝向的混链站点（其 host 计在 external mapped 桶）从改写移入保守跳过（mixedChains=1，user 878 不变）；unmapped 48 不变，failedCandidates=0 不变。M0③→M3→M4 的 1801/1802/1802 绑定口径稳定。
+
+**Probe6（候选树物化 build/test 对账）**
+
+| 样本 | baseline 编译错误 | candidate | 新增 | 新增失败测试 | mixedChains | residual 六门 |
+|---|---:|---:|---:|---:|---:|---|
+| json | 0 | 0 | **0** | 0 | 1 | (none) |
+| regular-expressions | 0 | 0 | **0** | 0 | 0 | (none) |
+| uri | 0 | 0 | **0** | 0 | 0 | (none) |
+| xml-tiny | 24 | 24 | **0** | 0 | 0 | (none) |
+| **合计** | 24 | 24 | **0** | **0** | 1 | **全 0** |
+
+说明：
+
+1. xml-tiny 的 24 个 baseline 错误全部位于 `tests\Common\dotnet-xml.managedbaselib-tests.csproj`（复制出独立树后缺 Xunit/System.Xml 还原解析的 CS0246/CS0641），baseline 与 candidate **逐键相同**，非 C19 回归；该工程两侧均不能独立构建，测试不执行。4 样本中 json/regex/uri 无 Microsoft.NET.Test.Sdk 测试工程，故「新增失败测试」门以编译错误零新增为操作性闸门；M3 支撑库串行三样本（array/unsigned/refoutin）承担「含测试工程时 dotnet test 全绿」证据。
+2. 首跑 Probe6 曾在 json 暴露 2 个新增 CS0103（residual 同步报 rewrite-identity=2，双闸门同时命中）——见 M4-4③ 修复；修复后重跑全 0。
+
+### M4-3 §8 六门槛逐项达标
+
+1. **中间树正确性**：M4 ProjectTests 6 例中 verify-build 链（E13→E14→eliminate-goto→C19、member-desugar→C19）最终中间树 Release/Debug build 零错误；Probe6 sdk 新增编译错误 **0**、新增失败测试 **0**（M4-2 表）。
+2. **残余闸门**：Core residual 六门 M4 测试（含新增第 5 门 this 基线、回退文件豁免）全绿；M3 serial 三样本与 M1/M2 fixture 仍 `0 residuals)`；Probe6 四样本 residual **全 (none)**。首跑 json 的 rewrite-identity=2 已随修复清零——残余门与编译门对同一缺陷双重命中。
+3. **全仓测试不回归**：`dotnet build CSharpToJavaConverter.slnx -c Release` **0 错误**；Release 三工程：Core **2802 通过 / 0 失败**（M3 2747 + M4 36 + E16 4 + 协同冒烟 4 + 插值洞 11）、ConversionTests **675 / 0**、ProjectTests **1371 通过 / 1 失败 / 10 跳过（1382，串行）**——唯一失败 `LexicalNormalizeProjectTests.Fixture_StripsLineDirectives_AndIntermediateTreeVerifies` 经 392fd1d6（C19 前基线）同测复现，确认为**已登记基线红灯**（详见 M4-6）；既有 ExtensionMethodTests 与 LINQ 测试簇随全量回归零新增失败，E16 另加双模式零 diff 硬断言（门槛⑤）。
+4. **转换器协同冒烟**：[ExtensionMethodConverterCoSmokeTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.Tests/ExtensionMethodConverterCoSmokeTests.cs) 四场景（null-guard 扩展、泛型扩展、全用户链、命名空间 host）C19 显式化后走 ConversionPipeline **全部 Success、无 CS2J_EXT001**，转换器已能消费显式静态调用；1203 triage 仍沿用 M3 的 48 host 清单（json 45/regex 3），未新增未知 host 类。
+5. **LINQ 零影响（E16）**：[ExtensionMethodE16ZeroDiffTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.Tests/ExtensionMethodE16ZeroDiffTests.cs) 两 [Theory] × preferStream false/true 共 **4 例**：纯 LINQ 站点（OrderBy+ToList、Join+ToList）C19 Changed=false/CallsitesRewritten=0 且 Java 逐字符相等；混合链（`a.Where(...).Mark().Sum()`，用户节点）C19 保守跳过，baseline 与 C19 后转换器 Success+诊断完全一致（当前转换器对此形态报 normalization 失败，属基线行为，不恶化）。
+6. **诊断可运维 + 文档**：strict 8 码升级矩阵 Core 逐码锁定 + CLI E2E（`StrictFlag_Escalates1203WarningToError_ExitNonZero`：exit≠0、stderr CS2J1203 error）；overrides JSON CLI 全路径 E2E（skip 留糖 Info、其他 host 照改；坏 JSON/未知 action/保护 host 三类拒载）；本设计 M4 记录即门槛文档定稿件。
+
+不满足任一门即保持 opt-in——当前 6 门均达标，但默认翻转仍按 M4-7 结论留到 M5 评审。
+
+### M4-4 关键实证（必须随里程碑保留）
+
+1. **混合链探针锁（M4 Core `LinqRewriter_PreExplicitizedMixedChain_ProbeLocksObservedDecomposition`）**：两朝向 LINQ 出现在用户节点上/下方时，预显式化后 LinqRewriter 的 procedural 分解（helper 数/体/查询抽取，rewrote=2/1）与全 reduced 输入完全一致，唯一差异是显式化 token——结构失配探针④不成立于「孤立混链的局部」，但 sdk 1801 站点的整体形状未知，M4 仍取**防御性默认整条跳过**（EM001 可观测、host force 可解除），不赌覆盖率。json 的 1 个 mixedChain 即该策略在真实代码上的唯一生效点（该站点 M3 轮被改写，M4 起保糖）。
+2. **EM-ORDER 链位实证（四跳，非三跳）**：`EmOrder_MakeReadonlyThenIteratorThenC19_AllSitesSettledAndBuildGreen` 证实完整可用链为 **E13 make-readonly → E14 iterator-lowering（verifyBuild:false）→ eliminate-goto（GotoPassAdapter，strict:false）→ C19**。E14 降阶产物含 goto/labels，直接 build 报 CS0159（goto 无标签）/CS0158（标签遮盖）/CS8070（case 贯穿），必须经 eliminate-goto 才可编译。
+3. **插值洞左缘 `global::` 解析陷阱（Probe6 发现并修复，commit `74ee97bd`）**：Roslyn 把插值洞表达式左缘第一个 token 为 alias-qualified 名（`global::…`）判为 CS0103「名称 global 不存在」，且穿透后缀链（成员/元素访问）、二元左操作数、一元前缀、cast、await、alignment/format 洞；最小复现：`$"{global::System.Math.Abs(x)}"` 编译失败、`$"{(global::System.Math.Abs(x))}"` 合法。sdk json 的 `valueSequence.ToArray()` 两处 Debug.Assert 插值即此形态。修复在 [ExtensionCallRewriter.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/ExtensionMethodResolve/ExtensionCallRewriter.cs) 左缘判定（原节点沿后缀/一元/二元左臂上溯到 Interpolation）后括号化，参数位/条件臂等非左缘位置不加括号；Core 11 例 Theory 锁定边界并逐例重编译验证。
+4. **裁决 6 共存面**：`MemberDesugarThenC19_PropertyEventIndexerOperatorAndExtCoexist` 实证 member-desugar（属性/event/索引器/operator）与扩展显式化在同一 fixture 内先后跑均 Success、扩展站点正常改写（verifyBuild:true）。
+
+### M4-5 转换器 M5 缺口清单（并入 §9 M5 行既有 5 项）
+
+M4 协同冒烟实证、需在 M5 转换器侧处理（本 pass 不改转换器，仅记录/固化）：
+
+- **a. 命名空间 host 点链名**：转换器能消费图内显式静态调用，但命名空间 host 的 Java 渲染为点链（`SampleLib.Collections.CollectionExtensions.joinWith(...)`）而非 package import + 短名；冒烟测试把该片段作为现状固化。→ 对应 §9 M5③ 的逐 host/渲染收口面。
+- **b. 含用户扩展节点的混合链**：转换器当前不支持（yield/normalization 限制，单文件管线对 yield 硬抛），C19 保守跳过保持基线可观测行为；M5 若解混链 Java 翻译，可同步评估解除 M4 默认跳过（host force 已预留开关）。
+- **c. CS2J_EXT001 退役语义**：[ProjectPasses.cs:795-815](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/src/CSharpToJava.Core/Pipeline/Passes/ProjectPasses.cs#L795-L815) 的 EXT001 选择器键于 `methodSymbol.ReducedFrom`；C19 显式化后站点变为 Ordinary 静态调用，**EXT001 对已处理站点永不触发**（冒烟四场景实证零告警），CS2J1203 是预处理期对应物；未跑 C19 或 1202/1207 保糖站点仍由 EXT001 兜底。→ 对应 §9 M5①「退役或降级为纯 residual 复核」，M3-3 的对账表在 M4 证据下结论不变。
+
+### M4-6 测试与验证
+
+- **提交序列（分支 `feature/preproc-c19-extension-methods`，均无 co-authored-by）**：`c6df52e5` feat：M4 closing core（15 文件，Core/CLI）；`1e8d26de` test：M4 Core 36 例；`4348241a` test：E16 + ProjectTests 6 例；`74ee97bd` fix+test：插值洞括号化（Core 11 例）+ Probe6 + 协同冒烟；第 5 个为本文档/plan 的 docs 门槛提交。
+- Core：[ExtensionMethodResolveM4Tests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.Tests/ExtensionMethodResolveM4Tests.cs) **47 例**（M4 36 + 插值洞 11）：host 集不可删空/扩面、混合链两朝向 Info 保糖、overrides force/skip/保护/重叠、strict 逐码矩阵与策略表完备性、回退规划器+破坏 hook 字节归因、residual 六门、LinqRewriter 探针锁、插值洞边界。
+- ProjectTests：[ExtensionMethodM4ProjectTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.ProjectTests/ExtensionMethodM4ProjectTests.cs) **6 例**（单文件回退字节一致、多文件全树回退 CS2J1200、strict CLI、overrides CLI 含三类坏载荷、EM-ORDER 四跳链、member-desugar 共存）；[ExtensionMethodE16ZeroDiffTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.Tests/ExtensionMethodE16ZeroDiffTests.cs) **4 例**；[ExtensionMethodConverterCoSmokeTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c19-extension-methods/tests/CSharpToJava.Tests/ExtensionMethodConverterCoSmokeTests.cs) **4 例**；Probe6 门控 1 例（skip/真实两轮）。
+- 全量回归（2026-10-03）：Release：slnx **0 错误**、Core **2802 / 0**、ConversionTests **675 / 0**、ProjectTests 串行（`-- xUnit.MaxParallelThreads=1`，全量并行会挂在多测试争用临时目录的既有 flake 上）**1371 通过 / 1 失败 / 10 跳过 / 1382**。唯一失败 `LexicalNormalizeProjectTests.Fixture_StripsLineDirectives_AndIntermediateTreeVerifies`（"lexical-normalize pass failed"）在 C19 任何代码之前的基线提交 392fd1d6（仅解决 C23/C24 合并冲突标记，未触 lexical/project 发现路径）上同命令复现，确认为**既有基线红灯、非 C19 新增**，按 §8-3「已登记红灯不增加」口径登记。
+
+### M4-7 M5 评审结论
+
+§8 六门槛在 M4 全部达标（sdk 零新增、residual 全 0、三工程零新增失败——唯一 ProjectTests 红灯为 392fd1d6 已登记基线问题、协同冒烟四场景、E16 双模式零影响、strict/overrides 可运维+文档定稿），**可进入 M5「默认开人工评审」**：评审对象为 M4-5 三项转换器缺口与 §9 M5 行既有 5 项 PR 清单（EXT001/索引退役、逐 host 收口、RewriteExtensionMethods 去留、C49/C52 跟踪），以及 48 个 CS2J1203 host 的 TypeMappings triage 清零。
+
+**本里程碑不翻 `DefaultEnabled`**：红线约束 + 转换器侧缺口 a（点链名）未收口前默认开启会产生可编译但 Java 渲染不合格的产物；翻转动作留待 M5 评审与转换器 PR 落地后单独提交。
