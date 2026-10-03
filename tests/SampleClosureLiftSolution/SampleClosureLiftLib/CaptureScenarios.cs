@@ -59,6 +59,68 @@ public static class CaptureScenarios
         return reader(); // 41
     }
 
+    // D4: a three-level nested chain. Writes by the innermost delegate reach
+    // the routine-level captured cell through both parent links.
+    public static int NestedChainIncrement()
+    {
+        var x = 0;
+        Action a = () =>
+        {
+            Action b = () =>
+            {
+                Action c = () => x++;
+                c();
+            };
+            b();
+        };
+
+        a();
+        a();
+        return x; // 2
+    }
+
+    // D4: the outer lambda's own parameter is captured by the nested delegate.
+    // Sequential non-escaping calls must each see their own argument through
+    // the entry assignment.
+    public static int NestedParameterPassthrough(int seed)
+    {
+        var sum = 0;
+        Action<int> a = p =>
+        {
+            Action b = () => sum += p;
+            b();
+        };
+
+        a(seed);
+        a(seed + 5);
+        return sum; // 2*seed + 5
+    }
+
+    // D4: nested delegates created inside foreach and invoked only after the
+    // loop completes — each round's inner delegate must keep that round's
+    // iteration variable (the child instance lives inside the migrated outer
+    // method, the per-round parent lives in the loop body).
+    public static List<int> NestedForeachRoundValues(IEnumerable<int> source)
+    {
+        var runners = new List<Action>();
+        var sink = new List<int>();
+        foreach (var item in source)
+        {
+            runners.Add(() =>
+            {
+                Action later = () => sink.Add(item);
+                later();
+            });
+        }
+
+        foreach (var runner in runners)
+        {
+            runner();
+        }
+
+        return sink; // [1, 2, 3]
+    }
+
     // for induction: one shared cell across all iterations (current C# semantics).
     public static List<int> ForRoundValues(int n)
     {
@@ -133,5 +195,32 @@ public static class CaptureScenarios
         inc();
         inc();
         return _cs2jCap_count;
+    }
+}
+
+/// <summary>
+/// D4 instance host: a three-level nested chain captures `this`; writes by the
+/// innermost delegate reach host state through every parent link, and only the
+/// chain top may carry a `_cs2jThis` reference.
+/// </summary>
+public sealed class NestedThisHost
+{
+    private int _n;
+
+    public int NestedThisWrites()
+    {
+        Action a = () =>
+        {
+            Action b = () =>
+            {
+                Action c = () => _n += 2;
+                c();
+            };
+            b();
+        };
+
+        a();
+        a();
+        return _n; // 4
     }
 }

@@ -7,6 +7,19 @@ using Xunit;
 namespace CSharpToJava.ProjectTests;
 
 /// <summary>
+/// The in-process ClosureLift test classes share process-global planner
+/// test hooks (<see cref="DisplayClassPlanner.ForcedUnaccountedForTests"/>);
+/// xUnit parallelizes test classes by default, so every class that runs the
+/// preprocessor in-process belongs to this non-parallel collection.
+/// CLI tests spawn subprocesses and stay outside it.
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public static class ClosureLiftTestCollection
+{
+    public const string Name = "closure-lift-inproc";
+}
+
+/// <summary>
 /// C45 M1 unit tests (design §7.1 cases 1, 2, 11 and 17): the zero-capture
 /// static path (D10) lifts statement lambdas to host-level `private static`
 /// named methods (D9/D12) and rewrites every planned site to an explicit
@@ -15,6 +28,7 @@ namespace CSharpToJava.ProjectTests;
 /// source → CSharpCompilation → Preprocess → text-assertion style of
 /// ClosureLiftUnitTests.
 /// </summary>
+[Collection(ClosureLiftTestCollection.Name)]
 public sealed class ClosureLiftDisplayClassUnitTests
 {
     // ── §7.1-1: M1 zero-capture static lift ──
@@ -859,7 +873,7 @@ class C {
     }
 
     [Fact]
-    public void M2_NestedCapturingChain_AccountedResidual_C32ShapeKept()
+    public void M3_NestedCapturingChain_LoweredToParentLinkedClasses()
     {
         var src = @"
 class C {
@@ -874,19 +888,39 @@ class C {
 }";
         var r = Transform(src);
 
-        // M3 bucket (D4): a capturing ancestor/descendant pair stays residual
-        // and accounted; C32 flat-holder lifting still happens and no
-        // CS2J4510 row is emitted.
+        // M3 (D4): the nested pair is a real lowering now — no residual
+        // lambdas, two Lambda_k methods, a nested child class holding
+        // `_cs2jParent`, and the child instance constructed inside the
+        // migrated parent method (replaces the M2 accounted-residual shape).
         Assert.True(r.Changed);
-        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Equal(2, HolderClassNames(r.OutputCode).Count);
+        Assert.Equal(1, r.Statistics.DisplayClassesGenerated);
+        Assert.Equal(1, r.Statistics.NestedDisplayClasses);
+        Assert.Equal(0, r.Statistics.AccountedResidualLambdas);
         Assert.Contains("__cs2jClosure0._cs2jCap_outer = 0;", r.OutputCode);
-        Assert.Contains("() => { __cs2jClosure0._cs2jCap_outer++; }", r.OutputCode);
-        Assert.DoesNotContain("internal void Lambda_0", r.OutputCode);
+        Assert.Contains("new global::System.Action(__cs2jClosure0.Lambda_0)", r.OutputCode);
+        Assert.Contains(
+            "var __cs2jClosure1 = new Cs2jDisplayClass_M_0.Cs2jDisplayClass_M_1(this);",
+            r.OutputCode);
+        Assert.Contains("new global::System.Action(__cs2jClosure1.Lambda_0)", r.OutputCode);
+        Assert.Contains(
+            "private sealed class Cs2jDisplayClass_M_1", r.OutputCode);
+        Assert.Contains(
+            "private readonly Cs2jDisplayClass_M_0 _cs2jParent;", r.OutputCode);
+        Assert.Contains(
+            "public Cs2jDisplayClass_M_1(Cs2jDisplayClass_M_0 parent)", r.OutputCode);
+        Assert.Contains("_cs2jParent._cs2jCap_outer++;", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
         Assert.DoesNotContain(r.Diagnostics, d => d.Code == "CS2J4510");
-        Assert.Equal(2, r.Statistics.AccountedResidualLambdas);
         var (statementLambdas, _) = new ClosureLiftPreprocessor().CountResidualLambdas(r.OutputCode);
-        Assert.Equal(2, statementLambdas);
+        Assert.Equal(0, statementLambdas);
         AssertOutputCompiles(r.OutputCode);
+
+        // Idempotent: re-entering the lowered tree is a no-op.
+        var r2 = new ClosureLiftPreprocessor().Preprocess(
+            r.OutputCode, ParseWithSemantics(r.OutputCode), new ClosureLiftOptions());
+        Assert.False(r2.Changed);
+        Assert.Equal(r.OutputCode, r2.OutputCode);
     }
 
     [Fact]
@@ -962,6 +996,374 @@ class C {
         }
     }
 
+    [Fact]
+    public void M3_ThreeLevelNestedChain_ParentLinksReachTopFields()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => {
+            System.Action b = () => {
+                System.Action c = () => { x++; };
+                c();
+            };
+            b();
+        };
+        a();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Equal(3, HolderClassNames(r.OutputCode).Count);
+        Assert.Equal(2, r.Statistics.NestedDisplayClasses);
+        Assert.Contains(
+            "var __cs2jClosure1 = new Cs2jDisplayClass_M_0.Cs2jDisplayClass_M_1(this);",
+            r.OutputCode);
+        Assert.Contains(
+            "var __cs2jClosure2 = new Cs2jDisplayClass_M_0.Cs2jDisplayClass_M_1.Cs2jDisplayClass_M_2(this);",
+            r.OutputCode);
+        Assert.Contains(
+            "private readonly Cs2jDisplayClass_M_0.Cs2jDisplayClass_M_1 _cs2jParent;",
+            r.OutputCode);
+        // The leaf reaches the chain-top field through two parent hops.
+        Assert.Contains("_cs2jParent._cs2jParent._cs2jCap_x++;", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+        AssertIdempotent(r.OutputCode);
+    }
+
+    [Fact]
+    public void M3_NestedLambdas_DifferentBlocks_GetSeparateChildClasses()
+    {
+        var src = @"
+class C {
+    void M(bool cond) {
+        int x = 0;
+        System.Func<int> a;
+        if (cond) {
+            a = () => { System.Func<int> b = () => x++; return b(); };
+        } else {
+            a = () => { System.Func<int> c = () => x + 1; return c(); };
+        }
+        System.Console.WriteLine(a());
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        // Same parent, different anchor blocks → two child classes, each with
+        // its own per-block instance.
+        Assert.Contains("private sealed class Cs2jDisplayClass_M_1", r.OutputCode);
+        Assert.Contains("private sealed class Cs2jDisplayClass_M_2", r.OutputCode);
+        Assert.Contains(
+            "var __cs2jClosure1 = new Cs2jDisplayClass_M_0.Cs2jDisplayClass_M_1(this);",
+            r.OutputCode);
+        Assert.Contains(
+            "var __cs2jClosure2 = new Cs2jDisplayClass_M_0.Cs2jDisplayClass_M_2(this);",
+            r.OutputCode);
+        Assert.Equal(2, r.Statistics.NestedDisplayClasses);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+        AssertIdempotent(r.OutputCode);
+    }
+
+    [Fact]
+    public void M3_NestedLambdas_SameBlock_ShareChildClassAndInstance()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Action a = () => {
+            System.Action b = () => x++;
+            System.Action c = () => x += 2;
+            b(); c();
+        };
+        a();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        // D3 sharing at D4 depth: both sites share one child class + one
+        // instance, methods numbered in SpanStart order.
+        Assert.Contains(
+            "var __cs2jClosure1 = new Cs2jDisplayClass_M_0.Cs2jDisplayClass_M_1(this);",
+            r.OutputCode);
+        Assert.Contains("new global::System.Action(__cs2jClosure1.Lambda_0)", r.OutputCode);
+        Assert.Contains("new global::System.Action(__cs2jClosure1.Lambda_1)", r.OutputCode);
+        Assert.Contains("internal void Lambda_0() => _cs2jParent._cs2jCap_x++;", r.OutputCode);
+        Assert.Contains("internal void Lambda_1() => _cs2jParent._cs2jCap_x += 2;", r.OutputCode);
+        Assert.Single(HolderClassNames(r.OutputCode).Where(n => n == "Cs2jDisplayClass_M_1"));
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M3_OuterLambdaParameter_ReadOnlyCapturedByNested_EntryAssignedToField()
+    {
+        var src = @"
+class C {
+    void M() {
+        System.Action<int> a = (p) => {
+            System.Action b = () => System.Console.WriteLine(p + 1);
+            b();
+        };
+        a(1);
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Contains("public int _cs2jCap_p;", r.OutputCode);
+        Assert.Contains("internal void Lambda_0(int p)", r.OutputCode);
+        Assert.Contains("_cs2jCap_p = p;", r.OutputCode);
+        Assert.Contains(
+            "internal void Lambda_0() => System.Console.WriteLine(_cs2jParent._cs2jCap_p + 1);",
+            r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+        AssertIdempotent(r.OutputCode);
+    }
+
+    [Fact]
+    public void M3_OuterLambdaParameter_MutatedAndCaptured_AllSitesFieldBacked()
+    {
+        var src = @"
+class C {
+    void M() {
+        System.Action<int> a = (p) => {
+            p++;
+            System.Action b = () => System.Console.WriteLine(p);
+            b();
+        };
+        a(1);
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Contains("_cs2jCap_p = p;", r.OutputCode);
+        Assert.Contains("_cs2jCap_p++;", r.OutputCode);
+        Assert.Contains(
+            "internal void Lambda_0() => System.Console.WriteLine(_cs2jParent._cs2jCap_p);",
+            r.OutputCode);
+        // The signature parameter is an identifier TOKEN (not an
+        // IdentifierName), so the only bare textual `p` left is the
+        // entry-assignment RHS.
+        Assert.Single(BareIdentifiers(r.OutputCode, "p"));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M3_OuterLambdaLocal_CapturedByNested_DeclarationBecomesFieldAssignment()
+    {
+        var src = @"
+class C {
+    void M() {
+        System.Action a = () => {
+            int y = 1;
+            System.Action b = () => y++;
+            b();
+            System.Console.WriteLine(y);
+        };
+        a();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Contains("public int _cs2jCap_y;", r.OutputCode);
+        // No local declaration of y survives; the initializer becomes a field
+        // assignment and every use site (including the outer body) is field-backed.
+        Assert.DoesNotContain("int y", r.OutputCode);
+        Assert.Contains("_cs2jCap_y = 1;", r.OutputCode);
+        Assert.Contains("_cs2jParent._cs2jCap_y++;", r.OutputCode);
+        Assert.Contains("System.Console.WriteLine(_cs2jCap_y);", r.OutputCode);
+        Assert.Empty(BareIdentifiers(r.OutputCode, "y"));
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M3_ExpressionBodiedOuterLambda_BlockWrappedForChildInstance()
+    {
+        var src = @"
+class C {
+    void M() {
+        int x = 0;
+        System.Func<System.Func<int>> a = () => () => x + 1;
+        System.Console.WriteLine(a()());
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        // The expression-bodied outer method wraps into a block that declares
+        // the child instance and returns the delegate creation.
+        Assert.Contains("internal global::System.Func<int> Lambda_0()", r.OutputCode);
+        Assert.Contains(
+            "var __cs2jClosure1 = new Cs2jDisplayClass_M_0.Cs2jDisplayClass_M_1(this);",
+            r.OutputCode);
+        Assert.Contains("return new global::System.Func<int>(__cs2jClosure1.Lambda_0);", r.OutputCode);
+        Assert.Contains("internal int Lambda_0() => _cs2jParent._cs2jCap_x + 1;", r.OutputCode);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+        AssertIdempotent(r.OutputCode);
+    }
+
+    [Fact]
+    public void M3_NestedChain_ChildReachesHostThisViaParent()
+    {
+        var src = @"
+class C {
+    private int _n;
+    void Use(int z) { }
+    void M() {
+        System.Action a = () => {
+            System.Action b = () => Use(_n + 1);
+            b();
+        };
+        a();
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        // `_cs2jThis` is carried only by the chain top; the child reaches it
+        // through `_cs2jParent` and declares no `_cs2jThis` of its own.
+        Assert.Contains("var __cs2jClosure0 = new Cs2jDisplayClass_M_0(this);", r.OutputCode);
+        var childIndex = r.OutputCode.IndexOf(
+            "private sealed class Cs2jDisplayClass_M_1", StringComparison.Ordinal);
+        Assert.DoesNotContain("_cs2jThis;", r.OutputCode[childIndex..]);
+        Assert.Contains(
+            "internal void Lambda_0() => _cs2jParent._cs2jThis.Use(_cs2jParent._cs2jThis._n + 1);",
+            r.OutputCode);
+        AssertOutputCompiles(r.OutputCode);
+    }
+
+    [Fact]
+    public void M3_ForeachBody_NestedChildInstanceRebuiltForEveryIteration()
+    {
+        var src = @"
+using System.Collections.Generic;
+class C {
+    List<System.Action> M(IEnumerable<int> src) {
+        var acts = new List<System.Action>();
+        foreach (var item in src) {
+            acts.Add(() => {
+                System.Action later = () => System.Console.WriteLine(item);
+                later();
+            });
+        }
+        return acts;
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        // The routine per-iteration holder stays in the foreach body; the
+        // nested child instance is constructed inside the migrated method, so
+        // every invocation gets a fresh child (delegate-identity fixture
+        // locks the observable behavior).
+        Assert.Contains("foreach", r.OutputCode);
+        Assert.Contains(
+            "var __cs2jClosure1 = new Cs2jDisplayClass_M_0.Cs2jDisplayClass_M_1(this);",
+            r.OutputCode);
+        Assert.Contains(
+            "internal void Lambda_0() => System.Console.WriteLine(_cs2jParent._cs2jCap_item);",
+            r.OutputCode);
+        Assert.Equal(1, r.Statistics.NestedDisplayClasses);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+        AssertIdempotent(r.OutputCode);
+    }
+
+    [Fact]
+    public void M3_PromotionBlocked_LoopScopedOuterLocal_StaysAccountedResidual()
+    {
+        var src = @"
+class C {
+    void M() {
+        System.Action a = () => {
+            for (int i = 0; i < 3; i++) {
+                System.Action b = () => System.Console.WriteLine(i);
+                b();
+            }
+        };
+        a();
+    }
+}";
+        var r = Transform(src);
+
+        // A single promoted field cannot preserve per-iteration identity of a
+        // loop-scoped local: the owner lambda and its nested site stay in the
+        // documented accounted bucket and the file is kept verbatim.
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.DoesNotContain(r.Diagnostics, d => d.Code == "CS2J4510");
+        Assert.Equal(2, r.Statistics.AccountedResidualLambdas);
+    }
+
+    [Fact]
+    public void M3_SiblingTopLevelTypes_EarlierTypeDocumented_AnchorsStableAcrossSpineAppends()
+    {
+        // Regression: appending holder members to the earlier type along the
+        // type spine shifts the ABSOLUTE spans of every later sibling in the
+        // detached tree. A span-based anchor lookup then missed the later
+        // type's statement boundary (doc comments merely changed the offset),
+        // the stage bailed for that type mid-run and the file ended up
+        // "holder-only" — fields present, sites still physical lambdas — which
+        // broke idempotency (duplicate class on the second pass). Anchors must
+        // pair lambdas by descendant order, not by absolute span.
+        var src = @"
+/// <summary>
+/// Documented earlier sibling type; the documentation text shifts spans.
+/// </summary>
+public sealed class First
+{
+    public int Run()
+    {
+        var count = 0;
+        System.Action inc = () => count++;
+        inc();
+        inc();
+        return count;
+    }
+}
+
+public sealed class Second
+{
+    public int Run()
+    {
+        var count = 0;
+        System.Action inc = () => count += 5;
+        inc();
+        return count;
+    }
+}";
+        var r = Transform(src);
+
+        Assert.True(r.Changed);
+        Assert.Equal(
+            2,
+            System.Text.RegularExpressions.Regex.Matches(r.OutputCode, "internal void Lambda_0\\(\\)").Count);
+        Assert.Equal(2, r.Statistics.LambdaMethodsLifted);
+        Assert.Empty(LambdaNodes(r.OutputCode));
+        AssertOutputCompiles(r.OutputCode);
+        AssertIdempotent(r.OutputCode);
+    }
+
+    private static void AssertIdempotent(string output)
+    {
+        var r2 = new ClosureLiftPreprocessor().Preprocess(
+            output, ParseWithSemantics(output), new ClosureLiftOptions());
+        Assert.False(r2.Changed);
+        Assert.Equal(output, r2.OutputCode);
+    }
+
     // ── Helpers (mirror ClosureLiftUnitTests) ──
 
     private static readonly CSharpParseOptions ParseOptions = new(LanguageVersion.Latest);
@@ -1028,4 +1430,11 @@ class C {
             .Select(c => c.Identifier.Text)
             .ToList();
     }
+
+    /// <summary>All IdentifierName nodes spelling <paramref name="name"/> (parameters/declarators excluded).</summary>
+    private static IReadOnlyList<IdentifierNameSyntax> BareIdentifiers(string code, string name)
+        => ((SyntaxNode)CSharpSyntaxTree.ParseText(code, ParseOptions).GetRoot())
+            .DescendantNodes().OfType<IdentifierNameSyntax>()
+            .Where(id => id.Identifier.Text == name)
+            .ToList();
 }

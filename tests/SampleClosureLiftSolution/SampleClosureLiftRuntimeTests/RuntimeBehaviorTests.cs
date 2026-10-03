@@ -28,6 +28,23 @@ public sealed class RuntimeBehaviorTests
         => Assert.Equal(41, CaptureScenarios.NestedDelegates());
 
     [Fact]
+    public void NestedChainIncrement_WritesReachRoutineCellThroughParents()
+        => Assert.Equal(2, CaptureScenarios.NestedChainIncrement());
+
+    [Fact]
+    public void NestedParameterPassthrough_EachCallSeesOwnArgument()
+        => Assert.Equal(11, CaptureScenarios.NestedParameterPassthrough(3));
+
+    [Fact]
+    public void NestedForeachRound_InnerDelegatesKeepPerRoundValues()
+        => Assert.Equal(new[] { 1, 2, 3 },
+            CaptureScenarios.NestedForeachRoundValues(new[] { 1, 2, 3 }));
+
+    [Fact]
+    public void NestedThisChain_WritesReachHostState()
+        => Assert.Equal(4, new NestedThisHost().NestedThisWrites());
+
+    [Fact]
     public void ForInduction_IsOneSharedCell()
         => Assert.Equal(new[] { 3, 3, 3 }, CaptureScenarios.ForRoundValues(3));
 

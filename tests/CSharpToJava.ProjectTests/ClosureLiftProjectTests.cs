@@ -19,6 +19,7 @@ namespace CSharpToJava.ProjectTests;
 /// residual gate is 0 for every file, generated holders keep generic T, and a
 /// second run over the intermediate tree is idempotent.
 /// </summary>
+[Collection(ClosureLiftTestCollection.Name)]
 public sealed class ClosureLiftProjectTests
 {
     private const string PassId = "closure-lift";

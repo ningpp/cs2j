@@ -6,6 +6,7 @@ using Xunit;
 
 namespace CSharpToJava.ProjectTests;
 
+[Collection(ClosureLiftTestCollection.Name)]
 public sealed class ClosureLiftUnitTests
 {
     // ── M1 invariant: never rewrite ──
@@ -614,7 +615,7 @@ class C {
     }
 
     [Fact]
-    public void Transform_NestedLambdas_SingleHolderLayer()
+    public void Transform_NestedLambdas_ParentLinkedDisplayClassChain()
     {
         var src = @"
 class C {
@@ -629,12 +630,27 @@ class C {
 }";
         var r = Transform(src);
 
+        // M3 (D4): outer/inner each get their own display class; the child
+        // links to the parent via `_cs2jParent` and its instance is built
+        // inside the migrated outer method.
         Assert.True(r.Changed);
-        Assert.Single(HolderClassNames(r.OutputCode));
+        Assert.Equal(2, HolderClassNames(r.OutputCode).Count);
         Assert.Equal(1, r.Statistics.HolderClassesGenerated);
-        Assert.Contains("() => { __cs2jClosure0._cs2jCap_outer++; }", r.OutputCode);
+        Assert.Equal(1, r.Statistics.NestedDisplayClasses);
+        Assert.Contains("new global::System.Action(__cs2jClosure0.Lambda_0)", r.OutputCode);
+        Assert.Contains(
+            "var __cs2jClosure1 = new Cs2jDisplayClass_M_0.Cs2jDisplayClass_M_1(this);",
+            r.OutputCode);
+        Assert.Contains("new global::System.Action(__cs2jClosure1.Lambda_0)", r.OutputCode);
+        Assert.Contains("_cs2jParent._cs2jCap_outer++;", r.OutputCode);
         Assert.Empty(BareIdentifiers(r.OutputCode, "outer"));
+        Assert.Empty(LambdaNodes(r.OutputCode));
         AssertOutputCompiles(r.OutputCode);
+
+        var r2 = new ClosureLiftPreprocessor().Preprocess(
+            r.OutputCode, ParseWithSemantics(r.OutputCode), new ClosureLiftOptions());
+        Assert.False(r2.Changed);
+        Assert.Equal(r.OutputCode, r2.OutputCode);
     }
 
     // ── M2 transform tests: loops / interop / boundaries (design §7.1 10-19) ──
