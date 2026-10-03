@@ -270,7 +270,7 @@ class C {
     }
 
     [Fact]
-    public void Audit_LambdaInsideLocalFunction_CS2J3204()
+    public void Audit_LambdaInsideLocalFunction_CS2J4504()
     {
         var src = @"
 class C {
@@ -283,12 +283,15 @@ class C {
 }";
         var r = Audit(src);
 
+        // D18③ (M3): residual local-function boundary is the CS2J4504
+        // unsupported-host family (the old CS2J3204 spelling covered it before
+        // the host/boundary split).
         Assert.Contains(r.Diagnostics, d =>
-            d.Code == "CS2J3204" && d.Severity == ClosureLiftSeverity.Error);
+            d.Code == "CS2J4504" && d.Severity == ClosureLiftSeverity.Error);
     }
 
     [Fact]
-    public void Audit_LambdaInFieldInitializer_CS2J3204()
+    public void Audit_LambdaInFieldInitializer_CS2J4504()
     {
         var src = @"
 class C {
@@ -296,8 +299,51 @@ class C {
 }";
         var r = Audit(src);
 
+        // D18③ (M3): captureless non-static initializer lambdas now carry an
+        // explicit CS2J4504 row too (previously the boundary was silent here
+        // and only static shapes were reported by the M1 stage).
         Assert.Contains(r.Diagnostics, d =>
-            d.Code == "CS2J3204" && d.Severity == ClosureLiftSeverity.Error);
+            d.Code == "CS2J4504" && d.Severity == ClosureLiftSeverity.Error);
+    }
+
+    [Fact]
+    public void Audit_ErrorTypedCapturedLocal_CS2J4502()
+    {
+        var src = @"
+class C {
+    void M() {
+        var x = new MissingType();
+        System.Func<int> f = () => { return x.Value; };
+        System.Console.WriteLine(f());
+    }
+}";
+        var r = Transform(src);
+
+        // D18③ (M3): an external local of ErrorType cannot be given a
+        // guaranteed read-only capture shape — CS2J4502 Error and the whole
+        // file stays verbatim (the zero-capture static path rejects it too).
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Contains(r.Diagnostics, d =>
+            d.Code == "CS2J4502" && d.Severity == ClosureLiftSeverity.Error);
+    }
+
+    [Fact]
+    public void Audit_ErrorTypedCapturedParameter_CS2J4502()
+    {
+        var src = @"
+class C {
+    void M(MissingType p) {
+        System.Func<int> f = () => { return p.Value; };
+        System.Console.WriteLine(f());
+    }
+}";
+        var r = Transform(src);
+
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Contains(r.Diagnostics, d =>
+            d.Code == "CS2J4502" && d.Severity == ClosureLiftSeverity.Error);
     }
 
     [Fact]
@@ -874,7 +920,7 @@ class C {
         System.Comparison<int> c = delegate(int a, int b) { return a - b; };
     }
 }")]
-    [InlineData("CS2J3204", @"
+    [InlineData("CS2J4504", @"
 class C {
     void M() {
         void Local() {
@@ -1203,7 +1249,7 @@ class C<T> {
     }
 
     [Fact]
-    public void Transform_CapturelessStaticLambdaInFieldInitializer_StaysClean()
+    public void Transform_StaticLambdaInFieldInitializer_CS2J4504_FileVerbatim()
     {
         var src = @"
 class C {
@@ -1215,15 +1261,33 @@ class C {
 }";
         var r = Transform(src);
 
-        // C45 M1: the method-body static lambda lifts; the field-initializer
-        // lambda stays verbatim (D18③/D21 — fields are not analysis roots),
-        // so no holder class and no error rows for this file.
-        Assert.True(r.Changed);
-        Assert.Contains("static x => x * x", r.OutputCode);
-        Assert.Contains("new global::System.Func<int, int>(Cs2jLambda_Run_0)", r.OutputCode);
-        Assert.DoesNotContain(r.Diagnostics, d => d.Severity == ClosureLiftSeverity.Error);
-        Assert.Empty(HolderClassNames(r.OutputCode));
-        AssertOutputCompiles(r.OutputCode);
+        // D18③ (M3): a field/property/indexer initializer is the CS2J4504
+        // unsupported-host family for EVERY lambda shape — `static` and
+        // captureless included. Strict mode emits Error and the WHOLE file
+        // stays verbatim (no partial lift), so the otherwise liftable
+        // method-body lambda is not lifted either.
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Contains(r.Diagnostics, d =>
+            d.Code == "CS2J4504" && d.Severity == ClosureLiftSeverity.Error);
+        Assert.DoesNotContain("Cs2jLambda_Run_0", r.OutputCode);
+    }
+
+    [Fact]
+    public void Transform_StaticLambdaInFieldInitializer_NonStrict_Warning()
+    {
+        var src = @"
+class C {
+    private static readonly System.Func<int, int> Square = static x => x * x;
+}";
+        var r = Transform(src, new ClosureLiftOptions(Strict: false));
+
+        // Non-strict downgrades the host row to a Warning; the initializer
+        // itself still does not lift (it is never an M1 analysis root).
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Contains(r.Diagnostics, d =>
+            d.Code == "CS2J4504" && d.Severity == ClosureLiftSeverity.Warning);
     }
 
     // ── M2 residual gate (design §7.3) ──

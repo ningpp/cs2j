@@ -120,6 +120,14 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
                     childSites[(nestedReceived.SpanStart, nestedReceived.RawKind)] = nested;
                 }
 
+                // D12: frozen slot names (planner model-tree decision);
+                // attribute lists are read from the received lambda here.
+                var parameterSlots = pending.MethodParameterNames
+                    .Select(static name => new ParameterSlot(
+                        name,
+                        name.StartsWith(ClosureLiftNaming.SynthesizedArgPrefix, StringComparison.Ordinal)))
+                    .ToArray();
+
                 var context = new LambdaMigrationContext
                 {
                     Plan = methodPlan,
@@ -136,6 +144,7 @@ internal sealed class DisplayClassConsolidationStage : IClosureLiftStage
                     ChildSites = childSites,
                     ChildTypeByInstance = pending.ChildTypeByInstance,
                     StaticPlans = staticPlansByReceivedSpan,
+                    ParameterSlots = parameterSlots,
                 };
 
                 var method = LambdaMethodLifter.BuildMethod(context);

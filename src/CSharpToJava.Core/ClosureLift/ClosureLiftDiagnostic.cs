@@ -59,7 +59,7 @@ internal static class ClosureLiftCodes
     /// <summary>Residual anonymous-method node counted by the tree residual gate (E05 output missing; design §6).</summary>
     public const string ResidualAnonymousMethodGate = "CS2J4503";
 
-    /// <summary>Unsupported lambda host: static lambda in a field/property initializer (D18③/D21, M2 explicit row).</summary>
+    /// <summary>Unsupported lambda host: any lambda (static/captureless included) in a field/property/indexer initializer or crossing a residual local-function boundary (D18③); strict Error keeps the whole file verbatim, downgraded to Warning when non-strict.</summary>
     public const string UnsupportedHost = "CS2J4504";
 
     /// <summary>Captured symbol of an unspeakable kind reached the C45 read-only path (defensive mirror of CS2J3205, design §6).</summary>

@@ -372,7 +372,7 @@ class C {
     }
 
     [Fact]
-    public void M1_FieldInitializerStaticLambda_Untouched_MethodBodyLifts()
+    public void M1_FieldInitializerStaticLambda_CS2J4504_WholeFileVerbatim()
     {
         var src = @"
 class C {
@@ -385,13 +385,14 @@ class C {
 }";
         var r = Transform(src);
 
-        Assert.True(r.Changed);
-        // D18③/D21: fields are not M1 analysis roots — the initializer stays.
-        Assert.Contains("static x => x * x", r.OutputCode);
-        Assert.Contains("new global::System.Func<int, int>(Cs2jLambda_M_0)", r.OutputCode);
-        Assert.Contains("private static int Cs2jLambda_M_0(int y) => y + 1;", r.OutputCode);
-        Assert.DoesNotContain(r.Diagnostics, d => d.Severity == ClosureLiftSeverity.Error);
-        AssertOutputCompiles(r.OutputCode);
+        // D18③ (M3): the initializer-hosted static lambda now trips CS2J4504;
+        // strict Error rolls the WHOLE file back — the method-body lambda that
+        // previously lifted alongside it stays in place too (no half lift).
+        Assert.False(r.Changed);
+        Assert.Equal(src, r.OutputCode);
+        Assert.Contains(r.Diagnostics, d =>
+            d.Code == "CS2J4504" && d.Severity == ClosureLiftSeverity.Error);
+        Assert.DoesNotContain("Cs2jLambda_M_0", r.OutputCode);
     }
 
     [Fact]

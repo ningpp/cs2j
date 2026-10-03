@@ -43,15 +43,6 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
 
         var analysisRoot = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
 
-        // M2 defense line (D18③/D21, task §9-7): static initializer lambdas were
-        // silently skipped in M1 (residual count only); they now carry an explicit
-        // CS2J4504 boundary row. The row does NOT freeze the file: the lambda is
-        // capture-free by construction (D12) and the legacy converter path still
-        // handles it, so only the initializer stays verbatim while the rest of
-        // the file lifts. Non-static initializer lambdas remain owned by the C32
-        // analyzer's CS2J3204 (Error → file rollback).
-        EmitStaticInitializerRows(model, analysisRoot, diagnostics);
-
         var sites = LambdaSiteIndex.CollectSites(analysisRoot, model);
         if (sites.Count == 0)
             return new ClosureStageResult(root, false);
@@ -68,7 +59,7 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         // nested planned lambda inside an outer body can be substituted with
         // its own explicit delegate construction at emit time (D8).
         var memberOrdinal = new Dictionary<string, int>(StringComparer.Ordinal);
-        var pending = new List<(StaticLambdaPlan Plan, ResolvedLambdaSignature Signature, LambdaExpressionSyntax ReceivedLambda, TypeDeclarationSyntax ReceivedHost)>();
+        var pending = new List<(StaticLambdaPlan Plan, ResolvedLambdaSignature Signature, LambdaExpressionSyntax ReceivedLambda, TypeDeclarationSyntax ReceivedHost, IReadOnlyList<ParameterSlot> ParameterSlots)>();
 
         foreach (var site in sites)
         {
@@ -78,8 +69,15 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
                 return new ClosureStageResult(root, false); // CS2J4501/4509: file stays verbatim.
 
             var receivedLambda = receivedLambdaBySpanStart[site.SpanStart];
-            if (!HasUsableParameterNames(receivedLambda, signature))
-                continue; // unnamed/discard parameter synthesis is M3 (D12①); lambda stays.
+
+            // D12①/②/④: discard/empty slots synthesize `_cs2jArg_<i>` names,
+            // implicit types become explicit, parameter attributes migrate.
+            // Only a structural arity mismatch leaves the lambda in place.
+            var parameterSlots = ParameterNormalizer.Build(
+                receivedLambda, signature, out var synthesizedCount);
+            if (parameterSlots == null)
+                continue;
+            statistics.DiscardParametersNormalized += synthesizedCount;
 
             var hostKey = HolderPlanner.HostTypeKey(model, site.HostType);
             var memberKey = hostKey + "\0" + site.RoutineName;
@@ -96,7 +94,7 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
                 methodName, signature.DelegateTypeDisplay);
 
             var receivedHost = receivedTypeByModelType[site.HostType];
-            pending.Add((plan, signature, receivedLambda, receivedHost));
+            pending.Add((plan, signature, receivedLambda, receivedHost, parameterSlots));
         }
 
         if (pending.Count == 0)
@@ -114,9 +112,10 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         var plans = new List<StaticLambdaPlan>();
         var methodsByReceivedHost = new Dictionary<TypeDeclarationSyntax, List<MethodDeclarationSyntax>>();
 
-        foreach (var (plan, signature, receivedLambda, receivedHost) in pending)
+        foreach (var (plan, signature, receivedLambda, receivedHost, parameterSlots) in pending)
         {
-            var method = StaticLambdaHandler.BuildMethod(plan.MethodName, signature, receivedLambda, planByPosition);
+            var method = StaticLambdaHandler.BuildMethod(
+                plan.MethodName, signature, receivedLambda, planByPosition, parameterSlots);
             var built = plan with { Method = method };
             plans.Add(built);
             planByPosition[(built.ReceivedSpanStart, built.SiteRawKind)] = built;
@@ -286,100 +285,5 @@ internal sealed class NamedMethodLiftStage : IClosureLiftStage
         }
 
         return true;
-    }
-
-    /// <summary>
-    /// M1 parameter-name gate (D12 full synthesis lands in M3): every lambda
-    /// parameter must supply a usable method-parameter name — non-empty and
-    /// unique across the parameter list (a single `_` discard is a legal name;
-    /// duplicated `_` or unnamed C# 10 parameters are deferred to M3).
-    /// Parameter attributes migrate with the parameter in M3 (D12④) — a
-    /// lambda carrying them is left in place here. The M2 consolidation
-    /// applies the same gate to the instance-method path.
-    /// </summary>
-    internal static bool HasUsableParameterNames(
-        LambdaExpressionSyntax lambda,
-        ResolvedLambdaSignature signature)
-    {
-        IReadOnlyList<ParameterSyntax> lambdaParameters = lambda switch
-        {
-            ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters,
-            SimpleLambdaExpressionSyntax s => new SyntaxList<ParameterSyntax>(s.Parameter),
-            _ => default,
-        };
-
-        if (lambdaParameters.Count != signature.Parameters.Count)
-            return false;
-
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var parameter in lambdaParameters)
-        {
-            if (parameter.Identifier.ValueText.Length == 0)
-                return false;
-            if (parameter.AttributeLists.Count > 0)
-                return false;
-            if (!seen.Add(parameter.Identifier.ValueText))
-                return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// M2 defense line (D18③/D21): static lambdas whose host is a field or
-    /// property initializer. The C32 analyzer already reports CS2J3204 (Error,
-    /// strict) for every NON-static initializer lambda, so this covers the
-    /// remaining silent population with an explicit CS2J4504 row (Warning —
-    /// the lambda is capture-free by construction and the legacy converter
-    /// path still handles it; the row exists so the boundary is no longer
-    /// invisible in reports).
-    /// </summary>
-    private static void EmitStaticInitializerRows(
-        SemanticModel model,
-        CompilationUnitSyntax root,
-        List<ClosureLiftDiagnostic> diagnostics)
-    {
-        foreach (var lambda in root.DescendantNodes().OfType<LambdaExpressionSyntax>())
-        {
-            if (ClosureLiftAnnotations.IsAnnotated(lambda)
-                || ExpressionTreeFacts.IsExpressionTreeLambda(model, lambda)
-                || !lambda.Modifiers.Any(m => m.IsKind(SyntaxKind.StaticKeyword)))
-            {
-                continue;
-            }
-
-            if (ResolveInitializerHost(lambda) is { } host)
-            {
-                diagnostics.Add(new ClosureLiftDiagnostic(
-                    ClosureLiftSeverity.Warning,
-                    ClosureLiftCodes.UnsupportedHost,
-                    "Static lambda in a field or property initializer is not lifted by closure-lift v1 " +
-                    "(unsupported host boundary; the initializer stays verbatim).",
-                    null,
-                    lambda.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
-                    host.Identifier.Text));
-            }
-        }
-    }
-
-    /// <summary>The field/property declaration hosting an initializer lambda, or null.</summary>
-    private static TypeDeclarationSyntax? ResolveInitializerHost(LambdaExpressionSyntax lambda)
-    {
-        for (var current = lambda.Parent; current != null; current = current.Parent)
-        {
-            switch (current)
-            {
-                case AccessorDeclarationSyntax:
-                case BaseMethodDeclarationSyntax:
-                case LocalFunctionStatementSyntax:
-                    return null;
-                case BaseFieldDeclarationSyntax:
-                case PropertyDeclarationSyntax:
-                case IndexerDeclarationSyntax:
-                    return current.Ancestors().OfType<TypeDeclarationSyntax>().FirstOrDefault();
-            }
-        }
-
-        return null;
     }
 }

@@ -37,6 +37,8 @@ namespace CSharpToJava.Core.ClosureLift;
 /// the enclosing method body is built (model-span coordinates).</param>
 /// <param name="ChildTypeByInstance">Direct child group instance name →
 /// chain-qualified child type display (per-block instantiation).</param>
+/// <param name="MethodParameterNames">Frozen D12 named-method parameter names
+/// per slot (discard slots synthesized as `_cs2jArg_&lt;i&gt;`).</param>
 internal sealed record PendingInstanceLambda(
     int SpanStart,
     int RawKind,
@@ -54,7 +56,8 @@ internal sealed record PendingInstanceLambda(
     IReadOnlySet<string> PromotedParameterNames,
     IReadOnlySet<string> PromotedLocalNames,
     IReadOnlyList<NestedDelegateSite> NestedSites,
-    IReadOnlyDictionary<string, string> ChildTypeByInstance);
+    IReadOnlyDictionary<string, string> ChildTypeByInstance,
+    IReadOnlyList<string> MethodParameterNames);
 
 /// <summary>D4: one nested instance-lambda site replaced inside a migrated parent method.</summary>
 internal sealed record NestedDelegateSite(
@@ -198,6 +201,7 @@ internal static class DisplayClassPlanner
         var groupOfLambda = new Dictionary<LambdaExpressionSyntax, DisplayClassPlan>();
         var isNewByLambda = new Dictionary<LambdaExpressionSyntax, bool>();
         var signatureByLambda = new Dictionary<LambdaExpressionSyntax, ResolvedLambdaSignature>();
+        var parameterSlotsByLambda = new Dictionary<LambdaExpressionSyntax, IReadOnlyList<ParameterSlot>>();
         var snapshotAnchors = new Dictionary<CapturedSymbolPlan, int>();
         var accountedSkips = 0;
         var plannedStaticSpans = staticPlans.Select(static p => p.SiteSpanStart).ToHashSet();
@@ -244,11 +248,17 @@ internal static class DisplayClassPlanner
 
             signatureByLambda[lambda] = signature;
 
-            if (!NamedMethodLiftStage.HasUsableParameterNames(lambda, signature))
+            // D12①/②/④: discard/empty slots synthesize `_cs2jArg_<i>` names,
+            // implicit types become explicit, parameter attributes migrate.
+            // Only a structural arity mismatch stays an accounted residual.
+            var parameterSlots = ParameterNormalizer.Build(lambda, signature, out var synthesizedCount);
+            if (parameterSlots == null)
             {
-                accountedSkips += 1; // discard/unnamed/attribute parameters: D12 (feat③).
+                accountedSkips += 1;
                 continue;
             }
+            statistics.DiscardParametersNormalized += synthesizedCount;
+            parameterSlotsByLambda[lambda] = parameterSlots;
 
             DisplayClassPlan? group;
             bool isNewGroup;
@@ -420,6 +430,9 @@ internal static class DisplayClassPlanner
             }
 
             var resolvedSignature = signatureByLambda[lambda];
+            var methodParameterNames = parameterSlotsByLambda[lambda]
+                .Select(static slot => slot.MethodParameterName)
+                .ToArray();
 
             pending.Add(new PendingInstanceLambda(
                 lambda.SpanStart, lambda.RawKind, group, isNewByLambda[lambda],
@@ -434,12 +447,20 @@ internal static class DisplayClassPlanner
                 promotedParameters,
                 promotedLocals,
                 nestedSites,
-                childTypes));
+                childTypes,
+                methodParameterNames));
         }
 
         // §7.3 residual census: every statement lambda is either planned (static or
         // instance), an accounted documented-bucket skip, or an unexpected residual
         // that trips the CS2J4510 gate (fail-loud instead of silent half-lifting).
+        // Post-D12 accounted buckets (M3): ① zero-capture lambda not on the static
+        // path (generic-inference ConvertedType null, D20/E16); ② unsupported fact
+        // shapes (host/declarator/local-function/quoted-external SkipReason);
+        // ③ loop-scoped PromotionBlocked state; ④ nested lambda whose enclosing
+        // lambda stayed residual; ⑤ top-level lambda spanning multiple mutable
+        // groups; ⑥ single-element array comparator form. (The pre-M3 seventh
+        // bucket — discard/attribute parameter gate — was removed by D12.)
         var unaccounted = statementLambdas.Count
                           - plannedStaticSpans.Count
                           - pending.Count
@@ -945,7 +966,25 @@ internal static class DisplayClassPlanner
                 continue;
             }
 
-            var declaringNode = capture.Symbol.DeclaringSyntaxReferences
+            var declaringReferences = capture.Symbol.DeclaringSyntaxReferences;
+            if (!declaringReferences.Any(r => r.SyntaxTree == lambda.SyntaxTree))
+            {
+                // CS2J4502 (read-only mirror of C32 CS2J3202): the captured
+                // local/parameter has no declarator in this tree, so the
+                // complete site set cannot be guaranteed — fail loud, file
+                // verbatim.
+                diagnostics.Add(new ClosureLiftDiagnostic(
+                    ClosureLiftSeverity.Error,
+                    ClosureLiftCodes.UnresolvableCapture,
+                    $"Captured symbol '{capture.Name}' has no declarator in this tree; the read-only capture site set cannot be guaranteed (D15).",
+                    null,
+                    capture.Symbol.Locations.FirstOrDefault()?.GetLineSpan().StartLinePosition.Line + 1 ?? 0,
+                    routineName,
+                    capture.Name));
+                return null;
+            }
+
+            var declaringNode = declaringReferences
                 .Select(static r => r.GetSyntax())
                 .FirstOrDefault();
             if (declaringNode is not (ParameterSyntax or VariableDeclaratorSyntax or ForEachStatementSyntax))
@@ -1018,6 +1057,21 @@ internal static class DisplayClassPlanner
             var symbol = model.GetSymbolInfo(identifier).Symbol;
             switch (symbol)
             {
+                // CS2J4502 (read-only mirror of CS2J3202): an external
+                // local/parameter of an unresolvable ErrorType cannot be given
+                // a field/snapshot shape with guaranteed sites.
+                case ILocalSymbol
+                or IParameterSymbol when IsExternalErrorTypedSymbol(symbol, lambda, lambdaSymbol):
+                    diagnostics.Add(new ClosureLiftDiagnostic(
+                        ClosureLiftSeverity.Error,
+                        ClosureLiftCodes.UnresolvableCapture,
+                        $"Captured symbol '{identifier.Identifier.Text}' has an unresolvable type; the read-only capture site set cannot be guaranteed (D15).",
+                        null,
+                        identifier.GetLocation().GetLineSpan().StartLinePosition.Line + 1,
+                        routineName,
+                        identifier.Identifier.Text));
+                    return null;
+
                 case IMethodSymbol { MethodKind: MethodKind.LocalFunction }:
                     return LambdaFacts.Skipped("local function reference", routine, routineName, hostType,
                         NearestBlock(lambda));
@@ -1061,5 +1115,40 @@ internal static class DisplayClassPlanner
             readOnlyCaptures,
             instanceMemberNames,
             hasExplicitThis);
+    }
+
+    /// <summary>
+    /// True for a local/parameter symbol whose type is an ErrorType and which
+    /// is declared OUTSIDE the lambda (the lambda's own parameters and
+    /// own-body locals are signature/body state, not captures — CS2J4501/4509
+    /// own signature problems).
+    /// </summary>
+    private static bool IsExternalErrorTypedSymbol(
+        ISymbol symbol,
+        LambdaExpressionSyntax lambda,
+        IMethodSymbol? lambdaSymbol)
+    {
+        var type = symbol switch
+        {
+            ILocalSymbol local => local.Type,
+            IParameterSymbol parameter => parameter.Type,
+            _ => null,
+        };
+        if (type == null || type.TypeKind != TypeKind.Error)
+            return false;
+
+        if (lambdaSymbol != null
+            && SymbolEqualityComparer.Default.Equals(symbol.ContainingSymbol, lambdaSymbol))
+        {
+            return false;
+        }
+
+        var declaring = symbol.DeclaringSyntaxReferences
+            .Select(static r => r.GetSyntax())
+            .FirstOrDefault();
+        if (declaring != null && declaring.Ancestors().Contains(lambda))
+            return false;
+
+        return true;
     }
 }

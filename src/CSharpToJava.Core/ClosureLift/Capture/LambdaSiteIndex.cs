@@ -137,7 +137,7 @@ internal static class LambdaSiteIndex
         if (CaptureClassification.OwnsStateForNestedLambda(model, lambda))
             return false;
 
-        foreach (var node in lambda.DescendantNodes())
+        foreach (var node in lambda.DescendantNodes(SkipOwnParameterSubtrees))
         {
             // 2. this / base capture: explicit forms (D7 is M2).
             if (node is ThisExpressionSyntax or BaseExpressionSyntax)
@@ -203,10 +203,37 @@ internal static class LambdaSiteIndex
                     }
 
                     break;
+
+                // 7. External local/parameter of ErrorType: not zero capture —
+                //    M2's CollectFacts owns the CS2J4502 row (never synthesize
+                //    a static method whose body could not bind).
+                case ILocalSymbol local when local.Type.TypeKind == TypeKind.Error
+                    && !SymbolEqualityComparer.Default.Equals(local.ContainingSymbol, lambdaSymbol):
+                case IParameterSymbol parameter when parameter.Type.TypeKind == TypeKind.Error
+                    && !SymbolEqualityComparer.Default.Equals(parameter.ContainingSymbol, lambdaSymbol):
+                    return false;
             }
         }
 
         return true;
+
+        // D12④: the lambda's own parameter list (names, explicit types and
+        // migrated attribute lists such as `[Marker] int _`) is signature, not
+        // body — an attribute constructor is an instance method symbol but it
+        // is never an implicit-this capture of the lambda.
+        bool SkipOwnParameterSubtrees(SyntaxNode node)
+        {
+            if (node is ParameterListSyntax list && list.Parent == lambda)
+                return false;
+            if (node is ParameterSyntax parameter
+                && parameter.Parent is SimpleLambdaExpressionSyntax simple
+                && simple == lambda)
+            {
+                return false;
+            }
+
+            return true;
+        }
     }
 
     private static SyntaxNode? GetBodyRoot(LambdaExpressionSyntax lambda) => lambda switch

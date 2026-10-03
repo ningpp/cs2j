@@ -50,6 +50,10 @@ internal sealed class LambdaMigrationContext
 
     /// <summary>Planned static nested sites (RECEIVED span coordinates, M1).</summary>
     public required IReadOnlyDictionary<(int Start, int Kind), StaticLambdaPlan> StaticPlans { get; init; }
+
+    /// <summary>D12 frozen named-method parameter slots (names; attributes come
+    /// from the received lambda at build time).</summary>
+    public required IReadOnlyList<ParameterSlot> ParameterSlots { get; init; }
 }
 
 /// <summary>
@@ -84,7 +88,8 @@ internal static class LambdaMethodLifter
         var signature = context.Signature;
         var receivedLambda = context.ReceivedLambda;
 
-        var parameters = StaticLambdaHandler.BuildSyntaxParameters(receivedLambda, signature);
+        var parameters = ParameterNormalizer.BuildMethodParameters(
+            receivedLambda, signature, context.ParameterSlots);
 
         var modifiers = new List<SyntaxToken>
         {

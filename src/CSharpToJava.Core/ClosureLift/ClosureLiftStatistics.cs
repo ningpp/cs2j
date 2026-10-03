@@ -52,12 +52,19 @@ public sealed class ClosureLiftStatistics
     /// <summary>Lambdas participating in a proven self/mutually recursive delegate group (D13).</summary>
     public int RecursiveLambdas;
 
+    /// <summary>Lambda parameters whose discard/empty name was synthesized to
+    /// <c>_cs2jArg_&lt;i&gt;</c> (D12①; attribute migration and explicit typing are
+    /// not separately counted).</summary>
+    public int DiscardParametersNormalized;
+
     /// <summary>Quoted Expression&lt;TDelegate&gt; lambdas skipped whole (D18; counted, not residual).</summary>
     public int ExpressionTreeLambdasSkipped;
 
-    /// <summary>Statement lambdas deliberately kept (M3 buckets: discard parameters, nested capturing
-    /// lambdas, local-function references, delegate-type inference positions…). Subset of
-    /// <see cref="ResidualStatementLambdas"/>; anything beyond this bucket trips CS2J4510 (§7.3).</summary>
+    /// <summary>Statement lambdas deliberately kept (M3 buckets: generic-inference
+    /// positions, unsupported declaration shapes, promotion-blocked groups,
+    /// outer-residual nesting, multi-group routines, array-comparator form…).
+    /// Subset of <see cref="ResidualStatementLambdas"/>; anything beyond these
+    /// buckets trips CS2J4510 (§7.3).</summary>
     public int AccountedResidualLambdas;
 
     /// <summary>CS2J3201-3206 rows keyed by code; residual gate rows counted separately.</summary>

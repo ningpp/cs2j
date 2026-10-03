@@ -29,9 +29,10 @@ internal static class StaticLambdaHandler
         string methodName,
         ResolvedLambdaSignature signature,
         LambdaExpressionSyntax lambda,
-        IReadOnlyDictionary<(int Start, int Kind), StaticLambdaPlan> plans)
+        IReadOnlyDictionary<(int Start, int Kind), StaticLambdaPlan> plans,
+        IReadOnlyList<ParameterSlot> parameterSlots)
     {
-        var parameters = BuildSyntaxParameters(lambda, signature);
+        var parameters = ParameterNormalizer.BuildMethodParameters(lambda, signature, parameterSlots);
 
         var modifiers = new List<SyntaxToken>
         {
@@ -152,38 +153,6 @@ internal static class StaticLambdaHandler
             declaration = declaration.WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
 
         return declaration;
-    }
-
-    /// <summary>
-    /// Parameter pairing: the lambda's own parameter supplies the name (D12
-    /// unnamed/discard synthesis is M3 — the stage refuses nameless or
-    /// colliding `_` parameters before reaching here), the delegate's
-    /// InvokeMethod supplies the explicit type. Shared with the M2 instance
-    /// path (same signature contract).
-    /// </summary>
-    internal static List<ParameterSyntax> BuildSyntaxParameters(
-        LambdaExpressionSyntax lambda,
-        ResolvedLambdaSignature signature)
-    {
-        IReadOnlyList<ParameterSyntax> lambdaParameters = lambda switch
-        {
-            ParenthesizedLambdaExpressionSyntax p => p.ParameterList.Parameters,
-            SimpleLambdaExpressionSyntax s => new SyntaxList<ParameterSyntax>(s.Parameter),
-            _ => default,
-        };
-
-        var result = new List<ParameterSyntax>();
-        for (var i = 0; i < signature.Parameters.Count; i++)
-        {
-            var resolved = signature.Parameters[i];
-            var name = lambdaParameters.Count > i
-                ? lambdaParameters[i].Identifier.ValueText
-                : resolved.Name;
-            result.Add(SyntaxFactory.Parameter(SyntaxFactory.Identifier(name))
-                .WithType(SyntaxFactory.ParseTypeName(resolved.TypeDisplay)));
-        }
-
-        return result;
     }
 
     /// <summary>Pointer usage must keep an unsafe context after the move. Shared with the M2 instance path.</summary>

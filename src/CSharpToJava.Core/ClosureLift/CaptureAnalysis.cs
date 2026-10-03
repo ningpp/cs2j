@@ -119,12 +119,6 @@ internal sealed class CaptureAnalyzer
 
         foreach (var lambda in lambdas)
         {
-            // D12: static lambdas capture nothing — where they live (field
-            // initializer included) is irrelevant to the lift and must not be
-            // reported as a D14/D16 boundary.
-            if (lambda.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword)))
-                continue;
-
             var lambdaBody = lambda is ParenthesizedLambdaExpressionSyntax parenthesized
                 ? (SyntaxNode?)parenthesized.Block ?? parenthesized.ExpressionBody
                 : ((SimpleLambdaExpressionSyntax)lambda).Block is { } block2
@@ -136,14 +130,22 @@ internal sealed class CaptureAnalyzer
             var routine = ResolveRoutine(lambda, out var boundaryCode, out var boundaryNode);
             if (routine == null)
             {
-                // v1 conservative boundary (design D14/D16): even a captureless
-                // non-static lambda in an unmappable site freezes the file —
-                // the transform cannot reason about `this`/scope there. D12
-                // static lambdas were already skipped above.
+                // D18③ (M3): field/property/indexer initializers and residual
+                // local functions are the CS2J4504 unsupported-host family for
+                // EVERY lambda shape — captureless and `static` included. The
+                // row is strict Error (Warning when non-strict), so strict mode
+                // keeps the whole file verbatim rather than partially lifting
+                // the other lambdas of the same file.
                 if (boundaryCode != null)
                     Emit(boundaryCode, BoundaryMessage(boundaryCode), boundaryNode!.GetLocation());
                 continue;
             }
+
+            // Static lambdas in a real routine body capture nothing: they add
+            // no candidates and never cross a host boundary (initializer-hosted
+            // static lambdas were routed to CS2J4504 above).
+            if (lambda.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword)))
+                continue;
 
             // D11: quoted lambdas contribute no mutable candidates of their own.
             if (quoted.Contains(lambda))
@@ -518,13 +520,14 @@ internal sealed class CaptureAnalyzer
                 case BaseMethodDeclarationSyntax method:
                     return method;
                 case LocalFunctionStatementSyntax:
-                    boundaryCode = ClosureLiftCodes.UnsupportedBoundary;
-                    boundaryNode = current;
-                    return null;
                 case PropertyDeclarationSyntax:
                 case IndexerDeclarationSyntax:
                 case BaseFieldDeclarationSyntax:
-                    boundaryCode = ClosureLiftCodes.UnsupportedBoundary;
+                    // D18③ (M3): unsupported lambda HOST (initializer or residual
+                    // local function) — CS2J4504, strict Error. HolderPlanner's
+                    // CS2J3204 rows own the other boundary shapes (for-anchors,
+                    // deconstructing foreach, block-less routines).
+                    boundaryCode = ClosureLiftCodes.UnsupportedHost;
                     boundaryNode = current;
                     return null;
             }
@@ -536,7 +539,9 @@ internal sealed class CaptureAnalyzer
     private static string BoundaryMessage(string code) => code switch
     {
         ClosureLiftCodes.UnsupportedBoundary =>
-            "Lambda crosses a residual local-function boundary or lives in a field/property initializer; unsupported in v1 (D14/D16).",
+            "Lambda crosses a residual boundary (for-anchor/deconstructing foreach/block-less routine); unsupported in v1 (D14/D16).",
+        ClosureLiftCodes.UnsupportedHost =>
+            "Lambda lives in a field/property/indexer initializer or crosses a residual local-function boundary; unsupported in v1 (D18③; the file stays verbatim in strict mode).",
         _ => "Unsupported lambda boundary.",
     };
 
@@ -584,7 +589,9 @@ internal sealed class CaptureAnalyzer
     {
         var severity = code switch
         {
-            ClosureLiftCodes.RefCapture or ClosureLiftCodes.UnsupportedBoundary
+            ClosureLiftCodes.RefCapture
+                or ClosureLiftCodes.UnsupportedBoundary
+                or ClosureLiftCodes.UnsupportedHost
                 => _options.Strict ? ClosureLiftSeverity.Error : ClosureLiftSeverity.Warning,
             ClosureLiftCodes.AuditRow => ClosureLiftSeverity.Info,
             _ => ClosureLiftSeverity.Error,
