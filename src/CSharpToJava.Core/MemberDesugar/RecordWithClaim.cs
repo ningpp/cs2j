@@ -25,4 +25,17 @@ internal static class RecordWithClaim
         if (model.Compilation is not CSharpCompilation compilation) return false;
         return RecordClaimIndex.For(compilation).IsAssignmentClaimed(assign, model);
     }
+
+    /// <summary>
+    /// 5123 让位钩（M2）：该位置 record 属性是否会被 Records reshape 接管（终形发
+    /// 字段+get_X/set_X）。PropertyRule 据此为位置属性产 Planned PropertyPlan（仅使用点
+    /// 降形，无声明展开），由 PropertyUseSiteRewriter 在重解析模型上按残余绑定降形。
+    /// Records 子集开关关闭时恒为 false（且索引根本不会 Build——默认关零行为铁律）。
+    /// </summary>
+    public static bool IsPositionalPropertyClaimed(
+        IPropertySymbol property, CSharpCompilation compilation, MemberDesugarOptions options)
+    {
+        if (!options.Records.Enabled) return false;
+        return RecordClaimIndex.For(compilation).IsPositionalPropertyClaimed(property);
+    }
 }

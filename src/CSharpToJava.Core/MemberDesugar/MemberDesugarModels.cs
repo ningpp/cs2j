@@ -252,8 +252,12 @@ public sealed class MemberDesugarStatistics
     public int WithSitesTotal { get; set; }
     /// <summary>其中 record class 工厂形态站点数（含多态 WR-2、类型内 WR-6）。</summary>
     public int WithSitesClass { get; set; }
-    /// <summary>其中空初始化器站点数（WR-3，纯工厂内联）。</summary>
+    /// <summary>其中 struct/record struct/tuple 值拷贝形态站点数（WR-4，M2）。</summary>
+    public int WithSitesStruct { get; set; }
+    /// <summary>其中空初始化器站点数（WR-3，纯工厂内联；struct 保守值拷贝）。</summary>
     public int WithSitesEmpty { get; set; }
+    /// <summary>实际 reshape 的位置 record 类型数（RC-3/RC-4，CS2J5214，M2）。</summary>
+    public int PositionalRecordsReshaped { get; set; }
     /// <summary>提升的源/克隆临时变量数（__cs2j_wsrc/__cs2j_wclone）。</summary>
     public int TemporariesPromoted { get; set; }
     /// <summary>with 覆写中经 set_X 发射的属性赋值数（M2 位置 reshape/5124 退役后为主路径）。</summary>

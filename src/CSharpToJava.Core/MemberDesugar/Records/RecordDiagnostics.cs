@@ -10,16 +10,18 @@ internal static class RecordDiagnostics
     public const string AtomicSuffix =
         "the record clone plan and all of its with sites were left unchanged";
 
-    /// <summary>CS2J5220：位置 record 整体留待 M2（reshape 未实现）。</summary>
-    public static string PositionalScheduled(string typeFqn)
-        => $"record '{typeFqn}' is a positional record; positional record reshape (primary "
-         + "constructor/copy constructor/Deconstruct materialization) is scheduled for M2; "
-         + AtomicSuffix + ".";
+    /// <summary>CS2J5220：位置 record reshape 闸门（决策 8c，原子不改；reason 给出具体检测结果）。</summary>
+    public static string PositionalReshapeBlocked(string typeFqn, string reason)
+        => $"positional record '{typeFqn}' cannot be reshaped into explicit members because "
+         + $"{reason}; the declaration and all of its with sites were left unchanged.";
 
-    /// <summary>CS2J5220：record struct/struct/tuple 值拷贝留待 M2（WR-4）。</summary>
-    public static string ValueCopyScheduled(string receiverText)
-        => $"'with' on '{receiverText}' uses struct/tuple value-copy semantics; the local value "
-         + "copy lowering (WR-4) is scheduled for M2; the with site was left unchanged.";
+    /// <summary>CS2J5220：readonly 值类型非空 with——克隆局部成员仍只读，set_X/字段直写
+    /// 无合法发射面（空 with 的纯值拷贝不受限，照常改写）。</summary>
+    public static string ReadonlyValueCopyBlocked(string receiverText)
+        => $"'with' on readonly value type '{receiverText}' mutates members, but every instance "
+         + "member of a readonly struct is itself readonly; the value-copy clone cannot be "
+         + "assigned into; the with site was left unchanged (empty with initializers are still "
+         + "rewritten as a pure value copy).";
 
     /// <summary>CS2J5221：非密封 record 存在树外派生 record，虚克隆无法保证运行时类型。</summary>
     public static string MetadataDerivedRisk(string typeFqn, IReadOnlyCollection<string> derived)
@@ -80,14 +82,25 @@ internal static class RecordDiagnostics
     // ---- Info（5212/5213，仅 verbose）----
 
     public static string WithSiteRewritten(string typeFqn, bool isEmpty, int memberCount, string? factory)
-        => isEmpty
-            ? $"with site on '{typeFqn}' rewritten to inline clone factory call '{factory}()' (WR-3)."
-            : $"with site on '{typeFqn}' rewritten: clone via '{factory}()' with {memberCount} "
-              + "member assignment(s) (WR-1/2/6).";
+        => factory != null
+            ? isEmpty
+                ? $"with site on '{typeFqn}' rewritten to inline clone factory call '{factory}()' (WR-3)."
+                : $"with site on '{typeFqn}' rewritten: clone via '{factory}()' with {memberCount} "
+                  + "member assignment(s) (WR-1/2/6)."
+            : isEmpty
+                ? $"with site on '{typeFqn}' rewritten as a local value copy (WR-4)."
+                : $"with site on '{typeFqn}' rewritten as a local value copy with {memberCount} "
+                  + "member assignment(s) (WR-4).";
 
     public static string CloneFactorySynthesized(string typeFqn, RecordFactoryForm form, string factory)
         => $"clone factory '{factory}' synthesized on '{typeFqn}' "
          + $"(form: {form.ToString().ToLowerInvariant()}, RC-1/RC-2).";
+
+    /// <summary>CS2J5214：位置 record 已 reshape（决策 8a/8b/8c/6）。</summary>
+    public static string PositionalReshaped(string typeFqn, int memberCount, bool isStruct)
+        => $"positional record '{typeFqn}' reshaped: parameter list removed; {memberCount} "
+         + $"positional member(s) materialized as fields with get_X/set_X methods "
+         + $"({(isStruct ? "RC-4 record struct" : "RC-3 record class")} final form).";
 
     /// <summary>CS2J5230：residual 零 with 闸门。</summary>
     public static string ResidualWith(int line, int column)

@@ -16,11 +16,42 @@ internal sealed class RecordClaimIndex
 {
     private static readonly ConditionalWeakTable<Compilation, RecordClaimIndex> _cache = new();
 
+    // M2 分步发射闸门（随提交翻开，最终随 WR-5 一并删除）：分析/物料/认领计算全部先行，
+    // 但 reshape 终形发射（RC-3 class / RC-4 struct）与嵌套 with（WR-5）落地前，运行期
+    // 维持 M1 站点跳过行为，保证每个中间提交 Enabled=true 输出也合法且与 M1 一致。
+    //   PositionalClassReshapeEnabled：RC-3（位置 record class reshape）
+    //   PositionalStructReshapeEnabled：RC-4（位置 record struct / 普通 struct 值拷贝）
+    //   NestedWithEnabled：WR-5（嵌套 with 后序重写）
+    internal const bool PositionalClassReshapeEnabled = false;
+    internal const bool PositionalStructReshapeEnabled = false;
+    internal const bool NestedWithEnabled = false;
+
+    /// <summary>该类型的 M2 新路径发射是否已随提交就位（RecordRule 临时闸门 / 5123 认领共用）。</summary>
+    internal static bool IsEmissionReady(INamedTypeSymbol type, PositionalShape? shape)
+    {
+        if (shape != null)
+        {
+            return shape.IsStruct ? PositionalStructReshapeEnabled : PositionalClassReshapeEnabled;
+        }
+        // 非位置 record struct / 普通 struct 的 with 值拷贝（WR-4）随 struct reshape 同批。
+        return type.TypeKind != TypeKind.Struct || PositionalStructReshapeEnabled;
+    }
+
     private readonly Dictionary<string, SiteClaim> _sitesByKey = new(StringComparer.Ordinal);
     private readonly Dictionary<INamedTypeSymbol, TypeClaim> _typeClaims =
         new(SymbolEqualityComparer.Default);
     private readonly Dictionary<string, ComponentInfo> _components =
         new(StringComparer.Ordinal);
+    // M2：通过 5220 闸门、本 run 实际要 reshape 的位置 record 物料（键归 OriginalDefinition）。
+    private readonly Dictionary<INamedTypeSymbol, PositionalShape> _shapes =
+        new(SymbolEqualityComparer.Default);
+    // M2 临时（WR-5 翻开前）：含嵌套 with 的接收者类型集合——plan 维持 5224 站点跳过、
+    // 所属组件不发工厂（M1 行为）。NestedWithEnabled 翻开后恒空。
+    private readonly HashSet<INamedTypeSymbol> _nestedPendingTypes =
+        new(SymbolEqualityComparer.Default);
+
+    /// <summary>临时闸门：含嵌套 with、WR-5 落地前整 plan 跳过且不发工厂的类型。</summary>
+    public IReadOnlyCollection<INamedTypeSymbol> PendingNestedTypes => _nestedPendingTypes;
 
     public bool IsEmpty => _sitesByKey.Count == 0;
     public IReadOnlyCollection<SiteClaim> Sites => _sitesByKey.Values;
@@ -48,6 +79,20 @@ internal sealed class RecordClaimIndex
 
         foreach (var site in rawSites)
             index._sitesByKey[SiteKey(site.FilePath, site.SpanStart)] = site;
+
+        // M2 临时（WR-5 翻开后本段恒空）：嵌套 with 双方接收者类型登记，供 RecordRule
+        // 维持 M1 的 5224 整 plan 跳过 + 组件不发工厂。
+        if (!NestedWithEnabled)
+        {
+            foreach (var site in rawSites)
+            {
+                if (site.FailCode != null || site.ReceiverType is not { } nestedReceiver) continue;
+                var isNested = site.Syntax.Ancestors().OfType<WithExpressionSyntax>().Any()
+                    || site.Syntax.DescendantNodes().OfType<WithExpressionSyntax>().Any();
+                if (isNested)
+                    index._nestedPendingTypes.Add(nestedReceiver.OriginalDefinition);
+            }
+        }
 
         // ---- 2. 源内 record 全集 + 元数据 record 全集（树外派生探测）----
         // 全部归一 OriginalDefinition（构造形 Box<int> 与定义形 Box<T> 去重）。
@@ -84,18 +129,35 @@ internal sealed class RecordClaimIndex
             list.Add(site);
         }
 
-        // 候选：源内显式成员 record class，且至少一个站点本地分类通过。
+        // 候选（M2）：源内 record class（含位置）/ record struct / 普通 struct，且至少一个
+        // 站点本地分类通过。struct 走 WR-4 值拷贝，无工厂、无继承链闭包（值类型隐式密封）。
         var candidates = sitesByType
-            .Where(kv => CloneCtorResolver.IsRecordClass(kv.Key)
-                && !CloneCtorResolver.IsPositional(kv.Key)
-                && kv.Value.Any(s => s.IsLocallyRewritable))
+            .Where(kv => kv.Value.Any(s => s.IsLocallyRewritable)
+                && IsEligibleReceiverKind(kv.Key))
             .Select(kv => kv.Key)
             .ToHashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
 
-        // ---- 4. 继承链闭包（候选 + record 祖先 + 源内 record 派生）+ 并查集 ----
+        var classCandidates = candidates
+            .Where(CloneCtorResolver.IsRecordClass)
+            .ToHashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+
+        // ---- 3b. 位置候选 reshape 物料 + 5220 闸门（仅当存在非空可行站点才需要 reshape；
+        // 纯空站点走原工厂/值拷贝即可，声明不动）。----
+        var shapeGates = new Dictionary<INamedTypeSymbol, ShapeGate>(
+            SymbolEqualityComparer.Default);
+        foreach (var type in candidates.Where(CloneCtorResolver.IsPositional))
+        {
+            var hasNonEmptySite = sitesByType[type].Any(s => s.IsLocallyRewritable && !s.IsEmpty);
+            if (!hasNonEmptySite) continue;
+            var (shape, gate) = PositionalRecordShapeAnalyzer.Analyze(type, compilation);
+            if (shape != null) index._shapes[type] = shape;
+            else if (gate != null) shapeGates[type] = gate;
+        }
+
+        // ---- 4. 继承链闭包（仅 record class 候选 + record 祖先 + 源内 record 派生）+ 并查集 ----
         // 组件全部以 OriginalDefinition 为键（构造泛型归并到定义形）。
         var dsu = new Dsu();
-        foreach (var candidate in candidates)
+        foreach (var candidate in classCandidates)
         {
             dsu.Add(candidate);
             foreach (var a in CloneCtorResolver.RecordAncestors(candidate))
@@ -104,9 +166,10 @@ internal sealed class RecordClaimIndex
                 dsu.Union(candidate, d.OriginalDefinition);
         }
 
-        // ---- 5. 组件成员聚合 + 组件级闸门：闭包含位置 record → 全组件 5220 ----
+        // ---- 5. 组件成员聚合 + 组件级闸门：候选成员 reshape 失败 → 全组件 5220（决策 8c
+        // 计划原子；非候选的位置闭包成员不 reshape，保留其合成 ctor/复制 ctor，不挡组件）----
         var components = new Dictionary<string, ComponentInfo>(StringComparer.Ordinal);
-        foreach (var candidate in candidates)
+        foreach (var candidate in classCandidates)
         {
             var root = dsu.Find(candidate);
             if (!components.TryGetValue(root, out var component))
@@ -117,14 +180,14 @@ internal sealed class RecordClaimIndex
             foreach (var d in CloneCtorResolver.SourceRecordDescendants(candidate, sourceRecords))
                 component.Members.Add(d.OriginalDefinition);
         }
-        foreach (var component in components.Values.ToList())
+        foreach (var (gated, gate) in shapeGates)
         {
-            var positional = component.Members.FirstOrDefault(CloneCtorResolver.IsPositional);
-            if (positional != null)
+            if (!CloneCtorResolver.IsRecordClass(gated)) continue;
+            var root = dsu.Find(gated);
+            if (components.TryGetValue(root, out var component))
             {
-                component.GateCode = MemberDesugarDiagnosticCode.PositionalReshapeGate;
-                component.GateReason = RecordDiagnostics.PositionalScheduled(
-                    positional.ToDisplayString());
+                component.GateCode = gate.Code;
+                component.GateReason = gate.Reason;
             }
         }
         foreach (var component in components.Values)
@@ -134,16 +197,31 @@ internal sealed class RecordClaimIndex
         foreach (var type in candidates)
         {
             var ownSites = sitesByType[type];
-            var componentRoot = dsu.Find(type);
 
             var bad = ownSites.FirstOrDefault(s => !s.IsLocallyRewritable);
             if (bad != null)
             {
                 index._typeClaims[type] = new TypeClaim(
-                    false, bad.FailCode!.Value, bad.FailReason!, componentRoot);
+                    false, bad.FailCode!.Value, bad.FailReason!,
+                    CloneCtorResolver.IsRecordClass(type) ? dsu.Find(type) : null);
                 continue;
             }
 
+            // struct/record struct：值类型无虚工厂/树外派生/复制 ctor 检查，
+            // 仅有位置 record struct 的 reshape 闸门。
+            if (!CloneCtorResolver.IsRecordClass(type))
+            {
+                if (shapeGates.TryGetValue(type, out var structGate))
+                {
+                    index._typeClaims[type] = new TypeClaim(
+                        false, structGate.Code, structGate.Reason, null);
+                    continue;
+                }
+                index._typeClaims[type] = new TypeClaim(true, null, null, null);
+                continue;
+            }
+
+            var componentRoot = dsu.Find(type);
             if (components[componentRoot].GateCode is { } gateCode)
             {
                 index._typeClaims[type] = new TypeClaim(
@@ -176,6 +254,9 @@ internal sealed class RecordClaimIndex
         return index;
     }
 
+    private static bool IsEligibleReceiverKind(INamedTypeSymbol type)
+        => CloneCtorResolver.IsRecordClass(type) || type.TypeKind == TypeKind.Struct;
+
     /// <summary>5124 让位钩（只回答：这个 with 初始化器直接赋值会不会被 Records 改写）。</summary>
     public bool IsAssignmentClaimed(AssignmentExpressionSyntax assign, SemanticModel model)
     {
@@ -193,8 +274,44 @@ internal sealed class RecordClaimIndex
 
         // 只对可写属性让位（字段不走 C11，5124 与字段无关）。
         if (model.GetSymbolInfo(assign.Left).Symbol is not IPropertySymbol prop) return false;
-        return prop.SetMethod != null
-            && !PropertyFacts.IsPositionalRecordProperty(prop);
+        if (prop.SetMethod == null) return false;
+        // 位置属性仅当其类型有可行 reshape 物料（set_X 终形会发射）时才让位；
+        // 未被 reshape 的位置属性仍走 5123/5124 原路径。
+        if (PropertyFacts.IsPositionalRecordProperty(prop))
+            return IsPositionalPropertyClaimed(prop);
+        return true;
+    }
+
+    /// <summary>5123 让位钩（M2）：该位置属性是否属于本 run 可行 reshape 的位置 record
+    /// （终形会发字段+get_X/set_X，PropertyRule 据此产 Planned PropertyPlan 而非 5123）。</summary>
+    public bool IsPositionalPropertyClaimed(IPropertySymbol prop)
+    {
+        var type = prop.ContainingType?.OriginalDefinition;
+        if (type == null || !_shapes.TryGetValue(type, out var shape)) return false;
+        // 原子性：类型认领不可行（任意站点命中闸门）时声明不 reshape，位置属性不认领。
+        if (!_typeClaims.TryGetValue(type, out var claim) || !claim.Feasible) return false;
+        // reshape 终形未发射的中间提交不认领（PropertyRule 维持 5123，输出与 M1 一致）。
+        if (!IsEmissionReady(type, shape)) return false;
+        var target = prop.OriginalDefinition;
+        return shape.Members.Any(m => SymbolEqualityComparer.Default.Equals(
+            m.Property.OriginalDefinition, target));
+    }
+
+    /// <summary>取可行 reshape 物料（RecordRule 挂 plan / PropertyRule 取契约字段名）。</summary>
+    public bool TryGetShape(INamedTypeSymbol type, out PositionalShape shape)
+        => _shapes.TryGetValue(type.OriginalDefinition, out shape!);
+
+    /// <summary>位置属性 → reshape 终形后备字段名（与发射体逐字同名）。</summary>
+    public bool TryGetPositionalFieldName(IPropertySymbol prop, out string fieldName)
+    {
+        fieldName = "";
+        var type = prop.ContainingType?.OriginalDefinition;
+        if (type == null || !_shapes.TryGetValue(type, out var shape)) return false;
+        var member = shape.Members.FirstOrDefault(m => SymbolEqualityComparer.Default.Equals(
+            m.Property.OriginalDefinition, prop.OriginalDefinition));
+        if (member == null) return false;
+        fieldName = member.FieldName;
+        return true;
     }
 
     public IReadOnlyList<WithSite> BuildSites(INamedTypeSymbol? receiverFilter)
@@ -237,18 +354,10 @@ internal sealed class RecordClaimIndex
                 MemberDesugarDiagnosticCode.ExpressionTreeWith,
                 RecordDiagnostics.ExpressionTreeWith());
 
-        // 2) 嵌套 with：内层（祖先 with）与外层（初始化器内含 with）统一 5224（WR-5/M2）。
-        if (w.Ancestors().OfType<WithExpressionSyntax>().Any())
-            return SiteClaim.Fail(w, filePath, span,
-                MemberDesugarDiagnosticCode.UnsupportedNestedInitializer,
-                RecordDiagnostics.UnsupportedNestedInitializer(
-                    typeFqn(), "a nested with-expression (WR-5)"));
-        if (w.Initializer != null
-            && w.Initializer.DescendantNodes().OfType<WithExpressionSyntax>().Any())
-            return SiteClaim.Fail(w, filePath, span,
-                MemberDesugarDiagnosticCode.UnsupportedNestedInitializer,
-                RecordDiagnostics.UnsupportedNestedInitializer(
-                    typeFqn(), "a nested with-expression (WR-5)"));
+        // 2) 嵌套 with（WR-5，M2 放开）：内层作为外层 RHS/接收者，由 plan 期后序 +
+        // 重写期语句级提升统一处理；此处不再失败。初始化器内「裸对象/集合初始化器」
+        // （X = { ... }）仍在逐成员扫描处 5224。
+        var nestedInWith = w.Ancestors().OfType<WithExpressionSyntax>().Any();
 
         var type = model.GetTypeInfo(w).Type;
 
@@ -269,19 +378,21 @@ internal sealed class RecordClaimIndex
                 RecordDiagnostics.NonRecordClassWith(type.ToDisplayString(),
                     $"receiver kind is {type.TypeKind}"), receiverType: null);
 
-        // 4) 匿名类型 / 元组。
+        // 4) 匿名类型。
         if (named.IsAnonymousType)
             return SiteClaim.Fail(w, filePath, span,
                 MemberDesugarDiagnosticCode.AnonymousTypeWith,
                 RecordDiagnostics.AnonymousTypeWith(), receiverType: named);
-        if (named.IsTupleType)
-            return SiteClaim.Fail(w, filePath, span,
-                MemberDesugarDiagnosticCode.PositionalReshapeGate,
-                RecordDiagnostics.ValueCopyScheduled(named.ToDisplayString()),
-                receiverType: named);
 
-        // 5) record 形态分流。
-        if (named.IsRecord)
+        // 5) 接收者形态分流（M2）：tuple/record struct/普通 struct 走 WR-4 值拷贝；
+        // 位置 record class 走 RC-3 reshape（可行性由整类型 shape 闸门在 plan 期定案，
+        // 站点本地分类不再提前 5220）。
+        var isValueCopy = false;
+        if (named.IsTupleType)
+        {
+            isValueCopy = true;
+        }
+        else if (named.IsRecord)
         {
             if (!CloneCtorResolver.IsInSource(named))
                 return SiteClaim.Fail(w, filePath, span,
@@ -289,31 +400,36 @@ internal sealed class RecordClaimIndex
                     RecordDiagnostics.MetadataRecordReceiver(named.ToDisplayString()),
                     receiverType: named);
             if (CloneCtorResolver.IsRecordStruct(named))
-                return SiteClaim.Fail(w, filePath, span,
-                    MemberDesugarDiagnosticCode.PositionalReshapeGate,
-                    RecordDiagnostics.ValueCopyScheduled(named.ToDisplayString()),
-                    receiverType: named);
-            if (CloneCtorResolver.IsPositional(named))
-                return SiteClaim.Fail(w, filePath, span,
-                    MemberDesugarDiagnosticCode.PositionalReshapeGate,
-                    RecordDiagnostics.PositionalScheduled(named.ToDisplayString()),
-                    receiverType: named);
+                isValueCopy = true;
         }
         else if (named.TypeKind == TypeKind.Struct)
         {
-            return SiteClaim.Fail(w, filePath, span,
-                MemberDesugarDiagnosticCode.PositionalReshapeGate,
-                RecordDiagnostics.ValueCopyScheduled(named.ToDisplayString()),
-                receiverType: named);
+            if (!CloneCtorResolver.IsInSource(named))
+                return SiteClaim.Fail(w, filePath, span,
+                    MemberDesugarDiagnosticCode.NonRecordClassWith,
+                    RecordDiagnostics.NonRecordClassWith(named.ToDisplayString(),
+                        "the struct receiver is declared in referenced metadata; no set_X "
+                        + "accessor methods can be assumed there"),
+                    receiverType: named);
+            isValueCopy = true;
         }
         else
         {
             return SiteClaim.Fail(w, filePath, span,
                 MemberDesugarDiagnosticCode.NonRecordClassWith,
                 RecordDiagnostics.NonRecordClassWith(named.ToDisplayString(),
-                    "only record class receivers are supported (CS8858 for plain classes)"),
+                    "only record class/struct receivers are supported (CS8858 for plain classes)"),
                 receiverType: named);
         }
+
+        // readonly 值类型非空 with：克隆局部的字段/属性仍只读（CS8340/CS8341），
+        // set_X/字段直写无合法发射面 → 5220；空 with 纯值拷贝不受限。
+        var hasInitializer = w.Initializer is { Expressions.Count: > 0 };
+        if (isValueCopy && !named.IsTupleType && named.IsReadOnly && hasInitializer)
+            return SiteClaim.Fail(w, filePath, span,
+                MemberDesugarDiagnosticCode.PositionalReshapeGate,
+                RecordDiagnostics.ReadonlyValueCopyBlocked(named.ToDisplayString()),
+                receiverType: named);
 
         // 6) 初始化器逐成员绑定（空初始化器 WR-3 直接通过）。
         var assignments = new List<WithAssignment>();
@@ -343,11 +459,8 @@ internal sealed class RecordClaimIndex
                     if (p.IsStatic || p.ReturnsByRef)
                         return FailInitializer(w, filePath, span, named,
                             "a static or ref-returning property target");
-                    if (PropertyFacts.IsPositionalRecordProperty(p))
-                        return SiteClaim.Fail(w, filePath, span,
-                            MemberDesugarDiagnosticCode.PositionalReshapeGate,
-                            RecordDiagnostics.PositionalScheduled(named.ToDisplayString()),
-                            receiverType: named);
+                    // 位置属性（init 访问器亦有 SetMethod）：reshape 终形放宽为 set_X，
+                    // 可行性由整类型 shape 闸门定案（决策 6/8c），站点扫描不再拦。
                     if (p.SetMethod == null)
                         return FailInitializer(w, filePath, span, named,
                             "a read-only property target");
@@ -384,8 +497,11 @@ internal sealed class RecordClaimIndex
 
         var isEmpty = assignments.Count == 0;
 
-        // 7) 非空站点必须可提升（决策 10）。
-        if (!isEmpty && !CloneCtorResolver.IsLiftableSite(w))
+        // 7) 语句提升闸门（决策 10 + WR-4）：非空 record class 站点、以及所有值拷贝站点
+        // （含空初始化器——struct 空 with 也保守发一次 wsrc/wclone）必须可提升；嵌套内层
+        // with 由外层提升接管（外层不可提升时外层自身失败，原子跳过整条语句）。
+        var needsLift = !isEmpty || isValueCopy;
+        if (needsLift && !nestedInWith && !CloneCtorResolver.IsLiftableSite(w))
             return SiteClaim.Fail(w, filePath, span,
                 MemberDesugarDiagnosticCode.NonLiftableWithContext,
                 RecordDiagnostics.NonLiftableContext(named.ToDisplayString()),
@@ -398,6 +514,7 @@ internal sealed class RecordClaimIndex
             SpanStart = span,
             ReceiverType = named,
             IsEmpty = isEmpty,
+            IsValueCopy = isValueCopy,
             Assignments = assignments,
             FailCode = null,
             FailReason = null,
@@ -430,6 +547,7 @@ internal sealed class RecordClaimIndex
         public required int SpanStart { get; init; }
         public INamedTypeSymbol? ReceiverType { get; init; }
         public required bool IsEmpty { get; init; }
+        public bool IsValueCopy { get; init; }
         public required IReadOnlyList<WithAssignment> Assignments { get; init; }
         public MemberDesugarDiagnosticCode? FailCode { get; init; }
         public string? FailReason { get; init; }
@@ -462,6 +580,7 @@ internal sealed class RecordClaimIndex
                 ReceiverInSource = ReceiverType != null
                     && CloneCtorResolver.IsInSource(ReceiverType),
                 IsEmpty = IsEmpty,
+                IsValueCopy = IsValueCopy,
                 Assignments = Assignments,
                 FailCode = FailCode,
                 FailReason = FailReason,

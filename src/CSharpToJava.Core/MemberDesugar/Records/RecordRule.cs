@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.MemberDesugar.Records;
 
@@ -60,10 +61,24 @@ internal sealed class RecordRule : IMemberDesugarRule
         // ---- 2. 继承链组件 → 统一工厂定名（决策 2）----
         var factoryByType = new Dictionary<INamedTypeSymbol, FactoryDecision>(
             SymbolEqualityComparer.Default);
+        var nestedPending = new HashSet<INamedTypeSymbol>(
+            index.PendingNestedTypes, SymbolEqualityComparer.Default);
         foreach (var component in index.Components)
         {
-            // 组件闸门（M1：含位置 record）时不发任何工厂；候选类型以 GateCode 留诊断。
+            // 组件闸门（含位置 reshape 闸门）时不发任何工厂；候选类型以 GateCode 留诊断。
             if (component.GateCode != null) continue;
+
+            // M2 分步发射临时行为（RC-3/WR-5 翻开后条件自然恒 false）：
+            // ① 组件含嵌套 with 待 WR-5 放行的类型——按 M1 不发工厂；
+            // ② 组件中还有终形未就位的位置 record class——整个组件按 M1 不发工厂
+            //   （避免向未 reshape 声明注入工厂，中间提交输出与 M1 一致）。
+            if (component.Members.Any(t => nestedPending.Contains(t))) continue;
+            if (component.Members.Any(t =>
+                    CloneCtorResolver.IsRecordClass(t)
+                    && CloneCtorResolver.IsPositional(t)
+                    && (!index.TryGetShape(t, out var pendingShape)
+                        || !RecordClaimIndex.IsEmissionReady(t, pendingShape))))
+                continue;
 
             var members = component.Members
                 .Where(CloneCtorResolver.IsRecordClass)
@@ -93,6 +108,9 @@ internal sealed class RecordRule : IMemberDesugarRule
 
             index.TryGetTypeClaim(type, out var claim);
             factoryByType.TryGetValue(type, out var factory);
+            // 仅可行类型携带 reshape 物料（闸门类型 TryGetShape 必为 false）。
+            PositionalShape? shape = null;
+            if (claim is { Feasible: true }) index.TryGetShape(type, out shape);
 
             // 类型闸门码：认领结论不可行（5220/5221/缺复制 ctor 等）直接采用；
             // 无认领结论（位置 record/struct/非 record class 等形态排除，或本站点全部
@@ -121,20 +139,44 @@ internal sealed class RecordRule : IMemberDesugarRule
                 }
             }
 
+            // M2 分步发射临时闸门（随 RC-3/RC-4/WR-5 提交翻开，全部翻开后删本段）：
+            // 分析已判可行的位置/struct/嵌套站点，在终形发射落地前维持 M1 的站点跳过
+            // 行为（沿用同码 5220/5224），保证每个中间提交 Enabled=true 的输出也合法。
+            if (gateCode == null && claim is { Feasible: true })
+            {
+                if (nestedPending.Contains(type))
+                {
+                    gateCode = MemberDesugarDiagnosticCode.UnsupportedNestedInitializer;
+                    gateReason = RecordDiagnostics.UnsupportedNestedInitializer(
+                        type.ToDisplayString(), "a nested 'with' expression");
+                }
+                else if (!RecordClaimIndex.IsEmissionReady(type, shape))
+                {
+                    gateCode = MemberDesugarDiagnosticCode.PositionalReshapeGate;
+                    gateReason = RecordDiagnostics.PositionalReshapeBlocked(type.ToDisplayString(),
+                        shape != null
+                            ? "emission of its positional final form is staged in this milestone"
+                            : "value-copy rewriting for struct receivers is staged in this milestone");
+                }
+            }
+
+            // reshape 类型的工厂/reshape 注入点统一锚定带 ParameterList 的部件标识符
+            // （partial 多部件中唯一），保证同遍同部件完成。
+            var insertSpan = shape?.Part.Identifier.SpanStart ?? span;
             builder.Add(new RecordClonePlan
             {
-                Id = RecordClonePlan.BuildId(type, span),
+                Id = RecordClonePlan.BuildId(type, insertSpan),
                 Kind = MemberDesugarKind.Record,
                 Symbol = type,
                 Outcome = MemberDesugarOutcome.Planned,
                 TouchedFiles = touched.ToList(),
                 RecordType = type,
                 IsOrphan = false,
-                IsPositional = CloneCtorResolver.IsPositional(type),
+                Reshape = shape,
                 FactoryForm = factory.Form,
                 FactoryName = factory.Name,
                 FactoryAlreadyExists = factory.AlreadyExists,
-                FactoryInsertSpanStart = span,
+                FactoryInsertSpanStart = insertSpan,
                 FactoryRequired = factory.Name != null,
                 GateCode = gateCode,
                 GateReason = gateReason,
@@ -176,7 +218,6 @@ internal sealed class RecordRule : IMemberDesugarRule
                 TouchedFiles = touched.ToList(),
                 RecordType = type,
                 IsOrphan = false,
-                IsPositional = false,
                 FactoryForm = factory.Form,
                 FactoryName = factory.Name,
                 FactoryAlreadyExists = factory.AlreadyExists,

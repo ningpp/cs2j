@@ -21,6 +21,10 @@ internal sealed class PropertyPlan : MemberDesugarPlan
     /// 挂载时 <see cref="BackingFieldName"/> 必已分配（与 auto 属性同契约命名）。</summary>
     public FieldKeywordInfo? FieldKeyword { get; init; }
 
+    /// <summary>C27 M2：位置 record reshape 认领的位置属性（无 PropertyDeclarationSyntax；
+    /// 声明展开由 Records reshape 发射，本 plan 只负责使用点降形）。</summary>
+    public bool IsPositionalRecordMember { get; init; }
+
     public override bool OwnsTouch(string filePath, string? typeName, string? memberName)
     {
         if (!TouchedFiles.Contains(filePath)) return false;

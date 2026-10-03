@@ -45,8 +45,12 @@ internal sealed class WithSite
     /// <summary>接收者类型声明是否在本编译源树内（false→orphan 载体 plan）。</summary>
     public required bool ReceiverInSource { get; init; }
 
-    /// <summary>WR-3：空初始化器（纯工厂内联，无需提升）。</summary>
+    /// <summary>WR-3：空初始化器（record class 纯工厂内联；struct/tuple 仍保守发一次值拷贝）。</summary>
     public required bool IsEmpty { get; init; }
+
+    /// <summary>WR-4：值拷贝形态接收者（record struct/普通 struct/tuple）——不发工厂不调
+    /// ctor，克隆体由源局部直接赋值；false=record class 工厂形态。</summary>
+    public bool IsValueCopy { get; init; }
 
     /// <summary>直接成员覆写（空初始化器为空；嵌套初始化器在闸门命中时可能不完整）。</summary>
     public required IReadOnlyList<WithAssignment> Assignments { get; init; }
@@ -73,8 +77,12 @@ internal sealed class RecordClonePlan : MemberDesugarPlan
     /// <summary>true=逐文件 orphan 站点载体（无声明侧动作）。</summary>
     public required bool IsOrphan { get; init; }
 
-    /// <summary>本 plan 是否为位置 record（M1 整 plan 5220）。</summary>
-    public bool IsPositional { get; init; }
+    /// <summary>本 plan 是否承载位置 record reshape（RC-3/RC-4，M2）。null=不 reshape
+    /// （显式成员 record、struct/tuple 值拷贝、仅空站点的位置 record 等）。</summary>
+    public PositionalShape? Reshape { get; init; }
+
+    /// <summary>本 plan 是否为位置 record reshape 载体（= <see cref="Reshape"/> != null）。</summary>
+    public bool IsPositional => Reshape != null;
 
     /// <summary>工厂形态；null=不发工厂（orphan/struct/位置 record/非 record）。</summary>
     public RecordFactoryForm? FactoryForm { get; init; }
