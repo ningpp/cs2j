@@ -108,21 +108,6 @@ public sealed class BoundaryInventory
 /// </summary>
 internal static class BoundaryInventoryBuilder
 {
-    // M1 本地镜像：OS 成员探针身份 8 个（PlatformBoundaryAnalyzer.PlatformMemberPrefixes，
-    // 现为 private）。仅用于把 CS2J3102「API」站点区分为 PlatformMember/PlatformType；
-    // M2 抽表到 BoundaryTables.cs 后由单一真相替代。
-    private static readonly HashSet<string> OsMemberProbeIdentities = new(StringComparer.Ordinal)
-    {
-        "System.Environment.OSVersion",
-        "System.OperatingSystem.IsWindows",
-        "System.OperatingSystem.IsLinux",
-        "System.OperatingSystem.IsMacOS",
-        "System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform",
-        "System.Runtime.InteropServices.RuntimeInformation.OSDescription",
-        "System.Runtime.InteropServices.RuntimeInformation.OSArchitecture",
-        "System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture",
-    };
-
     public static BoundaryInventory Build(
         Compilation compilation,
         bool isTestProject = false,
@@ -302,13 +287,14 @@ internal static class BoundaryInventoryBuilder
             return BoundaryFamily.OsGuardAttribute;
         }
 
-        // CS2J3102：消息原文区分 API / type；API 中命中 8 探针身份者归 PlatformMember。
+        // CS2J3102：消息原文区分 API / type；API 中命中 8 探针前缀者归 PlatformMember
+        // （表驱动，单一真相 BoundaryTables，C42 M2 抽表）。
         if (message.Contains("platform-specific type", StringComparison.Ordinal))
         {
             return BoundaryFamily.PlatformType;
         }
 
-        return OsMemberProbeIdentities.Contains(identity)
+        return BoundaryTables.IsPlatformMemberIdentity(identity)
             ? BoundaryFamily.PlatformMember
             : BoundaryFamily.PlatformType;
     }

@@ -2,21 +2,12 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.PlatformIsolation;
 
 namespace CSharpToJava.Core.Pipeline;
 
 internal static class UnsupportedDomainAnalyzer
 {
-    private static readonly string[] UnsupportedNamespacePrefixes =
-    [
-        "System.Windows.Forms",
-        "System.Windows.Controls",
-        "System.Windows",
-        "Microsoft.Maui",
-        "Windows.UI.Xaml",
-        "System.Xaml",
-    ];
-
     public static IReadOnlyList<DiagnosticMessage> AnalyzeSyntaxTree(
         SyntaxTree syntaxTree,
         IReadOnlyCollection<string>? compatNamespacePrefixes = null)
@@ -35,7 +26,7 @@ internal static class UnsupportedDomainAnalyzer
                 continue;
             }
 
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(usingDirective.Name.ToString(), UnsupportedNamespacePrefixes)
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(usingDirective.Name.ToString(), BoundaryTables.UiNamespacePrefixes)
                 && !HasCompatNamespacePrefix(usingDirective.Name.ToString(), compatNamespacePrefixes))
             {
                 collector.Add(
@@ -48,7 +39,7 @@ internal static class UnsupportedDomainAnalyzer
 
         foreach (var qualifiedName in root.DescendantNodes().OfType<QualifiedNameSyntax>())
         {
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(qualifiedName.ToString(), UnsupportedNamespacePrefixes)
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(qualifiedName.ToString(), BoundaryTables.UiNamespacePrefixes)
                 && !HasCompatNamespacePrefix(qualifiedName.ToString(), compatNamespacePrefixes))
             {
                 collector.Add(
@@ -61,7 +52,7 @@ internal static class UnsupportedDomainAnalyzer
 
         foreach (var memberAccess in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
         {
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(memberAccess.ToString(), UnsupportedNamespacePrefixes)
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(memberAccess.ToString(), BoundaryTables.UiNamespacePrefixes)
                 && !HasCompatNamespacePrefix(memberAccess.ToString(), compatNamespacePrefixes))
             {
                 collector.Add(
@@ -103,31 +94,6 @@ internal static class UnsupportedDomainAnalyzer
 
 internal static class PlatformBoundaryAnalyzer
 {
-    private static readonly string[] PlatformTypePrefixes =
-    [
-        "Microsoft.Win32.Registry",
-        "Microsoft.Win32.RegistryKey",
-        "System.Diagnostics.EventLog",
-        "System.Management.ManagementObject",
-        "System.Management.ManagementObjectSearcher",
-        "System.ServiceProcess.ServiceController",
-        "System.DirectoryServices.DirectoryEntry",
-        "System.DirectoryServices.DirectorySearcher",
-        "System.IO.Ports.SerialPort",
-    ];
-
-    private static readonly string[] PlatformMemberPrefixes =
-    [
-        "System.Environment.OSVersion",
-        "System.OperatingSystem.IsWindows",
-        "System.OperatingSystem.IsLinux",
-        "System.OperatingSystem.IsMacOS",
-        "System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform",
-        "System.Runtime.InteropServices.RuntimeInformation.OSDescription",
-        "System.Runtime.InteropServices.RuntimeInformation.OSArchitecture",
-        "System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture",
-    ];
-
     public static IReadOnlyList<DiagnosticMessage> AnalyzeSyntaxTree(
         SyntaxTree syntaxTree,
         SemanticModel? semanticModel,
@@ -143,7 +109,7 @@ internal static class PlatformBoundaryAnalyzer
         foreach (var attribute in root.DescendantNodes().OfType<AttributeSyntax>())
         {
             var attributeName = BoundaryAnalysisHelpers.NormalizeAttributeName(attribute.Name.ToString());
-            if (attributeName is "SupportedOSPlatform" or "UnsupportedOSPlatform" or "SupportedOSPlatformGuard" or "UnsupportedOSPlatformGuard")
+            if (BoundaryTables.IsOsGuardAttribute(attributeName))
             {
                 collector.Add(
                     code: "CS2J3101",
@@ -160,7 +126,7 @@ internal static class PlatformBoundaryAnalyzer
                 continue;
             }
 
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, PlatformMemberPrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.PlatformMemberPrefixes))
             {
                 collector.Add(
                     code: "CS2J3102",
@@ -180,8 +146,8 @@ internal static class PlatformBoundaryAnalyzer
                 continue;
             }
 
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, PlatformMemberPrefixes)
-                || BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, PlatformTypePrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.PlatformMemberPrefixes)
+                || BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.PlatformTypePrefixes))
             {
                 collector.Add(
                     code: "CS2J3102",
@@ -201,7 +167,7 @@ internal static class PlatformBoundaryAnalyzer
                 continue;
             }
 
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, PlatformTypePrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.PlatformTypePrefixes))
             {
                 collector.Add(
                     code: "CS2J3102",
@@ -218,7 +184,7 @@ internal static class PlatformBoundaryAnalyzer
                 continue;
             }
 
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, PlatformTypePrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.PlatformTypePrefixes))
             {
                 collector.Add(
                     code: "CS2J3102",
@@ -242,14 +208,6 @@ internal static class PlatformBoundaryAnalyzer
 
 internal static class NativeInteropAnalyzer
 {
-    private static readonly string[] NativeInteropTypePrefixes =
-    [
-        "System.Runtime.InteropServices.Marshal",
-        "System.Runtime.InteropServices.NativeLibrary",
-        "System.Runtime.InteropServices.HandleRef",
-        "System.Runtime.InteropServices.SafeHandle",
-    ];
-
     public static IReadOnlyList<DiagnosticMessage> AnalyzeSyntaxTree(SyntaxTree syntaxTree, SemanticModel? semanticModel)
     {
         if (syntaxTree.GetRoot() is not CompilationUnitSyntax root)
@@ -262,7 +220,7 @@ internal static class NativeInteropAnalyzer
         foreach (var attribute in root.DescendantNodes().OfType<AttributeSyntax>())
         {
             var attributeName = BoundaryAnalysisHelpers.NormalizeAttributeName(attribute.Name.ToString());
-            if (attributeName is "DllImport" or "LibraryImport" or "ComImport" or "MarshalAs" or "UnmanagedCallersOnly" or "GeneratedComInterface")
+            if (BoundaryTables.IsNativeInteropAttribute(attributeName))
             {
                 collector.Add(
                     code: "CS2J3201",
@@ -293,7 +251,7 @@ internal static class NativeInteropAnalyzer
                 continue;
             }
 
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, NativeInteropTypePrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.NativeInteropTypePrefixes))
             {
                 collector.Add(
                     code: "CS2J3202",
@@ -310,7 +268,7 @@ internal static class NativeInteropAnalyzer
                 continue;
             }
 
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, NativeInteropTypePrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.NativeInteropTypePrefixes))
             {
                 collector.Add(
                     code: "CS2J3202",
@@ -327,7 +285,7 @@ internal static class NativeInteropAnalyzer
                 continue;
             }
 
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, NativeInteropTypePrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.NativeInteropTypePrefixes))
             {
                 collector.Add(
                     code: "CS2J3202",
@@ -344,7 +302,7 @@ internal static class NativeInteropAnalyzer
                 continue;
             }
 
-            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, NativeInteropTypePrefixes))
+            if (BoundaryAnalysisHelpers.MatchesAnyPrefix(identity, BoundaryTables.NativeInteropTypePrefixes))
             {
                 collector.Add(
                     code: "CS2J3202",
@@ -389,90 +347,20 @@ internal static class BoundaryAnalysisHelpers
         => !string.IsNullOrWhiteSpace(filePath)
             && string.Equals(Path.GetFileName(filePath), "NativeMethods.cs", StringComparison.OrdinalIgnoreCase);
 
+    // Identity / attribute helpers are the single-source BoundaryTables
+    // implementation (C42 M2 抽表); this facade is kept so the CheckPasses and
+    // the platform-isolation inventory keep their existing call sites.
     public static bool MatchesAnyPrefix(string value, IEnumerable<string> prefixes)
-    {
-        foreach (var prefix in prefixes)
-        {
-            if (value.Equals(prefix, StringComparison.Ordinal)
-                || value.StartsWith(prefix + ".", StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        => BoundaryTables.MatchesAnyPrefix(value, prefixes);
 
     public static string NormalizeAttributeName(string name)
-    {
-        var simpleName = name.Split('.').Last();
-        return simpleName.EndsWith("Attribute", StringComparison.Ordinal)
-            ? simpleName[..^"Attribute".Length]
-            : simpleName;
-    }
+        => BoundaryTables.NormalizeAttributeName(name);
 
     public static bool TryResolveSymbolIdentity(SyntaxNode node, SemanticModel? semanticModel, out string identity)
-    {
-        if (semanticModel != null)
-        {
-            var symbolInfo = semanticModel.GetSymbolInfo(node);
-            var symbol = symbolInfo.Symbol ?? symbolInfo.CandidateSymbols.FirstOrDefault();
-            if (symbol != null)
-            {
-                switch (symbol)
-                {
-                    case IMethodSymbol methodSymbol when methodSymbol.MethodKind == MethodKind.Constructor:
-                        identity = methodSymbol.ContainingType.ToDisplayString();
-                        return true;
-                    case IMethodSymbol methodSymbol:
-                        identity = $"{methodSymbol.ContainingType.ToDisplayString()}.{methodSymbol.Name}";
-                        return true;
-                    case IPropertySymbol propertySymbol:
-                        identity = $"{propertySymbol.ContainingType.ToDisplayString()}.{propertySymbol.Name}";
-                        return true;
-                    case IFieldSymbol fieldSymbol:
-                        identity = $"{fieldSymbol.ContainingType.ToDisplayString()}.{fieldSymbol.Name}";
-                        return true;
-                    case INamedTypeSymbol namedTypeSymbol:
-                        identity = namedTypeSymbol.ToDisplayString();
-                        return true;
-                }
-            }
-
-            var typeInfo = semanticModel.GetTypeInfo(node);
-            if (typeInfo.Type is INamedTypeSymbol typeSymbol)
-            {
-                identity = typeSymbol.ToDisplayString();
-                return true;
-            }
-        }
-
-        identity = node switch
-        {
-            InvocationExpressionSyntax invocation => invocation.Expression.ToString(),
-            ObjectCreationExpressionSyntax objectCreation => objectCreation.Type.ToString(),
-            AttributeSyntax attribute => attribute.Name.ToString(),
-            _ => node.ToString(),
-        };
-
-        return !string.IsNullOrWhiteSpace(identity);
-    }
+        => BoundaryTables.TryResolveSymbolIdentity(node, semanticModel, out identity);
 
     public static bool TryResolveTypeIdentity(TypeSyntax typeSyntax, SemanticModel? semanticModel, out string identity)
-    {
-        if (semanticModel != null)
-        {
-            var typeInfo = semanticModel.GetTypeInfo(typeSyntax);
-            if (typeInfo.Type is INamedTypeSymbol typeSymbol)
-            {
-                identity = typeSymbol.ToDisplayString();
-                return true;
-            }
-        }
-
-        identity = typeSyntax.ToString();
-        return !string.IsNullOrWhiteSpace(identity);
-    }
+        => BoundaryTables.TryResolveTypeIdentity(typeSyntax, semanticModel, out identity);
 }
 
 internal sealed class BoundaryDiagnosticCollector

@@ -410,7 +410,160 @@ public class PlatformIsolationUnitTests
         Assert.False(InteropBoundaryFacts.IsPlatformIsolationGenerated(method));
     }
 
-    private static int CompareSites(BoundarySite left, BoundarySite right)
+    [Fact]
+    public void BoundaryTables_LocksTheSixPrefixTables()
+    {
+    Assert.Equal(
+        new[]
+        {
+            "System.Windows.Forms",
+            "System.Windows.Controls",
+            "System.Windows",
+            "Microsoft.Maui",
+            "Windows.UI.Xaml",
+            "System.Xaml",
+        },
+        BoundaryTables.UiNamespacePrefixes);
+
+    Assert.Equal(
+        new[]
+        {
+            "Microsoft.Win32.Registry",
+            "Microsoft.Win32.RegistryKey",
+            "System.Diagnostics.EventLog",
+            "System.Management.ManagementObject",
+            "System.Management.ManagementObjectSearcher",
+            "System.ServiceProcess.ServiceController",
+            "System.DirectoryServices.DirectoryEntry",
+            "System.DirectoryServices.DirectorySearcher",
+            "System.IO.Ports.SerialPort",
+        },
+        BoundaryTables.PlatformTypePrefixes);
+
+    Assert.Equal(
+        new[]
+        {
+            "System.Environment.OSVersion",
+            "System.OperatingSystem.IsWindows",
+            "System.OperatingSystem.IsLinux",
+            "System.OperatingSystem.IsMacOS",
+            "System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform",
+            "System.Runtime.InteropServices.RuntimeInformation.OSDescription",
+            "System.Runtime.InteropServices.RuntimeInformation.OSArchitecture",
+            "System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture",
+        },
+        BoundaryTables.PlatformMemberPrefixes);
+
+    Assert.Equal(
+        new[]
+        {
+            "SupportedOSPlatform",
+            "UnsupportedOSPlatform",
+            "SupportedOSPlatformGuard",
+            "UnsupportedOSPlatformGuard",
+        },
+        BoundaryTables.OsGuardAttributeNames);
+
+    Assert.Equal(
+        new[]
+        {
+            "DllImport",
+            "LibraryImport",
+            "ComImport",
+            "MarshalAs",
+            "UnmanagedCallersOnly",
+            "GeneratedComInterface",
+        },
+        BoundaryTables.NativeInteropAttributeNames);
+
+    Assert.Equal(
+        new[]
+        {
+            "System.Runtime.InteropServices.Marshal",
+            "System.Runtime.InteropServices.NativeLibrary",
+            "System.Runtime.InteropServices.HandleRef",
+            "System.Runtime.InteropServices.SafeHandle",
+        },
+        BoundaryTables.NativeInteropTypePrefixes);
+}
+
+[Fact]
+    public void BoundaryTables_LocksClassificationHelpers()
+    {
+    Assert.True(BoundaryTables.IsPlatformMemberIdentity("System.OperatingSystem.IsWindows"));
+    Assert.False(BoundaryTables.IsPlatformMemberIdentity("Microsoft.Win32.RegistryKey"));
+    Assert.True(BoundaryTables.IsPlatformTypeIdentity("Microsoft.Win32.RegistryKey"));
+    Assert.False(BoundaryTables.IsPlatformTypeIdentity("System.OperatingSystem.IsWindows"));
+
+    Assert.True(BoundaryTables.IsOsGuardAttribute("SupportedOSPlatform"));
+    Assert.True(BoundaryTables.IsOsGuardAttribute("UnsupportedOSPlatformGuard"));
+    Assert.False(BoundaryTables.IsOsGuardAttribute("DllImport"));
+
+    Assert.True(BoundaryTables.IsNativeInteropAttribute("DllImport"));
+    Assert.True(BoundaryTables.IsNativeInteropAttribute("GeneratedComInterface"));
+    Assert.False(BoundaryTables.IsNativeInteropAttribute("SupportedOSPlatform"));
+
+    // NormalizeAttributeName strips the suffix and the namespace.
+    Assert.Equal("DllImport", BoundaryTables.NormalizeAttributeName("System.Runtime.InteropServices.DllImportAttribute"));
+    Assert.Equal("MarshalAs", BoundaryTables.NormalizeAttributeName("MarshalAs"));
+}
+
+[Fact]
+    public void BoundaryTables_LocksAnalyzerMessageTemplates()
+    {
+    var compilation = BuildCompilation(
+        ("Ui.cs", "using Microsoft.Maui.Controls; class U { }"),
+        ("Guard.cs", "[System.Runtime.Versioning.SupportedOSPlatform(\"windows\")] class G { }"),
+        ("Platform.cs", """
+            class P
+            {
+                void M() { var key = new Microsoft.Win32.RegistryKey(); }
+                bool A() => System.OperatingSystem.IsWindows();
+            }
+            """),
+        ("Interop.cs", """
+            using System.Runtime.InteropServices;
+            class I
+            {
+                [DllImport("k.dll")] static extern bool Beep();
+                static extern int Raw();
+                void M()
+                {
+                    var pointer = Marshal.AllocHGlobal(0);
+                    SafeHandle handle = null;
+                }
+            }
+            """));
+
+    var inventory = BoundaryInventoryBuilder.Build(compilation, isTestProject: false, CompatPrefixes());
+
+    Assert.Contains(inventory.Sites, site =>
+        site.Code == "CS2J3001"
+        && site.Message == "Namespace 'Microsoft.Maui.Controls' is not supported by the Java-only conversion pipeline.");
+    Assert.Contains(inventory.Sites, site =>
+        site.Code == "CS2J3101"
+        && site.Message == "Platform boundary attribute 'SupportedOSPlatform' must be isolated before Java conversion.");
+    Assert.Contains(inventory.Sites, site =>
+        site.Code == "CS2J3102"
+        && site.Message == "Platform-specific API 'System.OperatingSystem.IsWindows' must be isolated before Java conversion.");
+    Assert.Contains(inventory.Sites, site =>
+        site.Code == "CS2J3102"
+        && site.Message == "Platform-specific type 'Microsoft.Win32.RegistryKey' must be isolated before Java conversion.");
+    Assert.Contains(inventory.Sites, site =>
+        site.Code == "CS2J3201"
+        && site.Message == "Native interop attribute 'DllImport' is not supported by the Java-only conversion pipeline.");
+    Assert.Contains(inventory.Sites, site =>
+        site.Code == "CS2J3202"
+        && site.Message == "Native interop API 'System.Runtime.InteropServices.Marshal.AllocHGlobal' is not supported by the Java-only conversion pipeline.");
+    Assert.Contains(inventory.Sites, site =>
+        site.Code == "CS2J3202"
+        && site.Message == "Native interop type 'System.Runtime.InteropServices.SafeHandle' is not supported by the Java-only conversion pipeline.");
+    Assert.Contains(inventory.Sites, site =>
+        site.Code == "CS2J3203"
+        && site.Message == "Extern method 'Raw' is not supported by the Java-only conversion pipeline.");
+}
+
+private static int CompareSites(BoundarySite left, BoundarySite right)
     {
         var byFile = string.CompareOrdinal(left.File, right.File);
         if (byFile != 0) return byFile;
