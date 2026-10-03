@@ -42,6 +42,10 @@ public sealed record VarianceUseRecord(
     bool VarianceConversion,
     VarianceOrigin Origin,
     bool BaselineHasErrors,
+    VarianceClassification Classification = VarianceClassification.Safe,
+    string? MappedJavaType = null,
+    IReadOnlyList<string>? MutatingMembers = null,
+    bool MemberResolutionIncomplete = false,
     string? FilePath = null,
     int Line = 0,
     int Column = 0);

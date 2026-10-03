@@ -312,4 +312,323 @@ public sealed class VarianceAuditUnitTests
         Assert.DoesNotContain(audit.Diagnostics,
             d => d.Severity is VarianceSeverity.Warning or VarianceSeverity.Error);
     }
+
+    // ---- batch 3 (M1c): safety classification, mapped mutability, constraints ----
+
+    [Fact]
+    public void Covariant_conversion_argument_reports_va010()
+    {
+        const string source =
+            "interface IProducer<out T> { T Produce(); } "
+            + "class C { void M(IProducer<object> x) { } void N(IProducer<string> s) { M(s); } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        var provider = compilation.GetSemanticModel(compilation.SyntaxTrees.Single());
+        Assert.False(VariancePositionFacts.HasBaselineErrors(provider));
+
+        var audit = AuditOf(preprocessor, compilation);
+        var diagnostic = Assert.Single(audit.Diagnostics, d => d.Code == VarianceCodes.CovariantConversionSite);
+        Assert.Equal(VarianceSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("covariant conversion", diagnostic.Message);
+        Assert.Equal(1, preprocessor.Statistics.VarianceConversionsCovariant);
+        Assert.True(analysis.UseSites.Count >= 1);
+    }
+
+    [Fact]
+    public void Enumerable_covariant_conversion_reports_va010()
+    {
+        const string source =
+            "using System.Collections.Generic; "
+            + "class C { void M(IEnumerable<object> x) { } void N(IEnumerable<string> s) { M(s); } }";
+        var (preprocessor, _, compilation) = Analyze(source);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(1, CountCode(audit, VarianceCodes.CovariantConversionSite));
+    }
+
+    [Fact]
+    public void Contravariant_delegate_argument_reports_va011()
+    {
+        const string source =
+            "using System; "
+            + "class C { void M(Action<string> a) { } void N(Action<object> ao) { M(ao); } }";
+        var (preprocessor, _, compilation) = Analyze(source);
+
+        var audit = AuditOf(preprocessor, compilation);
+        var diagnostic = Assert.Single(audit.Diagnostics, d => d.Code == VarianceCodes.ContravariantConversionSite);
+        Assert.Contains("contravariant conversion", diagnostic.Message);
+        Assert.Equal(1, preprocessor.Statistics.VarianceConversionsContravariant);
+    }
+
+    [Fact]
+    public void Method_group_delegate_conversion_reports_va011()
+    {
+        const string source =
+            "using System; "
+            + "class C { static void Handler(object o) { } static void M(Action<string> a) { } "
+            + "static void N() { M(Handler); } }";
+        var (preprocessor, _, compilation) = Analyze(source);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(1, CountCode(audit, VarianceCodes.ContravariantConversionSite));
+    }
+
+    [Fact]
+    public void Unresolved_dynamic_conversion_reports_va015()
+    {
+        const string source =
+            "interface IProducer<out T> { T Produce(); } "
+            + "class C { void M(IProducer<object> x) { } void N(dynamic d) { M(d); } }";
+        var (preprocessor, _, compilation) = Analyze(source);
+
+        var audit = AuditOf(preprocessor, compilation);
+        var diagnostic = Assert.Single(audit.Diagnostics, d => d.Code == VarianceCodes.BothConversionSite);
+        Assert.Contains("could not be fully resolved", diagnostic.Message);
+        Assert.True(preprocessor.Statistics.UnsafeUseSites >= 1);
+    }
+
+    [Fact]
+    public void Mapped_readonly_to_mutable_reports_va012_with_member_names()
+    {
+        const string source =
+            "using System.Collections.Generic; "
+            + "class C { IReadOnlyList<string> Get() => null; }";
+        var (preprocessor, _, compilation) = Analyze(source);
+
+        var audit = AuditOf(preprocessor, compilation);
+        var diagnostic = Assert.Single(audit.Diagnostics, d => d.Code == VarianceCodes.MappedMutabilityExpansion);
+        Assert.Contains("add", diagnostic.Message);
+        Assert.Contains("java.util.List", diagnostic.Message);
+    }
+
+    [Fact]
+    public void Source_defined_producer_interface_has_no_va012()
+    {
+        const string source =
+            "interface IProducer<out T> { T Produce(); } "
+            + "class C { IProducer<string> Get() => null; }";
+        var (preprocessor, _, compilation) = Analyze(source);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(0, CountCode(audit, VarianceCodes.MappedMutabilityExpansion));
+    }
+
+    [Fact]
+    public void Mapped_mutability_check_can_be_disabled()
+    {
+        const string source =
+            "using System.Collections.Generic; class C { IReadOnlyList<string> Get() => null; }";
+        var compilation = Compile(source);
+        var preprocessor = new VarianceAuditPreprocessor(new VarianceAuditOptions { CheckMappedMutability = false });
+        preprocessor.BindCompilation(compilation);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(0, CountCode(audit, VarianceCodes.MappedMutabilityExpansion));
+    }
+
+    [Fact]
+    public void Struct_constraint_reports_va020_and_default_dependency_va027()
+    {
+        const string source = "class C { void M<T>() where T : struct { T x = default(T); } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal("struct", site.Kind);
+        Assert.Equal("T", site.TypeParameterName);
+        Assert.Equal(1, site.DependentDefaultSites);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(1, CountCode(audit, VarianceCodes.StructConstraint));
+        Assert.Equal(1, CountCode(audit, VarianceCodes.DefaultOnValueTypeConstraint));
+        Assert.Equal(1, preprocessor.Statistics.ConstraintsStruct);
+    }
+
+    [Fact]
+    public void Default_on_unconstrained_type_parameter_reports_nothing()
+    {
+        const string source = "class C { void M<T>() { T x = default(T); } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        Assert.Empty(analysis.ConstraintSites);
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(0, CountCode(audit, VarianceCodes.DefaultOnValueTypeConstraint));
+    }
+
+    [Fact]
+    public void Unmanaged_constraint_reports_va021_only()
+    {
+        const string source = "class C { void M<T>() where T : unmanaged { } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal("unmanaged", site.Kind);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(1, CountCode(audit, VarianceCodes.UnmanagedConstraint));
+        Assert.Equal(0, CountCode(audit, VarianceCodes.StructConstraint));
+        Assert.Equal(1, preprocessor.Statistics.ConstraintsUnmanaged);
+        Assert.Equal(0, preprocessor.Statistics.ConstraintsStruct);
+    }
+
+    [Fact]
+    public void New_constraint_associates_activator_sites()
+    {
+        const string source =
+            "class C { void M<T>() where T : new() { var t = System.Activator.CreateInstance<T>(); } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal("new", site.Kind);
+        Assert.Equal(1, site.ActivatorSites);
+        Assert.Equal(1, site.DependentNewSites);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(1, CountCode(audit, VarianceCodes.NewConstraint));
+        Assert.Equal(0, CountCode(audit, VarianceCodes.ResidualNewTSite));
+    }
+
+    [Fact]
+    public void New_constraint_raw_form_registers_without_va023()
+    {
+        const string source = "class C { void M<T>() where T : new() { T t = new T(); } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal(1, site.DependentNewSites);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(0, CountCode(audit, VarianceCodes.ResidualNewTSite));
+    }
+
+    [Fact]
+    public void Residual_new_with_initializer_reports_va023()
+    {
+        const string source =
+            "interface IFoo { int X { get; set; } } "
+            + "class C { void M<T>() where T : IFoo, new() { var t = new T { X = 1 }; } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        var site = Assert.Single(analysis.ConstraintSites);
+        Assert.Equal("new", site.Kind);
+        Assert.Equal(1, site.DependentNewSites);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(1, CountCode(audit, VarianceCodes.ResidualNewTSite));
+    }
+
+    [Fact]
+    public void Notnull_constraint_reports_va024()
+    {
+        const string source = "class C { void M<T>() where T : notnull { } }";
+        var (preprocessor, _, compilation) = Analyze(source);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(1, CountCode(audit, VarianceCodes.NotNullConstraint));
+    }
+
+    [Fact]
+    public void Default_constraint_reports_va025()
+    {
+        const string source =
+            "class B { public virtual void M<T>() where T : System.IComparable<T> { } } "
+            + "class D : B { public override void M<T>() where T : default { } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        Assert.Contains(analysis.ConstraintSites, site => site.Kind == "default");
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(1, CountCode(audit, VarianceCodes.DefaultConstraint));
+    }
+
+    [Fact]
+    public void Class_constraint_reports_va026()
+    {
+        const string source = "class C { void M<T>() where T : class { } void N<T>() where T : class? { } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        Assert.Equal(2, analysis.ConstraintSites.Count(site => site.Kind == "class"));
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(2, CountCode(audit, VarianceCodes.ClassConstraint));
+    }
+
+    [Fact]
+    public void Upper_bound_constraint_produces_no_codes()
+    {
+        const string source = "class C { void M<T>() where T : System.IComparable<T> { } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        Assert.Empty(analysis.ConstraintSites);
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Empty(audit.Diagnostics);
+    }
+
+    [Fact]
+    public void Mixed_constraints_bucket_without_duplication()
+    {
+        // NOTE: `struct` cannot be combined with `new()` (CS0451), so value-type and
+        // constructor buckets are exercised together with `class` here.
+        const string source = "class C { void M<T>() where T : class, System.IComparable<T>, new() { } }";
+        var (preprocessor, analysis, compilation) = Analyze(source);
+
+        Assert.Equal(2, analysis.ConstraintSites.Count);
+        Assert.Contains(analysis.ConstraintSites, site => site.Kind == "class");
+        Assert.Contains(analysis.ConstraintSites, site => site.Kind == "new");
+        Assert.Equal(0, preprocessor.Statistics.ConstraintsStruct);
+        Assert.Equal(1, preprocessor.Statistics.ConstraintsNew);
+        Assert.Equal(1, preprocessor.Statistics.ConstraintsClass);
+
+        var audit = AuditOf(preprocessor, compilation);
+        Assert.Equal(1, CountCode(audit, VarianceCodes.ClassConstraint));
+        Assert.Equal(1, CountCode(audit, VarianceCodes.NewConstraint));
+    }
+
+    [Fact]
+    public void Va070_report_written_is_info()
+    {
+        var compilation = Compile("interface IProducer<out T> { T Produce(); }");
+        var preprocessor = new VarianceAuditPreprocessor();
+        preprocessor.BindCompilation(compilation);
+        preprocessor.Analyze();
+
+        var diagnostic = preprocessor.BuildReportWrittenDiagnostic("out/variance-audit-report.json");
+        Assert.Equal(VarianceSeverity.Info, diagnostic.Severity);
+        Assert.Equal(VarianceCodes.ReportWritten, diagnostic.Code);
+        Assert.Contains("variance-audit-report.json", diagnostic.Message);
+    }
+
+    [Fact]
+    public void Report_json_carries_constraints_and_classification_byte_stable()
+    {
+        const string source =
+            "using System.Collections.Generic; "
+            + "interface IProducer<out T> { T Produce(); } "
+            + "class C { void M<T>() where T : struct { } IReadOnlyList<string> Get() => null; }";
+        var (preprocessor, _, _) = Analyze(source);
+
+        var first = preprocessor.BuildReportJson();
+        var second = preprocessor.BuildReportJson();
+        Assert.Equal(first, second);
+
+        using var document = JsonDocument.Parse(first);
+        var root = document.RootElement;
+
+        var constraints = root.GetProperty("constraintSites").EnumerateArray().ToList();
+        Assert.Single(constraints);
+        Assert.Equal("struct", constraints[0].GetProperty("kind").GetString());
+
+        var uses = root.GetProperty("useSites").EnumerateArray().ToList();
+        Assert.All(uses, use =>
+        {
+            Assert.True(use.TryGetProperty("classification", out _));
+            Assert.True(use.TryGetProperty("mappedJavaType", out _));
+            Assert.True(use.TryGetProperty("mutatingMembers", out _));
+        });
+        var mappedUse = Assert.Single(uses, use => use.GetProperty("mappedJavaType").ValueKind == JsonValueKind.String);
+        Assert.Equal("java.util.List", mappedUse.GetProperty("mappedJavaType").GetString());
+        Assert.NotEmpty(mappedUse.GetProperty("mutatingMembers").EnumerateArray());
+
+        var totals = root.GetProperty("totals");
+        Assert.Equal(1, totals.GetProperty("constraintsStruct").GetInt32());
+    }
 }

@@ -111,6 +111,9 @@ internal sealed class VarianceAuditPassAdapter : ProjectPassAdapter
         Statistics.ReportsWritten = 1;
         var reportPath = Path.Combine(tree.IntermediateRoot, "variance-audit-report.json");
         File.WriteAllText(reportPath, _preprocessor.BuildReportJson(), new UTF8Encoding(false));
+
+        // VA070 (Info): report written, with the run's headline counts (design §6).
+        _diagnostics.Add(_preprocessor.BuildReportWrittenDiagnostic(reportPath));
         return Task.CompletedTask;
     }
 

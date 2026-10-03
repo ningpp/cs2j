@@ -48,13 +48,24 @@ public sealed class VarianceAuditPreprocessor
                 "BindCompilation must be called before Analyze.");
         }
 
-        return _analysis ??= new VarianceSiteInventory(_compilation, Statistics).Build();
+        return _analysis ??= BuildAnalysis();
+    }
+
+    private VarianceAuditAnalysis BuildAnalysis()
+    {
+        var analysis = new VarianceSiteInventory(_compilation!, Statistics).Build();
+        new UseSiteSafetyClassifier(_compilation!, _options, Statistics).Enrich(analysis);
+        new ConstraintAuditor(_compilation!, Statistics).Audit(analysis);
+        Statistics.BaselineErrorFilesSkipped = _compilation!.SyntaxTrees.Count(
+            tree => VariancePositionFacts.HasBaselineErrors(_compilation.GetSemanticModel(tree)));
+        return analysis;
     }
 
     /// <summary>
-    /// Per-file audit (batch 2/M1b): VA001 declaration inventory plus VA013/VA014/VA016
-    /// pure-flow diagnostics. Files whose baseline tree already has compile errors keep
-    /// only VA001 — safety diagnostics are suppressed (design D12).
+    /// Per-file audit (batch 3/M1c): VA001 declaration inventory, VA010/011/015 variance
+    /// conversions, VA012 mapped mutability, VA013/014/016 pure flows and VA020-028
+    /// constraints. Warnings are always emitted; Info codes only when the option allows.
+    /// Files whose baseline tree already has compile errors keep only VA001 (design D12).
     /// </summary>
     public VarianceFileAudit AuditFile(SemanticModel model)
     {
@@ -63,33 +74,29 @@ public sealed class VarianceAuditPreprocessor
         var audit = new VarianceFileAudit();
         var path = model.SyntaxTree.FilePath;
 
-        var declarations = analysis.DeclarationSites
-            .Where(site => site.FilePath == path)
-            .ToList();
-        var uses = analysis.UseSites
-            .Where(site => site.FilePath == path)
-            .ToList();
-        if (declarations.Count == 0 && uses.Count == 0)
+        var declarations = analysis.DeclarationSites.Where(site => site.FilePath == path).ToList();
+        var uses = analysis.UseSites.Where(site => site.FilePath == path).ToList();
+        var constraints = analysis.ConstraintSites.Where(site => site.FilePath == path).ToList();
+        var dependents = analysis.ConstraintDependentSites.Where(site => site.FilePath == path).ToList();
+        var conversions = analysis.ConversionSites.Where(site => site.FilePath == path).ToList();
+        if (declarations.Count == 0 && uses.Count == 0 && constraints.Count == 0
+            && dependents.Count == 0 && conversions.Count == 0)
         {
             return audit;
         }
 
-        // All batch-2 codes are Info; the option gates the diagnostic stream only, the
-        // report JSON always carries every site (design D10/§4.5).
-        if (!_options.ReportInfo)
+        if (_options.ReportInfo)
         {
-            return audit;
-        }
-
-        foreach (var declaration in declarations)
-        {
-            audit.Diagnostics.Add(new VarianceAuditDiagnostic(
-                VarianceSeverity.Info,
-                VarianceCodes.DeclarationSite,
-                DeclarationMessage(declaration),
-                path,
-                declaration.Line,
-                declaration.Column));
+            foreach (var declaration in declarations)
+            {
+                audit.Diagnostics.Add(new VarianceAuditDiagnostic(
+                    VarianceSeverity.Info,
+                    VarianceCodes.DeclarationSite,
+                    DeclarationMessage(declaration),
+                    path,
+                    declaration.Line,
+                    declaration.Column));
+            }
         }
 
         if (VariancePositionFacts.HasBaselineErrors(model))
@@ -97,8 +104,72 @@ public sealed class VarianceAuditPreprocessor
             return audit;
         }
 
+        foreach (var conversion in conversions)
+        {
+            audit.Diagnostics.Add(new VarianceAuditDiagnostic(
+                VarianceSeverity.Warning, conversion.Code, conversion.Message,
+                path, conversion.Line, conversion.Column));
+        }
+
+        foreach (var dependent in dependents)
+        {
+            audit.Diagnostics.Add(new VarianceAuditDiagnostic(
+                VarianceSeverity.Warning, dependent.Code, dependent.Message,
+                path, dependent.Line, dependent.Column));
+        }
+
+        foreach (var constraint in constraints)
+        {
+            var (code, severity) = ConstraintCode(constraint.Kind);
+            if (severity == VarianceSeverity.Info && !_options.ReportInfo)
+            {
+                continue;
+            }
+
+            audit.Diagnostics.Add(new VarianceAuditDiagnostic(
+                severity, code, ConstraintMessage(constraint), path, constraint.Line, constraint.Column));
+        }
+
         foreach (var use in uses)
         {
+            if (use.VarianceConversion)
+            {
+                // The conversion edge already emitted VA010/011/015; only the mapped-mutability
+                // face (VA012) can still add information here.
+                if (use.Classification == VarianceClassification.Unsafe
+                    && use.Flow == UseFlow.Producer && use.MutatingMembers is { Count: > 0 })
+                {
+                    AddMutabilityDiagnostic(audit, use, path);
+                }
+
+                continue;
+            }
+
+            if (use.MemberResolutionIncomplete)
+            {
+                audit.Diagnostics.Add(new VarianceAuditDiagnostic(
+                    VarianceSeverity.Warning,
+                    VarianceCodes.BothConversionSite,
+                    $"use site '{use.TypeDisplayName}' has member accesses that could not be resolved "
+                    + "(dynamic/error symbol); conservatively classified Both; redesign the boundary",
+                    path,
+                    use.Line,
+                    use.Column));
+                continue;
+            }
+
+            if (use.Classification == VarianceClassification.Unsafe
+                && use.Flow == UseFlow.Producer && use.MutatingMembers is { Count: > 0 })
+            {
+                AddMutabilityDiagnostic(audit, use, path);
+                continue;
+            }
+
+            if (!_options.ReportInfo)
+            {
+                continue;
+            }
+
             var (code, message) = use.Tags.HasFlag(UseTag.NestedComposition)
                 ? (VarianceCodes.NestedCompositionSite, NestedMessage(use))
                 : use.Flow switch
@@ -118,6 +189,49 @@ public sealed class VarianceAuditPreprocessor
 
         return audit;
     }
+
+    private static void AddMutabilityDiagnostic(VarianceFileAudit audit, VarianceUseRecord use, string path)
+        => audit.Diagnostics.Add(new VarianceAuditDiagnostic(
+            VarianceSeverity.Warning,
+            VarianceCodes.MappedMutabilityExpansion,
+            $"use site '{use.TypeDisplayName}' is Producer-classified and its Java mapping "
+            + $"{use.MappedJavaType ?? "(unmapped metadata variant type)"} exposes mutating member(s) the C# "
+            + $"contract does not have: {string.Join(", ", use.MutatingMembers!)}; Java code can write through a "
+            + "value C# declared read-only; redesign at the boundary or narrow the mapping",
+            path,
+            use.Line,
+            use.Column));
+
+    private static (string Code, VarianceSeverity Severity) ConstraintCode(string kind) => kind switch
+    {
+        "struct" => (VarianceCodes.StructConstraint, VarianceSeverity.Warning),
+        "unmanaged" => (VarianceCodes.UnmanagedConstraint, VarianceSeverity.Warning),
+        "new" => (VarianceCodes.NewConstraint, VarianceSeverity.Info),
+        "notnull" => (VarianceCodes.NotNullConstraint, VarianceSeverity.Info),
+        "default" => (VarianceCodes.DefaultConstraint, VarianceSeverity.Info),
+        _ => (VarianceCodes.ClassConstraint, VarianceSeverity.Info),
+    };
+
+    private static string ConstraintMessage(VarianceConstraintSite site) => site.Kind switch
+    {
+        "struct" => $"type parameter '{site.TypeParameterName}' constrains to 'struct'; Java erases the value-type "
+                    + $"constraint and keeps only reference semantics; {site.DependentDefaultSites} default-site(s), "
+                    + $"{site.DependentNewSites} construction-site(s), {site.DependentBoxingSites} boxing-site(s), "
+                    + $"{site.DependentArraySites} array-site(s), {site.DependentNullableSites} nullable-site(s) depend "
+                    + "on value semantics; redesign the constraint or its use sites",
+        "unmanaged" => $"type parameter '{site.TypeParameterName}' constrains to 'unmanaged'; this currently emits no "
+                       + "diagnostic at all, yet pointer/sizeof/marshalling sites assume an unmanaged layout "
+                       + "(cross-ref C06 unsafe-ffm); review before conversion",
+        "new" => $"type parameter '{site.TypeParameterName}' declares 'new()'; construction is handled by E10 "
+                 + $"(global::System.Activator.CreateInstance<T>()), {site.ActivatorSites} such site(s) found; failure "
+                 + "mode is runtime reflection, not compile time",
+        "notnull" => $"type parameter '{site.TypeParameterName}' declares 'notnull'; the NRT constraint is compile-time "
+                     + "only and is dropped (currently silent)",
+        "default" => $"type parameter '{site.TypeParameterName}' declares the 'default' constraint; it is pure override "
+                     + "signature metadata and is dropped (currently silent)",
+        _ => $"type parameter '{site.TypeParameterName}' declares 'class'; Java types are reference types by default and "
+             + "the constraint is dropped (currently silent)",
+    };
 
     private static string DeclarationMessage(VariantDeclarationRecord declaration)
         => $"variance declaration: {ContainerWord(declaration.Container)} "
@@ -179,6 +293,19 @@ public sealed class VarianceAuditPreprocessor
 
         return JsonSerializer.Serialize(report, ReportJsonOptions);
     }
+
+    /// <summary>
+    /// VA070 report-written diagnostic (Info). Constructed here so the adapter can append it
+    /// after the report is on disk and unit tests can assert the emitted shape without a
+    /// full chain run (design §6/D10).
+    /// </summary>
+    public VarianceAuditDiagnostic BuildReportWrittenDiagnostic(string reportPath)
+        => new(
+            VarianceSeverity.Info,
+            VarianceCodes.ReportWritten,
+            $"variance-audit report written: {reportPath} "
+            + $"({Statistics.VariantDeclarationsTotal} declaration(s), {Statistics.UseSitesTotal} use site(s), "
+            + $"{Statistics.VarianceConversionsTotal} variance conversion(s), {Statistics.ConstraintsTotal} constraint(s)).");
 
     private static string ComputeCommonRoot(VarianceAuditAnalysis analysis)
     {
