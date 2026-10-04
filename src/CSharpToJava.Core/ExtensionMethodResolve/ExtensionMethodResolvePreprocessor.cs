@@ -1,3 +1,4 @@
+using CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 using CSharpToJava.Core.IndexRange;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -32,11 +33,18 @@ public sealed class ExtensionMethodResolvePreprocessor
         public required IReadOnlyList<InvocationExpressionSyntax> OverrideSkippedSites { get; init; }
         public required IReadOnlyList<ExtensionDiagnostic> Diagnostics { get; init; }
         public required ExtensionMethodResolveStatistics Statistics { get; init; }
+
+        /// <summary>C49 block analysis for this tree when materialization runs; null otherwise.</summary>
+        public BlockAnalysisResult? BlockAnalysis { get; init; }
+
+        /// <summary>CS2J1213/CS2J1208 diagnostics produced at the analyze entry (before block analysis).</summary>
+        public required IReadOnlyList<ExtensionDiagnostic> BlockEntryDiagnostics { get; init; }
     }
 
     private Compilation? _compilation;
     private ExtensionMethodResolveOptions _options = new();
     private readonly Dictionary<SyntaxTree, FilePlan> _plans = new();
+    private readonly Dictionary<SyntaxTree, BlockAnalysisResult> _blockAnalyses = new();
     private readonly HashSet<string> _rewrittenFiles = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<ExtensionRewrittenSiteKey> _rewrittenSites = Array.Empty<ExtensionRewrittenSiteKey>();
     private IReadOnlyList<ExtensionExemptSite> _exemptSites = Array.Empty<ExtensionExemptSite>();
@@ -53,8 +61,18 @@ public sealed class ExtensionMethodResolvePreprocessor
     /// </summary>
     internal Func<InvocationExpressionSyntax, IMethodSymbol, bool>? ForceBrokenRewrite { get; set; }
 
+    /// <summary>Block statistics from the most recent <see cref="RewriteFile"/> call (null when no block pass ran).</summary>
+    public ExtensionBlockStatistics? BlockStatisticsForLastFile { get; private set; }
+
     /// <summary>Absolute paths of files whose rewrite output was Changed=true in the last Analyze/Rewrite cycle.</summary>
     public IReadOnlyCollection<string> RewrittenFiles => _rewrittenFiles;
+
+    /// <summary>
+    /// Per-tree C49 block analyses from the last <see cref="Analyze"/> cycle
+    /// (only trees where materialization actually ran). Consumed by the block
+    /// residual scan; empty when block materialization is off.
+    /// </summary>
+    internal IReadOnlyDictionary<SyntaxTree, BlockAnalysisResult> BlockAnalyses => _blockAnalyses;
 
     /// <summary>M4 gate 5: extension-method <c>this</c> modifiers counted in the original compilation.</summary>
     public int ThisModifierBaseline => _thisModifierBaseline;
@@ -67,17 +85,80 @@ public sealed class ExtensionMethodResolvePreprocessor
 
     /// <summary>Whole-tree analysis: per-file binding/plan tables, sorted deterministically by file path + span.</summary>
     public void Analyze(ExtensionMethodResolveOptions options)
+        => Analyze(options, blockOptions: null, memberDesugarChainAvailable: true);
+
+    /// <summary>
+    /// Whole-tree analysis with C49 extension-block policy.
+    /// <paramref name="blockOptions"/> null keeps the classic behavior: every
+    /// extension block hits CS2J1206 and nothing about the classic pass
+    /// changes. When <see cref="ExtensionBlockOptions.MaterializeExtensionBlocks"/>
+    /// is true, the parse self-check (CS2J1213), the property chain gate
+    /// (CS2J1208), and the block analysis run, and the classic block gate is
+    /// suppressed for materialized trees.
+    /// </summary>
+    public void Analyze(
+        ExtensionMethodResolveOptions options,
+        ExtensionBlockOptions? blockOptions,
+        bool memberDesugarChainAvailable)
     {
         ArgumentNullException.ThrowIfNull(_compilation);
         _options = BuildEffectiveOptions(options);
         _plans.Clear();
+        _blockAnalyses.Clear();
         _rewrittenFiles.Clear();
         _thisModifierBaseline = 0;
+        BlockStatisticsForLastFile = null;
 
         foreach (var tree in _compilation.SyntaxTrees.OrderBy(t => t.FilePath, StringComparer.OrdinalIgnoreCase))
         {
             var model = _compilation.GetSemanticModel(tree);
-            var binder = new ExtensionCallBinder(model, _options);
+            var entryDiagnostics = new List<ExtensionDiagnostic>();
+            BlockAnalysisResult? blockAnalysis = null;
+            var suppressClassicBlockGate = false;
+
+            var materialize = blockOptions?.MaterializeExtensionBlocks == true;
+            if (materialize)
+            {
+                var root = tree.GetCompilationUnitRoot();
+                var hasBlocks = root.DescendantNodes()
+                    .Any(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration));
+
+                if (hasBlocks)
+                {
+                    if (!ExtensionBlockParseProbe.Passes())
+                    {
+                        // C49 cannot run: keep the classic 1206 gate, add 1213 per block.
+                        foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
+                        {
+                            entryDiagnostics.Add(BlockEntryDiagnostic(
+                                ExtensionBlockCodes.ParseProbeFailed,
+                                ExtensionBlockMessages.ParseProbeFailed,
+                                tree, block));
+                        }
+                    }
+                    else if (blockOptions!.EnableProperties && !memberDesugarChainAvailable)
+                    {
+                        // Property chain missing: take over the gate with 1208.
+                        suppressClassicBlockGate = true;
+                        foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
+                        {
+                            entryDiagnostics.Add(BlockEntryDiagnostic(
+                                ExtensionBlockCodes.PropertyChainGate,
+                                ExtensionBlockMessages.PropertyChainGate,
+                                tree, block));
+                        }
+                    }
+                    else
+                    {
+                        suppressClassicBlockGate = true;
+                        var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!);
+                        blockAnalysis = analyzer.Analyze();
+                        _blockAnalyses[tree] = blockAnalysis;
+                    }
+                }
+            }
+
+            var binder = new ExtensionCallBinder(model, _options, suppressClassicBlockGate);
             binder.Analyze();
 
             _thisModifierBaseline += ExtensionMethodResidualScanner.CountExtensionThisModifiers(tree);
@@ -93,12 +174,27 @@ public sealed class ExtensionMethodResolvePreprocessor
                 OverrideSkippedSites = binder.OverrideSkippedSites,
                 Diagnostics = binder.Diagnostics,
                 Statistics = binder.Statistics,
+                BlockAnalysis = blockAnalysis,
+                BlockEntryDiagnostics = entryDiagnostics,
             };
         }
 
         _rewrittenSites = Array.Empty<ExtensionRewrittenSiteKey>();
         _exemptSites = Array.Empty<ExtensionExemptSite>();
     }
+
+    private static ExtensionDiagnostic BlockEntryDiagnostic(
+        string code,
+        string message,
+        SyntaxTree tree,
+        SyntaxNode site)
+        => new(
+            ExtensionSeverity.Error,
+            ExtensionRule.Ext14,
+            code,
+            message,
+            tree.FilePath,
+            site.GetLocation().GetLineSpan().StartLinePosition.Line + 1);
 
     /// <summary>
     /// M4 EM-LINQ invariant: the protected LINQ hosts cannot be removed from
@@ -153,16 +249,39 @@ public sealed class ExtensionMethodResolvePreprocessor
         var rewritableGroups = plan.GroupPlans.Where(g => g.Rewritable).ToList();
         var tempGroups = rewritableGroups.Where(g => !g.DirectCapture).ToList();
 
+        var blockAnalysis = plan.BlockAnalysis;
+        var blockPlans = blockAnalysis?.BlockPlans ?? Array.Empty<BlockPlan>();
+        var blockSiteCount = blockAnalysis is null
+            ? 0
+            : blockAnalysis.MethodSites.Count
+              + blockAnalysis.ReadSites.Count
+              + blockAnalysis.WriteSites.Count
+              + blockAnalysis.CompoundSites.Count
+              + blockAnalysis.ConditionalPlans.Count;
+
+        var extraDiagnostics = plan.BlockEntryDiagnostics
+            .Concat(blockAnalysis is null
+                ? Array.Empty<ExtensionDiagnostic>()
+                : blockAnalysis.Diagnostics)
+            .ToList();
+
         if (plan.Bindings.Count == 0
             && liftableConditions.Count == 0
-            && rewritableGroups.Count == 0)
+            && rewritableGroups.Count == 0
+            && blockPlans.Count == 0
+            && blockSiteCount == 0)
         {
-            // 1204/1205/1207-only file: exempts must still pair with the
-            // residual gates on the byte-copied tree.
+            // 1204/1205/1207/1208/1213-only file: exempts must still pair with
+            // the residual gates on the byte-copied tree.
             FinalizeSiteKeys(model.SyntaxTree, plan, liftableConditions, rewritableGroups, new HashSet<SyntaxNode>());
             FinalizeExemptSites(model.SyntaxTree, plan, new HashSet<SyntaxNode>());
             stats.FilesClean++;
-            return new ExtensionFileResult(root.ToFullString(), Changed: false, plan.Diagnostics, stats);
+            BlockStatisticsForLastFile = blockAnalysis?.Statistics;
+            return new ExtensionFileResult(
+                root.ToFullString(),
+                Changed: false,
+                plan.Diagnostics.Concat(extraDiagnostics).ToList(),
+                stats);
         }
 
         var rollback = new HashSet<SyntaxNode>();
@@ -201,17 +320,20 @@ public sealed class ExtensionMethodResolvePreprocessor
         var hasRewrittenNode = newRoot!
             .GetAnnotatedNodes(ExtensionCallRewriter.RewrittenAnnotation)
             .Any();
-        if (!hasRewrittenNode)
+        var blocksGone = blockPlans.Count > 0
+                         && !newRoot!.DescendantNodes().Any(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration));
+        if (!hasRewrittenNode && !blocksGone)
         {
             // No rewrite (e.g. 1204/1205/1207-only files): exempts must still
             // pair with the residual gates on the byte-copied tree.
             FinalizeSiteKeys(model.SyntaxTree, plan, liftableConditions, rewritableGroups, rollback);
             FinalizeExemptSites(model.SyntaxTree, plan, rollback);
             stats.FilesClean++;
+            BlockStatisticsForLastFile = blockAnalysis?.Statistics;
             return new ExtensionFileResult(
                 root.ToFullString(),
                 Changed: false,
-                plan.Diagnostics.Concat(identityDiagnostics).ToList(),
+                plan.Diagnostics.Concat(extraDiagnostics).Concat(identityDiagnostics).ToList(),
                 stats);
         }
 
@@ -224,13 +346,19 @@ public sealed class ExtensionMethodResolvePreprocessor
         stats.RefReceiverSitesEmitted += plan.Bindings
             .Count(b => !rollback.Contains(b.Invocation) && b.ReceiverRefKind != RefKind.None);
 
-        var needsWholeFileFormat = liftableConditions.Count > 0 || tempGroups.Count > 0;
+        var needsWholeFileFormat = liftableConditions.Count > 0
+            || tempGroups.Count > 0
+            // Block members are built from trivia-stripped pieces; every
+            // materialized file gets whole-file normalization so generated
+            // declarations and spliced statements stay syntactically clean.
+            || blockAnalysis is not null;
         var outputCode = Format(newRoot!, needsWholeFileFormat);
         _rewrittenFiles.Add(model.SyntaxTree.FilePath);
+        BlockStatisticsForLastFile = blockAnalysis?.Statistics;
         return new ExtensionFileResult(
             outputCode,
             Changed: true,
-            plan.Diagnostics.Concat(identityDiagnostics).ToList(),
+            plan.Diagnostics.Concat(extraDiagnostics).Concat(identityDiagnostics).ToList(),
             stats);
     }
 
@@ -251,6 +379,19 @@ public sealed class ExtensionMethodResolvePreprocessor
         var siteAnnotations = new List<(SyntaxNode Node, SyntaxAnnotation Annotation)>();
 
         foreach (var condition in liftableConditions)
+        {
+            siteAnnotations.Add((condition.OuterConditional, condition.SiteAnnotation));
+            if (!anchorNodes.ContainsKey(condition.Anchor.Node))
+            {
+                anchorNodes[condition.Anchor.Node] = condition.AnchorAnnotation;
+            }
+        }
+
+        // C49 synthetic conditional plans share the same anchor/site machinery.
+        var blockLiftableConditions = plan.BlockAnalysis?.ConditionalPlans
+            .Where(p => p.Liftable)
+            .ToList() ?? new List<ExtensionConditionalPlan>();
+        foreach (var condition in blockLiftableConditions)
         {
             siteAnnotations.Add((condition.OuterConditional, condition.SiteAnnotation));
             if (!anchorNodes.ContainsKey(condition.Anchor.Node))
@@ -289,11 +430,14 @@ public sealed class ExtensionMethodResolvePreprocessor
             siteAnnotationByGroup[group.MemberAccess] = annotation;
         }
 
+        var blockTargets = BuildBlockAnnotationTargets(plan.BlockAnalysis);
+
         var annotationTargets = siteAnnotations
             .Select(pair => (pair.Node, pair.Annotation))
             .Concat(anchorNodes.Select(pair => (pair.Key, pair.Value)))
             .Concat(siteAnnotationByBinding.Select(pair => (pair.Key, pair.Value)))
             .Concat(siteAnnotationByGroup.Select(pair => (pair.Key, pair.Value)))
+            .Concat(blockTargets)
             .ToList();
 
         var annotatedRoot = (CompilationUnitSyntax)root.ReplaceNodes(
@@ -318,11 +462,28 @@ public sealed class ExtensionMethodResolvePreprocessor
             bindingAnnotations, groupAnnotations, ForceBrokenRewrite);
         var rootAfterRewrite = (CompilationUnitSyntax?)rewriter.Visit(annotatedRoot) ?? annotatedRoot;
 
-        // 3) Null-conditional chain lowering (spine static calls + temps).
+        // 2b) C49: block call sites + property seam, then block declarations.
+        if (plan.BlockAnalysis is not null)
+        {
+            var callSiteRewriter = new ExtensionBlockCallSiteRewriter(plan.BlockAnalysis);
+            rootAfterRewrite = (CompilationUnitSyntax?)callSiteRewriter.Visit(rootAfterRewrite)
+                               ?? rootAfterRewrite;
+
+            var declarationRewriter = new ExtensionBlockDeclarationRewriter(
+                _compilation!.GetSemanticModel(root.SyntaxTree),
+                plan.BlockAnalysis.BlockPlans);
+            rootAfterRewrite = (CompilationUnitSyntax?)declarationRewriter.Visit(rootAfterRewrite)
+                               ?? rootAfterRewrite;
+        }
+
+        // 3) Null-conditional chain lowering (spine static calls + temps):
+        //    classic plans + C49 synthetic plans with host overrides.
+        var allLiftableConditions = liftableConditions.Concat(blockLiftableConditions).ToList();
         var conditionalOutput = ExtensionConditionalLowerer.Lower(
             rootAfterRewrite,
-            liftableConditions,
-            anchorNodes);
+            allLiftableConditions,
+            anchorNodes,
+            plan.BlockAnalysis?.ConditionalHostOverrides);
         var current = conditionalOutput.Root;
         var pending = new List<TempLifter.PendingTemp>(conditionalOutput.Pending);
 
@@ -388,6 +549,54 @@ public sealed class ExtensionMethodResolvePreprocessor
         current = ExtensionTempLift.ExpandExpressionLambdas(current, lambdaExpansions);
 
         return new RewriteOutput(current, rewriter.ExpressionTreeSites);
+    }
+
+    /// <summary>
+    /// Every C49 node that must be recognized after tree rebuilds: block
+    /// declarations, all member call sites (methods/reads/writes/compound
+    /// statements), and property conditional seam bindings.
+    /// </summary>
+    private static List<(SyntaxNode, SyntaxAnnotation)> BuildBlockAnnotationTargets(
+        BlockAnalysisResult? analysis)
+    {
+        if (analysis is null)
+        {
+            return new List<(SyntaxNode, SyntaxAnnotation)>();
+        }
+
+        var targets = new List<(SyntaxNode, SyntaxAnnotation)>();
+
+        foreach (var block in analysis.BlockPlans)
+        {
+            targets.Add((block.Block, block.BlockAnnotation));
+        }
+
+        foreach (var site in analysis.MethodSites)
+        {
+            targets.Add((site.Invocation, site.Annotation));
+        }
+
+        foreach (var site in analysis.ReadSites)
+        {
+            targets.Add((site.Site, site.Annotation));
+        }
+
+        foreach (var site in analysis.WriteSites)
+        {
+            targets.Add((site.Assignment, site.Annotation));
+        }
+
+        foreach (var site in analysis.CompoundSites)
+        {
+            targets.Add((site.Statement, site.StatementAnnotation));
+        }
+
+        foreach (var seam in analysis.ConditionalSeams)
+        {
+            targets.Add((seam.Binding, seam.Annotation));
+        }
+
+        return targets;
     }
 
     /// <summary>Recompile the candidate tree and assert ET site OriginalDefinition/parameter identity.</summary>

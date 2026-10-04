@@ -26,7 +26,19 @@ internal static class ExtensionHostSyntaxFactory
     {
         ArgumentNullException.ThrowIfNull(unreduced);
 
-        var host = unreduced.ContainingType;
+        return BuildHostName(unreduced.ContainingType);
+    }
+
+    /// <summary>
+    /// Build the qualified host name from an explicit host symbol. C49 uses
+    /// this overload for materialized extension blocks, whose host is the
+    /// block parent class — never the synthetic <c>TypeKind.Extension</c>
+    /// container of the bound member.
+    /// </summary>
+    public static NameSyntax BuildHostName(INamedTypeSymbol host)
+    {
+        ArgumentNullException.ThrowIfNull(host);
+
         var text = host.ToDisplayString(QualifiedHostFormat);
         return SyntaxFactory.ParseName(text);
     }

@@ -48,12 +48,20 @@ internal sealed class ExtensionCallBinder
     private readonly ExtensionMethodResolveStatistics _statistics = new();
     private readonly ExtensionTempAllocator _allocator;
 
-    public ExtensionCallBinder(SemanticModel model, ExtensionMethodResolveOptions options)
+    public ExtensionCallBinder(SemanticModel model, ExtensionMethodResolveOptions options, bool suppressExtensionBlockGate = false)
     {
         Model = model;
         Options = options;
+        SuppressExtensionBlockGate = suppressExtensionBlockGate;
         _allocator = new ExtensionTempAllocator(model.SyntaxTree.GetCompilationUnitRoot());
     }
+
+    /// <summary>
+    /// When true, the unconditional CS2J1206 syntax gate for extension blocks
+    /// is suppressed because C49 materialization takes over for this tree.
+    /// Every other behavior is unchanged.
+    /// </summary>
+    public bool SuppressExtensionBlockGate { get; }
 
     public SemanticModel Model { get; }
 
@@ -76,8 +84,11 @@ internal sealed class ExtensionCallBinder
 
         // EM-EXT14: syntax-driven (see M1 probe ②): block members bind as
         // Ordinary inside a TypeKind.Extension container, so binding alone
-        // would silently miss every block site.
-        foreach (var block in root.DescendantNodes()
+        // would silently miss every block site. C49 materialization suppresses
+        // this gate for the tree (it owns the blocks instead).
+        if (!SuppressExtensionBlockGate)
+        {
+          foreach (var block in root.DescendantNodes()
                      .Where(n => n.IsKind(SyntaxKind.ExtensionBlockDeclaration)))
         {
             AddDiagnostic(
@@ -89,6 +100,7 @@ internal sealed class ExtensionCallBinder
                 + "The file is left unchanged.",
                 block.GetLocation());
             AddSkipReason(ExtensionMethodCodes.CSharp14ExtensionBlock);
+        }
         }
 
         foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())

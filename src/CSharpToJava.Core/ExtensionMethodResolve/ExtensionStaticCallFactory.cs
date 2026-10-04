@@ -23,8 +23,28 @@ internal static class ExtensionStaticCallFactory
         ScopedKind receiverScopedKind,
         SeparatedSyntaxList<ArgumentSyntax> remainingArguments,
         IEnumerable<SyntaxAnnotation>? annotations = null)
+        => Build(
+            ExtensionHostSyntaxFactory.BuildHostName(unreduced),
+            sourceMethodName,
+            receiver,
+            receiverRefKind,
+            receiverScopedKind,
+            remainingArguments,
+            annotations);
+
+    /// <summary>
+    /// Build the static call under an explicit host name. C49 uses this
+    /// overload for materialized extension blocks (host = block parent class).
+    /// </summary>
+    public static InvocationExpressionSyntax Build(
+        NameSyntax hostName,
+        SimpleNameSyntax sourceMethodName,
+        ExpressionSyntax receiver,
+        RefKind receiverRefKind,
+        ScopedKind receiverScopedKind,
+        SeparatedSyntaxList<ArgumentSyntax> remainingArguments,
+        IEnumerable<SyntaxAnnotation>? annotations = null)
     {
-        var hostName = ExtensionHostSyntaxFactory.BuildHostName(unreduced);
         var qualifiedMemberAccess = SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
             hostName,

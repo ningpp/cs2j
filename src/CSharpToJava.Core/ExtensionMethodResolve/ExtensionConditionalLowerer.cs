@@ -33,7 +33,8 @@ internal static class ExtensionConditionalLowerer
     public static ConditionalLoweringOutput Lower(
         CompilationUnitSyntax rootAfterRewrite,
         IReadOnlyList<ExtensionConditionalPlan> liftablePlans,
-        IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> sharedAnchorAnnotations)
+        IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> sharedAnchorAnnotations,
+        IReadOnlyDictionary<ConditionalSpineCall, NameSyntax>? hostOverrides = null)
     {
         var pending = new List<TempLifter.PendingTemp>();
         var lambdaDecls = new Dictionary<SyntaxNode, List<StatementSyntax>>();
@@ -68,7 +69,8 @@ internal static class ExtensionConditionalLowerer
                     segmentRoot,
                     spineCur,
                     segmentPlan.SpineCalls,
-                    receiverTemp);
+                    receiverTemp,
+                    hostOverrides);
                 branches.Add(branch);
             }
 
@@ -230,11 +232,12 @@ internal static class ExtensionConditionalLowerer
         ExpressionSyntax segmentRoot,
         List<InvocationExpressionSyntax> spineCur,
         IReadOnlyList<ConditionalSpineCall> spinePlan,
-        string receiverTemp)
+        string receiverTemp,
+        IReadOnlyDictionary<ConditionalSpineCall, NameSyntax>? hostOverrides)
     {
         if (spineCur.Count == 1 && spineCur[0] == segmentRoot)
         {
-            return BuildSpineCall(spineCur[0], spinePlan[0], SyntaxFactory.IdentifierName(receiverTemp));
+            return BuildSpineCall(spineCur[0], spinePlan[0], SyntaxFactory.IdentifierName(receiverTemp), hostOverrides);
         }
 
         return (ExpressionSyntax)segmentRoot.ReplaceNodes(
@@ -245,14 +248,15 @@ internal static class ExtensionConditionalLowerer
                 var receiver = index == 0
                     ? (ExpressionSyntax)SyntaxFactory.IdentifierName(receiverTemp)
                     : ((MemberAccessExpressionSyntax)rewritten.Expression).Expression;
-                return BuildSpineCall(rewritten, spinePlan[index], receiver);
+                return BuildSpineCall(rewritten, spinePlan[index], receiver, hostOverrides);
             });
     }
 
     private static InvocationExpressionSyntax BuildSpineCall(
         InvocationExpressionSyntax currentInvocation,
         ConditionalSpineCall call,
-        ExpressionSyntax receiver)
+        ExpressionSyntax receiver,
+        IReadOnlyDictionary<ConditionalSpineCall, NameSyntax>? hostOverrides)
     {
         var firstParameter = call.Unreduced.Parameters.Length > 0
             ? call.Unreduced.Parameters[0]
@@ -263,6 +267,18 @@ internal static class ExtensionConditionalLowerer
             MemberAccessExpressionSyntax access => access.Name,
             _ => throw new InvalidOperationException("Unexpected spine invocation shape."),
         };
+
+        if (hostOverrides is not null && hostOverrides.TryGetValue(call, out var hostName))
+        {
+            return ExtensionStaticCallFactory.Build(
+                hostName,
+                methodName.WithoutTrivia(),
+                receiver,
+                call.ReceiverRefKind,
+                firstParameter?.ScopedKind ?? ScopedKind.None,
+                currentInvocation.ArgumentList.Arguments,
+                new[] { ExtensionCallRewriter.RewrittenAnnotation });
+        }
 
         return ExtensionStaticCallFactory.Build(
             call.Unreduced,
