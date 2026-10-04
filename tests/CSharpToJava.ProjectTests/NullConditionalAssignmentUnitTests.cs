@@ -365,4 +365,356 @@ public class NullConditionalAssignmentUnitTests
         Assert.Empty(root.DescendantNodes()
             .OfType<ConditionalAccessExpressionSyntax>());
     }
+
+    // ------------------------------------------------------------------
+    // NA-3: compound assignments (+= -= *= /= %= &= |= ^= <<= >>=) and
+    // event +/-. Compound assignment is never decomposed; the original
+    // assignment node moves inside the guard intact.
+    // ------------------------------------------------------------------
+
+    private const string CompoundSource = """
+        namespace C51Fixture;
+
+        public sealed class Num
+        {
+            public int A, B, C, D, E, F, G, H, I, J;
+            public static int RhsCalls;
+            public static int Rhs() { RhsCalls++; return 2; }
+        }
+
+        public static class Ops
+        {
+            public static void All(Num? n, int x)
+            {
+                n?.A += x;
+                n?.B -= x;
+                n?.C *= x;
+                n?.D /= x;
+                n?.E %= x;
+                n?.F &= x;
+                n?.G |= x;
+                n?.H ^= x;
+                n?.I <<= x;
+                n?.J >>= x;
+            }
+
+            public static void RhsGuarded(Num? n) { n?.A += Num.Rhs(); }
+        }
+        """;
+
+    [Fact]
+    public void NA3_AllCompoundOperators_KeptInsideGuard_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(CompoundSource);
+
+        var fieldLetters = new[] { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J" };
+        var compoundOps = new[] { "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=" };
+        for (var i = 0; i < compoundOps.Length; i++)
+            Assert.Contains($"n.{fieldLetters[i]} {compoundOps[i]} x;", result.OutputCode);
+
+        var stats = result.Statistics.NullConditional;
+        // All() has ten compounds; RhsGuarded() is an eleventh '+='.
+        Assert.Equal(11, stats.CompoundAssignmentSites);
+        Assert.Equal(2, stats.AssignmentByOperator["+"]);
+        foreach (var label in new[] { "-", "*", "/", "%", "&", "|", "^", "<<", ">>" })
+            Assert.Equal(1, stats.AssignmentByOperator[label]);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-compound");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        var nativeAssembly = EmitAndLoad(native);
+        var loweredAssembly = EmitAndLoad(loweredCompilation);
+        foreach (var assembly in new[] { nativeAssembly, loweredAssembly })
+        {
+            var n = NewOf(assembly, "Num");
+            InvokeOn(assembly, "Ops", "All", n, 2);
+            var numType = n!.GetType();
+            Assert.Equal(2, numType.GetField("A")!.GetValue(n));
+            Assert.Equal(-2, numType.GetField("B")!.GetValue(n));
+            Assert.Equal(2, numType.GetField("G")!.GetValue(n));
+            Assert.Equal(0, numType.GetField("C")!.GetValue(n));
+        }
+
+        // Null receiver: guarded RHS must not be evaluated.
+        var loweredNull = EmitAndLoad(loweredCompilation);
+        loweredNull.GetType("C51Fixture.Num")!.GetField("RhsCalls")!.SetValue(null, 0);
+        InvokeOn(loweredNull, "Ops", "RhsGuarded", new object?[] { null });
+        Assert.Equal(0, (int)loweredNull.GetType("C51Fixture.Num")!.GetField("RhsCalls")!.GetValue(null)!);
+    }
+
+    private const string EventSource = """
+        namespace C51Fixture;
+
+        using System;
+
+        public sealed class Host
+        {
+            public int Adds;
+            public int Removes;
+            public event Action? E
+            {
+                add { Adds++; }
+                remove { Removes++; }
+            }
+        }
+
+        public static class Ev
+        {
+            public static void On(Host? h, Action a) { h?.E += a; }
+            public static void Off(Host? h, Action a) { h?.E -= a; }
+        }
+        """;
+
+    [Fact]
+    public void NA3_EventCompound_CustomAccessors_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(EventSource);
+
+        Assert.Contains("h.E += a;", result.OutputCode);
+        Assert.Contains("h.E -= a;", result.OutputCode);
+        Assert.Equal(2, result.Statistics.NullConditional.EventCompoundSites);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-event");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            InvokeOn(assembly, "Ev", "On", null, new Action(() => { }));
+            var h = NewOf(assembly, "Host");
+            InvokeOn(assembly, "Ev", "On", h, new Action(() => { }));
+            InvokeOn(assembly, "Ev", "On", h, new Action(() => { }));
+            InvokeOn(assembly, "Ev", "Off", h, new Action(() => { }));
+            var hostType = h!.GetType();
+            Assert.Equal(2, hostType.GetField("Adds")!.GetValue(h));
+            Assert.Equal(1, hostType.GetField("Removes")!.GetValue(h));
+        }
+    }
+
+    private const string PropertyCompoundSource = """
+        namespace C51Fixture;
+
+        public sealed class Prop
+        {
+            public int Gets;
+            public int Sets;
+            private int _p = 10;
+            public int P
+            {
+                get { Gets++; return _p; }
+                set { Sets++; _p = value; }
+            }
+        }
+
+        public static class PropSites
+        {
+            public static void Add(Prop? p, int x) { p?.P += x; }
+        }
+        """;
+
+    [Fact]
+    public void NA3_PropertyCompound_GetAndSetEachOnce_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(PropertyCompoundSource);
+
+        Assert.Contains("p.P += x;", result.OutputCode);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-prop");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            InvokeOn(assembly, "PropSites", "Add", null, 5);
+
+            var p = NewOf(assembly, "Prop");
+            InvokeOn(assembly, "PropSites", "Add", p, 5);
+            var propType = p!.GetType();
+            Assert.Equal(1, propType.GetField("Gets")!.GetValue(p));
+            Assert.Equal(1, propType.GetField("Sets")!.GetValue(p));
+            Assert.Equal(15, propType.GetProperty("P")!.GetValue(p));
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // NA-4: chains. M7 single '?.' with ordinary member tail; M8 multiple
+    // segments: statement -> nested ifs, value -> nested ternaries; plus an
+    // ElementBinding chained receiver.
+    // ------------------------------------------------------------------
+
+    private const string ChainSource = """
+        namespace C51Fixture;
+
+        public sealed class Node
+        {
+            public int Val;
+            public Node? Next;
+        }
+
+        public static class ChainSites
+        {
+            // M7: one '?.' then an ordinary member tail.
+            public static void M7(Node? a, int d) { a?.Next.Val = d; }
+
+            // M8 statement form.
+            public static void M8(Node? a, int d) { a?.Next?.Val = d; }
+
+            // M8 value form.
+            public static int? M8Value(Node? a, int d) { return a?.Next?.Val = d; }
+        }
+        """;
+
+    [Fact]
+    public void NA4_M7_OrdinaryTail_GuardedIf_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(ChainSource);
+
+        Assert.Contains("if (a != null)", result.OutputCode);
+        Assert.Contains("a.Next.Val = d;", result.OutputCode);
+        // Fixture carries three chain sites total (M7/M8/M8Value).
+        Assert.Equal(3, result.Statistics.NullConditional.AssignmentChainSites);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-chain");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            InvokeOn(assembly, "ChainSites", "M7", null, 4);
+
+            var target = NewNodeChain(assembly);
+            var a = target.head;
+            InvokeOn(assembly, "ChainSites", "M7", a, 4);
+            Assert.Equal(4, ((NodeLike)target.tail).Val);
+        }
+    }
+
+    [Fact]
+    public void NA4_M8_MultiStatement_NestedIfs_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(ChainSource);
+
+        Assert.Contains("var __ed_s0 = a;", result.OutputCode);
+        Assert.Contains("C51Fixture.Node? __ed_s1 = null;", result.OutputCode);
+        Assert.Contains("__ed_s1 = __ed_s0.Next;", result.OutputCode);
+        Assert.Contains("if (__ed_s0 != null)", result.OutputCode);
+        Assert.Contains("if (__ed_s1 != null)", result.OutputCode);
+        Assert.Contains("__ed_s1.Val = d;", result.OutputCode);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-chain2");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        // Three disks: outer null, inner null, both non-null.
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            InvokeOn(assembly, "ChainSites", "M8", null, 9);
+
+            var outerOnly = NewOf(assembly, "Node");
+            InvokeOn(assembly, "ChainSites", "M8", outerOnly, 9);
+
+            var pair = NewNodeChain(assembly);
+            InvokeOn(assembly, "ChainSites", "M8", pair.head, 9);
+            Assert.Equal(9, ((NodeLike)pair.tail).Val);
+        }
+    }
+
+    [Fact]
+    public void NA4_M8_MultiValue_NestedTernaries_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(ChainSource);
+
+        Assert.Contains("C51Fixture.Node? __ed_s3 = null;", result.OutputCode);
+        Assert.Contains("__ed_s3 = __ed_s2.Next;", result.OutputCode);
+        Assert.Contains("(int?)(__ed_s3.Val = d)", result.OutputCode);
+        Assert.Contains("__ed_s3 != null", result.OutputCode);
+        Assert.Contains("__ed_s2 != null", result.OutputCode);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-chain3");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            Assert.Null(InvokeOn(assembly, "ChainSites", "M8Value", null, 7));
+
+            var outerOnly = NewOf(assembly, "Node");
+            Assert.Null(InvokeOn(assembly, "ChainSites", "M8Value", outerOnly, 7));
+
+            var pair = NewNodeChain(assembly);
+            Assert.Equal(7, InvokeOn(assembly, "ChainSites", "M8Value", pair.head, 7));
+            Assert.Equal(7, ((NodeLike)pair.tail).Val);
+        }
+    }
+
+    private const string IndexChainSource = """
+        namespace C51Fixture;
+
+        public sealed class Cell { public int Val; }
+
+        public static class IdxChain
+        {
+            public static void CellValPlus(Cell?[]? arr, int d) { arr?[0]?.Val += d; }
+        }
+        """;
+
+    [Fact]
+    public void NA4_IndexChain_Compound_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(IndexChainSource);
+
+        Assert.Contains("var __ed_s0 = arr;", result.OutputCode);
+        Assert.Contains("C51Fixture.Cell? __ed_s1 = null;", result.OutputCode);
+        Assert.Contains("__ed_s1 = __ed_s0[0];", result.OutputCode);
+        Assert.Contains("__ed_s1.Val += d;", result.OutputCode);
+        Assert.Equal(1, result.Statistics.NullConditional.AssignmentByOperator["+"]);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-idxchain");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            InvokeOn(assembly, "IdxChain", "CellValPlus", null, 3);
+
+            var nulls = (object?)Array.CreateInstance(
+                assembly.GetType("C51Fixture.Cell", throwOnError: true)!, 1);
+            InvokeOn(assembly, "IdxChain", "CellValPlus", nulls, 3);
+
+            var arr = Array.CreateInstance(assembly.GetType("C51Fixture.Cell", throwOnError: true)!, 1);
+            var cell = NewOf(assembly, "Cell")!;
+            arr.SetValue(cell, 0);
+            InvokeOn(assembly, "IdxChain", "CellValPlus", arr, 3);
+            Assert.Equal(3, cell.GetType().GetField("Val")!.GetValue(cell));
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Local reflection helpers for the NA-3/NA-4 fixtures.
+    // ------------------------------------------------------------------
+
+    private static object? NewOf(Assembly assembly, string typeName)
+        => Activator.CreateInstance(
+            assembly.GetType("C51Fixture." + typeName, throwOnError: true)!);
+
+    private static object? InvokeOn(
+        Assembly assembly, string typeName, string methodName, params object?[] args)
+        => assembly.GetType("C51Fixture." + typeName, throwOnError: true)!
+            .GetMethod(methodName)!
+            .Invoke(null, args);
+
+    private sealed class NodeLike
+    {
+        public required object Raw;
+        public int Val => (int)Raw.GetType().GetField("Val")!.GetValue(Raw)!;
+    }
+
+    private static (object head, NodeLike tail) NewNodeChain(Assembly assembly)
+    {
+        var head = NewOf(assembly, "Node")!;
+        var tail = new NodeLike { Raw = NewOf(assembly, "Node")! };
+        head.GetType().GetField("Next")!.SetValue(head, tail.Raw);
+        return (head, tail);
+    }
 }

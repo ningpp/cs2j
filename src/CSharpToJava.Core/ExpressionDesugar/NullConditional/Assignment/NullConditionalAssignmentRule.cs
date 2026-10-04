@@ -291,6 +291,18 @@ internal static class NullConditionalAssignmentRule
         if (isValue)
             statistics.ValueFormAssignmentSites++;
 
+        // NA-3 non-event compound: main compound counter + per-operator bucket.
+        var assignmentNode =
+            (AssignmentExpressionSyntax)plan.Terminal.ExpressionOriginal;
+        if (operatorKind == AssignmentOperatorKind.Compound
+            && targetShape != AssignmentTargetShape.Event)
+        {
+            statistics.CompoundAssignmentSites++;
+            var label = NullConditionalAssignmentFacts.OperatorLabel(assignmentNode);
+            statistics.AssignmentByOperator.TryGetValue(label, out var compoundCount);
+            statistics.AssignmentByOperator[label] = compoundCount + 1;
+        }
+
         // Receiver temp count (whitelist statement/single inline = zero).
         var receiverTemps = plan.Shape switch
         {
@@ -301,9 +313,12 @@ internal static class NullConditionalAssignmentRule
         };
         statistics.AssignmentReceiverTempsLifted += receiverTemps;
 
-        // Chain bucket: M8 multi-segment (M7 ordinary tail is detected in the
-        // later slice via the LHS shape).
-        if (plan.Length > 1)
+        // NA-4 chain bucket: M8 multi-segment, or M7 single '?.' with an
+        // ordinary member tail (LHS extends past the leftmost binding).
+        var ordinaryTail = plan.Length == 1
+            && assignmentNode.Left is MemberAccessExpressionSyntax
+            && NullConditionalSyntaxFacts.FindRootBinding(assignmentNode.Left) != null;
+        if (plan.Length > 1 || ordinaryTail)
             statistics.AssignmentChainSites++;
     }
 
