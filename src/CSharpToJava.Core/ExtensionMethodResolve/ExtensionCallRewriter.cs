@@ -184,9 +184,14 @@ internal sealed class ExtensionCallRewriter : CSharpSyntaxRewriter
             return visited;
         }
 
-        var receiver = plan is { DirectCapture: true }
-            ? visited.Expression
-            : SyntaxFactory.IdentifierName(plan.TempName!);
+        var receiver = plan switch
+        {
+            { DirectCapture: true } => visited.Expression,
+            // Static groups carry no receiver argument; the factory
+            // ignores it under noReceiver.
+            { NoReceiver: true } => SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression),
+            _ => SyntaxFactory.IdentifierName(plan.TempName!),
+        };
         if (!plan.DirectCapture && !plan.NoReceiver)
         {
             _groupReceivers[plan] = visited.Expression;

@@ -158,6 +158,16 @@ public sealed class ExtensionMethodResolvePreprocessor
                         _blockAnalyses[tree] = blockAnalysis;
                     }
                 }
+                else
+                {
+                    // No blocks declared in THIS file, but it may consume
+                    // extension members from an external assembly
+                    // (decision appendix 5): still run the analyzer so the
+                    // report-only CS2J1203 boundary scan can fire.
+                    var analyzer = new ExtensionBlockAnalyzer(model, blockOptions!);
+                    blockAnalysis = analyzer.Analyze();
+                    _blockAnalyses[tree] = blockAnalysis;
+                }
             }
 
             var binder = new ExtensionCallBinder(model, _options, suppressClassicBlockGate);

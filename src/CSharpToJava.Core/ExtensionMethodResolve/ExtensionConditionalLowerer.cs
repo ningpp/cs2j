@@ -54,24 +54,40 @@ internal static class ExtensionConditionalLowerer
             }
 
             var segmentsCur = LocateSegments(outerCur);
-            if (segmentsCur.Count != plan.Segments.Count)
-            {
-                continue;
-            }
 
             var branches = new List<ExpressionSyntax>();
-            for (var i = 0; i < plan.Segments.Count; i++)
+            var writeShape = false;
+            if (segmentsCur.Count == plan.Segments.Count)
             {
-                var segmentPlan = plan.Segments[i];
-                var (_, segmentRoot, _, spineCur) = segmentsCur[i];
-                var receiverTemp = plan.TempNames[i];
-                var branch = LowerSegment(
-                    segmentRoot,
-                    spineCur,
-                    segmentPlan.SpineCalls,
-                    receiverTemp,
-                    hostOverrides);
-                branches.Add(branch);
+                for (var i = 0; i < plan.Segments.Count; i++)
+                {
+                    var segmentPlan = plan.Segments[i];
+                    var (_, segmentRoot, _, spineCur) = segmentsCur[i];
+                    var receiverTemp = plan.TempNames[i];
+                    var branch = LowerSegment(
+                        segmentRoot,
+                        spineCur,
+                        segmentPlan.SpineCalls,
+                        receiverTemp,
+                        hostOverrides);
+                    branches.Add(branch);
+                }
+            }
+            else if (plan.IsVoid
+                     && segmentsCur.Count == 0
+                     && plan.Segments.Count == 1)
+            {
+                // Statement writes (r?.P = v / r?.P += v): the set/get
+                // invocations exist only inside the plan, not in the tree,
+                // so LocateSegments finds no origin; build the guarded
+                // branch straight from the planned invocations.
+                writeShape = true;
+                branches.Add(BuildWriteBranch(
+                    plan.Segments[0], plan.TempNames[0], hostOverrides));
+            }
+            else
+            {
+                continue;
             }
 
             // Receiver temp + one temp per intermediate segment result.
@@ -251,6 +267,56 @@ internal static class ExtensionConditionalLowerer
                 return BuildSpineCall(rewritten, spinePlan[index], receiver, hostOverrides);
             });
     }
+
+    /// <summary>
+    /// Build the guarded branch for a statement write from the planned
+    /// <c>set_P(...)</c> invocation, lowering any compound-read
+    /// (<c>get_P()</c>) invocations nested in its value expression first.
+    /// </summary>
+    private static ExpressionSyntax BuildWriteBranch(
+        ExtensionConditionalSegment segment,
+        string receiverTemp,
+        IReadOnlyDictionary<ConditionalSpineCall, NameSyntax>? hostOverrides)
+    {
+        var receiver = SyntaxFactory.IdentifierName(receiverTemp);
+        var future = segment.Origin;
+
+        InvocationExpressionSyntax futureWithReads;
+        if (segment.ExtraSpine.Count == 0)
+        {
+            futureWithReads = future;
+        }
+        else
+        {
+            // Tree construction may wrap the planned read in fresh red
+            // nodes (the stored red instances are not the wrappers inside
+            // future); locate the inner member-binding invocations
+            // structurally and pair them with the planned spine calls by
+            // binding name.
+            var innerActual = future.DescendantNodes()
+                .OfType<InvocationExpressionSyntax>()
+                .Where(i => i.Expression is MemberBindingExpressionSyntax binding
+                            && segment.ExtraSpine.Any(e => BindingName(e.Invocation)
+                                == binding.Name.Identifier.ValueText))
+                .ToList();
+
+            futureWithReads = (InvocationExpressionSyntax)future.ReplaceNodes(
+                innerActual,
+                (original, _) =>
+                {
+                    var name = ((MemberBindingExpressionSyntax)original.Expression)
+                        .Name.Identifier.ValueText;
+                    var hit = segment.ExtraSpine.First(
+                        e => BindingName(e.Invocation) == name);
+                    return BuildSpineCall(original, hit.Call, receiver, hostOverrides);
+                });
+        }
+
+        return BuildSpineCall(futureWithReads, segment.SpineCalls[0], receiver, hostOverrides);
+    }
+
+    private static string BindingName(InvocationExpressionSyntax invocation)
+        => ((MemberBindingExpressionSyntax)invocation.Expression).Name.Identifier.ValueText;
 
     private static InvocationExpressionSyntax BuildSpineCall(
         InvocationExpressionSyntax currentInvocation,

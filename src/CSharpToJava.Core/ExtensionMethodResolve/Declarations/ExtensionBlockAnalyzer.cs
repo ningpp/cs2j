@@ -308,17 +308,32 @@ internal sealed class ExtensionBlockAnalyzer
             }
 
             var symbolInfo = _model.GetSymbolInfo(access);
-            if (symbolInfo.Symbol is not IMethodSymbol
-                {
-                    MethodKind: MethodKind.Ordinary,
-                } groupMethod
-                || groupMethod.ContainingType.TypeKind != TypeKind.Extension
-                || !membersByOriginal.TryGetValue(groupMethod.OriginalDefinition, out var groupEntry))
+            var candidateMethods = new List<IMethodSymbol>();
+            if (symbolInfo.Symbol is IMethodSymbol resolved)
             {
-                continue;
+                candidateMethods.Add(resolved);
+            }
+            else
+            {
+                // A method group whose delegate conversion fails (e.g.
+                // CS1661 signature mismatch) exposes candidates instead
+                // of a resolved symbol; they still must pair with a
+                // diagnostic.
+                candidateMethods.AddRange(
+                    symbolInfo.CandidateSymbols.OfType<IMethodSymbol>());
             }
 
-            AddBlockGroupSite(access, groupMethod, groupEntry, blockGroups, deferred);
+            foreach (var groupMethod in candidateMethods)
+            {
+                if (groupMethod.MethodKind != MethodKind.Ordinary
+                    || groupMethod.ContainingType.TypeKind != TypeKind.Extension
+                    || !membersByOriginal.TryGetValue(groupMethod.OriginalDefinition, out var groupEntry))
+                {
+                    continue;
+                }
+
+                AddBlockGroupSite(access, groupMethod, groupEntry, blockGroups, deferred);
+            }
         }
 
         // ---- Outermost null-conditional chains: M3 dispatch ----
@@ -1292,6 +1307,14 @@ internal sealed class ExtensionBlockAnalyzer
         List<DeferredSitePlan> deferred)
     {
         var severity = _options.Strict ? ExtensionSeverity.Error : ExtensionSeverity.Warning;
+
+        // Multiple overload candidates at one access produce only one
+        // site plan/diagnostic.
+        if (blockGroups.Any(g => g.MemberAccess == access)
+            || deferred.Any(d => d.Site == access))
+        {
+            return;
+        }
 
         void Skip(string detail)
         {
