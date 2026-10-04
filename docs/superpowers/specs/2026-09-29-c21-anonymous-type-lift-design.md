@@ -477,10 +477,10 @@ verify 失败（build/test 退出码非 0）按 runner 既有约定置 adapter H
 
 - 分支：`feature/preproc-c21-anonymous-type`
 - 目录：`.worktrees/preproc-c21-anonymous-type`（`.worktrees/` 已在 [.gitignore](file:///d:/code/cs2j/.gitignore#L77) 忽略）
-- base：`953293b9`（`docs: update doc base commit`，已核实存在：`953293b908e9143437c45f287fb4277e890c398e`）
+- base：`e50d9874`（**2026-10-04 更新**：dev-3.x-26100408 当时最新提交，`feat(preprocessing): 波次0接线激活 C24默认接通+C27/C50/C46 CLI开关+catalogItems订正`，完整哈希 `e50d987470bde644137e07094d93fd1467c6ca9c`；原 base `953293b9` 已被本次更新取代，不再需要创建后 rebase）
 
 ```powershell
-git worktree add .worktrees/preproc-c21-anonymous-type -b feature/preproc-c21-anonymous-type 953293b9
+git worktree add .worktrees/preproc-c21-anonymous-type -b feature/preproc-c21-anonymous-type e50d9874
 ```
 
 ---
@@ -488,6 +488,8 @@ git worktree add .worktrees/preproc-c21-anonymous-type -b feature/preproc-c21-an
 ## 13. 开放问题裁决（2026-09-29 拍板）
 
 > **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+
+> **2026-10-04 更新**：§12 worktree base 已直接更新为 dev-3.x-26100408 当时最新提交 `e50d9874`，上述⑧中「维持 `953293b9` + 创建后 rebase」的安排随之废止，worktree 直接从 `e50d9874` 创建。
 
 **裁决（按原题号）：**
 
