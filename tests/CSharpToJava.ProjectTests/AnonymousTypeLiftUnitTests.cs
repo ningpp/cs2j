@@ -600,8 +600,11 @@ public class AnonymousTypeLiftUnitTests
         AssertSessionCompiles(session);
         var gen = session.GeneratedFile!;
 
-        // 零属性形状：Equals 仅精确类型检查（不同形状永不等）；hash 常量 17；"{ }"。
-        Assert.Contains("obj is global::Cs2jAnonymous.Anon other;", gen);
+        // 零属性形状：Equals 仅精确类型检查（if 语句形式，不同形状永不等）；
+        // hash 常量 17；"{ }"。
+        Assert.Contains("if (!(obj is global::Cs2jAnonymous.Anon))", gen);
+        Assert.Contains("return false;", gen);
+        Assert.Contains("return true;", gen);
         Assert.Contains("return 17;", gen);
         Assert.Contains("return \"{ }\";", gen);
     }

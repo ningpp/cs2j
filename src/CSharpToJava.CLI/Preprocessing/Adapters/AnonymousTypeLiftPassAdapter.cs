@@ -332,18 +332,42 @@ internal sealed class AnonymousTypeLiftPassAdapter : ProjectPassAdapter
             }
         }
 
-        var relativeInclude = Path.GetRelativePath(projectDirectory, sharedFilePath);
-        root.Add(
-            new XText(Environment.NewLine + "  "),
-            new XElement(
-                "ItemGroup",
+        // 生成文件与 csproj 同目录（单工程直挂源根的布局）时，SDK 默认 globbing 已
+        // 自动包含该文件，再追加显式 Compile 会触发 NETSDK1022 重复项；仅在
+        // EnableDefaultCompileItems=false 的工程里才需要显式挂接。多工程布局中
+        // 生成文件位于中间树根、csproj 位于子目录（Include=..\文件），必须显式挂接。
+        var helperDirectory = Path.GetDirectoryName(Path.GetFullPath(sharedFilePath));
+        var sameDirectory = string.Equals(
+            helperDirectory,
+            Path.GetFullPath(projectDirectory),
+            StringComparison.OrdinalIgnoreCase);
+        var defaultCompileItemsDisabled = string.Equals(
+            GetPropertyValue(root, "EnableDefaultCompileItems"),
+            "false",
+            StringComparison.OrdinalIgnoreCase);
+        if (!sameDirectory || defaultCompileItemsDisabled)
+        {
+            var relativeInclude = Path.GetRelativePath(projectDirectory, sharedFilePath);
+            root.Add(
+                new XText(Environment.NewLine + "  "),
                 new XElement(
-                    "Compile",
-                    new XAttribute("Include", relativeInclude),
-                    new XAttribute("Link", fileName))),
-            new XText(Environment.NewLine));
+                    "ItemGroup",
+                    new XElement(
+                        "Compile",
+                        new XAttribute("Include", relativeInclude),
+                        new XAttribute("Link", fileName))),
+                new XText(Environment.NewLine));
+        }
 
         document.Save(projectFilePath, SaveOptions.DisableFormatting);
+    }
+
+    private static string? GetPropertyValue(XElement root, string propertyName)
+    {
+        return root.Descendants()
+            .Where(element => element.Name.LocalName == propertyName)
+            .Select(element => (string?)element.Value)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
     private static bool MatchesHelperFile(string? value, string normalizedFileName)

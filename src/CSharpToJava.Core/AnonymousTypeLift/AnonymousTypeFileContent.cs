@@ -99,9 +99,12 @@ internal static partial class AnonymousTypeFileContent
     }
 
     /// <summary>
-    /// Equals（D5）：<c>obj is 全限定自身类型 other &amp;&amp; EqualityComparer&lt;P&gt;
-    /// .Default.Equals(P, other.P) &amp;&amp; …</c>，逐属性按声明顺序；零属性形状只保留
-    /// 精确类型检查。绝不生成 IEquatable&lt;T&gt;、==/!= 运算符。
+    /// Equals（D5）：先以 if 做 <c>obj is 全限定自身类型 other</c> 精确类型检查，
+    /// 再返回逐属性 <c>EqualityComparer&lt;P&gt;.Default.Equals(P, other.P) &amp;&amp; …</c>
+    /// （按声明顺序）。if 语句形式是必须的：当任一属性为 dynamic 时，单个
+    /// <c>is T other &amp;&amp; …other.P…</c> 表达式会被整体动态分派，Roslyn 对动态
+    /// 操作数不传播模式变量的明确赋值，报 CS0165。零属性形状只保留精确类型检查。
+    /// 绝不生成 IEquatable&lt;T&gt;、==/!= 运算符。
     /// </summary>
     private static void AppendEquals(
         StringBuilder sb,
@@ -112,10 +115,32 @@ internal static partial class AnonymousTypeFileContent
         sb.AppendLine();
         sb.AppendLine("        public override global::System.Boolean Equals(global::System.Object obj)");
         sb.AppendLine("        {");
-        sb.Append("            return obj is ").Append(selfReference).Append(" other");
+        if (shape.Properties.Count == 0)
+        {
+            sb.Append("            if (!(obj is ").Append(selfReference).AppendLine("))");
+            sb.AppendLine("            {");
+            sb.AppendLine("                return false;");
+            sb.AppendLine("            }");
+            sb.AppendLine();
+            sb.AppendLine("            return true;");
+            sb.AppendLine("        }");
+            return;
+        }
+
+        sb.Append("            if (!(obj is ").Append(selfReference).AppendLine(" other))");
+        sb.AppendLine("            {");
+        sb.AppendLine("                return false;");
+        sb.AppendLine("            }");
+        sb.AppendLine();
+        sb.Append("            return ");
         for (var i = 0; i < shape.Properties.Count; i++)
         {
-            sb.Append(" && global::System.Collections.Generic.EqualityComparer<")
+            if (i > 0)
+            {
+                sb.Append(" && ");
+            }
+
+            sb.Append("global::System.Collections.Generic.EqualityComparer<")
                 .Append(propertyTypes[i])
                 .Append(">.Default.Equals(")
                 .Append(shape.Properties[i].Name)

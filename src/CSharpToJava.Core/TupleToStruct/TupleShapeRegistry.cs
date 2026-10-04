@@ -302,6 +302,15 @@ internal sealed partial class TupleShapeRegistry
                     return InstantiateShapeDisplay(nested, argSlots);
                 }
 
+                // 匿名类型无法在生成的 C# 中具名（且跨 pass 链中由后续
+                // anonymous-type-lift 提升为内部类）：元素物化为 System.Object。
+                // 提升类是 sealed 引用类型，存入 object 不丢值，结构性相等经
+                // 重写的虚 Equals 保留。
+                if (named.IsAnonymousType)
+                {
+                    return "global::System.Object";
+                }
+
                 var definition = named.OriginalDefinition;
                 var name = StripGenericSuffix(definition.MetadataName ?? definition.Name);
                 var prefix = QualifiedMetadataPrefix(definition);
@@ -352,11 +361,17 @@ internal sealed partial class TupleShapeRegistry
             {
                 if (named.IsTupleType)
                 {
-                    // Tuple nested in a generic argument; the fragment only needs to
+                    // Tuple nested inside a generic argument; the fragment only needs to
                     // be structurally deterministic.
                     return named.TupleElements.Aggregate(
                         "Tuple",
                         (acc, f) => acc + MangleType(f.Type, slots));
+                }
+
+                // 与 BuildDisplayTemplate 对齐：匿名元素物化为 object 槽位。
+                if (named.IsAnonymousType)
+                {
+                    return "Object";
                 }
 
                 var name = SanitizeIdentifier(StripGenericSuffix(
@@ -399,6 +414,13 @@ internal sealed partial class TupleShapeRegistry
                 if (named.IsTupleType)
                 {
                     return named.TupleElements.All(f => IsPubliclyAccessible(f.Type));
+                }
+
+                // 元素物化为 System.Object（见 BuildDisplayTemplate），匿名类型本身
+                // 的 internal 可访问性不影响生成字段。
+                if (named.IsAnonymousType)
+                {
+                    return true;
                 }
 
                 if (named.DeclaredAccessibility != Accessibility.Public)

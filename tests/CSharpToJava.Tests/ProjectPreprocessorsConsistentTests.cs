@@ -226,6 +226,23 @@ public class ProjectPreprocessorsConsistentTests
             Assert.Equal(PassSupportLibrary.None, varianceAuditDescriptor.SupportLibrary);
             Assert.Equal("C33", varianceAuditDescriptor.CatalogItems);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.VarianceAuditPassAdapter));
+
+            // anonymous-type-lift (C21)：默认关观察期（design §8，--enable-pass
+            // 显式启用）；拓扑槽位锁在 tuple 之后（RunAfterIds）；声明式改写、需要
+            // 语义模型；每次落树都 verify build + tests；无支撑库。
+            var anonymousTypeLiftDescriptor = PassCatalog.ImplementedById(PassIds.AnonymousTypeLift);
+            Assert.Equal(".cs2j-anonymous-type-lift-src",
+                anonymousTypeLiftDescriptor.IntermediateDirectoryName);
+            Assert.Equal(PassStatus.Implemented, anonymousTypeLiftDescriptor.Status);
+            Assert.Equal(PassStage.Declarative, anonymousTypeLiftDescriptor.Stage);
+            Assert.False(anonymousTypeLiftDescriptor.DefaultEnabled);
+            Assert.Equal(new[] { PassIds.Tuple }, anonymousTypeLiftDescriptor.RunAfterIds);
+            Assert.Equal(PassSupportLibrary.None, anonymousTypeLiftDescriptor.SupportLibrary);
+            Assert.True(anonymousTypeLiftDescriptor.NeedsSemanticModel);
+            Assert.True(anonymousTypeLiftDescriptor.VerifyBuildByDefault);
+            Assert.True(anonymousTypeLiftDescriptor.VerifyTestsByDefault);
+            Assert.Equal("C21", anonymousTypeLiftDescriptor.CatalogItems);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.AnonymousTypeLiftPassAdapter));
         }
         finally
         {
