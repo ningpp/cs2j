@@ -74,7 +74,8 @@ class C
     private static string InClass(string body) => Preamble + body + Suffix;
 
     // ── 组 1：基本四件套（GetAsyncEnumerator/MoveNextAsync/Current/DisposeAsync）+
-    //         await 守恒：循环体原有 await 不丢不重，机械面新增 3 个 await（守卫分支） ──
+    //         await 守恒：循环体原有 await 不丢不重；默认朴素 try/finally 机械面
+    //         新增 2 个 await（while 的 MoveNextAsync + finally 的 DisposeAsync） ──
 
     [Fact]
     public void Group01_BasicExpansion_FourPieceSet_AndBodyAwaitsConserved()
@@ -99,12 +100,15 @@ class C
         Assert.Contains("MoveNextAsync()", compact);
         Assert.Contains("__cs2jAsE_0.Current", compact);
         Assert.Contains("DisposeAsync()", compact);
+        // 默认朴素 try/finally：无保真标志位、单层 finally。
+        Assert.DoesNotContain("__cs2jAsOk_", compact);
+        Assert.Contains("finally{await__cs2jAsE_0.DisposeAsync();}", compact);
         // 循环体两个 await 原样各保留一次。
         Assert.Equal(1, CountOccurrences(compact, "awaitTask.Delay(1);"));
         Assert.Equal(1, CountOccurrences(compact, "awaitTask.Delay(2);"));
-        // 守卫形态机械 await：while(MoveNextAsync) + 正常分支 Dispose + 异常分支 Dispose = 3，
-        // 叠加循环体 2 个，共 5。
-        Assert.Equal(5, CountOccurrences(compact, "await"));
+        // 朴素形态机械 await：while(MoveNextAsync) + finally Dispose = 2，
+        // 叠加循环体 2 个，共 4。
+        Assert.Equal(4, CountOccurrences(compact, "await"));
         Assert.DoesNotContain("awaitforeach", compact);
         Assert.Equal(1, result.Statistics.AwaitForeachExpanded);
         Assert.Equal(1, result.Statistics.AsyncEnumeratorsEmitted);
@@ -304,10 +308,11 @@ class C
         AssertOutputCompiles(result.OutputCode);
     }
 
-    // ── 组 5：保真守卫四分支文本 + 朴素形态开关 ──
+    // ── 组 5：默认朴素 try/finally（net10 真值：finally 的 DisposeAsync 异常屏蔽
+    //         在途主异常）+ 显式 FaithfulAsyncDisposeGuard=true 的四分支守卫 opt-in ──
 
     [Fact]
-    public void Group05_FaithfulGuard_FlagTryCatchInFlightBranch()
+    public void Group05_DefaultIsPlainFinally_NoFlag_SingleTryFinally_NetTruth()
     {
         var src = InClass(@"
     public async Task M()
@@ -323,16 +328,18 @@ class C
 
         Assert.True(result.Changed);
         var compact = Compact(result.OutputCode);
-        Assert.Contains("bool__cs2jAsOk_0=false;", compact);
-        Assert.Contains("__cs2jAsOk_0=true;", compact);
-        Assert.Contains("if(__cs2jAsOk_0){await__cs2jAsE_0.DisposeAsync();}", compact);
-        Assert.Contains("else{try{await__cs2jAsE_0.DisposeAsync();}catch", compact);
-        Assert.Contains("在途主异常优先", result.OutputCode);
+        // 默认（net10 真值）：无 __cs2jAsOk_ 标志位、无 catch、单层 try/finally。
+        Assert.DoesNotContain("__cs2jAsOk_", compact);
+        Assert.DoesNotContain("catch", compact);
+        Assert.Contains("finally{await__cs2jAsE_0.DisposeAsync();}", compact);
+        // 守卫桶只属于 await using 的 null/HasValue 守卫；纯 foreach 文件恒 0。
+        Assert.Equal(0, result.Statistics.AsyncDisposeGuardsEmitted);
         AssertOutputParsesClean(result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
-    public void Group05_PlainGuard_NoFlag_WhenFaithfulOptionDisabled()
+    public void Group05_FaithfulGuardOptIn_FlagTryCatchInFlightBranch_WhenExplicitlyEnabled()
     {
         var src = InClass(@"
     public async Task M()
@@ -344,15 +351,19 @@ class C
     }
 ");
 
-        var result = Run(src, new AsyncNormalizeOptions { FaithfulAsyncDisposeGuard = false });
+        var result = Run(src, new AsyncNormalizeOptions { FaithfulAsyncDisposeGuard = true });
 
         Assert.True(result.Changed);
         var compact = Compact(result.OutputCode);
-        Assert.DoesNotContain("__cs2jAsOk_", compact);
-        Assert.DoesNotContain("catch", compact);
-        Assert.Contains("finally{await__cs2jAsE_0.DisposeAsync();}", compact);
+        Assert.Contains("bool__cs2jAsOk_0=false;", compact);
+        Assert.Contains("__cs2jAsOk_0=true;", compact);
+        Assert.Contains("if(__cs2jAsOk_0){await__cs2jAsE_0.DisposeAsync();}", compact);
+        Assert.Contains("else{try{await__cs2jAsE_0.DisposeAsync();}catch", compact);
+        Assert.Contains("在途主异常优先", result.OutputCode);
+        Assert.Contains("异步流遍历规则", result.OutputCode);
+        // 空 catch（块内仅注释，在途分支吞掉释放异常）。
+        Assert.Contains("catch{/*", compact);
         AssertOutputParsesClean(result.OutputCode);
-        AssertOutputCompiles(result.OutputCode);
     }
 
     // ── 组 6：鸭子型 1840 / IAsyncEnumerator 直连基线豁免（无 18xx）/ 解构 1840 ──

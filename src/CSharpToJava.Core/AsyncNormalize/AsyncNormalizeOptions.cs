@@ -36,10 +36,19 @@ public sealed record AsyncNormalizeOptions(
     public bool EnableAwaitForeach { get; init; } = true;
 
     /// <summary>
-    /// 3b：await foreach 展开是否发射 C# 8 保真释放守卫（成功标志位 + 在途异常分支吞掉
-    /// DisposeAsync 异常，设计 D6）。关闭时退化为朴素 try/finally（仅差异对照，不进默认）。
+    /// 3b：await foreach 展开是否发射「在途主异常优先」释放守卫（成功标志位 +
+    /// 在途异常分支吞掉 DisposeAsync 异常，设计 D6 的原假设形态）。
+    /// <para><b>net10 真值（tests/SampleAsyncSolution，net10.0/SDK 10.0.300 可复跑，
+    /// T4 锁定）。</b>实测 await foreach 等价于朴素 try/finally +
+    /// <c>await DisposeAsync()</c>：在途 MoveNextAsync/循环体异常与 DisposeAsync
+    /// 异常同时发生时，finally 的 DisposeAsync 异常屏蔽在途主异常（同步/异步故障
+    /// 皆然）；正常结束路径 DisposeAsync 异常也照常上抛。await using 同样是朴素
+    /// try/finally 语义。即不存在设计文档 D6 假设的「C# 8 在途异常优先」特例，
+    /// 故本选项默认 <c>false</c>（发射单层 try/finally，与 .NET 行为一致）。</para>
+    /// <para>保留 <c>true</c> 仅作为显式需要「在途异常优先、吞掉释放异常」语义时的
+    /// 选择；<b>注意该语义与真实 .NET 行为不同</b>，不要作为保真映射使用。</para>
     /// </summary>
-    public bool FaithfulAsyncDisposeGuard { get; init; } = true;
+    public bool FaithfulAsyncDisposeGuard { get; init; } = false;
 
     /// <summary>
     /// 3b：异步迭代器方法（async + IAsyncEnumerable/IEnumerator 返回 + yield）kill-switch

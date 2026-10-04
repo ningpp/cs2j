@@ -7,13 +7,17 @@ namespace CSharpToJava.Core.AsyncNormalize.AsyncStreams;
 
 /// <summary>
 /// C38 3b <c>await foreach</c> 归一改写器（AS-1/AS-2/AS-3；设计 §2.1、§4.2、D2/D3/D6/D11）。
-/// 展开为显式 <see cref="T:System.Collections.Generic.IAsyncEnumerator`1"/> 驱动：
-/// <c>var __e = src.GetAsyncEnumerator(token); bool __ok = false; try {
-/// while (await __e.MoveNextAsync()) { V x = __e.Current; BODY } __ok = true; }
+/// 默认（<see cref="AsyncNormalizeOptions.FaithfulAsyncDisposeGuard"/>=false，与 net10 真值
+/// 一致——await foreach 即朴素 try/finally + await DisposeAsync，DisposeAsync 异常屏蔽
+/// 在途主异常，见 tests/SampleAsyncSolution T4）展开为显式
+/// <see cref="T:System.Collections.Generic.IAsyncEnumerator`1"/> 驱动：
+/// <c>var __e = src.GetAsyncEnumerator(token); try {
+/// while (await __e.MoveNextAsync()) { V x = __e.Current; BODY } }
+/// finally { await __e.DisposeAsync(); }</c>。
+/// 显式置 true 时发射 D6 原假设的保真守卫：<c>bool __ok = false; try { …; __ok = true; }
 /// finally { if (__ok) await __e.DisposeAsync(); else { try { await __e.DisposeAsync(); }
-/// catch { /* 在途主异常优先 */ } } }</c>。
-/// <see cref="AsyncNormalizeOptions.FaithfulAsyncDisposeGuard"/>=false 时退化为朴素
-/// try/finally（单层 await DisposeAsync，仅供差异对照）。站点定位同 3a 纪律：
+/// catch { /* 在途主异常优先 */ } } }</c>——该形态与真实 .NET 行为不同，仅作显式 opt-in。
+/// 站点定位同 3a 纪律：
 /// 入口先经 <see cref="SiteTagger"/> 在输入树 green 层挂站点/skip annotation，
 /// post-C18 重解析后引用/跨度匹配仍稳定；全部合成节点挂 Cs2jAsyncNormalize annotation。
 /// 嵌套展开自底向上（内外枚举器序号在 Analyzer 已独立分配）；源表达式只求值一次。

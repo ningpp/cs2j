@@ -27,22 +27,24 @@ namespace CSharpToJava.ProjectTests;
 /// with <c>async-normalize</c> explicitly enabled. The intermediate tree must
 /// contain no bare <c>await foreach</c>/<c>await using</c> and show the
 /// explicit GetAsyncEnumerator/MoveNextAsync/Current/DisposeAsync driving
-/// shape with the <c>__cs2jAsE_</c>/<c>__cs2jAsOk_</c> temps.
+/// shape with the plain try/finally + <c>__cs2jAsE_</c> enumerator temps
+/// (default <see cref="AsyncNormalizeOptions.FaithfulAsyncDisposeGuard"/>=false:
+/// no <c>__cs2jAsOk_</c> flag temp).
 ///
-/// <para><b>KNOWN DIVERGENCE (measured .NET 10 truth vs design §4.6 / D6).</b>
-/// The fixture's T4 pins the MEASURED net10.0 / SDK 10.0.300 behavior: when
-/// MoveNextAsync throws "body-in-flight" and DisposeAsync throws "dispose",
-/// await foreach surfaces <i>the DisposeAsync exception</i> — its lowering is
-/// an ordinary try/finally (finally masks the try fault); no C# 8
+/// <para><b>.NET 10 TRUTH MATCH (measured net10.0 / SDK 10.0.300, fixture
+/// T4).</b> When MoveNextAsync throws "body-in-flight" and DisposeAsync throws
+/// "dispose", await foreach surfaces <i>the DisposeAsync exception</i> — its
+/// lowering is an ordinary try/finally (finally masks the try fault); no C# 8
 /// "swallow-the-dispose-exception-while-in-flight" special case exists. The
-/// pass's default <see cref="AsyncNormalizeOptions.FaithfulAsyncDisposeGuard"/>
-/// expansion instead lets the in-flight exception win, so T4 fails ON THE
-/// INTERMEDIATE TREE while T1–T3/T5–T9 pass.
-/// <see cref="AsyncStreamOn_ExpandsAsyncStreams_IntermediateTreeBuildsAndTruthTestsPinGuardDivergence"/>
-/// pins that 9-pass / 1-fail split explicitly (the chain run verifies the
-/// build, not the tests); flipping the guard default to plain-finally must
-/// flip this assertion. The same T4 passes on the original tree
-/// (see <see cref="Baseline_OriginalFixture_AllTruthTestsPassOnUnprocessedSource"/>).</para>
+/// pass therefore defaults to the plain try/finally expansion, so all T1–T9
+/// (10/10) pass on BOTH the original tree and the intermediate tree — T4
+/// receives the ObjectDisposedException("dispose") either way. The earlier
+/// 9-pass/1-fail "guard divergence" split existed only when the pass emitted
+/// the faithful guard; that shape is now an explicit, non-.NET opt-in
+/// (<see cref="AsyncNormalizeOptions.FaithfulAsyncDisposeGuard"/>=true).
+/// <see cref="AsyncStreamOn_ExpandsAsyncStreams_IntermediateTreeBuildsAndAllTruthTestsMatchNetTruth"/>
+/// pins the 10-pass / 0-fail intermediate-tree result.
+/// </para>
 /// </summary>
 [Collection("SampleAsyncSolution")]
 public class AsyncStreamFixtureProjectTests
@@ -226,20 +228,21 @@ public class AsyncStreamFixtureProjectTests
 
     // ------------------------------------------------------------------
     // Pass enabled: the CLI preprocess-chain path. Build verified by the
-    // chain; behavior tests run explicitly below (T4 divergence pinned).
+    // chain; behavior tests run explicitly below and must match the .NET
+    // truth 10/10 (plain try/finally default expansion).
     // ------------------------------------------------------------------
 
     [Fact]
-    public async Task AsyncStreamOn_ExpandsAsyncStreams_IntermediateTreeBuildsAndTruthTestsPinGuardDivergence()
+    public async Task AsyncStreamOn_ExpandsAsyncStreams_IntermediateTreeBuildsAndAllTruthTestsMatchNetTruth()
     {
         var outputRoot = Path.Combine(FixtureDir, ".test-output-async-on");
         var resultsDirectory = Path.Combine(outputRoot, "trx");
         try
         {
             // VerifyBuild=true proves the expansion compiles; VerifyTests is
-            // deliberately off: under the default faithful guard T4 cannot
-            // pass on the intermediate tree (see class doc / T4 comments),
-            // and that divergence is asserted explicitly further below.
+            // off because the explicit trx run below is what pins the 10/10
+            // .NET-truth result (T4 included: ODE("dispose") masks the
+            // in-flight fault under the plain try/finally expansion).
             var result = await RunChainWithRetryAsync(
                 FixtureSlnPath, outputRoot, enableAsyncNormalize: true,
                 verifyBuild: true, verifyTests: false);
@@ -262,36 +265,28 @@ public class AsyncStreamFixtureProjectTests
             Assert.True(IntermediateContainsAnyFlat(intermediate, ".Current"));
             Assert.True(IntermediateContainsAnyFlat(intermediate, "DisposeAsync()"));
 
-            // ...with the guard flag and enumerator temps (default
-            // FaithfulAsyncDisposeGuard=true expansion), plus await-using's
-            // try/finally DisposeAsync shape and resource temps.
-            Assert.True(IntermediateContainsAnyFlat(intermediate, "__cs2jAsOk_"),
-                "faithful-guard ok-flag temp missing from intermediate tree");
+            // ...with the enumerator temps (plain try/finally default
+            // expansion) and NO faithful-guard ok-flag temps anywhere.
             Assert.True(IntermediateContainsAnyFlat(intermediate, "__cs2jAsE_"),
                 "enumerator temp missing from intermediate tree");
+            Assert.False(IntermediateContainsAnyFlat(intermediate, "__cs2jAsOk_"),
+                "faithful-guard ok-flag temp must not appear under the plain-finally default");
 
-            // Explicit behavior evidence on the intermediate tree: T1–T3 and
-            // T5–T9 (9 tests) still pass under the guard expansion; T4 is the
-            // single pinned divergence (body-in-flight wins under the guard,
-            // dispose masks under real .NET).
+            // Explicit behavior evidence on the intermediate tree: all T1–T9
+            // (10 tests) pass, matching the measured net10 truth — T4 receives
+            // ObjectDisposedException("dispose") via ordinary finally masking.
             var intermediateSln = Path.Combine(intermediate, "SampleAsyncSolution.sln");
             var (exitCode, trxPath) = await RunFixtureTestsAsync(
                 intermediateSln, resultsDirectory, "intermediate.trx");
 
-            Assert.NotEqual(0, exitCode);
+            Assert.Equal(0, exitCode);
             Assert.NotNull(trxPath);
             var trx = ReadTrx(trxPath!);
             Assert.Equal(10, trx.Counters.Total);
-            Assert.Equal(9, trx.Counters.Passed);
-            Assert.Equal(1, trx.Counters.Failed);
-
-            Assert.Single(trx.FailedNames);
-            Assert.Contains(T4TestName, trx.FailedNames[0]);
-
-            // xUnit's Throws failure records both the expected and the actual
-            // exception type — pins the root cause rather than a random failure.
-            Assert.Contains("ObjectDisposedException", trx.FirstFailureMessage);
-            Assert.Contains("InvalidOperationException", trx.FirstFailureMessage);
+            Assert.Equal(10, trx.Counters.Passed);
+            Assert.Equal(0, trx.Counters.Failed);
+            Assert.Empty(trx.FailedNames);
+            Assert.DoesNotContain(T4TestName, trx.FailedNames);
         }
         finally
         {

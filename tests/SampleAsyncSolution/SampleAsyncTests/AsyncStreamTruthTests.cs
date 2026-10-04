@@ -138,11 +138,12 @@ public class AsyncStreamTruthTests
         // wins; the dispose exception is discarded"): no such C# 8 special
         // case exists — verified across an 8-case matrix (MoveNext throws vs
         // body throws × Dispose throws vs not × sync vs async faults), every
-        // cell followed plain try/finally semantics. Consequently the
-        // async-normalize pass's default FaithfulAsyncDisposeGuard expansion
-        // does NOT preserve .NET behavior on this cell; the ProjectTests
-        // driver (AsyncStreamFixtureProjectTests) pins that divergence
-        // explicitly on the intermediate tree.
+        // cell followed plain try/finally semantics. The async-normalize pass
+        // therefore DEFAULTS to the plain try/finally expansion
+        // (FaithfulAsyncDisposeGuard=false), so this T4 passes identically on
+        // the intermediate tree — AsyncStreamFixtureProjectTests pins the
+        // 10/10 truth match. FaithfulAsyncDisposeGuard=true remains only as an
+        // explicit opt-in whose semantics deliberately diverge from .NET.
         var source = new HandwrittenAsyncEnumerable(
             Array.Empty<int>(), throwOnFirstMoveNext: true, throwOnDispose: true);
 
