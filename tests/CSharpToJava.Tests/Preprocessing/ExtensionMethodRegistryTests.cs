@@ -33,11 +33,11 @@ public sealed class ExtensionMethodRegistryTests
     };
 
     [Fact]
-    public void ExtensionMethods_Is_Implemented_WithC19CatalogItems_AndDefaultOn()
+    public void ExtensionMethods_Is_Implemented_WithC19AndC49CatalogItems_AndDefaultOn()
     {
         var descriptor = PassCatalog.ImplementedById(PassIds.ExtensionMethods);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.Equal("C19", descriptor.CatalogItems);
+        Assert.Equal("C19, C49", descriptor.CatalogItems);
         Assert.Equal(".cs2j-extension-methods-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.Expression, descriptor.Stage);
         Assert.True(descriptor.DefaultEnabled);
@@ -85,14 +85,20 @@ public sealed class ExtensionMethodRegistryTests
     }
 
     [Fact]
-    public void ExtensionMembers_AndLinqChannel_Stubs_StillAnchorAfterExtensionMethods()
+    public void ExtensionMembers_IsConsolidated_AndLinqChannel_StillAnchorsAfterExtensionMethods()
     {
         var registry = PassCatalog.BuildRegistry();
-        var extensionMembers = registry.Require(PassStubCatalog.Ids.ExtensionMembers);
+
+        // C49 lives inside the extension-methods pass; no separate
+        // extension-members entry is registered under either name.
+        Assert.DoesNotContain(
+            registry.Ordered, p => p.Id is "extension-members");
+        var descriptor = registry.Require(PassIds.ExtensionMethods);
+        Assert.Equal(PassStatus.Implemented, descriptor.Status);
+        Assert.Equal("C19, C49", descriptor.CatalogItems);
+
+        // The linq-channel stub keeps its anchor after the merged pass.
         var linqChannel = registry.Require(PassStubCatalog.Ids.LinqChannel);
-        Assert.Equal(PassStatus.Stub, extensionMembers.Status);
-        Assert.Equal("C49", extensionMembers.CatalogItems);
-        Assert.Contains(PassIds.ExtensionMethods, extensionMembers.RunAfterIds);
         Assert.Equal(PassStatus.Stub, linqChannel.Status);
         Assert.Contains(PassIds.ExtensionMethods, linqChannel.RunAfterIds);
     }

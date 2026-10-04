@@ -36,7 +36,8 @@ internal static class PassStubCatalog
         public const string AttributeNormalize = "attribute-normalize";
         // Ids.ExtensionMethods flipped to Implemented in PassCatalog (C19 M0);
         // the id constant moved to PassIds (generic-deepen/member-desugar precedent).
-        public const string ExtensionMembers = "extension-members";
+        // The separate extension-members stub (C49) was consolidated into the
+        // extension-methods pass (C19, C49); no id/descriptor remains.
         public const string EqualityConcat = "equality-concat";
         public const string LinqChannel = "linq-channel";
         public const string AsyncNormalize = "async-normalize";
@@ -91,16 +92,8 @@ internal static class PassStubCatalog
         // Ids.ExtensionMethods flipped to Implemented in PassCatalog (C19 M0);
         // the descriptor (five anchors + make-readonly + iterator-lowering)
         // lives there and no stub entry remains.
-        new(
-            Ids.ExtensionMembers,
-            "C# 14 extension member rewrite",
-            ".cs2j-extension-members-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.ExtensionMethods },
-            description: "Rewrite C# 14 extension blocks (extension properties/operators/static extensions) back to classic static classes with explicit static members.",
-            catalogItems: "C49"),
+        // The C49 extension-members stub was consolidated into that same
+        // pass (catalogItems "C19, C49"); no stub entry remains.
         new(
             Ids.LinqChannel,
             "LINQ channelization",
