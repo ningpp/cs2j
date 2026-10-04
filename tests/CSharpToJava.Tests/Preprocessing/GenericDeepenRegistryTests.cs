@@ -68,7 +68,7 @@ public sealed class GenericDeepenRegistryTests
         Assert.Equal("C33", variance.CatalogItems);
         Assert.Equal(".cs2j-variance-audit-src", variance.IntermediateDirectoryName);
         Assert.Equal(PassStage.Declarative, variance.Stage);
-        Assert.False(variance.DefaultEnabled);
+        Assert.True(variance.DefaultEnabled);
         Assert.Equal(new[] { PassIds.Generic }, variance.RunAfterIds);
         Assert.Equal(PassSupportLibrary.None, variance.SupportLibrary);
         Assert.True(variance.NeedsSemanticModel);

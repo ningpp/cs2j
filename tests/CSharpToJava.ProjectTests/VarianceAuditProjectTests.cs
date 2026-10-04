@@ -309,7 +309,7 @@ public class VarianceAuditProjectTests
     }
 
     [Fact]
-    public async Task DefaultConvertProject_DoesNotCreateVarianceIntermediateTree()
+    public async Task DefaultConvertProject_RunsVarianceAuditIntermediateTree()
     {
         var workDir = CreateTempDir("cs2j-c33-default");
         var sourceDir = Path.Combine(workDir, "Demo");
@@ -326,8 +326,8 @@ public class VarianceAuditProjectTests
                 "--no-cache", "--no-verify-build", "--no-verify-tests");
 
             Assert.True(exit == 0, $"convert-project failed (exit {exit}).\nstderr: {stderr}");
-            Assert.False(Directory.Exists(Path.Combine(destination, ".cs2j-variance-audit-src")),
-                "variance-audit is default-off and must not run in the default chain");
+            Assert.True(Directory.Exists(Path.Combine(destination, ".cs2j-variance-audit-src")),
+                "variance-audit is default-on (all-on policy) and must run in the default chain");
         }
         finally
         {
@@ -336,14 +336,14 @@ public class VarianceAuditProjectTests
     }
 
     [Fact]
-    public async Task ListPasses_ShowsVarianceAudit_ImplementedOffByDefault_WithC33Rules()
+    public async Task ListPasses_ShowsVarianceAudit_ImplementedOnByDefault_WithC33Rules()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
         Assert.Equal(0, exit);
 
         var line = stdout.Split('\n').First(l => l.Contains("variance-audit"));
         Assert.Contains("C33", line);
-        Assert.Contains(" off ", line);
+        Assert.Contains(" on ", line);
         Assert.Contains("Implemented", line);
     }
 }

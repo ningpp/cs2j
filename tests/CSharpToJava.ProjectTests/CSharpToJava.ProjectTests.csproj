@@ -344,4 +344,14 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- xunit runner config: longRunningTestSeconds=30 reports every test that
+         exceeds 30 s while the run continues (see TestTiming.targets for the
+         full per-test duration CSV generated from trx). -->
+    <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Import Project="..\TestTiming.targets" />
+
 </Project>

@@ -137,11 +137,11 @@ public class ProjectPreprocessorsConsistentTests
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.EnumDeclarationPassAdapter));
 
             // lexical-normalize (C28): no facade; descriptor carries the directory;
-            // default-off, enabled via --enable-pass lexical-normalize.
+            // 默认开（all-on policy），可经 --disable-pass lexical-normalize 关闭。
             var lexicalDescriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.LexicalNormalize);
             Assert.Equal(".cs2j-lexical-normalize-src",
                 lexicalDescriptor.IntermediateDirectoryName);
-            Assert.False(lexicalDescriptor.DefaultEnabled);
+            Assert.True(lexicalDescriptor.DefaultEnabled);
             Assert.Equal("C28, C43", lexicalDescriptor.CatalogItems);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.LexicalNormalizePassAdapter));
 
@@ -156,13 +156,13 @@ public class ProjectPreprocessorsConsistentTests
                 PassCatalog.ImplementedById(PassIds.MemberDesugar).IntermediateDirectoryName);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.MemberDesugarPassAdapter));
 
-            // extension-methods (C19) M0：无门面类，目录常量挂在 CLI 适配器上；
-            // 默认关（M0 空转骨架），经 --enable-pass extension-methods 开启。
+            // extension-methods (C19)：无门面类，目录常量挂在 CLI 适配器上；
+            // 默认开（all-on policy），可经 --disable-pass extension-methods 关闭。
             Assert.Equal(".cs2j-extension-methods-src",
                 CSharpToJava.CLI.Preprocessing.Adapters.ExtensionMethodResolvePassAdapter.IntermediateDirectoryName);
             Assert.Equal(".cs2j-extension-methods-src",
                 PassCatalog.ImplementedById(PassIds.ExtensionMethods).IntermediateDirectoryName);
-            Assert.False(PassCatalog.ImplementedById(PassIds.ExtensionMethods).DefaultEnabled);
+            Assert.True(PassCatalog.ImplementedById(PassIds.ExtensionMethods).DefaultEnabled);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.ExtensionMethodResolvePassAdapter));
 
             // struct-value-semantics (C07)：无门面类（设计决定），目录常量挂在注册表描述符上；
@@ -213,14 +213,14 @@ public class ProjectPreprocessorsConsistentTests
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.ForeachSourcePassAdapter));
 
             // variance-audit (C33)：无门面类（设计决定），目录常量挂注册表描述符；
-            // 只读审计，默认关，经 --enable-pass variance-audit / --pass variance-audit 开启；
+            // 只读审计，默认开（all-on policy），可经 --disable-pass variance-audit 关闭；
             // 从不 verify build/tests（输出树与输入字节一致），无支撑库。
             var varianceAuditDescriptor = PassCatalog.ImplementedById(PassIds.VarianceAudit);
             Assert.Equal(".cs2j-variance-audit-src",
                 varianceAuditDescriptor.IntermediateDirectoryName);
             Assert.Equal(PassStatus.Implemented, varianceAuditDescriptor.Status);
             Assert.Equal(PassStage.Declarative, varianceAuditDescriptor.Stage);
-            Assert.False(varianceAuditDescriptor.DefaultEnabled);
+            Assert.True(varianceAuditDescriptor.DefaultEnabled);
             Assert.False(varianceAuditDescriptor.VerifyBuildByDefault);
             Assert.False(varianceAuditDescriptor.VerifyTestsByDefault);
             Assert.Equal(PassSupportLibrary.None, varianceAuditDescriptor.SupportLibrary);

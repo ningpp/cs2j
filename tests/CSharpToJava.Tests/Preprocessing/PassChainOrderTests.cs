@@ -11,9 +11,8 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
 /// the topological sort must keep producing this exact order. Every
-/// implemented pass is default-on except the gated lexical-normalize,
-/// partial-merge and the M2 closure-lift (default-off pending M3 review);
-/// the legacy flags survive as --no-xxx negations.
+/// implemented pass is default-on (all-on policy); the legacy flags survive as
+/// --no-xxx negations.
 /// </summary>
 public sealed class PassChainOrderTests
 {
@@ -38,8 +37,8 @@ public sealed class PassChainOrderTests
         PassStubCatalog.Ids.NumericBoundary,
         PassIds.Generic,
         PassIds.GenericDeepen,
-        // C30 M2' + C33 M1a: closed-metadata and variance-audit both flipped
-        // to Implemented; they slot in after generic-deepen (design §3.4/§4.3/§5.5).
+        // C30 + C33: closed-metadata and variance-audit are both Implemented;
+        // they slot in after generic-deepen (design §3.4/§4.3/§5.5).
         PassIds.ClosedMetadata,
         PassIds.VarianceAudit,
         PassIds.RecordReadOnly,
@@ -50,7 +49,7 @@ public sealed class PassChainOrderTests
         PassStubCatalog.Ids.UnsafeFfm,
         PassStubCatalog.Ids.ClosureLift,
         PassStubCatalog.Ids.IteratorLowering,
-        // C19 M0：extension-methods 翻转 Implemented 但默认关；七锚（delegate/
+        // C19：extension-methods 翻转 Implemented；七锚（delegate/
         // tuple/ref-out-in/unsigned/array-method/make-readonly/iterator-lowering）
         // 保证它在 iterator-lowering 之后、eliminate-goto 之前的固定槽位。
         PassIds.ExtensionMethods,
@@ -59,33 +58,18 @@ public sealed class PassChainOrderTests
         // implemented 区后，它与只依赖 tuple 的 equality-concat 在 Kahn
         // 声明序破平中先后对调（两者无相互依赖；三工程回归全绿即行为无外溢）。
         PassIds.MemberDesugar,
-        // C29 翻转（默认关，长期 opt-in）：描述符置于 member-desugar 之后，
+        // C29 翻转：描述符置于 member-desugar 之后，
         // 与 equality-concat 互无 RunAfter 约束，相对次序由注册表声明序锁定。
         PassStubCatalog.Ids.ConcurrencyNormalize,
         PassStubCatalog.Ids.EqualityConcat,
-        // C42 M1 flipped platform-isolation to Implemented/default-off; it
-        // anchors eliminate-goto and stays before java-keywords (§3.3).
+        // C42 platform-isolation is Implemented; it anchors eliminate-goto and
+        // stays before java-keywords (§3.3).
         PassStubCatalog.Ids.PlatformIsolation,
         PassIds.JavaKeywords,
     ];
 
-    // lexical-normalize / partial-merge land Implemented/default-off (gated);
-    // closure-lift ships M2 default-off pending the M3 enable-by-default review;
-    // extension-methods (C19) ships M0 as a verified no-op kept default-off until
-    // the M3 enable-by-default gate (design §8).
-    // concurrency-normalize is Implemented but a long-term opt-in (design §3.4/§8).
-    // variance-audit lands Implemented/default-off (audit-only skeleton).
-    // closed-metadata ships M2' default-off (opt-in no-op skeleton, §9 gate).
-    private static readonly string[] EnabledByDefault =
-        LockedChain.Where(id =>
-            id != PassStubCatalog.Ids.LexicalNormalize
-            && id != PassStubCatalog.Ids.PartialMerge
-            && id != PassStubCatalog.Ids.ClosureLift
-            && id != PassIds.ExtensionMethods
-            && id != PassStubCatalog.Ids.ConcurrencyNormalize
-            && id != PassIds.VarianceAudit
-            && id != PassStubCatalog.Ids.PlatformIsolation
-            && id != PassIds.ClosedMetadata).ToArray();
+    // All-on policy: every implemented pass is default-enabled.
+    private static readonly string[] EnabledByDefault = LockedChain;
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -205,10 +189,10 @@ public sealed class PassChainOrderTests
         var registry = PassCatalog.BuildRegistry();
         var allOff = LockedChain.ToDictionary(id => id, _ => false);
 
-        // Default-off: absent from the default plan even with every legacy
-        // toggle at its baseline.
+        // Default-on (all-on policy): present in the default plan with every
+        // legacy toggle at its baseline.
         var baseline = PassPlanResolver.Resolve(registry);
-        Assert.DoesNotContain(baseline.Enabled, p => p.Id == PassStubCatalog.Ids.ClosureLift);
+        Assert.Contains(baseline.Enabled, p => p.Id == PassStubCatalog.Ids.ClosureLift);
 
         // Isolated slot: ref-out-in → closure-lift → iterator-lowering.
         var isolatedToggles = new Dictionary<string, bool>(allOff)
@@ -231,7 +215,7 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void PlatformIsolation_is_default_off_absent_from_the_default_plan_and_not_a_stub()
+    public void PlatformIsolation_is_default_on_in_the_default_plan_and_not_a_stub()
     {
         var registry = PassCatalog.BuildRegistry();
 
@@ -242,11 +226,11 @@ public sealed class PassChainOrderTests
 
         var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.PlatformIsolation);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
 
         var plan = PassPlanResolver.Resolve(registry);
         Assert.True(plan.IsValid);
-        Assert.DoesNotContain(plan.Enabled, pass => pass.Id == PassStubCatalog.Ids.PlatformIsolation);
+        Assert.Contains(plan.Enabled, pass => pass.Id == PassStubCatalog.Ids.PlatformIsolation);
     }
 
     [Fact]
@@ -277,17 +261,18 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void PlatformIsolation_precedes_the_concurrency_and_dynamic_stubs()
+    public void ConcurrencyNormalize_precedes_platform_isolation_and_both_precede_java_keywords()
     {
         var ordered = PassCatalog.BuildRegistry().Ordered.ToList();
 
-        var platform = ordered.FindIndex(pass => pass.Id == PassStubCatalog.Ids.PlatformIsolation);
         var concurrency = ordered.FindIndex(pass => pass.Id == PassStubCatalog.Ids.ConcurrencyNormalize);
+        var platform = ordered.FindIndex(pass => pass.Id == PassStubCatalog.Ids.PlatformIsolation);
+        var javaKeywords = ordered.FindIndex(pass => pass.Id == PassIds.JavaKeywords);
         var dynamic = ordered.FindIndex(pass => pass.Id == PassStubCatalog.Ids.DynamicDesugar);
 
-        Assert.True(platform >= 0 && concurrency >= 0 && dynamic >= 0);
-        Assert.True(platform < concurrency, "platform-isolation must precede concurrency-normalize");
-        Assert.True(concurrency < dynamic, "concurrency-normalize must precede dynamic-desugar");
+        Assert.True(concurrency >= 0 && platform >= 0 && javaKeywords >= 0 && dynamic >= 0);
+        Assert.True(concurrency < platform, "concurrency-normalize must precede platform-isolation (locked chain)");
+        Assert.True(platform < javaKeywords, "platform-isolation must precede java-keywords");
     }
 
     [Fact]
@@ -353,7 +338,7 @@ public sealed class PassChainOrderTests
         Assert.Equal("C01", byId[PassIds.RefOutIn].CatalogItems);
         Assert.Equal("C02", byId[PassIds.GenericDeepen].CatalogItems);
         Assert.Equal("C33", byId[PassIds.VarianceAudit].CatalogItems);
-        Assert.False(byId[PassIds.VarianceAudit].DefaultEnabled);
+        Assert.True(byId[PassIds.VarianceAudit].DefaultEnabled);
         Assert.Equal("C03, C37", byId[PassIds.PatternDesugar].CatalogItems);
         Assert.Equal("C04", byId[PassStubCatalog.Ids.IteratorLowering].CatalogItems);
         Assert.Equal("C15, C34, C17, C22", byId[PassStubCatalog.Ids.NumericBoundary].CatalogItems);
@@ -367,11 +352,11 @@ public sealed class PassChainOrderTests
         Assert.Equal("C23, C24, C36", byId[PassStubCatalog.Ids.ExpressionDesugar].CatalogItems);
         Assert.Equal("C30", byId[PassIds.ClosedMetadata].CatalogItems);
         Assert.Equal("C20", byId[PassStubCatalog.Ids.PartialMerge].CatalogItems);
-        Assert.False(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
+        Assert.True(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
         Assert.Equal("C32", byId[PassStubCatalog.Ids.ClosureLift].CatalogItems);
-        Assert.False(byId[PassStubCatalog.Ids.ClosureLift].DefaultEnabled);
+        Assert.True(byId[PassStubCatalog.Ids.ClosureLift].DefaultEnabled);
         Assert.Equal("C29", byId[PassStubCatalog.Ids.ConcurrencyNormalize].CatalogItems);
-        Assert.False(byId[PassStubCatalog.Ids.ConcurrencyNormalize].DefaultEnabled);
+        Assert.True(byId[PassStubCatalog.Ids.ConcurrencyNormalize].DefaultEnabled);
         Assert.Equal(".cs2j-concurrency-normalize-src", byId[PassStubCatalog.Ids.ConcurrencyNormalize].IntermediateDirectoryName);
     }
 
@@ -511,18 +496,18 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void ConcurrencyNormalize_is_default_off_and_explicit_enable_resolves_its_locked_slot()
+    public void ConcurrencyNormalize_is_default_on_and_stays_absent_from_the_legacy_toggle_map()
     {
         var registry = PassCatalog.BuildRegistry();
 
-        // Default-off (long-term opt-in, design §3.4/§8): absent from the
-        // default plan and from the legacy-toggle map.
+        // Default-on (all-on policy): present in the default plan and still
+        // absent from the legacy-toggle map (registry-default only pass).
         var baseline = PassPlanResolver.Resolve(registry);
-        Assert.DoesNotContain(baseline.Enabled, p => p.Id == PassStubCatalog.Ids.ConcurrencyNormalize);
+        Assert.Contains(baseline.Enabled, p => p.Id == PassStubCatalog.Ids.ConcurrencyNormalize);
 
-        // Explicit enable (--enable-pass / --pass) resolves the pass; with
-        // every legacy toggle off it runs alone (its eliminate-goto anchor
-        // stays disabled), which pins its resolver slot.
+        // Explicit disable removes it; with every legacy toggle off it runs
+        // alone (its eliminate-goto anchor stays disabled), which pins its
+        // resolver slot.
         var allOff = LockedChain.ToDictionary(id => id, _ => false);
         var isolated = PassPlanResolver.Resolve(
             registry,

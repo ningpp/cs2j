@@ -1,0 +1,205 @@
+<Project>
+
+  <!--
+    Per-test timing recording for the unit-test projects.
+
+    Every `dotnet test` run on an importing project:
+      1. writes a raw trx (VSTestLogger=trx) into tests/<Project>/TestResults/;
+      2. after a successful test run, post-processes the newest trx into
+         TestResults/<ProjectName>.timing.csv with one row per test, sorted by
+         duration descending (slowest test first);
+      3. prints the ten slowest tests to the console.
+
+    The CSV is the durable record used to analyze why the slowest tests in each
+    project take as long as they do; the raw trx is kept alongside for details.
+
+    The trx is parsed with plain string operations only: RoslynCodeTaskFactory
+    on the .NET SDK resolves a fixed default reference set (System.Linq etc.)
+    without System.Xml, so no XML API may appear in the task body.
+  -->
+
+  <PropertyGroup>
+    <TestTimingResultsDirectory>$(MSBuildProjectDirectory)\TestResults</TestTimingResultsDirectory>
+    <VSTestLogger Condition="'$(VSTestLogger)' == ''">trx</VSTestLogger>
+    <VSTestResultsDirectory Condition="'$(VSTestResultsDirectory)' == ''">$(TestTimingResultsDirectory)</VSTestResultsDirectory>
+  </PropertyGroup>
+
+  <UsingTask TaskName="TrxTimingReportTask"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <TrxDirectory Required="true" />
+      <CsvPath Required="true" />
+      <ProjectName Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.Collections.Generic" />
+      <Using Namespace="System.Globalization" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Text" />
+      <Code Type="Fragment" Language="cs">
+<![CDATA[
+const int TopCount = 10;
+
+if (!Directory.Exists(TrxDirectory))
+{
+    Log.LogMessage(MessageImportance.High, "TestTiming [{0}]: results directory '{1}' not found; nothing to record.", ProjectName, TrxDirectory);
+    return true;
+}
+
+var trxFile = new DirectoryInfo(TrxDirectory)
+    .GetFiles("*.trx", SearchOption.AllDirectories)
+    .OrderByDescending(f => f.LastWriteTimeUtc)
+    .FirstOrDefault();
+if (trxFile == null)
+{
+    Log.LogMessage(MessageImportance.High, "TestTiming [{0}]: no *.trx found under '{1}'.", ProjectName, TrxDirectory);
+    return true;
+}
+
+// --- minimal trx parsing (no System.Xml) -----------------------------------
+// For every <UnitTestResult ...> opening tag, extract the testName / outcome /
+// duration attributes. The opening tag is isolated with a quote-aware scan for
+// the closing '>' so '>' characters inside attribute values cannot cut it.
+var text = File.ReadAllText(trxFile.FullName);
+
+var durations = new List<TimeSpan>();
+var outcomes = new List<string>();
+var names = new List<string>();
+
+// Attribute extractor: reads name="value" pairs and unescapes the five
+// predefined XML entities (values are never raw here).
+static string ExtractAttr(string tag, string attributeName)
+{
+    var needle = attributeName + "=\"";
+    var start = tag.IndexOf(needle, StringComparison.Ordinal);
+    if (start < 0)
+    {
+        return null;
+    }
+
+    start += needle.Length;
+    var end = tag.IndexOf('"', start);
+    if (end < 0)
+    {
+        return null;
+    }
+
+    var value = tag.Substring(start, end - start);
+    return value
+        .Replace("&quot;", "\"")
+        .Replace("&apos;", "'")
+        .Replace("&#xD;", "\r")
+        .Replace("&#xA;", "\n")
+        .Replace("&lt;", "<")
+        .Replace("&gt;", ">")
+        .Replace("&amp;", "&");
+}
+
+var marker = "<UnitTestResult";
+var scan = 0;
+while (true)
+{
+    var start = text.IndexOf(marker, scan, StringComparison.Ordinal);
+    if (start < 0)
+    {
+        break;
+    }
+
+    scan = start + marker.Length;
+    var inQuote = false;
+    var tagEnd = -1;
+    for (var i = scan; i < text.Length; i++)
+    {
+        var c = text[i];
+        if (c == '"')
+        {
+            inQuote = !inQuote;
+        }
+        else if (c == '>' && !inQuote)
+        {
+            tagEnd = i;
+            break;
+        }
+    }
+
+    if (tagEnd < 0)
+    {
+        break;
+    }
+
+    var tag = text.Substring(start, tagEnd - start);
+    var name = ExtractAttr(tag, "testName") ?? "(unknown)";
+    var outcome = ExtractAttr(tag, "outcome") ?? "(none)";
+    var durationText = ExtractAttr(tag, "duration") ?? "00:00:00";
+    if (!TimeSpan.TryParse(durationText, CultureInfo.InvariantCulture, out var duration))
+    {
+        duration = TimeSpan.Zero;
+    }
+
+    durations.Add(duration);
+    outcomes.Add(outcome);
+    names.Add(name);
+}
+
+// A test may appear multiple times (parameterized cases, retries): keep the
+// slowest observed duration per test name.
+var order = Enumerable.Range(0, names.Count)
+    .GroupBy(i => names[i])
+    .Select(g => new
+    {
+        Name = g.Key,
+        Duration = g.Max(i => durations[i]),
+        Outcome = g.OrderByDescending(i => durations[i]).First(),
+    })
+    .Select(x => new { x.Name, x.Duration, Outcome = outcomes[x.Outcome] })
+    .OrderByDescending(x => x.Duration)
+    .ToList();
+
+var csvDir = Path.GetDirectoryName(Path.GetFullPath(CsvPath));
+if (!string.IsNullOrEmpty(csvDir))
+{
+    Directory.CreateDirectory(csvDir);
+}
+
+var sb = new StringBuilder();
+sb.AppendLine("Rank,DurationMs,Duration,Outcome,TestName");
+for (var i = 0; i < order.Count; i++)
+{
+    var entry = order[i];
+    var safeName = entry.Name.Replace("\"", "\"\"");
+    sb.AppendLine(string.Format(
+        CultureInfo.InvariantCulture,
+        "{0},{1},{2},{3},\"{4}\"",
+        i + 1,
+        (long)Math.Round(entry.Duration.TotalMilliseconds),
+        entry.Duration.ToString(@"hh\:mm\:ss\.fffffff", CultureInfo.InvariantCulture),
+        entry.Outcome,
+        safeName));
+}
+File.WriteAllText(CsvPath, sb.ToString(), new UTF8Encoding(false));
+
+Log.LogMessage(MessageImportance.High, "TestTiming [{0}]: {1} tests recorded from '{2}' -> '{3}'", ProjectName, order.Count, trxFile.Name, CsvPath);
+var top = Math.Min(TopCount, order.Count);
+for (var i = 0; i < top; i++)
+{
+    Log.LogMessage(MessageImportance.High, "  #{0} {1} ms  {2}", i + 1, (long)Math.Round(order[i].Duration.TotalMilliseconds), order[i].Name);
+}
+
+return true;
+]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!-- Runs on green `dotnet test` runs (AfterTargets does not fire when VSTest errors out). -->
+  <Target Name="RecordTestTimings" AfterTargets="VSTest">
+    <TrxTimingReportTask
+      TrxDirectory="$(TestTimingResultsDirectory)"
+      CsvPath="$(TestTimingResultsDirectory)\$(MSBuildProjectName).timing.csv"
+      ProjectName="$(MSBuildProjectName)" />
+  </Target>
+
+</Project>

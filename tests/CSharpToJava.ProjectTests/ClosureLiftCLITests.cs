@@ -5,7 +5,7 @@ namespace CSharpToJava.ProjectTests;
 /// <summary>
 /// End-to-end CLI coverage for closure-lift (design §7.4): the isolated
 /// <c>preprocess --pass closure-lift</c> verb runs the fixture through build
-/// AND test verification, and --list-passes shows it Implemented/default-off.
+/// AND test verification, and --list-passes shows it Implemented/default-on.
 /// </summary>
 public sealed class ClosureLiftCLITests
 {
@@ -54,15 +54,15 @@ public sealed class ClosureLiftCLITests
     }
 
     [Fact]
-    public async Task ListPasses_ShowsClosureLift_ImplementedAndOffByDefault()
+    public async Task ListPasses_ShowsClosureLift_ImplementedAndOnByDefault()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
 
         Assert.Equal(0, exit);
         var line = stdout.Split('\n').First(l => l.Contains("closure-lift"));
         Assert.Contains("Implemented", line);
-        Assert.Contains(" off ", line);
-        Assert.DoesNotContain(" on ", line);
+        Assert.Contains(" on ", line);
+        Assert.DoesNotContain(" off ", line);
         Assert.Contains("C32", line);
     }
 

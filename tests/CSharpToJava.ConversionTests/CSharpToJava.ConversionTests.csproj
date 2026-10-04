@@ -31,4 +31,6 @@
     </Content>
   </ItemGroup>
 
+  <Import Project="..\TestTiming.targets" />
+
 </Project>

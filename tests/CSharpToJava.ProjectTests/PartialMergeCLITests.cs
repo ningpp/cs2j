@@ -46,7 +46,7 @@ public sealed class PartialMergeCLITests
     }
 
     [Fact]
-    public void Default_Plan_Excludes_PartialMerge()
+    public void Default_Plan_Includes_PartialMerge()
     {
         var (exitCode, output) = RunCli("preprocess", "--list-passes");
         Assert.Equal(0, exitCode);
@@ -55,7 +55,7 @@ public sealed class PartialMergeCLITests
         // run-after column and would also contain the substring.
         var line = Assert.Single(output.Split('\n')
             .Where(line => line.TrimStart().StartsWith("partial-merge ", StringComparison.Ordinal)));
-        Assert.Contains("off", line, StringComparison.Ordinal);
+        Assert.Contains(" on ", line, StringComparison.Ordinal);
     }
 
     [Fact]

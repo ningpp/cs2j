@@ -255,7 +255,7 @@ public class Program
                     // tree canonical lowering deferred (M4/Q4).
                     Interpolations = new CSharpToJava.Core.ExpressionDesugar.Interpolations.InterpolationOptions
                     {
-                        Enabled = opts.InterpolationExpand,
+                        Enabled = opts.InterpolationExpand && !opts.NoInterpolationExpand,
                         Strict = opts.LocalFunctionStrict,
                         HandlerPolicy = CSharpToJava.Core.ExpressionDesugar.Interpolations.HandlerUnsupportedPolicy.Error,
                         KeepFormattableString = true,
@@ -3861,7 +3861,7 @@ public class Program
                     // tree canonical lowering deferred (M4/Q4).
                     Interpolations = new CSharpToJava.Core.ExpressionDesugar.Interpolations.InterpolationOptions
                     {
-                        Enabled = opts.InterpolationExpand,
+                        Enabled = opts.InterpolationExpand && !opts.NoInterpolationExpand,
                         Strict = opts.LocalFunctionStrict,
                         HandlerPolicy = CSharpToJava.Core.ExpressionDesugar.Interpolations.HandlerUnsupportedPolicy.Error,
                         KeepFormattableString = true,
@@ -4810,16 +4810,16 @@ class StripDefaultOptions
     [Option("no-verify-tests", Default = false, HelpText = "Skip 'dotnet test' verification after strip-default preprocessing")]
     public bool NoVerifyTests { get; set; }
 
-    [Option("enable-params-collections", Default = false,
-        HelpText = "Enable the C48 params-collections rule (non-array params declarations are materialized and params call sites are explicitized; default off)")]
+    [Option("enable-params-collections", Default = true,
+        HelpText = "Enable the C48 params-collections rule (non-array params declarations are materialized and params call sites are explicitized; default on)")]
     public bool EnableParamsCollections { get; set; }
 
     [Option("params-collections-scope", Default = "all",
         HelpText = "C48 params-collections scope gate: all|span|mutable-collection|interface|collection-builder (default all)")]
     public string ParamsCollectionsScope { get; set; } = "all";
 
-    [Option("params-collections-expand-arrays", Default = false,
-        HelpText = "C48 params-collections sub-switch (D8): explicitize classic params T[] call sites as array creations (default off)")]
+    [Option("params-collections-expand-arrays", Default = true,
+        HelpText = "C48 params-collections sub-switch (D8): explicitize classic params T[] call sites as array creations (default on)")]
     public bool ParamsCollectionsExpandArrays { get; set; }
 
     public bool FilterUnsupportedProjects => !NoFilterProjects;
@@ -4890,10 +4890,14 @@ class PreprocessVerbOptions
         HelpText = "Report residual local functions as warnings instead of failing the conversion")]
     public bool NoLocalFunctionStrict { get; set; }
 
-    [Option("interpolation-expand", Default = false,
+    [Option("interpolation-expand", Default = true,
         HelpText = "Enable C23 interpolation expansion inside expression-desugar " +
-                   "(rewrite interpolated strings to string.Concat/string.Format; default off)")]
+                   "(rewrite interpolated strings to string.Concat/string.Format; default on)")]
     public bool InterpolationExpand { get; set; }
+
+    [Option("no-interpolation-expand", Default = false,
+        HelpText = "Negation switch for the C23 interpolation rule (red-line byte-identical runs)")]
+    public bool NoInterpolationExpand { get; set; }
 
     [Option("no-filter-projects", Default = false,
         HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
@@ -5242,16 +5246,16 @@ class ConvertProjectOptions
         HelpText = "Disable the default strip-default-parameter preprocessing step")]
     public bool NoStripDefault { get; set; }
 
-    [Option("enable-params-collections", Default = false,
-        HelpText = "Enable the C48 params-collections rule inside strip-default (non-array params declarations are materialized and params call sites are explicitized; default off)")]
+    [Option("enable-params-collections", Default = true,
+        HelpText = "Enable the C48 params-collections rule inside strip-default (non-array params declarations are materialized and params call sites are explicitized; default on)")]
     public bool EnableParamsCollections { get; set; }
 
     [Option("params-collections-scope", Default = "all",
         HelpText = "C48 params-collections scope gate: all|span|mutable-collection|interface|collection-builder (default all)")]
     public string ParamsCollectionsScope { get; set; } = "all";
 
-    [Option("params-collections-expand-arrays", Default = false,
-        HelpText = "C48 params-collections sub-switch (D8): explicitize classic params T[] call sites as array creations (default off)")]
+    [Option("params-collections-expand-arrays", Default = true,
+        HelpText = "C48 params-collections sub-switch (D8): explicitize classic params T[] call sites as array creations (default on)")]
     public bool ParamsCollectionsExpandArrays { get; set; }
 
     [Option("no-tuple-to-struct", Default = false,
@@ -5290,10 +5294,14 @@ class ConvertProjectOptions
         HelpText = "Report residual local functions as warnings instead of failing the conversion")]
     public bool NoLocalFunctionStrict { get; set; }
 
-    [Option("interpolation-expand", Default = false,
+    [Option("interpolation-expand", Default = true,
         HelpText = "Enable C23 interpolation expansion inside expression-desugar " +
-                   "(rewrite interpolated strings to string.Concat/string.Format; default off)")]
+                   "(rewrite interpolated strings to string.Concat/string.Format; default on)")]
     public bool InterpolationExpand { get; set; }
+
+    [Option("no-interpolation-expand", Default = false,
+        HelpText = "Negation switch for the C23 interpolation rule (red-line byte-identical runs)")]
+    public bool NoInterpolationExpand { get; set; }
 
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
     public string? ExtraDependencies { get; set; }

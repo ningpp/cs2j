@@ -492,15 +492,15 @@ public class C
     // ───────────────────────── C29 concurrency-normalize（设计 §7.5）─────────────────────────
 
     [Fact]
-    public async Task ListPasses_ShowsConcurrencyNormalize_ImplementedAndOffByDefault()
+    public async Task ListPasses_ShowsConcurrencyNormalize_ImplementedAndOnByDefault()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
 
         Assert.Equal(0, exit);
         var line = stdout.Split('\n').First(l => l.Contains("concurrency-normalize"));
         Assert.Contains("Implemented", line);
-        Assert.Contains(" off ", line); // 长期 opt-in（设计 §3.4/§8），默认关
-        Assert.DoesNotContain(" on ", line);
+        Assert.Contains(" on ", line); // all-on policy，默认开
+        Assert.DoesNotContain(" off ", line);
         // Late anchor + catalog inventory surface.
         Assert.Contains("eliminate-goto", line);
         Assert.Contains("rules=C29", line);

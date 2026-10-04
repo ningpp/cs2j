@@ -52,32 +52,16 @@ internal static class PassStubCatalog
 
     public static IReadOnlyList<PassDescriptor> Stubs { get; } = new List<PassDescriptor>
     {
+        // Ids.ClosedMetadata flipped to Implemented in PassCatalog (C30 M2');
+        // the descriptor lives there and no stub entry remains.
+        // Ids.VarianceAudit flipped to Implemented in PassCatalog (C33 M1a);
+        // the descriptor lives there and no stub entry remains.
         // Ids.LexicalNormalize flipped to Implemented in PassCatalog (C28);
         // the id constant stays here by the iterator-lowering precedent (§3.4).
         // Ids.PartialMerge flipped to Implemented in PassCatalog (C20);
         // the id constant stays here by the iterator-lowering precedent (§3.4).
         // Ids.ForeachSource flipped to Implemented in PassCatalog (C16);
         // the id constant stays here by the iterator-lowering precedent (§3.4).
-        new(
-            Ids.ClosedMetadata,
-            "Closed-type metadata",
-            ".cs2j-closed-metadata-src",
-            PassStage.Abi,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.GenericDeepen },
-            description: "Consume closed java.lang.reflect.Type metadata keyed by generic-deepen tokens (P2; blocked on PatchClosed* archaeology).",
-            catalogItems: "C30"),
-        new(
-            Ids.VarianceAudit,
-            "Variance and constraint audit",
-            ".cs2j-variance-audit-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.Generic },
-            description: "Audit out/in variance and struct/new() constraints; report usage sites needing rewrite (P3).",
-            catalogItems: "C33"),
         // Ids.UnsafeFfm flipped to Implemented in PassCatalog (C06 M0);
         // the descriptor lives there and no stub entry remains.
         // Ids.ClosureLift flipped to Implemented in PassCatalog (C32 M2);
@@ -152,29 +136,10 @@ internal static class PassStubCatalog
             description: "Lift anonymous types into named generated types before the LINQ channel.",
             catalogItems: "C21"),
         // Ids.EqualityConcat flipped to Implemented in PassCatalog (C47).
-        // Ids.EqualityConcat flipped to Implemented in PassCatalog (C47).
-        new(
-            Ids.PlatformIsolation,
-            "Platform boundary isolation",
-            ".cs2j-platform-isolation-src",
-            PassStage.Abi,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.EliminateGoto },
-            description: "Isolate or reject external platform contracts (P/Invoke, extern) at the boundary.",
-            catalogItems: "C42"),
-        new(
-            Ids.ConcurrencyNormalize,
-            "Concurrency normalization",
-            ".cs2j-concurrency-normalize-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            // No strong functional dependency; the late anchor keeps the naming
-            // pass last and makes --list-passes placement deterministic.
-            runAfterIds: new[] { PassIds.EliminateGoto },
-            description: "Normalize concurrency primitives and synchronization constructs.",
-            catalogItems: "C29"),
+        // Ids.PlatformIsolation flipped to Implemented in PassCatalog (C42);
+        // the descriptor lives there and no stub entry remains.
+        // Ids.ConcurrencyNormalize flipped to Implemented in PassCatalog (C29);
+        // the descriptor lives there and no stub entry remains.
         new(
             Ids.DynamicDesugar,
             "Dynamic desugaring",

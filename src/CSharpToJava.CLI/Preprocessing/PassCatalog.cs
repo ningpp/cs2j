@@ -56,7 +56,7 @@ internal static class PassCatalog
             ".cs2j-lexical-normalize-src",
             PassStage.Lexical,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.Conditional },
             needsSemanticModel: false,
             verifyBuildByDefault: true,
@@ -69,7 +69,7 @@ internal static class PassCatalog
             ".cs2j-partial-merge-src",
             PassStage.Lexical,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.Conditional, PassStubCatalog.Ids.LexicalNormalize },
             needsSemanticModel: true,
             verifyBuildByDefault: true,
@@ -268,31 +268,17 @@ internal static class PassCatalog
             description: "Make reified generic runtime information explicit for Java type erasure (typeof(T)/is-as T/static generic fields).",
             catalogItems: "C02"),
         new(
-        new(
-            PassIds.VarianceAudit,
-            "Variance and constraint audit",
-            ".cs2j-variance-audit-src",
-            PassStage.Declarative,
-            PassStatus.Implemented,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.Generic },
-            needsSemanticModel: true,
-            verifyBuildByDefault: false,
-            verifyTestsByDefault: false,
-            supportLibrary: PassSupportLibrary.None,
-            description: "Read-only audit of out/in variance and struct/unmanaged/new()/notnull/default/class constraints; writes variance-audit-report.json.",
-            catalogItems: "C33"),
-        new(
             PassIds.ClosedMetadata,
             "Closed-type metadata registration",
             Adapters.ClosedMetadataPassAdapter.IntermediateDirectoryName,
             PassStage.Abi,
             PassStatus.Implemented,
-            // C30 M2' skeleton: opt-in no-op (analyze produces an empty
+            // C30 M2' skeleton: no-op by design (analyze produces an empty
             // registration plan, every file stays a byte copy); the collector/
-            // generator land in M3 and the enable-by-default review waits for
-            // the §9 gates (C02 default-on first).
-            defaultEnabled: false,
+            // generator land in M3. Default-enabled per the all-on policy.
+            // Declared before variance-audit so the Kahn declaration-order
+            // tiebreak keeps the locked slot generic-deepen -> closed-metadata.
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.GenericDeepen },
             supportLibrary: PassSupportLibrary.None,
             needsSemanticModel: true,
@@ -300,6 +286,20 @@ internal static class PassCatalog
             verifyTestsByDefault: true,
             description: "Register closed generic types as explicit System.Type construction trees consumed by the Java reflection side (M2' skeleton: zero rewrites pending the M3 collector/generator).",
             catalogItems: "C30"),
+        new(
+            PassIds.VarianceAudit,
+            "Variance and constraint audit",
+            ".cs2j-variance-audit-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: true,
+            runAfterIds: new[] { PassIds.Generic },
+            needsSemanticModel: true,
+            verifyBuildByDefault: false,
+            verifyTestsByDefault: false,
+            supportLibrary: PassSupportLibrary.None,
+            description: "Read-only audit of out/in variance and struct/unmanaged/new()/notnull/default/class constraints; writes variance-audit-report.json.",
+            catalogItems: "C33"),
         new(
             PassIds.RecordReadOnly,
             "Record readonly",
@@ -374,8 +374,8 @@ internal static class PassCatalog
             ".cs2j-closure-lift-src",
             PassStage.StateMachine,
             PassStatus.Implemented,
-            // C32 M2 ships default-off; M3 owns the enable-by-default review (design §8 gate 6).
-            defaultEnabled: false,
+            // C32 M2; default-enabled per the all-on policy (M3 enable review superseded).
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.RefOutIn },
             needsSemanticModel: true,
             verifyBuildByDefault: true,
@@ -400,8 +400,8 @@ internal static class PassCatalog
             Adapters.ExtensionMethodResolvePassAdapter.IntermediateDirectoryName,
             PassStage.Expression,
             PassStatus.Implemented,
-            // Opt-in for the initial implementation; flips to default-on after design §8 gates.
-            defaultEnabled: false,
+            // Default-enabled per the all-on policy (initial opt-in superseded).
+            defaultEnabled: true,
             // Five support-visibility anchors (delegate/tuple/ref-out-in/unsigned/array-method)
             // plus EM-ORDER (appendix ruling 1): make-readonly and iterator-lowering both
             // consume reduced sugar shapes and must run before this pass.
@@ -448,11 +448,10 @@ internal static class PassCatalog
             ".cs2j-concurrency-normalize-src",
             PassStage.Declarative,
             PassStatus.Implemented,
-            // C29 ships Implemented but default-off: the lock/volatile direct
-            // mappings already cover the main path and the normalization value
-            // only closes once the Java-side Monitor bridge lands (design
-            // §3.4/§8; long-term opt-in).
-            defaultEnabled: false,
+            // C29 default-enabled per the all-on policy: the lock/volatile direct
+            // mappings cover the main path and the normalization adds the canonical
+            // Monitor forms (design §3.4/§8 opt-in ruling superseded).
+            defaultEnabled: true,
             // No strong functional dependency; the late anchor keeps the naming
             // pass last and makes --list-passes placement deterministic.
             runAfterIds: new[] { PassIds.EliminateGoto },
@@ -482,7 +481,7 @@ internal static class PassCatalog
             ".cs2j-platform-isolation-src",
             PassStage.Abi,
             PassStatus.Implemented,
-            defaultEnabled: false,
+            defaultEnabled: true,
             // M1/M2 anchor eliminate-goto only (M3 adds unsafe-ffm, §3.2).
             // Declaration order here keeps platform -> concurrency -> dynamic
             // (the late stubs) and stays before java-keywords.

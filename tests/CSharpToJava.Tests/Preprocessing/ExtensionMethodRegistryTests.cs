@@ -29,17 +29,18 @@ public sealed class ExtensionMethodRegistryTests
         EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
         UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
         ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
+        VarianceAuditOptionsFactory = () => new CSharpToJava.Core.VarianceAudit.VarianceAuditOptions(),
     };
 
     [Fact]
-    public void ExtensionMethods_Is_Implemented_WithC19CatalogItems_AndDefaultOff()
+    public void ExtensionMethods_Is_Implemented_WithC19CatalogItems_AndDefaultOn()
     {
         var descriptor = PassCatalog.ImplementedById(PassIds.ExtensionMethods);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
         Assert.Equal("C19", descriptor.CatalogItems);
         Assert.Equal(".cs2j-extension-methods-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.Expression, descriptor.Stage);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
         Assert.True(descriptor.NeedsSemanticModel);
         Assert.True(descriptor.VerifyBuildByDefault);
@@ -108,32 +109,18 @@ public sealed class ExtensionMethodRegistryTests
     }
 
     [Fact]
-    public void ExtensionMethods_AbsentFromDefaultPlan_ButEnablePass_InsertsLockedSlot()
+    public void ExtensionMethods_InDefaultPlan_WithLockedSlotBetweenIteratorLoweringAndEliminateGoto()
     {
         var registry = PassCatalog.BuildRegistry();
 
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
-        Assert.DoesNotContain(baseline.Enabled, p => p.Id == PassIds.ExtensionMethods);
+        Assert.Contains(baseline.Enabled, p => p.Id == PassIds.ExtensionMethods);
 
-        // Isolated slot: make-readonly → iterator-lowering → extension-methods.
-        var toggles = registry.Ordered
-            .Where(p => p.Status == PassStatus.Implemented)
-            .Select(p => p.Id)
-            .ToDictionary(id => id, _ => false);
-        toggles[PassIds.MakeReadonly] = true;
-        toggles[PassStubCatalog.Ids.IteratorLowering] = true;
-        var plan = PassPlanResolver.Resolve(
-            registry,
-            toggles,
-            enablePassIds: new[] { PassIds.ExtensionMethods });
-
-        Assert.True(plan.IsValid);
-        Assert.Equal(new[]
-        {
-            PassIds.MakeReadonly,
-            PassStubCatalog.Ids.IteratorLowering,
-            PassIds.ExtensionMethods,
-        }, plan.Enabled.Select(p => p.Id).ToArray());
+        // Locked slot: make-readonly → iterator-lowering → extension-methods.
+        var ordered = registry.Ordered.Select(p => p.Id).ToList();
+        var index = ordered.IndexOf(PassIds.ExtensionMethods);
+        Assert.Equal(PassStubCatalog.Ids.IteratorLowering, ordered[index - 1]);
+        Assert.Equal(PassIds.EliminateGoto, ordered[index + 1]);
     }
 }

@@ -33,7 +33,7 @@ public sealed class PassStubCatalogTests
         var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.PlatformIsolation);
 
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(".cs2j-platform-isolation-src", descriptor.IntermediateDirectoryName);
         Assert.Equal("C42", descriptor.CatalogItems);
         Assert.DoesNotContain(Stubs, stub => stub.Id == PassStubCatalog.Ids.PlatformIsolation);

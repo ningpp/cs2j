@@ -109,6 +109,12 @@ public class CollectionExprProjectTests
                 new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
             StructValueSemanticsOptionsFactory = () => new StructValueSemanticsOptions(),
             JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
+            // True single-pass isolation (mirrors the CLI `--pass <id>` verb):
+            // enablePassIds alone is additive on the default-enabled baseline,
+            // so under the all-on policy it would drag every other pass (and
+            // its diagnostics/verification) into these feature tests.
+            LegacyToggles = PassChainFactory.BuildAllDisabledToggles(
+                PassCatalog.BuildRegistry()),
             EnablePassIds = new[] { PassId },
             VerifyBuild = verify,
             VerifyTests = verify,

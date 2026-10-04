@@ -370,14 +370,14 @@ public static class OsInfo
     }
 
     [Fact]
-    public async Task ListPasses_ShowsPlatformIsolationImplemented_DefaultOff()
+    public async Task ListPasses_ShowsPlatformIsolationImplemented_DefaultOn()
     {
         var (exit, stdout, _) = await RunCliAsync("preprocess", "--list-passes");
 
         Assert.Equal(0, exit);
         var line = stdout.Split('\n').First(l => l.Contains("platform-isolation"));
         Assert.Contains("Implemented", line);
-        Assert.Contains(" off ", line);
+        Assert.Contains(" on ", line);
         Assert.Contains("C42", line);
     }
 

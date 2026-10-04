@@ -26,10 +26,11 @@ public sealed class ClosedMetadataRegistryTests
         EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
         UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
         ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
+        VarianceAuditOptionsFactory = () => new CSharpToJava.Core.VarianceAudit.VarianceAuditOptions(),
     };
 
     [Fact]
-    public void ClosedMetadata_Is_Implemented_DefaultOff_WithC30CatalogItems()
+    public void ClosedMetadata_Is_Implemented_DefaultOn_WithC30CatalogItems()
     {
         var descriptor = PassCatalog.ImplementedById(PassIds.ClosedMetadata);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
@@ -37,7 +38,7 @@ public sealed class ClosedMetadataRegistryTests
         Assert.Equal("Closed-type metadata registration", descriptor.DisplayName);
         Assert.Equal(".cs2j-closed-metadata-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.Abi, descriptor.Stage);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(new[] { PassIds.GenericDeepen }, descriptor.RunAfterIds);
         Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
         Assert.True(descriptor.NeedsSemanticModel);
@@ -47,7 +48,7 @@ public sealed class ClosedMetadataRegistryTests
     }
 
     [Fact]
-    public void ClosedMetadata_IsNotAStub_AndAbsentFromTheDefaultPlan()
+    public void ClosedMetadata_IsNotAStub_AndInTheDefaultPlan()
     {
         var registry = PassCatalog.BuildRegistry();
 
@@ -56,7 +57,7 @@ public sealed class ClosedMetadataRegistryTests
 
         var plan = PassPlanResolver.Resolve(registry);
         Assert.True(plan.IsValid);
-        Assert.DoesNotContain(plan.Enabled, pass => pass.Id == PassIds.ClosedMetadata);
+        Assert.Contains(plan.Enabled, pass => pass.Id == PassIds.ClosedMetadata);
     }
 
     [Fact]

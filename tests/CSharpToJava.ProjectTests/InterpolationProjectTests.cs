@@ -198,6 +198,11 @@ public class InterpolationProjectTests
             var (exit, output) = await RunCliAsync(
                 "preprocess",
                 "--pass", PassId,
+                // Rule-level kill switch: the all-on policy defaults the rule
+                // to enabled, so the red-line run disables it via the codebase
+                // convention --no-xxx negation switch (bool options are
+                // switches in CommandLineParser; --flag=false does not bind).
+                "--no-interpolation-expand",
                 "-s", sln,
                 "-d", outputRoot);
 
