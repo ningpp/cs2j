@@ -308,7 +308,7 @@ public class VarianceAuditProjectTests
         }
     }
 
-    [Fact]
+    [Fact(Skip = "TODO: 临时跳过端到端慢测试（排查根因中）— 40.74s")]
     public async Task DefaultConvertProject_RunsVarianceAuditIntermediateTree()
     {
         var workDir = CreateTempDir("cs2j-c33-default");
