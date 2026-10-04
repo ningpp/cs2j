@@ -272,9 +272,20 @@ public class AsyncStreamFixtureProjectTests
             Assert.False(IntermediateContainsAnyFlat(intermediate, "__cs2jAsOk_"),
                 "faithful-guard ok-flag temp must not appear under the plain-finally default");
 
-            // Explicit behavior evidence on the intermediate tree: all T1–T9
-            // (10 tests) pass, matching the measured net10 truth — T4 receives
-            // ObjectDisposedException("dispose") via ordinary finally masking.
+            // M4: the three YieldProbe async iterators are fully lowered (no
+            // residual yield anywhere), with iterator/enumerable state-machine
+            // classes present in the intermediate tree.
+            Assert.Equal(0, CountAllIntermediate(intermediate, "yield return"));
+            Assert.Equal(0, CountAllIntermediate(intermediate, "yield break"));
+            Assert.True(IntermediateContainsAnyFlat(intermediate, "Cs2jAsyncIterator_"),
+                "M4 iterator state machine missing from intermediate tree");
+            Assert.True(IntermediateContainsAnyFlat(intermediate, "Cs2jAsyncEnumerable_"),
+                "M4 enumerable wrapper missing from intermediate tree");
+
+            // Explicit behavior evidence on the intermediate tree: T1–T14
+            // (14 tests) pass, matching the measured net10 truth — T4 receives
+            // ObjectDisposedException("dispose") via ordinary finally masking,
+            // and T11–T14 run on the M4-lowered async-iterator state machines.
             var intermediateSln = Path.Combine(intermediate, "SampleAsyncSolution.sln");
             var (exitCode, trxPath) = await RunFixtureTestsAsync(
                 intermediateSln, resultsDirectory, "intermediate.trx");
@@ -282,8 +293,8 @@ public class AsyncStreamFixtureProjectTests
             Assert.Equal(0, exitCode);
             Assert.NotNull(trxPath);
             var trx = ReadTrx(trxPath!);
-            Assert.Equal(10, trx.Counters.Total);
-            Assert.Equal(10, trx.Counters.Passed);
+            Assert.Equal(14, trx.Counters.Total);
+            Assert.Equal(14, trx.Counters.Passed);
             Assert.Equal(0, trx.Counters.Failed);
             Assert.Empty(trx.FailedNames);
             Assert.DoesNotContain(T4TestName, trx.FailedNames);
@@ -329,21 +340,29 @@ public class AsyncStreamFixtureProjectTests
             Assert.False(adapter.HasErrors,
                 "unexpected error diagnostics:\n" + DiagnosticsDump(adapter.Diagnostics));
 
-            // Fixture ground truth (7 Lib source files + 1 test file):
+            // Fixture ground truth (7 Lib source files + 1 test file; one of
+            // the 7 Lib files is YieldProbe.cs):
             //  • await foreach sites: ChannelProbe x2, Handwritten x2,
-            //    CancellationProbe x1, DoubleFaultProbe x2 = 7
+            //    CancellationProbe x1, DoubleFaultProbe x2, YieldProbe x1
+            //    (joint site inside BoundedWithFinally) = 8
             //  • await using sites: AsyncDisposalProbe x3 (statements),
             //    LifoScope x3 (2 declarations + 1 statement),
             //    DoubleFaultProbe x1 (statement) = 7
-            //  • WithCancellation: Handwritten + CancellationProbe = 2
+            //  • WithCancellation: Handwritten + CancellationProbe
+            //    + YieldProbe.BoundedWithFinally = 3
+            //  • async-iterator producers (M4): YieldProbe x3, each lowered to
+            //    an iterator + enumerable class = 3 lowered / 6 classes
             var stats = adapter.Statistics;
-            Assert.Equal(7, stats.FilesScanned);
-            Assert.Equal(6, stats.FilesTransformed);
+            Assert.Equal(8, stats.FilesScanned);
+            Assert.Equal(7, stats.FilesTransformed);
 
-            Assert.Equal(7, stats.AwaitForeachExpanded);
-            Assert.Equal(7, stats.AsyncEnumeratorsEmitted);
+            Assert.Equal(8, stats.AwaitForeachExpanded);
+            Assert.Equal(8, stats.AsyncEnumeratorsEmitted);
+            // The 8th await foreach lives inside an iterator producer: its
+            // release is absorbed into the M4 DisposeAsync region, so only 7
+            // standalone dispose guards are emitted.
             Assert.Equal(7, stats.AsyncDisposeGuardsEmitted);
-            Assert.Equal(2, stats.WithCancellationResolved);
+            Assert.Equal(3, stats.WithCancellationResolved);
 
             Assert.Equal(5, stats.AwaitUsingStatementsExpanded);
             Assert.Equal(2, stats.AwaitUsingDeclarationsExpanded);
@@ -351,9 +370,10 @@ public class AsyncStreamFixtureProjectTests
                 stats.AwaitUsingStatementsExpanded + stats.AwaitUsingDeclarationsExpanded >= 3,
                 "fewer than 3 await-using expansions");
 
-            // No repo-owned async-iterator producer (CS2J1844 / M4 surface):
-            // producers are Channel + hand-written enumerators by design.
+            // M4 lowers every YieldProbe producer; nothing is rejected.
             Assert.Equal(0, stats.AsyncIteratorsRejected);
+            Assert.Equal(3, stats.AsyncIteratorsLowered);
+            Assert.Equal(6, stats.AsyncIteratorClassesEmitted);
             // Every await foreach / await using site was normalized.
             Assert.Equal(0, stats.AsyncStreamResidualCount);
 
@@ -429,8 +449,8 @@ public class AsyncStreamFixtureProjectTests
                 "baseline dotnet test failed after two attempts");
 
             var trx = ReadTrx(outcome.Value.TrxPath!);
-            Assert.Equal(10, trx.Counters.Total);
-            Assert.Equal(10, trx.Counters.Passed);
+            Assert.Equal(14, trx.Counters.Total);
+            Assert.Equal(14, trx.Counters.Passed);
             Assert.Equal(0, trx.Counters.Failed);
         }
         finally

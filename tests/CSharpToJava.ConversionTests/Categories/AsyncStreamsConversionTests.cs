@@ -1,4 +1,5 @@
 using CSharpToJava.Core.AsyncNormalize;
+using CSharpToJava.Core.GotoEliminator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using System.IO;
@@ -216,6 +217,97 @@ class C
         AssertJavaDoesNotContain(result, "ConfigureAwait");
         AssertJavaDoesNotContain(result, "configureAwait");
         AssertJavaDoesNotContain(result, "await foreach");
+    }
+
+    [Fact]
+    public void AsyncIteratorProducer_PreprocessedThenConverted_LoweredStateMachineMapsToBridge()
+    {
+        const string source = @"
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
+
+class C
+{
+    public async IAsyncEnumerable<int> Mk(
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            await Task.Delay(1, cancellationToken);
+            yield return i;
+        }
+    }
+
+    public async Task Consume()
+    {
+        var e = Mk().GetAsyncEnumerator(global::System.Threading.CancellationToken.None);
+        try
+        {
+            while (await e.MoveNextAsync())
+            {
+                Console.WriteLine(e.Current);
+            }
+        }
+        finally
+        {
+            await e.DisposeAsync();
+        }
+    }
+}
+";
+
+        var tree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Latest));
+        var compilation = CSharpCompilation.Create(
+            "async-iterator-e2e",
+            new[] { tree },
+            BuildTrustedReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+
+        var preprocessed = new AsyncNormalizePreprocessor().Preprocess(
+            source, compilation.GetSemanticModel(tree), new AsyncNormalizeOptions());
+
+        Assert.True(preprocessed.Changed,
+            "async iterator must lower via AsyncNormalizePreprocessor\n" +
+            string.Join("\n", preprocessed.Diagnostics));
+        Assert.Equal(1, preprocessed.Statistics.AsyncIteratorsLowered);
+        Assert.Equal(2, preprocessed.Statistics.AsyncIteratorClassesEmitted);
+        Assert.Contains("Cs2jAsyncIterator_", preprocessed.OutputCode);
+        Assert.Contains("Cs2jAsyncEnumerable_", preprocessed.OutputCode);
+        Assert.DoesNotContain("yield return", preprocessed.OutputCode);
+
+        // The lowered state machine dispatches via goto/label; the standard
+        // CLI preprocessing chain therefore runs GotoEliminator before the
+        // Java conversion — do the same here, and require zero skips.
+        var eliminated = new GotoEliminator().Eliminate(preprocessed.OutputCode);
+        Assert.True(eliminated.Changed,
+            "the lowered state machine contains goto/label dispatch to eliminate");
+        Assert.Empty(eliminated.Diagnostics);
+
+        var result = Convert(eliminated.OutputCode);
+
+        AssertSuccess(result);
+        AssertNoCSharpResidue(result);
+
+        // Bridge type imports...
+        AssertJavaContains(result, "import io.github.ningpp.compat.AsyncEnumerable;");
+        AssertJavaContains(result, "import io.github.ningpp.compat.AsyncEnumerator;");
+        AssertJavaContains(result, "import io.github.ningpp.compat.AsyncDisposable;");
+
+        // ...factory + state-machine driving surface.
+        AssertJavaContains(result, ".getAsyncEnumerator(");
+        AssertJavaContains(result, ".moveNextAsync()");
+        AssertJavaContains(result, ".getCurrent()");
+        AssertJavaContains(result, ".disposeAsync()");
+        AssertJavaContains(result, ".moveNextAsync().join()");
+        AssertJavaContains(result, ".disposeAsync().join()");
+        AssertJavaContains(result, ".getNone()");
+
+        AssertJavaDoesNotContain(result, "yield");
+        AssertJavaDoesNotContain(result, "ConfigureAwait");
+        AssertJavaDoesNotContain(result, "configureAwait");
     }
 
     private static IReadOnlyList<MetadataReference> BuildTrustedReferences()

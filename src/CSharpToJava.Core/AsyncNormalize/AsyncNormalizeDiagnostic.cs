@@ -56,7 +56,7 @@ public enum AsyncNormalizeDiagnosticCode
     /// <summary>C38：ConfiguredCancelableAsyncEnumerable&lt;T&gt; 强类型点；枚举器上非 bool ConfigureAwait。</summary>
     CS2J1843,
 
-    /// <summary>C38：异步迭代器方法（async + IAsyncEnumerable/IEnumerator 返回 + yield），v1 不降级。</summary>
+    /// <summary>C38：异步迭代器命中 v1 不支持形态或 kill-switch（可降级形态走联合状态机 lowering，不再发本诊断）。</summary>
     CS2J1844,
 
     /// <summary>C38：防御镜像——await using 落在无法安全展开/绑定的宿主或资源形态。</summary>

@@ -14,10 +14,10 @@ namespace SampleAsyncLib;
 /// <see cref="ChannelReader{T}.ReadAllAsync(CancellationToken)"/>.
 ///
 /// The async-iterator state machine lives in the BCL (ReadAllAsync is a
-/// framework method), NOT in a repo-owned producer: this fixture deliberately
-/// contains no 'async IAsyncEnumerable + yield' method of its own (CS2J1844 /
-/// M4 territory). The bounded capacity of 1 gives non-trivial
-/// producer/consumer scheduling.
+/// framework method), NOT in a repo-owned producer: this probe deliberately
+/// declares no 'async IAsyncEnumerable + yield' method of its own (that M4
+/// lowering surface lives in <see cref="YieldProbe"/>). The bounded capacity
+/// of 1 gives non-trivial producer/consumer scheduling.
 /// </summary>
 public sealed class ChannelProbe
 {

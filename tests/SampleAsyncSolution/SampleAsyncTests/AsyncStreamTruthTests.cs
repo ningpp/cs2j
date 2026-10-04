@@ -251,4 +251,121 @@ public class AsyncStreamTruthTests
         await AsyncDisposalProbe.RunAfterCancellationObservedAsync(cts.Token, canceled);
         Assert.Equal(1, canceled.DisposeCount);
     }
+
+    // ----------------------------------------------------------------
+    // T11: async-iterator producer — ordered delayed yields, CT merge.
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public async Task T11_AsyncIterator_RangeDelayed_YieldsInOrder_AndMergedTokenCancels()
+    {
+        // C# 8/.NET truth: an async IAsyncEnumerable producer with real awaits
+        // between yields produces 0..N-1 in order; the token passed to
+        // GetAsyncEnumerator (EnumeratorCancellation merge) reaches Task.Delay:
+        // a pre-canceled token surfaces OperationCanceledException from the
+        // first MoveNextAsync.
+        var collected = await CollectAsync(YieldProbe.RangeDelayed(6, 1, CancellationToken.None));
+        Assert.Equal(Enumerable.Range(0, 6), collected);
+
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        var enumerator = YieldProbe.RangeDelayed(6, 1).GetAsyncEnumerator(cts.Token);
+        try
+        {
+            // No async lambda here (the test project stays off the C18
+            // closure-lift surface): ValueTask.AsTask() gives a plain Task.
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                () => enumerator.MoveNextAsync().AsTask());
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // T12: async-iterator producer — yield break terminates early.
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public async Task T12_AsyncIterator_UntilBreak_YieldsPrefixThenStops()
+    {
+        // C# 8/.NET truth: yield break ends the sequence exactly after the
+        // boundary element — MoveNextAsync reports false, nothing follows.
+        var collected = await CollectAsync(YieldProbe.UntilBreak(2));
+
+        Assert.Equal(new[] { 0, 1, 2 }, collected);
+    }
+
+    // ----------------------------------------------------------------
+    // T13: async-iterator try/finally — finally runs on exhaustion.
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public async Task T13_AsyncIterator_FinallyRunsOnNormalExhaustion_ExactlyOnce()
+    {
+        // C# 8/.NET truth: full enumeration of a try/finally iterator runs the
+        // finally exactly once when the sequence exhausts (DisposeAsync from
+        // the consumer's end-of-loop path).
+        YieldProbe.ResetCounters();
+
+        var collected = await CollectAsync(YieldProbe.BoundedWithFinally(4));
+
+        Assert.Equal(new[] { 0, 1, 2, 3 }, collected);
+        Assert.Equal(1, YieldProbe.EnterCount);
+        Assert.Equal(1, YieldProbe.FinallyCount);
+    }
+
+    // ----------------------------------------------------------------
+    // T14: async-iterator try/finally — early DisposeAsync runs finally.
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public async Task T14_AsyncIterator_EarlyDispose_RunsFinallyExactlyOnce()
+    {
+        // C# 8/.NET truth: abandoning an iterator after two elements and
+        // calling DisposeAsync explicitly runs the finally exactly once, even
+        // though the sequence never exhausted.
+        YieldProbe.ResetCounters();
+        var enumerator = YieldProbe.BoundedWithFinally(4).GetAsyncEnumerator(CancellationToken.None);
+        try
+        {
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(0, enumerator.Current);
+            Assert.True(await enumerator.MoveNextAsync());
+            Assert.Equal(1, enumerator.Current);
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+
+        Assert.Equal(1, YieldProbe.EnterCount);
+        Assert.Equal(1, YieldProbe.FinallyCount);
+    }
+
+    // ----------------------------------------------------------------
+    // Manual async-stream driver — keeps await foreach/await using out of
+    // this test project (only SampleAsyncLib is the statistics surface).
+    // ----------------------------------------------------------------
+
+    private static async Task<List<int>> CollectAsync(
+        IAsyncEnumerable<int> source, CancellationToken cancellationToken = default)
+    {
+        var items = new List<int>();
+        var enumerator = source.GetAsyncEnumerator(cancellationToken);
+        try
+        {
+            while (await enumerator.MoveNextAsync())
+            {
+                items.Add(enumerator.Current);
+            }
+        }
+        finally
+        {
+            await enumerator.DisposeAsync();
+        }
+
+        return items;
+    }
 }

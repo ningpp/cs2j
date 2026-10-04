@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Text;
 using CSharpToJava.Core.AsyncNormalize.Await;
 using CSharpToJava.Core.AsyncNormalize.AsyncStreams;
+using CSharpToJava.Core.AsyncNormalize.AsyncStreams.AsyncIterator;
 using CSharpToJava.Core.AsyncNormalize.Lambda;
 
 namespace CSharpToJava.Core.AsyncNormalize;
@@ -120,6 +121,7 @@ public sealed class AsyncNormalizePreprocessor
         // 不存在文本重解析往返。严格 Error 已在前面整体短路，不进此块。
         AwaitUsingRewriter? streamRewriter = null;
         AsyncForeachRewriter? foreachRewriter = null;
+        AsyncIteratorLowering? iteratorLowering = null;
 
         if (!hasErrorSkip && streamAnalysis != null)
         {
@@ -190,12 +192,53 @@ public sealed class AsyncNormalizePreprocessor
                 postRoot = (CompilationUnitSyntax)foreachRewriter.Visit(postRoot)!;
             }
 
+            // C38 M4：await foreach/await using 站点展开后，第三次重绑模型，
+            // 二趟 Planner 取计划（诊断以首轮为准，此处 sink 丢弃），跑联合状态机
+            // lowering：async 工厂 + 生成枚举器类（+可枚举包装类）。首轮分析存在
+            // 可降级计划时才花这次重绑/分析成本。
+            if (streamAnalysis.IteratorPlans.Count > 0)
+            {
+                var boundTree = postModel.SyntaxTree;
+                SemanticModel loweringModel = postModel;
+                if (!ReferenceEquals(postRoot, boundTree.GetRoot()))
+                {
+                    if (postModel.Compilation is CSharpCompilation postCompilation)
+                    {
+                        var parseOptions = boundTree.Options as CSharpParseOptions;
+                        var loweringTree = CSharpSyntaxTree.Create(
+                            postRoot, parseOptions, boundTree.FilePath);
+                        var loweringCompilation = postCompilation.ReplaceSyntaxTree(
+                            boundTree, loweringTree);
+                        loweringModel = loweringCompilation.GetSemanticModel(loweringTree);
+                        // CSharpSyntaxTree.Create 会克隆根节点：Planner 返回的计划节点
+                        // 属于克隆根，Lowering 按节点身份替换方法——必须在克隆根上改写。
+                        postRoot = (CompilationUnitSyntax)loweringTree.GetRoot();
+                    }
+                }
+
+                var asyncEnumerableInterface =
+                    loweringModel.Compilation.GetTypeByMetadataName(
+                        AsyncTypeResolver.AsyncEnumerableMetadataName);
+                var asyncEnumeratorInterface =
+                    loweringModel.Compilation.GetTypeByMetadataName(
+                        AsyncTypeResolver.AsyncEnumeratorMetadataName);
+
+                var iteratorPlans = AsyncIteratorPlanner.AnalyzePlans(
+                    loweringModel, options, asyncEnumerableInterface, asyncEnumeratorInterface);
+                if (iteratorPlans.Count > 0)
+                {
+                    iteratorLowering = new AsyncIteratorLowering(loweringModel);
+                    postRoot = iteratorLowering.Rewrite(postRoot, iteratorPlans);
+                }
+            }
+
             newRoot = postRoot;
         }
 
         var changed = liftChanged || strippedCount > 0
             || (streamRewriter?.Changed ?? false)
-            || (foreachRewriter?.Changed ?? false);
+            || (foreachRewriter?.Changed ?? false)
+            || (iteratorLowering?.Changed ?? false);
         var outputCode = sourceCode;
         SyntaxNode gateRoot = newRoot;
 
@@ -243,6 +286,12 @@ public sealed class AsyncNormalizePreprocessor
                 stats.AsyncEnumeratorsEmitted = foreachRewriter.EnumeratorsEmitted;
                 stats.WithCancellationResolved = foreachRewriter.WithCancellationResolved;
                 stats.EnumerableConfigureAwaitStripped = foreachRewriter.ConfigureAwaitStripped;
+            }
+            if (iteratorLowering != null)
+            {
+                stats.AsyncIteratorsLowered = iteratorLowering.IteratorsLowered;
+                stats.AsyncIteratorClassesEmitted = iteratorLowering.ClassesEmitted;
+                stats.AsyncIteratorRegionsEmitted = iteratorLowering.RegionsEmitted;
             }
         }
 

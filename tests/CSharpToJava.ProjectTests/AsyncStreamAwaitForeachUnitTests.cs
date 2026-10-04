@@ -573,11 +573,12 @@ class C
         AssertOutputCompiles(result.OutputCode);
     }
 
-    // ── 组 9：AS-6 异步迭代器（方法/局部函数）严格 1844 整成员冻结；非严格仅该成员
-    //         skip；kill-switch 关闭时不诊断但仍不展开（M4 前无归宿） ──
+    // ── 组 9：AS-6 异步迭代器（M4 联合状态机降级）：方法形态严格直接降级（体内
+    //         await foreach 站点联合展开）；局部函数仍 1844 整成员冻结；非严格
+    //         局部函数 Warning + 消费侧展开；kill-switch 默认关闭即走降级 ──
 
     [Fact]
-    public void Group09_AsyncIteratorMethod_Strict_1844NoPartialRewrite()
+    public void Group09_AsyncIteratorMethod_Strict_JointLowering()
     {
         var src = InClass(@"
     public async IAsyncEnumerable<int> Mk()
@@ -600,14 +601,21 @@ class C
 
         var result = Run(src);
 
-        Assert.False(result.Changed);
-        Assert.Equal(src, result.OutputCode);
-        Assert.Contains(result.Diagnostics, d =>
-            d.Severity == AsyncNormalizeSeverity.Error
-            && d.Code == AsyncNormalizeDiagnosticCode.CS2J1844
-            && d.Message.Contains("M4"));
-        Assert.Equal(1, result.Statistics.AsyncIteratorsRejected);
-        Assert.Equal(0, result.Statistics.AwaitForeachExpanded);
+        Assert.True(result.Changed);
+        var compact = Compact(result.OutputCode);
+        Assert.Contains("Cs2jAsyncIterator_", compact);
+        Assert.Contains("MoveNextAsync", compact);
+        Assert.DoesNotContain("awaitforeach", compact);
+        Assert.DoesNotContain("yieldreturn", compact);
+        Assert.DoesNotContain(result.Diagnostics, d =>
+            d.Code == AsyncNormalizeDiagnosticCode.CS2J1844);
+        Assert.Equal(0, result.Statistics.AsyncIteratorsRejected);
+        Assert.Equal(1, result.Statistics.AsyncIteratorsLowered);
+        Assert.Equal(2, result.Statistics.AsyncIteratorClassesEmitted);
+        Assert.Equal(2, result.Statistics.AwaitForeachExpanded);
+        Assert.Equal(0, result.Statistics.AsyncStreamResidualCount);
+        AssertOutputParsesClean(result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
@@ -641,20 +649,17 @@ class C
     }
 
     [Fact]
-    public void Group09_AsyncIterator_NonStrict_MemberSkipped_ConsumerExpanded()
+    public void Group09_AsyncIteratorLocalFunction_NonStrict_Skipped_ConsumerExpanded()
     {
         var src = InClass(@"
-    public async IAsyncEnumerable<int> Mk()
+    public async Task M()
     {
-        await foreach (var z in new HandmadeEnumerable())
+        async IAsyncEnumerable<int> Local()
         {
-            yield return z;
+            yield return 1;
         }
-    }
 
-    public async Task Consume()
-    {
-        await foreach (var x in Mk())
+        await foreach (var x in Local())
         {
             Console.WriteLine(x);
         }
@@ -666,20 +671,23 @@ class C
         Assert.True(result.Changed);
         Assert.Contains(result.Diagnostics, d =>
             d.Severity == AsyncNormalizeSeverity.Warning
-            && d.Code == AsyncNormalizeDiagnosticCode.CS2J1844);
+            && d.Code == AsyncNormalizeDiagnosticCode.CS2J1844
+            && d.Message.Contains("local function"));
         var compact = Compact(result.OutputCode);
-        // Mk 体内站点原样冻结（恰好一处残留 await foreach 文本），消费侧已展开。
-        Assert.Equal(1, CountOccurrences(compact, "awaitforeach"));
-        Assert.Contains("yieldreturnz;", compact);
-        Assert.Contains("Mk().GetAsyncEnumerator(", compact);
+        // 局部函数被 C18 提升为私有静态迭代器方法（保持冻结、不降级），消费侧已展开。
+        Assert.Contains("Cs2jAsync_", compact);
+        Assert.Contains("yieldreturn1;", compact);
+        Assert.Contains("GetAsyncEnumerator(", compact);
         Assert.Equal(1, result.Statistics.AsyncIteratorsRejected);
+        Assert.Equal(0, result.Statistics.AsyncIteratorsLowered);
         Assert.Equal(1, result.Statistics.AwaitForeachExpanded);
         Assert.Equal(0, result.Statistics.AsyncStreamResidualCount);
         AssertOutputParsesClean(result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     [Fact]
-    public void Group09_RejectAsyncIteratorDisabled_NoDiagnostic_StillNoExpansionInIterator()
+    public void Group09_AsyncIterator_KillSwitchOff_JointLowering()
     {
         var src = InClass(@"
     public async IAsyncEnumerable<int> Mk()
@@ -704,10 +712,15 @@ class C
         Assert.True(result.Changed);
         Assert.DoesNotContain(result.Diagnostics, d => d.Code == AsyncNormalizeDiagnosticCode.CS2J1844);
         Assert.Equal(0, result.Statistics.AsyncIteratorsRejected);
+        Assert.Equal(1, result.Statistics.AsyncIteratorsLowered);
         var compact = Compact(result.OutputCode);
-        Assert.Equal(1, CountOccurrences(compact, "awaitforeach"));
-        Assert.Equal(1, result.Statistics.AwaitForeachExpanded);
+        Assert.Contains("Cs2jAsyncIterator_", compact);
+        Assert.DoesNotContain("awaitforeach", compact);
+        Assert.DoesNotContain("yieldreturn", compact);
+        Assert.Equal(2, result.Statistics.AwaitForeachExpanded);
         Assert.Equal(0, result.Statistics.AsyncStreamResidualCount);
+        AssertOutputParsesClean(result.OutputCode);
+        AssertOutputCompiles(result.OutputCode);
     }
 
     // ── 组 10：选项隔离 ──
@@ -823,14 +836,15 @@ class C
     public void Group12_NonStrict_1840_1843_1844_1846_AllDowngradeWarning_AndValidSitesExpand()
     {
         var src = InClass(@"
-    public async IAsyncEnumerable<int> Iterator()
-    {
-        yield return 1;
-        await foreach (var z in new HandmadeEnumerable()) { yield return z; }
-    }
-
     public async Task M(IAsyncEnumerable<int> seq, CancellationToken ct)
     {
+        // 局部函数形态的异步迭代器：v1 仍 1844（非严格 Warning），不降级。
+        async IAsyncEnumerable<int> LocalIterator()
+        {
+            yield return 1;
+            await foreach (var z in new HandmadeEnumerable()) { yield return z; }
+        }
+
         ConfiguredCancelableAsyncEnumerable<int> cfg = seq.WithCancellation(ct);
         await foreach (var a in cfg) Console.WriteLine(a);                              // 1843
         await foreach (var b in new DuckEnumerable()) Console.WriteLine(b);             // 1840

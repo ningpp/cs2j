@@ -51,9 +51,20 @@ public sealed record AsyncNormalizeOptions(
     public bool FaithfulAsyncDisposeGuard { get; init; } = false;
 
     /// <summary>
-    /// 3b：异步迭代器方法（async + IAsyncEnumerable/IEnumerator 返回 + yield）kill-switch
-    /// （设计 D7/D10）。v1 恒 true：命中即 CS2J1844 整成员 skip。false 时不诊断但也不展开
-    /// （M4 联合状态机之前无其他归宿）。
+    /// M4：异步迭代器方法（async + IAsyncEnumerable/IEnumerator 返回 + yield）kill-switch
+    /// （设计 D7/D10）。默认 <c>false</c>：v1 支持形态走「非 async 工厂 + 联合状态机
+    /// 枚举器类」降级；翻为 <c>true</c> 时命中即 CS2J1844、整成员冻结 skip。
+    /// 注意与 <see cref="EnableAsyncIteratorLowering"/> 的口径区别：本开关是显式拒绝
+    /// （发诊断）；后者是降级能力子开关（关闭时同样落 CS2J1844）。
     /// </summary>
-    public bool RejectAsyncIterator { get; init; } = true;
+    public bool RejectAsyncIterator { get; init; } = false;
+
+    /// <summary>
+    /// M4：async 迭代器 → 非 async 工厂 + <c>Cs2jAsyncIterator_*</c> 枚举器类
+    /// （+ <c>Cs2jAsyncEnumerable_*</c> 包装类）联合状态机降级总开关（设计 D7、§4.4）。
+    /// 关闭（或 <see cref="EnableAwaitForeach"/>/<see cref="EnableAwaitUsing"/> 任一关闭）
+    /// 时，async 迭代器成员整成员冻结、发 CS2J1844——迭代器体内的
+    /// await foreach/await using 站点必须先由对应展开器展开，联合状态机才能扁平化。
+    /// </summary>
+    public bool EnableAsyncIteratorLowering { get; init; } = true;
 }

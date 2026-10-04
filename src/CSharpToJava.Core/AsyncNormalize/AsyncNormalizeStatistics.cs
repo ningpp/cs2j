@@ -89,8 +89,22 @@ public sealed class AsyncNormalizeStatistics
     /// <summary>剥离为 receiver 的枚举器/异步枚举 ConfigureAwait(bool) 链数（CS2J1830 Info）。</summary>
     public int EnumerableConfigureAwaitStripped;
 
-    /// <summary>被识别并整成员 skip 的异步迭代器方法/局部函数数（CS2J1844，AS-6）。</summary>
+    /// <summary>
+    /// 被识别并整成员 skip 的异步迭代器数（CS2J1844，AS-6）：M4 后仅剩局部函数、
+    /// v1 不支持形态与 kill-switch 命中；方法形态改由 <see cref="AsyncIteratorsLowered"/> 承接。
+    /// </summary>
     public int AsyncIteratorsRejected;
+
+    // ── Pass-specific fields (C38 M4: 联合状态机 async-iterator lowering，D7/§4.4) ──
+
+    /// <summary>降级为「非 async 工厂 + 生成枚举器状态机」的 async-iterator 方法数。</summary>
+    public int AsyncIteratorsLowered;
+
+    /// <summary>lowering 发射的枚举器类 + 可枚举包装类总数。</summary>
+    public int AsyncIteratorClassesEmitted;
+
+    /// <summary>lowering 发射的 yield 区域数（try-finally/同步 using/同步 foreach）。</summary>
+    public int AsyncIteratorRegionsEmitted;
 
     /// <summary>
     /// C38 residual 分项（await foreach/await using；不含 C18 面）。仅供适配器

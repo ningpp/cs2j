@@ -2,6 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
+using CSharpToJava.Core.AsyncNormalize.AsyncStreams.AsyncIterator;
 
 namespace CSharpToJava.Core.AsyncNormalize.AsyncStreams;
 
@@ -46,6 +47,7 @@ internal sealed record AsyncStreamAnalysisResult(
     IReadOnlyList<AwaitUsingSite> Sites,
     IReadOnlyList<AsyncForeachSite> ForeachSites,
     IReadOnlyList<SyntaxNode> IteratorNodes,
+    IReadOnlyList<AsyncIteratorPlan> IteratorPlans,
     IReadOnlyList<CommonForEachStatementSyntax> ForeachRejectedNodes,
     IReadOnlyList<CommonForEachStatementSyntax> ForeachBaselineExemptNodes,
     IReadOnlyList<StatementSyntax> RejectedNodes,
@@ -108,10 +110,12 @@ internal static class AsyncStreamAnalyzer
         var withCancellationPlanned = 0;
         var enumerableConfigureAwaitPlanned = 0;
 
-        // ① AS-6 注册序最前：异步迭代器成员先冻结 skip（其体内站点全部不计划）。
-        var iteratorMembers = AsyncIteratorDetector.Detect(
-            model, asyncEnumerableInterface, asyncEnumeratorInterface, options, diagnostics);
-        var iteratorNodes = iteratorMembers.Select(m => m.Node).ToArray();
+        // ① AS-6 注册序最前：异步迭代器计划器。可降级方法不进冻结集（其体内
+        // await foreach/await using 站点照常计划展开，之后由联合状态机 lowering 接管）；
+        // 仅 v1 拒绝形态/基线已错成员整体冻结 skip（CS2J1844 直接进 diagnostics）。
+        var iteratorAnalysis = AsyncIteratorPlanner.Analyze(
+            model, options, asyncEnumerableInterface, asyncEnumeratorInterface, diagnostics);
+        var iteratorNodes = iteratorAnalysis.FrozenNodes.ToArray();
         var iteratorsRejected = diagnostics.Count(d => d.Code == AsyncNormalizeDiagnosticCode.CS2J1844);
 
         // ② AS-2/AS-1/AS-3：await foreach（含取消/ConfigureAwait 链消解）。
@@ -194,6 +198,7 @@ internal static class AsyncStreamAnalyzer
             sites,
             foreachSites,
             iteratorNodes,
+            iteratorAnalysis.Plans,
             foreachRejected,
             foreachBaseline,
             rejected,

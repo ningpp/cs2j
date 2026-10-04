@@ -16,6 +16,85 @@ internal static class AsyncStreamNaming
     private const string EnumeratorTempPrefix = "__cs2jAsE_";
     private const string OkTempPrefix = "__cs2jAsOk_";
 
+    // ── M4 联合异步迭代器降级命名（设计 D7；对齐 C38 双下划线风格，禁 <> IL 名） ──
+
+    private const string IteratorClassPrefix = "Cs2jAsyncIterator_";
+    private const string EnumerableClassPrefix = "Cs2jAsyncEnumerable_";
+    private const string IteratorStateFieldPrefix = "__cs2jAsItState_";
+    private const string IteratorCurrentFieldPrefix = "__cs2jAsItCurrent_";
+    private const string IteratorThisFieldPrefix = "__cs2jAsItThis_";
+    private const string IteratorCtFieldPrefix = "__cs2jAsItCt_";
+    private const string IteratorCtParameterPrefix = "__cs2jItCt_";
+    private const string IteratorRunFlagPrefix = "__cs2jAsItRun_";
+    private const string IteratorParameterFieldPrefix = "__cs2jAsItP_";
+    private const string IteratorLocalFieldPrefix = "__cs2jAsItL_";
+    private const string IteratorResourceFieldPrefix = "__cs2jAsItU_";
+    private const string IteratorEnumeratorFieldPrefix = "__cs2jAsItFE_";
+    private const string IteratorResumeLabelPrefix = "__cs2jResume_";
+    private const string IteratorEndLabelPrefix = "__cs2jEnd_";
+    private const string IteratorChunkLabelPrefix = "__cs2jL_";
+
+    /// <summary>联合状态机枚举器类名 <c>Cs2jAsyncIterator_&lt;宿主&gt;_&lt;n&gt;</c>。</summary>
+    public static string GetIteratorClassName(string hostName, int index, HashSet<string> usedNames)
+        => AsyncNormalizeNaming.ResolveUniqueName(
+            $"{IteratorClassPrefix}{Sanitize(hostName)}_{index}", usedNames);
+
+    /// <summary>IAsyncEnumerable 包装类名 <c>Cs2jAsyncEnumerable_&lt;宿主&gt;_&lt;n&gt;</c>。</summary>
+    public static string GetEnumerableClassName(string hostName, int index, HashSet<string> usedNames)
+        => AsyncNormalizeNaming.ResolveUniqueName(
+            $"{EnumerableClassPrefix}{Sanitize(hostName)}_{index}", usedNames);
+
+    /// <summary>枚举器状态字段 <c>__cs2jAsItState_&lt;n&gt;</c>（0=初始，-1=终结）。</summary>
+    public static string GetIteratorStateField(int index) => IteratorStateFieldPrefix + index;
+
+    /// <summary>枚举器当前元素字段 <c>__cs2jAsItCurrent_&lt;n&gt;</c>。</summary>
+    public static string GetIteratorCurrentField(int index) => IteratorCurrentFieldPrefix + index;
+
+    /// <summary>宿主实例字段 <c>__cs2jAsItThis_&lt;n&gt;</c>（静态方法无此字段）。</summary>
+    public static string GetIteratorThisField(int index) => IteratorThisFieldPrefix + index;
+
+    /// <summary>提升的 CancellationToken 形参字段 <c>__cs2jAsItCt_&lt;n&gt;</c>。</summary>
+    public static string GetIteratorCtField(int index) => IteratorCtFieldPrefix + index;
+
+    /// <summary>包装类 GetAsyncEnumerator 的合并令牌形参 <c>__cs2jItCt_&lt;n&gt;</c>。</summary>
+    public static string GetIteratorCtParameter(int index) => IteratorCtParameterPrefix + index;
+
+    /// <summary>区域 run 标志字段 <c>__cs2jAsItRun_&lt;n&gt;_&lt;m&gt;</c>（挂起=false 跳过 finally）。</summary>
+    public static string GetIteratorRunFlag(int index, int region)
+        => $"{IteratorRunFlagPrefix}{index}_{region}";
+
+    /// <summary>提升形参字段 <c>__cs2jAsItP_&lt;n&gt;_&lt;名&gt;</c>。</summary>
+    public static string GetIteratorParameterField(int index, string name)
+        => IteratorParameterFieldPrefix + index + "_" + Sanitize(name);
+
+    /// <summary>提升局部字段 <c>__cs2jAsItL_&lt;n&gt;_&lt;名&gt;</c>。</summary>
+    public static string GetIteratorLocalField(int index, string name)
+        => IteratorLocalFieldPrefix + index + "_" + Sanitize(name);
+
+    /// <summary>同步 using 区域的资源临时字段 <c>__cs2jAsItU_&lt;n&gt;_&lt;m&gt;</c>。</summary>
+    public static string GetIteratorResourceField(int index, int region)
+        => $"{IteratorResourceFieldPrefix}{index}_{region}";
+
+    /// <summary>同步 foreach 区域的枚举器临时字段 <c>__cs2jAsItFE_&lt;n&gt;_&lt;m&gt;</c>。</summary>
+    public static string GetIteratorEnumeratorField(int index, int region)
+        => $"{IteratorEnumeratorFieldPrefix}{index}_{region}";
+
+    /// <summary>yield 恢复标签 <c>__cs2jResume_&lt;k&gt;</c>（k=yield 序号，1 起）。</summary>
+    public static string GetResumeLabel(int state) => IteratorResumeLabelPrefix + state;
+
+    /// <summary>方法终结标签 <c>__cs2jEnd_&lt;n&gt;</c>（state=-1; return false）。</summary>
+    public static string GetIteratorEndLabel(int index) => IteratorEndLabelPrefix + index;
+
+    /// <summary>扁平化块内部跳转标签 <c>__cs2jL_&lt;n&gt;_&lt;id&gt;</c>。</summary>
+    public static string GetIteratorChunkLabel(int index, int id)
+        => $"{IteratorChunkLabelPrefix}{index}_{id}";
+
+    private static string Sanitize(string name)
+    {
+        var chars = name.Where(c => char.IsLetterOrDigit(c) || c == '_').ToArray();
+        return chars.Length == 0 ? "x" : new string(chars);
+    }
+
     /// <summary>纯表达式 await using 资源临时量名 <c>__cs2jAsRes_&lt;n&gt;</c>。</summary>
     public static string GetResourceTempName(int index) => ResourceTempPrefix + index;
 

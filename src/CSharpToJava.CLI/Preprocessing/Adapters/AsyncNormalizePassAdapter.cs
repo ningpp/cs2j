@@ -168,6 +168,7 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
                $"{awaitUsingExpanded} await-using, " +
                $"{_statistics.AsyncTypeSitesMapped} async-type sites, " +
                $"{_statistics.AsyncIteratorsRejected} async-iterator rejected, " +
+               $"{_statistics.AsyncIteratorsLowered} async-iterator lowered, " +
                $"{_statistics.ResidualCount} residual";
     }
 
@@ -214,6 +215,9 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
         _statistics.WithCancellationResolved += source.WithCancellationResolved;
         _statistics.EnumerableConfigureAwaitStripped += source.EnumerableConfigureAwaitStripped;
         _statistics.AsyncIteratorsRejected += source.AsyncIteratorsRejected;
+        _statistics.AsyncIteratorsLowered += source.AsyncIteratorsLowered;
+        _statistics.AsyncIteratorClassesEmitted += source.AsyncIteratorClassesEmitted;
+        _statistics.AsyncIteratorRegionsEmitted += source.AsyncIteratorRegionsEmitted;
         _statistics.AsyncStreamResidualCount += source.AsyncStreamResidualCount;
     }
 }

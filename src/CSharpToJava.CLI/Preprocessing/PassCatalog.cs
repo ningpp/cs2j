@@ -435,7 +435,7 @@ internal static class PassCatalog
             needsSemanticModel: true,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Normalize async/await method bodies: lift zero/this-capture async lambdas and residual async local functions into named async methods, strip ConfigureAwait(bool), and diagnose async void and unsupported awaiters explicitly; the await sites themselves are preserved. C38 expands 'await foreach' to explicit IAsyncEnumerator drives with a faithful in-flight-exception dispose guard, expands 'await using' to try/finally plus DisposeAsync, resolves WithCancellation/ConfigureAwait chains, and freezes async-iterator methods (CS2J1844) until the M4 joint state machine.",
+            description: "Normalize async/await method bodies: lift zero/this-capture async lambdas and residual async local functions into named async methods, strip ConfigureAwait(bool), and diagnose async void and unsupported awaiters explicitly; the await sites themselves are preserved. C38 expands 'await foreach' to explicit IAsyncEnumerator drives with a faithful in-flight-exception dispose guard, expands 'await using' to try/finally plus DisposeAsync, resolves WithCancellation/ConfigureAwait chains, and lowers async-iterator methods (async IAsyncEnumerable/IEnumerator + yield) to explicit M4 joint state machines; CS2J1844 remains only for local functions, unsupported v1 shapes and the kill-switch.",
             catalogItems: "C18, C38 (C44 subtopic)"),
         new(
             PassIds.ExtensionMethods,
