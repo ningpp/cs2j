@@ -345,7 +345,7 @@ public sealed class PassChainOrderTests
         Assert.Equal("C07", byId[PassIds.StructValueSemantics].CatalogItems);
         Assert.Equal("C05", byId[PassIds.EnumDeclaration].CatalogItems);
         Assert.Equal("C06", byId[PassStubCatalog.Ids.UnsafeFfm].CatalogItems);
-        Assert.Equal("C11, C12, C13, C14, C39, C50, C27", byId[PassIds.MemberDesugar].CatalogItems);
+        Assert.Equal("C11, C12, C13, C14, C39, C46, C50, C27", byId[PassIds.MemberDesugar].CatalogItems);
         Assert.Equal("C16, C40", byId[PassStubCatalog.Ids.ForeachSource].CatalogItems);
         Assert.True(byId[PassStubCatalog.Ids.ForeachSource].DefaultEnabled);
         Assert.Equal("C47", byId[PassStubCatalog.Ids.EqualityConcat].CatalogItems);
@@ -353,7 +353,7 @@ public sealed class PassChainOrderTests
         Assert.Equal("C30", byId[PassIds.ClosedMetadata].CatalogItems);
         Assert.Equal("C20", byId[PassStubCatalog.Ids.PartialMerge].CatalogItems);
         Assert.True(byId[PassStubCatalog.Ids.PartialMerge].DefaultEnabled);
-        Assert.Equal("C32", byId[PassStubCatalog.Ids.ClosureLift].CatalogItems);
+        Assert.Equal("C32, C45", byId[PassStubCatalog.Ids.ClosureLift].CatalogItems);
         Assert.True(byId[PassStubCatalog.Ids.ClosureLift].DefaultEnabled);
         Assert.Equal("C29", byId[PassStubCatalog.Ids.ConcurrencyNormalize].CatalogItems);
         Assert.True(byId[PassStubCatalog.Ids.ConcurrencyNormalize].DefaultEnabled);

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace CSharpToJava.ProjectTests;
 
@@ -48,20 +49,30 @@ public class PreprocessVerbCLITests
         return (process.ExitCode, await stdoutTask, await stderrTask);
     }
 
-    private static string CreateTempWorkspace(string csprojName, string csharpSource)
+    private static string CreateTempWorkspace(string csprojName, string csharpSource, string? langVersion = null)
     {
         var tempDir = Path.Combine(Path.GetTempPath(),
             "cs2j-preprocess-verb-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
-        File.WriteAllText(Path.Combine(tempDir, csprojName),
-            """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup>
-                <TargetFramework>net10.0</TargetFramework>
-                <Nullable>disable</Nullable>
-              </PropertyGroup>
-            </Project>
-            """);
+        var csproj = langVersion is null
+            ? """
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <TargetFramework>net10.0</TargetFramework>
+                  <Nullable>disable</Nullable>
+                </PropertyGroup>
+              </Project>
+              """
+            : $"""
+              <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                  <TargetFramework>net10.0</TargetFramework>
+                  <Nullable>disable</Nullable>
+                  <LangVersion>{langVersion}</LangVersion>
+                </PropertyGroup>
+              </Project>
+              """;
+        File.WriteAllText(Path.Combine(tempDir, csprojName), csproj);
         File.WriteAllText(Path.Combine(tempDir, "Class1.cs"), csharpSource);
         return tempDir;
     }
@@ -239,6 +250,129 @@ public static class Lists
         Assert.Equal(0, exit);
         var line = stdout.Split('\n').First(l => l.Contains("pattern-desugar"));
         Assert.Contains("Implemented", line);
+    }
+
+    // ───────────────────────── Wave-0 接线（2026-10-04）：C24 默认开 + kill switch、C50 CLI 开关 ─────────────────────────
+
+    [Fact]
+    public async Task ExpressionDesugarPass_C24InitializerDesugar_IsOnByDefault()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace InitSample;
+
+public class Poco
+{
+    public int Value { get; set; }
+    public string? Name { get; set; }
+}
+
+public static class Factory
+{
+    public static Poco Make() => new Poco { Value = 42, Name = "x" };
+}
+""");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, stdout, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "expression-desugar",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(0, exit);
+            Assert.Equal(string.Empty, stderr);
+
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-expression-desugar-src", "Class1.cs"));
+            // Wave-0: C24 wired default-on — the object initializer must be
+            // statement-lowered; initializer-block syntax cannot survive.
+            Assert.DoesNotContain("new Poco {", rewritten);
+            Assert.Contains("new Poco()", rewritten);
+            Assert.Contains("42", rewritten);
+            Assert.Contains("expression-desugar:", stdout);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ExpressionDesugarPass_NoInitializerDesugar_KeepsInitializerSyntax()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace InitSample;
+
+public class Poco
+{
+    public int Value { get; set; }
+}
+
+public static class Factory
+{
+    public static Poco Make() => new Poco { Value = 42 };
+}
+""");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, _, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "expression-desugar",
+                "--no-initializer-desugar",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(0, exit);
+            Assert.Equal(string.Empty, stderr);
+
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-expression-desugar-src", "Class1.cs"));
+            // Kill switch: red-line byte-identical behavior, initializer preserved.
+            Assert.Contains("new Poco { Value = 42 }", rewritten);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task MemberDesugarPass_EnableFieldKeywordRule_NormalizesFieldKeywordFromCli()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace FkSample;
+
+public class Poco
+{
+    public int Value { get => field + 1; set => field = value; }
+}
+""", langVersion: "preview");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            var (exit, _, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "member-desugar",
+                "--enable-field-keyword-rule",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(0, exit);
+            Assert.Equal(string.Empty, stderr);
+
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-member-desugar-src", "Class1.cs"));
+            // C50 reached via the CLI flag (no JSON overrides file): the field
+            // contextual keyword must not survive and the property must be methodized.
+            var codeOnly = string.Join('\n',
+                rewritten.Split('\n').Where(l => !l.TrimStart().StartsWith("//", StringComparison.Ordinal)));
+            Assert.DoesNotMatch(new Regex(@"=>\s*field\b"), codeOnly);
+            Assert.Contains("get_Value", rewritten);
+            Assert.Contains("set_Value", rewritten);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
     }
 
     // ───────────────────────── C07 struct-value-semantics（设计 §7.6）─────────────────────────

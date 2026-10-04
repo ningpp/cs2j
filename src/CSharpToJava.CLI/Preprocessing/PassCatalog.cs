@@ -380,8 +380,8 @@ internal static class PassCatalog
             needsSemanticModel: true,
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Lift mutably captured locals/parameters into deterministic private holder classes before lambdas (C32 M2).",
-            catalogItems: "C32"),
+            description: "Lift mutably captured locals/parameters into deterministic private holder classes (C32 M2) and lift lambdas/anonymous methods into display classes plus named methods (C45 M1-M3).",
+            catalogItems: "C32, C45"),
         new(
             PassStubCatalog.Ids.IteratorLowering,
             "Iterator lowering",
@@ -440,8 +440,8 @@ internal static class PassCatalog
             runAfterIds: new[] { PassIds.StructValueSemantics, PassStubCatalog.Ids.ClosureLift },
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
-            description: "Desugar properties (C11), indexers (C12), events (C13) and operators (C14) into backing fields plus explicit get_X/set_X/get_Item/add_X/remove_X methods.",
-            catalogItems: "C11, C12, C13, C14, C39, C50, C27"),
+            description: "Desugar properties (C11), indexers (C12), events (C13), operators (C14), finalizers (C39), signatures (C46), the field keyword (C50) and record with/init/required (C27) into backing fields plus explicit methods/members.",
+            catalogItems: "C11, C12, C13, C14, C39, C46, C50, C27"),
         new(
             PassStubCatalog.Ids.ConcurrencyNormalize,
             "Concurrency normalization",

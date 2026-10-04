@@ -219,7 +219,11 @@ public class Program
                 JavaKeywordOptionsFactory = () => BuildJavaKeywordOptions(
                     opts.JavaKeywordsOverrides, strict: false),
                 MemberDesugarOptionsFactory = () => BuildMemberDesugarOptions(
-                    opts.MemberDesugarOverrides, strict: false),
+                    opts.MemberDesugarOverrides,
+                    strict: false,
+                    cliEnableSignatures: opts.EnableSignaturesRule,
+                    cliEnableFieldKeyword: opts.EnableFieldKeywordRule,
+                    cliEnableRecords: opts.EnableRecordsRule),
                 StructValueSemanticsOptionsFactory = () => BuildStructValueSemanticsOptions(
                     opts.StructValueSemanticsOverrides),
                 VarianceAuditOptionsFactory = () => BuildVarianceAuditOptions(
@@ -262,6 +266,16 @@ public class Program
                         RewriteInExpressionTrees = false,
                         FoldConstants = true,
                     },
+                    // C24 initializer desugaring is wired by default (wave-0
+                    // activation): a non-null subsection activates the rule;
+                    // --no-initializer-desugar restores byte-identical
+                    // pre-C24 behavior. Expression-tree sites stay skipped.
+                    Initializers = opts.NoInitializerDesugar
+                        ? null
+                        : new CSharpToJava.Core.ExpressionDesugar.Initializers.InitializerOptions
+                        {
+                            Strict = opts.LocalFunctionStrict,
+                        },
                 },
                 PlatformIsolationOptionsFactory = () => BuildPlatformIsolationOptions(
                     opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
@@ -3443,7 +3457,10 @@ public class Program
         string? explicitPath,
         bool strict,
         IEnumerable<string>? extraForce = null,
-        IEnumerable<string>? extraSkip = null)
+        IEnumerable<string>? extraSkip = null,
+        bool cliEnableSignatures = false,
+        bool cliEnableFieldKeyword = false,
+        bool cliEnableRecords = false)
     {
         var path = explicitPath;
         if (string.IsNullOrWhiteSpace(path))
@@ -3488,23 +3505,25 @@ public class Program
             SkipQualifiedNames = skip,
             Strict = strict,
             Finalizers = BuildFinalizerOptions(parsed?.Finalizers, path),
-            Signatures = BuildSignatureOptions(parsed?.Signatures),
-            FieldKeyword = BuildFieldKeywordOptions(parsed?.FieldKeyword),
-            Records = BuildRecordOptions(parsed?.Records),
+            Signatures = BuildSignatureOptions(parsed?.Signatures, cliEnableSignatures),
+            FieldKeyword = BuildFieldKeywordOptions(parsed?.FieldKeyword, cliEnableFieldKeyword),
+            Records = BuildRecordOptions(parsed?.Records, cliEnableRecords),
         };
     }
 
     /// <summary>映射 rules.signatures 子节（C46）：缺失/非法 → 默认（Enabled=false、Strict=true、
     /// ReportInfo=true、空 SkipSignatures、AllowDivergentInterfaceBodies=false），不致命。</summary>
     private static CSharpToJava.Core.MemberDesugar.Signatures.SignatureOptions BuildSignatureOptions(
-        SignatureSets? sets)
+        SignatureSets? sets,
+        bool cliEnable = false)
     {
         var skip = new HashSet<string>(StringComparer.Ordinal);
         if (sets?.SkipSignatures != null) skip.UnionWith(sets.SkipSignatures);
 
         return new CSharpToJava.Core.MemberDesugar.Signatures.SignatureOptions
         {
-            Enabled = sets?.Enabled ?? false,
+            // JSON 配置与 CLI --enable-signatures-rule 任一启用即生效（CLI 不重置 JSON）。
+            Enabled = (sets?.Enabled ?? false) || cliEnable,
             Strict = sets?.Strict ?? true,
             ReportInfo = sets?.ReportInfo ?? true,
             SkipSignatures = skip,
@@ -3513,21 +3532,23 @@ public class Program
     }
 
     /// <summary>映射 rules.fieldKeyword 子节（C50）：Enabled 缺省为 false（默认关、不抢跑）。
+    /// JSON 配置与 CLI --enable-field-keyword-rule 任一启用即生效。
     /// 配置缺失/解析失败按 false 继续（沿用族惯例）。</summary>
     private static CSharpToJava.Core.MemberDesugar.Properties.FieldKeywordOptions
-        BuildFieldKeywordOptions(FieldKeywordSets? sets)
+        BuildFieldKeywordOptions(FieldKeywordSets? sets, bool cliEnable = false)
         => new()
         {
-            Enabled = sets?.Enabled ?? false,
+            Enabled = (sets?.Enabled ?? false) || cliEnable,
         };
 
     /// <summary>映射 rules.records 子节（C27）：Enabled 缺省为 false（默认关、不抢跑，设计 §12）。
+    /// JSON 配置与 CLI --enable-records-rule 任一启用即生效。
     /// 配置缺失/解析失败按 false 继续（沿用族惯例）。</summary>
     private static CSharpToJava.Core.MemberDesugar.Records.RecordOptions
-        BuildRecordOptions(RecordSets? sets)
+        BuildRecordOptions(RecordSets? sets, bool cliEnable = false)
         => new()
         {
-            Enabled = sets?.Enabled ?? false,
+            Enabled = (sets?.Enabled ?? false) || cliEnable,
         };
 
     /// <summary>映射 rules.finalizers 子节（C39）：Policy 大小写不敏感映射 Reject/Remove/CleanerGuide，
@@ -3819,7 +3840,11 @@ public class Program
                 JavaKeywordOptionsFactory = () => BuildJavaKeywordOptions(
                     opts.JavaKeywordsOverrides, strict: false),
                 MemberDesugarOptionsFactory = () => BuildMemberDesugarOptions(
-                    opts.MemberDesugarOverrides, strict: false),
+                    opts.MemberDesugarOverrides,
+                    strict: false,
+                    cliEnableSignatures: opts.EnableSignaturesRule,
+                    cliEnableFieldKeyword: opts.EnableFieldKeywordRule,
+                    cliEnableRecords: opts.EnableRecordsRule),
                 StructValueSemanticsOptionsFactory = () => BuildStructValueSemanticsOptions(
                     opts.StructValueSemanticsOverrides),
                 VarianceAuditOptionsFactory = () => BuildVarianceAuditOptions(
@@ -3868,6 +3893,16 @@ public class Program
                         RewriteInExpressionTrees = false,
                         FoldConstants = true,
                     },
+                    // C24 initializer desugaring is wired by default (wave-0
+                    // activation): a non-null subsection activates the rule;
+                    // --no-initializer-desugar restores byte-identical
+                    // pre-C24 behavior. Expression-tree sites stay skipped.
+                    Initializers = opts.NoInitializerDesugar
+                        ? null
+                        : new CSharpToJava.Core.ExpressionDesugar.Initializers.InitializerOptions
+                        {
+                            Strict = opts.LocalFunctionStrict,
+                        },
                 },
                 PlatformIsolationOptionsFactory = () => BuildPlatformIsolationOptions(
                     opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
@@ -4899,6 +4934,22 @@ class PreprocessVerbOptions
         HelpText = "Negation switch for the C23 interpolation rule (red-line byte-identical runs)")]
     public bool NoInterpolationExpand { get; set; }
 
+    [Option("no-initializer-desugar", Default = false,
+        HelpText = "Disable the C24 object/collection/target-typed-new initializer desugaring rule inside expression-desugar (default on)")]
+    public bool NoInitializerDesugar { get; set; }
+
+    [Option("enable-signatures-rule", Default = false,
+        HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default off, also configurable via MemberDesugarOverrides.json)")]
+    public bool EnableSignaturesRule { get; set; }
+
+    [Option("enable-field-keyword-rule", Default = false,
+        HelpText = "Enable the C50 'field' keyword normalization subset inside member-desugar (semi-auto properties; default off, also configurable via MemberDesugarOverrides.json)")]
+    public bool EnableFieldKeywordRule { get; set; }
+
+    [Option("enable-records-rule", Default = false,
+        HelpText = "Enable the C27 record 'with'/init/required desugaring subset inside member-desugar (default off, also configurable via MemberDesugarOverrides.json)")]
+    public bool EnableRecordsRule { get; set; }
+
     [Option("no-filter-projects", Default = false,
         HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
     public bool NoFilterProjects { get; set; }
@@ -5302,6 +5353,22 @@ class ConvertProjectOptions
     [Option("no-interpolation-expand", Default = false,
         HelpText = "Negation switch for the C23 interpolation rule (red-line byte-identical runs)")]
     public bool NoInterpolationExpand { get; set; }
+
+    [Option("no-initializer-desugar", Default = false,
+        HelpText = "Disable the C24 object/collection/target-typed-new initializer desugaring rule inside expression-desugar (default on)")]
+    public bool NoInitializerDesugar { get; set; }
+
+    [Option("enable-signatures-rule", Default = false,
+        HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default off, also configurable via MemberDesugarOverrides.json)")]
+    public bool EnableSignaturesRule { get; set; }
+
+    [Option("enable-field-keyword-rule", Default = false,
+        HelpText = "Enable the C50 'field' keyword normalization subset inside member-desugar (semi-auto properties; default off, also configurable via MemberDesugarOverrides.json)")]
+    public bool EnableFieldKeywordRule { get; set; }
+
+    [Option("enable-records-rule", Default = false,
+        HelpText = "Enable the C27 record 'with'/init/required desugaring subset inside member-desugar (default off, also configurable via MemberDesugarOverrides.json)")]
+    public bool EnableRecordsRule { get; set; }
 
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
     public string? ExtraDependencies { get; set; }

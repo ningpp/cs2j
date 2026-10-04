@@ -8,12 +8,13 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace CSharpToJava.ProjectTests;
 
 /// <summary>
-/// C24 project-level gate. The CLI factory does not construct the
-/// <see cref="ExpressionDesugarOptions.Initializers"/> subsection yet (no CLI
-/// flags were added), so the double run is driven directly through the Core
-/// <see cref="ExpressionDesugarPreprocessor"/>: the fixture library is compiled
-/// and executed natively, then the <c>Initializers*</c> files are C24-preprocessed
-/// and the same behavior observations must hold on the preprocessed assembly.
+/// C24 project-level gate. Since wave-0 (2026-10-04) the CLI factories wire the
+/// <see cref="ExpressionDesugarOptions.Initializers"/> subsection by default
+/// (kill switch <c>--no-initializer-desugar</c>). This gate still drives the
+/// double run directly through the Core <see cref="ExpressionDesugarPreprocessor"/>:
+/// the fixture library is compiled and executed natively, then the
+/// <c>Initializers*</c> files are C24-preprocessed and the same behavior
+/// observations must hold on the preprocessed assembly.
 /// The preprocessed files must contain no residual initializer syntax.
 /// </summary>
 public class InitializerDesugarProjectTests
