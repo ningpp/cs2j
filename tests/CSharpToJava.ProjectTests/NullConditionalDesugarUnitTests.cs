@@ -312,4 +312,389 @@ public class NullConditionalDesugarUnitTests
         Assert.Equal(CoreTypesAndSitesSource, result.OutputCode);
         Assert.DoesNotContain(result.Diagnostics, d => true);
     }
+
+    // ==================================================================
+    // Milestone 2: NC-3 calls, NC-4 index, NC-5 Invoke, NC-2/8 multi.
+    // ==================================================================
+
+    private const string CallSource = """
+        namespace C35Fixture;
+
+        public sealed class CallTarget
+        {
+            public int SideCalls;
+            public int Next() { SideCalls++; return SideCalls; }
+            public int M(int a, int b) => a * 10 + b;
+        }
+
+        public static class CallFixture
+        {
+            public static int ValueCall(CallTarget? c)
+                => c?.M(c.Next(), c.Next()) ?? -100;
+        }
+        """;
+
+    private static void AssertResidualFree(string output)
+    {
+        var root = CSharpSyntaxTree.ParseText(output, ParseOptions)
+            .GetCompilationUnitRoot();
+        Assert.Empty(root.DescendantNodes().OfType<ConditionalAccessExpressionSyntax>());
+        Assert.Empty(root.DescendantNodes().OfType<ElementBindingExpressionSyntax>());
+        Assert.Empty(root.DescendantNodes().OfType<MemberBindingExpressionSyntax>());
+    }
+
+    private static Assembly LoweredAssembly(string source, out ExpressionDesugarResult result)
+    {
+        var (preprocessed, _) = PreprocessSoleFile(source);
+        result = preprocessed;
+        Assert.DoesNotContain(
+            preprocessed.Diagnostics, d => d.Severity == ExpressionDesugarSeverity.Error);
+        Assert.True(preprocessed.Changed);
+        AssertResidualFree(preprocessed.OutputCode);
+        var compilation = BuildCompilation(preprocessed.OutputCode);
+        Assert.Empty(compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+        return EmitAndLoad(compilation);
+    }
+
+    [Fact]
+    public void NC3_ValueCall_ArgsEvaluatedOnce_OnlyOnNonNullPath()
+    {
+        var statsAssertions = new Action<NullConditionalStatistics>(s =>
+        {
+            Assert.Equal(1, s.ConditionalAccessSites);
+            Assert.Equal(1, s.SegmentTempsLifted);
+        });
+
+        foreach (var assembly in new[]
+                 {
+                     EmitAndLoad(BuildCompilation(CallSource)),
+                     LoweredAssembly(CallSource, out var lowered),
+                 })
+        {
+            var fixture = assembly.GetType("C35Fixture.CallFixture", throwOnError: true)!;
+            var targetType = assembly.GetType("C35Fixture.CallTarget", throwOnError: true)!;
+
+            // Null receiver: fallback and ZERO argument evaluation.
+            var nullResult = (int)fixture.GetMethod("ValueCall")!
+                .Invoke(null, new object?[] { null })!;
+            Assert.Equal(-100, nullResult);
+
+            // Non-null: M(1,2)=12; each side-effecting arg evaluated once.
+            var target = Activator.CreateInstance(targetType)!;
+            var nonNullResult = (int)fixture.GetMethod("ValueCall")!
+                .Invoke(null, new[] { target })!;
+            Assert.Equal(12, nonNullResult);
+            Assert.Equal(2, targetType.GetField("SideCalls")!.GetValue(target));
+        }
+
+        var (result, _) = PreprocessSoleFile(CallSource);
+        statsAssertions(result.Statistics.NullConditional);
+    }
+
+    private const string IndexSource = """
+        using System.Collections.Generic;
+
+        namespace C35Fixture;
+
+        public sealed class Indexed
+        {
+            public int Calls;
+            public int Next() { Calls++; return Calls - 1; }
+            public int this[int i] => i + 1000;
+        }
+
+        public static class IndexFixture
+        {
+            public static int ArrayIndex(int[]? a, Indexed ix) => a?[ix.Next()] ?? -1;
+            public static int ListIndex(List<int>? l, Indexed ix) => l?[ix.Next()] ?? -2;
+            public static int CustomIndex(Indexed? ix, int i) => ix?[i] ?? -3;
+        }
+        """;
+
+    [Fact]
+    public void NC4_ConditionalIndex_Array_List_CustomIndexer_BehaveIdentically()
+    {
+        Assembly[] assemblies =
+        {
+            EmitAndLoad(BuildCompilation(IndexSource)),
+            LoweredAssembly(IndexSource, out var lowered),
+        };
+
+        foreach (var assembly in assemblies)
+        {
+            var fixture = assembly.GetType("C35Fixture.IndexFixture", throwOnError: true)!;
+            var indexedType = assembly.GetType("C35Fixture.Indexed", throwOnError: true)!;
+            var listType = typeof(List<int>);
+
+            var indexed = Activator.CreateInstance(indexedType)!;
+
+            // Array: null -> -1 no index eval; non-null -> element 5 at index 0.
+            Assert.Equal(-1, InvokeStatic(fixture, "ArrayIndex", null, indexed));
+            Assert.Equal(5, InvokeStatic(fixture, "ArrayIndex", new[] { 5, 6 }, indexed));
+            Assert.Equal(1, indexedType.GetField("Calls")!.GetValue(indexed));
+
+            // List: null -> -2; non-null -> element 8.
+            Assert.Equal(-2, InvokeStatic(fixture, "ListIndex", null, indexed));
+            var list = Activator.CreateInstance(listType)!;
+            listType.GetMethod("Add")!.Invoke(list, new object[] { 7 });
+            listType.GetMethod("Add")!.Invoke(list, new object[] { 8 });
+            Assert.Equal(8, InvokeStatic(fixture, "ListIndex", list, indexed));
+
+            // Custom indexer: null -> -3; non-null -> i+1000.
+            Assert.Equal(-3, InvokeStatic(fixture, "CustomIndex", null, 4));
+            Assert.Equal(1007, InvokeStatic(fixture, "CustomIndex", indexed, 7));
+        }
+
+        var (result, _) = PreprocessSoleFile(IndexSource);
+        Assert.Equal(3, result.Statistics.NullConditional.ConditionalIndexSites);
+        Assert.Equal(3, result.Statistics.NullConditional.SegmentTempsLifted);
+    }
+
+    private static object? InvokeStatic(Type type, string method, params object?[] args)
+        => type.GetMethod(method)!.Invoke(null, args);
+
+    private const string DelegateSource = """
+        using System;
+
+        namespace C35Fixture;
+
+        public sealed class DelegateFixture
+        {
+            public int HandlerCalls;
+            public void Handler(int x) { HandlerCalls += x; }
+            public static int Doubler(int x) => x * 2;
+
+            public Action<int>? Pub;
+            public event Action<int>? Ev;
+            public Func<int, int>? Fn;
+
+            public void VoidDelegate(int x) { Pub?.Invoke(x); }
+            public void VoidEventNull() { Ev?.Invoke(4); }
+            public void VoidEventSubscribed(int x)
+            {
+                Ev += Handler;
+                Ev?.Invoke(x);
+            }
+            public int ValueFunc(int input) => Fn?.Invoke(input) ?? -1;
+        }
+        """;
+
+    [Fact]
+    public void NC5_Invoke_Delegate_FieldEvent_SubscriberSnapshot_BehaveIdentically()
+    {
+        Assembly[] assemblies =
+        {
+            EmitAndLoad(BuildCompilation(DelegateSource)),
+            LoweredAssembly(DelegateSource, out var lowered),
+        };
+
+        foreach (var assembly in assemblies)
+        {
+            var type = assembly.GetType("C35Fixture.DelegateFixture", throwOnError: true)!;
+            var instance = Activator.CreateInstance(type)!;
+
+            // Null delegate/event: zero throws, zero calls.
+            type.GetMethod("VoidDelegate")!.Invoke(instance, new object[] { 7 });
+            type.GetMethod("VoidEventNull")!.Invoke(instance, null);
+            Assert.Equal(0, type.GetField("HandlerCalls")!.GetValue(instance));
+
+            // Subscribed field-style event fires exactly once.
+            type.GetMethod("VoidEventSubscribed")!.Invoke(instance, new object[] { 9 });
+            Assert.Equal(9, type.GetField("HandlerCalls")!.GetValue(instance));
+
+            // Delegate field snapshot: Pub=Handler then invoke.
+            type.GetField("Pub")!.SetValue(instance,
+                Delegate.CreateDelegate(typeof(Action<int>), instance,
+                    type.GetMethod("Handler")!));
+            type.GetMethod("VoidDelegate")!.Invoke(instance, new object[] { 5 });
+            Assert.Equal(14, type.GetField("HandlerCalls")!.GetValue(instance));
+
+            // Value-returning delegate: null -> -1; assigned -> Doubler.
+            Assert.Equal(-1, type.GetMethod("ValueFunc")!.Invoke(instance, new object[] { 3 }));
+            type.GetField("Fn")!.SetValue(instance,
+                Delegate.CreateDelegate(typeof(Func<int, int>),
+                    type.GetMethod("Doubler")!));
+            Assert.Equal(8, type.GetMethod("ValueFunc")!.Invoke(instance, new object[] { 4 }));
+        }
+
+        var (result, _) = PreprocessSoleFile(DelegateSource);
+        var s = result.Statistics.NullConditional;
+        Assert.Equal(4, s.InvokeSites);
+        Assert.Equal(2, s.EventSites);
+        Assert.Equal(2, s.DelegateSites);
+        Assert.Equal(3, s.VoidStatementSites);
+    }
+
+    private const string MultiSource = """
+        namespace C35Fixture;
+
+        public sealed class Leaf
+        {
+            public int Value;
+            public int FireCalls;
+            public void Fire(int x) { FireCalls++; }
+            public override string ToString() => "L" + Value;
+        }
+
+        public sealed class MidNode
+        {
+            public Leaf? Leaf;
+        }
+
+        public sealed class RootNode
+        {
+            public MidNode? Mid;
+        }
+
+        public static class MultiFixture
+        {
+            public static int? ValueMulti(RootNode? r)
+            {
+                var x = r?.Mid?.Leaf?.Value;
+                return x;
+            }
+
+            public static string? ValueCallMulti(RootNode? r)
+            {
+                var x = r?.Mid?.Leaf?.ToString();
+                return x;
+            }
+
+            public static void VoidMulti(RootNode? r, int seed)
+            {
+                r?.Mid?.Leaf?.Fire(seed);
+            }
+        }
+        """;
+
+    /// <summary>Builds the 0..3 depth tree: null root / root only / +mid / +leaf(Value=9).</summary>
+    private static object? BuildTree(Assembly assembly, int depth)
+    {
+        if (depth == 0)
+            return null;
+
+        var rootType = assembly.GetType("C35Fixture.RootNode", throwOnError: true)!;
+        var midType = assembly.GetType("C35Fixture.MidNode", throwOnError: true)!;
+        var leafType = assembly.GetType("C35Fixture.Leaf", throwOnError: true)!;
+
+        var root = Activator.CreateInstance(rootType)!;
+        if (depth == 1)
+            return root;
+
+        var mid = Activator.CreateInstance(midType)!;
+        rootType.GetField("Mid")!.SetValue(root, mid);
+        if (depth == 2)
+            return root;
+
+        var leaf = Activator.CreateInstance(leafType)!;
+        leafType.GetField("Value")!.SetValue(leaf, 9);
+        midType.GetField("Leaf")!.SetValue(mid, leaf);
+        return root;
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void NC2_NC8_MultiSegment_NestedGuards_NullEveryLevel_BehaveIdentically(int depth)
+    {
+        Assembly[] assemblies =
+        {
+            EmitAndLoad(BuildCompilation(MultiSource)),
+            LoweredAssembly(MultiSource, out var lowered),
+        };
+
+        foreach (var assembly in assemblies)
+        {
+            var fixture = assembly.GetType("C35Fixture.MultiFixture", throwOnError: true)!;
+            var tree = BuildTree(assembly, depth);
+
+            var valueResult = fixture.GetMethod("ValueMulti")!.Invoke(null, new[] { tree });
+            Assert.Equal(depth == 3 ? (object)9 : null, valueResult);
+
+            var callResult = fixture.GetMethod("ValueCallMulti")!.Invoke(null, new[] { tree });
+            Assert.Equal(depth == 3 ? "L9" : null, callResult);
+
+            fixture.GetMethod("VoidMulti")!.Invoke(null, new[] { tree, 1 });
+
+            // Fire only when all three levels present; leaf identity is depth 3's leaf.
+            if (depth == 3)
+            {
+                var leaf = assembly.GetType("C35Fixture.Leaf")!;
+                var mid = ((dynamic?)tree)!.Mid;
+                Assert.Equal(1, leaf.GetField("FireCalls")!.GetValue(mid.Leaf));
+            }
+        }
+    }
+
+    [Fact]
+    public void NC2_MultiValue_Rewrite_IsIdempotent()
+    {
+        var (first, _) = PreprocessSoleFile(MultiSource);
+        Assert.True(first.Changed);
+
+        var secondCompilation = BuildCompilation(first.OutputCode, "c35-multi-idem");
+        var secondModel = secondCompilation.GetSemanticModel(secondCompilation.SyntaxTrees[0]);
+        var second = new ExpressionDesugarPreprocessor()
+            .Preprocess(first.OutputCode, secondModel, C35Enabled);
+
+        Assert.False(second.Changed);
+        Assert.Equal(first.OutputCode, second.OutputCode);
+    }
+
+    [Fact]
+    public void NC11_VoidCall_ArrowBody_CS2J0558_AtomicNoRewrite()
+    {
+        const string source = """
+            namespace C35Fixture;
+
+            public sealed class Target { public void M2() { } }
+
+            public sealed class ArrowVoid
+            {
+                private Target? _t;
+                public void Go() => _t?.M2();
+            }
+            """;
+
+        var (result, _) = PreprocessSoleFile(source);
+
+        Assert.Contains(
+            result.Diagnostics, d => d.Code == NullConditionalDiagnosticCodes.CS2J0558);
+        Assert.Contains(
+            result.Diagnostics, d => d.Severity == ExpressionDesugarSeverity.Error);
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+    }
+
+    [Fact]
+    public void NC2_MultiValue_AnchorNotLocalOrReturn_CS2J0557_AtomicNoRewrite()
+    {
+        const string source = """
+            namespace C35Fixture;
+
+            public sealed class Leaf { public int Value; }
+            public sealed class MidN { public Leaf? Leaf; }
+            public sealed class RootN { public MidN? Mid; public int? Stored; }
+
+            public static class BadAnchorFixture
+            {
+                public static void Go(RootN? r, RootN sink)
+                {
+                    sink.Stored = r?.Mid?.Leaf?.Value;
+                }
+            }
+            """;
+
+        var (result, _) = PreprocessSoleFile(source);
+
+        Assert.Contains(
+            result.Diagnostics, d => d.Code == NullConditionalDiagnosticCodes.CS2J0557);
+        Assert.Contains(
+            result.Diagnostics, d => d.Severity == ExpressionDesugarSeverity.Error);
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+    }
 }

@@ -6,25 +6,33 @@ namespace CSharpToJava.Core.ExpressionDesugar.NullConditional;
 
 /// <summary>
 /// Bottom-up rewriter for C35 (design §4.1 / NC-1...). Chain-root conditional
-/// accesses are replaced as whole plans: value shapes become null-check
-/// ternaries; segment declarations go to the shared family TempLifter as
-/// pending entries; void/guarded statement shapes are handled via
-/// <see cref="PendingAnchorReplacement"/> (later milestones). Sites that must
-/// stay (defensive skips, C51 deferrals, non-strict warnings) keep the node
-/// and receive the explained annotation so the residual gate pairs them.
+/// accesses are replaced as whole plans:
+/// <list type="bullet">
+/// <item><see cref="NullConditionalLoweringShape.Inline"/>: zero-declaration
+/// ternary returned directly;</item>
+/// <item><see cref="NullConditionalLoweringShape.TempTernary"/>: segment
+/// declarations go to the shared family TempLifter as pending entries, the
+/// ternary references the temp;</item>
+/// <item><see cref="NullConditionalLoweringShape.GuardedBlock"/> (multi
+/// segment, value) and <see cref="NullConditionalLoweringShape.StatementIf"/>
+/// (void statement): the whole anchor statement is replaced via this
+/// directory's <see cref="PendingAnchorReplacement"/> capability.</item>
+/// </list>
+/// Sites that must stay (defensive skips, C51 deferrals, non-strict warnings)
+/// keep the node and receive the explained annotation so the residual gate
+/// pairs them.
 /// </summary>
 internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
 {
-    private readonly SemanticModel _model;
     private readonly NullConditionalAnalysis _analysis;
     private readonly HashSet<SyntaxNode> _preservedRoots = new();
+    private readonly Dictionary<SyntaxNode, SyntaxAnnotation> _replacementMarkers = new();
 
     public NullConditionalRewriter(
         NullConditionalAnalysis analysis,
         SemanticModel model)
     {
         _analysis = analysis;
-        _model = model;
 
         foreach (var plan in analysis.Plans)
         {
@@ -35,8 +43,11 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
 
     public List<ExpressionDesugarTempLifter.PendingTemp> Pending { get; } = new();
 
-    /// <summary>Original anchor nodes -> annotations, consumed by the family TempLifter.</summary>
+    /// <summary>Original anchor nodes -> family-lifter annotations.</summary>
     public Dictionary<SyntaxNode, SyntaxAnnotation> AnchorAnnotations { get; } = new();
+
+    /// <summary>Anchor statement replacements, applied inside this rule's Rewrite.</summary>
+    public List<PendingAnchorReplacement> AnchorReplacements { get; } = new();
 
     public int RewriteCount { get; private set; }
 
@@ -50,8 +61,25 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
         if (plan.Outcome == ChainOutcome.Preserved)
             return visited;
 
-        // Single-segment shapes only (M1). Multi-segment lowering lands later.
-        var terminalVisited = GetTerminal(visited);
+        // Walk the visited dependent chain: original CA -> visited CA.
+        var visitedCaByOriginal = new Dictionary<
+            ConditionalAccessExpressionSyntax, ConditionalAccessExpressionSyntax>();
+        var currentOriginal = node;
+        var currentVisited = visited;
+        ExpressionSyntax terminalVisited;
+        while (true)
+        {
+            visitedCaByOriginal[currentOriginal] = currentVisited;
+            if (currentVisited.WhenNotNull is ConditionalAccessExpressionSyntax innerVisited)
+            {
+                currentOriginal = (ConditionalAccessExpressionSyntax)currentOriginal.WhenNotNull;
+                currentVisited = innerVisited;
+                continue;
+            }
+
+            terminalVisited = currentVisited.WhenNotNull;
+            break;
+        }
 
         switch (plan.Shape)
         {
@@ -78,18 +106,61 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
                 return SyntaxFactory.ParenthesizedExpression(consumption);
             }
 
+            case NullConditionalLoweringShape.StatementIf:
+            {
+                var deepest = plan.Segments[^1].TempName;
+                var terminalStatement = NullConditionalEmitter.BuildVoidTerminalStatement(
+                    terminalVisited, deepest);
+
+                var statements = NullConditionalEmitter.BuildMultiSegmentPrefix(
+                    plan, visitedCaByOriginal, new[] { terminalStatement });
+
+                RegisterAnchorReplacement(plan, statements);
+                RewriteCount++;
+                return visited;
+            }
+
+            case NullConditionalLoweringShape.GuardedBlock:
+            {
+                var prefix = NullConditionalEmitter.BuildMultiSegmentPrefix(
+                    plan, visitedCaByOriginal, Array.Empty<StatementSyntax>());
+                var nestedTernary = NullConditionalEmitter.BuildNestedTernary(
+                    plan, terminalVisited);
+
+                var finalStatement = RebuildValueAnchorStatement(plan, nestedTernary);
+                var statements = prefix;
+                statements.Add(finalStatement);
+
+                RegisterAnchorReplacement(plan, statements);
+                RewriteCount++;
+                return visited;
+            }
+
             default:
                 return visited;
         }
     }
 
-    /// <summary>Navigates the visited dependent-CA chain to the innermost terminal.</summary>
-    private static ExpressionSyntax GetTerminal(ConditionalAccessExpressionSyntax visitedRoot)
+    /// <summary>
+    /// Rebuilds the original value anchor statement with the nested ternary
+    /// as its new value: keeps a local declaration's type/name, or returns a
+    /// return statement.
+    /// </summary>
+    private static StatementSyntax RebuildValueAnchorStatement(
+        ChainPlan plan, ExpressionSyntax nestedTernary)
     {
-        var current = visitedRoot;
-        while (current.WhenNotNull is ConditionalAccessExpressionSyntax inner)
-            current = inner;
-        return current.WhenNotNull;
+        if (plan.Anchor is LocalDeclarationStatementSyntax localOriginal)
+        {
+            var declaration = localOriginal.Declaration;
+            var first = declaration.Variables[0]
+                .WithInitializer(SyntaxFactory.EqualsValueClause(nestedTernary));
+            var variables = declaration.Variables.Replace(
+                declaration.Variables[0], first);
+            return localOriginal.WithDeclaration(
+                declaration.WithVariables(variables));
+        }
+
+        return SyntaxFactory.ReturnStatement(nestedTernary);
     }
 
     private void RegisterPending(ChainPlan plan, StatementSyntax statement)
@@ -106,10 +177,20 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
                 ExpressionDesugarTempLifter.AnchorAnnotationKind);
     }
 
+    private void RegisterAnchorReplacement(
+        ChainPlan plan, IReadOnlyList<StatementSyntax> statements)
+    {
+        var anchor = plan.Anchor!;
+        var marker = new SyntaxAnnotation("ed-nc-anchor-replacement");
+        AnchorReplacements.Add(new PendingAnchorReplacement(
+            anchor, marker, statements));
+        _replacementMarkers[anchor] = marker;
+    }
+
     /// <summary>
-    /// Attaches explained annotations to preserved roots and anchor
-    /// annotations to anchor statements (same discipline as the C24/C36
-    /// rewriters) so they survive the tree rewrites.
+    /// Attaches explained annotations to preserved roots, family anchor
+    /// annotations and replacement markers to anchor statements (same
+    /// discipline as the C24/C36 rewriters) so they survive the rewrites.
     /// </summary>
     public override SyntaxNode? Visit(SyntaxNode? node)
     {
@@ -125,6 +206,9 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
 
             if (AnchorAnnotations.TryGetValue(node, out var anchorAnnotation))
                 result = result.WithAdditionalAnnotations(anchorAnnotation);
+
+            if (_replacementMarkers.TryGetValue(node, out var replacementMarker))
+                result = result.WithAdditionalAnnotations(replacementMarker);
         }
 
         return result;

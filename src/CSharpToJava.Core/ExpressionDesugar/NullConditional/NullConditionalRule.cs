@@ -66,9 +66,10 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
                 _analysis, _context.SemanticModel!);
             var visited = (CompilationUnitSyntax)_rewriter.Visit(root)!;
 
-            // Statement anchors for void/guarded shapes are replaced in the
-            // later milestones' flow (PendingAnchorReplacement.Apply).
-            return visited;
+            // Replace whole anchor statements for void/guarded-block shapes
+            // before the family TempLifter runs (design §4.4).
+            return PendingAnchorReplacementApplicator.Apply(
+                visited, _rewriter.AnchorReplacements);
         }
 
         public override IReadOnlyList<ExpressionDesugarTempLifter.PendingTemp> PendingTemps

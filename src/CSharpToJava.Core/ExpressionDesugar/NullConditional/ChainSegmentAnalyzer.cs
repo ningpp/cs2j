@@ -294,9 +294,18 @@ internal static class ChainSegmentAnalyzer
         while (current is ParenthesizedExpressionSyntax)
             current = current.Parent;
 
-        return current is ExpressionStatementSyntax
-            ? NullConditionalContextKind.VoidStatement
-            : NullConditionalContextKind.Value;
+        if (current is ExpressionStatementSyntax)
+            return NullConditionalContextKind.VoidStatement;
+
+        // Expression-bodied void method: public void M() => a?.M2();
+        if (current is ArrowExpressionClauseSyntax { Parent: MethodDeclarationSyntax method }
+            && method.ReturnType is PredefinedTypeSyntax predefined
+            && predefined.Keyword.Kind() == SyntaxKind.VoidKeyword)
+        {
+            return NullConditionalContextKind.VoidStatement;
+        }
+
+        return NullConditionalContextKind.Value;
     }
 
     /// <summary>
@@ -393,25 +402,92 @@ internal static class ChainSegmentAnalyzer
             return;
         }
 
-        // ---- Shapes landed in later milestones ----
-        if (plan.ContextKind == NullConditionalContextKind.VoidStatement
-            || plan.Terminal.Kind is ChainTerminalKind.Call
-                or ChainTerminalKind.Invoke
-                or ChainTerminalKind.Index
-            || plan.Segments.Count > 1)
+        var anchor = plan.Anchor;
+        var isVoid = plan.ContextKind == NullConditionalContextKind.VoidStatement;
+
+        // ---- Void/statement context: segment temps + nested if (NC-3 void, NC-5 void, NC-8) ----
+        if (isVoid)
         {
-            // Phase gate (same pattern as C24 M1): trigger syntax is left
-            // byte-identical and explained until the shape lands.
-            plan.Outcome = ChainOutcome.Preserved;
-            plan.Shape = plan.ContextKind == NullConditionalContextKind.VoidStatement
-                ? NullConditionalLoweringShape.StatementIf
-                : plan.Segments.Count > 1
-                    ? NullConditionalLoweringShape.GuardedBlock
-                    : NullConditionalLoweringShape.TempTernary;
+            if (anchor is ExpressionStatementSyntax)
+            {
+                LowerStatementIf(plan, context);
+            }
+            else
+            {
+                // No spliceable expression-statement anchor (arrow-bodied void,
+                // field initializer...): keep the site with a pointer.
+                var code = anchor == null
+                    ? NullConditionalDiagnosticCodes.CS2J0557
+                    : NullConditionalDiagnosticCodes.CS2J0558;
+                Preserve(plan, code);
+                Report(context,
+                    NullConditionalDiagnostics.ResolveStrictError(strict),
+                    code,
+                    anchor == null
+                        ? string.Format(
+                            NullConditionalDiagnostics.UnliftableMessage,
+                            plan.RootOriginal.ToString())
+                        : NullConditionalDiagnostics.AnchorlessVoidMessage,
+                    root);
+            }
+
             return;
         }
 
-        // ---- NC-1 single-segment member value ----
+        // ---- Multi-segment value: guarded prefetch + nested ternary (NC-2) ----
+        if (plan.Segments.Count > 1)
+        {
+            if (anchor is LocalDeclarationStatementSyntax or ReturnStatementSyntax)
+            {
+                LowerGuardedBlock(plan, context);
+            }
+            else
+            {
+                Preserve(plan, NullConditionalDiagnosticCodes.CS2J0557);
+                Report(context,
+                    NullConditionalDiagnostics.ResolveStrictError(strict),
+                    NullConditionalDiagnosticCodes.CS2J0557,
+                    string.Format(
+                        NullConditionalDiagnostics.UnliftableMessage,
+                        plan.RootOriginal.ToString()),
+                    root);
+            }
+
+            return;
+        }
+
+        // ---- Single-segment value ----
+        switch (plan.Terminal.Kind)
+        {
+            case ChainTerminalKind.Member:
+                DecideSingleMember(plan, context);
+                break;
+
+            case ChainTerminalKind.Call:
+            case ChainTerminalKind.Index:
+            case ChainTerminalKind.Invoke:
+                if (anchor == null)
+                {
+                    Preserve(plan, NullConditionalDiagnosticCodes.CS2J0557);
+                    Report(context,
+                        NullConditionalDiagnostics.ResolveStrictError(strict),
+                        NullConditionalDiagnosticCodes.CS2J0557,
+                        string.Format(
+                            NullConditionalDiagnostics.UnliftableMessage,
+                            plan.RootOriginal.ToString()),
+                        root);
+                    break;
+                }
+
+                LowerTempTernary(plan, context);
+                break;
+        }
+    }
+
+    /// <summary>NC-1 single-segment member: inline whitelist, else segment temp.</summary>
+    private static void DecideSingleMember(ChainPlan plan, RuleAnalysisContext context)
+    {
+        var strict = context.Options.NullConditional!.Strict;
         var receiver = plan.RootOriginal.Expression;
         var whitelist = NullConditionalSyntaxFacts.IsInlineWhitelistReceiver(
             receiver, context.SemanticModel);
@@ -437,8 +513,8 @@ internal static class ChainSegmentAnalyzer
                     NullConditionalDiagnosticCodes.CS2J0557,
                     string.Format(
                         NullConditionalDiagnostics.UnliftableMessage,
-                        root.ToString()),
-                    root);
+                        plan.RootOriginal.ToString()),
+                    plan.RootOriginal);
             }
 
             return;
@@ -481,7 +557,6 @@ internal static class ChainSegmentAnalyzer
         plan.Outcome = ChainOutcome.Lowered;
         plan.Shape = NullConditionalLoweringShape.Inline;
         AccumulateLowered(plan, context);
-        context.Statistics.NullConditional.InlinedSites++;
     }
 
     private static void LowerTempTernary(ChainPlan plan, RuleAnalysisContext context)
@@ -492,10 +567,51 @@ internal static class ChainSegmentAnalyzer
         context.Statistics.NullConditional.SegmentTempsLifted += plan.Segments.Count;
     }
 
+    private static void LowerStatementIf(ChainPlan plan, RuleAnalysisContext context)
+    {
+        plan.Outcome = ChainOutcome.Lowered;
+        plan.Shape = NullConditionalLoweringShape.StatementIf;
+        AccumulateLowered(plan, context);
+        var stats = context.Statistics.NullConditional;
+        stats.VoidStatementSites++;
+        stats.SegmentTempsLifted += plan.Segments.Count;
+    }
+
+    private static void LowerGuardedBlock(ChainPlan plan, RuleAnalysisContext context)
+    {
+        plan.Outcome = ChainOutcome.Lowered;
+        plan.Shape = NullConditionalLoweringShape.GuardedBlock;
+        AccumulateLowered(plan, context);
+        context.Statistics.NullConditional.SegmentTempsLifted += plan.Segments.Count;
+    }
+
     private static void AccumulateLowered(ChainPlan plan, RuleAnalysisContext context)
     {
         var stats = context.Statistics.NullConditional;
-        stats.ConditionalAccessSites++;
+
+        switch (plan.Terminal.Kind)
+        {
+            case ChainTerminalKind.Member:
+            case ChainTerminalKind.Call:
+                stats.ConditionalAccessSites++;
+                break;
+
+            case ChainTerminalKind.Index:
+                stats.ConditionalIndexSites++;
+                break;
+
+            case ChainTerminalKind.Invoke:
+                stats.InvokeSites++;
+                if (plan.Terminal.IsEvent)
+                    stats.EventSites++;
+                else
+                    stats.DelegateSites++;
+                break;
+        }
+
+        if (plan.Shape == NullConditionalLoweringShape.Inline)
+            stats.InlinedSites++;
+
         ReportInfo(context,
             NullConditionalDiagnosticCodes.CS2J0550,
             NullConditionalDiagnostics.SiteMessage,
