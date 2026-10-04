@@ -554,7 +554,8 @@ internal static class ChainSegmentAnalyzer
             }
         }
 
-        if (plan.ResultType is IErrorTypeSymbol
+        if (plan.Terminal.Kind != ChainTerminalKind.Assign
+            && plan.ResultType is IErrorTypeSymbol
             or { TypeKind: TypeKind.Dynamic })
         {
             return true;

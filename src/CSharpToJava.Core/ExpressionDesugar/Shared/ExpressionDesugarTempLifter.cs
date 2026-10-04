@@ -48,9 +48,11 @@ internal static class ExpressionDesugarTempLifter
     /// <summary>
     /// Inserts all collected statement sequences. When the anchor is a direct
     /// statement of a <see cref="BlockSyntax"/>, statements are inserted before
-    /// it; when the anchor is an embedded statement (if/while/...) or a
-    /// switch-section statement, the anchor is wrapped in a block carrying the
-    /// inserted statements, keeping scope and evaluation order intact.
+    /// it; when the anchor is inside a top-level (global) statement, they are
+    /// inserted as preceding global statements; when the anchor is an embedded
+    /// statement (if/while/...) or a switch-section statement, the anchor is
+    /// wrapped in a block carrying the inserted statements, keeping scope and
+    /// evaluation order intact.
     /// </summary>
     internal static CompilationUnitSyntax Apply(
         CompilationUnitSyntax root,
@@ -97,6 +99,25 @@ internal static class ExpressionDesugarTempLifter
                 var newBlock = block.WithStatements(
                     SyntaxFactory.List(newStatements));
                 current = current.ReplaceNode(block, newBlock);
+            }
+            else if (currentAnchor.Parent is GlobalStatementSyntax global
+                     && global.Parent is CompilationUnitSyntax unit)
+            {
+                // Top-level statements: the anchor lives inside a global
+                // statement. Insert the lifted sequences as preceding global
+                // statements (same synthesized Main scope); wrapping them in a
+                // nested block would hide locals from later global statements.
+                var index = unit.Members.IndexOf(global);
+                var liftedGlobals = statements
+                    .Select(s => (MemberDeclarationSyntax)
+                        SyntaxFactory.GlobalStatement(s));
+                var newMembers = unit.Members
+                    .Take(index)
+                    .Concat(liftedGlobals)
+                    .Concat(unit.Members.Skip(index));
+                var newUnit = unit.WithMembers(
+                    SyntaxFactory.List(newMembers));
+                current = current.ReplaceNode(unit, newUnit);
             }
             else
             {
