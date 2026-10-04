@@ -72,6 +72,15 @@ internal sealed class ExtensionBlockDeclarationRewriter : CSharpSyntaxRewriter
                 case PropertyMemberPlan property:
                     generated.AddRange(BuildProperty(plan, property));
                     break;
+                case OperatorMemberPlan op:
+                    generated.Add(BuildOperator(plan, op));
+                    break;
+                case StaticMethodMemberPlan staticMethod:
+                    generated.Add(BuildStaticMethod(plan, staticMethod));
+                    break;
+                case StaticPropertyMemberPlan staticProperty:
+                    generated.AddRange(BuildStaticProperty(plan, staticProperty));
+                    break;
             }
         }
 
@@ -137,6 +146,203 @@ internal sealed class ExtensionBlockDeclarationRewriter : CSharpSyntaxRewriter
         };
         tokens.AddRange(rest);
         return SyntaxFactory.TokenList(tokens);
+    }
+
+    // ---- M2 builders: operators, static methods, static properties ----
+
+    private static MethodDeclarationSyntax BuildOperator(BlockPlan plan, OperatorMemberPlan member)
+    {
+        var decl = member.OperatorDeclaration;
+        var modifiers = BuildStaticMemberModifiers(decl.Modifiers);
+        var typeParameters = GenericParameterMapping.MergeTypeParameters(
+            plan.BlockTypeParameters, Array.Empty<TypeParameterSyntax>());
+        var constraints = GenericParameterMapping.MergeConstraints(
+            plan.BlockConstraints, Array.Empty<TypeParameterConstraintClauseSyntax>());
+
+        return SyntaxFactory.MethodDeclaration(
+            decl.AttributeLists,
+            modifiers,
+            decl.ReturnType,
+            explicitInterfaceSpecifier: null,
+            SyntaxFactory.Identifier(member.GeneratedName),
+            typeParameters,
+            decl.ParameterList,
+            constraints,
+            decl.Body,
+            decl.ExpressionBody)
+            .WithSemicolonToken(decl.SemicolonToken);
+    }
+
+    private static MethodDeclarationSyntax BuildStaticMethod(
+        BlockPlan plan, StaticMethodMemberPlan member)
+    {
+        var method = (MethodDeclarationSyntax)member.Declaration;
+        var modifiers = BuildStaticMemberModifiers(method.Modifiers);
+        var typeParameters = GenericParameterMapping.MergeTypeParameters(
+            plan.BlockTypeParameters, member.MemberTypeParameters);
+        var constraints = GenericParameterMapping.MergeConstraints(
+            plan.BlockConstraints, member.MemberConstraints);
+
+        return SyntaxFactory.MethodDeclaration(
+            method.AttributeLists,
+            modifiers,
+            method.ReturnType,
+            explicitInterfaceSpecifier: null,
+            method.Identifier,
+            typeParameters,
+            method.ParameterList,
+            constraints,
+            method.Body,
+            method.ExpressionBody)
+            .WithSemicolonToken(method.SemicolonToken);
+    }
+
+    private IEnumerable<MethodDeclarationSyntax> BuildStaticProperty(
+        BlockPlan plan,
+        StaticPropertyMemberPlan member)
+    {
+        var decl = member.PropertyDeclaration;
+        var getterName = AccessorsToMethods.GetterName(member.Name);
+        var setterName = AccessorsToMethods.SetterName(member.Name);
+
+        TypeParameterListSyntax? blockTypeParameters = plan.BlockTypeParameters.Count > 0
+            ? GenericParameterMapping.MergeTypeParameters(
+                plan.BlockTypeParameters, Array.Empty<TypeParameterSyntax>())
+            : null;
+        var blockConstraints = SyntaxFactory.List(plan.BlockConstraints);
+
+        // Expression-bodied property (no accessor list): get-only.
+        if (decl.AccessorList is null && decl.ExpressionBody is { } expressionBody)
+        {
+            var modifiers = EnsureStatic(
+                AccessorsToMethods.BuildMethodModifiers(decl, null!, inInterface: false, isExplicitInterfaceImplementation: false));
+            var attributes = RouteAttributes(decl, accessor: null, forGetter: true);
+            yield return SyntaxFactory.MethodDeclaration(
+                attributes,
+                modifiers,
+                decl.Type,
+                null,
+                SyntaxFactory.Identifier(getterName),
+                blockTypeParameters,
+                SyntaxFactory.ParameterList(),
+                blockConstraints,
+                null,
+                expressionBody)
+                .WithSemicolonToken(decl.SemicolonToken);
+            yield break;
+        }
+
+        if (decl.AccessorList is null)
+        {
+            yield break;
+        }
+
+        foreach (var acc in decl.AccessorList.Accessors)
+        {
+            if (acc.IsKind(SyntaxKind.GetAccessorDeclaration) && member.HasGet)
+            {
+                var modifiers = EnsureStatic(
+                    AccessorsToMethods.BuildMethodModifiers(decl, acc, false, false));
+                var attributes = RouteAttributes(decl, acc, forGetter: true);
+                yield return SyntaxFactory.MethodDeclaration(
+                    attributes,
+                    modifiers,
+                    decl.Type,
+                    null,
+                    SyntaxFactory.Identifier(getterName),
+                    blockTypeParameters,
+                    SyntaxFactory.ParameterList(),
+                    blockConstraints,
+                    acc.Body,
+                    acc.ExpressionBody)
+                    .WithSemicolonToken(acc.SemicolonToken);
+            }
+            else if (acc.IsKind(SyntaxKind.SetAccessorDeclaration) && member.HasSet)
+            {
+                var modifiers = EnsureStatic(
+                    AccessorsToMethods.BuildMethodModifiers(decl, acc, false, false));
+                var attributes = RouteAttributes(decl, acc, forGetter: false);
+                var valueParameter = SyntaxFactory.Parameter(
+                    default,
+                    SyntaxFactory.TokenList(),
+                    decl.Type.WithoutTrivia(),
+                    SyntaxFactory.Identifier("value"),
+                    null);
+                yield return SyntaxFactory.MethodDeclaration(
+                    attributes,
+                    modifiers,
+                    SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
+                    null,
+                    SyntaxFactory.Identifier(setterName),
+                    blockTypeParameters,
+                    SyntaxFactory.ParameterList(
+                        SyntaxFactory.SingletonSeparatedList(valueParameter)),
+                    blockConstraints,
+                    acc.Body,
+                    acc.ExpressionBody)
+                    .WithSemicolonToken(acc.SemicolonToken);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Modifiers for a member whose source declaration is already static
+    /// (operators/static methods/static properties): keep accessibility,
+    /// guarantee exactly one static token (after accessibility), drop
+    /// inheritance modifiers that cannot legally appear.
+    /// </summary>
+    private static SyntaxTokenList BuildStaticMemberModifiers(SyntaxTokenList source)
+    {
+        var accessibility = new List<SyntaxToken>();
+        var rest = new List<SyntaxToken>();
+        var hasStatic = false;
+
+        foreach (var token in source)
+        {
+            if (AccessorsToMethods.IsAccessibility(token))
+            {
+                accessibility.Add(token);
+                continue;
+            }
+
+            if (token.IsKind(SyntaxKind.StaticKeyword))
+            {
+                hasStatic = true;
+                continue;
+            }
+
+            switch (token.Kind())
+            {
+                case SyntaxKind.VirtualKeyword:
+                case SyntaxKind.AbstractKeyword:
+                case SyntaxKind.OverrideKeyword:
+                case SyntaxKind.SealedKeyword:
+                    continue;
+            }
+
+            rest.Add(token);
+        }
+
+        var tokens = new List<SyntaxToken>(accessibility);
+        if (!hasStatic)
+        {
+            tokens.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword));
+        }
+
+        tokens.AddRange(rest);
+        return SyntaxFactory.TokenList(tokens);
+    }
+
+    /// <summary>Ensure a modifier list carries exactly one static token.</summary>
+    private static SyntaxTokenList EnsureStatic(SyntaxTokenList modifiers)
+    {
+        if (modifiers.Any(SyntaxKind.StaticKeyword))
+        {
+            return modifiers;
+        }
+
+        return SyntaxFactory.TokenList(
+            modifiers.Append(SyntaxFactory.Token(SyntaxKind.StaticKeyword)));
     }
 
     private IEnumerable<MethodDeclarationSyntax> BuildProperty(

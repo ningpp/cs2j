@@ -1,6 +1,7 @@
 using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExtensionMethodResolve;
+using CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.LexicalNormalize;
 using CSharpToJava.Core.PlatformIsolation;
@@ -122,6 +123,13 @@ internal sealed class CliChainRequest
 
     /// <summary>M4: extension-methods host overrides JSON path (null = none).</summary>
     public string? ExtensionOverridesPath { get; init; }
+
+    /// <summary>
+    /// C49 M2: extension-block materialization policy factory (null =
+    /// classic CS2J1206 behavior). No CLI surface; embedded test chains
+    /// supply it.
+    /// </summary>
+    public Func<ExtensionBlockOptions?>? ExtensionBlockOptionsFactory { get; init; }
 }
 
 /// <summary>
@@ -233,6 +241,7 @@ internal static class CliPreprocessChain
             ExtensionExternalHostMapper = extensionExternalHostMapper,
             ExtensionMethodStrict = request.ExtensionMethodStrict,
             ExtensionOverridesPath = request.ExtensionOverridesPath,
+            ExtensionBlockOptionsFactory = request.ExtensionBlockOptionsFactory,
         };
 
         var sourcePath = request.SourcePath;

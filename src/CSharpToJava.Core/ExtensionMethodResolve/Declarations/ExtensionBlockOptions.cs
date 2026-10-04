@@ -23,6 +23,29 @@ public sealed record ExtensionBlockOptions
     /// <summary>EMD-PROP: materialize instance extension properties as <c>get_X</c>/<c>set_X</c> pairs.</summary>
     public bool EnableProperties { get; init; } = true;
 
+    /// <summary>
+    /// EMD-OP (M2): materialize block binary/unary/checked operators as
+    /// ordinary host static methods and rewrite operator sites. Conversion
+    /// operators are CS9282 inside blocks and are not in scope.
+    /// </summary>
+    public bool EnableOperators { get; init; } = true;
+
+    /// <summary>
+    /// EMD-STATIC (M2): materialize block static methods/properties as
+    /// ordinary host static members and rewrite receiver-type-name qualified
+    /// sites (with explicit block type arguments).
+    /// </summary>
+    public bool EnableStaticMembers { get; init; } = true;
+
+    /// <summary>
+    /// When true (default), enabled EMD-PROP/EMD-OP subrules require the
+    /// member-desugar consumption chain downstream; without it the run is
+    /// refused with CS2J1208. This flag is the policy half of the gate (the
+    /// run-specific chain availability is the other half), exposed as a
+    /// unit-testable decision seam.
+    /// </summary>
+    public bool RequireMemberDesugarChain { get; init; } = true;
+
     /// <summary>Strict mode: defer-classified sites are Errors instead of Warnings.</summary>
     public bool Strict { get; init; }
 

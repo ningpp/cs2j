@@ -8,6 +8,7 @@ using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExtensionMethodResolve;
+using CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 using CSharpToJava.Core.ForeachDeconstruction;
 using CSharpToJava.Core.ForeachSource;
 using CSharpToJava.Core.GenericPreprocess;
@@ -132,6 +133,14 @@ internal sealed class PassChainConfiguration
 
     /// <summary>M4: path to the extension-methods host overrides JSON (null = none).</summary>
     public string? ExtensionOverridesPath { get; init; }
+
+    /// <summary>
+    /// C49 M2: factory for extension-block materialization policy. Null
+    /// (default) keeps the classic CS2J1206 gate bit-for-bit unchanged; there
+    /// is deliberately no CLI verb — tests and embedded chains opt in
+    /// programmatically. Invoked only when the extension-methods pass runs.
+    /// </summary>
+    public Func<ExtensionBlockOptions?>? ExtensionBlockOptionsFactory { get; init; }
 }
 
 /// <summary>
@@ -426,7 +435,10 @@ internal static class PassChainFactory
                 config.VerifyBuild,
                 config.VerifyTests,
                 config.ExtensionExternalHostMapper,
-                ExtensionHostOverridesFile.Load(config.ExtensionOverridesPath)),
+                ExtensionHostOverridesFile.Load(config.ExtensionOverridesPath),
+                blockOptions: config.ExtensionBlockOptionsFactory?.Invoke(),
+                memberDesugarChainAvailable:
+                    config.EnabledPassIds?.Contains(PassIds.MemberDesugar) == true),
 
             // convert-project historically ran goto with Strict=false.
             PassIds.EliminateGoto => new GotoPassAdapter(

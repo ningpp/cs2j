@@ -136,9 +136,11 @@ public sealed class ExtensionMethodResolvePreprocessor
                                 tree, block));
                         }
                     }
-                    else if (blockOptions!.EnableProperties && !memberDesugarChainAvailable)
+                    else if (blockOptions!.RequireMemberDesugarChain
+                             && (blockOptions.EnableProperties || blockOptions.EnableOperators)
+                             && !memberDesugarChainAvailable)
                     {
-                        // Property chain missing: take over the gate with 1208.
+                        // Property/operator chain missing: take over the gate with 1208.
                         suppressClassicBlockGate = true;
                         foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
                         {
@@ -594,6 +596,38 @@ public sealed class ExtensionMethodResolvePreprocessor
         foreach (var seam in analysis.ConditionalSeams)
         {
             targets.Add((seam.Binding, seam.Annotation));
+        }
+
+        // ---- M2: operator sites ----
+        foreach (var site in analysis.BinaryOperatorSites)
+        {
+            targets.Add((site.Expression, site.Annotation));
+        }
+
+        foreach (var site in analysis.UnaryOperatorSites)
+        {
+            targets.Add((site.Expression, site.Annotation));
+        }
+
+        foreach (var site in analysis.OperatorCompoundSites)
+        {
+            targets.Add((site.Assignment, site.Annotation));
+        }
+
+        // ---- M2: static-member sites ----
+        foreach (var site in analysis.StaticMethodSites)
+        {
+            targets.Add((site.Invocation, site.Annotation));
+        }
+
+        foreach (var site in analysis.StaticPropertyReadSites)
+        {
+            targets.Add((site.Access, site.Annotation));
+        }
+
+        foreach (var site in analysis.StaticPropertyWriteSites)
+        {
+            targets.Add((site.Assignment, site.Annotation));
         }
 
         return targets;

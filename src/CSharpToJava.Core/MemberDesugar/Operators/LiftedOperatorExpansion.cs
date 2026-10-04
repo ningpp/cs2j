@@ -24,37 +24,92 @@ internal static partial class LiftedOperatorExpansion
     {
         var qualifier = boundOperator.ContainingType!
             .ToMinimalDisplayString(model, site.SpanStart);
+        return ExpandCore(qualifier, plan.GeneratedMethodName, model, site, args);
+    }
+
+    /// <summary>
+    /// C49 块运算符变体（M2）：同一提升公式，但 qualifier/方法名显式传入——
+    /// 块运算符物化到块所在父 host（而非合成 extension 容器），无法从被绑定
+    /// 运算符的 ContainingType 推导 qualifier。
+    /// </summary>
+    public static ExpressionSyntax ExpandBlockBinaryOrUnary(
+        string qualifier, string generatedMethodName,
+        IMethodSymbol boundOperator, SemanticModel model,
+        ExpressionSyntax site, params ExpressionSyntax[] args)
+        => ExpandCore(qualifier, generatedMethodName, model, site, args);
+
+    private static ExpressionSyntax ExpandCore(
+        string qualifier, string generatedMethodName,
+        SemanticModel model, ExpressionSyntax site, ExpressionSyntax[] args)
+    {
         var op = model.GetOperation(site)!;
-        var nullValue = NullOf(op.Type!.ToMinimalDisplayString(model, site.SpanStart));
+        var resultDisplay = op.Type!.ToMinimalDisplayString(model, site.SpanStart);
 
         if (op is IUnaryOperation)
+            return BuildBinaryOrUnary(
+                qualifier, generatedMethodName, isUnary: true,
+                IsNullableSyntax(args[0], model), rightNullable: false,
+                operatorKind: default, resultDisplay, args);
+
+        var binary = (IBinaryOperation)op;
+        return BuildBinaryOrUnary(
+            qualifier, generatedMethodName, isUnary: false,
+            IsNullableSyntax(args[0], model), IsNullableSyntax(args[1], model),
+            binary.OperatorKind, resultDisplay, args);
+    }
+
+    /// <summary>
+    /// C49 块提升二元（M2）：nullability/结果类型由分析期（原树模型）钉死，
+    /// args 为当前树已访问节点（两阶段重建后不能再对其调 GetTypeInfo）。
+    /// </summary>
+    public static ExpressionSyntax ExpandBlockBinary(
+        string qualifier, string name,
+        bool leftNullable, bool rightNullable,
+        BinaryOperatorKind operatorKind, string resultTypeDisplay,
+        ExpressionSyntax left, ExpressionSyntax right)
+        => BuildBinaryOrUnary(
+            qualifier, name, isUnary: false,
+            leftNullable, rightNullable, operatorKind, resultTypeDisplay,
+            new[] { left, right });
+
+    /// <summary>C49 块提升一元（M2）。</summary>
+    public static ExpressionSyntax ExpandBlockUnary(
+        string qualifier, string name,
+        bool operandNullable, string resultTypeDisplay,
+        ExpressionSyntax operand)
+        => BuildBinaryOrUnary(
+            qualifier, name, isUnary: true,
+            operandNullable, rightNullable: false,
+            operatorKind: default, resultTypeDisplay,
+            new[] { operand });
+
+    private static ExpressionSyntax BuildBinaryOrUnary(
+        string qualifier, string name,
+        bool isUnary, bool leftNullable, bool rightNullable,
+        BinaryOperatorKind operatorKind, string resultTypeDisplay,
+        ExpressionSyntax[] args)
+    {
+        var nullValue = NullOf(resultTypeDisplay);
+
+        if (isUnary)
             return Conditional(HasValue(args[0]),
-                Call(qualifier, plan.GeneratedMethodName, Value(args[0])),
+                Call(qualifier, name, Value(args[0])),
                 nullValue);
 
-        if (op is IBinaryOperation binary)
-        {
-            // 可空性取**语法**类型（模型 GetTypeInfo）：提升操作里运算元的
-            // IOperation.Type 会被抬成 T?，而语法类型为非可空时不该生成守卫
-            //（否则产出 `v.HasValue`——非可空 T 无此成员，且语义上也无 null 可言）。
-            var leftNullable = IsNullableSyntax(args[0], model);
-            var rightNullable = IsNullableSyntax(args[1], model);
-            var call = Call(qualifier, plan.GeneratedMethodName,
-                leftNullable ? Value(args[0]) : args[0],
-                rightNullable ? Value(args[1]) : args[1]);
+        var call = Call(qualifier, name,
+            leftNullable ? Value(args[0]) : args[0],
+            rightNullable ? Value(args[1]) : args[1]);
 
-            if (binary.OperatorKind == BinaryOperatorKind.Equals)
-                return Conditional(AllMissing(leftNullable, rightNullable, args[0], args[1]), True(),
-                    Conditional(AllPresent(leftNullable, rightNullable, args[0], args[1]), call, False()));
-            if (binary.OperatorKind == BinaryOperatorKind.NotEquals)
-                return Conditional(AllMissing(leftNullable, rightNullable, args[0], args[1]), False(),
-                    Conditional(AllPresent(leftNullable, rightNullable, args[0], args[1]), call, True()));
+        if (operatorKind == BinaryOperatorKind.Equals)
+            return Conditional(AllMissing(leftNullable, rightNullable, args[0], args[1]), True(),
+                Conditional(AllPresent(leftNullable, rightNullable, args[0], args[1]), call, False()));
+        if (operatorKind == BinaryOperatorKind.NotEquals)
+            return Conditional(AllMissing(leftNullable, rightNullable, args[0], args[1]), False(),
+                Conditional(AllPresent(leftNullable, rightNullable, args[0], args[1]), call, True()));
 
-            return Conditional(
-                Guard(leftNullable, rightNullable, args[0], args[1], SyntaxKind.BitwiseAndExpression),
-                call, nullValue);
-        }
-        throw new System.NotSupportedException($"unsupported lifted operation {op.Kind}");
+        return Conditional(
+            Guard(leftNullable, rightNullable, args[0], args[1], SyntaxKind.BitwiseAndExpression),
+            call, nullValue);
     }
 
     /// <summary>公式 ①：提升转换（S? → T?）。</summary>
@@ -70,13 +125,26 @@ internal static partial class LiftedOperatorExpansion
         string qualifier, string generatedMethodName, ExpressionSyntax left,
         ExpressionSyntax right, ITypeSymbol resultType,
         SemanticModel model, int spanStart)
+        => ExpandBlockLiftedCompound(
+            qualifier, generatedMethodName,
+            IsNullableSyntax(left, model), IsNullableSyntax(right, model),
+            resultType.ToMinimalDisplayString(model, spanStart),
+            left, right);
+
+    /// <summary>
+    /// C49 块提升复合（M2）：事实（每侧可空性/结果类型显示）由分析期钉死，
+    /// left/right 为当前树已访问节点。
+    /// </summary>
+    public static ExpressionSyntax ExpandBlockLiftedCompound(
+        string qualifier, string generatedMethodName,
+        bool leftNullable, bool rightNullable,
+        string resultTypeDisplay,
+        ExpressionSyntax left, ExpressionSyntax right)
     {
-        var leftNullable = IsNullableSyntax(left, model);
-        var rightNullable = IsNullableSyntax(right, model);
         var call = Call(qualifier, generatedMethodName,
             leftNullable ? Value(left) : left,
             rightNullable ? Value(right) : right);
-        var nullValue = NullOf(resultType.ToMinimalDisplayString(model, spanStart));
+        var nullValue = NullOf(resultTypeDisplay);
         return Conditional(
             Guard(leftNullable, rightNullable, left, right, SyntaxKind.BitwiseAndExpression),
             call, nullValue);

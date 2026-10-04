@@ -42,7 +42,9 @@ internal static class GenericParameterMapping
 
     /// <summary>
     /// Build the first parameter of the materialized method:
-    /// <c>this [ref|in] [scoped] ReceiverType receiverName</c>. The original
+    /// <c>this [scoped] [ref|in] [readonly] ReceiverType receiverName</c>
+    /// (probe-pinned modifier ordering: <c>this ref scoped</c> is CS1003;
+    /// <c>ref readonly</c> carries both tokens in that order). The original
     /// receiver name is preserved so method bodies need zero renaming.
     /// </summary>
     public static ParameterSyntax BuildReceiverParameter(BlockReceiverInfo receiver)
@@ -52,20 +54,25 @@ internal static class GenericParameterMapping
             SyntaxFactory.Token(SyntaxKind.ThisKeyword),
         };
 
+        // scoped precedes ref/in (parsed order; e.g. "this scoped ref S r").
+        if (receiver.ScopedKind is ScopedKind.ScopedValue or ScopedKind.ScopedRef)
+        {
+            modifiers.Add(SyntaxFactory.Token(SyntaxKind.ScopedKeyword));
+        }
+
         switch (receiver.RefKind)
         {
             case RefKind.Ref:
             case RefKind.Out:
                 modifiers.Add(SyntaxFactory.Token(SyntaxKind.RefKeyword));
                 break;
+            case RefKind.RefReadOnlyParameter:
+                modifiers.Add(SyntaxFactory.Token(SyntaxKind.RefKeyword));
+                modifiers.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword));
+                break;
             case RefKind.In:
                 modifiers.Add(SyntaxFactory.Token(SyntaxKind.InKeyword));
                 break;
-        }
-
-        if (receiver.ScopedKind is ScopedKind.ScopedValue or ScopedKind.ScopedRef)
-        {
-            modifiers.Add(SyntaxFactory.Token(SyntaxKind.ScopedKeyword));
         }
 
         var receiverType = SyntaxFactory.ParseTypeName(

@@ -1,7 +1,9 @@
 using CSharpToJava.Core.MemberDesugar;
+using CSharpToJava.Core.MemberDesugar.Operators;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 
@@ -30,6 +32,16 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
     private readonly Dictionary<SyntaxAnnotation, PropertyCompoundSitePlan> _compoundSites;
     private readonly Dictionary<SyntaxAnnotation, ConditionalSeamNode> _seams;
 
+    // ---- M2: operator + static-member sites ----
+    private readonly Dictionary<SyntaxAnnotation, BinaryOperatorSitePlan> _binaryOperatorSites;
+    private readonly Dictionary<SyntaxAnnotation, UnaryOperatorSitePlan> _unaryOperatorSites;
+    private readonly Dictionary<SyntaxAnnotation, OperatorCompoundSitePlan> _operatorCompoundSites;
+    private readonly Dictionary<SyntaxAnnotation, StaticMethodSitePlan> _staticMethodSites;
+    private readonly Dictionary<SyntaxAnnotation, StaticPropertyReadSitePlan> _staticPropertyReadSites;
+    private readonly Dictionary<SyntaxAnnotation, StaticPropertyWriteSitePlan> _staticPropertyWriteSites;
+
+    private int _tempCounter;
+
     public ExtensionBlockCallSiteRewriter(BlockAnalysisResult analysis)
     {
         ArgumentNullException.ThrowIfNull(analysis);
@@ -38,6 +50,13 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
         _writeSites = analysis.WriteSites.ToDictionary(p => p.Annotation);
         _compoundSites = analysis.CompoundSites.ToDictionary(p => p.StatementAnnotation);
         _seams = analysis.ConditionalSeams.ToDictionary(s => s.Annotation);
+
+        _binaryOperatorSites = analysis.BinaryOperatorSites.ToDictionary(p => p.Annotation);
+        _unaryOperatorSites = analysis.UnaryOperatorSites.ToDictionary(p => p.Annotation);
+        _operatorCompoundSites = analysis.OperatorCompoundSites.ToDictionary(p => p.Annotation);
+        _staticMethodSites = analysis.StaticMethodSites.ToDictionary(p => p.Annotation);
+        _staticPropertyReadSites = analysis.StaticPropertyReadSites.ToDictionary(p => p.Annotation);
+        _staticPropertyWriteSites = analysis.StaticPropertyWriteSites.ToDictionary(p => p.Annotation);
     }
 
     // ---- Block splice: flatten hoisted blocks into their enclosing container ----
@@ -121,6 +140,14 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
     public override SyntaxNode? VisitExpressionStatement(ExpressionStatementSyntax node)
     {
         var compound = Find(node, _compoundSites);
+        if (compound is null
+            && node.Expression is AssignmentExpressionSyntax opAssign
+            && Find(opAssign, _operatorCompoundSites) is { SimpleLvalue: false } opCompound
+            && opAssign.Left is MemberAccessExpressionSyntax opAccess)
+        {
+            return HoistOperatorCompound(node, opAssign, opAccess, opCompound);
+        }
+
         if (compound is null)
         {
             return base.VisitExpressionStatement(node);
@@ -218,22 +245,98 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
             extraAnnotations: null);
     }
 
+    // ---- M2: non-simple lvalue operator compound hoist ----
+
+    private BlockSyntax HoistOperatorCompound(
+        ExpressionStatementSyntax node,
+        AssignmentExpressionSyntax assign,
+        MemberAccessExpressionSyntax access,
+        OperatorCompoundSitePlan plan)
+    {
+        var recv = (ExpressionSyntax)Visit(access.Expression)!;
+        var right = (ExpressionSyntax)Visit(assign.Right)!;
+
+        var temp = MemberDesugarSyntaxFacts.TempName(ref _tempCounter, "recv");
+        var tempIdent = SyntaxFactory.IdentifierName(temp);
+        var leftRewritten = access.WithExpression(tempIdent);
+        var inner = RenderOperatorCompoundInner(plan, leftRewritten, right);
+
+        var store = SyntaxFactory.AssignmentExpression(
+            SyntaxKind.SimpleAssignmentExpression, leftRewritten, inner);
+
+        return SyntaxFactory.Block(
+                SyntaxFactory.LocalDeclarationStatement(
+                    SyntaxFactory.VariableDeclaration(
+                        SyntaxFactory.IdentifierName("var"),
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.VariableDeclarator(temp)
+                                .WithInitializer(SyntaxFactory.EqualsValueClause(recv))))),
+                SyntaxFactory.ExpressionStatement(store)
+                    .WithAdditionalAnnotations(plan.Annotation))
+            .WithLeadingTrivia(node.GetLeadingTrivia())
+            .WithTrailingTrivia(node.GetTrailingTrivia())
+            .WithAdditionalAnnotations(HoistedBlockMarker);
+    }
+
+    private ExpressionSyntax RenderOperatorCompoundInner(
+        OperatorCompoundSitePlan plan,
+        ExpressionSyntax left,
+        ExpressionSyntax right)
+    {
+        var qualifier = HostQualifier(plan.Block);
+        if (plan.IsLifted)
+        {
+            return LiftedOperatorExpansion.ExpandBlockLiftedCompound(
+                qualifier, plan.Member.GeneratedName,
+                plan.LeftNullable, plan.RightNullable,
+                plan.ResultTypeDisplay, left, right);
+        }
+
+        return BuildHostInvocation(
+            plan.Block, plan.Member.GeneratedName,
+            new[] { left, right }, plan.Annotation);
+    }
+
     // ---- Assignments: simple writes ----
 
     public override SyntaxNode? VisitAssignmentExpression(AssignmentExpressionSyntax node)
     {
+        var opCompound = Find(node, _operatorCompoundSites);
+        if (opCompound is not null && opCompound.SimpleLvalue)
+        {
+            var simpleLeft = (ExpressionSyntax)Visit(node.Left)!;
+            var simpleRight = (ExpressionSyntax)Visit(node.Right)!;
+            var inner = RenderOperatorCompoundInner(opCompound, simpleLeft, simpleRight);
+            return SyntaxFactory.AssignmentExpression(
+                    SyntaxKind.SimpleAssignmentExpression, simpleLeft, inner)
+                .WithTriviaFrom(node)
+                .WithAdditionalAnnotations(opCompound.Annotation);
+        }
+
+        var staticWrite = Find(node, _staticPropertyWriteSites);
+        if (staticWrite is not null)
+        {
+            var right = (ExpressionSyntax)Visit(node.Right)!;
+            return BuildStaticAccessorInvocation(
+                staticWrite.Block,
+                AccessorsToMethods.SetterName(staticWrite.Member.Name),
+                staticWrite.BlockTypeArguments,
+                new[] { right },
+                staticWrite.Annotation);
+        }
+
         var write = Find(node, _writeSites);
         if (write is null)
         {
             return base.VisitAssignmentExpression(node);
         }
 
-        var right = (ExpressionSyntax)Visit(node.Right)!;
+        var instanceRight = (ExpressionSyntax)Visit(node.Right)!;
         return BuildQualifiedCall(
             write.Block,
             AccessorsToMethods.SetterName(write.Member.Name),
             (ExpressionSyntax)Visit(((MemberAccessExpressionSyntax)node.Left).Expression)!,
-            SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(right)),
+            SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(instanceRight)),
             new[] { write.Annotation });
     }
 
@@ -241,6 +344,17 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitMemberAccessExpression(MemberAccessExpressionSyntax node)
     {
+        var staticRead = Find(node, _staticPropertyReadSites);
+        if (staticRead is not null)
+        {
+            return BuildStaticAccessorInvocation(
+                staticRead.Block,
+                AccessorsToMethods.GetterName(staticRead.Member.Name),
+                staticRead.BlockTypeArguments,
+                Array.Empty<ExpressionSyntax>(),
+                staticRead.Annotation);
+        }
+
         var read = Find(node, _readSites);
         if (read is null)
         {
@@ -260,6 +374,12 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
 
     public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
     {
+        var staticMethod = Find(node, _staticMethodSites);
+        if (staticMethod is not null)
+        {
+            return RewriteStaticMethodInvocation(node, staticMethod);
+        }
+
         var method = Find(node, _methodSites);
         if (method is null)
         {
@@ -294,6 +414,113 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
             method.Block.Receiver.ScopedKind,
             visitedArguments,
             new[] { ExtensionCallRewriter.RewrittenAnnotation, method.Annotation });
+    }
+
+    // ---- M2: static method invocation ----
+
+    private InvocationExpressionSyntax RewriteStaticMethodInvocation(
+        InvocationExpressionSyntax node,
+        StaticMethodSitePlan plan)
+    {
+        var visitedArguments = VisitArguments(node.ArgumentList.Arguments);
+
+        SimpleNameSyntax targetName;
+        if (plan.SourceName is GenericNameSyntax sourceGeneric)
+        {
+            // Explicit arguments as written (arity n or n+m; probe-pinned).
+            targetName = SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(plan.Member.Symbol.Name),
+                sourceGeneric.TypeArgumentList);
+        }
+        else if (plan.BlockTypeArguments.Count > 0)
+        {
+            // Omitted source arguments: EMD-STATIC sites always supply the n
+            // block arguments explicitly (CS0411 inference boundary).
+            targetName = SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(plan.Member.Symbol.Name),
+                BuildBlockTypeArgumentList(plan.BlockTypeArguments));
+        }
+        else
+        {
+            targetName = SyntaxFactory.IdentifierName(plan.Member.Symbol.Name);
+        }
+
+        var hostName = ExtensionHostSyntaxFactory.BuildHostName(plan.Block.Host);
+        var memberAccess = SyntaxFactory.MemberAccessExpression(
+            SyntaxKind.SimpleMemberAccessExpression, hostName, targetName);
+
+        return SyntaxFactory.InvocationExpression(
+                memberAccess,
+                SyntaxFactory.ArgumentList(visitedArguments))
+            .WithAdditionalAnnotations(
+                ExtensionCallRewriter.RewrittenAnnotation, plan.Annotation);
+    }
+
+    // ---- M2: binary/unary operator sites ----
+
+    public override SyntaxNode? VisitBinaryExpression(BinaryExpressionSyntax node)
+    {
+        var plan = Find(node, _binaryOperatorSites);
+        if (plan is null)
+        {
+            return base.VisitBinaryExpression(node);
+        }
+
+        var left = (ExpressionSyntax)Visit(node.Left)!;
+        var right = (ExpressionSyntax)Visit(node.Right)!;
+        var qualifier = HostQualifier(plan.Block);
+
+        if (plan.IsLifted)
+        {
+            return LiftedOperatorExpansion.ExpandBlockBinary(
+                qualifier, plan.Member.GeneratedName,
+                plan.LeftNullable, plan.RightNullable,
+                BinaryOperatorKindOf(node.Kind()),
+                plan.ResultTypeDisplay, left, right);
+        }
+
+        return BuildHostInvocation(
+            plan.Block, plan.Member.GeneratedName,
+            new[] { left, right }, plan.Annotation);
+    }
+
+    public override SyntaxNode? VisitPrefixUnaryExpression(PrefixUnaryExpressionSyntax node)
+    {
+        var plan = Find(node, _unaryOperatorSites);
+        if (plan is null)
+        {
+            return base.VisitPrefixUnaryExpression(node);
+        }
+
+        var operand = (ExpressionSyntax)Visit(node.Operand)!;
+        var qualifier = HostQualifier(plan.Block);
+
+        if (plan.IsLifted)
+        {
+            return LiftedOperatorExpansion.ExpandBlockUnary(
+                qualifier, plan.Member.GeneratedName,
+                plan.OperandNullable, plan.ResultTypeDisplay, operand);
+        }
+
+        return BuildHostInvocation(
+            plan.Block, plan.Member.GeneratedName,
+            new[] { operand }, plan.Annotation);
+    }
+
+    /// <summary>
+    /// checked(a+b): checked semantics are carried by the variant selection
+    /// (op_CheckedAddition → AddChecked); the wrapper is redundant for a
+    /// plain host-method invocation, so unwrap it.
+    /// </summary>
+    public override SyntaxNode? VisitCheckedExpression(CheckedExpressionSyntax node)
+    {
+        if (Find(node.Expression, _binaryOperatorSites) is not null
+            || Find(node.Expression, _unaryOperatorSites) is not null)
+        {
+            return Visit(node.Expression);
+        }
+
+        return base.VisitCheckedExpression(node);
     }
 
     // ---- Property seam: member-binding → invocation member-binding ----
@@ -351,6 +578,75 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
             }
         }
     }
+
+    // ---- M2 helpers ----
+
+    /// <summary>Fully-qualified host name text for lifted-expansion ParseTypeName.</summary>
+    private static string HostQualifier(BlockPlan block)
+        => block.Host.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+    private static TypeArgumentListSyntax BuildBlockTypeArgumentList(
+        IReadOnlyList<ITypeSymbol> blockTypeArguments)
+        => SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
+            blockTypeArguments.Select(t => (TypeSyntax)SyntaxFactory.ParseTypeName(
+                t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)))));
+
+    /// <summary>
+    /// Host static call without a receiver:
+    /// <c>global::Host.Method(args)</c> (operators).
+    /// </summary>
+    private static InvocationExpressionSyntax BuildHostInvocation(
+        BlockPlan block,
+        string methodName,
+        IReadOnlyList<ExpressionSyntax> arguments,
+        SyntaxAnnotation siteAnnotation)
+    {
+        var hostName = ExtensionHostSyntaxFactory.BuildHostName(block.Host);
+        var invocation = SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
+                hostName,
+                SyntaxFactory.IdentifierName(methodName)),
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
+                arguments.Select(SyntaxFactory.Argument))));
+        return invocation.WithAdditionalAnnotations(
+            ExtensionCallRewriter.RewrittenAnnotation, siteAnnotation);
+    }
+
+    /// <summary>
+    /// Static property accessor with explicit block type arguments:
+    /// <c>global::Host.get_X&lt;TBlock...&gt;(args)</c> / <c>set_X&lt;...&gt;(v)</c>.
+    /// </summary>
+    private static InvocationExpressionSyntax BuildStaticAccessorInvocation(
+        BlockPlan block,
+        string methodName,
+        IReadOnlyList<ITypeSymbol> blockTypeArguments,
+        IReadOnlyList<ExpressionSyntax> arguments,
+        SyntaxAnnotation siteAnnotation)
+    {
+        SimpleNameSyntax name = blockTypeArguments.Count == 0
+            ? SyntaxFactory.IdentifierName(methodName)
+            : SyntaxFactory.GenericName(SyntaxFactory.Identifier(methodName),
+                BuildBlockTypeArgumentList(blockTypeArguments));
+
+        var hostName = ExtensionHostSyntaxFactory.BuildHostName(block.Host);
+        var invocation = SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression, hostName, name),
+            SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(
+                arguments.Select(SyntaxFactory.Argument))));
+        return invocation.WithAdditionalAnnotations(
+            ExtensionCallRewriter.RewrittenAnnotation, siteAnnotation);
+    }
+
+    /// <summary>Syntax kind → lifted BinaryOperatorKind (only equality shapes matter).</summary>
+    private static BinaryOperatorKind BinaryOperatorKindOf(SyntaxKind kind)
+        => kind switch
+        {
+            SyntaxKind.EqualsExpression => BinaryOperatorKind.Equals,
+            SyntaxKind.NotEqualsExpression => BinaryOperatorKind.NotEquals,
+            _ => BinaryOperatorKind.Add,
+        };
 
     private static TPlan? Find<TPlan>(SyntaxNode node, Dictionary<SyntaxAnnotation, TPlan> plans)
         where TPlan : class
