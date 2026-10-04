@@ -40,6 +40,10 @@ internal static class PassStubCatalog
         // extension-methods pass (C19, C49); no id/descriptor remains.
         public const string EqualityConcat = "equality-concat";
         public const string LinqChannel = "linq-channel";
+        // Ids.AsyncNormalize flipped to Implemented in PassCatalog (C18;
+        // default-off / long-term opt-in, catalogItems narrowed to "C18");
+        // the id constant stays here by the iterator-lowering / closure-lift
+        // precedent (design §3.2/§3.4). C38 widens the same descriptor later.
         public const string AsyncNormalize = "async-normalize";
         public const string ExpressionDesugar = "expression-desugar";
         // Ids.PlatformIsolation flipped to Implemented in PassCatalog (C42 M1:
@@ -103,16 +107,9 @@ internal static class PassStubCatalog
             runAfterIds: new[] { PassIds.ExtensionMethods, PassIds.AnonymousTypeLift },
             description: "Channel LINQ usage, including the IQueryable three-way routing acceptance gate.",
             catalogItems: "C26"),
-        new(
-            Ids.AsyncNormalize,
-            "Async normalization",
-            ".cs2j-async-normalize-src",
-            PassStage.StateMachine,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { Ids.ClosureLift },
-            description: "Normalize async/await, async streams and async disposal into explicit state/bridge forms.",
-            catalogItems: "C18, C38 (C44 subtopic)"),
+        // Ids.AsyncNormalize flipped to Implemented in PassCatalog (C18;
+        // default-off, catalogItems "C18", C38 async streams reserved in the
+        // description); the descriptor lives there and no stub entry remains.
         // Ids.ExpressionDesugar flipped to Implemented in PassCatalog (C36 M0:
         // only the collection-expression analysis skeleton is registered,
         // default-off / no rewrite); the id constant stays here by the

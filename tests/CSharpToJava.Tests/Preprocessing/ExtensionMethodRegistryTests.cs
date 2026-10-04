@@ -12,8 +12,9 @@ namespace CSharpToJava.Tests.Preprocessing;
 
 /// <summary>
 /// Registry contract for the C19 extension-methods M0 flip: stub entry removed,
-/// implemented descriptor installed in the iterator-lowering → eliminate-goto
-/// slot, default kept OFF, verify-build/tests ON.
+/// implemented descriptor installed in the async-normalize → eliminate-goto
+/// slot (after the C18 flip inserted default-off async-normalize right after
+/// iterator-lowering), default kept ON, verify-build/tests ON.
 /// </summary>
 public sealed class ExtensionMethodRegistryTests
 {
@@ -64,12 +65,15 @@ public sealed class ExtensionMethodRegistryTests
     }
 
     [Fact]
-    public void Registry_PlacesExtensionMethods_BetweenIteratorLoweringAndEliminateGoto()
+    public void Registry_PlacesExtensionMethods_BetweenAsyncNormalizeAndEliminateGoto()
     {
         var ordered = PassCatalog.BuildRegistry().Ordered.Select(p => p.Id).ToList();
         var index = ordered.IndexOf(PassIds.ExtensionMethods);
-        Assert.True(index > 0, "extension-methods must be registered");
-        Assert.Equal(PassStubCatalog.Ids.IteratorLowering, ordered[index - 1]);
+        Assert.True(index > 1, "extension-methods must be registered");
+        // C18 flip inserted default-off async-normalize between iterator-lowering
+        // and extension-methods: iterator-lowering -> async-normalize -> EM -> goto.
+        Assert.Equal(PassStubCatalog.Ids.AsyncNormalize, ordered[index - 1]);
+        Assert.Equal(PassStubCatalog.Ids.IteratorLowering, ordered[index - 2]);
         Assert.Equal(PassIds.EliminateGoto, ordered[index + 1]);
     }
 
@@ -115,18 +119,22 @@ public sealed class ExtensionMethodRegistryTests
     }
 
     [Fact]
-    public void ExtensionMethods_InDefaultPlan_WithLockedSlotBetweenIteratorLoweringAndEliminateGoto()
+    public void ExtensionMethods_InDefaultPlan_WithLockedSlotBetweenAsyncNormalizeAndEliminateGoto()
     {
         var registry = PassCatalog.BuildRegistry();
 
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
         Assert.Contains(baseline.Enabled, p => p.Id == PassIds.ExtensionMethods);
+        // C18 async-normalize stays default-off even though it precedes EM.
+        Assert.DoesNotContain(baseline.Enabled, p => p.Id == PassStubCatalog.Ids.AsyncNormalize);
 
-        // Locked slot: make-readonly → iterator-lowering → extension-methods.
+        // Locked slot: make-readonly → iterator-lowering → async-normalize
+        // → extension-methods → eliminate-goto.
         var ordered = registry.Ordered.Select(p => p.Id).ToList();
         var index = ordered.IndexOf(PassIds.ExtensionMethods);
-        Assert.Equal(PassStubCatalog.Ids.IteratorLowering, ordered[index - 1]);
+        Assert.Equal(PassStubCatalog.Ids.AsyncNormalize, ordered[index - 1]);
+        Assert.Equal(PassStubCatalog.Ids.IteratorLowering, ordered[index - 2]);
         Assert.Equal(PassIds.EliminateGoto, ordered[index + 1]);
     }
 }

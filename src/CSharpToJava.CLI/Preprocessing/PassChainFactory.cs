@@ -1,5 +1,6 @@
 using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.AnonymousTypeLift;
+using CSharpToJava.Core.AsyncNormalize;
 using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.ConcurrencyNormalize;
 using CSharpToJava.Core.ClosedMetadata;
@@ -432,6 +433,19 @@ internal static class PassChainFactory
 
             PassStubCatalog.Ids.IteratorLowering => new IteratorLoweringPassAdapter(
                 new IteratorLoweringOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests,
+                config.Strict),
+
+            // C18 async-normalize has no convert-project legacy toggle; the
+            // descriptor default (off, long-term opt-in) drives it and
+            // --enable-pass/--pass opts in (concurrency-normalize /
+            // platform-isolation registry-default precedent).
+            PassStubCatalog.Ids.AsyncNormalize => new AsyncNormalizePassAdapter(
+                new AsyncNormalizeOptions(),
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

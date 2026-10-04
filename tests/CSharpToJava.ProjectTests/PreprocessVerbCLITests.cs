@@ -130,15 +130,15 @@ public class PreprocessVerbCLITests
 
         try
         {
-            // C32 M2 flipped closure-lift to Implemented; async-normalize is
-            // the remaining StateMachine stub this generic check targets.
+            // C18 flipped async-normalize to Implemented; linq-channel is the
+            // remaining ControlFlow stub this generic check targets.
             var (exit, _, stderr) = await RunCliAsync(
-                "preprocess", "--pass", "async-normalize",
+                "preprocess", "--pass", "linq-channel",
                 "-s", sourceDir, "-d", destDir);
 
             Assert.Equal(1, exit);
             Assert.Contains("CS2J9001", stderr);
-            Assert.Contains("async-normalize", stderr);
+            Assert.Contains("linq-channel", stderr);
             Assert.False(Directory.Exists(destDir),
                 "an enabled stub must be rejected before any output directory is created");
         }

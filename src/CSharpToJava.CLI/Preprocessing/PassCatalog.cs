@@ -417,6 +417,27 @@ internal static class PassCatalog
             description: "Lower C# iterator methods into explicit state machine classes.",
             catalogItems: "C04"),
         new(
+            PassStubCatalog.Ids.AsyncNormalize,
+            "Async normalization",
+            ".cs2j-async-normalize-src",
+            PassStage.StateMachine,
+            PassStatus.Implemented,
+            // C18 flipped Implemented but default-off / long-term opt-in
+            // (design §2 D14); --enable-pass async-normalize opts in.
+            defaultEnabled: false,
+            // Closure-lift is now Implemented/default-on and is the real
+            // capture contract (D12); make-readonly stays the nearest enabled
+            // predecessor anchor (C04 precedent). Declared right after
+            // iterator-lowering so the Kahn declaration-order tiebreak locks
+            // the slot: iterator-lowering -> async-normalize ->
+            // extension-methods -> eliminate-goto.
+            runAfterIds: new[] { PassIds.MakeReadonly, PassStubCatalog.Ids.ClosureLift },
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Normalize async/await method bodies: lift zero/this-capture async lambdas and residual async local functions into named async methods, strip ConfigureAwait(bool), and diagnose async void and unsupported awaiters explicitly; the await sites themselves are preserved. C38 async streams reserved as a future extension of this pass.",
+            catalogItems: "C18"),
+        new(
             PassIds.ExtensionMethods,
             "Extension method explicitness",
             Adapters.ExtensionMethodResolvePassAdapter.IntermediateDirectoryName,
