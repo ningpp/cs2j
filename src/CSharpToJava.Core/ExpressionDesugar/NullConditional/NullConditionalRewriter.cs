@@ -86,7 +86,8 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
             case NullConditionalLoweringShape.Inline:
             {
                 var consumption = NullConditionalEmitter.BuildSingleSegmentTernary(
-                    terminalVisited, visited.Expression, plan);
+                    terminalVisited, visited.Expression,
+                    plan.Segments[0].ReceiverType, plan);
                 RewriteCount++;
                 return SyntaxFactory.ParenthesizedExpression(consumption);
             }
@@ -101,7 +102,8 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
 
                 var receiver = SyntaxFactory.IdentifierName(segmentName);
                 var consumption = NullConditionalEmitter.BuildSingleSegmentTernary(
-                    terminalVisited, receiver, plan);
+                    terminalVisited, receiver,
+                    plan.Segments[0].ReceiverType, plan);
                 RewriteCount++;
                 return SyntaxFactory.ParenthesizedExpression(consumption);
             }
@@ -110,7 +112,7 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
             {
                 var deepest = plan.Segments[^1].TempName;
                 var terminalStatement = NullConditionalEmitter.BuildVoidTerminalStatement(
-                    terminalVisited, deepest);
+                    terminalVisited, deepest, plan.Segments[^1].ReceiverType);
 
                 var statements = NullConditionalEmitter.BuildMultiSegmentPrefix(
                     plan, visitedCaByOriginal, new[] { terminalStatement });
@@ -143,8 +145,9 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
 
     /// <summary>
     /// Rebuilds the original value anchor statement with the nested ternary
-    /// as its new value: keeps a local declaration's type/name, or returns a
-    /// return statement.
+    /// in place of the conditional access: keeps a local declaration's
+    /// type/name; for a return statement preserves any wrapping expression
+    /// (e.g. <c>return Sink(a?.X);</c>) by substituting the CA node only.
     /// </summary>
     private static StatementSyntax RebuildValueAnchorStatement(
         ChainPlan plan, ExpressionSyntax nestedTernary)
@@ -158,6 +161,13 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
                 declaration.Variables[0], first);
             return localOriginal.WithDeclaration(
                 declaration.WithVariables(variables));
+        }
+
+        if (plan.Anchor is ReturnStatementSyntax returnOriginal)
+        {
+            var expression = returnOriginal.Expression!
+                .ReplaceNode(plan.RootOriginal, nestedTernary);
+            return SyntaxFactory.ReturnStatement(expression);
         }
 
         return SyntaxFactory.ReturnStatement(nestedTernary);
@@ -181,6 +191,22 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
         ChainPlan plan, IReadOnlyList<StatementSyntax> statements)
     {
         var anchor = plan.Anchor!;
+
+        // An independent inner root (e.g. j?[i] inside j?[i]?.Length) may
+        // have anchored pending temps to this same statement. The splice
+        // removes the anchor node, so carry the family anchor annotation
+        // onto the first replacement statement to keep insertion working.
+        if (AnchorAnnotations.TryGetValue(anchor, out var anchorAnnotation))
+        {
+            var copied = new List<StatementSyntax>(statements.Count)
+            {
+                statements[0].WithAdditionalAnnotations(anchorAnnotation),
+            };
+            for (var i = 1; i < statements.Count; i++)
+                copied.Add(statements[i]);
+            statements = copied;
+        }
+
         var marker = new SyntaxAnnotation("ed-nc-anchor-replacement");
         AnchorReplacements.Add(new PendingAnchorReplacement(
             anchor, marker, statements));

@@ -82,16 +82,22 @@ internal static class NullConditionalEmitter
     /// <summary>
     /// Builds the single-segment value consumption:
     /// <c>receiver != null ? terminal-on-receiver : null</c>, with the
-    /// <c>(T?)</c> cast when the terminal lifts a value type.
+    /// <c>(T?)</c> cast when the terminal lifts a value type. When the
+    /// receiver itself is a <see cref="System.Nullable{T}"/> value type its
+    /// members are only reachable through the underlying type, so the binding
+    /// receiver is rendered as <c>((T)receiver)</c>.
     /// </summary>
     /// <param name="terminal">Visited terminal expression (binding-rooted).</param>
     /// <param name="receiverInCondition">Expression compared against null and used as the binding receiver.</param>
+    /// <param name="receiverType">Static type of <paramref name="receiverInCondition"/>.</param>
     public static ExpressionSyntax BuildSingleSegmentTernary(
         ExpressionSyntax terminal,
         ExpressionSyntax receiverInCondition,
+        ITypeSymbol? receiverType,
         ChainPlan plan)
     {
-        var terminalAccess = ReplaceRootBinding(terminal, receiverInCondition);
+        var bindingReceiver = BindingReceiver(receiverInCondition, receiverType);
+        var terminalAccess = ReplaceRootBinding(terminal, bindingReceiver);
 
         ExpressionSyntax whenTrue = plan.CastToNullable
             ? SyntaxFactory.CastExpression(plan.NullableCastType!, terminalAccess)
@@ -178,9 +184,12 @@ internal static class NullConditionalEmitter
     {
         var n = plan.Segments.Count;
         var segment = plan.Segments[k];
+        var previousReceiver = BindingReceiver(
+            SyntaxFactory.IdentifierName(plan.Segments[k - 1].TempName),
+            plan.Segments[k - 1].ReceiverType);
         var receiver = ReplaceRootBinding(
             visitedCaByOriginal[segment.Ca].Expression,
-            SyntaxFactory.IdentifierName(plan.Segments[k - 1].TempName));
+            previousReceiver);
 
         var body = new List<StatementSyntax>
         {
@@ -230,7 +239,8 @@ internal static class NullConditionalEmitter
         ExpressionSyntax whenTrue;
         if (k == plan.Segments.Count - 1)
         {
-            var terminal = ReplaceRootBinding(visitedTerminal, receiver);
+            var terminal = ReplaceRootBinding(
+                visitedTerminal, BindingReceiver(receiver, plan.Segments[k].ReceiverType));
             whenTrue = plan.CastToNullable
                 ? SyntaxFactory.CastExpression(plan.NullableCastType!, terminal)
                 : terminal;
@@ -251,15 +261,54 @@ internal static class NullConditionalEmitter
     /// executed inside the deepest guard.
     /// </summary>
     public static StatementSyntax BuildVoidTerminalStatement(
-        ExpressionSyntax visitedTerminal, string deepestTempName)
+        ExpressionSyntax visitedTerminal,
+        string deepestTempName,
+        ITypeSymbol? deepestReceiverType)
         => SyntaxFactory.ExpressionStatement(
             ReplaceRootBinding(
                 visitedTerminal,
-                SyntaxFactory.IdentifierName(deepestTempName)));
+                BindingReceiver(
+                    SyntaxFactory.IdentifierName(deepestTempName),
+                    deepestReceiverType)));
 
     // ------------------------------------------------------------------
     // Small node helpers.
     // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Underlying type when <paramref name="type"/> is
+    /// <see cref="System.Nullable{T}"/>, otherwise null.
+    /// </summary>
+    public static ITypeSymbol? NullableUnderlying(ITypeSymbol? type)
+    {
+        if (type is INamedTypeSymbol named
+            && named.IsValueType
+            && named.OriginalDefinition.ToDisplayString() == "System.Nullable<T>")
+        {
+            return named.TypeArguments[0];
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The receiver expression used for a binding access. When its static
+    /// type is <see cref="System.Nullable{T}"/>, members are unreachable
+    /// directly; renders a parenthesized unwrap cast <c>((T)receiver)</c>
+    /// which is safe on the guarded (non-null) path.
+    /// </summary>
+    private static ExpressionSyntax BindingReceiver(
+        ExpressionSyntax receiver, ITypeSymbol? receiverType)
+    {
+        var underlying = NullableUnderlying(receiverType);
+        if (underlying == null)
+            return receiver;
+
+        return SyntaxFactory.ParenthesizedExpression(
+            SyntaxFactory.CastExpression(
+                SyntaxFactory.ParseTypeName(underlying.ToDisplayString()),
+                receiver));
+    }
 
     /// <summary><c>receiver != null</c>.</summary>
     private static BinaryExpressionSyntax NotNullCheck(ExpressionSyntax receiver)

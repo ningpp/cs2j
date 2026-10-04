@@ -697,4 +697,281 @@ public class NullConditionalDesugarUnitTests
         Assert.False(result.Changed);
         Assert.Equal(source, result.OutputCode);
     }
+
+    // ==================================================================
+    // Milestone 3: NC-9 lifted value terminals, NC-10 nested/mixed,
+    // NC-6 E03 ?? composition.
+    // ==================================================================
+
+    private const string LiftedSource = """
+        namespace C35Fixture;
+
+        public enum Kind { A, B, C }
+
+        public struct Point
+        {
+            public int Length;
+            public bool Flag;
+            public char Ch;
+            public Kind Kind;
+            public int? Maybe;
+            public string Name;
+        }
+
+        public static class LiftedFixture
+        {
+            private static Point? pointStore;
+            public static Point? Load() => pointStore;
+            public static void SetStore(Point? p) => pointStore = p;
+
+            public static int? LengthFromCall() => Load()?.Length;
+            public static int? Length(Point? p) => p?.Length;
+            public static bool? Flag(Point? p) => p?.Flag;
+            public static char? Ch(Point? p) => p?.Ch;
+            public static Kind? Kind(Point? p) => p?.Kind;
+            public static int? Maybe(Point? p) => p?.Maybe;
+            public static string? Name(Point? p) => p?.Name;
+        }
+        """;
+
+    [Fact]
+    public void NC9_LiftedValueTerminals_CastRendering_BoolCharEnumAlreadyNullableRef()
+    {
+        Assembly[] assemblies =
+        {
+            EmitAndLoad(BuildCompilation(LiftedSource)),
+            LoweredAssembly(LiftedSource, out _),
+        };
+
+        foreach (var assembly in assemblies)
+        {
+            var fixture = assembly.GetType("C35Fixture.LiftedFixture", throwOnError: true)!;
+            var pointType = assembly.GetType("C35Fixture.Point", throwOnError: true)!;
+            var kindType = assembly.GetType("C35Fixture.Kind", throwOnError: true)!;
+
+            // Null receiver: every parameterized method yields null.
+            foreach (var method in new[]
+                     {
+                         "Length", "Flag", "Ch", "Kind", "Maybe", "Name",
+                     })
+                Assert.Null(InvokeStatic(fixture, method, new object?[] { null }));
+
+            // Parameterless factory method: null store yields null.
+            fixture.GetMethod("SetStore")!.Invoke(null, new object?[] { null });
+            Assert.Null(InvokeStatic(fixture, "LengthFromCall"));
+
+            var storedPoint = Activator.CreateInstance(pointType)!;
+            pointType.GetField("Length")!.SetValue(storedPoint, 23);
+            fixture.GetMethod("SetStore")!.Invoke(null, new object?[] { storedPoint });
+            Assert.Equal(23, InvokeStatic(fixture, "LengthFromCall"));
+
+            var point = Activator.CreateInstance(pointType)!;
+            pointType.GetField("Length")!.SetValue(point, 11);
+            pointType.GetField("Flag")!.SetValue(point, true);
+            pointType.GetField("Ch")!.SetValue(point, 'Z');
+            pointType.GetField("Kind")!.SetValue(point, Enum.ToObject(kindType, 1));
+            pointType.GetField("Maybe")!.SetValue(point, 55);
+            pointType.GetField("Name")!.SetValue(point, "nm");
+
+            Assert.Equal(11, InvokeStatic(fixture, "Length", point));
+            Assert.Equal(true, InvokeStatic(fixture, "Flag", point));
+            Assert.Equal('Z', InvokeStatic(fixture, "Ch", point));
+            Assert.Equal(Enum.ToObject(kindType, 1), InvokeStatic(fixture, "Kind", point));
+            Assert.Equal(55, InvokeStatic(fixture, "Maybe", point));
+            Assert.Equal("nm", InvokeStatic(fixture, "Name", point));
+        }
+
+        // Structural cast check on the lowered tree.
+        var (result, _) = PreprocessSoleFile(LiftedSource);
+        var root = CSharpSyntaxTree.ParseText(result.OutputCode, ParseOptions)
+            .GetCompilationUnitRoot();
+        var ternaries = root.DescendantNodes()
+            .OfType<ConditionalExpressionSyntax>().ToList();
+        Assert.Equal(7, ternaries.Count);
+        Assert.Equal(5, ternaries.Count(t => t.WhenTrue is CastExpressionSyntax));
+        Assert.Equal(2, ternaries.Count(t => t.WhenTrue is MemberAccessExpressionSyntax));
+        Assert.Equal(5, result.Statistics.NullConditional.LiftedValueTypeSites);
+        Assert.Equal(1, result.Statistics.NullConditional.SegmentTempsLifted);
+
+        // The nullable-struct receiver is unwrapped on the guarded path:
+        // one Point-unwrap cast per access site (6 inline + 1 segment temp).
+        var pointCasts = root.DescendantNodes()
+            .OfType<CastExpressionSyntax>()
+            .Where(c => c.Type.ToString().EndsWith("Point"))
+            .ToList();
+        Assert.Equal(7, pointCasts.Count);
+        Assert.Contains(pointCasts, c => c.Expression is IdentifierNameSyntax
+        {
+            Identifier.Text: "__ed_s0",
+        });
+        Assert.DoesNotContain("__ed_s0.Length", result.OutputCode);
+    }
+
+    private const string MixedSource = """
+        namespace C35Fixture;
+
+        public sealed class Box
+        {
+            public int[]? Items;
+        }
+
+        public sealed class ChainNode
+        {
+            public Box Box = new();
+            public ChainNode? JumpTo;
+            public ChainNode? Advance(int step) => JumpTo;
+        }
+
+        public static class MixedFixture
+        {
+            public static int? Mixed(ChainNode? n, int i)
+            {
+                var x = n?.Advance(1)?.Box?.Items?[i];
+                return x;
+            }
+
+            public static int? Jagged(int[][]? j, int i)
+            {
+                var x = j?[i]?.Length;
+                return x;
+            }
+
+            public static int Sink(int? v) => v ?? -7;
+
+            public static int ViaArg(ChainNode? n, int i)
+            {
+                return Sink(n?.Box?.Items?[i]);
+            }
+        }
+        """;
+
+    [Fact]
+    public void NC10_MixedChains_CallMemberIndex_IndexThenMember_ConditionalAsArg()
+    {
+        Assembly[] assemblies =
+        {
+            EmitAndLoad(BuildCompilation(MixedSource)),
+            LoweredAssembly(MixedSource, out _),
+        };
+
+        foreach (var assembly in assemblies)
+        {
+            var fixture = assembly.GetType("C35Fixture.MixedFixture", throwOnError: true)!;
+            var nodeType = assembly.GetType("C35Fixture.ChainNode", throwOnError: true)!;
+            var boxType = assembly.GetType("C35Fixture.Box", throwOnError: true)!;
+
+            // ---- Mixed: n?.Advance(1)?.Box?.Items?[0] ----
+            Assert.Null(InvokeStatic(fixture, "Mixed", null, 0));
+
+            var n1 = Activator.CreateInstance(nodeType)!;
+            // Advance returns null -> null even though n is set.
+            Assert.Null(InvokeStatic(fixture, "Mixed", n1, 0));
+
+            var n2 = Activator.CreateInstance(nodeType)!;
+            var targetBox = Activator.CreateInstance(boxType)!;
+            boxType.GetField("Items")!.SetValue(targetBox, new[] { 2, 3 });
+            var n3 = Activator.CreateInstance(nodeType)!;
+            nodeType.GetField("Box")!.SetValue(n3, targetBox);
+            nodeType.GetField("JumpTo")!.SetValue(n2, n3);
+            Assert.Equal(2, InvokeStatic(fixture, "Mixed", n2, 0));
+
+            // ---- Jagged: j?[0]?.Length ----
+            Assert.Null(InvokeStatic(fixture, "Jagged", null, 0));
+
+            var withNullElement = new int[][]?[] { null };
+            Assert.Null(InvokeStatic(fixture, "Jagged",
+                (object?)new[] { (int[]?)null }, 0));
+            Assert.Equal(2, InvokeStatic(fixture, "Jagged",
+                new int[][] { new[] { 1, 2 } }, 0));
+
+            // ---- Conditional access as an Invoke argument ----
+            var emptyNode = Activator.CreateInstance(nodeType)!;
+            Assert.Equal(-7, InvokeStatic(fixture, "ViaArg", emptyNode, 0));
+
+            var fullNode = Activator.CreateInstance(nodeType)!;
+            var argBox = Activator.CreateInstance(boxType)!;
+            boxType.GetField("Items")!.SetValue(argBox, new[] { 5, 6 });
+            nodeType.GetField("Box")!.SetValue(fullNode, argBox);
+            Assert.Equal(5, InvokeStatic(fixture, "ViaArg", fullNode, 0));
+        }
+    }
+
+    [Fact]
+    public void NC10_MixedChains_Rewrite_IsIdempotent()
+    {
+        var (first, _) = PreprocessSoleFile(MixedSource);
+        Assert.True(first.Changed);
+
+        var secondCompilation = BuildCompilation(first.OutputCode, "c35-mixed-idem");
+        var secondModel = secondCompilation.GetSemanticModel(secondCompilation.SyntaxTrees[0]);
+        var second = new ExpressionDesugarPreprocessor()
+            .Preprocess(first.OutputCode, secondModel, C35Enabled);
+
+        Assert.False(second.Changed);
+        Assert.Equal(first.OutputCode, second.OutputCode);
+    }
+
+    private const string E03CompositionSource = """
+        namespace C35Fixture;
+
+        public sealed class SimpleN { public int B; }
+        public sealed class InnerN { public int B; }
+        public sealed class OuterN { public InnerN? Inner; }
+
+        public static class E03CompositionFixture
+        {
+            public static int? RunSingle(OuterN? source, int fallback)
+            {
+                var ___t1 = source?.Inner?.B;
+                int? x = ___t1 != null ? ___t1 : fallback;
+                return x;
+            }
+
+            public static int? RunMember(SimpleN? a, int c)
+            {
+                var ___t2 = a?.B;
+                int? y = ___t2 != null ? ___t2 : c;
+                return y;
+            }
+        }
+        """;
+
+    [Fact]
+    public void NC6_E03TempInitializer_ConditionalAtSingleLanding_CS2J0567()
+    {
+        Assembly[] assemblies =
+        {
+            EmitAndLoad(BuildCompilation(E03CompositionSource)),
+            LoweredAssembly(E03CompositionSource, out _),
+        };
+
+        foreach (var assembly in assemblies)
+        {
+            var fixture = assembly.GetType("C35Fixture.E03CompositionFixture", throwOnError: true)!;
+            var outerType = assembly.GetType("C35Fixture.OuterN", throwOnError: true)!;
+            var innerType = assembly.GetType("C35Fixture.InnerN", throwOnError: true)!;
+            var simpleType = assembly.GetType("C35Fixture.SimpleN", throwOnError: true)!;
+
+            // Multi CA in E03 temp: source null / inner null -> fallback.
+            Assert.Equal(-1, InvokeStatic(fixture, "RunSingle", null, -1));
+            var outerOnly = Activator.CreateInstance(outerType)!;
+            Assert.Equal(-1, InvokeStatic(fixture, "RunSingle", outerOnly, -1));
+
+            var outer = Activator.CreateInstance(outerType)!;
+            var inner = Activator.CreateInstance(innerType)!;
+            innerType.GetField("B")!.SetValue(inner, 42);
+            outerType.GetField("Inner")!.SetValue(outer, inner);
+            Assert.Equal(42, InvokeStatic(fixture, "RunSingle", outer, -1));
+
+            // Single member CA inline at E03 landing.
+            Assert.Equal(-2, InvokeStatic(fixture, "RunMember", null, -2));
+            var simple = Activator.CreateInstance(simpleType)!;
+            simpleType.GetField("B")!.SetValue(simple, 7);
+            Assert.Equal(7, InvokeStatic(fixture, "RunMember", simple, -2));
+        }
+
+        var (result, _) = PreprocessSoleFile(E03CompositionSource);
+        Assert.Equal(2, result.Statistics.NullConditional.CoalesceCompositionSites);
+        Assert.Equal(2, result.Diagnostics.Count(d => d.Code == NullConditionalDiagnosticCodes.CS2J0567));
+    }
 }
