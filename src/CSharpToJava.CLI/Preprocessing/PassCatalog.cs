@@ -116,8 +116,9 @@ internal static class PassCatalog
                          "interpolation rule rewrites interpolated strings into string.Concat/string.Format " +
                          "(opt-in via --interpolation-expand), the C36 collection-expression rules " +
                          "rewrite collection expressions into explicit allocation/factory calls, " +
-                         "and the C24 initializer rules desugar object/collection initializers into explicit statements.",
-            catalogItems: "C23, C24, C35, C36"),
+                         "and the C24 initializer rules desugar object/collection initializers into explicit statements; " +
+                         "the C51 null-conditional assignment rule lowers assignment-terminal ?./?[] sites into guarded statements.",
+            catalogItems: "C23, C24, C35, C36, C51"),
         new(
             PassIds.Enum,
             "Enum",

@@ -183,6 +183,10 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
             break;
         }
 
+        if (plan.IsCoalesceAssignment)
+            return RenderCoalesceAssignment(
+                visited, plan, visitedCaByOriginal, terminalAssignment);
+
         switch (plan.Shape)
         {
             case NullConditionalLoweringShape.Inline:
@@ -269,6 +273,102 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
             default:
                 return visited;
         }
+    }
+
+    /// <summary>
+    /// NA-6 rendering (design §3.5): the coalesced member is read once into
+    /// <c>__ed_nN</c> and the assignment happens only inside an
+    /// <c>if (nN == null)</c>; statement form nests that body in the receiver
+    /// guard, value form prefixes the guarded member read and finishes with
+    /// the <c>s != null ? n == null ? s.b = c : n : null</c> ternary.
+    /// </summary>
+    private SyntaxNode RenderCoalesceAssignment(
+        ConditionalAccessExpressionSyntax visited,
+        ChainPlan plan,
+        IReadOnlyDictionary<ConditionalAccessExpressionSyntax, ConditionalAccessExpressionSyntax> visitedCaByOriginal,
+        AssignmentExpressionSyntax terminalAssignment)
+    {
+        List<StatementSyntax> statements;
+
+        if (plan.Shape == NullConditionalLoweringShape.StatementIf)
+        {
+            if (plan.Segments.Count == 1
+                && plan.Segments[0].TempName.Length == 0)
+            {
+                // Single whitelisted receiver: zero segment temp.
+                var receiver = visited.Expression;
+                var deepest = NullConditionalAssignmentEmitter.BuildCoalesceDeepestBlock(
+                    plan, terminalAssignment, receiver);
+                var outerIf = SyntaxFactory.IfStatement(
+                    SyntaxFactory.BinaryExpression(
+                        SyntaxKind.NotEqualsExpression,
+                        receiver,
+                        SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+                    SyntaxFactory.Block(deepest));
+                statements = new List<StatementSyntax> { outerIf };
+            }
+            else if (plan.Segments.Count == 1)
+            {
+                // Single non-whitelist receiver: one segment temp.
+                var segmentName = plan.Segments[0].TempName;
+                statements = new List<StatementSyntax>
+                {
+                    ExpressionDesugarTempLifter.DeclareVar(segmentName, visited.Expression),
+                };
+
+                var segmentReceiver = SyntaxFactory.IdentifierName(segmentName);
+                var deepest = NullConditionalAssignmentEmitter.BuildCoalesceDeepestBlock(
+                    plan, terminalAssignment, segmentReceiver);
+                statements.Add(SyntaxFactory.IfStatement(
+                    SyntaxFactory.BinaryExpression(
+                        SyntaxKind.NotEqualsExpression,
+                        segmentReceiver,
+                        SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)),
+                    SyntaxFactory.Block(deepest)));
+            }
+            else
+            {
+                // Multi-segment: deepest block (var nN = sN.b; if ...) inside
+                // the read-side prefix guard chain.
+                var deepestReceiver = SyntaxFactory.IdentifierName(
+                    plan.Segments[^1].TempName);
+                var innermost = NullConditionalAssignmentEmitter.BuildCoalesceDeepestBlock(
+                    plan, terminalAssignment, deepestReceiver);
+                statements = NullConditionalEmitter.BuildMultiSegmentPrefix(
+                    plan, visitedCaByOriginal, innermost);
+            }
+        }
+        else
+        {
+            // GuardedBlock (value form): prefetch chain, inner-temp null
+            // declaration + guarded read, then the value ternary statement.
+            var deepestReceiver = SyntaxFactory.IdentifierName(
+                plan.Segments[^1].TempName);
+            var innermost = new[]
+            {
+                NullConditionalAssignmentEmitter.BuildInnerTempAssignment(
+                    plan.InnerTempName,
+                    terminalAssignment.Left,
+                    deepestReceiver),
+            };
+
+            statements = NullConditionalEmitter.BuildMultiSegmentPrefix(
+                plan, visitedCaByOriginal, innermost);
+
+            // Inner temp declaration must precede the prefetch if chain
+            // (last statement emitted by the prefix).
+            var innerNull = NullConditionalAssignmentEmitter.DeclareInnerNull(
+                plan.InnerTempName, plan.TerminalValueType);
+            statements.Insert(statements.Count - 1, innerNull);
+
+            var valueTernary = NullConditionalAssignmentEmitter.BuildCoalesceValueTernary(
+                plan, terminalAssignment);
+            statements.Add(RebuildValueAnchorStatement(plan, valueTernary));
+        }
+
+        RegisterAnchorReplacement(plan, statements);
+        RewriteCount++;
+        return visited;
     }
 
     /// <summary>

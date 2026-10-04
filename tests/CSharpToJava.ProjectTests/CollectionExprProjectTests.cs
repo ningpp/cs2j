@@ -381,7 +381,7 @@ public class CollectionExprProjectTests
         var row = Assert.Single(
             stdout.Split('\n', '\r')
                 .Where(line => line.Contains(PassId, StringComparison.OrdinalIgnoreCase)));
-        Assert.Contains("rules=C23, C24, C35, C36", row);
+        Assert.Contains("rules=C23, C24, C35, C36, C51", row);
         Assert.Contains(" on ", row, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain(" off ", row, StringComparison.OrdinalIgnoreCase);
     }

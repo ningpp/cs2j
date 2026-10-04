@@ -483,14 +483,14 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
     /// C35 summary segment (design §6): sites by terminal (member/call, index,
     /// invoke split event/delegate), void/inlined/anchor buckets, lifted value
     /// terminals, E03 coalesce compositions, C51 deferrals, temps, skips and
-    /// the residual gate count.
+    /// the residual gate count, followed by the additive C51 assign= clause.
     /// </summary>
     private string BuildNullConditionalSummarySegment()
     {
         var n = _statistics.NullConditional;
         var skipped = n.SkippedByReason.Values.Sum();
 
-        return $"nc: {n.ConditionalAccessSites} member/call, " +
+        var line = $"nc: {n.ConditionalAccessSites} member/call, " +
                $"{n.ConditionalIndexSites} idx, " +
                $"{n.InvokeSites} invoke (event {n.EventSites}" +
                $"/delegate {n.DelegateSites}), " +
@@ -500,6 +500,22 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
                $"{n.DeferredForC51Sites} deferred-c51, " +
                $"{n.SegmentTempsLifted} temps, " +
                $"{skipped} skipped, {n.ResidualNodeCount} residual";
+
+        // C51 additive clause: present (like the whole nc segment) only while
+        // the NullConditional subsection is enabled; zero-site runs keep the
+        // clause but with zeroed buckets, staying idempotent across re-runs.
+        line += $", assign= {n.AssignmentMemberSites} member" +
+                $"/{n.AssignmentIndexSites} idx, " +
+                $"{n.CompoundAssignmentSites} compound" +
+                $"/{n.EventCompoundSites} event, " +
+                $"{n.CoalesceAssignmentSites} coalesce, " +
+                $"{n.ValueFormAssignmentSites} value, " +
+                $"{n.AssignmentChainSites} chain, " +
+                $"{n.AssignmentRhsConditionalSites} rhs-nc, " +
+                $"{n.AssignmentReceiverTempsLifted} temps, " +
+                $"{n.AssignmentResidualNodeCount} residual";
+
+        return line;
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)

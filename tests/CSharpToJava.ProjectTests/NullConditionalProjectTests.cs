@@ -129,6 +129,30 @@ public class NullConditionalProjectTests
             var sites = await File.ReadAllTextAsync(Path.Combine(
                 intermediate, "SampleNullConditionalLib", "Sites.cs"));
             Assert.Contains("__ed_s", sites);
+
+            // C51: the assignment fixture projects are mirrored and fully
+            // lowered; the CLI verify step already built and ran their xUnit
+            // runtime tests (7) against this intermediate tree.
+            var assignmentSitesPath = Path.Combine(
+                intermediate,
+                "NullConditionalAssignment", "AssignmentLib", "Sites.cs");
+            Assert.True(
+                File.Exists(assignmentSitesPath),
+                "missing mirrored assignment fixture: " + assignmentSitesPath);
+            var assignmentSites = await File.ReadAllTextAsync(assignmentSitesPath);
+
+            // Whitelist receiver (parameter) inlines as a guarded if with no
+            // receiver temp; coalesce sites carry the Q4 inner temp.
+            Assert.Contains("if (n != null)", assignmentSites);
+            Assert.Contains("__ed_n", assignmentSites);
+
+            // E03 four-quadrant: assignment-terminal conditional chains are
+            // gone (no ?./?[ and no ??= on a conditional target), while the
+            // plain ??= site (no ?.) is left byte-identical for the upstream
+            // null-coalesce pass / native compiler.
+            Assert.DoesNotContain("?.", assignmentSites);
+            Assert.DoesNotContain("?[", assignmentSites);
+            Assert.Contains("n.Label ??= v", assignmentSites);
         }
         finally
         {

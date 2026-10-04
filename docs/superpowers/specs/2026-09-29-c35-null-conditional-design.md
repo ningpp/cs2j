@@ -287,7 +287,8 @@ src/CSharpToJava.Core/ExpressionDesugar/NullConditional/
 | CS2J0565 | Info | 表达式树祖先内条件访问跳过（基线本不可编译，防御性配对） |
 | CS2J0566 | Error（strict）/Warning | residual 闸门：输出残留未配对的 CA/ElementBinding/条件 MemberBinding |
 | CS2J0567 | Info | 与 E03 `??` 产物组合站点（NC-6 计数） |
-| CS2J0568–0569 | — | 预留（M3 固定点/新形态登记用） |
+| CS2J0568 | Info | C51（NA-6）：`a?.b ??= c` 空条件合并赋值站点；守卫体内原 `??=` 降级为纯 `=` |
+| CS2J0569 | Error | C51 安全网：原生非法/受损/未知赋值形态（++/-- CS1059、解构 CS0131、`=ref`、非成员/索引的 `??=` 目标、未知运算符/目标），dirty-no-rewrite |
 
 restore/build/test 失败复用族公共 CS2J0520（Warning/Error），不另占码。
 
