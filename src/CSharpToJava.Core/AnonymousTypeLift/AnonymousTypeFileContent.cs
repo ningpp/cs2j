@@ -7,9 +7,11 @@ namespace CSharpToJava.Core.AnonymousTypeLift;
 /// 生成共享的匿名形状 class 文件（写到中间源码树根目录，经 Compile Include + Link
 /// 挂到每个编译了被改写源文件的项目）。
 ///
-/// 阶段 A 只产出「可编译的最小类」：自动只读属性 + 全参构造器；
-/// Equals/GetHashCode/ToString 等语义成员在阶段 B 补齐（设计 D5/D6/D7）。
-/// 文件内容刻意只使用最保守的 C# 结构，保证其自身能被后续流水线阶段处理。
+/// 每个形状生成一个 internal sealed class，成员顺序固定：
+/// 只读自动属性 → 全参构造器 → override Equals → override GetHashCode → override
+/// ToString（设计 D1/D5/D6/D7）。刻意只使用最保守的 C# 子集（is 模式、
+/// EqualityComparer、String.Concat、整数字面量），禁止 LINQ/插值字符串 handler/
+/// switch 表达式，保证其自身能被后续流水线阶段处理。
 /// </summary>
 internal static partial class AnonymousTypeFileContent
 {
@@ -31,14 +33,14 @@ internal static partial class AnonymousTypeFileContent
         sb.AppendLine("{");
         foreach (var shape in ordered)
         {
-            AppendClass(sb, shape);
+            AppendClass(sb, shape, namespaceName);
         }
 
         sb.AppendLine("}");
         return sb.ToString();
     }
 
-    private static void AppendClass(StringBuilder sb, AnonymousShape shape)
+    private static void AppendClass(StringBuilder sb, AnonymousShape shape, string namespaceName)
     {
         var genericParameters = shape.GenericArity > 0
             ? "<" + string.Join(", ", Enumerable.Range(0, shape.GenericArity).Select(i => $"__P{i}")) + ">"
@@ -85,7 +87,116 @@ internal static partial class AnonymousTypeFileContent
         }
 
         sb.AppendLine("        }");
+
+        // 自引用全限定名：泛型时带 <__P0, …>；is 精确运行时类型保证不同形状永不等（D5）。
+        var selfReference = "global::" + namespaceName + "." + shape.Name + genericParameters;
+
+        AppendEquals(sb, shape, propertyTypes, selfReference);
+        AppendGetHashCode(sb, shape, propertyTypes);
+        AppendToString(sb, shape);
+
         sb.AppendLine("    }");
+    }
+
+    /// <summary>
+    /// Equals（D5）：<c>obj is 全限定自身类型 other &amp;&amp; EqualityComparer&lt;P&gt;
+    /// .Default.Equals(P, other.P) &amp;&amp; …</c>，逐属性按声明顺序；零属性形状只保留
+    /// 精确类型检查。绝不生成 IEquatable&lt;T&gt;、==/!= 运算符。
+    /// </summary>
+    private static void AppendEquals(
+        StringBuilder sb,
+        AnonymousShape shape,
+        IReadOnlyList<string> propertyTypes,
+        string selfReference)
+    {
+        sb.AppendLine();
+        sb.AppendLine("        public override global::System.Boolean Equals(global::System.Object obj)");
+        sb.AppendLine("        {");
+        sb.Append("            return obj is ").Append(selfReference).Append(" other");
+        for (var i = 0; i < shape.Properties.Count; i++)
+        {
+            sb.Append(" && global::System.Collections.Generic.EqualityComparer<")
+                .Append(propertyTypes[i])
+                .Append(">.Default.Equals(")
+                .Append(shape.Properties[i].Name)
+                .Append(", other.")
+                .Append(shape.Properties[i].Name)
+                .Append(')');
+        }
+
+        sb.AppendLine(";");
+        sb.AppendLine("        }");
+    }
+
+    /// <summary>
+    /// GetHashCode（D6）：固定种子 17、逐字段 <c>hash = hash * 31 +
+    /// EqualityComparer&lt;P&gt;.Default.GetHashCode(P)</c>；零属性形状直接返回 17。
+    /// 与 E06 生成 struct 同一算法。
+    /// </summary>
+    private static void AppendGetHashCode(
+        StringBuilder sb,
+        AnonymousShape shape,
+        IReadOnlyList<string> propertyTypes)
+    {
+        sb.AppendLine();
+        sb.AppendLine("        public override global::System.Int32 GetHashCode()");
+        sb.AppendLine("        {");
+        if (shape.Properties.Count == 0)
+        {
+            sb.AppendLine("            return 17;");
+        }
+        else
+        {
+            sb.AppendLine("            global::System.Int32 hash = 17;");
+            for (var i = 0; i < shape.Properties.Count; i++)
+            {
+                sb.Append("            hash = hash * 31 + ")
+                    .Append("global::System.Collections.Generic.EqualityComparer<")
+                    .Append(propertyTypes[i])
+                    .Append(">.Default.GetHashCode(")
+                    .Append(shape.Properties[i].Name)
+                    .AppendLine(");");
+            }
+
+            sb.AppendLine("            return hash;");
+        }
+
+        sb.AppendLine("        }");
+    }
+
+    /// <summary>
+    /// ToString（D7）：<c>String.Concat("{ P0 = ", P0, ", P1 = ", P1, " }")</c>。
+    /// params object?[] 重载的 null→空串语义精确匹配 C# 匿名类型；值类型实参由重载
+    /// 正常装箱，嵌套形状递归自然命中其 ToString。零属性形状返回 "{ }"。
+    /// </summary>
+    private static void AppendToString(StringBuilder sb, AnonymousShape shape)
+    {
+        sb.AppendLine();
+        sb.AppendLine("        public override global::System.String ToString()");
+        sb.AppendLine("        {");
+        if (shape.Properties.Count == 0)
+        {
+            sb.AppendLine("            return \"{ }\";");
+        }
+        else
+        {
+            sb.Append("            return global::System.String.Concat(");
+            for (var i = 0; i < shape.Properties.Count; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(", ");
+                }
+
+                var name = shape.Properties[i].Name;
+                sb.Append("\"").Append(i == 0 ? "{ " : ", ").Append(name).Append(" = \", ")
+                    .Append(name);
+            }
+
+            sb.AppendLine(", \" }\");");
+        }
+
+        sb.AppendLine("        }");
     }
 
     /// <summary>

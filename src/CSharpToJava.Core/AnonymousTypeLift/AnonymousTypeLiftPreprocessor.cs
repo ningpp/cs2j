@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -21,6 +22,9 @@ public sealed partial class AnonymousTypeLiftPreprocessor
     private readonly AnonymousTypeLiftOptions _options;
     private readonly Dictionary<string, HashSet<AnonymousShape>> _shapesByFile =
         new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>本 preprocessor 生命周期内已发过 AL030 的形状键（每形状最多一条）。</summary>
+    private readonly HashSet<string> _dynamicShapesAnnounced = new(StringComparer.Ordinal);
 
     public AnonymousTypeLiftPreprocessor(AnonymousTypeLiftOptions? options = null)
     {
@@ -108,14 +112,44 @@ public sealed partial class AnonymousTypeLiftPreprocessor
             return new AnonymousTypeLiftFileResult { OutputCode = sourceCode, Changed = false };
         }
 
+        // §2.4 扫描断言（改写前的原树）：匿名类型在 C# 源码中不能被具名书写，显式
+        // TypeSyntax 位置若绑定了匿名符号，说明前序 pass 出现了新物化点 → AL020 聚合
+        // 一条（每文件最多一条，消息含命中数）。原树不可能有 Cs2jAnonymous 显式名，
+        // 无需排除 ObjectCreationExpression。
+        var explicitTypeHits = CountExplicitAnonymousTypePositions(root, semanticModel);
+        if (explicitTypeHits > 0)
+        {
+            diagnostics.Add(new AnonymousTypeLiftDiagnostic(
+                "AL020",
+                AnonymousTypeLiftSeverity.Warning,
+                $"{explicitTypeHits} explicit type position(s) in this file are bound to " +
+                "anonymous type symbols (anonymous types cannot be named in C# source; a " +
+                "preceding pass may have materialized one). Review the pass chain ordering."));
+        }
+
         var rewriter = new AnonymousSiteRewriter(
             semanticModel, _registry, _options.NamespaceName, statistics, diagnostics,
-            _shapesByFile, semanticModel.SyntaxTree.FilePath);
+            _shapesByFile, semanticModel.SyntaxTree.FilePath, _dynamicShapesAnnounced);
         var newRoot = (CompilationUnitSyntax)rewriter.Visit(root)!;
+
+        // D14 语义级残余闸门：只统计「语义模型确认为匿名类型但未被改写」的创建点
+        // （目前只有表达式树跳过这一种；IErrorTypeSymbol 的 AL010 节点未绑定匿名类型，
+        // 不计）。查询 transparent identifier 没有创建语法节点，天然不计（设计 §7.4）。
+        var residual = rewriter.SemanticResidualCount;
+        statistics.ResidualCreations += residual;
 
         if (!rewriter.Changed)
         {
             statistics.FilesSkippedClean++;
+            if (residual > 0)
+            {
+                diagnostics.Add(new AnonymousTypeLiftDiagnostic(
+                    "AL060",
+                    AnonymousTypeLiftSeverity.Warning,
+                    $"{residual} anonymous object creation node(s) could not be rewritten and were " +
+                    "left unchanged (see the warnings above for the reasons)."));
+            }
+
             return new AnonymousTypeLiftFileResult { OutputCode = sourceCode, Changed = false };
         }
 
@@ -132,8 +166,6 @@ public sealed partial class AnonymousTypeLiftPreprocessor
 
         statistics.FilesTransformed++;
 
-        var residual = CountResidualAnonymousCreations(outputCode);
-        statistics.ResidualCreations += residual;
         if (residual > 0)
         {
             diagnostics.Add(new AnonymousTypeLiftDiagnostic(
@@ -150,7 +182,44 @@ public sealed partial class AnonymousTypeLiftPreprocessor
         statistics.NestedShapes = _registry.Shapes.Count(s => s.Properties.Any(p => p.IsAnonymous));
         statistics.TypesGenerated = _registry.Shapes.Count;
 
+        // AL001：每个被改写文件一条 Info（非每站点），含本文件创建点数与形状名集合。
+        var shapeNames = rewriter.FileShapeNames
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+        diagnostics.Add(new AnonymousTypeLiftDiagnostic(
+            "AL001",
+            AnonymousTypeLiftSeverity.Info,
+            $"{rewriter.RewrittenSiteCount} anonymous object creation site(s) in this file " +
+            $"were lifted to {shapeNames.Length} named type(s): {string.Join(", ", shapeNames)}."));
+
         return new AnonymousTypeLiftFileResult { OutputCode = outputCode, Changed = true };
+    }
+
+    /// <summary>
+    /// §2.4 扫描断言：遍历原树全部显式 <see cref="TypeSyntax"/>，凡语义绑定（Type 或
+    /// ConvertedType）到匿名类型的位置都计数。正常 C# 源码中该数恒为 0。
+    /// <c>var</c>（IsVar）是合法的推断位置而非可具名类型位置——其 GetTypeInfo 会返回
+    /// 推断出的匿名类型，必须排除。
+    /// </summary>
+    internal static int CountExplicitAnonymousTypePositions(SyntaxNode root, SemanticModel model)
+    {
+        var hits = 0;
+        foreach (var typeSyntax in root.DescendantNodes().OfType<TypeSyntax>())
+        {
+            if (typeSyntax is IdentifierNameSyntax { IsVar: true })
+            {
+                continue;
+            }
+
+            var info = model.GetTypeInfo(typeSyntax);
+            if (info.Type is INamedTypeSymbol { IsAnonymousType: true }
+                || info.ConvertedType is INamedTypeSymbol { IsAnonymousType: true })
+            {
+                hits++;
+            }
+        }
+
+        return hits;
     }
 
     /// <summary>文件级快速脏检查（D15 幂等）：不含任何匿名对象创建语法时直接原样拷贝。</summary>
@@ -165,21 +234,6 @@ public sealed partial class AnonymousTypeLiftPreprocessor
         }
 
         return false;
-    }
-
-    internal static int CountResidualAnonymousCreations(string code)
-    {
-        try
-        {
-            var parsed = CSharpSyntaxTree.ParseText(code);
-            return parsed.GetRoot()
-                .DescendantNodesAndSelf()
-                .Count(n => n is AnonymousObjectCreationExpressionSyntax);
-        }
-        catch (Exception)
-        {
-            return 0;
-        }
     }
 
     /// <summary>
@@ -265,6 +319,23 @@ internal sealed class AnonymousSiteRewriter : CSharpSyntaxRewriter
     private readonly List<AnonymousTypeLiftDiagnostic> _diagnostics;
     private readonly Dictionary<string, HashSet<AnonymousShape>> _shapesByFile;
     private readonly string _filePath;
+    private readonly HashSet<string> _dynamicShapesAnnounced;
+
+    /// <summary>每个 lambda 节点的表达式树判定缓存（同一 lambda 只问一次语义模型）。</summary>
+    private readonly Dictionary<SyntaxNode, bool> _expressionTreeLambdaCache = new();
+
+    /// <summary>本文件实际用到的形状（AL001 消息用，与 filePath 是否为空无关）。</summary>
+    private readonly HashSet<AnonymousShape> _fileShapes = new();
+
+    /// <summary>语义确认为匿名类型但未改写的创建点数（D14 语义残余闸门）。</summary>
+    public int SemanticResidualCount { get; private set; }
+
+    /// <summary>本文件被改写的创建点数（AL001 消息用；区别于跨文件累计的 stats）。</summary>
+    public int RewrittenSiteCount { get; private set; }
+
+    /// <summary>本文件涉及的形状名集合（已按形状去重）。</summary>
+    public IReadOnlyCollection<string> FileShapeNames =>
+        _fileShapes.Select(shape => shape.Name).ToArray();
 
     public bool Changed { get; private set; }
 
@@ -275,7 +346,8 @@ internal sealed class AnonymousSiteRewriter : CSharpSyntaxRewriter
         AnonymousTypeLiftStatistics stats,
         List<AnonymousTypeLiftDiagnostic> diagnostics,
         Dictionary<string, HashSet<AnonymousShape>> shapesByFile,
-        string filePath)
+        string filePath,
+        HashSet<string> dynamicShapesAnnounced)
     {
         _model = model;
         _registry = registry;
@@ -284,10 +356,25 @@ internal sealed class AnonymousSiteRewriter : CSharpSyntaxRewriter
         _diagnostics = diagnostics;
         _shapesByFile = shapesByFile;
         _filePath = filePath;
+        _dynamicShapesAnnounced = dynamicShapesAnnounced;
     }
 
     public override SyntaxNode? VisitAnonymousObjectCreationExpression(AnonymousObjectCreationExpressionSyntax node)
     {
+        // 0. 表达式树跳过（AL020）：找最近的 lambda 祖先（含匿名方法，罕见），命中
+        //    ExpressionTreeFacts 共享判定时整子树原样保留（不 Visit 内部），计语义残余。
+        var lambda = node.Ancestors().OfType<LambdaExpressionSyntax>().FirstOrDefault();
+        if (lambda != null && IsExpressionTreeLambdaCached(lambda))
+        {
+            _diagnostics.Add(new AnonymousTypeLiftDiagnostic(
+                "AL020",
+                AnonymousTypeLiftSeverity.Warning,
+                "An anonymous object creation inside an expression-tree lambda was skipped " +
+                "and left unchanged (expression trees cannot reference the lifted class)."));
+            SemanticResidualCount++;
+            return node;
+        }
+
         // 1. 语义取符号：Type 优先，回退 ConvertedType；都不是匿名类型 → AL010 原样。
         var info = _model.GetTypeInfo(node);
         var symbol = info.Type as INamedTypeSymbol;
@@ -326,6 +413,7 @@ internal sealed class AnonymousSiteRewriter : CSharpSyntaxRewriter
 
         // 5. 保留 trivia、挂改写注解。
         _stats.CreationsRewritten++;
+        RewrittenSiteCount++;
         Changed = true;
         return creation
             .WithLeadingTrivia(node.GetLeadingTrivia())
@@ -333,9 +421,77 @@ internal sealed class AnonymousSiteRewriter : CSharpSyntaxRewriter
             .WithAdditionalAnnotations(s_rewriteAnnotation);
     }
 
-    /// <summary>登记本文件用到的形状（生成按编译单元切分的 class 文件时需要）。</summary>
+    /// <summary>
+    /// AL040 反射/身份契约盘点（D8，保守启发式、只 Warn 不改写）：
+    /// ① 接收者静态类型为匿名类型的 <c>object.GetType()</c> 无参虚调用；
+    /// ② 名为 Serialize/SerializeObject 的方法且任一实参静态类型是匿名类型。
+    /// 每节点最多一条；无论是否命中都继续正常 Visit，不影响改写。
+    /// </summary>
+    public override SyntaxNode? VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        AnalyzeReflectionAndSerialization(node);
+        return base.VisitInvocationExpression(node);
+    }
+
+    private void AnalyzeReflectionAndSerialization(InvocationExpressionSyntax node)
+    {
+        if (_model.GetSymbolInfo(node).Symbol is not IMethodSymbol method)
+        {
+            return;
+        }
+
+        var definition = method.OriginalDefinition;
+        if (definition.Name == "GetType"
+            && definition.Parameters.Length == 0
+            && definition.ContainingType?.SpecialType == SpecialType.System_Object
+            && node.Expression is MemberAccessExpressionSyntax memberAccess
+            && _model.GetTypeInfo(memberAccess.Expression).Type
+                is INamedTypeSymbol { IsAnonymousType: true })
+        {
+            _diagnostics.Add(new AnonymousTypeLiftDiagnostic(
+                "AL040",
+                AnonymousTypeLiftSeverity.Warning,
+                $"A GetType() identity-reflection call on an anonymous-typed receiver " +
+                $"('{memberAccess.Expression}') was found; the lifted class name differs " +
+                "from the compiler-generated anonymous type name, so identity/reflection " +
+                "contracts are not equivalent."));
+            return;
+        }
+
+        if ((string.Equals(definition.Name, "Serialize", StringComparison.Ordinal)
+                || string.Equals(definition.Name, "SerializeObject", StringComparison.Ordinal))
+            && node.ArgumentList.Arguments.Any(arg =>
+                _model.GetTypeInfo(arg.Expression).Type is INamedTypeSymbol { IsAnonymousType: true }))
+        {
+            _diagnostics.Add(new AnonymousTypeLiftDiagnostic(
+                "AL040",
+                AnonymousTypeLiftSeverity.Warning,
+                $"A '{definition.Name}' call receives an anonymous-typed argument; serialization " +
+                "based on the runtime type identity was inventoried (property names/order are preserved)."));
+        }
+    }
+
+    /// <summary>表达式树判定（每 lambda 节点缓存一次结果）。</summary>
+    private bool IsExpressionTreeLambdaCached(LambdaExpressionSyntax lambda)
+    {
+        if (!_expressionTreeLambdaCache.TryGetValue(lambda, out var isExpressionTree))
+        {
+            isExpressionTree = ExpressionTreeFacts.IsExpressionTreeLambda(_model, lambda);
+            _expressionTreeLambdaCache[lambda] = isExpressionTree;
+        }
+
+        return isExpressionTree;
+    }
+
+    /// <summary>
+    /// 登记本文件用到的形状（生成按编译单元切分的 class 文件时需要）；同时维护
+    /// AL001 用的本文件形状集合，并对含 dynamic 的形状在整个 preprocessor 生命周期
+    /// 内首发一次 AL030 Info（D9，按形状键去重）。
+    /// </summary>
     private AnonymousShape TrackShape(AnonymousShape shape)
     {
+        _fileShapes.Add(shape);
+
         if (!string.IsNullOrEmpty(_filePath))
         {
             if (!_shapesByFile.TryGetValue(_filePath, out var set))
@@ -345,6 +501,15 @@ internal sealed class AnonymousSiteRewriter : CSharpSyntaxRewriter
             }
 
             set.Add(shape);
+        }
+
+        if (shape.HasDynamic && _dynamicShapesAnnounced.Add(shape.Key))
+        {
+            _diagnostics.Add(new AnonymousTypeLiftDiagnostic(
+                "AL030",
+                AnonymousTypeLiftSeverity.Info,
+                $"Shape '{shape.Name}' contains a dynamic property: it is lifted faithfully " +
+                "on the C# side, but the Java side has no dynamic support (uncovered by C25)."));
         }
 
         return shape;

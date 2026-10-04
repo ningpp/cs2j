@@ -9,7 +9,9 @@ public enum AnonymousTypeLiftSeverity
 
 /// <summary>
 /// 诊断条目。码位全集（AL001/AL002/AL010/AL020/AL030/AL040/AL050/AL060/AL070）
-/// 见 C21 设计 §6；本阶段实际只产生 AL002/AL010/AL060。
+/// 见 C21 设计 §6；Core 层产生 AL001（每改写文件一条 Info）/AL002（语法校验失败）/
+/// AL010（符号不全）/AL020（表达式树跳过、§2.4 显式类型位置）/AL030（dynamic 形状）/
+/// AL040（反射/序列化盘点）/AL060（语义残余闸门）。
 /// </summary>
 public sealed record AnonymousTypeLiftDiagnostic(
     string Code,

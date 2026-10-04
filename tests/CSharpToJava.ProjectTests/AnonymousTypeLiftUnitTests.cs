@@ -137,6 +137,22 @@ public class AnonymousTypeLiftUnitTests
         return count;
     }
 
+    /// <summary>编译给定源码集合，返回全部 error 诊断（负例断言用）。</summary>
+    private static List<Diagnostic> CompileErrors(params string[] sources)
+    {
+        var trees = sources
+            .Select(s => (SyntaxTree)CSharpSyntaxTree.ParseText(s, ParseOptions))
+            .ToList();
+        var compilation = CSharpCompilation.Create(
+            "anon-verify",
+            trees,
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
+        return compilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error)
+            .ToList();
+    }
+
     // ------------------------------------------------------------------
     // 1. clean 文件
     // ------------------------------------------------------------------
@@ -525,5 +541,324 @@ public class AnonymousTypeLiftUnitTests
         Assert.Equal(1, stats.FilesScanned);
         Assert.Equal(1, stats.FilesSkippedClean);
         Assert.Equal(0, stats.CreationsRewritten);
+    }
+
+    // ------------------------------------------------------------------
+    // 13A. 语义成员文本：Equals / GetHashCode / ToString（D5/D6/D7）
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void SemanticMembers_BasicShape_ExactTextAndCompiles()
+    {
+        var src = """
+            class C
+            {
+                object M()
+                {
+                    var p = new { X = 1, Y = "a" };
+                    return p;
+                }
+            }
+            """;
+        var session = RunSession(src);
+        _output.WriteLine(session.GeneratedFile);
+        AssertSessionCompiles(session);
+        var gen = session.GeneratedFile!;
+
+        // Equals：全限定自引用 is 模式 + 逐属性 EqualityComparer，按声明顺序。
+        Assert.Contains("obj is global::Cs2jAnonymous.Anon_X_Int32_Y_String other", gen);
+        Assert.Contains("EqualityComparer<global::System.Int32>.Default.Equals(X, other.X)", gen);
+        Assert.Contains("EqualityComparer<global::System.String>.Default.Equals(Y, other.Y)", gen);
+        Assert.Contains("public override global::System.Boolean Equals(global::System.Object obj)", gen);
+
+        // GetHashCode：种子 17、*31 累加。
+        Assert.Contains("public override global::System.Int32 GetHashCode()", gen);
+        Assert.Contains("global::System.Int32 hash = 17;", gen);
+        Assert.Contains("hash = hash * 31 +", gen);
+        Assert.Contains("EqualityComparer<global::System.Int32>.Default.GetHashCode(X)", gen);
+        Assert.Contains("EqualityComparer<global::System.String>.Default.GetHashCode(Y)", gen);
+
+        // ToString：String.Concat(params object?[]) 精确 token 序列。
+        Assert.Contains("public override global::System.String ToString()", gen);
+        Assert.Contains(
+            "global::System.String.Concat(\"{ X = \", X, \", Y = \", Y, \" }\")", gen);
+
+        // D1 红线：绝不生成 IEquatable/运算符/record/with。
+        Assert.DoesNotContain("IEquatable", gen);
+        Assert.DoesNotContain("public static", gen);
+        Assert.DoesNotContain(" != ", gen);
+        Assert.DoesNotContain("record", gen);
+        Assert.DoesNotContain("with", gen);
+    }
+
+    [Fact]
+    public void SemanticMembers_ZeroPropertyShape_ExactTextAndCompiles()
+    {
+        var src = "class C { object M() => new { }; }";
+        var session = RunSession(src);
+        _output.WriteLine(session.GeneratedFile);
+        AssertSessionCompiles(session);
+        var gen = session.GeneratedFile!;
+
+        // 零属性形状：Equals 仅精确类型检查（不同形状永不等）；hash 常量 17；"{ }"。
+        Assert.Contains("obj is global::Cs2jAnonymous.Anon other;", gen);
+        Assert.Contains("return 17;", gen);
+        Assert.Contains("return \"{ }\";", gen);
+    }
+
+    // ------------------------------------------------------------------
+    // 13B. 行为可编译性：nameof 不动 / 属性 get-only 负例 / 嵌套可变正例
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void NameofSite_LeftUntouched_AndCompiles()
+    {
+        var src = """
+            class C
+            {
+                string M(C p)
+                {
+                    var n = p == null ? (int?)null : p.X;
+                    return nameof(p.X) + n;
+                }
+
+                public int X;
+            }
+            """;
+        var session = RunSession(src);
+        AssertSessionCompiles(session);
+        // nameof(p.X) 不是创建点，原样保留。
+        Assert.Contains("nameof(p.X)", session.Outputs[0]);
+    }
+
+    [Fact]
+    public void GeneratedProperty_IsGetOnly_AssignmentFailsToCompile()
+    {
+        var src = "class C { object M() => new { X = 1, Y = \"a\" }; }";
+        var session = RunSession(src);
+        var useSite = """
+            class UseSite
+            {
+                static void N()
+                {
+                    var p = new global::Cs2jAnonymous.Anon_X_Int32_Y_String(1, "a");
+                    p.X = 1;
+                }
+            }
+            """;
+        var errors = CompileErrors(session.Outputs[0], session.GeneratedFile!, useSite);
+        // CS0200: 属性是只读的；CS1023 也是 get-only 赋值的可能码位之一。
+        Assert.Contains(errors, d => d.Id is "CS0200" or "CS1023");
+    }
+
+    [Fact]
+    public void NestedMutableMember_RemainsMutable_Compiles()
+    {
+        var src = """
+            class C
+            {
+                void M()
+                {
+                    var q = new { L = new global::System.Collections.Generic.List<int>() };
+                    q.L.Add(1);
+                }
+            }
+            """;
+        var session = RunSession(src);
+        AssertSessionCompiles(session);
+        Assert.Contains(".L.Add(1)", session.Outputs[0]);
+    }
+
+    // ------------------------------------------------------------------
+    // 13C. 表达式树内创建点跳过（AL020 + 语义残余 + AL060）
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void ExpressionTreeCreation_Skipped_AL020_Residual_AL060_OtherSiteRewritten()
+    {
+        var src = """
+            class C
+            {
+                void M()
+                {
+                    global::System.Linq.Expressions.Expression<global::System.Func<int, object>> e = x => new { V = x };
+                    var z = new { Z = 1 };
+                }
+            }
+            """;
+        var session = RunSession(src);
+        _output.WriteLine(session.Outputs[0]);
+
+        // 表达式树创建点原样保留；同文件普通站点正常改写。
+        Assert.Contains("new { V = x }", session.Outputs[0]);
+        Assert.DoesNotContain("Anon_V_", session.Outputs[0]);
+        Assert.Contains("new global::Cs2jAnonymous.Anon_Z_Int32(1)", session.Outputs[0]);
+
+        Assert.Equal(1, session.Stats.CreationsRewritten);
+        Assert.Equal(1, session.Stats.ResidualCreations);
+
+        var al020 = session.Diags.Where(d => d.Code == "AL020").ToList();
+        Assert.Single(al020);
+        Assert.Equal(AnonymousTypeLiftSeverity.Warning, al020[0].Severity);
+        Assert.Contains(session.Diags, d => d.Code == "AL060" && d.Severity == AnonymousTypeLiftSeverity.Warning);
+
+        // 保留的表达式树 lambda 本身合法，与生成文件联合编译零 error。
+        AssertSessionCompiles(session);
+    }
+
+    // ------------------------------------------------------------------
+    // 13D. AL030：dynamic 形状生命周期内只发一次
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void DynamicShape_AL030_OncePerShapeAcrossSitesAndFiles()
+    {
+        var file1 = """
+            class C1
+            {
+                object A() => new { D = (dynamic)1 };
+                object B() => new { D = (dynamic)2 };
+            }
+            """;
+        var file2 = "class C2 { object C() => new { D = (dynamic)3 }; }";
+        var session = RunSessionNamed(("one.cs", file1), ("two.cs", file2));
+        AssertSessionCompiles(session);
+
+        var al030 = session.Diags.Where(d => d.Code == "AL030").ToList();
+        Assert.Single(al030);
+        Assert.Equal(AnonymousTypeLiftSeverity.Info, al030[0].Severity);
+        Assert.Equal(1, session.Stats.DynamicShapes);
+        Assert.Equal(3, session.Stats.CreationsRewritten);
+    }
+
+    // ------------------------------------------------------------------
+    // 13E. AL040：GetType 身份反射 + Serialize/SerializeObject 盘点
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void GetTypeAndSerialize_OnAnonymous_AL040_RewriteUnaffected()
+    {
+        var src = """
+            class Ser
+            {
+                public static string SerializeObject(object value) => value?.ToString() ?? "";
+            }
+
+            class C
+            {
+                string M()
+                {
+                    var p = new { X = 1 };
+                    var t = p.GetType().Name;
+                    var s = Ser.SerializeObject(p);
+                    return t + s;
+                }
+            }
+            """;
+        var session = RunSession(src);
+        _output.WriteLine(session.Outputs[0]);
+        AssertSessionCompiles(session);
+
+        var al040 = session.Diags
+            .Where(d => d.Code == "AL040" && d.Severity == AnonymousTypeLiftSeverity.Warning)
+            .ToList();
+        Assert.Equal(2, al040.Count);
+
+        // 只盘点不改写：创建点仍提升、零残余、联合编译零 error。
+        Assert.Contains("new global::Cs2jAnonymous.Anon_X_Int32(1)", session.Outputs[0]);
+        Assert.Equal(1, session.Stats.CreationsRewritten);
+        Assert.Equal(0, session.Stats.ResidualCreations);
+    }
+
+    // ------------------------------------------------------------------
+    // 13F. 查询语法：方法链 / 查询式 / let transparent identifier
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void QuerySyntax_MethodChainAndQuery_LetTransparentIdentifier_NoResidual()
+    {
+        var src = """
+            using System.Collections.Generic;
+            using System.Linq;
+
+            class C
+            {
+                IEnumerable<int> M(IEnumerable<int> xs)
+                {
+                    var a = xs.Select(x => new { X = x });
+                    var b = from x in xs select new { X = x };
+                    var c = from x in xs let y = x + 1 select new { A = x, B = y };
+                    return xs;
+                }
+            }
+            """;
+        var session = RunSession(src);
+        _output.WriteLine(session.Outputs[0]);
+        AssertSessionCompiles(session);
+
+        Assert.Equal(3, session.Stats.CreationsRewritten);
+        // transparent identifier 无创建语法节点，豁免 residual 闸门（§7.4）。
+        Assert.Equal(0, session.Stats.ResidualCreations);
+        Assert.DoesNotContain(session.Diags, d => d.Code == "AL020");
+        Assert.Contains("Anon_X_Int32(x)", session.Outputs[0]);
+        // let 透明标识符 y 在源码里就是范围变量名，实参自然是 (x, y)。
+        Assert.Contains("Anon_A_Int32_B_Int32(x, y)", session.Outputs[0]);
+    }
+
+    // ------------------------------------------------------------------
+    // 13G. 语义残余隔离：表达式树站点不影响同文件普通形状生成
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void ExpressionTreeResidual_NormalSiteIsolation_GeneratedFileHasNormalClassOnly()
+    {
+        var src = """
+            class C
+            {
+                void M()
+                {
+                    global::System.Linq.Expressions.Expression<global::System.Func<int, object>> e = x => new { V = x };
+                    var z = new { Z = 1 };
+                }
+            }
+            """;
+        var session = RunSession(src);
+        AssertSessionCompiles(session);
+
+        Assert.Contains("internal sealed class Anon_Z_Int32", session.GeneratedFile);
+        // 跳过的表达式树形状从未注册，不进生成文件。
+        Assert.DoesNotContain("Anon_V_", session.GeneratedFile);
+    }
+
+    // ------------------------------------------------------------------
+    // 13H. AL001：每个被改写文件一条 Info（站点数 + 形状名集合）
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void AL001_OneInfoPerRewrittenFile_WithSiteCountAndShapeNames()
+    {
+        var file1 = """
+            class C1
+            {
+                object A() => new { X = 1 };
+                object B() => new { X = 2 };
+                object Cc() => new { Y = "a" };
+            }
+            """;
+        var file2 = "class C2 { object D() => new { Z = 1L }; }";
+        var session = RunSessionNamed(("one.cs", file1), ("two.cs", file2));
+        AssertSessionCompiles(session);
+
+        var al001 = session.Diags
+            .Where(d => d.Code == "AL001" && d.Severity == AnonymousTypeLiftSeverity.Info)
+            .ToList();
+        Assert.Equal(2, al001.Count);
+
+        Assert.Contains("3 anonymous object creation site(s)", al001[0].Message);
+        Assert.Contains("Anon_X_Int32", al001[0].Message);
+        Assert.Contains("Anon_Y_String", al001[0].Message);
+
+        Assert.Contains("1 anonymous object creation site(s)", al001[1].Message);
+        Assert.Contains("Anon_Z_Int64", al001[1].Message);
     }
 }
