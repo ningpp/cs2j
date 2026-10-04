@@ -3,7 +3,7 @@
 **日期**: 2026-09-29
 **范围**: catalog C49（P1，`.NET 10` 目标基线直接命中）：顶层非泛型静态类中的 `extension(ReceiverType receiver) { … }` 块——实例扩展属性、扩展运算符、静态扩展方法/属性、块/成员两级泛型——的声明侧归一与调用点显式化；扩展索引器（C# 15 预览）显式拒绝归 C52
 **归属**: C19 `extension-methods` pass 的**声明侧规则族**（catalog 名称 `ExtensionMemberNormalize`；规则前缀 EMD，Extension Member Declarations），不新增 stub、不新增 pass、不新增中间目录；本文是 [2026-09-29-c19-extension-methods-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c19-extension-methods-design.md) 的姊妹设计
-**状态**: 设计定稿；实施中（独立 worktree，见 §12；2026-10-04 起按 M1/M2/M3 分批由 Sub Agent 实现、分批提交），本文不改动转换器代码。**2026-10-04 已回填 M1 探针结论（§13）**：Roslyn 5.0.0 GA 实测推翻/补钉了决策 6/7、§4.4、§4.6 的若干假设，相关行就地标注。**2026-10-04 已回填 M2 探针结论（§14）**：转换运算符 CS9282（EMD-OP 转换子规则注销）、ref/in receiver 允许集收窄到值类型、块参数由合成容器承载（成员自身 arity 只含 m）、显式实参 n+m 全有或全无，决策 4/5/8/9/10 与 §4.4 已就地标注
+**状态**: 设计定稿；实施中（独立 worktree，见 §12；2026-10-04 起按 M1/M2/M3 分批由 Sub Agent 实现、分批提交），本文不改动转换器代码。**2026-10-04 已回填 M1 探针结论（§13）**：Roslyn 5.0.0 GA 实测推翻/补钉了决策 6/7、§4.4、§4.6 的若干假设，相关行就地标注。**2026-10-04 已回填 M2 探针结论（§14）**：转换运算符 CS9282（EMD-OP 转换子规则注销）、ref/in receiver 允许集收窄到值类型、块参数由合成容器承载（成员自身 arity 只含 m）、显式实参 n+m 全有或全无，决策 4/5/8/9/10 与 §4.4 已就地标注。**2026-10-05 已回填 M3 探针结论（§15）**：null 条件属性读链合法、简单写/复合写合法而 `?.P++` CS1059、块方法组绑 Ordinary+Extension 容器、表达式树仅属性站点 CS9296（运算符补 ET 排除）、metadata 全量往返（CS2J1203 只报告判据），决策 15、§4.5/4.6 已就地标注
 **关联资料**: [preprocessor-catalog.md](file:///d:/code/cs2j/prompts/preprocessor-catalog.md) C49（L953-966）/C19（L530-542）/C11（L419-431）/C14 对齐 /C52（L997-1010）；[preprocessor-foundation_plan.md](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md) L60-139；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L180-L206)；官方语言参考 https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/extension 、 https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14 ；特性规范 csharp-14.0/extensions
 
 ---
@@ -548,6 +548,67 @@ receiver 参数**不得命名 `value`**：块含 set 访问器时 **CS9291**（"
 3. **GenericParameterMapping**：n+m 顺序与成员自身 arity=m/容器 arity=n 的符号事实一致；显式/省略判定只看调用名节点（GenericName/IdentifierName）。
 4. **EMD-REF**：处理块语法声明的 `ref/in/ref readonly/scoped ref/scoped in/scoped`（仅合法集），首参同款修饰、实参 ref/in 加注；泛型 ref receiver 与指针 receiver 不存在于可编译输入，不产生计划（指针形态若遇残留 → 1211 该块不改）。
 5. **CS2J1208 门控扩展**：`EnableOperators` 与 `EnableProperties` 同判（启用而 member-desugar 链未就绪 → Error 拒绝子规则）；EMD-STATIC/EMD-METHOD 不挂门控。
+
+---
+
+## 15. M3 探针结论（2026-10-05，Roslyn 5.0.0 GA 实测）
+
+探针工程：[ExtensionBlockM3ProbeTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c49-extension-members/tests/CSharpToJava.Tests/Preprocessing/ExtensionBlockM3ProbeTests.cs)（9 用例：null 条件链/写复合矩阵、方法组委托、表达式树、metadata 跨程序集、env-gated SDK 扫描，全绿）。以下事实钉死 M3 规则依据；与正文冲突处，决策 15、§4.5/4.6 就地标注。
+
+### 15.1 null 条件扩展属性链（读形态）
+
+| 形态 | 实测树/绑定 |
+|---|---|
+| `w?.Alias.Length` | 外层 ConditionalAccess；**WhenNotNull = MemberAccessExpression(Expression=MemberBindingExpression(Alias), Name=Length)**；MemberBinding 绑定 IPropertySymbol（容器 TypeKind.Extension）；外层 `.Length` 绑经典 `string.Length`（最小显示 "string.Length"） |
+| `w?.Reply(1).Length` | **WhenNotNull = MemberAccessExpression(InvocationExpression(MemberBindingExpression(Reply)), Length)**；invocation 绑定 Ordinary 方法（容器 Extension） |
+| `w?.Reply(1)?.Length`（嵌套） | **WhenNotNull = 嵌套 ConditionalAccessExpression(InvocationExpression(MemberBinding(Reply)), MemberBindingExpression(Length))** |
+
+三种读形态全部 0 错误。⇒ M1 的 `r?.P`/`r?.M()` 配方可沿"member-binding 前缀 + 普通成员后缀"扩展到链形态；前缀符号必须经 MemberBinding 节点取。
+
+### 15.2 null 条件扩展属性写/复合合法面（探针实测，修正任务书待证项）
+
+1. **`w?.Alias = "x"`（简单写）合法**：WhenNotNull = SimpleAssignmentExpression，左为 MemberBindingExpression，MemberBinding 绑扩展属性；0 错误。
+2. **`w?.Alias += "x"`（复合写）合法**：WhenNotNull = AddAssignmentExpression（其他 op= 同构）；0 错误。
+3. **`w?.Count++`（++/--）非法**：**CS1059**（"递增或递减运算符的操作数必须是变量、属性或索引器"），诊断挂在条件访问上。
+4. 矩阵前提：**自动属性（`{ get; set; }`）在块内 CS9282 的诊断挂在属性声明本身**（M1 已钉死，与是否被 `?.` 写无关），故矩阵使用带访问器体的属性；`init` 访问器 CS9304。
+5. 实施后果：简单写/复合写走 EM-COND 单次求值守卫——receiver 非空时 `global::Host.set_P(r, v)` / `set_P(r, get_P(r) op v)`，语句位可展开；`?.P++/--` 为 CS1059 配对诊断、保留糖并按组留块（retained sugar 需要块存在，沿用 HasDeferredSites）。
+
+### 15.3 块方法组委托转换（EM-GROUP 的 C49 版）
+
+| 探针 | 实测事实 |
+|---|---|
+| `Func<int,string> f = w.Reply;` | GetSymbolInfo **Symbol=IMethodSymbol：MethodKind.Ordinary、IsExtensionMethod=false、ReducedFrom=null、ContainingType TypeKind.Extension**；ConvertedType=目标委托；委托 Invoke 形参与块方法声明形参一一对应；块符号 Parameters 仍**不含 receiver** |
+| 重载组 | 多个同名块方法按实参/委托形参唯一解析，Symbol 为选中者 |
+| `nameof(w.Reply)` | CandidateReason=**MemberGroup**；语义错误 **CS8093**（"扩展方法组不允许作为 nameof 的参数"） |
+| `object o = w.Reply;` | Symbol=null、CandidateReason=**OverloadResolutionFailure**；CandidateSymbols 含 Ordinary+Extension 容器方法；警告 CS8974（方法组转非委托类型） |
+| 静态成员组 `Func<int,string> f = Widget.Make;` | 左为 ITypeSymbol；Symbol 为静态 Ordinary（容器 Extension）；委托转换合法，0 错误 |
+
+实施后果：镜像 C19 EM-GROUP 捕获 lambda，但符号判据改为 **Ordinary（非 ReducedExtension）+ ContainingType.TypeKind=Extension + membersByOriginal 命中**；歧义/转换失败/ref receiver/非支配位需 temp 等情形沿用 C19 配对诊断路径（CS2J1207 同族）；静态块成员组是 EMD-STATIC 的对应形态，lambda 体内调用显式补 n 个块实参。
+
+### 15.4 表达式树边界（决策15实测细化）
+
+1. `Expression<Func<Widget,string>> e = w => w.Alias;`：lambda 内站点绑扩展属性符号；语义错误 **CS9296**（"An expression tree may not contain an extension property access"）。
+2. `Expression<Func<Widget,string>> e = w => w.Reply(1);`（方法）：**0 错误**——Roslyn 为扩展方法站点生成 Call 表达式。
+3. `Expression<Func<Widget,Widget>> e = w => w + w;`（运算符）：**0 错误**——扩展运算符站点在 ET 内同样被接受（降级为 Call）。
+4. 实施后果：**属性站点保持默认整 plan 跳过+配对诊断**；**运算符站点 M2 实现未做 ET 排除（当前会直接改写），M3 补上默认跳过+配对诊断**，与决策 15 对齐；**方法站点对齐 C19 EM-EXPRTREE：改写+同一性断言，失败单点回退**（站点计划标记 + 候选树重绑校验）。
+
+### 15.5 metadata 边界（§4.3、附录裁决5实测）
+
+1. 块源经独立 `CSharpCompilation.Emit(pe)`（仅 PE、不发 PDB）**发射成功**。
+2. 消费者以该 PE 为元数据引用：**所有站点** `w.Alias`、`w.Reply(1)`、`Widget.Make(1)`、`w + w` **均 0 错误**，绑定符号显示为 `LibNs.Host.extension(LibNs.Widget).Alias` 等——**metadata 全量往返，消费者经语义模型看到的仍是 TypeKind.Extension 合成容器**。
+3. 实施后果：外部扩展站点仅凭 ContainingType 无法与源码站点区分；**判据 = 无 membersByOriginal 命中 且 符号无源码位置（DeclaringSyntaxReferences 空 / Locations 在元数据）**。v1 只报告——CS2J1203 同族诊断指物到程序集（显示名）与成员；**禁止凭名合成 companion 声明**；无真实命中不发数据。
+
+### 15.6 SDK 命中率扫描（§7.5）
+
+Probe9 env-gated（`CS2J_RUN_SDK_PROBE=1` 且 `D:\code\csharp-sdk` 存在）：统计块数、成员种类（方法/属性/运算符/静态/索引器）、方法/属性站点分布；默认 no-op 通过。仿 [ExtensionMethodProbeTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c49-extension-members/tests/CSharpToJava.Tests/Preprocessing/ExtensionMethodProbeTests.cs) Probe3。
+
+### 15.7 对 M3 实施的净影响
+
+1. **null 条件属性**：扩展 `ConditionalPlanFactory`/`ExtensionBlockAnalyzer` 支持读链（`.P.B`）与成员绑定写/复合；`++/--` CS1059 配对留块。
+2. **块方法组**：实例+静态，捕获 lambda + C49 判据；失败路径配对诊断。
+3. **表达式树**：运算符补 ET 排除；方法站点 ET 改写+同一性；属性保持跳过。
+4. **metadata**：CS2J1203 同族只报告，命中才发。
+5. **residual（§4.6）**：块扫描器扩到运算符/静态/条件/方法组站点，索引器拒绝计数配对，同一性失败落 CS2J1222、碰撞落 CS2J1212；strict 与 host overrides 对块站点生效，由测试锁定。
 
 ---
 
