@@ -330,6 +330,12 @@
       <Link>SampleExtensionMembersSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- C38 async-stream truth fixture (bin/obj excluded: may have been built locally). -->
+    <Content Include="..\SampleAsyncSolution\**\*.*"
+              Exclude="..\SampleAsyncSolution\**\bin\**;..\SampleAsyncSolution\**\obj\**">
+      <Link>SampleAsyncSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

@@ -143,6 +143,12 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
     public override bool HasErrors
         => _diagnostics.Any(d => d.Severity == AsyncNormalizeSeverity.Error);
 
+    /// <summary>Accumulated pass diagnostics (project-test reconciliation gate).</summary>
+    public IReadOnlyList<AsyncNormalizeDiagnostic> Diagnostics => _diagnostics;
+
+    /// <summary>Accumulated C18/C38 statistics (project-test reconciliation gate).</summary>
+    public AsyncNormalizeStatistics Statistics => _statistics;
+
     public override string? BuildChainSummaryLine()
     {
         var lambdasLifted =
