@@ -518,14 +518,15 @@ public class InitializerDesugarUnitTests
     [Fact]
     public void M0_RuleSet_RegistersInitializersBeforeCollectionExpr()
     {
-        // Merged family order (C23 landed first, C24 appended at its reserved
-        // second slot): Interpolations, Initializers, CollectionExpr.
+        // Merged family order (C23 first, C24 second, C35 third):
+        // Interpolations, Initializers, NullConditional, CollectionExpr.
         Assert.Equal(
-            new[] { "Interpolations", "Initializers", "CollectionExpr" },
+            new[] { "Interpolations", "Initializers", "NullConditional", "CollectionExpr" },
             ExpressionDesugarRuleSet.Rules.Select(r => r.Id).ToArray());
 
-        // Options subsection is nullable and absent by default.
+        // Options subsections are nullable and absent by default.
         Assert.Null(new ExpressionDesugarOptions().Initializers);
+        Assert.Null(new ExpressionDesugarOptions().NullConditional);
         Assert.True(InitializerOptions.Default.Strict);
         Assert.False(InitializerOptions.Default.RewriteInExpressionTrees);
         Assert.Equal(InitializerScope.All, InitializerOptions.Default.Scope);

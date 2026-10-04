@@ -1,6 +1,7 @@
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
+using CSharpToJava.Core.ExpressionDesugar.NullConditional;
 
 namespace CSharpToJava.Core.ExpressionDesugar;
 
@@ -24,7 +25,7 @@ public sealed class ExpressionDesugarStatistics
     /// <summary>Total temporaries lifted across every rule (shared __ed_ numbering).</summary>
     public int TempsLifted;
 
-    // ---- Rule sections (append-only as C24/C35 land) ----
+    // ---- Rule sections (append-only as rules land) ----
 
     /// <summary>C23 interpolation-expansion section.</summary>
     public InterpolationStatistics Interpolations { get; } = new();
@@ -35,8 +36,8 @@ public sealed class ExpressionDesugarStatistics
     /// <summary>C24 object/collection-initializer section.</summary>
     public InitializerStatistics Initializers { get; } = new();
 
-    // Future sections:
-    //   public NullConditionalStatistics NullConditional { get; } = ...;  // C35
+    /// <summary>C35 null-conditional read-side section.</summary>
+    public NullConditionalStatistics NullConditional { get; } = new();
 
     /// <summary>Merges a per-file result into an accumulating run total.</summary>
     public void MergeFrom(ExpressionDesugarStatistics other)
@@ -50,5 +51,6 @@ public sealed class ExpressionDesugarStatistics
         Interpolations.MergeFrom(other.Interpolations);
         CollectionExpr.MergeFrom(other.CollectionExpr);
         Initializers.MergeFrom(other.Initializers);
+        NullConditional.MergeFrom(other.NullConditional);
     }
 }

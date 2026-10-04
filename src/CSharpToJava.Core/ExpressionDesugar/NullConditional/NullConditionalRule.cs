@@ -1,0 +1,122 @@
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace CSharpToJava.Core.ExpressionDesugar.NullConditional;
+
+/// <summary>
+/// C35 null-conditional read-side rule (fixed family order: third, after
+/// Initializers(C24) and before CollectionExpr(C36)).
+///
+/// <para>
+/// Rollout gate (same pattern as C24): the rule is inert unless the host opts
+/// in by supplying the <see cref="ExpressionDesugarOptions.NullConditional"/>
+/// subsection. Trigger syntax still reports dirty so the rule participates
+/// uniformly, but without the subsection its plan rewrites nothing.
+/// </para>
+///
+/// Analyze builds one <see cref="ChainPlan"/> per chain root via the
+/// SemanticModel-driven <see cref="ChainSegmentAnalyzer"/>; Rewrite runs one
+/// bottom-up <see cref="NullConditionalRewriter"/>. Assignment terminals
+/// (NC-7) are preserved for the later C51 rule in this same directory.
+/// </summary>
+internal sealed class NullConditionalRule : IExpressionDesugarRule
+{
+    public string Id => "NullConditional";
+
+    public bool IsPotentiallyDirty(
+        CompilationUnitSyntax root,
+        ExpressionDesugarOptions options)
+        // The rollout gate lives in Analyze (Options.NullConditional subsection).
+        => root.DescendantNodes()
+            .OfType<ConditionalAccessExpressionSyntax>()
+            .Any();
+
+    public ExpressionDesugarRulePlan Analyze(RuleAnalysisContext context)
+    {
+        if (context.Options.NullConditional is null)
+        {
+            return new NullConditionalRulePlan(
+                context,
+                new NullConditionalAnalysis(Array.Empty<ChainPlan>()));
+        }
+
+        return new NullConditionalRulePlan(
+            context,
+            ChainSegmentAnalyzer.Analyze(context));
+    }
+
+    /// <summary>Analyze product: owns plans and drives the bottom-up rewrite.</summary>
+    private sealed class NullConditionalRulePlan : ExpressionDesugarRulePlan
+    {
+        private readonly RuleAnalysisContext _context;
+        private readonly NullConditionalAnalysis _analysis;
+        private NullConditionalRewriter? _rewriter;
+
+        public NullConditionalRulePlan(
+            RuleAnalysisContext context,
+            NullConditionalAnalysis analysis)
+        {
+            _context = context;
+            _analysis = analysis;
+        }
+
+        public override CompilationUnitSyntax Rewrite(CompilationUnitSyntax root)
+        {
+            _rewriter = new NullConditionalRewriter(
+                _analysis, _context.SemanticModel!);
+            var visited = (CompilationUnitSyntax)_rewriter.Visit(root)!;
+
+            // Statement anchors for void/guarded shapes are replaced in the
+            // later milestones' flow (PendingAnchorReplacement.Apply).
+            return visited;
+        }
+
+        public override IReadOnlyList<ExpressionDesugarTempLifter.PendingTemp> PendingTemps
+            => (IReadOnlyList<ExpressionDesugarTempLifter.PendingTemp>?)_rewriter?.Pending
+               ?? Array.Empty<ExpressionDesugarTempLifter.PendingTemp>();
+
+        public override IReadOnlyDictionary<SyntaxNode, SyntaxAnnotation> AnchorAnnotations
+            => _rewriter?.AnchorAnnotations
+               ?? new Dictionary<SyntaxNode, SyntaxAnnotation>();
+
+        public override int RewriteCount => _rewriter?.RewriteCount ?? 0;
+
+        public override int CheckResiduals(
+            RuleAnalysisContext context, CompilationUnitSyntax root)
+        {
+            // Inert when the subsection is absent (rollout gate).
+            if (context.Options.NullConditional is null)
+                return 0;
+
+            var unpaired = 0;
+            SyntaxNode? firstResidual = null;
+
+            foreach (var node in root.DescendantNodes())
+            {
+                if (!NullConditionalSyntaxFacts.IsResidualNode(node))
+                    continue;
+                if (NullConditionalSyntaxFacts.IsExplained(node))
+                    continue;
+
+                unpaired++;
+                firstResidual ??= node;
+            }
+
+            var stats = context.Statistics.NullConditional;
+            stats.ResidualNodeCount = unpaired;
+
+            if (unpaired > 0)
+            {
+                var strict = context.Options.NullConditional.Strict;
+                context.Report(
+                    NullConditionalDiagnostics.ResolveStrictError(strict),
+                    NullConditionalDiagnosticCodes.CS2J0566,
+                    string.Format(
+                        NullConditionalDiagnostics.ResidualMessage, unpaired),
+                    firstResidual);
+            }
+
+            return unpaired;
+        }
+    }
+}

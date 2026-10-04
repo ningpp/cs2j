@@ -1,6 +1,7 @@
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
+using CSharpToJava.Core.ExpressionDesugar.NullConditional;
 
 namespace CSharpToJava.Core.ExpressionDesugar;
 
@@ -26,8 +27,11 @@ public sealed class ExpressionDesugarOptions
     /// </summary>
     public InitializerOptions? Initializers { get; init; }
 
-    // Future append positions (C35 lands later):
-    //   public NullConditionalOptions? NullConditional { get; init; }// C35
+    /// <summary>
+    /// C35 null-conditional read-side desugaring subsection (nullable; absent
+    /// = the rule stays inert, same rollout gate as C24).
+    /// </summary>
+    public NullConditionalOptions? NullConditional { get; init; }
 
     /// <summary>Default options instance.</summary>
     public static ExpressionDesugarOptions Default { get; } = new();
