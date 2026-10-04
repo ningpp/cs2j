@@ -1,5 +1,6 @@
 using System.Text;
 using CSharpToJava.Core.ExtensionMethodResolve;
+using CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -45,9 +46,16 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     /// <summary>M4 drill seam: force selected sites to emit non-compiling code (tests only).</summary>
     private readonly Func<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax, IMethodSymbol, bool>? _forceBrokenRewrite;
 
+    /// <summary>C49 policy: null keeps the classic CS2J1206 behavior byte-for-byte.</summary>
+    private readonly ExtensionBlockOptions? _blockOptions;
+
+    /// <summary>Whether the member-desugar consumption chain runs downstream (EMD-PROP gate input).</summary>
+    private readonly bool _memberDesugarChainAvailable;
+
     private readonly ExtensionMethodResolvePreprocessor _preprocessor = new();
     private readonly List<ExtensionDiagnostic> _diagnostics = new();
     private readonly ExtensionMethodResolveStatistics _statistics = new();
+    private readonly ExtensionBlockStatistics _blockStatistics = new();
 
     private ExtensionMethodResolveOptions _effectiveOptions = new();
     private IReadOnlyList<MetadataReference> _enhancedReferences = Array.Empty<MetadataReference>();
@@ -64,7 +72,9 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         bool verifyTests,
         Func<INamedTypeSymbol, ExternalHostMappingKind>? externalHostMapper = null,
         ExtensionHostOverrides? hostOverrides = null,
-        Func<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax, IMethodSymbol, bool>? forceBrokenRewrite = null)
+        Func<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax, IMethodSymbol, bool>? forceBrokenRewrite = null,
+        ExtensionBlockOptions? blockOptions = null,
+        bool memberDesugarChainAvailable = false)
     {
         _options = options;
         _verbose = verbose;
@@ -76,6 +86,8 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         _hostOverrides = hostOverrides ?? options.HostOverrides;
         _forceBrokenRewrite = forceBrokenRewrite;
         _preprocessor.ForceBrokenRewrite = forceBrokenRewrite;
+        _blockOptions = blockOptions;
+        _memberDesugarChainAvailable = memberDesugarChainAvailable;
     }
 
     public override PassDescriptor Descriptor => PassCatalog.ImplementedById(PassIds.ExtensionMethods);
@@ -127,6 +139,10 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     }
 
     public ExtensionMethodResolveStatistics Statistics => _statistics;
+
+    /// <summary>Aggregated C49 extension-block counters across all rewritten files.</summary>
+    public ExtensionBlockStatistics BlockStatistics => _blockStatistics;
+
     public IReadOnlyList<ExtensionDiagnostic> Diagnostics => _diagnostics;
 
     /// <summary>
@@ -239,7 +255,7 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     public override Task CompilationReadyAsync(CSharpCompilation compilation)
     {
         _preprocessor.BindCompilation(compilation);
-        _preprocessor.Analyze(_effectiveOptions);
+        _preprocessor.Analyze(_effectiveOptions, _blockOptions, _memberDesugarChainAvailable);
 
         // M4 rollback gate baseline (design §4.4-4): error keys of the ORIGINAL
         // tree compiled with the same references/options the candidate uses.
@@ -254,6 +270,11 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
     {
         var result = _preprocessor.RewriteFile(context.SemanticModel!);
         _statistics.Merge(result.Statistics);
+        if (_preprocessor.BlockStatisticsForLastFile is { } fileBlockStatistics)
+        {
+            _blockStatistics.Merge(fileBlockStatistics);
+        }
+
         foreach (var diagnostic in result.Diagnostics)
         {
             _diagnostics.Add(diagnostic with { FilePath = context.RelativePath });
@@ -300,7 +321,61 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
         }
 
         RunResidualScan(tree, candidate, excludedFiles);
+        RunBlockResidualScan(tree, candidate, excludedFiles);
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// C49 post-rewrite gate: no unpaired extension block declarations,
+    /// no unpaired sites bound to TypeKind.Extension, rewritten sites must
+    /// recompile to the generated member identity.
+    /// </summary>
+    private void RunBlockResidualScan(
+        PassTreeContext tree,
+        CSharpCompilation compilation,
+        IReadOnlyCollection<string>? excludedFiles)
+    {
+        if (_blockOptions is null)
+        {
+            return;
+        }
+
+        // The intermediate compilation reparses files: its SyntaxTree
+        // instances differ from the analysis keys. Re-key by file path.
+        var analysesByPath = _preprocessor.BlockAnalyses
+            .ToDictionary(kv => kv.Key.FilePath, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+        var candidateAnalyses = new Dictionary<SyntaxTree, BlockAnalysisResult>();
+        foreach (var candidateTree in compilation.SyntaxTrees)
+        {
+            if (analysesByPath.TryGetValue(candidateTree.FilePath, out var analysis))
+            {
+                candidateAnalyses[candidateTree] = analysis;
+            }
+        }
+
+        var blockResidual = ExtensionBlockResidualScanner.Scan(
+            compilation, candidateAnalyses, excludedFiles);
+
+        if (_verbose)
+        {
+            Console.WriteLine($"[extension-methods] c49 residual: {blockResidual}");
+        }
+
+        if (!blockResidual.HasFailures)
+        {
+            return;
+        }
+
+        var severity = ExtensionMethodResolvePolicy.ResidualSeverity(_effectiveOptions.Strict);
+        var summary = string.Join("; ", blockResidual.ToCounts()
+            .Where(kv => kv.Value > 0)
+            .Select(kv => $"{kv.Key}={kv.Value}"));
+        _diagnostics.Add(new ExtensionDiagnostic(
+            severity,
+            ExtensionRule.Ext14,
+            ExtensionMethodCodes.ResidualFound,
+            $"C49 residual gate: {summary} remain after extension-block materialization (design §4.5).",
+            tree.IntermediateRoot));
     }
 
     /// <summary>Byte-exact replay of the given intermediate files from their original copies.</summary>
