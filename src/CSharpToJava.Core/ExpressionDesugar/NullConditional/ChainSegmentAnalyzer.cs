@@ -574,6 +574,7 @@ internal static class ChainSegmentAnalyzer
         AccumulateLowered(plan, context);
         var stats = context.Statistics.NullConditional;
         stats.VoidStatementSites++;
+        stats.AnchorReplacements++;
         stats.SegmentTempsLifted += plan.Segments.Count;
     }
 
@@ -582,7 +583,9 @@ internal static class ChainSegmentAnalyzer
         plan.Outcome = ChainOutcome.Lowered;
         plan.Shape = NullConditionalLoweringShape.GuardedBlock;
         AccumulateLowered(plan, context);
-        context.Statistics.NullConditional.SegmentTempsLifted += plan.Segments.Count;
+        var stats = context.Statistics.NullConditional;
+        stats.AnchorReplacements++;
+        stats.SegmentTempsLifted += plan.Segments.Count;
     }
 
     private static void AccumulateLowered(ChainPlan plan, RuleAnalysisContext context)

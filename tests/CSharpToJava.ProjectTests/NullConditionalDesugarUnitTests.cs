@@ -974,4 +974,99 @@ public class NullConditionalDesugarUnitTests
         Assert.Equal(2, result.Statistics.NullConditional.CoalesceCompositionSites);
         Assert.Equal(2, result.Diagnostics.Count(d => d.Code == NullConditionalDiagnosticCodes.CS2J0567));
     }
+
+    // ==================================================================
+    // Milestone 4: NC-11 diagnostic completion.
+    // ==================================================================
+
+    private static ExpressionDesugarResult PreprocessLenient(
+        string source, string name = "c35-fixture")
+    {
+        var compilation = BuildCompilation(source, name);
+        var model = compilation.GetSemanticModel(compilation.SyntaxTrees[0]);
+        return new ExpressionDesugarPreprocessor()
+            .Preprocess(source, model, C35Enabled);
+    }
+
+    private static void AssertAtomicPreserved(
+        ExpressionDesugarResult result, string expectedCode, string source)
+    {
+        Assert.Contains(result.Diagnostics, d => d.Code == expectedCode);
+        Assert.Contains(
+            result.Diagnostics, d => d.Severity == ExpressionDesugarSeverity.Error
+                                    || d.Severity == ExpressionDesugarSeverity.Info);
+        Assert.False(result.Changed);
+        Assert.Equal(source, result.OutputCode);
+        // Preserved sites are explained, so the residual gate pairs them.
+        Assert.Equal(0, result.Statistics.NullConditional.ResidualNodeCount);
+    }
+
+    [Fact]
+    public void NC11_DynamicReceiver_CS2J0559_AtomicNoRewrite()
+    {
+        const string source = """
+            namespace C35Fixture;
+
+            public sealed class DynTarget { public int B; }
+
+            public static class DynFixture
+            {
+                public static int? Run(dynamic d) => d?.B;
+            }
+            """;
+
+        var result = PreprocessLenient(source);
+        AssertAtomicPreserved(result, NullConditionalDiagnosticCodes.CS2J0559, source);
+        Assert.Contains(result.Diagnostics,
+            d => d.Severity == ExpressionDesugarSeverity.Error);
+    }
+
+    [Fact]
+    public void NC11_RefContext_CS2J0560_AtomicNoRewrite()
+    {
+        const string source = """
+            namespace C35Fixture;
+
+            public sealed class RefTarget { public int B; }
+
+            public static class RefFixture
+            {
+                public static void Take(ref int? x) { }
+
+                public static void Run(RefTarget? a)
+                {
+                    Take(ref a?.B);
+                }
+            }
+            """;
+
+        var result = PreprocessLenient(source);
+        AssertAtomicPreserved(result, NullConditionalDiagnosticCodes.CS2J0560, source);
+        Assert.Contains(result.Diagnostics,
+            d => d.Severity == ExpressionDesugarSeverity.Error);
+    }
+
+    [Fact]
+    public void NC11_ExpressionTree_CS2J0565_AtomicPreserved()
+    {
+        const string source = """
+            using System;
+            using System.Linq.Expressions;
+
+            namespace C35Fixture;
+
+            public sealed class ExprTarget { public int B; }
+
+            public static class ExprFixture
+            {
+                public static Expression<Func<ExprTarget, int>> Select()
+                    => t => t?.B;
+            }
+            """;
+
+        var result = PreprocessLenient(source);
+        AssertAtomicPreserved(result, NullConditionalDiagnosticCodes.CS2J0565, source);
+        Assert.Contains(result.Diagnostics,
+            d => d.Severity == ExpressionDesugarSeverity.Info);
+    }
 }

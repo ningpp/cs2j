@@ -2,6 +2,7 @@ using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExpressionDesugar.CollectionExpr;
 using CSharpToJava.Core.ExpressionDesugar.Initializers;
 using CSharpToJava.Core.ExpressionDesugar.Interpolations;
+using CSharpToJava.Core.ExpressionDesugar.NullConditional;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -403,6 +404,11 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         if (_options.Initializers is not null)
             line += "; " + BuildInitializerSummarySegment();
 
+        // C35 additive segment: same opt-in discipline; absent byte-for-byte
+        // until the NullConditional subsection is present.
+        if (_options.NullConditional is not null)
+            line += "; " + BuildNullConditionalSummarySegment();
+
         return line;
     }
 
@@ -472,6 +478,29 @@ internal sealed class ExpressionDesugarPassAdapter : ProjectPassAdapter
         InitializerDiagnosticCodes.CS2J0538,
         InitializerDiagnosticCodes.CS2J0541,
     };
+
+    /// <summary>
+    /// C35 summary segment (design §6): sites by terminal (member/call, index,
+    /// invoke split event/delegate), void/inlined/anchor buckets, lifted value
+    /// terminals, E03 coalesce compositions, C51 deferrals, temps, skips and
+    /// the residual gate count.
+    /// </summary>
+    private string BuildNullConditionalSummarySegment()
+    {
+        var n = _statistics.NullConditional;
+        var skipped = n.SkippedByReason.Values.Sum();
+
+        return $"nc: {n.ConditionalAccessSites} member/call, " +
+               $"{n.ConditionalIndexSites} idx, " +
+               $"{n.InvokeSites} invoke (event {n.EventSites}" +
+               $"/delegate {n.DelegateSites}), " +
+               $"{n.VoidStatementSites} void, {n.InlinedSites} inline, " +
+               $"{n.LiftedValueTypeSites} lifted, " +
+               $"{n.CoalesceCompositionSites} coalesce, " +
+               $"{n.DeferredForC51Sites} deferred-c51, " +
+               $"{n.SegmentTempsLifted} temps, " +
+               $"{skipped} skipped, {n.ResidualNodeCount} residual";
+    }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
     {
