@@ -112,10 +112,12 @@ public sealed partial class AnonymousTypeLiftPreprocessor
             return new AnonymousTypeLiftFileResult { OutputCode = sourceCode, Changed = false };
         }
 
-        // §2.4 扫描断言（改写前的原树）：匿名类型在 C# 源码中不能被具名书写，显式
-        // TypeSyntax 位置若绑定了匿名符号，说明前序 pass 出现了新物化点 → AL020 聚合
-        // 一条（每文件最多一条，消息含命中数）。原树不可能有 Cs2jAnonymous 显式名，
-        // 无需排除 ObjectCreationExpression。
+        // §2.4 扫描断言（改写前的原树）：匿名类型在 C# 源码中不能被具名书写，只有
+        // 真正占据语法类型槽位（声明/cast/new/default/typeof/模式/is-as/基类列表等）
+        // 的最外层 TypeSyntax 绑定了匿名符号才算命中 → AL020 聚合一条（每文件最多
+        // 一条，消息含命中数）。表达式上下文的裸标识符（成员接收者、实参、查询范围
+        // 变量等）不是类型位置，必须排除。原树不可能有 Cs2jAnonymous 显式名，无需
+        // 排除 ObjectCreationExpression。
         var explicitTypeHits = CountExplicitAnonymousTypePositions(root, semanticModel);
         if (explicitTypeHits > 0)
         {
@@ -196,16 +198,31 @@ public sealed partial class AnonymousTypeLiftPreprocessor
     }
 
     /// <summary>
-    /// §2.4 扫描断言：遍历原树全部显式 <see cref="TypeSyntax"/>，凡语义绑定（Type 或
-    /// ConvertedType）到匿名类型的位置都计数。正常 C# 源码中该数恒为 0。
-    /// <c>var</c>（IsVar）是合法的推断位置而非可具名类型位置——其 GetTypeInfo 会返回
-    /// 推断出的匿名类型，必须排除。
+    /// §2.4 扫描断言（前序 pass 物化防线，设计 §2.4/§6 AL020）：只统计真正处于
+    /// 「语法类型位置根」（见 <see cref="IsTypePositionRoot"/>）且语义绑定（Type 或
+    /// ConvertedType）到匿名类型的位置数，以类型位置根为单位计数（一条复合类型只在
+    /// 最外层判定一次）。合法手写 C# 中匿名类型无法显式具名，正常源码该数恒为 0；
+    /// 真阳性只可能来自前序 pass 的异常物化（如 global:: 限定名落到声明槽），因此
+    /// 白名单刻意从简、宁可保守少报。
+    ///
+    /// 不能用 <c>root.DescendantNodes().OfType&lt;TypeSyntax&gt;()</c> 全收：Roslyn 中
+    /// <see cref="TypeSyntax"/> 继承自 ExpressionSyntax，表达式上下文的裸
+    /// IdentifierName/限定名（成员访问 <c>r.K</c> 中的 r、实参 a/b、查询范围变量、
+    /// <c>Console.WriteLine(o)</c> 的 o）也会被收进来，其 GetTypeInfo().Type 同样可能
+    /// 是匿名类型——那是表达式位置而非类型位置，必须靠语法槽位白名单剔除。
     /// </summary>
     internal static int CountExplicitAnonymousTypePositions(SyntaxNode root, SemanticModel model)
     {
         var hits = 0;
         foreach (var typeSyntax in root.DescendantNodes().OfType<TypeSyntax>())
         {
+            if (!IsTypePositionRoot(typeSyntax))
+            {
+                continue;
+            }
+
+            // var 是合法的推断位置而非可具名类型位置（foreach/using/out var 同理）：
+            // 其 GetTypeInfo 会返回推断出的匿名类型，必须排除。
             if (typeSyntax is IdentifierNameSyntax { IsVar: true })
             {
                 continue;
@@ -220,6 +237,91 @@ public sealed partial class AnonymousTypeLiftPreprocessor
         }
 
         return hits;
+    }
+
+    /// <summary>
+    /// 判断一个 TypeSyntax 是否为白名单内的「类型位置根」：它本身是一条类型表达式
+    /// 的最外层节点（非复合类型的内部部件，见 <see cref="IsTypeInternalPart"/>），且
+    /// 父节点把它放在类型语法槽中。复合类型（限定名、数组、指针、Nullable、元组、
+    /// 泛型实参、scoped/ref 包装等）以最外层根统一判定，内部节点不单独计数。
+    /// </summary>
+    private static bool IsTypePositionRoot(TypeSyntax node)
+    {
+        if (node.Parent is not { } parent || IsTypeInternalPart(node, parent))
+        {
+            return false;
+        }
+
+        switch (parent)
+        {
+            // ---- 声明位置的显式类型 ----
+            case VariableDeclarationSyntax variable when variable.Type == node:
+            case PropertyDeclarationSyntax property when property.Type == node:
+            case IndexerDeclarationSyntax indexer when indexer.Type == node:
+            case EventDeclarationSyntax @event when @event.Type == node:
+            case MethodDeclarationSyntax method when method.ReturnType == node:
+            case LocalFunctionStatementSyntax localFunction when localFunction.ReturnType == node:
+            case DelegateDeclarationSyntax @delegate when @delegate.ReturnType == node:
+            case OperatorDeclarationSyntax @operator when @operator.ReturnType == node:
+            case ConversionOperatorDeclarationSyntax conversion when conversion.Type == node:
+            case ParameterSyntax parameter when parameter.Type == node:
+            case CatchDeclarationSyntax @catch when @catch.Type == node:
+            // ---- 表达式/语句中的类型位置 ----
+            case CastExpressionSyntax cast when cast.Type == node:
+            // 隐式 new()/new[] 没有 Type，天然不会到这里。
+            case ObjectCreationExpressionSyntax creation when creation.Type == node:
+            case DefaultExpressionSyntax @default when @default.Type == node:
+            case TypeOfExpressionSyntax typeOf when typeOf.Type == node:
+            case DeclarationExpressionSyntax declaration when declaration.Type == node:
+            case StackAllocArrayCreationExpressionSyntax stackAlloc when stackAlloc.Type == node:
+            // ---- 模式中的类型（var 模式没有 TypeSyntax 子节点，无需处理）----
+            case DeclarationPatternSyntax declarationPattern when declarationPattern.Type == node:
+            case RecursivePatternSyntax recursivePattern when recursivePattern.Type == node:
+            // ---- 旧式 x is T / x as T（模式式 is 走上面的 pattern 槽）----
+            case BaseTypeSyntax baseType when baseType.Type == node:
+            case TypeConstraintSyntax typeConstraint when typeConstraint.Type == node:
+                return true;
+            case BinaryExpressionSyntax binary
+                when binary.IsKind(SyntaxKind.AsExpression)
+                    || binary.IsKind(SyntaxKind.IsExpression):
+                return binary.Right == node;
+            default:
+                // 其余父槽（成员访问、实参、查询子句、插值、条件表达式、特性名等）
+                // 都是表达式上下文，不是类型位置，一律不收。
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// 复合类型表达式的内部部件判定：节点嵌在另一个类型语法内部时不是独立根，整条
+    /// 类型只在其最外层所属槽位判定一次（避免同一类型内部节点重复计数）。
+    /// </summary>
+    private static bool IsTypeInternalPart(TypeSyntax node, SyntaxNode parent)
+    {
+        switch (parent)
+        {
+            // 限定名 / global:: 别名限定名：左部、右部、别名都是内部部件。
+            case QualifiedNameSyntax qualified when qualified.Left == node || qualified.Right == node:
+            case AliasQualifiedNameSyntax aliasQualified
+                when aliasQualified.Alias == node || aliasQualified.Name == node:
+            // 数组 / 指针 / T? / scoped T / ref T 的元素（包装）类型。
+            case ArrayTypeSyntax array when array.ElementType == node:
+            case PointerTypeSyntax pointer when pointer.ElementType == node:
+            case NullableTypeSyntax nullable when nullable.ElementType == node:
+            case ScopedTypeSyntax scoped when scoped.Type == node:
+            case RefTypeSyntax refType when refType.Type == node:
+            // 元组元素类型（最外层 TupleType 占槽，元素不单独扫）。
+            case TupleElementSyntax tupleElement when tupleElement.Type == node:
+            // 函数指针参数类型（delegate*<...>）。
+            case FunctionPointerParameterSyntax functionPointerParameter
+                when functionPointerParameter.Type == node:
+            // 泛型实参：整条泛型名（或其外层限定名/别名限定名）才是类型位置根，
+            // 实参不单独计数；泛型方法调用 M<T>() 的实参同样在这里被排除（保守）。
+            case TypeArgumentListSyntax typeArguments when typeArguments.Arguments.Contains(node):
+                return true;
+            default:
+                return false;
+        }
     }
 
     /// <summary>文件级快速脏检查（D15 幂等）：不含任何匿名对象创建语法时直接原样拷贝。</summary>

@@ -68,8 +68,13 @@ public class AnonymousTypeLiftProjectTests
     {
         var outputRoot1 = Path.Combine(FixtureDir, ".test-output-anon-1");
         var outputRoot2 = Path.Combine(FixtureDir, ".test-output-anon-2");
+        // CliChainResult 不暴露逐 pass 诊断；adapter 的 warning 经 Console.Error 输出。
+        // 捕获链期间 stderr，钉死 §2.4 AL020 不得对表达式上下文发误报。
+        var errorCapture = new StringWriter();
+        var originalError = Console.Error;
         try
         {
+            Console.SetError(errorCapture);
             var result = await RunChainAsync(
                 Path.Combine(FixtureDir, "SampleAnonymousTypeLiftSolution.sln"),
                 outputRoot1,
@@ -133,9 +138,15 @@ public class AnonymousTypeLiftProjectTests
             }
 
             AssertZeroResidualAnonymousCreations(secondIntermediate);
+
+            // §2.4 闸门零噪声：整条链（含幂等二次运行）的 stderr 中不得出现
+            // AL020「explicit type position(s)」聚合 warning（表达式上下文误报）。
+            var capturedErrors = errorCapture.ToString();
+            Assert.DoesNotContain("explicit type position(s)", capturedErrors);
         }
         finally
         {
+            Console.SetError(originalError);
             foreach (var outputRoot in new[] { outputRoot1, outputRoot2 })
             {
                 if (Directory.Exists(outputRoot))

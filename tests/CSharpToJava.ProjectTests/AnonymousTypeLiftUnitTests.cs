@@ -864,4 +864,115 @@ public class AnonymousTypeLiftUnitTests
         Assert.Contains("1 anonymous object creation site(s)", al001[1].Message);
         Assert.Contains("Anon_Z_Int64", al001[1].Message);
     }
+
+    // ------------------------------------------------------------------
+    // 14. AL020 §2.4：表达式上下文零误报（钉 bug）
+    //     TypeSyntax 继承自 ExpressionSyntax，裸 IdentifierName（成员接收者、
+    //     实参、查询范围变量/let、foreach 变量、Console.WriteLine(o)）不得被
+    //     当成「显式类型位置」。
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void ExpressionContexts_MemberAccess_Arguments_Query_Foreach_NoAL020FalsePositive()
+    {
+        var src = """
+            using System.Collections.Generic;
+            using System.Linq;
+
+            class C
+            {
+                static void Take(object x) { }
+
+                IEnumerable<int> M(IEnumerable<int> xs)
+                {
+                    var rows = xs.Select(x => new { K = x % 2, V = x }).ToArray();
+                    var picked = rows.Where(r => r.K == 0).Select(r => new { Z = r.V });
+
+                    foreach (var o in picked)
+                    {
+                        System.Console.WriteLine(o.Z);
+                        System.Console.WriteLine(o);
+                        Take(o);
+                    }
+
+                    var q = from r in rows
+                            let d = r.V * 2
+                            select new { A = r.K, B = d };
+                    foreach (var item in q)
+                    {
+                        Take(item);
+                    }
+
+                    return xs;
+                }
+            }
+            """;
+        var session = RunSession(src);
+        _output.WriteLine(session.Outputs[0]);
+        AssertSessionCompiles(session);
+
+        // 三个创建点（rows/picked/q 投影）全部正常改写，零残余。
+        Assert.True(session.Changed[0]);
+        Assert.Equal(3, session.Stats.CreationsRewritten);
+        Assert.Equal(0, session.Stats.ResidualCreations);
+        Assert.Contains("Anon_K_Int32_V_Int32(", session.Outputs[0]);
+        Assert.Contains("Anon_Z_Int32(", session.Outputs[0]);
+        Assert.Contains("Anon_A_Int32_B_Int32(", session.Outputs[0]);
+
+        var al020 = session.Diags
+            .Where(d => d.Code == "AL020" && d.Severity == AnonymousTypeLiftSeverity.Warning)
+            .ToList();
+        Assert.True(
+            al020.Count == 0,
+            "expression-context identifiers must not be reported as explicit type " +
+            "positions, but got AL020 warnings:\n" +
+            string.Join("\n", al020.Select(d => d.Message)));
+    }
+
+    // ------------------------------------------------------------------
+    // 15. AL020 §2.4：纯表达式杂烩（方法实参、成员接收者、条件表达式、字符串
+    //     插值中直接插匿名实例——插值触发 ToString 但语法位置是实参）零误报，
+    //     且改写输出联合编译零 error。
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void ExpressionMedley_Arguments_Receivers_Conditional_Interpolation_NoAL020_AndCompiles()
+    {
+        var src = """
+            class C
+            {
+                static void Take(object x) { }
+
+                object M(bool cond)
+                {
+                    var a = new { X = 1 };
+                    var b = new { X = 2 };
+                    Take(a);
+                    Take(b);
+                    Take(new { X = 3 });
+                    var merged = cond ? a : b;
+                    var text = $"a={a}, b={b}, x={a.X}, m={merged}";
+                    var length = text.Length + a.ToString().Length;
+                    System.Console.WriteLine(text);
+                    System.Console.WriteLine(length);
+                    return merged;
+                }
+            }
+            """;
+        var session = RunSession(src);
+        _output.WriteLine(session.Outputs[0]);
+        AssertSessionCompiles(session);
+
+        Assert.True(session.Changed[0]);
+        Assert.Equal(3, session.Stats.CreationsRewritten);
+        Assert.Equal(0, session.Stats.ResidualCreations);
+
+        var al020 = session.Diags
+            .Where(d => d.Code == "AL020" && d.Severity == AnonymousTypeLiftSeverity.Warning)
+            .ToList();
+        Assert.True(
+            al020.Count == 0,
+            "expression medley must not produce AL020 false positives, but got:\n" +
+            string.Join("\n", al020.Select(d => d.Message)));
+    }
 }
