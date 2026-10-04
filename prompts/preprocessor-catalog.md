@@ -570,7 +570,7 @@ E01 ConditionalDirectiveStrip（已实现；剥 `#if` 族条件指令（含未�
 | 证据 | 同上 |
 | 与现有通道关系 | 应在 E16 LINQ 之前（LINQ 过程式化会大量暴露匿名形状）；可复用 E06 shape registry 基建 |
 | 优先级 | **P3**（Java 28 record 路径已能吸收，仅低版本/复杂 LINQ 场景受益） |
-| 状态 | 缺失 |
+| 状态 | 已实现（Implemented，默认关，满足门槛后默认开） |
 | 官方文档 | https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/types/anonymous-types |
 
 #### C22 `Nullable<T>` 值类型提升（P3）
@@ -1095,6 +1095,7 @@ E01 → [C43+C28(词法批，观察项)] → [C20 若做，放这里] → E02 �
 | 平台边界 | **C42（隔离/拒绝）** + C06 的 extern 子项 + C10（P/Invoke 属性） | 外部契约边界；共享 CS2J3001/3101/3102/3201-3203 诊断基建 |
 | unsafe 家族 | C06 全部子规则 + E12 的 Span/数组交叉 + **C44 的 ref struct disposables 子项** + `[InlineArray]` 盘点 | 指针模型→索引/Span/FFM；共用 FfmHelper |
 | enum | E04 + C05 + C17 enum 自增 + C22 可空 enum | 同一 EnumSyntaxRewriter 扩展，不新建通道 |
+| 生成新声明 | E06 + C05 + C21 | 整树形状注册表 + 确定性命名 + 生成文件 Compile Include/Link 分发；标准 spine（逐文件 rewriter + AfterFiles） |
 | 版本面 / 新语法防线 | C36（升格 C# 11+）+ **C52（伞条目）** + **C49/C50/C51（C# 14）** + **C48（C# 13）** | 版本升级差集审计 + 显式拒绝，防「默认分支黑洞」（§4 风险 13/20）；目标基线 .NET 10 的共同先决＝Roslyn 包版本支持 C# 14 语法树 |
 
 ---

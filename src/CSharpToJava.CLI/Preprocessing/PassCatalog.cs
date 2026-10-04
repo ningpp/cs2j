@@ -12,6 +12,7 @@ internal static class PassIds
     public const string EnumDeclaration = "enum-declaration";
     public const string Delegate = "delegate";
     public const string Tuple = "tuple";
+    public const string AnonymousTypeLift = "anonymous-type-lift";
     public const string ForeachDeconstruction = "foreach-deconstruction";
     public const string PatternDesugar = "pattern-desugar";
     public const string StripDefault = "strip-default";
@@ -162,6 +163,26 @@ internal static class PassCatalog
             runAfterIds: new[] { PassIds.Delegate },
             supportLibrary: PassSupportLibrary.Cs2jTuples,
             description: "Distribute value-tuple usage into generated struct files."),
+        new(
+            PassIds.AnonymousTypeLift,
+            "Anonymous type lift",
+            ".cs2j-anonymous-type-lift-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            // C21 M1-M4 flipped together (adapter + registry in one delivery).
+            // Default-off observation period per design §8; the pass opts in via
+            // --enable-pass and flips default-on once the §8 gates are met.
+            // Declared immediately after tuple so the Kahn declaration-order
+            // tiebreak locks the slot tuple → anonymous-type-lift →
+            // foreach-deconstruction (both only anchor tuple; design §3.2).
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.Tuple },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Lift anonymous object creations into named internal sealed immutable classes before the LINQ channel.",
+            catalogItems: "C21"),
         new(
             PassIds.ForeachDeconstruction,
             "Foreach deconstruction",

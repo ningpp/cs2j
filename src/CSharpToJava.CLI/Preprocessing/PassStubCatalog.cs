@@ -42,7 +42,6 @@ internal static class PassStubCatalog
         public const string LinqChannel = "linq-channel";
         public const string AsyncNormalize = "async-normalize";
         public const string ExpressionDesugar = "expression-desugar";
-        public const string AnonymousTypeLift = "anonymous-type-lift";
         // Ids.PlatformIsolation flipped to Implemented in PassCatalog (C42 M1:
         // Report-mode audit only, default-off); the id constant stays here by
         // the iterator-lowering / unsafe-ffm precedent (§3.4).
@@ -101,7 +100,7 @@ internal static class PassStubCatalog
             PassStage.ControlFlow,
             PassStatus.Stub,
             defaultEnabled: false,
-            runAfterIds: new[] { PassIds.ExtensionMethods, Ids.AnonymousTypeLift },
+            runAfterIds: new[] { PassIds.ExtensionMethods, PassIds.AnonymousTypeLift },
             description: "Channel LINQ usage, including the IQueryable three-way routing acceptance gate.",
             catalogItems: "C26"),
         new(
@@ -118,16 +117,8 @@ internal static class PassStubCatalog
         // only the collection-expression analysis skeleton is registered,
         // default-off / no rewrite); the id constant stays here by the
         // iterator-lowering / equality-concat precedent (§3.4).
-        new(
-            Ids.AnonymousTypeLift,
-            "Anonymous type lift",
-            ".cs2j-anonymous-type-lift-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.Tuple },
-            description: "Lift anonymous types into named generated types before the LINQ channel.",
-            catalogItems: "C21"),
+        // Ids.AnonymousTypeLift flipped to Implemented in PassCatalog (C21 M1-M4);
+        // the descriptor lives there and no stub entry remains.
         // Ids.EqualityConcat flipped to Implemented in PassCatalog (C47).
         // Ids.PlatformIsolation flipped to Implemented in PassCatalog (C42);
         // the descriptor lives there and no stub entry remains.

@@ -1,4 +1,5 @@
 using CSharpToJava.Core.ArrayMethodRewriter;
+using CSharpToJava.Core.AnonymousTypeLift;
 using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.ConcurrencyNormalize;
 using CSharpToJava.Core.ClosedMetadata;
@@ -110,6 +111,10 @@ internal sealed class PassChainConfiguration
     /// </summary>
     public Func<PlatformIsolationOptions> PlatformIsolationOptionsFactory { get; init; } =
         static () => new PlatformIsolationOptions();
+
+    /// <summary>Invoked only when anonymous-type-lift is enabled (keeps construction lazy).</summary>
+    public Func<AnonymousTypeLiftOptions> AnonymousTypeLiftOptionsFactory { get; init; } =
+        static () => new AnonymousTypeLiftOptions();
 
     /// <summary>
     /// C48 params-collections rule set inside strip-default. Null (default, rules
@@ -264,6 +269,17 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
+
+            // C21 has no convert-project legacy toggle; the descriptor default
+            // (off, observation period per design §8) drives it and
+            // --enable-pass anonymous-type-lift opts in.
+            PassIds.AnonymousTypeLift => new AnonymousTypeLiftPassAdapter(
+                config.AnonymousTypeLiftOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
 
             PassIds.ForeachDeconstruction => new ForeachDeconstructionPassAdapter(
                 new ForeachDeconstructionOptions(),

@@ -45,7 +45,7 @@ internal sealed class TuplePassAdapter : ProjectPassAdapter
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
     public override IReadOnlyCollection<string>? CompatNamespacePrefixes => _compatNamespacePrefixes;
     public override CSharpParseOptions CreateParseOptions(PassTreeContext tree)
-        => new(LanguageVersion.Latest);
+        => new(LanguageVersion.Latest, preprocessorSymbols: new[] { "NETCOREAPP" });
     public override string CompilationName => "tuple-preprocess";
 
     public TupleToStructStatistics Statistics => _statistics;

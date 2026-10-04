@@ -10,9 +10,9 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// <summary>
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
-/// the topological sort must keep producing this exact order. Every
-/// implemented pass is default-on (all-on policy); the legacy flags survive as
-/// --no-xxx negations.
+/// the topological sort must keep producing this exact order. Implemented
+/// passes are default-on (all-on policy) apart from the observation-period
+/// passes (anonymous-type-lift); the legacy flags survive as --no-xxx negations.
 /// </summary>
 public sealed class PassChainOrderTests
 {
@@ -28,6 +28,11 @@ public sealed class PassChainOrderTests
         PassIds.EnumDeclaration,
         PassIds.Delegate,
         PassIds.Tuple,
+        // C21 M1-M4 flipped to Implemented; default-off observation period
+        // (design §8), RunAfter=tuple. Declared directly after tuple so the
+        // Kahn declaration-order tiebreak pins it between tuple and
+        // foreach-deconstruction (both anchor only tuple).
+        PassIds.AnonymousTypeLift,
         PassIds.ForeachDeconstruction,
         PassStubCatalog.Ids.ForeachSource,
         PassIds.PatternDesugar,
@@ -68,8 +73,11 @@ public sealed class PassChainOrderTests
         PassIds.JavaKeywords,
     ];
 
-    // All-on policy: every implemented pass is default-enabled.
-    private static readonly string[] EnabledByDefault = LockedChain;
+    // All-on policy: every implemented pass is default-enabled, except
+    // anonymous-type-lift (C21), which ships Implemented but default-off for
+    // its observation period (design §8; opts in via --enable-pass).
+    private static readonly string[] EnabledByDefault =
+        LockedChain.Where(id => id != PassIds.AnonymousTypeLift).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -473,11 +481,9 @@ public sealed class PassChainOrderTests
 
         // Legacy flags only exist for the historical implemented passes; stubs and
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
-        // Legacy flags only exist for the historical implemented passes; stubs and
-        // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
         // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation,
-        // C30 closed-metadata) are reachable solely through their descriptor default
-        // plus --enable-pass/--pass.
+        // C30 closed-metadata, C21 anonymous-type-lift) are reachable solely
+        // through their descriptor default plus --enable-pass/--pass.
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
@@ -490,7 +496,8 @@ public sealed class PassChainOrderTests
                 && id != PassStubCatalog.Ids.ConcurrencyNormalize
                 && id != PassIds.VarianceAudit
                 && id != PassStubCatalog.Ids.PlatformIsolation
-                && id != PassIds.ClosedMetadata)
+                && id != PassIds.ClosedMetadata
+                && id != PassIds.AnonymousTypeLift)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }
@@ -518,5 +525,88 @@ public sealed class PassChainOrderTests
         Assert.Equal(
             new[] { PassStubCatalog.Ids.ConcurrencyNormalize },
             isolated.Enabled.Select(p => p.Id).ToArray());
+    }
+
+    [Fact]
+    public void AnonymousTypeLift_is_implemented_default_off_with_tuple_anchor_and_no_stub_remains()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        // The stub row is gone and the id resolves to the single Implemented
+        // descriptor (the CS2J9001 stub-enable path no longer applies to it).
+        Assert.DoesNotContain(
+            registry.Ordered,
+            pass => pass.Id == PassIds.AnonymousTypeLift && pass.Status == PassStatus.Stub);
+        Assert.Single(registry.Ordered.Where(pass => pass.Id == PassIds.AnonymousTypeLift));
+
+        var descriptor = PassCatalog.ImplementedById(PassIds.AnonymousTypeLift);
+        Assert.Equal(PassStatus.Implemented, descriptor.Status);
+        Assert.False(descriptor.DefaultEnabled);
+        Assert.Equal(".cs2j-anonymous-type-lift-src", descriptor.IntermediateDirectoryName);
+        Assert.Equal(PassStage.Declarative, descriptor.Stage);
+        Assert.Equal(new[] { PassIds.Tuple }, descriptor.RunAfterIds);
+        Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
+        Assert.True(descriptor.NeedsSemanticModel);
+        Assert.True(descriptor.VerifyBuildByDefault);
+        Assert.True(descriptor.VerifyTestsByDefault);
+        Assert.Equal("C21", descriptor.CatalogItems);
+
+        // Default-off: absent from the default plan.
+        var baseline = PassPlanResolver.Resolve(registry);
+        Assert.True(baseline.IsValid);
+        Assert.DoesNotContain(baseline.Enabled, pass => pass.Id == PassIds.AnonymousTypeLift);
+
+        // Explicit enable enters the plan with Status=Implemented (never CS2J9001).
+        var enabled = PassPlanResolver.Resolve(
+            registry,
+            PassChainFactory.BuildAllDisabledToggles(registry),
+            enablePassIds: new[] { PassIds.AnonymousTypeLift });
+        Assert.True(enabled.IsValid);
+        var entry = Assert.Single(enabled.Enabled);
+        Assert.Equal(PassIds.AnonymousTypeLift, entry.Id);
+        Assert.Equal(PassStatus.Implemented, entry.Status);
+    }
+
+    [Fact]
+    public void AnonymousTypeLift_enabled_sorts_between_tuple_and_foreach_deconstruction()
+    {
+        var registry = PassCatalog.BuildRegistry();
+        var allOff = PassChainFactory.BuildAllDisabledToggles(registry);
+
+        var plan = PassPlanResolver.Resolve(
+            registry,
+            allOff,
+            enablePassIds: new[]
+            {
+                PassIds.Tuple,
+                PassIds.AnonymousTypeLift,
+                PassIds.ForeachDeconstruction,
+            });
+
+        Assert.True(plan.IsValid);
+        Assert.Equal(
+            new[]
+            {
+                PassIds.Tuple,
+                PassIds.AnonymousTypeLift,
+                PassIds.ForeachDeconstruction,
+            },
+            plan.Enabled.Select(pass => pass.Id).ToArray());
+    }
+
+    [Fact]
+    public void AnonymousTypeLift_can_run_alone_when_explicitly_enabled()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        var plan = PassPlanResolver.Resolve(
+            registry,
+            PassChainFactory.BuildAllDisabledToggles(registry),
+            enablePassIds: new[] { PassIds.AnonymousTypeLift });
+
+        Assert.True(plan.IsValid);
+        Assert.Equal(
+            new[] { PassIds.AnonymousTypeLift },
+            plan.Enabled.Select(pass => pass.Id).ToArray());
     }
 }
