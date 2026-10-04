@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using CSharpToJava.Core.ExpressionDesugar.NullConditional.Assignment;
 
 namespace CSharpToJava.Core.ExpressionDesugar.NullConditional;
 
@@ -60,6 +61,11 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
 
         if (plan.Outcome == ChainOutcome.Preserved)
             return visited;
+
+        // C51 assignment terminals render through the Assignment sub-rule
+        // (NA-1...NA-7); read-side terminals keep the flow below.
+        if (plan.Terminal.Kind == ChainTerminalKind.Assign)
+            return RenderAssignment(node, visited, plan);
 
         // Walk the visited dependent chain: original CA -> visited CA.
         var visitedCaByOriginal = new Dictionary<
@@ -134,6 +140,128 @@ internal sealed class NullConditionalRewriter : CSharpSyntaxRewriter
                 statements.Add(finalStatement);
 
                 RegisterAnchorReplacement(plan, statements);
+                RewriteCount++;
+                return visited;
+            }
+
+            default:
+                return visited;
+        }
+    }
+
+    /// <summary>
+    /// C51 rendering for one lowered assignment-terminal plan (design §4.2/
+    /// §4.3): value contexts become null ternaries containing the assignment
+    /// in the true branch (NA-5, zero result temp); statement contexts become
+    /// a guarded block or, for a single whitelisted receiver, a bare
+    /// <c>if (a != null) a.b = c;</c> (NA-1/2/4). The RHS and index argument
+    /// nodes never leave the guarded/true-branch subtree.
+    /// </summary>
+    private SyntaxNode RenderAssignment(
+        ConditionalAccessExpressionSyntax node,
+        ConditionalAccessExpressionSyntax visited,
+        ChainPlan plan)
+    {
+        // Walk the visited dependent chain: original CA -> visited CA.
+        var visitedCaByOriginal = new Dictionary<
+            ConditionalAccessExpressionSyntax, ConditionalAccessExpressionSyntax>();
+        var currentOriginal = node;
+        var currentVisited = visited;
+        AssignmentExpressionSyntax terminalAssignment;
+        while (true)
+        {
+            visitedCaByOriginal[currentOriginal] = currentVisited;
+            if (currentVisited.WhenNotNull is ConditionalAccessExpressionSyntax innerVisited)
+            {
+                currentOriginal =
+                    (ConditionalAccessExpressionSyntax)currentOriginal.WhenNotNull;
+                currentVisited = innerVisited; continue;
+            }
+
+            terminalAssignment =
+                (AssignmentExpressionSyntax)currentVisited.WhenNotNull;
+            break;
+        }
+
+        switch (plan.Shape)
+        {
+            case NullConditionalLoweringShape.Inline:
+            {
+                var replaced = NullConditionalAssignmentEmitter.ReplaceAssignmentLeft(
+                    terminalAssignment, visited.Expression);
+                var ternary = NullConditionalAssignmentEmitter.BuildSingleValueTernary(
+                    replaced, visited.Expression, plan);
+                RewriteCount++;
+                return SyntaxFactory.ParenthesizedExpression(ternary);
+            }
+
+            case NullConditionalLoweringShape.TempTernary:
+            {
+                var segmentName = plan.Segments[0].TempName;
+                RegisterPending(
+                    plan,
+                    ExpressionDesugarTempLifter.DeclareVar(
+                        segmentName, visited.Expression));
+
+                var receiver = SyntaxFactory.IdentifierName(segmentName);
+                var replaced = NullConditionalAssignmentEmitter.ReplaceAssignmentLeft(
+                    terminalAssignment, receiver);
+                var ternary = NullConditionalAssignmentEmitter.BuildSingleValueTernary(
+                    replaced, receiver, plan);
+                RewriteCount++;
+                return SyntaxFactory.ParenthesizedExpression(ternary);
+            }
+
+            case NullConditionalLoweringShape.StatementIf:
+            {
+                List<StatementSyntax> statements;
+
+                if (plan.Segments.Count == 1
+                    && plan.Segments[0].TempName.Length == 0)
+                {
+                    // Single whitelisted receiver: zero declaration.
+                    var replaced = NullConditionalAssignmentEmitter.ReplaceAssignmentLeft(
+                        terminalAssignment, visited.Expression);
+                    var condition = SyntaxFactory.BinaryExpression(
+                        SyntaxKind.NotEqualsExpression,
+                        visited.Expression,
+                        SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression));
+                    statements = new List<StatementSyntax>
+                    {
+                        SyntaxFactory.IfStatement(
+                            condition,
+                            SyntaxFactory.Block(
+                                SyntaxFactory.ExpressionStatement(replaced))),
+                    };
+                }
+                else
+                {
+                    var deepestReceiver = SyntaxFactory.IdentifierName(
+                        plan.Segments[^1].TempName);
+                    var replaced = NullConditionalAssignmentEmitter.ReplaceAssignmentLeft(
+                        terminalAssignment, deepestReceiver);
+                    var innermost = new StatementSyntax[]
+                    {
+                        SyntaxFactory.ExpressionStatement(replaced),
+                    };
+                    statements = NullConditionalEmitter.BuildMultiSegmentPrefix(
+                        plan, visitedCaByOriginal, innermost);
+                }
+
+                RegisterAnchorReplacement(plan, statements);
+                RewriteCount++;
+                return visited;
+            }
+
+            case NullConditionalLoweringShape.GuardedBlock:
+            {
+                var prefix = NullConditionalEmitter.BuildMultiSegmentPrefix(
+                    plan, visitedCaByOriginal, Array.Empty<StatementSyntax>());
+                var nestedTernary = NullConditionalAssignmentEmitter.BuildNestedValueTernary(
+                    plan, terminalAssignment);
+                prefix.Add(RebuildValueAnchorStatement(plan, nestedTernary));
+
+                RegisterAnchorReplacement(plan, prefix);
                 RewriteCount++;
                 return visited;
             }

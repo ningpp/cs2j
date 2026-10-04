@@ -6,7 +6,7 @@ namespace CSharpToJava.Core.ExpressionDesugar.NullConditional;
 /// reasons. The section is only observable when the rule is enabled (the
 /// CLI summary segment is gated on the subsection presence).
 /// </summary>
-public sealed class NullConditionalStatistics
+public sealed partial class NullConditionalStatistics
 {
     /// <summary>Files analyzed with the rule active.</summary>
     public int FilesScanned;
@@ -84,9 +84,13 @@ public sealed class NullConditionalStatistics
         AnchorReplacements += other.AnchorReplacements;
         DeferredForC51Sites += other.DeferredForC51Sites;
         ResidualNodeCount += other.ResidualNodeCount;
+        MergeAssignmentFrom(other);
         MergeBuckets(ChainsByLength, other.ChainsByLength);
         MergeBuckets(SkippedByReason, other.SkippedByReason);
     }
+
+    /// <summary>C51 assignment bucket merge hook (implementation in the Assignment part).</summary>
+    partial void MergeAssignmentFrom(NullConditionalStatistics other);
 
     private static void MergeBuckets(
         Dictionary<int, int> target, Dictionary<int, int> source)

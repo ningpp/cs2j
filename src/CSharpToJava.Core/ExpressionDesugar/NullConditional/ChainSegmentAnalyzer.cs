@@ -18,6 +18,8 @@ internal static class NullConditionalDiagnosticCodes
     public const string CS2J0558 = "CS2J0558";
     public const string CS2J0559 = "CS2J0559";
     public const string CS2J0560 = "CS2J0560";
+    public const string CS2J0561 = "CS2J0561";
+    public const string CS2J0562 = "CS2J0562";
     public const string CS2J0564 = "CS2J0564";
     public const string CS2J0565 = "CS2J0565";
     public const string CS2J0566 = "CS2J0566";
@@ -124,6 +126,17 @@ internal static class ChainSegmentAnalyzer
                 continue;
             if (plan.Shape is NullConditionalLoweringShape.Inline)
                 continue;
+
+            // C51 statement form with a single whitelisted receiver stays
+            // zero-declaration (if (a != null) a.b = c;).
+            if (plan.Terminal.Kind == ChainTerminalKind.Assign
+                && plan.Shape is NullConditionalLoweringShape.StatementIf
+                && plan.Segments.Count == 1
+                && NullConditionalSyntaxFacts.IsInlineWhitelistReceiver(
+                    plan.RootOriginal.Expression, model))
+            {
+                continue;
+            }
 
             foreach (var segment in plan.Segments)
                 segment.TempName = allocator.Allocate();
@@ -393,12 +406,10 @@ internal static class ChainSegmentAnalyzer
             return;
         }
 
-        // ---- Assignment terminal deferred to C51 ----
+        // ---- Assignment terminal dispatched to the C51 sub-rule ----
         if (plan.Terminal.Kind == ChainTerminalKind.Assign)
         {
-            plan.Outcome = ChainOutcome.Preserved;
-            plan.SkipCode = null;
-            context.Statistics.NullConditional.DeferredForC51Sites++;
+            Assignment.NullConditionalAssignmentRule.Decide(plan, context);
             return;
         }
 
