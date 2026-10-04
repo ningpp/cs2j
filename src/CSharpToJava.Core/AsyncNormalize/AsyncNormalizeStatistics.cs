@@ -34,4 +34,24 @@ public sealed class AsyncNormalizeStatistics
 
     /// <summary>不可归一、原样保留的站点数（1801/1803/1805/1808；后续按原因分桶）。</summary>
     public int SkippedUnsupported;
+
+    // ── Pass-specific fields (M1b: async lambda/local-function lifting, D3/D4) ──
+
+    /// <summary>零捕获提为 private static async 方法的 async lambda 数（D3(a)）。</summary>
+    public int AsyncLambdasLiftedZeroCapture;
+
+    /// <summary>仅捕获 this、提为 private async 实例方法的 async lambda 数（D3(b)）。</summary>
+    public int AsyncLambdasLiftedThisOnly;
+
+    /// <summary>void 返回委托（async void lambda）经 Task 方法 + 同步 wrapper 提升的站点数（D3(c)）。</summary>
+    public int AsyncLambdasLiftedVoidWrapper;
+
+    /// <summary>残余 async 局部函数提升为类型级方法的数量（D4）。</summary>
+    public int AsyncLocalFunctionsLifted;
+
+    /// <summary>合成的 _w 同步丢弃 wrapper 数（与 VoidWrapper 站点 1:1）。</summary>
+    public int WrappersGenerated;
+
+    /// <summary>捕获局部/形参/foreach 变量、v1 defer 原样保留的 async lambda 数（D3(d)/CS2J1802）。</summary>
+    public int CapturedAsyncLambdasDeferred;
 }

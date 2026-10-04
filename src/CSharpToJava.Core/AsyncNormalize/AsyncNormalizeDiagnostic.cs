@@ -8,19 +8,27 @@ public enum AsyncNormalizeSeverity
 }
 
 /// <summary>
-/// C18 诊断码（设计 §4.6）。码位只追加不改号；本阶段先建立 1a 所需码，
-/// 1802/1804/1806/1807 随 lambda 提升（1b）与后续阶段补入。
+/// C18 诊断码（设计 §4.6）。码位只追加不改号。
 /// </summary>
 public enum AsyncNormalizeDiagnosticCode
 {
     /// <summary>不支持的 awaitable：await dynamic / 自定义 task-like（自定义 GetAwaiter）。</summary>
     CS2J1801,
 
+    /// <summary>async lambda 捕获局部/形参/foreach 变量，closure-lift 落地前无法等价提升（D3(d)）。</summary>
+    CS2J1802,
+
     /// <summary>用户 async void 方法/局部函数（D6）。</summary>
     CS2J1803,
 
+    /// <summary>残余未被 E02 提升且本 pass 无法提升的 async 局部函数（D4）。</summary>
+    CS2J1804,
+
     /// <summary>非法 await 站点防御镜像（lock 内 await＝CS1996，基线优先）。</summary>
     CS2J1805,
+
+    /// <summary>残余 async 匿名方法 / 无法绑定委托目标的 async lambda（D3/§4.1）。</summary>
+    CS2J1807,
 
     /// <summary>ConfigureAwait(ConfigureAwaitOptions) / ConfiguredTaskAwaitable 强类型形态（D5）。</summary>
     CS2J1808,
