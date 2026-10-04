@@ -135,6 +135,20 @@ internal sealed class NullCoalesceSyntaxRewriter : CSharpSyntaxRewriter
         if (!node.IsKind(SyntaxKind.CoalesceAssignmentExpression))
             return base.VisitAssignmentExpression(node);
 
+        // Guard (C51 hard prerequisite, design §3.5/A4): a '??=' whose left
+        // is a MemberBinding/ElementBinding lives inside a ConditionalAccess
+        // (e.g. a?.b ??= c). Rewriting it here would return an IfStatement
+        // into an expression slot with a bare binding left — an uncompilable
+        // tree. The C51 assignment rule owns that lowering; keep the node as
+        // is. Binding nodes cannot occur outside a CA, so the shape test is
+        // exact (no ancestor walk required).
+        if (node.Left is MemberBindingExpressionSyntax
+            or ElementBindingExpressionSyntax)
+        {
+            _stats.SkippedUnsupported++;
+            return node;
+        }
+
         // Process right side first (may contain nested ??)
         var visitedRight = (ExpressionSyntax?)Visit(node.Right);
         var right = visitedRight ?? node.Right;

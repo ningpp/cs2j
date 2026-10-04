@@ -292,4 +292,86 @@ public class NullCoalesceRewriterUnitTests
         Assert.True(result.Changed);
         Assert.Equal(0, result.Statistics.ResidualCount);
     }
+
+    // ---- C51 guard (design §3.5): '??=' inside a ConditionalAccess is left
+    // intact for the C51 assignment rule instead of being turned into an
+    // IfStatement in an expression slot with a bare binding left.
+
+    [Fact]
+    public void Guard_ConditionalMemberCoalesceAssign_LeftIntact_NotRewritten()
+    {
+        var src = """
+        class C {
+            public string? B;
+            void M(C? a, string c) {
+                a?.B ??= c;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        // The E03 entry always reformats a dirty file; the proof is shape:
+        // the guarded statement is NOT turned into an IfStatement/temp pair.
+        Assert.Equal(1, result.Statistics.SkippedUnsupported);
+        Assert.Contains("a?.B ??= c", result.OutputCode);
+        Assert.DoesNotContain("___t", result.OutputCode);
+        Assert.DoesNotContain("if (", result.OutputCode);
+    }
+
+    [Fact]
+    public void Guard_ConditionalIndexCoalesceAssign_LeftIntact_NotRewritten()
+    {
+        var src = """
+        using System.Collections.Generic;
+        class C {
+            void M(Dictionary<string, string>? a, string k, string c) {
+                a?[k] ??= c;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.SkippedUnsupported);
+        Assert.Contains("a?[k] ??= c", result.OutputCode);
+        Assert.DoesNotContain("___t", result.OutputCode);
+        Assert.DoesNotContain("if (", result.OutputCode);
+    }
+
+    [Fact]
+    public void Guard_ValueFormConditionalCoalesceAssign_LeftIntact()
+    {
+        var src = """
+        class C {
+            public string? B;
+            string? M(C? a, string c) {
+                return a?.B ??= c;
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.Equal(1, result.Statistics.SkippedUnsupported);
+        Assert.Contains("a?.B ??= c", result.OutputCode);
+        Assert.DoesNotContain("___t", result.OutputCode);
+    }
+
+    [Fact]
+    public void Guard_OrdinaryMemberCoalesceAssign_StillRewritten()
+    {
+        // The guard must not over-trigger: a non-binding member left keeps
+        // the ordinary E03 lowering.
+        var src = """
+        class C {
+            public string? Timeout;
+            void M(C config, int val) {
+                config.Timeout ??= val.ToString();
+            }
+        }
+        """;
+        var result = Preprocess(src);
+
+        Assert.True(result.Changed);
+        Assert.Equal(0, result.Statistics.SkippedUnsupported);
+        Assert.Contains("___t1", result.OutputCode);
+    }
 }
