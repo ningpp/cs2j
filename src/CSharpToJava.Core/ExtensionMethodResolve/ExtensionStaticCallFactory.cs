@@ -41,12 +41,13 @@ internal static class ExtensionStaticCallFactory
     public static InvocationExpressionSyntax Build(
         NameSyntax hostName,
         SimpleNameSyntax sourceMethodName,
-        ExpressionSyntax receiver,
+        ExpressionSyntax? receiver,
         RefKind receiverRefKind,
         ScopedKind receiverScopedKind,
         SeparatedSyntaxList<ArgumentSyntax> remainingArguments,
         IEnumerable<SyntaxAnnotation>? annotations = null,
-        bool emitInKeyword = false)
+        bool emitInKeyword = false,
+        bool noReceiver = false)
     {
         var qualifiedMemberAccess = SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
@@ -54,11 +55,15 @@ internal static class ExtensionStaticCallFactory
             SyntaxFactory.Token(SyntaxKind.DotToken),
             sourceMethodName.WithoutTrivia());
 
-        var receiverArgument = SyntaxFactory
-            .Argument(receiver.WithoutLeadingTrivia())
-            .WithRefKindKeyword(BuildReceiverModifier(receiverRefKind, receiverScopedKind, emitInKeyword));
+        var arguments = remainingArguments;
+        if (!noReceiver)
+        {
+            var receiverArgument = SyntaxFactory
+                .Argument(receiver!.WithoutLeadingTrivia())
+                .WithRefKindKeyword(BuildReceiverModifier(receiverRefKind, receiverScopedKind, emitInKeyword));
+            arguments = remainingArguments.Insert(0, receiverArgument);
+        }
 
-        var arguments = remainingArguments.Insert(0, receiverArgument);
         var argumentList = SyntaxFactory.ArgumentList(arguments);
 
         var invocation = SyntaxFactory.InvocationExpression(qualifiedMemberAccess, argumentList);

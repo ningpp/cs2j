@@ -1,6 +1,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 
@@ -8,9 +9,14 @@ namespace CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 internal sealed record BlockResidualResult(
     int RemainingBlocks,
     int UnpairedExtensionSites,
-    int IdentityFailures)
+    int IdentityFailures,
+    int IndexerRejectionMismatches)
 {
-    public bool HasFailures => RemainingBlocks > 0 || UnpairedExtensionSites > 0 || IdentityFailures > 0;
+    public bool HasFailures
+        => RemainingBlocks > 0
+           || UnpairedExtensionSites > 0
+           || IdentityFailures > 0
+           || IndexerRejectionMismatches > 0;
 
     public Dictionary<string, int> ToCounts()
         => new()
@@ -18,15 +24,21 @@ internal sealed record BlockResidualResult(
             ["remaining-block-declarations"] = RemainingBlocks,
             ["unpaired-extension-sites"] = UnpairedExtensionSites,
             ["identity-failures"] = IdentityFailures,
+            ["indexer-rejection-mismatches"] = IndexerRejectionMismatches,
         };
 }
 
 /// <summary>
-/// Post-rewrite scan for C49: verifies (1) no extension block nodes remain
-/// unless they were rejected (diagnostic-paired) or the file was rolled back;
-/// (2) no call/member-access still binds to a <c>TypeKind.Extension</c>
-/// container without a deferred-site pairing; (3) rewritten sites recompile
-/// to the generated target member (OriginalDefinition identity).
+/// Post-rewrite scan for C49 (§4.6): verifies
+/// (1) no extension block nodes remain unless rejected (diagnostic-paired)
+/// or the file was rolled back;
+/// (2) no invocation/member access/operator still binds to a
+/// <c>TypeKind.Extension</c> container without a deferred/external pairing;
+/// (3) rewritten sites recompile to the generated target member
+/// (OriginalDefinition identity: methods, properties, operators, statics);
+/// (4) indexer rejection diagnostics pair one-to-one with indexer
+/// declarations left inside retained blocks.
+/// The fifth assertion (second run zero diff) is enforced by tests.
 /// </summary>
 internal static class ExtensionBlockResidualScanner
 {
@@ -40,6 +52,7 @@ internal static class ExtensionBlockResidualScanner
         var remainingBlocks = 0;
         var unpairedSites = 0;
         var identityFailures = 0;
+        var indexerMismatches = 0;
 
         foreach (var tree in rewritten.SyntaxTrees)
         {
@@ -51,31 +64,52 @@ internal static class ExtensionBlockResidualScanner
 
             var root = tree.GetCompilationUnitRoot();
             var model = rewritten.GetSemanticModel(tree);
+            analyses.TryGetValue(tree, out var analysis);
 
-            // Rejected blocks (indexers/unsupported members/gate) are paired
-            // with an Error diagnostic; count which block nodes remain paired.
-            var rejectedBlockSpans = analyses.TryGetValue(tree, out var analysis)
+            // Rejected blocks are paired with an Error diagnostic at the
+            // block's line; collect which lines carry a block-level rejection.
+            var rejectedBlockLines = analysis is not null
                 ? new HashSet<int>(analysis.Diagnostics
                     .Where(d => d.Severity == ExtensionSeverity.Error
                                 && (d.Code == ExtensionBlockCodes.Unsupported
                                     || d.Code == ExtensionBlockCodes.ParseProbeFailed
-                                    || d.Code == ExtensionBlockCodes.PropertyChainGate))
+                                    || d.Code == ExtensionBlockCodes.PropertyChainGate
+                                    || d.Code == ExtensionBlockCodes.UnsupportedReceiver
+                                    || d.Code == ExtensionBlockCodes.SignatureCollision))
                     .Select(d => d.Line ?? -1))
                 : new HashSet<int>();
 
+            var retainedBlocks = new List<ExtensionBlockDeclarationSyntax>();
             foreach (var block in ExtensionBlockSyntaxFacts.EnumerateBlocks(root))
             {
                 var line = block.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
-                if (!rejectedBlockSpans.Contains(line))
+                if (!rejectedBlockLines.Contains(line))
                 {
                     remainingBlocks++;
                 }
+
+                retainedBlocks.Add(block);
             }
 
-            var deferredSpans = analysis is not null
-                ? new HashSet<int>(analysis.DeferredSites.Select(d => d.Site.SpanStart))
-                : new HashSet<int>();
+            // (4) Indexer rejection count pairing.
+            indexerMismatches += VerifyIndexerPairing(root, retainedBlocks, analysis);
 
+            // Paired spans: deferred sites plus external metadata reports.
+            var pairedSpans = new HashSet<int>();
+            if (analysis is not null)
+            {
+                foreach (var deferred in analysis.DeferredSites)
+                {
+                    pairedSpans.Add(deferred.Site.SpanStart);
+                }
+
+                foreach (var external in analysis.ExternalSites)
+                {
+                    pairedSpans.Add(external.Site.SpanStart);
+                }
+            }
+
+            // (2a) invocation sites (block methods).
             foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
                 if (model.GetSymbolInfo(invocation).Symbol is IMethodSymbol
@@ -83,12 +117,13 @@ internal static class ExtensionBlockResidualScanner
                         MethodKind: MethodKind.Ordinary,
                     } method
                     && method.ContainingType.TypeKind == TypeKind.Extension
-                    && !deferredSpans.Contains(invocation.SpanStart))
+                    && !pairedSpans.Contains(invocation.SpanStart))
                 {
                     unpairedSites++;
                 }
             }
 
+            // (2b) property accesses (member access + member binding).
             var propertyAccesses = root.DescendantNodes()
                 .OfType<MemberAccessExpressionSyntax>()
                 .Cast<ExpressionSyntax>()
@@ -97,7 +132,48 @@ internal static class ExtensionBlockResidualScanner
             {
                 if (model.GetSymbolInfo(access).Symbol is { } symbol
                     && IsExtensionContainerSymbol(symbol)
-                    && !deferredSpans.Contains(access.SpanStart))
+                    && !pairedSpans.Contains(access.SpanStart))
+                {
+                    unpairedSites++;
+                }
+            }
+
+            // (2c) operator sites still binding to extension containers.
+            foreach (var binary in root.DescendantNodes().OfType<BinaryExpressionSyntax>())
+            {
+                if (model.GetSymbolInfo(binary).Symbol is IMethodSymbol
+                    {
+                        MethodKind: MethodKind.UserDefinedOperator,
+                    } op
+                    && op.ContainingType.TypeKind == TypeKind.Extension
+                    && !pairedSpans.Contains(binary.SpanStart))
+                {
+                    unpairedSites++;
+                }
+            }
+
+            foreach (var unary in root.DescendantNodes().OfType<PrefixUnaryExpressionSyntax>())
+            {
+                if (model.GetSymbolInfo(unary).Symbol is IMethodSymbol
+                    {
+                        MethodKind: MethodKind.UserDefinedOperator,
+                    } op
+                    && op.ContainingType.TypeKind == TypeKind.Extension
+                    && !pairedSpans.Contains(unary.SpanStart))
+                {
+                    unpairedSites++;
+                }
+            }
+
+            foreach (var compound in root.DescendantNodes()
+                         .OfType<AssignmentExpressionSyntax>()
+                         .Where(a => !a.IsKind(SyntaxKind.SimpleAssignmentExpression)))
+            {
+                if (model.GetOperation(compound) is ICompoundAssignmentOperation
+                    {
+                        OperatorMethod.ContainingType.TypeKind: TypeKind.Extension,
+                    }
+                    && !pairedSpans.Contains(compound.SpanStart))
                 {
                     unpairedSites++;
                 }
@@ -105,11 +181,34 @@ internal static class ExtensionBlockResidualScanner
 
             if (analysis is not null)
             {
-                identityFailures += VerifySiteIdentity(rewritten, model, root, tree, analysis);
+                identityFailures += VerifySiteIdentity(rewritten, model, root, analysis);
             }
         }
 
-        return new BlockResidualResult(remainingBlocks, unpairedSites, identityFailures);
+        return new BlockResidualResult(
+            remainingBlocks, unpairedSites, identityFailures, indexerMismatches);
+    }
+
+    private static int VerifyIndexerPairing(
+        CompilationUnitSyntax root,
+        IReadOnlyList<ExtensionBlockDeclarationSyntax> retainedBlocks,
+        BlockAnalysisResult? analysis)
+    {
+        var indexerLines = retainedBlocks
+            .SelectMany(b => ExtensionBlockSyntaxFacts.GetMembers(b))
+            .OfType<IndexerDeclarationSyntax>()
+            .Select(i => i.GetLocation().GetLineSpan().StartLinePosition.Line + 1)
+            .ToHashSet();
+
+        var indexerCount = indexerLines.Count;
+        var paired = analysis?.Diagnostics
+            .Count(d => d.Severity == ExtensionSeverity.Error
+                        && d.Code == ExtensionBlockCodes.Unsupported
+                        && d.Line is { } line
+                        && indexerLines.Contains(line))
+            ?? 0;
+
+        return indexerCount == paired ? 0 : Math.Abs(indexerCount - paired);
     }
 
     private static bool IsExtensionContainerSymbol(ISymbol symbol)
@@ -123,13 +222,11 @@ internal static class ExtensionBlockResidualScanner
         Compilation rewritten,
         SemanticModel model,
         CompilationUnitSyntax root,
-        SyntaxTree tree,
         BlockAnalysisResult analysis)
     {
         var failures = 0;
 
-        // One host lookup per distinct block-parent display name (one tree may
-        // host blocks in multiple static classes).
+        // One host lookup per distinct block-parent display name.
         var hosts = new Dictionary<string, INamedTypeSymbol?>(StringComparer.Ordinal);
         foreach (var name in analysis.BlockPlans.Select(b => b.Host.ToDisplayString()).Distinct())
         {
@@ -139,35 +236,37 @@ internal static class ExtensionBlockResidualScanner
         INamedTypeSymbol? HostFor(BlockPlan block)
             => hosts.TryGetValue(block.Host.ToDisplayString(), out var host) ? host : null;
 
-        foreach (var methodSite in analysis.MethodSites)
+        // ---- Instance methods ----
+        foreach (var site in analysis.MethodSites)
         {
-            var node = root.GetAnnotatedNodes(methodSite.Annotation)
+            var node = root.GetAnnotatedNodes(site.Annotation)
                 .OfType<InvocationExpressionSyntax>().FirstOrDefault();
-            var expected = FindGeneratedMember(HostFor(methodSite.Block), methodSite.Member.Name);
+            var expected = FindGeneratedMember(HostFor(site.Block), site.Member.Name);
             if (!HasIdentity(model, node, expected))
             {
                 failures++;
             }
         }
 
-        foreach (var readSite in analysis.ReadSites)
+        // ---- Property reads / writes / compounds ----
+        foreach (var site in analysis.ReadSites)
         {
-            var node = root.GetAnnotatedNodes(readSite.Annotation)
+            var node = root.GetAnnotatedNodes(site.Annotation)
                 .OfType<InvocationExpressionSyntax>().FirstOrDefault();
-            var expected = FindGeneratedMember(HostFor(readSite.Block),
-                AccessorsToMethodsName(readSite.Member.Name, getter: true));
+            var expected = FindGeneratedMember(HostFor(site.Block),
+                AccessorName(site.Member.Name, getter: true));
             if (!HasIdentity(model, node, expected))
             {
                 failures++;
             }
         }
 
-        foreach (var writeSite in analysis.WriteSites)
+        foreach (var site in analysis.WriteSites)
         {
-            var node = root.GetAnnotatedNodes(writeSite.Annotation)
+            var node = root.GetAnnotatedNodes(site.Annotation)
                 .OfType<InvocationExpressionSyntax>().FirstOrDefault();
-            var expected = FindGeneratedMember(HostFor(writeSite.Block),
-                AccessorsToMethodsName(writeSite.Member.Name, getter: false));
+            var expected = FindGeneratedMember(HostFor(site.Block),
+                AccessorName(site.Member.Name, getter: false));
             if (!HasIdentity(model, node, expected))
             {
                 failures++;
@@ -181,7 +280,79 @@ internal static class ExtensionBlockResidualScanner
                 .OfType<InvocationExpressionSyntax>()
                 .LastOrDefault();
             var expected = FindGeneratedMember(HostFor(compound.Block),
-                AccessorsToMethodsName(compound.Member.Name, getter: false));
+                AccessorName(compound.Member.Name, getter: false));
+            if (!HasIdentity(model, node, expected))
+            {
+                failures++;
+            }
+        }
+
+        // ---- M2/M3: operators ----
+        foreach (var site in analysis.BinaryOperatorSites)
+        {
+            var node = root.GetAnnotatedNodes(site.Annotation)
+                .OfType<InvocationExpressionSyntax>().FirstOrDefault();
+            var expected = FindGeneratedMember(HostFor(site.Block), site.Member.GeneratedName);
+            if (!HasIdentity(model, node, expected))
+            {
+                failures++;
+            }
+        }
+
+        foreach (var site in analysis.UnaryOperatorSites)
+        {
+            var node = root.GetAnnotatedNodes(site.Annotation)
+                .OfType<InvocationExpressionSyntax>().FirstOrDefault();
+            var expected = FindGeneratedMember(HostFor(site.Block), site.Member.GeneratedName);
+            if (!HasIdentity(model, node, expected))
+            {
+                failures++;
+            }
+        }
+
+        foreach (var site in analysis.OperatorCompoundSites)
+        {
+            var annotated = root.GetAnnotatedNodes(site.Annotation).FirstOrDefault();
+            var node = annotated?.DescendantNodesAndSelf()
+                .OfType<InvocationExpressionSyntax>()
+                .FirstOrDefault();
+            var expected = FindGeneratedMember(HostFor(site.Block), site.Member.GeneratedName);
+            if (!HasIdentity(model, node, expected))
+            {
+                failures++;
+            }
+        }
+
+        // ---- M2/M3: static members ----
+        foreach (var site in analysis.StaticMethodSites)
+        {
+            var node = root.GetAnnotatedNodes(site.Annotation)
+                .OfType<InvocationExpressionSyntax>().FirstOrDefault();
+            var expected = FindGeneratedMember(HostFor(site.Block), site.Member.Name);
+            if (!HasIdentity(model, node, expected))
+            {
+                failures++;
+            }
+        }
+
+        foreach (var site in analysis.StaticPropertyReadSites)
+        {
+            var node = root.GetAnnotatedNodes(site.Annotation)
+                .OfType<InvocationExpressionSyntax>().FirstOrDefault();
+            var expected = FindGeneratedMember(HostFor(site.Block),
+                AccessorName(site.Member.Name, getter: true));
+            if (!HasIdentity(model, node, expected))
+            {
+                failures++;
+            }
+        }
+
+        foreach (var site in analysis.StaticPropertyWriteSites)
+        {
+            var node = root.GetAnnotatedNodes(site.Annotation)
+                .OfType<InvocationExpressionSyntax>().FirstOrDefault();
+            var expected = FindGeneratedMember(HostFor(site.Block),
+                AccessorName(site.Member.Name, getter: false));
             if (!HasIdentity(model, node, expected))
             {
                 failures++;
@@ -191,7 +362,7 @@ internal static class ExtensionBlockResidualScanner
         return failures;
     }
 
-    private static string AccessorsToMethodsName(string propertyName, bool getter)
+    private static string AccessorName(string propertyName, bool getter)
         => (getter ? "get_" : "set_") + propertyName;
 
     private static bool HasIdentity(

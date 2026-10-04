@@ -248,10 +248,15 @@ public sealed class ExtensionMethodResolvePreprocessor
         stats.FilesScanned++;
 
         var liftableConditions = plan.ConditionalPlans.Where(p => p.Liftable).ToList();
-        var rewritableGroups = plan.GroupPlans.Where(g => g.Rewritable).ToList();
-        var tempGroups = rewritableGroups.Where(g => !g.DirectCapture).ToList();
-
         var blockAnalysis = plan.BlockAnalysis;
+        var rewritableGroups = plan.GroupPlans.Where(g => g.Rewritable)
+            .Concat(blockAnalysis?.BlockGroups.Where(g => g.Rewritable)
+                    ?? Array.Empty<ExtensionGroupPlan>())
+            .ToList();
+        var tempGroups = rewritableGroups
+            .Where(g => !g.DirectCapture && !g.NoReceiver)
+            .ToList();
+
         var blockPlans = blockAnalysis?.BlockPlans ?? Array.Empty<BlockPlan>();
         var blockSiteCount = blockAnalysis is null
             ? 0
@@ -318,6 +323,25 @@ public sealed class ExtensionMethodResolvePreprocessor
         }
 
         stats.ExpressionTreeRollbacks += rollback.Count;
+
+        // M3 decision 15: block method sites inside Expression<TDelegate> are
+        // rewritten and asserted to rebind to the generated host member.
+        if (blockAnalysis is not null && blockAnalysis.BlockExpressionTreeMarkers.Count > 0)
+        {
+            var blockIdentityFailures = VerifyBlockExpressionTreeIdentity(
+                newRoot!, model.SyntaxTree, blockAnalysis);
+            foreach (var failure in blockIdentityFailures)
+            {
+                identityDiagnostics.Add(new ExtensionDiagnostic(
+                    _options.Strict ? ExtensionSeverity.Error : ExtensionSeverity.Warning,
+                    ExtensionRule.Ext14,
+                    ExtensionBlockCodes.IdentityFailed,
+                    "C49 extension block expression-tree identity assertion failed for call '"
+                    + failure.ToString() + "'; the site keeps the rewritten form with this diagnostic.",
+                    model.SyntaxTree.FilePath,
+                    failure.GetLocation().GetLineSpan().StartLinePosition.Line + 1));
+            }
+        }
 
         var hasRewrittenNode = newRoot!
             .GetAnnotatedNodes(ExtensionCallRewriter.RewrittenAnnotation)
@@ -595,7 +619,7 @@ public sealed class ExtensionMethodResolvePreprocessor
 
         foreach (var seam in analysis.ConditionalSeams)
         {
-            targets.Add((seam.Binding, seam.Annotation));
+            targets.Add((seam.Original, seam.Annotation));
         }
 
         // ---- M2: operator sites ----
@@ -684,6 +708,80 @@ public sealed class ExtensionMethodResolvePreprocessor
         }
 
         return failures;
+    }
+
+    /// <summary>
+    /// M3: assert each rewritten block method site inside an
+    /// Expression&lt;TDelegate&gt; rebinds to the generated host member.
+    /// Returns the original invocations failing the assertion.
+    /// </summary>
+    private List<InvocationExpressionSyntax> VerifyBlockExpressionTreeIdentity(
+        CompilationUnitSyntax newRoot,
+        SyntaxTree originalTree,
+        BlockAnalysisResult blockAnalysis)
+    {
+        var failures = new List<InvocationExpressionSyntax>();
+
+        var parseOptions = originalTree.Options as CSharpParseOptions ?? new CSharpParseOptions(LanguageVersion.Latest);
+        var candidateTree = CSharpSyntaxTree.Create(newRoot, parseOptions, originalTree.FilePath);
+        var verifyCompilation = _compilation!.ReplaceSyntaxTree(originalTree, candidateTree);
+        var verifyModel = verifyCompilation.GetSemanticModel(candidateTree);
+        var candidateRoot = candidateTree.GetCompilationUnitRoot();
+
+        foreach (var marker in blockAnalysis.BlockExpressionTreeMarkers)
+        {
+            var node = candidateRoot.GetAnnotatedNodes(marker.Annotation)
+                .OfType<InvocationExpressionSyntax>()
+                .FirstOrDefault();
+
+            // Expected generated member on the materialized host class.
+            var hostName = marker.Block.Host.ToDisplayString();
+            IMethodSymbol? expected = null;
+            foreach (var type in EnumerateTypesForHost(verifyCompilation.GlobalNamespace))
+            {
+                if (type.ToDisplayString() != hostName)
+                {
+                    continue;
+                }
+
+                expected = type.GetMembers().OfType<IMethodSymbol>()
+                    .FirstOrDefault(m => m.MetadataName == marker.Bound.Name);
+                break;
+            }
+
+            var identical = node is not null
+                && expected is not null
+                && verifyModel.GetSymbolInfo(node).Symbol is IMethodSymbol
+                {
+                    MethodKind: MethodKind.Ordinary,
+                } rebound
+                && rebound.OriginalDefinition.ToDisplayString()
+                    == expected.OriginalDefinition.ToDisplayString()
+                && node.ArgumentList.Arguments.Count == expected.Parameters.Length;
+
+            if (!identical)
+            {
+                failures.Add(marker.OriginalInvocation);
+            }
+        }
+
+        return failures;
+    }
+
+    private static IEnumerable<INamedTypeSymbol> EnumerateTypesForHost(INamespaceSymbol @namespace)
+    {
+        foreach (var type in @namespace.GetTypeMembers())
+        {
+            yield return type;
+        }
+
+        foreach (var nestedNamespace in @namespace.GetNamespaceMembers())
+        {
+            foreach (var type in EnumerateTypesForHost(nestedNamespace))
+            {
+                yield return type;
+            }
+        }
     }
 
     private void FinalizeSiteKeys(

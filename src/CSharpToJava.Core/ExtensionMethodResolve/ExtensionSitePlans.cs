@@ -54,7 +54,20 @@ internal sealed record ExtensionConditionalSegment(
     ExpressionSyntax Root,
     InvocationExpressionSyntax Origin,
     IReadOnlyList<ConditionalSpineCall> SpineCalls,
-    ITypeSymbol? ResultType);
+    ITypeSymbol? ResultType)
+{
+    /// <summary>
+    /// M3 compound-write lowering: additional member-binding invocations
+    /// nested inside the segment origin's arguments (e.g. the <c>get_P()</c>
+    /// read inside <c>set_P(get_P() op v)</c>) which each take the same
+    /// receiver temp as the origin.
+    /// </summary>
+    public IReadOnlyList<(InvocationExpressionSyntax Invocation, ConditionalSpineCall Call)> ExtraSpine
+    {
+        get;
+        init;
+    } = Array.Empty<(InvocationExpressionSyntax, ConditionalSpineCall)>();
+}
 
 /// <summary>
 /// EM-COND plan for one OUTERMOST null-conditional chain. Liftable chains
@@ -136,6 +149,25 @@ internal sealed record ExtensionGroupPlan
 
     /// <summary>Anchor annotation (temp capture only).</summary>
     public SyntaxAnnotation? AnchorAnnotation { get; init; }
+
+    /// <summary>
+    /// M3 C49 block groups: explicit host name for the lambda-body call
+    /// (the block materializes into its parent static class, not the
+    /// synthetic extension container). Null on classic C19 groups.
+    /// </summary>
+    public NameSyntax? HostOverride { get; init; }
+
+    /// <summary>
+    /// M3 C49 static block groups: the lambda body calls the host static
+    /// method without a receiver argument.
+    /// </summary>
+    public bool NoReceiver { get; init; }
+
+    /// <summary>
+    /// M3 C49 groups: pre-built target name (e.g. a GenericName carrying
+    /// the explicit block type arguments); null to use the source node name.
+    /// </summary>
+    public SimpleNameSyntax? TargetName { get; init; }
 
     public bool Rewritable => SkipCode is null;
 

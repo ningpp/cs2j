@@ -62,6 +62,15 @@ public sealed class ExtensionBlockStatistics
     public int GateErrors { get; set; }
     public int ProbeErrors { get; set; }
 
+    /// <summary>M3: block method-group sites converted to capture lambdas.</summary>
+    public int GroupsRewritten { get; set; }
+
+    /// <summary>M3: extension-member sites reported from external metadata (CS2J1203).</summary>
+    public int ExternalMetadataSites { get; set; }
+
+    /// <summary>M3: block operator sites skipped inside Expression&lt;TDelegate&gt;.</summary>
+    public int ExpressionTreeOperatorsSkipped { get; set; }
+
     /// <summary>Merge counters from one file into this pass aggregate.</summary>
     public void Merge(ExtensionBlockStatistics other)
     {
@@ -97,6 +106,9 @@ public sealed class ExtensionBlockStatistics
         UnsupportedReceivers += other.UnsupportedReceivers;
         GateErrors += other.GateErrors;
         ProbeErrors += other.ProbeErrors;
+        GroupsRewritten += other.GroupsRewritten;
+        ExternalMetadataSites += other.ExternalMetadataSites;
+        ExpressionTreeOperatorsSkipped += other.ExpressionTreeOperatorsSkipped;
     }
 
     /// <summary>One-line summary for verbose logging.</summary>

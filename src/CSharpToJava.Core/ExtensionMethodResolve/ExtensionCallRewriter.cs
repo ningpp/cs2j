@@ -187,7 +187,7 @@ internal sealed class ExtensionCallRewriter : CSharpSyntaxRewriter
         var receiver = plan is { DirectCapture: true }
             ? visited.Expression
             : SyntaxFactory.IdentifierName(plan.TempName!);
-        if (!plan.DirectCapture)
+        if (!plan.DirectCapture && !plan.NoReceiver)
         {
             _groupReceivers[plan] = visited.Expression;
         }
@@ -215,14 +215,34 @@ internal sealed class ExtensionCallRewriter : CSharpSyntaxRewriter
                 .WithRefKindKeyword(BuildArgumentModifier(delegateParameter.RefKind)));
         }
 
-        var body = ExtensionStaticCallFactory.Build(
-            plan.Unreduced,
-            node.Name.WithoutTrivia(),
-            receiver,
-            RefKind.None,
-            ScopedKind.None,
-            SyntaxFactory.SeparatedList(delegateArguments),
-            new SyntaxAnnotation[] { RewrittenAnnotation });
+        var methodName = plan.TargetName ?? node.Name.WithoutTrivia();
+
+        InvocationExpressionSyntax body;
+        if (plan.HostOverride is not null)
+        {
+            // C49 block groups: explicit block-parent host; static groups
+            // carry no receiver argument.
+            body = ExtensionStaticCallFactory.Build(
+                plan.HostOverride,
+                methodName,
+                plan.NoReceiver ? null : receiver,
+                RefKind.None,
+                ScopedKind.None,
+                SyntaxFactory.SeparatedList(delegateArguments),
+                new SyntaxAnnotation[] { RewrittenAnnotation },
+                noReceiver: plan.NoReceiver);
+        }
+        else
+        {
+            body = ExtensionStaticCallFactory.Build(
+                plan.Unreduced,
+                methodName,
+                receiver,
+                RefKind.None,
+                ScopedKind.None,
+                SyntaxFactory.SeparatedList(delegateArguments),
+                new SyntaxAnnotation[] { RewrittenAnnotation });
+        }
 
         var lambda = SyntaxFactory.ParenthesizedLambdaExpression(
             default,

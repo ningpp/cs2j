@@ -345,12 +345,39 @@ internal sealed record StaticPropertyWriteSitePlan : IBlockSitePlan
     public required SyntaxAnnotation Annotation { get; init; }
 }
 
-/// <summary>Seam node: property member-binding inside a planned conditional → invocation member-binding.</summary>
+/// <summary>
+/// Seam node for a planned conditional: an original-tree node inside the
+/// conditional's WhenNotNull subtree (a property MemberBinding, a tail
+/// MemberAccess, or an assignment) replaced by a future-tree node shaped for
+/// the existing <see cref="ExtensionConditionalLowerer"/> spine walk.
+/// </summary>
 internal sealed record ConditionalSeamNode(
-    MemberBindingExpressionSyntax Binding,
-    InvocationExpressionSyntax Replacement,
+    SyntaxNode Original,
+    SyntaxNode Replacement,
     SyntaxAnnotation Annotation,
     ExtensionConditionalPlan Plan);
+
+/// <summary>
+/// M3: an extension-member site whose symbol comes from an external assembly
+/// (metadata only; no in-compilation block). Report-only; the span pairs with
+/// the residual scanner so the site is not counted as an unpaired leftover.
+/// </summary>
+internal sealed record ExternalExtensionSite(
+    SyntaxNode Site,
+    ISymbol Symbol,
+    string AssemblyName);
+
+/// <summary>
+/// M3: marker for an extension block method site inside an
+/// Expression&lt;TDelegate&gt;: the rewritten invocation is asserted to rebind
+/// to the generated host member.
+/// </summary>
+internal sealed record BlockExpressionTreeMarker(
+    SyntaxAnnotation Annotation,
+    BlockPlan Block,
+    IMethodSymbol Bound,
+    InvocationExpressionSyntax OriginalInvocation,
+    bool IsStatic);
 
 /// <summary>
 /// A block-member call site deliberately left as sugar in M1 (paired
@@ -411,6 +438,15 @@ internal sealed record BlockAnalysisResult
     public required IReadOnlyDictionary<ConditionalSpineCall, NameSyntax> ConditionalHostOverrides { get; init; }
 
     public required IReadOnlyList<DeferredSitePlan> DeferredSites { get; init; }
+
+    /// <summary>M3: extension-member sites declared in external assemblies (report-only).</summary>
+    public required IReadOnlyList<ExternalExtensionSite> ExternalSites { get; init; }
+
+    /// <summary>M3: block method-group plans flowing through the C19 group pipeline.</summary>
+    public required IReadOnlyList<ExtensionGroupPlan> BlockGroups { get; init; }
+
+    /// <summary>M3: markers for block method sites inside Expression&lt;TDelegate&gt; (identity assertion).</summary>
+    public required IReadOnlyList<BlockExpressionTreeMarker> BlockExpressionTreeMarkers { get; init; }
 
     public required List<ExtensionDiagnostic> Diagnostics { get; init; }
 

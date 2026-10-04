@@ -41,6 +41,20 @@ public static class ExtensionBlockCodes
     /// pass cannot run and blocks are left unchanged.
     /// </summary>
     public const string ParseProbeFailed = "CS2J1213";
+
+    /// <summary>
+    /// M3: post-rewrite identity assertion failed (design §4.6): a rewritten
+    /// block site does not rebind to the generated host member; the plan is
+    /// reported/rolled back. Warning by default; strict upgrades to Error.
+    /// </summary>
+    public const string IdentityFailed = "CS2J1222";
+
+    /// <summary>
+    /// M3: an extension member declared in an external assembly (metadata
+    /// only) has no in-compilation declaration C49 can materialize; the site
+    /// is report-only. Same diagnostic family as the C19 metadata boundary.
+    /// </summary>
+    public const string ExternalMetadata = "CS2J1203";
 }
 
 /// <summary>Message templates for C49 M1 diagnostics.</summary>
@@ -84,4 +98,26 @@ internal static class ExtensionBlockMessages
     public const string StaticPropertyCompoundDeferred =
         "Compound assignment (or inc/dec) to a type-name qualified C# 14 extension block static property "
         + "is not rewritten in C49 M2; the sugar is retained.";
+
+    // ---- M3 messages ----
+
+    /// <summary>Extension operator site inside an Expression<TDelegate>: skipped with a paired diagnostic.</summary>
+    public const string ExpressionTreeOperatorSkipped =
+        "A C# 14 extension block operator site inside an Expression<TDelegate> tree is not rewritten in C49 M3 "
+        + "(the site plan is skipped); the sugar is retained.";
+
+    /// <summary>Null-conditional extension-property write/compound outside a statement: skipped.</summary>
+    public static string ConditionalWriteDeferred(string shape)
+        => $"Null-conditional extension property {shape} at this position is not a statement expression and cannot be "
+           + "single-evaluation lowered in C49 M3; the sugar is retained.";
+
+    /// <summary>Null-conditional ++/-- over extension property: CS1059 pairing.</summary>
+    public const string ConditionalIncrementDeferred =
+        "Null-conditional '++'/'--' over a C# 14 extension property is rejected by Roslyn (CS1059); C49 M3 leaves "
+        + "the sugar with this paired diagnostic.";
+
+    /// <summary>External-assembly extension member report (CS2J1203 family).</summary>
+    public static string ExternalMetadataSite(string assembly, string member)
+        => $"C# 14 extension member '{member}' is declared in external assembly '{assembly}' which has no in-compilation "
+           + "extension block; C49 M3 reports the site and does not synthesize companion declarations.";
 }

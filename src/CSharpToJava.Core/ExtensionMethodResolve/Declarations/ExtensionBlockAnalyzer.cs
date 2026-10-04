@@ -70,8 +70,21 @@ internal sealed class ExtensionBlockAnalyzer
         var conditionalSeams = new List<ConditionalSeamNode>();
         var hostOverrides = new Dictionary<ConditionalSpineCall, NameSyntax>();
         var deferred = new List<DeferredSitePlan>();
+        var blockGroups = new List<ExtensionGroupPlan>();
+        var externalSites = new List<ExternalExtensionSite>();
+        var blockMarkers = new List<BlockExpressionTreeMarker>();
 
         var conditionalsCovered = new HashSet<ConditionalAccessExpressionSyntax>();
+
+        var buildContext = new ConditionalPlanFactory.BuildContext(
+            _model,
+            _allocator,
+            hostOverrides,
+            conditionalSeams,
+            ResolveMember);
+
+        (MemberPlan Plan, BlockPlan Block)? ResolveMember(ISymbol symbol)
+            => membersByOriginal.TryGetValue(symbol, out var hit) ? hit : null;
 
         // ---- Invocations: block methods (instance + static) ----
         foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
@@ -93,14 +106,20 @@ internal sealed class ExtensionBlockAnalyzer
                 case StaticMethodMemberPlan staticMember:
                     AddStaticMethodSite(
                         invocation, method, staticMember, block,
-                        staticMethodSites, deferred);
+                        staticMethodSites, deferred, blockMarkers);
                     break;
 
                 case MethodMemberPlan methodMember:
+                    // Member-binding invocations are owned by the conditional
+                    // pipeline (single/multi-segment chains).
+                    if (invocation.Expression is MemberBindingExpressionSyntax)
+                    {
+                        continue;
+                    }
+
                     AddInstanceMethodSite(
                         invocation, method, methodMember, block,
-                        conditionalsCovered, conditionalPlans, hostOverrides, deferred,
-                        methodSites);
+                        methodSites, deferred, blockMarkers);
                     break;
             }
         }
@@ -108,6 +127,13 @@ internal sealed class ExtensionBlockAnalyzer
         // ---- Member access: block properties, instance + static (read/write/compound) ----
         foreach (var access in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
         {
+            // Sites inside null-conditional chains are built by the
+            // conditional pipeline (seams), not by read/write site plans.
+            if (access.Ancestors().OfType<ConditionalAccessExpressionSyntax>().Any())
+            {
+                continue;
+            }
+
             if (_model.GetSymbolInfo(access).Symbol is not IPropertySymbol property
                 || property.ContainingType.TypeKind != TypeKind.Extension
                 || !membersByOriginal.TryGetValue(property.OriginalDefinition, out var entry))
@@ -153,6 +179,14 @@ internal sealed class ExtensionBlockAnalyzer
                 continue;
             }
 
+            // M3 decision 15: operator sites inside Expression<TDelegate> are
+            // skipped with a paired diagnostic (whole-plan skip).
+            if (ExtensionExpressionTreeFacts.IsInExpressionTreeLambda(binary, _model))
+            {
+                SkipOperatorInExpressionTree(binary, op, opEntry.Block, deferred);
+                continue;
+            }
+
             var isLifted = _model.GetOperation(binary) is IBinaryOperation { IsLifted: true };
             var annotation = new SyntaxAnnotation("C49", "BlockBinaryOperatorSite");
             binaryOperatorSites.Add(new BinaryOperatorSitePlan
@@ -181,6 +215,12 @@ internal sealed class ExtensionBlockAnalyzer
                 || !membersByOriginal.TryGetValue(op.OriginalDefinition, out var opEntry)
                 || opEntry.Plan is not OperatorMemberPlan operatorMember)
             {
+                continue;
+            }
+
+            if (ExtensionExpressionTreeFacts.IsInExpressionTreeLambda(unary, _model))
+            {
+                SkipOperatorInExpressionTree(unary, op, opEntry.Block, deferred);
                 continue;
             }
 
@@ -214,6 +254,12 @@ internal sealed class ExtensionBlockAnalyzer
                 || !membersByOriginal.TryGetValue(op.OriginalDefinition, out var opEntry)
                 || opEntry.Plan is not OperatorMemberPlan operatorMember)
             {
+                continue;
+            }
+
+            if (ExtensionExpressionTreeFacts.IsInExpressionTreeLambda(assignment, _model))
+            {
+                SkipOperatorInExpressionTree(assignment, op, opEntry.Block, deferred);
                 continue;
             }
 
@@ -253,7 +299,7 @@ internal sealed class ExtensionBlockAnalyzer
             _stats.OperatorCompoundSitesRewritten++;
         }
 
-        // ---- Block method groups without invocation: x.M as a delegate (M1: defer) ----
+        // ---- Block method groups: r.M / Type.M delegate conversion (M3) ----
         foreach (var access in root.DescendantNodes().OfType<MemberAccessExpressionSyntax>())
         {
             if (access.Parent is InvocationExpressionSyntax { Expression: { } invoked } && invoked == access)
@@ -261,7 +307,8 @@ internal sealed class ExtensionBlockAnalyzer
                 continue;
             }
 
-            if (_model.GetSymbolInfo(access).Symbol is not IMethodSymbol
+            var symbolInfo = _model.GetSymbolInfo(access);
+            if (symbolInfo.Symbol is not IMethodSymbol
                 {
                     MethodKind: MethodKind.Ordinary,
                 } groupMethod
@@ -271,19 +318,10 @@ internal sealed class ExtensionBlockAnalyzer
                 continue;
             }
 
-            deferred.Add(new DeferredSitePlan
-            {
-                Site = access,
-                IsProperty = false,
-                Code = ExtensionMethodCodes.ReducedMethodGroup,
-                Detail = "Block method group conversion is not rewritten in C49 M1; sugar retained.",
-            });
-            AddDiagnostic(ExtensionSeverity.Warning, ExtensionMethodCodes.ReducedMethodGroup,
-                "Block method group conversion is not rewritten in C49 M1; sugar retained.", access);
-            groupEntry.Block.HasDeferredSites = true;
+            AddBlockGroupSite(access, groupMethod, groupEntry, blockGroups, deferred);
         }
 
-        // ---- Outermost null-conditional chains: property bindings & extended shapes ----
+        // ---- Outermost null-conditional chains: M3 dispatch ----
         foreach (var conditional in root.DescendantNodes()
                      .OfType<ConditionalAccessExpressionSyntax>()
                      .Where(c => !c.Ancestors().OfType<ConditionalAccessExpressionSyntax>().Any()))
@@ -293,39 +331,29 @@ internal sealed class ExtensionBlockAnalyzer
                 continue;
             }
 
-            switch (conditional.WhenNotNull)
+            var handled = TryBuildConditional(
+                conditional,
+                buildContext,
+                conditionalsCovered,
+                conditionalPlans,
+                deferred);
+
+            if (!handled)
             {
-                case MemberBindingExpressionSyntax binding
-                    when _model.GetSymbolInfo(binding).Symbol is IPropertySymbol boundProperty
-                         && boundProperty.ContainingType.TypeKind == TypeKind.Extension
-                         && membersByOriginal.TryGetValue(boundProperty.OriginalDefinition, out var entry)
-                         && entry.Plan is PropertyMemberPlan boundMember:
+                // Unsupported/null shape (e.g. r?.P?.X): keep the sugar with
+                // one paired diagnostic so the residual scanner sees the span.
+                foreach (var nested in conditional.DescendantNodesAndSelf()
+                             .OfType<ConditionalAccessExpressionSyntax>())
                 {
-                    conditionalsCovered.Add(conditional);
-                    var propertyBuild = ConditionalPlanFactory.BuildPropertyPlan(
-                        conditional, binding, boundProperty, boundMember, entry.Block,
-                        _model, _allocator, hostOverrides, conditionalSeams);
-                    CollectConditional(propertyBuild, conditional, isProperty: true,
-                        conditionalPlans, deferred, entry.Block);
-                    break;
+                    conditionalsCovered.Add(nested);
                 }
 
-                // r?.ExtProp.B and other extended property shapes: defer.
-                case MemberAccessExpressionSyntax { Expression: MemberBindingExpressionSyntax prefix }
-                    when _model.GetSymbolInfo(prefix).Symbol is IPropertySymbol extendedProperty
-                         && extendedProperty.ContainingType.TypeKind == TypeKind.Extension:
-                {
-                    conditionalsCovered.Add(conditional);
-                    DeferConditional(deferred, conditional, isProperty: true);
-                    if (membersByOriginal.TryGetValue(extendedProperty.OriginalDefinition, out var extEntry))
-                    {
-                        extEntry.Block.HasDeferredSites = true;
-                    }
-
-                    break;
-                }
+                DeferConditional(deferred, conditional, isProperty: true);
             }
         }
+
+        // ---- External metadata boundary (decision appendix 5) ----
+        ScanExternalMetadata(root, membersByOriginal, externalSites);
 
         return new BlockAnalysisResult
         {
@@ -344,10 +372,194 @@ internal sealed class ExtensionBlockAnalyzer
             ConditionalSeams = conditionalSeams,
             ConditionalHostOverrides = hostOverrides,
             DeferredSites = deferred,
+            ExternalSites = externalSites,
+            BlockGroups = blockGroups,
+            BlockExpressionTreeMarkers = blockMarkers,
             Diagnostics = _diagnostics,
             Statistics = _stats,
         };
     }
+
+    /// <summary>
+    /// Dispatches one outermost conditional to the matching factory build.
+    /// Returns false only when no recognizable liftable shape exists.
+    /// </summary>
+    private bool TryBuildConditional(
+        ConditionalAccessExpressionSyntax conditional,
+        ConditionalPlanFactory.BuildContext context,
+        HashSet<ConditionalAccessExpressionSyntax> covered,
+        List<ExtensionConditionalPlan> plans,
+        List<DeferredSitePlan> deferred)
+    {
+        var whenNotNull = conditional.WhenNotNull;
+
+        // r?.P
+        if (whenNotNull is MemberBindingExpressionSyntax binding
+            && TryGetBlockMember(_model.GetSymbolInfo(binding).Symbol, context,
+                out var propertySymbol, out var propertyEntry)
+            && propertySymbol is IPropertySymbol boundProperty
+            && propertyEntry!.Value.Plan is PropertyMemberPlan boundMember)
+        {
+            MarkChainCovered(conditional, covered);
+            var build = ConditionalPlanFactory.BuildPropertyPlan(
+                conditional, binding, boundProperty, boundMember,
+                propertyEntry.Value.Block, context);
+            CollectConditional(build, conditional, isProperty: true,
+                plans, deferred, propertyEntry.Value.Block);
+            return true;
+        }
+
+        // r?.M()
+        if (whenNotNull is InvocationExpressionSyntax { Expression: MemberBindingExpressionSyntax } origin
+            && _model.GetSymbolInfo(origin).Symbol is IMethodSymbol
+            {
+                MethodKind: MethodKind.Ordinary,
+            } originMethod
+            && context.Resolve(originMethod.OriginalDefinition) is
+            {
+                Plan: MethodMemberPlan originMember,
+            } originHit)
+        {
+            MarkChainCovered(conditional, covered);
+            var build = ConditionalPlanFactory.BuildMethodPlan(
+                conditional, origin, originMethod,
+                (MethodMemberPlan)originHit.Plan, originHit.Block, context);
+            CollectConditional(build, conditional, isProperty: false,
+                plans, deferred, originHit.Block);
+            return true;
+        }
+
+        // r?.M().P (member-access wrapping a member-binding invocation).
+        if (whenNotNull is MemberAccessExpressionSyntax methodTail
+            && FindBindingInvocationUnder(methodTail) is { } methodOrigin
+            && _model.GetSymbolInfo(methodOrigin).Symbol is IMethodSymbol
+            {
+                MethodKind: MethodKind.Ordinary,
+            } tailMethod
+            && context.Resolve(tailMethod.OriginalDefinition) is
+            {
+                Plan: MethodMemberPlan,
+            } tailHit)
+        {
+            MarkChainCovered(conditional, covered);
+            var build = ConditionalPlanFactory.BuildMethodPlan(
+                conditional, methodOrigin, tailMethod,
+                (MethodMemberPlan)tailHit.Plan, tailHit.Block, context);
+            CollectConditional(build, conditional, isProperty: false,
+                plans, deferred, tailHit.Block);
+            return true;
+        }
+
+        // r?.P.B (member-access wrapping a member-binding property).
+        if (whenNotNull is MemberAccessExpressionSyntax propertyTail
+            && FindBindingPropertyUnder(propertyTail) is { } propertyBinding
+            && _model.GetSymbolInfo(propertyBinding).Symbol is IPropertySymbol prefixProperty
+            && context.Resolve(prefixProperty.OriginalDefinition) is
+            {
+                Plan: PropertyMemberPlan prefixMember,
+            } prefixHit)
+        {
+            MarkChainCovered(conditional, covered);
+            var build = ConditionalPlanFactory.BuildPropertyPlan(
+                conditional, propertyBinding, prefixProperty,
+                (PropertyMemberPlan)prefixHit.Plan, prefixHit.Block, context);
+            CollectConditional(build, conditional, isProperty: true,
+                plans, deferred, prefixHit.Block);
+            return true;
+        }
+
+        // r?.P = v / r?.P += v (statement writes).
+        if (whenNotNull is AssignmentExpressionSyntax assignment
+            && FindWriteBinding(assignment.Left) is { } writeBinding
+            && _model.GetSymbolInfo(writeBinding).Symbol is IPropertySymbol writtenProperty
+            && context.Resolve(writtenProperty.OriginalDefinition) is
+            {
+                Plan: PropertyMemberPlan writtenMember,
+            } writtenHit)
+        {
+            // ++/-- shapes never reach here; an increment expression hanging
+            // off the conditional is Roslyn CS1059 and stays sugar paired.
+            MarkChainCovered(conditional, covered);
+            var build = ConditionalPlanFactory.BuildPropertyWritePlan(
+                conditional, assignment, writtenProperty,
+                (PropertyMemberPlan)writtenHit.Plan, writtenHit.Block,
+                assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+                    ? SyntaxKind.None
+                    : assignment.Kind(),
+                context);
+            CollectConditional(build, conditional, isProperty: true,
+                plans, deferred, writtenHit.Block);
+            return true;
+        }
+
+        // Postfix/prefix ++/-- directly over a conditional (r?.P++) is CS1059:
+        // no build; keep sugar with an explicit paired marker.
+        if (ContainsExtensionBinding(conditional))
+        {
+            MarkChainCovered(conditional, covered);
+            DeferIncrement(conditional, deferred);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static void MarkChainCovered(
+        ConditionalAccessExpressionSyntax outer,
+        HashSet<ConditionalAccessExpressionSyntax> covered)
+    {
+        foreach (var nested in outer.DescendantNodesAndSelf()
+                     .OfType<ConditionalAccessExpressionSyntax>())
+        {
+            covered.Add(nested);
+        }
+    }
+
+    private static bool TryGetBlockMember(
+        ISymbol? symbol,
+        ConditionalPlanFactory.BuildContext context,
+        out ISymbol? boundSymbol,
+        out (MemberPlan Plan, BlockPlan Block)? entry)
+    {
+        boundSymbol = symbol;
+        if (symbol is null)
+        {
+            entry = null;
+            return false;
+        }
+
+        entry = context.Resolve(symbol.OriginalDefinition);
+        return entry is not null;
+    }
+
+    private static InvocationExpressionSyntax? FindBindingInvocationUnder(ExpressionSyntax root)
+    {
+        return root.DescendantNodesAndSelf()
+            .OfType<InvocationExpressionSyntax>()
+            .FirstOrDefault(i => i.Expression is MemberBindingExpressionSyntax);
+    }
+
+    private static MemberBindingExpressionSyntax? FindBindingPropertyUnder(ExpressionSyntax root)
+    {
+        var invocation = FindBindingInvocationUnder(root);
+        return root.DescendantNodesAndSelf()
+            .OfType<MemberBindingExpressionSyntax>()
+            .FirstOrDefault(b => invocation is null
+                || !b.AncestorsAndSelf().Any(n => n == invocation));
+    }
+
+    private static MemberBindingExpressionSyntax? FindWriteBinding(ExpressionSyntax left)
+        => left switch
+        {
+            MemberBindingExpressionSyntax direct => direct,
+            MemberAccessExpressionSyntax { Expression: MemberBindingExpressionSyntax prefix } => prefix,
+            _ => left.DescendantNodes().OfType<MemberBindingExpressionSyntax>().FirstOrDefault(),
+        };
+
+    private bool ContainsExtensionBinding(ConditionalAccessExpressionSyntax conditional)
+        => conditional.WhenNotNull.DescendantNodesAndSelf()
+            .OfType<MemberBindingExpressionSyntax>()
+            .Any(b => _model.GetSymbolInfo(b).Symbol is { ContainingType.TypeKind: TypeKind.Extension });
 
     // ---- Invocation site builders (extracted M1 logic + M2 static sites) ----
 
@@ -357,7 +569,8 @@ internal sealed class ExtensionBlockAnalyzer
         StaticMethodMemberPlan staticMember,
         BlockPlan block,
         List<StaticMethodSitePlan> sites,
-        List<DeferredSitePlan> deferred)
+        List<DeferredSitePlan> deferred,
+        List<BlockExpressionTreeMarker> blockMarkers)
     {
         // EMD-STATIC sites are type-name qualified: the MemberAccess left side
         // must bind to a type symbol. Bare/static-other shapes are not planned
@@ -365,22 +578,6 @@ internal sealed class ExtensionBlockAnalyzer
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
             || _model.GetSymbolInfo(memberAccess.Expression).Symbol is not ITypeSymbol)
         {
-            return;
-        }
-
-        if (ExtensionExpressionTreeFacts.IsInExpressionTreeLambda(invocation, _model))
-        {
-            _stats.SitesSkippedExpressionTree++;
-            deferred.Add(new DeferredSitePlan
-            {
-                Site = invocation,
-                IsProperty = false,
-                Code = ExtensionMethodCodes.ReducedMethodGroup,
-                Detail = ExtensionBlockMessages.ExpressionTreeSiteSkipped,
-            });
-            AddDiagnostic(ExtensionSeverity.Warning, ExtensionMethodCodes.ReducedMethodGroup,
-                ExtensionBlockMessages.ExpressionTreeSiteSkipped, invocation);
-            block.HasDeferredSites = true;
             return;
         }
 
@@ -399,6 +596,14 @@ internal sealed class ExtensionBlockAnalyzer
             Annotation = annotation,
         });
         _stats.StaticMethodSitesRewritten++;
+
+        // M3 decision 15: block METHOD sites inside Expression<TDelegate> are
+        // rewritten and asserted to rebind to the generated host member.
+        if (ExtensionExpressionTreeFacts.IsInExpressionTreeLambda(invocation, _model))
+        {
+            blockMarkers.Add(new BlockExpressionTreeMarker(
+                annotation, block, method, invocation, IsStatic: true));
+        }
     }
 
     private void AddInstanceMethodSite(
@@ -406,41 +611,10 @@ internal sealed class ExtensionBlockAnalyzer
         IMethodSymbol method,
         MethodMemberPlan methodMember,
         BlockPlan block,
-        HashSet<ConditionalAccessExpressionSyntax> conditionalsCovered,
-        List<ExtensionConditionalPlan> conditionalPlans,
-        IDictionary<ConditionalSpineCall, NameSyntax> hostOverrides,
+        List<MethodSitePlan> sites,
         List<DeferredSitePlan> deferred,
-        List<MethodSitePlan> sites)
+        List<BlockExpressionTreeMarker> blockMarkers)
     {
-        // r?.M() member-binding invocation → conditional plan / defer.
-        if (invocation.Expression is MemberBindingExpressionSyntax
-            && FindOutermostConditional(invocation) is { } outer)
-        {
-            conditionalsCovered.Add(outer);
-            var build = ConditionalPlanFactory.BuildMethodPlan(
-                outer, invocation, method, methodMember, block,
-                _model, _allocator, hostOverrides);
-            CollectConditional(build, outer, isProperty: false,
-                conditionalPlans, deferred, block);
-            return;
-        }
-
-        if (ExtensionExpressionTreeFacts.IsInExpressionTreeLambda(invocation, _model))
-        {
-            _stats.SitesSkippedExpressionTree++;
-            deferred.Add(new DeferredSitePlan
-            {
-                Site = invocation,
-                IsProperty = false,
-                Code = ExtensionMethodCodes.ReducedMethodGroup,
-                Detail = ExtensionBlockMessages.ExpressionTreeSiteSkipped,
-            });
-            AddDiagnostic(ExtensionSeverity.Warning, ExtensionMethodCodes.ReducedMethodGroup,
-                ExtensionBlockMessages.ExpressionTreeSiteSkipped, invocation);
-            block.HasDeferredSites = true;
-            return;
-        }
-
         SimpleNameSyntax sourceName;
         ExpressionSyntax receiverExpression;
         switch (invocation.Expression)
@@ -471,6 +645,14 @@ internal sealed class ExtensionBlockAnalyzer
             Annotation = annotation,
         });
         _stats.MethodSitesRewritten++;
+
+        // M3 decision 15: method sites in expression trees are rewritten and
+        // asserted (EM-EXPRTREE mirror).
+        if (ExtensionExpressionTreeFacts.IsInExpressionTreeLambda(invocation, _model))
+        {
+            blockMarkers.Add(new BlockExpressionTreeMarker(
+                annotation, block, method, invocation, IsStatic: false));
+        }
     }
 
     // ---- Property site builders (extracted M1 logic + M2 static sites) ----
@@ -1059,6 +1241,265 @@ internal sealed class ExtensionBlockAnalyzer
             block);
     }
 
+    // ---- M3 helper: operator ET skip ----
+
+    private void SkipOperatorInExpressionTree(
+        SyntaxNode site,
+        IMethodSymbol op,
+        BlockPlan block,
+        List<DeferredSitePlan> deferred)
+    {
+        var severity = _options.Strict ? ExtensionSeverity.Error : ExtensionSeverity.Warning;
+        deferred.Add(new DeferredSitePlan
+        {
+            Site = site,
+            IsProperty = false,
+            Code = ExtensionMethodCodes.ReducedMethodGroup,
+            Detail = ExtensionBlockMessages.ExpressionTreeOperatorSkipped,
+        });
+        AddDiagnostic(severity, ExtensionMethodCodes.ReducedMethodGroup,
+            ExtensionBlockMessages.ExpressionTreeOperatorSkipped, site);
+        block.HasDeferredSites = true;
+        _stats.ExpressionTreeOperatorsSkipped++;
+    }
+
+    // ---- M3 helper: r?.P++ CS1059 pairing ----
+
+    private void DeferIncrement(
+        ConditionalAccessExpressionSyntax conditional,
+        List<DeferredSitePlan> deferred)
+    {
+        var severity = _options.Strict ? ExtensionSeverity.Error : ExtensionSeverity.Warning;
+        deferred.Add(new DeferredSitePlan
+        {
+            Site = conditional,
+            IsProperty = false,
+            Code = ExtensionMethodCodes.NullConditional,
+            Detail = ExtensionBlockMessages.ConditionalIncrementDeferred,
+        });
+        AddDiagnostic(severity, ExtensionMethodCodes.NullConditional,
+            ExtensionBlockMessages.ConditionalIncrementDeferred, conditional);
+        _stats.ConditionalsDeferred++;
+    }
+
+    // ---- M3 helper: block method group delegate conversion ----
+
+    private void AddBlockGroupSite(
+        MemberAccessExpressionSyntax access,
+        IMethodSymbol method,
+        (MemberPlan Plan, BlockPlan Block) entry,
+        List<ExtensionGroupPlan> blockGroups,
+        List<DeferredSitePlan> deferred)
+    {
+        var severity = _options.Strict ? ExtensionSeverity.Error : ExtensionSeverity.Warning;
+
+        void Skip(string detail)
+        {
+            deferred.Add(new DeferredSitePlan
+            {
+                Site = access,
+                IsProperty = false,
+                Code = ExtensionMethodCodes.ReducedMethodGroup,
+                Detail = detail,
+            });
+            AddDiagnostic(severity, ExtensionMethodCodes.ReducedMethodGroup, detail, access);
+            entry.Block.HasDeferredSites = true;
+        }
+
+        var isStatic = method.IsStatic;
+        if (isStatic)
+        {
+            if (entry.Plan is not StaticMethodMemberPlan)
+            {
+                Skip("Block method group: the resolved block member is not a static method; sugar retained.");
+                return;
+            }
+
+            // Type-name qualified only.
+            if (_model.GetSymbolInfo(access.Expression).Symbol is not ITypeSymbol)
+            {
+                return;
+            }
+        }
+        else if (entry.Plan is not MethodMemberPlan)
+        {
+            Skip("Block method group: the resolved block member is not an instance method; sugar retained.");
+            return;
+        }
+
+        if (ExtensionExpressionTreeFacts.IsInExpressionTreeLambda(access, _model))
+        {
+            Skip("Block method group inside an Expression<TDelegate> is not rewritten in C49 M3; sugar retained.");
+            return;
+        }
+
+        if (entry.Block.Receiver.RefKind != RefKind.None)
+        {
+            Skip("Block method group on a ref/in/out receiver block cannot become a capture lambda in C49 M3; sugar retained.");
+            return;
+        }
+
+        if (method.ReturnsByRef || method.ReturnsByRefReadonly)
+        {
+            Skip("Block method group returning by ref cannot become a capture lambda in C49 M3; sugar retained.");
+            return;
+        }
+
+        if (_model.GetTypeInfo(access).ConvertedType is not INamedTypeSymbol
+            {
+                TypeKind: TypeKind.Delegate,
+                DelegateInvokeMethod: { } delegateInvoke,
+            } convertedType)
+        {
+            Skip("Block method group is not converted to a delegate type at this site; sugar retained.");
+            return;
+        }
+
+        var methodParameters = method.Parameters;
+        if (methodParameters.Length != delegateInvoke.Parameters.Length)
+        {
+            Skip("Block method group parameter count does not match the delegate Invoke signature; sugar retained.");
+            return;
+        }
+
+        for (var i = 0; i < methodParameters.Length; i++)
+        {
+            if (!SymbolEqualityComparer.Default.Equals(
+                    methodParameters[i].Type, delegateInvoke.Parameters[i].Type))
+            {
+                Skip("Block method group parameter types do not match the delegate Invoke signature; sugar retained.");
+                return;
+            }
+        }
+
+        if (!SymbolEqualityComparer.Default.Equals(method.ReturnType, delegateInvoke.ReturnType))
+        {
+            Skip("Block method group return type does not match the delegate Invoke signature; sugar retained.");
+            return;
+        }
+
+        ExtensionAnchor? anchor = null;
+        var directCapture = false;
+        string? tempName = null;
+        SyntaxAnnotation? anchorAnnotation = null;
+
+        if (!isStatic)
+        {
+            var receiver = access.Expression;
+            if (IsSimpleReceiver(receiver))
+            {
+                directCapture = true;
+            }
+            else
+            {
+                var resolvedAnchor = ExtensionTempLift.ResolveAnchor(access, _model);
+                if (resolvedAnchor.Kind == ExtensionAnchorKind.None
+                    || !ExtensionTempLift.IsAtDominantExpressionPosition(access))
+                {
+                    Skip("Block method group receiver cannot be safely captured at this position; sugar retained.");
+                    return;
+                }
+
+                anchor = resolvedAnchor;
+                tempName = _allocator.Allocate("gr");
+                anchorAnnotation = new SyntaxAnnotation("C49", "BlockGroupAnchor");
+            }
+        }
+
+        var lambdaNames = Enumerable.Range(0, methodParameters.Length)
+            .Select(_ => _allocator.Allocate("p"))
+            .ToList();
+
+        // Full explicit type argument list: n block args + m member args.
+        var blockCount = entry.Block.BlockTypeParameters.Count;
+        var allTypeArguments = method.ContainingType.TypeArguments.Take(blockCount)
+            .Concat(method.TypeArguments)
+            .ToList();
+        SimpleNameSyntax? targetName = null;
+        if (allTypeArguments.Count > 0)
+        {
+            targetName = SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(method.Name),
+                SyntaxFactory.TypeArgumentList(SyntaxFactory.SeparatedList(
+                    allTypeArguments.Select(t => (TypeSyntax)SyntaxFactory.ParseTypeName(
+                        t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))))));
+        }
+
+        blockGroups.Add(new ExtensionGroupPlan
+        {
+            MemberAccess = access,
+            Reduced = method,
+            Unreduced = method,
+            DelegateType = convertedType,
+            IsInExpressionTree = false,
+            DirectCapture = directCapture,
+            Anchor = anchor,
+            TempName = tempName,
+            LambdaParameterNames = lambdaNames,
+            AnchorAnnotation = anchorAnnotation,
+            HostOverride = ExtensionHostSyntaxFactory.BuildHostName(entry.Block.Host),
+            NoReceiver = isStatic,
+            TargetName = targetName,
+        });
+        _stats.GroupsRewritten++;
+    }
+
+    // ---- M3 helper: external metadata boundary ----
+
+    private void ScanExternalMetadata(
+        CompilationUnitSyntax root,
+        Dictionary<ISymbol, (MemberPlan Plan, BlockPlan Block)> membersByOriginal,
+        List<ExternalExtensionSite> externalSites)
+    {
+        var seenSpans = new HashSet<int>();
+
+        foreach (var node in root.DescendantNodesAndSelf())
+        {
+            ISymbol? symbol = node switch
+            {
+                InvocationExpressionSyntax
+                    or MemberAccessExpressionSyntax
+                    or MemberBindingExpressionSyntax
+                    or BinaryExpressionSyntax
+                    or PrefixUnaryExpressionSyntax
+                    or AssignmentExpressionSyntax
+                    => _model.GetSymbolInfo(node).Symbol,
+                _ => null,
+            };
+
+            if (symbol is not (IMethodSymbol or IPropertySymbol)
+                || symbol.ContainingType?.TypeKind != TypeKind.Extension)
+            {
+                continue;
+            }
+
+            if (membersByOriginal.ContainsKey(symbol.OriginalDefinition))
+            {
+                continue;
+            }
+
+            // Source-declared but block absent (rejected blocks): NOT external.
+            if (symbol.DeclaringSyntaxReferences.Length > 0)
+            {
+                continue;
+            }
+
+            if (!seenSpans.Add(node.SpanStart))
+            {
+                continue;
+            }
+
+            var assemblyName = symbol.ContainingAssembly?.Name ?? "unknown";
+            externalSites.Add(new ExternalExtensionSite(node, symbol, assemblyName));
+            AddDiagnostic(
+                ExtensionSeverity.Warning,
+                ExtensionBlockCodes.ExternalMetadata,
+                ExtensionBlockMessages.ExternalMetadataSite(assemblyName, symbol.ToDisplayString()),
+                node);
+            _stats.ExternalMetadataSites++;
+        }
+    }
+
     private void AddDiagnostic(
         ExtensionSeverity severity,
         string code,
@@ -1141,11 +1582,5 @@ internal sealed class ExtensionBlockAnalyzer
         }
 
         return false;
-    }
-
-    private static ConditionalAccessExpressionSyntax? FindOutermostConditional(SyntaxNode site)
-    {
-        var conditional = site.Ancestors().OfType<ConditionalAccessExpressionSyntax>().FirstOrDefault();
-        return conditional;
     }
 }
