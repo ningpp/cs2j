@@ -3,7 +3,7 @@
 **日期**: 2026-09-29
 **范围**: catalog C49（P1，`.NET 10` 目标基线直接命中）：顶层非泛型静态类中的 `extension(ReceiverType receiver) { … }` 块——实例扩展属性、扩展运算符、静态扩展方法/属性、块/成员两级泛型——的声明侧归一与调用点显式化；扩展索引器（C# 15 预览）显式拒绝归 C52
 **归属**: C19 `extension-methods` pass 的**声明侧规则族**（catalog 名称 `ExtensionMemberNormalize`；规则前缀 EMD，Extension Member Declarations），不新增 stub、不新增 pass、不新增中间目录；本文是 [2026-09-29-c19-extension-methods-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c19-extension-methods-design.md) 的姊妹设计
-**状态**: 设计定稿待评审；实施在独立 worktree（见 §12），本文不改动任何代码、不执行任何 git 写操作
+**状态**: 设计定稿；实施中（独立 worktree，见 §12；2026-10-04 起按 M1/M2/M3 分批由 Sub Agent 实现、分批提交），本文不改动转换器代码
 **关联资料**: [preprocessor-catalog.md](file:///d:/code/cs2j/prompts/preprocessor-catalog.md) C49（L953-966）/C19（L530-542）/C11（L419-431）/C14 对齐 /C52（L997-1010）；[preprocessor-foundation_plan.md](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md) L60-139；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L180-L206)；官方语言参考 https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/extension 、 https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14 ；特性规范 csharp-14.0/extensions
 
 ---
@@ -401,18 +401,20 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 
 ---
 
-## 12. Worktree 分配（只写不执行）
+## 12. Worktree 分配
 
 - 分支：`feature/preproc-c49-extension-members`
 - 目录：`.worktrees/preproc-c49-extension-members`
-- base：`9b99c60b`（"docs: C46 成员签名显式化设计…"；2026-09-29 只读核验存在；**实现前先合入 C19 分支** `feature/preproc-c19-extension-methods`，实际基点为合入结果）
-- 创建命令（**交实施环节执行，本设计任务不执行、不代为创建**）：
+- base：**`e50d9874`**（dev-3.x-26100408 最新提交，"feat(preprocessing): 波次0接线激活 C24默认接通+C27/C50/C46 CLI开关+catalogItems订正"；2026-10-04 核验：C19 分支 `feature/preproc-c19-extension-methods` 已合入该基点，§8 前置 2 满足；M0 Roslyn 5.0.0 升级亦在该基点内）
+- 创建命令（2026-10-04 已执行，worktree 已创建）：
 
 ```bash
-git worktree add .worktrees/preproc-c49-extension-members -b feature/preproc-c49-extension-members 9b99c60b
+git worktree add .worktrees/preproc-c49-extension-members -b feature/preproc-c49-extension-members e50d9874
 ```
 
-实施约束（写入实施 plan）：仅在该 worktree 内改码；M0 升级提交独立于规则提交；默认关先行（1206 行为不变），过 §8 门槛且 .NET 10 基线启动后再翻；转换器代码改动留 C19 M5 同族后续 PR；探针结论先回填本设计再写规则代码。
+> 本次 base 更新（`9b99c60b` → dev-3.x-26100408 HEAD `e50d9874`）取代文末"附：开放问题裁决"⑧中"维持自有 base 9b99c60b、创建后再 rebase"的旧口径——直接以 dev-3.x-26100408 最新提交为基点，无需 rebase。
+
+实施约束（写入实施 plan）：仅在该 worktree 内改码；M0 升级提交独立于规则提交；默认关先行（1206 行为不变），过 §8 门槛且 .NET 10 基线启动后再翻；转换器代码改动留 C19 M5 同族后续 PR；探针结论先回填本设计再写规则代码。**实施方式（2026-10-04）：以 Sub Agent 按里程碑（M1/M2/M3）分批实现，实现一部分、提交一部分。**
 
 ---
 
