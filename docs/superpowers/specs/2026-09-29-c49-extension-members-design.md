@@ -3,7 +3,7 @@
 **日期**: 2026-09-29
 **范围**: catalog C49（P1，`.NET 10` 目标基线直接命中）：顶层非泛型静态类中的 `extension(ReceiverType receiver) { … }` 块——实例扩展属性、扩展运算符、静态扩展方法/属性、块/成员两级泛型——的声明侧归一与调用点显式化；扩展索引器（C# 15 预览）显式拒绝归 C52
 **归属**: C19 `extension-methods` pass 的**声明侧规则族**（catalog 名称 `ExtensionMemberNormalize`；规则前缀 EMD，Extension Member Declarations），不新增 stub、不新增 pass、不新增中间目录；本文是 [2026-09-29-c19-extension-methods-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c19-extension-methods-design.md) 的姊妹设计
-**状态**: 设计定稿；实施中（独立 worktree，见 §12；2026-10-04 起按 M1/M2/M3 分批由 Sub Agent 实现、分批提交），本文不改动转换器代码
+**状态**: 设计定稿；实施中（独立 worktree，见 §12；2026-10-04 起按 M1/M2/M3 分批由 Sub Agent 实现、分批提交），本文不改动转换器代码。**2026-10-04 已回填 M1 探针结论（§13）**：Roslyn 5.0.0 GA 实测推翻/补钉了决策 6/7、§4.4、§4.6 的若干假设，相关行就地标注
 **关联资料**: [preprocessor-catalog.md](file:///d:/code/cs2j/prompts/preprocessor-catalog.md) C49（L953-966）/C19（L530-542）/C11（L419-431）/C14 对齐 /C52（L997-1010）；[preprocessor-foundation_plan.md](file:///d:/code/cs2j/.trae/documents/preprocessor-foundation_plan.md) L60-139；[PassStubCatalog.cs](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L180-L206)；官方语言参考 https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/keywords/extension 、 https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-14 ；特性规范 csharp-14.0/extensions
 
 ---
@@ -116,10 +116,10 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 | 3 | ① 实例扩展属性 | `int P { get; set; }` → 同 host 类中 `public static int get_P(ReceiverType r)` + `public static void set_P(ReceiverType r, int value)`；表达式体/get-only 同 C11 规则只生成存在的一侧；调用点 `x.P`→`global::Host.get_P(x)`、`x.P=v`→`global::Host.set_P(x,v)`、复合/`++--` 按 C11 读写配方展开。**命名严格用 C11 决策 1 的 C# 规范名 `get_X/set_X`（小写前缀带下划线），不用 Pascal `GetX/SetX`**——catalog 措辞 GetP 是简称；C11 已论证 `get_X` 槽位天然零碰撞而 `GetX` 会撞用户方法 | 与 C11 产物同形，C11 翻默认开后的"Java 半区消费改造"（get_X→getX 派生）自动覆盖本族 |
 | 4 | ② 扩展运算符 | 块内 `public static R operator +(A a, B b)` → host 类普通静态方法 `public static R Add(A a, B b)`；一元/比较/转换（`implicit/explicit`→`ToR`/`ToRExplicit`）/`checked`（`Checked` 后缀）**逐名复用 C14 命名镜像表与 SB 站点配方**；调用点 `a+b`→`global::Host.Add(a,b)`，转换/复合赋值/提升形态同 C14 规则。**注意链序**：member-desugar（C14）在 Declarative 阶段、先于本 pass，不会二次处理新生成成员——故 C49 必须在本 pass 内直接产出 C14 **最终形态**而非"经典 operator 声明"，C14 的 OperatorFacts/命名表须作为可复用 Core 组件被引用（§11） | 任务书"经典静态 op 方法（并入 C14 调用点物化）"的落实方式；运算符声明位置保持在原块处 |
 | 5 | ③ 静态扩展方法/属性 | 块内 `static M(...)` → host 类普通静态方法 `M(...)`（无 receiver 参数）；静态属性 → `get_X()`（/`set_X`）普通静态方法对（C11 同形）。调用点**接收者类型名限定** `IEnumerable<int>.Generate(args)` → `global::Host.Generate(args)`、`IEnumerable<int>.Identity` → `global::Host.get_Identity()`。绑定判据：MemberAccess 的左侧表达式经语义模型是**类型符号**且所绑成员 `IsExtension`（API 名 M0 探针确认） | 不生成 receiver 形参；泛型类型名实参（`IEnumerable<int>`）在改写后消失，由方法自身泛型推断/显式实参表承接（EMD-GEN） |
-| 6 | ④ 块内实例扩展方法 | 块内 `R M(T a)`（receiver 由块提供）→ 经典 `public static R M(ReceiverType __r, T a)`（带 `this` 修饰），receiver 形参名取块 receiver 原名（保持方法体引用零改写）或确定性合成名并同步替换方法体引用（M0 按符号可读性二选一，默认保原名）。**调用点交 C19 既有物化器**：Roslyn 4.14 下块扩展方法调用点绑定即 `MethodKind.ReducedExtension`（M0 确认），C19 EM-BIND/EM-CALL 不改即覆盖；EMD-METHOD 只补声明侧 | 与任务书⑤完全一致；声明改写与调用点改写同 pass，计划均在原 compilation 上取得 |
-| 7 | 成员种类全集 | 支持：方法（实例/静态）、属性（实例/静态，get/set/init?/表达式体）、运算符（静态）。init 访问器跟随 C11 决策 4 归约为 set。**拒绝并显式报码**：索引器（C# 15 预览，CS2J1209）、字段/常量/事件/嵌套类型（C# 14 grammar 不允许，若探针发现可解析形态同样 CS2J1209）、`partial extension`（grammar 无 partial，M0 探针钉死，若未来预览加入则 CS2J1209 而非静默） | 常量问题在任务书中为开放项；结论以 grammar 为准、探针兜底 |
+| 6 | ④ 块内实例扩展方法 | 块内 `R M(T a)`（receiver 由块提供）→ 经典 `public static R M(ReceiverType __r, T a)`（带 `this` 修饰），receiver 形参名取块 receiver 原名（保持方法体引用零改写，默认保原名）。**【2026-10-04 M1 探针修正】调用点不能交 C19 既有物化器**：Roslyn **5.0.0 GA** 实测块内方法是 `MethodKind.Ordinary`、`IsExtensionMethod=false`、`ReducedFrom=null`，调用点 `x.M(a)` 直接绑该 Ordinary 方法（容器为合成 `TypeKind.Extension`），**不是** `MethodKind.ReducedExtension`；旧文档"4.14 下调用点即 ReducedExtension、C19 EM-BIND/EM-CALL 不改即覆盖"的假设对 GA 不成立。EMD-METHOD 必须**声明侧 + 调用点两侧都做**，选择器按符号判据自选：所绑 `IMethodSymbol.MethodKind==Ordinary` 且（`ContainingType.TypeKind==Extension` 或声明语法祖先为 ExtensionBlockDeclarationSyntax） | 与任务书⑤的声明形态一致；调用点改写 `x.M(a)`→`global::Host.M(x,a)`，计划与声明同来自原 compilation |
+| 7 | 成员种类全集 | 支持：方法（实例/静态）、属性（实例/静态，get-only/get-set/表达式体——**仅限显式体**，见下）、运算符（静态，M2）。**【2026-10-04 M1 探针修正】① init 访问器在块内是编译错误 CS9304（伴 CS9282 "This member is not allowed in an extension block"），Latest/Preview 同——"init→set 归约"路径注销（合法输入中不存在 init 形态）；② 自动属性 `{ get; set; }` 无后备字段可挂，同样 CS9282——块属性只接受表达式体或显式块体**。**拒绝并显式报码**：索引器（5.0.0 下 Latest/Preview 编译均 CS9282，CS2J1209，见 §13）、字段/常量/事件/嵌套类型（C# 14 grammar 不允许，若探针发现可解析形态同样 CS2J1209）、`partial extension`（grammar 无 partial，若未来预览加入则 CS2J1209 而非静默） | init/索引器旧假设的修正见 §13 探针结论 |
 | 8 | 泛型：块上参数 | **映射到每个生成成员的方法类型参数表**（不是静态类泛型——扩展方法容器法定为非泛型静态类，官方经典等价示例即 `Spread<T>(this IEnumerable<T> source,…)`）：块参数按块上声明序前置于成员自身参数；约束（含 `where`）合并平移到方法；静态成员同样携带（静态扩展 IL 本就是带类型参数的静态方法） | 经典扩展方法"静态类可泛型"的假设不成立：含扩展方法的静态类必须非泛型；M0 用官方 GenericExtensions 样本钉死 |
-| 9 | 泛型：成员上参数 | 保持为方法类型参数，接在块参数之后；两处同名本就被编译器拒（规范 scoping），输入可编译即无碰撞 | 调用点泛型实参沿用 C19 EM-GEN 策略：源码省略则继续省略（让编译器从显式首参重新推断），源码显式则原样保留 |
+| 9 | 泛型：成员上参数 | 保持为方法类型参数，接在块参数之后；两处同名本就被编译器拒（规范 scoping），输入可编译即无碰撞 | 【2026-10-04 M1 探针钉死】**显式实参只允许两种形态**（设块 arity=n、成员 arity=m）：①全省略 `x.Echo("x")` 靠推断；②全 n+m `x.Echo<TBlock…,TMember…>("x")`；**仅成员实参** `x.Echo<TMember>("x")`（arity=m）CS1061 不合法。非泛型块的成员泛型单实参 `3.Echo<TMember>("x")` 合法。改写时：省略→省略（由显式 receiver 首参重新推断）；全 n+m→n+m 实参表原样前置保留。详见 §13 与 §4.4 |
 | 10 | receiver `ref/in/readonly/scoped` | 规范 grammar 允许 `parameter_modifiers?`；逐成员映射为生成静态方法首参的同款修饰（属性 `get_P(ref Receiver r)` / `set_P(ref Receiver r, v)`；ref 写入语义经 setter 首参 ref 保住——具体哪些成员/访问器组合合法以 M0 探针矩阵为准，不合法组合由原编译拒绝，本规则不额外发明）；`scoped` 是逃逸元数据不进签名但保留在形参 | 不支持组合（如指针 receiver——经典扩展方法即有指针首参限制，M0 钉死允许集）→ CS2J1211 显式拒绝 |
 | 11 | host 类与命名/可见性 | **不新建类、不新建文件**：成员全部生成进块所在的原静态类（同类多块合并进同类；host 可 partial，成员落在块所在源文件的该类部件中）；保持原 `public/internal` 可访问性与原命名空间；调用点一律 `global::` 全限定（复用 C19 ExtensionHostSyntaxFactory，FullyQualifiedFormat，禁止手拼字符串、禁止向源文件加 using） | 零 using 丢失/别名遮蔽问题；internal host 对同图调用点可见（merged compilation 同编）；metadata 侧 host 不可达分类沿用 C19 EM-EXTERNAL（1203） |
 | 12 | 同类多块 / 多成员 | 各块独立展开、成员按源序插入原块位置；同签名冲突在**输入编译期**已被 Roslyn 拒（receiver 计入签名），改写后若重编译出现 CS0102/CS0111 级碰撞（理论只可能来自生成名映射缺陷）→ CS2J1212 并按 plan 回退 | residual 以重编译零新增错误为闸门 |
@@ -195,8 +195,8 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 
 | 源（块内） | 目标（host 类经典成员） | 调用点 |
 |---|---|---|
-| 实例方法 `R M(A a)` | `static R M(Receiver r, A a)`（`this` 修饰；块泛型前置于方法泛型） | C19 EM-CALL：`global::Host.M(x, a)` |
-| 实例属性 `T P { get; set; }` | `static T get_P(Receiver r)` + `static void set_P(Receiver r, T value)`（init→set 同 C11） | `get_P(x)` / `set_P(x,v)`；复合/++-- 同 C11 |
+| 实例方法 `R M(A a)` | `static R M(Receiver r, A a)`（`this` 修饰；块泛型前置于方法泛型） | EMD-METHOD 调用点：`global::Host.M(x, a)` |
+| 实例属性 `T P { get; set; }`（**显式块体**） | `static T get_P(Receiver r)` + `static void set_P(Receiver r, T value)`（自动属性/init 输入即 CS9282/CS9304，无物化路径；只生成存在的访问器） | `get_P(x)` / `set_P(x,v)`；复合/++-- 同 C11。struct 按值 receiver 仅 lvalue 可写（见 §13） |
 | 静态方法 `static R M(A a)` | `static R M(A a)` | `global::Host.M(a)`（左为接收者类型名的 MemberAccess 重绑 host） |
 | 静态属性 `static T P` | `static T get_P()`（+set） | `global::Host.get_P()` |
 | `static R operator +(A,B)` | `static R Add(A a, B b)`（C14 全表；checked→`Checked` 后缀；implicit/explicit→`ToR`/`ToRExplicit`） | `global::Host.Add(a,b)`（C14 SB 配方） |
@@ -211,7 +211,7 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 
 1. 块参数表 `TBlock₁..TBlockₙ` 前置于每个生成方法；成员自身参数 `TMember₁..TMemberₘ` 接后；方法 arity = n+m，顺序固定（IL 等价经典形态即此序，官方 GenericExtensions 示例佐证）。
 2. 约束 clauses 平移到对应参数；源中成员对块参数的引用零改写（名不变）。
-3. 调用点：源省略实参则目标省略（`x.Spread(0,1)` → `Host.Spread(x,0,1)`，由显式 receiver 首参重新推断，与 C19 EM-GEN 同构论证）；源显式 `x.M<int>('a')` 实参表按 n+m 位置原样保留（M0 探针确认块/成员两级实参在语法上的书写形态，不可书写推断结果不物化）。
+3. 调用点：源省略实参则目标省略（`x.Spread(0,1)` → `Host.Spread(x,0,1)`，由显式 receiver 首参重新推断，与 C19 EM-GEN 同构论证）。**【2026-10-04 M1 探针矩阵钉死】源端显式实参只有两种可编译形态：全 n+m（块 n + 成员 m，目标 n+m 实参表整体前置保留）或全省略；仅 m 个成员实参 CS1061（重写器不会见到该形态）。非泛型块的成员泛型 m 实参合法，目标同形保留。**
 4. 静态扩展 `IEnumerable<int>.Generate(...)` 的类型实参服务于块参数推断；改写后 receiver 类型名消失，推断改为从普通实参/返回目标进行——探针必须覆盖"仅出现在 receiver 类型、成员签名其他位置不出现"的块参数（静态成员专属场景），若无法从新形态推断则该站点 CS2J1202 同族报告并保留原计划不重写。
 
 ### 4.5 同 pass 两阶段执行序
@@ -225,11 +225,11 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 
 重编译中间树，对每个改写点断言：
 
-1. 调用点重绑符号的 `OriginalDefinition` doc-id == 计划目标符号（属性 getter/setter、运算符目标方法、静态方法、reduced→unreduced 方法）。
+1. 调用点重绑符号的 `OriginalDefinition` doc-id == 计划目标符号（属性 getter/setter、运算符目标方法、静态方法、**块 Ordinary 方法→host 经典 this 静态方法（M1 探针修正：不存在 reduced→unreduced 映射，两侧都是 Ordinary，区别在容器：合成 Extension 容器→host 静态类，及首参 this）**）。
 2. 参数序列：receiver 首参类型/ref-kind、其余实参顺序、泛型 arity 与计划一致。
 3. 声明侧：每个原块成员恰有一个生成成员配对；host 类成员集无意外增减（块外成员零触碰）。
 4. 表达式树区内零改写（跳过计数配对）。
-5. 全树 `ExtensionBlockDeclarationSyntax` 计数 = 0（C#15 preview 语言版本下另测索引器拒绝路径）。
+5. 全树 `ExtensionBlockDeclarationSyntax` 计数 = 0（块内索引器在任何语言版本均落 1209，见 §13）。
 
 任一失败：该 plan CS2J1210 同族回退（与 C19 表达式树回退码同段，新增 EMD 明细码 1222）。
 
@@ -237,7 +237,7 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 
 1. **块节点替换**：ExtensionBlockDeclarationSyntax 在 ClassDeclaration 的 Members 中被替换为 0..N 个成员声明；成员源序 = 块内源序，多个块各自就地展开不重排；块的分号/括号 trivia 按 C14 OD-1 声明替换构造同款处理。
 2. **receiver 形参注入**：实例成员首参 = `[this] [ref/in] ReceiverType receiverName`；形参名默认沿用块 receiver 标识符（方法体零改名）；块 receiver 无名但含实例成员属源程序非法（编译器已拒）；仅静态成员的块不注入形参。
-3. **属性拆分**：block-bodied get/set、表达式体、访问器可访问性、init 归约全部沿用 C11 PD 规则的实现口径（引用共享实现，不复制）；生成方法位于原属性位置，getter 先于 setter。
+3. **属性拆分**：block-bodied get/set、表达式体、访问器可访问性沿用 C11 PD 规则的实现口径（引用共享实现，不复制）；生成方法位于原属性位置，getter 先于 setter。**init 与自动属性不做归约——输入即 CS9304/CS9282（2026-10-04 探针修正）。**
 4. **运算符拆分**：引用 C14 `OperatorDeclarationRewriter` 的声明构造逻辑处理参数表/返回类型/体平移；差别仅在最终宿主位置（普通类成员，声明来源标注为 extension block）与首参无 `this`（扩展运算符经决议而非 receiver 实例查找）。
 5. **静态成员**：去掉对 receiver 的引用合法性依赖（规范：静态成员引用 receiver 名即编译错误，除 `nameof`）；方法/属性签名不注入首参。
 6. **格式化与校验**：改动区格式化→整文件格式化→原文三级（同 JK/RR/C02/C19）。
@@ -301,17 +301,17 @@ var id = IEnumerable<int>.Identity;                             // 类型名限�
 ### 7.1 M0 探针测试（parse 先决，硬前提）
 
 1. 升级 5.0.0 后 parse 探针：`LanguageVersion.Latest` 解析官方四类样本（实例方法/属性/运算符、静态方法/属性、块泛型/成员泛型）成功；记录节点类型名、属性形状与符号 API（`IsExtension`、访问器符号 host/名字、调用点 MethodKind、扩展运算符 ContainingType 与 marker 类型形态）。
-2. `LanguageVersion.Preview` 下解析扩展索引器成功、`Latest` 下报语法错——钉死 CS2J1209 的双语言版本行为。
+2. 【2026-10-04 实测修正】扩展索引器在 5.0.0 的 Latest **与** Preview 下 parse 均 0 错误、compile 均 CS9282——钉死 CS2J1209 不区分语言版本；Preview 有效版本待后续 Roslyn 线重探。
 3. receiver 修饰矩阵：`ref`/`in`/`readonly ref`/`scoped` × 方法/属性(get/set)/运算符/静态成员的合法集；指针 receiver；无名 receiver 仅静态成员、有名 receiver 静态成员引用 receiver 名（规范禁止，除 nameof）。
 4. 静态扩展推断边界（§4.4-4）：块参数仅出现在 receiver 类型的静态成员。
 5. 4.12 兼容性反向验证（可选，CI 不保留）：探针失败文案 CS2J1213。
 
 ### 7.2 Core 单测（`tests/CSharpToJava.Tests/ExtensionBlockRewriteTests.cs`）
 
-- 属性：get-only/set/表达式体/init→set/`a.ExtProp.B` 链式/复合赋值/`++--`/`?.` 与条件形态（按 C19 EM-COND 同策略）；生成名严格断言 `get_X/set_X`。
+- 属性：get-only/set/表达式体/`a.ExtProp.B` 链式/复合赋值/`++--`/`?.` 与条件形态（按 C19 EM-COND 同策略）；生成名严格断言 `get_X/set_X`。**init/自动属性用例改为断言 CS9304/CS9282 拒绝（2026-10-04 探针修正）。**
 - 运算符：算术、比较、一元、implicit/explicit（命名 `ToR`/`ToRExplicit`）、checked 后缀、提升形式；与 C14 共处（同类中普通运算符 + 扩展运算符分别绑定）。
 - 静态扩展：`IEnumerable<int>.Generate(...)`、`IEnumerable<int>.Identity`、嵌套泛型 receiver、using static/别名下可见性。
-- 实例方法：块方法改写后被 C19 EM-CALL 选中（断言最终形态静态首参调用，而非中间 this 形态）。
+- 实例方法：块方法声明与调用点均由 EMD-METHOD 改写（断言最终形态 host 静态首参 `this` 方法 + `global::Host.M(x,a)` 调用）。
 - 泛型：块级/成员级/两级组合、约束平移、省略与显式实参、静态扩展块参数推断。
 - ref/struct receiver（探针允许集内）。
 - 同类多块（不同 receiver、含经典扩展方法共存）、partial host 类、块内多成员源序。
@@ -415,6 +415,79 @@ git worktree add .worktrees/preproc-c49-extension-members -b feature/preproc-c49
 > 本次 base 更新（`9b99c60b` → dev-3.x-26100408 HEAD `e50d9874`）取代文末"附：开放问题裁决"⑧中"维持自有 base 9b99c60b、创建后再 rebase"的旧口径——直接以 dev-3.x-26100408 最新提交为基点，无需 rebase。
 
 实施约束（写入实施 plan）：仅在该 worktree 内改码；M0 升级提交独立于规则提交；默认关先行（1206 行为不变），过 §8 门槛且 .NET 10 基线启动后再翻；转换器代码改动留 C19 M5 同族后续 PR；探针结论先回填本设计再写规则代码。**实施方式（2026-10-04）：以 Sub Agent 按里程碑（M1/M2/M3）分批实现，实现一部分、提交一部分。**
+
+---
+
+## 13. M1 探针结论（2026-10-04，Roslyn 5.0.0 GA 实测）
+
+探针工程：[ExtensionBlockM1ProbeTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c49-extension-members/tests/CSharpToJava.Tests/Preprocessing/ExtensionBlockM1ProbeTests.cs)（10 用例，Latest/Preview 双版本矩阵，全绿）。以下事实钉死为 EMD 规则依据；凡与正文旧表述冲突的，正文已就地标注。
+
+### 13.1 块节点与合成容器
+
+1. 节点类型 **`ExtensionBlockDeclarationSyntax`**，`SyntaxKind.ExtensionBlockDeclaration`；形状属性 TypeParameterList / ParameterList / ConstraintClauses / Members 均存在（最新/预览一致）。
+2. 块被建模为**合成容器**：`INamedTypeSymbol.TypeKind == TypeKind.Extension`（既有 enum 值，非新增），显示名形如 `N.Holder.extension<int>(System.Collections.Generic.List<int>)`；`TypeKind.Extension` 是"是否块成员"最稳的符号判据。
+3. host = 块父类：`block.Parent` 绑定的普通 `INamedTypeSymbol`（静态类）；合成容器与 host 是两个不同符号，host 工厂不能再取 `ContainingType`（取到的是合成容器），必须走"声明语法祖先→父类绑定"。
+
+### 13.2 成员符号形状
+
+| 成员 | 符号形状 |
+|---|---|
+| 块内方法 | `IMethodSymbol`：`MethodKind.Ordinary`、**`IsExtensionMethod=false`、`ReducedFrom=null`**、`IsStatic=false` |
+| 块内属性 | 普通 `IPropertySymbol`：`IsStatic=false`、`IsIndexer=false`；访问器 `MethodKind.PropertyGet/PropertySet`，getter 名 **`get_P`**、setter 名 **`set_P`**；访问器的 ContainingType 同样是 TypeKind.Extension |
+| 属性体合法面 | ①表达式体 `P => …`；②显式 get 块体；③显式 get+set 块体。三者 Latest/Preview 均 0 错误 |
+| 自动属性 `{ get; set; }` | **CS9282**（无后备字段位置）——不是合法输入 |
+| init 访问器 | **CS9304**（伴 CS9282），Latest/Preview 同——**init→set 物化路径注销** |
+
+### 13.3 调用点绑定（对决策 6 的关键修正）
+
+1. 方法调用 `x.M(a)`：直接绑块内 Ordinary 方法（`ReducedFrom=null`），**不是** ReducedExtension；C19 既有选择器（`MethodKind.ReducedExtension`/`ReducedFrom!=null`）不覆盖。C49 自选判据：所绑方法 `MethodKind.Ordinary` 且 `ContainingType.TypeKind==Extension`（等价：声明语法祖先为 ExtensionBlockDeclarationSyntax）。
+2. 属性读 `x.P`：MemberAccess 给 IPropertySymbol（TypeKind.Extension 容器）。
+3. 属性写：赋值左路 GetSymbolInfo 给同一 IPropertySymbol；struct 按值 receiver 有**可写面限制**（§13.5）。
+4. 链式 `3.ExtProp.B`：ExtProp 绑块属性，B 绑 host 内普通字段/成员——两级符号各自正确。
+5. null 条件 `r?.ExtProp`：`ConditionalAccessExpression`（Expression=r），WhenNotNull=`MemberBindingExpressionSyntax`（.ExtProp），member binding 给 IPropertySymbol；整体类型 `int?`；Latest/Preview 一致。
+
+### 13.4 泛型与显式实参矩阵
+
+1. 泛型块：`xs.Count2()` 绑 Ordinary（容器 extension<int>，方法 arity=0）；`xs.Map(x=>x.ToString())` 绑 Ordinary，方法 arity=1，推断 typeArgs=[string]。
+2. 设块 arity=n、成员 arity=m，**显式实参合法矩阵**：
+
+| 书写 | 结果 |
+|---|---|
+| `xs.Echo("x")` 全省略 | 合法（推断） |
+| `xs.Echo<T₁..Tₙ,U₁..Uₘ>("x")` 全 n+m | 合法 |
+| `xs.Echo<U₁..Uₘ>("x")` 仅成员 m | **CS1061**（非法书写） |
+| `3.Echo<U₁>("x")` 非泛型块成员泛型 | 合法（单实参） |
+
+   → 重写器实参处理：省略→省略；n+m→n+m 整体保留；不会见到仅 m 的输入。
+3. 约束随对应参数平移；成员对块参数引用名不变。
+
+### 13.5 属性写入面：receiver 矩阵
+
+| receiver / 站点 | 结果 |
+|---|---|
+| struct 按值，字面量写 `3.P = 1` | **CS0131** |
+| struct 按值，lvalue 写 `x.P = 1` | 合法 |
+| struct 按值，lvalue 复合/`x.P++` | 合法 |
+| struct 按值，字面量复合 `3.P += 1` | **CS0131** |
+| class，lvalue/rvalue 写、复合 | 全部合法 |
+
+→ 仅真实绑定的站点入计划；struct 按值 receiver 的写/复合/++-- 天然只见于 lvalue，改写配方沿用 C11。
+
+### 13.6 扩展索引器（对 §1.1/§7.1 旧假设的修正）
+
+Roslyn 5.0.0：`public int this[int index] => …` 在块内 **Latest 与 Preview 均 parse 0 错误**、节点为块内 IndexerDeclarationSyntax；**compile 两版本均 CS9282**。即 5.0.0 线扩展索引器尚未生效（后续 Roslyn 线落地）。结论：C49 对块内 IndexerDeclarationSyntax **无条件 CS2J1209**，不按语言版本分支；升级后续 Roslyn 大版本时由 C52 差集审计重审。
+
+### 13.7 标识符禁区
+
+receiver 参数**不得命名 `value`**：块含 set 访问器时 **CS9291**（"'value': an automatically-generated parameter name conflicts with an extension parameter name"）。receiver 形参沿用原名物化的方案要求避开此名（合法输入已保证，重写器不改名故无新增风险）。
+
+### 13.8 对实施计划的净影响
+
+1. EMD-METHOD = 声明 + 调用点两侧（不再"只补声明侧"）。
+2. EMD-PROP 无 init 用例、无自动属性用例；测试负样本断言 CS9304/CS9282。
+3. 索引器拒绝不分支语言版本。
+4. host 工厂最小化增加"按 host 符号/声明父类"的显式重载，经典路径行为不变。
+5. `r?.ExtProp` 形状清晰，M1 尝试复用 EM-COND lowering；不可安全复用则配对诊断显式跳过并留 M3。
 
 ---
 
