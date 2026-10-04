@@ -22,7 +22,8 @@ internal static class ExtensionStaticCallFactory
         RefKind receiverRefKind,
         ScopedKind receiverScopedKind,
         SeparatedSyntaxList<ArgumentSyntax> remainingArguments,
-        IEnumerable<SyntaxAnnotation>? annotations = null)
+        IEnumerable<SyntaxAnnotation>? annotations = null,
+        bool emitInKeyword = false)
         => Build(
             ExtensionHostSyntaxFactory.BuildHostName(unreduced),
             sourceMethodName,
@@ -30,7 +31,8 @@ internal static class ExtensionStaticCallFactory
             receiverRefKind,
             receiverScopedKind,
             remainingArguments,
-            annotations);
+            annotations,
+            emitInKeyword);
 
     /// <summary>
     /// Build the static call under an explicit host name. C49 uses this
@@ -43,7 +45,8 @@ internal static class ExtensionStaticCallFactory
         RefKind receiverRefKind,
         ScopedKind receiverScopedKind,
         SeparatedSyntaxList<ArgumentSyntax> remainingArguments,
-        IEnumerable<SyntaxAnnotation>? annotations = null)
+        IEnumerable<SyntaxAnnotation>? annotations = null,
+        bool emitInKeyword = false)
     {
         var qualifiedMemberAccess = SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
@@ -53,7 +56,7 @@ internal static class ExtensionStaticCallFactory
 
         var receiverArgument = SyntaxFactory
             .Argument(receiver.WithoutLeadingTrivia())
-            .WithRefKindKeyword(BuildReceiverModifier(receiverRefKind, receiverScopedKind));
+            .WithRefKindKeyword(BuildReceiverModifier(receiverRefKind, receiverScopedKind, emitInKeyword));
 
         var arguments = remainingArguments.Insert(0, receiverArgument);
         var argumentList = SyntaxFactory.ArgumentList(arguments);
@@ -75,13 +78,18 @@ internal static class ExtensionStaticCallFactory
     /// <c>scoped</c>/<c>scoped ref</c> escape metadata never reaches call
     /// syntax (scoped ref still takes the ref keyword).
     /// </summary>
-    private static SyntaxToken BuildReceiverModifier(RefKind refKind, ScopedKind scopedKind)
+    private static SyntaxToken BuildReceiverModifier(
+        RefKind refKind, ScopedKind scopedKind, bool emitInKeyword)
     {
         // scoped VALUE with RefKind.None is metadata-only, no keyword.
         _ = scopedKind;
         return refKind switch
         {
             RefKind.Ref or RefKind.Out => SyntaxFactory.Token(SyntaxKind.RefKeyword),
+            // Block receivers (EMD-REF): in/ref-readonly call sites spell
+            // the in keyword explicitly; classic path keeps M1 implicit form.
+            RefKind.In or RefKind.RefReadOnlyParameter when emitInKeyword
+                => SyntaxFactory.Token(SyntaxKind.InKeyword),
             _ => SyntaxFactory.Token(SyntaxKind.None),
         };
     }

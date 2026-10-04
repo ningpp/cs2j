@@ -315,6 +315,12 @@
       <Link>SampleConcurrencySolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- C49 M2 extension-members fixture (bin/obj excluded: may have been built locally). -->
+    <Content Include="..\SampleExtensionMembersSolution\**\*.*"
+              Exclude="..\SampleExtensionMembersSolution\**\bin\**;..\SampleExtensionMembersSolution\**\obj\**">
+      <Link>SampleExtensionMembersSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

@@ -232,6 +232,7 @@ internal sealed class ExtensionBlockAnalyzer
                 });
                 AddDiagnostic(ExtensionSeverity.Warning, ExtensionMethodCodes.ReducedMethodGroup,
                     ExtensionBlockMessages.OperatorCompoundDeferred, assignment);
+                opEntry.Block.HasDeferredSites = true;
                 continue;
             }
 
@@ -265,7 +266,7 @@ internal sealed class ExtensionBlockAnalyzer
                     MethodKind: MethodKind.Ordinary,
                 } groupMethod
                 || groupMethod.ContainingType.TypeKind != TypeKind.Extension
-                || !membersByOriginal.ContainsKey(groupMethod.OriginalDefinition))
+                || !membersByOriginal.TryGetValue(groupMethod.OriginalDefinition, out var groupEntry))
             {
                 continue;
             }
@@ -279,6 +280,7 @@ internal sealed class ExtensionBlockAnalyzer
             });
             AddDiagnostic(ExtensionSeverity.Warning, ExtensionMethodCodes.ReducedMethodGroup,
                 "Block method group conversion is not rewritten in C49 M1; sugar retained.", access);
+            groupEntry.Block.HasDeferredSites = true;
         }
 
         // ---- Outermost null-conditional chains: property bindings & extended shapes ----
@@ -303,7 +305,8 @@ internal sealed class ExtensionBlockAnalyzer
                     var propertyBuild = ConditionalPlanFactory.BuildPropertyPlan(
                         conditional, binding, boundProperty, boundMember, entry.Block,
                         _model, _allocator, hostOverrides, conditionalSeams);
-                    CollectConditional(propertyBuild, conditional, isProperty: true, conditionalPlans, deferred);
+                    CollectConditional(propertyBuild, conditional, isProperty: true,
+                        conditionalPlans, deferred, entry.Block);
                     break;
                 }
 
@@ -314,6 +317,11 @@ internal sealed class ExtensionBlockAnalyzer
                 {
                     conditionalsCovered.Add(conditional);
                     DeferConditional(deferred, conditional, isProperty: true);
+                    if (membersByOriginal.TryGetValue(extendedProperty.OriginalDefinition, out var extEntry))
+                    {
+                        extEntry.Block.HasDeferredSites = true;
+                    }
+
                     break;
                 }
             }
@@ -372,6 +380,7 @@ internal sealed class ExtensionBlockAnalyzer
             });
             AddDiagnostic(ExtensionSeverity.Warning, ExtensionMethodCodes.ReducedMethodGroup,
                 ExtensionBlockMessages.ExpressionTreeSiteSkipped, invocation);
+            block.HasDeferredSites = true;
             return;
         }
 
@@ -411,7 +420,8 @@ internal sealed class ExtensionBlockAnalyzer
             var build = ConditionalPlanFactory.BuildMethodPlan(
                 outer, invocation, method, methodMember, block,
                 _model, _allocator, hostOverrides);
-            CollectConditional(build, outer, isProperty: false, conditionalPlans, deferred);
+            CollectConditional(build, outer, isProperty: false,
+                conditionalPlans, deferred, block);
             return;
         }
 
@@ -427,6 +437,7 @@ internal sealed class ExtensionBlockAnalyzer
             });
             AddDiagnostic(ExtensionSeverity.Warning, ExtensionMethodCodes.ReducedMethodGroup,
                 ExtensionBlockMessages.ExpressionTreeSiteSkipped, invocation);
+            block.HasDeferredSites = true;
             return;
         }
 
@@ -482,6 +493,25 @@ internal sealed class ExtensionBlockAnalyzer
         var n = block.BlockTypeParameters.Count;
         var blockTypeArguments = property.ContainingType.TypeArguments.Take(n).ToList();
 
+        // Inc/dec (Vec.Marker++) on a type-qualified static property: M2
+        // retains the sugar; a read-site rewrite here would produce a
+        // non-lvalue get_Marker()++ invocation.
+        if ((access.Parent is PrefixUnaryExpressionSyntax prefix && prefix.Operand == access)
+            || (access.Parent is PostfixUnaryExpressionSyntax postfix && postfix.Operand == access))
+        {
+            deferred.Add(new DeferredSitePlan
+            {
+                Site = (ExpressionSyntax)access.Parent!,
+                IsProperty = true,
+                Code = ExtensionMethodCodes.ReducedMethodGroup,
+                Detail = ExtensionBlockMessages.StaticPropertyCompoundDeferred,
+            });
+            AddDiagnostic(ExtensionSeverity.Warning, ExtensionMethodCodes.ReducedMethodGroup,
+                ExtensionBlockMessages.StaticPropertyCompoundDeferred, access);
+            block.HasDeferredSites = true;
+            return;
+        }
+
         if (access.Parent is AssignmentExpressionSyntax { Left: { } left } assignment && left == access)
         {
             if (assignment.IsKind(SyntaxKind.SimpleAssignmentExpression))
@@ -512,6 +542,7 @@ internal sealed class ExtensionBlockAnalyzer
             });
             AddDiagnostic(ExtensionSeverity.Warning, ExtensionMethodCodes.ReducedMethodGroup,
                 ExtensionBlockMessages.StaticPropertyCompoundDeferred, assignment);
+            block.HasDeferredSites = true;
             return;
         }
 
@@ -563,6 +594,7 @@ internal sealed class ExtensionBlockAnalyzer
             else
             {
                 DeferCompound(deferred, access);
+                block.HasDeferredSites = true;
             }
 
             return;
@@ -587,6 +619,7 @@ internal sealed class ExtensionBlockAnalyzer
             });
             AddDiagnostic(ExtensionSeverity.Warning, ExtensionMethodCodes.ReducedMethodGroup,
                 ExtensionBlockMessages.ExpressionTreeSiteSkipped, access);
+            block.HasDeferredSites = true;
             return;
         }
 
@@ -984,7 +1017,8 @@ internal sealed class ExtensionBlockAnalyzer
         ConditionalAccessExpressionSyntax outer,
         bool isProperty,
         List<ExtensionConditionalPlan> plans,
-        List<DeferredSitePlan> deferred)
+        List<DeferredSitePlan> deferred,
+        BlockPlan block)
     {
         if (result.Plan is { } plan)
         {
@@ -1012,6 +1046,7 @@ internal sealed class ExtensionBlockAnalyzer
         });
         AddDiagnostic(severity, ExtensionMethodCodes.NullConditional, message, outer);
         _stats.ConditionalsDeferred++;
+        block.HasDeferredSites = true;
     }
 
     private void RejectMember(ExtensionBlockDeclarationSyntax block, string what)

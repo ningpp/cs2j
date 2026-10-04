@@ -40,7 +40,7 @@ internal sealed class ExtensionBlockDeclarationRewriter : CSharpSyntaxRewriter
         foreach (var member in visited.Members)
         {
             var plan = FindPlan(member);
-            if (plan is null)
+            if (plan is null or { HasDeferredSites: true })
             {
                 expanded.Add(member);
                 continue;
@@ -295,7 +295,6 @@ internal sealed class ExtensionBlockDeclarationRewriter : CSharpSyntaxRewriter
     {
         var accessibility = new List<SyntaxToken>();
         var rest = new List<SyntaxToken>();
-        var hasStatic = false;
 
         foreach (var token in source)
         {
@@ -305,9 +304,11 @@ internal sealed class ExtensionBlockDeclarationRewriter : CSharpSyntaxRewriter
                 continue;
             }
 
+            // Consume the source static token defensively; exactly one is
+            // re-emitted after accessibility below (duplicates must not
+            // survive even though block syntax always requires one).
             if (token.IsKind(SyntaxKind.StaticKeyword))
             {
-                hasStatic = true;
                 continue;
             }
 
@@ -323,12 +324,10 @@ internal sealed class ExtensionBlockDeclarationRewriter : CSharpSyntaxRewriter
             rest.Add(token);
         }
 
-        var tokens = new List<SyntaxToken>(accessibility);
-        if (!hasStatic)
+        var tokens = new List<SyntaxToken>(accessibility)
         {
-            tokens.Add(SyntaxFactory.Token(SyntaxKind.StaticKeyword));
-        }
-
+            SyntaxFactory.Token(SyntaxKind.StaticKeyword),
+        };
         tokens.AddRange(rest);
         return SyntaxFactory.TokenList(tokens);
     }

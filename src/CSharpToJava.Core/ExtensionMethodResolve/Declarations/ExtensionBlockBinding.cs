@@ -28,6 +28,13 @@ internal sealed class BlockPlan
     public required IReadOnlyList<MemberPlan> Members { get; init; }
 
     public required SyntaxAnnotation BlockAnnotation { get; init; }
+
+    /// <summary>
+    /// True when at least one site of this block is deferred (sugar
+    /// retained): the block declaration and every one of its sites must be
+    /// left untouched, or the retained sugar would no longer resolve.
+    /// </summary>
+    public bool HasDeferredSites { get; set; }
 }
 
 /// <summary>Polymorphic plan for one block member declaration.</summary>
@@ -97,12 +104,18 @@ internal sealed record StaticPropertyMemberPlan : MemberPlan
     public bool HasSet { get; init; }
 }
 
+/// <summary>Marker interface for site plans bound to a block.</summary>
+internal interface IBlockSitePlan
+{
+    BlockPlan Block { get; }
+}
+
 /// <summary>
 /// Call site plan for a block method: <c>receiver.M(args)</c> (receiver
 /// node from the source member access) OR a bare <c>M(args)</c> inside the
 /// block (receiver synthesized as the block receiver).
 /// </summary>
-internal sealed record MethodSitePlan
+internal sealed record MethodSitePlan : IBlockSitePlan
 {
     public required InvocationExpressionSyntax Invocation { get; init; }
 
@@ -125,7 +138,7 @@ internal sealed record MethodSitePlan
 /// Read site plan bound to a block property: <c>receiver.P</c> (member
 /// access) OR a bare <c>P</c> inside the block (receiver synthesized).
 /// </summary>
-internal sealed record PropertyReadSitePlan
+internal sealed record PropertyReadSitePlan : IBlockSitePlan
 {
     /// <summary>Original site expression (MemberAccess or IdentifierName).</summary>
     public required ExpressionSyntax Site { get; init; }
@@ -143,7 +156,7 @@ internal sealed record PropertyReadSitePlan
 }
 
 /// <summary>Write site plan: <c>receiver.P = v</c> simple assignment bound to a block property.</summary>
-internal sealed record PropertyWriteSitePlan
+internal sealed record PropertyWriteSitePlan : IBlockSitePlan
 {
     public required AssignmentExpressionSyntax Assignment { get; init; }
 
@@ -163,7 +176,7 @@ internal sealed record PropertyWriteSitePlan
 /// <see cref="CompoundKind"/> is set for compound assignments;
 /// <see cref="UnaryKind"/> for ++/-- (only one).
 /// </summary>
-internal sealed record PropertyCompoundSitePlan
+internal sealed record PropertyCompoundSitePlan : IBlockSitePlan
 {
     public required ExpressionStatementSyntax Statement { get; init; }
 
@@ -191,7 +204,7 @@ internal sealed record PropertyCompoundSitePlan
 /// (including the lifted <c>Vec? + Vec?</c> shape and checked variants;
 /// short-circuit &amp;&amp;/|| sites are not planned).
 /// </summary>
-internal sealed record BinaryOperatorSitePlan
+internal sealed record BinaryOperatorSitePlan : IBlockSitePlan
 {
     public required BinaryExpressionSyntax Expression { get; init; }
 
@@ -216,7 +229,7 @@ internal sealed record BinaryOperatorSitePlan
 }
 
 /// <summary>EMD-OP unary site (M2): <c>-a</c> etc. bound to a block operator.</summary>
-internal sealed record UnaryOperatorSitePlan
+internal sealed record UnaryOperatorSitePlan : IBlockSitePlan
 {
     public required ExpressionSyntax Expression { get; init; }
 
@@ -243,7 +256,7 @@ internal sealed record UnaryOperatorSitePlan
 /// Rewriting yields <c>a = global::Host.Op(a, b)</c> (lifted: the C14 lifted
 /// compound formula); complex lvalues at statement positions are hoisted.
 /// </summary>
-internal sealed record OperatorCompoundSitePlan
+internal sealed record OperatorCompoundSitePlan : IBlockSitePlan
 {
     public required AssignmentExpressionSyntax Assignment { get; init; }
 
@@ -277,7 +290,7 @@ internal sealed record OperatorCompoundSitePlan
 /// arguments, a synthesized GenericName carrying the n explicit block
 /// arguments (CS0411 boundary).
 /// </summary>
-internal sealed record StaticMethodSitePlan
+internal sealed record StaticMethodSitePlan : IBlockSitePlan
 {
     public required InvocationExpressionSyntax Invocation { get; init; }
 
@@ -297,7 +310,7 @@ internal sealed record StaticMethodSitePlan
 }
 
 /// <summary>EMD-STATIC property read site (M2): <c>TypeExpr.P</c> bound to a block static property.</summary>
-internal sealed record StaticPropertyReadSitePlan
+internal sealed record StaticPropertyReadSitePlan : IBlockSitePlan
 {
     public required MemberAccessExpressionSyntax Access { get; init; }
 
@@ -314,7 +327,7 @@ internal sealed record StaticPropertyReadSitePlan
 }
 
 /// <summary>EMD-STATIC property write site (M2): <c>TypeExpr.P = v</c> bound to a block static property.</summary>
-internal sealed record StaticPropertyWriteSitePlan
+internal sealed record StaticPropertyWriteSitePlan : IBlockSitePlan
 {
     public required AssignmentExpressionSyntax Assignment { get; init; }
 

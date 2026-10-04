@@ -413,7 +413,8 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
             method.Block.Receiver.RefKind,
             method.Block.Receiver.ScopedKind,
             visitedArguments,
-            new[] { ExtensionCallRewriter.RewrittenAnnotation, method.Annotation });
+            new[] { ExtensionCallRewriter.RewrittenAnnotation, method.Annotation },
+            emitInKeyword: true);
     }
 
     // ---- M2: static method invocation ----
@@ -564,7 +565,8 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
             block.Receiver.RefKind,
             block.Receiver.ScopedKind,
             arguments,
-            CombineAnnotations(extraAnnotations));
+            CombineAnnotations(extraAnnotations),
+            emitInKeyword: true);
     }
 
     private static IEnumerable<SyntaxAnnotation> CombineAnnotations(IEnumerable<SyntaxAnnotation>? extra)
@@ -655,6 +657,12 @@ internal sealed class ExtensionBlockCallSiteRewriter : CSharpSyntaxRewriter
         {
             if (plans.TryGetValue(annotation, out var plan))
             {
+                // A block with any deferred site is kept fully as sugar.
+                if (plan is IBlockSitePlan { Block.HasDeferredSites: true })
+                {
+                    return null;
+                }
+
                 return plan;
             }
         }
