@@ -160,6 +160,34 @@
             ]
         },
         {
+            "csharp": "System.Threading.Tasks.ValueTask",
+            "java": "CompletableFuture",
+            "imports": [
+                "java.util.concurrent.CompletableFuture"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.IAsyncEnumerable`1",
+            "java": "AsyncEnumerable",
+            "imports": [
+                "io.github.ningpp.compat.AsyncEnumerable"
+            ]
+        },
+        {
+            "csharp": "System.Collections.Generic.IAsyncEnumerator`1",
+            "java": "AsyncEnumerator",
+            "imports": [
+                "io.github.ningpp.compat.AsyncEnumerator"
+            ]
+        },
+        {
+            "csharp": "System.IAsyncDisposable",
+            "java": "AsyncDisposable",
+            "imports": [
+                "io.github.ningpp.compat.AsyncDisposable"
+            ]
+        },
+        {
             "csharp": "System.DateTime",
             "java": "CSharpDateTime",
             "imports": [
@@ -6845,6 +6873,41 @@
             "type": "System.Threading.Tasks.Task`1",
             "method": "Delay",
             "javaMethod": "delayedExecutor"
+        },
+        {
+            "type": "System.Collections.Generic.IAsyncEnumerable`1",
+            "method": "GetAsyncEnumerator",
+            "javaMethod": "getAsyncEnumerator"
+        },
+        {
+            "type": "System.Collections.Generic.IAsyncEnumerator`1",
+            "method": "MoveNextAsync",
+            "javaMethod": "moveNextAsync"
+        },
+        {
+            "type": "System.Collections.Generic.IAsyncEnumerator`1",
+            "method": "get_Current",
+            "javaMethod": "getCurrent"
+        },
+        {
+            "type": "System.Collections.Generic.IAsyncEnumerator`1",
+            "method": "Current",
+            "javaMethod": "getCurrent"
+        },
+        {
+            "type": "System.IAsyncDisposable",
+            "method": "DisposeAsync",
+            "javaMethod": "disposeAsync"
+        },
+        {
+            "type": "System.Threading.CancellationToken",
+            "method": "get_None",
+            "javaMethod": "getNone"
+        },
+        {
+            "type": "System.Threading.CancellationToken",
+            "method": "None",
+            "javaMethod": "getNone"
         },
         {
             "type": "System.Math",
