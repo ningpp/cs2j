@@ -717,4 +717,365 @@ public class NullConditionalAssignmentUnitTests
         head.GetType().GetField("Next")!.SetValue(head, tail.Raw);
         return (head, tail);
     }
+
+    // ------------------------------------------------------------------
+    // NA-6: ??= inside a conditional access (design §3.5).
+    // ------------------------------------------------------------------
+
+    private const string CoalesceSource = """
+        namespace C51Fixture;
+
+        public sealed class Holder
+        {
+            public string? S;
+            public int? N;
+            public string? this[int i] { get => S; set => S = value; }
+
+            public static int RhsCalls;
+            public static string Make() { RhsCalls++; return "made"; }
+        }
+
+        public static class CoalesceSites
+        {
+            public static void Member(Holder? h) { h?.S ??= Holder.Make(); }
+            public static void Indexer(Holder? h) { h?[0] ??= Holder.Make(); }
+            public static string? Value(Holder? h) { return h?.S ??= Holder.Make(); }
+            public static int? ValueN(Holder? h, int c) { return h?.N ??= c; }
+        }
+        """;
+
+    [Fact]
+    public void NA6_CoalesceMember_Statement_ReadOnce_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(CoalesceSource);
+
+        Assert.Contains("var __ed_n0 = h.S;", result.OutputCode);
+        Assert.Contains("if (__ed_n0 == null)", result.OutputCode);
+        Assert.Contains("h.S = Holder.Make();", result.OutputCode);
+        Assert.DoesNotContain("??=", result.OutputCode);
+        Assert.Equal(4, result.Statistics.NullConditional.CoalesceAssignmentSites);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-nullcoalesce");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            var holderType = assembly.GetType("C51Fixture.Holder", throwOnError: true)!;
+
+            InvokeOn(assembly, "CoalesceSites", "Member", new object?[] { null });
+
+            holderType.GetField("RhsCalls")!.SetValue(null, 0);
+            var empty = Activator.CreateInstance(holderType)!;
+            InvokeOn(assembly, "CoalesceSites", "Member", empty);
+            Assert.Equal("made", holderType.GetField("S")!.GetValue(empty));
+            Assert.Equal(1, holderType.GetField("RhsCalls")!.GetValue(null));
+
+            holderType.GetField("RhsCalls")!.SetValue(null, 0);
+            var already = Activator.CreateInstance(holderType)!;
+            holderType.GetField("S")!.SetValue(already, "kept");
+            InvokeOn(assembly, "CoalesceSites", "Member", already);
+            Assert.Equal("kept", holderType.GetField("S")!.GetValue(already));
+            Assert.Equal(0, holderType.GetField("RhsCalls")!.GetValue(null));
+        }
+    }
+
+    [Fact]
+    public void NA6_CoalesceIndexer_Statement_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(CoalesceSource);
+
+        Assert.Contains("var __ed_n1 = h[0];", result.OutputCode);
+        Assert.Contains("h[0] = Holder.Make();", result.OutputCode);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-nullcoalesce2");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            var holderType = assembly.GetType("C51Fixture.Holder", throwOnError: true)!;
+            holderType.GetField("RhsCalls")!.SetValue(null, 0);
+
+            InvokeOn(assembly, "CoalesceSites", "Indexer", new object?[] { null });
+            Assert.Equal(0, holderType.GetField("RhsCalls")!.GetValue(null));
+
+            var holder = Activator.CreateInstance(holderType)!;
+            InvokeOn(assembly, "CoalesceSites", "Indexer", holder);
+            Assert.Equal("made", holderType.GetField("S")!.GetValue(holder));
+        }
+    }
+
+    [Fact]
+    public void NA6_CoalesceValue_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(CoalesceSource);
+
+        Assert.Contains("string? __ed_n2 = null;", result.OutputCode);
+        Assert.Contains("int? __ed_n3 = null;", result.OutputCode);
+        Assert.Contains("__ed_n2 == null ? __ed_s0.S = Holder.Make() : __ed_n2", result.OutputCode);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-nullcoalesce3");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            var holderType = assembly.GetType("C51Fixture.Holder", throwOnError: true)!;
+
+            Assert.Null(InvokeOn(assembly, "CoalesceSites", "Value", new object?[] { null }));
+
+            var empty = Activator.CreateInstance(holderType)!;
+            holderType.GetField("RhsCalls")!.SetValue(null, 0);
+            Assert.Equal("made", InvokeOn(assembly, "CoalesceSites", "Value", empty));
+            Assert.Equal("made", holderType.GetField("S")!.GetValue(empty));
+            Assert.Equal(1, holderType.GetField("RhsCalls")!.GetValue(null));
+
+            var already = Activator.CreateInstance(holderType)!;
+            holderType.GetField("S")!.SetValue(already, "kept");
+            holderType.GetField("RhsCalls")!.SetValue(null, 0);
+            Assert.Equal("kept", InvokeOn(assembly, "CoalesceSites", "Value", already));
+            Assert.Equal(0, holderType.GetField("RhsCalls")!.GetValue(null));
+
+            var number = Activator.CreateInstance(holderType)!;
+            Assert.Equal(5, InvokeOn(assembly, "CoalesceSites", "ValueN", number, 5));
+            Assert.Equal(5, holderType.GetField("N")!.GetValue(number));
+
+            var numberSet = Activator.CreateInstance(holderType)!;
+            holderType.GetField("N")!.SetValue(numberSet, 9);
+            Assert.Equal(9, InvokeOn(assembly, "CoalesceSites", "ValueN", numberSet, 5));
+        }
+    }
+
+    [Fact]
+    public void NA6_CoalesceMultiSegment_StatementAndValue_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(ComposedSource);
+
+        Assert.Contains("var __ed_n0 = __ed_s1.S;", result.OutputCode);
+        Assert.Contains("string? __ed_n1 = null;", result.OutputCode);
+        Assert.Contains("__ed_n1 == null ? __ed_s3.S = c : __ed_n1", result.OutputCode);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-nullcoalesce-chain");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            InvokeOn(assembly, "ComposedSites", "CoalesceChain", new object?[] { null, "c" });
+            Assert.Null(InvokeOn(assembly, "ComposedSites", "CoalesceChainValue", new object?[] { null, "c" }));
+
+            // Outer non-null but inner null: no assignment, null result.
+            var outerOnly = NewOf(assembly, "Node");
+            InvokeOn(assembly, "ComposedSites", "CoalesceChain", outerOnly, "c");
+            Assert.Null(InvokeOn(assembly, "ComposedSites", "CoalesceChainValue", outerOnly, "c"));
+
+            // Both non-null, member null: set, value returned.
+            var pair = NewNodeChain(assembly);
+            InvokeOn(assembly, "ComposedSites", "CoalesceChain", pair.head, "c");
+            Assert.Equal("c", ((NodeLike)pair.tail).Raw.GetType().GetField("S")!.GetValue(((NodeLike)pair.tail).Raw));
+
+            var pair2 = NewNodeChain(assembly);
+            Assert.Equal("c2", InvokeOn(assembly, "ComposedSites", "CoalesceChainValue", pair2.head, "c2"));
+
+            // Member already set: kept.
+            var pair3 = NewNodeChain(assembly);
+            ((NodeLike)pair3.tail).Raw.GetType().GetField("S")!.SetValue(((NodeLike)pair3.tail).Raw, "old");
+            Assert.Equal("old", InvokeOn(assembly, "ComposedSites", "CoalesceChainValue", pair3.head, "c3"));
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // NA-7: RHS/inner compositions closed in the same bottom-up pass.
+    // ------------------------------------------------------------------
+
+    private const string ComposedSource = """
+        namespace C51Fixture;
+
+        public sealed class Node
+        {
+            public string? S;
+            public Node? Next;
+        }
+
+        public sealed class Other
+        {
+            public string? D;
+            public static int Calls;
+            public static string V() { Calls++; return "v"; }
+        }
+
+        public static class ComposedSites
+        {
+            public static void CoalesceChain(Node? a, string c) { a?.Next?.S ??= c; }
+            public static string? CoalesceChainValue(Node? a, string c) { return a?.Next?.S ??= c; }
+            public static void RhsRead(Node? a, Other? o) { a?.S = o?.D; }
+            public static void RhsAssign(Node? a, Other? o) { a?.S = o?.D = "x"; }
+            public static void ThreeLayers(Node? a, Other? o) { a?.S = o?.D = Other.V(); }
+        }
+        """;
+
+    [Fact]
+    public void NA7_RhsReadComposition_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(ComposedSource);
+
+        Assert.Contains("a.S = (o != null ? o.D : null);", result.OutputCode);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-composed");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            var nodeType = assembly.GetType("C51Fixture.Node", throwOnError: true)!;
+            var otherType = assembly.GetType("C51Fixture.Other", throwOnError: true)!;
+
+            // Outer null: nothing happens.
+            InvokeOn(assembly, "ComposedSites", "RhsRead", new object?[] { null, null });
+
+            // Outer set, inner null: outer receives null.
+            var node1 = Activator.CreateInstance(nodeType)!;
+            InvokeOn(assembly, "ComposedSites", "RhsRead", node1, null);
+            Assert.Null(nodeType.GetField("S")!.GetValue(node1));
+
+            // Both set: outer receives inner's D.
+            var node2 = Activator.CreateInstance(nodeType)!;
+            var other = Activator.CreateInstance(otherType)!;
+            otherType.GetField("D")!.SetValue(other, "dval");
+            InvokeOn(assembly, "ComposedSites", "RhsRead", node2, other);
+            Assert.Equal("dval", nodeType.GetField("S")!.GetValue(node2));
+        }
+    }
+
+    [Fact]
+    public void NA7_RhsInnerAssignment_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(ComposedSource);
+
+        Assert.Contains("a.S = (o != null ? o.D = \"x\" : null);", result.OutputCode);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-composed2");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            var nodeType = assembly.GetType("C51Fixture.Node", throwOnError: true)!;
+            var otherType = assembly.GetType("C51Fixture.Other", throwOnError: true)!;
+
+            // Both non-null: inner assignment executes, outer gets "x".
+            var node = Activator.CreateInstance(nodeType)!;
+            var other = Activator.CreateInstance(otherType)!;
+            InvokeOn(assembly, "ComposedSites", "RhsAssign", node, other);
+            Assert.Equal("x", nodeType.GetField("S")!.GetValue(node));
+            Assert.Equal("x", otherType.GetField("D")!.GetValue(other));
+
+            // Inner null: outer gets null, nothing assigned anywhere.
+            var node2 = Activator.CreateInstance(nodeType)!;
+            InvokeOn(assembly, "ComposedSites", "RhsAssign", node2, null);
+            Assert.Null(nodeType.GetField("S")!.GetValue(node2));
+        }
+    }
+
+    [Fact]
+    public void NA7_ThreeLayers_SideEffectOrder_BehavesIdentically()
+    {
+        var (result, native) = PreprocessSoleFile(ComposedSource);
+
+        Assert.Contains("a.S = (o != null ? o.D = Other.V() : null);", result.OutputCode);
+        Assert.Equal(3, result.Statistics.NullConditional.AssignmentRhsConditionalSites);
+
+        var loweredCompilation = BuildCompilation(result.OutputCode, "c51-composed3");
+        Assert.Empty(loweredCompilation.GetDiagnostics()
+            .Where(d => d.Severity == DiagnosticSeverity.Error));
+
+        foreach (var assembly in new[] { EmitAndLoad(native), EmitAndLoad(loweredCompilation) })
+        {
+            var nodeType = assembly.GetType("C51Fixture.Node", throwOnError: true)!;
+            var otherType = assembly.GetType("C51Fixture.Other", throwOnError: true)!;
+
+            // Outer null: V never called.
+            otherType.GetField("Calls")!.SetValue(null, 0);
+            InvokeOn(assembly, "ComposedSites", "ThreeLayers", new object?[] { null, null });
+            Assert.Equal(0, otherType.GetField("Calls")!.GetValue(null));
+
+            // Outer set, inner null: V never called.
+            var nodeOuter = Activator.CreateInstance(nodeType)!;
+            InvokeOn(assembly, "ComposedSites", "ThreeLayers", nodeOuter, null);
+            Assert.Equal(0, otherType.GetField("Calls")!.GetValue(null));
+            Assert.Null(nodeType.GetField("S")!.GetValue(nodeOuter));
+
+            // Both set: V once, assignment chain result propagates.
+            var node = Activator.CreateInstance(nodeType)!;
+            var other = Activator.CreateInstance(otherType)!;
+            InvokeOn(assembly, "ComposedSites", "ThreeLayers", node, other);
+            Assert.Equal(1, otherType.GetField("Calls")!.GetValue(null));
+            Assert.Equal("v", otherType.GetField("D")!.GetValue(other));
+            Assert.Equal("v", nodeType.GetField("S")!.GetValue(node));
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // NA-8: residual gate explicit assignment-terminal check (CS2J0566).
+    // ------------------------------------------------------------------
+
+    [Fact]
+    public void NA8_UnpairedAssignmentTerminalResidual_TriggersCS2J0566()
+    {
+        // A standalone assignment-terminal CA with no plan and no explained
+        // annotation (synthetic: syntax-only, no semantic model).
+        var root = CSharpSyntaxTree.ParseText(
+                "class C { void M() { a?.b = c; } }", ParseOptions)
+            .GetCompilationUnitRoot();
+
+        var context = new RuleAnalysisContext
+        {
+            Root = root,
+            SemanticModel = null,
+            Options = new ExpressionDesugarOptions
+            {
+                NullConditional = new NullConditionalOptions(),
+            },
+            Statistics = new ExpressionDesugarStatistics(),
+            Diagnostics = new List<ExpressionDesugarDiagnostic>(),
+        };
+
+        var unpaired = NullConditionalResidualGate.Check(context, root);
+
+        // CA + its orphan MemberBinding are two unpaired residual nodes.
+        Assert.Equal(2, unpaired);
+        Assert.Equal(1, context.Statistics.NullConditional.AssignmentResidualNodeCount);
+        Assert.Contains(context.Diagnostics,
+            d => d.Code == NullConditionalDiagnosticCodes.CS2J0566);
+    }
+
+    [Fact]
+    public void NA8_ExplainedAssignmentResidual_IsPaired_NoGate()
+    {
+        // Same shape but carrying the explained annotation: gate stays zero.
+        var parsed = CSharpSyntaxTree.ParseText(
+                "class C { void M() { a?.b = c; } }", ParseOptions)
+            .GetCompilationUnitRoot();
+        var ca = parsed.DescendantNodes()
+            .OfType<ConditionalAccessExpressionSyntax>().Single();
+        var root = (CompilationUnitSyntax)parsed
+            .ReplaceNode(ca, ca.WithAdditionalAnnotations(
+                ExpressionDesugarSyntaxFacts.ExplainedAnnotation));
+
+        var context = new RuleAnalysisContext
+        {
+            Root = root,
+            SemanticModel = null,
+            Options = new ExpressionDesugarOptions
+            {
+                NullConditional = new NullConditionalOptions(),
+            },
+            Statistics = new ExpressionDesugarStatistics(),
+            Diagnostics = new List<ExpressionDesugarDiagnostic>(),
+        };
+
+        Assert.Equal(0, NullConditionalResidualGate.Check(context, root));
+        Assert.Empty(context.Diagnostics);
+    }
 }

@@ -203,7 +203,8 @@ internal static class NullConditionalSyntaxFacts
 internal sealed class NullConditionalTempNameAllocator
 {
     private readonly HashSet<string> _used;
-    private int _counter;
+    private int _segmentCounter;
+    private int _innerCounter;
 
     public NullConditionalTempNameAllocator(CompilationUnitSyntax root)
     {
@@ -221,8 +222,24 @@ internal sealed class NullConditionalTempNameAllocator
     {
         while (true)
         {
-            var name = $"__ed_s{_counter}";
-            _counter++;
+            var name = $"__ed_s{_segmentCounter}";
+            _segmentCounter++;
+            if (_used.Add(name))
+                return name;
+        }
+    }
+
+    /// <summary>
+    /// NA-6: allocates a fresh inner coalesce-temp name <c>__ed_nN</c>
+    /// (Q4 verdict) from the same used-name set, so segment temps, inner
+    /// temps and user identifiers never collide.
+    /// </summary>
+    public string AllocateInner()
+    {
+        while (true)
+        {
+            var name = $"__ed_n{_innerCounter}";
+            _innerCounter++;
             if (_used.Add(name))
                 return name;
         }

@@ -124,6 +124,12 @@ internal static class ChainSegmentAnalyzer
         {
             if (plan.Outcome != ChainOutcome.Lowered)
                 continue;
+
+            // NA-6 inner coalesce temp (__ed_nN) is needed even for the
+            // zero-segment-temp statement form, so allocate before skips.
+            if (plan.IsCoalesceAssignment)
+                plan.InnerTempName = allocator.AllocateInner();
+
             if (plan.Shape is NullConditionalLoweringShape.Inline)
                 continue;
 

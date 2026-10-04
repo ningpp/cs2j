@@ -102,16 +102,23 @@ internal static class NullConditionalAssignmentRule
             NullConditionalAssignmentFacts.ClassifyTarget(
                 assignment, model, out var isStatic);
 
-        // NA-6 lands in the later slice; until then keep the C51 deferral.
+        // NA-6: ??= inside the conditional access. Only member/index targets
+        // are semantically possible; the ??= node is rewritten in place per
+        // the §3.5 template (inner __ed_nN temp).
         if (operatorKind == AssignmentOperatorKind.Coalesce)
         {
-            plan.Outcome = ChainOutcome.Preserved;
-            plan.SkipCode = null;
-            stats.DeferredForC51Sites++;
-            return;
-        }
+            if (targetShape is not
+                (AssignmentTargetShape.Member or AssignmentTargetShape.Index))
+            {
+                Preserve(plan, NullConditionalAssignmentDiagnosticCodes.CS2J0569);
+                ReportSafetyNet(context, strict,
+                    "??= target is not a member or indexer");
+                return;
+            }
 
-        if (operatorKind == AssignmentOperatorKind.Unknown
+            plan.IsCoalesceAssignment = true;
+        }
+        else if (operatorKind == AssignmentOperatorKind.Unknown
             || targetShape == AssignmentTargetShape.Unknown)
         {
             Preserve(plan, NullConditionalAssignmentDiagnosticCodes.CS2J0569);
@@ -173,7 +180,13 @@ internal static class NullConditionalAssignmentRule
         var receiverWhitelist = NullConditionalSyntaxFacts.IsInlineWhitelistReceiver(
             root.Expression, model);
 
-        if (plan.ContextKind == NullConditionalContextKind.VoidStatement)
+        if (plan.IsCoalesceAssignment)
+        {
+            SelectCoalesceShape(plan, context, strict, stats);
+            if (plan.Outcome != ChainOutcome.Lowered)
+                return;
+        }
+        else if (plan.ContextKind == NullConditionalContextKind.VoidStatement)
         {
             if (plan.Anchor is not ExpressionStatementSyntax)
             {
@@ -261,6 +274,74 @@ internal static class NullConditionalAssignmentRule
             NullConditionalDiagnosticCodes.CS2J0555,
             NullConditionalAssignmentDiagnostics.AssignmentSiteMessage,
             root);
+
+        if (plan.IsCoalesceAssignment)
+        {
+            context.Report(
+                ExpressionDesugarSeverity.Info,
+                NullConditionalAssignmentDiagnosticCodes.CS2J0568,
+                NullConditionalAssignmentDiagnostics.CoalesceAssignmentMessage,
+                root);
+        }
+    }
+
+    /// <summary>
+    /// NA-6 shape selection. Statement form needs an expression-statement
+    /// anchor (→ <see cref="NullConditionalLoweringShape.StatementIf"/>); the
+    /// value form needs a local/return anchor for the inner temp declaration
+    /// (→ <see cref="NullConditionalLoweringShape.GuardedBlock"/>). The
+    /// inner member is read exactly once into <c>__ed_nN</c>, so no inline
+    /// zero-declaration form exists.
+    /// </summary>
+    private static void SelectCoalesceShape(
+        ChainPlan plan,
+        RuleAnalysisContext context,
+        bool strict,
+        NullConditionalStatistics stats)
+    {
+        if (plan.ContextKind == NullConditionalContextKind.VoidStatement)
+        {
+            if (plan.Anchor is ExpressionStatementSyntax)
+            {
+                plan.Outcome = ChainOutcome.Lowered;
+                plan.Shape = NullConditionalLoweringShape.StatementIf;
+                return;
+            }
+
+            var code = plan.Anchor == null
+                ? NullConditionalDiagnosticCodes.CS2J0557
+                : NullConditionalDiagnosticCodes.CS2J0558;
+            Preserve(plan, code);
+            context.Report(
+                NullConditionalDiagnostics.ResolveStrictError(strict),
+                code,
+                plan.Anchor == null
+                    ? string.Format(
+                        NullConditionalDiagnostics.UnliftableMessage,
+                        plan.RootOriginal.ToString())
+                    : NullConditionalDiagnostics.AnchorlessVoidMessage,
+                plan.RootOriginal);
+            stats.AddAssignmentSkip(code);
+            return;
+        }
+
+        // Value form: inner temp needs a spliceable local/return anchor.
+        if (plan.Anchor is LocalDeclarationStatementSyntax or ReturnStatementSyntax)
+        {
+            plan.Outcome = ChainOutcome.Lowered;
+            plan.Shape = NullConditionalLoweringShape.GuardedBlock;
+            return;
+        }
+
+        Preserve(plan, NullConditionalDiagnosticCodes.CS2J0557);
+        context.Report(
+            NullConditionalDiagnostics.ResolveStrictError(strict),
+            NullConditionalDiagnosticCodes.CS2J0557,
+            string.Format(
+                NullConditionalDiagnostics.UnliftableMessage,
+                plan.RootOriginal.ToString()),
+            plan.RootOriginal);
+        stats.AddAssignmentSkip(NullConditionalDiagnosticCodes.CS2J0557);
     }
 
     /// <summary>Accumulates the §5 site buckets for one lowered assignment.</summary>
@@ -291,9 +372,21 @@ internal static class NullConditionalAssignmentRule
         if (isValue)
             statistics.ValueFormAssignmentSites++;
 
-        // NA-3 non-event compound: main compound counter + per-operator bucket.
+        if (plan.IsCoalesceAssignment)
+            statistics.CoalesceAssignmentSites++;
+
         var assignmentNode =
             (AssignmentExpressionSyntax)plan.Terminal.ExpressionOriginal;
+
+        // NA-7: RHS/index-argument subtree carries another conditional chain
+        // (read ternary or an inner assignment), closed in the same pass.
+        if (assignmentNode.DescendantNodes()
+            .OfType<ConditionalAccessExpressionSyntax>().Any())
+        {
+            statistics.AssignmentRhsConditionalSites++;
+        }
+
+        // NA-3 non-event compound: main compound counter + per-operator bucket.
         if (operatorKind == AssignmentOperatorKind.Compound
             && targetShape != AssignmentTargetShape.Event)
         {

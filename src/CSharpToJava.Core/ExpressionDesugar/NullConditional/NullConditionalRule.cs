@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.ExpressionDesugar.NullConditional;
@@ -84,40 +85,74 @@ internal sealed class NullConditionalRule : IExpressionDesugarRule
 
         public override int CheckResiduals(
             RuleAnalysisContext context, CompilationUnitSyntax root)
+            => NullConditionalResidualGate.Check(context, root);
+    }
+}
+
+/// <summary>
+/// Post-lift residual gate for the C35/C51 directory (design §6, NA-8):
+/// every trigger node left in the output must be paired with an explained
+/// preservation. Extracted as an internal static gate so it stays directly
+/// testable without constructing a private rule plan.
+/// </summary>
+internal static class NullConditionalResidualGate
+{
+    public static int Check(
+        RuleAnalysisContext context, CompilationUnitSyntax root)
+    {
+        // Inert when the subsection is absent (rollout gate).
+        if (context.Options.NullConditional is null)
+            return 0;
+
+        var unpaired = 0;
+        SyntaxNode? firstResidual = null;
+        var stats = context.Statistics.NullConditional;
+
+        foreach (var node in root.DescendantNodes())
         {
-            // Inert when the subsection is absent (rollout gate).
-            if (context.Options.NullConditional is null)
-                return 0;
+            // NA-8 explicit gate: a residual CA whose WhenNotNull is an
+            // assignment expression (every assignment terminal must be
+            // lowered or carry an explained preservation).
+            var assignmentResidual = node is ConditionalAccessExpressionSyntax residualCa
+                && StripTerminal(residualCa) is AssignmentExpressionSyntax;
 
-            var unpaired = 0;
-            SyntaxNode? firstResidual = null;
+            if (!NullConditionalSyntaxFacts.IsResidualNode(node)
+                && !assignmentResidual)
+                continue;
+            if (NullConditionalSyntaxFacts.IsExplained(node))
+                continue;
 
-            foreach (var node in root.DescendantNodes())
-            {
-                if (!NullConditionalSyntaxFacts.IsResidualNode(node))
-                    continue;
-                if (NullConditionalSyntaxFacts.IsExplained(node))
-                    continue;
+            unpaired++;
+            firstResidual ??= node;
 
-                unpaired++;
-                firstResidual ??= node;
-            }
-
-            var stats = context.Statistics.NullConditional;
-            stats.ResidualNodeCount = unpaired;
-
-            if (unpaired > 0)
-            {
-                var strict = context.Options.NullConditional.Strict;
-                context.Report(
-                    NullConditionalDiagnostics.ResolveStrictError(strict),
-                    NullConditionalDiagnosticCodes.CS2J0566,
-                    string.Format(
-                        NullConditionalDiagnostics.ResidualMessage, unpaired),
-                    firstResidual);
-            }
-
-            return unpaired;
+            if (assignmentResidual)
+                stats.AssignmentResidualNodeCount++;
         }
+
+        stats.ResidualNodeCount = unpaired;
+        if (unpaired > 0)
+        {
+            var strict = context.Options.NullConditional.Strict;
+            context.Report(
+                NullConditionalDiagnostics.ResolveStrictError(strict),
+                NullConditionalDiagnosticCodes.CS2J0566,
+                string.Format(
+                    NullConditionalDiagnostics.ResidualMessage, unpaired),
+                firstResidual);
+        }
+
+        return unpaired;
+    }
+
+    /// <summary>
+    /// A CA's terminal with surrounding parentheses stripped (assignment
+    /// terminals are never wrapped, but parens survive on illegal inputs).
+    /// </summary>
+    private static ExpressionSyntax StripTerminal(ConditionalAccessExpressionSyntax ca)
+    {
+        var terminal = ca.WhenNotNull;
+        while (terminal.IsKind(SyntaxKind.ParenthesizedExpression))
+            terminal = ((ParenthesizedExpressionSyntax)terminal).Expression;
+        return terminal;
     }
 }

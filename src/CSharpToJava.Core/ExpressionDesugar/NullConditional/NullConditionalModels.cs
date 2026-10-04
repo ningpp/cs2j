@@ -145,5 +145,11 @@ internal sealed class ChainPlan
     /// <summary>True when the site sits inside an E03 (<c>___tN</c>) temp initializer (NC-6).</summary>
     public required bool IsCoalesceComposition { get; init; }
 
+    /// <summary>NA-6: terminal operator is <c>??=</c> inside the conditional access.</summary>
+    public bool IsCoalesceAssignment { get; set; }
+
+    /// <summary>NA-6: inner coalesce-temp name <c>__ed_nN</c> (empty for other shapes).</summary>
+    public string InnerTempName { get; set; } = string.Empty;
+
     public int Length => Segments.Count;
 }

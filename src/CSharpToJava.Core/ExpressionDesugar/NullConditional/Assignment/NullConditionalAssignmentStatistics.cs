@@ -42,6 +42,12 @@ public sealed partial class NullConditionalStatistics
     /// <summary>Assignment sites pointing at static members (M17; baseline rejects).</summary>
     public int StaticTargetSites;
 
+    /// <summary>
+    /// NA-8: unpaired residual CAs whose <c>WhenNotNull</c> is an assignment
+    /// (observed by the residual gate).
+    /// </summary>
+    public int AssignmentResidualNodeCount;
+
     /// <summary>Assignment sites preserved/blocked by diagnostic code.</summary>
     public readonly Dictionary<string, int> SkippedAssignmentByReason = new();
 
@@ -68,6 +74,7 @@ public sealed partial class NullConditionalStatistics
         AssignmentRhsConditionalSites += other.AssignmentRhsConditionalSites;
         AssignmentReceiverTempsLifted += other.AssignmentReceiverTempsLifted;
         StaticTargetSites += other.StaticTargetSites;
+        AssignmentResidualNodeCount += other.AssignmentResidualNodeCount;
         MergeStringBuckets(AssignmentByOperator, other.AssignmentByOperator);
         MergeStringBuckets(SkippedAssignmentByReason, other.SkippedAssignmentByReason);
     }
