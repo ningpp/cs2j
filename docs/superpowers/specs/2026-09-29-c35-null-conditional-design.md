@@ -2,9 +2,9 @@
 
 **日期**: 2026-09-29
 **范围**: 在 C23 锚点落地的 `expression-desugar` 族基建（`src/CSharpToJava.Core/ExpressionDesugar/`）内新增规则目录 `NullConditional/`，在 C# 层把空条件成员访问（`a?.b.c?.d()`）、条件索引（`arr?[i]`）、委托/事件 `?.Invoke()`、void 语句上下文显式化为「段临时变量 + null 检查三元 / if 语句」（**条件赋值目标 `a?.b = v` 已裁决移出本规则、单列 C51**，见 §3 NC-7 注记），保持接收者**严格单次求值**与 null 短路；值类型成员终端产 lifted `Nullable<T>` 形态。不注册新 pass、不翻转 stub、不改任何 C#→Java 转换代码（Java 侧特判簇的下掉为默认开启后的独立 PR）
-**状态**: 设计已确认，待实施（依赖 C23 锚点分支先合入）
+**状态**: 设计已确认，待实施（C23 锚点已随 `dev-3.x-26100408` base 就位；C35 与 C51 在同一 worktree 内实施）
 **注册表**: 不新增/不翻转任何条目；沿用 stub `expression-desugar`（[PassStubCatalog.cs:217-226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)，catalogItems `"C23, C24, C35, C36"`，Stage=Expression，RunAfter=`null-coalesce`，中间目录 `.cs2j-expression-desugar-src`）。C23 翻转时 catalogItems 收窄为 `"C23"`；本特性落地时在**同一描述符**上加宽为 `"C23, C35"`（[C23 §3.4](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c23-interpolation-expand-design.md#L193-L197)）
-**base**: `953293b9`（`docs: update doc base commit`，已 `git rev-parse --verify` 校验存在；实施前先合入 C23 分支，见 §12）
+**base**: `e50d987470bde644137e07094d93fd1467c6ca9c`（`feat(preprocessing): 波次0接线激活 C24默认接通+C27/C50/C46 CLI开关+catalogItems订正`，`dev-3.x-26100408` 最新提交；2026-10-04 已 `git rev-parse --verify` 校验存在；C23 锚点已在该 base 内，C35 与 C51 在同一 worktree 内实施，见 §12）
 
 ---
 
@@ -405,23 +405,23 @@ M1–M3 全程随族 `DefaultEnabled=false`；每个里程碑自身 Release buil
 | **Java 侧转换器（同仓不同半区）** | S1–S5 本期不动；默认开后下掉 `TransformConditionalAccess`/owner 回溯/语句 if 路径，ElementBinding TODO 兜底同步删除 | §8 第 6 条排期；直连单文件入口保留安全网或移除二选一附测试 |
 | **热文件追加式解法** | 本分支对共享文件仅三处追加（RuleSet 一行、Options 一属性、catalogItems 一字符串）+ 适配器摘要一小段；其余全在新目录 | 与 C24/C36 并行时 rebase 取并集；不修改既有规则行与 C23 断言；PassStubCatalogTests 计数不变 |
 
-## 12. Worktree 分配（只写不执行；本设计任务未执行该命令）
+## 12. Worktree 分配（2026-10-04 更新 base；C35 与 C51 共用同一 worktree）
 
-- 分支：`feature/preproc-c35-null-conditional`
-- 目录：`.worktrees/preproc-c35-null-conditional`
-- base：`953293b9`（已校验存在）；**实施前先把 C23 分支（`feature/preproc-c23-interpolation`）合入本分支**——C35 的目录、规则接口、码段与适配器均以 C23 落地树为前提
+- 分支：`feature/preproc-c35-c51-null-conditional`
+- 目录：`.worktrees/preproc-c35-c51-null-conditional`
+- base：`e50d987470bde644137e07094d93fd1467c6ca9c`（`dev-3.x-26100408` 最新提交，2026-10-04 已校验存在）；C23 锚点（`ExpressionDesugar/` 族 Shared 基建、规则接口、码段与适配器）已在 base 内，**无需另合 C23 分支**；C35 先落地 `NullConditional/` 读侧规则，C51 随后在**同一 worktree、同一分支**的 `NullConditional/Assignment/` 子目录内接续实施，实现一部分提交一部分
 
 ```powershell
-git worktree add .worktrees/preproc-c35-null-conditional -b feature/preproc-c35-null-conditional 953293b9
+git worktree add .worktrees/preproc-c35-c51-null-conditional -b feature/preproc-c35-c51-null-conditional e50d987470bde644137e07094d93fd1467c6ca9c
 ```
 
-实施在该 worktree 内进行（合入 C23 后再开工）；本设计文档产出于主工作区，不创建 worktree、不执行任何 git 写操作。
+实施全部在该 worktree 内进行（C23 已在 base 内，直接开工）；本设计文档的 base/worktree 更新产出于主工作区。
 
 ---
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令的 base 于 2026-10-04 更新为 `dev-3.x-26100408` 最新提交 `e50d9874`（C23 锚点已在 base 内，无需再 rebase/合分支；C35 与 C51 共用同一 worktree，见 §12），stub 计数红灯由首个锚点翻转 PR 按真值收口。
 
 **裁决（按原题号）：**
 

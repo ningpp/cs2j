@@ -2,9 +2,9 @@
 
 **日期**: 2026-09-29
 **范围**: 在 C35 落地的 `src/CSharpToJava.Core/ExpressionDesugar/NullConditional/` 目录内新增 `Assignment/` 子规则，把 C# 14 空条件赋值（成员 `a?.b = c`、索引 `a?[i] = v`、全部复合赋值 `a?.b += c`、含 `a?.b ??= c`、链式 `a?.b?.c = d`、结果被消费的值形态 `return a?.b = c`）在 C# 层归一为「段临时变量 + `if` 守卫语句 / null 三元」，保持接收者**严格单次求值**且 **RHS 与索引实参仅在接收者非 null 时求值**。不新增 pass、不翻转 stub、不改任何 C#→Java 转换代码
-**状态**: 设计已确认，待实施（硬依赖 C23 锚点与 C35 分支先合入；M0 Roslyn 探针为开工前置）
+**状态**: 设计已确认，待实施（C23 锚点已随 `dev-3.x-26100408` base 就位；C35 与 C51 在同一 worktree 内先后实施；M0 Roslyn 探针为开工前置）
 **注册表**: 不新增条目；沿用 stub `expression-desugar`（[PassStubCatalog.cs:217-226](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L217-L226)，catalogItems `"C23, C24, C35, C36"` 已含 C35 与本项的编号位）。C51 落地时把 C35 已加宽的同一描述符 catalogItems 再追加为 `"C23, C35, C51"`（[C35 §3.1](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c35-null-conditional-design.md#L94-L99) 同一描述符、同一字符串的第二次加宽）
-**base**: `9b99c60b33980c3c351b70d6b99e6b4bf57b30ae`（`docs: C46 成员签名显式化设计`，2026-09-29 已 `git rev-parse --verify` 校验存在；实施前先合入 C23+C35 分支，见 §12）
+**base**: `e50d987470bde644137e07094d93fd1467c6ca9c`（`feat(preprocessing): 波次0接线激活 C24默认接通+C27/C50/C46 CLI开关+catalogItems订正`，`dev-3.x-26100408` 最新提交，2026-10-04 已 `git rev-parse --verify` 校验存在；C23 锚点已在该 base 内，C35 先在同一 worktree 落地后接续 C51，见 §12）
 
 ---
 
@@ -342,23 +342,23 @@ M0–M2 全程 `DefaultEnabled=false`（随族）；每个里程碑自身 Releas
 | **Java 侧转换器（不同半区）** | A1–A3 兜底本期不改不动；默认开后随 C35 特判簇整体退役（AssignmentTransformer 的 MemberAccess 假设、ElementBinding TODO 锁定测试同批处理） |
 | **热文件** | 无新增：RuleSet/Options/catalogItems 的追加已在 C35 PR 内预留（catalogItems 再改一字符串）；转换器侧零修改，仅记录 A1–A3 兜底点为退役清单 |
 
-## 12. Worktree 分配（只写不执行；本设计任务未执行该命令、未执行任何 git 写操作）
+## 12. Worktree 分配（2026-10-04 更新 base；与 C35 共用同一 worktree）
 
-- 分支：`feature/preproc-c51-null-cond-assignment`
-- 目录：`.worktrees/preproc-c51-null-cond-assignment`
-- base：`9b99c60b`（已校验存在）；**实施前先把 C23（`feature/preproc-c23-interpolation`）与 C35（`feature/preproc-c35-null-conditional`）分支合入本分支**——`ExpressionDesugar/` 族基建、`NullConditional/` 目录、ChainSegmentAnalyzer、PendingAnchorReplacement、CS2J0550-0569 码段与适配器均以二者落地树为前提；M0 探针建议在合入完成后的树上执行
+- 分支：`feature/preproc-c35-c51-null-conditional`
+- 目录：`.worktrees/preproc-c35-c51-null-conditional`
+- base：`e50d987470bde644137e07094d93fd1467c6ca9c`（`dev-3.x-26100408` 最新提交，2026-10-04 已校验存在）；C23 锚点（`ExpressionDesugar/` 族 Shared 基建、规则接口、码段与适配器）已在 base 内；**不另立 C51 worktree/分支**——C35 先在同一 worktree 落地 `NullConditional/`（ChainSegmentAnalyzer、NullConditionalEmitter、PendingAnchorReplacement 等），C51 随后在其 `Assignment/` 子目录接续实施；M0 探针在该 worktree 的树上执行
 
 ```powershell
-git worktree add .worktrees/preproc-c51-null-cond-assignment -b feature/preproc-c51-null-cond-assignment 9b99c60b
+git worktree add .worktrees/preproc-c35-c51-null-conditional -b feature/preproc-c35-c51-null-conditional e50d987470bde644137e07094d93fd1467c6ca9c
 ```
 
-实施在该 worktree 内进行（合入 C23+C35、视 M0 结论合入 E03 guard 补丁后再开工）；本设计文档产出于主工作区，不创建 worktree、不执行 commit/add/checkout/reset/stash 等任何 git 写操作、未执行 dotnet build/test。
+实施全部在该 worktree 内进行（C23 已在 base 内；C35 完成并提交后接续 C51，视 M0 结论合入 E03 guard 补丁），实现一部分提交一部分；本设计文档的 base/worktree 更新产出于主工作区。
 
 ---
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持本文 §12 登记的自有 base `9b99c60b`（不改动），创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默丢弃；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令的 base 于 2026-10-04 更新为 `dev-3.x-26100408` 最新提交 `e50d9874`（不改动旧 base 的登记已废止；C23 锚点已在 base 内，无需再 rebase/合分支；与 C35 共用同一 worktree，见 §12），stub 计数红灯由首个锚点翻转 PR 按真值收口。
 
 **裁决（按原题号）：**
 
