@@ -244,7 +244,7 @@ public sealed class PassChainOrderTests
         var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.AsyncNormalize);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
         Assert.False(descriptor.DefaultEnabled);
-        Assert.Equal("C18", descriptor.CatalogItems);
+        Assert.Equal("C18, C38 (C44 subtopic)", descriptor.CatalogItems);
         Assert.Equal(".cs2j-async-normalize-src", descriptor.IntermediateDirectoryName);
 
         // Default-off: absent from the default plan even though Implemented,

@@ -42,7 +42,10 @@ public enum AsyncNormalizeDiagnosticCode
     /// <summary>归一明细 Info（剥离的 ConfigureAwait 站点）。</summary>
     CS2J1830,
 
-    // ── C38 异步流子域预留子段 1840-1849（3a 仅消费 1841/1842/1845/1849） ──
+    // ── C38 异步流子域预留子段 1840-1849 ──
+
+    /// <summary>C38：await foreach 源非 IAsyncEnumerable（鸭子型 v1 不支持）或残余解构形态。</summary>
+    CS2J1840,
 
     /// <summary>C38：await using 资源命中 IAsyncDisposable 但 EnableAwaitUsing 关闭（桥/选项面）。</summary>
     CS2J1841,
@@ -50,10 +53,19 @@ public enum AsyncNormalizeDiagnosticCode
     /// <summary>C38：pattern-based（鸭子型）DisposeAsync / ref struct 异步释放，v1 不支持。</summary>
     CS2J1842,
 
+    /// <summary>C38：ConfiguredCancelableAsyncEnumerable&lt;T&gt; 强类型点；枚举器上非 bool ConfigureAwait。</summary>
+    CS2J1843,
+
+    /// <summary>C38：异步迭代器方法（async + IAsyncEnumerable/IEnumerator 返回 + yield），v1 不降级。</summary>
+    CS2J1844,
+
     /// <summary>C38：防御镜像——await using 落在无法安全展开/绑定的宿主或资源形态。</summary>
     CS2J1845,
 
-    /// <summary>C38：residual 闸门——输出仍含未豁免的裸 await using 节点。</summary>
+    /// <summary>C38：WithCancellation 实参非 CancellationToken、重复 WithCancellation 或链无法静态消解。</summary>
+    CS2J1846,
+
+    /// <summary>C38：residual 闸门——输出仍含未豁免的裸 await foreach/await using 节点。</summary>
     CS2J1849,
 }
 

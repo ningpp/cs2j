@@ -34,26 +34,38 @@ internal sealed record AwaitUsingSite(
     IReadOnlyList<AwaitUsingResource> Resources);
 
 /// <summary>
-/// C38 3a 单文件分析结果。诊断一律 Error 发射，非严格降级由入口统一处理。
-/// <see cref="RejectedNodes"/>（1841/1842/1845）与 <see cref="BaselineExemptNodes"/>
-/// （CS4033/CS8647 等基线已报站点）在重写时原样保留并挂内存 skip 标注供 residual 白名单识别。
+/// C38 单文件分析结果。诊断一律 Error 发射，非严格降级由入口统一处理。
+/// 注册序（§3.2）：AS-6 异步迭代器冻结 → AS-2 取消/ConfigureAwait 链消解 +
+/// AS-1/3 await foreach 计划 → AS-4/5 await using 计划（3a）→ 类型使用点 → residual。
+/// <see cref="ForeachRejectedNodes"/>（1840/1841/1843/1846）与
+/// <see cref="ForeachBaselineExemptNodes"/>（CS1895/CS4033 族）在重写时原样保留并
+/// 挂内存 skip 标注；<see cref="IteratorNodes"/> 整成员 skip（体内站点不做部分改写）。
 /// </summary>
 internal sealed record AsyncStreamAnalysisResult(
     IReadOnlyList<AsyncNormalizeDiagnostic> Diagnostics,
     IReadOnlyList<AwaitUsingSite> Sites,
+    IReadOnlyList<AsyncForeachSite> ForeachSites,
+    IReadOnlyList<SyntaxNode> IteratorNodes,
+    IReadOnlyList<CommonForEachStatementSyntax> ForeachRejectedNodes,
+    IReadOnlyList<CommonForEachStatementSyntax> ForeachBaselineExemptNodes,
     IReadOnlyList<StatementSyntax> RejectedNodes,
     IReadOnlyList<StatementSyntax> BaselineExemptNodes,
     int StatementSitesAccepted,
     int DeclarationSitesAccepted,
+    int ForeachSitesAccepted,
     int GuardsPlanned,
+    int WithCancellationPlanned,
+    int EnumerableConfigureAwaitPlanned,
+    int IteratorsRejected,
     int TypeSitesMapped,
     int TypeSitesRejected,
     int DuckTypedDeferred);
 
 /// <summary>
-/// C38 3a 发现面分析（设计 §4.1、§4.3、§6、D4/D5/D8/D10/D11）：
-/// 逐方法/块发现带 AwaitKeyword 的 UsingStatementSyntax 与 using LocalDeclarationStatementSyntax；
-/// 基线优先（Roslyn 已报的 CS4033/CS8647 等不二次诊断）；计划在任何改写前冻结。
+/// C38 发现面分析（设计 §3.2 注册序、§4.1、§4.4、§6、D2-D11）：
+/// AS-6 异步迭代器冻结 → await foreach 站点（链消解/源类型判定）→ await using 站点
+/// （3a）→ IAsync* 类型使用点；基线优先（Roslyn 已报的 CS1895/CS4033/CS8647 等不
+/// 二次诊断）；计划在任何改写前冻结。
 /// </summary>
 internal static class AsyncStreamAnalyzer
 {
@@ -65,10 +77,17 @@ internal static class AsyncStreamAnalyzer
         var sites = new List<AwaitUsingSite>();
         var rejected = new List<StatementSyntax>();
         var baselineExempt = new List<StatementSyntax>();
+        var foreachSites = new List<AsyncForeachSite>();
+        var foreachRejected = new List<CommonForEachStatementSyntax>();
+        var foreachBaseline = new List<CommonForEachStatementSyntax>();
 
         var root = (CompilationUnitSyntax)model.SyntaxTree.GetRoot();
         var asyncDisposableInterface =
             model.Compilation.GetTypeByMetadataName(AsyncTypeResolver.AsyncDisposableMetadataName);
+        var asyncEnumerableInterface =
+            model.Compilation.GetTypeByMetadataName(AsyncTypeResolver.AsyncEnumerableMetadataName);
+        var asyncEnumeratorInterface =
+            model.Compilation.GetTypeByMetadataName(AsyncTypeResolver.AsyncEnumeratorMetadataName);
         var disposableInterface =
             model.Compilation.GetSpecialType(SpecialType.System_IDisposable);
 
@@ -76,17 +95,50 @@ internal static class AsyncStreamAnalyzer
         var dualImplInfoEmitted = new HashSet<string>(StringComparer.Ordinal);
 
         // 宿主成员作用域：已用名集合 + 纯表达式临时量序号（源序确定性）。
+        // await using 与 await foreach 共享同一作用域命名账（前缀互不相交）。
         var scopeNamesByMember = new Dictionary<SyntaxNode, HashSet<string>>();
         var tempCountersByMember = new Dictionary<SyntaxNode, int>();
 
         var statementsAccepted = 0;
         var declarationsAccepted = 0;
+        var foreachAccepted = 0;
         var guardsPlanned = 0;
         var typeSitesRejected = 0;
         var duckTypedDeferred = 0;
+        var withCancellationPlanned = 0;
+        var enumerableConfigureAwaitPlanned = 0;
 
+        // ① AS-6 注册序最前：异步迭代器成员先冻结 skip（其体内站点全部不计划）。
+        var iteratorMembers = AsyncIteratorDetector.Detect(
+            model, asyncEnumerableInterface, asyncEnumeratorInterface, options, diagnostics);
+        var iteratorNodes = iteratorMembers.Select(m => m.Node).ToArray();
+        var iteratorsRejected = diagnostics.Count(d => d.Code == AsyncNormalizeDiagnosticCode.CS2J1844);
+
+        // ② AS-2/AS-1/AS-3：await foreach（含取消/ConfigureAwait 链消解）。
+        foreach (var candidate in EnumerateAwaitForeachNodes(root))
+        {
+            if (ContainedInAny(candidate.Span, iteratorNodes))
+                continue;
+
+            var plan = BuildForeachSite(
+                model, candidate, options, asyncEnumerableInterface, asyncEnumeratorInterface,
+                baselineErrors, scopeNamesByMember, tempCountersByMember, diagnostics,
+                foreachRejected, foreachBaseline,
+                ref withCancellationPlanned, ref enumerableConfigureAwaitPlanned);
+
+            if (plan != null)
+            {
+                foreachSites.Add(plan);
+                foreachAccepted++;
+            }
+        }
+
+        // ③ AS-4/AS-5：await using（3a 既有通道）。
         foreach (var candidate in EnumerateAwaitUsingNodes(root))
         {
+            if (ContainedInAny(candidate.Span, iteratorNodes))
+                continue;
+
             // 基线优先：站点跨度内已有编译错误（非 async 内 await＝CS4033、
             // switch section using 声明＝CS8647 等）不抢诊断、不改写，只挂白名单。
             if (BaselineContains(baselineErrors, model.SyntaxTree, candidate.Span))
@@ -131,19 +183,320 @@ internal static class AsyncStreamAnalyzer
             guardsPlanned += resourcesResult.Count(r => r.IsReferenceType || r.IsNullableValueType);
         }
 
-        var typeSitesMapped = CountAsyncDisposableTypeSites(model, root, asyncDisposableInterface);
+        // ④ AS-7/AS-8：类型使用点（放行/1841/1843；迭代器成员跨度内不计不判）。
+        var typeSitesMapped = CountAsyncTypeSites(
+            model, root, options,
+            asyncDisposableInterface, asyncEnumerableInterface, asyncEnumeratorInterface,
+            iteratorNodes, diagnostics, ref typeSitesRejected);
 
         return new AsyncStreamAnalysisResult(
             diagnostics,
             sites,
+            foreachSites,
+            iteratorNodes,
+            foreachRejected,
+            foreachBaseline,
             rejected,
             baselineExempt,
             statementsAccepted,
             declarationsAccepted,
+            foreachAccepted,
             guardsPlanned,
+            withCancellationPlanned,
+            enumerableConfigureAwaitPlanned,
+            iteratorsRejected,
             typeSitesMapped,
             typeSitesRejected,
             duckTypedDeferred);
+    }
+
+    // ── await foreach：发现 / 链消解 / 源判定（AS-1/AS-2/AS-3、D2/D3/D9） ──
+
+    private static IEnumerable<CommonForEachStatementSyntax> EnumerateAwaitForeachNodes(
+        CompilationUnitSyntax root)
+    {
+        foreach (var node in root.DescendantNodes()
+                     .OfType<CommonForEachStatementSyntax>())
+        {
+            if (node.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword))
+                yield return node;
+        }
+    }
+
+    private static AsyncForeachSite? BuildForeachSite(
+        SemanticModel model,
+        CommonForEachStatementSyntax candidate,
+        AsyncNormalizeOptions options,
+        INamedTypeSymbol? asyncEnumerableInterface,
+        INamedTypeSymbol? asyncEnumeratorInterface,
+        List<(SyntaxTree Tree, TextSpan Span)> baselineErrors,
+        Dictionary<SyntaxNode, HashSet<string>> scopeNamesByMember,
+        Dictionary<SyntaxNode, int> tempCountersByMember,
+        List<AsyncNormalizeDiagnostic> diagnostics,
+        List<CommonForEachStatementSyntax> foreachRejected,
+        List<CommonForEachStatementSyntax> foreachBaseline,
+        ref int withCancellationPlanned,
+        ref int enumerableConfigureAwaitPlanned)
+    {
+        // 基线优先：非 async 方法内 await（CS4033）、对 IEnumerable/数组/string 源写
+        // await（CS1895 族）等 Roslyn 已报形态不抢诊断。
+        if (BaselineContains(baselineErrors, model.SyntaxTree, candidate.Span))
+        {
+            foreachBaseline.Add(candidate);
+            return null;
+        }
+
+        // 残余解构形态（E06/E07 之后仍应见不到）：v1 防御 CS2J1840，不受选项门影响。
+        if (candidate is ForEachVariableStatementSyntax)
+        {
+            foreachRejected.Add(candidate);
+            diagnostics.Add(DiagnosticAt(
+                AsyncNormalizeDiagnosticCode.CS2J1840, candidate,
+                "deconstruction-form 'await foreach' ('await foreach (var (k, v) in …)') is " +
+                "not supported in v1; the residual deconstruction shape could not be bound to " +
+                "a single element type. The site is left unchanged."));
+            return null;
+        }
+
+        var forEach = (ForEachStatementSyntax)candidate;
+
+        // 选项门：EnableAwaitForeach=false → CS2J1841（含 IAsyncEnumerable 源站点）。
+        if (!options.EnableAwaitForeach)
+        {
+            foreachRejected.Add(candidate);
+            diagnostics.Add(DiagnosticAt(
+                AsyncNormalizeDiagnosticCode.CS2J1841, candidate,
+                "'await foreach' cannot be normalized because the EnableAwaitForeach option is " +
+                "disabled. Enable the option, or wait for the Java-side async-enumerable " +
+                "bridge. The site is left unchanged."));
+            return null;
+        }
+
+        // AS-2 链消解：在源表达式上由内而外剥 WithCancellation / ConfigureAwait。
+        var chain = ResolveSourceChain(model, forEach, diagnostics, candidate);
+        if (chain.Rejected)
+        {
+            foreachRejected.Add(candidate);
+            return null;
+        }
+
+        var receiverType = model.GetTypeInfo(chain.Receiver).Type
+            ?? model.GetTypeInfo(chain.Receiver).ConvertedType;
+        var shape = AsyncTypeResolver.GetAsyncStreamStreamShape(
+            receiverType, asyncEnumerableInterface, asyncEnumeratorInterface);
+
+        switch (shape)
+        {
+            case AsyncTypeResolver.AsyncStreamShape.ConfiguredCancelable:
+                // 强类型 ConfiguredCancelableAsyncEnumerable<T> 源：剥离链会改静态类型。
+                // 该局部/参数/字段的类型使用点通常已在类型面发 1843；未覆盖时在此补一条。
+                foreachRejected.Add(candidate);
+                if (!TypeSiteDiagnosticCovers(model, forEach.Expression))
+                {
+                    diagnostics.Add(DiagnosticAt(
+                        AsyncNormalizeDiagnosticCode.CS2J1843, candidate,
+                        $"'await foreach' source is strongly typed " +
+                        $"'{receiverType!.ToDisplayString()}' (ConfiguredCancelableAsyncEnumerable<T>); " +
+                        "stripping the configured/cancelable wrapper changes the static type and " +
+                        "is not supported in v1. Materialize it via a WithCancellation/ConfigureAwait " +
+                        "chain directly on the IAsyncEnumerable<T> source."));
+                }
+                return null;
+
+            case AsyncTypeResolver.AsyncStreamShape.Enumerator:
+                // IAsyncEnumerator<T> 直连（无 GetAsyncEnumerator 可绑）＝基线 CS1895 族：
+                // 即使基线快照漏报也不抢诊断（D9）。
+                foreachBaseline.Add(candidate);
+                return null;
+
+            case AsyncTypeResolver.AsyncStreamShape.Other:
+                // 鸭子型（有 GetAsyncEnumerator 但不实现接口）→ CS2J1840；其余异类同码防御。
+                foreachRejected.Add(candidate);
+                var kind = AsyncTypeResolver.HasPatternGetAsyncEnumerator(receiverType)
+                    ? "provides a pattern-based (duck-typed) 'GetAsyncEnumerator' but does not " +
+                      "implement 'System.Collections.Generic.IAsyncEnumerable<T>'"
+                    : "does not implement 'System.Collections.Generic.IAsyncEnumerable<T>'";
+                diagnostics.Add(DiagnosticAt(
+                    AsyncNormalizeDiagnosticCode.CS2J1840, candidate,
+                    $"'await foreach' source type '{receiverType?.ToDisplayString() ?? "<unknown>"}' {kind}; " +
+                    "only IAsyncEnumerable<T> sources are normalized in v1. The site is left unchanged."));
+                return null;
+        }
+
+        // Enumerable：冻结计划（临时名走 AsyncStreamNaming，成员作用域防撞）。
+        var elementSymbol = model.GetDeclaredSymbol(forEach) as ILocalSymbol;
+        var scopeMember = GetScopeMember(forEach);
+        var usedNames = GetOrCreateScopeNames(scopeNamesByMember, scopeMember, forEach);
+        var index = tempCountersByMember.TryGetValue(scopeMember, out var currentIndex)
+            ? currentIndex
+            : 0;
+        tempCountersByMember[scopeMember] = index + 1;
+        var enumeratorName = AsyncStreamNaming.AllocateEnumeratorTempName(index, usedNames);
+        var okName = AsyncStreamNaming.AllocateOkTempName(index, usedNames);
+
+        if (chain.HasWithCancellation)
+            withCancellationPlanned++;
+        enumerableConfigureAwaitPlanned += chain.ConfigureAwaitCount;
+
+        return new AsyncForeachSite(
+            forEach,
+            chain.Receiver,
+            chain.Token,
+            enumeratorName,
+            okName,
+            elementSymbol?.Type,
+            forEach.Type.IsVar,
+            chain.HasWithCancellation,
+            chain.ConfigureAwaitCount);
+    }
+
+    /// <summary>
+    /// 取消/ConfigureAwait 链消解结果（设计 D3 五分项）。裸源 token 恒显式
+    /// <c>global::System.Threading.CancellationToken.None</c>，消除默认参数魔法。
+    /// </summary>
+    private sealed record ChainResolution(
+        ExpressionSyntax Receiver,
+        ExpressionSyntax Token,
+        bool HasWithCancellation,
+        int ConfigureAwaitCount,
+        bool Rejected);
+
+    private static ChainResolution ResolveSourceChain(
+        SemanticModel model,
+        ForEachStatementSyntax forEach,
+        List<AsyncNormalizeDiagnostic> diagnostics,
+        CommonForEachStatementSyntax diagnosticSite)
+    {
+        var current = forEach.Expression;
+        ExpressionSyntax token = SyntaxFactory.ParseExpression(
+            "global::System.Threading.CancellationToken.None");
+        var sawWithCancellation = false;
+        var configureAwaitCount = 0;
+
+        while (current is InvocationExpressionSyntax invocation
+            && invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+            {
+                // 不可静态绑定：多为自定义链/基线错误外的漏网，宁拒不错（D3⑤/风险 10）。
+                Reject(AsyncNormalizeDiagnosticCode.CS2J1846,
+                    "an invocation in the 'await foreach' source chain could not be statically " +
+                    "bound; only BCL 'WithCancellation(CancellationToken)' / 'ConfigureAwait(bool)' " +
+                    "chains on IAsyncEnumerable<T> can be resolved in v1.");
+                return RejectedChain(forEach.Expression);
+            }
+
+            if (AsyncTypeResolver.IsBclWithCancellation(method))
+            {
+                if (sawWithCancellation)
+                {
+                    Reject(AsyncNormalizeDiagnosticCode.CS2J1846,
+                        "repeated 'WithCancellation' in the 'await foreach' source chain is not " +
+                        "supported in v1; pass a single CancellationToken.");
+                    return RejectedChain(forEach.Expression);
+                }
+
+                if (invocation.ArgumentList.Arguments.Count != 1)
+                {
+                    Reject(AsyncNormalizeDiagnosticCode.CS2J1846,
+                        "'WithCancellation' must take exactly one argument.");
+                    return RejectedChain(forEach.Expression);
+                }
+
+                var argument = invocation.ArgumentList.Arguments[0].Expression;
+                var argumentType = model.GetTypeInfo(argument).Type;
+                if (!AsyncTypeResolver.IsCancellationTokenTyped(argumentType))
+                {
+                    Reject(AsyncNormalizeDiagnosticCode.CS2J1846,
+                        $"'WithCancellation' argument of type '{argumentType?.ToDisplayString() ?? "<unknown>"}' " +
+                        "is not a statically bindable 'System.Threading.CancellationToken'; only " +
+                        "CancellationToken arguments are forwarded to GetAsyncEnumerator in v1.");
+                    return RejectedChain(forEach.Expression);
+                }
+
+                sawWithCancellation = true;
+                token = argument;
+                current = memberAccess.Expression;
+                continue;
+            }
+
+            if (AsyncTypeResolver.IsBclAsyncStreamConfigureAwait(method))
+            {
+                if (invocation.ArgumentList.Arguments.Count != 1)
+                {
+                    Reject(AsyncNormalizeDiagnosticCode.CS2J1843,
+                        "async-stream 'ConfigureAwait' must take exactly one bool argument.");
+                    return RejectedChain(forEach.Expression);
+                }
+
+                var argument = invocation.ArgumentList.Arguments[0].Expression;
+                var argumentType = model.GetTypeInfo(argument).Type;
+                if (argumentType is null || argumentType.SpecialType != SpecialType.System_Boolean)
+                {
+                    // 枚举器/枚举上非 bool ConfigureAwait（含 options 形态）：CS2J1843。
+                    Reject(AsyncNormalizeDiagnosticCode.CS2J1843,
+                        $"'ConfigureAwait' argument of type '{argumentType?.ToDisplayString() ?? "<unknown>"}' " +
+                        "on an async-enumerable chain is not the bool form; the options/non-bool " +
+                        "shape changes the configured enumerator type and is not supported in v1.");
+                    return RejectedChain(forEach.Expression);
+                }
+
+                configureAwaitCount++;
+                current = memberAccess.Expression;
+                continue;
+            }
+
+            if (method.Name is "WithCancellation" or "ConfigureAwait")
+            {
+                // 同名但绑定到非 BCL 符号（用户自定义扩展）：宁拒不错（风险 10）。
+                Reject(AsyncNormalizeDiagnosticCode.CS2J1846,
+                    $"'{method.Name}' in the 'await foreach' source chain binds to non-BCL symbol " +
+                    $"'{method.ContainingType.ToDisplayString()}'; only the BCL extensions are accepted.");
+                return RejectedChain(forEach.Expression);
+            }
+
+            break;
+
+            void Reject(AsyncNormalizeDiagnosticCode code, string message)
+                => diagnostics.Add(DiagnosticAt(code, diagnosticSite, message));
+        }
+
+        if (configureAwaitCount > 0)
+        {
+            var line = diagnosticSite.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
+            diagnostics.Add(new AsyncNormalizeDiagnostic(
+                AsyncNormalizeSeverity.Info,
+                AsyncNormalizeDiagnosticCode.CS2J1830,
+                $"Stripped {configureAwaitPlural(configureAwaitCount)} on the async-enumerable source " +
+                "(Java has no SynchronizationContext; the 'await' sites are preserved).",
+                Line: line));
+        }
+
+        return new ChainResolution(current, token, sawWithCancellation, configureAwaitCount, false);
+
+        static string configureAwaitPlural(int n) => n == 1
+            ? "one 'ConfigureAwait(bool)' chain"
+            : $"{n} 'ConfigureAwait(bool)' chains";
+    }
+
+    private static ChainResolution RejectedChain(ExpressionSyntax original)
+        => new(original,
+            SyntaxFactory.ParseExpression("global::System.Threading.CancellationToken.None"),
+            false, 0, Rejected: true);
+
+    /// <summary>
+    /// 强类型 ConfiguredCancelable 诊断是否已由类型使用面发出并覆盖源表达式跨度
+    /// （避免同一强类型局部/参数/字段在 foreach 站点重复发 1843）。
+    /// </summary>
+    private static bool TypeSiteDiagnosticCovers(SemanticModel model, ExpressionSyntax source)
+    {
+        // 源若直接是标识符/成员访问，其声明点的强类型诊断已覆盖；其余形态（调用/转型等）
+        // 无声明点可挂，由 foreach 站点补诊断。
+        var symbol = model.GetSymbolInfo(source).Symbol
+            ?? (model.GetSymbolInfo(source).CandidateSymbols.FirstOrDefault());
+        if (symbol is ILocalSymbol or IParameterSymbol or IFieldSymbol or IPropertySymbol)
+            return true;
+        return false;
     }
 
     // ── 站点与资源构建 ──
@@ -354,89 +707,123 @@ internal static class AsyncStreamAnalyzer
             Line: line));
     }
 
-    // ── IAsyncDisposable 类型使用点（非语句位放行，零改写，设计 §2.2 归宿矩阵） ──
+    // ── IAsync* 类型使用点（非语句位放行/拒绝，零改写，设计 §2.2 归宿矩阵、D5/D9） ──
 
-    private static int CountAsyncDisposableTypeSites(
+    /// <summary>
+    /// 扫描参数/字段/属性/返回/局部上的异步流类型使用点：
+    /// <list type="bullet">
+    /// <item>IAsyncDisposable：恒放行计数（3a 纪律；EnableAwaitForeach 门不波及）。</item>
+    /// <item>IAsyncEnumerable&lt;T&gt;/IAsyncEnumerator&lt;T&gt;：EnableAwaitForeach 放行计数，
+    /// 否则逐点 CS2J1841。</item>
+    /// <item>ConfiguredCancelableAsyncEnumerable&lt;T&gt;：恒 CS2J1843（剥离改静态类型，v1 拒绝）。</item>
+    /// </list>
+    /// AS-6 冻结成员跨度内（含其返回类型）不计不判；await using 资源位与 foreach 元素位
+    /// 不经此通道（它们由站点计划处理）。
+    /// </summary>
+    private static int CountAsyncTypeSites(
         SemanticModel model,
         CompilationUnitSyntax root,
-        INamedTypeSymbol? asyncDisposableInterface)
+        AsyncNormalizeOptions options,
+        INamedTypeSymbol? asyncDisposableInterface,
+        INamedTypeSymbol? asyncEnumerableInterface,
+        INamedTypeSymbol? asyncEnumeratorInterface,
+        IReadOnlyList<SyntaxNode> iteratorNodes,
+        List<AsyncNormalizeDiagnostic> diagnostics,
+        ref int typeSitesRejected)
     {
-        if (asyncDisposableInterface is null)
-            return 0;
-
         var count = 0;
-        var comparer = SymbolEqualityComparer.Default;
+        var rejectedLocal = 0;
 
-        bool IsExactAsyncDisposable(ITypeSymbol? type)
-            => type != null && comparer.Equals(type, asyncDisposableInterface);
-
-        // 形参（方法/构造/属性访问器/索引器/lambda…，去重在符号层天然一次）。
-        foreach (var parameter in root.DescendantNodes().OfType<ParameterSyntax>())
+        void Consider(SyntaxNode siteSyntax, ITypeSymbol? type)
         {
-            if (model.GetDeclaredSymbol(parameter) is IParameterSymbol symbol
-                && IsExactAsyncDisposable(symbol.Type))
+            if (type is null)
+                return;
+            if (ContainedInAny(siteSyntax.Span, iteratorNodes))
+                return;
+
+            if (AsyncTypeResolver.IsConfiguredCancelableAsyncEnumerable(type))
+            {
+                rejectedLocal++;
+                diagnostics.Add(DiagnosticAt(
+                    AsyncNormalizeDiagnosticCode.CS2J1843, siteSyntax,
+                    $"Strongly-typed 'System.Runtime.CompilerServices.ConfiguredCancelableAsyncEnumerable<T>' " +
+                    $"use site ('{type.ToDisplayString()}') is not supported in v1; stripping the " +
+                    "configured/cancelable wrapper changes the static type. Apply " +
+                    "'WithCancellation'/'ConfigureAwait' at the 'await foreach' site instead."));
+                return;
+            }
+
+            if (AsyncTypeResolver.IsAsyncDisposable(type, asyncDisposableInterface))
             {
                 count++;
+                return;
             }
-        }
 
-        // 字段。
-        foreach (var field in root.DescendantNodes().OfType<FieldDeclarationSyntax>())
-        {
-            foreach (var declarator in field.Declaration.Variables)
+            if (AsyncTypeResolver.IsAsyncEnumerable(type, asyncEnumerableInterface)
+                || AsyncTypeResolver.IsAsyncEnumerator(type, asyncEnumeratorInterface))
             {
-                if (model.GetDeclaredSymbol(declarator) is IFieldSymbol symbol
-                    && IsExactAsyncDisposable(symbol.Type))
+                if (options.EnableAwaitForeach)
                 {
                     count++;
+                }
+                else
+                {
+                    rejectedLocal++;
+                    diagnostics.Add(DiagnosticAt(
+                        AsyncNormalizeDiagnosticCode.CS2J1841, siteSyntax,
+                        $"Async-stream type use site ('{type.ToDisplayString()}') cannot be normalized " +
+                        "because the EnableAwaitForeach option is disabled. Enable the option, or wait " +
+                        "for the Java-side async-enumerable bridge. The site is left unchanged."));
                 }
             }
         }
 
-        // 属性。
-        foreach (var property in root.DescendantNodes().OfType<PropertyDeclarationSyntax>())
+        foreach (var parameter in root.DescendantNodes().OfType<ParameterSyntax>())
         {
-            if (model.GetDeclaredSymbol(property) is IPropertySymbol symbol
-                && IsExactAsyncDisposable(symbol.Type))
+            if (model.GetDeclaredSymbol(parameter) is IParameterSymbol symbol)
+                Consider(parameter, symbol.Type);
+        }
+
+        foreach (var field in root.DescendantNodes().OfType<FieldDeclarationSyntax>())
+        {
+            foreach (var declarator in field.Declaration.Variables)
             {
-                count++;
+                if (model.GetDeclaredSymbol(declarator) is IFieldSymbol symbol)
+                    Consider(declarator, symbol.Type);
             }
         }
 
-        // 方法 / 局部函数返回类型。
+        foreach (var property in root.DescendantNodes().OfType<PropertyDeclarationSyntax>())
+        {
+            if (model.GetDeclaredSymbol(property) is IPropertySymbol symbol)
+                Consider(property.Type, symbol.Type);
+        }
+
         foreach (var method in root.DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
-            if (model.GetDeclaredSymbol(method) is IMethodSymbol symbol
-                && IsExactAsyncDisposable(symbol.ReturnType))
-            {
-                count++;
-            }
+            if (model.GetDeclaredSymbol(method) is IMethodSymbol symbol)
+                Consider(method.ReturnType, symbol.ReturnType);
         }
 
         foreach (var localFunction in root.DescendantNodes().OfType<LocalFunctionStatementSyntax>())
         {
-            if (model.GetDeclaredSymbol(localFunction) is IMethodSymbol symbol
-                && IsExactAsyncDisposable(symbol.ReturnType))
-            {
-                count++;
-            }
+            if (model.GetDeclaredSymbol(localFunction) is IMethodSymbol symbol)
+                Consider(localFunction.ReturnType, symbol.ReturnType);
         }
 
-        // 局部（排除 using 声明资源与 using 语句内声明资源——那些是语句位）。
+        // 局部（排除 using 声明资源与 foreach 元素变量——那些走语句位）。
         foreach (var local in root.DescendantNodes().OfType<LocalDeclarationStatementSyntax>())
         {
             if (local.UsingKeyword.IsKind(SyntaxKind.UsingKeyword))
                 continue;
             foreach (var declarator in local.Declaration.Variables)
             {
-                if (model.GetDeclaredSymbol(declarator) is ILocalSymbol symbol
-                    && IsExactAsyncDisposable(symbol.Type))
-                {
-                    count++;
-                }
+                if (model.GetDeclaredSymbol(declarator) is ILocalSymbol symbol)
+                    Consider(declarator, symbol.Type);
             }
         }
 
+        typeSitesRejected += rejectedLocal;
         return count;
     }
 
@@ -498,6 +885,9 @@ internal static class AsyncStreamAnalyzer
             e.Tree == tree
             && e.Span.Start >= outerSpan.Start
             && e.Span.End <= outerSpan.End);
+
+    private static bool ContainedInAny(TextSpan span, IReadOnlyList<SyntaxNode> members)
+        => members.Any(m => m.Span.Contains(span));
 
     private static AsyncNormalizeDiagnostic DiagnosticAt(
         AsyncNormalizeDiagnosticCode code,

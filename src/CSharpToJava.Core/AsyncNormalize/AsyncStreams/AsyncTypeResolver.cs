@@ -3,13 +3,36 @@ using Microsoft.CodeAnalysis;
 namespace CSharpToJava.Core.AsyncNormalize.AsyncStreams;
 
 /// <summary>
-/// C38 异步释放类型解析（设计 D5/D8、§4.4）。全部判定基于 SemanticModel/ISymbol
-/// 符号绑定，禁止按方法名字符串猜测。3a 只覆盖 <c>IAsyncDisposable</c> 面；
-/// <c>IAsyncEnumerable/IAsyncEnumerator</c> 判定留 3b，本阶段不实现。
+/// C38 异步释放/异步流类型解析（设计 D3/D5/D8/D9、§4.4）。全部判定基于
+/// SemanticModel/ISymbol 符号绑定，禁止按方法名字符串猜测。
 /// </summary>
 internal static class AsyncTypeResolver
 {
     public const string AsyncDisposableMetadataName = "System.IAsyncDisposable";
+    public const string AsyncEnumerableMetadataName = "System.Collections.Generic.IAsyncEnumerable`1";
+    public const string AsyncEnumeratorMetadataName = "System.Collections.Generic.IAsyncEnumerator`1";
+    public const string ConfiguredCancelableMetadataName =
+        "System.Runtime.CompilerServices.ConfiguredCancelableAsyncEnumerable`1";
+
+    /// <summary>BCL 异步枚举扩展方法的宿主类（WithCancellation / ConfigureAwait 均在此）。</summary>
+    public const string TaskAsyncEnumerableExtensionsMetadataName =
+        "System.Threading.Tasks.TaskAsyncEnumerableExtensions";
+
+    /// <summary>await foreach 源消解后的形状（设计 D9/GetAsyncStreamStreamShape）。</summary>
+    public enum AsyncStreamShape
+    {
+        /// <summary>非异步流类型（数组/string/IEnumerable/其他）。</summary>
+        Other,
+
+        /// <summary><see cref="T:System.Collections.Generic.IAsyncEnumerable`1"/>（含实现类）。</summary>
+        Enumerable,
+
+        /// <summary><see cref="T:System.Collections.Generic.IAsyncEnumerator`1"/>（直连＝基线 CS1895 族）。</summary>
+        Enumerator,
+
+        /// <summary>强类型 ConfiguredCancelableAsyncEnumerable&lt;T&gt;（剥离会改类型，CS2J1843）。</summary>
+        ConfiguredCancelable,
+    }
 
     /// <summary>
     /// 解包 <see cref="System.Nullable{T}"/>：<c>S?</c> 资源的 await using 由编译器
@@ -116,5 +139,149 @@ internal static class AsyncTypeResolver
         }
 
         return null;
+    }
+
+    // ── 3b：异步枚举面（D3/D9，全部符号判定） ──
+
+    /// <summary>
+    /// 类型（含 Nullable 底层类型）是否为/实现 <c>System.Collections.Generic.IAsyncEnumerable`1</c>。
+    /// </summary>
+    public static bool IsAsyncEnumerable(ITypeSymbol? type, INamedTypeSymbol? asyncEnumerableInterface)
+    {
+        if (type is null || asyncEnumerableInterface is null)
+            return false;
+
+        var unwrapped = UnwrapNullable(type);
+        var comparer = SymbolEqualityComparer.Default;
+        if (comparer.Equals(unwrapped.OriginalDefinition, asyncEnumerableInterface.OriginalDefinition))
+            return true;
+        return unwrapped.AllInterfaces.Any(i =>
+            comparer.Equals(i.OriginalDefinition, asyncEnumerableInterface.OriginalDefinition));
+    }
+
+    /// <summary>
+    /// 类型（含 Nullable 底层类型）是否为/实现 <c>System.Collections.Generic.IAsyncEnumerator`1</c>。
+    /// </summary>
+    public static bool IsAsyncEnumerator(ITypeSymbol? type, INamedTypeSymbol? asyncEnumeratorInterface)
+    {
+        if (type is null || asyncEnumeratorInterface is null)
+            return false;
+
+        var unwrapped = UnwrapNullable(type);
+        var comparer = SymbolEqualityComparer.Default;
+        if (comparer.Equals(unwrapped.OriginalDefinition, asyncEnumeratorInterface.OriginalDefinition))
+            return true;
+        return unwrapped.AllInterfaces.Any(i =>
+            comparer.Equals(i.OriginalDefinition, asyncEnumeratorInterface.OriginalDefinition));
+    }
+
+    /// <summary>
+    /// 类型是否为强类型 <c>System.Runtime.CompilerServices.ConfiguredCancelableAsyncEnumerable`1</c>
+    /// （WithCancellation/ConfigureAwait 链的结构化产物；剥离会改变静态类型，CS2J1843）。
+    /// </summary>
+    public static bool IsConfiguredCancelableAsyncEnumerable(ITypeSymbol? type)
+    {
+        if (type is null)
+            return false;
+        var unwrapped = UnwrapNullable(type);
+        if (unwrapped is not INamedTypeSymbol named)
+            return false;
+        var definition = named.OriginalDefinition;
+        return definition.MetadataName == "ConfiguredCancelableAsyncEnumerable`1"
+            && definition.ContainingNamespace?.ToDisplayString() == "System.Runtime.CompilerServices";
+    }
+
+    /// <summary>await foreach 源（链消解后）的形状分类，供 Analyzer 决定展开/拒绝/基线豁免。</summary>
+    public static AsyncStreamShape GetAsyncStreamStreamShape(
+        ITypeSymbol? type,
+        INamedTypeSymbol? asyncEnumerableInterface,
+        INamedTypeSymbol? asyncEnumeratorInterface)
+    {
+        if (type is null || type is IErrorTypeSymbol)
+            return AsyncStreamShape.Other;
+        if (IsConfiguredCancelableAsyncEnumerable(type))
+            return AsyncStreamShape.ConfiguredCancelable;
+        if (IsAsyncEnumerable(type, asyncEnumerableInterface))
+            return AsyncStreamShape.Enumerable;
+        if (IsAsyncEnumerator(type, asyncEnumeratorInterface))
+            return AsyncStreamShape.Enumerator;
+        return AsyncStreamShape.Other;
+    }
+
+    /// <summary>
+    /// 调用符号是否绑定到 BCL
+    /// <c>System.Threading.Tasks.TaskAsyncEnumerableExtensions.WithCancellation</c>
+    /// （reduced 扩展形态或静态原形形态；D3 宁拒不错，自定义同名扩展不接受），
+    /// 或 <c>ConfiguredCancelableAsyncEnumerable&lt;T&gt;</c> 上的同名实例方法
+    /// （链的第二跳起绑定到该 struct 的实例面）。
+    /// </summary>
+    public static bool IsBclWithCancellation(IMethodSymbol? method)
+    {
+        if (method is null || method.Name != "WithCancellation")
+            return false;
+        return IsBclAsyncStreamChainHost(method.ContainingType);
+    }
+
+    /// <summary>
+    /// 调用符号是否绑定到异步枚举面的 BCL <c>ConfigureAwait(bool)</c>：
+    /// <c>TaskAsyncEnumerableExtensions</c> 上 IAsyncEnumerable&lt;T&gt; 的扩展面，
+    /// 以及 <c>ConfiguredCancelableAsyncEnumerable&lt;T&gt;</c> 上的链实例面
+    /// （WithCancellation/ConfigureAwait 链逐跳都落在这两个宿主内）。
+    /// Task 侧 ConfigureAwait（C18 面）宿主类不同，不含在内。
+    /// </summary>
+    public static bool IsBclAsyncStreamConfigureAwait(IMethodSymbol? method)
+    {
+        if (method is null || method.Name != "ConfigureAwait")
+            return false;
+
+        return IsBclAsyncStreamChainHost(method.ContainingType);
+    }
+
+    /// <summary>
+    /// 宿主是否为异步枚举取消链的两个 BCL 宿主之一（扩展静态类或
+    /// ConfiguredCancelableAsyncEnumerable&lt;T&gt; struct）。
+    /// </summary>
+    private static bool IsBclAsyncStreamChainHost(INamedTypeSymbol? containingType)
+    {
+        if (containingType is null)
+            return false;
+        if (containingType.ToDisplayString() == TaskAsyncEnumerableExtensionsMetadataName)
+            return true;
+
+        var definition = containingType.OriginalDefinition;
+        return definition.MetadataName == "ConfiguredCancelableAsyncEnumerable`1"
+            && definition.ContainingNamespace?.ToDisplayString() == "System.Runtime.CompilerServices";
+    }
+
+    /// <summary>实参静态类型是否为 <c>System.Threading.CancellationToken</c>（struct 非 SpecialType，按符号名判定）。</summary>
+    public static bool IsCancellationTokenTyped(ITypeSymbol? type)
+        => type is { } candidate
+            && candidate.OriginalDefinition.MetadataName == "CancellationToken"
+            && candidate.ContainingNamespace?.ToDisplayString() == "System.Threading";
+
+    /// <summary>
+    /// 鸭子型异步枚举源：不实现 IAsyncEnumerable，但具有可绑定的实例
+    /// <c>GetAsyncEnumerator</c> 方法（0 参或 1 个 CancellationToken 形参；返回值不审）。
+    /// 含扩展方法形态的模式在 v1 一并按鸭子拒绝（CS2J1840），但本判定只认实例方法，
+    /// 扩展模式由基线编译错误面承接。调用方须先排除接口形状成立的类型。
+    /// </summary>
+    public static bool HasPatternGetAsyncEnumerator(ITypeSymbol? type)
+    {
+        if (type is null or IErrorTypeSymbol)
+            return false;
+
+        var unwrapped = UnwrapNullable(type);
+        if (unwrapped.TypeKind is TypeKind.Interface or TypeKind.TypeParameter)
+            return false;
+
+        foreach (var member in unwrapped.GetMembers("GetAsyncEnumerator"))
+        {
+            if (member is not IMethodSymbol { IsStatic: false } method)
+                continue;
+            if (method.Parameters.Length is 0 or 1)
+                return true;
+        }
+
+        return false;
     }
 }

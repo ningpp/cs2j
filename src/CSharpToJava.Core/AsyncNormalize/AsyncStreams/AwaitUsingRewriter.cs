@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -44,6 +44,15 @@ internal sealed class AwaitUsingRewriter : CSharpSyntaxRewriter
 
     private readonly SiteTagger _tagger;
 
+    /// <summary>
+    /// 在任何兄弟改写（3b foreach 展开会搬运宿主块语句）发生之前，把 await using
+    /// 站点/skip 标注挂到输入树 green 层，跨 rewriter 重包后仍可按标注定位。
+    /// </summary>
+    public static SyntaxNode AttachSiteAnnotations(
+        SyntaxNode root, AsyncStreamAnalysisResult analysis)
+        => new SiteTagger(analysis.Sites, analysis.RejectedNodes, analysis.BaselineExemptNodes)
+            .Visit(root);
+
     /// <summary>是否发生任何改写（skip 标注不渲染，不计入 Changed）。</summary>
     public bool Changed { get; private set; }
 
@@ -60,7 +69,9 @@ internal sealed class AwaitUsingRewriter : CSharpSyntaxRewriter
         if (!_primed && node is CompilationUnitSyntax root)
         {
             _primed = true;
-            node = _tagger.Visit(root);
+            // preprocessor 已在所有改写前统一挂过 green 标注时不重复挂。
+            if (!root.GetAnnotatedNodes(SiteAnnotationKind).Any())
+                node = _tagger.Visit(root);
         }
 
         return base.Visit(node);

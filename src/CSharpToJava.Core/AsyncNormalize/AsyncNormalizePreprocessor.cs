@@ -112,21 +112,90 @@ public sealed class AsyncNormalizePreprocessor
             diagnostics.AddRange(configureAwait.Diagnostics);
         }
 
-        // C38 3a：await using → try/finally + await DisposeAsync()。C18 提升/ConfigureAwait
-        // 先跑（await using 体内被提升的 lambda 此时已是方法调用）；严格 Error 已整体短路。
-        // 非严格：rejected/baseline 站点由 rewriter 原地挂 skip 标注、其余照常展开。
+        // C38：span 漂移硬化（任务6）。C18 提升/ConfigureAwait 剥离可能插入方法、改动
+        // 行号与节点身份，因此 stream 站点不在原始 model 上计划——直接把 C18 产物
+        // newRoot（仍挂 C18 synthetic/skip 标注的内存树）经 CSharpSyntaxTree.Create
+        // 包成正式 SyntaxTree，并 ReplaceSyntaxTree 重绑编译：post-C18 model 的查询
+        // 节点与下游 rewriter 严格同树，引用/SpanStart 匹配天然成立，标注零丢失，
+        // 不存在文本重解析往返。严格 Error 已在前面整体短路，不进此块。
         AwaitUsingRewriter? streamRewriter = null;
-        if (!hasErrorSkip && streamAnalysis != null
-            && (streamAnalysis.Sites.Count > 0
-                || streamAnalysis.RejectedNodes.Count > 0
-                || streamAnalysis.BaselineExemptNodes.Count > 0))
+        AsyncForeachRewriter? foreachRewriter = null;
+
+        if (!hasErrorSkip && streamAnalysis != null)
         {
-            streamRewriter = new AwaitUsingRewriter(streamAnalysis);
-            newRoot = (CompilationUnitSyntax)streamRewriter.Visit(newRoot)!;
+            CompilationUnitSyntax postRoot;
+            SemanticModel postModel;
+
+            if (ReferenceEquals(newRoot, root))
+            {
+                // 无 C18 改写：原树原 model 直接复用，节点身份完全一致。
+                postRoot = newRoot;
+                postModel = semanticModel;
+            }
+            else if (semanticModel.Compilation is CSharpCompilation cSharpCompilation)
+            {
+                var parseOptions = semanticModel.SyntaxTree.Options as CSharpParseOptions;
+                var postTree = CSharpSyntaxTree.Create(
+                    newRoot, parseOptions, semanticModel.SyntaxTree.FilePath);
+                var postCompilation = cSharpCompilation.ReplaceSyntaxTree(
+                    semanticModel.SyntaxTree, postTree);
+                postModel = postCompilation.GetSemanticModel(postTree);
+                postRoot = newRoot;
+            }
+            else
+            {
+                // 非 CSharpCompilation 宿主（理论上测试夹具外不可达）：退化为原 model 直跑。
+                postRoot = newRoot;
+                postModel = semanticModel;
+            }
+
+            // 第二次分析仅用于 post-C18 计划；诊断仍以原始 model 的首轮分析为准
+            // （行号归属原文，CS2J1830 等 Info 不重复发）。
+            var postStreamAnalysis = AsyncStreamAnalyzer.Analyze(postModel, options);
+
+            var hasUsingWork = postStreamAnalysis.Sites.Count > 0
+                || postStreamAnalysis.RejectedNodes.Count > 0
+                || postStreamAnalysis.BaselineExemptNodes.Count > 0;
+            var hasForeachWork = options.EnableAsyncStreams
+                && (postStreamAnalysis.ForeachSites.Count > 0
+                    || postStreamAnalysis.ForeachRejectedNodes.Count > 0
+                    || postStreamAnalysis.ForeachBaselineExemptNodes.Count > 0
+                    || postStreamAnalysis.IteratorNodes.Count > 0);
+
+            // 关键顺序：两个 rewriter 任一开始改写之前，先把两套站点/skip 标注都挂到
+            // 输入树 green 层。await using 声明折叠会把后继语句重包进新 try（red 包装
+            // 身份/SpanStart 全变），foreach 展开会搬运宿主块语句；green 标注随节点
+            // 复用存活，两个 rewriter 都按标注定位计划，跨趟不丢站点。
+            if (hasUsingWork)
+            {
+                postRoot = (CompilationUnitSyntax)
+                    AwaitUsingRewriter.AttachSiteAnnotations(postRoot, postStreamAnalysis)!;
+            }
+
+            if (hasForeachWork)
+            {
+                postRoot = (CompilationUnitSyntax)
+                    AsyncForeachRewriter.AttachSiteAnnotations(postRoot, postStreamAnalysis)!;
+            }
+
+            if (hasUsingWork)
+            {
+                streamRewriter = new AwaitUsingRewriter(postStreamAnalysis);
+                postRoot = (CompilationUnitSyntax)streamRewriter.Visit(postRoot)!;
+            }
+
+            if (hasForeachWork)
+            {
+                foreachRewriter = new AsyncForeachRewriter(postStreamAnalysis, options);
+                postRoot = (CompilationUnitSyntax)foreachRewriter.Visit(postRoot)!;
+            }
+
+            newRoot = postRoot;
         }
 
         var changed = liftChanged || strippedCount > 0
-            || (streamRewriter?.Changed ?? false);
+            || (streamRewriter?.Changed ?? false)
+            || (foreachRewriter?.Changed ?? false);
         var outputCode = sourceCode;
         SyntaxNode gateRoot = newRoot;
 
@@ -153,18 +222,27 @@ public sealed class AsyncNormalizePreprocessor
         stats.SkippedUnsupported = analysis.Diagnostics.Count;
         stats.CapturedAsyncLambdasDeferred = analysis.CapturedAsyncLambdasDeferred;
 
-        // C38 3a 统计桶：放行/拒绝/鸭子计数来自分析（严格 Error 路径也如实计数，同 C18），
-        // 展开/守卫桶仅在真正执行改写时累加（严格 Error 整体不改写，必须保持 0）。
+        // C38 统计桶：放行/拒绝/鸭子/迭代器计数来自首轮分析（严格 Error 路径也如实计数，
+        // 同 C18/3a），展开/守卫/链消解桶仅在真正执行改写时累加（严格 Error 整体不改写，
+        // 展开桶必须保持 0）。
         if (streamAnalysis != null)
         {
             stats.AsyncTypeSitesMapped = streamAnalysis.TypeSitesMapped;
             stats.AsyncTypeSitesRejected = streamAnalysis.TypeSitesRejected;
             stats.DuckTypedAsyncDeferred = streamAnalysis.DuckTypedDeferred;
+            stats.AsyncIteratorsRejected = streamAnalysis.IteratorsRejected;
             if (streamRewriter != null)
             {
                 stats.AwaitUsingStatementsExpanded = streamRewriter.StatementsExpanded;
                 stats.AwaitUsingDeclarationsExpanded = streamRewriter.DeclarationsExpanded;
                 stats.AsyncDisposeGuardsEmitted = streamRewriter.GuardsEmitted;
+            }
+            if (foreachRewriter != null)
+            {
+                stats.AwaitForeachExpanded = foreachRewriter.Expanded;
+                stats.AsyncEnumeratorsEmitted = foreachRewriter.EnumeratorsEmitted;
+                stats.WithCancellationResolved = foreachRewriter.WithCancellationResolved;
+                stats.EnumerableConfigureAwaitStripped = foreachRewriter.ConfigureAwaitStripped;
             }
         }
 
@@ -201,6 +279,7 @@ public sealed class AsyncNormalizePreprocessor
             gateRoot, outputCode, semanticModel, options, changed);
         var residualCount = c18Residual + c38Residual;
         stats.ResidualCount = residualCount;
+        stats.AsyncStreamResidualCount = c38Residual;
         if (c18Residual > 0 && options.Strict)
         {
             diagnostics.Add(new AsyncNormalizeDiagnostic(
@@ -211,16 +290,18 @@ public sealed class AsyncNormalizePreprocessor
                 "un-exempted async void member(s))."));
         }
 
-        // C38 residual：输出仍含未豁免的裸 await using（白名单=skip 诊断节点 +
-        // annotation 合成节点）。合成树内 await DisposeAsync 是预期 await，不在此面计数；
-        // 非严格不发 1849（Warning 站点已原样保留）。
+        // C38 residual：输出仍含未豁免的裸 await foreach / await using（白名单=skip
+        // 诊断节点 + AS-6 冻结成员 + annotation 合成节点）。合成树内 await
+        // MoveNextAsync/DisposeAsync 是预期 await，不在此面计数；非严格不发 1849
+        // （Warning 站点已原样挂 skip 白名单；跨文件聚合兜底在适配器）。
         if (c38Residual > 0 && options.Strict)
         {
             diagnostics.Add(new AsyncNormalizeDiagnostic(
                 AsyncNormalizeSeverity.Error,
                 AsyncNormalizeDiagnosticCode.CS2J1849,
-                $"{c38Residual} residual 'await using' site(s) remain after async-stream " +
-                "normalization (un-exempted await using statement or declaration)."));
+                $"{c38Residual} residual async-stream site(s) ('await foreach' or 'await using') " +
+                "remain after async-stream normalization (un-exempted statement, declaration, " +
+                "or frozen async-iterator member)."));
         }
 
         return new AsyncNormalizeFileResult(outputCode, changed, diagnostics, stats);
@@ -264,6 +345,18 @@ public sealed class AsyncNormalizePreprocessor
                 // C38 3a：IAsyncDisposable 类型使用点（放行计数面，零改写也要过分析）。
                 case IdentifierNameSyntax asyncDisposableIdentifier
                     when asyncDisposableIdentifier.Identifier.Text == "IAsyncDisposable":
+                    return true;
+                // C38 3b：await foreach（await 是 foreach 的 AwaitKeyword，不含
+                // AwaitExpressionSyntax；纯 await foreach 文件必须经分析）。
+                case CommonForEachStatementSyntax awaitForeach
+                    when awaitForeach.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword):
+                    return true;
+                // C38 3b：异步流类型/取消链粗筛（符号判定在 Analyzer，此处只防干净短路）。
+                case IdentifierNameSyntax asyncStreamIdentifier
+                    when asyncStreamIdentifier.Identifier.Text is "IAsyncEnumerable"
+                        or "IAsyncEnumerator"
+                        or "ConfiguredCancelableAsyncEnumerable"
+                        or "WithCancellation":
                     return true;
             }
         }
@@ -384,14 +477,15 @@ public sealed class AsyncNormalizePreprocessor
             }
         }
 
-        // C38 3a：未豁免的裸 await using 语句/声明。选项关闭时站点应已全部由
-        // CS2J1841 承接（skip 白名单），闸门不再计数（同 C18 kill-switch 纪律）。
+        // C38：未豁免的裸 await using（3a）/ await foreach（3b，含解构形态）。
+        // 选项关闭时站点应已全部由 CS2J1841 承接（skip 白名单），闸门不再计数
+        // （同 C18 kill-switch 纪律）；AS-6 冻结成员的 skip 标注按跨度整体豁免。
         var c38Residual = 0;
-        if (options.EnableAsyncStreams && options.EnableAwaitUsing)
+        if (options.EnableAsyncStreams)
         {
             foreach (var node in outputRoot.DescendantNodes())
             {
-                var isAwaitUsing = node switch
+                var isAwaitUsing = options.EnableAwaitUsing && node switch
                 {
                     UsingStatementSyntax awaitUsingStatement =>
                         awaitUsingStatement.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
@@ -400,7 +494,12 @@ public sealed class AsyncNormalizePreprocessor
                         && awaitUsingDeclaration.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
                     _ => false,
                 };
-                if (isAwaitUsing
+
+                var isAwaitForeach = options.EnableAwaitForeach
+                    && node is CommonForEachStatementSyntax awaitForeachNode
+                    && awaitForeachNode.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword);
+
+                if ((isAwaitUsing || isAwaitForeach)
                     && !ContainedInAny(node.Span, skipWhitelist)
                     && !ContainedInAny(node.Span, syntheticWhitelist))
                 {

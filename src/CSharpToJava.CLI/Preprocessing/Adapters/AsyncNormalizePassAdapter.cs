@@ -101,6 +101,24 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
                 "un-exempted async void member(s))."));
         }
 
+        // C38 async-stream counterpart of the C18 fallback: the per-file CS2J1849
+        // gate fires only in strict mode; the aggregate stream residual bucket is
+        // still populated in non-strict mode (skip-tagged sites are whitelisted
+        // per file, so this normally stays zero). Surface one aggregate line so
+        // residual 'await foreach'/'await using' sites are never swallowed.
+        if (_statistics.AsyncStreamResidualCount > 0
+            && !_diagnostics.Any(d => d.Code == AsyncNormalizeDiagnosticCode.CS2J1849))
+        {
+            var severity = _strict
+                ? AsyncNormalizeSeverity.Error
+                : AsyncNormalizeSeverity.Warning;
+            _diagnostics.Add(new AsyncNormalizeDiagnostic(
+                severity,
+                AsyncNormalizeDiagnosticCode.CS2J1849,
+                $"{_statistics.AsyncStreamResidualCount} residual async-stream site(s) " +
+                "('await foreach' or 'await using') remain after async-stream normalization."));
+        }
+
         return Task.CompletedTask;
     }
 
@@ -131,11 +149,19 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
             _statistics.AsyncLambdasLiftedZeroCapture
             + _statistics.AsyncLambdasLiftedThisOnly
             + _statistics.AsyncLambdasLiftedVoidWrapper;
+        var awaitUsingExpanded =
+            _statistics.AwaitUsingStatementsExpanded
+            + _statistics.AwaitUsingDeclarationsExpanded;
+        // C18 段后追加 C38 分项（0 也输出，保持摘要可 grep 的稳定形态）。
         return $"async-normalize: {lambdasLifted} lambda(s) lifted, " +
                $"{_statistics.WrappersGenerated} wrapper(s), " +
                $"{_statistics.ConfigureAwaitStripped} ConfigureAwait stripped, " +
                $"{_statistics.AwaitSites} await-site(s) kept, " +
                $"{_statistics.SkippedUnsupported} skipped, " +
+               $"{_statistics.AwaitForeachExpanded} await-foreach, " +
+               $"{awaitUsingExpanded} await-using, " +
+               $"{_statistics.AsyncTypeSitesMapped} async-type sites, " +
+               $"{_statistics.AsyncIteratorsRejected} async-iterator rejected, " +
                $"{_statistics.ResidualCount} residual";
     }
 
@@ -169,5 +195,19 @@ internal sealed class AsyncNormalizePassAdapter : ProjectPassAdapter
         _statistics.AsyncLocalFunctionsLifted += source.AsyncLocalFunctionsLifted;
         _statistics.WrappersGenerated += source.WrappersGenerated;
         _statistics.CapturedAsyncLambdasDeferred += source.CapturedAsyncLambdasDeferred;
+
+        // C38 M2/3a + M3/3b buckets.
+        _statistics.AwaitUsingStatementsExpanded += source.AwaitUsingStatementsExpanded;
+        _statistics.AwaitUsingDeclarationsExpanded += source.AwaitUsingDeclarationsExpanded;
+        _statistics.AsyncDisposeGuardsEmitted += source.AsyncDisposeGuardsEmitted;
+        _statistics.AsyncTypeSitesMapped += source.AsyncTypeSitesMapped;
+        _statistics.AsyncTypeSitesRejected += source.AsyncTypeSitesRejected;
+        _statistics.DuckTypedAsyncDeferred += source.DuckTypedAsyncDeferred;
+        _statistics.AwaitForeachExpanded += source.AwaitForeachExpanded;
+        _statistics.AsyncEnumeratorsEmitted += source.AsyncEnumeratorsEmitted;
+        _statistics.WithCancellationResolved += source.WithCancellationResolved;
+        _statistics.EnumerableConfigureAwaitStripped += source.EnumerableConfigureAwaitStripped;
+        _statistics.AsyncIteratorsRejected += source.AsyncIteratorsRejected;
+        _statistics.AsyncStreamResidualCount += source.AsyncStreamResidualCount;
     }
 }

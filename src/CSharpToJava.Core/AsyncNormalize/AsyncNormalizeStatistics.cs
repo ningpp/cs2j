@@ -74,4 +74,27 @@ public sealed class AsyncNormalizeStatistics
 
     /// <summary>鸭子型/ref struct 异步释放被 defer 的站点数（CS2J1842）。</summary>
     public int DuckTypedAsyncDeferred;
+
+    // ── Pass-specific fields (C38 M3/3b: await foreach → explicit async enumerator, D2/D3/D6/D7) ──
+
+    /// <summary>已展开的 await foreach 站点数（AS-1/AS-2/AS-3）。</summary>
+    public int AwaitForeachExpanded;
+
+    /// <summary>await foreach 展开发射的枚举器临时量数（与展开站点 1:1）。</summary>
+    public int AsyncEnumeratorsEmitted;
+
+    /// <summary>消解进 GetAsyncEnumerator 实参的 WithCancellation(token) 链数（AS-2）。</summary>
+    public int WithCancellationResolved;
+
+    /// <summary>剥离为 receiver 的枚举器/异步枚举 ConfigureAwait(bool) 链数（CS2J1830 Info）。</summary>
+    public int EnumerableConfigureAwaitStripped;
+
+    /// <summary>被识别并整成员 skip 的异步迭代器方法/局部函数数（CS2J1844，AS-6）。</summary>
+    public int AsyncIteratorsRejected;
+
+    /// <summary>
+    /// C38 residual 分项（await foreach/await using；不含 C18 面）。仅供适配器
+    /// AfterFilesAsync 聚合兜底 CS2J1849 使用；<see cref="ResidualCount"/> 仍为 C18+C38 合计。
+    /// </summary>
+    public int AsyncStreamResidualCount;
 }

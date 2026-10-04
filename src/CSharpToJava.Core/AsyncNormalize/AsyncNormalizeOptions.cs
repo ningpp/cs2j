@@ -24,7 +24,27 @@ public sealed record AsyncNormalizeOptions(
 
     /// <summary>
     /// 3a：<c>await using</c> → try/finally + await DisposeAsync() 展开开关。
-    /// 关闭时接口资源站点发 CS2J1841；await foreach 等其余 C38 子开关随 3b 追加。
+    /// 关闭时接口资源站点发 CS2J1841。
     /// </summary>
     public bool EnableAwaitUsing { get; init; } = true;
+
+    /// <summary>
+    /// 3b：<c>await foreach</c> → 显式 IAsyncEnumerator 驱动（GetAsyncEnumerator +
+    /// while (await MoveNextAsync()) + finally DisposeAsync）展开开关（设计 D10）。
+    /// 关闭时 await foreach 站点与 IAsyncEnumerable/IAsyncEnumerator 非语句使用点发 CS2J1841。
+    /// </summary>
+    public bool EnableAwaitForeach { get; init; } = true;
+
+    /// <summary>
+    /// 3b：await foreach 展开是否发射 C# 8 保真释放守卫（成功标志位 + 在途异常分支吞掉
+    /// DisposeAsync 异常，设计 D6）。关闭时退化为朴素 try/finally（仅差异对照，不进默认）。
+    /// </summary>
+    public bool FaithfulAsyncDisposeGuard { get; init; } = true;
+
+    /// <summary>
+    /// 3b：异步迭代器方法（async + IAsyncEnumerable/IEnumerator 返回 + yield）kill-switch
+    /// （设计 D7/D10）。v1 恒 true：命中即 CS2J1844 整成员 skip。false 时不诊断但也不展开
+    /// （M4 联合状态机之前无其他归宿）。
+    /// </summary>
+    public bool RejectAsyncIterator { get; init; } = true;
 }

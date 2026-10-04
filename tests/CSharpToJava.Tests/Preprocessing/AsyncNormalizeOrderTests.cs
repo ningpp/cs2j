@@ -76,7 +76,7 @@ public sealed class AsyncNormalizeOrderTests
         Assert.True(descriptor.VerifyBuildByDefault);
         Assert.True(descriptor.VerifyTestsByDefault);
         Assert.Equal(PassStage.StateMachine, descriptor.Stage);
-        Assert.Equal("C18", descriptor.CatalogItems);
+        Assert.Equal("C18, C38 (C44 subtopic)", descriptor.CatalogItems);
         Assert.Equal(".cs2j-async-normalize-src", descriptor.IntermediateDirectoryName);
     }
 }

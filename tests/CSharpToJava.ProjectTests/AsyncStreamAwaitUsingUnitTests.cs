@@ -500,7 +500,9 @@ class C
             d.Severity == AsyncNormalizeSeverity.Error
             && d.Code == AsyncNormalizeDiagnosticCode.CS2J1841);
         Assert.DoesNotContain(result.Diagnostics, d => d.Code == AsyncNormalizeDiagnosticCode.CS2J1842);
-        Assert.Equal(1, result.Statistics.AsyncTypeSitesMapped);
+        // 放行类型点 2：形参 p（IAsyncDisposable）+ 夹具 MyRes.Make() 的 MyRes 返回
+        // 类型（实现 IAsyncDisposable；3b 类型点矩阵覆盖返回类型面）。
+        Assert.Equal(2, result.Statistics.AsyncTypeSitesMapped);
         Assert.Equal(1, result.Statistics.AsyncTypeSitesRejected);
         Assert.Equal(0, result.Statistics.AwaitUsingStatementsExpanded);
         Assert.Equal(0, result.Statistics.ResidualCount);
@@ -622,7 +624,8 @@ class C
         Assert.Equal(2, result.Statistics.AwaitUsingStatementsExpanded);
         Assert.Equal(1, result.Statistics.AwaitUsingDeclarationsExpanded);
         Assert.Equal(2, result.Statistics.AsyncDisposeGuardsEmitted);
-        Assert.Equal(1, result.Statistics.AsyncTypeSitesMapped);
+        // 放行类型点 2：形参 p + 夹具 MyRes.Make() 的 MyRes 返回类型（3b 矩阵覆盖返回面）。
+        Assert.Equal(2, result.Statistics.AsyncTypeSitesMapped);
         Assert.Equal(0, result.Statistics.AsyncTypeSitesRejected);
         Assert.Equal(1, result.Statistics.DuckTypedAsyncDeferred);
         Assert.Equal(0, result.Statistics.ResidualCount);
