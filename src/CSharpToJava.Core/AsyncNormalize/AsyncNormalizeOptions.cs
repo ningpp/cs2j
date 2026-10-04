@@ -14,4 +14,17 @@ public sealed record AsyncNormalizeOptions(
     AsyncNormalizeMode Mode = AsyncNormalizeMode.Lightweight,
     bool LiftAsyncLambdas = true,
     bool StripConfigureAwait = true,
-    bool RejectAsyncVoid = true);
+    bool RejectAsyncVoid = true)
+{
+    /// <summary>
+    /// C38 异步流子域总闸（设计 D10，仅代码面、不暴露 CLI）。pass 自身默认关，
+    /// 故此处默认 true 对既有链路零影响；C18 单测直构 Options 时无 C38 语法面即零改写。
+    /// </summary>
+    public bool EnableAsyncStreams { get; init; } = true;
+
+    /// <summary>
+    /// 3a：<c>await using</c> → try/finally + await DisposeAsync() 展开开关。
+    /// 关闭时接口资源站点发 CS2J1841；await foreach 等其余 C38 子开关随 3b 追加。
+    /// </summary>
+    public bool EnableAwaitUsing { get; init; } = true;
+}

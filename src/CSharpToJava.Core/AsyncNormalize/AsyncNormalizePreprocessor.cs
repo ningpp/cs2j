@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Text;
 using CSharpToJava.Core.AsyncNormalize.Await;
+using CSharpToJava.Core.AsyncNormalize.AsyncStreams;
 using CSharpToJava.Core.AsyncNormalize.Lambda;
 
 namespace CSharpToJava.Core.AsyncNormalize;
@@ -48,9 +49,18 @@ public sealed class AsyncNormalizePreprocessor
             return new AsyncNormalizeFileResult(sourceCode, false, diagnostics, stats);
         }
 
-        // Analyze（非严格：1801-1808 降 Warning，节点原样保留）。
+        // Analyze（非严格：1801-1808 / 1841-1846 降 Warning，节点原样保留）。
         var analysis = AsyncNormalizeAnalyzer.Analyze(semanticModel, options);
-        foreach (var diagnostic in analysis.Diagnostics)
+
+        // C38 3a：await using / IAsyncDisposable 类型使用点分析（总闸开启时）。
+        AsyncStreamAnalysisResult? streamAnalysis = null;
+        if (options.EnableAsyncStreams)
+            streamAnalysis = AsyncStreamAnalyzer.Analyze(semanticModel, options);
+
+        var allAnalyses = streamAnalysis == null
+            ? analysis.Diagnostics
+            : analysis.Diagnostics.Concat(streamAnalysis.Diagnostics);
+        foreach (var diagnostic in allAnalyses)
         {
             var severity = diagnostic.Severity;
             if (!options.Strict && severity == AsyncNormalizeSeverity.Error)
@@ -102,7 +112,21 @@ public sealed class AsyncNormalizePreprocessor
             diagnostics.AddRange(configureAwait.Diagnostics);
         }
 
-        var changed = liftChanged || strippedCount > 0;
+        // C38 3a：await using → try/finally + await DisposeAsync()。C18 提升/ConfigureAwait
+        // 先跑（await using 体内被提升的 lambda 此时已是方法调用）；严格 Error 已整体短路。
+        // 非严格：rejected/baseline 站点由 rewriter 原地挂 skip 标注、其余照常展开。
+        AwaitUsingRewriter? streamRewriter = null;
+        if (!hasErrorSkip && streamAnalysis != null
+            && (streamAnalysis.Sites.Count > 0
+                || streamAnalysis.RejectedNodes.Count > 0
+                || streamAnalysis.BaselineExemptNodes.Count > 0))
+        {
+            streamRewriter = new AwaitUsingRewriter(streamAnalysis);
+            newRoot = (CompilationUnitSyntax)streamRewriter.Visit(newRoot)!;
+        }
+
+        var changed = liftChanged || strippedCount > 0
+            || (streamRewriter?.Changed ?? false);
         var outputCode = sourceCode;
         SyntaxNode gateRoot = newRoot;
 
@@ -128,6 +152,21 @@ public sealed class AsyncNormalizePreprocessor
         stats.UnsupportedAwaiters = analysis.UnsupportedAwaiters;
         stats.SkippedUnsupported = analysis.Diagnostics.Count;
         stats.CapturedAsyncLambdasDeferred = analysis.CapturedAsyncLambdasDeferred;
+
+        // C38 3a 统计桶：放行/拒绝/鸭子计数来自分析（严格 Error 路径也如实计数，同 C18），
+        // 展开/守卫桶仅在真正执行改写时累加（严格 Error 整体不改写，必须保持 0）。
+        if (streamAnalysis != null)
+        {
+            stats.AsyncTypeSitesMapped = streamAnalysis.TypeSitesMapped;
+            stats.AsyncTypeSitesRejected = streamAnalysis.TypeSitesRejected;
+            stats.DuckTypedAsyncDeferred = streamAnalysis.DuckTypedDeferred;
+            if (streamRewriter != null)
+            {
+                stats.AwaitUsingStatementsExpanded = streamRewriter.StatementsExpanded;
+                stats.AwaitUsingDeclarationsExpanded = streamRewriter.DeclarationsExpanded;
+                stats.AsyncDisposeGuardsEmitted = streamRewriter.GuardsEmitted;
+            }
+        }
 
         // 严格模式任何 Error 都导致整文件不改写：计划虽已分析但未执行，提升桶必须保持 0。
         if (!hasErrorSkip)
@@ -158,17 +197,30 @@ public sealed class AsyncNormalizePreprocessor
 
         // Residual 闸门：基于格式化后的内存 SyntaxTree（annotation 不跨文本存活，
         // 故白名单取自内存树，违规判定取重解析树 + 重绑编译）。
-        var residualCount = CountResidual(
+        var (c18Residual, c38Residual) = CountResidual(
             gateRoot, outputCode, semanticModel, options, changed);
+        var residualCount = c18Residual + c38Residual;
         stats.ResidualCount = residualCount;
-        if (residualCount > 0 && options.Strict)
+        if (c18Residual > 0 && options.Strict)
         {
             diagnostics.Add(new AsyncNormalizeDiagnostic(
                 AsyncNormalizeSeverity.Error,
                 AsyncNormalizeDiagnosticCode.CS2J1810,
-                $"{residualCount} residual async construct(s) remain after async normalization " +
+                $"{c18Residual} residual async construct(s) remain after async normalization " +
                 "(un-annotated async lambda/local function, ConfigureAwait call(s), or " +
                 "un-exempted async void member(s))."));
+        }
+
+        // C38 residual：输出仍含未豁免的裸 await using（白名单=skip 诊断节点 +
+        // annotation 合成节点）。合成树内 await DisposeAsync 是预期 await，不在此面计数；
+        // 非严格不发 1849（Warning 站点已原样保留）。
+        if (c38Residual > 0 && options.Strict)
+        {
+            diagnostics.Add(new AsyncNormalizeDiagnostic(
+                AsyncNormalizeSeverity.Error,
+                AsyncNormalizeDiagnosticCode.CS2J1849,
+                $"{c38Residual} residual 'await using' site(s) remain after async-stream " +
+                "normalization (un-exempted await using statement or declaration)."));
         }
 
         return new AsyncNormalizeFileResult(outputCode, changed, diagnostics, stats);
@@ -200,19 +252,34 @@ public sealed class AsyncNormalizePreprocessor
                 case IdentifierNameSyntax identifier
                     when identifier.Identifier.Text == "ConfigureAwait":
                     return true;
+                // C38 3a：await using 语句/声明形态（await using 的 await 是关键字而非
+                // AwaitExpressionSyntax，纯 await using 文件不会被上面的分支命中）。
+                case UsingStatementSyntax awaitUsing
+                    when awaitUsing.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword):
+                    return true;
+                case LocalDeclarationStatementSyntax awaitUsingDeclaration
+                    when awaitUsingDeclaration.UsingKeyword.IsKind(SyntaxKind.UsingKeyword)
+                         && awaitUsingDeclaration.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword):
+                    return true;
+                // C38 3a：IAsyncDisposable 类型使用点（放行计数面，零改写也要过分析）。
+                case IdentifierNameSyntax asyncDisposableIdentifier
+                    when asyncDisposableIdentifier.Identifier.Text == "IAsyncDisposable":
+                    return true;
             }
         }
         return false;
     }
 
     /// <summary>
-    /// 残余闸门（设计 §5 AfterFilesAsync 的内存版、§6）。
-    /// 白名单：带 Cs2jAsyncNormalize annotation 的合成 wrapper/方法，以及非严格模式下
-    /// 带 skip 标注的原样保留节点（1802/1804/1807）。残余三类：
-    /// ① 未豁免 async lambda / 匿名方法 / 残余 async 局部函数；
+    /// 残余闸门（设计 §5 AfterFilesAsync 的内存版、§6、D11）。
+    /// 白名单：带 Cs2jAsyncNormalize annotation 的合成 wrapper/方法/C38 try-finally，以及
+    /// 非严格模式下带 skip 标注的原样保留节点（1802/1804/1807/1841/1842/1845/基线站点）。
+    /// C18 残余三类：① 未豁免 async lambda / 匿名方法 / 残余 async 局部函数；
     /// ② 未被 CS2J1808 覆盖的 ConfigureAwait(bool)；③ 未豁免 async void 成员。
+    /// C38 残余：未豁免的裸 await using 语句/声明（合成的 await DisposeAsync 不在此面，
+    /// 两个闸门互不计数对方产物）。返回 (C18 残余, C38 残余)。
     /// </summary>
-    private static int CountResidual(
+    private static (int C18Residual, int C38Residual) CountResidual(
         SyntaxNode annotatedRoot,
         string outputCode,
         SemanticModel originalModel,
@@ -241,7 +308,7 @@ public sealed class AsyncNormalizePreprocessor
                 syntheticWhitelist.Add(node.Span);
         }
 
-        var residual = 0;
+        var c18Residual = 0;
 
         // ① async lambda / 匿名方法 / async 局部函数（kill-switch 下整类不计）。
         if (options.LiftAsyncLambdas)
@@ -264,7 +331,7 @@ public sealed class AsyncNormalizePreprocessor
                     && !ContainedInAny(node.Span, skipWhitelist)
                     && !ContainedInAny(node.Span, syntheticWhitelist))
                 {
-                    residual++;
+                    c18Residual++;
                 }
             }
         }
@@ -277,7 +344,7 @@ public sealed class AsyncNormalizePreprocessor
                 if (AsyncShapeClassifier.IsConfigureAwaitBool(outputModel, invocation, out var isOptionsForm)
                     && !isOptionsForm)
                 {
-                    residual++;
+                    c18Residual++;
                 }
             }
 
@@ -289,7 +356,7 @@ public sealed class AsyncNormalizePreprocessor
                     && symbol.ReturnsVoid
                     && !ContainedInAny(method.Span, syntheticWhitelist))
                 {
-                    residual++;
+                    c18Residual++;
                 }
             }
 
@@ -300,7 +367,7 @@ public sealed class AsyncNormalizePreprocessor
                     && symbol.ReturnsVoid
                     && !ContainedInAny(local.Span, syntheticWhitelist))
                 {
-                    residual++;
+                    c18Residual++;
                 }
             }
         }
@@ -312,12 +379,37 @@ public sealed class AsyncNormalizePreprocessor
                 if (invocation.Expression is MemberAccessExpressionSyntax memberAccess
                     && memberAccess.Name.Identifier.Text == "ConfigureAwait")
                 {
-                    residual++;
+                    c18Residual++;
                 }
             }
         }
 
-        return residual;
+        // C38 3a：未豁免的裸 await using 语句/声明。选项关闭时站点应已全部由
+        // CS2J1841 承接（skip 白名单），闸门不再计数（同 C18 kill-switch 纪律）。
+        var c38Residual = 0;
+        if (options.EnableAsyncStreams && options.EnableAwaitUsing)
+        {
+            foreach (var node in outputRoot.DescendantNodes())
+            {
+                var isAwaitUsing = node switch
+                {
+                    UsingStatementSyntax awaitUsingStatement =>
+                        awaitUsingStatement.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
+                    LocalDeclarationStatementSyntax awaitUsingDeclaration =>
+                        awaitUsingDeclaration.UsingKeyword.IsKind(SyntaxKind.UsingKeyword)
+                        && awaitUsingDeclaration.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword),
+                    _ => false,
+                };
+                if (isAwaitUsing
+                    && !ContainedInAny(node.Span, skipWhitelist)
+                    && !ContainedInAny(node.Span, syntheticWhitelist))
+                {
+                    c38Residual++;
+                }
+            }
+        }
+
+        return (c18Residual, c38Residual);
     }
 
     private static bool ContainedInAny(TextSpan span, IReadOnlyList<TextSpan> whitelist)

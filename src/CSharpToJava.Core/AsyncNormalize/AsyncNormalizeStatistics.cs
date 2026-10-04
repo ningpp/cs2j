@@ -54,4 +54,24 @@ public sealed class AsyncNormalizeStatistics
 
     /// <summary>捕获局部/形参/foreach 变量、v1 defer 原样保留的 async lambda 数（D3(d)/CS2J1802）。</summary>
     public int CapturedAsyncLambdasDeferred;
+
+    // ── Pass-specific fields (C38 M2/3a: await using → try/finally + DisposeAsync, D4/D5/D8) ──
+
+    /// <summary>已展开的 await using 语句形态站点数（<c>await using (…) …</c>，多变量仍计 1 站点）。</summary>
+    public int AwaitUsingStatementsExpanded;
+
+    /// <summary>已展开的 await using 声明形态站点数（<c>await using var r = …;</c>）。</summary>
+    public int AwaitUsingDeclarationsExpanded;
+
+    /// <summary>finally 内发射的 null/HasValue 守卫数（引用类型 + Nullable 值类型资源）。</summary>
+    public int AsyncDisposeGuardsEmitted;
+
+    /// <summary>放行零改写的 IAsyncDisposable 类型使用点数（参数/字段/属性/返回/局部，非语句位）。</summary>
+    public int AsyncTypeSitesMapped;
+
+    /// <summary>选项关闭被拒（CS2J1841）的 await using 接口资源站点数。</summary>
+    public int AsyncTypeSitesRejected;
+
+    /// <summary>鸭子型/ref struct 异步释放被 defer 的站点数（CS2J1842）。</summary>
+    public int DuckTypedAsyncDeferred;
 }
