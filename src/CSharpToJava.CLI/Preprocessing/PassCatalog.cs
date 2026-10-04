@@ -117,7 +117,7 @@ internal static class PassCatalog
                          "(opt-in via --interpolation-expand), the C36 collection-expression rules " +
                          "rewrite collection expressions into explicit allocation/factory calls, " +
                          "and the C24 initializer rules desugar object/collection initializers into explicit statements.",
-            catalogItems: "C23, C24, C36"),
+            catalogItems: "C23, C24, C35, C36"),
         new(
             PassIds.Enum,
             "Enum",

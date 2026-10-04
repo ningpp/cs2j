@@ -344,6 +344,12 @@
       <Link>SampleInterpolationUnsupportedSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- C35 null-conditional fixture (bin/obj excluded). -->
+    <Content Include="..\SampleNullConditionalSolution\**\*.*"
+              Exclude="..\SampleNullConditionalSolution\**\bin\**;..\SampleNullConditionalSolution\**\obj\**">
+      <Link>SampleNullConditionalSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

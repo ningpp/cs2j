@@ -227,7 +227,12 @@ internal static class NullConditionalEmitter
     /// </summary>
     public static ExpressionSyntax BuildNestedTernary(
         ChainPlan plan, ExpressionSyntax visitedTerminal)
-        => BuildNestedTernaryLevel(plan, visitedTerminal, 0);
+        // Outer parentheses are mandatory: the replacement site may be the
+        // left operand of an enclosing ?? (E03 leaves statement-anchored ??
+        // intact), and without parens the coalesce would bind to the last
+        // null branch instead of the whole chain.
+        => SyntaxFactory.ParenthesizedExpression(
+            BuildNestedTernaryLevel(plan, visitedTerminal, 0));
 
     private static ExpressionSyntax BuildNestedTernaryLevel(
         ChainPlan plan, ExpressionSyntax visitedTerminal, int k)

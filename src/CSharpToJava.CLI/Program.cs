@@ -276,6 +276,14 @@ public class Program
                         {
                             Strict = opts.LocalFunctionStrict,
                         },
+                    // C35 null-conditional read-side rule: default off;
+                    // --null-conditional activates the subsection.
+                    NullConditional = opts.NullConditional
+                        ? new CSharpToJava.Core.ExpressionDesugar.NullConditional.NullConditionalOptions
+                        {
+                            Strict = opts.LocalFunctionStrict,
+                        }
+                        : null,
                 },
                 PlatformIsolationOptionsFactory = () => BuildPlatformIsolationOptions(
                     opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
@@ -3903,6 +3911,14 @@ public class Program
                         {
                             Strict = opts.LocalFunctionStrict,
                         },
+                    // C35 null-conditional read-side rule: default off;
+                    // --null-conditional activates the subsection.
+                    NullConditional = opts.NullConditional
+                        ? new CSharpToJava.Core.ExpressionDesugar.NullConditional.NullConditionalOptions
+                        {
+                            Strict = opts.LocalFunctionStrict,
+                        }
+                        : null,
                 },
                 PlatformIsolationOptionsFactory = () => BuildPlatformIsolationOptions(
                     opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
@@ -4938,6 +4954,10 @@ class PreprocessVerbOptions
         HelpText = "Disable the C24 object/collection/target-typed-new initializer desugaring rule inside expression-desugar (default on)")]
     public bool NoInitializerDesugar { get; set; }
 
+    [Option("null-conditional", Default = false,
+        HelpText = "Enable the C35 null-conditional (?./?[]) read-side desugaring rule inside expression-desugar (default off)")]
+    public bool NullConditional { get; set; }
+
     [Option("enable-signatures-rule", Default = false,
         HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default off, also configurable via MemberDesugarOverrides.json)")]
     public bool EnableSignaturesRule { get; set; }
@@ -5357,6 +5377,10 @@ class ConvertProjectOptions
     [Option("no-initializer-desugar", Default = false,
         HelpText = "Disable the C24 object/collection/target-typed-new initializer desugaring rule inside expression-desugar (default on)")]
     public bool NoInitializerDesugar { get; set; }
+
+    [Option("null-conditional", Default = false,
+        HelpText = "Enable the C35 null-conditional (?./?[]) read-side desugaring rule inside expression-desugar (default off)")]
+    public bool NullConditional { get; set; }
 
     [Option("enable-signatures-rule", Default = false,
         HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default off, also configurable via MemberDesugarOverrides.json)")]
