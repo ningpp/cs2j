@@ -1274,4 +1274,225 @@ public class AttributeNormalizeTests
             .Where(d => d.Code == AttributeNormalizeDiagnosticCode.CS2J1320));
         Assert.Equal(AttributeNormalizeSeverity.Error, unknown.Severity);
     }
+
+    // =====================================================================
+    // M3 AN-P：互操作/平台 attribute 盘点（design §4.3 AN-P1/AN-P2、§6）
+    // =====================================================================
+
+    [Fact]
+    public void Inventory_Six_Interop_Attributes_Are_GovernedElsewhere_By_C06()
+    {
+        var source = """
+            using System.Runtime.InteropServices;
+            using System.Runtime.InteropServices.Marshalling;
+
+            [ComImport]
+            public interface ICom {}
+
+            [GeneratedComInterface]
+            public partial interface IGeneratedCom {}
+
+            public static partial class Native
+            {
+                [DllImport("kernel32.dll")]
+                public static extern int DllOne();
+
+                [LibraryImport("kernel32.dll")]
+                public static partial int LibOne();
+
+                [UnmanagedCallersOnly]
+                public static void Callback() {}
+
+                public static void WithMarshal([MarshalAs(UnmanagedType.Bool)] int x) {}
+            }
+            """;
+
+        var round = RunSingle(source);
+
+        // DllImport 落在 extern 方法声明上 → 3201 + 3203。
+        var dllImport = Find(round,
+            "System.Runtime.InteropServices.DllImportAttribute");
+        Assert.NotNull(dllImport);
+        AssertInteropGoverned(dllImport!);
+        Assert.Equal(
+            new[] { "CS2J3201", "CS2J3203" },
+            dllImport!.GoverningDiagnosticCodes);
+
+        // 其余 5 类：Interop/C06/GovernedElsewhere，仅 3201（LibraryImport
+        // 方法不是 extern 关键字声明）。
+        foreach (var metadataName in new[]
+        {
+            "System.Runtime.InteropServices.LibraryImportAttribute",
+            "System.Runtime.InteropServices.ComImportAttribute",
+            "System.Runtime.InteropServices.MarshalAsAttribute",
+            "System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute",
+            "System.Runtime.InteropServices.Marshalling.GeneratedComInterfaceAttribute",
+        })
+        {
+            var occurrence = Find(round, metadataName);
+            Assert.NotNull(occurrence);
+            AssertInteropGoverned(occurrence!);
+            Assert.Equal(
+                new[] { "CS2J3201" },
+                occurrence!.GoverningDiagnosticCodes);
+        }
+
+        Assert.Equal(6, round.Inventory.ByFamily(AttributeFamily.Interop).Count());
+    }
+
+    [Fact]
+    public void Inventory_Four_Platform_Attributes_Are_GovernedElsewhere_By_C42()
+    {
+        var source = """
+            using System.Runtime.Versioning;
+
+            [assembly: SupportedOSPlatform("windows")]
+
+            [UnsupportedOSPlatform("browser")]
+            public sealed class PlatformGuards
+            {
+                [SupportedOSPlatformGuard("windows")]
+                public static bool W => System.OperatingSystem.IsWindows();
+
+                [UnsupportedOSPlatformGuard("browser")]
+                public static bool N => System.OperatingSystem.IsBrowser();
+            }
+            """;
+
+        var round = RunSingle(source);
+
+        foreach (var metadataName in new[]
+        {
+            "System.Runtime.Versioning.SupportedOSPlatformAttribute",
+            "System.Runtime.Versioning.UnsupportedOSPlatformAttribute",
+            "System.Runtime.Versioning.SupportedOSPlatformGuardAttribute",
+            "System.Runtime.Versioning.UnsupportedOSPlatformGuardAttribute",
+        })
+        {
+            var occurrence = Find(round, metadataName);
+            Assert.NotNull(occurrence);
+            Assert.Equal(AttributeFamily.Platform, occurrence!.Family);
+            Assert.Equal(BridgeStatus.GovernedElsewhere, occurrence.Status);
+            Assert.Equal("C42", occurrence.OwnerPass);
+            Assert.Equal(
+                new[] { "CS2J3101" },
+                occurrence.GoverningDiagnosticCodes);
+        }
+
+        Assert.Equal(4, round.Inventory.ByFamily(AttributeFamily.Platform).Count());
+    }
+
+    [Fact]
+    public void AN003_Is_Info_Emitted_Verbose_Path_References_Codes_Only()
+    {
+        var source = """
+            using System.Runtime.InteropServices;
+            using System.Runtime.Versioning;
+
+            [SupportedOSPlatform("windows")]
+            public static class NativeMethods
+            {
+                [DllImport("kernel32.dll", SetLastError = true)]
+                public static extern int GetCurrentProcess();
+            }
+            """;
+
+        // 默认 Core 选项：ReportInfo=true（CLI 仅 verbose 传入）。
+        var round = RunSingle(source);
+
+        var an003 = round.Diagnostics
+            .Where(d => d.Code == AttributeNormalizeDiagnosticCode.AN003)
+            .ToList();
+        Assert.Equal(2, an003.Count);
+        Assert.All(an003, d => Assert.Equal(AttributeNormalizeSeverity.Info, d.Severity));
+
+        var dllInfo = Assert.Single(an003, d =>
+            d.Message.Contains("DllImportAttribute"));
+        Assert.Contains("CS2J3201/CS2J3203", dllInfo.Message);
+
+        var platformInfo = Assert.Single(an003, d =>
+            d.Message.Contains("SupportedOSPlatformAttribute"));
+        Assert.Contains("CS2J3101", platformInfo.Message);
+
+        // 消息只引用码号，不复述拒绝内容。
+        foreach (var diagnostic in an003)
+        {
+            Assert.DoesNotContain("not supported", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("reject", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("isolated", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
+        }
+
+        // 树零改动 + 零 CS2J13xx。
+        Assert.False(round.Result.Changed);
+        Assert.DoesNotContain(round.Diagnostics, d => d.Code.StartsWith("CS2J13", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void AN003_Suppressed_When_ReportInfo_Disabled()
+    {
+        var source = """
+            using System.Runtime.InteropServices;
+            public static class NativeMethods
+            {
+                [DllImport("kernel32.dll")]
+                public static extern int GetCurrentProcess();
+            }
+            """;
+
+        var round = RunSingle(source, new AttributeNormalizeOptions { ReportInfo = false });
+
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.AN003);
+        Assert.DoesNotContain(round.Diagnostics, d =>
+            d.Code == AttributeNormalizeDiagnosticCode.AN002);
+        // 盘点本身照常登记。
+        Assert.Single(round.Inventory.Occurrences);
+    }
+
+    [Fact]
+    public void Inventory_ByOwnerPass_Filters_Governed_Occurrences_For_Future_Consumers()
+    {
+        var source = """
+            using System.Runtime.InteropServices;
+            using System.Runtime.Versioning;
+
+            [SupportedOSPlatform("windows")]
+            public static class NativeMethods
+            {
+                [DllImport("kernel32.dll")]
+                public static extern int GetCurrentProcess();
+            }
+            """;
+
+        var round = RunSingle(source);
+
+        Assert.Single(round.Inventory.ByOwnerPass("C06"));
+        Assert.Single(round.Inventory.ByOwnerPass("C42"));
+        Assert.Empty(round.Inventory.ByOwnerPass("Cxx"));
+    }
+
+    [Fact]
+    public void Interop_Occurrence_Files_Are_Preserved_Byte_For_Byte()
+    {
+        var source = """
+            using System.Runtime.InteropServices;
+            public static class NativeMethods
+            {
+                [DllImport("kernel32.dll", SetLastError = true)]
+                public static extern int GetCurrentProcess();
+            }
+            """;
+
+        var round = RunSingle(source);
+
+        Assert.All(round.Results, r => Assert.False(r.Changed));
+        Assert.Equal(source, round.Result.OutputCode);
+    }
+
+    private static void AssertInteropGoverned(AttributeOccurrence occurrence)
+    {
+        Assert.Equal(AttributeFamily.Interop, occurrence.Family);
+        Assert.Equal(BridgeStatus.GovernedElsewhere, occurrence.Status);
+        Assert.Equal("C06", occurrence.OwnerPass);
+    }
 }
