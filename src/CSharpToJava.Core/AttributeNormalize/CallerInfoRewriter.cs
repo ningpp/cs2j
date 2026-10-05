@@ -261,8 +261,29 @@ internal sealed class CallerInfoRewriter : CSharpSyntaxRewriter
             .Where(a => callerSpans.Contains(a.Span))
             .ToList();
 
-        var result = node.TrackNodes(attributesToRemove.Cast<SyntaxNode>());
-        foreach (var attribute in attributesToRemove)
+        // 列表内属性将被全部移除时，整列表（含括号）一起移除；
+        // 其余情况只移除个别属性。
+        var emptyLists = node.AttributeLists
+            .Where(list => list.Attributes.All(attributesToRemove.Contains))
+            .ToList();
+        var partialAttributes = attributesToRemove
+            .Where(a => !emptyLists.Contains(a.Parent))
+            .Cast<SyntaxNode>()
+            .ToList();
+        var trackedNodes = emptyLists.Cast<SyntaxNode>().Concat(partialAttributes).ToList();
+
+        var result = node.TrackNodes(trackedNodes);
+
+        foreach (var list in emptyLists)
+        {
+            var current = result.GetCurrentNode(list);
+            if (current == null) continue;
+            result = (ParameterSyntax)result.RemoveNode(
+                current,
+                SyntaxRemoveOptions.KeepExteriorTrivia)!;
+        }
+
+        foreach (var attribute in partialAttributes.Cast<AttributeSyntax>())
         {
             var current = result.GetCurrentNode(attribute);
             if (current == null) continue;
