@@ -120,9 +120,37 @@ internal sealed class CallerInfoRewriter : CSharpSyntaxRewriter
         var hasNamed = originalArgumentList.Arguments.Any(a => a.NameColon != null);
         var explicitOrdinals = GetExplicitArgumentOrdinals(originalNode);
 
-        // 计算每个站点的插入位置：原表中形参序号小于本站点的显式实参数。
+        var newArguments = new List<ArgumentSyntax>(originalArgumentList.Arguments);
+
+        // E08-completed sites already occupy a named argument slot: replace
+        // that argument's expression in place (keeping the NameColon).
+        foreach (var entry in entries)
+        {
+            if (!entry.Site.WasExplicitDefault) continue;
+
+            var parameterName = entry.Site.Parameter.Name;
+            var index = newArguments.FindIndex(a =>
+                a.NameColon != null
+                && string.Equals(
+                    a.NameColon.Name.Identifier.Text,
+                    parameterName,
+                    StringComparison.Ordinal));
+            if (index < 0)
+            {
+                throw new InvalidOperationException(
+                    "completed default argument disappeared from the argument list");
+            }
+
+            var oldArgument = newArguments[index];
+            newArguments[index] = oldArgument
+                .WithExpression(BuildLiteralExpression(entry.Site))
+                .WithAdditionalAnnotations(RewriteAnnotation);
+        }
+
+        // 隐式省略站点：计算插入位置（原表中形参序号小于本站点的显式实参数）。
         // 降序插入保持下标稳定；同槽位按形参序号降序，使低序号站点最终排在前面。
         var insertion = entries
+            .Where(e => !e.Site.WasExplicitDefault)
             .Select(e =>
             {
                 var siteOrdinal = e.Site.ParameterOrdinal;
@@ -134,7 +162,6 @@ internal sealed class CallerInfoRewriter : CSharpSyntaxRewriter
             .ThenByDescending(t => t.Site.ParameterOrdinal)
             .ToList();
 
-        var newArguments = new List<ArgumentSyntax>(originalArgumentList.Arguments);
         foreach (var (slot, site) in insertion)
             newArguments.Insert(slot, BuildArgument(site, hasNamed));
 
@@ -148,16 +175,7 @@ internal sealed class CallerInfoRewriter : CSharpSyntaxRewriter
 
     private static ArgumentSyntax BuildArgument(CallerSite site, bool hasNamed)
     {
-        ExpressionSyntax literal = site.Kind == CallerInfoKind.CallerLineNumber
-            ? SyntaxFactory.LiteralExpression(
-                SyntaxKind.NumericLiteralExpression,
-                SyntaxFactory.Literal(site.IntValue ?? 0))
-            : SyntaxFactory.LiteralExpression(
-                SyntaxKind.StringLiteralExpression,
-                SyntaxFactory.Literal(site.StringValue ?? string.Empty));
-
-
-        var argument = SyntaxFactory.Argument(literal)
+        var argument = SyntaxFactory.Argument(BuildLiteralExpression(site))
             .WithLeadingTrivia(SyntaxFactory.ElasticSpace)
             .WithTrailingTrivia(SyntaxFactory.ElasticSpace);
 
@@ -169,6 +187,15 @@ internal sealed class CallerInfoRewriter : CSharpSyntaxRewriter
 
         return argument.WithAdditionalAnnotations(RewriteAnnotation);
     }
+
+    private static ExpressionSyntax BuildLiteralExpression(CallerSite site)
+        => site.Kind == CallerInfoKind.CallerLineNumber
+            ? SyntaxFactory.LiteralExpression(
+                SyntaxKind.NumericLiteralExpression,
+                SyntaxFactory.Literal(site.IntValue ?? 0))
+            : SyntaxFactory.LiteralExpression(
+                SyntaxKind.StringLiteralExpression,
+                SyntaxFactory.Literal(site.StringValue ?? string.Empty));
 
     private static bool TryGetOrdinal(
         Dictionary<ArgumentSyntax, int> explicitOrdinals,

@@ -135,15 +135,30 @@ internal sealed class CallerInfoAnalyzer
         SyntaxNode callNode,
         SemanticModel model)
     {
-        // AN-C1：仅处理隐式默认值实参；显式实参永不覆盖。
-        if (!argument.IsImplicit) return;
-        if (argument.ArgumentKind != ArgumentKind.DefaultValue) return;
-
         var parameter = argument.Parameter;
         if (parameter == null) return;
 
         var (attribute, kind) = FindCallerAttribute(parameter);
         if (attribute == null) return;
+
+        // AN-C1：隐式默认值实参即省略点。
+        var implicitDefault = argument.IsImplicit
+            && argument.ArgumentKind == ArgumentKind.DefaultValue;
+
+        // E08 strip-default runs earlier in the chain and "completes" call-site
+        // argument lists with named arguments carrying each parameter's
+        // default. Without recognizing that shape C10 would have nothing to do
+        // when chained: accept a named explicit argument whose expression's
+        // constant value equals the parameter's declared default.
+        var explicitDefaultNamed = false;
+        if (!argument.IsImplicit
+            && argument.Syntax is ArgumentSyntax { NameColon: not null } argSyntax)
+        {
+            explicitDefaultNamed = IsDefaultValued(parameter, argSyntax.Expression, model);
+        }
+
+        // AN-C1：其余显式实参永不覆盖。
+        if (!implicitDefault && !explicitDefaultNamed) return;
 
         if (IsInSkippedType(callNode, model)) return;
 
@@ -154,10 +169,32 @@ internal sealed class CallerInfoAnalyzer
             Parameter = parameter,
             ParameterOrdinal = parameter.Ordinal,
             Kind = kind,
+            WasExplicitDefault = explicitDefaultNamed,
         };
 
         ApplyRestrictionsAndCompute(site, target, attribute, kind, model);
         AddSite(target, site);
+    }
+
+    private static bool IsDefaultValued(
+        IParameterSymbol parameter,
+        ExpressionSyntax expression,
+        SemanticModel model)
+    {
+        if (!parameter.HasExplicitDefaultValue) return false;
+
+        Optional<object?> constant;
+        try
+        {
+            constant = model.GetConstantValue(expression);
+        }
+        catch
+        {
+            return false;
+        }
+
+        if (!constant.HasValue) return false;
+        return Equals(constant.Value, parameter.ExplicitDefaultValue);
     }
 
     private void AddSite(IMethodSymbol target, CallerSite site)

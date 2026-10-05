@@ -62,6 +62,14 @@ public sealed class CallerSite
     /// <summary>不可行原因。</summary>
     public string? FailReason { get; set; }
 
+    /// <summary>
+    /// True when the site was not omitted but supplied as a named argument
+    /// whose constant equals the parameter default — the completion shape
+    /// emitted by the earlier E08 strip-default pass. The rewriter replaces
+    /// that argument's expression instead of inserting a new one.
+    /// </summary>
+    public bool WasExplicitDefault { get; init; }
+
     public bool IsFeasible => FailCode == null;
 
     public string FilePath => SiteLocation.SourceTree?.FilePath ?? string.Empty;
