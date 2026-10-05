@@ -142,9 +142,10 @@ internal sealed class PassChainConfiguration
 
     /// <summary>
     /// C49 M2: factory for extension-block materialization policy. Null
-    /// (default) keeps the classic CS2J1206 gate bit-for-bit unchanged; there
-    /// is deliberately no CLI verb — tests and embedded chains opt in
-    /// programmatically. Invoked only when the extension-methods pass runs.
+    /// (default) keeps the classic CS2J1206 gate bit-for-bit unchanged; the
+    /// CLI --materialize-extension-blocks switch (both entry points) and
+    /// embedded test chains opt in by returning a non-null policy. Invoked
+    /// only when the extension-methods pass runs.
     /// </summary>
     public Func<ExtensionBlockOptions?>? ExtensionBlockOptionsFactory { get; init; }
 }

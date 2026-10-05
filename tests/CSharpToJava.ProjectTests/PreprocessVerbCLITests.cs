@@ -375,6 +375,54 @@ public class Poco
         }
     }
 
+    [Fact]
+    public async Task ExtensionMethodsPass_MaterializeExtensionBlocks_NormalizesBlockFromCli()
+    {
+        var sourceDir = CreateTempWorkspace("Lib.csproj", """
+namespace EmWiring;
+
+public static class Exts
+{
+    extension(int x)
+    {
+        public bool IsEven() => x % 2 == 0;
+    }
+}
+
+public class Runner
+{
+    public bool Check(int n) => n.IsEven();
+}
+""", langVersion: "preview");
+        var destDir = Path.Combine(sourceDir, "out");
+
+        try
+        {
+            // member-desugar rides along: the EMD-PROP/EMD-OP CS2J1208 gate
+            // requires its consumption chain on the enabled pass set.
+            var (exit, _, stderr) = await RunCliAsync(
+                "preprocess", "--pass", "extension-methods,member-desugar",
+                "--materialize-extension-blocks",
+                "-s", sourceDir, "-d", destDir);
+
+            Assert.Equal(0, exit);
+            Assert.Equal(string.Empty, stderr);
+
+            var rewritten = await File.ReadAllTextAsync(
+                Path.Combine(destDir, ".cs2j-extension-methods-src", "Class1.cs"));
+            // C49 reached through the CLI flag (default off keeps CS2J1206):
+            // the block is gone, the member is a classic this-parameter static
+            // method and the receiver call site is an explicit global:: host call.
+            Assert.DoesNotMatch(new Regex(@"\bextension\s*\("), rewritten);
+            Assert.Matches(new Regex(@"bool\s+IsEven\s*\(\s*this\s+int\s+x\s*\)"), rewritten);
+            Assert.Matches(new Regex(@"global::EmWiring\.Exts\.IsEven\(\s*n\s*\)"), rewritten);
+        }
+        finally
+        {
+            Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
     // ───────────────────────── C07 struct-value-semantics（设计 §7.6）─────────────────────────
 
     [Fact]

@@ -38,8 +38,10 @@ public sealed record ExtensionRewrittenSiteKey(
 /// (6) orphan static calls: a <c>global::</c>-qualified call whose host name
 /// does not resolve in the new compilation — must be 0.
 /// (5, M4) extension <c>this</c> modifiers: the post-rewrite tree must carry
-/// exactly the same number of <c>this</c>-modified first parameters as the
-/// input (the pass never touches declarations) — must be 0.
+/// the same number of <c>this</c>-modified first parameters as the input
+/// (C19 never touches declarations) — plus the modifiers C49 extension-block
+/// materialization legitimately introduces (instance methods and property
+/// get/set pairs); the delta must be 0.
 /// </summary>
 public static class ExtensionMethodResidualScanner
 {
@@ -71,7 +73,8 @@ public static class ExtensionMethodResidualScanner
         ExtensionMethodResolveOptions options,
         IReadOnlyList<ExtensionExemptSite> exemptSites,
         IReadOnlyCollection<string>? excludedFiles,
-        int baselineThisModifierCount)
+        int baselineThisModifierCount,
+        int expectedAddedThisModifiers = 0)
     {
         ArgumentNullException.ThrowIfNull(rewritten);
         ArgumentNullException.ThrowIfNull(rewrittenSites);
@@ -85,7 +88,8 @@ public static class ExtensionMethodResidualScanner
         ScanCallShapes(rewritten, options, exemptionIndex, residuals, excluded);
         ScanExpressionTreeShapes(rewritten, options, exemptionIndex, rewrittenSites, residuals, excluded);
         ScanRewriteIdentity(rewritten, rewrittenSites, residuals, excluded);
-        ScanThisModifierPreservation(rewritten, baselineThisModifierCount, residuals, excluded);
+        ScanThisModifierPreservation(
+            rewritten, baselineThisModifierCount, expectedAddedThisModifiers, residuals, excluded);
 
         return residuals;
     }
@@ -429,6 +433,7 @@ public static class ExtensionMethodResidualScanner
     private static void ScanThisModifierPreservation(
         Compilation compilation,
         int baselineCount,
+        int expectedAddedCount,
         Dictionary<string, int> residuals,
         HashSet<string> excluded)
     {
@@ -445,7 +450,7 @@ public static class ExtensionMethodResidualScanner
 
         // Rolled-back files replay byte-for-byte, so their this modifiers are
         // present on BOTH sides and must be excluded from both counts.
-        if (baselineCount > 0 || preserved > 0)
+        if (baselineCount > 0 || expectedAddedCount > 0 || preserved > 0)
         {
             // Baseline passed in was computed over the ORIGINAL full tree;
             // subtract the share living in excluded (reverted) trees.
@@ -454,7 +459,10 @@ public static class ExtensionMethodResidualScanner
                 : compilation.SyntaxTrees
                     .Where(t => IsExcluded(t.FilePath, excluded))
                     .Sum(CountExtensionThisModifiers);
-            var delta = Math.Abs((baselineCount - excludedShare) - preserved);
+            // expectedAddedCount is already scoped to non-reverted files:
+            // C49 materialization turns block instance members (methods and
+            // property get/set pairs) into classic this-parameter methods.
+            var delta = Math.Abs((baselineCount - excludedShare + expectedAddedCount) - preserved);
             if (delta > 0)
             {
                 Add(residuals, RuleThisModifierPreserved, delta);
@@ -464,9 +472,10 @@ public static class ExtensionMethodResidualScanner
 
     /// <summary>
     /// Count extension-method first parameters carrying the <c>this</c>
-    /// modifier in one syntax tree. Classic extension form only (a static
-    /// class method whose first parameter has the <c>this</c> token); C# 14
-    /// extension blocks are a CS2J1206 hard gate and never reach here.
+    /// modifier in one syntax tree. Classic extension form (a static class
+    /// method whose first parameter has the <c>this</c> token); C# 14
+    /// extension blocks only reach this tree after C49 materialization, where
+    /// their instance members carry the classic form by construction.
     /// </summary>
     public static int CountExtensionThisModifiers(SyntaxTree tree)
     {

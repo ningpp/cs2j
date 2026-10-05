@@ -7,9 +7,9 @@ namespace CSharpToJava.ProjectTests;
 /// SampleExtensionMembersSolution fixture:
 ///   * the raw solution builds and its runtime behavior tests pass (extension
 ///     blocks are valid C# 14 preview source);
-///   * under the default preprocess policy (no CLI surface opts in to block
-///     materialization), extension blocks still hit the classic CS2J1206
-///     syntax gate and nothing is half-materialized;
+///   * under the default preprocess policy (--materialize-extension-blocks
+///     stays off), extension blocks still hit the classic CS2J1206 syntax
+///     gate and nothing is half-materialized;
 ///   * the indexer negative sample ships with the fixture (indexer rejection
 ///     CS2J1209 itself is asserted at the analyzer level in the unit tests).
 /// </summary>
@@ -109,8 +109,9 @@ public class ExtensionMembersProjectTests
 
         try
         {
-            // Block materialization has no CLI surface; the extension-methods
-            // pass must keep its classic CS2J1206 gate for extension blocks.
+            // --materialize-extension-blocks is not passed; the
+            // extension-methods pass must keep its classic CS2J1206 gate
+            // for extension blocks.
             var (exit, stdout, stderr) = await RunCliAsync(
                 "preprocess", "-s", solutionPath, "-d", destination,
                 "--pass", "extension-methods,member-desugar");

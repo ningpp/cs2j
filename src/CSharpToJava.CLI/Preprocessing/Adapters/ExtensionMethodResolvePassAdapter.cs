@@ -439,7 +439,27 @@ internal sealed class ExtensionMethodResolvePassAdapter : ProjectPassAdapter
             .Where(t => excludedFiles is null || !excludedFiles.Contains(t.FilePath))
             .Sum(ExtensionMethodResidualScanner.CountExtensionThisModifiers);
 
-        foreach (var (rule, count) in _preprocessor.ResidualScan(compilation, excludedFiles))
+        // C49 materialization legitimately adds classic this-parameters (block
+        // instance methods and property accessors); the gate must treat them
+        // as expected. Reverted files are mapped back to their source paths so
+        // their rolled-back additions are excluded from the expected count.
+        var expectedAddedThisModifiers = 0;
+        if (_blockOptions is not null)
+        {
+            IReadOnlySet<string>? excludedSourcePaths = null;
+            if (excludedFiles is { Count: > 0 })
+            {
+                excludedSourcePaths = _preprocessor.RewrittenFiles
+                    .Where(f => excludedFiles.Contains(
+                        RemapSourceToIntermediate(f, tree), StringComparer.OrdinalIgnoreCase))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
+
+            expectedAddedThisModifiers = _preprocessor.CountMaterializedThisModifiers(excludedSourcePaths);
+        }
+
+        foreach (var (rule, count) in _preprocessor.ResidualScan(
+                     compilation, excludedFiles, expectedAddedThisModifiers))
         {
             _statistics.ResidualsByRule.TryGetValue(rule, out var existing);
             _statistics.ResidualsByRule[rule] = existing + count;

@@ -852,4 +852,62 @@ public sealed class ExtensionBlockRewriteTests
         var (compilation, _, _) = CompileOne(source);
         Assert.Contains(compilation.GetDiagnostics(), d => d.Id == "CS9304");
     }
+
+    // ── Residual gate 5 (this-modifier preservation) vs C49 additions ──────
+
+    [Fact]
+    public void Residual_Gate5_CountsMaterializedThisModifiersAsExpected()
+    {
+        const string source = """
+            namespace N
+            {
+                public static class Holder
+                {
+                    // Classic form: part of the gate-5 baseline.
+                    public static string Classic(this int v) => v.ToString();
+
+                    extension(int v)
+                    {
+                        public int Echo() => v;
+
+                        public int Q
+                        {
+                            get { return v; }
+                            set { System.Console.Write(value); }
+                        }
+                    }
+                }
+
+                public class User
+                {
+                    public int Go(int n)
+                    {
+                        n.Q = n.Q + 1;
+                        return n.Echo();
+                    }
+                }
+            }
+            """;
+
+        var (compilation, model, _) = CompileOne(source);
+        var (result, preprocessor) = RunBlockRewrite(compilation, model);
+        Assert.True(result.Changed);
+
+        // One instance method + one getter + one setter materialize three
+        // new classic this-parameters; the classic method above stays as-is.
+        Assert.Equal(3, preprocessor.CountMaterializedThisModifiers(null));
+
+        var rewritten = Recompile(result.OutputCode);
+
+        var residualsWithC49 = preprocessor.ResidualScan(
+            rewritten, null, expectedAddedThisModifiers: preprocessor.CountMaterializedThisModifiers(null));
+        Assert.DoesNotContain(
+            ExtensionMethodResidualScanner.RuleThisModifierPreserved, residualsWithC49.Keys);
+
+        // Without the C49 allowance the gate must still catch the delta,
+        // proving the adapter wiring (not a silently disabled gate).
+        var residualsWithoutC49 = preprocessor.ResidualScan(rewritten);
+        Assert.Equal(
+            3, residualsWithoutC49[ExtensionMethodResidualScanner.RuleThisModifierPreserved]);
+    }
 }

@@ -958,10 +958,65 @@ public sealed class ExtensionMethodResolvePreprocessor
     /// </summary>
     public Dictionary<string, int> ResidualScan(
         Compilation rewritten,
-        IReadOnlyCollection<string>? excludedFiles)
+        IReadOnlyCollection<string>? excludedFiles,
+        int expectedAddedThisModifiers = 0)
         => ExtensionMethodResidualScanner.Scan(
             rewritten, _rewrittenSites, _options, _exemptSites,
-            excludedFiles, _thisModifierBaseline);
+            excludedFiles, _thisModifierBaseline, expectedAddedThisModifiers);
+
+    /// <summary>
+    /// C49: number of classic <c>this</c>-modified first parameters that
+    /// extension-block materialization introduces — one per materialized
+    /// instance method and one per emitted property getter/setter (operators
+    /// and static members carry no receiver parameter). Blocks with deferred
+    /// sites are left untouched and contribute nothing;
+    /// <paramref name="excludedFilePaths"/> (original-layout paths of files
+    /// reverted byte-for-byte by the build-failure rollback) are skipped.
+    /// </summary>
+    public int CountMaterializedThisModifiers(IReadOnlySet<string>? excludedFilePaths)
+    {
+        var count = 0;
+        foreach (var (tree, analysis) in _blockAnalyses)
+        {
+            if (excludedFilePaths is not null
+                && excludedFilePaths.Contains(tree.FilePath))
+            {
+                continue;
+            }
+
+            foreach (var block in analysis.BlockPlans)
+            {
+                if (block.HasDeferredSites)
+                {
+                    continue;
+                }
+
+                foreach (var member in block.Members)
+                {
+                    switch (member)
+                    {
+                        case MethodMemberPlan:
+                            count++;
+                            break;
+                        case PropertyMemberPlan property:
+                            if (property.HasGet)
+                            {
+                                count++;
+                            }
+
+                            if (property.HasSet)
+                            {
+                                count++;
+                            }
+
+                            break;
+                    }
+                }
+            }
+        }
+
+        return count;
+    }
 
     /// <summary>
     /// Three-level formatting: (1) NormalizeWhitespace on the outermost

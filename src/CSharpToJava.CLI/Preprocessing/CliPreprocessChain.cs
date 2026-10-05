@@ -126,8 +126,8 @@ internal sealed class CliChainRequest
 
     /// <summary>
     /// C49 M2: extension-block materialization policy factory (null =
-    /// classic CS2J1206 behavior). No CLI surface; embedded test chains
-    /// supply it.
+    /// classic CS2J1206 behavior). Both CLI entry points supply it from
+    /// --materialize-extension-blocks; embedded chains may also set it.
     /// </summary>
     public Func<ExtensionBlockOptions?>? ExtensionBlockOptionsFactory { get; init; }
 }
