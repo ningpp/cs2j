@@ -1,6 +1,7 @@
 using CSharpToJava.CLI;
 using CSharpToJava.CLI.Preprocessing;
 using CSharpToJava.Core.JavaKeywords;
+using CSharpToJava.Core.LinqChannel;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
 using CSharpToJava.Core.RecordReadOnly;
@@ -84,6 +85,12 @@ public sealed class PassChainOrderTests
         // implemented 区后，它与只依赖 tuple 的 equality-concat 在 Kahn
         // 声明序破平中先后对调（两者无相互依赖；三工程回归全绿即行为无外溢）。
         PassIds.MemberDesugar,
+        // C26 M1 flips linq-channel to Implemented (default-off): anchors
+        // extension-methods + anonymous-type-lift + eliminate-goto and is
+        // declared directly after member-desugar, so the Kahn declaration
+        // tiebreak pins the slot member-desugar -> linq-channel ->
+        // concurrency-normalize.
+        PassStubCatalog.Ids.LinqChannel,
         // C29 翻转：描述符置于 member-desugar 之后，
         // 与 equality-concat 互无 RunAfter 约束，相对次序由注册表声明序锁定。
         PassStubCatalog.Ids.ConcurrencyNormalize,
@@ -102,13 +109,15 @@ public sealed class PassChainOrderTests
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    // Default-on policy exceptions — all three stay out of the default plan:
+    // Default-on policy exceptions — all four deliberate opt-outs:
     // C09 thread-static (§3.1/§8 gates), C10 attribute-normalize (opt-in),
-    // C25 dynamic-desugar (audit-first, §8 corpus gate).
+    // C25 dynamic-desugar (audit-first, §8 corpus gate), C26 linq-channel
+    // (observe-only gate period).
     private static readonly string[] EnabledByDefault = LockedChain
         .Where(id => id != PassIds.ThreadStatic
             && id != PassIds.AttributeNormalize
-            && id != PassStubCatalog.Ids.DynamicDesugar)
+            && id != PassStubCatalog.Ids.DynamicDesugar
+            && id != PassStubCatalog.Ids.LinqChannel)
         .ToArray();
 
     [Fact]
@@ -634,6 +643,7 @@ public sealed class PassChainOrderTests
             EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
             UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
             ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
+            LinqChannelOptionsFactory = () => new LinqChannelOptions(),
         };
 
         foreach (var descriptor in PassCatalog.BuildRegistry().Ordered
@@ -733,6 +743,7 @@ public sealed class PassChainOrderTests
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
         // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation,
 <<<<<<< HEAD
+<<<<<<< HEAD
         // C30 closed-metadata, C21 anonymous-type-lift, C18 async-normalize/default-on,
         // C09 thread-static/default-off)
         // are reachable solely through their descriptor default plus --enable-pass/--pass.
@@ -741,6 +752,11 @@ public sealed class PassChainOrderTests
         // C18 async-normalize/default-on) are reachable solely through their
         // descriptor default plus --enable-pass/--pass.
 >>>>>>> 0c37665c (feat(c25): register dynamic-desugar with audit-mode adapter (default-off))
+=======
+        // C30 closed-metadata, C21 anonymous-type-lift, C18 async-normalize/default-on,
+        // C26 linq-channel/default-off) are reachable solely through their
+        // descriptor default plus --enable-pass/--pass.
+>>>>>>> 922f6dcb (feat(c26): flip linq-channel registry stub to implemented with two-phase CLI adapter)
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
@@ -758,7 +774,11 @@ public sealed class PassChainOrderTests
                 && id != PassIds.ClosedMetadata
                 && id != PassIds.AnonymousTypeLift
                 && id != PassStubCatalog.Ids.AsyncNormalize
+<<<<<<< HEAD
                 && id != PassIds.AttributeNormalize)
+=======
+                && id != PassStubCatalog.Ids.LinqChannel)
+>>>>>>> 922f6dcb (feat(c26): flip linq-channel registry stub to implemented with two-phase CLI adapter)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }
@@ -880,6 +900,7 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
+<<<<<<< HEAD
     public void ThreadStatic_is_default_off_and_absent_from_the_default_plan_and_legacy_toggles()
     {
         var registry = PassCatalog.BuildRegistry();
@@ -925,10 +946,95 @@ public sealed class PassChainOrderTests
         // Slot lock: generic -> thread-static -> generic-deepen (all three
         // anchor generic; declaration order breaks the tie per design §3.1).
         var slotted = PassPlanResolver.Resolve(
+=======
+    public void LinqChannel_is_implemented_default_off_with_three_anchors_and_no_stub_remains()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        // The stub row is gone and the id resolves to the single Implemented
+        // descriptor (the CS2J9001 stub-enable path no longer applies).
+        Assert.DoesNotContain(
+            registry.Ordered,
+            pass => pass.Id == PassStubCatalog.Ids.LinqChannel && pass.Status == PassStatus.Stub);
+        Assert.Single(registry.Ordered.Where(pass => pass.Id == PassStubCatalog.Ids.LinqChannel));
+
+        var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel);
+        Assert.Equal(PassStatus.Implemented, descriptor.Status);
+        Assert.False(descriptor.DefaultEnabled);
+        Assert.Equal(".cs2j-linq-channel-src", descriptor.IntermediateDirectoryName);
+        Assert.Equal(PassStage.ControlFlow, descriptor.Stage);
+        Assert.Equal(
+            new[]
+            {
+                PassIds.ExtensionMethods,
+                PassIds.AnonymousTypeLift,
+                PassIds.EliminateGoto,
+            },
+            descriptor.RunAfterIds);
+        Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
+        Assert.True(descriptor.NeedsSemanticModel);
+        Assert.True(descriptor.VerifyBuildByDefault);
+        Assert.True(descriptor.VerifyTestsByDefault);
+        Assert.Equal("C26", descriptor.CatalogItems);
+
+        // Default-off: absent from the default plan.
+        var baseline = PassPlanResolver.Resolve(registry);
+        Assert.True(baseline.IsValid);
+        Assert.DoesNotContain(baseline.Enabled, pass => pass.Id == PassStubCatalog.Ids.LinqChannel);
+
+        // Explicit opt-in with every toggle off plans it as Implemented
+        // (never CS2J9001).
+        var enabled = PassPlanResolver.Resolve(
+            registry,
+            PassChainFactory.BuildAllDisabledToggles(registry),
+            enablePassIds: new[] { PassStubCatalog.Ids.LinqChannel });
+        Assert.True(enabled.IsValid);
+        var entry = Assert.Single(enabled.Enabled);
+        Assert.Equal(PassStubCatalog.Ids.LinqChannel, entry.Id);
+        Assert.Equal(PassStatus.Implemented, entry.Status);
+
+        // The concrete adapter exists for the flipped descriptor.
+        var adapter = PassChainFactory.CreateAdapter(
+            PassStubCatalog.Ids.LinqChannel,
+            new PassChainConfiguration
+            {
+                MakerOptionsFactory = () => new ReadOnlyStructMakerOptions(),
+                RecordReadOnlyOptionsFactory = () => new RecordReadOnlyOptions(),
+                JavaKeywordOptionsFactory = () => new JavaKeywordOptions(),
+                MemberDesugarOptionsFactory = () => new CSharpToJava.Core.MemberDesugar.MemberDesugarOptions(),
+                StructValueSemanticsOptionsFactory = () => new CSharpToJava.Core.StructValueSemantics.StructValueSemanticsOptions(),
+                VarianceAuditOptionsFactory = () => new CSharpToJava.Core.VarianceAudit.VarianceAuditOptions(),
+                EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions(),
+                LexicalNormalizeOptionsFactory = () => new CSharpToJava.Core.LexicalNormalize.LexicalNormalizeOptions(),
+                EqualityConcatOptionsFactory = () => new CSharpToJava.Core.EqualityConcat.EqualityConcatOptions(),
+                UnsafeFfmOptionsFactory = () => new CSharpToJava.Core.UnsafeFfm.UnsafeFfmOptions(),
+                ExpressionDesugarOptionsFactory = () => new CSharpToJava.Core.ExpressionDesugar.ExpressionDesugarOptions(),
+                LinqChannelOptionsFactory = () => new LinqChannelOptions(),
+            });
+        Assert.Equal(PassStubCatalog.Ids.LinqChannel, adapter.Descriptor.Id);
+        Assert.True(adapter.VerifyBuild);
+        Assert.True(adapter.VerifyTests);
+        Assert.True(adapter.DeleteBuildOutputsAfterRestore);
+    }
+
+    [Fact]
+    public void LinqChannel_enabled_sorts_between_member_desugar_and_concurrency_normalize()
+    {
+        var registry = PassCatalog.BuildRegistry();
+        var allOff = PassChainFactory.BuildAllDisabledToggles(registry);
+
+        // member-desugar and concurrency-normalize are the declaration-order
+        // neighbors; the locked slot is member-desugar -> linq-channel ->
+        // concurrency-normalize (linq-channel anchors eliminate-goto, which
+        // stays disabled in this isolated selection, so declaration order
+        // breaks the tie exactly as in the full locked chain).
+        var plan = PassPlanResolver.Resolve(
+>>>>>>> 922f6dcb (feat(c26): flip linq-channel registry stub to implemented with two-phase CLI adapter)
             registry,
             allOff,
             enablePassIds: new[]
             {
+<<<<<<< HEAD
                 PassIds.Generic,
                 PassIds.ThreadStatic,
                 PassIds.GenericDeepen,
@@ -943,5 +1049,21 @@ public sealed class PassChainOrderTests
                 PassIds.GenericDeepen,
             },
             slotted.Enabled.Select(pass => pass.Id).ToArray());
+=======
+                PassIds.MemberDesugar,
+                PassStubCatalog.Ids.LinqChannel,
+                PassStubCatalog.Ids.ConcurrencyNormalize,
+            });
+
+        Assert.True(plan.IsValid);
+        Assert.Equal(
+            new[]
+            {
+                PassIds.MemberDesugar,
+                PassStubCatalog.Ids.LinqChannel,
+                PassStubCatalog.Ids.ConcurrencyNormalize,
+            },
+            plan.Enabled.Select(pass => pass.Id).ToArray());
+>>>>>>> 922f6dcb (feat(c26): flip linq-channel registry stub to implemented with two-phase CLI adapter)
     }
 }

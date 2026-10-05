@@ -264,6 +264,36 @@ public class ProjectPreprocessorsConsistentTests
             Assert.True(dynamicDescriptor.VerifyTestsByDefault);
             Assert.Equal("C25", dynamicDescriptor.CatalogItems);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.DynamicDesugarPassAdapter));
+
+            // linq-channel (C26 M1)：无门面类（设计决定），目录常量挂 CLI
+            // 适配器；Implemented 但默认关（observe-only gate 观察期），经
+            // --enable-pass linq-channel / --pass linq-channel 开启；锚点为
+            // extension-methods + anonymous-type-lift + eliminate-goto；
+            // 控制流派生、需要语义模型；每次落树 verify build + tests；
+            // 无支撑库。
+            var linqChannelDescriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel);
+            Assert.Equal(
+                CSharpToJava.CLI.Preprocessing.Adapters.LinqChannelPassAdapter.IntermediateDirectoryName,
+                linqChannelDescriptor.IntermediateDirectoryName);
+            Assert.Equal(".cs2j-linq-channel-src",
+                linqChannelDescriptor.IntermediateDirectoryName);
+            Assert.Equal(PassStatus.Implemented, linqChannelDescriptor.Status);
+            Assert.Equal(PassStage.ControlFlow, linqChannelDescriptor.Stage);
+            Assert.False(linqChannelDescriptor.DefaultEnabled);
+            Assert.Equal(
+                new[]
+                {
+                    PassIds.ExtensionMethods,
+                    PassIds.AnonymousTypeLift,
+                    PassIds.EliminateGoto,
+                },
+                linqChannelDescriptor.RunAfterIds);
+            Assert.Equal(PassSupportLibrary.None, linqChannelDescriptor.SupportLibrary);
+            Assert.True(linqChannelDescriptor.NeedsSemanticModel);
+            Assert.True(linqChannelDescriptor.VerifyBuildByDefault);
+            Assert.True(linqChannelDescriptor.VerifyTestsByDefault);
+            Assert.Equal("C26", linqChannelDescriptor.CatalogItems);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.LinqChannelPassAdapter));
         }
         finally
         {

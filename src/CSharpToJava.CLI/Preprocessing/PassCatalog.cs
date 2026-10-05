@@ -524,6 +524,34 @@ internal static class PassCatalog
             description: "Desugar properties (C11), indexers (C12), events (C13), operators (C14), finalizers (C39), signatures (C46), the field keyword (C50) and record with/init/required (C27) into backing fields plus explicit methods/members.",
             catalogItems: "C11, C12, C13, C14, C39, C46, C50, C27"),
         new(
+            PassStubCatalog.Ids.LinqChannel,
+            "LINQ channelization",
+            ".cs2j-linq-channel-src",
+            PassStage.ControlFlow,
+            PassStatus.Implemented,
+            // C26 M1 ships default-off: the M1 gate is observe-only and the
+            // channel is reached via --enable-pass linq-channel; the
+            // all-on policy flips it on once M3 closes the acceptance gate.
+            defaultEnabled: false,
+            // member-desugar / extension-methods / anonymous-type-lift output
+            // is what the channel consumes; eliminate-goto is the historical
+            // control-flow predecessor. Declared directly after member-desugar
+            // so the Kahn declaration-order tiebreak pins the locked slot
+            // member-desugar -> linq-channel -> concurrency-normalize.
+            runAfterIds: new[]
+            {
+                PassIds.ExtensionMethods,
+                PassIds.AnonymousTypeLift,
+                PassIds.EliminateGoto,
+            },
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Channel LINQ usage through the two-phase route-aware pipeline " +
+                         "(query desugaring plus the stock procedural rewriter); M1 attaches the " +
+                         "IQueryable three-way routing gate in observe-only mode.",
+            catalogItems: "C26"),
+        new(
             PassStubCatalog.Ids.ConcurrencyNormalize,
             "Concurrency normalization",
             ".cs2j-concurrency-normalize-src",

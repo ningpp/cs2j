@@ -34,19 +34,20 @@ public sealed class AsyncNormalizeOrderTests
     [Fact]
     public void Flip_leaves_three_stubs()
     {
-        // Remaining stubs: linq-channel
-        // (thread-static flipped Implemented/default-off in C09 M1;
-        // attribute-normalize flipped Implemented in C10 M1;
-        // dynamic-desugar flipped Implemented in C25;
-        // extension-members was consolidated into extension-methods;
-        // anonymous-type-lift and async-normalize are both Implemented).
+        // No stubs remain after the four flip passes — every id in
+        // PassStubCatalog.Ids resolves to a single Implemented descriptor:
+        // C09 thread-static, C10 attribute-normalize, C25 dynamic-desugar,
+        // C26 linq-channel all flipped; extension-members was consolidated
+        // into extension-methods; anonymous-type-lift and async-normalize
+        // are Implemented; all other historical stubs were flipped earlier.
         var stubs = PassCatalog.BuildRegistry().WhereStatus(PassStatus.Stub).ToArray();
 
-        Assert.Equal(1, stubs.Length);
+        Assert.Equal(0, stubs.Length);
         Assert.DoesNotContain(stubs, p => p.Id == PassStubCatalog.Ids.AsyncNormalize);
         Assert.DoesNotContain(stubs, p => p.Id == PassIds.ThreadStatic);
         Assert.DoesNotContain(stubs, p => p.Id == PassIds.AttributeNormalize);
         Assert.DoesNotContain(stubs, p => p.Id == PassStubCatalog.Ids.DynamicDesugar);
+        Assert.DoesNotContain(stubs, p => p.Id == PassStubCatalog.Ids.LinqChannel);
     }
 
     [Fact]

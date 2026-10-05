@@ -101,9 +101,10 @@ public sealed class ExtensionMethodRegistryTests
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
         Assert.Equal("C19, C49", descriptor.CatalogItems);
 
-        // The linq-channel stub keeps its anchor after the merged pass.
+        // The C26 linq-channel descriptor (Implemented as of M1) keeps its
+        // anchor after the merged extension-methods pass.
         var linqChannel = registry.Require(PassStubCatalog.Ids.LinqChannel);
-        Assert.Equal(PassStatus.Stub, linqChannel.Status);
+        Assert.Equal(PassStatus.Implemented, linqChannel.Status);
         Assert.Contains(PassIds.ExtensionMethods, linqChannel.RunAfterIds);
     }
 

@@ -6,6 +6,7 @@ using CSharpToJava.Core.ExtensionMethodResolve.Declarations;
 using CSharpToJava.Core.AttributeNormalize;
 using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.LexicalNormalize;
+using CSharpToJava.Core.LinqChannel;
 using CSharpToJava.Core.PlatformIsolation;
 using CSharpToJava.Core.Preprocessing;
 using CSharpToJava.Core.ReadOnlyStructMaker;
@@ -96,6 +97,13 @@ internal sealed class CliChainRequest
     /// </summary>
     public Func<DynamicDesugarOptions> DynamicDesugarOptionsFactory { get; init; } =
         static () => new DynamicDesugarOptions();
+
+    /// Invoked only when linq-channel is enabled. Defaulted so existing
+    /// chain-request call sites stay source-compatible (C26 M1 is
+    /// default-off; platform-isolation precedent).
+    /// </summary>
+    public Func<LinqChannelOptions> LinqChannelOptionsFactory { get; init; } =
+        static () => new LinqChannelOptions();
 
     /// <summary>
     /// Per-id on/off state from legacy flags. Null means "use descriptor defaults";
@@ -256,6 +264,7 @@ internal static class CliPreprocessChain
             ExpressionDesugarOptionsFactory = request.ExpressionDesugarOptionsFactory,
             PlatformIsolationOptionsFactory = request.PlatformIsolationOptionsFactory,
             DynamicDesugarOptionsFactory = request.DynamicDesugarOptionsFactory,
+            LinqChannelOptionsFactory = request.LinqChannelOptionsFactory,
             ParamsCollections = request.ParamsCollections,
             ExtensionExternalHostMapper = extensionExternalHostMapper,
             ExtensionMethodStrict = request.ExtensionMethodStrict,

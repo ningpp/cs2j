@@ -1,0 +1,370 @@
+using System.Text;
+using CSharpToJava.Core.LinqChannel;
+using CSharpToJava.Core.Preprocessing;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+
+namespace CSharpToJava.CLI.Preprocessing.Adapters;
+
+/// <summary>
+/// Adapter for the C26 linq-channel pass. Drives the two-phase pipeline from
+/// design §4.5 itself:
+/// <list type="number">
+/// <item>stage 1 — whole-tree query-expression desugaring
+/// (<see cref="LinqChannelRewriter.DesugarQueries"/>, pure syntax; files are
+/// processed in parallel over an OrdinalIgnoreCase-sorted list for
+/// deterministic output);</item>
+/// <item>stage 2 — one recompilation over the on-disk stage-1 tree, then a
+/// route plan + the stock <c>LinqRewriter</c> with the M1 observe-only gate
+/// attached (<see cref="LinqChannelRewriter.ProcessFile"/>).</item>
+/// </list>
+/// M1 gate semantics: observation only. Stage-2 output is produced entirely by
+/// the embedded E16 rewriter; the gate records routing counters and never
+/// changes a rewrite decision (no fallback is blocked; LC0011 stays M3).
+/// The pass verifies build/tests on the intermediate tree and deletes the
+/// build outputs afterwards; the schemaVersion 2 report is always written to
+/// the intermediate root as <c>cs2j-linq-channel-report.json</c>.
+/// </summary>
+internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
+{
+    public const string IntermediateDirectoryName = ".cs2j-linq-channel-src";
+    public const string ReportFileName = "cs2j-linq-channel-report.json";
+
+    private readonly LinqChannelOptions _options;
+    private readonly bool _verbose;
+    private readonly bool _filterUnsupportedProjects;
+    private readonly IReadOnlyCollection<string>? _compatNamespacePrefixes;
+    private readonly bool _verifyBuild;
+    private readonly bool _verifyTests;
+
+    private readonly LinqChannelStatistics _statistics = new();
+    private readonly List<LinqChannelDiagnostic> _diagnostics = new();
+    private int _desugaredQueryCount;
+
+    public LinqChannelPassAdapter(
+        LinqChannelOptions options,
+        bool verbose,
+        bool filterUnsupportedProjects,
+        IReadOnlyCollection<string>? compatNamespacePrefixes,
+        bool verifyBuild,
+        bool verifyTests)
+    {
+        _options = options;
+        _verbose = verbose;
+        _filterUnsupportedProjects = filterUnsupportedProjects;
+        _compatNamespacePrefixes = compatNamespacePrefixes;
+        _verifyBuild = verifyBuild;
+        _verifyTests = verifyTests;
+    }
+
+    public override PassDescriptor Descriptor => PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel);
+    public override bool Verbose => _verbose;
+    public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
+    public override IReadOnlyCollection<string>? CompatNamespacePrefixes => _compatNamespacePrefixes;
+    public override bool VerifyBuild => _verifyBuild;
+    public override bool VerifyTests => _verifyTests;
+    public override bool DeleteBuildOutputsAfterRestore => true;
+    public override CSharpParseOptions CreateParseOptions(PassTreeContext tree)
+        => new(LanguageVersion.Latest);
+
+    public LinqChannelStatistics Statistics => _statistics;
+    public IReadOnlyList<LinqChannelDiagnostic> Diagnostics => _diagnostics;
+
+    public override async Task ExecuteAsync(PassExecutionContext context)
+    {
+        var tree = context.Tree;
+        var intermediateRoot = tree.IntermediateRoot;
+        var sourceRoot = tree.SourceRoot;
+
+        // Only .cs files participate; non-.cs project files were already copied
+        // by CopyProjectFilesAsync during tree preparation, but intermediate-tree
+        // input with an empty project graph can skip that copy — carry the
+        // assets ourselves (java-keywords precedent). .sln stays handled by
+        // tree preparation.
+        var pairs = tree.CsFiles
+            .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
+            .Select(file => (
+                Source: file,
+                Relative: Path.GetRelativePath(sourceRoot, file),
+                Dest: Path.Combine(intermediateRoot, Path.GetRelativePath(sourceRoot, file))))
+            .ToList();
+
+        foreach (var asset in tree.SourceFiles)
+        {
+            if (asset.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)
+                || asset.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var assetDest = Path.Combine(
+                intermediateRoot, Path.GetRelativePath(sourceRoot, asset));
+            Directory.CreateDirectory(Path.GetDirectoryName(assetDest)!);
+            File.Copy(asset, assetDest, overwrite: true);
+        }
+
+        var parseOptions = CreateParseOptions(tree);
+        var stage1Changed = new bool[pairs.Count];
+        var stage1Desugared = new int[pairs.Count];
+
+        // ---- stage 1: whole-tree query desugaring (pure syntax) ----
+        Parallel.For(0, pairs.Count, i =>
+        {
+            var (source, _, dest) = pairs[i];
+            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+
+            var originalText = File.ReadAllText(source);
+            var originalRoot = CSharpSyntaxTree.ParseText(
+                originalText, parseOptions, path: dest).GetRoot();
+            var (desugaredRoot, desugaredCount) = LinqChannelRewriter.DesugarQueries(originalRoot);
+            stage1Desugared[i] = desugaredCount;
+            stage1Changed[i] = !desugaredRoot.IsEquivalentTo(originalRoot);
+
+            if (stage1Changed[i])
+            {
+                File.WriteAllText(
+                    dest,
+                    desugaredRoot.ToFullString(),
+                    new UTF8Encoding(FileStartsWithBom(source)));
+            }
+            else
+            {
+                File.Copy(source, dest, overwrite: true);
+            }
+        });
+
+        _desugaredQueryCount = stage1Desugared.Sum();
+
+        // ---- stage 2: recompile the desugared tree, route + rewrite per file ----
+        var compilation = BuildIntermediateCompilation(tree, pairs);
+        var channel = new LinqChannelRewriter(_options);
+        var success = true;
+
+        for (var i = 0; i < pairs.Count; i++)
+        {
+            var (source, relative, dest) = pairs[i];
+            var syntaxTree = compilation.SyntaxTrees.FirstOrDefault(t =>
+                string.Equals(t.FilePath, dest, StringComparison.OrdinalIgnoreCase));
+            if (syntaxTree == null)
+            {
+                continue;
+            }
+
+            var desugaredRoot = await syntaxTree.GetRootAsync();
+
+            // R9 fast-skip: files with neither a LINQ-operator invocation nor a
+            // foreach cannot be touched by either LinqRewriter entry point, so
+            // skip semantic planning/rewrite for them. (plan.HasLinqChains is
+            // the semantic signal used inside ProcessFile; foreach stays in the
+            // gate because the foreach-rewrap path can rewrite plain
+            // List/array collections.)
+            if (!MayBeRewritten(desugaredRoot))
+            {
+                continue;
+            }
+
+            var reportPath = relative.Replace('\\', '/');
+            var result = channel.ProcessFile(
+                compilation.GetSemanticModel(syntaxTree),
+                desugaredRoot,
+                reportPath);
+
+            _statistics.MergeFrom(result.Statistics);
+            lock (_diagnostics)
+            {
+                _diagnostics.AddRange(result.Diagnostics);
+            }
+
+            if (!result.SyntacticallyIdempotent)
+            {
+                // M1 self-check (design §4.1③): a second desugar pass would
+                // still lower query syntax in the output. Recorded as a
+                // residual warning; the M3 hard gate upgrades this to an
+                // error + rollback.
+                _diagnostics.Add(new LinqChannelDiagnostic(
+                    LinqChannelDiagnosticSeverity.Warning,
+                    LinqChannelDiagnosticCodes.ResidualMismatch,
+                    $"Stage-2 output still contains {result.SecondPassDesugaredCount} query " +
+                    "expression(s) a second desugar pass would lower (syntactic idempotency).",
+                    reportPath,
+                    null));
+            }
+
+            if (result.RewriteChanged)
+            {
+                var fileContext = new PassFileContext
+                {
+                    SourceCode = await File.ReadAllTextAsync(source),
+                    SourceFilePath = source,
+                    RelativePath = relative,
+                    DestinationFilePath = dest,
+                };
+                await ProjectPassRunner.WriteRewrittenAsync(
+                    tree,
+                    fileContext,
+                    new PassFileRewrite
+                    {
+                        OutputCode = result.RewrittenRoot.ToFullString(),
+                        Changed = true,
+                        PreserveBom = true,
+                    });
+            }
+
+            if (_verbose)
+            {
+                Console.WriteLine(
+                    $"[linq-channel] {(result.RewriteChanged || stage1Changed[i] ? "transformed" : "clean (copy)")}: {relative}");
+            }
+        }
+
+        // The stock rewriter sees post-desugar trees, so its
+        // DesugaredQueryCount does not include stage 1; fold the stage-1
+        // tally into the report counters here.
+        _statistics.Rewrite.DesugaredQueryCount += _desugaredQueryCount;
+
+        // ---- report (always; design §4.6/§5.2) ----
+        var reportJson = LinqChannelReport.From(_statistics).ToJson();
+        File.WriteAllText(
+            Path.Combine(intermediateRoot, ReportFileName),
+            reportJson,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+        if (!string.IsNullOrWhiteSpace(_options.ReportPath))
+        {
+            var reportCopy = Path.GetFullPath(_options.ReportPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(reportCopy)!);
+            File.WriteAllText(
+                reportCopy,
+                reportJson,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        }
+
+        // ---- restore + verify + cleanup ----
+        var restoreExitCode = context.Restore();
+        if (restoreExitCode == 0)
+        {
+            var verified = await context.VerifyBuildAndTestsAsync();
+            if (!verified)
+            {
+                success = false;
+            }
+        }
+        else
+        {
+            success = false;
+        }
+
+        ProjectPassRunner.DeleteBuildOutputs(intermediateRoot);
+        context.Success = success;
+    }
+
+    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+        => throw new NotSupportedException("LinqChannelPassAdapter drives the two-phase file loop itself.");
+
+    public override void OnRestoreFailed(int exitCode, string restoreTarget)
+        => _diagnostics.Add(new LinqChannelDiagnostic(
+            LinqChannelDiagnosticSeverity.Error,
+            LinqChannelDiagnosticCodes.VerifyRestoreFailed,
+            $"dotnet restore failed with exit code {exitCode} for {restoreTarget}."));
+
+    public override void OnBuildFailed(int exitCode)
+        => _diagnostics.Add(new LinqChannelDiagnostic(
+            LinqChannelDiagnosticSeverity.Error,
+            LinqChannelDiagnosticCodes.VerifyBuildFailed,
+            $"dotnet build failed with exit code {exitCode} for the linq-channel intermediate tree."));
+
+    public override void OnTestsFailed(int exitCode)
+        => _diagnostics.Add(new LinqChannelDiagnostic(
+            LinqChannelDiagnosticSeverity.Error,
+            LinqChannelDiagnosticCodes.VerifyTestsFailed,
+            $"dotnet test failed with exit code {exitCode} for the linq-channel intermediate tree."));
+
+    public override bool HasErrors
+        => _diagnostics.Any(d => d.Severity == LinqChannelDiagnosticSeverity.Error);
+
+    public override string BuildChainSummaryLine()
+        => $"linq-channel: {_statistics.EnumerableChainsExpanded} chains expanded " +
+           $"({_statistics.Rewrite.RewrittenMethodCount} methods), " +
+           $"{_statistics.QueryableChainsPreserved} queryable chains preserved, " +
+           $"{_statistics.ExpressionArgumentSites} expression-arg sites, " +
+           $"{_statistics.AmbiguousChains} ambiguous, " +
+           $"{_statistics.Rewrite.SkippedChains.Count} skipped, " +
+           $"{_desugaredQueryCount} queries desugared";
+
+    public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
+        => _diagnostics
+            .Where(d => d.Severity != LinqChannelDiagnosticSeverity.Info || verbose)
+            .Select(d => d.ToMsBuildString())
+            .ToList();
+
+    private static bool MayBeRewritten(SyntaxNode root)
+    {
+        foreach (var node in root.DescendantNodesAndSelf())
+        {
+            switch (node)
+            {
+                case ForEachStatementSyntax:
+                    return true;
+                case InvocationExpressionSyntax invocation
+                    when LinqRouteClassifier.HasLinqOperatorName(invocation):
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private CSharpCompilation BuildIntermediateCompilation(
+        PassTreeContext tree,
+        IReadOnlyList<(string Source, string Relative, string Dest)> pairs)
+    {
+        var trees = new List<SyntaxTree>();
+        foreach (var (_, _, dest) in pairs)
+        {
+            trees.Add(CSharpSyntaxTree.ParseText(
+                File.ReadAllText(dest),
+                CreateParseOptions(tree),
+                path: dest));
+        }
+
+        // Mirror SDK ImplicitUsings=enable (java-keywords precedent): one
+        // synthesized tree per enabled project, appended compilation-only.
+        var globalUsings = new StringBuilder();
+        foreach (var projectFile in tree.Layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            var intermediateProjectFile = Path.Combine(
+                tree.IntermediateRoot,
+                Path.GetRelativePath(tree.Layout.SourceRoot, projectFile));
+            var projectUsings = ImplicitGlobalUsings.BuildForProject(
+                intermediateProjectFile, tree.IntermediateRoot);
+            if (projectUsings != null)
+            {
+                globalUsings.AppendLine(projectUsings);
+            }
+        }
+
+        if (globalUsings.Length > 0)
+        {
+            trees.Add(CSharpSyntaxTree.ParseText(
+                globalUsings.ToString(),
+                CreateParseOptions(tree),
+                path: "__cs2j_global_usings.g.cs"));
+        }
+
+        return CSharpCompilation.Create(
+            CompilationName,
+            trees,
+            GetMetadataReferences(),
+            CreateCompilationOptions());
+    }
+
+    private static bool FileStartsWithBom(string path)
+    {
+        using var stream = File.OpenRead(path);
+        Span<byte> prefix = stackalloc byte[3];
+        var read = stream.Read(prefix);
+        return read >= 3 && prefix[0] == 0xEF && prefix[1] == 0xBB && prefix[2] == 0xBF;
+    }
+}

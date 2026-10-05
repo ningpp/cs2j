@@ -130,15 +130,16 @@ public class PreprocessVerbCLITests
 
         try
         {
-            // C18 flipped async-normalize to Implemented; linq-channel is the
-            // remaining ControlFlow stub this generic check targets.
+            // C18 flipped async-normalize and C26 M1 flipped linq-channel
+            // to Implemented; dynamic-desugar is the remaining ControlFlow/
+            // Abi stub this generic check targets.
             var (exit, _, stderr) = await RunCliAsync(
-                "preprocess", "--pass", "linq-channel",
+                "preprocess", "--pass", "dynamic-desugar",
                 "-s", sourceDir, "-d", destDir);
 
             Assert.Equal(1, exit);
             Assert.Contains("CS2J9001", stderr);
-            Assert.Contains("linq-channel", stderr);
+            Assert.Contains("dynamic-desugar", stderr);
             Assert.False(Directory.Exists(destDir),
                 "an enabled stub must be rejected before any output directory is created");
         }

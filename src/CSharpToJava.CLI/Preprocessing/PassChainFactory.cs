@@ -19,6 +19,7 @@ using CSharpToJava.Core.GenericPreprocess;
 using CSharpToJava.Core.IndexRange;
 using CSharpToJava.Core.IteratorLowering;
 using CSharpToJava.Core.JavaKeywords;
+using CSharpToJava.Core.LinqChannel;
 using CSharpToJava.Core.LexicalNormalize;
 using CoreLocalFunctionLiftOptions = CSharpToJava.Core.LocalFunctionLift.LocalFunctionLiftOptions;
 using CSharpToJava.Core.MemberDesugar;
@@ -135,6 +136,15 @@ internal sealed class PassChainConfiguration
     /// <summary>Invoked only when anonymous-type-lift is enabled (keeps construction lazy).</summary>
     public Func<AnonymousTypeLiftOptions> AnonymousTypeLiftOptionsFactory { get; init; } =
         static () => new AnonymousTypeLiftOptions();
+
+    /// <summary>
+    /// Invoked only when linq-channel is enabled (keeps construction lazy).
+    /// Optional so existing chain-configuration constructors stay
+    /// source-compatible (platform-isolation precedent); C26 M1 is
+    /// default-off and reached solely through --enable-pass linq-channel.
+    /// </summary>
+    public Func<LinqChannelOptions> LinqChannelOptionsFactory { get; init; } =
+        static () => new LinqChannelOptions();
 
     /// <summary>
     /// C48 params-collections rule set inside strip-default. Null (default, rules
@@ -534,6 +544,17 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes),
+
+            // C26 has no convert-project legacy toggle; the descriptor
+            // default (off) drives it and --enable-pass linq-channel opts in
+            // (platform-isolation / anonymous-type-lift precedent).
+            PassStubCatalog.Ids.LinqChannel => new LinqChannelPassAdapter(
+                config.LinqChannelOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
 
             // C29 has no convert-project legacy toggle; the descriptor default
             // (off, long-term opt-in) drives it and --enable-pass/--pass opts in

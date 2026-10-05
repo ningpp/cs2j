@@ -81,16 +81,61 @@ public sealed class PassStubCatalogTests
     }
 
     [Fact]
+    public void LinqChannel_IsImplemented_AndNotAStub()
+    {
+        var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.LinqChannel);
+
+        Assert.Equal(PassStatus.Implemented, descriptor.Status);
+        Assert.False(descriptor.DefaultEnabled, "C26 M1 ships default-off (observe-only gate period)");
+        Assert.Equal(PassStage.ControlFlow, descriptor.Stage);
+        Assert.Equal(".cs2j-linq-channel-src", descriptor.IntermediateDirectoryName);
+        Assert.Equal("C26", descriptor.CatalogItems);
+        Assert.Equal(
+            new[]
+            {
+                PassIds.ExtensionMethods,
+                PassIds.AnonymousTypeLift,
+                PassIds.EliminateGoto,
+            },
+            descriptor.RunAfterIds);
+        Assert.True(descriptor.NeedsSemanticModel);
+        Assert.True(descriptor.VerifyBuildByDefault);
+        Assert.True(descriptor.VerifyTestsByDefault);
+        Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
+        Assert.DoesNotContain(Stubs, stub => stub.Id == PassStubCatalog.Ids.LinqChannel);
+        Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.LinqChannelPassAdapter));
+    }
+
+    [Fact]
+    public void LinqChannel_IsAbsentFromTheDefaultPlan_AndPlansAsImplementedWhenEnabled()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        var baseline = PassPlanResolver.Resolve(registry);
+        Assert.True(baseline.IsValid);
+        Assert.DoesNotContain(baseline.Enabled, pass => pass.Id == PassStubCatalog.Ids.LinqChannel);
+
+        var enabled = PassPlanResolver.Resolve(
+            registry,
+            PassChainFactory.BuildAllDisabledToggles(registry),
+            enablePassIds: new[] { PassStubCatalog.Ids.LinqChannel });
+        Assert.True(enabled.IsValid);
+        var entry = Assert.Single(enabled.Enabled);
+        Assert.Equal(PassStubCatalog.Ids.LinqChannel, entry.Id);
+        Assert.Equal(PassStatus.Implemented, entry.Status);
+    }
+
+    [Fact]
     public void Enabling_a_stub_resolves_to_an_enabled_plan_entry()
     {
         var plan = PassPlanResolver.Resolve(
             PassCatalog.BuildRegistry(),
             legacyToggles: PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
-            enablePassIds: new[] { PassStubCatalog.Ids.LinqChannel });
+            enablePassIds: new[] { PassStubCatalog.Ids.DynamicDesugar });
 
         Assert.True(plan.IsValid);
         var enabled = Assert.Single(plan.Enabled);
-        Assert.Equal(PassStubCatalog.Ids.LinqChannel, enabled.Id);
+        Assert.Equal(PassStubCatalog.Ids.DynamicDesugar, enabled.Id);
         Assert.Equal(PassStatus.Stub, enabled.Status);
     }
 
@@ -121,7 +166,7 @@ public sealed class PassStubCatalogTests
                 UnsafeFfmOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 ExpressionDesugarOptionsFactory = () => throw new InvalidOperationException("stub must run first"),
                 LegacyToggles = PassChainFactory.BuildAllDisabledToggles(PassCatalog.BuildRegistry()),
-                EnablePassIds = new[] { PassStubCatalog.Ids.LinqChannel },
+                EnablePassIds = new[] { PassStubCatalog.Ids.DynamicDesugar },
             });
 
             captured = errorWriter.ToString();
@@ -133,7 +178,7 @@ public sealed class PassStubCatalogTests
         }
 
         Assert.Contains(PreprocessDiagnosticCodes.StubNotImplemented, captured);
-        Assert.Contains(PassStubCatalog.Ids.LinqChannel, captured);
+        Assert.Contains(PassStubCatalog.Ids.DynamicDesugar, captured);
         Assert.False(Directory.Exists(destinationRoot), "an enabled stub must not create any output directory");
     }
 }

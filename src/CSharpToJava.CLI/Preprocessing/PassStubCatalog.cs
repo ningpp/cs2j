@@ -43,6 +43,10 @@ internal static class PassStubCatalog
         // The separate extension-members stub (C49) was consolidated into the
         // extension-methods pass (C19, C49); no id/descriptor remains.
         public const string EqualityConcat = "equality-concat";
+        // Ids.LinqChannel flipped to Implemented in PassCatalog (C26 M1:
+        // channel skeleton with observe-only gate, default-off); the id
+        // constant stays here by the iterator-lowering / unsafe-ffm
+        // precedent (§3.4).
         public const string LinqChannel = "linq-channel";
         // Ids.AsyncNormalize flipped to Implemented in PassCatalog (C18;
         // default-off / long-term opt-in, catalogItems narrowed to "C18");
@@ -91,16 +95,9 @@ internal static class PassStubCatalog
         // lives there and no stub entry remains.
         // The C49 extension-members stub was consolidated into that same
         // pass (catalogItems "C19, C49"); no stub entry remains.
-        new(
-            Ids.LinqChannel,
-            "LINQ channelization",
-            ".cs2j-linq-channel-src",
-            PassStage.ControlFlow,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.ExtensionMethods, PassIds.AnonymousTypeLift },
-            description: "Channel LINQ usage, including the IQueryable three-way routing acceptance gate.",
-            catalogItems: "C26"),
+        // Ids.LinqChannel flipped to Implemented in PassCatalog (C26 M1:
+        // two-phase channel adapter, observe-only gate, default-off); the
+        // descriptor lives there and no stub entry remains.
         // Ids.AsyncNormalize flipped to Implemented in PassCatalog (C18;
         // default-off, catalogItems "C18", C38 async streams reserved in the
         // description); the descriptor lives there and no stub entry remains.
