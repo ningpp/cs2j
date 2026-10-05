@@ -6,7 +6,7 @@
 
 > **校订（2026-09-29）**：本文据当前工作区做证据核对，仅改本文档，未触任何代码与 tests/。改动枚举：①源码行号全部按当前工作区重算——[LinqRewriter.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs) 实为 1768 行（非 1624；文件含混合行结束符，`Measure-Object -Line` 少计，编辑器/rg 行号为准）、[LinqRewriter.Rules.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs) 2391 行（非 2156）、[LinqQueryDesugarer.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqQueryDesugarer.cs) 265 行，Program.cs/PassCatalog/PassChainFactory/测试等行号同步更正；②补 2026-09-29 四路 grep 复核结论（LinqRewrite/ 全目录 `IQueryable`/`IOrderedQueryable`/`System.Linq.Expressions`/`Expression<` **零命中**，见 §1.3）；③catalog 引用行号重算（C26 为 L623-635、C19 为 L530-543、C21 为 L558-570、§4 风险 8 为 L1106、风险 17 为 L1115、§5.1 为 L1127-1136）；④翻转清单更正：stub `linq-channel` 条目实在 [PassStubCatalog.cs#L197-L206](file:///d:/code/cs2j/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs#L197-L206)；翻转先例改按 **IteratorLowering**（id 常量留在 `PassStubCatalog.Ids`，不迁 PassIds）；当前已实现 pass 20 个、stub 21 个，`LockedChain` 为 20 项（翻转后 21），`PassStubCatalogTests` **无硬编码 stub 计数断言**；链位更正为「MemberDesugar 之后、JavaKeywords 之前」（MemberDesugar 已实现，C26 不可能「紧随 eliminate-goto」）；⑤**复用既有** [ExpressionTreeFacts.cs](file:///d:/code/cs2j/src/CSharpToJava.Core/Analysis/ExpressionTreeFacts.cs)（C02/C08 已共用），不再于 LinqChannel/ 新建第二份；⑥测试口径更正：Linq/Query 相关 35 文件，146 个 `[Fact]/[Theory]` + LinqBulkTests 21 条 yield 数据片段 = 167 用例；`Expression<Func>` 在 tests/ 另有 4 处非 LINQ 分流用途（§1.1）；⑦语法名 fallback 区间更正为 [LinqRewriter.cs#L796-L858](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L858)。E16 嵌入式 LinqRewriter 现状仍经 ProjectPasses/SingleFilePasses + Program 旧路径运行（与注册表统一链并存，本文无「已统一」声称，并存/摘除设计见 §5.3-§5.5）。
 
-**对应基线**: `953293b9`（dev-3.x HEAD，完整 SHA `953293b908e9143437c45f287fb4277e890c398e`，"docs: update doc base commit"，2026-09-29 已核实存在）
+**对应基线**: `ba7a0897`（dev-3.x-26100507 HEAD，完整 SHA `ba7a0897069331fe3466c452ba3359283beea2cb`，"feat(c49): default-on extension-block materialization"，2026-10-05 已核实存在；worktree base 已于 2026-10-05 由旧基线 `953293b9` 更新到此，见 §12）
 **关联资料**: `prompts/preprocessor-catalog.md` C26（L623-635，含四次补全强制门全文）/C19（L530-543）/C21（L558-570）/§4 风险 17（L1115，IQueryable 静默客户端求值）与风险 8（L1106，表达式树共同禁区）/§5.1 .NET 半区与 EF Core 测试预言机（L1127-1136）；`.trae/documents/preprocessor-foundation_plan.md` L60-139（标准 spine/verify/中间目录契约/交付包模板）；姊妹设计 [2026-09-29-c19-extension-methods-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c19-extension-methods-design.md)（§3.4 EM-ORDER/EM-LINQ 结论）、[2026-09-29-c21-anonymous-type-lift-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-29-c21-anonymous-type-lift-design.md)；范本 [2026-09-28-java-keywords-preprocessor-design.md](file:///d:/code/cs2j/docs/superpowers/specs/2026-09-28-java-keywords-preprocessor-design.md)
 
 ---
@@ -479,10 +479,10 @@ Enumerable 用例的「源项目测试 vs 中间树项目测试」在同一套 x
 
 - 分支：`feature/preproc-c26-linq-channel`
 - 目录：`.worktrees/preproc-c26-linq-channel`（`.worktrees/` 已在 [.gitignore](file:///d:/code/cs2j/.gitignore) 忽略）
-- base：`953293b9`（`docs: update doc base commit`，已核实存在：`953293b908e9143437c45f287fb4277e890c398e`）
+- base：`ba7a0897`（dev-3.x-26100507 HEAD，`feat(c49): default-on extension-block materialization`，已核实存在：`ba7a0897069331fe3466c452ba3359283beea2cb`；2026-10-05 校注：base 由旧基线 `953293b9` 更新为 dev-3.x-26100507 当时最新提交，直接从该提交建 worktree，无需再 rebase）
 
 ```bash
-git worktree add .worktrees/preproc-c26-linq-channel -b feature/preproc-c26-linq-channel 953293b9
+git worktree add .worktrees/preproc-c26-linq-channel -b feature/preproc-c26-linq-channel ba7a0897069331fe3466c452ba3359283beea2cb
 ```
 
 实施顺序建议：M0 探针（可在同一 worktree 的早期提交，纯测试/工具形态）→ M1 注册表翻转与通道壳 → M2 → M3 → §8 门槛评审后 M4 另开转换器 PR。
@@ -491,7 +491,7 @@ git worktree add .worktrees/preproc-c26-linq-channel -b feature/preproc-c26-linq
 
 ## 附：开放问题裁决（2026-09-29 拍板）
 
-> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默客户端求值；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建命令维持 base `953293b9`，创建后第一步 rebase 到当时 dev-3.x HEAD（本裁决时为 `ef70e5a2`），stub 计数红灯由首个锚点翻转 PR 按真值收口。
+> **拍板目标**：支持全部 C# 语法/语义、便利下游 C#→Java 转换。统一口径：① 每种合法 C# 构造必须有语义等价的可编译 Java 终态，v1 可显式诊断门控但必须登记终态去向，禁止长期静默客户端求值；② 中间树始终是普通合法 C#，Java 侧差异集中到 compat/映射层收口；③ 语义精确优先于分配/性能，优化变体须有画像证据；④ 预处理默认开前转换器旧臂由独立 PR 退役、不留双轨窗口，CheckPass 安全网永久保留；⑤ 合成类型名 `Cs2j<Role>_<Member>_<n>`、合成成员/临时 `_cs2j…`、让位改名 `<Name>_cs2j<Purpose>`（单下划线后缀）；⑥ 跨 pass 顺序依赖一律显式 RunAfter 固化；⑦ Implemented+默认关观察期不超过两个里程碑窗口；⑧ worktree 创建 base 原裁决维持 `953293b9`、创建后第一步 rebase 到当时 dev-3.x HEAD（裁决时为 `ef70e5a2`）；**2026-10-05 修订**：实施时 base 直接更新为 dev-3.x-26100507 最新提交 `ba7a0897` 并据此建 worktree，不再需要创建后 rebase；stub 计数红灯由首个锚点翻转 PR 按真值收口。
 
 **裁决（按原题号）：**
 
