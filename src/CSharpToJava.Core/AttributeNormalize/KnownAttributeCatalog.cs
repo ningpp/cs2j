@@ -519,6 +519,33 @@ internal static class KnownAttributeCatalog
     internal static bool TryGetEntry(string metadataName, out CatalogEntry entry)
         => Entries.TryGetValue(metadataName, out entry!);
 
+    // =====================================================================
+    // AN-P2：主管辖诊断码（design §4.3/§6；与 UnsupportedDomainPasses
+    // 实际发射的 CS2J3xxx 码对齐；C10 自己永不发射这些码）
+    // =====================================================================
+
+    /// <summary>互操作 attribute 的主管辖诊断码（attribute 本身）。</summary>
+    public const string GoverningInteropAttributeCode = "CS2J3201";
+
+    /// <summary>extern 方法的主管辖诊断码（互操作 attribute 落在 extern 声明时附带）。</summary>
+    public const string GoverningExternMethodCode = "CS2J3203";
+
+    /// <summary>OS guard attribute 的主管辖诊断码。</summary>
+    public const string GoverningPlatformAttributeCode = "CS2J3101";
+
+    /// <summary>
+    /// 按 family 取主管辖诊断码引用（AN-P2）：Interop→CS2J3201、
+    /// Platform→CS2J3101、其余族→空。extern 方法上的互操作出现点额外
+    /// 附带 CS2J3203（由调用方经 <see cref="GoverningExternMethodCode"/> 追加）。
+    /// 返回确定性顺序的只读列表。
+    /// </summary>
+    public static IReadOnlyList<string> GetGoverningDiagnosticCodes(AttributeFamily family) => family switch
+    {
+        AttributeFamily.Interop => new[] { GoverningInteropAttributeCode },
+        AttributeFamily.Platform => new[] { GoverningPlatformAttributeCode },
+        _ => Array.Empty<string>(),
+    };
+
     /// <summary>符号是否为 Caller 族；是则给出族种类。</summary>
     public static bool TryGetCallerKind(INamedTypeSymbol? attributeType, out CallerInfoKind kind)
     {

@@ -582,6 +582,8 @@ internal sealed class CallerInfoAnalyzer
             var (status, materialized, unread) = EvaluateOccurrence(
                 classification, attribute, model, targetKind, ctor);
 
+            var governingCodes = ResolveGoverningCodes(classification.Family, attribute);
+
             _occurrences.Add(new AttributeOccurrence(
                 classification.MetadataName,
                 classification.Family,
@@ -590,12 +592,34 @@ internal sealed class CallerInfoAnalyzer
                 attribute.GetLocation(),
                 materialized,
                 unread,
-                classification.OwnerPass));
+                classification.OwnerPass,
+                governingCodes));
         }
     }
 
     /// <summary>
-    /// AN-J2 桥接面核对：按条目状态、目标消费面与已读实参集合，逐实参判定
+    /// AN-P2：出现点附带的主管辖诊断码。Interop→CS2J3201（互操作 attribute
+    /// 直接落在 extern 方法声明上时追加 CS2J3203）；Platform→CS2J3101；
+    /// 其余族→空。不因 NativeMethods.cs / AssemblyInfo 文件名差异自行豁免
+    /// 或收紧（design §4.3 AN-P2、§6）。
+    /// </summary>
+    private static IReadOnlyList<string> ResolveGoverningCodes(
+        AttributeFamily family, AttributeSyntax attribute)
+    {
+        var codes = KnownAttributeCatalog.GetGoverningDiagnosticCodes(family);
+        if (family != AttributeFamily.Interop || codes.Count == 0) return codes;
+
+        if (attribute.Parent is AttributeListSyntax { Parent: MethodDeclarationSyntax method }
+            && method.Modifiers.Any(m => m.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.ExternKeyword)))
+        {
+            codes = codes.Concat(new[] { KnownAttributeCatalog.GoverningExternMethodCode }).ToList();
+        }
+
+        return codes;
+    }
+
+    /// <summary>
+    /// AN-J2 桥接面：按条目状态、目标消费面与已读实参集合，逐实参判定
     /// Materialized/Unread；存在未读实参或落在无消费分支族 → 该使用点 BridgeGap。
     /// </summary>
     private static (BridgeStatus Status, IReadOnlyList<string> Materialized, IReadOnlyList<string> Unread)

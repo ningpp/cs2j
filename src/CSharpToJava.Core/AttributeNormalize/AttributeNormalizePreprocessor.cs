@@ -366,6 +366,25 @@ public sealed class AttributeNormalizePreprocessor
                     lineSpan.Line + 1,
                     lineSpan.Character + 1));
             }
+
+            // AN-P1 AN003（Info，仅 ReportInfo；CLI 仅 verbose 显示）：
+            // 平台/互操作出现点只盘点透传，消息只引用主管辖诊断码，
+            // 不复述拒绝内容；树零改动、零 CS2J3xxx、零 CS2J1320/1321。
+            if (_options.ReportInfo
+                && (occurrence.Family == AttributeFamily.Interop
+                    || occurrence.Family == AttributeFamily.Platform)
+                && occurrence.GoverningDiagnosticCodes.Count > 0)
+            {
+                var codes = string.Join("/", occurrence.GoverningDiagnosticCodes);
+                diagnostics.Add(new AttributeNormalizeDiagnostic(
+                    AttributeNormalizeSeverity.Info,
+                    AttributeNormalizeDiagnosticCode.AN003,
+                    $"platform/interop attribute '{occurrence.AttributeMetadataName}' inventoried; " +
+                    $"see governing diagnostic {codes}.",
+                    file,
+                    lineSpan.Line + 1,
+                    lineSpan.Character + 1));
+            }
         }
 
         // ----- AN002 汇总（Info） -----

@@ -43,7 +43,8 @@ public sealed record AttributeOccurrence(
     Location Location,
     IReadOnlyList<string> MaterializedArguments,
     IReadOnlyList<string> UnreadArguments,
-    string? OwnerPass)
+    string? OwnerPass,
+    IReadOnlyList<string> GoverningDiagnosticCodes)
 {
     /// <summary>确定性排序键：文件路径 + span。</summary>
     public string OrderKey
@@ -60,6 +61,14 @@ public sealed class AttributeInventoryReport
 
     public IEnumerable<AttributeOccurrence> ByFamily(AttributeFamily family)
         => Occurrences.Where(o => o.Family == family);
+
+    /// <summary>
+    /// 按主管辖 pass 过滤出现点（design §11 C06/C42 行：只读消费面，
+    /// 供未来 C06/C42 稳定查询，不做任何归一判定）。
+    /// </summary>
+    public IEnumerable<AttributeOccurrence> ByOwnerPass(string ownerPass)
+        => Occurrences.Where(o => string.Equals(
+            o.OwnerPass, ownerPass, StringComparison.Ordinal));
 
     public int CountByFamily(AttributeFamily family)
     {
