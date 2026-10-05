@@ -515,6 +515,10 @@ internal static class KnownAttributeCatalog
         return new CatalogClassification(syntaxName, AttributeFamily.Custom, BridgeStatus.Unknown, null, null);
     }
 
+    /// <summary>按元数据名查内置条目（诊断消息拼证据指针用）。</summary>
+    internal static bool TryGetEntry(string metadataName, out CatalogEntry entry)
+        => Entries.TryGetValue(metadataName, out entry!);
+
     /// <summary>符号是否为 Caller 族；是则给出族种类。</summary>
     public static bool TryGetCallerKind(INamedTypeSymbol? attributeType, out CallerInfoKind kind)
     {

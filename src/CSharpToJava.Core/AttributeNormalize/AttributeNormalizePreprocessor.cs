@@ -30,6 +30,7 @@ public sealed class AttributeNormalizePreprocessor
     private readonly HashSet<string> _appliedPlansCounted
         = new(StringComparer.Ordinal);
     private bool _detectedCounted;
+    private bool _inventoryEmitted;
 
     public AttributeNormalizePreprocessor(AttributeNormalizeOptions? options = null)
     {
@@ -99,6 +100,12 @@ public sealed class AttributeNormalizePreprocessor
         {
             statistics.CallerPlansDetected += _plans.Count;
             _detectedCounted = true;
+        }
+
+        if (!_inventoryEmitted)
+        {
+            EmitInventoryDiagnostics(statistics, diagnostics);
+            _inventoryEmitted = true;
         }
 
         statistics.FilesScanned++;
@@ -261,6 +268,164 @@ public sealed class AttributeNormalizePreprocessor
             statistics,
             _options.Strict);
     }
+
+    // =====================================================================
+    // inventory 诊断（CS2J1310/1320/1321，AN002）
+    // =====================================================================
+
+    /// <summary>
+    /// 按 inventory 发射桥接面/未知/denylist 诊断并填充统计（整树一次）：
+    /// BridgeGap → CS2J1310；白名单外自定义 → CS2J1320；denylist → CS2J1321；
+    /// AN002 汇总 Info（ReportInfo 时；CLI 仅 verbose 显示）。
+    /// AN-U3：*.AssemblyInfo.cs 内的使用点分类保留但不刷 CS2J1310/1320。
+    /// </summary>
+    private void EmitInventoryDiagnostics(
+        AttributeNormalizeStatistics statistics,
+        List<AttributeNormalizeDiagnostic> diagnostics)
+    {
+        // ----- 统计 -----
+        foreach (var occurrence in _inventory.Occurrences)
+        {
+            statistics.AttributesInventoried.TryGetValue(occurrence.Family, out var cnt);
+            statistics.AttributesInventoried[occurrence.Family] = cnt + 1;
+        }
+
+        statistics.BridgeGaps = _inventory.CountByStatus(BridgeStatus.BridgeGap);
+        statistics.UnknownAttributes = _inventory.CountByStatus(BridgeStatus.Unknown);
+        statistics.PlatformAttributesInventoried =
+            _inventory.CountByFamily(AttributeFamily.Platform)
+            + _inventory.CountByFamily(AttributeFamily.Interop);
+
+        // ----- 逐使用点 -----
+        foreach (var occurrence in _inventory.Occurrences)
+        {
+            var file = occurrence.Location.SourceTree?.FilePath;
+            var lineSpan = occurrence.Location.GetLineSpan().StartLinePosition;
+            var inAssemblyInfo = IsGeneratedAssemblyInfoFile(file);
+
+            // AN-U2 denylist → CS2J1321（不可降级 Error；AssemblyInfo 过滤不覆盖）。
+            if (KnownAttributeCatalog.IsDenied(occurrence.AttributeMetadataName))
+            {
+                diagnostics.Add(new AttributeNormalizeDiagnostic(
+                    AttributeNormalizeSeverity.Error,
+                    AttributeNormalizeDiagnosticCode.CS2J1321,
+                    $"attribute '{occurrence.AttributeMetadataName}' is on the known unbridgeable denylist; " +
+                    "manual handling or attribution to the owning pass is required.",
+                    file,
+                    lineSpan.Line + 1,
+                    lineSpan.Character + 1));
+                continue;
+            }
+
+            // AN-J2/J3 BridgeGap → CS2J1310（AN-U3 AssemblyInfo 不刷）。
+            if (occurrence.Status == BridgeStatus.BridgeGap && !inAssemblyInfo)
+            {
+                var severity = _options.Strict
+                    ? AttributeNormalizeSeverity.Error
+                    : AttributeNormalizeSeverity.Warning;
+                var evidence = KnownAttributeCatalog.TryGetEntry(
+                    occurrence.AttributeMetadataName, out var entry)
+                    ? (entry.Evidence.Count > 0 ? entry.Evidence[0] : "n/a")
+                    : "n/a";
+                var note = entry?.BridgeNote;
+                var target = occurrence.TargetSymbol?.ToDisplayString() ?? "?";
+                var unread = occurrence.UnreadArguments.Count > 0
+                    ? $" unread arguments: {string.Join(", ", occurrence.UnreadArguments)};"
+                    : string.Empty;
+                var message = $"serialization attribute '{occurrence.AttributeMetadataName}' on '{target}' " +
+                    $"has a bridge gap:{unread} evidence: {evidence}." +
+                    (note != null ? $" ({note})" : string.Empty);
+
+                diagnostics.Add(new AttributeNormalizeDiagnostic(
+                    severity,
+                    AttributeNormalizeDiagnosticCode.CS2J1310,
+                    message,
+                    file,
+                    lineSpan.Line + 1,
+                    lineSpan.Character + 1));
+            }
+
+            // AN-U1 未知自定义 → CS2J1320（strict Error；AN-U3 AssemblyInfo 不刷）。
+            if (occurrence.Status == BridgeStatus.Unknown && !inAssemblyInfo)
+            {
+                var severity = _options.Strict
+                    ? AttributeNormalizeSeverity.Error
+                    : AttributeNormalizeSeverity.Warning;
+                var target = occurrence.TargetSymbol?.ToDisplayString() ?? "?";
+                var message = $"unknown custom attribute '{occurrence.AttributeMetadataName}' on '{target}'; " +
+                    "choose one of: (1) it is a source-generator/compile-time-only attribute -> add it to " +
+                    "overrides.ignoreAttributes; (2) runtime semantics are required -> register a bridge or " +
+                    "handle it manually; (3) it has no runtime semantics -> add it to overrides.keepAttributes " +
+                    "to silence this warning.";
+
+                diagnostics.Add(new AttributeNormalizeDiagnostic(
+                    severity,
+                    AttributeNormalizeDiagnosticCode.CS2J1320,
+                    message,
+                    file,
+                    lineSpan.Line + 1,
+                    lineSpan.Character + 1));
+            }
+        }
+
+        // ----- AN002 汇总（Info） -----
+        if (_options.ReportInfo)
+        {
+            diagnostics.Add(new AttributeNormalizeDiagnostic(
+                AttributeNormalizeSeverity.Info,
+                AttributeNormalizeDiagnosticCode.AN002,
+                BuildInventorySummary(),
+                null));
+        }
+    }
+
+    /// <summary>AN002 汇总文本：分 family/状态计数 + BridgeGap 明细头部。</summary>
+    private string BuildInventorySummary()
+    {
+        var lines = new List<string>
+        {
+            $"attribute inventory summary: {_inventory.Occurrences.Count} occurrence(s)",
+        };
+
+        var familyLine = string.Join(", ",
+            Enum.GetValues(typeof(AttributeFamily))
+                .Cast<AttributeFamily>()
+                .Where(f => _inventory.CountByFamily(f) > 0)
+                .Select(f => $"{f}={_inventory.CountByFamily(f)}"));
+        lines.Add("  by family: " + familyLine);
+
+        var statusLine = string.Join(", ",
+            Enum.GetValues(typeof(BridgeStatus))
+                .Cast<BridgeStatus>()
+                .Where(s => _inventory.CountByStatus(s) > 0)
+                .Select(s => $"{s}={_inventory.CountByStatus(s)}"));
+        lines.Add("  by status: " + statusLine);
+
+        const int gapHead = 20;
+        var gaps = _inventory.Occurrences
+            .Where(o => o.Status == BridgeStatus.BridgeGap)
+            .Take(gapHead)
+            .Select(o =>
+            {
+                var unread = o.UnreadArguments.Count > 0
+                    ? $" [unread: {string.Join(",", o.UnreadArguments)}]"
+                    : string.Empty;
+                return $"  gap: {o.AttributeMetadataName} @ " +
+                    $"{o.TargetSymbol?.ToDisplayString() ?? "?"}{unread}";
+            });
+        lines.AddRange(gaps);
+
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>
+    /// AN-U3：*.AssemblyInfo.cs 判定（与 UnsupportedDomainPasses 同款：
+    /// 文件名以 .AssemblyInfo.cs 结尾）。
+    /// </summary>
+    private static bool IsGeneratedAssemblyInfoFile(string? filePath)
+        => !string.IsNullOrWhiteSpace(filePath)
+            && Path.GetFileName(filePath).EndsWith(
+                ".AssemblyInfo.cs", StringComparison.OrdinalIgnoreCase);
 
     // =====================================================================
     // 内部 helper
