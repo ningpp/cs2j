@@ -221,9 +221,9 @@ public class Program
                 MemberDesugarOptionsFactory = () => BuildMemberDesugarOptions(
                     opts.MemberDesugarOverrides,
                     strict: false,
-                    cliEnableSignatures: opts.EnableSignaturesRule,
-                    cliEnableFieldKeyword: opts.EnableFieldKeywordRule,
-                    cliEnableRecords: opts.EnableRecordsRule),
+                    cliEnableSignatures: opts.EnableSignaturesRule && !opts.NoSignaturesRule,
+                    cliEnableFieldKeyword: opts.EnableFieldKeywordRule && !opts.NoFieldKeywordRule,
+                    cliEnableRecords: opts.EnableRecordsRule && !opts.NoRecordsRule),
                 StructValueSemanticsOptionsFactory = () => BuildStructValueSemanticsOptions(
                     opts.StructValueSemanticsOverrides),
                 VarianceAuditOptionsFactory = () => BuildVarianceAuditOptions(
@@ -3875,9 +3875,9 @@ public class Program
                 MemberDesugarOptionsFactory = () => BuildMemberDesugarOptions(
                     opts.MemberDesugarOverrides,
                     strict: false,
-                    cliEnableSignatures: opts.EnableSignaturesRule,
-                    cliEnableFieldKeyword: opts.EnableFieldKeywordRule,
-                    cliEnableRecords: opts.EnableRecordsRule),
+                    cliEnableSignatures: opts.EnableSignaturesRule && !opts.NoSignaturesRule,
+                    cliEnableFieldKeyword: opts.EnableFieldKeywordRule && !opts.NoFieldKeywordRule,
+                    cliEnableRecords: opts.EnableRecordsRule && !opts.NoRecordsRule),
                 StructValueSemanticsOptionsFactory = () => BuildStructValueSemanticsOptions(
                     opts.StructValueSemanticsOverrides),
                 VarianceAuditOptionsFactory = () => BuildVarianceAuditOptions(
@@ -4994,17 +4994,29 @@ class PreprocessVerbOptions
         HelpText = "Negation switch for the C35/C51 null-conditional rules (red-line byte-identical runs)")]
     public bool NoNullConditional { get; set; }
 
-    [Option("enable-signatures-rule", Default = false,
-        HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default off, also configurable via MemberDesugarOverrides.json)")]
+    [Option("enable-signatures-rule", Default = true,
+        HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default on, also configurable via MemberDesugarOverrides.json)")]
     public bool EnableSignaturesRule { get; set; }
 
-    [Option("enable-field-keyword-rule", Default = false,
-        HelpText = "Enable the C50 'field' keyword normalization subset inside member-desugar (semi-auto properties; default off, also configurable via MemberDesugarOverrides.json)")]
+    [Option("no-signatures-rule", Default = false,
+        HelpText = "Negation switch for the C46 signature explicitization subset inside member-desugar")]
+    public bool NoSignaturesRule { get; set; }
+
+    [Option("enable-field-keyword-rule", Default = true,
+        HelpText = "Enable the C50 'field' keyword normalization subset inside member-desugar (semi-auto properties; default on, also configurable via MemberDesugarOverrides.json)")]
     public bool EnableFieldKeywordRule { get; set; }
 
-    [Option("enable-records-rule", Default = false,
-        HelpText = "Enable the C27 record 'with'/init/required desugaring subset inside member-desugar (default off, also configurable via MemberDesugarOverrides.json)")]
+    [Option("no-field-keyword-rule", Default = false,
+        HelpText = "Negation switch for the C50 'field' keyword normalization subset inside member-desugar")]
+    public bool NoFieldKeywordRule { get; set; }
+
+    [Option("enable-records-rule", Default = true,
+        HelpText = "Enable the C27 record 'with'/init/required desugaring subset inside member-desugar (default on, also configurable via MemberDesugarOverrides.json)")]
     public bool EnableRecordsRule { get; set; }
+
+    [Option("no-records-rule", Default = false,
+        HelpText = "Negation switch for the C27 record 'with'/init/required desugaring subset inside member-desugar")]
+    public bool NoRecordsRule { get; set; }
 
     [Option("no-filter-projects", Default = false,
         HelpText = "Disable excluding unsupported (WPF/UWP/WinForms) projects before preprocessing")]
@@ -5427,17 +5439,29 @@ class ConvertProjectOptions
         HelpText = "Negation switch for the C35/C51 null-conditional rules (red-line byte-identical runs)")]
     public bool NoNullConditional { get; set; }
 
-    [Option("enable-signatures-rule", Default = false,
-        HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default off, also configurable via MemberDesugarOverrides.json)")]
+    [Option("enable-signatures-rule", Default = true,
+        HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default on, also configurable via MemberDesugarOverrides.json)")]
     public bool EnableSignaturesRule { get; set; }
 
-    [Option("enable-field-keyword-rule", Default = false,
-        HelpText = "Enable the C50 'field' keyword normalization subset inside member-desugar (semi-auto properties; default off, also configurable via MemberDesugarOverrides.json)")]
+    [Option("no-signatures-rule", Default = false,
+        HelpText = "Negation switch for the C46 signature explicitization subset inside member-desugar")]
+    public bool NoSignaturesRule { get; set; }
+
+    [Option("enable-field-keyword-rule", Default = true,
+        HelpText = "Enable the C50 'field' keyword normalization subset inside member-desugar (semi-auto properties; default on, also configurable via MemberDesugarOverrides.json)")]
     public bool EnableFieldKeywordRule { get; set; }
 
-    [Option("enable-records-rule", Default = false,
-        HelpText = "Enable the C27 record 'with'/init/required desugaring subset inside member-desugar (default off, also configurable via MemberDesugarOverrides.json)")]
+    [Option("no-field-keyword-rule", Default = false,
+        HelpText = "Negation switch for the C50 'field' keyword normalization subset inside member-desugar")]
+    public bool NoFieldKeywordRule { get; set; }
+
+    [Option("enable-records-rule", Default = true,
+        HelpText = "Enable the C27 record 'with'/init/required desugaring subset inside member-desugar (default on, also configurable via MemberDesugarOverrides.json)")]
     public bool EnableRecordsRule { get; set; }
+
+    [Option("no-records-rule", Default = false,
+        HelpText = "Negation switch for the C27 record 'with'/init/required desugaring subset inside member-desugar")]
+    public bool NoRecordsRule { get; set; }
 
     [Option("extra-deps", Required = false, HelpText = "Comma-separated Maven coordinates to add to every generated module, e.g. groupId:artifactId:version")]
     public string? ExtraDependencies { get; set; }
