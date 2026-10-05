@@ -609,6 +609,11 @@ internal sealed class CallerInfoAnalyzer
         var materialized = new List<string>();
         var unread = new List<string>();
 
+        // CallerInfo 族由本 pass 直接移除，实参（如 CallerArgumentExpression
+        // 的 "msg"）属 pass 自身配置，不参与转换器桥接面核对。
+        if (classification.Family == AttributeFamily.CallerInfo)
+            return (BridgeStatus.Bridged, materialized, unread);
+
         // 无消费分支族（Newtonsoft/DataContract/DebuggerDisplay）：全部实参未读。
         if (classification.Status == BridgeStatus.BridgeGap
             || classification.Status == BridgeStatus.InventoriedPassthrough
@@ -763,6 +768,10 @@ internal sealed class CallerInfoAnalyzer
         else if (targetNode is ParameterSyntax parameterSyntax
             && model.GetDeclaredSymbol(parameterSyntax) is { } parameterSymbol)
             candidates.Add(parameterSymbol);
+        else if (targetNode is BaseFieldDeclarationSyntax fieldNode
+            && fieldNode.Declaration.Variables.FirstOrDefault() is { } fieldDeclarator
+            && model.GetDeclaredSymbol(fieldDeclarator) is { } fieldSymbol)
+            candidates.Add(fieldSymbol);
         else if (model.GetDeclaredSymbol(targetNode) is { } declared)
             candidates.Add(declared);
         else if (model.GetSymbolInfo(targetNode).Symbol is { } symbolInfo)
@@ -797,6 +806,14 @@ internal sealed class CallerInfoAnalyzer
 
         if (list.Parent is { } targetNode)
         {
+            // Field/event-field declarations bind through the variable declarator:
+            // GetDeclaredSymbol on the declaration syntax itself returns null.
+            if (targetNode is BaseFieldDeclarationSyntax fieldDeclaration
+                && fieldDeclaration.Declaration.Variables.FirstOrDefault() is { } declarator)
+            {
+                return model.GetDeclaredSymbol(declarator);
+            }
+
             return model.GetDeclaredSymbol(targetNode)
                 ?? model.GetSymbolInfo(targetNode).Symbol;
         }
