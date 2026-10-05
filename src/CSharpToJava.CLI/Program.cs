@@ -297,11 +297,12 @@ public class Program
                 ExtensionMappingConfigPath = opts.MappingConfig,
                 ExtensionMethodStrict = opts.ExtensionMethodStrict,
                 ExtensionOverridesPath = opts.ExtensionOverridesPath,
-                // C49: null keeps the classic CS2J1206 block gate; the
-                // --materialize-extension-blocks switch supplies the policy and
-                // activates extension-block materialization inside the pass.
+                // C49: materialization is default-on; --no-materialize-
+                // extension-blocks leaves the factory null, restoring the
+                // classic CS2J1206 extension-block gate byte-for-byte.
                 ExtensionBlockOptionsFactory = () => BuildExtensionBlockOptions(
-                    opts.MaterializeExtensionBlocks, opts.ExtensionMethodStrict),
+                    opts.MaterializeExtensionBlocks && !opts.NoMaterializeExtensionBlocks,
+                    opts.ExtensionMethodStrict),
             });
 
             if (!chain.Success)
@@ -3527,10 +3528,11 @@ public class Program
     }
 
     /// <summary>
-    /// C49 policy for the extension-methods pass. Returns null while the
-    /// --materialize-extension-blocks switch is off (default), keeping the
-    /// classic CS2J1206 extension-block gate byte-for-byte; when on, every
-    /// EMD subrule is enabled and strictness follows --extension-methods-strict.
+    /// C49 policy for the extension-methods pass. Returns null when the
+    /// --no-materialize-extension-blocks kill switch opts out, keeping the
+    /// classic CS2J1206 extension-block gate byte-for-byte; with the
+    /// default-on materialization policy, every EMD subrule is enabled and
+    /// strictness follows --extension-methods-strict.
     /// The EMD-PROP/EMD-OP member-desugar chain gate is evaluated by the
     /// adapter against the actually enabled pass set.
     /// </summary>
@@ -3956,11 +3958,12 @@ public class Program
                 ExtensionMappingConfigPath = opts.MappingConfig,
                 ExtensionMethodStrict = opts.ExtensionMethodStrict,
                 ExtensionOverridesPath = opts.ExtensionOverridesPath,
-                // C49: null keeps the classic CS2J1206 block gate; the
-                // --materialize-extension-blocks switch supplies the policy and
-                // activates extension-block materialization inside the pass.
+                // C49: materialization is default-on; --no-materialize-
+                // extension-blocks leaves the factory null, restoring the
+                // classic CS2J1206 extension-block gate byte-for-byte.
                 ExtensionBlockOptionsFactory = () => BuildExtensionBlockOptions(
-                    opts.MaterializeExtensionBlocks, opts.ExtensionMethodStrict),
+                    opts.MaterializeExtensionBlocks && !opts.NoMaterializeExtensionBlocks,
+                    opts.ExtensionMethodStrict),
             });
 
             if (!chain.Success)
@@ -5072,10 +5075,14 @@ class PreprocessVerbOptions
         HelpText = "Path to extension-methods host overrides JSON: {\"hosts\":{\"Full.Host\":\"skip|force\"},\"additionalLinqHosts\":[...]} (C19 M4)")]
     public string? ExtensionOverridesPath { get; set; }
 
-    [Option("materialize-extension-blocks", Default = false,
+    [Option("materialize-extension-blocks", Default = true,
         HelpText = "Enable C49 C# 14 extension-block materialization inside the extension-methods pass " +
-                   "(extension blocks -> classic static-class members plus explicit call sites; default off: blocks keep the CS2J1206 gate)")]
+                   "(extension blocks -> classic static-class members plus explicit call sites; default on; --no-materialize-extension-blocks keeps the CS2J1206 gate)")]
     public bool MaterializeExtensionBlocks { get; set; }
+
+    [Option("no-materialize-extension-blocks", Default = false,
+        HelpText = "Negation switch for C49 extension-block materialization: keep the classic CS2J1206 block gate with zero materialization")]
+    public bool NoMaterializeExtensionBlocks { get; set; }
 
     [Option("no-decimal-ops", Default = false,
         HelpText = "Disable the default decimal operator normalization inside numeric-boundary (C34)")]
@@ -5542,10 +5549,14 @@ class ConvertProjectOptions
         HelpText = "Path to extension-methods host overrides JSON: {\"hosts\":{\"Full.Host\":\"skip|force\"},\"additionalLinqHosts\":[...]} (C19 M4)")]
     public string? ExtensionOverridesPath { get; set; }
 
-    [Option("materialize-extension-blocks", Default = false,
+    [Option("materialize-extension-blocks", Default = true,
         HelpText = "Enable C49 C# 14 extension-block materialization inside the extension-methods pass " +
-                   "(extension blocks -> classic static-class members plus explicit call sites; default off: blocks keep the CS2J1206 gate)")]
+                   "(extension blocks -> classic static-class members plus explicit call sites; default on; --no-materialize-extension-blocks keeps the CS2J1206 gate)")]
     public bool MaterializeExtensionBlocks { get; set; }
+
+    [Option("no-materialize-extension-blocks", Default = false,
+        HelpText = "Negation switch for C49 extension-block materialization: keep the classic CS2J1206 block gate with zero materialization")]
+    public bool NoMaterializeExtensionBlocks { get; set; }
 
     [Option("no-array-method", Default = false,
         HelpText = "Disable the default array-method preprocessing step")]

@@ -410,9 +410,11 @@ public class Runner
 
             var rewritten = await File.ReadAllTextAsync(
                 Path.Combine(destDir, ".cs2j-extension-methods-src", "Class1.cs"));
-            // C49 reached through the CLI flag (default off keeps CS2J1206):
-            // the block is gone, the member is a classic this-parameter static
-            // method and the receiver call site is an explicit global:: host call.
+            // C49 reached explicitly through the CLI flag (the rule is
+            // default-on; the flag stays for positive coverage, while
+            // --no-materialize-extension-blocks keeps CS2J1206): the block
+            // is gone, the member is a classic this-parameter static method
+            // and the receiver call site is an explicit global:: host call.
             Assert.DoesNotMatch(new Regex(@"\bextension\s*\("), rewritten);
             Assert.Matches(new Regex(@"bool\s+IsEven\s*\(\s*this\s+int\s+x\s*\)"), rewritten);
             Assert.Matches(new Regex(@"global::EmWiring\.Exts\.IsEven\(\s*n\s*\)"), rewritten);

@@ -7,9 +7,9 @@ namespace CSharpToJava.ProjectTests;
 /// SampleExtensionMembersSolution fixture:
 ///   * the raw solution builds and its runtime behavior tests pass (extension
 ///     blocks are valid C# 14 preview source);
-///   * under the default preprocess policy (--materialize-extension-blocks
-///     stays off), extension blocks still hit the classic CS2J1206 syntax
-///     gate and nothing is half-materialized;
+///   * with the --no-materialize-extension-blocks kill switch (the
+///     pre-flip default policy), extension blocks still hit the classic
+///     CS2J1206 syntax gate and nothing is half-materialized;
 ///   * the indexer negative sample ships with the fixture (indexer rejection
 ///     CS2J1209 itself is asserted at the analyzer level in the unit tests).
 /// </summary>
@@ -96,7 +96,7 @@ public class ExtensionMembersProjectTests
     }
 
     [Fact]
-    public async Task Preprocess_DefaultPolicy_BlocksHitClassicGate1206()
+    public async Task Preprocess_KillSwitch_BlocksHitClassicGate1206()
     {
         var fixture = Path.Combine(AppContext.BaseDirectory, "SampleExtensionMembersSolution");
         Assert.True(Directory.Exists(fixture),
@@ -109,12 +109,13 @@ public class ExtensionMembersProjectTests
 
         try
         {
-            // --materialize-extension-blocks is not passed; the
-            // extension-methods pass must keep its classic CS2J1206 gate
-            // for extension blocks.
+            // C49 materialization is default-on now; the --no-materialize-
+            // extension-blocks kill switch must keep the extension-methods
+            // pass on its classic CS2J1206 gate for extension blocks.
             var (exit, stdout, stderr) = await RunCliAsync(
                 "preprocess", "-s", solutionPath, "-d", destination,
-                "--pass", "extension-methods,member-desugar");
+                "--pass", "extension-methods,member-desugar",
+                "--no-materialize-extension-blocks");
 
             Assert.NotEqual(0, exit);
             var combined = stdout + "\n" + stderr;
@@ -124,7 +125,7 @@ public class ExtensionMembersProjectTests
             var materialized = Directory
                 .EnumerateFiles(destination, "*.cs", SearchOption.AllDirectories)
                 .Any(f => File.ReadAllText(f).Contains("this global::", StringComparison.Ordinal));
-            Assert.False(materialized, "extension blocks must not be materialized under the default policy");
+            Assert.False(materialized, "extension blocks must not be materialized under the --no-materialize-extension-blocks kill switch");
         }
         finally
         {
