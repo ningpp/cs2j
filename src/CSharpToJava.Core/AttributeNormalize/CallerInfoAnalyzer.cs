@@ -323,8 +323,10 @@ internal sealed class CallerInfoAnalyzer
                     return m.Identifier.Text;
                 case LocalFunctionStatementSyntax lf:
                     return lf.Identifier.Text;
-                case ConstructorDeclarationSyntax:
-                    return ".ctor";
+                case ConstructorDeclarationSyntax c:
+                    return c.Modifiers.Any(t => t.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.StaticKeyword))
+                        ? ".cctor"
+                        : ".ctor";
                 case DestructorDeclarationSyntax:
                     return "Finalize";
                 case PropertyDeclarationSyntax p:
