@@ -31,6 +31,7 @@ using CSharpToJava.Core.RecordReadOnly;
 using CSharpToJava.Core.RefOutInPreprocessor;
 using CSharpToJava.Core.StructValueSemantics;
 using CSharpToJava.Core.TupleToStruct;
+using CSharpToJava.Core.ThreadStaticRewrite;
 using CSharpToJava.Core.UnsignedTypeRewriter;
 using CSharpToJava.Core.UnsafeFfm;
 using CSharpToJava.Core.VarianceAudit;
@@ -351,6 +352,22 @@ internal static class PassChainFactory
 
             PassIds.GenericDeepen => new GenericDeepenPassAdapter(
                 new GenericDeepenOptions(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
+            // C09 thread-static has no convert-project legacy toggle; the
+            // descriptor default (OFF, design §3.1/§12) drives it and
+            // --enable-pass thread-static / --pass thread-static opts in.
+            // Info diagnostics (TS001/TS002) are emitted only in verbose mode.
+            PassIds.ThreadStatic => new ThreadStaticPassAdapter(
+                new ThreadStaticOptions
+                {
+                    Strict = config.Strict,
+                    ReportInfo = config.Verbose,
+                },
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,

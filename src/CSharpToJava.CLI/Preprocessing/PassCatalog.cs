@@ -19,6 +19,7 @@ internal static class PassIds
     public const string RefOutIn = "ref-out-in";
     public const string Unsigned = "unsigned";
     public const string Generic = "generic";
+    public const string ThreadStatic = "thread-static";
     public const string GenericDeepen = "generic-deepen";
     public const string VarianceAudit = "variance-audit";
     public const string ClosedMetadata = "closed-metadata";
@@ -277,6 +278,28 @@ internal static class PassCatalog
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Deepen generic rewrites for Java erasure compatibility."),
+        new(
+            PassIds.ThreadStatic,
+            "Thread-static rewrite",
+            Adapters.ThreadStaticPassAdapter.IntermediateDirectoryName,
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            // C09 M1 ships DEFAULT-OFF even though every other pass in this
+            // baseline is default-on: design §3.1/§12 keeps it opt-in until
+            // the §8 gates (fixture + sdk build/test, residual gate, and the
+            // Java-half ThreadLocal mappings) pass; --enable-pass opts in.
+            defaultEnabled: false,
+            // Physically inserted between generic and generic-deepen: both
+            // anchor generic only, so the Kahn declaration-order tiebreak
+            // locks the slot generic -> thread-static -> generic-deepen
+            // (design §3.1/§11).
+            runAfterIds: new[] { PassIds.Generic },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Rewrite [ThreadStatic] fields into explicit ThreadLocal<T> holders with .Value access.",
+            catalogItems: "C09"),
         new(
             PassIds.GenericDeepen,
             "Generic erasure deepening",

@@ -11,8 +11,10 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
 /// the topological sort must keep producing this exact order. Every implemented
-/// pass is default-on (all-preprocessors-default-on policy); the legacy flags
-/// survive as --no-xxx negations and --disable-pass remains the opt-out.
+/// pass is default-on (all-preprocessors-default-on policy) except C09
+/// thread-static, which ships default-off until the design §8 gates pass; the
+/// legacy flags survive as --no-xxx negations and --disable-pass remains the
+/// opt-out.
 /// </summary>
 public sealed class PassChainOrderTests
 {
@@ -42,6 +44,12 @@ public sealed class PassChainOrderTests
         PassIds.Unsigned,
         PassStubCatalog.Ids.NumericBoundary,
         PassIds.Generic,
+        // C09 thread-static flipped to Implemented but stays DEFAULT-OFF
+        // (design §3.1/§12: the §8 gates must pass before default-on). It is
+        // physically declared between generic and generic-deepen — both anchor
+        // generic only — so the Kahn declaration-order tiebreak locks this
+        // slot: generic -> thread-static -> generic-deepen.
+        PassIds.ThreadStatic,
         PassIds.GenericDeepen,
         // C30 + C33: closed-metadata and variance-audit are both Implemented;
         // they slot in after generic-deepen (design §3.4/§4.3/§5.5).
@@ -82,7 +90,10 @@ public sealed class PassChainOrderTests
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    private static readonly string[] EnabledByDefault = LockedChain;
+    // C09 thread-static is the single exception (design §3.1/§8 gates): it is
+    // part of the locked chain but stays out of the default plan.
+    private static readonly string[] EnabledByDefault =
+        LockedChain.Where(id => id != PassIds.ThreadStatic).ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -541,11 +552,13 @@ public sealed class PassChainOrderTests
         // Legacy flags only exist for the historical implemented passes; stubs and
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
         // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation,
-        // C30 closed-metadata, C21 anonymous-type-lift, C18 async-normalize/default-on)
+        // C30 closed-metadata, C21 anonymous-type-lift, C18 async-normalize/default-on,
+        // C09 thread-static/default-off)
         // are reachable solely through their descriptor default plus --enable-pass/--pass.
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
+                && id != PassIds.ThreadStatic
                 && id != PassStubCatalog.Ids.UnsafeFfm
                 && id != PassStubCatalog.Ids.ExpressionDesugar
                 && id != PassStubCatalog.Ids.LexicalNormalize
@@ -676,5 +689,71 @@ public sealed class PassChainOrderTests
         Assert.Equal(
             new[] { PassIds.AnonymousTypeLift },
             plan.Enabled.Select(pass => pass.Id).ToArray());
+    }
+
+    [Fact]
+    public void ThreadStatic_is_default_off_and_absent_from_the_default_plan_and_legacy_toggles()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        // Default-off (design §3.1/§12; flips only after the §8 gates): the
+        // descriptor exists as Implemented but the baseline plan omits it.
+        var baseline = PassPlanResolver.Resolve(registry);
+        Assert.True(baseline.IsValid);
+        Assert.DoesNotContain(baseline.Enabled, pass => pass.Id == PassIds.ThreadStatic);
+
+        // No convert-project legacy toggle exists for C09.
+        var toggles = PassChainFactory.BuildLegacyToggles(new ConvertProjectOptions());
+        Assert.DoesNotContain(toggles.Keys, id => id == PassIds.ThreadStatic);
+
+        // Explicit disable against the baseline stays valid and still omits it.
+        var disabled = PassPlanResolver.Resolve(
+            registry,
+            disablePassIds: new[] { PassIds.ThreadStatic });
+        Assert.True(disabled.IsValid);
+        Assert.DoesNotContain(disabled.Enabled, pass => pass.Id == PassIds.ThreadStatic);
+    }
+
+    [Fact]
+    public void ThreadStatic_when_enabled_runs_in_its_locked_slot_between_generic_and_generic_deepen()
+    {
+        var registry = PassCatalog.BuildRegistry();
+        var allOff = LockedChain.ToDictionary(id => id, _ => false);
+
+        // Isolated enable: with every other pass off, thread-static alone
+        // enters the plan as Implemented (its generic anchor stays disabled;
+        // the resolver performs no dependency closure).
+        var alone = PassPlanResolver.Resolve(
+            registry,
+            allOff,
+            enablePassIds: new[] { PassIds.ThreadStatic });
+
+        Assert.True(alone.IsValid);
+        Assert.Equal(
+            new[] { PassIds.ThreadStatic },
+            alone.Enabled.Select(pass => pass.Id).ToArray());
+        Assert.Equal(PassStatus.Implemented, Assert.Single(alone.Enabled).Status);
+
+        // Slot lock: generic -> thread-static -> generic-deepen (all three
+        // anchor generic; declaration order breaks the tie per design §3.1).
+        var slotted = PassPlanResolver.Resolve(
+            registry,
+            allOff,
+            enablePassIds: new[]
+            {
+                PassIds.Generic,
+                PassIds.ThreadStatic,
+                PassIds.GenericDeepen,
+            });
+
+        Assert.True(slotted.IsValid);
+        Assert.Equal(
+            new[]
+            {
+                PassIds.Generic,
+                PassIds.ThreadStatic,
+                PassIds.GenericDeepen,
+            },
+            slotted.Enabled.Select(pass => pass.Id).ToArray());
     }
 }

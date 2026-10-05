@@ -46,7 +46,12 @@ public sealed class GenericDeepenRegistryTests
         var ordered = PassCatalog.BuildRegistry().Ordered.Select(p => p.Id).ToList();
         var gd = ordered.IndexOf(PassIds.GenericDeepen);
         Assert.True(gd > 0, "generic-deepen must be registered");
-        Assert.Equal(PassIds.Generic, ordered[gd - 1]);
+        // C09 thread-static flipped Implemented/default-off and was physically
+        // inserted between generic and generic-deepen so the Kahn
+        // declaration-order tiebreak locks generic -> thread-static ->
+        // generic-deepen (design §3.1).
+        Assert.Equal(PassIds.ThreadStatic, ordered[gd - 1]);
+        Assert.Equal(PassIds.Generic, ordered[gd - 2]);
         // C30 M2' + C33 M1a: closed-metadata and variance-audit both flipped
         // to Implemented, slotting in after generic-deepen (design §3.4/§4.3/§5.5).
         Assert.Equal(PassIds.ClosedMetadata, ordered[gd + 1]);

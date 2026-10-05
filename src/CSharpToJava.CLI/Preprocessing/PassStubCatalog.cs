@@ -32,7 +32,9 @@ internal static class PassStubCatalog
         public const string ClosureLift = "closure-lift";
         public const string IteratorLowering = "iterator-lowering";
         public const string NumericBoundary = "numeric-boundary";
-        public const string ThreadStatic = "thread-static";
+        // Ids.ThreadStatic flipped to Implemented in PassCatalog (C09 M1;
+        // default-off pending the design §8 gates); the id constant moved to
+        // PassIds next to generic/generic-deepen.
         public const string AttributeNormalize = "attribute-normalize";
         // Ids.ExtensionMethods flipped to Implemented in PassCatalog (C19 M0);
         // the id constant moved to PassIds (generic-deepen/member-desugar precedent).
@@ -72,16 +74,9 @@ internal static class PassStubCatalog
         // the descriptor lives there and no stub entry remains.
         // Ids.NumericBoundary flipped to Implemented in PassCatalog (C15);
         // the id constant stays here by the iterator-lowering precedent (§3.4).
-        new(
-            Ids.ThreadStatic,
-            "Thread-static rewrite",
-            ".cs2j-thread-static-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.Generic },
-            description: "Move [ThreadStatic] and ThreadLocal hidden state into explicit C# source form.",
-            catalogItems: "C09"),
+        // Ids.ThreadStatic flipped to Implemented in PassCatalog (C09 M1;
+        // default-off pending the design §8 gates); the descriptor lives
+        // there and no stub entry remains.
         new(
             Ids.AttributeNormalize,
             "Attribute normalization",
