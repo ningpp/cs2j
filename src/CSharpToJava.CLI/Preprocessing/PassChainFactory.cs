@@ -7,6 +7,7 @@ using CSharpToJava.Core.ConcurrencyNormalize;
 using CSharpToJava.Core.ClosedMetadata;
 using CSharpToJava.Core.DefaultParameterStripper;
 using CSharpToJava.Core.DelegatePreprocessor;
+using CSharpToJava.Core.DynamicDesugar;
 using CSharpToJava.Core.EnumPreprocessor;
 using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ExpressionDesugar;
@@ -122,6 +123,14 @@ internal sealed class PassChainConfiguration
     /// </summary>
     public Func<PlatformIsolationOptions> PlatformIsolationOptionsFactory { get; init; } =
         static () => new PlatformIsolationOptions();
+
+    /// <summary>
+    /// Invoked only when dynamic-desugar is enabled (keeps construction lazy).
+    /// Optional so existing chain-configuration constructors stay
+    /// source-compatible; the default is Audit mode (design §5.2).
+    /// </summary>
+    public Func<DynamicDesugarOptions> DynamicDesugarOptionsFactory { get; init; } =
+        static () => new DynamicDesugarOptions();
 
     /// <summary>Invoked only when anonymous-type-lift is enabled (keeps construction lazy).</summary>
     public Func<AnonymousTypeLiftOptions> AnonymousTypeLiftOptionsFactory { get; init; } =
@@ -565,6 +574,17 @@ internal static class PassChainFactory
                 config.Verbose,
                 config.FilterUnsupportedProjects,
                 config.CompatNamespacePrefixes,
+                config.VerifyBuild,
+                config.VerifyTests),
+
+            // C25 dynamic-desugar has no convert-project legacy toggle; the
+            // descriptor default (off, long-term opt-in per design §3.2/§8)
+            // drives it and --enable-pass opts in. M1 ships the Audit-mode
+            // adapter only (zero rewrites).
+            PassStubCatalog.Ids.DynamicDesugar => new DynamicDesugarPassAdapter(
+                config.DynamicDesugarOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
                 config.VerifyBuild,
                 config.VerifyTests),
 

@@ -91,16 +91,24 @@ public sealed class PassChainOrderTests
         // C42 platform-isolation is Implemented; it anchors eliminate-goto and
         // stays before java-keywords (§3.3).
         PassStubCatalog.Ids.PlatformIsolation,
+        // C25 dynamic-desugar is Implemented but default-OFF long-term
+        // (design §3.2/§8), so it is in the locked topological sequence but
+        // excluded from EnabledByDefault below. Declared right after
+        // platform-isolation so the Kahn tiebreak locks the tail slot
+        // platform-isolation -> dynamic-desugar -> java-keywords.
+        PassStubCatalog.Ids.DynamicDesugar,
         PassIds.JavaKeywords,
     ];
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    // The default-on policy keeps every implemented pass enabled except the
-    // design-gated opt-in pair: C09 thread-static (§3.1/§8 gates) and C10
-    // attribute-normalize (opt-in). Both stay out of the default plan.
+    // Default-on policy exceptions — all three stay out of the default plan:
+    // C09 thread-static (§3.1/§8 gates), C10 attribute-normalize (opt-in),
+    // C25 dynamic-desugar (audit-first, §8 corpus gate).
     private static readonly string[] EnabledByDefault = LockedChain
-        .Where(id => id != PassIds.ThreadStatic && id != PassIds.AttributeNormalize)
+        .Where(id => id != PassIds.ThreadStatic
+            && id != PassIds.AttributeNormalize
+            && id != PassStubCatalog.Ids.DynamicDesugar)
         .ToArray();
 
     [Fact]
@@ -135,7 +143,21 @@ public sealed class PassChainOrderTests
     {
         var registry = PassCatalog.BuildRegistry();
 
-        Assert.Equal(PassIds.JavaKeywords, registry.Ordered[^1].Id);
+        // Stubs never execute; the naming pass is the tail of the executable
+        // Implemented chain and of the resolved default plan. Until the C25
+        // flip the dynamic-desugar stub's late declaration position also
+        // pinned java-keywords after the residual linq-channel stub in the
+        // full Ordered list; with dynamic Implemented (declared before the
+        // Stubs block), the Kahn declaration-order tiebreak lets
+        // java-keywords precede not-anchored stubs — the executed-plan
+        // guarantee below is the contract that matters.
+        Assert.Equal(
+            PassIds.JavaKeywords,
+            registry.Ordered.Last(pass => pass.Status == PassStatus.Implemented).Id);
+
+        var plan = PassPlanResolver.Resolve(registry);
+        Assert.True(plan.IsValid);
+        Assert.Equal(PassIds.JavaKeywords, plan.Enabled[^1].Id);
     }
 
     [Fact]
@@ -400,7 +422,7 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void ConcurrencyNormalize_precedes_platform_isolation_and_both_precede_java_keywords()
+    public void ConcurrencyNormalize_precedes_platform_isolation_and_dynamic_sits_between_platform_and_java_keywords()
     {
         var ordered = PassCatalog.BuildRegistry().Ordered.ToList();
 
@@ -411,7 +433,104 @@ public sealed class PassChainOrderTests
 
         Assert.True(concurrency >= 0 && platform >= 0 && javaKeywords >= 0 && dynamic >= 0);
         Assert.True(concurrency < platform, "concurrency-normalize must precede platform-isolation (locked chain)");
-        Assert.True(platform < javaKeywords, "platform-isolation must precede java-keywords");
+        // C25 flip: dynamic-desugar used to be the trailing stub; as an
+        // Implemented pass its Kahn declaration slot is platform-isolation ->
+        // dynamic-desugar -> java-keywords (design §3.3).
+        Assert.True(platform < dynamic, "platform-isolation must precede dynamic-desugar (locked chain)");
+        Assert.True(dynamic < javaKeywords, "dynamic-desugar must precede java-keywords");
+    }
+
+    [Fact]
+    public void DynamicDesugar_is_Implemented_default_off_and_not_a_stub()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        // The stub row is gone; the id resolves to the single Implemented
+        // descriptor (the CS2J9001 stub-enable path no longer applies).
+        Assert.DoesNotContain(
+            registry.Ordered,
+            pass => pass.Id == PassStubCatalog.Ids.DynamicDesugar && pass.Status == PassStatus.Stub);
+        Assert.Single(registry.Ordered, pass => pass.Id == PassStubCatalog.Ids.DynamicDesugar);
+
+        var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.DynamicDesugar);
+        Assert.Equal(PassStatus.Implemented, descriptor.Status);
+        Assert.False(descriptor.DefaultEnabled);
+        Assert.Equal(".cs2j-dynamic-desugar-src", descriptor.IntermediateDirectoryName);
+        Assert.Equal(PassStage.Abi, descriptor.Stage);
+        Assert.Equal(new[] { PassIds.EliminateGoto }, descriptor.RunAfterIds);
+        Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
+        Assert.True(descriptor.NeedsSemanticModel);
+        Assert.True(descriptor.VerifyBuildByDefault);
+        Assert.True(descriptor.VerifyTestsByDefault);
+        Assert.Equal("C25", descriptor.CatalogItems);
+
+        // Default-off: absent from the default plan.
+        var plan = PassPlanResolver.Resolve(registry);
+        Assert.True(plan.IsValid);
+        Assert.DoesNotContain(
+            plan.Enabled, pass => pass.Id == PassStubCatalog.Ids.DynamicDesugar);
+    }
+
+    [Fact]
+    public void DynamicDesugar_when_enabled_runs_after_eliminate_goto_before_java_keywords()
+    {
+        var registry = PassCatalog.BuildRegistry();
+        var allOff = PassChainFactory.BuildAllDisabledToggles(registry);
+
+        var plan = PassPlanResolver.Resolve(
+            registry,
+            allOff,
+            enablePassIds: new[]
+            {
+                PassIds.EliminateGoto,
+                PassStubCatalog.Ids.DynamicDesugar,
+                PassIds.JavaKeywords,
+            });
+
+        Assert.True(plan.IsValid);
+        Assert.Equal(
+            new[]
+            {
+                PassIds.EliminateGoto,
+                PassStubCatalog.Ids.DynamicDesugar,
+                PassIds.JavaKeywords,
+            },
+            plan.Enabled.Select(pass => pass.Id).ToArray());
+    }
+
+    [Fact]
+    public void DynamicDesugar_alone_plans_as_Implemented_and_never_CS2J9001()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        // Explicit opt-in against the all-disabled map: the resolver must
+        // accept it as Implemented (no CS2J9001 stub rejection), exactly like
+        // the platform-isolation/anonymous-type-lift precedent.
+        var plan = PassPlanResolver.Resolve(
+            registry,
+            PassChainFactory.BuildAllDisabledToggles(registry),
+            enablePassIds: new[] { PassStubCatalog.Ids.DynamicDesugar });
+
+        Assert.True(plan.IsValid);
+        Assert.Empty(plan.Errors);
+        var enabled = Assert.Single(plan.Enabled);
+        Assert.Equal(PassStubCatalog.Ids.DynamicDesugar, enabled.Id);
+        Assert.Equal(PassStatus.Implemented, enabled.Status);
+    }
+
+    [Fact]
+    public void ListPasses_shows_dynamic_desugar_implemented_default_off_with_C25_rule()
+    {
+        var lines = PassListFormatter.BuildLines(PassCatalog.BuildRegistry());
+
+        var line = Assert.Single(lines, row =>
+            row.TrimStart().StartsWith(
+                PassStubCatalog.Ids.DynamicDesugar, StringComparison.Ordinal));
+        Assert.Contains("Implemented", line);
+        Assert.Contains("off", line);
+        Assert.DoesNotContain(" on ", line);
+        Assert.Contains(PassIds.EliminateGoto, line);
+        Assert.Contains("rules=C25", line);
     }
 
     [Fact]
@@ -613,9 +732,15 @@ public sealed class PassChainOrderTests
         // Legacy flags only exist for the historical implemented passes; stubs and
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
         // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation,
+<<<<<<< HEAD
         // C30 closed-metadata, C21 anonymous-type-lift, C18 async-normalize/default-on,
         // C09 thread-static/default-off)
         // are reachable solely through their descriptor default plus --enable-pass/--pass.
+=======
+        // C25 dynamic-desugar, C30 closed-metadata, C21 anonymous-type-lift,
+        // C18 async-normalize/default-on) are reachable solely through their
+        // descriptor default plus --enable-pass/--pass.
+>>>>>>> 0c37665c (feat(c25): register dynamic-desugar with audit-mode adapter (default-off))
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
                 && id != PassIds.EnumDeclaration
@@ -629,6 +754,7 @@ public sealed class PassChainOrderTests
                 && id != PassStubCatalog.Ids.ConcurrencyNormalize
                 && id != PassIds.VarianceAudit
                 && id != PassStubCatalog.Ids.PlatformIsolation
+                && id != PassStubCatalog.Ids.DynamicDesugar
                 && id != PassIds.ClosedMetadata
                 && id != PassIds.AnonymousTypeLift
                 && id != PassStubCatalog.Ids.AsyncNormalize

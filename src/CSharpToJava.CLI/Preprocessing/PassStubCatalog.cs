@@ -55,6 +55,10 @@ internal static class PassStubCatalog
         // the iterator-lowering / unsafe-ffm precedent (§3.4).
         public const string PlatformIsolation = "platform-isolation";
         public const string ConcurrencyNormalize = "concurrency-normalize";
+        // Ids.DynamicDesugar flipped to Implemented in PassCatalog (C25 M1:
+        // Audit-mode adapter only, default-off per design §3.2/§8); the id
+        // constant stays here by the iterator-lowering / unsafe-ffm /
+        // platform-isolation precedent (§3.4).
         public const string DynamicDesugar = "dynamic-desugar";
     }
 
@@ -111,15 +115,8 @@ internal static class PassStubCatalog
         // the descriptor lives there and no stub entry remains.
         // Ids.ConcurrencyNormalize flipped to Implemented in PassCatalog (C29);
         // the descriptor lives there and no stub entry remains.
-        new(
-            Ids.DynamicDesugar,
-            "Dynamic desugaring",
-            ".cs2j-dynamic-desugar-src",
-            PassStage.Abi,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.EliminateGoto },
-            description: "Desugar dynamic (late-bound) calls into explicit dispatch forms.",
-            catalogItems: "C25"),
+        // Ids.DynamicDesugar flipped to Implemented in PassCatalog (C25 M1:
+        // Audit-mode adapter only, default-off); the descriptor lives there
+        // and no stub entry remains.
     };
 }

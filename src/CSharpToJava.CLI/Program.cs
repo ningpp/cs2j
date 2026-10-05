@@ -291,6 +291,8 @@ public class Program
                 },
                 PlatformIsolationOptionsFactory = () => BuildPlatformIsolationOptions(
                     opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
+                DynamicDesugarOptionsFactory = () => BuildDynamicDesugarOptions(
+                    opts.DynamicReportOnly, opts.DynamicMode, opts.DynamicStrict, opts.DynamicAuditManifest),
                 LegacyToggles = PassChainFactory.BuildLegacyToggles(opts),
                 EnablePassIds = opts.EnablePasses,
                 DisablePassIds = opts.DisablePasses,
@@ -1657,6 +1659,31 @@ public class Program
             Mode = effectiveMode,
             Strict = strict,
             ConfigPath = configPath,
+        };
+    }
+
+    /// <summary>
+    /// Build the C25 dynamic-desugar options from the CLI flags. Audit mode is
+    /// the M1 default (named-site report only, zero rewrites);
+    /// <c>--dynamic-report-only</c> forces it. In M1 selecting Rewrite only
+    /// changes diagnostic grading; the manifest is not consumed until M2.
+    /// </summary>
+    private static CSharpToJava.Core.DynamicDesugar.DynamicDesugarOptions BuildDynamicDesugarOptions(
+        bool reportOnly,
+        string? mode,
+        bool strict,
+        string? manifestPath)
+    {
+        var effectiveMode = reportOnly
+            ? CSharpToJava.Core.DynamicDesugar.DynamicMode.Audit
+            : Enum.Parse<CSharpToJava.Core.DynamicDesugar.DynamicMode>(
+                string.IsNullOrWhiteSpace(mode) ? "Audit" : mode, ignoreCase: true);
+
+        return new CSharpToJava.Core.DynamicDesugar.DynamicDesugarOptions
+        {
+            Mode = effectiveMode,
+            Strict = strict,
+            AuditManifestPath = manifestPath,
         };
     }
 
@@ -3957,6 +3984,8 @@ public class Program
                 },
                 PlatformIsolationOptionsFactory = () => BuildPlatformIsolationOptions(
                     opts.PlatformReportOnly, opts.PlatformMode, opts.PlatformStrict, opts.PlatformConfig),
+                DynamicDesugarOptionsFactory = () => BuildDynamicDesugarOptions(
+                    opts.DynamicReportOnly, opts.DynamicMode, opts.DynamicStrict, opts.DynamicAuditManifest),
                 LegacyToggles = legacyToggles,
                 EnablePassIds = enablePassIds,
                 DisablePassIds = opts.DisablePasses,
@@ -5053,6 +5082,22 @@ class PreprocessVerbOptions
         HelpText = "Path to Cs2jPlatformIsolation.json (default: search upward from the working directory)")]
     public string? PlatformConfig { get; set; }
 
+    [Option("dynamic-report-only", Default = false,
+        HelpText = "Force the C25 dynamic-desugar pass into Audit mode (named-site inventory and dynamic-audit-report.json only; source bytes unchanged; equivalent to --dynamic-mode Audit)")]
+    public bool DynamicReportOnly { get; set; }
+
+    [Option("dynamic-mode", Default = "Audit",
+        HelpText = "C25 dynamic-desugar mode: Audit|Rewrite (M1 ships Audit; in M1 Rewrite only changes diagnostic grading and still rewrites nothing)")]
+    public string DynamicMode { get; set; } = "Audit";
+
+    [Option("dynamic-strict", Default = false,
+        HelpText = "C25 dynamic-desugar strict: Warning-class sites are escalated to errors and fail the run")]
+    public bool DynamicStrict { get; set; }
+
+    [Option("dynamic-audit-manifest", Required = false,
+        HelpText = "Path to Cs2jDynamicAudit.json; the manifest lives at the source root and is committed with the sources (default: no manifest is loaded; unused until M2)")]
+    public string? DynamicAuditManifest { get; set; }
+
     [Option("readonly-overrides", Required = false,
         HelpText = "Path to JSON config listing qualified type names to force as readonly structs (default: config/ReadOnlyStructOverrides.json)")]
     public string? ReadOnlyOverrides { get; set; }
@@ -5638,6 +5683,22 @@ class ConvertProjectOptions
     [Option("platform-config", Required = false,
         HelpText = "Path to Cs2jPlatformIsolation.json (default: search upward from the working directory)")]
     public string? PlatformConfig { get; set; }
+
+    [Option("dynamic-report-only", Default = false,
+        HelpText = "Force the C25 dynamic-desugar pass into Audit mode (named-site inventory and dynamic-audit-report.json only; source bytes unchanged; equivalent to --dynamic-mode Audit)")]
+    public bool DynamicReportOnly { get; set; }
+
+    [Option("dynamic-mode", Default = "Audit",
+        HelpText = "C25 dynamic-desugar mode: Audit|Rewrite (M1 ships Audit; in M1 Rewrite only changes diagnostic grading and still rewrites nothing)")]
+    public string DynamicMode { get; set; } = "Audit";
+
+    [Option("dynamic-strict", Default = false,
+        HelpText = "C25 dynamic-desugar strict: Warning-class sites are escalated to errors and fail the run")]
+    public bool DynamicStrict { get; set; }
+
+    [Option("dynamic-audit-manifest", Required = false,
+        HelpText = "Path to Cs2jDynamicAudit.json; the manifest lives at the source root and is committed with the sources (default: no manifest is loaded; unused until M2)")]
+    public string? DynamicAuditManifest { get; set; }
 
     /// <summary>Resolve PreferStreamApi: explicit flags override, otherwise null (version-based default).</summary>
     public bool? PreferStreamApi => PreferStreamApiFlag ? true : PreferProceduralFlag ? false : null;

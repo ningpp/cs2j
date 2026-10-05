@@ -1,3 +1,4 @@
+using CSharpToJava.Core.DynamicDesugar;
 using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExtensionMethodResolve;
@@ -87,6 +88,14 @@ internal sealed class CliChainRequest
     /// </summary>
     public Func<PlatformIsolationOptions> PlatformIsolationOptionsFactory { get; init; } =
         static () => new PlatformIsolationOptions();
+
+    /// <summary>
+    /// Invoked only when dynamic-desugar is enabled (keeps construction lazy).
+    /// Optional so existing chain-request constructors stay source-compatible;
+    /// the default is Audit mode (design §5.2).
+    /// </summary>
+    public Func<DynamicDesugarOptions> DynamicDesugarOptionsFactory { get; init; } =
+        static () => new DynamicDesugarOptions();
 
     /// <summary>
     /// Per-id on/off state from legacy flags. Null means "use descriptor defaults";
@@ -246,6 +255,7 @@ internal static class CliPreprocessChain
             UnsafeFfmOptionsFactory = request.UnsafeFfmOptionsFactory,
             ExpressionDesugarOptionsFactory = request.ExpressionDesugarOptionsFactory,
             PlatformIsolationOptionsFactory = request.PlatformIsolationOptionsFactory,
+            DynamicDesugarOptionsFactory = request.DynamicDesugarOptionsFactory,
             ParamsCollections = request.ParamsCollections,
             ExtensionExternalHostMapper = extensionExternalHostMapper,
             ExtensionMethodStrict = request.ExtensionMethodStrict,

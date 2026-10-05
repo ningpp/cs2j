@@ -576,6 +576,34 @@ internal static class PassCatalog
                          "before Java conversion (C42 M1: Report mode only; no source rewrite).",
             catalogItems: "C42"),
         new(
+            PassStubCatalog.Ids.DynamicDesugar,
+            "Dynamic desugaring",
+            ".cs2j-dynamic-desugar-src",
+            PassStage.Abi,
+            PassStatus.Implemented,
+            // C25 stays default-off long-term (design §3.2 D1): Audit may go
+            // default-on only after the §8 corpus gate, and Rewrite stays
+            // long-term opt-in (it would turn today's silent dynamic->Object
+            // projects red). --enable-pass dynamic-desugar opts in; do NOT
+            // follow the all-preprocessors-default-on policy here.
+            defaultEnabled: false,
+            // Late ABI-tail pass like platform-isolation: anchors
+            // eliminate-goto only. Declared immediately after
+            // platform-isolation so the Kahn declaration-order tiebreak
+            // locks the tail slot platform-isolation -> dynamic-desugar ->
+            // java-keywords (design §3.2/§3.3).
+            runAfterIds: new[] { PassIds.EliminateGoto },
+            supportLibrary: PassSupportLibrary.None,
+            needsSemanticModel: true,
+            // M2 Rewrite verifies build/tests on the intermediate tree; the
+            // M1 Audit adapter forces both off exactly like the C42 Report
+            // adapter (audit output is byte-identical to its input).
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Audit dynamic (late-bound) sites into a named inventory and dynamic-audit-report.json " +
+                         "(C25 M1: Audit mode only, zero source rewrites); M2 concretizes the provable P1 subset.",
+            catalogItems: "C25"),
+        new(
             PassIds.JavaKeywords,
             "Java reserved words",
             ProjectJavaReservedWordPreprocessor.IntermediateDirectoryName,

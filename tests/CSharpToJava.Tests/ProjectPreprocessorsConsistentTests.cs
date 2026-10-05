@@ -244,6 +244,26 @@ public class ProjectPreprocessorsConsistentTests
             Assert.True(anonymousTypeLiftDescriptor.VerifyTestsByDefault);
             Assert.Equal("C21", anonymousTypeLiftDescriptor.CatalogItems);
             Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.AnonymousTypeLiftPassAdapter));
+
+            // dynamic-desugar (C25)：无门面类（设计决定），目录常量挂注册表
+            // 描述符；M1 纯审计（dynamic-audit-report.json + 具名 DS0xx 诊断，
+            // 零改写），默认长期关（design §3.2 D1/§8 语料门槛），经
+            // --enable-pass dynamic-desugar 开启；链尾 ABI 槽位 RunAfter=
+            // eliminate-goto（先于 java-keywords）；需要语义模型；无支撑库；
+            // 描述符 verify 双开为 M2 Rewrite 预留，M1 适配器内强制关 verify。
+            var dynamicDescriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.DynamicDesugar);
+            Assert.Equal(".cs2j-dynamic-desugar-src",
+                dynamicDescriptor.IntermediateDirectoryName);
+            Assert.Equal(PassStatus.Implemented, dynamicDescriptor.Status);
+            Assert.False(dynamicDescriptor.DefaultEnabled);
+            Assert.Equal(PassStage.Abi, dynamicDescriptor.Stage);
+            Assert.Equal(new[] { PassIds.EliminateGoto }, dynamicDescriptor.RunAfterIds);
+            Assert.Equal(PassSupportLibrary.None, dynamicDescriptor.SupportLibrary);
+            Assert.True(dynamicDescriptor.NeedsSemanticModel);
+            Assert.True(dynamicDescriptor.VerifyBuildByDefault);
+            Assert.True(dynamicDescriptor.VerifyTestsByDefault);
+            Assert.Equal("C25", dynamicDescriptor.CatalogItems);
+            Assert.NotNull(typeof(CSharpToJava.CLI.Preprocessing.Adapters.DynamicDesugarPassAdapter));
         }
         finally
         {
