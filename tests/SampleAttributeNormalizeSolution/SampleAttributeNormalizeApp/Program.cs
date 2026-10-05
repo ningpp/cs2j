@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SampleAttributeNormalizeLib;
 
 var log = new CallerLog();
@@ -12,7 +13,7 @@ new CrossClassCaller().CallAcross(log);
 
 var expected = new (string Member, string FileSuffix, int Line, string Expr)[]
 {
-    ("$", "SampleAttributeNormalizeApp/Program.cs", 5, "\"hello from main\""),
+    ("$", "SampleAttributeNormalizeApp/Program.cs", 6, "\"hello from main\""),
     (".ctor", "SampleAttributeNormalizeLib/CallSiteSamples.cs", 10, "\"ctor site\""),
     ("Property", "SampleAttributeNormalizeLib/CallSiteSamples.cs", 17, "\"property getter\""),
     ("Item", "SampleAttributeNormalizeLib/CallSiteSamples.cs", 26, "\"indexer getter\""),
@@ -41,3 +42,38 @@ for (var i = 0; i < expected.Length; i++)
 }
 
 Console.WriteLine($"AttributeNormalize fixture OK: {log.Records.Count} caller records verified.");
+
+// ── STJ 往返：JsonPropertyName 改名生效；WhenWritingDefault 的 null 被忽略 ──
+var stj = new StjPerson
+{
+    Id = 7,
+    Secret = null,
+    Score = 12,
+};
+var stjJson = JsonSerializer.Serialize(stj);
+if (!stjJson.Contains("\"id\":7"))
+    throw new Exception($"STJ serialize missing renamed id: {stjJson}");
+if (stjJson.Contains("Secret", StringComparison.Ordinal))
+    throw new Exception($"STJ serialize should ignore default Secret: {stjJson}");
+// AllowReadingFromString：字符串形式数字也能读入 int Score。
+var stjBack = JsonSerializer.Deserialize<StjPerson>("{\"id\":7,\"Score\":\"9\"}")
+    ?? throw new Exception("STJ deserialize returned null");
+if (stjBack.Id != 7 || stjBack.Score != 9)
+    throw new Exception("STJ deserialize roundtrip mismatch");
+
+// ── Newtonsoft 往返：JsonProperty 改名生效；JsonIgnore 生效 ──
+var nsJson = Newtonsoft.Json.JsonConvert.SerializeObject(new NewtonsoftPerson
+{
+    Id = 9,
+    Secret = "hidden",
+});
+if (!nsJson.Contains("person_id"))
+    throw new Exception($"Newtonsoft serialize missing renamed property: {nsJson}");
+if (nsJson.Contains("Secret", StringComparison.Ordinal))
+    throw new Exception($"Newtonsoft serialize should ignore Secret: {nsJson}");
+var nsBack = Newtonsoft.Json.JsonConvert.DeserializeObject<NewtonsoftPerson>("{\"person_id\":11}")
+    ?? throw new Exception("Newtonsoft deserialize returned null");
+if (nsBack.Id != 11)
+    throw new Exception("Newtonsoft deserialize roundtrip mismatch");
+
+Console.WriteLine("json roundtrip verified (STJ + Newtonsoft).");

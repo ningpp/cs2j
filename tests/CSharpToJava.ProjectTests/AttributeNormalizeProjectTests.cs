@@ -65,9 +65,10 @@ public class AttributeNormalizeProjectTests
             Assert.Equal(0, stats.PlansRolledBack);
             Assert.Equal(0, stats.ResidualCount);
 
-            // 4 files carry rewrites; NativeMethods.cs is copied clean.
+            // 4 files carry rewrites; NativeMethods.cs plus the two M2 DTO
+            // files are copied clean (inventory-only, tree bytes untouched).
             Assert.Equal(4, stats.FilesTransformed);
-            Assert.Equal(1, stats.FilesSkippedClean);
+            Assert.Equal(3, stats.FilesSkippedClean);
 
             // 7 Notify sites (member+path+line+expr each) and 1 Emit site
             // (member only): member=8, path=7, line=7, expr=7.
@@ -140,6 +141,7 @@ public class AttributeNormalizeProjectTests
                 $"--project \"{appProject}\" -c Release");
             Assert.True(exitCode == 0, $"rewritten App failed ({exitCode}):\n{output}");
             Assert.Contains("caller records verified", output);
+            Assert.Contains("json roundtrip verified", output);
         }
         finally
         {
@@ -147,6 +149,87 @@ public class AttributeNormalizeProjectTests
                 Directory.Delete(workDir, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task Fixture_Inventories_Serialization_Families_And_Keeps_Attribute_Bytes_Untouched()
+    {
+        var solutionPath = Path.Combine(FixtureDir, "SampleAttributeNormalizeSolution.sln");
+        var workDir = Path.Combine(Path.GetTempPath(),
+            "cs2j-an-inv-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workDir);
+        var destination = Path.Combine(workDir, "out");
+
+        try
+        {
+            var adapter = CreateAdapter();
+            var run = await ProjectPassRunner.RunAsync(adapter, new ProjectPassRunRequest
+            {
+                SourcePath = solutionPath,
+                DestinationRoot = destination,
+                Force = true,
+            });
+
+            Assert.True(run.Success, string.Join("\n",
+                adapter.Diagnostics
+                    .Where(d => d.Severity == AttributeNormalizeSeverity.Error)
+                    .Select(d => d.ToMsBuildString())));
+
+            var stats = adapter.Statistics;
+
+            // Family buckets: 9 caller, 4 STJ (3 bridged + 1 field-level gap),
+            // 2 Newtonsoft (gaps), 1 custom (unknown), 1 interop.
+            Assert.Equal(9, CountFamily(stats, AttributeFamily.CallerInfo));
+            Assert.Equal(4, CountFamily(stats, AttributeFamily.JsonSystemTextJson));
+            Assert.Equal(2, CountFamily(stats, AttributeFamily.JsonNewtonsoft));
+            Assert.Equal(1, CountFamily(stats, AttributeFamily.Custom));
+            Assert.Equal(1, CountFamily(stats, AttributeFamily.Interop));
+
+            // STJ field-level JsonIgnore (1) + both Newtonsoft annotations (2).
+            Assert.Equal(3, stats.BridgeGaps);
+            Assert.Equal(1, stats.UnknownAttributes);
+
+            var cs1310 = adapter.Diagnostics
+                .Where(d => d.Code == AttributeNormalizeDiagnosticCode.CS2J1310)
+                .ToList();
+            Assert.Equal(3, cs1310.Count);
+            Assert.Contains(cs1310, d =>
+                d.Message.Contains("Newtonsoft.Json.JsonPropertyAttribute"));
+            Assert.Contains(cs1310, d =>
+                d.Message.Contains("Newtonsoft.Json.JsonIgnoreAttribute"));
+            // Field-level STJ occurrence: target is the private field.
+            var stjFieldGap = Assert.Single(cs1310.Where(d =>
+                d.Message.Contains("System.Text.Json.Serialization.JsonIgnoreAttribute")));
+            Assert.Contains("_fieldLevel", stjFieldGap.Message);
+            Assert.Contains("Condition", stjFieldGap.Message);
+
+            var cs1320 = Assert.Single(adapter.Diagnostics
+                .Where(d => d.Code == AttributeNormalizeDiagnosticCode.CS2J1320));
+            Assert.Contains("CustomMarkerAttribute", cs1320.Message);
+
+            // ── Byte-level preservation: M2 must not rewrite JSON attributes ──
+            var root = run.IntermediateRoot;
+            foreach (var fileName in new[]
+            {
+                "SerializationDtos.cs",
+                "NewtonsoftDtos.cs",
+            })
+            {
+                var original = await File.ReadAllTextAsync(
+                    Path.Combine(FixtureDir, "SampleAttributeNormalizeLib", fileName));
+                var rewritten = await File.ReadAllTextAsync(
+                    Path.Combine(root, "SampleAttributeNormalizeLib", fileName));
+                Assert.Equal(original, rewritten);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(workDir))
+                Directory.Delete(workDir, recursive: true);
+        }
+    }
+
+    private static int CountFamily(AttributeNormalizeStatistics stats, AttributeFamily family)
+        => stats.AttributesInventoried.TryGetValue(family, out var count) ? count : 0;
 
     private static void AssertSiteCount(AttributeNormalizeStatistics stats, CallerInfoKind kind, int expected)
     {
