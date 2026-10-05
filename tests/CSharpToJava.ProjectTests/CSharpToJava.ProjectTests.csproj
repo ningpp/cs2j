@@ -221,6 +221,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- C26 linq-channel fixture (Lib+App+Tests; bin/obj excluded). M1 ships
+         the skeleton only; full channel verification is added in M2/M3. -->
+    <Content Include="..\SampleLinqChannelSolution\**\*.*"
+              Exclude="..\SampleLinqChannelSolution\**\bin\**;..\SampleLinqChannelSolution\**\obj\**">
+      <Link>SampleLinqChannelSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- C33 variance-audit fixture; bin/obj excluded (may have been built locally). -->
     <Content Include="..\SampleVarianceAuditSolution\**\*.*"
               Exclude="..\SampleVarianceAuditSolution\**\bin\**;..\SampleVarianceAuditSolution\**\obj\**">

@@ -466,6 +466,12 @@ Enumerable 用例的「源项目测试 vs 中间树项目测试」在同一套 x
 | **M3 ★Queryable 门** | gate 强制开启并移除关闭路径；封堵 fallback（LC0011 不变量）；Queryable/Expression/混合链/自定义 provider 矩阵；RecordingQueryProvider fixture + 模拟 DbContext；query syntax 两源；residual 全门；strict 诊断 | **IQueryable 零误展开**；三门矩阵全绿；EF Core 计数扫描无未分类形状 |
 | **M4 默认开 / 旧路径退役** | §8 门槛评审 → 翻默认开；独立转换器 PR 摘 E16 项目路径（§5.4）、`--no-linq-rewrite` 映射、报告切 schema v2、存量测试迁移；单文件是否接 gate（Q4）定稿；Java Queryable 提供方立项材料（计数/边界报告）交后续 | 默认链含 linq-channel；E16 项目代码删除且三工程全绿 |
 
+> **2026-10-05 M1 校注：M1 已落地（observe-only gate，linq-channel 默认关）。** 数字按 worktree 源码/测试实测（非旧文预估）：
+> - 注册表真值：Implemented 描述符 **38 → 39**（[PassCatalog.cs](file:///d:/code/cs2j/.worktrees/preproc-c26-linq-channel/src/CSharpToJava.CLI/Preprocessing/PassCatalog.cs) `new(` 计数 39；linq-channel 插在 member-desugar 之后），Stub **4 → 3**，余者为 `thread-static`、`attribute-normalize`、`dynamic-desugar`（[PassStubCatalog.cs](file:///d:/code/cs2j/.worktrees/preproc-c26-linq-channel/src/CSharpToJava.CLI/Preprocessing/PassStubCatalog.cs)）。
+> - C19 `extension-methods` 与 C21 `anonymous-type-lift` 均已是 Implemented 且默认开；**linq-channel 是当前唯一 Implemented 但 `defaultEnabled: false` 的 pass**，只能经 `--enable-pass`/`--pass linq-channel` 到达。
+> - `PassChainOrderTests.LockedChain` 现为 **39 项**（全部 Implemented；三 stub 不占链位），锁定槽位 `member-desugar → linq-channel → concurrency-normalize`；`EnabledByDefault` = LockedChain 去掉 linq-channel（38 项）。
+> - gate 仍为只观测不拦截；E16 三个调用点（ProjectPasses/SingleFilePasses/Program.cs）与 Rules.cs 零改动；等价性出口判据由 `LinqChannelEquivalenceTests`（内存编译，规范化后逐字符比对 E16 无 gate 与通道两路径）+ `SampleLinqChannelSolution` fixture 骨架基线测试承担。
+
 ---
 
 ## 10. 风险
