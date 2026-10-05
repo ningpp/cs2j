@@ -7,19 +7,26 @@ using Microsoft.CodeAnalysis.CSharp;
 namespace CSharpToJava.CLI.Preprocessing.Adapters;
 
 /// <summary>
-/// Adapter for the C25 dynamic-desugar pass (design §3.2/§5.1/§5.2). M1 ships
-/// the Audit behavior only: the standard <see cref="ProjectPassAdapter"/> spine
-/// parses/compiles the whole tree, this adapter binds the Core
-/// <see cref="DynamicDesugarPreprocessor"/>, emits the named DS0xx diagnostics
-/// per file (every file stays a byte copy) and writes
-/// <c>dynamic-audit-report.json</c> into the intermediate root. Selecting
-/// Rewrite mode in M1 changes only the diagnostic grading (Core policy); no
-/// source is rewritten. The audit never restores/builds/tests the
-/// intermediate tree (the M2 Rewrite adapter will, like the C42 Stub modes).
+/// Adapter for the C25 dynamic-desugar pass (design §3.2/§5.1/§5.3). The
+/// standard <see cref="ProjectPassAdapter"/> spine parses/compiles the whole
+/// tree; this adapter binds the Core <see cref="DynamicDesugarPreprocessor"/>
+/// and, in both modes, precomputes one whole-tree <c>RewriteAll()</c> result in
+/// <see cref="CompilationReadyAsync"/> (C42 precompute-dispatch precedent):
+/// <list type="bullet">
+/// <item><b>Audit</b> (default): every file is a byte copy; the named DS0xx
+/// diagnostics flow from the precomputed result and
+/// <c>dynamic-audit-report.json</c> is written; no restore/build/test;</item>
+/// <item><b>Rewrite</b>: Changed files are served from the precomputed result
+/// (<see cref="PassFileRewrite.PreserveBom"/> on), the residual double-sweep
+/// gate (DS030/DS060/DS061) closes the run in Core, and intermediate-tree
+/// restore/build/test verification is dual-on (gated by the global
+/// <c>--no-verify-*</c>).</item>
+/// </list>
 /// </summary>
 internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
 {
     private const string ReportFileName = "dynamic-audit-report.json";
+    private const string ManifestFileName = "Cs2jDynamicAudit.json";
     private const string RestoreFailedCode = DynamicDesugarDiagnosticCodes.RestoreFailed;
     private const string BuildFailedCode = DynamicDesugarDiagnosticCodes.BuildFailed;
     private const string TestsFailedCode = DynamicDesugarDiagnosticCodes.TestsFailed;
@@ -27,13 +34,15 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
     private readonly DynamicDesugarOptions _options;
     private readonly bool _verbose;
     private readonly bool _filterUnsupportedProjects;
+    private readonly bool _verifyBuild;
+    private readonly bool _verifyTests;
 
     private readonly DynamicDesugarPreprocessor _preprocessor;
     private readonly DynamicAuditReportSerializer _serializer = new();
-    private readonly DynamicDesugarStatistics _statistics = new();
     private readonly List<ChainDiagnostic> _diagnostics = new();
 
     private PassTreeContext? _tree;
+    private DynamicApplyResult? _applyResult;
     private bool _bound;
 
     public DynamicDesugarPassAdapter(
@@ -46,13 +55,9 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
         _options = options;
         _verbose = verbose;
         _filterUnsupportedProjects = filterUnsupportedProjects;
+        _verifyBuild = verifyBuild;
+        _verifyTests = verifyTests;
         _preprocessor = new DynamicDesugarPreprocessor(options);
-
-        // Accepted for factory/descriptor alignment (verify dual-on defaults).
-        // M1 Audit never restores/builds/tests, so the flags take effect only
-        // with the M2 Rewrite mode (C42 ModeUsesVerify precedent).
-        _ = verifyBuild;
-        _ = verifyTests;
     }
 
     public override PassDescriptor Descriptor =>
@@ -62,19 +67,22 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
     public override bool Verbose => _verbose;
     public override bool FilterUnsupportedProjects => _filterUnsupportedProjects;
 
-    // M1: both modes are zero-rewrite audits, so the intermediate tree is
-    // byte-identical to its input; restoring/building/testing it adds nothing
-    // (design §5.1/§5.3). M2 Rewrite will return the constructor-gated flags.
-    public override bool VerifyBuild => false;
-    public override bool VerifyTests => false;
-    public override bool DeleteBuildOutputsAfterRestore => false;
+    // Verify dual-on applies to Rewrite only (§5.1/§5.3); Audit copies bytes
+    // and never restores/builds/tests the intermediate tree.
+    public override bool VerifyBuild => ModeUsesVerify && _verifyBuild;
+    public override bool VerifyTests => ModeUsesVerify && _verifyTests;
+    public override bool DeleteBuildOutputsAfterRestore => ModeUsesVerify;
 
     public override CSharpParseOptions CreateParseOptions(PassTreeContext tree)
         => new(LanguageVersion.Latest);
 
     public override string CompilationName => "dynamic-desugar-preprocess";
 
-    public DynamicDesugarStatistics Statistics => _statistics;
+    /// <summary>预计算统计（闸门/具体化取数；未绑定时为空统计）。</summary>
+    public DynamicDesugarStatistics Statistics =>
+        _applyResult?.Statistics ?? new DynamicDesugarStatistics();
+
+    private bool ModeUsesVerify => _options.Mode == DynamicMode.Rewrite;
 
     public override Task OnTreePreparedAsync(PassTreeContext tree)
     {
@@ -117,44 +125,48 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
 
     public override Task CompilationReadyAsync(CSharpCompilation compilation)
     {
-        // Whole-tree inventory is built once (Core caches it); per-file
-        // RewriteFile calls below read the same cache.
-        _preprocessor.BindCompilation(compilation, _options);
-        _preprocessor.BuildInventory();
+        // 两种模式统一整树预计算（C42 范本）：RewriteAll 内 Audit 只发分级诊断
+        // 字节复制，Rewrite 额外做 A1 具体化与 residual 双扫闸门。
+        _preprocessor.BindCompilation(compilation, ResolveOptions());
+        _applyResult = _preprocessor.RewriteAll();
         _bound = true;
-        return Task.CompletedTask;
-    }
 
-    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
-    {
-        if (!_bound)
-        {
-            throw new InvalidOperationException(
-                "dynamic-desugar requires the whole-tree compilation before file rewrites.");
-        }
-
-        // Drive the Core per-file (JK-style) overload with this file's model so
-        // the DS0xx diagnostics land here, where the pipeline already knows the
-        // source-root-relative path (design §5.1: RelativePath prefix reuse).
-        // M1: the result is always Changed=false; the runner byte-copies the
-        // file. Audit vs Rewrite differs only in the severities Core resolves.
-        var sink = new List<DynamicDesugarDiagnostic>();
-        _preprocessor.RewriteFile(
-            context.SourceFilePath,
-            context.SourceCode,
-            context.SemanticModel,
-            _statistics,
-            sink);
-
-        foreach (var diagnostic in sink)
+        foreach (var diagnostic in _applyResult.Diagnostics)
         {
             _diagnostics.Add(new ChainDiagnostic(
                 LevelOf(diagnostic.Severity),
                 diagnostic.Code,
                 diagnostic.Message,
-                context.RelativePath,
+                diagnostic.FilePath is null ? null : ToSourceRelative(diagnostic.FilePath),
                 diagnostic.Line,
                 diagnostic.Column));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
+    {
+        if (!_bound || _applyResult == null)
+        {
+            throw new InvalidOperationException(
+                "dynamic-desugar requires the whole-tree compilation before file rewrites.");
+        }
+
+        // Audit: Core marks every file Changed=false → null (byte copy).
+        // Rewrite: only concretized files are served; gate failures do not
+        // un-write files here, but fail the run via HasErrors (no delivered
+        // partial-isolation tree, design §5.3).
+        var file = _applyResult.Files.FirstOrDefault(f =>
+            string.Equals(f.FilePath, context.SourceFilePath, StringComparison.OrdinalIgnoreCase));
+        if (file is { Changed: true })
+        {
+            return Task.FromResult<PassFileRewrite?>(new PassFileRewrite
+            {
+                OutputCode = file.OutputCode,
+                Changed = true,
+                PreserveBom = true,
+            });
         }
 
         return Task.FromResult<PassFileRewrite?>(null);
@@ -162,12 +174,16 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
 
     public override Task AfterFilesAsync(PassTreeContext tree)
     {
-        // Zero sites still writes the report (design §3.5).
+        // Zero sites still writes the report (design §3.5); both modes write it.
         var report = RelativizeReport(_preprocessor.CloseReport());
         var reportPath = Path.Combine(tree.IntermediateRoot, ReportFileName);
         _serializer.WriteToFile(reportPath, report);
 
-        _statistics.ReportsWritten = 1;
+        if (_applyResult != null)
+        {
+            _applyResult.Statistics.ReportsWritten = 1;
+        }
+
         var written = DynamicDesugarDiagnostic.CreateReportWritten(
             reportPath, report.Totals.Sites);
         _diagnostics.Add(new ChainDiagnostic(
@@ -186,7 +202,6 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
             $"dotnet restore failed with exit code {exitCode} for {restoreTarget}.",
             restoreTarget));
 
-    // Unreachable while M1 verification stays off; codes reserved for M2.
     public override void OnBuildFailed(int exitCode)
         => _diagnostics.Add(new ChainDiagnostic(
             "error",
@@ -204,19 +219,20 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
 
     public override string? BuildChainSummaryLine()
     {
-        if (!_bound)
+        if (!_bound || _applyResult == null)
         {
             return null;
         }
 
         // design §5.1: N sites (P proven / U unprovable / S manifest-suppressed),
-        // R concretized declarations, K residual; M1 P/R/S/K are structurally 0.
-        return $"dynamic-desugar: {_statistics.SitesTotal} site(s) " +
-               $"({_statistics.ProvenDeclarations} proven, " +
-               $"{_statistics.UnprovableSites} unprovable, " +
-               $"{_statistics.ManifestSuppressed} manifest-suppressed), " +
-               $"{_statistics.DeclarationsRewritten} declaration(s) concretized, " +
-               $"{_statistics.ResidualSites} residual; mode={_options.Mode}";
+        // R declaration(s) concretized, K residual.
+        var statistics = _applyResult.Statistics;
+        return $"dynamic-desugar: {statistics.SitesTotal} site(s) "
+               + $"({statistics.ProvenDeclarations} proven, "
+               + $"{statistics.UnprovableSites} unprovable, "
+               + $"{statistics.ManifestSuppressed} manifest-suppressed), "
+               + $"{statistics.DeclarationsRewritten} declaration(s) concretized, "
+               + $"{statistics.ResidualSites} residual; mode={_options.Mode}";
     }
 
     public override IReadOnlyList<string> BuildChainDiagnosticLines(bool verbose)
@@ -224,6 +240,46 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
             .Where(d => d.Level != "info" || verbose)
             .Select(d => d.ToMsBuildString())
             .ToList();
+
+    /// <summary>
+    /// 解析实际生效选项（开放问题 2 决议：manifest 随源码受控、落源根，不走
+    /// CWD/config 约定）：显式 <c>--dynamic-audit-manifest</c> 相对路径按调用方
+    /// CWD 解析（Core 只按给定路径加载）；未指定时若源根存在
+    /// <c>Cs2jDynamicAudit.json</c> 则默认采用，缺省=无 manifest。
+    /// </summary>
+    private DynamicDesugarOptions ResolveOptions()
+    {
+        if (!string.IsNullOrWhiteSpace(_options.AuditManifestPath))
+        {
+            var explicitPath = Path.IsPathRooted(_options.AuditManifestPath)
+                ? _options.AuditManifestPath
+                : Path.GetFullPath(_options.AuditManifestPath);
+            return WithManifestPath(_options, explicitPath);
+        }
+
+        if (_tree != null)
+        {
+            var sourceRootManifest = Path.Combine(_tree.SourceRoot, ManifestFileName);
+            if (File.Exists(sourceRootManifest))
+            {
+                return WithManifestPath(_options, sourceRootManifest);
+            }
+        }
+
+        return _options;
+    }
+
+    private static DynamicDesugarOptions WithManifestPath(
+        DynamicDesugarOptions options,
+        string manifestPath)
+        => new()
+        {
+            Mode = options.Mode,
+            Strict = options.Strict,
+            AuditManifestPath = manifestPath,
+            SealedOnly = options.SealedOnly,
+            AllowCastInsertion = options.AllowCastInsertion,
+        };
 
     /// <summary>
     /// Rebuild the report with every site file relativized to the source root

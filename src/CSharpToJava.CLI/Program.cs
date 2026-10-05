@@ -1664,9 +1664,11 @@ public class Program
 
     /// <summary>
     /// Build the C25 dynamic-desugar options from the CLI flags. Audit mode is
-    /// the M1 default (named-site report only, zero rewrites);
-    /// <c>--dynamic-report-only</c> forces it. In M1 selecting Rewrite only
-    /// changes diagnostic grading; the manifest is not consumed until M2.
+    /// the default (named-site report only, zero rewrites);
+    /// <c>--dynamic-report-only</c> forces it. Rewrite mode concretizes the
+    /// provable subset, enforces the residual gate, and consumes the audit
+    /// manifest; a relative manifest path resolves against the working
+    /// directory and Core loads it exactly as given.
     /// </summary>
     private static CSharpToJava.Core.DynamicDesugar.DynamicDesugarOptions BuildDynamicDesugarOptions(
         bool reportOnly,
@@ -5087,15 +5089,15 @@ class PreprocessVerbOptions
     public bool DynamicReportOnly { get; set; }
 
     [Option("dynamic-mode", Default = "Audit",
-        HelpText = "C25 dynamic-desugar mode: Audit|Rewrite (M1 ships Audit; in M1 Rewrite only changes diagnostic grading and still rewrites nothing)")]
+        HelpText = "C25 dynamic-desugar mode: Audit|Rewrite (Audit: named-site inventory and report only; Rewrite: concretizes provable locals, verifies the intermediate tree, and gates on residual dynamic sites)")]
     public string DynamicMode { get; set; } = "Audit";
 
     [Option("dynamic-strict", Default = false,
-        HelpText = "C25 dynamic-desugar strict: Warning-class sites are escalated to errors and fail the run")]
+        HelpText = "C25 dynamic-desugar strict: Warning-class sites (including manifest-registered residuals) are escalated to errors and fail the run")]
     public bool DynamicStrict { get; set; }
 
     [Option("dynamic-audit-manifest", Required = false,
-        HelpText = "Path to Cs2jDynamicAudit.json; the manifest lives at the source root and is committed with the sources (default: no manifest is loaded; unused until M2)")]
+        HelpText = "Path to Cs2jDynamicAudit.json (relative paths resolve from the working directory); the manifest is source-controlled at the source root, so when this option is unset <source-root>/Cs2jDynamicAudit.json is used if present")]
     public string? DynamicAuditManifest { get; set; }
 
     [Option("readonly-overrides", Required = false,
@@ -5689,15 +5691,15 @@ class ConvertProjectOptions
     public bool DynamicReportOnly { get; set; }
 
     [Option("dynamic-mode", Default = "Audit",
-        HelpText = "C25 dynamic-desugar mode: Audit|Rewrite (M1 ships Audit; in M1 Rewrite only changes diagnostic grading and still rewrites nothing)")]
+        HelpText = "C25 dynamic-desugar mode: Audit|Rewrite (Audit: named-site inventory and report only; Rewrite: concretizes provable locals, verifies the intermediate tree, and gates on residual dynamic sites)")]
     public string DynamicMode { get; set; } = "Audit";
 
     [Option("dynamic-strict", Default = false,
-        HelpText = "C25 dynamic-desugar strict: Warning-class sites are escalated to errors and fail the run")]
+        HelpText = "C25 dynamic-desugar strict: Warning-class sites (including manifest-registered residuals) are escalated to errors and fail the run")]
     public bool DynamicStrict { get; set; }
 
     [Option("dynamic-audit-manifest", Required = false,
-        HelpText = "Path to Cs2jDynamicAudit.json; the manifest lives at the source root and is committed with the sources (default: no manifest is loaded; unused until M2)")]
+        HelpText = "Path to Cs2jDynamicAudit.json (relative paths resolve from the working directory); the manifest is source-controlled at the source root, so when this option is unset <source-root>/Cs2jDynamicAudit.json is used if present")]
     public string? DynamicAuditManifest { get; set; }
 
     /// <summary>Resolve PreferStreamApi: explicit flags override, otherwise null (version-based default).</summary>

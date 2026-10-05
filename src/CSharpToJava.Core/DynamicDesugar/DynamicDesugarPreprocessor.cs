@@ -184,9 +184,43 @@ public sealed class DynamicDesugarPreprocessor
                 "BindCompilation must be called before RewriteAll.");
         }
 
-        BuildInventory();
+        var inventory = BuildInventory();
         var files = new List<DynamicFileResult>();
         var diagnostics = new List<DynamicDesugarDiagnostic>();
+
+        // Rewrite 模式在逐文件处理之前加载 manifest（Audit 行为零变化）。
+        // manifest 必须前置：登记命中的残余站点不再发射原始 DS01x Error，
+        // 由收口闸门对输出统一发 DS060（D13「由 Error 降为 DS060」）。
+        DynamicResidualGateResult? gate = null;
+        var isRewrite = _options.Mode == DynamicMode.Rewrite;
+        var manifestLoadFailed = false;
+        DynamicAuditManifest? manifest = null;
+        if (isRewrite && !string.IsNullOrWhiteSpace(_options.AuditManifestPath))
+        {
+            try
+            {
+                manifest = DynamicAuditManifest.Load(_options.AuditManifestPath);
+            }
+            catch (DynamicAuditManifestException ex)
+            {
+                // manifest 非法 fail-fast：复用 DS030（闸门失败统一出口），
+                // 消息明确指向 manifest（最小方案，不新增码位）。
+                manifestLoadFailed = true;
+                diagnostics.Add(new DynamicDesugarDiagnostic(
+                    DynamicDesugarDiagnosticCodes.ResidualGateViolation,
+                    DynamicDesugarSeverity.Error,
+                    ex.Message));
+                HasErrors = true;
+            }
+        }
+
+        // 输入清单命中站点（引用相等）。前提（D13）：登记站点都在不被具体化的
+        // 字节复制文件（参数/返回/字段/Expando 等），span 稳定，输入命中即输出
+        // 残余命中。加载失败时为空集合，原始诊断照常发射。
+        IReadOnlySet<DynamicSiteRecord>? manifestHits =
+            isRewrite && !manifestLoadFailed
+                ? DynamicResidualGate.FindManifestHitSites(inventory, manifest)
+                : null;
 
         // 逐文件累加同一统计实例（站点/声明口径与 FromRecords 等价，文件口径真实取数：
         // FilesTransformed/FilesSkippedClean/DeclarationsRewritten）。
@@ -199,8 +233,29 @@ public sealed class DynamicDesugarPreprocessor
                 tree.FilePath ?? string.Empty,
                 text,
                 statistics,
-                diagnostics);
+                diagnostics,
+                manifestHits);
             files.Add(result);
+        }
+
+        // Rewrite 模式收口（Audit 行为零变化）：输出文本整树重建 → residual
+        // 双扫闸门（设计 §6.2/D13）。manifest 已在逐文件处理前完成加载。
+        if (isRewrite && !manifestLoadFailed)
+        {
+            var outputCompilation = BuildOutputCompilation(files);
+            gate = DynamicResidualGate.Scan(outputCompilation, manifest, _options);
+            foreach (var gateDiagnostic in gate.Diagnostics)
+            {
+                diagnostics.Add(gateDiagnostic);
+                if (gateDiagnostic.Severity == DynamicDesugarSeverity.Error)
+                {
+                    HasErrors = true;
+                }
+            }
+
+            statistics.ResidualSites = gate.ResidualCount;
+            statistics.ManifestSuppressed = gate.SuppressedCount;
+            statistics.ManifestStaleEntries = gate.StaleEntries;
         }
 
         return new DynamicApplyResult
@@ -209,8 +264,42 @@ public sealed class DynamicDesugarPreprocessor
             Diagnostics = diagnostics,
             Statistics = statistics,
             HasErrors = HasErrors
-                       || diagnostics.Any(d => d.Severity == DynamicDesugarSeverity.Error),
+                       || diagnostics.Any(d => d.Severity == DynamicDesugarSeverity.Error)
+                       || (gate?.ResidualCount > 0),
         };
+    }
+
+    /// <summary>
+    /// 用逐文件输出文本重建整树编译（仅 Rewrite 闸门用）。口径与
+    /// <see cref="DynamicRewriteValidator"/> 三候选校验一致：保留原编译的元数据
+    /// 引用、编译选项与附加树（如全局 using 合成树），逐树
+    /// <see cref="CSharpCompilation.ReplaceSyntaxTree"/> 替换为输出文本重新 parse
+    /// 的语法树（未改写文件也一并重建，保证闸门看到的就是将落盘的文本）。
+    /// </summary>
+    private CSharpCompilation BuildOutputCompilation(IReadOnlyList<DynamicFileResult> files)
+    {
+        var compilation = (CSharpCompilation)_compilation!;
+        var resultByPath = files.ToDictionary(file => file.FilePath, StringComparer.Ordinal);
+
+        foreach (var originalTree in _compilation.SyntaxTrees)
+        {
+            var filePath = originalTree.FilePath ?? string.Empty;
+            if (!resultByPath.TryGetValue(filePath, out var result))
+            {
+                continue;
+            }
+
+            var parseOptions = originalTree.Options as CSharpParseOptions
+                               ?? new CSharpParseOptions(LanguageVersion.Latest);
+            var outputTree = CSharpSyntaxTree.ParseText(
+                result.OutputCode,
+                parseOptions,
+                filePath,
+                encoding: originalTree.Encoding);
+            compilation = compilation.ReplaceSyntaxTree(originalTree, outputTree);
+        }
+
+        return compilation;
     }
 
     /// <summary>累积错误态：任一已发射诊断为 Error 即 true（只单调置位）。</summary>
@@ -220,7 +309,8 @@ public sealed class DynamicDesugarPreprocessor
         string filePath,
         string sourceCode,
         DynamicDesugarStatistics? statistics,
-        IList<DynamicDesugarDiagnostic>? diagnosticsSink)
+        IList<DynamicDesugarDiagnostic>? diagnosticsSink,
+        IReadOnlySet<DynamicSiteRecord>? manifestHits = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(sourceCode);
@@ -232,7 +322,8 @@ public sealed class DynamicDesugarPreprocessor
         if (_options.Mode != DynamicMode.Rewrite)
         {
             var auditDiagnostics = EmitSiteDiagnostics(
-                fileSites, filePath, concreteSites: null, diagnosticsSink);
+                fileSites, filePath, concreteSites: null, diagnosticsSink,
+                manifestHits: null);
             statistics?.AddFile(fileSites, transformed: false);
             return new DynamicFileResult
             {
@@ -277,7 +368,8 @@ public sealed class DynamicDesugarPreprocessor
         if (provenInFile.Count == 0)
         {
             var unprovenDiagnostics = EmitSiteDiagnostics(
-                fileSites, filePath, concreteSites: null, diagnosticsSink);
+                fileSites, filePath, concreteSites: null, diagnosticsSink,
+                manifestHits);
             statistics?.AddFile(fileSites, transformed: false);
             return new DynamicFileResult
             {
@@ -307,7 +399,8 @@ public sealed class DynamicDesugarPreprocessor
         {
             // 三候选全败：原文保留 + Changed=false + DS040 Error（fail-closed）。
             var failureDiagnostics = EmitSiteDiagnostics(
-                fileSites, filePath, concreteSites: null, diagnosticsSink);
+                fileSites, filePath, concreteSites: null, diagnosticsSink,
+                manifestHits);
             var firstSite = fileSites.FirstOrDefault(s => concreteSites.Contains(s));
             var locationText = firstSite != null
                 ? $"line {firstSite.Line + 1}, col {firstSite.Column + 1}"
@@ -347,7 +440,8 @@ public sealed class DynamicDesugarPreprocessor
         var outputCode = hasBom ? '\uFEFF' + candidateBody : candidateBody;
 
         var successDiagnostics = EmitSiteDiagnostics(
-            fileSites, filePath, concreteSites, diagnosticsSink);
+            fileSites, filePath, concreteSites, diagnosticsSink,
+            manifestHits);
         statistics?.AddFile(fileSites, transformed: true);
         if (statistics != null)
         {
@@ -399,7 +493,8 @@ public sealed class DynamicDesugarPreprocessor
         IReadOnlyList<DynamicSiteRecord> fileSites,
         string filePath,
         IReadOnlySet<DynamicSiteRecord>? concreteSites,
-        IList<DynamicDesugarDiagnostic>? diagnosticsSink)
+        IList<DynamicDesugarDiagnostic>? diagnosticsSink,
+        IReadOnlySet<DynamicSiteRecord>? manifestHits)
     {
         var diagnostics = new List<DynamicDesugarDiagnostic>();
 
@@ -408,6 +503,16 @@ public sealed class DynamicDesugarPreprocessor
             // null = 该站点不发射诊断（基线错误保守台账不叠加编译器噪声）。
             var severity = DynamicDesugarSeverityPolicy.Resolve(site, _options);
             if (severity == null)
+            {
+                continue;
+            }
+
+            // Rewrite 模式命中 manifest 的残余站点：原始 Warning/Error 诊断
+            // （DS01x）不发射，由收口闸门对输出统一发 DS060——登记即显式知情
+            // 残留（D13「由 Error 降为 DS060」）。Info 类（DS001 已具体化、
+            // DS002 P2 cast 参考消息等）保留。
+            if (manifestHits?.Contains(site) == true
+                && severity != DynamicDesugarSeverity.Info)
             {
                 continue;
             }

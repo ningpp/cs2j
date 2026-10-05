@@ -1480,6 +1480,275 @@ public class DynamicDesugarUnitTests
         Assert.False(result.HasErrors);
     }
 
+    // ---------- M2：审计登记 manifest + residual 双扫闸门（设计 §6.2/D13） ----------
+
+    private const string DynamicParameterSource = """
+        class Sample
+        {
+            void Take(dynamic x)
+            {
+            }
+        }
+        """;
+
+    private static string WriteTempManifest(string json)
+    {
+        var path = Path.Combine(
+            Path.GetTempPath(),
+            $"cs2j-dynamic-audit-{Guid.NewGuid():N}.json");
+        File.WriteAllText(path, json);
+        return path;
+    }
+
+    /// <summary>
+    /// 按 inventory 站点真实 span 动态构造单条目 manifest（不硬编码偏移）：
+    /// file 直接写 "Test.cs"（Core 单测 tree.FilePath 即相对值，原值候选直接命中）。
+    /// </summary>
+    private static string ManifestJsonFor(DynamicSiteRecord site) => $$"""
+        {
+          "comment": "unit-test manifest",
+          "entries": [
+            {
+              "file": "{{TestPath}}",
+              "line": {{site.Line + 1}},
+              "column": {{site.Column + 1}},
+              "spanStart": {{site.SpanStart}},
+              "spanLength": {{site.SpanEnd - site.SpanStart}},
+              "kind": "{{site.Kind}}",
+              "reason": "accepted residual in unit test",
+              "auditor": "tester",
+              "auditedAt": "2026-10-05"
+            }
+          ]
+        }
+        """;
+
+    private static bool IsGateCode(string code)
+        => code == DynamicDesugarDiagnosticCodes.ResidualGateViolation
+           || code == DynamicDesugarDiagnosticCodes.ManifestSuppressed
+           || code == DynamicDesugarDiagnosticCodes.StaleManifestEntry;
+
+    [Fact]
+    public void M2_Gate_AllConcretized_ZeroResidual_NoGateDiagnostics()
+    {
+        var result = RunRewrite(SealedOnlySource);
+        var file = TestFileResult(result);
+
+        Assert.True(file.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain(result.Diagnostics, d => IsGateCode(d.Code));
+        Assert.Equal(0, result.Statistics.ResidualSites);
+        Assert.Equal(0, result.Statistics.ManifestSuppressed);
+        Assert.Equal(0, result.Statistics.ManifestStaleEntries);
+    }
+
+    [Fact]
+    public void M2_Gate_UnregisteredParameter_Ds030ErrorAndSourceRetained()
+    {
+        var result = RunRewrite(DynamicParameterSource);
+        var file = TestFileResult(result);
+
+        Assert.True(result.HasErrors);
+        // 跨边界签名不可具体化：文件字节保留。
+        Assert.False(file.Changed);
+        Assert.Equal(DynamicParameterSource, file.OutputCode);
+
+        // 逐文件阶段的原始 DS011 Error 与收口闸门 DS030 Error 各一条。
+        Assert.Contains(file.Diagnostics, d =>
+            d.Code == DynamicDesugarDiagnosticCodes.CrossBoundarySignature
+            && d.Severity == DynamicDesugarSeverity.Error);
+        var ds030 = Assert.Single(result.Diagnostics, d =>
+            d.Code == DynamicDesugarDiagnosticCodes.ResidualGateViolation);
+        Assert.Equal(DynamicDesugarSeverity.Error, ds030.Severity);
+        Assert.Contains("Test.cs(", ds030.Message);
+        Assert.Contains("DynamicParameter", ds030.Message);
+        Assert.Contains("Cs2jDynamicAudit.json", ds030.Message);
+        Assert.DoesNotContain(
+            result.Diagnostics,
+            d => d.Code == DynamicDesugarDiagnosticCodes.ManifestSuppressed
+                 || d.Code == DynamicDesugarDiagnosticCodes.StaleManifestEntry);
+
+        Assert.Equal(1, result.Statistics.ResidualSites);
+        Assert.Equal(0, result.Statistics.ManifestSuppressed);
+    }
+
+    [Fact]
+    public void M2_Gate_RegisteredParameter_Ds060WarningPasses_StrictEscalates()
+    {
+        var site = BuildInventory(DynamicParameterSource).Sites
+            .Single(s => s.Kind == DynamicSiteKind.DynamicParameter);
+        var manifestPath = WriteTempManifest(ManifestJsonFor(site));
+
+        try
+        {
+            // 默认（非 strict）：DS060 Warning、闸门通过、原始 DS011 不再发射。
+            var result = RunAll(DynamicParameterSource, new DynamicDesugarOptions
+            {
+                Mode = DynamicMode.Rewrite,
+                AuditManifestPath = manifestPath,
+            });
+            var file = TestFileResult(result);
+
+            Assert.False(file.Changed);
+            Assert.False(result.HasErrors);
+            var ds060 = Assert.Single(result.Diagnostics, d =>
+                d.Code == DynamicDesugarDiagnosticCodes.ManifestSuppressed);
+            Assert.Equal(DynamicDesugarSeverity.Warning, ds060.Severity);
+            Assert.Contains("tester", ds060.Message);
+            Assert.Contains("accepted residual in unit test", ds060.Message);
+            Assert.DoesNotContain(
+                result.Diagnostics,
+                d => d.Code == DynamicDesugarDiagnosticCodes.ResidualGateViolation);
+            Assert.DoesNotContain(
+                result.Diagnostics,
+                d => d.Code == DynamicDesugarDiagnosticCodes.CrossBoundarySignature);
+            Assert.Equal(0, result.Statistics.ResidualSites);
+            Assert.Equal(1, result.Statistics.ManifestSuppressed);
+            Assert.Equal(0, result.Statistics.ManifestStaleEntries);
+
+            // strict：同一 DS060 升 Error、运行失败（分级只在闸门收口处翻转）。
+            var strict = RunAll(DynamicParameterSource, new DynamicDesugarOptions
+            {
+                Mode = DynamicMode.Rewrite,
+                Strict = true,
+                AuditManifestPath = manifestPath,
+            });
+            var strictDs060 = Assert.Single(strict.Diagnostics, d =>
+                d.Code == DynamicDesugarDiagnosticCodes.ManifestSuppressed);
+            Assert.Equal(DynamicDesugarSeverity.Error, strictDs060.Severity);
+            Assert.True(strict.HasErrors);
+        }
+        finally
+        {
+            File.Delete(manifestPath);
+        }
+    }
+
+    [Fact]
+    public void M2_Gate_EntryForConcretizedSite_Ds061StaleWarning()
+    {
+        // 登记的局部站点被 A1 具体化后消失：输出无残余站点匹配 → 陈旧 DS061。
+        var site = BuildInventory(SealedOnlySource).Sites
+            .Single(s => s.Kind == DynamicSiteKind.DynamicLocalDecl);
+        var manifestPath = WriteTempManifest(ManifestJsonFor(site));
+
+        try
+        {
+            var result = RunAll(SealedOnlySource, new DynamicDesugarOptions
+            {
+                Mode = DynamicMode.Rewrite,
+                AuditManifestPath = manifestPath,
+            });
+            var file = TestFileResult(result);
+
+            Assert.True(file.Changed);
+            Assert.False(result.HasErrors);
+            var ds061 = Assert.Single(result.Diagnostics, d =>
+                d.Code == DynamicDesugarDiagnosticCodes.StaleManifestEntry);
+            Assert.Equal(DynamicDesugarSeverity.Warning, ds061.Severity);
+            Assert.DoesNotContain(
+                result.Diagnostics,
+                d => d.Code == DynamicDesugarDiagnosticCodes.ResidualGateViolation
+                     || d.Code == DynamicDesugarDiagnosticCodes.ManifestSuppressed);
+            Assert.Equal(1, result.Statistics.ManifestStaleEntries);
+            Assert.Equal(0, result.Statistics.ManifestSuppressed);
+            Assert.Equal(0, result.Statistics.ResidualSites);
+        }
+        finally
+        {
+            File.Delete(manifestPath);
+        }
+    }
+
+    [Fact]
+    public void M2_Gate_DynamicInStringsAndComments_NotCounted()
+    {
+        const string source = """
+            class Sample
+            {
+                string Take()
+                {
+                    // dynamic in a line comment
+                    /* dynamic in a block comment */
+                    var s = "dynamic";
+                    const string k = "xdynamic";
+                    return s + k;
+                }
+            }
+            """;
+
+        var result = RunRewrite(source);
+        var file = TestFileResult(result);
+
+        Assert.False(file.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain(result.Diagnostics, d => IsGateCode(d.Code));
+        Assert.Equal(0, result.Statistics.ResidualSites);
+    }
+
+    [Fact]
+    public void M2_Gate_InvalidManifestJson_Ds030ErrorFailFast()
+    {
+        var manifestPath = WriteTempManifest("{ this is not valid json");
+
+        try
+        {
+            var result = RunAll(DynamicParameterSource, new DynamicDesugarOptions
+            {
+                Mode = DynamicMode.Rewrite,
+                AuditManifestPath = manifestPath,
+            });
+
+            Assert.True(result.HasErrors);
+            var ds030 = Assert.Single(result.Diagnostics, d =>
+                d.Code == DynamicDesugarDiagnosticCodes.ResidualGateViolation);
+            Assert.Equal(DynamicDesugarSeverity.Error, ds030.Severity);
+            Assert.Contains("manifest", ds030.Message, StringComparison.OrdinalIgnoreCase);
+            // manifest 加载失败 fail-fast：闸门不运行，无 DS060/DS061。
+            Assert.DoesNotContain(
+                result.Diagnostics,
+                d => d.Code == DynamicDesugarDiagnosticCodes.ManifestSuppressed
+                     || d.Code == DynamicDesugarDiagnosticCodes.StaleManifestEntry);
+        }
+        finally
+        {
+            File.Delete(manifestPath);
+        }
+    }
+
+    [Fact]
+    public void M2_AuditMode_ManifestPresent_GateNeverRuns()
+    {
+        var site = BuildInventory(DynamicParameterSource).Sites
+            .Single(s => s.Kind == DynamicSiteKind.DynamicParameter);
+        var manifestPath = WriteTempManifest(ManifestJsonFor(site));
+
+        try
+        {
+            var result = RunAll(DynamicParameterSource, new DynamicDesugarOptions
+            {
+                Mode = DynamicMode.Audit,
+                AuditManifestPath = manifestPath,
+            });
+
+            // Audit 模式行为零变化：不加载 manifest、不跑闸门；跨边界站点仍是
+            // Audit 口径的 DS011 Warning。
+            Assert.False(result.HasErrors);
+            Assert.DoesNotContain(result.Diagnostics, d => IsGateCode(d.Code));
+            Assert.Contains(result.Diagnostics, d =>
+                d.Code == DynamicDesugarDiagnosticCodes.CrossBoundarySignature
+                && d.Severity == DynamicDesugarSeverity.Warning);
+            Assert.Equal(0, result.Statistics.ResidualSites);
+            Assert.Equal(0, result.Statistics.ManifestSuppressed);
+            Assert.Equal(0, result.Statistics.ManifestStaleEntries);
+            Assert.False(TestFileResult(result).Changed);
+        }
+        finally
+        {
+            File.Delete(manifestPath);
+        }
+    }
+
     // 三候选记录器：记录顺序与文本；拒绝两个格式化候选、仅让未格式化候选走默认校验，
     // 用于验证候选 3 兜底链真实生效。
     private sealed class RecordingValidator : DynamicRewriteValidator
