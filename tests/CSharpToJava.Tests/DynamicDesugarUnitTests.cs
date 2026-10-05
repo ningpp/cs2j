@@ -1141,4 +1141,374 @@ public class DynamicDesugarUnitTests
         Assert.Contains("\"originType\": \"SealedFoo\"", first);
         Assert.DoesNotContain("generatedAt", first, StringComparison.OrdinalIgnoreCase);
     }
+
+    // ---------- M2 A1：声明具体化重写（设计 §4.5/D10/D14） ----------
+
+    private static readonly DynamicDesugarOptions RewriteOptions = new() { Mode = DynamicMode.Rewrite };
+
+    private static DynamicApplyResult RunRewrite(
+        string content,
+        DynamicDesugarPreprocessor? preprocessor = null)
+    {
+        preprocessor ??= new DynamicDesugarPreprocessor(RewriteOptions);
+        preprocessor.BindCompilation(BuildCompilation(content));
+        return preprocessor.RewriteAll();
+    }
+
+    private static DynamicFileResult TestFileResult(DynamicApplyResult result)
+        => Assert.Single(result.Files.Where(f => f.FilePath == TestPath));
+
+    private static string? FirstLocalTypeText(string code)
+    {
+        var root = CSharpSyntaxTree.ParseText(code).GetCompilationUnitRoot();
+        return root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.LocalDeclarationStatementSyntax>()
+            .FirstOrDefault()?.Declaration.Type.ToString();
+    }
+
+    private const string SealedOnlySource = """
+        sealed class SealedFoo { }
+
+        class Sample
+        {
+            void F()
+            {
+                dynamic d = new SealedFoo();
+            }
+        }
+        """;
+
+    [Fact]
+    public void A1_Rewrite_SealedClass_SingleDeclarationConcretized()
+    {
+        var result = RunRewrite(SealedOnlySource);
+        var file = TestFileResult(result);
+
+        Assert.True(file.Changed);
+        Assert.DoesNotContain("dynamic", file.OutputCode);
+        Assert.Equal("SealedFoo", FirstLocalTypeText(file.OutputCode));
+        Assert.Contains("SealedFoo d = new SealedFoo();", file.OutputCode);
+
+        // DS001 完成时措辞（Info；声明已落地）。
+        var ds001 = Assert.Single(
+            file.Diagnostics,
+            d => d.Code == DynamicDesugarDiagnosticCodes.ProvenConcretized);
+        Assert.Equal(DynamicDesugarSeverity.Info, ds001.Severity);
+        Assert.Contains(
+            "concretized dynamic local declaration to 'SealedFoo' at Test.cs(",
+            ds001.Message);
+        Assert.DoesNotContain("no rewrite has been performed", ds001.Message);
+
+        Assert.False(result.HasErrors);
+        Assert.Equal(1, result.Statistics.FilesTransformed);
+        Assert.Equal(1, result.Statistics.DeclarationsRewritten);
+    }
+
+    [Fact]
+    public void A1_Rewrite_ValueType_DeclarationConcretizedToInt()
+    {
+        const string source = """
+            class Sample
+            {
+                void F()
+                {
+                    dynamic i = 42;
+                }
+            }
+            """;
+
+        var file = TestFileResult(RunRewrite(source));
+        Assert.True(file.Changed);
+        Assert.Equal("int", FirstLocalTypeText(file.OutputCode));
+        Assert.Equal(1, file.Diagnostics.Count(d =>
+            d.Code == DynamicDesugarDiagnosticCodes.ProvenConcretized
+            && d.Message.Contains("concretized dynamic local declaration to 'int' at")));
+    }
+
+    [Fact]
+    public void A1_Rewrite_String_DeclarationConcretizedToString()
+    {
+        const string source = """
+            class Sample
+            {
+                void F()
+                {
+                    dynamic s = "hi";
+                }
+            }
+            """;
+
+        var file = TestFileResult(RunRewrite(source));
+        Assert.True(file.Changed);
+        Assert.Equal("string", FirstLocalTypeText(file.OutputCode));
+        Assert.Contains(
+            "to 'string' at",
+            Assert.Single(
+                file.Diagnostics,
+                d => d.Code == DynamicDesugarDiagnosticCodes.ProvenConcretized).Message);
+    }
+
+    [Fact]
+    public void A1_Rewrite_VarInferredDynamic_ConcretizedViaSourceReturnLookThrough()
+    {
+        // var 推断为 dynamic（静态 dynamic 返回方法）：M2 窄口径源内透视——静态方法、
+        // 单一表达式体、唯一 sealed 返回类型 SealedFoo → var 位点证为 SealedFoo。
+        const string source = """
+            sealed class SealedFoo { }
+
+            class Sample
+            {
+                static dynamic GetIt() => new SealedFoo();
+
+                void F()
+                {
+                    var x = GetIt();
+                }
+            }
+            """;
+
+        var file = TestFileResult(RunRewrite(source));
+        Assert.True(file.Changed);
+        Assert.Equal("SealedFoo", FirstLocalTypeText(file.OutputCode));
+        Assert.Contains("SealedFoo x = GetIt();", file.OutputCode);
+        Assert.DoesNotContain("var x", file.OutputCode);
+        Assert.Single(file.Diagnostics, d =>
+            d.Code == DynamicDesugarDiagnosticCodes.ProvenConcretized
+            && d.Message.Contains("to 'SealedFoo' at"));
+    }
+
+    [Fact]
+    public void A1_Rewrite_ForeachDynamic_ConcretizedToElementType()
+    {
+        const string source = """
+            sealed class SealedFoo { }
+
+            class Sample
+            {
+                void F()
+                {
+                    var items = new System.Collections.Generic.List<SealedFoo>();
+                    foreach (dynamic item in items)
+                    {
+                    }
+                }
+            }
+            """;
+
+        var file = TestFileResult(RunRewrite(source));
+        Assert.True(file.Changed);
+        Assert.DoesNotContain("dynamic", file.OutputCode);
+        var root = CSharpSyntaxTree.ParseText(file.OutputCode).GetCompilationUnitRoot();
+        var forEach = Assert.Single(root.DescendantNodes()
+            .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.ForEachStatementSyntax>());
+        Assert.Equal("SealedFoo", forEach.Type.ToString());
+        Assert.Equal("item", forEach.Identifier.Text);
+    }
+
+    [Fact]
+    public void A1_Rewrite_MultipleDeclaratorsSameType_SharedDeclarationConcretizedOnce()
+    {
+        const string source = """
+            sealed class SealedFoo { }
+
+            class Sample
+            {
+                void F()
+                {
+                    dynamic a = new SealedFoo(), b = new SealedFoo();
+                }
+            }
+            """;
+
+        var result = RunRewrite(source);
+        var file = TestFileResult(result);
+        Assert.True(file.Changed);
+        Assert.Contains("SealedFoo a = new SealedFoo(), b = new SealedFoo();", file.OutputCode);
+        Assert.DoesNotContain("dynamic", file.OutputCode);
+        // 共享 VariableDeclaration 只替换一次类型位 → 计 1 个声明。
+        Assert.Equal(1, result.Statistics.DeclarationsRewritten);
+    }
+
+    [Fact]
+    public void A1_Rewrite_MultipleDeclaratorsDifferentTypes_DeclarationRetainedAndDs010Error()
+    {
+        const string source = """
+            sealed class SealedFoo { }
+
+            class Sample
+            {
+                void F()
+                {
+                    dynamic a = new SealedFoo(), b = 1;
+                }
+            }
+            """;
+
+        var result = RunRewrite(source);
+        var file = TestFileResult(result);
+
+        // 异 T：共享声明整体保留（字节不变），两个分量各 DS010（MultipleAssignmentTypes）。
+        Assert.False(file.Changed);
+        Assert.Equal(source, file.OutputCode);
+        Assert.Equal(2, file.Diagnostics.Count(d =>
+            d.Code == DynamicDesugarDiagnosticCodes.LocalUnprovable
+            && d.Severity == DynamicDesugarSeverity.Error));
+        Assert.True(result.HasErrors);
+        Assert.Equal(0, result.Statistics.FilesTransformed);
+        Assert.Equal(0, result.Statistics.DeclarationsRewritten);
+    }
+
+    [Fact]
+    public void A1_Rewrite_ThreeCandidates_TriedInOrderAndFirstAcceptingWins()
+    {
+        var preprocessor = new DynamicDesugarPreprocessor(RewriteOptions)
+        {
+            RewriteValidator = new RecordingValidator(),
+        };
+        var result = RunRewrite(SealedOnlySource, preprocessor);
+        var file = TestFileResult(result);
+
+        Assert.True(file.Changed);
+        // 记录器拒绝前两个格式化候选、仅放行未格式化候选：验证候选按固定顺序逐个尝试，
+        // 且候选 3（原文 trivia 兜底）真实可选——输出经其重新 parse + 同口径编译校验。
+        var recorder = (RecordingValidator)preprocessor.RewriteValidator!;
+        Assert.Equal(
+            new[]
+            {
+                DynamicRewriteValidator.CandidateKind.ChangedSpanFormatted,
+                DynamicRewriteValidator.CandidateKind.WholeFileFormatted,
+                DynamicRewriteValidator.CandidateKind.Unformatted,
+            },
+            recorder.SeenKinds.ToArray());
+        // 未格式化候选文本携带替换后的具体类型。
+        Assert.Contains("SealedFoo d = new SealedFoo();", recorder.CandidateTexts[^1]);
+        Assert.Contains("SealedFoo", file.OutputCode);
+    }
+
+    [Fact]
+    public void A1_Rewrite_AllCandidatesRejected_SourceRetainedAndDs040Error()
+    {
+        var preprocessor = new DynamicDesugarPreprocessor(RewriteOptions)
+        {
+            RewriteValidator = new RejectAllValidator(),
+        };
+        var result = RunRewrite(SealedOnlySource, preprocessor);
+        var file = TestFileResult(result);
+
+        Assert.False(file.Changed);
+        Assert.Equal(SealedOnlySource, file.OutputCode);
+        var ds040 = Assert.Single(
+            file.Diagnostics,
+            d => d.Code == DynamicDesugarDiagnosticCodes.RewriteSyntaxInvalid);
+        Assert.Equal(DynamicDesugarSeverity.Error, ds040.Severity);
+        Assert.Contains("three-candidate validation", ds040.Message);
+        Assert.Contains("source retained byte-for-byte", ds040.Message);
+        Assert.True(result.HasErrors);
+        Assert.Equal(0, result.Statistics.FilesTransformed);
+        Assert.Equal(0, result.Statistics.DeclarationsRewritten);
+    }
+
+    [Fact]
+    public void A1_Rewrite_Bom_PreservedOnOutput()
+    {
+        var source = "\uFEFF" + SealedOnlySource;
+        var file = TestFileResult(RunRewrite(source));
+
+        Assert.True(file.Changed);
+        Assert.StartsWith("\uFEFF", file.OutputCode, StringComparison.Ordinal);
+        Assert.False(file.OutputCode.StartsWith("\uFEFF\uFEFF", StringComparison.Ordinal));
+        Assert.Contains("SealedFoo d = new SealedFoo();", file.OutputCode);
+    }
+
+    [Fact]
+    public void A1_Rewrite_CleanFile_ByteCopiedAndSkippedClean()
+    {
+        const string source = """
+            class Sample
+            {
+                void F()
+                {
+                    int x = 1;
+                }
+            }
+            """;
+
+        var result = RunRewrite(source);
+        var file = TestFileResult(result);
+
+        Assert.False(file.Changed);
+        Assert.Equal(source, file.OutputCode);
+        Assert.Empty(file.Diagnostics);
+        Assert.Equal(0, result.Statistics.FilesTransformed);
+        // 全部语法树（Test.cs + 全局 using 树）均无 dynamic → 全部 clean 字节复制。
+        Assert.Equal(result.Statistics.FilesScanned, result.Statistics.FilesSkippedClean);
+    }
+
+    [Fact]
+    public void A1_Rewrite_Idempotent_SecondPassTransformsNothing()
+    {
+        var first = RunRewrite(SealedOnlySource);
+        var rewritten = TestFileResult(first).OutputCode;
+        Assert.True(TestFileResult(first).Changed);
+
+        var secondPreprocessor = new DynamicDesugarPreprocessor(RewriteOptions);
+        secondPreprocessor.BindCompilation(BuildCompilation(rewritten));
+        var second = secondPreprocessor.RewriteAll();
+
+        Assert.All(second.Files, file => Assert.False(file.Changed));
+        Assert.Equal(0, second.Statistics.FilesTransformed);
+        Assert.Equal(0, second.Statistics.DeclarationsRewritten);
+        Assert.False(second.HasErrors);
+        // 二次输出与一次输出字节一致。
+        Assert.Equal(rewritten, TestFileResult(second).OutputCode);
+    }
+
+    [Fact]
+    public void A1_AuditRegression_ProvenDeclarationSourceByteIdentical()
+    {
+        var result = RunAll(SealedOnlySource);
+        var file = TestFileResult(result);
+
+        Assert.False(file.Changed);
+        Assert.Equal(SealedOnlySource, file.OutputCode);
+        Assert.Equal("dynamic", FirstLocalTypeText(file.OutputCode));
+        var ds001 = Assert.Single(
+            file.Diagnostics,
+            d => d.Code == DynamicDesugarDiagnosticCodes.ProvenConcretized);
+        Assert.Equal(DynamicDesugarSeverity.Info, ds001.Severity);
+        Assert.Contains("no rewrite has been performed", ds001.Message);
+        Assert.DoesNotContain("concretized dynamic local declaration", ds001.Message);
+        Assert.False(result.HasErrors);
+    }
+
+    // 三候选记录器：记录顺序与文本；拒绝两个格式化候选、仅让未格式化候选走默认校验，
+    // 用于验证候选 3 兜底链真实生效。
+    private sealed class RecordingValidator : DynamicRewriteValidator
+    {
+        public List<DynamicRewriteValidator.CandidateKind> SeenKinds { get; } = new();
+
+        public List<string> CandidateTexts { get; } = new();
+
+        public override bool Accepts(
+            Candidate candidate,
+            SyntaxTree originalTree,
+            Compilation compilation,
+            IReadOnlySet<string> baselineErrorKeys)
+        {
+            SeenKinds.Add(candidate.Kind);
+            CandidateTexts.Add(candidate.Text);
+            return candidate.Kind == DynamicRewriteValidator.CandidateKind.Unformatted
+                && base.Accepts(candidate, originalTree, compilation, baselineErrorKeys);
+        }
+    }
+
+    // 全失败保护：拒绝全部候选 → DS040 fail-closed。
+    private sealed class RejectAllValidator : DynamicRewriteValidator
+    {
+        public override bool Accepts(
+            Candidate candidate,
+            SyntaxTree originalTree,
+            Compilation compilation,
+            IReadOnlySet<string> baselineErrorKeys)
+            => false;
+    }
 }

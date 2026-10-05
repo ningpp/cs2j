@@ -185,8 +185,29 @@ internal static class FlowTypeProver
         // 声明形态自带的初始化赋值点。
         switch (candidate)
         {
-            case VariableDeclaratorSyntax { Initializer.Value: { } initializer }:
-                points.Add(new AssignmentPoint(initializer, initializer, null));
+            case VariableDeclaratorSyntax { Initializer.Value: { } initializer } declaratorWithInit:
+                points.Add(new AssignmentPoint(
+                    initializer, initializer,
+                    ResolveFlowingType(compilation, model, initializer)));
+
+                // 多声明符共享一个类型语法（dynamic a = .., b = ..;）：兄弟声明符的
+                // 初始化器同样是该共享类型的流入点——一个类型位不可能承载两个 T，
+                // 故按声明（而非按变量）求并集：异 T 时每个分量都得 MultipleAssignmentTypes，
+                // DynamicSiteRewriter 才能整体保留该声明（最小调整，仅本分支）。
+                if (declaratorWithInit.Parent is VariableDeclarationSyntax sharedDeclaration)
+                {
+                    foreach (var sibling in sharedDeclaration.Variables)
+                    {
+                        if (!ReferenceEquals(sibling, declaratorWithInit)
+                            && sibling.Initializer?.Value is { } siblingInitializer)
+                        {
+                            points.Add(new AssignmentPoint(
+                                siblingInitializer, siblingInitializer,
+                                ResolveFlowingType(compilation, model, siblingInitializer)));
+                        }
+                    }
+                }
+
                 break;
 
             case ForEachStatementSyntax forEach:
@@ -212,7 +233,10 @@ internal static class FlowTypeProver
             {
                 // 简单赋值取右值类型；复合赋值（d += x）同样取右值静态类型——
                 // 复合操作整体动态与否由 DS015 操作点覆盖，并集只关心新流入的右值 T。
-                points.Add(new AssignmentPoint(assignment, assignment.Right, null));
+                points.Add(new AssignmentPoint(
+                    assignment,
+                    assignment.Right,
+                    ResolveFlowingType(compilation, model, assignment.Right)));
             }
             else if (assignment.Left is TupleExpressionSyntax tuple)
             {
@@ -527,6 +551,144 @@ internal static class FlowTypeProver
         return info.Type ?? info.ConvertedType;
     }
 
+    /// <summary>
+    /// 赋值点流入类型：先取自然类型 <c>Type ?? ConvertedType</c>；自然类型为 dynamic
+    /// 且右值是方法调用时，尝试 <see cref="TryResolveSourceDynamicReturn"/> 的 M2
+    /// 窄口径透视。透视失败保持 dynamic（后续并集判 DynamicAssignment，宁假阳）。
+    /// </summary>
+    private static ITypeSymbol? ResolveFlowingType(
+        Compilation compilation,
+        SemanticModel model,
+        ExpressionSyntax expression)
+    {
+        var info = model.GetTypeInfo(expression);
+        var type = info.Type ?? info.ConvertedType;
+        if (type?.TypeKind == TypeKind.Dynamic
+            && expression is InvocationExpressionSyntax invocation)
+        {
+            return TryResolveSourceDynamicReturn(compilation, invocation) ?? type;
+        }
+
+        return type;
+    }
+
+    /// <summary>
+    /// M2 窄口径源内透视（A1 正例 <c>var x = DynamicReturning();</c> 所需，最小调整）：
+    /// 对 dynamic 返回的源内方法/本地函数调用，当且仅当目标满足全部保守条件时，把其
+    /// 全部 return 表达式的唯一静态类型 T 视为调用点流入类型：
+    /// ①定义在本编译源码内（外部程序集/元数据不可追溯 → 放弃）；
+    /// ②非 virtual/abstract/override（静态方法/本地函数无虚分派面；实例方法仅当宿主
+    ///   sealed 或值类型，杜绝派生覆写体不受控）；
+    /// ③单一语法定义（partial 多定义放弃）；
+    /// ④方法体内所有 return（含表达式体；不含嵌套本地函数/lambda 内 return）类型为
+    ///   同一非 dynamic/非 error 封闭 T；yield/裸 return/多类型/零 return 一律放弃。
+    /// 这不是通用跨过程分析（D11 不变）：不追踪参数流、不跨程序集、不做调用图收窄；
+    /// 拿不准一律回退普通 dynamic 判定。
+    /// </summary>
+    private static ITypeSymbol? TryResolveSourceDynamicReturn(
+        Compilation compilation,
+        InvocationExpressionSyntax invocation)
+    {
+        var symbol = compilation.GetSemanticModel(invocation.SyntaxTree)
+            .GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+        if (symbol is not { ReturnType.TypeKind: TypeKind.Dynamic })
+        {
+            return null;
+        }
+
+        if (symbol.IsVirtual || symbol.IsAbstract || symbol.IsOverride
+            || symbol.MethodKind is not (MethodKind.Ordinary or MethodKind.LocalFunction))
+        {
+            return null;
+        }
+
+        if (!symbol.IsStatic && symbol.MethodKind == MethodKind.Ordinary)
+        {
+            var container = symbol.ContainingType;
+            if (container == null || !container.IsSealed && !container.IsValueType)
+            {
+                return null;
+            }
+        }
+
+        var references = symbol.DeclaringSyntaxReferences;
+        if (references.Length != 1)
+        {
+            return null;
+        }
+
+        var reference = references[0];
+        if (!compilation.SyntaxTrees.Contains(reference.SyntaxTree))
+        {
+            return null;
+        }
+
+        SyntaxNode? scope = reference.GetSyntax();
+        SyntaxNode? body = scope switch
+        {
+            BaseMethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody?.Expression,
+            LocalFunctionStatementSyntax localFunction =>
+                (SyntaxNode?)localFunction.Body ?? localFunction.ExpressionBody?.Expression,
+            _ => null,
+        };
+        if (scope == null || body == null)
+        {
+            return null;
+        }
+
+        var returnModel = compilation.GetSemanticModel(reference.SyntaxTree);
+        var seen = new HashSet<ITypeSymbol>(SymbolEqualityComparer.IncludeNullability);
+
+        if (scope is BaseMethodDeclarationSyntax { ExpressionBody: { } } or LocalFunctionStatementSyntax { ExpressionBody: { } })
+        {
+            var arrow = scope switch
+            {
+                BaseMethodDeclarationSyntax method => method.ExpressionBody!.Expression,
+                LocalFunctionStatementSyntax localFunction => localFunction.ExpressionBody!.Expression,
+                _ => null,
+            };
+            if (arrow == null)
+            {
+                return null;
+            }
+
+            return SingleTypeOrNull(returnModel, arrow, seen);
+        }
+
+        // 只取本方法体直属 return；不穿入嵌套匿名函数/本地函数（其 return 不属本方法）。
+        foreach (var node in body.DescendantNodes(
+                     child => child is not (AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax)))
+        {
+            if (node is not ReturnStatementSyntax { Expression: { } returnValue })
+            {
+                continue;
+            }
+
+            if (SingleTypeOrNull(returnModel, returnValue, seen) == null)
+            {
+                return null;
+            }
+        }
+
+        return seen.Count == 1 ? seen.Single() : null;
+    }
+
+    private static ITypeSymbol? SingleTypeOrNull(
+        SemanticModel model,
+        ExpressionSyntax expression,
+        HashSet<ITypeSymbol> seen)
+    {
+        var info = model.GetTypeInfo(expression);
+        var type = info.Type ?? info.ConvertedType;
+        if (type == null || type.TypeKind is TypeKind.Dynamic or TypeKind.Error)
+        {
+            return null;
+        }
+
+        seen.Add(type);
+        return seen.Count == 1 ? type : null;
+    }
+
     // ---------- ② 逃逸分析 ----------
 
     /// <summary>变量作为 ref/out/in 实参（Argument.RefKindKeyword 非 None）→ ByRefEscape。</summary>
@@ -769,6 +931,12 @@ internal static class FlowMessages
     public static string Unprovable(string name, string text, DynamicUnprovableReason reason)
         => $"dynamic local '{name}' at '{text}': unprovable ({ReasonPhrase(reason)}); "
            + "change the declaration to a concrete type or register the site in Cs2jDynamicAudit.json.";
+
+    /// <summary>DS001 完成措辞（仅 Rewrite 模式、且声明确已具体化时发射；设计 §6 DS001）。</summary>
+    public static string Concretized(string name, string typeDisplay, string location)
+        => $"concretized dynamic local declaration to '{typeDisplay}' at {location} "
+           + $"(local '{name}'); all use-sites rebound statically on recompilation "
+           + $"(dynamic → {typeDisplay}).";
 
     /// <summary>诊断消息与测试断言共用的英文原因短语（§6 DS010）。</summary>
     public static string ReasonPhrase(DynamicUnprovableReason reason) => reason switch
