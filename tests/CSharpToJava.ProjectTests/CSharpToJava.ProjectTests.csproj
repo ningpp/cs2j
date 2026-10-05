@@ -185,6 +185,12 @@
       <Link>SampleClosedMetadataSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- C09 thread-static concurrency fixture (bin/obj excluded: may have been built locally). -->
+    <Content Include="..\SampleThreadStaticSolution\**\*.*"
+              Exclude="..\SampleThreadStaticSolution\**\bin\**;..\SampleThreadStaticSolution\**\obj\**">
+      <Link>SampleThreadStaticSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

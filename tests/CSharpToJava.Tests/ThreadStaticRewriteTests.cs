@@ -173,6 +173,36 @@ public class ThreadStaticRewriteTests
         AssertCompiles(result.OutputCode);
     }
 
+    [Fact]
+    public void NoInitializer_EveryThread_StillUsesParameterlessHolder_NoEmptyLambda()
+    {
+        // Design §2 decision table: with NO inline initializer BOTH policies must
+        // emit the parameterless ThreadLocal holder — the EveryThread policy must
+        // never synthesize a parameterized holder carrying an empty lambda.
+        var source = """
+            using System;
+
+            class C
+            {
+                [ThreadStatic] static int f;
+
+                static int Get() => f;
+            }
+            """;
+        var result = RunOne(source, new ThreadStaticOptions
+        {
+            InitializerPolicy = ThreadStaticInitializerPolicy.EveryThread,
+        });
+        Assert.True(result.Changed);
+        Assert.Contains(
+            "static readonly global::System.Threading.ThreadLocal<int> f = new global::System.Threading.ThreadLocal<int>();",
+            result.OutputCode);
+        Assert.DoesNotContain("ThreadLocal<int>(()", result.OutputCode);
+        Assert.DoesNotContain("static C()", result.OutputCode);
+        Assert.Equal(0, result.Statistics.InitializersNormalized);
+        AssertCompiles(result.OutputCode);
+    }
+
     // ---- TS-10: explicit static constructor ----
 
     [Fact]

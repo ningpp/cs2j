@@ -159,6 +159,25 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
         => throw new NotSupportedException("ThreadStaticPassAdapter drives the file loop itself.");
 
+    // Standard .NET (net6+) ImplicitUsings set. The rollback loop builds its own
+    // compilations from the parsed sources, so the SDK-generated
+    // GlobalUsings.g.cs is absent; projects that rely on it (the common case)
+    // would bind [ThreadStatic] to an error type and every field plan would be
+    // silently missed. Mirrors ClosureLiftPassAdapter's synthesized tree.
+    private const string ImplicitGlobalUsings =
+        """
+        global using System;
+        global using System.Collections.Generic;
+        global using System.IO;
+        global using System.Linq;
+        global using System.Net.Http;
+        global using System.Threading;
+        global using System.Threading.Tasks;
+        """;
+
+    public override IReadOnlyList<SyntaxTree> CreateAdditionalSyntaxTrees(PassTreeContext tree)
+        => new[] { CSharpSyntaxTree.ParseText(ImplicitGlobalUsings, CreateParseOptions(tree)) };
+
     /// <summary>
     /// Residual gate (design §4.2 step 5 / §7.4): residual attributes owned by an
     /// inactive plan (CS2J1201/1202/1203/1204/1205/1290) are expected and only
@@ -251,10 +270,16 @@ internal sealed class ThreadStaticPassAdapter : ProjectPassAdapter
     private CSharpCompilation BuildCompilationFromTexts(IReadOnlyList<ThreadStaticSourceFile> files)
     {
         var parseOptions = CreateParseOptions(_currentTree!);
-        var trees = new List<SyntaxTree>(files.Count);
+        var trees = new List<SyntaxTree>(
+            files.Count + (_currentTree == null ? 0 : 1));
         foreach (var file in files)
         {
             trees.Add(CSharpSyntaxTree.ParseText(file.Content, parseOptions, path: file.Path));
+        }
+
+        if (_currentTree != null)
+        {
+            trees.AddRange(CreateAdditionalSyntaxTrees(_currentTree));
         }
 
         return CSharpCompilation.Create(
