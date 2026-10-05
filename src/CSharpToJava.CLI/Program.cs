@@ -276,9 +276,11 @@ public class Program
                         {
                             Strict = opts.LocalFunctionStrict,
                         },
-                    // C35 null-conditional read-side rule: default off;
-                    // --null-conditional activates the subsection.
-                    NullConditional = opts.NullConditional
+                    // C35 null-conditional read-side rule (the C51
+                    // assignment-terminal rule ships in the same subsection):
+                    // default on; --no-null-conditional restores the inert
+                    // subsection (byte-identical pre-C35 behavior).
+                    NullConditional = opts.NullConditional && !opts.NoNullConditional
                         ? new CSharpToJava.Core.ExpressionDesugar.NullConditional.NullConditionalOptions
                         {
                             Strict = opts.LocalFunctionStrict,
@@ -3934,9 +3936,11 @@ public class Program
                         {
                             Strict = opts.LocalFunctionStrict,
                         },
-                    // C35 null-conditional read-side rule: default off;
-                    // --null-conditional activates the subsection.
-                    NullConditional = opts.NullConditional
+                    // C35 null-conditional read-side rule (the C51
+                    // assignment-terminal rule ships in the same subsection):
+                    // default on; --no-null-conditional restores the inert
+                    // subsection (byte-identical pre-C35 behavior).
+                    NullConditional = opts.NullConditional && !opts.NoNullConditional
                         ? new CSharpToJava.Core.ExpressionDesugar.NullConditional.NullConditionalOptions
                         {
                             Strict = opts.LocalFunctionStrict,
@@ -4982,9 +4986,13 @@ class PreprocessVerbOptions
         HelpText = "Disable the C24 object/collection/target-typed-new initializer desugaring rule inside expression-desugar (default on)")]
     public bool NoInitializerDesugar { get; set; }
 
-    [Option("null-conditional", Default = false,
-        HelpText = "Enable the C35 null-conditional (?./?[]) read-side desugaring rule inside expression-desugar (default off)")]
+    [Option("null-conditional", Default = true,
+        HelpText = "Enable the C35 null-conditional (?./?[]) read-side desugaring rule inside expression-desugar (default on; the C51 assignment-terminal rule ships in the same subsection)")]
     public bool NullConditional { get; set; }
+
+    [Option("no-null-conditional", Default = false,
+        HelpText = "Negation switch for the C35/C51 null-conditional rules (red-line byte-identical runs)")]
+    public bool NoNullConditional { get; set; }
 
     [Option("enable-signatures-rule", Default = false,
         HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default off, also configurable via MemberDesugarOverrides.json)")]
@@ -5411,9 +5419,13 @@ class ConvertProjectOptions
         HelpText = "Disable the C24 object/collection/target-typed-new initializer desugaring rule inside expression-desugar (default on)")]
     public bool NoInitializerDesugar { get; set; }
 
-    [Option("null-conditional", Default = false,
-        HelpText = "Enable the C35 null-conditional (?./?[]) read-side desugaring rule inside expression-desugar (default off)")]
+    [Option("null-conditional", Default = true,
+        HelpText = "Enable the C35 null-conditional (?./?[]) read-side desugaring rule inside expression-desugar (default on; the C51 assignment-terminal rule ships in the same subsection)")]
     public bool NullConditional { get; set; }
+
+    [Option("no-null-conditional", Default = false,
+        HelpText = "Negation switch for the C35/C51 null-conditional rules (red-line byte-identical runs)")]
+    public bool NoNullConditional { get; set; }
 
     [Option("enable-signatures-rule", Default = false,
         HelpText = "Enable the C46 signature explicitization subset inside member-desugar (explicit interface implementations / new hiding / covariant returns; default off, also configurable via MemberDesugarOverrides.json)")]

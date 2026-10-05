@@ -8,11 +8,13 @@ namespace CSharpToJava.ProjectTests;
 /// Project-level gate for C35 (null-conditional read-side desugaring),
 /// driven through the preprocess CLI like <see cref="InterpolationProjectTests"/>:
 /// <list type="bullet">
-/// <item>positive fixture with --null-conditional: the intermediate tree
-/// carries no residual ?./?[] nodes, contains lifted __ed_s temps, and the
-/// intermediate tree builds AND passes its xUnit tests;</item>
-/// <item>red line without the switch: the intermediate tree is
-/// byte-for-byte identical to the fixture, yet still builds and tests pass.</item>
+/// <item>positive fixture with the default policy (or explicit
+/// --null-conditional): the intermediate tree carries no residual ?./?[]
+/// nodes, contains lifted __ed_s temps, and the intermediate tree builds
+/// AND passes its xUnit tests;</item>
+/// <item>red line via the --no-null-conditional kill switch: the
+/// intermediate tree is byte-for-byte identical to the fixture, yet still
+/// builds and tests pass.</item>
 /// </list>
 /// </summary>
 [Collection(ConsoleChainTestCollection.Name)]
@@ -181,9 +183,11 @@ public class NullConditionalProjectTests
             var (exit, output) = await RunCliAsync(
                 "preprocess",
                 "--pass", PassId,
-                // C24 initializer lowering is default-on and would change the
-                // fixture on its own; --no-initializer-desugar isolates the
-                // C35 red line (byte-identical solely wrt --null-conditional).
+                // C35/C51 are default-on now; --no-null-conditional is the
+                // rule-level kill switch that isolates the red line. C24
+                // initializer lowering is also default-on and would change
+                // the fixture on its own, so it is killed here as well.
+                "--no-null-conditional",
                 "--no-initializer-desugar",
                 "-s", sln,
                 "-d", outputRoot);
