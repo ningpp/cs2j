@@ -357,11 +357,11 @@ C09 是 stub 目录中默认开性价比最高的条目之一：
 
 - 分支：`feature/preproc-c09-thread-static`
 - 目录：`.worktrees/preproc-c09-thread-static`
-- base：`f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在）
+- base：`ba7a0897`（`feat(c49): default-on extension-block materialization`，dev-3.x-26100507 最新提交，2026-10-05 rebase）
 - 创建命令：
 
 ```powershell
-git worktree add .worktrees/preproc-c09-thread-static -b feature/preproc-c09-thread-static f68a783c
+git worktree add .worktrees/preproc-c09-thread-static -b feature/preproc-c09-thread-static ba7a0897
 ```
 
 实施约束（交实施 worktree，不在本文档执行）：仅在上述 worktree 内改码；按 §9 里程碑逐提交；默认关先行，过 §8 门槛才翻默认开；转换器代码改动（§1.3 删除清单、§5.4 Java 半区映射）留后续 PR。
