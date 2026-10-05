@@ -125,16 +125,22 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
             preprocessor.BindCompilation(compilation);
             preprocessor.Analyze();
 
-            // CS2J1390 self-containment gate (design §4.2-7): plans whose touched
-            // files escape the input set are excluded — computed once from the
-            // deterministic input analysis. Permanent Warning, never strict.
+            // CS2J1390 self-containment gate (design §4.2-7): loose-directory
+            // ("single-file") pipelines have no project graph, so a plan may
+            // only act when its declaration and all of its sites live in one
+            // single input file — plans spanning multiple files (or touching
+            // files outside the input set) are excluded. Computed once from
+            // the deterministic input analysis. Permanent Warning, never strict.
             if (singleFileMode && iteration == 0)
             {
                 foreach (var plan in preprocessor.Plans)
                 {
-                    var escapes = plan.TouchedFiles.Any(file =>
-                        !inputFileSet.Contains(Path.GetFullPath(file)));
-                    if (escapes)
+                    var touched = plan.TouchedFiles
+                        .Select(Path.GetFullPath)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var notSelfContained = touched.Count > 1
+                        || touched.Any(file => !inputFileSet.Contains(file));
+                    if (notSelfContained)
                     {
                         nonSelfContainedPlans.Add(plan);
                         excluded.Add(plan.Id);
@@ -287,8 +293,8 @@ internal sealed class AttributeNormalizePassAdapter : ProjectPassAdapter
             _diagnostics.Add(new AttributeNormalizeDiagnostic(
                 AttributeNormalizeSeverity.Warning,
                 AttributeNormalizeDiagnosticCode.CS2J1390,
-                "plan is not self-contained within the input file set (its declaration or call " +
-                "sites live outside the input); skipped in single-file mode.",
+                "plan is not self-contained within a single input file (its declaration and call sites " +
+                "span multiple files or live outside the input); skipped in single-file mode.",
                 location?.SourceTree?.FilePath,
                 linePosition?.Line + 1 ?? 0,
                 linePosition?.Character + 1 ?? 0,
