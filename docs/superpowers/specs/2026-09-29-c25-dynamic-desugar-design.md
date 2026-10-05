@@ -450,14 +450,14 @@ P2 标记（不重写）：`CastExpressionSyntax` 目标类型为静态 T、运�
 
 ## 12. Worktree 分配
 
-只写不执行（本设计未执行任何 git 写操作；以下命令在实施 PR 中由执行者运行）：
+worktree 已于 2026-10-05 按下述分配创建（base 已从 `953293b9` 更新为 `dev-3.x-26100507` 当时最新提交）：
 
 - 分支：`feature/preproc-c25-dynamic-desugar`
 - 目录：`.worktrees/preproc-c25-dynamic-desugar`（`.worktrees/` 已在 [.gitignore#L77](file:///d:/code/cs2j/.gitignore#L77) 忽略）
-- base：`953293b9`（`docs: update doc base commit`，已只读核验存在：`953293b908e9143437c45f287fb4277e890c398e`）
+- base：`ba7a0897`（`feat(c49): default-on extension-block materialization`，即创建时 `dev-3.x-26100507` 最新提交，已核验存在：`ba7a0897069331fe3466c452ba3359283beea2cb`）
 
 ```powershell
-git worktree add .worktrees/preproc-c25-dynamic-desugar -b feature/preproc-c25-dynamic-desugar 953293b9
+git worktree add .worktrees/preproc-c25-dynamic-desugar -b feature/preproc-c25-dynamic-desugar ba7a0897
 ```
 
 ---
