@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using CSharpToJava.Core.LinqChannel;
+using CSharpToJava.Core.LinqRewrite;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -8,16 +9,20 @@ using DiagnosticSeverity = Microsoft.CodeAnalysis.DiagnosticSeverity;
 namespace CSharpToJava.Tests.LinqChannel;
 
 /// <summary>
-/// M2 gate seam tests (design §4.2/§4.3): <c>EnableQueryableGate</c> switches
-/// the channel between intercept mode (default) and M1 observe-only mode.
+/// M3 gate seam tests (design §4.2/§4.3/§4.4/§4.6): inside the channel the
+/// gate is permanently intercepting (the M1/M2 observe-only
+/// <c>EnableQueryableGate</c> off-switch was removed).
 /// <list type="bullet">
-/// <item>intercept ON: Queryable/ExpressionArgument/Mixed chains freeze whole,
-/// Ambiguous chains freeze + LC0010 (strict escalates), Enumerable/NonLinq
-/// chains behave exactly as E16;</item>
-/// <item>intercept OFF: observe-only — the stock name-guess fallback stays
-/// reachable and ambiguous chains land in the E16 skip outcome (M0 finding);</item>
-/// <item>freezing includes the argument lambdas so a quoted Expression body's
-/// nested Enumerable chain cannot be proceduralized by descent.</item>
+/// <item>Queryable/ExpressionArgument/Mixed chains freeze whole; Ambiguous
+/// chains freeze + LC0010 (strict escalates); Enumerable/NonLinq chains
+/// outside quoted regions behave exactly as E16;</item>
+/// <item>freezing includes argument lambdas AND every invocation inside a
+/// quoted Expression body (an inner Enumerable chain is counted as a
+/// quoted-preserved chain, never proceduralized);</item>
+/// <item>the embedded E16 construction is the NULL-gate
+/// <see cref="LinqRewriter"/>: its name-guess fallback stays reachable and
+/// ambiguous chains still land in the E16 skip outcome (M0 finding, hard
+/// boundary — E16 behavior is unchanged).</item>
 /// </list>
 /// </summary>
 public sealed class LinqChannelGateModeTests
@@ -52,7 +57,7 @@ public sealed class LinqChannelGateModeTests
             }
             """;
 
-        var result = RunChannel(source, intercept: true);
+        var result = RunChannel(source);
 
         Assert.False(result.Result.RewriteChanged, "a pure Queryable chain must be preserved untouched");
         Assert.Equal(1, result.Statistics.QueryableChainsPreserved);
@@ -97,7 +102,7 @@ public sealed class LinqChannelGateModeTests
             }
             """;
 
-        var result = RunChannel(source, intercept: true);
+        var result = RunChannel(source);
 
         Assert.False(result.Result.RewriteChanged);
         Assert.Equal(1, result.Statistics.QueryableChainsPreserved);
@@ -119,7 +124,7 @@ public sealed class LinqChannelGateModeTests
             }
             """;
 
-        var result = RunChannel(source, intercept: true);
+        var result = RunChannel(source);
 
         Assert.False(result.Result.RewriteChanged);
         Assert.Equal(1, result.Statistics.MixedChainsPreserved);
@@ -147,7 +152,7 @@ public sealed class LinqChannelGateModeTests
             }
             """;
 
-        var lenient = RunChannel(source, intercept: true, strict: false);
+        var lenient = RunChannel(source, strict: false);
         Assert.False(lenient.Result.RewriteChanged,
             "unbound LINQ-style calls are preserved, never guessed as Enumerable");
         Assert.Equal(1, lenient.Statistics.AmbiguousChains);
@@ -160,14 +165,14 @@ public sealed class LinqChannelGateModeTests
         Assert.Equal(2, lc0010.Count);
         Assert.All(lc0010, d => Assert.Equal(LinqChannelDiagnosticSeverity.Warning, d.Severity));
 
-        var strict = RunChannel(source, intercept: true, strict: true);
+        var strict = RunChannel(source, strict: true);
         Assert.All(
             strict.Result.Diagnostics.Where(d => d.Code == LinqChannelDiagnosticCodes.AmbiguousPreserved),
             d => Assert.Equal(LinqChannelDiagnosticSeverity.Error, d.Severity));
     }
 
     [Fact]
-    public void ObserveOnly_AmbiguousChain_ReachesStockFallback_SkipOutcome()
+    public void NullGate_AmbiguousChain_StillReachesStockFallback_SkipOutcome()
     {
         const string source = """
             using System;
@@ -182,15 +187,18 @@ public sealed class LinqChannelGateModeTests
             }
             """;
 
-        // M0 pinned outcome (b): with the gate observing only, the stock
-        // name-guess fallback engages and rule expansion lands in the skip
-        // catch instead of preserving the node up front. The plan-level LC0010
-        // warning is emitted in both modes — only the rewriter decision moves.
-        var observed = RunChannel(source, intercept: false);
+        // M3 removed the channel's gate off-switch; the embedded E16
+        // construction is instead the rewriter built with NO gate (null).
+        // M0 pinned outcome (b) must remain reachable on exactly that path:
+        // the stock name-guess fallback engages and rule expansion lands in
+        // the three-type skip catch instead of preserving up front. This is
+        // the E16 zero-change hard boundary made explicit.
+        var (model, postDesugarRoot) = BuildModel(source);
+        var rewriter = new LinqRewriter(model);
+        rewriter.Visit(postDesugarRoot);
 
-        Assert.True(observed.Statistics.Rewrite.SkippedChains.Count >= 1,
-            "observe-only mode must leave the E16 fallback reachable (M0 outcome b: skip)");
-        Assert.Equal(1, observed.Statistics.AmbiguousChains);
+        Assert.True(rewriter.Statistics.SkippedChains.Count >= 1,
+            "null-gate (embedded E16) must keep the name-guess fallback reachable (M0 outcome b: skip)");
     }
 
     [Fact]
@@ -214,7 +222,7 @@ public sealed class LinqChannelGateModeTests
             }
             """;
 
-        var result = RunChannel(source, intercept: true);
+        var result = RunChannel(source);
 
         Assert.False(result.Result.RewriteChanged);
         Assert.Equal(1, result.Statistics.QueryableChainsPreserved);
@@ -245,14 +253,17 @@ public sealed class LinqChannelGateModeTests
             }
             """;
 
-        var result = RunChannel(source, intercept: true);
+        var result = RunChannel(source);
 
         Assert.False(result.Result.RewriteChanged,
             "freezing the outer Queryable node must freeze its quoted lambda subtree");
         Assert.Equal(1, result.Statistics.QueryableChainsPreserved);
-        // Note: the static plan still classifies the inner Numbers chain as
-        // Expandable; the proof of freezing is that no rewrite happened and no
-        // helper/skip was produced for it.
+        // M3: the static plan now flags the inner Numbers chain as a quoted
+        // region — it is counted as a quoted-preserved chain (M2 leftover: in
+        // M2 the plan still called it Expandable and only subtree freezing
+        // saved it).
+        Assert.Equal(1, result.Statistics.ExpressionQuotedChainsPreserved);
+        Assert.Equal(0, result.Statistics.EnumerableChainsExpanded);
         Assert.Equal(0, result.Statistics.Rewrite.SkippedChains.Count);
         Assert.Contains("Numbers.Where(n => n > x).Any()", result.Output);
         Assert.False(GeneratedHelperName.IsMatch(result.Output),
@@ -272,7 +283,7 @@ public sealed class LinqChannelGateModeTests
             }
             """;
 
-        var result = RunChannel(source, intercept: true);
+        var result = RunChannel(source);
 
         Assert.True(result.Result.RewriteChanged);
         Assert.Equal(1, result.Statistics.EnumerableChainsExpanded);
@@ -302,7 +313,7 @@ public sealed class LinqChannelGateModeTests
             }
             """;
 
-        var result = RunChannel(source, intercept: true);
+        var result = RunChannel(source);
 
         Assert.False(result.Result.RewriteChanged,
             "a provider extension named Where is NonLinq: counted, never expanded");
@@ -317,7 +328,21 @@ public sealed class LinqChannelGateModeTests
         SyntaxNode OutputRoot,
         string Output);
 
-    private static ChannelRun RunChannel(string source, bool intercept, bool strict = false)
+    private static ChannelRun RunChannel(string source, bool strict = false)
+    {
+        var (model, postDesugarRoot) = BuildModel(source);
+
+        // M3: no off-switch — the channel gate is always intercepting.
+        var channel = new LinqChannelRewriter(new LinqChannelOptions
+        {
+            Strict = strict,
+        });
+        var result = channel.ProcessFile(model, postDesugarRoot, filePath: null);
+        return new ChannelRun(result, result.Statistics, result.RewrittenRoot,
+            result.RewrittenRoot.ToFullString());
+    }
+
+    private static (SemanticModel Model, SyntaxNode PostDesugarRoot) BuildModel(string source)
     {
         var originalTree = CSharpSyntaxTree.ParseText(
             source, new CSharpParseOptions(LanguageVersion.Latest));
@@ -337,17 +362,7 @@ public sealed class LinqChannelGateModeTests
 
         // Ambiguous snippets intentionally fail to compile (missing metadata);
         // the channel routes from symbol info regardless.
-        var model = compilation.GetSemanticModel(desugaredTree);
-        var postDesugarRoot = desugaredTree.GetRoot();
-
-        var channel = new LinqChannelRewriter(new LinqChannelOptions
-        {
-            EnableQueryableGate = intercept,
-            Strict = strict,
-        });
-        var result = channel.ProcessFile(model, postDesugarRoot, filePath: null);
-        return new ChannelRun(result, result.Statistics, result.RewrittenRoot,
-            result.RewrittenRoot.ToFullString());
+        return (compilation.GetSemanticModel(desugaredTree), desugaredTree.GetRoot());
     }
 
     private static (SemanticModel Model, SyntaxNode Root) Recompile(string output)

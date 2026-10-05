@@ -56,6 +56,12 @@ public sealed class LinqChannelReport
 
         [JsonPropertyName("providerCustomCalls")]
         public int ProviderCustomCalls { get; init; }
+
+        [JsonPropertyName("expressionQuotedChainsPreserved")]
+        public int ExpressionQuotedChainsPreserved { get; init; }
+
+        [JsonPropertyName("expressionTreeUnprovableSites")]
+        public int ExpressionTreeUnprovableSites { get; init; }
     }
 
     public sealed record SkippedChainEntry(
@@ -84,6 +90,8 @@ public sealed class LinqChannelReport
                 MixedChainsPreserved = statistics.MixedChainsPreserved,
                 AmbiguousChains = statistics.AmbiguousChains,
                 ProviderCustomCalls = statistics.ProviderCustomCalls,
+                ExpressionQuotedChainsPreserved = statistics.ExpressionQuotedChainsPreserved,
+                ExpressionTreeUnprovableSites = statistics.ExpressionTreeUnprovableSites,
             },
             SkippedChains = rewrite.SkippedChains
                 .Select(s => new SkippedChainEntry(s.Reason.ToString(), s.LineNumber, s.MethodName, s.Message))

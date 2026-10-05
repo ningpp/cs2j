@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -29,11 +30,23 @@ public sealed class LinqChannelPlan
     /// <summary>One discovered chain with its syntax nodes and routing decision.</summary>
     public sealed record ChainEntry(
         IReadOnlyList<InvocationExpressionSyntax> Nodes,
-        LinqChainDecision Decision);
+        LinqChainDecision Decision,
+        bool InsideQuotedLambda)
+    {
+        /// <summary>
+        /// M3: a chain is frozen (never expanded) unless it is Expandable AND
+        /// outside every Expression&lt;&gt;-quoted lambda.
+        /// </summary>
+        public bool MustPreserve =>
+            Decision.Route != LinqChainRoute.Expandable || InsideQuotedLambda;
+    }
 
     /// <summary>
     /// Builds the plan from a semantic model over a post-desugar syntax root.
     /// Chain discovery is purely syntactic; routing is purely semantic.
+    /// M3: chains whose outermost node is lexically inside a quoted
+    /// expression-tree lambda are flagged <see cref="ChainEntry.InsideQuotedLambda"/>
+    /// (design §4.4 third route — no node inside a quote may be rewritten).
     /// </summary>
     public static LinqChannelPlan Build(SemanticModel semanticModel, SyntaxNode root, string? filePath)
     {
@@ -42,7 +55,9 @@ public sealed class LinqChannelPlan
         foreach (var chain in LinqRouteClassifier.FindChains(root))
         {
             var decision = classifier.ClassifyChain(chain);
-            entries.Add(new ChainEntry(chain, decision));
+            var insideQuoted = ExpressionTreeFacts.IsInsideQuotedExpressionLambda(
+                semanticModel, chain[0]);
+            entries.Add(new ChainEntry(chain, decision, insideQuoted));
         }
 
         return new LinqChannelPlan(filePath, entries);

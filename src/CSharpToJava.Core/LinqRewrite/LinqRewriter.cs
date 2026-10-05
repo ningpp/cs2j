@@ -222,6 +222,14 @@ namespace CSharpToJava.Core.LinqRewrite
                 // and chain backtracking. M1 never changes the rewrite outcome.
                 LinqChannelObserveInvocation(node);
 
+                // C26 M3 LC0011: the preserve hook above already froze every
+                // preserved-route node; if a non-null gate is attached and a
+                // Queryable/Expression/Mixed/Ambiguous node nevertheless
+                // reaches the expansion branch, that is a channel bug — throw
+                // the hard invariant (adapter rolls the file back). Null gate
+                // (embedded E16) is a no-op.
+                LinqChannelGuardEnterExpansion(node);
+
                 if (IsSupportedMethod(node))
                 {
                     var chain = new List<LinqStep>();
@@ -874,6 +882,18 @@ namespace CSharpToJava.Core.LinqRewrite
                     "GroupBy" => "System.Collections.Generic.IEnumerable<TSource>.GroupBy<TSource, TKey>(System.Func<TSource, TKey>)",
                     _ => null
                 };
+
+                // C26 M3 LC0011 (design §4.3/R2): with the channel gate
+                // attached, fabricating an Enumerable identity from a LINQ
+                // operator syntax name for an unbound symbol is a hard route
+                // invariant violation — the gate preserves those sites before
+                // this branch, so reaching here means routing lost a node.
+                // Null gate (embedded E16) is a no-op: the fallback behaves
+                // exactly as before this line existed.
+                if (n != null)
+                {
+                    LinqChannelGuardSyntaxNameFallback(invocation, methodName);
+                }
             }
 
             const string ienumerableOfTsource = "System.Collections.Generic.IEnumerable<TSource>";

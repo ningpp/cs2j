@@ -100,7 +100,7 @@ public sealed class SampleLinqChannelFixtureTests
                 result = await RunChainAsync(
                     Path.Combine(sourceDir, "SampleLinqChannelSolution.sln"),
                     outputDir,
-                    () => new LinqChannelOptions { EnableQueryableGate = true });
+                    () => new LinqChannelOptions());
             }
             finally
             {
@@ -191,7 +191,7 @@ public sealed class SampleLinqChannelFixtureTests
             var result = await RunChainAsync(
                 Path.Combine(sourceDir, "SampleLinqChannelSolution.sln"),
                 outputDir,
-                () => new LinqChannelOptions { EnableQueryableGate = true });
+                () => new LinqChannelOptions());
             Assert.True(result.Success);
 
             // The Queryable-only file is frozen node-for-node: intercept mode

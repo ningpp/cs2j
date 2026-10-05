@@ -1,3 +1,4 @@
+using CSharpToJava.Core.Analysis;
 using CSharpToJava.Core.Context;
 using CSharpToJava.Core.LinqRewrite;
 using Microsoft.CodeAnalysis;
@@ -36,13 +37,14 @@ public sealed record LinqChannelRewriteResult
 /// attaches the switchable route gate and runs the stock
 /// <see cref="LinqRewriter"/>.
 /// <para>
-/// M2 gate semantics (design §4.2/§4.3): with
-/// <see cref="LinqChannelOptions.EnableQueryableGate"/> = true (default) the
-/// gate is INTERCEPTING — Queryable/ExpressionArgument/Mixed/Ambiguous chains
-/// are preserved wholesale while Enumerable/NonLinq chains expand exactly as
-/// E16; with the option false the gate is OBSERVE-ONLY (counts, never changes
-/// output, M1 behavior). A null gate remains the embedded E16 construction and
-/// is byte-identical to the pre-C26 rewriter.
+/// M3 gate semantics (design §4.2/§4.3/§4.6): the gate is PERMANENTLY
+/// intercepting — Queryable/ExpressionArgument/Mixed/Ambiguous chains, every
+/// node lexically inside an <c>Expression&lt;&gt;</c>-quoted lambda and
+/// unprovable quoted sites are frozen node for node; only Enumerable/NonLinq
+/// chains outside quoted regions expand, exactly as E16. The M1/M2
+/// observe-only off-switch (<c>EnableQueryableGate</c>) was removed. A null
+/// gate remains the embedded E16 construction and is byte-identical to the
+/// pre-C26 rewriter; the LC0011 tripwires are no-ops on that path.
 /// </para>
 /// </summary>
 public sealed class LinqChannelRewriter
@@ -83,11 +85,13 @@ public sealed class LinqChannelRewriter
         var plan = LinqChannelPlan.Build(semanticModel, desugaredRoot, filePath);
         TallyPlan(plan, statistics, diagnostics);
 
-        // The gate is always attached inside the channel: option off = M1
-        // observe-only (counts, output identical to E16); option on = M2
-        // intercept (preserved chains freeze before the support gate).
+        // M3: the gate is permanently intercepting inside the channel. It
+        // precomputes the plan-preserve set and the quoted-expression region
+        // set (including LC0012 unprovable sites) and carries the LC0011
+        // tripwires. The embedded E16 path constructs LinqRewriter with no
+        // gate and is untouched.
         ILinqRewriteGate gate = new RoutingGate(
-            semanticModel, statistics, plan, _options.EnableQueryableGate);
+            semanticModel, statistics, plan, diagnostics, _options.Strict, desugaredRoot);
 
         var rewriter = new LinqRewriter(semanticModel, conversionOptions, gate);
         var rewrittenRoot = rewriter.Visit(desugaredRoot) ?? desugaredRoot;
@@ -131,6 +135,16 @@ public sealed class LinqChannelRewriter
     {
         foreach (var chain in plan.Chains)
         {
+            // M3 (§4.4): an otherwise-expandable chain inside a quoted
+            // Expression<> lambda is frozen and counted separately — no node
+            // inside a quote may be proceduralized (M2 leftover fix).
+            if (chain.Decision.Route == LinqChainRoute.Expandable && chain.InsideQuotedLambda)
+            {
+                statistics.ExpressionQuotedChainsPreserved++;
+                AddPreservedChain(statistics, plan.FilePath, chain, "PreserveExpressionQuoted");
+                continue;
+            }
+
             switch (chain.Decision.Route)
             {
                 case LinqChainRoute.Expandable:
@@ -157,7 +171,8 @@ public sealed class LinqChannelRewriter
     private static void AddPreservedChain(
         LinqChannelStatistics statistics,
         string? filePath,
-        LinqChannelPlan.ChainEntry chain)
+        LinqChannelPlan.ChainEntry chain,
+        string? routeOverride = null)
     {
         var outer = chain.Nodes[0];
         var line = outer.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
@@ -174,7 +189,7 @@ public sealed class LinqChannelRewriter
         statistics.PreservedChains.Add(new LinqPreservedChain(
             filePath ?? string.Empty,
             line,
-            chain.Decision.Route.ToString(),
+            routeOverride ?? chain.Decision.Route.ToString(),
             outerDecision.HostDisplay,
             operators));
     }
@@ -227,49 +242,101 @@ public sealed class LinqChannelRewriter
     }
 
     /// <summary>
-    /// Switchable route gate at the rewriter's two entry points.
+    /// M3 permanently-intercepting route gate at the rewriter's two entry
+    /// points (design §4.2/§4.3/§4.4/§4.6).
     /// <para>
     /// Observation (third-route expression sites + provider-custom counters)
-    /// happens in both modes; each invocation is tallied at most once even
-    /// when both the foreach hook and the generic invocation visitor see it on
-    /// the foreach-rewrap fallback path.
+    /// covers every plan node and every quoted-region invocation; each
+    /// invocation is tallied at most once even when both the foreach hook and
+    /// the generic invocation visitor see it on the foreach-rewrap path.
     /// </para>
     /// <para>
-    /// Intercept mode answers preserve from the per-file plan: every node of a
-    /// non-Expandable chain (Queryable/Mixed/Ambiguous) freezes the whole
-    /// invocation subtree when visited, so the rewriter never reaches the
-    /// support gate or the syntax-name fallback for those nodes (design
-    /// §4.2/§4.3; the LC0011 hard invariant is an M3 addition).
+    /// The freeze set is the union of (a) every node of a chain the plan says
+    /// must be preserved (Queryable/Mixed/Ambiguous, plus any chain inside a
+    /// quoted lambda — <see cref="LinqChannelPlan.ChainEntry.MustPreserve"/>)
+    /// and (b) EVERY invocation lexically inside an Expression&lt;&gt;-quoted
+    /// lambda, whether or not it belongs to a discovered LINQ chain (the M2
+    /// leftover: a quoted inner Enumerable chain or a user/Expression-API call
+    /// inside the tree must not be proceduralized). Freezing returns the
+    /// original node, so neither the support gate nor the syntax-name fallback
+    /// is ever reached for those nodes.
+    /// </para>
+    /// <para>
+    /// The two Guard* methods are the LC0011 anti-regression tripwires: they
+    /// throw <see cref="LinqRouteInvariantException"/> if a freeze-set node
+    /// reaches the expansion branch or the <c>n == null</c> fallback fabricates
+    /// an Enumerable identity for a LINQ operator while the gate is attached.
+    /// Correct routing makes both unreachable.
     /// </para>
     /// </summary>
     private sealed class RoutingGate : ILinqRewriteGate
     {
         private readonly LinqChannelStatistics _statistics;
         private readonly LinqRouteClassifier _classifier;
-        private readonly bool _intercept;
+        private readonly List<LinqChannelDiagnostic> _diagnostics;
+        private readonly bool _strict;
+        private readonly string? _filePath;
         private readonly HashSet<InvocationExpressionSyntax> _observed = new();
-        private readonly HashSet<InvocationExpressionSyntax> _preservedNodes;
+        private readonly HashSet<InvocationExpressionSyntax> _freezeSet;
+        private readonly HashSet<InvocationExpressionSyntax> _planChainNodes;
+        private readonly HashSet<InvocationExpressionSyntax> _lc0010Nodes;
 
         public RoutingGate(
             SemanticModel semanticModel,
             LinqChannelStatistics statistics,
             LinqChannelPlan plan,
-            bool intercept)
+            List<LinqChannelDiagnostic> diagnostics,
+            bool strict,
+            SyntaxNode root)
         {
             _statistics = statistics;
             _classifier = new LinqRouteClassifier(semanticModel);
-            _intercept = intercept;
-            _preservedNodes = plan.Chains
-                .Where(chain => chain.Decision.Route != LinqChainRoute.Expandable)
+            _diagnostics = diagnostics;
+            _strict = strict;
+            _filePath = plan.FilePath;
+
+            _planChainNodes = plan.Chains
+                .SelectMany(chain => chain.Nodes)
+                .ToHashSet();
+            _lc0010Nodes = plan.Chains
+                .Where(chain => chain.Decision.Route == LinqChainRoute.PreserveAmbiguous)
+                .SelectMany(chain => chain.Nodes
+                    .Zip(chain.Decision.Nodes)
+                    .Where(pair => pair.Second.Kind == LinqRouteKind.Ambiguous)
+                    .Select(pair => pair.First))
+                .ToHashSet();
+
+            // (a) plan-preserved chain nodes.
+            var freezeSet = plan.Chains
+                .Where(chain => chain.MustPreserve)
                 .SelectMany(chain => chain.Nodes)
                 .ToHashSet();
 
-            // In intercept mode a preserved outer node freezes its whole
-            // subtree, so the observe hooks never fire for its nodes (nor for
-            // chains nested inside quoted lambdas). Observation counters must
-            // stay mode-independent, so every plan node is tallied up front;
-            // visit-time Tally calls dedupe against this set.
-            foreach (var node in plan.Chains.SelectMany(chain => chain.Nodes))
+            // (b) every invocation inside an Expression<>-quoted lambda,
+            // whether or not it is part of a discovered LINQ chain. C# has no
+            // unquote/splice syntax in plain source, so lexical containment is
+            // sufficient.
+            foreach (var invocation in root.DescendantNodes()
+                         .OfType<InvocationExpressionSyntax>()
+                         .Where(i => !LinqRouteClassifier.IsNameofPseudoCall(i))
+                         .Where(i => ExpressionTreeFacts.IsInsideQuotedExpressionLambda(semanticModel, i)))
+            {
+                freezeSet.Add(invocation);
+                ReportIfUnprovable(invocation);
+            }
+
+            _freezeSet = freezeSet;
+
+            // A frozen outer node freezes its whole subtree, so the observe
+            // hooks never fire for nested nodes during the visit. Observation
+            // counters must be visit-order independent; tally every plan node
+            // up front (visit-time Tally calls dedupe against _observed).
+            foreach (var node in _planChainNodes)
+            {
+                Tally(node);
+            }
+
+            foreach (var node in freezeSet)
             {
                 Tally(node);
             }
@@ -281,19 +348,104 @@ public sealed class LinqChannelRewriter
 
         public bool ShouldPreserveInvocation(InvocationExpressionSyntax invocation)
         {
-            if (!_intercept)
-            {
-                // Observe-only (M1 shape): the support gate and the name-guess
-                // fallback stay exactly where they were.
-                return false;
-            }
-
             Tally(invocation);
-            return _preservedNodes.Contains(invocation);
+            return _freezeSet.Contains(invocation);
         }
 
         public bool ShouldPreserveForeachCollection(InvocationExpressionSyntax collection)
             => ShouldPreserveInvocation(collection);
+
+        public void GuardEnterExpansion(InvocationExpressionSyntax invocation)
+        {
+            if (_freezeSet.Contains(invocation))
+            {
+                throw Invariant(
+                    invocation,
+                    "a node routed Queryable/Expression/Mixed/Ambiguous (or located inside an "
+                    + "Expression<>-quoted lambda) reached the stock rewriter's expansion branch; "
+                    + "the three-way gate lost a node (LC0011, design §4.3/§6)");
+            }
+        }
+
+        public void GuardSyntaxNameFallback(InvocationExpressionSyntax invocation, string syntaxName)
+        {
+            // The caller only reaches this for member-access invocations whose
+            // member token is a known LINQ operator name while the bound symbol
+            // is null: the fabricated IEnumerable<T> identity hole (R2). With
+            // the channel gate attached this may never succeed.
+            throw new LinqRouteInvariantException(
+                $"LINQ operator '{syntaxName}' did not bind a symbol and the GetMethodFullName "
+                + "syntax-name fallback was about to fabricate a System.Linq.Enumerable identity in "
+                + "LINQ chain context while the channel gate was active (LC0011, design §4.3/R2); "
+                + "the file is preserved wholesale",
+                _filePath,
+                LineOf(invocation));
+        }
+
+        /// <summary>
+        /// M3 LC0012 (CS2J1303): a quoted-tree site the channel cannot prove
+        /// identity for. BCL surface (<c>System.*</c> — Enumerable/Queryable
+        /// operators, String/DateTime/… instance methods, the
+        /// System.Linq.Expressions.Expression builder API) keeps its
+        /// MethodInfo after rebind and is silent; calls bound outside the BCL
+        /// surface (user/3rd-party methods, provider extensions such as EF
+        /// <c>Include</c>) and unbound calls are preserved and reported.
+        /// Ambiguous nodes already carrying LC0010 are not double-reported.
+        /// </summary>
+        private void ReportIfUnprovable(InvocationExpressionSyntax invocation)
+        {
+            var decision = _classifier.ClassifyInvocation(invocation);
+            if (decision.Kind == LinqRouteKind.Ambiguous)
+            {
+                if (_lc0010Nodes.Contains(invocation))
+                {
+                    return;
+                }
+            }
+            else if (decision.Kind == LinqRouteKind.NonLinq
+                && IsProvableBclHost(decision.BoundMethod?.ContainingType))
+            {
+                return;
+            }
+            else if (decision.Kind is LinqRouteKind.Enumerable
+                or LinqRouteKind.Queryable)
+            {
+                return;
+            }
+
+            var severity = _strict
+                ? LinqChannelDiagnosticSeverity.Error
+                : LinqChannelDiagnosticSeverity.Warning;
+            var syntaxName = (invocation.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.Text
+                ?? invocation.Expression.ToString();
+            var host = decision.BoundMethod?.ContainingType.ToDisplayString() ?? decision.HostDisplay ?? "<unbound>";
+            _diagnostics.Add(new LinqChannelDiagnostic(
+                severity,
+                LinqChannelDiagnosticCodes.ExpressionTreeUnprovable,
+                $"Call '{syntaxName}' inside a quoted Expression<> tree binds to '{host}', whose "
+                + "MethodInfo identity the channel cannot prove after rebind (LC0012); the node is preserved",
+                _filePath,
+                LineOf(invocation)));
+            _statistics.ExpressionTreeUnprovableSites++;
+        }
+
+        private static bool IsProvableBclHost(ISymbol? containingType)
+        {
+            if (containingType is null)
+            {
+                return false;
+            }
+
+            var display = containingType.ToDisplayString();
+            return display.StartsWith("System.", StringComparison.Ordinal);
+        }
+
+        private LinqRouteInvariantException Invariant(
+            InvocationExpressionSyntax invocation, string message)
+            => new(message, _filePath, LineOf(invocation));
+
+        private static int? LineOf(SyntaxNode node)
+            => node.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
 
         private void Tally(InvocationExpressionSyntax invocation)
         {

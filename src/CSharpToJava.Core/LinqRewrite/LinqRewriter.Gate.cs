@@ -105,5 +105,32 @@ namespace CSharpToJava.Core.LinqRewrite
                 return true;
             }
         }
+
+        /// <summary>
+        /// M3 LC0011 tripwire (design §4.3/§6): a preserved-route node must
+        /// never enter the expansion branch. Null gate (embedded E16) = no-op,
+        /// keeping that path byte-identical. The thrown
+        /// <see cref="CSharpToJava.Core.LinqChannel.LinqRouteInvariantException"/>
+        /// is intentionally NOT caught by the three-type wide catch in
+        /// TryCatchVisitInvocationExpression — it fails the file (adapter rolls
+        /// it back) instead of degrading to a skip.
+        /// </summary>
+        private void LinqChannelGuardEnterExpansion(InvocationExpressionSyntax node)
+        {
+            _linqChannelGate?.GuardEnterExpansion(node);
+        }
+
+        /// <summary>
+        /// M3 LC0011 tripwire for the <c>n == null</c> syntax-name fallback
+        /// inside <c>GetMethodFullName</c>. Invoked only for LINQ operator
+        /// names whose fabricated identity the stock switch is about to return;
+        /// with the channel gate attached this is an invariant violation (R2).
+        /// Null gate = no-op, so embedded E16 behavior is unchanged.
+        /// </summary>
+        private void LinqChannelGuardSyntaxNameFallback(
+            InvocationExpressionSyntax invocation, string syntaxName)
+        {
+            _linqChannelGate?.GuardSyntaxNameFallback(invocation, syntaxName);
+        }
     }
 }

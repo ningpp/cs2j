@@ -45,6 +45,21 @@ public sealed class LinqChannelStatistics
     /// </summary>
     public int ProviderCustomCalls { get; set; }
 
+    /// <summary>
+    /// M3: otherwise-expandable chains lexically inside an
+    /// <c>Expression&lt;&gt;</c>-quoted lambda; every node is frozen (design
+    /// §4.4 third route; fixes the M2 leftover where a quoted inner
+    /// Enumerable chain was proceduralized).
+    /// </summary>
+    public int ExpressionQuotedChainsPreserved { get; set; }
+
+    /// <summary>
+    /// M3 LC0012: invocation sites inside quoted expression trees whose
+    /// MethodInfo identity the channel cannot prove (calls bound outside the
+    /// BCL <c>System.*</c> surface, or unbound calls); preserved and reported.
+    /// </summary>
+    public int ExpressionTreeUnprovableSites { get; set; }
+
     /// <summary>Inventory of every non-expandable chain (Queryable/Mixed/Ambiguous).</summary>
     public List<LinqPreservedChain> PreservedChains { get; } = new();
 
@@ -58,6 +73,8 @@ public sealed class LinqChannelStatistics
         MixedChainsPreserved += other.MixedChainsPreserved;
         AmbiguousChains += other.AmbiguousChains;
         ProviderCustomCalls += other.ProviderCustomCalls;
+        ExpressionQuotedChainsPreserved += other.ExpressionQuotedChainsPreserved;
+        ExpressionTreeUnprovableSites += other.ExpressionTreeUnprovableSites;
         PreservedChains.AddRange(other.PreservedChains);
     }
 }

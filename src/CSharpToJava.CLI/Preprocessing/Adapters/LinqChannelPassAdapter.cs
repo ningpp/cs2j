@@ -16,12 +16,16 @@ namespace CSharpToJava.CLI.Preprocessing.Adapters;
 /// processed in parallel over an OrdinalIgnoreCase-sorted list for
 /// deterministic output);</item>
 /// <item>stage 2 — one recompilation over the on-disk stage-1 tree, then a
-/// route plan + the stock <c>LinqRewriter</c> with the M1 observe-only gate
-/// attached (<see cref="LinqChannelRewriter.ProcessFile"/>).</item>
+/// route plan + the stock <c>LinqRewriter</c> with the M3 permanently-
+/// intercepting gate attached (<see cref="LinqChannelRewriter.ProcessFile"/>).</item>
 /// </list>
-/// M1 gate semantics: observation only. Stage-2 output is produced entirely by
-/// the embedded E16 rewriter; the gate records routing counters and never
-/// changes a rewrite decision (no fallback is blocked; LC0011 stays M3).
+/// M3 gate semantics: Queryable/Expression/Mixed/Ambiguous chains and every
+/// node inside quoted Expression&lt;&gt; lambdas are preserved; only
+/// Enumerable chains outside quoted regions expand as E16. A
+/// <see cref="LinqRouteInvariantException"/> (LC0011) means the gate lost a
+/// node: the affected file is rolled back to its ORIGINAL source bytes in the
+/// intermediate tree, an Error diagnostic is recorded and the pass fails
+/// (design §4.3/§6).
 /// The pass verifies build/tests on the intermediate tree and deletes the
 /// build outputs afterwards; the schemaVersion 2 report is always written to
 /// the intermediate root as <c>cs2j-linq-channel-report.json</c>.
@@ -165,10 +169,36 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             }
 
             var reportPath = relative.Replace('\\', '/');
-            var result = channel.ProcessFile(
-                compilation.GetSemanticModel(syntaxTree),
-                desugaredRoot,
-                reportPath);
+            LinqChannelRewriteResult result;
+            try
+            {
+                result = channel.ProcessFile(
+                    compilation.GetSemanticModel(syntaxTree),
+                    desugaredRoot,
+                    reportPath);
+            }
+            catch (LinqRouteInvariantException ex)
+            {
+                // LC0011 (design §4.3/§6): the three-way gate lost a node and
+                // a preserved route reached the expansion branch / fabricated
+                // syntax-name fallback. Roll the file back to its ORIGINAL
+                // source bytes (discarding even stage-1 desugaring for it) so
+                // the intermediate tree stays compilable, record the Error and
+                // fail the pass; other files are still processed in this run.
+                File.Copy(source, dest, overwrite: true);
+                lock (_diagnostics)
+                {
+                    _diagnostics.Add(ex.ToDiagnostic());
+                }
+
+                success = false;
+                if (_verbose)
+                {
+                    Console.WriteLine($"[linq-channel] LC0011 rollback: {relative}");
+                }
+
+                continue;
+            }
 
             _statistics.MergeFrom(result.Statistics);
             lock (_diagnostics)

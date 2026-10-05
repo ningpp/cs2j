@@ -12,20 +12,21 @@ using CSharpToJava.Core.RecordReadOnly;
 namespace CSharpToJava.ProjectTests;
 
 /// <summary>
-/// C26 M2 milestone coverage:
+/// C26 gate project-level coverage (kept from M2, updated for M3):
 /// <list type="bullet">
 /// <item>the §5.3 single-point suppression predicate (channel intermediate
 /// present ⇒ embedded E16 rewrite off; absent/null ⇒ untouched);</item>
-/// <item>gate intercept vs observe-only at the real adapter level on a project
-/// with an Enumerable chain nested inside a Queryable operator's quoted
-/// lambda: intercept freezes it verbatim and passes Release build
-/// verification; observe-only (M1 behavior) still proceduralizes inside the
-/// quoted lambda (the empirical M2 fact — output compiles, hence LC0011 hard
-/// gating stays M3 — but the rewrite decision differs and is asserted);</item></item>
+/// <item>gate intercept at the real adapter level on a project with an
+/// Enumerable chain nested inside a Queryable operator's quoted lambda:
+/// the chain is frozen verbatim (M3: by the quoted-region gate, not just the
+/// outer subtree freeze) and passes Release build verification;</item>
 /// <item>the convert-project CLI double-run wiring end to end: with
 /// --enable-pass linq-channel the Java conversion emits no embedded
 /// cs2j-linq-report.json (E16 stats null), without the channel it does.</item>
 /// </list>
+/// The M2 observe-only companion test was removed in M3: the
+/// <c>EnableQueryableGate</c> off-switch no longer exists; the ungated E16
+/// fallback path is pinned instead by the null-gate Core unit test.
 /// </summary>
 public sealed class LinqChannelGateM2ProjectTests
 {
@@ -68,7 +69,7 @@ public sealed class LinqChannelGateM2ProjectTests
             {
                 Console.SetError(errorCapture);
                 result = await RunChainAsync(sourceDir, outputDir,
-                    () => new LinqChannelOptions { EnableQueryableGate = true });
+                    () => new LinqChannelOptions());
             }
             finally
             {
@@ -77,7 +78,7 @@ public sealed class LinqChannelGateM2ProjectTests
 
             Assert.True(
                 result.Success,
-                "intercept mode freezes the Queryable chain including the " +
+                "the M3 gate freezes the Queryable chain including the " +
                 "Enumerable chain nested in its quoted lambda; Release build must pass.\nstderr:\n"
                 + errorCapture);
             Assert.Contains(IntermediateDirName, result.ExecutedIntermediateDirectoryNames);
@@ -91,46 +92,11 @@ public sealed class LinqChannelGateM2ProjectTests
             using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(report));
             var routing = doc.RootElement.GetProperty("routing");
             Assert.True(routing.GetProperty("queryableChainsPreserved").GetInt32() >= 1);
-        }
-        finally
-        {
-            DeleteQuiet(tempRoot);
-        }
-    }
-
-    [Fact]
-    public async Task ObserveOnlyGate_ProceduralizesInsideQuotedLambda_ShowingModeDifference()
-    {
-        var (tempRoot, sourceDir, outputDir) = CreateWorkspace();
-        try
-        {
-            var errorCapture = new StringWriter();
-            var originalError = Console.Error;
-            CliChainResult result;
-            try
-            {
-                Console.SetError(errorCapture);
-                result = await RunChainAsync(sourceDir, outputDir,
-                    () => new LinqChannelOptions { EnableQueryableGate = false });
-            }
-            finally
-            {
-                Console.SetError(originalError);
-            }
-
-            // Empirical M2 fact: with the gate observing only, the stock
-            // rewriter descends into the quoted lambda and proceduralizes the
-            // nested Enumerable chain (helper extracted, lambda shell kept —
-            // the materialized tree still compiles, which is why the hard
-            // LC0011 invariant is an M3 item, not M2). Intercept mode changes
-            // exactly this decision (see the paired intercept test above).
-            Assert.True(result.Success, "stderr:\n" + errorCapture);
-            Assert.Contains(IntermediateDirName, result.ExecutedIntermediateDirectoryNames);
-
-            var producedOff = await File.ReadAllTextAsync(
-                Path.Combine(outputDir, IntermediateDirName, "Tools.cs"));
-            Assert.Contains("_ProceduralLinq", producedOff);
-            Assert.DoesNotContain("new[] { 1, 2, 3 }.Where(n => n > x).Any()", producedOff);
+            // M3: the nested chain is no longer counted as expanded; it has
+            // its own quoted-preserve counter.
+            Assert.True(
+                routing.GetProperty("expressionQuotedChainsPreserved").GetInt32() >= 1,
+                "the Enumerable chain nested in the quoted lambda must be a quoted-preserved chain");
         }
         finally
         {
