@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!--
+      M0 standalone probe console for C26 (NOT part of CSharpToJavaConverter.slnx).
+      The classifier is linked from the test-project prototype so there is a
+      single source of truth; M1 promotes the prototype into Core.
+    -->
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\tests\CSharpToJava.Tests\LinqChannel\LinqRouteClassifier.cs"
+             Link="LinqRouteClassifier.cs" />
+  </ItemGroup>
+
+</Project>
