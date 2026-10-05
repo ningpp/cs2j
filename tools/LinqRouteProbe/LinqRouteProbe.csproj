@@ -8,8 +8,9 @@
     <IsPackable>false</IsPackable>
     <!--
       M0 standalone probe console for C26 (NOT part of CSharpToJavaConverter.slnx).
-      The classifier is linked from the test-project prototype so there is a
-      single source of truth; M1 promotes the prototype into Core.
+      M1 promoted the classifier into src/CSharpToJava.Core/LinqChannel; the three
+      routing sources are linked here so the tool keeps sharing the single source
+      of truth without taking a project reference on the heavyweight Core project.
     -->
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
   </PropertyGroup>
@@ -19,7 +20,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\tests\CSharpToJava.Tests\LinqChannel\LinqRouteClassifier.cs"
+    <Compile Include="..\..\src\CSharpToJava.Core\LinqChannel\LinqHosts.cs"
+             Link="LinqHosts.cs" />
+    <Compile Include="..\..\src\CSharpToJava.Core\LinqChannel\LinqRoute.cs"
+             Link="LinqRoute.cs" />
+    <Compile Include="..\..\src\CSharpToJava.Core\LinqChannel\LinqRouteClassifier.cs"
              Link="LinqRouteClassifier.cs" />
   </ItemGroup>
 

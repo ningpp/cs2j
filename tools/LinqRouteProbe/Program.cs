@@ -1,6 +1,7 @@
 // C26 M0 baseline scanner (design §8 gate 4, §9 M0).
 //
-// Runs the prototype LinqRouteClassifier over:
+// Runs the production LinqRouteClassifier (src/CSharpToJava.Core/LinqChannel,
+// promoted from the M0 probe in M1) over:
 //   sdk  --root D:\csharp-sdk            (sample source trees, TPA references)
 //   ef   --project path\to\X.csproj       (msbuild-evaluated compile items,
 //                                          built-output + NuGet asset refs)
@@ -12,7 +13,7 @@
 
 using System.Diagnostics;
 using System.Text.Json;
-using CSharpToJava.Tests.LinqChannel.Probe;
+using CSharpToJava.Core.LinqChannel;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;

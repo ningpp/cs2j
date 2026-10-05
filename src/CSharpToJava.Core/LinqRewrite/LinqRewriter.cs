@@ -40,10 +40,13 @@ namespace CSharpToJava.Core.LinqRewrite
         private readonly ConversionOptions? _options;
 
         
-        public LinqRewriter(SemanticModel semantic, ConversionOptions? options = null)
+        public LinqRewriter(SemanticModel semantic, ConversionOptions? options = null,
+            CSharpToJava.Core.LinqChannel.ILinqRewriteGate? gate = null)
         {
             this.semantic = semantic;
             this._options = options;
+            // C26 D13 seam: null (all existing call sites) = zero behavior change.
+            this._linqChannelGate = gate;
         }
 
         /// <summary>
@@ -202,7 +205,11 @@ namespace CSharpToJava.Core.LinqRewrite
                     currentMethodName = propDecl.Identifier.Text;
                 }
 
-          
+
+                // C26 D13/M1: observe-only gate seam, before the support gate
+                // and chain backtracking. M1 never changes the rewrite outcome.
+                LinqChannelObserveInvocation(node);
+
                 if (IsSupportedMethod(node))
                 {
                     var chain = new List<LinqStep>();
@@ -1604,6 +1611,9 @@ namespace CSharpToJava.Core.LinqRewrite
         private SyntaxNode TryVisitForEachStatement(ForEachStatementSyntax node)
         {
             var collection = node.Expression as InvocationExpressionSyntax;
+            // C26 D13/M1: the foreach-rewrap entry gets the same observe-only
+            // seam before its support gate.
+            if (collection != null) LinqChannelObserveForeachCollection(collection);
             if (collection != null && IsSupportedMethod(collection))
             {
                 var visitor = new CanRewrapForeachVisitor();

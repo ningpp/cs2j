@@ -1,89 +1,49 @@
-// C26 M0 probe: prototype LinqRouteClassifier.
-//
-// This is the research/prototype implementation pinned by the C26 LINQ channel
-// design (docs/superpowers/specs/2026-09-29-c26-linq-channel-design.md §4.2,
-// decisions D1/D2/D6). It lives INSIDE the test project on purpose: M1 will
-// promote it to src/CSharpToJava.Core/LinqChannel/LinqRouteClassifier.cs.
-// No production code references it.
-//
-// Algorithm (verbatim from §4.2, safety-first reading of the M0 task):
-//   * Route an invocation ONLY by the bound method symbol's ContainingType
-//     (System.Linq.Enumerable vs System.Linq.Queryable). Syntax names never
-//     participate in routing (D1).
-//   * ReducedExtension symbols are normalized through ReducedFrom first.
-//   * When no unique symbol was bound, result is Ambiguous, split by
-//     CandidateReason into Unbound (CandidateReason.None) / Candidate
-//     (everything else). Candidate symbols are NOT used for host routing:
-//     when overload resolution itself failed, the compiler picked no winner,
-//     so the gate must preserve (LC0010) instead of second-guessing.
-//   * Each argument's GetTypeInfo(arg).ConvertedType is checked for
-//     System.Linq.Expressions.Expression<T> (D2).
-//   * ClassifyChain preserves the whole chain when any node is
-//     Queryable/Expression/Ambiguous (D6, v1 conservative chain rule).
-
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
-namespace CSharpToJava.Tests.LinqChannel.Probe;
-
-public enum LinqRouteKind
-{
-    Enumerable,
-    Queryable,
-    ExpressionArgument,
-    NonLinq,
-    Ambiguous,
-}
-
-public enum LinqRouteAmbiguity
-{
-    None = 0,
-    Unbound,
-    Candidate,
-    UnsupportedExpressionNode,
-}
-
-public readonly record struct LinqRouteDecision(
-    LinqRouteKind Kind,
-    IMethodSymbol? BoundMethod,
-    string? HostDisplay,
-    LinqRouteAmbiguity Ambiguity,
-    CandidateReason CandidateReason,
-    int ExpressionArgumentCount)
-{
-    public bool IsPreserved =>
-        Kind is LinqRouteKind.Queryable or LinqRouteKind.Ambiguous
-        || ExpressionArgumentCount > 0;
-
-    public static LinqRouteDecision NonLinq(IMethodSymbol method, string host) =>
-        new(LinqRouteKind.NonLinq, method, host, LinqRouteAmbiguity.None, CandidateReason.None, 0);
-}
-
-public enum LinqChainRoute
-{
-    /// <summary>Every node is Enumerable/NonLinq: eligible for procedural expansion.</summary>
-    Expandable,
-    /// <summary>All LINQ nodes on the chain bind to System.Linq.Queryable.</summary>
-    PreserveQueryable,
-    /// <summary>Chain crosses Enumerable and Queryable hosts (D6 boundary mix).</summary>
-    PreserveMixed,
-    /// <summary>At least one node failed to bind a unique symbol (LC0010).</summary>
-    PreserveAmbiguous,
-}
-
-public readonly record struct LinqChainDecision(
-    LinqChainRoute Route,
-    IReadOnlyList<LinqRouteDecision> Nodes);
+namespace CSharpToJava.Core.LinqChannel;
 
 /// <summary>
-/// M0 prototype of the C26 three-way route gate. M1 promotion target:
-/// src/CSharpToJava.Core/LinqChannel/LinqRouteClassifier.cs.
+/// C26 three-way route gate (design §4.2, D1/D2/D6/D7). Promoted from the M0
+/// probe prototype with three M0-measured refinements:
+/// <list type="number">
+/// <item><see cref="nameof"/> pseudo-calls are excluded before routing
+/// (M0 measured 3680 such "unbound" sites on EF Core — they are never calls).</item>
+/// <item><see cref="FindChains"/> only reports member-access-connected chains
+/// containing at least one known LINQ operator node.</item>
+/// <item>Host identity normalizes IOrderedEnumerable/IOrderedQueryable
+/// receiver interfaces (reduced ThenBy/ThenByDescending, M0 measurement).</item>
+/// </list>
+/// Routing uses ONLY the bound method symbol's containing static class; syntax
+/// names participate solely in chain discovery (never in host routing).
 /// </summary>
 public sealed class LinqRouteClassifier
 {
-    public const string EnumerableHost = "System.Linq.Enumerable";
-    public const string QueryableHost = "System.Linq.Queryable";
-    public const string ExpressionNamespace = "System.Linq.Expressions";
+    public const string EnumerableHost = LinqHosts.EnumerableHost;
+    public const string QueryableHost = LinqHosts.QueryableHost;
+    public const string ExpressionNamespace = LinqHosts.ExpressionNamespace;
+
+    /// <summary>
+    /// LINQ operator syntax names, used only for chain discovery pre-filtering
+    /// and provider-custom-call counting. Never used for host routing (D1).
+    /// </summary>
+    public static readonly IReadOnlySet<string> KnownOperatorNames = new HashSet<string>(
+        new[]
+        {
+            "Where", "Select", "SelectMany", "Join", "GroupJoin",
+            "OrderBy", "OrderByDescending", "ThenBy", "ThenByDescending",
+            "GroupBy", "Skip", "Take", "SkipWhile", "TakeWhile", "SkipLast", "TakeLast",
+            "Any", "All", "Count", "LongCount",
+            "First", "FirstOrDefault", "Last", "LastOrDefault", "Single", "SingleOrDefault",
+            "Distinct", "DistinctBy", "Concat", "Union", "UnionBy", "Intersect", "IntersectBy",
+            "Except", "ExceptBy", "Reverse", "AsEnumerable", "AsQueryable",
+            "ToList", "ToArray", "ToDictionary", "ToHashSet", "ToLookup",
+            "Aggregate", "Sum", "Average", "Min", "Max", "MaxBy", "MinBy",
+            "Contains", "SequenceEqual", "ElementAt", "ElementAtOrDefault",
+            "DefaultIfEmpty", "Append", "Prepend", "Chunk", "Cast", "OfType", "Zip",
+            "Order", "OrderDescending",
+        },
+        StringComparer.Ordinal);
 
     private readonly SemanticModel _semantic;
 
@@ -91,6 +51,14 @@ public sealed class LinqRouteClassifier
 
     public LinqRouteDecision ClassifyInvocation(InvocationExpressionSyntax invocation)
     {
+        // M0 finding: nameof(...) is syntactically an InvocationExpression but
+        // a compiler pseudo-function (GetSymbolInfo is always null). Drop it
+        // before routing so it never becomes an LC0010 ambiguity.
+        if (IsNameofPseudoCall(invocation))
+        {
+            return LinqRouteDecision.NonLinq(null, null);
+        }
+
         var info = _semantic.GetSymbolInfo(invocation);
         var symbol = NormalizeReduced(info.Symbol as IMethodSymbol);
 
@@ -98,7 +66,9 @@ public sealed class LinqRouteClassifier
         foreach (var argument in invocation.ArgumentList.Arguments)
         {
             if (ClassifyArgument(argument.Expression).Kind == LinqRouteKind.ExpressionArgument)
+            {
                 expressionArgumentCount++;
+            }
         }
 
         if (symbol is null)
@@ -120,7 +90,8 @@ public sealed class LinqRouteClassifier
                 expressionArgumentCount);
         }
 
-        var hostDisplay = symbol.ContainingType.OriginalDefinition.ToDisplayString();
+        var rawHost = symbol.ContainingType.OriginalDefinition.ToDisplayString();
+        var hostDisplay = LinqHosts.NormalizeToStaticHost(rawHost);
 
         if (hostDisplay == EnumerableHost)
         {
@@ -132,7 +103,7 @@ public sealed class LinqRouteClassifier
                 return new LinqRouteDecision(
                     LinqRouteKind.Ambiguous,
                     symbol,
-                    hostDisplay,
+                    EnumerableHost,
                     LinqRouteAmbiguity.UnsupportedExpressionNode,
                     CandidateReason.None,
                     expressionArgumentCount);
@@ -141,7 +112,7 @@ public sealed class LinqRouteClassifier
             return new LinqRouteDecision(
                 LinqRouteKind.Enumerable,
                 symbol,
-                hostDisplay,
+                EnumerableHost,
                 LinqRouteAmbiguity.None,
                 CandidateReason.None,
                 0);
@@ -152,13 +123,13 @@ public sealed class LinqRouteClassifier
             return new LinqRouteDecision(
                 LinqRouteKind.Queryable,
                 symbol,
-                hostDisplay,
+                QueryableHost,
                 LinqRouteAmbiguity.None,
                 CandidateReason.None,
                 expressionArgumentCount);
         }
 
-        return LinqRouteDecision.NonLinq(symbol, hostDisplay);
+        return LinqRouteDecision.NonLinq(symbol, rawHost);
     }
 
     public LinqRouteDecision ClassifyArgument(ExpressionSyntax argument)
@@ -186,7 +157,7 @@ public sealed class LinqRouteClassifier
 
     /// <summary>
     /// D2: true when the node's converted type is
-    /// System.Linq.Expressions.Expression&lt;TDelegate&gt;.
+    /// <see cref="System.Linq.Expressions.Expression{TDelegate}"/>.
     /// </summary>
     public bool IsExpressionQuoted(ExpressionSyntax node) =>
         ClassifyArgument(node).Kind == LinqRouteKind.ExpressionArgument;
@@ -212,13 +183,19 @@ public sealed class LinqRouteClassifier
 
     /// <summary>
     /// Enumerate maximal receiver-member-access invocation chains in a syntax
-    /// subtree (outermost invocation first). Nested invocations inside
-    /// arguments are separate chains; conditional-access chains are not
-    /// followed by the M0 prototype (reported as a known limitation for M1).
+    /// subtree (outermost invocation first). Nested invocations inside arguments
+    /// are separate chains; conditional-access chains are not followed.
+    /// M1 tightening: <see cref="nameof"/> pseudo-calls are excluded and only
+    /// chains containing at least one node whose member name is a known LINQ
+    /// operator are returned (the M0 prototype reported every invocation root,
+    /// which inflated chain counts with non-LINQ/nameof singletons).
     /// </summary>
     public static IReadOnlyList<List<InvocationExpressionSyntax>> FindChains(SyntaxNode root)
     {
-        var invocations = root.DescendantNodes().OfType<InvocationExpressionSyntax>().ToHashSet();
+        var invocations = root.DescendantNodes()
+            .OfType<InvocationExpressionSyntax>()
+            .Where(invocation => !IsNameofPseudoCall(invocation))
+            .ToHashSet();
 
         var childToParent = new Dictionary<InvocationExpressionSyntax, InvocationExpressionSyntax>();
         foreach (var invocation in invocations)
@@ -249,11 +226,35 @@ public sealed class LinqRouteClassifier
                 }
             }
 
-            // Outermost-first order matches source reading order.
-            chains.Add(chain);
+            if (chain.Any(HasLinqOperatorName))
+            {
+                // Outermost-first order matches source reading order.
+                chains.Add(chain);
+            }
         }
 
-        return chains;
+        return chains
+            .OrderBy(chain => chain[0].SpanStart)
+            .ToList();
+    }
+
+    /// <summary>True for member-access invocations whose member token is a known LINQ operator name.</summary>
+    public static bool HasLinqOperatorName(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax memberAccess
+        && KnownOperatorNames.Contains(memberAccess.Name.Identifier.Text);
+
+    /// <summary>
+    /// <c>nameof(...)</c> is an InvocationExpressionSyntax syntactically but a
+    /// compiler pseudo-function (keyword token), never a real call site.
+    /// </summary>
+    public static bool IsNameofPseudoCall(InvocationExpressionSyntax invocation)
+    {
+        return invocation.Expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.Text == "nameof",
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.Text == "nameof",
+            _ => false,
+        };
     }
 
     internal static bool IsExpressionType(ITypeSymbol? type)
@@ -267,7 +268,10 @@ public sealed class LinqRouteClassifier
     private static IMethodSymbol? NormalizeReduced(IMethodSymbol? symbol)
     {
         if (symbol is null)
+        {
             return null;
+        }
+
         return symbol.MethodKind == MethodKind.ReducedExtension
             ? symbol.ReducedFrom ?? symbol
             : symbol;

@@ -24,6 +24,7 @@
 
 using System.Reflection;
 using CSharpToJava.Core.Context;
+using CSharpToJava.Core.LinqChannel;
 using CSharpToJava.Core.LinqRewrite;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;

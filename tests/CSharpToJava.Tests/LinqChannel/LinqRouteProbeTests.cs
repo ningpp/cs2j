@@ -14,6 +14,7 @@
 // docs/superpowers/specs/2026-09-29-c26-linq-channel-design.md §1.3/§9 M0.
 
 using System.Reflection;
+using CSharpToJava.Core.LinqChannel;
 using CSharpToJava.Core.LinqRewrite;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -498,5 +499,76 @@ public sealed class LinqRouteProbeTests
         var decision = new LinqRouteClassifier(model).ClassifyInvocation(node);
         Assert.Equal(LinqRouteKind.NonLinq, decision.Kind);
         Assert.Equal("Mine.MyOps", decision.HostDisplay);
+    }
+
+    // ── M1 promotion findings (design §8 gate-4 M0校注 ③) ──────────────────────
+
+    [Fact]
+    public void NameofPseudoCall_IsExcludedBeforeRouting_AndFromChains()
+    {
+        const string body = "var n = nameof(src); var z = src.Count();";
+        var (_, model) = CompileBody(body);
+        var root = model.SyntaxTree.GetCompilationUnitRoot();
+
+        var nameofNode = root.DescendantNodes().OfType<InvocationExpressionSyntax>()
+            .Single(n => n.Expression is IdentifierNameSyntax { Identifier.Text: "nameof" });
+        var nameofDecision = new LinqRouteClassifier(model).ClassifyInvocation(nameofNode);
+        Assert.Equal(LinqRouteKind.NonLinq, nameofDecision.Kind);
+        Assert.Equal(LinqRouteAmbiguity.None, nameofDecision.Ambiguity);
+
+        // nameof never forms an Ambiguous singleton chain (M0 measured 3680
+        // such fake sites); the real Count() chain is discovered normally.
+        // (The probe wrapper itself also contains one AsQueryable() chain.)
+        var chains = LinqRouteClassifier.FindChains(root);
+        Assert.DoesNotContain(chains.SelectMany(c => c), n => n == nameofNode);
+        var countChain = Assert.Single(chains.Where(c => OperatorName(c[0]) == "Count"));
+        Assert.Equal("Count", OperatorName(countChain[0]));
+    }
+
+    [Fact]
+    public void FindChains_OnlyReportsMemberAccessChainsWithALinqOperatorNode()
+    {
+        const string body = """
+            Console.WriteLine("plain");
+            var z = src.Where(x => x > 0).Select(x => x).ToList();
+            """;
+        var (_, model) = CompileBody(body);
+        var root = model.SyntaxTree.GetCompilationUnitRoot();
+
+        var chains = LinqRouteClassifier.FindChains(root);
+        // WriteLine is a member-access invocation but no LINQ operator node →
+        // never appears in a chain; the Where/Select/ToList chain survives.
+        Assert.DoesNotContain(chains.SelectMany(c => c),
+            n => OperatorName(n) == "WriteLine");
+        var target = Assert.Single(chains.Where(c => OperatorName(c[0]) == "ToList"));
+        Assert.Equal(new[] { "ToList", "Select", "Where" },
+            target.Select(OperatorName).ToArray());
+    }
+
+    [Fact]
+    public void FindChains_StaticForm_IsReportedAsSingleNodeChain()
+    {
+        var (_, model) = CompileBody("var z = Enumerable.Select(src, x => x);");
+        var chains = LinqRouteClassifier.FindChains(model.SyntaxTree.GetCompilationUnitRoot());
+        var target = Assert.Single(chains.Where(c => OperatorName(c[0]) == "Select"));
+        Assert.Single(target);
+        Assert.Equal("Select", OperatorName(target[0]));
+    }
+
+    [Fact]
+    public void HostNormalization_CoversOrderedEnumerableAndOrderedQueryableInterfaces()
+    {
+        Assert.Equal(LinqHosts.EnumerableHost,
+            LinqHosts.NormalizeToStaticHost("System.Collections.Generic.IEnumerable<TSource>"));
+        Assert.Equal(LinqHosts.EnumerableHost,
+            LinqHosts.NormalizeToStaticHost("System.Linq.IOrderedEnumerable<TSource>"));
+        Assert.Equal(LinqHosts.QueryableHost,
+            LinqHosts.NormalizeToStaticHost("System.Linq.IQueryable<TSource>"));
+        Assert.Equal(LinqHosts.QueryableHost,
+            LinqHosts.NormalizeToStaticHost("System.Linq.IOrderedQueryable<TSource>"));
+        Assert.Equal(LinqHosts.EnumerableHost, LinqHosts.NormalizeToStaticHost(LinqHosts.EnumerableHost));
+        Assert.Equal(LinqHosts.QueryableHost, LinqHosts.NormalizeToStaticHost(LinqHosts.QueryableHost));
+        Assert.Null(LinqHosts.NormalizeToStaticHost("Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions"));
+        Assert.Null(LinqHosts.NormalizeToStaticHost(null));
     }
 }
