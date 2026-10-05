@@ -384,11 +384,11 @@ Description                 = "Fill Caller* info arguments at call sites; invent
 
 - 分支：`feature/preproc-c10-attribute-normalize`
 - 目录：`.worktrees/preproc-c10-attribute-normalize`
-- base：`f68a783c`（`feat(preprocessing): register 23 merged-family stub passes`，已核实存在：`f68a783cd74cbfc398204bcdabe000e4f881ad30`）
+- base：`ba7a0897`（`feat(c49): default-on extension-block materialization`，分支 `dev-3.x-26100507` 最新提交，2026-10-05 更新；完整哈希：`ba7a0897069331fe3466c452ba3359283beea2cb`）
 - 创建命令：
 
 ```powershell
-git worktree add .worktrees/preproc-c10-attribute-normalize -b feature/preproc-c10-attribute-normalize f68a783c
+git worktree add .worktrees/preproc-c10-attribute-normalize -b feature/preproc-c10-attribute-normalize ba7a0897069331fe3466c452ba3359283beea2cb
 ```
 
 实施约束（交实施 worktree，不在本文档执行）：仅在上述 worktree 内改码；不创建额外 worktree；按 §9 里程碑逐提交；默认关先行，过 §8 门槛才翻默认开；转换器/compat/E08 代码改动（§5.4）留后续 PR。
