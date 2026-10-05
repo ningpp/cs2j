@@ -29,8 +29,14 @@ public static class LinqTools
     public static int ActiveCount(IEnumerable<Thing> things)
         => things.Count(t => t.Active);
 
-    public static List<IGrouping<bool, Thing>> ByActivity(IEnumerable<Thing> things)
-        => things.GroupBy(t => t.Active).ToList();
+    // Inner join against an id sequence: the Join chain (lambdas on both
+    // sides) lowers procedurally like every other Enumerable chain.
+    public static IEnumerable<string> JoinNamesToIds(
+        IEnumerable<Thing> things, IEnumerable<int> ids)
+        => things.Join(ids, t => t.Id, id => id, (t, id) => t.Name);
+
+    public static int TotalId(IEnumerable<Thing> things)
+        => things.Select(t => t.Id).Sum();
 
     public static int[] DoubledEvens(IEnumerable<int> values)
         => values.Where(x => x % 2 == 0).Select(x => x * 2).ToArray();
