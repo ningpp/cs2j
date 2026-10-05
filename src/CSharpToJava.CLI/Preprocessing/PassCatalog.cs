@@ -27,6 +27,7 @@ internal static class PassIds
     public const string ArrayMethod = "array-method";
     public const string IndexRange = "index-range";
     public const string MakeReadonly = "make-readonly";
+    public const string AttributeNormalize = "attribute-normalize";
     public const string StructValueSemantics = "struct-value-semantics";
     public const string EliminateGoto = "eliminate-goto";
     public const string MemberDesugar = "member-desugar";
@@ -388,6 +389,19 @@ internal static class PassCatalog
             verifyBuildByDefault: true,
             verifyTestsByDefault: true,
             description: "Make eligible structs readonly with whole-tree analysis and shim injection."),
+        new(
+            PassIds.AttributeNormalize,
+            "Attribute normalization",
+            ".cs2j-attribute-normalize-src",
+            PassStage.Declarative,
+            PassStatus.Implemented,
+            defaultEnabled: false,
+            runAfterIds: new[] { PassIds.GenericDeepen, PassIds.MakeReadonly },
+            needsSemanticModel: true,
+            verifyBuildByDefault: true,
+            verifyTestsByDefault: true,
+            description: "Fill Caller* info arguments at call sites; inventory JSON/serialization and P/Invoke attributes.",
+            catalogItems: "C10"),
         new(
             PassIds.StructValueSemantics,
             "Struct value semantics",

@@ -2,6 +2,7 @@ using CSharpToJava.Core.EqualityConcat;
 using CSharpToJava.Core.ExpressionDesugar;
 using CSharpToJava.Core.ExtensionMethodResolve;
 using CSharpToJava.Core.ExtensionMethodResolve.Declarations;
+using CSharpToJava.Core.AttributeNormalize;
 using CSharpToJava.Core.JavaKeywords;
 using CSharpToJava.Core.LexicalNormalize;
 using CSharpToJava.Core.PlatformIsolation;
@@ -57,6 +58,13 @@ internal sealed class CliChainRequest
     /// </summary>
     public Func<VarianceAuditOptions> VarianceAuditOptionsFactory { get; init; }
         = () => new VarianceAuditOptions();
+
+    /// <summary>
+    /// Invoked only when attribute-normalize is enabled. Defaulted so callers that
+    /// never enable the pass need not supply one.
+    /// </summary>
+    public Func<AttributeNormalizeOptions> AttributeNormalizeOptionsFactory { get; init; }
+        = () => new AttributeNormalizeOptions();
 
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
@@ -230,6 +238,7 @@ internal static class CliPreprocessChain
                 return options;
             },
             EnumDeclarationOptionsFactory = request.EnumDeclarationOptionsFactory,
+            AttributeNormalizeOptionsFactory = request.AttributeNormalizeOptionsFactory,
             LexicalNormalizeOptionsFactory = request.LexicalNormalizeOptionsFactory,
             EnableDecimalOps = request.EnableDecimalOps,
             EnableIncrementTargets = request.EnableIncrementTargets,

@@ -83,10 +83,32 @@ public sealed class GenericDeepenRegistryTests
     }
 
     [Fact]
-    public void AttributeNormalize_StillAnchorsAfterGenericDeepen()
+    public void AttributeNormalize_IsImplemented_AnchoredAndDefaultOff()
     {
-        var attribute = PassCatalog.BuildRegistry().Require(PassStubCatalog.Ids.AttributeNormalize);
-        Assert.Contains(PassIds.GenericDeepen, attribute.RunAfterIds);
+        var descriptor = PassCatalog.ImplementedById(PassIds.AttributeNormalize);
+        Assert.Equal(PassStatus.Implemented, descriptor.Status);
+        Assert.Equal("C10", descriptor.CatalogItems);
+        Assert.Equal(".cs2j-attribute-normalize-src", descriptor.IntermediateDirectoryName);
+        Assert.Equal(PassStage.Declarative, descriptor.Stage);
+        Assert.False(descriptor.DefaultEnabled);
+        Assert.Equal(new[] { PassIds.GenericDeepen, PassIds.MakeReadonly }, descriptor.RunAfterIds);
+        Assert.Equal(PassSupportLibrary.None, descriptor.SupportLibrary);
+        Assert.True(descriptor.NeedsSemanticModel);
+        Assert.True(descriptor.VerifyBuildByDefault);
+        Assert.True(descriptor.VerifyTestsByDefault);
+        Assert.DoesNotContain(
+            PassCatalog.BuildRegistry().WhereStatus(PassStatus.Stub),
+            stub => stub.Id == PassIds.AttributeNormalize);
+    }
+
+    [Fact]
+    public void Factory_CreatesAdapter_ForAttributeNormalize()
+    {
+        var adapter = PassChainFactory.CreateAdapter(PassIds.AttributeNormalize, CreateConfig());
+        Assert.Equal(PassIds.AttributeNormalize, adapter.Descriptor.Id);
+        Assert.True(adapter.VerifyBuild);
+        Assert.True(adapter.VerifyTests);
+        Assert.True(adapter.DeleteBuildOutputsAfterRestore);
     }
 
     [Fact]

@@ -59,6 +59,12 @@ public sealed class PassChainOrderTests
         PassIds.ArrayMethod,
         PassIds.IndexRange,
         PassIds.MakeReadonly,
+        // C10 attribute-normalize is Implemented but default-OFF (opt-in):
+        // it slots immediately after make-readonly (anchors generic-deepen +
+        // make-readonly, declared right after make-readonly so the Kahn
+        // tiebreak pins the slot), before struct-value-semantics (design
+        // §3.1/§3.2). It stays out of EnabledByDefault below.
+        PassIds.AttributeNormalize,
         PassIds.StructValueSemantics,
         PassStubCatalog.Ids.UnsafeFfm,
         PassStubCatalog.Ids.ClosureLift,
@@ -90,10 +96,12 @@ public sealed class PassChainOrderTests
 
     // All-preprocessors-default-on policy: every implemented pass is
     // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
-    // C09 thread-static is the single exception (design §3.1/§8 gates): it is
-    // part of the locked chain but stays out of the default plan.
-    private static readonly string[] EnabledByDefault =
-        LockedChain.Where(id => id != PassIds.ThreadStatic).ToArray();
+    // The default-on policy keeps every implemented pass enabled except the
+    // design-gated opt-in pair: C09 thread-static (§3.1/§8 gates) and C10
+    // attribute-normalize (opt-in). Both stay out of the default plan.
+    private static readonly string[] EnabledByDefault = LockedChain
+        .Where(id => id != PassIds.ThreadStatic && id != PassIds.AttributeNormalize)
+        .ToArray();
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -147,6 +155,59 @@ public sealed class PassChainOrderTests
 
         Assert.True(plan.IsValid);
         Assert.Equal(EnabledByDefault, plan.Enabled.Select(p => p.Id).ToArray());
+    }
+
+    [Fact]
+    public void AttributeNormalize_slots_after_make_readonly_precedes_member_desugar_but_stays_default_off()
+    {
+        var registry = PassCatalog.BuildRegistry();
+
+        // The stub row is gone and the single descriptor is Implemented.
+        Assert.DoesNotContain(
+            registry.Ordered,
+            pass => pass.Id == PassIds.AttributeNormalize && pass.Status == PassStatus.Stub);
+        var descriptor = PassCatalog.ImplementedById(PassIds.AttributeNormalize);
+        Assert.Equal(PassStatus.Implemented, descriptor.Status);
+        Assert.False(descriptor.DefaultEnabled);
+
+        var ordered = registry.Ordered
+            .Where(pass => pass.Status == PassStatus.Implemented).ToList();
+        var genericDeepen = ordered.FindIndex(pass => pass.Id == PassIds.GenericDeepen);
+        var makeReadonly = ordered.FindIndex(pass => pass.Id == PassIds.MakeReadonly);
+        var attributeNormalize = ordered.FindIndex(pass => pass.Id == PassIds.AttributeNormalize);
+        var memberDesugar = ordered.FindIndex(pass => pass.Id == PassIds.MemberDesugar);
+        var javaKeywords = ordered.FindIndex(pass => pass.Id == PassIds.JavaKeywords);
+
+        Assert.True(genericDeepen >= 0 && makeReadonly >= 0
+            && attributeNormalize >= 0 && memberDesugar >= 0 && javaKeywords >= 0);
+        Assert.True(genericDeepen < attributeNormalize,
+            "attribute-normalize must run after generic-deepen");
+        Assert.True(makeReadonly < attributeNormalize,
+            "attribute-normalize must run after make-readonly");
+        Assert.True(attributeNormalize < memberDesugar,
+            "attribute-normalize must precede member-desugar");
+        Assert.True(attributeNormalize < javaKeywords,
+            "attribute-normalize must precede java-keywords");
+
+        // Default plan keeps the pass out (opt-in).
+        var baseline = PassPlanResolver.Resolve(registry);
+        Assert.True(baseline.IsValid);
+        Assert.DoesNotContain(
+            baseline.Enabled, pass => pass.Id == PassIds.AttributeNormalize);
+
+        // --enable-pass opts in and the pass enters the locked chain.
+        var enabled = PassPlanResolver.Resolve(
+            registry, enablePassIds: new[] { PassIds.AttributeNormalize });
+        Assert.True(enabled.IsValid);
+        Assert.Contains(
+            enabled.Enabled, pass => pass.Id == PassIds.AttributeNormalize);
+
+        // Enabling and disabling the same id in one request is a CS2J9002 conflict.
+        var conflict = PassPlanResolver.Resolve(
+            registry,
+            enablePassIds: new[] { PassIds.AttributeNormalize },
+            disablePassIds: new[] { PassIds.AttributeNormalize });
+        Assert.False(conflict.IsValid);
     }
 
     [Fact]
@@ -570,7 +631,8 @@ public sealed class PassChainOrderTests
                 && id != PassStubCatalog.Ids.PlatformIsolation
                 && id != PassIds.ClosedMetadata
                 && id != PassIds.AnonymousTypeLift
-                && id != PassStubCatalog.Ids.AsyncNormalize)
+                && id != PassStubCatalog.Ids.AsyncNormalize
+                && id != PassIds.AttributeNormalize)
                 .OrderBy(id => id, StringComparer.Ordinal).ToArray(),
             toggles.Keys.OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }

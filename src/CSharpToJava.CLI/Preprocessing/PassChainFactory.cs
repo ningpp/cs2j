@@ -1,6 +1,7 @@
 using CSharpToJava.Core.ArrayMethodRewriter;
 using CSharpToJava.Core.AnonymousTypeLift;
 using CSharpToJava.Core.AsyncNormalize;
+using CSharpToJava.Core.AttributeNormalize;
 using CSharpToJava.Core.ClosureLift;
 using CSharpToJava.Core.ConcurrencyNormalize;
 using CSharpToJava.Core.ClosedMetadata;
@@ -85,6 +86,14 @@ internal sealed class PassChainConfiguration
 
     /// <summary>Invoked only when variance-audit is enabled (keeps override loading lazy).</summary>
     public required Func<VarianceAuditOptions> VarianceAuditOptionsFactory { get; init; }
+
+    /// <summary>
+    /// Invoked only when attribute-normalize is enabled (keeps overrides loading
+    /// lazy). Optional so existing chain-configuration constructors stay
+    /// source-compatible; the default is the built-in non-strict options.
+    /// </summary>
+    public Func<AttributeNormalizeOptions> AttributeNormalizeOptionsFactory { get; init; } =
+        static () => new AttributeNormalizeOptions();
 
     /// <summary>Invoked only when enum-declaration is enabled (keeps override loading lazy).</summary>
     public required Func<CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions> EnumDeclarationOptionsFactory { get; init; }
@@ -417,6 +426,16 @@ internal static class PassChainFactory
                 config.CompatNamespacePrefixes,
                 config.VerifyBuild,
                 config.VerifyTests),
+
+            // C10 has no convert-project legacy toggle; the descriptor default
+            // (off, opt-in) drives it and --enable-pass/--pass opts in
+            // (platform-isolation precedent). Overrides load lazily only when
+            // the pass runs.
+            PassIds.AttributeNormalize => new AttributeNormalizePassAdapter(
+                config.AttributeNormalizeOptionsFactory(),
+                config.Verbose,
+                config.FilterUnsupportedProjects,
+                config.CompatNamespacePrefixes),
 
             PassIds.StructValueSemantics => new StructValueSemanticsPassAdapter(
                 config.StructValueSemanticsOptionsFactory(),

@@ -35,7 +35,9 @@ internal static class PassStubCatalog
         // Ids.ThreadStatic flipped to Implemented in PassCatalog (C09 M1;
         // default-off pending the design §8 gates); the id constant moved to
         // PassIds next to generic/generic-deepen.
-        public const string AttributeNormalize = "attribute-normalize";
+        // Ids.AttributeNormalize flipped to Implemented in PassCatalog (C10 M1:
+        // opt-in, default-off); the id constant moved to PassIds by the
+        // extension-methods precedent.
         // Ids.ExtensionMethods flipped to Implemented in PassCatalog (C19 M0);
         // the id constant moved to PassIds (generic-deepen/member-desugar precedent).
         // The separate extension-members stub (C49) was consolidated into the
@@ -77,16 +79,9 @@ internal static class PassStubCatalog
         // Ids.ThreadStatic flipped to Implemented in PassCatalog (C09 M1;
         // default-off pending the design §8 gates); the descriptor lives
         // there and no stub entry remains.
-        new(
-            Ids.AttributeNormalize,
-            "Attribute normalization",
-            ".cs2j-attribute-normalize-src",
-            PassStage.Declarative,
-            PassStatus.Stub,
-            defaultEnabled: false,
-            runAfterIds: new[] { PassIds.GenericDeepen },
-            description: "Normalize attributes including the Caller* info family and P/Invoke annotations.",
-            catalogItems: "C10"),
+        // Ids.AttributeNormalize flipped to Implemented in PassCatalog (C10 M1:
+        // opt-in, default-off); the descriptor lives there and no stub entry
+        // remains.
         // Ids.ExtensionMethods flipped to Implemented in PassCatalog (C19 M0);
         // the descriptor (five anchors + make-readonly + iterator-lowering)
         // lives there and no stub entry remains.

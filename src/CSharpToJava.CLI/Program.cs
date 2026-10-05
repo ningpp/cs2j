@@ -228,6 +228,8 @@ public class Program
                     opts.StructValueSemanticsOverrides),
                 VarianceAuditOptionsFactory = () => BuildVarianceAuditOptions(
                     opts.VarianceStrict, opts.VarianceNoReportInfo),
+                AttributeNormalizeOptionsFactory = () => AttributeNormalizeOptionsFactory.Build(
+                    explicitPath: null, strict: false, reportInfo: opts.Verbose),
                 EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions
                 {
                     Strict = opts.LocalFunctionStrict,
@@ -3884,6 +3886,10 @@ public class Program
                     opts.StructValueSemanticsOverrides),
                 VarianceAuditOptionsFactory = () => BuildVarianceAuditOptions(
                     opts.VarianceStrict, opts.VarianceNoReportInfo),
+                AttributeNormalizeOptionsFactory = () => AttributeNormalizeOptionsFactory.Build(
+                    opts.AttributeNormalizeOverrides,
+                    strict: opts.AttributeNormalizeStrict,
+                    reportInfo: opts.Verbose),
                 EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions
                 {
                     Strict = opts.LocalFunctionStrict,
@@ -5070,6 +5076,14 @@ class PreprocessVerbOptions
     [Option("extension-methods-strict", Default = false,
         HelpText = "extension-methods pass (C19): escalate CS2J1201-1207/1210/1220 warnings to errors (default off; M4)")]
     public bool ExtensionMethodStrict { get; set; }
+
+    [Option("strict", Default = false,
+        HelpText = "attribute-normalize pass (C10): escalate CS2J1301-1304/1322 warnings to errors (default off)")]
+    public bool AttributeNormalizeStrict { get; set; }
+
+    [Option("attribute-normalize-overrides", Required = false,
+        HelpText = "Path to AttributeNormalizeOverrides.json: {\"keepAttributes\":[],\"ignoreAttributes\":[],\"skipTypes\":[],\"callerFilePathPolicy\":\"FreezeAnalyzed\"} (default: config/AttributeNormalizeOverrides.json)")]
+    public string? AttributeNormalizeOverrides { get; set; }
 
     [Option("extension-methods-overrides", Required = false,
         HelpText = "Path to extension-methods host overrides JSON: {\"hosts\":{\"Full.Host\":\"skip|force\"},\"additionalLinqHosts\":[...]} (C19 M4)")]
