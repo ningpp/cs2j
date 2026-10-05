@@ -1,0 +1,28 @@
+Provenance for SampleDynamicBoundary.dll (checked in beside this file).
+The .txt extension keeps the file out of both SDK source globbing and the
+cs2j whole-tree compilation.
+
+Rebuild (from the repository root):
+
+  dotnet new classlib -n SampleDynamicBoundary -o $tmp -f netstandard2.0
+  # overwrite Class1.cs with the source below, then:
+  dotnet build $tmp/SampleDynamicBoundary.csproj -c Release
+  copy $tmp/bin/Release/netstandard2.0/SampleDynamicBoundary.dll ^
+       tests/SampleDynamicDesugarSolution/SampleDynamicDesugarLib/external/
+
+The bodies perform no dynamic binding on purpose: netstandard2.0 needs the
+Microsoft.CSharp package only for dynamic call sites, and the fixture only
+needs the object + [DynamicAttribute] metadata shape.
+
+----- source -----
+namespace SampleDynamicBoundary
+{
+    public static class DynamicShapes
+    {
+        public static dynamic Echo(object value) => value;
+
+        public static string Format(dynamic value) => string.Empty;
+
+        public static dynamic Value { get; set; }
+    }
+}

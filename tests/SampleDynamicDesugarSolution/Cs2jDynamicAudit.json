@@ -1,0 +1,313 @@
+{
+  "comment": "C25 SampleDynamicDesugarSolution 人工审计登记（design §7.2/D13）。仅登记 Rewrite 后仍保留的残余站点：P1 可证局部（P1Concretizations.cs，4 处声明）一律不登记，改写后其文件零 dynamic。spanStart/spanLength 为字符偏移（半开区间），由 dynamic-audit-report.json 反查。",
+  "entries": [
+    {
+      "file": "SampleDynamicDesugarApp/CrossFileDynamic.cs",
+      "line": 18,
+      "column": 17,
+      "spanStart": 610,
+      "spanLength": 43,
+      "kind": "DynamicLocalDecl",
+      "reason": "跨文件 dynamic 返回赋值（源内透视仅见 dynamic 形参，DynamicAssignment 不可证）；App 边界保留晚绑定。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarApp/CrossFileDynamic.cs",
+      "line": 18,
+      "column": 55,
+      "spanStart": 648,
+      "spanLength": 4,
+      "kind": "DynamicConversion",
+      "reason": "int 实参流入 Lib dynamic 形参的跨边界转换（DS016），随 DS011 签名保留。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarApp/CrossFileDynamic.cs",
+      "line": 19,
+      "column": 16,
+      "spanStart": 670,
+      "spanLength": 16,
+      "kind": "DynamicConversion",
+      "reason": "dynamic 表达式上的用户显式 (int) 收窄转换（DS002 P2），人工确认运行时为 int。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarApp/CrossFileDynamic.cs",
+      "line": 19,
+      "column": 22,
+      "spanStart": 676,
+      "spanLength": 9,
+      "kind": "DynamicOperation",
+      "reason": "dynamic + int 二元运算（DS015），接收者不可具体化，保留晚绑定。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarApp/CrossFileDynamic.cs",
+      "line": 30,
+      "column": 19,
+      "spanStart": 1174,
+      "spanLength": 7,
+      "kind": "DynamicReturn",
+      "reason": "JSON 风格边界方法的 dynamic 返回签名（DS011），多形态承载，禁止自动改写。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarApp/CrossFileDynamic.cs",
+      "line": 39,
+      "column": 17,
+      "spanStart": 1494,
+      "spanLength": 39,
+      "kind": "DynamicLocalDecl",
+      "reason": "JSON 风格边界返回值局部：唯一返回静态类型为开放 object（SealedNotSatisfied，DS010）。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarApp/CrossFileDynamic.cs",
+      "line": 40,
+      "column": 23,
+      "spanStart": 1557,
+      "spanLength": 17,
+      "kind": "DynamicInvocation",
+      "reason": "边界返回值上的动态 ToString 调用（DS013），晚绑定保留。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/DynamicSignatures.cs",
+      "line": 11,
+      "column": 19,
+      "spanStart": 375,
+      "spanLength": 7,
+      "kind": "DynamicReturn",
+      "reason": "跨边界 dynamic 返回签名（DS011），库 ABI 面，禁止自动改写。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/DynamicSignatures.cs",
+      "line": 11,
+      "column": 39,
+      "spanStart": 395,
+      "spanLength": 13,
+      "kind": "DynamicParameter",
+      "reason": "跨边界 dynamic 形参签名（DS011），库 ABI 面，禁止自动改写。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/DynamicSignatures.cs",
+      "line": 15,
+      "column": 50,
+      "spanStart": 610,
+      "spanLength": 5,
+      "kind": "DynamicConversion",
+      "reason": "dynamic 表达式上的用户显式 (int) 收窄转换（DS002 P2；span 取 '(int)' 段避免与同 kind 实参站点区间重叠），人工确认 EchoDynamic 原样返回 int。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/DynamicSignatures.cs",
+      "line": 15,
+      "column": 56,
+      "spanStart": 616,
+      "spanLength": 21,
+      "kind": "DynamicOperation",
+      "reason": "dynamic 返回值 + int 二元运算（DS015），随 DS011 签名保留晚绑定。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/DynamicSignatures.cs",
+      "line": 15,
+      "column": 68,
+      "spanStart": 628,
+      "spanLength": 4,
+      "kind": "DynamicConversion",
+      "reason": "int 实参流入 dynamic 形参（DS016），跨边界转换保留。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/DynamicStorage.cs",
+      "line": 6,
+      "column": 5,
+      "spanStart": 181,
+      "spanLength": 39,
+      "kind": "DynamicFieldOrProperty",
+      "reason": "dynamic 静态属性存储（DS012），字段/属性存储永不自动改写。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/DynamicStorage.cs",
+      "line": 12,
+      "column": 15,
+      "spanStart": 455,
+      "spanLength": 5,
+      "kind": "DynamicConversion",
+      "reason": "int 隐式流入 dynamic 属性 set（DS016），随 DS012 存储保留。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/DynamicStorage.cs",
+      "line": 13,
+      "column": 16,
+      "spanStart": 477,
+      "spanLength": 8,
+      "kind": "DynamicConversion",
+      "reason": "dynamic 属性 get 上的用户显式 (int) 收窄（DS002 P2），人工确认存取类型一致。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/ExpandoInterop.cs",
+      "line": 13,
+      "column": 9,
+      "spanStart": 408,
+      "spanLength": 3,
+      "kind": "ExpandoOrDynamicObject",
+      "reason": "var 隐式局部承载 ExpandoObject（DS017），Java 无对应类型，保守保留。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/ExpandoInterop.cs",
+      "line": 13,
+      "column": 23,
+      "spanStart": 422,
+      "spanLength": 34,
+      "kind": "ExpandoOrDynamicObject",
+      "reason": "System.Dynamic.ExpandoObject 构造站点（DS017 真符号判定），Java 无对应。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/ExpandoInterop.cs",
+      "line": 19,
+      "column": 16,
+      "spanStart": 696,
+      "spanLength": 23,
+      "kind": "DynamicMemberAccess",
+      "reason": "ExpandoObject 上的动态成员访问 .Name（DS013），随 DS017 保留晚绑定。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/ExpandoInterop.cs",
+      "line": 19,
+      "column": 17,
+      "spanStart": 697,
+      "spanLength": 16,
+      "kind": "DynamicConversion",
+      "reason": "用户显式 (dynamic) 转换（DS016）以启用 ExpandoObject 晚绑定成员访问。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/MetadataBoundary.cs",
+      "line": 17,
+      "column": 12,
+      "spanStart": 821,
+      "spanLength": 49,
+      "kind": "DynamicConversion",
+      "reason": "外部 object+[Dynamic] 返回值上的用户显式 (int) 收窄（DS002 P2），人工确认入参为 int 原样返回。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/MetadataBoundary.cs",
+      "line": 17,
+      "column": 17,
+      "spanStart": 826,
+      "spanLength": 44,
+      "kind": "DynamicAttributeEntry",
+      "reason": "外部程序集 SampleDynamicBoundary 的 object+[Dynamic] 返回方法调用点（DS019），元数据边界保留。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/MetadataBoundary.cs",
+      "line": 21,
+      "column": 55,
+      "spanStart": 1061,
+      "spanLength": 2,
+      "kind": "DynamicConversion",
+      "reason": "int 实参流入外部 object+[Dynamic] 形参（符号模型 TypeKind=Dynamic，按 DS016 边界转换登记）。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/MetadataBoundary.cs",
+      "line": 26,
+      "column": 9,
+      "spanStart": 1219,
+      "spanLength": 41,
+      "kind": "DynamicAttributeEntry",
+      "reason": "外部程序集 object+[Dynamic] 属性 set 访问点（DS019），元数据边界保留。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/MetadataBoundary.cs",
+      "line": 26,
+      "column": 53,
+      "spanStart": 1263,
+      "spanLength": 2,
+      "kind": "DynamicConversion",
+      "reason": "int 隐式流入外部 dynamic 属性 set（DS016），元数据边界转换保留。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/MetadataBoundary.cs",
+      "line": 27,
+      "column": 16,
+      "spanStart": 1282,
+      "spanLength": 46,
+      "kind": "DynamicConversion",
+      "reason": "外部 dynamic 属性 get 上的用户显式 (int) 收窄（DS002 P2），人工确认 set/get 类型一致。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/MetadataBoundary.cs",
+      "line": 27,
+      "column": 21,
+      "spanStart": 1287,
+      "spanLength": 41,
+      "kind": "DynamicAttributeEntry",
+      "reason": "外部程序集 object+[Dynamic] 属性 get 访问点（DS019），元数据边界保留。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/OpenTypeUnprovable.cs",
+      "line": 29,
+      "column": 17,
+      "spanStart": 948,
+      "spanLength": 17,
+      "kind": "DynamicLocalDecl",
+      "reason": "赋值源静态类型为开放（非 sealed）类型 OpenWidget（SealedNotSatisfied，DS010），strict 验收残余。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    },
+    {
+      "file": "SampleDynamicDesugarLib/OpenTypeUnprovable.cs",
+      "line": 30,
+      "column": 16,
+      "spanStart": 982,
+      "spanLength": 17,
+      "kind": "DynamicInvocation",
+      "reason": "开放类型接收者上的动态 Describe 调用（DS013），虚分派运行时依赖保留。",
+      "auditor": "cs2j-audit",
+      "auditedAt": "2026-10-05"
+    }
+  ]
+}

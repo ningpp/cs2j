@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      Pre-built metadata-boundary fixture (DS019). C# forbids writing the
+      object + [DynamicAttribute] shape in source (CS1970, not suppressible);
+      the assembly is written with the dynamic keyword on netstandard2.0 so
+      its metadata carries the shape. Source/provenance:
+      external/SampleDynamicBoundary.cs.txt
+    -->
+    <Reference Include="SampleDynamicBoundary">
+      <HintPath>external\SampleDynamicBoundary.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

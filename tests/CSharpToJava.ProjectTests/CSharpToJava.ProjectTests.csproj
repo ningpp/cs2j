@@ -387,6 +387,17 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- C25 dynamic-desugar fixture (Lib/App/Tests + precompiled boundary dll;
+         bin/obj/TestResults excluded). The external/*.dll and *.cs.txt must ship
+         alongside the sources for Rewrite verify (HintPath metadata boundary). -->
+    <Content Include="..\SampleDynamicDesugarSolution\**\*.*"
+              Exclude="..\SampleDynamicDesugarSolution\**\bin\**;..\SampleDynamicDesugarSolution\**\obj\**;..\SampleDynamicDesugarSolution\**\TestResults\**">
+      <Link>SampleDynamicDesugarSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- xunit runner config: longRunningTestSeconds=30 reports every test that
          exceeds 30 s while the run continues (see TestTiming.targets for the
          full per-test duration CSV generated from trx). -->
