@@ -33,10 +33,17 @@ public sealed record LinqChannelRewriteResult
 /// <summary>
 /// Channel-side orchestration entry (NOT a new rewriter): stage 1 reuses
 /// <see cref="LinqQueryDesugarer"/> verbatim; stage 2 builds the routing plan,
-/// attaches the M1 observe-only gate and runs the stock
-/// <see cref="LinqRewriter"/>. Because the gate never alters rewrite decisions,
-/// stage-2 output is identical to the embedded E16 run over the same tree
-/// (M1 exit criterion; M2 adds byte-level equivalence tests).
+/// attaches the switchable route gate and runs the stock
+/// <see cref="LinqRewriter"/>.
+/// <para>
+/// M2 gate semantics (design §4.2/§4.3): with
+/// <see cref="LinqChannelOptions.EnableQueryableGate"/> = true (default) the
+/// gate is INTERCEPTING — Queryable/ExpressionArgument/Mixed/Ambiguous chains
+/// are preserved wholesale while Enumerable/NonLinq chains expand exactly as
+/// E16; with the option false the gate is OBSERVE-ONLY (counts, never changes
+/// output, M1 behavior). A null gate remains the embedded E16 construction and
+/// is byte-identical to the pre-C26 rewriter.
+/// </para>
 /// </summary>
 public sealed class LinqChannelRewriter
 {
@@ -76,9 +83,11 @@ public sealed class LinqChannelRewriter
         var plan = LinqChannelPlan.Build(semanticModel, desugaredRoot, filePath);
         TallyPlan(plan, statistics, diagnostics);
 
-        ILinqRewriteGate? gate = _options.EnableQueryableGate
-            ? new ObserveOnlyGate(semanticModel, statistics)
-            : null;
+        // The gate is always attached inside the channel: option off = M1
+        // observe-only (counts, output identical to E16); option on = M2
+        // intercept (preserved chains freeze before the support gate).
+        ILinqRewriteGate gate = new RoutingGate(
+            semanticModel, statistics, plan, _options.EnableQueryableGate);
 
         var rewriter = new LinqRewriter(semanticModel, conversionOptions, gate);
         var rewrittenRoot = rewriter.Visit(desugaredRoot) ?? desugaredRoot;
@@ -218,28 +227,73 @@ public sealed class LinqChannelRewriter
     }
 
     /// <summary>
-    /// M1 observe-only gate: records the third-route and provider-custom
-    /// counters at the rewriter's two entry points. Each invocation is tallied
-    /// at most once even when both the foreach hook and the generic invocation
-    /// visitor see it on the foreach-rewrap fallback path.
+    /// Switchable route gate at the rewriter's two entry points.
+    /// <para>
+    /// Observation (third-route expression sites + provider-custom counters)
+    /// happens in both modes; each invocation is tallied at most once even
+    /// when both the foreach hook and the generic invocation visitor see it on
+    /// the foreach-rewrap fallback path.
+    /// </para>
+    /// <para>
+    /// Intercept mode answers preserve from the per-file plan: every node of a
+    /// non-Expandable chain (Queryable/Mixed/Ambiguous) freezes the whole
+    /// invocation subtree when visited, so the rewriter never reaches the
+    /// support gate or the syntax-name fallback for those nodes (design
+    /// §4.2/§4.3; the LC0011 hard invariant is an M3 addition).
+    /// </para>
     /// </summary>
-    private sealed class ObserveOnlyGate : ILinqRewriteGate
+    private sealed class RoutingGate : ILinqRewriteGate
     {
-        private readonly SemanticModel _semanticModel;
         private readonly LinqChannelStatistics _statistics;
         private readonly LinqRouteClassifier _classifier;
+        private readonly bool _intercept;
         private readonly HashSet<InvocationExpressionSyntax> _observed = new();
+        private readonly HashSet<InvocationExpressionSyntax> _preservedNodes;
 
-        public ObserveOnlyGate(SemanticModel semanticModel, LinqChannelStatistics statistics)
+        public RoutingGate(
+            SemanticModel semanticModel,
+            LinqChannelStatistics statistics,
+            LinqChannelPlan plan,
+            bool intercept)
         {
-            _semanticModel = semanticModel;
             _statistics = statistics;
             _classifier = new LinqRouteClassifier(semanticModel);
+            _intercept = intercept;
+            _preservedNodes = plan.Chains
+                .Where(chain => chain.Decision.Route != LinqChainRoute.Expandable)
+                .SelectMany(chain => chain.Nodes)
+                .ToHashSet();
+
+            // In intercept mode a preserved outer node freezes its whole
+            // subtree, so the observe hooks never fire for its nodes (nor for
+            // chains nested inside quoted lambdas). Observation counters must
+            // stay mode-independent, so every plan node is tallied up front;
+            // visit-time Tally calls dedupe against this set.
+            foreach (var node in plan.Chains.SelectMany(chain => chain.Nodes))
+            {
+                Tally(node);
+            }
         }
 
         public void ObserveInvocation(InvocationExpressionSyntax invocation) => Tally(invocation);
 
         public void ObserveForeachCollection(InvocationExpressionSyntax collection) => Tally(collection);
+
+        public bool ShouldPreserveInvocation(InvocationExpressionSyntax invocation)
+        {
+            if (!_intercept)
+            {
+                // Observe-only (M1 shape): the support gate and the name-guess
+                // fallback stay exactly where they were.
+                return false;
+            }
+
+            Tally(invocation);
+            return _preservedNodes.Contains(invocation);
+        }
+
+        public bool ShouldPreserveForeachCollection(InvocationExpressionSyntax collection)
+            => ShouldPreserveInvocation(collection);
 
         private void Tally(InvocationExpressionSyntax invocation)
         {

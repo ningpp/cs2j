@@ -73,6 +73,18 @@ namespace CSharpToJava.Core.LinqRewrite
         private readonly static List<string> KnownMethods;
         public override SyntaxNode VisitInvocationExpression(InvocationExpressionSyntax node)
         {
+            // C26 D13/M2 intercept gate: the preserve decision is taken before
+            // TryVisitInvocationExpression enters chain backtracking/rule
+            // matching (design §4.2/§4.3). Returning the same node freezes the
+            // whole subtree — the receiver chain AND every argument lambda —
+            // so quoted Expression<> bodies of a preserved Queryable chain
+            // cannot be proceduralized by descent either. Null/observe-only
+            // gates answer false and keep the pre-C26 path byte-identical.
+            if (LinqChannelShouldPreserveInvocation(node))
+            {
+                return node;
+            }
+
             return TryCatchVisitInvocationExpression(node, null) ?? base.VisitInvocationExpression(node);
         }
 
@@ -1611,9 +1623,21 @@ namespace CSharpToJava.Core.LinqRewrite
         private SyntaxNode TryVisitForEachStatement(ForEachStatementSyntax node)
         {
             var collection = node.Expression as InvocationExpressionSyntax;
-            // C26 D13/M1: the foreach-rewrap entry gets the same observe-only
-            // seam before its support gate.
+            // C26 D13/M1: the foreach-rewrap entry gets the same observe seam
+            // before its support gate.
             if (collection != null) LinqChannelObserveForeachCollection(collection);
+            // C26 D13/M2: intercept gate before IsSupportedMethod. A preserved
+            // collection chain freezes in place (quoted lambdas included); the
+            // foreach body is outside the chain expression and is still
+            // visited normally.
+            if (collection != null && LinqChannelShouldPreserveForeachCollection(collection))
+            {
+                // Freeze the collection expression (chain node, quoted lambdas
+                // included); the foreach body is outside the chain and is still
+                // visited normally.
+                var visitedStatement = (StatementSyntax)base.Visit(node.Statement);
+                return node.WithStatement(visitedStatement);
+            }
             if (collection != null && IsSupportedMethod(collection))
             {
                 var visitor = new CanRewrapForeachVisitor();

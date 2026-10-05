@@ -15,7 +15,7 @@ namespace CSharpToJava.Core.LinqRewrite
         private readonly ILinqRewriteGate? _linqChannelGate;
 
         /// <summary>
-        /// M1 observe-only hook at <c>TryVisitInvocationExpression</c>, before
+        /// Observe-only hook at <c>TryVisitInvocationExpression</c>, before
         /// the <c>IsSupportedMethod</c> decision. MUST NOT affect the result:
         /// any observation failure is swallowed rather than perturbing E16.
         /// </summary>
@@ -32,12 +32,12 @@ namespace CSharpToJava.Core.LinqRewrite
             }
             catch
             {
-                // Observation must never change rewrite output (M1).
+                // Observation must never change rewrite output.
             }
         }
 
         /// <summary>
-        /// M1 observe-only hook at <c>TryVisitForEachStatement</c>, before the
+        /// Observe-only hook at <c>TryVisitForEachStatement</c>, before the
         /// collection's <c>IsSupportedMethod</c> decision.
         /// </summary>
         private void LinqChannelObserveForeachCollection(InvocationExpressionSyntax collection)
@@ -53,7 +53,56 @@ namespace CSharpToJava.Core.LinqRewrite
             }
             catch
             {
-                // Observation must never change rewrite output (M1).
+                // Observation must never change rewrite output.
+            }
+        }
+
+        /// <summary>
+        /// M2 intercept hook for the invocation entry (design §4.2/§4.3):
+        /// sits immediately before chain backtracking/rule matching. A true
+        /// answer preserves the whole invocation subtree — receiver chain and
+        /// quoted lambdas — so no node inside a preserved chain can reach the
+        /// Enumerable expansion branch. Fail CLOSED: if the gate itself throws,
+        /// the node is preserved rather than risked through the name-guess
+        /// fallback. Observe-only gates answer false and never throw on this
+        /// path, so the M1 behavior is unchanged.
+        /// </summary>
+        private bool LinqChannelShouldPreserveInvocation(InvocationExpressionSyntax node)
+        {
+            if (_linqChannelGate is null)
+            {
+                return false;
+            }
+
+            try
+            {
+                return _linqChannelGate.ShouldPreserveInvocation(node);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// M2 intercept hook for the foreach-rewrap entry, before the
+        /// collection's <c>IsSupportedMethod</c> decision. Fail closed like
+        /// <see cref="LinqChannelShouldPreserveInvocation"/>.
+        /// </summary>
+        private bool LinqChannelShouldPreserveForeachCollection(InvocationExpressionSyntax collection)
+        {
+            if (_linqChannelGate is null)
+            {
+                return false;
+            }
+
+            try
+            {
+                return _linqChannelGate.ShouldPreserveForeachCollection(collection);
+            }
+            catch
+            {
+                return true;
             }
         }
     }

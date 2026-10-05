@@ -230,6 +230,15 @@ public class Program
                     opts.VarianceStrict, opts.VarianceNoReportInfo),
                 AttributeNormalizeOptionsFactory = () => AttributeNormalizeOptionsFactory.Build(
                     explicitPath: null, strict: false, reportInfo: opts.Verbose),
+                // C26 M2: explicit channel-options injection for the
+                // --enable-pass linq-channel opt-in (gate intercepts by
+                // default; Strict follows the shared CLI strict switch).
+                // Build/test verification rides the request Verify* flags.
+                LinqChannelOptionsFactory = () =>
+                    new CSharpToJava.Core.LinqChannel.LinqChannelOptions
+                    {
+                        Strict = opts.LocalFunctionStrict,
+                    },
                 EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions
                 {
                     Strict = opts.LocalFunctionStrict,
@@ -333,7 +342,15 @@ public class Program
                 GenerateJavaDoc = opts.GenerateJavaDoc,
                 UseRecords = opts.UseRecords,
                 UseOptionalForNullable = opts.UseOptionalForNullable,
-                EnableLinqRewrite = opts.EnableLinqRewrite,
+                // C26 §5.3: the linq-channel intermediate tree already holds
+                // the procedural LINQ output, so the embedded E16 rewriter must
+                // not run a second time downstream. This single ConversionOptions
+                // instance feeds all three conversion targets below
+                // (workspace multi-module / project graph / manual directory).
+                // Channel absent → E16 path is byte-identical to before C26.
+                EnableLinqRewrite = opts.EnableLinqRewrite
+                    && !CliPreprocessChain.IsEmbeddedLinqRewriteSuppressed(
+                        chain.ExecutedIntermediateDirectoryNames),
                 PreferStreamApi = opts.PreferStreamApi,
                 UseValueClass = opts.UseValueClass,
             };
@@ -3919,6 +3936,13 @@ public class Program
                     opts.AttributeNormalizeOverrides,
                     strict: opts.AttributeNormalizeStrict,
                     reportInfo: opts.Verbose),
+                // C26 M2: explicit channel-options injection for the
+                // preprocess verb too (shared factory convention).
+                LinqChannelOptionsFactory = () =>
+                    new CSharpToJava.Core.LinqChannel.LinqChannelOptions
+                    {
+                        Strict = opts.LocalFunctionStrict,
+                    },
                 EnumDeclarationOptionsFactory = () => new CSharpToJava.Core.EnumDeclaration.EnumDeclarationOptions
                 {
                     Strict = opts.LocalFunctionStrict,

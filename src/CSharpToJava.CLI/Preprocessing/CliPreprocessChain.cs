@@ -184,6 +184,23 @@ internal sealed class CliChainResult
 /// </summary>
 internal static class CliPreprocessChain
 {
+    /// <summary>
+    /// C26 §5.3 double-run suppression — the ONLY converter-side wiring added
+    /// during the channel/E16 coexistence period. When the executed chain
+    /// materialized the linq-channel intermediate tree, that tree already
+    /// carries the procedural LINQ output; the downstream conversion must not
+    /// run the embedded E16 rewriter a second time (skipped chains would be
+    /// retried and helpers extracted twice). One condition, no new switch:
+    /// when the channel did not run, E16 behaves exactly as before. The single
+    /// ConversionOptions built from this answer feeds all three convert-project
+    /// downstream paths (workspace / project-graph / manual directory scan).
+    /// </summary>
+    public static bool IsEmbeddedLinqRewriteSuppressed(
+        IReadOnlySet<string>? executedIntermediateDirectoryNames)
+        => executedIntermediateDirectoryNames is not null
+        && executedIntermediateDirectoryNames.Contains(
+            Adapters.LinqChannelPassAdapter.IntermediateDirectoryName);
+
     public static async Task<CliChainResult> RunAsync(CliChainRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);

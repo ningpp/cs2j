@@ -15,10 +15,19 @@ public sealed class LinqChannelOptions
     public bool Strict { get; init; }
 
     /// <summary>
-    /// Whether the observe-only route gate is attached to <c>LinqRewriter</c>.
-    /// M1: the gate only records routing decisions/counters and never changes
-    /// rewrite output; it becomes a hard gate in M3, where the off-switch is
-    /// removed (design §4.6).
+    /// Switches the route gate mode at <c>LinqRewriter</c>'s two entry points
+    /// (design §4.3/§4.6).
+    /// <list type="bullet">
+    /// <item><b>true (default, M2 intercept)</b>: Queryable/ExpressionArgument/
+    /// Mixed/Ambiguous chains early-exit through <c>ShouldPreserve</c> and are
+    /// kept verbatim (Ambiguous additionally reports LC0010); Enumerable/NonLinq
+    /// chains expand exactly as the embedded E16 rewriter.</item>
+    /// <item><b>false (observe-only, M1 shape)</b>: the gate only records
+    /// routing decisions/counters and never changes a rewrite decision; output
+    /// is byte-identical to an ungated E16 run.</item>
+    /// </list>
+    /// M3 forces this to true and removes the off-switch (the three gates
+    /// become unclosable before default-on, design §4.6/§9).
     /// </summary>
     public bool EnableQueryableGate { get; init; } = true;
 
