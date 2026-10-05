@@ -565,6 +565,9 @@ internal sealed class CallerInfoAnalyzer
     {
         foreach (var attribute in root.DescendantNodes().OfType<AttributeSyntax>())
         {
+            // AN-U3/§4.4：SkipTypes 命中类型整体不盘点（在 per-node 判定而非整文件）。
+            if (IsOccurrenceInSkippedType(attribute, model)) continue;
+
             var symbolInfo = model.GetSymbolInfo(attribute);
             var ctor = symbolInfo.Symbol as IMethodSymbol
                 ?? symbolInfo.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
@@ -574,17 +577,213 @@ internal sealed class CallerInfoAnalyzer
             if (classification.Status == BridgeStatus.Ignored) continue;
 
             var targetSymbol = TryGetAttributeTarget(attribute, model);
+            var targetKind = ResolveTargetKind(attribute);
+
+            var (status, materialized, unread) = EvaluateOccurrence(
+                classification, attribute, model, targetKind, ctor);
 
             _occurrences.Add(new AttributeOccurrence(
                 classification.MetadataName,
                 classification.Family,
-                classification.Status,
+                status,
                 targetSymbol,
                 attribute.GetLocation(),
-                Array.Empty<string>(),
-                Array.Empty<string>(),
+                materialized,
+                unread,
                 classification.OwnerPass));
         }
+    }
+
+    /// <summary>
+    /// AN-J2 桥接面核对：按条目状态、目标消费面与已读实参集合，逐实参判定
+    /// Materialized/Unread；存在未读实参或落在无消费分支族 → 该使用点 BridgeGap。
+    /// </summary>
+    private static (BridgeStatus Status, IReadOnlyList<string> Materialized, IReadOnlyList<string> Unread)
+        EvaluateOccurrence(
+            CatalogClassification classification,
+            AttributeSyntax syntax,
+            SemanticModel model,
+            AttributeTarget targetKind,
+            IMethodSymbol? ctor)
+    {
+        var materialized = new List<string>();
+        var unread = new List<string>();
+
+        // 无消费分支族（Newtonsoft/DataContract/DebuggerDisplay）：全部实参未读。
+        if (classification.Status == BridgeStatus.BridgeGap
+            || classification.Status == BridgeStatus.InventoriedPassthrough
+            || classification.Status == BridgeStatus.GovernedElsewhere)
+        {
+            if (classification.Status == BridgeStatus.BridgeGap)
+                CollectSupplied(syntax, model, ctor, null, materialized, unread);
+            return (classification.Status, materialized, unread);
+        }
+
+        var entry = classification.Entry;
+
+        // Bridged 条目但无消费面信息（如 JsonConstructor）：仅当携带实参时才判缺口。
+        if (entry == null)
+            return (classification.Status, materialized, unread);
+
+        // 目标种类不在转换器消费面上（如字段级 JsonIgnore、类型级 JsonConverter）：
+        // 该使用点无消费分支 → 全部实参未读。
+        if (entry.ConsumedTargets.Count > 0 && !entry.ConsumedTargets.Contains(targetKind))
+        {
+            CollectSupplied(syntax, model, ctor, null, materialized, unread);
+            return (unread.Count > 0
+                ? BridgeStatus.BridgeGap
+                : BridgeStatus.Bridged, materialized, unread);
+        }
+
+        // 消费面命中：逐实参按已读集合 + 物化判据核对。
+        CollectSupplied(syntax, model, ctor, entry, materialized, unread);
+        return (unread.Count > 0
+            ? BridgeStatus.BridgeGap
+            : BridgeStatus.Bridged, materialized, unread);
+    }
+
+    /// <summary>
+    /// 枚举使用点实际提供的实参（位置 + 具名），优先经 AttributeData（TypedConstant）
+    /// 解析；AttributeData 不可得时退回语法+ctor 形参名（保守归 Unread）。
+    /// </summary>
+    private static void CollectSupplied(
+        AttributeSyntax syntax,
+        SemanticModel model,
+        IMethodSymbol? ctor,
+        CatalogEntry? entry,
+        List<string> materialized,
+        List<string> unread)
+    {
+        if (TryResolveAttributeData(syntax, model, out var data))
+        {
+            var ctorParams = data.AttributeConstructor?.Parameters;
+            var parameterCount = ctorParams is { IsDefault: false } cp ? cp.Length : 0;
+
+            for (var i = 0; i < data.ConstructorArguments.Length; i++)
+            {
+                var constant = data.ConstructorArguments[i];
+                var parameterName = i < parameterCount
+                    ? ctorParams!.Value[i].Name
+                    : $"arg{i}";
+                ClassifyArgument(parameterName, constant, Positional: true, entry, materialized, unread);
+            }
+
+            foreach (var named in data.NamedArguments)
+            {
+                ClassifyArgument(named.Key, named.Value, Positional: false, entry, materialized, unread);
+            }
+
+            return;
+        }
+
+        // Fallback：AttributeData 不可得（缺引用/特殊目标）。位置实参按 ctor 形参名，
+        // 具名按 NameEquals；保守归 Unread，由 CS2J1310 显式暴露。
+        var args = syntax.ArgumentList?.Arguments;
+        if (args == null) return;
+        var ctorParameterCount = ctor?.Parameters is { IsDefault: false } ctp ? ctp.Length : 0;
+        var position = 0;
+        foreach (var argument in args)
+        {
+            if (argument.NameEquals is { } nameEquals)
+            {
+                unread.Add(nameEquals.Name.Identifier.Text);
+            }
+            else
+            {
+                var name = position < ctorParameterCount
+                    ? ctor!.Parameters[position].Name
+                    : $"arg{position}";
+                unread.Add(name);
+                position++;
+            }
+        }
+    }
+
+    private static void ClassifyArgument(
+        string name,
+        TypedConstant constant,
+        bool Positional,
+        CatalogEntry? entry,
+        List<string> materialized,
+        List<string> unread)
+    {
+        ReadArgument? read = null;
+        if (entry != null)
+        {
+            read = Positional
+                ? entry.TryGetPositionalRead(name, out var positionalRead) ? positionalRead : null
+                : entry.TryGetNamedRead(name, out var namedRead) ? namedRead : null;
+        }
+
+        if (read != null && IsValueMaterialized(read.Kind, constant))
+            materialized.Add(name);
+        else
+            unread.Add(name);
+    }
+
+    /// <summary>按转换器实际读取形状判定 TypedConstant 是否被物化。</summary>
+    private static bool IsValueMaterialized(ArgValueKind kind, TypedConstant constant)
+    {
+        switch (kind)
+        {
+            case ArgValueKind.Always:
+                return true;
+            case ArgValueKind.AnyNonNull:
+                return constant.Value != null;
+            case ArgValueKind.String:
+                return constant.Value is string;
+            case ArgValueKind.Int32:
+                return constant.Value is int;
+            case ArgValueKind.TypeOf:
+                return constant.Kind == TypedConstantKind.Type && constant.Value is ITypeSymbol;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// 解析使用点对应的 AttributeData：在目标符号（含形参、程序集/模块）的
+    /// GetAttributes() 中按语法引用 span 精确匹配。
+    /// </summary>
+    private static bool TryResolveAttributeData(
+        AttributeSyntax syntax,
+        SemanticModel model,
+        out AttributeData data)
+    {
+        data = null!;
+        if (syntax.Parent is not AttributeListSyntax list || list.Parent is not { } targetNode)
+            return false;
+
+        var candidates = new List<ISymbol>();
+
+        if (list.Target?.Identifier.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.AssemblyKeyword) == true)
+            candidates.Add(model.Compilation.Assembly);
+        else if (list.Target?.Identifier.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.ModuleKeyword) == true)
+            candidates.Add(model.Compilation.SourceModule);
+        else if (targetNode is ParameterSyntax parameterSyntax
+            && model.GetDeclaredSymbol(parameterSyntax) is { } parameterSymbol)
+            candidates.Add(parameterSymbol);
+        else if (model.GetDeclaredSymbol(targetNode) is { } declared)
+            candidates.Add(declared);
+        else if (model.GetSymbolInfo(targetNode).Symbol is { } symbolInfo)
+            candidates.Add(symbolInfo);
+
+        var span = syntax.Span;
+        foreach (var candidate in candidates)
+        {
+            foreach (var attribute in candidate.GetAttributes())
+            {
+                if (attribute.ApplicationSyntaxReference is { } reference
+                    && reference.SyntaxTree == syntax.SyntaxTree
+                    && reference.Span == span)
+                {
+                    data = attribute;
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private static ISymbol? TryGetAttributeTarget(AttributeSyntax attribute, SemanticModel model)
@@ -597,9 +796,70 @@ internal sealed class CallerInfoAnalyzer
             return model.Compilation.SourceModule;
 
         if (list.Parent is { } targetNode)
-            return model.GetDeclaredSymbol(targetNode) ?? model.GetSymbolInfo(targetNode).Symbol;
+        {
+            return model.GetDeclaredSymbol(targetNode)
+                ?? model.GetSymbolInfo(targetNode).Symbol;
+        }
 
         return null;
+    }
+
+    /// <summary>按 attribute 挂载的语法节点判定目标种类。</summary>
+    private static AttributeTarget ResolveTargetKind(AttributeSyntax attribute)
+    {
+        if (attribute.Parent is not AttributeListSyntax list) return AttributeTarget.Other;
+
+        if (list.Target?.Identifier.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.AssemblyKeyword) == true
+            || list.Target?.Identifier.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.ModuleKeyword) == true)
+            return AttributeTarget.Assembly;
+        if (list.Target?.Identifier.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.ReturnKeyword) == true)
+            return AttributeTarget.ReturnValue;
+
+        switch (list.Parent)
+        {
+            case PropertyDeclarationSyntax:
+            case IndexerDeclarationSyntax:
+                return AttributeTarget.Property;
+            case FieldDeclarationSyntax:
+            case EventFieldDeclarationSyntax:
+                return AttributeTarget.Field;
+            case EventDeclarationSyntax:
+                return AttributeTarget.Event;
+            case ParameterSyntax:
+                return AttributeTarget.Parameter;
+            case MethodDeclarationSyntax:
+            case ConstructorDeclarationSyntax:
+            case DestructorDeclarationSyntax:
+            case LocalFunctionStatementSyntax:
+            case OperatorDeclarationSyntax:
+                return AttributeTarget.Method;
+            case ClassDeclarationSyntax:
+            case StructDeclarationSyntax:
+            case InterfaceDeclarationSyntax:
+            case EnumDeclarationSyntax:
+            case RecordDeclarationSyntax:
+            case DelegateDeclarationSyntax:
+                return AttributeTarget.Type;
+            default:
+                return AttributeTarget.Other;
+        }
+    }
+
+    /// <summary>使用点所在最近类型是否在 SkipTypes 中。</summary>
+    private bool IsOccurrenceInSkippedType(AttributeSyntax attribute, SemanticModel model)
+    {
+        if (_options.SkipTypes.Count == 0) return false;
+
+        foreach (var ancestor in attribute.Ancestors())
+        {
+            if (ancestor is BaseTypeDeclarationSyntax typeDeclaration)
+            {
+                return model.GetDeclaredSymbol(typeDeclaration) is INamedTypeSymbol typeSymbol
+                    && _options.SkipTypes.Contains(typeSymbol.ToDisplayString());
+            }
+        }
+
+        return false;
     }
 
     // =====================================================================
