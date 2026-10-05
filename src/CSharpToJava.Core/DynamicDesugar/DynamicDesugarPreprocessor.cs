@@ -1,5 +1,7 @@
+using CSharpToJava.Core.Analysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CSharpToJava.Core.DynamicDesugar;
 
@@ -439,9 +441,20 @@ public sealed class DynamicDesugarPreprocessor
                 : rewrittenText;
         var outputCode = hasBom ? '\uFEFF' + candidateBody : candidateBody;
 
+        // 身份保持复核（修复「P1 使用点误报」）：rewriter 只重建被替换类型语法周围的
+        // 节点，未触碰节点保持引用同一。具体化后这些使用点在输出语义模型里重新静态
+        // 绑定，输入清单里的 DS01x 记录（调用/成员/运算/实参/转换）已不描述任何残余，
+        // 不能再按 Rewrite 分级发 Error；仍动态的节点（如同文件内另有不可证局部）保留
+        // 原诊断，fail-safe 交由收口闸门统一 DS030。
+        var stilledSiteSpans = FindStilledSiteSpans(
+            fileSites,
+            targetTree,
+            csharpCompilation,
+            applyResult.Root);
+
         var successDiagnostics = EmitSiteDiagnostics(
             fileSites, filePath, concreteSites, diagnosticsSink,
-            manifestHits);
+            manifestHits, stilledSiteSpans);
         statistics?.AddFile(fileSites, transformed: true);
         if (statistics != null)
         {
@@ -489,17 +502,129 @@ public sealed class DynamicDesugarPreprocessor
             .ToHashSet();
     }
 
+    /// <summary>
+    /// 计算「具体化后已静止」的输入站点 span 集合（原始坐标）。
+    /// <see cref="DynamicSiteRewriter"/> 只在声明的类型槽位上替换节点，其余子结构
+    /// （兄弟顺序与数量）保持不变，因此用「根到节点的子序号路径」即可把输入站点
+    /// 确定性映射到输出树对应节点，再用输出语义模型复核其是否仍参与动态绑定；
+    /// 映射失败时 fail-safe 保留原诊断。
+    /// </summary>
+    private static HashSet<(int Start, int End)> FindStilledSiteSpans(
+        IReadOnlyList<DynamicSiteRecord> fileSites,
+        SyntaxTree targetTree,
+        CSharpCompilation originalCompilation,
+        CompilationUnitSyntax rewrittenRoot)
+    {
+        var stilled = new HashSet<(int Start, int End)>();
+
+        var parseOptions = targetTree.Options as CSharpParseOptions
+            ?? new CSharpParseOptions(LanguageVersion.Latest);
+        var outputTree = CSharpSyntaxTree.Create(
+            rewrittenRoot, parseOptions, targetTree.FilePath, encoding: targetTree.Encoding);
+        var outputCompilation = originalCompilation.ReplaceSyntaxTree(targetTree, outputTree);
+        var outputModel = outputCompilation.GetSemanticModel(outputTree);
+        var outputRoot = outputTree.GetRoot();
+        var inputRoot = targetTree.GetRoot();
+
+        foreach (var site in fileSites)
+        {
+            var inputNode = inputRoot.DescendantNodes().FirstOrDefault(node =>
+                node.SpanStart == site.SpanStart && node.Span.End == site.SpanEnd);
+            if (inputNode is null)
+            {
+                continue;
+            }
+
+            var outputNode = MapByChildPath(inputRoot, outputRoot, inputNode);
+            if (outputNode is null || outputNode.RawKind != inputNode.RawKind)
+            {
+                // 结构被重写改变：fail-safe，保留原诊断。
+                continue;
+            }
+
+            if (!DynamicSiteFacts.IsDynamicallyBoundNode(outputModel, outputNode))
+            {
+                stilled.Add((site.SpanStart, site.SpanEnd));
+            }
+        }
+
+        return stilled;
+    }
+
+    /// <summary>按「根到节点的子序号序列」在另一棵同构子树结构中定位对应节点。</summary>
+    private static SyntaxNode? MapByChildPath(
+        SyntaxNode inputRoot,
+        SyntaxNode outputRoot,
+        SyntaxNode inputNode)
+    {
+        var path = new List<int>();
+        var current = inputNode;
+        while (current != inputRoot && current.Parent is { } parent)
+        {
+            var siblings = parent.ChildNodes();
+            var index = -1;
+            var i = 0;
+            foreach (var sibling in siblings)
+            {
+                if (ReferenceEquals(sibling, current))
+                {
+                    index = i;
+                    break;
+                }
+
+                i++;
+            }
+
+            path.Add(index);
+            current = parent;
+        }
+
+        if (current != inputRoot)
+        {
+            return null;
+        }
+
+        var mapped = outputRoot;
+        for (var i = path.Count - 1; i >= 0; i--)
+        {
+            var children = mapped.ChildNodes();
+            var index = path[i];
+            if (index < 0)
+            {
+                return null;
+            }
+
+            mapped = children.ElementAtOrDefault(index);
+            if (mapped is null)
+            {
+                return null;
+            }
+        }
+
+        return mapped;
+    }
+
     private List<DynamicDesugarDiagnostic> EmitSiteDiagnostics(
         IReadOnlyList<DynamicSiteRecord> fileSites,
         string filePath,
         IReadOnlySet<DynamicSiteRecord>? concreteSites,
         IList<DynamicDesugarDiagnostic>? diagnosticsSink,
-        IReadOnlySet<DynamicSiteRecord>? manifestHits)
+        IReadOnlySet<DynamicSiteRecord>? manifestHits,
+        IReadOnlySet<(int Start, int End)>? stilledSiteSpans = null)
     {
         var diagnostics = new List<DynamicDesugarDiagnostic>();
 
         foreach (var site in fileSites)
         {
+            // 具体化后已静态绑定的使用点：输出中不再存在该 dynamic 站点，输入侧
+            // DS01x 诊断不再发射（收口闸门以输出树为唯一残余准绳）。声明站点本身
+            // （concreteSites）仍发 DS001 完成 Info，证明改写落地。
+            if (concreteSites?.Contains(site) != true
+                && stilledSiteSpans?.Contains((site.SpanStart, site.SpanEnd)) == true)
+            {
+                continue;
+            }
+
             // null = 该站点不发射诊断（基线错误保守台账不叠加编译器噪声）。
             var severity = DynamicDesugarSeverityPolicy.Resolve(site, _options);
             if (severity == null)

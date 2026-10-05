@@ -1204,6 +1204,62 @@ public class DynamicDesugarUnitTests
     }
 
     [Fact]
+    public void A1_Rewrite_ProvenDeclaration_UseSiteDiagnosticsStilledAfterConcretization()
+    {
+        // 回归：声明具体化后同文件的使用点（DS013 调用/成员、DS015 运算、实参、
+        // foreach 迭代变量）在输出树中已静态绑定，不得再按输入清单发射 Error
+        // （项目级 fixture Rewrite 曾因此 HasErrors=true / exit 1）。
+        const string source = """
+            sealed class SealedBuilder
+            {
+                public int Count;
+                public string Label = "";
+                public SealedBuilder Add(string s) => this;
+            }
+
+            class Sample
+            {
+                static long AcceptLong(long value) => value;
+
+                string F(string[] parts)
+                {
+                    dynamic builder = new SealedBuilder();
+                    builder.Add("a").Add("b");
+                    int count = builder.Count;
+                    string label = builder.Label;
+
+                    dynamic n = 41;
+                    int doubled = n * 2;
+                    long viaArgument = AcceptLong(n);
+
+                    dynamic s = "x";
+                    string concat = s.ToUpper() + s;
+                    foreach (dynamic c in parts)
+                    {
+                        concat += c.ToUpper();
+                    }
+
+                    return label + count + doubled + viaArgument + concat;
+                }
+            }
+            """;
+
+        var result = RunRewrite(source);
+        var file = TestFileResult(result);
+
+        Assert.True(file.Changed);
+        Assert.False(result.HasErrors);
+        Assert.DoesNotContain(file.Diagnostics, d => d.Severity == DynamicDesugarSeverity.Error);
+        Assert.DoesNotContain(file.Diagnostics, d => d.Code == DynamicDesugarDiagnosticCodes.DynamicMemberOperation);
+        Assert.DoesNotContain(file.Diagnostics, d => d.Code == DynamicDesugarDiagnosticCodes.DynamicOperation);
+        Assert.DoesNotContain("dynamic", file.OutputCode);
+
+        // builder / n / s / c 四个声明各一条 DS001 完成 Info。
+        Assert.Equal(4, file.Diagnostics.Count(d => d.Code == DynamicDesugarDiagnosticCodes.ProvenConcretized));
+        Assert.Equal(4, result.Statistics.DeclarationsRewritten);
+    }
+
+    [Fact]
     public void A1_Rewrite_ValueType_DeclarationConcretizedToInt()
     {
         const string source = """

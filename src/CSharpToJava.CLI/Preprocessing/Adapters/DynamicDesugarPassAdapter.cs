@@ -1,4 +1,6 @@
 using System.Text;
+using System.Xml;
+using System.Xml.Linq;
 using CSharpToJava.Core.DynamicDesugar;
 using CSharpToJava.Core.Preprocessing;
 using Microsoft.CodeAnalysis;
@@ -77,6 +79,99 @@ internal sealed class DynamicDesugarPassAdapter : ProjectPassAdapter
         => new(LanguageVersion.Latest);
 
     public override string CompilationName => "dynamic-desugar-preprocess";
+
+    public override IReadOnlyCollection<MetadataReference> GetMetadataReferences()
+    {
+        var references = new List<MetadataReference>(base.GetMetadataReferences());
+        if (_tree is null)
+        {
+            return references;
+        }
+
+        // Symbol-first for explicit assembly references (design §4.1/R11): a
+        // <Reference HintPath="..."/> assembly participates in the intermediate
+        // build but is not part of the TPA baseline set. Without it, an
+        // external object+[Dynamic] member (DS019) is invisible to the semantic
+        // scan, and no textual marker can conservatively replace it (the call
+        // text looks like an ordinary resolved call). Trees without HintPath
+        // references keep byte-identical reference sets.
+        var added = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var projectFile in _tree.Layout.ProjectFiles
+                     .Where(file => file.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)))
+        {
+            var intermediateProjectFile = Path.Combine(
+                _tree.IntermediateRoot, Path.GetRelativePath(_tree.Layout.SourceRoot, projectFile));
+
+            // Stage order: the compilation is built before the spine copies
+            // non-project assets, so HintPath files may only exist next to the
+            // original project at this point; each candidate is resolved in the
+            // intermediate tree first and falls back to the source tree.
+            var intermediateProjectDir = Path.GetFullPath(Path.GetDirectoryName(intermediateProjectFile)!);
+            var sourceProjectDir = Path.GetFullPath(Path.GetDirectoryName(projectFile)!);
+            AddHintPathReferences(
+                intermediateProjectFile, sourceProjectDir, intermediateProjectDir, references, added);
+        }
+
+        return references;
+    }
+
+    private static void AddHintPathReferences(
+        string projectFile,
+        string sourceProjectDir,
+        string intermediateProjectDir,
+        List<MetadataReference> references,
+        HashSet<string> added)
+    {
+        try
+        {
+            if (!File.Exists(projectFile))
+            {
+                return;
+            }
+
+            var doc = XDocument.Load(projectFile);
+            if (doc.Root is null)
+            {
+                return;
+            }
+
+            foreach (var reference in doc.Root.Descendants("Reference"))
+            {
+                var hintPath = reference.Elements("HintPath")
+                    .Select(element => element.Value?.Trim())
+                    .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+                var candidate = !string.IsNullOrWhiteSpace(hintPath)
+                    ? hintPath
+                    : reference.Attribute("Include")?.Value?.Trim();
+                if (string.IsNullOrWhiteSpace(candidate)
+                    || candidate.Contains(';')
+                    || candidate.Contains("$(", StringComparison.Ordinal)
+                    || candidate.Contains('%')
+                    || !candidate.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var intermediatePath = Path.GetFullPath(Path.Combine(intermediateProjectDir, candidate));
+                var sourcePath = Path.GetFullPath(Path.Combine(sourceProjectDir, candidate));
+                var fullPath = File.Exists(intermediatePath)
+                    ? intermediatePath
+                    : File.Exists(sourcePath) ? sourcePath : null;
+                if (fullPath is not null && added.Add(fullPath))
+                {
+                    references.Add(MetadataReference.CreateFromFile(fullPath));
+                }
+            }
+        }
+        catch (IOException)
+        {
+            // Unreadable project file: fall back to baseline references only.
+        }
+        catch (XmlException)
+        {
+            // Non-XML/legacy project file: fall back to baseline references only.
+        }
+    }
 
     /// <summary>预计算统计（闸门/具体化取数；未绑定时为空统计）。</summary>
     public DynamicDesugarStatistics Statistics =>
