@@ -120,19 +120,18 @@ internal sealed class CallerInfoRewriter : CSharpSyntaxRewriter
         var hasNamed = originalArgumentList.Arguments.Any(a => a.NameColon != null);
         var explicitOrdinals = GetExplicitArgumentOrdinals(originalNode);
 
-        // 计算每个站点的插入位置（原表中形参序号小于本站点的显式实参数 +
-        // 更早插入站点数）。降序插入保持下标稳定。
+        // 计算每个站点的插入位置：原表中形参序号小于本站点的显式实参数。
+        // 降序插入保持下标稳定；同槽位按形参序号降序，使低序号站点最终排在前面。
         var insertion = entries
             .Select(e =>
             {
                 var siteOrdinal = e.Site.ParameterOrdinal;
                 var existingBefore = originalArgumentList.Arguments
                     .Count(a => TryGetOrdinal(explicitOrdinals, a, out var ord) && ord < siteOrdinal);
-                var sitesBefore = entries
-                    .Count(other => other.Site.ParameterOrdinal < siteOrdinal);
-                return (Slot: existingBefore + sitesBefore, e.Site);
+                return (Slot: existingBefore, e.Site);
             })
             .OrderByDescending(t => t.Slot)
+            .ThenByDescending(t => t.Site.ParameterOrdinal)
             .ToList();
 
         var newArguments = new List<ArgumentSyntax>(originalArgumentList.Arguments);
