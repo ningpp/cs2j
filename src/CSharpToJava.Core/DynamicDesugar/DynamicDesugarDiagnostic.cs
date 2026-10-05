@@ -120,8 +120,11 @@ internal static class DynamicDesugarSeverityPolicy
         ArgumentNullException.ThrowIfNull(site);
         ArgumentNullException.ThrowIfNull(options);
 
-        // error 类型节点的保守台账不重复编译器错误噪声（仅入清单/报告）。
-        if (site.UnprovableReason == DynamicUnprovableReason.UnresolvedSymbol
+        // error 类型操作节点（DS013/DS014/DS015 等）的保守台账不重复编译器错误噪声
+        // （仅入清单/报告）。DS010 局部即使原因是 unresolved symbol（零赋值/右值不可解析）
+        // 仍须发射：零赋值不是编译错误，DS010 是该站点唯一的具名提示（设计 §4.4/§6）。
+        if (site.Code != DynamicDesugarDiagnosticCodes.LocalUnprovable
+            && site.UnprovableReason == DynamicUnprovableReason.UnresolvedSymbol
             && !site.SymbolUnresolved)
         {
             return null;

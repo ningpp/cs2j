@@ -56,6 +56,9 @@ public class DynamicDesugarUnitTests
     private static List<DynamicSiteRecord> Sites(DynamicSiteInventory inventory, string code)
         => inventory.Sites.Where(site => site.Code == code).ToList();
 
+    private static List<DynamicSiteRecord> LocalSites(DynamicSiteInventory inventory)
+        => inventory.Sites.Where(site => site.Kind == DynamicSiteKind.DynamicLocalDecl).ToList();
+
     // ---------- 声明族 ----------
 
     [Fact]
@@ -77,11 +80,16 @@ public class DynamicDesugarUnitTests
             }
             """);
 
-        var locals = Sites(inventory, DynamicDesugarDiagnosticCodes.LocalUnprovable);
-        Assert.Single(locals);
-        Assert.Equal(DynamicSiteKind.DynamicLocalDecl, locals[0].Kind);
-        Assert.Equal("SealedFoo", locals[0].OriginType);
-        Assert.Contains("dynamic local", locals[0].Message);
+        // M2 细化（预期变更）：sealed 单点直线局部由 FlowTypeProver 证为 P1，
+        // DS010 → DS001 / ProvenP1（M1 时该站点是 DS010 Unclassified）。
+        var locals = Sites(inventory, DynamicDesugarDiagnosticCodes.ProvenConcretized);
+        var local = Assert.Single(locals);
+        Assert.Equal(DynamicSiteKind.DynamicLocalDecl, local.Kind);
+        Assert.Equal(DynamicProvability.ProvenP1, local.Provability);
+        Assert.Null(local.UnprovableReason);
+        Assert.Equal("SealedFoo", local.OriginType);
+        Assert.Contains("provably concretizable to 'SealedFoo'", local.Message);
+        Assert.Empty(Sites(inventory, DynamicDesugarDiagnosticCodes.LocalUnprovable));
 
         // d.M() 经运行时绑定器晚绑定：Roslyn 5 实测仅 invocation 节点为 DS013
         // （方法组成员访问不独立计站点）。
@@ -89,7 +97,7 @@ public class DynamicDesugarUnitTests
         var invocationSite = Assert.Single(memberOps);
         Assert.Equal(DynamicSiteKind.DynamicInvocation, invocationSite.Kind);
 
-        // M1 审计：具名 Warning，整树 Success。
+        // 审计模式：P1 站点 DS001 Info（尚未改写），整树 Success。
         var result = RunAll("""
             sealed class SealedFoo
             {
@@ -108,8 +116,9 @@ public class DynamicDesugarUnitTests
         Assert.False(result.HasErrors);
         Assert.Contains(
             result.Diagnostics,
-            diagnostic => diagnostic.Code == DynamicDesugarDiagnosticCodes.LocalUnprovable
-                          && diagnostic.Severity == DynamicDesugarSeverity.Warning);
+            diagnostic => diagnostic.Code == DynamicDesugarDiagnosticCodes.ProvenConcretized
+                          && diagnostic.Severity == DynamicDesugarSeverity.Info
+                          && diagnostic.Message.Contains("SealedFoo"));
     }
 
     [Fact]
@@ -561,5 +570,575 @@ public class DynamicDesugarUnitTests
         Assert.Equal(1, statistics.FilesScanned);
         Assert.Equal(result.Diagnostics.Count, sink.Count);
         Assert.Equal(result.FileSites.Count, statistics.SitesTotal);
+    }
+
+    // ---------- M2 FlowTypeProver：P1 正例 ----------
+
+    [Fact]
+    public void M2_Proven_SealedClassIntString_SingleAssignments()
+    {
+        var inventory = BuildInventory("""
+            sealed class SealedFoo
+            {
+                public void M() { }
+            }
+
+            class Sample
+            {
+                void SealedCase()
+                {
+                    dynamic d = new SealedFoo();
+                    d.M();
+                }
+
+                void IntCase()
+                {
+                    dynamic i = 42;
+                    i.ToString();
+                }
+
+                void StringCase()
+                {
+                    dynamic s = "hello";
+                    s.ToString();
+                }
+            }
+            """);
+
+        var locals = LocalSites(inventory);
+        Assert.Equal(3, locals.Count);
+        Assert.All(locals, site =>
+        {
+            Assert.Equal(DynamicProvability.ProvenP1, site.Provability);
+            Assert.Null(site.UnprovableReason);
+            Assert.Equal(DynamicDesugarDiagnosticCodes.ProvenConcretized, site.Code);
+        });
+        Assert.Equal("SealedFoo", locals[0].OriginType);
+        Assert.Equal("int", locals[1].OriginType);
+        Assert.Equal("string", locals[2].OriginType);
+    }
+
+    [Fact]
+    public void M2_Proven_MultipleUsePoints_DoNotChangeProvability()
+    {
+        var inventory = BuildInventory("""
+            sealed class SealedFoo
+            {
+                public int Value { get; }
+                public SealedFoo Self() => this;
+                public void M() { }
+            }
+
+            class Sample
+            {
+                void Consume(object o) { }
+
+                void F()
+                {
+                    dynamic d = new SealedFoo();
+                    d.M();                 // 调用使用点
+                    d.Self().M();          // 链式成员/调用
+                    Consume(d);            // 实参传递（DS016 边界）
+                    var v = d.Value;       // 动态成员读取（v 自身另计不可证，不影响 d）
+                }
+            }
+            """);
+
+        var dSite = LocalSites(inventory).Single(site => site.BoundSymbolName == "d");
+        Assert.Equal(DynamicProvability.ProvenP1, dSite.Provability);
+        Assert.Equal("SealedFoo", dSite.OriginType);
+    }
+
+    [Fact]
+    public void M2_Proven_ForEachSealedElement_ProvenP1()
+    {
+        var inventory = BuildInventory("""
+            using System.Collections.Generic;
+
+            sealed class SealedFoo
+            {
+                public void M() { }
+            }
+
+            class Sample
+            {
+                void F(List<SealedFoo> items)
+                {
+                    foreach (dynamic x in items)
+                    {
+                        x.M();
+                    }
+                }
+            }
+            """);
+
+        var local = Assert.Single(LocalSites(inventory));
+        Assert.Equal(DynamicProvability.ProvenP1, local.Provability);
+        Assert.Equal("SealedFoo", local.OriginType);
+    }
+
+    [Fact]
+    public void M2_Proven_DeconstructionDynamicComponent_DrillsTupleElementType()
+    {
+        var inventory = BuildInventory("""
+            using System.Collections.Generic;
+
+            sealed class SealedFoo
+            {
+                public void M() { }
+            }
+
+            class Sample
+            {
+                void F()
+                {
+                    (dynamic a, int b) = (new SealedFoo(), 1);
+                    a.M();
+                }
+
+                void G(IEnumerable<(dynamic, int)> sequence)
+                {
+                    foreach (var (x, y) in sequence)
+                    {
+                        x.ToString();
+                    }
+                }
+            }
+            """);
+
+        var locals = LocalSites(inventory);
+        Assert.Equal(2, locals.Count);
+
+        // 解构声明 dynamic 分量：按分量位置钻取右值元组类型 → SealedFoo 可证。
+        Assert.Equal(DynamicProvability.ProvenP1, locals[0].Provability);
+        Assert.Equal("SealedFoo", locals[0].OriginType);
+
+        // foreach 解构分量来自 IEnumerable<(dynamic, int)>：元素分量本身 dynamic → 不可证。
+        Assert.Equal(DynamicProvability.Unprovable, locals[1].Provability);
+        Assert.Equal(DynamicUnprovableReason.DynamicAssignment, locals[1].UnprovableReason);
+    }
+
+    // ---------- M2 FlowTypeProver：不可证原因（每条一个） ----------
+
+    [Fact]
+    public void M2_Unprovable_BaseAndDerivedAssignments_MultipleAssignmentTypes()
+    {
+        var inventory = BuildInventory("""
+            class Base { }
+            class Derived : Base { }
+
+            class Sample
+            {
+                void F(bool cond)
+                {
+                    dynamic d = new Derived();
+                    if (cond)
+                    {
+                        d = new Base();
+                    }
+                }
+            }
+            """);
+
+        var local = Assert.Single(LocalSites(inventory));
+        Assert.Equal(DynamicProvability.Unprovable, local.Provability);
+        Assert.Equal(DynamicUnprovableReason.MultipleAssignmentTypes, local.UnprovableReason);
+        Assert.Equal(DynamicDesugarDiagnosticCodes.LocalUnprovable, local.Code);
+    }
+
+    [Fact]
+    public void M2_Unprovable_DynamicMethodReturn_DynamicAssignment()
+    {
+        var inventory = BuildInventory("""
+            class Sample
+            {
+                dynamic GetDynamic() => 1;
+
+                void F()
+                {
+                    dynamic d = GetDynamic();
+                }
+            }
+            """);
+
+        var local = Assert.Single(LocalSites(inventory));
+        Assert.Equal(DynamicUnprovableReason.DynamicAssignment, local.UnprovableReason);
+    }
+
+    [Fact]
+    public void M2_Unprovable_UnresolvedSymbol_MissingSymbol()
+    {
+        // 基线编译错误树：右值符号缺失 → Error/null 类型点保守不可证（R10）。
+        var inventory = BuildInventory("""
+            class Sample
+            {
+                void F()
+                {
+                    dynamic d = MissingType.Make();
+                }
+            }
+            """);
+
+        var local = Assert.Single(LocalSites(inventory));
+        Assert.Equal(DynamicUnprovableReason.UnresolvedSymbol, local.UnprovableReason);
+        Assert.Contains("unresolved symbol", local.Message);
+    }
+
+    [Fact]
+    public void M2_Unprovable_ZeroAssignments_UnresolvedSymbol()
+    {
+        var inventory = BuildInventory("""
+            class Sample
+            {
+                void F()
+                {
+                    dynamic d;
+                }
+            }
+            """);
+
+        var local = Assert.Single(LocalSites(inventory));
+        Assert.Equal(DynamicUnprovableReason.UnresolvedSymbol, local.UnprovableReason);
+        Assert.Contains("unresolved symbol", local.Message);
+
+        // unresolved-symbol 的 DS010 不被基线错误抑制规则吞掉：审计仍发 Warning。
+        var result = RunAll("""
+            class Sample
+            {
+                void F()
+                {
+                    dynamic d;
+                }
+            }
+            """);
+        var diagnostic = Assert.Single(
+            result.Diagnostics.Where(d => d.Code == DynamicDesugarDiagnosticCodes.LocalUnprovable));
+        Assert.Equal(DynamicDesugarSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("unresolved symbol", diagnostic.Message);
+        Assert.False(result.HasErrors);
+    }
+
+    [Fact]
+    public void M2_Unprovable_RefOutInArguments_ByRefEscape()
+    {
+        var inventory = BuildInventory("""
+            class Sample
+            {
+                void TakeRef(ref dynamic x) { }
+                void GiveOut(out dynamic x) { x = 1; }
+                void ReadIn(in dynamic x) { }
+
+                void RefCase()
+                {
+                    dynamic d = 1;
+                    TakeRef(ref d);
+                }
+
+                void OutCase()
+                {
+                    dynamic d = 1;
+                    GiveOut(out d);
+                }
+
+                void InCase()
+                {
+                    dynamic d = 1;
+                    ReadIn(in d);
+                }
+            }
+            """);
+
+        var locals = LocalSites(inventory);
+        Assert.Equal(3, locals.Count);
+        Assert.All(
+            locals,
+            site => Assert.Equal(DynamicUnprovableReason.ByRefEscape, site.UnprovableReason));
+    }
+
+    [Fact]
+    public void M2_Unprovable_LambdaCapture_Captured()
+    {
+        var inventory = BuildInventory("""
+            sealed class SealedFoo
+            {
+                public void M() { }
+            }
+
+            class Sample
+            {
+                void F()
+                {
+                    dynamic d = new SealedFoo();
+                    System.Action run = () => d.M();
+                }
+            }
+            """);
+
+        var local = Assert.Single(LocalSites(inventory));
+        Assert.Equal(DynamicUnprovableReason.Captured, local.UnprovableReason);
+    }
+
+    [Fact]
+    public void M2_Unprovable_LocalFunctionCapture_Captured()
+    {
+        var inventory = BuildInventory("""
+            class Sample
+            {
+                void F()
+                {
+                    dynamic d = 1;
+
+                    void Local()
+                    {
+                        d.ToString();
+                    }
+
+                    Local();
+                }
+            }
+            """);
+
+        var local = Assert.Single(LocalSites(inventory));
+        Assert.Equal(DynamicUnprovableReason.Captured, local.UnprovableReason);
+    }
+
+    [Fact]
+    public void M2_Unprovable_LockUsingFixedAwait_Captured()
+    {
+        var inventory = BuildInventory("""
+            using System;
+            using System.Threading.Tasks;
+
+            sealed class SealedFoo { }
+
+            class Sample
+            {
+                static IDisposable MakeDisposable() => null!;
+
+                void LockCase()
+                {
+                    dynamic d = new SealedFoo();
+                    lock (d) { }
+                }
+
+                void UsingCase()
+                {
+                    using dynamic d = MakeDisposable();
+                }
+
+                async Task AwaitUsingCase()
+                {
+                    await using dynamic d = MakeDisposable();
+                }
+
+                unsafe void FixedCase()
+                {
+                    int[] arr = { 1, 2, 3 };
+                    fixed (int* p = arr)
+                    {
+                        dynamic d = 1;
+                        d.ToString();
+                    }
+                }
+
+                async Task AwaitCase()
+                {
+                    dynamic d = 1;
+                    await d;
+                }
+            }
+            """);
+
+        var locals = LocalSites(inventory);
+        Assert.Equal(5, locals.Count);
+        Assert.All(
+            locals,
+            site => Assert.Equal(DynamicUnprovableReason.Captured, site.UnprovableReason));
+    }
+
+    [Fact]
+    public void M2_Unprovable_OpenTypeSingleAssignment_SealedNotSatisfied()
+    {
+        var inventory = BuildInventory("""
+            class Open { }
+
+            class Sample
+            {
+                void F()
+                {
+                    dynamic d = new Open();
+                }
+            }
+            """);
+
+        var local = Assert.Single(LocalSites(inventory));
+        Assert.Equal(DynamicUnprovableReason.SealedNotSatisfied, local.UnprovableReason);
+        Assert.Contains("sealed not satisfied", local.Message);
+    }
+
+    [Fact]
+    public void M2_Unprovable_IntAndNullableIntMix_MultipleAssignmentTypes()
+    {
+        var inventory = BuildInventory("""
+            class Sample
+            {
+                void F(bool cond)
+                {
+                    dynamic d = 1;
+                    if (cond)
+                    {
+                        d = (int?)2;
+                    }
+                }
+            }
+            """);
+
+        var local = Assert.Single(LocalSites(inventory));
+        // 可空差异 int/int? 保守按异类型处理（不合并，宁假阳）。
+        Assert.Equal(DynamicUnprovableReason.MultipleAssignmentTypes, local.UnprovableReason);
+        Assert.Contains("multiple assignment types", local.Message);
+    }
+
+    // ---------- M2 诊断/统计/报告 ----------
+
+    [Fact]
+    public void M2_Diagnostic_ProvenLocal_DS001InfoNamesType()
+    {
+        var result = RunAll("""
+            sealed class SealedFoo
+            {
+                public void M() { }
+            }
+
+            class Sample
+            {
+                void F()
+                {
+                    dynamic d = new SealedFoo();
+                    d.M();
+                }
+            }
+            """);
+
+        Assert.False(result.HasErrors);
+        var diagnostic = Assert.Single(
+            result.Diagnostics.Where(d => d.Code == DynamicDesugarDiagnosticCodes.ProvenConcretized));
+        Assert.Equal(DynamicDesugarSeverity.Info, diagnostic.Severity);
+        Assert.Contains("SealedFoo", diagnostic.Message);
+        Assert.Contains("rewrite mode concretizes the declaration", diagnostic.Message);
+        // 不得谎称已改写。
+        Assert.Contains("no rewrite has been performed", diagnostic.Message);
+    }
+
+    [Fact]
+    public void M2_Diagnostic_UnprovableLocal_DS010WarningWithNamedReason()
+    {
+        var result = RunAll("""
+            class Open { }
+
+            class Sample
+            {
+                void F()
+                {
+                    dynamic d = new Open();
+                }
+            }
+            """);
+
+        Assert.False(result.HasErrors);
+        var diagnostic = Assert.Single(
+            result.Diagnostics.Where(d => d.Code == DynamicDesugarDiagnosticCodes.LocalUnprovable));
+        Assert.Equal(DynamicDesugarSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("sealed not satisfied", diagnostic.Message);
+        Assert.Contains(
+            "register the site in Cs2jDynamicAudit.json",
+            diagnostic.Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void M2_Strict_DS010EscalatesToError()
+    {
+        var result = RunAll(
+            """
+            class Open { }
+
+            class Sample
+            {
+                void F()
+                {
+                    dynamic d = new Open();
+                }
+            }
+            """,
+            new DynamicDesugarOptions { Strict = true });
+
+        Assert.True(result.HasErrors);
+        Assert.Contains(
+            result.Diagnostics,
+            diagnostic => diagnostic.Code == DynamicDesugarDiagnosticCodes.LocalUnprovable
+                          && diagnostic.Severity == DynamicDesugarSeverity.Error
+                          && diagnostic.Message.Contains("sealed not satisfied"));
+    }
+
+    [Fact]
+    public void M2_Statistics_ClassifiedProvenUnprovableCountedWithoutDoubleCount()
+    {
+        var result = RunAll("""
+            sealed class SealedFoo { }
+            class Open { }
+
+            class Sample
+            {
+                void ProvenCase()
+                {
+                    dynamic a = new SealedFoo();
+                }
+
+                void UnprovableCase()
+                {
+                    dynamic b = new Open();
+                }
+            }
+            """);
+
+        Assert.Equal(2, result.Statistics.DeclarationsClassified);
+        Assert.Equal(1, result.Statistics.ProvenDeclarations);
+        Assert.Equal(1, result.Statistics.UnprovableSites);
+    }
+
+    [Fact]
+    public void M2_Report_EmitsProvabilityReasonAndProvenType_ByteStable()
+    {
+        const string source = """
+            sealed class SealedFoo { }
+            class Open { }
+
+            class Sample
+            {
+                void ProvenCase()
+                {
+                    dynamic a = new SealedFoo();
+                }
+
+                void UnprovableCase()
+                {
+                    dynamic b = new Open();
+                }
+            }
+            """;
+
+        var preprocessor = new DynamicDesugarPreprocessor();
+        preprocessor.BindCompilation(BuildCompilation(source));
+        var serializer = new DynamicAuditReportSerializer();
+
+        var first = serializer.Serialize(preprocessor.CloseReport());
+        var second = serializer.Serialize(preprocessor.CloseReport());
+        Assert.Equal(first, second);
+        Assert.Contains("\"provability\": \"provenP1\"", first);
+        Assert.Contains("\"provability\": \"unprovable\"", first);
+        Assert.Contains("\"reason\": \"sealedNotSatisfied\"", first);
+        Assert.Contains("\"originType\": \"SealedFoo\"", first);
+        Assert.DoesNotContain("generatedAt", first, StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -74,8 +74,63 @@ public sealed class DynamicDesugarPreprocessor
                 "BindCompilation must be called before BuildInventory.");
         }
 
-        _inventory = DynamicSiteInventoryBuilder.Build(_compilation);
+        var raw = DynamicSiteInventoryBuilder.Build(_compilation);
+        _inventory = ApplyFlowProof(raw, FlowTypeProver.Classify(_compilation, raw, _options));
         return _inventory;
+    }
+
+    /// <summary>
+    /// M2：清单建成后运行 P1 证明（设计 §4.4），把每个 DynamicLocalDecl 站点回写为
+    /// DS001（ProvenP1）或 DS010（Unprovable + 具名原因）；proven T 显示名优先写入
+    /// OriginType。其余站点原样透传，排序不变。
+    /// </summary>
+    private static DynamicSiteInventory ApplyFlowProof(
+        DynamicSiteInventory raw,
+        FlowTypeProof proof)
+    {
+        var classifications = new Dictionary<DynamicSiteRecord, FlowLocalClassification>(
+            ReferenceEqualityComparer.Instance);
+        foreach (var classification in proof.Classifications)
+        {
+            classifications[classification.Site] = classification;
+        }
+
+        var sites = raw.Sites
+            .Select(site => classifications.TryGetValue(site, out var classification)
+                ? RewriteLocalSite(site, classification)
+                : site)
+            .ToList();
+        return new DynamicSiteInventory { Sites = sites };
+    }
+
+    private static DynamicSiteRecord RewriteLocalSite(
+        DynamicSiteRecord site,
+        FlowLocalClassification classification)
+    {
+        var proven = classification.Provability == DynamicProvability.ProvenP1;
+        return new DynamicSiteRecord
+        {
+            Kind = site.Kind,
+            FilePath = site.FilePath,
+            SpanStart = site.SpanStart,
+            SpanEnd = site.SpanEnd,
+            Line = site.Line,
+            Column = site.Column,
+            SyntaxKindName = site.SyntaxKindName,
+            ExpressionText = site.ExpressionText,
+            ReceiverText = site.ReceiverText,
+            BoundSymbolName = site.BoundSymbolName,
+            // proven T 优先；不可证时保留 M1 初始化器来源类型（报告参考）。
+            OriginType = proven ? classification.ProvenTypeDisplay : site.OriginType,
+            Provability = classification.Provability,
+            UnprovableReason = classification.UnprovableReason,
+            Code = proven
+                ? DynamicDesugarDiagnosticCodes.ProvenConcretized
+                : DynamicDesugarDiagnosticCodes.LocalUnprovable,
+            Message = classification.Message,
+            ManifestHit = site.ManifestHit,
+            SymbolUnresolved = site.SymbolUnresolved,
+        };
     }
 
     /// <summary>
