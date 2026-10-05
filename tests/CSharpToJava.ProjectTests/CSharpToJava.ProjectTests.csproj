@@ -139,6 +139,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Include SampleAttributeNormalizeSolution as content so it's available at test runtime -->
+    <Content Include="..\SampleAttributeNormalizeSolution\**\*.*">
+      <Link>SampleAttributeNormalizeSolution\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Include SampleEnumDeclarationSolution as content so it's available at test runtime -->
     <Content Include="..\SampleEnumDeclarationSolution\**\*.*"
               Exclude="..\SampleEnumDeclarationSolution\**\bin\**;..\SampleEnumDeclarationSolution\**\obj\**">
