@@ -431,13 +431,24 @@ public sealed class LinqChannelRewriter
 
         private static bool IsProvableBclHost(ISymbol? containingType)
         {
-            if (containingType is null)
+            if (containingType is not INamedTypeSymbol namedType)
             {
                 return false;
             }
 
-            var display = containingType.ToDisplayString();
-            return display.StartsWith("System.", StringComparison.Ordinal);
+            // Namespace display strings never substitute C# keywords (the
+            // containing TYPE may render as "int"/"string", but its namespace
+            // is always "System"), which is the surface whose MethodInfo
+            // identity stays stable across rebind.
+            var @namespace = namedType.ContainingNamespace;
+            if (@namespace is null)
+            {
+                return false;
+            }
+
+            var display = @namespace.ToDisplayString();
+            return display == "System"
+                || display.StartsWith("System.", StringComparison.Ordinal);
         }
 
         private LinqRouteInvariantException Invariant(
