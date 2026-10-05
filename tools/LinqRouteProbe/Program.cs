@@ -1,8 +1,11 @@
-// C26 M0 baseline scanner (design §8 gate 4, §9 M0).
+// C26 M0/M3 baseline scanner (design §8 gate 4, §9 M0/M3).
 //
 // Runs the production LinqRouteClassifier (src/CSharpToJava.Core/LinqChannel,
 // promoted from the M0 probe in M1) over:
-//   sdk  --root D:\csharp-sdk            (sample source trees, TPA references)
+//   sdk  --root D:\csharp-sdk            (per-csproj msbuild-evaluated compile
+//                                          items + ResolveAssemblyReferences
+//                                          reference set; M3 replaced the old
+//                                          TPA-only whole-tree glob)
 //   ef   --project path\to\X.csproj       (msbuild-evaluated compile items,
 //                                          built-output + NuGet asset refs)
 //
@@ -65,7 +68,7 @@ internal static class Program
         }
     }
 
-    // ── SDK sample scan (mirrors the C19 M0 probe reference set) ───────────────
+    // ── SDK sample scan (per-csproj msbuild pipeline, M3 real reference set) ───
 
     private static readonly string[] DefaultSdkSamples =
         { "json", "regular-expressions", "uri", "xml-tiny" };
@@ -73,7 +76,6 @@ internal static class Program
     private static List<ScanResult> ScanSdk(string root, IReadOnlyList<string>? samplesOverride)
     {
         var results = new List<ScanResult>();
-        var references = TpaReferences();
         var samples = samplesOverride is { Count: > 0 } ? samplesOverride : DefaultSdkSamples;
 
         foreach (var sample in samples)
@@ -85,28 +87,157 @@ internal static class Program
                 continue;
             }
 
-            var files = Directory.EnumerateFiles(sampleRoot, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !f.Replace('\\', '/').Contains("/bin/", StringComparison.OrdinalIgnoreCase)
-                    && !f.Replace('\\', '/').Contains("/obj/", StringComparison.OrdinalIgnoreCase))
+            // M3 (design §8 gate 4): the M0 scan globbed every *.cs under the
+            // sample root against TPA-only references, which produced broken
+            // compilations (558 LC0010 pseudo sites). Scan EACH csproj the way
+            // the real pipeline sees it: msbuild-evaluated Compile items,
+            // DefineConstants/NoWarn/Nullable properties, generated global
+            // usings, and the ResolveAssemblyReferences reference set (the
+            // same NuGet/framework/P2P resolution project.assets.json feeds).
+            var projects = Directory.EnumerateFiles(sampleRoot, "*.csproj", SearchOption.AllDirectories)
+                .Where(f =>
+                {
+                    var n = f.Replace('\\', '/');
+                    return !n.Contains("/bin/", StringComparison.OrdinalIgnoreCase)
+                        && !n.Contains("/obj/", StringComparison.OrdinalIgnoreCase);
+                })
                 .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var trees = files
-                .Select(f => ParseFile(f, new[] { "NETCOREAPP" }))
-                .Where(t => t is not null)
-                .Select(t => t!)
-                .ToList();
+            if (projects.Count == 0)
+            {
+                Console.Error.WriteLine($"[sdk] no csproj under {sampleRoot}");
+                continue;
+            }
 
-            var compilation = CSharpCompilation.Create(
-                "c26-probe-sdk-" + Sanitize(sample),
-                trees,
-                references,
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
-
-            results.Add(ScanCompilation($"sdk/{sample}", compilation, trees));
+            foreach (var projectPath in projects)
+            {
+                results.Add(ScanSdkProject(sample, projectPath));
+            }
         }
 
         return results;
+    }
+
+    private static ScanResult ScanSdkProject(string sample, string projectPath)
+    {
+        projectPath = Path.GetFullPath(projectPath);
+        var projectDir = Path.GetDirectoryName(projectPath)!;
+        var projectName = Path.GetFileNameWithoutExtension(projectPath);
+        var unit = $"sdk/{sample}/{projectName}";
+        Console.WriteLine($"[sdk] scanning {unit}");
+
+        var properties = EvaluateProperties(projectPath, "DefineConstants", "TargetFramework", "NoWarn", "Nullable");
+        var compileItems = EvaluateCompileItems(projectPath);
+        var defines = (properties.GetValueOrDefault("DefineConstants") ?? "")
+            .Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Concat(TfmDefines(properties.GetValueOrDefault("TargetFramework") ?? ""))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var suppressedDiagnostics = (properties.GetValueOrDefault("NoWarn") ?? "")
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(c => c.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToDictionary(c => c, _ => ReportDiagnostic.Suppress, StringComparer.OrdinalIgnoreCase);
+        var nullable = (properties.GetValueOrDefault("Nullable") ?? "").Trim().ToLowerInvariant() switch
+        {
+            "enable" => NullableContextOptions.Enable,
+            "annotations" => NullableContextOptions.Annotations,
+            "warnings" => NullableContextOptions.Warnings,
+            _ => NullableContextOptions.Disable,
+        };
+
+        var trees = new List<SyntaxTree>();
+        var missingFiles = 0;
+        foreach (var identity in compileItems)
+        {
+            var fullPath = Path.GetFullPath(Path.Combine(projectDir, identity));
+            if (!File.Exists(fullPath))
+            {
+                missingFiles++;
+                Console.Error.WriteLine($"[sdk] compile item not found: {fullPath}");
+                continue;
+            }
+
+            var tree = ParseFile(fullPath, defines);
+            if (tree is not null)
+                trees.Add(tree);
+        }
+
+        // SDK-generated global usings live under the project's local obj tree
+        // (standard layout, unlike the EF Arcade artifacts/obj layout).
+        var localObj = Path.Combine(projectDir, "obj");
+        if (Directory.Exists(localObj))
+        {
+            foreach (var globalUsing in Directory.EnumerateFiles(
+                localObj, "*.GlobalUsings.g.cs", SearchOption.AllDirectories))
+            {
+                var tree = ParseFile(globalUsing, defines);
+                if (tree is not null)
+                    trees.Add(tree);
+            }
+        }
+
+        var references = BuildSdkReferences(projectPath);
+
+        var compilation = CSharpCompilation.Create(
+            "c26-probe-sdk-" + Sanitize(sample) + "-" + Sanitize(projectName),
+            trees,
+            references,
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+                allowUnsafe: true,
+                nullableContextOptions: nullable,
+                specificDiagnosticOptions: suppressedDiagnostics));
+
+        var result = ScanCompilation(unit, compilation, trees);
+        result.MissingCompileItems = missingFiles;
+        return result;
+    }
+
+    private static List<MetadataReference> BuildSdkReferences(string projectPath)
+    {
+        // msbuild's resolved ReferencePath set is complete for SDK-style
+        // projects: framework ref-pack assemblies, NuGet compile assets and
+        // resolved P2P outputs. TPA must NOT be merged in — its runtime
+        // implementation assemblies duplicate ref-pack types (CS0433/CS0518).
+        return EvaluateReferencePaths(projectPath)
+            .Where(File.Exists)
+            .GroupBy(p => Path.GetFileNameWithoutExtension(p), StringComparer.OrdinalIgnoreCase)
+            .Select(g => (MetadataReference)MetadataReference.CreateFromFile(g.First()))
+            .ToList();
+    }
+
+    private static List<string> EvaluateReferencePaths(string projectPath)
+    {
+        var psi = new ProcessStartInfo("dotnet",
+            $"msbuild \"{projectPath}\" -target:ResolveAssemblyReferences -getItem:ReferencePath --nologo")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        using var process = Process.Start(psi)!;
+        // Drain both streams concurrently: msbuild can fill the stderr pipe
+        // before closing stdout, which would deadlock a ReadToEnd-then-
+        // ReadToEnd sequence on the large SDK projects.
+        var stdoutTask = process.StandardOutput.ReadToEndAsync();
+        var stderrTask = process.StandardError.ReadToEndAsync();
+        process.WaitForExit();
+        var json = stdoutTask.Result;
+        var stderr = stderrTask.Result;
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException("dotnet msbuild -getItem:ReferencePath failed: " + stderr);
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("Items", out var items)
+            || !items.TryGetProperty("ReferencePath", out var references))
+        {
+            return new List<string>();
+        }
+
+        return references.EnumerateArray()
+            .Select(e => (e.TryGetProperty("FullPath", out var full) ? full.GetString() : null)
+                ?? e.GetProperty("Identity").GetString()!)
+            .ToList();
     }
 
     // ── EF Core project scan ───────────────────────────────────────────────────

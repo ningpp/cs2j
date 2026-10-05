@@ -60,6 +60,12 @@ public sealed class LinqChannelStatistics
     /// </summary>
     public int ExpressionTreeUnprovableSites { get; set; }
 
+    /// <summary>
+    /// M3 §7.10: findings raised by the AfterFiles residual scan (LC0040):
+    /// preserved-stream mismatches and out-of-place procedural helpers.
+    /// </summary>
+    public int ResidualFindings { get; set; }
+
     /// <summary>Inventory of every non-expandable chain (Queryable/Mixed/Ambiguous).</summary>
     public List<LinqPreservedChain> PreservedChains { get; } = new();
 
@@ -75,6 +81,7 @@ public sealed class LinqChannelStatistics
         ProviderCustomCalls += other.ProviderCustomCalls;
         ExpressionQuotedChainsPreserved += other.ExpressionQuotedChainsPreserved;
         ExpressionTreeUnprovableSites += other.ExpressionTreeUnprovableSites;
+        ResidualFindings += other.ResidualFindings;
         PreservedChains.AddRange(other.PreservedChains);
     }
 }

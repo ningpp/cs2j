@@ -24,6 +24,9 @@ public sealed class LinqChannelReport
     [JsonPropertyName("rewrittenMethodCount")]
     public int RewrittenMethodCount { get; init; }
 
+    [JsonPropertyName("residualFindings")]
+    public int ResidualFindings { get; init; }
+
     [JsonPropertyName("routing")]
     public RoutingSection Routing { get; init; } = new();
 
@@ -82,6 +85,7 @@ public sealed class LinqChannelReport
             DesugaredQueryCount = rewrite.DesugaredQueryCount,
             RewrittenChainCount = rewrite.RewrittenChainCount,
             RewrittenMethodCount = rewrite.RewrittenMethodCount,
+            ResidualFindings = statistics.ResidualFindings,
             Routing = new RoutingSection
             {
                 EnumerableChainsExpanded = statistics.EnumerableChainsExpanded,

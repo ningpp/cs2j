@@ -12,7 +12,8 @@ namespace CSharpToJava.Core.LinqChannel;
 /// </list>
 /// No well-formed channel input may ever produce this: it means the three-way
 /// gate lost a node. The adapter treats it as a hard Error, rolls the affected
-/// file's stage-2 changes back to its pre-stage-2 bytes and fails the pass.
+/// file all the way back to its ORIGINAL source bytes (undoing even the
+/// stage-1 query desugar for that file) and fails the pass.
 /// It deliberately does NOT derive from InvalidCastException/
 /// NotSupportedException/ArgumentException — the embedded E16 wide catch must
 /// not swallow it.

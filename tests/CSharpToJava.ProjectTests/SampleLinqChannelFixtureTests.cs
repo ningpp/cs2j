@@ -15,13 +15,16 @@ namespace CSharpToJava.ProjectTests;
 /// SampleLinqApp + SampleLinqTests).
 /// <list type="bullet">
 /// <item><see cref="Baseline_OriginalFixture_Builds_AndAllTruthTestsPass"/>:
-/// the unprocessed solution builds and its four xUnit truth tests pass
-/// (.NET half of the equivalence contract, M1 baseline);</item>
+/// the unprocessed solution builds and its eight xUnit truth tests pass
+/// (.NET half of the equivalence contract; four Enumerable/Queryable M1-M2
+/// pins plus four M3 pins: recording provider quoted-call sequence, mixed D7
+/// chain, two-source query syntax, hand-built expression tree);</item>
 /// <item><see cref="ChannelRun_IntermediateTree_Builds_PassesTruthTests_AndEmitsV2Report"/>:
-/// the real linq-channel preprocess chain over the solution (M2 intercept
-/// gate) succeeds, the materialized <c>.cs2j-linq-channel-src</c> tree
-/// builds in Release and passes the SAME four truth tests, and the
-/// schemaVersion 2 report carries the routing counters;</item>
+/// the real linq-channel preprocess chain over the solution (M3 permanent
+/// gate + §7.10 residual scan) succeeds, the materialized
+/// <c>.cs2j-linq-channel-src</c> tree builds in Release and passes the SAME
+/// eight truth tests, and the schemaVersion 2 report carries the exact
+/// routing counters with zero residual findings; and</item>
 /// <item><see cref="ChannelRun_QueryableFile_IsByteIdenticalCopy"/>.</item>
 /// </list>
 /// The §5.3 double-run suppression (channel run ⇒ no embedded
@@ -70,7 +73,7 @@ public sealed class SampleLinqChannelFixtureTests
             var trxPath = Path.Combine(resultsDirectory, $"baseline-{succeededAttempt}.trx");
             Assert.True(File.Exists(trxPath), "missing baseline trx from the successful run");
             var content = await File.ReadAllTextAsync(trxPath);
-            Assert.Contains("passed=\"4\"", content);
+            Assert.Contains("passed=\"8\"", content);
             Assert.Contains("failed=\"0\"", content);
         }
         finally
@@ -133,7 +136,7 @@ public sealed class SampleLinqChannelFixtureTests
             var trxPath = Path.Combine(resultsDirectory, "channel-fixture.trx");
             Assert.True(File.Exists(trxPath));
             var trx = await File.ReadAllTextAsync(trxPath);
-            Assert.Contains("passed=\"4\"", trx);
+            Assert.Contains("passed=\"8\"", trx);
             Assert.Contains("failed=\"0\"", trx);
 
             // ---- schemaVersion 2 report ----
@@ -147,29 +150,34 @@ public sealed class SampleLinqChannelFixtureTests
             _ = root.GetProperty("desugaredQueryCount");
             _ = root.GetProperty("rewrittenChainCount");
             _ = root.GetProperty("rewrittenMethodCount");
+            _ = root.GetProperty("residualFindings");
             _ = root.GetProperty("skippedChains");
             _ = root.GetProperty("preservedChains");
             _ = root.GetProperty("uncoveredOperators");
             Assert.Equal(JsonValueKind.Array, root.GetProperty("preservedChains").ValueKind);
             Assert.Equal(JsonValueKind.Array, root.GetProperty("uncoveredOperators").ValueKind);
 
-            // All six routing counters must be present.
-            var routing = root.GetProperty("routing");
-            var expanded = routing.GetProperty("enumerableChainsExpanded").GetInt32();
-            var preserved = routing.GetProperty("queryableChainsPreserved").GetInt32();
-            _ = routing.GetProperty("expressionArgumentSites").GetInt32();
-            _ = routing.GetProperty("mixedChainsPreserved").GetInt32();
-            _ = routing.GetProperty("ambiguousChains").GetInt32();
-            _ = routing.GetProperty("providerCustomCalls").GetInt32();
+            // Exact M3 fixture routing counts (measured 2026-10-05): one
+            // two-source query desugars; LinqTools/QueryableScenarios expand
+            // 12 Enumerable chains in 8 methods; the Queryable repository, the
+            // recording-provider scenario and the query-test calls freeze as
+            // 8 Queryable chains (10 Expression<> argument sites) and 2 D7
+            // mixed chains; the §7.10 residual scan reports zero findings.
+            Assert.Equal(1, root.GetProperty("desugaredQueryCount").GetInt32());
+            Assert.Equal(8, root.GetProperty("rewrittenChainCount").GetInt32());
+            Assert.Equal(8, root.GetProperty("rewrittenMethodCount").GetInt32());
+            Assert.Equal(0, root.GetProperty("residualFindings").GetInt32());
 
-            // The Enumerable tools materially expand; the IThingRepository
-            // default-interface Queryable chain is preserved by the intercept
-            // gate (LINQ-to-Objects provider, real Queryable binding).
-            Assert.True(expanded >= 1,
-                "fixture Enumerable chains (LinqTools) must be expanded");
-            Assert.True(preserved >= 1,
-                "the Queryable chain on IThingRepository.QueryActive must be preserved");
+            // All eight routing counters are present and exact.
+            var routing = root.GetProperty("routing");
+            Assert.Equal(12, routing.GetProperty("enumerableChainsExpanded").GetInt32());
+            Assert.Equal(8, routing.GetProperty("queryableChainsPreserved").GetInt32());
+            Assert.Equal(10, routing.GetProperty("expressionArgumentSites").GetInt32());
+            Assert.Equal(2, routing.GetProperty("mixedChainsPreserved").GetInt32());
             Assert.Equal(0, routing.GetProperty("ambiguousChains").GetInt32());
+            Assert.Equal(0, routing.GetProperty("providerCustomCalls").GetInt32());
+            Assert.Equal(0, routing.GetProperty("expressionQuotedChainsPreserved").GetInt32());
+            Assert.Equal(0, routing.GetProperty("expressionTreeUnprovableSites").GetInt32());
         }
         finally
         {

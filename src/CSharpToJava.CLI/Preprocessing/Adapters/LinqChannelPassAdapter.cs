@@ -46,6 +46,14 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
     private readonly List<LinqChannelDiagnostic> _diagnostics = new();
     private int _desugaredQueryCount;
 
+    /// <summary>
+    /// Test-only fault-injection seam (ProjectTests LC0011 rollback E2E): when
+    /// set, receives a project-relative path before stage 2 processes it; a
+    /// returned exception is thrown as if the gate tripwire had fired. Never
+    /// populated by production code paths.
+    /// </summary>
+    internal static Func<string, LinqRouteInvariantException?>? Lc0011FaultInjector;
+
     public LinqChannelPassAdapter(
         LinqChannelOptions options,
         bool verbose,
@@ -145,6 +153,11 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         var channel = new LinqChannelRewriter(_options);
         var success = true;
 
+        // Stage-2 inputs retained for the §7.10 AfterFiles residual scan:
+        // (relative path, stage-2 semantic model, post-stage-1 syntax root).
+        var processedInputs = new List<(string Relative, string Dest, SemanticModel Model, SyntaxNode InputRoot)>();
+        var rolledBackFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         for (var i = 0; i < pairs.Count; i++)
         {
             var (source, relative, dest) = pairs[i];
@@ -169,11 +182,19 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             }
 
             var reportPath = relative.Replace('\\', '/');
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            processedInputs.Add((relative, dest, semanticModel, desugaredRoot));
             LinqChannelRewriteResult result;
             try
             {
+                var injected = Lc0011FaultInjector?.Invoke(reportPath);
+                if (injected is not null)
+                {
+                    throw injected;
+                }
+
                 result = channel.ProcessFile(
-                    compilation.GetSemanticModel(syntaxTree),
+                    semanticModel,
                     desugaredRoot,
                     reportPath);
             }
@@ -191,6 +212,7 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
                     _diagnostics.Add(ex.ToDiagnostic());
                 }
 
+                rolledBackFiles.Add(relative);
                 success = false;
                 if (_verbose)
                 {
@@ -209,11 +231,12 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             if (!result.SyntacticallyIdempotent)
             {
                 // M1 self-check (design §4.1③): a second desugar pass would
-                // still lower query syntax in the output. Recorded as a
-                // residual warning; the M3 hard gate upgrades this to an
-                // error + rollback.
+                // still lower query syntax in the output. LC0040; strict
+                // upgrades it to an Error.
                 _diagnostics.Add(new LinqChannelDiagnostic(
-                    LinqChannelDiagnosticSeverity.Warning,
+                    _options.Strict
+                        ? LinqChannelDiagnosticSeverity.Error
+                        : LinqChannelDiagnosticSeverity.Warning,
                     LinqChannelDiagnosticCodes.ResidualMismatch,
                     $"Stage-2 output still contains {result.SecondPassDesugaredCount} query " +
                     "expression(s) a second desugar pass would lower (syntactic idempotency).",
@@ -245,6 +268,76 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
             {
                 Console.WriteLine(
                     $"[linq-channel] {(result.RewriteChanged || stage1Changed[i] ? "transformed" : "clean (copy)")}: {relative}");
+            }
+        }
+
+        // ---- §7.10 AfterFiles residual gates (whole-tree recompile) ----
+        // Files rolled back to their ORIGINAL source by LC0011 are excluded
+        // (they intentionally never went through stage 1/stage 2).
+        if (processedInputs.Count > 0 && rolledBackFiles.Count < processedInputs.Count)
+        {
+            var outputCompilation = BuildIntermediateCompilation(tree, pairs);
+            foreach (var (relative, dest, inputModel, inputRoot) in processedInputs)
+            {
+                if (rolledBackFiles.Contains(relative))
+                {
+                    continue;
+                }
+
+                var outputTree = outputCompilation.SyntaxTrees.FirstOrDefault(t =>
+                    string.Equals(t.FilePath, dest, StringComparison.OrdinalIgnoreCase));
+                if (outputTree is null)
+                {
+                    continue;
+                }
+
+                var outputRoot = await outputTree.GetRootAsync();
+                var outputModel = outputCompilation.GetSemanticModel(outputTree);
+                var reportPath = relative.Replace('\\', '/');
+
+                // Gates ① + ⑤: rerunning stage 2 over the materialized output
+                // must move nothing — any in-support-matrix Enumerable chain
+                // left behind WOULD move, so a zero-diff second pass is the
+                // residual=0 and idempotency proof.
+                var secondPass = channel.ProcessFile(outputModel, outputRoot, reportPath);
+                if (secondPass.RewriteChanged
+                    || secondPass.SecondPassDesugaredCount != 0
+                    || !string.Equals(
+                        outputRoot.ToFullString(),
+                        secondPass.RewrittenRoot.ToFullString(),
+                        StringComparison.Ordinal))
+                {
+                    _diagnostics.Add(new LinqChannelDiagnostic(
+                        _options.Strict
+                            ? LinqChannelDiagnosticSeverity.Error
+                            : LinqChannelDiagnosticSeverity.Warning,
+                        LinqChannelDiagnosticCodes.ResidualMismatch,
+                        "Residual idempotency mismatch (LC0040): a second channel pass over the "
+                        + "materialized output moves the tree (rewriteChanged="
+                        + secondPass.RewriteChanged + ", secondPassDesugared="
+                        + secondPass.SecondPassDesugaredCount
+                        + ") — an in-support-matrix Enumerable chain was left behind or the "
+                        + "output is not a fixed point (design §7.10①⑤).",
+                        reportPath,
+                        null));
+                }
+
+                // Gates ②③④: preserved-call stream identity + helper placement.
+                var findings = LinqChannelResidualScanner.ScanFile(
+                    inputModel,
+                    inputRoot,
+                    outputModel,
+                    outputRoot,
+                    reportPath,
+                    _options.Strict);
+                if (findings.Count > 0)
+                {
+                    _statistics.ResidualFindings += findings.Count;
+                    lock (_diagnostics)
+                    {
+                        _diagnostics.AddRange(findings);
+                    }
+                }
             }
         }
 
@@ -286,7 +379,10 @@ internal sealed class LinqChannelPassAdapter : ProjectPassAdapter
         }
 
         ProjectPassRunner.DeleteBuildOutputs(intermediateRoot);
-        context.Success = success;
+        // Strict LC0010/LC0012/LC0040 errors make the pass fail even when the
+        // build verification itself succeeded (ProjectPassRunner also ANDs in
+        // HasErrors; this keeps context.Success consistent on its own).
+        context.Success = success && !HasErrors;
     }
 
     public override Task<PassFileRewrite?> RewriteFileAsync(PassFileContext context)
