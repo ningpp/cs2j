@@ -6,7 +6,7 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// <summary>
 /// C18 async-normalize Stub→Implemented flip registry locks (design §3.2/§3.4):
 /// Kahn slot around iterator-lowering/extension-methods/eliminate-goto, the
-/// stub-count shrink, the default-off plan behavior and the descriptor shape.
+/// stub-count shrink, the default-on plan behavior and the descriptor shape.
 /// Adapter construction for every implemented pass (this one included) is
 /// covered by PassChainOrderTests.ChainFactory_creates_an_adapter_for_every_implemented_pass.
 /// </summary>
@@ -32,27 +32,29 @@ public sealed class AsyncNormalizeOrderTests
     }
 
     [Fact]
-    public void Flip_leaves_exactly_six_stubs()
+    public void Flip_leaves_four_stubs()
     {
-        // Remaining stubs after the C18 flip: thread-static,
-        // attribute-normalize, extension-members, linq-channel,
-        // anonymous-type-lift, dynamic-desugar.
+        // Remaining stubs: thread-static, attribute-normalize,
+        // linq-channel, dynamic-desugar (extension-members was consolidated
+        // into extension-methods; anonymous-type-lift and async-normalize are
+        // both Implemented).
         var stubs = PassCatalog.BuildRegistry().WhereStatus(PassStatus.Stub).ToArray();
 
-        Assert.Equal(6, stubs.Length);
+        Assert.Equal(4, stubs.Length);
         Assert.DoesNotContain(stubs, p => p.Id == PassStubCatalog.Ids.AsyncNormalize);
     }
 
     [Fact]
-    public void Default_plan_excludes_async_normalize_but_enabling_it_plans_it_as_Implemented()
+    public void Default_plan_includes_async_normalize_and_enabling_it_plans_it_as_Implemented()
     {
         var registry = PassCatalog.BuildRegistry();
 
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
-        Assert.DoesNotContain(
+        Assert.Contains(
             baseline.Enabled, p => p.Id == PassStubCatalog.Ids.AsyncNormalize);
 
+        // Explicit opt-in with every toggle off still plans it as Implemented.
         var allOff = PassChainFactory.BuildAllDisabledToggles(registry);
         var plan = PassPlanResolver.Resolve(
             registry,
@@ -66,12 +68,12 @@ public sealed class AsyncNormalizeOrderTests
     }
 
     [Fact]
-    public void Implemented_descriptor_is_default_off_semantic_verified_StateMachine_C18()
+    public void Implemented_descriptor_is_default_on_semantic_verified_StateMachine_C18()
     {
         var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.AsyncNormalize);
 
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.True(descriptor.NeedsSemanticModel);
         Assert.True(descriptor.VerifyBuildByDefault);
         Assert.True(descriptor.VerifyTestsByDefault);

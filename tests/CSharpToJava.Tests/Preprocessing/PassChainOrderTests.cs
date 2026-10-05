@@ -10,9 +10,9 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// <summary>
 /// Locks the registered pass sequence to the historical ConvertProject chain.
 /// The fifteen hand-written blocks were replaced by the registry-driven loop, so
-/// the topological sort must keep producing this exact order. Implemented
-/// passes are default-on (all-on policy) apart from the observation-period
-/// passes (anonymous-type-lift); the legacy flags survive as --no-xxx negations.
+/// the topological sort must keep producing this exact order. Every implemented
+/// pass is default-on (all-preprocessors-default-on policy); the legacy flags
+/// survive as --no-xxx negations and --disable-pass remains the opt-out.
 /// </summary>
 public sealed class PassChainOrderTests
 {
@@ -28,10 +28,11 @@ public sealed class PassChainOrderTests
         PassIds.EnumDeclaration,
         PassIds.Delegate,
         PassIds.Tuple,
-        // C21 M1-M4 flipped to Implemented; default-off observation period
-        // (design §8), RunAfter=tuple. Declared directly after tuple so the
-        // Kahn declaration-order tiebreak pins it between tuple and
-        // foreach-deconstruction (both anchor only tuple).
+        // C21 M1-M4 flipped to Implemented; default-on under the
+        // all-preprocessors-default-on policy, RunAfter=tuple. Declared
+        // directly after tuple so the Kahn declaration-order tiebreak pins
+        // it between tuple and foreach-deconstruction (both only anchor
+        // tuple).
         PassIds.AnonymousTypeLift,
         PassIds.ForeachDeconstruction,
         PassStubCatalog.Ids.ForeachSource,
@@ -54,11 +55,11 @@ public sealed class PassChainOrderTests
         PassStubCatalog.Ids.UnsafeFfm,
         PassStubCatalog.Ids.ClosureLift,
         PassStubCatalog.Ids.IteratorLowering,
-        // C18 async-normalize flipped Implemented but stays default-off
-        // (design D14); anchors make-readonly + closure-lift, declared right
-        // after iterator-lowering so the Kahn tiebreak locks the slot
-        // iterator-lowering -> async-normalize -> extension-methods ->
-        // eliminate-goto.
+        // C18 async-normalize is Implemented and default-on under the
+        // all-preprocessors-default-on policy; anchors make-readonly +
+        // closure-lift, declared right after iterator-lowering so the Kahn
+        // tiebreak locks the slot iterator-lowering -> async-normalize ->
+        // extension-methods -> eliminate-goto.
         PassStubCatalog.Ids.AsyncNormalize,
         // C19：extension-methods 翻转 Implemented；七锚（delegate/
         // tuple/ref-out-in/unsigned/array-method/make-readonly/iterator-lowering）
@@ -79,14 +80,9 @@ public sealed class PassChainOrderTests
         PassIds.JavaKeywords,
     ];
 
-    // All-on policy: every implemented pass is default-enabled, except
-    // anonymous-type-lift (C21), which ships Implemented but default-off for
-    // its observation period (design §8; opts in via --enable-pass), and
-    // async-normalize (C18), which flipped Implemented but stays default-off
-    // long-term opt-in (design §2 D14); --enable-pass async-normalize opts in.
-    private static readonly string[] EnabledByDefault =
-        LockedChain.Where(id => id != PassIds.AnonymousTypeLift
-                              && id != PassStubCatalog.Ids.AsyncNormalize).ToArray();
+    // All-preprocessors-default-on policy: every implemented pass is
+    // default-enabled; --disable-pass / legacy --no-xxx flags opt out.
+    private static readonly string[] EnabledByDefault = LockedChain;
 
     [Fact]
     public void Registry_order_matches_the_locked_historical_chain()
@@ -232,7 +228,7 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void AsyncNormalize_is_Implemented_default_off_and_slots_between_iterator_and_eliminate_goto()
+    public void AsyncNormalize_is_Implemented_default_on_and_slots_between_iterator_and_eliminate_goto()
     {
         var registry = PassCatalog.BuildRegistry();
 
@@ -243,16 +239,24 @@ public sealed class PassChainOrderTests
 
         var descriptor = PassCatalog.ImplementedById(PassStubCatalog.Ids.AsyncNormalize);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal("C18, C38 (C44 subtopic)", descriptor.CatalogItems);
         Assert.Equal(".cs2j-async-normalize-src", descriptor.IntermediateDirectoryName);
 
-        // Default-off: absent from the default plan even though Implemented,
-        // so flipping the stub changes nothing in the default enabled set.
+        // Default-on: present in the default plan.
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
-        Assert.DoesNotContain(
+        Assert.Contains(
             baseline.Enabled, pass => pass.Id == PassStubCatalog.Ids.AsyncNormalize);
+
+        // Explicit disable removes it from the plan while keeping every other
+        // default-on pass intact.
+        var disabled = PassPlanResolver.Resolve(
+            registry,
+            disablePassIds: new[] { PassStubCatalog.Ids.AsyncNormalize });
+        Assert.True(disabled.IsValid);
+        Assert.DoesNotContain(
+            disabled.Enabled, pass => pass.Id == PassStubCatalog.Ids.AsyncNormalize);
 
         // Explicit opt-in with every other toggle off: the enabled order must
         // be iterator-lowering -> async-normalize -> eliminate-goto (anchors +
@@ -537,7 +541,7 @@ public sealed class PassChainOrderTests
         // Legacy flags only exist for the historical implemented passes; stubs and
         // newly flipped registry passes (e.g. generic-deepen, unsafe-ffm,
         // C36 expression-desugar, C29 concurrency-normalize, C42 platform-isolation,
-        // C30 closed-metadata, C21 anonymous-type-lift, C18 async-normalize/default-off)
+        // C30 closed-metadata, C21 anonymous-type-lift, C18 async-normalize/default-on)
         // are reachable solely through their descriptor default plus --enable-pass/--pass.
         Assert.Equal(
             LockedChain.Where(id => id != PassIds.GenericDeepen && id != PassIds.PatternDesugar
@@ -584,7 +588,7 @@ public sealed class PassChainOrderTests
     }
 
     [Fact]
-    public void AnonymousTypeLift_is_implemented_default_off_with_tuple_anchor_and_no_stub_remains()
+    public void AnonymousTypeLift_is_implemented_default_on_with_tuple_anchor_and_no_stub_remains()
     {
         var registry = PassCatalog.BuildRegistry();
 
@@ -597,7 +601,7 @@ public sealed class PassChainOrderTests
 
         var descriptor = PassCatalog.ImplementedById(PassIds.AnonymousTypeLift);
         Assert.Equal(PassStatus.Implemented, descriptor.Status);
-        Assert.False(descriptor.DefaultEnabled);
+        Assert.True(descriptor.DefaultEnabled);
         Assert.Equal(".cs2j-anonymous-type-lift-src", descriptor.IntermediateDirectoryName);
         Assert.Equal(PassStage.Declarative, descriptor.Stage);
         Assert.Equal(new[] { PassIds.Tuple }, descriptor.RunAfterIds);
@@ -607,12 +611,20 @@ public sealed class PassChainOrderTests
         Assert.True(descriptor.VerifyTestsByDefault);
         Assert.Equal("C21", descriptor.CatalogItems);
 
-        // Default-off: absent from the default plan.
+        // Default-on: present in the default plan.
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
-        Assert.DoesNotContain(baseline.Enabled, pass => pass.Id == PassIds.AnonymousTypeLift);
+        Assert.Contains(baseline.Enabled, pass => pass.Id == PassIds.AnonymousTypeLift);
 
-        // Explicit enable enters the plan with Status=Implemented (never CS2J9001).
+        // Explicit disable removes it; with every legacy toggle off it can
+        // still be re-enabled explicitly and enters the plan as Implemented
+        // (never CS2J9001).
+        var disabled = PassPlanResolver.Resolve(
+            registry,
+            disablePassIds: new[] { PassIds.AnonymousTypeLift });
+        Assert.True(disabled.IsValid);
+        Assert.DoesNotContain(disabled.Enabled, pass => pass.Id == PassIds.AnonymousTypeLift);
+
         var enabled = PassPlanResolver.Resolve(
             registry,
             PassChainFactory.BuildAllDisabledToggles(registry),

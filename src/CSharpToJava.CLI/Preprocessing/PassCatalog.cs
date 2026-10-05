@@ -171,12 +171,12 @@ internal static class PassCatalog
             PassStage.Declarative,
             PassStatus.Implemented,
             // C21 M1-M4 flipped together (adapter + registry in one delivery).
-            // Default-off observation period per design §8; the pass opts in via
-            // --enable-pass and flips default-on once the §8 gates are met.
+            // All-preprocessors-default-on policy: the §8 observation period is
+            // over and the pass ships default-on; --disable-pass opts out.
             // Declared immediately after tuple so the Kahn declaration-order
             // tiebreak locks the slot tuple → anonymous-type-lift →
             // foreach-deconstruction (both only anchor tuple; design §3.2).
-            defaultEnabled: false,
+            defaultEnabled: true,
             runAfterIds: new[] { PassIds.Tuple },
             supportLibrary: PassSupportLibrary.None,
             needsSemanticModel: true,
@@ -422,9 +422,10 @@ internal static class PassCatalog
             ".cs2j-async-normalize-src",
             PassStage.StateMachine,
             PassStatus.Implemented,
-            // C18 flipped Implemented but default-off / long-term opt-in
-            // (design §2 D14); --enable-pass async-normalize opts in.
-            defaultEnabled: false,
+            // C18 default-on under the all-preprocessors-default-on policy
+            // (the long-term opt-in ruling of design §2 D14 is superseded);
+            // --disable-pass async-normalize opts out.
+            defaultEnabled: true,
             // Closure-lift is now Implemented/default-on and is the real
             // capture contract (D12); make-readonly stays the nearest enabled
             // predecessor anchor (C04 precedent). Declared right after

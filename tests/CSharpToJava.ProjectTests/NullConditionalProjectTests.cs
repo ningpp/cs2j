@@ -148,10 +148,20 @@ public class NullConditionalProjectTests
 
             // E03 four-quadrant: assignment-terminal conditional chains are
             // gone (no ?./?[ and no ??= on a conditional target), while the
-            // plain ??= site (no ?.) is left byte-identical for the upstream
-            // null-coalesce pass / native compiler.
-            Assert.DoesNotContain("?.", assignmentSites);
-            Assert.DoesNotContain("?[", assignmentSites);
+            // plain ??= site is left for the upstream null-coalesce pass /
+            // native compiler. Residual detection is syntax-based rather than
+            // a raw text scan: the fixture's own doc comment mentions the
+            // "?." token in prose (<c>?.</c>), which must not count as a site.
+            var assignmentRoot = CSharpSyntaxTree.ParseText(assignmentSites)
+                .GetCompilationUnitRoot();
+            var residualNullConditionals = assignmentRoot.DescendantNodes().Count(n =>
+                n is ConditionalAccessExpressionSyntax
+                    or MemberBindingExpressionSyntax
+                    or ElementBindingExpressionSyntax);
+            Assert.True(
+                residualNullConditionals == 0,
+                "residual null-conditional nodes in AssignmentLib/Sites.cs: "
+                    + residualNullConditionals);
             Assert.Contains("n.Label ??= v", assignmentSites);
         }
         finally

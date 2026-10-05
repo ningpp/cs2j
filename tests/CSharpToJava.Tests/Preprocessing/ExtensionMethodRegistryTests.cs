@@ -13,7 +13,7 @@ namespace CSharpToJava.Tests.Preprocessing;
 /// <summary>
 /// Registry contract for the C19 extension-methods M0 flip: stub entry removed,
 /// implemented descriptor installed in the async-normalize → eliminate-goto
-/// slot (after the C18 flip inserted default-off async-normalize right after
+/// slot (after the C18 flip inserted default-on async-normalize right after
 /// iterator-lowering), default kept ON, verify-build/tests ON.
 /// </summary>
 public sealed class ExtensionMethodRegistryTests
@@ -70,7 +70,7 @@ public sealed class ExtensionMethodRegistryTests
         var ordered = PassCatalog.BuildRegistry().Ordered.Select(p => p.Id).ToList();
         var index = ordered.IndexOf(PassIds.ExtensionMethods);
         Assert.True(index > 1, "extension-methods must be registered");
-        // C18 flip inserted default-off async-normalize between iterator-lowering
+        // C18 flip inserted default-on async-normalize between iterator-lowering
         // and extension-methods: iterator-lowering -> async-normalize -> EM -> goto.
         Assert.Equal(PassStubCatalog.Ids.AsyncNormalize, ordered[index - 1]);
         Assert.Equal(PassStubCatalog.Ids.IteratorLowering, ordered[index - 2]);
@@ -126,8 +126,8 @@ public sealed class ExtensionMethodRegistryTests
         var baseline = PassPlanResolver.Resolve(registry);
         Assert.True(baseline.IsValid);
         Assert.Contains(baseline.Enabled, p => p.Id == PassIds.ExtensionMethods);
-        // C18 async-normalize stays default-off even though it precedes EM.
-        Assert.DoesNotContain(baseline.Enabled, p => p.Id == PassStubCatalog.Ids.AsyncNormalize);
+        // C18 async-normalize is default-on and precedes EM.
+        Assert.Contains(baseline.Enabled, p => p.Id == PassStubCatalog.Ids.AsyncNormalize);
 
         // Locked slot: make-readonly → iterator-lowering → async-normalize
         // → extension-methods → eliminate-goto.
