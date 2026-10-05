@@ -60,6 +60,8 @@ catalog 四次补全（[catalog L631](file:///d:/code/cs2j/prompts/preprocessor-
 - 主仓仅三处相关：①[ConversionPipeline.cs:177-183](file:///d:/code/cs2j/src/CSharpToJava.Core/Pipeline/ConversionPipeline.cs#L177-L183) 补 `System.Linq.Queryable`/`System.Linq.Expressions` 程序集引用让 Roslyn 能解析符号（**仅引用，不做行为分流**）；②[TypeMappingService.cs:516-522](file:///d:/code/cs2j/src/CSharpToJava.Core/Context/TypeMappingService.cs#L516-L522) 把 `Expression<TDelegate>` 包装剥成委托类型映射；③[ArgumentTransformer.Coercion.cs:597-600](file:///d:/code/cs2j/src/CSharpToJava.Core/Transformers/Expression/Transformers/ArgumentTransformer.Coercion.cs#L597-L600) 一处类型名字枚举（含 IQueryable/IOrderedQueryable/ParallelQuery，用于集合 coercion，非 LINQ 分流）。
 - **具体危险路径已定位**：rewriter 的算子身份判定 `GetMethodFullName` 首选语义符号的 reduced 显示名（[LinqRewriter.cs:788-795](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L788-L795)），`Queryable.Where` 的 reduced 显示名是 `System.Linq.IQueryable<TSource>.Where<TSource>(System.Linq.Expressions.Expression<...>)`，**正常解析时**不命中任何 `KnownMethods`（全部是 `System.Collections.Generic.IEnumerable<...>` 形态，如 [LinqRewriter.Rules.cs:2309](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs#L2309)）；但当语义符号解析失败（注释自述「common in project pipeline」），存在**按语法名猜 Enumerable 身份的 fallback**（[LinqRewriter.cs:796-858](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L796-L858)）：`n == null` 时仅凭 `ma.Name.Identifier.Text == "Where"/"Select"/...` 就构造 `IEnumerable<TSource>.Where(...)` 身份——Queryable 调用在此分支会被**误判为 Enumerable 并过程式化**。
 
+> **2026-10-05 M0 校注（探针实测，base ba7a0897，提交 6b80a794 + tools/docs 提交）**：上面的危险路径用最小复现（error-type receiver `global::Missing.Metadata.IDbSet<int>` + `db.Where(...).Select(...)`，[LinqRouteMisExpansionProbeTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c26-linq-channel/tests/CSharpToJava.Tests/LinqChannel/LinqRouteMisExpansionProbeTests.cs)）钉死后，实测事实与旧述有一处重要出入——**ba7a0897 端到端落入的是 skip 结局而非实际误展开**：`GetSymbolInfo` 返回 `Symbol=null, CandidateReason=None, CandidateSymbols.Length=0`，编译错误 CS0400×2；反射调用私有的 `GetMethodFullName` 证实 fallback 把 Where/Select 伪造为 `IEnumerable<TSource>.Where<...>` 身份且 `IsSupportedMethod` 返回 **true**（伪造身份分支确实可达，漏洞本体成立）；但 Roslyn 对 error-type lambda 拒绝给出语义回答，实际处理链全部抛 `NotSupportedException("Specified method is not supported")` 被宽 catch 吞掉（[LinqRewriter.cs:106-120](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.cs#L106-L120)），端到端 `RewrittenLinqQueries=0、SkippedLinqChains=4`，方法体无 `_linqitems`/foreach 残留。即「能编译、静默错误」结局(a)在本复现形状下没有发生，发生的是显式 skip 结局(b)；项目管线对**部分可解析**代码（receiver 可绑定、仅个别站点符号缺失）的形状仍可能落入(a)，M3 必须以 LC0011 不变量 + 残缺 metadata 负向用例封堵，M0 无法在内存编译里 1:1 复现 project pipeline 的部分解析态。同期实测：`KnownMethods` 共 **83** 条私有字符串常量（[Rules.cs:2260-2372](file:///d:/code/cs2j/src/CSharpToJava.Core/LinqRewrite/LinqRewriter.Rules.cs#L2260-L2372)），18 个同名算子的 Queryable reduced/static 显示名与它**零交集**，而 Enumerable reduced 名全部在内；`ThenBy` 的 query reduced 前缀是 `System.Linq.IOrderedQueryable<TSource>`（不是 IQueryable），M1 host 归一需覆盖 IOrdered* 两套接口。
+
 后果（catalog §4 风险 17，[L1115](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1115)，2026-09-29 校订，旧引 L936）：`dbContext.Orders.Where(o => o.Total > 100)` 本应翻译为服务端 SQL，被展开成客户端 foreach 后**代码照样编译、业务单测用 in-memory 列表往往还能通过**，直到生产环境全表加载才暴露——这是「能编译、单测难抓」的静默语义错误。风险 8（[L1106](file:///d:/code/cs2j/prompts/preprocessor-catalog.md#L1106)，旧引 L927）同理：表达式树内 lambda 被改写会改变树节点形态，破坏提供方的表达式检视。
 
 ### 1.4 目标与非目标
@@ -421,6 +423,33 @@ Enumerable 用例的「源项目测试 vs 中间树项目测试」在同一套 x
 2. Enumerable 路径与 E16 行为等价：167 个存量测试零 diff（或差异逐项定性为修复并评审），§7.8 .NET 半区测试全绿。
 3. 三工程 `dotnet build/test -c Release` 全绿、存量红灯不扩大；fixture build/test 通过；幂等成立。
 4. M0 基线测量完成并回填：csharp-sdk 与 **EF Core 源码**的路由计数（Enumerable 链/Queryable 站点/Expression 站点/Ambiguous 站点密度），LC0010 命中站点全部完成人工分类，无未知形状静默透传（catalog 风险 17）。
+
+> **2026-10-05 M0 校注：基线已实测回填**（工具 [tools/LinqRouteProbe](file:///d:/code/cs2j/.worktrees/preproc-c26-linq-channel/tools/LinqRouteProbe/Program.cs)，独立工程不进 slnx，Roslyn `Microsoft.CodeAnalysis.CSharp 5.0.0`，链接共享 [LinqRouteClassifier.cs](file:///d:/code/cs2j/.worktrees/preproc-c26-linq-channel/tests/CSharpToJava.Tests/LinqChannel/LinqRouteClassifier.cs) 原型；数字均为 2026-10-05 实跑输出）。
+>
+> **① EF Core 10.0.12（EFCore / EFCore.Relational / EFCore.SqlServer，Debug net10.0，三工程 msbuild 真实构建均成功；探针编译 0 CS 错误，绑定与真实构建一致）**：
+>
+> | 工程 | 源文件 | CS 错误 | 调用总数 | nameof 站点 | LINQ 合计 | Enumerable | Queryable | Expression 实参 | NonLinq | 未绑定 | Candidate | LC0010 形状 | 链单位 | 可展开 | 保留Queryable | 保留Mixed | 保留Ambiguous |
+> |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+> | EFCore | 1119 | 0 | 30288 | 1825 | 1611 | 1598 | 13 | 10 | 26852 | 0 | 0 | 0 | 28406 | 26570 | 11 | 0 | 1825 |
+> | EFCore.Relational | 793 | 0 | 23005 | 1137 | 1413 | 1413 | 0 | 0 | 20455 | 0 | 0 | 0 | 21045 | 19908 | 0 | 0 | 1137 |
+> | EFCore.SqlServer | 206 | 0 | 7073 | 718 | 325 | 325 | 0 | 0 | 6030 | 0 | 0 | 0 | 6386 | 5668 | 0 | 0 | 718 |
+> | **合计** | **2118** | **0** | **60366** | **3680** | **3349** | **3336** | **13** | **10** | **53337** | **0** | **0** | **0** | **55837** | **52146** | **11** | **0** | **3680** |
+>
+> 读法：①健康语料下 LINQ 调用 3349 个，其中直接绑定 `System.Linq.Queryable` 仅 **13** 个、`Expression<>` 实参站点 **10** 个（全在 EFCore 本体），LC0010 形状未绑定 **0**——D1/D2/D6 三路在真实 EF 代码上分类确定、零歧义；②EFCore 自有 `EntityFrameworkQueryableExtensions` 上的上千个查询算子调用，host 绑定为 `Microsoft.EntityFrameworkCore`，归入 NonLinq（不进 System.Linq.Queryable 桶），M1 报告口径需向评审说明「EF 风格查询 API ≠ System.Linq.Queryable 调用」；③「未绑定」3680 个**全部是 `nameof(...)` 伪调用**（语法上是 InvocationExpression、`GetSymbolInfo` 恒 null），M1 分类器必须在路由前剔除 nameof；「保留Ambiguous 链单位」同为 3680，因为原型 `FindChains` 把每个 invocation 根都计为链单位（含非 LINQ 单节点），M1 需把链定义收紧为「成员访问相连且至少一个 LINQ 算子节点」；④**真实 mixed（Enumerable+Queryable）链 = 0**——附裁决 Q3 的「观察到任意真实 mixed chain 即立项」在 EF 生产方源码未触发（消费侧用户代码才有，M3 fixture 承担）；⑤Queryable 链单位 11 与 Queryable 站点 13 的差来自非链式单独调用。
+>
+> **② csharp-sdk 四样本（json / regular-expressions / uri / xml-tiny，TPA 全集引用 + `NETCOREAPP` 宏，与 C19 M0 探针 [ExtensionMethodProbeTests.cs](file:///d:/code/cs2j/.worktrees/preproc-c26-linq-channel/tests/CSharpToJava.Tests/Preprocessing/ExtensionMethodProbeTests.cs) Probe③ 完全同法）**：
+>
+> | 样本 | 源文件 | 出错文件 | CS 错误 | 调用总数 | nameof | LINQ(E/Q) | NonLinq | 未绑定 | Candidate | LC0010 形状 | 链单位(可展开/Ambiguous) |
+> |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+> | json | 392 | 178 | 17407 | 28120 | 334 | 227 (227/0) | 18587 | 8963 | 9 | 482 | 27726 (18420/9306) |
+> | regular-expressions | 78 | 65 | 5757 | 6220 | 73 | 54 (54/0) | 4882 | 1071 | 140 | 50 | 6140 (4877/1263) |
+> | uri | 52 | 31 | 2774 | 3056 | 99 | 16 (16/0) | 1770 | 1134 | 37 | 0 | 3036 (1766/1270) |
+> | xml-tiny | 774 | 318 | 11205 | 39192 | 654 | 25 (25/0) | 34576 | 2472 | 1465 | 26 | 38219 (33632/4587) |
+> | **合计** | **1296** | **592** | **37143** | **76588** | **1160** | **322 (322/0)** | **59815** | **13640** | **1651** | **558** | **75121 (58695/16426)** |
+>
+> 该语料错误全部来自 TPA-only 引用集缺失（CS0246/CS0103 为主：xunit/`Assert`/`ActiveIssue` 等测试设施、跨项目源码链接、corefx 内部件 `SR`/InternalsVisibleTo 形状、json 样本 src+tests 同源文件 CS0101、uri 样本重定义运行时内部类型 CS0229），与 C19 M0 记录的低绑定率同因（附裁决原 ruling 2：绑定率 <99% 触发 M3 参考集工程）。**因此本门槛中「LC0010 命中站点全部完成人工分类」在 TPA-only 语料上无法诚实完成**：558 个站点全部产生于损坏编译（如 `JsonDocumentTests.cs` 的 `Contains`、`JsonTestHelper.cs` 的 `Skip`），符号缺失原因是引用不全而非真实 LC0010 形状；EF 健康语料的 0 命中给出了健康编译下的零基线。M3 需以项目管线真实参考集（project.assets.json 还原）重跑 SDK 侧再做人工分类，本门槛该子项顺延至 M3 出口，M0 不做数字粉饰。
+>
+> **③ EF Core 5.0.17（时间允许追加；netstandard2.1，SDK 5.0.408 Debug 构建成功）**：EFCore 854 文件 / 21831 调用 / LINQ 1163（E 1151、Q 12）/ Expression 实参 9 / LC0010 形状 **1**；Relational 572 文件 / 15338 调用 / LINQ 921（全 Enumerable）/ 0；SqlServer 130 文件 / 4343 调用 / LINQ 227（全 Enumerable）/ 0。Relational/SqlServer 探针编译 0 错误；EFCore 仅 1 错误（`ManyToManyLoader.cs:98` CS0121：net10 TPA 把 `System.Linq.AsyncEnumerable` 泄漏进 netstandard2.1 编译，与 `Queryable.Where` 二义——真实 msbuild 构建无此歧义，属工具引用集伪影，唯一 LC0010 形状站点即此）。跨版本结论：EF 5→10 自身源码 Queryable 直绑站点始终极低（12→13），查询算子几乎全部挂在 EF 自有扩展 host 上。
 5. §5.3 双跑抑制在 convert-project 全链路上验证（含指纹/增量：通道开关产生正确的一次性缓存失效与后续命中）。
 6. 通道启用时主转换端到端冒烟：Enumerable 产物 Java 侧不退化，Queryable 保留站点的 Java 终态与现状（Stream 映射）一致或更优——**不要求** Java 提供方就位（D15），但要求通道不制造新的 Java 编译失败。
 7. C19/C21 均为 stub 的当前拓扑下，LC-ORDER 顺序断言稳定（§3.2），且评审确认 C19/C21 翻转不需要改 C26 描述符（2026-09-29 校订：C26 的 RunAfter 锚用 id 字符串，且按 IteratorLowering 先例 stub id 常量翻转后仍留 `PassStubCatalog.Ids`，无「常量引用迁移」动作——旧述此项系按 C02 旧先例误推）。
@@ -431,7 +460,7 @@ Enumerable 用例的「源项目测试 vs 中间树项目测试」在同一套 x
 
 | 里程碑 | 内容 | 出口判据 |
 |---|---|---|
-| **M0 分流探针 + 基线测量** | 独立小工具/测试内实现 `LinqRouteClassifier` 原型（不接通道）：①核实 Queryable.* 符号 reduced 显示名与 `KnownMethods` 零交集、枚举 Enumerable/Queryable 同名算子全表；②量化项目管线 `n == null` fallback 命中率与真实 Queryable 误展开复现（构造最小复现钉死漏洞）；③csharp-sdk 路由计数；④拉 EF Core 源码跑同分类器计数（catalog §5.1）；⑤RecordingQueryProvider 可行性原型 | 基线数字回填本设计 §8；误展开最小复现存档；不改生产代码 |
+| **M0 分流探针 + 基线测量** | 独立小工具/测试内实现 `LinqRouteClassifier` 原型（不接通道）：①核实 Queryable.* 符号 reduced 显示名与 `KnownMethods` 零交集、枚举 Enumerable/Queryable 同名算子全表；②量化项目管线 `n == null` fallback 命中率与真实 Queryable 误展开复现（构造最小复现钉死漏洞）；③csharp-sdk 路由计数；④拉 EF Core 源码跑同分类器计数（catalog §5.1）；⑤RecordingQueryProvider 可行性原型 | 基线数字回填本设计 §8；误展开最小复现存档；不改生产代码。**2026-10-05 校注：M0 已完成**（34 个探针测试 + LinqRouteProbe 工具；提交 6b80a794 与 tools/docs 提交；数字见 §8 门槛 4 校注；②结论修正为「伪造身份分支可达、ba7a0897 实测落 skip 结局(b)，未观察到实际误展开(a)」，见 §1.3 M0 校注） |
 | **M1 通道壳与报告** | LinqChannel/ 骨架（Options/Statistics/Diagnostic/Report/Plan）+ 适配器 + 注册表翻转（默认关，`EnableQueryableGate` 先行）；两阶段整树执行打通但**规则行为 = E16 镜像**（gate 只观测计数不拦截）；中间根 JSON 报告；verify 双开；fixture 骨架 | 通道产物与 E16 中间结果等价；`--list-passes`/独立入口可达；链序测试更新（`LockedChain` 20 → 21；`PassStubCatalogTests` 无 stub 计数硬断言，2026-09-29 核实） |
 | **M2 Enumerable 通道化** | seam 正式接入（gate 可切换）；Enumerable 全矩阵 + §7.8 等价性 + 167 测试双路径比对；双跑抑制（§5.3）；幂等/residual 的 Enumerable 部分 | Enumerable 站点在通道下与 E16 逐行为等价；Release build/test 全绿 |
 | **M3 ★Queryable 门** | gate 强制开启并移除关闭路径；封堵 fallback（LC0011 不变量）；Queryable/Expression/混合链/自定义 provider 矩阵；RecordingQueryProvider fixture + 模拟 DbContext；query syntax 两源；residual 全门；strict 诊断 | **IQueryable 零误展开**；三门矩阵全绿；EF Core 计数扫描无未分类形状 |
